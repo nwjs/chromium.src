@@ -38,6 +38,7 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tab.TabState;
+import org.chromium.chrome.browser.tab.TabStateAttributes;
 import org.chromium.chrome.browser.tab.TabStateAttributes.DirtinessState;
 import org.chromium.chrome.browser.tab.TabStateAttributesRegistry;
 import org.chromium.chrome.browser.tab.TabStateExtractor;
@@ -95,7 +96,12 @@ public class BackgroundTabPoolTest {
     public void testAddDestroyedTabThrowsAssertion() {
         Tab tab = createMockTab(TAB_ID_1);
         when(tab.isDestroyed()).thenReturn(true);
-        new LiveBackgroundTab(mPool, tab, PLACEHOLDER_ID, /* taskId= */ null);
+        new LiveBackgroundTab(
+                mPool,
+                tab,
+                PLACEHOLDER_ID,
+                /* taskId= */ null,
+                /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX);
     }
 
     @Test
@@ -105,7 +111,12 @@ public class BackgroundTabPoolTest {
         TabStateExtractor.setTabStateForTesting(TAB_ID_1, tabState);
 
         LiveBackgroundTab liveTab =
-                new LiveBackgroundTab(mPool, tab, PLACEHOLDER_ID, /* taskId= */ 42);
+                new LiveBackgroundTab(
+                        mPool,
+                        tab,
+                        PLACEHOLDER_ID,
+                        /* taskId= */ 42,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX);
         mPool.addLiveTab(liveTab);
 
         assertFalse(mPool.isEmpty());
@@ -132,11 +143,21 @@ public class BackgroundTabPoolTest {
         TabStateExtractor.setTabStateForTesting(TAB_ID_2, tabState2);
 
         LiveBackgroundTab liveTab1 =
-                new LiveBackgroundTab(mPool, tab1, PLACEHOLDER_ID, /* taskId= */ null);
+                new LiveBackgroundTab(
+                        mPool,
+                        tab1,
+                        PLACEHOLDER_ID,
+                        /* taskId= */ null,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX);
         mPool.addLiveTab(liveTab1);
 
         LiveBackgroundTab liveTab2 =
-                new LiveBackgroundTab(mPool, tab2, PLACEHOLDER_ID, /* taskId= */ null);
+                new LiveBackgroundTab(
+                        mPool,
+                        tab2,
+                        PLACEHOLDER_ID,
+                        /* taskId= */ null,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX);
         AssertionError error = assertThrows(AssertionError.class, () -> mPool.addLiveTab(liveTab2));
         assertTrue(
                 error.getMessage().contains("Placeholder already associated: " + PLACEHOLDER_ID));
@@ -149,10 +170,13 @@ public class BackgroundTabPoolTest {
         TabStateExtractor.setTabStateForTesting(TAB_ID_1, tabState);
 
         LiveBackgroundTab liveTab =
-                new LiveBackgroundTab(mPool, tab, PLACEHOLDER_ID, /* taskId= */ null);
+                new LiveBackgroundTab(
+                        mPool,
+                        tab,
+                        PLACEHOLDER_ID,
+                        /* taskId= */ null,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX);
         mPool.addLiveTab(liveTab);
-
-        assertThrows(AssertionError.class, () -> mPool.loadTabByOriginalId(TAB_ID_1));
 
         BackgroundPoolTab loaded = mPool.loadTabByPlaceholderId(PLACEHOLDER_ID);
         assertNotNull(loaded);
@@ -169,16 +193,31 @@ public class BackgroundTabPoolTest {
     }
 
     @Test
-    public void testLoadTabByOriginalId_whenLiveTab_throwsAssertion() {
+    public void testLoadTabByOriginalId_whenLiveTab_returnsLiveTab() {
         Tab tab = createMockTab(TAB_ID_1);
         TabState tabState = createMockTabState();
         TabStateExtractor.setTabStateForTesting(TAB_ID_1, tabState);
 
         LiveBackgroundTab liveTab =
-                new LiveBackgroundTab(mPool, tab, PLACEHOLDER_ID, /* taskId= */ null);
+                new LiveBackgroundTab(
+                        mPool,
+                        tab,
+                        Tab.INVALID_TAB_ID,
+                        /* taskId= */ null,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX);
         mPool.addLiveTab(liveTab);
 
-        assertThrows(AssertionError.class, () -> mPool.loadTabByOriginalId(TAB_ID_1));
+        BackgroundPoolTab loaded = mPool.loadTabByOriginalId(TAB_ID_1);
+        assertNotNull(loaded);
+        assertSame(liveTab, loaded);
+        assertTrue(loaded instanceof LiveBackgroundTab);
+
+        loaded.attachTab(mTabModel, 0);
+        assertNull(mPool.getLiveTab(TAB_ID_1));
+        assertTrue(mPool.isEmpty());
+
+        ShadowLooper.idleMainLooper();
+        verify(mOnEmptyCallback).run();
     }
 
     @Test
@@ -190,7 +229,12 @@ public class BackgroundTabPoolTest {
         // Add to pool and drain executor to persist into TabCache
         BackgroundTabPool firstPool = new BackgroundTabPool(PROFILE_TOKEN, mOnEmptyCallback);
         firstPool.addLiveTab(
-                new LiveBackgroundTab(firstPool, tab, PLACEHOLDER_ID, /* taskId= */ null));
+                new LiveBackgroundTab(
+                        firstPool,
+                        tab,
+                        PLACEHOLDER_ID,
+                        /* taskId= */ null,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX));
         firstPool.onTabStateDirtinessChanged(tab, DirtinessState.DIRTY);
         mExecutor.runAll();
         firstPool.destroy();
@@ -215,7 +259,12 @@ public class BackgroundTabPoolTest {
 
         BackgroundTabPool firstPool = new BackgroundTabPool(PROFILE_TOKEN, mOnEmptyCallback);
         firstPool.addLiveTab(
-                new LiveBackgroundTab(firstPool, tab, PLACEHOLDER_ID, /* taskId= */ null));
+                new LiveBackgroundTab(
+                        firstPool,
+                        tab,
+                        PLACEHOLDER_ID,
+                        /* taskId= */ null,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX));
         firstPool.onTabStateDirtinessChanged(tab, DirtinessState.DIRTY);
         mExecutor.runAll();
         firstPool.destroy();
@@ -241,7 +290,12 @@ public class BackgroundTabPoolTest {
 
         BackgroundTabPool firstPool = new BackgroundTabPool(PROFILE_TOKEN, mOnEmptyCallback);
         firstPool.addLiveTab(
-                new LiveBackgroundTab(firstPool, tab, PLACEHOLDER_ID, /* taskId= */ null));
+                new LiveBackgroundTab(
+                        firstPool,
+                        tab,
+                        PLACEHOLDER_ID,
+                        /* taskId= */ null,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX));
         firstPool.onTabStateDirtinessChanged(tab, DirtinessState.DIRTY);
         mExecutor.runAll();
         firstPool.destroy();
@@ -251,7 +305,7 @@ public class BackgroundTabPoolTest {
         assertEquals(0, secondPool.getLiveTabCount());
         assertEquals(1, secondPool.getAllPlaceholderTabIds().size());
 
-        secondPool.removeTab(PLACEHOLDER_ID);
+        secondPool.removeTabById(TAB_ID_1);
         assertTrue(secondPool.isEmpty());
         assertTrue(secondPool.getAllPlaceholderTabIds().isEmpty());
     }
@@ -263,7 +317,12 @@ public class BackgroundTabPoolTest {
         TabStateExtractor.setTabStateForTesting(TAB_ID_1, tabState);
 
         LiveBackgroundTab liveTab =
-                new LiveBackgroundTab(mPool, tab, PLACEHOLDER_ID, /* taskId= */ null);
+                new LiveBackgroundTab(
+                        mPool,
+                        tab,
+                        PLACEHOLDER_ID,
+                        /* taskId= */ null,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX);
         mPool.addLiveTab(liveTab);
 
         liveTab.attachTab(mTabModel, 0);
@@ -271,12 +330,18 @@ public class BackgroundTabPoolTest {
     }
 
     @Test
-    public void testRemoveTab_clearsFromTabCache() {
+    public void testRemoveTabById_clearsFromTabCache() {
         Tab tab = createMockTab(TAB_ID_1);
         TabState tabState = createMockTabState();
         TabStateExtractor.setTabStateForTesting(TAB_ID_1, tabState);
 
-        mPool.addLiveTab(new LiveBackgroundTab(mPool, tab, PLACEHOLDER_ID, /* taskId= */ null));
+        mPool.addLiveTab(
+                new LiveBackgroundTab(
+                        mPool,
+                        tab,
+                        PLACEHOLDER_ID,
+                        /* taskId= */ null,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX));
         mPool.onTabStateDirtinessChanged(tab, DirtinessState.DIRTY);
         mExecutor.runAll();
 
@@ -285,7 +350,7 @@ public class BackgroundTabPoolTest {
                 PLACEHOLDER_ID,
                 mPool.getAssociationStoreForTesting().getPlaceholderTabId(TAB_ID_1));
 
-        mPool.removeTab(PLACEHOLDER_ID);
+        mPool.removeTabById(TAB_ID_1);
         mExecutor.runAll();
 
         assertNull(mPool.getLiveTab(TAB_ID_1));
@@ -305,7 +370,13 @@ public class BackgroundTabPoolTest {
         TabStateAttributesRegistry.createAttributesForTab(
                 tab, BackgroundTabPool.class, TabCreationState.FROZEN_ON_RESTORE);
 
-        LiveBackgroundTab liveTab = new LiveBackgroundTab(mPool, tab, PLACEHOLDER_ID, TASK_ID);
+        LiveBackgroundTab liveTab =
+                new LiveBackgroundTab(
+                        mPool,
+                        tab,
+                        PLACEHOLDER_ID,
+                        TASK_ID,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX);
         mPool.addLiveTab(liveTab);
         mExecutor.runAll();
 
@@ -333,13 +404,25 @@ public class BackgroundTabPoolTest {
         TabStateAttributesRegistry.createAttributesForTab(
                 tab, BackgroundTabPool.class, TabCreationState.FROZEN_ON_RESTORE);
 
-        LiveBackgroundTab liveTab = new LiveBackgroundTab(mPool, tab, PLACEHOLDER_ID, TASK_ID);
+        LiveBackgroundTab liveTab =
+                new LiveBackgroundTab(
+                        mPool,
+                        tab,
+                        PLACEHOLDER_ID,
+                        TASK_ID,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX);
         mPool.addLiveTab(liveTab);
         mExecutor.runAll();
 
         // Calling markDirty() directly triggers save via TabStateAttributes observer
         liveTab.markDirty();
         mExecutor.runAll();
+
+        // Verify that saveTabToCache cleared the dirtiness state on TabStateAttributes
+        TabStateAttributes attributes =
+                TabStateAttributesRegistry.getAttributesFor(tab, BackgroundTabPool.class);
+        assertNotNull(attributes);
+        assertEquals(DirtinessState.CLEAN, attributes.getDirtinessState());
 
         // Verify state is persisted by loading cold from a new pool
         mPool.destroy();
@@ -353,15 +436,21 @@ public class BackgroundTabPoolTest {
     }
 
     @Test
-    public void testRemoveTabByPlaceholderIdCallsOnEmptyCallback() {
+    public void testRemoveTabByIdCallsOnEmptyCallback() {
         Tab tab = createMockTab(TAB_ID_1);
         TabState tabState = createMockTabState();
         TabStateExtractor.setTabStateForTesting(TAB_ID_1, tabState);
 
-        mPool.addLiveTab(new LiveBackgroundTab(mPool, tab, PLACEHOLDER_ID, /* taskId= */ null));
+        mPool.addLiveTab(
+                new LiveBackgroundTab(
+                        mPool,
+                        tab,
+                        PLACEHOLDER_ID,
+                        /* taskId= */ null,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX));
         assertFalse(mPool.isEmpty());
 
-        mPool.removeTab(PLACEHOLDER_ID);
+        mPool.removeTabById(TAB_ID_1);
         assertTrue(mPool.isEmpty());
         assertEquals(0, mPool.getLiveTabCount());
         assertFalse(mPool.hasPlaceholder(PLACEHOLDER_ID));
@@ -376,7 +465,13 @@ public class BackgroundTabPoolTest {
         TabState tabState = createMockTabState();
         TabStateExtractor.setTabStateForTesting(TAB_ID_1, tabState);
 
-        mPool.addLiveTab(new LiveBackgroundTab(mPool, tab, PLACEHOLDER_ID, /* taskId= */ null));
+        mPool.addLiveTab(
+                new LiveBackgroundTab(
+                        mPool,
+                        tab,
+                        PLACEHOLDER_ID,
+                        /* taskId= */ null,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX));
         assertEquals(1, mPool.getLiveTabCount());
         assertTrue(mPool.hasPlaceholder(PLACEHOLDER_ID));
 
@@ -448,8 +543,20 @@ public class BackgroundTabPoolTest {
         TabStateExtractor.setTabStateForTesting(TAB_ID_1, tabState1);
         TabStateExtractor.setTabStateForTesting(TAB_ID_2, tabState2);
 
-        mPool.addLiveTab(new LiveBackgroundTab(mPool, tab1, PLACEHOLDER_ID, /* taskId= */ null));
-        mPool.addLiveTab(new LiveBackgroundTab(mPool, tab2, PLACEHOLDER_ID_2, /* taskId= */ null));
+        mPool.addLiveTab(
+                new LiveBackgroundTab(
+                        mPool,
+                        tab1,
+                        PLACEHOLDER_ID,
+                        /* taskId= */ null,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX));
+        mPool.addLiveTab(
+                new LiveBackgroundTab(
+                        mPool,
+                        tab2,
+                        PLACEHOLDER_ID_2,
+                        /* taskId= */ null,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX));
         mExecutor.runAll();
 
         mPool.clearAll();
@@ -472,7 +579,13 @@ public class BackgroundTabPoolTest {
         TabState tabState = createMockTabState();
         TabStateExtractor.setTabStateForTesting(TAB_ID_1, tabState);
 
-        mPool.addLiveTab(new LiveBackgroundTab(mPool, tab, PLACEHOLDER_ID, /* taskId= */ null));
+        mPool.addLiveTab(
+                new LiveBackgroundTab(
+                        mPool,
+                        tab,
+                        PLACEHOLDER_ID,
+                        /* taskId= */ null,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX));
         mExecutor.runAll();
 
         mPool.destroy();
@@ -499,11 +612,22 @@ public class BackgroundTabPoolTest {
         TabState tabState = createMockTabState();
         TabStateExtractor.setTabStateForTesting(TAB_ID_1, tabState);
 
-        mPool.addLiveTab(new LiveBackgroundTab(mPool, tab, PLACEHOLDER_ID, /* taskId= */ null));
+        mPool.addLiveTab(
+                new LiveBackgroundTab(
+                        mPool,
+                        tab,
+                        PLACEHOLDER_ID,
+                        /* taskId= */ null,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX));
         mPool.destroy();
 
         LiveBackgroundTab newLiveTab =
-                new LiveBackgroundTab(mPool, tab, PLACEHOLDER_ID, /* taskId= */ null);
+                new LiveBackgroundTab(
+                        mPool,
+                        tab,
+                        PLACEHOLDER_ID,
+                        /* taskId= */ null,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX);
         List<@TabId Integer> tabIds = List.of(TAB_ID_1);
 
         assertThrows(AssertionError.class, () -> mPool.destroy());
@@ -519,7 +643,6 @@ public class BackgroundTabPoolTest {
         assertThrows(AssertionError.class, () -> mPool.getAllPlaceholderTabIds());
         assertThrows(AssertionError.class, () -> mPool.claimTabIdsWithoutPlaceholders());
         assertThrows(AssertionError.class, () -> mPool.hasPlaceholder(PLACEHOLDER_ID));
-        assertThrows(AssertionError.class, () -> mPool.removeTab(PLACEHOLDER_ID));
         assertThrows(AssertionError.class, () -> mPool.removeTabById(TAB_ID_1));
         assertThrows(AssertionError.class, () -> mPool.clearAll());
         assertThrows(AssertionError.class, () -> mPool.cleanupPostRestore());
@@ -540,9 +663,19 @@ public class BackgroundTabPoolTest {
 
         BackgroundTabPool firstPool = new BackgroundTabPool(PROFILE_TOKEN, mOnEmptyCallback);
         firstPool.addLiveTab(
-                new LiveBackgroundTab(firstPool, tab1, PLACEHOLDER_ID, /* taskId= */ null));
+                new LiveBackgroundTab(
+                        firstPool,
+                        tab1,
+                        PLACEHOLDER_ID,
+                        /* taskId= */ null,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX));
         firstPool.addLiveTab(
-                new LiveBackgroundTab(firstPool, tab2, PLACEHOLDER_ID_2, /* taskId= */ null));
+                new LiveBackgroundTab(
+                        firstPool,
+                        tab2,
+                        PLACEHOLDER_ID_2,
+                        /* taskId= */ null,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX));
         mExecutor.runAll();
         firstPool.destroy();
 
@@ -563,13 +696,24 @@ public class BackgroundTabPoolTest {
         // Pre-populate tab2 as a cold tab in TabCache from an earlier session
         BackgroundTabPool prePool = new BackgroundTabPool(PROFILE_TOKEN, mOnEmptyCallback);
         prePool.addLiveTab(
-                new LiveBackgroundTab(prePool, tab2, PLACEHOLDER_ID_2, /* taskId= */ null));
+                new LiveBackgroundTab(
+                        prePool,
+                        tab2,
+                        PLACEHOLDER_ID_2,
+                        /* taskId= */ null,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX));
         prePool.onTabStateDirtinessChanged(tab2, DirtinessState.DIRTY);
         mExecutor.runAll();
         prePool.destroy();
 
         // Add tab1 as a live tab in the active pool
-        mPool.addLiveTab(new LiveBackgroundTab(mPool, tab1, PLACEHOLDER_ID, /* taskId= */ null));
+        mPool.addLiveTab(
+                new LiveBackgroundTab(
+                        mPool,
+                        tab1,
+                        PLACEHOLDER_ID,
+                        /* taskId= */ null,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX));
         mExecutor.runAll();
 
         Set<@TabId Integer> allIds = mPool.getAllTabIds();
@@ -584,7 +728,13 @@ public class BackgroundTabPoolTest {
         TabState tabState = createMockTabState();
         TabStateExtractor.setTabStateForTesting(TAB_ID_1, tabState);
 
-        mPool.addLiveTab(new LiveBackgroundTab(mPool, tab, PLACEHOLDER_ID, TASK_ID));
+        mPool.addLiveTab(
+                new LiveBackgroundTab(
+                        mPool,
+                        tab,
+                        PLACEHOLDER_ID,
+                        TASK_ID,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX));
         mPool.onTabStateDirtinessChanged(tab, DirtinessState.DIRTY);
         mExecutor.runAll();
 
@@ -624,7 +774,13 @@ public class BackgroundTabPoolTest {
         TabStateExtractor.setTabStateForTesting(TAB_ID_1, tabState);
 
         BackgroundTabPool spyPool = spy(mPool);
-        spyPool.addLiveTab(new LiveBackgroundTab(spyPool, tab, PLACEHOLDER_ID, TASK_ID));
+        spyPool.addLiveTab(
+                new LiveBackgroundTab(
+                        spyPool,
+                        tab,
+                        PLACEHOLDER_ID,
+                        TASK_ID,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX));
         assertEquals(1, spyPool.getLiveTabCount());
 
         spyPool.removeLiveTabByOriginalId(TAB_ID_1);
@@ -636,7 +792,13 @@ public class BackgroundTabPoolTest {
     @Test
     public void testRemoveLiveTabByOriginalId_whenDestroyed_throwsAssertion() {
         Tab tab = createMockTab(TAB_ID_1);
-        mPool.addLiveTab(new LiveBackgroundTab(mPool, tab, PLACEHOLDER_ID, TASK_ID));
+        mPool.addLiveTab(
+                new LiveBackgroundTab(
+                        mPool,
+                        tab,
+                        PLACEHOLDER_ID,
+                        TASK_ID,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX));
         mPool.destroy();
 
         assertThrows(AssertionError.class, () -> mPool.removeLiveTabByOriginalId(TAB_ID_1));
@@ -652,13 +814,25 @@ public class BackgroundTabPoolTest {
         TabStateExtractor.setTabStateForTesting(TAB_ID_2, tabState2);
 
         // tab1 has a placeholder
-        mPool.addLiveTab(new LiveBackgroundTab(mPool, tab1, PLACEHOLDER_ID, /* taskId= */ null));
+        mPool.addLiveTab(
+                new LiveBackgroundTab(
+                        mPool,
+                        tab1,
+                        PLACEHOLDER_ID,
+                        /* taskId= */ null,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX));
         // tab2 does not have a placeholder
         mPool.addLiveTab(
-                new LiveBackgroundTab(mPool, tab2, Tab.INVALID_TAB_ID, /* taskId= */ null));
+                new LiveBackgroundTab(
+                        mPool,
+                        tab2,
+                        Tab.INVALID_TAB_ID,
+                        /* taskId= */ null,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX));
 
-        // Live entries are excluded from claimTabIdsWithoutPlaceholders.
-        assertTrue(mPool.claimTabIdsWithoutPlaceholders().isEmpty());
+        // Live entries without placeholders are returned by claimTabIdsWithoutPlaceholders.
+        assertEquals(Set.of(TAB_ID_2), mPool.claimTabIdsWithoutPlaceholders());
+        assertEquals(Collections.emptySet(), mPool.claimTabIdsWithoutPlaceholders());
         assertEquals(Set.of(TAB_ID_1, TAB_ID_2), mPool.getAllTabIds());
 
         // Persist to TabCache across pool lifecycle

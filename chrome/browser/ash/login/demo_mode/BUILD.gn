@@ -139,6 +139,7 @@ static_library("test_support") {
     "//chrome/browser/ash/login/enrollment:test_support",
     "//chrome/browser/ash/policy/core",
     "//chrome/browser/ash/policy/enrollment",
+    "//chrome/test/base:testing_browser_process",
     "//chromeos/ash/components/dbus/concierge",
     "//chromeos/ash/components/install_attributes",
     "//components/component_updater/ash:test_support",
@@ -255,6 +256,7 @@ source_set("unit_tests") {
     "//chrome/common:constants",
     "//chrome/test:test_support",
     "//chrome/test:test_support_unit",
+    "//chrome/test/base:testing_browser_process",
     "//chromeos/ash/components/cryptohome",
     "//chromeos/ash/components/dbus",
     "//chromeos/ash/components/dbus/concierge",
@@ -267,6 +269,7 @@ source_set("unit_tests") {
     "//chromeos/ash/components/sync:test_support",
     "//chromeos/ash/components/system",
     "//chromeos/constants",
+    "//components/account_id:test_support",
     "//components/component_updater/ash:test_support",
     "//components/language/core/browser",
     "//components/policy/core/common:test_support",
@@ -289,8 +292,4 @@ source_set("unit_tests") {
     "//testing/gtest",
     "//ui/base",
   ]
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }

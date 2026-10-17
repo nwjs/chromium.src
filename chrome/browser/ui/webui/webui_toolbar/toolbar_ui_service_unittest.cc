@@ -401,9 +401,33 @@ TEST_F(ToolbarUIServiceNoInitialObserverTest, IconUpdatesBeforeConnect2) {
 
 // Tests that calling ShowAvatarMenu() calls the delegate.
 TEST_F(ToolbarUIServiceTest, TestShowAvatarMenu) {
-  EXPECT_CALL(delegate(), ShowAvatarMenu());
+  EXPECT_CALL(delegate(), ShowAvatarMenu(true));
 
-  service().ShowAvatarMenu(base::DoNothing());
+  service().ShowAvatarMenu(/*is_pointer_interaction=*/true, base::DoNothing());
+}
+
+// Tests that calling OnAvatarButtonMousePressed() calls the delegate.
+TEST_F(ToolbarUIServiceTest, TestOnAvatarButtonMousePressed) {
+  EXPECT_CALL(delegate(), OnAvatarButtonMousePressed());
+
+  service().OnAvatarButtonMousePressed();
+}
+
+// Tests that calling OnGlicButtonClicked() calls the delegate.
+TEST_F(ToolbarUIServiceTest, TestOnGlicButtonClicked) {
+  EXPECT_CALL(delegate(), OnGlicButtonClicked());
+
+  service().OnGlicButtonClicked();
+}
+
+// Tests that GlicButtonState updates in NavigationControlsState are received.
+TEST_F(ToolbarUIServiceTest, TestGlicButtonStateUpdate) {
+  navigation_controls_state()->glic_button_state->open = true;
+  navigation_controls_state()->glic_button_state->should_show = true;
+  PushNavigationControlsStateUpdate();
+
+  ASSERT_TRUE(observer()->state->glic_button_state->open);
+  ASSERT_TRUE(observer()->state->glic_button_state->should_show);
 }
 
 }  // namespace

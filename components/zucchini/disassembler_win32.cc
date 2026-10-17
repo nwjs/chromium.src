@@ -8,7 +8,7 @@
 
 #include <algorithm>
 
-#include "base/compiler_specific.h"
+#include "base/containers/span.h"
 #include "base/logging.h"
 #include "base/numerics/safe_conversions.h"
 #include "components/zucchini/abs32_utils.h"
@@ -45,15 +45,6 @@ bool ReadWin32Header(ConstBufferView image, BufferSource* source) {
     return false;
 
   return true;
-}
-
-template <class TRAITS>
-const pe::ImageDataDirectory* ReadDataDirectory(
-    const typename TRAITS::ImageOptionalHeader* optional_header,
-    size_t index) {
-  if (index >= optional_header->number_of_rva_and_sizes)
-    return nullptr;
-  return &UNSAFE_TODO(optional_header->data_directory[index]);
 }
 
 // Decides whether |section| (assumed value) is a section that contains code.
@@ -217,10 +208,12 @@ bool DisassemblerWin32<TRAITS>::ParseHeader() {
     return false;
   }
 
-  base_relocation_table_ = ReadDataDirectory<Traits>(
-      optional_header, pe::kIndexOfBaseRelocationTable);
-  if (!base_relocation_table_)
+  auto data_dirs =
+      base::span(optional_header->data_directory).first(num_data_dir);
+  if (data_dirs.size() <= pe::kIndexOfBaseRelocationTable) {
     return false;
+  }
+  base_relocation_table_ = data_dirs.get_at(pe::kIndexOfBaseRelocationTable);
 
   image_base_ = optional_header->image_base;
 
@@ -236,22 +229,21 @@ bool DisassemblerWin32<TRAITS>::ParseHeader() {
       base::checked_cast<offset_t>(source.begin() - image_.begin());
 
   // Extract |sections_|.
-  size_t sections_count = coff_header->number_of_sections;
-  auto* sections_array =
-      source.GetArray<pe::ImageSectionHeader>(sections_count);
-  if (!sections_array)
+  auto sections =
+      source.GetArray<pe::ImageSectionHeader>(coff_header->number_of_sections);
+  if (sections.empty()) {
     return false;
-  sections_.assign(sections_array,
-                   UNSAFE_TODO(sections_array + sections_count));
+  }
+  sections_.assign_range(sections);
 
   // Prepare |units| for offset-RVA translation.
   std::vector<AddressTranslator::Unit> units;
-  units.reserve(sections_count);
+  units.reserve(sections_.size());
 
   // Visit each section, validate, and add address translation data to |units|.
   bool has_text_section = false;
   decltype(pe::ImageSectionHeader::virtual_address) prev_virtual_address = 0;
-  for (size_t i = 0; i < sections_count; ++i) {
+  for (size_t i = 0; i < sections_.size(); ++i) {
     const pe::ImageSectionHeader& section = sections_[i];
     // Apply strict checks on section bounds.
     if (!image_.covers(

@@ -14,6 +14,7 @@
 #include "base/observer_list.h"
 #include "base/scoped_observation.h"
 #include "base/timer/elapsed_timer.h"
+#include "build/build_config.h"
 #include "chrome/browser/picture_in_picture/picture_in_picture_window.h"
 #include "chrome/browser/ui/views/picture_in_picture/pip_child_dialog_observer_helper.h"
 #include "components/web_modal/modal_dialog_host.h"
@@ -22,16 +23,26 @@
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
+#include "extensions/buildflags/buildflags.h"
 #include "third_party/blink/public/mojom/picture_in_picture_window_options/picture_in_picture_window_options.mojom.h"
 #include "ui/views/view_observer.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_observer.h"
 
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+#include "components/sessions/core/session_id.h"
+#endif
+
 class DocumentPipWidgetDelegate;
 class PictureInPictureTucker;
 class Profile;
 
+#if !BUILDFLAG(IS_WIN)
+class PictureInPictureWidgetFadeAnimator;
+#endif
+
 namespace content {
+class NavigationEntry;
 class WebContents;
 }  // namespace content
 
@@ -40,8 +51,9 @@ class WebContents;
 //   - Owns the child WebContents for the PiP window.
 //   - Owns the floating views::Widget that renders that child.
 //   - Acts as WebContentsDelegate for the child WebContents.
-//   - Observes the opener WebContents to close the PiP window when the opener
-//     is destroyed or navigates to a new primary page.
+//   - Observes the opener WebContents to update the window title and close the
+//     PiP window when the opener is destroyed or navigates to a new primary
+//     page.
 //   - Implements PictureInPictureWindow for tucking and Mac fullscreen.
 class DocumentPipHost : public content::WebContentsUserData<DocumentPipHost>,
                         public content::WebContentsObserver,
@@ -87,6 +99,10 @@ class DocumentPipHost : public content::WebContentsUserData<DocumentPipHost>,
   views::Widget* GetWidget();
   const blink::mojom::PictureInPictureWindowOptions& GetPipOptions() const;
 
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+  SessionID GetSessionId() const { return session_id_; }
+#endif
+
   // Looks up the DocumentPipHost that owns `child_web_contents` (the
   // WebContents rendered inside a Document PiP window), or nullptr if it is not
   // a Document PiP child. Used by the content-settings refresh path, which is
@@ -103,6 +119,7 @@ class DocumentPipHost : public content::WebContentsUserData<DocumentPipHost>,
   // WebContentsDelegate::BeforeUnloadFired() override below does not hide it.
   using content::WebContentsObserver::BeforeUnloadFired;
   void PrimaryPageChanged(content::Page& page) override;
+  void TitleWasSet(content::NavigationEntry* entry) override;
 
   // content::WebContentsDelegate - Navigation & State:
   blink::mojom::DisplayMode GetDisplayMode(
@@ -261,6 +278,10 @@ class DocumentPipHost : public content::WebContentsUserData<DocumentPipHost>,
   // multiple times; subsequent calls are no-ops.
   void ClosePipWindow();
 
+  // Disconnects observers and delegates before widget teardown. May also run
+  // during an externally initiated native close, without deleting the widget.
+  void PrepareForWidgetDestruction();
+
   // Callback for Widget::MakeCloseSynchronous(). Invoked when external code
   // (e.g. DialogDelegate, OS close button) requests the widget to close.
   void OnWidgetCloseRequested(views::Widget::ClosedReason reason);
@@ -295,6 +316,10 @@ class DocumentPipHost : public content::WebContentsUserData<DocumentPipHost>,
   // destroyed in reverse declaration order.
   std::unique_ptr<views::Widget> widget_;
 
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+  SessionID session_id_ = SessionID::InvalidValue();
+#endif
+
   // Initial options from the requestWindow() call.
   blink::mojom::PictureInPictureWindowOptions pip_options_;
 
@@ -321,6 +346,11 @@ class DocumentPipHost : public content::WebContentsUserData<DocumentPipHost>,
   // destroyed (it observes the widget). Declared after `widget_` so it is
   // destroyed before the widget it observes.
   std::unique_ptr<PipChildDialogObserverHelper> child_dialog_observer_helper_;
+
+#if !BUILDFLAG(IS_WIN)
+  // Destroyed before the widget whose opacity it animates.
+  std::unique_ptr<PictureInPictureWidgetFadeAnimator> fade_animator_;
+#endif
 
   base::WeakPtrFactory<DocumentPipHost> weak_factory_{this};
 

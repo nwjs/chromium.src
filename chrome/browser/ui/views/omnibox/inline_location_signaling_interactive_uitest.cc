@@ -299,7 +299,8 @@ IN_PROC_BROWSER_TEST_P(InlineLocationSignalingE2EInteractiveUiTest,
     EXPECT_TRUE(base::test::RunUntil([&]() {
       return controller->done() &&
              std::ranges::any_of(controller->result(), [](const auto& match) {
-               return match.type == AutocompleteMatchType::SEARCH_SUGGEST;
+               return match.type ==
+                      omnibox::AutocompleteMatchType::kSearchSuggest;
              });
     }));
   }

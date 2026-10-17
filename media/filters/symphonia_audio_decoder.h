@@ -12,10 +12,12 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/sequence_checker.h"
 #include "base/task/bind_post_task.h"
+#include "base/types/expected.h"
 #include "build/build_config.h"
 #include "media/base/audio_buffer.h"
 #include "media/base/audio_decoder.h"
 #include "media/base/audio_decoder_config.h"
+#include "media/base/channel_layout.h"
 #include "media/base/decoder_status.h"
 #include "media/base/demuxer_stream.h"
 #include "media/base/media_log.h"
@@ -68,6 +70,15 @@ class MEDIA_EXPORT SymphoniaAudioDecoder : public AudioDecoder {
   // SymphoniaAudioDecoder.
   static bool IsCodecSupported(AudioCodec codec);
 
+  // Static test helper methods.
+  static SymphoniaPacket ToSymphoniaPacketForTesting(
+      const DecoderBuffer& buffer,
+      std::optional<base::TimeDelta> first_frame_timestamp = std::nullopt);
+  static bool IsValidDecodedParametersForTesting(size_t channels,
+                                                 uint32_t sample_rate,
+                                                 size_t num_frames,
+                                                 SampleFormat sample_format);
+
  private:
   // There are four states the decoder can be in:
   //
@@ -102,9 +113,8 @@ class MEDIA_EXPORT SymphoniaAudioDecoder : public AudioDecoder {
 
   // Creates a media::AudioBuffer from the decoded SymphoniaAudioBuffer.
   scoped_refptr<AudioBuffer> ToMediaAudioBuffer(
-      rust::Box<SymphoniaAudioBuffer> symphonia_buffer,
+      const SymphoniaAudioBuffer& symphonia_buffer,
       base::TimeDelta timestamp);
-
   // Handles (re-)initializing the decoder with a (new) config.
   // Returns DecoderStatus::Codes::kOk if initialization was successful.
   DecoderStatus ConfigureDecoder(const AudioDecoderConfig& config);
@@ -114,6 +124,12 @@ class MEDIA_EXPORT SymphoniaAudioDecoder : public AudioDecoder {
 
   // Resets the timestamp helper state.
   void ResetTimestampState(const AudioDecoderConfig& config);
+
+  // Updates `config_` and resets timestamp state if the decoded audio
+  // parameters reflect a midstream configuration change.
+  void MaybeUpdateConfig(const DecoderBuffer& buffer,
+                         int sample_rate,
+                         const ChannelLayoutConfig& layout_config);
 
   // If the execution mode is set to asynchronous, wraps the `callback` in a
   // bind post task on the current default task runner. Otherwise, a noop.
@@ -162,10 +178,6 @@ class MEDIA_EXPORT SymphoniaAudioDecoder : public AudioDecoder {
   // Number of consecutive packet decode errors encountered.
   int consecutive_error_count_ = 0;
 };
-
-MEDIA_EXPORT SymphoniaPacket
-ToSymphoniaPacket(const DecoderBuffer& buffer,
-                  std::optional<base::TimeDelta> first_frame_timestamp);
 
 }  // namespace media
 

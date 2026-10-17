@@ -48,6 +48,7 @@
 <translation id="1784567647421309104">‏שמירת הסיסמאות ב-Chrome</translation>
 <translation id="1790080846677398234">‏הוספה של כתובות ה-URL שהוזנו לסימניות ב-Chrome.</translation>
 <translation id="1799920918471566157">‏טיפים ל-Chrome</translation>
+<translation id="1802420021606590788">‏‫Chrome מעבד את כותרות הדפים וכתובות ה-URL במרחב פרטי בענן</translation>
 <translation id="1830634592642484976">‏הכתובת הזו שמורה ב-Chrome. כדי להשתמש בה בכל מוצרי Google, צריך לשמור אותה בחשבון Google שלך, <ph name="USER_EMAIL" />.</translation>
 <translation id="1891812034154776216">‏הסתרת הכרטיסיות הפרטיות הפתוחות כשסוגרים את Chrome</translation>
 <translation id="1894434821386148799">‏כאן אפשר למצוא את ההגדרות של Chrome ועוד</translation>
@@ -140,6 +141,7 @@
 <translation id="3984746313391923992">‏לפי דרישת הארגון שלך, אין אפשרות להתחבר לחשבון ב-Chrome.</translation>
 <translation id="3988789688219830639">‏ל-Google Chrome אין גישה לתמונות או לסרטונים שלך. אפשר גישה ב'הגדרות iOS' &gt; 'פרטיות' &gt; 'תמונות'.</translation>
 <translation id="4064699917955374540">‏כדי להשתמש בנתוני Chrome ולשמור אותם בחשבון Google, עליך לאמת את הזהות שלך.</translation>
+<translation id="4093789416346364876">‏רוצה לקבל תובנות של Gemini בכל מקום ברשת? כדאי להגדיר את Chrome לדפדפן ברירת המחדל</translation>
 <translation id="411154422556990518">‏אפשר לקבל עדכונים לגבי מעקב אחר מחירים וטיפים לגבי Chrome.</translation>
 <translation id="417201473131094001">‏אין תמיכה ב-Chrome Canary</translation>
 <translation id="424864128008805179">‏האם לצאת מ-Chrome?</translation>
@@ -268,6 +270,7 @@
 <translation id="7061455974939528301">‏לוחצים לחיצה ארוכה על סמל Chrome ואז לוחצים על 'עריכה של מסך הבית'</translation>
 <translation id="7095110968493193530">‏נשמרה במנהל הסיסמאות של Google בחשבון <ph name="EMAIL" /></translation>
 <translation id="7124339256045485976">‏Chrome יתעדכן באופן קבוע</translation>
+<translation id="7135936755418321901">‏כדי לשתף את המיקום שלך עם אתרים, צריך ללחוץ על "הגדרות" ולאפשר ל-Chrome להשתמש במיקום.</translation>
 <translation id="7145599899567697473">‏שמירה ומילוי אוטומטי של סיסמאות ב-Chrome</translation>
 <translation id="7161390184744336561">‏Google Chrome אינו מעודכן</translation>
 <translation id="7165736900384873061">‏התחלת השימוש בסורק ה-QR של Google Chrome</translation>
@@ -282,6 +285,7 @@
 <translation id="7272930098487145294">‏כדי לשמור תמונות צריך ללחוץ על 'הגדרות' על מנת לאפשר ל-Chrome להוסיף תמונות לגלריה שלך</translation>
 <translation id="7275945473750112644">‏החשבון שלך מנוהל על ידי <ph name="HOSTED_DOMAIN" />, ולכן הנתונים שלך מ-Chrome יימחקו מהמכשיר הזה</translation>
 <translation id="7284245284340063465">‏אם שכחת את ביטוי הסיסמה או שברצונך לשנות את ההגדרה הזו, <ph name="BEGIN_LINK" />עליך למחוק את נתוני Chrome בחשבון<ph name="END_LINK" />.</translation>
+<translation id="7287957555760192025">‏אם בוחרים בהצעה או מתעלמים ממנה, Chrome מתאים את עצמו כדי להציג הצעות רלוונטיות יותר בעתיד.</translation>
 <translation id="7296102444587051536">‏‫Chrome ל-iOS</translation>
 <translation id="7299681342915173313">‏עכשיו אפשר להשתמש ב-Chrome כשלוחצים על קישורים באימיילים, במסמכים ובאפליקציות אחרות.</translation>
 <translation id="7334364820047587268">‏כבר שמרת סיסמאות לחשבונות האלה במנהל הסיסמאות של Google. אם אחת מהסיסמאות הבאות תיובא, היא תחליף את הסיסמה הקיימת.</translation>
@@ -355,6 +359,7 @@
 <translation id="8544583291890527417">‏התראות לגבי כל בעיה בפרטיות או באבטחה ש-Chrome מזהה.</translation>
 <translation id="855027533751209304">‏טיפ ל-Chrome: מחפשים את מה שרואים</translation>
 <translation id="8558480467877843976">‏אפשר עכשיו להשתמש ב-Chrome בכל פעם שגולשים או לוחצים על קישורים בהודעות, במסמכים ובאפליקציות אחרות.</translation>
+<translation id="8589791109349384456">‏השבתת ההצעות לא משפיעה על עיבוד כותרות הדפים וכתובות ה-URL של Chrome בתכונות אחרות. אפשר לשנות את הרשאות הגישה לנתונים האלה ב<ph name="BEGIN_LINK" />הגדרות הסנכרון<ph name="END_LINK" />.</translation>
 <translation id="8603022514504485810">‏למנהל הסיסמאות של Google לא הייתה אפשרות לבדוק את כל הסיסמאות. אפשר לנסות שוב מחר או <ph name="BEGIN_LINK" />לבדוק את הסיסמאות בחשבון Google<ph name="END_LINK" />.</translation>
 <translation id="8610372330814566250">‏אפשר להשתמש בסיסמאות, בהיסטוריה, בסימניות ובכרטיסי האשראי של Safari ב-Chrome</translation>
 <translation id="8630122478628016441">‏מפעילים את האפשרות 'כרטיסיות פרטיות יינעלו כש-Chrome ייסגר'.</translation>

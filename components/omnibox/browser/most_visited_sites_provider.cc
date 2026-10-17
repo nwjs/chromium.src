@@ -98,7 +98,7 @@ AutocompleteMatch BuildMatch(AutocompleteProvider* provider,
                              const std::u16string& description,
                              const GURL& url,
                              int relevance,
-                             AutocompleteMatchType::Type type) {
+                             omnibox::AutocompleteMatchType type) {
   AutocompleteMatch match(provider, relevance, true, type);
   match.suggest_type = omnibox::TYPE_NAVIGATION;
   match.destination_url = url;
@@ -185,8 +185,9 @@ bool BuildAutocompleteMatches(AutocompleteProvider* provider,
         match_urls.contains(stripped_url.spec())) {
       continue;
     }
-    auto match = BuildMatch(provider, client, url.title, url.url, relevance,
-                            AutocompleteMatchType::TILE_MOST_VISITED_SITE);
+    auto match =
+        BuildMatch(provider, client, url.title, url.url, relevance,
+                   omnibox::AutocompleteMatchType::kTileMostVisitedSite);
     // Override suggestion group id for desktop most visited matches.
     match.suggestion_group_id = omnibox::GROUP_MOST_VISITED;
     match.subtypes.emplace(omnibox::SUBTYPE_ZERO_PREFIX_LOCAL_FREQUENT_URLS);
@@ -235,10 +236,10 @@ bool BuildTileSuggest(AutocompleteProvider* provider,
       // history::MostVisitedURL.
       bool is_search =
           url_service->IsSearchResultsPageFromDefaultSearchProvider(tile.url);
-      auto match =
-          BuildMatch(provider, client, tile.title, tile.url, relevance,
-                     is_search ? AutocompleteMatchType::TILE_REPEATABLE_QUERY
-                               : AutocompleteMatchType::TILE_MOST_VISITED_SITE);
+      auto match = BuildMatch(
+          provider, client, tile.title, tile.url, relevance,
+          is_search ? omnibox::AutocompleteMatchType::kTileRepeatableQuery
+                    : omnibox::AutocompleteMatchType::kTileMostVisitedSite);
       if (is_search) {
         match.subtypes.emplace(
             omnibox::SUBTYPE_ZERO_PREFIX_LOCAL_FREQUENT_QUERIES);
@@ -272,7 +273,7 @@ bool BuildTileSuggest(AutocompleteProvider* provider,
     AutocompleteMatch match =
         BuildMatch(provider, client, std::u16string(), GURL(),
                    omnibox::kMostVisitedTilesZeroSuggestHighRelevance,
-                   AutocompleteMatchType::TILE_NAVSUGGEST);
+                   omnibox::AutocompleteMatchType::kTileNavsuggest);
 
     match.suggest_tiles.reserve(container.size());
     auto* const url_service = client->GetTemplateURLService();
@@ -386,7 +387,7 @@ void MostVisitedSitesProvider::Stop(AutocompleteStopReason stop_reason) {
 MostVisitedSitesProvider::MostVisitedSitesProvider(
     AutocompleteProviderClient* client,
     AutocompleteProviderListener* listener)
-    : AutocompleteProvider(TYPE_MOST_VISITED_SITES),
+    : AutocompleteProvider(AutocompleteProvider::Type::kMostVisitedSites),
       device_form_factor_{ui::GetDeviceFormFactor()},
       client_{client} {
   AddListener(listener);
@@ -508,10 +509,10 @@ void MostVisitedSitesProvider::BlockURL(const GURL& site_url) {
 }
 
 void MostVisitedSitesProvider::DeleteMatch(const AutocompleteMatch& match) {
-  DCHECK(match.type == AutocompleteMatchType::NAVSUGGEST ||
-         match.type == AutocompleteMatchType::TILE_MOST_VISITED_SITE ||
-         match.type == AutocompleteMatchType::TILE_REPEATABLE_QUERY ||
-         match.type == AutocompleteMatchType::HISTORY_URL);
+  DCHECK(match.type == omnibox::AutocompleteMatchType::kNavsuggest ||
+         match.type == omnibox::AutocompleteMatchType::kTileMostVisitedSite ||
+         match.type == omnibox::AutocompleteMatchType::kTileRepeatableQuery ||
+         match.type == omnibox::AutocompleteMatchType::kHistoryUrl);
 
   if (omnibox_feature_configs::OmniboxUrlSuggestionsOnFocus::Get().enabled) {
     history::HistoryService* const history_service =
@@ -543,19 +544,19 @@ void MostVisitedSitesProvider::DeleteMatch(const AutocompleteMatch& match) {
 void MostVisitedSitesProvider::DeleteMatchElement(
     const AutocompleteMatch& source_match,
     size_t element_index) {
-  DCHECK_EQ(source_match.type, AutocompleteMatchType::TILE_NAVSUGGEST);
+  DCHECK_EQ(source_match.type, omnibox::AutocompleteMatchType::kTileNavsuggest);
   DCHECK_GE(element_index, 0u);
   DCHECK_LT((size_t)element_index, source_match.suggest_tiles.size());
 
   // Attempt to modify the match in place.
   DCHECK_EQ(matches_.size(), 1ul);
-  DCHECK_EQ(matches_[0].type, AutocompleteMatchType::TILE_NAVSUGGEST);
+  DCHECK_EQ(matches_[0].type, omnibox::AutocompleteMatchType::kTileNavsuggest);
 
-  if (source_match.type != AutocompleteMatchType::TILE_NAVSUGGEST ||
+  if (source_match.type != omnibox::AutocompleteMatchType::kTileNavsuggest ||
       element_index < 0u ||
       element_index >= source_match.suggest_tiles.size() ||
       matches_.size() != 1u ||
-      matches_[0].type != AutocompleteMatchType::TILE_NAVSUGGEST) {
+      matches_[0].type != omnibox::AutocompleteMatchType::kTileNavsuggest) {
     return;
   }
 

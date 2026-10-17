@@ -7,6 +7,7 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 #include <variant>
 #include <vector>
 
@@ -78,6 +79,35 @@ struct Floating {
   Floating() = default;
 };
 
+// Specifies what an invocation should do when it resolves to an instance that
+// is already showing in live (audio) mode. Live mode runs in the floating
+// panel, so an invocation that targets a tab would otherwise pull the
+// conversation out of it and into that tab's side panel.
+//
+// This supersedes `GlicInvokeOptions::preserve_active_surface`, which only
+// applies to instances that are not in live mode. Apart from `kFail`, these
+// options work by choosing which surface the conversation is shown on, so they
+// require a `Target::surface` they can steer; combining one with a surface it
+// can't steer fails the invocation with
+// `GlicInvokeError::kInvalidConfiguration`. Leaving live mode is ultimately up
+// to the web client; the browser only chooses the surface and requests a mode.
+enum class LiveModeBehavior {
+  // Carry on in live mode: leave the conversation in the floating panel.
+  kProceedInLiveMode,
+  // Show the conversation in the targeted tab's side panel, even if it is
+  // currently in the floating panel. The side panel doesn't host live mode, so
+  // this leaves it. Requires a surface that resolves to a tab
+  // (`DefaultSurface`, `NewTab` or `TabHandle`).
+  kForceSidePanelTextMode,
+  // Keep the conversation in the floating panel and request that it be shown
+  // in text mode. Unlike `kProceedInLiveMode`, this moves a conversation that
+  // is showing elsewhere into the floating panel. Requires a surface that
+  // resolves to a tab or `Floating`.
+  kForceFloatingTextMode,
+  // Fail the invocation with `GlicInvokeError::kLiveModeActive`.
+  kFail,
+};
+
 // The target for the invocation.
 struct Target {
   using Surface = std::variant<DefaultSurface,
@@ -114,6 +144,10 @@ struct Target {
   // - LastActiveOrNew: Uses the last active embedder for the instance, or falls
   //   back to creating a new tab.
   Surface surface = DefaultSurface();
+
+  // What to do if this invocation resolves to an instance that is already
+  // showing in live (audio) mode. Defaults to leaving it in live mode.
+  LiveModeBehavior live_mode_behavior = LiveModeBehavior::kProceedInLiveMode;
 
   // Specifies which conversation to use or create.
   // - DefaultConversation: Uses the conversation already bound to the target
@@ -207,9 +241,19 @@ enum class GlicInvokeError {
   kCancelled = 17,
   // The invocation handler was superseded by another invocation.
   kSuperseded = 18,
-  kMaxValue = kSuperseded,
+  // The invocation targeted an instance that is in live mode, and
+  // `Target::live_mode_behavior` asked for it to fail.
+  kLiveModeActive = 19,
+  // The Glic client failed to load or reach a ready state.
+  kClientLoadError = 20,
+  kMaxValue = kClientLoadError,
 };
-// LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicInvokeResult,//chrome/browser/glic/host/glic_internals_page_handler.cc:GlicInvokeError)
+// LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicInvokeResult,//chrome/browser/glic/public/glic_invoke_options.cc:GlicInvokeErrorToString)
+
+// Returns a human-readable, non-localized description of `error`. Intended for
+// logging and developer-facing surfaces (e.g. chrome://glic-internals); not for
+// display to end users.
+std::string_view GlicInvokeErrorToString(GlicInvokeError error);
 
 // Details for invoking Glic with tabs shared. See
 // GlicSharingManagerInternal::PinTabs().
@@ -277,6 +321,15 @@ struct GlicInvokeOptions {
 
   // Defines the target for the invocation (surface and conversation).
   Target target;
+
+  // Whether an invocation that targets a tab should leave the conversation on
+  // the surface it is already showing on, rather than moving it into that
+  // tab's side panel. Currently only applies to the floating panel.
+  //
+  // Targeting a specific conversation (`ConversationId`/`InstanceId`) also
+  // binds the tab to it. `DefaultConversation` does not: an unbound tab still
+  // gets its own conversation in its own side panel.
+  bool preserve_active_surface = false;
 
   // The feature mode to use for the invocation, triggering specific client
   // behaviours like actuation or image generation.

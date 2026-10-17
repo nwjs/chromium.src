@@ -793,8 +793,6 @@ bool WASAPIAudioInputStream::UpdateFormats() {
     } else {
       const uint32_t format_tag =
           EXTRACT_WAVEFORMATEX_ID(&mix_format.SubFormat);
-      base::UmaHistogramSparse(
-          "Media.Audio.Capture.Win.AudioEngineFormat.Unknown", format_tag);
       SendLogMessage(base::StringPrintf(
           "%s => (WARNING: unknown mix sample format (tag=%#x))", __func__,
           format_tag));
@@ -1005,7 +1003,7 @@ void WASAPIAudioInputStream::Start(AudioInputCallback* callback) {
 
   // Create and start the thread that will drive the capturing by waiting for
   // capture events.
-  DCHECK(!capture_thread_.get());
+  DCHECK(!capture_thread_);
   capture_thread_ = std::make_unique<base::DelegateSimpleThread>(
       this, "wasapi_capture_thread",
       base::SimpleThread::Options(base::ThreadType::kRealtimeAudio));
@@ -2200,11 +2198,11 @@ void WASAPIAudioInputStream::MaybeReportFormatRelatedInitError(
 
   const FormatRelatedInitError format_related_error =
       hr == AUDCLNT_E_UNSUPPORTED_FORMAT
-          ? converter_.get()
+          ? converter_
                 ? FormatRelatedInitError::kUnsupportedFormatWithFormatConversion
                 : FormatRelatedInitError::kUnsupportedFormat
       // Otherwise |hr| == E_INVALIDARG.
-      : converter_.get()
+      : converter_
           ? FormatRelatedInitError::kInvalidArgumentWithFormatConversion
           : FormatRelatedInitError::kInvalidArgument;
   base::UmaHistogramEnumeration(

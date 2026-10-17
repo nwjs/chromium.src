@@ -45,6 +45,17 @@ export class ComposeboxMatchElement extends CrLitElement {
       // Public properties
       //========================================================================
 
+      /**
+       * Whether the match should be rendered in a two-row layout, i.e. with the
+       * description (secondary text) rendered below the contents (primary
+       * text). Mirrors `AutocompleteMatch::is_two_row_suggestion`, which the
+       * handler derives from `SuggestTemplateInfo::secondary_text_placement`.
+       */
+      isTwoRowSuggestion: {
+        type: Boolean,
+        reflect: true,
+      },
+
       match: {type: Object},
       overrideClampLineNum: {
         type: Number,
@@ -74,6 +85,7 @@ export class ComposeboxMatchElement extends CrLitElement {
     };
   }
 
+  accessor isTwoRowSuggestion: boolean = false;
   accessor match: AutocompleteMatch = createAutocompleteMatch();
   accessor overrideClampLineNum: number = -1;
 
@@ -107,9 +119,7 @@ export class ComposeboxMatchElement extends CrLitElement {
       event.preventDefault();
     });
 
-    this.style.setProperty(
-        '--clamp-line-num',
-        `${this.overrideClampLineNum > -1 ? this.overrideClampLineNum : 2}`);
+    this.style.setProperty('--clamp-line-num', `${this.overrideClampLineNum}`);
   }
 
   private computeSuggestStyle_(): string {
@@ -130,6 +140,7 @@ export class ComposeboxMatchElement extends CrLitElement {
     if (changedProperties.has('match') ||
         changedProperties.has('richImageSuggestionsEnabled')) {
       this.suggestStyle = this.computeSuggestStyle_();
+      this.isTwoRowSuggestion = this.match.isTwoRowSuggestion;
     }
   }
 
@@ -169,17 +180,15 @@ export class ComposeboxMatchElement extends CrLitElement {
 
     e.preventDefault();  // Prevents default browser action (navigation).
 
-    if (this.match.fuseboxAction) {
-      const event = new CustomEvent('match-pre-accept', {
-        bubbles: true,
-        cancelable: true,
-        composed: true,
-        detail: {match: this.match},
-      });
-      this.dispatchEvent(event);
-      if (event.defaultPrevented) {
-        return;
-      }
+    const event = new CustomEvent('match-pre-accept', {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      detail: {match: this.match},
+    });
+    this.dispatchEvent(event);
+    if (event.defaultPrevented) {
+      return;
     }
 
     this.searchboxHandler_.openAutocompleteMatch(

@@ -58,7 +58,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="PDF.EngineLifetime" units="ms" expires_after="2027-01-17">
+<histogram name="PDF.EngineLifetime" units="ms" expires_after="2027-03-21">
   <owner>rhalavati@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -68,7 +68,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="PDF.FirstPaintTime" units="ms" expires_after="2027-01-17">
+<histogram name="PDF.FirstPaintTime" units="ms" expires_after="2027-03-21">
   <owner>rhalavati@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -80,7 +80,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="PDF.FormType" enum="PDFFormTypes" expires_after="2027-01-17">
+<histogram name="PDF.FormType" enum="PDFFormTypes" expires_after="2027-03-21">
   <owner>dhoss@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -330,6 +330,18 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="PDF.Ink2TextAnnotationUnderline" enum="Boolean"
+    expires_after="2027-04-01">
+  <owner>thestig@chromium.org</owner>
+  <owner>andyphan@chromium.org</owner>
+  <summary>
+    Tracks whether an Ink2 text annotation in the PDF viewer has the underline
+    style applied. This is recorded whenever a non-empty text annotation is
+    committed by the user (either created or edited), but not if it occurs as
+    part of undo or redo operations.
+  </summary>
+</histogram>
+
 <histogram name="PDF.Ink2TextAnnotation{Action}CountOnSave"
     units="text annotations" expires_after="2026-12-16">
   <owner>thestig@chromium.org</owner>
@@ -417,7 +429,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="PDF.PageHasText" enum="Boolean" expires_after="2027-01-17">
+<histogram name="PDF.PageHasText" enum="Boolean" expires_after="2027-03-21">
   <owner>rhalavati@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -557,7 +569,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="PDF.SchemeIsFile" enum="Boolean" expires_after="2027-01-09">
+<histogram name="PDF.SchemeIsFile" enum="Boolean" expires_after="2027-03-14">
   <owner>thestig@chromium.org</owner>
   <owner>andyphan@chromium.org</owner>
   <summary>

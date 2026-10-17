@@ -12,7 +12,7 @@
 #include "base/test/test_future.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
-#include "components/guest_contents/browser/guest_contents_handle.h"
+#include "components/surface_embed/browser/surface_embed_handle.h"
 #include "components/surface_embed/browser/surface_embed_host.h"
 #include "components/surface_embed/common/constants.h"
 #include "components/surface_embed/common/features.h"
@@ -141,19 +141,20 @@ class SurfaceEmbedTestContentBrowserClient
         RegisterAssociatedInterfaceBindersForRenderFrameHost(
             render_frame_host, associated_registry);
     associated_registry.RemoveInterface(mojom::SurfaceEmbedHost::Name_);
-    associated_registry.AddInterface<
-        mojom::SurfaceEmbedHost>(base::BindRepeating(
-        [](SurfaceEmbedHostTracker* tracker,
-           content::RenderFrameHost* render_frame_host,
-           mojo::PendingAssociatedReceiver<mojom::SurfaceEmbedHost> receiver) {
-          SurfaceEmbedHost* host =
-              SurfaceEmbedHost::Create(render_frame_host, std::move(receiver));
-          host->SetDestructionCallbackForTesting(
-              base::BindOnce(&SurfaceEmbedHostTracker::RemoveHost,
-                             base::Unretained(tracker), host));
-          tracker->AddHost(host);
-        },
-        base::Unretained(tracker_), &render_frame_host));
+    associated_registry.AddInterface<mojom::SurfaceEmbedHost>(
+        base::BindRepeating(
+            [](SurfaceEmbedHostTracker* tracker,
+               content::RenderFrameHost* render_frame_host,
+               mojo::PendingAssociatedReceiver<mojom::SurfaceEmbedHost>
+                   receiver) {
+              SurfaceEmbedHost* host = SurfaceEmbedHost::Create(
+                  render_frame_host, std::move(receiver));
+              host->SetDestructionCallbackForTesting(
+                  base::BindOnce(&SurfaceEmbedHostTracker::RemoveHost,
+                                 base::Unretained(tracker), host));
+              tracker->AddHost(host);
+            },
+            base::Unretained(tracker_), &render_frame_host));
   }
 
  private:
@@ -272,11 +273,10 @@ class SurfaceEmbedBrowserTest : public content::ContentBrowserTest {
   // Attach a child to an embed element with an optional ID.
   void AttachChildToEmbedWithId(content::WebContents* child_contents,
                                 std::optional<std::string> embed_id) {
-    guest_contents::GuestContentsHandle* guest_handle =
-        guest_contents::GuestContentsHandle::CreateForWebContents(
-            child_contents);
-    ASSERT_NE(guest_handle, nullptr);
-    std::string script = "createEmbed('" + guest_handle->id().ToString();
+    SurfaceEmbedHandle* embedded_handle =
+        SurfaceEmbedHandle::CreateForWebContents(child_contents);
+    ASSERT_NE(embedded_handle, nullptr);
+    std::string script = "createEmbed('" + embedded_handle->id().ToString();
     if (embed_id.has_value()) {
       script += "', '" + embed_id.value();
     }
@@ -459,12 +459,11 @@ class SurfaceEmbedBrowserTestNoHost : public SurfaceEmbedBrowserTest {
 IN_PROC_BROWSER_TEST_F(SurfaceEmbedBrowserTestNoHost, NoCrash) {
   auto child_contents = SetupHarnessAndChild();
 
-  guest_contents::GuestContentsHandle* guest_handle =
-      guest_contents::GuestContentsHandle::CreateForWebContents(
-          child_contents.get());
-  ASSERT_NE(guest_handle, nullptr);
+  SurfaceEmbedHandle* embedded_handle =
+      SurfaceEmbedHandle::CreateForWebContents(child_contents.get());
+  ASSERT_NE(embedded_handle, nullptr);
   std::string script =
-      content::JsReplace("createEmbed($1);", guest_handle->id().ToString());
+      content::JsReplace("createEmbed($1);", embedded_handle->id().ToString());
   ASSERT_TRUE(content::ExecJs(web_contents(), script));
 
   // Access an unknown property on the embed to force plugin creation
@@ -476,19 +475,18 @@ IN_PROC_BROWSER_TEST_F(SurfaceEmbedBrowserTestNoHost, NoCrash) {
   // Check that the sad plugin page got rendered.
   EXPECT_TRUE(CheckHasPixelInColor(SkColors::kGray.toSkColor()));
 
-  // Try attaching a new child. Still shouldn't crash.
-  // (Handling data-content-id changes isn't implemented yet, but once it is,
-  //  this should help make sure we don't get confused).
+  // Changing data-content-id after plugin creation must not crash.
+  // TODO(crbug.com/561637127): Handling data-content-id changes isn't
+  // implemented yet.
   auto child_contents2 = CreateChildWebContents();
   NavigateChildToUrl(child_contents2.get(), kBlueBoxUrl);
-  guest_contents::GuestContentsHandle* guest_handle2 =
-      guest_contents::GuestContentsHandle::CreateForWebContents(
-          child_contents2.get());
+  SurfaceEmbedHandle* embedded_handle2 =
+      SurfaceEmbedHandle::CreateForWebContents(child_contents2.get());
   EXPECT_TRUE(content::ExecJs(
       web_contents(),
       content::JsReplace(
           "document.embeds[0].setAttribute('data-content-id', $1)",
-          guest_handle2->id().ToString())));
+          embedded_handle2->id().ToString())));
 
   EXPECT_TRUE(CheckHasPixelInColor(SkColors::kGray.toSkColor()));
 }
@@ -608,9 +606,9 @@ IN_PROC_BROWSER_TEST_F(
                       "top >= window.innerHeight")
           .ExtractBool());
 
-  // SurfaceEmbed uses the guest's viewport, ignoring the outer viewport. If
-  // this were an iframe, it would use the outer viewport and be non-
-  // intersecting.
+  // SurfaceEmbed uses the embedded content's viewport, ignoring the outer
+  // viewport. If this were an iframe, it would use the outer viewport and be
+  // non-intersecting.
   EXPECT_TRUE(
       content::EvalJs(child_contents.get(), "observeViewport()").ExtractBool());
 }
@@ -674,8 +672,8 @@ IN_PROC_BROWSER_TEST_F(
   )")
                   .ExtractBool());
   // Even though the SurfaceEmbed host (embed) is partially clipped, its
-  // guest/contents remains fully intersecting. This is different from an iframe
-  // where the iframe contents would be partially intersecting.
+  // embedded contents remains fully intersecting. This is different from an
+  // iframe where the iframe contents would be partially intersecting.
   EXPECT_TRUE(
       content::EvalJs(child_contents.get(), "observeViewport()").ExtractBool());
   EXPECT_NEAR(1.0,
@@ -727,13 +725,12 @@ IN_PROC_BROWSER_TEST_F(SurfaceEmbedBrowserTest,
   NavigateChildToUrl(child_contents.get(), kRedBoxUrl);
 
   // Attach C to P.
-  guest_contents::GuestContentsHandle* child_guest_handle =
-      guest_contents::GuestContentsHandle::CreateForWebContents(
-          child_contents.get());
-  ASSERT_NE(child_guest_handle, nullptr);
+  SurfaceEmbedHandle* child_embedded_handle =
+      SurfaceEmbedHandle::CreateForWebContents(child_contents.get());
+  ASSERT_NE(child_embedded_handle, nullptr);
 
   std::string attach_child_script = "createEmbed('" +
-                                    child_guest_handle->id().ToString() +
+                                    child_embedded_handle->id().ToString() +
                                     "', 'child_embed');";
   size_t expected_attachments = GetAttachedHostCount() + 1;
   ASSERT_TRUE(content::ExecJs(parent_contents.get(), attach_child_script));
@@ -802,13 +799,12 @@ IN_PROC_BROWSER_TEST_F(SurfaceEmbedBrowserTest,
   NavigateChildToUrl(child_contents.get(), kRedBoxUrl);
 
   // Attach C to P.
-  guest_contents::GuestContentsHandle* child_guest_handle =
-      guest_contents::GuestContentsHandle::CreateForWebContents(
-          child_contents.get());
-  ASSERT_NE(child_guest_handle, nullptr);
+  SurfaceEmbedHandle* child_embedded_handle =
+      SurfaceEmbedHandle::CreateForWebContents(child_contents.get());
+  ASSERT_NE(child_embedded_handle, nullptr);
 
   std::string attach_child_script = "createEmbed('" +
-                                    child_guest_handle->id().ToString() +
+                                    child_embedded_handle->id().ToString() +
                                     "', 'child_embed');";
   size_t expected_attachments = GetAttachedHostCount() + 1;
   ASSERT_TRUE(content::ExecJs(parent_contents.get(), attach_child_script));
@@ -889,6 +885,29 @@ IN_PROC_BROWSER_TEST_F(SurfaceEmbedBrowserTest,
     SurfaceEmbedHost* host = GetHost(i);
     ASSERT_NE(nullptr, host);
   }
+}
+
+IN_PROC_BROWSER_TEST_F(SurfaceEmbedBrowserTest,
+                       ChildDestroyedBeforeEmbedAttachment) {
+  NavigateToAttachHarness();
+
+  auto child_contents = CreateChildWebContents();
+  SurfaceEmbedHandle* embedded_handle =
+      SurfaceEmbedHandle::CreateForWebContents(child_contents.get());
+  ASSERT_NE(embedded_handle, nullptr);
+  const std::string stale_content_id = embedded_handle->id().ToString();
+  child_contents.reset();
+
+  ASSERT_TRUE(content::ExecJs(web_contents(),
+                              "createEmbed('" + stale_content_id + "');"));
+  WaitForHostCount(kSingleEmbedCount);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return GetHost(0)->HasReceivedAttachConnectorForTesting(); }));
+  EXPECT_EQ(0u, GetAttachedHostCount());
+
+  // Verify that processing the stale attachment did not terminate the parent
+  // renderer or browser.
+  EXPECT_EQ(kSingleEmbedCount, CountEmbedElementsInPage());
 }
 
 IN_PROC_BROWSER_TEST_F(SurfaceEmbedBrowserTest, EmbedTagRemovedDestroysHost) {
@@ -987,11 +1006,11 @@ IN_PROC_BROWSER_TEST_F(SurfaceEmbedBrowserTest, CrashEarly) {
 
   // Now try to attach. This doesn't actually attach successfully, so can't
   // use the usual helper.
-  guest_contents::GuestContentsHandle* guest_handle =
-      guest_contents::GuestContentsHandle::CreateForWebContents(
-          child_contents.get());
-  ASSERT_NE(guest_handle, nullptr);
-  std::string script = "createEmbed('" + guest_handle->id().ToString() + "')";
+  SurfaceEmbedHandle* embedded_handle =
+      SurfaceEmbedHandle::CreateForWebContents(child_contents.get());
+  ASSERT_NE(embedded_handle, nullptr);
+  std::string script =
+      "createEmbed('" + embedded_handle->id().ToString() + "')";
   EXPECT_TRUE(content::ExecJs(web_contents(), script));
 
   // Should have a gray background.
@@ -1363,7 +1382,8 @@ IN_PROC_BROWSER_TEST_F(SurfaceEmbedBrowserTest,
         embed.id = 'my_embed';
         const outer2 = document.getElementById('outer2');
         document.body.insertBefore(embed, outer2);
-      )", kInternalPluginMimeType)));
+      )",
+                                                 kInternalPluginMimeType)));
 
   WaitForHostCount(1);
   SurfaceEmbedHost* host = GetHost(0);
@@ -1383,10 +1403,9 @@ IN_PROC_BROWSER_TEST_F(SurfaceEmbedBrowserTest,
   NavigateChildToUrl(child_contents.get(), kInnerPageUrl);
   content::ReadyForInputObserver(child_contents.get()).Wait();
 
-  guest_contents::GuestContentsHandle* guest_handle =
-      guest_contents::GuestContentsHandle::CreateForWebContents(
-          child_contents.get());
-  ASSERT_NE(guest_handle, nullptr);
+  SurfaceEmbedHandle* embedded_handle =
+      SurfaceEmbedHandle::CreateForWebContents(child_contents.get());
+  ASSERT_NE(embedded_handle, nullptr);
 
   // 4. Attach the inner WebContents to the already focused <embed> by setting
   // data-content-id and re-triggering plugin creation.
@@ -1396,7 +1415,7 @@ IN_PROC_BROWSER_TEST_F(SurfaceEmbedBrowserTest,
         embed.setAttribute('data-content-id', $1);
         embed.removeAttribute('type');
         embed.setAttribute('type', $2);
-      )", guest_handle->id().ToString(), kInternalPluginMimeType)));
+      )", embedded_handle->id().ToString(), kInternalPluginMimeType)));
 
   // 5. Verify that the child WebContents has page focus after attaching to the
   // already focused <embed>.
@@ -1668,13 +1687,12 @@ IN_PROC_BROWSER_TEST_F(SurfaceEmbedBrowserTest, MultilevelDetachIntermediate) {
   auto child_contents = CreateChildWebContents();
   NavigateChildToUrl(child_contents.get(), kRedBoxUrl);
 
-  guest_contents::GuestContentsHandle* child_guest_handle =
-      guest_contents::GuestContentsHandle::CreateForWebContents(
-          child_contents.get());
-  ASSERT_NE(child_guest_handle, nullptr);
+  SurfaceEmbedHandle* child_embedded_handle =
+      SurfaceEmbedHandle::CreateForWebContents(child_contents.get());
+  ASSERT_NE(child_embedded_handle, nullptr);
 
   std::string attach_child_script = "createEmbed('" +
-                                    child_guest_handle->id().ToString() +
+                                    child_embedded_handle->id().ToString() +
                                     "', 'child_embed');";
   size_t expected_attachments = GetAttachedHostCount() + 1;
   ASSERT_TRUE(content::ExecJs(parent_contents.get(), attach_child_script));
@@ -1710,13 +1728,12 @@ IN_PROC_BROWSER_TEST_F(SurfaceEmbedBrowserTest, MultilevelFocusAndInput) {
   auto child_contents = CreateChildWebContents();
   NavigateChildToUrl(child_contents.get(), kInnerPageUrl);
 
-  guest_contents::GuestContentsHandle* child_guest_handle =
-      guest_contents::GuestContentsHandle::CreateForWebContents(
-          child_contents.get());
-  ASSERT_NE(child_guest_handle, nullptr);
+  SurfaceEmbedHandle* child_embedded_handle =
+      SurfaceEmbedHandle::CreateForWebContents(child_contents.get());
+  ASSERT_NE(child_embedded_handle, nullptr);
 
   std::string attach_child_script = "createEmbed('" +
-                                    child_guest_handle->id().ToString() +
+                                    child_embedded_handle->id().ToString() +
                                     "', 'child_embed');";
   size_t expected_attachments = GetAttachedHostCount() + 1;
   ASSERT_TRUE(content::ExecJs(parent_contents.get(), attach_child_script));
@@ -1987,12 +2004,11 @@ IN_PROC_BROWSER_TEST_F(SurfaceEmbedBrowserTest,
   auto child_contents = CreateChildWebContents();
   NavigateChildToUrl(child_contents.get(), kRedBoxUrl);
 
-  guest_contents::GuestContentsHandle* child_guest_handle =
-      guest_contents::GuestContentsHandle::CreateForWebContents(
-          child_contents.get());
-  ASSERT_NE(child_guest_handle, nullptr);
+  SurfaceEmbedHandle* child_embedded_handle =
+      SurfaceEmbedHandle::CreateForWebContents(child_contents.get());
+  ASSERT_NE(child_embedded_handle, nullptr);
   std::string attach_child_script = "createEmbed('" +
-                                    child_guest_handle->id().ToString() +
+                                    child_embedded_handle->id().ToString() +
                                     "', 'child_embed');";
   size_t expected_attachments = GetAttachedHostCount() + 1;
   ASSERT_TRUE(content::ExecJs(parent_contents.get(), attach_child_script));
@@ -2027,6 +2043,84 @@ IN_PROC_BROWSER_TEST_F(SurfaceEmbedBrowserTest,
       [&]() { return !parent_connector->IsDisplayLockedForTesting(); }));
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return !child_connector->IsDisplayLockedForTesting(); }));
+}
+
+IN_PROC_BROWSER_TEST_F(SurfaceEmbedBrowserTest,
+                       TransparentChildWebContentsAndUnsubmittedSurface) {
+  NavigateToAttachHarness();
+  ASSERT_TRUE(content::ExecJs(
+      web_contents(),
+      "document.body.style.backgroundColor = 'rgb(0, 255, 0)';"));
+
+  // 1. Attach an unnavigated child WebContents (which has no active surface
+  // yet, matching `webui_examples --webshell`). The parent's green background
+  // should show through the <embed> bounds rather than being occluded/culled.
+  std::unique_ptr<content::WebContents> child_contents =
+      CreateChildWebContents();
+  AttachChildToEmbedWithId(child_contents.get(), "embed1");
+
+  gfx::Rect scaled_embed_bounds;
+  CalculateBitmapBoundsToCheck(gfx::Rect(10, 10, 100, 100),
+                               &scaled_embed_bounds);
+  EXPECT_TRUE(
+      CheckHasPixelInColorInBitmapBounds(SK_ColorGREEN, scaled_embed_bounds));
+  EXPECT_FALSE(HasPixelInColor(SK_ColorBLUE));
+
+  // 2. Navigate the child WebContents, make its background transparent, and
+  // render a 50x50 red box <div>. The red box is intentional to verify that
+  // opaque foreground content in the child is still painted (checked in the
+  // top-left region below), while the surrounding background is transparent
+  // and shows the parent's green background (checked in the bottom-right
+  // region).
+  //
+  // Transparency must be set at 3 places corresponding to the nested
+  // container levels:
+  //   - RenderWidgetHostView (window/compositor default background)
+  //     - html / documentElement (styled opaque red by `kRedBoxUrl`)
+  //       - body (styled opaque red by `kRedBoxUrl`)
+  //         - 50x50 red box <div>
+  // If any level above the <div> uses an opaque background, the resulting
+  // background will be opaque.
+  NavigateChildToUrl(child_contents.get(), kRedBoxUrl);
+  ASSERT_NE(nullptr, child_contents->GetRenderWidgetHostView());
+  // TODO(crbug.com/565576788): Remove the `RunUntil` wait below (and allow
+  // calling `SetBackgroundColor(SK_ColorTRANSPARENT)` at any time, e.g. before
+  // `NavigateChildToUrl` or after `ExecJs`) once
+  // `RenderWidgetHostViewChildFrame::UpdateBackgroundColor()` stops using
+  // `content_background_color_` to overwrite `SetBackgroundOpaque(false)`.
+  // Until then, wait for `kRedBoxUrl`'s initial frame metadata (`SK_ColorRED`)
+  // to arrive at the browser and set `SK_ColorTRANSPARENT` before clearing the
+  // DOM backgrounds in JS so an in-flight opaque `content_background_color_`
+  // update does not clobber `SetBackgroundOpaque(false)`.
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return child_contents->GetRenderWidgetHostView()->GetBackgroundColor() ==
+           SK_ColorRED;
+  }));
+  child_contents->GetRenderWidgetHostView()->SetBackgroundColor(
+      SK_ColorTRANSPARENT);
+  ASSERT_TRUE(content::ExecJs(child_contents.get(), R"(
+    document.documentElement.style.backgroundColor = 'transparent';
+    document.body.style.backgroundColor = 'transparent';
+    const box = document.createElement('div');
+    box.style.width = '50px';
+    box.style.height = '50px';
+    box.style.backgroundColor = 'rgb(255, 0, 0)';
+    document.body.appendChild(box);
+  )"));
+
+  gfx::Rect scaled_top_left_bounds;
+  CalculateBitmapBoundsToCheck(gfx::Rect(15, 15, 30, 30),
+                               &scaled_top_left_bounds);
+  gfx::Rect scaled_bottom_right_bounds;
+  CalculateBitmapBoundsToCheck(gfx::Rect(70, 70, 30, 30),
+                               &scaled_bottom_right_bounds);
+
+  // Wait until both the child's red box and the parent's green background
+  // (showing through the transparent region of the child) are visible.
+  EXPECT_TRUE(
+      CheckHasPixelInColorInBitmapBounds(SK_ColorRED, scaled_top_left_bounds));
+  EXPECT_TRUE(CheckHasPixelInColorInBitmapBounds(SK_ColorGREEN,
+                                                 scaled_bottom_right_bounds));
 }
 
 }  // namespace surface_embed

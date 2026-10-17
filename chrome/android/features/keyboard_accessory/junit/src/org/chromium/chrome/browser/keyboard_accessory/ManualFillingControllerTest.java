@@ -22,6 +22,8 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doNothing;
@@ -49,22 +51,26 @@ import static org.chromium.chrome.browser.tab.TabLaunchType.FROM_BROWSER_ACTIONS
 import static org.chromium.chrome.browser.tab.TabSelectionType.FROM_NEW;
 import static org.chromium.chrome.browser.tab.TabSelectionType.FROM_USER;
 
+import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.RectF;
 import android.text.Spanned;
 import android.text.style.ClickableSpan;
+import android.view.LayoutInflater;
 import android.view.Surface;
 import android.view.View;
 import android.view.Window;
 
 import androidx.annotation.Px;
+import androidx.test.core.app.ApplicationProvider;
 
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatcher;
 import org.mockito.Captor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
@@ -75,7 +81,6 @@ import org.mockito.stubbing.Answer;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.shadows.ShadowLooper;
 
-import org.chromium.base.CallbackUtils;
 import org.chromium.base.DeviceInfo;
 import org.chromium.base.UnownedUserDataHost;
 import org.chromium.base.UserDataHost;
@@ -108,13 +113,19 @@ import org.chromium.chrome.browser.keyboard_accessory.sheet_component.AccessoryS
 import org.chromium.chrome.browser.multiwindow.MultiWindowModeStateDispatcher;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileJni;
+import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabHidingType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
+import org.chromium.components.autofill.autofill_ai.AutofillAiSourceAttributionInfo;
+import org.chromium.components.autofill.autofill_ai.SourceType;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.StateChangeReason;
+import org.chromium.components.browser_ui.settings.SettingsNavigation;
 import org.chromium.components.browser_ui.widget.ActionConfirmationDialog;
 import org.chromium.components.browser_ui.widget.ActionConfirmationDialog.DialogHandle;
 import org.chromium.components.browser_ui.widget.StrictButtonPressController.ButtonClickResult;
@@ -131,11 +142,13 @@ import org.chromium.ui.insets.InsetObserver;
 import org.chromium.ui.modaldialog.DialogDismissalCause;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.mojom.VirtualKeyboardMode;
+import org.chromium.url.GURL;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** Controller tests for the root controller for interactions with the manual filling UI. */
@@ -143,7 +156,8 @@ import java.util.concurrent.atomic.AtomicReference;
 @Features.EnableFeatures({
     ChromeFeatureList.AUTOFILL_ANDROID_DESKTOP_SUPPRESS_ACCESSORY_ON_EMPTY,
     ChromeFeatureList.AUTOFILL_ANDROID_DESKTOP_KEYBOARD_ACCESSORY_REVAMP,
-    ChromeFeatureList.AUTOFILL_ANDROID_KEYBOARD_ACCESSORY_DYNAMIC_POSITIONING
+    ChromeFeatureList.AUTOFILL_ANDROID_KEYBOARD_ACCESSORY_DYNAMIC_POSITIONING,
+    ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID
 })
 public class ManualFillingControllerTest {
     private static final int sKeyboardHeightDp = 100;
@@ -238,7 +252,7 @@ public class ManualFillingControllerTest {
          * @param actionType The type for the provided generation action.
          */
         void provideAction(@AccessoryAction int actionType) {
-            provideActions(new Action[] {new Action(actionType, CallbackUtils.emptyCallback())});
+            provideActions(new Action[] {new Action(actionType, wasObscured -> {})});
         }
 
         /**
@@ -366,9 +380,24 @@ public class ManualFillingControllerTest {
         when(mMockActivity.getCompositorViewHolderSupplier())
                 .thenReturn(compositorViewHolderSupplier);
         when(mMockActivity.getResources()).thenReturn(mMockResources);
+        ApplicationProvider.getApplicationContext().setTheme(R.style.Theme_BrowserUI_DayNight);
+        when(mMockActivity.getTheme())
+                .thenReturn(ApplicationProvider.getApplicationContext().getTheme());
+        when(mMockActivity.getColor(anyInt()))
+                .thenAnswer(
+                        invocation ->
+                                ApplicationProvider.getApplicationContext()
+                                        .getColor((Integer) invocation.getArgument(0)));
         when(mMockActivity.getPackageManager())
                 .thenReturn(RuntimeEnvironment.application.getPackageManager());
-        when(mMockActivity.getTheme()).thenReturn(RuntimeEnvironment.application.getTheme());
+        when(mMockActivity.getSystemService(Context.LAYOUT_INFLATER_SERVICE))
+                .thenReturn(
+                        ApplicationProvider.getApplicationContext()
+                                .getSystemService(Context.LAYOUT_INFLATER_SERVICE));
+        when(mMockActivity.getSystemService(LayoutInflater.class))
+                .thenReturn(
+                        ApplicationProvider.getApplicationContext()
+                                .getSystemService(LayoutInflater.class));
         when(mMockActivity.findViewById(android.R.id.content)).thenReturn(mMockContentView);
         when(mMockContentView.getRootView()).thenReturn(mock(View.class));
         mLastMockWebContents = mock(MockWebContents.class);
@@ -455,6 +484,257 @@ public class ManualFillingControllerTest {
         mController.destroy();
 
         assertThat(mMediator.getActionConfirmationDialogForTesting(), is(nullValue()));
+    }
+
+    @Test
+    public void testShowAutofillAiSuggestionDetailsDeclines() {
+        ActionConfirmationDialog mockDialog = mock(ActionConfirmationDialog.class);
+        mMediator.setActionConfirmationDialogForTesting(mockDialog);
+
+        Runnable confirmedCallback = mock(Runnable.class);
+        Runnable declinedCallback = mock(Runnable.class);
+
+        mController.showAutofillAiSuggestionDetails(
+                "Remove this info?",
+                "Your info was suggested by Gemini.",
+                "Remove",
+                "Got it",
+                List.of(
+                        new AutofillAiSourceAttributionInfo(
+                                SourceType.GMAIL,
+                                new GURL("https://mail.google.com/"),
+                                "Flight Confirmation")),
+                confirmedCallback,
+                declinedCallback);
+
+        ArgumentCaptor<ActionConfirmationDialog.ConfirmationDialogParams> paramsCaptor =
+                ArgumentCaptor.forClass(ActionConfirmationDialog.ConfirmationDialogParams.class);
+        ArgumentCaptor<ActionConfirmationDialog.ConfirmationDialogHandler> handlerCaptor =
+                ArgumentCaptor.forClass(ActionConfirmationDialog.ConfirmationDialogHandler.class);
+
+        verify(mockDialog).show(paramsCaptor.capture(), handlerCaptor.capture());
+
+        // Clicking positive button (Got it) should trigger declinedCallback
+        handlerCaptor
+                .getValue()
+                .onDialogInteracted(
+                        mock(ActionConfirmationDialog.DismissHandler.class),
+                        ButtonClickResult.POSITIVE,
+                        /* stopShowing= */ false);
+        verify(declinedCallback).run();
+        verify(confirmedCallback, never()).run();
+    }
+
+    @Test
+    public void testShowAutofillAiSuggestionDetailsConfirms() {
+        ActionConfirmationDialog mockDialog = mock(ActionConfirmationDialog.class);
+        mMediator.setActionConfirmationDialogForTesting(mockDialog);
+
+        Runnable confirmedCallback = mock(Runnable.class);
+        Runnable declinedCallback = mock(Runnable.class);
+
+        mController.showAutofillAiSuggestionDetails(
+                "Remove this info?",
+                "Your info was suggested by Gemini.",
+                "Remove",
+                "Got it",
+                List.of(
+                        new AutofillAiSourceAttributionInfo(
+                                SourceType.GMAIL,
+                                new GURL("https://mail.google.com/"),
+                                "Flight Confirmation")),
+                confirmedCallback,
+                declinedCallback);
+
+        ArgumentCaptor<ActionConfirmationDialog.ConfirmationDialogParams> paramsCaptor =
+                ArgumentCaptor.forClass(ActionConfirmationDialog.ConfirmationDialogParams.class);
+        ArgumentCaptor<ActionConfirmationDialog.ConfirmationDialogHandler> handlerCaptor =
+                ArgumentCaptor.forClass(ActionConfirmationDialog.ConfirmationDialogHandler.class);
+
+        verify(mockDialog).show(paramsCaptor.capture(), handlerCaptor.capture());
+
+        // Clicking negative button (Remove) should trigger confirmedCallback
+        handlerCaptor
+                .getValue()
+                .onDialogInteracted(
+                        mock(ActionConfirmationDialog.DismissHandler.class),
+                        ButtonClickResult.NEGATIVE,
+                        /* stopShowing= */ false);
+        verify(confirmedCallback).run();
+        verify(declinedCallback, never()).run();
+    }
+
+    @Test
+    public void testFormatAutofillAiSuppressionMessage_WithSources() {
+        SettingsNavigation mockSettingsNavigation = mock(SettingsNavigation.class);
+        SettingsNavigationFactory.setInstanceForTesting(mockSettingsNavigation);
+
+        String rawBody =
+                "From Gemini and connected apps · <src_link>View sources</src_link>\n\n"
+                        + "You can remove this suggestion from Chrome. Your original source won't"
+                        + " be deleted. <manage_link>Manage enhanced autofill</manage_link>";
+        List<AutofillAiSourceAttributionInfo> sources =
+                List.of(
+                        new AutofillAiSourceAttributionInfo(
+                                SourceType.GMAIL,
+                                new GURL("https://mail.google.com"),
+                                "Flight Confirmation"));
+        CharSequence formatted =
+                mMediator.formatAutofillAiSuppressionMessage(rawBody, sources, "Passport details");
+
+        assertTrue(formatted instanceof Spanned);
+        Spanned spanned = (Spanned) formatted;
+        ClickableSpan[] spans = spanned.getSpans(0, spanned.length(), ClickableSpan.class);
+        assertEquals(2, spans.length);
+
+        String plainText = spanned.toString();
+
+        // Verify span 1 ("View sources")
+        int sourcesStart = plainText.indexOf("View sources");
+        int sourcesEnd = sourcesStart + "View sources".length();
+        assertEquals(sourcesStart, spanned.getSpanStart(spans[0]));
+        assertEquals(sourcesEnd, spanned.getSpanEnd(spans[0]));
+
+        // Verify span 2 ("Manage enhanced autofill")
+        int settingsStart = plainText.indexOf("Manage enhanced autofill");
+        int settingsEnd = settingsStart + "Manage enhanced autofill".length();
+        assertEquals(settingsStart, spanned.getSpanStart(spans[1]));
+        assertEquals(settingsEnd, spanned.getSpanEnd(spans[1]));
+
+        // Trigger settings click
+        spans[1].onClick(null);
+        verify(mockSettingsNavigation).startSettings(eq(mMockActivity), any(), any(), eq(true));
+
+        when(mMockBottomSheetController.requestShowContent(any(), eq(true))).thenReturn(true);
+        // Trigger attribution click
+        spans[0].onClick(null);
+
+        // Trigger attribution click a second time while active and verify debounce
+        spans[0].onClick(null);
+        verify(mMockBottomSheetController, times(1))
+                .requestShowContent(argThat(isAttributionSheet()), eq(true));
+    }
+
+    @Test
+    public void testDestroy_DestroysActiveSourceAttributionCoordinator() {
+        String rawBody = "Suggested by Gemini · <src_link>View sources</src_link>";
+        List<AutofillAiSourceAttributionInfo> sources =
+                List.of(
+                        new AutofillAiSourceAttributionInfo(
+                                SourceType.GMAIL,
+                                new GURL("https://mail.google.com/"),
+                                "Flight Confirmation"));
+        CharSequence formatted = mMediator.formatAutofillAiSuppressionMessage(rawBody, sources, "");
+        Spanned spanned = (Spanned) formatted;
+        ClickableSpan[] spans = spanned.getSpans(0, spanned.length(), ClickableSpan.class);
+        assertEquals(1, spans.length);
+
+        when(mMockBottomSheetController.requestShowContent(any(), eq(true))).thenReturn(true);
+        spans[0].onClick(null);
+
+        mMediator.destroy();
+        verify(mMockBottomSheetController)
+                .hideContent(argThat(isAttributionSheet()), eq(false), eq(StateChangeReason.NONE));
+    }
+
+    @Test
+    public void testPause_DestroysActiveSourceAttributionCoordinatorAndReleasesDebounce() {
+        String rawBody = "Suggested by Gemini · <src_link>View sources</src_link>";
+        List<AutofillAiSourceAttributionInfo> sources =
+                List.of(
+                        new AutofillAiSourceAttributionInfo(
+                                SourceType.GMAIL,
+                                new GURL("https://mail.google.com/"),
+                                "Flight Confirmation"));
+        CharSequence formatted = mMediator.formatAutofillAiSuppressionMessage(rawBody, sources, "");
+        Spanned spanned = (Spanned) formatted;
+        ClickableSpan[] spans = spanned.getSpans(0, spanned.length(), ClickableSpan.class);
+        assertEquals(1, spans.length);
+
+        when(mMockBottomSheetController.requestShowContent(any(), eq(true))).thenReturn(true);
+        spans[0].onClick(null);
+
+        mMediator.pause();
+        verify(mMockBottomSheetController)
+                .hideContent(argThat(isAttributionSheet()), eq(false), eq(StateChangeReason.NONE));
+
+        // Debounce guard should be released, allowing sheet to open again.
+        spans[0].onClick(null);
+        verify(mMockBottomSheetController, times(2))
+                .requestShowContent(argThat(isAttributionSheet()), eq(true));
+    }
+
+    @Test
+    public void testShowAutofillAiSourceAttribution_requestsShowContent() {
+        List<AutofillAiSourceAttributionInfo> sources =
+                List.of(
+                        new AutofillAiSourceAttributionInfo(
+                                SourceType.GMAIL,
+                                new GURL("https://mail.google.com/"),
+                                "Flight Confirmation"));
+        when(mMockBottomSheetController.requestShowContent(any(), eq(true))).thenReturn(true);
+        mMediator.showAutofillAiSourceAttribution(sources, "Remove passport?");
+        verify(mMockBottomSheetController)
+                .requestShowContent(argThat(isAttributionSheet()), eq(true));
+    }
+
+    private static ArgumentMatcher<BottomSheetContent> isAttributionSheet() {
+        return content ->
+                content != null
+                        && content.getSheetFullHeightAccessibilityStringId()
+                                == org.chromium.chrome.browser.autofill.R.string
+                                        .autofill_ai_attribution_sheet_accessibility_title;
+    }
+
+    @Test
+    public void testFormatAutofillAiSuppressionMessage_MalformedTagsFallbackStripsLinkTags() {
+        // Overlapping or nested tags causing SpanApplier to throw IllegalArgumentException
+        String malformedBody =
+                "Suggested by Gemini · <src_link><manage_link>View"
+                        + " sources</src_link></manage_link>\n\n"
+                        + "You can remove this suggestion. Manage";
+        List<AutofillAiSourceAttributionInfo> sources =
+                List.of(
+                        new AutofillAiSourceAttributionInfo(
+                                SourceType.GMAIL,
+                                new GURL("https://mail.google.com"),
+                                "Flight Confirmation"));
+        CharSequence formatted =
+                mMediator.formatAutofillAiSuppressionMessage(malformedBody, sources, "");
+
+        String plainText = formatted.toString();
+        assertFalse(plainText.contains("<src_link>"));
+        assertFalse(plainText.contains("</src_link>"));
+        assertFalse(plainText.contains("<manage_link>"));
+        assertFalse(plainText.contains("</manage_link>"));
+        assertTrue(plainText.contains("View sources"));
+        assertTrue(plainText.contains("Manage"));
+    }
+
+    @Test
+    public void testDestroyDismissesActiveConfirmationDialog() {
+        ActionConfirmationDialog mockDialog = mock(ActionConfirmationDialog.class);
+        ActionConfirmationDialog.DismissHandler mockDismissHandler =
+                mock(ActionConfirmationDialog.DismissHandler.class);
+        when(mockDialog.show(any(), any())).thenReturn(mockDismissHandler);
+        mMediator.setActionConfirmationDialogForTesting(mockDialog);
+
+        mController.showAutofillAiSuggestionDetails(
+                "Title",
+                "Body",
+                "Remove",
+                "Got it",
+                List.of(
+                        new AutofillAiSourceAttributionInfo(
+                                SourceType.GMAIL,
+                                new GURL("https://mail.google.com/"),
+                                "Flight Confirmation")),
+                () -> {},
+                () -> {});
+        verify(mockDialog).show(any(), any());
+
+        mMediator.destroy();
+        verify(mockDismissHandler).dismiss(DialogDismissalCause.UNKNOWN);
     }
 
     @Test
@@ -1965,6 +2245,23 @@ public class ManualFillingControllerTest {
         verify(mMockAccessorySheet).setTabs(sheetTabCaptor.capture());
         assertThat(barTabCaptor.getValue().length, is(1));
         assertThat(sheetTabCaptor.getValue().length, is(1));
+    }
+
+    @Test
+    public void testNotifyingNullSheetDataDuringTeardownDoesNotCrash() {
+        // Regression test for crbug.com/518916125. When the native bridge is
+        // destroyed it broadcasts null to every registered sheet data provider
+        // (ManualFillingComponentBridge#destroy). While the WebContents is still
+        // showing, this used to forward null into a monotonic supplier that
+        // rejects null, throwing an AssertionError that crashed the browser via
+        // CheckException in the native destructor.
+        addBrowserTab(mMediator, 1234, null);
+        Provider<AccessorySheetData> sheetDataProvider = new Provider<>();
+        mController.registerSheetDataProvider(
+                mLastMockWebContents, AccessoryTabType.PASSWORDS, sheetDataProvider);
+
+        // Simulates the teardown broadcast; this must not throw.
+        sheetDataProvider.notifyObservers(null);
     }
 
     private Tab addBrowserTab(ManualFillingMediator mediator, int id, @Nullable Tab lastTab) {

@@ -22,10 +22,13 @@ import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.ResettersForTesting;
+import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.version_info.VersionInfo;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.intents.BrowserIntentUtils;
+import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.tabmodel.TabModelSelectorSupplier;
 import org.chromium.components.embedder_support.contextmenu.ContextMenuPopulatorFactory;
 import org.chromium.components.embedder_support.view.ContentView;
 import org.chromium.components.thinwebview.ThinWebView;
@@ -81,10 +84,12 @@ public class TabBottomSheetWebUi {
             ContextMenuPopulatorFactory contextMenuPopulatorFactory,
             SelectionDropdownMenuDelegate selectionDropdownMenuDelegate,
             @ColorInt int backgroundColor,
+            @ColorInt int placeholderElemColor,
             @TabBottomSheetClientType int clientType,
             @CoBrowseContainerType int containerType,
             @Nullable BiConsumer<GURL, String> ephemeralTabOpener,
-            @Nullable BiConsumer<GURL, String> readLaterOpener) {
+            @Nullable BiConsumer<GURL, String> readLaterOpener,
+            @Nullable CoBrowseComponentProvider componentProvider) {
         mContext = context;
         mWindowAndroid = windowAndroid;
         mContextMenuPopulatorFactory = contextMenuPopulatorFactory;
@@ -100,7 +105,9 @@ public class TabBottomSheetWebUi {
                         containerView,
                         windowAndroid,
                         backgroundColor,
-                        containerType == CoBrowseContainerType.SIDE_PANEL);
+                        placeholderElemColor,
+                        containerType == CoBrowseContainerType.SIDE_PANEL,
+                        componentProvider);
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -146,6 +153,25 @@ public class TabBottomSheetWebUi {
             // are routed through the host activity and resolved when onRequestPermissionsResult
             // fires.
             thinWindow.setAndroidPermissionDelegate(mWindowAndroid);
+
+            // Forward the host WindowAndroid's TabModelSelectorSupplier to the ThinWebView's
+            // orphaned window so that components querying the WebContents WindowAndroid
+            // (such as GlicTabPickerBridge) can access the host activity's tab model selector.
+            //
+            // Note this is a global change in behavior for this WebContents: any window-scoped
+            // lookup made from within this sheet - including
+            // TabModelSelectorSupplier#getCurrentTabFrom(webContents.getTopLevelNativeWindow()) -
+            // now resolves to the host activity's selector and its current tab, which is the tab
+            // in the background behind the sheet, instead of returning null. Autofill and password
+            // manager surfaces are not a concern here because attachToThinWebView() attaches tab
+            // helpers with enableBrowserAutofill = false, so ContentAutofillClient and the rest of
+            // the autofill infrastructure are never created for this WebContents.
+            MonotonicObservableSupplier<TabModelSelector> selectorSupplier =
+                    TabModelSelectorSupplier.from(mWindowAndroid);
+            if (selectorSupplier != null) {
+                TabModelSelectorSupplier.attach(
+                        thinWindow.getUnownedUserDataHost(), selectorSupplier);
+            }
         }
 
         if (requestFocus) {
@@ -287,6 +313,7 @@ public class TabBottomSheetWebUi {
 
     void destroy() {
         setWebContents(null, false);
+        mWebViewResizingHelper.destroy();
     }
 
     View getWebUiView() {

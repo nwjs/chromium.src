@@ -15,7 +15,7 @@
 #include "components/safe_browsing/buildflags.h"
 #include "components/safe_browsing/content/browser/safe_browsing_blocking_page_factory.h"
 #include "components/safe_browsing/content/browser/ui_manager.h"
-#include "components/safe_browsing/core/browser/db/v4_protocol_manager_util.h"
+#include "components/safe_browsing/core/browser/db/sb_protocol_manager_util.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 #include "services/network/test/test_url_loader_factory.h"
 
@@ -95,7 +95,7 @@ class TestSafeBrowsingService : public SafeBrowsingService,
   bool CanCreateDownloadProtectionService() override;
 #endif
   bool CanCreateIncidentReportingService() override;
-  SafeBrowsingDatabaseManager* CreateDatabaseManager() override;
+  scoped_refptr<SafeBrowsingDatabaseManager> CreateDatabaseManager() override;
 #if BUILDFLAG(SAFE_BROWSING_DOWNLOAD_PROTECTION)
   DownloadProtectionService* CreateDownloadProtectionService() override;
 #endif
@@ -134,7 +134,7 @@ class TestSafeBrowsingServiceFactory : public SafeBrowsingServiceFactory {
   // SafeBrowsingService::Initialize() is called.
   void SetTestUIManager(TestSafeBrowsingUIManager* ui_manager);
   void SetTestDatabaseManager(
-      TestSafeBrowsingDatabaseManager* database_manager);
+      scoped_refptr<TestSafeBrowsingDatabaseManager> database_manager);
 
   // Be default, the TestSafeBrowsingService creates an instance of the
   // TestSafeBrowsingDatabaseManager. This function can be used to override that

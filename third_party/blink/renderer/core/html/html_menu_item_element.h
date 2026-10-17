@@ -13,11 +13,17 @@ namespace blink {
 
 class HTMLMenuListElement;
 class HTMLMenuOwnerElement;
+class UIEvent;
 
 class CORE_EXPORT HTMLMenuItemElement final : public HTMLElement {
   DEFINE_WRAPPERTYPEINFO();
 
  public:
+  enum class CheckedBehavior {
+    kFireEvents,
+    kNoEvents,
+  };
+
   explicit HTMLMenuItemElement(Document&);
   ~HTMLMenuItemElement() override;
   ElementType GetElementType() const final {
@@ -32,10 +38,12 @@ class CORE_EXPORT HTMLMenuItemElement final : public HTMLElement {
   bool IsCheckable() const { return CheckableState() != Checkable::None; }
 
   bool checked() const;
+  bool checkedForBinding() const { return checked(); }
+  void setCheckedForBinding(bool checked);
   // This only sets `this` to checked if `IsCheckable()` is true. The return
   // value is true if this is a checkable menu item *and* a containing menu list
   // should be closed after changing the checked state.
-  bool setChecked(bool);
+  bool setChecked(bool checked, CheckedBehavior event_behavior);
   bool ShouldAppearChecked() const;
 
   HTMLMenuOwnerElement* OwningMenuElement() const {
@@ -63,7 +71,10 @@ class CORE_EXPORT HTMLMenuItemElement final : public HTMLElement {
       UpdateBehavior update_behavior =
           UpdateBehavior::kStyleAndLayout) const override;
 
+  bool HasActivationBehavior() const override;
+  void RunActivationBehavior(Event&, EventDispatchHandlingState*) override;
   void DefaultEventHandler(Event&) override;
+  static bool IsActivationFromKeyboard(const Event* activate_event);
 
   bool MatchesDefaultPseudoClass() const override;
   bool MatchesEnabledPseudoClass() const override;
@@ -89,7 +100,16 @@ class CORE_EXPORT HTMLMenuItemElement final : public HTMLElement {
   // such menulist, which (via popover close behavior) closes the tree.
   Element* CloseOutermostContainingMenuList();
   HTMLMenuListElement* FindOutermostContainingMenuList();
-  void ActivateMenuItem();
+  enum class ActivationKeyboardEventType {
+    kNotKeyboard,
+    kUntrustedKeyboard,
+    kTrustedKeyboard,
+  };
+  // Returns the type of keyboard activation, if any, that led to
+  // `activation_event`, which is either a click event or a DOMActivate event.
+  static ActivationKeyboardEventType GetActivationKeyboardEventType(
+      const Event& activation_event);
+  void ActivateMenuItem(ActivationKeyboardEventType);
   void HandleMenuPointerEvents(Event&);
   void HandleMenuKeyboardEvents(Event&);
   bool HasOwnerMenuList() const;

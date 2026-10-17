@@ -8,9 +8,9 @@
 #include <memory>
 #include <optional>
 
+#include "base/containers/span.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
-#include "base/memory/raw_ref.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
@@ -133,7 +133,10 @@ class AccountPreviewDataServiceImpl : public AccountPreviewDataService,
   void CreateAndStartRepeatingTimer();
   void ResetTimer();
   std::vector<AccountPreviewHeuristicContext> GetHeuristicContexts() const;
-  void ComputeAndStorePreferredAccount();
+  void ComputeAndStorePreferredAccount(
+      base::span<const AccountPreviewHeuristicContext> contexts);
+  void ComputeAndStoreSwitchingAccount(
+      base::span<const AccountPreviewHeuristicContext> contexts);
 
   void NotifyBatchBarrierOnFetchCompleted(const GaiaId& gaia_id);
   void MaybeNotifySinglePendingRequests(const GaiaId& gaia_id);

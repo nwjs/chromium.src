@@ -11,6 +11,7 @@
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/to_string.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/task_runner.h"
@@ -26,7 +27,8 @@
 #include "chrome/browser/actor/execution_engine.h"
 #include "chrome/browser/actor/tab_observation_controller.h"
 #include "chrome/browser/actor/tools/tool_request.h"
-#include "chrome/browser/actor/ui/actor_ui_state_manager_interface.h"
+#include "chrome/browser/actor/ui/actor_ui_state_manager.h"
+#include "chrome/browser/critical_actions/critical_action_factory.h"
 #include "chrome/browser/glic/actor/glic_actor_journal_handler.h"
 #include "chrome/browser/glic/actor/glic_actor_metrics.h"
 #include "chrome/browser/glic/actor/glic_actor_policy_checker.h"
@@ -47,6 +49,7 @@
 #include "components/actor/core/actor_features.h"
 #include "components/actor/core/journal_details_builder.h"
 #include "components/actor/public/mojom/actor_types.mojom.h"
+#include "components/critical_actions/core/browser/critical_action_service.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
 #include "components/page_content_annotations/content/page_context_fetcher.h"
 #include "components/sessions/core/session_id.h"
@@ -261,9 +264,16 @@ void GlicActorClientSession::CreateTask(
       actor::TaskSourceInfo(actor::TaskSourceInfo::Client::kGlic,
                             conversation_id),
       &actor_policy_checker(), std::move(options), GetWeakPtr(),
-      actor_keyed_service().GetActorUiStateManager(),
+      actor::ui::ActorUiStateManager::Get(&profile()),
       instance_metrics().initial_invocation_source());
   CHECK(!current_task_id_.is_null());
+
+  // TODO(b/561944228): CriticalActionService needs conversation_id, this is a
+  // temporary solution while b/494212836 is in place; remove once fixed.
+  if (!conversation_id.has_value() || conversation_id->empty()) {
+    manager_->pending_conversation_task_ids_.push_back(
+        base::NumberToString(current_task_id_.value()));
+  }
 
   if (manager_->delegate_) {
     manager_->delegate_->OnTaskIdChanged(current_task_id_.value());
@@ -276,6 +286,40 @@ void GlicActorClientSession::CreateTask(
           base::Unretained(this)));
 
   std::move(callback).Run(current_task_id_.value());
+}
+
+// TODO(b/561944228): CriticalActionService needs conversation_id, this is a
+// temporary solution while b/494212836 is in place; remove once fixed.
+void GlicActorTaskManager::OnConversationRegistered(
+    const std::string& conversation_id) {
+  if (pending_conversation_task_ids_.empty() || conversation_id.empty()) {
+    return;
+  }
+
+  // Backfill the conversation ID onto pending tasks created before
+  // RegisterConversation() completed. This is expected to happen while the task
+  // is still in kCreated (while awaiting asynchronous tab creation before
+  // PerformActions() transitions the task to kActing, which rebuilds the
+  // Android notification with the populated conversation ID). If registration
+  // arrives after the task is already acting, the updated ID will be picked up
+  // on the next notification rebuild (e.g. step progress or state category
+  // transition).
+  for (const auto& task_id_str : pending_conversation_task_ids_) {
+    int task_id_int;
+    if (base::StringToInt(task_id_str, &task_id_int)) {
+      if (actor::ActorTask* task =
+              actor_keyed_service_->GetTask(actor::TaskId(task_id_int))) {
+        task->SetSourceId(conversation_id);
+      }
+    }
+  }
+
+  if (auto* critical_action_service =
+          critical_actions::CriticalActionFactory::GetForProfile(profile_)) {
+    critical_action_service->SetCriticalActionsConversationId(
+        pending_conversation_task_ids_, conversation_id);
+  }
+  pending_conversation_task_ids_.clear();
 }
 
 void GlicActorClientSession::PerformActionsFinished(
@@ -587,7 +631,7 @@ void GlicActorTaskManager::MaybeShowDeactivationToastUi() {
 #if !BUILDFLAG(IS_ANDROID)
   BrowserWindowInterface* const last_active_bwi =
       GetLastActiveBrowserWindowInterfaceWithAnyProfile();
-  actor_keyed_service_->GetActorUiStateManager()->MaybeShowToast(
+  actor::ui::ActorUiStateManager::Get(profile())->MaybeShowToast(
       last_active_bwi);
 #endif
 }
@@ -1064,6 +1108,10 @@ base::WeakPtr<GlicActorClientSession> GlicActorClientSession::GetWeakPtr() {
 }
 
 void GlicActorTaskManager::UnbindSession() {
+  // TODO(b/561944228): CriticalActionService needs conversation_id, this is a
+  // temporary solution while b/494212836 is in place; remove once fixed.
+  pending_conversation_task_ids_.clear();
+
   session_.reset();
   MaybeNotifyActuatingChanged();
 }

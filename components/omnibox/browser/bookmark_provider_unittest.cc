@@ -449,7 +449,7 @@ TEST_F(BookmarkProviderTest, InlineAutocompletion) {
     auto relevance_and_bookmark_count =
         provider_->CalculateBookmarkMatchRelevance(bookmark_match);
     const AutocompleteMatch& ac_match = TitledUrlMatchToAutocompleteMatch(
-        bookmark_match, AutocompleteMatchType::BOOKMARK_TITLE,
+        bookmark_match, omnibox::AutocompleteMatchType::kBookmarkTitle,
         relevance_and_bookmark_count.first, relevance_and_bookmark_count.second,
         provider_.get(), classifier_, input, fixed_up_input);
     EXPECT_EQ(query_data[i].allowed_to_be_default_match,

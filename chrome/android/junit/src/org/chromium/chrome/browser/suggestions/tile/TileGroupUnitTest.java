@@ -33,8 +33,6 @@ import android.view.ContextThemeWrapper;
 import android.view.View;
 import android.widget.TextView;
 
-import androidx.test.filters.SmallTest;
-
 import org.hamcrest.CoreMatchers;
 import org.junit.Before;
 import org.junit.Rule;
@@ -108,7 +106,6 @@ public class TileGroupUnitTest {
     }
 
     @Test
-    @SmallTest
     @DisabledTest(message = "https://crbug.com/40819365")
     public void testInitialiseWithTileList() {
         mMostVisitedSites.setTileSuggestionsPassive(URLS);
@@ -137,7 +134,6 @@ public class TileGroupUnitTest {
      * event though the data did not change (still empty just like before initialisation).
      */
     @Test
-    @SmallTest
     public void testInitialiseWithEmptyTileList() {
         TileGroup tileGroup =
                 new TileGroup(
@@ -159,7 +155,6 @@ public class TileGroupUnitTest {
     }
 
     @Test
-    @SmallTest
     // If this flakes again, refer to https://crbug.com/40848015.
     public void testReceiveNewTilesWithoutChanges() {
         TileGroup tileGroup = initialiseTileGroup(URLS);
@@ -173,7 +168,6 @@ public class TileGroupUnitTest {
     }
 
     @Test
-    @SmallTest
     @DisabledTest(message = "https://crbug.com/40848015")
     public void testReceiveNewTilesWithoutChanges_TrackLoad() {
         TileGroup tileGroup = initialiseTileGroup(/* deferLoad= */ true, URLS);
@@ -188,7 +182,6 @@ public class TileGroupUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testReceiveNewTilesWithDataChanges() {
         TileGroup tileGroup = initialiseTileGroup(URLS);
 
@@ -205,7 +198,6 @@ public class TileGroupUnitTest {
     }
 
     @Test
-    @SmallTest
     // If this flakes again, refer to https://crbug.com/40227230, https://crbug.com/40819839.
     public void testReceiveNewTilesWithDataChanges_TrackLoad() {
         TileGroup tileGroup = initialiseTileGroup(/* deferLoad= */ true, URLS);
@@ -224,7 +216,6 @@ public class TileGroupUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testReceiveNewTilesWithCountChanges() {
         TileGroup tileGroup = initialiseTileGroup(URLS);
 
@@ -238,7 +229,6 @@ public class TileGroupUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testTileLoadingWhenVisibleNotBlockedForInit() {
         SuggestionsUiDelegate uiDelegate = mSuggestionsUiDelegate;
         when(uiDelegate.isVisible()).thenReturn(true);
@@ -260,7 +250,26 @@ public class TileGroupUnitTest {
     }
 
     @Test
-    @SmallTest
+    public void testTileLoading_DataChanged_CancelsActiveDragSession() {
+        SuggestionsUiDelegate uiDelegate = mSuggestionsUiDelegate;
+        when(uiDelegate.isVisible()).thenReturn(true);
+        TileGroup tileGroup =
+                new TileGroup(
+                        mTileRenderer,
+                        uiDelegate,
+                        mContextMenuManager,
+                        mTileGroupDelegate,
+                        mTileDragDelegate,
+                        mTileGroupObserver,
+                        mOfflinePageBridge);
+        tileGroup.startObserving(MAX_TILES_TO_FETCH);
+
+        mMostVisitedSites.setTileSuggestionsPassive(URLS);
+
+        verify(mTileDragDelegate).cancelActiveSession();
+    }
+
+    @Test
     public void testTileLoadingWhenVisibleBlocked() {
         SuggestionsUiDelegate uiDelegate = mSuggestionsUiDelegate;
         when(uiDelegate.isVisible()).thenReturn(true);
@@ -291,7 +300,6 @@ public class TileGroupUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testTileLoadingWhenVisibleBlocked_2() {
         TileGroup tileGroup = initialiseTileGroup(true, URLS);
 
@@ -308,7 +316,6 @@ public class TileGroupUnitTest {
     }
 
     @Test
-    @SmallTest
     // If this flakes again, refer to https://crbug.com/40227230, https://crbug.com/40819839.
     public void testRenderTileView() {
         SuggestionsUiDelegate uiDelegate = mSuggestionsUiDelegate;
@@ -342,7 +349,6 @@ public class TileGroupUnitTest {
 
     /** Check for https://crbug.com/40511776: don't crash on duplicated URLs. */
     @Test
-    @SmallTest
     public void testRenderTileViewWithDuplicatedUrl() {
         SuggestionsUiDelegate uiDelegate = mSuggestionsUiDelegate;
         when(uiDelegate.getImageFetcher()).thenReturn(mMockImageFetcher);
@@ -368,7 +374,6 @@ public class TileGroupUnitTest {
     }
 
     @Test
-    @SmallTest
     // If this flakes again, refer to https://crbug.com/40815816.
     public void testRenderTileViewReplacing() {
         SuggestionsUiDelegate uiDelegate = mSuggestionsUiDelegate;
@@ -405,7 +410,6 @@ public class TileGroupUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testRenderTileViewRecycling() {
         mMostVisitedSites.setTileSuggestionsPassive(URLS);
         List<SiteSuggestion> sites = mMostVisitedSites.getCurrentSites();
@@ -440,7 +444,6 @@ public class TileGroupUnitTest {
     }
 
     @Test
-    @SmallTest
     @DisabledTest(message = "https://crbug.com/40227230, https://crbug.com/40819839")
     public void testIconLoadingForInit() {
         TileGroup tileGroup = initialiseTileGroup(URLS);
@@ -458,7 +461,6 @@ public class TileGroupUnitTest {
     }
 
     @Test
-    @SmallTest
     @DisabledTest(message = "Test is flaky, see crbug.com/40816947")
     public void testIconLoadingWhenTileNotRegistered() {
         TileGroup tileGroup = initialiseTileGroup();
@@ -475,7 +477,6 @@ public class TileGroupUnitTest {
     }
 
     @Test
-    @SmallTest
     @DisabledTest(message = "https://crbug.com/40227230, https://crbug.com/40819839")
     public void testIconLoading_Sync() {
         TileGroup tileGroup = initialiseTileGroup();
@@ -494,7 +495,6 @@ public class TileGroupUnitTest {
     }
 
     @Test
-    @SmallTest
     @DisabledTest(message = "https://crbug.com/40227230, https://crbug.com/40819839")
     public void testIconLoading_AsyncNoTrack() {
         TileGroup tileGroup = initialiseTileGroup(/* deferLoad= */ true);
@@ -514,7 +514,6 @@ public class TileGroupUnitTest {
     }
 
     @Test
-    @SmallTest
     @DisabledTest(message = "https://crbug.com/40227230, https://crbug.com/40819839")
     public void testIconLoading_AsyncTrack() {
         TileGroup tileGroup = initialiseTileGroup(/* deferLoad= */ true);

@@ -24,7 +24,7 @@
 #include "base/trace_event/trace_event.h"
 #include "base/types/fixed_array.h"
 #include "components/safe_browsing/android/safe_browsing_api_handler_util.h"
-#include "components/safe_browsing/core/browser/db/v4_protocol_manager_util.h"
+#include "components/safe_browsing/core/browser/db/sb_protocol_manager_util.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "components/safe_browsing/core/common/safebrowsing_switches.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -334,12 +334,12 @@ SafeBrowsingJavaThreatType SBThreatTypeToSafeBrowsingApiJavaThreatType(
     case SB_THREAT_TYPE_SUBRESOURCE_FILTER:
     case SB_THREAT_TYPE_CSD_ALLOWLIST:
     case DEPRECATED_SB_THREAT_TYPE_URL_PASSWORD_PROTECTION_PHISHING:
+    case DEPRECATED_SB_THREAT_TYPE_BLOCKED_AD_REDIRECT:
+    case DEPRECATED_SB_THREAT_TYPE_BLOCKED_AD_POPUP:
     case SB_THREAT_TYPE_SAVED_PASSWORD_REUSE:
     case SB_THREAT_TYPE_SIGNED_IN_SYNC_PASSWORD_REUSE:
     case SB_THREAT_TYPE_SIGNED_IN_NON_SYNC_PASSWORD_REUSE:
-    case SB_THREAT_TYPE_BLOCKED_AD_REDIRECT:
     case SB_THREAT_TYPE_AD_SAMPLE:
-    case SB_THREAT_TYPE_BLOCKED_AD_POPUP:
     case SB_THREAT_TYPE_SUSPICIOUS_SITE:
     case SB_THREAT_TYPE_ENTERPRISE_PASSWORD_REUSE:
     case SB_THREAT_TYPE_APK_DOWNLOAD:

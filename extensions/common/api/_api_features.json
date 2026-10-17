@@ -284,17 +284,6 @@
         "chrome://skills/*"
       ]
     }, {
-      "internal": true,
-      "channel": "stable",
-      "contexts": [
-        "webui_untrusted"
-      ],
-      "matches": [
-        "chrome-untrusted://lens/*"
-      ],
-      // "desktop_android" is not supported.
-      "platforms": ["chromeos", "linux", "mac", "win"]
-    }, {
       // This feature is used by the Controlled Frame API and is specifically
       // enabled by //chrome.
       "internal": true,
@@ -969,15 +958,6 @@
       "chrome-extension://mfffpogegjflfpflabcdkioaeobkgjik/*"
     ]
   }, {
-    "internal": true,
-    "channel": "stable",
-    "contexts": [
-      "webui_untrusted"
-    ],
-    "matches": [
-      "chrome-untrusted://lens/*"
-    ]
-  }, {
     // This feature is used by the Controlled Frame API and is specifically
     // enabled by //chrome.
     "internal": true,
@@ -1028,15 +1008,6 @@
       "chrome://skills/*"
     ]
   }, {
-    "internal": true,
-    "channel": "stable",
-    "contexts": [
-      "webui_untrusted"
-    ],
-    "matches": [
-      "chrome-untrusted://lens/*"
-    ]
-  }, {
     // This feature is used by the Controlled Frame API and is specifically
     // enabled by //chrome.
     "internal": true,
@@ -1067,14 +1038,6 @@
       "chrome://os-settings/*",
       "chrome://parent-access/*",
       "chrome://skills/*"
-    ]
-  }, {
-    "channel": "stable",
-    "contexts": [
-      "webui_untrusted"
-    ],
-    "matches": [
-      "chrome-untrusted://lens/*"
     ]
   }]
 }

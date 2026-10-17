@@ -6,7 +6,6 @@
 
 #include <stddef.h>
 
-#include "ash/constants/ash_features.h"
 #include "ash/public/cpp/app_list/app_list_features.h"
 #include "base/files/file_enumerator.h"
 #include "base/metrics/field_trial_params.h"
@@ -21,7 +20,6 @@
 #include "chrome/browser/ash/app_list/search/files/file_search_provider.h"
 #include "chrome/browser/ash/app_list/search/files/zero_state_drive_provider.h"
 #include "chrome/browser/ash/app_list/search/files/zero_state_file_provider.h"
-#include "chrome/browser/ash/app_list/search/games/game_provider.h"
 #include "chrome/browser/ash/app_list/search/help_app_provider.h"
 #include "chrome/browser/ash/app_list/search/help_app_zero_state_provider.h"
 #include "chrome/browser/ash/app_list/search/keyboard_shortcut_provider.h"
@@ -34,6 +32,7 @@
 #include "chrome/browser/ash/app_list/search/system_info/system_info_card_provider.h"
 #include "chrome/browser/ash/arc/arc_util.h"
 #include "chrome/browser/ash/system_web_apps/apps/personalization_app/personalization_app_utils.h"
+#include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "components/omnibox/browser/autocomplete_classifier.h"
 
@@ -65,6 +64,7 @@ std::unique_ptr<SearchController> CreateSearchController(
       controller->GetAppSearchDataSource()));
   controller->AddProvider(std::make_unique<OmniboxProvider>(
       profile, list_controller, template_url_service,
+      BookmarkModelFactory::GetForBrowserContext(profile),
       LauncherSearchProviderTypes()));
 
   // File search providers are added only when not in guest session and running
@@ -90,11 +90,8 @@ std::unique_ptr<SearchController> CreateSearchController(
         kMaxAppShortcutResults, profile, list_controller));
   }
 
-  if (ash::features::IsLauncherContinueSectionWithRecentsEnabled()) {
-    controller->AddProvider(std::make_unique<ZeroStateFileProvider>(profile));
-
-    controller->AddProvider(std::make_unique<ZeroStateDriveProvider>(profile));
-  }
+  controller->AddProvider(std::make_unique<ZeroStateFileProvider>(profile));
+  controller->AddProvider(std::make_unique<ZeroStateDriveProvider>(profile));
 
   controller->AddProvider(std::make_unique<OsSettingsProvider>(profile));
 
@@ -108,9 +105,6 @@ std::unique_ptr<SearchController> CreateSearchController(
   controller->AddProvider(
       std::make_unique<DesksAdminTemplateProvider>(profile, list_controller));
 
-  controller->AddProvider(
-      std::make_unique<GameProvider>(profile, list_controller));
-
   if (ash::personalization_app::CanSeeWallpaperOrPersonalizationApp(profile)) {
     controller->AddProvider(std::make_unique<PersonalizationProvider>(profile));
   }
@@ -123,11 +117,11 @@ int LauncherSearchProviderTypes() {
   // which suggests Drive files on enterprise devices. This is disabled to
   // avoid duplication with search results from DriveFS.
   int providers = AutocompleteClassifier::DefaultOmniboxProviders() &
-                  ~AutocompleteProvider::TYPE_DOCUMENT;
+                  ~static_cast<int>(AutocompleteProvider::Type::kDocument);
 
   // The open tab provider is not included in the default providers, so add
   // it in manually.
-  providers |= AutocompleteProvider::TYPE_OPEN_TAB;
+  providers |= static_cast<int>(AutocompleteProvider::Type::kOpenTab);
 
   return providers;
 }

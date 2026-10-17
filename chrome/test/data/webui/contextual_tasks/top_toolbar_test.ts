@@ -6,6 +6,7 @@ import 'chrome://contextual-tasks/top_toolbar.js';
 import 'chrome://contextual-tasks/sources_menu.js';
 
 import {BrowserProxyImpl} from 'chrome://contextual-tasks/contextual_tasks_browser_proxy.js';
+import {ToolbarBrowserProxyImpl} from 'chrome://contextual-tasks/contextual_tasks_toolbar_browser_proxy.js';
 import type {ContextualTasksFaviconGroupElement} from 'chrome://contextual-tasks/favicon_group.js';
 import type {TopToolbarElement} from 'chrome://contextual-tasks/top_toolbar.js';
 import type {UnboundedDialog} from 'chrome://contextual-tasks/utils.js';
@@ -16,22 +17,54 @@ import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://
 import {eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 import {assertHTMLElement} from './contextual_tasks_test_utils.js';
-import {TestContextualTasksBrowserProxy} from './test_contextual_tasks_browser_proxy.js';
+import {TestContextualTasksBrowserProxy, TestToolbarBrowserProxy} from './test_contextual_tasks_browser_proxy.js';
+
+// clang-format off
+// <if expr="not is_android">
+import {LhsChipIdentifier} from 'chrome://contextual-tasks/toolbar_ui_api_data_model.mojom-webui.js';
+
+import {createFakePermissionChip as createFakeChip} from './test_contextual_tasks_browser_proxy.js';
+import type {TestContextualTasksToolbarUiService} from './test_contextual_tasks_browser_proxy.js';
+// </if>
+// clang-format on
 
 suite('TopToolbarTest', () => {
   let topToolbar: TopToolbarElement;
   let proxy: TestContextualTasksBrowserProxy;
+  let toolbarProxy: TestToolbarBrowserProxy;
 
   setup(() => {
     proxy = new TestContextualTasksBrowserProxy(
         'chrome://webui-test/contextual_tasks/test.html');
     BrowserProxyImpl.setInstance(proxy);
+    toolbarProxy = new TestToolbarBrowserProxy();
+    ToolbarBrowserProxyImpl.setInstance(toolbarProxy);
     loadTimeData.overrideValues({
       contextManagementInComposeboxEnabled: false,
       contextualTasksEnableSpatialModelToolbarLayout: false,
-      contextualTasksUnboundedMenuEnabled: true,
+      contextualTasksUnboundedMenuEnabled: false,
       contextualTasksSidePanelRearchitectureEnabled: false,
     });
+  });
+
+  test('updates contextInfos when onContextUpdated fires', async () => {
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    topToolbar = document.createElement('top-toolbar');
+    document.body.appendChild(topToolbar);
+    await microtasksFinished();
+
+    toolbarProxy.callbackRouterRemote.onContextUpdated([{
+      tab: {
+        url: 'https://example.com',
+        title: 'Example',
+        tabId: 1,
+        hasChromeTabData: false,
+      },
+    }]);
+    await microtasksFinished();
+
+    assertEquals(1, topToolbar.contextInfos.length);
+    assertEquals('Example', topToolbar.contextInfos[0]!.tab!.title);
   });
 
   (loadTimeData.getBoolean('isSmallDeviceFormFactor') ?
@@ -85,7 +118,7 @@ suite('TopToolbarTest', () => {
       const historyButton = topToolbar.$.threadHistoryButton;
       assertTrue(!!historyButton);
       historyButton.click();
-      await proxy.handler.whenCalled('showThreadHistory');
+      await toolbarProxy.handler.whenCalled('showThreadHistory');
     });
 
     test('hides thread history button on SRP', async () => {
@@ -153,6 +186,43 @@ suite('TopToolbarTest', () => {
     });
 
 
+    test('handles tab sources menu interactions', async () => {
+      const tab = {
+        title: 'Sample Tab',
+        url: 'https://example/sample.html',
+        hasChromeTabData: false,
+        tabId: 1,
+      };
+      topToolbar.contextInfos = [{tab: tab}];
+      await microtasksFinished();
+
+      const sourcesButton =
+          topToolbar.shadowRoot.querySelector<HTMLElement>('#sources');
+      assertTrue(!!sourcesButton);
+      sourcesButton.click();
+      await microtasksFinished();
+
+      const sourcesMenuElement = topToolbar.$.sourcesMenu.get();
+      const crActionMenu =
+          sourcesMenuElement.shadowRoot.querySelector('cr-action-menu');
+      assertTrue(!!crActionMenu);
+      assertTrue(crActionMenu.open);
+
+      const headers = sourcesMenuElement.shadowRoot.querySelectorAll('.header');
+      assertEquals(1, headers.length);
+
+      // Click the first tab item.
+      const tabItem = sourcesMenuElement.shadowRoot.querySelector<HTMLElement>(
+          'cr-url-list-item.dropdown-item');
+      assertTrue(!!tabItem);
+      tabItem.click();
+
+      const [tabId, url] =
+          await toolbarProxy.handler.whenCalled('onTabClickedFromSourcesMenu');
+      assertEquals(1, tabId);
+      assertDeepEquals(url, tab.url);
+    });
+
     test('handles file sources menu interactions', async () => {
       const file = {
         title: 'Sample Document',
@@ -183,7 +253,7 @@ suite('TopToolbarTest', () => {
       fileItem.click();
 
       const url =
-          await proxy.handler.whenCalled('onFileClickedFromSourcesMenu');
+          await toolbarProxy.handler.whenCalled('onFileClickedFromSourcesMenu');
       assertDeepEquals(url, file.url);
     });
 
@@ -218,8 +288,8 @@ suite('TopToolbarTest', () => {
       assertTrue(!!imageItem);
       imageItem.click();
 
-      const url =
-          await proxy.handler.whenCalled('onImageClickedFromSourcesMenu');
+      const url = await toolbarProxy.handler.whenCalled(
+          'onImageClickedFromSourcesMenu');
       assertDeepEquals(url, image.url);
     });
 
@@ -233,14 +303,14 @@ suite('TopToolbarTest', () => {
       assertTrue(!!openInNewTabButton);
       assertFalse(openInNewTabButton.disabled);
       openInNewTabButton.click();
-      await proxy.handler.whenCalled('moveTaskUiToNewTab');
+      await toolbarProxy.handler.whenCalled('moveTaskUiToNewTab');
 
       topToolbar.enableOpenInNewTabButton = false;
       await microtasksFinished();
       assertTrue(openInNewTabButton.disabled);
-      proxy.handler.reset();
+      toolbarProxy.handler.reset();
       openInNewTabButton.click();
-      assertEquals(0, proxy.handler.getCallCount('moveTaskUiToNewTab'));
+      assertEquals(0, toolbarProxy.handler.getCallCount('moveTaskUiToNewTab'));
     });
 
     test('shows 3 tab icons without number for 3 tabs', async () => {
@@ -408,28 +478,9 @@ suite('TopToolbarTest', () => {
         unpinTooltip: 'Unpin side panel',
       });
       topToolbar = document.createElement('top-toolbar');
-      topToolbar.isHandshakeComplete = true;
       document.body.appendChild(topToolbar);
       await microtasksFinished();
     });
-
-    test('hides pin button when handshake is not complete', async () => {
-      topToolbar.isHandshakeComplete = false;
-      await microtasksFinished();
-
-      const moreButton =
-          topToolbar.shadowRoot.querySelector<CrIconButtonElement>(
-              '#overflowMenuButton');
-      assertTrue(!!moreButton);
-      moreButton.click();
-      await microtasksFinished();
-
-      const menu = topToolbar.$.overflowMenu.get();
-      const pinButton =
-          menu.shadowRoot.querySelector<HTMLElement>('#pinButton');
-      assertFalse(!!pinButton);
-    });
-
 
     test('hides pin button when not on AI page', async () => {
       topToolbar.isAiPage = false;
@@ -483,12 +534,13 @@ suite('TopToolbarTest', () => {
           pinButton.innerText.trim(), loadTimeData.getString('pinTooltip'));
 
       pinButton.click();
-      await proxy.handler.whenCalled('pinSidePanel');
+      await toolbarProxy.handler.whenCalled('pinSidePanel');
     });
 
     test('handles unpin button click', async () => {
       // Simulate pinned state.
-      proxy.callbackRouterRemote.onSidePanelPinStateChanged(true);
+      toolbarProxy.callbackRouterRemote.onSidePanelPinStateChanged(true);
+      await toolbarProxy.callbackRouterRemote.$.flushForTesting();
       await microtasksFinished();
 
       const moreButton =
@@ -508,27 +560,48 @@ suite('TopToolbarTest', () => {
           pinButton.innerText.trim(), loadTimeData.getString('unpinTooltip'));
 
       pinButton.click();
-      await proxy.handler.whenCalled('unpinSidePanel');
+      await toolbarProxy.handler.whenCalled('unpinSidePanel');
     });
 
-    test('resets handshake complete when leaving AI page', async () => {
-      assertTrue(topToolbar.isHandshakeComplete);
+    test('updates pin state via Mojo', async () => {
+      toolbarProxy.callbackRouterRemote.onSidePanelPinStateChanged(true);
+      await toolbarProxy.callbackRouterRemote.$.flushForTesting();
+      await topToolbar.updateComplete;
 
-      topToolbar.isAiPage = false;
+      // Note: isPinned property on topToolbar is protected. We check via unpin
+      // button in menu.
+      const moreButton =
+          topToolbar.shadowRoot.querySelector<CrIconButtonElement>(
+              '#overflowMenuButton');
+      assertTrue(!!moreButton);
+      moreButton.click();
       await microtasksFinished();
 
-      assertFalse(topToolbar.isHandshakeComplete);
-      assertFalse(topToolbar.isAiPage);
+      const menu = topToolbar.$.overflowMenu.get();
+      const pinButton =
+          menu.shadowRoot.querySelector<HTMLElement>('#pinButton');
+      assertTrue(!!pinButton);
+      assertEquals(
+          pinButton.innerText.trim(), loadTimeData.getString('unpinTooltip'));
+
+      // Toggling back to unpinned should update the button text.
+      toolbarProxy.callbackRouterRemote.onSidePanelPinStateChanged(false);
+      await toolbarProxy.callbackRouterRemote.$.flushForTesting();
+      await topToolbar.updateComplete;
+      await microtasksFinished();
+
+      assertEquals(
+          pinButton.innerText.trim(), loadTimeData.getString('pinTooltip'));
     });
 
-    test('sets handshake complete on callback', async () => {
-      topToolbar.isHandshakeComplete = false;
-      await microtasksFinished();
+    test('pin state listener is removed on disconnect', async () => {
+      topToolbar.remove();
 
-      proxy.callbackRouterRemote.onHandshakeComplete();
-      await microtasksFinished();
+      toolbarProxy.callbackRouterRemote.onSidePanelPinStateChanged(true);
+      await toolbarProxy.callbackRouterRemote.$.flushForTesting();
+      await topToolbar.updateComplete;
 
-      assertTrue(topToolbar.isHandshakeComplete);
+      assertFalse((topToolbar as any).isPinned);
     });
   });
 
@@ -592,7 +665,7 @@ suite('TopToolbarTest', () => {
           assertTrue(!!openInNewTabButton);
           assertFalse(openInNewTabButton.disabled);
           openInNewTabButton.click();
-          await proxy.handler.whenCalled('moveTaskUiToNewTab');
+          await toolbarProxy.handler.whenCalled('moveTaskUiToNewTab');
 
           topToolbar.enableOpenInNewTabButton = false;
           await microtasksFinished();
@@ -612,7 +685,7 @@ suite('TopToolbarTest', () => {
       const myActivityButton = buttons[1];
       assertTrue(!!myActivityButton);
       myActivityButton.click();
-      await proxy.handler.whenCalled('openMyActivityUi');
+      await toolbarProxy.handler.whenCalled('openMyActivityUi');
     });
 
     test('handles help click', async () => {
@@ -628,7 +701,7 @@ suite('TopToolbarTest', () => {
       const helpButton = buttons[2];
       assertTrue(!!helpButton);
       helpButton.click();
-      await proxy.handler.whenCalled('openFeedbackUi');
+      await toolbarProxy.handler.whenCalled('openFeedbackUi');
     });
 
     test('calls maybeTriggerPinningPromo when AI page is shown', async () => {
@@ -872,33 +945,23 @@ suite('TopToolbarTest', () => {
     assertFalse(overflowMenuButton.classList.contains('active'));
 
     const menu = topToolbar.$.overflowMenu.get();
-    let showUnboundedCalled = false;
-    let hideUnboundedCalled = false;
+    // Stubbed so the test never depends on real platform surface support.
+    // The unbounded lifecycle itself is covered by unbounded_menu_test.ts.
     const dialogEl = menu.$.menu.getDialog() as UnboundedDialog;
-    dialogEl.showUnboundedElement = () => {
-      showUnboundedCalled = true;
-      return Promise.resolve();
-    };
-    dialogEl.hideUnboundedElement = () => {
-      hideUnboundedCalled = true;
-      return Promise.resolve();
-    };
+    dialogEl.showUnboundedElement = () => Promise.resolve();
+    dialogEl.hideUnboundedElement = () => Promise.resolve();
 
     // Open overflow menu
     overflowMenuButton.click();
     await microtasksFinished();
 
     assertTrue(overflowMenuButton.classList.contains('active'));
-    assertTrue(showUnboundedCalled);
-    assertTrue(dialogEl.hasAttribute('unbounded'));
 
     // Close overflow menu
     menu.close();
     await microtasksFinished();
 
     assertFalse(overflowMenuButton.classList.contains('active'));
-    assertTrue(hideUnboundedCalled);
-    assertFalse(dialogEl.hasAttribute('unbounded'));
   });
 
   test('closes overflow menu when the side panel loses focus', async () => {
@@ -924,31 +987,18 @@ suite('TopToolbarTest', () => {
 
   // <if expr="not is_android">
   suite('Permission Dashboard Integration', () => {
+    let toolbarUiService: TestContextualTasksToolbarUiService;
+
     setup(async () => {
       loadTimeData.overrideValues({
         contextualTasksSidePanelRearchitectureEnabled: true,
       });
       document.body.innerHTML = window.trustedTypes!.emptyHTML;
+      toolbarUiService = toolbarProxy.toolbarUiService;
       topToolbar = document.createElement('top-toolbar');
       document.body.appendChild(topToolbar);
       await microtasksFinished();
     });
-
-    function createFakeChip(overrides = {}) {
-      return {
-        isVisible: false,
-        isFullyCollapsed: false,
-        theme: 0,
-        promptStyle: 0,
-        userDecision: 0,
-        shouldShowBlockedIcon: false,
-        iconName: '',
-        message: '',
-        tooltip: '',
-        accessibilityName: '',
-        ...overrides,
-      };
-    }
 
     test(
         'hides and shows permission-dashboard, and hides and shows logo' +
@@ -977,7 +1027,10 @@ suite('TopToolbarTest', () => {
           topToolbar.permissionDashboardState = fakeState;
           await microtasksFinished();
 
-          assertTrue(!!topRow.querySelector('permission-dashboard'));
+          const dashboard = topRow.querySelector<HTMLElement&{delegate: any}>(
+              'permission-dashboard');
+          assertTrue(!!dashboard);
+          assertTrue(!!dashboard.delegate);
           assertTrue(logoContainer.hidden);
 
           // Remove the visible chip, so that the permission dashboard no longer
@@ -1027,7 +1080,10 @@ suite('TopToolbarTest', () => {
           topToolbar.permissionDashboardState = fakeState;
           await microtasksFinished();
 
-          assertTrue(!!topRow.querySelector('permission-dashboard'));
+          const dashboard = topRow.querySelector<HTMLElement&{delegate: any}>(
+              'permission-dashboard');
+          assertTrue(!!dashboard);
+          assertTrue(!!dashboard.delegate);
           assertTrue(logoContainer.hidden);
 
           // Remove the visible chip, so that the permission dashboard no longer
@@ -1042,6 +1098,83 @@ suite('TopToolbarTest', () => {
           assertFalse(!!topRow.querySelector('permission-dashboard'));
           assertFalse(logoContainer.hidden);
         });
+
+    test(
+        'loads initial state and updates on onPermissionDashboardStateChanged',
+        async () => {
+          await toolbarUiService.whenCalled('getInitialState');
+
+          const topRow = topToolbar.shadowRoot.querySelector('#top-row');
+          assertTrue(!!topRow);
+          assertFalse(!!topRow.querySelector('permission-dashboard'));
+
+          // Push an update over the observer callback router.
+          const observerRemote = toolbarProxy.bindToolbarUiObserverRemote();
+          const pushedState = {
+            indicatorChip: createFakeChip(),
+            requestChip:
+                createFakeChip({isVisible: true, iconName: 'kMicIcon'}),
+            isDividerVisible: false,
+          };
+          observerRemote.onPermissionDashboardStateChanged(pushedState);
+          await observerRemote.$.flushForTesting();
+          await microtasksFinished();
+
+          assertDeepEquals(pushedState, topToolbar.permissionDashboardState);
+          assertTrue(!!topRow.querySelector('permission-dashboard'));
+        });
+
+    test('forwards permission chip delegate calls to service', async () => {
+      topToolbar.permissionDashboardState = {
+        indicatorChip: createFakeChip(),
+        requestChip: createFakeChip({isVisible: true, iconName: 'kMicIcon'}),
+        isDividerVisible: false,
+      };
+      await microtasksFinished();
+
+      const topRow = topToolbar.shadowRoot.querySelector('#top-row');
+      assertTrue(!!topRow);
+      const dashboard = topRow.querySelector<HTMLElement&{delegate: any}>(
+          'permission-dashboard');
+      assertTrue(!!dashboard);
+      assertTrue(!!dashboard.delegate);
+
+      dashboard.delegate.onChipClicked(
+          LhsChipIdentifier.kPermissionRequest, true);
+      assertDeepEquals(
+          [LhsChipIdentifier.kPermissionRequest, true],
+          await toolbarUiService.whenCalled('onChipClicked'));
+
+      dashboard.delegate.onChipPointerEntered(
+          LhsChipIdentifier.kPermissionRequest);
+      assertEquals(
+          LhsChipIdentifier.kPermissionRequest,
+          await toolbarUiService.whenCalled('onChipPointerEntered'));
+
+      dashboard.delegate.onChipPointerExited(
+          LhsChipIdentifier.kPermissionRequest);
+      assertEquals(
+          LhsChipIdentifier.kPermissionRequest,
+          await toolbarUiService.whenCalled('onChipPointerExited'));
+
+      dashboard.delegate.onChipMousePressed(
+          LhsChipIdentifier.kPermissionRequest);
+      assertEquals(
+          LhsChipIdentifier.kPermissionRequest,
+          await toolbarUiService.whenCalled('onChipMousePressed'));
+
+      dashboard.delegate.onChipExpandAnimationEnded(
+          LhsChipIdentifier.kPermissionIndicator);
+      assertEquals(
+          LhsChipIdentifier.kPermissionIndicator,
+          await toolbarUiService.whenCalled('onChipExpandAnimationEnded'));
+
+      dashboard.delegate.onChipCollapseAnimationEnded(
+          LhsChipIdentifier.kPermissionIndicator);
+      assertEquals(
+          LhsChipIdentifier.kPermissionIndicator,
+          await toolbarUiService.whenCalled('onChipCollapseAnimationEnded'));
+    });
 
     test(
         'registers super G button help bubble anchor only when logo is shown',

@@ -34,6 +34,7 @@
 #import "ios/web/test/fakes/crw_fake_back_forward_list.h"
 #import "ios/web/test/fakes/crw_fake_web_view_navigation_proxy.h"
 #import "ios/web/test/test_url_constants.h"
+#import "ios/web/test/web_test_with_web_state_impl.h"
 #import "ios/web/web_state/ui/crw_web_view_navigation_proxy.h"
 #import "ios/web/web_state/web_state_impl.h"
 #import "net/base/apple/url_conversions.h"
@@ -2136,6 +2137,22 @@ TEST_P(
   EXPECT_EQ(GURL("http://www.url.com/0"), item->GetURL());
 }
 
+// Tests that a lazily created NavigationItemImpl uses
+// ReferrerPolicyStrictOriginWhenCrossOrigin with the previous entry's URL.
+TEST_P(NavigationManagerTest,
+       GetNavigationItemImplAtIndex_SynthesizedReferrerPolicy) {
+  [mock_wk_list_ setCurrentURL:@"http://www.url.com/1"
+                  backListURLs:@[ @"http://www.url.com/0" ]
+               forwardListURLs:nil];
+
+  NavigationItem* item = navigation_manager()->GetNavigationItemImplAtIndex(1);
+  ASSERT_TRUE(item);
+  EXPECT_EQ(GURL("http://www.url.com/1"), item->GetURL());
+  EXPECT_EQ(GURL("http://www.url.com/0"), item->GetReferrer().url);
+  EXPECT_EQ(web::ReferrerPolicyStrictOriginWhenCrossOrigin,
+            item->GetReferrer().policy);
+}
+
 TEST_P(NavigationManagerTest, UpdateCurrentItemForReplaceState) {
   navigation_manager()->AddPendingItem(
       GURL("http://www.url.com/0"),
@@ -2729,6 +2746,65 @@ TEST_P(NavigationManagerTest, EmptyWindowOpenNavigation) {
   manager_->GoToIndex(0);
 }
 
+// Tests that `GetBackwardItems()` and `GetForwardItems()` are empty for the
+// empty window open item, including after `WKBackForwardList` has advanced for
+// a navigation that hasn't committed yet.
+TEST_P(NavigationManagerTest, EmptyWindowOpenNavigationBackwardForwardItems) {
+  // Set up the precondition for an empty window open item.
+  // Use OCMStub for `URL` instead of OCMExpect because it will only be called
+  // when DCHECKS are enabled.
+  OCMStub([mock_web_view_ URL])
+      .andReturn(net::NSURLWithGURL(GURL(url::kAboutBlankURL)));
+  mock_wk_list_.currentItem = nil;
+
+  manager_->AddPendingItem(
+      GURL(url::kAboutBlankURL), Referrer(), ui::PAGE_TRANSITION_LINK,
+      web::NavigationInitiationType::RENDERER_INITIATED,
+      /*is_post_navigation=*/false, /*is_error_navigation=*/false,
+      web::HttpsUpgradeType::kNone);
+  manager_->CommitPendingItem();
+  ASSERT_EQ(1, manager_->GetItemCount());
+  EXPECT_TRUE(manager_->GetBackwardItems().empty());
+  EXPECT_TRUE(manager_->GetForwardItems().empty());
+
+  // Simulate the WKBackForwardList being updated for a new navigation before
+  // `didCommitNavigation:` is called, so that the web view reports a current
+  // item index that is ahead of the empty window open item.
+  [mock_wk_list_ setCurrentURL:@"http://www.url.com/1"
+                  backListURLs:@[ @"http://www.url.com/0" ]
+               forwardListURLs:nil];
+
+  // No back/forward navigation is possible from the empty window open item, so
+  // there is nothing to show in the back/forward menus either.
+  ASSERT_FALSE(manager_->CanGoBack());
+  ASSERT_FALSE(manager_->CanGoForward());
+  EXPECT_TRUE(manager_->GetBackwardItems().empty());
+  EXPECT_TRUE(manager_->GetForwardItems().empty());
+}
+
+// Tests that `GetBackwardItems()` and `GetForwardItems()` stop at the first
+// null item if `WKBackForwardList` fails to resolve an in-range item.
+TEST_P(NavigationManagerTest, BackwardForwardItemsStopAtNullItem) {
+  [mock_wk_list_ setCurrentURL:@"http://www.url.com/3"
+                  backListURLs:@[
+                    @"http://www.url.com/0", @"http://www.url.com/1",
+                    @"http://www.url.com/2"
+                  ]
+               forwardListURLs:@[
+                 @"http://www.url.com/4", @"http://www.url.com/5",
+                 @"http://www.url.com/6"
+               ]];
+  id partial_mock_wk_list = OCMPartialMock(mock_wk_list_);
+  OCMStub([partial_mock_wk_list itemAtIndex:-2]).andReturn(nil);
+  OCMStub([partial_mock_wk_list itemAtIndex:2]).andReturn(nil);
+  std::vector<NavigationItem*> back_items = manager_->GetBackwardItems();
+  ASSERT_EQ(1U, back_items.size());
+  EXPECT_EQ("http://www.url.com/2", back_items[0]->GetURL().spec());
+  std::vector<NavigationItem*> forward_items = manager_->GetForwardItems();
+  ASSERT_EQ(1U, forward_items.size());
+  EXPECT_EQ("http://www.url.com/4", forward_items[0]->GetURL().spec());
+}
+
 // Tests that GetVisibleWebViewURL() returns a cached GURL.
 TEST_P(NavigationManagerTest, TestGetVisibleWebViewOriginURLCache) {
   NavigationManagerImpl manager(&browser_state_, &delegate_);
@@ -2855,12 +2931,16 @@ TEST_P(NavigationManagerDetachedModeTest, NotSerializable) {
   EXPECT_FALSE(manager_->GetPendingItemImpl()->ShouldSkipSerialization());
 }
 
-class NavigationManagerSerialisationTest : public PlatformTest {
+class NavigationManagerSerialisationTest : public WebTestWithWebStateImpl {
  public:
-  NavigationManagerSerialisationTest() {
-    web_state_ = WebStateImpl::CreateWithFakeWebViewNavigationProxyForTesting(
-        WebState::CreateParams(&browser_state_),
-        [[CRWFakeWebViewNavigationProxy alloc] init]);
+  using PassKey = base::PassKey<NavigationManagerSerialisationTest>;
+  NavigationManagerSerialisationTest() : WebTestWithWebStateImpl(PassKey{}) {}
+
+  void SetUp() override {
+    WebTestWithWebStateImpl::SetUp();
+    web_state_ =
+        CreateWebStateImpl(WebState::CreateParams(GetBrowserState()),
+                           [[CRWFakeWebViewNavigationProxy alloc] init]);
   }
 
   ~NavigationManagerSerialisationTest() override {}
@@ -2872,11 +2952,7 @@ class NavigationManagerSerialisationTest : public PlatformTest {
 
   WebStateImpl* web_state() { return web_state_.get(); }
 
-  BrowserState* browser_state() { return &browser_state_; }
-
  private:
-  WebTaskEnvironment task_environment_;
-  FakeBrowserState browser_state_;
   std::unique_ptr<WebStateImpl> web_state_;
 };
 
@@ -3029,8 +3105,7 @@ TEST_F(NavigationManagerSerialisationTest, RestoreFromProto) {
   // perform a session restore and access the view to force instantiation
   // of the WKWebView.
   std::unique_ptr<web::WebStateImpl> web_state =
-      std::make_unique<web::WebStateImpl>(
-          web::WebState::CreateParams(browser_state()));
+      CreateWebStateImpl(web::WebState::CreateParams(GetBrowserState()));
   std::ignore = web_state->GetView();
 
   NavigationManagerImpl& navigation_manager =
@@ -3060,8 +3135,7 @@ TEST_F(NavigationManagerSerialisationTest, RestoreFromProto_Empty) {
   // perform a session restore and access the view to force instantiation
   // of the WKWebView.
   std::unique_ptr<web::WebStateImpl> web_state =
-      std::make_unique<web::WebStateImpl>(
-          web::WebState::CreateParams(browser_state()));
+      CreateWebStateImpl(web::WebState::CreateParams(GetBrowserState()));
   std::ignore = web_state->GetView();
 
   NavigationManagerImpl& navigation_manager =
@@ -3089,8 +3163,7 @@ TEST_F(NavigationManagerSerialisationTest, RestoreFromProto_LastItemIndex) {
   // perform a session restore and access the view to force instantiation
   // of the WKWebView.
   std::unique_ptr<web::WebStateImpl> web_state =
-      std::make_unique<web::WebStateImpl>(
-          web::WebState::CreateParams(browser_state()));
+      CreateWebStateImpl(web::WebState::CreateParams(GetBrowserState()));
   std::ignore = web_state->GetView();
 
   NavigationManagerImpl& navigation_manager =
@@ -3136,8 +3209,7 @@ TEST_F(NavigationManagerSerialisationTest, RestoreVirtualURLFromProto) {
   // perform a session restore and access the view to force instantiation
   // of the WKWebView.
   std::unique_ptr<web::WebStateImpl> web_state =
-      std::make_unique<web::WebStateImpl>(
-          web::WebState::CreateParams(browser_state()));
+      CreateWebStateImpl(web::WebState::CreateParams(GetBrowserState()));
   std::ignore = web_state->GetView();
 
   NavigationManagerImpl& navigation_manager =

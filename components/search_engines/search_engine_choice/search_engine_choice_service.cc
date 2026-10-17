@@ -29,7 +29,6 @@
 #include "base/version.h"
 #include "base/version_info/version_info.h"
 #include "components/country_codes/country_codes.h"
-#include "components/metrics/private_metrics/puma_histogram_functions.h"
 #include "components/metrics/profile_metrics_service.h"
 #include "components/policy/core/common/management/management_service.h"
 #include "components/policy/core/common/policy_service.h"
@@ -306,9 +305,6 @@ void RecordLegacyStaticEligibilityInternal(
 
   profile_metrics_service.UmaHistogramEnumeration(
       kSearchEngineChoiceScreenProfileInitConditionsHistogram, condition);
-  metrics::private_metrics::PumaHistogramEnumeration(
-      metrics::private_metrics::PumaType::kRc,
-      kPumaSearchChoiceScreenProfileInitConditionsHistogram, condition);
 }
 
 bool IsChoiceImported(const ChoiceCompletionMetadata& completion_metadata,
@@ -773,9 +769,6 @@ void SearchEngineChoiceService::RecordTriggeringEligibility(
 
   profile_metrics_service_->UmaHistogramEnumeration(
       kSearchEngineChoiceScreenNavigationConditionsHistogram, condition);
-  metrics::private_metrics::PumaHistogramEnumeration(
-      metrics::private_metrics::PumaType::kRc,
-      kPumaSearchChoiceScreenNavigationConditionsHistogram, condition);
 
   regional_capabilities::RecordTriggeringFunnelStageDetails(
       condition, *profile_metrics_service_);
@@ -794,9 +787,6 @@ void SearchEngineChoiceService::RecordChoiceScreenEvent(
 
   profile_metrics_service_->UmaHistogramEnumeration(
       kSearchEngineChoiceScreenEventsHistogram, event);
-  metrics::private_metrics::PumaHistogramEnumeration(
-      metrics::private_metrics::PumaType::kRc,
-      kPumaSearchChoiceScreenEventsHistogram, event);
 
   if (event == SearchEngineChoiceScreenEvents::kChoiceScreenWasDisplayed ||
       event == SearchEngineChoiceScreenEvents::kFreChoiceScreenWasDisplayed ||
@@ -891,7 +881,7 @@ void SearchEngineChoiceService::RecordChoiceMade(
     // There is an existing record AND we should keep it. In this case, being
     // called from a choice screen is not expected.
     CHECK_NE(choice_location, ChoiceMadeLocation::kChoiceScreen,
-             base::NotFatalUntil::M156);
+             base::NotFatalUntil::M158);
     return;
   }
 
@@ -954,7 +944,7 @@ void SearchEngineChoiceService::MaybeRecordChoiceScreenDisplayState(
         // cache. If programs are compatible, we should NOT have reached this
         // state. Re-entry for the same program is a bug. See
         // crbug.com/390272573.
-        NOTREACHED(base::NotFatalUntil::M156);
+        NOTREACHED(base::NotFatalUntil::M158);
       }
 
       // If we are recording a new display state because we changed programs,

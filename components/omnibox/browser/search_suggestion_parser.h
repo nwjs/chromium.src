@@ -54,7 +54,7 @@ class SearchSuggestionParser {
     Result(bool from_keyword,
            int relevance,
            bool relevance_from_server,
-           AutocompleteMatchType::Type type,
+           omnibox::AutocompleteMatchType type,
            omnibox::SuggestType suggest_type,
            std::vector<int> subtypes,
            const std::string& deletion_url,
@@ -69,7 +69,7 @@ class SearchSuggestionParser {
       return match_contents_class_;
     }
 
-    AutocompleteMatchType::Type type() const { return type_; }
+    omnibox::AutocompleteMatchType type() const { return type_; }
     omnibox::SuggestType suggest_type() const { return suggest_type_; }
     const std::vector<int>& subtypes() const { return subtypes_; }
     int relevance() const { return relevance_; }
@@ -108,7 +108,7 @@ class SearchSuggestionParser {
     bool from_keyword_;
 
     // AutocompleteMatch type.
-    AutocompleteMatchType::Type type_;
+    omnibox::AutocompleteMatchType type_;
 
     // Suggestion type.
     omnibox::SuggestType suggest_type_;
@@ -146,7 +146,7 @@ class SearchSuggestionParser {
   class SuggestResult : public Result {
    public:
     SuggestResult(const std::u16string& suggestion,
-                  AutocompleteMatchType::Type type,
+                  omnibox::AutocompleteMatchType type,
                   omnibox::SuggestType suggest_type,
                   std::vector<int> subtypes,
                   bool from_keyword,
@@ -155,7 +155,7 @@ class SearchSuggestionParser {
                   bool relevance_from_server,
                   const std::u16string& input_text);
     SuggestResult(const std::u16string& suggestion,
-                  AutocompleteMatchType::Type type,
+                  omnibox::AutocompleteMatchType type,
                   omnibox::SuggestType suggest_type,
                   std::vector<int> subtypes,
                   const std::u16string& match_contents,
@@ -171,7 +171,7 @@ class SearchSuggestionParser {
                   const std::u16string& input_text);
     SuggestResult(
         const std::u16string& suggestion,
-        AutocompleteMatchType::Type type,
+        omnibox::AutocompleteMatchType type,
         omnibox::SuggestType suggest_type,
         std::vector<int> subtypes,
         const std::u16string& match_contents,
@@ -278,7 +278,7 @@ class SearchSuggestionParser {
    public:
     NavigationResult(const AutocompleteSchemeClassifier& scheme_classifier,
                      const GURL& url,
-                     AutocompleteMatchType::Type type,
+                     omnibox::AutocompleteMatchType type,
                      omnibox::SuggestType suggest_type,
                      std::vector<int> subtypes,
                      const std::u16string& description,

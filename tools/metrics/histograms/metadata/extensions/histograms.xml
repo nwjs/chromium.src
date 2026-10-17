@@ -197,7 +197,7 @@ This is emitted for two scenarios when a worker may be unregistered:
 </histogram>
 
 <histogram name="ExtensionBlacklist.BlockCRX" enum="ExtensionLocation"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>anunoy@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -224,7 +224,7 @@ This is emitted for two scenarios when a worker may be unregistered:
 </histogram>
 
 <histogram name="ExtensionBlacklist.UnblacklistInstalled"
-    enum="ExtensionLocation" expires_after="2027-01-17">
+    enum="ExtensionLocation" expires_after="2027-03-21">
   <owner>anunoy@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -471,8 +471,8 @@ This is emitted for two scenarios when a worker may be unregistered:
 </histogram>
 
 <histogram name="Extensions.CommandLineInstalled" units="count"
-    expires_after="2027-01-24">
-  <owner>richche@chromium.org</owner>
+    expires_after="2027-09-13">
+  <owner>richche@google.com</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
     Records when a command-line extension is installed. Emitted on every profile
@@ -483,8 +483,8 @@ This is emitted for two scenarios when a worker may be unregistered:
 </histogram>
 
 <histogram name="Extensions.CommandLineManifestSettingsOverride"
-    enum="ManifestSettingsOverrideType" expires_after="2027-01-24">
-  <owner>richche@chromium.org</owner>
+    enum="ManifestSettingsOverrideType" expires_after="2027-09-13">
+  <owner>richche@google.com</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
     Records the default search engine, new tab page, both, or none of the
@@ -948,7 +948,7 @@ This is emitted for two scenarios when a worker may be unregistered:
 </histogram>
 
 <histogram name="Extensions.DaysSinceInstall" units="days"
-    expires_after="2027-05-11">
+    expires_after="2027-09-13">
   <owner>richche@google.com</owner>
   <owner>anunoy@chromium.org</owner>
   <summary>
@@ -959,7 +959,7 @@ This is emitted for two scenarios when a worker may be unregistered:
 </histogram>
 
 <histogram name="Extensions.DaysSinceLastUpdate" units="days"
-    expires_after="2027-05-11">
+    expires_after="2027-09-13">
   <owner>richche@google.com</owner>
   <owner>anunoy@chromium.org</owner>
   <summary>
@@ -1103,7 +1103,7 @@ This is emitted for two scenarios when a worker may be unregistered:
 </histogram>
 
 <histogram name="Extensions.DeclarativeNetRequest.LoadRulesetResult"
-    enum="LoadRulesetResult" expires_after="2027-01-17">
+    enum="LoadRulesetResult" expires_after="2027-03-21">
   <owner>kelvinjiang@chromium.org</owner>
   <owner>src/extensions/OWNERS</owner>
   <summary>
@@ -1177,7 +1177,7 @@ This is emitted for two scenarios when a worker may be unregistered:
 </histogram>
 
 <histogram
-    name="Extensions.DeclarativeNetRequest.RegexRulesEvaluationPercentage"
+    name="Extensions.DeclarativeNetRequest.RegexRulesBeforeRequestEvaluationPercentage"
     units="%" expires_after="2026-12-01">
   <owner>kelvinjiang@chromium.org</owner>
   <owner>src/extensions/OWNERS</owner>
@@ -1370,7 +1370,7 @@ This is emitted for two scenarios when a worker may be unregistered:
 </histogram>
 
 <histogram name="Extensions.DeveloperModeEnabled" enum="Boolean"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>jlulejian@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -1385,8 +1385,8 @@ This is emitted for two scenarios when a worker may be unregistered:
 </histogram>
 
 <histogram name="Extensions.DeveloperModeStatusEnabled" enum="Boolean"
-    expires_after="2027-02-07">
-  <owner>richche@chromium.org</owner>
+    expires_after="2027-09-13">
+  <owner>richche@google.com</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
     The current developer mode status of the main profile. Recorded for all UMA
@@ -1924,7 +1924,7 @@ This is emitted for two scenarios when a worker may be unregistered:
 </histogram>
 
 <histogram name="Extensions.ExtensionDisabledRemotely2"
-    enum="ExtensionUpdateCheckDataKey" expires_after="2027-01-17">
+    enum="ExtensionUpdateCheckDataKey" expires_after="2027-03-21">
   <owner>anunoy@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1976,8 +1976,8 @@ This is emitted for two scenarios when a worker may be unregistered:
 </histogram>
 
 <histogram name="Extensions.ExtensionReenabledRemotely" units="count"
-    expires_after="2027-01-17">
-  <owner>richche@chromium.org</owner>
+    expires_after="2027-09-13">
+  <owner>richche@google.com</owner>
   <owner>anunoy@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -2305,7 +2305,7 @@ This is emitted for two scenarios when a worker may be unregistered:
 </histogram>
 
 <histogram name="Extensions.ForceInstalledManagementAuthorityTrustworthiness"
-    enum="ManagementAuthorityTrustworthiness" expires_after="2027-01-17">
+    enum="ManagementAuthorityTrustworthiness" expires_after="2027-09-13">
   <owner>richche@google.com</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -3328,8 +3328,8 @@ This is emitted for two scenarios when a worker may be unregistered:
 </histogram>
 
 <histogram name="Extensions.LoadingFromCommandLine" enum="LoadExtensionFlag"
-    expires_after="2026-09-13">
-  <owner>richche@chromium.org</owner>
+    expires_after="2027-09-13">
+  <owner>richche@google.com</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
     Recorded when extension are loaded via the &quot;--load-extension&quot; or
@@ -3740,7 +3740,7 @@ This is emitted for two scenarios when a worker may be unregistered:
 
 <histogram
     name="Extensions.NonWebstoreLocationWith{DeveloperModeState}{ExtensionState}3"
-    enum="ExtensionLocation" expires_after="2026-12-06">
+    enum="ExtensionLocation" expires_after="2027-09-13">
   <owner>richche@google.com</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -3908,7 +3908,7 @@ This is emitted for two scenarios when a worker may be unregistered:
 </histogram>
 
 <histogram name="Extensions.RuntimeUninstallURL.Host"
-    enum="ExtensionRuntimeUninstallURLHost" expires_after="M155">
+    enum="ExtensionRuntimeUninstallURLHost" expires_after="2027-03-14">
   <owner>rdevlin.cronin@chromium.org</owner>
   <owner>bershanskyi@gmail.com</owner>
   <owner>extensions-core@chromium.org</owner>
@@ -3979,7 +3979,7 @@ This is emitted for two scenarios when a worker may be unregistered:
 </histogram>
 
 <histogram name="Extensions.SearchEngineOverrides2" units="units"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>rdevlin.cronin@chromium.org</owner>
   <owner>kelvinjiang@chromium.org</owner>
   <summary>
@@ -4094,7 +4094,7 @@ This is emitted for two scenarios when a worker may be unregistered:
 </histogram>
 
 <histogram name="Extensions.ServiceWorkerBackground.Registration_FailStatus"
-    enum="ServiceWorkerStatusCode" expires_after="2027-01-10">
+    enum="ServiceWorkerStatusCode" expires_after="2027-03-14">
   <owner>jlulejian@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -4281,7 +4281,7 @@ This is emitted for two scenarios when a worker may be unregistered:
 </histogram>
 
 <histogram name="Extensions.ServiceWorkerBackground.WorkerCountAfterAdd"
-    units="registered workers" expires_after="2027-01-17">
+    units="registered workers" expires_after="2027-03-21">
   <owner>andreaorru@chromium.org</owner>
   <owner>jlulejian@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
@@ -4307,7 +4307,7 @@ This is emitted for two scenarios when a worker may be unregistered:
 
 <histogram
     name="Extensions.ServiceWorkerBackground.WorkerRegistrationRetryAttemptsResult"
-    enum="Boolean" expires_after="2027-01-10">
+    enum="Boolean" expires_after="2027-03-14">
   <owner>jlulejian@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -4324,7 +4324,7 @@ This is emitted for two scenarios when a worker may be unregistered:
 </histogram>
 
 <histogram name="Extensions.ServiceWorkerBackground.WorkerRegistrationState"
-    enum="Boolean" expires_after="2027-01-10">
+    enum="Boolean" expires_after="2027-03-14">
   <owner>jlulejian@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -4408,7 +4408,7 @@ This is emitted for two scenarios when a worker may be unregistered:
 
 <histogram
     name="Extensions.ServiceWorkerBackground.WorkerVersionIdState_OnInitialized_NotActive"
-    enum="WorkerVersionIdState" expires_after="2027-01-17">
+    enum="WorkerVersionIdState" expires_after="2027-03-21">
   <owner>andreaorru@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -4507,6 +4507,19 @@ This is emitted for two scenarios when a worker may be unregistered:
   </summary>
 </histogram>
 
+<histogram name="Extensions.SettingsOverridden.DseExtensionStackState"
+    enum="SearchOverrideStackState" expires_after="2027-03-14">
+  <owner>koretadaniel@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <summary>
+    The state of the stack of enabled DSE-overriding extensions below the
+    controlling extension (ordered by precedence). Recorded at most once per
+    regular profile per browser session on Windows and Mac when a browser window
+    is initialized with an extension controlling the DSE (regardless of whether
+    the settings overridden dialog is shown).
+  </summary>
+</histogram>
+
 <histogram
     name="Extensions.SettingsOverridden.GenericNtpOverriddenDialogResult"
     enum="SettingsOverriddenDialogResult" expires_after="2026-11-15">
@@ -4536,13 +4549,71 @@ This is emitted for two scenarios when a worker may be unregistered:
 </histogram>
 
 <histogram name="Extensions.SettingsOverridden.MissingParams"
-    enum="MissingParams" expires_after="2027-01-17">
+    enum="MissingParams" expires_after="2027-03-21">
   <owner>rdevlin.cronin@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
     Records whether any search parameters are missing when populating the values
     for the Explicit Choice dialog.
+  </summary>
+</histogram>
+
+<histogram
+    name="Extensions.SettingsOverridden.SearchOverriddenDialogResult.{SearchOverrideStackState}"
+    enum="SettingsOverriddenDialogResult" expires_after="2027-03-14">
+  <owner>koretadaniel@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <summary>
+    The action taken on the search settings overridden dialog when
+    {SearchOverrideStackState}. Recorded on Windows and Mac each time the dialog
+    is answered or dismissed.
+  </summary>
+  <token key="SearchOverrideStackState">
+    <variant name="AcknowledgedExtensionNext"
+        summary="the extension next in precedence was acknowledged"/>
+    <variant name="MustRemainEnabledExtensionNext"
+        summary="the extension next in precedence was never acknowledged but
+                 cannot be disabled"/>
+    <variant name="SingleOverride"
+        summary="the controlling extension is the only one overriding search"/>
+    <variant name="UnacknowledgedChainOverAcknowledgedExtension"
+        summary="unacknowledged extensions sit between the controlling one
+                 and an acknowledged extension"/>
+    <variant name="UnacknowledgedChainOverMustRemainEnabledExtension"
+        summary="unacknowledged extensions sit between the controlling one
+                 and an extension that cannot be disabled"/>
+    <variant name="UnacknowledgedChainOverNonExtensionDefault"
+        summary="unacknowledged extensions sit between the controlling one
+                 and the non-extension default"/>
+  </token>
+</histogram>
+
+<histogram
+    name="Extensions.SettingsOverridden.SearchOverriddenDialogStackState"
+    enum="SearchOverrideStackState" expires_after="2027-03-14">
+  <owner>koretadaniel@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <summary>
+    The state of the stack of enabled DSE-overriding extensions below the
+    controlling extension (ordered by precedence). Recorded on Windows and Mac
+    the first time the search settings overridden dialog is shown for a given
+    controlling extension in a browser session.
+  </summary>
+</histogram>
+
+<histogram
+    name="Extensions.SettingsOverridden.SearchOverriddenDialogUnacknowledgedChainLength"
+    units="extensions" expires_after="2027-03-14">
+  <owner>koretadaniel@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <improvement direction="LOWER_IS_BETTER"/>
+  <summary>
+    The number of enabled, unacknowledged DSE-overriding extensions sitting
+    between the controlling extension (excluded) and the first acknowledged or
+    force-installed extension (or the non-extension default). Recorded on
+    Windows and Mac the first time the search settings overridden dialog is
+    shown for a given controlling extension in a browser session.
   </summary>
 </histogram>
 

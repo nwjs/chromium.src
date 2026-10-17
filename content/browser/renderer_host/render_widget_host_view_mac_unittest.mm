@@ -599,6 +599,9 @@ class RenderWidgetHostViewMacTest : public RenderViewHostImplTestHarness {
 
   void ActivateViewWithTextInputManager(RenderWidgetHostViewBase* view,
                                         ui::TextInputType type) {
+    if (view && view->host()) {
+      delegate_.set_focused_widget(view->host());
+    }
     ui::mojom::TextInputState state;
     state.type = type;
     view->TextInputStateChanged(state);
@@ -702,6 +705,27 @@ TEST_F(RenderWidgetHostViewMacTest, Basic) {
 TEST_F(RenderWidgetHostViewMacTest, AcceptsFirstResponder) {
   // The RWHVCocoa should normally accept first responder status.
   EXPECT_TRUE(rwhv_cocoa_.acceptsFirstResponder);
+}
+
+// A mouse exited event arriving at a hidden view (synthesized by
+// -[BaseView viewDidHide] when the view hides under the cursor) must still be
+// delivered to the renderer so that stale :hover state is cleared. See
+// https://crbug.com/548314090.
+TEST_F(RenderWidgetHostViewMacTest, HiddenViewDeliversMouseExit) {
+  rwhv_cocoa_.hidden = YES;
+  host_->GetAndResetDispatchedMessages();
+
+  [rwhv_cocoa_ mouseEvent:cocoa_test_event_utils::ExitEvent(NSMakePoint(10, 10),
+                                                            window_)];
+
+  MockWidgetInputHandler::MessageVector events;
+  ASSERT_TRUE(base::test::RunUntil([&] {
+    MockWidgetInputHandler::MessageVector new_events =
+        host_->GetAndResetDispatchedMessages();
+    std::move(new_events.begin(), new_events.end(), std::back_inserter(events));
+    return !events.empty();
+  }));
+  EXPECT_EQ("MouseLeave", GetMessageNames(events));
 }
 
 // This test verifies that RenderWidgetHostViewCocoa's implementation of
@@ -2000,6 +2024,9 @@ class InputMethodMacTest : public RenderWidgetHostViewMacTest {
   void SetTextInputType(RenderWidgetHostViewBase* view,
                         ui::TextInputType type,
                         ui::TextInputFlags flags = ui::TEXT_INPUT_FLAG_NONE) {
+    if (view && view->host()) {
+      delegate_.set_focused_widget(view->host());
+    }
     ui::mojom::TextInputState state;
     state.type = type;
     state.flags = flags;
@@ -2413,7 +2440,7 @@ TEST_F(InputMethodMacTest, MonitorCompositionRangeForActiveWidget) {
   state.type = ui::TEXT_INPUT_TYPE_TEXT;
 
   // Make the tab's widget active.
-  tab_view()->TextInputStateChanged(state);
+  SetTextInputType(tab_view(), ui::TEXT_INPUT_TYPE_TEXT);
 
   base::RunLoop().RunUntilIdle();
   MockWidgetInputHandler::MessageVector events =
@@ -2428,7 +2455,7 @@ TEST_F(InputMethodMacTest, MonitorCompositionRangeForActiveWidget) {
   EXPECT_TRUE(message->monitor_request());
 
   // Now make the child view active.
-  child_view_->TextInputStateChanged(state);
+  SetTextInputType(child_view_, ui::TEXT_INPUT_TYPE_TEXT);
 
   // The tab should receive another IPC for composition updates.
   base::RunLoop().RunUntilIdle();
@@ -2452,7 +2479,7 @@ TEST_F(InputMethodMacTest, MonitorCompositionRangeForActiveWidget) {
   EXPECT_TRUE(message->monitor_request());
 
   // Make the tab view active again.
-  tab_view()->TextInputStateChanged(state);
+  SetTextInputType(tab_view(), ui::TEXT_INPUT_TYPE_TEXT);
 
   base::RunLoop().RunUntilIdle();
   events = child_widget_->GetAndResetDispatchedMessages();

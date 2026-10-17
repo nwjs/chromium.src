@@ -140,7 +140,11 @@ source_set("impl") {
       "//chrome/browser/password_manager/password_change",
       "//chrome/browser/signin",
       "//chrome/browser/ui:browser_actions",
+      "//chrome/browser/ui:browser_command_controller",
+      "//chrome/browser/ui:browser_commands",
+      "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui:chrome_pages",
+      "//chrome/browser/ui:singleton_tabs",
       "//chrome/browser/ui:tab_dialogs",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/actions:actions_headers",
@@ -154,6 +158,7 @@ source_set("impl") {
       "//chrome/browser/ui/toasts/api:toasts",
       "//chrome/browser/ui/user_education",
       "//chrome/browser/ui/views:layout_provider",
+      "//chrome/browser/ui/views/frame:browser_view_header",
       "//chrome/browser/ui/views/passwords",
       "//chrome/browser/ui/views/passwords:password_bubble_view_base",
       "//chrome/browser/ui/views/passwords/password_change:password_change_toast",
@@ -175,13 +180,14 @@ source_set("impl") {
 source_set("test_support") {
   testonly = true
   sources = []
-  deps = []
 
   if (!is_android) {
     sources += [
       "manage_passwords_test.cc",
       "manage_passwords_test.h",
     ]
+
+    deps = [ "//chrome/browser/ui:browser_command_controller" ]
 
     public_deps = [
       "//base/test:test_support",
@@ -203,6 +209,7 @@ source_set("test_support") {
       "//chrome/browser/signin",
       "//chrome/browser/sync",
       "//chrome/browser/sync:factories",
+      "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/test:test_support_ui",
@@ -256,6 +263,7 @@ source_set("unit_tests") {
     ":passwords",
     "//base",
     "//base/test:test_support",
+    "//chrome/test/base:chrome_render_view_host_test_harness",
     "//components/password_manager/core/browser:password_form",
     "//components/password_manager/core/browser:test_support",
     "//components/password_manager/core/common",
@@ -340,6 +348,10 @@ if (!is_android) {
       "well_known_change_password_navigation_throttle_browsertest.cc",
     ]
     deps = [
+      # TODO(crbug.com/437811373): Remove this dependency when
+      # `//c/b/ui/passwords:passwords`.
+      # c/b/ui/passwords/password_change_ui_controller.h gets built from
+      ":impl",
       ":passwords",
       "//base",
       "//base/test:test_support",
@@ -352,11 +364,13 @@ if (!is_android) {
       "//chrome/browser/profiles:profile",
       "//chrome/browser/ssl:cert_verifier_test_support",
       "//chrome/browser/ui",
+      "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/hats:test_support",
       "//chrome/browser/ui/navigator",
       "//chrome/browser/ui/passwords:test_support",
+      "//chrome/browser/ui/views/frame:browser_view_header",
       "//chrome/browser/ui/views/passwords",
       "//chrome/common",
       "//chrome/test:test_support",
@@ -391,11 +405,6 @@ if (!is_android) {
       "//ui/views",
       "//ui/views:test_support",
       "//url",
-
-      # TODO(crbug.com/437811373): Remove this dependency when
-      # c/b/ui/passwords/password_change_ui_controller.h gets built from
-      # `//c/b/ui/passwords:passwords`.
-      ":impl",
     ]
   }
 }

@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.omnibox.fusebox;
 
+import static org.chromium.build.NullUtil.assertNonNull;
 import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.app.Activity;
@@ -105,6 +106,20 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
         int BOTTOM = 2;
     }
 
+    /** Where the "Add current tab" button is placed within the popup. */
+    @IntDef({
+        CurrentTabPlacement.ABOVE_ATTACHMENTS,
+        CurrentTabPlacement.WITH_ATTACHMENTS,
+        CurrentTabPlacement.BELOW_ATTACHMENTS,
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    @Target(ElementType.TYPE_USE)
+    @interface CurrentTabPlacement {
+        int ABOVE_ATTACHMENTS = 0;
+        int WITH_ATTACHMENTS = 1;
+        int BELOW_ATTACHMENTS = 2;
+    }
+
     private @Nullable FuseboxViewHolder mViewHolder;
     private @Nullable PropertyModel mModel;
     private final Activity mActivity;
@@ -135,6 +150,7 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
 
     // Mediator is scoped to a particular profile. Can reuse as long as the profile does not change.
     private @Nullable FuseboxMediator mMediator;
+    private @Nullable NonNullObservableSupplier<Boolean> mUrlTextWrappingSupplier;
     private @Nullable @BrandedColorScheme Integer mLastBrandedColorScheme;
     private boolean mDestroyed;
     private @Nullable Callback<Boolean> mOnInteractionCompletedCallback;
@@ -215,6 +231,17 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
                 .inflate(R.layout.fusebox_context_popup, this::finishDeferredInitialization);
     }
 
+    /** Returns where the "add current tab" button should be placed within the popup. */
+    static @CurrentTabPlacement int resolveCurrentTabPlacement() {
+        if (!OmniboxFeatures.sOmniboxFuseboxPopupVariations.isEnabled()
+                || OmniboxFeatures.shouldUseScrollableCarousel()) {
+            return CurrentTabPlacement.WITH_ATTACHMENTS;
+        }
+        return OmniboxFeatures.shouldPutCurrentTabFirst()
+                ? CurrentTabPlacement.ABOVE_ATTACHMENTS
+                : CurrentTabPlacement.BELOW_ATTACHMENTS;
+    }
+
     private void finishDeferredInitialization(View popupView) {
         if (mDestroyed) return;
 
@@ -267,7 +294,9 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
                         popupView,
                         dynamicRectProvider,
                         OmniboxFeatures.shouldShowBottomSheetPopup(),
-                        OmniboxFeatures.shouldUseCarousel());
+                        OmniboxFeatures.shouldUseCarousel(),
+                        OmniboxFeatures.shouldUseScrollableCarousel(),
+                        resolveCurrentTabPlacement());
 
         mViewHolder = new FuseboxViewHolder(mParent, popup);
 
@@ -304,7 +333,8 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
                         mScrimAnchorViewSupplier,
                         mBackPressManager,
                         mOnFirstPickerInteractionCanceledCallback,
-                        mHasAttachmentsSupplier);
+                        mHasAttachmentsSupplier,
+                        assertNonNull(mUrlTextWrappingSupplier));
         if (mLastBrandedColorScheme != null) {
             mMediator.updateVisualsForState(mLastBrandedColorScheme);
         }
@@ -477,12 +507,18 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
     }
 
     /**
-     * @param isTextWrapping Whether the text is wrapping or not.
+     * Sets the supplier for whether the URL bar text is currently wrapping.
+     *
+     * <p>This method is an {@link Initializer} called post-construction because {@link
+     * FuseboxCoordinator} is constructed before {@link UrlBarCoordinator}. {@link FuseboxMediator}
+     * is created lazily after this initializer has set {@link #mUrlTextWrappingSupplier}, allowing
+     * the supplier to be passed directly into the mediator's constructor.
+     *
+     * @param supplier The supplier to observe.
      */
-    public void onFuseboxTextWrappingChanged(boolean isTextWrapping) {
-        if (mMediator != null) {
-            mMediator.setIsTextWrapping(isTextWrapping);
-        }
+    @Initializer
+    public void setUrlTextWrappingSupplier(NonNullObservableSupplier<Boolean> supplier) {
+        mUrlTextWrappingSupplier = supplier;
     }
 
     public void notifyOmniboxSessionEnded(boolean userDidNavigate) {

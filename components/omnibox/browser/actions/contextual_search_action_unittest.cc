@@ -111,10 +111,11 @@ TEST_F(ContextualSearchActionTest, Execute_RoutesToComposeBoxForAskG) {
 #if defined(SUPPORT_PEDALS_VECTOR_ICONS)
 TEST_F(ContextualSearchActionTest, GetVectorIcon) {
   auto open_lens_action = base::MakeRefCounted<ContextualSearchOpenLensAction>();
-  auto fulfillment_action = base::MakeRefCounted<ContextualSearchFulfillmentAction>(
-      GURL("https://google.com"), AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED,
-      /*is_zero_prefix_suggestion=*/false);
-
+  auto fulfillment_action =
+      base::MakeRefCounted<ContextualSearchFulfillmentAction>(
+          GURL("https://google.com"),
+          omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
+          /*is_zero_prefix_suggestion=*/false);
 
   base::test::ScopedFeatureList scoped_feature_list;
 

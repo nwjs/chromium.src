@@ -646,7 +646,8 @@ DevToolsWindow* DevToolsWindow::GetInstanceForInspectedWebContents(
     return nullptr;
   }
   for (auto& instance : GetDevToolsWindowInstances()) {
-    if (instance->GetInspectedWebContents() == inspected_web_contents) {
+    if (instance->GetInspectedWebContents() == inspected_web_contents &&
+        instance->life_stage_ != kClosing) {
       return instance;
     }
   }
@@ -914,11 +915,9 @@ void DevToolsWindow::ToggleDevToolsWindow(
                     std::string(), true, settings, panel, agent->IsAttached(),
                     /* browser_connection */ false, toggled_by);
     if (!window) {
-      if (base::FeatureList::IsEnabled(features::kDevToolsShowPolicyDialog)) {
 #if !BUILDFLAG(IS_ANDROID)
-        DevToolsPolicyDialog::Show(inspected_web_contents);
+      DevToolsPolicyDialog::Show(inspected_web_contents);
 #endif
-      }
       return;
     }
     window->bindings_->AttachTo(agent.get());

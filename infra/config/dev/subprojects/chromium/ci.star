@@ -174,6 +174,7 @@ ci_builder(
 
 ci_builder(
     name = "linux-rel-jammy-dev",
+    description_html = "Run chromium tests on Linux Jammy.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(config = "chromium"),
         chromium_config = builder_config.chromium_config(
@@ -191,7 +192,6 @@ ci_builder(
             "gpu_tests",
             "release_builder",
             "remoteexec",
-            "devtools_do_typecheck",
             "linux",
             "x64",
         ],
@@ -223,7 +223,6 @@ ci_builder(
             "gpu_tests",
             "release_builder",
             "remoteexec",
-            "devtools_do_typecheck",
             "linux",
             "x64",
         ],
@@ -250,7 +249,6 @@ ci_builder(
             "gpu_tests",
             "release_builder",
             "remoteexec",
-            "devtools_do_typecheck",
             "linux",
             "x64",
         ],
@@ -262,6 +260,7 @@ ci_builder(
 
 ci_builder(
     name = "mac-rel-dev",
+    description_html = "Run chromium tests on Mac x64.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(config = "chromium"),
         chromium_config = builder_config.chromium_config(
@@ -295,6 +294,7 @@ ci_builder(
 
 ci_builder(
     name = "mac-arm-rel-dev",
+    description_html = "Run chromium tests on Mac ARM64.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(config = "chromium"),
         chromium_config = builder_config.chromium_config(
@@ -356,6 +356,7 @@ ci_builder(
 
 ci_builder(
     name = "win-rel-dev",
+    description_html = "Run chromium tests on Windows 10.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(config = "chromium"),
         chromium_config = builder_config.chromium_config(
@@ -389,6 +390,7 @@ ci_builder(
 
 ci_builder(
     name = "win11-rel-dev",
+    description_html = "Run chromium tests on Windows 11.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(config = "chromium"),
         chromium_config = builder_config.chromium_config(

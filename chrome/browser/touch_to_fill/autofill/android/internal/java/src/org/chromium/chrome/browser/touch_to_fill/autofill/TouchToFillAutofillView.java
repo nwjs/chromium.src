@@ -9,6 +9,7 @@ import android.content.res.Resources;
 import android.view.LayoutInflater;
 import android.view.View;
 
+import androidx.annotation.StringRes;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.RecyclerView.Adapter;
@@ -37,6 +38,8 @@ class TouchToFillAutofillView implements BottomSheetContent {
     private final View mContentView;
     private @Nullable Runnable mDismissHandler;
     private boolean mIsShowing;
+    private @StringRes int mSheetFullHeightDescriptionId;
+    private @StringRes int mSheetClosedDescriptionId;
 
     private final BottomSheetObserver mBottomSheetObserver =
             new BottomSheetObserver() {
@@ -58,9 +61,7 @@ class TouchToFillAutofillView implements BottomSheetContent {
         mBottomSheetController = bottomSheetController;
         mContentView =
                 LayoutInflater.from(context)
-                        .inflate(
-                                R.layout.touch_to_fill_autofill_personal_context_notice_screen,
-                                null);
+                        .inflate(R.layout.touch_to_fill_autofill_home_screen, null);
     }
 
     void setSheetItemListAdapter(Adapter adapter) {
@@ -74,6 +75,14 @@ class TouchToFillAutofillView implements BottomSheetContent {
 
     void setDismissHandler(Runnable dismissHandler) {
         mDismissHandler = dismissHandler;
+    }
+
+    void setSheetFullHeightDescriptionId(@StringRes int sheetFullHeightDescriptionId) {
+        mSheetFullHeightDescriptionId = sheetFullHeightDescriptionId;
+    }
+
+    void setSheetClosedDescriptionId(@StringRes int sheetClosedDescriptionId) {
+        mSheetClosedDescriptionId = sheetClosedDescriptionId;
     }
 
     boolean setVisible(boolean visible) {
@@ -145,24 +154,18 @@ class TouchToFillAutofillView implements BottomSheetContent {
     }
 
     @Override
-    public String getSheetContentDescription(Context context) {
-        return context.getString(
-                R.string.autofill_personal_context_notice_sheet_content_description);
+    public @StringRes int getSheetFullHeightAccessibilityStringId() {
+        return mSheetFullHeightDescriptionId;
     }
 
     @Override
-    public int getSheetFullHeightAccessibilityStringId() {
-        return R.string.autofill_personal_context_notice_sheet_full_height;
+    public @StringRes int getSheetClosedAccessibilityStringId() {
+        return mSheetClosedDescriptionId;
     }
 
     @Override
-    public int getSheetClosedAccessibilityStringId() {
-        return R.string.autofill_personal_context_notice_sheet_closed;
-    }
-
-    @Override
-    public int getSheetHalfHeightAccessibilityStringId() {
-        assert false;
+    public @StringRes int getSheetHalfHeightAccessibilityStringId() {
+        assert false : "The sheet has no half-height state, see getHalfHeightRatio()";
         return Resources.ID_NULL;
     }
 

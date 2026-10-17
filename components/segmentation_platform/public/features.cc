@@ -163,7 +163,12 @@ constexpr base::FeatureParam<int> kMaxAuxiliarySearchCardImpressions{
     &kAndroidAppIntegrationModule, "max_auxiliary_search_card_impressions",
     /*default_value=*/3};
 
-BASE_FEATURE(kSegmentationPlatformFedCmUser, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kSegmentationPlatformFedCmUser,
+#if BUILDFLAG(IS_ANDROID)
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
 
 BASE_FEATURE(kDefaultBrowserPromoPropensityModel,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -180,7 +185,7 @@ constexpr base::FeatureParam<int> kMaxDefaultBrowserMagicStackIosImpressions{
     "max_default_browser_magic_stack_ios_impressions",
     /*default_value=*/6};
 
-BASE_FEATURE(kAndroidTipsNotifications, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kAndroidTipsNotifications, base::FEATURE_ENABLED_BY_DEFAULT);
 
 constexpr base::FeatureParam<bool> kTrustAndSafety{&kAndroidTipsNotifications,
                                                    "trust_and_safety",
@@ -188,7 +193,7 @@ constexpr base::FeatureParam<bool> kTrustAndSafety{&kAndroidTipsNotifications,
 
 constexpr base::FeatureParam<bool> kEssential{&kAndroidTipsNotifications,
                                               "essential",
-                                              /*default_value=*/false};
+                                              /*default_value=*/true};
 
 constexpr base::FeatureParam<bool> kNewFeatures{&kAndroidTipsNotifications,
                                                 "new_features",

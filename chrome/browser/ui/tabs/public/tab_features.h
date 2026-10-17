@@ -32,8 +32,14 @@
 #include "base/callback_list.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/common/buildflags.h"
+#include "components/safe_browsing/buildflags.h"
+#include "components/signin/public/base/signin_buildflags.h"
+#include "content/public/common/buildflags.h"
+#include "extensions/buildflags/buildflags.h"
+#include "rlz/buildflags/buildflags.h"
 #include "ui/base/unowned_user_data/user_data_factory.h"
 
+class AboutThisSiteTabHelper;
 class AskBeforeHttpDialogController;
 class BookmarkBarPreloadPipelineManager;
 class BookmarkPageActionController;
@@ -42,12 +48,16 @@ class CollaborationMessagingPageActionController;
 class CommitLimitOOMRecoveryTracker;
 class ConnectionHelpTabHelper;
 class CookieControlsPageActionController;
+class ExternalProtocolObserver;
 class FileSystemAccessPageActionController;
 class FocusTabAfterNavigationHelper;
+class FontPrewarmerTabHelper;
 class FramebustBlockTabHelper;
 
 class FormInteractionTabHelper;
 class FromGWSNavigationAndKeepAliveRequestObserver;
+class HatsHelper;
+class HistoryEmbeddingsTabHelper;
 class HttpAuthCacheStatus;
 class IntentPickerTabHelper;
 class IntentPickerViewPageActionController;
@@ -57,6 +67,8 @@ class LensOverlayHomeworkPageActionController;
 class LensSearchController;
 class ManagePasswordsPageActionController;
 class MemorySaverChipTabHelper;
+class NavigationMetricsRecorder;
+class NavigationPredictorPreconnectClient;
 class NewTabPagePreloadPipelineManager;
 class PinnedTranslateActionListener;
 class Profile;
@@ -65,20 +77,35 @@ class QwacWebContentsObserver;
 class ReadAnythingController;
 class ReadAnythingSidePanelController;
 class RecordReplayPageActionController;
+class RevokedPermissionsTabHelper;
 class SadTabHelper;
 class SearchEngineChoiceTabHelper;
 class SearchPromotionNavigationObserver;
 class SecurityStateEventObserver;
+class SharedHighlightingPromo;
 class SidePanelRegistry;
+class SoundContentSettingObserver;
+class StorageAccessAPITabHelper;
+class TabCaptureContentsBorderHelper;
+class TabContextDecryptionTokenTabHelper;
 class TabResourceUsageTabHelper;
 class TabUIHelper;
 class ThumbnailTabHelper;
 class TranslatePageActionController;
+class UMABrowsingActivityTabHelper;
 class ZeroSuggestPrefetchTabHelper;
 
 namespace skills {
 class SkillsUiTabControllerInterface;
 }  // namespace skills
+
+namespace site_protection {
+class SiteProtectionMetricsObserver;
+}  // namespace site_protection
+
+namespace selection {
+class SuggestionService;
+}  // namespace selection
 
 namespace back_to_opener {
 class BackToOpenerController;
@@ -132,24 +159,32 @@ class ContextualCueingWebContentsObserver;
 
 namespace contextual_tasks {
 class ContextualTasksTabVisitTracker;
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+class SearchAiModePromoTabHelper;
+#endif
 }  // namespace contextual_tasks
 
 namespace customize_chrome {
 class SidePanelController;
 }  // namespace customize_chrome
 
+namespace download {
+class DownloadNavigationObserver;
+}  // namespace download
+
 namespace extensions {
 class ExtensionSidePanelManager;
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+class NavigationExtensionEnabler;
+#endif
 }  // namespace extensions
-
-namespace geic {
-class GeicSidePanelCoordinator;
-}  // namespace geic
 
 namespace glic {
 class ContextualCueingHelper;
 class GlicCueTabState;
 class GlicInstanceHelper;
+class GlicMarketingPageTabHelper;
+class GlicPromotionSourceNavigationObserver;
 class GlicTabIndicatorHelper;
 class GlicSidePanelCoordinator;
 class GlicSelectionObserver;
@@ -169,9 +204,21 @@ namespace permissions {
 class PermissionIndicatorsTabData;
 }  // namespace permissions
 
+namespace prerender {
+class NoStatePrefetchTabHelper;
+}  // namespace prerender
+
+namespace v8_compile_hints {
+class V8CompileHintsTabHelper;
+}  // namespace v8_compile_hints
+
 namespace webapps {
 class AppBannerManagerDesktop;
 }  // namespace webapps
+
+namespace web_app {
+class WindowManagementContentSettingObserver;
+}  // namespace web_app
 
 #if !BUILDFLAG(IS_ANDROID)
 namespace skills {
@@ -200,6 +247,10 @@ namespace tab_groups {
 class CollaborationMessagingTabData;
 }  // namespace tab_groups
 
+namespace tasks {
+class TaskTabHelper;
+}  // namespace tasks
+
 #if !BUILDFLAG(IS_ANDROID)
 namespace record_replay {
 class RecordReplayClient;
@@ -210,6 +261,12 @@ namespace lens {
 class TabContextualizationController;
 }  // namespace lens
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+namespace metrics {
+class DesktopSessionDurationObserver;
+}  // namespace metrics
+#endif
+
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS)
 namespace wallet {
@@ -218,9 +275,35 @@ class ChromeWalletablePassClient;
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS)
+class CampaignsManagerSessionTabHelper;
+class GeminiAppTabHelper;
+class GoogleOneOfferIphTabHelper;
+namespace ash {
+class CrosIsolatedWebAppEnabler;
+}  // namespace ash
+namespace ash::app_time {
+class WebTimeNavigationObserver;
+}  // namespace ash::app_time
+namespace mahi {
+class MahiTabHelper;
+}  // namespace mahi
 namespace web_app {
 class ProtocolHandlerPickerCoordinator;
 }  // namespace web_app
+#endif
+
+#if BUILDFLAG(ENABLE_RLZ)
+class ChromeRLZTrackerWebContentsObserver;
+#endif
+
+#if BUILDFLAG(ENABLE_PLUGINS)
+class PluginObserver;
+#endif
+
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+namespace safe_browsing {
+class TailoredSecurityUrlObserver;
+}  // namespace safe_browsing
 #endif
 
 namespace indigo {
@@ -555,12 +638,17 @@ class TabFeatures {
   std::unique_ptr<glic::GlicInstanceHelper> glic_instance_helper_;
   std::unique_ptr<glic::GlicTabIndicatorHelper> glic_tab_indicator_helper_;
   std::unique_ptr<glic::GlicSidePanelCoordinator> glic_side_panel_coordinator_;
-  std::unique_ptr<geic::GeicSidePanelCoordinator> geic_side_panel_coordinator_;
   std::unique_ptr<glic::GlicSelectionObserver> glic_selection_observer_;
+  std::unique_ptr<selection::SuggestionService>
+      selection_suggestion_service_;
   std::unique_ptr<glic::SelectionOverlayController>
       glic_selection_overlay_controller_;
 
   std::unique_ptr<glic::GlicPageFeaturesManager> glic_page_features_manager_;
+  std::unique_ptr<glic::GlicMarketingPageTabHelper>
+      glic_marketing_page_tab_helper_;
+  std::unique_ptr<glic::GlicPromotionSourceNavigationObserver>
+      glic_promotion_source_navigation_observer_;
 
   // Observes page loads to decide when to offer glic contextual cueing.
   std::unique_ptr<glic::ContextualCueingHelper> contextual_cueing_helper_;
@@ -695,10 +783,17 @@ class TabFeatures {
   std::unique_ptr<skills::SkillsUpdateObserver> skills_update_observer_;
 #endif  //  !BUILDFLAG(IS_ANDROID)
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+  std::unique_ptr<metrics::DesktopSessionDurationObserver>
+      desktop_session_duration_observer_;
+#endif
+
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || \
     BUILDFLAG(IS_CHROMEOS)
   std::unique_ptr<enterprise_reporting::SaasUsageNavigationObserver>
       saas_usage_navigation_observer_;
+  std::unique_ptr<HatsHelper> hats_helper_;
+  std::unique_ptr<SharedHighlightingPromo> shared_highlighting_promo_;
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_WIN)
@@ -706,6 +801,38 @@ class TabFeatures {
       search_promotion_navigation_observer_;
   std::unique_ptr<CommitLimitOOMRecoveryTracker>
       commit_limit_oom_recovery_tracker_;
+  std::unique_ptr<FontPrewarmerTabHelper> font_prewarmer_tab_helper_;
+#endif
+
+#if BUILDFLAG(IS_CHROMEOS)
+  std::unique_ptr<GoogleOneOfferIphTabHelper> google_one_offer_iph_tab_helper_;
+  std::unique_ptr<CampaignsManagerSessionTabHelper>
+      campaigns_manager_session_tab_helper_;
+  std::unique_ptr<ash::CrosIsolatedWebAppEnabler>
+      cros_isolated_web_app_enabler_;
+  std::unique_ptr<GeminiAppTabHelper> gemini_app_tab_helper_;
+  std::unique_ptr<mahi::MahiTabHelper> mahi_tab_helper_;
+  std::unique_ptr<ash::app_time::WebTimeNavigationObserver>
+      web_time_navigation_observer_;
+#endif
+
+#if BUILDFLAG(ENABLE_RLZ)
+  std::unique_ptr<ChromeRLZTrackerWebContentsObserver>
+      chrome_rlz_tracker_web_contents_observer_;
+#endif
+
+#if BUILDFLAG(ENABLE_PLUGINS)
+  std::unique_ptr<PluginObserver> plugin_observer_;
+#endif
+
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  std::unique_ptr<contextual_tasks::SearchAiModePromoTabHelper>
+      search_ai_mode_promo_tab_helper_;
+#endif
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+  std::unique_ptr<extensions::NavigationExtensionEnabler>
+      navigation_extension_enabler_;
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -732,6 +859,54 @@ class TabFeatures {
 
   // Observes changes in web contents for web payments.
   std::unique_ptr<payments::WebPaymentsObserver> web_payments_observer_;
+
+  std::unique_ptr<UMABrowsingActivityTabHelper>
+      uma_browsing_activity_tab_helper_;
+
+  std::unique_ptr<web_app::WindowManagementContentSettingObserver>
+      window_management_content_setting_observer_;
+
+  std::unique_ptr<TabCaptureContentsBorderHelper>
+      tab_capture_contents_border_helper_;
+
+  std::unique_ptr<TabContextDecryptionTokenTabHelper>
+      tab_context_decryption_token_tab_helper_;
+
+  std::unique_ptr<v8_compile_hints::V8CompileHintsTabHelper>
+      v8_compile_hints_tab_helper_;
+
+  std::unique_ptr<StorageAccessAPITabHelper> storage_access_api_tab_helper_;
+
+  std::unique_ptr<RevokedPermissionsTabHelper> revoked_permissions_tab_helper_;
+
+  std::unique_ptr<ExternalProtocolObserver> external_protocol_observer_;
+
+  std::unique_ptr<prerender::NoStatePrefetchTabHelper>
+      no_state_prefetch_tab_helper_;
+
+  std::unique_ptr<NavigationPredictorPreconnectClient>
+      navigation_predictor_preconnect_client_;
+
+  std::unique_ptr<NavigationMetricsRecorder> navigation_metrics_recorder_;
+
+  std::unique_ptr<site_protection::SiteProtectionMetricsObserver>
+      site_protection_metrics_observer_;
+
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+  std::unique_ptr<safe_browsing::TailoredSecurityUrlObserver>
+      tailored_security_url_observer_;
+#endif
+
+  std::unique_ptr<AboutThisSiteTabHelper> about_this_site_tab_helper_;
+
+  std::unique_ptr<SoundContentSettingObserver> sound_content_setting_observer_;
+
+  std::unique_ptr<tasks::TaskTabHelper> task_tab_helper_;
+
+  std::unique_ptr<HistoryEmbeddingsTabHelper> history_embeddings_tab_helper_;
+
+  std::unique_ptr<download::DownloadNavigationObserver>
+      download_navigation_observer_;
 
   // Must be the last member.
   base::WeakPtrFactory<TabFeatures> weak_factory_{this};

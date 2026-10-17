@@ -93,6 +93,8 @@ should be able to be added at any place in this file.
 
 <variants name="ContextMenu_Type">
   <variant name="" summary="aggregated"/>
+  <variant name=".CopyLinkAddress"
+      summary="Selected 'Copy link address' in the context menu."/>
   <variant name=".DownloadItem" summary="Download a suggested item."/>
   <variant name=".EditItem"
       summary="Open a modal dialog to edit a custom item."/>
@@ -246,6 +248,8 @@ should be able to be added at any place in this file.
   <variant name="_AdaptiveButtonInTopToolbarCustomization_VoiceSearch"
       summary="For AdaptiveButtonInTopToolbarCustomization voice search
                feature."/>
+  <variant name="_AdaptiveButtonPinGlicToolbarButton"
+      summary="For auto-pinning the Glic adaptive toolbar button."/>
   <variant name="_AddToHomescreenMessage"
       summary="For AddToHomescreen IPH feature."/>
   <variant name="_AddToHomescreenTextBubble"
@@ -350,11 +354,15 @@ should be able to be added at any place in this file.
       summary="For Compose MSBB Settings badge feature"/>
   <variant name="_ComposeNewBadgeFeature"
       summary="For Compose new badge feature"/>
+  <variant name="_ContextualPageActions_ActionChip"
+      summary="For Contextual Page Actions Action Chip feature."/>
   <variant name="_ContextualPageActions_PriceTracking"
       summary="For Contextual page actions price tracking feature."/>
   <variant name="_ContextualPageActions_PriceTrackingActionChip"
       summary="For action chip variant of Contextual page actions price
                tracking feature."/>
+  <variant name="_ContextualPageActions_QuietVariant"
+      summary="For Contextual Page Actions Quiet Variant feature."/>
   <variant name="_ContextualSearch" summary="For ContextualSearch feature."/>
   <variant name="_ContextualSearchInPanelHelp"
       summary="For ContextualSearchInPanelHelp feature."/>
@@ -431,8 +439,12 @@ should be able to be added at any place in this file.
   <variant name="_ExplicitBrowserSigninPreferenceRemembered"
       summary="For Explicit Browser Signin Preference Remembered feature."/>
   <variant name="_ExploreSitesTile" summary="For Explore Sites feature."/>
+  <variant name="_ExtensionsManageAppMenu"
+      summary="For managing extensions in the app menu."/>
   <variant name="_ExtensionsManageAppMenuFeature"
       summary="For managing your extensions from the app menu feature."/>
+  <variant name="_ExtensionsManageToolbar"
+      summary="For managing extensions in the toolbar."/>
   <variant name="_ExtensionsManageToolbarFeature"
       summary="For managing your extension feature in the toolbar."/>
   <variant name="_ExtensionsMenu" summary="For Extensions menu opening."/>
@@ -527,6 +539,8 @@ should be able to be added at any place in this file.
   <variant name="_iOSAddressPromoDesktop"
       summary="For iOSAddressPromoDesktop feature"/>
   <variant name="_iOSAIHubNewBadge" summary="For AI Hub New Badge feature."/>
+  <variant name="_iOSBackgroundNewBadge"
+      summary="For iOSBackgroundNewBadge feature"/>
   <variant name="_IOSBWGPromoFeature" summary="For IOSBWGPromoFeature feature"/>
   <variant name="_iOSChoiceScreen"
       summary="(obsolete) For iOSChoiceScreen feature"/>
@@ -617,6 +631,8 @@ should be able to be added at any place in this file.
       summary="For iOSPromoDefaultBrowser feature"/>
   <variant name="_iOSPromoDefaultBrowserReminder"
       summary="For iOSPromoDefaultBrowserReminder feature"/>
+  <variant name="_iOSPromoEphemeralTheme"
+      summary="For iOSPromoEphemeralTheme feature."/>
   <variant name="_iOSPromoGenericDefaultBrowser"
       summary="For generivc default browser promo."/>
   <variant name="_iOSPromoMadeForIOS"
@@ -703,6 +719,9 @@ should be able to be added at any place in this file.
   <variant name="_LowUserEngagementDetector"
       summary="For LowUserEngagementDetector feature."/>
   <variant name="_MediaDownload" summary="For MediaDownload feature."/>
+  <variant name="_MenuAddToGroup"
+      summary="For prompting users to select the Add to group option in the
+               App 3-Dot menu."/>
   <variant name="_MicToolbar" summary="In product help for toolbar mic."/>
   <variant name="_MostVisitedTilesCustomizationPin"
       summary="In product help for MVT Customization feature to pin a
@@ -784,6 +803,8 @@ should be able to be added at any place in this file.
       summary="For ReadAloud expanded player feature."/>
   <variant name="_ReadAloudPlaybackModeFeature"
       summary="For ReadAloud playback mode feature."/>
+  <variant name="_ReaderModeDistillInApp"
+      summary="For educating users about reader mode distill in app."/>
   <variant name="_ReadingListDiscovery"
       summary="For ReadingListDiscoveryFeature feature."/>
   <variant name="_ReadingListEntryPoint"
@@ -880,10 +901,22 @@ should be able to be added at any place in this file.
   <variant name="_SupervisedUserProfileSignin"
       summary="For displaying the supervised user sign-in IPH."/>
   <variant name="_TabAudioMuting" summary="For TabAudioMuting feature."/>
+  <variant name="_TabGroupCreationDialogSyncText"
+      summary="For tab group creation dialog sync text."/>
   <variant name="_TabGroupsDragAndDrop"
       summary="For drop-to-merge in tab group."/>
+  <variant name="_TabGroupSharedNotificationBubbleOnStrip"
+      summary="For tab group shared notification bubble on tablet tab strip."/>
+  <variant name="_TabGroupShareNotice"
+      summary="For notifying users that changes to shared tab groups are
+               visible to everyone."/>
   <variant name="_TabGroupShareNotificationBubbleOnStrip"
       summary="For tab group share notification bubble on tablet tab strip."/>
+  <variant name="_TabGroupShareUpdate"
+      summary="For highlighting tab group updates on the tab switcher button."/>
+  <variant name="_TabGroupShareVersionUpdate"
+      summary="For notifying users that updating Chrome regains access to
+               shared tab groups."/>
   <variant name="_TabGroupsQuicklyComparePages"
       summary="For long press links to create tab groups."/>
   <variant name="_TabGroupsRemoteGroup" summary="For a synced tab group."/>
@@ -914,11 +947,20 @@ should be able to be added at any place in this file.
       summary="For the tab search migration to a tab strip combo button."/>
   <variant name="_TabSearchToolbarButton"
       summary="For the tab search migration to a toolbar button."/>
+  <variant name="_TabSwitcherAddToGroup"
+      summary="For prompting users to select the Add to group option in the
+               Tab Switcher 3-Dot menu."/>
   <variant name="_TabSwitcherButton" summary="For tab switcher button."/>
   <variant name="_TabSwitcherButtonSwitchIncognito"
       summary="For tab switcher button switch to incognito."/>
   <variant name="_TabSwitcherFloatingActionButton"
       summary="For tab switcher new tab floating action button."/>
+  <variant name="_TabSwitcherXR"
+      summary="For informing users about the tab switcher feature on an XR
+               device."/>
+  <variant name="_TabTearingXR"
+      summary="For informing users about the tab tearing gesture on an XR
+               device."/>
   <variant name="_ThreeDotMenuBackButton"
       summary="For the three dot menu back button."/>
   <variant name="_ToolbarManagementButton"
@@ -938,18 +980,6 @@ should be able to be added at any place in this file.
   <variant name="_VerticalTabstripTutorialFeature"
       summary="For showing the vertical tabs feature when the horizontal
                tabstrip is crowded."/>
-  <variant name="_VideoTutorial_NTP_ChromeIntro"
-      summary="For Chrome intro video tutorial."/>
-  <variant name="_VideoTutorial_NTP_Download"
-      summary="For download video tutorial."/>
-  <variant name="_VideoTutorial_NTP_Search"
-      summary="For search video tutorial."/>
-  <variant name="_VideoTutorial_NTP_Summary"
-      summary="For video tutorial summary card."/>
-  <variant name="_VideoTutorial_NTP_VoiceSearch"
-      summary="For voice search video tutorial."/>
-  <variant name="_VideoTutorial_TryNow"
-      summary="For video tutorial Try Now feature."/>
   <variant name="_WebUiHelpBubbleTest"
       summary="For WebUiHelpBubbleTest feature."/>
   <variant name="_WhatsNewUpdated" summary="For what's new updated content."/>
@@ -1032,6 +1062,8 @@ should be able to be added at any place in this file.
   <variant name="" summary="aggregated"/>
   <variant name=".AddedToComparisonTable" summary="Added to comparison table"/>
   <variant name=".AddedToReadingList" summary="Added to reading list"/>
+  <variant name=".AutofillAiSuggestionRemoved"
+      summary="Autofill AI suggestion removed"/>
   <variant name=".DiceUserMigrated" summary="DICe user migrated"/>
   <variant name=".EnhancedBundledSecuritySettings"
       summary="Enhanced protection user migrated"/>
@@ -14968,6 +15000,16 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="IncognitoNewTabPage.ContextMenu{ContextMenu_Type}">
+  <owner>ckitagawa@chromium.org</owner>
+  <owner>chrome-incognito@google.com</owner>
+  <description>
+    Android: User used the context menu on a link on the Incognito new tab page.
+    {ContextMenu_Type}
+  </description>
+  <token key="ContextMenu_Type" variants="ContextMenu_Type"/>
+</action>
+
 <action name="IncognitoWebSQL_Created">
   <owner>rhalavati@chromium.org</owner>
   <owner>chrome-incognito@google.com</owner>
@@ -15452,6 +15494,35 @@ should be able to be added at any place in this file.
   <owner>payments-autofill-team@google.com</owner>
   <description>
     User scanned a credit card using the Credit Card Scanner. iOS only.
+  </description>
+</action>
+
+<action name="IOS.DefaultBrowserContextualPromo.Gemini.Dismiss">
+  <owner>cheickcisse@google.com</owner>
+  <owner>bling-mony-pod@google.com</owner>
+  <description>
+    Recorded when the user dismisses the Gemini contextual default browser
+    promo, either by tapping the secondary (&quot;No thanks&quot;) button or by
+    swiping the promo sheet down.
+  </description>
+</action>
+
+<action name="IOS.DefaultBrowserContextualPromo.Gemini.Impression">
+  <owner>cheickcisse@google.com</owner>
+  <owner>bling-mony-pod@google.com</owner>
+  <description>
+    Recorded when the Gemini contextual default browser promo is presented to
+    the user.
+  </description>
+</action>
+
+<action name="IOS.DefaultBrowserContextualPromo.Gemini.OpenSettingsTapped">
+  <owner>cheickcisse@google.com</owner>
+  <owner>bling-mony-pod@google.com</owner>
+  <description>
+    Recorded when the user taps the primary button of the Gemini contextual
+    default browser promo, which opens the iOS Settings app so that Chrome can
+    be set as the default browser.
   </description>
 </action>
 
@@ -17358,6 +17429,14 @@ should be able to be added at any place in this file.
   <owner>apalanki@google.com</owner>
   <description>
     The user clicked a result link in the Lens entry in the side panel.
+  </description>
+</action>
+
+<action name="LevelUp.Promo.Displayed">
+  <owner>zijingl@google.com</owner>
+  <owner>bling-mony-pod@google.com</owner>
+  <description>
+    Recorded when the Level Up promo is displayed from the Promos Manager.
   </description>
 </action>
 
@@ -20315,6 +20394,15 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobileGeminiImmersiveLearningCardWebModalOpened">
+  <owner>joepeplowski@google.com</owner>
+  <owner>bling-alchemy-eng@google.com</owner>
+  <description>
+    Reported when the Gemini web modal is opened for an immersive learning card
+    (e.g. a quiz). iOS only.
+  </description>
+</action>
+
 <action name="MobileGeminiInputPlateAttachmentOptionTapped">
   <owner>joepeplowski@google.com</owner>
   <owner>bling-alchemy-eng@google.com</owner>
@@ -20522,6 +20610,42 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobileGeminiSuggestionsSettingsBack">
+  <owner>kanouche@google.com</owner>
+  <owner>bling-alchemy-eng@google.com</owner>
+  <description>
+    Reported when the user navigates back from the Gemini Suggestions Settings
+    screen to the Gemini Settings screen. iOS only.
+  </description>
+</action>
+
+<action name="MobileGeminiSuggestionsSettingsClose">
+  <owner>kanouche@google.com</owner>
+  <owner>bling-alchemy-eng@google.com</owner>
+  <description>
+    Reported when the Gemini Suggestions Settings UI is dismissed via Done
+    button. iOS only.
+  </description>
+</action>
+
+<action name="MobileGeminiSuggestionsSettingsSuggestionsToggledOff">
+  <owner>kanouche@google.com</owner>
+  <owner>bling-alchemy-eng@google.com</owner>
+  <description>
+    Reported when the user toggles the Gemini suggestions setting off from the
+    Gemini Suggestions Settings UI. iOS only.
+  </description>
+</action>
+
+<action name="MobileGeminiSuggestionsSettingsSuggestionsToggledOn">
+  <owner>kanouche@google.com</owner>
+  <owner>bling-alchemy-eng@google.com</owner>
+  <description>
+    Reported when the user toggles the Gemini suggestions setting on from the
+    Gemini Suggestions Settings UI. iOS only.
+  </description>
+</action>
+
 <action name="MobileGeminiTabDetached">
   <owner>joepeplowski@google.com</owner>
   <owner>bling-alchemy-eng@google.com</owner>
@@ -20579,6 +20703,15 @@ should be able to be added at any place in this file.
   <owner>bling-alchemy@google.com</owner>
   <description>
     Reported when the user opens a URL from a BWG session. iOS only.
+  </description>
+</action>
+
+<action name="MobileGeminiWebModalNavigatedToNewTab">
+  <owner>joepeplowski@google.com</owner>
+  <owner>bling-alchemy-eng@google.com</owner>
+  <description>
+    Reported when a navigation in the Gemini web modal closes the modal and
+    opens the URL in a new tab. iOS only.
   </description>
 </action>
 
@@ -24734,6 +24867,36 @@ should be able to be added at any place in this file.
   <owner>meridian@google.com</owner>
   <description>
     The user tapped on the Assistant button in the toolbar.
+  </description>
+</action>
+
+<action name="MobileToolbarAssistantCustomizationAccountSelected">
+  <owner>gambard@chromium.org</owner>
+  <owner>bling-meridian@google.com</owner>
+  <description>
+    The user selected the 'Account' entry of the menu shown when long pressing
+    the Assistant button in the AppBar. Recorded even if the entry was already
+    selected.
+  </description>
+</action>
+
+<action name="MobileToolbarAssistantCustomizationAskGeminiSelected">
+  <owner>gambard@chromium.org</owner>
+  <owner>bling-meridian@google.com</owner>
+  <description>
+    The user selected the 'Ask Gemini' entry of the menu shown when long
+    pressing the Assistant button in the AppBar. Recorded even if the entry was
+    already selected.
+  </description>
+</action>
+
+<action name="MobileToolbarAssistantCustomizationLensSelected">
+  <owner>gambard@chromium.org</owner>
+  <owner>bling-meridian@google.com</owner>
+  <description>
+    The user selected the 'Lens' entry of the menu shown when long pressing the
+    Assistant button in the AppBar. Recorded even if the entry was already
+    selected.
   </description>
 </action>
 
@@ -30107,6 +30270,24 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
+<action name="Privacy.UniversalOptOut.SettingsToggleOff">
+  <owner>azamatmz@google.com</owner>
+  <owner>zalmashni@google.com</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
+  <description>
+    Recorded when user toggles OFF the Universal Opt-Out settings.
+  </description>
+</action>
+
+<action name="Privacy.UniversalOptOut.SettingsToggleOn">
+  <owner>azamatmz@google.com</owner>
+  <owner>zalmashni@google.com</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
+  <description>
+    Recorded when user toggles ON the Universal Opt-Out settings.
+  </description>
+</action>
+
 <action name="PrivacyPage_DeleteBrowsingData">
   <owner>fsenra@google.com</owner>
   <owner>alimariam@google.com</owner>
@@ -30114,6 +30295,711 @@ should be able to be added at any place in this file.
   <description>
     The user has tapped on the delete browsing data entry point on the privacy
     settings page. iOS only.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.Checkin" not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the Checkin event during private
+    insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.CheckinClientInterrupted"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the CheckinClientInterrupted event
+    during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.CheckinFinished"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the CheckinFinished event during
+    private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.CheckinFinishedV2"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the CheckinFinishedV2 event during
+    private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.CheckinInvalidPayload"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the CheckinInvalidPayload event
+    during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.CheckinIoError"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the CheckinIoError event during
+    private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.CheckinPlanUriReceived"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the CheckinPlanUriReceived event
+    during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.CheckinServerAborted"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the CheckinServerAborted event
+    during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.ComputationCompleted"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the ComputationCompleted event
+    during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.ComputationExampleIteratorError"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the
+    ComputationExampleIteratorError event during private insights federated
+    computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.ComputationInsufficientData"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the ComputationInsufficientData
+    event during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.ComputationInterrupted"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the ComputationInterrupted event
+    during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.ComputationInvalidArgument"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the ComputationInvalidArgument
+    event during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.ComputationIOError"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the ComputationIOError event
+    during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.ComputationStarted"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the ComputationStarted event
+    during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.ComputationTensorflowError"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the ComputationTensorflowError
+    event during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.EligibilityEvalCheckin"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the EligibilityEvalCheckin event
+    during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.EligibilityEvalCheckinClientInterrupted"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the
+    EligibilityEvalCheckinClientInterrupted event during private insights
+    federated computation.
+  </description>
+</action>
+
+<action
+    name="PrivateInsights.FcpEvent.EligibilityEvalCheckinErrorInvalidPayload"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the
+    EligibilityEvalCheckinErrorInvalidPayload event during private insights
+    federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.EligibilityEvalCheckinIoError"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the EligibilityEvalCheckinIoError
+    event during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.EligibilityEvalCheckinServerAborted"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the
+    EligibilityEvalCheckinServerAborted event during private insights federated
+    computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.EligibilityEvalComputationCompleted"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the
+    EligibilityEvalComputationCompleted event during private insights federated
+    computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.EligibilityEvalComputationErrorNonfatal"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the
+    EligibilityEvalComputationErrorNonfatal event during private insights
+    federated computation.
+  </description>
+</action>
+
+<action
+    name="PrivateInsights.FcpEvent.EligibilityEvalComputationExampleIteratorError"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the
+    EligibilityEvalComputationExampleIteratorError event during private insights
+    federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.EligibilityEvalComputationInterrupted"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the
+    EligibilityEvalComputationInterrupted event during private insights
+    federated computation.
+  </description>
+</action>
+
+<action
+    name="PrivateInsights.FcpEvent.EligibilityEvalComputationInvalidArgument"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the
+    EligibilityEvalComputationInvalidArgument event during private insights
+    federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.EligibilityEvalComputationIOError"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the
+    EligibilityEvalComputationIOError event during private insights federated
+    computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.EligibilityEvalComputationStarted"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the
+    EligibilityEvalComputationStarted event during private insights federated
+    computation.
+  </description>
+</action>
+
+<action
+    name="PrivateInsights.FcpEvent.EligibilityEvalComputationTensorflowError"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the
+    EligibilityEvalComputationTensorflowError event during private insights
+    federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.EligibilityEvalNotConfigured"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the EligibilityEvalNotConfigured
+    event during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.EligibilityEvalPlanReceived"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the EligibilityEvalPlanReceived
+    event during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.EligibilityEvalPlanUriReceived"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the EligibilityEvalPlanUriReceived
+    event during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.EligibilityEvalRejected"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the EligibilityEvalRejected event
+    during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.ExampleSelectorError"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the ExampleSelectorError event
+    during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.FailureUploadClientInterrupted"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the FailureUploadClientInterrupted
+    event during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.FailureUploadCompleted"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the FailureUploadCompleted event
+    during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.FailureUploadIOError"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the FailureUploadIOError event
+    during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.FailureUploadServerAborted"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the FailureUploadServerAborted
+    event during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.FailureUploadStarted"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the FailureUploadStarted event
+    during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.FatalInitializationError"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the FatalInitializationError event
+    during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.Interruption" not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the Interruption event during
+    private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.IoError" not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the IoError event during private
+    insights federated computation.
+  </description>
+</action>
+
+<action
+    name="PrivateInsights.FcpEvent.MultipleTaskAssignmentsClientInterrupted"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the
+    MultipleTaskAssignmentsClientInterrupted event during private insights
+    federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.MultipleTaskAssignmentsCompleted"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the
+    MultipleTaskAssignmentsCompleted event during private insights federated
+    computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.MultipleTaskAssignmentsInvalidPayload"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the
+    MultipleTaskAssignmentsInvalidPayload event during private insights
+    federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.MultipleTaskAssignmentsIOError"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the MultipleTaskAssignmentsIOError
+    event during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.MultipleTaskAssignmentsPartialCompleted"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the
+    MultipleTaskAssignmentsPartialCompleted event during private insights
+    federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.MultipleTaskAssignmentsPayloadIOError"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the
+    MultipleTaskAssignmentsPayloadIOError event during private insights
+    federated computation.
+  </description>
+</action>
+
+<action
+    name="PrivateInsights.FcpEvent.MultipleTaskAssignmentsPlanUriPartialReceived"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the
+    MultipleTaskAssignmentsPlanUriPartialReceived event during private insights
+    federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.MultipleTaskAssignmentsPlanUriReceived"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the
+    MultipleTaskAssignmentsPlanUriReceived event during private insights
+    federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.MultipleTaskAssignmentsServerAborted"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the
+    MultipleTaskAssignmentsServerAborted event during private insights federated
+    computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.MultipleTaskAssignmentsStarted"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the MultipleTaskAssignmentsStarted
+    event during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.MultipleTaskAssignmentsTurnedAway"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the
+    MultipleTaskAssignmentsTurnedAway event during private insights federated
+    computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.NonfatalInitializationError"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the NonfatalInitializationError
+    event during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.Rejected" not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the Rejected event during private
+    insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.ResultUploadClientInterrupted"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the ResultUploadClientInterrupted
+    event during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.ResultUploadCompleted"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the ResultUploadCompleted event
+    during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.ResultUploadIOError"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the ResultUploadIOError event
+    during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.ResultUploadServerAborted"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the ResultUploadServerAborted
+    event during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.ResultUploadStarted"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the ResultUploadStarted event
+    during private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.TaskNotStarted"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the TaskNotStarted event during
+    private insights federated computation.
+  </description>
+</action>
+
+<action name="PrivateInsights.FcpEvent.TensorFlowError"
+    not_user_triggered="true">
+  <owner>kjarosz@google.com</owner>
+  <owner>nclliu@google.com</owner>
+  <owner>private-metrics@google.com</owner>
+  <description>
+    Logged each time the FCP client publishes the TensorFlowError event during
+    private insights federated computation.
   </description>
 </action>
 
@@ -30146,6 +31032,14 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="ProfileMenu_ActionableItemClicked_Isolated">
+  <owner>szpotekagata@chromium.org</owner>
+  <owner>cec-growth@google.com</owner>
+  <description>
+    The user clicked a button or a link in the isolated profile menu.
+  </description>
+</action>
+
 <action name="ProfileMenu_ActionableItemClicked_Regular">
   <owner>droger@chromium.org</owner>
   <owner>tangltom@chromium.org</owner>
@@ -30170,6 +31064,12 @@ should be able to be added at any place in this file.
   <owner>droger@chromium.org</owner>
   <owner>tangltom@chromium.org</owner>
   <description>The user opened the incognito profile menu.</description>
+</action>
+
+<action name="ProfileMenu_Opened_Isolated">
+  <owner>szpotekagata@chromium.org</owner>
+  <owner>cec-growth@google.com</owner>
+  <description>The user opened the isolated profile menu.</description>
 </action>
 
 <action name="ProfileMenu_Opened_Regular">
@@ -32675,6 +33575,17 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Settings.Search.QuerySubmitted">
+  <owner>tommasin@google.com</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
+  <description>
+    Recorded when a user has submitted a search query on the Settings page. A
+    query is considered submitted once the user stops typing for a short
+    duration, or acts on the results (e.g. clicks a result) before that,
+    indicating intent to search.
+  </description>
+</action>
+
 <action name="Settings.Searching">
   <owner>dschuyler@chromium.org</owner>
   <description>
@@ -32689,15 +33600,6 @@ should be able to be added at any place in this file.
   <owner>gambard@chromium.org</owner>
   <description>
     Reported when user opens the Default Browser Settings page. iOS only.
-  </description>
-</action>
-
-<action name="Settings.SitePermissions">
-  <owner>scottyoder@google.com</owner>
-  <owner>bling-pandamonium@google.com</owner>
-  <description>
-    Reported when user navigates to the Site Permissions Settings page. iOS
-    only.
   </description>
 </action>
 
@@ -34011,7 +34913,8 @@ should be able to be added at any place in this file.
 
 <action name="SidePanel.ReadAnything.Pinned.BySidePanelHeaderButton">
   <owner>corising@chromium.org</owner>
-  <owner>abigailbklein@chromium.org</owner>
+  <owner>lwinston@google.com</owner>
+  <owner>komo-eng@google.com</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <description>
     Recorded when the read anything side panel entry is pinned via the pin
@@ -34021,7 +34924,8 @@ should be able to be added at any place in this file.
 
 <action name="SidePanel.ReadAnything.Unpinned.BySidePanelHeaderButton">
   <owner>corising@chromium.org</owner>
-  <owner>abigailbklein@chromium.org</owner>
+  <owner>lwinston@google.com</owner>
+  <owner>komo-eng@google.com</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <description>
     Recorded when the read anything side panel entry is unpinned via the pin
@@ -34988,6 +35892,15 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Signin_Impression_FromPasswordManagerCard"
+    not_user_triggered="true">
+  <owner>rsult@google.com</owner>
+  <owner>chrome-signin-desktop-team@google.com</owner>
+  <description>
+    Recorded when the sign in promo is shown in the Password Manager.
+  </description>
+</action>
+
 <action name="Signin_Impression_FromPostDeviceRestoreSigninPromo">
   <owner>scottyoder@google.com</owner>
   <owner>bling-pandamonium@google.com</owner>
@@ -35478,6 +36391,15 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Signin_Signin_FromHistoryPage">
+  <owner>rsult@google.com</owner>
+  <owner>chrome-signin-team@google.com</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::kHistoryPage.
+  </description>
+</action>
+
 <action name="Signin_Signin_FromHistorySyncOptinExpansionPillOnInactivity">
   <owner>ernn@google.com</owner>
   <owner>chrome-signin-team@google.com</owner>
@@ -35646,6 +36568,15 @@ should be able to be added at any place in this file.
   <description>
     Recorded on sign in start from access point
     signin_metrics::AccessPoint::kPasswordBubble.
+  </description>
+</action>
+
+<action name="Signin_Signin_FromPasswordManagerCard">
+  <owner>rsult@google.com</owner>
+  <owner>chrome-signin-desktop-team@google.com</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::kPasswordManagerCard.
   </description>
 </action>
 
@@ -35880,6 +36811,8 @@ should be able to be added at any place in this file.
   <owner>chrome-signin-team@chromium.org</owner>
   <owner>arthurmilchior@chromium.org</owner>
   <description>
+    (Obsolete) Not recorded anymore as of M156.
+
     Recorded when the user cancels signing-out from a managed account and
     ClearDeviceDataOnSignoutForManaged is enabled. Recorded for iOS only.
   </description>
@@ -35898,6 +36831,8 @@ should be able to be added at any place in this file.
   <owner>chrome-signin-team@chromium.org</owner>
   <owner>arthurmilchior@chromium.org</owner>
   <description>
+    (Obsolete) Not recorded anymore as of M156.
+
     Recorded when the user confirms they accept to sign-out from a managed
     account and ClearDeviceDataOnSignoutForManaged is enabled. Recorded for iOS
     only.
@@ -37112,6 +38047,23 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
+<action name="Suggestions.AIM.UndoUnpin">
+  <owner>ericekey@google.com</owner>
+  <owner>bling-pandamonium@google.com</owner>
+  <description>
+    iOS: User tapped Undo on the snackbar to revert unpinning the AIM tile in
+    Most Visited Tiles.
+  </description>
+</action>
+
+<action name="Suggestions.AIM.Unpinned">
+  <owner>ericekey@google.com</owner>
+  <owner>bling-pandamonium@google.com</owner>
+  <description>
+    iOS: User unpinned the AIM tile in Most Visited Tiles.
+  </description>
+</action>
+
 <action name="Suggestions.AllDismissed.Shown">
   <owner>peconn@chromium.org</owner>
   <description>
@@ -37999,6 +38951,15 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="TabContextMenu_FocusNonGroupTabs">
+  <owner>kunaldaftari@google.com</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    User selected Focus Tab or Focus Tabs from the tab context menu for
+    non-grouped tabs.
+  </description>
+</action>
+
 <action name="TabContextMenu_FocusTabGroup">
   <owner>top-chrome-desktop-ui@google.com</owner>
   <description>
@@ -38087,12 +39048,15 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="TabGrid.Drag{ActionType}">
-  <owner>yusufo@chromium.org</owner>
-  <owner>wychen@chromium.org</owner>
+  <owner>ckitagawa@chromium.org</owner>
+  <owner>clank-tab-dev@google.com</owner>
   <description>User drags a tab to reorder it. {ActionType}</description>
   <token key="ActionType">
     <variant name="" summary="aggregated"/>
     <variant name=".DropToMerge"
+        summary="(Obsolete) Users use drop-to-merge to combine a single tab
+                 and a group or two groups."/>
+    <variant name=".DropToMergeV2"
         summary="Users use drop-to-merge to combine a single tab and a group
                  or two groups."/>
     <variant name=".RemoveFromGroup.TabGridDialogFromStrip"
@@ -38249,14 +39213,17 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="TabGroup.Created{ActionType}">
-  <owner>yusufo@chromium.org</owner>
-  <owner>wychen@chromium.org</owner>
+  <owner>ckitagawa@chromium.org</owner>
+  <owner>clank-tab-dev@google.com</owner>
   <description>Users created a new tab group. {ActionType}</description>
   <token key="ActionType">
     <variant name="" summary="aggregated"/>
     <variant name=".DeveloperRequestedNewTab"
         summary="Users tapped on a link with a target=_blank"/>
     <variant name=".DropToMerge"
+        summary="(Obsolete) Users dragged a single tab and dropped it on
+                 another single tab to create a group."/>
+    <variant name=".DropToMergeV2"
         summary="Users dragged a single tab and dropped it on another single
                  tab to create a group."/>
     <variant name=".OpenInNewTab"

@@ -293,6 +293,7 @@ public class NotificationPlatformBridgeTest {
     @Test
     @MediumTest
     @Feature({"Browser", "Notifications"})
+    @DisabledTest(message = "https://crbug.com/562625832")
     public void testShowNotificationWithTextAction() throws Exception {
         mNotificationTestRule.setNotificationContentSettingForOrigin(
                 ContentSetting.ALLOW, mPermissionTestRule.getOrigin());
@@ -1775,6 +1776,7 @@ public class NotificationPlatformBridgeTest {
         ChromeFeatureList.REPORT_NOTIFICATION_CONTENT_DETECTION_DATA,
         ChromeFeatureList.SHOW_WARNINGS_FOR_SUSPICIOUS_NOTIFICATIONS
     })
+    @DisabledTest(message = "https://crbug.com/562625832")
     public void
             testWarningShowsOneNotificationAfterMultipleWarnedSpamThenUnsubscribeThenResubscribe()
                     throws Exception {

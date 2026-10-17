@@ -123,6 +123,10 @@ std::string_view GetToastName(ToastId toast_id) {
       return "EmailVerificationLoading";
     case ToastId::kScheduledRestartOnIdle:
       return "ScheduledRestartOnIdle";
+    case ToastId::kEmailVerificationError:
+      return "EmailVerificationError";
+    case ToastId::kAutofillAiSuggestionRemoved:
+      return "AutofillAiSuggestionRemoved";
   }
 
   NOTREACHED();

@@ -45,14 +45,6 @@
                     "--debug",
                     "--disable-field-trials"
                 ]
-            },
-            "loadline_phone.crossbench": {
-                "crossbench_name": "loadline-phone-fast",
-                "arguments": [
-                    "--cool-down-threshold=moderate",
-                    "--debug",
-                    "--disable-field-trials"
-                ]
             }
         }
     },
@@ -171,7 +163,8 @@
                 "crossbench_name": "web-power",
                 "arguments": [
                     "--disable-field-trials",
-                    "--required-device-config-mode=warn"
+                    "--required-device-config-mode=warn",
+                    "--cool-down-threshold=moderate"
                 ]
             }
         }

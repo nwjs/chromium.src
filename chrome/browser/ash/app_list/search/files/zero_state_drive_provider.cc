@@ -7,7 +7,6 @@
 #include <memory>
 #include <optional>
 
-#include "ash/constants/ash_features.h"
 #include "ash/public/cpp/app_list/app_list_types.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/time/time.h"
@@ -36,13 +35,13 @@ ZeroStateDriveProvider::ZeroStateDriveProvider(Profile* profile)
           ash::FileSuggestKeyedServiceFactory::GetInstance()->GetService(
               profile)) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK(profile_);
+  CHECK(profile_, base::NotFatalUntil::M160);
 
   // `FileSuggestKeyedServiceFactory` ensures to build the keyed
   // service when the app list syncable service is built. Meanwhile,
   // `ZeroStateDriveProvider` is built only when the app list syncable service
   // exists. Therefore, `file_suggest_service_` should always be true.
-  DCHECK(file_suggest_service_);
+  CHECK(file_suggest_service_, base::NotFatalUntil::M160);
 
   file_suggest_service_observation_.Observe(file_suggest_service_);
 }
@@ -93,22 +92,12 @@ void ZeroStateDriveProvider::SetSearchResults(
   // Assign scores to results by simply using their position in the results
   // list. The order of results from the ItemSuggest API is significant:
   // the first is better than the second, etc. Resulting scores are in [0, 1].
-  //
-  // If drive files and local files need to be mixed in continue section, create
-  // ranking using time stamps, so local and drive files are consistently
-  // ranked.
-  const bool timestamp_based_score =
-      ash::features::UseMixedFileLauncherContinueSection();
-
   const double total_items = static_cast<double>(suggest_results.size());
   int item_index = 0;
 
-  const base::TimeDelta max_recency = ash::GetMaxFileSuggestionRecency();
   SearchProvider::Results provider_results;
   for (const auto& result : suggest_results) {
-    const double score = timestamp_based_score
-                             ? ash::ToTimestampBasedScore(result, max_recency)
-                             : (1.0 - item_index / total_items);
+    const double score = 1.0 - item_index / total_items;
     ++item_index;
     auto provider_result = std::make_unique<FileResult>(
         result.id, result.file_path, result.prediction_reason,

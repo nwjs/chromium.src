@@ -7,17 +7,16 @@ package org.chromium.chrome.browser.ntp_customization.theme.theme_collections;
 import androidx.annotation.VisibleForTesting;
 
 import org.jni_zero.CalledByNative;
+import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.base.Callback;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.ntp_customization.theme.chrome_colors.NtpThemeColorInfo.NtpThemeColorId;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.url.GURL;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -126,7 +125,10 @@ public class NtpThemeCollectionBridge {
      */
     @CalledByNative
     static BackgroundCollection createCollection(
-            String id, String label, GURL previewImageUrl, int hash) {
+            @JniType("std::string") String id,
+            @JniType("std::string") String label,
+            @JniType("GURL") GURL previewImageUrl,
+            int hash) {
         return new BackgroundCollection(id, label, previewImageUrl, hash);
     }
 
@@ -142,17 +144,13 @@ public class NtpThemeCollectionBridge {
      */
     @CalledByNative
     static CollectionImage createImage(
-            String collectionId,
-            GURL imageUrl,
-            GURL previewImageUrl,
-            String[] attribution,
-            GURL attributionUrl) {
+            @JniType("std::string") String collectionId,
+            @JniType("GURL") GURL imageUrl,
+            @JniType("GURL") GURL previewImageUrl,
+            @JniType("std::vector<std::string>") List<String> attribution,
+            @JniType("GURL") GURL attributionUrl) {
         return new CollectionImage(
-                collectionId,
-                imageUrl,
-                previewImageUrl,
-                Arrays.asList(attribution),
-                attributionUrl);
+                collectionId, imageUrl, previewImageUrl, attribution, attributionUrl);
     }
 
     /**
@@ -212,47 +210,6 @@ public class NtpThemeCollectionBridge {
         mOnCustomBackgroundImageUpdatedCallback.onResult(customBackgroundInfo);
     }
 
-    /** Sets the user-selected background image. */
-    public void selectLocalBackgroundImage() {
-        if (mNativeNtpThemeCollectionBridge == 0) return;
-
-        NtpThemeCollectionBridgeJni.get()
-                .selectLocalBackgroundImage(mNativeNtpThemeCollectionBridge);
-    }
-
-    /**
-     * Sets the New Tab Page theme to a specific Chrome color.
-     *
-     * @param colorId The ID of the Chrome color.
-     */
-    public void setChromeColor(@NtpThemeColorId int colorId) {
-        if (mNativeNtpThemeCollectionBridge == 0) return;
-
-        NtpThemeCollectionBridgeJni.get().setChromeColor(mNativeNtpThemeCollectionBridge, colorId);
-    }
-
-    /** Resets the New Tab Page theme to default. */
-    public void resetCustomBackgroundInfo() {
-        if (mNativeNtpThemeCollectionBridge == 0) return;
-
-        NtpThemeCollectionBridgeJni.get()
-                .resetCustomBackgroundInfo(mNativeNtpThemeCollectionBridge);
-    }
-
-    /**
-     * Updates the theme collection background with the primary theme color.
-     *
-     * @param backgroundUrl The URL of the background image.
-     * @param primaryColor The primary color extracted from the theme collection image.
-     */
-    public void updateThemeCollectionBackgroundColor(GURL backgroundUrl, int primaryColor) {
-        if (mNativeNtpThemeCollectionBridge == 0) return;
-
-        NtpThemeCollectionBridgeJni.get()
-                .updateThemeCollectionBackgroundColor(
-                        mNativeNtpThemeCollectionBridge, backgroundUrl, primaryColor);
-    }
-
     /**
      * Factory method called by native code to construct a {@link CustomBackgroundInfo} object.
      *
@@ -266,11 +223,11 @@ public class NtpThemeCollectionBridge {
     @CalledByNative
     @VisibleForTesting
     static CustomBackgroundInfo createCustomBackgroundInfo(
-            GURL backgroundUrl,
-            String collectionId,
+            @JniType("GURL") GURL backgroundUrl,
+            @JniType("std::string") String collectionId,
             boolean isUploadedImage,
             boolean isDailyRefreshEnabled,
-            @Nullable String attribution) {
+            @JniType("std::string") String attribution) {
         return new CustomBackgroundInfo(
                 backgroundUrl, collectionId, isUploadedImage, isDailyRefreshEnabled, attribution);
     }
@@ -286,32 +243,23 @@ public class NtpThemeCollectionBridge {
 
         void getBackgroundImages(
                 long nativeNtpThemeCollectionBridge,
-                String collectionId,
+                @JniType("std::string") String collectionId,
                 Callback<Object[]> callback);
 
         void setThemeCollectionImage(
                 long nativeNtpThemeCollectionBridge,
-                String collectionId,
-                GURL imageUrl,
-                GURL previewImageUrl,
-                @Nullable String attributionLine1,
-                @Nullable String attributionLine2,
-                GURL attributionUrl);
+                @JniType("std::string") String collectionId,
+                @JniType("GURL") GURL imageUrl,
+                @JniType("GURL") GURL previewImageUrl,
+                @JniType("std::string") @Nullable String attributionLine1,
+                @JniType("std::string") @Nullable String attributionLine2,
+                @JniType("GURL") GURL attributionUrl);
 
         void setThemeCollectionDailyRefreshed(
-                long nativeNtpThemeCollectionBridge, String collectionId);
+                long nativeNtpThemeCollectionBridge, @JniType("std::string") String collectionId);
 
         void fetchNextThemeCollectionImage(long nativeNtpThemeCollectionBridge);
 
         @Nullable CustomBackgroundInfo getCustomBackgroundInfo(long nativeNtpThemeCollectionBridge);
-
-        void selectLocalBackgroundImage(long nativeNtpThemeCollectionBridge);
-
-        void setChromeColor(long nativeNtpThemeCollectionBridge, @NtpThemeColorId int colorId);
-
-        void resetCustomBackgroundInfo(long nativeNtpThemeCollectionBridge);
-
-        void updateThemeCollectionBackgroundColor(
-                long nativeNtpThemeCollectionBridge, GURL backgroundUrl, int primaryColor);
     }
 }

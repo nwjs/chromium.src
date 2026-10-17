@@ -33,7 +33,7 @@ struct ClientFilterableState;
 class VariationsSeed;
 
 // A seed that has passed validation.
-struct ValidatedSeed {
+struct COMPONENT_EXPORT(VARIATIONS) ValidatedSeed {
   ValidatedSeed();
   ~ValidatedSeed();
 
@@ -120,9 +120,10 @@ class COMPONENT_EXPORT(VARIATIONS) VariationsSeedStore {
                                           std::string* base64_seed_signature);
 
   // Stores the given seed |data| (serialized protobuf) to local state, along
-  // with a base64-encoded digital signature for seed and the date when it was
-  // fetched. If |is_gzip_compressed| is true, treats |data| as being gzip
-  // compressed and decompresses it before any other processing.
+  // with a base64-encoded digital signature for seed and the
+  // variations-server-provided seed date. If |is_gzip_compressed| is true,
+  // treats |data| as being gzip compressed and decompresses it before any other
+  // processing.
   // If |is_delta_compressed| is true, treats |data| as being delta
   // compressed and attempts to decode it first using the store's seed data.
   // The actual seed data will be base64 encoded for storage. If the string
@@ -139,7 +140,7 @@ class COMPONENT_EXPORT(VARIATIONS) VariationsSeedStore {
       std::string base64_seed_signature,
       std::string country_code,
       std::string geo_level1,
-      base::Time date_fetched,
+      base::Time seed_date,
       bool is_delta_compressed,
       bool is_gzip_compressed,
       bool require_synchronous);
@@ -223,10 +224,10 @@ class COMPONENT_EXPORT(VARIATIONS) VariationsSeedStore {
 
   // Updates |kVariationsSeedDate| and logs when previous date was from a
   // different day.
-  void UpdateSeedDateAndLogDayChange(base::Time server_date_fetched);
+  void UpdateSeedDateAndLogDayChange(base::Time seed_date);
 
   // Creates a histogram for the result of the update of the seed date.
-  void LogSeedDayChange(base::Time server_date_fetched);
+  void LogSeedDayChange(base::Time seed_date);
 
   // Returns the serial number of the most recently received seed, or an empty
   // string if there is no seed (or if it could not be read).
@@ -308,14 +309,18 @@ class COMPONENT_EXPORT(VARIATIONS) VariationsSeedStore {
  private:
   FRIEND_TEST_ALL_PREFIXES(VariationsSeedStoreTest, VerifySeedSignature);
   FRIEND_TEST_ALL_PREFIXES(VariationsSeedStoreTest, ApplyDeltaPatch);
+  FRIEND_TEST_ALL_PREFIXES(VariationsSeedStoreTest,
+                           DumpWithoutCrashingOnlyOnValidLargeSeed);
 
   // Move-only struct containing params related to the received variations seed.
-  struct SeedData {
+  struct COMPONENT_EXPORT(VARIATIONS) SeedData {
     std::string data;
     std::string base64_seed_signature;
     std::string country_code;
     std::string geo_level1;
-    base::Time date_fetched;
+    // The variations-server-provided timestamp of when the response was sent.
+    // From the HTTP "Date" header.
+    base::Time seed_date;
     bool is_gzip_compressed = false;
     bool is_delta_compressed = false;
     // Only set if `is_delta_compressed` is true.
@@ -330,7 +335,7 @@ class COMPONENT_EXPORT(VARIATIONS) VariationsSeedStore {
   };
 
   // The result of processing a SeedData struct.
-  struct SeedProcessingResult {
+  struct COMPONENT_EXPORT(VARIATIONS) SeedProcessingResult {
     SeedData seed_data;
     StoreSeedResult result;
     // The below are only set if `result` is StoreSeedResult::kSuccess.
@@ -419,7 +424,7 @@ class COMPONENT_EXPORT(VARIATIONS) VariationsSeedStore {
       ValidatedSeed seed,
       std::string country_code,
       std::string geo_level1,
-      base::Time date_fetched,
+      base::Time seed_date,
       bool require_synchronous,
       SeedReaderWriter::ReadSeedDataResult read_result);
 

@@ -176,6 +176,7 @@ source_set("coordinator") {
     "//ios/chrome/browser/content_suggestions/ui:commands",
     "//ios/chrome/browser/content_suggestions/ui:ui_util",
     "//ios/chrome/browser/context_menu/ui_bundled/link_preview",
+    "//ios/chrome/browser/default_browser/model:utils",
     "//ios/chrome/browser/discover_feed/model",
     "//ios/chrome/browser/discover_feed/model:constants",
     "//ios/chrome/browser/discover_feed/model:discover_feed_factory",
@@ -246,6 +247,8 @@ source_set("coordinator") {
 
 source_set("ntp_internal") {
   sources = [
+    "ai_mode_button_service_ios.h",
+    "ai_mode_button_service_ios.mm",
     "fake_location_bar_view.h",
     "fake_location_bar_view.mm",
     "feed_header_view_controller.h",
@@ -263,6 +266,8 @@ source_set("ntp_internal") {
     "new_tab_page_mediator.h",
     "new_tab_page_mediator.mm",
     "new_tab_page_mutator.h",
+    "new_tab_page_quick_actions_button_factory.h",
+    "new_tab_page_quick_actions_button_factory.mm",
     "new_tab_page_quick_actions_view_controller.h",
     "new_tab_page_quick_actions_view_controller.mm",
     "new_tab_page_redesign_view_controller.h",
@@ -442,6 +447,7 @@ source_set("unit_tests") {
     "//ios/chrome/browser/browser_view/public",
     "//ios/chrome/browser/commerce/model:shopping_service",
     "//ios/chrome/browser/content_suggestions/coordinator",
+    "//ios/chrome/browser/content_suggestions/magic_stack/public:constants",
     "//ios/chrome/browser/content_suggestions/magic_stack/ui",
     "//ios/chrome/browser/content_suggestions/magic_stack/ui:cells",
     "//ios/chrome/browser/content_suggestions/most_visited_tiles/ui",
@@ -461,6 +467,7 @@ source_set("unit_tests") {
     "//ios/chrome/browser/image_fetcher/model",
     "//ios/chrome/browser/metrics/model:activity_reporter",
     "//ios/chrome/browser/ntp/model",
+    "//ios/chrome/browser/ntp/search_engine_logo/mediator",
     "//ios/chrome/browser/ntp/search_engine_logo/ui",
     "//ios/chrome/browser/ntp/shared/metrics",
     "//ios/chrome/browser/ntp/shared/metrics:constants",
@@ -499,6 +506,7 @@ source_set("unit_tests") {
     "//ios/chrome/browser/tips_manager/model:factory",
     "//ios/chrome/browser/toolbar/legacy/ui_bundled/public",
     "//ios/chrome/browser/toolbar/legacy/ui_bundled/test",
+    "//ios/chrome/browser/toolbar/ui:constants",
     "//ios/chrome/browser/url_loading/model",
     "//ios/chrome/browser/url_loading/model:test_support",
     "//ios/chrome/common/ui/colors",
@@ -558,6 +566,7 @@ source_set("feature_flags") {
     "new_tab_page_feature.mm",
   ]
   deps = [
+    "//components/ntp_tiles",
     "//components/prefs",
     "//components/variations/service",
     "//ios/chrome/browser/authentication/ui_bundled/cells:constants",
@@ -565,6 +574,7 @@ source_set("feature_flags") {
     "//ios/chrome/browser/shared/model/prefs:pref_names",
     "//ios/chrome/browser/shared/public/features",
     "//ui/base",
+    "//url",
   ]
   public_deps = [ "//base" ]
 }

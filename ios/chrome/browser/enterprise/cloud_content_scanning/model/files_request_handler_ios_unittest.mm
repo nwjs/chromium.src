@@ -25,7 +25,6 @@
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_manager_ios.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
-#import "ios/components/enterprise/analysis/features.h"
 #import "ios/web/public/test/web_task_environment.h"
 #import "testing/gmock/include/gmock/gmock.h"
 #import "testing/gtest/include/gtest/gtest.h"
@@ -121,8 +120,6 @@ class FilesRequestHandlerIOSTest : public PlatformTest {
         IOSReportingEventRouterFactory::GetForProfile(profile_.get()));
     connectors_service_ =
         ConnectorsServiceFactory::GetForProfile(profile_.get());
-
-    scoped_feature_list_.InitAndEnableFeature(kEnableFileDownloadConnectorIOS);
   }
 
   // Enables the file download connector by setting the appropriate pref.
@@ -158,6 +155,19 @@ TEST_F(FilesRequestHandlerIOSTest, UploadDataImpl_NoPath) {
 
   RequestHandlerResult result = future.Take();
   EXPECT_EQ(result.final_result, FinalContentAnalysisResult::SUCCESS);
+}
+
+// Tests that StopFileWork is a safe no-op: iOS only scans one file at a time,
+// so there is no FileOpeningJob to signal.
+TEST_F(FilesRequestHandlerIOSTest, StopFileWorkIsNoOp) {
+  base::test::TestFuture<RequestHandlerResult> future;
+  auto delegate = std::make_unique<FilesRequestHandlerIOS>(
+      connectors_service_, reporting_router_, base::FilePath(),
+      future.GetCallback());
+
+  delegate->StopFileWork();
+
+  EXPECT_FALSE(future.IsReady());
 }
 
 // Tests that UploadDataImpl returns false and calls the callback when the

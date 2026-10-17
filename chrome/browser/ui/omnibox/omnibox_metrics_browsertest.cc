@@ -82,7 +82,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxMetricsTest, LogSearchEngineUsed) {
   const AutocompleteMatch& match = result.match_at(0);
   EXPECT_EQ(u"google.com", match.keyword);
   EXPECT_EQ(u"z", match.fill_into_edit);
-  EXPECT_EQ(AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED,
+  EXPECT_EQ(omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
             result.match_at(0).type);
 
   base::HistogramTester histogram_tester;

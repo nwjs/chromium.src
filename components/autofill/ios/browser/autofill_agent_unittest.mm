@@ -752,7 +752,9 @@ TEST_F(AutofillAgentTest, showAutofillPopup_ShowVirtualCards) {
 
   // Make credit card suggestion.
   [autofill_agent_ showAutofillPopup:autofillSuggestions
-                  suggestionDelegate:mock_delegate.GetWeakPtr()];
+                  suggestionDelegate:mock_delegate.GetWeakPtr()
+                              formId:{}
+                             fieldId:{}];
   [autofill_agent_ retrieveSuggestionsForForm:nil
                                      webState:&fake_web_state_
                             completionHandler:completionHandler];
@@ -811,7 +813,9 @@ TEST_F(AutofillAgentTest, showAutofillPopup_EmptyIconInCreditCardSuggestion) {
 
   // Make credit card suggestion.
   [autofill_agent_ showAutofillPopup:autofillSuggestions
-                  suggestionDelegate:mock_delegate.GetWeakPtr()];
+                  suggestionDelegate:mock_delegate.GetWeakPtr()
+                              formId:{}
+                             fieldId:{}];
   [autofill_agent_ retrieveSuggestionsForForm:nil
                                      webState:&fake_web_state_
                             completionHandler:completionHandler];
@@ -853,7 +857,9 @@ TEST_F(AutofillAgentTest,
 
   // When the custom icon is not present, the default icon should be used.
   [autofill_agent_ showAutofillPopup:autofillSuggestions
-                  suggestionDelegate:mock_delegate.GetWeakPtr()];
+                  suggestionDelegate:mock_delegate.GetWeakPtr()
+                              formId:{}
+                             fieldId:{}];
   [autofill_agent_ retrieveSuggestionsForForm:nil
                                      webState:&fake_web_state_
                             completionHandler:completionHandler];
@@ -863,7 +869,9 @@ TEST_F(AutofillAgentTest,
   // Now set a custom icon, which should override the default.
   autofillSuggestions[0].custom_icon = custom_icon;
   [autofill_agent_ showAutofillPopup:autofillSuggestions
-                  suggestionDelegate:mock_delegate.GetWeakPtr()];
+                  suggestionDelegate:mock_delegate.GetWeakPtr()
+                              formId:{}
+                             fieldId:{}];
   [autofill_agent_ retrieveSuggestionsForForm:nil
                                      webState:&fake_web_state_
                             completionHandler:completionHandler];
@@ -890,7 +898,9 @@ TEST_F(AutofillAgentTest, onSuggestionsReady_Undo) {
       u"", u"", autofill::Suggestion::Icon::kUndo, SuggestionType::kUndo));
   [autofill_agent_
        showAutofillPopup:autofillSuggestions
-      suggestionDelegate:base::WeakPtr<autofill::AutofillSuggestionDelegate>()];
+      suggestionDelegate:base::WeakPtr<autofill::AutofillSuggestionDelegate>()
+                  formId:{}
+                 fieldId:{}];
 
   // Retrieves the suggestions.
   auto completionHandler = ^(NSArray<FormSuggestion*>* suggestions,
@@ -947,7 +957,9 @@ TEST_F(AutofillAgentTest, onSuggestionsReady_UndoWithGPay) {
       u"", u"", autofill::Suggestion::Icon::kUndo, SuggestionType::kUndo));
   [autofill_agent_
        showAutofillPopup:autofillSuggestions
-      suggestionDelegate:base::WeakPtr<autofill::AutofillSuggestionDelegate>()];
+      suggestionDelegate:base::WeakPtr<autofill::AutofillSuggestionDelegate>()
+                  formId:{}
+                 fieldId:{}];
 
   // Retrieves the suggestions.
   auto completionHandler = ^(NSArray<FormSuggestion*>* suggestions,
@@ -1235,11 +1247,13 @@ TEST_F(AutofillAgentTest, DidSelectSuggestion_AutocompleteEntry) {
       DidAcceptSuggestion(
           ::testing::Field(&autofill::Suggestion::type,
                            autofill::SuggestionType::kAutocompleteEntry),
-          ::testing::_))
+          ::testing::_, ::testing::_, ::testing::_))
       .WillOnce(
           [&](const autofill::Suggestion& suggestion,
               const autofill::AutofillSuggestionDelegate::SuggestionMetadata&
-                  metadata) {
+                  metadata,
+              const autofill::FormGlobalId& form_id,
+              const autofill::FieldGlobalId& field_id) {
             AutofillDriverIOS* driver =
                 AutofillDriverIOS::FromWebStateAndWebFrame(&fake_web_state_,
                                                            fake_main_frame_);
@@ -1256,7 +1270,9 @@ TEST_F(AutofillAgentTest, DidSelectSuggestion_AutocompleteEntry) {
   suggestions.emplace_back(field1_value,
                            autofill::SuggestionType::kAutocompleteEntry);
   [autofill_agent_ showAutofillPopup:suggestions
-                  suggestionDelegate:mock_delegate.GetWeakPtr()];
+                  suggestionDelegate:mock_delegate.GetWeakPtr()
+                              formId:{}
+                             fieldId:{}];
 
   // Select suggestion to trigger field filling.
   __block BOOL completion_handler_called = NO;
@@ -1337,13 +1353,15 @@ TEST_F(AutofillAgentTest, DidSelectSuggestion_Undo) {
       mock_delegate,
       DidAcceptSuggestion(::testing::Field(&autofill::Suggestion::type,
                                            autofill::SuggestionType::kUndo),
-                          ::testing::_));
+                          ::testing::_, ::testing::_, ::testing::_));
 
   // Show the popup to set the delegate used by didSelectSuggestion.
   std::vector<autofill::Suggestion> suggestions;
   suggestions.emplace_back(u"", autofill::SuggestionType::kUndo);
   [autofill_agent_ showAutofillPopup:suggestions
-                  suggestionDelegate:mock_delegate.GetWeakPtr()];
+                  suggestionDelegate:mock_delegate.GetWeakPtr()
+                              formId:{}
+                             fieldId:{}];
 
   // Select suggestion to trigger undo.
   FormRendererId form_id(1);
@@ -1413,7 +1431,7 @@ TEST_F(AutofillAgentTest,
         mock_delegate,
         DidAcceptSuggestion(testing::Field(&autofill::Suggestion::payload,
                                            autofill::Suggestion::Payload()),
-                            testing::_));
+                            testing::_, testing::_, testing::_));
 
     FormSuggestion* form_suggestion = FormSuggestionWithPayload(
         u"", autofill::SuggestionType::kCreditCardEntry,
@@ -1438,7 +1456,7 @@ TEST_F(AutofillAgentTest,
         mock_delegate,
         DidAcceptSuggestion(
             testing::Field(&autofill::Suggestion::payload, expected_payload),
-            testing::_));
+            testing::_, testing::_, testing::_));
 
     FormSuggestion* form_suggestion = FormSuggestionWithPayload(
         u"", autofill::SuggestionType::kCreditCardEntry, expected_payload,
@@ -1463,7 +1481,7 @@ TEST_F(AutofillAgentTest,
         mock_delegate,
         DidAcceptSuggestion(
             testing::Field(&autofill::Suggestion::payload, expected_payload),
-            testing::_));
+            testing::_, testing::_, testing::_));
 
     FormSuggestion* form_suggestion = FormSuggestionWithPayload(
         u"", autofill::SuggestionType::kCreditCardEntry, expected_payload,
@@ -1489,7 +1507,7 @@ TEST_F(AutofillAgentTest,
         mock_delegate,
         DidAcceptSuggestion(
             testing::Field(&autofill::Suggestion::payload, expected_payload),
-            testing::_));
+            testing::_, testing::_, testing::_));
 
     FormSuggestion* form_suggestion = FormSuggestionWithPayload(
         u"", autofill::SuggestionType::kCreditCardEntry, expected_payload,
@@ -1515,7 +1533,7 @@ TEST_F(AutofillAgentTest,
         mock_delegate,
         DidAcceptSuggestion(
             testing::Field(&autofill::Suggestion::payload, expected_payload),
-            testing::_));
+            testing::_, testing::_, testing::_));
 
     FormSuggestion* form_suggestion = FormSuggestionWithPayload(
         u"", autofill::SuggestionType::kCreditCardEntry, expected_payload,
@@ -1540,7 +1558,7 @@ TEST_F(AutofillAgentTest,
         mock_delegate,
         DidAcceptSuggestion(
             testing::Field(&autofill::Suggestion::payload, expected_payload),
-            testing::_));
+            testing::_, testing::_, testing::_));
 
     FormSuggestion* form_suggestion = FormSuggestionWithPayload(
         u"", autofill::SuggestionType::kCreditCardEntry, expected_payload,
@@ -1573,7 +1591,7 @@ TEST_F(AutofillAgentTest,
         mock_delegate,
         DidAcceptSuggestion(testing::Field(&autofill::Suggestion::payload,
                                            autofill::Suggestion::Payload()),
-                            testing::_));
+                            testing::_, testing::_, testing::_));
 
     FormSuggestion* form_suggestion = FormSuggestionWithPayload(
         u"", autofill::SuggestionType::kCreditCardEntry,
@@ -1598,7 +1616,7 @@ TEST_F(AutofillAgentTest,
         mock_delegate,
         DidAcceptSuggestion(
             testing::Field(&autofill::Suggestion::payload, expected_payload),
-            testing::_));
+            testing::_, testing::_, testing::_));
 
     FormSuggestion* form_suggestion = FormSuggestionWithPayload(
         u"", autofill::SuggestionType::kCreditCardEntry, expected_payload,
@@ -1624,7 +1642,7 @@ TEST_F(AutofillAgentTest,
         mock_delegate,
         DidAcceptSuggestion(testing::Field(&autofill::Suggestion::payload,
                                            autofill::Suggestion::Payload()),
-                            testing::_));
+                            testing::_, testing::_, testing::_));
 
     FormSuggestion* form_suggestion = FormSuggestionWithPayload(
         u"", autofill::SuggestionType::kCreditCardEntry, input_payload,
@@ -1650,7 +1668,7 @@ TEST_F(AutofillAgentTest,
         mock_delegate,
         DidAcceptSuggestion(
             testing::Field(&autofill::Suggestion::payload, expected_payload),
-            testing::_));
+            testing::_, testing::_, testing::_));
 
     FormSuggestion* form_suggestion = FormSuggestionWithPayload(
         u"", autofill::SuggestionType::kCreditCardEntry, expected_payload,
@@ -1676,7 +1694,7 @@ TEST_F(AutofillAgentTest,
         mock_delegate,
         DidAcceptSuggestion(testing::Field(&autofill::Suggestion::payload,
                                            autofill::Suggestion::Payload()),
-                            testing::_));
+                            testing::_, testing::_, testing::_));
 
     FormSuggestion* form_suggestion = FormSuggestionWithPayload(
         u"", autofill::SuggestionType::kCreditCardEntry, input_payload,
@@ -1701,7 +1719,7 @@ TEST_F(AutofillAgentTest,
         mock_delegate,
         DidAcceptSuggestion(testing::Field(&autofill::Suggestion::payload,
                                            autofill::Suggestion::Payload()),
-                            testing::_));
+                            testing::_, testing::_, testing::_));
 
     FormSuggestion* form_suggestion = FormSuggestionWithPayload(
         u"", autofill::SuggestionType::kCreditCardEntry, input_payload,
@@ -1741,7 +1759,9 @@ TEST_F(AutofillAgentTest, ShowAtMemorySuggestion_AppendedWithSuggestions) {
 
   testing::NiceMock<autofill::MockAutofillSuggestionDelegate> mock_delegate;
   [autofill_agent_ showAutofillPopup:suggestions
-                  suggestionDelegate:mock_delegate.GetWeakPtr()];
+                  suggestionDelegate:mock_delegate.GetWeakPtr()
+                              formId:{}
+                             fieldId:{}];
   [autofill_agent_ retrieveSuggestionsForForm:nil
                                      webState:&fake_web_state_
                             completionHandler:completionHandler];
@@ -1775,10 +1795,96 @@ TEST_F(AutofillAgentTest, ShowAtMemorySuggestion_NotAppendedWhenEmpty) {
 
   testing::NiceMock<autofill::MockAutofillSuggestionDelegate> mock_delegate;
   [autofill_agent_ showAutofillPopup:empty_suggestions
-                  suggestionDelegate:mock_delegate.GetWeakPtr()];
+                  suggestionDelegate:mock_delegate.GetWeakPtr()
+                              formId:{}
+                             fieldId:{}];
   [autofill_agent_ retrieveSuggestionsForForm:nil
                                      webState:&fake_web_state_
                             completionHandler:completionHandler];
   EXPECT_TRUE(completion_called);
   EXPECT_EQ(0U, received_suggestions.count);
+}
+
+// Tests that form_id and field_id passed to showAutofillPopup: are stored in
+// FormSuggestionMetadata and forwarded to DidAcceptSuggestion.
+TEST_F(AutofillAgentTest, ShowAutofillPopup_AttachesFormAndFieldIdToMetadata) {
+  std::vector<autofill::Suggestion> suggestions = {
+      autofill::Suggestion(u"test", autofill::SuggestionType::kAddressEntry)};
+  autofill::FormGlobalId form_id(
+      autofill::LocalFrameToken(base::UnguessableToken::Create()),
+      autofill::FormRendererId(123));
+  autofill::FieldGlobalId field_id(
+      autofill::LocalFrameToken(base::UnguessableToken::Create()),
+      autofill::FieldRendererId(456));
+
+  __block std::vector<FormSuggestion*> received_suggestions;
+  auto completionHandler = ^(NSArray<FormSuggestion*>* form_suggestions,
+                             id<FormSuggestionProvider> delegate) {
+    for (FormSuggestion* suggestion in form_suggestions) {
+      received_suggestions.push_back(suggestion);
+    }
+  };
+
+  testing::NiceMock<autofill::MockAutofillSuggestionDelegate> mock_delegate;
+  [autofill_agent_ showAutofillPopup:suggestions
+                  suggestionDelegate:mock_delegate.GetWeakPtr()
+                              formId:form_id
+                             fieldId:field_id];
+  [autofill_agent_ retrieveSuggestionsForForm:nil
+                                     webState:&fake_web_state_
+                            completionHandler:completionHandler];
+
+  ASSERT_THAT(
+      received_suggestions,
+      testing::ElementsAre(testing::ResultOf(
+          [](FormSuggestion* suggestion) { return suggestion.metadata; },
+          testing::AllOf(
+              testing::Field(&FormSuggestionMetadata::form_id, form_id),
+              testing::Field(&FormSuggestionMetadata::field_id, field_id)))));
+
+  EXPECT_CALL(mock_delegate,
+              DidAcceptSuggestion(testing::_, testing::_, form_id, field_id));
+  [autofill_agent_ didSelectSuggestion:received_suggestions[0]
+                               atIndex:0
+                                  form:@"form"
+                        formRendererID:FormRendererId(1)
+                       fieldIdentifier:@"field"
+                       fieldRendererID:FieldRendererId(2)
+                               frameID:base::SysUTF8ToNSString(kTestFrameId)
+                     completionHandler:^{
+                     }];
+}
+
+// Tests that selecting an unbound suggestion (e.g. from the bottom sheet or
+// manual fill) falls back to the last received delegate, form_id, and field_id.
+TEST_F(AutofillAgentTest,
+       DidSelectSuggestion_UnboundSuggestionFallsBackToLastReceivedIds) {
+  std::vector<autofill::Suggestion> suggestions = {autofill::Suggestion(
+      u"test", autofill::SuggestionType::kCreditCardEntry)};
+  autofill::FormGlobalId form_id(
+      autofill::LocalFrameToken(base::UnguessableToken::Create()),
+      autofill::FormRendererId(123));
+  autofill::FieldGlobalId field_id(
+      autofill::LocalFrameToken(base::UnguessableToken::Create()),
+      autofill::FieldRendererId(456));
+
+  testing::NiceMock<autofill::MockAutofillSuggestionDelegate> mock_delegate;
+  [autofill_agent_ showAutofillPopup:suggestions
+                  suggestionDelegate:mock_delegate.GetWeakPtr()
+                              formId:form_id
+                             fieldId:field_id];
+
+  FormSuggestion* unbound_suggestion =
+      SimpleFormSuggestion(u"test", autofill::SuggestionType::kCreditCardEntry);
+  EXPECT_CALL(mock_delegate,
+              DidAcceptSuggestion(testing::_, testing::_, form_id, field_id));
+  [autofill_agent_ didSelectSuggestion:unbound_suggestion
+                               atIndex:0
+                                  form:@"form"
+                        formRendererID:FormRendererId(1)
+                       fieldIdentifier:@"field"
+                       fieldRendererID:FieldRendererId(2)
+                               frameID:base::SysUTF8ToNSString(kTestFrameId)
+                     completionHandler:^{
+                     }];
 }

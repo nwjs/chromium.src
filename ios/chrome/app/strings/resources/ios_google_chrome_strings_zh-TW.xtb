@@ -48,6 +48,7 @@
 <translation id="1784567647421309104">在 Chrome 中儲存密碼</translation>
 <translation id="1790080846677398234">將輸入的網址加入 Chrome 書籤。</translation>
 <translation id="1799920918471566157">Chrome 提示</translation>
+<translation id="1802420021606590788">Chrome 會在雲端私人空間處理網頁標題和網址</translation>
 <translation id="1830634592642484976">這個地址目前儲存在 Chrome 中。如要在各項 Google 產品中使用這項資訊，請儲存到你的 Google 帳戶 (<ph name="USER_EMAIL" />)。</translation>
 <translation id="1891812034154776216">離開 Chrome 時隱藏開啟的無痕分頁</translation>
 <translation id="1894434821386148799">這裡會顯示 Chrome　設定和其他項目</translation>
@@ -138,6 +139,7 @@
 <translation id="3984746313391923992">貴機構要求你在 Chrome 保持登出狀態。</translation>
 <translation id="3988789688219830639">Google Chrome 無法存取您的相片或影片，請前往「iOS 設定」中的 [隱私權] &gt; [相片] 啟用存取權。</translation>
 <translation id="4064699917955374540">如要將 Chrome 的資料儲存到 Google 帳戶及使用這類資料，請驗證身分。</translation>
+<translation id="4093789416346364876">將 Chrome 設為預設瀏覽器，隨時隨地取得 Gemini 洞察資訊</translation>
 <translation id="411154422556990518">隨時掌握價格追蹤動態和 Chrome 提示。</translation>
 <translation id="417201473131094001">Chrome Canary 不支援這項功能</translation>
 <translation id="424864128008805179">要登出 Chrome 嗎？</translation>
@@ -266,6 +268,7 @@
 <translation id="7061455974939528301">按住 Chrome 圖示，然後點選「編輯主畫面」</translation>
 <translation id="7095110968493193530">儲存到 <ph name="EMAIL" /> 的 Google 密碼管理工具</translation>
 <translation id="7124339256045485976">確保使用最新版本的 Chrome</translation>
+<translation id="7135936755418321901">如要與網站分享位置資訊，請輕觸「設定」，允許 Chrome 存取你的位置資訊。</translation>
 <translation id="7145599899567697473">在 Chrome 中儲存及自動填寫密碼</translation>
 <translation id="7161390184744336561">Google Chrome 版本過舊</translation>
 <translation id="7165736900384873061">開始使用 Google Chrome QR 掃描器</translation>
@@ -280,6 +283,7 @@
 <translation id="7272930098487145294">如要儲存圖片，請輕觸 [設定] 並允許 Chrome 新增相片</translation>
 <translation id="7275945473750112644">由於你的帳戶受到 <ph name="HOSTED_DOMAIN" /> 管理，因此系統會在你登出後，清除你在這部裝置上的 Chrome 資料</translation>
 <translation id="7284245284340063465">如果忘記通關密語或想變更這項設定，請<ph name="BEGIN_LINK" />刪除帳戶中的 Chrome 資料<ph name="END_LINK" />。</translation>
+<translation id="7287957555760192025">無論你選取或忽略建議，Chrome 都會自動調整，以便日後提供更貼近需求的建議。</translation>
 <translation id="7296102444587051536">Chrome iOS 版</translation>
 <translation id="7299681342915173313">現在隨時可以使用 Chrome 開啟電子郵件、文件和其他應用程式中的連結。</translation>
 <translation id="7334364820047587268">Google 密碼管理工具已有下列帳戶的密碼。如果選擇匯入，就會取代現有的密碼。</translation>
@@ -354,6 +358,7 @@
 <translation id="8544583291890527417">如果 Chrome 偵測到隱私權或安全性問題，就會發出警示。</translation>
 <translation id="855027533751209304">Chrome 提示：搜尋畫面內容</translation>
 <translation id="8558480467877843976">現在起，每當你瀏覽或點選訊息、文件和其他應用程式中的連結時，都可以直接使用 Chrome 來開啟。</translation>
+<translation id="8589791109349384456">即使關閉建議，Chrome 仍可處理網頁標題和網址，並用於其他功能。如要管理這類資料的存取權，請前往<ph name="BEGIN_LINK" />同步設定<ph name="END_LINK" />。</translation>
 <translation id="8603022514504485810">Google 密碼管理工具無法檢查所有密碼，請明天再試。你也可以<ph name="BEGIN_LINK" />檢查 Google 帳戶中的密碼<ph name="END_LINK" />。</translation>
 <translation id="8610372330814566250">在 Chrome 中使用你的 Safari 密碼、歷史記錄、書籤和信用卡</translation>
 <translation id="8630122478628016441">開啟「關閉 Chrome 時鎖定無痕分頁」。</translation>

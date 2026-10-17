@@ -33,10 +33,12 @@ class MockPersonalContextEligibilityService
  public:
   MOCK_METHOD(void, AddObserver, (Observer*), (override));
   MOCK_METHOD(void, RemoveObserver, (Observer*), (override));
+  MOCK_METHOD(bool, IsInitialized, (), (const, override));
   MOCK_METHOD(PersonalContextEligibilityState,
               GetEligibilityState,
               (),
               (override));
+  MOCK_METHOD(bool, IsEligibleForEncryption, (), (const, override));
   MOCK_METHOD(
       std::optional<personal_context::PersonalContextNonEligibilityReason>,
       GetNonEligibilityReason,
@@ -53,8 +55,7 @@ class PersonalContextAutofillUtilTest : public testing::Test {
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
         {features::kAutofillAiAvailableByDefault, {}},
 #endif
-        {features::kAutofillAmbientAutofill,
-         {{"ambient_autofill_eligible_tiers", "1"}}},
+        {features::kAutofillAmbientAutofill, {}},
     };
     scoped_feature_list_.InitWithFeaturesAndParameters(
         enabled_features,

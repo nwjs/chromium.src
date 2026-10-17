@@ -123,7 +123,7 @@ void GlicSidePanelUi::Show(const ShowOptions& options) {
     return;
   }
   panel_state_.kind = mojom::PanelStateKind::kAttached;
-  delegate_->NotifyPanelStateChanged();
+  delegate_->UpdatePanelState();
   delegate_->host().FloatingPanelCanAttachChanged(false);
   panel_visibility_dependent_hotkey_manager_->InitializeAccelerators();
   panel_focus_dependent_hotkey_manager_->InitializeAccelerators();
@@ -195,21 +195,6 @@ void GlicSidePanelUi::SwitchConversation(
   // NOTE: `this` may be destroyed after this call.
   delegate_->SwitchConversation(ShowOptions::ForSidePanel(*tab_),
                                 std::move(info), std::move(callback));
-}
-
-void GlicSidePanelUi::CaptureScreenshot(
-    glic::mojom::WebClientHandler::CaptureScreenshotCallback callback) {
-  if (!tab_) {
-    std::move(callback).Run(nullptr);
-    return;
-  }
-  if (!screenshot_capturer_) {
-    screenshot_capturer_ = GlicScreenshotCapturer::Create();
-  }
-  auto* browser_window = tab_->GetBrowserWindowInterface();
-  CHECK(browser_window);
-  screenshot_capturer_->CaptureScreenshot(
-      browser_window->GetWindow()->GetNativeWindow(), std::move(callback));
 }
 
 bool GlicSidePanelUi::IsShowing() const {
@@ -299,7 +284,7 @@ void GlicSidePanelUi::SidePanelStateChanged(
             : GlicInstanceMetrics::CloseReason::kExplicitlyClosed;
     instance_metrics_->OnSidePanelClosed(tab_.get(), reason);
     panel_state_.kind = mojom::PanelStateKind::kHidden;
-    delegate_->NotifyPanelStateChanged();
+    delegate_->UpdatePanelState();
 
     // NOTE: `this` will be destroyed after this call.
     delegate_->DidCloseFor(SidePanelEmbedderKey{*tab_},

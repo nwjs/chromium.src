@@ -23,11 +23,11 @@ class WTF_EXPORT CaseMap {
   // |CaseMap|.
   class WTF_EXPORT WTF_EXPORT Locale {
    public:
-    Locale() : case_map_locale_(nullptr) {}
+    Locale() = default;
     explicit Locale(const AtomicString& locale);
 
    private:
-    const char* case_map_locale_;
+    const char* case_map_locale_ = nullptr;
 
     static const char* turkic_or_azeri_;
     static const char* greek_;
@@ -51,6 +51,9 @@ class WTF_EXPORT CaseMap {
   String ToTitle(const String& source,
                  TextOffsetMap* offset_map = nullptr,
                  UChar previous_character = 0) const;
+  String ToTitle(const String& source,
+                 TextOffsetMap* offset_map,
+                 UChar32 previous_character) const;
 
   // Fast code path for simple cases, only for root locale.
   // TODO(crbug.com/627682): This should move to private, once

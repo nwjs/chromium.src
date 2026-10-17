@@ -53,24 +53,36 @@ sync_pb::GetDeviceAuthorizationKeyResponse CreateReAuthResponse() {
   return response;
 }
 
+CachedDeviceAuthorizationKeys CreateCachedKeys(int cache_version,
+                                               const std::string& key_bytes) {
+  CachedDeviceAuthorizationKeys cached_keys;
+  cached_keys.set_cache_version(cache_version);
+  DeviceAuthorizationKey* key = cached_keys.mutable_keys()->add_keys();
+  key->set_version(kKeyProtoVersion);
+  key->set_key(key_bytes);
+  return cached_keys;
+}
+
 class TestDeviceAuthorizationClient : public DeviceAuthorizationClient {
  public:
   TestDeviceAuthorizationClient() = default;
   ~TestDeviceAuthorizationClient() override = default;
 
-  std::optional<DeviceAuthorizationKeys> GetCachedKeys(
-      const GaiaId& gaia_id) override {
+  void GetCachedKeys(const GaiaId& gaia_id,
+                     GetCachedKeysCallback callback) override {
     auto it = storage_.find(gaia_id);
     if (it == storage_.end()) {
-      return std::nullopt;
+      std::move(callback).Run(std::nullopt);
+      return;
     }
-    return it->second;
+    std::move(callback).Run(it->second);
   }
 
-  bool StoreKeys(const GaiaId& gaia_id,
-                 const DeviceAuthorizationKeys& keys) override {
+  void StoreKeys(const GaiaId& gaia_id,
+                 const CachedDeviceAuthorizationKeys& keys,
+                 StoreKeysCallback callback) override {
     storage_[gaia_id] = keys;
-    return true;
+    std::move(callback).Run(true);
   }
 
   void PopulatePlatformData(const GaiaId& gaia_id,
@@ -85,7 +97,7 @@ class TestDeviceAuthorizationClient : public DeviceAuthorizationClient {
   }
 
  private:
-  std::map<GaiaId, DeviceAuthorizationKeys> storage_;
+  std::map<GaiaId, CachedDeviceAuthorizationKeys> storage_;
   sync_pb::GetDeviceAuthorizationKeyRequest request_;
 };
 
@@ -142,22 +154,52 @@ TEST_F(DeviceAuthorizationServiceImplTest,
        TestGetCachedKeysImmediatelyReturned) {
   GaiaId gaia_id = SignInPrimaryAccount();
 
-  sync_pb::GetDeviceAuthorizationKeyResponse::DeviceAuthorizationKeys
-      cached_keys;
-  auto* key = cached_keys.add_keys();
-  key->set_version(kKeyProtoVersion);
-  key->set_key(kKeyBytes);
-  client_->StoreKeys(gaia_id, cached_keys);
+  TestFuture<bool> store_future;
+  client_->StoreKeys(gaia_id, CreateCachedKeys(1, kKeyBytes),
+                     store_future.GetCallback());
+  ASSERT_TRUE(store_future.Get());
 
   TestFuture<DeviceAuthFetchResult> future;
   service_->GetOrFetchKeys(future.GetCallback());
 
-  ASSERT_TRUE(future.IsReady());
   const DeviceAuthFetchResult& result = future.Get();
   EXPECT_EQ(result.status(), DeviceAuthFetchResult::Status::kSuccess);
   ASSERT_TRUE(result.keys());
   EXPECT_THAT(result.keys()->keys(), SizeIs(1));
   EXPECT_EQ(result.keys()->keys(0).key(), kKeyBytes);
+}
+
+// Test that when cached keys have a mismatched cache version, they are
+// invalidated/cleared and re-fetched from the server.
+TEST_F(DeviceAuthorizationServiceImplTest,
+       TestCacheInvalidationOnVersionMismatch) {
+  GaiaId gaia_id = SignInPrimaryAccount();
+  SetResponseForEndpoint(CreateSuccessResponse());
+
+  TestFuture<bool> store_future;
+  // Store keys with an outdated cache version (0 != 1).
+  client_->StoreKeys(gaia_id, CreateCachedKeys(0, "stale_key_bytes"),
+                     store_future.GetCallback());
+  ASSERT_TRUE(store_future.Get());
+
+  TestFuture<DeviceAuthFetchResult> future;
+  service_->GetOrFetchKeys(future.GetCallback());
+
+  const DeviceAuthFetchResult& result = future.Get();
+  EXPECT_EQ(result.status(), DeviceAuthFetchResult::Status::kSuccess);
+  ASSERT_TRUE(result.keys());
+  EXPECT_THAT(result.keys()->keys(), SizeIs(1));
+  EXPECT_EQ(result.keys()->keys(0).key(), kKeyBytes);
+
+  // Verify that new keys were stored with the current cache version.
+  TestFuture<std::optional<CachedDeviceAuthorizationKeys>> stored_future;
+  client_->GetCachedKeys(gaia_id, stored_future.GetCallback());
+  const std::optional<CachedDeviceAuthorizationKeys>& stored =
+      stored_future.Get();
+  ASSERT_TRUE(stored.has_value());
+  EXPECT_EQ(stored->cache_version(), 1);
+  EXPECT_THAT(stored->keys().keys(), SizeIs(1));
+  EXPECT_EQ(stored->keys().keys(0).key(), kKeyBytes);
 }
 
 // Test that getting or fetching keys fails when no primary account is signed
@@ -189,18 +231,20 @@ TEST_F(DeviceAuthorizationServiceImplTest,
   EXPECT_THAT(result.keys()->keys(), SizeIs(1));
   EXPECT_EQ(result.keys()->keys(0).key(), kKeyBytes);
 
-  std::optional<DeviceAuthorizationKeys> stored =
-      client_->GetCachedKeys(gaia_id);
+  TestFuture<std::optional<CachedDeviceAuthorizationKeys>> stored_future;
+  client_->GetCachedKeys(gaia_id, stored_future.GetCallback());
+  const std::optional<CachedDeviceAuthorizationKeys>& stored =
+      stored_future.Get();
   ASSERT_TRUE(stored.has_value());
-  EXPECT_THAT(stored->keys(), SizeIs(1));
-  EXPECT_EQ(stored->keys(0).key(), kKeyBytes);
+  EXPECT_EQ(stored->cache_version(), 1);
+  EXPECT_THAT(stored->keys().keys(), SizeIs(1));
+  EXPECT_EQ(stored->keys().keys(0).key(), kKeyBytes);
 }
 
-// Test that a concurrent call to `GetOrFetchKeys` while a fetch is already in
-// progress fails immediately with `kError`, while the in-flight fetch
-// completes successfully.
+// Test that concurrent calls to `GetOrFetchKeys` for the same GaiaId are
+// coalesced into a single network request, and all callers receive the result.
 TEST_F(DeviceAuthorizationServiceImplTest,
-       TestGetOrFetchKeysConcurrentCallReturnsError) {
+       TestGetOrFetchKeysConcurrentCallsCoalesced) {
   SignInPrimaryAccount();
   SetResponseForEndpoint(CreateSuccessResponse());
 
@@ -208,11 +252,11 @@ TEST_F(DeviceAuthorizationServiceImplTest,
   TestFuture<DeviceAuthFetchResult> future2;
 
   service_->GetOrFetchKeys(future1.GetCallback());
-
-  // Second call fails immediately because a fetch is already in progress.
   service_->GetOrFetchKeys(future2.GetCallback());
-  ASSERT_TRUE(future2.IsReady());
-  EXPECT_EQ(future2.Get().status(), DeviceAuthFetchResult::Status::kError);
+
+  // Both should still be waiting on the single in-flight network request.
+  EXPECT_FALSE(future1.IsReady());
+  EXPECT_FALSE(future2.IsReady());
 
   // First call finishes successfully when the response arrives.
   const DeviceAuthFetchResult& result1 = future1.Get();
@@ -220,6 +264,16 @@ TEST_F(DeviceAuthorizationServiceImplTest,
   ASSERT_TRUE(result1.keys());
   EXPECT_THAT(result1.keys()->keys(), SizeIs(1));
   EXPECT_EQ(result1.keys()->keys(0).key(), kKeyBytes);
+
+  // Second coalesced call also finishes successfully with identical result.
+  const DeviceAuthFetchResult& result2 = future2.Get();
+  EXPECT_EQ(result2.status(), DeviceAuthFetchResult::Status::kSuccess);
+  ASSERT_TRUE(result2.keys());
+  EXPECT_THAT(result2.keys()->keys(), SizeIs(1));
+  EXPECT_EQ(result2.keys()->keys(0).key(), kKeyBytes);
+
+  // Only one network request should have been dispatched.
+  EXPECT_EQ(test_url_loader_factory_.total_requests(), 1u);
 }
 
 // Test that if the server returns `re_auth_params`, the service reports
@@ -237,7 +291,9 @@ TEST_F(DeviceAuthorizationServiceImplTest,
   EXPECT_FALSE(result.keys());
   ASSERT_TRUE(result.reauth_params());
   EXPECT_EQ(result.reauth_params()->web_fallback_url(), kFakeWebFallbackUrl);
-  EXPECT_FALSE(client_->GetCachedKeys(gaia_id).has_value());
+  TestFuture<std::optional<CachedDeviceAuthorizationKeys>> stored_future;
+  client_->GetCachedKeys(gaia_id, stored_future.GetCallback());
+  EXPECT_FALSE(stored_future.Get().has_value());
 }
 
 // Test that passing `reauth_proof_token` bypasses cached keys, passes the token
@@ -247,12 +303,10 @@ TEST_F(DeviceAuthorizationServiceImplTest,
   GaiaId gaia_id = SignInPrimaryAccount();
 
   // Cache existing keys first.
-  sync_pb::GetDeviceAuthorizationKeyResponse::DeviceAuthorizationKeys
-      cached_keys;
-  auto* key = cached_keys.add_keys();
-  key->set_version(kKeyProtoVersion);
-  key->set_key("old_cached_key");
-  client_->StoreKeys(gaia_id, cached_keys);
+  TestFuture<bool> store_future;
+  client_->StoreKeys(gaia_id, CreateCachedKeys(1, "old_cached_key"),
+                     store_future.GetCallback());
+  ASSERT_TRUE(store_future.Get());
 
   SetResponseForEndpoint(CreateSuccessResponse());
 
@@ -277,10 +331,13 @@ TEST_F(DeviceAuthorizationServiceImplTest,
   EXPECT_EQ(sent_request.reauth_proof_token(), kCustomRapt);
 
   // Stored keys should be updated to newly fetched key.
-  std::optional<DeviceAuthorizationKeys> stored =
-      client_->GetCachedKeys(gaia_id);
+  TestFuture<std::optional<CachedDeviceAuthorizationKeys>> stored_future;
+  client_->GetCachedKeys(gaia_id, stored_future.GetCallback());
+  const std::optional<CachedDeviceAuthorizationKeys>& stored =
+      stored_future.Get();
   ASSERT_TRUE(stored.has_value());
-  EXPECT_EQ(stored->keys(0).key(), kKeyBytes);
+  EXPECT_EQ(stored->cache_version(), 1);
+  EXPECT_EQ(stored->keys().keys(0).key(), kKeyBytes);
 }
 
 // Test that GetOrFetchKeys invokes PopulatePlatformData and forwards the
@@ -326,6 +383,53 @@ TEST_F(DeviceAuthorizationServiceImplTest,
   TestFuture<DeviceAuthFetchResult> future;
   service_->GetOrFetchKeys(future.GetCallback());
 
+  const DeviceAuthFetchResult& result = future.Get();
+  EXPECT_EQ(result.status(), DeviceAuthFetchResult::Status::kError);
+}
+
+// Test that a network failure returns Status::kError.
+TEST_F(DeviceAuthorizationServiceImplTest,
+       TestGetOrFetchKeysNetworkErrorReturnsNetworkError) {
+  SignInPrimaryAccount();
+  test_url_loader_factory_.AddResponse(
+      GURL(kDeviceAuthorizationKeyEndpointUrl),
+      network::mojom::URLResponseHead::New(), "",
+      network::URLLoaderCompletionStatus(net::ERR_CONNECTION_FAILED));
+
+  TestFuture<DeviceAuthFetchResult> future;
+  service_->GetOrFetchKeys(future.GetCallback());
+
+  const DeviceAuthFetchResult& result = future.Get();
+  EXPECT_EQ(result.status(), DeviceAuthFetchResult::Status::kError);
+}
+
+// Test that unparsable response proto returns Status::kError.
+TEST_F(DeviceAuthorizationServiceImplTest,
+       TestGetOrFetchKeysProtoParseErrorReturnsProtoParseError) {
+  SignInPrimaryAccount();
+  test_url_loader_factory_.AddResponse(kDeviceAuthorizationKeyEndpointUrl,
+                                       "invalid_not_a_proto");
+
+  TestFuture<DeviceAuthFetchResult> future;
+  service_->GetOrFetchKeys(future.GetCallback());
+
+  const DeviceAuthFetchResult& result = future.Get();
+  EXPECT_EQ(result.status(), DeviceAuthFetchResult::Status::kError);
+}
+
+// Test that shutting down the service during an in-flight fetch invokes pending
+// callbacks with Status::kError.
+TEST_F(DeviceAuthorizationServiceImplTest,
+       TestShutdownReturnsServiceShutdownError) {
+  SignInPrimaryAccount();
+
+  TestFuture<DeviceAuthFetchResult> future;
+  service_->GetOrFetchKeys(future.GetCallback());
+  EXPECT_FALSE(future.IsReady());
+
+  client_ = nullptr;
+  service_->Shutdown();
+  ASSERT_TRUE(future.IsReady());
   const DeviceAuthFetchResult& result = future.Get();
   EXPECT_EQ(result.status(), DeviceAuthFetchResult::Status::kError);
 }

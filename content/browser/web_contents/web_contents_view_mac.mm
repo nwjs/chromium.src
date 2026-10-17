@@ -20,6 +20,7 @@
 #include "base/task/current_thread.h"
 #include "base/task/thread_pool.h"
 #include "base/threading/thread_restrictions.h"
+#include "components/remote_cocoa/app_shim/mouse_capture.h"
 #include "components/remote_cocoa/app_shim/window_move_loop.h"
 #include "components/remote_cocoa/browser/ns_view_ids.h"
 #include "components/remote_cocoa/common/application.mojom.h"
@@ -190,7 +191,19 @@ gfx::Rect WebContentsViewMac::GetContainerBounds() const {
   return gfx::ScreenRectFromNSRect(bounds);
 }
 
-void WebContentsViewMac::OnCapturerCountChanged() {}
+void WebContentsViewMac::UpdateVideoCaptureLock() {
+  if (web_contents_->IsBeingCaptured() && views_host_) {
+    if (!video_capture_lock_) {
+      video_capture_lock_ = views_host_->CreateVideoCaptureLock();
+    }
+  } else {
+    video_capture_lock_.RunAndReset();
+  }
+}
+
+void WebContentsViewMac::OnCapturerCountChanged() {
+  UpdateVideoCaptureLock();
+}
 
 void WebContentsViewMac::FullscreenStateChanged(bool is_fullscreen) {}
 
@@ -211,13 +224,21 @@ void WebContentsViewMac::StartDragging(
     const blink::mojom::DragEventSourceInfo& event_info) {
   RenderWidgetHostImpl* source_rwh =
       static_cast<RenderWidgetHostImpl*>(source_rfh.GetRenderWidgetHost());
-  // Disallow reentrant drag which could be an attempt to exploit drag state.
-  if (drag_source_start_rwh_) {
+  // Disallow reentrant drags. This uses the destination's state because
+  // the source frame might be destroyed during an active drag session.
+  if ([drag_dest_ didInitiateDrag] || drag_source_start_rwh_) {
     return;
   }
   // A window move loop already owns the held mouse button; refuse to start a
   // dragging session that would interfere with it.
   if (remote_cocoa::CocoaWindowMoveLoop::IsActive()) {
+    web_contents_->SystemDragEnded(source_rwh);
+    return;
+  }
+  // Likewise, a widget holding mouse capture (e.g. a tab strip during a tab
+  // drag, or an open menu) owns the held mouse button; refuse to start a
+  // dragging session that would interfere with its gesture.
+  if (remote_cocoa::CocoaMouseCapture::GetGlobalCaptureWindow()) {
     web_contents_->SystemDragEnded(source_rwh);
     return;
   }
@@ -681,7 +702,7 @@ void WebContentsViewMac::PerformEndDrag(uint32_t drag_operation,
                                         const gfx::PointF& screen_point) {
   // Validate internal members are non-null as this method can be called
   // asynchronously.
-  if (!web_contents_ || !drag_source_start_rwh_) {
+  if (!web_contents_) {
     return;
   }
 
@@ -691,17 +712,19 @@ void WebContentsViewMac::PerformEndDrag(uint32_t drag_operation,
   // non-root RenderWidgetHosts they need to be transformed.
   gfx::PointF transformed_point = local_point;
   gfx::PointF transformed_screen_point = screen_point;
-  if (web_contents_->GetRenderWidgetHostView()) {
+  if (drag_source_start_rwh_ && web_contents_->GetRenderWidgetHostView()) {
     content::RenderWidgetHostViewBase* contentsViewBase =
         static_cast<content::RenderWidgetHostViewBase*>(
             web_contents_->GetRenderWidgetHostView());
     content::RenderWidgetHostViewBase* dragStartViewBase =
         static_cast<content::RenderWidgetHostViewBase*>(
             drag_source_start_rwh_->GetView());
-    contentsViewBase->TransformPointToCoordSpaceForView(
-        local_point, dragStartViewBase, &transformed_point);
-    contentsViewBase->TransformPointToCoordSpaceForView(
-        screen_point, dragStartViewBase, &transformed_screen_point);
+    if (dragStartViewBase) {
+      contentsViewBase->TransformPointToCoordSpaceForView(
+          local_point, dragStartViewBase, &transformed_point);
+      contentsViewBase->TransformPointToCoordSpaceForView(
+          screen_point, dragStartViewBase, &transformed_screen_point);
+    }
   }
 
   web_contents_->DragSourceEndedAt(
@@ -753,6 +776,7 @@ void WebContentsViewMac::DragPromisedFileTo(
 void WebContentsViewMac::ViewsHostableAttach(
     ViewsHostableView::Host* views_host) {
   views_host_ = views_host;
+  UpdateVideoCaptureLock();
   // Create an NSView in the target process, if one exists.
   auto* remote_cocoa_application = views_host_->GetRemoteCocoaApplication();
   if (remote_cocoa_application) {
@@ -815,6 +839,7 @@ void WebContentsViewMac::ViewsHostableDetach() {
   }
   in_process_ns_view_bridge_->SetVisible(false);
   in_process_ns_view_bridge_->ResetParentNSView();
+  video_capture_lock_.RunAndReset();
   views_host_ = nullptr;
 
   for (auto* rwhv_mac : GetChildViews()) {

@@ -155,35 +155,36 @@ class AutocompleteProvider
     : public base::RefCountedThreadSafe<AutocompleteProvider> {
  public:
   // Different AutocompleteProvider implementations.
-  enum Type {
-    TYPE_BOOKMARK = 1 << 0,
-    TYPE_BUILTIN = 1 << 1,
-    TYPE_HISTORY_QUICK = 1 << 2,
-    TYPE_HISTORY_URL = 1 << 3,
-    TYPE_KEYWORD = 1 << 4,
-    TYPE_SEARCH = 1 << 5,
-    TYPE_SHORTCUTS = 1 << 6,
-    TYPE_ZERO_SUGGEST = 1 << 7,
-    TYPE_CLIPBOARD = 1 << 8,
-    TYPE_DOCUMENT = 1 << 9,
-    TYPE_ON_DEVICE_HEAD = 1 << 10,
-    TYPE_ZERO_SUGGEST_LOCAL_HISTORY = 1 << 11,
-    TYPE_QUERY_TILE = 1 << 12,
-    TYPE_MOST_VISITED_SITES = 1 << 13,
-    TYPE_VERBATIM_MATCH = 1 << 14,
-    TYPE_VOICE_SUGGEST = 1 << 15,
-    TYPE_HISTORY_FUZZY = 1 << 16,
-    TYPE_OPEN_TAB = 1 << 17,
-    TYPE_HISTORY_CLUSTER_PROVIDER = 1 << 18,
-    TYPE_CALCULATOR = 1 << 19,
-    TYPE_FEATURED_SEARCH = 1 << 20,
-    TYPE_HISTORY_EMBEDDINGS = 1 << 21,
-    TYPE_ENTERPRISE_SEARCH_AGGREGATOR = 1 << 22,
-    TYPE_UNSCOPED_EXTENSION = 1 << 23,
-    TYPE_RECENTLY_CLOSED_TABS = 1 << 24,
-    TYPE_CONTEXTUAL_SEARCH = 1 << 25,
-    TYPE_TAB_GROUP = 1 << 26,
-    TYPE_CROSS_DEVICE_TAB = 1 << 27,
+  enum class Type {
+    kNone = 0,
+    kBookmark = 1 << 0,
+    kBuiltin = 1 << 1,
+    kHistoryQuick = 1 << 2,
+    kHistoryUrl = 1 << 3,
+    kKeyword = 1 << 4,
+    kSearch = 1 << 5,
+    kShortcuts = 1 << 6,
+    kZeroSuggest = 1 << 7,
+    kClipboard = 1 << 8,
+    kDocument = 1 << 9,
+    kOnDeviceHead = 1 << 10,
+    kZeroSuggestLocalHistory = 1 << 11,
+    kQueryTile = 1 << 12,
+    kMostVisitedSites = 1 << 13,
+    kVerbatimMatch = 1 << 14,
+    kVoiceSuggest = 1 << 15,
+    kHistoryFuzzy = 1 << 16,
+    kOpenTab = 1 << 17,
+    kHistoryClusterProvider = 1 << 18,
+    kCalculator = 1 << 19,
+    kFeaturedSearch = 1 << 20,
+    kHistoryEmbeddings = 1 << 21,
+    kEnterpriseSearchAggregator = 1 << 22,
+    kUnscopedExtension = 1 << 23,
+    kRecentlyClosedTabs = 1 << 24,
+    kContextualSearch = 1 << 25,
+    kTabGroup = 1 << 26,
+    kCrossDeviceTab = 1 << 27,
 
     // When adding a value here, also update:
     // - omnibox_event.proto
@@ -408,5 +409,27 @@ class AutocompleteProvider
 
   Type type_;
 };
+
+constexpr AutocompleteProvider::Type operator|(AutocompleteProvider::Type a,
+                                               AutocompleteProvider::Type b) {
+  return static_cast<AutocompleteProvider::Type>(static_cast<int>(a) |
+                                                 static_cast<int>(b));
+}
+constexpr AutocompleteProvider::Type operator&(AutocompleteProvider::Type a,
+                                               AutocompleteProvider::Type b) {
+  return static_cast<AutocompleteProvider::Type>(static_cast<int>(a) &
+                                                 static_cast<int>(b));
+}
+constexpr AutocompleteProvider::Type operator~(AutocompleteProvider::Type a) {
+  return static_cast<AutocompleteProvider::Type>(~static_cast<int>(a));
+}
+inline AutocompleteProvider::Type& operator|=(AutocompleteProvider::Type& a,
+                                              AutocompleteProvider::Type b) {
+  return a = a | b;
+}
+inline AutocompleteProvider::Type& operator&=(AutocompleteProvider::Type& a,
+                                              AutocompleteProvider::Type b) {
+  return a = a & b;
+}
 
 #endif  // COMPONENTS_OMNIBOX_BROWSER_AUTOCOMPLETE_PROVIDER_H_

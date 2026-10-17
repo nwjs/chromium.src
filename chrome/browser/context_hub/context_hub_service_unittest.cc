@@ -26,6 +26,7 @@
 #include "chrome/browser/ui/webui/context_hub/context_hub.mojom-features.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/optimization_guide/core/model_execution/test/mock_remote_model_executor.h"
+#include "components/optimization_guide/core/model_quality/model_quality_log_entry.h"
 #include "components/optimization_guide/proto/features/context_hub.pb.h"
 #include "components/page_content_annotations/content/mock_page_content_services.h"
 #include "components/page_content_annotations/core/page_content_extraction_types.h"
@@ -1614,6 +1615,41 @@ TEST_F(ContextHubServiceTest, GroupTabs_MESError) {
   EXPECT_EQ(ungrouped_tabs[0].id, 1);
   EXPECT_EQ(ungrouped_tabs[1].id, 2);
   EXPECT_TRUE(text_response.empty());
+
+  EXPECT_CALL(
+      mock_remote_model_executor_,
+      ExecuteModel(optimization_guide::ModelBasedCapabilityKey::kContextHub, _,
+                   _, _))
+      .WillOnce(
+          [](optimization_guide::ModelBasedCapabilityKey feature,
+             const google::protobuf::MessageLite& request_metadata,
+             const optimization_guide::ModelExecutionOptions& options,
+             optimization_guide::OptimizationGuideModelExecutionResultCallback
+                 callback) {
+            auto throttled_error = optimization_guide::
+                OptimizationGuideModelExecutionError::FromModelExecutionError(
+                    optimization_guide::OptimizationGuideModelExecutionError::
+                        ModelExecutionError::kRequestThrottled);
+            std::move(callback).Run(
+                optimization_guide::OptimizationGuideModelExecutionResult(
+                    base::unexpected(throttled_error), nullptr),
+                nullptr);
+          });
+
+  base::test::TestFuture<std::vector<TabGroupEntry>, std::vector<TabData>,
+                         std::string>
+      throttled_future;
+  service_.GroupTabs(
+      std::move(ungrouped_tabs), "",
+      throttled_future.GetCallback<std::vector<TabGroupEntry>,
+                                   std::vector<TabData>, std::string>());
+  auto [throttled_groups, throttled_ungrouped, throttled_text] =
+      throttled_future.Take();
+
+  EXPECT_TRUE(throttled_groups.empty());
+  EXPECT_EQ(throttled_text,
+            "Unable to group tabs due to high server load. Please try again "
+            "later.");
 }
 
 TEST_F(ContextHubServiceTest, AddAndGetTabGroupChatHistory) {
@@ -1823,10 +1859,67 @@ TEST_F(ContextHubServiceTest, ExecuteMemoryBankChat_Success) {
       });
 
   base::test::TestFuture<std::optional<std::string>> future;
-  service_.ExecuteMemoryBankChat(ids, "summarize these", future.GetCallback());
+  service_.ExecuteMemoryBankChat(ids, "summarize these",
+                                 /*save_to_history=*/true,
+                                 future.GetCallback());
   auto result = future.Get();
   ASSERT_TRUE(result.has_value());
   EXPECT_EQ(result.value(), "This is the LLM summary.");
+  EXPECT_EQ(service_.GetMemoryBankChatHistory().size(), 2u);
+}
+
+TEST_F(ContextHubServiceTest, ExecuteMemoryBankChat_NoSaveToHistory) {
+  base::test::TestFuture<bool> save_tab_future;
+  service_.SaveMemoryBankEntry(
+      MemoryBankEntry(MemoryBankType::kTab, GURL("https://example.com/1"),
+                      "Title 1", "Page text 1"),
+      save_tab_future.GetCallback());
+  EXPECT_TRUE(save_tab_future.Get());
+
+  base::test::TestFuture<std::vector<MemoryBankEntry>> entries_future;
+  service_.GetAllEntries(entries_future.GetCallback());
+  auto entries = entries_future.Take();
+  ASSERT_EQ(entries.size(), 1u);
+
+  std::vector<int64_t> ids = {entries[0].id};
+
+  EXPECT_CALL(
+      mock_remote_model_executor_,
+      ExecuteModel(optimization_guide::ModelBasedCapabilityKey::kContextHub, _,
+                   _, _))
+      .WillOnce([](optimization_guide::ModelBasedCapabilityKey feature,
+                   const google::protobuf::MessageLite& request_metadata,
+                   const optimization_guide::ModelExecutionOptions& options,
+                   optimization_guide::
+                       OptimizationGuideModelExecutionResultCallback callback) {
+        const auto& request =
+            static_cast<const optimization_guide::proto::ContextHubRequest&>(
+                request_metadata);
+        EXPECT_EQ(request.chat_history_size(), 0);
+
+        optimization_guide::proto::ContextHubResponse response;
+        response.mutable_memory_bank_chat_response()->set_text_response(
+            "This is the LLM summary without history.");
+
+        optimization_guide::proto::Any any_response;
+        any_response.set_type_url(
+            "type.googleapis.com/optimization_guide.proto.ContextHubResponse");
+        response.SerializeToString(any_response.mutable_value());
+
+        std::move(callback).Run(
+            optimization_guide::OptimizationGuideModelExecutionResult(
+                base::ok(std::move(any_response)), nullptr),
+            nullptr);
+      });
+
+  base::test::TestFuture<std::optional<std::string>> future;
+  service_.ExecuteMemoryBankChat(ids, "summarize these",
+                                 /*save_to_history=*/false,
+                                 future.GetCallback());
+  auto result = future.Get();
+  ASSERT_TRUE(result.has_value());
+  EXPECT_EQ(result.value(), "This is the LLM summary without history.");
+  EXPECT_TRUE(service_.GetMemoryBankChatHistory().empty());
 }
 
 TEST_F(ContextHubServiceTest, ExecuteMemoryBankChat_Error) {
@@ -1847,7 +1940,8 @@ TEST_F(ContextHubServiceTest, ExecuteMemoryBankChat_Error) {
 
   base::test::TestFuture<std::optional<std::string>> future;
   std::vector<int64_t> ids = {100};
-  service_.ExecuteMemoryBankChat(ids, "hello", future.GetCallback());
+  service_.ExecuteMemoryBankChat(ids, "hello", /*save_to_history=*/true,
+                                 future.GetCallback());
   EXPECT_FALSE(future.Get().has_value());
 }
 

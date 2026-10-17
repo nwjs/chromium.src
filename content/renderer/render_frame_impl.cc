@@ -190,6 +190,7 @@
 #include "third_party/blink/public/mojom/permissions/permission.mojom.h"
 #include "third_party/blink/public/mojom/render_accessibility.mojom.h"
 #include "third_party/blink/public/mojom/renderer_preference_watcher.mojom.h"
+#include "third_party/blink/public/mojom/scroll/scroll_enums.mojom-shared.h"
 #include "third_party/blink/public/mojom/widget/platform_widget.mojom.h"
 #include "third_party/blink/public/platform/file_path_conversion.h"
 #include "third_party/blink/public/platform/modules/service_worker/web_service_worker_network_provider.h"
@@ -353,11 +354,11 @@ int64_t ExtractPostId(const WebHistoryItem& item) {
   return item.HttpBody().Identifier();
 }
 
-std::string TrimURL(const std::string& url) {
+std::string TrimURL(std::string_view url) {
   if (url.length() <= kMaxURLLogChars) {
-    return url;
+    return std::string(url);
   }
-  return url.substr(0, kMaxURLLogChars - 3) + "...";
+  return base::StrCat({url.substr(0, kMaxURLLogChars - 3), "..."});
 }
 
 // Calculates transition type based on navigation parameters. Used
@@ -956,7 +957,7 @@ std::optional<WebURL> ApplyFilePathAlias(const WebURL& target) {
 #else
   std::string path = target.GetString().Utf8();
   const std::string file_prefix =
-      std::string(url::kFileScheme) + url::kStandardSchemeSeparator;
+      base::StrCat({url::kFileScheme, url::kStandardSchemeSeparator});
 #endif
   if (!base::StartsWith(path, file_prefix + alias_mapping[0],
                         base::CompareCase::SENSITIVE)) {
@@ -2608,9 +2609,7 @@ void RenderFrameImpl::AllowBindings(int64_t enabled_bindings_flags) {
   enabled_bindings_.PutAll(new_bindings);
 
   if (new_bindings.Has(BindingsPolicyValue::kMojoWebUi)) {
-    // If mojo web UI is being enabled, update the protected memory bool to
-    // allow MojoJS binding in this process.
-    blink::WebV8Features::AllowMojoJSForProcess();
+    blink::WebV8Features::AllowMojoJSPerContextForProcess();
   }
 }
 
@@ -2619,16 +2618,14 @@ void RenderFrameImpl::EnableMojoJsBindings(
   enable_mojo_js_bindings_ = true;
   mojo_js_features_ = std::move(features);
 
-  // Update the protected memory bool to allow MojoJS binding in this process.
-  blink::WebV8Features::AllowMojoJSForProcess();
+  blink::WebV8Features::AllowMojoJSPerContextForProcess();
 }
 
 void RenderFrameImpl::EnableMojoJsBindingsWithBroker(
     mojo::PendingRemote<blink::mojom::BrowserInterfaceBroker> broker) {
   mojo_js_interface_broker_ = std::move(broker);
 
-  // Update the protected memory bool to allow MojoJS binding in this process.
-  blink::WebV8Features::AllowMojoJSForProcess();
+  blink::WebV8Features::AllowMojoJSPerContextForProcess();
 }
 
 void RenderFrameImpl::BindWebUI(
@@ -3924,13 +3921,6 @@ blink::WebLocalFrame* RenderFrameImpl::CreateChildFrame(
   return web_frame;
 }
 
-void RenderFrameImpl::DidCreateFencedFrame(
-    const blink::RemoteFrameToken& frame_token) {
-  for (auto& observer : observers_) {
-    observer.DidCreateFencedFrame(frame_token);
-  }
-}
-
 blink::WebFrame* RenderFrameImpl::FindFrame(const blink::WebString& name) {
   if (GetBlinkPreferences().renderer_wide_named_frame_lookup) {
     for (const auto& it : g_frame_map.Get()) {
@@ -4313,8 +4303,8 @@ void RenderFrameImpl::DidReceiveTitle(const blink::WebString& title) {
   } else {
     // Set process title for sub-frames and title-less frames in traces.
     GURL loading_url = GetLoadingUrl();
-    if (!loading_url.GetHost().empty() &&
-        loading_url.GetScheme() != url::kFileScheme) {
+    if (!loading_url.host().empty() &&
+        !loading_url.SchemeIs(url::kFileScheme)) {
       std::string frame_title;
       if (frame_->Parent()) {
         frame_title += "Subframe: ";
@@ -4990,16 +4980,19 @@ void RenderFrameImpl::DidCreateScriptContext(v8::Local<v8::Context> context,
 
   if (world_id == ISOLATED_WORLD_ID_GLOBAL &&
       base::FeatureList::IsEnabled(blink::features::kUnboundedElement)) {
-    bool is_unbounded_allowed =
-        base::FeatureList::IsEnabled(
-            blink::features::kUnboundedElementOnTheOpenWeb) ||
+    bool is_privileged =
         enabled_bindings_.Has(BindingsPolicyValue::kWebUi) ||
         (GetWebFrame() && !GetWebFrame()->GetSecurityOrigin().IsNull() &&
          GetWebFrame()->GetSecurityOrigin().IsWebUI() &&
          GetWebFrame()->GetSecurityOrigin().Protocol() !=
-             kChromeUIUntrustedScheme);
+             kChromeUIUntrustedScheme) ||
+        GetContentClient()->renderer()->IsUnboundedElementAllowed(this);
+    bool is_unbounded_allowed =
+        base::FeatureList::IsEnabled(
+            blink::features::kUnsafeUnboundedElementOnTheOpenWeb) ||
+        is_privileged;
     if (is_unbounded_allowed) {
-      blink::WebV8Features::EnableUnboundedElement(context, true);
+      blink::WebV8Features::EnableUnboundedElement(context, is_privileged);
     }
   }
 
@@ -5025,11 +5018,12 @@ void RenderFrameImpl::WillReleaseScriptContext(v8::Local<v8::Context> context,
   GetFrameHost()->SetContextCreated(false);
 }
 
-void RenderFrameImpl::DidChangeScrollOffset() {
+void RenderFrameImpl::DidChangeScrollOffset(
+    blink::mojom::ScrollType scroll_type) {
   StartDelayedSyncTimer();
 
   for (auto& observer : observers_) {
-    observer.DidChangeScrollOffset();
+    observer.DidChangeScrollOffset(scroll_type);
   }
 }
 
@@ -5160,7 +5154,7 @@ bool RenderFrameImpl::IsMainFrame() {
 }
 
 bool RenderFrameImpl::IsInFencedFrameTree() const {
-  return GetWebFrame()->IsInFencedFrameTree();
+  return false;
 }
 
 bool RenderFrameImpl::IsHidden() {

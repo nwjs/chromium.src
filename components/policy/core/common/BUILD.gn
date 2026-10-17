@@ -82,6 +82,8 @@ source_set("internal") {
     "cloud/cloud_external_data_store.h",
     "cloud/cloud_policy_client.cc",
     "cloud/cloud_policy_client.h",
+    "cloud/cloud_policy_client_proto_types.cc",
+    "cloud/cloud_policy_client_proto_types.h",
     "cloud/cloud_policy_client_registration_helper.cc",
     "cloud/cloud_policy_client_registration_helper.h",
     "cloud/cloud_policy_client_types.cc",
@@ -240,7 +242,6 @@ source_set("internal") {
   ]
 
   deps = [
-    "//base:i18n",
     "//build:android_buildflags",
     "//components/account_id",
     "//components/enterprise/common:strings",
@@ -256,9 +257,11 @@ source_set("internal") {
     "//google_apis",
     "//net",
     "//services/network/public/cpp",
+    "//third_party/abseil-cpp:absl",
     "//third_party/libxml:xml_writer",
     "//third_party/metrics_proto",
     "//third_party/re2",
+    "//third_party/zlib/google:compression_utils",
     "//ui/base",
     "//url",
   ]

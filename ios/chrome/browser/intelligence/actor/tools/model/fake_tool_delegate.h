@@ -41,6 +41,7 @@ class FakeToolDelegate : public ToolDelegate {
   ActorTaskFormFillingHandler* GetActorTaskFormFillingHandler() override;
   void InterruptFromTool() override;
   void UninterruptFromTool() override;
+  origin_gating::CheckerId GetOriginGatingCheckerId() const override;
 
   void set_form_filling_handler(
       std::unique_ptr<ActorTaskFormFillingHandler> handler) {
@@ -48,6 +49,11 @@ class FakeToolDelegate : public ToolDelegate {
   }
 
   void set_fail_insert_web_state(bool fail) { fail_insert_web_state_ = fail; }
+
+  void set_origin_gating_checker_id(
+      origin_gating::CheckerId gating_checker_id) {
+    gating_checker_id_ = gating_checker_id;
+  }
 
   void SetWebStateListForWindowId(int32_t window_id,
                                   WebStateList* web_state_list);
@@ -58,6 +64,7 @@ class FakeToolDelegate : public ToolDelegate {
   std::unique_ptr<ActorTaskFormFillingHandler> form_filling_handler_;
   raw_ptr<AggregatedJournal> journal_ = nullptr;
   raw_ptr<ActorToolFactory> tool_factory_ = nullptr;
+  origin_gating::CheckerId gating_checker_id_;
   std::map<int32_t, base::WeakPtr<WebStateList>> web_state_lists_;
   bool fail_insert_web_state_ = false;
 };

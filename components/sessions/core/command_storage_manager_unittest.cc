@@ -10,12 +10,14 @@
 #include "base/files/file_enumerator.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/memory/raw_ptr.h"
 #include "base/strings/string_util.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
+#include "base/test/test_future.h"
 #include "components/os_crypt/async/browser/test_utils.h"
 #include "components/sessions/core/command_storage_features.h"
 #include "components/sessions/core/command_storage_manager_delegate.h"
@@ -109,6 +111,30 @@ class TestCommandStorageManagerDelegate : public CommandStorageManagerDelegate {
   bool delayed_save_ = false;
 };
 
+// A delegate that rebuilds all of its commands when a write error is reported,
+// which is what SessionService does. See
+// SessionService::OnErrorWritingSessionCommands() and
+// SessionService::ScheduleResetCommands().
+class RebuildOnErrorDelegate : public TestCommandStorageManagerDelegate {
+ public:
+  ~RebuildOnErrorDelegate() override = default;
+
+  // Must be called before any error can be reported. Not passed to the
+  // constructor because the manager needs the delegate at construction time.
+  void set_manager(CommandStorageManager* manager) { manager_ = manager; }
+
+  // TestCommandStorageManagerDelegate:
+  void OnErrorWritingSessionCommands() override {
+    TestCommandStorageManagerDelegate::OnErrorWritingSessionCommands();
+    manager_->set_pending_reset(true);
+    manager_->ClearPendingCommands();
+    manager_->AppendRebuildCommand(std::make_unique<SessionCommand>(201, 0));
+  }
+
+ private:
+  raw_ptr<CommandStorageManager> manager_ = nullptr;
+};
+
 TEST_P(CommandStorageManagerTest, AppendCommandsAndSave) {
   TestCommandStorageManagerDelegate delegate;
   CommandStorageManager manager(GetParam().session_type, path_, &delegate,
@@ -181,9 +207,9 @@ TEST_P(CommandStorageManagerTest, GetLastSessionCommands) {
   manager.GetLastSessionCommands(base::BindLambdaForTesting(
       [&commands, &error](
           std::vector<std::unique_ptr<SessionCommand>> commands_out,
-          bool error_out) {
+          CommandStorageReadStatus status_out) {
         commands = std::move(commands_out);
-        error = error_out;
+        error = IsCommandStorageReadError(status_out);
       }));
   test_helper.RunMessageLoopUntilBackendDone();
 
@@ -226,9 +252,9 @@ TEST_P(CommandStorageManagerTest,
   manager.GetLastSessionCommands(base::BindLambdaForTesting(
       [&commands, &error](
           std::vector<std::unique_ptr<SessionCommand>> commands_out,
-          bool error_out) {
+          CommandStorageReadStatus status_out) {
         commands = std::move(commands_out);
-        error = error_out;
+        error = IsCommandStorageReadError(status_out);
       }));
   test_helper.RunMessageLoopUntilBackendDone();
 
@@ -270,6 +296,9 @@ TEST_P(CommandStorageManagerTest, SaveBeforeEncryptorIsReady) {
   // Save is called before the encryptor is ready.
   manager.AppendRebuildCommand(std::make_unique<SessionCommand>(101, 0));
   manager.Save();
+  // The first call lets the encryptor become ready; the second lets any write
+  // that was deferred until then complete.
+  test_helper.RunMessageLoopUntilBackendDone();
   test_helper.RunMessageLoopUntilBackendDone();
 
   EncryptSessionStorageStage stage = GetEncryptSessionStorageStage();
@@ -288,19 +317,65 @@ TEST_P(CommandStorageManagerTest, SaveBeforeEncryptorIsReady) {
         "Session.CommandStorageManager.EncryptedBackendUninitialized", kSave,
         1);
   } else if (stage ==
-             EncryptSessionStorageStage::kWriteBothReadPreferEncrypted) {
-    EXPECT_EQ(1, delegate.error_count());
-    EXPECT_FALSE(manager.pending_commands().empty());
-  } else if (stage ==
-             EncryptSessionStorageStage::kWriteEncryptedReadPreferEncrypted) {
-    EXPECT_EQ(1, delegate.error_count());
-    EXPECT_FALSE(manager.pending_commands().empty());
+                 EncryptSessionStorageStage::kWriteBothReadPreferEncrypted ||
+             stage == EncryptSessionStorageStage::
+                          kWriteEncryptedReadPreferEncrypted) {
+    // The write is deferred until the encryptor is ready. Waiting for the
+    // encryptor is not a write failure, so no error should be reported.
+    EXPECT_EQ(0, delegate.error_count());
+    EXPECT_TRUE(manager.pending_commands().empty());
+    // SessionEncryptedBackendUninitialized::kSave = 0
+    const int kSave = 0;
+    histogram_tester.ExpectUniqueSample(
+        "Session.CommandStorageManager.EncryptedBackendUninitialized", kSave,
+        1);
   } else {
     FAIL() << "Unhandled EncryptSessionStorageStage: "
            << static_cast<int>(stage);
   }
   EXPECT_FALSE(manager.pending_reset());
   EXPECT_EQ(0, manager.commands_since_reset());
+}
+
+// Regression test for crbug.com/562992858. When a save is attempted before the
+// encryptor is ready, the manager must not be left holding pending commands
+// that are unaccounted for by `commands_since_reset()`. Otherwise a delegate
+// that rebuilds its commands in response to a write error (as SessionService
+// does) trips the CHECK in ClearPendingCommands().
+TEST_P(CommandStorageManagerTest, RebuildAfterSaveBeforeEncryptorIsReady) {
+  RebuildOnErrorDelegate delegate;
+  std::unique_ptr<os_crypt_async::OSCryptAsync> os_crypt =
+      os_crypt_async::GetTestOSCryptAsyncForTesting(
+          /*is_sync_for_unittests=*/false);
+  CommandStorageManager manager(GetParam().session_type, path_, &delegate,
+                                os_crypt.get(), backend_task_runner_);
+  delegate.set_manager(&manager);
+  CommandStorageManagerTestHelper test_helper(&manager);
+
+  // Save is called before the encryptor is ready.
+  manager.AppendRebuildCommand(std::make_unique<SessionCommand>(101, 0));
+  manager.Save();
+
+  // Every pending command must still be counted by `commands_since_reset()`.
+  EXPECT_GE(manager.commands_since_reset(),
+            static_cast<int>(manager.pending_commands().size()));
+
+  // Lets the encryptor become ready, and runs the delegate's error handler if
+  // the manager reported an error.
+  test_helper.RunMessageLoopUntilBackendDone();
+
+  EXPECT_EQ(0, delegate.error_count());
+  EXPECT_GE(manager.commands_since_reset(),
+            static_cast<int>(manager.pending_commands().size()));
+
+  // The deferred commands are written once the encryptor is available.
+  test_helper.RunMessageLoopUntilBackendDone();
+  if (test_helper.ShouldWriteCleartextFiles()) {
+    EXPECT_FALSE(GetCleartextSessionFiles().empty());
+  }
+  if (test_helper.ShouldWriteEncryptedFiles()) {
+    EXPECT_FALSE(GetEncryptedSessionFiles().empty());
+  }
 }
 
 TEST_P(CommandStorageManagerTest,
@@ -356,9 +431,9 @@ TEST_P(CommandStorageManagerTest, MoveCurrentSessionToLastSession) {
   manager.GetLastSessionCommands(base::BindLambdaForTesting(
       [&commands, &error](
           std::vector<std::unique_ptr<SessionCommand>> commands_out,
-          bool error_out) {
+          CommandStorageReadStatus status_out) {
         commands = std::move(commands_out);
-        error = error_out;
+        error = IsCommandStorageReadError(status_out);
       }));
   test_helper.RunMessageLoopUntilBackendDone();
 
@@ -451,9 +526,9 @@ TEST_P(CommandStorageManagerTest, SaveTwiceWithReset) {
   manager.GetLastSessionCommands(base::BindLambdaForTesting(
       [&commands, &error](
           std::vector<std::unique_ptr<SessionCommand>> commands_out,
-          bool error_out) {
+          CommandStorageReadStatus status_out) {
         commands = std::move(commands_out);
-        error = error_out;
+        error = IsCommandStorageReadError(status_out);
       }));
   test_helper.RunMessageLoopUntilBackendDone();
   EXPECT_FALSE(error);
@@ -490,9 +565,9 @@ TEST_P(CommandStorageManagerTest, SaveTwiceWithoutReset) {
   manager.GetLastSessionCommands(base::BindLambdaForTesting(
       [&commands, &error](
           std::vector<std::unique_ptr<SessionCommand>> commands_out,
-          bool error_out) {
+          CommandStorageReadStatus status_out) {
         commands = std::move(commands_out);
-        error = error_out;
+        error = IsCommandStorageReadError(status_out);
       }));
   test_helper.RunMessageLoopUntilBackendDone();
   EXPECT_FALSE(error);
@@ -564,9 +639,9 @@ TEST_P(CommandStorageManagerTest, EncryptedReadMatch) {
   manager.GetLastSessionCommands(base::BindLambdaForTesting(
       [&commands, &error](
           std::vector<std::unique_ptr<SessionCommand>> commands_out,
-          bool error_out) {
+          CommandStorageReadStatus status_out) {
         commands = std::move(commands_out);
-        error = error_out;
+        error = IsCommandStorageReadError(status_out);
       }));
   test_helper.RunMessageLoopUntilBackendDone();
 
@@ -620,9 +695,9 @@ TEST_P(CommandStorageManagerTest, EncryptedReadErrorWithBadEncryptedFile) {
   manager.GetLastSessionCommands(base::BindLambdaForTesting(
       [&commands, &error](
           std::vector<std::unique_ptr<SessionCommand>> commands_out,
-          bool error_out) {
+          CommandStorageReadStatus status_out) {
         commands = std::move(commands_out);
-        error = error_out;
+        error = IsCommandStorageReadError(status_out);
       }));
   test_helper.RunMessageLoopUntilBackendDone();
 
@@ -673,9 +748,9 @@ TEST_P(CommandStorageManagerTest, EncryptedReadErrorWithMissingEncryptedFile) {
   manager.GetLastSessionCommands(base::BindLambdaForTesting(
       [&commands, &error](
           std::vector<std::unique_ptr<SessionCommand>> commands_out,
-          bool error_out) {
+          CommandStorageReadStatus status_out) {
         commands = std::move(commands_out);
-        error = error_out;
+        error = IsCommandStorageReadError(status_out);
       }));
   test_helper.RunMessageLoopUntilBackendDone();
 
@@ -739,9 +814,9 @@ TEST_P(CommandStorageManagerTest, EncryptedReadCommandsMismatch) {
   manager.GetLastSessionCommands(base::BindLambdaForTesting(
       [&commands, &error](
           std::vector<std::unique_ptr<SessionCommand>> commands_out,
-          bool error_out) {
+          CommandStorageReadStatus status_out) {
         commands = std::move(commands_out);
-        error = error_out;
+        error = IsCommandStorageReadError(status_out);
       }));
   test_helper.RunMessageLoopUntilBackendDone();
 
@@ -779,9 +854,9 @@ TEST_P(CommandStorageManagerTest, DeleteLastSession) {
   manager.GetLastSessionCommands(base::BindLambdaForTesting(
       [&commands, &error](
           std::vector<std::unique_ptr<SessionCommand>> commands_out,
-          bool error_out) {
+          CommandStorageReadStatus status_out) {
         commands = std::move(commands_out);
-        error = error_out;
+        error = IsCommandStorageReadError(status_out);
       }));
   test_helper.RunMessageLoopUntilBackendDone();
 
@@ -887,9 +962,9 @@ TEST_P(CommandStorageManagerTest, FallbackToCleartextOnMissingEncryptedFile) {
   manager.GetLastSessionCommands(base::BindLambdaForTesting(
       [&commands, &error, &finished](
           std::vector<std::unique_ptr<SessionCommand>> commands_out,
-          bool error_out) {
+          CommandStorageReadStatus status_out) {
         commands = std::move(commands_out);
-        error = error_out;
+        error = IsCommandStorageReadError(status_out);
         finished = true;
       }));
   // Do not use RunMessageLoopUntilBackendDone() here, because we have 2 read
@@ -957,9 +1032,9 @@ TEST_P(CommandStorageManagerTest, FallbackToCleartextOnCorruptedEncryptedFile) {
   manager2.GetLastSessionCommands(base::BindLambdaForTesting(
       [&commands, &error, &finished](
           std::vector<std::unique_ptr<SessionCommand>> commands_out,
-          bool error_out) {
+          CommandStorageReadStatus status_out) {
         commands = std::move(commands_out);
-        error = error_out;
+        error = IsCommandStorageReadError(status_out);
         finished = true;
       }));
   // Do not use RunMessageLoopUntilBackendDone() here, because we have 2 read
@@ -1025,9 +1100,9 @@ TEST_P(CommandStorageManagerTest, FallbackToCleartextFailsWithNoCleartextFile) {
   manager.GetLastSessionCommands(base::BindLambdaForTesting(
       [&commands, &error, &finished](
           std::vector<std::unique_ptr<SessionCommand>> commands_out,
-          bool error_out) {
+          CommandStorageReadStatus status_out) {
         commands = std::move(commands_out);
-        error = error_out;
+        error = IsCommandStorageReadError(status_out);
         finished = true;
       }));
   // Do not use RunMessageLoopUntilBackendDone() here, because we have 2 read
@@ -1084,9 +1159,9 @@ TEST_P(CommandStorageManagerTest,
   manager.GetLastSessionCommands(base::BindLambdaForTesting(
       [&commands, &error, &finished](
           std::vector<std::unique_ptr<SessionCommand>> commands_out,
-          bool error_out) {
+          CommandStorageReadStatus status_out) {
         commands = std::move(commands_out);
-        error = error_out;
+        error = IsCommandStorageReadError(status_out);
         finished = true;
       }));
   EXPECT_TRUE(base::test::RunUntil([&]() { return finished; }));
@@ -1099,6 +1174,54 @@ TEST_P(CommandStorageManagerTest,
 
   EXPECT_TRUE(GetCleartextSessionFiles().empty());
   EXPECT_FALSE(GetEncryptedSessionFiles().empty());
+}
+
+TEST_P(CommandStorageManagerTest, GetLastSessionCommandsReportsReadStatus) {
+  TestCommandStorageManagerDelegate delegate;
+  {  // Setup by writing commands to the backend.
+    CommandStorageManager manager(GetParam().session_type, path_, &delegate,
+                                  os_crypt_async_.get(), backend_task_runner_);
+    CommandStorageManagerTestHelper test_helper(&manager);
+    manager.AppendRebuildCommand({std::make_unique<SessionCommand>(101, 0)});
+    manager.AppendRebuildCommand({std::make_unique<SessionCommand>(102, 0)});
+    manager.Save();
+    test_helper.RunMessageLoopUntilBackendDone();
+  }
+
+  // Read the commands back with a new manager.
+  CommandStorageManager manager(GetParam().session_type, path_, &delegate,
+                                os_crypt_async_.get(), backend_task_runner_);
+  CommandStorageManagerTestHelper test_helper(&manager);
+  base::test::TestFuture<std::vector<std::unique_ptr<SessionCommand>>,
+                         CommandStorageReadStatus>
+      future;
+  manager.GetLastSessionCommands(future.GetCallback());
+  auto [commands, status] = future.Take();
+  // `future` already waited for the read, but in the prefer-encrypted stages a
+  // successful read also posts a task to delete the leftover cleartext file.
+  // Let it finish before `temp_dir_` is torn down.
+  test_helper.RunMessageLoopUntilBackendDone();
+
+  EXPECT_EQ(CommandStorageReadStatus::kSuccess, status);
+  ASSERT_EQ(2U, commands.size());
+  EXPECT_EQ(101U, commands[0]->id());
+  EXPECT_EQ(102U, commands[1]->id());
+}
+
+TEST_P(CommandStorageManagerTest, GetLastSessionCommandsReportsNoFile) {
+  TestCommandStorageManagerDelegate delegate;
+  CommandStorageManager manager(GetParam().session_type, path_, &delegate,
+                                os_crypt_async_.get(), backend_task_runner_);
+
+  base::test::TestFuture<std::vector<std::unique_ptr<SessionCommand>>,
+                         CommandStorageReadStatus>
+      future;
+  manager.GetLastSessionCommands(future.GetCallback());
+  auto [commands, status] = future.Take();
+
+  // Nothing was ever written, so there is no file. This is not an error.
+  EXPECT_EQ(CommandStorageReadStatus::kNoFile, status);
+  EXPECT_FALSE(IsCommandStorageReadError(status));
 }
 
 std::string TestParamNameGenerator(

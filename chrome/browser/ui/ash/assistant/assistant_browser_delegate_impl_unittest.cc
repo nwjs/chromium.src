@@ -100,8 +100,7 @@ class AssistantBrowserDelegateImplTest : public ChromeAshTestBase {
     // Also, AshTestHelper does not respect real SessionManager via
     // SimulateUserLogin. Call it manually here, too.
     session_manager->CreateSession(
-        kAccountId,
-        user_manager::FakeUserManager::GetFakeUsernameHash(kAccountId),
+        kAccountId, user_manager::TestHelper::GetFakeUsernameHash(kAccountId),
         /*new_user=*/false,
         /*has_active_session=*/false);
 
@@ -112,6 +111,7 @@ class AssistantBrowserDelegateImplTest : public ChromeAshTestBase {
       profile_ = profile_manager_->CreateTestingProfile(
           std::string(kAccountId.GetUserEmail()));
     }
+    // TODO(crbug.com/40225390): Use ProfileUserManagerController.
     user_manager_->OnUserProfileCreated(kAccountId, profile_->GetPrefs());
 
     web_app::FakeWebAppProvider::Get(profile_.get())

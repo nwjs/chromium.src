@@ -41,6 +41,7 @@ import android.view.Window;
 import android.view.accessibility.AccessibilityEvent;
 import android.widget.FrameLayout;
 
+import androidx.annotation.Px;
 import androidx.annotation.VisibleForTesting;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
@@ -78,7 +79,6 @@ import org.chromium.chrome.browser.layouts.components.VirtualView;
 import org.chromium.chrome.browser.layouts.components.VirtualView.VirtualViewPriority;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabHidingType;
 import org.chromium.chrome.browser.tab.TabObscuringHandler;
 import org.chromium.chrome.browser.tab.TabObserver;
@@ -92,6 +92,8 @@ import org.chromium.chrome.browser.toolbar.ControlContainer;
 import org.chromium.chrome.browser.ui.side_panel.AndroidSidePanelEnabledFn;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.AnchorSide;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiSpecs;
+import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.UiUpdateRequest;
+import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.UiUpdateRequest.UpdateReason;
 import org.chromium.chrome.browser.ui.side_ui.SideUiObserver;
 import org.chromium.chrome.browser.ui.side_ui.SideUiStateProvider;
 import org.chromium.chrome.browser.ui.vertical_tabs.VerticalTabUtils;
@@ -272,8 +274,8 @@ public class CompositorViewHolder extends FrameLayout
     private boolean mHasKeyboardGeometryChangeFired;
 
     /**
-     * By default, the virtual keyboard overlays content, only resizing the visual viewport.
-     * Web content can use APIs that can change this to cause the WebContents to be resized.
+     * By default, the virtual keyboard overlays content, only resizing the visual viewport. Web
+     * content can use APIs that can change this to cause the WebContents to be resized.
      */
     @VirtualKeyboardMode.EnumType
     private int mVirtualKeyboardMode = VirtualKeyboardMode.RESIZES_VISUAL;
@@ -630,8 +632,8 @@ public class CompositorViewHolder extends FrameLayout
     }
 
     /**
-     * @param layoutManager The {@link LayoutManagerImpl} instance that will be driving what
-     *                      shows in this {@link CompositorViewHolder}.
+     * @param layoutManager The {@link LayoutManagerImpl} instance that will be driving what shows
+     *     in this {@link CompositorViewHolder}.
      */
     public void setLayoutManager(LayoutManagerImpl layoutManager) {
         mLayoutManager = layoutManager;
@@ -662,6 +664,16 @@ public class CompositorViewHolder extends FrameLayout
                     R.id.control_container, mControlContainer.getToolbarResourceAdapter());
         }
 
+        scheduleTempBackgroundRemoval();
+    }
+
+    /**
+     * Schedules removal of the temporary compositor background, unless a removal is already
+     * pending.
+     */
+    private void scheduleTempBackgroundRemoval() {
+        if (mSetBackgroundRunnable != null) return;
+
         mSetBackgroundRunnable = this::removeTempBackground;
         // Request a render. The temporary background will be removed once we are confident that the
         // composited frame has been drawn. We'll also post a runnable to remove the background
@@ -685,7 +697,7 @@ public class CompositorViewHolder extends FrameLayout
     }
 
     private void runSetBackgroundRunnable() {
-        // This runnable should only be run once.
+        // Whichever of the render callback and the timeout fires first consumes the runnable.
         if (mSetBackgroundRunnable == null) return;
 
         new Handler().post(mSetBackgroundRunnable);
@@ -862,9 +874,11 @@ public class CompositorViewHolder extends FrameLayout
     public void prepareForTabReparenting() {
         if (mHasDrawnOnce) return;
 
-        // Set the background to white while we wait for the first swap of buffers. This gets
-        // corrected inside the view.
+        // Set the background to white while we wait for the first swap of buffers.
         mCompositorView.setBackgroundColor(Color.WHITE);
+        // The removal scheduled by setControlContainer() may have already timed out if the
+        // activity was stopped before its first draw, so make sure one is pending.
+        scheduleTempBackgroundRemoval();
     }
 
     @Override
@@ -1077,7 +1091,7 @@ public class CompositorViewHolder extends FrameLayout
     }
 
     @VisibleForTesting
-    @Nullable ViewGroup getContentView() {
+    @Nullable ContentView getContentView() {
         Tab tab = getCurrentTab();
         return tab != null ? tab.getContentView() : null;
     }
@@ -1160,10 +1174,11 @@ public class CompositorViewHolder extends FrameLayout
                         || VerticalTabUtils.isVerticalTabsEligible(mActivity))
                 && mSideUiStateProvider != null) {
             SideUiSpecs sideUiSpecs = mSideUiStateProvider.getExpectedSideUiSpecsForTab(tab);
-            sideUiLeftMargin = sideUiSpecs.getWidth(AnchorSide.LEFT);
-            horizontalViewportInsets = sideUiLeftMargin + sideUiSpecs.getWidth(AnchorSide.RIGHT);
+            sideUiLeftMargin = sideUiSpecs.getReservedWidth(AnchorSide.LEFT);
+            horizontalViewportInsets =
+                    sideUiLeftMargin + sideUiSpecs.getReservedWidth(AnchorSide.RIGHT);
         }
-        ContentView cv = (ContentView) getContentView();
+        ContentView cv = getContentView();
         if (cv != null) cv.setContentOffsetXPix(sideUiLeftMargin);
 
         // The view size takes into account of the browser controls whose height should be
@@ -1518,7 +1533,8 @@ public class CompositorViewHolder extends FrameLayout
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
     @Override
-    public @Nullable Transition onPreSideUiSpecsChange(SideUiSpecs sideUiSpecs) {
+    public @Nullable Transition onPreSideUiSpecsChange(
+            SideUiSpecs sideUiSpecs, UiUpdateRequest request) {
         if (mSideUiStateProvider == null) return null;
 
         Tab currentTab = getCurrentTab();
@@ -1547,7 +1563,7 @@ public class CompositorViewHolder extends FrameLayout
     }
 
     @Override
-    public void onTransitionBegun(SideUiSpecs sideUiSpecs) {
+    public void onTransitionBegun(SideUiSpecs sideUiSpecs, UiUpdateRequest request) {
         // Trigger changes to Java Views, but delay any direct changes to composited views until
         // #onSideUiSpecsChanged().
         repositionTabViewForSideUi(sideUiSpecs);
@@ -1561,22 +1577,42 @@ public class CompositorViewHolder extends FrameLayout
     }
 
     @Override
-    public void onTransitionEnded(SideUiSpecs sideUiSpecs) {
-        onSideUiSpecsChanged(sideUiSpecs);
+    public void onTransitionEnded(SideUiSpecs sideUiSpecs, UiUpdateRequest request) {
+        onSideUiSpecsChanged(sideUiSpecs, request);
         resetClipToPadding();
     }
 
     @Override
-    public void onSideUiSpecsChanged(SideUiSpecs sideUiSpecs) {
-        // Delay #updateWebContentsSize to the end of the task queue. Some side panel instances
-        // rapidly close and re-open the side panel, which can cause a flicker if the web contents
-        // are updated synchronously.
-        post(
-                () -> {
-                    updateWebContentsSize();
-                    // TODO(crbug.com/514774842): Account for offset X for animations.
-                    mLayoutManager.setContentOffsetX(sideUiSpecs.getWidth(AnchorSide.LEFT));
-                });
+    public void onSideUiSpecsChanged(SideUiSpecs sideUiSpecs, UiUpdateRequest request) {
+        updateForSideUiSpecs(
+                sideUiSpecs, /* isLiveResize= */ request.mUpdateReason == UpdateReason.RESIZE_LIVE);
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    //                 End of SideUiObserver Implementation                                      //
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Resizes and repositions the content to account for the given {@link SideUiSpecs}.
+     *
+     * @param sideUiSpecs The {@link SideUiSpecs} to apply.
+     * @param isLiveResize Whether the update is part of a live resize drag.
+     */
+    private void updateForSideUiSpecs(SideUiSpecs sideUiSpecs, boolean isLiveResize) {
+        if (isLiveResize) {
+            // Translate the composited layer without resizing WebContents during a live drag,
+            // avoiding per-frame layout passes that cause jank.
+            applySideUiContentOffsetX(sideUiSpecs);
+        } else {
+            // Delay #updateWebContentsSize to the end of the task queue. Some side panel instances
+            // rapidly close and re-open the side panel, which can cause a flicker if the web
+            // contents are updated synchronously.
+            post(
+                    () -> {
+                        updateWebContentsSize();
+                        applySideUiContentOffsetX(sideUiSpecs);
+                    });
+        }
 
         repositionTabViewForSideUi(sideUiSpecs);
         onViewportChanged();
@@ -1586,10 +1622,6 @@ public class CompositorViewHolder extends FrameLayout
         //  want to resize the WebContents, and not the tab strip. As such, we need to decouple
         //  the viewport bounds from these items.
     }
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    //                 End of SideUiObserver Implementation                                      //
-    ///////////////////////////////////////////////////////////////////////////////////////////////
 
     private void repositionTabViewForSideUi() {
         Tab currentTab = getCurrentTab();
@@ -1611,8 +1643,8 @@ public class CompositorViewHolder extends FrameLayout
         // TODO(b/496307238): verify if need to explicitly trigger repositionTabViewForSideUi again
         // after layout params are set.
         if (layoutParams == null) return;
-        layoutParams.leftMargin = sideUiSpecs.getWidth(AnchorSide.LEFT);
-        layoutParams.rightMargin = sideUiSpecs.getWidth(AnchorSide.RIGHT);
+        layoutParams.leftMargin = sideUiSpecs.getReservedWidth(AnchorSide.LEFT);
+        layoutParams.rightMargin = sideUiSpecs.getReservedWidth(AnchorSide.RIGHT);
         mView.setLayoutParams(layoutParams);
     }
 
@@ -1650,6 +1682,17 @@ public class CompositorViewHolder extends FrameLayout
 
         mResetClipToPaddingRunnable.run();
         mResetClipToPaddingRunnable = null;
+    }
+
+    /**
+     * Shifts the composited web contents and its touch coordinate space to sit next to the Side UI
+     * on the left, without resizing the web contents.
+     */
+    private void applySideUiContentOffsetX(SideUiSpecs sideUiSpecs) {
+        @Px int leftSideUiWidth = sideUiSpecs.getReservedWidth(AnchorSide.LEFT);
+        mLayoutManager.setContentOffsetX(leftSideUiWidth);
+        ContentView contentView = getContentView();
+        if (contentView != null) contentView.setContentOffsetXPix(leftSideUiWidth);
     }
 
     // View.OnHierarchyChangeListener implementation
@@ -1768,8 +1811,8 @@ public class CompositorViewHolder extends FrameLayout
     private void adjustRectForSideUi(RectF outRect) {
         if (mSideUiStateProvider != null) {
             SideUiSpecs sideUiSpecs = mSideUiStateProvider.getCurrentSideUiSpecs();
-            outRect.left += sideUiSpecs.getWidth(AnchorSide.LEFT);
-            outRect.right -= sideUiSpecs.getWidth(AnchorSide.RIGHT);
+            outRect.left += sideUiSpecs.getReservedWidth(AnchorSide.LEFT);
+            outRect.right -= sideUiSpecs.getReservedWidth(AnchorSide.RIGHT);
         }
     }
 
@@ -1893,7 +1936,9 @@ public class CompositorViewHolder extends FrameLayout
                 (sideUiStateProvider) -> {
                     mSideUiStateProvider = sideUiStateProvider;
                     mSideUiStateProvider.addObserver(this);
-                    onSideUiSpecsChanged(mSideUiStateProvider.getCurrentSideUiSpecs());
+                    updateForSideUiSpecs(
+                            mSideUiStateProvider.getCurrentSideUiSpecs(),
+                            /* isLiveResize= */ false);
                 });
     }
 
@@ -1915,8 +1960,8 @@ public class CompositorViewHolder extends FrameLayout
     }
 
     /**
-     * Sets the URL bar. This is needed so that the ContentViewHolder can find out
-     * whether it can claim focus.
+     * Sets the URL bar. This is needed so that the ContentViewHolder can find out whether it can
+     * claim focus.
      */
     public void setUrlBar(View urlBar) {
         mUrlBar = urlBar;
@@ -1988,7 +2033,7 @@ public class CompositorViewHolder extends FrameLayout
         tabModelSelector.addObserver(
                 new TabModelSelectorObserver() {
                     @Override
-                    public void onNewTabCreated(Tab tab, @TabCreationState int creationState) {
+                    public void onNewTabCreated(Tab tab) {
                         initializeTab(tab);
                     }
                 });
@@ -2166,6 +2211,7 @@ public class CompositorViewHolder extends FrameLayout
     /**
      * Sets the correct size for {@link View} on {@code tab} and sets the correct rendering
      * parameters on {@link WebContents} on {@code tab}.
+     *
      * @param tab The {@link Tab} to initialize.
      */
     private void initializeTab(Tab tab) {
@@ -2265,7 +2311,6 @@ public class CompositorViewHolder extends FrameLayout
         } else {
             setDescendantFocusability(FOCUS_BEFORE_DESCENDANTS);
         }
-
     }
 
     // TabObscuringHandler.Observer

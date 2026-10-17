@@ -36,9 +36,9 @@ struct PageContentNode {
   array<PageContentNode> children;
 };
 
-// Result payload containing base64-encoded JPEG image data and scale metadata.
+// Result payload containing raw JPEG image data bytes and scale metadata.
 struct RawViewportRegionResult {
-  string jpeg_data_b64;
+  mojo_base.mojom.BigBuffer jpeg_bytes;
   int32 width;
   int32 height;
   float scale_factor;
@@ -54,12 +54,6 @@ struct ImageBytesResult {
 struct RememberedNote {
   string key;
   string value;
-};
-
-// Recognized debug output file types for diagnostic disk logging.
-enum DebugFileType {
-  kPrimingTurnMarkdown,
-  kImage,
 };
 
 // Factory for creating a PageHandler.
@@ -95,6 +89,8 @@ interface PageHandler {
   //
   // x, y: Top-left corner coordinates of the target region in viewport CSS pixels.
   // width, height: Dimensions of the target region in viewport CSS pixels.
+  // Returns null if there is no active web contents, render view, or if surface
+  // capture/encoding fails.
   CaptureRawViewportRegion(int32 x, int32 y, int32 width, int32 height)
       => (RawViewportRegionResult? result);
 
@@ -107,12 +103,6 @@ interface PageHandler {
 
   // Retrieves all currently stored key-value remembered notes.
   GetRememberedNotes() => (array<RememberedNote> notes);
-
-  // Writes debug data (such as Markdown text or Base64 images) to /tmp/ttc/
-  // when debug logging flag (--enable-ttc-debug-logs) is enabled.
-  // A static enum is used to prevent untrusted renderers from specifying
-  // arbitrary file paths. Does nothing if debug logging is not enabled.
-  SaveDebugFile(DebugFileType type, string content);
 
   // Retrieves the raw image content and MIME type for an image or linked image
   // element on the active page by its numeric DOM node ID.

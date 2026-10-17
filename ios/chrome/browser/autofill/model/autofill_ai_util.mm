@@ -34,16 +34,6 @@
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 
-namespace {
-
-// Returns true if the user has completed the Gemini First Run Experience.
-bool IsGeminiFirstRunCompleted(ProfileIOS* profile) {
-  return gemini::CurrentFirstRunState(profile->GetPrefs()) ==
-         gemini::FirstRunState::kCompleted;
-}
-
-}  // namespace
-
 namespace autofill {
 
 using personal_context::PersonalContextEligibilityService;
@@ -108,7 +98,6 @@ bool CanPerformAutofillAiAction(ProfileIOS* profile,
       SyncServiceFactory::GetForProfile(profile),
       IsWalletPublicPassStorageEnabled(profile), profile->IsOffTheRecord(),
       GeoIpCountryCode(GetCountryCodeFromVariations()),
-      SubscriptionEligibilityServiceFactory::GetForProfile(profile),
       personal_context_eligibility_state, action, entity_type);
 }
 
@@ -119,7 +108,8 @@ bool IsAmbientAutofillEnabled(ProfileIOS* profile) {
   }
 
   // Check Gemini First Run state before any pcontext features.
-  if (!IsGeminiFirstRunCompleted(profile)) {
+  const PrefService* prefs = profile->GetPrefs();
+  if (!prefs || !gemini::DidUserConsentToGemini(prefs)) {
     return false;
   }
 
@@ -144,6 +134,13 @@ bool IsAutofillAtMemorySearchUIEnabled(const AutofillClient* client) {
   if (!client) {
     return false;
   }
+
+  // Check Gemini First Run state before any pcontext features.
+  const PrefService* prefs = client->GetPrefs();
+  if (!prefs || !gemini::DidUserConsentToGemini(prefs)) {
+    return false;
+  }
+
   return MayPerformAtMemoryAction(AtMemoryAction::kTriggerSearchUI, *client);
 }
 
@@ -171,7 +168,6 @@ void SetEnhancedAutofillEnabled(ProfileIOS* profile, bool enabled) {
       IsWalletPublicPassStorageEnabled(original_profile),
       original_profile->IsOffTheRecord(),
       GeoIpCountryCode(GetCountryCodeFromVariations()),
-      SubscriptionEligibilityServiceFactory::GetForProfile(original_profile),
       PersonalContextEligibilityState::kDisabledNotEligible,
       enabled ? AutofillAiOptInStatus::kOptedIn
               : AutofillAiOptInStatus::kOptedOut);

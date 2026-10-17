@@ -65,7 +65,7 @@ class AutocompleteControllerMetricsTest : public testing::Test {
         histogram_tester_(std::make_unique<base::HistogramTester>()) {
     controller_.providers_ = {
         base::MakeRefCounted<FakeAutocompleteProviderDelayed>(
-            AutocompleteProvider::Type::TYPE_BOOKMARK, &task_environment_)};
+            AutocompleteProvider::Type::kBookmark, &task_environment_)};
 
     // Allow tests to simulate an initial update with no changes. Since the
     // 0-matches cases is special handled, tests can't simply do
@@ -78,7 +78,7 @@ class AutocompleteControllerMetricsTest : public testing::Test {
   AutocompleteMatch CreateMatch(int i) {
     const std::string name = base::NumberToString(i);
     AutocompleteMatch match{nullptr, 1000, false,
-                            AutocompleteMatchType::HISTORY_URL};
+                            omnibox::AutocompleteMatchType::kHistoryUrl};
     match.destination_url = GURL{"https://google.com/" + name};
     return match;
   }
@@ -424,11 +424,11 @@ TEST_F(AutocompleteControllerMetricsTest,
 TEST_F(AutocompleteControllerMetricsTest, Provider_SyncAndAsyncCompletion) {
   controller_.providers_ = {
       base::MakeRefCounted<FakeAutocompleteProviderDelayed>(
-          AutocompleteProvider::Type::TYPE_BOOKMARK, &task_environment_, true),
+          AutocompleteProvider::Type::kBookmark, &task_environment_, true),
       base::MakeRefCounted<FakeAutocompleteProviderDelayed>(
-          AutocompleteProvider::Type::TYPE_KEYWORD, &task_environment_),
+          AutocompleteProvider::Type::kKeyword, &task_environment_),
       base::MakeRefCounted<FakeAutocompleteProviderDelayed>(
-          AutocompleteProvider::Type::TYPE_BUILTIN, &task_environment_),
+          AutocompleteProvider::Type::kBuiltin, &task_environment_),
   };
   {
     SCOPED_TRACE("Sync update with 1st provider completing.");
@@ -492,9 +492,9 @@ TEST_F(AutocompleteControllerMetricsTest,
 TEST_F(AutocompleteControllerMetricsTest, Provider_Interrupted) {
   controller_.providers_ = {
       base::MakeRefCounted<FakeAutocompleteProviderDelayed>(
-          AutocompleteProvider::Type::TYPE_BOOKMARK, &task_environment_),
+          AutocompleteProvider::Type::kBookmark, &task_environment_),
       base::MakeRefCounted<FakeAutocompleteProviderDelayed>(
-          AutocompleteProvider::Type::TYPE_KEYWORD, &task_environment_),
+          AutocompleteProvider::Type::kKeyword, &task_environment_),
   };
 
   // Sync update. 1st provider completes; 2nd provider does not.

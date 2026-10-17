@@ -5,21 +5,46 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_MODULES_PEERCONNECTION_MOCK_PEER_CONNECTION_IMPL_H_
 #define THIRD_PARTY_BLINK_RENDERER_MODULES_PEERCONNECTION_MOCK_PEER_CONNECTION_IMPL_H_
 
+#include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <span>
 #include <string>
+#include <vector>
 
 #include "base/memory/raw_ptr.h"
 #include "base/notreached.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "third_party/blink/renderer/platform/allow_discouraged_type.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
+#include "third_party/webrtc/api/adaptation/resource.h"
+#include "third_party/webrtc/api/crypto/frame_encryptor_interface.h"
+#include "third_party/webrtc/api/data_channel_interface.h"
 #include "third_party/webrtc/api/dtls_transport_interface.h"
+#include "third_party/webrtc/api/dtmf_sender_interface.h"
+#include "third_party/webrtc/api/frame_transformer_interface.h"
+#include "third_party/webrtc/api/ice_transport_interface.h"
+#include "third_party/webrtc/api/jsep.h"
+#include "third_party/webrtc/api/media_stream_interface.h"
+#include "third_party/webrtc/api/media_types.h"
 #include "third_party/webrtc/api/peer_connection_interface.h"
+#include "third_party/webrtc/api/peer_connection_tracer_interface.h"
+#include "third_party/webrtc/api/rtc_error.h"
+#include "third_party/webrtc/api/rtp_parameters.h"
+#include "third_party/webrtc/api/rtp_receiver_interface.h"
+#include "third_party/webrtc/api/rtp_sender_interface.h"
+#include "third_party/webrtc/api/rtp_transceiver_direction.h"
+#include "third_party/webrtc/api/rtp_transceiver_interface.h"
+#include "third_party/webrtc/api/scoped_refptr.h"
 #include "third_party/webrtc/api/sctp_transport_interface.h"
+#include "third_party/webrtc/api/set_local_description_observer_interface.h"
+#include "third_party/webrtc/api/set_remote_description_observer_interface.h"
+#include "third_party/webrtc/api/stats/rtc_stats_collector_callback.h"
 #include "third_party/webrtc/api/stats/rtc_stats_report.h"
 #include "third_party/webrtc/api/test/mock_peerconnectioninterface.h"
+#include "third_party/webrtc/api/transport/rtp/rtp_source.h"
+#include "third_party/webrtc/api/video_codecs/video_encoder_factory.h"
 
 namespace blink {
 
@@ -188,8 +213,15 @@ class FakeDtlsTransport : public webrtc::DtlsTransportInterface {
 // removed. https://crbug.com/788659
 class MockPeerConnectionImpl : public webrtc::MockPeerConnectionInterface {
  public:
-  explicit MockPeerConnectionImpl(MockPeerConnectionDependencyFactory* factory,
-                                  webrtc::PeerConnectionObserver* observer);
+  MockPeerConnectionImpl(
+      MockPeerConnectionDependencyFactory* factory,
+      webrtc::PeerConnectionObserver* observer,
+      std::unique_ptr<webrtc::PeerConnectionTracerInterface> tracer = nullptr);
+
+  // The tracer a real webrtc::PeerConnection would own and invoke on its
+  // signaling thread. This mock never fires events by itself; tests drive it
+  // directly to exercise RTCPeerConnectionTracerImpl.
+  webrtc::PeerConnectionTracerInterface* tracer() { return tracer_.get(); }
 
   MockPeerConnectionImpl(const MockPeerConnectionImpl&) = delete;
   MockPeerConnectionImpl& operator=(const MockPeerConnectionImpl&) = delete;
@@ -314,6 +346,9 @@ class MockPeerConnectionImpl : public webrtc::MockPeerConnectionInterface {
   bool created_session_description() const {
     return created_session_description_;
   }
+  void set_fail_session_description_synchronously(bool fail) {
+    fail_session_description_synchronously_ = fail;
+  }
   webrtc::PeerConnectionObserver* observer() { return observer_; }
   void set_setconfiguration_error_type(webrtc::RTCErrorType error_type) {
     setconfiguration_error_type_ = error_type;
@@ -343,6 +378,7 @@ class MockPeerConnectionImpl : public webrtc::MockPeerConnectionInterface {
   std::unique_ptr<webrtc::SessionDescriptionInterface> local_desc_;
   std::unique_ptr<webrtc::SessionDescriptionInterface> remote_desc_;
   bool created_session_description_ = false;
+  bool fail_session_description_synchronously_ = false;
   bool hint_audio_;
   bool hint_video_;
   bool getstats_result_;
@@ -351,6 +387,7 @@ class MockPeerConnectionImpl : public webrtc::MockPeerConnectionInterface {
   int sdp_mline_index_;
   std::string ice_sdp_;
   raw_ptr<webrtc::PeerConnectionObserver> observer_;
+  std::unique_ptr<webrtc::PeerConnectionTracerInterface> tracer_;
   webrtc::RTCErrorType setconfiguration_error_type_ =
       webrtc::RTCErrorType::NONE;
   webrtc::scoped_refptr<webrtc::RTCStatsReport> stats_report_;

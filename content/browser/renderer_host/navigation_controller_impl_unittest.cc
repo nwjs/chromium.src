@@ -21,6 +21,8 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
 #include "base/test/gtest_util.h"
+#include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "content/browser/browser_url_handler_impl.h"
@@ -30,9 +32,11 @@
 #include "content/browser/renderer_host/navigation_entry_restore_context_impl.h"
 #include "content/browser/renderer_host/navigation_request.h"
 #include "content/browser/renderer_host/navigator.h"
+#include "content/browser/renderer_host/render_widget_host_impl.h"
 #include "content/browser/site_instance_impl.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/common/content_navigation_policy.h"
+#include "content/common/features.h"
 #include "content/common/frame.mojom.h"
 #include "content/public/browser/navigation_details.h"
 #include "content/public/browser/render_view_host.h"
@@ -742,6 +746,77 @@ TEST_F(NavigationControllerTest, LoadURLWithExtraParams_Data) {
   CheckNavigationEntryMatchLoadParams(load_url_params, entry);
 }
 
+TEST_F(NavigationControllerTest,
+       LoadURLWithParamsForResult_NavigationNotStartedReason) {
+  NavigationControllerImpl& controller = controller_impl();
+
+  // Valid URL returns a live handle for the navigation that is now in flight.
+  {
+    NavigationController::LoadURLParams params(GURL("https://example.com"));
+    base::expected<base::WeakPtr<NavigationHandle>, NavigationNotStartedReason>
+        result = controller.LoadURLWithParamsForResult(params);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_TRUE(result.value());
+    EXPECT_EQ(result.value()->GetURL(), GURL("https://example.com"));
+    controller.DiscardNonCommittedEntries();
+  }
+
+  // Invalid URL returns kInvalidUrl error.
+  {
+    NavigationController::LoadURLParams params(GURL("http://google.com:foo"));
+    base::expected<base::WeakPtr<NavigationHandle>, NavigationNotStartedReason>
+        result = controller.LoadURLWithParamsForResult(params);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), NavigationNotStartedReason::kInvalidUrl);
+  }
+
+  // Oversized URL returns kOversizedUrl error.
+  {
+    std::string long_url =
+        "https://example.com/?" + std::string(url::kMaxURLChars, 'a');
+    GURL long_gurl(long_url);
+    NavigationController::LoadURLParams params(long_gurl);
+    base::expected<base::WeakPtr<NavigationHandle>, NavigationNotStartedReason>
+        result = controller.LoadURLWithParamsForResult(params);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), NavigationNotStartedReason::kOversizedUrl);
+  }
+
+  // JavaScript URL is handled without creating a navigation request.
+  {
+    NavigationController::LoadURLParams params(GURL("javascript:void(0)"));
+    base::expected<base::WeakPtr<NavigationHandle>, NavigationNotStartedReason>
+        result = controller.LoadURLWithParamsForResult(params);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(),
+              NavigationNotStartedReason::kRendererDebugUrlHandled);
+  }
+
+  // Debug URL with opaque origin returns kBlockedRendererDebugUrl error.
+  {
+    NavigationController::LoadURLParams params(GURL("chrome://crashdump/"));
+    params.initiator_origin = url::Origin();
+    base::expected<base::WeakPtr<NavigationHandle>, NavigationNotStartedReason>
+        result = controller.LoadURLWithParamsForResult(params);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(),
+              NavigationNotStartedReason::kBlockedRendererDebugUrl);
+  }
+}
+
+// LoadURLWithParams() collapses every initiation error to a null handle, which
+// is the contract its callers rely on.
+TEST_F(NavigationControllerTest, LoadURLWithParamsReturnsNullOnError) {
+  NavigationControllerImpl& controller = controller_impl();
+  const int entry_count_before = controller.GetEntryCount();
+
+  NavigationController::LoadURLParams params(GURL("http://google.com:foo"));
+  EXPECT_FALSE(controller.LoadURLWithParams(params));
+
+  EXPECT_FALSE(controller.GetPendingEntry());
+  EXPECT_EQ(controller.GetEntryCount(), entry_count_before);
+}
+
 #if BUILDFLAG(IS_ANDROID)
 TEST_F(NavigationControllerTest, LoadURLWithExtraParams_Data_Android) {
   NavigationControllerImpl& controller = controller_impl();
@@ -846,6 +921,7 @@ TEST_F(NavigationControllerTest, CrossOriginRedirectRemovesHeaders) {
   std::string kExtraHeadersCRLF;
   base::ReplaceChars(kExtraHeaders, "\n", "\r\n", &kExtraHeadersCRLF);
 
+  base::HistogramTester histogram_tester;
   auto navigation =
       NavigationSimulatorImpl::CreateBrowserInitiated(url1, contents());
   NavigationController::LoadURLParams load_url_params(url1);
@@ -861,6 +937,8 @@ TEST_F(NavigationControllerTest, CrossOriginRedirectRemovesHeaders) {
 
   // Redirect to a cross-origin URL.
   navigation->Redirect(url2);
+  histogram_tester.ExpectUniqueSample(
+      "Navigation.RemoveExtraHeadersOnCrossOriginRedirect", true, 1);
   navigation->Commit();
 
   // The committed entry should not have the extra headers.
@@ -879,6 +957,7 @@ TEST_F(NavigationControllerTest, SameOriginRedirectKeepsHeaders) {
   std::string kExtraHeadersCRLF;
   base::ReplaceChars(kExtraHeaders, "\n", "\r\n", &kExtraHeadersCRLF);
 
+  base::HistogramTester histogram_tester;
   auto navigation =
       NavigationSimulatorImpl::CreateBrowserInitiated(url1, contents());
   NavigationController::LoadURLParams load_url_params(url1);
@@ -894,6 +973,8 @@ TEST_F(NavigationControllerTest, SameOriginRedirectKeepsHeaders) {
 
   // Redirect to a same-origin URL.
   navigation->Redirect(url2);
+  histogram_tester.ExpectUniqueSample(
+      "Navigation.RemoveExtraHeadersOnCrossOriginRedirect", false, 1);
   navigation->Commit();
 
   // The committed entry should have the extra headers.
@@ -973,6 +1054,106 @@ TEST_F(NavigationControllerTest, CrossOriginRedirectRemovesHeaders_Reload) {
   NavigationEntryImpl* reload_entry = controller.GetLastCommittedEntry();
   ASSERT_TRUE(reload_entry);
   EXPECT_TRUE(reload_entry->extra_headers().empty());
+}
+
+// Test that extra headers are cleared on cross-origin redirect without crashing
+// when a committed entry with |remove_extra_headers_on_cross_origin_redirect|
+// is later navigated to via a renderer-initiated history.back() call that
+// encounters a cross-origin redirect.
+TEST_F(NavigationControllerTest,
+       CrossOriginRedirectRemovesHeaders_RendererHistoryBack) {
+  DisableBackForwardCacheForTesting(RenderViewHostTestHarness::web_contents(),
+                                    BackForwardCache::TEST_REQUIRES_NO_CACHING);
+  NavigationControllerImpl& controller = controller_impl();
+  const GURL url1("http://foo1.com/foo");
+  const GURL url2("http://foo1.com/page2");
+  const GURL url3("http://foo2.com/bar");
+  const std::string kExtraHeaders = "Foo: Bar\nBaz: Qux";
+
+  // 1. Browser-initiated navigation to url1 commits without redirect.
+  auto nav1 = NavigationSimulatorImpl::CreateBrowserInitiated(url1, contents());
+  NavigationController::LoadURLParams load_url_params(url1);
+  load_url_params.extra_headers = kExtraHeaders;
+  load_url_params.remove_extra_headers_on_cross_origin_redirect = true;
+  nav1->SetLoadURLParams(&load_url_params);
+  nav1->Commit();
+
+  // 2. Navigate forward to url2.
+  NavigationSimulator::NavigateAndCommitFromDocument(url2, main_test_rfh());
+  EXPECT_EQ(2, controller.GetEntryCount());
+
+  // 3. Renderer initiates history.back() to url1, which now redirects
+  // cross-origin to url3.
+  auto back_nav = NavigationSimulatorImpl::CreateHistoryNavigation(
+      -1, contents(), /*is_renderer_initiated=*/true);
+  back_nav->Start();
+
+  NavigationRequest* request =
+      main_test_rfh()->frame_tree_node()->navigation_request();
+  ASSERT_TRUE(request);
+  EXPECT_FALSE(request->browser_initiated());
+  EXPECT_TRUE(request->GetRequestHeaders().HasHeader("Foo"));
+  EXPECT_TRUE(request->GetRequestHeaders().HasHeader("Baz"));
+
+  back_nav->Redirect(url3);
+  EXPECT_FALSE(request->GetRequestHeaders().HasHeader("Foo"));
+  EXPECT_FALSE(request->GetRequestHeaders().HasHeader("Baz"));
+  back_nav->Commit();
+
+  NavigationEntryImpl* committed_entry = controller.GetLastCommittedEntry();
+  ASSERT_TRUE(committed_entry);
+  EXPECT_TRUE(committed_entry->extra_headers().empty());
+}
+
+// Test that extra headers are still removed on a cross-origin redirect even if
+// the current page performs a same-document history.pushState() navigation that
+// discards the pending NavigationEntry while the cross-document request is in
+// flight.
+TEST_F(NavigationControllerTest,
+       CrossOriginRedirectRemovesHeaders_ConcurrentPushState) {
+  NavigationControllerImpl& controller = controller_impl();
+  const GURL initial_url("http://foo1.com/initial");
+  const GURL pushed_url("http://foo1.com/pushed");
+  const GURL url1("http://foo1.com/foo");
+  const GURL url2("http://foo2.com/bar");
+  const std::string kExtraHeaders = "Foo: Bar\nBaz: Qux";
+
+  NavigationSimulator::NavigateAndCommitFromBrowser(contents(), initial_url);
+
+  // Start a browser-initiated navigation with extra headers that waits before
+  // redirecting.
+  auto navigation =
+      NavigationSimulatorImpl::CreateBrowserInitiated(url1, contents());
+  NavigationController::LoadURLParams load_url_params(url1);
+  load_url_params.extra_headers = kExtraHeaders;
+  load_url_params.remove_extra_headers_on_cross_origin_redirect = true;
+  navigation->SetLoadURLParams(&load_url_params);
+  navigation->Start();
+  EXPECT_TRUE(controller.GetPendingEntry());
+
+  // While the navigation request is in flight, the current document executes a
+  // same-document history.pushState(), which discards the pending entry in
+  // NavigationControllerImpl::RendererDidNavigate (!keep_pending_entry).
+  auto push_state =
+      NavigationSimulator::CreateRendererInitiated(pushed_url, main_test_rfh());
+  push_state->CommitSameDocument();
+  EXPECT_FALSE(controller.GetPendingEntry());
+
+  NavigationRequest* request =
+      main_test_rfh()->frame_tree_node()->navigation_request();
+  ASSERT_TRUE(request);
+  EXPECT_TRUE(request->GetRequestHeaders().HasHeader("Foo"));
+  EXPECT_TRUE(request->GetRequestHeaders().HasHeader("Baz"));
+
+  // Now the in-flight navigation redirects cross-origin to url2.
+  navigation->Redirect(url2);
+  EXPECT_FALSE(request->GetRequestHeaders().HasHeader("Foo"));
+  EXPECT_FALSE(request->GetRequestHeaders().HasHeader("Baz"));
+  navigation->Commit();
+
+  NavigationEntryImpl* committed_entry = controller.GetLastCommittedEntry();
+  ASSERT_TRUE(committed_entry);
+  EXPECT_TRUE(committed_entry->extra_headers().empty());
 }
 
 // Tests what happens when the same page is loaded again.  Should not create a
@@ -3028,6 +3209,221 @@ TEST_F(NavigationControllerTest, ShowRendererURLAfterFailUntilModified) {
   EXPECT_TRUE(contents()->HasAccessedInitialDocument());
   EXPECT_TRUE(controller.GetVisibleEntry()->IsInitialEntry());
   EXPECT_EQ(url, controller.GetPendingEntry()->GetURL());
+}
+
+// Tests that a visually non-empty CompositorFrame detected by Viz (rather than
+// reported by the untrusted DidAccessInitialMainDocument IPC) discards the
+// pending URL and reverts the visible entry to the initial blank entry,
+// preventing a URL spoof. See https://crbug.com/40055319.
+TEST_F(NavigationControllerTest,
+       VisuallyNonEmptyCompositorFrameRevertsPendingURL) {
+  base::HistogramTester histogram_tester;
+  NavigationControllerImpl& controller = controller_impl();
+
+  const GURL url("http://foo");
+  auto navigation =
+      NavigationSimulator::CreateRendererInitiated(url, main_test_rfh());
+  navigation->Start();
+
+  EXPECT_EQ(url, controller.GetVisibleEntry()->GetURL());
+  EXPECT_TRUE(controller.GetPendingEntry()->is_renderer_initiated());
+  EXPECT_TRUE(controller.IsUnmodifiedBlankTab());
+  EXPECT_FALSE(contents()->HasAccessedInitialDocument());
+
+  // Simulate Viz reporting a non-empty CompositorFrame for the main frame's
+  // widget, without the renderer sending DidAccessInitialMainDocument.
+  main_test_rfh()
+      ->GetRenderWidgetHost()
+      ->OnFirstVisuallyNonEmptyCompositorFrame();
+
+  EXPECT_TRUE(contents()->HasAccessedInitialDocument());
+  EXPECT_TRUE(controller.GetVisibleEntry()->IsInitialEntry());
+  EXPECT_NE(controller.GetPendingEntry(), controller.GetVisibleEntry());
+  EXPECT_EQ(GURL::EmptyGURL(), controller.GetVisibleEntry()->GetURL());
+  histogram_tester.ExpectUniqueSample(
+      "Navigation.InitialDocument.NonEmptyCompositorFrameTreatedAsAccess", true,
+      1);
+}
+
+// Tests that a visually non-empty CompositorFrame also reverts the pending URL
+// that is preserved after a renderer-initiated navigation fails on a blank tab.
+TEST_F(NavigationControllerTest,
+       VisuallyNonEmptyCompositorFrameAfterFailRevertsPendingURL) {
+  base::HistogramTester histogram_tester;
+  NavigationControllerImpl& controller = controller_impl();
+
+  const GURL url("http://foo");
+  auto navigation =
+      NavigationSimulator::CreateRendererInitiated(url, main_test_rfh());
+  navigation->Start();
+
+  // The pending URL stays visible after the navigation aborts, as long as the
+  // blank tab is unmodified.
+  navigation->Fail(net::ERR_FAILED);
+  EXPECT_EQ(url, controller.GetVisibleEntry()->GetURL());
+  EXPECT_FALSE(contents()->HasAccessedInitialDocument());
+
+  main_test_rfh()
+      ->GetRenderWidgetHost()
+      ->OnFirstVisuallyNonEmptyCompositorFrame();
+
+  EXPECT_TRUE(contents()->HasAccessedInitialDocument());
+  EXPECT_TRUE(controller.GetVisibleEntry()->IsInitialEntry());
+  EXPECT_NE(controller.GetPendingEntry(), controller.GetVisibleEntry());
+  EXPECT_EQ(GURL::EmptyGURL(), controller.GetVisibleEntry()->GetURL());
+  histogram_tester.ExpectUniqueSample(
+      "Navigation.InitialDocument.NonEmptyCompositorFrameTreatedAsAccess", true,
+      1);
+}
+
+// Tests the draw-then-navigate spoof: a renderer draws content into the
+// initial empty document before starting a slow renderer-initiated navigation,
+// so that there is no pending URL to remove at that time. The subsequent
+// pending URL must still be suppressed.
+TEST_F(NavigationControllerTest,
+       VisuallyNonEmptyCompositorFrameWithoutPendingEntry) {
+  base::HistogramTester histogram_tester;
+  NavigationControllerImpl& controller = controller_impl();
+
+  ASSERT_TRUE(controller.IsUnmodifiedBlankTab());
+  ASSERT_FALSE(controller.GetPendingEntry());
+
+  main_test_rfh()
+      ->GetRenderWidgetHost()
+      ->OnFirstVisuallyNonEmptyCompositorFrame();
+
+  EXPECT_TRUE(contents()->HasAccessedInitialDocument());
+  EXPECT_FALSE(controller.IsUnmodifiedBlankTab());
+  EXPECT_TRUE(controller.GetVisibleEntry()->IsInitialEntry());
+  histogram_tester.ExpectUniqueSample(
+      "Navigation.InitialDocument.NonEmptyCompositorFrameTreatedAsAccess", true,
+      1);
+
+  // The pending URL of a navigation started after the CompositorFrame is not
+  // shown over the content the renderer already drew.
+  const GURL url("http://foo");
+  auto navigation =
+      NavigationSimulator::CreateRendererInitiated(url, main_test_rfh());
+  navigation->Start();
+
+  EXPECT_EQ(url, controller.GetPendingEntry()->GetURL());
+  EXPECT_TRUE(controller.GetVisibleEntry()->IsInitialEntry());
+  EXPECT_EQ(GURL::EmptyGURL(), controller.GetVisibleEntry()->GetURL());
+}
+
+// Tests that a non-empty CompositorFrame is not counted as true in the
+// histogram once the renderer has already reported accessing the initial empty
+// document. This is what a page that opens an about:blank popup and writes
+// content into it does, which is legitimate and common, and is the main
+// population of the histogram's false bucket.
+TEST_F(NavigationControllerTest,
+       VisuallyNonEmptyCompositorFrameAfterReportedAccess) {
+  base::HistogramTester histogram_tester;
+  NavigationControllerImpl& controller = controller_impl();
+
+  ASSERT_TRUE(controller.IsUnmodifiedBlankTab());
+  main_test_rfh()->DidAccessInitialMainDocument();
+  ASSERT_FALSE(controller.IsUnmodifiedBlankTab());
+
+  main_test_rfh()
+      ->GetRenderWidgetHost()
+      ->OnFirstVisuallyNonEmptyCompositorFrame();
+
+  EXPECT_TRUE(controller.GetVisibleEntry()->IsInitialEntry());
+  histogram_tester.ExpectUniqueSample(
+      "Navigation.InitialDocument.NonEmptyCompositorFrameTreatedAsAccess",
+      false, 1);
+}
+
+// Tests that a visually non-empty CompositorFrame also discards a pending URL
+// that was preserved after a browser-initiated navigation aborted on a blank
+// tab, in the same way that an access reported by the renderer would. See
+// https://crbug.com/40079181.
+TEST_F(NavigationControllerTest,
+       VisuallyNonEmptyCompositorFrameAfterBrowserInitiatedAbort) {
+  base::HistogramTester histogram_tester;
+  NavigationControllerImpl& controller = controller_impl();
+
+  const GURL url("http://foo");
+  auto navigation =
+      NavigationSimulatorImpl::CreateBrowserInitiated(url, contents());
+  NavigationController::LoadURLParams load_url_params(url);
+  load_url_params.transition_type = ui::PAGE_TRANSITION_TYPED;
+  load_url_params.is_renderer_initiated = false;
+  navigation->SetLoadURLParams(&load_url_params);
+  navigation->Start();
+  ASSERT_FALSE(controller.GetPendingEntry()->is_renderer_initiated());
+
+  // Suppose it aborts before committing, as a 204 or download or a stop would.
+  // The URL remains visible while the blank tab is unmodified.
+  main_test_rfh()->frame_tree_node()->navigator().CancelNavigation(
+      main_test_rfh()->frame_tree_node(),
+      NavigationDiscardReason::kExplicitCancellation);
+  ASSERT_TRUE(controller.IsUnmodifiedBlankTab());
+  ASSERT_EQ(url, controller.GetVisibleEntry()->GetURL());
+
+  main_test_rfh()
+      ->GetRenderWidgetHost()
+      ->OnFirstVisuallyNonEmptyCompositorFrame();
+
+  EXPECT_TRUE(contents()->HasAccessedInitialDocument());
+  EXPECT_TRUE(controller.GetVisibleEntry()->IsInitialEntry());
+  EXPECT_FALSE(controller.GetPendingEntry());
+  histogram_tester.ExpectUniqueSample(
+      "Navigation.InitialDocument.NonEmptyCompositorFrameTreatedAsAccess", true,
+      1);
+}
+
+// Tests that the killswitch suppresses the behavior change while still
+// recording the metric used to judge whether the killswitch is needed.
+TEST_F(NavigationControllerTest,
+       VisuallyNonEmptyCompositorFrameWithFeatureDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      features::kClearPendingUrlOnNonEmptyCompositorFrame);
+  base::HistogramTester histogram_tester;
+  NavigationControllerImpl& controller = controller_impl();
+
+  const GURL url("http://foo");
+  auto navigation =
+      NavigationSimulator::CreateRendererInitiated(url, main_test_rfh());
+  navigation->Start();
+  EXPECT_EQ(url, controller.GetVisibleEntry()->GetURL());
+
+  main_test_rfh()
+      ->GetRenderWidgetHost()
+      ->OnFirstVisuallyNonEmptyCompositorFrame();
+
+  EXPECT_FALSE(contents()->HasAccessedInitialDocument());
+  EXPECT_EQ(url, controller.GetVisibleEntry()->GetURL());
+  histogram_tester.ExpectUniqueSample(
+      "Navigation.InitialDocument.NonEmptyCompositorFrameTreatedAsAccess", true,
+      1);
+}
+
+// Tests a fallback case: the tab has already left the initial empty document
+// by the time it draws, but the callback is not cancelled before it is
+// invoked. The notification has no effect on behavior, but still records false
+// in the histogram.
+TEST_F(NavigationControllerTest,
+       VisuallyNonEmptyCompositorFrameAfterCommitIsNoOp) {
+  base::HistogramTester histogram_tester;
+  NavigationControllerImpl& controller = controller_impl();
+
+  const GURL url("http://foo");
+  NavigationSimulator::NavigateAndCommitFromDocument(url, main_test_rfh());
+  EXPECT_FALSE(controller.IsUnmodifiedBlankTab());
+
+  // Simulate a callback that was not cancelled by the navigation commit.
+  main_test_rfh()
+      ->GetRenderWidgetHost()
+      ->OnFirstVisuallyNonEmptyCompositorFrame();
+
+  EXPECT_FALSE(contents()->HasAccessedInitialDocument());
+  EXPECT_EQ(url, controller.GetVisibleEntry()->GetURL());
+  histogram_tester.ExpectUniqueSample(
+      "Navigation.InitialDocument.NonEmptyCompositorFrameTreatedAsAccess",
+      false, 1);
 }
 
 // Tests that the URLs for renderer-initiated navigations in new tabs are

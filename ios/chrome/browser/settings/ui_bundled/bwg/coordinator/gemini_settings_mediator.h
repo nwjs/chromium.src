@@ -11,6 +11,7 @@
 
 class AuthenticationService;
 @protocol GeminiSettingsConsumer;
+@protocol GeminiSuggestionsConsumer;
 class PrefService;
 @protocol SceneCommands;
 
@@ -18,14 +19,26 @@ namespace signin {
 class IdentityManager;
 }  // namespace signin
 
+// Delegate for mediator to handle navigation or coordination actions.
+@protocol GeminiSettingsMediatorDelegate <NSObject>
+// Requests opening the Sync settings.
+- (void)openSyncSettings;
+@end
+
 // Gemini Mediator.
 @interface GeminiSettingsMediator : NSObject <GeminiSettingsMutator>
 
 // The scene commands handler for this mediator.
 @property(nonatomic, weak) id<SceneCommands> sceneHandler;
 
+// Delegate to handle coordination and navigation actions.
+@property(nonatomic, weak) id<GeminiSettingsMediatorDelegate> delegate;
+
 // Usually the view controller.
 @property(nonatomic, weak) id<GeminiSettingsConsumer> consumer;
+
+// Consumer for the Gemini suggestions settings view controller.
+@property(nonatomic, weak) id<GeminiSuggestionsConsumer> suggestionsConsumer;
 
 // Designated initializer. All the parameters should not be null.
 // 'authService': authentication service for the profile.

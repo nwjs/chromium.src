@@ -206,7 +206,8 @@ class OmniboxPedalUpdateCreditCard : public OmniboxPedal {
 
 class OmniboxPedalLaunchIncognito : public OmniboxPedal {
  public:
-  OmniboxPedalLaunchIncognito()
+  explicit OmniboxPedalLaunchIncognito(
+      OmniboxPedalOtrType otr_type = OmniboxPedalOtrType::kIncognito)
       : OmniboxPedal(
             OmniboxPedalId::LAUNCH_INCOGNITO,
 #if BUILDFLAG(IS_ANDROID)
@@ -216,10 +217,17 @@ class OmniboxPedalLaunchIncognito : public OmniboxPedal {
                 IDS_ANDROID_ACC_OMNIBOX_PEDAL_LAUNCH_INCOGNITO_SUFFIX,
                 IDS_ANDROID_ACC_OMNIBOX_PEDAL_LAUNCH_INCOGNITO),
 #else
-            LabelStrings(IDS_OMNIBOX_PEDAL_LAUNCH_INCOGNITO_HINT,
-                         IDS_OMNIBOX_PEDAL_LAUNCH_INCOGNITO_SUGGESTION_CONTENTS,
-                         IDS_ACC_OMNIBOX_PEDAL_LAUNCH_INCOGNITO_SUFFIX,
-                         IDS_ACC_OMNIBOX_PEDAL_LAUNCH_INCOGNITO),
+            otr_type == OmniboxPedalOtrType::kIsolated
+                ? LabelStrings(
+                      IDS_OMNIBOX_PEDAL_LAUNCH_ISOLATED_HINT,
+                      IDS_OMNIBOX_PEDAL_LAUNCH_ISOLATED_SUGGESTION_CONTENTS,
+                      IDS_ACC_OMNIBOX_PEDAL_LAUNCH_ISOLATED_SUFFIX,
+                      IDS_ACC_OMNIBOX_PEDAL_LAUNCH_ISOLATED)
+                : LabelStrings(
+                      IDS_OMNIBOX_PEDAL_LAUNCH_INCOGNITO_HINT,
+                      IDS_OMNIBOX_PEDAL_LAUNCH_INCOGNITO_SUGGESTION_CONTENTS,
+                      IDS_ACC_OMNIBOX_PEDAL_LAUNCH_INCOGNITO_SUFFIX,
+                      IDS_ACC_OMNIBOX_PEDAL_LAUNCH_INCOGNITO),
 #endif  // BUILDFLAG(IS_ANDROID)
         // Fake URL to distinguish matches.
             GURL("chrome://newtab?incognito=true")) {
@@ -1307,14 +1315,21 @@ class OmniboxPedalChangeGooglePassword : public OmniboxPedalAuthRequired {
 #if !BUILDFLAG(IS_ANDROID)
 class OmniboxPedalCloseIncognitoWindows : public OmniboxPedal {
  public:
-  OmniboxPedalCloseIncognitoWindows()
+  explicit OmniboxPedalCloseIncognitoWindows(
+      OmniboxPedalOtrType otr_type = OmniboxPedalOtrType::kIncognito)
       : OmniboxPedal(
             OmniboxPedalId::CLOSE_INCOGNITO_WINDOWS,
-            LabelStrings(
-                IDS_OMNIBOX_PEDAL_CLOSE_INCOGNITO_WINDOWS_HINT,
-                IDS_OMNIBOX_PEDAL_CLOSE_INCOGNITO_WINDOWS_SUGGESTION_CONTENTS,
-                IDS_ACC_OMNIBOX_PEDAL_CLOSE_INCOGNITO_WINDOWS_SUFFIX,
-                IDS_ACC_OMNIBOX_PEDAL_CLOSE_INCOGNITO_WINDOWS),
+            otr_type == OmniboxPedalOtrType::kIsolated
+                ? LabelStrings(
+                      IDS_OMNIBOX_PEDAL_CLOSE_ISOLATED_WINDOWS_HINT,
+                      IDS_OMNIBOX_PEDAL_CLOSE_ISOLATED_WINDOWS_SUGGESTION_CONTENTS,
+                      IDS_ACC_OMNIBOX_PEDAL_CLOSE_ISOLATED_WINDOWS_SUFFIX,
+                      IDS_ACC_OMNIBOX_PEDAL_CLOSE_ISOLATED_WINDOWS)
+                : LabelStrings(
+                      IDS_OMNIBOX_PEDAL_CLOSE_INCOGNITO_WINDOWS_HINT,
+                      IDS_OMNIBOX_PEDAL_CLOSE_INCOGNITO_WINDOWS_SUGGESTION_CONTENTS,
+                      IDS_ACC_OMNIBOX_PEDAL_CLOSE_INCOGNITO_WINDOWS_SUFFIX,
+                      IDS_ACC_OMNIBOX_PEDAL_CLOSE_INCOGNITO_WINDOWS),
             GURL()) {}
 
   const gfx::VectorIcon& GetVectorIcon() const override {
@@ -2024,7 +2039,9 @@ const gfx::VectorIcon& GetSharingHubVectorIcon() {
 // instantiated so that realbox icon checks can detect missing icons for
 // pedals that may or may not be instantiated according to flag states.
 std::unordered_map<OmniboxPedalId, scoped_refptr<OmniboxPedal>>
-GetPedalImplementations(bool incognito, bool guest, bool testing) {
+GetPedalImplementations(OmniboxPedalProfileType profile_type,
+                        OmniboxPedalOtrType otr_type,
+                        bool testing) {
   std::unordered_map<OmniboxPedalId, scoped_refptr<OmniboxPedal>> pedals;
   const auto add = [&](OmniboxPedal* pedal) {
     const bool inserted =
@@ -2035,13 +2052,17 @@ GetPedalImplementations(bool incognito, bool guest, bool testing) {
     DCHECK(inserted);
   };
 
+  const bool otr =
+      profile_type == OmniboxPedalProfileType::kOtrWithRegularParent;
+  const bool guest = profile_type == OmniboxPedalProfileType::kGuest;
+
 #if BUILDFLAG(IS_ANDROID)
-  if (!incognito && !guest) {
+  if (!otr && !guest) {
     add(new OmniboxPedalClearBrowsingData(/*incognito=*/false));
   }
   add(new OmniboxPedalManagePasswords());
   add(new OmniboxPedalUpdateCreditCard());
-  add(new OmniboxPedalLaunchIncognito());
+  add(new OmniboxPedalLaunchIncognito(otr_type));
   if (!base::android::device_info::is_automotive()) {
     add(new OmniboxPedalRunChromeSafetyCheck());
   }
@@ -2054,11 +2075,11 @@ GetPedalImplementations(bool incognito, bool guest, bool testing) {
   // Clear Browsing Data functionality is disabled in guest mode, so
   // the pedal for accessing it should not be included.
   if (!guest) {
-    add(new OmniboxPedalClearBrowsingData(incognito));
+    add(new OmniboxPedalClearBrowsingData(otr));
   }
   add(new OmniboxPedalManagePasswords());
   add(new OmniboxPedalUpdateCreditCard());
-  add(new OmniboxPedalLaunchIncognito());
+  add(new OmniboxPedalLaunchIncognito(otr_type));
   add(new OmniboxPedalTranslate());
   add(new OmniboxPedalUpdateChrome());
   add(new OmniboxPedalRunChromeSafetyCheck());
@@ -2081,8 +2102,8 @@ GetPedalImplementations(bool incognito, bool guest, bool testing) {
     add(new OmniboxPedalChangeGooglePassword());
   }
 
-  if (incognito) {
-    add(new OmniboxPedalCloseIncognitoWindows());
+  if (otr) {
+    add(new OmniboxPedalCloseIncognitoWindows(otr_type));
   }
   add(new OmniboxPedalPlayChromeDinoGame());
   add(new OmniboxPedalFindMyPhone());

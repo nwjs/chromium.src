@@ -97,8 +97,16 @@ class CONTENT_EXPORT FileSystemAccessFileHandleImpl
   void DidGetMetaDataForBlob(AsBlobCallback callback,
                              base::File::Error result,
                              const base::File::Info& info);
+  void DidResolveMimeTypeForBlob(AsBlobCallback callback,
+                                 const base::File::Info& info,
+                                 std::string content_type);
 
   void CreateFileWriterImpl(
+      bool keep_existing_data,
+      bool auto_close,
+      blink::mojom::FileSystemAccessWritableFileStreamLockMode mode,
+      CreateFileWriterCallback callback);
+  void DidVerifySensitiveEntryAccess(
       bool keep_existing_data,
       bool auto_close,
       blink::mojom::FileSystemAccessWritableFileStreamLockMode mode,

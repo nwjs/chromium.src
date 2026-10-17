@@ -81,14 +81,12 @@ public class TabSwitcherPane extends TabSwitcherPaneBase implements TabSwitcherD
             new TabGroupObserver() {
                 @Override
                 public void didRemoveTabGroup(
-                        int oldRootId,
-                        @Nullable Token oldTabGroupId,
-                        @DidRemoveTabGroupReason int removalReason) {
+                        Token oldTabGroupId, @DidRemoveTabGroupReason int removalReason) {
                     onDidRemoveTabGroup(oldTabGroupId, removalReason);
                 }
 
                 @Override
-                public void didCreateNewGroup(Tab destinationTab, TabModel tabModel) {
+                public void didCreateNewGroup(Tab destinationTab) {
                     // Unfortunately it's difficult to wait for a recycler view to finish  binding
                     // and fully showing views. So just wait with a short delay.
                     PostTask.postDelayedTask(
@@ -438,7 +436,7 @@ public class TabSwitcherPane extends TabSwitcherPaneBase implements TabSwitcherD
     }
 
     private void onDidRemoveTabGroup(
-            @Nullable Token oldTabGroupId, @DidRemoveTabGroupReason int removalReason) {
+            Token oldTabGroupId, @DidRemoveTabGroupReason int removalReason) {
         if (removalReason != DidRemoveTabGroupReason.CLOSE) return;
 
         TabModel tabModel = mTabModelSupplier.get();

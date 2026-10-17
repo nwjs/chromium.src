@@ -16,7 +16,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.filters.SmallTest;
 
 import org.junit.After;
 import org.junit.Before;
@@ -30,6 +29,7 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.blink.mojom.Authenticator;
 import org.chromium.blink.mojom.AuthenticatorStatus;
 import org.chromium.blink.mojom.GetCredentialOptions;
@@ -48,7 +48,6 @@ import org.chromium.url.Origin;
 
 /** Tests for {@link AuthenticatorImpl}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@SmallTest
 public class AuthenticatorImplTest {
     private AuthenticatorImpl mAuthenticator;
     private Origin mOrigin;
@@ -465,5 +464,41 @@ public class AuthenticatorImplTest {
         mAuthenticator.close();
 
         verify(mFido2CredentialRequestMock).destroyBridge();
+    }
+
+    @Test
+    @EnableFeatures(WebauthnFeatures.WEBAUTHN_ANDROID_DISALLOW_INCOGNITO_CONDITIONAL_CREATE)
+    public void testMakeCredential_conditionalCreate_blockedInIncognito() {
+        GmsCoreUtils.setGmsCoreVersionForTesting(GmsCoreUtils.GMSCORE_MIN_VERSION);
+        GpmBrowserOptionsHelper.setIsIncognitoExtraUntilTearDown(true);
+
+        Authenticator.MakeCredential_Response callback =
+                mock(Authenticator.MakeCredential_Response.class);
+        PublicKeyCredentialCreationOptions options = new PublicKeyCredentialCreationOptions();
+        options.isConditional = true;
+        mAuthenticator.makeCredential(options, callback);
+
+        verify(callback).call(eq(AuthenticatorStatus.NOT_ALLOWED_ERROR), any(), any());
+        verify(mFido2CredentialRequestMock, never())
+                .handleMakeCredentialRequest(any(), any(), any(), any(), any());
+        verify(mUkmRecorderNativesMock)
+                .recordEventWithMultipleMetrics(
+                        eq(mWebContents), eq("WebAuthn.RegisterCompletion"), any());
+    }
+
+    @Test
+    public void testMakeCredential_conditionalCreate_allowedWhenNotIncognito() {
+        GmsCoreUtils.setGmsCoreVersionForTesting(GmsCoreUtils.GMSCORE_MIN_VERSION);
+        GpmBrowserOptionsHelper.setIsIncognitoExtraUntilTearDown(false);
+
+        Authenticator.MakeCredential_Response callback =
+                mock(Authenticator.MakeCredential_Response.class);
+        PublicKeyCredentialCreationOptions options = new PublicKeyCredentialCreationOptions();
+        options.isConditional = true;
+        mAuthenticator.makeCredential(options, callback);
+
+        verify(callback, never()).call(anyInt(), any(), any());
+        verify(mFido2CredentialRequestMock)
+                .handleMakeCredentialRequest(any(), any(), any(), any(), any());
     }
 }

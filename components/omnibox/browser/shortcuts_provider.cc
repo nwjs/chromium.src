@@ -201,7 +201,7 @@ ShortcutMatch& ShortcutsProvider::ShortcutMatch::operator=(
     const ShortcutMatch& other) = default;
 
 ShortcutsProvider::ShortcutsProvider(AutocompleteProviderClient* client)
-    : AutocompleteProvider(AutocompleteProvider::TYPE_SHORTCUTS),
+    : AutocompleteProvider(AutocompleteProvider::Type::kShortcuts),
       client_(client),
       backend_(client_->GetShortcutsBackend()) {
   if (backend_) {
@@ -312,7 +312,7 @@ void ShortcutsProvider::DoAutocomplete(const AutocompleteInput& input,
     }
 
     if (shortcut_match.shortcut->match_core.type ==
-        AutocompleteMatch::Type::HISTORY_CLUSTER) {
+        omnibox::AutocompleteMatchType::kHistoryCluster) {
       history_cluster_shortcut_matches.push_back(shortcut_match);
     } else {
       shortcut_matches.push_back(shortcut_match);
@@ -554,7 +554,7 @@ AutocompleteMatch ShortcutsProvider::ShortcutMatchToACMatch(
             match.inline_autocompletion.empty();
       }
 #if !BUILDFLAG(IS_IOS)
-    } else if (match.type != AutocompleteMatch::Type::HISTORY_CLUSTER) {
+    } else if (match.type != omnibox::AutocompleteMatchType::kHistoryCluster) {
       // Don't default history cluster suggestions.
 #else
     } else {
@@ -563,7 +563,7 @@ AutocompleteMatch ShortcutsProvider::ShortcutMatchToACMatch(
       // URL from `additional_text` and don't try to inline the metadata (e.g.
       // 'Google Docs' or '1/1/2023').
       bool autocompleted =
-          match.type == AutocompleteMatch::Type::DOCUMENT_SUGGESTION
+          match.type == omnibox::AutocompleteMatchType::kDocumentSuggestion
               ? match.TryRichAutocompletion(
                     input, u"", ShortcutsBackend::GetSwappedContents(match),
                     shortcut.text)

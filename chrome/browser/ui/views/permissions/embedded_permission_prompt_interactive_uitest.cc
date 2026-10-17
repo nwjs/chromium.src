@@ -55,6 +55,7 @@
 #include "ui/base/ozone_buildflags.h"
 #include "ui/compositor/layer.h"
 #include "ui/events/base_event_utils.h"
+#include "ui/views/bubble/bubble_frame_view.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/views_switches.h"
@@ -68,6 +69,7 @@
 
 namespace {
 DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kWebContentsElementId);
+DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kSecondTabId);
 DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kPEPCVisibleEvent);
 DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kDoneVisibleEvent);
 
@@ -338,15 +340,20 @@ class EmbeddedPermissionPromptInteractiveTest
         CheckContentSettingsValue(content_settings_types,
                                   CONTENT_SETTING_ALLOW),
 
-        // After the last tab is closed, since the last grant was one-time,
-        // ensure the content setting is reset.
+        // Open a second tab so closing the first tab does not close the browser
+        // and detach the profile.
+        AddInstrumentedTab(kSecondTabId, GURL("about:blank")),
+        // Close the first tab to trigger revocation of the one-time grant.
         Do([this]() {
-          browser()->GetTabStripModel()->GetActiveWebContents()->Close();
+          browser()->GetTabStripModel()->CloseWebContentsAt(
+              0, TabCloseTypes::CLOSE_USER_GESTURE);
         }),
-        // This has to be immediate, because otherwise closing the browser will
-        // detach the profile.
-        WithoutDelay(CheckContentSettingsValue(content_settings_types,
-                                               CONTENT_SETTING_ASK)));
+        Do([this, &content_settings_types]() {
+          EXPECT_TRUE(base::test::RunUntil([&]() {
+            return DoContentSettingsHaveValue(content_settings_types,
+                                              CONTENT_SETTING_ASK);
+          }));
+        }));
   }
 
   void TestAllowThisTimeFlow(
@@ -366,15 +373,20 @@ class EmbeddedPermissionPromptInteractiveTest
         CheckContentSettingsValue(content_settings_types,
                                   CONTENT_SETTING_ALLOW),
 
-        // After the last tab is closed, since the last grant was one-time,
-        // ensure the content setting is reset.
+        // Open a second tab so closing the first tab does not close the browser
+        // and detach the profile.
+        AddInstrumentedTab(kSecondTabId, GURL("about:blank")),
+        // Close the first tab to trigger revocation of the one-time grant.
         Do([this]() {
-          browser()->GetTabStripModel()->GetActiveWebContents()->Close();
+          browser()->GetTabStripModel()->CloseWebContentsAt(
+              0, TabCloseTypes::CLOSE_USER_GESTURE);
         }),
-        // This has to be immediate, because otherwise closing the browser will
-        // detach the profile.
-        WithoutDelay(CheckContentSettingsValue(content_settings_types,
-                                               CONTENT_SETTING_ASK)));
+        Do([this, &content_settings_types]() {
+          EXPECT_TRUE(base::test::RunUntil([&]() {
+            return DoContentSettingsHaveValue(content_settings_types,
+                                              CONTENT_SETTING_ASK);
+          }));
+        }));
   }
 
   void TestPromptElementText(

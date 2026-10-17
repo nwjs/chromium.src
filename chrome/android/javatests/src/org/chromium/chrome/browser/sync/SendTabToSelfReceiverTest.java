@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.sync;
 
 import static androidx.test.espresso.Espresso.onView;
+import static androidx.test.espresso.Espresso.pressBack;
 import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
@@ -29,6 +30,8 @@ import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -40,6 +43,7 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.fullscreen.BrowserControlsManager;
 import org.chromium.chrome.browser.fullscreen.BrowserControlsManagerSupplier;
+import org.chromium.chrome.browser.init.AsyncInitializationActivity;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.share.send_tab_to_self.NotificationManager;
 import org.chromium.chrome.browser.share.send_tab_to_self.SendTabToSelfAndroidBridge;
@@ -61,6 +65,7 @@ import org.chromium.components.messages.ManagedMessageDispatcher;
 import org.chromium.components.messages.MessageDispatcherProvider;
 import org.chromium.components.sync.protocol.EntitySpecifics;
 import org.chromium.components.sync.protocol.SendTabToSelfSpecifics;
+import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.test.util.RenderTestRule.Component;
 
 import java.nio.ByteBuffer;
@@ -71,6 +76,7 @@ import java.util.concurrent.TimeUnit;
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @DoNotBatch(reason = "Manages sign-in state, which is global.")
 @EnableFeatures({ChromeFeatureList.SEND_TAB_TO_SELF_AUTO_OPEN})
+@DisableIf.Device(DeviceFormFactor.DESKTOP) // https://crbug.com/563033707
 public class SendTabToSelfReceiverTest {
     @Rule public SyncTestRule mSyncTestRule = new SyncTestRule();
 
@@ -91,6 +97,7 @@ public class SendTabToSelfReceiverTest {
 
     @Before
     public void setUp() {
+        AsyncInitializationActivity.interceptMoveTaskToBackForTesting();
         PersistedTabDataConfiguration.setUseTestConfig(true);
         mSyncTestRule.setUpAccountAndSignInForTesting();
 
@@ -865,5 +872,166 @@ public class SendTabToSelfReceiverTest {
         // Verify that the secondary message banner offering to open in the native app is displayed.
         onView(withId(R.id.message_primary_button)).check(matches(isDisplayed()));
         onView(withText("From Example Phone 2")).check(matches(isDisplayed()));
+    }
+
+    @Test
+    @LargeTest
+    @Feature({"Sync"})
+    @EnableFeatures({ChromeFeatureList.SEND_TAB_TO_SELF_SWITCH_TO_PARENT_ON_BACK})
+    // On desktop Android, back gestures follow desktop conventions (see
+    // ChromeFeatureList.BACK_GESTURE_REFLECTS_DESKTOP_BEHAVIOR) and do not switch or close tabs
+    // when history is exhausted.
+    @DisableIf.Device(DeviceFormFactor.DESKTOP)
+    public void
+            testSendTabToSelfMessageBannerClick_BackGestureSwitchesToPreviousTabWithoutClosing() {
+        long now = getCurrentTimeSinceWindowsEpochMicros();
+        injectSendTabToSelfEntity(
+                "stts_test_guid", "https://www.example1.com", "Example 1", "Example Phone", now);
+        SyncTestUtil.triggerSyncAndWaitForCompletion();
+
+        // Verify that the tab is opened in the background (total 2 tabs).
+        TabUiTestHelper.verifyTabModelTabCount(mSyncTestRule.getActivity(), 2, 0);
+
+        TabModel tabModel = mSyncTestRule.getActivity().getTabModelSelector().getModel(false);
+        // Verify index is initially 0 (initial tab).
+        Assert.assertEquals(
+                0, ThreadUtils.runOnUiThreadBlocking(() -> tabModel.index()).intValue());
+
+        // Verify that the message banner is displayed.
+        onView(withId(R.id.message_primary_button)).check(matches(isDisplayed()));
+        onView(withText("Open")).check(matches(isDisplayed()));
+
+        // Click on the message banner primary button ("Open").
+        onView(withId(R.id.message_primary_button)).perform(click());
+
+        // Verify that the received tab (index 1) is selected.
+        Assert.assertEquals(
+                1, ThreadUtils.runOnUiThreadBlocking(() -> tabModel.index()).intValue());
+
+        // Perform back gesture.
+        pressBack();
+
+        // Verify that the received tab remains open (tab count remains 2) and
+        // active tab is index 0.
+        CriteriaHelper.pollUiThread(() -> tabModel.index() == 0);
+        TabUiTestHelper.verifyTabModelTabCount(mSyncTestRule.getActivity(), 2, 0);
+        Assert.assertFalse(
+                "Chrome activity should remain active after back gesture",
+                mSyncTestRule.getActivity().isFinishing());
+        Assert.assertFalse(
+                "Chrome activity should not be minimized on first back press",
+                AsyncInitializationActivity.wasMoveTaskToBackInterceptedForTesting());
+
+        // Switch back to the STTS tab (index 1).
+        ThreadUtils.runOnUiThreadBlocking(() -> tabModel.setIndex(1, TabSelectionType.FROM_USER));
+        Assert.assertEquals(
+                1, ThreadUtils.runOnUiThreadBlocking(() -> tabModel.index()).intValue());
+
+        // Perform a second back gesture to verify the handler has reset and Chrome handles it
+        // according to standard tab behavior (the tab closes and its parent is selected).
+        pressBack();
+        TabUiTestHelper.verifyTabModelTabCount(mSyncTestRule.getActivity(), 1, 0);
+        CriteriaHelper.pollUiThread(() -> tabModel.index() == 0);
+        Assert.assertFalse(
+                "Chrome activity should not be minimized after second back gesture",
+                AsyncInitializationActivity.wasMoveTaskToBackInterceptedForTesting());
+    }
+
+    @Test
+    @LargeTest
+    @Feature({"Sync"})
+    @EnableFeatures({ChromeFeatureList.SEND_TAB_TO_SELF_SWITCH_TO_PARENT_ON_BACK})
+    @DisableIf.Device(DeviceFormFactor.DESKTOP)
+    public void testSendTabToSelfTabGridOpen_BackGestureFollowsStandardBehavior() {
+        long now = getCurrentTimeSinceWindowsEpochMicros();
+        injectSendTabToSelfEntity(
+                "stts_test_guid", "https://www.example1.com", "Example 1", "Example Phone", now);
+        SyncTestUtil.triggerSyncAndWaitForCompletion();
+
+        // Verify that the tab is opened in the background (total 2 tabs).
+        TabUiTestHelper.verifyTabModelTabCount(mSyncTestRule.getActivity(), 2, 0);
+
+        TabModel tabModel = mSyncTestRule.getActivity().getTabModelSelector().getModel(false);
+        // Verify index is initially 0 (initial tab).
+        Assert.assertEquals(
+                0, ThreadUtils.runOnUiThreadBlocking(() -> tabModel.index()).intValue());
+
+        // Dismiss the message banner so it doesn't interfere.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    ManagedMessageDispatcher dispatcher =
+                            (ManagedMessageDispatcher)
+                                    MessageDispatcherProvider.from(
+                                            mSyncTestRule.getActivity().getWindowAndroid());
+                    if (dispatcher != null) {
+                        dispatcher.dismissAllMessages(DismissReason.DISMISSED_BY_FEATURE);
+                    }
+                });
+
+        // Open the Tab Switcher.
+        TabUiTestHelper.enterTabSwitcher(mSyncTestRule.getActivity());
+
+        // Click on the received tab card (index 1) from the tab switcher.
+        TabUiTestHelper.clickNthCardFromTabSwitcher(mSyncTestRule.getActivity(), 1);
+        waitForLayout(mSyncTestRule.getActivity().getLayoutManager(), LayoutType.BROWSING);
+
+        // Verify that the received tab (index 1) is selected.
+        Assert.assertEquals(
+                1, ThreadUtils.runOnUiThreadBlocking(() -> tabModel.index()).intValue());
+
+        // Perform back gesture on a tab that was not opened from the message banner.
+        pressBack();
+
+        // Verify that standard tab behavior applies: the received tab closes and its parent
+        // (index 0) is selected, without minimizing Chrome.
+        TabUiTestHelper.verifyTabModelTabCount(mSyncTestRule.getActivity(), 1, 0);
+        CriteriaHelper.pollUiThread(() -> tabModel.index() == 0);
+        Assert.assertFalse(
+                "Chrome activity should not be minimized after back gesture",
+                AsyncInitializationActivity.wasMoveTaskToBackInterceptedForTesting());
+    }
+
+    @Test
+    @LargeTest
+    @Feature({"Sync"})
+    @EnableFeatures({ChromeFeatureList.SEND_TAB_TO_SELF_SWITCH_TO_PARENT_ON_BACK})
+    @DisableIf.Device(DeviceFormFactor.DESKTOP)
+    public void
+            testSendTabToSelfMessageBannerClick_AlreadyOnTab_BackGestureFollowsStandardBehavior() {
+        long now = getCurrentTimeSinceWindowsEpochMicros();
+        injectSendTabToSelfEntity(
+                "stts_test_guid", "https://www.example1.com", "Example 1", "Example Phone", now);
+        SyncTestUtil.triggerSyncAndWaitForCompletion();
+
+        // Verify that the tab is opened in the background (total 2 tabs).
+        TabUiTestHelper.verifyTabModelTabCount(mSyncTestRule.getActivity(), 2, 0);
+
+        TabModel tabModel = mSyncTestRule.getActivity().getTabModelSelector().getModel(false);
+
+        // Switch to the STTS tab before clicking the banner.
+        ThreadUtils.runOnUiThreadBlocking(() -> tabModel.setIndex(1, TabSelectionType.FROM_USER));
+        Assert.assertEquals(
+                1, ThreadUtils.runOnUiThreadBlocking(() -> tabModel.index()).intValue());
+
+        // Verify that the message banner is displayed.
+        onView(withId(R.id.message_primary_button)).check(matches(isDisplayed()));
+        onView(withText("Open")).check(matches(isDisplayed()));
+
+        // Click on the message banner primary button ("Open") while already on the tab.
+        onView(withId(R.id.message_primary_button)).perform(click());
+
+        // Verify that the active tab is still index 1.
+        Assert.assertEquals(
+                1, ThreadUtils.runOnUiThreadBlocking(() -> tabModel.index()).intValue());
+
+        // Selecting the tab above showed it, which makes SendTabToSelfTabCardLabelData's
+        // onShown() observer remove the label data. onMessageBannerPrimaryAction() then finds
+        // no labelled tab, leaves newestNewTabIndex at INVALID_TAB_INDEX and never reaches
+        // enable(), so the back gesture follows standard tab behavior: the tab closes and its
+        // parent is selected.
+        pressBack();
+
+        TabUiTestHelper.verifyTabModelTabCount(mSyncTestRule.getActivity(), 1, 0);
+        CriteriaHelper.pollUiThread(() -> tabModel.index() == 0);
     }
 }

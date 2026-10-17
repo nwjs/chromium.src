@@ -106,6 +106,7 @@ source_set("impl") {
   }
 
   if (is_win) {
+    deps += [ "//chrome/browser/ui:browser_window_header" ]
     sources += [
       "win/authenticator_win.cc",
       "win/device_authenticator_win.cc",
@@ -123,6 +124,7 @@ source_set("unit_tests") {
     "//base/test:test_support",
     "//chrome/browser/prefs",
     "//chrome/test:test_support",
+    "//chrome/test/base:testing_browser_process",
     "//components/device_reauth",
     "//components/device_reauth:test_support",
     "//components/password_manager/core/common",

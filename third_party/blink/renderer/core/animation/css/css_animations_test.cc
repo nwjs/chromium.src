@@ -31,6 +31,7 @@
 #include "third_party/blink/renderer/core/css/properties/computed_style_utils.h"
 #include "third_party/blink/renderer/core/dom/dom_token_list.h"
 #include "third_party/blink/renderer/core/dom/pseudo_element.h"
+#include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
@@ -38,6 +39,8 @@
 #include "third_party/blink/renderer/core/layout/physical_box_fragment.h"
 #include "third_party/blink/renderer/core/page/page_animator.h"
 #include "third_party/blink/renderer/core/style/style_animated_sources.h"
+#include "third_party/blink/renderer/core/style/style_highlight_data.h"
+#include "third_party/blink/renderer/core/testing/color_scheme_helper.h"
 #include "third_party/blink/renderer/core/testing/core_unit_test_helper.h"
 #include "third_party/blink/renderer/platform/animation/compositor_animation.h"
 #include "third_party/blink/renderer/platform/animation/compositor_animation_delegate.h"
@@ -3222,6 +3225,87 @@ TEST_P(CSSAnimationsTest, CSSTimelineScopeAttachedMultiple_NoCount_One) {
   EXPECT_FALSE(IsUseCounted(WebFeature::kCSSTimelineScopeAttachedMultiple));
 }
 
+TEST_P(CSSAnimationsTest, CSSTimelineTreeScopeMismatch_Count) {
+  ScopedCSSTreeScopedScrollTimelineForTest scoped_feature(false);
+
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      @keyframes --anim { to { opacity: 1; } }
+      #target {
+        animation: --anim 1s;
+        animation-timeline: --t;
+      }
+    </style>
+    <div id="host">
+      <div id="target"></div>
+    </div>
+  )HTML");
+
+  Element* host = GetDocument().getElementById(AtomicString("host"));
+  ShadowRoot& shadow_root =
+      host->AttachShadowRootForTesting(ShadowRootMode::kOpen);
+  shadow_root.SetInnerHTMLWithoutTrustedTypes(R"HTML(
+    <style>
+      :host { scroll-timeline: --t; }
+    </style>
+    <slot></slot>
+  )HTML");
+
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_TRUE(IsUseCounted(WebFeature::kCSSTimelineTreeScopeMismatch));
+}
+
+TEST_P(CSSAnimationsTest, CSSTimelineTreeScopeMismatch_CountWithFlag) {
+  ScopedCSSTreeScopedScrollTimelineForTest scoped_feature(true);
+
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      @keyframes --anim { to { opacity: 1; } }
+      #target {
+        animation: --anim 1s;
+        animation-timeline: --t;
+      }
+    </style>
+    <div id="host">
+      <div id="target"></div>
+    </div>
+  )HTML");
+
+  Element* host = GetDocument().getElementById(AtomicString("host"));
+  ShadowRoot& shadow_root =
+      host->AttachShadowRootForTesting(ShadowRootMode::kOpen);
+  shadow_root.SetInnerHTMLWithoutTrustedTypes(R"HTML(
+    <style>
+      :host { scroll-timeline: --t; }
+    </style>
+    <slot></slot>
+  )HTML");
+
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_TRUE(IsUseCounted(WebFeature::kCSSTimelineTreeScopeMismatch));
+}
+
+TEST_P(CSSAnimationsTest, CSSTimelineTreeScopeMismatch_NoCount) {
+  ScopedCSSTreeScopedScrollTimelineForTest scoped_feature(true);
+
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      @keyframes --anim { to { opacity: 1; } }
+      #scroller { scroll-timeline: --t; }
+      #target {
+        animation: --anim 1s;
+        animation-timeline: --t;
+      }
+    </style>
+    <div id="scroller">
+      <div id="target"></div>
+    </div>
+  )HTML");
+
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_FALSE(IsUseCounted(WebFeature::kCSSTimelineTreeScopeMismatch));
+}
+
 TEST_P(CSSAnimationsTest, SVGColorAnimationVisitedCurrentColor) {
   SetBodyInnerHTML(R"HTML(
     <style>
@@ -3457,7 +3541,7 @@ class AnimatedSourcePropertyTest
   String Value() const {
     return ComputedStyleUtils::ComputedPropertyValue(
                CSSProperty::Get(GetParam()),
-               *ComputedStyle::GetInitialStyleSingleton())
+               ComputedStyle::GetInitialStyleSingleton())
         ->CssText();
   }
 };
@@ -3610,6 +3694,413 @@ TEST_F(AnimatedSourceTest, RezoomedInheritHasUntrackedDependencies) {
   AnimatedSource source = SourceFor(child, CSSPropertyID::kTransform);
   EXPECT_TRUE(source.animated_source.IsOwnedBy(*animator));
   EXPECT_TRUE(source.has_untracked_dependencies);
+}
+
+// The style adjuster drops backdrop-filter on the root element.
+TEST_F(AnimatedSourceTest, RootElementBackdropFilterHasNoSource) {
+  Element* root = GetDocument().documentElement();
+  Animate(root, CSSPropertyID::kBackdropFilter, "invert(1)");
+  EXPECT_FALSE(SourceFor(root, CSSPropertyID::kBackdropFilter)
+                   .animated_source.IsValid());
+}
+
+TEST_F(AnimatedSourceTest, ColorInheritance) {
+  SetBodyInnerHTML(R"HTML(
+    <div id=animator>
+      <div id=inherited></div>
+      <div id=currentcolor style="color: currentColor"></div>
+      <div id=declared style="color: green"></div>
+      <div id=initial style="color: initial"></div>
+    </div>
+  )HTML");
+  Element* animator = GetElementById("animator");
+  Animate(animator, CSSPropertyID::kColor, "red");
+
+  // currentColor is treated as inherit; any other value replaces the parent's.
+  EXPECT_TRUE(SourceFor(GetElementById("inherited"), CSSPropertyID::kColor)
+                  .animated_source.IsOwnedBy(*animator));
+  EXPECT_TRUE(SourceFor(GetElementById("currentcolor"), CSSPropertyID::kColor)
+                  .animated_source.IsOwnedBy(*animator));
+  EXPECT_FALSE(SourceFor(GetElementById("declared"), CSSPropertyID::kColor)
+                   .animated_source.IsValid());
+  EXPECT_FALSE(SourceFor(GetElementById("initial"), CSSPropertyID::kColor)
+                   .animated_source.IsValid());
+}
+
+// Highlight styles resolve currentColor against the originating element, so
+// the source is not tracked on them.
+TEST_F(AnimatedSourceTest, HighlightCurrentColorIsNotTracked) {
+  SetBodyInnerHTML(R"HTML(
+    <style>#animator::selection { color: currentColor; }</style>
+    <div id=animator></div>
+  )HTML");
+  Element* animator = GetElementById("animator");
+  Animate(animator, CSSPropertyID::kColor, "red");
+  EXPECT_FALSE(animator->GetComputedStyle()
+                   ->HighlightData()
+                   .Selection()
+                   ->GetAnimatedSource(CSSPropertyID::kColor)
+                   .IsValid());
+}
+
+// currentColor inside a color function is resolved against the parent's
+// color, so the value is derived from the source's but not a copy of it.
+TEST_F(AnimatedSourceTest, ColorMixHasUntrackedDependencies) {
+  SetBodyInnerHTML(R"HTML(
+    <div id=animator>
+      <div id=child
+           style="color: color-mix(in srgb, currentColor, black)"></div>
+    </div>
+  )HTML");
+  Element* animator = GetElementById("animator");
+  Animate(animator, CSSPropertyID::kColor, "red");
+
+  AnimatedSource source =
+      SourceFor(GetElementById("child"), CSSPropertyID::kColor);
+  EXPECT_TRUE(source.animated_source.IsOwnedBy(*animator));
+  EXPECT_TRUE(source.has_untracked_dependencies);
+}
+
+// preserve-parent-color inherits the parent's used (forced) color rather than
+// its computed one.
+TEST_F(AnimatedSourceTest, PreserveParentColorHasUntrackedDependencies) {
+  ColorSchemeHelper color_scheme_helper(GetDocument());
+  color_scheme_helper.SetInForcedColors(GetDocument(), true);
+  SetBodyInnerHTML(R"HTML(
+    <div id=animator>
+      <div id=child style="forced-color-adjust: preserve-parent-color"></div>
+    </div>
+  )HTML");
+  Element* animator = GetElementById("animator");
+  Animate(animator, CSSPropertyID::kColor, "red");
+
+  AnimatedSource source =
+      SourceFor(GetElementById("child"), CSSPropertyID::kColor);
+  EXPECT_TRUE(source.animated_source.IsOwnedBy(*animator));
+  EXPECT_TRUE(source.has_untracked_dependencies);
+}
+
+TEST_P(CSSAnimationsTest, AttrTaintedRegisteredPropertyNeutralKeyframe) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      @property --n {
+        syntax: "<number>";
+        inherits: false;
+        initial-value: 0;
+      }
+      @keyframes hold {
+        to { --n: 0; }
+      }
+      #target {
+        --n: attr(data-value type(<number>));
+        animation: hold 1000s linear paused;
+      }
+      #control {
+        --n: 42;
+        animation: hold 1000s linear paused;
+      }
+    </style>
+    <div id="target" data-value="42"></div>
+    <div id="control"></div>
+  )HTML");
+
+  Element* target = GetDocument().getElementById(AtomicString("target"));
+  EXPECT_TRUE(target);
+  const CSSVariableData* target_data =
+      target ? target->GetComputedStyle()->GetVariableData(AtomicString("--n"))
+             : nullptr;
+  EXPECT_TRUE(target_data);
+  if (target_data) {
+    EXPECT_TRUE(target_data->IsAttrTainted());
+  }
+
+  Element* control = GetDocument().getElementById(AtomicString("control"));
+  EXPECT_TRUE(control);
+  const CSSVariableData* control_data =
+      control
+          ? control->GetComputedStyle()->GetVariableData(AtomicString("--n"))
+          : nullptr;
+  EXPECT_TRUE(control_data);
+  if (control_data) {
+    EXPECT_FALSE(control_data->IsAttrTainted());
+  }
+}
+
+TEST_P(CSSAnimationsTest, AttrTaintedRegisteredPropertyNeutralEndKeyframe) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      @property --n {
+        syntax: "<number>";
+        inherits: false;
+        initial-value: 0;
+      }
+      @keyframes hold_end {
+        from { --n: 0; }
+      }
+      #target {
+        --n: attr(data-value type(<number>));
+        animation: hold_end 1000s linear paused;
+      }
+      #control {
+        --n: 42;
+        animation: hold_end 1000s linear paused;
+      }
+    </style>
+    <div id="target" data-value="42"></div>
+    <div id="control"></div>
+  )HTML");
+
+  Element* target = GetDocument().getElementById(AtomicString("target"));
+  EXPECT_TRUE(target);
+  const CSSVariableData* target_data =
+      target ? target->GetComputedStyle()->GetVariableData(AtomicString("--n"))
+             : nullptr;
+  EXPECT_TRUE(target_data);
+  if (target_data) {
+    EXPECT_TRUE(target_data->IsAttrTainted());
+  }
+
+  Element* control = GetDocument().getElementById(AtomicString("control"));
+  EXPECT_TRUE(control);
+  const CSSVariableData* control_data =
+      control
+          ? control->GetComputedStyle()->GetVariableData(AtomicString("--n"))
+          : nullptr;
+  EXPECT_TRUE(control_data);
+  if (control_data) {
+    EXPECT_FALSE(control_data->IsAttrTainted());
+  }
+}
+
+TEST_P(CSSAnimationsTest, AttrTaintedRegisteredPropertyKeyframeValue) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      @property --n {
+        syntax: "<number>";
+        inherits: false;
+        initial-value: 0;
+      }
+      @keyframes anim {
+        from { --n: attr(data-value type(<number>)); }
+        to { --n: 100; }
+      }
+      #target {
+        animation: anim 1000s linear paused;
+      }
+    </style>
+    <div id="target" data-value="42"></div>
+  )HTML");
+
+  Element* target = GetDocument().getElementById(AtomicString("target"));
+  EXPECT_TRUE(target);
+  const CSSVariableData* data =
+      target ? target->GetComputedStyle()->GetVariableData(AtomicString("--n"))
+             : nullptr;
+  EXPECT_TRUE(data);
+  if (data) {
+    EXPECT_TRUE(data->IsAttrTainted());
+  }
+}
+
+TEST_P(CSSAnimationsTest,
+       AttrTaintedRegisteredPropertyVariableReferenceKeyframe) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      @property --n {
+        syntax: "<number>";
+        inherits: false;
+        initial-value: 0;
+      }
+      @keyframes anim_var {
+        from { --n: var(--src); }
+        to { --n: 100; }
+      }
+      #target {
+        --src: attr(data-value type(<number>));
+        animation: anim_var 1000s linear paused;
+      }
+    </style>
+    <div id="target" data-value="42"></div>
+  )HTML");
+
+  Element* target = GetDocument().getElementById(AtomicString("target"));
+  EXPECT_TRUE(target);
+  const CSSVariableData* data =
+      target ? target->GetComputedStyle()->GetVariableData(AtomicString("--n"))
+             : nullptr;
+  EXPECT_TRUE(data);
+  if (data) {
+    EXPECT_TRUE(data->IsAttrTainted());
+  }
+}
+
+TEST_P(CSSAnimationsTest, AttrTaintedRegisteredPropertyCompositionAdd) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      @property --n {
+        syntax: "<number>";
+        inherits: false;
+        initial-value: 0;
+      }
+      @keyframes add_anim {
+        from { --n: 0; }
+        to { --n: 0; }
+      }
+      #target {
+        --n: attr(data-value type(<number>));
+        animation: add_anim 1000s linear paused;
+        animation-composition: add;
+      }
+    </style>
+    <div id="target" data-value="42"></div>
+  )HTML");
+
+  Element* target = GetDocument().getElementById(AtomicString("target"));
+  EXPECT_TRUE(target);
+  const CSSVariableData* data =
+      target ? target->GetComputedStyle()->GetVariableData(AtomicString("--n"))
+             : nullptr;
+  EXPECT_TRUE(data);
+  if (data) {
+    EXPECT_TRUE(data->IsAttrTainted());
+  }
+}
+
+TEST_P(CSSAnimationsTest, AttrTaintedRegisteredPropertyLength) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      @property --p {
+        syntax: "<length>";
+        inherits: false;
+        initial-value: 0px;
+      }
+      @keyframes hold_length {
+        to { --p: 0px; }
+      }
+      #target {
+        --p: attr(data-value type(<length>));
+        animation: hold_length 1000s linear paused;
+      }
+    </style>
+    <div id="target" data-value="42px"></div>
+  )HTML");
+
+  Element* target = GetDocument().getElementById(AtomicString("target"));
+  EXPECT_TRUE(target);
+  const CSSVariableData* data =
+      target ? target->GetComputedStyle()->GetVariableData(AtomicString("--p"))
+             : nullptr;
+  EXPECT_TRUE(data);
+  if (data) {
+    EXPECT_TRUE(data->IsAttrTainted());
+  }
+}
+
+TEST_P(CSSAnimationsTest, AttrTaintedInheritedRegisteredProperty) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      @property --n {
+        syntax: "<number>";
+        inherits: true;
+        initial-value: 0;
+      }
+      @keyframes hold_inherit {
+        from { --n: inherit; }
+        to { --n: 100; }
+      }
+      #parent {
+        --n: attr(data-value type(<number>));
+      }
+      #target {
+        animation: hold_inherit 1000s linear paused;
+      }
+    </style>
+    <div id="parent" data-value="42">
+      <div id="target"></div>
+    </div>
+  )HTML");
+
+  Element* target = GetDocument().getElementById(AtomicString("target"));
+  EXPECT_TRUE(target);
+  const CSSVariableData* data =
+      target ? target->GetComputedStyle()->GetVariableData(AtomicString("--n"))
+             : nullptr;
+  EXPECT_TRUE(data);
+  if (data) {
+    EXPECT_TRUE(data->IsAttrTainted());
+  }
+}
+
+TEST_P(CSSAnimationsTest, ReplaceAnimationWithoutAttrDoesNotTaint) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      @property --n {
+        syntax: "<number>";
+        inherits: false;
+        initial-value: 0;
+      }
+      @keyframes replace_anim {
+        from { --n: 10; }
+        to { --n: 20; }
+      }
+      #target {
+        --n: attr(data-value type(<number>));
+        animation: replace_anim 1000s linear paused;
+      }
+    </style>
+    <div id="target" data-value="42"></div>
+  )HTML");
+
+  Element* target = GetDocument().getElementById(AtomicString("target"));
+  EXPECT_TRUE(target);
+  const CSSVariableData* data =
+      target ? target->GetComputedStyle()->GetVariableData(AtomicString("--n"))
+             : nullptr;
+  EXPECT_TRUE(data);
+  if (data) {
+    EXPECT_FALSE(data->IsAttrTainted());
+  }
+}
+
+TEST_P(CSSAnimationsTest, AttrTaintedStyleQueryUrlBlocking) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      @property --n {
+        syntax: "<number>";
+        inherits: false;
+        initial-value: 0;
+      }
+      @keyframes hold {
+        to { --n: 0; }
+      }
+      #target {
+        --n: attr(data-value type(<number>));
+        animation: hold 1000s linear paused;
+        background-image: if(style(--n >= 40):
+                            url(https://example.com/test.png); else: none);
+      }
+      #control {
+        --n: 42;
+        animation: hold 1000s linear paused;
+        background-image: if(style(--n >= 40):
+                            url(https://example.com/test.png); else: none);
+      }
+    </style>
+    <div id="target" data-value="42"></div>
+    <div id="control"></div>
+  )HTML");
+
+  Element* target = GetDocument().getElementById(AtomicString("target"));
+  EXPECT_TRUE(target);
+  if (target && target->GetComputedStyle()) {
+    EXPECT_FALSE(target->GetComputedStyle()->HasBackgroundImage());
+  }
+
+  Element* control = GetDocument().getElementById(AtomicString("control"));
+  EXPECT_TRUE(control);
+  if (control && control->GetComputedStyle()) {
+    EXPECT_TRUE(control->GetComputedStyle()->HasBackgroundImage());
+  }
 }
 
 }  // namespace blink

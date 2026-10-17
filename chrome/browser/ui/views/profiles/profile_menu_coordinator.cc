@@ -14,13 +14,10 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
-#include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
-#include "chrome/browser/ui/views/profiles/avatar_toolbar_button.h"
 #include "chrome/browser/ui/views/profiles/incognito_menu_view.h"
 #include "chrome/browser/ui/views/profiles/isolated_mode_menu_view.h"
 #include "chrome/browser/ui/views/profiles/profile_menu_view_base.h"
-#include "chrome/browser/ui/views/toolbar/toolbar_view.h"
+#include "chrome/browser/ui/views/toolbar/avatar_toolbar_button_interface.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "ui/views/bubble/bubble_anchor.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
@@ -32,6 +29,9 @@
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
 ProfileMenuCoordinator::~ProfileMenuCoordinator() {
+  for (Observer& observer : observers_) {
+    observer.OnProfileMenuCoordinatorDestroyed();
+  }
   // Ensure the ProfileMenuCoordinator does not outlive its associated bubble
   // widget to mitigate the risk of dangling references.
   if (bubble_tracker_ && bubble_tracker_.view()->GetWidget()) {
@@ -125,13 +125,28 @@ void ProfileMenuCoordinator::ShowWithPromoResults(
       views::BubbleDialogDelegateView::CreateBubble(std::move(bubble));
   bubble_ptr->CreateAXWidgetObserver(widget);
   widget->Show();
+  for (Observer& observer : observers_) {
+    observer.OnProfileMenuShown(widget);
+  }
   if (is_source_accelerator) {
     bubble_ptr->FocusFirstProfileButton();
   }
 }
 
+void ProfileMenuCoordinator::AddObserver(Observer* observer) {
+  observers_.AddObserver(observer);
+}
+
+void ProfileMenuCoordinator::RemoveObserver(Observer* observer) {
+  observers_.RemoveObserver(observer);
+}
+
 bool ProfileMenuCoordinator::IsShowing() const {
   return bubble_tracker_.view() != nullptr;
+}
+
+views::Widget* ProfileMenuCoordinator::GetProfileMenuWidget() {
+  return IsShowing() ? bubble_tracker_.view()->GetWidget() : nullptr;
 }
 
 ProfileMenuViewBase*
@@ -150,15 +165,7 @@ Profile* ProfileMenuCoordinator::GetProfile() {
 }
 
 views::BubbleAnchor ProfileMenuCoordinator::GetAvatarToolbarButton() {
-  if (auto* avatar_toolbar_button =
-          BrowserElements::From(GetBrowser())
-              ->GetElement(kToolbarAvatarButtonElementId)) {
-    return views::BubbleAnchor(avatar_toolbar_button);
-  }
-
-  return views::BubbleAnchor(BrowserView::GetBrowserViewForBrowser(GetBrowser())
-                                 ->toolbar()
-                                 ->avatar_toolbar_button());
+  return AvatarToolbarButtonInterface::GetBubbleAnchor(*GetBrowser());
 }
 
 DEFINE_USER_DATA(ProfileMenuCoordinator);

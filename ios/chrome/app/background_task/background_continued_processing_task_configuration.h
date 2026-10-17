@@ -9,6 +9,7 @@
 #import <Foundation/Foundation.h>
 
 #import "base/ios/block_types.h"
+#import "ios/chrome/app/background_mode_buildflags.h"
 
 // Default total units of progress for a continued processing task.
 inline constexpr int64_t kDefaultTotalUnitsOfProgress = 1000;
@@ -24,7 +25,8 @@ inline constexpr int64_t kDefaultExpectedStepCount = 18;
 // Initial title displayed in the system-provided Live Activity.
 @property(nonatomic, copy) NSString* title;
 
-// (Optional) Initial subtitle displayed in the system-provided Live Activity.
+// Initial subtitle displayed in the system-provided Live Activity. Defaults to
+// an empty string if set to nil (system requires non-null).
 @property(nonatomic, copy) NSString* subtitle;
 
 // Callback invoked when the system expires the task or the user cancels it from
@@ -40,6 +42,7 @@ inline constexpr int64_t kDefaultExpectedStepCount = 18;
 // `kDefaultExpectedStepCount`.
 @property(nonatomic) int64_t expectedStepCount;
 
+#if BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
 // (Optional) The submission strategy for the scheduler to abide by. Defaults to
 // `BGContinuedProcessingTaskRequestSubmissionStrategyQueue`.
 @property(nonatomic)
@@ -51,11 +54,14 @@ inline constexpr int64_t kDefaultExpectedStepCount = 18;
 @property(nonatomic)
     BGContinuedProcessingTaskRequestResources requiredResources API_AVAILABLE(
         ios(26.0));
+#endif  // BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
 
-// Initializes the configuration with the required parameters. `title` must not
-// be empty. `expirationHandler` is guaranteed to run on the main/UI thread upon
-// task expiration or cancellation.
+// Initializes the configuration with the required parameters. `title` is
+// mandatory and must not be empty. `subtitle` defaults to an empty string if
+// nil. `expirationHandler` is guaranteed to run on the main/UI thread upon task
+// expiration or cancellation.
 - (instancetype)initWithTitle:(NSString*)title
+                     subtitle:(NSString*)subtitle
             expirationHandler:(ProceduralBlock)expirationHandler
     NS_DESIGNATED_INITIALIZER;
 

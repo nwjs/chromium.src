@@ -909,11 +909,12 @@ public class SingleWebsiteSettings extends BaseSiteSettingsFragment
         final @ContentSetting @Nullable Integer value =
                 mSite.getContentSetting(getBrowserContextHandle(), notificationType);
 
-        // If `mHasRequestedNotificationsPermission`is true, this means the user clicked on the
-        // "Manage" button in the notification permission prompt, and we should display the
-        // permission request UI in PageInfo. `setupAppDelegatePreference` should not be called if
-        // there is an active permission request.
-        if (!mHasRequestedNotificationsPermission
+        // Don't display the notification entry in ASK state unless
+        // mHasRequestedNotificationsPermission is true.
+        if ((mHasRequestedNotificationsPermission
+                        || (value != null
+                                && (value == ContentSetting.ALLOW
+                                        || value == ContentSetting.BLOCK)))
                 && setupAppDelegatePreference(
                         preference,
                         R.string.website_notification_settings,
@@ -1712,7 +1713,13 @@ public class SingleWebsiteSettings extends BaseSiteSettingsFragment
         Activity activity = getActivity();
         if (activity != null) {
             var settingsNavigation = assumeNonNull(getSettingsNavigation());
-            settingsNavigation.finishCurrentSettings(this);
+
+            // Clearing a site's data can leave the group it belonged to with nothing to show, so
+            // a page reached from a group returns past the group to "All sites". With fragments
+            // that means finishing both pages; under Url navigation there is no fragment to pop
+            // and the destination has to be named instead.
+            settingsNavigation.finishCurrentSettings(
+                    this, mFromGrouped ? AllSiteSettings.class : null, /* parentArgs= */ null);
             if (mFromGrouped && groupFragment != null) {
                 settingsNavigation.executePendingNavigations(activity);
                 settingsNavigation.finishCurrentSettings(groupFragment);

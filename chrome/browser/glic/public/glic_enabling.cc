@@ -29,6 +29,8 @@
 #include "chrome/browser/enterprise/browser_management/browser_management_service.h"
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
 #include "chrome/browser/glic/actor/glic_actor_policy_checker.h"
+#include "chrome/browser/glic/experimental_triggering/glic_experimental_triggering_coordinator.h"
+#include "chrome/browser/glic/experimental_triggering/glic_experimental_triggering_types.h"
 #include "chrome/browser/glic/glic_enums.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/glic_pref_names_internal.h"
@@ -112,7 +114,9 @@ constexpr char kDefaultEnabledCountries[] =
     "ae,am,ao,aq,az,ba,bf,bh,bi,bj,bw,cd,cf,cg,ci,cm,cv,dj,dz,eg,eh,er,et,ga,"
     "ge,gh,gm,gn,gq,gw,il,iq,jo,ke,kg,km,kw,kz,lb,lr,ls,ly,ma,md,me,mg,mk,ml,"
     "mr,mu,mw,mz,na,ne,ng,om,pr,ps,qa,rs,rw,sa,sc,sd,sl,sn,so,ss,st,sz,td,tg,"
-    "tj,tm,tn,tz,ua,ug,um,uz,vi,xk,ye,za,zm,zw";
+    "tj,tm,tn,tz,ua,ug,um,uz,vi,xk,ye,za,zm,zw,"
+    // Phase 4
+    "ai,bm,fk,gb,gg,gi,gs,im,io,je,ky,ms,sh,tc,vg";
 #endif
 
 // Feature flag kGlicLocaleFiltering controls whether locale filtering is
@@ -1081,6 +1085,15 @@ bool GlicEnabling::IsEligibleForGlicTieredRollout(Profile* profile) {
   if (!subscription_eligibility_service) {
     return false;
   }
+  // When `kGlicSubscriptionBenefitsEligibility` is enabled, rollout eligibility
+  // is determined by the synced subscription benefits priority pref instead of
+  // the AI subscription tier.
+  if (base::FeatureList::IsEnabled(
+          features::kGlicSubscriptionBenefitsEligibility)) {
+    return features::HasAnyEligibleGlicBenefit(
+        subscription_eligibility_service->GetSubscriptionBenefits(),
+        features::GetGlicEligibleBenefits());
+  }
   return base::FeatureList::IsEnabled(features::kGlicTieredRolloutV2) &&
          features::GetGlicTieredRolloutV2EligibleTiers().contains(
              subscription_eligibility_service->GetAiSubscriptionTier());
@@ -1130,11 +1143,18 @@ bool GlicEnabling::ShouldShowWebActuationToggle() const {
   }
 
   // Google one User
-  // If not managed, we check consumer subscription tiers.
+  // If not managed, we check consumer subscription eligibility.
+  const bool use_subscription_benefits = base::FeatureList::IsEnabled(
+      features::kGlicSubscriptionBenefitsEligibility);
   const base::flat_set<int32_t>& allowed_tiers =
       glic::GlicActorPolicyChecker::GetActorEligibleTiers();
-  // If no tiers are allowed, the toggle should never be shown.
-  if (allowed_tiers.empty()) {
+  base::flat_set<std::string> allowed_benefits;
+  if (use_subscription_benefits) {
+    allowed_benefits = features::GetGlicActorEligibleBenefits();
+  }
+  // If nothing is configured as eligible, the toggle should never be shown.
+  if (use_subscription_benefits ? allowed_benefits.empty()
+                                : allowed_tiers.empty()) {
     return false;
   }
 
@@ -1152,6 +1172,10 @@ bool GlicEnabling::ShouldShowWebActuationToggle() const {
     auto* subscription_service = subscription_eligibility::
         SubscriptionEligibilityServiceFactory::GetForProfile(profile_);
     CHECK(subscription_service);
+    if (use_subscription_benefits) {
+      return features::HasAnyEligibleGlicBenefit(
+          subscription_service->GetSubscriptionBenefits(), allowed_benefits);
+    }
     return allowed_tiers.contains(
         subscription_service->GetAiSubscriptionTier());
   }
@@ -1235,7 +1259,7 @@ bool GlicEnabling::IsContextualMenuItemEnabled(
 }
 
 // static
-bool GlicEnabling::IsSelectionPromptEnabledForProfile(Profile* profile) {
+bool GlicEnabling::IsInlineCueEnabledForProfile(Profile* profile) {
   return IsEnabledForProfile(profile) &&
          base::FeatureList::IsEnabled(features::kGlicSelectionPrompt);
 }
@@ -1585,6 +1609,12 @@ std::optional<int> GlicEnabling::GetExperimentalTriggeringVersion() const {
   return kExperimentalTriggeringVersion;
 }
 
+base::flat_set<std::string>
+GlicEnabling::GetExperimentalTriggeringCapabilities() const {
+  return GlicExperimentalTriggeringCoordinator::GetCapabilities(
+      GetExperimentalTriggeringState());
+}
+
 RequiredExperimentalOptIn GlicEnabling::GetRequiredExperimentalOptIn() const {
   if (!HasConsented()) {
     return RequiredExperimentalOptIn::kGlic;
@@ -1709,6 +1739,11 @@ void GlicEnabling::OnAiSubscriptionTierUpdated(int32_t new_subscription_tier) {
   UpdateEnabledStatus();
 }
 
+void GlicEnabling::OnSubscriptionBenefitsUpdated(
+    const base::flat_set<std::string>& subscription_benefits) {
+  UpdateEnabledStatus();
+}
+
 void GlicEnabling::OnErrorStateOfRefreshTokenUpdatedForAccount(
     const CoreAccountInfo& account_info,
     const GoogleServiceAuthError& error,
@@ -1733,10 +1768,12 @@ void GlicEnabling::UpdateEnabledStatus() {
       profile_->GetPrefs()->SetBoolean(prefs::kGlicPreviouslyNotAllowed, true);
     }
   }
-  if (ProfileAttributesEntry* entry =
-          profile_attributes_storage_->GetProfileAttributesWithPath(
-              profile_->GetPath())) {
-    entry->SetIsGlicEligible(IsAllowed());
+  if (profile_attributes_storage_) {
+    if (ProfileAttributesEntry* entry =
+            profile_attributes_storage_->GetProfileAttributesWithPath(
+                profile_->GetPath())) {
+      entry->SetIsGlicEligible(IsAllowed());
+    }
   }
   enable_changed_callback_list_.Notify();
   show_settings_page_changed_callback_list_.Notify();

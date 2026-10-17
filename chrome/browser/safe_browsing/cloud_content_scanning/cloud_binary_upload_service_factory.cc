@@ -4,11 +4,8 @@
 
 #include "chrome/browser/safe_browsing/cloud_content_scanning/cloud_binary_upload_service_factory.h"
 
-#include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/cloud_binary_upload_service.h"
-#include "chrome/browser/safe_browsing/safe_browsing_service.h"
-#include "components/safe_browsing/core/common/features.h"
 #include "content/public/browser/browser_context.h"
 
 namespace safe_browsing {
@@ -39,6 +36,11 @@ CloudBinaryUploadServiceFactory::CloudBinaryUploadServiceFactory()
               // TODO(crbug.com/41488885): Check if this service is needed for
               // Ash Internals.
               .WithAshInternals(ProfileSelection::kOwnInstance)
+              // Unlike Incognito mode, this service needs an access token from
+              // the primary account in Isolated mode. It's available for
+              // the original profile only, and the service does not need any
+              // specific data from the Isolated profile.
+              .WithIsolatedMode(ProfileSelection::kRedirectedToOriginal)
               .Build()) {}
 
 std::unique_ptr<KeyedService>

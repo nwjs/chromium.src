@@ -1448,6 +1448,8 @@ component("ash") {
     "shelf/shelf_view.h",
     "shelf/shelf_widget.cc",
     "shelf/shelf_widget.h",
+    "shelf/shelf_window_preview_bubble.cc",
+    "shelf/shelf_window_preview_bubble.h",
     "shelf/shelf_window_targeter.cc",
     "shelf/shelf_window_targeter.h",
     "shelf/shelf_window_watcher.cc",
@@ -1929,8 +1931,6 @@ component("ash") {
     "system/input_device_settings/input_device_settings_defaults.h",
     "system/input_device_settings/input_device_settings_dispatcher.cc",
     "system/input_device_settings/input_device_settings_dispatcher.h",
-    "system/input_device_settings/input_device_settings_logging.cc",
-    "system/input_device_settings/input_device_settings_logging.h",
     "system/input_device_settings/input_device_settings_metadata.cc",
     "system/input_device_settings/input_device_settings_metadata.h",
     "system/input_device_settings/input_device_settings_metadata_manager.cc",
@@ -2562,8 +2562,6 @@ component("ash") {
     "system/tray/view_click_listener.h",
     "system/tray/zero_state_view.cc",
     "system/tray/zero_state_view.h",
-    "system/unified/collapse_button.cc",
-    "system/unified/collapse_button.h",
     "system/unified/current_locale_view.cc",
     "system/unified/current_locale_view.h",
     "system/unified/custom_shape_button.cc",
@@ -3443,7 +3441,6 @@ component("ash") {
     "//components/metrics/structured:structured_events",
     "//components/onc",
     "//components/password_manager/core/browser:hash_password_manager",
-    "//components/peripherals/logging",
     "//components/pref_registry",
     "//components/prefs",
     "//components/quirks",
@@ -3468,6 +3465,7 @@ component("ash") {
     "//components/viz/client",
     "//components/viz/host",
     "//dbus",
+    "//device/base/public/cpp",
     "//device/bluetooth",
     "//extensions/common:common_constants",
     "//google_apis/drive",
@@ -4169,7 +4167,6 @@ test("ash_unittests") {
     "system/input_device_settings/input_device_notifier_unittest.cc",
     "system/input_device_settings/input_device_settings_controller_unittest.cc",
     "system/input_device_settings/input_device_settings_dispatcher_unittest.cc",
-    "system/input_device_settings/input_device_settings_logging_unittest.cc",
     "system/input_device_settings/input_device_settings_metadata_manager_unittest.cc",
     "system/input_device_settings/input_device_settings_metadata_unittest.cc",
     "system/input_device_settings/input_device_settings_metrics_manager_unittest.cc",
@@ -4551,6 +4548,7 @@ test("ash_unittests") {
     "//ash/webui/personalization_app/proto",
     "//ash/webui/projector_app/public/cpp",
     "//base",
+    "//base/i18n:test_support",
     "//base/test:test_support",
     "//build:branding_buildflags",
     "//cc:test_support",
@@ -4664,7 +4662,6 @@ test("ash_unittests") {
     "//components/metrics/structured:test_support",
     "//components/onc",
     "//components/password_manager/core/browser:hash_password_manager",
-    "//components/peripherals/logging",
     "//components/pref_registry",
     "//components/prefs:test_support",
     "//components/proxy_config",
@@ -4927,10 +4924,6 @@ test("ash_pixeltests") {
     "//ui/touch_selection",
     "//ui/views:test_support",
   ]
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 # TODO(oshima): Remove or migrate to new ash_ui_perftests
@@ -5120,8 +5113,6 @@ static_library("test_support") {
     "metrics/user_metrics_recorder_test_api.h",
     "projector/test/mock_projector_metadata_controller.cc",
     "projector/test/mock_projector_metadata_controller.h",
-    "public/cpp/fake_hats_bluetooth_revamp_trigger_impl.cc",
-    "public/cpp/fake_hats_bluetooth_revamp_trigger_impl.h",
     "quick_insert/mock_quick_insert_asset_fetcher.cc",
     "quick_insert/mock_quick_insert_asset_fetcher.h",
     "quick_insert/mock_quick_insert_client.cc",
@@ -5217,8 +5208,6 @@ static_library("test_support") {
     "system/holding_space/holding_space_test_api.cc",
     "system/notification_center/notification_center_test_api.cc",
     "system/notification_center/notification_center_test_api.h",
-    "system/notification_center/test_notifier_settings_controller.cc",
-    "system/notification_center/test_notifier_settings_controller.h",
     "system/palette/palette_tray_test_api.cc",
     "system/palette/palette_tray_test_api.h",
     "system/power/power_button_controller_test_api.cc",
@@ -5467,8 +5456,4 @@ static_library("test_support") {
     "//ui/wm",
     "//ui/wm/public",
   ]
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }

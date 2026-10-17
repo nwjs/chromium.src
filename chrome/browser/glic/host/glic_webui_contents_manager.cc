@@ -75,10 +75,6 @@ GlicWebUIContentsManager::GlicWebUIContentsManager(Profile* profile,
 #if !BUILDFLAG(IS_ANDROID)
   web_modal::WebContentsModalDialogManager::CreateForWebContents(
       web_contents_.get());
-#else
-  if (base::FeatureList::IsEnabled(features::kGlicAndroidOffscreenRendering)) {
-    actor::StartOffscreenRenderingForWebContents(web_contents_.get());
-  }
 #endif
 
 #if BUILDFLAG(ENABLE_PRINTING)
@@ -185,6 +181,10 @@ void GlicWebUIContentsManager::SetVisibility(content::Visibility visibility) {
 
 content::WebContents* GlicWebUIContentsManager::active_web_contents() const {
   return WebContentsObserver::web_contents();
+}
+
+content::WebContents* GlicWebUIContentsManager::guest_contents() const {
+  return web_client_manager_.web_client_contents();
 }
 
 void GlicWebUIContentsManager::OnActuatingChanged(bool actuating) {

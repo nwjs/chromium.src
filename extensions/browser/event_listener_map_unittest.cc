@@ -766,6 +766,104 @@ TEST_F(EventListenerMapTest,
   delegate.SetListeners(nullptr);  // Avoid dangling raw_ptr.
 }
 
+// Tests that removing the last filtered listener for an event while an
+// unfiltered listener for the same event remains still allows the unfiltered
+// listener to receive events. Regression test for crbug.com/518240362.
+TEST_F(EventListenerMapTest,
+       RemovingLastFilteredListenerLeavesUnfilteredListenerReachable) {
+  listeners_->AddListener(EventListener::ForExtension(
+      kEvent1Name, kExt1Id, process_.get(), std::nullopt));
+
+  std::unique_ptr<Event> event(CreateNamedEvent(kEvent1Name));
+  ASSERT_EQ(1u, listeners_->GetEventListeners(*event).size());
+
+  listeners_->AddListener(
+      EventListener::ForURL(kEvent1Name, GURL(kURL), process_.get(),
+                            CreateHostSuffixFilter("google.com")));
+
+  // While the filtered listener is present, unfiltered events do not match.
+  EXPECT_EQ(0u, listeners_->GetEventListeners(*event).size());
+
+  std::unique_ptr<EventListener> filtered =
+      EventListener::ForURL(kEvent1Name, GURL(kURL), process_.get(),
+                            CreateHostSuffixFilter("google.com"));
+  listeners_->RemoveListener(filtered.get());
+
+  EXPECT_EQ(1u, listeners_->GetEventListeners(*event).size());
+}
+
+// As above, but the filtered listener goes away via
+// RemoveListenersForProcess().
+TEST_F(EventListenerMapTest,
+       RemovingLastFilteredListenerByProcessLeavesUnfilteredReachable) {
+  content::MockRenderProcessHost other_process(browser_context());
+
+  listeners_->AddListener(EventListener::ForExtension(
+      kEvent1Name, kExt1Id, process_.get(), std::nullopt));
+  listeners_->AddListener(
+      EventListener::ForURL(kEvent1Name, GURL(kURL), &other_process,
+                            CreateHostSuffixFilter("google.com")));
+
+  std::unique_ptr<Event> event(CreateNamedEvent(kEvent1Name));
+  // While the filtered listener is present, unfiltered events do not match.
+  EXPECT_EQ(0u, listeners_->GetEventListeners(*event).size());
+
+  listeners_->RemoveListenersForProcess(&other_process);
+
+  EXPECT_EQ(1u, listeners_->GetEventListeners(*event).size());
+}
+
+// As above, but the filtered listener goes away via
+// RemoveListenersForExtension().
+TEST_F(EventListenerMapTest,
+       RemovingLastFilteredListenerByExtensionLeavesUnfilteredReachable) {
+  listeners_->AddListener(EventListener::ForExtension(
+      kEvent1Name, kExt1Id, process_.get(), std::nullopt));
+  listeners_->AddListener(CreateLazyListener(
+      kEvent1Name, kExt2Id, CreateHostSuffixFilter("google.com"),
+      /*is_for_service_worker=*/false));
+
+  std::unique_ptr<Event> event(CreateNamedEvent(kEvent1Name));
+  // While the filtered listener is present, unfiltered events do not match.
+  EXPECT_EQ(0u, listeners_->GetEventListeners(*event).size());
+
+  listeners_->RemoveListenersForExtension(kExt2Id);
+
+  EXPECT_EQ(1u, listeners_->GetEventListeners(*event).size());
+}
+
+// Verify retention of filtered_events_ when multiple filtered listeners exist.
+TEST_F(EventListenerMapTest,
+       RemovingOneOfMultipleFilteredListenersLeavesEventFiltered) {
+  listeners_->AddListener(EventListener::ForExtension(
+      kEvent1Name, kExt1Id, process_.get(), std::nullopt));
+
+  std::unique_ptr<EventListener> filtered1 =
+      EventListener::ForURL(kEvent1Name, GURL(kURL), process_.get(),
+                            CreateHostSuffixFilter("google.com"));
+  std::unique_ptr<EventListener> filtered2 =
+      EventListener::ForURL(kEvent1Name, GURL(kURL), process_.get(),
+                            CreateHostSuffixFilter("chromium.org"));
+
+  listeners_->AddListener(
+      EventListener::ForURL(kEvent1Name, GURL(kURL), process_.get(),
+                            CreateHostSuffixFilter("google.com")));
+  listeners_->AddListener(
+      EventListener::ForURL(kEvent1Name, GURL(kURL), process_.get(),
+                            CreateHostSuffixFilter("chromium.org")));
+
+  std::unique_ptr<Event> event(CreateNamedEvent(kEvent1Name));
+  EXPECT_EQ(0u, listeners_->GetEventListeners(*event).size());
+
+  // Removing only the first filtered listener must not clear filtered_events_.
+  listeners_->RemoveListener(filtered1.get());
+  EXPECT_EQ(0u, listeners_->GetEventListeners(*event).size());
+
+  // Removing the final filtered listener clears filtered_events_.
+  listeners_->RemoveListener(filtered2.get());
+  EXPECT_EQ(1u, listeners_->GetEventListeners(*event).size());
+}
+
 // Tests that adding a listener with a malformed filter fails and does not
 // poison the map. Regression test for crbug.com/501631475.
 TEST_F(EventListenerMapTest, AddListenerWithMalformedFilter) {
@@ -782,6 +880,38 @@ TEST_F(EventListenerMapTest, AddListenerWithMalformedFilter) {
   bool added = listeners_->AddListener(std::move(listener));
   EXPECT_FALSE(added);
   EXPECT_FALSE(listeners_->HasListenerForEvent(kEvent1Name));
+}
+
+// Tests that removing a listener using a pointer to the stored listener does
+// not destroy the listener before OnListenerRemoved callback completes.
+// Regression test for crbug.com/560698316.
+TEST_F(EventListenerMapTest,
+       RemoveListenerStoredPointerValidDuringOnListenerRemoved) {
+  class ListenerAccessingDelegate : public EventListenerMap::Delegate {
+   public:
+    void OnListenerAdded(const EventListener* listener) override {}
+    void OnListenerRemoved(const EventListener* listener) override {
+      EXPECT_EQ(kEvent1Name, listener->event_name());
+      EXPECT_EQ(kExt1Id, listener->extension_id());
+      removed_called_ = true;
+    }
+    void OnListenerUpdated(const EventListener* listener) override {}
+    bool removed_called() const { return removed_called_; }
+
+   private:
+    bool removed_called_ = false;
+  };
+
+  ListenerAccessingDelegate delegate;
+  EventListenerMap listeners(&delegate);
+
+  listeners.AddListener(EventListener::ForExtension(
+      kEvent1Name, kExt1Id, process_.get(), std::nullopt));
+
+  const EventListener* stored_listener =
+      listeners.GetEventListenersByName(kEvent1Name)[0].get();
+  EXPECT_TRUE(listeners.RemoveListener(stored_listener));
+  EXPECT_TRUE(delegate.removed_called());
 }
 
 }  // namespace

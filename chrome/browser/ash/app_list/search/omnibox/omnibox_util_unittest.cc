@@ -21,13 +21,12 @@
 namespace app_list {
 namespace {
 
-// Tests result conversion for a default answer result.
 // Tests result conversion for a rich entity Omnibox result.
 TEST(OmniboxUtilTest, CreateResult) {
   AutocompleteMatch match;
   match.relevance = 300;
   match.destination_url = GURL("http://www.example.com/");
-  match.type = AutocompleteMatchType::Type::SEARCH_SUGGEST_ENTITY;
+  match.type = omnibox::AutocompleteMatchType::kSearchSuggestEntity;
   match.image_url = GURL("http://www.example.com/image.jpeg");
 
   match.contents = u"contents";
@@ -58,14 +57,13 @@ TEST(OmniboxUtilTest, CreateResult) {
   EXPECT_EQ(result->description_type, OmniboxTextType::kUnset);
 }
 
-// Tests result conversion for a weather Omnibox result.
 // Tests result conversion for a calculator result. A calculator result can
 // either have a description or no description; both possibilities are tested.
 TEST(OmniboxUtilTest, CreateCalculatorResult) {
   // A match with the input in contents and the answer in desc.
   AutocompleteMatch match_desc;
   match_desc.relevance = 300;
-  match_desc.type = AutocompleteMatchType::CALCULATOR;
+  match_desc.type = omnibox::AutocompleteMatchType::kCalculator;
   match_desc.destination_url = GURL("https://www.example.com.au/calc?q=1+2");
   match_desc.contents = u"1+2";
   match_desc.description = u"3";
@@ -77,7 +75,7 @@ TEST(OmniboxUtilTest, CreateCalculatorResult) {
   // A match with the answer in content and no desc.
   AutocompleteMatch match_no_desc;
   match_no_desc.relevance = 300;
-  match_no_desc.type = AutocompleteMatchType::CALCULATOR;
+  match_no_desc.type = omnibox::AutocompleteMatchType::kCalculator;
   match_no_desc.destination_url = GURL("https://www.example.com.au/calc?q=1+2");
   match_no_desc.contents = u"3";
   match_no_desc.contents_class = {

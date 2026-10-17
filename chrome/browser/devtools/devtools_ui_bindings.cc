@@ -123,7 +123,9 @@
 #include "services/network/public/cpp/simple_url_loader_stream_consumer.h"
 #include "services/network/public/cpp/wrapper_shared_url_loader_factory.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
+#include "third_party/blink/public/common/custom_handlers/protocol_handler_utils.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/security/protocol_handler_security_level.h"
 #include "third_party/blink/public/public_buildflags.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/dialog_model.h"
@@ -1386,8 +1388,9 @@ void DevToolsUIBindings::LoadNetworkResource(DispatchCallback callback,
           web_contents()->GetPrimaryMainFrame();
 
       mojo::PendingRemote<network::mojom::URLLoaderFactory> pending_remote =
-          content::CreateWebUIURLLoaderFactory(
-              frame_host, target_tab->GetLastCommittedURL().GetScheme(),
+          content::CreateWebUIURLLoaderFactoryWithoutOriginLock(
+              content::WebUIURLLoaderFactoryPasskey::GetPassKey(), frame_host,
+              target_tab->GetLastCommittedURL().GetScheme(),
               std::move(allowed_webui_hosts));
       url_loader_factory = network::SharedURLLoaderFactory::Create(
           std::make_unique<network::WrapperPendingSharedURLLoaderFactory>(
@@ -1422,12 +1425,22 @@ void DevToolsUIBindings::LoadNetworkResource(DispatchCallback callback,
 void DevToolsUIBindings::OpenInNewTab(const std::string& url) {
   GURL gurl(url);
   // Hardening: Verify that the frontend renderer is allowed to request this URL.
-  if (!web_contents_ || !web_contents_->GetPrimaryMainFrame() ||
-      !content::ChildProcessSecurityPolicy::GetInstance()->CanRequestURL(
-          web_contents_->GetPrimaryMainFrame()
-              ->GetProcess()
-              ->GetDeprecatedID(),
-          gurl)) {
+  content::ChildProcessSecurityPolicy* policy =
+      content::ChildProcessSecurityPolicy::GetInstance();
+  bool can_request =
+      web_contents_ && web_contents_->GetPrimaryMainFrame() &&
+      policy->CanRequestURL(
+          web_contents_->GetPrimaryMainFrame()->GetProcess()->GetDeprecatedID(),
+          gurl);
+
+  if (can_request && !gurl.SchemeIsHTTPOrHTTPS() &&
+      !policy->IsWebSafeScheme(gurl.GetScheme()) &&
+      !blink::IsValidCustomHandlerScheme(
+          gurl.scheme(), blink::ProtocolHandlerSecurityLevel::kStrict)) {
+    can_request = false;
+  }
+
+  if (!can_request) {
     gurl = GURL(url::kAboutBlankURL);
   }
 
@@ -2344,6 +2357,12 @@ base::DictValue DevToolsUIBindings::GetHostConfigDictionary(Profile* profile) {
           GetFeatureStateForDevTools(::features::kDevToolsNetworkBackendLinking,
                                      enabled_by_flags, disabled_by_flags)));
 
+  response_dict.Set(
+      "devToolsPrivateVerificationTokens",
+      base::DictValue().Set(
+          "enabled", base::FeatureList::IsEnabled(
+                         net::features::kEnablePrivateVerificationTokens)));
+
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   // We check AreExtensionsOnExtensionURLsAllowed() here because this is used to
   // restrict access to chrome-extension:// URLs, and that helper covers both
@@ -2355,6 +2374,12 @@ base::DictValue DevToolsUIBindings::GetHostConfigDictionary(Profile* profile) {
           "enabled",
           extensions::switches::AreExtensionsOnExtensionURLsAllowed()));
 #endif
+
+  response_dict.Set(
+      "devToolsAiNaturalLanguageInterface",
+      base::DictValue().Set(
+          "enabled", base::FeatureList::IsEnabled(
+                         ::features::kDevToolsAiNaturalLanguageInterface)));
 
   return response_dict;
 }

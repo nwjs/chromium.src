@@ -61,10 +61,10 @@ deps = {
     'condition': 'non_git_source',
     'objects': [
       {
-        'object_name': 'chromium-bidi/759e84df3c3f81e3538537edf7fb4016a5299c3d45b1d7cc986355508afff192',
-        'sha256sum': '759e84df3c3f81e3538537edf7fb4016a5299c3d45b1d7cc986355508afff192',
-        'size_bytes': 20000150,
-        'generation': 1788961898124777,
+        'object_name': 'chromium-bidi/028c7baf9de02f6ae103b1911ab13d1aeb48f0ddd8fa702f9c150cdaf8cb5f5b',
+        'sha256sum': '028c7baf9de02f6ae103b1911ab13d1aeb48f0ddd8fa702f9c150cdaf8cb5f5b',
+        'size_bytes': 20652261,
+        'generation': 1790318403990383,
         'output_file': 'node_modules.tar.gz',
       },
     ],

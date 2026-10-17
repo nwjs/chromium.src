@@ -5,7 +5,9 @@
 package org.chromium.chrome.browser.ui.enterprise_signals_disclaimer;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -21,13 +23,18 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.mockito.stubbing.OngoingStubbing;
+import org.mockito.verification.VerificationMode;
 
+import org.chromium.base.Callback;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.chrome.browser.enterprise.util.ManagedBrowserUtils;
 import org.chromium.chrome.browser.enterprise.util.ManagedBrowserUtilsJni;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
@@ -35,13 +42,18 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.signin.services.SigninManager;
 import org.chromium.chrome.browser.ui.enterprise_signals_disclaimer.EnterpriseSignalsDisclaimerController.CoordinatorFactory;
+import org.chromium.chrome.browser.ui.enterprise_signals_disclaimer.EnterpriseSignalsDisclaimerHost.DismissalCause;
+import org.chromium.chrome.browser.ui.enterprise_signals_disclaimer.MetricsHelper.ShownOn;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.base.AccountInfo;
+import org.chromium.components.signin.metrics.SignoutReason;
 import org.chromium.components.signin.test.util.FakeIdentityManager;
 import org.chromium.components.signin.test.util.TestAccounts;
 import org.chromium.google_apis.gaia.GaiaId;
 import org.chromium.ui.modaldialog.ModalDialogManager;
+
+import java.util.List;
 
 /** Unit tests for {@link EnterpriseSignalsDisclaimerController}. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -60,6 +72,8 @@ public class EnterpriseSignalsDisclaimerControllerUnitTest {
     @Mock private ManagedBrowserUtils.Natives mManagedBrowserUtilsJniMock;
     @Mock private EnterpriseSignalsDisclaimerBridge.Natives mBridgeNativesMock;
 
+    @Captor private ArgumentCaptor<Callback<@DismissalCause Integer>> mOnDismissedCaptor;
+
     private final FakeIdentityManager mIdentityManager = new FakeIdentityManager();
 
     @Before
@@ -69,8 +83,7 @@ public class EnterpriseSignalsDisclaimerControllerUnitTest {
         IdentityServicesProvider.setSigninManagerForTesting(mSigninManager);
 
         when(mSigninManager.getIdentityManager()).thenReturn(mIdentityManager);
-        when(mCoordinatorFactory.create(any(), any(), any(), any(), any(), any()))
-                .thenReturn(mCoordinator);
+        whenCoordinatorCreated().thenReturn(mCoordinator);
         when(mBridgeNativesMock.hasAccountAcknowledgedSignalsDisclaimer(any())).thenReturn(false);
 
         mIdentityManager.setPrimaryAccount(TestAccounts.ACCOUNT1);
@@ -91,6 +104,46 @@ public class EnterpriseSignalsDisclaimerControllerUnitTest {
                 mDelegate,
                 mCoordinatorFactory);
     }
+
+    private OngoingStubbing<EnterpriseSignalsDisclaimerCoordinator> whenCoordinatorCreated() {
+        return when(
+                mCoordinatorFactory.create(
+                        any(), any(), any(), any(), any(), any(), any(), any(), any()));
+    }
+
+    private void verifyCoordinatorCreated(VerificationMode mode) {
+        verify(mCoordinatorFactory, mode)
+                .create(any(), any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    private Callback<@DismissalCause Integer> showAndCaptureOnDismissedCallback(
+            EnterpriseSignalsDisclaimerController controller) {
+        Assert.assertTrue(controller.maybeShow(ShownOn.STARTUP));
+        verify(mCoordinatorFactory)
+                .create(
+                        any(),
+                        any(),
+                        any(),
+                        any(),
+                        any(),
+                        any(),
+                        any(),
+                        any(),
+                        mOnDismissedCaptor.capture());
+        return mOnDismissedCaptor.getValue();
+    }
+
+    private void runSignOutOperationsSynchronously() {
+        doAnswer(
+                        invocation -> {
+                            Runnable runnable = invocation.getArgument(0);
+                            runnable.run();
+                            return null;
+                        })
+                .when(mSigninManager)
+                .runAfterOperationInProgress(any());
+    }
+
 
     @Test
     public void maybeCreateForProfile_offTheRecordProfile_returnsNull() {
@@ -139,8 +192,8 @@ public class EnterpriseSignalsDisclaimerControllerUnitTest {
 
         controller.destroy();
 
-        Assert.assertFalse(controller.maybeShow());
-        verify(mCoordinatorFactory, never()).create(any(), any(), any(), any(), any(), any());
+        Assert.assertFalse(controller.maybeShow(ShownOn.STARTUP));
+        verifyCoordinatorCreated(never());
     }
 
     @Test
@@ -152,9 +205,9 @@ public class EnterpriseSignalsDisclaimerControllerUnitTest {
 
         mIdentityManager.setPrimaryAccount(null);
 
-        Assert.assertFalse(controller.maybeShow());
-        verify(mCoordinatorFactory, never()).create(any(), any(), any(), any(), any(), any());
-        verify(mCoordinator, never()).show();
+        Assert.assertFalse(controller.maybeShow(ShownOn.STARTUP));
+        verifyCoordinatorCreated(never());
+        verify(mCoordinator, never()).show(anyInt());
     }
 
     @Test
@@ -165,9 +218,9 @@ public class EnterpriseSignalsDisclaimerControllerUnitTest {
         EnterpriseSignalsDisclaimerController controller = createController();
         Assert.assertNotNull(controller);
 
-        Assert.assertFalse(controller.maybeShow());
-        verify(mCoordinatorFactory, never()).create(any(), any(), any(), any(), any(), any());
-        verify(mCoordinator, never()).show();
+        Assert.assertFalse(controller.maybeShow(ShownOn.STARTUP));
+        verifyCoordinatorCreated(never());
+        verify(mCoordinator, never()).show(anyInt());
     }
 
     @Test
@@ -178,7 +231,7 @@ public class EnterpriseSignalsDisclaimerControllerUnitTest {
         EnterpriseSignalsDisclaimerController controller = createController();
 
         Assert.assertNotNull(controller);
-        Assert.assertTrue(controller.maybeShow());
+        Assert.assertTrue(controller.maybeShow(ShownOn.STARTUP));
         verify(mBridgeNativesMock)
                 .hasAccountAcknowledgedSignalsDisclaimer(eq(TestAccounts.ACCOUNT1.getGaiaId()));
         verify(mCoordinatorFactory)
@@ -186,10 +239,13 @@ public class EnterpriseSignalsDisclaimerControllerUnitTest {
                         eq(mActivity),
                         eq(mBottomSheetController),
                         eq(mModalDialogManager),
-                        eq(mSigninManager),
+                        eq(mIdentityManager),
+                        eq(TestAccounts.ACCOUNT1),
                         eq(mDelegate),
+                        any(),
+                        any(),
                         any());
-        verify(mCoordinator).show();
+        verify(mCoordinator).show(ShownOn.STARTUP);
     }
 
     @Test
@@ -203,9 +259,9 @@ public class EnterpriseSignalsDisclaimerControllerUnitTest {
         EnterpriseSignalsDisclaimerController controller = createController();
         Assert.assertNotNull(controller);
 
-        Assert.assertFalse(controller.maybeShow());
-        verify(mCoordinatorFactory, never()).create(any(), any(), any(), any(), any(), any());
-        verify(mCoordinator, never()).show();
+        Assert.assertFalse(controller.maybeShow(ShownOn.STARTUP));
+        verifyCoordinatorCreated(never());
+        verify(mCoordinator, never()).show(anyInt());
     }
 
     @Test
@@ -215,10 +271,10 @@ public class EnterpriseSignalsDisclaimerControllerUnitTest {
 
         EnterpriseSignalsDisclaimerController controller = createController();
         Assert.assertNotNull(controller);
-        Assert.assertTrue(controller.maybeShow());
+        Assert.assertTrue(controller.maybeShow(ShownOn.STARTUP));
 
         when(mCoordinator.isActive()).thenReturn(true);
-        Assert.assertFalse(controller.maybeShow());
+        Assert.assertFalse(controller.maybeShow(ShownOn.STARTUP));
 
         verify(mCoordinator).isActive();
     }
@@ -240,9 +296,9 @@ public class EnterpriseSignalsDisclaimerControllerUnitTest {
         EnterpriseSignalsDisclaimerController controller = createController();
         Assert.assertNotNull(controller);
 
-        Assert.assertFalse(controller.maybeShow());
-        verify(mCoordinatorFactory, never()).create(any(), any(), any(), any(), any(), any());
-        verify(mCoordinator, never()).show();
+        Assert.assertFalse(controller.maybeShow(ShownOn.STARTUP));
+        verifyCoordinatorCreated(never());
+        verify(mCoordinator, never()).show(anyInt());
     }
 
     @Test
@@ -252,7 +308,7 @@ public class EnterpriseSignalsDisclaimerControllerUnitTest {
 
         EnterpriseSignalsDisclaimerController controller = createController();
         Assert.assertNotNull(controller);
-        Assert.assertTrue(controller.maybeShow());
+        Assert.assertTrue(controller.maybeShow(ShownOn.STARTUP));
 
         controller.destroy();
 
@@ -268,37 +324,41 @@ public class EnterpriseSignalsDisclaimerControllerUnitTest {
                 mock(EnterpriseSignalsDisclaimerCoordinator.class);
         EnterpriseSignalsDisclaimerCoordinator coordinator2 =
                 mock(EnterpriseSignalsDisclaimerCoordinator.class);
-        when(mCoordinatorFactory.create(any(), any(), any(), any(), any(), any()))
-                .thenReturn(coordinator1)
-                .thenReturn(coordinator2);
+        whenCoordinatorCreated().thenReturn(coordinator1).thenReturn(coordinator2);
         when(coordinator1.isActive()).thenReturn(false);
 
         EnterpriseSignalsDisclaimerController controller = createController();
         Assert.assertNotNull(controller);
 
         // First call creates coordinator1.
-        Assert.assertTrue(controller.maybeShow());
+        Assert.assertTrue(controller.maybeShow(ShownOn.STARTUP));
         verify(mCoordinatorFactory)
                 .create(
                         eq(mActivity),
                         eq(mBottomSheetController),
                         eq(mModalDialogManager),
-                        eq(mSigninManager),
+                        eq(mIdentityManager),
+                        any(),
                         eq(mDelegate),
+                        any(),
+                        any(),
                         any());
 
         // Second call should destroy coordinator1 and create coordinator2.
-        Assert.assertTrue(controller.maybeShow());
+        Assert.assertTrue(controller.maybeShow(ShownOn.STARTUP));
         verify(coordinator1).destroy();
         verify(mCoordinatorFactory, times(2))
                 .create(
                         eq(mActivity),
                         eq(mBottomSheetController),
                         eq(mModalDialogManager),
-                        eq(mSigninManager),
+                        eq(mIdentityManager),
+                        any(),
                         eq(mDelegate),
+                        any(),
+                        any(),
                         any());
-        verify(coordinator2).show();
+        verify(coordinator2).show(ShownOn.STARTUP);
     }
 
     @Test
@@ -338,10 +398,13 @@ public class EnterpriseSignalsDisclaimerControllerUnitTest {
                         eq(mActivity),
                         eq(mBottomSheetController),
                         eq(mModalDialogManager),
-                        eq(mSigninManager),
+                        eq(mIdentityManager),
+                        any(),
                         eq(mDelegate),
+                        any(),
+                        any(),
                         any());
-        verify(mCoordinator).show();
+        verify(mCoordinator).show(ShownOn.SIGN_IN);
     }
 
     @Test
@@ -354,8 +417,8 @@ public class EnterpriseSignalsDisclaimerControllerUnitTest {
 
         controller.onSignedIn();
 
-        verify(mCoordinatorFactory, never()).create(any(), any(), any(), any(), any(), any());
-        verify(mCoordinator, never()).show();
+        verifyCoordinatorCreated(never());
+        verify(mCoordinator, never()).show(anyInt());
     }
 
     @Test
@@ -371,8 +434,8 @@ public class EnterpriseSignalsDisclaimerControllerUnitTest {
 
         controller.onSignedIn();
 
-        verify(mCoordinatorFactory, never()).create(any(), any(), any(), any(), any(), any());
-        verify(mCoordinator, never()).show();
+        verifyCoordinatorCreated(never());
+        verify(mCoordinator, never()).show(anyInt());
     }
 
     @Test
@@ -382,7 +445,7 @@ public class EnterpriseSignalsDisclaimerControllerUnitTest {
 
         EnterpriseSignalsDisclaimerController controller = createController();
         Assert.assertNotNull(controller);
-        Assert.assertTrue(controller.maybeShow());
+        Assert.assertTrue(controller.maybeShow(ShownOn.STARTUP));
 
         controller.onSignedOut();
 
@@ -412,8 +475,8 @@ public class EnterpriseSignalsDisclaimerControllerUnitTest {
 
         controller.onSignedIn();
 
-        verify(mCoordinatorFactory, never()).create(any(), any(), any(), any(), any(), any());
-        verify(mCoordinator, never()).show();
+        verifyCoordinatorCreated(never());
+        verify(mCoordinator, never()).show(anyInt());
     }
 
     @Test
@@ -429,8 +492,8 @@ public class EnterpriseSignalsDisclaimerControllerUnitTest {
 
         controller.onSignedIn();
 
-        verify(mCoordinatorFactory, times(1)).create(any(), any(), any(), any(), any(), any());
-        verify(mCoordinator, times(1)).show();
+        verifyCoordinatorCreated(times(1));
+        verify(mCoordinator, times(1)).show(ShownOn.SIGN_IN);
     }
 
     @Test
@@ -442,22 +505,20 @@ public class EnterpriseSignalsDisclaimerControllerUnitTest {
                 mock(EnterpriseSignalsDisclaimerCoordinator.class);
         EnterpriseSignalsDisclaimerCoordinator coordinator2 =
                 mock(EnterpriseSignalsDisclaimerCoordinator.class);
-        when(mCoordinatorFactory.create(any(), any(), any(), any(), any(), any()))
-                .thenReturn(coordinator1)
-                .thenReturn(coordinator2);
+        whenCoordinatorCreated().thenReturn(coordinator1).thenReturn(coordinator2);
 
         EnterpriseSignalsDisclaimerController controller = createController();
         Assert.assertNotNull(controller);
         when(coordinator1.isActive()).thenReturn(true);
 
         controller.onSignedIn();
-        verify(coordinator1).show();
+        verify(coordinator1).show(ShownOn.SIGN_IN);
 
         controller.onSignedOut();
         verify(coordinator1).destroy();
 
         controller.onSignedIn();
-        verify(coordinator2).show();
+        verify(coordinator2).show(ShownOn.SIGN_IN);
     }
 
     @Test
@@ -467,7 +528,7 @@ public class EnterpriseSignalsDisclaimerControllerUnitTest {
 
         EnterpriseSignalsDisclaimerController controller = createController();
         Assert.assertNotNull(controller);
-        Assert.assertTrue(controller.maybeShow());
+        Assert.assertTrue(controller.maybeShow(ShownOn.STARTUP));
 
         controller.onSignedOut();
         verify(mCoordinator, times(1)).destroy();
@@ -483,7 +544,7 @@ public class EnterpriseSignalsDisclaimerControllerUnitTest {
 
         EnterpriseSignalsDisclaimerController controller = createController();
         Assert.assertNotNull(controller);
-        Assert.assertTrue(controller.maybeShow());
+        Assert.assertTrue(controller.maybeShow(ShownOn.STARTUP));
 
         controller.destroy();
         verify(mCoordinator, times(1)).destroy();
@@ -500,7 +561,7 @@ public class EnterpriseSignalsDisclaimerControllerUnitTest {
 
         EnterpriseSignalsDisclaimerController controller = createController();
         Assert.assertNotNull(controller);
-        Assert.assertTrue(controller.maybeShow());
+        Assert.assertTrue(controller.maybeShow(ShownOn.STARTUP));
 
         var callbackCaptor = ArgumentCaptor.forClass(Runnable.class);
         verify(mCoordinatorFactory)
@@ -508,9 +569,12 @@ public class EnterpriseSignalsDisclaimerControllerUnitTest {
                         eq(mActivity),
                         eq(mBottomSheetController),
                         eq(mModalDialogManager),
-                        eq(mSigninManager),
+                        eq(mIdentityManager),
+                        any(),
                         eq(mDelegate),
-                        callbackCaptor.capture());
+                        callbackCaptor.capture(),
+                        any(),
+                        any());
 
         // Simulate the coordinator destroying itself.
         callbackCaptor.getValue().run();
@@ -519,5 +583,142 @@ public class EnterpriseSignalsDisclaimerControllerUnitTest {
         // been nulled out.
         controller.onSignedOut();
         verify(mCoordinator, never()).destroy();
+    }
+
+    @Test
+    public void onSignedIn_accountIsManaged_recordsShowRequestedOnSignIn() {
+        when(mProfile.isOffTheRecord()).thenReturn(false);
+        when(mManagedBrowserUtilsJniMock.isProfileManaged(mProfile)).thenReturn(true);
+
+        EnterpriseSignalsDisclaimerController controller = createController();
+        Assert.assertNotNull(controller);
+
+        HistogramWatcher histogramWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        MetricsHelper.HISTOGRAM_SHOWN_REQUESTED, ShownOn.SIGN_IN);
+
+        controller.onSignedIn();
+
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    public void maybeShow_reusesSameMetricsHelperInstanceAcrossCoordinators() {
+        when(mProfile.isOffTheRecord()).thenReturn(false);
+        when(mManagedBrowserUtilsJniMock.isProfileManaged(mProfile)).thenReturn(true);
+
+        EnterpriseSignalsDisclaimerCoordinator coordinator1 =
+                mock(EnterpriseSignalsDisclaimerCoordinator.class);
+        EnterpriseSignalsDisclaimerCoordinator coordinator2 =
+                mock(EnterpriseSignalsDisclaimerCoordinator.class);
+        whenCoordinatorCreated().thenReturn(coordinator1).thenReturn(coordinator2);
+        when(coordinator1.isActive()).thenReturn(false);
+
+        EnterpriseSignalsDisclaimerController controller = createController();
+        Assert.assertNotNull(controller);
+
+        Assert.assertTrue(controller.maybeShow(ShownOn.STARTUP));
+        Assert.assertTrue(controller.maybeShow(ShownOn.STARTUP));
+
+        var metricsHelperCaptor = ArgumentCaptor.forClass(MetricsHelper.class);
+        verify(mCoordinatorFactory, times(2))
+                .create(
+                        eq(mActivity),
+                        eq(mBottomSheetController),
+                        eq(mModalDialogManager),
+                        eq(mIdentityManager),
+                        any(),
+                        eq(mDelegate),
+                        any(),
+                        metricsHelperCaptor.capture(),
+                        any());
+
+        List<MetricsHelper> capturedHelpers = metricsHelperCaptor.getAllValues();
+        Assert.assertEquals(2, capturedHelpers.size());
+        Assert.assertSame(
+                "The same MetricsHelper instance should be reused across coordinators.",
+                capturedHelpers.get(0),
+                capturedHelpers.get(1));
+    }
+
+    @Test
+    public void onDismissed_tappedAccept_acknowledgesDisclaimer() {
+        when(mProfile.isOffTheRecord()).thenReturn(false);
+        when(mManagedBrowserUtilsJniMock.isProfileManaged(mProfile)).thenReturn(true);
+
+        EnterpriseSignalsDisclaimerController controller = createController();
+        Assert.assertNotNull(controller);
+
+        showAndCaptureOnDismissedCallback(controller).onResult(DismissalCause.TAPPED_ACCEPT);
+
+        verify(mBridgeNativesMock)
+                .setAccountAcknowledgedSignalsDisclaimer(eq(TestAccounts.ACCOUNT1.getGaiaId()));
+        verify(mSigninManager, never()).signOut(anyInt());
+    }
+
+    @Test
+    public void onDismissed_tappedSignOut_signsOutUser() {
+        when(mProfile.isOffTheRecord()).thenReturn(false);
+        when(mManagedBrowserUtilsJniMock.isProfileManaged(mProfile)).thenReturn(true);
+        when(mSigninManager.isSignOutAllowed()).thenReturn(true);
+        runSignOutOperationsSynchronously();
+
+        EnterpriseSignalsDisclaimerController controller = createController();
+        Assert.assertNotNull(controller);
+
+        showAndCaptureOnDismissedCallback(controller).onResult(DismissalCause.TAPPED_SIGN_OUT);
+
+        verify(mSigninManager)
+                .signOut(eq(SignoutReason.USER_DECLINED_ENTERPRISE_SIGNALS_DISCLAIMER));
+        verify(mBridgeNativesMock, never()).setAccountAcknowledgedSignalsDisclaimer(any());
+    }
+
+    @Test
+    public void onDismissed_dismissedBySwipeDown_signsOutUser() {
+        when(mProfile.isOffTheRecord()).thenReturn(false);
+        when(mManagedBrowserUtilsJniMock.isProfileManaged(mProfile)).thenReturn(true);
+        when(mSigninManager.isSignOutAllowed()).thenReturn(true);
+        runSignOutOperationsSynchronously();
+
+        EnterpriseSignalsDisclaimerController controller = createController();
+        Assert.assertNotNull(controller);
+
+        showAndCaptureOnDismissedCallback(controller)
+                .onResult(DismissalCause.DISMISSED_BY_SWIPE_DOWN);
+
+        verify(mSigninManager)
+                .signOut(eq(SignoutReason.USER_DECLINED_ENTERPRISE_SIGNALS_DISCLAIMER));
+        verify(mBridgeNativesMock, never()).setAccountAcknowledgedSignalsDisclaimer(any());
+    }
+
+    @Test
+    public void onDismissed_signOutNotAllowed_doesNotSignOut() {
+        when(mProfile.isOffTheRecord()).thenReturn(false);
+        when(mManagedBrowserUtilsJniMock.isProfileManaged(mProfile)).thenReturn(true);
+        when(mSigninManager.isSignOutAllowed()).thenReturn(false);
+        runSignOutOperationsSynchronously();
+
+        EnterpriseSignalsDisclaimerController controller = createController();
+        Assert.assertNotNull(controller);
+
+        showAndCaptureOnDismissedCallback(controller).onResult(DismissalCause.TAPPED_SIGN_OUT);
+
+        verify(mSigninManager, never()).signOut(anyInt());
+        verify(mBridgeNativesMock, never()).setAccountAcknowledgedSignalsDisclaimer(any());
+    }
+
+    @Test
+    public void onDismissed_withoutExplicitUserAction_neitherAcknowledgesNorSignsOut() {
+        when(mProfile.isOffTheRecord()).thenReturn(false);
+        when(mManagedBrowserUtilsJniMock.isProfileManaged(mProfile)).thenReturn(true);
+
+        EnterpriseSignalsDisclaimerController controller = createController();
+        Assert.assertNotNull(controller);
+
+        showAndCaptureOnDismissedCallback(controller)
+                .onResult(DismissalCause.DISMISSED_WITHOUT_EXPLICIT_USER_ACTION);
+
+        verify(mSigninManager, never()).signOut(anyInt());
+        verify(mBridgeNativesMock, never()).setAccountAcknowledgedSignalsDisclaimer(any());
     }
 }

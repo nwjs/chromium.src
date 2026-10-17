@@ -134,20 +134,16 @@ IN_PROC_BROWSER_TEST_F(AutofillPopupControllerBrowserTest,
   EXPECT_TRUE(autofill_external_delegate().popup_hidden());
 }
 
+// Tests that if there is no space for the Autofill popup, the popup is not
+// displayed.
 IN_PROC_BROWSER_TEST_F(AutofillPopupControllerBrowserTest,
                        DoNotShowIfNotEnoughSpace) {
-  constexpr float kSize = 100.0f;
-  // Set to smallest possible size. The actual minimum size is larger and
-  // platform dependent.
-  browser()->GetWindow()->SetBounds(gfx::Rect(1, 1));
-  gfx::Rect window_bounds = browser()->GetWindow()->GetBounds();
-  // Position the popup in the lower right corner so that there is not enough
-  // space to display it.
-  EXPECT_TRUE(GenerateTestAutofillPopup(
-      autofill_driver(), profile(),
-      /*expect_popup_to_be_shown=*/false, /*element_bounds=*/
-      gfx::RectF(window_bounds.x() - kSize, window_bounds.y() - kSize, kSize,
-                 kSize)));
+  // Let the field occupy the whole viewport so that there's no space left for
+  // the popup.
+  const gfx::RectF field_bounds(gfx::Rect({}, web_contents()->GetSize()));
+  EXPECT_TRUE(GenerateTestAutofillPopup(autofill_driver(), profile(),
+                                        /*expect_popup_to_be_shown=*/false,
+                                        /*element_bounds=*/field_bounds));
 }
 
 // Tests that entering fullscreen hides the popup and, in particular, does not
@@ -220,13 +216,13 @@ IN_PROC_BROWSER_TEST_F(AutofillPopupControllerBrowserTest, ResetSelectedLine) {
                                     {u"suggestion2", u"suggestion2"},
                                     {u"suggestion3", u"suggestion3"},
                                     {u"suggestion4", u"suggestion4"}};
-  client->UpdateAutofillDataListValues(controller->GetFrameToken(), rows);
+  client->UpdateAutofillDataListValues(controller->GetAnchorFrameToken(), rows);
   int original_suggestions_count = controller->GetLineCount();
   static_cast<AutofillPopupController&>(*controller).SelectSuggestion(3);
 
   // Replace the list with the smaller one.
   rows = {{u"suggestion1", u"suggestion1"}};
-  client->UpdateAutofillDataListValues(controller->GetFrameToken(), rows);
+  client->UpdateAutofillDataListValues(controller->GetAnchorFrameToken(), rows);
   // Make sure that previously selected line #3 doesn't exist.
   ASSERT_LT(controller->GetLineCount(), original_suggestions_count);
   // Selecting a new line should not crash.

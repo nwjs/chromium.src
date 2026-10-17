@@ -333,13 +333,6 @@ void MultiBufferDataSource::Stop() {
   {
     base::AutoLock auto_lock(lock_);
     StopInternal_Locked();
-
-    // Cleanup resources immediately if we're already on the right thread.
-    if (render_task_runner_->BelongsToCurrentThread()) {
-      reader_.reset();
-      url_data_.reset();
-      return;
-    }
   }
 
   PostCrossThreadTask(*render_task_runner_, FROM_HERE,
@@ -587,6 +580,12 @@ void MultiBufferDataSource::StopLoader() {
 
 void MultiBufferDataSource::SetBitrateTask(int bitrate) {
   DCHECK(render_task_runner_->BelongsToCurrentThread());
+  {
+    base::AutoLock auto_lock(lock_);
+    if (stop_signal_received_) {
+      return;
+    }
+  }
 
   bitrate_ = bitrate;
   UpdateBufferSizes();

@@ -155,6 +155,9 @@ bool IsSupportedAccessPoint(signin_metrics::AccessPoint access_point) {
     case signin_metrics::AccessPoint::kComposeboxDriveContextMenuOptionBubble:
     case signin_metrics::AccessPoint::kSkills:
     case signin_metrics::AccessPoint::kAccountMenuSignedOutState:
+    case signin_metrics::AccessPoint::kAppSwitcherAISummarization:
+    case signin_metrics::AccessPoint::kGeminiExternalAppStoreEvent:
+    case signin_metrics::AccessPoint::kPasswordManagerCard:
       return false;
   }
 }
@@ -274,6 +277,9 @@ void RecordImpressionsTilSigninButtonsHistogramForAccessPoint(
     case signin_metrics::AccessPoint::kComposeboxDriveContextMenuOptionBubble:
     case signin_metrics::AccessPoint::kSkills:
     case signin_metrics::AccessPoint::kAccountMenuSignedOutState:
+    case signin_metrics::AccessPoint::kAppSwitcherAISummarization:
+    case signin_metrics::AccessPoint::kGeminiExternalAppStoreEvent:
+    case signin_metrics::AccessPoint::kPasswordManagerCard:
       NOTREACHED() << "Unexpected value for access point "
                    << static_cast<int>(access_point);
   }
@@ -394,6 +400,9 @@ void RecordImpressionsTilXButtonHistogramForAccessPoint(
     case signin_metrics::AccessPoint::kComposeboxDriveContextMenuOptionBubble:
     case signin_metrics::AccessPoint::kSkills:
     case signin_metrics::AccessPoint::kAccountMenuSignedOutState:
+    case signin_metrics::AccessPoint::kAppSwitcherAISummarization:
+    case signin_metrics::AccessPoint::kGeminiExternalAppStoreEvent:
+    case signin_metrics::AccessPoint::kPasswordManagerCard:
       NOTREACHED() << "Unexpected value for access point "
                    << static_cast<int>(access_point);
   }
@@ -499,6 +508,9 @@ const char* DisplayedCountPreferenceKey(
     case signin_metrics::AccessPoint::kComposeboxDriveContextMenuOptionBubble:
     case signin_metrics::AccessPoint::kSkills:
     case signin_metrics::AccessPoint::kAccountMenuSignedOutState:
+    case signin_metrics::AccessPoint::kAppSwitcherAISummarization:
+    case signin_metrics::AccessPoint::kGeminiExternalAppStoreEvent:
+    case signin_metrics::AccessPoint::kPasswordManagerCard:
       return nullptr;
   }
 }
@@ -603,6 +615,9 @@ const char* AlreadySeenSigninViewPreferenceKey(
     case signin_metrics::AccessPoint::kComposeboxDriveContextMenuOptionBubble:
     case signin_metrics::AccessPoint::kSkills:
     case signin_metrics::AccessPoint::kAccountMenuSignedOutState:
+    case signin_metrics::AccessPoint::kAppSwitcherAISummarization:
+    case signin_metrics::AccessPoint::kGeminiExternalAppStoreEvent:
+    case signin_metrics::AccessPoint::kPasswordManagerCard:
       return nullptr;
   }
 }
@@ -861,7 +876,7 @@ id<SystemIdentity> GetDisplayedIdentity(
                           userGivenName:self.displayedIdentity.userGivenName
                               userImage:self.displayedIdentityAvatar
                          hasCloseButton:hasCloseButton
-                       hasSignInSpinner:self.showSpinner];
+                       hasSignInSpinner:self.spinnerVisible];
     switch (self.signinPromoAction) {
       case SigninPromoAction::kSigninSheet:
       case SigninPromoAction::kInstantSignin:
@@ -881,7 +896,7 @@ id<SystemIdentity> GetDisplayedIdentity(
                       userGivenName:self.displayedIdentity.userGivenName
                           userImage:self.displayedIdentityAvatar
                      hasCloseButton:hasCloseButton
-                   hasSignInSpinner:self.showSpinner];
+                   hasSignInSpinner:self.spinnerVisible];
   }
   SigninPromoViewConfigurator* configurator =
       [[SigninPromoViewConfigurator alloc]
@@ -890,7 +905,7 @@ id<SystemIdentity> GetDisplayedIdentity(
                         userGivenName:nil
                             userImage:nil
                        hasCloseButton:hasCloseButton
-                     hasSignInSpinner:self.showSpinner];
+                     hasSignInSpinner:self.spinnerVisible];
   switch (self.signinPromoAction) {
     case SigninPromoAction::kReviewAccountSettings:
       break;
@@ -904,7 +919,10 @@ id<SystemIdentity> GetDisplayedIdentity(
   return configurator;
 }
 
-- (void)signinPromoViewIsVisible {
+- (void)signingPromoDidBecomeVisible {
+  // Increments the "shown" counter used for histograms. Called when the signin
+  // promo view is visible. If the sign-in promo is already visible, this method
+  // does nothing.
   CHECK(![self isClosedOrDisconnected], base::NotFatalUntil::M156)
       << base::SysNSStringToUTF8([self description]);
   if (self.signinPromoViewVisible) {
@@ -1010,7 +1028,7 @@ id<SystemIdentity> GetDisplayedIdentity(
 
 #pragma mark - Public properties
 
-- (BOOL)showSpinner {
+- (BOOL)spinnerVisible {
   // In the unknown case, the sign-in is very probably in progress.
   // It’s quite rare that the sign-in’s view disappear silently. So it seems
   // safe to show the spinner even if the screen is not otherwise frozen.
@@ -1099,7 +1117,7 @@ id<SystemIdentity> GetDisplayedIdentity(
 // progress. This is to avoid updating the sign-in promo view in the
 // background.
 - (void)sendConsumerNotification {
-  if (self.showSpinner) {
+  if (self.spinnerVisible) {
     return;
   }
   SigninPromoViewConfigurator* configurator = [self createConfigurator];

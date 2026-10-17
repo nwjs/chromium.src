@@ -56,7 +56,6 @@ include_rules = [
   "+chrome/browser/ui/webui/ash/lock_screen_reauth",
   "+chrome/browser/ui/webui/ash/login",
   "+chrome/browser/ui/webui/ash/mako",
-  "+chrome/browser/ui/webui/ash/manage_mirrorsync",
   "+chrome/browser/ui/webui/ash/multidevice_internals",
   "+chrome/browser/ui/webui/ash/multidevice_setup",
   "+chrome/browser/ui/webui/ash/network_ui",
@@ -77,9 +76,6 @@ include_rules = [
 ]
 
 specific_include_rules = {
-  "ash_web_ui_config_manager\\.cc": [
-    "+chrome/browser/consent_auditor/consent_auditor_factory.h",
-  ],
   "ash_web_ui_config_manager_unittest\\.cc": [
     "+chrome/test/base/testing_browser_process.h",
   ],

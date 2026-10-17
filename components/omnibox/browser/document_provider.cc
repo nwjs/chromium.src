@@ -554,7 +554,7 @@ void DocumentProvider::AddProviderInfo(ProvidersInfo* provider_info) const {
 
 DocumentProvider::DocumentProvider(AutocompleteProviderClient* client,
                                    AutocompleteProviderListener* listener)
-    : AutocompleteProvider(AutocompleteProvider::TYPE_DOCUMENT),
+    : AutocompleteProvider(AutocompleteProvider::Type::kDocument),
       client_(client),
       debouncer_(std::make_unique<AutocompleteProviderDebouncer>(
           true,
@@ -776,8 +776,9 @@ ACMatches DocumentProvider::ParseDocumentSearchResults(
       score = 0;
     }
 
-    AutocompleteMatch match(this, score, false,
-                            AutocompleteMatchType::DOCUMENT_SUGGESTION);
+    AutocompleteMatch match(
+        this, score, false,
+        omnibox::AutocompleteMatchType::kDocumentSuggestion);
     // Only allow valid HTTP or HTTPS URLs.
     GURL destination_url = GURL(url);
     if (!destination_url.is_valid() ||

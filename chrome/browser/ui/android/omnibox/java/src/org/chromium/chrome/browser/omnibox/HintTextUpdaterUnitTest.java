@@ -50,6 +50,7 @@ import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.components.contextual_search.InputState;
+import org.chromium.components.contextual_search.InputStateBuilder;
 import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.omnibox.AutocompleteInput;
@@ -57,7 +58,7 @@ import org.chromium.components.omnibox.AutocompleteInput.DisplayState;
 import org.chromium.components.omnibox.AutocompleteInput.SiteSearchData;
 import org.chromium.components.omnibox.AutocompleteRequestType;
 import org.chromium.components.omnibox.ToolConfigProto.ToolConfig;
-import org.chromium.components.omnibox.ToolModeProto.ToolMode;
+import org.chromium.components.omnibox.ToolModeProtoIntDef.ToolMode;
 import org.chromium.url.GURL;
 
 /** Unit tests for {@link HintTextUpdater}. */
@@ -234,22 +235,22 @@ public class HintTextUpdaterUnitTest {
 
         ToolConfig aiModeConfig =
                 ToolConfig.newBuilder()
-                        .setTool(ToolMode.TOOL_MODE_UNSPECIFIED)
+                        .setToolValue(ToolMode.TOOL_MODE_UNSPECIFIED)
                         .setHintText(aiModeHint)
                         .build();
         ToolConfig imageGenConfig =
                 ToolConfig.newBuilder()
-                        .setTool(ToolMode.TOOL_MODE_IMAGE_GEN)
+                        .setToolValue(ToolMode.TOOL_MODE_IMAGE_GEN)
                         .setHintText(imageGenHint)
                         .build();
         ToolConfig deepSearchConfig =
                 ToolConfig.newBuilder()
-                        .setTool(ToolMode.TOOL_MODE_DEEP_SEARCH)
+                        .setToolValue(ToolMode.TOOL_MODE_DEEP_SEARCH)
                         .setHintText(deepSearchHint)
                         .build();
         ToolConfig canvasConfig =
                 ToolConfig.newBuilder()
-                        .setTool(ToolMode.TOOL_MODE_CANVAS)
+                        .setToolValue(ToolMode.TOOL_MODE_CANVAS)
                         .setHintText(canvasHint)
                         .build();
         byte[][] toolConfigs =
@@ -264,7 +265,7 @@ public class HintTextUpdaterUnitTest {
         verify(mUpdateHintTextCallback).onResult(eq(searchEngineHint));
         clearInvocations(mUpdateHintTextCallback);
 
-        InputState inputState = new InputState.Builder().withToolConfigs(toolConfigs).build();
+        InputState inputState = new InputStateBuilder().withToolConfigs(toolConfigs).build();
         mInputStateSupplier.set(inputState);
 
         mAutocompleteInput.setRequestType(AutocompleteRequestType.IMAGE_GENERATION);
@@ -291,7 +292,7 @@ public class HintTextUpdaterUnitTest {
                 .thenReturn(mComposeboxQueryControllerBridge);
 
         clearInvocations(mUpdateHintTextCallback);
-        InputState emptyHintState = new InputState.Builder().withHintText("").build();
+        InputState emptyHintState = new InputStateBuilder().withHintText("").build();
         mInputStateSupplier.set(emptyHintState);
         mUpdater.onTitleChanged();
         verify(mUpdateHintTextCallback).onResult(eq(searchEngineHint));
@@ -369,6 +370,41 @@ public class HintTextUpdaterUnitTest {
     public void testAimActivationHint_ShowEmptyHintWhenTrackerSaysNo() {
         when(mTracker.shouldTriggerHelpUi(FeatureConstants.AIM_ACTIVATION_HINT)).thenReturn(false);
         mFuseboxStateSupplier.set(FuseboxState.COMPACT);
+        mFuseboxLayoutModeSupplier.set(FuseboxLayoutMode.SUGGESTIONS_POPOVER);
+        mActivationChipVisibilitySupplier.set(true);
+        mAutocompleteInput.setRequestType(AutocompleteRequestType.SEARCH);
+        mAutocompleteInput.setUserText("");
+
+        clearInvocations(mUpdateHintTextCallback);
+        mUpdater.onTitleChanged();
+
+        verify(mUpdateHintTextCallback).onResult(eq(""));
+    }
+
+    @Test
+    public void testAimActivationHint_FuseboxDisabled_showsHint() {
+        when(mTracker.shouldTriggerHelpUi(FeatureConstants.AIM_ACTIVATION_HINT)).thenReturn(true);
+        mFuseboxStateSupplier.set(FuseboxState.DISABLED);
+        mFuseboxLayoutModeSupplier.set(FuseboxLayoutMode.SUGGESTIONS_POPOVER);
+        mActivationChipVisibilitySupplier.set(true);
+        mAutocompleteInput.setRequestType(AutocompleteRequestType.SEARCH);
+        mAutocompleteInput.setUserText("");
+
+        clearInvocations(mUpdateHintTextCallback);
+        mUpdater.onTitleChanged();
+
+        verify(mUpdateHintTextCallback).onResult(mHintTextCaptor.capture());
+        assertTrue(
+                mHintTextCaptor
+                        .getValue()
+                        .toString()
+                        .contains("Press tab then enter to ask AI Mode"));
+    }
+
+    @Test
+    public void testAimActivationHint_FuseboxDisabled_showsEmptyHintWhenTrackerSaysNo() {
+        when(mTracker.shouldTriggerHelpUi(FeatureConstants.AIM_ACTIVATION_HINT)).thenReturn(false);
+        mFuseboxStateSupplier.set(FuseboxState.DISABLED);
         mFuseboxLayoutModeSupplier.set(FuseboxLayoutMode.SUGGESTIONS_POPOVER);
         mActivationChipVisibilitySupplier.set(true);
         mAutocompleteInput.setRequestType(AutocompleteRequestType.SEARCH);

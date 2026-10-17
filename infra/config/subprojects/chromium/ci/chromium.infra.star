@@ -49,6 +49,7 @@ def packager_builder(**kwargs):
 
 packager_builder(
     name = "3pp-linux-amd64-packager",
+    description_html = "Chromium 3PP packager on Linux AMD64 platform.",
     executable = "recipe:chromium_3pp",
     # Every 6 hours starting at 5am UTC.
     schedule = "0 5/6 * * * *",
@@ -64,13 +65,6 @@ packager_builder(
     properties = {
         "$build/chromium_3pp": {
             "platform": "linux-amd64",
-            "preprocess": [{
-                "name": "third_party/android_deps",
-                "cmd": [
-                    "{CHECKOUT}/src/third_party/android_deps/fetch_all.py",
-                    "-v",
-                ],
-            }],
             "gclient_config": "chromium",
             "gclient_apply_config": ["android"],
         },
@@ -79,6 +73,7 @@ packager_builder(
 
 packager_builder(
     name = "3pp-mac-amd64-packager",
+    description_html = "Chromium 3PP packager on Mac AMD64 platform.",
     executable = "recipe:chromium_3pp",
     # Every 6 hours starting at 5am UTC.
     schedule = "0 5/6 * * * *",
@@ -135,6 +130,7 @@ packager_builder(
     builderless = True,
     cores = None,
     os = os.WINDOWS_DEFAULT,
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "packager|3pp|win",
         short_name = "amd64",
@@ -151,10 +147,12 @@ packager_builder(
 
 packager_builder(
     name = "android-androidx-packager",
+    description_html = "Packages AndroidX dependencies for Chromium Android builds.",
     executable = "recipe:android/androidx_packager",
     schedule = "0 7,14,22 * * * *",
     triggered_by = [],
     pool = "luci.chromium.provenance.ci",
+    ssd = True,
     gardener_rotations = gardener_rotations.ANDROID,
     console_view_entry = consoles.console_view_entry(
         category = "packager|android",
@@ -166,6 +164,7 @@ packager_builder(
 
 packager_builder(
     name = "android-avd-packager",
+    description_html = "Packages Android Virtual Device (AVD) system images for Chromium Android emulators.",
     executable = "recipe:android/avd_packager",
     # Triggered manually through the scheduler UI
     # https://luci-scheduler.appspot.com/jobs/chromium/android-avd-packager
@@ -208,6 +207,7 @@ packager_builder(
 
 packager_builder(
     name = "android-sdk-packager",
+    description_html = "Packages Android SDK tools and platforms for Chromium Android builds.",
     executable = "recipe:android/sdk_packager",
     schedule = "0 7 * * *",
     triggered_by = [],
@@ -360,6 +360,7 @@ packager_builder(
 
 ci.builder(
     name = "android-device-flasher",
+    description_html = "Flashes Android device system images in Swarming test pools.",
     executable = "recipe:android/device_flasher",
     schedule = "0 9 * * 1,3",  # at 9am UTC every Monday and Wednesday.
     triggered_by = [],
@@ -425,6 +426,7 @@ packager_builder(
 
 ci.builder(
     name = "rts-suite-analysis",
+    description_html = "Analyzes test suite execution data for Regression Test Selection (RTS).",
     executable = "recipe:chromium_rts/rts_analyze",
     schedule = "0 9 * * *",  # at 1AM or 2AM PT (depending on DST), once a day.
     triggered_by = [],
@@ -475,6 +477,9 @@ ci.builder(
         short_name = "ssci",
     ),
     contact_team_email = "chops-security-core@google.com",
+    properties = {
+        "crowbar_role": "ROLE_CI_BUILDER",
+    },
     service_account = "chromium-roller@chops-crowbar.iam.gserviceaccount.com",
     shadow_pool = None,
     shadow_service_account = None,

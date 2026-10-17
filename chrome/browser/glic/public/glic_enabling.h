@@ -11,6 +11,7 @@
 
 #include "base/auto_reset.h"
 #include "base/callback_list.h"
+#include "base/containers/flat_set.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/scoped_observation.h"
@@ -291,8 +292,8 @@ class GlicEnabling final : public signin::IdentityManager::Observer,
   static bool IsContextualMenuItemEnabled(Profile* profile,
                                           const std::u16string& selection_text);
 
-  // Whether the selection prompt is enabled.
-  static bool IsSelectionPromptEnabledForProfile(Profile* profile);
+  // Whether the inline cue is enabled.
+  static bool IsInlineCueEnabledForProfile(Profile* profile);
 
   // Returns true if Glic is enabled for the profile, the feature is enabled,
   // and the account is non-enterprise (or for Glic dev).
@@ -524,6 +525,10 @@ class GlicEnabling final : public signin::IdentityManager::Observer,
   syncer::DeviceInfo::GlicExperimentalTriggeringState
   GetExperimentalTriggeringState() const;
 
+  // Returns the capabilities supported for Glic experimental triggering, or
+  // an empty set if unavailable.
+  base::flat_set<std::string> GetExperimentalTriggeringCapabilities() const;
+
   // Returns the version of the Glic experimental triggering protocol
   // supported by the current client, or std::nullopt if unavailable.
   std::optional<int> GetExperimentalTriggeringVersion() const;
@@ -619,6 +624,8 @@ class GlicEnabling final : public signin::IdentityManager::Observer,
 
   // subscription_eligibility::SubscriptionEligibilityService::Observer:
   void OnAiSubscriptionTierUpdated(int32_t new_subscription_tier) override;
+  void OnSubscriptionBenefitsUpdated(
+      const base::flat_set<std::string>& subscription_benefits) override;
 
   // Detects changes to capabilities.
   void OnExtendedAccountInfoUpdated(const AccountInfo& info) override;

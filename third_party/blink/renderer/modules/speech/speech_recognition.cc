@@ -26,10 +26,13 @@
 #include "third_party/blink/renderer/modules/speech/speech_recognition.h"
 
 #include <algorithm>
+#include <optional>
 
 #include "base/check.h"
 #include "base/compiler_specific.h"
+#include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/time/time.h"
 #include "build/build_config.h"
 #include "media/base/audio_parameters.h"
 #include "media/base/channel_layout.h"
@@ -72,10 +75,38 @@ const char kExceptionMessageCrossOriginAccess[] =
     "Access denied from cross-origin iframes.";
 const char kExceptionMessagePermissionPolicy[] =
     "Access denied because the Permission Policy is not enabled.";
+constexpr char kExceptionMessageDetachedContext[] =
+    "Execution context is detached.";
+constexpr char kExceptionMessageTransientActivationRequired[] =
+    "Requires handling a user gesture when availability is \"downloadable\".";
+constexpr char kExceptionMessageStickyActivationRequired[] =
+    "Requires sticky activation when availability is \"downloadable\".";
 constexpr char kWebSpeechErrorOccurredHistogram[] =
     "Accessibility.WebSpeech.ErrorOccurred";
 constexpr char kWebSpeechSetProcessLocallyHistogram[] =
     "Accessibility.WebSpeech.SetProcessLocally";
+constexpr char kWebSpeechDownloadActivationOutcomeHistogram[] =
+    "Accessibility.WebSpeech.DownloadActivationOutcome";
+
+// LINT.IfChange(WebSpeechDownloadActivationOutcome)
+//
+// Outcome of SpeechRecognition.install() activation check without transient
+// activation. Persisted to logs; entries must not be renumbered and values
+// must never be reused.
+enum class WebSpeechDownloadActivationOutcome {
+  // Blocked: relaxed path not authorized.
+  kBlockedNoTransientActivation = 0,
+  // Blocked: missing sticky activation.
+  kBlockedNoStickyActivation = 1,
+  // Allowed with sticky activation.
+  kRelaxed = 2,
+  // Allowed without sticky activation (requirement disabled).
+  kAllowedNoStickyActivation = 3,
+  kMaxValue = kAllowedNoStickyActivation,
+};
+
+// LINT.ThenChange(//tools/metrics/histograms/metadata/accessibility/enums.xml:WebSpeechDownloadActivationOutcome,
+// //third_party/blink/renderer/modules/speech/speech_recognition_test.cc:WebSpeechDownloadActivationOutcome)
 
 blink::V8AvailabilityStatus AvailabilityStatusToV8(
     media::mojom::blink::AvailabilityStatus status) {
@@ -85,7 +116,7 @@ blink::V8AvailabilityStatus AvailabilityStatusToV8(
           blink::V8AvailabilityStatus::Enum::kUnavailable);
     case media::mojom::blink::AvailabilityStatus::kDownloadable:
     case media::mojom::blink::AvailabilityStatus::
-        kDownloadableWithoutUserActivation:
+        kDownloadableWithoutTransientUserActivation:
       return blink::V8AvailabilityStatus(
           blink::V8AvailabilityStatus::Enum::kDownloadable);
     case media::mojom::blink::AvailabilityStatus::kDownloading:
@@ -204,7 +235,7 @@ ScriptPromise<V8AvailabilityStatus> SpeechRecognition::available(
   auto* controller = SpeechRecognitionController::From(window);
   if (!controller || !script_state->ContextIsValid()) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
-                                      "Execution context is detached.");
+                                      kExceptionMessageDetachedContext);
     return EmptyPromise();
   }
 
@@ -263,7 +294,7 @@ ScriptPromise<IDLBoolean> SpeechRecognition::install(
   auto* controller = SpeechRecognitionController::From(window);
   if (!controller || !script_state->ContextIsValid()) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
-                                      "Execution context is detached.");
+                                      kExceptionMessageDetachedContext);
     return EmptyPromise();
   }
   if (options->langs().empty()) {
@@ -307,50 +338,73 @@ ScriptPromise<IDLBoolean> SpeechRecognition::install(
              ScriptState* script_state,
              const blink::SpeechRecognitionOptions* options,
              media::mojom::blink::AvailabilityStatus status) {
+            if (!script_state->ContextIsValid()) {
+              return;
+            }
             LocalDOMWindow& window = *LocalDOMWindow::From(script_state);
             auto* controller = SpeechRecognitionController::From(window);
-            if (!window.IsServiceWorkerGlobalScope()) {
-              switch (status) {
-                case media::mojom::blink::AvailabilityStatus::kDownloadable: {
-                  bool has_transient_user_activation =
-                      LocalFrame::ConsumeTransientUserActivation(
-                          window.GetFrame());
-                  if (!has_transient_user_activation) {
-                    base::UmaHistogramBoolean(
-                        "Accessibility.WebSpeech.DownloadRelaxed", false);
-                    resolver->RejectWithDOMException(
-                        DOMExceptionCode::kNotAllowedError,
-                        "Requires handling a user gesture when availability is "
-                        "\"downloadable\".");
-                    return;
-                  }
-                  break;
-                }
-                case media::mojom::blink::AvailabilityStatus::
-                    kDownloadableWithoutUserActivation: {
-                  bool has_transient_user_activation =
-                      LocalFrame::HasTransientUserActivation(window.GetFrame());
-                  if (!has_transient_user_activation) {
-                    // We intentionally do not consume the transient user
-                    // activation in the relaxed flow, allowing the gesture to
-                    // be used for other APIs. We also intentionally only log
-                    // the UMA when the relaxation explicitly saved a blocked
-                    // request (i.e. when there was no transient user
-                    // activation).
-                    base::UmaHistogramBoolean(
-                        "Accessibility.WebSpeech.DownloadRelaxed", true);
-                  }
-                  break;
-                }
-                case media::mojom::blink::AvailabilityStatus::kUnavailable:
-                  resolver->Resolve(false);
+            LocalFrame* frame = window.GetFrame();
+            if (!controller || !frame) {
+              resolver->RejectWithDOMException(
+                  DOMExceptionCode::kInvalidStateError,
+                  kExceptionMessageDetachedContext);
+              return;
+            }
+            switch (status) {
+              case media::mojom::blink::AvailabilityStatus::kDownloadable: {
+                if (!LocalFrame::ConsumeTransientUserActivation(frame)) {
+                  base::UmaHistogramEnumeration(
+                      kWebSpeechDownloadActivationOutcomeHistogram,
+                      WebSpeechDownloadActivationOutcome::
+                          kBlockedNoTransientActivation);
+                  resolver->RejectWithDOMException(
+                      DOMExceptionCode::kNotAllowedError,
+                      kExceptionMessageTransientActivationRequired);
                   return;
-                case media::mojom::blink::AvailabilityStatus::kDownloading:
-                case media::mojom::blink::AvailabilityStatus::kAvailable:
-                  // These statuses don't require special user activation checks
-                  // for installation.
-                  break;
+                }
+                break;
               }
+              case media::mojom::blink::AvailabilityStatus::
+                  kDownloadableWithoutTransientUserActivation: {
+                // Do not consume transient activation in the relaxed path.
+                if (LocalFrame::HasTransientUserActivation(frame)) {
+                  break;
+                }
+                // Sticky activation is required. Outcome reflects observed
+                // activation to measure impact when disabled.
+                const bool has_sticky_activation =
+                    frame->HasStickyUserActivation();
+                const bool enforce_sticky_activation =
+                    base::FeatureList::IsEnabled(
+                        media::kOnDeviceWebSpeechRequiresStickyActivation);
+                WebSpeechDownloadActivationOutcome outcome;
+                if (has_sticky_activation) {
+                  outcome = WebSpeechDownloadActivationOutcome::kRelaxed;
+                } else if (enforce_sticky_activation) {
+                  outcome = WebSpeechDownloadActivationOutcome::
+                      kBlockedNoStickyActivation;
+                } else {
+                  outcome = WebSpeechDownloadActivationOutcome::
+                      kAllowedNoStickyActivation;
+                }
+                base::UmaHistogramEnumeration(
+                    kWebSpeechDownloadActivationOutcomeHistogram, outcome);
+                if (enforce_sticky_activation && !has_sticky_activation) {
+                  resolver->RejectWithDOMException(
+                      DOMExceptionCode::kNotAllowedError,
+                      kExceptionMessageStickyActivationRequired);
+                  return;
+                }
+                break;
+              }
+              case media::mojom::blink::AvailabilityStatus::kUnavailable:
+                resolver->Resolve(false);
+                return;
+              case media::mojom::blink::AvailabilityStatus::kDownloading:
+              case media::mojom::blink::AvailabilityStatus::kAvailable:
+                // These statuses don't require special user activation checks
+                // for installation.
+                break;
             }
 
             V8SpeechRecognitionQuality callback_quality =
@@ -387,12 +441,21 @@ void SpeechRecognition::ResultRetrieved(
       std::move(final_results_);
   aggregated_results.reserve(aggregated_results.size() + results.size());
 
+  // Track the end of the most recent audio recognized in this batch, so the
+  // dispatched event can be stamped with the time the speech actually ended
+  // rather than the time this event happened to be constructed.
+  std::optional<base::TimeDelta> latest_audio_end_time;
   for (const auto& result : results) {
     HeapVector<Member<SpeechRecognitionAlternative>> alternatives;
     alternatives.ReserveInitialCapacity(result->hypotheses.size());
     for (const auto& hypothesis : result->hypotheses) {
       alternatives.push_back(MakeGarbageCollected<SpeechRecognitionAlternative>(
           hypothesis->utterance, hypothesis->confidence));
+    }
+    if (result->audio_end_time.has_value() &&
+        (!latest_audio_end_time.has_value() ||
+         *result->audio_end_time > *latest_audio_end_time)) {
+      latest_audio_end_time = result->audio_end_time;
     }
     aggregated_results.push_back(SpeechRecognitionResult::Create(
         std::move(alternatives), !result->is_provisional,
@@ -411,10 +474,18 @@ void SpeechRecognition::ResultRetrieved(
           .first(aggregated_results.size() - provisional_count));
   final_results_ = std::move(new_final_results);
 
+  // The recognizer reports timestamps as offsets from the start of the audio
+  // stream, so rebase them onto the time the stream started. If the recognizer
+  // did not supply timestamps, or audio never started, fall back to now.
+  base::TimeTicks event_time_stamp = base::TimeTicks::Now();
+  if (latest_audio_end_time.has_value() && !audio_start_ticks_.is_null()) {
+    event_time_stamp = audio_start_ticks_ + *latest_audio_end_time;
+  }
+
   // We dispatch an event with (1) + (2) + (3).
   DispatchEvent(*SpeechRecognitionEvent::CreateResult(
       aggregated_results.size() - results.size(),
-      std::move(aggregated_results)));
+      std::move(aggregated_results), event_time_stamp));
 }
 
 void SpeechRecognition::ErrorOccurred(
@@ -437,6 +508,9 @@ void SpeechRecognition::Started() {
 }
 
 void SpeechRecognition::AudioStarted() {
+  // Per spec, result timestamps are relative to the `audiostart` event, so
+  // record that instant as the time origin for incoming result offsets.
+  audio_start_ticks_ = base::TimeTicks::Now();
   DispatchEvent(*Event::Create(event_type_names::kAudiostart));
 }
 
@@ -663,6 +737,7 @@ void SpeechRecognition::StartInternal() {
   }
 
   final_results_.clear();
+  audio_start_ticks_ = base::TimeTicks();
 
   auto task_runner =
       GetExecutionContext()->GetTaskRunner(TaskType::kMiscPlatformAPI);

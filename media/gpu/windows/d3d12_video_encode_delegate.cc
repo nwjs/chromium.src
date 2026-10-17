@@ -4,14 +4,23 @@
 
 #include "media/gpu/windows/d3d12_video_encode_delegate.h"
 
+#include <algorithm>
+#include <map>
+#include <optional>
 #include <ranges>
+#include <utility>
 
 #include "base/bits.h"
-#include "base/containers/fixed_flat_set.h"
+#include "base/containers/fixed_flat_map.h"
 #include "base/logging.h"
+#include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/strcat.h"
+#include "base/strings/string_number_conversions.h"
 #include "media/base/media_switches.h"
+#include "media/base/video_codecs.h"
+#include "media/base/video_frame.h"
+#include "media/base/video_types.h"
 #include "media/base/win/mf_helpers.h"
 #include "media/gpu/gpu_video_encode_accelerator_helpers.h"
 #include "media/gpu/h264_dpb.h"
@@ -21,6 +30,7 @@
 #include "media/gpu/windows/d3d12_video_encoder_wrapper.h"
 #include "media/gpu/windows/format_utils.h"
 #include "third_party/microsoft_dxheaders/src/include/directx/d3dx12_core.h"
+#include "ui/gfx/color_space_win.h"
 
 #if BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER)
 #include "media/gpu/windows/d3d12_video_encode_h265_delegate.h"
@@ -42,15 +52,28 @@ namespace media {
 
 namespace {
 
-bool Is420Subsampled(DXGI_FORMAT format) {
+// How many luma samples share one chroma sample, horizontally and vertically.
+struct ChromaSubsampling {
+  int x = 1;
+  int y = 1;
+};
+
+ChromaSubsampling GetChromaSubsampling(DXGI_FORMAT format) {
   switch (format) {
+    // 4:2:0: chroma is shared both horizontally and vertically.
     case DXGI_FORMAT_NV12:
     case DXGI_FORMAT_P010:
     case DXGI_FORMAT_P016:
     case DXGI_FORMAT_420_OPAQUE:
-      return true;
+      return {2, 2};
+    // 4:2:2: chroma is shared horizontally only.
+    case DXGI_FORMAT_Y210:
+    case DXGI_FORMAT_Y216:
+    case DXGI_FORMAT_YUY2:
+      return {2, 1};
+    // 4:4:4 and RGB have a chroma sample per pixel, so any crop is expressible.
     default:
-      return false;
+      return {1, 1};
   }
 }
 
@@ -84,8 +107,10 @@ bool IsVBRSupported(ID3D12VideoDevice3* video_device,
   return SUCCEEDED(hr) && vbr.IsSupported;
 }
 
-DXGI_FORMAT GetDxgiInputFormat(VideoCodecProfile output_profile,
-                               VideoPixelFormat input_format) {
+// Returns the DXGI format the encoder should consume for |output_profile|, or
+// std::nullopt if |input_format| cannot be encoded into that profile.
+std::optional<DXGI_FORMAT> GetDxgiInputFormat(VideoCodecProfile output_profile,
+                                              VideoPixelFormat input_format) {
   // H.264 high10 and HEVC main10 are 10 bit by definition, while AV1 main
   // covers both 8 and 10 bit, so for AV1 main the input format is what decides
   // the coded bit depth.
@@ -95,10 +120,74 @@ DXGI_FORMAT GetDxgiInputFormat(VideoCodecProfile output_profile,
        input_format == PIXEL_FORMAT_P010LE)) {
     return DXGI_FORMAT_P010;
   } else if (output_profile == AV1PROFILE_PROFILE_HIGH) {
-    return DXGI_FORMAT_AYUV;
+    switch (input_format) {
+      case PIXEL_FORMAT_P410LE:
+        return DXGI_FORMAT_Y410;  // 10 bit 4:4:4
+      case PIXEL_FORMAT_P010LE:
+      case PIXEL_FORMAT_P210LE:
+        return std::nullopt;
+      default:
+        return DXGI_FORMAT_AYUV;  // 8 bit inputs
+    }
+  } else if (output_profile == HEVCPROFILE_REXT) {
+    // The input format selects the range extension profile variant and thus
+    // the DXGI format of the coded stream. Only the 10 bit variants are
+    // supported; 8 bit range extension uses the upstream 4:4:4 path.
+    switch (input_format) {
+      case PIXEL_FORMAT_P210LE:
+        return DXGI_FORMAT_Y210;  // main10_422, 10 bit 4:2:2
+      case PIXEL_FORMAT_P410LE:
+        return DXGI_FORMAT_Y410;  // main10_444, 10 bit 4:4:4
+      default:
+        return std::nullopt;
+    }
   } else {
     return DXGI_FORMAT_NV12;
   }
+}
+
+// The shared image formats the encoder advertises as GPU inputs, with the
+// DXGI format the video processor sees them as. These follow the texture
+// formats Chromium actually creates on Windows (D3DImageBackingFactory): the
+// B-first 32bpp formats are B8G8R8A8 and the R-first ones R8G8B8A8 textures,
+// with the X channel carried as opaque alpha — the D3D shared image factory
+// creates no X8 layouts.
+constexpr auto kGpuSharedImageFormatCandidates =
+    base::MakeFixedFlatMap<VideoPixelFormat, DXGI_FORMAT>({
+        {PIXEL_FORMAT_NV12, DXGI_FORMAT_NV12},
+        {PIXEL_FORMAT_P010LE, DXGI_FORMAT_P010},
+        {PIXEL_FORMAT_ARGB, DXGI_FORMAT_B8G8R8A8_UNORM},
+        {PIXEL_FORMAT_XRGB, DXGI_FORMAT_B8G8R8A8_UNORM},
+        {PIXEL_FORMAT_ABGR, DXGI_FORMAT_R8G8B8A8_UNORM},
+        {PIXEL_FORMAT_XBGR, DXGI_FORMAT_R8G8B8A8_UNORM},
+        {PIXEL_FORMAT_XB30, DXGI_FORMAT_R10G10B10A2_UNORM},
+        {PIXEL_FORMAT_RGBAF16, DXGI_FORMAT_R16G16B16A16_FLOAT},
+    });
+
+// Whether the video processor can convert |input_format| to |output_format|.
+// Probed at a representative resolution with BT.709; format pair support does
+// not depend on the resolution or the color space.
+bool IsVideoProcessorFormatPairSupported(ID3D12VideoDevice3* video_device,
+                                         DXGI_FORMAT input_format,
+                                         DXGI_FORMAT output_format) {
+  const gfx::ColorSpace rec709 = gfx::ColorSpace::CreateREC709();
+  D3D12_FEATURE_DATA_VIDEO_PROCESS_SUPPORT support{
+      .InputSample = {.Width = 1280,
+                      .Height = 720,
+                      .Format = {.Format = input_format,
+                                 .ColorSpace =
+                                     gfx::ColorSpaceWin::GetDXGIColorSpace(
+                                         rec709)}},
+      .InputFrameRate = {30, 1},
+      .OutputFormat = {.Format = output_format,
+                       .ColorSpace =
+                           gfx::ColorSpaceWin::GetDXGIColorSpace(rec709)},
+      .OutputFrameRate = {30, 1},
+  };
+  HRESULT hr = video_device->CheckFeatureSupport(
+      D3D12_FEATURE_VIDEO_PROCESS_SUPPORT, &support, sizeof(support));
+  return SUCCEEDED(hr) &&
+         support.SupportFlags == D3D12_VIDEO_PROCESS_SUPPORT_FLAG_SUPPORTED;
 }
 
 }  // namespace
@@ -110,6 +199,21 @@ D3D12VideoEncodeDelegate::GetSupportedProfiles(
     const gpu::GpuDriverBugWorkarounds& gpu_workarounds,
     const std::vector<D3D12_VIDEO_ENCODER_CODEC>& codecs) {
   CHECK(video_device);
+  // Video processor support is queried per (candidate, encoder input) DXGI
+  // format pair, and the same pair recurs across profiles and codecs. Cache
+  // the results for this call: the device does not change within it, so each
+  // pair only needs one probe.
+  std::map<std::pair<DXGI_FORMAT, DXGI_FORMAT>, bool> vp_support_cache;
+  auto supports_vp_format_pair = [&](DXGI_FORMAT source_format,
+                                     DXGI_FORMAT target_format) {
+    const auto [it, inserted] = vp_support_cache.try_emplace(
+        std::make_pair(source_format, target_format), false);
+    if (inserted) {
+      it->second = IsVideoProcessorFormatPairSupported(
+          video_device, source_format, target_format);
+    }
+    return it->second;
+  };
   VideoEncodeAccelerator::SupportedProfiles supported_profiles;
   for (D3D12_VIDEO_ENCODER_CODEC codec : codecs) {
     D3D12_FEATURE_DATA_VIDEO_ENCODER_CODEC codec_support{.Codec = codec};
@@ -194,16 +298,46 @@ D3D12VideoEncodeDelegate::GetSupportedProfiles(
     for (const auto& [profile, formats] : profiles) {
       supported_profile.profile = profile;
       supported_profile.gpu_supported_pixel_formats = formats;
+      // The range extension profile variant is identified by its input format,
+      // so report its chroma subsampling and bit depth for the client to match
+      // encode options, like the macOS encoder does. The regular profiles
+      // leave both fields empty.
+      if (profile == HEVCPROFILE_REXT) {
+        supported_profile.chroma_sampling =
+            VideoPixelFormatToChromaSampling(formats[0]);
+        supported_profile.bit_depth =
+            base::checked_cast<uint8_t>(BitDepth(formats[0]));
+      } else if (profile == AV1PROFILE_PROFILE_HIGH &&
+                 BitDepth(formats[0]) > 8) {
+        // Only the 10 bit high profile entry reports the fields: the 8 bit
+        // entry must keep matching the legacy inputs that are converted to
+        // AYUV (NV12 and other 8 bit formats), so it stays unconstrained.
+        supported_profile.chroma_sampling = VideoChromaSampling::k444;
+        supported_profile.bit_depth =
+            base::checked_cast<uint8_t>(BitDepth(formats[0]));
+      } else {
+        supported_profile.chroma_sampling = std::nullopt;
+        supported_profile.bit_depth = std::nullopt;
+      }
       if (supports_shared_image) {
-        static constexpr auto kSupportedPixelFormatD3D12VideoProcessing =
-            base::MakeFixedFlatSet<VideoPixelFormat>(
-                {PIXEL_FORMAT_I420, PIXEL_FORMAT_NV12, PIXEL_FORMAT_YV12,
-                 PIXEL_FORMAT_NV21, PIXEL_FORMAT_ARGB, PIXEL_FORMAT_XRGB,
-                 PIXEL_FORMAT_ABGR, PIXEL_FORMAT_XBGR});
+        std::vector<VideoPixelFormat> shared_image_formats;
+        const DXGI_FORMAT encoder_input_format =
+            GetDxgiInputFormat(profile, formats[0])
+                .value_or(DXGI_FORMAT_UNKNOWN);
+        if (encoder_input_format != DXGI_FORMAT_UNKNOWN) {
+          for (const auto& [pixel_format, dxgi_format] :
+               kGpuSharedImageFormatCandidates) {
+            if (dxgi_format == encoder_input_format ||
+                supports_vp_format_pair(dxgi_format, encoder_input_format)) {
+              shared_image_formats.push_back(pixel_format);
+            }
+          }
+        }
+        supported_profile.supports_gpu_shared_images =
+            !shared_image_formats.empty();
         std::ranges::copy(
-            kSupportedPixelFormatD3D12VideoProcessing,
+            shared_image_formats,
             std::back_inserter(supported_profile.gpu_supported_pixel_formats));
-        supported_profile.supports_gpu_shared_images = supports_shared_image;
       }
       supported_profiles.push_back(supported_profile);
     }
@@ -246,14 +380,48 @@ EncoderStatus D3D12VideoEncodeDelegate::Initialize(
   input_size_.Width = config.input_visible_size.width();
   input_size_.Height = config.input_visible_size.height();
 
-  input_format_ = GetDxgiInputFormat(output_profile_, config.input_format);
+  std::optional<DXGI_FORMAT> input_format =
+      GetDxgiInputFormat(output_profile_, config.input_format);
+  if (!input_format) {
+    return {EncoderStatus::Codes::kEncoderUnsupportedConfig,
+            base::StrCat({"Input format ",
+                          VideoPixelFormatToString(config.input_format),
+                          " cannot be encoded into profile ",
+                          GetProfileName(output_profile_)})};
+  }
+  input_format_ = *input_format;
   processed_input_frame_.Reset();
+
+  // A packed 4:2:2 macro-pixel covers two horizontally adjacent luma samples,
+  // so an odd width has no representation in the encoder input surface. 4:2:0
+  // formats pad their half-resolution chroma planes instead and so are not
+  // constrained here; odd crops are still rejected per frame in Encode().
+  const ChromaSubsampling input_subsampling =
+      GetChromaSubsampling(input_format_);
+  if (input_subsampling.x == 2 && input_subsampling.y == 1 &&
+      config.input_visible_size.width() % 2 != 0) {
+    return {
+        EncoderStatus::Codes::kEncoderUnsupportedConfig,
+        base::StrCat({"Odd input width ",
+                      base::NumberToString(config.input_visible_size.width()),
+                      " is not supported for 4:2:2 encoding"})};
+  }
 
   bitrate_allocation_ = AllocateBitrateForDefaultEncoding(config);
   framerate_ = config.framerate;
   rate_control_ = D3D12VideoEncoderRateControl::Create(
       bitrate_allocation_, config.framerate, video_device_.Get(),
       output_profile_);
+
+  // The encoder wrapper will use this for allocating the bitstream buffer,
+  // make it at least as large as the estimated bitstream size and the size
+  // of an uncompressed frame, whichever is larger.
+  min_bitstream_buffer_size_ = std::max(
+      static_cast<uint64_t>(VideoEncodeAccelerator::EstimateBitstreamBufferSize(
+          config.bitrate, config.framerate, config.input_format,
+          config.input_visible_size)),
+      static_cast<uint64_t>(VideoFrame::AllocationSize(
+          config.input_format, config.input_visible_size)));
 
   static constexpr uint32_t kDefaultGOPLength = 3000;
   config.gop_length = config.gop_length.value_or(kDefaultGOPLength);
@@ -337,21 +505,22 @@ D3D12VideoEncodeDelegate::Encode(
                           " is not a valid region of the input texture ",
                           input_frame_rect.ToString()})};
   }
-  // 4:2:0 chroma is shared between neighboring row and column pairs, so an odd
-  // origin or size does not name a whole chroma sample and cannot be cropped
-  // to. Reject it rather than silently encoding a different region, matching
-  // MF VEA's behavior.
-  //
-  // Note that for 4:2:2 formats, x and width must be even. Make sure this is
-  // handled if in the future we allow GPU passthrough of such texture to the
-  // encoder.
-  if (Is420Subsampled(input_frame_desc.Format) &&
-      (input_visible_rect.x() % 2 != 0 || input_visible_rect.y() % 2 != 0 ||
-       input_visible_rect.width() % 2 != 0 ||
-       input_visible_rect.height() % 2 != 0)) {
+  // Subsampled chroma is shared between neighboring rows and/or columns, so an
+  // odd origin or size along a shared axis does not name a whole chroma sample
+  // and cannot be cropped to. Reject it rather than silently encoding a
+  // different region, matching MF VEA's behavior. 4:2:2 shares along x only,
+  // so its height is unconstrained.
+  const ChromaSubsampling subsampling =
+      GetChromaSubsampling(input_frame_desc.Format);
+  if (input_visible_rect.x() % subsampling.x != 0 ||
+      input_visible_rect.width() % subsampling.x != 0 ||
+      input_visible_rect.y() % subsampling.y != 0 ||
+      input_visible_rect.height() % subsampling.y != 0) {
     return {EncoderStatus::Codes::kInvalidInputFrame,
-            "Input frame visible rectangle is not properly aligned for a 4:2:0 "
-            "subsampled format"};
+            base::StrCat({"Input frame visible rectangle ",
+                          input_visible_rect.ToString(),
+                          " is not properly aligned for the subsampled input "
+                          "format"})};
   }
   const gfx::Rect encoder_input_rect(
       0, 0, base::checked_cast<int>(input_size_.Width),
@@ -678,6 +847,38 @@ EncoderStatus::Or<size_t> D3D12VideoEncodeDelegate::ReadbackBitstream(
     return status;
   }
   return size;
+}
+
+// Intel drivers allocate the reconstructed pictures for packed YUV encoder
+// input formats with an internal layout larger than the coded picture, so the
+// reference-only textures must be sized to match what the driver expects.
+// Their DXGI format has to stay Y210/Y410 or the D3D12 runtime rejects them at
+// encoder initialization, so only the dimensions can compensate.
+//
+// Both dimensions are first aligned to 64, and the height then grows by the
+// format's chroma factor: 3/2 for Y410 (10 bit 4:4:4) and 2 for Y210 (10 bit
+// 4:2:2). The aligned height keeps both multiplications exact. These rules
+// mirror the driver's internal allocation and were established empirically;
+// they apply only when the d3d12_encode_packed_format_dpb_sizing workaround is
+// active.
+gfx::Size D3D12VideoEncodeDelegate::GetAdjustedReferenceTextureSize(
+    gfx::Size texture_size) const {
+  if (!gpu_workarounds_.d3d12_encode_packed_format_dpb_sizing) {
+    return texture_size;
+  }
+  const gfx::Size aligned_size(
+      base::checked_cast<int>(base::bits::AlignUp(
+          base::checked_cast<uint32_t>(texture_size.width()), 64u)),
+      base::checked_cast<int>(base::bits::AlignUp(
+          base::checked_cast<uint32_t>(texture_size.height()), 64u)));
+  switch (input_format_) {
+    case DXGI_FORMAT_Y410:  // 10 bit 4:4:4: 3/2 the aligned height.
+      return gfx::Size(aligned_size.width(), aligned_size.height() * 3 / 2);
+    case DXGI_FORMAT_Y210:  // 10 bit 4:2:2: twice the aligned height.
+      return gfx::Size(aligned_size.width(), aligned_size.height() * 2);
+    default:
+      return texture_size;
+  }
 }
 
 template <size_t maxDpbSize>

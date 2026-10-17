@@ -8,7 +8,7 @@
 
 #include "base/check_deref.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/notimplemented.h"
+#include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/autofill/autofill_bubble_base.h"
@@ -81,9 +81,7 @@ std::u16string OfferNotificationBubbleControllerImpl::GetWindowTitle() const {
       return l10n_util::GetStringUTF16(
           IDS_AUTOFILL_GPAY_PROMO_CODE_OFFERS_REMINDER_TITLE);
     case AutofillOfferData::OfferType::WALLET_DIRECT_OFFER:
-      // TODO(crbug.com/546252995): Implement UI for Wallet Direct Offers.
-      NOTIMPLEMENTED();
-      return std::u16string();
+      return base::UTF8ToUTF16(offer_.GetOfferRewardAmount());
     case AutofillOfferData::OfferType::UNKNOWN:
       NOTREACHED();
   }
@@ -284,6 +282,9 @@ void OfferNotificationBubbleControllerImpl::HideBubbleAndClearTimestamp(
   bubble_shown_timestamp_ = std::nullopt;
 }
 
+// TODO(crbug.com/546252995): Investigate whether this override is needed, since
+// AutofillBubbleControllerBase::UpdatePageActionIcon() already updates the
+// page action and no other bubble overrides it.
 void OfferNotificationBubbleControllerImpl::UpdatePageActionIcon() {
   // Page action icons do not exist for Android.
 #if !BUILDFLAG(IS_ANDROID)
@@ -292,11 +293,16 @@ void OfferNotificationBubbleControllerImpl::UpdatePageActionIcon() {
   if (web_contents()->IsBeingDestroyed()) {
     return;
   }
+  // The tab has no browser window while it is being detached, e.g. when it is
+  // closed.
+  BrowserWindowInterface* const browser =
+      tab_interface_->GetBrowserWindowInterface();
+  if (!browser) {
+    return;
+  }
   actions::ActionId action_id = *GetActionIdForPageAction();
   auto* action = actions::ActionManager::Get().FindAction(
-      action_id,
-      BrowserActions::From(tab_interface_->GetBrowserWindowInterface())
-          ->root_action_item());
+      action_id, BrowserActions::From(browser)->root_action_item());
   action->SetEnabled(ShouldShowPageAction());
 #endif  // BUILDFLAG(IS_ANDROID)
 }

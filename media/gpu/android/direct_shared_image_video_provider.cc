@@ -110,7 +110,8 @@ void GpuSharedImageVideoFactory::Initialize(
     return;
   }
 
-  is_vulkan_ = shared_context->GrContextIsVulkan();
+  is_vulkan_ =
+      shared_context->GrContextIsVulkan() || shared_context->IsGraphiteVulkan();
 
   // Make the shared context current.
   auto scoped_current = std::make_unique<ui::ScopedMakeCurrent>(
@@ -149,7 +150,7 @@ void GpuSharedImageVideoFactory::CreateImage(
             ->gpu_channel_manager()
             ->gpu_preferences()
             .enable_threaded_texture_mailboxes;
-    const bool is_thread_safe = !drdc_lock;
+    const bool is_thread_safe = !!drdc_lock;
     // When threaded texture mailboxes are enabled and the SharedImage is not
     // thread-safe, it cannot be shared directly between contexts of different
     // share groups. Hence, DISPLAY_READ and SCANOUT usages are omitted so that

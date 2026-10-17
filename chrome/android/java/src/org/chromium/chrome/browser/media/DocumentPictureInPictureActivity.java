@@ -15,6 +15,7 @@ import android.content.res.Configuration;
 import android.graphics.Rect;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.OutcomeReceiver;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -28,7 +29,6 @@ import androidx.appcompat.app.AppCompatDelegate;
 import org.jni_zero.CalledByNative;
 import org.jni_zero.NativeMethods;
 
-import org.chromium.base.AconfigFlaggedApiDelegate;
 import org.chromium.base.IntentUtils;
 import org.chromium.base.Log;
 import org.chromium.base.ResettersForTesting;
@@ -42,7 +42,6 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.browser_controls.BrowserStateBrowserControlsVisibilityDelegate;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.init.AsyncInitializationActivity;
 import org.chromium.chrome.browser.media.document_picture_in_picture_header.DocumentPictureInPictureHeaderCoordinator;
 import org.chromium.chrome.browser.media.document_picture_in_picture_header.DocumentPictureInPictureHeaderDelegate;
@@ -275,16 +274,12 @@ public class DocumentPictureInPictureActivity extends AsyncInitializationActivit
     }
 
     private void goIntoPinnedMode() {
-        if (!sIgnoreSdkVersionForTesting && Build.VERSION.SDK_INT < Build.VERSION_CODES.BAKLAVA) {
-            Log.e(TAG, "SDK version is too low, minimum required is 36.");
-            finish();
+        if (sIgnoreSdkVersionForTesting) {
+            mIsPinned = true;
             return;
         }
-
-        final AconfigFlaggedApiDelegate aconfigFlaggedApiDelegate =
-                AconfigFlaggedApiDelegate.getInstance();
-        if (aconfigFlaggedApiDelegate == null) {
-            Log.e(TAG, "AconfigFlaggedApiDelegate is null");
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.CINNAMON_BUN) {
+            Log.e(TAG, "SDK version is too low, minimum required is 37.");
             finish();
             return;
         }
@@ -296,17 +291,25 @@ public class DocumentPictureInPictureActivity extends AsyncInitializationActivit
             return;
         }
 
-        aconfigFlaggedApiDelegate
-                .requestPinnedWindowingLayer(appTask, getMainExecutor())
-                .then(
-                        _ -> mIsPinned = true,
-                        (e) -> {
-                            Log.e(
-                                    TAG,
-                                    "Failed to request pinned windowing layer."
-                                            + (e == null ? "" : e.getMessage()));
+        OutcomeReceiver<Integer, Exception> receiver =
+                new OutcomeReceiver<Integer, Exception>() {
+                    @Override
+                    public void onResult(Integer result) {
+                        if (result == AppTask.WINDOWING_LAYER_REQUEST_GRANTED) {
+                            mIsPinned = true;
+                        } else {
+                            Log.e(TAG, "Failed to pin the task with result: %d", result);
                             finish();
-                        });
+                        }
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Log.e(TAG, "Failed to request pinned windowing layer.", e);
+                        finish();
+                    }
+                };
+        appTask.requestWindowingLayer(AppTask.WINDOWING_LAYER_PINNED, getMainExecutor(), receiver);
     }
 
     @Override
@@ -361,18 +364,16 @@ public class DocumentPictureInPictureActivity extends AsyncInitializationActivit
                         mParentWebContents,
                         mWebContents);
 
-        if (ChromeFeatureList.sAutoDocPipPermissionPromptAndroid.isEnabled()) {
-            WebContents webContents = mParentWebContents;
-            if (webContents != null
-                    && AutoPictureInPicturePermissionController.isAutoPictureInPictureInUse(
-                            webContents)) {
-                mThinWebView
-                        .getView()
-                        .post(
-                                () ->
-                                        AutoPictureInPicturePermissionController.showPromptIfNeeded(
-                                                this, mInitiatorTab, this::finish));
-            }
+        WebContents webContents = mParentWebContents;
+        if (webContents != null
+                && AutoPictureInPicturePermissionController.isAutoPictureInPictureInUse(
+                        webContents)) {
+            mThinWebView
+                    .getView()
+                    .post(
+                            () ->
+                                    AutoPictureInPicturePermissionController.showPromptIfNeeded(
+                                            this, mInitiatorTab, this::finish));
         }
 
         setupInitialBoundsListener(contentLayout);
@@ -409,12 +410,9 @@ public class DocumentPictureInPictureActivity extends AsyncInitializationActivit
         int height = windowBounds.height();
 
         // Check if we need to show the permission prompt and thus might need to enlarge the window.
-        boolean isPermissionPromptNeeded = false;
-        if (ChromeFeatureList.sAutoDocPipPermissionPromptAndroid.isEnabled()) {
-            isPermissionPromptNeeded =
-                    AutoPictureInPicturePermissionController.isPermissionPromptNeeded(
-                            mParentWebContents);
-        }
+        boolean isPermissionPromptNeeded =
+                AutoPictureInPicturePermissionController.isPermissionPromptNeeded(
+                        mParentWebContents);
 
         // Enforce minimum dimensions if the prompt is needed and requested bounds are too small.
         if (isPermissionPromptNeeded) {
@@ -710,10 +708,7 @@ public class DocumentPictureInPictureActivity extends AsyncInitializationActivit
             }
         }
 
-        if (ChromeFeatureList.sAutoDocPipPermissionPromptAndroid.isEnabled()
-                && mParentWebContents != null
-                && !mParentWebContents.isDestroyed()
-                && !mIsRecreating) {
+        if (mParentWebContents != null && !mParentWebContents.isDestroyed() && !mIsRecreating) {
             AutoPictureInPicturePermissionController.handleWindowDestruction(mParentWebContents);
         }
 

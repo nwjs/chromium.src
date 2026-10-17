@@ -68,6 +68,7 @@ void ApplyChromeSettingsRefresh2026ColorOverrides(ui::ColorMixer& mixer) {
   mixer[kColorSettingsNavMenuItemForegroundSelected] = {
       ui::kColorSysOnTonalContainer};
   mixer[kColorSettingsNavMenuItemIcon] = {ui::kColorSysOnSurfaceSubtle};
+  mixer[kColorToolbarSearchFieldTextColor] = {ui::kColorSysOnSurfaceSubtle};
 }
 
 }  // namespace
@@ -169,6 +170,14 @@ void AddMaterialChromeColorMixer(ui::ColorProvider* provider,
   mixer[kColorLensOverlayToastBackground] = {ui::kColorSysInverseSurface};
   mixer[kColorLensOverlayToastButtonBorder] = {ui::kColorSysInverseOnSurface};
   mixer[kColorLensOverlayToastForeground] = {ui::kColorSysInverseOnSurface};
+
+  // Glic selection overlay colors.
+  // These must stay above the `ShouldApplyChromeMaterialOverrides()` guard
+  // below, as the selection overlay preselection bubble is shown regardless of
+  // whether a custom theme is installed, see b/562065771.
+  mixer[kColorGlicSelectionOverlayToast] = {ui::kColorSysInverseSurfacePrimary};
+  mixer[kColorGlicSelectionOverlayToastCancelButton] = {
+      ui::kColorSysInversePrimary};
 
   // PageInfo colors.
   mixer[kColorPageInfoPermissionBlockedOnSystemLevelDisabled] = {
@@ -553,9 +562,6 @@ void AddMaterialChromeColorMixer(ui::ColorProvider* provider,
       ui::kColorGlicTabUnderline2};
   mixer[kColorGlicInactiveTabUnderlineGradient3] = {
       ui::kColorGlicTabUnderline3};
-  mixer[kColorGlicSelectionOverlayToast] = {ui::kColorSysInverseSurfacePrimary};
-  mixer[kColorGlicSelectionOverlayToastCancelButton] = {
-      ui::kColorSysInversePrimary};
 
   ApplyChromeRefresh2026ColorOverrides(mixer);
   ApplyChromeSettingsRefresh2026ColorOverrides(mixer);

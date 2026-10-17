@@ -57,6 +57,7 @@
 #include "cc/input/snap_selection_strategy.h"
 #include "cc/layers/picture_layer.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/mojom/scroll/scroll_enums.mojom-blink.h"
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink.h"
 #include "third_party/blink/public/mojom/scroll/scrollbar_mode.mojom-blink.h"
 #include "third_party/blink/public/platform/platform.h"
@@ -503,8 +504,9 @@ void PaintLayerScrollableArea::UpdateScrollOffset(
   // (*) https://html.spec.whatwg.org/C/#update-the-rendering steps
   if (scroll_type == mojom::blink::ScrollType::kClamping ||
       scroll_type == mojom::blink::ScrollType::kAnchoring) {
-    if (GetLayoutBox()->GetNode())
-      frame_view->SetNeedsEnqueueScrollEvent(this);
+    if (GetLayoutBox()->GetNode()) {
+      frame_view->SetNeedsEnqueueDeferredScrollEvent(this);
+    }
   } else {
     EnqueueScrollEventIfNeeded();
   }
@@ -521,7 +523,7 @@ void PaintLayerScrollableArea::UpdateScrollOffset(
   // when navigating back.
   if (is_root_layer) {
     frame_view->GetFrame().Loader().SaveScrollState();
-    frame_view->DidChangeScrollOffset();
+    frame_view->DidChangeScrollOffset(scroll_type);
     if (scroll_type == mojom::blink::ScrollType::kCompositor ||
         scroll_type == mojom::blink::ScrollType::kUser) {
       if (DocumentLoader* document_loader = frame->Loader().GetDocumentLoader())
@@ -623,17 +625,36 @@ ScrollOffset PaintLayerScrollableArea::GetScrollOffset() const {
   return scroll_offset_;
 }
 
-void PaintLayerScrollableArea::EnqueueScrollEventIfNeeded() {
+bool PaintLayerScrollableArea::EnqueueScrollEventIfNeeded() {
   if (scroll_offset_ == last_committed_scroll_offset_ &&
-      has_last_committed_scroll_offset_)
-    return;
+      has_last_committed_scroll_offset_) {
+    return false;
+  }
   last_committed_scroll_offset_ = scroll_offset_;
   has_last_committed_scroll_offset_ = true;
-  if (HasBeenDisposed())
-    return;
+  if (HasBeenDisposed()) {
+    // Disposed areas should not dispatch scroll or scrollend events.
+    return false;
+  }
   // Schedule the scroll DOM event.
-  if (auto* node = EventTargetNode())
+  if (auto* node = EventTargetNode()) {
     node->GetDocument().EnqueueScrollEventForNode(node);
+    return true;
+  }
+  return false;
+}
+
+void PaintLayerScrollableArea::ProcessDeferredScrollEvents() {
+  bool did_enqueue_scroll = EnqueueScrollEventIfNeeded();
+
+  // If we scrolled but aren't animating or gesture scrolling, it means the
+  // scroll is already finished and we should enqueue scrollend.
+  // TODO(crbug.com/564413058): Move scrollend handling logic into
+  // EnqueueScrollEventIfNeeded and eliminate ProcessDeferredScrollEvents.
+  if (did_enqueue_scroll && !HasRunningAnimation() &&
+      !IsLatchedForGestureScroll()) {
+    OnScrollFinished(/*enqueue_scrollend=*/true);
+  }
 }
 
 gfx::Vector2d PaintLayerScrollableArea::MinimumScrollOffsetInt() const {
@@ -1396,9 +1417,9 @@ bool PaintLayerScrollableArea::HasVerticalOverflow() const {
 
 bool PaintLayerScrollableArea::CanPropagateScroll() const {
   auto* box = GetLayoutBox();
-  // TODO(crbug.com/425353152): Remove the visibility check.
   if (!box || !box->IsScrollContainer() ||
-      box->StyleRef().Visibility() != EVisibility::kVisible) {
+      (!RuntimeEnabledFeatures::ScrollVisibilityHiddenScrollersEnabled() &&
+       box->StyleRef().Visibility() != EVisibility::kVisible)) {
     return true;
   }
   if ((box->StyleRef().OverscrollBehaviorX() != EOverscrollBehavior::kAuto &&
@@ -2043,7 +2064,7 @@ const cc::SnapContainerData* PaintLayerScrollableArea::GetSnapContainerData()
 
 void PaintLayerScrollableArea::SetSnapContainerData(
     std::optional<cc::SnapContainerData> data) {
-  EnsureRareData().snap_container_data_ = data;
+  EnsureRareData().snap_container_data_ = std::move(data);
 }
 
 bool PaintLayerScrollableArea::SetTargetSnapAreaElementIds(
@@ -2645,9 +2666,8 @@ void PaintLayerScrollableArea::UpdateScrollableAreaSet() {
     frame_view->RemoveScrollAnchoringScrollableArea(this);
   }
 
-  // TODO(crbug.com/425353152): Should be able to scroll invisible scroll
-  // containers.
   bool is_visible =
+      RuntimeEnabledFeatures::ScrollVisibilityHiddenScrollersEnabled() ||
       GetLayoutBox()->StyleRef().Visibility() == EVisibility::kVisible;
   bool did_scroll_overflow = scrolls_overflow_;
   if (auto* layout_view = DynamicTo<LayoutView>(GetLayoutBox())) {
@@ -3715,6 +3735,11 @@ void PaintLayerScrollableArea::EnqueueOverscrollChangingEventIfNeeded() {
     overscroll_element.SetNeedsStyleRecalc(
         kLocalStyleChange,
         StyleChangeReasonForTracing::Create(style_change_reason::kPseudoClass));
+    if (overscroll_container) {
+      overscroll_container->SetNeedsStyleRecalc(
+          kSubtreeStyleChange, StyleChangeReasonForTracing::Create(
+                                   style_change_reason::kOverscroll));
+    }
   }
 
   GetLayoutBox()->GetDocument().EnqueueOverscrollEvent(

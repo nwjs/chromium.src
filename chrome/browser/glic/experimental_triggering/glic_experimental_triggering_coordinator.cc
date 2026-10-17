@@ -11,15 +11,23 @@
 #include <variant>
 
 #include "base/atomic_sequence_num.h"
+#include "base/check.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
+#include "base/timer/timer.h"
 #include "base/types/expected.h"
+#include "chrome/browser/actor/actor_actions_runner.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
+#include "chrome/browser/actor/actor_proto_conversion.h"
 #include "chrome/browser/actor/actor_task.h"
+#include "chrome/browser/glic/actor/glic_actor_policy_checker.h"
 #include "chrome/browser/glic/experimental_opt_in/glic_experimental_opt_in_controller.h"
 #include "chrome/browser/glic/experimental_triggering/actor_log.h"
 #include "chrome/browser/glic/experimental_triggering/glic_experimental_triggering_converters.h"
@@ -27,6 +35,7 @@
 #include "chrome/browser/glic/experimental_triggering/glic_experimental_triggering_metrics.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/public/features.h"
+#include "chrome/browser/glic/public/glic_api_metrics.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_invoke_options.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
@@ -39,6 +48,10 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/common/chrome_features.h"
+#include "components/actor/core/actor_features.h"
+#include "components/actor/core/task_source_info.h"
+#include "components/actor/public/mojom/actor_types.mojom.h"
+#include "components/tabs/public/tab_interface.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -53,6 +66,11 @@
 namespace glic {
 
 namespace {
+
+const base::FeatureParam<base::TimeDelta>
+    kGlicExperimentalTriggeringScriptToolsTimeout{
+        &features::kGlicExperimentalTriggeringScriptTools, "timeout",
+        base::Minutes(2)};
 
 GlicInvokeOptions CreateInvokeOptions(
     const ExperimentalTriggeringRequest& request,
@@ -205,13 +223,36 @@ ExperimentalTriggeringResponse CreateScreenshotResultResponse(
   return response;
 }
 
+// Builds a confirmation result with the specified status.
+ConfirmationResult CreateConfirmationResult(ConfirmationResult::Status status,
+                                            std::string error_message = {}) {
+  ConfirmationResult result;
+  result.status = status;
+  result.error_message = std::move(error_message);
+  return result;
+}
+
+// Builds a confirmation result response for synchronous request replies.
+ExperimentalTriggeringResponse CreateConfirmationResultResponse(
+    const std::string& context_id,
+    ConfirmationResult confirmation_result,
+    const TaskMetadata* request_task_metadata,
+    int64_t sender_sequence_number) {
+  ExperimentalTriggeringResponse response = CreateBaseResponseMessage(
+      context_id, request_task_metadata, sender_sequence_number);
+  response.confirmation_result = std::move(confirmation_result);
+  return response;
+}
+
 // Builds base response metadata for asynchronous Mojo updates and callbacks
-// (using instance state).
+// (using instance state or stored request metadata).
 ExperimentalTriggeringResponse CreateBaseResponse(
     const std::string& context_id,
     int64_t sender_sequence_number,
     std::optional<int64_t> last_seen_sequence_number,
-    const GlicInstance* instance) {
+    const GlicInstance* instance,
+    std::string_view conversation_id = {},
+    std::string_view task_id = {}) {
   ExperimentalTriggeringResponse response;
   response.context_id = context_id;
   TaskMetadata metadata;
@@ -221,6 +262,11 @@ ExperimentalTriggeringResponse CreateBaseResponse(
   }
   if (instance && instance->conversation_id()) {
     metadata.conversation_id = *instance->conversation_id();
+  } else if (!conversation_id.empty()) {
+    metadata.conversation_id = std::string(conversation_id);
+  }
+  if (!task_id.empty()) {
+    metadata.task_id = std::string(task_id);
   }
   response.task_metadata = std::move(metadata);
   return response;
@@ -231,6 +277,25 @@ bool CanShowDeviceOptInUi() {
   return base::android::ApplicationStatusListener::HasVisibleActivities();
 }
 #endif
+
+GlicExperimentalTriggeringExecutionOutcome GlicInvokeErrorToOutcome(
+    GlicInvokeError error,
+    bool client_connected) {
+  switch (error) {
+    case GlicInvokeError::kTimeout:
+      return client_connected ? GlicExperimentalTriggeringExecutionOutcome::
+                                    kTimeoutWaitingForActuation
+                              : GlicExperimentalTriggeringExecutionOutcome::
+                                    kTimeoutWaitingForClient;
+    case GlicInvokeError::kInvokeInProgress:
+      return GlicExperimentalTriggeringExecutionOutcome::
+          kInvokeErrorInvokeInProgress;
+    case GlicInvokeError::kTabClosed:
+      return GlicExperimentalTriggeringExecutionOutcome::kInvokeErrorTabClosed;
+    default:
+      return GlicExperimentalTriggeringExecutionOutcome::kInvokeErrorOther;
+  }
+}
 
 }  // namespace
 
@@ -245,6 +310,13 @@ class ExperimentalTriggeringUpdatesHandler
         passkey_(std::move(passkey)),
         coordinator_(std::move(coordinator)),
         receiver_(this) {}
+
+  ~ExperimentalTriggeringUpdatesHandler() override {
+    if (is_actuation_started_ && !outcome_recorded_) {
+      RecordOutcome(GlicExperimentalTriggeringExecutionOutcome::
+                        kDestroyedBeforeCompletion);
+    }
+  }
 
   std::optional<ExperimentalTriggeringResponse> OnRequest(
       const ExperimentalTriggeringRequest& request,
@@ -311,6 +383,18 @@ class ExperimentalTriggeringUpdatesHandler
                   payload, &*request.task_metadata, std::move(cleanup_runner),
                   std::move(result_logger));
             },
+            [&](const ExecuteActionsRequest& payload)
+                -> std::optional<ExperimentalTriggeringResponse> {
+              return ProcessExecuteActionsRequest(
+                  payload, &*request.task_metadata, std::move(cleanup_runner),
+                  std::move(result_logger));
+            },
+            [&](const SubmitConfirmation& payload)
+                -> std::optional<ExperimentalTriggeringResponse> {
+              return ProcessSubmitConfirmation(payload, &*request.task_metadata,
+                                               std::move(cleanup_runner),
+                                               std::move(result_logger));
+            },
             [&](const RequestPayloadNotSet&)
                 -> std::optional<ExperimentalTriggeringResponse> {
               result_logger.set_result(
@@ -341,18 +425,20 @@ class ExperimentalTriggeringUpdatesHandler
 
   void OnUpdate(mojom::ExperimentalTriggeringUpdatePtr update,
                 mojom::SubscriberObservationType observation) override {
+    if (terminal_update_sent_) {
+      return;
+    }
+    LogApiRequestCount(GlicHostApiRequestId::kOnExperimentalTriggeringUpdate);
     switch (observation) {
       case mojom::SubscriberObservationType::kComplete:
-        if (!terminal_update_sent_) {
-          terminal_update_sent_ = true;
-          SendTaskUpdateMessage(TaskUpdate::State::kComplete);
-        }
+        HandleTerminalUpdate(
+            TaskUpdate::State::kComplete, TaskUpdate::DataType::kFinalResponse,
+            GlicExperimentalTriggeringExecutionOutcome::kSuccess);
         break;
       case mojom::SubscriberObservationType::kError:
-        if (!terminal_update_sent_) {
-          terminal_update_sent_ = true;
-          SendTaskUpdateMessage(TaskUpdate::State::kFailed);
-        }
+        HandleTerminalUpdate(
+            TaskUpdate::State::kFailed, TaskUpdate::DataType::kErrorMessage,
+            GlicExperimentalTriggeringExecutionOutcome::kTerminalFailed);
         break;
       case mojom::SubscriberObservationType::kUpdate: {
         if (!update) {
@@ -367,6 +453,12 @@ class ExperimentalTriggeringUpdatesHandler
             metadata[key] = std::move(val);
           }
         }
+        if (!first_response_received_ && is_actuation_started_) {
+          first_response_received_ = true;
+          base::UmaHistogramMediumTimes(
+              "Glic.ExperimentalTriggering.Latency.ToFirstResponse",
+              base::TimeTicks::Now() - turn_start_time_);
+        }
         switch (update->type) {
           case mojom::ExperimentalTriggeringUpdateType::kWorklog:
             SendTaskUpdateMessage(TaskUpdate::State::kRunning,
@@ -378,21 +470,23 @@ class ExperimentalTriggeringUpdatesHandler
                                   std::move(update->data), std::move(metadata));
             break;
           case mojom::ExperimentalTriggeringUpdateType::kTerminalCompletion:
-            terminal_update_sent_ = true;
-            SendTaskUpdateMessage(TaskUpdate::State::kComplete,
-                                  TaskUpdate::DataType::kFinalResponse,
-                                  std::move(update->data), std::move(metadata));
+            HandleTerminalUpdate(
+                TaskUpdate::State::kComplete,
+                TaskUpdate::DataType::kFinalResponse,
+                GlicExperimentalTriggeringExecutionOutcome::kSuccess,
+                std::move(update->data), std::move(metadata));
             break;
           case mojom::ExperimentalTriggeringUpdateType::kTerminalStopped:
-            terminal_update_sent_ = true;
-            SendTaskUpdateMessage(TaskUpdate::State::kStopped, std::nullopt,
-                                  std::move(update->data), std::move(metadata));
+            HandleTerminalUpdate(
+                TaskUpdate::State::kStopped, std::nullopt,
+                GlicExperimentalTriggeringExecutionOutcome::kTerminalStopped,
+                std::move(update->data), std::move(metadata));
             break;
           case mojom::ExperimentalTriggeringUpdateType::kTerminalFailed:
-            terminal_update_sent_ = true;
-            SendTaskUpdateMessage(TaskUpdate::State::kFailed,
-                                  TaskUpdate::DataType::kErrorMessage,
-                                  std::move(update->data), std::move(metadata));
+            HandleTerminalUpdate(
+                TaskUpdate::State::kFailed, TaskUpdate::DataType::kErrorMessage,
+                GlicExperimentalTriggeringExecutionOutcome::kTerminalFailed,
+                std::move(update->data), std::move(metadata));
             break;
           case mojom::ExperimentalTriggeringUpdateType::kYieldToUser:
             SendTaskUpdateMessage(TaskUpdate::State::kYield, std::nullopt,
@@ -430,21 +524,143 @@ class ExperimentalTriggeringUpdatesHandler
  private:
   void SubscribeForTriggeringUpdates(base::WeakPtr<GlicInstance> instance) {
     instance_ = std::move(instance);
-    if (instance_ && !receiver_.is_bound()) {
-      mojo::PendingRemote<mojom::ExperimentalTriggeringUpdatesHandler> remote;
-      receiver_.Bind(remote.InitWithNewPipeAndPassReceiver());
-      receiver_.set_disconnect_handler(base::BindOnce(
-          &GlicExperimentalTriggeringCoordinator::OnUpdatesHandlerCleanup,
-          coordinator_, context_id_));
-      if (auto* manager = instance_->GetExperimentalTriggeringManager()) {
-        manager->GetExperimentalTriggeringUpdates(
-            std::move(remote), base::BindOnce([](bool success) {
-              if (!success) {
+    if (!instance_ || receiver_.is_bound()) {
+      return;
+    }
+    auto* manager = instance_->GetExperimentalTriggeringManager();
+    if (!manager) {
+      DLOG(WARNING) << "GlicExperimentalTriggeringManager is not available.";
+      HandleTerminalUpdate(
+          TaskUpdate::State::kFailed, TaskUpdate::DataType::kErrorMessage,
+          GlicExperimentalTriggeringExecutionOutcome::
+              kUpdatesRegistrationFailed,
+          "GlicExperimentalTriggeringManager is not available.");
+      CleanupAsync();
+      return;
+    }
+    mojo::PendingRemote<mojom::ExperimentalTriggeringUpdatesHandler> remote;
+    receiver_.Bind(remote.InitWithNewPipeAndPassReceiver());
+    receiver_.set_disconnect_handler(
+        base::BindOnce(&ExperimentalTriggeringUpdatesHandler::OnDisconnect,
+                       weak_ptr_factory_.GetWeakPtr()));
+    manager->GetExperimentalTriggeringUpdates(
+        std::move(remote),
+        base::BindOnce(
+            [](base::WeakPtr<ExperimentalTriggeringUpdatesHandler> handler,
+               bool success) {
+              if (!success && handler) {
                 DLOG(WARNING) << "Failed to register experimental triggering "
                                  "updates handler.";
+                handler->HandleTerminalUpdate(
+                    TaskUpdate::State::kFailed,
+                    TaskUpdate::DataType::kErrorMessage,
+                    GlicExperimentalTriggeringExecutionOutcome::
+                        kUpdatesRegistrationFailed,
+                    "Failed to register experimental triggering updates "
+                    "handler.");
+                handler->CleanupAsync();
               }
-            }));
-      }
+            },
+            weak_ptr_factory_.GetWeakPtr()));
+  }
+
+  void HandleTerminalUpdate(TaskUpdate::State state,
+                            std::optional<TaskUpdate::DataType> data_type,
+                            GlicExperimentalTriggeringExecutionOutcome outcome,
+                            std::optional<std::string> data = std::nullopt,
+                            std::map<std::string, std::string> metadata = {}) {
+    if (terminal_update_sent_) {
+      return;
+    }
+    terminal_update_sent_ = true;
+    RecordOutcome(outcome);
+    if (outcome == GlicExperimentalTriggeringExecutionOutcome::kSuccess &&
+        is_actuation_started_) {
+      base::UmaHistogramLongTimes(
+          "Glic.ExperimentalTriggering.Latency.ToTerminalCompletion",
+          base::TimeTicks::Now() - task_start_time_);
+    }
+    SendTaskUpdateMessage(state, data_type, std::move(data),
+                          std::move(metadata));
+  }
+
+  void OnPanelOpened() {
+    if (panel_opened_) {
+      return;
+    }
+    panel_opened_ = true;
+    if (is_actuation_started_) {
+      base::UmaHistogramMediumTimes(
+          "Glic.ExperimentalTriggering.Latency.ToSidePanelOpened",
+          base::TimeTicks::Now() - task_start_time_);
+    }
+  }
+
+  void OnClientConnected(base::WeakPtr<GlicInstance> instance) {
+    if (client_connected_) {
+      return;
+    }
+    client_connected_ = true;
+    if (is_actuation_started_) {
+      base::UmaHistogramMediumTimes(
+          "Glic.ExperimentalTriggering.Latency.ToClientConnected",
+          base::TimeTicks::Now() - task_start_time_);
+    }
+    SubscribeForTriggeringUpdates(std::move(instance));
+  }
+
+  void OnInvokeError(GlicInvokeError error) {
+    if (error == GlicInvokeError::kSuperseded) {
+      outcome_recorded_ = true;
+      CleanupAsync();
+      return;
+    }
+    DLOG(WARNING) << "Glic invocation failed with error: "
+                  << GlicInvokeErrorToString(error);
+    HandleTerminalUpdate(TaskUpdate::State::kFailed,
+                         TaskUpdate::DataType::kErrorMessage,
+                         GlicInvokeErrorToOutcome(error, client_connected_),
+                         base::StrCat({"Glic invocation failed: ",
+                                       GlicInvokeErrorToString(error)}));
+    CleanupAsync();
+  }
+
+  void OnDisconnect() {
+    HandleTerminalUpdate(TaskUpdate::State::kFailed,
+                         TaskUpdate::DataType::kErrorMessage,
+                         GlicExperimentalTriggeringExecutionOutcome::
+                             kClientDisconnectedBeforeResponse,
+                         "Client disconnected unexpectedly.");
+    CleanupAsync();
+  }
+
+  void CleanupAsync() {
+    if (is_cleaning_up_) {
+      return;
+    }
+    is_cleaning_up_ = true;
+    receiver_.reset();
+    if (coordinator_) {
+      base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+          FROM_HERE,
+          base::BindOnce(
+              &GlicExperimentalTriggeringCoordinator::OnUpdatesHandlerCleanup,
+              coordinator_, context_id_));
+    }
+  }
+
+  void RecordOutcome(GlicExperimentalTriggeringExecutionOutcome outcome) {
+    if (outcome_recorded_) {
+      return;
+    }
+    outcome_recorded_ = true;
+    base::UmaHistogramEnumeration(
+        "Glic.ExperimentalTriggering.ExecutionOutcome", outcome);
+    if (is_actuation_started_) {
+      base::UmaHistogramBoolean("Glic.ExperimentalTriggering.SidePanelOpened",
+                                panel_opened_);
+      base::UmaHistogramBoolean("Glic.ExperimentalTriggering.ClientConnected",
+                                client_connected_);
     }
   }
 
@@ -490,6 +706,24 @@ class ExperimentalTriggeringUpdatesHandler
           sequence_generator_.GetNext());
     }
 
+    // Mirrors the guard in ProcessExecuteActionsRequest. Handlers are shared
+    // per context id, and completing a direct action execution tears the
+    // handler down, so starting an actuation session on top of one would drop
+    // every subsequent update for that session.
+    if (actions_runner_) {
+      result_logger.set_result(
+          GlicExperimentalTriggeringIncomingMessageResult::kTaskAlreadyRunning);
+      // Rejecting this request must not clean up the handler, which is still
+      // needed to report the result of the in-flight execution.
+      std::ignore = cleanup_runner.Release();
+      return CreateResponseMessage(
+          context_id_, TaskUpdate::State::kFailed,
+          TaskUpdate::DataType::kErrorMessage,
+          "Direct action execution is already in progress for this context.",
+          request.task_metadata.has_value() ? &*request.task_metadata : nullptr,
+          sequence_generator_.GetNext());
+    }
+
     BrowserWindowInterface* browser_window = nullptr;
     if (!prepared_tab) {
       browser_window = coordinator_->GetBrowserWindow();
@@ -522,29 +756,25 @@ class ExperimentalTriggeringUpdatesHandler
 
     GlicInvokeOptions options =
         CreateInvokeOptions(request, browser_window, prepared_tab);
-    options.on_client_connected = base::BindOnce(
-        &ExperimentalTriggeringUpdatesHandler::SubscribeForTriggeringUpdates,
-        weak_ptr_factory_.GetWeakPtr());
-    options.on_error = base::BindOnce(
-        [](base::WeakPtr<ExperimentalTriggeringUpdatesHandler> updates_handler,
-           const std::string& context_id, GlicInvokeError error) {
-          if (error == GlicInvokeError::kSuperseded) {
-            return;
-          }
-          DLOG(WARNING) << "Glic invocation failed with error: "
-                        << static_cast<int>(error);
-          if (updates_handler) {
-            updates_handler->SendTaskUpdateMessage(
-                TaskUpdate::State::kFailed, TaskUpdate::DataType::kErrorMessage,
-                "Glic invocation failed with error: " +
-                    base::NumberToString(static_cast<int>(error)));
-            if (updates_handler->coordinator_) {
-              updates_handler->coordinator_->OnUpdatesHandlerCleanup(
-                  context_id);
-            }
-          }
-        },
-        weak_ptr_factory_.GetWeakPtr(), context_id_);
+    bool is_continuation =
+        std::holds_alternative<ContinueActuationRequest>(request.payload);
+    if (!is_continuation || task_start_time_.is_null()) {
+      task_start_time_ = base::TimeTicks::Now();
+    }
+    turn_start_time_ = base::TimeTicks::Now();
+    is_actuation_started_ = true;
+    first_response_received_ = false;
+    terminal_update_sent_ = false;
+    outcome_recorded_ = false;
+    options.on_panel_opened =
+        base::BindOnce(&ExperimentalTriggeringUpdatesHandler::OnPanelOpened,
+                       weak_ptr_factory_.GetWeakPtr());
+    options.on_client_connected =
+        base::BindOnce(&ExperimentalTriggeringUpdatesHandler::OnClientConnected,
+                       weak_ptr_factory_.GetWeakPtr());
+    options.on_error =
+        base::BindOnce(&ExperimentalTriggeringUpdatesHandler::OnInvokeError,
+                       weak_ptr_factory_.GetWeakPtr());
 
     auto response = CreateResponseMessage(
         context_id_, TaskUpdate::State::kStarting, std::nullopt, "",
@@ -554,7 +784,13 @@ class ExperimentalTriggeringUpdatesHandler
 
     GlicInvokeWithAutoSubmitOptions auto_submit_options;
 #if BUILDFLAG(IS_ANDROID)
-    if (prepared_tab) {
+    // TODO(b/568925496): Follow up to remove platform ifdefs across
+    // experimental triggering.
+    // The background check runs only once when Glic is invoked. Handling Chrome
+    // moving from foreground to background mid-task would require observing
+    // ApplicationStatusListener and dynamically updating offscreen rendering.
+    const bool is_chrome_in_background = coordinator_->IsChromeInBackground();
+    if (prepared_tab && is_chrome_in_background) {
       auto_submit_options.show_panel = false;
     }
 #endif
@@ -609,6 +845,30 @@ class ExperimentalTriggeringUpdatesHandler
           sequence_generator_.GetNext());
     }
 
+    if (!base::FeatureList::IsEnabled(
+            features::kGlicExperimentalTriggeringScreenshot)) {
+      result_logger.set_result(GlicExperimentalTriggeringIncomingMessageResult::
+                                   kUnexpectedRequestPayload);
+      SendScreenshotResult(ScreenshotResult::Status::kErrorDisabled,
+                           /*file_token=*/std::string_view(),
+                           screenshot_req.request_token);
+      return CreateResponseMessage(context_id_, TaskUpdate::State::kFailed,
+                                   TaskUpdate::DataType::kErrorMessage,
+                                   "Screenshot feature is disabled.",
+                                   task_metadata,
+                                   sequence_generator_.GetNext());
+    }
+
+    if (screenshot_req.request_token.empty()) {
+      result_logger.set_result(GlicExperimentalTriggeringIncomingMessageResult::
+                                   kUnexpectedRequestPayload);
+      return CreateScreenshotResultResponse(
+          context_id_,
+          CreateScreenshotResult(
+              ScreenshotResult::Status::kErrorInvalidRequest),
+          task_metadata, sequence_generator_.GetNext());
+    }
+
     GlicInstance* instance = instance_.get();
     if (!instance) {
       result_logger.set_result(
@@ -630,16 +890,6 @@ class ExperimentalTriggeringUpdatesHandler
           TaskUpdate::DataType::kErrorMessage,
           "GlicExperimentalTriggeringManager is not available.", task_metadata,
           sequence_generator_.GetNext());
-    }
-
-    if (screenshot_req.request_token.empty()) {
-      result_logger.set_result(GlicExperimentalTriggeringIncomingMessageResult::
-                                   kUnexpectedRequestPayload);
-      return CreateScreenshotResultResponse(
-          context_id_,
-          CreateScreenshotResult(
-              ScreenshotResult::Status::kErrorInvalidRequest),
-          task_metadata, sequence_generator_.GetNext());
     }
 
     auto response = CreateResponseMessage(
@@ -675,6 +925,101 @@ class ExperimentalTriggeringUpdatesHandler
     result_logger.set_result(
         GlicExperimentalTriggeringIncomingMessageResult::kSuccess);
     return response;
+  }
+
+  std::optional<ExperimentalTriggeringResponse> ProcessSubmitConfirmation(
+      const SubmitConfirmation& confirmation_req,
+      const TaskMetadata* task_metadata,
+      base::ScopedClosureRunner cleanup_runner,
+      ScopedIncomingMessageResultLogger result_logger) {
+    // Keep the handler alive if an actuation session or action execution is
+    // already running on this context so that neither early validation failures
+    // nor the async confirmation response tear down the in-flight task.
+    if (instance_ || actions_runner_) {
+      std::ignore = cleanup_runner.Release();
+    }
+
+    // Unlike the other request types, delivery failures are reported as a
+    // `ConfirmationResult` rather than a failed `TaskUpdate`. A confirmation
+    // that could not be delivered says nothing about the health of the
+    // actuation task, so surfacing it as a task failure would be misleading.
+    auto fail = [&](ConfirmationResult::Status status,
+                    const std::string& error_message) {
+      DLOG(WARNING) << error_message;
+      return CreateConfirmationResultResponse(
+          context_id_, CreateConfirmationResult(status, error_message),
+          task_metadata, sequence_generator_.GetNext());
+    };
+
+    if (confirmation_req.confirmation_response.empty()) {
+      result_logger.set_result(GlicExperimentalTriggeringIncomingMessageResult::
+                                   kUnexpectedRequestPayload);
+      return fail(ConfirmationResult::Status::kErrorInvalidRequest,
+                  "Received a confirmation with an empty response payload.");
+    }
+
+    if (!coordinator_) {
+      result_logger.set_result(GlicExperimentalTriggeringIncomingMessageResult::
+                                   kCoordinatorUnavailable);
+      return fail(ConfirmationResult::Status::kErrorUnavailable,
+                  "Message handler is no longer available.");
+    }
+
+    GlicKeyedService* glic_service =
+        GlicKeyedServiceFactory::GetGlicKeyedService(coordinator_->profile_,
+                                                     /*create=*/false);
+    if (!glic_service) {
+      result_logger.set_result(GlicExperimentalTriggeringIncomingMessageResult::
+                                   kGlicServiceUnavailable);
+      return fail(ConfirmationResult::Status::kErrorUnavailable,
+                  "GlicKeyedService is not available.");
+    }
+
+    if (HandleUnavailableExperimentalTriggering(glic_service)) {
+      result_logger.set_result(
+          GlicExperimentalTriggeringIncomingMessageResult::kUserNotOptedIn);
+      return fail(ConfirmationResult::Status::kErrorUnavailable,
+                  "User is not opted in to experimental triggering.");
+    }
+
+    GlicInstance* instance = instance_.get();
+    if (!instance) {
+      result_logger.set_result(
+          GlicExperimentalTriggeringIncomingMessageResult::kNoInstance);
+      return fail(
+          ConfirmationResult::Status::kErrorUnavailable,
+          "No active Glic instance available to receive the confirmation.");
+    }
+
+    GlicExperimentalTriggeringManager* triggering_manager =
+        instance->GetExperimentalTriggeringManager();
+    if (!triggering_manager) {
+      result_logger.set_result(GlicExperimentalTriggeringIncomingMessageResult::
+                                   kTriggeringManagerUnavailable);
+      return fail(ConfirmationResult::Status::kErrorUnavailable,
+                  "GlicExperimentalTriggeringManager is not available.");
+    }
+
+    triggering_manager->SubmitConfirmationResponse(
+        confirmation_req.confirmation_response,
+        base::BindOnce(
+            [](base::WeakPtr<ExperimentalTriggeringUpdatesHandler> handler,
+               bool accepted) {
+              if (!handler) {
+                return;
+              }
+              handler->SendConfirmationResult(
+                  accepted ? ConfirmationResult::Status::kApplied
+                           : ConfirmationResult::Status::kNotApplied);
+            },
+            weak_ptr_factory_.GetWeakPtr()));
+
+    result_logger.set_result(
+        GlicExperimentalTriggeringIncomingMessageResult::kSuccess);
+    // No synchronous reply: the `ConfirmationResult` above is the only
+    // meaningful response, and emitting a task update here would imply a task
+    // state transition that did not happen.
+    return std::nullopt;
   }
 
   std::optional<ExperimentalTriggeringResponse> ProcessTaskMetadataUpdated(
@@ -716,7 +1061,15 @@ class ExperimentalTriggeringUpdatesHandler
       base::ScopedClosureRunner cleanup_runner,
       ScopedIncomingMessageResultLogger result_logger) {
     std::optional<ExperimentalTriggeringResponse> response;
-    if (!instance_) {
+    if (actions_runner_) {
+      actions_timeout_timer_.Stop();
+      actions_runner_.reset();
+      result_logger.set_result(
+          GlicExperimentalTriggeringIncomingMessageResult::kSuccess);
+      response = CreateResponseMessage(context_id_, TaskUpdate::State::kStopped,
+                                       std::nullopt, "", request_metadata,
+                                       sequence_generator_.GetNext());
+    } else if (!instance_) {
       result_logger.set_result(
           GlicExperimentalTriggeringIncomingMessageResult::kNoInstance);
       response = CreateResponseMessage(
@@ -743,6 +1096,155 @@ class ExperimentalTriggeringUpdatesHandler
     }
 
     return response;
+  }
+
+  std::optional<ExperimentalTriggeringResponse> ProcessExecuteActionsRequest(
+      const ExecuteActionsRequest& request,
+      const TaskMetadata* task_metadata,
+      base::ScopedClosureRunner cleanup_runner,
+      ScopedIncomingMessageResultLogger result_logger) {
+    if (!base::FeatureList::IsEnabled(
+            features::kGlicExperimentalTriggeringScriptTools) ||
+        !base::FeatureList::IsEnabled(actor::kGlicActorEnableScriptTools)) {
+      result_logger.set_result(GlicExperimentalTriggeringIncomingMessageResult::
+                                   kScriptToolsDisabled);
+      return CreateResponseMessage(context_id_, TaskUpdate::State::kFailed,
+                                   TaskUpdate::DataType::kErrorMessage,
+                                   "Script tool execution is not enabled.",
+                                   task_metadata,
+                                   sequence_generator_.GetNext());
+    }
+
+    if (!coordinator_) {
+      result_logger.set_result(GlicExperimentalTriggeringIncomingMessageResult::
+                                   kCoordinatorUnavailable);
+      return CreateResponseMessage(context_id_, TaskUpdate::State::kFailed,
+                                   TaskUpdate::DataType::kErrorMessage,
+                                   "Message handler is no longer available.",
+                                   task_metadata,
+                                   sequence_generator_.GetNext());
+    }
+
+    GlicKeyedService* glic_service =
+        GlicKeyedServiceFactory::GetGlicKeyedService(coordinator_->profile_,
+                                                     /*create=*/false);
+    if (!glic_service) {
+      result_logger.set_result(GlicExperimentalTriggeringIncomingMessageResult::
+                                   kGlicServiceUnavailable);
+      return CreateResponseMessage(context_id_, TaskUpdate::State::kFailed,
+                                   TaskUpdate::DataType::kErrorMessage,
+                                   "GlicKeyedService is not available.",
+                                   task_metadata,
+                                   sequence_generator_.GetNext());
+    }
+
+    if (HandleUnavailableExperimentalTriggering(glic_service)) {
+      result_logger.set_result(
+          GlicExperimentalTriggeringIncomingMessageResult::kUserNotOptedIn);
+      return CreateResponseMessage(
+          context_id_, TaskUpdate::State::kFailed,
+          TaskUpdate::DataType::kErrorMessage,
+          "User is not opted in to experimental triggering.", task_metadata,
+          sequence_generator_.GetNext());
+    }
+
+    if (actions_runner_ || instance_) {
+      result_logger.set_result(
+          GlicExperimentalTriggeringIncomingMessageResult::kTaskAlreadyRunning);
+      // Rejecting this request must not clean up the handler, which the task
+      // that is already running still needs.
+      std::ignore = cleanup_runner.Release();
+      return CreateResponseMessage(
+          context_id_, TaskUpdate::State::kFailed,
+          TaskUpdate::DataType::kErrorMessage,
+          "Another task is already executing for this context.", task_metadata,
+          sequence_generator_.GetNext());
+    }
+
+    if (!actor::ValidateActionsAreScriptTools(request.actions)) {
+      result_logger.set_result(GlicExperimentalTriggeringIncomingMessageResult::
+                                   kNonScriptToolAction);
+      return CreateResponseMessage(
+          context_id_, TaskUpdate::State::kFailed,
+          TaskUpdate::DataType::kErrorMessage,
+          "ExecuteActions contained non-ScriptTool actions.", task_metadata,
+          sequence_generator_.GetNext());
+    }
+
+    // Actions delivered here originate from the server rather than from a
+    // trusted in-browser feature, so this has to apply the same bar as the
+    // regular actuation flow, which refuses to start a task unless the profile
+    // may act on the web at all. Per-URL blocking is enforced separately by the
+    // policy checker handed to ActorActionsRunner below; a policy configuration
+    // with a URL allowlist leaves CanActOnWeb() true precisely so that
+    // per-URL evaluation gets to make the decision. A profile without a policy
+    // checker has no actor service backing it, so it cannot act either.
+    if (!glic_service->HasActorPolicyChecker() ||
+        !glic_service->actor_policy_checker().CanActOnWeb()) {
+      result_logger.set_result(
+          GlicExperimentalTriggeringIncomingMessageResult::kCannotActOnWeb);
+      return CreateResponseMessage(
+          context_id_, TaskUpdate::State::kFailed,
+          TaskUpdate::DataType::kErrorMessage,
+          "Acting on the web is not allowed for this profile.", task_metadata,
+          sequence_generator_.GetNext());
+    }
+
+    actor::TaskSourceInfo source_info(actor::TaskSourceInfo::Client::kGlic,
+                                      context_id_);
+
+    // The only thing this flow needs to return to the server is the result of
+    // the script tools themselves, so disable everything else. Skipping the
+    // async observation collection avoids paying for page context we would
+    // throw away, and clearing the screenshot options makes sure this cannot be
+    // used as an alternate way to obtain a screenshot: those have to go through
+    // GetScreenshotRequest, which is separately gated on
+    // kGlicExperimentalTriggeringScreenshot, is limited to tabs the task has
+    // acted on, and only ever returns an encrypted, out-of-band uploaded image.
+    optimization_guide::proto::Actions sanitized_actions = request.actions;
+    sanitized_actions.set_skip_async_observation_collection(true);
+    sanitized_actions.clear_screenshot_options();
+
+    if (!actor::PopulateTabIdsForScriptToolActions(
+            *coordinator_->profile_, sanitized_actions,
+            coordinator_->GetActiveTab())) {
+      result_logger.set_result(
+          GlicExperimentalTriggeringIncomingMessageResult::kTabNotFound);
+      return CreateResponseMessage(
+          context_id_, TaskUpdate::State::kFailed,
+          TaskUpdate::DataType::kErrorMessage,
+          "Target tab for document identifier could not be found.",
+          task_metadata, sequence_generator_.GetNext());
+    }
+
+    std::string conversation_id =
+        task_metadata ? task_metadata->conversation_id : "";
+    std::string task_id = task_metadata ? task_metadata->task_id : "";
+
+    // Passing a raw pointer is safe: the policy checker is owned by the
+    // profile's GlicKeyedService, and the runner only consults it while its
+    // task is running, which it stops from its destructor.
+    actions_runner_ = std::make_unique<actor::ActorActionsRunner>(
+        *coordinator_->profile_, std::move(source_info),
+        std::move(sanitized_actions),
+        base::BindOnce(&ExperimentalTriggeringUpdatesHandler::OnActionsComplete,
+                       weak_ptr_factory_.GetWeakPtr(), conversation_id,
+                       task_id),
+        /*tab_id=*/0, &glic_service->actor_policy_checker());
+    actions_runner_->Start();
+
+    // TODO(crbug.com/562073719): Move timeout handling into ActorActionsRunner
+    // directly so individual callsites do not need to manage their own timers.
+    actions_timeout_timer_.Start(
+        FROM_HERE, kGlicExperimentalTriggeringScriptToolsTimeout.Get(),
+        base::BindOnce(&ExperimentalTriggeringUpdatesHandler::OnActionsTimeout,
+                       weak_ptr_factory_.GetWeakPtr(),
+                       std::move(conversation_id), std::move(task_id)));
+
+    std::ignore = cleanup_runner.Release();
+    result_logger.set_result(
+        GlicExperimentalTriggeringIncomingMessageResult::kSuccess);
+    return std::nullopt;
   }
 
   std::optional<ExperimentalTriggeringResponse> ProcessDeviceOptInRequest(
@@ -861,16 +1363,103 @@ class ExperimentalTriggeringUpdatesHandler
     }
   }
 
+  void OnActionsComplete(std::string conversation_id, std::string task_id) {
+    if (!actions_runner_) {
+      return;
+    }
+    actions_timeout_timer_.Stop();
+    // Defer completion handling so that ActorActionsRunner::Finish() can unwind
+    // cleanly before the runner and updates handler are destroyed.
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(
+            &ExperimentalTriggeringUpdatesHandler::HandleActionsComplete,
+            weak_ptr_factory_.GetWeakPtr(), std::move(conversation_id),
+            std::move(task_id)));
+  }
+
+  void HandleActionsComplete(std::string conversation_id, std::string task_id) {
+    if (!actions_runner_) {
+      return;
+    }
+    actions_timeout_timer_.Stop();
+    std::unique_ptr<optimization_guide::proto::ActionsResult> result =
+        actions_runner_->TakeResult();
+    actions_runner_.reset();
+    if (!result) {
+      result = std::make_unique<optimization_guide::proto::ActionsResult>(
+          actor::BuildErrorActionsResult(
+              actor::mojom::ActionResultCode::kTaskWentAway, std::nullopt));
+    }
+    SendExecuteActionsResponse(std::move(*result), std::move(conversation_id),
+                               std::move(task_id));
+  }
+
+  void OnActionsTimeout(std::string conversation_id, std::string task_id) {
+    if (!actions_runner_) {
+      return;
+    }
+    actions_runner_.reset();
+    SendExecuteActionsResponse(
+        actor::BuildErrorActionsResult(
+            actor::mojom::ActionResultCode::kToolTimeout, std::nullopt),
+        std::move(conversation_id), std::move(task_id));
+  }
+
+  void SendExecuteActionsResponse(
+      optimization_guide::proto::ActionsResult actions_result,
+      std::string conversation_id,
+      std::string task_id) {
+    if (update_callback_) {
+      ExperimentalTriggeringResponse response =
+          CreateBaseResponse(context_id_, sequence_generator_.GetNext(),
+                             last_seen_sequence_number_, instance_.get(),
+                             conversation_id, task_id);
+      ExecuteActionsResponse exec_response;
+      exec_response.actions_result = std::move(actions_result);
+      response.execute_actions_response = std::move(exec_response);
+      update_callback_.Run(std::move(response));
+    }
+    // The guards in ProcessExecuteActionsRequest and
+    // ProcessTriggerOrContinueActuationRequest should keep these two flows from
+    // overlapping, but if they ever did, tearing the handler down here would
+    // silently disconnect the actuation session.
+    if (coordinator_ && !instance_) {
+      coordinator_->OnUpdatesHandlerCleanup(context_id_);
+    }
+  }
+
+  void SendConfirmationResult(ConfirmationResult::Status status,
+                              std::string error_message = {}) {
+    if (update_callback_) {
+      ExperimentalTriggeringResponse response =
+          CreateBaseResponse(context_id_, sequence_generator_.GetNext(),
+                             last_seen_sequence_number_, instance_.get());
+      response.confirmation_result =
+          CreateConfirmationResult(status, std::move(error_message));
+      update_callback_.Run(std::move(response));
+    }
+  }
   std::string context_id_;
   InvokeWithAutoSubmitPasskey passkey_;
   base::WeakPtr<GlicExperimentalTriggeringCoordinator> coordinator_;
   base::WeakPtr<GlicInstance> instance_;
+  std::unique_ptr<actor::ActorActionsRunner> actions_runner_;
+  base::OneShotTimer actions_timeout_timer_;
   mojo::Receiver<mojom::ExperimentalTriggeringUpdatesHandler> receiver_;
   base::AtomicSequenceNumber sequence_generator_;
 
   std::optional<int64_t> last_seen_sequence_number_;
   GlicExperimentalTriggeringUpdateCallback update_callback_;
   bool terminal_update_sent_ = false;
+  bool is_actuation_started_ = false;
+  bool panel_opened_ = false;
+  bool client_connected_ = false;
+  bool first_response_received_ = false;
+  bool outcome_recorded_ = false;
+  bool is_cleaning_up_ = false;
+  base::TimeTicks task_start_time_;
+  base::TimeTicks turn_start_time_;
 
   base::WeakPtrFactory<ExperimentalTriggeringUpdatesHandler> weak_ptr_factory_{
       this};
@@ -905,6 +1494,14 @@ tabs::TabInterface* GlicExperimentalTriggeringCoordinator::GetActiveTab()
     const {
   BrowserWindowInterface* browser = GetBrowserWindow();
   return browser ? TabListInterface::From(browser)->GetActiveTab() : nullptr;
+}
+
+bool GlicExperimentalTriggeringCoordinator::IsChromeInBackground() const {
+#if BUILDFLAG(IS_ANDROID)
+  return !base::android::ApplicationStatusListener::HasVisibleActivities();
+#else
+  return false;
+#endif
 }
 
 std::optional<ExperimentalTriggeringResponse>
@@ -996,11 +1593,27 @@ GlicExperimentalTriggeringCoordinator::OnRequest(
 }
 
 void GlicExperimentalTriggeringCoordinator::OnUpdatesHandlerCleanup(
-    std::string_view context_id) {
+    const std::string& context_id) {
   auto it = context_id_to_updates_handler_map_.find(context_id);
   if (it != context_id_to_updates_handler_map_.end()) {
     context_id_to_updates_handler_map_.erase(it);
   }
+}
+
+// static
+base::flat_set<std::string>
+GlicExperimentalTriggeringCoordinator::GetCapabilities(
+    syncer::DeviceInfo::GlicExperimentalTriggeringState state) {
+  if (state ==
+      syncer::DeviceInfo::GlicExperimentalTriggeringState::kUnavailable) {
+    return {};
+  }
+  base::flat_set<std::string> capabilities;
+  if (base::FeatureList::IsEnabled(
+          features::kGlicExperimentalTriggeringScreenshot)) {
+    capabilities.insert(kGlicCapabilityScreenshot);
+  }
+  return capabilities;
 }
 
 }  // namespace glic

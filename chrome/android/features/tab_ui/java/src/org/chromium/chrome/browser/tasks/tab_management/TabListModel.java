@@ -17,8 +17,6 @@ import static org.chromium.chrome.browser.tasks.tab_management.TabProperties.TAB
 import static org.chromium.chrome.browser.tasks.tab_management.TabProperties.TAB_ID;
 import static org.chromium.chrome.browser.tasks.tab_management.TabSwitcherMessageManager.MessageType.ARCHIVED_TABS_MESSAGE;
 
-import android.util.Pair;
-
 import androidx.annotation.IntDef;
 
 import org.chromium.base.Token;
@@ -35,7 +33,6 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.util.List;
 
 /** A {@link PropertyListModel} implementation to keep information about a list of {@link Tab}s. */
 @NullMarked
@@ -155,7 +152,6 @@ public class TabListModel extends ModelList {
      * @return The index within the model list or {@link TabModel#INVALID_TAB_INDEX}.
      */
     public int indexFromTabGroupId(Token tabGroupId) {
-        if (tabGroupId == null) return TabModel.INVALID_TAB_INDEX;
         for (int i = 0; i < size(); i++) {
             PropertyModel model = get(i).model;
             if (model.get(CARD_TYPE) == TAB_GROUP
@@ -392,7 +388,9 @@ public class TabListModel extends ModelList {
         if (TabProperties.isTabOrTabGroup(model)) {
             @Nullable TabGroupColorViewProvider provider =
                     model.get(TabProperties.TAB_GROUP_COLOR_VIEW_PROVIDER);
-            if (provider != null) provider.destroy();
+            if (provider != null) {
+                provider.destroy();
+            }
         }
     }
 
@@ -403,6 +401,7 @@ public class TabListModel extends ModelList {
      * @param selectedTab The current selected tab in the group.
      * @param index The index of the item in {@link TabListModel} that needs to be updated.
      */
+    // TODO(crbug.com/517544602): Remove this method when removing the flag.
     void updateTabListModelIdForGroup(Tab selectedTab, int index) {
         if (index < 0 || index >= size()) return;
 
@@ -411,73 +410,6 @@ public class TabListModel extends ModelList {
         if (propertyModel.get(CARD_TYPE) != TAB) return;
 
         propertyModel.set(TabProperties.TAB_ID, selectedTab.getId());
-    }
-
-    /**
-     * This method gets indexes in the {@link TabListModel} of the tab cards that are merged into a
-     * group. This should always produce a valid destination index which is the index in the {@link
-     * TabListModel} that the moved tab should exist in. The source index may be invalid if a group
-     * of size 1 is created or the tab was moved between groups. In the case of moving between
-     * groups as the other group will be updated by {@link
-     * TabGroupObserver#didMoveTabOutOfGroup(Tab, int)}.
-     *
-     * @param tabModel The tabModel that owns the tabs.
-     * @param movedTab The tab that is being merged.
-     * @param isDestinationTab Whether the moved tab is being merged to the group or is the
-     *     destination.
-     * @param tabs The list that contains tabs of the newly merged group.
-     * @return A Pair with its first member as the index that is merged to and the the second member
-     *     as the index that is being merged from.
-     */
-    Pair<Integer, Integer> getIndexesForMergeToGroup(
-            TabModel tabModel, Tab movedTab, boolean isDestinationTab, List<Tab> tabs) {
-        // The moved tab is always involved in the merge, but it may not have an index if it was
-        // moved between groups.
-        int movedTabListModelIndex = indexFromTabId(movedTab.getId());
-
-        // TODO(crbug.com/433947821): The use of TabModel here is probably overkill. Consider
-        // iterating through just tabs.
-
-        // Find the other index that is involved in the merge it should be in the list of tabs.
-        int otherTabListModelIndex = TabModel.INVALID_TAB_INDEX;
-        int startIndex = tabModel.indexOf(tabs.get(0));
-        int endIndex = tabModel.indexOf(tabs.get(tabs.size() - 1));
-        // Ensure the last tab is last in the model and the first tab is the first.
-        assert endIndex - startIndex == tabs.size() - 1;
-        for (int i = startIndex; i <= endIndex; i++) {
-            Tab curTab = tabModel.getTabAtChecked(i);
-            // Group should be contiguous.
-            assert tabs.contains(curTab);
-            if (curTab == movedTab) continue;
-
-            otherTabListModelIndex = indexFromTabId(curTab.getId());
-            if (otherTabListModelIndex != TabModel.INVALID_TAB_INDEX) break;
-        }
-
-        // If nothing is found in the model early return, this might be a case of tab group undo.
-        if (movedTabListModelIndex == TabModel.INVALID_TAB_INDEX
-                && otherTabListModelIndex == TabModel.INVALID_TAB_INDEX) {
-            return new Pair<>(TabModel.INVALID_TAB_INDEX, TabModel.INVALID_TAB_INDEX);
-        }
-
-        final int desIndex;
-        final int srcIndex;
-        if (isDestinationTab || otherTabListModelIndex == TabModel.INVALID_TAB_INDEX) {
-            // We allow failing to find the other index as it might be a case of tab group undo
-            // which has a intermediate sequencing and model updates that can result in failing to
-            // find the tab among the related tabs.
-
-            // The moved tab is the destination tab and should always be in the model.
-            assert movedTabListModelIndex != TabModel.INVALID_TAB_INDEX;
-
-            desIndex = movedTabListModelIndex;
-            srcIndex = otherTabListModelIndex;
-        } else {
-            // The other tab is the destination tab and should always be in the model.
-            desIndex = otherTabListModelIndex;
-            srcIndex = movedTabListModelIndex;
-        }
-        return new Pair<>(desIndex, srcIndex);
     }
 
     /**

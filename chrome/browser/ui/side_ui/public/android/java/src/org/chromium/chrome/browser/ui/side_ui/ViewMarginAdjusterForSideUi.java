@@ -16,6 +16,7 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.AnchorSide;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.HeightType;
+import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.UiUpdateRequest;
 import org.chromium.ui.base.ViewUtils;
 
 import java.util.ArrayList;
@@ -74,7 +75,8 @@ public class ViewMarginAdjusterForSideUi implements SideUiObserver {
     }
 
     @Override
-    public @Nullable Transition onPreSideUiSpecsChange(SideUiCoordinator.SideUiSpecs sideUiSpecs) {
+    public @Nullable Transition onPreSideUiSpecsChange(
+            SideUiCoordinator.SideUiSpecs sideUiSpecs, UiUpdateRequest request) {
         TransitionSet transitionSet = new TransitionSet();
         Collection<View> descendants = new ArrayList<>();
         ViewUtils.getAllDescendants(mView, descendants, emptySet());
@@ -90,17 +92,31 @@ public class ViewMarginAdjusterForSideUi implements SideUiObserver {
     }
 
     @Override
-    public void onSideUiSpecsChanged(SideUiCoordinator.SideUiSpecs sideUiSpecs) {
+    public void onSideUiSpecsChanged(
+            SideUiCoordinator.SideUiSpecs sideUiSpecs, UiUpdateRequest request) {
+        updateMarginsForSideUi(sideUiSpecs);
+    }
+
+    /**
+     * Updates the View's margins to account for the given {@link SideUiCoordinator.SideUiSpecs}.
+     *
+     * <p>Owners that are created after side UI is already showing can call this to sync the View
+     * with the current specs, rather than directly invoking {@link #onSideUiSpecsChanged}, which is
+     * reserved for {@link SideUiCoordinator}.
+     *
+     * @param sideUiSpecs The {@link SideUiCoordinator.SideUiSpecs} to apply.
+     */
+    public final void updateMarginsForSideUi(SideUiCoordinator.SideUiSpecs sideUiSpecs) {
         MarginLayoutParams params = (MarginLayoutParams) mView.getLayoutParams();
         int leftMargin = 0;
         int rightMargin = 0;
         if (!mForToolbarElement
                 || sideUiSpecs.getHeightType(AnchorSide.LEFT) == HeightType.TOOLBAR) {
-            leftMargin = sideUiSpecs.getWidth(AnchorSide.LEFT);
+            leftMargin = sideUiSpecs.getReservedWidth(AnchorSide.LEFT);
         }
         if (!mForToolbarElement
                 || sideUiSpecs.getHeightType(AnchorSide.RIGHT) == HeightType.TOOLBAR) {
-            rightMargin = sideUiSpecs.getWidth(AnchorSide.RIGHT);
+            rightMargin = sideUiSpecs.getReservedWidth(AnchorSide.RIGHT);
         }
 
         params.leftMargin = mBaseLeftMargin + leftMargin;

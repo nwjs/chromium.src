@@ -288,8 +288,9 @@ enum class AccessPoint : int {
   kCollaborationShareTabGroup = 73,
   // Glic launch button on the tab strip.
   kGlicLaunchButton = 74,
-  // History sync promo shown on the History page. Should not be visible when
-  // the use is not signed-in. Android only.
+  // History sync promo shown on the History page. On Android, it should not be
+  // visible when the user is not signed-in. On Desktop, it can also be used to
+  // sign in and enable history sync.
   kHistoryPage = 75,
   // Access point triggered when a user attempts to join a tab group without
   // being signed in or synced.
@@ -375,10 +376,18 @@ enum class AccessPoint : int {
   // Triggered from the signed-out state of the account menu opened by tapping
   // the toolbar avatar button. Android desktop only.
   kAccountMenuSignedOutState = 111,
+  // Triggered when entering the Gemini flow from the iOS App Switcher AI
+  // Summarization entry point. iOS only.
+  kAppSwitcherAISummarization = 112,
+  // Triggered when entering the Gemini flow from an App Store In-App Event
+  // external action. iOS only.
+  kGeminiExternalAppStoreEvent = 113,
+  // Sign-in promo card shown on the Password Manager page. Desktop only.
+  kPasswordManagerCard = 114,
   // Add values above this line with a corresponding label to the
   // "SigninAccessPoint" enum in
   // tools/metrics/histograms/metadata/signin/enums.xml.
-  kMaxValue = kAccountMenuSignedOutState,  // This must be last.
+  kMaxValue = kPasswordManagerCard,  // This must be last.
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/signin/enums.xml)
 

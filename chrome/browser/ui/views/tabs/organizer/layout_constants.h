@@ -5,13 +5,19 @@
 #ifndef CHROME_BROWSER_UI_VIEWS_TABS_ORGANIZER_LAYOUT_CONSTANTS_H_
 #define CHROME_BROWSER_UI_VIEWS_TABS_ORGANIZER_LAYOUT_CONSTANTS_H_
 
+#include "chrome/browser/ui/tabs/vertical_tab_strip_state.h"
 #include "ui/color/color_id.h"
 #include "ui/gfx/geometry/insets.h"
 
 namespace organizer_panel {
 
 // Minimum width of the organizer panel.
-inline constexpr int kOrganizerPanelMinWidth = 240;
+inline constexpr int kOrganizerPanelMinWidth =
+    tabs::kVerticalTabStripDefaultUncollapsedWidth;
+
+// Min amount larger the organizer panel should be than an uncollapsed vertical
+// tab strip.
+inline constexpr int kOrganizerPanelMinOverlap = 20;
 
 // Background color of the organizer panel.
 inline constexpr ui::ColorId kOrganizerPanelBackgroundColor =

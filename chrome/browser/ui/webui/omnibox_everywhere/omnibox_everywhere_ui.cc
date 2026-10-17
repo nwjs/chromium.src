@@ -7,6 +7,7 @@
 #include "base/feature_list.h"
 #include "base/i18n/rtl.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/values.h"
@@ -238,6 +239,10 @@ OmniboxEverywhereUI::OmniboxEverywhereUI(content::WebUI* web_ui)
       network::mojom::CSPDirectiveName::MediaSrc,
       "media-src blob: data: 'self';");
   source->OverrideContentSecurityPolicy(
+      network::mojom::CSPDirectiveName::TrustedTypes,
+      base::StrCat(
+          {webui::kDefaultTrustedTypesPolicies, " composebox-input;"}));
+  source->OverrideContentSecurityPolicy(
       network::mojom::CSPDirectiveName::ImgSrc,
       "img-src 'self' chrome://resources chrome://theme chrome://favicon/ "
       "chrome://favicon2/ chrome://image/ data: blob:;");
@@ -395,6 +400,12 @@ OmniboxEverywhereUI::OmniboxEverywhereUI(content::WebUI* web_ui)
   AddMostVisitedSourceStrings(source);
   source->AddBoolean("smallLoomnibox",
                      omnibox::kOmniboxEverywhereSmallLoomniboxParam.Get());
+  source->AddBoolean("dynamicSizing",
+                     omnibox::kOmniboxEverywhereDynamicSizingParam.Get());
+  source->AddInteger("dynamicSizingWidth",
+                     omnibox::kOmniboxEverywhereDynamicSizingWidthParam.Get());
+  source->AddBoolean("smallFont",
+                     omnibox::kOmniboxEverywhereSmallFontParam.Get());
 
   source->AddBoolean("isPersistentMode",
                      !omnibox_everywhere::prefs::IsEphemeralModelEnabled());
@@ -585,8 +596,15 @@ void OmniboxEverywhereUI::ShowRegionSelectOverlay(
 }
 
 bool OmniboxEverywhereUI::CancelChromeDefaultPicker() {
-  if (auto* handler = GetContextualSearchboxHandler()) {
-    return handler->CancelChromeDefaultPicker();
+  // Screensharing can be initiated from either the Omnibox searchbox or
+  // Composebox. Because pre-warming switches `is_composebox_mode_` immediately,
+  // check both handlers rather than relying on
+  // `GetContextualSearchboxHandler()`.
+  if (omnibox_handler_ && omnibox_handler_->CancelChromeDefaultPicker()) {
+    return true;
+  }
+  if (composebox_handler_ && composebox_handler_->CancelChromeDefaultPicker()) {
+    return true;
   }
   return false;
 }

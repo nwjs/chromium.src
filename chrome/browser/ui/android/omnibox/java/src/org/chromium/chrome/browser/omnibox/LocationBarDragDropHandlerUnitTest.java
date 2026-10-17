@@ -9,6 +9,8 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -20,8 +22,13 @@ import android.content.ClipData;
 import android.content.ClipDescription;
 import android.content.ContentProvider;
 import android.content.Context;
+import android.content.ContextWrapper;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.ProviderInfo;
 import android.net.Uri;
+import android.os.Process;
 import android.view.DragAndDropPermissions;
 import android.view.DragEvent;
 import android.view.View;
@@ -43,17 +50,23 @@ import org.robolectric.Shadows;
 import org.robolectric.shadows.ShadowContentResolver;
 import org.robolectric.shadows.ShadowMimeTypeMap;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.omnibox.suggestions.OmniboxLoadUrlParams;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabObserver;
+import org.chromium.ui.base.UiAndroidFeatures;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.url.GURL;
 
 import java.lang.ref.WeakReference;
+import java.util.List;
 
 /** Unit tests for {@link LocationBarDragDropHandler}. */
 @RunWith(BaseRobolectricTestRunner.class)
+@DisableFeatures(UiAndroidFeatures.CLIPBOARD_CONFUSED_DEPUTY_DEFENSE_FILES)
 public class LocationBarDragDropHandlerUnitTest {
     @Rule
     public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
@@ -70,6 +83,7 @@ public class LocationBarDragDropHandlerUnitTest {
     @Mock private DragAndDropPermissions mDragAndDropPermissions;
     @Mock private ContentProvider mContentProvider;
     @Mock private Intent mIntent;
+    @Mock private PackageManager mPackageManager;
 
     @Captor private ArgumentCaptor<TabObserver> mTabObserverCaptor;
     @Captor private ArgumentCaptor<OmniboxLoadUrlParams> mLoadUrlParamsCaptor;
@@ -89,6 +103,29 @@ public class LocationBarDragDropHandlerUnitTest {
         shadowMimeTypeMap.addExtensionMimeTypeMapping("png", "image/png");
         shadowMimeTypeMap.addExtensionMimeTypeMapping("txt", "text/plain");
         shadowMimeTypeMap.addExtensionMimeTypeMapping("pdf", "application/pdf");
+    }
+
+    /**
+     * Installs an application context whose PackageManager resolves {@code authority} to a provider
+     * declared by {@code packageName}.
+     */
+    private void setResolvedProviderPackage(String authority, String packageName) {
+        ProviderInfo providerInfo = new ProviderInfo();
+        providerInfo.packageName = packageName;
+        providerInfo.applicationInfo = new ApplicationInfo();
+        providerInfo.applicationInfo.uid =
+                packageName.equals(mContext.getPackageName())
+                        ? Process.myUid()
+                        : Process.myUid() + 1;
+        when(mPackageManager.resolveContentProvider(eq(authority), anyInt()))
+                .thenReturn(providerInfo);
+        ContextUtils.initApplicationContextForTests(
+                new ContextWrapper(mContext) {
+                    @Override
+                    public PackageManager getPackageManager() {
+                        return mPackageManager;
+                    }
+                });
     }
 
     @Test
@@ -135,8 +172,8 @@ public class LocationBarDragDropHandlerUnitTest {
     }
 
     @Test
+    @DisableFeatures(UiAndroidFeatures.CLIPBOARD_CONFUSED_DEPUTY_DEFENSE_FILES)
     public void testOnDrag_Drop_FileUri() {
-
         when(mDragEvent.getAction()).thenReturn(DragEvent.ACTION_DROP);
         when(mDragEvent.getClipData()).thenReturn(mClipData);
         when(mClipData.getItemCount()).thenReturn(1);
@@ -156,8 +193,119 @@ public class LocationBarDragDropHandlerUnitTest {
     }
 
     @Test
-    public void testOnDrag_Drop_ContentUri() {
+    @EnableFeatures(UiAndroidFeatures.CLIPBOARD_CONFUSED_DEPUTY_DEFENSE_FILES)
+    public void testOnDrag_Drop_FileUri_DefenseEnabled() {
+        when(mDragEvent.getAction()).thenReturn(DragEvent.ACTION_DROP);
+        when(mDragEvent.getClipData()).thenReturn(mClipData);
+        when(mClipData.getItemCount()).thenReturn(1);
+        when(mClipData.getItemAt(0)).thenReturn(mClipDataItem);
 
+        Uri fileUri = Uri.parse("file:///path/to/file.txt");
+        when(mClipDataItem.getUri()).thenReturn(fileUri);
+
+        when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
+
+        assertFalse(mHandler.onDrag(new View(mContext), mDragEvent));
+
+        verify(mOmniboxStub, never()).loadUrl(any());
+    }
+
+    @Test
+    @EnableFeatures(UiAndroidFeatures.CLIPBOARD_CONFUSED_DEPUTY_DEFENSE_FILES)
+    public void testOnDrag_Drop_ContentUriFromThisApp() {
+        when(mDragEvent.getAction()).thenReturn(DragEvent.ACTION_DROP);
+        when(mDragEvent.getClipData()).thenReturn(mClipData);
+        when(mClipData.getItemCount()).thenReturn(1);
+        when(mClipData.getItemAt(0)).thenReturn(mClipDataItem);
+
+        Uri contentUri = Uri.parse("content://com.example.fileprovider/downloads/report.csv");
+        when(mClipDataItem.getUri()).thenReturn(contentUri);
+
+        setResolvedProviderPackage("com.example.fileprovider", mContext.getPackageName());
+
+        when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
+        when(mActivity.requestDragAndDropPermissions(mDragEvent))
+                .thenReturn(mDragAndDropPermissions);
+
+        assertFalse(mHandler.onDrag(new View(mContext), mDragEvent));
+
+        verify(mOmniboxStub, never()).loadUrl(any());
+        verify(mTab, never()).addObserver(any());
+        verify(mDragAndDropPermissions).release();
+    }
+
+    @Test
+    @EnableFeatures(UiAndroidFeatures.CLIPBOARD_CONFUSED_DEPUTY_DEFENSE_FILES)
+    public void testOnDrag_Drop_UppercaseFileUri_DefenseEnabled() {
+        when(mDragEvent.getAction()).thenReturn(DragEvent.ACTION_DROP);
+        when(mDragEvent.getClipData()).thenReturn(mClipData);
+        when(mClipData.getItemCount()).thenReturn(1);
+        when(mClipData.getItemAt(0)).thenReturn(mClipDataItem);
+
+        Uri fileUri = Uri.parse("FILE:///path/to/file.txt");
+        when(mClipDataItem.getUri()).thenReturn(fileUri);
+
+        when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
+
+        assertFalse(mHandler.onDrag(new View(mContext), mDragEvent));
+
+        verify(mOmniboxStub, never()).loadUrl(any());
+    }
+
+    @Test
+    @EnableFeatures(UiAndroidFeatures.CLIPBOARD_CONFUSED_DEPUTY_DEFENSE_FILES)
+    public void testOnDrag_Drop_UppercaseContentUriFromThisApp() {
+        when(mDragEvent.getAction()).thenReturn(DragEvent.ACTION_DROP);
+        when(mDragEvent.getClipData()).thenReturn(mClipData);
+        when(mClipData.getItemCount()).thenReturn(1);
+        when(mClipData.getItemAt(0)).thenReturn(mClipDataItem);
+
+        Uri contentUri = Uri.parse("CONTENT://com.example.fileprovider/downloads/report.csv");
+        when(mClipDataItem.getUri()).thenReturn(contentUri);
+
+        setResolvedProviderPackage("com.example.fileprovider", mContext.getPackageName());
+
+        when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
+        when(mActivity.requestDragAndDropPermissions(mDragEvent))
+                .thenReturn(mDragAndDropPermissions);
+
+        assertFalse(mHandler.onDrag(new View(mContext), mDragEvent));
+
+        verify(mOmniboxStub, never()).loadUrl(any());
+        verify(mTab, never()).addObserver(any());
+        verify(mDragAndDropPermissions).release();
+    }
+
+    @Test
+    @DisableFeatures(UiAndroidFeatures.CLIPBOARD_CONFUSED_DEPUTY_DEFENSE_FILES)
+    public void testOnDrag_Drop_ContentUriFromThisApp_DefenseDisabled() {
+        when(mDragEvent.getAction()).thenReturn(DragEvent.ACTION_DROP);
+        when(mDragEvent.getClipData()).thenReturn(mClipData);
+        when(mClipData.getItemCount()).thenReturn(1);
+        when(mClipData.getItemAt(0)).thenReturn(mClipDataItem);
+
+        Uri contentUri = Uri.parse("content://com.example.fileprovider/downloads/report.csv");
+        when(mClipDataItem.getUri()).thenReturn(contentUri);
+
+        when(mContentProvider.getType(contentUri)).thenReturn("text/csv");
+        ShadowContentResolver.registerProviderInternal(
+                "com.example.fileprovider", mContentProvider);
+
+        when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
+        when(mActivity.requestDragAndDropPermissions(mDragEvent))
+                .thenReturn(mDragAndDropPermissions);
+
+        assertTrue(mHandler.onDrag(new View(mContext), mDragEvent));
+
+        verify(mOmniboxStub).loadUrl(mLoadUrlParamsCaptor.capture());
+        assertEquals(
+                "content://com.example.fileprovider/downloads/report.csv",
+                mLoadUrlParamsCaptor.getValue().url);
+    }
+
+    @Test
+    @EnableFeatures(UiAndroidFeatures.CLIPBOARD_CONFUSED_DEPUTY_DEFENSE_FILES)
+    public void testOnDrag_Drop_ContentUri() {
         when(mDragEvent.getAction()).thenReturn(DragEvent.ACTION_DROP);
         when(mDragEvent.getClipData()).thenReturn(mClipData);
         when(mClipData.getItemCount()).thenReturn(1);
@@ -190,8 +338,8 @@ public class LocationBarDragDropHandlerUnitTest {
     }
 
     @Test
+    @EnableFeatures(UiAndroidFeatures.CLIPBOARD_CONFUSED_DEPUTY_DEFENSE_FILES)
     public void testOnDrag_Drop_ContentUri_LoadFailed() {
-
         when(mDragEvent.getAction()).thenReturn(DragEvent.ACTION_DROP);
         when(mDragEvent.getClipData()).thenReturn(mClipData);
         when(mClipData.getItemCount()).thenReturn(1);
@@ -219,8 +367,8 @@ public class LocationBarDragDropHandlerUnitTest {
     }
 
     @Test
+    @EnableFeatures(UiAndroidFeatures.CLIPBOARD_CONFUSED_DEPUTY_DEFENSE_FILES)
     public void testOnDrag_Drop_ContentUri_TabDestroyed() {
-
         when(mDragEvent.getAction()).thenReturn(DragEvent.ACTION_DROP);
         when(mDragEvent.getClipData()).thenReturn(mClipData);
         when(mClipData.getItemCount()).thenReturn(1);
@@ -254,6 +402,21 @@ public class LocationBarDragDropHandlerUnitTest {
         assertFalse(mHandler.isAcceptableMimeType("video/mp4"));
         assertFalse(mHandler.isAcceptableMimeType("text/uri-list"));
         assertFalse(mHandler.isAcceptableMimeType(null));
+    }
+
+    @Test
+    public void testIsContentOrFileUri() {
+        assertTrue(mHandler.isContentOrFileUri(Uri.parse("content://com.example/doc")));
+        assertTrue(mHandler.isContentOrFileUri(Uri.parse("CONTENT://com.example/doc")));
+        assertTrue(mHandler.isContentOrFileUri(Uri.parse("file:///path/to/file.txt")));
+        assertTrue(mHandler.isContentOrFileUri(Uri.parse("FILE:///path/to/file.txt")));
+        assertFalse(mHandler.isContentOrFileUri(Uri.parse("http://example.com")));
+        assertFalse(mHandler.isContentOrFileUri(Uri.parse("https://example.com")));
+        assertFalse(mHandler.isContentOrFileUri(Uri.parse("javascript:alert(1)")));
+        assertFalse(mHandler.isContentOrFileUri(Uri.parse("data:text/html,sample_data")));
+        assertFalse(mHandler.isContentOrFileUri(Uri.parse("chrome://flags")));
+        assertFalse(mHandler.isContentOrFileUri(null));
+        assertFalse(mHandler.isContentOrFileUri(Uri.EMPTY));
     }
 
     @Test
@@ -310,6 +473,7 @@ public class LocationBarDragDropHandlerUnitTest {
     }
 
     @Test
+    @DisableFeatures(UiAndroidFeatures.CLIPBOARD_CONFUSED_DEPUTY_DEFENSE_FILES)
     public void testFindUriToLoad() {
         ClipData.Item item1 = mock(ClipData.Item.class);
         ClipData.Item item2 = mock(ClipData.Item.class);
@@ -341,8 +505,26 @@ public class LocationBarDragDropHandlerUnitTest {
     }
 
     @Test
-    public void testOnDrag_Drop_BrowsableIntent() {
+    @EnableFeatures(UiAndroidFeatures.CLIPBOARD_CONFUSED_DEPUTY_DEFENSE_FILES)
+    public void testFindUriToLoad_SkipsContentUriFromThisApp() {
+        Uri thisAppUri = Uri.parse("content://com.example.fileprovider/downloads/report.csv");
+        Uri otherAppUri = Uri.parse("content://com.example.provider/document.pdf");
+        ClipData clipData =
+                new ClipData(
+                        "clip",
+                        new String[] {"text/csv", "application/pdf"},
+                        new ClipData.Item(thisAppUri));
+        clipData.addItem(new ClipData.Item(otherAppUri));
 
+        when(mContentProvider.getType(otherAppUri)).thenReturn("application/pdf");
+        ShadowContentResolver.registerProviderInternal("com.example.provider", mContentProvider);
+        setResolvedProviderPackage("com.example.fileprovider", mContext.getPackageName());
+
+        assertEquals(otherAppUri, mHandler.findUriToLoad(mContext, clipData, mClipDescription));
+    }
+
+    @Test
+    public void testOnDrag_Drop_BrowsableIntent() {
         when(mDragEvent.getAction()).thenReturn(DragEvent.ACTION_DROP);
         when(mDragEvent.getClipData()).thenReturn(mClipData);
         when(mClipData.getItemCount()).thenReturn(1);
@@ -435,5 +617,183 @@ public class LocationBarDragDropHandlerUnitTest {
                         new ClipData.Item(intent));
 
         assertNull(mHandler.findUriToLoad(mContext, clipData, null));
+    }
+
+    @Test
+    public void testFindUriToLoad_RejectsJavascriptUriWithFallbackMimeType() {
+        Uri uri = Uri.parse("javascript:alert(1)");
+        ClipData clipData =
+                new ClipData("url", new String[] {"text/plain"}, new ClipData.Item(uri));
+        ClipDescription desc = new ClipDescription("url", new String[] {"text/plain"});
+
+        assertNull(mHandler.findUriToLoad(mContext, clipData, desc));
+    }
+
+    @Test
+    public void testOnDrag_Drop_JavascriptUri_Rejected() {
+        Uri uri = Uri.parse("javascript:alert(1)");
+        ClipData clipData =
+                new ClipData("url", new String[] {"text/plain"}, new ClipData.Item(uri));
+
+        when(mDragEvent.getAction()).thenReturn(DragEvent.ACTION_DROP);
+        when(mDragEvent.getClipData()).thenReturn(clipData);
+        when(mDragEvent.getClipDescription()).thenReturn(clipData.getDescription());
+        when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
+
+        assertFalse(mHandler.onDrag(new View(mContext), mDragEvent));
+        verify(mOmniboxStub, never()).loadUrl(any());
+    }
+
+    @Test
+    public void testFindUriToLoad_RejectsDataUri() {
+        Uri uri = Uri.parse("data:text/html,sample_data");
+        ClipData clipData =
+                new ClipData("data", new String[] {"text/html"}, new ClipData.Item(uri));
+        ClipDescription desc = new ClipDescription("data", new String[] {"text/html"});
+
+        assertNull(mHandler.findUriToLoad(mContext, clipData, desc));
+    }
+
+    @Test
+    public void testFindUriToLoad_RejectsChromeAndAboutSchemes() {
+        for (String urlStr :
+                List.of(
+                        "chrome://flags",
+                        "chrome-native://bookmarks",
+                        "about:blank",
+                        "about:flags")) {
+            Uri uri = Uri.parse(urlStr);
+            ClipData clipData =
+                    new ClipData("internal", new String[] {"text/plain"}, new ClipData.Item(uri));
+            ClipDescription desc = new ClipDescription("internal", new String[] {"text/plain"});
+
+            assertNull(
+                    "Scheme should be rejected: " + urlStr,
+                    mHandler.findUriToLoad(mContext, clipData, desc));
+        }
+    }
+
+    @Test
+    public void testFindUriToLoad_RejectsOtherDisallowedSchemes() {
+        for (String urlStr :
+                List.of(
+                        "jar:file:///path.jar!/file.txt",
+                        "blob:https://example.com/sample",
+                        "intent:#Intent;action=VIEW;end")) {
+            Uri uri = Uri.parse(urlStr);
+            ClipData clipData =
+                    new ClipData("disallowed", new String[] {"text/plain"}, new ClipData.Item(uri));
+            ClipDescription desc = new ClipDescription("disallowed", new String[] {"text/plain"});
+
+            assertNull(
+                    "Scheme should be rejected: " + urlStr,
+                    mHandler.findUriToLoad(mContext, clipData, desc));
+        }
+    }
+
+    @Test
+    public void testFindUriToLoad_RejectsUppercaseJavascriptUri() {
+        Uri uri = Uri.parse("JAVASCRIPT:alert(1)");
+        ClipData clipData =
+                new ClipData("url", new String[] {"text/plain"}, new ClipData.Item(uri));
+        ClipDescription desc = new ClipDescription("url", new String[] {"text/plain"});
+
+        assertNull(mHandler.findUriToLoad(mContext, clipData, desc));
+    }
+
+    @Test
+    public void testOnDrag_Drop_UppercaseContentUri_AcceptedWithPermissions() {
+        Uri contentUri = Uri.parse("CONTENT://com.example.provider/document.pdf");
+        ClipData clipData =
+                new ClipData(
+                        "doc", new String[] {"application/pdf"}, new ClipData.Item(contentUri));
+        when(mDragEvent.getAction()).thenReturn(DragEvent.ACTION_DROP);
+        when(mDragEvent.getClipData()).thenReturn(clipData);
+        when(mDragEvent.getClipDescription()).thenReturn(clipData.getDescription());
+        when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
+        when(mActivity.requestDragAndDropPermissions(mDragEvent))
+                .thenReturn(mDragAndDropPermissions);
+
+        assertTrue(mHandler.onDrag(new View(mContext), mDragEvent));
+        verify(mTab).addObserver(any());
+        verify(mOmniboxStub).loadUrl(mLoadUrlParamsCaptor.capture());
+        assertEquals(
+                "CONTENT://com.example.provider/document.pdf", mLoadUrlParamsCaptor.getValue().url);
+    }
+
+    @Test
+    public void testOnDrag_Drop_UppercaseFileUri_Accepted() {
+        Uri fileUri = Uri.parse("FILE:///path/to/file.txt");
+        ClipData clipData =
+                new ClipData("file", new String[] {"text/plain"}, new ClipData.Item(fileUri));
+
+        when(mDragEvent.getAction()).thenReturn(DragEvent.ACTION_DROP);
+        when(mDragEvent.getClipData()).thenReturn(clipData);
+        when(mDragEvent.getClipDescription()).thenReturn(clipData.getDescription());
+        when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
+
+        assertTrue(mHandler.onDrag(new View(mContext), mDragEvent));
+        verify(mOmniboxStub).loadUrl(mLoadUrlParamsCaptor.capture());
+        assertEquals("FILE:///path/to/file.txt", mLoadUrlParamsCaptor.getValue().url);
+    }
+
+    @Test
+    public void testOnDrag_Drop_SkipsUnsupportedUriScheme() {
+        Uri fileUri = Uri.parse("file:///path/to/file.txt");
+        ClipData clipData =
+                new ClipData(
+                        "text",
+                        new String[] {"text/plain"},
+                        new ClipData.Item(Uri.parse("javascript:alert(1)")));
+        clipData.addItem(new ClipData.Item(fileUri));
+
+        when(mDragEvent.getAction()).thenReturn(DragEvent.ACTION_DROP);
+        when(mDragEvent.getClipData()).thenReturn(clipData);
+        when(mDragEvent.getClipDescription()).thenReturn(clipData.getDescription());
+        when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
+
+        assertTrue(mHandler.onDrag(new View(mContext), mDragEvent));
+        verify(mOmniboxStub).loadUrl(mLoadUrlParamsCaptor.capture());
+        assertEquals("file:///path/to/file.txt", mLoadUrlParamsCaptor.getValue().url);
+    }
+
+    @Test
+    public void testFindUriToLoad_FallbackMimeTypeOnlyForContentOrFile() {
+        // Content URI with null getType() -> Uses fallback -> Accepted
+        Uri contentUri = Uri.parse("content://com.example.provider/sample");
+        when(mContentProvider.getType(contentUri)).thenReturn(null);
+        ShadowContentResolver.registerProviderInternal("com.example.provider", mContentProvider);
+        ClipData contentClip =
+                new ClipData(
+                        "doc", new String[] {"application/pdf"}, new ClipData.Item(contentUri));
+        assertEquals(
+                contentUri,
+                mHandler.findUriToLoad(mContext, contentClip, contentClip.getDescription()));
+
+        // File URI with no extension -> Uses fallback -> Accepted
+        Uri fileUri = Uri.parse("file:///path/to/no_extension_file");
+        ClipData fileClip =
+                new ClipData("file", new String[] {"text/plain"}, new ClipData.Item(fileUri));
+        assertEquals(
+                fileUri, mHandler.findUriToLoad(mContext, fileClip, fileClip.getDescription()));
+
+        // Non-content/file URI with null getMimeType() -> Fallback blocked -> Rejected
+        Uri jsUri = Uri.parse("javascript:alert(1)");
+        ClipData jsClip = new ClipData("js", new String[] {"text/plain"}, new ClipData.Item(jsUri));
+        assertNull(mHandler.findUriToLoad(mContext, jsClip, jsClip.getDescription()));
+    }
+
+    @Test
+    public void testFindUriToLoad_RejectsSchemelessOrMalformedUri() {
+        for (String urlStr : List.of("//example.com", "relative/path/file.txt", "   ")) {
+            Uri uri = Uri.parse(urlStr);
+            ClipData clipData =
+                    new ClipData("malformed", new String[] {"text/plain"}, new ClipData.Item(uri));
+            ClipDescription desc = new ClipDescription("malformed", new String[] {"text/plain"});
+
+            assertNull(
+                    "Schemeless/malformed URI should be rejected: " + urlStr,
+                    mHandler.findUriToLoad(mContext, clipData, desc));
+        }
     }
 }

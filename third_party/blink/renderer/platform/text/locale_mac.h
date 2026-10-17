@@ -51,7 +51,7 @@ class PLATFORM_EXPORT LocaleMac : public Locale {
   ~LocaleMac() override;
 
   const Vector<String>& WeekDayShortLabels() override;
-  unsigned FirstDayOfWeek() override;
+  wtf_size_t FirstDayOfWeek() override;
   bool IsRtl() override;
 
   String DateFormat() override;
@@ -92,7 +92,7 @@ class PLATFORM_EXPORT LocaleMac : public Locale {
   Vector<String> stand_alone_month_labels_;
   Vector<String> short_stand_alone_month_labels_;
   Vector<String> time_ampm_labels_;
-  bool did_initialize_number_data_;
+  bool did_initialize_number_data_ = false;
 };
 
 }  // namespace blink

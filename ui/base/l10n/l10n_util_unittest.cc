@@ -30,7 +30,6 @@
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/test/icu_test_util.h"
 #include "base/test/scoped_path_override.h"
 #include "build/build_config.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -144,7 +143,7 @@ class L10nUtilTest : public PlatformTest {
     if (kUseLocaleFromEnvironment) {
       env->SetVar("LANGUAGE", tag.ToLegacyICUFormat());
     } else {
-      base::i18n::SetICUDefaultLocale(tag.ToLegacyICUFormat());
+      SetIcuLocaleForTest(tag);
     }
   }
 
@@ -244,6 +243,51 @@ TEST_F(L10nUtilTest, GetAppLocale_HasDefaultLocale_UseLocaleFromEnvironment) {
     EXPECT_EQ("ca", l10n_util::GetApplicationLocale(std::string()));
     EXPECT_STREQ("ca", icu::Locale::getDefault().getLanguage());
   }
+}
+
+// Regression test for https://crbug.com/571157925: the first entry of the
+// LANGUAGE preference list must win even if it only resolves to a locale
+// through fallback (e.g. de_DE -> de), and a later entry has an exact match
+// on disk (e.g. en_US -> en-US).
+TEST_F(L10nUtilTest,
+       GetAppLocale_UseLocaleFromEnvironment_FirstEntryWinsOverExactFallback) {
+  if (!kPlatformHasDefaultLocale || !kUseLocaleFromEnvironment) {
+    GTEST_SKIP() << "Only relevant on platforms reading LANGUAGE.";
+  }
+  SetUpLocales(kDefaultLocalesOnDisk);
+  constexpr auto kExtraLocales = std::to_array<std::string_view>({"de"});
+  SetUpLocales(kExtraLocales);
+  SetIcuLocaleForTest(GetKnownLanguageTag("en-US"));
+  env().SetVar("LANG", "de_DE.UTF-8");
+
+  // Control cases from the bug report, which work correctly.
+  env().UnSetVar("LANGUAGE");
+  EXPECT_EQ("de", l10n_util::GetApplicationLocale(std::string()));
+  env().SetVar("LANGUAGE", "de_DE");
+  EXPECT_EQ("de", l10n_util::GetApplicationLocale(std::string()));
+  env().SetVar("LANGUAGE", "de_DE:de");
+  EXPECT_EQ("de", l10n_util::GetApplicationLocale(std::string()));
+  env().SetVar("LANGUAGE", "de_DE:en");
+  EXPECT_EQ("de", l10n_util::GetApplicationLocale(std::string()));
+
+  // Failing cases from the bug report: the regional `en_US` fallback has an
+  // exact match on disk and must not override the preferred `de_DE`.
+  env().SetVar("LANGUAGE", "de_DE:en_US");
+  EXPECT_EQ("de", l10n_util::GetApplicationLocale(std::string()));
+  env().SetVar("LANGUAGE", "de_DE:en_US:en");
+  EXPECT_EQ("de", l10n_util::GetApplicationLocale(std::string()));
+
+  // Same issue with a different language pair.
+  env().SetVar("LANGUAGE", "fr_FR:en_US");
+  EXPECT_EQ("fr", l10n_util::GetApplicationLocale(std::string()));
+  env().SetVar("LANGUAGE", "fr_CA:en_GB");
+  EXPECT_EQ("fr", l10n_util::GetApplicationLocale(std::string()));
+
+  // Spanish case
+  env().SetVar("LANGUAGE", "es_MX:en_US");
+  EXPECT_EQ("es-419", l10n_util::GetApplicationLocale(std::string()));
+  env().SetVar("LANGUAGE", "es_ES:en_GB");
+  EXPECT_EQ("es", l10n_util::GetApplicationLocale(std::string()));
 }
 
 TEST_F(L10nUtilTest, GetAppLocaleBasicTest) {
@@ -550,21 +594,27 @@ void CheckUiDisplayNameForLocale(const std::string& locale,
   }
 }
 
-TEST_F(L10nUtilTest, GetDisplayNameForLocaleWithoutCountry) {
-  ASSERT_EQ(u"English", l10n_util::GetDisplayNameForLocaleWithoutCountry(
-                            "en-US", "en", false));
-  ASSERT_EQ(u"English", l10n_util::GetDisplayNameForLocaleWithoutCountry(
-                            "en-GB", "en", false));
-  ASSERT_EQ(u"English", l10n_util::GetDisplayNameForLocaleWithoutCountry(
-                            "en-AU", "en", false));
-  ASSERT_EQ(u"English", l10n_util::GetDisplayNameForLocaleWithoutCountry(
-                            "en", "en", false));
-  EXPECT_EQ(u"Spanish", l10n_util::GetDisplayNameForLocaleWithoutCountry(
-                            "es-419", "en", false));
-  EXPECT_EQ(u"Chinese", l10n_util::GetDisplayNameForLocaleWithoutCountry(
-                            "zh-CH", "en", false));
-  EXPECT_EQ(u"Chinese", l10n_util::GetDisplayNameForLocaleWithoutCountry(
-                            "zh-TW", "en", false));
+TEST_F(L10nUtilTest, GetDisplayNameForLocaleWithLanguageSubtagOnly) {
+  auto test_display_name = [](std::string_view locale,
+                              std::string_view display_locale, bool is_for_ui) {
+    std::optional<base::i18n::LanguageTag> locale_tag =
+        base::i18n::GetLanguageTagFromString(locale);
+    std::optional<base::i18n::LanguageTag> display_locale_tag =
+        base::i18n::GetLanguageTagFromString(display_locale);
+    if (!locale_tag || !display_locale_tag) {
+      return std::u16string();
+    }
+    return l10n_util::GetDisplayNameForLocale(
+        locale_tag->WithLanguageSubtagOnly(), *display_locale_tag, is_for_ui);
+  };
+
+  ASSERT_EQ(u"English", test_display_name("en-US", "en", false));
+  ASSERT_EQ(u"English", test_display_name("en-GB", "en", false));
+  ASSERT_EQ(u"English", test_display_name("en-AU", "en", false));
+  ASSERT_EQ(u"English", test_display_name("en", "en", false));
+  EXPECT_EQ(u"Spanish", test_display_name("es-419", "en", false));
+  EXPECT_EQ(u"Chinese", test_display_name("zh-CH", "en", false));
+  EXPECT_EQ(u"Chinese", test_display_name("zh-TW", "en", false));
 }
 
 TEST_F(L10nUtilTest, GetDisplayNameForLocale) {

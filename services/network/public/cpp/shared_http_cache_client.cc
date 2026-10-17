@@ -8,11 +8,14 @@
 #include <utility>
 #include <vector>
 
+#include "base/containers/hashing_lru_cache.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_forward.h"
+#include "base/functional/callback_helpers.h"
 #include "base/hash/hash.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
 #include "base/synchronization/lock.h"
 #include "base/task/bind_post_task.h"
@@ -29,37 +32,38 @@
 #include "services/network/public/cpp/content_decoding_util.h"
 #include "services/network/public/cpp/data_buffer_factory.h"
 #include "services/network/public/cpp/resource_request.h"
+#include "services/network/public/cpp/shared_http_cache_util.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
-#include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 #include "url/gurl.h"
 
 namespace network {
 
 namespace {
 
-// A thread-safe set of persistent URL hashes.
+// A thread-safe LRU cache set of persistent URL hashes.
 // Used to quickly determine whether a requested URL might exist in the
 // shared HTTP cache without thread hopping or disk I/O.
 class ThreadSafeSet : public base::RefCountedThreadSafe<ThreadSafeSet> {
  public:
-  ThreadSafeSet();
+  explicit ThreadSafeSet(size_t max_size);
   ThreadSafeSet(const ThreadSafeSet&) = delete;
   ThreadSafeSet& operator=(const ThreadSafeSet&) = delete;
 
   void Initialize();
   void Insert(const std::vector<uint32_t>& new_hashes);
+  void OnDisconnected();
+  bool IsDisconnected();
   bool ShouldEarlyReturn(uint32_t hash);
 
  private:
   friend class base::RefCountedThreadSafe<ThreadSafeSet>;
   ~ThreadSafeSet();
 
+  const size_t max_size_;
   base::Lock lock_;
-  // TODO(crbug.com/473666511): Using an unbounded hash set can lead to high
-  // memory usage in long-lived renderers. Use base::LRUCacheSet with a size
-  // limit to cap memory consumption.
-  std::optional<absl::flat_hash_set<uint32_t>> set_ GUARDED_BY(lock_);
+  std::optional<base::HashingLRUCacheSet<uint32_t>> set_ GUARDED_BY(lock_);
   bool init_called_ GUARDED_BY(lock_) = false;
+  bool disconnected_ GUARDED_BY(lock_) = false;
 };
 
 // Implements network::mojom::SharedHttpCacheClient on `client_task_runner_`.
@@ -68,9 +72,14 @@ class CacheClient : public network::mojom::SharedHttpCacheClient {
  public:
   CacheClient(mojo::PendingReceiver<network::mojom::SharedHttpCacheClient>
                   pending_receiver,
-              scoped_refptr<ThreadSafeSet> shared_state)
+              scoped_refptr<ThreadSafeSet> shared_state,
+              base::OnceClosure on_disconnect_callback)
       : receiver_(this, std::move(pending_receiver)),
-        shared_state_(std::move(shared_state)) {}
+        shared_state_(std::move(shared_state)),
+        on_disconnect_callback_(std::move(on_disconnect_callback)) {
+    receiver_.set_disconnect_handler(
+        base::BindOnce(&CacheClient::OnMojoDisconnect, base::Unretained(this)));
+  }
   ~CacheClient() override = default;
   CacheClient(const CacheClient&) = delete;
   CacheClient& operator=(const CacheClient&) = delete;
@@ -81,8 +90,16 @@ class CacheClient : public network::mojom::SharedHttpCacheClient {
   }
 
  private:
+  void OnMojoDisconnect() {
+    shared_state_->OnDisconnected();
+    if (on_disconnect_callback_) {
+      std::move(on_disconnect_callback_).Run();
+    }
+  }
+
   mojo::Receiver<network::mojom::SharedHttpCacheClient> receiver_;
   const scoped_refptr<ThreadSafeSet> shared_state_;
+  base::OnceClosure on_disconnect_callback_;
 };
 
 // Implements network::mojom::SharedHttpCacheClientFactory and executes SQLite
@@ -99,7 +116,10 @@ class DatabaseBackend : public network::mojom::SharedHttpCacheClientFactory {
         client_task_runner_(std::move(client_task_runner)),
         shared_state_(std::move(shared_state)),
         on_db_reader_initialized_callback_(
-            std::move(on_db_reader_initialized_callback)) {}
+            std::move(on_db_reader_initialized_callback)) {
+    receiver_.set_disconnect_handler(base::BindOnce(
+        &DatabaseBackend::OnMojoDisconnect, base::Unretained(this)));
+  }
   ~DatabaseBackend() override {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   }
@@ -116,12 +136,19 @@ class DatabaseBackend : public network::mojom::SharedHttpCacheClientFactory {
       return;
     }
     client_created_ = true;
+    // Once `CreateClient` is called, registration lifetime transfers to
+    // `client_receiver`. Clear `receiver_`'s disconnect handler so closing the
+    // factory pipe does not invalidate the client.
+    receiver_.set_disconnect_handler(base::NullCallback());
+
     db_reader_ =
         std::make_unique<disk_cache::SqlSharedCacheIsolatedDatabaseReader>(
             std::move(pending_file_set));
     shared_state_->Initialize();
-    cache_client_.emplace(client_task_runner_, std::move(client_receiver),
-                          shared_state_);
+    cache_client_.emplace(
+        client_task_runner_, std::move(client_receiver), shared_state_,
+        base::BindPostTaskToCurrentDefault(base::BindOnce(
+            &DatabaseBackend::OnMojoDisconnect, weak_factory_.GetWeakPtr())));
     if (on_db_reader_initialized_callback_) {
       std::move(on_db_reader_initialized_callback_).Run();
     }
@@ -135,6 +162,10 @@ class DatabaseBackend : public network::mojom::SharedHttpCacheClientFactory {
       base::OnceCallback<void(std::optional<SharedHttpCacheClient::Response>)>
           callback) {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+    if (shared_state_->IsDisconnected()) {
+      std::move(callback).Run(std::nullopt);
+      return;
+    }
     CHECK(db_reader_);
     const base::TimeTicks send_start = base::TimeTicks::Now();
     const base::TimeTicks send_end = send_start;
@@ -161,6 +192,13 @@ class DatabaseBackend : public network::mojom::SharedHttpCacheClientFactory {
   }
 
  private:
+  void OnMojoDisconnect() {
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+    shared_state_->OnDisconnected();
+    db_reader_.reset();
+    cache_client_.Reset();
+  }
+
   static void ParseAndDecode(
       scoped_refptr<DataBufferFactory> data_buffer_factory,
       base::TimeTicks request_start,
@@ -184,6 +222,7 @@ class DatabaseBackend : public network::mojom::SharedHttpCacheClientFactory {
   std::unique_ptr<disk_cache::SqlSharedCacheIsolatedDatabaseReader> db_reader_
       GUARDED_BY_CONTEXT(sequence_checker_);
   SEQUENCE_CHECKER(sequence_checker_);
+  base::WeakPtrFactory<DatabaseBackend> weak_factory_{this};
 };
 
 // static
@@ -280,7 +319,8 @@ class SharedHttpCacheClientImpl : public SharedHttpCacheClient {
  public:
   SharedHttpCacheClientImpl(
       scoped_refptr<base::SequencedTaskRunner> client_task_runner,
-      scoped_refptr<base::SequencedTaskRunner> database_task_runner);
+      scoped_refptr<base::SequencedTaskRunner> database_task_runner,
+      size_t max_cached_url_hashes);
 
   SharedHttpCacheClientImpl(const SharedHttpCacheClientImpl&) = delete;
   SharedHttpCacheClientImpl& operator=(const SharedHttpCacheClientImpl&) =
@@ -307,26 +347,41 @@ class SharedHttpCacheClientImpl : public SharedHttpCacheClient {
   base::SequenceBound<DatabaseBackend> database_backend_;
 };
 
-ThreadSafeSet::ThreadSafeSet() = default;
+ThreadSafeSet::ThreadSafeSet(size_t max_size) : max_size_(max_size) {
+  CHECK_GT(max_size_, 0u);
+}
 ThreadSafeSet::~ThreadSafeSet() = default;
 
 void ThreadSafeSet::Initialize() {
   base::AutoLock auto_lock(lock_);
   init_called_ = true;
 }
+
 void ThreadSafeSet::Insert(const std::vector<uint32_t>& new_hashes) {
   base::AutoLock auto_lock(lock_);
   if (!set_.has_value()) {
-    set_ = absl::flat_hash_set<uint32_t>();
+    set_.emplace(max_size_);
   }
-  for (auto hash : new_hashes) {
-    set_->insert(hash);
+  for (uint32_t hash : new_hashes) {
+    // `LRUCacheBase::Put(value_type&&)` only accepts rvalues.
+    set_->Put(std::move(hash));
   }
+}
+
+void ThreadSafeSet::OnDisconnected() {
+  base::AutoLock auto_lock(lock_);
+  disconnected_ = true;
+  set_.reset();
+}
+
+bool ThreadSafeSet::IsDisconnected() {
+  base::AutoLock auto_lock(lock_);
+  return disconnected_;
 }
 
 bool ThreadSafeSet::ShouldEarlyReturn(uint32_t hash) {
   base::AutoLock auto_lock(lock_);
-  if (!init_called_) {
+  if (disconnected_ || !init_called_) {
     // TODO(crbug.com/473666511): Consider making early-return vs queuing before
     // database initialization configurable via a base::FeatureParam.
     return true;
@@ -334,15 +389,17 @@ bool ThreadSafeSet::ShouldEarlyReturn(uint32_t hash) {
   if (!set_.has_value()) {
     return false;
   }
-  return !set_->contains(hash);
+  return set_->Get(hash) == set_->end();
 }
 
 SharedHttpCacheClientImpl::SharedHttpCacheClientImpl(
     scoped_refptr<base::SequencedTaskRunner> client_task_runner,
-    scoped_refptr<base::SequencedTaskRunner> database_task_runner)
+    scoped_refptr<base::SequencedTaskRunner> database_task_runner,
+    size_t max_cached_url_hashes)
     : client_task_runner_(std::move(client_task_runner)),
       database_task_runner_(std::move(database_task_runner)),
-      shared_state_(base::MakeRefCounted<ThreadSafeSet>()) {
+      shared_state_(
+          base::MakeRefCounted<ThreadSafeSet>(max_cached_url_hashes)) {
   CHECK(client_task_runner_);
   CHECK(database_task_runner_);
 }
@@ -373,16 +430,12 @@ void SharedHttpCacheClientImpl::Find(
     scoped_refptr<DataBufferFactory> data_buffer_factory,
     base::OnceCallback<void(std::optional<Response>)> callback,
     scoped_refptr<base::SequencedTaskRunner> callback_task_runner) {
-  // TODO(crbug.com/473666511): Ineligible requests for cache lookup (e.g.
-  // non-GET HTTP methods, loading flags such as LOAD_DISABLE_CACHE, non-HTTP
-  // schemes) must also be skipped here. Implement this in a follow-up CL.
-  const base::TimeTicks request_start = base::TimeTicks::Now();
-  const base::Time request_start_time = base::Time::Now();
-  if (request.is_revalidating || request.revalidation_etag ||
-      request.revalidation_last_modified) {
+  if (!IsRequestEligibleForSharedHttpCacheLookup(request)) {
     std::move(callback).Run(std::nullopt);
     return;
   }
+  const base::TimeTicks request_start = base::TimeTicks::Now();
+  const base::Time request_start_time = base::Time::Now();
   if (ShouldEarlyReturn(request.url)) {
     std::move(callback).Run(std::nullopt);
     return;
@@ -410,9 +463,11 @@ scoped_refptr<SharedHttpCacheClient> SharedHttpCacheClient::CreateAndInit(
         pending_receiver,
     scoped_refptr<base::SequencedTaskRunner> client_task_runner,
     scoped_refptr<base::SequencedTaskRunner> database_task_runner,
-    base::OnceClosure on_db_reader_initialized_callback) {
+    base::OnceClosure on_db_reader_initialized_callback,
+    size_t max_cached_url_hashes) {
   auto impl = base::MakeRefCounted<SharedHttpCacheClientImpl>(
-      std::move(client_task_runner), std::move(database_task_runner));
+      std::move(client_task_runner), std::move(database_task_runner),
+      max_cached_url_hashes);
   impl->Init(std::move(pending_receiver),
              std::move(on_db_reader_initialized_callback));
   return impl;

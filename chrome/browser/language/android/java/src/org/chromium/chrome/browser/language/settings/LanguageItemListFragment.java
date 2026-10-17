@@ -116,6 +116,28 @@ public abstract class LanguageItemListFragment extends Fragment
         mListDelegate = makeFragmentListDelegate();
         mPageTitle.set(getLanguageListTitle(getContext()));
         recordFragmentImpression();
+        listenForSelectedLanguage();
+    }
+
+    /**
+     * Listens for a language picked by {@link SelectLanguageFragment} on behalf of this list.
+     *
+     * <p>Registered while the page is being created rather than when the add button is pressed. The
+     * picker can replace this page, in which case the selection is delivered to the page that
+     * replaces it, which never ran the click handler.
+     */
+    private void listenForSelectedLanguage() {
+        if (!SelectLanguageFragment.usesUrlNavigation(this)) return;
+        getParentFragmentManager()
+                .setFragmentResultListener(
+                        SelectLanguageFragment.resultKey(getLanguagePickerClass()),
+                        this,
+                        (String requestKey, Bundle result) -> {
+                            String code =
+                                    result.getString(SelectLanguageFragment.KEY_SELECTED_LANGUAGE);
+                            assumeNonNull(code);
+                            onSelectLanguageResult(code);
+                        });
     }
 
     @Override
@@ -159,16 +181,24 @@ public abstract class LanguageItemListFragment extends Fragment
         addLanguageButton.setOnClickListener(
                 view -> { // Lambda for View.OnClickListener
                     recordAddLanguageImpression();
-                    Bundle args = new Bundle();
-                    args.putShort(
-                            SelectLanguageFragment.KEY_POTENTIAL_LANGUAGES,
-                            (short) getPotentialLanguageType());
+                    Class<? extends SelectLanguageFragment> picker = getLanguagePickerClass();
+                    if (SelectLanguageFragment.usesUrlNavigation(this)) {
+                        // The selection is delivered to the listener registered in onCreate().
+                        SettingsNavigationFactory.createSettingsNavigation(getContext())
+                                .startSettings(
+                                        getActivity(),
+                                        picker,
+                                        /* fragmentArgs= */ null,
+                                        /* addToBackStack= */ true);
+                        return;
+                    }
+
                     if (!ChromeFeatureList.sSettingsSingleActivity.isEnabled()) {
                         // Use an Intent with extra. Return value is received via onActivityResult.
                         Intent intent =
                                 SettingsNavigationFactory.createSettingsNavigation()
                                         .createSettingsIntent(
-                                                getActivity(), SelectLanguageFragment.class, args);
+                                                getActivity(), picker, /* fragmentArgs= */ null);
                         startActivityForResult(intent, REQUEST_CODE_SELECT_LANGUAGE);
                         return;
                     }
@@ -189,13 +219,11 @@ public abstract class LanguageItemListFragment extends Fragment
                     // Deliberately uses the non-tab-scoped navigation. The result is delivered via
                     // the androidx Fragment Result API, which requires this fragment to stay alive
                     // on the fragment back stack until SelectLanguageFragment pops itself.
-                    // SettingsInTabUrlNav would replace and destroy it. See crbug.com/555347875.
-                    // Do not change to createSettingsNavigation(getContext()).
                     SettingsNavigationFactory.createSettingsNavigation()
                             .startSettings(
                                     getActivity(),
-                                    SelectLanguageFragment.class,
-                                    args,
+                                    picker,
+                                    /* fragmentArgs= */ null,
                                     /* addToBackStack= */ true);
                 });
 
@@ -238,8 +266,8 @@ public abstract class LanguageItemListFragment extends Fragment
     /** Return title for LanguageItemListFragment. */
     protected abstract String getLanguageListTitle(Context context);
 
-    /** Return the type of potential languages to populate the add language fragment with. */
-    protected abstract @LanguagesManager.LanguageListType int getPotentialLanguageType();
+    /** Return the picker the add language button opens, which determines the languages offered. */
+    protected abstract Class<? extends SelectLanguageFragment> getLanguagePickerClass();
 
     /**
      * Records the {@link LanguagesManager.LanguageSettingsPageType} impression for viewing this

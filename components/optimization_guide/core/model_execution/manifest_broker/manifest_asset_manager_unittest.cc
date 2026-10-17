@@ -9,6 +9,7 @@
 
 #include "base/files/file_path.h"
 #include "base/functional/function_ref.h"
+#include "base/json/values_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/power_monitor_test.h"
@@ -17,21 +18,24 @@
 #include "base/test/test_future.h"
 #include "base/version.h"
 #include "components/crx_file/id_util.h"
+#include "components/optimization_guide/core/model_execution/configs/manifest_builder.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/manifest.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/manifest_asset_manager.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/manifest_broker_state.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/test/fake_manifest_broker.h"
-#include "components/optimization_guide/core/model_execution/manifest_broker/test/manifest_builder.h"
+#include "components/optimization_guide/core/model_execution/manifest_broker/test/manifest_component_directory.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/test/test_manifest_asset_manager_component_state.h"
 #include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_names.h"
 #include "components/optimization_guide/core/model_execution/test/fake_component_update_service.h"
 #include "components/optimization_guide/core/model_execution/test/mock_download_progress_observer.h"
-#include "services/on_device_model/public/cpp/test_support/fake_service.h"
 #include "components/optimization_guide/core/model_execution/usage_tracker.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/proto/manifest.pb.h"
 #include "components/prefs/testing_pref_service.h"
+#include "services/on_device_model/public/cpp/test_support/fake_service.h"
+#include "services/preferences/public/cpp/dictionary_value_update.h"
+#include "services/preferences/public/cpp/scoped_pref_update.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace optimization_guide {
@@ -52,7 +56,6 @@ struct DummyAsset {
   std::string asset_id;
   std::string public_key;
   std::string version = "1.0.0.0";
-  bool background_download = false;
 
   TestManifestAssetManagerComponentState::InstallTarget ToInstallTarget()
       const {
@@ -87,12 +90,6 @@ struct DummyAsset {
     copy.asset_id = std::move(new_asset_id);
     return copy;
   }
-
-  DummyAsset WithBackgroundDownload(bool bg) const {
-    DummyAsset copy = *this;
-    copy.background_download = bg;
-    return copy;
-  }
 };
 
 class DummyManifest {
@@ -124,16 +121,6 @@ class DummyManifest {
     }
 
     proto::Manifest manifest = builder.Build();
-    for (const auto& asset : assets_) {
-      if (asset.background_download) {
-        auto& category_config =
-            (*manifest.mutable_category_configs())["gpu_high_tier"];
-        auto& use_case_config =
-            (*category_config.mutable_use_cases())[asset.use_case];
-        use_case_config.set_background_download(true);
-      }
-    }
-
     auto component =
         std::make_unique<ManifestComponentDirectory>(std::move(manifest));
     component->Add("config.pb", proto::SolutionConfig());
@@ -362,12 +349,18 @@ TEST_F(ManifestAssetManagerTest, RegistersComponentsForActiveUseCases) {
       component_state_.WasOnDemandUpdateRequested(test_asset.public_key));
 }
 
+// TODO(crbug.com/489511499): Remove RegistersComponentsForLegacyFeatureUsage
+// once legacy integer keys are no longer supported.
 // Test that the manager registers components for feature usage keyed on
 // mojom::OnDeviceFeature without triggering on-demand downloads.
 TEST_F(ManifestAssetManagerTest, RegistersComponentsForLegacyFeatureUsage) {
   DummyAsset asset = DummyAsset::For("test");
-  model_execution::prefs::RecordFeatureUsage(&local_state_.local_state(),
-                                             mojom::OnDeviceFeature::kTest);
+  ::prefs::ScopedDictionaryPrefUpdate update(
+      &local_state_.local_state(),
+      model_execution::prefs::localstate::kLastUsageByFeature);
+  update->Set(base::NumberToString(static_cast<uint64_t>(
+                  ToModelExecutionFeatureProto(mojom::OnDeviceFeature::kTest))),
+              base::TimeToValue(base::Time::Now()));
 
   UpdateManifest(DummyManifest().Add(asset));
   Startup();
@@ -379,8 +372,8 @@ TEST_F(ManifestAssetManagerTest, RegistersComponentsForLegacyFeatureUsage) {
 TEST_F(ManifestAssetManagerTest,
        BackgroundPriorityDoesNotRequestOnDemandUpdate) {
   DummyAsset asset = DummyAsset::For("compose");
-  model_execution::prefs::RecordUseCaseUsage(&local_state_.local_state(),
-                                             asset.use_case);
+  usage_tracker_.RaisePriority(asset.use_case,
+                               UsageTracker::Priority::kBestEffort);
 
   UpdateManifest(DummyManifest().Add(asset));
   Startup();
@@ -918,6 +911,83 @@ TEST_F(ManifestAssetManagerTest, DoesNotInstallWhenEligibleUseCaseUseTooOld) {
   Startup();
   task_environment_.RunUntilIdle();
   EXPECT_FALSE(component_state_.IsRegistered(asset.ToInstallTarget()));
+  EXPECT_EQ(manifest_broker_state_->GetOnDeviceModelEligibility(
+                mojom::OnDeviceFeature::kCompose),
+            OnDeviceModelEligibilityReason::kNoOnDeviceFeatureUsed);
+}
+
+TEST_F(ManifestAssetManagerTest, AssetRemainsInstalledAfterRetentionPeriod) {
+  DummyAsset asset = DummyAsset::For("compose");
+  usage_tracker_.RaisePriority(asset.use_case,
+                               UsageTracker::Priority::kUserBlocking);
+  MakeAssetsInstallable(DummyManifest().Add(asset));
+  Startup();
+  EXPECT_TRUE(component_state_.WaitForRegistration(asset.ToInstallTarget()));
+
+  // Within the 90-day retention period, the asset should remain installed.
+  {
+    base::HistogramTester histogram_tester;
+    task_environment_.FastForwardBy(base::Days(31));
+    UpdateManifest(DummyManifest().Add(asset));
+    task_environment_.RunUntilIdle();
+    EXPECT_FALSE(component_state_.WasUninstallRequested(asset.public_key));
+    histogram_tester.ExpectUniqueSample(
+        "OptimizationGuide.ModelExecution.OnDeviceModelEvictableAssetsCount", 0,
+        1);
+  }
+
+  // When kOnDeviceModelEviction is disabled (default), the asset remains
+  // installed even after the retention period expires, and is counted as
+  // evictable.
+  {
+    base::HistogramTester histogram_tester;
+    task_environment_.FastForwardBy(base::Days(60));
+    UpdateManifest(DummyManifest().Add(asset));
+    task_environment_.RunUntilIdle();
+    EXPECT_FALSE(component_state_.WasUninstallRequested(asset.public_key));
+    histogram_tester.ExpectUniqueSample(
+        "OptimizationGuide.ModelExecution.OnDeviceModelEvictableAssetsCount", 1,
+        1);
+  }
+}
+
+TEST_F(ManifestAssetManagerTest,
+       UninstallsAfterRetentionPeriodWhenEvictionEnabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(kOnDeviceModelEviction);
+
+  DummyAsset asset = DummyAsset::For("compose");
+  usage_tracker_.RaisePriority(asset.use_case,
+                               UsageTracker::Priority::kUserBlocking);
+  MakeAssetsInstallable(DummyManifest().Add(asset));
+  Startup();
+  EXPECT_TRUE(component_state_.WaitForRegistration(asset.ToInstallTarget()));
+
+  // Within the 90-day retention period, the asset should remain installed.
+  {
+    base::HistogramTester histogram_tester;
+    task_environment_.FastForwardBy(base::Days(31));
+    UpdateManifest(DummyManifest().Add(asset));
+    task_environment_.RunUntilIdle();
+    EXPECT_FALSE(component_state_.WasUninstallRequested(asset.public_key));
+    histogram_tester.ExpectUniqueSample(
+        "OptimizationGuide.ModelExecution.OnDeviceModelEvictableAssetsCount", 0,
+        1);
+  }
+
+  // After the 90-day retention period expires, the asset should be uninstalled.
+  {
+    base::HistogramTester histogram_tester;
+    task_environment_.FastForwardBy(base::Days(60));
+    UpdateManifest(DummyManifest().Add(asset));
+    EXPECT_TRUE(component_state_.WaitForUninstall(asset.public_key));
+    histogram_tester.ExpectBucketCount(
+        "OptimizationGuide.ModelExecution.OnDeviceModelEvictableAssetsCount", 1,
+        1);
+    histogram_tester.ExpectUniqueSample(
+        "OptimizationGuide.ModelExecution.OnDeviceModelUninstallReason.Unknown",
+        Manifest::UninstallReason::kEvicted, 1);
+  }
 }
 
 TEST_F(ManifestAssetManagerTest, DoesNotInstallWhenNoEligibleUseCaseUse) {
@@ -931,28 +1001,6 @@ TEST_F(ManifestAssetManagerTest, DoesNotInstallWhenNoEligibleUseCaseUse) {
   Startup();
   task_environment_.RunUntilIdle();
   EXPECT_FALSE(component_state_.IsRegistered(asset.ToInstallTarget()));
-}
-
-TEST_F(ManifestAssetManagerTest, BackgroundDownloadForManifestEnabledUseCase) {
-  base::test::ScopedPowerMonitorTestSource power_monitor_source;
-  scoped_feature_list_.Reset();
-  scoped_feature_list_.InitWithFeatures(
-      {features::kOptimizationGuideModelExecution,
-       features::kOnDeviceModelBackgroundDownload},
-      {});
-
-  component_state_.SetFreeDiskSpace(base::GiB(100));
-
-  DummyAsset compose_asset =
-      DummyAsset::For("compose").WithBackgroundDownload(true);
-  DummyAsset test_asset = DummyAsset::For("test").WithBackgroundDownload(false);
-
-  UpdateManifest(DummyManifest().Add(compose_asset).Add(test_asset));
-  Startup();
-
-  EXPECT_TRUE(
-      component_state_.WaitForRegistration(compose_asset.ToInstallTarget()));
-  EXPECT_FALSE(component_state_.IsRegistered(test_asset.public_key));
 }
 
 TEST_F(ManifestAssetManagerTest, UninstallModels) {
@@ -1036,10 +1084,29 @@ TEST_F(ManifestAssetManagerTest,
 TEST(AssetPrioritiesTest, RaiseAndIsAtLeast) {
   AssetPriorities priorities;
 
+  priorities.Raise(AssetPriority::kEvictable, {"evictable_asset"});
+  priorities.Raise(AssetPriority::kRetain, {"retain_asset"});
   priorities.Raise(AssetPriority::kSpeculative, {"speculative_asset"});
   priorities.Raise(AssetPriority::kBestEffort, {"best_effort_asset"});
   priorities.Raise(AssetPriority::kUserBlocking, {"user_blocking_asset"});
 
+  EXPECT_TRUE(
+      priorities.IsAtLeast(AssetPriority::kEvictable, "evictable_asset"));
+  EXPECT_FALSE(priorities.IsAtLeast(AssetPriority::kRetain, "evictable_asset"));
+
+  EXPECT_TRUE(priorities.IsAtLeast(AssetPriority::kEvictable, "retain_asset"));
+  EXPECT_TRUE(priorities.IsAtLeast(AssetPriority::kRetain, "retain_asset"));
+  EXPECT_FALSE(
+      priorities.IsAtLeast(AssetPriority::kSpeculative, "retain_asset"));
+  EXPECT_FALSE(
+      priorities.IsAtLeast(AssetPriority::kBestEffort, "retain_asset"));
+  EXPECT_FALSE(
+      priorities.IsAtLeast(AssetPriority::kUserBlocking, "retain_asset"));
+
+  EXPECT_TRUE(
+      priorities.IsAtLeast(AssetPriority::kEvictable, "speculative_asset"));
+  EXPECT_TRUE(
+      priorities.IsAtLeast(AssetPriority::kRetain, "speculative_asset"));
   EXPECT_TRUE(priorities.IsAtLeast(AssetPriority::kSpeculative,
                                    "speculative_asset"));
   EXPECT_FALSE(
@@ -1048,6 +1115,10 @@ TEST(AssetPrioritiesTest, RaiseAndIsAtLeast) {
       priorities.IsAtLeast(AssetPriority::kUserBlocking, "speculative_asset"));
 
   EXPECT_TRUE(
+      priorities.IsAtLeast(AssetPriority::kEvictable, "best_effort_asset"));
+  EXPECT_TRUE(
+      priorities.IsAtLeast(AssetPriority::kRetain, "best_effort_asset"));
+  EXPECT_TRUE(
       priorities.IsAtLeast(AssetPriority::kSpeculative, "best_effort_asset"));
   EXPECT_TRUE(
       priorities.IsAtLeast(AssetPriority::kBestEffort, "best_effort_asset"));
@@ -1055,12 +1126,19 @@ TEST(AssetPrioritiesTest, RaiseAndIsAtLeast) {
       priorities.IsAtLeast(AssetPriority::kUserBlocking, "best_effort_asset"));
 
   EXPECT_TRUE(
+      priorities.IsAtLeast(AssetPriority::kEvictable, "user_blocking_asset"));
+  EXPECT_TRUE(
+      priorities.IsAtLeast(AssetPriority::kRetain, "user_blocking_asset"));
+  EXPECT_TRUE(
       priorities.IsAtLeast(AssetPriority::kSpeculative, "user_blocking_asset"));
   EXPECT_TRUE(
       priorities.IsAtLeast(AssetPriority::kBestEffort, "user_blocking_asset"));
   EXPECT_TRUE(
       priorities.IsAtLeast(AssetPriority::kUserBlocking, "user_blocking_asset"));
 
+  // Unknown assets default to kEvictable.
+  EXPECT_TRUE(priorities.IsAtLeast(AssetPriority::kEvictable, "unknown_asset"));
+  EXPECT_FALSE(priorities.IsAtLeast(AssetPriority::kRetain, "unknown_asset"));
   EXPECT_FALSE(
       priorities.IsAtLeast(AssetPriority::kSpeculative, "unknown_asset"));
 
@@ -1075,6 +1153,8 @@ TEST(AssetPrioritiesTest, RaiseAndIsAtLeast) {
       priorities.IsAtLeast(AssetPriority::kUserBlocking, "best_effort_asset"));
 
   priorities.Clear();
+  EXPECT_TRUE(priorities.IsAtLeast(AssetPriority::kEvictable, "retain_asset"));
+  EXPECT_FALSE(priorities.IsAtLeast(AssetPriority::kRetain, "retain_asset"));
   EXPECT_FALSE(
       priorities.IsAtLeast(AssetPriority::kSpeculative, "speculative_asset"));
   EXPECT_FALSE(

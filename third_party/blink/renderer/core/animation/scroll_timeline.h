@@ -25,6 +25,7 @@ class Element;
 class LayoutObject;
 class PaintLayerScrollableArea;
 class ScrollTimelineOptions;
+class TreeScope;
 
 // Implements the ScrollTimeline concept from the Scroll-linked Animations spec.
 //
@@ -60,19 +61,27 @@ class CORE_EXPORT ScrollTimeline : public ScrollSnapshotTimeline {
 
   // Construct ScrollTimeline objects through one of the Create methods, which
   // perform initial snapshots, as it can't be done during the constructor due
-  // to possibly depending on overloaded functions.
+  // to possibly depending on overloaded functions. When constructed for a CSS
+  // rule, a tree scope is required for name resolution. Imperative
+  // declarations have no CSS defining tree scope.
   ScrollTimeline(Document*,
                  ReferenceType reference_type,
                  Element* reference,
-                 ScrollAxis axis);
+                 ScrollAxis axis,
+                 const TreeScope* tree_scope);
 
   bool IsScrollTimeline() const override { return true; }
+
+  const TreeScope* GetTreeScope() const { return tree_scope_.Get(); }
 
   // IDL API implementation.
   Element* source() const;
   const V8ScrollAxis axis() const { return V8ScrollAxis(GetAxis()); }
 
-  bool Matches(ReferenceType, Element* reference_element, ScrollAxis) const;
+  bool Matches(ReferenceType,
+               Element* reference_element,
+               ScrollAxis,
+               const TreeScope* tree_scope) const;
 
   ScrollAxis GetAxis() const override;
 
@@ -102,12 +111,12 @@ class CORE_EXPORT ScrollTimeline : public ScrollSnapshotTimeline {
   // [2] https://drafts.csswg.org/scroll-animations-1/#dom-viewtimeline-subject
   Element* GetReferenceElement() const { return reference_element_.Get(); }
 
- protected:
   // Returns an element eligible to be web exposed. This may be the element
   // itself, the ultimate owning element in the case of a pseudo-element, or
   // shadow host in the case of UA shadow content.
   static Element* Sanitize(Element* element);
 
+ protected:
   // Scroll offsets corresponding to 0% and 100% progress. By default, these
   // correspond to the scroll range of the container.
   virtual void CalculateOffsets(PaintLayerScrollableArea* scrollable_area,
@@ -145,6 +154,7 @@ class CORE_EXPORT ScrollTimeline : public ScrollSnapshotTimeline {
   ReferenceType reference_type_;
   Member<Element> reference_element_;
   ScrollAxis axis_;
+  Member<const TreeScope> tree_scope_;
 };
 
 template <>

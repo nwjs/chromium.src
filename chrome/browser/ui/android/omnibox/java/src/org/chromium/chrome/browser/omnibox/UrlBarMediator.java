@@ -11,8 +11,6 @@ import androidx.annotation.ColorInt;
 import androidx.annotation.VisibleForTesting;
 import androidx.fragment.app.Fragment;
 
-import com.google.android.material.color.MaterialColors;
-
 import org.chromium.base.Callback;
 import org.chromium.build.annotations.EnsuresNonNullIf;
 import org.chromium.build.annotations.NullMarked;
@@ -512,8 +510,8 @@ class UrlBarMediator implements UrlBarTextContextMenuDelegate {
     void setUrlBarHintTextColorForNtp() {
         mIsHintTextFixedForNtp = true;
         final @ColorInt int hintTextColor =
-                ChromeFeatureList.sNtpAurora.isEnabled()
-                        ? MaterialColors.getColor(mContext, R.attr.colorOutline, TAG)
+                ChromeFeatureList.isEnabled(ChromeFeatureList.NTP_AURORA)
+                        ? SemanticColorUtils.getDefaultTextColorSecondary(mContext)
                         : SemanticColorUtils.getDefaultTextColor(mContext);
         mModel.set(UrlBarProperties.HINT_TEXT_COLOR, hintTextColor);
     }

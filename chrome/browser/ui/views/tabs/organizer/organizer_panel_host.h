@@ -12,6 +12,16 @@
 
 class BrowserWindowInterface;
 
+// Where the organizer panel appears in the browser window.
+enum class OrganizerPanelLocation {
+  // No organizer panel.
+  kNone,
+  // In a slide-out tray.
+  kOrganizerTray,
+  // In the vertical tab strip.
+  kVerticalTabStrip
+};
+
 // Object that hosts an organizer panel view.
 class OrganizerPanelHost {
  public:
@@ -20,16 +30,24 @@ class OrganizerPanelHost {
   void operator=(const OrganizerPanelHost&) = delete;
   virtual ~OrganizerPanelHost() = default;
 
-  virtual void SetPanelView(std::unique_ptr<views::View> panel_view) = 0;
-  virtual std::unique_ptr<views::View> TakePanelView() = 0;
-  virtual bool HasPanelView() const = 0;
+  virtual void SetOrganizerPanelView(
+      std::unique_ptr<views::View> panel_view) = 0;
+  virtual std::unique_ptr<views::View> TakeOrganizerPanelView() = 0;
+  virtual bool HasOrganizerPanelView() const = 0;
 
   // Returns the host interface if `view` or one of its ancestors is a known
   // implementation, otherwise null.
   static OrganizerPanelHost* FromView(views::View* view);
 
-  // Returns the preferred panel host for the current state of `browser`.
-  static OrganizerPanelHost* GetPreferredHost(BrowserWindowInterface& browser);
+  // Get the preferred location for hosting the panel. This is used by
+  // `GetHostForLocation()` to retrieve the correct host.
+  static OrganizerPanelLocation GetPreferredLocation(
+      BrowserWindowInterface& browser);
+
+  // Returns the preferred panel host in `browser` for `location`.
+  static OrganizerPanelHost* GetHostForLocation(
+      BrowserWindowInterface& browser,
+      OrganizerPanelLocation location);
 };
 
 // Abstract View which implements `OrganizerPanelHost`. Not every implementation

@@ -16,7 +16,7 @@ enum class TaskType {
   kPinTabs = 3,
   kGemini = 4,
   kPaymentMethods = 5,
-  kQuickDelete = 6,
+  kClearBrowsingData = 6,
   kSafeBrowsing = 7,
   kIncognito = 8,
   kPasswordCheckup = 9,
@@ -46,8 +46,8 @@ TaskType StringToTaskType(std::string_view str);
 enum class LevelUpTaskStatType {
   // Number of tabs decluttered from grid.
   kTabsDecluttered,
-  // Typing time saved by forms autofill.
-  kTypingSaved,
+  // Passwords autofilled using form suggestions or manual fill.
+  kPasswordsAutofilled,
   // Passwords verified by checkup.
   kPasswordsVerified,
   // Photos/camera searches performed using Lens.

@@ -416,7 +416,7 @@ void GlanceablesTasksView::ScheduleUpdateTasks(ListShownContext context) {
   }
 
   SetIsLoading(true);
-  combobox_view()->GetViewAccessibility().SetDescription(u"");
+  combobox_view()->GetViewAccessibility().RemoveDescription();
 
   const auto* const active_task_list = GetActiveTaskList();
   tasks_combobox_model_->SaveLastSelectedTaskList(active_task_list->id);
@@ -527,6 +527,8 @@ void GlanceablesTasksView::UpdateTasksInTaskList(
   // arbitrary non empty value.
   task_list_sentinel_->SetPreferredSize(gfx::Size(1, 1));
   task_list_sentinel_->SetPaintToLayer(ui::LAYER_NOT_DRAWN);
+  task_list_sentinel_->layer()->SetName(
+      "GlanceablesTasksView:TaskListSentinel");
   task_list_sentinel_->layer()->SetFillsBoundsOpaquely(false);
   task_list_sentinel_->layer()->SetOpacity(0.0f);
   task_view_model_.Add(task_list_sentinel_.get(), task_view_model_.view_size());

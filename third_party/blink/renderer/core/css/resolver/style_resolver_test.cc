@@ -650,30 +650,41 @@ TEST_F(StyleResolverTest, BackgroundImageFetch) {
       first_line_none->EnsureComputedStyle(kPseudoIdFirstLine);
 
   ASSERT_TRUE(before_style);
-  EXPECT_TRUE(GetBackgroundImageValue(*before_style).IsCachePending())
+  EXPECT_TRUE(GetBackgroundImageValue(*before_style)
+                  .IsCachePending(GetDocument().Fetcher()))
       << "No fetch for non-generated ::before";
   ASSERT_TRUE(first_line_style);
-  EXPECT_FALSE(GetBackgroundImageValue(*first_line_style).IsCachePending())
+  EXPECT_FALSE(GetBackgroundImageValue(*first_line_style)
+                   .IsCachePending(GetDocument().Fetcher()))
       << "Fetched by layout of ::first-line";
   ASSERT_TRUE(first_line_span_style);
-  EXPECT_TRUE(GetBackgroundImageValue(*first_line_span_style).IsCachePending())
+  EXPECT_TRUE(GetBackgroundImageValue(*first_line_span_style)
+                  .IsCachePending(GetDocument().Fetcher()))
       << "No fetch for inline with ::first-line";
   ASSERT_TRUE(first_line_none_style);
-  EXPECT_TRUE(GetBackgroundImageValue(*first_line_none_style).IsCachePending())
+  EXPECT_TRUE(GetBackgroundImageValue(*first_line_none_style)
+                  .IsCachePending(GetDocument().Fetcher()))
       << "No fetch for display:none with ::first-line";
-  EXPECT_TRUE(GetBackgroundImageValue(none).IsCachePending())
+  EXPECT_TRUE(
+      GetBackgroundImageValue(none).IsCachePending(GetDocument().Fetcher()))
       << "No fetch for display:none";
-  EXPECT_TRUE(GetBackgroundImageValue(inside_none).IsCachePending())
+  EXPECT_TRUE(GetBackgroundImageValue(inside_none)
+                  .IsCachePending(GetDocument().Fetcher()))
       << "No fetch inside display:none";
-  EXPECT_TRUE(GetBackgroundImageSetValue(none_image_set).IsCachePending(1.0f))
+  EXPECT_TRUE(GetBackgroundImageSetValue(none_image_set)
+                  .IsCachePending(GetDocument().Fetcher(), 1.0f))
       << "No fetch for display:none";
-  EXPECT_FALSE(GetBackgroundImageValue(hidden).IsCachePending())
+  EXPECT_FALSE(
+      GetBackgroundImageValue(hidden).IsCachePending(GetDocument().Fetcher()))
       << "Fetch for visibility:hidden";
-  EXPECT_FALSE(GetBackgroundImageValue(inside_hidden).IsCachePending())
+  EXPECT_FALSE(GetBackgroundImageValue(inside_hidden)
+                   .IsCachePending(GetDocument().Fetcher()))
       << "Fetch for inherited visibility:hidden";
-  EXPECT_FALSE(GetBackgroundImageValue(contents).IsCachePending())
+  EXPECT_FALSE(
+      GetBackgroundImageValue(contents).IsCachePending(GetDocument().Fetcher()))
       << "Fetch for display:contents";
-  EXPECT_FALSE(GetBackgroundImageValue(inside_contents).IsCachePending())
+  EXPECT_FALSE(GetBackgroundImageValue(inside_contents)
+                   .IsCachePending(GetDocument().Fetcher()))
       << "Fetch for image inherited from display:contents";
 
   EXPECT_EQ(non_slotted->GetComputedStyle(), nullptr);
@@ -684,9 +695,11 @@ TEST_F(StyleResolverTest, BackgroundImageFetch) {
   // MatchedPropertiesCache leaving the cached style with StylePendingImage
   // unless we also check for LayoutObjectIsNeeded in
   // StyleResolverState::LoadPendingImages.
-  EXPECT_FALSE(GetBackgroundImageValue(frameset1).IsCachePending())
+  EXPECT_FALSE(GetBackgroundImageValue(frameset1).IsCachePending(
+      GetDocument().Fetcher()))
       << "Fetch for display:none frameset";
-  EXPECT_FALSE(GetBackgroundImageValue(frameset2).IsCachePending())
+  EXPECT_FALSE(GetBackgroundImageValue(frameset2).IsCachePending(
+      GetDocument().Fetcher()))
       << "Fetch for display:none frameset - cached";
 }
 
@@ -702,14 +715,14 @@ TEST_F(StyleResolverTest, FetchForAtPage) {
   )HTML");
 
   UpdateAllLifecyclePhasesForTest();
-  const ComputedStyle* page_style =
+  const ComputedStyle& page_style =
       GetDocument().GetStyleResolver().StyleForPage(0, g_empty_atom);
-  ASSERT_TRUE(page_style);
   const CSSValue* computed_value = ComputedStyleUtils::ComputedPropertyValue(
-      GetCSSPropertyBackgroundImage(), *page_style);
+      GetCSSPropertyBackgroundImage(), page_style);
 
   const CSSValueList* bg_img_list = To<CSSValueList>(computed_value);
-  EXPECT_FALSE(To<CSSImageValue>(bg_img_list->Item(0)).IsCachePending());
+  EXPECT_FALSE(To<CSSImageValue>(bg_img_list->Item(0))
+                   .IsCachePending(GetDocument().Fetcher()));
 }
 
 TEST_F(StyleResolverTest, SingleAxisAdjustOverflow) {
@@ -753,11 +766,10 @@ TEST_F(StyleResolverTest, NoFetchForAtPage) {
   )HTML");
 
   UpdateAllLifecyclePhasesForTest();
-  const ComputedStyle* page_style =
+  const ComputedStyle& page_style =
       GetDocument().GetStyleResolver().StyleForPage(0, g_empty_atom);
-  ASSERT_TRUE(page_style);
   const CSSValue* computed_value = ComputedStyleUtils::ComputedPropertyValue(
-      GetCSSPropertyListStyleImage(), *page_style);
+      GetCSSPropertyListStyleImage(), page_style);
   const auto* keyword = DynamicTo<CSSIdentifierValue>(computed_value);
   ASSERT_TRUE(keyword);
   EXPECT_EQ(keyword->GetValueID(), CSSValueID::kNone);
@@ -798,38 +810,37 @@ TEST_F(StyleResolverTest, PageComputedStyle) {
   )HTML");
 
   UpdateAllLifecyclePhasesForTest();
-  const ComputedStyle* style =
+  const ComputedStyle& style =
       GetDocument().GetStyleResolver().StyleForPage(0, g_empty_atom);
-  ASSERT_TRUE(style);
 
-  EXPECT_EQ(style->GetPageSizeType(), PageSizeType::kFixed);
-  gfx::SizeF page_size = style->PageSize();
+  EXPECT_EQ(style.GetPageSizeType(), PageSizeType::kFixed);
+  gfx::SizeF page_size = style.PageSize();
   EXPECT_EQ(page_size.width(), 100);
   EXPECT_EQ(page_size.height(), 150);
 
-  EXPECT_EQ(style->MarginTop(), Length::Fixed(11));
-  EXPECT_EQ(style->MarginRight(), Length::Fixed(12));
-  EXPECT_EQ(style->MarginBottom(), Length::Fixed(66));
-  EXPECT_EQ(style->MarginLeft(), Length::Fixed(66));
-  EXPECT_EQ(style->GetPageOrientation(), PageOrientation::kRotateLeft);
+  EXPECT_EQ(style.MarginTop(), Length::Fixed(11));
+  EXPECT_EQ(style.MarginRight(), Length::Fixed(12));
+  EXPECT_EQ(style.MarginBottom(), Length::Fixed(66));
+  EXPECT_EQ(style.MarginLeft(), Length::Fixed(66));
+  EXPECT_EQ(style.GetPageOrientation(), PageOrientation::kRotateLeft);
 
-  EXPECT_EQ(style->PaddingTop(), Length::Fixed(7));
+  EXPECT_EQ(style.PaddingTop(), Length::Fixed(7));
 
-  EXPECT_EQ(style->Width(), Length::Auto());
+  EXPECT_EQ(style.Width(), Length::Auto());
 
-  EXPECT_EQ(style->LineHeight(), Length::Fixed(64));
-  EXPECT_EQ(style->FontSize(), 32);
+  EXPECT_EQ(style.LineHeight(), Length::Fixed(64));
+  EXPECT_EQ(style.FontSize(), 32);
   String font_family = ComputedStyleUtils::ValueForFontFamily(
-                           style->GetFontDescription().Family())
+                           style.GetFontDescription().Family())
                            ->CssText();
   EXPECT_EQ(
       font_family,
       R"(cursive, fantasy, monospace, sans-serif, serif, UnquotedFont, "QuotedFont\",")");
 
   // Non-applicable properties:
-  EXPECT_TRUE(style->HasAutoColumnCount());
-  EXPECT_TRUE(style->HasAutoColumnWidth());
-  EXPECT_FALSE(style->ColumnGap().has_value());
+  EXPECT_TRUE(style.HasAutoColumnCount());
+  EXPECT_TRUE(style.HasAutoColumnWidth());
+  EXPECT_FALSE(style.ColumnGap().has_value());
 }
 
 TEST_F(StyleResolverTest, NoFetchForHighlightPseudoElements) {

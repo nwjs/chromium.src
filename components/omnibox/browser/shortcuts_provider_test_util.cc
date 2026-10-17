@@ -27,7 +27,7 @@ TestShortcutData::TestShortcutData(
     std::string description,
     std::string description_class,
     ui::PageTransition transition,
-    AutocompleteMatch::Type type,
+    omnibox::AutocompleteMatchType type,
     std::string keyword,
     int days_from_now,
     int number_of_hits) {

@@ -15,7 +15,6 @@ import org.chromium.components.tab_groups.TabGroupColorId;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
-// TODO(crbug.com/434015906): Remove all references to RootId after TabCollections is launched.
 /** An interface to be notified about tab group changes on a {@link TabModel}. */
 @NullMarked
 public interface TabGroupObserver {
@@ -23,7 +22,8 @@ public interface TabGroupObserver {
     @IntDef({
         DidRemoveTabGroupReason.MERGE,
         DidRemoveTabGroupReason.UNGROUP,
-        DidRemoveTabGroupReason.CLOSE
+        DidRemoveTabGroupReason.CLOSE,
+        DidRemoveTabGroupReason.PIN
     })
     @Retention(RetentionPolicy.SOURCE)
     @interface DidRemoveTabGroupReason {
@@ -44,22 +44,11 @@ public interface TabGroupObserver {
     }
 
     /**
-     * This method is called before a tab is moved to form a group or moved into an existed group.
-     *
-     * @param movedTab The {@link Tab} which will be moved. If a group will be merged to a tab or
-     *     another group, this is the last tab of the merged group.
-     * @param newRootId The new root id of the group after merge.
-     * @param tabGroupId The tab group id of the group merged to.
-     */
-    default void willMergeTabToGroup(Tab movedTab, int newRootId, @Nullable Token tabGroupId) {}
-
-    /**
      * This method is called before a group is moved.
      *
      * @param tabGroupId The tab group id of the group being moved.
-     * @param currentIndex The current index of the group in the {@link TabModel}.
      */
-    default void willMoveTabGroup(Token tabGroupId, int currentIndex) {}
+    default void willMoveTabGroup(Token tabGroupId) {}
 
     /**
      * This method is called before a tab within a group is moved out of the group.
@@ -80,16 +69,14 @@ public interface TabGroupObserver {
      */
     default void didMergeTabToGroup(Tab movedTab, boolean isDestinationTab) {}
 
-    // TODO(crbug.com/434015906): Passing the last tab here is a limitation of the current impl,
-    // we should fix this once tab collections is launched.
     /**
      * This method is called after a group is moved.
      *
-     * @param movedTab The tab which has been moved. This is the last tab within the group.
-     * @param tabModelOldIndex The old index of the {@code movedTab} in the {@link TabModel}.
-     * @param tabModelNewIndex The new index of the {@code movedTab} in the {@link TabModel}.
+     * @param tabGroupId The tab group ID of the group that was moved.
+     * @param tabModelOldIndex The old index of the first tab in the group in the {@link TabModel}.
+     * @param tabModelNewIndex The new index of the first tab in the group in the {@link TabModel}.
      */
-    default void didMoveTabGroup(Tab movedTab, int tabModelOldIndex, int tabModelNewIndex) {}
+    default void didMoveTabGroup(Token tabGroupId, int tabModelOldIndex, int tabModelNewIndex) {}
 
     /**
      * This method is called after a tab within a group is moved.
@@ -104,9 +91,10 @@ public interface TabGroupObserver {
      * This method is called after a tab within a group is moved out of the group.
      *
      * @param movedTab The tab which has been moved.
-     * @param prevFilterIndex The index of the group where {@code moveTab} was before ungrouping.
+     * @param oldTabGroupId The tab group ID of the group where {@code movedTab} was before
+     *     ungrouping.
      */
-    default void didMoveTabOutOfGroup(Tab movedTab, int prevFilterIndex) {}
+    default void didMoveTabOutOfGroup(Tab movedTab, Token oldTabGroupId) {}
 
     /**
      * This method is called after a group is created and an undo group snackbar should be shown.
@@ -120,9 +108,8 @@ public interface TabGroupObserver {
      * selection editor, or by longpressing a link on a tab and using the context menu.
      *
      * @param destinationTab The destination tab of the group after merge.
-     * @param tabModel The {@link TabModel} that the new group event triggers on.
      */
-    default void didCreateNewGroup(Tab destinationTab, TabModel tabModel) {}
+    default void didCreateNewGroup(Tab destinationTab) {}
 
     /**
      * This method is called after a new title is set on a tab group.
@@ -151,29 +138,22 @@ public interface TabGroupObserver {
             Token tabGroupId, boolean isCollapsed, boolean animate) {}
 
     /**
-     * When a tab group's root id needs to change because the tab whose id was previously being used
-     * as the root ids is no longer part of the group. This could be a tab deletion that has not yet
-     * been committed. Undo operations will not reverse this operation, as it does not have any user
-     * facing effects.
+     * Called when a tab group is about to be removed from the tab model (e.g. as a result of
+     * closure, ungrouping, or merging), prior to {@link #didRemoveTabGroup}.
      *
-     * @param oldRootId The previous root id.
-     * @param newRootId The new root id.
+     * @param tabGroupId The tab group id being removed.
      */
-    default void didChangeGroupRootId(int oldRootId, int newRootId) {}
+    default void willRemoveTabGroup(Token tabGroupId) {}
 
     /**
      * Called when a tab group is removed from the tab model. This could be the result of merging
-     * tabs, ungrouping tabs or closing tabs.
+     * tabs, ungrouping tabs, pinning tabs, or closing tabs.
      *
-     * @param oldRootId The root id the group previous used.
-     * @param oldTabGroupId The tab group ID the group previously used, may be null if being
-     *     re-used.
+     * @param oldTabGroupId The tab group ID the group previously used.
      * @param removalReason The {@link DidRemoveTabGroupReason} for the group being removed.
      */
     default void didRemoveTabGroup(
-            int oldRootId,
-            @Nullable Token oldTabGroupId,
-            @DidRemoveTabGroupReason int removalReason) {}
+            Token oldTabGroupId, @DidRemoveTabGroupReason int removalReason) {}
 
     /**
      * Called when a tab group closure starts.
@@ -182,12 +162,4 @@ public interface TabGroupObserver {
      * @param isHiding Whether the tab group is set to hide.
      */
     default void willCloseTabGroup(Token tabGroupId, boolean isHiding) {}
-
-    /**
-     * Called when a tab group closure is fully committed.
-     *
-     * @param tabGroupId The tab group id.
-     * @param wasHiding Whether the tab group was set to hide when it started closing.
-     */
-    default void committedTabGroupClosure(Token tabGroupId, boolean wasHiding) {}
 }

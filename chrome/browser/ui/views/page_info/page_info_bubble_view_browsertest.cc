@@ -27,7 +27,6 @@
 #include "chrome/browser/privacy_sandbox/mock_privacy_sandbox_service.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_service.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_service_factory.h"
-#include "chrome/browser/safe_browsing/chrome_password_protection_service.h"
 #include "chrome/browser/ssl/chrome_security_state_util.h"
 #include "chrome/browser/ssl/https_upgrades_interceptor.h"
 #include "chrome/browser/ui/browser_commands.h"
@@ -72,9 +71,7 @@
 #include "components/permissions/permission_decision_auto_blocker.h"
 #include "components/permissions/permissions_client.h"
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
-#include "components/safe_browsing/content/browser/password_protection/password_protection_test_util.h"
-#include "components/safe_browsing/core/common/features.h"
-#include "components/safe_browsing/core/common/proto/csd.pb.h"
+#include "components/safe_browsing/buildflags.h"
 #include "components/security_interstitials/core/features.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/strings/grit/privacy_sandbox_strings.h"
@@ -106,10 +103,18 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/events/test/test_event.h"
+#include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/controls/button/checkbox.h"
 #include "ui/views/controls/button/toggle_button.h"
+#include "ui/views/controls/scroll_view.h"
 #include "ui/views/controls/styled_label.h"
 #include "ui/views/test/widget_test.h"
+
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+#include "chrome/browser/safe_browsing/chrome_password_protection_service.h"
+#include "components/safe_browsing/content/browser/password_protection/password_protection_test_util.h"
+#include "components/safe_browsing/core/common/proto/csd.pb.h"
+#endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 
 using AboutThisSiteStatus =
     page_info::about_this_site_validation::AboutThisSiteStatus;
@@ -466,6 +471,7 @@ IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewBrowserTest,
             OpenSiteSettingsForUrl(browser(), GURL(url::kAboutBlankURL)));
 }
 
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 // Test opening page info bubble that matches
 // SB_THREAT_TYPE_ENTERPRISE_PASSWORD_REUSE threat type.
 IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewBrowserTest,
@@ -619,6 +625,7 @@ IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewBrowserTest,
   EXPECT_EQ(security_state::MALICIOUS_CONTENT_STATUS_NONE,
             visible_security_state->malicious_content_status);
 }
+#endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 
 IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewBrowserTest,
                        ClosesOnUserNavigateToSamePage) {
@@ -1162,6 +1169,7 @@ class PageInfoBubbleViewAboutThisSiteBrowserTest : public InProcessBrowserTest {
     return browser()->GetTabStripModel()->GetActiveWebContents();
   }
 
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
   void TriggerSafeBrowsingWarning() {
     safe_browsing::ChromePasswordProtectionService* service =
         safe_browsing::ChromePasswordProtectionService::
@@ -1179,6 +1187,7 @@ class PageInfoBubbleViewAboutThisSiteBrowserTest : public InProcessBrowserTest {
         safe_browsing::LoginReputationClientResponse::VERDICT_TYPE_UNSPECIFIED,
         "unused_token", reused_password_account_type);
   }
+#endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 
  protected:
   net::EmbeddedTestServer https_server_{net::EmbeddedTestServer::TYPE_HTTPS};
@@ -1339,6 +1348,7 @@ IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewAboutThisSiteBrowserTest,
   base::RunLoop().RunUntilIdle();
 }
 
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewAboutThisSiteBrowserTest,
                        AboutThisSiteNotSecureAsync) {
   auto url = https_server_.GetURL("a.test", "/title1.html");
@@ -1370,6 +1380,7 @@ IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewAboutThisSiteBrowserTest,
       views::Widget::ClosedReason::kEscKeyPressed);
   base::RunLoop().RunUntilIdle();
 }
+#endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 
 // Test that no info is shown and "kNotShownOptimizationGuideNotAllowed" is
 // logged when hints fetching is disabled.

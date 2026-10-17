@@ -114,7 +114,7 @@ constexpr char kTestUserId[] = "12345";
 constexpr char kTestUserName[] = "Theo Tester";
 constexpr char kTestEmail[] = "theo@example.com";
 constexpr char kTestProfileImageUrl[] =
-    "https://3837fjsdjaka.image.example.com";
+    "https://3837fjsdjaka.image.example.com/";
 constexpr char kTestPublicKeyBase64[] =
     "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MTI=";
 constexpr uint32_t kTestPublicKeyVersion = 42;
@@ -220,15 +220,26 @@ class PasswordsPrivateDelegateImplTest : public testing::Test {
 
   scoped_refptr<PasswordsPrivateDelegateImpl> CreateDelegate() {
     return base::MakeRefCounted<PasswordsPrivateDelegateImpl>(
-        &testing_pref_service_, identity_test_env_.identity_manager(),
-        base::MakeRefCounted<network::WeakWrapperSharedURLLoaderFactory>(
-            &test_url_loader_factory_),
-        &password_sender_service_, &sync_service_,
-        /*trust_safety_sentiment_service=*/nullptr,
-        /*affiliation_service=*/&mock_affiliation_service_, profile_store_,
-        account_store_, &passkey_model_, &mock_bulk_leak_check_service_,
-        /*event_router=*/nullptr, &web_app_install_manager_, &enclave_manager_,
-        base::NullCallback(), base::DoNothing());
+        PasswordsPrivateDelegateImpl::Dependencies{
+            .prefs = &testing_pref_service_,
+            .identity_manager = identity_test_env_.identity_manager(),
+            .url_loader_factory = base::MakeRefCounted<
+                network::WeakWrapperSharedURLLoaderFactory>(
+                &test_url_loader_factory_),
+            .password_sender_service = &password_sender_service_,
+            .sync_service = &sync_service_,
+            .trust_safety_sentiment_service = nullptr,
+            .affiliation_service = &mock_affiliation_service_,
+            .profile_password_store = profile_store_,
+            .account_password_store = account_store_,
+            .passkey_model = &passkey_model_,
+            .bulk_leak_check_service = &mock_bulk_leak_check_service_,
+            .event_router = nullptr,
+            .web_app_install_manager = &web_app_install_manager_,
+            .enclave_manager = &enclave_manager_,
+            .device_authenticator_factory = base::NullCallback(),
+            .maybe_show_profile_switch_iph_cb = base::DoNothing(),
+        });
   }
 
   // Queries and returns the list of saved credentials, blocking until finished.

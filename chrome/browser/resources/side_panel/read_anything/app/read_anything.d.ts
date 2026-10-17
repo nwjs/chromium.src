@@ -26,6 +26,13 @@ interface AxTreeAnchorMetadata {
   textAfter?: string;
 }
 
+// Information about content on the original page, used for capturing
+// differences in types of content on the original page and on the distilled
+// page in metrics.
+interface OriginalPageMetrics {
+  maybeHasKeyPoints: boolean;
+}
+
 declare namespace chrome {
   export namespace readingMode {
     /////////////////////////////////////////////////////////////////////
@@ -252,8 +259,10 @@ declare namespace chrome {
     // Returns true if the element is a leaf node.
     function isLeafNode(nodeId: number): boolean;
 
-    // Returns true if the original page has a section with key points.
-    function maybeHasKeyPointsSection(): boolean;
+
+    // Traverses the original page's accessibility tree to calculate metrics
+    // (e.g. key points section) in a single pass.
+    function getOriginalPageMetrics(): OriginalPageMetrics;
 
     // Returns a regex string of keywords used to identify a key points section.
     function getKeyPointsRegex(): string;
@@ -379,9 +388,6 @@ declare namespace chrome {
     // SidePanelWebUIView::ShowUI
     function shouldShowUi(): boolean;
 
-    // Called when the Read Anything panel is scrolled all the way down.
-    function onScrolledToBottom(): void;
-
     // Called by the Read Anything app to request the presentation state.
     function sendGetPresentationStateRequest(): void;
 
@@ -402,9 +408,6 @@ declare namespace chrome {
 
     // Called by the Read Anything app to toggle between presentation modes.
     function togglePresentation(): void;
-
-    // Whether the Google Docs load more button is visible.
-    let isDocsLoadMoreButtonVisible: boolean;
 
     ////////////////////////////////////////////////////////////////
     // Implemented in read_anything/app.ts and called by native c++.

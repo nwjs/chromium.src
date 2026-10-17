@@ -201,6 +201,9 @@ class PageHandler : public DevToolsDomainHandler,
       std::unique_ptr<GetManifestIconsCallback> callback) override;
 
   void GetAppId(std::unique_ptr<GetAppIdCallback> callback) override;
+  void GetSubApps(std::unique_ptr<GetSubAppsCallback> callback) override;
+  void GetSiblingSubApps(
+      std::unique_ptr<GetSiblingSubAppsCallback> callback) override;
 
   Response SetBypassCSP(bool enabled) override;
   Response AddCompilationCache(const std::string& url,
@@ -265,6 +268,11 @@ class PageHandler : public DevToolsDomainHandler,
   // returns Response with an error.
   using ResponseOrWebContents = std::variant<Response, WebContentsImpl*>;
   ResponseOrWebContents GetWebContentsForTopLevelActiveFrame();
+
+  // Returns an error response if the client's trust level or local file access
+  // permission does not allow it to navigate the page to `url`. `host_` must
+  // not be null.
+  Response CheckNavigationAllowed(const GURL& url);
 
   const bool allow_unsafe_operations_;
   const bool is_trusted_;

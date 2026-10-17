@@ -52,6 +52,7 @@
 #include "components/sync/test/test_sync_service.h"
 #include "components/sync_bookmarks/switches.h"
 #include "content/public/test/browser_task_environment.h"
+#include "device/bluetooth/bluetooth_adapter.h"
 #include "device/bluetooth/bluetooth_adapter_factory.h"
 #include "device/bluetooth/test/mock_bluetooth_adapter.h"
 #include "extensions/common/extension_builder.h"
@@ -166,19 +167,78 @@ TEST_F(SigninPromoUrlTest, SigninURLForDiceWithHistorySyncOptin) {
                               GURL("https://continue_url/")));
 }
 
-TEST_F(SigninPromoUrlTest, SigninURLForDiceMagiChromeExperiments) {
+TEST_F(SigninPromoUrlTest, SigninURLForDiceForwardsGaiaExpBranch) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeaturesAndParameters(
-      /*enabled_features=*/{{switches::kMagiChromeSignInExperimentsBatch1,
-                             {{"magichrome_fre_exp_branch", "test_branch"}}},
+      /*enabled_features=*/{{switches::kMagiChromePasskeySignIn,
+                             {{"flow_type", "autofill"},
+                              {"magichrome_fre_exp_branch", "2"}}},
                             {syncer::kReplaceSyncPromosWithSignInPromos, {}}},
       /*disabled_features=*/{});
 
   EXPECT_EQ(
       "https://accounts.google.com/signin/chrome/sync?ssp=1&"
-      "flow=history_opt_in&theme=mn&magichrome_fre_exp_branch=test_branch",
+      "flow=history_opt_in&theme=mn&magichrome_fre_exp_branch=2",
       GetChromeSyncURLForDice({}));
 }
+
+TEST_F(SigninPromoUrlTest, SigninURLForDiceForwardsServerOnlyGaiaExpBranch) {
+  // A server-only arm sets no `flow_type`.
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeaturesAndParameters(
+      /*enabled_features=*/{{switches::kMagiChromePasskeySignIn,
+                             {{"magichrome_fre_exp_branch", "3"}}},
+                            {syncer::kReplaceSyncPromosWithSignInPromos, {}}},
+      /*disabled_features=*/{});
+
+  EXPECT_EQ(
+      "https://accounts.google.com/signin/chrome/sync?ssp=1&"
+      "flow=history_opt_in&theme=mn&magichrome_fre_exp_branch=3",
+      GetChromeSyncURLForDice({}));
+}
+
+TEST_F(SigninPromoUrlTest, SigninURLForDiceUnsetGaiaExpBranchAddsNoParam) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeaturesAndParameters(
+      /*enabled_features=*/{{switches::kMagiChromePasskeySignIn,
+                             {{"flow_type", "autofill"}}},
+                            {syncer::kReplaceSyncPromosWithSignInPromos, {}}},
+      /*disabled_features=*/{});
+
+  EXPECT_EQ(
+      "https://accounts.google.com/signin/chrome/sync?ssp=1&"
+      "flow=history_opt_in&theme=mn",
+      GetChromeSyncURLForDice({}));
+}
+
+TEST_F(SigninPromoUrlTest, SigninURLForDiceNonNumericGaiaExpBranchAddsNoParam) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeaturesAndParameters(
+      /*enabled_features=*/{{switches::kMagiChromePasskeySignIn,
+                             {{"magichrome_fre_exp_branch", "autofill"}}},
+                            {syncer::kReplaceSyncPromosWithSignInPromos, {}}},
+      /*disabled_features=*/{});
+
+  EXPECT_EQ(
+      "https://accounts.google.com/signin/chrome/sync?ssp=1&"
+      "flow=history_opt_in&theme=mn",
+      GetChromeSyncURLForDice({}));
+}
+
+TEST_F(SigninPromoUrlTest, SigninURLForDicePasskeyFeatureDisabledAddsNoParam) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{syncer::kReplaceSyncPromosWithSignInPromos},
+      /*disabled_features=*/{switches::kMagiChromePasskeySignIn});
+
+  EXPECT_EQ(
+      "https://accounts.google.com/signin/chrome/sync?ssp=1&"
+      "flow=history_opt_in&theme=mn",
+      GetChromeSyncURLForDice({}));
+}
+
+using HybridTransportFuture =
+    base::test::TestFuture<bool, scoped_refptr<device::BluetoothAdapter>>;
 
 TEST(SigninPromoTest,
      IsHybridTransportSupportedForQrCodeSignin_LeNotSupported) {
@@ -187,9 +247,10 @@ TEST(SigninPromoTest,
       device::BluetoothAdapterFactory::Get()->InitGlobalOverrideValues();
   bluetooth_override_values->SetLESupported(false);
 
-  base::test::TestFuture<bool> future;
+  HybridTransportFuture future;
   IsHybridTransportSupportedForQrCodeSignin(future.GetCallback());
-  EXPECT_FALSE(future.Get());
+  EXPECT_FALSE(future.Get<0>());
+  EXPECT_FALSE(future.Get<1>());
   task_environment.RunUntilIdle();
 }
 
@@ -204,9 +265,10 @@ TEST(SigninPromoTest,
   ON_CALL(*mock_adapter, IsPresent()).WillByDefault(testing::Return(false));
   device::BluetoothAdapterFactory::SetAdapterForTesting(mock_adapter);
 
-  base::test::TestFuture<bool> future;
+  HybridTransportFuture future;
   IsHybridTransportSupportedForQrCodeSignin(future.GetCallback());
-  EXPECT_FALSE(future.Get());
+  EXPECT_FALSE(future.Get<0>());
+  EXPECT_EQ(future.Get<1>().get(), mock_adapter.get());
   task_environment.RunUntilIdle();
 }
 
@@ -225,9 +287,10 @@ TEST(SigninPromoTest,
   ON_CALL(*mock_adapter, IsPowered()).WillByDefault(testing::Return(true));
   device::BluetoothAdapterFactory::SetAdapterForTesting(mock_adapter);
 
-  base::test::TestFuture<bool> future;
+  HybridTransportFuture future;
   IsHybridTransportSupportedForQrCodeSignin(future.GetCallback());
-  EXPECT_TRUE(future.Get());
+  EXPECT_TRUE(future.Get<0>());
+  EXPECT_EQ(future.Get<1>().get(), mock_adapter.get());
   task_environment.RunUntilIdle();
 }
 
@@ -246,9 +309,10 @@ TEST(SigninPromoTest,
   ON_CALL(*mock_adapter, IsPowered()).WillByDefault(testing::Return(false));
   device::BluetoothAdapterFactory::SetAdapterForTesting(mock_adapter);
 
-  base::test::TestFuture<bool> future;
+  HybridTransportFuture future;
   IsHybridTransportSupportedForQrCodeSignin(future.GetCallback());
-  EXPECT_FALSE(future.Get());
+  EXPECT_FALSE(future.Get<0>());
+  EXPECT_EQ(future.Get<1>().get(), mock_adapter.get());
   task_environment.RunUntilIdle();
 }
 
@@ -266,9 +330,10 @@ TEST(SigninPromoTest,
           testing::Return(device::BluetoothAdapter::PermissionStatus::kDenied));
   device::BluetoothAdapterFactory::SetAdapterForTesting(mock_adapter);
 
-  base::test::TestFuture<bool> future;
+  HybridTransportFuture future;
   IsHybridTransportSupportedForQrCodeSignin(future.GetCallback());
-  EXPECT_FALSE(future.Get());
+  EXPECT_FALSE(future.Get<0>());
+  EXPECT_EQ(future.Get<1>().get(), mock_adapter.get());
   task_environment.RunUntilIdle();
 }
 
@@ -286,9 +351,10 @@ TEST(SigninPromoTest,
           device::BluetoothAdapter::PermissionStatus::kUndetermined));
   device::BluetoothAdapterFactory::SetAdapterForTesting(mock_adapter);
 
-  base::test::TestFuture<bool> future;
+  HybridTransportFuture future;
   IsHybridTransportSupportedForQrCodeSignin(future.GetCallback());
-  EXPECT_FALSE(future.Get());
+  EXPECT_FALSE(future.Get<0>());
+  EXPECT_EQ(future.Get<1>().get(), mock_adapter.get());
   task_environment.RunUntilIdle();
 }
 
@@ -1264,12 +1330,8 @@ class AvatarButtonPromoManagerTest : public testing::Test {
  public:
   AvatarButtonPromoManagerTest()
       : identity_test_environment_(&test_url_loader_factory_) {
-    scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/{syncer::kReplaceSyncPromosWithSignInPromos,
-                              switches::kAvatarButtonSyncPromoForTesting,
-                              switches::
-                                  kSigninWindows10DepreciationStateForTesting},
-        /*disabled_features=*/{});
+    scoped_feature_list_.InitAndEnableFeature(
+        switches::kSigninWindows10DepreciationStateForTesting);
 
     AvatarButtonPromoManager::RegisterProfilePrefs(pref_service_.registry());
     SigninPrefs::RegisterProfilePrefs(pref_service_.registry());
@@ -1283,7 +1345,6 @@ class AvatarButtonPromoManagerTest : public testing::Test {
       case ProfileMenuAvatarButtonPromoInfo::Type::kBatchUploadBookmarksPromo:
       case ProfileMenuAvatarButtonPromoInfo::Type::
           kBatchUploadWindows10DepreciationPromo:
-      case ProfileMenuAvatarButtonPromoInfo::Type::kSyncPromo:
         // Signed in.
         // Only sign in if the profile was not already signed in.
         if (!identity_manager()->HasPrimaryAccount(ConsentLevel::kSignin)) {
@@ -1311,11 +1372,11 @@ class AvatarButtonPromoManagerTest : public testing::Test {
       case ProfileMenuAvatarButtonPromoInfo::Type::kBatchUploadBookmarksPromo:
       case ProfileMenuAvatarButtonPromoInfo::Type::
           kBatchUploadWindows10DepreciationPromo:
-      case ProfileMenuAvatarButtonPromoInfo::Type::kSyncPromo:
         break;
       case ProfileMenuAvatarButtonPromoInfo::Type::kSigninPromo:
         task_environment_.FastForwardBy(
-            switches::kSigninPromoOnAvatarPillDelayForNextPromoAllowed.Get() +
+            AvatarButtonPromoManager::
+                kSigninPromoMinimumDelayForNextPromoAllowed +
             base::Days(1));
         break;
     }
@@ -1355,13 +1416,12 @@ class AvatarButtonPromoManagerTest : public testing::Test {
 };
 
 TEST_F(AvatarButtonPromoManagerTest, PromoTypesUseDifferentShownLimits) {
-  std::array<ProfileMenuAvatarButtonPromoInfo::Type, 6> promo_type_list{
+  std::array<ProfileMenuAvatarButtonPromoInfo::Type, 5> promo_type_list{
       ProfileMenuAvatarButtonPromoInfo::Type::kHistorySyncPromo,
       ProfileMenuAvatarButtonPromoInfo::Type::kBatchUploadPromo,
       ProfileMenuAvatarButtonPromoInfo::Type::kBatchUploadBookmarksPromo,
       ProfileMenuAvatarButtonPromoInfo::Type::
           kBatchUploadWindows10DepreciationPromo,
-      ProfileMenuAvatarButtonPromoInfo::Type::kSyncPromo,
       ProfileMenuAvatarButtonPromoInfo::Type::kSigninPromo,
   };
 
@@ -1384,13 +1444,12 @@ TEST_F(AvatarButtonPromoManagerTest, PromoTypesUseDifferentShownLimits) {
 }
 
 TEST_F(AvatarButtonPromoManagerTest, PromoTypesUseDifferentUsedLimits) {
-  std::array<ProfileMenuAvatarButtonPromoInfo::Type, 6> promo_type_list{
+  std::array<ProfileMenuAvatarButtonPromoInfo::Type, 5> promo_type_list{
       ProfileMenuAvatarButtonPromoInfo::Type::kHistorySyncPromo,
       ProfileMenuAvatarButtonPromoInfo::Type::kBatchUploadPromo,
       ProfileMenuAvatarButtonPromoInfo::Type::kBatchUploadBookmarksPromo,
       ProfileMenuAvatarButtonPromoInfo::Type::
           kBatchUploadWindows10DepreciationPromo,
-      ProfileMenuAvatarButtonPromoInfo::Type::kSyncPromo,
       ProfileMenuAvatarButtonPromoInfo::Type::kSigninPromo,
   };
 
@@ -1528,7 +1587,7 @@ TEST_F(AvatarButtonPromoManagerTest,
   // Fast forward by less than expected.
   base::TimeDelta time_remaining_for_promo_to_show = base::Days(1);
   FastForwardBy(
-      switches::kSigninPromoOnAvatarPillDelayForNextPromoAllowed.Get() -
+      AvatarButtonPromoManager::kSigninPromoMinimumDelayForNextPromoAllowed -
       time_remaining_for_promo_to_show);
   // Promo shown time check should still not allow the promo to show yet.
   ASSERT_FALSE(manager.ShouldShowPromo(signin_promo_type));
@@ -1565,7 +1624,7 @@ TEST_F(AvatarButtonPromoManagerTest,
   // Fast forward by less than expected.
   base::TimeDelta time_remaining_for_promo_to_show = base::Days(1);
   FastForwardBy(
-      switches::kSigninPromoOnAvatarPillDelayForNextPromoAllowed.Get() -
+      AvatarButtonPromoManager::kSigninPromoMinimumDelayForNextPromoAllowed -
       time_remaining_for_promo_to_show);
   // Promo shown time check should still not allow the promo to show yet.
   ASSERT_FALSE(manager.ShouldShowPromo(signin_promo_type));
@@ -1604,10 +1663,11 @@ TEST_F(AvatarButtonPromoManagerTest, SigninPromoHasLastExternalEventTimeCheck) {
 
   // Fast forward by less than expected.
   base::TimeDelta time_remaining_for_promo_to_show = base::Days(1);
-  // Uses `switches::kSigninPromoOnAvatarPillDelayForNextPromoAllowed`
+  // Uses
+  // `AvatarButtonPromoManager::kSigninPromoMinimumDelayForNextPromoAllowed`
   // explicitly as the threshold value is shared.
   FastForwardBy(
-      switches::kSigninPromoOnAvatarPillDelayForNextPromoAllowed.Get() -
+      AvatarButtonPromoManager::kSigninPromoMinimumDelayForNextPromoAllowed -
       time_remaining_for_promo_to_show);
   // Last external event time check should still not allow the promo to show
   // yet.
@@ -1675,7 +1735,6 @@ TEST_P(AvatarButtonPromoManagerPromoTypeParamTest, ShowPromoStateIfSignedOut) {
     case ProfileMenuAvatarButtonPromoInfo::Type::kBatchUploadBookmarksPromo:
     case ProfileMenuAvatarButtonPromoInfo::Type::
         kBatchUploadWindows10DepreciationPromo:
-    case ProfileMenuAvatarButtonPromoInfo::Type::kSyncPromo:
       EXPECT_FALSE(manager.ShouldShowPromo(GetParam()));
       break;
     case ProfileMenuAvatarButtonPromoInfo::Type::kSigninPromo:
@@ -1721,7 +1780,6 @@ TEST_P(AvatarButtonPromoManagerPromoTypeParamTest,
         kBatchUploadWindows10DepreciationPromo:
       break;
     case ProfileMenuAvatarButtonPromoInfo::Type::kHistorySyncPromo:
-    case ProfileMenuAvatarButtonPromoInfo::Type::kSyncPromo:
     case ProfileMenuAvatarButtonPromoInfo::Type::kSigninPromo:
       GTEST_SKIP() << "Not a batch upload promo type.";
   }
@@ -1751,61 +1809,13 @@ INSTANTIATE_TEST_SUITE_P(
          ProfileMenuAvatarButtonPromoInfo::Type::kBatchUploadBookmarksPromo,
          ProfileMenuAvatarButtonPromoInfo::Type::
              kBatchUploadWindows10DepreciationPromo,
-         ProfileMenuAvatarButtonPromoInfo::Type::kSyncPromo,
          ProfileMenuAvatarButtonPromoInfo::Type::kSigninPromo}));
 
-class ComputeProfileMenuAvatarButtonPromoInfoParamTest
-    : public testing::Test,
-      public testing::WithParamInterface<
-          ProfileMenuAvatarButtonPromoInfo::Type> {
+// Sets up a profile with the services needed to compute the profile menu
+// avatar button promo info. Feature flags are configured by the derived
+// fixtures, which own their own `base::test::ScopedFeatureList`.
+class ComputeProfileMenuAvatarButtonPromoInfoTestBase : public testing::Test {
  public:
-  ComputeProfileMenuAvatarButtonPromoInfoParamTest() {
-    switch (GetParam()) {
-      case ProfileMenuAvatarButtonPromoInfo::Type::kHistorySyncPromo:
-      case ProfileMenuAvatarButtonPromoInfo::Type::kBatchUploadPromo:
-      case ProfileMenuAvatarButtonPromoInfo::Type::kBatchUploadBookmarksPromo:
-      case ProfileMenuAvatarButtonPromoInfo::Type::kSigninPromo:
-        scoped_feature_list_.InitWithFeatures(
-            // Enabling both features to ensure that
-            // `syncer::kReplaceSyncPromosWithSignInPromos` takes over.
-            // Enable
-            // `switches::kSigninWindows10DepreciationStateBypassForTesting` to
-            // allow Windows machine to test the regular flow (non-Windows10
-            // specific flow).
-            /*enabled_features=*/
-            {syncer::kReplaceSyncPromosWithSignInPromos,
-             switches::kAvatarButtonSyncPromoForTesting,
-             switches::kSigninWindows10DepreciationStateBypassForTesting,
-             switches::kSigninPromoOnAvatarPill},
-            /*disabled_features=*/{});
-        break;
-      case ProfileMenuAvatarButtonPromoInfo::Type::
-          kBatchUploadWindows10DepreciationPromo:
-        scoped_feature_list_.InitWithFeatures(
-            // Enabling both features to ensure that
-            // `syncer::kReplaceSyncPromosWithSignInPromos` takes over. Also
-            // enabling `switches::kSigninWindows10DepreciationStateForTesting`
-            // to simulate Windows10 setup.
-            /*enabled_features=*/
-            {syncer::kReplaceSyncPromosWithSignInPromos,
-             switches::kAvatarButtonSyncPromoForTesting,
-             switches::kSigninWindows10DepreciationStateForTesting,
-             switches::kSigninPromoOnAvatarPill},
-            /*disabled_features=*/{});
-        break;
-      case ProfileMenuAvatarButtonPromoInfo::Type::kSyncPromo:
-        scoped_feature_list_.InitWithFeatures(
-            // For the Sync promo to be shown
-            // `syncer::kReplaceSyncPromosWithSignInPromos` must be off.
-            /*enabled_features=*/{switches::kAvatarButtonSyncPromoForTesting,
-                                  switches::kSigninPromoOnAvatarPill},
-            /*disabled_features=*/{
-                syncer::kReplaceSyncPromosWithSignInPromos,
-                syncer::kReplaceSyncPromosWithSigninPromosNewSignin});
-        break;
-    }
-  }
-
   void SetUp() override {
     TestingProfile::Builder builder;
     builder.AddTestingFactories(
@@ -1851,17 +1861,6 @@ class ComputeProfileMenuAvatarButtonPromoInfoParamTest
 
     UpdateAccountInfoForAccount(identity_manager, account_info);
 
-    // This simplifies the setup for tests that expect to show the SyncPromo.
-    if (switches::IsAvatarSyncPromoFeatureEnabled()) {
-      // Simulate setting enough time passing for the cookie change.
-      profile()->GetPrefs()->SetDouble(
-          prefs::kGaiaCookieChangedTime,
-          (base::Time::Now() -
-           (switches::GetAvatarSyncPromoFeatureMinimumCookeAgeParam() +
-            base::Minutes(1)))
-              .InSecondsFSinceUnixEpoch());
-    }
-
     return account_info;
   }
 
@@ -1880,7 +1879,6 @@ class ComputeProfileMenuAvatarButtonPromoInfoParamTest
   size_t GetLocalDataCount(ProfileMenuAvatarButtonPromoInfo::Type promo_type) {
     switch (promo_type) {
       case ProfileMenuAvatarButtonPromoInfo::Type::kHistorySyncPromo:
-      case ProfileMenuAvatarButtonPromoInfo::Type::kSyncPromo:
       case ProfileMenuAvatarButtonPromoInfo::Type::kSigninPromo:
         return 0u;
       case ProfileMenuAvatarButtonPromoInfo::Type::kBatchUploadPromo:
@@ -1918,10 +1916,6 @@ class ComputeProfileMenuAvatarButtonPromoInfoParamTest
             syncer::BOOKMARKS, GetLocalDataCount(promo_type));
         break;
       }
-      case ProfileMenuAvatarButtonPromoInfo::Type::kSyncPromo:
-        Signin();
-        ASSERT_FALSE(identity_manager->HasPrimaryAccount(ConsentLevel::kSync));
-        break;
       case ProfileMenuAvatarButtonPromoInfo::Type::kSigninPromo:
         ASSERT_FALSE(
             identity_manager->HasPrimaryAccount(ConsentLevel::kSignin));
@@ -1943,9 +1937,6 @@ class ComputeProfileMenuAvatarButtonPromoInfoParamTest
         SetHistorySyncPreferenceState(/*is_type_on=*/true);
         batch_upload_test_helper_.ClearReturnDescriptions();
         break;
-      case ProfileMenuAvatarButtonPromoInfo::Type::kSyncPromo:
-        Signin(ConsentLevel::kSync);
-        break;
       case ProfileMenuAvatarButtonPromoInfo::Type::kSigninPromo:
         Signin();
         break;
@@ -1957,7 +1948,73 @@ class ComputeProfileMenuAvatarButtonPromoInfoParamTest
 
   std::unique_ptr<TestingProfile> profile_;
   BatchUploadServiceTestHelper batch_upload_test_helper_;
+};
 
+using ComputeProfileMenuAvatarButtonPromoInfoSignInPromoTest =
+    ComputeProfileMenuAvatarButtonPromoInfoTestBase;
+
+TEST_F(ComputeProfileMenuAvatarButtonPromoInfoSignInPromoTest,
+       SigninPromoWhenSignedOut) {
+  ASSERT_FALSE(
+      IdentityManagerFactory::GetForProfile(profile())->HasPrimaryAccount(
+          ConsentLevel::kSignin));
+
+  base::MockCallback<base::OnceCallback<void(ProfileMenuAvatarButtonPromoInfo)>>
+      result_callback;
+  EXPECT_CALL(result_callback,
+              Run(ProfileMenuAvatarButtonPromoInfo{
+                  .type = ProfileMenuAvatarButtonPromoInfo::Type::kSigninPromo,
+                  .local_data_count = 0u}));
+  ComputeProfileMenuAvatarButtonPromoInfo(*profile(), result_callback.Get(),
+                                          /*allow_batch_upload_promos=*/true);
+}
+
+// Regression test for the sign in promo being shown even though signing in is
+// not possible, e.g. because it is disabled by the `BrowserSignin` enterprise
+// policy.
+TEST_F(ComputeProfileMenuAvatarButtonPromoInfoSignInPromoTest,
+       NoSigninPromoWhenSigninIsNotAllowed) {
+  ASSERT_FALSE(
+      IdentityManagerFactory::GetForProfile(profile())->HasPrimaryAccount(
+          ConsentLevel::kSignin));
+  profile()->GetPrefs()->SetBoolean(prefs::kSigninAllowed, false);
+
+  base::MockCallback<base::OnceCallback<void(ProfileMenuAvatarButtonPromoInfo)>>
+      result_callback;
+  EXPECT_CALL(result_callback, Run(ProfileMenuAvatarButtonPromoInfo()));
+  ComputeProfileMenuAvatarButtonPromoInfo(*profile(), result_callback.Get(),
+                                          /*allow_batch_upload_promos=*/true);
+}
+
+class ComputeProfileMenuAvatarButtonPromoInfoParamTest
+    : public ComputeProfileMenuAvatarButtonPromoInfoTestBase,
+      public testing::WithParamInterface<
+          ProfileMenuAvatarButtonPromoInfo::Type> {
+ public:
+  ComputeProfileMenuAvatarButtonPromoInfoParamTest() {
+    switch (GetParam()) {
+      case ProfileMenuAvatarButtonPromoInfo::Type::kHistorySyncPromo:
+      case ProfileMenuAvatarButtonPromoInfo::Type::kBatchUploadPromo:
+      case ProfileMenuAvatarButtonPromoInfo::Type::kBatchUploadBookmarksPromo:
+      case ProfileMenuAvatarButtonPromoInfo::Type::kSigninPromo:
+        // Enable
+        // `switches::kSigninWindows10DepreciationStateBypassForTesting` to
+        // allow Windows machine to test the regular flow (non-Windows10
+        // specific flow).
+        scoped_feature_list_.InitAndEnableFeature(
+            switches::kSigninWindows10DepreciationStateBypassForTesting);
+        break;
+      case ProfileMenuAvatarButtonPromoInfo::Type::
+          kBatchUploadWindows10DepreciationPromo:
+        // Enabling `switches::kSigninWindows10DepreciationStateForTesting`
+        // to simulate Windows10 setup.
+        scoped_feature_list_.InitAndEnableFeature(
+            switches::kSigninWindows10DepreciationStateForTesting);
+        break;
+    }
+  }
+
+ private:
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
@@ -1966,22 +2023,10 @@ TEST_P(ComputeProfileMenuAvatarButtonPromoInfoParamTest,
   base::MockCallback<base::OnceCallback<void(ProfileMenuAvatarButtonPromoInfo)>>
       result_callback;
 
-  ProfileMenuAvatarButtonPromoInfo expected_info;
-  switch (GetParam()) {
-    case ProfileMenuAvatarButtonPromoInfo::Type::kHistorySyncPromo:
-    case ProfileMenuAvatarButtonPromoInfo::Type::kBatchUploadPromo:
-    case ProfileMenuAvatarButtonPromoInfo::Type::kBatchUploadBookmarksPromo:
-    case ProfileMenuAvatarButtonPromoInfo::Type::
-        kBatchUploadWindows10DepreciationPromo:
-    case ProfileMenuAvatarButtonPromoInfo::Type::kSigninPromo:
-      expected_info.type = ProfileMenuAvatarButtonPromoInfo::Type::kSigninPromo;
-      break;
-    case ProfileMenuAvatarButtonPromoInfo::Type::kSyncPromo:
-      // When this promo is possible - the sign in promo should not be shown.
-      break;
-  }
-
-  EXPECT_CALL(result_callback, Run(expected_info));
+  EXPECT_CALL(
+      result_callback,
+      Run(ProfileMenuAvatarButtonPromoInfo{
+          .type = ProfileMenuAvatarButtonPromoInfo::Type::kSigninPromo}));
   ComputeProfileMenuAvatarButtonPromoInfo(*profile(), result_callback.Get(),
                                           /*allow_batch_upload_promos=*/true);
 }
@@ -2020,7 +2065,6 @@ TEST_P(ComputeProfileMenuAvatarButtonPromoInfoParamTest,
                        .local_data_count = GetLocalDataCount(GetParam())};
       break;
     case ProfileMenuAvatarButtonPromoInfo::Type::kHistorySyncPromo:
-    case ProfileMenuAvatarButtonPromoInfo::Type::kSyncPromo:
     case ProfileMenuAvatarButtonPromoInfo::Type::kSigninPromo:
       // Non-batch upload promos are unaffected by allow_batch_upload_promos.
       expected_info = {.type = GetParam(),
@@ -2060,7 +2104,6 @@ TEST_P(ComputeProfileMenuAvatarButtonPromoInfoParamTest,
                        .local_data_count = GetLocalDataCount(GetParam())};
       break;
     case ProfileMenuAvatarButtonPromoInfo::Type::kHistorySyncPromo:
-    case ProfileMenuAvatarButtonPromoInfo::Type::kSyncPromo:
     case ProfileMenuAvatarButtonPromoInfo::Type::kSigninPromo:
       expected_info = {.type = GetParam(),
                        .local_data_count = GetLocalDataCount(GetParam())};
@@ -2081,7 +2124,6 @@ TEST_P(ComputeProfileMenuAvatarButtonPromoInfoParamTest,
         kBatchUploadWindows10DepreciationPromo:
       break;
     case ProfileMenuAvatarButtonPromoInfo::Type::kHistorySyncPromo:
-    case ProfileMenuAvatarButtonPromoInfo::Type::kSyncPromo:
     case ProfileMenuAvatarButtonPromoInfo::Type::kSigninPromo:
       GTEST_SKIP() << "Not a batch upload promo type.";
   }
@@ -2112,7 +2154,6 @@ TEST_P(ComputeProfileMenuAvatarButtonPromoInfoParamTest,
         kBatchUploadWindows10DepreciationPromo:
       break;
     case ProfileMenuAvatarButtonPromoInfo::Type::kHistorySyncPromo:
-    case ProfileMenuAvatarButtonPromoInfo::Type::kSyncPromo:
     case ProfileMenuAvatarButtonPromoInfo::Type::kSigninPromo:
       GTEST_SKIP() << "Not a batch upload promo type.";
   }
@@ -2177,7 +2218,6 @@ INSTANTIATE_TEST_SUITE_P(
          ProfileMenuAvatarButtonPromoInfo::Type::kBatchUploadBookmarksPromo,
          ProfileMenuAvatarButtonPromoInfo::Type::
              kBatchUploadWindows10DepreciationPromo,
-         ProfileMenuAvatarButtonPromoInfo::Type::kSyncPromo,
          ProfileMenuAvatarButtonPromoInfo::Type::kSigninPromo}));
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 

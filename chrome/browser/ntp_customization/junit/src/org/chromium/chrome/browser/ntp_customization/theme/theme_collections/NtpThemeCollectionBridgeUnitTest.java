@@ -25,7 +25,6 @@ import org.mockito.junit.MockitoRule;
 import org.chromium.base.Callback;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.ntp_customization.theme.chrome_colors.NtpThemeColorInfo.NtpThemeColorId;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.url.GURL;
 import org.chromium.url.JUnitTestGURLs;
@@ -148,7 +147,7 @@ public class NtpThemeCollectionBridgeUnitTest {
         String collectionId = "collectionId";
         GURL imageUrl = JUnitTestGURLs.URL_1;
         GURL previewImageUrl = JUnitTestGURLs.URL_2;
-        String[] attribution = new String[] {"foo", "bar"};
+        List<String> attribution = List.of("foo", "bar");
         GURL attributionUrl = JUnitTestGURLs.URL_3;
         CollectionImage image =
                 NtpThemeCollectionBridge.createImage(
@@ -179,12 +178,6 @@ public class NtpThemeCollectionBridgeUnitTest {
                         "attr1",
                         "attr2",
                         JUnitTestGURLs.URL_3);
-    }
-
-    @Test
-    public void testSelectLocalBackgroundImage() {
-        mNtpThemeCollectionBridge.selectLocalBackgroundImage();
-        verify(mNatives).selectLocalBackgroundImage(NATIVE_NTP_THEME_COLLECTION_BRIDGE);
     }
 
     @Test
@@ -222,19 +215,6 @@ public class NtpThemeCollectionBridgeUnitTest {
     public void testFetchNextThemeCollectionImage() {
         mNtpThemeCollectionBridge.fetchNextThemeCollectionImage();
         verify(mNatives).fetchNextThemeCollectionImage(NATIVE_NTP_THEME_COLLECTION_BRIDGE);
-    }
-
-    @Test
-    public void testSetChromeColor() {
-        @NtpThemeColorId int colorId = NtpThemeColorId.NTP_COLORS_BLUE;
-        mNtpThemeCollectionBridge.setChromeColor(colorId);
-        verify(mNatives).setChromeColor(NATIVE_NTP_THEME_COLLECTION_BRIDGE, colorId);
-    }
-
-    @Test
-    public void testResetCustomBackgroundInfo() {
-        mNtpThemeCollectionBridge.resetCustomBackgroundInfo();
-        verify(mNatives).resetCustomBackgroundInfo(NATIVE_NTP_THEME_COLLECTION_BRIDGE);
     }
 
     @Test

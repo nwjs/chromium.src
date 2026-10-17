@@ -104,6 +104,7 @@ blink::mojom::AuthenticatorStatus
 WebAuthRequestSecurityCheckerImpl::ValidateAncestorOrigins(
     const url::Origin& origin,
     RequestType type,
+    bool uses_remote_client_data_json,
     bool* is_cross_origin) {
   if (render_frame_host_->IsNestedWithinFencedFrame()) {
     bad_message::ReceivedBadMessage(
@@ -113,6 +114,13 @@ WebAuthRequestSecurityCheckerImpl::ValidateAncestorOrigins(
   }
 
   *is_cross_origin = !IsSameOriginWithAncestors(origin);
+
+  if (uses_remote_client_data_json &&
+      !render_frame_host_->IsFeatureEnabled(
+          network::mojom::PermissionsPolicyFeature::
+              kPublicKeyCredentialsRemoteClientDataJson)) {
+    return blink::mojom::AuthenticatorStatus::NOT_ALLOWED_ERROR;
+  }
 
   // Requests in cross-origin iframes are permitted if enabled via permissions
   // policy and for SPC requests.
@@ -316,7 +324,8 @@ WebAuthRequestSecurityCheckerImpl::ValidateAppIdExtension(
   // Webauthn is only supported on secure origins and
   // `ValidateDomainAndRelyingPartyID()` has already checked this property of
   // `caller_origin` before this call. Thus this step is moot.
-  DCHECK(network::IsOriginPotentiallyTrustworthy(caller_origin));
+  CHECK(network::IsOriginPotentiallyTrustworthy(caller_origin),
+        base::NotFatalUntil::M160);
 
   // Step 2: "If the AppID is null or empty, the client must set the AppID to be
   // the FacetID of the caller, and the operation may proceed without additional
@@ -377,7 +386,8 @@ WebAuthRequestSecurityCheckerImpl::ValidateAppIdExtension(
   // https://groups.google.com/forum/#!msg/mozilla.dev.platform/Uiu3fwnA2xw/201ynAiPAQAJ
   const GURL gstatic_appid(kGstaticAppId);
   const GURL gstatic_corp_appid(kGstaticCorpAppId);
-  DCHECK(gstatic_appid.is_valid() && gstatic_corp_appid.is_valid());
+  CHECK(gstatic_appid.is_valid() && gstatic_corp_appid.is_valid(),
+        base::NotFatalUntil::M160);
   if (caller_origin.DomainIs("google.com") && !appid_url.has_ref() &&
       (appid_url.EqualsIgnoringRef(gstatic_appid) ||
        appid_url.EqualsIgnoringRef(gstatic_corp_appid))) {

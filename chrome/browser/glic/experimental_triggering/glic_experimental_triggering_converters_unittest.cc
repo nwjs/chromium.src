@@ -167,6 +167,33 @@ TEST(GlicExperimentalTriggeringConvertersTest, GetScreenshotRequest) {
                 {'s', 'e', 'c', 'r', 'e', 't', '_', 'b', 'y', 't', 'e', 's'}));
 }
 
+TEST(GlicExperimentalTriggeringConvertersTest, SubmitConfirmation) {
+  components_sharing_message::GlicExperimentalTriggering proto;
+  proto.mutable_task_metadata()->set_conversation_id("conv_123");
+  auto* req = proto.mutable_request()->mutable_submit_confirmation();
+  req->set_confirmation_response("opaque_bytes");
+
+  auto request = ProtoToRequest(proto);
+  ASSERT_TRUE(std::holds_alternative<SubmitConfirmation>(request.payload));
+  const auto& confirmation = std::get<SubmitConfirmation>(request.payload);
+  EXPECT_EQ(confirmation.confirmation_response,
+            std::vector<uint8_t>(
+                {'o', 'p', 'a', 'q', 'u', 'e', '_', 'b', 'y', 't', 'e', 's'}));
+}
+
+TEST(GlicExperimentalTriggeringConvertersTest,
+     SubmitConfirmationWithoutPayload) {
+  components_sharing_message::GlicExperimentalTriggering proto;
+  proto.mutable_task_metadata()->set_conversation_id("conv_123");
+  // The oneof arm is selected, but the inner payload is absent.
+  proto.mutable_request()->mutable_submit_confirmation();
+
+  auto request = ProtoToRequest(proto);
+  ASSERT_TRUE(std::holds_alternative<SubmitConfirmation>(request.payload));
+  EXPECT_TRUE(std::get<SubmitConfirmation>(request.payload)
+                  .confirmation_response.empty());
+}
+
 TEST(GlicExperimentalTriggeringConvertersTest, TaskMetadataUpdated) {
   components_sharing_message::GlicExperimentalTriggering proto;
   proto.mutable_task_metadata()->set_conversation_id("conv_123");
@@ -483,6 +510,88 @@ TEST(GlicExperimentalTriggeringConvertersTest,
   EXPECT_FALSE(resp_proto.screenshot_result().has_error_message());
 }
 
+using ProtoConfirmationResult =
+    components_sharing_message::GlicExperimentalTriggering::
+        ExperimentalTriggeringResponse::ConfirmationResult;
+
+struct ConfirmationStatusTestCase {
+  const char* test_name;
+  ConfirmationResult::Status status;
+  ProtoConfirmationResult::Status expected_proto_status;
+};
+
+class GlicExperimentalTriggeringConfirmationStatusTest
+    : public testing::TestWithParam<ConfirmationStatusTestCase> {};
+
+TEST_P(GlicExperimentalTriggeringConfirmationStatusTest, ConvertsStatus) {
+  ExperimentalTriggeringResponse response;
+  response.context_id = "test_context";
+  response.confirmation_result = ConfirmationResult{
+      .status = GetParam().status,
+  };
+
+  auto sharing_message = ResponseToProto(response);
+  const auto& resp_proto =
+      sharing_message.glic_experimental_triggering().response();
+  EXPECT_EQ(resp_proto.confirmation_result().status(),
+            GetParam().expected_proto_status);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    ResponseToProto_ConfirmationResult,
+    GlicExperimentalTriggeringConfirmationStatusTest,
+    testing::Values(
+        ConfirmationStatusTestCase{"Unspecified",
+                                   ConfirmationResult::Status::kUnspecified,
+                                   ProtoConfirmationResult::UNSPECIFIED},
+        ConfirmationStatusTestCase{"Applied",
+                                   ConfirmationResult::Status::kApplied,
+                                   ProtoConfirmationResult::APPLIED},
+        ConfirmationStatusTestCase{"NotApplied",
+                                   ConfirmationResult::Status::kNotApplied,
+                                   ProtoConfirmationResult::NOT_APPLIED},
+        ConfirmationStatusTestCase{
+            "ErrorInvalidRequest",
+            ConfirmationResult::Status::kErrorInvalidRequest,
+            ProtoConfirmationResult::ERROR_INVALID_REQUEST},
+        ConfirmationStatusTestCase{
+            "ErrorUnavailable", ConfirmationResult::Status::kErrorUnavailable,
+            ProtoConfirmationResult::ERROR_UNAVAILABLE}),
+    [](const testing::TestParamInfo<ConfirmationStatusTestCase>& info) {
+      return info.param.test_name;
+    });
+
+TEST(GlicExperimentalTriggeringConvertersTest,
+     ResponseToProto_ConfirmationResultFields) {
+  ExperimentalTriggeringResponse response;
+  response.context_id = "test_context";
+  response.confirmation_result = ConfirmationResult{
+      .status = ConfirmationResult::Status::kErrorUnavailable,
+      .error_message = "no instance",
+  };
+
+  auto sharing_message = ResponseToProto(response);
+  const auto& resp_proto =
+      sharing_message.glic_experimental_triggering().response();
+  EXPECT_EQ(resp_proto.confirmation_result().status(),
+            ProtoConfirmationResult::ERROR_UNAVAILABLE);
+  EXPECT_EQ(resp_proto.confirmation_result().error_message(), "no instance");
+}
+
+TEST(GlicExperimentalTriggeringConvertersTest,
+     ResponseToProto_ConfirmationResultOmitsEmptyErrorMessage) {
+  ExperimentalTriggeringResponse response;
+  response.context_id = "test_context";
+  response.confirmation_result = ConfirmationResult{
+      .status = ConfirmationResult::Status::kApplied,
+  };
+
+  auto sharing_message = ResponseToProto(response);
+  const auto& resp_proto =
+      sharing_message.glic_experimental_triggering().response();
+  EXPECT_FALSE(resp_proto.confirmation_result().has_error_message());
+}
+
 TEST(GlicExperimentalTriggeringConvertersTest, ProtoToTaskMetadata) {
   {
     components_sharing_message::GlicExperimentalTriggering proto;
@@ -525,6 +634,56 @@ TEST(GlicExperimentalTriggeringConvertersTest, ProtoToTaskMetadata) {
   }
 }
 
+TEST(GlicExperimentalTriggeringConvertersTest, ExecuteActionsRequest) {
+  components_sharing_message::GlicExperimentalTriggering proto;
+  proto.set_glic_experimental_triggering_version(1);
+  proto.set_context_id("test_context");
+
+  auto* exec_req = proto.mutable_request()->mutable_execute_actions_request();
+  auto* action = exec_req->mutable_actions()->add_actions();
+  action->mutable_script_tool()->set_tool_name("test_script_tool");
+
+  auto request = ProtoToRequest(proto);
+  EXPECT_EQ(request.version, 1);
+  EXPECT_EQ(request.context_id, "test_context");
+  ASSERT_TRUE(std::holds_alternative<ExecuteActionsRequest>(request.payload));
+  const auto& payload = std::get<ExecuteActionsRequest>(request.payload);
+  ASSERT_EQ(payload.actions.actions_size(), 1);
+  EXPECT_EQ(payload.actions.actions(0).script_tool().tool_name(),
+            "test_script_tool");
+}
+
+TEST(GlicExperimentalTriggeringConvertersTest,
+     ResponseToProto_ExecuteActionsResponse) {
+  ExperimentalTriggeringResponse response;
+  response.context_id = "test_context";
+  ExecuteActionsResponse exec_resp;
+  auto* result = exec_resp.actions_result.add_script_tool_results();
+  result->set_tool_name("test_tool");
+  result->set_result("success");
+  response.execute_actions_response = std::move(exec_resp);
+
+  auto sharing_message = ResponseToProto(response);
+  const auto& resp_proto =
+      sharing_message.glic_experimental_triggering().response();
+  ASSERT_TRUE(resp_proto.has_execute_actions_response());
+  ASSERT_TRUE(resp_proto.execute_actions_response().has_actions_result());
+  ASSERT_EQ(resp_proto.execute_actions_response()
+                .actions_result()
+                .script_tool_results_size(),
+            1);
+  EXPECT_EQ(resp_proto.execute_actions_response()
+                .actions_result()
+                .script_tool_results(0)
+                .tool_name(),
+            "test_tool");
+  EXPECT_EQ(resp_proto.execute_actions_response()
+                .actions_result()
+                .script_tool_results(0)
+                .result(),
+            "success");
+}
+
 TEST(GlicExperimentalTriggeringConvertersTest, ResponseToTriggeringProto) {
   ExperimentalTriggeringResponse response;
   response.context_id = "test_context";
@@ -542,6 +701,25 @@ TEST(GlicExperimentalTriggeringConvertersTest, ResponseToTriggeringProto) {
             components_sharing_message::GlicExperimentalTriggering::
                 ExperimentalTriggeringResponse::TaskUpdate::COMPLETE);
   EXPECT_EQ(triggering.response().task_update().data(), "done");
+}
+
+TEST(GlicExperimentalTriggeringConvertersTest,
+     ResponseToTriggeringProto_ExecuteActionsResponse) {
+  ExperimentalTriggeringResponse response;
+  response.context_id = "test_context";
+  ExecuteActionsResponse exec_resp;
+  exec_resp.actions_result.set_action_result(1);
+  response.execute_actions_response = std::move(exec_resp);
+
+  auto triggering = ResponseToTriggeringProto(response);
+  EXPECT_EQ(triggering.context_id(), "test_context");
+  EXPECT_TRUE(triggering.has_response());
+  EXPECT_TRUE(triggering.response().has_execute_actions_response());
+  EXPECT_EQ(triggering.response()
+                .execute_actions_response()
+                .actions_result()
+                .action_result(),
+            1);
 }
 
 }  // namespace glic

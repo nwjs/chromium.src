@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import argparse
+import glob
 import logging
 import os
 import pathlib
@@ -112,8 +113,10 @@ def _all_files(path):
     if os.path.isfile(path):
         return [path]
     assert os.path.isdir(path), 'Not a file or dir: ' + path
-    all_paths = pathlib.Path(path).glob('**/*')
-    return [str(f) for f in all_paths if f.is_file()]
+    # glob ignores dotfiles, which is what we want.
+    ret = glob.glob('**/*')
+    # Same ignore pattern is used in copy_runtime_deps().
+    return [f for f in ret if os.path.isfile(f) and '__pycache__' not in f]
 
 
 def _resolve_runtime_deps(runtime_deps):
@@ -140,6 +143,7 @@ def copy_runtime_deps(checkout_dir, runtime_deps):
         if os.path.isfile(src_path):
             shutil.copy(src_path, dest_path)
         else:
+            # Same ignore pattern is used in _all_files().
             shutil.copytree(
                 src_path,
                 dest_path,
@@ -163,7 +167,9 @@ def extract_tar(path, dest):
 
 
 def run_cmd(cmd, check=True, *args, **kwargs):
-    logging.info('Running: %s', shlex.join(cmd))
+    # Python 3.6 inside the 3pp docker container lacks shlex.join (3.8+).
+    cmd = [str(x) for x in cmd]
+    logging.info('Running: %s', ' '.join(shlex.quote(x) for x in cmd))
     return subprocess.run(cmd, check=check, *args, **kwargs)
 
 
@@ -173,13 +179,16 @@ def apply_patches(patches_dir, checkout_dir):
         run_cmd(cmd, cwd=checkout_dir)
 
 
-def main(*, do_latest, do_install, runtime_deps, include_deps_hash=True):
+def main(*, do_latest, do_install, runtime_deps=(), include_deps_hash=True):
+    # Prevent subprocess output from being out-of-order when stdout is piped.
+    # Python 3.6 inside the 3pp docker container lacks sys.stdout.reconfigure.
+    sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', buffering=1)
     logging.basicConfig(
         level=logging.DEBUG,
         format='%(levelname).1s %(relativeCreated)6d %(message)s',
     )
     args = parse_args()
-    runtime_deps = [str(_THIS_DIR)] + runtime_deps
+    runtime_deps = [str(_THIS_DIR)] + list(runtime_deps)
 
     if args.action == 'local-test':
         logging.warning('Will use work dir: %s', args.checkout_dir)

@@ -14,6 +14,7 @@
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/mojom/menu_source_type.mojom-forward.h"
+#include "ui/gfx/text_constants.h"
 #include "ui/menus/simple_menu_model.h"
 #include "ui/views/accessible_pane_view.h"
 #include "ui/views/context_menu_controller.h"
@@ -53,6 +54,13 @@ class CustomTabBarView : public views::AccessiblePaneView,
   ~CustomTabBarView() override;
 
   LocationIconView* location_icon_view() { return location_icon_view_; }
+
+  // Returns true if the custom tab bar's security state does not match
+  // the currently visible state.
+  bool HasSecurityStateChanged() const;
+
+  // Populates child elements with page details from the current WebContents.
+  void UpdateContents();
 
   // views::AccessiblePaneView:
   gfx::Rect GetAnchorBoundsInScreen() const override;
@@ -99,6 +107,7 @@ class CustomTabBarView : public views::AccessiblePaneView,
   void GoBackToAppForTesting();
   bool IsShowingOriginForTesting() const;
   bool IsShowingCloseButtonForTesting() const;
+  gfx::ElideBehavior GetLocationElideBehaviorForTesting() const;
 
  private:
   // Takes the web contents for the custom tab bar back to the app scope.
@@ -122,9 +131,6 @@ class CustomTabBarView : public views::AccessiblePaneView,
   web_app::AppBrowserController* app_controller() const {
     return web_app::AppBrowserController::From(browser_);
   }
-
-  // Populates child elements with page details from the current WebContents.
-  void UpdateContents();
 
   bool GetShowTitle() const;
 

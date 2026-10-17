@@ -72,7 +72,7 @@ class OpenTabResultTest : public testing::Test {
     match.description = description;
     match.destination_url = GURL(url);
     match.relevance = 1000;
-    match.type = AutocompleteMatchType::OPEN_TAB;
+    match.type = omnibox::AutocompleteMatchType::kOpenTab;
     TokenizedString tokenized_query(query, TokenizedString::Mode::kCamelCase);
     return std::make_unique<OpenTabResult>(
         /*profile=*/nullptr, app_list_controller_delegate_.get(),

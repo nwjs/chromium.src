@@ -61,8 +61,10 @@ public class AtMemoryBottomSheetBridge implements AtMemoryBottomSheetCoordinator
     }
 
     @CalledByNative
-    public void show(@JniType("std::vector") List<AutofillSuggestion> suggestions) {
-        mCoordinator.show(suggestions);
+    public void show(
+            @JniType("std::vector") List<AutofillSuggestion> suggestions,
+            @JniType("std::optional<std::u16string>") @Nullable String searchBarInitialValue) {
+        mCoordinator.show(suggestions, searchBarInitialValue);
     }
 
     // TODO(crbug.com/534668889): Refactor isAcceptable and hasDeactivatedStyle to enum.
@@ -130,10 +132,10 @@ public class AtMemoryBottomSheetBridge implements AtMemoryBottomSheetCoordinator
     }
 
     @Override
-    public void onSuggestionClicked(int position) {
+    public void onSuggestionAccepted(int position) {
         if (mNativeAtMemoryBottomSheetBridge != 0) {
             AtMemoryBottomSheetBridgeJni.get()
-                    .onSuggestionSelected(mNativeAtMemoryBottomSheetBridge, position);
+                    .onSuggestionAccepted(mNativeAtMemoryBottomSheetBridge, position);
         }
     }
 
@@ -154,10 +156,10 @@ public class AtMemoryBottomSheetBridge implements AtMemoryBottomSheetCoordinator
     }
 
     @Override
-    public void onChildSuggestionClicked(int parentPosition, int childPosition) {
+    public void onChildSuggestionAccepted(int parentPosition, int childPosition) {
         if (mNativeAtMemoryBottomSheetBridge != 0) {
             AtMemoryBottomSheetBridgeJni.get()
-                    .onChildSuggestionSelected(
+                    .onChildSuggestionAccepted(
                             mNativeAtMemoryBottomSheetBridge, parentPosition, childPosition);
         }
     }
@@ -178,13 +180,13 @@ public class AtMemoryBottomSheetBridge implements AtMemoryBottomSheetCoordinator
         void onQueryTextChanged(
                 long nativeAtMemoryBottomSheetBridge, @JniType("std::u16string") String query);
 
-        void onSuggestionSelected(long nativeAtMemoryBottomSheetBridge, int position);
+        void onSuggestionAccepted(long nativeAtMemoryBottomSheetBridge, int position);
 
         void onSuggestionDismissed(long nativeAtMemoryBottomSheetBridge, int position);
 
         void onChildSuggestionsShown(long nativeAtMemoryBottomSheetBridge, int parentPosition);
 
-        void onChildSuggestionSelected(
+        void onChildSuggestionAccepted(
                 long nativeAtMemoryBottomSheetBridge, int parentPosition, int childPosition);
 
         boolean isSearching(long nativeAtMemoryBottomSheetBridge);

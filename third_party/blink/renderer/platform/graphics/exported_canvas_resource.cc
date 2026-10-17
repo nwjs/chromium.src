@@ -53,27 +53,26 @@ scoped_refptr<StaticBitmapImage> ExportedCanvasResource::Bitmap() {
   return resource_->Bitmap();
 }
 
-void ExportedCanvasResource::Transfer() {
-  resource_->Transfer();
-}
-
 void ExportedCanvasResource::EndDisplayCompositorAccess(
     gpu::SharedImageExportResult export_result,
     bool is_lost) {
   auto sync_token =
       resource_->GetSharedImage()->EndExport(std::move(export_result));
+  EndDisplayCompositorAccess(sync_token, is_lost);
+}
 
+void ExportedCanvasResource::EndDisplayCompositorAccess(
+    gpu::SyncToken sync_token,
+    bool is_lost) {
   resource_->WaitSyncToken(sync_token);
   if (is_lost) {
     resource_->NotifyResourceLost();
   }
 }
 
-bool ExportedCanvasResource::PrepareTransferableResource(
-    viz::TransferableResource* transferable_resource,
-    bool needs_verified_synctoken) {
-  return resource_->PrepareTransferableResource(transferable_resource,
-                                                needs_verified_synctoken);
+viz::TransferableResource
+ExportedCanvasResource::PrepareTransferableResource() {
+  return resource_->PrepareTransferableResource();
 }
 
 }  // namespace blink

@@ -180,7 +180,7 @@ class MostVisitedSitesProviderTest : public testing::Test,
   // Returns the N-th match of a particular type, skipping over all matches of
   // other types. If match of that type does not exist, or there are not enough
   // elements of that type, this call returns null.
-  const AutocompleteMatch* GetMatch(AutocompleteMatchType::Type type,
+  const AutocompleteMatch* GetMatch(omnibox::AutocompleteMatchType type,
                                     size_t index);
 
   // AutocompleteProviderListener:
@@ -199,10 +199,10 @@ size_t MostVisitedSitesProviderTest::NumMostVisitedMatches() {
   const auto& result = provider_->matches();
   size_t count = 0;
   for (const auto& match : result) {
-    if ((match.type == AutocompleteMatchType::TILE_NAVSUGGEST) ||
-        (match.type == AutocompleteMatchType::NAVSUGGEST) ||
-        (match.type == AutocompleteMatchType::TILE_MOST_VISITED_SITE) ||
-        (match.type == AutocompleteMatchType::TILE_REPEATABLE_QUERY)) {
+    if ((match.type == omnibox::AutocompleteMatchType::kTileNavsuggest) ||
+        (match.type == omnibox::AutocompleteMatchType::kNavsuggest) ||
+        (match.type == omnibox::AutocompleteMatchType::kTileMostVisitedSite) ||
+        (match.type == omnibox::AutocompleteMatchType::kTileRepeatableQuery)) {
       ++count;
     }
   }
@@ -210,7 +210,7 @@ size_t MostVisitedSitesProviderTest::NumMostVisitedMatches() {
 }
 
 const AutocompleteMatch* MostVisitedSitesProviderTest::GetMatch(
-    AutocompleteMatchType::Type type,
+    omnibox::AutocompleteMatchType type,
     size_t index) {
   const auto& result = provider_->matches();
   for (const auto& match : result) {
@@ -238,8 +238,9 @@ void MostVisitedSitesProviderTest::CheckMatchesEquivalentTo(
     ASSERT_EQ(1ul, NumMostVisitedMatches())
         << "Expected only one TILE_NAVSUGGEST match";
     for (const auto& match : result) {
-      if (match.type != AutocompleteMatchType::TILE_NAVSUGGEST)
+      if (match.type != omnibox::AutocompleteMatchType::kTileNavsuggest) {
         continue;
+      }
       EXPECT_TRUE(match.subtypes.contains(
           omnibox::SUBTYPE_ZERO_PREFIX_LOCAL_FREQUENT_URLS));
       EXPECT_TRUE(match.subtypes.contains(omnibox::SUBTYPE_URL_BASED));
@@ -259,11 +260,13 @@ void MostVisitedSitesProviderTest::CheckMatchesEquivalentTo(
     int expected_relevance = omnibox::kMostVisitedTilesZeroSuggestHighRelevance;
     for (const auto& match : result) {
       if (data[match_index].is_search) {
-        EXPECT_EQ(match.type, AutocompleteMatchType::TILE_REPEATABLE_QUERY);
+        EXPECT_EQ(match.type,
+                  omnibox::AutocompleteMatchType::kTileRepeatableQuery);
         EXPECT_TRUE(match.subtypes.contains(
             omnibox::SUBTYPE_ZERO_PREFIX_LOCAL_FREQUENT_QUERIES));
       } else {
-        EXPECT_EQ(match.type, AutocompleteMatchType::TILE_MOST_VISITED_SITE);
+        EXPECT_EQ(match.type,
+                  omnibox::AutocompleteMatchType::kTileMostVisitedSite);
         EXPECT_TRUE(match.subtypes.contains(
             omnibox::SUBTYPE_ZERO_PREFIX_LOCAL_FREQUENT_URLS));
         EXPECT_TRUE(match.subtypes.contains(omnibox::SUBTYPE_URL_BASED));
@@ -295,7 +298,7 @@ void MostVisitedSitesProviderTest::CheckDesktopMatchesEquivalentTo(
       << "Unexpected number of TILE matches";
   int expected_relevance = omnibox::kMostVisitedTilesZeroSuggestHighRelevance;
   for (const auto& match : result) {
-    EXPECT_EQ(match.type, AutocompleteMatchType::TILE_MOST_VISITED_SITE);
+    EXPECT_EQ(match.type, omnibox::AutocompleteMatchType::kTileMostVisitedSite);
     EXPECT_TRUE(match.subtypes.contains(
         omnibox::SUBTYPE_ZERO_PREFIX_LOCAL_FREQUENT_URLS));
     EXPECT_TRUE(match.subtypes.contains(omnibox::SUBTYPE_URL_BASED));
@@ -489,7 +492,7 @@ TEST_F(MostVisitedSitesProviderTest, TestDeleteMostVisitedElement) {
   histogram_.ExpectTotalCount("Omnibox.SuggestTiles.TileTypeCount.URL", 1);
   histogram_.ExpectBucketCount("Omnibox.SuggestTiles.TileTypeCount.URL", 4, 1);
   histogram_.ExpectTotalCount("Omnibox.SuggestTiles.DeletedTileIndex", 0);
-  auto* match = GetMatch(AutocompleteMatchType::TILE_NAVSUGGEST, 0);
+  auto* match = GetMatch(omnibox::AutocompleteMatchType::kTileNavsuggest, 0);
   ASSERT_NE(nullptr, match) << "No TILE_NAVSUGGEST Match found";
   provider_->DeleteMatchElement(*match, 1);
   histogram_.ExpectTotalCount("Omnibox.SuggestTiles.DeletedTileIndex", 1);
@@ -524,7 +527,7 @@ TEST_F(MostVisitedSitesProviderTest, NoMatchesWhenLastURLIsDeleted) {
   histogram_.ExpectTotalCount("Omnibox.SuggestTiles.TileTypeCount.URL", 1);
   histogram_.ExpectBucketCount("Omnibox.SuggestTiles.TileTypeCount.URL", 1, 1);
   histogram_.ExpectTotalCount("Omnibox.SuggestTiles.DeletedTileIndex", 0);
-  auto* match = GetMatch(AutocompleteMatchType::TILE_NAVSUGGEST, 0);
+  auto* match = GetMatch(omnibox::AutocompleteMatchType::kTileNavsuggest, 0);
   ASSERT_NE(nullptr, match) << "No TILE_NAVSUGGEST Match found";
   provider_->DeleteMatchElement(*match, 0);
   histogram_.ExpectTotalCount("Omnibox.SuggestTiles.DeletedTileIndex", 1);

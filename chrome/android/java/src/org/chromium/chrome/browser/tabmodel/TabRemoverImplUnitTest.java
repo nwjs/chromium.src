@@ -15,6 +15,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.same;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -57,6 +58,7 @@ import org.chromium.components.tab_group_sync.SavedTabGroupTab;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /** Unit tests for {@link TabRemoverImpl}. */
@@ -133,7 +135,9 @@ public class TabRemoverImplUnitTest {
         // No placeholder created.
 
         handler.performAction();
-        verify(mTabClosureCallback).onResult(eq(params));
+        // same(), not eq(): nothing was spared, so this must be the caller's own object. equals()
+        // is field-wise and would also accept an identical rebuild.
+        verify(mTabClosureCallback).onResult(same(params));
     }
 
     @Test
@@ -227,10 +231,89 @@ public class TabRemoverImplUnitTest {
 
         mTabRemoverImpl.prepareCloseTabs(
                 params, /* allowDialog= */ true, mListener, mTabClosureCallback);
+
+        // The tab that refused is spared; the rest of the batch still closes, as one closure.
+        verify(mTabModelRemover).doTabRemovalFlow(mHandlerCaptor.capture(), eq(true));
+        mHandlerCaptor.getValue().performAction();
+        ArgumentCaptor<TabClosureParams> paramsCaptor =
+                ArgumentCaptor.forClass(TabClosureParams.class);
+        verify(mTabClosureCallback).onResult(paramsCaptor.capture());
+        assertEquals(List.of(tab0), paramsCaptor.getValue().tabs);
+    }
+
+    @Test
+    public void testPrepareCloseTabs_MultipleTabs_BeforeUnload_CancelEveryTab() {
+        Tab tab0 = mTabModel.addTab(/* id= */ 0);
+        Tab tab1 = mTabModel.addTab(/* id= */ 1);
+        BeforeUnloadCallback cancel =
+                (onProceed, onCancel) -> {
+                    onCancel.run();
+                    return true;
+                };
+        tab0.getUserDataHost().setUserData(BeforeUnloadCallback.class, cancel);
+        tab1.getUserDataHost().setUserData(BeforeUnloadCallback.class, cancel);
+        TabClosureParams params = TabClosureParams.closeTabs(List.of(tab0, tab1)).build();
+
+        mTabRemoverImpl.prepareCloseTabs(
+                params, /* allowDialog= */ true, mListener, mTabClosureCallback);
+
+        // Nothing is left to close, so the closure is a cancellation.
         verify(mListener)
                 .onConfirmationDialogResult(
                         DialogType.NONE, ActionConfirmationResult.CONFIRMATION_NEGATIVE);
         verify(mTabModelRemover, never()).doTabRemovalFlow(any(), anyBoolean());
+    }
+
+    @Test
+    public void testPrepareCloseTabs_AllTabs_BeforeUnload_CancelAbandonsClosure() {
+        Tab tab0 = mTabModel.addTab(/* id= */ 0);
+        mTabModel.addTab(/* id= */ 1);
+        BeforeUnloadCallback callback0 =
+                (onProceed, onCancel) -> {
+                    onCancel.run();
+                    return true;
+                };
+        tab0.getUserDataHost().setUserData(BeforeUnloadCallback.class, callback0);
+        TabClosureParams params = TabClosureParams.closeAllTabs().build();
+
+        mTabRemoverImpl.prepareCloseTabs(
+                params, /* allowDialog= */ true, mListener, mTabClosureCallback);
+
+        // Sparing one tab of a close-all would leave a window the user asked to empty holding an
+        // arbitrary survivor, so the whole closure is abandoned instead.
+        verify(mListener)
+                .onConfirmationDialogResult(
+                        DialogType.NONE, ActionConfirmationResult.CONFIRMATION_NEGATIVE);
+        verify(mTabModelRemover, never()).doTabRemovalFlow(any(), anyBoolean());
+    }
+
+    @Test
+    public void testPrepareCloseTabs_MultipleTabs_BeforeUnload_CallbackReturnsFalse() {
+        Tab tab0 = mTabModel.addTab(/* id= */ 0);
+        Tab tab1 = mTabModel.addTab(/* id= */ 1);
+        BeforeUnloadCallback callback0 = (onProceed, onCancel) -> false;
+        tab0.getUserDataHost().setUserData(BeforeUnloadCallback.class, callback0);
+        TabClosureParams params = TabClosureParams.closeTabs(List.of(tab0, tab1)).build();
+
+        mTabRemoverImpl.prepareCloseTabs(
+                params, /* allowDialog= */ true, mListener, mTabClosureCallback);
+        verify(mTabModelRemover).doTabRemovalFlow(mHandlerCaptor.capture(), eq(true));
+    }
+
+    // No mechanism is registered, so the walk iterates rather than recursing. This covers the
+    // unprompted bulk path only; the nesting that recursion would cause needs a mechanism that
+    // answers synchronously, which the walk's own asserts reject.
+    @Test
+    public void testPrepareCloseTabs_BulkTabs_NoPromptWalksEveryTab() {
+        List<Tab> tabs = new ArrayList<>();
+        for (int i = 0; i < 150; i++) {
+            tabs.add(mTabModel.addTab(i));
+        }
+        TabClosureParams params = TabClosureParams.closeTabs(tabs).build();
+
+        mTabRemoverImpl.prepareCloseTabs(
+                params, /* allowDialog= */ true, mListener, mTabClosureCallback);
+        verify(mTabModelRemover).doTabRemovalFlow(mHandlerCaptor.capture(), eq(true));
     }
 
     @Test
@@ -267,6 +350,7 @@ public class TabRemoverImplUnitTest {
         verify(mTabModelRemover).doTabRemovalFlow(mHandlerCaptor.capture(), eq(false));
         TabModelRemoverFlowHandler handler = mHandlerCaptor.getValue();
 
+        when(mActorKeyedService.getActiveTasksCount()).thenReturn(1);
         when(mActorKeyedService.getActiveTaskIdOnTab(0, true)).thenReturn(123);
 
         List<Integer> taskIds = handler.getOngoingActorTasks();
@@ -673,6 +757,74 @@ public class TabRemoverImplUnitTest {
     }
 
     @Test
+    public void testUpdateTabClosureParams_Placeholder_CloseTabGroup_PreservesIsTabGroup() {
+        Tab tab0 = mTabModel.addTab(/* id= */ 0);
+        tab0.setTabGroupId(TAB_GROUP_ID.tabGroupId);
+        Tab tab1 = mTabModel.addTab(/* id= */ 1);
+        when(mTabModel.getTabsInGroup(TAB_GROUP_ID.tabGroupId)).thenReturn(List.of(tab0));
+        TabClosureParams params =
+                TabClosureParams.forCloseTabGroup(mTabModel, TAB_GROUP_ID.tabGroupId).build();
+        assertTrue("Precondition: should be a tab group closure", params.isTabGroup);
+
+        TabClosureParams newParams =
+                TabRemoverImpl.fixupTabClosureParams(
+                        mTabModel, params, List.of(tab1), /* preventUndo= */ false);
+
+        assertTrue("isTabGroup must survive the fixup", newParams.isTabGroup);
+    }
+
+    @Test
+    public void testUpdateTabClosureParams_Placeholders_AllTabs_CarriesOverFields() {
+        Tab tab0 = mTabModel.addTab(/* id= */ 0);
+        Tab tab1 = mTabModel.addTab(/* id= */ 1);
+        TabClosureParams params =
+                TabClosureParams.closeAllTabs()
+                        .hideTabGroups(true)
+                        .saveToTabRestoreService(false)
+                        .tabClosingSource(TabClosingSource.TABLET_TAB_STRIP)
+                        .build();
+
+        TabClosureParams newParams =
+                TabRemoverImpl.fixupTabClosureParams(
+                        mTabModel, params, List.of(tab1), /* preventUndo= */ false);
+
+        assertEquals("Should close only the non-placeholder tabs", List.of(tab0), newParams.tabs);
+        assertTrue("Should hide tab groups", newParams.hideTabGroups);
+        assertFalse("Should not save to tab restore service", newParams.saveToTabRestoreService);
+        assertEquals(
+                "Tab closing source should carry over",
+                TabClosingSource.TABLET_TAB_STRIP,
+                newParams.tabClosingSource);
+    }
+
+    @Test
+    public void testUpdateTabClosureParams_Placeholder_CloseTab_ClearsUponExit() {
+        Tab tab0 = mTabModel.addTab(/* id= */ 0);
+        Tab tab1 = mTabModel.addTab(/* id= */ 1);
+        TabClosureParams params = TabClosureParams.closeTab(tab0).uponExit(true).build();
+
+        TabClosureParams newParams =
+                TabRemoverImpl.fixupTabClosureParams(
+                        mTabModel, params, List.of(tab1), /* preventUndo= */ false);
+
+        assertFalse(
+                "Placeholder tabs remain in the model, so the closure no longer exits the app",
+                newParams.uponExit);
+    }
+
+    @Test
+    public void testUpdateTabClosureParams_NoPlaceholders_CloseTab_PreservesUponExit() {
+        Tab tab0 = mTabModel.addTab(/* id= */ 0);
+        TabClosureParams params = TabClosureParams.closeTab(tab0).uponExit(true).build();
+
+        TabClosureParams newParams =
+                TabRemoverImpl.fixupTabClosureParams(
+                        mTabModel, params, /* placeholderTabs= */ null, /* preventUndo= */ false);
+
+        assertTrue("No placeholder tabs, so the closure still exits the app", newParams.uponExit);
+    }
+
+    @Test
     public void testCloseTabs_ActorTaskDeletion() {
         // Use a real TabModelRemover to test the full flow, but mock the ActionConfirmationManager.
         TabModelRemover realRemover =
@@ -688,6 +840,7 @@ public class TabRemoverImplUnitTest {
         TabClosureParams params = TabClosureParams.closeTab(tab0).build();
 
         // Setup ongoing task.
+        when(mActorKeyedService.getActiveTasksCount()).thenReturn(1);
         when(mActorKeyedService.getActiveTaskIdOnTab(0, true)).thenReturn(123);
 
         realTabRemoverImpl.closeTabs(params, /* allowDialog= */ true, mListener);

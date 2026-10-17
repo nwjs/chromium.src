@@ -108,6 +108,7 @@ source_set("impl") {
       ]
 
       deps += [
+        "//chrome/browser/ui:browser_window_header",
         "//chrome/browser/ui:chrome_pages",
         "//chrome/browser/ui/views/profiles:profile_management_types",
         "//chrome/browser/ui/webui/signin",
@@ -152,10 +153,11 @@ source_set("unit_tests") {
 
   if (!is_android) {
     sources += [ "profile_view_utils_unittest.cc" ]
-    deps = [
+    deps += [
       ":profiles",
       "//chrome/browser/prefs",
       "//chrome/test:test_support",
+      "//chrome/test/base:testing_browser_process",
       "//components/account_id",
       "//components/policy/core/common:common_constants",
       "//content/test:test_support",

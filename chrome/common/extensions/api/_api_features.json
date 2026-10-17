@@ -269,15 +269,6 @@
       "chrome://lock-reauth/*",
       "chrome://skills/*"
     ]
-  }, {
-    "internal": true,
-    "channel": "stable",
-    "contexts": [
-      "webui_untrusted"
-    ],
-    "matches": [
-      "chrome-untrusted://lens/*"
-    ]
   }],
   "chromeWebViewInternal": [{
     "internal": true,
@@ -291,15 +282,6 @@
     // to the specified set of URLs, so this could even be <all_urls>. Just to
     // be extra-cautious, we restrict to the chrome scheme.
     "matches": [ "chrome://*/*" ]
-  }, {
-    "internal": true,
-    "channel": "stable",
-    "contexts": [
-      "webui_untrusted"
-    ],
-    "matches": [
-      "chrome-untrusted://lens/*"
-    ]
   }, {
     // This feature is used by the Controlled Frame API and is specifically
     // enabled by //chrome.
@@ -586,30 +568,6 @@
     "contexts": ["privileged_extension"],
     "disallow_for_service_workers": true
   },
-  "fileSystemProvider": [{
-    "dependencies": ["permission:fileSystemProvider"],
-    "contexts": ["privileged_extension"]
-  }, {
-    "channel": "stable",
-    "contexts": ["webui_untrusted"],
-    "matches": [
-      "chrome-untrusted://terminal/*"
-    ],
-    "platforms": ["chromeos"]
-  }],
-  "fileSystemProviderInternal": [{
-    "internal": true,
-    "dependencies": ["permission:fileSystemProvider"],
-    "contexts": ["privileged_extension"]
-  }, {
-    "internal": true,
-    "channel": "stable",
-    "contexts": ["webui_untrusted"],
-    "matches": [
-      "chrome-untrusted://terminal/*"
-    ],
-    "platforms": ["chromeos"]
-  }],
   "fontSettings": {
     "dependencies": ["permission:fontSettings"],
     "contexts": ["privileged_extension"]
@@ -647,26 +605,14 @@
     "contexts": ["privileged_extension"],
     "platforms": ["chromeos"]
   },
-  "inputMethodPrivate": [{
-    "dependencies": ["permission:inputMethodPrivate"],
-    "contexts": ["privileged_extension"]
-  }, {
-    "channel": "stable",
-    "contexts": ["webui"],
-    "matches": [
-      // TODO(maybelle): Audit and remove chrome://settings or
-      // chrome://os-settings as appropriate
-      "chrome://os-settings/*",
-      "chrome://settings/*"
-    ]
-  }],
   "instanceID": {
     "dependencies": ["permission:gcm"],
     "contexts": ["privileged_extension"]
   },
   "languageSettingsPrivate": [{
     "dependencies": ["permission:languageSettingsPrivate"],
-    "contexts": ["privileged_extension"]
+    "contexts": ["privileged_extension"],
+    "default_parent": true
   }, {
     "channel": "stable",
     "contexts": ["webui"],
@@ -678,12 +624,42 @@
       "chrome://os-settings/*",
       "chrome://settings/*"
     ]
-  },
-  {
+  }],
+  // chrome-untrusted://lens-overlay only needs getLanguageList and
+  // getTranslateTargetLanguage; grant them individually instead of the whole
+  // namespace (crbug.com/561921279).
+  "languageSettingsPrivate.getLanguageList": [{
+    "contexts": ["privileged_extension"]
+  }, {
     "channel": "stable",
-    "contexts": [
-      "webui_untrusted"
-    ],
+    "contexts": ["webui"],
+    "dependencies": [],
+    "matches": [
+      "chrome://os-settings/*",
+      "chrome://settings/*"
+    ]
+  }, {
+    "channel": "stable",
+    "contexts": ["webui_untrusted"],
+    "dependencies": [],
+    "matches": [
+      "chrome-untrusted://lens-overlay/*"
+    ]
+  }],
+  "languageSettingsPrivate.getTranslateTargetLanguage": [{
+    "contexts": ["privileged_extension"]
+  }, {
+    "channel": "stable",
+    "contexts": ["webui"],
+    "dependencies": [],
+    "matches": [
+      "chrome://os-settings/*",
+      "chrome://settings/*"
+    ]
+  }, {
+    "channel": "stable",
+    "contexts": ["webui_untrusted"],
+    "dependencies": [],
     "matches": [
       "chrome-untrusted://lens-overlay/*"
     ]

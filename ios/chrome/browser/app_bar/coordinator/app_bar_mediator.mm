@@ -4,7 +4,9 @@
 
 #import "ios/chrome/browser/app_bar/coordinator/app_bar_mediator.h"
 
+#import <array>
 #import <memory>
+#import <optional>
 #import <set>
 
 #import "base/callback_list.h"
@@ -12,6 +14,7 @@
 #import "base/metrics/histogram_functions.h"
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
+#import "base/notreached.h"
 #import "components/omnibox/browser/aim_eligibility_service.h"
 #import "components/policy/core/common/policy_pref_names.h"
 #import "components/prefs/ios/pref_observer_bridge.h"
@@ -22,6 +25,7 @@
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "components/signin/public/identity_manager/objc/identity_manager_observer_bridge.h"
 #import "ios/chrome/browser/aim/model/aim_util.h"
+#import "ios/chrome/browser/app_bar/ui/app_bar_assistant_button_menu_factory.h"
 #import "ios/chrome/browser/app_bar/ui/app_bar_constants.h"
 #import "ios/chrome/browser/app_bar/ui/app_bar_consumer.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
@@ -50,12 +54,15 @@
 #import "ios/chrome/browser/ntp/model/new_tab_page_util.h"
 #import "ios/chrome/browser/policy/model/policy_util.h"
 #import "ios/chrome/browser/search_engines/model/search_engine_observer_bridge.h"
+#import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
+#import "ios/chrome/browser/shared/coordinator/scene/scene_state_observer.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/incognito_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/layout_state_passkey.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/lens_overlay_state_notifier.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/scene_layout_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/tab_grid_state.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
+#import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
 #import "ios/chrome/browser/shared/model/web_state_list/tab_group.h"
 #import "ios/chrome/browser/shared/model/web_state_list/tab_group_utils.h"
@@ -122,6 +129,37 @@ class NetworkChangeObserverBridge
   __strong void (^on_network_changed_)();
 };
 
+// Assistant button states by decreasing priority: the button shows the first
+// eligible one. If none is eligible, the last one is shown, disabled.
+constexpr std::array<AppBarAssistantButtonState, 4>
+    kAssistantButtonStatesByPriority = {
+        AppBarAssistantButtonState::kAsk,
+        AppBarAssistantButtonState::kAIM,
+        AppBarAssistantButtonState::kLens,
+        AppBarAssistantButtonState::kAccount,
+};
+
+// Minimum number of entries for the assistant button menu to be shown, as there
+// is nothing to choose with a single entry.
+constexpr NSUInteger kMinimumAssistantButtonMenuEntryCount = 2;
+
+// Returns the preferred state stored as `pref_value`. Values outside of the
+// enum range, e.g. stored by a newer version, are treated as no choice.
+AppBarAssistantButtonPreferredState PreferredStateFromPrefValue(
+    int pref_value) {
+  // Scoped enums have a fixed underlying type, so casting any value is safe.
+  AppBarAssistantButtonPreferredState preferred_state =
+      static_cast<AppBarAssistantButtonPreferredState>(pref_value);
+  switch (preferred_state) {
+    case AppBarAssistantButtonPreferredState::kDefault:
+    case AppBarAssistantButtonPreferredState::kLens:
+    case AppBarAssistantButtonPreferredState::kAsk:
+    case AppBarAssistantButtonPreferredState::kAccount:
+      return preferred_state;
+  }
+  return AppBarAssistantButtonPreferredState::kDefault;
+}
+
 inline LayoutStateAssistantPassKey PassKey() {
   return layout_state::AppBarMediatorPassKeyFactory::CreateKey();
 }
@@ -135,6 +173,7 @@ inline LayoutStateAssistantPassKey PassKey() {
                               IncognitoStateObserver,
                               LensOverlayStateNotifierObserver,
                               PrefObserverDelegate,
+                              SceneStateObserver,
                               SearchEngineObserving,
                               TabGridStateObserving,
                               ToolbarButtonMenuFactoryDelegate,
@@ -186,6 +225,7 @@ inline LayoutStateAssistantPassKey PassKey() {
   LensOverlayStateNotifier* _lensOverlayState;
   ToolbarButtonMenuFactory* _regularButtonMenuFactory;
   ToolbarButtonMenuFactory* _incognitoButtonMenuFactory;
+  AppBarAssistantButtonMenuFactory* _assistantButtonMenuFactory;
   std::unique_ptr<PrefChangeRegistrar> _prefChangeRegistrar;
   std::unique_ptr<PrefObserverBridge> _prefObserverBridge;
   BOOL _initialAssistantButtonStateRecorded;
@@ -304,12 +344,19 @@ inline LayoutStateAssistantPassKey PassKey() {
                       tabGridState:_tabGridState];
     _incognitoButtonMenuFactory.delegate = self;
 
+    _assistantButtonMenuFactory =
+        [[AppBarAssistantButtonMenuFactory alloc] init];
+    _assistantButtonMenuFactory.mutator = self;
+
     CHECK(_prefService);
     _prefChangeRegistrar = std::make_unique<PrefChangeRegistrar>();
     _prefChangeRegistrar->Init(_prefService);
     _prefObserverBridge = std::make_unique<PrefObserverBridge>(self);
     _prefObserverBridge->ObserveChangesForPreference(
         policy::policy_prefs::kIncognitoModeAvailability,
+        _prefChangeRegistrar.get());
+    _prefObserverBridge->ObserveChangesForPreference(
+        prefs::kAppBarAssistantButtonPreferredState,
         _prefChangeRegistrar.get());
 
     if (_tabGridState.tabGridVisible) {
@@ -403,10 +450,25 @@ inline LayoutStateAssistantPassKey PassKey() {
   [self updateConsumer];
 }
 
+- (void)setSceneState:(SceneState*)sceneState {
+  if (_sceneState == sceneState) {
+    return;
+  }
+  [_sceneState removeObserver:self];
+  _sceneState = sceneState;
+  [_sceneState addObserver:self];
+  if (_sceneState.UIEnabled) {
+    [self updateConsumer];
+  }
+}
+
 - (void)disconnect {
   self.consumer = nil;
+  [_sceneState removeObserver:self];
+  _sceneState = nil;
   _regularButtonMenuFactory = nil;
   _incognitoButtonMenuFactory = nil;
+  _assistantButtonMenuFactory = nil;
   self.currentTabGroup = nullptr;
   if (self.currentWebStateList) {
     self.currentWebStateList->RemoveObserver(_observerBridge.get());
@@ -469,6 +531,8 @@ inline LayoutStateAssistantPassKey PassKey() {
 - (void)onPreferenceChanged:(const std::string&)preferenceName {
   if (preferenceName == policy::policy_prefs::kIncognitoModeAvailability) {
     [self updateConsumer];
+  } else if (preferenceName == prefs::kAppBarAssistantButtonPreferredState) {
+    [self updateAssistantButton];
   }
 }
 
@@ -493,31 +557,6 @@ inline LayoutStateAssistantPassKey PassKey() {
     self.currentTabGroup = GetGroupForActiveWebState(webStateList);
   }
 
-  switch (change.type()) {
-    case WebStateListChange::Type::kStatusOnly:
-    case WebStateListChange::Type::kMove:
-    case WebStateListChange::Type::kReplace:
-      // Do nothing when web state count is the same.
-      break;
-    case WebStateListChange::Type::kDetach:
-    case WebStateListChange::Type::kInsert:
-      [self updateConsumer];
-      break;
-    case WebStateListChange::Type::kGroupCreate:
-      break;
-    case WebStateListChange::Type::kGroupVisualDataUpdate:
-      break;
-    case WebStateListChange::Type::kGroupMove: {
-      const WebStateListChangeGroupMove& move =
-          change.As<WebStateListChangeGroupMove>();
-      if (move.moved_group() == self.currentTabGroup) {
-        [self updateConsumer];
-      }
-      break;
-    }
-    case WebStateListChange::Type::kGroupDelete:
-      break;
-  }
   [self updateConsumer];
 }
 
@@ -525,6 +564,12 @@ inline LayoutStateAssistantPassKey PassKey() {
   if (!_tabGridState.tabGridVisible) {
     self.currentTabGroup = GetGroupForActiveWebState(webStateList);
   }
+  [self updateConsumer];
+}
+
+#pragma mark - SceneStateObserver
+
+- (void)sceneStateDidEnableUI:(SceneState*)sceneState {
   [self updateConsumer];
 }
 
@@ -624,6 +669,9 @@ inline LayoutStateAssistantPassKey PassKey() {
 #pragma mark - SearchEngineObserving
 
 - (void)searchEngineChanged {
+  if (![self isUIEnabled]) {
+    return;
+  }
   BOOL incognito = self.currentWebStateList == _incognitoWebStateList;
   ToolbarButtonMenuFactory* buttonMenuFactory =
       incognito ? _incognitoButtonMenuFactory : _regularButtonMenuFactory;
@@ -705,13 +753,28 @@ inline LayoutStateAssistantPassKey PassKey() {
       break;
     }
     case AppBarAssistantButtonState::kAccount:
+      // The tap is handled asynchronously, so sign-in could have been disabled
+      // between when the button was configured and when the user tapped it.
+      if (!_authenticationService->SigninEnabled()) {
+        return;
+      }
       if (_authenticationService->HasPrimaryIdentity()) {
         [self.delegate showAccountMenu:sender];
-      } else if (_authenticationService->SigninEnabled()) {
+      } else {
         [self.delegate showSignin:sender];
       }
       break;
   }
+}
+
+- (void)setPreferredAssistantButtonState:
+    (AppBarAssistantButtonPreferredState)preferredState {
+  if (!_prefService) {
+    return;
+  }
+  _prefService->SetInteger(prefs::kAppBarAssistantButtonPreferredState,
+                           static_cast<int>(preferredState));
+  [self recordAssistantButtonStateSelection:preferredState];
 }
 
 #pragma mark - ToolbarButtonMenuFactoryDelegate
@@ -829,9 +892,14 @@ inline LayoutStateAssistantPassKey PassKey() {
 
 #pragma mark - Private
 
+// Returns YES if the scene UI is enabled (or if no SceneState is attached).
+- (BOOL)isUIEnabled {
+  return !_sceneState || _sceneState.UIEnabled;
+}
+
 // Updates the consumer with the current state of the web state list.
 - (void)updateConsumer {
-  if (!self.consumer || !self.currentWebStateList) {
+  if (!self.consumer || !self.currentWebStateList || ![self isUIEnabled]) {
     return;
   }
 
@@ -858,8 +926,6 @@ inline LayoutStateAssistantPassKey PassKey() {
   ToolbarButtonMenuFactory* buttonMenuFactory =
       incognito ? _incognitoButtonMenuFactory : _regularButtonMenuFactory;
 
-  [self.consumer setMenu:[buttonMenuFactory menuForAssistantButton]
-           forButtonType:AppBarButtonTypeAssistant];
   [self.consumer setMenu:[buttonMenuFactory menuForNewTabButton]
            forButtonType:AppBarButtonTypeNewTab];
   [self.consumer setMenu:[buttonMenuFactory menuForTabGridButton]
@@ -898,6 +964,9 @@ inline LayoutStateAssistantPassKey PassKey() {
 
 // Updates the buttons in the tab grid.
 - (void)updateButtonsForCurrentTabGridPage {
+  if (![self isUIEnabled]) {
+    return;
+  }
   TabGridPage page = _currentPage == TabGridPageTabGroups
                          ? _tabGridState.originPage
                          : _currentPage;
@@ -955,13 +1024,40 @@ inline LayoutStateAssistantPassKey PassKey() {
     return YES;
   }
 
-  if (!self.currentWebStateList) {
-    return NO;
+  return IsLensOverlayEntrypointAvailable(LensOverlayEntrypoint::kAppBar,
+                                          _prefService, _templateURLService,
+                                          [self activeWebState]);
+}
+
+// Returns YES if the Lens entry point can be used, which requires an active
+// tab on top of being eligible.
+- (BOOL)isLensEnabled {
+  if (_overrideLensAvailabilityForTesting) {
+    return YES;
   }
 
-  return IsLensOverlayEntrypointAvailable(
-      LensOverlayEntrypoint::kAppBar, _prefService, _templateURLService,
-      self.currentWebStateList->GetActiveWebState());
+  return IsLensOverlayEntrypointEnabled(LensOverlayEntrypoint::kAppBar,
+                                        _prefService, _templateURLService,
+                                        [self activeWebState]);
+}
+
+// Returns the active web state of the current web state list, or `nullptr` if
+// there is none.
+- (web::WebState*)activeWebState {
+  if (!self.currentWebStateList) {
+    return nullptr;
+  }
+  return self.currentWebStateList->GetActiveWebState();
+}
+
+// Returns whether the account entry point can be used: the user is either
+// signed in or allowed to sign in.
+- (BOOL)isAccountEligible {
+  if (!_authenticationService) {
+    return NO;
+  }
+  return _authenticationService->HasPrimaryIdentity() ||
+         _authenticationService->SigninEnabled();
 }
 
 // Returns whether the Lens overlay is currently visible.
@@ -1018,7 +1114,7 @@ inline LayoutStateAssistantPassKey PassKey() {
       }
       break;
     case AppBarAssistantButtonState::kLens:
-      if (_tabGridState.tabGridVisible) {
+      if (_tabGridState.tabGridVisible || ![self isLensEnabled]) {
         enabled = NO;
       }
       break;
@@ -1044,22 +1140,104 @@ inline LayoutStateAssistantPassKey PassKey() {
 }
 
 // Updates the assistant button state based on eligibility and applies it to the
-// consumer.
+// consumer, along with the menu letting the user choose the entry point.
 - (void)updateAssistantButton {
-  AppBarAssistantButtonState state = AppBarAssistantButtonState::kAccount;
-  if ([self isGeminiEligible]) {
-    state = AppBarAssistantButtonState::kAsk;
-  } else if ([self isAimEligible]) {
-    state = AppBarAssistantButtonState::kAIM;
-  } else if ([self isLensEligible]) {
-    state = AppBarAssistantButtonState::kLens;
+  if (!self.consumer || ![self isUIEnabled]) {
+    return;
   }
-
+  AppBarAssistantButtonState state = [self currentAssistantButtonState];
   [self recordAssistantButtonStateOnLoad:state];
   [self applyAssistantButtonState:state];
+  [self.consumer setMenu:[self assistantButtonMenuForDisplayedState:state]
+           forButtonType:AppBarButtonTypeAssistant];
 }
 
-// Records the assistant button state on load.
+// Returns the state shown by the assistant button: the state chosen by the user
+// if it is eligible, otherwise the default state. The choice isn't cleared when
+// it isn't eligible, so that it is shown again once it becomes eligible.
+- (AppBarAssistantButtonState)currentAssistantButtonState {
+  std::optional<AppBarAssistantButtonState> chosenState =
+      [self userChosenAssistantButtonState];
+  if (IsAppBarAssistantCustomizationEnabled() && chosenState &&
+      *chosenState != AppBarAssistantButtonState::kAsk &&
+      [self isAssistantButtonStateEligible:*chosenState]) {
+    return *chosenState;
+  }
+  return [self defaultAssistantButtonState];
+}
+
+// Returns the state shown by the assistant button without any user choice: the
+// first eligible state of `kAssistantButtonStatesByPriority`.
+- (AppBarAssistantButtonState)defaultAssistantButtonState {
+  for (AppBarAssistantButtonState state : kAssistantButtonStatesByPriority) {
+    if ([self isAssistantButtonStateEligible:state]) {
+      return state;
+    }
+  }
+  return AppBarAssistantButtonState::kAccount;
+}
+
+// Returns whether the entry point of `state` can be shown by the assistant
+// button.
+- (BOOL)isAssistantButtonStateEligible:(AppBarAssistantButtonState)state {
+  switch (state) {
+    case AppBarAssistantButtonState::kAsk:
+      return [self isGeminiEligible];
+    case AppBarAssistantButtonState::kAIM:
+      return [self isAimEligible];
+    case AppBarAssistantButtonState::kLens:
+      return [self isLensEligible];
+    case AppBarAssistantButtonState::kAccount:
+      return [self isAccountEligible];
+  }
+}
+
+// Returns the assistant button state stored as chosen by the user, which is
+// `kDefault` if the user didn't choose any.
+- (AppBarAssistantButtonPreferredState)preferredAssistantButtonState {
+  if (!_prefService) {
+    return AppBarAssistantButtonPreferredState::kDefault;
+  }
+  return PreferredStateFromPrefValue(
+      _prefService->GetInteger(prefs::kAppBarAssistantButtonPreferredState));
+}
+
+// Returns the assistant button state chosen by the user, or `std::nullopt` if
+// the user didn't choose any.
+- (std::optional<AppBarAssistantButtonState>)userChosenAssistantButtonState {
+  return AssistantButtonStateFromPreferredState(
+      [self preferredAssistantButtonState]);
+}
+
+// Returns the menu letting the user choose the entry point shown by the
+// assistant button, or `nil` if there is nothing to choose. Only the available
+// entries are shown, and the one matching `displayedState`, the state shown by
+// the assistant button, is checked, even if the user chose another one.
+- (UIMenu*)assistantButtonMenuForDisplayedState:
+    (AppBarAssistantButtonState)displayedState {
+  if ([self isIncognitoActive] || !IsAppBarAssistantCustomizationEnabled()) {
+    return nil;
+  }
+  // If Gemini is available, AI Mode is not shown in the menu. Otherwise, AI
+  // Mode is shown when eligible so the menu entry matches what is displayed on
+  // the button.
+  BOOL showAskGemini = [self isGeminiEligible];
+  BOOL showAIM = !showAskGemini && [self isAimEligible];
+  BOOL showLens = [self isLensEligible];
+  BOOL showAccount = [self isAccountEligible];
+  NSUInteger entryCount = (showAskGemini ? 1 : 0) + (showAIM ? 1 : 0) +
+                          (showLens ? 1 : 0) + (showAccount ? 1 : 0);
+  if (entryCount < kMinimumAssistantButtonMenuEntryCount) {
+    return nil;
+  }
+  return [_assistantButtonMenuFactory menuWithCheckedState:displayedState
+                                             showAskGemini:showAskGemini
+                                                   showAIM:showAIM
+                                                  showLens:showLens
+                                               showAccount:showAccount];
+}
+
+// Records the assistant button state and the user preference metrics on load.
 - (void)recordAssistantButtonStateOnLoad:(AppBarAssistantButtonState)state {
   if (_initialAssistantButtonStateRecorded) {
     return;
@@ -1081,6 +1259,44 @@ inline LayoutStateAssistantPassKey PassKey() {
 
   _initialAssistantButtonStateRecorded = YES;
   UmaHistogramEnumeration(kAppBarAssistantButtonStateOnLoadHistogram, state);
+
+  if (IsAppBarAssistantCustomizationEnabled()) {
+    // Records the assistant button state chosen by the user and, if the user
+    // chose one, the state that the assistant button would show without this
+    // choice.
+    AppBarAssistantButtonPreferredState preferredState =
+        [self preferredAssistantButtonState];
+    UmaHistogramEnumeration(kAppBarAssistantButtonPreferredStateOnLoadHistogram,
+                            preferredState);
+    if (preferredState != AppBarAssistantButtonPreferredState::kDefault) {
+      UmaHistogramEnumeration(kAppBarAssistantButtonDefaultStateOnLoadHistogram,
+                              [self defaultAssistantButtonState]);
+    }
+  }
+}
+
+// Records the user action of selecting `preferredState` in the assistant button
+// menu. `base::UserMetricsAction` requires string literals, so that the action
+// names can be extracted from the code.
+- (void)recordAssistantButtonStateSelection:
+    (AppBarAssistantButtonPreferredState)preferredState {
+  switch (preferredState) {
+    case AppBarAssistantButtonPreferredState::kAsk:
+      base::RecordAction(base::UserMetricsAction(
+          "MobileToolbarAssistantCustomizationAskGeminiSelected"));
+      break;
+    case AppBarAssistantButtonPreferredState::kLens:
+      base::RecordAction(base::UserMetricsAction(
+          "MobileToolbarAssistantCustomizationLensSelected"));
+      break;
+    case AppBarAssistantButtonPreferredState::kAccount:
+      base::RecordAction(base::UserMetricsAction(
+          "MobileToolbarAssistantCustomizationAccountSelected"));
+      break;
+    case AppBarAssistantButtonPreferredState::kDefault:
+      // Resetting the choice isn't an entry of the assistant button menu.
+      break;
+  }
 }
 
 // Updates for `incognito` being visible.

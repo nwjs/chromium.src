@@ -196,7 +196,6 @@ after discussions on the right group.
     </sender>
     <sender name="Recently Added">
       <annotation id="fast_pair_image_decoder"/>
-      <annotation id="drivefs_http_client"/>
       <annotation id="download_bubble_retry_download"/>
       <annotation id="quick_answers_loader"/>
       <annotation id="chrome_commerce_price_email_pref_fetcher"/>
@@ -211,8 +210,6 @@ after discussions on the right group.
       <annotation id="nearby_share_update_device"/>
       <annotation id="nearby_share_contacts"/>
       <annotation id="nearby_share_list_public_certificates"/>
-      <annotation id="nearby_presence_update_device"/>
-      <annotation id="nearby_presence_list_shared_credentials"/>
       <annotation id="managed_acccount_signin_restrictions_secure_connect_chromeos"/>
       <annotation id="fenced_frame_reporting_beacon"/>
       <annotation id="ntp_custom_background"/>
@@ -252,7 +249,6 @@ after discussions on the right group.
       <annotation id="passkey_enclave_client"/>
       <annotation id="iwa_update_discovery_update_manifest"/>
       <annotation id="iwa_update_discovery_web_bundle"/>
-      <annotation id="almanac_launcher_app"/>
       <annotation id="almanac_icon_cache"/>
       <annotation id="blink_fetch_later_manager"/>
       <annotation id="carrier_lock_manager_fetch_configuration"/>
@@ -419,6 +415,22 @@ after discussions on the right group.
       <annotation id="browser_actuator_transport"/>
       <annotation id="iwa_dev_ui_web_bundle"/>
       <annotation id="ttc_model_execution"/>
+      <annotation id="ash_boca_gemini_get_gemini_status_request"/>
+      <annotation id="ash_boca_receiver_get_kiosk_receiver_request"/>
+      <annotation id="ash_boca_receiver_get_receiver_connection_info_request"/>
+      <annotation id="ash_boca_receiver_register_receiver_request"/>
+      <annotation id="ash_boca_receiver_start_kiosk_receiver_request"/>
+      <annotation id="ash_boca_receiver_update_kiosk_receiver_state_request"/>
+      <annotation id="boca_server_integration"/>
+      <annotation id="data_sharing_avatar_image_fetcher"/>
+      <annotation id="data_sharing_service_create_group"/>
+      <annotation id="data_sharing_service_read_groups"/>
+      <annotation id="data_sharing_service_delete_groups"/>
+      <annotation id="data_sharing_service_update_group"/>
+      <annotation id="data_sharing_service_lookup"/>
+      <annotation id="data_sharing_service_block_person"/>
+      <annotation id="data_sharing_service_leave_group"/>
+      <annotation id="data_sharing_service_join_group"/>
     </sender>
   </group>
   <group name="Admin Features">

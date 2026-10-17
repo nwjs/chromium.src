@@ -50,6 +50,7 @@ source_set("impl") {
     sources += [ "app_banner_manager_desktop.cc" ]
     deps += [
       "//chrome/browser/ui",
+      "//chrome/browser/ui:intent_picker_tab_helper",
       "//chrome/browser/ui/web_applications",
       "//chrome/browser/web_applications",
       "//chrome/browser/web_applications/mojom:mojom_web_apps_enum",
@@ -107,6 +108,7 @@ source_set("platform_browser_tests") {
   ]
   deps = [
     "//chrome/browser/ui",
+    "//chrome/test/base:chrome_test_utils",
     "//content/public/browser",
     "//content/test:test_support",
     "//net",
@@ -138,6 +140,8 @@ if (!is_android) {
       "//chrome/app:command_ids",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/ui",
+      "//chrome/browser/ui:browser_command_controller",
+      "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui/actions:actions_headers",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/web_applications",
@@ -179,6 +183,7 @@ if (!is_android) {
       "//chrome/browser/ui/omnibox",
       "//chrome/test:test_support",
       "//chrome/test:test_support_ui_android",
+      "//chrome/test/base:chrome_test_utils",
       "//components/network_session_configurator/common",
       "//components/segmentation_platform/public",
       "//components/segmentation_platform/public:test_support",

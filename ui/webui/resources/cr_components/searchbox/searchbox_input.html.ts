@@ -15,7 +15,7 @@ export function getHtml(this: SearchboxInputElement) {
         page-url="${this.pageUrl}"
         default-icon="${this.computeDefaultIcon_()}"
         ?in-keyword-mode="${this.inKeywordMode_()}"
-        in-searchbox part="icon">
+        in-searchbox part="icon" aria-hidden="true">
     </cr-searchbox-icon>
     <slot name="thumbnail"></slot>
     ${this.inKeywordMode_() ?
@@ -55,6 +55,12 @@ export function getHtml(this: SearchboxInputElement) {
           @paste="${this.onInputPaste_}">
     `}
     <span id="ellipsisIndicator" aria-hidden="true">...</span>
+    <!-- Target of the input's aria-activedescendant while a selection is
+         active. It distracts screen readers from the input's value, which
+         previews the selection, so the notification of the selection's label
+         wins over the value change. Must share the input's shadow root for
+         element reflection to work. -->
+    <div id="selectionAnnouncement"></div>
     <slot name="action-buttons"></slot>
     <slot name="compose-button"></slot>
 </div>

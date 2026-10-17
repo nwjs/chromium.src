@@ -142,8 +142,8 @@ const CGFloat kContentViewVerticalPadding = 00.0;
       AutocompleteProvider::TypeToString(match.provider->type()));
   _providerTypeLabel.hidden = !shouldShowProviderType;
 
-  _matchTypeLabel.text =
-      base::SysUTF8ToNSString(AutocompleteMatchType::ToString(match.type));
+  _matchTypeLabel.text = base::SysUTF8ToNSString(
+      omnibox::AutocompleteMatchTypeToString(match.type));
   _textLabel.attributedText = matchFormatter.text;
   _relevanceLabel.text = [NSString stringWithFormat:@"%d", match.relevance];
   _descriptionLabel.text = base::SysUTF16ToNSString(match.description);

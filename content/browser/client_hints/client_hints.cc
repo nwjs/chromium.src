@@ -78,8 +78,8 @@ constexpr size_t kMaxRandomNumbers = 21;
 uint8_t RandomizationSalt() {
   if (randomization_salt == 0)
     randomization_salt = base::RandIntInclusive(1, kMaxRandomNumbers);
-  DCHECK_LE(1, randomization_salt);
-  DCHECK_GE(kMaxRandomNumbers, randomization_salt);
+  CHECK_LE(1, randomization_salt, base::NotFatalUntil::M160);
+  CHECK_GE(kMaxRandomNumbers, randomization_salt, base::NotFatalUntil::M160);
   return randomization_salt;
 }
 
@@ -91,8 +91,8 @@ double GetRandomMultiplier(const std::string& host) {
   unsigned hash = std::hash<std::string>{}(host) + RandomizationSalt();
   double random_multiplier =
       0.9 + static_cast<double>((hash % kMaxRandomNumbers)) * 0.01;
-  DCHECK_LE(0.90, random_multiplier);
-  DCHECK_GE(1.10, random_multiplier);
+  CHECK_LE(0.90, random_multiplier, base::NotFatalUntil::M160);
+  CHECK_GE(1.10, random_multiplier, base::NotFatalUntil::M160);
   return random_multiplier;
 }
 
@@ -110,7 +110,7 @@ unsigned long RoundRtt(const std::string& host,
 
   const base::TimeDelta modified_rtt =
       std::min(rtt.value() * GetRandomMultiplier(host), kMaxRtt);
-  DCHECK_GE(modified_rtt, base::TimeDelta());
+  CHECK_GE(modified_rtt, base::TimeDelta(), base::NotFatalUntil::M160);
   return modified_rtt.RoundToMultiple(kGranularity).InMilliseconds();
 }
 
@@ -128,8 +128,9 @@ double RoundKbpsToMbps(const std::string& host,
   randomized_downlink_kbps =
       std::min(randomized_downlink_kbps, kMaxDownlinkKbps);
 
-  DCHECK_LE(0, randomized_downlink_kbps);
-  DCHECK_GE(kMaxDownlinkKbps, randomized_downlink_kbps);
+  CHECK_LE(0, randomized_downlink_kbps, base::NotFatalUntil::M160);
+  CHECK_GE(kMaxDownlinkKbps, randomized_downlink_kbps,
+           base::NotFatalUntil::M160);
   // Round down to the nearest kGranularityKbps kbps value.
   double downlink_kbps_rounded =
       std::round(randomized_downlink_kbps / kGranularityKbps) *
@@ -145,7 +146,7 @@ double GetDeviceScaleFactor() {
     device_scale_factor =
         display::Screen::Get()->GetPrimaryDisplay().device_scale_factor();
   }
-  DCHECK_LT(0.0, device_scale_factor);
+  CHECK_LT(0.0, device_scale_factor, base::NotFatalUntil::M160);
   return device_scale_factor;
 }
 
@@ -167,14 +168,14 @@ double GetZoomFactor(BrowserContext* context, const GURL& url) {
 // Returns a string corresponding to |value|. The returned string satisfies
 // ABNF: 1*DIGIT [ "." 1*DIGIT ]
 std::string DoubleToSpecCompliantString(double value) {
-  DCHECK_LE(0.0, value);
+  CHECK_LE(0.0, value, base::NotFatalUntil::M160);
   std::string result = base::NumberToString(value);
-  DCHECK(!result.empty());
+  CHECK(!result.empty(), base::NotFatalUntil::M160);
   if (value >= 1.0)
     return result;
 
-  DCHECK_LE(0.0, value);
-  DCHECK_GT(1.0, value);
+  CHECK_LE(0.0, value, base::NotFatalUntil::M160);
+  CHECK_GT(1.0, value, base::NotFatalUntil::M160);
 
   // Check if there is at least one character before period.
   if (result.at(0) != '.')
@@ -200,12 +201,13 @@ GetWebHoldbackEffectiveConnectionType() {
 
   std::optional<net::EffectiveConnectionType> effective_connection_type =
       net::GetEffectiveConnectionTypeForName(effective_connection_type_param);
-  DCHECK(effective_connection_type_param.empty() || effective_connection_type);
+  CHECK(effective_connection_type_param.empty() || effective_connection_type,
+        base::NotFatalUntil::M160);
 
   if (!effective_connection_type)
     return std::nullopt;
-  DCHECK_NE(net::EFFECTIVE_CONNECTION_TYPE_UNKNOWN,
-            effective_connection_type.value());
+  CHECK_NE(net::EFFECTIVE_CONNECTION_TYPE_UNKNOWN,
+           effective_connection_type.value(), base::NotFatalUntil::M160);
   return effective_connection_type;
 }
 
@@ -237,11 +239,11 @@ void RemoveClientHintHeader(WebClientHintsType client_hint_type,
 
 void AddDeviceMemoryHeader(net::HttpRequestHeaders* headers,
                            bool use_deprecated_version = false) {
-  DCHECK(headers);
+  CHECK(headers, base::NotFatalUntil::M160);
   blink::ApproximatedDeviceMemory::Initialize();
   const float device_memory =
       blink::ApproximatedDeviceMemory::GetApproximatedDeviceMemory();
-  DCHECK_LT(0.0, device_memory);
+  CHECK_LT(0.0, device_memory, base::NotFatalUntil::M160);
   SetHeaderToDouble(headers,
                     use_deprecated_version
                         ? WebClientHintsType::kDeviceMemory_DEPRECATED
@@ -253,8 +255,8 @@ void AddDPRHeader(net::HttpRequestHeaders* headers,
                   BrowserContext* context,
                   const GURL& url,
                   bool use_deprecated_version = false) {
-  DCHECK(headers);
-  DCHECK(context);
+  CHECK(headers, base::NotFatalUntil::M160);
+  CHECK(context, base::NotFatalUntil::M160);
   double device_scale_factor = GetDeviceScaleFactor();
   double zoom_factor = GetZoomFactor(context, url);
   SetHeaderToDouble(headers,
@@ -265,8 +267,8 @@ void AddDPRHeader(net::HttpRequestHeaders* headers,
 
 void AddSaveDataHeader(net::HttpRequestHeaders* headers,
                        BrowserContext* context) {
-  DCHECK(headers);
-  DCHECK(context);
+  CHECK(headers, base::NotFatalUntil::M160);
+  CHECK(context, base::NotFatalUntil::M160);
   // Unlike other client hints, this one is only sent when it has a value.
   if (GetContentClient()->browser()->IsDataSaverEnabled(context))
     SetHeaderToString(headers, WebClientHintsType::kSaveData, "on");
@@ -344,15 +346,15 @@ void AddViewportWidthHeader(net::HttpRequestHeaders* headers,
                             FrameTreeNode* frame_tree_node,
                             ClientHintsControllerDelegate* delegate,
                             bool use_deprecated_version = false) {
-  DCHECK(headers);
-  DCHECK(context);
+  CHECK(headers, base::NotFatalUntil::M160);
+  CHECK(context, base::NotFatalUntil::M160);
 
   gfx::Size viewport_size =
       GetScaledViewportSize(context, url, frame_tree_node, delegate);
 
   // The width cannot be less than 0, but if it is zero that means we could not
   // determine the width and should omit the header.
-  DCHECK_LE(0, viewport_size.width());
+  CHECK_LE(0, viewport_size.width(), base::NotFatalUntil::M160);
   if (viewport_size.width() > 0) {
     SetHeaderToInt(headers,
                    use_deprecated_version
@@ -367,15 +369,15 @@ void AddViewportHeightHeader(net::HttpRequestHeaders* headers,
                              const GURL& url,
                              FrameTreeNode* frame_tree_node,
                              ClientHintsControllerDelegate* delegate) {
-  DCHECK(headers);
-  DCHECK(context);
+  CHECK(headers, base::NotFatalUntil::M160);
+  CHECK(context, base::NotFatalUntil::M160);
 
   gfx::Size viewport_size =
       GetScaledViewportSize(context, url, frame_tree_node, delegate);
 
   // The height cannot be less than 0, but if it is zero that means we could not
   // determine the height and should omit the header.
-  DCHECK_LE(0, viewport_size.height());
+  CHECK_LE(0, viewport_size.height(), base::NotFatalUntil::M160);
   if (viewport_size.height() > 0) {
     SetHeaderToInt(headers, network::mojom::WebClientHintsType::kViewportHeight,
                    viewport_size.height());
@@ -385,7 +387,7 @@ void AddViewportHeightHeader(net::HttpRequestHeaders* headers,
 void AddRttHeader(net::HttpRequestHeaders* headers,
                   network::NetworkQualityTracker* network_quality_tracker,
                   const GURL& url) {
-  DCHECK(headers);
+  CHECK(headers, base::NotFatalUntil::M160);
 
   std::optional<net::EffectiveConnectionType> web_holdback_ect =
       GetWebHoldbackEffectiveConnectionType();
@@ -407,7 +409,7 @@ void AddRttHeader(net::HttpRequestHeaders* headers,
 void AddDownlinkHeader(net::HttpRequestHeaders* headers,
                        network::NetworkQualityTracker* network_quality_tracker,
                        const GURL& url) {
-  DCHECK(headers);
+  CHECK(headers, base::NotFatalUntil::M160);
   std::optional<net::EffectiveConnectionType> web_holdback_ect =
       GetWebHoldbackEffectiveConnectionType();
 
@@ -433,7 +435,7 @@ void AddDownlinkHeader(net::HttpRequestHeaders* headers,
 void AddEctHeader(net::HttpRequestHeaders* headers,
                   network::NetworkQualityTracker* network_quality_tracker,
                   const GURL& url) {
-  DCHECK(headers);
+  CHECK(headers, base::NotFatalUntil::M160);
 
   std::optional<net::EffectiveConnectionType> web_holdback_ect =
       GetWebHoldbackEffectiveConnectionType();
@@ -511,10 +513,10 @@ void AddUAHeader(net::HttpRequestHeaders* headers,
 // Creates a serialized string header value out of the input type, using
 // structured headers as described in
 // https://www.rfc-editor.org/rfc/rfc8941.html.
-template <typename T>
-const std::string SerializeHeaderString(const T& value) {
+template <typename... Args>
+const std::string SerializeHeaderString(Args&&... args) {
   return net::structured_headers::SerializeItem(
-             net::structured_headers::Item(value))
+             net::structured_headers::ItemView(std::forward<Args>(args)...))
       .value_or(std::string());
 }
 
@@ -729,32 +731,44 @@ void UpdateNavigationRequestClientUaHeadersImpl(
     }
 
     if (ShouldAddClientHint(data, WebClientHintsType::kUAFullVersion)) {
-      AddUAHeader(headers, WebClientHintsType::kUAFullVersion,
-                  SerializeHeaderString(ua_metadata->full_version));
+      AddUAHeader(
+          headers, WebClientHintsType::kUAFullVersion,
+          SerializeHeaderString(net::structured_headers::ItemView::string,
+                                ua_metadata->full_version));
     }
 
     if (ShouldAddClientHint(data, WebClientHintsType::kUAArch)) {
-      AddUAHeader(headers, WebClientHintsType::kUAArch,
-                  SerializeHeaderString(ua_metadata->architecture));
+      AddUAHeader(
+          headers, WebClientHintsType::kUAArch,
+          SerializeHeaderString(net::structured_headers::ItemView::string,
+                                ua_metadata->architecture));
     }
 
     if (ShouldAddClientHint(data, WebClientHintsType::kUAPlatform)) {
-      AddUAHeader(headers, WebClientHintsType::kUAPlatform,
-                  SerializeHeaderString(ua_metadata->platform));
+      AddUAHeader(
+          headers, WebClientHintsType::kUAPlatform,
+          SerializeHeaderString(net::structured_headers::ItemView::string,
+                                ua_metadata->platform));
     }
 
     if (ShouldAddClientHint(data, WebClientHintsType::kUAPlatformVersion)) {
-      AddUAHeader(headers, WebClientHintsType::kUAPlatformVersion,
-                  SerializeHeaderString(ua_metadata->platform_version));
+      AddUAHeader(
+          headers, WebClientHintsType::kUAPlatformVersion,
+          SerializeHeaderString(net::structured_headers::ItemView::string,
+                                ua_metadata->platform_version));
     }
 
     if (ShouldAddClientHint(data, WebClientHintsType::kUAModel)) {
-      AddUAHeader(headers, WebClientHintsType::kUAModel,
-                  SerializeHeaderString(ua_metadata->model));
+      AddUAHeader(
+          headers, WebClientHintsType::kUAModel,
+          SerializeHeaderString(net::structured_headers::ItemView::string,
+                                ua_metadata->model));
     }
     if (ShouldAddClientHint(data, WebClientHintsType::kUABitness)) {
-      AddUAHeader(headers, WebClientHintsType::kUABitness,
-                  SerializeHeaderString(ua_metadata->bitness));
+      AddUAHeader(
+          headers, WebClientHintsType::kUABitness,
+          SerializeHeaderString(net::structured_headers::ItemView::string,
+                                ua_metadata->bitness));
     }
     if (ShouldAddClientHint(data, WebClientHintsType::kUAWoW64)) {
       AddUAHeader(headers, WebClientHintsType::kUAWoW64,
@@ -822,7 +836,7 @@ void UpdateNavigationRequestClientUaHeaders(
     FrameTreeNode* frame_tree_node,
     net::HttpRequestHeaders* headers,
     const std::optional<GURL>& request_url) {
-  DCHECK(frame_tree_node);
+  CHECK(frame_tree_node, base::NotFatalUntil::M160);
   if (!ShouldAddClientHints(origin, frame_tree_node, delegate, request_url)) {
     return;
   }
@@ -942,8 +956,8 @@ void AddPrefetchNavigationRequestClientHintsHeaders(
     ClientHintsControllerDelegate* delegate,
     bool is_ua_override_on,
     FrameTreeNode* ftn_for_devtools_override) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  DCHECK(context);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
+  CHECK(context, base::NotFatalUntil::M160);
 
   if (!ShouldAddClientHints(origin, nullptr, delegate)) {
     return;
@@ -966,9 +980,9 @@ void AddNavigationRequestClientHintsHeaders(
     FrameTreeNode* frame_tree_node,
     const network::ParsedPermissionsPolicy& container_policy,
     const std::optional<GURL>& request_url) {
-  DCHECK(frame_tree_node);
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  DCHECK(context);
+  CHECK(frame_tree_node, base::NotFatalUntil::M160);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
+  CHECK(context, base::NotFatalUntil::M160);
   if (!ShouldAddClientHints(origin, frame_tree_node, delegate, request_url)) {
     return;
   }
@@ -988,9 +1002,9 @@ ParseAndPersistAcceptCHForNavigation(
     BrowserContext* context,
     ClientHintsControllerDelegate* delegate,
     FrameTreeNode* frame_tree_node) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  DCHECK(context);
-  DCHECK(parsed_headers);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
+  CHECK(context, base::NotFatalUntil::M160);
+  CHECK(parsed_headers, base::NotFatalUntil::M160);
 
   if (!parsed_headers->accept_ch)
     return std::nullopt;
@@ -1020,7 +1034,7 @@ ParseAndPersistAcceptCHForNavigation(
   }
   const std::vector<WebClientHintsType> persisted_hints =
       enabled_hints.GetEnabledHints();
-  DCHECK(frame_tree_node);
+  CHECK(frame_tree_node, base::NotFatalUntil::M160);
   PersistAcceptCH(origin, *frame_tree_node, delegate, persisted_hints);
   return persisted_hints;
 }
@@ -1029,7 +1043,7 @@ void PersistAcceptCH(const url::Origin& origin,
                      FrameTreeNode& frame_tree_node,
                      ClientHintsControllerDelegate* delegate,
                      const std::vector<WebClientHintsType>& hints) {
-  DCHECK(delegate);
+  CHECK(delegate, base::NotFatalUntil::M160);
 
   // For prerendering headers, it should not persist the client header until
   // activation, considering user has not visited the page and allowed it to

@@ -26,27 +26,39 @@
 #include "base/notreached.h"
 #include "third_party/blink/public/common/features_generated.h"
 #include "third_party/blink/public/common/switches.h"
+#include "third_party/blink/public/mojom/frame/frame.mojom-blink.h"
 #include "third_party/blink/public/mojom/origin_trials/origin_trial_feature.mojom-shared.h"
+#include "third_party/blink/public/strings/grit/blink_strings.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/document_encoding_data.h"
 #include "third_party/blink/renderer/core/dom/document_fragment.h"
 #include "third_party/blink/renderer/core/dom/document_init.h"
+#include "third_party/blink/renderer/core/dom/events/event.h"
+#include "third_party/blink/renderer/core/dom/events/native_event_listener.h"
 #include "third_party/blink/renderer/core/dom/ignore_opens_during_unload_count_incrementer.h"
+#include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/dom/text.h"
 #include "third_party/blink/renderer/core/dom/transform_source.h"
 #include "third_party/blink/renderer/core/editing/serializers/serialization.h"
+#include "third_party/blink/renderer/core/event_type_names.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_client.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
+#include "third_party/blink/renderer/core/frame/settings.h"
+#include "third_party/blink/renderer/core/html/forms/html_input_element.h"
 #include "third_party/blink/renderer/core/html/html_document.h"
+#include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/html/html_frame_owner_element.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/xml/document_xslt.h"
 #include "third_party/blink/renderer/core/xml/parser/xml_document_parser.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
+#include "third_party/blink/renderer/platform/bindings/script_state.h"
+#include "third_party/blink/renderer/platform/text/platform_locale.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 
 namespace blink {
@@ -154,6 +166,105 @@ XSLTProcessor::XSLTProcessor(PassKey,
 XSLTProcessor::~XSLTProcessor() = default;
 
 namespace {
+
+// The banner lives in the transformed document, whose stylesheets are not
+// under our control, so everything is styled inline.
+constexpr char kBannerStyle[] =
+    "background-color: #d9534f; color: white; padding: 12px 44px; font-size: "
+    "16px; font-weight: bold; text-align: center; font-family: sans-serif; "
+    "line-height: normal; bottom: auto; width: auto; border: none;";
+constexpr char kLinkStyle[] = "color: white; text-decoration: underline;";
+constexpr char kCloseButtonStyle[] =
+    "position: absolute; top: 6px; right: 8px; background: transparent; "
+    "border: none; color: inherit; font: inherit; font-size: 20px; "
+    "line-height: 1; padding: 4px 8px; cursor: pointer;";
+constexpr char kDismissLabelStyle[] =
+    "display: block; margin-top: 8px; font-size: 14px; font-weight: normal; "
+    "cursor: pointer;";
+constexpr char kDismissCheckboxStyle[] =
+    "vertical-align: middle; margin-right: 6px;";
+
+// Tracks whether the "Never show this warning" checkbox was checked by the
+// user. The banner lives in the page's own DOM, so page script can toggle the
+// checkbox itself, either by dispatching a synthetic click or by setting
+// `checked` directly. Neither should affect the persisted setting.
+class BannerCheckboxListener final : public NativeEventListener {
+ public:
+  explicit BannerCheckboxListener(HTMLInputElement* checkbox)
+      : checkbox_(checkbox) {}
+
+  // Two independent signals have to agree: the user's own clicks must have
+  // left the box checked, and the box must still be displaying as checked.
+  // Neither is trustworthy alone. Script can assign to `checked` without
+  // firing any event, so the displayed state can drift from what the user
+  // did; and script can assign to `checked` from a capture-phase listener
+  // that runs before Invoke() below, so the displayed state during dispatch
+  // isn't necessarily the user's doing either. Requiring both means script
+  // tampering can only ever keep the setting from being persisted, which is
+  // harmless, and never force it on.
+  bool CheckedByUser() const {
+    return toggled_on_by_user_ && checkbox_->Checked();
+  }
+
+  void Invoke(ExecutionContext*, Event* event) override {
+    if (!event || !event->isTrusted()) {
+      return;
+    }
+    // Deliberately does not read `checked`: by the time this runs, a
+    // capture-phase listener in the page may have changed it. A trusted
+    // click toggles the checkbox, so just track the toggles. If the page
+    // cancels the click, the toggle is reverted after dispatch and this
+    // count goes out of step with the checkbox, but then the two signals
+    // above disagree and the setting isn't persisted.
+    toggled_on_by_user_ = !toggled_on_by_user_;
+  }
+
+  void Trace(Visitor* visitor) const override {
+    visitor->Trace(checkbox_);
+    NativeEventListener::Trace(visitor);
+  }
+
+ private:
+  Member<HTMLInputElement> checkbox_;
+  bool toggled_on_by_user_ = false;
+};
+
+// Handles clicks on the banner's close button: removes the banner, and, if the
+// user checked the "Never show this warning" checkbox, asks the browser to
+// stop showing the banner on any site from now on.
+class BannerCloseListener final : public NativeEventListener {
+ public:
+  BannerCloseListener(Element* banner, BannerCheckboxListener* checkbox_state)
+      : banner_(banner), checkbox_state_(checkbox_state) {}
+
+  void Invoke(ExecutionContext*, Event* event) override {
+    // The banner lives in the page's own DOM, so page script can call
+    // `close_button.click()` or dispatch a synthetic click. Only a real user
+    // click may suppress the banner globally for this profile. Untrusted
+    // clicks still dismiss the banner, which is harmless: script could just
+    // as well remove the element itself.
+    if (event && event->isTrusted() && checkbox_state_->CheckedByUser()) {
+      // The frame is looked up through the banner rather than captured up
+      // front, so that this still does the right thing if the transformed
+      // document was adopted into a different frame.
+      if (LocalFrame* frame = banner_->GetDocument().GetFrame()) {
+        frame->GetLocalFrameHostRemote().SuppressXSLTDeprecationBanner();
+      }
+    }
+    banner_->remove();
+  }
+
+  void Trace(Visitor* visitor) const override {
+    visitor->Trace(banner_);
+    visitor->Trace(checkbox_state_);
+    NativeEventListener::Trace(visitor);
+  }
+
+ private:
+  Member<Element> banner_;
+  Member<BannerCheckboxListener> checkbox_state_;
+};
+
 static Element* CreateBannerLink(Document& document,
                                  const String& href,
                                  const String& text) {
@@ -162,10 +273,89 @@ static Element* CreateBannerLink(Document& document,
   link->setAttribute(html_names::kHrefAttr, AtomicString(href));
   link->setAttribute(html_names::kTargetAttr, AtomicString("_blank"));
   link->setAttribute(html_names::kRelAttr, AtomicString("noopener noreferrer"));
-  link->setAttribute(html_names::kStyleAttr,
-                     AtomicString("color: white; text-decoration: underline;"));
+  link->setAttribute(html_names::kStyleAttr, AtomicString(kLinkStyle));
   link->appendChild(document.createTextNode(text));
   return link;
+}
+
+struct BannerLink {
+  const char* href;
+  String text;
+};
+
+// Appends `message` to `banner`, replacing its "$1" and "$2" placeholders with
+// links to `link1` and `link2` respectively. The placeholders are expanded into
+// elements rather than substituted as text, so the message is split here rather
+// than by Locale::QueryString(). A translation may place the placeholders in
+// any order, or leave one out.
+static void AppendLocalizedBannerText(Document& document,
+                                      ContainerNode* banner_container,
+                                      const String& message,
+                                      const BannerLink& link1,
+                                      const BannerLink& link2) {
+  wtf_size_t text_start = 0;
+  for (int i = 0; i < 2; ++i) {
+    wtf_size_t position1 = message.find("$1", text_start);
+    wtf_size_t position2 = message.find("$2", text_start);
+    wtf_size_t position = std::min(position1, position2);
+    if (position == String::npos) {
+      break;
+    }
+    if (position > text_start) {
+      banner_container->appendChild(document.createTextNode(
+          message.substr(text_start, position - text_start)));
+    }
+    const BannerLink& link = position == position1 ? link1 : link2;
+    banner_container->appendChild(
+        CreateBannerLink(document, link.href, link.text));
+    text_start = position + 2;
+  }
+  if (text_start < message.length()) {
+    banner_container->appendChild(
+        document.createTextNode(message.substr(text_start)));
+  }
+}
+
+// Appends the "Never show this warning" checkbox and the close button. The
+// checkbox state is only acted on when the close button is clicked.
+static void AppendDismissControls(Document& document,
+                                  ContainerNode* banner_container,
+                                  Element* banner) {
+  auto* checkbox = To<HTMLInputElement>(document.CreateRawElement(
+      html_names::kInputTag, CreateElementFlags::ByCreateElement()));
+  checkbox->setAttribute(html_names::kTypeAttr, AtomicString("checkbox"));
+  checkbox->setAttribute(html_names::kStyleAttr,
+                         AtomicString(kDismissCheckboxStyle));
+  auto* checkbox_state = MakeGarbageCollected<BannerCheckboxListener>(checkbox);
+  checkbox->addEventListener(event_type_names::kClick, checkbox_state);
+
+  Element* label = document.CreateRawElement(
+      html_names::kLabelTag, CreateElementFlags::ByCreateElement());
+  label->setAttribute(html_names::kStyleAttr, AtomicString(kDismissLabelStyle));
+  label->appendChild(checkbox);
+  label->appendChild(
+      document.createTextNode(Locale::DefaultLocale().QueryString(
+          IDS_XSLT_DEPRECATION_BANNER_NEVER_SHOW_AGAIN)));
+  banner_container->appendChild(label);
+
+  Element* close_button = document.CreateRawElement(
+      html_names::kButtonTag, CreateElementFlags::ByCreateElement());
+  close_button->setAttribute(html_names::kTypeAttr, AtomicString("button"));
+  close_button->setAttribute(html_names::kStyleAttr,
+                             AtomicString(kCloseButtonStyle));
+  close_button->setAttribute(html_names::kAriaLabelAttr, AtomicString("Close"));
+  close_button->setAttribute(html_names::kTitleAttr, AtomicString("Close"));
+  // Content attributes survive cloning; addEventListener() listeners do not.
+  // This keeps the close button working when a page clones the banner. Note
+  // that this will not pass CSP/trusted types, so it's not a perfect solution.
+  close_button->setAttribute(html_names::kOnclickAttr,
+                             AtomicString("this.getRootNode().host.remove();"));
+  // U+00D7 MULTIPLICATION SIGN.
+  close_button->appendChild(document.createTextNode(String(u"\u00D7")));
+  close_button->addEventListener(
+      event_type_names::kClick,
+      MakeGarbageCollected<BannerCloseListener>(banner, checkbox_state));
+  banner_container->appendChild(close_button);
 }
 
 template <typename Callback>
@@ -178,17 +368,23 @@ static void CreateAndAppendBanner(Document& document, Callback build_banner) {
     return;
   }
 
-  Element* banner = document.CreateRawElement(
-      html_names::kDivTag, CreateElementFlags::ByCreateElement());
-  banner->setAttribute(
-      html_names::kStyleAttr,
-      AtomicString(
-          "background-color: #d9534f; color: white; padding: 12px; "
-          "margin-bottom: 20px; font-size: 16px; font-weight: bold; "
-          "text-align: center; font-family: sans-serif; position: relative; "
-          "z-index: 2147483647;"));
-  build_banner(banner);
+  auto* banner = To<HTMLElement>(document.CreateRawElement(
+      QualifiedName(g_null_atom, AtomicString("xslt-warning-banner"),
+                    html_names::xhtmlNamespaceURI),
+      CreateElementFlags::ByCreateElement()));
+  banner->SetCustomElementState(CustomElementState::kUndefined);
+  banner->setAttribute(html_names::kStyleAttr, AtomicString(kBannerStyle));
+  banner->setAttribute(html_names::kPopoverAttr, AtomicString("manual"));
+  ShadowRoot& shadow_root = banner->AttachShadowRootInternal(
+      ShadowRootMode::kOpen, FocusDelegation::kNone, SlotAssignmentMode::kNamed,
+      CustomElementRegistryAssignment::Inherit(),
+      /*serializable=*/false, /*clonable=*/true,
+      /*reference_target=*/g_null_atom);
+  build_banner(&shadow_root);
+  AppendDismissControls(document, &shadow_root, banner);
   target->insertBefore(banner, target->firstChild());
+  banner->ShowPopoverInternal(/*invoker=*/nullptr,
+                              /*exception_state=*/nullptr);
 }
 
 constexpr char kXhtmlNamespace[] = "http://www.w3.org/1999/xhtml";
@@ -234,11 +430,58 @@ static bool SourceHasPolyfillScript(Document& owner_document) {
   return false;
 }
 
+// Returns true if the main world global object of `context` has a
+// `createXSLTTransformModule` property. That function is installed by the XSLT
+// polyfill, so its presence means the page can keep working without native
+// XSLT, and the deprecation banner would be a false alarm.
+static bool ContextHasPolyfillGlobal(ExecutionContext* context) {
+  if (!context) {
+    return false;
+  }
+  ScriptState* script_state = ToScriptStateForMainWorld(context);
+  if (!script_state || !script_state->ContextIsValid()) {
+    return false;
+  }
+  ScriptState::Scope scope(script_state);
+  v8::Isolate* isolate = script_state->GetIsolate();
+  v8::Local<v8::Context> v8_context = script_state->GetContext();
+  // The lookup runs page script if the property has a getter, so swallow any
+  // exception it throws.
+  v8::TryCatch try_catch(isolate);
+  v8::Local<v8::Value> value;
+  if (!v8_context->Global()
+           ->Get(v8_context,
+                 V8AtomicString(isolate, "createXSLTTransformModule"))
+           .ToLocal(&value)) {
+    return false;
+  }
+  return !value->IsUndefined() && !value->IsNull();
+}
+
+// Document::GetSettings() returns null for a frameless document, which is what
+// XSLTProcessor.transformToDocument() produces, so the caller can't use it.
+// The execution context is the window that created the document, which does
+// have a frame, and therefore settings.
+static const Settings* SettingsForBanner(ExecutionContext* context) {
+  auto* window = DynamicTo<LocalDOMWindow>(context);
+  if (!window) {
+    return nullptr;
+  }
+  LocalFrame* frame = window->GetFrame();
+  return frame ? frame->GetSettings() : nullptr;
+}
+
 static void InjectXSLTWarningBanner(bool is_cap_alert_xslt,
                                     bool source_has_polyfill_script,
+                                    bool source_has_origin_trial,
                                     Document& document) {
   ExecutionContext* context = document.GetExecutionContext();
   if (!RuntimeEnabledFeatures::GenerateXSLTWarningBannerEnabled(context)) {
+    return;
+  }
+  const Settings* settings = SettingsForBanner(context);
+  if (settings && settings->GetXSLTDeprecationBannerSuppressed()) {
+    // The user checked "Never show this warning" and closed a previous banner.
     return;
   }
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
@@ -247,47 +490,36 @@ static void InjectXSLTWarningBanner(bool is_cap_alert_xslt,
           blink::switches::kXSLTEnabledPolicy) == "true") {
     return;
   }
-  if (context &&
-      context->FeatureEnabled(mojom::blink::OriginTrialFeature::kXSLT)) {
+  if (source_has_origin_trial ||
+      (context &&
+       context->FeatureEnabled(mojom::blink::OriginTrialFeature::kXSLT))) {
     return;
   }
-  if (source_has_polyfill_script) {
+  if (source_has_polyfill_script || ContextHasPolyfillGlobal(context)) {
     return;
   }
+  Locale& locale = Locale::DefaultLocale();
+  const BannerLink extension_link = {
+      "https://chromewebstore.google.com/search/XSLT%20Polyfill",
+      locale.QueryString(IDS_XSLT_DEPRECATION_BANNER_EXTENSION_LINK)};
   if (is_cap_alert_xslt) {
-    CreateAndAppendBanner(document, [&document](Element* banner) {
-      banner->appendChild(
-          document.createTextNode("This CAP alert uses technology called XSLT; "
-                                  "that functionality is being "));
-      banner->appendChild(CreateBannerLink(
-          document, "https://chromestatus.com/feature/4709671889534976",
-          "removed from this browser"));
-      banner->appendChild(document.createTextNode(
-          ". When that happens, this alert will be shown "
-          "as raw XML data. You might "
-          "be able to "));
-      banner->appendChild(CreateBannerLink(
-          document, "https://chromewebstore.google.com/search/XSLT%20Polyfill",
-          "install a browser extension"));
-      banner->appendChild(
-          document.createTextNode(" that allows you to continue viewing it."));
+    const BannerLink removal_link = {
+        "https://chromestatus.com/feature/4709671889534976",
+        locale.QueryString(IDS_XSLT_DEPRECATION_BANNER_CAP_ALERT_REMOVAL_LINK)};
+    String message =
+        locale.QueryString(IDS_XSLT_DEPRECATION_BANNER_CAP_ALERT_TEXT);
+    CreateAndAppendBanner(document, [&](ContainerNode* banner) {
+      AppendLocalizedBannerText(document, banner, message, removal_link,
+                                extension_link);
     });
   } else {
-    CreateAndAppendBanner(document, [&document](Element* banner) {
-      banner->appendChild(document.createTextNode(
-          "This site uses XSLT; that functionality is being "));
-      banner->appendChild(CreateBannerLink(
-          document, "https://chromestatus.com/feature/4709671889534976",
-          "removed from this browser very soon"));
-      banner->appendChild(document.createTextNode(
-          ". When that happens, this page will likely no longer display "
-          "correctly. You might be able to "));
-      banner->appendChild(CreateBannerLink(
-          document, "https://chromewebstore.google.com/search/XSLT%20Polyfill",
-          "install a browser extension"));
-      banner->appendChild(document.createTextNode(
-          " that allows you to continue viewing it. Otherwise, you should "
-          "contact the maintainer of the site for further information."));
+    const BannerLink removal_link = {
+        "https://chromestatus.com/feature/4709671889534976",
+        locale.QueryString(IDS_XSLT_DEPRECATION_BANNER_REMOVAL_LINK)};
+    String message = locale.QueryString(IDS_XSLT_DEPRECATION_BANNER_TEXT);
+    CreateAndAppendBanner(document, [&](ContainerNode* banner) {
+      AppendLocalizedBannerText(document, banner, message, removal_link,
+                                extension_link);
     });
   }
 }
@@ -320,9 +552,17 @@ Document* XSLTProcessor::CreateDocumentFromSource(
   // Sites that have deployed an XSLT polyfill don't need the banner. This must
   // be computed before CommitNavigation() below, which detaches the source
   // document. CAP alerts are intentionally not scanned: they always get their
-  // own banner.
-  bool source_has_polyfill_script = !owner_document->IsCAPAlert() &&
+  // own banner. The banner is only shown for processing-instruction-based
+  // transforms (those with a frame), not for transformToDocument().
+  bool source_has_polyfill_script = frame && !owner_document->IsCAPAlert() &&
                                     SourceHasPolyfillScript(*owner_document);
+  // The transformed document is committed from a static response, so it does
+  // not inherit an origin trial enabled on the source document (e.g. via an
+  // Origin-Trial header). Check the source document before it is detached.
+  ExecutionContext* owner_context = owner_document->GetExecutionContext();
+  bool source_has_origin_trial =
+      frame && owner_context &&
+      owner_context->FeatureEnabled(mojom::blink::OriginTrialFeature::kXSLT);
 
   String mime_type = source_mime_type;
   // Force text/plain to be parsed as XHTML. This was added without explanation
@@ -349,7 +589,7 @@ Document* XSLTProcessor::CreateDocumentFromSource(
     Document* new_doc = frame->GetDocument();
     if (new_doc) {
       InjectXSLTWarningBanner(is_cap_alert_xslt, source_has_polyfill_script,
-                              *new_doc);
+                              source_has_origin_trial, *new_doc);
     }
     return new_doc;
   }
@@ -374,8 +614,6 @@ Document* XSLTProcessor::CreateDocumentFromSource(
         StrCat({"Document encoding not valid: ", source_encoding})));
   }
   document->SetContent(document_source);
-  InjectXSLTWarningBanner(is_cap_alert_xslt, source_has_polyfill_script,
-                          *document);
   return document;
 }
 

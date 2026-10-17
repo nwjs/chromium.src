@@ -30,7 +30,6 @@
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension_builder.h"
-#include "extensions/common/extension_features.h"
 #include "extensions/common/extension_urls.h"
 #include "extensions/common/manifest.h"
 #include "extensions/common/manifest_constants.h"
@@ -190,8 +189,6 @@ TEST_F(StandardManagementPolicyProviderTest,
 }
 
 TEST_F(StandardManagementPolicyProviderTest, UnsupportedDeveloperExtension) {
-  base::test::ScopedFeatureList feature_list(
-      extensions_features::kExtensionDisableUnsupportedDeveloper);
   // Disable developer mode.
   util::SetDeveloperModeForProfile(&profile_, false);
   auto extension = CreateExtension(ManifestLocation::kUnpacked);
@@ -269,14 +266,14 @@ TEST_F(StandardManagementPolicyProviderTest, ThemeExtension) {
 
   // Setting policy theme prevents users from loading an extension theme.
   profile_.GetTestingPrefService()->SetManagedPref(
-      themes::prefs::kPolicyThemeColor, std::make_unique<base::Value>(100));
+      themes::kPolicyThemeColor, std::make_unique<base::Value>(100));
 
   EXPECT_FALSE(provider_.UserMayLoad(extension.get(), &error16));
   EXPECT_NE(std::u16string(), error16);
 
   // Unsetting policy theme allows users to load an extension theme.
   profile_.GetTestingPrefService()->RemoveManagedPref(
-      themes::prefs::kPolicyThemeColor);
+      themes::kPolicyThemeColor);
 
   EXPECT_TRUE(provider_.UserMayLoad(extension.get(), &error16));
 }
@@ -353,6 +350,9 @@ TEST_F(StandardManagementPolicyProviderTest, LowTrustSettingsOverrideBlock) {
 
   // 1. Simulate an unmanaged (low trust) environment.
   {
+    policy::ScopedManagementServiceOverrideForTesting platform_management(
+        policy::ManagementServiceFactory::GetForPlatform(),
+        policy::EnterpriseManagementAuthority::NONE);
     policy::ScopedManagementServiceOverrideForTesting profile_management(
         policy::ManagementServiceFactory::GetForProfile(&profile_),
         policy::EnterpriseManagementAuthority::NONE);
@@ -428,6 +428,96 @@ TEST_F(StandardManagementPolicyProviderTest, LowTrustSettingsOverrideBlock) {
       EXPECT_TRUE(decision.allowed);
       EXPECT_TRUE(decision.error.empty());
     }
+  }
+}
+
+// Tests that when an extension was previously blocked from policy install in
+// low-trust mode, a subsequent user install of the same extension is permitted.
+TEST_F(StandardManagementPolicyProviderTest, LowTrustManualInstallBypass) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(kBlockPolicyDseNtpOverridesInLowTrust);
+
+  policy::ScopedManagementServiceOverrideForTesting platform_management(
+      policy::ManagementServiceFactory::GetForPlatform(),
+      policy::EnterpriseManagementAuthority::NONE);
+  policy::ScopedManagementServiceOverrideForTesting profile_management(
+      policy::ManagementServiceFactory::GetForProfile(&profile_),
+      policy::EnterpriseManagementAuthority::NONE);
+
+  constexpr char kNtpOverrideJson[] = R"(
+    "chrome_url_overrides": {
+      "newtab": "custom.html"
+    }
+  )";
+
+  constexpr char kDseOverrideJson[] = R"(
+    "chrome_settings_overrides": {
+      "search_provider": {
+        "name": "Search",
+        "keyword": "search",
+        "search_url": "http://example.com/s?q={searchTerms}",
+        "favicon_url": "http://example.com/favicon.ico",
+        "encoding": "UTF-8",
+        "is_default": true
+      }
+    }
+  )";
+
+  auto manual_ntp_extension = ExtensionBuilder("Manual NTP Override")
+                                  .SetLocation(ManifestLocation::kInternal)
+                                  .AddJSON(kNtpOverrideJson)
+                                  .Build();
+
+  auto policy_ntp_extension =
+      ExtensionBuilder("Manual NTP Override")
+          .SetLocation(ManifestLocation::kExternalPolicyDownload)
+          .AddJSON(kNtpOverrideJson)
+          .Build();
+  ASSERT_EQ(manual_ntp_extension->id(), policy_ntp_extension->id());
+
+  auto manual_dse_extension = ExtensionBuilder("Manual DSE Override")
+                                  .SetLocation(ManifestLocation::kInternal)
+                                  .AddJSON(kDseOverrideJson)
+                                  .Build();
+
+  auto policy_dse_extension =
+      ExtensionBuilder("Manual DSE Override")
+          .SetLocation(ManifestLocation::kExternalPolicyDownload)
+          .AddJSON(kDseOverrideJson)
+          .Build();
+  ASSERT_EQ(manual_dse_extension->id(), policy_dse_extension->id());
+
+  {
+    ExtensionManagementPrefUpdater<sync_preferences::TestingPrefServiceSyncable>
+        pref_updater(profile_.GetTestingPrefService());
+    pref_updater.SetIndividualExtensionAutoInstalled(
+        manual_ntp_extension->id(), extension_urls::kChromeWebstoreUpdateURL,
+        /*forced=*/true);
+    pref_updater.SetIndividualExtensionAutoInstalled(
+        manual_dse_extension->id(), extension_urls::kChromeWebstoreUpdateURL,
+        /*forced=*/true);
+  }
+
+  auto check_user_may_install =
+      [&](const scoped_refptr<const Extension>& extension) {
+        base::test::TestFuture<ManagementPolicy::Decision> test_future;
+        provider_.UserMayInstall(extension.get(), test_future.GetCallback());
+        return test_future.Take();
+      };
+
+  for (const auto& [manual_ext, policy_ext] :
+       {std::make_pair(manual_ntp_extension, policy_ntp_extension),
+        std::make_pair(manual_dse_extension, policy_dse_extension)}) {
+    // An attempt to install the extension via policy in a low-trust environment
+    // is blocked, and the extension is recorded in the blocked manager.
+    EXPECT_FALSE(check_user_may_install(policy_ext).allowed);
+    EXPECT_TRUE(settings_->IsExtensionBlockedByLowTrust(manual_ext->id()));
+
+    // A subsequent manual user install of the same extension is permitted,
+    // bypassing the forced policy block since the user explicitly initiated it.
+    EXPECT_TRUE(check_user_may_install(manual_ext).allowed);
+    EXPECT_FALSE(provider_.MustRemainEnabled(manual_ext.get(), nullptr));
+    EXPECT_TRUE(provider_.UserMayModifySettings(manual_ext.get(), nullptr));
   }
 }
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)

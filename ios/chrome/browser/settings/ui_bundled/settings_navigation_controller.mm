@@ -28,6 +28,7 @@
 #import "ios/chrome/browser/settings/autofill/autofill_and_passwords/coordinator/travel_info_coordinator.h"
 #import "ios/chrome/browser/settings/autofill/payments/coordinator/autofill_credit_card_coordinator.h"
 #import "ios/chrome/browser/settings/autofill/payments/coordinator/autofill_credit_card_coordinator_delegate.h"
+#import "ios/chrome/browser/settings/autofill/suggestions_from_gemini/coordinator/suggestions_from_gemini_coordinator.h"
 #import "ios/chrome/browser/settings/autofill/suggestions_from_gemini/ui/suggestions_from_gemini_help_improve_table_view_controller.h"
 #import "ios/chrome/browser/settings/google_services/coordinator/google_services_settings_coordinator.h"
 #import "ios/chrome/browser/settings/google_services/ui/google_services_settings_view_controller.h"
@@ -41,6 +42,7 @@
 #import "ios/chrome/browser/settings/ui_bundled/autofill/autofill_profile_table_view_controller.h"
 #import "ios/chrome/browser/settings/ui_bundled/autofill/enhanced_autofill_table_view_controller.h"
 #import "ios/chrome/browser/settings/ui_bundled/bwg/coordinator/gemini_settings_coordinator.h"
+#import "ios/chrome/browser/settings/ui_bundled/bwg/coordinator/gemini_suggestions_coordinator.h"
 #import "ios/chrome/browser/settings/ui_bundled/content_settings/content_settings_coordinator.h"
 #import "ios/chrome/browser/settings/ui_bundled/content_settings/content_settings_table_view_controller.h"
 #import "ios/chrome/browser/settings/ui_bundled/default_browser/default_browser_settings_table_view_controller.h"
@@ -105,6 +107,7 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
     AutofillSettingsCoordinatorDelegate,
     ContentSettingsCoordinatorDelegate,
     GeminiSettingsCoordinatorDelegate,
+    GeminiSuggestionsCoordinatorDelegate,
     GoogleServicesSettingsCoordinatorDelegate,
     IdentityDocsCoordinatorDelegate,
     ManageAccountsCoordinatorDelegate,
@@ -117,6 +120,7 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
     PrivacySafeBrowsingCoordinatorDelegate,
     SafetyCheckCoordinatorDelegate,
     ShoppingCoordinatorDelegate,
+    SuggestionsFromGeminiCoordinatorDelegate,
     SyncEncryptionPassphraseTableViewControllerPresentationDelegate,
     TravelInfoCoordinatorDelegate,
     UIAdaptivePresentationControllerDelegate,
@@ -155,6 +159,10 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
 // Gemini settings coordinator.
 @property(nonatomic, strong)
     GeminiSettingsCoordinator* geminiSettingsCoordinator;
+
+// Gemini suggestions settings coordinator.
+@property(nonatomic, strong)
+    GeminiSuggestionsCoordinator* geminiSuggestionsCoordinator;
 
 // Safety Check coordinator.
 @property(nonatomic, strong) SafetyCheckCoordinator* safetyCheckCoordinator;
@@ -213,6 +221,8 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
   TravelInfoCoordinator* _travelInfoCoordinator;
   // Autofill settings coordinator.
   AutofillSettingsCoordinator* _autofillSettingsCoordinator;
+  // Suggestions from Gemini coordinator.
+  SuggestionsFromGeminiCoordinator* _suggestionsFromGeminiCoordinator;
   ActivityReporter* _activityReporter;
 }
 
@@ -292,6 +302,20 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
                              browser:browser
                             delegate:delegate];
   [navigationController showGeminiSettingsPage];
+  return navigationController;
+}
+
++ (instancetype)
+    BWGContextualCueControllerForBrowser:(Browser*)browser
+                                delegate:
+                                    (id<SettingsNavigationControllerDelegate>)
+                                        delegate {
+  SettingsNavigationController* navigationController =
+      [[SettingsNavigationController alloc]
+          initWithRootViewController:nil
+                             browser:browser
+                            delegate:delegate];
+  [navigationController showGeminiContextualCueSettings];
   return navigationController;
 }
 
@@ -611,7 +635,20 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
   navigationController.autofillCreditCardCoordinator.delegate =
       navigationController;
   [navigationController.autofillCreditCardCoordinator start];
+  return navigationController;
+}
 
++ (instancetype)
+    geminiSuggestionsControllerForBrowser:(Browser*)browser
+                                 delegate:
+                                     (id<SettingsNavigationControllerDelegate>)
+                                         delegate {
+  SettingsNavigationController* navigationController =
+      [[SettingsNavigationController alloc]
+          initWithRootViewController:nil
+                             browser:browser
+                            delegate:delegate];
+  [navigationController showSuggestionsFromGemini];
   return navigationController;
 }
 
@@ -862,11 +899,13 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
   [self stopAutofillProfileEditCoordinator];
   [self stopNotificationsCoordinator];
   [self stopGeminiSettingsCoordinator];
+  [self stopGeminiSuggestionsCoordinator];
   [self stopAutofillSettingsCoordinator];
   [self stopAutofillCreditCardCoordinator];
   [self stopIdentityDocsCoordinator];
   [self stopShoppingCoordinator];
   [self stopTravelInfoCoordinator];
+  [self stopSuggestionsFromGeminiCoordinator];
 
   // Reset the delegate to prevent any queued transitions from attempting to
   // close the settings.
@@ -915,6 +954,12 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
   self.geminiSettingsCoordinator.delegate = nil;
   [self.geminiSettingsCoordinator stop];
   self.geminiSettingsCoordinator = nil;
+}
+
+- (void)stopGeminiSuggestionsCoordinator {
+  self.geminiSuggestionsCoordinator.delegate = nil;
+  [self.geminiSuggestionsCoordinator stop];
+  self.geminiSuggestionsCoordinator = nil;
 }
 
 - (void)stopManageAccountsCoordinator {
@@ -1203,6 +1248,13 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
   self.autofillCreditCardCoordinator = nil;
 }
 
+// Stops the underlying Suggestions from Gemini coordinator.
+- (void)stopSuggestionsFromGeminiCoordinator {
+  [_suggestionsFromGeminiCoordinator stop];
+  _suggestionsFromGeminiCoordinator.delegate = nil;
+  _suggestionsFromGeminiCoordinator = nil;
+}
+
 #pragma mark - ContentSettingsCoordinatorDelegate
 
 - (void)contentSettingsCoordinatorViewControllerWasRemoved:
@@ -1347,6 +1399,14 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
   [self stopAutofillCreditCardCoordinator];
 }
 
+#pragma mark - SuggestionsFromGeminiCoordinatorDelegate
+
+- (void)suggestionsFromGeminiCoordinatorDidRemove:
+    (SuggestionsFromGeminiCoordinator*)coordinator {
+  DCHECK_EQ(_suggestionsFromGeminiCoordinator, coordinator);
+  [self stopSuggestionsFromGeminiCoordinator];
+}
+
 #pragma mark - UIAdaptivePresentationControllerDelegate
 
 - (BOOL)presentationControllerShouldDismiss:
@@ -1458,6 +1518,16 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
 
 - (void)showGeminiSettings {
   [self showGeminiSettingsPage];
+}
+
+- (void)showGeminiContextualCueSettings {
+  CHECK(IsPageActionMenuEnabled());
+  [self stopGeminiSuggestionsCoordinator];
+  self.geminiSuggestionsCoordinator = [[GeminiSuggestionsCoordinator alloc]
+      initWithBaseNavigationController:self
+                               browser:self.browser];
+  self.geminiSuggestionsCoordinator.delegate = self;
+  [self.geminiSuggestionsCoordinator start];
 }
 
 - (void)showSuggestionsFromGeminiHelpImprove {
@@ -1721,18 +1791,21 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
   }
 }
 
+- (void)showSuggestionsFromGemini {
+  [self stopSuggestionsFromGeminiCoordinator];
+  _suggestionsFromGeminiCoordinator = [[SuggestionsFromGeminiCoordinator alloc]
+      initWithBaseNavigationController:self
+                               browser:self.browser];
+  _suggestionsFromGeminiCoordinator.delegate = self;
+  [_suggestionsFromGeminiCoordinator start];
+}
+
 - (void)showEnhancedAutofillSettings {
   EnhancedAutofillTableViewController* controller =
       [[EnhancedAutofillTableViewController alloc]
           initWithBrowser:self.browser];
   ConfigureHandlers(controller, self.browser->GetCommandDispatcher());
   [self pushViewController:controller animated:self.viewControllers.count > 0];
-}
-
-// `SceneCoordinator` is the entrypoint that handles presentation and captures
-// the dismissal completion block.
-- (void)showEnhancedAutofillSettingsWithCompletion:(ProceduralBlock)completion {
-  NOTREACHED();
 }
 
 #pragma mark - SyncEncryptionPassphraseTableViewControllerPresentationDelegate
@@ -1765,6 +1838,13 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
 - (void)geminiSettingsCoordinatorViewControllerWasRemoved:
     (GeminiSettingsCoordinator*)coordinator {
   [self stopGeminiSettingsCoordinator];
+}
+
+#pragma mark - GeminiSuggestionsCoordinatorDelegate
+
+- (void)geminiSuggestionsCoordinatorViewControllerWasRemoved:
+    (GeminiSuggestionsCoordinator*)coordinator {
+  [self stopGeminiSuggestionsCoordinator];
 }
 
 @end

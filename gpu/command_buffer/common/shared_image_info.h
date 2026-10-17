@@ -24,6 +24,7 @@ struct SharedImageMetadata {
   GrSurfaceOrigin surface_origin;
   SkAlphaType alpha_type;
   SharedImageUsageSet usage;
+  uint32_t array_layers = 1;
 };
 
 struct SharedImageInfo : public SharedImageMetadata {
@@ -33,21 +34,43 @@ struct SharedImageInfo : public SharedImageMetadata {
                   GrSurfaceOrigin surface_origin_in,
                   SkAlphaType alpha_type_in,
                   SharedImageUsageSet usage_in,
-                  std::string_view debug_label)
+                  std::string_view debug_label,
+                  uint32_t array_layers_in = 1)
       : SharedImageMetadata{format_in,         size_in,       color_space_in,
-                            surface_origin_in, alpha_type_in, usage_in},
-        debug_label(debug_label) {}
+                            surface_origin_in, alpha_type_in, usage_in,
+                            array_layers_in},
+        debug_label(debug_label) {
+    if (format_in.is_multi_plane() && !format_in.PrefersExternalSampler()) {
+      CHECK(alpha_type != kPremul_SkAlphaType, base::NotFatalUntil::M156)
+          << "Premul alphatype for multiplanar format - label=" << debug_label;
+    }
+  }
   SharedImageInfo(const viz::SharedImageFormat& format_in,
                   gfx::Size size_in,
                   const gfx::ColorSpace& color_space_in,
                   SharedImageUsageSet usage_in,
-                  std::string_view debug_label)
-      : SharedImageMetadata{format_in,           size_in,
-                            color_space_in,      kTopLeft_GrSurfaceOrigin,
-                            kPremul_SkAlphaType, usage_in},
+                  std::string_view debug_label,
+                  uint32_t array_layers_in = 1)
+      : SharedImageMetadata{
+            format_in,
+            size_in,
+            color_space_in,
+            kTopLeft_GrSurfaceOrigin,
+            format_in.PrefersExternalSampler() || format_in.is_single_plane()
+                ? kPremul_SkAlphaType
+                : kUnpremul_SkAlphaType,
+            usage_in,
+            array_layers_in},
         debug_label(debug_label) {}
   SharedImageInfo(const SharedImageMetadata& meta, std::string_view debug_label)
-      : SharedImageMetadata(meta), debug_label(debug_label) {}
+      : SharedImageInfo(meta.format,
+                        meta.size,
+                        meta.color_space,
+                        meta.surface_origin,
+                        meta.alpha_type,
+                        meta.usage,
+                        debug_label,
+                        meta.array_layers) {}
 
   std::string debug_label;
 };

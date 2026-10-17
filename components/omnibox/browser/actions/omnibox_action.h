@@ -131,7 +131,7 @@ class OmniboxAction : public base::RefCountedThreadSafe<OmniboxAction> {
     // params that are attached to the URL.
     virtual void IssueContextualSearchRequest(
         const GURL& destination_url,
-        AutocompleteMatchType::Type match_type,
+        omnibox::AutocompleteMatchType match_type,
         bool is_zero_prefix_suggestion) = 0;
   };
 
@@ -156,7 +156,7 @@ class OmniboxAction : public base::RefCountedThreadSafe<OmniboxAction> {
                                 TemplateURLRef::PostContent* post_content,
                                 WindowOpenDisposition disposition,
                                 ui::PageTransition transition,
-                                AutocompleteMatchType::Type match_type,
+                                omnibox::AutocompleteMatchType match_type,
                                 base::TimeTicks match_selection_timestamp,
                                 bool destination_url_entered_without_scheme,
                                 bool destination_url_entered_with_http_scheme,

@@ -319,8 +319,8 @@ class ChromePasswordManagerClient
   void UpdateFormManagers() override;
   void NavigateToManagePasswordsPage(
       password_manager::ManagePasswordsReferrer referrer) override;
-  void OnPasswordFilled(password_manager::PasswordManagerDriver* driver,
-                        const GURL& url) override;
+  void OnPasswordFilled(
+      password_manager::PasswordManagerDriver* driver) override;
 
 #if BUILDFLAG(IS_ANDROID)
   void NavigateToManagePasskeysPage(
@@ -509,10 +509,6 @@ class ChromePasswordManagerClient
       const autofill::password_generation::PasswordGenerationUIData& ui_data);
   void MaybeShowSavePasswordPrimingPromo(const url::Origin& origin) override;
 #endif  // !BUILDFLAG(IS_ANDROID)
-
-  gfx::RectF TransformToRootCoordinates(
-      content::RenderFrameHost* frame_host,
-      const gfx::RectF& bounds_in_frame_coordinates);
 
 #if BUILDFLAG(IS_ANDROID)
   void ResetErrorMessageDelegate();

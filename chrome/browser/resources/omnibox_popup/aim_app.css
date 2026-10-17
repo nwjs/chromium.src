@@ -11,7 +11,6 @@
 
 :host {
   --color-file-chip-remove-button-fill: var(--color-omnibox-results-icon);
-  --composebox-context-menu-entrypoint-button-color: var(--color-sys-on-surface);
   --cr-composebox-cancel-button-top: 5px;
   --cr-composebox-custom-font-size: var(--omnibox-font-size);
   --cr-composebox-expanded-border-radius: 16px;
@@ -29,7 +28,21 @@
   --search-animated-glif-rotation-duration: 2000ms;
 }
 
+/* Paints the popup's surface and drop shadow. The composebox fills its own box
+ * to within the transparent border 'search-animated-glow' reserves for its
+ * glow, so without this the page behind the popup shows through that edge.
+ * https://source.chromium.org/chromium/chromium/src/+/main:ui/webui/resources/cr_components/search/animated_glow.css;l=244
+ * Keep #content free of ::before/::after pseudo-elements; see the note on
+ * '--omnibox-webui-shadow' in omnibox_popup_shared_style.css. */
+:host([webui-shadow-enabled_]) #content {
+  background-color: var(--color-omnibox-results-background);
+  border-radius: var(--cr-composebox-expanded-border-radius);
+  box-shadow: var(--omnibox-webui-shadow);
+}
+
 #composebox {
+  --color-composebox-aim-chip-hover-background: var(--color-omnibox-action-icon-hover);
+  --color-composebox-aim-chip-hover-text: var(--color-omnibox-text);
   --color-composebox-background: var(--color-omnibox-results-background);
   --color-composebox-cancel-button: unset; /* Lens only */
   --color-composebox-cancel-button-light: var(--color-omnibox-text-dimmed);
@@ -57,6 +70,12 @@
   --color-composebox-font-light: var(--color-omnibox-text);
   --color-composebox-hover: unset; /* Lens only */
   --color-composebox-input-icon: var(--color-omnibox-results-icon);
+
+  /* The composebox is the popup's surface rather than a plate drawn on a
+   * page, so it takes no outline of its own; the drop shadow separates it.
+   * An opaque one would also cover the outer edge of the glow stroke. */
+  --color-composebox-input-plate-outline: transparent;
+
   --color-composebox-lens-button: unset; /* Lens only */
   --color-composebox-pdf-chip-icon: var(--color-omnibox-text-dimmed);
   --color-composebox-scrim-background: unset; /* No scrim. */
@@ -177,6 +196,5 @@
 #composebox[apply-context-button-background]::part(context-menu-entrypoint-icon) {
   --cr-composebox-entrypoint-background-color: var(
     --color-omnibox-composebox-context-entrypoint-background);
-  --cr-icon-button-hover-background-color: var(
-      --cr-active-neutral-on-subtle-background-color);
+  --cr-icon-button-hover-background-color: var(--color-omnibox-icon-pressed);
 }

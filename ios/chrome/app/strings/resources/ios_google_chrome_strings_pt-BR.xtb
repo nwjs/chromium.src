@@ -48,6 +48,7 @@ Considerações:
 <translation id="1784567647421309104">Salvar suas senhas no Chrome</translation>
 <translation id="1790080846677398234">Adiciona os URLs inseridos aos seus favoritos no Chrome.</translation>
 <translation id="1799920918471566157">Dicas do Chrome</translation>
+<translation id="1802420021606590788">O Chrome processa títulos de páginas e URLs em um espaço privado na nuvem</translation>
 <translation id="1830634592642484976">Este endereço está salvo no Chrome. Para usá-lo nos produtos do Google, salve-o na sua conta, <ph name="USER_EMAIL" />.</translation>
 <translation id="1891812034154776216">Ocultar guias anônimas abertas ao sair do Chrome</translation>
 <translation id="1894434821386148799">As configurações do Chrome e mais estão aqui</translation>
@@ -138,6 +139,7 @@ Considerações:
 <translation id="3984746313391923992">Sua organização exige que a conta permaneça desconectada do Chrome.</translation>
 <translation id="3988789688219830639">O Google Chrome não têm acesso às suas fotos ou vídeos. Permita o acesso em "Configurações do iOS" &gt; "Privacidade" &gt; "Fotos".</translation>
 <translation id="4064699917955374540">Confirme sua identidade para usar e salvar dados do Chrome na sua Conta do Google.</translation>
+<translation id="4093789416346364876">Defina o Chrome como padrão para receber insights do Gemini em qualquer lugar que você navegar</translation>
 <translation id="411154422556990518">Não perca atualizações sobre monitoramento de preços e dicas do Chrome.</translation>
 <translation id="417201473131094001">Indisponível no Chrome Canary.</translation>
 <translation id="424864128008805179">Sair do Google Chrome?</translation>
@@ -266,6 +268,7 @@ Para conferir mais configurações que usam dados para melhorar sua experiência
 <translation id="7061455974939528301">Toque no ícone do Chrome, pressione e clique em "Editar tela inicial"</translation>
 <translation id="7095110968493193530">No Gerenciador de senhas do Google da conta <ph name="EMAIL" /></translation>
 <translation id="7124339256045485976">Mantenha o Chrome atualizado</translation>
+<translation id="7135936755418321901">Para compartilhar sua localização com sites, toque em "Configurações" e permita que o Chrome use esse dado.</translation>
 <translation id="7145599899567697473">Salvar e preencher automaticamente senhas no Chrome</translation>
 <translation id="7161390184744336561">O Google Chrome está desatualizado</translation>
 <translation id="7165736900384873061">Começar a usar o leitor de QR do Google Chrome</translation>
@@ -280,6 +283,7 @@ Para conferir mais configurações que usam dados para melhorar sua experiência
 <translation id="7272930098487145294">Para salvar imagens, toque em "Configurações" e permita que o Chrome as adicione às suas fotos</translation>
 <translation id="7275945473750112644">Sua conta é gerenciada por <ph name="HOSTED_DOMAIN" />. Por isso, seus dados do Chrome serão apagados deste dispositivo</translation>
 <translation id="7284245284340063465">Se você esquecer a senha longa ou quiser mudar essa configuração, <ph name="BEGIN_LINK" />exclua os dados do Chrome na sua conta<ph name="END_LINK" />.</translation>
+<translation id="7287957555760192025">Se você selecionar ou ignorar uma sugestão, o Chrome vai se adaptar para mostrar sugestões mais relevantes no futuro.</translation>
 <translation id="7296102444587051536">Chrome para iOS</translation>
 <translation id="7299681342915173313">Agora você pode usar o Chrome sempre que toca em links em e-mails, documentos e outros apps</translation>
 <translation id="7334364820047587268">Você já tem senhas destas contas no Gerenciador de Senhas do Google. Se decidir importar uma das senhas abaixo, ela vai substituir a atual.</translation>
@@ -353,6 +357,7 @@ Seus dados foram criptografados com a senha longa em <ph name="TIME" />. Digite-
 <translation id="8544583291890527417">Receba alertas sobre problemas de privacidade ou segurança detectados pelo Chrome.</translation>
 <translation id="855027533751209304">Dica do Chrome: pesquise o que você vê</translation>
 <translation id="8558480467877843976">Agora você pode usar o Chrome sempre que navegar ou abrir links em mensagens, documentos e outros apps.</translation>
+<translation id="8589791109349384456">Desativar as sugestões não controla o processamento de títulos de páginas e URLs do Chrome para outros recursos. Você pode gerenciar o acesso a esses dados nas <ph name="BEGIN_LINK" />configurações de sincronização<ph name="END_LINK" />.</translation>
 <translation id="8603022514504485810">O Gerenciador de senhas do Google não conseguiu verificar todas as senhas. Tente de novo amanhã ou <ph name="BEGIN_LINK" />verifique-as na sua Conta do Google<ph name="END_LINK" />.</translation>
 <translation id="8610372330814566250">Use as senhas, o histórico, os favoritos e os cartões de crédito do Safari no Chrome</translation>
 <translation id="8630122478628016441">Ative a opção "Bloquear guias anônimas ao fechar o Chrome".</translation>

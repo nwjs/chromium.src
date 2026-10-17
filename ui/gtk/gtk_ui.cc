@@ -106,8 +106,6 @@ namespace gtk {
 
 namespace {
 
-constexpr double kDefaultDPI = 96;
-
 // The unknown content type.
 constexpr char kUnknownContentType[] = "application/octet-stream";
 
@@ -161,6 +159,17 @@ gfx::FontRenderParams GetGtkFontRenderParams() {
   return params;
 }
 
+const char* GdkBackendName(ui::LinuxUiBackend backend) {
+  switch (backend) {
+    case ui::LinuxUiBackend::kX11:
+      return "x11";
+    case ui::LinuxUiBackend::kWayland:
+      return "wayland";
+    default:
+      return nullptr;
+  }
+}
+
 std::unique_ptr<GtkUiPlatform> CreateGtkUiPlatform(ui::LinuxUiBackend backend) {
   switch (backend) {
     case ui::LinuxUiBackend::kStub:
@@ -176,26 +185,6 @@ std::unique_ptr<GtkUiPlatform> CreateGtkUiPlatform(ui::LinuxUiBackend backend) {
     default:
       NOTREACHED();
   }
-}
-
-int GetXftDpi() {
-  int dpi = -1;
-  g_object_get(gtk_settings_get_default(), "gtk-xft-dpi", &dpi, nullptr);
-  return dpi < 0 ? 0 : dpi;
-}
-
-double FontScale() {
-  double resolution = 0;
-  if (const int dpi = GetXftDpi()) {
-    resolution = dpi / 1024.0;
-  } else {
-    GdkScreen* screen = gdk_screen_get_default();
-    resolution = gdk_screen_get_resolution(screen);
-  }
-  const double font_scale = resolution > 0 ? resolution / kDefaultDPI : 1.0;
-  // Round to the nearest 1/64th so that UI can losslessly multiply and divide
-  // the scale factor.
-  return std::round(font_scale * 64) / 64;
 }
 
 // Some misconfigured systems have missing or corrupted schemas, see
@@ -365,10 +354,18 @@ bool GtkUi::Initialize() {
   if (!GtkCheckVersion(4) && !env->HasVar(kGdkGl)) {
     disable_gdk_gl_probe.emplace(kGdkGl, "disable");
   }
+  // GDK_BACKEND takes precedence over gdk_set_allowed_backends(), so force it
+  // to the platform's backend while GDK opens the display, and restore it
+  // afterwards for the same reason as GDK_GL.
+  std::optional<base::ScopedEnvironmentVariableOverride> gdk_backend;
+  if (const char* name = GdkBackendName(backend)) {
+    gdk_backend.emplace("GDK_BACKEND", name);
+  }
   // gtk_init_check() modifies argv, so make a copy first.
   CmdLineArgs cmd_line = CopyCmdLine(*base::CommandLine::ForCurrentProcess());
   const bool initialized =
       GtkInitFromCommandLine(&cmd_line.argc, cmd_line.argv.data());
+  gdk_backend.reset();
   disable_gdk_gl_probe.reset();
   if (!initialized) {
     return false;
@@ -395,9 +392,12 @@ bool GtkUi::Initialize() {
   };
 
   GtkSettings* settings = gtk_settings_get_default();
-  // Pin `gtk-modules` to an empty string with APPLICATION source priority
-  // to prevent XSETTINGS updates from loading GTK modules.
-  g_object_set(settings, "gtk-modules", "", nullptr);
+  if (!GtkCheckVersion(4)) {
+    // Pin `gtk-modules` to an empty string with APPLICATION source priority
+    // to prevent XSETTINGS updates from loading GTK modules.  GTK4 does not
+    // have this property.
+    g_object_set(settings, "gtk-modules", "", nullptr);
+  }
   SanitizeIconThemeName();
   SanitizeThemeName();
   SanitizeCursorThemeName();
@@ -421,8 +421,10 @@ bool GtkUi::Initialize() {
   connect(settings, "notify::gtk-enable-primary-paste",
           &GtkUi::OnPrimaryPasteChanged);
 
-  // Listen for DPI changes, if supported.
-  if (GetXftDpi() > 0) {
+  // Listen for DPI changes, if supported.  GdkScreen was removed in GTK4, so
+  // `gtk-xft-dpi` is the only DPI source there, even if it's currently unset
+  // (eg. on Wayland without the xdg-desktop-portal Settings interface).
+  if (GtkCheckVersion(4) || GetXftDpi() > 0) {
     connect(settings, "notify::gtk-xft-dpi", &GtkUi::OnGtkXftDpiChanged);
   } else {
     GdkScreen* screen = gdk_screen_get_default();
@@ -472,7 +474,7 @@ void GtkUi::InitializeFontSettings() {
   double pango_size =
       pango_font_description_get_size(desc) / static_cast<double>(PANGO_SCALE);
   if (GtkCheckVersion(4)) {
-    pango_size /= FontScale();
+    pango_size /= GetFontScale();
   }
   double size_pixels;
   if (pango_font_description_get_size_is_absolute(desc)) {
@@ -487,7 +489,7 @@ void GtkUi::InitializeFontSettings() {
     query.point_size = std::round(pango_size);
   }
   if (!platform_->IncludeFontScaleInDeviceScale()) {
-    size_pixels *= FontScale();
+    size_pixels *= GetFontScale();
   }
 
   query.style = gfx::Font::NORMAL;
@@ -1234,7 +1236,7 @@ display::DisplayConfig GtkUi::GetDisplayConfig() const {
   }
 
   const double font_scale =
-      platform_->IncludeFontScaleInDeviceScale() ? FontScale() : 1.0;
+      platform_->IncludeFontScaleInDeviceScale() ? GetFontScale() : 1.0;
 
   GdkDisplay* display = gdk_display_get_default();
   GdkMonitor* primary = nullptr;

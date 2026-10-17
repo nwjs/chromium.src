@@ -4,8 +4,12 @@
 
 #include "components/enterprise/connectors/core/cloud_content_scanning/cloud_binary_upload_service_base.h"
 
+#include <string_view>
+
 #include "base/base64.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/strings/strcat.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/thread_pool.h"
 #include "components/enterprise/common/proto/connectors.pb.h"
@@ -290,6 +294,8 @@ void CloudBinaryUploadServiceBase::SetAuthForTesting(
 #if BUILDFLAG(IS_CHROMEOS)
            AnalysisConnector::FILE_TRANSFER,
 #endif
+           AnalysisConnector::DATA_COPIED,
+           AnalysisConnector::NETWORK_REQUEST,
        }) {
     TokenAndConnector token_and_connector = {dm_token, connector};
     can_upload_enterprise_data_[token_and_connector] = auth_check_result;
@@ -361,17 +367,33 @@ void CloudBinaryUploadServiceBase::LogResponseDebugInfo(
     const std::string& upload_info,
     ScanRequestUploadResult result,
     BinaryUploadRequest* request,
-    const ContentAnalysisResponse& response) {
+    const ContentAnalysisResponse& response,
+    int http_status,
+    const std::string& response_data) {
 #if !BUILDFLAG(IS_IOS)
   safe_browsing::WebUIContentInfoSingleton::GetInstance()
       ->AddToDeepScanRequests(request->per_profile_request(),
                               request->access_token(), upload_info,
                               request->GetUrlWithParams().spec(),
                               request->content_analysis_request());
+  std::string status = ScanRequestUploadResultToString(result);
+  bool upload_failed = result != ScanRequestUploadResult::kSuccess;
+  bool has_http_activity = http_status != 0 || !response_data.empty();
+  // On kSuccess, `response_data` contains raw binary protobuf bytes which are
+  // already parsed into `response` and serialized to JSON. Only append raw
+  // `response_data` on failure, where the server/proxy returns text/HTML.
+  if (upload_failed && has_http_activity) {
+    // Maximum number of characters of the raw response body appended to the
+    // deep scan status shown on chrome://safe-browsing.
+    constexpr size_t kMaxResponseDataLength = 1024;
+    status = base::StrCat(
+        {status, " (HTTP ", base::NumberToString(http_status), "): ",
+         response_data.empty() ? std::string_view("No response to show")
+                               : std::string_view(response_data)
+                                     .substr(0, kMaxResponseDataLength)});
+  }
   safe_browsing::WebUIContentInfoSingleton::GetInstance()
-      ->AddToDeepScanResponses(active_tokens_[request->id()],
-                               ScanRequestUploadResultToString(result),
-                               response);
+      ->AddToDeepScanResponses(active_tokens_[request->id()], status, response);
 #endif
 }
 
@@ -449,7 +471,9 @@ void CloudBinaryUploadServiceBase::ResetAuthorizationData(const GURL& url) {
 void CloudBinaryUploadServiceBase::FinishRequest(
     BinaryUploadRequest* request,
     ScanRequestUploadResult result,
-    ContentAnalysisResponse response) {
+    ContentAnalysisResponse response,
+    int http_status,
+    const std::string& response_data) {
   RecordRequestMetrics(request->id(), result, response);
   std::string upload_info = "None";
   if (!request->IsAuthRequest()) {
@@ -461,7 +485,8 @@ void CloudBinaryUploadServiceBase::FinishRequest(
 
   // Always record deep scan request here to ensure it is invoked after http
   // headers are attached.
-  LogResponseDebugInfo(upload_info, result, request, response);
+  LogResponseDebugInfo(upload_info, result, request, response, http_status,
+                       response_data);
 
   request->FinishRequest(result, response);
 }
@@ -469,8 +494,10 @@ void CloudBinaryUploadServiceBase::FinishRequest(
 void CloudBinaryUploadServiceBase::FinishAndCleanupRequest(
     BinaryUploadRequest* request,
     ScanRequestUploadResult result,
-    ContentAnalysisResponse response) {
-  FinishRequest(request, result, response);
+    ContentAnalysisResponse response,
+    int http_status,
+    const std::string& response_data) {
+  FinishRequest(request, result, response, http_status, response_data);
   CleanupRequest(request);
 }
 
@@ -655,26 +682,26 @@ void CloudBinaryUploadServiceBase::OnGetContentAnalysisResponse(
 
   if (http_status == net::HTTP_UNAUTHORIZED) {
     FinishRequest(request, ScanRequestUploadResult::kUnauthorized,
-                  ContentAnalysisResponse());
+                  ContentAnalysisResponse(), http_status, response_data);
     return;
   }
 
   if (http_status == net::HTTP_TOO_MANY_REQUESTS) {
     FinishRequest(request, ScanRequestUploadResult::kTooManyRequests,
-                  ContentAnalysisResponse());
+                  ContentAnalysisResponse(), http_status, response_data);
     return;
   }
 
   if (!success) {
     FinishRequest(request, ScanRequestUploadResult::kUploadFailure,
-                  ContentAnalysisResponse());
+                  ContentAnalysisResponse(), http_status, response_data);
     return;
   }
 
   ContentAnalysisResponse response;
   if (!response.ParseFromString(response_data)) {
     FinishRequest(request, ScanRequestUploadResult::kUploadFailure,
-                  ContentAnalysisResponse());
+                  ContentAnalysisResponse(), http_status, response_data);
     return;
   }
 
@@ -748,7 +775,7 @@ CloudBinaryUploadServiceBase::CreateUploadRequest(
     net::NetworkTrafficAnnotationTag traffic_annotation,
     BinaryUploadRequest::Data data,
     ScanRequestUploadResult result,
-    ResumableUploadRequestBase::OnceRegisterOnGotHashCallback
+    ResumableUploadRequest::OnceRegisterOnGotHashCallback
         register_on_got_hash_callback) {
   auto callback =
       base::BindOnce(&CloudBinaryUploadServiceBase::OnUploadComplete,
@@ -770,7 +797,7 @@ CloudBinaryUploadServiceBase::CreateUploadRequest(
     upload_request =
         (IsResumableUpload(*request) &&
          base::FeatureList::IsEnabled(kDlpScanPastedImages))
-            ? safe_browsing::ResumableUploadRequest::CreateStringRequest(
+            ? ResumableUploadRequest::CreateStringRequest(
                   url_loader_factory_, url, metadata, data.contents,
                   request->image_paste() ? ConnectorUploadRequest::IMAGE
                                          : ConnectorUploadRequest::STRING,
@@ -785,7 +812,7 @@ CloudBinaryUploadServiceBase::CreateUploadRequest(
   } else if (!data.path.empty()) {
     upload_request =
         IsResumableUpload(*request)
-            ? safe_browsing::ResumableUploadRequest::CreateFileRequest(
+            ? ResumableUploadRequest::CreateFileRequest(
                   url_loader_factory_, url, metadata, result, data.path,
                   data.size, data.is_obfuscated, histogram_suffix,
                   std::move(traffic_annotation),
@@ -801,7 +828,7 @@ CloudBinaryUploadServiceBase::CreateUploadRequest(
   } else if (data.page.IsValid()) {
     upload_request =
         IsResumableUpload(*request)
-            ? safe_browsing::ResumableUploadRequest::CreatePageRequest(
+            ? ResumableUploadRequest::CreatePageRequest(
                   url_loader_factory_, url, metadata, result,
                   std::move(data.page), histogram_suffix,
                   std::move(traffic_annotation),
@@ -812,6 +839,13 @@ CloudBinaryUploadServiceBase::CreateUploadRequest(
                   url_loader_factory_, url, metadata, std::move(data.page),
                   histogram_suffix, std::move(traffic_annotation),
                   std::move(callback), ui_task_runner_);
+  } else if (data.request_body) {
+    upload_request = ResumableUploadRequest::CreateNetworkRequest(
+        url_loader_factory_, url, metadata, std::move(data.request_body),
+        histogram_suffix, std::move(traffic_annotation),
+        std::move(verdict_received_callback),
+        std::move(content_uploaded_callback), force_sync_upload,
+        ui_task_runner_);
   } else {
     NOTREACHED();
   }
@@ -966,7 +1000,7 @@ void CloudBinaryUploadServiceBase::OnGetRequestData(
   request->set_should_skip_malware_scan(
       data.size > BinaryUploadService::kMaxUploadSizeBytes);
 
-  ResumableUploadRequestBase::OnceRegisterOnGotHashCallback
+  ResumableUploadRequest::OnceRegisterOnGotHashCallback
       register_on_got_hash_callback = base::NullCallback();
   if (request->digest().empty() && request->register_on_got_hash_callback_) {
     // The hash is being computed. Let the server know the hash will be
@@ -1021,10 +1055,15 @@ bool CloudBinaryUploadServiceBase::ShouldTerminateRequestEarly(
     return true;
   }
 
-  if (!request->IsAuthRequest() && data_size == 0) {
+  if (!request->IsAuthRequest() &&
+      get_data_result == ScanRequestUploadResult::kSuccess && data_size == 0) {
     // A size of 0 implies an edge case like an empty file being uploaded. In
     // such a case, the file doesn't need to scan so the request can simply
     // finish early.
+    // Note that it's possible for `get_data_result` to be set to
+    // `kFileTooLarge` while `data_size` is 0 for network request scans of
+    // chunked data where the total size is unknown, so `kSuccess` is checked to
+    // account for this.
     FinishAndCleanupRequest(request, ScanRequestUploadResult::kSuccess,
                             ContentAnalysisResponse());
     return true;

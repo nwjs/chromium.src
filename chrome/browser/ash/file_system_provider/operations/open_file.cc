@@ -4,8 +4,8 @@
 
 #include "chrome/browser/ash/file_system_provider/operations/open_file.h"
 
-#include "chrome/common/extensions/api/file_system_provider.h"
-#include "chrome/common/extensions/api/file_system_provider_internal.h"
+#include "chromeos/ash/experiences/extensions/common/api/file_system_provider.h"
+#include "chromeos/ash/experiences/extensions/common/api/file_system_provider_internal.h"
 
 namespace ash::file_system_provider::operations {
 
@@ -81,7 +81,7 @@ void OpenFile::OnSuccess(int request_id,
                          const RequestValue& result,
                          bool has_more) {
   // File handle is the same as request id of the OpenFile operation.
-  DCHECK(callback_);
+  CHECK(callback_, base::NotFatalUntil::M160);
 
   std::move(callback_).Run(
       request_id, base::File::FILE_OK,
@@ -91,7 +91,7 @@ void OpenFile::OnSuccess(int request_id,
 void OpenFile::OnError(/*request_id=*/int,
                        /*result=*/const RequestValue&,
                        base::File::Error error) {
-  DCHECK(callback_);
+  CHECK(callback_, base::NotFatalUntil::M160);
   std::move(callback_).Run(/*file_handle=*/0, error,
                            /*cloud_file_info=*/nullptr);
 }

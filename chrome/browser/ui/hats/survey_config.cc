@@ -30,6 +30,7 @@
 #include "ui/accessibility/accessibility_features.h"
 
 #if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/contextual_cueing/features.h"  // nogncheck
 #include "chrome/browser/download/download_warning_desktop_hats_utils.h"
 #include "chrome/browser/metrics/critical_user_journeys/features.h"
 #include "components/password_manager/core/browser/features/password_features.h"  // nogncheck
@@ -48,183 +49,9 @@
 #include "pdf/pdf_features.h"  // nogncheck
 #endif                         // BUILDFLAG(ENABLE_PDF_SAVE_TO_DRIVE)
 
-#if !BUILDFLAG(IS_ANDROID)
-constexpr char kHatsSurveyTriggerAutofillAddress[] = "autofill-address";
-constexpr char kHatsSurveyTriggerAutofillAddressUserPerception[] =
-    "autofill-address-users-perception";
-constexpr char kHatsSurveyTriggerAutofillAiSavePrompt[] =
-    "autofill-ai-walletable-entity-save-prompt";
-constexpr char kHatsSurveyTriggerAutofillAddressUserDeclinedSuggestion[] =
-    "autofill-address-users-perception";
-constexpr char kHatsSurveyTriggerAutofillAddressUserDeclinedSave[] =
-    "autofill-address-user-declined-save";
-constexpr char kHatsSurveyTriggerAutofillCreditCardUserPerception[] =
-    "autofill-credit-card-users-perception";
-constexpr char kHatsSurveyTriggerAutofillPasswordUserPerception[] =
-    "autofill-password-users-perception";
-constexpr char kHatsSurveyTriggerManageYourSavedInfoPerception[] =
-    "autofill-manage-your-saved-info-perception";
-constexpr char kHatsSurveyTriggerManagePasswordsPerception[] =
-    "autofill-manage-passwords-perception";
-constexpr char kHatsSurveyTriggerManagePaymentsPerception[] =
-    "autofill-manage-payments-perception";
-constexpr char kHatsSurveyTriggerManageContactInfoPerception[] =
-    "autofill-manage-contact-info-perception";
-constexpr char kHatsSurveyTriggerManageIdentityDocsPerception[] =
-    "autofill-manage-identity-docs-perception";
-constexpr char kHatsSurveyTriggerManageTravelPerception[] =
-    "autofill-manage-travel-perception";
-constexpr char kHatsSurveyTriggerAutofillCard[] = "autofill-card";
-constexpr char kHatsSurveyTriggerAutofillPassword[] = "autofill-password";
-constexpr char kHatsSurveyTriggerAutoPipAllowed[] = "autopip-allowed";
-constexpr char kHatsSurveyTriggerAutoPipBlocked[] = "autopip-blocked";
-constexpr char kHatsSurveyTriggerAutoPipPermissionPromptIgnored[] =
-    "autopip-permission-prompt-ignored";
-constexpr char kHatsSurveyTriggerDownloadWarningBubbleBypass[] =
-    "download-warning-bubble-bypass";
-constexpr char kHatsSurveyTriggerDownloadWarningBubbleHeed[] =
-    "download-warning-bubble-heed";
-constexpr char kHatsSurveyTriggerDownloadWarningBubbleIgnore[] =
-    "download-warning-bubble-ignore";
-constexpr char kHatsSurveyTriggerDownloadWarningPageBypass[] =
-    "download-warning-page-bypass";
-constexpr char kHatsSurveyTriggerDownloadWarningPageHeed[] =
-    "download-warning-page-heed";
-constexpr char kHatsSurveyTriggerDownloadWarningPageIgnore[] =
-    "download-warning-page-ignore";
-constexpr char kHatsSurveyTriggerHistoryEmbeddings[] = "history-embeddings";
-constexpr char kHatsSurveyTriggerHistoryPageExperiment[] =
-    "history-page-experiment";
-constexpr char kHatsSurveyTriggerHistoryPageControl[] = "history-page-control";
-constexpr char kHatsSurveyTriggerIdentityAddressBubbleSignin[] =
-    "identity-address-bubble-signin";
-constexpr char kHatsSurveyTriggerIdentityDiceWebSigninAccepted[] =
-    "identity-dice-web-signin-accepted";
-constexpr char kHatsSurveyTriggerIdentityDiceWebSigninDeclined[] =
-    "identity-dice-web-signin-declined";
-constexpr char kHatsSurveyTriggerIdentityFirstRunSignin[] =
-    "identity-first-run-signin";
-constexpr char kHatsSurveyTriggerIdentityFirstRunCompleted[] =
-    "identity-first-run-completed";
-constexpr char kHatsSurveyTriggerIdentityPasswordBubbleSignin[] =
-    "identity-password-bubble-signin";
-constexpr char kHatsSurveyTriggerIdentityProfileMenuDismissed[] =
-    "identity-profile-menu-dismissed";
-constexpr char kHatsSurveyTriggerIdentityProfileMenuSignin[] =
-    "identity-profile-menu-signin";
-constexpr char kHatsSurveyTriggerIdentityProfilePickerAddProfileSignin[] =
-    "identity-profile-picker-add-profile-signin";
-constexpr char kHatsSurveyTriggerIdentityRefreshedFirstRunCompleted[] =
-    "identity-refreshed-first-run-completed";
-constexpr char kHatsSurveyTriggerFirstRunDesktopRevampCompleted[] =
-    "identity-revamp-first-run-completed";
-constexpr char
-    kHatsSurveyTriggerFirstRunDesktopRevampNoFeatureShowcaseCompleted[] =
-        "identity-revamp-no-feature-showcase-first-run-completed";
-constexpr char kHatsSurveyTriggerPreFirstRunDesktopRefreshCompleted[] =
-    "identity-pre-first-run-desktop-refresh-completed";
-constexpr char
-    kHatsSurveyTriggerPreFirstRunDesktopRefreshNoFeatureShowcaseCompleted[] =
-        "identity-pre-first-run-desktop-refresh-no-feature-showcase-completed";
-constexpr char kHatsSurveyTriggerIdentitySigninInterceptProfileSeparation[] =
-    "identity-signin-intercept-profile-separation";
-constexpr char kHatsSurveyTriggerIdentitySigninPromoBubbleDismissed[] =
-    "identity-signin-promo-bubble-dismissed";
-constexpr char kHatsSurveyTriggerIdentitySwitchProfileFromProfileMenu[] =
-    "identity-switch-profile-profile-menu";
-constexpr char kHatsSurveyTriggerIdentitySwitchProfileFromProfilePicker[] =
-    "identity-switch-profile-profile-picker";
-constexpr char kHatsSurveyTriggerLensOverlayResults[] = "lens-overlay-results";
-constexpr char kHatsSurveyTriggerNtpModules[] = "ntp-modules";
-constexpr char kHatsSurveyTriggerNextPanel[] = "next-panel";
-constexpr char kHatsSurveyTriggerNtpPhotosModuleOptOut[] =
-    "ntp-photos-module-opt-out";
-constexpr char kHatsSurveyTriggerPerformanceControlsPPM[] = "performance-ppm";
-// The permission prompt trigger permits configuring multiple triggers
-// simultaneously. Each trigger increments a counter at the end -->
-// "permission-prompt0", "permission-prompt1", ...
-constexpr char kHatsSurveyTriggerPrivacyGuide[] = "privacy-guide";
-constexpr char kHatsSurveyTriggerRedWarning[] = "red-warning";
-constexpr char kHatsSurveyTriggerSettings[] = "settings";
-constexpr char kHatsSurveyTriggerSEHijacking[] = "search-engine-hijacking";
-constexpr char kHatsSurveyTriggerSettingsPrivacy[] = "settings-privacy";
-constexpr char kHatsSurveyTriggerSettingsSecurity[] = "settings-security";
-constexpr char kHatsSurveyTriggerSettingsSecurityV2[] = "settings-security-v2";
-constexpr char kHatsSurveyTriggerTrustSafetyPrivacySettings[] =
-    "ts-privacy-settings";
-constexpr char kHatsSurveyTriggerTrustSafetyTrustedSurface[] =
-    "ts-trusted-surface";
-constexpr char kHatsSurveyTriggerTrustSafetyTransactions[] = "ts-transactions";
-constexpr char kHatsSurveyTriggerWhatsNew[] = "whats-new";
-constexpr char kHatsSurveyTriggerReadingModeExit[] = "reading-mode-exit";
-constexpr char kHatsSurveyTriggerTrustSafetyV2BrowsingData[] =
-    "ts-v2-browsing-data";
-constexpr char kHatsSurveyTriggerTrustSafetyV2ControlGroup[] =
-    "ts-v2-control-group";
-constexpr char kHatsSurveyTriggerTrustSafetyV2DownloadWarningUI[] =
-    "ts-v2-download-warning-ui";
-constexpr char kHatsSurveyTriggerTrustSafetyV2PasswordCheck[] =
-    "ts-v2-password-check";
-constexpr char kHatsSurveyTriggerTrustSafetyV2PasswordProtectionUI[] =
-    "ts-v2-password-protection-ui";
-constexpr char kHatsSurveyTriggerTrustSafetyV2SafetyCheck[] =
-    "ts-v2-safety-check";
-constexpr char kHatsSurveyTriggerTrustSafetyV2SafetyHubNotification[] =
-    "ts-v2-safety-hub-notification";
-constexpr char kHatsSurveyTriggerTrustSafetyV2SafetyHubInteraction[] =
-    "ts-v2-safety-hub-interaction";
-constexpr char kHatsSurveyTriggerTrustSafetyV2TrustedSurface[] =
-    "ts-v2-trusted-surface";
-constexpr char kHatsSurveyTriggerTrustSafetyV2PrivacyGuide[] =
-    "ts-v2-privacy-guide";
-constexpr char kHatsSurveyTriggerTrustSafetyV2SafeBrowsingInterstitial[] =
-    "ts-v2-safe-browsing-interstitial";
-constexpr char kHatsSurveyTriggerWallpaperSearch[] = "wallpaper-search";
-
-#else   // BUILDFLAG(IS_ANDROID)
-constexpr char kHatsSurveyTriggerAndroidStartupSurvey[] = "startup_survey";
-constexpr char kHatsSurveyTriggerRedWarningAndroid[] = "red-warning-android";
-constexpr char kHatsSurveyTriggerSigninFirstRun[] = "signin-first-run";
-constexpr char kHatsSurveyTriggerSigninWeb[] = "signin-web";
-constexpr char kHatsSurveyTriggerSigninNtpSigninButton[] =
-    "signin-ntp-signin-button";
-constexpr char kHatsSurveyTriggerSigninNtpAccountAvatarTap[] =
-    "signin-ntp-account-avatar-tap";
-constexpr char kHatsSurveyTriggerSigninNtpPromo[] = "signin-ntp-promo";
-constexpr char kHatsSurveyTriggerSigninBookmarkPromo[] =
-    "signin-bookmark-promo";
-constexpr char kHatsSurveyTriggerSuspiciousSiteWarning[] =
-    "suspicious-site-warning";
-#endif  // #if !BUILDFLAG(IS_ANDROID)
-
-#if BUILDFLAG(ENABLE_COMPOSE)
-constexpr char kHatsSurveyTriggerComposeAcceptance[] = "compose-acceptance";
-constexpr char kHatsSurveyTriggerComposeClose[] = "compose-close";
-constexpr char kHatsSurveyTriggerComposeNudgeClose[] = "compose-nudge-close";
-#endif  // BUILDFLAG(ENABLE_COMPOSE)
-
-constexpr char kHatsHistogramPrefix[] = "Feedback.HappinessTrackingSurvey.";
-
-constexpr char kHatsSurveyTriggerTesting[] = "testing";
-constexpr char kHatsNextSurveyTriggerIDTesting[] =
-    "HLpeYy5Av0ugnJ3q1cK0XzzA8UHv";
-
-constexpr char kHatsSurveyTriggerAutofillAiFilling[] = "autofill-ai-filling";
-constexpr char kHatsSurveyTriggerPermissionsPrompt[] = "permissions-prompt";
-constexpr char kHatsSurveyTriggerOnFocusZpsSuggestionsHappiness[] =
-    "omnibox-on-focus-happiness";
-constexpr char kHatsSurveyTriggerOnFocusZpsSuggestionsUtility[] =
-    "omnibox-on-focus-utility";
-
-#if BUILDFLAG(ENABLE_PDF_SAVE_TO_DRIVE)
-constexpr char kHatsSurveyConsumerTriggerPdfSaveToDrive[] =
-    "save-to-drive-consumer";
-constexpr char kHatsSurveyEnterpriseTriggerPdfSaveToDrive[] =
-    "save-to-drive-enterprise";
-#endif  // BUILDFLAG(ENABLE_PDF_SAVE_TO_DRIVE)
-
 namespace {
 
+constexpr char kHatsHistogramPrefix[] = "Feedback.HappinessTrackingSurvey.";
 constexpr char kHatsSurveyProbability[] = "probability";
 constexpr char kHatsSurveyEnSiteID[] = "en_site_id";
 constexpr char kHatsSurveyHistogramName[] = "hats_histogram_name";
@@ -479,19 +306,6 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
 
   // Autofill surveys.
   survey_configs.emplace_back(
-      &::autofill::features::kAutofillAddressUserPerceptionSurvey,
-      kHatsSurveyTriggerAutofillAddressUserPerception,
-      /*presupplied_trigger_id=*/std::nullopt, std::vector<std::string>{},
-      std::vector<std::string>{
-          "Accepted fields", "Corrected to same type",
-          "Corrected to a different type", "Corrected to an unknown type",
-          "Corrected to empty", "Manually filled to same type",
-          "Manually filled to a different type",
-          "Manually filled to an unknown type", "Total corrected",
-          "Total filled", "Total unfilled", "Total manually filled",
-          "Total number of fields"});
-
-  survey_configs.emplace_back(
       &::autofill::features::kAutofillAiSavePromptSurvey,
       kHatsSurveyTriggerAutofillAiSavePrompt,
       /*presupplied_trigger_id=*/std::nullopt, std::vector<std::string>{},
@@ -507,22 +321,11 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
       kHatsSurveyTriggerAutofillAddressUserDeclinedSave);
 
   survey_configs.emplace_back(
-      &::autofill::features::kAutofillCreditCardUserPerceptionSurvey,
-      kHatsSurveyTriggerAutofillCreditCardUserPerception,
-      /*presupplied_trigger_id=*/std::nullopt, std::vector<std::string>{},
-      std::vector<std::string>{
-          "Accepted fields", "Corrected to same type",
-          "Corrected to a different type", "Corrected to an unknown type",
-          "Corrected to empty", "Manually filled to same type",
-          "Manually filled to a different type",
-          "Manually filled to an unknown type", "Total corrected",
-          "Total filled", "Total unfilled", "Total manually filled",
-          "Total number of fields"});
-  survey_configs.emplace_back(
       &password_manager::features::kAutofillPasswordUserPerceptionSurvey,
       kHatsSurveyTriggerAutofillPasswordUserPerception,
       /*presupplied_trigger_id=*/std::nullopt, std::vector<std::string>{},
       std::vector<std::string>{"Filling assistance"});
+
   survey_configs.emplace_back(&features::kAutofillAddressSurvey,
                               kHatsSurveyTriggerAutofillAddress);
   survey_configs.emplace_back(&features::kAutofillCardSurvey,
@@ -864,11 +667,34 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
       metrics::kHatsSurveyTriggerClearBrowsingHistory,
       /*presupplied_trigger_id=*/"R8iDTcjjT0ugnJ3q1cK0TiRRjjy4");
 
+  survey_configs.emplace_back(
+      &metrics::kHappinessTrackingSurveysForCustomizeChromeJourney,
+      metrics::kHatsSurveyTriggerCustomizeChromeJourney,
+      /*presupplied_trigger_id=*/"nJLJ12m7C0ugnJ3q1cK0VCq4ZXpB");
+
+  survey_configs.emplace_back(
+      &metrics::kHappinessTrackingSurveysForReadAnythingJourney,
+      metrics::kHatsSurveyTriggerReadAnythingJourney,
+      /*presupplied_trigger_id=*/"rmkq5NvrA0ugnJ3q1cK0SNirMLq1");
+
+  survey_configs.emplace_back(
+      &metrics::kHappinessTrackingSurveysForTabSearchJourney,
+      metrics::kHatsSurveyTriggerTabSearchJourney,
+      /*presupplied_trigger_id=*/"AD85aHvUu0ugnJ3q1cK0UCSRt6XZ");
+
   // Lens overlay surveys.
   survey_configs.emplace_back(
       &lens::features::kLensOverlaySurvey, kHatsSurveyTriggerLensOverlayResults,
       /*presupplied_trigger_id=*/std::nullopt, std::vector<std::string>{},
       std::vector<std::string>{"ID that's tied to your Google Lens session"});
+
+  // Contextual cueing surveys.
+  survey_configs.emplace_back(
+      &contextual_cueing::kHappinessTrackingSurveysForContextualCueingDismissed,
+      kHatsSurveyTriggerContextualCueingDismissed,
+      /*presupplied_trigger_id=*/std::nullopt,
+      /*product_specific_bits_data_fields=*/std::vector<std::string>{},
+      /*product_specific_string_data_fields=*/std::vector<std::string>{"CUJ"});
 
 #else  // BUILDFLAG(IS_ANDROID)
   survey_configs.emplace_back(&chrome::android::kChromeSurveyNextAndroid,
@@ -935,13 +761,43 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
                                "referring_app"});
 #endif  // #if !BUILDFLAG(IS_ANDROID)
 
+  const std::vector<std::string>
+      autofill_personalization_and_trust_product_specific_data = {
+          // Comma-separated list of all field types in the submitted form. The
+          // types are sent in canonical order with duplicates removed.
+          "All field types",
+
+          "Total number of fields in form",
+          "Number of correctly filled fields",
+          "Number of fields that were submitted empty without filling",
+          "Number of fields that were modified after filling",
+          "Number of fields that were cleared after filling",
+          "Number of fields that were manually filled without filling",
+
+          // Comma-separated list of the filling products that were used on the
+          // fields of the submitted form. The list is in canonical order with
+          // duplicates removed.
+          "Filling products used",
+          // For each filling using AutofillAi, the kind of record that was used
+          // (local, wallet, personal context).
+          "AutofillAi entity record types used",
+          // For each filling using AutofillAi, the entity type that was filled.
+          "AutofillAi entity types used",
+          // Time between form submission and the last Autofill use, in seconds.
+          "Time since last Autofill use",
+      };
   survey_configs.emplace_back(
-      &::autofill::features::kAutofillAiFillingSurvey,
-      kHatsSurveyTriggerAutofillAiFilling,
+      &::autofill::features::kAutofillPersonalizationAndTrustAddressSurvey,
+      kHatsSurveyTriggerAutofillPersonalizationAndTrustAddressFilled,
       /*presupplied_trigger_id=*/std::nullopt,
-      std::vector<std::string>{"User accepted suggestion"},
-      std::vector<std::string>{"Entity type", "Triggering field types",
-                               "Saved entities"});
+      /*product_specific_bits_data_fields=*/std::vector<std::string>{},
+      autofill_personalization_and_trust_product_specific_data);
+  survey_configs.emplace_back(
+      &::autofill::features::kAutofillPersonalizationAndTrustAutofillAiSurvey,
+      kHatsSurveyTriggerAutofillPersonalizationAndTrustAutofillAiFilled,
+      /*presupplied_trigger_id=*/std::nullopt,
+      /*product_specific_bits_data_fields=*/std::vector<std::string>{},
+      autofill_personalization_and_trust_product_specific_data);
 
   survey_configs.emplace_back(
       &omnibox_feature_configs::HappinessTrackingSurveyForOmniboxOnFocusZps::

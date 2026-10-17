@@ -8,12 +8,14 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <concepts>
 #include <memory>
 #include <optional>
 #include <set>
 #include <string>
 #include <utility>
 
+#include "base/check.h"
 #include "base/containers/flat_set.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_forward.h"
@@ -236,6 +238,7 @@ class CONTENT_EXPORT RenderProcessHostImpl
   void set_main_host();
   static RenderProcessHostImpl* main_host();
   // RenderProcessHost implementation (public portion).
+  bool IsMock() const override;
   bool Init() override;
   void EnableSendQueue() override;
   int GetNextRoutingID() override;
@@ -445,11 +448,6 @@ class CONTENT_EXPORT RenderProcessHostImpl
   // list.
   static void RegisterHost(ChildProcessId host_id, RenderProcessHost* host);
   static void UnregisterHost(ChildProcessId host_id);
-
-  // TODO(crbug.com/379869738): Deprecated, please use the ChildProcessId
-  // version above.
-  static void RegisterHost(int host_id, RenderProcessHost* host);
-  static void UnregisterHost(int host_id);
 
   // "Keep alive ref count" represents the number of the customers of this
   // render process who wish the renderer process to be alive. While the ref
@@ -840,7 +838,7 @@ class CONTENT_EXPORT RenderProcessHostImpl
   // StoragePartition associated with the render process host, and is used by
   // frames and service workers via BrowserInterfaceBroker.
   void CreateOneShotSyncService(
-      const url::Origin& origin,
+      const blink::StorageKey& storage_key,
       mojo::PendingReceiver<blink::mojom::OneShotBackgroundSyncService>
           receiver) override;
 
@@ -848,7 +846,7 @@ class CONTENT_EXPORT RenderProcessHostImpl
   // StoragePartition associated with the render process host, and is used by
   // frames and service workers via BrowserInterfaceBroker.
   void CreatePeriodicSyncService(
-      const url::Origin& origin,
+      const blink::StorageKey& storage_key,
       mojo::PendingReceiver<blink::mojom::PeriodicBackgroundSyncService>
           receiver) override;
 
@@ -1510,11 +1508,6 @@ class CONTENT_EXPORT RenderProcessHostImpl
   // A set of flags that influence RenderProcessHost behavior.
   int flags_;
 
-  // Indicates whether this RenderProcessHost is unused, meaning that it has
-  // not committed any web content, and it has not been given to a SiteInstance
-  // that has a site assigned.
-  bool is_unused_ = true;
-
   // Set if a call to Cleanup is required once the RenderProcessHostImpl is no
   // longer within the RenderProcessHostObserver::RenderProcessExited callbacks.
   bool delayed_cleanup_needed_ = false;
@@ -1731,6 +1724,19 @@ class CONTENT_EXPORT RenderProcessHostImpl
   // doesn't get reset until this RenderProcessHost object is actually deleted.
   base::WeakPtrFactory<RenderProcessHostImpl> safe_ref_factory_{this};
 };
+
+// Downcasts `rph` to a RenderProcessHostImpl. Every RenderProcessHost in
+// //content is one except MockRenderProcessHost, which derives straight from
+// the public interface, so this CHECKs rather than letting a test fake through
+// as undefined behavior.
+template <typename T>
+  requires std::derived_from<T, RenderProcessHostImpl>
+T* To(RenderProcessHost* rph) {
+  // Null passes through, like the static_cast this stands in for.
+  CHECK(!rph || !rph->IsMock())
+      << "A test fake cannot be cast to RenderProcessHostImpl";
+  return static_cast<T*>(rph);
+}
 
 }  // namespace content
 

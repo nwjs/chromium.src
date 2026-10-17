@@ -9,6 +9,7 @@
 #include "base/test/gtest_util.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
+#include "components/version_info/version_info.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace ash::app_time {
@@ -34,27 +35,33 @@ TEST_F(ActiveTimeTest, CreateActiveTime) {
   EXPECT_EQ(start, active_time.active_from());
   EXPECT_EQ(end, active_time.active_to());
 
-  // Try to create ActiveTime with invalid ranges.
-  EXPECT_DCHECK_DEATH(AppActivity::ActiveTime(start, start));
-  EXPECT_DCHECK_DEATH(AppActivity::ActiveTime(end, start));
+  if (DCHECK_IS_ON() || version_info::GetMajorVersionNumberAsInt() >= 160) {
+    // Try to create ActiveTime with invalid ranges.
+    EXPECT_CHECK_DEATH(AppActivity::ActiveTime(start, start));
+    EXPECT_CHECK_DEATH(AppActivity::ActiveTime(end, start));
+  }
 }
 
 TEST_F(ActiveTimeTest, UpdateActiveTime) {
+  if (!DCHECK_IS_ON() && version_info::GetMajorVersionNumberAsInt() < 160) {
+    GTEST_SKIP() << "Not fatal until M160 in non-DCHECK builds";
+  }
+
   AppActivity::ActiveTime active_time(
       TimeFromString("11 Jan 2020 10:00:00 PST"),
       TimeFromString("11 Jan 2020 10:10:00 PST"));
   const base::Time& start_equal_end = active_time.active_to();
-  EXPECT_DCHECK_DEATH(active_time.set_active_from(start_equal_end));
+  EXPECT_CHECK_DEATH(active_time.set_active_from(start_equal_end));
 
   const base::Time start_after_end = active_time.active_to() + base::Seconds(1);
-  EXPECT_DCHECK_DEATH(active_time.set_active_from(start_after_end));
+  EXPECT_CHECK_DEATH(active_time.set_active_from(start_after_end));
 
   const base::Time& end_equal_start = active_time.active_from();
-  EXPECT_DCHECK_DEATH(active_time.set_active_to(end_equal_start));
+  EXPECT_CHECK_DEATH(active_time.set_active_to(end_equal_start));
 
   const base::Time end_before_start =
       active_time.active_from() - base::Seconds(1);
-  EXPECT_DCHECK_DEATH(active_time.set_active_to(end_before_start));
+  EXPECT_CHECK_DEATH(active_time.set_active_to(end_before_start));
 }
 
 TEST_F(ActiveTimeTest, ActiveTimeTimestampComparisions) {

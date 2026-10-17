@@ -42,9 +42,9 @@
 #include "net/cert/cert_verifier.h"
 #include "net/cert/cert_verify_result.h"
 #include "net/cookies/cookie_setting_override.h"
+#include "net/disk_cache/buildflags.h"
 #include "net/dns/host_resolver.h"
 #include "net/dns/public/dns_config_overrides.h"
-#include "net/first_party_sets/first_party_set_metadata.h"
 #include "net/http/http_auth_preferences.h"
 #include "net/http/http_cache.h"
 #include "net/http/http_request_headers.h"
@@ -53,7 +53,6 @@
 #include "net/storage_access_api/status.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "services/network/cors/preflight_controller.h"
-#include "services/network/first_party_sets/first_party_sets_access_delegate.h"
 #include "services/network/http_cache_data_counter.h"
 #include "services/network/http_cache_data_remover.h"
 #include "services/network/logical_invalidation_store.h"
@@ -83,7 +82,6 @@
 #include "services/network/socket_factory.h"
 #include "services/network/url_request_context_owner.h"
 #include "services/network/web_bundle/web_bundle_manager.h"
-#include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 #include "url/gurl.h"
 
 #if BUILDFLAG(ENABLE_REPORTING)
@@ -438,7 +436,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
       mojo::PendingRemote<mojom::TrustedHeaderClient> header_client,
       const std::optional<base::UnguessableToken>& throttling_profile_id,
       const base::UnguessableToken& network_restrictions_id,
-      mojom::IPAddressSpace target_address_space) override;
+      mojom::IPAddressSpace target_address_space,
+      std::optional<int64_t> target_network) override;
   void CreateWebTransport(
       const GURL& url,
       const url::Origin& origin,
@@ -593,6 +592,12 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
       ClearSharedDictionaryCacheForIsolationKeyCallback callback) override;
   void ClearSharedDictionarySessionOnlyData(
       ClearSharedDictionarySessionOnlyDataCallback callback) override;
+#if BUILDFLAG(ENABLE_DISK_CACHE_SQL_BACKEND)
+  void RegisterHttpCacheClient(
+      const net::NetworkIsolationKey& key,
+      mojo::PendingRemote<network::mojom::SharedHttpCacheClientFactory>
+          shared_http_cache_client) override;
+#endif  // BUILDFLAG(ENABLE_DISK_CACHE_SQL_BACKEND)
   void GetSharedDictionaryUsageInfo(
       GetSharedDictionaryUsageInfoCallback callback) override;
   void GetSharedDictionaryInfo(
@@ -629,6 +634,9 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   void AddQuicHints(
       const std::vector<url::SchemeHostPort>& origins,
       const net::NetworkAnonymizationKey& network_anonymization_key) override;
+  void AddWildcardQuicHints(
+      std::vector<mojom::WildcardQuicHintPtr> hints) override;
+  void SetTryQuicByDefault(bool enable) override;
 
   void SetVariationsHeaders(
       variations::mojom::VariationsHeadersPtr variations_headers) override;
@@ -781,10 +789,6 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
     return cors_non_wildcard_request_headers_support_;
   }
 
-  FirstPartySetsAccessDelegate& first_party_sets_access_delegate() {
-    return first_party_sets_access_delegate_;
-  }
-
 #if BUILDFLAG(ENABLE_REPORTING)
   void AddReportingApiObserver(
       mojo::PendingRemote<network::mojom::ReportingApiObserver> observer)
@@ -850,11 +854,17 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
       net::handles::NetworkHandle bound_network);
   scoped_refptr<SessionCleanupCookieStore> MakeSessionCleanupCookieStore()
       const;
+
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  //
+  // LINT.IfChange(ClearHttpCacheMode)
   enum class ClearHttpCacheMode {
     kPhysical = 0,
     kLogical = 1,
     kMaxValue = kLogical,
   };
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/network/enums.xml:NetworkServiceClearHttpCacheMode)
 
   void ClearHttpCacheInternal(base::Time start_time,
                               base::Time end_time,
@@ -1014,8 +1024,6 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   using Receiver = mojo::Receiver<mojom::NetworkContext>;
   using DirectReceiver = mojo::DirectReceiver<mojom::NetworkContext>;
   std::variant<Receiver, DirectReceiver> receiver_;
-
-  FirstPartySetsAccessDelegate first_party_sets_access_delegate_;
 
   std::unique_ptr<CookieManager> cookie_manager_;
 

@@ -17,6 +17,7 @@
 #include "base/functional/function_ref.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/memory_pressure_listener.h"
+#include "base/memory_coordinator/memory_limit.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "base/trace_event/memory_dump_provider.h"
@@ -48,10 +49,10 @@ class GPU_GLES2_EXPORT ServiceTransferCache
   struct GPU_GLES2_EXPORT EntryKey {
     EntryKey(int decoder_id,
              cc::TransferCacheEntryType entry_type,
-             uint32_t entry_id);
+             uint64_t entry_id);
     int decoder_id;
     cc::TransferCacheEntryType entry_type;
-    uint32_t entry_id;
+    uint64_t entry_id;
   };
 
   ServiceTransferCache(const GpuPreferences& preferences,
@@ -77,10 +78,10 @@ class GPU_GLES2_EXPORT ServiceTransferCache
   // Memory coordinator interface:
   // Triggers immediate eviction of transfer cache entries down to
   // `memory_limit`.
-  void OnReleaseMemory(int memory_limit);
+  void OnReleaseMemory(base::MemoryLimit memory_limit);
   // Updates the target cache size limit non-destructively without forcing
   // immediate eviction.
-  void OnUpdateMemoryLimit(int memory_limit);
+  void OnUpdateMemoryLimit(base::MemoryLimit memory_limit);
 
   // base::trace_event::MemoryDumpProvider implementation.
   bool OnMemoryDump(const base::trace_event::MemoryDumpArgs& args,

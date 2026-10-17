@@ -24,6 +24,7 @@ import static org.mockito.Mockito.when;
 
 import static org.chromium.chrome.browser.url_constants.UrlConstantResolver.getOriginalNativeNtpUrl;
 
+import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
@@ -75,6 +76,7 @@ import org.chromium.chrome.browser.night_mode.ChromeNightModeTestUtils;
 import org.chromium.chrome.browser.omnibox.LocationBarBackgroundDrawable;
 import org.chromium.chrome.browser.omnibox.LocationBarCoordinator;
 import org.chromium.chrome.browser.omnibox.SearchEngineService;
+import org.chromium.chrome.browser.omnibox.status.StatusProperties.StatusIconResource;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
@@ -485,7 +487,6 @@ public class ToolbarPhoneTest {
     @MediumTest
     @DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
     public void testOptionalButton_NotDrawnWhenNotVisible() {
-
         Drawable drawable =
                 AppCompatResources.getDrawable(
                         mActivityTestRule.getActivity(), R.drawable.ic_toolbar_share_offset_24dp);
@@ -531,7 +532,6 @@ public class ToolbarPhoneTest {
     @MediumTest
     @DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
     public void testOptionalButton_DrawnWhenVisible() {
-
         Drawable drawable =
                 AppCompatResources.getDrawable(
                         mActivityTestRule.getActivity(), R.drawable.ic_toolbar_share_offset_24dp);
@@ -762,6 +762,20 @@ public class ToolbarPhoneTest {
     @Test
     @MediumTest
     public void testGetLocationBarOffsetForFocusAnimation() {
+        // The NTP observes the AI Mode entry point config and icon, so the mock must supply them.
+        // Suppliers are bound to the thread they're created on, so create them on the UI thread.
+        doReturn(ThreadUtils.runOnUiThreadBlocking(() -> ObservableSuppliers.createNullable()))
+                .when(mSearchEngineService)
+                .getAiModeButtonUiConfigSupplier();
+        doReturn(
+                        ThreadUtils.runOnUiThreadBlocking(
+                                () ->
+                                        ObservableSuppliers.createNonNull(
+                                                new StatusIconResource(
+                                                        R.drawable.ic_search_spark_24dp,
+                                                        Resources.ID_NULL))))
+                .when(mSearchEngineService)
+                .getAiModeButtonIconSupplier();
         SearchEngineService.setInstanceForTesting(mSearchEngineService);
 
         // Test focus on non-NTP pages.

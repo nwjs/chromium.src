@@ -63,19 +63,18 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profiles_state.h"
-#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/ash/multi_user/multi_user_util.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/webui/ash/cloud_upload/cloud_upload_dialog.h"
 #include "chrome/browser/ui/webui/ash/cloud_upload/cloud_upload_util.h"
-#include "chrome/common/extensions/api/file_manager_private.h"
-#include "chrome/common/extensions/api/file_manager_private_internal.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/browser_delegate/browser_delegate.h"
 #include "chromeos/ash/components/drivefs/drivefs_pinning_manager.h"
 #include "chromeos/ash/components/settings/timezone_settings.h"
 #include "chromeos/ash/experiences/arc/arc_prefs.h"
+#include "chromeos/ash/experiences/extensions/common/api/file_manager_private.h"
+#include "chromeos/ash/experiences/extensions/common/api/file_manager_private_internal.h"
 #include "chromeos/ash/experiences/settings_ui/settings_app_manager.h"
 #include "components/account_id/account_id.h"
 #include "components/drive/drive_pref_names.h"
@@ -120,7 +119,7 @@ AppWindow* GetCurrentAppWindow(ExtensionFunction* function) {
 }
 
 std::vector<ProfileInfo> GetLoggedInProfileInfoList() {
-  DCHECK(user_manager::UserManager::IsInitialized());
+  CHECK(user_manager::UserManager::IsInitialized(), base::NotFatalUntil::M160);
   const std::vector<Profile*>& profiles =
       g_browser_process->profile_manager()->GetLoadedProfiles();
   std::set<Profile*> original_profiles;
@@ -162,8 +161,8 @@ bool ConvertURLsToProvidedInfo(
     fsp::ProvidedFileSystemInterface** file_system,
     std::vector<base::FilePath>* paths,
     std::string* error) {
-  DCHECK(file_system);
-  DCHECK(error);
+  CHECK(file_system, base::NotFatalUntil::M160);
+  CHECK(error, base::NotFatalUntil::M160);
 
   if (urls.empty()) {
     *error = "At least one file must be specified.";
@@ -316,9 +315,9 @@ FileManagerPrivateGetPreferencesFunction::Run() {
 
   fmp::Preferences result;
   Profile* const profile = Profile::FromBrowserContext(browser_context());
-  DCHECK(profile);
+  CHECK(profile, base::NotFatalUntil::M160);
   const PrefService* const prefs = profile->GetPrefs();
-  DCHECK(prefs);
+  CHECK(prefs, base::NotFatalUntil::M160);
   drive::DriveIntegrationService* const service =
       drive::DriveIntegrationServiceFactory::FindForProfile(profile);
 
@@ -649,7 +648,7 @@ FileManagerPrivateConfigureVolumeFunction::Run() {
   using file_manager::VolumeManager;
   VolumeManager* const volume_manager =
       VolumeManager::Get(Profile::FromBrowserContext(browser_context()));
-  DCHECK(volume_manager);
+  CHECK(volume_manager, base::NotFatalUntil::M160);
 
   std::string volume_id = params->volume_id;
   volume_manager->ConvertFuseBoxFSPVolumeIdToFSPIfNeeded(&volume_id);
@@ -669,7 +668,7 @@ FileManagerPrivateConfigureVolumeFunction::Run() {
     case file_manager::VOLUME_TYPE_PROVIDED: {
       using fsp::Service;
       Service* const service = Service::Get(browser_context());
-      DCHECK(service);
+      CHECK(service, base::NotFatalUntil::M160);
 
       using fsp::ProvidedFileSystemInterface;
       ProvidedFileSystemInterface* const file_system =
@@ -714,6 +713,8 @@ FileManagerPrivateMountCrostiniFunction::Run() {
   // files into Linux files should still work.
   Profile* profile =
       Profile::FromBrowserContext(browser_context())->GetOriginalProfile();
+  // TODO(crbug.com/568472035): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
   DCHECK(crostini::CrostiniFeatures::Get()->IsEnabled(profile));
   crostini::CrostiniManager::GetForProfile(profile)->RestartCrostini(
       crostini::DefaultContainerId(),
@@ -733,7 +734,8 @@ void FileManagerPrivateMountCrostiniFunction::RestartCallback(
   // files into Linux files should still work.
   Profile* profile =
       Profile::FromBrowserContext(browser_context())->GetOriginalProfile();
-  DCHECK(crostini::CrostiniFeatures::Get()->IsEnabled(profile));
+  CHECK(crostini::CrostiniFeatures::Get()->IsEnabled(profile),
+        base::NotFatalUntil::M160);
   crostini::CrostiniManager::GetForProfile(profile)->MountCrostiniFiles(
       crostini::DefaultContainerId(),
       base::BindOnce(&FileManagerPrivateMountCrostiniFunction::MountCallback,
@@ -924,7 +926,7 @@ FileManagerPrivateInternalGetCustomActionsFunction::Run() {
     return RespondNow(Error(error));
   }
 
-  DCHECK(file_system);
+  CHECK(file_system, base::NotFatalUntil::M160);
   file_system->GetActions(
       paths,
       base::BindOnce(
@@ -975,7 +977,7 @@ FileManagerPrivateInternalExecuteCustomActionFunction::Run() {
     return RespondNow(Error(error));
   }
 
-  DCHECK(file_system);
+  CHECK(file_system, base::NotFatalUntil::M160);
   file_system->ExecuteAction(
       paths, params->action_id,
       base::BindOnce(
@@ -1091,7 +1093,7 @@ void FileManagerPrivateInternalGetRecentFilesFunction::
     OnConvertFileDefinitionListToEntryDefinitionList(
         std::unique_ptr<file_manager::util::EntryDefinitionList>
             entry_definition_list) {
-  DCHECK(entry_definition_list);
+  CHECK(entry_definition_list, base::NotFatalUntil::M160);
 
   // Remove all directories entries.
   std::erase_if(*entry_definition_list,

@@ -162,6 +162,18 @@ BASE_EXPORT bool PreventExecuteMappingUnchecked(
 BASE_EXPORT void SetExtraNoExecuteAllowedPath(int path_key);
 #endif  // BUILDFLAG(IS_WIN)
 
+#if BUILDFLAG(IS_MAC)
+enum class DarwinUserDirectory {
+  kUser,
+  kUserCache,
+  kUserTemp,
+};
+
+// Returns the canonicalized path of a Darwin user directory, or empty FilePath
+// on failure.
+BASE_EXPORT FilePath GetDarwinUserDirectory(DarwinUserDirectory directory);
+#endif  // BUILDFLAG(IS_MAC)
+
 // Moves the given path, whether it's a file or a directory.
 // If a simple rename is not possible, such as in the case where the paths are
 // on different volumes, this will attempt to copy and delete. Returns
@@ -220,11 +232,15 @@ BASE_EXPORT bool CopyDirectory(const FilePath& from_path,
                                const FilePath& to_path,
                                bool recursive);
 
-// Like CopyDirectory() except trying to overwrite an existing file will not
-// work and will return false.
-BASE_EXPORT bool CopyDirectoryExcl(const FilePath& from_path,
-                                   const FilePath& to_path,
-                                   bool recursive);
+#if BUILDFLAG(IS_POSIX)
+// Same as `CopyDirectory()` above, except returns false when symlinks and
+// non-regular files are encountered. Directory traversal is performed using
+// file descriptors with `O_NOFOLLOW` to prevent TOCTOU symlink traversal
+// attacks.
+BASE_EXPORT bool CopyDirectoryNoFollow(const FilePath& from_path,
+                                       const FilePath& to_path,
+                                       bool recursive);
+#endif  // BUILDFLAG(IS_POSIX)
 
 // Returns true if the given path exists on the local filesystem,
 // false otherwise.

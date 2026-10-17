@@ -114,11 +114,11 @@ if (is_android) {
   android_library("java") {
     srcjar_deps = [ ":jni_headers" ]
     sources = [
-      "java/src/org/chromium/chrome/browser/history/AppFilterCoordinator.java",
-      "java/src/org/chromium/chrome/browser/history/AppFilterMediator.java",
-      "java/src/org/chromium/chrome/browser/history/AppFilterProperties.java",
-      "java/src/org/chromium/chrome/browser/history/AppFilterSheetContent.java",
-      "java/src/org/chromium/chrome/browser/history/AppFilterViewBinder.java",
+      "java/src/org/chromium/chrome/browser/history/FilterSheetContent.java",
+      "java/src/org/chromium/chrome/browser/history/FilterSheetCoordinator.java",
+      "java/src/org/chromium/chrome/browser/history/FilterSheetMediator.java",
+      "java/src/org/chromium/chrome/browser/history/FilterSheetProperties.java",
+      "java/src/org/chromium/chrome/browser/history/FilterSheetViewBinder.java",
       "java/src/org/chromium/chrome/browser/history/HistoryTabHelper.java",
     ]
 
@@ -143,8 +143,8 @@ if (is_android) {
 
   android_resources("java_resources") {
     sources = [
-      "java/res/layout/appfilter_content.xml",
-      "java/res/layout/appfilter_header.xml",
+      "java/res/layout/filter_sheet_content.xml",
+      "java/res/layout/filter_sheet_header.xml",
     ]
     deps = [
       "//chrome/browser/ui/android/strings:ui_strings_grd",
@@ -152,30 +152,23 @@ if (is_android) {
     ]
   }
 
-  android_library("unit_device_javatests") {
-    testonly = true
+  robolectric_library("junit") {
     resources_package = "org.chromium.chrome.browser.history"
 
-    sources = [ "java/src/org/chromium/chrome/browser/history/AppFilterCoordinatorTest.java" ]
+    sources = [ "java/src/org/chromium/chrome/browser/history/FilterSheetCoordinatorTest.java" ]
 
     deps = [
       ":java",
       ":java_resources",
       "//base:base_java",
-      "//base:base_java_test_support",
-      "//chrome/browser/flags:java",
-      "//chrome/test/android:chrome_java_unit_test_support",
-      "//components/browser_ui/bottomsheet/android:factory_java",
+      "//base:base_junit_test_support",
+      "//chrome/android:chrome_app_java_resources",
       "//components/browser_ui/bottomsheet/android:java",
-      "//components/browser_ui/bottomsheet/android:manager_java",
-      "//components/browser_ui/desktop_windowing/android:java",
-      "//components/browser_ui/widget/android:java",
-      "//content/public/test/android:content_java_test_support",
-      "//third_party/androidx:androidx_test_monitor_java",
-      "//third_party/androidx:androidx_test_rules_java",
-      "//third_party/androidx:androidx_test_runner_java",
+      "//components/browser_ui/theme/android:java_resources",
+      "//third_party/androidx:androidx_test_core_java",
+      "//third_party/androidx:androidx_test_ext_junit_java",
       "//third_party/junit",
-      "//ui/android:ui_java",
+      "//third_party/mockito:mockito_java",
       "//ui/android:ui_java_test_support",
     ]
   }
@@ -212,6 +205,7 @@ source_set("unit_tests") {
     "//chrome/browser/actor:test_support",
     "//chrome/common:chrome_features",
     "//chrome/test:test_support",
+    "//chrome/test/base:chrome_render_view_host_test_harness",
     "//components/history/core/browser",
     "//content/public/browser",
     "//content/test:test_support",
@@ -254,12 +248,14 @@ if (!is_android) {
       "//chrome/browser/search_engines",
       "//chrome/browser/sync/test/integration:sync_integration_test_support",
       "//chrome/browser/ui",
+      "//chrome/browser/ui:browser_commands",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui:view_ids",
       "//chrome/browser/ui/browser_window",
       "//chrome/common",
       "//chrome/test:test_support",
       "//chrome/test:test_support_ui",
+      "//chrome/test/base:browser_test_waiters",
       "//components/actor/core",
       "//components/history/core/browser",
       "//components/history/core/common",

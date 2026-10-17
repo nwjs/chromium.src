@@ -48,6 +48,7 @@ Nəzərə alın ki:
 <translation id="1784567647421309104">Parollarınızı Chrome-da yadda saxlayın</translation>
 <translation id="1790080846677398234">Daxil edilən URL-ləri Chrome-dakı əlfəcinlərinizə əlavə edir.</translation>
 <translation id="1799920918471566157">Chrome ipucuları</translation>
+<translation id="1802420021606590788">Chrome səhifə başlıqlarını və URL-ləri buludda şəxsi sahədə emal edir</translation>
 <translation id="1830634592642484976">Bu ünvan hazırda Chrome-da yadda saxlanır. Google məhsullarında istifadə etmək üçün Google Hesabında (<ph name="USER_EMAIL" />) yadda saxlayın.</translation>
 <translation id="1891812034154776216">Chrome-dan çıxdığınız zaman açıq Anonim tabları gizlədin</translation>
 <translation id="1894434821386148799">Burada Chrome ayarlarını və s. görə bilərsiniz</translation>
@@ -140,6 +141,7 @@ Bəzilərini silənə qədər yeni əlfəcinləri hesabınızda yadda saxlamaq o
 <translation id="3984746313391923992">Təşkilatınız Chrome'dan çıxmış vəziyyətdə qalmağınızı tələb edir.</translation>
 <translation id="3988789688219830639">Google Chrome məhsulunun foto və videolarınıza girişi yoxdur. iOS Ayarları &gt; Məxfilik &gt; Fotolar bölməsindən girişi aktiv edin.</translation>
 <translation id="4064699917955374540">Google Hesabında Chrome datasını istifadə etmək və saxlamaq üçün kimliyinizi təsdiq edin.</translation>
+<translation id="4093789416346364876">Axtarış etdiyiniz hər yerdə Gemini-dan statistik məlumatlar əldə etmək üçün Chrome-u defolt brauzer edin</translation>
 <translation id="411154422556990518">Qiymət izləmə yeniləmələri və Chrome məsləhətləri ilə belə də davam edin.</translation>
 <translation id="417201473131094001">Chrome Canary'də dəstəklənmir</translation>
 <translation id="424864128008805179">Chrome'dan çıxılsın?</translation>
@@ -268,6 +270,7 @@ Chrome təcrübənizi təkmilləşdirmək məqsədilə data istifadə edən dig�
 <translation id="7061455974939528301">Chrome ikonasına basıb saxlayın və "Əsas ekranı redaktə edin" üzərinə klikləyin</translation>
 <translation id="7095110968493193530"><ph name="EMAIL" /> üçün Google Parol Menecerinə</translation>
 <translation id="7124339256045485976">Chrome'u yeni saxlayın</translation>
+<translation id="7135936755418321901">Məkanınızı veb-saytlarla paylaşmaq üçün Ayarlara toxunaraq Chrome-un məkanınızdan istifadə etməsinə icazə verin.</translation>
 <translation id="7145599899567697473">Chrome-da parolları yadda saxlayın və avtomatik doldurun</translation>
 <translation id="7161390184744336561">Google Chrome köhnəlib</translation>
 <translation id="7165736900384873061">Google Chrome QR skanerini istifadə etməyə başlayın</translation>
@@ -282,6 +285,7 @@ Chrome təcrübənizi təkmilləşdirmək məqsədilə data istifadə edən dig�
 <translation id="7272930098487145294">Şəkilləri yadda saxlamaq üçün, Ayarlara toxunaraq Chrome'a fotolarınıza əlavə etmək icazəsi verin</translation>
 <translation id="7275945473750112644">Hesabınız <ph name="HOSTED_DOMAIN" /> tərəfindən idarə edildiyinə görə Chrome datanız bu cihazdan silinəcək</translation>
 <translation id="7284245284340063465">Parol ifadəsini unutsanız, yaxud bu ayarı dəyişmək istəsəniz, <ph name="BEGIN_LINK" />hesabda Chrome datasını silin<ph name="END_LINK" />.</translation>
+<translation id="7287957555760192025">Təklifi seçsəniz və ya nəzərə almasanız, Chrome gələcəkdə sizə daha uyğun təkliflər göstərmək üçün uyğunlaşacaq.</translation>
 <translation id="7296102444587051536">iOS üçün Chrome</translation>
 <translation id="7299681342915173313">E-məktub, sənəd və digər tətbiqlərdə linklərə toxunduqda Chrome istifadə edə bilərsiniz.</translation>
 <translation id="7334364820047587268">Google Parol Menecerində bu hesabların parolları var. Aşağıdakı parollardan birini import etməyi seçsəniz, mövcud olan əvəzlənəcək.</translation>
@@ -355,6 +359,7 @@ Data <ph name="TIME" /> tarixində parol ifadəsi ilə şifrələnib. Google Hes
 <translation id="8544583291890527417">Chrome-un aşkar etdiyi hər hansı məxfilik və ya güvənlik məsələləri ilə bağlı xəbərdarlıq edir.</translation>
 <translation id="855027533751209304">Chrome ipucusu: Gördüyünüzü axtarın</translation>
 <translation id="8558480467877843976">İndi istənilən vaxt axtarış edərkən və ya mesajlar, sənədlər və digər tətbiqlərdə keçidlərə toxunduqda Chrome'u istifadə edə bilərsiniz.</translation>
+<translation id="8589791109349384456">Təkliflərin deaktiv edilməsi Chrome-un digər funksiyalar üçün səhifə başlıqlarını və URL-ləri emal etməsinə nəzarət etmir. Bu dataya girişi <ph name="BEGIN_LINK" />sinxronizasiya ayarlarında<ph name="END_LINK" /> idarə edə bilərsiniz.</translation>
 <translation id="8603022514504485810">Google Parol Meneceri bütün parolları yoxlaya bilmədi. Sabah yenidən cəhd edin və ya <ph name="BEGIN_LINK" />Google Hesabınızda parolları yoxlayın.<ph name="END_LINK" /></translation>
 <translation id="8610372330814566250">Chrome-da Safari parollarınızı, tarixçənizi, əlfəcinlərinizi və kredit kartlarınızı istifadə edin</translation>
 <translation id="8630122478628016441">"Chrome-u bağladıqda Anonim tabları kilidləyin" seçimini aktiv edin.</translation>

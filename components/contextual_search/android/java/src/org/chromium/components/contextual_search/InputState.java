@@ -13,11 +13,12 @@ import org.jni_zero.JniType;
 import org.chromium.base.Log;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.components.omnibox.AimModelsProtoIntDef.ModelMode;
 import org.chromium.components.omnibox.InputTypeConfigProto.InputTypeConfig;
 import org.chromium.components.omnibox.ModelConfigProto.ModelConfig;
 import org.chromium.components.omnibox.SectionConfigProto.SectionConfig;
 import org.chromium.components.omnibox.ToolConfigProto.ToolConfig;
-import org.chromium.components.omnibox.ToolModeProto.ToolMode;
+import org.chromium.components.omnibox.ToolModeProtoIntDef.ToolMode;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -41,14 +42,14 @@ public class InputState {
     public final List<Integer> disabledInputTypes;
     public final int maxTotalInputs;
     public final Map<Integer, Integer> maxInputsByType;
-    public final int activeTool;
-    public final List<Integer> allowedTools;
-    public final List<Integer> disabledTools;
+    public final @ToolMode int activeTool;
+    public final List<@ToolMode Integer> allowedTools;
+    public final List<@ToolMode Integer> disabledTools;
     public final boolean imageGenUploadActive;
-    public final int activeModel;
-    public final int defaultModel;
-    public final List<Integer> allowedModels;
-    public final List<Integer> disabledModels;
+    public final @ModelMode int activeModel;
+    public final @ModelMode int defaultModel;
+    public final List<@ModelMode Integer> allowedModels;
+    public final List<@ModelMode Integer> disabledModels;
 
     // Raw buffers and parsed lazy fields must be kept mutually exclusive.
     private byte @Nullable [][] mRawInputTypeConfigs;
@@ -72,16 +73,16 @@ public class InputState {
             int maxTotalInputs,
             @JniType("std::map<omnibox::InputType, int>") Map<Integer, Integer> maxInputsByType,
             byte @Nullable [][] inputTypeConfigs,
-            @JniType("omnibox::ToolMode") int activeTool,
-            @JniType("std::vector<omnibox::ToolMode>") int[] allowedTools,
-            @JniType("std::vector<omnibox::ToolMode>") int[] disabledTools,
+            @JniType("omnibox::ToolMode") @ToolMode int activeTool,
+            @JniType("std::vector<omnibox::ToolMode>") @ToolMode int[] allowedTools,
+            @JniType("std::vector<omnibox::ToolMode>") @ToolMode int[] disabledTools,
             boolean imageGenUploadActive,
             byte @Nullable [][] toolConfigs,
             @JniType("std::vector<uint8_t>") byte @Nullable [] toolsSectionConfig,
-            @JniType("omnibox::ModelMode") int activeModel,
-            @JniType("omnibox::ModelMode") int defaultModel,
-            @JniType("std::vector<omnibox::ModelMode>") int[] allowedModels,
-            @JniType("std::vector<omnibox::ModelMode>") int[] disabledModels,
+            @JniType("omnibox::ModelMode") @ModelMode int activeModel,
+            @JniType("omnibox::ModelMode") @ModelMode int defaultModel,
+            @JniType("std::vector<omnibox::ModelMode>") @ModelMode int[] allowedModels,
+            @JniType("std::vector<omnibox::ModelMode>") @ModelMode int[] disabledModels,
             byte @Nullable [][] modelConfigs,
             @JniType("std::vector<uint8_t>") byte @Nullable [] modelSectionConfig) {
         this.hintText = hintText;
@@ -199,7 +200,7 @@ public class InputState {
      * @param toolMode The tool mode to check.
      * @return Whether the tool should be visible in the UI.
      */
-    public boolean isToolVisible(int toolMode) {
+    public boolean isToolVisible(@ToolMode int toolMode) {
         return activeTool == toolMode || allowedTools.contains(toolMode);
     }
 
@@ -207,28 +208,28 @@ public class InputState {
      * @param toolMode The tool mode to check.
      * @return Whether the tool should be enabled in the UI.
      */
-    public boolean isToolEnabled(int toolMode) {
+    public boolean isToolEnabled(@ToolMode int toolMode) {
         return activeTool == toolMode
                 || (allowedTools.contains(toolMode) && !disabledTools.contains(toolMode));
     }
 
     /** Returns whether the image gen tool should be visible, by checking both tool modes. */
     public boolean isImageGenToolVisible() {
-        return isToolVisible(ToolMode.TOOL_MODE_IMAGE_GEN_VALUE)
-                || isToolVisible(ToolMode.TOOL_MODE_IMAGE_GEN_UPLOAD_VALUE);
+        return isToolVisible(ToolMode.TOOL_MODE_IMAGE_GEN)
+                || isToolVisible(ToolMode.TOOL_MODE_IMAGE_GEN_UPLOAD);
     }
 
     /** Returns whether the image gen tool should be enabled, by checking both tool modes. */
     public boolean isImageGenToolEnabled() {
-        return isToolEnabled(ToolMode.TOOL_MODE_IMAGE_GEN_VALUE)
-                || isToolEnabled(ToolMode.TOOL_MODE_IMAGE_GEN_UPLOAD_VALUE);
+        return isToolEnabled(ToolMode.TOOL_MODE_IMAGE_GEN)
+                || isToolEnabled(ToolMode.TOOL_MODE_IMAGE_GEN_UPLOAD);
     }
 
     /**
      * @param modelMode The model mode to check.
      * @return Whether the model should be visible in the UI.
      */
-    public boolean isModelVisible(int modelMode) {
+    public boolean isModelVisible(@ModelMode int modelMode) {
         return activeModel == modelMode || allowedModels.contains(modelMode);
     }
 
@@ -236,7 +237,7 @@ public class InputState {
      * @param modelMode The model mode to check.
      * @return Whether the model should be enabled in the UI.
      */
-    public boolean isModelEnabled(int modelMode) {
+    public boolean isModelEnabled(@ModelMode int modelMode) {
         return activeModel == modelMode
                 || (allowedModels.contains(modelMode) && !disabledModels.contains(modelMode));
     }
@@ -297,139 +298,6 @@ public class InputState {
         } catch (InvalidProtocolBufferException e) {
             Log.e(TAG, "Failed to parse SectionConfig", e);
             return SectionConfig.getDefaultInstance();
-        }
-    }
-
-    public static class Builder {
-        private String mHintText = "";
-        private int[] mAllowedInputTypes = new int[0];
-        private int[] mDisabledInputTypes = new int[0];
-        private int mMaxTotalInputs;
-        private Map<Integer, Integer> mMaxInputsByType = Collections.emptyMap();
-        private byte @Nullable [][] mInputTypeConfigs;
-        private int mActiveTool;
-        private int[] mAllowedTools = new int[0];
-        private int[] mDisabledTools = new int[0];
-        private boolean mImageGenUploadActive;
-        private byte @Nullable [][] mToolConfigs;
-        private byte @Nullable [] mToolsSectionConfig;
-        private int mActiveModel;
-        private int mDefaultModel;
-        private int[] mAllowedModels = new int[0];
-        private int[] mDisabledModels = new int[0];
-        private byte @Nullable [][] mModelConfigs;
-        private byte @Nullable [] mModelSectionConfig;
-
-        public Builder withHintText(String hintText) {
-            mHintText = hintText;
-            return this;
-        }
-
-        public Builder withAllowedInputTypes(int... allowedInputTypes) {
-            mAllowedInputTypes = allowedInputTypes;
-            return this;
-        }
-
-        public Builder withDisabledInputTypes(int... disabledInputTypes) {
-            mDisabledInputTypes = disabledInputTypes;
-            return this;
-        }
-
-        public Builder withMaxTotalInputs(int maxTotalInputs) {
-            mMaxTotalInputs = maxTotalInputs;
-            return this;
-        }
-
-        public Builder withMaxInputsByType(Map<Integer, Integer> maxInputsByType) {
-            mMaxInputsByType = maxInputsByType;
-            return this;
-        }
-
-        public Builder withInputTypeConfigs(byte[][] inputTypeConfigs) {
-            mInputTypeConfigs = inputTypeConfigs;
-            return this;
-        }
-
-        public Builder withActiveTool(int activeTool) {
-            mActiveTool = activeTool;
-            return this;
-        }
-
-        public Builder withAllowedTools(int... allowedTools) {
-            mAllowedTools = allowedTools;
-            return this;
-        }
-
-        public Builder withDisabledTools(int... disabledTools) {
-            mDisabledTools = disabledTools;
-            return this;
-        }
-
-        public Builder withImageGenUploadActive(boolean imageGenUploadActive) {
-            mImageGenUploadActive = imageGenUploadActive;
-            return this;
-        }
-
-        public Builder withToolConfigs(byte[][] toolConfigs) {
-            mToolConfigs = toolConfigs;
-            return this;
-        }
-
-        public Builder withToolsSectionConfig(byte[] toolsSectionConfig) {
-            mToolsSectionConfig = toolsSectionConfig;
-            return this;
-        }
-
-        public Builder withActiveModel(int activeModel) {
-            mActiveModel = activeModel;
-            return this;
-        }
-
-        public Builder withDefaultModel(int defaultModel) {
-            mDefaultModel = defaultModel;
-            return this;
-        }
-
-        public Builder withAllowedModels(int... allowedModels) {
-            mAllowedModels = allowedModels;
-            return this;
-        }
-
-        public Builder withDisabledModels(int... disabledModels) {
-            mDisabledModels = disabledModels;
-            return this;
-        }
-
-        public Builder withModelConfigs(byte[][] modelConfigs) {
-            mModelConfigs = modelConfigs;
-            return this;
-        }
-
-        public Builder withModelSectionConfig(byte[] modelSectionConfig) {
-            mModelSectionConfig = modelSectionConfig;
-            return this;
-        }
-
-        public InputState build() {
-            return new InputState(
-                    mHintText,
-                    mAllowedInputTypes,
-                    mDisabledInputTypes,
-                    mMaxTotalInputs,
-                    mMaxInputsByType,
-                    mInputTypeConfigs,
-                    mActiveTool,
-                    mAllowedTools,
-                    mDisabledTools,
-                    mImageGenUploadActive,
-                    mToolConfigs,
-                    mToolsSectionConfig,
-                    mActiveModel,
-                    mDefaultModel,
-                    mAllowedModels,
-                    mDisabledModels,
-                    mModelConfigs,
-                    mModelSectionConfig);
         }
     }
 }

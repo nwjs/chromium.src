@@ -114,6 +114,7 @@ static_library("file_manager") {
     "//chromeos/ash/components/file_manager",
     "//chromeos/ash/components/trash_service/public/cpp",
     "//chromeos/ash/experiences/arc/mojom",
+    "//chromeos/ash/experiences/extensions/common/api",
     "//components/download/content/public",
     "//components/drive",
     "//components/file_access",
@@ -178,6 +179,7 @@ static_library("file_manager") {
     "//chromeos/ash/experiences/arc:arc_features",
     "//chromeos/ash/experiences/arc/mojom:notifications",
     "//chromeos/ash/experiences/arc/session",
+    "//chromeos/ash/experiences/extensions/common/api",
     "//chromeos/components/disks:prefs",
     "//chromeos/constants",
     "//chromeos/dbus/power",
@@ -221,10 +223,6 @@ static_library("file_manager") {
     "//chrome/browser/ash/guest_os/public",
     "//chrome/browser/ash/policy/dlp",
   ]
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 static_library("test_support") {
@@ -302,6 +300,7 @@ source_set("unit_tests") {
     "//ash/constants",
     "//base",
     "//base:i18n",
+    "//base/i18n:test_support",
     "//base/test:test_support",
     "//chrome/browser",
     "//chrome/browser/apps/app_service",
@@ -320,6 +319,7 @@ source_set("unit_tests") {
     "//chrome/browser/ash/fusebox",
     "//chrome/browser/ash/guest_os",
     "//chrome/browser/ash/guest_os/public",
+    "//chrome/browser/ash/login/test:test_support",
     "//chrome/browser/ash/login/users:test_support",
     "//chrome/browser/ash/policy/dlp",
     "//chrome/browser/ash/policy/dlp/dialogs",
@@ -340,6 +340,8 @@ source_set("unit_tests") {
     "//chrome/common:constants",
     "//chrome/test:test_support",
     "//chrome/test:test_support_unit",
+    "//chrome/test/base:testing_browser_process",
+    "//chromeos/ash/components/browser_context_helper",
     "//chromeos/ash/components/dbus/chunneld",
     "//chromeos/ash/components/dbus/cicerone",
     "//chromeos/ash/components/dbus/cicerone:cicerone_proto_lib",
@@ -360,16 +362,19 @@ source_set("unit_tests") {
     "//chromeos/ash/experiences/arc:notification_test_support",
     "//chromeos/ash/experiences/arc:prefs",
     "//chromeos/ash/experiences/arc/session",
+    "//chromeos/ash/experiences/extensions/common",
     "//chromeos/components/disks:prefs",
     "//chromeos/constants",
     "//chromeos/dbus/power",
     "//chromeos/dbus/power:power_manager_proto",
     "//components/account_id",
+    "//components/account_id:test_support",
     "//components/drive",
     "//components/prefs",
     "//components/prefs:test_support",
     "//components/services/app_service/public/cpp:app_types",
     "//components/services/app_service/public/cpp:test_support",
+    "//components/session_manager/test:test_support",
     "//components/storage_monitor",
     "//components/sync_preferences:test_support",
     "//components/user_manager",
@@ -392,10 +397,6 @@ source_set("unit_tests") {
     "//ui/shell_dialogs",
     "//url",
   ]
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 source_set("browser_tests") {
@@ -479,6 +480,7 @@ source_set("browser_tests") {
     "//chrome/browser/sync_file_system:test_support",
     "//chrome/browser/ui",
     "//chrome/browser/ui:browser_select_file_dialog_controller",
+    "//chrome/browser/ui:browser_window_header",
     "//chrome/browser/ui/ash/cast_config",
     "//chrome/browser/ui/ash/sharesheet",
     "//chrome/browser/ui/ash/system_web_apps",
@@ -519,6 +521,8 @@ source_set("browser_tests") {
     "//chromeos/ash/experiences/arc/mojom",
     "//chromeos/ash/experiences/arc/session",
     "//chromeos/ash/experiences/arc/session:connection_holder",
+    "//chromeos/ash/experiences/extensions/common",
+    "//chromeos/ash/experiences/extensions/common/api",
     "//chromeos/constants",
     "//chromeos/dbus/constants",
     "//chromeos/dbus/dlp",
@@ -580,10 +584,6 @@ source_set("browser_tests") {
   if (enable_pdf) {
     deps += [ "//pdf:features" ]
   }
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 if (!is_chromeos_device) {

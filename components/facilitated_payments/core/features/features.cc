@@ -43,10 +43,9 @@ const base::FeatureParam<std::string> kPixAccountLinkingNativePromptVariant{
 const base::FeatureParam<int> kPixAccountLinkingNativeTriggerDelaySeconds{
     &kEnablePixAccountLinkingNative, "trigger_delay_seconds", 3};
 
-// TODO: Replace with a public YouTube link for production to guarantee access.
 const base::FeatureParam<std::string> kVideoUrlOnPrompt{
     &kEnablePixAccountLinkingNative, "video_url_on_prompt",
-    "https://support.google.com/wallet/answer/14616353?hl=en"};
+    "https://www.youtube.com/watch?v=zXMuvna_X4c"};
 
 // When enabled, Pix code detection will be supported in Chrome Custom Tabs.
 BASE_FEATURE(kEnablePixInCct, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -72,8 +71,5 @@ BASE_FEATURE(kEwalletPayments, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kFacilitatedPaymentsEnableA2APayment,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
-
-// Use the Rust implementation of the Pix code validator.
-BASE_FEATURE(kUseRustPixCodeValidator, base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace payments::facilitated

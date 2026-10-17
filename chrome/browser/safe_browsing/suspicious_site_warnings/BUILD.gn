@@ -2,6 +2,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//components/safe_browsing/buildflags.gni")
+
+assert(safe_browsing_mode != 0)
+
 source_set("suspicious_site_warnings") {
   sources = [
     "suspicious_site_controller_desktop.cc",
@@ -54,8 +58,8 @@ source_set("browser_tests") {
     "//chrome/browser/ui/views/page_info",
     "//chrome/test:test_support",
     "//components/prefs",
+    "//components/safe_browsing/core/browser/db:sb_protocol_manager_util",
     "//components/safe_browsing/core/browser/db:test_database_manager",
-    "//components/safe_browsing/core/browser/db:v4_protocol_manager_util",
     "//components/safe_browsing/core/common:safe_browsing_prefs",
     "//components/security_state/core",
     "//content/test:test_support",

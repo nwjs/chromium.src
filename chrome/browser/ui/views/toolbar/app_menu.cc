@@ -50,8 +50,7 @@
 #include "chrome/browser/ui/hats/trust_safety_sentiment_service_factory.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/profiles/profile_view_utils.h"
-#include "chrome/browser/ui/safety_hub/safety_hub_hats_service.h"
-#include "chrome/browser/ui/safety_hub/safety_hub_hats_service_factory.h"
+#include "chrome/browser/ui/safety_hub/safety_hub_util.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar/app_menu_model.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -116,6 +115,7 @@
 #include "ui/views/controls/menu/menu_scroll_view_container.h"
 #include "ui/views/controls/menu/submenu_view.h"
 #include "ui/views/interaction/element_tracker_views.h"
+#include "ui/views/layout/box_layout_view.h"
 #include "ui/views/layout/layout_provider.h"
 #include "ui/views/metadata/view_factory.h"
 #include "ui/views/style/typography.h"
@@ -407,36 +407,6 @@ class InMenuImageButton : public ImageButton {
 
 BEGIN_METADATA(InMenuImageButton)
 END_METADATA
-
-// Conditionally return the update app menu item substring text based on upgrade
-// detector state.
-std::u16string GetUpgradeDialogSubstringText() {
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING) && \
-    (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX))
-  if (!UpgradeDetector::GetInstance()->is_outdated_install() &&
-      !UpgradeDetector::GetInstance()->is_outdated_install_no_au()) {
-    {
-      return {l10n_util::GetStringUTF16(IDS_RELAUNCH_TO_UPDATE_ALT_MINOR_TEXT)};
-    }
-  }
-#endif
-  return std::u16string();
-}
-
-std::u16string GetSigninStatusChipString(Profile* profile) {
-  const AccountInfo account_info = GetAccountInfoFromProfile(profile);
-
-  if (IsSyncPaused(profile) || account_info.IsEmpty()) {
-    return l10n_util::GetStringUTF16(IDS_PROFILES_LOCAL_PROFILE_STATE);
-  }
-
-  if (signin_util::IsSigninPending(
-          IdentityManagerFactory::GetForProfile(profile))) {
-    return l10n_util::GetStringUTF16(IDS_PROFILE_ROW_VERIFY_MESSAGE);
-  }
-
-  return l10n_util::GetStringUTF16(IDS_PROFILE_ROW_SIGNED_IN_MESSAGE);
-}
 
 // Helper method that adds a bespoke chip to the profile related menu items.
 void AddSignedInChipToProfileMenuItem(
@@ -1312,6 +1282,10 @@ bool AppMenu::IsCommandEnabled(int command_id) const {
     return true;
   }
 
+  if (command_id == AppMenuModel::kSkillsMenuPlaceholder) {
+    return true;
+  }
+
   if (command_id == AppMenuModel::kMoreToolsMenuPlaceholder) {
     return true;
   }
@@ -1469,13 +1443,9 @@ void AppMenu::OnMenuClosed(views::MenuItemView* menu) {
   const bool has_safety_hub_notification = std::ranges::any_of(
       kSafetyHubCommandIds,
       [&](int id) { return command_id_to_entry_.contains(id); });
-  if (has_safety_hub_notification &&
-      menu_opened_timer_.Elapsed() >= base::Seconds(5)) {
-    if (SafetyHubHatsService* hats_service =
-            SafetyHubHatsServiceFactory::GetForProfile(
-                browser_->GetProfile())) {
-      hats_service->SafetyHubNotificationSeen();
-    }
+  if (has_safety_hub_notification) {
+    safety_hub_util::MaybeNotifyMenuNotificationSeen(
+        browser_->GetProfile(), menu_opened_timer_.Elapsed());
   }
 
   on_menu_closed_callback_.Run();
@@ -1636,7 +1606,8 @@ void AppMenu::PopulateMenu(MenuItemView* parent, MenuModel* model) {
       }
       case IDC_UPGRADE_DIALOG: {
         add_menu_row_background(12, ui::kColorAppMenuUpgradeRowBackground);
-        if (const auto upgrade_substring_text = GetUpgradeDialogSubstringText();
+        if (const auto upgrade_substring_text =
+                AppMenuModel::GetUpgradeDialogSubstringText();
             !upgrade_substring_text.empty()) {
           item->AddChildView(
               views::Builder<views::Label>()

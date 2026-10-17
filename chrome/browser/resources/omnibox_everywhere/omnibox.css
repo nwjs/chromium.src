@@ -141,6 +141,13 @@ cr-searchbox-input::part(searchbox-input) {
   padding-top: 2px;
 }
 
+#inputWrapper:has(#profileIcon[is-enterprise-profile]):not(:has(#composeButton))
+    cr-searchbox-input::part(searchbox-input),
+:host:has(#profileIcon[is-enterprise-profile]):not(:has(#composeButton))
+    cr-searchbox-input::part(searchbox-input) {
+  padding-inline-end: 88px;
+}
+
 :host([compose-button-enabled]) cr-searchbox-input::part(searchbox-input) {
   padding-inline-end: 8px;
 }
@@ -282,18 +289,6 @@ cr-composebox-contextual-entrypoint-and-menu,
   top: 10px;
 }
 
-:host([is-fusebox-enabled][compose-button-enabled]
-    [searchbox-lens-search-enabled_]) .searchbox-icon-button-container.lens {
-  inset-inline-end: calc(
-      var(--cr-searchbox-icon-spacing) + var(--cr-compose-button-width));
-}
-
-:host([is-fusebox-enabled][compose-button-enabled]
-    [searchbox-lens-search-enabled_]) .searchbox-icon-button-container.voice {
-  inset-inline-end: calc(var(--cr-searchbox-voice-lens-size)
-      + var(--cr-searchbox-icon-spacing) + var(--cr-compose-button-width));
-}
-
 :host([is-fusebox-enabled][is-dragging-file]) {
   --cr-searchbox-compose-button-z-index: 99;
 }
@@ -372,12 +367,6 @@ cr-searchbox-input::part(icon),
 #composeButton {
   -webkit-app-region: drag;
   -webkit-user-drag: none;
-}
-
-:host(:not([is-active])),
-:host(:not([is-active])) cr-searchbox-input::part(icon),
-:host(:not([is-active])) #composeButton {
-  -webkit-app-region: no-drag;
 }
 
 :host([multi-line-enabled]) cr-searchbox-input::part(icon) {

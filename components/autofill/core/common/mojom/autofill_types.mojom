@@ -363,6 +363,7 @@ struct FormData {
 // (components/autofill/core/common/form_field_data_predictions.h)
 struct FormFieldDataPredictions {
   string host_form_signature;
+  string host_form_structural_signature;
   string signature;
   string heuristic_type;
   // The type predicted by the Password Manager's ML model.
@@ -614,17 +615,6 @@ enum AutofillSuggestionTriggerSource {
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/autofill/enums.xml:AutofillSuggestionTriggerSource)
 
-// LINT.IfChange(EmailVerificationState)
-// Represents the visual verification state of an email input element.
-enum EmailVerificationState {
-  kNone,
-  kLoading,
-  kVerified,
-  kLoggedOutOrUnsupported,
-  kFailed,
-};
-// LINT.ThenChange(//third_party/blink/public/common/webid/email_verification_state.h:EmailVerificationState)
-
 // Represents the type of modification made by JavaScript to a form field's
 // value.
 enum JavaScriptModificationType {
@@ -645,6 +635,7 @@ enum JavaScriptModificationType {
 struct JavaScriptFieldModification {
   FieldRendererId field_id;
   JavaScriptModificationType modification_type;
+  mojo_base.mojom.TimeTicks timestamp;
 };
 
 // Observer interface to receive visibility notifications for a field.

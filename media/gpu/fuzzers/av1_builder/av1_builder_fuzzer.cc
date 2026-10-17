@@ -56,6 +56,7 @@ media::AV1BitstreamBuilder::SequenceHeader ConvertToAV1BuilderSequenceHeader(
   seq_hdr.enable_superres = sequence_header.enable_superres();
   seq_hdr.enable_cdef = sequence_header.enable_cdef();
   seq_hdr.enable_restoration = sequence_header.enable_restoration();
+  seq_hdr.separate_uv_delta_q = sequence_header.separate_uv_delta_q();
 
   return seq_hdr;
 }
@@ -95,7 +96,6 @@ media::AV1BitstreamBuilder::FrameHeader ConvertToAV1BuilderFrameHeader(
   pic_hdr.disable_cdf_update = frame_header.disable_cdf_update();
 
   pic_hdr.base_qindex = frame_header.base_qindex();
-  pic_hdr.separate_uv_delta_q = frame_header.separate_uv_delta_q();
   pic_hdr.delta_q_y_dc = frame_header.delta_q_y_dc();
   pic_hdr.delta_q_u_dc = frame_header.delta_q_u_dc();
   pic_hdr.delta_q_u_ac = frame_header.delta_q_u_ac();
@@ -143,6 +143,13 @@ media::AV1BitstreamBuilder::FrameHeader ConvertToAV1BuilderFrameHeader(
 
   pic_hdr.primary_ref_frame = frame_header.primary_ref_frame();
   pic_hdr.refresh_frame_flags = frame_header.refresh_frame_flags();
+  // Spec 5.9.2 makes it a bitstream conformance requirement that an intra only
+  // frame does not refresh every slot, and av1_builder DCHECKs it, so clear a
+  // bit rather than hand it a combination no conforming encoder would produce.
+  if (pic_hdr.frame_type == libgav1::FrameType::kFrameIntraOnly &&
+      pic_hdr.refresh_frame_flags == 0xFF) {
+    pic_hdr.refresh_frame_flags = 0xFE;
+  }
   const size_t ref_frame_idx_size =
       std::min(static_cast<size_t>(frame_header.ref_frame_idx_size()),
                std::size(pic_hdr.ref_frame_idx));

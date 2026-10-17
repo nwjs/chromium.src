@@ -16,6 +16,7 @@ load("//lib/gpu.star", "gpu")
 load("//lib/siso.star", "siso")
 load("//lib/try_constants.star", "try_constants")
 load("//lib/xcode.star", "xcode")
+load("//project.star", "settings")
 
 try_.defaults.set(
     executable = try_constants.DEFAULT_EXECUTABLE,
@@ -226,6 +227,7 @@ try_.compilator_builder(
     name = "mac-rel-compilator",
     branch_selector = branches.selector.MAC_BRANCHES,
     cpu = cpu.ARM64,
+    contact_team_email = "bling-engprod@google.com",
     main_list_view = "try",
 )
 
@@ -331,8 +333,8 @@ try_.builder(
         "ci/mac-ubsan-fyi-rel",
     ],
     gn_args = "ci/mac-ubsan-fyi-rel",
-    # TODO(crbug.com/543006750): Revert to MAC_DEFAULT after arm migration.
-    os = os.MAC_15,
+    os = os.MAC_DEFAULT,
+    cpu = cpu.ARM64,
 )
 
 try_.builder(
@@ -583,6 +585,7 @@ try_.builder(
     contact_team_email = "bling-engprod@google.com",
     cq_settings = try_.cq_settings(
         on_default_cq = True,
+        reuse_max_commit_distance = 800 if settings.is_main else None,
     ),
     experiments = {
         # crbug.com/940930
@@ -808,6 +811,7 @@ try_.compilator_builder(
     builderless = False,
     cpu = cpu.ARM64,
     ssd = None,
+    contact_team_email = "bling-engprod@google.com",
     main_list_view = "try",
 )
 

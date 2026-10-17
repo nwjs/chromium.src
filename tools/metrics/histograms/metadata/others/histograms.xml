@@ -914,7 +914,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Document.BeforeUnloadDialog" enum="BeforeUnloadDialogResult"
-    expires_after="2026-12-01">
+    expires_after="2027-03-14">
   <owner>panicker@chromium.org</owner>
   <owner>chikamune@chromium.org</owner>
   <summary>
@@ -969,7 +969,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DocumentScan.ScanRequested" enum="DocumentScanSaneBackend"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>bmgordon@chromium.org</owner>
   <owner>project-bolton@google.com</owner>
   <summary>
@@ -979,7 +979,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DocumentScan.ScanSucceeded" enum="DocumentScanSaneBackend"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>bmgordon@chromium.org</owner>
   <owner>project-bolton@google.com</owner>
   <summary>
@@ -1574,6 +1574,18 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Feedback.DisabledDialog.ParentStatus"
+    enum="FeedbackDisabledDialogParentStatus" expires_after="2027-02-28">
+  <owner>jlebel@chromium.org</owner>
+  <owner>chrome-regionalcapabilities@google.com</owner>
+  <summary>
+    Records whether a parent window was available when attempting to show the
+    dialog informing that feedback is disabled on Desktop. Recorded every time
+    feedback is requested for a profile where feedback is disallowed and the
+    FeedbackDisabledDialog feature is enabled.
+  </summary>
+</histogram>
+
 <histogram name="Feedback.Duration.FetchSystemInformation" units="ms"
     expires_after="2027-01-30">
   <owner>xiangdongkong@google.com</owner>
@@ -2111,7 +2123,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="FirstRun.Stage" enum="FirstRunStageResult"
-    expires_after="2027-01-10">
+    expires_after="2027-03-14">
   <owner>tinazwang@chromium.org</owner>
   <owner>bling-get-started@google.com</owner>
   <summary>
@@ -2423,7 +2435,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Hardware.Display.Count.OnChange" units="units"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>sashamcintosh@chromium.org</owner>
   <owner>chromeos-gfx@chromium.org</owner>
   <summary>
@@ -2433,7 +2445,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Hardware.Display.Count.OnStartup" units="units"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>sashamcintosh@chromium.org</owner>
   <owner>chromeos-gfx@chromium.org</owner>
   <summary>
@@ -2443,7 +2455,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Hardware.Display.SupportsHDR" enum="BooleanSupported"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>cassew@google.com</owner>
   <owner>media-dev-uma@chromium.org</owner>
   <summary>
@@ -2455,7 +2467,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Hardware.TotalDiskSpace" units="GB" expires_after="2027-01-17">
+<histogram name="Hardware.TotalDiskSpace" units="GB" expires_after="2027-03-21">
   <owner>zmo@chromium.org</owner>
   <owner>chrome-gpu-metric-alerts@chromium.org</owner>
   <summary>
@@ -2656,7 +2668,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InstanceID.GetToken.RequestStatus.SyncInvalidations"
-    enum="GCMRegistrationRequestStatus" expires_after="2027-01-17">
+    enum="GCMRegistrationRequestStatus" expires_after="2027-03-21">
   <owner>rushans@google.com</owner>
   <owner>peter@chromium.org</owner>
   <owner>treib@chromium.org</owner>
@@ -2693,6 +2705,11 @@ chromium-metrics-reviews@google.com.
     Web App. It is not recorded if Chrome is launched in other ways: by the
     installer, after an update, after a flag change, after an OS update, to
     install/uninstall/list apps, or in background mode.
+
+    On Windows, launches via shortcuts with an AppUserModelID that specify
+    --source-shortcut-location are categorized into kShortcutDesktop,
+    kShortcutTaskbar, or kShortcutStartMenu (or their WebApp counterparts),
+    falling back to kWithAppId if unadorned.
   </summary>
 </histogram>
 
@@ -2734,8 +2751,8 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="LoadingPredictor.SetLcppNavigationHint.Status"
-    enum="LcppHintStatus" expires_after="2025-04-30">
+<histogram name="LoadingPredictor.SetLCPPNavigationHint.Status"
+    enum="LcppHintStatus" expires_after="2027-02-07">
   <owner>yyanagisawa@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -2872,7 +2889,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Mojo.Channel.WriteQueuePendingMessages2" units="count"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>pasko@chromium.org</owner>
   <owner>bgeffon@chromium.org</owner>
   <summary>
@@ -2882,7 +2899,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Mojo.Channel.WriteSendMessageProcessType"
-    enum="ShortProcessType" expires_after="2027-01-17">
+    enum="ShortProcessType" expires_after="2027-03-21">
   <owner>amanvr@chromium.org</owner>
   <owner>woa-performance@google.com</owner>
   <summary>
@@ -2992,7 +3009,7 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
-<histogram name="Mojo.Ipcz.BufferPoolAllocateBlockFailureSize"
+<histogram name="Mojo.Ipcz.BufferPoolAllocateBlockFailureSize2"
     enum="IpczBlockAllocationSize" expires_after="2027-02-01">
   <owner>pasko@chromium.org</owner>
   <owner>nafisabedin@google.com</owner>
@@ -3000,6 +3017,8 @@ chromium-metrics-reviews@google.com.
     Logs the block size category of a failed shared memory block allocation
     attempt in an ipcz BufferPool. Logged on every failed block allocation
     attempt in BufferPool::AllocateBlock. Subsampled to 1/1000.
+
+    Version 2 expands bucket coverage up to 1 MB.
   </summary>
 </histogram>
 
@@ -3014,7 +3033,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Mojo.Ipcz.BufferPoolAllocateBlockSuccessSize"
+<histogram name="Mojo.Ipcz.BufferPoolAllocateBlockSuccessSize2"
     enum="IpczBlockAllocationSize" expires_after="2027-02-01">
   <owner>pasko@chromium.org</owner>
   <owner>nafisabedin@google.com</owner>
@@ -3022,6 +3041,52 @@ chromium-metrics-reviews@google.com.
     Logs the block size category of a successful shared memory block allocation
     attempt in an ipcz BufferPool. Logged on every successful block allocation
     attempt in BufferPool::AllocateBlock. Subsampled to 1/1000.
+
+    Version 2 expands bucket coverage up to 1 MB.
+  </summary>
+</histogram>
+
+<histogram name="Mojo.Ipcz.ParcelAllocateBlockFailureSize"
+    enum="IpczBlockAllocationSize" expires_after="2027-02-01">
+  <owner>nafisabedin@google.com</owner>
+  <owner>pasko@chromium.org</owner>
+  <summary>
+    Logs the block size category of a failed shared memory allocation attempt
+    for an ipcz parcel.
+
+    Logged on every failed parcel shared memory allocation attempt in
+    NodeLinkMemory::AllocateFragment. Subsampled to 1/1000. Excludes best-effort
+    allocations (e.g. from the unused BeginPut/EndPut two-phase API).
+  </summary>
+</histogram>
+
+<histogram name="Mojo.Ipcz.ParcelAllocateBlockResult" enum="BooleanSuccess"
+    expires_after="2027-02-01">
+  <owner>nafisabedin@google.com</owner>
+  <owner>pasko@chromium.org</owner>
+  <summary>
+    Logs whether an ipcz parcel successfully allocated a shared memory fragment.
+    Logged on every parcel shared memory allocation attempt in
+    NodeLinkMemory::AllocateFragment. Subsampled to 1/1000. Excludes best-effort
+    allocations (e.g. from the unused BeginPut/EndPut two-phase API).
+  </summary>
+</histogram>
+
+<histogram name="Mojo.Ipcz.ParcelAllocateBlockSuccessSize"
+    enum="IpczBlockAllocationSize" expires_after="2027-02-01">
+  <owner>nafisabedin@google.com</owner>
+  <owner>pasko@chromium.org</owner>
+  <summary>
+    Logs the block size category requested by an ipcz parcel which successfully
+    allocated a shared memory fragment.
+
+    Note that this is the size asked for, not the size handed out. A request is
+    served by the smallest existing allocator that is at least as large, so the
+    shared memory actually consumed may exceed the bucket recorded here.
+
+    Logged on every successful parcel shared memory allocation attempt in
+    NodeLinkMemory::AllocateFragment. Subsampled to 1/1000. Excludes best-effort
+    allocations (e.g. from the unused BeginPut/EndPut two-phase API).
   </summary>
 </histogram>
 
@@ -3438,17 +3503,6 @@ chromium-metrics-reviews@google.com.
   <owner>mark@chromium.org</owner>
   <summary>
     MacOS X NSExceptions seen, common exceptions binned, others in overflow.
-  </summary>
-</histogram>
-
-<histogram name="Ozone.Drm.GbmDeviceCount" units="devices"
-    expires_after="2027-07-02">
-  <owner>hitawala@chromium.org</owner>
-  <owner>chrome-gpu-metric-alerts@chromium.org</owner>
-  <summary>
-    The number of successfully created and cached Gbm Device contexts in
-    GbmSurfaceFactory. Recorded once during the first format texturing support
-    check (lazy initialization).
   </summary>
 </histogram>
 
@@ -4487,7 +4541,7 @@ should be kept until we remove incident reporting. -->
 </histogram>
 
 <histogram name="SBIRS.UploadResult" enum="ReportProcessingResult"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
 <!-- Note to owner: This histogram can be renewed 1 full year if it is still
 useful for Chirp alerts (go/crca-alerts). -->
 
@@ -4591,7 +4645,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="Shutdown.BrowserExit.Time2" units="ms"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>etienneb@chromium.org</owner>
   <owner>gab@chromium.org</owner>
   <summary>
@@ -4602,7 +4656,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="Shutdown.EndSession.Time2" units="ms"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>etienneb@chromium.org</owner>
   <owner>gab@chromium.org</owner>
   <summary>
@@ -4636,7 +4690,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="Shutdown.ShutdownType2" enum="ShutdownType"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>etienneb@chromium.org</owner>
   <owner>gab@chromium.org</owner>
   <summary>
@@ -4661,7 +4715,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="Shutdown.Time.BrowserCloseManager.Canceled" units="ms"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>aattar@google.com</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -4673,7 +4727,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="Shutdown.Time.BrowserCloseManager.Confirmed" units="ms"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>aattar@google.com</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -4685,7 +4739,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="Shutdown.Time.RenderProcess.Termination" units="ms"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>aattar@google.com</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -4696,7 +4750,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="Shutdown.WindowClose.Time2" units="ms"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>etienneb@chromium.org</owner>
   <owner>gab@chromium.org</owner>
   <summary>
@@ -5273,20 +5327,26 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="SSORecallPromo.PromoAction" enum="SSOPromoUserAction"
-    expires_after="2026-08-02">
+    expires_after="2027-04-01">
   <owner>jlebel@chromium.org</owner>
   <owner>chrome-signin-team@google.com</owner>
   <summary>
     Action the user takes when the Single Sign On promotion is shown.
+
+    Warning: this histogram was expired from 2026-08-02 (M153) to 2026-09-23
+    (M156); data may be missing.
   </summary>
 </histogram>
 
 <histogram name="SSORecallPromo.PromoSeenCount" units="units"
-    expires_after="2026-08-02">
+    expires_after="2027-04-01">
   <owner>jlebel@chromium.org</owner>
   <owner>chrome-signin-team@google.com</owner>
   <summary>
     Number of times the promotion has been seen on the current device.
+
+    Warning: this histogram was expired from 2026-08-02 (M153) to 2026-09-23
+    (M156); data may be missing.
   </summary>
 </histogram>
 
@@ -5386,7 +5446,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 
 <histogram name="SubscriptionEligibility.AiSubscriptionTierStatus"
     enum="SubscriptionEligibilityAiSubscriptionTierStatus"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>sophiechang@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -5976,7 +6036,7 @@ regressions. -->
 </histogram>
 
 <histogram name="VoiceInteraction.FinishEventSource"
-    enum="VoiceInteractionEventSource" expires_after="2027-01-17">
+    enum="VoiceInteractionEventSource" expires_after="2027-03-21">
   <owner>basiaz@google.com</owner>
   <owner>chrome-language@google.com</owner>
   <summary>
@@ -5996,7 +6056,7 @@ regressions. -->
 </histogram>
 
 <histogram name="VoiceInteraction.VoiceResultConfidenceValue" units="%"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>basiaz@google.com</owner>
   <owner>chrome-language@google.com</owner>
   <summary>
@@ -6070,18 +6130,6 @@ regressions. -->
     Recorded upon web fonts load. Counts the number of times web font is loaded
     from cache (disk cache or memory cache), fetched over network, or served
     from data URL.
-  </summary>
-</histogram>
-
-<histogram name="WebFont.Clients.RenderBlockingFonts.ExpiredFonts"
-    units="fonts" expires_after="2024-04-28">
-  <owner>xiaochengh@chromium.org</owner>
-  <owner>chrome-rendering-core@google.com</owner>
-  <summary>
-    Recorded when render-blocking web font preloads have reached the maximum
-    blocking time, and therefore, turned into non-render-blocking. Records the
-    number of web font preloads that are still pending. This is a diagnostic
-    metric for feature RenderBlockingFonts.
   </summary>
 </histogram>
 

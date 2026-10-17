@@ -42,7 +42,7 @@ int GetOpenLensActionLabelId() {
 
 ContextualSearchFulfillmentAction::ContextualSearchFulfillmentAction(
     const GURL& url,
-    AutocompleteMatchType::Type match_type,
+    omnibox::AutocompleteMatchType match_type,
     bool is_zero_prefix_suggestion)
     : OmniboxAction(
           LabelStrings(

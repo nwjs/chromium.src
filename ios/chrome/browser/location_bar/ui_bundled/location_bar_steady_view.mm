@@ -13,6 +13,7 @@
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/location_bar/ui_bundled/badges_container_view.h"
 #import "ios/chrome/browser/location_bar/ui_bundled/location_bar_constants.h"
+#import "ios/chrome/browser/location_bar/ui_bundled/location_bar_content_size_delegate.h"
 #import "ios/chrome/browser/omnibox/public/omnibox_constants.h"
 #import "ios/chrome/browser/shared/public/commands/page_action_menu_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
@@ -149,6 +150,9 @@ const CGFloat kCustomLeadingViewAnimationDuration = 0.3;
 
 #pragma mark - LocationBarSteadyView
 
+@interface LocationBarSteadyView () <LocationBarContentSizeDelegate>
+@end
+
 @implementation LocationBarSteadyView {
   // The different X anchor constraints that can apply to the location label at
   // a given time.
@@ -189,6 +193,11 @@ const CGFloat kCustomLeadingViewAnimationDuration = 0.3;
   // Array of active constraints for the content views inside
   // `locationContainerView`.
   NSArray<NSLayoutConstraint*>* _containerActiveConstraints;
+  // Cached state used to build `_containerActiveConstraints`.
+  BOOL _containerHasIncognito;
+  BOOL _containerHasLocationImage;
+  BOOL _containerHasCustomLeadingView;
+  CGFloat _containerCustomLeadingViewSpacing;
 }
 
 - (instancetype)initWithTextOnly:(BOOL)textOnly {
@@ -210,6 +219,9 @@ const CGFloat kCustomLeadingViewAnimationDuration = 0.3;
 
 - (void)updateCustomLeadingViewVisibility:(BOOL)visible
                                  animated:(BOOL)animated {
+  if (!_customLeadingView) {
+    return;
+  }
   CGFloat targetAlpha = visible ? 1.0 : 0.0;
   if (_customLeadingView.hidden == !visible &&
       _customLeadingView.alpha == targetAlpha) {
@@ -336,6 +348,7 @@ const CGFloat kCustomLeadingViewAnimationDuration = 0.3;
   // container view.
   _badgesContainerView = [[LocationBarBadgesContainerView alloc] init];
   _badgesContainerView.translatesAutoresizingMaskIntoConstraints = NO;
+  _badgesContainerView.contentSizeDelegate = self;
   [_locationButton addSubview:_badgesContainerView];
 }
 
@@ -536,6 +549,13 @@ const CGFloat kCustomLeadingViewAnimationDuration = 0.3;
   _customLeadingView.hidden = YES;
 
   [self.locationContainerView addSubview:_customLeadingViewContainer];
+  if (IsChromeNextIaEnabled()) {
+    // `_customLeadingViewContainer` is a new instance, so the cached
+    // `_containerActiveConstraints` may still reference the previous container
+    // and must be dropped to force a rebuild in `updateContainerConstraints`.
+    [NSLayoutConstraint deactivateConstraints:_containerActiveConstraints];
+    _containerActiveConstraints = nil;
+  }
   [self updateContainerConstraints];
   [self updateAccessibility];
 }
@@ -751,6 +771,14 @@ const CGFloat kCustomLeadingViewAnimationDuration = 0.3;
   return [self.accessibleElements indexOfObject:element];
 }
 
+#pragma mark - LocationBarContentSizeDelegate
+
+- (void)locationBarContentSizeDidChange {
+  // Received from the badges container; re-publish it as a change of this
+  // view, as the badges are part of its content.
+  [self.contentSizeDelegate locationBarContentSizeDidChange];
+}
+
 #pragma mark - private
 
 // Configures the view to display location text, security icon, and incognito
@@ -823,10 +851,31 @@ const CGFloat kCustomLeadingViewAnimationDuration = 0.3;
 
 // Updates the current constraints.
 - (void)updateContainerConstraints {
-  [NSLayoutConstraint deactivateConstraints:_containerActiveConstraints];
-
   BOOL hasIncognito = [self shouldShowIncognitoBadge];
   BOOL hasLocationImage = self.locationIconImageView.image != nil;
+  BOOL hasCustomLeadingView =
+      _customLeadingViewContainer && !_customLeadingView.hidden;
+
+  // This method is invoked on every URL/placeholder text update, i.e. several
+  // times per navigation and per location bar instance. The constraints only
+  // depend on the inputs cached below, so when none of them changed, rebuilding
+  // identical constraints would only force a redundant Auto Layout
+  // invalidation. Still notify the delegate, as the text may have changed the
+  // intrinsic width.
+  if (_containerActiveConstraints && _containerHasIncognito == hasIncognito &&
+      _containerHasLocationImage == hasLocationImage &&
+      _containerHasCustomLeadingView == hasCustomLeadingView &&
+      _containerCustomLeadingViewSpacing == _customLeadingViewSpacing &&
+      IsChromeNextIaEnabled()) {
+    [self.contentSizeDelegate locationBarContentSizeDidChange];
+    return;
+  }
+  _containerHasIncognito = hasIncognito;
+  _containerHasLocationImage = hasLocationImage;
+  _containerHasCustomLeadingView = hasCustomLeadingView;
+  _containerCustomLeadingViewSpacing = _customLeadingViewSpacing;
+
+  [NSLayoutConstraint deactivateConstraints:_containerActiveConstraints];
 
   if (hasIncognito) {
     [self.locationButton addSubview:_incognitoImageView];
@@ -900,6 +949,11 @@ const CGFloat kCustomLeadingViewAnimationDuration = 0.3;
 
   _containerActiveConstraints = constraints;
   [NSLayoutConstraint activateConstraints:_containerActiveConstraints];
+
+  // Every content change of this view (location text, location icon, incognito
+  // badge, custom leading view) ends up here, so this is the single place from
+  // which the new width requirement can be published.
+  [self.contentSizeDelegate locationBarContentSizeDidChange];
 }
 
 // Whether the incognito badge should be visible or not.

@@ -5,8 +5,13 @@
 package org.chromium.chrome.browser.settings;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.robolectric.Shadows.shadowOf;
 
 import android.app.Activity;
 import android.content.Context;
@@ -24,6 +29,7 @@ import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.autofill.settings.FinancialAccountsManagementFragment;
@@ -73,6 +79,14 @@ public class SettingsNavigationImplTest {
         @Override
         protected Fragment createInitialFragment(@Nullable Intent intent) {
             return new FirstFakeSettingsFragment();
+        }
+    }
+
+    /** Stands in for {@link SettingsActivity}: an activity that hosts settings itself. */
+    public static class FakeSettingsHostActivity extends Activity implements SettingsHost {
+        @Override
+        public boolean isShownInTab() {
+            return false;
         }
     }
 
@@ -247,9 +261,48 @@ public class SettingsNavigationImplTest {
         assertTrue(hostFragment.getActiveFragment() instanceof FirstFakeSettingsFragment);
     }
 
+    /**
+     * {@link SettingsInTab#shouldOpenSettingsInTab()} depends on the current screen width, so it
+     * can become false while settings is already open in a tab, for example when the user folds a
+     * foldable device. {@code finishCurrentSettings()} must keep delegating to the host fragment
+     * instead of casting the activity to {@link SettingsActivity}. Regression test for
+     * crbug.com/562619494.
+     */
+    @Test
+    @DisableFeatures({ChromeFeatureList.SETTINGS_IN_TAB})
+    public void testFinishCurrentSettings_SettingsInTabDisabled_DelegatesToHostFragment() {
+        var scenario = Robolectric.buildActivity(TestActivity.class).setup();
+        TestActivity activity = scenario.get();
+        TestSettingsHostFragment hostFragment = new TestSettingsHostFragment();
+        activity.getSupportFragmentManager()
+                .beginTransaction()
+                .add(
+                        android.R.id.content,
+                        hostFragment,
+                        SettingsHostFragment.SETTINGS_NATIVE_PAGE_TAG)
+                .commitNow();
+        assertFalse(SettingsInTab.shouldOpenSettingsInTab());
+
+        // Show a fragment in the host directly. startSettings() cannot be used here because it
+        // only routes to the host fragment when settings would be opened in a tab.
+        hostFragment.showFragment(
+                new SecondFakeSettingsFragment(), /* addToBackStack= */ false, /* tag= */ null);
+        hostFragment.getChildFragmentManager().executePendingTransactions();
+        Fragment active = hostFragment.getActiveFragment();
+        assertTrue(active instanceof SecondFakeSettingsFragment);
+
+        // Now call finishCurrentSettings on active fragment.
+        mSettingsNavigationImpl.finishCurrentSettings(active);
+        hostFragment.getChildFragmentManager().executePendingTransactions();
+
+        // Should return to initial fragment without casting activity to SettingsActivity.
+        assertTrue(hostFragment.getActiveFragment() instanceof FirstFakeSettingsFragment);
+    }
+
     /** Regression test for https://crbug.com/559534170. */
     @Test
     @EnableFeatures({ChromeFeatureList.SETTINGS_IN_TAB})
+    @DisableFeatures({ChromeFeatureList.SETTINGS_IN_TAB_URL_NAV})
     @Config(qualifiers = "sw600dp")
     public void testStartSettings_SettingsInTab_downloads_savesLastIntent() {
         var scenario = Robolectric.buildActivity(TestActivity.class).setup();
@@ -262,5 +315,148 @@ public class SettingsNavigationImplTest {
         assertEquals(
                 DownloadSettings.class.getName(),
                 lastIntent.getStringExtra(SettingsIntentUtil.EXTRA_SHOW_FRAGMENT));
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.SETTINGS_IN_TAB, ChromeFeatureList.SETTINGS_IN_TAB_URL_NAV})
+    @Config(qualifiers = "sw600dp")
+    public void testStartSettings_SettingsInTabUrlNav_downloads_setsIntentUrl() {
+        var scenario = Robolectric.buildActivity(TestActivity.class).setup();
+        TestActivity activity = scenario.get();
+
+        mSettingsNavigationImpl.startSettings(activity, DownloadSettings.class);
+
+        Intent started = shadowOf(activity).getNextStartedActivity();
+        assertNotNull(started);
+        assertEquals("chrome://settings/downloads", started.getDataString());
+        assertEquals(
+                DownloadSettings.class.getName(),
+                started.getStringExtra(SettingsIntentUtil.EXTRA_SHOW_FRAGMENT));
+        assertNull(SettingsIntentUtil.takeLastIntent());
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.SETTINGS_IN_TAB, ChromeFeatureList.SETTINGS_IN_TAB_URL_NAV})
+    @Config(qualifiers = "sw600dp")
+    public void testSettingsInTabUrlNav_DelegatesToHostFragmentNavigation() {
+        var scenario = Robolectric.buildActivity(TestActivity.class).setup();
+        TestActivity activity = scenario.get();
+        TestSettingsHostFragment hostFragment = new TestSettingsHostFragment();
+        SettingsNavigation mockHostNav = mock(SettingsNavigation.class);
+        hostFragment.setSettingsNavigation(mockHostNav);
+        activity.getSupportFragmentManager()
+                .beginTransaction()
+                .add(
+                        android.R.id.content,
+                        hostFragment,
+                        SettingsHostFragment.SETTINGS_NATIVE_PAGE_TAG)
+                .commitNow();
+
+        mSettingsNavigationImpl.startSettings(activity, DownloadSettings.class);
+        verify(mockHostNav)
+                .startSettings(
+                        activity,
+                        DownloadSettings.class,
+                        /* fragmentArgs= */ null,
+                        /* addToBackStack= */ false,
+                        /* tag= */ null);
+
+        Fragment active = hostFragment.getActiveFragment();
+        mSettingsNavigationImpl.finishCurrentSettings(active);
+        verify(mockHostNav)
+                .finishCurrentSettings(active, /* parentFragment= */ null, /* parentArgs= */ null);
+    }
+
+    /**
+     * When settings is already open in a tab, {@code startSettings()} must route to the existing
+     * {@link SettingsHostFragment} even if {@link SettingsInTab#shouldOpenSettingsInTab()} has
+     * become false (e.g. screen width changed on a foldable device).
+     */
+    @Test
+    @DisableFeatures({ChromeFeatureList.SETTINGS_IN_TAB})
+    public void testStartSettings_SettingsInTabDisabled_ShowsInHostFragment() {
+        var scenario = Robolectric.buildActivity(TestActivity.class).setup();
+        TestActivity activity = scenario.get();
+        TestSettingsHostFragment hostFragment = new TestSettingsHostFragment();
+        activity.getSupportFragmentManager()
+                .beginTransaction()
+                .add(
+                        android.R.id.content,
+                        hostFragment,
+                        SettingsHostFragment.SETTINGS_NATIVE_PAGE_TAG)
+                .commitNow();
+        assertFalse(SettingsInTab.shouldOpenSettingsInTab());
+
+        mSettingsNavigationImpl.startSettings(activity, SecondFakeSettingsFragment.class, null);
+        hostFragment.getChildFragmentManager().executePendingTransactions();
+
+        assertTrue(hostFragment.getActiveFragment() instanceof SecondFakeSettingsFragment);
+    }
+
+    /**
+     * When settings is already open in a tab, {@code createSettingsIntent()} must create an intent
+     * to open in a tab via {@link SettingsHostFragment} even if {@link
+     * SettingsInTab#shouldOpenSettingsInTab()} is false.
+     */
+    @Test
+    @DisableFeatures({ChromeFeatureList.SETTINGS_IN_TAB})
+    public void
+            testCreateSettingsIntent_SettingsInTabDisabled_WithHostFragment_LaunchesChromeLauncherActivity() {
+        var scenario = Robolectric.buildActivity(TestActivity.class).setup();
+        TestActivity activity = scenario.get();
+        TestSettingsHostFragment hostFragment = new TestSettingsHostFragment();
+        activity.getSupportFragmentManager()
+                .beginTransaction()
+                .add(
+                        android.R.id.content,
+                        hostFragment,
+                        SettingsHostFragment.SETTINGS_NATIVE_PAGE_TAG)
+                .commitNow();
+        assertFalse(SettingsInTab.shouldOpenSettingsInTab());
+
+        Intent intent =
+                mSettingsNavigationImpl.createSettingsIntent(
+                        activity, FakeEmbeddableSettingsFragment.class);
+
+        assertEquals(Intent.ACTION_VIEW, intent.getAction());
+        assertEquals(UrlConstants.SETTINGS_URL, intent.getDataString());
+        assertEquals(ChromeLauncherActivity.class.getName(), intent.getComponent().getClassName());
+    }
+
+    /**
+     * When settings is hosted by an activity, navigation must stay in that activity even if {@link
+     * SettingsInTab#shouldOpenSettingsInTab()} is true (e.g. settings was opened while the window
+     * was narrow and the window was widened afterwards).
+     */
+    @Test
+    @EnableFeatures({ChromeFeatureList.SETTINGS_IN_TAB})
+    @Config(qualifiers = "sw600dp")
+    public void testCreateSettingsIntent_ActivityHostedSettings_LaunchesSettingsActivity() {
+        Activity host = Robolectric.buildActivity(FakeSettingsHostActivity.class).setup().get();
+        assertTrue(SettingsInTab.shouldOpenSettingsInTab());
+
+        Intent intent =
+                mSettingsNavigationImpl.createSettingsIntent(
+                        host, FakeEmbeddableSettingsFragment.class);
+
+        assertEquals(SettingsActivity.class.getName(), intent.getComponent().getClassName());
+        assertEquals(
+                FakeEmbeddableSettingsFragment.class.getName(),
+                intent.getStringExtra(SettingsIntentUtil.EXTRA_SHOW_FRAGMENT));
+    }
+
+    /** As above, for {@code startSettings()}, which is what settings pages call. */
+    @Test
+    @EnableFeatures({ChromeFeatureList.SETTINGS_IN_TAB})
+    @Config(qualifiers = "sw600dp")
+    public void testStartSettings_ActivityHostedSettings_StartsSettingsActivity() {
+        Activity host = Robolectric.buildActivity(FakeSettingsHostActivity.class).setup().get();
+        assertTrue(SettingsInTab.shouldOpenSettingsInTab());
+
+        mSettingsNavigationImpl.startSettings(host, FakeEmbeddableSettingsFragment.class);
+
+        Intent started = shadowOf(host).getNextStartedActivity();
+        assertNotNull(started);
+        assertEquals(SettingsActivity.class.getName(), started.getComponent().getClassName());
     }
 }

@@ -11,6 +11,7 @@
 
 #include "base/barrier_closure.h"
 #include "base/functional/bind.h"
+#include "base/memory/weak_ptr.h"
 #include "base/types/optional_ref.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_types.h"
@@ -341,11 +342,28 @@ PermissionControllerImpl* PermissionControllerImpl::FromBrowserContext(
       browser_context->GetPermissionController());
 }
 
-PermissionControllerImpl::~PermissionControllerImpl() {
-  // Ideally we need to unsubscribe from delegate subscriptions here,
-  // but browser_context_ is already destroyed by this point, so
-  // we can't fetch our delegate.
+void PermissionControllerImpl::Shutdown() {
+  if (subscriptions_.IsEmpty()) {
+    return;
+  }
+  // `browser_context_` is still valid here, so the delegate can be reached and
+  // asked to drop the observers it registered on our behalf. Note that
+  // `subscriptions_` being non-empty also guarantees that the delegate was
+  // already created when subscribing, so this will not lazily construct a
+  // KeyedService during BrowserContext teardown. Subscriptions are only cleared
+  // afterwards, since the delegate reads from the map while unsubscribing.
+  if (PermissionControllerDelegate* delegate =
+          browser_context_->GetPermissionControllerDelegate()) {
+    for (SubscriptionsMap::iterator it(&subscriptions_); !it.IsAtEnd();
+         it.Advance()) {
+      delegate->UnsubscribeFromPermissionResultChange(it.GetCurrentKey());
+    }
+    delegate->SetSubscriptions(nullptr);
+  }
+  subscriptions_.Clear();
 }
+
+PermissionControllerImpl::~PermissionControllerImpl() = default;
 
 PermissionResult PermissionControllerImpl::GetSubscriptionCurrentResult(
     const PermissionResultSubscription& subscription) {
@@ -391,7 +409,12 @@ PermissionControllerImpl::GetSubscriptionsStatuses(
 
 void PermissionControllerImpl::NotifyChangedSubscriptions(
     const SubscriptionsStatusMap& old_statuses) {
-  std::vector<base::OnceClosure> callbacks;
+  // A callback may unsubscribe another subscription of this batch, so each
+  // callback is paired with a weak pointer to its subscription and is skipped
+  // if that subscription is gone by the time it would run.
+  std::vector<
+      std::pair<base::WeakPtr<PermissionResultSubscription>, base::OnceClosure>>
+      callbacks;
   for (const auto& it : old_statuses) {
     auto key = it.first;
     PermissionResultSubscription* subscription = subscriptions_.Lookup(key);
@@ -404,11 +427,15 @@ void PermissionControllerImpl::NotifyChangedSubscriptions(
       // This is a private method that is called internally if a permission
       // status was set by DevTools. Suppress permission status override
       // verification and always notify listeners.
-      callbacks.push_back(base::BindOnce(subscription->callback, new_result,
-                                         /*ignore_status_override=*/true));
+      callbacks.emplace_back(subscription->GetWeakPtr(),
+                             base::BindOnce(subscription->callback, new_result,
+                                            /*ignore_status_override=*/true));
     }
   }
-  for (auto& callback : callbacks) {
+  for (auto& [subscription, callback] : callbacks) {
+    if (!subscription) {
+      continue;
+    }
     std::move(callback).Run();
   }
 }
@@ -818,13 +845,9 @@ void PermissionControllerImpl::PermissionResultChange(
   }
   PermissionResultSubscription* subscription =
       subscriptions_.Lookup(subscription_id);
-  DCHECK(subscription);
-  // TODO(crbug.com/40056329) Adding this block to prevent crashes while we
-  // investigate the root cause of the crash. This block will be removed as the
-  // DCHECK() above should be enough.
-  if (!subscription) {
-    return;
-  }
+  // Callers must not deliver a change for a subscription that was already
+  // removed.
+  CHECK(subscription);
   std::optional<PermissionResult> permission_result = permission_overrides_.Get(
       url::Origin::Create(subscription->requesting_origin),
       url::Origin::Create(subscription->embedding_origin),

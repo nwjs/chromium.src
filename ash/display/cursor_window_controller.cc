@@ -25,7 +25,6 @@
 #include "base/command_line.h"
 #include "components/prefs/pref_service.h"
 #include "third_party/skia/include/core/SkColor.h"
-#include "ui/accessibility/accessibility_features.h"
 #include "ui/aura/env.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_delegate.h"
@@ -333,17 +332,20 @@ class CursorWindowDelegate : public aura::WindowDelegate {
 
     if (cursor_window_ && use_inverted_cursor_) {
       invert_layer_ = std::make_unique<ui::LayerSolidColor>();
+      invert_layer_->SetName("CursorWindowController:Invert");
       invert_layer_->SetColor(SkColors::kTransparent);
       invert_layer_->SetBackgroundInverted(true);
       invert_layer_->SetBounds(gfx::Rect(size_));
 
       mask_layer_ = std::make_unique<ui::LayerTextured>();
+      mask_layer_->SetName("CursorWindowController:Mask");
       mask_layer_->set_delegate(&mask_delegate_);
       mask_layer_->SetFillsBoundsOpaquely(false);
       mask_layer_->SetBounds(gfx::Rect(size_));
       invert_layer_->SetMaskLayer(mask_layer_.get());
 
       overlay_layer_ = std::make_unique<ui::LayerTextured>();
+      overlay_layer_->SetName("CursorWindowController:Overlay");
       overlay_layer_->set_delegate(&overlay_delegate_);
       overlay_layer_->SetFillsBoundsOpaquely(false);
       overlay_layer_->SetBounds(gfx::Rect(size_));
@@ -454,7 +456,7 @@ void CursorWindowController::SetCursorInverted(bool inverted) {
 }
 
 bool CursorWindowController::ShouldEnableCursorCompositing() {
-  if (::features::IsAccessibilityInvertedMouseCursorEnabled() && is_inverted_) {
+  if (is_inverted_) {
     return true;
   }
 
@@ -754,9 +756,7 @@ void CursorWindowController::UpdateCursorImage() {
   gfx::Point hot_point_in_physical_pixels;
 
   // Only use inverted mode if no other cursor color was set.
-  bool use_inverted =
-      ::features::IsAccessibilityInvertedMouseCursorEnabled() && is_inverted_;
-  SkColor fill_color = use_inverted ? kFillColorForInvert : cursor_color_;
+  SkColor fill_color = is_inverted_ ? kFillColorForInvert : cursor_color_;
 
   if (cursor_.type() == ui::mojom::CursorType::kCustom) {
     // Custom cursor.
@@ -805,7 +805,7 @@ void CursorWindowController::UpdateCursorImage() {
     const float dsf = display_.device_scale_factor();
 
     std::optional<SkColor> outline_color;
-    if (use_inverted) {
+    if (is_inverted_) {
       outline_color = SK_ColorWHITE;
     }
 
@@ -819,7 +819,7 @@ void CursorWindowController::UpdateCursorImage() {
         gfx::ConvertPointToDips(hot_point_in_physical_pixels, dsf));
   }
 
-  delegate_->set_use_inverted_cursor(use_inverted);
+  delegate_->set_use_inverted_cursor(is_inverted_);
 
   delegate_->SetCursorImage(images[0].size(), images);
 
@@ -886,7 +886,7 @@ const gfx::ImageSkia& CursorWindowController::GetCursorImageForTest() const {
 bool CursorWindowController::ShouldUseFastInk() const {
   // If inverted cursor is enabled, we want to use the aura::Window path to
   // support the inverted cursor feature.
-  if (::features::IsAccessibilityInvertedMouseCursorEnabled() && is_inverted_) {
+  if (is_inverted_) {
     return false;
   }
 

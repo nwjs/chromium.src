@@ -10,7 +10,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "fuchsia-arm64-cast-receiver-rel",
-              "project": "chromium-m155"
+              "project": "chromium-m156"
             },
             "builder_spec": {
               "builder_group": "chromium.fuchsia",
@@ -40,11 +40,15 @@
         {
           "bucket": "ci",
           "builder": "fuchsia-arm64-cast-receiver-rel",
-          "project": "chromium-m155"
+          "project": "chromium-m156"
         }
       ],
       "targets_spec_directory": "infra/config/generated/builders/try/fuchsia-arm64-cast-receiver-rel/targets"
     }
+  },
+  "$build/flakiness": {
+    "check_for_flakiness": true,
+    "check_for_flakiness_with_resultdb": true
   },
   "$build/siso": {
     "configs": [
@@ -68,5 +72,6 @@
     ]
   },
   "builder_group": "tryserver.chromium.fuchsia",
+  "cq": "path-based",
   "recipe": "chromium_trybot"
 }

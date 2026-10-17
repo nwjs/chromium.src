@@ -129,6 +129,8 @@ class EmailVerifierDelegate : public AutofillManager::Observer,
       AutofillManager& manager,
       const FormData& form,
       const FieldGlobalId& email_field_id) override;
+  void OnBeforeFormSubmitted(AutofillManager& manager,
+                             const FormData& form) override;
   void OnAfterFocusOnFormField(AutofillManager& manager,
                                FormGlobalId form_id,
                                FieldGlobalId field_id) override;
@@ -139,6 +141,7 @@ class EmailVerifierDelegate : public AutofillManager::Observer,
       content::NavigationHandle* navigation_handle) override;
 
  private:
+  void CancelPendingRequests();
   class MetricsObserver : public Observer {
    public:
     MetricsObserver();
@@ -166,8 +169,6 @@ class EmailVerifierDelegate : public AutofillManager::Observer,
                            std::u16string email_value,
                            const std::string& nonce);
 
-  void OnDnsCheckPassed(base::WeakPtr<AutofillManager> manager,
-                        FieldGlobalId email_field_id);
 
   void OnIsVerifiable(
       base::WeakPtr<AutofillManager> manager,
@@ -182,7 +183,7 @@ class EmailVerifierDelegate : public AutofillManager::Observer,
 
   void Verify(base::WeakPtr<AutofillManager> manager,
               FieldGlobalId email_field_id,
-              std::string email_utf8,
+              std::string email,
               const std::string& nonce,
               const content::webid::EmailVerifier::Result& result);
 
@@ -198,17 +199,13 @@ class EmailVerifierDelegate : public AutofillManager::Observer,
   void OnEmailVerificationDecision(
       base::WeakPtr<AutofillManager> manager,
       FieldGlobalId email_field_id,
-      std::string email_utf8,
+      std::string email,
       std::string nonce,
       content::webid::EmailVerifier::Result result,
       AutofillClient::EmailVerificationPermissionUiStatus ui_status);
 
-  // Notifies `observers_` that an EVP flow finished with `result`. If `manager`
-  // is present and the flow ended in a state other than success or waiting for
-  // renderer response, resets the email verification loading spinner on the
-  // input field (`EmailVerificationState::kNone`).
-  void NotifyFlowCompleted(AutofillManager* manager,
-                           FieldGlobalId field_id,
+  // Notifies `observers_` that an EVP flow finished with `result`.
+  void NotifyFlowCompleted(FieldGlobalId field_id,
                            EvpAutofillFlowResult result);
 
   void OnFieldLostFocus(AutofillManager& manager,

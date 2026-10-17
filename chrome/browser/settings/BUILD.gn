@@ -12,6 +12,7 @@ android_library_factory("factory_java") {
     "//base:tasks_java",
     "//chrome/browser/flags:java",
     "//components/browser_ui/settings/android:java",
+    "//ui/android:ui_no_recycler_view_java",
   ]
 
   sources = [ "android/java/src/org/chromium/chrome/browser/settings/SettingsNavigationFactory.java" ]
@@ -28,11 +29,9 @@ android_library("search_java") {
   deps = [
     "//base:base_java",
     "//base:base_shared_preferences_java",
-    "//chrome/browser/flags:java",
     "//chrome/browser/preferences:java",
     "//chrome/browser/profiles/android:java",
     "//components/browser_ui/settings/android:java",
-    "//components/cached_flags:java",
     "//content/public/android:content_java",
     "//third_party/androidx:androidx_annotation_annotation_java",
     "//third_party/androidx:androidx_preference_preference_java",
@@ -41,7 +40,10 @@ android_library("search_java") {
 }
 
 generate_jni("jni_headers") {
-  sources = [ "search/java/src/org/chromium/chrome/browser/settings/search/RecentSearchQueue.java" ]
+  sources = [
+    "android/java/src/org/chromium/chrome/browser/settings/SettingsNavigationFactory.java",
+    "search/java/src/org/chromium/chrome/browser/settings/search/RecentSearchQueue.java",
+  ]
 }
 
 android_library("internal_java") {
@@ -54,6 +56,8 @@ android_library("internal_java") {
     # Exception: depends on :chrome_java for SettingsNavigationImpl.
     "//chrome/android:chrome_java",
     "//components/browser_ui/settings/android:java",
+    "//third_party/jni_zero:jni_zero_java",
+    "//ui/android:ui_no_recycler_view_java",
   ]
 
   sources = [ "android/java/src/org/chromium/chrome/browser/settings/SettingsNavigationFactory.java" ]
@@ -62,11 +66,14 @@ android_library("internal_java") {
 # Avoid circular dependencies for this small, widely-used helper class.
 android_library("settings_in_tab_java") {
   sources = [
+    "android/java/src/org/chromium/chrome/browser/settings/SettingsHost.java",
+    "android/java/src/org/chromium/chrome/browser/settings/SettingsHostUtil.java",
     "android/java/src/org/chromium/chrome/browser/settings/SettingsInTab.java",
   ]
   deps = [
     "//base:base_java",
     "//chrome/browser/flags:java",
+    "//third_party/androidx:androidx_fragment_fragment_java",
     "//ui/android:ui_no_recycler_view_java",
   ]
 }
@@ -111,6 +118,7 @@ android_library("java") {
     "//third_party/androidx:androidx_fragment_fragment_java",
     "//third_party/androidx:androidx_preference_preference_java",
     "//ui/android:ui_no_recycler_view_java",
+    "//ui/edge_to_edge:java",
     "//url:gurl_java",
   ]
   resources_package = "org.chromium.chrome.browser.settings"
@@ -122,6 +130,7 @@ android_library("test_support_java") {
   sources = [
     "android/java/src/org/chromium/chrome/browser/settings/SettingsActivityTestRule.java",
     "android/java/src/org/chromium/chrome/browser/settings/SettingsInTabTestActivity.java",
+    "android/java/src/org/chromium/chrome/browser/settings/SettingsTestFragmentFinder.java",
     "android/java/src/org/chromium/chrome/browser/settings/SettingsTestRule.java",
   ]
 

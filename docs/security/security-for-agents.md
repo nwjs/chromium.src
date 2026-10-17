@@ -29,6 +29,36 @@ either end, and can also pass file handles and some other kinds of object
 between processes. Mojo allows for interprocess calls to methods grouped
 together into interfaces, and not all interfaces are available to all callers.
 
+### Site Isolation
+
+Site Isolation is a security architecture that locks some renderer processes to
+a specific site or origin. The process lock allows the browser processes to
+restrict the capabilities of a renderer process. Exactly which capabilities are
+restricted is documented in
+[`compromised-renderers.md`](compromised-renderers.md).  These restrictions are
+designed to hold even if an attacker can run arbitrary native code in a renderer
+process (after exploiting a separate bug).  For more information about Site
+Isolation please read `//content/SECURITY.md`.
+
+If `compromised-renderers.md` documents that a compromised renderer cannot do
+something (e.g., spoof the `Sec-Fetch-Site` or `Origin` HTTP request headers),
+then bypassing this restriction is a security bug.
+
+If `compromised-renderers.md` does _not_ document a particular restriction
+(e.g., it does not prohibit spoofing a `Referer` HTTP request header), then it
+is _not_ a security bug if that restriction is not enforced (e.g., if the
+browser process allows arbitrary `Referer` header values).
+
+In some cases, omissions in `compromised-renderers.md` may be themselves
+considered a security bug.  Human judgement is required to evaluate such bugs,
+because updating the threat model needs to consider various design aspects -
+like 1) the subjective value of the additional security enforcement, 2) the
+feasibility of the enforcement (e.g. whether naive process-lock-based checks
+would block legitimate scenarios), and 3) the engineering and/or performance
+cost of the enforcement (e.g. the cost of re-architecting things in a way that
+avoids trusting renderer-provided values).  Because of the importance of the
+human judgement, AI agents should **not** report such bugs.
+
 ### Web Security
 
 The fundamental unit of isolation on the web is the "origin". A "page" is the
@@ -259,16 +289,60 @@ When reporting a bug:
       terms given above
     * Which revision, build arguments (args.gn), and command-line flags you
       supplied
-* Your proof of concept should be a single file:
+* Your proof of concept should use minimal files with standard names:
     * For bugs that reproduce via d8, a single Javascript source file called
       "poc.js"
     * For bugs that reproduce via loading in Chromium, a single HTML source file
       called "poc.html"
     * For bugs that reproduce via loading in Chromium, but which cannot be
-      served as a single HTML file, a single Python source file called "poc.py"
-      which, when invoked with a port number, will run a web server on localhost
-      with that port number. That web server must serve any needed exploit code
-      when /poc.html is loaded from it.
+      served as a single static HTML file (for example, when custom HTTP headers
+      or dynamic responses are required), provide both "poc.html" and a Python
+      HTTP server called "server.py".
+      The reproduction environment places `poc.html` and `server.py` in a
+      directory containing a `gen` symlink to the build's generated files, then
+      runs:
+      1. `python3 server.py`
+      2. `chrome http://localhost:8000/poc.html`
+      Therefore, `server.py` must:
+      * Take no command-line arguments.
+      * Listen on port 8000 and serve `poc.html` at
+        `http://localhost:8000/poc.html`.
+      * Only read `poc.html` and the Mojo bindings in `gen` from disk, serving
+        the bindings unmodified under the `/gen/` URL path. All client-side HTML
+        and JavaScript payloads should live in `poc.html` (or be generated
+        dynamically by `server.py`).
+      * Never copy, vendor, or edit Mojo bindings. They load their dependencies
+        by relative path and break when moved.
+      * Be only an HTTP server: serve payloads and set HTTP headers. It must not
+        launch Chromium or modify Chromium's files or directories.
+
+      The payload in `poc.html` imports bindings through `./gen/`:
+
+      ```js
+      import {FooRemote} from './gen/path/to/foo.mojom.m.js';
+      ```
+
+      Because `server.py` serves its own working directory, both `/poc.html` and
+      `/gen/` resolve directly through `SimpleHTTPRequestHandler`:
+
+      ```python
+      import http.server, os
+
+      os.chdir(os.path.dirname(os.path.abspath(__file__)))  # poc.html and ./gen live here
+
+      class Handler(http.server.SimpleHTTPRequestHandler):
+          def end_headers(self):
+              # Add any custom headers required by the exploit, e.g.:
+              # self.send_header('Cross-Origin-Opener-Policy', 'same-origin')
+              # self.send_header('Cross-Origin-Embedder-Policy', 'require-corp')
+              super().end_headers()
+
+      http.server.ThreadingHTTPServer(('', 8000), Handler).serve_forever()
+      ```
+
+      To run the PoC locally, create the same symlink next to `server.py` and
+      `poc.html`:
+      `ln -s <chromium-out-dir>/gen gen`.
     * For bugs that simulate a compromised renderer with a source patch, a
       single unified diff called "poc.patch". This patch must only change code
       that runs in the renderer.

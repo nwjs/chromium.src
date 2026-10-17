@@ -4,6 +4,7 @@
 """Entry point for "from-source" and "from-jar" commands."""
 
 import collections
+import json
 import logging
 import os
 import pathlib
@@ -55,7 +56,7 @@ class NativeMethod:
     if self.is_proxy:
       class_without_prefix = java_class.class_without_prefix
       # Signature with all reference types changed to "Object".
-      self.proxy_signature = self.signature.to_proxy()
+      self.proxy_signature = self.signature.to_proxy(unwrap_safe_pointers=True)
       if self.needs_implicit_array_element_class_param:
         self.proxy_signature = proxy.add_implicit_array_element_class_param(
             self.proxy_signature)
@@ -83,15 +84,33 @@ class NativeMethod:
     # Set when the first param dictates this is implemented as a member
     # function of the native class given as the first parameter.
     first_param = self.params and self.params[0]
-    if (first_param and first_param.java_type.is_primitive()
-        and first_param.java_type.primitive_name == 'long'
-        and first_param.name.startswith('native')):
-      if parsed_method.native_class_name:
-        self.first_param_cpp_type = parsed_method.native_class_name
-      else:
-        self.first_param_cpp_type = first_param.name[len('native'):]
+    is_long_member = (first_param and first_param.java_type.is_primitive()
+                      and first_param.java_type.primitive_name == 'long'
+                      and first_param.name.startswith('native'))
+    is_safe_ptr_member = (first_param
+                          and first_param.java_type.is_safe_pointer()
+                          and first_param.name == 'self')
+    if is_long_member or is_safe_ptr_member:
+      self._member_first_param = first_param
     else:
-      self.first_param_cpp_type = None
+      self._member_first_param = None
+
+  @property
+  def first_param_cpp_type(self):
+    # Resolved lazily: the link step builds NativeMethod without a type
+    # catalog, so a safe pointer token has no C++ type there.
+    first_param = self._member_first_param
+    if not first_param:
+      return None
+    if first_param.java_type.is_safe_pointer():
+      backend_type = first_param.java_type.to_backend_cpp_type()
+      assert backend_type.endswith('*'), (
+          'Only JniPtr<T> may be used as the "self" first parameter; '
+          f'got {first_param.java_type.java_class.name}.')
+      return backend_type[:-1]
+    if self.native_class_name:
+      return self.native_class_name
+    return first_param.name[len('native'):]
 
   @property
   def params(self):
@@ -476,9 +495,6 @@ def _generate_headers(jni_mode,
   if extra_includes:
     user_includes += extra_includes
   system_includes = ['jni.h']
-  if any(f.const_value in ('Infinity', '-Infinity', 'NaN')
-         for f in jni_obj.IterFields()):
-    system_includes.append('limits')
 
   preamble, epilogue = header_common.header_preamble(
       GetScriptName(),
@@ -495,6 +511,11 @@ def _generate_headers(jni_mode,
   sb(epilogue)
   shared_header_content = sb.to_string()
 
+  if any(f.const_value in ('Infinity', '-Infinity', 'NaN')
+         for f in jni_obj.IterFields()):
+    system_includes.append('limits')
+  # For std::move().
+  system_includes.append('utility')
   user_includes.append(os.path.basename(shared_header_file))
   preamble, epilogue = header_common.header_preamble(
       GetScriptName(),
@@ -588,12 +609,13 @@ def _RemoveStaleHeaders(path, shared_header_names, unshared_header_names):
           os.remove(file_path)
 
 
-def _CheckNotEmpty(jni_objs):
+def _CheckNotEmpty(parsed_files):
   has_empty = False
-  for jni_obj in jni_objs:
-    if not jni_obj.natives and not jni_obj.jni_classes:
+  for pf in parsed_files:
+    if not (pf.proxy_methods or pf.classes_with_jni
+            or pf.outer_class.non_proxy_methods or pf.type_tokens):
       has_empty = True
-      sys.stderr.write(f'No native methods found in {jni_obj.filename}.\n')
+      sys.stderr.write(f'No native methods found in {pf.filename}.\n')
   if has_empty:
     sys.exit(1)
 
@@ -677,7 +699,10 @@ def _CreatePlaceholderSrcJar(srcjar_path, jni_objs, *, script_name):
       # write a stubbed version of the class if it's imported by another class.
       for jni_obj in jni_objs:
         for java_class in jni_obj.CollectClassesToBeImported():
-          if java_class.full_name_with_slashes.startswith('java/'):
+          # JniPtr is already in gendeps_java; JniUniquePtr and JniRawPtr are in
+          # jni_zero_java and still need placeholders.
+          if (java_class.full_name_with_slashes.startswith('java/')
+              or java_class == java_types.JNI_PTR_CLASS):
             continue
           # TODO(mheikal): handle more than 1 nesting layer.
           if java_class.is_nested():
@@ -740,6 +765,9 @@ def _WriteResolvedTypes(resolved_types_path, jni_objs):
 
 
 def GenerateFromSource(parser, args, jni_mode):
+  if args.depfile and not (args.srcjar_path or args.output_type_catalog):
+    parser.error('--depfile requires --srcjar-path or --output-type-catalog')
+
   # Remove existing headers so that moving .java source files but not updating
   # the corresponding C++ include will be a compile failure (otherwise
   # incremental builds will usually not catch this).
@@ -749,6 +777,10 @@ def GenerateFromSource(parser, args, jni_mode):
   try:
     errors = []
     parsed_files = []
+    type_catalog, loaded_type_catalogs = common.load_type_catalogs(
+        type_catalogs_file=args.type_catalogs_file,
+        type_catalogs=args.type_catalogs)
+
     for f in args.input_files:
       try:
         parsed_files.append(
@@ -757,7 +789,9 @@ def GenerateFromSource(parser, args, jni_mode):
                 package_prefix=args.package_prefix,
                 package_prefix_filter=args.package_prefix_filter,
                 allow_private_called_by_natives=args.
-                allow_private_called_by_natives))
+                allow_private_called_by_natives,
+                type_catalog=type_catalog,
+                enable_safe_pointers=args.enable_safe_pointers))
       except parse.ParseError as e:
         errors.append(e)
 
@@ -765,6 +799,22 @@ def GenerateFromSource(parser, args, jni_mode):
       for e in errors:
         sys.stderr.write(f'\n--- JNI Parsing Error ---\n{e}\n')
       sys.exit(1)
+
+    _CheckNotEmpty(parsed_files)
+
+    for pf in parsed_files:
+      common.merge_type_catalogs(type_catalog, pf.type_tokens, pf.filename)
+
+    if args.enable_safe_pointers:
+      parse.resolve_safe_pointers(parsed_files, type_catalog)
+
+    if args.output_type_catalog:
+      local_type_catalog = {}
+      for parsed_file in parsed_files:
+        common.merge_type_catalogs(local_type_catalog, parsed_file.type_tokens,
+                                   parsed_file.filename)
+      with common.atomic_output(args.output_type_catalog, 'w') as f:
+        json.dump(local_type_catalog, f, indent=2, sort_keys=True)
 
     jni_objs = [
         JniObject(x,
@@ -774,7 +824,9 @@ def GenerateFromSource(parser, args, jni_mode):
                   use_weak_called_by_natives=args.weak_called_by_natives)
         for x in parsed_files
     ]
-    _CheckNotEmpty(jni_objs)
+    if args.depfile:
+      first_out = args.srcjar_path or args.output_type_catalog
+      common.write_depfile(args.depfile, first_out, loaded_type_catalogs)
     if args.resolved_types_path:
       _WriteResolvedTypes(args.resolved_types_path, jni_objs)
   except parse.ParseError as e:

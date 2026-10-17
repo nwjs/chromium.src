@@ -23,6 +23,7 @@
 #include "components/safe_browsing/core/browser/db/sb_update_protocol_manager.h"
 #include "components/safe_browsing/core/common/proto/safebrowsingv5.pb.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
+#include "net/base/backoff_entry.h"
 
 class GURL;
 
@@ -190,12 +191,17 @@ class V5UpdateProtocolManager : public SBUpdateProtocolManager {
       base::TimeDelta interval,
       std::vector<ListIdentifierAndVersion> list_identifier_to_version_mapping);
 
-  // SBUpdateProtocolManager override:
+  // SBUpdateProtocolManager overrides:
+  void ResetUpdateErrors() override;
+  base::TimeDelta GetNextBackOffInterval() override;
   void RecordProtocolSpecificNextUpdateInterval(
       base::TimeDelta interval) override;
 
   // The callback that's called when fetching lists completes.
   V5UpdateCallback update_callback_;
+
+  // Enforces exponential backoff on update requests.
+  std::unique_ptr<net::BackoffEntry> backoff_entry_;
 
   base::WeakPtrFactory<V5UpdateProtocolManager> weak_factory_{this};
 };

@@ -614,6 +614,11 @@ bool FedCmAccountSelectionView::ShowVerifyingDialog(
   return true;
 }
 
+bool FedCmAccountSelectionView::ShowNativeAppUi(
+    const content::NativeAppRequestOptions& request_options) {
+  return false;
+}
+
 void FedCmAccountSelectionView::ShowUrl(LinkType link_type, const GURL& url) {
   BrowserWindowInterface* browser =
       GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
@@ -794,9 +799,6 @@ void FedCmAccountSelectionView::OnCloseButtonClicked(const ui::Event& event) {
   }
 
   if (dialog_type_ == DialogType::BUBBLE) {
-    UMA_HISTOGRAM_BOOLEAN("Blink.FedCm.CloseVerifySheet.Desktop",
-                          state_ == State::VERIFYING);
-
     // Record the sheet type that the user was closing.
     UMA_HISTOGRAM_ENUMERATION("Blink.FedCm.ClosedSheetType.Desktop",
                               GetSheetType());

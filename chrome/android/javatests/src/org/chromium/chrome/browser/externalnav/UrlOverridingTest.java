@@ -35,6 +35,7 @@ import android.widget.TextView;
 
 import androidx.annotation.IntDef;
 import androidx.browser.customtabs.CustomTabsIntent;
+import androidx.browser.customtabs.CustomTabsSessionToken;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.espresso.Espresso;
 import androidx.test.filters.LargeTest;
@@ -105,7 +106,6 @@ import org.chromium.chrome.browser.tab.InterceptNavigationDelegateClientImpl;
 import org.chromium.chrome.browser.tab.InterceptNavigationDelegateTabHelper;
 import org.chromium.chrome.browser.tab.RedirectHandlerTabHelper;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelJniBridge;
@@ -560,8 +560,7 @@ public class UrlOverridingTest {
                     TabModelSelectorObserver selectorObserver =
                             new TabModelSelectorObserver() {
                                 @Override
-                                public void onNewTabCreated(
-                                        Tab newTab, @TabCreationState int creationState) {
+                                public void onNewTabCreated(Tab newTab) {
                                     Assert.assertTrue(params.createsNewTab);
                                     latestTabHolder.value = newTab;
                                     newTabCallback.notifyCalled();
@@ -811,7 +810,7 @@ public class UrlOverridingTest {
     private String getNonBrowserPackageName() {
         List<PackageInfo> packages =
                 ContextUtils.getApplicationContext().getPackageManager().getInstalledPackages(0);
-        if (packages == null || packages.size() == 0) {
+        if (packages == null || packages.isEmpty()) {
             return "";
         }
 
@@ -1797,13 +1796,13 @@ public class UrlOverridingTest {
         final CustomTabsConnection connection = CustomTabsTestUtils.warmUpAndWait();
         Context context = ContextUtils.getApplicationContext();
         Intent intent = CustomTabsIntentTestUtils.createMinimalCustomTabIntent(context, url);
-        final var sessionHolder = SessionHolder.getSessionHolderFromIntent(intent);
-        Assert.assertTrue(connection.newSession(sessionHolder.getSessionAsCustomTab()));
+        final var sessionHolder =
+                SessionHolder.of(CustomTabsSessionToken.getSessionTokenFromIntent(intent));
+        Assert.assertTrue(connection.newSession(sessionHolder.getToken()));
 
         connection.setCanUseHiddenTabForSession(sessionHolder, true);
         Assert.assertTrue(
-                connection.mayLaunchUrl(
-                        sessionHolder.getSessionAsCustomTab(), Uri.parse(url), null, null));
+                connection.mayLaunchUrl(sessionHolder.getToken(), Uri.parse(url), null, null));
         CustomTabsTestUtils.ensureCompletedSpeculationForUrl(url);
 
         // Can't wait for Activity startup as we close so fast the polling is flaky.
@@ -1824,8 +1823,9 @@ public class UrlOverridingTest {
         Context context = ContextUtils.getApplicationContext();
         Intent intent = CustomTabsIntentTestUtils.createMinimalCustomTabIntent(context, url);
 
-        final var sessionHolder = SessionHolder.getSessionHolderFromIntent(intent);
-        Assert.assertTrue(connection.newSession(sessionHolder.getSessionAsCustomTab()));
+        final var sessionHolder =
+                SessionHolder.of(CustomTabsSessionToken.getSessionTokenFromIntent(intent));
+        Assert.assertTrue(connection.newSession(sessionHolder.getToken()));
 
         AsyncInitializationActivity.interceptMoveTaskToBackForTesting();
         // Can't wait for Activity startup as we close so fast the polling is flaky.
@@ -1847,8 +1847,9 @@ public class UrlOverridingTest {
         final CustomTabsConnection connection = CustomTabsTestUtils.warmUpAndWait();
         Context context = ContextUtils.getApplicationContext();
         Intent intent = CustomTabsIntentTestUtils.createMinimalCustomTabIntent(context, url);
-        final var sessionHolder = SessionHolder.getSessionHolderFromIntent(intent);
-        Assert.assertTrue(connection.newSession(sessionHolder.getSessionAsCustomTab()));
+        final var sessionHolder =
+                SessionHolder.of(CustomTabsSessionToken.getSessionTokenFromIntent(intent));
+        Assert.assertTrue(connection.newSession(sessionHolder.getToken()));
         connection.overridePackageNameForSessionForTesting(sessionHolder, TRUSTED_CCT_PACKAGE);
 
         mCustomTabActivityRule.startCustomTabActivityWithIntent(intent);
@@ -2080,7 +2081,7 @@ public class UrlOverridingTest {
                 };
         InterceptNavigationDelegateImpl.setResultCallbackForTesting(callback);
 
-        ThreadUtils.runOnUiThreadBlocking(
+        Runnable createNewTab =
                 () -> {
                     LoadUrlParams loadUrlParams = new LoadUrlParams(url);
                     loadUrlParams.setHasUserGesture(true);
@@ -2092,7 +2093,16 @@ public class UrlOverridingTest {
                                     loadUrlParams,
                                     TabLaunchType.FROM_LINK_CREATING_NEW_WINDOW,
                                     activity.getActivityTab());
-                });
+                };
+
+        ChromeTabbedActivity activity2 =
+                expectReparent
+                        ? ApplicationTestUtils.waitForActivityWithClass(
+                                ChromeTabbedActivity.class, Stage.CREATED, createNewTab)
+                        : null;
+        if (!expectReparent) {
+            ThreadUtils.runOnUiThreadBlocking(createNewTab);
+        }
 
         callbackHelper.waitForCallback(0, 1, 20, TimeUnit.SECONDS);
         Assert.assertNotNull(resultValue.get());
@@ -2102,6 +2112,85 @@ public class UrlOverridingTest {
                         : OverrideUrlLoadingResultType.NO_OVERRIDE,
                 resultValue.get().getResultType());
         Assert.assertNull(getCurrentExternalNavigationMessage());
+
+        if (expectReparent) {
+            CriteriaHelper.pollUiThread(
+                    () -> {
+                        if (activity2.getActivityTab() == null) return false;
+                        return activity2.getActivityTab().getUrl().equals(url);
+                    });
+        }
+    }
+
+    @Test
+    @LargeTest
+    @RequiresRestart // Avoid having multiple windows mess up the other tests
+    public void testRedirectFromLinkCreatingNewWindow() throws Exception {
+        TestWebServer webServer = TestWebServer.start();
+        GURL redirectTargetUrl = new GURL(mTestServer.getURL(HELLO_PAGE));
+        final String redirectUrl3 =
+                webServer.setRedirect("/redirect3.html", redirectTargetUrl.getSpec());
+        final String redirectUrl2 = webServer.setRedirect("/redirect2.html", redirectUrl3);
+        final String redirectUrl1 = webServer.setRedirect("/redirect1.html", redirectUrl2);
+        final boolean expectReparent = MultiWindowUtils.isMultiInstanceApi31Enabled();
+        if (expectReparent) {
+            InterceptNavigationDelegateClientImpl.setIsDesktopWindowingModeForTesting(true);
+        }
+
+        mTabbedActivityTestRule.startOnBlankPage();
+        ChromeActivity activity = mTabbedActivityTestRule.getActivity();
+
+        final CallbackHelper callbackHelper = new CallbackHelper();
+
+        Callback<Pair<GURL, OverrideUrlLoadingResult>> callback =
+                (result) -> {
+                    if (result.first.getSpec().equals(redirectUrl1) && expectReparent) {
+                        Assert.assertEquals(
+                                OverrideUrlLoadingResultType.OVERRIDE_WITH_REPARENT_TO_NEW_WINDOW,
+                                result.second.getResultType());
+                    } else {
+                        Assert.assertEquals(
+                                OverrideUrlLoadingResultType.NO_OVERRIDE,
+                                result.second.getResultType());
+                    }
+                    if (result.first.equals(redirectTargetUrl)) {
+                        callbackHelper.notifyCalled();
+                    }
+                };
+        InterceptNavigationDelegateImpl.setResultCallbackForTesting(callback);
+
+        Runnable createNewTab =
+                () -> {
+                    LoadUrlParams loadUrlParams = new LoadUrlParams(redirectUrl1);
+                    loadUrlParams.setHasUserGesture(true);
+                    loadUrlParams.setIsRendererInitiated(true);
+                    loadUrlParams.setInitiatorOrigin(createExampleOrigin());
+
+                    activity.getTabCreator(false)
+                            .createNewTab(
+                                    loadUrlParams,
+                                    TabLaunchType.FROM_LINK_CREATING_NEW_WINDOW,
+                                    activity.getActivityTab());
+                };
+
+        ChromeTabbedActivity activity2 =
+                expectReparent
+                        ? ApplicationTestUtils.waitForActivityWithClass(
+                                ChromeTabbedActivity.class, Stage.CREATED, createNewTab)
+                        : null;
+        if (!expectReparent) {
+            ThreadUtils.runOnUiThreadBlocking(createNewTab);
+        }
+
+        callbackHelper.waitForCallback(0, 1, 20, TimeUnit.SECONDS);
+        Assert.assertNull(getCurrentExternalNavigationMessage());
+        if (expectReparent) {
+            CriteriaHelper.pollUiThread(
+                    () -> {
+                        if (activity2.getActivityTab() == null) return false;
+                        return activity2.getActivityTab().getUrl().equals(redirectTargetUrl);
+                    });
+        }
     }
 
     @Test

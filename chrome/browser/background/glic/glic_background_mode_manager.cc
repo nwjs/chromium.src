@@ -11,6 +11,7 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/task/sequenced_task_runner.h"
 #include "chrome/browser/background/glic/glic_launcher_configuration.h"
 #include "chrome/browser/background/glic/glic_status_icon.h"
 #include "chrome/browser/browser_process.h"
@@ -19,7 +20,9 @@
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
+#include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
+#include "chrome/browser/glic/public/service/glic_instance_coordinator.h"
 #include "chrome/browser/global_features.h"
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
@@ -90,10 +93,9 @@ class GlicBackgroundModeManager::AcceleratorRegistrar
   const raw_ref<GlicBackgroundModeManager> manager_;
 };
 
-GlicBackgroundModeManager::GlicBackgroundModeManager(StatusTray* status_tray)
+GlicBackgroundModeManager::GlicBackgroundModeManager()
     : configuration_(std::make_unique<GlicLauncherConfiguration>(this)),
-      status_tray_(status_tray),
-      enabled_pref_(GlicLauncherConfiguration::IsEnabled()),
+      enabled_pref_(GlicLauncherConfiguration::IsLauncherIconEnabled()),
       expected_registered_hotkeys_(
           ShouldRegisterGlobalHotkey()
               ? std::vector<ui::Accelerator>{GlicLauncherConfiguration::
@@ -156,16 +158,32 @@ ui::Accelerator GlicBackgroundModeManager::GetHotkeyToShow() const {
   return GlicLauncherConfiguration::GetToggleHotkey();
 }
 
+namespace {
+
+GlicKeyedService* GetKeyedServiceForLaunch() {
+  Profile* profile = GlicProfileManager::GetInstance()->GetProfileForLaunch();
+  return profile ? GlicKeyedServiceFactory::GetGlicKeyedService(profile)
+                 : nullptr;
+}
+
+}  // namespace
+
 void GlicBackgroundModeManager::ToggleUI(bool prevent_close,
                                          mojom::InvocationSource source) {
-  Profile* profile = GlicProfileManager::GetInstance()->GetProfileForLaunch();
-  if (!profile) {
-    return;
+  if (GlicKeyedService* service = GetKeyedServiceForLaunch()) {
+    service->ToggleUI(nullptr, prevent_close, source);
   }
+}
 
-  GlicKeyedService* glic_keyed_service =
-      GlicKeyedServiceFactory::GetGlicKeyedService(profile);
-  glic_keyed_service->ToggleUI(nullptr, prevent_close, source);
+bool GlicBackgroundModeManager::WouldToggleClose() const {
+  GlicKeyedService* service = GetKeyedServiceForLaunch();
+  return service && service->WouldToggleUIClose(nullptr);
+}
+
+void GlicBackgroundModeManager::RefreshStatusIconToggleLabel() {
+  if (status_icon_) {
+    status_icon_->RefreshToggleLabel();
+  }
 }
 
 void GlicBackgroundModeManager::HandleHotkey(
@@ -207,6 +225,11 @@ void GlicBackgroundModeManager::OnProfileAdded(Profile* profile) {
       profile, enabling.RegisterOnConsentChanged(
                    base::BindRepeating(&GlicBackgroundModeManager::UpdateState,
                                        weak_ptr_factory_.GetWeakPtr())));
+  profile_show_hide_subscriptions_.emplace(
+      profile, service->instance_coordinator().AddGlobalShowHideCallback(
+                   base::BindRepeating(
+                       &GlicBackgroundModeManager::RefreshStatusIconToggleLabel,
+                       weak_ptr_factory_.GetWeakPtr())));
   auto [it, inserted] = profile_observers_.emplace(profile, this);
   it->second.Observe(profile);
 
@@ -221,6 +244,7 @@ void GlicBackgroundModeManager::OnProfileWillBeDestroyed(Profile* profile) {
   profile_observers_.erase(profile);
   profile_enabled_subscriptions_.erase(profile);
   profile_consent_subscriptions_.erase(profile);
+  profile_show_hide_subscriptions_.erase(profile);
 
   if (profile_keep_alive_ && profile_keep_alive_->profile() == profile) {
     profile_keep_alive_.reset();
@@ -231,6 +255,12 @@ void GlicBackgroundModeManager::OnProfileWillBeDestroyed(Profile* profile) {
   if (keep_alive_) {
     UpdateState();
   }
+  // Defer because recomputing the label re-enters GetProfileForLaunch(), which
+  // is unsafe while destroying a profile.
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE,
+      base::BindOnce(&GlicBackgroundModeManager::RefreshStatusIconToggleLabel,
+                     weak_ptr_factory_.GetWeakPtr()));
 }
 
 void GlicBackgroundModeManager::Shutdown() {
@@ -257,8 +287,10 @@ void GlicBackgroundModeManager::EnterBackgroundMode(bool show_status_icon) {
 
   if (show_status_icon) {
     if (!status_icon_) {
-      status_icon_ = GlicStatusIcon::Create(this, status_tray_);
-      status_icon_->Init();
+      if (StatusTray* status_tray = g_browser_process->status_tray()) {
+        status_icon_ = GlicStatusIcon::Create(this, status_tray);
+        status_icon_->Init();
+      }
     }
   } else {
     status_icon_.reset();

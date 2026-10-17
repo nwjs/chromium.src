@@ -67,6 +67,7 @@ static_library("file_manager") {
     "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/notifications",
     "//chrome/browser/sharesheet",
+    "//chromeos/ash/experiences/extensions/common/api",
     "//third_party/ced",
   ]
 
@@ -112,11 +113,9 @@ static_library("file_manager") {
     "//chrome/browser/pdf:pdf_service",
     "//chrome/browser/profiles",
     "//chrome/browser/profiles:profile",
-    "//chrome/browser/signin",
     "//chrome/browser/ui:chrome_pages",
     "//chrome/browser/ui/ash/login",
     "//chrome/browser/ui/ash/multi_user",
-    "//chrome/browser/ui/webui/ash/manage_mirrorsync",
     "//chrome/common",
     "//chrome/services/pdf/public/mojom",
     "//chromeos/ash/components/browser_context_helper",
@@ -132,6 +131,7 @@ static_library("file_manager") {
     "//chromeos/ash/experiences/arc",
     "//chromeos/ash/experiences/arc/intent_helper",
     "//chromeos/ash/experiences/arc/mojom",
+    "//chromeos/ash/experiences/extensions/common/api",
     "//chromeos/ash/experiences/settings_ui",
     "//chromeos/components/disks:prefs",
     "//chromeos/components/sharesheet:constants",
@@ -195,12 +195,15 @@ source_set("unit_tests") {
     "//chrome/browser/ash/policy/dlp",
     "//chrome/browser/ash/policy/dlp/dialogs",
     "//chrome/browser/ash/policy/dlp/test:test_support",
+    "//chrome/browser/ui:settings_window_manager_chromeos",
     "//chrome/common",
     "//chrome/test:test_support",
+    "//chrome/test/base:testing_browser_process",
     "//chromeos/ash/components/dbus/cros_disks",
     "//chromeos/ash/components/disks",
     "//chromeos/ash/components/disks:test_support",
     "//chromeos/ash/experiences/arc",
+    "//chromeos/ash/experiences/extensions/common/api",
     "//components/services/unzip/content",
     "//components/services/unzip/public/cpp",
     "//storage/browser",
@@ -210,10 +213,6 @@ source_set("unit_tests") {
     "//ui/chromeos/strings",
     "//ui/display:test_support",
   ]
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 source_set("browser_tests") {
@@ -239,7 +238,6 @@ source_set("browser_tests") {
     "//chrome/browser/ash/policy/dlp/test:test_support",
     "//chrome/browser/chromeos/policy/dlp",
     "//chrome/browser/chromeos/policy/dlp/test:test_support",
-    "//chrome/browser/signin",
     "//chrome/browser/ui",
     "//chrome/common",
     "//chrome/common:constants",
@@ -247,6 +245,7 @@ source_set("browser_tests") {
     "//chromeos/ash/components/dbus/cros_disks",
     "//chromeos/ash/components/disks",
     "//chromeos/ash/components/disks:test_support",
+    "//chromeos/ash/experiences/extensions/common",
     "//chromeos/dbus/dlp",
     "//components/drive",
     "//components/prefs",

@@ -7,34 +7,14 @@
 #include "base/byte_size.h"
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
-#include "base/no_destructor.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/system/sys_info.h"
 #include "base/task/current_thread.h"
 #include "build/build_config.h"
 #include "mojo/public/cpp/bindings/direct_receiver.h"
 #include "net/base/mime_sniffer.h"
-#include "url/gurl.h"
-#include "url/origin.h"
 
 namespace network::features {
-
-// Enables the Accept-CH support disabler. If this feature is activated, Chrome
-// ignore Accept-CH response headers for a site that is specified in the
-// following kBlockAcceptClientHintsBlockedSite. This is used to compare Chrome
-// performance with a dedicated site.
-BASE_FEATURE(kBlockAcceptClientHints, base::FEATURE_DISABLED_BY_DEFAULT);
-const base::FeatureParam<std::string> kBlockAcceptClientHintsBlockedSite{
-    &kBlockAcceptClientHints, /*name=*/"BlockedSite", /*default_value=*/""};
-
-bool ShouldBlockAcceptClientHintsFor(const url::Origin& origin) {
-  // Check if the Accept-CH support is disabled for a specified site.
-  static const bool block_accept_ch =
-      base::FeatureList::IsEnabled(features::kBlockAcceptClientHints);
-  static const base::NoDestructor<url::Origin> blocked_site(url::Origin::Create(
-      GURL(features::kBlockAcceptClientHintsBlockedSite.Get())));
-  return block_accept_ch && blocked_site->IsSameOriginWith(origin);
-}
 
 BASE_FEATURE(kNetworkErrorLogging, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -202,10 +182,6 @@ BASE_FEATURE(kCorsPreflightCacheKeyTaintedOrigin,
 // Do not send TLS client certificates in CORS preflight. Omit all client certs
 // and continue the handshake without sending one if requested.
 BASE_FEATURE(kOmitCorsClientCert, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enforces that frame-type destinations require kNavigate mode.
-BASE_FEATURE(kRestrictFrameDestinationsToNavigate,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables support for the `Variants` response header and reduce
 // accept-language. https://github.com/Tanych/accept-language
@@ -546,7 +522,7 @@ BASE_FEATURE(kReportingApiEnableVariationsHeaders,
 BASE_FEATURE(kNetworkContextDirectReceiver, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool ShouldBindNetworkContextDirectReceiver() {
-  return base::CurrentIOThread::IsSet() &&
+  return mojo::IsDirectReceiverSupported() && base::CurrentIOThread::IsSet() &&
          base::FeatureList::IsEnabled(features::kNetworkContextDirectReceiver);
 }
 

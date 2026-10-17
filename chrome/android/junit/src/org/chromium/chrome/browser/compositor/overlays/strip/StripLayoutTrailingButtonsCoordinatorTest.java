@@ -68,6 +68,7 @@ import org.chromium.chrome.browser.glic.GlicPrefNames;
 import org.chromium.chrome.browser.glic.GlicSplitButtonDelegate;
 import org.chromium.chrome.browser.glic.GlicSplitButtonDelegateBridge;
 import org.chromium.chrome.browser.glic.GlicSplitButtonDelegateBridgeJni;
+import org.chromium.chrome.browser.glic.GlicUtils;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.layouts.animation.CompositorAnimationHandler;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -140,6 +141,7 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
     @Before
     public void setUp() {
         GlicEnabling.setEnabledForTesting(ChromeFeatureList.isEnabled(ChromeFeatureList.GLIC));
+        GlicUtils.setIsSidePanelFormFactorForTesting(true);
         GlicSplitButtonDelegateBridgeJni.setInstanceForTesting(
                 mGlicSplitButtonDelegateBridgeJniMock);
         when(mGlicSplitButtonDelegateBridgeJniMock.create(anyLong(), any())).thenReturn(1L);
@@ -1487,6 +1489,39 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
                         + " opacity).",
                 2,
                 mAnimatorsListCaptor.getValue().size());
+    }
+
+    @Test
+    public void testGlicButtonCheckClickedOrHovered_OnDismissButton() {
+        showGlicButton();
+        mGlicDismissButton.setVisible(true);
+        mGlicDismissButton.setOpacity(1.0f);
+
+        // Configure positions of the Glic button and its nested close button
+        mGlicButton.setDrawX(100.f);
+        mGlicButton.setDrawY(0.f);
+        mGlicButton.setWidth(100.f);
+        mGlicButton.setHeight(40.f);
+
+        mGlicDismissButton.setDrawX(180.f);
+        mGlicDismissButton.setDrawY(10.f);
+        mGlicDismissButton.setWidth(20.f);
+        mGlicDismissButton.setHeight(20.f);
+
+        // 1. Verify that a touch on the close button returns false for the main Glic button
+        assertFalse(
+                "Glic button should not claim touch inside the close button boundaries.",
+                mGlicButton.checkClickedOrHovered(190.f, 20.f));
+
+        // 2. Verify that a touch outside the close button but inside the Glic button returns true
+        assertTrue(
+                "Glic button should claim touch inside its main body boundaries.",
+                mGlicButton.checkClickedOrHovered(120.f, 20.f));
+
+        // 3. Verify that the coordinator still registers a hover when touching the close button
+        assertTrue(
+                "Coordinator should register hover when touching the close button.",
+                mCoordinator.checkClickedOrHovered(190.f, 20.f));
     }
 
     @Test

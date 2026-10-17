@@ -32,11 +32,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import static org.chromium.base.test.transit.ViewFinder.waitForView;
-import static org.chromium.base.test.util.ApplicationTestUtils.waitForActivityWithClass;
 import static org.chromium.ui.test.util.ViewUtils.onViewWaiting;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.os.Build;
 
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.espresso.Espresso;
@@ -63,12 +63,13 @@ import org.chromium.base.test.BaseActivityTestRule;
 import org.chromium.base.test.transit.RootSpec;
 import org.chromium.base.test.transit.ViewElement;
 import org.chromium.base.test.util.ApplicationTestUtils;
+import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
-import org.chromium.base.test.util.DoNotBatch;
-import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
+import org.chromium.base.test.util.RequiresRestart;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
@@ -92,17 +93,17 @@ import org.chromium.chrome.browser.ui.signin.account_picker.PostSigninOperationR
 import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncConfig;
 import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncHelper;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
+import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
-import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.util.browser.signin.SigninTestRule;
 import org.chromium.chrome.test.util.browser.sync.SyncTestUtil;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetControllerProvider;
 import org.chromium.components.prefs.PrefService;
-import org.chromium.components.signin.SigninFeatureMap;
 import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
+import org.chromium.components.signin.test.util.FakeAccountManagerFacade;
 import org.chromium.components.signin.test.util.TestAccounts;
 import org.chromium.components.sync.SyncService;
 import org.chromium.components.sync.UserSelectableType;
@@ -116,14 +117,25 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /** Integration tests for the sign-in and history sync opt-in flow. */
 @RunWith(ChromeJUnit4ClassRunner.class)
-@DoNotBatch(reason = "This test relies on native initialization")
+@Batch(Batch.PER_CLASS)
 @CommandLineFlags.Add(ChromeSwitches.DISABLE_STARTUP_PROMOS)
 @Restriction(DeviceFormFactor.PHONE)
 public class BottomSheetSigninAndHistorySyncIntegrationTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
+    /**
+     * SigninManagerImpl captures AccountManagerFacadeProvider.getInstance() once, when the
+     * profile's SigninManager is created, and observes that instance for the lifetime of the
+     * browser process. A batched class outlives the individual tests, so every test has to install
+     * the same fake facade. Otherwise accounts added by the second and later tests are never seeded
+     * into native, and sign-in fails with kAccountInfoEmpty while the account picker fails to
+     * resolve profile data for the account it was asked to select.
+     */
+    private static final FakeAccountManagerFacade sFakeAccountManagerFacade =
+            new FakeAccountManagerFacade(/* serializeToPrefs= */ false);
+
     @Rule(order = 0)
-    public final SigninTestRule mSigninTestRule = new SigninTestRule();
+    public final SigninTestRule mSigninTestRule = new SigninTestRule(sFakeAccountManagerFacade);
 
     /*
      * The tested SigninAndHistorySyncActivity will be on top of a blank ChromeTabbedActivity.
@@ -134,8 +146,8 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
      *     on top of another activity.
      */
     @Rule(order = 1)
-    public FreshCtaTransitTestRule mBaseActivityTestRule =
-            ChromeTransitTestRules.freshChromeTabbedActivityRule();
+    public AutoResetCtaTransitTestRule mBaseActivityTestRule =
+            ChromeTransitTestRules.fastAutoResetCtaActivityRule();
 
     @Rule(order = 2)
     public final BaseActivityTestRule<SigninAndHistorySyncActivity> mActivityTestRule =
@@ -200,6 +212,8 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @After
     public void tearDown() {
+        // Tear the UI down before touching sign-in state so that the coordinator and the bottom
+        // sheet do not react to the sign-out events triggered below.
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mPrefService.setBoolean(Pref.SIGNIN_ALLOWED, true);
@@ -207,27 +221,45 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
                         mCoordinator.destroy();
                         mCoordinator = null;
                     }
+                    if (mBaseActivityTestRule.getActivity() != null) {
+                        var modalDialogManager =
+                                mBaseActivityTestRule.getActivity().getModalDialogManager();
+                        if (modalDialogManager != null) {
+                            modalDialogManager.dismissAllDialogs(
+                                    org.chromium.ui.modaldialog.DialogDismissalCause.UNKNOWN);
+                        }
+                    }
                 });
+        if (mActivity != null) {
+            ApplicationTestUtils.finishActivity(mActivity);
+            mActivity = null;
+        }
+        if (mSigninTestRule.getPrimaryAccount() != null) {
+            // Selected sync types are stored per account, so they must be restored while the
+            // account is still primary. Otherwise tests which opt out of bookmarks and reading
+            // list leak that choice into later tests signing into the same account.
+            ThreadUtils.runOnUiThreadBlocking(
+                    () -> {
+                        SyncService syncService = SyncTestUtil.getSyncServiceForLastUsedProfile();
+                        syncService.setSelectedType(UserSelectableType.BOOKMARKS, true);
+                        syncService.setSelectedType(UserSelectableType.READING_LIST, true);
+                    });
+            // Managed and minor accounts disallow the regular sign-out path, which would otherwise
+            // leave a primary account behind and abort the next test's sign-in.
+            mSigninTestRule.forceSignOut();
+        }
+        ThreadUtils.runOnUiThreadBlocking(() -> mPrefService.setBoolean(Pref.SIGNIN_ALLOWED, true));
+        // The facade is shared by the whole class, so the accounts a test adds have to be dropped
+        // here. Removing them also notifies SigninManagerImpl, which reseeds native with the empty
+        // account list and leaves the next test with a clean identity state.
+        mSigninTestRule.setAddAccountFlowResult(null);
+        ThreadUtils.runOnUiThreadBlocking(sFakeAccountManagerFacade::removeAllAccounts);
+        HistorySyncHelper.setInstanceForTesting(null);
+        DeviceLockActivityLauncherImpl.setInstanceForTesting(null);
     }
 
     @Test
     @MediumTest
-    @DisableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
-    public void testWithExistingAccount_signIn_requiredHistoryOptIn_legacy() {
-        mSigninTestRule.addAccount(TestAccounts.AADC_ADULT_ACCOUNT);
-
-        launchActivity(
-                NoAccountSigninMode.BOTTOM_SHEET,
-                WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
-                HistorySyncConfig.OptInMode.REQUIRED);
-
-        verifyCollapsedBottomSheetAndSignin(TestAccounts.AADC_ADULT_ACCOUNT);
-        acceptHistorySyncAndVerifyFlowCompletion(/* hasSignedIn= */ true);
-    }
-
-    @Test
-    @MediumTest
-    @EnableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testWithExistingAccount_signIn_requiredHistoryOptIn() {
         mSigninTestRule.addAccount(TestAccounts.AADC_ADULT_ACCOUNT);
 
@@ -239,7 +271,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @EnableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testWithExistingAccount_signInNotAllowed() {
         mSigninTestRule.addAccount(TestAccounts.AADC_ADULT_ACCOUNT);
         ThreadUtils.runOnUiThreadBlocking(
@@ -262,22 +293,7 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @DisableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
-    public void testWithAadcMinorAccount_requiredHistoryOptIn_legacy() {
-        mSigninTestRule.addAccount(TestAccounts.AADC_MINOR_ACCOUNT);
-
-        launchActivity(
-                NoAccountSigninMode.BOTTOM_SHEET,
-                WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
-                HistorySyncConfig.OptInMode.REQUIRED);
-
-        verifyCollapsedBottomSheetAndSignin(TestAccounts.AADC_MINOR_ACCOUNT);
-        acceptHistorySyncAndVerifyFlowCompletion(/* hasSignedIn= */ true);
-    }
-
-    @Test
-    @MediumTest
-    @EnableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
+    @RequiresRestart("Minor mode capability resolution latches per process")
     public void testWithAadcMinorAccount_requiredHistoryOptIn() {
         mSigninTestRule.addAccount(TestAccounts.AADC_MINOR_ACCOUNT);
 
@@ -289,24 +305,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @DisableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
-    public void
-            testWithExistingAccount_signIn_historySyncDeclinedOften_requiredHistoryOptIn_legacy() {
-        mSigninTestRule.addAccount(TestAccounts.AADC_ADULT_ACCOUNT);
-        when(mHistorySyncHelperMock.isDeclinedOften()).thenReturn(true);
-
-        launchActivity(
-                NoAccountSigninMode.BOTTOM_SHEET,
-                WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
-                HistorySyncConfig.OptInMode.REQUIRED);
-
-        verifyCollapsedBottomSheetAndSignin(TestAccounts.AADC_ADULT_ACCOUNT);
-        acceptHistorySyncAndVerifyFlowCompletion(/* hasSignedIn= */ true);
-    }
-
-    @Test
-    @MediumTest
-    @EnableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testWithExistingAccount_signIn_historySyncDeclinedOften_requiredHistoryOptIn() {
         mSigninTestRule.addAccount(TestAccounts.AADC_ADULT_ACCOUNT);
         when(mHistorySyncHelperMock.isDeclinedOften()).thenReturn(true);
@@ -319,25 +317,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @DisableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
-    public void testWithExistingAccount_signIn_historySyncSupressed_legacy() {
-        when(mHistorySyncHelperMock.shouldDisplayHistorySync()).thenReturn(false);
-        mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
-
-        launchActivity(
-                NoAccountSigninMode.BOTTOM_SHEET,
-                WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
-                HistorySyncConfig.OptInMode.REQUIRED);
-
-        verifyCollapsedBottomSheetAndSignin(TestAccounts.ACCOUNT1);
-        verify(mHistorySyncHelperMock).recordHistorySyncNotShown(mSigninAccessPoint);
-        // Verify that the flow completion callback, which finishes the activity, is called.
-        ApplicationTestUtils.waitForActivityState(mActivity, Stage.DESTROYED);
-    }
-
-    @Test
-    @MediumTest
-    @EnableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testWithExistingAccount_signIn_historySyncSupressed() {
         when(mHistorySyncHelperMock.shouldDisplayHistorySync()).thenReturn(false);
         mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
@@ -360,26 +339,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @DisableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
-    public void
-            testWithExistingAccount_signIn_historySyncDeclinedOften_optionalHistoryOptIn_legacy() {
-        mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
-        when(mHistorySyncHelperMock.isDeclinedOften()).thenReturn(true);
-
-        launchActivity(
-                NoAccountSigninMode.BOTTOM_SHEET,
-                WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
-                HistorySyncConfig.OptInMode.OPTIONAL);
-
-        verifyCollapsedBottomSheetAndSignin(TestAccounts.ACCOUNT1);
-        verify(mHistorySyncHelperMock).recordHistorySyncNotShown(mSigninAccessPoint);
-        // Verify that the flow completion callback, which finishes the activity, is called.
-        ApplicationTestUtils.waitForActivityState(mActivity, Stage.DESTROYED);
-    }
-
-    @Test
-    @MediumTest
-    @EnableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testWithExistingAccount_signIn_historySyncDeclinedOften_optionalHistoryOptIn() {
         mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
         when(mHistorySyncHelperMock.isDeclinedOften()).thenReturn(true);
@@ -403,27 +362,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
     @Test
     @MediumTest
     @EnableFeatures(SigninFeatures.FORCE_HISTORY_OPT_IN_SCREEN)
-    @DisableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
-    public void
-            testWithExistingAccount_signIn_historySyncDeclinedOften_forceHistoryOptInScreen_legacy() {
-        mSigninTestRule.addAccount(TestAccounts.AADC_ADULT_ACCOUNT);
-        when(mHistorySyncHelperMock.isDeclinedOften()).thenReturn(true);
-
-        launchActivity(
-                NoAccountSigninMode.BOTTOM_SHEET,
-                WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
-                HistorySyncConfig.OptInMode.OPTIONAL);
-
-        verifyCollapsedBottomSheetAndSignin(TestAccounts.AADC_ADULT_ACCOUNT);
-        acceptHistorySyncAndVerifyFlowCompletion(/* hasSignedIn= */ true);
-    }
-
-    @Test
-    @MediumTest
-    @EnableFeatures({
-        SigninFeatures.FORCE_HISTORY_OPT_IN_SCREEN,
-        SigninFeatures.ENABLE_SEAMLESS_SIGNIN
-    })
     public void testWithExistingAccount_signIn_historySyncDeclinedOften_forceHistoryOptInScreen() {
         mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
         when(mHistorySyncHelperMock.isDeclinedOften()).thenReturn(true);
@@ -436,27 +374,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @DisableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
-    public void testWithExistingSignedInAccount_onlyShowsHistoryOptIn_legacy() {
-        mSigninTestRule.addAccountThenSignin(TestAccounts.AADC_ADULT_ACCOUNT);
-        launchActivity(
-                NoAccountSigninMode.BOTTOM_SHEET,
-                WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
-                HistorySyncConfig.OptInMode.REQUIRED);
-
-        // The footer should show "You are signed in as..." with the email of the signed in account.
-        var expectedEmail = TestAccounts.AADC_ADULT_ACCOUNT.getEmail();
-        onView(withId(R.id.history_sync_footer))
-                .inRoot(isDialog())
-                .check(matches(allOf(isDisplayed(), withText(containsString(expectedEmail)))));
-
-        acceptHistorySyncAndVerifyFlowCompletion(/* hasSignedIn= */ false);
-        assertNotNull(mSigninTestRule.getPrimaryAccount());
-    }
-
-    @Test
-    @MediumTest
-    @EnableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testWithExistingSignedInAccount_onlyShowsHistoryOptIn() {
         mSigninTestRule.addAccountThenSignin(TestAccounts.AADC_ADULT_ACCOUNT);
         launchSigninFlow(
@@ -476,41 +393,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @DisableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
-    public void testWithExistingAccount_signIn_optOutHistorySync_legacy() {
-        mSigninTestRule.addAccount(TestAccounts.AADC_ADULT_ACCOUNT);
-
-        launchActivity(
-                NoAccountSigninMode.BOTTOM_SHEET,
-                WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
-                HistorySyncConfig.OptInMode.REQUIRED);
-
-        verifyCollapsedBottomSheetAndSignin(TestAccounts.AADC_ADULT_ACCOUNT);
-
-        // Verify that the history opt-in dialog is shown and decline.
-        waitForView(withId(R.id.history_sync_illustration));
-        // The user has just signed in, so the footer shouldn't show the email.
-        var email = TestAccounts.AADC_ADULT_ACCOUNT.getEmail();
-        onView(withId(R.id.history_sync_footer))
-                .inRoot(isDialog())
-                .check(matches(allOf(isDisplayed(), not(withText(containsString(email))))));
-
-        // Dismiss history sync.
-        waitForView(withId(R.id.history_sync_illustration));
-        onViewWaiting(withId(R.id.button_secondary)).perform(click());
-
-        // Verify that the flow completion callback, which finishes the activity, is called.
-        ApplicationTestUtils.waitForActivityState(mActivity, Stage.DESTROYED);
-
-        // Verify history sync state.
-        assertFalse(SyncTestUtil.isHistorySyncEnabled());
-        // Should signout on decline.
-        assertNull(mSigninTestRule.getPrimaryAccount());
-    }
-
-    @Test
-    @MediumTest
-    @EnableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testWithExistingAccount_signIn_optOutHistorySync() {
         mSigninTestRule.addAccount(TestAccounts.AADC_ADULT_ACCOUNT);
 
@@ -547,35 +429,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @DisableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
-    public void testBackPressHistorySync_legacy() {
-        mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
-        // Add another activity in the back stack
-        mBaseActivityTestRule.startOnBlankPage();
-
-        launchActivity(
-                NoAccountSigninMode.BOTTOM_SHEET,
-                WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
-                HistorySyncConfig.OptInMode.REQUIRED);
-
-        verifyCollapsedBottomSheetAndSignin(TestAccounts.ACCOUNT1);
-
-        // Verify that the history opt-in dialog is shown.
-        waitForView(withId(R.id.history_sync_illustration));
-
-        Espresso.pressBack();
-
-        // Verify that the flow completion callback, which finishes the activity, is called.
-        ApplicationTestUtils.waitForActivityState(mActivity, Stage.DESTROYED);
-        // Verify history sync state.
-        assertFalse(SyncTestUtil.isHistorySyncEnabled());
-        // Should signout on decline.
-        assertNull(mSigninTestRule.getPrimaryAccount());
-    }
-
-    @Test
-    @MediumTest
-    @EnableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testBackPressHistorySync() {
         mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
 
@@ -605,31 +458,7 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @DisableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
-    public void testWithAadcMinorAccount_signIn_optOutHistorySync_legacy() {
-        mSigninTestRule.addAccount(TestAccounts.AADC_MINOR_ACCOUNT);
-
-        launchActivity(
-                NoAccountSigninMode.BOTTOM_SHEET,
-                WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
-                HistorySyncConfig.OptInMode.REQUIRED);
-
-        verifyCollapsedBottomSheetAndSignin(TestAccounts.AADC_MINOR_ACCOUNT);
-
-        // Verify that the history opt-in dialog is shown and decline.
-        waitForView(withId(R.id.history_sync_illustration));
-        onViewWaiting(withId(R.id.button_secondary)).perform(click());
-
-        // Verify that the flow completion callback, which finishes the activity, is called.
-        ApplicationTestUtils.waitForActivityState(mActivity, Stage.DESTROYED);
-
-        // Verify history sync state.
-        assertFalse(SyncTestUtil.isHistorySyncEnabled());
-    }
-
-    @Test
-    @MediumTest
-    @EnableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
+    @RequiresRestart("Minor mode capability resolution latches per process")
     public void testWithAadcMinorAccount_signIn_optOutHistorySync() {
         mSigninTestRule.addAccount(TestAccounts.AADC_MINOR_ACCOUNT);
 
@@ -658,37 +487,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @DisableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
-    public void testWithManagedAccount_signIn_showsManagementNotice_legacy() {
-        mSigninTestRule.addAccount(TestAccounts.MANAGED_ACCOUNT);
-
-        launchActivity(
-                NoAccountSigninMode.BOTTOM_SHEET,
-                WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
-                HistorySyncConfig.OptInMode.NONE);
-
-        // Start sign-in from the collapsed sign-in bottom-sheet shown.
-        clickContinueButtonOnCollapsedBottomSheet();
-
-        // The management notice should be displayed.
-        waitForView(withText(R.string.sign_in_managed_account));
-        onView(allOf(withText(R.string.continue_button), isCompletelyDisplayed())).perform(click());
-
-        if (DeviceInfo.isAutomotive()) {
-            verify(mDeviceLockActivityLauncher)
-                    .launchDeviceLockActivity(any(), any(), anyBoolean(), any(), any(), any());
-        }
-
-        // Verify that the activity is finished before checking sign-in - since the default poll
-        // delay is too short for this flow.
-        ApplicationTestUtils.waitForActivityState(mActivity, Stage.DESTROYED);
-
-        mSigninTestRule.waitForSignin(TestAccounts.MANAGED_ACCOUNT);
-    }
-
-    @Test
-    @MediumTest
-    @EnableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testWithManagedAccount_signIn_showsManagementNotice() {
         mSigninTestRule.addAccount(TestAccounts.MANAGED_ACCOUNT);
 
@@ -712,22 +510,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @DisableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
-    public void testWithExistingAccount_signIn_optionalHistoryOptIn_legacy() {
-        mSigninTestRule.addAccount(TestAccounts.AADC_ADULT_ACCOUNT);
-
-        launchActivity(
-                NoAccountSigninMode.BOTTOM_SHEET,
-                WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
-                HistorySyncConfig.OptInMode.OPTIONAL);
-
-        verifyCollapsedBottomSheetAndSignin(TestAccounts.AADC_ADULT_ACCOUNT);
-        acceptHistorySyncAndVerifyFlowCompletion(/* hasSignedIn= */ true);
-    }
-
-    @Test
-    @MediumTest
-    @EnableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testWithExistingAccount_signIn_optionalHistoryOptIn() {
         mSigninTestRule.addAccount(TestAccounts.AADC_ADULT_ACCOUNT);
 
@@ -739,27 +521,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @DisableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
-    public void testWithExistingAccount_signIn_noHistoryOptIn_legacy() {
-        mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
-
-        launchActivity(
-                NoAccountSigninMode.BOTTOM_SHEET,
-                WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
-                HistorySyncConfig.OptInMode.NONE);
-
-        verifyCollapsedBottomSheetAndSignin(TestAccounts.ACCOUNT1);
-
-        // Verify that the flow completion callback, which finishes the activity, is called.
-        ApplicationTestUtils.waitForActivityState(mActivity, Stage.DESTROYED);
-
-        // Verify history sync state.
-        assertFalse(SyncTestUtil.isHistorySyncEnabled());
-    }
-
-    @Test
-    @MediumTest
-    @EnableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testWithExistingAccount_signIn_noHistoryOptIn() {
         mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
 
@@ -780,33 +541,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @DisableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
-    public void testWithExistingAccount_signinIn_turnsOnBookmarksAndReadingList_legacy() {
-        // Sign-in, toggle bookmarks and reading list off, then sign out.
-        mSigninTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
-        disableBookmarksAndReadingList();
-        mSigninTestRule.signOut();
-
-        // Override the access point to test bookmarks-specific behavior.
-        mSigninAccessPoint = SigninAccessPoint.BOOKMARK_MANAGER;
-
-        launchActivity(
-                NoAccountSigninMode.BOTTOM_SHEET,
-                WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
-                HistorySyncConfig.OptInMode.NONE);
-
-        verifyCollapsedBottomSheetAndSignin(TestAccounts.ACCOUNT1);
-
-        // Verify that bookmarks and reading list were enabled.
-        SyncTestUtil.waitForBookmarksAndReadingListEnabled();
-
-        // Verify that the flow completion callback, which finishes the activity, is called.
-        ApplicationTestUtils.waitForActivityState(mActivity, Stage.DESTROYED);
-    }
-
-    @Test
-    @MediumTest
-    @EnableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testWithExistingAccount_signinIn_turnsOnBookmarksAndReadingList() {
         // Sign-in, toggle bookmarks and reading list off, then sign out.
         mSigninTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
@@ -833,7 +567,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @DisableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testWithExistingAccount_dismissCollapsedBottomSheet_backPress_fromBookmarks() {
         // The new sign-in flow contains behaviors specific to the bookmark access point (enabling
         // bookmark & reading list sync after successful sign-in) therefore the access point is
@@ -863,7 +596,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @DisableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testWithExistingAccount_signInWithExpandedBottomSheet_noHistoryOptIn() {
         mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
 
@@ -896,72 +628,13 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @DisableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
-    public void testWithExistingAccount_signInWithAddedAccount_requiredHistoryOptIn_legacy() {
-        HistogramWatcher addAccountStateWatcher =
-                HistogramWatcher.newBuilder()
-                        .expectIntRecords(
-                                "Signin.AddAccountState",
-                                State.REQUESTED,
-                                State.STARTED,
-                                State.SUCCEEDED,
-                                State.ACTIVITY_SURVIVED)
-                        .build();
-
-        // User clicked "Choose another account"
-        launchActivity(
-                NoAccountSigninMode.BOTTOM_SHEET,
-                WithAccountSigninMode.CHOOSE_ACCOUNT_BOTTOM_SHEET,
-                HistorySyncConfig.OptInMode.REQUIRED);
-
-        // Select "Add Account to device" on the shown expanded sign-in bottom-sheet.
-        onView(allOf(withText(R.string.signin_add_account_to_device), isCompletelyDisplayed()))
-                .perform(click());
-        mSigninTestRule.setAddAccountFlowResult(TestAccounts.AADC_ADULT_ACCOUNT);
-        onViewWaiting(SigninTestRule.ADD_ACCOUNT_BUTTON_MATCHER).perform(click());
-        acceptHistorySyncAndVerifyFlowCompletion(/* hasSignedIn= */ true);
-        addAccountStateWatcher.assertExpected();
-    }
-
-    @Test
-    @MediumTest
-    @DisableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
-    public void testWithExistingAccount_signInWithAddedAccount_activityKilled_legacy() {
-        HistogramWatcher addAccountStateWatcher =
-                HistogramWatcher.newBuilder()
-                        .expectIntRecords(
-                                "Signin.AddAccountState",
-                                State.REQUESTED,
-                                State.STARTED,
-                                State.SUCCEEDED,
-                                State.ACTIVITY_DESTROYED)
-                        .build();
-
-        // User clicked "Choose another account"
-        launchActivity(
-                NoAccountSigninMode.BOTTOM_SHEET,
-                WithAccountSigninMode.CHOOSE_ACCOUNT_BOTTOM_SHEET,
-                HistorySyncConfig.OptInMode.REQUIRED);
-
-        // Select "Add Account to device" on the shown expanded sign-in bottom-sheet.
-        onView(allOf(withText(R.string.signin_add_account_to_device), isCompletelyDisplayed()))
-                .perform(click());
-        mSigninTestRule.setAddAccountFlowResult(TestAccounts.AADC_ADULT_ACCOUNT);
-
-        // Recreate base activity then confirm account addition.
-        SigninAndHistorySyncActivity activity =
-                waitForActivityWithClass(
-                        mActivity.getClass(), Stage.CREATED, () -> mActivity.recreate());
-        mActivityTestRule.setActivity(activity);
-        onViewWaiting(SigninTestRule.ADD_ACCOUNT_BUTTON_MATCHER).perform(click());
-
-        acceptHistorySyncAndVerifyFlowCompletion(/* hasSignedIn= */ true);
-        addAccountStateWatcher.assertExpected();
-    }
-
-    @Test
-    @MediumTest
-    @EnableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
+    // TODO(crbug.com/428281174): Re-enable when activity recreation issue on Android 16+ is fixed.
+    @DisableIf.Build(
+            sdk_is_greater_than = Build.VERSION_CODES.VANILLA_ICE_CREAM,
+            message = "crbug.com/428281174")
+    @RequiresRestart(
+            "Recreates base activity which is not yet supported in Public Transit batching"
+                    + " (crbug.com/406324209)")
     public void testWithExistingAccount_signInWithAddedAccount_activityKilled() {
         HistogramWatcher addAccountStateWatcher =
                 HistogramWatcher.newBuilder()
@@ -983,15 +656,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
                 .perform(click());
         mSigninTestRule.setAddAccountFlowResult(TestAccounts.AADC_ADULT_ACCOUNT);
 
-        // Destroy the previous coordinator before activity recreation to prevent
-        // AccountPickerBottomSheetMediator from leaking the destroyed activity via
-        // FakeAccountManagerFacade observers.
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    mCoordinator.destroy();
-                    mCoordinator = null;
-                });
-
         // Recreate base activity then confirm account addition.
         mBaseActivityTestRule.recreateActivity();
         createSigninCoordinator();
@@ -1004,7 +668,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @EnableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testWithExistingAccount_signInWithAddedAccount_requiredHistoryOptIn() {
         HistogramWatcher addAccountStateWatcher =
                 HistogramWatcher.newBuilder()
@@ -1033,7 +696,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @DisableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testWithExistingAccount_dismissBottomSheet_backPress() {
         mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
         mBaseActivityTestRule.startOnBlankPage();
@@ -1072,7 +734,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @DisableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testWithExistingAccount_dismissExpandedBottomSheet_backPress() {
         mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
         mBaseActivityTestRule.startOnBlankPage();
@@ -1094,7 +755,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @DisableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testWithNoAccount_noSignIn() {
         mBaseActivityTestRule.startOnBlankPage();
         launchActivity(
@@ -1109,7 +769,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @DisableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testWithNoAccount_dismissBottomSheet_backPress() {
         mBaseActivityTestRule.startOnBlankPage();
         launchActivity(
@@ -1130,7 +789,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @DisableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testWithNoAccount_bottomSheetSignin_requiredHistorySync() {
         launchActivity(
                 NoAccountSigninMode.BOTTOM_SHEET,
@@ -1143,7 +801,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @DisableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testWithNoAccount_bottomSheetSignin_requiredHistorySync_cancelAddAccount() {
         HistogramWatcher addAccountStateWatcher =
                 HistogramWatcher.newBuilder()
@@ -1179,41 +836,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @DisableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
-    public void testHistorySyncStrings_legacy() {
-        mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
-        AccountPickerBottomSheetStrings bottomSheetStrings =
-                new AccountPickerBottomSheetStrings.Builder("Title").build();
-        // Create a config using sign-in strings for the history sync screen to test customization.
-        BottomSheetSigninAndHistorySyncConfig config =
-                new BottomSheetSigninAndHistorySyncConfig.Builder(
-                                bottomSheetStrings,
-                                NoAccountSigninMode.BOTTOM_SHEET,
-                                WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
-                                HistorySyncConfig.OptInMode.REQUIRED,
-                                "Title",
-                                "Subtitle")
-                        .build();
-        Intent intent =
-                SigninAndHistorySyncActivity.createIntent(
-                        ApplicationProvider.getApplicationContext(), config, mSigninAccessPoint);
-        mActivityTestRule.launchActivity(intent);
-        mActivity = mActivityTestRule.getActivity();
-
-        // Start sign-in from the collapsed bottom-sheet.
-        clickContinueButtonOnCollapsedBottomSheet();
-
-        // Wait for the history opt-in dialog and verify the custom strings.
-        waitForView(withId(R.id.history_sync_illustration));
-        onView(allOf(withId(R.id.history_sync_title), withText("Title")))
-                .check(matches(isDisplayed()));
-        onView(allOf(withId(R.id.history_sync_subtitle), withText("Subtitle")))
-                .check(matches(isDisplayed()));
-    }
-
-    @Test
-    @MediumTest
-    @EnableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testHistorySyncStrings() {
         mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
         AccountPickerBottomSheetStrings bottomSheetStrings =
@@ -1246,7 +868,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @EnableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testSeamlessSignin() {
         mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
 
@@ -1263,7 +884,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @EnableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testSeamlessSigninWithAccountNotOnDevice() {
         launchSigninFlow(
                 WithAccountSigninMode.SEAMLESS_SIGNIN,
@@ -1277,7 +897,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @EnableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testIncognitoProfileCannotStartSigninFlow() {
         mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
 
@@ -1332,7 +951,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @EnableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testStartSigninFlow_afterAnotherSigninFlow_didShowSigninStepIsReset() {
         mSigninTestRule.addAccount(TestAccounts.AADC_ADULT_ACCOUNT);
         mBaseActivityTestRule.startOnBlankPage();
@@ -1380,7 +998,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @EnableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testWebSigninFlowLogging() {
         mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
         when(mDelegate.getSigninFlowVariant()).thenReturn(FlowVariant.WEB);
@@ -1405,7 +1022,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @EnableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testDelegatePostSignin_AuthErrorShown() {
         mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
         doAnswer(
@@ -1434,7 +1050,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @EnableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testDelegatePostSigninGeneralError_retrySuccess() {
         mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
 
@@ -1464,7 +1079,14 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
         clickContinueButtonToTryAgainGeneralError();
 
-        verify(mDelegate, timeout(CriteriaHelper.DEFAULT_MAX_TIME_TO_POLL))
+        // The retry is substantially slower than the initial attempt: AccountPickerBottomSheet-
+        // Mediator#signIn() re-runs the asynchronous SigninManager#isAccountManaged() check, and
+        // by this point the account info fetch has already failed on the bot
+        // ("Failed to get UserInfo"), so the hosted domain has to be refetched. Then
+        // signInAfterCheckingManagement() sees the primary account from the first attempt and does
+        // a full signOut(SIGNIN_RETRIGGERED) before signing in again. Measured at ~3.4s for the
+        // management check alone, which overruns DEFAULT_MAX_TIME_TO_POLL.
+        verify(mDelegate, timeout(CriteriaHelper.DEFAULT_MAX_TIME_TO_POLL_LONG))
                 .onFlowComplete(
                         eq(
                                 new Result(
@@ -1474,7 +1096,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
     @Test
     @MediumTest
-    @EnableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testDelegatePostSigninGeneralError_backPressAndDismiss() {
         mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
         doAnswer(
@@ -1525,6 +1146,10 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
         // Verify signed-in state.
         mSigninTestRule.waitForSignin(accountInfo);
         signinHistogramWatcher.assertExpected();
+        if (DeviceInfo.isAutomotive()) {
+            verify(mDeviceLockActivityLauncher)
+                    .launchDeviceLockActivity(any(), any(), anyBoolean(), any(), any(), any());
+        }
     }
 
     private void launchSigninFlow(
@@ -1547,10 +1172,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
         ChromeTabbedActivity baseActivity = mBaseActivityTestRule.getActivity();
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    if (mCoordinator != null) {
-                        mCoordinator.destroy();
-                        mCoordinator = null;
-                    }
                     Profile profile =
                             baseActivity.getProfileProviderSupplier().get().getOriginalProfile();
                     OneshotSupplierImpl<Profile> profileSupplier = new OneshotSupplierImpl<>();
@@ -1576,7 +1197,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
             @NoAccountSigninMode int noAccountSigninMode,
             @WithAccountSigninMode int withAccountSigninMode,
             @HistorySyncConfig.OptInMode int historyOptInMode) {
-        assert !SigninFeatureMap.isEnabled(SigninFeatures.ENABLE_SEAMLESS_SIGNIN);
         // These histograms are recorded in the SigninAndHistorySync activity but they should
         // only be recorded in the fullscreen case.
         HistogramWatcher fullscreenActivityHistograms =
@@ -1616,27 +1236,6 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
             builder = builder.useSeamlessWithAccountSignin(accountId);
         }
         return builder.build();
-    }
-
-    private void verifyCollapsedBottomSheetAndSignin(CoreAccountInfo accountInfo) {
-        HistogramWatcher signinHistogramWatcher =
-                HistogramWatcher.newBuilder()
-                        .expectIntRecords("Signin.SignIn.Started", mSigninAccessPoint)
-                        .expectAnyRecord("Signin.SignIn.Timestamps.Other.ManagementStatusLoaded")
-                        .expectAnyRecord("Signin.SignIn.Timestamps.Other.SigninCompleted")
-                        .build();
-
-        // Start sign-in from the collapsed sign-in bottom-sheet shown.
-        clickContinueButtonOnCollapsedBottomSheet();
-
-        signinHistogramWatcher.assertExpected();
-
-        // Verify signed-in state.
-        mSigninTestRule.waitForSignin(accountInfo);
-        if (DeviceInfo.isAutomotive()) {
-            verify(mDeviceLockActivityLauncher)
-                    .launchDeviceLockActivity(any(), any(), anyBoolean(), any(), any(), any());
-        }
     }
 
     private void verifyNoAccountBottomSheetAndSignin() {
@@ -1681,7 +1280,9 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
         SyncTestUtil.waitForHistorySyncEnabled();
 
         // Verify flow completion.
-        if (SigninFeatureMap.isEnabled(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)) {
+        // The activity-hosted flow finishes its activity instead of notifying the delegate,
+        // so the assertion depends on which harness the test used, not on any feature flag.
+        if (mActivity == null) {
             verifyHistorySyncDialogDismissed();
             verify(mDelegate, timeout(CriteriaHelper.DEFAULT_MAX_TIME_TO_POLL))
                     .onFlowComplete(

@@ -70,6 +70,8 @@ constexpr base::TimeDelta kLongPressTimeDuration = base::Milliseconds(400);
 
 // Revamp container stack constants.
 const CGFloat kRevampContainerStackSpacing = 12.0;
+const CGFloat kRevampIconContainerSize = 36.0;
+const CGFloat kRevampContainerTrailingPadding = 12.0;
 
 // Revamp labels stack constants.
 const CGFloat kRevampLabelsStackViewVerticalSpacing = 3.0;
@@ -77,6 +79,7 @@ const CGFloat kRevampLabelsStackViewVerticalSpacing = 3.0;
 // Revamp button constants.
 const CGFloat kHeightCornerRadiusThreshold = 90.0;
 const CGFloat kButtonMaxWidthMultiplier = 0.40;
+const CGFloat kRevampButtonVerticalPadding = 10.0;
 }  // namespace
 
 @interface InfobarBannerViewController () <UIGestureRecognizerDelegate>
@@ -359,9 +362,7 @@ const CGFloat kButtonMaxWidthMultiplier = 0.40;
       CGSizeMake(0.0, kInfobarBannerRevampContainerShadowYOffset);
   viewLayer.shadowRadius = kInfobarBannerRevampContainerShadowRadius;
   viewLayer.shadowOpacity = kInfobarBannerRevampContainerShadowOpacity;
-  [self.traitCollection performAsCurrentTraitCollection:^{
-    viewLayer.shadowColor = [UIColor colorNamed:kToolbarShadowColor].CGColor;
-  }];
+  viewLayer.shadowColor = [UIColor blackColor].CGColor;
 
   // Icon setup.
   UIView* iconContainerView = [self configureIconContainer];
@@ -428,10 +429,17 @@ const CGFloat kButtonMaxWidthMultiplier = 0.40;
   buttonConfig.baseBackgroundColor = [UIColor colorNamed:kBlueColor];
   buttonConfig.baseForegroundColor = [UIColor colorNamed:kSolidButtonTextColor];
   buttonConfig.contentInsets = NSDirectionalEdgeInsetsMake(
-      0, kInfobarBannerRevampButtonHorizontalPadding, 0,
+      kRevampButtonVerticalPadding, kInfobarBannerRevampButtonHorizontalPadding,
+      kRevampButtonVerticalPadding,
       kInfobarBannerRevampButtonHorizontalPadding);
-  NSDictionary<NSAttributedStringKey, id>* titleAttributes =
-      @{NSFontAttributeName : headlineFont};
+  buttonConfig.titleAlignment = UIButtonConfigurationTitleAlignmentCenter;
+  NSMutableParagraphStyle* paragraphStyle =
+      [[NSMutableParagraphStyle alloc] init];
+  paragraphStyle.alignment = NSTextAlignmentCenter;
+  NSDictionary<NSAttributedStringKey, id>* titleAttributes = @{
+    NSFontAttributeName : headlineFont,
+    NSParagraphStyleAttributeName : paragraphStyle,
+  };
   buttonConfig.attributedTitle =
       [[NSAttributedString alloc] initWithString:self.buttonText ?: @""
                                       attributes:titleAttributes];
@@ -441,6 +449,7 @@ const CGFloat kButtonMaxWidthMultiplier = 0.40;
   actionButton.titleLabel.adjustsFontSizeToFitWidth = YES;
   actionButton.titleLabel.numberOfLines = 2;
   actionButton.titleLabel.lineBreakMode = NSLineBreakByTruncatingTail;
+  actionButton.titleLabel.textAlignment = NSTextAlignmentCenter;
   actionButton.titleLabel.isAccessibilityElement = NO;
   actionButton.accessibilityIdentifier = kInfobarBannerAcceptButtonIdentifier;
   actionButton.accessibilityLabel = self.buttonText;
@@ -507,7 +516,7 @@ const CGFloat kButtonMaxWidthMultiplier = 0.40;
                        constant:kInfobarBannerRevampHorizontalEdgePadding],
     [containerStack.trailingAnchor
         constraintEqualToAnchor:self.view.trailingAnchor
-                       constant:-kInfobarBannerRevampHorizontalEdgePadding],
+                       constant:-kRevampContainerTrailingPadding],
     [containerStack.topAnchor constraintEqualToAnchor:self.view.topAnchor],
     [containerStack.bottomAnchor
         constraintEqualToAnchor:self.view.bottomAnchor],
@@ -516,8 +525,15 @@ const CGFloat kButtonMaxWidthMultiplier = 0.40;
                                 (2 * kInfobarBannerRevampVerticalPadding)],
     [actionButton.heightAnchor constraintGreaterThanOrEqualToConstant:
                                    kInfobarBannerRevampMinimumTapTargetSize],
-    [actionButton.heightAnchor constraintLessThanOrEqualToConstant:
-                                   kInfobarBannerRevampButtonMaxHeight],
+    [actionButton.topAnchor
+        constraintGreaterThanOrEqualToAnchor:containerStack.topAnchor
+                                    constant:
+                                        kInfobarBannerRevampMinimumButtonVerticalBreathingRoom],
+    [actionButton.bottomAnchor
+        constraintLessThanOrEqualToAnchor:containerStack.bottomAnchor
+                                 constant:
+                                     -
+                                     kInfobarBannerRevampMinimumButtonVerticalBreathingRoom],
     [actionButton.widthAnchor
         constraintLessThanOrEqualToAnchor:self.view.widthAnchor
                                multiplier:kButtonMaxWidthMultiplier],
@@ -600,6 +616,7 @@ const CGFloat kButtonMaxWidthMultiplier = 0.40;
         [[NSAttributedString alloc] initWithString:_buttonText ?: @""
                                         attributes:titleAttributes];
     self.infobarButton.configuration = configuration;
+    self.infobarButton.titleLabel.textAlignment = NSTextAlignmentCenter;
     self.infobarButton.accessibilityLabel = _buttonText;
     self.infobarButton.titleLabel.isAccessibilityElement = NO;
   } else {
@@ -643,7 +660,6 @@ const CGFloat kButtonMaxWidthMultiplier = 0.40;
   }
   if (self.iconImage) {
     if (IsInfobarBannerRevampEnabled()) {
-      self.useIconBackgroundTint = NO;
       return [self configureRevampedIconImageContainer];
     }
     return [self configureIconImageContainer];
@@ -812,13 +828,22 @@ const CGFloat kButtonMaxWidthMultiplier = 0.40;
   [iconContainerView addSubview:iconImageView];
   iconContainerView.translatesAutoresizingMaskIntoConstraints = NO;
 
+  CGFloat containerSize = kInfobarBannerRevampIconSize;
+  if (self.useIconBackgroundTint) {
+    containerSize = kRevampIconContainerSize;
+    iconContainerView.layer.cornerRadius = containerSize / 2.0;
+    iconContainerView.backgroundColor =
+        self.iconBackgroundColor ? self.iconBackgroundColor
+                                 : [UIColor colorNamed:kBlueHaloColor];
+  }
+
   [NSLayoutConstraint activateConstraints:@[
     [iconImageView.widthAnchor
         constraintEqualToConstant:kInfobarBannerRevampIconSize],
     [iconImageView.heightAnchor
         constraintEqualToConstant:kInfobarBannerRevampIconSize],
-    [iconContainerView.widthAnchor
-        constraintEqualToAnchor:iconImageView.widthAnchor],
+    [iconContainerView.widthAnchor constraintEqualToConstant:containerSize],
+    [iconContainerView.heightAnchor constraintEqualToConstant:containerSize],
   ]];
   AddSameCenterConstraints(iconContainerView, iconImageView);
 
@@ -1020,11 +1045,12 @@ const CGFloat kButtonMaxWidthMultiplier = 0.40;
   if ([self.traitCollection
           hasDifferentColorAppearanceComparedToTraitCollection:
               previousTraitCollection]) {
-    self.view.layer.shadowColor =
-        [UIColor colorNamed:kToolbarShadowColor].CGColor;
     if (IsInfobarBannerRevampEnabled()) {
       self.infobarButton.layer.shadowColor =
           [UIColor colorNamed:kBlueColor].CGColor;
+    } else {
+      self.view.layer.shadowColor =
+          [UIColor colorNamed:kToolbarShadowColor].CGColor;
     }
   }
 }

@@ -52,7 +52,7 @@ class ShortcutsProvider : public AutocompleteProvider,
     GURL stripped_destination_url;
     raw_ptr<const ShortcutsDatabase::Shortcut> shortcut;
     std::u16string contents;
-    AutocompleteMatch::Type type;
+    omnibox::AutocompleteMatchType type;
   };
 
   explicit ShortcutsProvider(AutocompleteProviderClient* client);

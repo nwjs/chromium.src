@@ -39,14 +39,14 @@ std::unique_ptr<MetricSource> Watcher::CreateMetricSource() {
 
 void Watcher::WillRunTaskOnUIThread(const base::PendingTask* task,
                                     bool was_blocked_or_low_priority) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
 
   WillRunTask(task, was_blocked_or_low_priority,
               &currently_running_metadata_ui_);
 }
 
 void Watcher::DidRunTaskOnUIThread(const base::PendingTask* task) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
 
   // Capturing `this` is safe because the callback is invoked synchronously by
   // `DidRunTask()`.
@@ -62,14 +62,14 @@ void Watcher::DidRunTaskOnUIThread(const base::PendingTask* task) {
 
 void Watcher::WillRunTaskOnIOThread(const base::PendingTask* task,
                                     bool was_blocked_or_low_priority) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
+  CHECK_CURRENTLY_ON(content::BrowserThread::IO, base::NotFatalUntil::M160);
 
   WillRunTask(task, was_blocked_or_low_priority,
               &currently_running_metadata_io_);
 }
 
 void Watcher::DidRunTaskOnIOThread(const base::PendingTask* task) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
+  CHECK_CURRENTLY_ON(content::BrowserThread::IO, base::NotFatalUntil::M160);
 
   // Capturing `this` is safe because the callback is invoked synchronously by
   // `DidRunTask()`.
@@ -141,17 +141,21 @@ void Watcher::DidRunTask(const base::PendingTask* task,
           : task->queue_time;
   const base::TimeTicks execution_finish_time = base::TimeTicks::Now();
 
-  DCHECK(!queue_time.is_null());
-  DCHECK(!metadata.execution_start_time.is_null());
-  DCHECK(!execution_finish_time.is_null());
+  CHECK(!queue_time.is_null(), base::NotFatalUntil::M160);
+  CHECK(!metadata.execution_start_time.is_null(), base::NotFatalUntil::M160);
+  CHECK(!execution_finish_time.is_null(), base::NotFatalUntil::M160);
+  // TODO(crbug.com/563467054): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
   DCHECK_LE(queue_time, metadata.execution_start_time);
+  // TODO(crbug.com/563467054): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
   DCHECK_LE(metadata.execution_start_time, execution_finish_time);
 
   callback(queue_time, metadata.execution_start_time, execution_finish_time);
 }
 
 void Watcher::WillRunEventOnUIThread(uintptr_t opaque_identifier) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
   // Reentrancy should be rare.
   if (!currently_running_metadata_ui_.empty()) [[unlikely]] {
     currently_running_metadata_ui_.back().caused_reentrancy = true;
@@ -164,7 +168,7 @@ void Watcher::WillRunEventOnUIThread(uintptr_t opaque_identifier) {
 }
 
 void Watcher::DidRunEventOnUIThread(uintptr_t opaque_identifier) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
 
   // Calls to DidRunEventOnUIThread should always be paired with
   // WillRunEventOnUIThread. The only time the identifier should differ is when
@@ -201,7 +205,7 @@ Watcher::Watcher() = default;
 Watcher::~Watcher() = default;
 
 void Watcher::SetUp() {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
 
   // Set up |calculator_| before |metric_source_| because SetUpOnIOThread()
   // uses |calculator_|.
@@ -213,7 +217,7 @@ void Watcher::SetUp() {
 }
 
 void Watcher::Destroy() {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
 
   // This holds a ref to |this| until the destroy flow completes.
   base::ScopedClosureRunner on_destroy_complete(base::BindOnce(
@@ -228,7 +232,7 @@ void Watcher::OnFirstIdle() {
 
 void Watcher::SetUpOnIOThread() {
   currently_running_metadata_io_.reserve(5);
-  DCHECK(calculator_.get());
+  CHECK(calculator_.get(), base::NotFatalUntil::M160);
   calculator_io_ = calculator_.get();
 }
 

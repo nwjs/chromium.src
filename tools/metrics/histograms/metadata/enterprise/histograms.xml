@@ -104,6 +104,11 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//components/enterprise/connectors/core/common.h:DeepScanAccessPoint) -->
 
+<variants name="DeviceSignalsOutcome">
+  <variant name="Failure" summary="failed"/>
+  <variant name="Success" summary="succeeded"/>
+</variants>
+
 <!-- LINT.IfChange(EncryptedCacheDecryptionSource) -->
 
 <variants name="EncryptedCacheDecryptionSource">
@@ -588,7 +593,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Enterprise.Boca.Spotlight.Crd.Result"
-    enum="EnterpriseCrdSessionResultCode" expires_after="2026-10-25">
+    enum="EnterpriseCrdSessionResultCode" expires_after="2027-10-25">
   <owner>caott@google.com</owner>
   <owner>cros-edu-eng@google.com</owner>
   <summary>
@@ -721,7 +726,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Enterprise.CBCMRemoteCommand.Executed"
-    enum="RemoteCommandExecutionStatus" expires_after="2026-11-01">
+    enum="RemoteCommandExecutionStatus" expires_after="2027-05-01">
   <owner>nicolaso@chromium.org</owner>
   <owner>zmin@chromium.org</owner>
   <owner>cbe-eng@google.com</owner>
@@ -733,7 +738,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Enterprise.CBCMRemoteCommand.Received"
-    enum="RemoteCommandReceivedStatus" expires_after="2026-11-01">
+    enum="RemoteCommandReceivedStatus" expires_after="2027-05-01">
   <owner>nicolaso@chromium.org</owner>
   <owner>zmin@chromium.org</owner>
   <owner>cbe-eng@google.com</owner>
@@ -746,7 +751,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Enterprise.CBCMRemoteCommandInvalidations"
-    enum="EnterprisePolicyInvalidations" expires_after="2026-11-01">
+    enum="EnterprisePolicyInvalidations" expires_after="2027-05-01">
   <owner>nicolaso@chromium.org</owner>
   <owner>zmin@chromium.org</owner>
   <owner>cbe-eng@google.com</owner>
@@ -983,7 +988,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Enterprise.ClientCertificates.ClankKeySecurityLevel"
     enum="ClankClientCertificatesBrowserKeySecurityLevel"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>eliashomsi@google.com</owner>
   <owner>cbe-device-trust-eng@google.com</owner>
   <summary>
@@ -1557,7 +1562,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Enterprise.DeviceSettings.UpdatedStatus2"
-    enum="DeviceSettingsStatus2" expires_after="2026-12-16">
+    enum="DeviceSettingsStatus2" expires_after="2027-03-14">
   <owner>rbock@google.com</owner>
   <owner>chromeos-commercial-remote-management@google.com</owner>
   <owner>managed-devices@google.com</owner>
@@ -1567,6 +1572,65 @@ chromium-metrics-reviews@google.com.
     about missing key on managed devices. Used to compare rate of
     Enterprise.DeviceSettings.MissingPolicyMitigated event.
   </summary>
+</histogram>
+
+<histogram name="Enterprise.DeviceSignals.Attestation.BlobSize" units="bytes"
+    expires_after="2027-09-14">
+  <owner>mickaczmarczyk@google.com</owner>
+  <owner>cbe-device-trust-eng@google.com</owner>
+  <summary>
+    Captures the size, in bytes, of the device attestation blob generated to
+    bind a signals report to the device. Recorded once per attestation blob
+    generation request, only when the generation was successful. Recorded on all
+    platforms that support device attestation (currently Android and iOS).
+  </summary>
+</histogram>
+
+<histogram name="Enterprise.DeviceSignals.Attestation.Requested" enum="Boolean"
+    expires_after="2027-09-14">
+  <owner>mickaczmarczyk@google.com</owner>
+  <owner>cbe-device-trust-eng@google.com</owner>
+  <summary>
+    Recorded once every time a device attestation blob generation is requested,
+    before any work is done. Acts as the denominator for
+    Enterprise.DeviceSignals.Attestation.Result: the difference between the two
+    counts is the number of requests that never completed. Recorded on all
+    platforms that support device attestation (currently Android and iOS).
+  </summary>
+</histogram>
+
+<histogram name="Enterprise.DeviceSignals.Attestation.Result"
+    enum="EnterpriseAttestationBlobResult" expires_after="2027-09-14">
+  <owner>mickaczmarczyk@google.com</owner>
+  <owner>cbe-device-trust-eng@google.com</owner>
+  <summary>
+    Captures the result of a device attestation blob generation request.
+    Recorded at most once per request, when the request completes. Requests that
+    are cancelled before completing, for example because the attestation service
+    is torn down while generation is in flight, record no result; compare
+    against Enterprise.DeviceSignals.Attestation.Requested to measure how often
+    that happens. Recorded on all platforms that support device attestation
+    (currently Android and iOS).
+  </summary>
+</histogram>
+
+<histogram name="Enterprise.DeviceSignals.Attestation.{Outcome}.Latency"
+    units="ms" expires_after="2027-09-14">
+  <owner>mickaczmarczyk@google.com</owner>
+  <owner>cbe-device-trust-eng@google.com</owner>
+  <improvement direction="LOWER_IS_BETTER"/>
+  <summary>
+    Captures the time taken to generate the device attestation blob that binds a
+    signals report to the device, measured from the moment the blob generation
+    was requested until its result was received. Recorded once per attestation
+    blob generation request, only when the generation was actually attempted and
+    {Outcome}. Requests that could not be attempted at all, because no
+    attestation service was available, are excluded and are instead recorded to
+    Enterprise.DeviceSignals.Attestation.Result as service unavailable. Recorded
+    on all platforms that support device attestation (currently Android and
+    iOS).
+  </summary>
+  <token key="Outcome" variants="DeviceSignalsOutcome"/>
 </histogram>
 
 <histogram name="Enterprise.DeviceSignals.Collection.Certificates.Error"
@@ -1582,7 +1646,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Enterprise.DeviceSignals.Collection.CrowdStrike.Error"
-    enum="DeviceSignalsParsingError" expires_after="2027-01-02">
+    enum="DeviceSignalsParsingError" expires_after="2027-09-14">
   <owner>seblalancette@chromium.org</owner>
   <owner>cbe-device-trust-eng@google.com</owner>
   <summary>
@@ -1592,7 +1656,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Enterprise.DeviceSignals.Collection.CrowdStrike.FromDataFile"
-    enum="Boolean" expires_after="2027-01-02">
+    enum="Boolean" expires_after="2027-09-14">
   <owner>seblalancette@chromium.org</owner>
   <owner>cbe-device-trust-eng@google.com</owner>
   <summary>
@@ -1603,7 +1667,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Enterprise.DeviceSignals.Collection.Failure.{Signal}.{ErrorType}Error"
-    enum="DeviceSignalsSignalCollectionError" expires_after="2027-01-02">
+    enum="DeviceSignalsSignalCollectionError" expires_after="2027-09-14">
   <owner>seblalancette@chromium.org</owner>
   <owner>cbe-device-trust-eng@google.com</owner>
   <summary>
@@ -1618,7 +1682,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Enterprise.DeviceSignals.Collection.Request.{Signal}.Items"
-    units="items" expires_after="2027-01-02">
+    units="items" expires_after="2027-09-14">
   <owner>seblalancette@chromium.org</owner>
   <owner>cbe-device-trust-eng@google.com</owner>
   <summary>
@@ -1633,7 +1697,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Enterprise.DeviceSignals.Collection.SignalsCount"
-    units="signals" expires_after="2027-01-02">
+    units="signals" expires_after="2027-09-14">
   <owner>seblalancette@chromium.org</owner>
   <owner>cbe-device-trust-eng@google.com</owner>
   <summary>
@@ -1642,7 +1706,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Enterprise.DeviceSignals.Collection.Success.{Signal}.Items"
-    units="items" expires_after="2027-01-02">
+    units="items" expires_after="2027-09-14">
   <owner>seblalancette@chromium.org</owner>
   <owner>cbe-device-trust-eng@google.com</owner>
   <summary>
@@ -1653,24 +1717,47 @@ chromium-metrics-reviews@google.com.
   <token key="Signal" variants="EnterpriseSignals"/>
 </histogram>
 
+<histogram name="Enterprise.DeviceSignals.Collection.TotalLatency" units="ms"
+    expires_after="2027-09-14">
+  <owner>mickaczmarczyk@google.com</owner>
+  <owner>cbe-device-trust-eng@google.com</owner>
+  <improvement direction="LOWER_IS_BETTER"/>
+  <summary>
+    Captures the total latency of a signal collection request, measured from the
+    moment the aggregated request was received until every requested signal has
+    been collected. Recorded once per signal collection request, regardless of
+    whether the individual signal collections succeeded or failed. Unlike the
+    per-signal Enterprise.DeviceSignals.Collection latency histograms, this
+    covers the whole request, including the time spent fanning out to, and
+    waiting on, every collector involved.
+
+    Caveat when interpreting: this merges two populations that are not directly
+    comparable. Requests that go through the parameterized-user-context entry
+    point are desktop-only and always carry exactly one signal, while the
+    general entry point runs on all platforms and may fan out over several
+    signals. Neither the entry point nor the number of signals is recorded
+    alongside this metric, so a shift in the distribution may reflect either a
+    latency regression or a change in how many signals callers batch per
+    request, and the two cannot currently be told apart from this histogram
+    alone.
+  </summary>
+</histogram>
+
 <histogram
     name="Enterprise.DeviceSignals.Collection.{Outcome}.{Signal}.Latency"
-    units="ms" expires_after="2027-01-02">
+    units="ms" expires_after="2027-09-14">
   <owner>seblalancette@chromium.org</owner>
   <owner>cbe-device-trust-eng@google.com</owner>
   <summary>
     Captures the signal collection latency for the {Signal} signal. Recorded
     only when the collection {Outcome}.
   </summary>
-  <token key="Outcome">
-    <variant name="Failure" summary="failed"/>
-    <variant name="Success" summary="succeeded"/>
-  </token>
+  <token key="Outcome" variants="DeviceSignalsOutcome"/>
   <token key="Signal" variants="EnterpriseSignals"/>
 </histogram>
 
 <histogram name="Enterprise.DeviceSignals.Collection.{Signal}.Delta"
-    units="items" expires_after="2027-01-02">
+    units="items" expires_after="2027-09-14">
   <owner>seblalancette@chromium.org</owner>
   <owner>cbe-device-trust-eng@google.com</owner>
   <summary>
@@ -1685,7 +1772,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Enterprise.DeviceSignals.Collection.{Variant}"
-    enum="DeviceSignalsSignalName" expires_after="2027-01-02">
+    enum="DeviceSignalsSignalName" expires_after="2027-03-14">
   <owner>seblalancette@chromium.org</owner>
   <owner>cbe-device-trust-eng@google.com</owner>
   <summary>
@@ -1700,7 +1787,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Enterprise.DeviceSignals.HarmfulApps.Count" units="count"
-    expires_after="2027-01-02">
+    expires_after="2027-09-14">
   <owner>xzonghan@chromium.org</owner>
   <owner>cbe-device-trust-eng@google.com</owner>
   <summary>
@@ -1734,7 +1821,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Enterprise.DeviceSignals.SystemSignalsService.Disconnect.ItemsCount"
-    units="items" expires_after="2027-01-02">
+    units="items" expires_after="2027-09-14">
   <owner>hmare@google.com</owner>
   <owner>cbe-device-trust-eng@google.com</owner>
   <summary>
@@ -1745,7 +1832,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Enterprise.DeviceSignals.SystemSignalsService.MissingPendingCallback"
-    enum="Boolean" expires_after="2027-01-02">
+    enum="Boolean" expires_after="2027-09-14">
   <owner>hmare@google.com</owner>
   <owner>cbe-device-trust-eng@google.com</owner>
   <summary>
@@ -3111,7 +3198,7 @@ chromium-metrics-reviews@google.com.
     {Status}.
   </summary>
   <token key="Status">
-    <variant name="NotSuppported" summary="is not supported by the OS"/>
+    <variant name="NotSupported" summary="is not supported by the OS"/>
     <variant name="Supported.Failure" summary="was unsuccessful"/>
     <variant name="Supported.Success" summary="was successful"/>
   </token>
@@ -3158,15 +3245,63 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Enterprise.FileOpeningJob.CancelBlockingDuration{JobState}"
+    units="ms" expires_after="2027-03-07">
+  <owner>valadkevich@google.com</owner>
+  <owner>cbe-cep-eng@google.com</owner>
+  <summary>
+    Records how long the calling thread (the UI thread) was blocked inside
+    base::JobHandle::Cancel() while tearing down a FileOpeningJob that the user
+    cancelled. JobHandle::Cancel() forces workers to yield but does not return
+    until they have all returned from the job callback, so this is the portion
+    of cancellation latency that is directly user visible as UI jank. Logged
+    once per cancelled FileOpeningJob, for the first JobHandle::Cancel() call
+    only, and recorded regardless of whether the
+    EnableCancelUploadOnContentAnalysis or NonBlockingFileOpeningJobCancel
+    features are enabled, so that experiment arms can be compared. Not logged
+    when the job completed without being cancelled. {JobState}
+  </summary>
+  <token key="JobState">
+    <variant name="" summary="Recorded for every cancelled job."/>
+    <variant name=".InFlight"
+        summary="Recorded only when at least one worker thread was still
+                 inside file opening or hashing at the moment cancellation
+                 was first signalled. This is the population that
+                 cancellation latency work targets, and the variant to
+                 compare across experiment arms."/>
+  </token>
+</histogram>
+
 <histogram name="Enterprise.FileOpeningJob.CancelDuration" units="ms"
     expires_after="2027-03-07">
   <owner>valadkevich@google.com</owner>
   <owner>cbe-cep-eng@google.com</owner>
   <summary>
-    Records the time it takes to cancel the FileOpeningJob. The cancellation
-    waits for currently running file analysis tasks to yield or complete. This
-    provides a measure of how long the UI thread or other threads might block
-    while waiting for the background job to finish.
+    Records the time between cancellation first being signalled for a
+    FileOpeningJob and that job being destroyed, i.e. how long it takes for all
+    background file opening and hashing threads to observe the cancellation and
+    release their references to the job. Logged once per cancelled
+    FileOpeningJob. Kept as a guardrail only: the start point is the earliest
+    cancellation signal, which is the user's click when
+    NonBlockingFileOpeningJobCancel is enabled but handler teardown when it is
+    not, so this is not directly comparable across experiment arms. Use
+    Enterprise.FileOpeningJob.CancelBlockingDuration for that.
+  </summary>
+</histogram>
+
+<histogram name="Enterprise.FileOpeningJob.CancelledWhileInFlight"
+    enum="BooleanActive" expires_after="2027-03-07">
+  <owner>valadkevich@google.com</owner>
+  <owner>cbe-cep-eng@google.com</owner>
+  <summary>
+    Records whether at least one worker thread was still opening or hashing a
+    file at the moment cancellation was first signalled for a FileOpeningJob.
+    Logged once per cancelled FileOpeningJob, and recorded regardless of whether
+    the EnableCancelUploadOnContentAnalysis or NonBlockingFileOpeningJobCancel
+    features are enabled, so that experiment arms can be compared over a stable
+    population. Use this to normalise the cancellation latency histograms, which
+    otherwise mix jobs that had already finished all their file work (and so
+    tear down instantly) with jobs that genuinely had to wait.
   </summary>
 </histogram>
 
@@ -3360,6 +3495,67 @@ chromium-metrics-reviews@google.com.
   <summary>
     Records whenever a user sees a warning and chooses to ignore/bypass the
     warning and decides to download the file anyway.
+  </summary>
+</histogram>
+
+<histogram
+    name="Enterprise.IOS.PasteProtection.ScanTriggered.ConsecutivePasteBlocked"
+    enum="Boolean" expires_after="2027-04-04">
+  <owner>yixiwu@google.com</owner>
+  <owner>bling-enterprise@google.com</owner>
+  <summary>
+    Records when the paste is blocked because the user tries to paste
+    consecutively before the previous scan is finished.
+  </summary>
+</histogram>
+
+<histogram name="Enterprise.IOS.PasteProtection.ScanTriggered.EventResult"
+    enum="EnterprisePasteProtectionEventResult" expires_after="2027-04-04">
+  <owner>yixiwu@google.com</owner>
+  <owner>bling-enterprise@google.com</owner>
+  <summary>
+    Records the event result of a paste protection scan triggered by enterprise
+    users when trying to paste clipboard content according to policy settings.
+  </summary>
+</histogram>
+
+<histogram name="Enterprise.IOS.PasteProtection.ScanTriggered.PasteInvalidated"
+    enum="EnterprisePasteProtectionInvalidatedType" expires_after="2027-04-04">
+  <owner>yixiwu@google.com</owner>
+  <owner>bling-enterprise@google.com</owner>
+  <summary>
+    Records whenever a paste event is invalidated and blocked before a scanning
+    finishes. It can be caused by pasteboard content changed, user navigated
+    away from the webpage or tab switchd/closed.
+  </summary>
+</histogram>
+
+<histogram name="Enterprise.IOS.PasteProtection.ScanTriggered.ScanTime"
+    units="ms" expires_after="2027-04-04">
+  <owner>yixiwu@google.com</owner>
+  <owner>bling-enterprise@google.com</owner>
+  <summary>
+    Records the time it takes between uploading the content for scanning and
+    receiving the scan result for a paste event.
+  </summary>
+</histogram>
+
+<histogram name="Enterprise.IOS.PasteProtection.ScanTriggered.ScanType"
+    enum="EnterprisePasteProtectionScanType" expires_after="2027-04-04">
+  <owner>yixiwu@google.com</owner>
+  <owner>bling-enterprise@google.com</owner>
+  <summary>
+    Records the type of the pasteboard content that is sent for scanning.
+  </summary>
+</histogram>
+
+<histogram name="Enterprise.IOS.PasteProtection.ScanTriggered.WarningBypassed"
+    enum="Boolean" expires_after="2027-04-04">
+  <owner>yixiwu@google.com</owner>
+  <owner>bling-enterprise@google.com</owner>
+  <summary>
+    Records whenever a user sees a warning and chooses to ignore/bypass the
+    warning and decides to Paste anyways.
   </summary>
 </histogram>
 
@@ -3712,7 +3908,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Enterprise.OnBulkDataEntry.DataSize" units="bytes"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>domfc@chromium.org</owner>
   <owner>webprotect-team@google.com</owner>
   <summary>
@@ -3723,7 +3919,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Enterprise.PlatformAuth.GetAuthData.Count" units="count"
-    expires_after="2026-10-28">
+    expires_after="2027-09-18">
   <owner>igorruvinov@chromium.org</owner>
   <owner>zmin@chromium.org</owner>
   <summary>
@@ -3733,7 +3929,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Enterprise.PlatformAuth.GetAuthData.FailureHresult"
-    enum="Hresult" expires_after="2026-10-28">
+    enum="Hresult" expires_after="2027-09-18">
   <owner>igorruvinov@chromium.org</owner>
   <owner>zmin@chromium.org</owner>
   <summary>
@@ -3755,7 +3951,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Enterprise.PlatformAuth.GetAuthData.{Result}Time" units="ms"
-    expires_after="2026-10-28">
+    expires_after="2027-09-18">
   <owner>igorruvinov@chromium.org</owner>
   <owner>zmin@chromium.org</owner>
   <summary>
@@ -3814,6 +4010,17 @@ chromium-metrics-reviews@google.com.
   <summary>
     Record whether profile has successfully fetched policy with profile id once
     before uploading reporting. Recorded during profile creation. iOS only.
+  </summary>
+</histogram>
+
+<histogram name="Enterprise.Policy.AppRestrictionsProviderFetchTime" units="ms"
+    expires_after="2027-09-01">
+  <owner>shadmehr@google.com</owner>
+  <owner>zmin@chromium.org</owner>
+  <owner>cec-growth@google.com</owner>
+  <summary>
+    Measures the synchronous app restrictions fetch latency on Android. Recorded
+    by AppRestrictionsProvider each time restrictions are fetched.
   </summary>
 </histogram>
 
@@ -4282,15 +4489,33 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Enterprise.SecureGateway.ProxyAuthChallengeResult"
-    enum="EnterpriseProxyAuthChallengeResult" expires_after="2027-07-01">
+<histogram name="Enterprise.SecureGateway.ProxyAuthChallengeDecision"
+    enum="EnterpriseProxyAuthChallengeDecision" expires_after="2027-07-01">
   <owner>xzonghan@google.com</owner>
   <owner>chrome-enterprise-networking-core@google.com</owner>
   <summary>
-    Recorded the result of evaluating a 407 Proxy Authentication challenge
-    against managed dynamic routes in EnterpriseProxyService. This is recorded
-    when Chrome receives and tries to handle a 407 proxy authentication
-    challenge for the CONNECT call.
+    Records how EnterpriseProxyService synchronously classified a 407 Proxy
+    Authentication challenge against managed dynamic routes. Recorded once per
+    407 challenge Chrome receives for a CONNECT call, before any credential
+    fetch is started.
+
+    The &quot;Needs credentials&quot; bucket counts challenges that went on to a
+    credential fetch, and is therefore the denominator for
+    Enterprise.SecureGateway.ProxyAuthCredentialFetchOutcome. A persistent gap
+    between the two indicates fetches whose result was never delivered.
+  </summary>
+</histogram>
+
+<histogram name="Enterprise.SecureGateway.ProxyAuthCredentialFetchOutcome"
+    enum="EnterpriseProxyAuthCredentialFetchOutcome" expires_after="2027-07-01">
+  <owner>xzonghan@google.com</owner>
+  <owner>chrome-enterprise-networking-core@google.com</owner>
+  <summary>
+    Records the outcome of the asynchronous access token fetch that
+    EnterpriseProxyService performs to answer a 407 Proxy Authentication
+    challenge. Recorded once per challenge classified as &quot;Needs
+    credentials&quot; in Enterprise.SecureGateway.ProxyAuthChallengeDecision,
+    including when the fetch is abandoned because the service shuts down.
   </summary>
 </histogram>
 
@@ -4338,6 +4563,18 @@ chromium-metrics-reviews@google.com.
   <summary>
     Records when the Enterprise Signals Disclaimer is shown on Android for
     existing profiles, categorized by the event that triggered the disclaimer.
+  </summary>
+</histogram>
+
+<histogram name="Enterprise.SignalsDisclaimer.ExistingProfiles.ShowRequested"
+    enum="EnterpriseSignalsDisclaimerShownOn" expires_after="2027-04-01">
+  <owner>ssolarewicz@chromium.org</owner>
+  <owner>cec-growth@google.com</owner>
+  <summary>
+    Records when the Enterprise Signals Disclaimer is requested to be shown on
+    Android for existing profiles, categorized by the event that triggered the
+    request. The disclaimer may be queued behind another dialog at this point,
+    and is not guaranteed to ever become visible.
   </summary>
 </histogram>
 
@@ -4814,7 +5051,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Enterprise.StateDetermination.OnFlex" enum="Boolean"
-    expires_after="2026-10-04">
+    expires_after="2027-10-04">
   <owner>sergiyb@google.com</owner>
   <owner>chromeos-commercial-remote-management@google.com</owner>
   <summary>
@@ -5040,7 +5277,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Enterprise.UserPolicy.Count" units="policies"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>vincb@google.com</owner>
   <owner>ftirelo@chromium.org</owner>
   <summary>
@@ -5085,7 +5322,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Enterprise.UserRemoteCommand.Executed{Enterprise_RemoteCommandType}"
-    enum="RemoteCommandExecutionStatus" expires_after="2027-01-03">
+    enum="RemoteCommandExecutionStatus" expires_after="2027-03-21">
   <owner>asumaneev@google.com</owner>
   <owner>chromeos-commercial-remote-management@google.com</owner>
   <summary>

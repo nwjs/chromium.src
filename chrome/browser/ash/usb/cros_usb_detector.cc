@@ -32,7 +32,6 @@
 #include "chrome/browser/ash/crostini/crostini_util.h"
 #include "chrome/browser/ash/guest_os/guest_id.h"
 #include "chrome/browser/ash/guest_os/guest_os_pref_names.h"
-#include "chrome/browser/notifications/system_notification_helper.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/grit/generated_resources.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
@@ -52,6 +51,8 @@
 #include "ui/base/ui_base_features.h"
 #include "ui/chromeos/styles/cros_tokens_color_mappings.h"
 #include "ui/gfx/paint_vector_icon.h"
+#include "ui/message_center/message_center.h"
+#include "ui/message_center/public/cpp/notification.h"
 
 namespace ash {
 
@@ -309,7 +310,7 @@ void ShowNotificationForDevice(const std::string& guid,
         chromeos::settings::mojom::kBruschettaUsbPreferencesSubpagePath;
   }
 
-  DCHECK(vm_names_in_notification.size());
+  CHECK(vm_names_in_notification.size(), base::NotFatalUntil::M160);
   std::u16string message = l10n_util::GetStringFUTF16(
       IDS_CROSUSB_DEVICE_DETECTED_NOTIFICATION, label,
       CombineVmNames(vm_names_in_notification));
@@ -319,7 +320,7 @@ void ShowNotificationForDevice(const std::string& guid,
   }
 
   std::string notification_id = CrosUsbDetector::MakeNotificationId(guid);
-  message_center::Notification notification(
+  auto notification = std::make_unique<message_center::Notification>(
       message_center::NOTIFICATION_TYPE_MULTIPLE, notification_id,
       l10n_util::GetStringUTF16(IDS_CROSUSB_DEVICE_DETECTED_NOTIFICATION_TITLE),
       message, ui::ImageModel(), std::u16string(), GURL(),
@@ -329,7 +330,8 @@ void ShowNotificationForDevice(const std::string& guid,
       rich_notification_data,
       base::MakeRefCounted<CrosUsbNotificationDelegate>(
           guid, std::move(vm_names), std::move(settings_sub_page)));
-  SystemNotificationHelper::GetInstance()->Display(notification);
+  message_center::MessageCenter::Get()->AddNotification(
+      std::move(notification));
 }
 
 class FilesystemUnmounter : public base::RefCounted<FilesystemUnmounter> {
@@ -405,7 +407,7 @@ CrosUsbDetector* CrosUsbDetector::Get() {
 }
 
 CrosUsbDetector::CrosUsbDetector() {
-  DCHECK(!g_cros_usb_detector);
+  CHECK(!g_cros_usb_detector, base::NotFatalUntil::M160);
   g_cros_usb_detector = this;
 
   // If *ALL* interfaces of a device match the below list, no notification will
@@ -448,7 +450,7 @@ CrosUsbDetector::CrosUsbDetector() {
 }
 
 CrosUsbDetector::~CrosUsbDetector() {
-  DCHECK_EQ(this, g_cros_usb_detector);
+  CHECK_EQ(this, g_cros_usb_detector, base::NotFatalUntil::M160);
   disks::DiskMountManager::GetInstance()->RemoveObserver(this);
   CiceroneClient::Get()->RemoveObserver(this);
   ConciergeClient::Get()->RemoveVmObserver(this);
@@ -502,13 +504,13 @@ void CrosUsbDetector::ConnectToDeviceManager() {
     content::GetDeviceService().BindUsbDeviceManager(
         device_manager_.BindNewPipeAndPassReceiver());
   }
-  DCHECK(device_manager_);
+  CHECK(device_manager_, base::NotFatalUntil::M160);
   device_manager_.set_disconnect_handler(
       base::BindOnce(&CrosUsbDetector::OnDeviceManagerConnectionError,
                      weak_ptr_factory_.GetWeakPtr()));
 
   // Listen for added/removed device events.
-  DCHECK(!client_receiver_.is_bound());
+  CHECK(!client_receiver_.is_bound(), base::NotFatalUntil::M160);
   device_manager_->EnumerateDevicesAndSetClient(
       client_receiver_.BindNewEndpointAndPassRemote(),
       base::BindOnce(&CrosUsbDetector::OnListAttachedDevices,
@@ -717,8 +719,9 @@ void CrosUsbDetector::OnDeviceAdded(device::mojom::UsbDeviceInfoPtr device_info,
 
 void CrosUsbDetector::OnDeviceRemoved(
     device::mojom::UsbDeviceInfoPtr device_info) {
-  SystemNotificationHelper::GetInstance()->Close(
-      CrosUsbDetector::MakeNotificationId(device_info->guid));
+  message_center::MessageCenter::Get()->RemoveNotification(
+      CrosUsbDetector::MakeNotificationId(device_info->guid),
+      /*by_user=*/false);
 
   std::string guid = device_info->guid;
   auto it = usb_devices_.find(guid);
@@ -992,8 +995,9 @@ void CrosUsbDetector::AttachAfterDetach(
   // Close any associated notifications (the user isn't using them). This
   // destroys the CrosUsbNotificationDelegate and vm_name and guid args may be
   // invalid after Close.
-  SystemNotificationHelper::GetInstance()->Close(
-      CrosUsbDetector::MakeNotificationId(guid));
+  message_center::MessageCenter::Get()->RemoveNotification(
+      CrosUsbDetector::MakeNotificationId(guid),
+      /*by_user=*/false);
 }
 
 void CrosUsbDetector::OnAttachUsbDeviceOpened(

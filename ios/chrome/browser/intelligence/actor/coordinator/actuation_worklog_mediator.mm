@@ -26,9 +26,6 @@ ActuationWorklogChip* ChipForToolType(std::optional<actor::ToolType> toolType) {
   if (!toolType) {
     return nil;
   }
-
-  // TODO(crbug.com/556191112): Add a catch-all or specific icons for the
-  // remaining tool types.
   switch (*toolType) {
     case actor::ToolType::kClick:
       return [[ActuationWorklogChip alloc]
@@ -47,18 +44,31 @@ ActuationWorklogChip* ChipForToolType(std::optional<actor::ToolType> toolType) {
                            IDS_IOS_ACTOR_WORKLOG_CHIP_SCROLLING)
                   icon:SymbolWithPointSize(SymbolCursorArrowMotionLines,
                                            kIconSize)];
-    case actor::ToolType::kWait:
-      return [[ActuationWorklogChip alloc]
-          initWithText:l10n_util::GetNSString(
-                           IDS_IOS_ACTOR_WORKLOG_CHIP_WAITING)
-                  icon:SymbolWithPointSize(SymbolHourglass, kIconSize)];
     case actor::ToolType::kAttemptLogin:
       return [[ActuationWorklogChip alloc]
           initWithText:l10n_util::GetNSString(
                            IDS_IOS_ACTOR_WORKLOG_CHIP_FILLING_PASSWORD)
                   icon:SymbolWithPointSize(SymbolKey, kIconSize)];
-    default:
+    case actor::ToolType::kNavigate:
+    case actor::ToolType::kBack:
+    case actor::ToolType::kForward:
+      return [[ActuationWorklogChip alloc]
+          initWithText:l10n_util::GetNSString(
+                           IDS_IOS_ACTOR_WORKLOG_CHIP_NAVIGATING)
+                  icon:SymbolWithPointSize(SymbolGlobe, kIconSize)];
+    case actor::ToolType::kWait:
+      return [[ActuationWorklogChip alloc]
+          initWithText:l10n_util::GetNSString(
+                           IDS_IOS_ACTOR_WORKLOG_CHIP_WAITING)
+                  icon:SymbolWithPointSize(SymbolHourglass, kIconSize)];
+    case actor::ToolType::kWaitZeroDuration:
+    case actor::ToolType::kUnknown:
       return nil;
+    default:
+      return [[ActuationWorklogChip alloc]
+          initWithText:l10n_util::GetNSString(
+                           IDS_IOS_ACTOR_WORKLOG_CHIP_DEFAULT)
+                  icon:SymbolWithPointSize(SymbolCursorArrow, kIconSize)];
   }
 }
 
@@ -67,8 +77,13 @@ ActuationWorklogChip* ChipForToolType(std::optional<actor::ToolType> toolType) {
 @implementation ActuationWorklogMediator {
   // Service tracking actor tasks and updates.
   raw_ptr<actor::ActorService> _actorService;
+  // Currently observed task ID.
+  std::optional<actor::ActorTaskId> _currentTaskId;
   // Latest emitted update, used to deduplicate consecutive identical updates.
   NSString* _latestEmittedTaskUpdate;
+  // Pending completion block for the active intervention. Only called when a
+  // user interacts with the UI associated with it.
+  void (^_pendingInterventionCompletion)(void);
 }
 
 - (instancetype)initWithActorService:(actor::ActorService*)actorService {
@@ -90,12 +105,32 @@ ActuationWorklogChip* ChipForToolType(std::optional<actor::ToolType> toolType) {
     _actorService->RemoveTaskUpdatesObserver(self);
     _actorService = nullptr;
   }
+  [self discardPendingIntervention];
   [_consumer reset];
   _consumer = nil;
+  _currentTaskId.reset();
   _latestEmittedTaskUpdate = nil;
 }
 
 #pragma mark - Private
+
+// Resolves the pending intervention by calling its completion handler and
+// clearing the UI. Should only be called upon explicit user interaction.
+- (void)resolvePendingIntervention {
+  if (_pendingInterventionCompletion) {
+    void (^completion)(void) = _pendingInterventionCompletion;
+    _pendingInterventionCompletion = nil;
+    completion();
+  }
+  [_consumer setIntervention:nil];
+}
+
+// Dismisses the active intervention card and discards the pending completion
+// handler without calling it (task cancellation, replacement, or disconnect).
+- (void)discardPendingIntervention {
+  _pendingInterventionCompletion = nil;
+  [_consumer setIntervention:nil];
+}
 
 // Emits a worklog item and tool chip, deduplicating consecutive updates.
 - (void)processUpdateWithTool:(std::optional<actor::ToolType>)toolType
@@ -127,7 +162,7 @@ ActuationWorklogChip* ChipForToolType(std::optional<actor::ToolType> toolType) {
                             taskUpdate:(NSString*)taskUpdate
                           currentState:(actor::ActorTaskState)state
                              webStates:(NSArray<NSNumber*>*)webStatesIDs {
-  // TODO(crbug.com/555198195): Ensure updates are tied to the same `taskID`.
+  _currentTaskId = taskID;
   ActuationWorklogItem* initialItem = [ActuationWorklogItem
       labeledItemWithTitle:l10n_util::GetNSString(
                                IDS_IOS_GEMINI_FIRST_ACTUATION_STEP_TITLE)
@@ -146,6 +181,9 @@ ActuationWorklogChip* ChipForToolType(std::optional<actor::ToolType> toolType) {
 - (void)actorTaskWithID:(actor::ActorTaskId)taskID
          didChangeState:(actor::ActorTaskState)newState
               fromState:(actor::ActorTaskState)oldState {
+  if (_currentTaskId != taskID) {
+    return;
+  }
   [_consumer setActuationActive:!actor::IsTerminalState(newState)];
 }
 
@@ -153,14 +191,63 @@ ActuationWorklogChip* ChipForToolType(std::optional<actor::ToolType> toolType) {
         willExecuteTool:(actor::ToolType)toolType
              taskUpdate:(NSString*)taskUpdate
              onWebState:(web::WebStateID)webStateID {
+  if (_currentTaskId != taskID) {
+    return;
+  }
   [self processUpdateWithTool:toolType taskUpdate:taskUpdate];
 }
 
 - (void)actorTaskDidStopWithID:(actor::ActorTaskId)taskID
                     finalState:(actor::ActorTaskState)finalState {
+  if (_currentTaskId != taskID) {
+    return;
+  }
+  _currentTaskId.reset();
+  [self discardPendingIntervention];
   _latestEmittedTaskUpdate = nil;
   [_consumer setActuationActive:NO];
   [_consumer reset];
+}
+
+#pragma mark - ActorTaskInterventionDelegate
+
+- (void)actorTask:(actor::ActorTaskId)taskID
+    selectFromSuggestions:(NSArray<ActorFormSuggestion*>*)suggestions
+        completionHandler:
+            (void (^)(ActorFormSuggestion* selectedSuggestion,
+                      BOOL shouldStorePermission))completionHandler {
+  completionHandler(suggestions.firstObject, NO);
+}
+
+- (void)actorTask:(actor::ActorTaskId)taskID
+    requestUserInterventionWithTitle:(NSString*)title
+                            subtitle:(NSString*)subtitle
+                          buttonText:(NSString*)buttonText
+                   completionHandler:(void (^)(void))completionHandler {
+  [self discardPendingIntervention];
+  if (completionHandler) {
+    _pendingInterventionCompletion = [completionHandler copy];
+  }
+
+  ActuationInterventionData* data =
+      [ActuationInterventionData cardItemWithTitle:title
+                                          subtitle:subtitle
+                                 primaryButtonText:buttonText];
+  [_consumer setIntervention:data];
+}
+
+#pragma mark - ActuationWorklogMutator
+
+- (void)stopActuation {
+  if (!_actorService || !_currentTaskId) {
+    return;
+  }
+  _actorService->StopTask(*_currentTaskId,
+                          actor::ActorTaskStoppedReason::kStoppedByUser);
+}
+
+- (void)didTapInterventionButton {
+  [self resolvePendingIntervention];
 }
 
 @end

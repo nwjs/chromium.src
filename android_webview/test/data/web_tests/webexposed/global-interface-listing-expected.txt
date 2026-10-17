@@ -3760,6 +3760,7 @@ interface HTMLButtonElement : HTMLElement
     setter value
 interface HTMLCanvasElement : HTMLElement
     attribute @@toStringTag
+    getter content
     getter height
     getter layoutSubtree
     getter onelementgeometryupdate
@@ -3777,6 +3778,7 @@ interface HTMLCanvasElement : HTMLElement
     method toDataURL
     method transferControlToOffscreen
     method updateElementGeometry
+    setter content
     setter height
     setter layoutSubtree
     setter onelementgeometryupdate
@@ -6468,11 +6470,15 @@ interface MimeTypeArray
     method namedItem
 interface ModelContext : EventTarget
     attribute @@toStringTag
+    getter ontoolactivated
+    getter ontoolcancel
     getter ontoolchange
     method constructor
     method executeTool
     method getTools
     method registerTool
+    setter ontoolactivated
+    setter ontoolcancel
     setter ontoolchange
 interface Mojo
     static method bindInterface
@@ -10078,6 +10084,14 @@ interface ToggleEvent : Event
     getter oldState
     getter source
     method constructor
+interface ToolActivatedEvent : Event
+    attribute @@toStringTag
+    getter toolName
+    method constructor
+interface ToolCancelEvent : Event
+    attribute @@toStringTag
+    getter toolName
+    method constructor
 interface Touch
     attribute @@toStringTag
     getter clientX
@@ -11891,10 +11905,6 @@ interface WebKitMutationObserver
     method disconnect
     method observe
     method takeRecords
-interface WebMCPEvent : Event
-    attribute @@toStringTag
-    getter toolName
-    method constructor
 interface WebSocket : EventTarget
     attribute @@toStringTag
     attribute CLOSED

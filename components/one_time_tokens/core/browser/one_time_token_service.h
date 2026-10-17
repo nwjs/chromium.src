@@ -9,7 +9,6 @@
 #include <vector>
 
 #include "base/functional/callback.h"
-#include "base/functional/callback_helpers.h"
 #include "base/time/time.h"
 #include "base/types/expected.h"
 #include "components/keyed_service/core/keyed_service.h"
@@ -19,6 +18,9 @@
 #include "components/one_time_tokens/core/browser/util/expiring_subscription.h"
 
 namespace one_time_tokens {
+
+// Duration after which tokens expire and are no longer returned or served.
+inline constexpr base::TimeDelta kCacheDurationForOldTokens = base::Minutes(3);
 
 // The origin of a one time token. This is currently limited to on-device SMS
 // tokens, but may grow to cross-device SMS tokens, email tokens, authenticator
@@ -39,6 +41,9 @@ class OneTimeTokenService : public KeyedService {
       void(OneTimeTokenSource,
            base::expected<OneTimeToken, OneTimeTokenRetrievalError>);
   using Callback = base::RepeatingCallback<CallbackSignature>;
+  using TickleCallback = base::RepeatingCallback<void(OneTimeTokenSource)>;
+  using FetchUserDataProcessingConsentCallback =
+      base::OnceCallback<void(std::optional<UserDataProcessingConsentStates>)>;
 
   ~OneTimeTokenService() override = default;
 
@@ -58,8 +63,6 @@ class OneTimeTokenService : public KeyedService {
   // Returns true if the backend for `source` has pending requests or queued
   // notifications.
   virtual bool HasPendingRequests(OneTimeTokenSource source) const = 0;
-
-  using TickleCallback = base::RepeatingCallback<void(OneTimeTokenSource)>;
 
   // Creates a subscription for new incoming one time tokens. It's possible that
   // the same one time token is reported many times while a subscription is
@@ -88,8 +91,6 @@ class OneTimeTokenService : public KeyedService {
 
   virtual OneTimeTokenLogSink* log_sink() = 0;
 
-  using FetchUserDataProcessingConsentCallback =
-      base::OnceCallback<void(std::optional<UserDataProcessingConsentStates>)>;
   // Fetches the user data processing consent states from the backend.
   virtual void FetchUserDataProcessingConsent(
       FetchUserDataProcessingConsentCallback callback) = 0;

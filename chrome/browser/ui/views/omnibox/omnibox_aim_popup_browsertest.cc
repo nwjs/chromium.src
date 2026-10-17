@@ -10,7 +10,9 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
+#include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
+#include "chrome/browser/ui/omnibox/omnibox_popup_state_manager.h"
 #include "chrome/browser/ui/omnibox/omnibox_tab_helper.h"
 #include "chrome/browser/ui/permission_bubble/permission_prompt.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -988,10 +990,12 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_FALSE(presenter->IsPermissionPromptPreventingClose());
 }
 
-// Verifies that when `kWebUIOmniboxFullPopup` is enabled, `OmniboxPopupCloser`
-// transitions `kFull` popup state to `kNone` on `CloseWithReason(kRevertAll)`.
+// Verifies that `OmniboxPopupCloser` does not transition `kFull` popup state to
+// `kNone` on `CloseWithReason(kRevertAll)`. RevertAll is an edit model
+// operation (called on tab switch and display text updates) and should not
+// dismiss the Full WebUI popup.
 IN_PROC_BROWSER_TEST_F(OmniboxAimPopupBrowserTest,
-                       PopupCloserTransitionsFullPopupStateToNone) {
+                       PopupCloserDoesNotTransitionFullPopupStateToNone) {
   auto* state_manager =
       location_bar()->GetOmniboxController()->popup_state_manager();
   ASSERT_TRUE(state_manager);
@@ -1003,6 +1007,93 @@ IN_PROC_BROWSER_TEST_F(OmniboxAimPopupBrowserTest,
       location_bar()->GetOmniboxController()->client()->GetOmniboxPopupCloser();
   ASSERT_TRUE(popup_closer);
   popup_closer->CloseWithReason(omnibox::PopupCloseReason::kRevertAll);
+
+  // RevertAll should NOT transition kFull to kNone.
+  EXPECT_EQ(state_manager->popup_state(), OmniboxPopupState::kFull);
+}
+
+class OmniboxAimPopupFullWebUIBrowserTest : public OmniboxAimPopupBrowserTest {
+ public:
+  OmniboxAimPopupFullWebUIBrowserTest() {
+    feature_list_.InitWithFeatures({omnibox::internal::kWebUIOmniboxAimPopup,
+                                    omnibox::internal::kWebUIOmniboxFullPopup},
+                                   {features::kWebUILocationBar});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(OmniboxAimPopupFullWebUIBrowserTest,
+                       ApplyInputAndCleanupTransfersInputToOmnibox) {
+  auto* content = ShowPopupAndGetWebUIContent();
+  ASSERT_TRUE(content);
+
+  content->ApplyInputAndCleanup("test search query");
+
+  EXPECT_EQ(u"test search query", location_bar()->GetOmniboxView()->GetText());
+  EXPECT_TRUE(location_bar()
+                  ->GetOmniboxController()
+                  ->edit_model()
+                  ->user_input_in_progress());
+}
+
+IN_PROC_BROWSER_TEST_F(OmniboxAimPopupFullWebUIBrowserTest,
+                       ApplyInputAndCleanupEmptyInputReverts) {
+  auto* content = ShowPopupAndGetWebUIContent();
+  ASSERT_TRUE(content);
+
+  location_bar()->GetOmniboxView()->SetUserText(u"temporary draft");
+  content->ApplyInputAndCleanup("");
+
+  EXPECT_FALSE(location_bar()
+                   ->GetOmniboxController()
+                   ->edit_model()
+                   ->user_input_in_progress());
+}
+
+IN_PROC_BROWSER_TEST_F(OmniboxAimPopupFullWebUIBrowserTest,
+                       CloseUISetsPopupStateToFull) {
+  auto* content = ShowPopupAndGetWebUIContent();
+  ASSERT_TRUE(content);
+
+  EXPECT_EQ(location_bar()
+                ->GetOmniboxController()
+                ->popup_state_manager()
+                ->popup_state(),
+            OmniboxPopupState::kAim);
+
+  content->CloseUI();
+
+  EXPECT_EQ(location_bar()
+                ->GetOmniboxController()
+                ->popup_state_manager()
+                ->popup_state(),
+            OmniboxPopupState::kFull);
+}
+
+// Verifies that when `kWebUIOmniboxFullPopup` is enabled, opening a match
+// transitions popup state to `kNone`, while RevertAll does not dismiss it.
+IN_PROC_BROWSER_TEST_F(OmniboxAimPopupFullWebUIBrowserTest,
+                       OpenMatchTransitionsFullPopupStateToNone) {
+  auto* state_manager =
+      location_bar()->GetOmniboxController()->popup_state_manager();
+  ASSERT_TRUE(state_manager);
+
+  state_manager->SetPopupState(OmniboxPopupState::kFull);
+  EXPECT_EQ(state_manager->popup_state(), OmniboxPopupState::kFull);
+
+  // RevertAll does not dismiss the Full WebUI popup.
+  auto* popup_closer =
+      location_bar()->GetOmniboxController()->client()->GetOmniboxPopupCloser();
+  ASSERT_TRUE(popup_closer);
+  popup_closer->CloseWithReason(omnibox::PopupCloseReason::kRevertAll);
+  EXPECT_EQ(state_manager->popup_state(), OmniboxPopupState::kFull);
+
+  // Opening a match transitions popup state to kNone.
+  auto* edit_model = location_bar()->GetOmniboxController()->edit_model();
+  ASSERT_TRUE(edit_model);
+  edit_model->OpenCurrentSelection();
 
   EXPECT_EQ(state_manager->popup_state(), OmniboxPopupState::kNone);
 }

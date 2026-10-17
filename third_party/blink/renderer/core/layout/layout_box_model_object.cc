@@ -136,9 +136,7 @@ void LayoutBoxModelObject::StyleWillChange(
   // cached subsequences containing this object or descendant objects.
   if (old_style &&
       (IsStacked(*old_style) != IsStacked(new_style) ||
-       IsStackingContext(*old_style) != IsStackingContext(new_style)) &&
-      // ObjectPaintInvalidator requires this.
-      IsRooted()) {
+       IsStackingContext(*old_style) != IsStackingContext(new_style))) {
     ObjectPaintInvalidator(*this).SlowSetPaintingLayerNeedsRepaint();
   }
 
@@ -253,28 +251,30 @@ void LayoutBoxModelObject::StyleDidChange(
   }
 
   if (old_style && Parent()) {
-    LayoutBlock* block = InclusiveContainingBlock();
+    LayoutBox* container = InclusiveContainingBlock();
 
     if ((could_contain_fixed && !can_contain_fixed) ||
         (could_contain_absolute && !can_contain_absolute)) {
       // Clear our positioned objects list. Our absolute and fixed positioned
       // descendants will be inserted into our containing block's positioned
       // objects list during layout.
-      block->RemovePositionedObjects(nullptr);
+      container->RemovePositionedObjects(nullptr);
     }
     if (!could_contain_absolute && can_contain_absolute) {
       // Remove our absolute positioned descendants from their current
       // containing block.
       // They will be inserted into our positioned objects list during layout.
-      if (LayoutBlock* cb = block->ContainingBlockForAbsolutePosition())
+      if (LayoutBox* cb = container->ContainingBlockForAbsolutePosition()) {
         cb->RemovePositionedObjects(this);
+      }
     }
     if (!could_contain_fixed && can_contain_fixed) {
       // Remove our fixed positioned descendants from their current containing
       // block.
       // They will be inserted into our positioned objects list during layout.
-      if (LayoutBlock* cb = block->ContainingBlockForFixedPosition())
+      if (LayoutBox* cb = container->ContainingBlockForFixedPosition()) {
         cb->RemovePositionedObjects(this);
+      }
     }
   }
 
@@ -283,11 +283,8 @@ void LayoutBoxModelObject::StyleDidChange(
     // |LayoutBoxModelObject::StyleWillChange| but changes to stacking can
     // change the PaintingContainer so we need to ensure the new
     // PaintingContainer is also marked for repaint.
-    if (old_style &&
-        (IsStacked() != IsStacked(*old_style) ||
-         IsStackingContext() != IsStackingContext(*old_style)) &&
-        // ObjectPaintInvalidator requires this.
-        IsRooted()) {
+    if (old_style && (IsStacked() != IsStacked(*old_style) ||
+                      IsStackingContext() != IsStackingContext(*old_style))) {
       ObjectPaintInvalidator(*this).SlowSetPaintingLayerNeedsRepaint();
     }
 
@@ -543,7 +540,7 @@ PhysicalRect LayoutBoxModelObject::ApplyFiltersToRect(
   return PhysicalRect::EnclosingRect(float_rect);
 }
 
-LayoutBlock* LayoutBoxModelObject::StickyContainer() const {
+LayoutBox* LayoutBoxModelObject::StickyContainer() const {
   NOT_DESTROYED();
   return ContainingBlock();
 }
@@ -568,7 +565,7 @@ StickyConstraintsData LayoutBoxModelObject::ComputeStickyPositionConstraints(
   }
 
   // Skip anonymous containing blocks except for anonymous fieldset content box.
-  LayoutBlock* sticky_container = StickyContainer();
+  LayoutBox* sticky_container = StickyContainer();
   while (sticky_container->IsAnonymous()) {
     if (sticky_container->Parent() &&
         sticky_container->Parent()->IsFieldset()) {

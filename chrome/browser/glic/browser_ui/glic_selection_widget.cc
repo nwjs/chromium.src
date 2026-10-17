@@ -238,7 +238,7 @@ class GlicSelectionContentsView : public views::View,
 
     auto border1 = std::make_unique<views::BubbleBorder>(
         views::BubbleBorder::NONE, views::BubbleBorder::STANDARD_SHADOW);
-    border1->SetColor(ui::kColorSysSurface);
+    border1->set_background_color(ui::kColorSysSurface);
     if (is_small_chip) {
       if (features::kGlicSelectionSmallChipOnTop.Get()) {
         border1->set_rounded_corners(
@@ -652,7 +652,7 @@ class GlicSelectionContentsView : public views::View,
 
     auto border = std::make_unique<views::BubbleBorder>(
         views::BubbleBorder::NONE, views::BubbleBorder::STANDARD_SHADOW);
-    border->SetColor(ui::kColorSysSurface);
+    border->set_background_color(ui::kColorSysSurface);
     border->set_rounded_corners(
         gfx::RoundedCornersF(kExplanationCornerRadius));
     container->SetBackground(
@@ -987,7 +987,6 @@ END_METADATA
 GlicSelectionWidgetDelegate::GlicSelectionWidgetDelegate(
     ActionDelegate& action_delegate,
     const gfx::Rect& anchor_rect,
-    const gfx::Rect& window_bounds,
     const std::u16string& selected_text)
     : BubbleDialogDelegate(
           nullptr,
@@ -999,8 +998,7 @@ GlicSelectionWidgetDelegate::GlicSelectionWidgetDelegate(
           views::BubbleBorder::STANDARD_SHADOW,
           /*autosize=*/true),
       action_delegate_(action_delegate),
-      original_anchor_rect_(anchor_rect),
-      window_bounds_(window_bounds) {
+      original_anchor_rect_(anchor_rect) {
   SetContentsView(
       std::make_unique<GlicSelectionContentsView>(this, selected_text));
 

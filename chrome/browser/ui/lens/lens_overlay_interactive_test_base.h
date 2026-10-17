@@ -99,6 +99,16 @@ class LensOverlayInteractiveTestBase : public InteractiveFeaturePromoTest {
       base::OnceCallback<gfx::Point()> target_point,
       int tab_id_int = 0);
 
+  // Waits for an already-opening Lens overlay to be ready, then drags from the
+  // overlay center to `target_point` (in screen coordinates) to select a
+  // region, and completes the screenshot upload for the tab at `tab_id_int`.
+  // The drag is sent directly to the overlay renderer rather than through
+  // OS-level mouse input.
+  InteractiveTestApi::MultiStep SelectRegionInLensOverlay(
+      ui::ElementIdentifier overlay_id,
+      base::OnceCallback<gfx::Point()> target_point,
+      int tab_id_int = 0);
+
   bool TriggerLenOverlayHomeworkPageAction();
 
  protected:

@@ -100,6 +100,9 @@ class ContextualTasksPanelController {
   // Returns a list of all cached panel WebContents.
   virtual std::vector<content::WebContents*> GetPanelWebContentsList()
       const = 0;
+  // Cleans up any WebContents that are no longer associated with active tabs or
+  // have expired from the cache.
+  virtual void CleanUpUnusedWebContents() = 0;
   // Detaches the WebContents for the given task and returns it.
   virtual std::unique_ptr<content::WebContents> DetachWebContentsForTask(
       const base::Uuid& task_id) = 0;
@@ -137,8 +140,15 @@ class ContextualTasksPanelController {
   virtual void ShowPageInfoBubble(bool is_pointer_interaction) = 0;
   virtual void OnLogoPointerDown() = 0;
 
+  // Records the time to handshake complete metric for the given WebContents.
+  virtual void RecordTimeToHandshakeComplete(
+      content::WebContents* web_contents) {}
+
   // Static.
   static ContextualTasksPanelController* From(BrowserWindowInterface* browser);
+  // Returns whether the given WebContents is hosted within the Contextual Tasks
+  // side panel.
+  static bool IsWebContentsInPanel(content::WebContents* web_contents);
 };
 
 }  // namespace contextual_tasks

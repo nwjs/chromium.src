@@ -37,19 +37,21 @@ namespace {
 // Constants for mock search items.
 NSString* const kPassportTypeName = @"Passport";
 NSString* const kPassportValue = @"AA123456";
-NSString* const kExpirationTypeName = @"Expiration";
-NSString* const kExpirationValue = @"2030-01-01";
+NSString* const kPersonalContextPassportValue = @"BB654321";
 
 // Search query used for testing view controller search states.
 NSString* const kSearchQuery = @"test search query";
 
 // Creates a mock passport search result Suggestion for testing.
-Suggestion CreatePassportSuggestion() {
-  Suggestion suggestion(base::SysNSStringToUTF16(kPassportValue),
+Suggestion CreatePassportSuggestion(bool is_personal_context_sourced = false) {
+  NSString* value = is_personal_context_sourced ? kPersonalContextPassportValue
+                                                : kPassportValue;
+  Suggestion suggestion(base::SysNSStringToUTF16(value),
                         SuggestionType::kAtMemorySearchResult);
-  Suggestion::AtMemoryPayload payload(base::SysNSStringToUTF16(kPassportValue),
+  Suggestion::AtMemoryPayload payload(base::SysNSStringToUTF16(value),
                                       MemoryDataType::kPassportNumber);
   payload.type_name = base::SysNSStringToUTF16(kPassportTypeName);
+  payload.is_personal_context_sourced = is_personal_context_sourced;
   suggestion.payload = std::move(payload);
   return suggestion;
 }
@@ -73,14 +75,6 @@ class AtMemorySearchViewControllerTest : public PlatformTest {
   AtMemorySearchViewController* view_controller_;
 };
 
-// Tests that the view controller, navigation items, search bar, and table view
-// are initialized properly.
-TEST_F(AtMemorySearchViewControllerTest, TestInitialization) {
-  EXPECT_NE(view_controller_.navigationItem.searchController, nil);
-  EXPECT_NE(view_controller_.navigationItem.rightBarButtonItem, nil);
-  EXPECT_NE(view_controller_.tableView, nil);
-}
-
 // Tests that the table view displays an empty background view with no items
 // when in the initial zero state (no notice and no recent fills).
 TEST_F(AtMemorySearchViewControllerTest, TestZeroState) {
@@ -89,8 +83,9 @@ TEST_F(AtMemorySearchViewControllerTest, TestZeroState) {
   EXPECT_NE(view_controller_.tableView.backgroundView, nil);
 }
 
-// Tests that setting search results populates the table view.
-TEST_F(AtMemorySearchViewControllerTest, TestSetSearchResults) {
+// Tests that setting search results populates the table view with Autofill
+// section and header.
+TEST_F(AtMemorySearchViewControllerTest, TestSetSearchResultsAutofillOnly) {
   AtMemorySearchItem* item =
       [[AtMemorySearchItem alloc] initWithSuggestion:CreatePassportSuggestion()
                                                index:0];
@@ -99,6 +94,11 @@ TEST_F(AtMemorySearchViewControllerTest, TestSetSearchResults) {
   EXPECT_EQ(view_controller_.tableView.numberOfSections, 1);
   EXPECT_EQ([view_controller_.tableView numberOfRowsInSection:0], 1);
   EXPECT_EQ(view_controller_.tableView.backgroundView, nil);
+
+  UIView* header_view = [view_controller_ tableView:view_controller_.tableView
+                             viewForHeaderInSection:0];
+  EXPECT_NE(base::apple::ObjCCast<TableViewLinkHeaderFooterView>(header_view),
+            nil);
 
   UITableViewCell* cell = [view_controller_.tableView.dataSource
                   tableView:view_controller_.tableView
@@ -109,6 +109,84 @@ TEST_F(AtMemorySearchViewControllerTest, TestSetSearchResults) {
           cell.contentConfiguration);
   EXPECT_NSEQ(config.title, kPassportValue);
   EXPECT_NSEQ(config.subtitle, kPassportTypeName);
+}
+
+// Tests that setting personal context search results populates the table view
+// with the personal context section and "Suggested by Gemini" header.
+TEST_F(AtMemorySearchViewControllerTest,
+       TestSetSearchResultsPersonalContextOnly) {
+  AtMemorySearchItem* item = [[AtMemorySearchItem alloc]
+      initWithSuggestion:CreatePassportSuggestion(
+                             /*is_personal_context_sourced=*/true)
+                   index:0];
+  [view_controller_ setSearchResults:@[ item ]];
+
+  EXPECT_EQ(view_controller_.tableView.numberOfSections, 1);
+  EXPECT_EQ([view_controller_.tableView numberOfRowsInSection:0], 1);
+  EXPECT_EQ(view_controller_.tableView.backgroundView, nil);
+
+  UIView* header_view = [view_controller_ tableView:view_controller_.tableView
+                             viewForHeaderInSection:0];
+  EXPECT_NE(base::apple::ObjCCast<TableViewLinkHeaderFooterView>(header_view),
+            nil);
+}
+
+// Tests that setting both Autofill and personal context search results creates
+// two sections with Autofill presented first.
+TEST_F(AtMemorySearchViewControllerTest,
+       TestSetSearchResultsBothAutofillAndPersonalContext) {
+  AtMemorySearchItem* autofill_item = [[AtMemorySearchItem alloc]
+      initWithSuggestion:CreatePassportSuggestion(
+                             /*is_personal_context_sourced=*/false)
+                   index:0];
+  AtMemorySearchItem* personal_context_item = [[AtMemorySearchItem alloc]
+      initWithSuggestion:CreatePassportSuggestion(
+                             /*is_personal_context_sourced=*/true)
+                   index:1];
+  // Pass personal context first in array to verify Autofill is still presented
+  // first.
+  [view_controller_ setSearchResults:@[ personal_context_item, autofill_item ]];
+
+  EXPECT_EQ(view_controller_.tableView.numberOfSections, 2);
+  EXPECT_EQ([view_controller_.tableView numberOfRowsInSection:0], 1);
+  EXPECT_EQ([view_controller_.tableView numberOfRowsInSection:1], 1);
+
+  UIView* section0_header =
+      [view_controller_ tableView:view_controller_.tableView
+           viewForHeaderInSection:0];
+  EXPECT_NE(
+      base::apple::ObjCCast<TableViewLinkHeaderFooterView>(section0_header),
+      nil);
+
+  UIView* section1_header =
+      [view_controller_ tableView:view_controller_.tableView
+           viewForHeaderInSection:1];
+  EXPECT_NE(
+      base::apple::ObjCCast<TableViewLinkHeaderFooterView>(section1_header),
+      nil);
+}
+
+// Tests that setting both Autofill and personal context search results with
+// notice creates three sections in the correct order.
+TEST_F(AtMemorySearchViewControllerTest,
+       TestThreeSectionsWithNoticeAndBothSources) {
+  [view_controller_ setNoticeVisible:YES];
+
+  AtMemorySearchItem* autofill_item = [[AtMemorySearchItem alloc]
+      initWithSuggestion:CreatePassportSuggestion(
+                             /*is_personal_context_sourced=*/false)
+                   index:0];
+  AtMemorySearchItem* personal_context_item = [[AtMemorySearchItem alloc]
+      initWithSuggestion:CreatePassportSuggestion(
+                             /*is_personal_context_sourced=*/true)
+                   index:1];
+
+  [view_controller_ setSearchResults:@[ personal_context_item, autofill_item ]];
+
+  EXPECT_EQ(view_controller_.tableView.numberOfSections, 3);
+  EXPECT_EQ([view_controller_.tableView numberOfRowsInSection:0], 1);
+  EXPECT_EQ([view_controller_.tableView numberOfRowsInSection:1], 1);
+  EXPECT_EQ([view_controller_.tableView numberOfRowsInSection:2], 1);
 }
 
 // Tests that selecting a search result item calls the mutator.
@@ -319,12 +397,13 @@ TEST_F(AtMemorySearchViewControllerTest,
   EXPECT_OCMOCK_VERIFY(mock_mutator);
 }
 
-// Tests that tapping the footer link calls openManageEnhancedAutofillDetails.
+// Tests that tapping the footer link notifies the mutator, and that other URLs
+// are ignored.
 TEST_F(AtMemorySearchViewControllerTest, TestTapsFooterLink) {
-  id atMemoryHandler = OCMProtocolMock(@protocol(AtMemoryCommands));
-  view_controller_.atMemoryHandler = atMemoryHandler;
+  id mock_mutator = OCMProtocolMock(@protocol(AtMemorySearchMutator));
+  view_controller_.mutator = mock_mutator;
 
-  OCMExpect([atMemoryHandler openManageEnhancedAutofillDetails]);
+  OCMExpect([mock_mutator didTapAIDisclosureLink]);
 
   CrURL* mock_url =
       [[CrURL alloc] initWithGURL:GURL("settings://ai_disclosure")];
@@ -332,14 +411,14 @@ TEST_F(AtMemorySearchViewControllerTest, TestTapsFooterLink) {
   [(id<TableViewLinkHeaderFooterItemDelegate>)view_controller_ view:nil
                                                       didTapLinkURL:mock_url];
 
-  OCMReject([atMemoryHandler openManageEnhancedAutofillDetails]);
+  OCMReject([mock_mutator didTapAIDisclosureLink]);
 
   mock_url = [[CrURL alloc] initWithGURL:GURL("settings://incorrect_url")];
   // Cast to id to bypass the static type check for the delegate method.
   [(id<TableViewLinkHeaderFooterItemDelegate>)view_controller_ view:nil
                                                       didTapLinkURL:mock_url];
 
-  EXPECT_OCMOCK_VERIFY(atMemoryHandler);
+  EXPECT_OCMOCK_VERIFY(mock_mutator);
 }
 
 // Tests that search results remain visible when

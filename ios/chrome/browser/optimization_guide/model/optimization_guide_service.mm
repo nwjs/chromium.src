@@ -25,6 +25,7 @@
 #import "components/optimization_guide/core/model_execution/model_execution_features_controller.h"
 #import "components/optimization_guide/core/model_execution/model_execution_manager.h"
 #import "components/optimization_guide/core/model_execution/remote_model_executor.h"
+#import "components/optimization_guide/core/model_quality/model_quality_log_entry.h"
 #import "components/optimization_guide/core/optimization_guide_features.h"
 #import "components/optimization_guide/core/optimization_guide_logger.h"
 #import "components/optimization_guide/core/optimization_guide_util.h"
@@ -64,8 +65,12 @@ OptimizationGuideService::OptimizationGuideService(
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
     signin::IdentityManager* identity_manager,
     std::unique_ptr<optimization_guide::ModelExecutionManager::Delegate>
-        delegate)
-    : pref_service_(pref_service), off_the_record_(off_the_record) {
+        delegate,
+    network::NetworkContextGetter network_context_getter)
+    : pref_service_(pref_service),
+      network_context_getter_(std::move(network_context_getter)),
+      identity_manager_(identity_manager),
+      off_the_record_(off_the_record) {
   DCHECK(optimization_guide::features::IsOptimizationHintsEnabled());
 
   // In off the record profile, the stores of normal profile should be
@@ -358,9 +363,10 @@ OptimizationGuideService::StartStreamingSession(
     optimization_guide::OptimizationGuideModelExecutionStreamingCallback
         callback) {
   DCHECK_CURRENTLY_ON(web::WebThread::UI);
-  if (!model_execution_manager_) {
+  if (off_the_record_ || !network_context_getter_) {
     return nullptr;
   }
-  return model_execution_manager_->StartStreamingSession(feature, options,
-                                                         std::move(callback));
+  return optimization_guide::RemoteModelExecutionSession::Create(
+      feature, options, std::move(callback), network_context_getter_,
+      identity_manager_, optimization_guide_logger_.get());
 }

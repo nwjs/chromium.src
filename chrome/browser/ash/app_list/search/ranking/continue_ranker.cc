@@ -4,22 +4,19 @@
 
 #include "chrome/browser/ash/app_list/search/ranking/continue_ranker.h"
 
-#include "ash/constants/ash_features.h"
 #include "ash/public/cpp/app_list/app_list_types.h"
 #include "chrome/browser/ash/app_list/search/chrome_search_result.h"
 
 namespace app_list {
 
-ContinueRanker::ContinueRanker()
-    : mix_local_and_drive_files_(
-          ash::features::UseMixedFileLauncherContinueSection()) {}
+ContinueRanker::ContinueRanker() = default;
 
 ContinueRanker::~ContinueRanker() = default;
 
 void ContinueRanker::UpdateResultRanks(ResultsMap& results,
                                        ProviderType provider) {
   const auto it = results.find(provider);
-  DCHECK(it != results.end());
+  CHECK(it != results.end(), base::NotFatalUntil::M160);
 
   // Note: Always rank desks admin templates higher than any other type of
   // providers in the continue section view. Always rank zero-state Drive files
@@ -27,7 +24,7 @@ void ContinueRanker::UpdateResultRanks(ResultsMap& results,
   int continue_rank = -1;
   switch (provider) {
     case ProviderType::kZeroStateFile:
-      continue_rank = mix_local_and_drive_files_ ? 2 : 1;
+      continue_rank = 1;
       break;
     case ProviderType::kZeroStateDrive:
       continue_rank = 2;

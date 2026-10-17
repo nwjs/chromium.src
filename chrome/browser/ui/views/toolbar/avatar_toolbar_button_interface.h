@@ -49,7 +49,7 @@ class AvatarToolbarButtonInterface {
   virtual views::DialogDelegate* GetDialogDelegate() = 0;
 
   // Returns the anchor to use for avatar button bubbles.
-  views::BubbleAnchor GetBubbleAnchor(BrowserWindowInterface& browser);
+  static views::BubbleAnchor GetBubbleAnchor(BrowserWindowInterface& browser);
 
   virtual void ButtonPressed(bool is_source_accelerator) = 0;
 
@@ -105,10 +105,6 @@ class AvatarToolbarButtonInterface {
   // necessary to bypass resetting the profile - e.g. when attempting to reach
   // the limit counts.
   virtual void ForceShowingPromoForTesting() = 0;
-
-  // Returns whether the delay timer was running or not.
-  // Stops the timer if it is running.
-  virtual bool GetStateAndFireSignedOutTriggerDelayTimerForTesting() = 0;
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
   // Can be used in tests to reduce or remove the delay before showing the IPH.

@@ -616,18 +616,20 @@ Document* StyleSheetContents::AnyOwnerDocument() const {
 }
 
 static bool ChildRulesHaveFailedOrCanceledSubresources(
-    const base::span<const Member<StyleRuleBase>>& rules) {
+    const base::span<const Member<StyleRuleBase>>& rules,
+    ResourceFetcher* fetcher) {
   for (const StyleRuleBase* rule : rules) {
     switch (rule->GetType()) {
       case StyleRuleBase::kStyle:
-        if (To<StyleRule>(rule)->PropertiesHaveFailedOrCanceledSubresources()) {
+        if (To<StyleRule>(rule)->PropertiesHaveFailedOrCanceledSubresources(
+                fetcher)) {
           return true;
         }
         break;
       case StyleRuleBase::kFontFace:
         if (To<StyleRuleFontFace>(rule)
                 ->Properties()
-                .HasFailedOrCanceledSubresources()) {
+                .HasFailedOrCanceledSubresources(fetcher)) {
           return true;
         }
         break;
@@ -638,7 +640,7 @@ static bool ChildRulesHaveFailedOrCanceledSubresources(
       case StyleRuleBase::kScope:
       case StyleRuleBase::kStartingStyle:
         if (ChildRulesHaveFailedOrCanceledSubresources(
-                To<StyleRuleGroup>(rule)->ChildRules())) {
+                To<StyleRuleGroup>(rule)->ChildRules(), fetcher)) {
           return true;
         }
         break;
@@ -673,8 +675,8 @@ static bool ChildRulesHaveFailedOrCanceledSubresources(
         // Do we need to do a new name lookup then?
         break;
       case StyleRuleBase::kCounterStyle:
-        if (To<StyleRuleCounterStyle>(rule)
-                ->HasFailedOrCanceledSubresources()) {
+        if (To<StyleRuleCounterStyle>(rule)->HasFailedOrCanceledSubresources(
+                fetcher)) {
           return true;
         }
         break;
@@ -683,9 +685,10 @@ static bool ChildRulesHaveFailedOrCanceledSubresources(
   return false;
 }
 
-bool StyleSheetContents::HasFailedOrCanceledSubresources() const {
+bool StyleSheetContents::HasFailedOrCanceledSubresources(
+    ResourceFetcher* fetcher) const {
   DCHECK(IsCacheableForResource());
-  return ChildRulesHaveFailedOrCanceledSubresources(child_rules_);
+  return ChildRulesHaveFailedOrCanceledSubresources(child_rules_, fetcher);
 }
 
 Document* StyleSheetContents::ClientAnyOwnerDocument() const {
@@ -877,8 +880,11 @@ MixinMap& StyleSheetContents::ExtractMixins(const MediaQueryEvaluator& medium) {
 
 RuleSet& StyleSheetContents::EnsureRuleSet(const MediaQueryEvaluator& medium,
                                            const MixinMap& mixins) {
-  if (rule_set_ &&
-      rule_set_->DependingOnOutdatedMixins(mixins.map_identifier)) {
+  const bool rebuild_for_mixins =
+      rule_set_ && rule_set_->DependingOnOutdatedMixins(mixins.map_identifier);
+  if (rebuild_for_mixins) {
+    TRACE_EVENT_BEGIN("blink,blink_style",
+                      "StyleSheetContents::rebuildRuleSetForMixins");
     rule_set_ = nullptr;
     if (rule_set_diff_) {
       rule_set_diff_->MarkUnrepresentable();
@@ -898,6 +904,9 @@ RuleSet& StyleSheetContents::EnsureRuleSet(const MediaQueryEvaluator& medium,
       rule_set_diff_->NewRuleSetCreated(rule_set_);
     }
     rule_set_->CompactRulesIfNeeded();
+  }
+  if (rebuild_for_mixins) {
+    TRACE_EVENT_END("blink,blink_style");
   }
   return *rule_set_.Get();
 }

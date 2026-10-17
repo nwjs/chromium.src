@@ -12,7 +12,7 @@
 #include "components/enterprise/connectors/core/cloud_content_scanning/binary_upload_request.h"
 #include "components/enterprise/connectors/core/cloud_content_scanning/binary_upload_service.h"
 #include "components/enterprise/connectors/core/cloud_content_scanning/connector_upload_request.h"
-#include "components/enterprise/connectors/core/cloud_content_scanning/resumable_uploader_base.h"
+#include "components/enterprise/connectors/core/cloud_content_scanning/resumable_uploader.h"
 #include "components/enterprise/connectors/core/common.h"
 #include "services/network/public/mojom/url_loader_factory.mojom.h"
 
@@ -123,11 +123,15 @@ class CloudBinaryUploadServiceBase : public BinaryUploadService {
 
   void FinishRequest(BinaryUploadRequest* request,
                      ScanRequestUploadResult result,
-                     ContentAnalysisResponse response);
+                     ContentAnalysisResponse response,
+                     int http_status = 0,
+                     const std::string& response_data = "");
 
   void FinishAndCleanupRequest(BinaryUploadRequest* request,
                                ScanRequestUploadResult result,
-                               ContentAnalysisResponse response);
+                               ContentAnalysisResponse response,
+                               int http_status = 0,
+                               const std::string& response_data = "");
 
  private:
   friend class ::safe_browsing::CloudBinaryUploadServiceTest;
@@ -144,7 +148,9 @@ class CloudBinaryUploadServiceBase : public BinaryUploadService {
   void LogResponseDebugInfo(const std::string& upload_info,
                             ScanRequestUploadResult result,
                             BinaryUploadRequest* request,
-                            const ContentAnalysisResponse& response);
+                            const ContentAnalysisResponse& response,
+                            int http_status = 0,
+                            const std::string& response_data = "");
 
   // Resets `can_upload_data_`. Called every 24 hour by `timer_`.
   void ResetAuthorizationData(const GURL& url);
@@ -209,7 +215,7 @@ class CloudBinaryUploadServiceBase : public BinaryUploadService {
       net::NetworkTrafficAnnotationTag traffic_annotation,
       BinaryUploadRequest::Data data,
       ScanRequestUploadResult result,
-      ResumableUploadRequestBase::OnceRegisterOnGotHashCallback
+      ResumableUploadRequest::OnceRegisterOnGotHashCallback
           register_on_got_hash_callback);
 
   void MaybeUploadForDeepScanningCallback(

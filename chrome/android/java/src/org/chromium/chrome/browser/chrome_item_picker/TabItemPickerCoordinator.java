@@ -12,7 +12,9 @@ import android.view.ViewGroup;
 
 import androidx.activity.ComponentActivity;
 import androidx.activity.OnBackPressedCallback;
+import androidx.annotation.IntDef;
 import androidx.annotation.VisibleForTesting;
+import androidx.collection.ArraySet;
 
 import org.chromium.base.Callback;
 import org.chromium.base.CallbackController;
@@ -62,6 +64,8 @@ import org.chromium.components.browser_ui.modaldialog.AppModalPresenter;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modaldialog.ModalDialogManager.ModalDialogType;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -365,6 +369,19 @@ public class TabItemPickerCoordinator {
                 mNavigationProvider != null ? mNavigationProvider.getSelectedItemsCount() : 0;
         RecordHistogram.recordCount100Histogram(
                 "Android.TabItemPicker.Cancel.SelectedTabs.Count", selectedCount);
+        int cancelledLoadsCount =
+                mNavigationProvider != null ? mNavigationProvider.getCancelledLoadsCount() : 0;
+        RecordHistogram.recordCount100Histogram(
+                "Android.TabItemPicker.Cancel.CancelledLoads.Count", cancelledLoadsCount);
+        int netCancelledTabsCount =
+                mNavigationProvider != null ? mNavigationProvider.getNetCancelledTabsCount() : 0;
+        RecordHistogram.recordCount100Histogram(
+                "Android.TabItemPicker.Cancel.NetCancelledTabs.Count", netCancelledTabsCount);
+        if (cancelledLoadsCount > 0 && mNavigationProvider != null) {
+            RecordHistogram.recordBooleanHistogram(
+                    "Android.TabItemPicker.CancelledTabReselected",
+                    mNavigationProvider.hasReselectedCancelledTab());
+        }
 
         if (mActivity instanceof ChromeItemPickerActivity cipa) {
             cipa.finishWithCancel();
@@ -372,6 +389,24 @@ public class TabItemPickerCoordinator {
             mActivity.finish();
         }
     }
+
+    // LINT.IfChange(TabItemPickerThumbnailCaptureResult)
+    @IntDef({
+        ThumbnailCaptureResult.LIVE_CAPTURED,
+        ThumbnailCaptureResult.CAPTURE_EMPTY,
+        ThumbnailCaptureResult.LOAD_FAILED,
+        ThumbnailCaptureResult.CANCELLED_PRESERVED
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface ThumbnailCaptureResult {
+        int LIVE_CAPTURED = 0;
+        int CAPTURE_EMPTY = 1;
+        int LOAD_FAILED = 2;
+        int CANCELLED_PRESERVED = 3;
+        int NUM_ENTRIES = 4;
+    }
+
+    // LINT.ThenChange(//tools/metrics/histograms/metadata/android/enums.xml:TabItemPickerThumbnailCaptureResult)
 
     public static class ItemPickerNavigationProvider
             implements TabListEditorCoordinator.NavigationProvider, ItemPickerSelectionHandler {
@@ -388,9 +423,12 @@ public class TabItemPickerCoordinator {
         private final Map<Tab, Long> mLoadingTabsToStartTimes = new HashMap<>();
         private final TabItemPickerOffscreenRenderer mOffscreenRenderer;
         private final LoadIfNeededCallback mLoadIfNeededCallback = this::onTabLoadFinished;
+        private final Set<Integer> mCancelledTabIds = new ArraySet<>();
 
         private boolean mIsDestroyed;
         private int mSelectedItemsCount;
+        private int mCancelledLoadsCount;
+        private boolean mHasReselectedCancelledTab;
 
         public ItemPickerNavigationProvider(
                 Activity activity,
@@ -416,6 +454,29 @@ public class TabItemPickerCoordinator {
             return mSelectedItemsCount;
         }
 
+        /**
+         * Returns the total (gross) count of on-demand tab load cancellation operations triggered
+         * during this picker session. An individual tab increments this count each time it is
+         * deselected.
+         */
+        public int getCancelledLoadsCount() {
+            return mCancelledLoadsCount;
+        }
+
+        /**
+         * Returns the net count of background tabs that were cancelled and remained unselected at
+         * the end of this picker session. Tabs that were deselected but subsequently re-selected
+         * are excluded.
+         */
+        public int getNetCancelledTabsCount() {
+            return mCancelledTabIds.size();
+        }
+
+        /** Returns whether any previously cancelled tab was re-selected during this session. */
+        public boolean hasReselectedCancelledTab() {
+            return mHasReselectedCancelledTab;
+        }
+
         @Override
         public void onSelectionStateChange(Set<TabListEditorItemSelectionId> selectedItems) {
             mSelectedItemsCount = selectedItems.size();
@@ -425,6 +486,29 @@ public class TabItemPickerCoordinator {
             if (!OnDemandBackgroundTabCaptureConfig
                     .isOnDemandBackgroundTabContextCaptureEnabled()) {
                 return;
+            }
+
+            if (OnDemandBackgroundTabCaptureConfig.isCancelLoadOnDeselectionEnabled()) {
+                Set<Integer> selectedTabIds = new ArraySet<>();
+                for (TabListEditorItemSelectionId item : selectedItems) {
+                    if (item.isTabId()) {
+                        selectedTabIds.add(item.getTabId());
+                    }
+                }
+
+                List<Tab> tabsToCancel = new ArrayList<>();
+                for (Tab loadingTab : mLoadingTabsToStartTimes.keySet()) {
+                    if (!selectedTabIds.contains(loadingTab.getId())) {
+                        tabsToCancel.add(loadingTab);
+                    }
+                }
+                // Cancelling notifies mLoadIfNeededCallback with LoadResult.CANCELLED, which
+                // performs the teardown and mutates mLoadingTabsToStartTimes, so the tabs must
+                // be collected before cancelling any of them.
+                TabLoadingService tabLoadingService = TabLoadingService.getInstance();
+                for (Tab tabToCancel : tabsToCancel) {
+                    tabLoadingService.cancelLoadIfNeeded(tabToCancel);
+                }
             }
 
             // The maximum number of tabs that can be selected is determined by
@@ -451,8 +535,12 @@ public class TabItemPickerCoordinator {
             Tab tab = mTabModelSelector.getTabById(tabId);
             if (tab == null
                     || !FuseboxTabUtils.isTabEligibleForAttachment(tab)
-                    || FuseboxTabUtils.isTabActive(tab)) {
+                    || FuseboxTabUtils.hasLoadedContent(tab)) {
                 return;
+            }
+
+            if (mCancelledTabIds.remove(tabId)) {
+                mHasReselectedCancelledTab = true;
             }
 
             // Avoid double-observing the same tab if it's already being loaded.
@@ -467,8 +555,12 @@ public class TabItemPickerCoordinator {
 
             mOffscreenRenderer.startOffscreenRenderingIfNeeded(tab);
 
-            // Clear the thumbnail to avoid showing a stale thumbnail immediately after selection.
-            mTabContentManager.removeTabThumbnail(tab.getId(), /* forceRemoval= */ true);
+            if (!OnDemandBackgroundTabCaptureConfig.isCancelLoadOnDeselectionEnabled()) {
+                // Clear the thumbnail to avoid showing a stale thumbnail immediately after
+                // selection. When cancellation is enabled the thumbnail is instead retained until
+                // the load genuinely fails, so that cancelling leaves the existing one intact.
+                mTabContentManager.removeTabThumbnail(tab.getId(), /* forceRemoval= */ true);
+            }
 
             mLoadingTabsToStartTimes.put(tab, SystemClock.elapsedRealtime());
             tabLoadingService.addLoadIfNeededCallback(tab, mLoadIfNeededCallback);
@@ -480,6 +572,7 @@ public class TabItemPickerCoordinator {
             }
         }
 
+        // LINT.IfChange(TabItemPickerLoadResult)
         private static String getLoadResultString(@LoadResult int result) {
             switch (result) {
                 case LoadResult.SUCCESS:
@@ -490,23 +583,38 @@ public class TabItemPickerCoordinator {
                     return "Crash";
                 case LoadResult.DESTROYED:
                     return "Destroyed";
+                case LoadResult.CANCELLED:
+                    return "Cancelled";
                 default:
                     return "Unknown";
             }
         }
+
+        // LINT.ThenChange(//tools/metrics/histograms/metadata/android/histograms.xml:TabItemPickerLoadResult)
 
         /**
          * Handles completion of a tab load request from {@link TabLoadingService}.
          *
          * <p>On success, proceeds to capture and cache the tab thumbnail via {@link
          * TabContentManager}. Offscreen rendering is kept active during thumbnail capture and torn
-         * down upon thumbnail callback completion. On failure or if destroyed, offscreen rendering
-         * is immediately stopped and the loading spinner is hidden.
+         * down upon thumbnail callback completion.
+         *
+         * <p>On any other result offscreen rendering is stopped immediately and the loading spinner
+         * is hidden. The stale thumbnail is additionally discarded when the load genuinely failed,
+         * but retained on {@link LoadResult#CANCELLED} so a deselected card keeps its image.
+         *
+         * <p>Once this coordinator itself has been destroyed only offscreen rendering is torn down,
+         * since the picker UI it would otherwise update is already gone.
          */
         private void onTabLoadFinished(Tab tab, @LoadResult int result) {
             if (mIsDestroyed) {
                 mOffscreenRenderer.stopOffscreenRenderingIfNeeded(tab);
                 return;
+            }
+
+            if (result == LoadResult.CANCELLED) {
+                mCancelledLoadsCount++;
+                mCancelledTabIds.add(tab.getId());
             }
 
             Long startTime = mLoadingTabsToStartTimes.remove(tab);
@@ -518,6 +626,24 @@ public class TabItemPickerCoordinator {
             }
 
             if (result != LoadResult.SUCCESS) {
+                @ThumbnailCaptureResult
+                int captureResult =
+                        result == LoadResult.CANCELLED
+                                ? ThumbnailCaptureResult.CANCELLED_PRESERVED
+                                : ThumbnailCaptureResult.LOAD_FAILED;
+                RecordHistogram.recordEnumeratedHistogram(
+                        "Android.TabItemPicker.ThumbnailCaptureResult",
+                        captureResult,
+                        ThumbnailCaptureResult.NUM_ENTRIES);
+
+                // Drop the stale thumbnail only when the load actually failed, so the card falls
+                // back to a placeholder. Cancellation deliberately leaves it intact. This must
+                // happen before hiding the spinner, which triggers a thumbnail re-fetch. When
+                // cancellation is disabled the thumbnail was already cleared at selection time.
+                if (result != LoadResult.CANCELLED
+                        && OnDemandBackgroundTabCaptureConfig.isCancelLoadOnDeselectionEnabled()) {
+                    mTabContentManager.removeTabThumbnail(tab.getId(), /* forceRemoval= */ true);
+                }
                 mOffscreenRenderer.stopOffscreenRenderingIfNeeded(tab);
                 var controller = mControllerSupplier.get();
                 if (controller != null) {
@@ -529,8 +655,8 @@ public class TabItemPickerCoordinator {
             long thumbnailStartTime = SystemClock.elapsedRealtime();
             mTabContentManager.cacheTabThumbnailWithCallback(
                     tab,
-                    /* returnBitmap= */ false,
-                    _ -> {
+                    /* returnBitmap= */ true,
+                    bitmap -> {
                         mOffscreenRenderer.stopOffscreenRenderingIfNeeded(tab);
                         if (mIsDestroyed) {
                             return;
@@ -540,6 +666,16 @@ public class TabItemPickerCoordinator {
                         RecordHistogram.recordMediumTimesHistogram(
                                 "Android.TabItemPicker.OnDemandThumbnailFetchDuration",
                                 thumbnailDuration);
+
+                        @ThumbnailCaptureResult
+                        int captureResult =
+                                bitmap != null
+                                        ? ThumbnailCaptureResult.LIVE_CAPTURED
+                                        : ThumbnailCaptureResult.CAPTURE_EMPTY;
+                        RecordHistogram.recordEnumeratedHistogram(
+                                "Android.TabItemPicker.ThumbnailCaptureResult",
+                                captureResult,
+                                ThumbnailCaptureResult.NUM_ENTRIES);
 
                         var controller = mControllerSupplier.get();
                         if (controller != null) {
@@ -555,6 +691,9 @@ public class TabItemPickerCoordinator {
             for (var entry : mLoadingTabsToStartTimes.entrySet()) {
                 Tab tab = entry.getKey();
                 if (tab != null) {
+                    // Only stop observing. The loads themselves are deliberately left running:
+                    // the picker is torn down right after the user confirms a selection, and
+                    // cancelling here would abort the loads for the tabs they just picked.
                     tabLoadingService.removeLoadIfNeededCallback(tab, mLoadIfNeededCallback);
                 }
 
@@ -598,7 +737,7 @@ public class TabItemPickerCoordinator {
                 int tabId = item.getTabId();
                 Tab tab = mTabModelSelector.getTabById(tabId);
 
-                if (tab != null && FuseboxTabUtils.isTabActive(tab)) {
+                if (FuseboxTabUtils.hasLoadedContent(tab)) {
                     activePickedCount++;
                 }
                 if (mCachedTabIds.contains(tabId)) {
@@ -611,6 +750,14 @@ public class TabItemPickerCoordinator {
                     "Android.TabItemPicker.ActiveTabsPicked.Count", activePickedCount);
             RecordHistogram.recordCount100Histogram(
                     "Android.TabItemPicker.CachedTabsPicked.Count", cachedPickedCount);
+            RecordHistogram.recordCount100Histogram(
+                    "Android.TabItemPicker.CancelledLoads.Count", mCancelledLoadsCount);
+            RecordHistogram.recordCount100Histogram(
+                    "Android.TabItemPicker.NetCancelledTabs.Count", mCancelledTabIds.size());
+            if (mCancelledLoadsCount > 0) {
+                RecordHistogram.recordBooleanHistogram(
+                        "Android.TabItemPicker.CancelledTabReselected", mHasReselectedCancelledTab);
+            }
             var controller = mControllerSupplier.get();
             assert controller != null;
             controller.hideByAction();

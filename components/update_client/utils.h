@@ -5,6 +5,9 @@
 #ifndef COMPONENTS_UPDATE_CLIENT_UTILS_H_
 #define COMPONENTS_UPDATE_CLIENT_UTILS_H_
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <optional>
 #include <string>
 #include <utility>

@@ -108,6 +108,7 @@ suite('ComposeboxVoiceSearch', () => {
       voiceSearchCoherenceAnySearchboxExperimentEnabled: false,
       voiceSearchCoherenceCobrowsingComposeboxEnabled: false,
       isSystemVoiceSearchEnabled: false,
+      androidSpeechRecognition: false,
       composeboxSource: 'NTP_REALBOX',
     });
 
@@ -1257,6 +1258,7 @@ suite('ComposeboxVoiceSearch', () => {
               ],
               suggestionGroupsMap: {},
               smartComposeInlineHint: '',
+              showAimActivityLink: false,
               sequenceId: 0,
             },
           });
@@ -1287,12 +1289,10 @@ suite('ComposeboxVoiceSearch', () => {
 
     searchboxHandler.resetResolver('submitQuery');
     const mainSubmitButton = composeboxElement.$.submit;
-    mainSubmitButton.dispatchEvent(
-        new CustomEvent('submit-focusin', {bubbles: true, composed: true}));
+    mainSubmitButton.fire('submit-focusin');
     await microtasksFinished();
 
-    mainSubmitButton.dispatchEvent(
-        new CustomEvent('submit-click', {bubbles: true, composed: true}));
+    mainSubmitButton.fire('submit-click');
     await microtasksFinished();
 
     assertEquals(1, searchboxHandler.getCallCount('submitQuery'));
@@ -1575,6 +1575,28 @@ suite('ComposeboxVoiceSearch', () => {
     const input =
         voiceSearchElement.shadowRoot.querySelector<HTMLElement>('#input')!;
     assertEquals('16px', window.getComputedStyle(input).fontSize);
+  });
+
+  test('error message font size matches transcript by default', async () => {
+    await createComposeboxElement();
+    const voiceSearchElement = getVoiceSearchElement(composeboxElement);
+    composeboxElement.style.setProperty('--cr-composebox-font-size', 'initial');
+
+    mockSpeechRecognition.onerror!
+        ({error: 'network'} as SpeechRecognitionErrorEvent);
+    voiceSearchElement.liveTranscriptEnabled = true;
+    await microtasksFinished();
+    await voiceSearchElement.updateComplete;
+
+    const input =
+        voiceSearchElement.shadowRoot.querySelector<HTMLElement>('#input')!;
+    const errorContainer =
+        voiceSearchElement.shadowRoot.querySelector<HTMLElement>(
+            '#error-container')!;
+
+    assertEquals(
+        window.getComputedStyle(input).fontSize,
+        window.getComputedStyle(errorContainer).fontSize);
   });
 
   test(

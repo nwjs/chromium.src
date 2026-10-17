@@ -1172,7 +1172,7 @@ TEST_F(ExtensionTelemetryServiceTest,
   ASSERT_NE(detector, nullptr);
 
   AutocompleteMatch match(nullptr, 0, false,
-                          AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED);
+                          omnibox::AutocompleteMatchType::kSearchWhatYouTyped);
   match.destination_url = GURL("http://www.google.com/search?q=test");
 
   telemetry_service_->OnOmniboxSearch(match);
@@ -1206,7 +1206,7 @@ TEST_F(ExtensionTelemetryServiceTest,
   telemetry_service_->SetEnabledForESB(true);
 
   AutocompleteMatch match(nullptr, 0, false,
-                          AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED);
+                          omnibox::AutocompleteMatchType::kSearchWhatYouTyped);
   match.destination_url = GURL("http://www.google.com/search?q=test");
   telemetry_service_->OnOmniboxSearch(match);
   telemetry_service_->OnDseSerpLoaded();
@@ -1254,7 +1254,7 @@ TEST_F(ExtensionTelemetryServiceTest,
   telemetry_service_->SetEnabledForESB(true);
 
   AutocompleteMatch match(nullptr, 0, false,
-                          AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED);
+                          omnibox::AutocompleteMatchType::kSearchWhatYouTyped);
   match.destination_url = GURL("http://www.google.com/search?q=test");
   telemetry_service_->OnOmniboxSearch(match);
   telemetry_service_->OnDseSerpLoaded();

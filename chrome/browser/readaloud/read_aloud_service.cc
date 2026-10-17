@@ -20,6 +20,7 @@
 #include "chrome/browser/readaloud/read_aloud_playback_session.h"
 #include "chrome/common/readaloud/read_aloud_constants.h"
 #include "components/dom_distiller/content/browser/distiller_page_web_contents.h"
+#include "components/dom_distiller/core/distiller_page.h"
 #include "components/dom_distiller/core/dom_distiller_service.h"
 #include "components/dom_distiller/core/url_utils.h"
 #include "components/url_formatter/elide_url.h"
@@ -56,7 +57,7 @@ void ReadAloudService::Play(content::WebContents* new_web_contents) {
     Initialize(new_web_contents);
   }
 
-  PlaybackState previous_state = GetCurrentPlaybackState();
+  read_aloud::mojom::PlaybackState previous_state = GetCurrentPlaybackState();
 
   // Start or resume audio playback.
   CHECK(active_session_);
@@ -66,15 +67,16 @@ void ReadAloudService::Play(content::WebContents* new_web_contents) {
     utility_player_->Play();
   }
 
+  // TODO(b/562011435): Defer notifying kPlaying until playback is ready.
   // Notify the UI/client delegate if the playback state transitioned.
-  PlaybackState current_state = GetCurrentPlaybackState();
+  read_aloud::mojom::PlaybackState current_state = GetCurrentPlaybackState();
   if (current_state != previous_state && delegate_) {
     delegate_->OnPlaybackStateChanged(current_state);
   }
 }
 
 void ReadAloudService::Pause() {
-  PlaybackState previous_state = GetCurrentPlaybackState();
+  read_aloud::mojom::PlaybackState previous_state = GetCurrentPlaybackState();
   if (active_session_) {
     active_session_->NotifyPlaybackPaused();
   }
@@ -84,7 +86,7 @@ void ReadAloudService::Pause() {
   }
 
   // Notify the UI/client delegate if the playback state transitioned.
-  PlaybackState current_state = GetCurrentPlaybackState();
+  read_aloud::mojom::PlaybackState current_state = GetCurrentPlaybackState();
   if (current_state != previous_state && delegate_) {
     delegate_->OnPlaybackStateChanged(current_state);
   }
@@ -95,7 +97,7 @@ void ReadAloudService::Stop() {
   Observe(nullptr);
 
   // Stop active audio playback and release media session resources.
-  PlaybackState previous_state = GetCurrentPlaybackState();
+  read_aloud::mojom::PlaybackState previous_state = GetCurrentPlaybackState();
   if (active_session_) {
     active_session_->NotifyPlaybackStopped();
     active_session_.reset();
@@ -112,7 +114,7 @@ void ReadAloudService::Stop() {
   ResetUtilityConnection();
 
   // Notify the UI/client delegate if the playback state transitioned.
-  PlaybackState current_state = GetCurrentPlaybackState();
+  read_aloud::mojom::PlaybackState current_state = GetCurrentPlaybackState();
   if (current_state != previous_state && delegate_) {
     delegate_->OnPlaybackStateChanged(current_state);
   }
@@ -142,13 +144,13 @@ void ReadAloudService::PreviewVoice(std::string_view voice_id) {
 
   // Notify the UI/client delegate that voice preview playback is buffering.
   if (delegate_) {
-    delegate_->OnVoicePreviewPlaybackStateChanged(voice_id,
-                                                  PlaybackState::kBuffering);
+    delegate_->OnVoicePreviewPlaybackStateChanged(
+        voice_id, read_aloud::mojom::PlaybackState::kBuffering);
   }
 
   // TODO(b/522835686): Implement actual voice preview audio synthesis via the
   // utility process player and notify the delegate when playback transitions to
-  // PlaybackState::kPlaying.
+  // read_aloud::mojom::PlaybackState::kPlaying.
 }
 
 void ReadAloudService::StopVoicePreview() {
@@ -158,8 +160,8 @@ void ReadAloudService::StopVoicePreview() {
   // Notify the UI/client delegate that voice preview playback has stopped.
   // Passing an empty string indicates that any active voice preview is stopped.
   if (delegate_) {
-    delegate_->OnVoicePreviewPlaybackStateChanged(/*voice_id=*/"",
-                                                  PlaybackState::kStopped);
+    delegate_->OnVoicePreviewPlaybackStateChanged(
+        /*voice_id=*/"", read_aloud::mojom::PlaybackState::kStopped);
   }
 }
 void ReadAloudService::SetPlaybackMode(PlaybackMode mode) {
@@ -197,16 +199,17 @@ bool ReadAloudService::IsPlaybackPaused() const {
   return !active_session_ || active_session_->is_paused();
 }
 
-ReadAloudService::PlaybackState ReadAloudService::GetCurrentPlaybackState()
+read_aloud::mojom::PlaybackState ReadAloudService::GetCurrentPlaybackState()
     const {
   if (!active_session_) {
-    return PlaybackState::kStopped;
+    return read_aloud::mojom::PlaybackState::kStopped;
   }
   if (!active_session_->is_playback_in_progress()) {
-    return PlaybackState::kStopped;
+    return read_aloud::mojom::PlaybackState::kStopped;
   }
-  return active_session_->is_paused() ? PlaybackState::kPaused
-                                      : PlaybackState::kPlaying;
+  return active_session_->is_paused()
+             ? read_aloud::mojom::PlaybackState::kPaused
+             : read_aloud::mojom::PlaybackState::kPlaying;
 }
 
 void ReadAloudService::Shutdown() {
@@ -232,12 +235,16 @@ void ReadAloudService::DistillPage(content::WebContents* web_contents) {
 
   distillation_start_time_ = base::TimeTicks::Now();
 
-  viewer_handle_ = service->ViewUrlIgnoreCache(
-      this,
+  std::unique_ptr<dom_distiller::DistillerPage> distiller_page =
       service->CreateDefaultDistillerPageWithHandle(
           std::make_unique<dom_distiller::SourcePageHandleWebContents>(
-              web_contents, /*owned=*/false)),
-      web_contents->GetLastCommittedURL());
+              web_contents, /*owned=*/false));
+  if (distiller_page) {
+    distiller_page->SetMinimumAllowableDistilledContentLength(0);
+  }
+
+  viewer_handle_ = service->ViewUrlIgnoreCache(
+      this, std::move(distiller_page), web_contents->GetLastCommittedURL());
 }
 
 void ReadAloudService::OnArticleReady(
@@ -254,10 +261,7 @@ void ReadAloudService::OnArticleReady(
   viewer_handle_.reset();
 
   if (!distillation_succeeded) {
-    Stop();
-    if (delegate_) {
-      delegate_->OnPlaybackError("Distillation failed");
-    }
+    HandlePlaybackError("Distillation failed");
     return;
   }
 
@@ -281,10 +285,11 @@ void ReadAloudService::OnArticleReady(
   }
 
   // Rule of Two Enforcement: Distilled webpage text originates from untrusted
-  // renderer content. To adhere to Chromium security guidelines, ReadAloudService
-  // (privileged Browser process) must not parse, sanitize, or tokenize the raw text.
-  // We package the raw page strings directly into Mojo TextSegment structs and
-  // forward them to the sandboxed Utility process for chunking and synthesis.
+  // renderer content. To adhere to Chromium security guidelines,
+  // ReadAloudService (privileged Browser process) must not parse, sanitize, or
+  // tokenize the raw text. We package the raw page strings directly into Mojo
+  // TextSegment structs and forward them to the sandboxed Utility process for
+  // chunking and synthesis.
   std::vector<read_aloud::mojom::TextSegmentPtr> segments;
   segments.reserve(article_proto->pages_size());
   for (int i = 0; i < article_proto->pages_size(); ++i) {
@@ -315,6 +320,8 @@ void ReadAloudService::Initialize(content::WebContents* new_web_contents) {
 
   ProvideInitialMetadata();
   if (delegate_) {
+    delegate_->OnPlaybackStateChanged(
+        read_aloud::mojom::PlaybackState::kPlaybackCreation);
     delegate_->OnPlaybackProgressUpdated(base::Seconds(0), current_duration_);
   }
 
@@ -337,10 +344,11 @@ void ReadAloudService::ProvideInitialMetadata() {
   }
 }
 
-// Ensures the sandboxed ReadAloudPlaybackController utility process is running and
-// bound. Uses `controller_binder_` if provided (e.g. in unit tests); otherwise
-// launches `ReadAloudPlaybackControllerFactory` via ServiceProcessHost and requests
-// a new controller instance with our client observer remote.
+// Ensures the sandboxed ReadAloudPlaybackController utility process is running
+// and bound. Uses `controller_binder_` if provided (e.g. in unit tests);
+// otherwise launches `ReadAloudPlaybackControllerFactory` via
+// ServiceProcessHost and requests a new controller instance with our client
+// observer remote.
 void ReadAloudService::EnsurePlaybackControllerConnected() {
   if (utility_player_.is_bound()) {
     return;
@@ -414,10 +422,7 @@ void ReadAloudService::OnAudioStreamCreated(
     return;
   }
   if (!stream_remote.is_valid() || !data_pipe) {
-    Stop();
-    if (delegate_) {
-      delegate_->OnPlaybackError("Failed to initialize audio output stream");
-    }
+    HandlePlaybackError("Failed to initialize audio output stream");
     return;
   }
 
@@ -426,9 +431,13 @@ void ReadAloudService::OnAudioStreamCreated(
 }
 
 void ReadAloudService::OnUtilityDisconnect() {
+  HandlePlaybackError("Utility process disconnected");
+}
+
+void ReadAloudService::HandlePlaybackError(std::string_view error_message) {
   Stop();
   if (delegate_) {
-    delegate_->OnPlaybackError("Utility process disconnected");
+    delegate_->OnPlaybackError(error_message);
   }
 }
 
@@ -447,7 +456,20 @@ void ReadAloudService::OnDistillationFailed(
 }
 
 void ReadAloudService::OnPlaybackStateChanged(
-    read_aloud::mojom::PlaybackState state) {}
+    read_aloud::mojom::PlaybackState state) {
+  // Browser-only lifecycle states. The utility process is never permitted to
+  // send these, so receiving one is a protocol violation.
+  if (state == read_aloud::mojom::PlaybackState::kStopped ||
+      state == read_aloud::mojom::PlaybackState::kPlaybackCreation) {
+    utility_observer_receiver_.ReportBadMessage(
+        "ReadAloudService: browser-only PlaybackState received from utility");
+    return;
+  }
+
+  // TODO(b/562011435): Forward the remaining states to `delegate_` so the UI
+  // reflects the playback state actually reported by the utility process, and
+  // route kError through HandlePlaybackError().
+}
 
 void ReadAloudService::OnPlaybackDurationChanged(base::TimeDelta duration) {
   current_duration_ = std::max(base::Seconds(0), duration);
@@ -478,7 +500,8 @@ void ReadAloudService::OnTextChunked(
 
 void ReadAloudService::RequestSpeechSynthesis(
     const std::u16string& text_chunk,
-    uint64_t sequence_id,
+    read_aloud::mojom::Speaker /*speaker*/,  // TODO(b/559821661)
+    uint64_t /*sequence_id*/,
     read_aloud::mojom::ReadAloudPlaybackControllerClient::
         RequestSpeechSynthesisCallback callback) {
   if (!speech_synthesis_broker_) {

@@ -119,8 +119,6 @@ source_set("page_action_test_support") {
   sources = [
     "test_support/page_action_test_accessor.cc",
     "test_support/page_action_test_accessor.h",
-    "test_support/page_action_test_support.cc",
-    "test_support/page_action_test_support.h",
   ]
 
   public_deps = [
@@ -136,9 +134,12 @@ source_set("page_action_test_support") {
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/interaction",
     "//chrome/browser/ui/views/frame",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/ui/views/toolbar",
+    "//chrome/browser/ui/views/toolbar:test_support",
     "//chrome/browser/ui/webui/webui_toolbar/utils",
     "//content/test:test_support",
+    "//testing/gtest",
     "//ui/base",
     "//ui/events",
     "//ui/events:test_support",
@@ -189,6 +190,7 @@ source_set("unit_tests") {
     "//chrome/browser/ui/views/location_bar",
     "//chrome/browser/ui/views/toolbar",
     "//chrome/test:test_support",
+    "//chrome/test/base:chrome_render_view_host_test_harness",
     "//components/tabs:test_support",
     "//ui/events:test_support",
   ]
@@ -209,6 +211,7 @@ source_set("interactive_ui_tests") {
     ":page_action",
     "//chrome/browser/ui",
     "//chrome/browser/ui:browser_actions",
+    "//chrome/browser/ui:browser_commands",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/views/toolbar",
     "//chrome/test:test_support",

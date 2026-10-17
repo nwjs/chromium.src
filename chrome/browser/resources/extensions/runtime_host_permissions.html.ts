@@ -29,22 +29,19 @@ ${!this.enableEnhancedSiteControls ? html`
             @change="${this.onHostAccessChange_}"
             aria-labelledby="section-heading-text">
           <option value="${chrome.developerPrivate.HostAccess.ON_CLICK}"
-              ?selected="${
-                  this.isHostAccessSelected_(
-                      chrome.developerPrivate.HostAccess.ON_CLICK)}">
+              ?selected="${this.isHostAccessSelected_(
+                  chrome.developerPrivate.HostAccess.ON_CLICK)}">
             $i18n{hostAccessOnClick}
           </option>
           <option
               value="${chrome.developerPrivate.HostAccess.ON_SPECIFIC_SITES}"
-              ?selected="${
-                  this.isHostAccessSelected_(
-                      chrome.developerPrivate.HostAccess.ON_SPECIFIC_SITES)}">
+              ?selected="${this.isHostAccessSelected_(
+                  chrome.developerPrivate.HostAccess.ON_SPECIFIC_SITES)}">
             $i18n{hostAccessOnSpecificSites}
           </option>
           <option value="${chrome.developerPrivate.HostAccess.ON_ALL_SITES}"
-              ?selected="${
-                  this.isHostAccessSelected_(
-                      chrome.developerPrivate.HostAccess.ON_ALL_SITES)}">
+              ?selected="${this.isHostAccessSelected_(
+                  chrome.developerPrivate.HostAccess.ON_ALL_SITES)}">
             $i18n{hostAccessOnAllSites}
           </option>
         </select>
@@ -68,27 +65,27 @@ ${!this.enableEnhancedSiteControls ? html`
       <span id="new-section-heading-subtext">
         $i18n{hostPermissionsSubHeading}
       </span>
+      <span id="new-section-heading-override-warning">
+        $i18n{hostPermissionsOverrideWarning}
+      </span>
       <div id="host-access-row">
         <select id="newHostAccess" class="md-select"
             @change="${this.onHostAccessChange_}"
             aria-labelledby="new-section-heading-text">
           <option value="${chrome.developerPrivate.HostAccess.ON_CLICK}"
-              ?selected="${
-                  this.isHostAccessSelected_(
-                      chrome.developerPrivate.HostAccess.ON_CLICK)}">
+              ?selected="${this.isHostAccessSelected_(
+                  chrome.developerPrivate.HostAccess.ON_CLICK)}">
             $i18n{hostAccessAskOnEveryVisit}
           </option>
           <option
               value="${chrome.developerPrivate.HostAccess.ON_SPECIFIC_SITES}"
-              ?selected="${
-                  this.isHostAccessSelected_(
-                      chrome.developerPrivate.HostAccess.ON_SPECIFIC_SITES)}">
+              ?selected="${this.isHostAccessSelected_(
+                  chrome.developerPrivate.HostAccess.ON_SPECIFIC_SITES)}">
             $i18n{hostAccessAllowOnSpecificSites}
           </option>
           <option value="${chrome.developerPrivate.HostAccess.ON_ALL_SITES}"
-              ?selected="${
-                  this.isHostAccessSelected_(
-                      chrome.developerPrivate.HostAccess.ON_ALL_SITES)}">
+              ?selected="${this.isHostAccessSelected_(
+                  chrome.developerPrivate.HostAccess.ON_ALL_SITES)}">
             $i18n{hostAccessAllowOnAllSites}
           </option>
         </select>

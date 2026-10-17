@@ -19,16 +19,12 @@
 #include "content/common/content_export.h"
 
 namespace net {
-class FirstPartySetsCacheFilter;
-class FirstPartySetsContextConfig;
 class FirstPartySetEntry;
 class FirstPartySetMetadata;
 class SchemefulSite;
 }  // namespace net
 
 namespace content {
-
-class BrowserContext;
 
 // The FirstPartySetsHandler class allows an embedder to provide
 // First-Party Sets inputs from custom sources.
@@ -139,26 +135,19 @@ class CONTENT_EXPORT FirstPartySetsHandler {
   // This will return nullopt if:
   // - First-Party Sets is disabled or
   // - the list of First-Party Sets isn't initialized yet or
-  // - `site` isn't in the global First-Party Sets or `config`
+  // - `site` isn't in the global First-Party Sets
   virtual std::optional<net::FirstPartySetEntry> FindEntry(
-      const net::SchemefulSite& site,
-      const net::FirstPartySetsContextConfig& config) const = 0;
+      const net::SchemefulSite& site) const = 0;
 
-  // Clear site state of sites that have a FPS membership change for the browser
-  // context represented by `browser_context_id`. Sites joining FPSs for the
-  // first time will not be cleared.
+  // Returns whether the global First-Party Sets data is already fully
+  // initialized. Returns true if the data is already available, or false and
+  // asynchronously invokes `callback` if the data is not ready yet.
   //
-  // `browser_context_getter` is needed to get a BrowsingDataRemover to handle
-  // the clearing work. `callback` will be invoked once the
-  // clearing is done.
+  // If `callback` is null, it will not be invoked, even if the First-Party Sets
+  // data is not ready yet.
   //
-  // Embedder must call this before First-Party Sets queries can be answered.
-  //
-  // If the First-Party Sets feature is disabled, this is a no-op.
-  virtual void ClearSiteDataOnChangedSetsForContext(
-      base::RepeatingCallback<BrowserContext*()> browser_context_getter,
-      const std::string& browser_context_id,
-      base::OnceCallback<void(net::FirstPartySetsCacheFilter)> callback) = 0;
+  // If First-Party Sets is disabled, this returns true.
+  [[nodiscard]] virtual bool WhenInitComplete(base::OnceClosure callback) = 0;
 
   // Computes the First-Party Set metadata related to the given request context,
   // and invokes `callback` with the result.
@@ -167,13 +156,11 @@ class CONTENT_EXPORT FirstPartySetsHandler {
   virtual void ComputeFirstPartySetMetadata(
       const net::SchemefulSite& site,
       base::optional_ref<const net::SchemefulSite> top_frame_site,
-      const net::FirstPartySetsContextConfig& config,
       base::OnceCallback<void(net::FirstPartySetMetadata)> callback) = 0;
 
   // Synchronously iterates over all the effective entries (i.e. anything that
-  // could be returned by `FindEntry` given the global First-Party Sets and
-  // `config`, including the manual set, policy sets, and aliases), and invokes
-  // `f` on each entry formed as a net::SchemefulSite and a
+  // could be returned by `FindEntry` given the global First-Party Sets), and
+  // invokes `f` on each entry formed as a net::SchemefulSite and a
   // net::FirstPartySetEntry. If any of these invocations returns false, then
   // ForEachEffectiveSetEntry stops iterating over the entries and returns false
   // to its caller. Otherwise, if each call to `f` returns true, then
@@ -182,7 +169,6 @@ class CONTENT_EXPORT FirstPartySetsHandler {
   // Also returns false if First-Party Sets was not yet initialized. No
   // guarantees are made re: iteration order.
   virtual bool ForEachEffectiveSetEntry(
-      const net::FirstPartySetsContextConfig& config,
       base::FunctionRef<bool(const net::SchemefulSite&,
                              const net::FirstPartySetEntry&)> f) const = 0;
 };

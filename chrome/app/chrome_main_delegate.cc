@@ -24,7 +24,9 @@
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
-#include "base/i18n/rtl.h"
+#include "base/i18n/icubridge/default_icu_locale.h"
+#include "base/i18n/language_tag.h"
+#include "base/i18n/tag_converters.h"
 #include "base/immediate_crash.h"
 #include "base/lazy_instance.h"
 #include "base/metrics/histogram_macros.h"
@@ -116,7 +118,9 @@
 #include "base/process/process_handle.h"
 #include "base/win/current_module.h"
 #include "base/win/dark_mode_support.h"
+#include "base/win/elevation_util.h"
 #include "base/win/resource_exhaustion.h"
+#include "base/win/win_util.h"
 #include "chrome/child/v8_crashpad_support_win.h"
 #include "chrome/common/chrome_version.h"
 #include "sandbox/win/src/sandbox.h"
@@ -179,6 +183,7 @@
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) || \
     BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#include "components/metrics/system_profile_user_stream.h"
 #include "components/crash/core/app/crashpad.h"
 #endif
 
@@ -315,6 +320,56 @@ bool HasDeprecatedArguments(const std::wstring& command_line) {
   std::wstring command_line_lower = base::ToLowerASCII(command_line);
   // We are only searching for ASCII characters so this is OK.
   return (command_line_lower.find(kChromeHtml) != std::wstring::npos);
+}
+
+// Check if the browser process is launching elevated, and attempt to
+// automatically de-elevate before process isolation or browser startup.
+std::optional<int> MaybeAutoDeElevate(const base::CommandLine& command_line) {
+  const char* const kNoRestartSwitches[] = {
+      // Do not interfere with automation scenarios, which might want to launch
+      // Chrome elevated.
+      switches::kEnableAutomation,
+      // Never attempt to de-elevate a second time.
+      switches::kDoNotDeElevateOnLaunch,
+      // Do not de-elevate in an isolated child browser process. If de-elevation
+      // failed in the stub process, the isolated child must not attempt to
+      // de-elevate.
+      switches::kIsolated,
+      // Do not de-elevate in a test.
+      switches::kTestType,
+  };
+  for (const char* no_restart_switch : kNoRestartSwitches) {
+    if (command_line.HasSwitch(no_restart_switch)) {
+      return std::nullopt;
+    }
+  }
+
+  // Do not attempt to de-elevate when UAC is disabled because it will not work.
+  if (!base::win::UserAccountIsUnnecessarilyElevated()) {
+    return std::nullopt;
+  }
+
+  base::CommandLine new_command_line(command_line);
+  // Give a fully qualified .exe name.
+  base::FilePath full_exe_name;
+  if (base::PathService::Get(base::FILE_EXE, &full_exe_name)) {
+    new_command_line.SetProgram(full_exe_name);
+  }
+  new_command_line.AppendSwitch(switches::kDoNotDeElevateOnLaunch);
+
+  auto process_or_error = base::win::RunDeElevated(new_command_line);
+
+  // The currently running browser can terminate safely if the new de-elevated
+  // one has launched to replace it. Note, the
+  // CHROME_RESULT_CODE_NORMAL_EXIT_AUTO_DE_ELEVATED error code ends up being
+  // re-written to RESULT_CODE_NORMAL_EXIT in ChromeMain.
+  if (process_or_error.has_value()) {
+    return CHROME_RESULT_CODE_NORMAL_EXIT_AUTO_DE_ELEVATED;
+  }
+
+  // If re-launch fails, then proceed with the normal launch of the current
+  // browser.
+  return std::nullopt;
 }
 #endif  // !defined(BUILDING_CHROME_RENDERER)
 
@@ -1285,6 +1340,14 @@ std::optional<int> ChromeMainDelegate::BasicStartupComplete() {
   base::win::DisableHandleVerifier();
 #endif
 
+  // Check if the browser process is launching elevated, and attempt to
+  // automatically de-elevate before process isolation or browser startup.
+  if (is_browser) {
+    if (auto deelevate_result = MaybeAutoDeElevate(command_line)) {
+      return *deelevate_result;
+    }
+  }
+
   // Attempt to launch an isolated browser. If this is successful, this browser
   // process becomes the stub, and will terminate after the main browser has
   // terminated, with the exit code from the main browser.
@@ -1556,6 +1619,15 @@ void ChromeMainDelegate::PreSandboxStartup() {
   std::string process_type =
       command_line.GetSwitchValueASCII(switches::kProcessType);
 
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+  if (process_type.empty()) {
+    // Initialize the shared memory that contains the `SystemProfile` only in
+    // the browser process. This must happen before Crashpad initialization
+    // since Crashpad inherits a handle to the shared memory.
+    metrics::SystemProfileUserStream::Get().Initialize();
+  }
+#endif
+
   crash_reporter::InitializeCrashKeys();
 
 #if BUILDFLAG(IS_POSIX)
@@ -1704,7 +1776,10 @@ void ChromeMainDelegate::PreSandboxStartup() {
     // process. Their file descriptors and memory mapped file region are not
     // passed to child processes, and are therefore not loaded here.
 
-    base::i18n::SetICUDefaultLocale(locale);
+    base::i18n::SetDefaultIcuLocale(
+        base::i18n::DefaultIcuLocaleSetterKey(),
+        base::i18n::GetLanguageTagFromString(locale).value_or(
+            base::i18n::GetKnownLanguageTag("en-US")));
     const std::string loaded_locale = locale;
 #else
     const std::string loaded_locale =

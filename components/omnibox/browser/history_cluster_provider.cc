@@ -31,7 +31,7 @@ HistoryClusterProvider::HistoryClusterProvider(
     AutocompleteProvider* search_provider,
     AutocompleteProvider* history_url_provider,
     AutocompleteProvider* history_quick_provider)
-    : AutocompleteProvider(AutocompleteProvider::TYPE_HISTORY_CLUSTER_PROVIDER),
+    : AutocompleteProvider(AutocompleteProvider::Type::kHistoryClusterProvider),
       client_(client),
       search_provider_(search_provider),
       history_url_provider_(history_url_provider),
@@ -154,7 +154,7 @@ AutocompleteMatch HistoryClusterProvider::CreateMatch(
     history::ClusterKeywordData matched_keyword_data) {
   AutocompleteMatch match;
   match.provider = this;
-  match.type = AutocompleteMatch::Type::HISTORY_CLUSTER;
+  match.type = omnibox::AutocompleteMatchType::kHistoryCluster;
 
   match.relevance =
       history_clusters::GetConfig()

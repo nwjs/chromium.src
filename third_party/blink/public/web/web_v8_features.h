@@ -33,19 +33,18 @@ class BLINK_EXPORT WebV8Features {
 
   static void EnableMojoJSFileSystemAccessHelper(v8::Local<v8::Context>, bool);
 
-  static void EnableUnboundedElement(v8::Local<v8::Context>, bool);
-
-  // Protected memory values require initialization before they can be used.
-  // This method is used to perform that initialization of the static protected
-  // memory bool is used to track if MojoJS has been properly enabled for a
-  // render frame in the current process.
-  static void InitializeMojoJSAllowedProtectedMemory();
+  // Enables the Unbounded Element API on the given `context`.
+  // `is_privileged` indicates whether the context belongs to a privileged
+  // embedder origin (such as WebUI or an authorized component extension) that
+  // can show unbounded elements without requiring user activation.
+  static void EnableUnboundedElement(v8::Local<v8::Context>,
+                                     bool is_privileged = false);
 
   // A static protected memory bool is used to track if MojoJS has been properly
   // enabled for a render frame in the current process. This method is used to
   // update that bool, indicating that MojoJS is allowed to be enabled for any
   // render frame in the process.
-  static void AllowMojoJSForProcess();
+  static void AllowMojoJSPerContextForProcess();
 
   // Method use to validate the value of isMojoJSEnabled() for the context in
   // tests.

@@ -25,9 +25,15 @@ struct GeminiContainerUIState {
   // Returns a minimized state with or without a grabber.
   static GeminiContainerUIState Minimized(BOOL has_grabber);
 
+  // Returns an actuating state that takes over the UI until completed.
+  static GeminiContainerUIState Actuating();
+
+  bool operator==(const GeminiContainerUIState& other) const = default;
+
   AssistantContainerDetent detent;
   BOOL hasGrabber;
   BOOL zeroStateVisible;
+  BOOL actuating;
 };
 
 // Delegate protocol for handling UI state changes from the state manager.
@@ -44,8 +50,20 @@ struct GeminiContainerUIState {
 // Delegate to receive UI state update notifications.
 @property(nonatomic, weak) id<GeminiContainerUIStateManagerDelegate> delegate;
 
+// Current UI state of the container.
+@property(nonatomic, readonly) GeminiContainerUIState currentUIState;
+
+// Current processing status of the Gemini client.
+@property(nonatomic, readonly) ios::provider::GeminiClientMode processingStatus;
+
+// Current view mode of the Gemini UI (e.g. floaty or live).
+@property(nonatomic, readonly) ios::provider::GeminiViewMode viewMode;
+
 // Resets and applies the initial container UI state.
 - (void)setupInitialUIState;
+
+// Handles actuation state transitions.
+- (void)handleActuationStateChanged:(BOOL)actuating;
 
 // Updates the view mode and notifies the delegate if UI state changes.
 - (void)transitionToMode:(ios::provider::GeminiViewMode)mode;
@@ -70,6 +88,9 @@ struct GeminiContainerUIState {
 // Returns whether the container should be dismissed in its current state (i.e.
 // when floaty is minimized in zero state with Chrome Next IA enabled).
 - (BOOL)shouldBeDismissed;
+
+// Returns whether the Gemini UI is currently in Live mode.
+- (BOOL)isInGeminiLiveMode;
 
 // Disconnects and resets internal state and timer.
 - (void)reset;

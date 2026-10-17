@@ -39,6 +39,7 @@ import org.robolectric.shadows.ShadowParcelFileDescriptor;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.RobolectricUtil;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
@@ -801,6 +802,37 @@ public class PdfUtilsUnitTest {
     }
 
     @Test
+    public void testMaybeDeleteTransientFile_WebPdf_DeletesFile() throws Exception {
+        File tempFile = File.createTempFile("test_transient_web", ".pdf");
+        tempFile.deleteOnExit();
+        Assert.assertTrue(tempFile.exists());
+
+        PdfUtils.maybeDeleteTransientFile(tempFile.getAbsolutePath(), mPdfPageUrl);
+        RobolectricUtil.runAllBackgroundAndUi();
+
+        Assert.assertFalse("Transient file should be deleted for web PDF", tempFile.exists());
+    }
+
+    @Test
+    public void testMaybeDeleteTransientFile_LocalPdf_DoesNotDeleteFile() throws Exception {
+        File tempFile = File.createTempFile("test_transient_local", ".pdf");
+        tempFile.deleteOnExit();
+        Assert.assertTrue(tempFile.exists());
+
+        PdfUtils.maybeDeleteTransientFile(tempFile.getAbsolutePath(), CONTENT_URL);
+        RobolectricUtil.runAllBackgroundAndUi();
+
+        Assert.assertTrue("File should not be deleted for local PDF", tempFile.exists());
+        tempFile.delete();
+    }
+
+    @Test
+    public void testMaybeDeleteTransientFile_ContentUriPath_DoesNothing() {
+        PdfUtils.maybeDeleteTransientFile("content://downloads/1", mPdfPageUrl);
+        // Should not throw or perform file operations.
+    }
+
+    @Test
     public void testRecordRecoveredFragmentUriMatches() {
         HistogramWatcher histogramExpectationTrue =
                 HistogramWatcher.newSingleRecordWatcher(
@@ -813,5 +845,42 @@ public class PdfUtilsUnitTest {
                         "Android.Pdf.RecoveredFragmentUriMatches", false);
         PdfUtils.recordRecoveredFragmentUriMatches(false);
         histogramExpectationFalse.assertExpected();
+    }
+
+    @Test
+    public void testGetPageNumberFromUrl() {
+        Assert.assertEquals("Null url should return 0.", 0, PdfUtils.getPageNumberFromUrl(null));
+        Assert.assertEquals(
+                "Url without a fragment should return 0.",
+                0,
+                PdfUtils.getPageNumberFromUrl(PDF_LINK));
+        Assert.assertEquals(
+                "Direct http url with #page should return the page number.",
+                10,
+                PdfUtils.getPageNumberFromUrl(PDF_LINK + "#page=10"));
+        Assert.assertEquals(
+                "File url with #page should return the page number.",
+                2,
+                PdfUtils.getPageNumberFromUrl(FILE_URL + "#page=2"));
+        Assert.assertEquals(
+                "Wrapped pdf page url should return the page from the encoded download url.",
+                3,
+                PdfUtils.getPageNumberFromUrl(PdfUtils.encodePdfPageUrl(PDF_LINK + "#page=3")));
+        Assert.assertEquals(
+                "The page parameter should be parsed among other open parameters.",
+                5,
+                PdfUtils.getPageNumberFromUrl(PDF_LINK + "#nameddest=chapter1&page=5&zoom=100"));
+        Assert.assertEquals(
+                "page=0 is invalid and should return 0.",
+                0,
+                PdfUtils.getPageNumberFromUrl(PDF_LINK + "#page=0"));
+        Assert.assertEquals(
+                "Negative page should return 0.",
+                0,
+                PdfUtils.getPageNumberFromUrl(PDF_LINK + "#page=-1"));
+        Assert.assertEquals(
+                "Non-numeric page should return 0.",
+                0,
+                PdfUtils.getPageNumberFromUrl(PDF_LINK + "#page=abc"));
     }
 }

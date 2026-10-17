@@ -38,15 +38,9 @@
 #include "components/personal_context/proto/features/ambient_autofill.pb.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/testing_pref_service.h"
-#include "components/subscription_eligibility/subscription_eligibility_prefs.h"
-#include "components/subscription_eligibility/subscription_eligibility_service.h"
 #include "components/sync_device_info/fake_device_info_sync_service.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-
-#if BUILDFLAG(IS_ANDROID)
-#include "base/system/sys_info.h"
-#endif
 
 namespace autofill {
 
@@ -199,16 +193,11 @@ class AutofillAiPersonalContextAccessManagerImplTest : public testing::Test {
         {{features::kAutofillAmbientAutofillSupportedEntityTypes.name,
           kSupportedEntityTypes}});
     personal_context::prefs::RegisterProfilePrefs(pref_service_.registry());
-    pref_service_.registry()->RegisterIntegerPref(
-        subscription_eligibility::prefs::kAiSubscriptionTier, 0);
-    subscription_eligibility_service_ = std::make_unique<
-        subscription_eligibility::SubscriptionEligibilityService>(
-        &pref_service_);
     access_manager_ =
         std::make_unique<AutofillAiPersonalContextAccessManagerImpl>(
             &mock_personal_context_service_, &mock_eligibility_service_,
-            subscription_eligibility_service_.get(), &pref_service_,
-            &fake_device_info_sync_service_, &suppression_manager_);
+            &pref_service_, &fake_device_info_sync_service_,
+            &suppression_manager_);
     ON_CALL(mock_eligibility_service_, GetEligibilityState)
         .WillByDefault(Return(
             personal_context::PersonalContextEligibilityState::kEligible));
@@ -362,8 +351,6 @@ class AutofillAiPersonalContextAccessManagerImplTest : public testing::Test {
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   MockPersonalContextService mock_personal_context_service_;
   MockPersonalContextEligibilityService mock_eligibility_service_;
-  std::unique_ptr<subscription_eligibility::SubscriptionEligibilityService>
-      subscription_eligibility_service_;
   syncer::FakeDeviceInfoSyncService fake_device_info_sync_service_;
   InMemoryEntitySuppressionManager suppression_manager_;
   std::unique_ptr<AutofillAiPersonalContextAccessManagerImpl> access_manager_;
@@ -397,6 +384,8 @@ TEST_F(AutofillAiPersonalContextAccessManagerImplTest, PrefetchContextSuccess) {
                   HasAttributeWithValue(AttributeTypeName::kOrderId, u"12345"),
                   HasAttributeWithValue(AttributeTypeName::kOrderMerchantName,
                                         u"Amazon"))));
+  histogram_tester().ExpectUniqueSample(
+      "Autofill.Ai.Suppression.EntitiesFilteredPerPrefetch", 0, 1);
 }
 
 // Tests that PrefetchContext ignores entity types in the response that were
@@ -1529,12 +1518,6 @@ TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
 // a 30-second startup delay.
 TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
        LogsAmbientNonEligibilityReasonAfterStartupDelay) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeaturesAndParameters(
-      {{features::kAutofillAmbientAutofill,
-        {{features::kAutofillAmbientAutofillEligibleTiers.name, "1,2"}}}},
-      {});
-
   // Before the startup delay, startup logging should not have occurred.
   histogram_tester().ExpectTotalCount(
       "Autofill.Ai.PersonalContext.NonEligibilityReason", 0);
@@ -1547,49 +1530,9 @@ TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
 }
 
 // Tests that `Autofill.Ai.PersonalContext.NonEligibilityReason` is logged on
-// subscription tier updates after the startup delay has elapsed.
-TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
-       LogsAmbientNonEligibilityReasonOnTierChange) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeaturesAndParameters(
-      {{features::kAutofillAmbientAutofill,
-        {{features::kAutofillAmbientAutofillEligibleTiers.name, "1,2"}}}},
-      {});
-
-  // Set tier to an eligible tier (1) before startup logging triggers.
-  pref_service_.SetInteger(subscription_eligibility::prefs::kAiSubscriptionTier,
-                           1);
-
-  // Fast forward past the startup delay to complete startup logging (records
-  // kEligible).
-  FastForwardBy(kNonEligibilityLoggingDelayOnStartup + base::Seconds(1));
-
-  histogram_tester().ExpectBucketCount(
-      "Autofill.Ai.PersonalContext.NonEligibilityReason",
-      personal_context::PersonalContextNonEligibilityReason::kEligible, 1);
-
-  // Then change tier to an ineligible tier (99).
-  pref_service_.SetInteger(subscription_eligibility::prefs::kAiSubscriptionTier,
-                           99);
-  histogram_tester().ExpectBucketCount(
-      "Autofill.Ai.PersonalContext.NonEligibilityReason",
-      personal_context::PersonalContextNonEligibilityReason::
-          kNotG1SubscriberOrAndroidPremiumDevice,
-      1);
-}
-
-// Tests that `Autofill.Ai.PersonalContext.NonEligibilityReason` is logged on
 // settings toggle updates after the startup delay has elapsed.
 TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
        LogsAmbientNonEligibilityReasonOnToggleChange) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeaturesAndParameters(
-      {{features::kAutofillAmbientAutofill,
-        {{features::kAutofillAmbientAutofillEligibleTiers.name, "1,2"}}}},
-      {});
-
-  pref_service_.SetInteger(subscription_eligibility::prefs::kAiSubscriptionTier,
-                           1);
   FastForwardBy(kNonEligibilityLoggingDelayOnStartup + base::Seconds(1));
 
   histogram_tester().ExpectBucketCount(
@@ -1611,65 +1554,6 @@ TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
   histogram_tester().ExpectBucketCount(
       "Autofill.Ai.PersonalContext.NonEligibilityReason",
       personal_context::PersonalContextNonEligibilityReason::kEligible, 2);
-}
-
-#if BUILDFLAG(IS_ANDROID)
-// Tests that `Autofill.Ai.PersonalContext.NonEligibilityReason` logs
-// `kEligible` when the Android device is supported, even if the user's
-// subscription tier is not in the eligible tiers list.
-TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
-       LogsAmbientEligibilityReasonOnAndroidPremiumDevice) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeaturesAndParameters(
-      {{features::kAutofillAmbientAutofill,
-        {{features::kAutofillAmbientAutofillEligibleTiers.name, "1,2"},
-         {features::kAutofillAmbientAutofillEnabledDevices.name,
-          base::SysInfo::HardwareModelName()}}}},
-      {});
-
-  // Set tier to an eligible tier (1) before startup delay.
-  pref_service_.SetInteger(subscription_eligibility::prefs::kAiSubscriptionTier,
-                           1);
-
-  // Fast forward past startup delay to complete startup logging.
-  FastForwardBy(kNonEligibilityLoggingDelayOnStartup + base::Seconds(1));
-
-  histogram_tester().ExpectBucketCount(
-      "Autofill.Ai.PersonalContext.NonEligibilityReason",
-      personal_context::PersonalContextNonEligibilityReason::kEligible, 1);
-
-  // Then change tier to an ineligible tier (99). Since the Android device is
-  // supported, the user remains eligible (`kEligible`), so no duplicate sample
-  // is logged.
-  pref_service_.SetInteger(subscription_eligibility::prefs::kAiSubscriptionTier,
-                           99);
-  histogram_tester().ExpectBucketCount(
-      "Autofill.Ai.PersonalContext.NonEligibilityReason",
-      personal_context::PersonalContextNonEligibilityReason::kEligible, 1);
-}
-#endif
-
-// Tests that `PrefetchContext` populates the `client_id` field of
-// `ContextMemoryAmbientAutofillRequest` using the cache GUID retrieved from
-// `DeviceInfoSyncService`.
-TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
-       PrefetchContext_PopulatesClientIdFromCacheGuid) {
-  EXPECT_CALL(
-      mock_personal_context_service(),
-      FetchContext(
-          personal_context::proto::CONTEXT_MEMORY_FEATURE_AMBIENT_AUTOFILL,
-          MatchContextFetchRequestWithClientId(
-              std::vector<personal_context::proto::EntityType>{
-                  AutofillEntityTypeToPersonalContextEntityType(kOrderType)},
-              /*expected_presence=*/false,
-              /*expected_client_id=*/
-              fake_device_info_sync_service()
-                  .GetLocalDeviceInfoProvider()
-                  ->GetLocalDeviceInfo()
-                  ->guid()),
-          _, _));
-
-  access_manager().PrefetchContext({kOrderType});
 }
 
 // Tests that `PrefetchContext` populates an empty `client_id` when local device
@@ -1718,6 +1602,9 @@ TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
                          AttributeTypeName::kOrderId, u"ORD2")))));
 
   PrefetchContextSync({kOrderType}, {}, response);
+
+  histogram_tester().ExpectUniqueSample(
+      "Autofill.Ai.Suppression.EntitiesFilteredPerPrefetch", 1, 1);
 }
 
 // Tests that suppressing an entity evicts cached masked entities and re-emits
@@ -1787,7 +1674,7 @@ TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
               HasAttributeWithValue(AttributeTypeName::kOrderId, u"ORD1"),
               HasAttributeWithValue(AttributeTypeName::kOrderId, u"ORD2")))));
 
-  suppression_manager().UnsuppressEntity(order1_instance);
+  suppression_manager().UndoInSessionSuppressedEntity(order1_instance.guid());
 }
 
 // Tests that OnEntitySuppressionsChanged is a no-op when the proto cache is
@@ -1895,6 +1782,29 @@ class AutofillAiPersonalContextAccessManagerImplSpiiCacheTest
   base::test::ScopedFeatureList feature_list_{
       features::kAutofillAmbientAutofillSpiiCache};
 };
+
+// Tests that `PrefetchContext` populates the `client_id` field of
+// `ContextMemoryAmbientAutofillRequest` using the cache GUID retrieved from
+// `DeviceInfoSyncService`.
+TEST_F(AutofillAiPersonalContextAccessManagerImplSpiiCacheTest,
+       PrefetchContext_PopulatesClientIdFromCacheGuid) {
+  EXPECT_CALL(
+      mock_personal_context_service(),
+      FetchContext(
+          personal_context::proto::CONTEXT_MEMORY_FEATURE_AMBIENT_AUTOFILL,
+          MatchContextFetchRequestWithClientId(
+              std::vector<personal_context::proto::EntityType>{
+                  AutofillEntityTypeToPersonalContextEntityType(kOrderType)},
+              /*expected_presence=*/false,
+              /*expected_client_id=*/
+              fake_device_info_sync_service()
+                  .GetLocalDeviceInfoProvider()
+                  ->GetLocalDeviceInfo()
+                  ->guid()),
+          _, _));
+
+  access_manager().PrefetchContext({kOrderType});
+}
 
 // Tests that when `kAutofillAmbientAutofillSpiiCache` is enabled, prefetching
 // SPII types sends a single request that does not ask for SPII presence, and
@@ -2472,6 +2382,79 @@ TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
   histogram_tester().ExpectUniqueSample(
       base::StrCat({kBaseMetric, ".KnownTravelerNumber"}),
       Result::kUnsupportedEntityType, 1);
+}
+
+TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
+       Prefetch_FiltersEntitiesWithoutSourceWhenFlagEnabled) {
+  base::test::ScopedFeatureList scoped_feature_list{
+      features::kAutofillAmbientAutofillFilterEntitiesWithoutSource};
+  SetClockToDate("2025-06-01 12:00:00");
+
+  personal_context::proto::ContextMemoryAmbientAutofillResponse response;
+
+  // 1. Order without any source_references -> kFailedMissingSource
+  *response.add_entities() = CreateOrderProto(
+      {.id = u"NO_SOURCE", .date = u"2025-06-01", .merchant_name = u"Store"});
+
+  // 2. Order with only an unsupported source reference (Drive) ->
+  // kFailedMissingSource
+  personal_context::proto::Entity drive_order =
+      CreateOrderProto({.id = u"DRIVE_SOURCE",
+                        .date = u"2025-06-01",
+                        .merchant_name = u"Store"});
+  drive_order.add_source_references()->mutable_drive();
+  *response.add_entities() = std::move(drive_order);
+
+  // 3. Order with an invalid source URL -> kFailedMissingSource
+  personal_context::proto::Entity invalid_url_order =
+      CreateOrderProto({.id = u"INVALID_URL_SOURCE",
+                        .date = u"2025-06-01",
+                        .merchant_name = u"Store"});
+  personal_context::proto::GmailReference* invalid_gmail =
+      invalid_url_order.add_source_references()->mutable_gmail();
+  invalid_gmail->mutable_message_urls()->set_desktop_web_url("invalid_url");
+  invalid_gmail->mutable_message_urls()->set_mobile_web_url("invalid_url");
+  *response.add_entities() = std::move(invalid_url_order);
+
+  // 4. Order with a valid Gmail source reference -> kValid
+  personal_context::proto::Entity valid_order =
+      CreateOrderProto({.id = u"VALID_SOURCE",
+                        .date = u"2025-06-01",
+                        .merchant_name = u"Store"});
+  personal_context::proto::GmailReference* valid_gmail =
+      valid_order.add_source_references()->mutable_gmail();
+  valid_gmail->mutable_message_urls()->set_desktop_web_url(
+      "https://mail.google.com/mail/#inbox/123");
+  valid_gmail->mutable_message_urls()->set_mobile_web_url(
+      "https://mail.google.com/mail/mu/mp/#cv/Inbox/123");
+  valid_gmail->set_subject("Order Confirmation");
+  *response.add_entities() = std::move(valid_order);
+
+  std::vector<EntityInstance> entities;
+  EXPECT_CALL(mock_observer(),
+              OnPrefetchContextComplete(_, Optional(Not(IsEmpty()))))
+      .WillOnce(SaveOptSpanToVector<1>(&entities));
+
+  PrefetchContextSync({kOrderType}, /*expected_spii_types=*/{}, response);
+
+  ASSERT_EQ(entities.size(), 1u);
+  EXPECT_THAT(entities[0], HasAttributeWithValue(AttributeTypeName::kOrderId,
+                                                 u"VALID_SOURCE"));
+
+  using Result = PersonalContextPrefetchEntityValidationResult;
+  static constexpr std::string_view kBaseMetric =
+      "Autofill.Ai.PersonalContext.Prefetch.EntityValidationResult";
+
+  histogram_tester().ExpectBucketCount(kBaseMetric, Result::kValid, 1);
+  histogram_tester().ExpectBucketCount(kBaseMetric,
+                                       Result::kFailedMissingSource, 3);
+  histogram_tester().ExpectTotalCount(kBaseMetric, 4);
+
+  histogram_tester().ExpectBucketCount(base::StrCat({kBaseMetric, ".Order"}),
+                                       Result::kValid, 1);
+  histogram_tester().ExpectBucketCount(base::StrCat({kBaseMetric, ".Order"}),
+                                       Result::kFailedMissingSource, 3);
+  histogram_tester().ExpectTotalCount(base::StrCat({kBaseMetric, ".Order"}), 4);
 }
 
 }  // namespace

@@ -11,14 +11,17 @@ export function getHtml(this: OrganizerListSectionItemDescriptionElement) {
   return html`<!--_html_template_start_-->
 <div id="descriptionParts" class="description-parts">
   ${this.descriptionParts.map((descriptionPart, index) => html`
-    ${index > 0 ? html`<div class="separator">•</div>` : ''}
+    ${index > 0 ? html`
+      <div class="separator">•</div>
+    ` : ''}
     <div class="description-part" title="${descriptionPart.text}">
       ${descriptionPart.prefixElement ? html`
         <div class="prefix">${descriptionPart.prefixElement}</div>
       ` : ''}
-      <div class="description-text ${
-          descriptionPart.elideFromStart ? 'elide-from-start' : ''}">
-        <bdi>${descriptionPart.text}</bdi>
+      <div
+          class="description-text ${
+              descriptionPart.elideFromStart ? 'elide-from-start' : ''}">
+        <bdi>${this.renderDescriptionPart_(descriptionPart.text, index)}</bdi>
       </div>
     </div>
   `)}

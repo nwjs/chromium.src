@@ -10,9 +10,10 @@ import {assert} from '//resources/js/assert.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import {htmlEscape} from '//resources/js/util.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
+import {TabAttachmentSource} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {TabInfo} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 
-import {recordContextAdditionMethod, TabUploadOrigin} from './common.js';
+import {recordContextAdditionMethod} from './common.js';
 import {getCss} from './current_tab_chip.css.js';
 import {getHtml} from './current_tab_chip.html.js';
 
@@ -37,10 +38,15 @@ export class CurrentTabChipElement extends CurrentTabChipBase {
       // Public properties
       // =========================================================================
       currentTab: {type: Object},
+      hasVirtualFocus: {
+        type: Boolean,
+        reflect: true,
+      },
     };
   }
 
   accessor currentTab: TabInfo|undefined = undefined;
+  accessor hasVirtualFocus: boolean = false;
 
   private composeboxSource_: string =
       loadTimeData.getString('composeboxSource');
@@ -58,6 +64,17 @@ export class CurrentTabChipElement extends CurrentTabChipBase {
     return `${htmlEscape(this.currentTab.title)} - ${htmlEscape(domain)}`;
   }
 
+  /**
+   * Returns the label screen readers narrate for this chip, the same as its
+   * button's aria-label.
+   */
+  getA11yLabel(): string {
+    if (!this.currentTab) {
+      return '';
+    }
+    return this.i18n('askAboutTabAriaLabel', this.getCurrentTabChipTitle_());
+  }
+
   protected onCurrentTabButtonClick_(e: Event) {
     e.stopPropagation();
     assert(this.currentTab);
@@ -70,7 +87,7 @@ export class CurrentTabChipElement extends CurrentTabChipBase {
       title: this.currentTab.title,
       url: this.currentTab.url,
       delayUpload: false,
-      origin: TabUploadOrigin.CURRENT_TAB_CHIP,
+      origin: TabAttachmentSource.kCurrentTabChip,
     });
     recordContextAdditionMethod(
         ComposeboxContextAddedMethod.CURRENT_TAB_CHIP, this.composeboxSource_);

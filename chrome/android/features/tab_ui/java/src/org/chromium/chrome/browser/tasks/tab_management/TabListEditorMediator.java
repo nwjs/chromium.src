@@ -26,6 +26,7 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tab.TabLaunchTypeUtils;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab_ui.RecyclerViewPosition;
 import org.chromium.chrome.browser.tabmodel.TabModel;
@@ -172,8 +173,7 @@ class TabListEditorMediator
                         // 3) NTP at startup
                         // force hiding the selection editor.
                         if (type == TabLaunchType.FROM_RESTORE
-                                || type == TabLaunchType.FROM_REPARENTING
-                                || type == TabLaunchType.FROM_REPARENTING_BACKGROUND
+                                || TabLaunchTypeUtils.isReparentingLaunch(type)
                                 || type == TabLaunchType.FROM_STARTUP) {
                             assumeNonNull(mNavigationProvider);
                             mNavigationProvider.goBack();
@@ -316,11 +316,13 @@ class TabListEditorMediator
             @Nullable RecyclerViewPosition recyclerViewPosition) {
         assert mNavigationProvider != null : "NavigationProvider must be set before calling #show";
         // Reparent the snackbarManager to use the selection editor layout to avoid layering issues.
-        mHasSnackbarOverride = true;
-        mSnackbarManager.pushParentViewOverride(
-                ParentOverrideSlot.TAB_LIST_EDITOR,
-                mTabListEditorLayout,
-                /* additionalBottomMarginPxSupplier= */ null);
+        if (!mHasSnackbarOverride) {
+            mHasSnackbarOverride = true;
+            mSnackbarManager.pushParentViewOverride(
+                    ParentOverrideSlot.TAB_LIST_EDITOR,
+                    mTabListEditorLayout,
+                    /* additionalBottomMarginPxSupplier= */ null);
+        }
         // Records to a histogram the time since an instance of TabListEditor was last opened
         // within an activity lifespan.
         TabUiMetricsHelper.recordEditorTimeSinceLastShownHistogram();

@@ -261,6 +261,7 @@
   E_CPONLY(kColorGlicBackground) \
   E_CPONLY(kColorGlicModalBackground) \
   E_CPONLY(kColorGlicModalForeground) \
+  E_CPONLY(kColorGlicPlaceholderElem) \
   E_CPONLY(kColorGlicActiveTabUnderlineGradient1) \
   E_CPONLY(kColorGlicActiveTabUnderlineGradient2) \
   E_CPONLY(kColorGlicActiveTabUnderlineGradient3) \
@@ -307,6 +308,8 @@
   E_CPONLY(kColorTabStripComboButtonSeparator) \
   E_CPONLY(kColorTabStripControlButtonInkDrop) \
   E_CPONLY(kColorTabStripControlButtonInkDropRipple) \
+  E_CPONLY(kColorTabStripScrollButtonBackground) \
+  E_CPONLY(kColorTabStripScrollButtonIcon) \
   /* New tab button colors for ChromeRefresh.*/ \
   /* TODO (crbug.com/40883407) remove when theming works */ \
   E_CPONLY(kColorNewTabButtonCRForegroundFrameActive) \
@@ -380,6 +383,8 @@
   E_CPONLY(kColorComposeboxLink) \
   E_CPONLY(kColorComposeboxToolChipBackground) \
   E_CPONLY(kColorComposeboxVoiceButtonHoverBackground) \
+  E_CPONLY(kColorComposeboxAimChipHoverBackground) \
+  E_CPONLY(kColorComposeboxAimChipHoverText) \
   E_CPONLY(kColorNewTabPageCommonInputPlaceholder) \
   E_CPONLY(kColorNewTabPageControlBackgroundHovered) \
   E_CPONLY(kColorNewTabPageControlBackgroundSelected) \
@@ -1141,6 +1146,7 @@
   E_CPONLY(kColorToolbarSeparator) \
   E_CPONLY(kColorToolbarActionItemEngaged) \
   E_CPONLY(kColorToolbarSeparatorDefault) \
+  E_CPONLY(kColorToolbarSearchFieldTextColor) \
   E_CPONLY(kColorToolbarText) \
   E_CPONLY(kColorToolbarTextDefault) \
   E_CPONLY(kColorToolbarTextDisabled) \

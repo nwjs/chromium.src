@@ -125,6 +125,7 @@ TEST_F(AutofillAIEntityEditCoordinatorTest, MediatorSetsConsumer) {
       [[FakeAutofillAIEntityEditConsumer alloc] init];
   mediator.consumer = consumer;
 
+  EXPECT_EQ(consumer.mode, AutofillAIEntityEditMode::kViewAndEdit);
   EXPECT_GT(consumer.title.length, 0u);
   EXPECT_GT(consumer.editItems.count, 0u);
 }
@@ -176,7 +177,7 @@ TEST_F(AutofillAIEntityEditCoordinatorTest, OpenWalletURLForServerWalletItem) {
   autofill::EntityType type(autofill::EntityTypeName::kVehicle);
   autofill::EntityInstanceBuilder builder(type);
   builder.SetRecordTypeData(
-      autofill::EntityInstance::WalletRecordTypePayload{});
+      autofill::EntityInstance::WalletRecordTypePayload{.management_url = ""});
 
   for (autofill::AttributeType attr_type : type.attributes()) {
     builder.AddAttribute(autofill::AttributeInstance(attr_type));

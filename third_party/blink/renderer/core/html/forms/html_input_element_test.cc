@@ -11,6 +11,8 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_keyboard_event_init.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_wheel_event_init.h"
+#include "third_party/blink/renderer/core/css/css_property_names.h"
+#include "third_party/blink/renderer/core/css_value_keywords.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/events/keyboard_event.h"
@@ -25,8 +27,10 @@
 #include "third_party/blink/renderer/core/html/forms/file_input_type.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_option_element.h"
+#include "third_party/blink/renderer/core/html/forms/listed_element.h"
 #include "third_party/blink/renderer/core/html/forms/spin_button_element.h"
 #include "third_party/blink/renderer/core/html/html_body_element.h"
+#include "third_party/blink/renderer/core/html/html_div_element.h"
 #include "third_party/blink/renderer/core/html/html_html_element.h"
 #include "third_party/blink/renderer/core/html/shadow/shadow_element_names.h"
 #include "third_party/blink/renderer/core/html_names.h"
@@ -274,8 +278,10 @@ TEST_F(HTMLInputElementTest, RadioKeyDownDCHECKFailure) {
   radio2.setAttribute(html_names::kStyleAttr, AtomicString("position:fixed"));
   KeyboardEventInit* init = KeyboardEventInit::Create();
   init->setKey(keywords::kArrowRight);
-  radio1.DefaultEventHandler(
-      *MakeGarbageCollected<KeyboardEvent>(event_type_names::kKeydown, init));
+  auto* event =
+      MakeGarbageCollected<KeyboardEvent>(event_type_names::kKeydown, init);
+  event->SetTrusted(true);
+  radio1.DispatchEvent(*event);
   EXPECT_EQ(GetDocument().ActiveElement(), &radio2);
 }
 
@@ -706,300 +712,259 @@ TEST_F(HTMLInputElementTest, SuggestedValueFontFamilyIsGeneric) {
   EXPECT_TRUE(style->GetFontDescription().Family().FamilyIsGeneric());
 }
 
-TEST_F(HTMLInputElementTest, EmailVerificationIndicator) {
-  // Case 1: EmailVerificationStatusIndicator is disabled.
-  {
-    ScopedEmailVerificationProtocolForTest scoped_protocol(true);
-    ScopedEmailVerificationStatusIndicatorForTest scoped_indicator(false);
-    GetDocument().documentElement()->SetInnerHTMLWithoutTrustedTypes(
-        "<input id=test type=email>");
-    GetDocument().UpdateStyleAndLayoutTree();
-    HTMLInputElement& input = TestElement();
 
-    // Shadow tree shouldn't contain the indicator.
-    Element* indicator =
-        input.UserAgentShadowRoot()
-            ? input.UserAgentShadowRoot()->getElementById(
-                  shadow_element_names::kIdEmailVerificationIndicator)
-            : nullptr;
-    EXPECT_FALSE(indicator);
+
+// Removing a disabled <fieldset> notifies its descendants in tree order.
+// Removing the checked radio button re-validates the remaining (still
+// connected, still fieldset-descendant) radio button of the group while the
+// fieldset is already being removed; that must not lose track of the
+// fieldset ancestor.
+TEST_F(HTMLInputElementTest, RadioGroupInRemovedDisabledFieldset) {
+  GetDocument().documentElement()->SetInnerHTMLWithoutTrustedTypes(R"HTML(
+    <fieldset disabled id=fs>
+      <input type=radio name=g id=r1 checked>
+      <span><input type=radio name=g id=test required></span>
+    </fieldset>
+  )HTML");
+  HTMLInputElement& r2 = TestElement();
+  EXPECT_TRUE(r2.IsDisabledFormControl());
+  EXPECT_FALSE(r2.willValidate());
+  // Evaluate (and cache) r2's validity, as e.g. accessibility does, so that
+  // removing the checked r1 from the group re-validates r2 while the fieldset
+  // is being removed.
+  EXPECT_TRUE(static_cast<ListedElement&>(r2).IsValidElement());
+
+  Element* fieldset = GetDocument().getElementById(AtomicString("fs"));
+  fieldset->remove();
+
+  // Still inside the (now detached) disabled fieldset.
+  EXPECT_TRUE(r2.IsDisabledFormControl());
+  EXPECT_FALSE(r2.willValidate());
+  EXPECT_TRUE(r2.matches(AtomicString(":disabled")));
+}
+
+using HTMLInputElementLazyShadowTreeTest = HTMLInputElementTest;
+
+// Inputs inserted and removed again before the next style/layout update are
+// unscheduled again; processing the pending list must only create shadow
+// trees for inputs that are still scheduled.
+TEST_F(HTMLInputElementLazyShadowTreeTest, InsertAndRemoveBeforeUpdate) {
+  Document& document = GetDocument();
+  Element* body = document.body();
+  HeapVector<Member<HTMLInputElement>> inputs;
+  // Large enough that a linear search per removal would be noticeable.
+  constexpr int kCount = 20000;
+  for (int i = 0; i < kCount; ++i) {
+    auto* input = MakeGarbageCollected<HTMLInputElement>(document);
+    inputs.push_back(input);
+    body->AppendChild(input);
+    EXPECT_TRUE(input->IsShadowTreeCreationScheduled());
   }
+  EXPECT_EQ(document.ScheduledShadowTreeCreationCountForTesting(),
+            static_cast<wtf_size_t>(kCount));
+  // Remove in insertion (FIFO) order, the worst case for a search from the
+  // back of the list.
+  for (int i = 0; i < kCount; ++i) {
+    inputs[i]->remove();
+    EXPECT_FALSE(inputs[i]->IsShadowTreeCreationScheduled());
+  }
+  EXPECT_EQ(document.ScheduledShadowTreeCreationCountForTesting(), 0u);
 
-  // Case 2: Both features are enabled.
-  {
-    ScopedEmailVerificationProtocolForTest scoped_protocol(true);
-    ScopedEmailVerificationStatusIndicatorForTest scoped_indicator(true);
-    GetDocument().documentElement()->SetInnerHTMLWithoutTrustedTypes(
-        "<input id=test type=email>");
-    GetDocument().UpdateStyleAndLayoutTree();
-    HTMLInputElement& input = TestElement();
+  // Re-insert two of them (one twice) and one new input; only those get a
+  // shadow tree.
+  body->AppendChild(inputs[0]);
+  body->AppendChild(inputs[1]);
+  inputs[1]->remove();
+  body->AppendChild(inputs[1]);
+  auto* fresh = MakeGarbageCollected<HTMLInputElement>(document);
+  body->AppendChild(fresh);
+  EXPECT_TRUE(inputs[0]->IsShadowTreeCreationScheduled());
+  EXPECT_TRUE(inputs[1]->IsShadowTreeCreationScheduled());
+  EXPECT_FALSE(inputs[2]->IsShadowTreeCreationScheduled());
+  EXPECT_EQ(document.ScheduledShadowTreeCreationCountForTesting(), 3u);
+  document.UpdateStyleAndLayoutTree();
+  EXPECT_EQ(document.ScheduledShadowTreeCreationCountForTesting(), 0u);
+  EXPECT_TRUE(inputs[0]->UserAgentShadowRoot());
+  EXPECT_TRUE(inputs[1]->UserAgentShadowRoot());
+  EXPECT_TRUE(fresh->UserAgentShadowRoot());
+  EXPECT_FALSE(inputs[2]->UserAgentShadowRoot());
+  EXPECT_FALSE(inputs[0]->IsShadowTreeCreationScheduled());
+  EXPECT_FALSE(inputs[1]->IsShadowTreeCreationScheduled());
+}
 
-    // Shadow tree should contain the indicator.
-    Element* indicator =
-        input.UserAgentShadowRoot()
-            ? input.UserAgentShadowRoot()->getElementById(
-                  shadow_element_names::kIdEmailVerificationIndicator)
-            : nullptr;
-    ASSERT_TRUE(indicator);
+// A document that is not active (no frame; e.g. created by DOMParser) never
+// updates style, so inputs inserted into it do not queue lazy shadow tree
+// creation there. Moving them into an active document schedules them; moving
+// a scheduled input out of the active document unschedules it.
+TEST_F(HTMLInputElementLazyShadowTreeTest, InactiveDocument) {
+  Document& doc_a = GetDocument();
+  ScopedNullExecutionContext execution_context;
+  Document* doc_b =
+      Document::CreateForTest(execution_context.GetExecutionContext());
+  ASSERT_FALSE(doc_b->IsActive());
+  doc_b->AppendChild(doc_b->CreateRawElement(html_names::kHTMLTag));
+  doc_b->documentElement()->AppendChild(
+      doc_b->CreateRawElement(html_names::kBodyTag));
+  ASSERT_TRUE(doc_b->body());
 
-    // Default state should be none (represented by null or "none").
-    String initial_state = indicator->getAttribute(AtomicString("data-state"));
-    EXPECT_TRUE(initial_state.IsNull() || initial_state == "none");
+  HeapVector<Member<HTMLInputElement>> inputs;
+  for (int i = 0; i < 40; ++i) {
+    auto* input = MakeGarbageCollected<HTMLInputElement>(*doc_b);
+    inputs.push_back(input);
+    doc_b->body()->AppendChild(input);
+    EXPECT_FALSE(input->IsShadowTreeCreationScheduled());
+    EXPECT_FALSE(input->UserAgentShadowRoot());
+  }
+  EXPECT_EQ(doc_b->ScheduledShadowTreeCreationCountForTesting(), 0u);
 
-    // Setting state to verified.
-    input.SetEmailVerificationState(EmailVerificationState::kVerified);
-    EXPECT_EQ(input.GetEmailVerificationState(),
-              EmailVerificationState::kVerified);
-    EXPECT_EQ(indicator->getAttribute(AtomicString("data-state")), "verified");
+  // Tree-order move into the active document.
+  for (HTMLInputElement* input : inputs) {
+    doc_a.body()->AppendChild(input);
+    EXPECT_EQ(&input->GetDocument(), &doc_a);
+    EXPECT_TRUE(input->IsShadowTreeCreationScheduled());
+  }
+  EXPECT_EQ(doc_a.ScheduledShadowTreeCreationCountForTesting(), 40u);
+  doc_a.UpdateStyleAndLayoutTree();
+  for (HTMLInputElement* input : inputs) {
+    EXPECT_FALSE(input->IsShadowTreeCreationScheduled());
+    EXPECT_TRUE(input->UserAgentShadowRoot());
+  }
+  EXPECT_EQ(doc_a.ScheduledShadowTreeCreationCountForTesting(), 0u);
 
-    // Setting state to loading.
-    input.SetEmailVerificationState(EmailVerificationState::kLoading);
-    EXPECT_EQ(input.GetEmailVerificationState(),
-              EmailVerificationState::kLoading);
-    EXPECT_EQ(indicator->getAttribute(AtomicString("data-state")), "loading");
+  // A fresh input scheduled in doc_a and moved to doc_b is unscheduled and
+  // gets its shadow tree on demand only.
+  auto* input = MakeGarbageCollected<HTMLInputElement>(doc_a);
+  doc_a.body()->AppendChild(input);
+  EXPECT_TRUE(input->IsShadowTreeCreationScheduled());
+  doc_b->body()->AppendChild(input);
+  EXPECT_EQ(&input->GetDocument(), doc_b);
+  EXPECT_FALSE(input->IsShadowTreeCreationScheduled());
+  EXPECT_EQ(doc_a.ScheduledShadowTreeCreationCountForTesting(), 0u);
+  doc_a.UpdateStyleAndLayoutTree();
+  EXPECT_FALSE(input->UserAgentShadowRoot());
+  EXPECT_TRUE(input->EnsureShadowSubtree());
+}
 
-    // Setting state to none.
-    input.SetEmailVerificationState(EmailVerificationState::kNone);
-    EXPECT_EQ(input.GetEmailVerificationState(), EmailVerificationState::kNone);
-    EXPECT_EQ(indicator->getAttribute(AtomicString("data-state")), "none");
+// Each input remembers only the low bits of its position in the document's
+// pending list. With more inputs pending than those bits can distinguish,
+// several list slots share the same stored bits, and unscheduling has to find
+// the right one; scheduling, unscheduling (in any order) and the flush must
+// keep working across that boundary.
+TEST_F(HTMLInputElementLazyShadowTreeTest, MorePendingThanIndexBits) {
+  Document& document = GetDocument();
+  // The inputs only need to occupy slots in the pending list; keep them out
+  // of the rendered tree so that the test does not also pay for style and
+  // layout of 64k text fields.
+  auto* container = MakeGarbageCollected<HTMLDivElement>(document);
+  container->SetInlineStyleProperty(CSSPropertyID::kDisplay, CSSValueID::kNone);
+  document.body()->AppendChild(container);
 
-    // Setting state to logged-out-or-unsupported.
-    input.SetEmailVerificationState(
-        EmailVerificationState::kLoggedOutOrUnsupported);
-    EXPECT_EQ(input.GetEmailVerificationState(),
-              EmailVerificationState::kLoggedOutOrUnsupported);
-    EXPECT_EQ(indicator->getAttribute(AtomicString("data-state")),
-              "logged-out-or-unsupported");
+  const wtf_size_t range = HTMLInputElement::kShadowTreeCreationIndexHintRange;
+  const wtf_size_t count = range + 8;
+  HeapVector<Member<HTMLInputElement>> inputs;
+  inputs.reserve(count);
+  for (wtf_size_t i = 0; i < count; ++i) {
+    auto* input = MakeGarbageCollected<HTMLInputElement>(document);
+    inputs.push_back(input);
+    container->AppendChild(input);
+  }
+  EXPECT_EQ(document.ScheduledShadowTreeCreationCountForTesting(), count);
+  for (wtf_size_t i :
+       {wtf_size_t{0}, wtf_size_t{1}, range - 1, range, range + 1, count - 1}) {
+    SCOPED_TRACE(i);
+    EXPECT_TRUE(inputs[i]->IsShadowTreeCreationScheduled());
+    EXPECT_FALSE(inputs[i]->UserAgentShadowRoot());
+  }
+  // Slots i and i + range store the same bits.
+  EXPECT_EQ(inputs[1]->ScheduledShadowTreeCreationIndexHint(),
+            inputs[range + 1]->ScheduledShadowTreeCreationIndexHint());
 
-    // Setting state to failed.
-    input.SetEmailVerificationState(EmailVerificationState::kFailed);
-    EXPECT_EQ(input.GetEmailVerificationState(),
-              EmailVerificationState::kFailed);
-    EXPECT_EQ(indicator->getAttribute(AtomicString("data-state")), "failed");
+  // Remove the later of two aliasing inputs: the probe has to skip slot 1.
+  // The last input is swapped into the freed slot and now aliases slot 1.
+  inputs[range + 1]->remove();
+  EXPECT_FALSE(inputs[range + 1]->IsShadowTreeCreationScheduled());
+  EXPECT_TRUE(inputs[1]->IsShadowTreeCreationScheduled());
+  EXPECT_EQ(inputs[count - 1]->ScheduledShadowTreeCreationIndexHint(),
+            inputs[1]->ScheduledShadowTreeCreationIndexHint());
+  EXPECT_EQ(document.ScheduledShadowTreeCreationCountForTesting(), count - 1);
+
+  // Remove the earlier of two aliasing inputs: found at the first probe. The
+  // (new) last input is swapped into slot 0 and now aliases slot `range`.
+  inputs[0]->remove();
+  EXPECT_FALSE(inputs[0]->IsShadowTreeCreationScheduled());
+  EXPECT_TRUE(inputs[range]->IsShadowTreeCreationScheduled());
+  EXPECT_TRUE(inputs[count - 2]->IsShadowTreeCreationScheduled());
+  EXPECT_EQ(inputs[count - 2]->ScheduledShadowTreeCreationIndexHint(),
+            inputs[range]->ScheduledShadowTreeCreationIndexHint());
+  EXPECT_EQ(document.ScheduledShadowTreeCreationCountForTesting(), count - 2);
+
+  // The swapped-in inputs and the ones they alias can all still be removed.
+  inputs[range]->remove();
+  inputs[count - 2]->remove();
+  inputs[count - 1]->remove();
+  inputs[1]->remove();
+  for (wtf_size_t i : {wtf_size_t{1}, range, count - 2, count - 1}) {
+    SCOPED_TRACE(i);
+    EXPECT_FALSE(inputs[i]->IsShadowTreeCreationScheduled());
+  }
+  EXPECT_EQ(document.ScheduledShadowTreeCreationCountForTesting(), count - 6);
+
+  // Re-inserting schedules again, at the end of the list.
+  container->AppendChild(inputs[0]);
+  EXPECT_TRUE(inputs[0]->IsShadowTreeCreationScheduled());
+  EXPECT_EQ(document.ScheduledShadowTreeCreationCountForTesting(), count - 5);
+
+  // The flush handles a list longer than the index range, and leaves every
+  // element unscheduled.
+  document.UpdateStyleAndLayoutTree();
+  EXPECT_EQ(document.ScheduledShadowTreeCreationCountForTesting(), 0u);
+  for (wtf_size_t i :
+       {wtf_size_t{0}, wtf_size_t{2}, range - 1, range + 2, range + 3}) {
+    SCOPED_TRACE(i);
+    EXPECT_FALSE(inputs[i]->IsShadowTreeCreationScheduled());
+    EXPECT_TRUE(inputs[i]->UserAgentShadowRoot());
+  }
+  // Removed before the flush: never got a shadow tree.
+  for (wtf_size_t i : {wtf_size_t{1}, range, range + 1, count - 2, count - 1}) {
+    SCOPED_TRACE(i);
+    EXPECT_FALSE(inputs[i]->UserAgentShadowRoot());
   }
 }
 
-TEST_F(HTMLInputElementTest, EmailVerificationIndicatorSupported) {
-  ScopedEmailVerificationProtocolForTest scoped_protocol(true);
-  ScopedEmailVerificationStatusIndicatorForTest scoped_indicator(true);
+TEST_F(HTMLInputElementTest, PasswordRevealEmptyInsertion) {
+  ScopedPasswordRevealForTest scoped_password_reveal(true);
+  GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(
+      "<input id=test type=password style='width: 300px'>");
+  UpdateAllLifecyclePhasesForTest();
+  HTMLInputElement& input = TestElement();
+  input.Focus();
 
-  // Case 1a: Form has both fields from the start.
-  {
-    GetDocument().documentElement()->SetInnerHTMLWithoutTrustedTypes(
-        "<form>"
-        "  <input id=test type=email>"
-        "  <input type=hidden autocomplete=email-verification-token nonce=xyz>"
-        "</form>");
-    GetDocument().UpdateStyleAndLayoutTree();
-    HTMLInputElement& input = TestElement();
-    Element* indicator =
-        input.UserAgentShadowRoot()
-            ? input.UserAgentShadowRoot()->getElementById(
-                  shadow_element_names::kIdEmailVerificationIndicator)
-            : nullptr;
-    ASSERT_TRUE(indicator);
-    EXPECT_EQ(indicator->getAttribute(AtomicString("data-state")), "supported");
-  }
+  Element* button = input.UserAgentShadowRoot()->getElementById(
+      shadow_element_names::kIdPasswordRevealButton);
+  ASSERT_TRUE(button);
+  EXPECT_EQ(button->EnsureComputedStyle()->Display(), EDisplay::kNone);
 
-  // Case 1b: Token field is added dynamically after layout.
-  {
-    GetDocument().documentElement()->SetInnerHTMLWithoutTrustedTypes(
-        "<form id=form>"
-        "  <input id=test type=email>"
-        "</form>");
-    GetDocument().UpdateStyleAndLayoutTree();
-    HTMLInputElement& input = TestElement();
-    Element* indicator =
-        input.UserAgentShadowRoot()
-            ? input.UserAgentShadowRoot()->getElementById(
-                  shadow_element_names::kIdEmailVerificationIndicator)
-            : nullptr;
-    ASSERT_TRUE(indicator);
-    // Not supported initially.
-    EXPECT_EQ(indicator->getAttribute(AtomicString("data-state")), "none");
+  // Inserting empty text should not reveal the button.
+  GetDocument().execCommand("insertText", false, "", ASSERT_NO_EXCEPTION);
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_EQ(button->EnsureComputedStyle()->Display(), EDisplay::kNone);
 
-    // Add the token field dynamically.
-    auto* form =
-        To<HTMLFormElement>(GetDocument().getElementById(AtomicString("form")));
-    auto* token_input = GetDocument().CreateRawElement(html_names::kInputTag);
-    token_input->setAttribute(html_names::kAutocompleteAttr,
-                              AtomicString("email-verification-token"));
-    token_input->setAttribute(html_names::kNonceAttr, AtomicString("xyz"));
-    form->AppendChild(token_input);
-    GetDocument().UpdateStyleAndLayoutTree();
+  // Pressing Alt-F8 should not reveal the password or button because no text
+  // was inserted.
+  KeyboardEventInit* init = KeyboardEventInit::Create();
+  init->setKey("F8");
+  init->setAltKey(true);
+  auto* event =
+      MakeGarbageCollected<KeyboardEvent>(event_type_names::kKeydown, init);
+  input.DispatchEvent(*event);
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_FALSE(input.ShouldRevealPassword());
+  EXPECT_EQ(button->EnsureComputedStyle()->Display(), EDisplay::kNone);
 
-    // Now it should be supported.
-    EXPECT_EQ(indicator->getAttribute(AtomicString("data-state")), "supported");
-  }
-
-  // Case 1c: Dynamic attribute changes.
-  {
-    GetDocument().documentElement()->SetInnerHTMLWithoutTrustedTypes(
-        "<form>"
-        "  <input id=test type=email>"
-        "  <input id=token type=hidden autocomplete=email-verification-token>"
-        "</form>");
-    GetDocument().UpdateStyleAndLayoutTree();
-    HTMLInputElement& input = TestElement();
-    Element* indicator =
-        input.UserAgentShadowRoot()
-            ? input.UserAgentShadowRoot()->getElementById(
-                  shadow_element_names::kIdEmailVerificationIndicator)
-            : nullptr;
-    ASSERT_TRUE(indicator);
-    // Not supported because nonce is missing.
-    EXPECT_EQ(indicator->getAttribute(AtomicString("data-state")), "none");
-
-    // Set nonce attribute dynamically.
-    auto* token = GetDocument().getElementById(AtomicString("token"));
-    token->setAttribute(html_names::kNonceAttr, AtomicString("xyz"));
-    GetDocument().UpdateStyleAndLayoutTree();
-
-    // Now it should be supported.
-    EXPECT_EQ(indicator->getAttribute(AtomicString("data-state")), "supported");
-
-    // Remove nonce attribute dynamically.
-    token->removeAttribute(html_names::kNonceAttr);
-    GetDocument().UpdateStyleAndLayoutTree();
-
-    // Should no longer be supported.
-    EXPECT_EQ(indicator->getAttribute(AtomicString("data-state")), "none");
-  }
-
-  // Case 1d: Multiple autocomplete tokens.
-  {
-    GetDocument().documentElement()->SetInnerHTMLWithoutTrustedTypes(
-        "<form>"
-        "  <input id=test type=email>"
-        "  <input id=token type=hidden autocomplete=\"webauthn "
-        "email-verification-token\" nonce=xyz>"
-        "</form>");
-    GetDocument().UpdateStyleAndLayoutTree();
-    HTMLInputElement& input = TestElement();
-    Element* indicator =
-        input.UserAgentShadowRoot()
-            ? input.UserAgentShadowRoot()->getElementById(
-                  shadow_element_names::kIdEmailVerificationIndicator)
-            : nullptr;
-    ASSERT_TRUE(indicator);
-    EXPECT_EQ(indicator->getAttribute(AtomicString("data-state")), "supported");
-
-    // Dynamically update the token field's autocomplete attribute to make EVP
-    // unsupported.
-    auto* token = GetDocument().getElementById(AtomicString("token"));
-    token->setAttribute(html_names::kAutocompleteAttr,
-                        AtomicString("webauthn"));
-    GetDocument().UpdateStyleAndLayoutTree();
-    EXPECT_EQ(indicator->getAttribute(AtomicString("data-state")), "none");
-  }
-
-  // Case 1e: Form has token field first, then email field.
-  {
-    GetDocument().documentElement()->SetInnerHTMLWithoutTrustedTypes(
-        "<form>"
-        "  <input type=hidden autocomplete=email-verification-token nonce=xyz>"
-        "  <input id=test type=email>"
-        "</form>");
-    GetDocument().UpdateStyleAndLayoutTree();
-    HTMLInputElement& input = TestElement();
-    Element* indicator =
-        input.UserAgentShadowRoot()
-            ? input.UserAgentShadowRoot()->getElementById(
-                  shadow_element_names::kIdEmailVerificationIndicator)
-            : nullptr;
-    ASSERT_TRUE(indicator);
-    EXPECT_EQ(indicator->getAttribute(AtomicString("data-state")), "supported");
-  }
-
-  // Case 1f: Nonce set via IDL attribute after association.
-  {
-    GetDocument().documentElement()->SetInnerHTMLWithoutTrustedTypes(
-        "<form>"
-        "  <input id=test type=email>"
-        "  <input id=token type=hidden autocomplete=email-verification-token>"
-        "</form>");
-    GetDocument().UpdateStyleAndLayoutTree();
-    HTMLInputElement& input = TestElement();
-    Element* indicator =
-        input.UserAgentShadowRoot()
-            ? input.UserAgentShadowRoot()->getElementById(
-                  shadow_element_names::kIdEmailVerificationIndicator)
-            : nullptr;
-    ASSERT_TRUE(indicator);
-    EXPECT_EQ(indicator->getAttribute(AtomicString("data-state")), "none");
-
-    // Set nonce via IDL attribute.
-    auto* token = To<HTMLInputElement>(
-        GetDocument().getElementById(AtomicString("token")));
-    token->setNonce(AtomicString("xyz"));
-    GetDocument().UpdateStyleAndLayoutTree();
-
-    // Now it should be supported.
-    EXPECT_EQ(indicator->getAttribute(AtomicString("data-state")), "supported");
-  }
-
-  // Case 1g: Exact user page HTML.
-  {
-    GetDocument().documentElement()->SetInnerHTMLWithoutTrustedTypes(
-        "<form id=\"signup-form\" class=\"signup-form\" method=\"get\" "
-        "action=\"/2024/10/25/verified-email-autocomplete.html\">"
-        "  <label for=\"email-input\">Email address</label>"
-        "  <div class=\"email-row\">"
-        "    <input id=\"test\" type=\"email\" name=\"email\" "
-        "autocomplete=\"email\" placeholder=\"you@example.com\" required>"
-        "    <button type=\"submit\">Sign in</button>"
-        "  </div>"
-        "  <input type=\"hidden\" name=\"evt\" nonce=\"--a-fake-nonce--\" "
-        "autocomplete=\"email-verification-token\">"
-        "</form>");
-    GetDocument().UpdateStyleAndLayoutTree();
-    HTMLInputElement& input = TestElement();
-    Element* indicator =
-        input.UserAgentShadowRoot()
-            ? input.UserAgentShadowRoot()->getElementById(
-                  shadow_element_names::kIdEmailVerificationIndicator)
-            : nullptr;
-    ASSERT_TRUE(indicator);
-    EXPECT_EQ(indicator->getAttribute(AtomicString("data-state")), "supported");
-  }
-
-  // Case 1h: Script forces layout during parsing, cache invalidation check.
-  {
-    GetDocument().GetSettings()->SetScriptEnabled(true);
-    ClassicScript::CreateUnspecifiedScript(R"JS(
-        class CacheForcer extends HTMLElement {
-          connectedCallback() {
-            // Force layout/style update which queries ListedElements()
-            // on the form, caching the elements *before* the token field is parsed.
-            document.getElementById("test").clientWidth;
-          }
-        }
-        customElements.define("cache-forcer", CacheForcer);
-    )JS")
-        ->RunScript(GetDocument().domWindow());
-
-    // Parse the form using document.write() so the elements are parsed directly
-    // into the connected document, which sets form_was_set_by_parser_ = true.
-    GetDocument().open();
-    GetDocument().write(R"HTML(
-        <form>
-          <input id=test type=email>
-          <cache-forcer></cache-forcer>
-          <input id=token type=hidden autocomplete=email-verification-token nonce=xyz>
-        </form>
-    )HTML");
-    GetDocument().close();
-
-    GetDocument().UpdateStyleAndLayoutTree();
-    HTMLInputElement& input = TestElement();
-    Element* indicator =
-        input.UserAgentShadowRoot()
-            ? input.UserAgentShadowRoot()->getElementById(
-                  shadow_element_names::kIdEmailVerificationIndicator)
-            : nullptr;
-    ASSERT_TRUE(indicator);
-    EXPECT_EQ(indicator->getAttribute(AtomicString("data-state")), "supported");
-  }
+  // Inserting non-empty text should reveal the button.
+  GetDocument().execCommand("insertText", false, "a", ASSERT_NO_EXCEPTION);
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_EQ(button->EnsureComputedStyle()->Display(), EDisplay::kBlock);
 }
 
 }  // namespace blink

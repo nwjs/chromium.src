@@ -140,7 +140,9 @@ source_set("impl") {
     "//chrome/browser/ui/send_tab_to_self",
     "//chrome/browser/ui/views:layout_provider",
     "//chrome/browser/ui/views:theme_copying_widget",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/ui/views/frame:contents_web_view",
+    "//chrome/browser/ui/views/frame:top_container_view",
     "//chrome/browser/ui/views/location_bar",
     "//chrome/browser/ui/views/page_action",
     "//chrome/browser/ui/views/send_tab_to_self",
@@ -178,6 +180,33 @@ source_set("impl") {
   # them via browser_public_dependencies; the reverse edge is the
   # allow_circular_includes_from entry on //chrome/browser/ui:ui.
   public_deps = [ "//chrome/browser:browser_public_dependencies" ]
+
+  if (is_mac) {
+    deps += [ ":native_widget_mac" ]
+  }
+
+  if (is_chromeos) {
+    deps += [
+      "//ui/aura",
+      "//ui/wm",
+      "//ui/wm/public",
+    ]
+  }
+}
+
+if (is_mac) {
+  source_set("native_widget_mac") {
+    sources = [
+      "omnibox_popup_native_widget_mac.h",
+      "omnibox_popup_native_widget_mac.mm",
+    ]
+    public_deps = [ "//components/remote_cocoa/app_shim" ]
+    deps = [
+      "//components/remote_cocoa/common:mojo",
+      "//ui/base",
+      "//ui/views",
+    ]
+  }
 }
 
 source_set("unit_tests") {
@@ -247,6 +276,7 @@ source_set("test_support") {
   ]
 
   deps = [
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//content/test:test_support",
     "//ui/base",
   ]
@@ -278,11 +308,14 @@ source_set("browser_tests") {
     "//chrome/browser/extensions:test_support",
     "//chrome/browser/themes:test_support",
     "//chrome/browser/ui",
+    "//chrome/browser/ui:browser_commands",
+    "//chrome/browser/ui:browser_window_header",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/omnibox",
     "//chrome/browser/ui/permission_bubble",
     "//chrome/browser/ui/test:test_support",
     "//chrome/browser/ui/views/frame",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/ui/views/location_bar",
     "//chrome/browser/ui/views/toolbar",
     "//chrome/test:test_support",
@@ -334,6 +367,8 @@ if (!is_chromeos_device) {
       "//chrome/browser/sync",
       "//chrome/browser/themes:test_support",
       "//chrome/browser/ui",
+      "//chrome/browser/ui:browser_commands",
+      "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/hats:test_support",
       "//chrome/browser/ui/location_bar",
@@ -341,6 +376,7 @@ if (!is_chromeos_device) {
       "//chrome/browser/ui/permission_bubble",
       "//chrome/browser/ui/views/accessibility:dump_accessibility_events_views_browsertest_base",
       "//chrome/browser/ui/views/frame",
+      "//chrome/browser/ui/views/frame:browser_view_header",
       "//chrome/browser/ui/views/location_bar",
       "//chrome/browser/ui/views/toolbar",
       "//chrome/browser/ui/webui/omnibox_popup",
@@ -348,10 +384,12 @@ if (!is_chromeos_device) {
       "//chrome/common:chrome_features",
       "//chrome/test:test_support",
       "//chrome/test:test_support_ui",
+      "//chrome/test/base:browser_test_waiters",
       "//chrome/test/interaction",
       "//components/content_settings/core/browser",
       "//components/content_settings/core/common",
       "//components/omnibox/browser",
+      "//components/permissions",
       "//components/prefs",
       "//components/search_engines",
       "//components/send_tab_to_self",

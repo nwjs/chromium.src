@@ -122,6 +122,7 @@ class FilePath;
 class Location;
 class SequencedTaskRunner;
 class ScopedClosureRunner;
+class Uuid;
 }  // namespace base
 
 namespace blink {
@@ -565,15 +566,15 @@ class CONTENT_EXPORT ContentBrowserClient {
       bool is_embedded_origin_secure);
 
   // Similar to the above. Returns whether SameSite cookie restrictions should
-  // be ignored when the site_for_cookies's origin is |top_frame_origin|.
-  // |is_embedded_origin_secure| refers to whether the origin that is embedded
-  // in a document with the given origin is secure.
+  // be ignored when the site_for_cookies's origin is |top_frame_origin|,
+  // for cookies relevant to |current_url_chain_entry|.
+  //
   // This is a separate function from the above because the allowed schemes can
   // be different, as SameSite restrictions and third-party cookie blocking are
   // related but have different semantics.
   virtual bool ShouldIgnoreSameSiteCookieRestrictionsWhenTopLevel(
       const url::Origin& top_frame_origin,
-      bool is_embedded_origin_secure);
+      const GURL& current_url_chain_entry);
 
   // Gets a user friendly display name for a given |site_url| to be used in the
   // CDM process name.
@@ -1069,6 +1070,12 @@ class CONTENT_EXPORT ContentBrowserClient {
       const std::vector<GlobalRenderFrameHostId>& render_frames,
       const blink::StorageKey& storage_key);
 
+  // Allow the embedder to control whether a service worker may write to the
+  // system clipboard. Defaults to false: content/ has no notion of which
+  // workers are privileged, so a grant has to come from the embedder.
+  virtual bool AllowWorkerWriteToClipboard(const url::Origin& origin,
+                                           BrowserContext* browser_context);
+
   // Allow the embedder to control if access to CacheStorage by a shared worker
   // is allowed.
   virtual bool AllowWorkerCacheStorage(
@@ -1259,6 +1266,10 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Returns true if the given render frame host is allowed to bypass the popup
   // blocker.
   virtual bool IsPopupBypassAllowed(RenderFrameHost* render_frame_host);
+
+  // Returns true if the given render frame host is allowed to use the
+  // Unbounded Element API (for example, specific component extensions).
+  virtual bool IsUnboundedElementAllowed(RenderFrameHost* render_frame_host);
 
   // Returns true if the given page is allowed to open a window of the given
   // type. If true is returned, |no_javascript_access| will indicate whether
@@ -2500,9 +2511,10 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Tries to start RTC diagnostic logging (best effort).
   virtual void StartRtcDiagnosticLogging(
       RenderFrameHost& frame_host,
+      const base::Uuid& session_id,
       bool should_upload_on_stop,
       const base::flat_map<std::string, std::string>& metadata,
-      base::OnceCallback<void(const std::string&)> callback);
+      base::OnceClosure callback);
 
   // Finishes RTC diagnostic logging if a session is ongoing.
   // The results of logging are stored to disk and potentially uploaded.
@@ -2770,6 +2782,17 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual void OnFetchKeepAliveRequestCreated(BrowserContext& browser_context);
   virtual void OnFetchKeepAliveRequestDestroyed(
       BrowserContext& browser_context);
+
+  // Called when the user dismissed the XSLT deprecation warning banner with
+  // the "don't show this again" checkbox checked. Embedders that support it
+  // should persist this, and report it back to renderers through
+  // `WebPreferences::is_xslt_deprecation_banner_suppressed`.
+  // TODO(crbug.com/560233256): This method is temporary, and is only required
+  // before XSLT is disabled by default in M158. It can be removed in M158, or
+  // whenever XSLT is disabled by default (other than for origin trials and
+  // enterprise policy).
+  virtual void SuppressXSLTDeprecationBanner(
+      RenderFrameHost* render_frame_host);
 
 #if BUILDFLAG(IS_MAC)
   // Sets up the embedder sandbox parameters for the given sandbox type. Returns

@@ -41,9 +41,7 @@ include_rules = [
   "+chrome/browser/metrics",
   "+chrome/browser/net",
   "+chrome/browser/policy",
-  "+chrome/browser/prefs",
   "+chrome/browser/profiles",
-  "+chrome/browser/signin",
   "+chrome/browser/speech/extension_api",
   "+chrome/browser/sync",
   "+chrome/browser/ui/ash/keyboard",
@@ -58,3 +56,15 @@ include_rules = [
   "+chrome/common/webui_url_constants.h",
   "+chrome/grit",
 ]
+
+specific_include_rules = {
+  ".*browsertest\\.cc": [
+    "+chrome/browser/signin",
+  ],
+
+  # PrefServiceSyncableFromProfile() narrows the profile PrefService to the
+  # syncable one; everything after that is //components API.
+  "(marketing_opt_in|touchpad_scroll)_screen\\.cc": [
+    "+chrome/browser/prefs/pref_service_syncable_util.h",
+  ],
+}

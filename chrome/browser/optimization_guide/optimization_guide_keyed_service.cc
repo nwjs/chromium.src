@@ -25,7 +25,6 @@
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/component_updater/optimization_guide_on_device_model_installer.h"
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
 #include "chrome/browser/global_features.h"
 #include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
@@ -166,12 +165,6 @@ class ModelExecutionDelegate : public ModelExecutionManager::Delegate {
     private_ai::Client* client = private_ai_service->GetClient();
     return std::make_unique<optimization_guide::PrivateAiModelExecutionFetcher>(
         client);
-  }
-
-  network::mojom::NetworkContext* GetNetworkContext() override {
-    return Profile::FromBrowserContext(browser_context_)
-        ->GetDefaultStoragePartition()
-        ->GetNetworkContext();
   }
 
  private:
@@ -552,11 +545,19 @@ OptimizationGuideKeyedService::StartStreamingSession(
     optimization_guide::OptimizationGuideModelExecutionStreamingCallback
         callback) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  if (!model_execution_manager_) {
-    return nullptr;
-  }
-  return model_execution_manager_->StartStreamingSession(feature, options,
-                                                         std::move(callback));
+  Profile* profile = Profile::FromBrowserContext(browser_context_);
+  return optimization_guide::RemoteModelExecutionSession::Create(
+      feature, options, std::move(callback),
+      base::BindRepeating(
+          [](base::WeakPtr<Profile> profile)
+              -> network::mojom::NetworkContext* {
+            return profile ? profile->GetDefaultStoragePartition()
+                                 ->GetNetworkContext()
+                           : nullptr;
+          },
+          profile->GetWeakPtr()),
+      IdentityManagerFactory::GetForProfile(profile),
+      optimization_guide_logger_.get());
 }
 
 void OptimizationGuideKeyedService::AddOnDeviceModelAvailabilityChangeObserver(

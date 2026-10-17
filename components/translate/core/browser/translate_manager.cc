@@ -472,6 +472,8 @@ void TranslateManager::RevertTranslation() {
   language_state_.SetCurrentLanguage(language_state_.source_language());
 
   GetActiveTranslateMetricsLogger()->LogReversion();
+
+  translate_client_->RevertPdfTranslation();
 }
 
 void TranslateManager::DoTranslatePage(std::string_view translate_script,
@@ -861,6 +863,14 @@ const TranslateTriggerDecision TranslateManager::ComputePossibleOutcomes(
   // object is then used to trigger the correct behavior, and finally record
   // corresponding metrics in InitiateTranslation.
   TranslateTriggerDecision decision;
+
+  // If translation is disabled by the command line, we can return early to
+  // prevent further filtering and potential side effects.
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kDisableTranslateTrigger)) {
+    decision.PreventAllTriggering();
+    return decision;
+  }
 
   FilterIsTranslatePossible(&decision, translate_prefs, page_language_code,
                             target_lang);

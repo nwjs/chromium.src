@@ -1118,7 +1118,7 @@ class UnitTest(unittest.TestCase):
     # pylint: disable=line-too-long
     self.assertEqual(
       mbw.files['/fake_src/out/Default/base_unittests.isolate'],
-      '{"variables": {"command": ["vpython3", "../../testing/test_env.py", "./base_unittests", "--test-launcher-bot-mode", "--asan=0", "--lsan=0", "--msan=0", "--tsan=0", "--cfi-diag=0"], "files": ["../../.vpython3", "../../testing/test_env.py"]}}\n',
+      '{"variables": {"command": ["vpython3", "../../testing/test_env.py", "./base_unittests", "--test-launcher-bot-mode", "--asan=0", "--lsan=0", "--msan=0", "--tsan=0", "--cfi-diag=0"], "files": ["../../testing/test_env.py", "../../vpython.toml", "../../vpython.toml.uv.lock"]}}\n',
     )
     # pylint: enable=line-too-long
 

@@ -7,8 +7,11 @@
 #include "base/logging.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/trace_event/trace_event.h"
+#include "base/types/pass_key.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/execution_engine.h"
+#include "chrome/browser/actor/ui/actor_ui_tab_controller_interface.h"
+#include "chrome/browser/actor/ui/states/handoff_button_state.h"
 #include "chrome/browser/actor/ui/ui_event_debugstring.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/desktop_browser_window_capabilities.h"
@@ -126,6 +129,17 @@ bool MaybeShowToastViaController(BrowserWindowInterface* bwi) {
 #endif
 
 }  // namespace
+
+// static
+ActorUiStateManager* ActorUiStateManager::Get(
+    content::BrowserContext* context) {
+  auto* actor_service = ActorKeyedService::Get(context);
+  if (!actor_service) {
+    return nullptr;
+  }
+  return actor_service->GetActorUiStateManager(
+      base::PassKey<ActorUiStateManager>());
+}
 
 ActorUiStateManager::ActorUiStateManager(ActorKeyedService& actor_service)
     : actor_service_(actor_service) {}

@@ -489,9 +489,6 @@ void HintsManager::Shutdown() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   OptimizationHintsComponentUpdateListener::GetInstance()->RemoveObserver(this);
 
-  base::UmaHistogramBoolean(
-      "OptimizationGuide.ProcessingComponentAtShutdown",
-      currently_processing_component_version_.has_value());
   if (currently_processing_component_version_) {
     // If we are currently processing the component and we are asked to shut
     // down, we should clear the pref since the function to clear the pref will
@@ -1028,11 +1025,6 @@ void HintsManager::OnFetchedPageNavigationHintsStored(
   if (navigation_data_weak_ptr) {
     navigation_data_weak_ptr->set_hints_fetch_end(base::TimeTicks::Now());
   }
-  base::UmaHistogramBoolean(
-      "OptimizationGuide.HintsManager."
-      "PageNavigationHintsReturnedBeforeDataFlushed",
-      navigation_data_weak_ptr.MaybeValid());
-
   if (navigation_url) {
     PrepareToInvokeRegisteredCallbacks(*navigation_url);
   }

@@ -7,37 +7,49 @@ import 'chrome://settings/settings.js';
 
 import type {SettingsAiSuggestionsPageElement} from 'chrome://settings/lazy_load.js';
 import {AiEnterpriseFeaturePrefName, AiPageActions, FeatureOptInState, SettingsAiPageFeaturePrefName as PrefName} from 'chrome://settings/lazy_load.js';
-import type {SettingsPrefsElement} from 'chrome://settings/settings.js';
-import {AiPageSuggestionsInteractions, ChromeSuggestionsSettingsValue, CrSettingsPrefs, loadTimeData, MetricsBrowserProxyImpl, ModelExecutionEnterprisePolicyValue, OpenWindowProxyImpl} from 'chrome://settings/settings.js';
+import {AiPageSuggestionsInteractions, ChromeSuggestionsSettingsValue, loadTimeData, MetricsBrowserProxyImpl, ModelExecutionEnterprisePolicyValue, OpenWindowProxyImpl, PrefsBrowserProxy, PrefService} from 'chrome://settings/settings.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
-import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
 import {TestOpenWindowProxy} from 'chrome://webui-test/test_open_window_proxy.js';
+import {microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 import {TestMetricsBrowserProxy} from './test_metrics_browser_proxy.js';
+import {TestPrefsBrowserProxy} from './test_prefs_browser_proxy.js';
+
+function getInitialPrefs(): chrome.settingsPrivate.PrefObject[] {
+  return [
+    {
+      key: PrefName.CONTEXTUAL_CUEING,
+      type: chrome.settingsPrivate.PrefType.NUMBER,
+      value: FeatureOptInState.NOT_INITIALIZED,
+    },
+    {
+      key: AiEnterpriseFeaturePrefName.CONTEXTUAL_CUEING,
+      type: chrome.settingsPrivate.PrefType.NUMBER,
+      value: ModelExecutionEnterprisePolicyValue.ALLOW,
+    },
+  ];
+}
 
 suite('SuggestionsPage', function() {
   let metricsBrowserProxy: TestMetricsBrowserProxy;
   let openWindowProxy: TestOpenWindowProxy;
   let subpage: SettingsAiSuggestionsPageElement;
-  let settingsPrefs: SettingsPrefsElement;
+  let prefService: PrefService;
 
-  suiteSetup(function() {
+  setup(async function() {
+    const prefsBrowserProxy = new TestPrefsBrowserProxy(getInitialPrefs());
+    PrefsBrowserProxy.setInstance(prefsBrowserProxy);
+    PrefService.resetInstanceForTesting();
+    prefService = PrefService.getInstance();
+    await prefService.whenInitialized();
+
     metricsBrowserProxy = new TestMetricsBrowserProxy();
     MetricsBrowserProxyImpl.setInstance(metricsBrowserProxy);
     openWindowProxy = new TestOpenWindowProxy();
     OpenWindowProxyImpl.setInstance(openWindowProxy);
-    settingsPrefs = document.createElement('settings-prefs');
-    return CrSettingsPrefs.initialized;
   });
 
   teardown(function() {
-    // Reset prefs to default values.
-    settingsPrefs.set(
-        `prefs.${AiEnterpriseFeaturePrefName.CONTEXTUAL_CUEING}.value`,
-        ModelExecutionEnterprisePolicyValue.ALLOW);
-    settingsPrefs.set(
-        `prefs.${PrefName.CONTEXTUAL_CUEING}.value`,
-        FeatureOptInState.NOT_INITIALIZED);
     metricsBrowserProxy.reset();
     openWindowProxy.reset();
   });
@@ -45,9 +57,8 @@ suite('SuggestionsPage', function() {
   function createPage() {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     subpage = document.createElement('settings-ai-suggestions-page');
-    subpage.prefs = settingsPrefs.prefs!;
     document.body.appendChild(subpage);
-    return flushTasks();
+    return microtasksFinished();
   }
 
   async function assertFeatureInteractionMetrics(
@@ -62,17 +73,17 @@ suite('SuggestionsPage', function() {
   test('showSuggestionsToggle', async () => {
     await createPage();
 
-    const toggle = subpage.shadowRoot!.querySelector('settings-toggle-button');
+    const toggle = subpage.shadowRoot.querySelector('settings-toggle-button');
     assertTrue(!!toggle);
 
     const policyIndicator =
-        subpage.shadowRoot!.querySelector('cr-policy-pref-indicator');
+        subpage.shadowRoot.querySelector('cr-policy-pref-indicator');
     assertFalse(!!policyIndicator);
 
     // Check NOT_INITIALIZED case.
     assertEquals(
         FeatureOptInState.NOT_INITIALIZED,
-        subpage.getPref(PrefName.CONTEXTUAL_CUEING).value);
+        prefService.getPref(PrefName.CONTEXTUAL_CUEING).value);
     assertTrue(toggle.checked);
 
     // Check DISABLED case.
@@ -82,7 +93,7 @@ suite('SuggestionsPage', function() {
         AiPageActions.AI_SUGGESTIONS_DISABLED);
     assertEquals(
         FeatureOptInState.DISABLED,
-        subpage.getPref(PrefName.CONTEXTUAL_CUEING).value);
+        prefService.getPref(PrefName.CONTEXTUAL_CUEING).value);
     assertFalse(toggle.checked);
 
     metricsBrowserProxy.reset();
@@ -94,26 +105,26 @@ suite('SuggestionsPage', function() {
         AiPageActions.AI_SUGGESTIONS_ENABLED);
     assertEquals(
         FeatureOptInState.ENABLED,
-        subpage.getPref(PrefName.CONTEXTUAL_CUEING).value);
+        prefService.getPref(PrefName.CONTEXTUAL_CUEING).value);
     assertTrue(toggle.checked);
   });
 
   test('suggestionsToggleDisabled', async () => {
-    settingsPrefs.set(
-        `prefs.${AiEnterpriseFeaturePrefName.CONTEXTUAL_CUEING}.value`,
+    await prefService.setPrefValue(
+        AiEnterpriseFeaturePrefName.CONTEXTUAL_CUEING,
         ChromeSuggestionsSettingsValue.DISABLED);
     await createPage();
 
     const indicator =
-        subpage.shadowRoot!.querySelector('settings-ai-policy-indicator');
+        subpage.shadowRoot.querySelector('settings-ai-policy-indicator');
     assertTrue(!!indicator);
 
-    const toggle = subpage.shadowRoot!.querySelector('settings-toggle-button');
+    const toggle = subpage.shadowRoot.querySelector('settings-toggle-button');
     assertTrue(!!toggle);
     assertTrue(toggle.disabled);
     assertFalse(toggle.checked);
 
-    const linkout = subpage.shadowRoot!.querySelector('.cr-row.flex');
+    const linkout = subpage.shadowRoot.querySelector('.cr-row.flex');
     assertFalse(!!linkout);
   });
 
@@ -125,7 +136,7 @@ suite('SuggestionsPage', function() {
     await createPage();
 
     const learnMoreLink =
-        subpage.shadowRoot!.querySelector<HTMLAnchorElement>('#learnMoreLink');
+        subpage.shadowRoot.querySelector<HTMLAnchorElement>('#learnMoreLink');
     assertTrue(!!learnMoreLink);
     assertEquals('https://support.google.com/chrome?p=', learnMoreLink.href);
     learnMoreLink.click();
@@ -139,7 +150,7 @@ suite('SuggestionsPage', function() {
     await createPage();
 
     const syncSettingsLink =
-        subpage.shadowRoot!.querySelector<HTMLAnchorElement>(
+        subpage.shadowRoot.querySelector<HTMLAnchorElement>(
             '#syncSettingsLink');
     assertTrue(!!syncSettingsLink);
     assertEquals('chrome://settings/syncSetup', syncSettingsLink.href);

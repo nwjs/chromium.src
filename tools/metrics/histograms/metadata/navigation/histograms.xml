@@ -160,6 +160,8 @@ chromium-metrics-reviews@google.com.
       summary="DocumentLoader::CommitNavigation()"/>
   <variant name="DocumentLoader.DidCommitNavigation"
       summary="DocumentLoader::DidCommitNavigation()"/>
+  <variant name="Frame.Detach.Remove" summary="Frame::Detach() for removal"/>
+  <variant name="Frame.Detach.Swap" summary="Frame::Detach() for swapping"/>
   <variant name="Frame.SwapImpl.CloneState"
       summary="Frame::SwapImpl() cloning state to new LocalFrame"/>
   <variant name="Frame.SwapImpl.CloneState.Page"
@@ -181,6 +183,8 @@ chromium-metrics-reviews@google.com.
   <variant name="FrameLoader.DispatchUnloadEventAndFillOldDocInfo.Other"
       summary="FrameLoader::DispatchUnloadEventAndFillOldDocumentInfoIfNeeded()
                for others"/>
+  <variant name="LocalDOMWindow.FrameDestroyed"
+      summary="LocalDOMWindow::FrameDestroyed()"/>
   <variant name="LocalFrame.DetachImpl.Remove"
       summary="LocalFrame::DetachImpl() for removal"/>
   <variant name="LocalFrame.DetachImpl.Swap"
@@ -981,7 +985,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Navigation.CommitRenderFrame" units="ms"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>rakina@chromium.org</owner>
   <owner>chrome-security-architecture@google.com</owner>
   <summary>
@@ -1509,6 +1513,39 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram
+    name="Navigation.InitialDocument.NonEmptyCompositorFrameTreatedAsAccess"
+    enum="Boolean" expires_after="2027-06-30">
+  <owner>creis@chromium.org</owner>
+  <owner>navigation-dev@chromium.org</owner>
+  <summary>
+    Records whether a visually non-empty CompositorFrame reported by Viz for a
+    main frame's widget arrived while the tab was still on an unmodified initial
+    empty document. Recorded at most once per tab, when Viz reports the first
+    non-empty frame for the widget that was created for the tab's initial empty
+    document. Not recorded for prerendered pages, fenced frames, or guests.
+
+    True means the CompositorFrame was treated as an access to the initial empty
+    document, so a renderer-initiated pending URL (or a pending URL left over
+    from an aborted browser-initiated navigation) stopped being shown in the
+    omnibox.
+
+    False means the CompositorFrame told us nothing new because the renderer had
+    already reported accessing the initial empty document (or navigated it
+    same-document). This covers a page that opens an about:blank popup and draws
+    into it without navigating, which is legitimate and common: such a page must
+    run script in the popup, which always reports the access before anything can
+    be drawn. Cross-document navigations away from the initial empty document
+    cancel the notification at commit time and do not record a sample.
+
+    A non-trivial true rate indicates that
+    CompositorFrame::HasVisuallyNonEmptyContent() may be misclassifying ordinary
+    blank tabs, and is a signal to potentially disable
+    features::kClearPendingUrlOnNonEmptyCompositorFrame. See
+    https://crbug.com/40055319.
+  </summary>
+</histogram>
+
 <histogram name="Navigation.InitiatorType.All" enum="NavigationInitiatorType"
     expires_after="2027-02-07">
   <owner>robertlin@chromium.org</owner>
@@ -1782,7 +1819,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Navigation.MainframeSameDocumentNavigationCommitToPresentFirstFrame"
-    units="ms" expires_after="2027-01-17">
+    units="ms" expires_after="2027-03-21">
   <owner>liuwilliam@chromium.org</owner>
   <owner>chrome-seamless-core@google.com</owner>
   <summary>
@@ -1946,6 +1983,17 @@ chromium-metrics-reviews@google.com.
     records once per navigation gesture. Android only.
   </summary>
   <token key="NavigationMode" variants="NavigationMode"/>
+</histogram>
+
+<histogram name="Navigation.OriginAgentCluster.AdTagReadyAtProcessSelection"
+    enum="Boolean" expires_after="2027-02-07">
+  <owner>lbrady@google.com</owner>
+  <owner>chrome-security-architecture@google.com</owner>
+  <summary>
+    Records whether the ad tag result was ready by the time process selection
+    occurred for a child frame navigation. Recorded in
+    ChildFrameNavigationFilteringThrottle::WillProcessResponse().
+  </summary>
 </histogram>
 
 <histogram name="Navigation.OriginAgentCluster.Result"
@@ -2268,6 +2316,20 @@ chromium-metrics-reviews@google.com.
     before dispatching the request.
   </summary>
   <token key="FrameType" variants="FrameTypes"/>
+</histogram>
+
+<histogram name="Navigation.RemoveExtraHeadersOnCrossOriginRedirect"
+    enum="Boolean" expires_after="2027-03-18">
+  <owner>adelm@google.com</owner>
+  <owner>mthiesse@chromium.org</owner>
+  <summary>
+    Records whether extra headers configured to be stripped on cross-origin
+    redirects were removed during a navigation redirect (true when the redirect
+    was cross-origin and headers were removed, false when the redirect was
+    same-origin and headers were kept). Recorded on each redirect of a
+    navigation that has non-empty extra headers with
+    remove_extra_headers_on_cross_origin_redirect enabled.
+  </summary>
 </histogram>
 
 <histogram name="Navigation.Renderer.BlockedForFilterURL"
@@ -2597,7 +2659,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Navigation.SpeculativeRFHProcessGone.MayResume" enum="Boolean"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>gjc@google.com</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -3212,6 +3274,22 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Navigation.UnknownInitiator.PageTransition.{Scope}"
+    enum="NavigationPageTransitionDecodedType" expires_after="2027-02-07">
+  <owner>robertlin@chromium.org</owner>
+  <owner>chrome-prerendering@google.com</owner>
+  <summary>
+    Records the page transition type of a navigation when its initiator is
+    unknown (ChromeInitiatorLocation::kOther) for {Scope}. Recorded for a
+    standard navigation when it commits. For a prerendered navigation, it is
+    recorded when the page is activated.
+  </summary>
+  <token key="Scope">
+    <variant name="All" summary="all navigations"/>
+    <variant name="SRP" summary="Search Results Page (SRP) navigations"/>
+  </token>
+</histogram>
+
 <histogram name="Navigation.Unload" units="ms" expires_after="2027-01-17">
   <owner>rakina@chromium.org</owner>
   <owner>chrome-security-architecture@google.com</owner>
@@ -3222,7 +3300,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Navigation.URLLoader.HasClientHintsControllerDelegate"
-    enum="Boolean" expires_after="2027-01-17">
+    enum="Boolean" expires_after="2027-03-21">
   <owner>yyanagisawa@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -3408,6 +3486,26 @@ chromium-metrics-reviews@google.com.
     state for the wasted speculative RFH and the new RFH differs.
 
     Recorded on RenderFrameHostManager::GetFrameHostNavigation(), for
+    {InitiatorType} navigations that picked a RenderFrameHost that is different
+    from the speculative RFH previously created for the navigation.
+  </summary>
+  <token key="InitiatorType" variants="InitiatorType"/>
+</histogram>
+
+<histogram
+    name="Navigation.{InitiatorType}.WastedSpeculativeRFH.ExcludedAdsFromOriginIsolation"
+    enum="Boolean" expires_after="2027-02-07">
+  <owner>lbrady@google.com</owner>
+  <owner>chrome-security-architecture@google.com</owner>
+  <summary>
+    For {InitiatorType} navigations that result in wasting a speculative RFH
+    that was previously created for the navigation (i.e. when the
+    WastedSpeculativeRFHCase metric records kWasted_NowUseCurrentRFH or
+    kWasted_NowUseNewSpeculativeRFH), records whether the speculative RFH was
+    wasted because the navigation was excluded from origin isolation due to
+    being tagged as an ad.
+
+    Recorded on RenderFrameHostManager::GetFrameHostForNavigation(), for
     {InitiatorType} navigations that picked a RenderFrameHost that is different
     from the speculative RFH previously created for the navigation.
   </summary>
@@ -3928,10 +4026,13 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Prerender.Experimental.ActivationTransitionMismatch{PreloadingTriggerType}"
-    enum="PrerenderActivationTransitionMismatchType" expires_after="2025-04-06">
+    enum="NavigationPageTransitionDecodedType" expires_after="2027-03-16">
   <owner>nhiroki@chromium.org</owner>
   <owner>chrome-prerendering@google.com</owner>
   <summary>
+    Warning: this histogram was expired from 2025-04-06 to 2026-09-16; data may
+    be missing.
+
     Breakdown metric for PrerenderActivationNavigationParamsMatch::kTransition.
 
     When we are attempting to activate a prerendered page, we compare the
@@ -3965,7 +4066,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Prerender.Experimental.FoundReusePrerenderHost" enum="Boolean"
-    expires_after="2027-01-10">
+    expires_after="2027-03-14">
   <owner>gjc@google.com</owner>
   <owner>chrome-prerendering@google.com</owner>
   <owner>chrome-loading@google.com</owner>
@@ -4175,7 +4276,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Prerender.Experimental.ReusePrerenderHost.PrerenderHostCount.Failed"
-    units="count" expires_after="2027-01-10">
+    units="count" expires_after="2027-03-14">
   <owner>suzukikeita@google.com</owner>
   <owner>gjc@google.com</owner>
   <owner>chrome-prerendering@google.com</owner>

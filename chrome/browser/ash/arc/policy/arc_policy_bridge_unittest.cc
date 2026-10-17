@@ -27,6 +27,7 @@
 #include "chrome/browser/ash/arc/test/test_arc_session_manager.h"
 #include "chrome/browser/ash/login/users/scoped_account_id_annotator.h"
 #include "chrome/browser/ash/policy/core/device_attributes_fake.h"
+#include "chrome/browser/consent_auditor/consent_auditor_factory.h"
 #include "chrome/browser/policy/developer_tools_policy_handler.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
 #include "chrome/test/base/testing_browser_process.h"
@@ -55,6 +56,7 @@
 #include "components/policy/policy_constants.h"
 #include "components/session_manager/test/user_session_test_environment.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
+#include "components/supervised_user/core/browser/supervised_user_test_environment.h"
 #include "components/supervised_user/core/common/supervised_user_constants.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "content/public/test/browser_task_environment.h"
@@ -247,9 +249,9 @@ class ArcPolicyBridgeTestBase {
                             GetIdentityTestEnvironmentFactories());
     ASSERT_TRUE(profile_);
 
-    auto identity_test_env_profile_adaptor =
+    identity_test_env_profile_adaptor_ =
         std::make_unique<IdentityTestEnvironmentProfileAdaptor>(profile_);
-    identity_test_env_profile_adaptor->identity_test_env()
+    identity_test_env_profile_adaptor_->identity_test_env()
         ->MakePrimaryAccountAvailable(kTestUserEmail,
                                       signin::ConsentLevel::kSignin);
 
@@ -265,7 +267,8 @@ class ArcPolicyBridgeTestBase {
         arc_dlc_installer_.get());
     ArcSessionManager::EnableCheckAndroidManagementForTesting(false);
     arc_session_manager()->SetProfile(profile());
-    arc_session_manager()->Initialize();
+    arc_session_manager()->Initialize(
+        ConsentAuditorFactory::GetForProfile(profile()));
 
     // TODO(hidehiko): Use Singleton instance tied to BrowserContext.
     policy_bridge_ = std::make_unique<ArcPolicyBridge>(
@@ -285,6 +288,7 @@ class ArcPolicyBridgeTestBase {
     policy_instance_.reset();
     policy_bridge_->RemoveObserver(&observer_);
     policy_bridge_.reset();
+    identity_test_env_profile_adaptor_.reset();
     arc_session_manager()->Shutdown();
     arc_session_manager_.reset();
     arc_dlc_installer_.reset();
@@ -370,18 +374,23 @@ class ArcPolicyBridgeTestBase {
   ArcSessionManager* arc_session_manager() {
     return arc_session_manager_.get();
   }
+  signin::IdentityManager* identity_manager() {
+    return identity_test_env_profile_adaptor_->identity_test_env()
+        ->identity_manager();
+  }
 
  private:
   content::BrowserTaskEnvironment task_environment_;
   std::unique_ptr<ash::test::UserSessionTestEnvironment>
       user_session_test_environment_;
+  std::unique_ptr<IdentityTestEnvironmentProfileAdaptor>
+      identity_test_env_profile_adaptor_;
   std::unique_ptr<TestingProfileManager> testing_profile_manager_;
   base::RunLoop run_loop_;
   raw_ptr<TestingProfile, DanglingUntriaged> profile_;
   raw_ptr<ArcBridgeService> bridge_service_;
   raw_ptr<CertStoreService, DanglingUntriaged>
       cert_store_service_;  // Not owned.
-
   std::unique_ptr<ArcServiceManager> arc_service_manager_;
   std::unique_ptr<ArcDlcInstaller> arc_dlc_installer_;
   std::unique_ptr<ArcSessionManager> arc_session_manager_;
@@ -819,7 +828,8 @@ TEST_F(ArcPolicyBridgeTest, VpnConfigAllowedTest) {
 
 TEST_F(ArcPolicyBridgeTest, ManualChildUserPoliciesSet) {
   // Mark profile as supervised user.
-  profile()->SetIsSupervisedProfile();
+  supervised_user::SupervisedUserTestEnvironment::EnableSupervisedAccount(
+      identity_manager());
   EXPECT_TRUE(profile()->IsChild());
 
   policy_map().Set(policy::key::kArcPolicy, policy::POLICY_LEVEL_MANDATORY,

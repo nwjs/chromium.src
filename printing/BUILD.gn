@@ -361,6 +361,7 @@ test("printing_unittests") {
   sources = [
     "backend/print_backend_unittest.cc",
     "backend/print_backend_utils_unittest.cc",
+    "common/metafile_utils_unittest.cc",
     "metafile_skia_unittest.cc",
     "nup_parameters_unittest.cc",
     "page_number_unittest.cc",
@@ -386,6 +387,7 @@ test("printing_unittests") {
     "//printing/mojom",
     "//testing/gmock",
     "//testing/gtest",
+    "//third_party/blink/public/common:headers",
     "//ui/base",
     "//ui/gfx",
     "//ui/gfx:test_support",
@@ -507,10 +509,23 @@ if (is_android) {
       "android/java/src/org/chromium/printing/PrintDocumentAdapterWrapper.java",
       "android/java/src/org/chromium/printing/PrintManagerDelegate.java",
       "android/java/src/org/chromium/printing/PrintManagerDelegateImpl.java",
+      "android/java/src/org/chromium/printing/PrintSession.java",
       "android/java/src/org/chromium/printing/Printable.java",
       "android/java/src/org/chromium/printing/PrintingContext.java",
       "android/java/src/org/chromium/printing/PrintingController.java",
       "android/java/src/org/chromium/printing/PrintingControllerImpl.java",
+    ]
+  }
+
+  robolectric_library("printing_junit_tests") {
+    sources = [ "android/java/src/org/chromium/printing/PrintingControllerImplUnitTest.java" ]
+    deps = [
+      ":printing_java",
+      "//base:base_java",
+      "//base:base_junit_test_support",
+      "//build/android:build_java",
+      "//third_party/junit",
+      "//ui/android:ui_no_recycler_view_java",
     ]
   }
 }

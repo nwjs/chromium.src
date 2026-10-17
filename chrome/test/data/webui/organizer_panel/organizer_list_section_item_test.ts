@@ -12,7 +12,7 @@ import {eventToPromise, isVisible, microtasksFinished} from 'chrome://webui-test
 
 const TEST_TITLE_PARTS = ['Google Search'];
 const TEST_DESCRIPTION_PARTS = [{text: 'google.com'}, {text: '5 mins ago'}];
-const EXPECTED_ARIA_DESCRIPTION = 'google.com · 5 mins ago';
+const EXPECTED_ARIA_DESCRIPTION = 'google.com, 5 mins ago';
 const TEST_URL_1 = 'https://google.com';
 const TEST_URL_2 = 'https://youtube.com';
 
@@ -53,6 +53,25 @@ suite('OrganizerListSectionItemTest', () => {
     assertFalse(descriptionElement.hidden);
     assertDeepEquals(
         TEST_DESCRIPTION_PARTS, descriptionElement.descriptionParts);
+  });
+
+  test('combines multiple title and description parts for aria', async () => {
+    listItem.item = {
+      title: ['Google Search', 'YouTube'],
+      description: [
+        {text: 'google.com'},
+        {text: 'youtube.com'},
+        {text: '5 mins ago'},
+      ],
+    };
+    await microtasksFinished();
+
+    const crUrlListItem = listItem.$.crUrlListItem;
+    assertTrue(!!crUrlListItem);
+    assertEquals('Google Search, YouTube', crUrlListItem.itemAriaLabel);
+    assertEquals(
+        'google.com, youtube.com, 5 mins ago',
+        crUrlListItem.itemAriaDescription);
   });
 
   test('hides description element when description is absent', async () => {
@@ -223,6 +242,58 @@ suite('OrganizerListSectionItemTest', () => {
         assertFalse(itemClicked);
       });
 
+  test('right clicking item dispatches context-menu-click event', async () => {
+    const item = {
+      title: ['Tab Group'],
+    };
+    listItem.item = item;
+    await microtasksFinished();
+
+    const contextMenuClickPromise =
+        eventToPromise('context-menu-click', listItem);
+    const event = new MouseEvent('contextmenu', {
+      bubbles: true,
+      cancelable: true,
+      clientX: 15,
+      clientY: 25,
+    });
+    listItem.$.crUrlListItem.dispatchEvent(event);
+    const contextMenuEvent = await contextMenuClickPromise as CustomEvent<{
+                               item: typeof item,
+                               x: number,
+                               y: number,
+                             }>;
+
+    assertTrue(event.defaultPrevented);
+    assertEquals(item, contextMenuEvent.detail.item);
+    assertEquals(15, contextMenuEvent.detail.x);
+    assertEquals(25, contextMenuEvent.detail.y);
+  });
+
+  test(
+      'resetActionButtonStateIfNeeded hides action button when not hovered',
+      async () => {
+        listItem.item = {
+          title: ['Group'],
+          hoveredActionButton: {
+            icon: 'cr:more-vert',
+            ariaLabel: 'More options',
+          },
+        };
+        await microtasksFinished();
+
+        const actionButton = listItem.$.actionButton;
+        listItem.classList.add('hovered');
+        listItem.$.crUrlListItem.classList.add('hovered');
+        actionButton.focus();
+        assertTrue(isVisible(actionButton));
+
+        listItem.classList.remove('hovered');
+        listItem.$.crUrlListItem.classList.remove('hovered');
+        listItem.resetActionButtonStateIfNeeded();
+        assertFalse(isVisible(actionButton));
+      });
+
   test(
       'renders prefix icon with multiple URLs as stacked favicons',
       async () => {
@@ -292,5 +363,49 @@ suite('OrganizerListSectionItemTest', () => {
             listItem.shadowRoot.querySelector('stacked-favicons');
         assertEquals(null, stackedFavicons);
         assertEquals(TEST_URL_1, listItem.$.crUrlListItem.url);
+      });
+
+  test(
+      'forwards highlight ranges to title and description elements',
+      async () => {
+        listItem.item = {
+          title: ['Google Search', 'YouTube'],
+          description: [{text: 'google.com'}, {text: '5 mins ago'}],
+          highlightRanges: {
+            title: [
+              [{start: 0, length: 6}],
+              [{start: 0, length: 3}],
+            ],
+            description: [
+              [{start: 0, length: 6}],
+              [],
+            ],
+          },
+        };
+        await microtasksFinished();
+
+        const titleElement = listItem.$.title;
+        assertTrue(!!titleElement);
+        assertDeepEquals(
+            [[{start: 0, length: 6}], [{start: 0, length: 3}]],
+            titleElement.highlightRanges);
+
+        const descriptionElement = listItem.$.description;
+        assertTrue(!!descriptionElement);
+        assertDeepEquals(
+            [[{start: 0, length: 6}], []], descriptionElement.highlightRanges);
+      });
+
+  test(
+      'provides empty highlight ranges when highlight ranges are absent',
+      async () => {
+        listItem.item = {
+          title: ['Google Search'],
+          description: [{text: 'google.com'}],
+        };
+        await microtasksFinished();
+
+        assertDeepEquals([[]], listItem.$.title.highlightRanges);
+        assertDeepEquals([[]], listItem.$.description.highlightRanges);
       });
 });

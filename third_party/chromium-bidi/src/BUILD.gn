@@ -13,9 +13,61 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import(
+    "//third_party/devtools-frontend/src/scripts/build/typescript/typescript.gni")
 import("../tools/build/bidi_module.gni")
 
-bidi_foundation_module("utils") {
+if (build_with_chromium) {
+  devtools_protocol_declare_dts =
+      "$target_gen_dir/devtools_protocol_declare.d.ts"
+  devtools_protocol_ambient_dts =
+      "$target_gen_dir/devtools_protocol_ambient.d.ts"
+  devtools_protocol_types_dir =
+      "$root_gen_dir/third_party/blink/public/devtools_protocol/types"
+
+  generated_file("devtools_protocol_declare_dts") {
+    outputs = [ devtools_protocol_declare_dts ]
+    contents = [
+      "declare module 'devtools-protocol' {}",
+      "declare module 'devtools-protocol/types/protocol-mapping.js' {}",
+    ]
+  }
+
+  generated_file("devtools_protocol_ambient_dts") {
+    outputs = [ devtools_protocol_ambient_dts ]
+    _rel_dir = rebase_path(devtools_protocol_types_dir, target_gen_dir)
+    contents = [
+      "import type * as ProtocolModule from '$_rel_dir/protocol.js';",
+      "import type * as ProtocolMappingModule from '$_rel_dir/protocol-mapping.js';",
+      "declare module 'devtools-protocol' {",
+      "  export import Protocol = ProtocolModule.Protocol;",
+      "  export default Protocol;",
+      "}",
+      "declare module 'devtools-protocol/types/protocol-mapping.js' {",
+      "  export import ProtocolMapping = ProtocolMappingModule.ProtocolMapping;",
+      "  export default ProtocolMapping;",
+      "}",
+    ]
+  }
+
+  devtools_protocol_types_deps = [
+    ":devtools_protocol_ambient_dts",
+    ":devtools_protocol_declare_dts",
+    "//third_party/blink/public/devtools_protocol:protocol_typescript_definitions",
+  ]
+  devtools_protocol_types_files = [
+    devtools_protocol_declare_dts,
+    devtools_protocol_ambient_dts,
+    "$devtools_protocol_types_dir/protocol.d.ts",
+    "$devtools_protocol_types_dir/protocol-mapping.d.ts",
+  ]
+} else {
+  devtools_protocol_types_deps = []
+  devtools_protocol_types_files = []
+}
+
+ts_library("utils") {
+  runs_in = "node"
   sources = [
     "utils/Buffer.ts",
     "utils/DefaultMap.ts",
@@ -36,19 +88,27 @@ bidi_foundation_module("utils") {
     "utils/urlHelpers.ts",
     "utils/uuid.ts",
   ]
+  inputs = [
+    "../node_modules/mitt/index.d.ts",
+    "../node_modules/mitt/package.json",
+  ]
 }
 
-bidi_foundation_module("cdp") {
+ts_library("cdp") {
+  runs_in = "node"
   sources = [
     "cdp/CdpClient.ts",
     "cdp/CdpConnection.ts",
     "cdp/cdp.ts",
     "cdp/cdpMessage.ts",
   ]
-  deps = [ ":utils" ]
+  additional_type_definitions = devtools_protocol_types_files
+  deps = devtools_protocol_types_deps + [ ":utils_sources" ]
+  ts_deps = [ ":utils" ]
 }
 
-bidi_foundation_module("protocol") {
+ts_library("protocol") {
+  runs_in = "node"
   sources = [
     "protocol/ErrorResponse.ts",
     "protocol/cdp.ts",
@@ -61,9 +121,12 @@ bidi_foundation_module("protocol") {
     "protocol/generated/webdriver-bidi.ts",
     "protocol/protocol.ts",
   ]
+  additional_type_definitions = devtools_protocol_types_files
+  deps = devtools_protocol_types_deps
 }
 
-bidi_foundation_module("protocol_parser") {
+ts_library("protocol_parser") {
+  runs_in = "node"
   sources = [
     "protocol-parser/generated/webdriver-bidi-bluetooth.ts",
     "protocol-parser/generated/webdriver-bidi-digital-credentials.ts",
@@ -73,10 +136,29 @@ bidi_foundation_module("protocol_parser") {
     "protocol-parser/generated/webdriver-bidi.ts",
     "protocol-parser/protocol-parser.ts",
   ]
-  deps = [ ":protocol" ]
+  inputs = [
+    "../node_modules/zod/index.d.cts",
+    "../node_modules/zod/package.json",
+    "../node_modules/zod/v3/ZodError.d.cts",
+    "../node_modules/zod/v3/errors.d.cts",
+    "../node_modules/zod/v3/external.d.cts",
+    "../node_modules/zod/v3/helpers/enumUtil.d.cts",
+    "../node_modules/zod/v3/helpers/errorUtil.d.cts",
+    "../node_modules/zod/v3/helpers/parseUtil.d.cts",
+    "../node_modules/zod/v3/helpers/partialUtil.d.cts",
+    "../node_modules/zod/v3/helpers/typeAliases.d.cts",
+    "../node_modules/zod/v3/helpers/util.d.cts",
+    "../node_modules/zod/v3/index.d.cts",
+    "../node_modules/zod/v3/locales/en.d.cts",
+    "../node_modules/zod/v3/standard-schema.d.cts",
+    "../node_modules/zod/v3/types.d.cts",
+  ]
+  deps = [ ":protocol_sources" ]
+  ts_deps = [ ":protocol" ]
 }
 
-bidi_foundation_module("bidi_mapper") {
+ts_library("bidi_mapper") {
+  runs_in = "node"
   sources = [
     "bidiMapper/BidiMapper.ts",
     "bidiMapper/BidiNoOpParser.ts",
@@ -133,48 +215,49 @@ bidi_foundation_module("bidi_mapper") {
     "bidiMapper/modules/storage/StorageProcessor.ts",
     "bidiMapper/modules/webExtension/WebExtensionProcessor.ts",
   ]
-  deps = [
+  additional_type_definitions = devtools_protocol_types_files
+  deps = devtools_protocol_types_deps + [
+           ":cdp_sources",
+           ":protocol_parser_sources",
+           ":protocol_sources",
+           ":utils_sources",
+         ]
+  ts_deps = [
     ":cdp",
     ":protocol",
     ":protocol_parser",
     ":utils",
   ]
-  node_es_libs = [
-    "es2023",
-    "dom",
-    "dom.iterable",
-  ]
 }
 
-bidi_foundation_module("bidi_tab") {
+ts_library("bidi_tab") {
+  runs_in = "node"
   sources = [
     "bidiTab/BidiParser.ts",
     "bidiTab/Transport.ts",
     "bidiTab/bidiTab.ts",
     "bidiTab/mapperTabPage.ts",
   ]
-  deps = [ ":bidi_mapper" ]
-  node_es_libs = [
-    "es2023",
-    "dom",
-    "dom.iterable",
-  ]
+  deps = [ ":bidi_mapper_sources" ]
+  ts_deps = [ ":bidi_mapper" ]
 }
 
 bidi_bundle("mapper_bundle") {
   entrypoint = "$target_gen_dir/bidiTab/bidiTab.js"
   output_file = "$target_gen_dir/mapperTab.js"
-  deps = [ ":bidi_tab" ]
+  deps = [
+    ":bidi_mapper_checked",
+    ":bidi_tab_checked",
+    ":cdp_checked",
+    ":protocol_checked",
+    ":protocol_parser_checked",
+    ":utils_checked",
+  ]
 }
 
 ts_library("unit_tests") {
   testonly = true
-  es_target = "es2023"
-  es_libs = [
-    "dom",
-    "dom.iterable",
-    "es2023",
-  ]
+  runs_in = "node"
   sources = [
     "bidiMapper/modules/browser/BrowserProcessot.test.ts",
     "bidiMapper/modules/browser/ContextConfigStorage.test.ts",
@@ -191,6 +274,7 @@ ts_library("unit_tests") {
     "bidiMapper/modules/script/SharedId.test.ts",
     "bidiMapper/modules/session/SubscriptionManager.test.ts",
     "bidiMapper/modules/session/events.test.ts",
+    "bidiMapper/modules/storage/StorageProcessor.test.ts",
     "cdp/CdpClient.test.ts",
     "cdp/CdpConnection.test.ts",
     "protocol/ErrorResponse.test.ts",
@@ -210,7 +294,16 @@ ts_library("unit_tests") {
     "utils/urlHelpers.test.ts",
     "utils/uuid.test.ts",
   ]
-  deps = [
+  additional_type_definitions = devtools_protocol_types_files
+  deps = devtools_protocol_types_deps + [
+           ":bidi_mapper_sources",
+           ":bidi_tab_sources",
+           ":cdp_sources",
+           ":protocol_parser_sources",
+           ":protocol_sources",
+           ":utils_sources",
+         ]
+  ts_deps = [
     ":bidi_mapper",
     ":bidi_tab",
     ":cdp",
@@ -220,16 +313,16 @@ ts_library("unit_tests") {
   ]
 }
 
-bidi_foundation_module("chromium_bidi") {
+ts_library("chromium_bidi") {
+  runs_in = "node"
   sources = [ "index.ts" ]
   deps = [
+    ":bidi_mapper_sources",
+    ":protocol_sources",
+  ]
+  ts_deps = [
     ":bidi_mapper",
     ":protocol",
-  ]
-  node_es_libs = [
-    "es2023",
-    "dom",
-    "dom.iterable",
   ]
 }
 

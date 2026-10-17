@@ -197,7 +197,6 @@ if (current_toolchain == default_toolchain) {
       "//base:flagged_apis_java",
       "//components/url_formatter/android:url_formatter_java",
       "//content/public/android:content_main_dex_java",
-      "//content/public/common:common_java",
       "//net/android:net_java",
       "//third_party/androidx:androidx_annotation_annotation_java",
       "//third_party/androidx:androidx_core_core_java",
@@ -220,7 +219,6 @@ if (current_toolchain == default_toolchain) {
       ":virtual_structure_java",
       "//base:base_java",
       "//build/android:build_java",
-      "//components/android_autofill/browser:features_java",
       "//content/public/android:content_java",
       "//third_party/androidx:androidx_annotation_annotation_java",
       "//ui/accessibility:ax_base_java",
@@ -391,6 +389,7 @@ if (current_toolchain == default_toolchain) {
     sources = [
       "junit/src/org/chromium/components/embedder_support/contextmenu/ContextMenuParamsUnitTest.java",
       "junit/src/org/chromium/components/embedder_support/contextmenu/ContextMenuUtilsUnitTest.java",
+      "junit/src/org/chromium/components/embedder_support/util/ExtensionUrlUtilUnitTest.java",
       "junit/src/org/chromium/components/embedder_support/util/OriginTest.java",
       "junit/src/org/chromium/components/embedder_support/view/ContentViewTest.java",
     ]
@@ -421,7 +420,6 @@ if (current_toolchain == default_toolchain) {
 
     sources = [
       "javatests/src/org/chromium/components/embedder_support/delegate/ColorPickerDialogRenderTest.java",
-      "javatests/src/org/chromium/components/embedder_support/util/ExtensionUrlUtilTest.java",
       "javatests/src/org/chromium/components/embedder_support/util/UrlUtilitiesUnitTest.java",
     ]
     deps = [
@@ -456,7 +454,6 @@ if (current_toolchain == default_toolchain) {
       "//chrome/test/android:chrome_java_test_support_common",
       "//chrome/test/android:chrome_java_transit",
       "//components/android_autofill/browser/test_support:java",
-      "//content/public/test/android:content_java_test_support",
       "//net/android:net_java_test_support",
       "//third_party/androidx:androidx_test_runner_java",
       "//third_party/junit",

@@ -4,13 +4,16 @@
 
 #include "chrome/browser/ui/ai_overlay_dialog/ai_overlay_dialog_controller_views.h"
 
+#include "base/command_line.h"
+#include "base/task/single_thread_task_runner.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
 #include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/common/webui_url_constants.h"
 #include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/web_contents.h"
@@ -25,7 +28,14 @@ namespace ttc {
 
 AiOverlayDialogControllerViews::AiOverlayDialogControllerViews(
     BrowserWindowInterface* browser)
-    : AiOverlayDialogController(browser) {}
+    : AiOverlayDialogController(browser) {
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kAiOverlayDialogTestMode)) {
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(&AiOverlayDialogControllerViews::ShowOverlay,
+                                  weak_factory_.GetWeakPtr()));
+  }
+}
 
 AiOverlayDialogControllerViews::~AiOverlayDialogControllerViews() = default;
 
@@ -77,8 +87,13 @@ void AiOverlayDialogControllerViews::ShowOverlay() {
 
   // Update the action state to ensure the toolbar button prevents overflow when
   // the dialog is active.
-  if (auto* pinned_actions =
-          browser()->GetFeatures().pinned_toolbar_actions()) {
+  // AiOverlayDialogPageHandlerTest drives this with a
+  // MockBrowserWindowInterface whose GetWindow() is unstubbed, so there is no
+  // window to ask.
+  BrowserWindow* const browser_window = BrowserWindow::FromBrowser(browser());
+  if (auto* pinned_actions = browser_window
+                                 ? browser_window->GetPinnedToolbarActions()
+                                 : nullptr) {
     pinned_actions->UpdateActionState(kActionShowAiOverlayDialog,
                                       /*is_active=*/true);
   }
@@ -103,8 +118,13 @@ void AiOverlayDialogControllerViews::HideOverlay() {
 
   // Update the action state to ensure the toolbar button prevents overflow when
   // the dialog is active.
-  if (auto* pinned_actions =
-          browser()->GetFeatures().pinned_toolbar_actions()) {
+  // AiOverlayDialogPageHandlerTest drives this with a
+  // MockBrowserWindowInterface whose GetWindow() is unstubbed, so there is no
+  // window to ask.
+  BrowserWindow* const browser_window = BrowserWindow::FromBrowser(browser());
+  if (auto* pinned_actions = browser_window
+                                 ? browser_window->GetPinnedToolbarActions()
+                                 : nullptr) {
     pinned_actions->UpdateActionState(kActionShowAiOverlayDialog,
                                       /*is_active=*/false);
   }

@@ -60,7 +60,7 @@ source_set("speech") {
 
     public_deps += [
       "//chrome/browser/ash/accessibility",
-      "//chromeos/ash/experiences/extensions/api",
+      "//chromeos/ash/experiences/extensions/common/api",
       "//chromeos/services/tts/public/mojom",
     ]
   }
@@ -80,6 +80,7 @@ source_set("speech") {
 
   if (is_chromeos && enable_extensions) {
     public += [
+      "extension_api/tts_audio_output_stream_factory.h",
       "extension_api/tts_engine_extension_api_chromeos.h",
       "extension_api/tts_engine_extension_observer_chromeos.h",
       "extension_api/tts_engine_extension_observer_chromeos_factory.h",
@@ -156,7 +157,7 @@ source_set("impl") {
     deps += [
       "//chrome/services/speech:lib",
       "//chromeos/ash/experiences/arc/session",
-      "//chromeos/ash/experiences/extensions/api",
+      "//chromeos/ash/experiences/extensions/common/api",
       "//components/keyed_service/content",
       "//components/keyed_service/core",
       "//components/language/core/common",
@@ -182,6 +183,7 @@ source_set("impl") {
 
   if (is_chromeos && enable_extensions) {
     sources += [
+      "extension_api/tts_audio_output_stream_factory.cc",
       "extension_api/tts_engine_extension_api_chromeos.cc",
       "extension_api/tts_engine_extension_observer_chromeos.cc",
       "extension_api/tts_engine_extension_observer_chromeos_factory.cc",
@@ -249,6 +251,7 @@ if (!is_android) {
       "//base",
       "//chrome/browser/accessibility/live_caption",
       "//chrome/test:test_support",
+      "//chrome/test/base:testing_browser_process",
       "//components/live_caption:constants",
       "//components/soda:test_support",
       "//content/test:test_support",
@@ -271,6 +274,10 @@ if (!is_android) {
         "tts_chromeos_unittest.cc",
         "tts_controller_delegate_chromeos_impl_unittest.cc",
       ]
+      if (enable_extensions) {
+        sources +=
+            [ "extension_api/tts_audio_output_stream_factory_unittest.cc" ]
+      }
       deps += [
         ":test_support",
         "//chrome/browser:browser_process",
@@ -278,6 +285,7 @@ if (!is_android) {
         "//chrome/services/speech:lib",
         "//components/soda",
         "//components/soda:test_support",
+        "//services/audio/public/cpp:test_support",
         "//third_party/blink/public/mojom:mojom_platform",
       ]
     }
@@ -297,6 +305,7 @@ if (!is_android) {
       "//base",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/ui",
+      "//chrome/browser/ui:browser_commands",
       "//chrome/browser/ui/browser_window",
       "//chrome/test:test_support",
       "//content/test:test_support",
@@ -364,6 +373,11 @@ if (!is_android) {
       ]
       if (enable_extensions_core) {
         deps += [ "//chromeos/services/tts" ]
+      }
+      if (enable_extensions) {
+        sources += [
+          "extension_api/tts_engine_extension_observer_chromeos_browsertest.cc",
+        ]
       }
     }
 

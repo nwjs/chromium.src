@@ -66,6 +66,7 @@
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
 #include "chrome/browser/ui/views/frame/app_menu_button.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/frame/contents_web_view.h"
 #include "chrome/browser/ui/views/frame/immersive_mode_controller_chromeos.h"
 #include "chrome/browser/ui/views/frame/immersive_mode_tester.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
@@ -75,7 +76,7 @@
 #include "chrome/browser/ui/views/location_bar/zoom_bubble_coordinator.h"
 #include "chrome/browser/ui/views/location_bar/zoom_bubble_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_view.h"
-#include "chrome/browser/ui/views/page_action/test_support/page_action_test_support.h"
+#include "chrome/browser/ui/views/page_action/test_support/page_action_test_accessor.h"
 #include "chrome/browser/ui/views/page_info/page_info_bubble_view_base.h"
 #include "chrome/browser/ui/views/profiles/profile_indicator_icon.h"
 #include "chrome/browser/ui/views/tab_search_bubble_host.h"
@@ -109,6 +110,7 @@
 #include "chromeos/ui/frame/multitask_menu/float_controller_base.h"
 #include "components/account_id/account_id.h"
 #include "components/account_id/account_id_literal.h"
+#include "components/affiliations/core/browser/match_type.h"
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/keep_alive_registry/scoped_keep_alive.h"
@@ -151,6 +153,7 @@
 #include "ui/native_theme/mock_os_settings_provider.h"
 #include "ui/native_theme/native_theme.h"
 #include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/focus/focus_manager.h"
 #include "ui/views/interaction/element_tracker_views.h"
 #include "ui/views/test/views_test_utils.h"
@@ -161,7 +164,6 @@
 
 using BrowserFrameViewChromeOSTest =
     TopChromeMdParamTest<ChromeOSBrowserUITest>;
-
 
 class BrowserFrameViewChromeOSTestApi {
  public:
@@ -341,7 +343,6 @@ IN_PROC_BROWSER_TEST_P(BrowserFrameViewChromeOSTest,
 
 using BrowserFrameViewChromeOSTouchTest =
     TopChromeTouchTest<ChromeOSBrowserUITest>;
-
 
 // Test that the frame view does not do any painting in non-immersive
 // fullscreen.
@@ -582,9 +583,7 @@ class WebAppFrameViewChromeOSTest
   }
 
   IconLabelBubbleView* GetPageActionView(actions::ActionId action_id) {
-    auto* provider = browser_view_->toolbar_button_provider();
-    return page_actions::GetIconLabelBubbleViewForTesting(
-        provider->GetPageActionViewInterface(action_id), action_id);
+    return page_actions::PageActionTestAccessor(app_browser_, action_id).view();
   }
 
   ContentSettingImageView* GrantGeolocationPermission() {
@@ -651,11 +650,11 @@ IN_PROC_BROWSER_TEST_P(WebAppFrameViewChromeOSTest, PageInfoBubblePosition) {
 
 IN_PROC_BROWSER_TEST_P(WebAppFrameViewChromeOSTest, FocusableViews) {
   SetUpWebApp();
-  EXPECT_TRUE(browser_view_->contents_web_view()->HasFocus());
+  EXPECT_TRUE(browser_view_->GetContentsView()->HasFocus());
   browser_view_->GetFocusManager()->AdvanceFocus(false);
   EXPECT_TRUE(web_app_menu_button_->HasFocus());
   browser_view_->GetFocusManager()->AdvanceFocus(false);
-  EXPECT_TRUE(browser_view_->contents_web_view()->HasFocus());
+  EXPECT_TRUE(browser_view_->GetContentsView()->HasFocus());
 }
 
 IN_PROC_BROWSER_TEST_P(WebAppFrameViewChromeOSTest,
@@ -712,7 +711,7 @@ IN_PROC_BROWSER_TEST_P(WebAppFrameViewChromeOSTest, ShowManagePasswordsIcon) {
   password_manager::StoredCredential credential;
   credential.username_value = u"test";
   credential.url = GetAppURL().DeprecatedGetOriginAsURL();
-  credential.match_type = password_manager::PasswordForm::MatchType::kExact;
+  credential.match_type = affiliations::MatchType::kExact;
   std::vector<password_manager::StoredCredential> credentials;
   credentials.push_back(std::move(credential));
   PasswordsClientUIDelegateFromWebContents(web_contents)
@@ -781,7 +780,7 @@ IN_PROC_BROWSER_TEST_P(WebAppFrameViewChromeOSTest, MAYBE_ShowTranslateIcon) {
 IN_PROC_BROWSER_TEST_P(WebAppFrameViewChromeOSTest,
                        BrowserCommandFocusToolbarAppMenu) {
   SetUpWebApp();
-  EXPECT_TRUE(browser_view_->contents_web_view()->HasFocus());
+  EXPECT_TRUE(browser_view_->GetContentsView()->HasFocus());
 
   EXPECT_FALSE(web_app_menu_button_->HasFocus());
   chrome::ExecuteCommand(app_browser_, IDC_FOCUS_TOOLBAR);
@@ -800,7 +799,7 @@ IN_PROC_BROWSER_TEST_P(WebAppFrameViewChromeOSTest,
   // visible and nonzero size).
   RunScheduledLayouts();
 
-  EXPECT_TRUE(browser_view_->contents_web_view()->HasFocus());
+  EXPECT_TRUE(browser_view_->GetContentsView()->HasFocus());
   EXPECT_FALSE(web_app_menu_button_->HasFocus());
   EXPECT_FALSE(geolocation_icon->HasFocus());
 
@@ -823,7 +822,7 @@ IN_PROC_BROWSER_TEST_P(WebAppFrameViewChromeOSTest, BrowserCommandShowAppMenu) {
 IN_PROC_BROWSER_TEST_P(WebAppFrameViewChromeOSTest,
                        BrowserCommandFocusNextPane) {
   SetUpWebApp();
-  EXPECT_TRUE(browser_view_->contents_web_view()->HasFocus());
+  EXPECT_TRUE(browser_view_->GetContentsView()->HasFocus());
   EXPECT_FALSE(web_app_menu_button_->HasFocus());
   chrome::ExecuteCommand(app_browser_, IDC_FOCUS_NEXT_PANE);
   EXPECT_TRUE(web_app_menu_button_->HasFocus());
@@ -840,7 +839,7 @@ IN_PROC_BROWSER_TEST_P(WebAppFrameViewChromeOSTest, IconNotShownButTitleShown) {
 // Tests that the custom tab bar is focusable from the keyboard.
 IN_PROC_BROWSER_TEST_P(WebAppFrameViewChromeOSTest, CustomTabBarIsFocusable) {
   SetUpWebApp();
-  EXPECT_TRUE(browser_view_->contents_web_view()->HasFocus());
+  EXPECT_TRUE(browser_view_->GetContentsView()->HasFocus());
 
   auto* browser_view = BrowserView::GetBrowserViewForBrowser(app_browser_);
 
@@ -863,7 +862,7 @@ IN_PROC_BROWSER_TEST_P(WebAppFrameViewChromeOSTest, CustomTabBarIsFocusable) {
 IN_PROC_BROWSER_TEST_P(WebAppFrameViewChromeOSTest,
                        BrowserCommandFocusPreviousPane) {
   SetUpWebApp();
-  EXPECT_TRUE(browser_view_->contents_web_view()->HasFocus());
+  EXPECT_TRUE(browser_view_->GetContentsView()->HasFocus());
   EXPECT_FALSE(web_app_menu_button_->HasFocus());
   chrome::ExecuteCommand(app_browser_, IDC_FOCUS_PREVIOUS_PANE);
   EXPECT_TRUE(web_app_menu_button_->HasFocus());
@@ -1829,7 +1828,6 @@ class BrowserFrameViewAshAvatarTest : public BrowserFrameViewChromeOSTest {
   }
 
  private:
-
   ash::DeviceStateMixin device_state_{
       &mixin_host_,
       ash::DeviceStateMixin::State::OOBE_COMPLETED_PERMANENTLY_UNOWNED};
@@ -2218,8 +2216,8 @@ IN_PROC_BROWSER_TEST_P(BrowserFrameViewAshThemeChangeTest, ThemeChange) {
   ASSERT_TRUE(web_contents);
   BrowserWindowInterface* browser =
       GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(web_contents);
-  auto* contents_web_view =
-      BrowserView::GetBrowserViewForBrowser(browser)->contents_web_view();
+  auto* contents_web_view = BrowserView::GetBrowserViewForBrowser(browser)
+                                ->contents_web_view_for_testing();
 
   // Verify background color is immediately resolved from the app controller
   // despite the fact that the web contents background color hasn't loaded

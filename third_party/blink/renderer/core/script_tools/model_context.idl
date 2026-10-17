@@ -75,5 +75,7 @@ dictionary ModelContextGetToolOptions {
       optional ExecuteToolOptions options = {}
   );
   attribute EventHandler ontoolchange;
+  attribute EventHandler ontoolactivated;
+  attribute EventHandler ontoolcancel;
 };
 

@@ -6,6 +6,8 @@ found in the LICENSE file.
 
 <!--
 
+        You DON'T need an OWNER review to submit changes to this file.
+
 This file describes the enumerations referenced by entries in histograms.xml for
 this directory. Some enums may instead be listed in the central enums.xml file
 at src/tools/metrics/histograms/enums.xml when multiple files use them.
@@ -124,12 +126,12 @@ Called by update_bad_message_reasons.py.-->
   <int value="4" label="RFH_DISPLAY_CAPTURE_PERMISSION_MISSING"/>
   <int value="5" label="MSFD_MULTIPLE_CLOSURES_OF_FOCUSABILITY_WINDOW"/>
   <int value="6" label="MSFD_MULTIPLE_EXPLICIT_CALLS_TO_FOCUS"/>
-  <int value="7" label="PVM_SCRIPTED_PRINT_FENCED_FRAME"/>
-  <int value="8" label="PVMB_SCRIPTED_PRINT_FENCED_FRAME"/>
+  <int value="7" label="OBSOLETE_PVM_SCRIPTED_PRINT_FENCED_FRAME"/>
+  <int value="8" label="OBSOLETE_PVMB_SCRIPTED_PRINT_FENCED_FRAME"/>
   <int value="9" label="SSI_CREATE_FENCED_FRAME"/>
   <int value="10" label="CCU_SUPERFLUOUS_BIND"/>
   <int value="11" label="RFH_INVALID_WEB_FRAME_URL"/>
-  <int value="12" label="PVM_PRINT_FENCED_FRAME"/>
+  <int value="12" label="OBSOLETE_PVM_PRINT_FENCED_FRAME"/>
   <int value="13" label="SAGPC_INVALID_PERMISSION_REQUEST_CONTEXT"/>
   <int value="14" label="TLSAPC_INVALID_PERMISSION_REQUEST_CONTEXT"/>
   <int value="15" label="CCBC_GOOGLE_CHROME_SCHEME"/>
@@ -549,10 +551,8 @@ Called by update_bad_message_reasons.py.-->
   <int value="369" label="BIBI_BIND_VIBRATION_MANAGER_FOR_FENCED_FRAME"/>
   <int value="370" label="RFH_BEGIN_NAVIGATION_NO_INITIATOR_TOKENS"/>
   <int value="371" label="RFHI_INVALID_CLIENT_SIDE_REDIRECT_URL"/>
-  <int value="372"
-      label="OBSOLETE_RFH_BLOB_URL_STORE_ASSOCIATED_PDF_PROCESS_BLOCKED"/>
-  <int value="373"
-      label="OBSOLETE_RFH_BLOB_URL_STORE_RECEIVER_PDF_PROCESS_BLOCKED"/>
+  <int value="372" label="RFH_BLOB_URL_STORE_ASSOCIATED_PDF_PROCESS_BLOCKED"/>
+  <int value="373" label="RFH_BLOB_URL_STORE_RECEIVER_PDF_PROCESS_BLOCKED"/>
   <int value="374" label="RFH_DOWNLOAD_URL_INVALID_REFERRER"/>
   <int value="375" label="HSI_PLAY_HAPTICS_INVALID_INTENSITY"/>
   <int value="376" label="HSI_PLAY_HAPTICS_IN_FENCED_FRAME"/>
@@ -585,6 +585,12 @@ Called by update_bad_message_reasons.py.-->
   <int value="400" label="RFPH_UPDATE_VIEWPORT_INTERSECTION_WITHOUT_CPFC"/>
   <int value="401"
       label="RFH_DEDICATED_WORKER_HOST_FACTORY_PDF_PROCESS_BLOCKED"/>
+  <int value="402"
+      label="BIBI_BIND_PICTURE_IN_PICTURE_SERVICE_FOR_FENCED_FRAME"/>
+  <int value="403"
+      label="BIBI_BIND_PICTURE_IN_PICTURE_SERVICE_BLOCKED_BY_PERMISSIONS_POLICY"/>
+  <int value="404" label="RFH_DETACH_WHILE_BFCACHED"/>
+  <int value="405" label="RFH_DOWNLOAD_URL_BLOB_WITHOUT_TOKEN"/>
 </enum>
 
 <enum name="BadMessageReasonExtensions">
@@ -638,6 +644,7 @@ Called by update_bad_message_reasons.py.-->
   <int value="42" label="WER_INVALID_EXTENSION_ID"/>
   <int value="43" label="AER_INVALID_PROCESS_FOR_AUTOMATION_BINDING"/>
   <int value="44" label="MS_EMPTY_ANDROID_CERTIFICATES_FOR_PACKED_EXTENSION"/>
+  <int value="45" label="EMF_INVALID_CHANNEL_TYPE"/>
 </enum>
 
 <enum name="BadMessageReasonGuestView">

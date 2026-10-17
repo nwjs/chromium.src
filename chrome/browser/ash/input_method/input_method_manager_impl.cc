@@ -7,9 +7,11 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <array>
 #include <memory>
 #include <set>
 #include <sstream>
+#include <string_view>
 #include <utility>
 
 #include "ash/constants/ash_features.h"
@@ -62,12 +64,16 @@ namespace input_method {
 
 namespace {
 
-const char* const kNonPositionalLayouts[] = {
-    "de(neo)",    "gb(dvorak)", "tr(f)",       "us(colemak)",
-    "us(dvorak)", "us(dvp)",    "us(workman)", "us(workman-intl)",
-};
-
-const size_t kNonPositionalLayoutsLength = std::size(kNonPositionalLayouts);
+constexpr auto kNonPositionalLayouts = std::to_array<std::string_view>({
+    "de(neo)",
+    "gb(dvorak)",
+    "tr(f)",
+    "us(colemak)",
+    "us(dvorak)",
+    "us(dvp)",
+    "us(workman)",
+    "us(workman-intl)",
+});
 
 enum InputMethodCategory {
   INPUT_METHOD_CATEGORY_UNKNOWN = 0,
@@ -208,7 +214,7 @@ InputMethodDescriptors InputMethodManagerImpl::StateImpl::
   UErrorCode error_code = U_ZERO_ERROR;
   std::unique_ptr<icu::Collator> collator(
       icu::Collator::createInstance(error_code));  // use current ICU locale
-  DCHECK(U_SUCCESS(error_code));
+  CHECK(U_SUCCESS(error_code), base::NotFatalUntil::M160);
   const InputMethodUtil& util = manager_->util_;
 
   std::sort(
@@ -416,7 +422,7 @@ bool InputMethodManagerImpl::StateImpl::EnableInputMethodImpl(
     return false;
   }
 
-  DCHECK(new_enabled_input_method_ids);
+  CHECK(new_enabled_input_method_ids, base::NotFatalUntil::M160);
   if (!manager_->util_.IsValidInputMethodId(input_method_id)) {
     DVLOG(1) << "EnableInputMethod: Invalid ID: " << input_method_id;
     return false;
@@ -495,7 +501,7 @@ bool InputMethodManagerImpl::StateImpl::SetAllowedInputMethods(
       // Kiosk users are not able to go to the settings and manually enable
       // allowed input methods, thus it has to be done automatically for
       // non-empty list.
-      DCHECK(user_manager::UserManager::Get());
+      CHECK(user_manager::UserManager::Get(), base::NotFatalUntil::M160);
       if (user_manager::UserManager::Get()->IsLoggedInAsAnyKioskApp()) {
         EnableInputMethod(migrated_id);
       }
@@ -617,7 +623,7 @@ void InputMethodManagerImpl::StateImpl::AddInputMethodExtension(
     return;
   }
 
-  DCHECK(engine);
+  CHECK(engine, base::NotFatalUntil::M160);
 
   manager_->engine_map_[profile_][extension_id] = engine;
   VLOG(1) << "Add an engine for \"" << extension_id << "\"";
@@ -769,7 +775,7 @@ void InputMethodManagerImpl::StateImpl::SetInputMethodLoginDefaultFromVPD(
       // The output list |input_method_ids| is sorted by popularity, hence
       // input_method_ids[0] now contains the most popular keyboard layout
       // for the given locale.
-      DCHECK_GE(input_method_ids.size(), 1U);
+      CHECK_GE(input_method_ids.size(), 1U, base::NotFatalUntil::M160);
       input_method_id = input_method_ids[0];
     }
   }
@@ -962,7 +968,7 @@ InputMethodManagerImpl::StateImpl::LookupInputMethod(
   // Sanity check
   if (!InputMethodIsEnabled(input_method_id)) {
     InputMethodDescriptors input_methods(GetEnabledInputMethods());
-    DCHECK(!input_methods.empty());
+    CHECK(!input_methods.empty(), base::NotFatalUntil::M160);
     input_method_id_to_switch = input_methods.at(0).id();
     if (!input_method_id.empty()) {
       DVLOG(1) << "Can't change the current input method to " << input_method_id
@@ -974,8 +980,9 @@ InputMethodManagerImpl::StateImpl::LookupInputMethod(
   const InputMethodDescriptor* descriptor = nullptr;
   if (extension_ime_util::IsExtensionIME(input_method_id_to_switch) ||
       extension_ime_util::IsArcIME(input_method_id_to_switch)) {
-    DCHECK(available_input_methods_.find(input_method_id_to_switch) !=
-           available_input_methods_.end());
+    CHECK(available_input_methods_.find(input_method_id_to_switch) !=
+              available_input_methods_.end(),
+          base::NotFatalUntil::M160);
     descriptor = &(available_input_methods_[input_method_id_to_switch]);
   } else {
     descriptor = manager_->util_.GetInputMethodDescriptorFromId(
@@ -984,7 +991,7 @@ InputMethodManagerImpl::StateImpl::LookupInputMethod(
       LOG(ERROR) << "Unknown input method id: " << input_method_id_to_switch;
     }
   }
-  DCHECK(descriptor);
+  CHECK(descriptor, base::NotFatalUntil::M160);
   return descriptor;
 }
 
@@ -1018,7 +1025,7 @@ bool InputMethodManagerImpl::GetMigratedInputMethodIDs(
 // Starts or stops the system input method framework as needed.
 void InputMethodManagerImpl::ReconfigureIMFramework(
     InputMethodManagerImpl::StateImpl* state) {
-  DCHECK(state);
+  CHECK(state, base::NotFatalUntil::M160);
   state->LoadNecessaryComponentExtensions();
 
   // Initialize candidate window controller and widgets such as
@@ -1032,6 +1039,8 @@ void InputMethodManagerImpl::ReconfigureIMFramework(
 
 void InputMethodManagerImpl::SetState(
     scoped_refptr<InputMethodManager::State> state) {
+  // TODO(crbug.com/568716634): CHECK-exclusion: Convert to a CHECK once we
+  // are confident it won't be triggered.
   DCHECK(state.get());
   auto* new_impl_state =
       static_cast<InputMethodManagerImpl::StateImpl*>(state.get());
@@ -1076,9 +1085,9 @@ InputMethodManagerImpl::InputMethodManagerImpl(
       features_enabled_state_(InputMethodManager::FEATURE_ALL) {
   if (::features::IsImprovedKeyboardShortcutsEnabled()) {
     // Create a set of layouts that do not use positional shortcuts.
-    non_positional_layouts_.reserve(kNonPositionalLayoutsLength);
-    for (size_t i = 0; i < kNonPositionalLayoutsLength; i++) {
-      non_positional_layouts_.emplace(UNSAFE_TODO(kNonPositionalLayouts[i]));
+    non_positional_layouts_.reserve(kNonPositionalLayouts.size());
+    for (std::string_view layout : kNonPositionalLayouts) {
+      non_positional_layouts_.emplace(layout);
     }
   }
 
@@ -1235,7 +1244,7 @@ void InputMethodManagerImpl::NotifyInputMethodChanged(bool show_message,
 
 void InputMethodManagerImpl::ActivateInputMethodMenuItem(
     const std::string& key) {
-  DCHECK(!key.empty());
+  CHECK(!key.empty(), base::NotFatalUntil::M160);
 
   if (ui::ime::InputMethodMenuManager::GetInstance()
           ->HasInputMethodMenuItemForKey(key)) {
@@ -1251,7 +1260,7 @@ void InputMethodManagerImpl::ActivateInputMethodMenuItem(
 
 void InputMethodManagerImpl::ConnectInputEngineManager(
     mojo::PendingReceiver<ime::mojom::InputEngineManager> receiver) {
-  DCHECK(state_);
+  CHECK(state_, base::NotFatalUntil::M160);
   ImeServiceConnectorMap::iterator iter =
       ime_service_connectors_.find(state_->GetProfile());
   if (iter == ime_service_connectors_.end()) {
@@ -1267,7 +1276,7 @@ void InputMethodManagerImpl::ConnectInputEngineManager(
 
 void InputMethodManagerImpl::BindInputMethodUserDataService(
     mojo::PendingReceiver<ime::mojom::InputMethodUserDataService> receiver) {
-  DCHECK(state_);
+  CHECK(state_, base::NotFatalUntil::M160);
   ImeServiceConnectorMap::iterator iter =
       ime_service_connectors_.find(state_->GetProfile());
   if (iter == ime_service_connectors_.end()) {

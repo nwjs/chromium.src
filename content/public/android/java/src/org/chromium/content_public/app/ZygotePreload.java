@@ -15,16 +15,19 @@ import androidx.annotation.RequiresApi;
 import org.chromium.base.Log;
 import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.base.process_launcher.ChildProcessService;
-import org.chromium.base.version_info.VersionConstants;
 import org.chromium.build.BuildConfig;
 import org.chromium.build.annotations.NullMarked;
 
 /**
- * Class used in android:zygotePreloadName attribute of manifest.
- * Code in this class runs in the zygote. It runs in a limited environment
- * (eg no application) and cannot communicate with any other app process,
- * so care must be taken when writing code in this class. Eg it should not
- * create any thread.
+ * Class used in android:zygotePreloadName attribute of manifest. Code in this class runs in the App
+ * Zygote. It runs in a limited environment (e.g. no Application context) and cannot communicate
+ * with any other app process, so care must be taken when writing code in this class:
+ *
+ * <ul>
+ *   <li>It must not create any threads.
+ *   <li>It must not retain writable file descriptors or mutable shared memory across forking (see
+ *       //docs/security/android-sandbox.md#zygote).
+ * </ul>
  */
 @RequiresApi(Build.VERSION_CODES.Q)
 @NullMarked
@@ -44,9 +47,8 @@ public class ZygotePreload implements android.app.ZygotePreload {
     protected final void doPreloadCommon(ApplicationInfo appInfo) {
         Log.i(
                 TAG,
-                "version=%s (%s) minSdkVersion=%s isBundle=%s",
-                VersionConstants.PRODUCT_VERSION,
-                BuildConfig.VERSION_CODE,
+                "versionCode=%s minSdkVersion=%s isBundle=%s",
+                BuildConfig.ORIGINAL_VERSION_CODE,
                 BuildConfig.MIN_SDK_VERSION,
                 appInfo.splitNames != null && appInfo.splitNames.length > 0);
         try {

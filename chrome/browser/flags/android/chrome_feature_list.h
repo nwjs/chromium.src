@@ -39,10 +39,13 @@ BASE_DECLARE_FEATURE(kAndroidAnimatedProgressBarInViz);
 BASE_DECLARE_FEATURE(kAndroidAppIntegrationMultiDataSource);
 BASE_DECLARE_FEATURE(kAndroidAppRatingPrompt);
 BASE_DECLARE_FEATURE(kAndroidAtomsLogging);
+BASE_DECLARE_FEATURE(kAndroidAutoProjected);
 BASE_DECLARE_FEATURE(kAndroidAutofillPrefObserver);
+BASE_DECLARE_FEATURE(kAndroidBeforeUnloadSupport);
 BASE_DECLARE_FEATURE(kAndroidBottomBar);
 BASE_DECLARE_FEATURE(kAndroidBottomBarAim);
 BASE_DECLARE_FEATURE(kAndroidBricksNativePage);
+BASE_DECLARE_FEATURE(kAndroidCloseAllTabsRetainsPinnedTabs);
 BASE_DECLARE_FEATURE(kAndroidContextMenuDisabledMenuItems);
 BASE_DECLARE_FEATURE(kAndroidDesktopBookmarkDialog);
 BASE_DECLARE_FEATURE(kAndroidDesktopBookmarkLayout);
@@ -54,13 +57,13 @@ BASE_DECLARE_FEATURE(kAndroidFirstRunLaunchBounds);
 BASE_DECLARE_FEATURE(kAndroidFreLayoutUpdate);
 BASE_DECLARE_FEATURE(kAndroidHistoryClustering);
 BASE_DECLARE_FEATURE(kAndroidKeyboardShortcutOpenFile);
+BASE_DECLARE_FEATURE(kAndroidNewManagementNotice);
 BASE_DECLARE_FEATURE(kAndroidNoVisibleHintForDifferentTLD);
 BASE_DECLARE_FEATURE(kAndroidOmniboxFocusedNewTabPage);
 BASE_DECLARE_FEATURE(kAndroidOpenIncognitoAsWindowRestrictions);
 BASE_DECLARE_FEATURE(kAndroidPageInfoAsAppMenuItem);
 BASE_DECLARE_FEATURE(kAndroidProgressBarVisualUpdate);
 BASE_DECLARE_FEATURE(kAndroidSaveCardNonBlockingDialog);
-BASE_DECLARE_FEATURE(kAndroidSettingsContainment);
 BASE_DECLARE_FEATURE(kAndroidSettingsUrl);
 BASE_DECLARE_FEATURE(kAndroidSetupList);
 BASE_DECLARE_FEATURE(kAndroidStartupImprovements);
@@ -68,6 +71,7 @@ BASE_DECLARE_FEATURE(kAndroidSurfaceColorUpdate);
 BASE_DECLARE_FEATURE(kAndroidTabDeclutterArchiveOnDesktop);
 BASE_DECLARE_FEATURE(kAndroidTabDeclutterDedupeTabIdsKillSwitch);
 BASE_DECLARE_FEATURE(kAndroidTabSkipSaveTabsKillswitch);
+BASE_DECLARE_FEATURE(kAndroidTabUiRefactor);
 BASE_DECLARE_FEATURE(kAndroidTabstripStartupCaptureBugFix);
 BASE_DECLARE_FEATURE(kAndroidThemeModule);
 BASE_DECLARE_FEATURE(kAndroidThemeResourceProvider);
@@ -98,7 +102,6 @@ BASE_DECLARE_FEATURE(kAuxiliarySearchHistoryDonation);
 BASE_DECLARE_FEATURE(kAvoidDoubleMultiwindowChanges);
 BASE_DECLARE_FEATURE(kAvoidRecreateOnTouchscreenOrColorModeChange);
 BASE_DECLARE_FEATURE(kBackGestureReflectsDesktopBehavior);
-BASE_DECLARE_FEATURE(kBackgroundThreadPool);
 BASE_DECLARE_FEATURE(kBlockIntentsWhileLocked);
 BASE_DECLARE_FEATURE(kBookmarkPaneAndroid);
 BASE_DECLARE_FEATURE(kBookmarksBarContextMenu);
@@ -111,14 +114,13 @@ BASE_DECLARE_FEATURE(kBrowserControlsEarlyResize);
 BASE_DECLARE_FEATURE(kBrowserControlsHidingToken);
 BASE_DECLARE_FEATURE(kBrowserControlsPersistsOnCvh);
 BASE_DECLARE_FEATURE(kBrowserControlsRenderDrivenShowConstraint);
-BASE_DECLARE_FEATURE(kCCTAdaptiveButton);
-BASE_DECLARE_FEATURE(kCCTAdaptiveButtonTestSwitch);
 BASE_DECLARE_FEATURE(kCCTAlwaysOpenInBrowser);
 BASE_DECLARE_FEATURE(kCCTBlockTouchesDuringEnterAnimation);
 BASE_DECLARE_FEATURE(kCCTClientDataHeader);
 BASE_DECLARE_FEATURE(kCCTContextualMenuItems);
 BASE_DECLARE_FEATURE(kCCTDestroyTabWhenModelIsEmpty);
 BASE_DECLARE_FEATURE(kCCTDontOverrideIntentMimeType);
+BASE_DECLARE_FEATURE(kCCTEarlyInitPowerManager);
 BASE_DECLARE_FEATURE(kCCTExtendTrustedCdnPublisher);
 BASE_DECLARE_FEATURE(kCCTFreInSameTask);
 BASE_DECLARE_FEATURE(kCCTGoogleBottomBar);
@@ -137,6 +139,7 @@ BASE_DECLARE_FEATURE(kCCTRealtimeEngagementEventsInBackground);
 BASE_DECLARE_FEATURE(kCCTReportParallelRequestStatus);
 BASE_DECLARE_FEATURE(kCCTReportPrerenderEvents);
 BASE_DECLARE_FEATURE(kCCTResetTimeoutAllowed);
+BASE_DECLARE_FEATURE(kCCTResetTimeoutSkipConfigurationChanges);
 BASE_DECLARE_FEATURE(kCCTResizableForThirdParties);
 BASE_DECLARE_FEATURE(kCCTRetainingStateInMemory);
 BASE_DECLARE_FEATURE(kCCTTabModalDialog);
@@ -153,6 +156,8 @@ BASE_DECLARE_FEATURE(kChromeSharingHubLaunchAdjacent);
 BASE_DECLARE_FEATURE(kChromeSurveyNextAndroid);
 BASE_DECLARE_FEATURE(kClampAutomotiveScaling);
 BASE_DECLARE_FEATURE(kClankGlicContextMenu);
+BASE_DECLARE_FEATURE(kClankMiniOmnibox);
+BASE_DECLARE_FEATURE(kClankOmniboxSameOriginMinimization);
 BASE_DECLARE_FEATURE(kClankStartupLatencyInjection);
 BASE_DECLARE_FEATURE(kClankWhatsNew);
 BASE_DECLARE_FEATURE(kClearIntentWhenRecreated);
@@ -186,6 +191,7 @@ BASE_DECLARE_FEATURE(kDisableScrollbarOfFadingEdgeScrollView);
 BASE_DECLARE_FEATURE(kDiscardPageWithCrashedSubframePolicy);
 BASE_DECLARE_FEATURE(kDontAutoHideBrowserControls);
 BASE_DECLARE_FEATURE(kDontPrefetchLibraries);
+BASE_DECLARE_FEATURE(kDownloadToolbarButtonForDesktop);
 BASE_DECLARE_FEATURE(kEdgeToEdgeAutomotive);
 BASE_DECLARE_FEATURE(kEdgeToEdgeBottomChin);
 BASE_DECLARE_FEATURE(kEdgeToEdgeEverywhere);
@@ -197,6 +203,7 @@ BASE_DECLARE_FEATURE(kEdgelessTopInset);
 BASE_DECLARE_FEATURE(kEnableAndroidSidePanel);
 BASE_DECLARE_FEATURE(kEnableAndroidSidePanelDevFeature);
 BASE_DECLARE_FEATURE(kEnableAndroidSidePanelLogs);
+BASE_DECLARE_FEATURE(kEnableAndroidSidePanelManualResizing);
 BASE_DECLARE_FEATURE(kEnableBrowserWindowInterfaceForCustomTabActivity);
 BASE_DECLARE_FEATURE(kEnableEscapeHandlingForSecondaryActivities);
 BASE_DECLARE_FEATURE(kEnableSwipeToSwitchPane);
@@ -250,6 +257,7 @@ BASE_DECLARE_FEATURE(kNtpAurora);
 BASE_DECLARE_FEATURE(kNtpAuroraV2);
 BASE_DECLARE_FEATURE(kNtpMvcRefactor);
 BASE_DECLARE_FEATURE(kNtpVision);
+BASE_DECLARE_FEATURE(kOctoberTestUXR);
 BASE_DECLARE_FEATURE(kOmahaMinSdkVersionAndroid);
 BASE_DECLARE_FEATURE(kOnDemandBackgroundTabContextCapture);
 BASE_DECLARE_FEATURE(kOnDemandBackgroundTabContextCaptureOptimization);
@@ -282,13 +290,12 @@ BASE_DECLARE_FEATURE(kRecordSuppressionMetrics);
 BASE_DECLARE_FEATURE(kReengagementNotification);
 BASE_DECLARE_FEATURE(kRelatedSearchesAllLanguage);
 BASE_DECLARE_FEATURE(kRelatedSearchesSwitch);
+BASE_DECLARE_FEATURE(kRemoveExtraHeadersOnCrossOriginRedirect);
 BASE_DECLARE_FEATURE(kRemoveTabFocusOnShowingAndSelect);
 BASE_DECLARE_FEATURE(kRobustWindowManagementExperimental);
 BASE_DECLARE_FEATURE(kSafetyFrePromo);
 BASE_DECLARE_FEATURE(kScheduleWindowCleaning);
 BASE_DECLARE_FEATURE(kSearchInCCT);
-BASE_DECLARE_FEATURE(kSearchInCCTAlternateTapHandling);
-BASE_DECLARE_FEATURE(kSearchInCCTAlternateTapHandlingIfEnabledByEmbedder);
 BASE_DECLARE_FEATURE(kSearchInCCTIfEnabledByEmbedder);
 BASE_DECLARE_FEATURE(kSessionRestoreAfterCrash);
 BASE_DECLARE_FEATURE(kSettingsInTab);
@@ -450,6 +457,40 @@ inline constexpr base::FeatureParam<int>
         &kOnDemandBackgroundTabContextCaptureOptimization,
         "overall_timeout_seconds",
         /*default_value=*/35);
+
+// Whether early completion and page context extraction on first visually
+// non-empty paint is enabled.
+inline constexpr base::FeatureParam<bool>
+    kOnDemandBackgroundTabContextCaptureEnableFirstPaint(
+        &kOnDemandBackgroundTabContextCaptureOptimization,
+        "enable_first_paint",
+        /*default_value=*/false);
+
+// Whether TabContextCaptureRequest skips load completion and post-load paint
+// delays for the active/foreground tab, triggering capture immediately.
+inline constexpr base::FeatureParam<bool>
+    kOnDemandBackgroundTabContextCaptureSkipDelayForActiveTab(
+        &kOnDemandBackgroundTabContextCaptureOptimization,
+        "skip_delay_for_active_tab",
+        /*default_value=*/false);
+
+// The overall flush timeout in seconds for TabContextualizationController to
+// flush pending page context callbacks for the active/foreground tab,
+// preventing long stalls when initial visual paint is delayed.
+inline constexpr base::FeatureParam<int>
+    kOnDemandBackgroundTabContextCaptureActiveTabFlushTimeoutSeconds(
+        &kOnDemandBackgroundTabContextCaptureOptimization,
+        "active_tab_flush_timeout_seconds",
+        /*default_value=*/1);
+
+// Whether background (non-activated) tabs may extract page context as soon as
+// DOMContentLoaded fires, instead of waiting for full onload plus the 5s paint
+// grace.
+inline constexpr base::FeatureParam<bool>
+    kOnDemandBackgroundTabContextCaptureBackgroundTabUseDomContentLoaded(
+        &kOnDemandBackgroundTabContextCaptureOptimization,
+        "background_tab_use_dom_content_loaded",
+        /*default_value=*/false);
 
 inline constexpr base::FeatureParam<int> kProtectRecentlyVisibleTabDuration(
     &kProtectRecentlyVisibleTab,

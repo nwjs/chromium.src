@@ -7,25 +7,55 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
+#include "base/base64.h"
 #include "base/check.h"
+#include "base/strings/string_number_conversions.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/devtools/protocol/protocol.h"
 #include "chrome/browser/devtools/protocol/storage.h"
-#include "chrome/browser/first_party_sets/first_party_sets_policy_service.h"
-#include "chrome/browser/first_party_sets/first_party_sets_policy_service_factory.h"
+#include "chrome/browser/private_verification_tokens/private_verification_tokens_service.h"
+#include "chrome/browser/private_verification_tokens/private_verification_tokens_service_factory.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "components/private_verification_tokens/common/private_verification_tokens_database.h"
 #include "content/public/browser/btm_service.h"
 #include "content/public/browser/web_contents.h"
-#include "net/first_party_sets/first_party_set_entry.h"
+#include "url/gurl.h"
+#include "url/origin.h"
+
+namespace {
+
+PrivateVerificationTokensService* GetPrivateVerificationTokensService(
+    content::WebContents* web_contents) {
+  if (!web_contents) {
+    return nullptr;
+  }
+  Profile* profile =
+      Profile::FromBrowserContext(web_contents->GetBrowserContext());
+  if (!profile) {
+    return nullptr;
+  }
+  return PrivateVerificationTokensServiceFactory::GetForProfile(profile);
+}
+
+}  // namespace
 
 StorageHandler::StorageHandler(content::WebContents* web_contents,
                                protocol::UberDispatcher* dispatcher)
     : web_contents_(web_contents->GetWeakPtr()) {
+  frontend_ =
+      std::make_unique<protocol::Storage::Frontend>(dispatcher->channel());
   protocol::Storage::Dispatcher::wire(dispatcher, this);
 }
 
 StorageHandler::~StorageHandler() = default;
+
+protocol::Response StorageHandler::Disable() {
+  pvt_observation_.Reset();
+  return protocol::Response::FallThrough();
+}
 
 // TODO: crbug.com/380896828 - move CDP support for BTM to //content.
 void StorageHandler::RunBounceTrackingMitigations(
@@ -44,72 +74,6 @@ void StorageHandler::RunBounceTrackingMitigations(
       base::BindOnce(&StorageHandler::GotDeletedSites, std::move(callback)));
 }
 
-void StorageHandler::GetRelatedWebsiteSets(
-    std::unique_ptr<GetRelatedWebsiteSetsCallback> callback) {
-  first_party_sets::FirstPartySetsPolicyService* rws_service =
-      web_contents_
-          ? first_party_sets::FirstPartySetsPolicyServiceFactory::
-                GetForBrowserContext(web_contents_->GetBrowserContext())
-          : nullptr;
-
-  if (!rws_service) {
-    callback->sendFailure(
-        protocol::Response::ServerError("No RelatedWebsiteSets Service"));
-    return;
-  }
-
-  auto protocol_list =
-      std::make_unique<protocol::Array<protocol::Storage::RelatedWebsiteSet>>();
-
-  std::map<std::string, std::map<net::SiteType, std::set<std::string>>> sets;
-  bool success = rws_service->ForEachEffectiveSetEntry(
-      [&](const net::SchemefulSite& site,
-          const net::FirstPartySetEntry& entry) {
-        sets[entry.primary().Serialize()][entry.site_type()].insert(
-            site.Serialize());
-        return true;
-      });
-  if (!success) {
-    callback->sendFailure(
-        protocol::Response::ServerError("Failed fetching RelatedWebsiteSets"));
-    return;
-  }
-
-  protocol_list->reserve(sets.size());
-  for (auto& [unused_primary, set] : sets) {
-    auto primary_sites = std::make_unique<protocol::Array<protocol::String>>();
-    auto associated_sites =
-        std::make_unique<protocol::Array<protocol::String>>();
-    auto service_sites = std::make_unique<protocol::Array<protocol::String>>();
-    for (auto& [site_type, sites] : set) {
-      switch (site_type) {
-        case net::SiteType::kPrimary:
-          for (auto& site : sites) {
-            primary_sites->push_back(std::move(site));
-          }
-          break;
-        case net::SiteType::kAssociated:
-          for (auto& site : sites) {
-            associated_sites->push_back(std::move(site));
-          }
-          break;
-        case net::SiteType::kService:
-          for (auto& site : sites) {
-            service_sites->push_back(std::move(site));
-          }
-          break;
-      }
-    }
-    protocol_list->push_back(
-        protocol::Storage::RelatedWebsiteSet::Create()
-            .SetPrimarySites(std::move(primary_sites))
-            .SetAssociatedSites(std::move(associated_sites))
-            .SetServiceSites(std::move(service_sites))
-            .Build());
-  }
-  callback->sendSuccess(std::move(protocol_list));
-}
-
 /* static */
 void StorageHandler::GotDeletedSites(
     std::unique_ptr<RunBounceTrackingMitigationsCallback> callback,
@@ -117,4 +81,153 @@ void StorageHandler::GotDeletedSites(
   auto deleted_sites =
       std::make_unique<protocol::Array<protocol::String>>(sites);
   callback->sendSuccess(std::move(deleted_sites));
+}
+
+void StorageHandler::GetPrivateVerificationTokens(
+    std::unique_ptr<GetPrivateVerificationTokensCallback> callback) {
+  PrivateVerificationTokensService* pvt_service =
+      GetPrivateVerificationTokensService(web_contents_.get());
+  if (!pvt_service) {
+    callback->sendFailure(protocol::Response::ServerError(
+        "Private Verification Tokens service is not available"));
+    return;
+  }
+
+  pvt_service->GetAllTokens(base::BindOnce(
+      [](std::unique_ptr<GetPrivateVerificationTokensCallback> callback,
+         std::vector<private_verification_tokens::TokenWithId> tokens) {
+        auto result = std::make_unique<
+            protocol::Array<protocol::Storage::PrivateVerificationToken>>();
+        for (const auto& item : tokens) {
+          result->push_back(
+              protocol::Storage::PrivateVerificationToken::Create()
+                  .SetId(base::NumberToString(item.id))
+                  .SetIssuerOrigin(item.token.issuer().Serialize())
+                  .SetKeyId(static_cast<int>(item.token.key_id()))
+                  .SetExpiration(
+                      item.token.expiration().InSecondsFSinceUnixEpoch())
+                  .SetCreationTime(
+                      item.token.creation_time().InSecondsFSinceUnixEpoch())
+                  .SetVersion(static_cast<int>(item.token.version()))
+                  .SetToken(base::Base64Encode(item.token.token()))
+                  .Build());
+        }
+        callback->sendSuccess(std::move(result));
+      },
+      std::move(callback)));
+}
+
+protocol::Response StorageHandler::GetPrivateVerificationTokensIssuerConfigs(
+    std::unique_ptr<protocol::Array<
+        protocol::Storage::PrivateVerificationTokensIssuerConfig>>*
+        out_configs) {
+  PrivateVerificationTokensService* pvt_service =
+      GetPrivateVerificationTokensService(web_contents_.get());
+  if (!pvt_service) {
+    return protocol::Response::ServerError(
+        "Private Verification Tokens service is not available");
+  }
+
+  auto configs = std::make_unique<protocol::Array<
+      protocol::Storage::PrivateVerificationTokensIssuerConfig>>();
+  scoped_refptr<
+      const private_verification_tokens::PrivateVerificationTokensIssuerConfig>
+      issuer_config = pvt_service->issuer_config();
+  if (issuer_config) {
+    for (const auto& [issuer_origin, config] : issuer_config->config()) {
+      auto redeemer_origins =
+          std::make_unique<protocol::Array<protocol::String>>();
+      for (const url::Origin& redeemer : config.redeemers) {
+        redeemer_origins->push_back(redeemer.Serialize());
+      }
+      configs->push_back(
+          protocol::Storage::PrivateVerificationTokensIssuerConfig::Create()
+              .SetIssuerOrigin(issuer_origin.Serialize())
+              .SetRedeemerOrigins(std::move(redeemer_origins))
+              .Build());
+    }
+  }
+
+  *out_configs = std::move(configs);
+  return protocol::Response::Success();
+}
+
+void StorageHandler::ClearPrivateVerificationTokens(
+    const std::string& in_issuerOrigin,
+    std::unique_ptr<ClearPrivateVerificationTokensCallback> callback) {
+  PrivateVerificationTokensService* pvt_service =
+      GetPrivateVerificationTokensService(web_contents_.get());
+  if (!pvt_service) {
+    callback->sendFailure(protocol::Response::ServerError(
+        "Private Verification Tokens service is not available"));
+    return;
+  }
+
+  url::Origin issuer_origin = url::Origin::Create(GURL(in_issuerOrigin));
+  if (issuer_origin.opaque()) {
+    callback->sendFailure(
+        protocol::Response::InvalidParams("Invalid issuer origin"));
+    return;
+  }
+
+  pvt_service->DeleteTokens(
+      base::Time::Min(), base::Time::Max(),
+      base::BindOnce(&ClearPrivateVerificationTokensCallback::sendSuccess,
+                     std::move(callback)),
+      std::vector<url::Origin>{issuer_origin});
+}
+
+void StorageHandler::DeletePrivateVerificationToken(
+    const std::string& in_tokenId,
+    std::unique_ptr<DeletePrivateVerificationTokenCallback> callback) {
+  PrivateVerificationTokensService* pvt_service =
+      GetPrivateVerificationTokensService(web_contents_.get());
+  if (!pvt_service) {
+    callback->sendFailure(protocol::Response::ServerError(
+        "Private Verification Tokens service is not available"));
+    return;
+  }
+
+  int64_t token_id = 0;
+  if (!base::StringToInt64(in_tokenId, &token_id)) {
+    callback->sendFailure(
+        protocol::Response::InvalidParams("Invalid token ID"));
+    return;
+  }
+
+  pvt_service->DeleteToken(
+      token_id,
+      base::BindOnce(&DeletePrivateVerificationTokenCallback::sendSuccess,
+                     std::move(callback)));
+}
+
+protocol::Response StorageHandler::SetPrivateVerificationTokensTracking(
+    bool enable) {
+  PrivateVerificationTokensService* pvt_service =
+      GetPrivateVerificationTokensService(web_contents_.get());
+  if (!pvt_service) {
+    return protocol::Response::ServerError(
+        "Private Verification Tokens service is not available");
+  }
+
+  if (enable) {
+    if (!pvt_observation_.IsObserving()) {
+      pvt_observation_.Observe(pvt_service);
+    }
+  } else {
+    pvt_observation_.Reset();
+  }
+  return protocol::Response::Success();
+}
+
+void StorageHandler::OnTokensStored() {
+  frontend_->PrivateVerificationTokensUpdated();
+}
+
+void StorageHandler::OnTokensDeleted() {
+  frontend_->PrivateVerificationTokensUpdated();
+}
+
+void StorageHandler::OnShutdown() {
+  pvt_observation_.Reset();
 }

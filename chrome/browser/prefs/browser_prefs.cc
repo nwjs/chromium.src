@@ -31,7 +31,7 @@
 #include "chrome/browser/contextual_cueing/prefs.h"
 #include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/engagement/important_sites_util.h"
-#include "chrome/browser/enterprise/reporting/prefs.h"
+#include "components/enterprise/browser/reporting/prefs.h"
 #include "chrome/browser/enterprise/util/managed_browser_utils.h"
 #include "chrome/browser/external_protocol/external_protocol_handler.h"
 #include "chrome/browser/first_run/first_run.h"
@@ -121,6 +121,7 @@
 #include "components/contextual_search/contextual_search_service.h"
 #include "components/contextual_tasks/public/prefs.h"
 #include "components/custom_handlers/protocol_handler_registry.h"
+#include "components/device_signals/core/browser/pref_names.h"  // nogncheck due to crbug.com/40147906
 #include "components/dom_distiller/core/distilled_page_prefs.h"
 #include "components/domain_reliability/domain_reliability_prefs.h"
 #include "components/embedder_support/origin_trials/origin_trial_prefs.h"
@@ -232,10 +233,9 @@
 #include "ui/webui/buildflags.h"
 
 #if BUILDFLAG(ENABLE_WEBUI_NTP)
-#include "chrome/browser/new_tab_page/modules/file_suggestion/drive_service.h"
-#include "chrome/browser/new_tab_page/modules/v2/calendar/google_calendar_page_handler.h"
 #include "chrome/browser/new_tab_page/modules/v2/most_relevant_tab_resumption/most_relevant_tab_resumption_page_handler.h"
 #include "chrome/browser/ui/webui/cr_components/most_visited/most_visited_pref_observer.h"
+#include "chrome/browser/ui/webui/cr_components/theme_color_picker/theme_color_picker_handler.h"
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page_handler.h"
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page_ui.h"
 #if !BUILDFLAG(IS_ANDROID)
@@ -311,9 +311,7 @@
 #include "chrome/browser/media/router/media_router_feature.h"
 #include "chrome/browser/nearby_sharing/common/nearby_share_prefs.h"
 #include "chrome/browser/new_tab_page/modules/file_suggestion/microsoft_files_page_handler.h"
-#include "chrome/browser/new_tab_page/modules/v2/authentication/microsoft_auth_page_handler.h"
 #include "chrome/browser/new_tab_page/modules/v2/calendar/outlook_calendar_page_handler.h"
-#include "chrome/browser/new_tab_page/modules/v2/tab_groups/tab_groups_page_handler.h"
 #include "chrome/browser/screen_ai/pref_names.h"
 #include "chrome/browser/search_engine_choice/search_engine_choice_dialog_service.h"
 #include "chrome/browser/signin/signin_promo.h"
@@ -330,7 +328,6 @@
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_pref_names.h"
 #include "chrome/browser/ui/tabs/tab_strip_prefs.h"
 #include "chrome/browser/ui/webui/certificate_manager/certificate_manager_handler.h"
-#include "chrome/browser/ui/webui/cr_components/theme_color_picker/theme_color_picker_handler.h"
 #include "chrome/browser/ui/webui/history/foreign_session_handler.h"
 #include "chrome/browser/ui/webui/settings/settings_ui.h"
 #include "chrome/browser/ui/webui/tab_search/tab_search_prefs.h"
@@ -359,7 +356,6 @@
 #include "ash/constants/ash_pref_names.h"
 #include "ash/public/cpp/ash_prefs.h"
 #include "base/check_deref.h"
-#include "chrome/browser/apps/app_discovery_service/almanac_fetcher.h"
 #include "chrome/browser/apps/app_preload_service/app_preload_service.h"
 #include "chrome/browser/apps/app_service/metrics/app_platform_metrics_service.h"
 #include "chrome/browser/ash/account_manager/account_apps_availability.h"
@@ -374,7 +370,6 @@
 #include "chrome/browser/ash/arc/policy/arc_policy_bridge.h"
 #include "chrome/browser/ash/arc/session/arc_session_manager.h"
 #include "chrome/browser/ash/bluetooth/debug_logs_manager.h"
-#include "chrome/browser/ash/bluetooth/hats_bluetooth_revamp_trigger_impl.h"
 #include "chrome/browser/ash/borealis/borealis_prefs.h"
 #include "chrome/browser/ash/bruschetta/bruschetta_pref_names.h"
 #include "chrome/browser/ash/cert_provisioning/cert_provisioning_common.h"
@@ -536,11 +531,6 @@
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/enterprise/platform_auth/platform_auth_policy_observer.h"
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_ANDROID)
-
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS)
-#include "components/device_signals/core/browser/pref_names.h"  // nogncheck due to crbug.com/40147906
-#endif
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 #include "chrome/browser/browser_switcher/browser_switcher_prefs.h"
@@ -1010,6 +1000,31 @@ inline constexpr char kPluginVmEngagementTimeDayId[] =
 // Deprecated 09/2026.
 constexpr char kNSSCertsMigratedToServerCertDb[] =
     "certificates.nss_certs_migrated_to_server_cert_db";
+inline constexpr char kHatsLauncherAppsSurveyCycleEndTs[] =
+    "hats_launcher_apps_cycle_end_timestamp";
+inline constexpr char kHatsLauncherAppsSurveyIsSelected[] =
+    "hats_launcher_apps_is_selected";
+inline constexpr char kHatsEntSurveyCycleEndTs[] =
+    "hats_ent_cycle_end_timestamp";
+inline constexpr char kHatsEntDeviceIsSelected[] =
+    "hats_ent_device_is_selected";
+inline constexpr char kHatsOnboardingSurveyCycleEndTs[] =
+    "hats_onboarding_cycle_end_timestamp";
+inline constexpr char kHatsOnboardingDeviceIsSelected[] =
+    "hats_onboarding_device_is_selected";
+// TODO(b:558334457): Remove deprecated pref after 09/2027.
+constexpr char kLastLauncherAppAlmanacCallTimestamp[] =
+    "app_discovery_service.last_launcher_app_almanac_call_timestamp";
+inline constexpr char kActivityTimeAfterOnboarding[] =
+    "oobe.activity_time_after_onboarding";
+inline constexpr char kHatsAudioOutputProcSurveyCycleEndTs[] =
+    "hats_audio_output_proc_cycle_end_timestamp";
+inline constexpr char kHatsAudioOutputProcDeviceIsSelected[] =
+    "hats_audio_output_proc_device_is_selected";
+inline constexpr char kHatsArcGamesSurveyCycleEndTs[] =
+    "hats_arc_games_cycle_end_timestamp";
+inline constexpr char kHatsArcGamesDeviceIsSelected[] =
+    "hats_arc_games_device_is_selected";
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 // Deprecated 09/2026.
@@ -1017,6 +1032,52 @@ inline constexpr char kInvalidationPerSenderRegisteredForInvalidation[] =
     "invalidation.per_sender_registered_for_invalidation";
 inline constexpr char kInvalidationPerSenderActiveRegistrationTokens[] =
     "invalidation.per_sender_active_registration_tokens";
+inline constexpr char kBookmarkEditorExpandedNodes[] =
+    "bookmark_editor.expanded_nodes";
+
+#if BUILDFLAG(IS_CHROMEOS)
+// Deprecated 09/2026.
+inline constexpr char kHatsBorealisGamesSurveyCycleEndTs[] =
+    "hats_borealis_games_end_timestamp";
+inline constexpr char kHatsBorealisGamesSurveyIsSelected[] =
+    "hats_borealis_games_is_selected";
+inline constexpr char kHatsBorealisGamesLastInteractionTimestamp[] =
+    "hats_borealis_games_last_interaction_timestamp";
+inline constexpr char kUserPairedWithFastPair[] =
+    "ash.user.paired_with_fast_pair";
+inline constexpr char kNearbyPresenceFirstTimeRegistrationComplete[] =
+    "nearby_presence.registration_complete";
+inline constexpr char kNearbyPresenceDeviceIdPrefName[] =
+    "nearby_presence.local_device_id";
+inline constexpr char kNearbyPresenceUserNamePrefName[] =
+    "nearby_presence.user_name";
+inline constexpr char kNearbyPresenceProfileUrlPrefName[] =
+    "nearby_presence.profile_url";
+inline constexpr char kNearbyPresenceSharedCredentialIdListPrefName[] =
+    "nearby_presence.shared_credential_id_list";
+inline constexpr char kNearbyPresenceSchedulingFirstTimeRegistrationPrefName[] =
+    "nearby_presence.scheduling.first_time_registration";
+inline constexpr char kNearbyPresenceSchedulingUploadPrefName[] =
+    "nearby_presence.scheduling.upload";
+inline constexpr char kNearbyPresenceSchedulingDownloadPrefName[] =
+    "nearby_presence.scheduling.download";
+inline constexpr char kNearbyPresenceSchedulingCredentialDailySyncPrefName[] =
+    "nearby_presence.scheduling.daily_sync";
+#endif  // BUILDFLAG(IS_CHROMEOS)
+
+// Deprecated 09/2026.
+#if BUILDFLAG(ENABLE_WEBUI_NTP)
+constexpr char kNtpDriveLastDismissedTime[] =
+    "NewTabPage.Drive.LastDimissedTime";
+constexpr char kNtpGoogleCalendarLastDismissedTime[] =
+    "NewTabPage.GoogleCalendar.LastDimissedTime";
+#endif  // BUILDFLAG(ENABLE_WEBUI_NTP)
+#if !BUILDFLAG(IS_ANDROID)
+constexpr char kNtpMicrosoftAuthLastDismissedTime[] =
+    "NewTabPage.MicrosoftAuthentication.LastDimissedTime";
+constexpr char kNtpTabGroupsLastDismissedTime[] =
+    "NewTabPage.TabGroups.LastDimissedTime";
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 // Register local state used only for migration (clearing or moving to a new
 // key).
@@ -1392,6 +1453,20 @@ void RegisterProfilePrefsForMigration(
 #if BUILDFLAG(IS_CHROMEOS)
   // Deprecated 09/2026.
   registry->RegisterIntegerPref(kNSSCertsMigratedToServerCertDb, 0);
+  registry->RegisterInt64Pref(kHatsLauncherAppsSurveyCycleEndTs, 0);
+  registry->RegisterBooleanPref(kHatsLauncherAppsSurveyIsSelected, false);
+  registry->RegisterInt64Pref(kHatsEntSurveyCycleEndTs, 0);
+  registry->RegisterBooleanPref(kHatsEntDeviceIsSelected, false);
+  registry->RegisterInt64Pref(kHatsOnboardingSurveyCycleEndTs, 0);
+  registry->RegisterBooleanPref(kHatsOnboardingDeviceIsSelected, false);
+  registry->RegisterTimePref(kLastLauncherAppAlmanacCallTimestamp,
+                             base::Time());
+  registry->RegisterTimeDeltaPref(kActivityTimeAfterOnboarding,
+                                  base::TimeDelta());
+  registry->RegisterInt64Pref(kHatsAudioOutputProcSurveyCycleEndTs, 0);
+  registry->RegisterBooleanPref(kHatsAudioOutputProcDeviceIsSelected, false);
+  registry->RegisterInt64Pref(kHatsArcGamesSurveyCycleEndTs, 0);
+  registry->RegisterBooleanPref(kHatsArcGamesDeviceIsSelected, false);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
   // Deprecated 09/2026.
@@ -1399,6 +1474,39 @@ void RegisterProfilePrefsForMigration(
       kInvalidationPerSenderRegisteredForInvalidation);
   registry->RegisterDictionaryPref(
       kInvalidationPerSenderActiveRegistrationTokens);
+  registry->RegisterListPref(kBookmarkEditorExpandedNodes);
+
+#if BUILDFLAG(IS_CHROMEOS)
+  // Deprecated 09/2026.
+  registry->RegisterInt64Pref(kHatsBorealisGamesSurveyCycleEndTs, 0);
+  registry->RegisterBooleanPref(kHatsBorealisGamesSurveyIsSelected, false);
+  registry->RegisterTimePref(kHatsBorealisGamesLastInteractionTimestamp,
+                             base::Time());
+  registry->RegisterBooleanPref(kUserPairedWithFastPair, false);
+  registry->RegisterBooleanPref(kNearbyPresenceFirstTimeRegistrationComplete,
+                                false);
+  registry->RegisterStringPref(kNearbyPresenceDeviceIdPrefName, std::string());
+  registry->RegisterStringPref(kNearbyPresenceUserNamePrefName, std::string());
+  registry->RegisterStringPref(kNearbyPresenceProfileUrlPrefName,
+                               std::string());
+  registry->RegisterListPref(kNearbyPresenceSharedCredentialIdListPrefName);
+  registry->RegisterDictionaryPref(
+      kNearbyPresenceSchedulingFirstTimeRegistrationPrefName);
+  registry->RegisterDictionaryPref(kNearbyPresenceSchedulingUploadPrefName);
+  registry->RegisterDictionaryPref(kNearbyPresenceSchedulingDownloadPrefName);
+  registry->RegisterDictionaryPref(
+      kNearbyPresenceSchedulingCredentialDailySyncPrefName);
+#endif  // BUILDFLAG(IS_CHROMEOS)
+
+  // Deprecated 09/2026.
+#if BUILDFLAG(ENABLE_WEBUI_NTP)
+  registry->RegisterTimePref(kNtpDriveLastDismissedTime, base::Time());
+  registry->RegisterTimePref(kNtpGoogleCalendarLastDismissedTime, base::Time());
+#endif  // BUILDFLAG(ENABLE_WEBUI_NTP)
+#if !BUILDFLAG(IS_ANDROID)
+  registry->RegisterTimePref(kNtpMicrosoftAuthLastDismissedTime, base::Time());
+  registry->RegisterTimePref(kNtpTabGroupsLastDismissedTime, base::Time());
+#endif  // !BUILDFLAG(IS_ANDROID)
 }
 
 }  // namespace
@@ -1776,6 +1884,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry,
   registry->RegisterIntegerPref(prefs::kContextualTasksNextPanelOpenCount, 0);
   registry->RegisterBooleanPref(prefs::kCtrlTabMru, false);
   cross_device::RegisterProfilePrefs(registry);
+  device_signals::RegisterProfilePrefs(registry);
   enterprise::RegisterIdentifiersProfilePrefs(registry);
   enterprise_connectors::RegisterProfilePrefs(registry);
   enterprise_isolated_mode::RegisterProfilePrefs(registry);
@@ -1960,11 +2069,10 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry,
   NewTabFooterUI::RegisterProfilePrefs(registry);
 #endif  // !BUILDFLAG(IS_ANDROID)
   NewTabPageHandler::RegisterProfilePrefs(registry);
+  ThemeColorPickerHandler::RegisterProfilePrefs(registry);
   NewTabPageUI::RegisterProfilePrefs(registry);
   MostVisitedPrefObserver::RegisterProfilePrefs(registry);
   MostRelevantTabResumptionPageHandler::RegisterProfilePrefs(registry);
-  DriveService::RegisterProfilePrefs(registry);
-  GoogleCalendarPageHandler::RegisterProfilePrefs(registry);
 #else
   // Registered here because it is still accessed on Android (which doesn't use
   // WebUI NTP).
@@ -2004,7 +2112,6 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry,
   HatsServiceDesktop::RegisterProfilePrefs(registry);
   media_router::RegisterAccessCodeProfilePrefs(registry);
   media_router::RegisterProfilePrefs(registry);
-  MicrosoftAuthPageHandler::RegisterProfilePrefs(registry);
   MicrosoftFilesPageHandler::RegisterProfilePrefs(registry);
   OutlookCalendarPageHandler::RegisterProfilePrefs(registry);
   PinnedTabCodec::RegisterProfilePrefs(registry);
@@ -2013,11 +2120,8 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry,
   settings::SettingsUI::RegisterProfilePrefs(registry);
   signin::RegisterProfilePrefs(registry);
   StartupBrowserCreator::RegisterProfilePrefs(registry);
-  TabGroupsPageHandler::RegisterProfilePrefs(registry);
   tab_groups::saved_tab_groups::prefs::RegisterProfilePrefs(registry);
   tab_search_prefs::RegisterProfilePrefs(registry);
-  ThemeColorPickerHandler::RegisterProfilePrefs(registry);
-  ThemeService::RegisterProfilePrefs(registry);
   toolbar::RegisterProfilePrefs(registry);
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -2025,6 +2129,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry,
   lens::prefs::RegisterProfilePrefs(registry);
 #endif
 
+  ThemeService::RegisterProfilePrefs(registry);
   ManagementUI::RegisterProfilePrefs(registry);
 
 #if BUILDFLAG(ENABLE_DEVTOOLS_FRONTEND)
@@ -2046,6 +2151,8 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry,
   registry->RegisterBooleanPref(prefs::kDeskAPIDeskSaveAndShareEnabled, false);
   registry->RegisterListPref(prefs::kDeskAPIThirdPartyAllowlist);
   registry->RegisterBooleanPref(prefs::kInsightsExtensionEnabled, false);
+  registry->RegisterBooleanPref(
+      ash::prefs::kAdminInstalledChromeAppsForceAllowed, false);
   registry->RegisterBooleanPref(ash::prefs::kEssentialSearchEnabled, false);
   registry->RegisterBooleanPref(ash::prefs::kLastEssentialSearchValue, false);
   // By default showing Sync Consent is set to true. It can changed by policy.
@@ -2067,7 +2174,6 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry,
 #endif  // BUILDFLAG(USE_CUPS)
 
   app_list::AppListSyncableService::RegisterProfilePrefs(registry);
-  apps::AlmanacFetcher::RegisterProfilePrefs(registry);
   apps::AppPlatformMetricsService::RegisterProfilePrefs(registry);
   apps::AppPreloadService::RegisterProfilePrefs(registry);
   apps::webapk_prefs::RegisterProfilePrefs(registry);
@@ -2083,7 +2189,6 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry,
   ash::bluetooth::DebugLogsManager::RegisterPrefs(registry);
   ash::bluetooth_config::BluetoothPowerControllerImpl::RegisterProfilePrefs(
       registry);
-  ash::HatsBluetoothRevampTriggerImpl::RegisterProfilePrefs(registry);
   user_manager::UserManagerImpl::RegisterProfilePrefs(registry);
   ash::ClientAppMetadataProviderService::RegisterProfilePrefs(registry);
   ash::CupsPrintersManager::RegisterProfilePrefs(registry);
@@ -2156,7 +2261,6 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry,
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS)
-  device_signals::RegisterProfilePrefs(registry);
   ntp_tiles::EnterpriseShortcutsManagerImpl::RegisterProfilePrefs(registry);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS)
@@ -2729,11 +2833,58 @@ void MigrateObsoleteProfilePrefs(PrefService* profile_prefs,
 #if BUILDFLAG(IS_CHROMEOS)
   // Added 09/2026.
   profile_prefs->ClearPref(kNSSCertsMigratedToServerCertDb);
+  profile_prefs->ClearPref(kHatsLauncherAppsSurveyCycleEndTs);
+  profile_prefs->ClearPref(kHatsLauncherAppsSurveyIsSelected);
+  profile_prefs->ClearPref(kHatsEntSurveyCycleEndTs);
+  profile_prefs->ClearPref(kHatsEntDeviceIsSelected);
+  profile_prefs->ClearPref(kHatsOnboardingSurveyCycleEndTs);
+  profile_prefs->ClearPref(kHatsOnboardingDeviceIsSelected);
+  profile_prefs->ClearPref(kLastLauncherAppAlmanacCallTimestamp);
+  profile_prefs->ClearPref(kActivityTimeAfterOnboarding);
+  profile_prefs->ClearPref(kHatsAudioOutputProcSurveyCycleEndTs);
+  profile_prefs->ClearPref(kHatsAudioOutputProcDeviceIsSelected);
+  profile_prefs->ClearPref(kHatsArcGamesSurveyCycleEndTs);
+  profile_prefs->ClearPref(kHatsArcGamesDeviceIsSelected);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
   // Added 09/2026.
   profile_prefs->ClearPref(kInvalidationPerSenderRegisteredForInvalidation);
   profile_prefs->ClearPref(kInvalidationPerSenderActiveRegistrationTokens);
+  profile_prefs->ClearPref(kBookmarkEditorExpandedNodes);
+
+#if BUILDFLAG(IS_WIN)
+  // Added 09/2026.
+  CdmPrefServiceHelper::MigrateObsoleteProfilePrefs(profile_prefs);
+#endif  // BUILDFLAG(IS_WIN)
+
+#if BUILDFLAG(IS_CHROMEOS)
+  // Added 09/2026.
+  profile_prefs->ClearPref(kHatsBorealisGamesSurveyCycleEndTs);
+  profile_prefs->ClearPref(kHatsBorealisGamesSurveyIsSelected);
+  profile_prefs->ClearPref(kHatsBorealisGamesLastInteractionTimestamp);
+  profile_prefs->ClearPref(kUserPairedWithFastPair);
+  profile_prefs->ClearPref(kNearbyPresenceFirstTimeRegistrationComplete);
+  profile_prefs->ClearPref(kNearbyPresenceDeviceIdPrefName);
+  profile_prefs->ClearPref(kNearbyPresenceUserNamePrefName);
+  profile_prefs->ClearPref(kNearbyPresenceProfileUrlPrefName);
+  profile_prefs->ClearPref(kNearbyPresenceSharedCredentialIdListPrefName);
+  profile_prefs->ClearPref(
+      kNearbyPresenceSchedulingFirstTimeRegistrationPrefName);
+  profile_prefs->ClearPref(kNearbyPresenceSchedulingUploadPrefName);
+  profile_prefs->ClearPref(kNearbyPresenceSchedulingDownloadPrefName);
+  profile_prefs->ClearPref(
+      kNearbyPresenceSchedulingCredentialDailySyncPrefName);
+#endif  // BUILDFLAG(IS_CHROMEOS)
+
+  // Added 09/2026.
+#if BUILDFLAG(ENABLE_WEBUI_NTP)
+  profile_prefs->ClearPref(kNtpDriveLastDismissedTime);
+  profile_prefs->ClearPref(kNtpGoogleCalendarLastDismissedTime);
+#endif  // BUILDFLAG(ENABLE_WEBUI_NTP)
+#if !BUILDFLAG(IS_ANDROID)
+  profile_prefs->ClearPref(kNtpMicrosoftAuthLastDismissedTime);
+  profile_prefs->ClearPref(kNtpTabGroupsLastDismissedTime);
+#endif  // !BUILDFLAG(IS_ANDROID)
 
   // Please don't delete the following line. It is used by PRESUBMIT.py.
   // END_MIGRATE_OBSOLETE_PROFILE_PREFS

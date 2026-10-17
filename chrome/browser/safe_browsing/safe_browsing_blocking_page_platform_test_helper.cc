@@ -16,6 +16,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/run_loop.h"
 #include "base/strings/string_util.h"
 #include "build/build_config.h"
@@ -186,7 +187,7 @@ TestSafeBrowsingBlockingPageFactory::CreateSafeBrowsingPage(
   base::OnceCallback<void(bool, SBThreatType)>
       trust_safety_sentiment_service_trigger = base::NullCallback();
 #if BUILDFLAG(FULL_SAFE_BROWSING)
-  if (is_safe_browsing_surveys_enabled) {
+  if (is_safe_browsing_surveys_enabled && mock_sentiment_service_) {
     trust_safety_sentiment_service_trigger =
         base::BindOnce(&MockTrustSafetySentimentService::
                            InteractedWithSafeBrowsingInterstitial,
@@ -407,7 +408,8 @@ void SafeBrowsingBlockingPageRealTimeUrlCheckTest::CreatedBrowserMainParts(
   factory_.SetTestUIManager(
       new FakeSafeBrowsingUIManager(std::move(blocking_page_factory)));
   factory_.SetTestDatabaseManager(
-      new FakeSafeBrowsingDatabaseManager(content::GetUIThreadTaskRunner({})));
+      base::MakeRefCounted<FakeSafeBrowsingDatabaseManager>(
+          content::GetUIThreadTaskRunner({})));
   SafeBrowsingService::RegisterFactory(&factory_);
 }
 

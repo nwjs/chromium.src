@@ -182,7 +182,11 @@ bool RemoteActorCredentialSharingEnabled() {
 // Controls the enablement of structured metrics on Windows, Linux, and Mac.
 BASE_FEATURE(kChromeStructuredMetrics, base::FEATURE_ENABLED_BY_DEFAULT);
 
+#if BUILDFLAG(IS_MAC)
+// Defers Cocoa spellchecker initialization to a post-startup idle task on
+// macOS.
 BASE_FEATURE(kDeferSpellcheckInitialization, base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_MAC)
 
 // Moves the Extensions "puzzle piece" icon from the title bar into the app menu
 // for web app windows.
@@ -243,11 +247,6 @@ BASE_FEATURE(kForcedAppRelaunchOnPlaceholderUpdate,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-BASE_FEATURE(kGeic, base::FEATURE_DISABLED_BY_DEFAULT);
-
-const base::FeatureParam<std::string> kGeicGuestURL{&kGeic, "geic-guest-url",
-                                                    ""};
-
 // Controls whether the actor component of Glic is enabled.
 BASE_FEATURE(kGlicActor, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -270,6 +269,8 @@ BASE_FEATURE(kGlicExperimentalTriggeringOptInBypass,
 BASE_FEATURE(kGlicExperimentalTriggeringOpenWindowIfNone,
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kGlicExperimentalTriggeringOsNotification,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicExperimentalTriggeringScriptTools,
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kGlicBackgroundTriggering, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -298,7 +299,6 @@ const base::FeatureParam<std::string>
 
 // Controls whether the Actor UI components are enabled.
 BASE_FEATURE(kGlicActorUi, base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kGlicActorUiNewIcon, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kGlicConfirmTabClose, base::FEATURE_ENABLED_BY_DEFAULT);
 // Controls whether we ignore users preference of reduced motion enabled and
 // still show the tab indicator spinner. No-op if kGlicActorUiTabIndicator is
@@ -616,10 +616,6 @@ const base::FeatureParam<int> kGlicInitialWidth{&kGlic, "glic-initial-width",
                                                 352};
 const base::FeatureParam<int> kGlicInitialHeight{&kGlic, "glic-initial-height",
                                                  86};
-
-// Quality value in the range [0, 100]. For use with gfx::JPEGCodec::Encode().
-const base::FeatureParam<int> kGlicScreenshotEncodeQuality{
-    &kGlic, "glic-screenshot-encode-quality", 100};
 
 const base::FeatureParam<std::string> kGlicDefaultHotkey{
     &kGlic, "glic-default-hotkey", ""};
@@ -1322,7 +1318,15 @@ BASE_FEATURE(kIndigoMetadataKeywordHeuristic,
 const base::FeatureParam<base::TimeDelta>
     kIndigoMetadataKeywordHeuristicSameDocumentNavigationDelay{
         &kIndigoMetadataKeywordHeuristic,
-        "same_document_navigation_metadata_delay", base::Seconds(4)};
+        "same_document_navigation_metadata_delay", base::Milliseconds(800)};
+const base::FeatureParam<base::TimeDelta>
+    kIndigoMetadataKeywordHeuristicPostDclDelay{
+        &kIndigoMetadataKeywordHeuristic, "post_dcl_metadata_delay",
+        base::Milliseconds(1000)};
+const base::FeatureParam<base::TimeDelta>
+    kIndigoMetadataKeywordHeuristicMaxWaitTime{&kIndigoMetadataKeywordHeuristic,
+                                               "max_wait_time",
+                                               base::Milliseconds(2500)};
 
 // Experimental image replacement feature opens glic.
 BASE_FEATURE(kIndigoOpenGlic, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1408,6 +1412,12 @@ BASE_FEATURE_PARAM(bool,
                    &kLazyKeyedServiceInstantiation,
                    true);
 
+// When enabled, extension API keyed services (Batch 2) are instantiated lazily.
+BASE_FEATURE_PARAM(bool,
+                   kLazyKeyedServiceInstantiationExtensionsApi,
+                   &kLazyKeyedServiceInstantiation,
+                   true);
+
 // When enabled, commerce and browser UI keyed services are instantiated lazily.
 BASE_FEATURE_PARAM(bool,
                    kLazyKeyedServiceInstantiationCommerceAndUI,
@@ -1430,6 +1440,24 @@ BASE_FEATURE_PARAM(bool,
 // When enabled, Visited URL Ranking keyed services are instantiated lazily.
 BASE_FEATURE_PARAM(bool,
                    kLazyKeyedServiceInstantiationVisitedUrlRanking,
+                   &kLazyKeyedServiceInstantiation,
+                   true);
+
+// When enabled, Safety Hub keyed services are instantiated lazily.
+BASE_FEATURE_PARAM(bool,
+                   kLazyKeyedServiceInstantiationSafetyHub,
+                   &kLazyKeyedServiceInstantiation,
+                   true);
+
+// When enabled, Sharesheet keyed service is instantiated lazily.
+BASE_FEATURE_PARAM(bool,
+                   kLazyKeyedServiceInstantiationSharesheet,
+                   &kLazyKeyedServiceInstantiation,
+                   true);
+
+// When enabled, StorageNotificationService is instantiated lazily.
+BASE_FEATURE_PARAM(bool,
+                   kLazyKeyedServiceInstantiationStorageNotification,
                    &kLazyKeyedServiceInstantiation,
                    true);
 

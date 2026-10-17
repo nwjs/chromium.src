@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.tab_bottom_sheet;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentCaptor.captor;
 import static org.mockito.ArgumentMatchers.any;
@@ -155,7 +156,13 @@ public class TabBottomSheetCoordinatorUnitTest {
                 .when(containerViewSpy)
                 .post(any(Runnable.class));
         mWebViewResizingHelper =
-                new WebViewResizingHelper(containerViewSpy, mWindowAndroid, Color.WHITE);
+                new WebViewResizingHelper(
+                        containerViewSpy,
+                        mWindowAndroid,
+                        Color.WHITE,
+                        Color.LTGRAY,
+                        false,
+                        new TestCoBrowseComponentProvider());
         when(mMockWebUi.getWebViewResizingHelper()).thenReturn(mWebViewResizingHelper);
         View webUiView = new View(mContext);
         when(mMockWebUi.getWebUiView()).thenReturn(webUiView);
@@ -192,6 +199,10 @@ public class TabBottomSheetCoordinatorUnitTest {
 
         setupMockContentProvider();
 
+        createCoordinator();
+    }
+
+    private void createCoordinator() {
         mCoordinator =
                 new TabBottomSheetCoordinator(
                         mContext,
@@ -201,7 +212,6 @@ public class TabBottomSheetCoordinatorUnitTest {
                         mCoBrowseViews,
                         mMockSheetEventsCallback,
                         CallbackUtils.emptyRunnable());
-
         mCoordinatorModel = mCoordinator.getModelForTesting();
     }
 
@@ -286,6 +296,38 @@ public class TabBottomSheetCoordinatorUnitTest {
                 .hideContent(
                         any(TabBottomSheetContent.class), eq(false), eq(StateChangeReason.NONE));
         assertFalse(mCoordinator.isSheetCurrentlyManagedForTesting());
+    }
+
+    @Test
+    public void testDestroy_TearsDownPeekViewManagerThroughCoBrowseViews() {
+        PeekViewManager peekViewManager = mock(PeekViewManager.class);
+        when(peekViewManager.getModel())
+                .thenReturn(
+                        new PropertyModel.Builder(TabBottomSheetPeekProperties.ALL_KEYS).build());
+        doReturn(peekViewManager).when(mCoBrowseViews).getOrCreatePeekViewManager();
+        simulateShowSuccessAndGetObserver();
+
+        mCoordinator.destroy();
+
+        // The manager must be torn down through CoBrowseViews so that its cached reference is
+        // cleared as well; otherwise the next show would reuse a destroyed manager that no longer
+        // observes state changes. See b/559305257.
+        verify(mCoBrowseViews).destroyPeekViewManager();
+    }
+
+    @Test
+    public void testShowFailure_CleansUpPeekViewManagerThroughCoBrowseViews() {
+        PeekViewManager peekViewManager = mock(PeekViewManager.class);
+        when(peekViewManager.getModel())
+                .thenReturn(
+                        new PropertyModel.Builder(TabBottomSheetPeekProperties.ALL_KEYS).build());
+        doReturn(peekViewManager).when(mCoBrowseViews).getOrCreatePeekViewManager();
+        when(mMockBottomSheetController.requestShowContent(any(BottomSheetContent.class), eq(true)))
+                .thenReturn(false);
+
+        mCoordinator.tryToShowBottomSheet(/* animate= */ true, /* startsExpanded= */ true);
+
+        verify(mCoBrowseViews).destroyPeekViewManager();
     }
 
     @Test
@@ -724,6 +766,127 @@ public class TabBottomSheetCoordinatorUnitTest {
         View expandedContent = mView.findViewById(R.id.expanded_content_group);
 
         assertEquals(expectedLandscapeHeight, expandedContent.getLayoutParams().height);
+    }
+
+    @Test
+    @EnableFeatures({
+        ChromeFeatureList.TAB_BOTTOM_SHEET,
+        ChromeFeatureList.TAB_BOTTOM_SHEET_RESIZE_WEBVIEW
+    })
+    public void testOnSheetStateChanged_Scrolling_NotSmallScreen_ResizingStatusTrue() {
+        ResizingStrategy mockStrategy = mock(ResizingStrategy.class);
+        ResizingStrategyFactory.setForTesting(mockStrategy);
+        createCoordinator();
+        BottomSheetObserver observer = simulateShowSuccessAndGetObserver();
+
+        when(mMockBottomSheetController.isSmallScreen()).thenReturn(false);
+
+        observer.onSheetStateChanged(SheetState.SCROLLING, StateChangeReason.NONE);
+
+        verify(mockStrategy).onSheetResizingStatusChanged(true);
+    }
+
+    @Test
+    @EnableFeatures({
+        ChromeFeatureList.TAB_BOTTOM_SHEET,
+        ChromeFeatureList.TAB_BOTTOM_SHEET_RESIZE_WEBVIEW
+    })
+    public void testOnSheetStateChanged_Scrolling_SmallScreen_ResizingStatusFalse() {
+        ResizingStrategy mockStrategy = mock(ResizingStrategy.class);
+        ResizingStrategyFactory.setForTesting(mockStrategy);
+        createCoordinator();
+        BottomSheetObserver observer = simulateShowSuccessAndGetObserver();
+
+        when(mMockBottomSheetController.isSmallScreen()).thenReturn(true);
+
+        observer.onSheetStateChanged(SheetState.SCROLLING, StateChangeReason.NONE);
+
+        verify(mockStrategy).onSheetResizingStatusChanged(false);
+    }
+
+    @Test
+    @EnableFeatures({
+        ChromeFeatureList.TAB_BOTTOM_SHEET,
+        ChromeFeatureList.TAB_BOTTOM_SHEET_RESIZE_WEBVIEW
+    })
+    public void testOnSheetStateChanged_NotScrolling_ResizingStatusFalse() {
+        ResizingStrategy mockStrategy = mock(ResizingStrategy.class);
+        ResizingStrategyFactory.setForTesting(mockStrategy);
+        createCoordinator();
+        BottomSheetObserver observer = simulateShowSuccessAndGetObserver();
+
+        when(mMockBottomSheetController.isSmallScreen()).thenReturn(false);
+
+        // HALF state: not scrolling -> onSheetResizingStatusChanged(false)
+        observer.onSheetStateChanged(SheetState.HALF, StateChangeReason.NONE);
+        verify(mockStrategy).onSheetResizingStatusChanged(false);
+
+        clearInvocations(mockStrategy);
+
+        // FULL state: not scrolling -> onSheetResizingStatusChanged(false)
+        observer.onSheetStateChanged(SheetState.FULL, StateChangeReason.NONE);
+        verify(mockStrategy).onSheetResizingStatusChanged(false);
+
+        clearInvocations(mockStrategy);
+
+        // PEEK state: not scrolling -> onSheetResizingStatusChanged(false)
+        observer.onSheetStateChanged(SheetState.PEEK, StateChangeReason.NONE);
+        verify(mockStrategy).onSheetResizingStatusChanged(false);
+
+        clearInvocations(mockStrategy);
+
+        // Small screen and not scrolling -> onSheetResizingStatusChanged(false)
+        when(mMockBottomSheetController.isSmallScreen()).thenReturn(true);
+        observer.onSheetStateChanged(SheetState.FULL, StateChangeReason.NONE);
+        verify(mockStrategy).onSheetResizingStatusChanged(false);
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.TAB_BOTTOM_SHEET)
+    public void testOnSheetStateChanged_ResizingDisabled_ResizingStrategyNotCalled() {
+        ResizingStrategy mockStrategy = mock(ResizingStrategy.class);
+        ResizingStrategyFactory.setForTesting(mockStrategy);
+        createCoordinator();
+        BottomSheetObserver observer = simulateShowSuccessAndGetObserver();
+
+        when(mMockBottomSheetController.isSmallScreen()).thenReturn(false);
+
+        observer.onSheetStateChanged(SheetState.SCROLLING, StateChangeReason.NONE);
+
+        verify(mockStrategy, never()).onSheetResizingStatusChanged(anyBoolean());
+    }
+
+    @Test
+    @EnableFeatures({
+        ChromeFeatureList.TAB_BOTTOM_SHEET,
+        ChromeFeatureList.TAB_BOTTOM_SHEET_RESIZE_WEBVIEW
+    })
+    public void testResizingStrategy_Lifecycle() {
+        assertNull(mCoordinator.getResizingStrategyForTesting());
+        simulateShowSuccessAndGetObserver();
+        assertNotNull(mCoordinator.getResizingStrategyForTesting());
+        mCoordinator.destroy();
+        assertNull(mCoordinator.getResizingStrategyForTesting());
+
+        clearInvocations(mMockBottomSheetController);
+        ResizingStrategy mockStrategy = mock(ResizingStrategy.class);
+        ResizingStrategyFactory.setForTesting(mockStrategy);
+        createCoordinator();
+        assertNull(mCoordinator.getResizingStrategyForTesting());
+        simulateShowSuccessAndGetObserver();
+        assertEquals(mockStrategy, mCoordinator.getResizingStrategyForTesting());
+
+        mCoordinator.destroy();
+
+        verify(mockStrategy).destroy();
+        assertNull(mCoordinator.getResizingStrategyForTesting());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.TAB_BOTTOM_SHEET)
+    public void testResizingStrategy_NullWhenFeatureDisabled() {
+        simulateShowSuccessAndGetObserver();
+        assertNull(mCoordinator.getResizingStrategyForTesting());
     }
 
     @Test

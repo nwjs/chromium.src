@@ -1239,4 +1239,61 @@ TEST(VideoEncodeAcceleratorTest, EstimateBitstreamBufferSizeUsesInputFormat) {
   }
 }
 
+TEST(VideoEncodeAcceleratorTest, SelectsInputPixelFormat) {
+  VideoEncoder::Options options;
+
+  VideoPixelFormat default_format = PIXEL_FORMAT_NV12;
+#if BUILDFLAG(IS_FUCHSIA)
+  default_format = PIXEL_FORMAT_I420;
+#endif
+  EXPECT_EQ(VideoEncodeAcceleratorAdapter::GetInputPixelFormat(
+                H264PROFILE_BASELINE, options),
+            default_format);
+
+  EXPECT_EQ(VideoEncodeAcceleratorAdapter::GetInputPixelFormat(
+                HEVCPROFILE_MAIN10, options),
+            PIXEL_FORMAT_P010LE);
+
+  // AV1 main keeps the default 8 bit format and switches to P010LE for 10 bit
+  // requests.
+  EXPECT_EQ(VideoEncodeAcceleratorAdapter::GetInputPixelFormat(
+                AV1PROFILE_PROFILE_MAIN, options),
+            default_format);
+  options.bit_depth = 10;
+  EXPECT_EQ(VideoEncodeAcceleratorAdapter::GetInputPixelFormat(
+                AV1PROFILE_PROFILE_MAIN, options),
+            PIXEL_FORMAT_P010LE);
+  // AV1 high is 4:4:4 at the requested bit depth.
+  options.bit_depth = 8;
+  EXPECT_EQ(VideoEncodeAcceleratorAdapter::GetInputPixelFormat(
+                AV1PROFILE_PROFILE_HIGH, options),
+            default_format);
+  options.bit_depth = 10;
+  EXPECT_EQ(VideoEncodeAcceleratorAdapter::GetInputPixelFormat(
+                AV1PROFILE_PROFILE_HIGH, options),
+            PIXEL_FORMAT_P410LE);
+
+  options.subsampling = VideoChromaSampling::k422;
+  options.bit_depth = 8;
+  EXPECT_EQ(VideoEncodeAcceleratorAdapter::GetInputPixelFormat(HEVCPROFILE_REXT,
+                                                               options),
+            PIXEL_FORMAT_NV16);
+
+  options.bit_depth = 10;
+  EXPECT_EQ(VideoEncodeAcceleratorAdapter::GetInputPixelFormat(HEVCPROFILE_REXT,
+                                                               options),
+            PIXEL_FORMAT_P210LE);
+
+  options.subsampling = VideoChromaSampling::k444;
+  options.bit_depth = 8;
+  EXPECT_EQ(VideoEncodeAcceleratorAdapter::GetInputPixelFormat(HEVCPROFILE_REXT,
+                                                               options),
+            PIXEL_FORMAT_NV24);
+
+  options.bit_depth = 10;
+  EXPECT_EQ(VideoEncodeAcceleratorAdapter::GetInputPixelFormat(HEVCPROFILE_REXT,
+                                                               options),
+            PIXEL_FORMAT_P410LE);
+}
+
 }  // namespace media

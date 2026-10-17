@@ -4,6 +4,8 @@
 
 #include "components/omnibox/browser/autocomplete_match_test_util.h"
 
+#include <utility>
+
 #include "base/json/json_reader.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
@@ -11,12 +13,13 @@
 #include "components/omnibox/browser/actions/omnibox_action_in_suggest.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/omnibox_proto/rich_answer_template.pb.h"
+#include "third_party/omnibox_proto/suggest_template_info.pb.h"
 #include "url/gurl.h"
 
 AutocompleteMatch CreateHistoryURLMatch(std::string destination_url,
                                         bool is_zero_prefix) {
   AutocompleteMatch match;
-  match.type = AutocompleteMatchType::Type::HISTORY_URL;
+  match.type = omnibox::AutocompleteMatchType::kHistoryUrl;
   match.destination_url = GURL(destination_url);
   if (is_zero_prefix) {
     match.subtypes.insert(omnibox::SUBTYPE_ZERO_PREFIX);
@@ -26,8 +29,10 @@ AutocompleteMatch CreateHistoryURLMatch(std::string destination_url,
 
 AutocompleteMatch CreateCompanyEntityMatch(std::string website_uri) {
   AutocompleteMatch match;
-  match.type = AutocompleteMatchType::Type::SEARCH_SUGGEST_ENTITY;
-  match.website_uri = website_uri;
+  match.type = omnibox::AutocompleteMatchType::kSearchSuggestEntity;
+  omnibox::SuggestTemplateInfo suggest_template;
+  suggest_template.set_website_uri(website_uri);
+  match.suggest_template = std::move(suggest_template);
   match.image_url = GURL("https://url");
   match.image_dominant_color = "#000000";
   return match;
@@ -35,14 +40,14 @@ AutocompleteMatch CreateCompanyEntityMatch(std::string website_uri) {
 
 AutocompleteMatch CreateSearchMatch(std::u16string contents) {
   AutocompleteMatch match;
-  match.type = AutocompleteMatchType::Type::SEARCH_SUGGEST;
+  match.type = omnibox::AutocompleteMatchType::kSearchSuggest;
   match.contents = contents;
   return match;
 }
 
 AutocompleteMatch CreateContextualSearchMatch(std::u16string contents) {
   AutocompleteMatch match;
-  match.type = AutocompleteMatchType::Type::SEARCH_SUGGEST;
+  match.type = omnibox::AutocompleteMatchType::kSearchSuggest;
   match.contents = contents;
   match.relevance = 195;
   match.contents_class = {{0, 1}};
@@ -55,7 +60,7 @@ AutocompleteMatch CreateContextualSearchMatch(std::u16string contents) {
 AutocompleteMatch CreateZeroSuggestContextualSearchMatch(
     std::u16string contents) {
   AutocompleteMatch match;
-  match.type = AutocompleteMatchType::Type::SEARCH_SUGGEST;
+  match.type = omnibox::AutocompleteMatchType::kSearchSuggest;
   match.contents = contents;
   match.relevance = 195;
   match.contents_class = {{0, 1}};
@@ -73,7 +78,7 @@ AutocompleteMatch CreateZeroSuggestContextualSearchMatch(
 
 AutocompleteMatch CreateLensActionMatch(std::u16string contents) {
   AutocompleteMatch match;
-  match.type = AutocompleteMatchType::Type::PEDAL;
+  match.type = omnibox::AutocompleteMatchType::kPedal;
   match.contents = contents;
   match.contents_class = {{0, 1}};
   match.keyword = u"lens";
@@ -86,7 +91,7 @@ AutocompleteMatch CreateLensActionMatch(std::u16string contents) {
 
 AutocompleteMatch CreateZeroPrefixSearchMatch(std::u16string contents) {
   AutocompleteMatch match;
-  match.type = AutocompleteMatchType::Type::SEARCH_SUGGEST;
+  match.type = omnibox::AutocompleteMatchType::kSearchSuggest;
   match.contents = contents;
   match.subtypes.insert(omnibox::SUBTYPE_ZERO_PREFIX);
   return match;
@@ -94,7 +99,7 @@ AutocompleteMatch CreateZeroPrefixSearchMatch(std::u16string contents) {
 
 AutocompleteMatch CreateStarterPackMatch(std::u16string keyword) {
   AutocompleteMatch match;
-  match.type = AutocompleteMatchType::Type::STARTER_PACK;
+  match.type = omnibox::AutocompleteMatchType::kStarterPack;
   match.contents = keyword;
   match.keyword = keyword;
   match.associated_keyword = keyword;
@@ -103,7 +108,7 @@ AutocompleteMatch CreateStarterPackMatch(std::u16string keyword) {
 
 AutocompleteMatch CreateFeaturedEnterpriseSearch(std::u16string keyword) {
   AutocompleteMatch match;
-  match.type = AutocompleteMatchType::Type::FEATURED_ENTERPRISE_SEARCH;
+  match.type = omnibox::AutocompleteMatchType::kFeaturedEnterpriseSearch;
   match.contents = keyword;
   match.keyword = keyword;
   match.associated_keyword = keyword;
@@ -115,7 +120,7 @@ AutocompleteMatch CreateActionInSuggestMatch(
     std::vector<omnibox::SuggestTemplateInfo::TemplateAction::ActionType>
         action_types) {
   AutocompleteMatch match;
-  match.type = AutocompleteMatchType::Type::SEARCH_SUGGEST_ENTITY;
+  match.type = omnibox::AutocompleteMatchType::kSearchSuggestEntity;
   match.description = description;
   for (auto action_type : action_types) {
     omnibox::SuggestTemplateInfo::TemplateAction template_action;
@@ -130,8 +135,8 @@ AutocompleteMatch CreateSearchMatch(std::string name,
                                     bool allowed_to_be_default_match,
                                     int traditional_relevance) {
   auto match = CreateAutocompleteMatch(
-      name, AutocompleteMatchType::SEARCH_SUGGEST, allowed_to_be_default_match,
-      false, traditional_relevance, std::nullopt);
+      name, omnibox::AutocompleteMatchType::kSearchSuggest,
+      allowed_to_be_default_match, false, traditional_relevance, std::nullopt);
   match.keyword = u"keyword";
   match.search_terms_args = std::make_unique<TemplateURLRef::SearchTermsArgs>(
       base::UTF8ToUTF16(name));
@@ -141,8 +146,8 @@ AutocompleteMatch CreateSearchMatch(std::string name,
 AutocompleteMatch CreatePersonalizedZeroPrefixMatch(std::string name,
                                                     int traditional_relevance) {
   auto match = CreateAutocompleteMatch(
-      name, AutocompleteMatchType::SEARCH_SUGGEST_PERSONALIZED, false, false,
-      traditional_relevance, std::nullopt);
+      name, omnibox::AutocompleteMatchType::kSearchSuggestPersonalized, false,
+      false, traditional_relevance, std::nullopt);
   match.keyword = u"keyword";
   match.search_terms_args =
       std::make_unique<TemplateURLRef::SearchTermsArgs>(std::u16string());
@@ -157,7 +162,7 @@ AutocompleteMatch CreateHistoryUrlMlScoredMatch(
     bool allowed_to_be_default_match,
     int traditional_relevance,
     float ml_output) {
-  return CreateMlScoredMatch(name, AutocompleteMatchType::HISTORY_URL,
+  return CreateMlScoredMatch(name, omnibox::AutocompleteMatchType::kHistoryUrl,
                              allowed_to_be_default_match, traditional_relevance,
                              ml_output);
 }
@@ -177,8 +182,8 @@ AutocompleteMatch CreateSearchMlScoredMatch(std::string name,
                                             int traditional_relevance,
                                             float ml_output) {
   AutocompleteMatch match = CreateMlScoredMatch(
-      name, AutocompleteMatchType::SEARCH_SUGGEST, allowed_to_be_default_match,
-      traditional_relevance, ml_output);
+      name, omnibox::AutocompleteMatchType::kSearchSuggest,
+      allowed_to_be_default_match, traditional_relevance, ml_output);
   match.keyword = u"keyword";
   match.search_terms_args = std::make_unique<TemplateURLRef::SearchTermsArgs>(
       base::UTF8ToUTF16(name));
@@ -186,7 +191,7 @@ AutocompleteMatch CreateSearchMlScoredMatch(std::string name,
 }
 
 AutocompleteMatch CreateMlScoredMatch(std::string name,
-                                      AutocompleteMatchType::Type type,
+                                      omnibox::AutocompleteMatchType type,
                                       bool allowed_to_be_default_match,
                                       int traditional_relevance,
                                       float ml_output) {
@@ -197,19 +202,20 @@ AutocompleteMatch CreateMlScoredMatch(std::string name,
 AutocompleteMatch CreateBoostedShortcutMatch(std::string name,
                                              int traditional_relevance,
                                              float ml_output) {
-  return CreateAutocompleteMatch(name, AutocompleteMatchType::HISTORY_URL, true,
-                                 true, traditional_relevance, ml_output);
+  return CreateAutocompleteMatch(name,
+                                 omnibox::AutocompleteMatchType::kHistoryUrl,
+                                 true, true, traditional_relevance, ml_output);
 }
 
 AutocompleteMatch CreateHistoryClusterMatch(std::string name,
                                             int traditional_relevance) {
-  return CreateAutocompleteMatch(name, AutocompleteMatchType::HISTORY_CLUSTER,
-                                 false, false, traditional_relevance,
-                                 std::nullopt);
+  return CreateAutocompleteMatch(
+      name, omnibox::AutocompleteMatchType::kHistoryCluster, false, false,
+      traditional_relevance, std::nullopt);
 }
 
 AutocompleteMatch CreateAutocompleteMatch(std::string name,
-                                          AutocompleteMatchType::Type type,
+                                          omnibox::AutocompleteMatchType type,
                                           bool allowed_to_be_default_match,
                                           bool shortcut_boosted,
                                           int traditional_relevance,

@@ -10,11 +10,13 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/scoped_observation.h"
 #include "base/test/bind.h"
 #include "base/test/run_until.h"
 #include "base/test/task_environment.h"
@@ -25,9 +27,11 @@
 #include "components/browser_actuator/internal/transport/stream_connection_delegate.h"
 #include "components/browser_actuator/internal/transport/test_support/wait_for.h"
 #include "components/browser_actuator/internal/transport/upstream_message_client/upstream_message_client.h"
+#include "components/browser_actuator/internal/transport_message_observer.h"
 #include "components/browser_actuator/internal/transport_session_impl.h"
 #include "components/browser_actuator/internal/transport_session_registry_impl.h"
 #include "components/browser_actuator/public/features.h"
+#include "components/browser_actuator/public/payload_type_mapping.h"
 #include "components/browser_actuator/public/transport_handler.h"
 #include "components/browser_actuator/public/transport_handler_factory.h"
 #include "components/browser_actuator/public/transport_handler_factory_registry.h"
@@ -100,18 +104,17 @@ class FakeMessageStreamClient : public MessageStreamClient {
 class FakeTransportHandler : public TransportHandler {
  public:
   explicit FakeTransportHandler(
-      base::RepeatingCallback<void(const google::protobuf::MessageLite&)>
-          on_message_cb)
+      base::RepeatingCallback<void(std::string_view)> on_message_cb)
       : on_message_cb_(std::move(on_message_cb)) {}
   ~FakeTransportHandler() override = default;
 
-  void OnMessage(const google::protobuf::MessageLite& message) override {
-    on_message_cb_.Run(message);
+  void OnMessage(PayloadType payload_type,
+                 std::string_view serialized_payload) override {
+    on_message_cb_.Run(serialized_payload);
   }
 
  private:
-  base::RepeatingCallback<void(const google::protobuf::MessageLite&)>
-      on_message_cb_;
+  base::RepeatingCallback<void(std::string_view)> on_message_cb_;
 };
 
 class FakeTransportHandlerFactory : public TransportHandlerFactory {
@@ -294,6 +297,7 @@ TEST_F(TransportChannelImplTest,
 struct TestPayload {
   ActuatorDownstreamPayloadType type;
   std::string value;
+  std::string type_url;
 };
 
 std::string SerializedDownstreamMessage(
@@ -311,6 +315,7 @@ std::string SerializedDownstreamMessage(
     typed->set_payload_type(payload.type);
     typed->mutable_proto_payload()->set_value(payload.value.data(),
                                               payload.value.size());
+    typed->mutable_proto_payload()->set_type_url(payload.type_url);
   }
 
   return response.SerializeAsString();
@@ -326,9 +331,7 @@ TEST_F(TransportChannelImplTest, RoutesPayloadTypeToHandler) {
           [&](TransportSession*) -> std::unique_ptr<TransportHandler> {
             return std::make_unique<FakeTransportHandler>(
                 base::BindLambdaForTesting(
-                    [&](const google::protobuf::MessageLite&) {
-                      message_handled = true;
-                    }));
+                    [&](std::string_view) { message_handled = true; }));
           }));
   channel_->GetHandlerFactoryRegistry()->RegisterFactory(&factory);
 
@@ -338,6 +341,32 @@ TEST_F(TransportChannelImplTest, RoutesPayloadTypeToHandler) {
         command.SerializeAsString()}}));
 
   EXPECT_TRUE(message_handled);
+}
+
+// Regression test for crbug.com/560176806.
+TEST_F(TransportChannelImplTest, RoutesExperimentalTriggeringToHandler) {
+  std::string handled_payload;
+  bool message_handled = false;
+  FakeTransportHandlerFactory factory(
+      {PayloadType::kExperimentalTriggering},
+      base::BindLambdaForTesting(
+          [&](TransportSession*) -> std::unique_ptr<TransportHandler> {
+            return std::make_unique<FakeTransportHandler>(
+                base::BindLambdaForTesting([&](std::string_view payload) {
+                  message_handled = true;
+                  handled_payload = std::string(payload);
+                }));
+          }));
+  channel_->GetHandlerFactoryRegistry()->RegisterFactory(&factory);
+
+  fake_client_->Dispatch(SerializedDownstreamMessage(
+      "s1", 1,
+      {{ACTUATOR_DOWNSTREAM_PAYLOAD_TYPE_EXPERIMENTAL_TRIGGERING,
+        "triggering-bytes",
+        std::string(ExpectedTypeUrl(PayloadType::kExperimentalTriggering))}}));
+
+  EXPECT_TRUE(message_handled);
+  EXPECT_EQ(handled_payload, "triggering-bytes");
 }
 
 TEST_F(TransportChannelImplTest, SessionDestructionMidLoop) {
@@ -641,6 +670,53 @@ TEST_F(TransportChannelImplTest, SendUpstreamMessagesAcrossMultipleSessions) {
   EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
 }
 
+TEST_F(TransportChannelImplTest,
+       StartSessionDownstreamTriggersStartSessionAckUpstream) {
+  WatchSessionsResponse response;
+  ActuatorDownstreamMessage* downstream =
+      response.mutable_actuator_downstream_message();
+  downstream->set_session_id("session_start_test");
+  downstream->set_sequence_number(42);
+
+  ControlCommand command;
+  command.mutable_start_session();
+
+  auto* typed_payload = downstream->add_typed_payloads();
+  typed_payload->set_payload_type(
+      ACTUATOR_DOWNSTREAM_PAYLOAD_TYPE_CONTROL_COMMAND);
+  typed_payload->mutable_proto_payload()->set_value(
+      command.SerializeAsString());
+
+  fake_client_->Dispatch(response.SerializeAsString());
+
+  ASSERT_TRUE(
+      WaitFor([&]() { return test_url_loader_factory_.NumPending() == 1; }));
+
+  const network::TestURLLoaderFactory::PendingRequest* pending =
+      test_url_loader_factory_.GetPendingRequest(0);
+  ASSERT_NE(pending, nullptr);
+
+  std::string upload_body = network::GetUploadData(pending->request);
+  SendSessionMessageRequest request;
+  ASSERT_TRUE(request.ParseFromString(upload_body));
+
+  const ActuatorUpstreamMessage& upstream = request.actuator_upstream_message();
+  EXPECT_EQ(upstream.session_id(), "session_start_test");
+  EXPECT_EQ(upstream.client_sequence_number(), 1);
+  EXPECT_EQ(upstream.responding_to_sequence_number(), 42);
+
+  ASSERT_EQ(upstream.typed_payloads_size(), 1);
+  EXPECT_EQ(upstream.typed_payloads(0).payload_type(),
+            ACTUATOR_UPSTREAM_PAYLOAD_TYPE_CONTROL_COMMAND);
+
+  ControlCommand command_ack;
+  command_ack.mutable_start_session_ack();
+  EXPECT_EQ(upstream.typed_payloads(0).proto_payload().value(),
+            command_ack.SerializeAsString());
+  EXPECT_EQ(upstream.typed_payloads(0).proto_payload().type_url(),
+            "type.googleapis.com/browser_actuator.ControlCommand");
+}
+
 TEST_F(TransportChannelImplTestWithMockTime, SendUpstreamMessageHTTPError) {
   fake_client_->Dispatch(SerializedDownstream("s1", 1));
   ControlCommand command;
@@ -659,6 +735,97 @@ TEST_F(TransportChannelImplTestWithMockTime, SendUpstreamMessageHTTPError) {
   }
 
   EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
+}
+
+class RecordingMessageObserver : public TransportMessageObserver {
+ public:
+  void OnUpstreamMessage(std::string_view session_id,
+                         const ActuatorUpstreamMessage& message) override {
+    received.emplace_back(std::string(session_id), message);
+  }
+
+  std::vector<std::pair<std::string, ActuatorUpstreamMessage>> received;
+};
+
+TEST_F(TransportChannelImplTest,
+       NotifiesObserversOnUpstreamMessageWithByteIdenticalEnvelope) {
+  RecordingMessageObserver observer;
+  base::ScopedObservation<TransportChannelImpl, TransportMessageObserver>
+      observation(&observer);
+  observation.Observe(channel_.get());
+
+  fake_client_->Dispatch(SerializedDownstream("s1", 7));
+
+  ControlCommand command;
+  command.mutable_close_channel();
+  channel_->SendUpstreamMessage("s1", PayloadType::kControl, command);
+
+  ASSERT_EQ(observer.received.size(), 1u);
+  EXPECT_EQ(observer.received[0].first, "s1");
+  const ActuatorUpstreamMessage& observed = observer.received[0].second;
+  EXPECT_EQ(observed.session_id(), "s1");
+  EXPECT_EQ(observed.client_sequence_number(), 1);
+  EXPECT_EQ(observed.responding_to_sequence_number(), 7);
+  ASSERT_EQ(observed.typed_payloads_size(), 1);
+  EXPECT_EQ(observed.typed_payloads(0).payload_type(),
+            ACTUATOR_UPSTREAM_PAYLOAD_TYPE_CONTROL_COMMAND);
+  EXPECT_EQ(observed.typed_payloads(0).proto_payload().value(),
+            command.SerializeAsString());
+
+  ASSERT_TRUE(
+      WaitFor([&]() { return test_url_loader_factory_.NumPending() == 1; }));
+  const network::TestURLLoaderFactory::PendingRequest* pending =
+      test_url_loader_factory_.GetPendingRequest(0);
+  ASSERT_NE(pending, nullptr);
+
+  SendSessionMessageRequest request;
+  ASSERT_TRUE(
+      request.ParseFromString(network::GetUploadData(pending->request)));
+  EXPECT_EQ(request.actuator_upstream_message().SerializeAsString(),
+            observed.SerializeAsString());
+}
+
+TEST_F(TransportChannelImplTest, AddAndRemoveMessageObserver) {
+  RecordingMessageObserver observer1;
+  RecordingMessageObserver observer2;
+  base::ScopedObservation<TransportChannelImpl, TransportMessageObserver>
+      observation1(&observer1);
+  base::ScopedObservation<TransportChannelImpl, TransportMessageObserver>
+      observation2(&observer2);
+  observation1.Observe(channel_.get());
+  observation2.Observe(channel_.get());
+
+  fake_client_->Dispatch(SerializedDownstream("s1", 1));
+
+  ControlCommand command;
+  command.mutable_close_channel();
+  channel_->SendUpstreamMessage("s1", PayloadType::kControl, command);
+
+  EXPECT_EQ(observer1.received.size(), 1u);
+  EXPECT_EQ(observer2.received.size(), 1u);
+
+  observation1.Reset();
+
+  channel_->SendUpstreamMessage("s1", PayloadType::kControl, command);
+
+  EXPECT_EQ(observer1.received.size(), 1u);
+  ASSERT_EQ(observer2.received.size(), 2u);
+  EXPECT_EQ(observer2.received[1].second.client_sequence_number(), 2);
+}
+
+TEST_F(TransportChannelImplTest,
+       DoesNotNotifyObserversWhenSessionDoesNotExist) {
+  RecordingMessageObserver observer;
+  base::ScopedObservation<TransportChannelImpl, TransportMessageObserver>
+      observation(&observer);
+  observation.Observe(channel_.get());
+
+  ControlCommand command;
+  command.mutable_close_channel();
+  channel_->SendUpstreamMessage("unknown_session", PayloadType::kControl,
+                                command);
+
+  EXPECT_TRUE(observer.received.empty());
 }
 
 }  // namespace

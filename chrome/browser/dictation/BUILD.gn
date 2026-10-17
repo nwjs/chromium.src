@@ -25,6 +25,7 @@ source_set("dictation") {
     "local_hotkey_manager.h",
     "logging.h",
     "onboarding_manager.h",
+    "reviewing_page_status_ui_controller.h",
     "session_controller.h",
     "session_controller_delegate.h",
     "session_state.h",
@@ -64,6 +65,7 @@ source_set("impl") {
     "local_hotkey_manager.cc",
     "logging.cc",
     "onboarding_manager.cc",
+    "reviewing_page_status_ui_controller.cc",
     "session_controller.cc",
     "session_state.cc",
     "session_ui_impl.cc",
@@ -100,7 +102,12 @@ source_set("impl") {
     "//ui/base",
     "//ui/events/blink",
     "//ui/views",
+    "//ui/views/controls/webview",
   ]
+
+  if (!is_android) {
+    deps += [ "//chrome/browser/ui/views/frame:browser_view_header" ]
+  }
 }
 
 source_set("test_support") {
@@ -153,6 +160,7 @@ source_set("unit_tests") {
     "//chrome/browser/ui:accelerator_table",
     "//chrome/browser/ui:test_support",
     "//chrome/test:test_support",
+    "//chrome/test/base:chrome_render_view_host_test_harness",
     "//components/tabs:test_support",
     "//content/test:test_support",
     "//extensions/browser:test_support",
@@ -181,6 +189,7 @@ source_set("browser_tests") {
     "//chrome/browser/glic/test_support",
     "//chrome/browser/policy:test_support",
     "//chrome/browser/profiles:profile",
+    "//chrome/browser/ui:browser_commands",
     "//chrome/browser/ui/tabs",
     "//chrome/browser/ui/toasts",
     "//chrome/browser/ui/toasts/api:toasts",
@@ -190,6 +199,10 @@ source_set("browser_tests") {
     "//components/tabs:test_support",
     "//content/test:test_support",
   ]
+
+  if (!is_android) {
+    deps += [ "//chrome/browser/ui/views/frame:browser_view_header" ]
+  }
 }
 
 source_set("interactive_ui_tests") {
@@ -212,4 +225,8 @@ source_set("interactive_ui_tests") {
     "//components/tabs:test_support",
     "//content/test:test_support",
   ]
+
+  if (!is_android) {
+    deps += [ "//chrome/browser/ui/views/frame:browser_view_header" ]
+  }
 }

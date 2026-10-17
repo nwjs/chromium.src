@@ -25,6 +25,7 @@
 #include "chrome/browser/ui/views/frame/browser_frame_view.h"
 #include "chrome/browser/ui/views/frame/browser_frame_view_chromeos.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/frame/contents_web_view.h"
 #include "chrome/browser/ui/views/frame/immersive_mode_tester.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
@@ -47,6 +48,7 @@
 #include "ui/events/base_event_utils.h"
 #include "ui/views/animation/ink_drop.h"
 #include "ui/views/animation/test/ink_drop_host_test_api.h"
+#include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/controls/native/native_view_host.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/interaction/element_tracker_views.h"
@@ -155,7 +157,7 @@ IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerChromeosWebAppBrowserTest,
   LaunchAppBrowser();
   TabStrip* tabstrip = browser_view()->horizontal_tab_strip_for_testing();
   ToolbarView* toolbar = browser_view()->toolbar();
-  views::WebView* contents_web_view = browser_view()->contents_web_view();
+  views::View* contents_web_view = browser_view()->GetContentsView();
   views::View* top_container = browser_view()->top_container();
 
   // Immersive fullscreen starts out disabled.
@@ -516,7 +518,8 @@ class ImmersiveModeControllerChromeosTest : public InProcessBrowserTest {
 IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerChromeosTest, Layout) {
   TabStrip* tabstrip = browser_view()->horizontal_tab_strip_for_testing();
   ToolbarView* toolbar = browser_view()->toolbar();
-  views::WebView* contents_web_view = browser_view()->contents_web_view();
+  views::WebView* contents_web_view =
+      browser_view()->contents_web_view_for_testing();
 
   // Immersive fullscreen starts out disabled.
   ASSERT_FALSE(browser_view()->GetWidget()->IsFullscreen());
@@ -527,8 +530,7 @@ IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerChromeosTest, Layout) {
   EXPECT_TRUE(toolbar->GetVisible());
   if (!base::FeatureList::IsEnabled(
           views::features::kNativeViewHostManagesLayers)) {
-    EXPECT_EQ(
-        0, browser_view()->contents_web_view()->holder()->GetHitTestTopInset());
+    EXPECT_EQ(0, contents_web_view->holder()->GetHitTestTopInset());
   }
 
   ChromeOSBrowserUITest::EnterImmersiveFullscreenMode(browser());
@@ -548,8 +550,7 @@ IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerChromeosTest, Layout) {
   EXPECT_EQ(0, GetBoundsInWidget(browser_view()->top_container()).bottom());
   if (!base::FeatureList::IsEnabled(
           views::features::kNativeViewHostManagesLayers)) {
-    EXPECT_EQ(
-        0, browser_view()->contents_web_view()->holder()->GetHitTestTopInset());
+    EXPECT_EQ(0, contents_web_view->holder()->GetHitTestTopInset());
   }
 
   // Since the tab strip and tool bar are both hidden in immersive fullscreen
@@ -564,8 +565,7 @@ IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerChromeosTest, Layout) {
   EXPECT_TRUE(toolbar->GetVisible());
   if (!base::FeatureList::IsEnabled(
           views::features::kNativeViewHostManagesLayers)) {
-    EXPECT_NE(
-        0, browser_view()->contents_web_view()->holder()->GetHitTestTopInset());
+    EXPECT_EQ(0, contents_web_view->holder()->GetHitTestTopInset());
   }
 
   // The TopContainerView should be flush with the top edge of the widget. If
@@ -579,7 +579,7 @@ IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerChromeosTest, Layout) {
 
   // Repeat the test for when in both immersive fullscreen and tab fullscreen.
   ChromeOSBrowserUITest::EnterTabFullscreenMode(
-      browser(), browser_view()->contents_web_view()->GetWebContents());
+      browser(), contents_web_view->GetWebContents());
   // Hide and reveal the top-of-window views so that they get relain out.
   AttemptUnreveal();
   AttemptReveal();
@@ -610,8 +610,7 @@ IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerChromeosTest, Layout) {
   ChromeOSBrowserUITest::ExitImmersiveFullscreenMode(browser());
   if (!base::FeatureList::IsEnabled(
           views::features::kNativeViewHostManagesLayers)) {
-    EXPECT_EQ(
-        0, browser_view()->contents_web_view()->holder()->GetHitTestTopInset());
+    EXPECT_EQ(0, contents_web_view->holder()->GetHitTestTopInset());
   }
   EXPECT_FALSE(browser_view()->GetWidget()->IsFullscreen());
   EXPECT_FALSE(controller()->IsEnabled());
@@ -681,6 +680,64 @@ IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerChromeosTest, ExitUponRestore) {
 
   browser_view()->GetWidget()->Restore();
   ImmersiveModeTester(browser()).WaitForFullscreenToExit();
+}
+
+IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerChromeosTest,
+                       TabFullscreenMinimizeAndRestore) {
+  content::WebContents* web_contents =
+      browser()->GetTabStripModel()->GetActiveWebContents();
+  FullscreenController* fullscreen_controller =
+      ExclusiveAccessManager::From(browser())->fullscreen_controller();
+
+  ui_test_utils::FullscreenWaiter waiter(
+      browser(), {.browser_fullscreen = false, .tab_fullscreen = true});
+  fullscreen_controller->EnterFullscreenModeForTab(
+      web_contents->GetPrimaryMainFrame());
+  waiter.Wait();
+
+  EXPECT_TRUE(browser_view()->GetWidget()->IsFullscreen());
+  EXPECT_TRUE(fullscreen_controller->IsTabFullscreen());
+  EXPECT_FALSE(fullscreen_controller->IsFullscreenForBrowser());
+  EXPECT_FALSE(controller()->IsEnabled());
+
+  browser_view()->GetWidget()->Minimize();
+  EXPECT_TRUE(browser_view()->GetWidget()->IsMinimized());
+
+  browser_view()->GetWidget()->Restore();
+  EXPECT_TRUE(browser_view()->GetWidget()->IsFullscreen());
+  EXPECT_TRUE(fullscreen_controller->IsTabFullscreen());
+  EXPECT_FALSE(fullscreen_controller->IsFullscreenForBrowser());
+  EXPECT_FALSE(controller()->IsEnabled());
+}
+
+IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerChromeosTest,
+                       TabFullscreenMinimizeAndUnminimizeToNormal) {
+  content::WebContents* web_contents =
+      browser()->GetTabStripModel()->GetActiveWebContents();
+  FullscreenController* fullscreen_controller =
+      ExclusiveAccessManager::From(browser())->fullscreen_controller();
+
+  ui_test_utils::FullscreenWaiter waiter(
+      browser(), {.browser_fullscreen = false, .tab_fullscreen = true});
+  fullscreen_controller->EnterFullscreenModeForTab(
+      web_contents->GetPrimaryMainFrame());
+  waiter.Wait();
+
+  EXPECT_TRUE(browser_view()->GetWidget()->IsFullscreen());
+  EXPECT_TRUE(fullscreen_controller->IsTabFullscreen());
+
+  browser_view()->GetWidget()->Minimize();
+  EXPECT_TRUE(browser_view()->GetWidget()->IsMinimized());
+
+  // Unminimize to normal show state instead of fullscreen. The test is for
+  // completeness purpose only - in such scenario the restore operation should
+  // always unminimize to fullscreen mode.
+  browser_view()->GetNativeWindow()->SetProperty(
+      aura::client::kShowStateKey, ui::mojom::WindowShowState::kNormal);
+  EXPECT_FALSE(browser_view()->GetWidget()->IsFullscreen());
+  EXPECT_FALSE(fullscreen_controller->IsTabFullscreen());
+  EXPECT_FALSE(fullscreen_controller->IsFullscreenForBrowser());
+  EXPECT_FALSE(controller()->IsEnabled());
 }
 
 // Ensure the circular tab-loading throbbers are not painted as layers in

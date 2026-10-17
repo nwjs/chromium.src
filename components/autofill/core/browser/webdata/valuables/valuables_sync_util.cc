@@ -149,10 +149,40 @@ void TrimOffer(sync_pb::Offer& offer) {
   offer.clear_offer_title_image_url();
   offer.clear_issuer_domains();
   offer.clear_description();
+  offer.clear_issue_time_unix_epoch_micros();
 }
 // LINT.ThenChange(//components/sync/protocol/autofill_valuable_specifics.proto:Offer)
 
 }  // namespace
+
+AutofillOfferData CreateOfferDataFromValuableSpecifics(
+    const sync_pb::AutofillValuableSpecifics& specifics) {
+  const sync_pb::Offer& offer_proto = specifics.offer();
+  // `PaymentsAutofillTable` persists the expiry with millisecond precision.
+  // Truncate here so that an offer read back from the database compares equal
+  // to the one built from the specifics. Otherwise every full sync would
+  // consider the offers changed and rewrite them.
+  base::Time expiry =
+      base::Time::UnixEpoch() +
+      base::Milliseconds(offer_proto.expiration_time_unix_epoch_micros() /
+                         base::Time::kMicrosecondsPerMillisecond);
+  // Offers with issuer domains that don't parse into a URL are rejected by
+  // `ValuableSyncBridge::IsEntityDataValid()`.
+  std::vector<GURL> merchant_origins;
+  merchant_origins.reserve(offer_proto.issuer_domains_size());
+  for (const std::string& domain : offer_proto.issuer_domains()) {
+    merchant_origins.emplace_back(domain);
+  }
+  DisplayStrings display_strings;
+  display_strings.value_prop_text = offer_proto.description();
+
+  return AutofillOfferData(
+      specifics.id(), expiry, std::move(merchant_origins),
+      /*offer_details_url=*/GURL(specifics.pass_view_url()),
+      std::move(display_strings),
+      /*promo_code=*/offer_proto.offer_code(),
+      /*offer_reward_amount=*/offer_proto.offer_short_title());
+}
 
 std::unique_ptr<syncer::EntityData> CreateEntityDataFromLoyaltyCard(
     const LoyaltyCard& loyalty_card,

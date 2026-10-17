@@ -19,8 +19,6 @@ import static org.chromium.chrome.browser.tab.TabSelectionType.FROM_USER;
 
 import android.app.Activity;
 
-import androidx.test.filters.SmallTest;
-
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -70,7 +68,6 @@ public class NtpFeedSurfaceLifecycleManagerTest {
     }
 
     @Test
-    @SmallTest
     public void testShow() {
         // Verify that onSurfaceOpened is not called before activity started.
         when(mTab.isHidden()).thenReturn(false);
@@ -94,7 +91,6 @@ public class NtpFeedSurfaceLifecycleManagerTest {
     }
 
     @Test
-    @SmallTest
     public void testShow_ArticlesNotVisible() {
         // Verify that onSurfaceOpened is not called when articles are set hidden by the user.
         when(mPrefService.getBoolean(Pref.ARTICLES_LIST_VISIBLE)).thenReturn(false);
@@ -115,7 +111,6 @@ public class NtpFeedSurfaceLifecycleManagerTest {
     }
 
     @Test
-    @SmallTest
     public void testHideFromActivityStopped() {
         // Activate the surface.
         when(mTab.isHidden()).thenReturn(false);
@@ -132,7 +127,6 @@ public class NtpFeedSurfaceLifecycleManagerTest {
     }
 
     @Test
-    @SmallTest
     public void testHideFromTabHiddenAfterShow() {
         // Show the surface.
         when(mTab.isHidden()).thenReturn(false);
@@ -148,7 +142,6 @@ public class NtpFeedSurfaceLifecycleManagerTest {
     }
 
     @Test
-    @SmallTest
     public void testDestroy() {
         // Verify that observer is removed on activity destroyed.
         ApplicationStatus.onStateChangeForTesting(mActivity, ActivityState.DESTROYED);
@@ -156,7 +149,6 @@ public class NtpFeedSurfaceLifecycleManagerTest {
     }
 
     @Test
-    @SmallTest
     public void testDestroyAfterCreate() {
         // After the surface is destroyed, lifecycle methods should never be called. Directly
         // calling destroy here to simulate destroy() being called on FeedNewTabPage destroyed.
@@ -175,7 +167,6 @@ public class NtpFeedSurfaceLifecycleManagerTest {
     }
 
     @Test
-    @SmallTest
     public void testDestroyAfterActivate() {
         InOrder inOrder = Mockito.inOrder(mCoordinator, mTab);
         when(mTab.isHidden()).thenReturn(false);
@@ -195,7 +186,6 @@ public class NtpFeedSurfaceLifecycleManagerTest {
     }
 
     @Test
-    @SmallTest
     public void testFullActivityLifecycle() {
         InOrder inOrder = Mockito.inOrder(mCoordinator, mTab);
         when(mTab.isHidden()).thenReturn(false);
@@ -234,7 +224,6 @@ public class NtpFeedSurfaceLifecycleManagerTest {
     }
 
     @Test
-    @SmallTest
     public void testFullTabLifecycle() {
         InOrder inOrder = Mockito.inOrder(mCoordinator, mTab);
 
@@ -321,7 +310,6 @@ public class NtpFeedSurfaceLifecycleManagerTest {
     }
 
     @Test
-    @SmallTest
     public void testPaused() {
         ApplicationStatus.onStateChangeForTesting(mActivity, ActivityState.PAUSED);
         verify(mCoordinator).onActivityPaused();

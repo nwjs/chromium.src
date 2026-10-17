@@ -198,7 +198,6 @@
 <translation id="1525508553941733066">关闭</translation>
 <translation id="152629053603783244">重启 Linux</translation>
 <translation id="1526448108126799339">在新窗口中打开标签页</translation>
-<translation id="1528259147807435347">过去一周内修改过</translation>
 <translation id="1536604384701784949">若要使用 <ph name="USER_EMAIL_ADDRESS" />，您需先退出所有账号。若要退出，请点击“取消”以返回。接着，选择屏幕右下角的时间以打开状态区并选择“退出”。然后，再次登录到 <ph name="USER_EMAIL_ADDRESS_2" />。</translation>
 <translation id="15373452373711364">大号鼠标光标</translation>
 <translation id="1545331255323159851">查看手机中的近期照片、媒体内容和通知</translation>
@@ -372,7 +371,6 @@
 <translation id="2075520525463668108">开启/关闭<ph name="CAPTURE_MEDIUM" />。<ph name="CAPTURE_MEDIUM" />已<ph name="CAPTURE_STATE" /></translation>
 <translation id="2079545284768500474">撤销</translation>
 <translation id="2086334242442703436">打开表情符号选择器</translation>
-<translation id="2088116547584365419">游戏</translation>
 <translation id="2089550919269323883">企业政策禁止安装“<ph name="VM_NAME" />”。请与您的系统管理员联系以寻求支持。错误代码为 <ph name="ERROR" />。</translation>
 <translation id="2093792000875799555">Chromebook 版 Steam 资讯</translation>
 <translation id="209965399369889474">未连接到网络</translation>
@@ -472,7 +470,6 @@
 <translation id="240789602312469910">发送使用情况数据和诊断数据。自动向 Google 发送诊断数据、设备数据和应用使用情况数据，帮助改善孩子的 Android 使用体验。我们会使用这些数据提高系统和应用的稳定性，并改进其他方面，但不会利用数据辨识孩子的身份。部分汇总数据还会对 Google 应用和合作伙伴（例如 Android 开发者）有所帮助。这项<ph name="BEGIN_LINK1" />设置<ph name="END_LINK1" />是由此设备的所有者强制指定的。此设备的所有者可以选择向 Google 发送此设备的诊断数据和使用情况数据。如果您已为孩子开启“其他网络与应用活动记录”设置，这些数据可能会保存到其 Google 账号中。<ph name="BEGIN_LINK2" />详细了解指标<ph name="BEGIN_LINK2_END" />了解详情<ph name="END_LINK2" /></translation>
 <translation id="2408955596600435184">输入您的 PIN 码</translation>
 <translation id="2412593942846481727">有可用的更新</translation>
-<translation id="2416438829169535743">退出视图？</translation>
 <translation id="2417486498593892439">登录到网络</translation>
 <translation id="2423619675829330672">尝试输入 PIN 码的次数过多。请等待 <ph name="TIME_LEFT" />，然后重试。</translation>
 <translation id="2426051945783024481">相机取景画面已自动居中</translation>
@@ -480,7 +477,6 @@
 <translation id="2429753432712299108">蓝牙设备“<ph name="DEVICE_NAME" />”需要配对许可。在接受之前，请确保该设备上显示以下配对密钥：<ph name="PASSKEY" /></translation>
 <translation id="2435457462613246316">显示密码</translation>
 <translation id="2437771564543046790">电池电量低。省电模式已开启</translation>
-<translation id="243878895369688216">昨天打开过</translation>
 <translation id="2440978926514840421">已完成 GIF 录制</translation>
 <translation id="2441427462554639370">已停止录制，因为存储空间严重不足</translation>
 <translation id="2445449901874883781">使用高密度</translation>
@@ -554,7 +550,7 @@
 <translation id="2653659639078652383">提交</translation>
 <translation id="2658778018866295321">点击并拖动</translation>
 <translation id="2665788051462227163">无法在此设备上使用<ph name="UNAVAILABLE_APPS_ONE" />和<ph name="UNAVAILABLE_APPS_TWO" />。</translation>
-<translation id="2670350619068134931">经过简化的动画</translation>
+<translation id="2670350619068134931">减弱动画效果</translation>
 <translation id="2672142220933875349">crx 文件已损坏，未能成功解压。</translation>
 <translation id="2673968385134502798">游戏</translation>
 <translation id="2678852583403169292">“随选朗读”菜单</translation>
@@ -689,7 +685,6 @@
 <translation id="3039491566278747710">未能在此设备上安装离线政策。</translation>
 <translation id="3039939407102840004">触控笔电池电量为 <ph name="PERCENTAGE" />%。</translation>
 <translation id="304097922505898963">打开“键盘快捷键”应用</translation>
-<translation id="3040982432432547149">欢迎帮助我们改进 Chromebook 版 Steam</translation>
 <translation id="304417730895741346">您已固定的应用和已打开的应用会显示在任务栏上。若要将某个应用固定到任务栏，请右键点击该应用或用双指点按触控板。</translation>
 <translation id="3045670165536837541">已选择右上角手柄，使用箭头键即可移动</translation>
 <translation id="3046178388369461825">Linux 磁盘空间严重不足</translation>
@@ -873,7 +868,6 @@
 <translation id="3563432852173030730">无法下载自助服务终端应用。</translation>
 <translation id="3563558822383875692">正在配置 DLC。</translation>
 <translation id="3563775809269155755">启用热点</translation>
-<translation id="3566240529365775567">刚才打开过</translation>
 <translation id="3571734092741541777">设置</translation>
 <translation id="3573179567135747900">重新更改为“<ph name="FROM_LOCALE" />”（需要重启）</translation>
 <translation id="3576141592585647168">更改时区</translation>
@@ -960,7 +954,6 @@
 <translation id="3756485814916578707">正在投屏</translation>
 <translation id="3765246971671567135">无法读取离线演示模式政策。</translation>
 <translation id="3765841382945324995">“<ph name="SIX_PACK_KEY_NAME" />”对应的快捷键原为 <ph name="OLD_SHORTCUT" />，现已更新为 <ph name="NEW_SHORTCUT" /></translation>
-<translation id="3765841986579723851">今天修改过</translation>
 <translation id="3772109172035555611">自定义 TrackPoint</translation>
 <translation id="3773700760453577392">管理员已禁止 <ph name="USER_EMAIL" /> 使用多账号登录功能。所有用户都必须先退出账号才能继续。</translation>
 <translation id="3779139509281456663">正在连接“<ph name="NAME" />”</translation>
@@ -1000,7 +993,6 @@
 <translation id="3873915545594852654">ARC++ 出问题了。</translation>
 <translation id="3879748587602334249">下载管理器</translation>
 <translation id="3884007280698606545">已达到 USB 设备数量上限</translation>
-<translation id="3886872229787704059">今天打开过</translation>
 <translation id="3892148308691398805">复制文字</translation>
 <translation id="3893630138897523026">ChromeVox（语音反馈）</translation>
 <translation id="3898464793473355515">将屏幕顺时针旋转 90 度</translation>
@@ -1018,7 +1010,6 @@
 <translation id="394485226368336402">音频设置</translation>
 <translation id="3945319193631853098">点按即可完成设置</translation>
 <translation id="3945867833895287237">正在连接到热点…</translation>
-<translation id="3950272133184491871">是否立即退出账号？</translation>
 <translation id="3950820424414687140">登录</translation>
 <translation id="3953130726459169782">尚未完成任何作业。</translation>
 <translation id="3957844511978444971">点按“接受”即表示您确认选择这些 Google 服务设置。</translation>
@@ -1087,7 +1078,6 @@
 <translation id="4147911968024186208">请重试。如果系统仍提示此错误，请与您的支持代表联系。</translation>
 <translation id="4150201353443180367">显示</translation>
 <translation id="4151054805501931758">人像美化</translation>
-<translation id="4151449637210235443">欢迎与我们分享您近期的游戏内容</translation>
 <translation id="4156293514828496577">电量剩余 <ph name="PERCENTAGE" />%（大约能维持 <ph name="TIME_LEFT" />）。为了延长电池续航时间，部分功能会受到限制。</translation>
 <translation id="4158003972857765638">在新桌面中整理</translation>
 <translation id="4160919062868802509">检测到多个音频源</translation>
@@ -1790,7 +1780,6 @@
 <translation id="6095008505822982596">语速</translation>
 <translation id="6095425951508823973">添加与 <ph name="PROVIDER" /> 的关联</translation>
 <translation id="6095541101974653012">您已退出账号。</translation>
-<translation id="6099678161144790572">过去一个月内修改过</translation>
 <translation id="6103838137565245112">系统</translation>
 <translation id="6108952804512516814">利用 AI 创建</translation>
 <translation id="6114505516289286752"><ph name="LANGUAGE" />语音识别结果文件已下载完毕</translation>
@@ -1947,7 +1936,6 @@
 <translation id="6555373427270923730">在地址栏中输入网址，然后按 <ph name="MODIFIER" /><ph name="KEY" /></translation>
 <translation id="655633303491376835"><ph name="APP_NAME" />
 新安装</translation>
-<translation id="6559158502366839560">探索更多应用和游戏</translation>
 <translation id="6560151649238390891">已插入建议</translation>
 <translation id="6562447480759345110">结束专注模式</translation>
 <translation id="6565007273808762236">无法连接 eSIM 卡</translation>
@@ -2053,7 +2041,6 @@
 <translation id="6848716236260083778">若要设置指纹，请让您的孩子轻触指纹传感器。您孩子的指纹数据会安全地存储在此 <ph name="DEVICE_TYPE" /> 上，绝不会外泄。</translation>
 <translation id="6852052252232534364">点击即可启用</translation>
 <translation id="6852628153543175788">增加 10 分钟</translation>
-<translation id="6855029042976311970">刚刚修改过</translation>
 <translation id="6856708615407876657">切换搜索结果类别</translation>
 <translation id="6856756288284651804">Chromebook 已更新</translation>
 <translation id="6857725247182211756"><ph name="SECONDS" /> 秒</translation>
@@ -2148,7 +2135,6 @@
 <translation id="7118597077555700347">打开<ph name="SEARCH_RESULT_TEXT" /></translation>
 <translation id="7119327711295338600">选择下一个单词或字母</translation>
 <translation id="7124556000457919678">处于开启状态时暂停和恢复使用鼠标键</translation>
-<translation id="7126996685418858413">过去一周内打开过</translation>
 <translation id="7131634465328662194">您将会自动退出会话。</translation>
 <translation id="7143207342074048698">正在连接</translation>
 <translation id="7144878232160441200">重试</translation>
@@ -2179,7 +2165,6 @@
 <translation id="7256057185598509352">ExpressKey 2</translation>
 <translation id="7256634071279256947">后置麦克风</translation>
 <translation id="7258225044283673131">此应用无响应。请选择“强制关闭”以关闭此应用。</translation>
-<translation id="7258828758145722155">昨天修改过</translation>
 <translation id="726276584504105859">拖到此处即可使用分屏模式</translation>
 <translation id="7264788308526527464">减少 <ph name="FOCUS_DURATION_DELTA" /></translation>
 <translation id="7267875682732693301">不时地移开手指，以便传感器更完整地记录您的指纹</translation>
@@ -2252,7 +2237,6 @@
 <translation id="7491962110804786152">标签</translation>
 <translation id="7497767806359279797">选择语言和键盘布局</translation>
 <translation id="7507162824403726948">完成身份验证</translation>
-<translation id="7508690557411636492">过去一个月内打开过</translation>
 <translation id="7509246181739783082">验证您的身份</translation>
 <translation id="7512509370370076552">“右键点击”对应的快捷键原为 alt + 点击，现已更新为<ph name="LAUNCHER_KEY_NAME" />键 + 点击</translation>
 <translation id="7512726380443357693">未选择“<ph name="BUTTON_LABEL" />”</translation>
@@ -2394,7 +2378,6 @@
 <translation id="7850320739366109486">请勿打扰</translation>
 <translation id="7851039877802112575">将焦点移至弹出式窗口和对话框</translation>
 <translation id="7851768487828137624">Canary</translation>
-<translation id="7862292329216937261">要以访客身份使用设备，您需要退出账号，然后选择屏幕底部的“以访客身份浏览”。</translation>
 <translation id="7866482334467279021">开启</translation>
 <translation id="7870790288828963061">找不到自助服务终端应用的更高版本，因此没有要更新的内容。请拔下 U 盘。</translation>
 <translation id="7872786842639831132">关闭</translation>
@@ -2537,7 +2520,7 @@
 <translation id="8237964652943995219">下一个桌面：<ph name="DESK_NAME" />。第 <ph name="DESK_INDEX" /> 个桌面（共 <ph name="DESK_COUNT" /> 个）。</translation>
 <translation id="8238817965863339552">不妨观看快速导览，了解如何玩转 <ph name="PRODUCT_NAME" />。只需 5 步，即可启动并运行。</translation>
 <translation id="8239034820133090126">启用右侧桌面</translation>
-<translation id="8241650983304689286">向新拆分视图添加标签页</translation>
+<translation id="8241650983304689286">在拆分视图中显示标签页</translation>
 <translation id="8244201515061746038">“自动更正”功能的“了解详情”按钮。前往“自动更正”功能的设置页面。若要启用此按钮，请按 Enter 键；若要关闭，请按 Esc 键。</translation>
 <translation id="8247060538831475781"><ph name="CONNECTION_STATUS" />，信号强度为 <ph name="SIGNAL_STRENGTH" />，剩余电量为 <ph name="BATTERY_STATUS" /></translation>
 <translation id="8249048954461686687">OEM文件夹</translation>
@@ -2556,7 +2539,7 @@
 <translation id="8297006494302853456">弱</translation>
 <translation id="8301242268274839723">轻触键盘左下角的指纹传感器。您的指纹数据会安全地存储在您的 <ph name="DEVICE_TYPE" /> 上，绝不会外泄。</translation>
 <translation id="8308637677604853869">上一菜单</translation>
-<translation id="830868413617744215">测试版</translation>
+<translation id="830868413617744215">Beta 版</translation>
 <translation id="8314772463905284467">Caps Lock 已打开</translation>
 <translation id="8315514906653279104">正在开启…</translation>
 <translation id="8331351032546853669">待下载</translation>
@@ -2707,7 +2690,6 @@
 <translation id="8753368202781196133">目前尚不支持此语言。</translation>
 <translation id="8755498163081687682">验证您的身份：<ph name="ORIGIN_NAME" /> 想确认您的身份</translation>
 <translation id="875593634123171288">显示 VPN 设置</translation>
-<translation id="8756799553341497810">退出此视图后，您就可以开始自定义应用布局。</translation>
 <translation id="8759408218731716181">无法设置多账号登录</translation>
 <translation id="8759753423332885148">了解详情。</translation>
 <translation id="8760172428247796445"><ph name="DEVICE_TYPE" /> 将立即锁定。

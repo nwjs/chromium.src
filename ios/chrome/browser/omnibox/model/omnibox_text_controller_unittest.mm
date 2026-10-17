@@ -204,7 +204,7 @@ TEST_F(OmniboxTextControllerTest, CurrentMatch) {
               [omnibox_text_controller_ displayedText]);
 
     AutocompleteMatch match = [omnibox_text_controller_ currentMatch:nullptr];
-    EXPECT_EQ(AutocompleteMatchType::URL_WHAT_YOU_TYPED, match.type);
+    EXPECT_EQ(omnibox::AutocompleteMatchType::kUrlWhatYouTyped, match.type);
     EXPECT_TRUE(current_text_is_URL());
     EXPECT_EQ("http://www.example.com/", match.destination_url.spec());
   }
@@ -222,7 +222,7 @@ TEST_F(OmniboxTextControllerTest, CurrentMatch) {
               [omnibox_text_controller_ displayedText]);
 
     AutocompleteMatch match = [omnibox_text_controller_ currentMatch:nullptr];
-    EXPECT_EQ(AutocompleteMatchType::URL_WHAT_YOU_TYPED, match.type);
+    EXPECT_EQ(omnibox::AutocompleteMatchType::kUrlWhatYouTyped, match.type);
     EXPECT_TRUE(current_text_is_URL());
 
     // Additionally verify we aren't accidentally dropping the HTTPS scheme.

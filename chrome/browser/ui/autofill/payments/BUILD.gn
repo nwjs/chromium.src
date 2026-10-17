@@ -40,6 +40,7 @@ source_set("payments") {
       "android_bnpl_ui_delegate.h",
       "android_payments_window_manager.h",
       "offer_notification_controller_android.h",
+      "payments_churned_users_ui_delegate_android.h",
     ]
     public_deps += [
       "//chrome/browser/touch_to_fill/autofill/android:public",
@@ -53,8 +54,10 @@ source_set("payments") {
       "desktop_payments_window_manager.h",
       "omnibox_autofill_bubble_controller.h",
       "omnibox_autofill_page_action_controller.h",
+      "omnibox_gpay_button_page_action_controller.h",
       "payments_churned_users_bubble_controller.h",
       "payments_churned_users_page_action_controller.h",
+      "payments_churned_users_ui_delegate_desktop.h",
       "wallet_reminder_notice_bubble_controller.h",
       "wallet_reminder_notice_page_action_controller.h",
       "wallet_reminder_notice_ui_delegate_desktop.h",
@@ -132,6 +135,7 @@ source_set("impl") {
       "android_bnpl_ui_delegate.cc",
       "android_payments_window_manager.cc",
       "offer_notification_controller_android.cc",
+      "payments_churned_users_ui_delegate_android.cc",
     ]
     public_deps += [ "//chrome/browser/touch_to_fill/autofill/android:public" ]
     deps += [
@@ -156,8 +160,10 @@ source_set("impl") {
       "desktop_payments_window_manager.cc",
       "omnibox_autofill_bubble_controller.cc",
       "omnibox_autofill_page_action_controller.cc",
+      "omnibox_gpay_button_page_action_controller.cc",
       "payments_churned_users_bubble_controller.cc",
       "payments_churned_users_page_action_controller.cc",
+      "payments_churned_users_ui_delegate_desktop.cc",
       "wallet_reminder_notice_bubble_controller.cc",
       "wallet_reminder_notice_page_action_controller.cc",
       "wallet_reminder_notice_ui_delegate_desktop.cc",
@@ -201,6 +207,12 @@ source_set("impl") {
     deps += [
       "//chrome/browser/ui/hats",
       "//chrome/browser/ui/location_bar",
+    ]
+  }
+  if (!is_android) {
+    deps += [
+      "//chrome/browser/ui:browser_window_header",
+      "//chrome/browser/ui/views/frame:browser_view_header",
     ]
   }
 }
@@ -248,9 +260,11 @@ if (!is_android) {
       "//base",
       "//chrome/browser/autofill",
       "//chrome/browser/ui",
+      "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/hats:test_support",
       "//chrome/browser/ui/page_action:icon_type",
+      "//chrome/browser/ui/views/frame:browser_view_header",
       "//chrome/common",
       "//chrome/test:test_support",
       "//chrome/test:test_support_ui",
@@ -289,6 +303,7 @@ source_set("unit_tests") {
     "//chrome/browser/ui/autofill",
     "//chrome/browser/ui/autofill:test_support",
     "//chrome/test:test_support",
+    "//chrome/test/base:chrome_render_view_host_test_harness",
     "//components/autofill/core/browser",
     "//components/autofill/core/browser:test_support",
     "//components/autofill/core/browser/payments:card_unmask_challenge_option",
@@ -307,6 +322,7 @@ source_set("unit_tests") {
     sources += [
       "android_bnpl_ui_delegate_unittest.cc",
       "android_payments_window_manager_unittest.cc",
+      "payments_churned_users_ui_delegate_android_unittest.cc",
       "virtual_card_enroll_bubble_controller_impl_unittest.cc",
     ]
     public_deps += [ ":payments" ]
@@ -331,6 +347,7 @@ source_set("unit_tests") {
       "offer_notification_bubble_controller_impl_unittest.cc",
       "omnibox_autofill_bubble_controller_unittest.cc",
       "omnibox_autofill_page_action_controller_unittest.cc",
+      "payments_churned_users_ui_delegate_desktop_unittest.cc",
       "save_card_bubble_controller_impl_unittest.cc",
       "wallet_reminder_notice_bubble_controller_unittest.cc",
       "wallet_reminder_notice_page_action_controller_unittest.cc",
@@ -396,6 +413,7 @@ if (!is_android && !is_chromeos_device) {
       "//base",
       "//base/test:test_support",
       "//chrome/browser/ui",
+      "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui/actions:actions_headers",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/views/autofill/payments:payments_window_user_consent_dialog_view",

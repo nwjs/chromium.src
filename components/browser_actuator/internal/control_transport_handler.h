@@ -26,7 +26,7 @@ class ControlTransportHandler : public TransportHandler {
   using CloseChannelCallback = base::RepeatingClosure;
   using CloseSessionCallback = base::RepeatingCallback<void(std::string_view)>;
 
-  ControlTransportHandler(std::string_view session_id,
+  ControlTransportHandler(TransportSession* session,
                           CloseChannelCallback close_channel_cb,
                           CloseSessionCallback close_session_cb);
   ~ControlTransportHandler() override;
@@ -35,12 +35,12 @@ class ControlTransportHandler : public TransportHandler {
   ControlTransportHandler& operator=(const ControlTransportHandler&) = delete;
 
   // TransportHandler implementation:
-  void OnMessage(const google::protobuf::MessageLite& message) override;
+  void OnMessage(PayloadType payload_type,
+                 std::string_view serialized_payload) override;
 
  private:
   SEQUENCE_CHECKER(sequence_checker_);
 
-  const std::string session_id_;
   CloseChannelCallback close_channel_cb_ GUARDED_BY_CONTEXT(sequence_checker_);
   CloseSessionCallback close_session_cb_ GUARDED_BY_CONTEXT(sequence_checker_);
 };

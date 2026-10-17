@@ -7,6 +7,7 @@
 #import "base/functional/callback.h"
 #import "base/strings/strcat.h"
 #import "base/task/single_thread_task_runner.h"
+#import "components/optimization_guide/core/model_quality/model_quality_log_entry.h"
 #import "components/optimization_guide/proto/common_types.pb.h"
 #import "services/network/public/cpp/shared_url_loader_factory.h"
 
@@ -29,7 +30,8 @@ FakeOptimizationGuideService::FakeOptimizationGuideService(
                                browser_list,
                                url_loader_factory,
                                identity_manager,
-                               /*delegate=*/nullptr) {}
+                               /*delegate=*/nullptr,
+                               /*network_context_getter=*/{}) {}
 
 FakeOptimizationGuideService::~FakeOptimizationGuideService() = default;
 

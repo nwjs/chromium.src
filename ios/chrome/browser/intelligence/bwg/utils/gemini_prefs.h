@@ -22,13 +22,18 @@ bool GeminiAllowedByEnterprise(PrefService* prefs);
 
 // Functions that interact with the Gemini consent.
 void ResetGeminiConsent(PrefService* prefs);
+// TODO(crbug.com/568034294): Other clients should avoid using this method until
+// the first run state logic is fixed.
 FirstRunState CurrentFirstRunState(PrefService* prefs);
-bool DidUserConsentToGemini(PrefService* prefs);
+bool DidUserConsentToGemini(const PrefService* prefs);
 bool DidUserConsentToGeminiLive(PrefService* prefs);
 bool DidUserSeeGeminiPromo(PrefService* prefs);
 bool DidGeminiLiveIntroPlay(PrefService* prefs);
 void SetGeminiLiveIntroPlayed(PrefService* prefs);
 void UpdateUserConsentPrefs(bool consent, PrefService* prefs);
+
+// Updates the user consent preference for Gemini Live. When consenting
+// (`consent` is true), also approves the Live microphone setting.
 void UpdateUserConsentToLivePrefs(bool consent, PrefService* prefs);
 
 // Creates a new Gemini session in the prefs, or updates an existing one, with

@@ -18,6 +18,8 @@
 #import "ios/chrome/browser/shared/model/browser/browser_user_data.h"
 #import "ios/chrome/browser/shared/public/commands/fullscreen_commands.h"
 
+@class FullscreenProgressAnimator;
+
 class FullscreenBrowserAgentTest;
 class FullscreenMediatorPassKeyFactory;
 enum class FullscreenModeTransitionTrigger;
@@ -72,6 +74,19 @@ class FullscreenBrowserAgent : public BrowserUserData<FullscreenBrowserAgent> {
   // fully hidden (in fullscreen mode).
   CGFloat top_progress() const { return top_progress_; }
   CGFloat bottom_progress() const { return bottom_progress_; }
+
+  // The progress for the frame currently being composed. While
+  // `is_animating()` this sweeps across the range that `top_progress()` skips,
+  // since the latter is committed to the transition target up front. Outside
+  // an animation the two are identical.
+  //
+  // Only meaningful from
+  // FullscreenBrowserAgentObserver::DidUpdateInterpolatedProgress();
+  // everything else should keep reading `top_progress()` and let UIKit
+  // interpolate.
+  CGFloat interpolated_progress() const {
+    return is_animating_ ? interpolated_progress_ : top_progress_;
+  }
 
   // Returns whether an animated transition is currently in progress.
   bool is_animating() const { return is_animating_; }
@@ -147,9 +162,28 @@ class FullscreenBrowserAgent : public BrowserUserData<FullscreenBrowserAgent> {
                                   FullscreenModeTransitionTrigger trigger,
                                   bool animated);
 
-  // Notifies all observers of an updated state.
+  // Queues a state update for all observers and drains the queue. Requests
+  // made by observers while a broadcast is in flight are replayed once it
+  // finishes, so the observer list is never iterated reentrantly.
   void NotifyObserversOfUpdatedState(
       base::TimeDelta duration = base::TimeDelta());
+
+  // Queues a transition completion for all observers and drains the queue,
+  // with the same deferral guarantee as NotifyObserversOfUpdatedState().
+  void NotifyFullscreenDidTransition(FullscreenTransition transition);
+
+  // Broadcasts the queued notifications until none is left. Does nothing when
+  // called while a broadcast is in flight: the outermost call drains whatever
+  // the observers queued.
+  void FlushPendingNotifications();
+
+  // Runs a single WillUpdateState()/DidUpdateState() broadcast. Only called by
+  // FlushPendingNotifications().
+  void BroadcastUpdatedState(base::TimeDelta duration);
+
+  // Runs a single FullscreenDidTransition() broadcast. Only called by
+  // FlushPendingNotifications().
+  void BroadcastDidTransition(FullscreenTransition transition);
 
   // Handles the completion of the transition animation started by the
   // `generation`-th transition. Completions belonging to a superseded
@@ -157,9 +191,6 @@ class FullscreenBrowserAgent : public BrowserUserData<FullscreenBrowserAgent> {
   void AnimationDidComplete(FullscreenTransition transition,
                             int generation,
                             bool finished);
-
-  // Notifies observers of transition completion.
-  void NotifyFullscreenDidTransition(FullscreenTransition transition);
 
   // Records metrics and timing when an incremental scroll reaches a boundary.
   void RecordIncrementalScrollMetrics(CGFloat pre_scroll_top_progress,
@@ -169,6 +200,16 @@ class FullscreenBrowserAgent : public BrowserUserData<FullscreenBrowserAgent> {
   // fullscreen.
   void RecordEnterFullscreenTiming();
   void RecordExitFullscreenTiming();
+
+  // Starts per-frame interpolation alongside the UIKit animation, so that
+  // observers whose UI is a non-linear function of progress can see the
+  // intermediate values that `top_progress_` skips.
+  void StartInterpolatedProgressAnimation(CGFloat start_progress,
+                                          CGFloat target_progress,
+                                          base::TimeDelta duration);
+
+  // Publishes `progress` to the observers.
+  void NotifyObserversOfInterpolatedProgress(CGFloat progress);
 
   base::ObserverList<FullscreenBrowserAgentObserver, true> observers_;
 
@@ -204,6 +245,26 @@ class FullscreenBrowserAgent : public BrowserUserData<FullscreenBrowserAgent> {
   // ensure AddObscuredInset() is only called a the correct time.
   bool updating_insets_ = false;
 
+  // Tracks broadcasts requested reentrantly while `notifying_observers_` is
+  // true so they can be replayed once the active broadcast unwinds.
+  struct PendingNotifications {
+    // Set when a WillUpdateState()/DidUpdateState() broadcast is pending.
+    std::optional<base::TimeDelta> state_update_duration;
+    // Set when a FullscreenDidTransition() broadcast is pending.
+    std::optional<FullscreenTransition> completed_transition;
+
+    bool HasAny() const {
+      return state_update_duration.has_value() ||
+             completed_transition.has_value();
+    }
+  };
+
+  // True while `FlushPendingNotifications()` is actively draining broadcasts.
+  bool notifying_observers_ = false;
+
+  // Queued broadcasts to drain.
+  PendingNotifications pending_notifications_;
+
   // True if an animated fullscreen transition is currently in progress.
   bool is_animating_ = false;
 
@@ -231,6 +292,14 @@ class FullscreenBrowserAgent : public BrowserUserData<FullscreenBrowserAgent> {
 
   // The normalized initial velocity for the current transition.
   CGFloat animation_initial_velocity_ = 0.0;
+
+  // The progress for the frame currently being composed. Only meaningful
+  // while `is_animating_`; see `interpolated_progress()`.
+  CGFloat interpolated_progress_ = 1.0;
+
+  // Drives `interpolated_progress_`. Created lazily on the first animated
+  // transition and reused thereafter.
+  FullscreenProgressAnimator* progress_animator_ = nil;
 
   // The obscured inset for the keyboard when visible.
   CGFloat keyboard_obscured_inset_ = 0.0;

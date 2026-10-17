@@ -6,7 +6,6 @@
 #include "base/functional/callback.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
-#include "content/browser/fenced_frame/fenced_frame.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
@@ -543,7 +542,7 @@ IN_PROC_BROWSER_TEST_F(SnapshotAXTreeBrowserTest, SnapshotPDFMode) {
   ui::AXNode* td = tr->GetUnignoredChildAtIndex(0);
   ASSERT_TRUE(td);
   ASSERT_EQ(ax::mojom::Role::kCell, td->GetRole());
-  EXPECT_EQ(2, *td->GetTableCellColSpan());
+  EXPECT_EQ(2, *td->GetTableCellDomColSpan());
 }
 
 IN_PROC_BROWSER_TEST_F(SnapshotAXTreeBrowserTest, MaxNodes) {

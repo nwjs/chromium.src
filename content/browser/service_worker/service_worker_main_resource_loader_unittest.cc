@@ -7,6 +7,7 @@
 #include <string>
 #include <utility>
 
+#include "base/base64.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
@@ -52,6 +53,7 @@
 #include "services/network/public/cpp/single_request_url_loader_factory.h"
 #include "services/network/public/cpp/timing_allow_origin_parser.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
+#include "services/network/public/mojom/blocked_by_response_reason.mojom.h"
 #include "services/network/public/mojom/fetch_api.mojom.h"
 #include "services/network/public/mojom/service_worker_router_info.mojom-shared.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
@@ -60,6 +62,7 @@
 #include "storage/browser/blob/blob_data_handle.h"
 #include "storage/browser/blob/blob_impl.h"
 #include "storage/browser/blob/blob_storage_context.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
@@ -742,8 +745,10 @@ class ServiceWorkerMainResourceLoaderTest : public testing::Test {
             helper_->browser_context()->GetDefaultStoragePartition()));
   }
 
-  std::unique_ptr<network::ResourceRequest> CreateRequestAndSetupCache(
-      const base::Time& cache_response_time) {
+  std::unique_ptr<network::ResourceRequest>
+  CreateRequestAndSetupCacheWithResponse(
+      const base::Time& cache_response_time,
+      blink::mojom::FetchAPIResponsePtr response) {
     auto request = CreateRequest();
 
     SetupStoragePartition();
@@ -775,10 +780,7 @@ class ServiceWorkerMainResourceLoaderTest : public testing::Test {
           operation_ptr_vec[0]->operation_type =
               blink::mojom::OperationType::kPut;
           operation_ptr_vec[0]->request = CreateFetchAPIRequest(request.get());
-          operation_ptr_vec[0]->response =
-              OkResponse(nullptr /* blob_body */,
-                         network::mojom::FetchResponseSource::kUnspecified,
-                         cache_response_time, kTestCacheName);
+          operation_ptr_vec[0]->response = std::move(response);
           cache.Bind(std::move(result.value()));
           cache->Batch(
               std::move(operation_ptr_vec), /* trace_id= */ 0,
@@ -788,6 +790,15 @@ class ServiceWorkerMainResourceLoaderTest : public testing::Test {
         }));
     run_loop.Run();
     return request;
+  }
+
+  std::unique_ptr<network::ResourceRequest> CreateRequestAndSetupCache(
+      const base::Time& cache_response_time) {
+    return CreateRequestAndSetupCacheWithResponse(
+        cache_response_time,
+        OkResponse(nullptr /* blob_body */,
+                   network::mojom::FetchResponseSource::kUnspecified,
+                   cache_response_time, kTestCacheName));
   }
 
   // Runs until the ServiceWorkerMainResourceLoader created in StartRequest()
@@ -1901,6 +1912,8 @@ TEST_F(ServiceWorkerMainResourceLoaderTest, StaticRoutingCache) {
 
   histogram_tester.ExpectUniqueSample(kHistogramMainResourceFetchEvent,
                                       blink::ServiceWorkerStatusCode::kOk, 1);
+  histogram_tester.ExpectBucketCount(
+      "ServiceWorker.StaticRouter.MainResource.ValidResponse", true, 1);
   if (LoaderRecordsTimingMetrics()) {
     histogram_tester.ExpectTotalCount(
         "ServiceWorker.LoadTiming.MainFrame.MainResource."
@@ -1935,6 +1948,36 @@ TEST_F(ServiceWorkerMainResourceLoaderTest,
   EXPECT_EQ(net::OK, client_.completion_status().error_code);
   auto& info = client_.response_head();
   EXPECT_EQ(200, info->headers->response_code());
+}
+
+TEST_F(ServiceWorkerMainResourceLoaderTest,
+       StaticRoutingCache_OpaqueResponseBlocked) {
+  base::HistogramTester histogram_tester;
+
+  SetupStaticRoutingRules(
+      network::mojom::ServiceWorkerRouterSourceType::kCache);
+
+  base::Time response_time = base::Time::Now();
+  auto response = blink::mojom::FetchAPIResponse::New();
+  response->status_code = 200;
+  response->status_text = "OK";
+  response->response_type = network::mojom::FetchResponseType::kOpaque;
+  response->response_source =
+      network::mojom::FetchResponseSource::kCacheStorage;
+  response->response_time = response_time;
+  response->cache_storage_cache_name = kTestCacheName;
+  response->padding = 10;
+  response->url_list.emplace_back("https://other.example.com/resource");
+
+  auto request = CreateRequestAndSetupCacheWithResponse(response_time,
+                                                        std::move(response));
+
+  StartRequest(std::move(request));
+  client_.RunUntilComplete();
+
+  EXPECT_EQ(net::ERR_FAILED, client_.completion_status().error_code);
+  histogram_tester.ExpectUniqueSample(
+      "ServiceWorker.StaticRouter.MainResource.ValidResponse", false, 1);
 }
 
 // Similar to Basic test setup, but with matching cache static routing rule and
@@ -2189,6 +2232,8 @@ TEST_F(ServiceWorkerMainResourceLoaderTest,
 
   histogram_tester.ExpectUniqueSample(kHistogramMainResourceFetchEvent,
                                       blink::ServiceWorkerStatusCode::kOk, 1);
+  histogram_tester.ExpectBucketCount(
+      "ServiceWorker.StaticRouter.MainResource.ValidResponse", true, 1);
   if (LoaderRecordsTimingMetrics()) {
     histogram_tester.ExpectTotalCount(
         "ServiceWorker.LoadTiming.MainFrame.MainResource."
@@ -2199,6 +2244,48 @@ TEST_F(ServiceWorkerMainResourceLoaderTest,
         "FetchHandlerEndToFallbackNetwork",
         0);
   }
+}
+
+// Similar to StaticRoutingRaceNetWorkAndCacheCacheWin, but cache returns
+// an opaque response for main resource navigation, which must be rejected.
+TEST_F(ServiceWorkerMainResourceLoaderTest,
+       StaticRoutingRaceNetWorkAndCache_OpaqueResponseBlocked) {
+  base::HistogramTester histogram_tester;
+
+  SetupStaticRoutingRules(
+      network::mojom::ServiceWorkerRouterSourceType::kRaceNetworkAndCache);
+
+  SetupErrorNetworkResponse();
+
+  // Defer the race network request processing to receive the cache
+  // response first.
+  DeferRequestHandling();
+
+  base::Time response_time = base::Time::Now();
+  auto response = blink::mojom::FetchAPIResponse::New();
+  response->status_code = 200;
+  response->status_text = "OK";
+  response->response_type = network::mojom::FetchResponseType::kOpaque;
+  response->response_source =
+      network::mojom::FetchResponseSource::kCacheStorage;
+  response->response_time = response_time;
+  response->cache_storage_cache_name = kTestCacheName;
+  response->padding = 10;
+  response->url_list.emplace_back("https://other.example.com/resource");
+
+  auto request = CreateRequestAndSetupCacheWithResponse(response_time,
+                                                        std::move(response));
+
+  StartRequest(std::move(request));
+  client_.RunUntilComplete();
+
+  // After receiving the cache response, resume the network request
+  // processing.
+  HandleDeferedRequest();
+
+  EXPECT_EQ(net::ERR_FAILED, client_.completion_status().error_code);
+  histogram_tester.ExpectUniqueSample(
+      "ServiceWorker.StaticRouter.MainResource.ValidResponse", false, 1);
 }
 
 TEST_F(ServiceWorkerMainResourceLoaderTest, SearchPrefetchHitInSyntheticResponse) {
@@ -2380,6 +2467,7 @@ struct TimingAllowTestCase {
   network::mojom::FetchResponseType response_type;
   std::optional<std::string> timing_allow_origin;
   bool expected_timing_allow_passed;
+  bool response_timing_allow_passed = true;
 };
 
 class ServiceWorkerMainResourceLoaderTimingAllowTest
@@ -2403,6 +2491,7 @@ TEST_P(ServiceWorkerMainResourceLoaderTimingAllowTest, CheckTimingAllowPassed) {
   response->status_code = 200;
   response->status_text = "OK";
   response->response_type = test_case.response_type;
+  response->timing_allow_passed = test_case.response_timing_allow_passed;
   if (test_case.timing_allow_origin) {
     response->parsed_headers = network::mojom::ParsedHeaders::New();
     response->parsed_headers->timing_allow_origin =
@@ -2487,7 +2576,67 @@ INSTANTIATE_TEST_SUITE_P(
                             std::nullopt, false},
         TimingAllowTestCase{std::nullopt,
                             network::mojom::FetchResponseType::kCors, "*",
-                            false}));
+                            false},
 
+        // 4. Responses where response->timing_allow_passed is false:
+        // Even with same-origin initiator or valid TAO headers, they fail.
+        TimingAllowTestCase{"https://example.com",
+                            network::mojom::FetchResponseType::kBasic,
+                            std::nullopt,
+                            /*expected_timing_allow_passed=*/false,
+                            /*response_timing_allow_passed=*/false},
+        TimingAllowTestCase{"https://example.com",
+                            network::mojom::FetchResponseType::kDefault,
+                            std::nullopt,
+                            /*expected_timing_allow_passed=*/false,
+                            /*response_timing_allow_passed=*/false},
+        TimingAllowTestCase{"https://example.com",
+                            network::mojom::FetchResponseType::kCors, "*",
+                            /*expected_timing_allow_passed=*/false,
+                            /*response_timing_allow_passed=*/false},
+        TimingAllowTestCase{"https://example.com",
+                            network::mojom::FetchResponseType::kOpaque, "*",
+                            /*expected_timing_allow_passed=*/false,
+                            /*response_timing_allow_passed=*/false},
+        TimingAllowTestCase{"https://example.com",
+                            network::mojom::FetchResponseType::kCors,
+                            "https://example.com",
+                            /*expected_timing_allow_passed=*/false,
+                            /*response_timing_allow_passed=*/false},
+        TimingAllowTestCase{"https://other.example.com",
+                            network::mojom::FetchResponseType::kBasic,
+                            "https://other.example.com",
+                            /*expected_timing_allow_passed=*/false,
+                            /*response_timing_allow_passed=*/false},
+        TimingAllowTestCase{"https://other.example.com",
+                            network::mojom::FetchResponseType::kCors,
+                            "https://other.example.com",
+                            /*expected_timing_allow_passed=*/false,
+                            /*response_timing_allow_passed=*/false}));
+
+TEST_F(ServiceWorkerMainResourceLoaderTest, SRIMessageSignatureRejected) {
+  service_worker_->RespondWithHeaders(
+      {{"Signature",
+        "sig=:"
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        "AAAAAAAAAAAAAAAAAAAA=:"},
+       {"Signature-Input",
+        "sig=(\"unencoded-digest\";sf);keyid=\"JrQLj5P/"
+        "89iXES9+vFgrIy29clF9CC/oPPsw3c5D0bs=\";tag=\"ed25519-integrity\""},
+       {"Unencoded-Digest",
+        "sha-256=:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=:"}});
+
+  std::unique_ptr<network::ResourceRequest> request = CreateRequest();
+  request->expected_public_keys = {
+      *base::Base64Decode("JrQLj5P/89iXES9+vFgrIy29clF9CC/oPPsw3c5D0bs=")};
+  StartRequest(std::move(request));
+  client_.RunUntilComplete();
+
+  EXPECT_EQ(net::ERR_BLOCKED_BY_RESPONSE,
+            client_.completion_status().error_code);
+  EXPECT_THAT(client_.completion_status().blocked_by_response_reason,
+              testing::Optional(network::mojom::BlockedByResponseReason::
+                                    kSRIMessageSignatureMismatch));
+}
 }  // namespace service_worker_main_resource_loader_unittest
 }  // namespace content

@@ -19,6 +19,7 @@ import android.os.Bundle;
 import android.text.format.DateUtils;
 import android.util.Pair;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -30,9 +31,12 @@ import androidx.annotation.AnimRes;
 import androidx.annotation.ChecksSdkIntAtLeast;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.browser.customtabs.CustomTabsIntent;
 import androidx.browser.customtabs.TrustedWebUtils;
 
+import org.chromium.base.ActivityState;
+import org.chromium.base.ApplicationStatus;
 import org.chromium.base.DeviceInfo;
 import org.chromium.base.IntentUtils;
 import org.chromium.base.ResettersForTesting;
@@ -41,6 +45,7 @@ import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
+import org.chromium.blink.mojom.DisplayMode;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.DeferredStartupHandler;
 import org.chromium.chrome.browser.KeyboardShortcuts;
@@ -152,6 +157,16 @@ import java.util.function.Supplier;
  * CustomTabActivity}.
  */
 public abstract class BaseCustomTabActivity extends ChromeActivity {
+    /**
+     * Prevents Tapjacking on T-. See crbug.com/40063907.
+     *
+     * <p>On Android T+ the platform's own {@code ActivityRecordInputSink} drops touches routed
+     * through an overlay owned by another app, so the activity-level guard is only needed below
+     * that.
+     */
+    private static final boolean sPreventTouches =
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU;
+
     private static Integer sOverrideCoreCountForTesting;
 
     private final CipherFactory mCipherFactory = new CipherFactory();
@@ -583,6 +598,21 @@ public abstract class BaseCustomTabActivity extends ChromeActivity {
         return (getIntent().getFlags() & separateTaskFlags) != 0;
     }
 
+    /**
+     * Whether a web app with {@code displayMode} uses the short-edges cutout mode, where the
+     * display cutout controller owns the window's edge-to-edge state. Fullscreen web apps are
+     * covered by the feature itself; standalone web apps additionally require the {@code
+     * enable_standalone} parameter, since the experiment targets fullscreen web apps. Other display
+     * modes keep the pre-feature behavior.
+     */
+    public static boolean isShortEdgesCutoutModeEnabledForDisplayMode(
+            @DisplayMode.EnumType int displayMode) {
+        if (!ChromeFeatureList.sWebAppShortEdgesCutoutMode.isEnabled()) return false;
+        if (displayMode == DisplayMode.FULLSCREEN) return true;
+        return displayMode == DisplayMode.STANDALONE
+                && ChromeFeatureList.sWebAppShortEdgesCutoutModeStandalone.getValue();
+    }
+
     @Override
     public void performPreInflationStartup() {
         // This must be requested before adding content.
@@ -603,8 +633,9 @@ public abstract class BaseCustomTabActivity extends ChromeActivity {
 
         InstalledWebappDataRegister.prefetchPreferences();
 
-        if (ChromeFeatureList.sWebAppShortEdgesCutoutMode.isEnabled()
-                && mIntentDataProvider.isWebappOrWebApkActivity()) {
+        if (mIntentDataProvider.isWebappOrWebApkActivity()
+                && isShortEdgesCutoutModeEnabledForDisplayMode(
+                        mIntentDataProvider.getResolvedDisplayMode())) {
             // The window's edge-to-edge state is owned by token holders (display cutout
             // controller, immersive mode). While any token is held, withhold system bar and
             // display cutout insets from the edge-to-edge root layout so the web app content
@@ -1039,10 +1070,11 @@ public abstract class BaseCustomTabActivity extends ChromeActivity {
      * manifest theme color and the current edge-to-edge state.
      */
     protected void updateNavigationBarColor() {
-        // Webapp/WebAPK activities draw edge-to-edge through window-level tokens on the
-        // EdgeToEdgeStateProvider rather than through the tab's EdgeToEdgeController.
+        // Webapp/WebAPK window tokens draw content behind the navigation bar only when the
+        // webapp insets consumer prevents the root layout from padding it.
         boolean windowDrawsEdgeToEdge =
-                getEdgeToEdgeManager() != null
+                mWebappInsetsConsumer != null
+                        && getEdgeToEdgeManager() != null
                         && Boolean.TRUE.equals(
                                 getEdgeToEdgeManager()
                                         .getEdgeToEdgeStateProvider()
@@ -1324,6 +1356,29 @@ public abstract class BaseCustomTabActivity extends ChromeActivity {
         if (isActivityFinishingOrDestroyed()) return;
 
         mBaseCustomTabRootUiCoordinator.onDeferredStartup();
+    }
+
+    /**
+     * Discards touch events that arrive while this activity is not RESUMED, i.e. events which may
+     * be trickling down from an overlay activity above. See crbug.com/40063907.
+     *
+     * <p>This lives on {@link BaseCustomTabActivity} rather than on an individual subclass so that
+     * every activity in this family hosting web content is covered - notably the PWA/WebAPK windows
+     * ({@code WebappActivity}, {@code SameTaskWebApkActivity}), which render without a URL bar and
+     * typically host a logged-in session.
+     */
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        if (sPreventTouches && shouldPreventTouch()) {
+            return true;
+        }
+        return super.dispatchTouchEvent(ev);
+    }
+
+    @VisibleForTesting
+    public boolean shouldPreventTouch() {
+        if (ApplicationStatus.getStateForActivity(this) == ActivityState.RESUMED) return false;
+        return true;
     }
 
     @Override

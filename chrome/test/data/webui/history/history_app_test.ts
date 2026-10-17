@@ -14,6 +14,7 @@ import {eventToPromise, isChildVisible, microtasksFinished} from 'chrome://webui
 import {TestUserEducationMixedTrustHandler} from 'chrome://webui-test/test_user_education_mixed_trust_handler.js';
 import {COLORS_CSS_SELECTOR} from 'chrome://resources/cr_components/color_change_listener/colors_css_updater.js';
 // <if expr="not is_chromeos">
+import {AccessPoint} from 'chrome://resources/cr_components/history/history.mojom-webui.js';
 import {webUIListenerCallback} from 'chrome://resources/js/cr.js';
 import {HistorySignInState, SyncState} from 'chrome://history/history.js';
 
@@ -33,9 +34,7 @@ suite('HistoryAppTest', function() {
   // Force cr-history-embeddings to be in the DOM for testing.
   function forceHistoryEmbeddingsElement() {
     loadTimeData.overrideValues({historyEmbeddingsSearchMinimumWordCount: 0});
-    element.dispatchEvent(new CustomEvent(
-        'change-query',
-        {bubbles: true, composed: true, detail: {search: 'some fake input'}}));
+    element.fire('change-query', {search: 'some fake input'});
     return microtasksFinished();
   }
 
@@ -91,21 +90,15 @@ suite('HistoryAppTest', function() {
     // By default, embeddings should not even be in the DOM.
     assertFalse(!!element.shadowRoot.querySelector('cr-history-embeddings'));
 
-    element.dispatchEvent(new CustomEvent(
-        'change-query',
-        {bubbles: true, composed: true, detail: {search: 'one'}}));
+    element.fire('change-query', {search: 'one'});
     await microtasksFinished();
     assertFalse(!!element.shadowRoot.querySelector('cr-history-embeddings'));
 
-    element.dispatchEvent(new CustomEvent(
-        'change-query',
-        {bubbles: true, composed: true, detail: {search: 'two words'}}));
+    element.fire('change-query', {search: 'two words'});
     await microtasksFinished();
     assertTrue(!!element.shadowRoot.querySelector('cr-history-embeddings'));
 
-    element.dispatchEvent(new CustomEvent(
-        'change-query',
-        {bubbles: true, composed: true, detail: {search: 'one'}}));
+    element.fire('change-query', {search: 'one'});
     await microtasksFinished();
     assertFalse(!!element.shadowRoot.querySelector('cr-history-embeddings'));
   });
@@ -139,9 +132,7 @@ suite('HistoryAppTest', function() {
   });
 
   test('QueriesMoreFromSiteFromHistoryEmbeddings', async () => {
-    element.dispatchEvent(new CustomEvent(
-        'change-query',
-        {bubbles: true, composed: true, detail: {search: 'two words'}}));
+    element.fire('change-query', {search: 'two words'});
     await microtasksFinished();
     const historyEmbeddings =
         element.shadowRoot.querySelector('cr-history-embeddings');
@@ -163,9 +154,7 @@ suite('HistoryAppTest', function() {
   });
 
   test('RemovesItemFromHistoryEmbeddings', async () => {
-    element.dispatchEvent(new CustomEvent(
-        'change-query',
-        {bubbles: true, composed: true, detail: {search: 'two words'}}));
+    element.fire('change-query', {search: 'two words'});
     await microtasksFinished();
     const historyEmbeddings =
         element.shadowRoot.querySelector('cr-history-embeddings');
@@ -193,15 +182,11 @@ suite('HistoryAppTest', function() {
     const filterChips =
         element.shadowRoot.querySelector('cr-history-embeddings-filter-chips')!;
     const changeQueryEventPromise = eventToPromise('change-query', element);
-    filterChips.dispatchEvent(new CustomEvent('selected-suggestion-changed', {
-      detail: {
-        value: {
-          timeRangeStart: new Date('2011-01-01T00:00:00'),
-        },
+    filterChips.fire('selected-suggestion-changed', {
+      value: {
+        timeRangeStart: new Date('2011-01-01T00:00:00'),
       },
-      composed: true,
-      bubbles: true,
-    }));
+    });
     const changeQueryEvent = await changeQueryEventPromise;
     assertEquals('', changeQueryEvent.detail.search);
     assertEquals('2011-01-01', changeQueryEvent.detail.after);
@@ -209,14 +194,10 @@ suite('HistoryAppTest', function() {
 
   test('UpdatesBindingsOnChangeQuery', async () => {
     // Change query to a multi-word search term and an after date.
-    element.dispatchEvent(new CustomEvent('change-query', {
-      bubbles: true,
-      composed: true,
-      detail: {
-        search: 'two words',
-        after: '2022-04-02',
-      },
-    }));
+    element.fire('change-query', {
+      search: 'two words',
+      after: '2022-04-02',
+    });
     await microtasksFinished();
 
     const expectedDateObject = new Date('2022-04-02T00:00:00');
@@ -235,47 +216,31 @@ suite('HistoryAppTest', function() {
     assertEquals(expectedDateObject.getTime(), timeRangeStartObj.getTime());
 
     // Update only the search term. Verify that the date object has not changed.
-    element.dispatchEvent(new CustomEvent('change-query', {
-      bubbles: true,
-      composed: true,
-      detail: {
-        search: 'two words updated',
-        after: '2022-04-02',
-      },
-    }));
+    element.fire('change-query', {
+      search: 'two words updated',
+      after: '2022-04-02',
+    });
     await microtasksFinished();
     assertEquals(timeRangeStartObj, historyEmbeddings.timeRangeStart);
 
     // Clear the after date query.
-    element.dispatchEvent(new CustomEvent('change-query', {
-      bubbles: true,
-      composed: true,
-      detail: {
-        search: 'two words',
-      },
-    }));
+    element.fire('change-query', {
+      search: 'two words',
+    });
     await microtasksFinished();
     assertEquals(undefined, historyEmbeddings.timeRangeStart);
   });
 
   test('UsesMinWordCount', async () => {
     loadTimeData.overrideValues({historyEmbeddingsSearchMinimumWordCount: 4});
-    element.dispatchEvent(new CustomEvent('change-query', {
-      bubbles: true,
-      composed: true,
-      detail: {search: 'two words'},
-    }));
+    element.fire('change-query', {search: 'two words'});
     await microtasksFinished();
 
     let historyEmbeddings =
         element.shadowRoot.querySelector('cr-history-embeddings');
     assertFalse(!!historyEmbeddings);
 
-    element.dispatchEvent(new CustomEvent('change-query', {
-      bubbles: true,
-      composed: true,
-      detail: {search: 'at least four words'},
-    }));
+    element.fire('change-query', {search: 'at least four words'});
     await microtasksFinished();
     historyEmbeddings =
         element.shadowRoot.querySelector('cr-history-embeddings');
@@ -289,12 +254,8 @@ suite('HistoryAppTest', function() {
         inputEvent: Partial<InputEvent>, inputValue: string) {
       element.$.toolbar.dispatchEvent(new CustomEvent(
           'search-term-native-before-input', {detail: {e: inputEvent}}));
-      element.$.toolbar.dispatchEvent(
-          new CustomEvent('search-term-native-input', {
-            detail: {e: inputEvent, inputValue},
-            composed: true,
-            bubbles: true,
-          }));
+      element.$.toolbar.fire(
+          'search-term-native-input', {e: inputEvent, inputValue});
       return microtasksFinished();
     }
 
@@ -479,6 +440,14 @@ suite('HistoryAppUnoPhase2FollowUpTest', () => {
     assertFalse(isChildVisible(
         historySyncPromo, '#sign-in-pending-not-syncing-history-description'));
     assertFalse(isChildVisible(historySyncPromo, '#verify-its-you-button'));
+
+    const button = historySyncPromo.shadowRoot.querySelector<HTMLElement>(
+        '#sync-history-button');
+    assertTrue(!!button);
+    button.click();
+    const accessPoint =
+        await browserProxy.handler.whenCalled('turnOnHistorySync');
+    assertEquals(AccessPoint.kHistoryPage, accessPoint);
   });
 
   test('HistorySyncPromoElementPendingSignInWithHistorySyncOn', async () => {
@@ -497,6 +466,10 @@ suite('HistoryAppUnoPhase2FollowUpTest', () => {
     assertTrue(isChildVisible(
         historySyncPromo, '#sign-in-pending-syncing-history-description'));
     assertTrue(isChildVisible(historySyncPromo, '#verify-its-you-button'));
+    assertEquals(1, browserProxy.getCallCount('recordSigninPendingOffered'));
+    assertEquals(
+        AccessPoint.kHistoryPage,
+        await browserProxy.whenCalled('recordSigninPendingOffered'));
 
     // The other states promo elements should not be visible.
     assertFalse(isChildVisible(historySyncPromo, '#signed-out-description'));
@@ -545,6 +518,11 @@ suite('HistoryAppUnoPhase2FollowUpTest', () => {
     // The promo elements for current state are shown correctly.
     assertTrue(
         isChildVisible(historySyncPromo, '#web-only-signed-in-description'));
+    assertEquals(
+        loadTimeData.getString('historySyncPromoBodyWebOnlySignedIn'),
+        historySyncPromo.shadowRoot
+            .querySelector<HTMLElement>(
+                '#web-only-signed-in-description')!.textContent.trim());
     assertTrue(isChildVisible(historySyncPromo, '#profile-info-row'));
     assertTrue(isChildVisible(historySyncPromo, '#sync-history-button'));
 
@@ -570,6 +548,11 @@ suite('HistoryAppUnoPhase2FollowUpTest', () => {
     // The promo elements for current state are shown correctly.
     assertTrue(isChildVisible(historySyncPromo, '#sync-history-illustration'));
     assertTrue(isChildVisible(historySyncPromo, '#signed-out-description'));
+    assertEquals(
+        loadTimeData.getString('historySyncPromoBodySignedOut'),
+        historySyncPromo.shadowRoot
+            .querySelector<HTMLElement>(
+                '#signed-out-description')!.textContent.trim());
     assertTrue(isChildVisible(historySyncPromo, '#sync-history-button'));
 
     // The other states promo elements should not be visible.

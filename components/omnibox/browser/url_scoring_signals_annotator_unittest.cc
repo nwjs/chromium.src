@@ -26,7 +26,8 @@ namespace {
 
 AutocompleteMatch CreateUrlAutocompleteMatch(
     const std::string& url_text,
-    AutocompleteMatchType::Type type = AutocompleteMatchType::HISTORY_URL) {
+    omnibox::AutocompleteMatchType type =
+        omnibox::AutocompleteMatchType::kHistoryUrl) {
   AutocompleteMatch url_match;
   url_match.destination_url = GURL(url_text);
   url_match.type = type;

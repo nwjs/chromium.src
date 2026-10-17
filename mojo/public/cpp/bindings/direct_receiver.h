@@ -226,6 +226,10 @@ class DirectReceiver {
   Receiver<T> receiver_;
 };
 
+// Indicates whether DirectReceiver can be supported in the calling process.
+// Callers must bind a regular Receiver instead when this is false;
+// constructing a DirectReceiver then is a fatal error.
+COMPONENT_EXPORT(MOJO_CPP_BINDINGS) bool IsDirectReceiverSupported();
 
 // Indicates whether the current thread can receive async IO either because it's
 // an IO thread or because an IOWatcher is exposed. Used for cases where

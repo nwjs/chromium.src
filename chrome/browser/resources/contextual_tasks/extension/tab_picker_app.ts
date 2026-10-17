@@ -9,6 +9,7 @@ import 'chrome://resources/cr_elements/cr_action_menu/cr_action_menu.js';
 import 'chrome://resources/cr_elements/cr_icon/cr_icon.js';
 import 'chrome://resources/cr_elements/icons.html.js';
 
+import {recordTabPickerTabSelected, TabPickerSurface} from 'chrome://resources/cr_components/composebox/common.js';
 import {AnchorAlignment} from 'chrome://resources/cr_elements/cr_action_menu/cr_action_menu.js';
 import type {CrActionMenuElement} from 'chrome://resources/cr_elements/cr_action_menu/cr_action_menu.js';
 import {I18nMixinLit} from 'chrome://resources/cr_elements/i18n_mixin_lit.js';
@@ -51,6 +52,15 @@ export class TabPickerAppElement extends TabPickerAppElementBase {
       tabMenuOpen: {type: Boolean},
       recentTabId: {type: Number},
       sharingTabsText_: {type: String},
+      useUnbounded: {
+        type: Boolean,
+        reflect: true,
+      },
+      darkMode: {
+        type: Boolean,
+        reflect: true,
+        attribute: 'dark-mode',
+      },
     };
   }
 
@@ -59,6 +69,8 @@ export class TabPickerAppElement extends TabPickerAppElementBase {
   accessor tabMenuOpen: boolean = false;
   accessor recentTabId: number|null = null;
   protected accessor sharingTabsText_: string = '';
+  accessor useUnbounded: boolean = true;
+  accessor darkMode: boolean = false;
 
   private closeTimer_: number|null = null;
   private browserProxy_: TabPickerBrowserProxy =
@@ -66,6 +78,7 @@ export class TabPickerAppElement extends TabPickerAppElementBase {
 
   override connectedCallback() {
     super.connectedCallback();
+    this.darkMode = this.isDarkModeEnabled_();
     this.updateSharingTabsText_();
     this.fetchTabSuggestions_();
   }
@@ -75,11 +88,25 @@ export class TabPickerAppElement extends TabPickerAppElementBase {
     this.cancelCloseTimer_();
   }
 
+  override firstUpdated() {
+    this.initializeUnboundedMenu_();
+  }
+
   override updated(changedProperties: PropertyValues<this>) {
     super.updated(changedProperties);
 
     if (changedProperties.has('selectedTabs')) {
       this.updateSharingTabsText_();
+    }
+
+    if (changedProperties.has('useUnbounded')) {
+      this.initializeUnboundedMenu_();
+    }
+  }
+
+  private async initializeUnboundedMenu_() {
+    if (this.isUnboundedMenuEnabled_()) {
+      await this.$.tabMenu.setUnbounded();
     }
   }
 
@@ -93,6 +120,20 @@ export class TabPickerAppElement extends TabPickerAppElementBase {
     } catch {
       // Standalone or test environment without proxy implementation.
     }
+  }
+
+  protected isUnboundedMenuEnabled_(): boolean {
+    if (loadTimeData.isInitialized() &&
+        loadTimeData.valueExists('contextualTasksUnboundedMenuEnabled') &&
+        !loadTimeData.getBoolean('contextualTasksUnboundedMenuEnabled')) {
+      return false;
+    }
+    return this.useUnbounded;
+  }
+
+  protected isDarkModeEnabled_(): boolean {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('cs') === '1';
   }
 
   protected get hasTabSuggestions_(): boolean {
@@ -141,6 +182,7 @@ export class TabPickerAppElement extends TabPickerAppElementBase {
   }
 
   protected onShareTabsRowPointerleave_() {
+    this.$.shareTabsTrigger.blur();
     this.scheduleCloseTimer_();
   }
 
@@ -169,6 +211,9 @@ export class TabPickerAppElement extends TabPickerAppElementBase {
 
   protected onMenuClose_() {
     this.tabMenuOpen = false;
+    requestAnimationFrame(() => {
+      this.$.shareTabsTrigger.blur();
+    });
   }
 
   protected onTabClick_(e: Event) {
@@ -186,18 +231,27 @@ export class TabPickerAppElement extends TabPickerAppElementBase {
     } else {
       this.selectedTabs = [...this.selectedTabs, tab];
       this.browserProxy_.addTabContext(tab.tabId);
+      const hasActiveTab =
+          this.tabSuggestions.some(t => t.showInCurrentTabChip);
+      recordTabPickerTabSelected(
+          TabPickerSurface.CONTEXTUAL_TASKS_EXTENSION, tab.showInCurrentTabChip,
+          index, hasActiveTab);
     }
     this.fire('tab-selected', {tab, selected: !isSelected});
   }
 
-  private openTabMenu_() {
-    if (!this.hasTabSuggestions_) {
+  private async openTabMenu_() {
+    if (!this.hasTabSuggestions_ || this.$.tabMenu.open) {
       return;
+    }
+    if (this.isUnboundedMenuEnabled_() &&
+        !this.$.tabMenu.getDialog().hasAttribute('unbounded')) {
+      await this.$.tabMenu.setUnbounded();
     }
     this.tabMenuOpen = true;
     this.$.tabMenu.showAt(this.$.shareTabsTrigger, {
       anchorAlignmentX: AnchorAlignment.AFTER_END,
-      anchorAlignmentY: AnchorAlignment.BEFORE_START,
+      anchorAlignmentY: AnchorAlignment.AFTER_START,
       noOffset: true,
     });
   }
@@ -207,6 +261,7 @@ export class TabPickerAppElement extends TabPickerAppElementBase {
     this.closeTimer_ = window.setTimeout(() => {
       if (this.$.tabMenu.open) {
         this.$.tabMenu.close();
+        this.$.shareTabsTrigger.blur();
       }
     }, 300);
   }
@@ -216,6 +271,14 @@ export class TabPickerAppElement extends TabPickerAppElementBase {
       window.clearTimeout(this.closeTimer_);
       this.closeTimer_ = null;
     }
+  }
+
+  setDarkModeForTesting(darkMode: boolean) {
+    this.darkMode = darkMode;
+  }
+
+  getDarkModeForTesting(): boolean {
+    return this.darkMode;
   }
 }
 

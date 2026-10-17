@@ -77,7 +77,8 @@ class RealboxSearchBrowserTestPage : public searchbox::mojom::Page {
   void SetInputText(const std::string& input_text) override {}
   void SetKeywordSpaceTriggeringEnabled(bool enabled) override {}
   void SetAvailableKeywordModels(
-      std::vector<searchbox::mojom::InputKeywordModelPtr> models) override {}
+      std::vector<searchbox::mojom::InputKeywordModelPtr> models,
+      const std::string& default_search_provider_keyword) override {}
   void SetThumbnail(const std::string& thumbnail_url,
                     bool is_deletable) override {}
   void OnContextualInputStatusChanged(
@@ -346,7 +347,7 @@ IN_PROC_BROWSER_TEST_F(RealboxHandlerTest, RealboxUpdatesEditModelInput) {
   ACMatches matches;
   for (size_t i = 0; i < 4; ++i) {
     AutocompleteMatch match(nullptr, 1000, false,
-                            AutocompleteMatchType::URL_WHAT_YOU_TYPED);
+                            omnibox::AutocompleteMatchType::kUrlWhatYouTyped);
     match.keyword = u"match";
     match.allowed_to_be_default_match = true;
     matches.push_back(match);
@@ -404,7 +405,8 @@ INSTANTIATE_TEST_SUITE_P(All, RealboxHandlerTest, testing::Bool());
 // the NTP Realbox.
 IN_PROC_BROWSER_TEST_P(RealboxHandlerTest, PedalVectorIcons) {
   std::unordered_map<OmniboxPedalId, scoped_refptr<OmniboxPedal>> pedals =
-      GetPedalImplementations(/*incognito=*/true, /*guest=*/false,
+      GetPedalImplementations(OmniboxPedalProfileType::kOtrWithRegularParent,
+                              OmniboxPedalOtrType::kIncognito,
                               /*testing=*/true);
   for (auto const& it : pedals) {
     const scoped_refptr<OmniboxPedal> pedal = it.second;
@@ -434,11 +436,13 @@ IN_PROC_BROWSER_TEST_P(RealboxHandlerTest, ActionVectorIcons) {
 // Tests that all Omnibox match vector icons map to an equivalent SVG for use in
 // the NTP Realbox.
 IN_PROC_BROWSER_TEST_P(RealboxHandlerTest, MatchVectorIcons) {
-  for (int type = AutocompleteMatchType::URL_WHAT_YOU_TYPED;
-       type != AutocompleteMatchType::NUM_TYPES; type++) {
+  for (int type =
+           static_cast<int>(omnibox::AutocompleteMatchType::kUrlWhatYouTyped);
+       type <= static_cast<int>(omnibox::AutocompleteMatchType::kMaxValue);
+       type++) {
     AutocompleteMatch match;
-    match.type = static_cast<AutocompleteMatchType::Type>(type);
-    if (match.type == AutocompleteMatchType::STARTER_PACK) {
+    match.type = static_cast<omnibox::AutocompleteMatchType>(type);
+    if (match.type == omnibox::AutocompleteMatchType::kStarterPack) {
       // All STARTER_PACK suggestions should have non-empty vector icons.
       for (int starter_pack_id = static_cast<int>(
                template_url_starter_pack_data::StarterPackId::kBookmarks);

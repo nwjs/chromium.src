@@ -30,6 +30,7 @@
 #include "content/browser/webid/mappers.h"
 #include "content/browser/webid/metrics.h"
 #include "content/browser/webid/network_request_manager.h"
+#include "content/browser/webid/url_computations.h"
 #include "content/browser/webid/webid_utils.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/content_browser_client.h"
@@ -47,7 +48,6 @@
 #include "net/base/load_flags.h"
 #include "net/base/network_isolation_partition.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
-#include "net/base/schemeful_site.h"
 #include "net/base/url_util.h"
 #include "net/cookies/site_for_cookies.h"
 #include "net/http/http_request_headers.h"
@@ -449,69 +449,42 @@ void OnAccountsRequestParsed(
     IdpNetworkRequestManager::AccountsRequestCallback callback,
     FetchStatus fetch_status,
     std::optional<base::DictValue> result) {
-  IdpNetworkRequestManager::AccountsResponse response;
   if (fetch_status.parse_status != ParseStatus::kSuccess) {
     RecordAccountsResponseInvalidReason(
         AccountsResponseInvalidReason::kResponseIsNotJsonOrDict);
-    std::move(callback).Run(fetch_status, std::move(response));
+    std::move(callback).Run(fetch_status,
+                            IdpNetworkRequestManager::AccountsResponse());
     return;
   }
 
-  auto parse_result = IdpAccountsParser::ParseAccounts(*result);
-
-  if (!parse_result.has_value()) {
-    AccountsResponseInvalidReason parse_error = parse_result.error();
+  auto response_result = IdpAccountsParser::ParseAccountsResponse(*result);
+  if (!response_result.has_value()) {
+    AccountsResponseInvalidReason parse_error = response_result.error();
     CHECK_NE(parse_error,
              AccountsResponseInvalidReason::kResponseIsNotJsonOrDict);
     RecordAccountsResponseInvalidReason(parse_error);
     ParseStatus parse_status = ParseStatus::kInvalidResponseError;
     if (parse_error == AccountsResponseInvalidReason::kAccountListIsEmpty) {
       parse_status = ParseStatus::kEmptyListError;
+    } else if (parse_error ==
+               AccountsResponseInvalidReason::kUseNativeUiDelegation) {
+      parse_status = ParseStatus::kUseNativeUiDelegation;
     }
     std::move(callback).Run({parse_status, fetch_status.response_code},
                             IdpNetworkRequestManager::AccountsResponse());
     return;
   }
 
-  response.accounts = std::move(*parse_result);
+  IdpNetworkRequestManager::AccountsResponse response =
+      std::move(*response_result);
   if (fetch_status.from_accounts_push) {
     for (auto& account : response.accounts) {
       account->from_accounts_push = true;
     }
   }
 
-  const std::string* site_salt = result->FindString(kSiteSaltKey);
-  if (IsEmbedderInitiatedLoginEnabled() && site_salt) {
-    response.site_salt = *site_salt;
-  }
-
   std::move(callback).Run({ParseStatus::kSuccess, fetch_status.response_code},
                           std::move(response));
-}
-
-std::pair<GURL, std::optional<ErrorUrlType>> GetErrorUrlAndType(
-    const std::string* url,
-    const GURL& idp_url) {
-  if (!url || url->empty()) {
-    return std::make_pair(GURL(), std::nullopt);
-  }
-
-  GURL error_url = idp_url.Resolve(*url);
-  if (!error_url.is_valid()) {
-    return std::make_pair(GURL(), std::nullopt);
-  }
-
-  url::Origin error_origin = url::Origin::Create(error_url);
-  url::Origin idp_origin = url::Origin::Create(idp_url);
-  if (error_origin == idp_origin) {
-    return std::make_pair(error_url, ErrorUrlType::kSameOrigin);
-  }
-
-  if (!net::SchemefulSite::IsSameSite(error_origin, idp_origin)) {
-    return std::make_pair(GURL(), ErrorUrlType::kCrossSite);
-  }
-
-  return std::make_pair(error_url, ErrorUrlType::kCrossOriginSameSite);
 }
 
 ErrorDialogType GetErrorDialogType(const std::string& code, const GURL& url) {

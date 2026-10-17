@@ -1,0 +1,351 @@
+// Copyright 2025 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "chrome/browser/glic/public/service/glic_activity_manager.h"
+
+#include <algorithm>
+#include <optional>
+#include <utility>
+
+#include "base/check.h"
+#include "base/feature_list.h"
+#include "base/functional/bind.h"
+#include "chrome/browser/actor/actor_keyed_service.h"
+#include "chrome/browser/actor/actor_task.h"
+#include "chrome/browser/actor/ui/actor_ui_metrics.h"
+#include "chrome/browser/actor/ui/actor_ui_state_manager.h"
+#include "chrome/browser/glic/public/glic_keyed_service.h"
+#include "chrome/browser/profiles/profile.h"
+#include "chrome/common/chrome_features.h"
+#include "components/actor/core/actor_features.h"
+
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/notifications/glic_actor_task_notification_handler.h"
+#endif
+
+namespace glic {
+namespace {
+
+using actor::ActorKeyedService;
+using ActorTaskNudgeState = actor::ui::ActorTaskNudgeState;
+using actor::ActorTask;
+using TaskState = actor::ActorTask::State;
+using TaskDuration = actor::ActorTask::TaskDuration;
+using Text = ActorTaskNudgeState::Text;
+
+}  // namespace
+
+// static
+GlicActivityManager* GlicActivityManager::Get(Profile* profile) {
+  auto* glic_service = GlicKeyedService::Get(profile);
+  return glic_service ? &glic_service->activity_manager() : nullptr;
+}
+
+GlicActivityManager::GlicActivityManager(Profile* profile,
+                                         ActorKeyedService* actor_service)
+    : profile_(profile), actor_service_(actor_service) {
+  RegisterSubscriptions();
+}
+
+GlicActivityManager::~GlicActivityManager() = default;
+
+void GlicActivityManager::RegisterSubscriptions() {
+  auto* ui_state_manager = actor::ui::ActorUiStateManager::Get(profile_);
+  if (!ui_state_manager) {
+    return;
+  }
+  callback_subscriptions_.push_back(
+      ui_state_manager->RegisterActorTaskStateChange(
+          base::BindRepeating(&GlicActivityManager::OnActorTaskStateUpdate,
+                              base::Unretained(this))));
+  callback_subscriptions_.push_back(ui_state_manager->RegisterActorTaskStopped(
+      base::BindRepeating(&GlicActivityManager::UpdateTaskIconComponents,
+                          base::Unretained(this))));
+  callback_subscriptions_.push_back(ui_state_manager->RegisterActorTaskRemoved(
+      base::BindRepeating(&GlicActivityManager::UpdateTaskIconComponents,
+                          base::Unretained(this))));
+}
+
+void GlicActivityManager::UpdateTaskIconComponents(actor::TaskId task_id) {
+  UpdateTaskListBubble(task_id);
+  UpdateTaskNudge();
+}
+
+void GlicActivityManager::OnActorTaskStateUpdate(actor::TaskId task_id) {
+  if (actor_service_) {
+    actor::ActorTask* task = actor_service_->GetTask(task_id);
+    if (!task) {
+      return;
+    }
+  }
+  UpdateTaskIconComponents(task_id);
+}
+
+void GlicActivityManager::OnTabAddedToTask(actor::TaskId task_id) {
+  UpdateTaskIconComponents(task_id);
+}
+
+void GlicActivityManager::Shutdown() {
+  callback_subscriptions_.clear();
+}
+
+void GlicActivityManager::UpdateTaskNudge() {
+  auto* manager = actor::ui::ActorUiStateManager::Get(profile_);
+  if (!manager) {
+    return;
+  }
+
+  ActorTaskNudgeState old_state = current_actor_task_nudge_state_;
+
+  bool needs_attention = false;
+  bool tasks_complete = false;
+  bool show_bubble = false;
+  for (const auto [task_id, requires_processing] :
+       actor_task_list_bubble_rows_) {
+    // Tasks that are processed will show the default nudge.
+    if (!requires_processing) {
+      continue;
+    }
+
+    const std::optional<TaskState> state = manager->GetActorTaskState(task_id);
+
+    // Tasks that have no state no longer exist and should not be processed.
+    if (!state) {
+      actor::ui::RecordTaskIconError(
+          actor::ui::ActorUiTaskIconError::kNudgeTaskDoesntExist);
+      continue;
+    }
+
+    auto duration = manager->GetDuration(task_id);
+    glic::mojom::FeatureMode feature_mode = manager->GetFeatureMode(task_id);
+    if (ShouldShowBubble(*state, duration, feature_mode)) {
+      show_bubble = true;
+    }
+
+    if (GlicActivityManager::RequiresAttention(*state)) {
+      // Needs attention prioritized over other text
+      needs_attention = true;
+      break;
+    }
+
+    if (*state == TaskState::kFinished || *state == TaskState::kFailed) {
+      tasks_complete = true;
+    }
+  }
+  current_actor_task_nudge_state_.text = needs_attention ? Text::kNeedsAttention
+                                         : tasks_complete ? Text::kCompleteTasks
+                                                          : Text::kDefault;
+
+  // If the state, number of tasks needing processing, or number of inactive
+  // tasks changed we want to notify the nudge. We need to specifically check
+  // when the number of tasks in a given state changes, as the number of tasks
+  // in the bubble will only change when a new task is added or removed, not if
+  // the state changes.
+  size_t num_inactive_tasks = manager->GetInactiveTaskCount();
+  bool label_plurality_changed =
+      stored_bubble_row_need_processing_task_count_ !=
+          GetNumActorTasksNeedProcessing() ||
+      stored_bubble_row_inactive_task_count_ != num_inactive_tasks;
+
+  if (old_state != current_actor_task_nudge_state_ ||
+      stored_bubble_row_task_count_ != actor_task_list_bubble_rows_.size() ||
+      (base::FeatureList::IsEnabled(features::kGlicActorUiTaskIconUiFixes) &&
+       label_plurality_changed)) {
+    stored_bubble_row_task_count_ = actor_task_list_bubble_rows_.size();
+    stored_bubble_row_need_processing_task_count_ =
+        GetNumActorTasksNeedProcessing();
+    stored_bubble_row_inactive_task_count_ = num_inactive_tasks;
+    task_nudge_state_change_callback_list_.Notify(
+        show_bubble, current_actor_task_nudge_state_);
+  }
+}
+
+void GlicActivityManager::ProcessRowInTaskListBubble(actor::TaskId task_id) {
+  if (auto it = actor_task_list_bubble_rows_.find(task_id);
+      it != actor_task_list_bubble_rows_.end()) {
+    it->second = false;
+  }
+  UpdateTaskNudge();
+}
+
+void GlicActivityManager::UpdateTaskListBubble(actor::TaskId task_id) {
+  auto* manager = actor::ui::ActorUiStateManager::Get(profile_);
+  if (!manager) {
+    return;
+  }
+  const auto state = manager->GetActorTaskState(task_id);
+  if (!state.has_value() || state.value() == ActorTask::State::kCancelled) {
+    // If there is no value for the state, this means the task does not exist so
+    // we should remove it.
+    // If the task was cancelled, it should also be removed from the bubble.
+    actor_task_list_bubble_rows_.erase(task_id);
+    tasks_notified_of_start_.erase(task_id);
+#if !BUILDFLAG(IS_ANDROID)
+    GlicActorTaskNotificationHandler::Close(profile_, task_id);
+#endif
+    return;
+  }
+
+  glic::mojom::FeatureMode feature_mode = manager->GetFeatureMode(task_id);
+  bool is_active_universal_cart_task =
+      IsActiveUniversalCartTask(state.value(), feature_mode);
+  bool is_active_task = IsActiveExperimentalTask(state.value(), feature_mode) ||
+                        is_active_universal_cart_task ||
+                        IsActivePasswordChangeTask(state.value(), feature_mode);
+
+  // Delay showing notifications/adding to active task list for Universal Cart
+  // tasks until a tab has been associated with the task.
+  if (is_active_universal_cart_task) {
+    auto task_tab = manager->GetLastActedOnTab(task_id);
+    bool has_tab = task_tab && *task_tab;
+    if (!has_tab) {
+      return;
+    }
+  }
+
+  const auto duration = manager->GetDuration(task_id);
+  actor_task_list_bubble_rows_[task_id] =
+      RequiresTaskProcessing(state.value(), feature_mode);
+
+  if (is_active_task) {
+    // Notify the bubble that an active task (such as experimental triggering,
+    // universal cart, or password change) has started execution. If enabled
+    // by feature flag, the bubble may be shown with a delay, and appears on
+    // the active window.
+    if (tasks_notified_of_start_.insert(task_id).second) {
+      task_list_bubble_change_callback_list_.Notify(
+          /*is_start_notification=*/true);
+
+#if !BUILDFLAG(IS_ANDROID)
+      if (IsActiveExperimentalTask(state.value(), feature_mode)) {
+        GlicActorTaskNotificationHandler::MaybeShow(profile_, task_id);
+      }
+#endif
+    }
+    return;
+  }
+
+#if !BUILDFLAG(IS_ANDROID)
+  if (feature_mode == glic::mojom::FeatureMode::kExperimentalTriggering) {
+    GlicActorTaskNotificationHandler::Close(profile_, task_id);
+  }
+#endif
+
+  if (ShouldShowBubble(state.value(), duration, feature_mode)) {
+    // Notify the bubble of task status updates, completion/failure events, or
+    // user attention requests (such as kPausedByActor or kWaitingOnUser).
+    task_list_bubble_change_callback_list_.Notify(
+        /*is_start_notification=*/false);
+  }
+}
+
+base::CallbackListSubscription
+GlicActivityManager::RegisterTaskNudgeStateChange(
+    TaskNudgeChangeCallback callback) {
+  return task_nudge_state_change_callback_list_.Add(std::move(callback));
+}
+
+base::CallbackListSubscription
+GlicActivityManager::RegisterTaskListBubbleStateChange(
+    TaskListBubbleChangeCallback callback) {
+  return task_list_bubble_change_callback_list_.Add(std::move(callback));
+}
+
+ActorTaskNudgeState GlicActivityManager::GetCurrentActorTaskNudgeState() const {
+  return current_actor_task_nudge_state_;
+}
+size_t GlicActivityManager::GetNumActorTasksNeedProcessing() const {
+  return std::ranges::count_if(
+      actor_task_list_bubble_rows_,
+      [](const auto& task) { return /*requires_processing=*/task.second; });
+}
+
+// static
+bool GlicActivityManager::RequiresAttention(TaskState state) {
+  return state == TaskState::kPausedByActor ||
+         state == TaskState::kWaitingOnUser;
+}
+
+// static
+bool GlicActivityManager::RequiresTaskProcessing(
+    TaskState state,
+    glic::mojom::FeatureMode feature_mode) {
+  if (ShouldSuppressNotification(feature_mode, state)) {
+    return false;
+  }
+  return GlicActivityManager::RequiresAttention(state) ||
+         state == TaskState::kFinished || state == TaskState::kFailed ||
+         IsActiveExperimentalTask(state, feature_mode) ||
+         IsActiveUniversalCartTask(state, feature_mode) ||
+         IsActivePasswordChangeTask(state, feature_mode);
+}
+
+// static
+bool GlicActivityManager::ShouldSuppressNotification(
+    glic::mojom::FeatureMode feature_mode,
+    TaskState state) {
+  return base::FeatureList::IsEnabled(
+             features::kGlicExperimentalTriggeringSuppressDoneNotification) &&
+         feature_mode == glic::mojom::FeatureMode::kExperimentalTriggering &&
+         (state == TaskState::kFinished || state == TaskState::kFailed);
+}
+
+// static
+bool GlicActivityManager::IsActiveExperimentalTask(
+    TaskState state,
+    glic::mojom::FeatureMode feature_mode) {
+  return feature_mode == glic::mojom::FeatureMode::kExperimentalTriggering &&
+         (state == TaskState::kActing || state == TaskState::kReflecting);
+}
+
+// static
+bool GlicActivityManager::IsActiveUniversalCartTask(
+    TaskState state,
+    glic::mojom::FeatureMode feature_mode) {
+  return feature_mode == glic::mojom::FeatureMode::kUniversalCart &&
+         (state == TaskState::kActing || state == TaskState::kReflecting);
+}
+
+// static
+bool GlicActivityManager::IsActivePasswordChangeTask(
+    TaskState state,
+    glic::mojom::FeatureMode feature_mode) {
+  return feature_mode == glic::mojom::FeatureMode::kPasswordChange &&
+         (state == TaskState::kActing || state == TaskState::kReflecting);
+}
+
+// static
+bool GlicActivityManager::ShouldShowBubble(
+    TaskState state,
+    TaskDuration duration,
+    glic::mojom::FeatureMode feature_mode) {
+  if (GlicActivityManager::RequiresAttention(state)) {
+    return true;
+  }
+  if (ShouldSuppressNotification(feature_mode, state)) {
+    return false;
+  }
+  return (state == TaskState::kFinished || state == TaskState::kFailed) &&
+         duration != ActorTask::TaskDuration::kTransient;
+}
+
+bool GlicActivityManager::HasActiveExperimentalTask() const {
+  auto* ui_state_manager = actor::ui::ActorUiStateManager::Get(profile_);
+  if (!ui_state_manager) {
+    return false;
+  }
+  for (const auto& [task_id, requires_processing] :
+       actor_task_list_bubble_rows_) {
+    const std::optional<TaskState> state =
+        ui_state_manager->GetActorTaskState(task_id);
+    if (requires_processing && state &&
+        IsActiveExperimentalTask(*state,
+                                 ui_state_manager->GetFeatureMode(task_id))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+}  // namespace glic

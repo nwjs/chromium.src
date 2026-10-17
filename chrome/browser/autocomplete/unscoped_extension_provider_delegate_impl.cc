@@ -182,7 +182,7 @@ UnscopedExtensionProviderDelegateImpl::CreateAutocompleteMatch(
     int relevance,
     const std::string& extension_id) {
   AutocompleteMatch match(provider_.get(), relevance, suggestion.deletable,
-                          AutocompleteMatchType::SEARCH_OTHER_ENGINE);
+                          omnibox::AutocompleteMatchType::kSearchOtherEngine);
   std::u16string trimmed_suggestion_content;
   // Prevents DCHECK in `SplitKeywordFromInput` in AutocompleteInput which
   // assumes leading whitespace is trimmed.

@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 
+#include "base/feature_list.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "components/autofill/core/browser/autofill_field.h"
@@ -20,6 +21,7 @@
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
 #include "components/autofill/core/common/autofill_constants.h"
+#include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_internals/log_message.h"
 #include "components/autofill/core/common/autofill_internals/logging_scope.h"
 #include "components/autofill/core/common/autofill_regex_constants.h"
@@ -118,16 +120,47 @@ bool AtLeastNumFieldsSatisfy(const T& form, size_t num, Predicate p) {
   return num == 0;
 }
 
+// Returns true if `form` is considered a search form and should be ignored by
+// Autofill.
 template <typename T>
   requires IsForm<T>
-bool ShouldBeParsed(const T& form,
-                    ShouldBeParsedParams params,
-                    LogManager* log_manager) {
+bool IsSearchForm(const T& form) {
+  // Checking `kUrlSearchActionRe` on the form's `action` URL alone is too
+  // aggressive: when a `<form>` omits the `action` attribute, its `action`
+  // defaults to the document URL, which means any form on a page with "/search"
+  // in its path (e.g., a login or booking lookup form) would match
+  // `kUrlSearchActionRe`.
+  //
+  // To avoid blocking legitimate multi-field forms while still filtering out
+  // common single-input search bars (and avoiding unnecessary server query
+  // traffic for them), we also require `fields(form).size() == 1`.
+  //
+  // Note on unowned forms and form-flattening:
+  // - Unowned forms (`form.renderer_id().is_null()`) have an empty `action`
+  //   URL, so they never match `kUrlSearchActionRe` regardless of field count.
+  // - For an owned `<form>`, `FormForest` only flattens `<iframe>`s that are
+  //   DOM descendants of that `<form>` element (other iframes on the page
+  //   belong to the unowned form or their own enclosing `<form>`), so a search
+  //   `<form>` won't pick up fields from unrelated iframes on the page.
+  return (fields(form).size() == 1 ||
+          !base::FeatureList::IsEnabled(
+              features::kAutofillOnlyConsiderSingleFieldFormsAsSearchForms)) &&
+         MatchesRegex<kUrlSearchActionRe>(
+             base::UTF8ToUTF16(action(form).path()));
+}
+
+template <typename T>
+  requires IsForm<T>
+DenseSet<FormParsingPermission> GetFormParsingPermissions(
+    const T& form,
+    bool ignore_small_forms,
+    FormParsingPermissionsParams params,
+    LogManager* log_manager) {
   // Exclude URLs not on the web via HTTP(S).
   if (!HasAllowedScheme(url(form))) {
     LOG_AF(log_manager) << LoggingScope::kAbortParsing
                         << LogMessage::kAbortParsingNotAllowedScheme << form;
-    return false;
+    return {};
   }
 
   if (fields(form).size() < params.min_required_fields &&
@@ -138,16 +171,13 @@ bool ShouldBeParsed(const T& form,
     LOG_AF(log_manager) << LoggingScope::kAbortParsing
                         << LogMessage::kAbortParsingNotEnoughFields
                         << fields(form).size() << form;
-    return false;
+    return {};
   }
 
-  // Rule out search forms.
-  if (MatchesRegex<kUrlSearchActionRe>(
-          base::UTF8ToUTF16(action(form).path()))) {
+  if (IsSearchForm(form)) {
     LOG_AF(log_manager) << LoggingScope::kAbortParsing
-                        << LogMessage::kAbortParsingUrlMatchesSearchRegex
-                        << form;
-    return false;
+                        << LogMessage::kAbortParsingSearchForm << form;
+    return {};
   }
 
   bool has_text_field =
@@ -155,41 +185,30 @@ bool ShouldBeParsed(const T& form,
   if (!has_text_field) {
     LOG_AF(log_manager) << LoggingScope::kAbortParsing
                         << LogMessage::kAbortParsingFormHasNoTextfield << form;
+    return {};
   }
-  return has_text_field;
-}
 
-template <typename T>
-  requires IsForm<T>
-bool ShouldRunHeuristics(const T& form, bool ignore_small_forms) {
-  if (ignore_small_forms &&
-      fields(form).size() < kMinRequiredFieldsForHeuristics) {
-    return false;
+  DenseSet<FormParsingPermission> permissions;
+  if (!ignore_small_forms ||
+      fields(form).size() >= kMinRequiredFieldsForHeuristics) {
+    permissions.insert(FormParsingPermission::kHeuristics);
   }
-  return HasAllowedScheme(url(form));
-}
-
-template <typename T>
-  requires IsForm<T>
-bool ShouldRunHeuristicsForSingleFields(const T& form) {
-  return fields(form).size() >= 1 && HasAllowedScheme(url(form));
-}
-
-template <typename T>
-  requires IsForm<T>
-bool ShouldBeQueried(const T& form) {
-  return (fields(form).size() >= kMinRequiredFieldsForQuery ||
-          std::ranges::any_of(fields(form), is_password_field)) &&
-         ShouldBeParsed(form, {}, nullptr);
-}
-
-bool ShouldBeUploaded(const FormStructure& form) {
-  return fields(form).size() >= kMinRequiredFieldsForUpload &&
-         ShouldBeParsed(form, {}, nullptr);
+  if (fields(form).size() >= 1) {
+    permissions.insert(FormParsingPermission::kSingleFieldHeuristics);
+  }
+  if (fields(form).size() >= kMinRequiredFieldsForQuery ||
+      std::ranges::any_of(fields(form), is_password_field)) {
+    permissions.insert(FormParsingPermission::kServerQuery);
+  }
+  if (fields(form).size() >= kMinRequiredFieldsForUpload) {
+    permissions.insert(FormParsingPermission::kServerUpload);
+  }
+  return permissions;
 }
 
 bool ShouldUploadUkm(const FormStructure& form, bool require_classified_field) {
-  if (!ShouldBeParsed(form, {}, nullptr)) {
+  if (GetFormParsingPermissions(form, /*ignore_small_forms=*/true, {}, nullptr)
+          .empty()) {
     return false;
   }
 
@@ -243,40 +262,19 @@ bool ShouldUploadUkm(const FormStructure& form, bool require_classified_field) {
 
 }  // namespace internal
 
-bool ShouldBeParsed(const FormData& form, LogManager* log_manager) {
-  return internal::ShouldBeParsed(form, {}, log_manager);
+DenseSet<FormParsingPermission> GetFormParsingPermissions(
+    const FormData& form,
+    bool ignore_small_forms,
+    LogManager* log_manager) {
+  return internal::GetFormParsingPermissions(form, ignore_small_forms, {},
+                                             log_manager);
 }
 
-bool ShouldBeParsed(const FormStructure& form, LogManager* log_manager) {
-  return internal::ShouldBeParsed(form, {}, log_manager);
-}
-
-bool ShouldRunHeuristics(const FormData& form, bool ignore_small_forms) {
-  return internal::ShouldRunHeuristics(form, ignore_small_forms);
-}
-
-bool ShouldRunHeuristics(const FormStructure& form, bool ignore_small_forms) {
-  return internal::ShouldRunHeuristics(form, ignore_small_forms);
-}
-
-bool ShouldRunHeuristicsForSingleFields(const FormData& form) {
-  return internal::ShouldRunHeuristicsForSingleFields(form);
-}
-
-bool ShouldRunHeuristicsForSingleFields(const FormStructure& form) {
-  return internal::ShouldRunHeuristicsForSingleFields(form);
-}
-
-bool ShouldBeQueried(const FormData& form) {
-  return internal::ShouldBeQueried(form);
-}
-
-bool ShouldBeQueried(const FormStructure& form) {
-  return internal::ShouldBeQueried(form);
-}
-
-bool ShouldBeUploaded(const FormStructure& form) {
-  return internal::ShouldBeUploaded(form);
+DenseSet<FormParsingPermission> GetFormParsingPermissions(
+    const FormStructure& form,
+    bool ignore_small_forms) {
+  return internal::GetFormParsingPermissions(form, ignore_small_forms, {},
+                                             nullptr);
 }
 
 bool ShouldUploadUkm(const FormStructure& form, bool require_classified_field) {
@@ -288,20 +286,25 @@ bool IsAutofillable(const FormStructure& form) {
       std::min({kMinRequiredFieldsForHeuristics, kMinRequiredFieldsForQuery,
                 kMinRequiredFieldsForUpload});
   return internal::AtLeastNumFieldsSatisfy(form, kMinRequiredFields,
-                                           &AutofillField::IsFieldFillable) &&
-         internal::ShouldBeParsed(form, {}, nullptr);
+                                           &AutofillField::IsFieldFillable);
 }
 
-bool ShouldBeParsedForTest(const FormData& form,  // IN-TEST
-                           ShouldBeParsedParams params,
-                           LogManager* log_manager) {
-  return internal::ShouldBeParsed(form, params, log_manager);
+DenseSet<FormParsingPermission> GetFormParsingPermissionsForTest(  // IN-TEST
+    const FormData& form,
+    bool ignore_small_forms,
+    FormParsingPermissionsParams params,
+    LogManager* log_manager) {
+  return internal::GetFormParsingPermissions(form, ignore_small_forms, params,
+                                             log_manager);
 }
 
-bool ShouldBeParsedForTest(const FormStructure& form,  // IN-TEST
-                           ShouldBeParsedParams params,
-                           LogManager* log_manager) {
-  return internal::ShouldBeParsed(form, params, log_manager);
+DenseSet<FormParsingPermission> GetFormParsingPermissionsForTest(  // IN-TEST
+    const FormStructure& form,
+    bool ignore_small_forms,
+    FormParsingPermissionsParams params,
+    LogManager* log_manager) {
+  return internal::GetFormParsingPermissions(form, ignore_small_forms, params,
+                                             log_manager);
 }
 
 }  // namespace autofill

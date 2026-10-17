@@ -67,22 +67,18 @@ namespace {
 namespace test_default {
 // TODO(crbug.com/497882860): Remove pins includes from this file.
 #include "net/http/transport_security_state_static_pins_unittest_default.h"
-// Must be included after the pins:
 #include "net/http/transport_security_state_static_unittest_default.h"
 }
 namespace test1 {
 #include "net/http/transport_security_state_static_unittest1_pins.h"
-// Must be included after the pins:
 #include "net/http/transport_security_state_static_unittest1.h"
 }
 namespace test2 {
 #include "net/http/transport_security_state_static_unittest2_pins.h"
-// Must be included after the pins:
 #include "net/http/transport_security_state_static_unittest2.h"
 }
 namespace test3 {
 #include "net/http/transport_security_state_static_unittest3_pins.h"
-// Must be included after the pins:
 #include "net/http/transport_security_state_static_unittest3.h"
 }
 
@@ -124,8 +120,7 @@ bool operator==(const TransportSecurityState::STSState& lhs,
 
 bool operator==(const TransportSecurityState::PKPState& lhs,
                 const TransportSecurityState::PKPState& rhs) {
-  return lhs.last_observed == rhs.last_observed && lhs.expiry == rhs.expiry &&
-         lhs.spki_hashes == rhs.spki_hashes &&
+  return lhs.expiry == rhs.expiry && lhs.spki_hashes == rhs.spki_hashes &&
          lhs.bad_spki_hashes == rhs.bad_spki_hashes &&
          lhs.include_subdomains == rhs.include_subdomains &&
          lhs.domain == rhs.domain;
@@ -152,12 +147,14 @@ class TransportSecurityStateTest : public ::testing::Test,
       : WithTaskEnvironment(
             base::test::TaskEnvironment::TimeSource::MOCK_TIME) {
     SetTransportSecurityStateSourceForTesting(&test_default::kHSTSSource);
+    SetTransportSecurityStatePinsSourceForTesting(&test_default::kPinsSource);
     // Need mocked out time for pruning tests. Don't start with a
     // time of 0, as code doesn't generally expect it.
     FastForwardBy(base::Days(1));
   }
 
   ~TransportSecurityStateTest() override {
+    SetTransportSecurityStatePinsSourceForTesting(nullptr);
     SetTransportSecurityStateSourceForTesting(nullptr);
   }
 
@@ -452,19 +449,14 @@ TEST_F(TransportSecurityStateTest, Expiration) {
   EXPECT_FALSE(TransportSecurityState::STSStateIterator(state).HasNext());
 
   state.AddHPKP("example1.test", older, false, GetSampleSPKIHashes());
-  EXPECT_TRUE(state.has_dynamic_pkp_state());
   EXPECT_FALSE(state.HasPublicKeyPins("example1.test"));
-  // Querying |state| for a domain should flush out expired entries.
-  EXPECT_FALSE(state.has_dynamic_pkp_state());
 
   state.AddHSTS("example1.test", older, false);
   state.AddHPKP("example1.test", older, false, GetSampleSPKIHashes());
   EXPECT_TRUE(TransportSecurityState::STSStateIterator(state).HasNext());
-  EXPECT_TRUE(state.has_dynamic_pkp_state());
   EXPECT_FALSE(state.ShouldSSLErrorsBeFatal("example1.test"));
   // Querying |state| for a domain should flush out expired entries.
   EXPECT_FALSE(TransportSecurityState::STSStateIterator(state).HasNext());
-  EXPECT_FALSE(state.has_dynamic_pkp_state());
 
   // Test that HSTS can outlive HPKP.
   state.AddHSTS("example1.test", expiry, false);
@@ -761,6 +753,7 @@ TEST_F(TransportSecurityStateTest, DecodePreloadedSingle) {
   AddScopedFeatureList().InitAndEnableFeature(
       features::kStaticKeyPinningEnforcement);
   SetTransportSecurityStateSourceForTesting(&test1::kHSTSSource);
+  SetTransportSecurityStatePinsSourceForTesting(&test1::kPinsSource);
 
   TransportSecurityState state;
   TransportSecurityStateTest::EnableStaticPins(&state);
@@ -788,6 +781,7 @@ TEST_F(TransportSecurityStateTest, DecodePreloadedMultiplePrefix) {
   AddScopedFeatureList().InitAndEnableFeature(
       features::kStaticKeyPinningEnforcement);
   SetTransportSecurityStateSourceForTesting(&test2::kHSTSSource);
+  SetTransportSecurityStatePinsSourceForTesting(&test2::kPinsSource);
 
   TransportSecurityState state;
   TransportSecurityStateTest::EnableStaticPins(&state);
@@ -837,6 +831,7 @@ TEST_F(TransportSecurityStateTest, DecodePreloadedMultipleMix) {
   AddScopedFeatureList().InitAndEnableFeature(
       features::kStaticKeyPinningEnforcement);
   SetTransportSecurityStateSourceForTesting(&test3::kHSTSSource);
+  SetTransportSecurityStatePinsSourceForTesting(&test3::kPinsSource);
 
   TransportSecurityState state;
   TransportSecurityStateTest::EnableStaticPins(&state);
@@ -1092,6 +1087,7 @@ class TransportSecurityStateStaticTest : public TransportSecurityStateTest {
  public:
   TransportSecurityStateStaticTest() {
     SetTransportSecurityStateSourceForTesting(nullptr);
+    SetTransportSecurityStatePinsSourceForTesting(nullptr);
   }
 };
 

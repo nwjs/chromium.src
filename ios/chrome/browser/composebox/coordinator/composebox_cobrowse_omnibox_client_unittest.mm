@@ -88,11 +88,12 @@ TEST_F(ComposeboxCobrowseOmniboxClientTest, OnAutocompleteAccept) {
   std::u16string text = u"typed";
   AutocompleteMatch match;
   match.inline_autocompletion = u" completed";
-  match.type = AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED;
+  match.type = omnibox::AutocompleteMatchType::kSearchWhatYouTyped;
 
   client_->OnAutocompleteAccept(
       GURL("http://example.com"), nullptr, WindowOpenDisposition::CURRENT_TAB,
-      ui::PAGE_TRANSITION_TYPED, AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED,
+      ui::PAGE_TRANSITION_TYPED,
+      omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       base::TimeTicks::Now(), false, false, text, match, match);
 
   EXPECT_EQ(delegate_.acceptedText, u"typed completed");
@@ -107,11 +108,12 @@ TEST_F(ComposeboxCobrowseOmniboxClientTest,
   AutocompleteMatch match;
   match.inline_autocompletion = u" completed";
   match.fill_into_edit = u"different fill into edit";
-  match.type = AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED;
+  match.type = omnibox::AutocompleteMatchType::kSearchWhatYouTyped;
 
   client_->OnAutocompleteAccept(
       GURL("http://example.com"), nullptr, WindowOpenDisposition::CURRENT_TAB,
-      ui::PAGE_TRANSITION_TYPED, AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED,
+      ui::PAGE_TRANSITION_TYPED,
+      omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       base::TimeTicks::Now(), false, false, text, match, match);
 
   EXPECT_EQ(delegate_.acceptedText, u"typed completed");

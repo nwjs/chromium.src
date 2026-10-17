@@ -407,6 +407,8 @@ suite('<history-synced-device-manager>', function() {
 });
 
 // <if expr="not is_chromeos">
+import {AccessPoint} from 'chrome://resources/cr_components/history/history.mojom-webui.js';
+
 // history-sync-optin elements is not shown for ChromeOS.
 suite('<history-sync-optin>', function() {
   let element: HistorySyncedDeviceManagerElement;
@@ -456,6 +458,15 @@ suite('<history-sync-optin>', function() {
     assertTrue(isChildVisible(element, '#account-name'));
     assertTrue(isChildVisible(element, '#account-email'));
     assertTrue(isChildVisible(element, '#profile-icon'));
+    assertTrue(
+        isChildVisible(element, '#web-only-signed-in-sync-history-promo-desc'));
+    assertFalse(isChildVisible(element, '#signed-out-sync-history-promo-desc'));
+    assertEquals(
+        loadTimeData.getString('syncHistoryPromoBodyWebOnlySignedIn'),
+        element.shadowRoot
+            .querySelector<HTMLElement>(
+                '#web-only-signed-in-sync-history-promo-desc')!.textContent
+            .trim());
   });
 
   test('check elements in signed out state', async () => {
@@ -476,6 +487,13 @@ suite('<history-sync-optin>', function() {
     // The history sync promo elements for SIGNED_OUT state are shown correctly.
     assertTrue(isChildVisible(element, '#sync-history-button'));
     assertTrue(isChildVisible(element, '#signed-out-sync-history-promo-desc'));
+    assertFalse(
+        isChildVisible(element, '#web-only-signed-in-sync-history-promo-desc'));
+    assertEquals(
+        loadTimeData.getString('syncHistoryPromoBodySignedOut'),
+        element.shadowRoot
+            .querySelector<HTMLElement>(
+                '#signed-out-sync-history-promo-desc')!.textContent.trim());
   });
 
   test('check elements in pending signin without tabs sync state', async () => {
@@ -597,7 +615,8 @@ suite('<history-sync-optin>', function() {
     assertTrue(!!button);
     button.click();
 
-    await testProxy.handler.whenCalled('turnOnHistorySync');
+    const accessPoint = await testProxy.handler.whenCalled('turnOnHistorySync');
+    assertEquals(AccessPoint.kRecentTabs, accessPoint);
   });
 
   test('check recorded metrics in pending signin', async () => {
@@ -609,6 +628,9 @@ suite('<history-sync-optin>', function() {
     });
     await microtasksFinished();
     assertEquals(1, testProxy.getCallCount('recordSigninPendingOffered'));
+    assertEquals(
+        AccessPoint.kRecentTabs,
+        await testProxy.whenCalled('recordSigninPendingOffered'));
 
     // Firing a sign in pending state again does not record again.
     webUIListenerCallback('history-identity-state-changed', {

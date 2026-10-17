@@ -60,7 +60,7 @@
 #include "components/actor/core/task_id.h"
 #include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/optimization_guide/proto/features/common_quality_data.pb.h"
-#include "components/origin_gating/core/actor_container_config_slot.h"
+#include "components/origin_gating/core/task_policy_config_slot.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/download_item_utils.h"
@@ -209,6 +209,11 @@ void ActorKeyedService::Shutdown() {
   GetJournal().Log(GURL(), TaskId(), "ActorKeyedService::Shutdown", {});
   for (auto [task_id, _] : GetActiveTasks()) {
     StopTask(task_id, ActorTask::StoppedReason::kShutdown);
+  }
+
+  if (!pending_tasks_.empty()) {
+    pending_tasks_.clear();
+    NotifyPendingTaskCountChanged();
   }
 
   // Ensure tasks get deleted synchronously to avoid dangling refs.
@@ -474,7 +479,8 @@ TaskId ActorKeyedService::CreateTask(
     const TaskSourceInfo& source_info,
     const EnterprisePolicyChecker* policy_checker) {
   return CreateTaskWithOptions(source_info, policy_checker, /*options=*/nullptr,
-                               /*delegate=*/nullptr, GetActorUiStateManager());
+                               /*delegate=*/nullptr,
+                               actor_ui_state_manager_.get());
 }
 
 TaskId ActorKeyedService::CreateTaskWithOptions(
@@ -499,7 +505,8 @@ TaskId ActorKeyedService::CreateTaskForTesting(
     std::optional<glic::mojom::InvocationSource> initial_invocation_source) {
   return CreateTaskImpl(std::move(ui_event_dispatcher), source_info,
                         policy_checker, std::move(options), std::move(delegate),
-                        GetActorUiStateManager(), initial_invocation_source);
+                        actor_ui_state_manager_.get(),
+                        initial_invocation_source);
 }
 
 TaskId ActorKeyedService::CreateTaskImpl(
@@ -537,6 +544,12 @@ TaskId ActorKeyedService::CreateTaskImpl(
 #endif
 
   NotifyTaskStateChanged(*active_tasks_[task_id]);
+
+  if (source_info.type == TaskSourceInfo::Client::kExperimentalActor &&
+      source_info.id.has_value()) {
+    RemovePendingTask(*source_info.id);
+  }
+
   return task_id;
 }
 
@@ -772,21 +785,21 @@ void ActorKeyedService::PerformActions(
   if (task_metadata.agent_container_config().has_value()) {
     JournalDetailsBuilder builder;
     if (!task->GetExecutionEngine()
-             .origin_gating_checker()
-             .actor_container_config_slot()
+             .GetOriginGatingChecker()
+             .task_policy_config_slot()
              .has_value()) {
-      origin_gating::ActorContainerConfig config = ConvertAgentContainerConfig(
+      origin_gating::TaskPolicyConfig config = ConvertAgentContainerConfig(
           task_metadata.agent_container_config().value());
       builder.Add("status", "assigned")
           .Add("active config", config.ToDebugValue());
       task->GetExecutionEngine()
-          .origin_gating_checker()
-          .actor_container_config_slot()
+          .GetOriginGatingChecker()
+          .task_policy_config_slot()
           .Assign(std::move(config));
     } else {
       builder.Add("status", "ignored config");
     }
-    GetJournal().Log(GURL(), task_id, "ActorContainerConfigSlot::Assign",
+    GetJournal().Log(GURL(), task_id, "TaskPolicyConfigSlot::Assign",
                      std::move(builder).Build());
   }
 
@@ -839,7 +852,8 @@ ActorTask* ActorKeyedService::GetTask(TaskId task_id) {
   return nullptr;
 }
 
-ActorUiStateManagerInterface* ActorKeyedService::GetActorUiStateManager() {
+ui::ActorUiStateManager* ActorKeyedService::GetActorUiStateManager(
+    base::PassKey<ui::ActorUiStateManager>) {
   return actor_ui_state_manager_.get();
 }
 
@@ -894,8 +908,7 @@ void ActorKeyedService::OnDownloadCreated(content::DownloadManager* manager,
               : 0;
       ActorCriticalActionLogger::LogAgentSelfReportedAction(
           profile_, task->source_info().id.value_or(""),
-          critical_actions::ActionType::kDownload, item->GetURL(),
-          navigation_id, task->id());
+          critical_actions::ActionType::kDownload, navigation_id, task->id());
     }
   }
 }
@@ -918,6 +931,7 @@ void ActorKeyedService::NotifyBackgroundTabReady(
 
 void ActorKeyedService::NotifyBackgroundSetupFailed(
     const std::string& glic_trigger_message_id) {
+  RemovePendingTask(glic_trigger_message_id);
   for (auto& observer : observers_) {
     observer.OnBackgroundSetupFailed(glic_trigger_message_id);
   }
@@ -931,7 +945,44 @@ ActorKeyedService::AddMessageTriggerTaskStoppedCallback(
 
 void ActorKeyedService::OnMessageTriggerTaskStopped(
     const std::string& message_id) {
+  RemovePendingTask(message_id);
   message_trigger_task_stopped_callbacks_.Notify(message_id);
+}
+
+void ActorKeyedService::AddPendingTask(
+    const std::string& triggering_context_id) {
+  CHECK(!triggering_context_id.empty());
+  auto [it, inserted] = pending_tasks_.try_emplace(
+      triggering_context_id, PendingTask{triggering_context_id});
+  if (inserted) {
+    NotifyPendingTaskCountChanged();
+  }
+}
+
+void ActorKeyedService::RemovePendingTask(
+    const std::string& triggering_context_id) {
+  if (pending_tasks_.erase(triggering_context_id) > 0) {
+    NotifyPendingTaskCountChanged();
+  }
+}
+
+size_t ActorKeyedService::GetPendingTasksCount() const {
+  return pending_tasks_.size();
+}
+
+bool ActorKeyedService::HasPendingTask(
+    const std::string& triggering_context_id) const {
+  return pending_tasks_.contains(triggering_context_id);
+}
+
+base::CallbackListSubscription
+ActorKeyedService::AddPendingTaskCountChangedCallback(
+    PendingTaskCountChangedCallback callback) {
+  return pending_task_count_change_callback_list_.Add(std::move(callback));
+}
+
+void ActorKeyedService::NotifyPendingTaskCountChanged() {
+  pending_task_count_change_callback_list_.Notify(pending_tasks_.size());
 }
 
 #if BUILDFLAG(IS_ANDROID)

@@ -5,7 +5,7 @@
 import 'chrome://bookmarks-side-panel.top-chrome/power_bookmarks_list.js';
 import 'chrome://bookmarks-side-panel.top-chrome/power_bookmarks_app.js';
 
-import {SortOrder, ViewType} from 'chrome://bookmarks-side-panel.top-chrome/bookmarks.mojom-webui.js';
+import {ActionSource, SortOrder, ViewType} from 'chrome://bookmarks-side-panel.top-chrome/bookmarks.mojom-webui.js';
 import {BookmarksApiProxyImpl} from 'chrome://bookmarks-side-panel.top-chrome/bookmarks_api_proxy.js';
 import type {PowerBookmarkRowElement} from 'chrome://bookmarks-side-panel.top-chrome/power_bookmark_row.js';
 import {BOOKMARK_ROW_LOAD_EVENT} from 'chrome://bookmarks-side-panel.top-chrome/power_bookmark_row.js';
@@ -164,7 +164,6 @@ suite('General', () => {
       emptyBodyFolder: 'folder body',
       emptyTitleGuest: 'guest title',
       emptyBodyGuest: 'guest body',
-      isBookmarksMigrationUiChanges: false,
     });
 
     const app = document.createElement('power-bookmarks-app');
@@ -261,6 +260,25 @@ suite('General', () => {
       assertTrue(renderedRowsB > 0);
       assertTrue(renderedRowsB < listB.items.length);
       assertEquals(0, listA.querySelectorAll('power-bookmark-row').length);
+    });
+
+    test('SearchFilterClearsItemSizeToPreventClipping', async () => {
+      const listA = powerBookmarksApp.$.bookmarksList.$.listA;
+      assertEquals(36, listA.itemSize);
+
+      await performSearch('bookmark');
+      await microtasksFinished();
+
+      // In search mode, itemSize must be undefined so cr-lazy-list measures
+      // actual rendered heights to accommodate filter headings without
+      // clipping.
+      assertEquals(undefined, listA.itemSize);
+
+      // Clearing search restores itemSize to the default for the current view
+      // type.
+      await performSearch('');
+      await microtasksFinished();
+      assertEquals(36, listA.itemSize);
     });
 
     test('RebuildsKeyboardNavigationOnBookmarkNodeAdded', async () => {
@@ -1103,7 +1121,8 @@ suite('General', () => {
 
 
     test('EditBookmarks', async () => {
-      const bookmark = getBookmarkWithId(powerBookmarksApp, '3')!;
+      const bookmarkId = '3';
+      const bookmark = getBookmarkWithId(powerBookmarksApp, bookmarkId)!;
       const contextMenu = powerBookmarksApp.$.contextMenu;
       const editClicked = eventToPromise('edit-clicked', contextMenu);
 
@@ -1126,16 +1145,19 @@ suite('General', () => {
       await editClicked;
       await microtasksFinished();
 
-      // The edit dialog is opened.
-      const editDialog = powerBookmarksApp.$.editDialog;
-      assertTrue(editDialog.$.dialog.open);
-      assertEquals(bookmark.title, editDialog.$.nameInput.inputElement.value);
-      assertEquals(bookmark.url, editDialog.$.urlInput.inputElement.value);
+      // The native edit dialog is opened.
+      assertEquals(1, bookmarksApi.getCallCount('contextMenuEdit'));
+      assertEquals(
+          bookmarkId, bookmarksApi.getArgs('contextMenuEdit')[0][0][0]);
+      assertEquals(
+          ActionSource.kBookmark,
+          bookmarksApi.getArgs('contextMenuEdit')[0][1]);
     });
 
     test('MoveBookmarks', async () => {
+      const bookmarkId = '3';
       const bookmarks = [
-        getBookmarkWithId(powerBookmarksApp, '3')!,
+        getBookmarkWithId(powerBookmarksApp, bookmarkId)!,
         getBookmarkWithId(powerBookmarksApp, '5')!,
       ];
       const contextMenu = powerBookmarksApp.$.contextMenu;
@@ -1160,9 +1182,13 @@ suite('General', () => {
       await editClicked;
       await microtasksFinished();
 
-      // The edit dialog is opened.
-      const editDialog = powerBookmarksApp.$.editDialog;
-      assertTrue(editDialog.$.dialog.open);
+      // The native move dialog is opened.
+      assertEquals(1, bookmarksApi.getCallCount('contextMenuMove'));
+      assertEquals(
+          bookmarkId, bookmarksApi.getArgs('contextMenuMove')[0][0][0]);
+      assertEquals(
+          ActionSource.kBookmark,
+          bookmarksApi.getArgs('contextMenuMove')[0][1]);
     });
 
     test('LogsBookmarkCountMetric', async () => {
@@ -1368,31 +1394,6 @@ suite('General', () => {
       await microtasksFinished();
 
       assertFalse(powerBookmarksApp.$.contextMenu.isOpen());
-    });
-
-    test('SortMenuClosesOnFocusout', async () => {
-      const header = powerBookmarksApp.$.bookmarksList.$.heading;
-
-      // Open sort menu.
-      const sortButton =
-          header.shadowRoot.querySelector<HTMLElement>('.sort-menu-button');
-      assertTrue(!!sortButton);
-      sortButton.click();
-      await microtasksFinished();
-
-      const sortMenu = header.$.sortMenu;
-      assertTrue(sortMenu.open);
-
-      // Simulate blur by dispatching focusout event with relatedTarget outside
-      // the menu.
-      const event = new FocusEvent('focusout', {
-        relatedTarget: document.body,
-      });
-      sortMenu.dispatchEvent(event);
-
-      await microtasksFinished();
-
-      assertFalse(sortMenu.open);
     });
 
     test('ShowUiOnlyCalledOnce', async () => {

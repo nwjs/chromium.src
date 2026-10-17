@@ -85,7 +85,7 @@ AutocompleteMatch VerbatimMatchForInput(AutocompleteProvider* provider,
                                         const GURL& destination_url,
                                         bool trim_default_scheme) {
   AutocompleteMatch match(provider, 0, false,
-                          AutocompleteMatchType::URL_WHAT_YOU_TYPED);
+                          omnibox::AutocompleteMatchType::kUrlWhatYouTyped);
 
   if (destination_url.is_valid()) {
     match.destination_url = destination_url;
@@ -166,7 +166,7 @@ AutocompleteMatch VerbatimMatchForContext(AutocompleteProvider* provider,
                                           const AutocompleteInput& input,
                                           int relevance) {
   AutocompleteMatch match(provider, relevance, /*deletable=*/false,
-                          AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED);
+                          omnibox::AutocompleteMatchType::kSearchWhatYouTyped);
   match.allowed_to_be_default_match = true;
 
   if (client->GetTemplateURLService()) {

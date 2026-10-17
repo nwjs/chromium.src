@@ -432,8 +432,10 @@ class SavedTabGroupInteractiveTest
       CHECK(submenu);
 
       // There are 5 menu items in the menu not including the separator or
-      // tabs: Open, move, unpin, delete, and the tabs title
-      int num_non_tab_items_in_menu = 5;
+      // tabs: Open, move, unpin, delete, and the tabs title (plus Focus group
+      // when kTabGroupsFocusing is enabled).
+      int num_non_tab_items_in_menu =
+          base::FeatureList::IsEnabled(features::kTabGroupsFocusing) ? 6 : 5;
       const int total_items = submenu->GetMenuItems().size();
       const int num_tabs = total_items - num_non_tab_items_in_menu;
       EXPECT_EQ(num_tabs, expected_count);
@@ -1236,7 +1238,7 @@ IN_PROC_BROWSER_TEST_F(TabGroupShortcutsInteractiveTest,
       // group.
       Screenshot(kTabGroupEditorBubbleNewTabInGroupButtonId,
                  "tab_group_editor_bubble_new_tab_in_group_with_accelerators",
-                 "6564307"),
+                 "8414812"),
       // Close the tab group editor bubble to prevent flakes on mac.
       HoverTabAt(0), ClickMouse(),
       WaitForHide(kTabGroupEditorBubbleNewTabInGroupButtonId));
@@ -1260,7 +1262,7 @@ IN_PROC_BROWSER_TEST_F(TabGroupShortcutsInteractiveTest,
       // group.
       Screenshot(kTabGroupEditorBubbleCloseGroupButtonId,
                  "tab_group_editor_bubble_close_group_with_accelerators",
-                 "6564307"),
+                 "8414812"),
       // Close the tab group editor bubble to prevent flakes on mac.
       HoverTabAt(0), ClickMouse(),
       WaitForHide(kTabGroupEditorBubbleCloseGroupButtonId));
@@ -1318,7 +1320,8 @@ IN_PROC_BROWSER_TEST_F(TabGroupShortcutsInteractiveTest,
       FinishTabstripAnimations(), ShowBookmarksBar(),
       // Use the keyboard shortcut command to create a new tab group.
       SendAccelerator(kBrowserViewElementId, create_accelerator),
-      EnsurePresent(kTabGroupHeaderElementId),
+      WaitForShow(kTabGroupHeaderElementId),
+      WaitForShow(kTabGroupEditorBubbleId),
       // Close the tab group editor bubble.
       SendAccelerator(kTabGroupEditorBubbleId,
                       ui::Accelerator(ui::VKEY_ESCAPE, ui::MODIFIER_NONE)),
@@ -1326,6 +1329,7 @@ IN_PROC_BROWSER_TEST_F(TabGroupShortcutsInteractiveTest,
       // Use the keyboard shortcut command to add a new tab at the end of the
       // group.
       SendAccelerator(kBrowserViewElementId, add_new_tab_to_group_accelerator),
+      WaitForIndexToBecomeActiveTab(2),
 
       // Verify the tab was added to the group.
       CheckResult(
@@ -1360,7 +1364,8 @@ IN_PROC_BROWSER_TEST_F(TabGroupShortcutsInteractiveTest,
       FinishTabstripAnimations(), ShowBookmarksBar(),
       // Use the keyboard shortcut command to create a new tab group.
       SendAccelerator(kBrowserViewElementId, create_accelerator),
-      EnsurePresent(kTabGroupHeaderElementId),
+      WaitForShow(kTabGroupHeaderElementId),
+      WaitForShow(kTabGroupEditorBubbleId),
       // Close the tab group editor bubble.
       SendAccelerator(kTabGroupEditorBubbleId,
                       ui::Accelerator(ui::VKEY_ESCAPE, ui::MODIFIER_NONE)),
@@ -1395,19 +1400,22 @@ IN_PROC_BROWSER_TEST_F(TabGroupShortcutsInteractiveTest,
       // Otherwise the commands will get eaten by that view and the tests will
       // fail.
       SendAccelerator(kBrowserViewElementId, create_accelerator),
-      FinishTabstripAnimations(), WaitForIndexToBecomeActiveTab(1),
+      WaitForIndexToBecomeActiveTab(1), FinishTabstripAnimations(),
+      WaitForShow(kTabGroupEditorBubbleId),
       SendAccelerator(kTabGroupEditorBubbleId,
                       ui::Accelerator(ui::VKEY_ESCAPE, ui::MODIFIER_NONE)),
       WaitForHide(kTabGroupEditorBubbleId), FinishTabstripAnimations(),
 
       SendAccelerator(kBrowserViewElementId, create_accelerator),
-      FinishTabstripAnimations(), WaitForIndexToBecomeActiveTab(2),
+      WaitForIndexToBecomeActiveTab(2), FinishTabstripAnimations(),
+      WaitForShow(kTabGroupEditorBubbleId),
       SendAccelerator(kTabGroupEditorBubbleId,
                       ui::Accelerator(ui::VKEY_ESCAPE, ui::MODIFIER_NONE)),
       WaitForHide(kTabGroupEditorBubbleId), FinishTabstripAnimations(),
 
       SendAccelerator(kBrowserViewElementId, create_accelerator),
-      FinishTabstripAnimations(), WaitForIndexToBecomeActiveTab(3),
+      WaitForIndexToBecomeActiveTab(3), FinishTabstripAnimations(),
+      WaitForShow(kTabGroupEditorBubbleId),
       SendAccelerator(kTabGroupEditorBubbleId,
                       ui::Accelerator(ui::VKEY_ESCAPE, ui::MODIFIER_NONE)),
       WaitForHide(kTabGroupEditorBubbleId), FinishTabstripAnimations(),

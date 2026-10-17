@@ -437,7 +437,7 @@ class HDRProxy {
 
 GpuDataManagerImplPrivate::GpuDataManagerImplPrivate(GpuDataManagerImpl* owner)
     : owner_(owner),
-#if BUILDFLAG(IS_MAC) && defined(ARCH_CPU_ARM64)
+#if BUILDFLAG(IS_MAC)
       supports_gpu_mode_hardware_gl_(false),
 #elif BUILDFLAG(IS_ANDROID)
       supports_gpu_mode_hardware_gl_(

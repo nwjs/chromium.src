@@ -15,7 +15,6 @@
 #include "ash/webui/personalization_app/mojom/personalization_app.mojom-shared.h"
 #include "base/check.h"
 #include "base/logging.h"
-#include "chrome/browser/ash/system_web_apps/apps/personalization_app/personalization_app_metrics.h"
 #include "chrome/browser/ash/system_web_apps/apps/personalization_app/personalization_app_utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "components/prefs/pref_service.h"
@@ -61,7 +60,6 @@ void PersonalizationAppKeyboardBacklightProviderImpl::
 void PersonalizationAppKeyboardBacklightProviderImpl::SetBacklightColor(
     mojom::BacklightColor backlight_color) {
   DVLOG(4) << __func__ << " backlight_color=" << backlight_color;
-  LogKeyboardBacklightColor(backlight_color);
   GetKeyboardBacklightColorController()->SetBacklightColor(
       backlight_color, GetAccountId(profile_));
   GetKeyboardBacklightColorController()
@@ -105,7 +103,8 @@ void PersonalizationAppKeyboardBacklightProviderImpl::HandleNudgeShown() {
 
 void PersonalizationAppKeyboardBacklightProviderImpl::
     OnWallpaperColorsChanged() {
-  DCHECK(keyboard_backlight_observer_remote_.is_bound());
+  CHECK(keyboard_backlight_observer_remote_.is_bound(),
+        base::NotFatalUntil::M160);
   keyboard_backlight_observer_remote_->OnWallpaperColorChanged(
       ConvertBacklightColorToSkColor(
           personalization_app::mojom::BacklightColor::kWallpaper));
@@ -125,7 +124,7 @@ PersonalizationAppKeyboardBacklightProviderImpl::
   }
   auto* keyboard_backlight_color_controller =
       ash::Shell::Get()->keyboard_backlight_color_controller();
-  DCHECK(keyboard_backlight_color_controller);
+  CHECK(keyboard_backlight_color_controller, base::NotFatalUntil::M160);
   return keyboard_backlight_color_controller;
 }
 
@@ -148,7 +147,8 @@ void PersonalizationAppKeyboardBacklightProviderImpl::
 
 void PersonalizationAppKeyboardBacklightProviderImpl::
     NotifyBacklightColorChanged() {
-  DCHECK(keyboard_backlight_observer_remote_.is_bound());
+  CHECK(keyboard_backlight_observer_remote_.is_bound(),
+        base::NotFatalUntil::M160);
 
   keyboard_backlight_observer_remote_->OnBacklightStateChanged(
       ash::personalization_app::mojom::CurrentBacklightState::NewColor(
@@ -158,7 +158,8 @@ void PersonalizationAppKeyboardBacklightProviderImpl::
 
 void PersonalizationAppKeyboardBacklightProviderImpl::
     NotifyBacklightZoneColorsChanged() {
-  DCHECK(keyboard_backlight_observer_remote_.is_bound());
+  CHECK(keyboard_backlight_observer_remote_.is_bound(),
+        base::NotFatalUntil::M160);
 
   keyboard_backlight_observer_remote_->OnBacklightStateChanged(
       ash::personalization_app::mojom::CurrentBacklightState::NewZoneColors(

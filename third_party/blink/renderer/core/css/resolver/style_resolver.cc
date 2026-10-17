@@ -268,10 +268,12 @@ bool HasAnimationsOrTransitions(const StyleResolverState& state) {
 }
 
 bool HasTimelines(const StyleResolverState& state) {
-  if (!state.StyleBuilder().ScrollTimelineName().empty()) {
+  if (state.StyleBuilder().ScrollTimelineName() &&
+      !state.StyleBuilder().ScrollTimelineName()->GetNames().empty()) {
     return true;
   }
-  if (!state.StyleBuilder().ViewTimelineName().empty()) {
+  if (state.StyleBuilder().ViewTimelineName() &&
+      !state.StyleBuilder().ViewTimelineName()->GetNames().empty()) {
     return true;
   }
   if (!state.StyleBuilder().TimelineScope().IsNone()) {
@@ -558,6 +560,12 @@ void ApplyInertness(StyleResolverState& state) {
     }
   }
 
+  bool can_escape_overscroll_inertness = false;
+  if (state.HasOverscrollContainerAncestor()) {
+    StyleAdjuster::AdjustOverscrollInertness(state, html_inert,
+                                             can_escape_overscroll_inertness);
+  }
+
   if (html_inert.has_value()) {
     state.StyleBuilder().SetIsHTMLInert(html_inert.value());
     state.StyleBuilder().SetIsHTMLInertIsInherited(false);
@@ -565,6 +573,10 @@ void ApplyInertness(StyleResolverState& state) {
   if (css_inert.has_value()) {
     state.StyleBuilder().SetIsCSSInert(css_inert.value());
     state.StyleBuilder().SetIsCSSInertIsInherited(false);
+  }
+  if (html_inert.has_value() || css_inert.has_value()) {
+    state.StyleBuilder().SetCanEscapeOverscrollInertness(
+        can_escape_overscroll_inertness && !css_inert.value_or(false));
   }
 }
 
@@ -1421,7 +1433,7 @@ const ComputedStyle* StyleResolver::ResolveStyle(
         state.StyleBuilder(), *element,
         IsForPseudoElement(*element, style_request) ? state.GetPseudoElement()
                                                     : element,
-        state.GetStyledElement());
+        state.GetStyledElement(), state.ParentStyle());
   }
 
   ApplyAnchorData(state);
@@ -1863,7 +1875,7 @@ void StyleResolver::ApplyBaseStyleNoCache(
   StyleAdjuster::RunUncacheableStyleAdjustment(
       builder, *element,
       state.IsForPseudoElement() ? state.GetPseudoElement() : element,
-      state.GetStyledElement());
+      state.GetStyledElement(), state.ParentStyle());
 
   // Everything below here depends on the MatchResult flags
   // (e.g., what selectors were used to find the matched properties),
@@ -2047,7 +2059,7 @@ void StyleResolver::ApplyBaseStyle(
         state.StyleBuilder(), *element,
         IsForPseudoElement(*element, style_request) ? state.GetPseudoElement()
                                                     : element,
-        state.GetStyledElement());
+        state.GetStyledElement(), state.ParentStyle());
 
     // Normally done by StyleResolver::MaybeAddToMatchedPropertiesCache(),
     // when applying the cascade. Note that this is probably redundant
@@ -2180,14 +2192,14 @@ class ViewportSizeChangeScopeForPrinting {
   std::optional<PhysicalSize> document_icb_size_;
 };
 
-const ComputedStyle* StyleResolver::StyleForPage(uint32_t page_index,
+const ComputedStyle& StyleResolver::StyleForPage(uint32_t page_index,
                                                  const AtomicString& page_name,
                                                  float page_fitting_scale,
                                                  bool ignore_author_style) {
   // The page context inherits from the root element.
   Element* root_element = GetDocument().documentElement();
   if (!root_element) {
-    return &InitialStyleForElement();
+    return InitialStyleForElement();
   }
   DCHECK(!GetDocument().NeedsLayoutTreeUpdateForNode(*root_element));
   const ComputedStyle* parent_style =
@@ -2195,7 +2207,7 @@ const ComputedStyle* StyleResolver::StyleForPage(uint32_t page_index,
   if (!parent_style) {
     // The root is display:none. One page box will still be created, but no
     // properties should apply.
-    return &InitialStyleForElement();
+    return InitialStyleForElement();
   }
   StyleResolverState state(GetDocument(), *root_element,
                            nullptr /* StyleRecalcContext */,
@@ -2267,7 +2279,7 @@ const ComputedStyle* StyleResolver::StyleForPage(uint32_t page_index,
   state.LoadPendingResources();
 
   // Now return the style.
-  return state.TakeStyle();
+  return *state.TakeStyle();
 }
 
 void StyleResolver::StyleForPageMargins(const ComputedStyle& page_style,
@@ -2345,9 +2357,9 @@ void StyleResolver::LoadPaginationResources() {
   // loaded. As it is now, only resources needed on the first page (with no page
   // name) will be loaded. Any resource inside a non-empty @page selector
   // (unless it happens to match the first page) will be missing.
-  const ComputedStyle* page_style = StyleForPage(0, /*page_name=*/g_null_atom);
+  const ComputedStyle& page_style = StyleForPage(0, /*page_name=*/g_null_atom);
   PageMarginsStyle ignored;
-  StyleForPageMargins(*page_style, 0, /*page_name=*/g_null_atom, &ignored);
+  StyleForPageMargins(page_style, 0, /*page_name=*/g_null_atom, &ignored);
 }
 
 const ComputedStyle& StyleResolver::InitialStyle() const {
@@ -2378,10 +2390,10 @@ float StyleResolver::InitialZoom() const {
   return 1;
 }
 
-const ComputedStyle* StyleResolver::CreateInitialStyle() const {
-  ComputedStyleBuilder builder(*ComputedStyle::GetInitialStyleSingleton());
+const ComputedStyle& StyleResolver::CreateInitialStyle() const {
+  ComputedStyleBuilder builder(ComputedStyle::GetInitialStyleSingleton());
   SetZoomedInitialLineWidths(InitialZoom(), builder);
-  return builder.TakeStyle();
+  return *builder.TakeStyle();
 }
 
 ComputedStyleBuilder StyleResolver::InitialStyleBuilderForElement() const {
@@ -2675,8 +2687,7 @@ bool StyleResolver::ApplyAnimatedStyle(
 }
 
 void StyleResolver::ApplyAnchorData(StyleResolverState& state) {
-  if (AnchorEvaluator* evaluator =
-          state.CssToLengthConversionData().GetAnchorEvaluator()) {
+  if (AnchorEvaluator* evaluator = state.GetAnchorEvaluator()) {
     // Pre-compute anchor-center offset so that the OOF layout code does not
     // need to set up an AnchorEvaluator but simply retrieve the offsets from
     // the ComputedStyle.
@@ -3376,11 +3387,11 @@ ComputedStyleBuilder StyleResolver::CreateAnonymousStyleBuilderWithDisplay(
   return builder;
 }
 
-const ComputedStyle* StyleResolver::CreateAnonymousStyleWithDisplay(
+const ComputedStyle& StyleResolver::CreateAnonymousStyleWithDisplay(
     const ComputedStyle& parent_style,
     EDisplay display) {
-  return CreateAnonymousStyleBuilderWithDisplay(parent_style, display)
-      .TakeStyle();
+  return *CreateAnonymousStyleBuilderWithDisplay(parent_style, display)
+              .TakeStyle();
 }
 
 const ComputedStyle* StyleResolver::CreateInheritedDisplayContentsStyleIfNeeded(
@@ -3389,7 +3400,7 @@ const ComputedStyle* StyleResolver::CreateInheritedDisplayContentsStyleIfNeeded(
   if (parent_style.InheritedEqual(layout_parent_style)) {
     return nullptr;
   }
-  return CreateAnonymousStyleWithDisplay(parent_style, EDisplay::kInline);
+  return &CreateAnonymousStyleWithDisplay(parent_style, EDisplay::kInline);
 }
 
 #define PROPAGATE_FROM(source, getter, setter, initial) \
@@ -3690,6 +3701,8 @@ void StyleResolver::PropagateStyleToViewport() {
                    SetForcedColorAdjust, EForcedColorAdjust::kAuto);
     PROPAGATE_FROM(document_element_style, ColorSchemeFlagsIsNormal,
                    SetColorSchemeFlagsIsNormal, false);
+    PROPAGATE_FROM(document_element_style, ScrollAxisLock, SetScrollAxisLock,
+                   EScrollAxisLock::kAuto);
   }
 
   changed |= PropagateScrollSnapStyleToViewport(
@@ -3754,7 +3767,7 @@ static Font* ComputeInitialLetterFont(const ComputedStyle& style,
 //  * inline-sizing.
 // Additionally, all of the sizing properties and box-sizing also apply to
 // initial letters (see [css-sizing-3]).
-const ComputedStyle* StyleResolver::StyleForInitialLetterText(
+const ComputedStyle& StyleResolver::StyleForInitialLetterText(
     const ComputedStyle& initial_letter_box_style,
     const ComputedStyle& paragraph_style) {
   DCHECK(paragraph_style.InitialLetter().IsNormal());
@@ -3767,7 +3780,7 @@ const ComputedStyle* StyleResolver::StyleForInitialLetterText(
   builder.SetVerticalAlign(EVerticalAlign::kBaseline);
   builder.SetBaseTextDecorationData(
       initial_letter_box_style.AppliedTextDecorationData());
-  return builder.TakeStyle();
+  return *builder.TakeStyle();
 }
 
 StyleRulePositionTry* StyleResolver::ResolvePositionTryRule(

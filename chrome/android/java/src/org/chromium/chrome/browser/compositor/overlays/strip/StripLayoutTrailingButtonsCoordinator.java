@@ -56,10 +56,10 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTask;
 import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTaskFeatureKey;
 import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTaskTracker;
-import org.chromium.chrome.browser.ui.side_panel.AndroidSidePanelEnabledFn;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiId;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiShowability;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiSpecs;
+import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.UiUpdateRequest;
 import org.chromium.chrome.browser.ui.side_ui.SideUiObserver;
 import org.chromium.chrome.browser.ui.side_ui.SideUiStateProvider;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
@@ -126,7 +126,8 @@ public class StripLayoutTrailingButtonsCoordinator {
     private final SideUiObserver mSideUiObserver =
             new SideUiObserver() {
                 @Override
-                public void onSideUiSpecsChanged(SideUiSpecs sideUiSpecs) {}
+                public void onSideUiSpecsChanged(
+                        SideUiSpecs sideUiSpecs, UiUpdateRequest request) {}
 
                 @Override
                 public void onShowableSideUisUpdated(SideUiShowability sideUiShowability) {
@@ -462,7 +463,7 @@ public class StripLayoutTrailingButtonsCoordinator {
             mModelSelectorButton.setVisible(false);
         }
 
-        if (GlicEnabling.isEnabledByFlags() && AndroidSidePanelEnabledFn.isEnabled()) {
+        if (GlicEnabling.isEnabledByFlags() && GlicUtils.isSidePanelFormFactor(mContext)) {
             mSideUiStateProviderSupplier.onAvailable(
                     (provider) -> {
                         mSideUiStateProvider = provider;
@@ -477,8 +478,6 @@ public class StripLayoutTrailingButtonsCoordinator {
 
             float dismissIconWidthDp =
                     getDimensionDp(mContext, R.dimen.tab_strip_glic_dismiss_icon_width);
-            // TODO(crbug.com/541373786) Replace GLIC close button PNG assets with vector drawables
-            //  and remove unused PNGs.
             mGlicDismissNudgeButton =
                     new TintedCompositorButton(
                             mContext,
@@ -492,7 +491,7 @@ public class StripLayoutTrailingButtonsCoordinator {
                                 handleDismissButtonClick();
                             },
                             glicKeyboardFocusHandler,
-                            R.drawable.btn_tab_close_normal,
+                            R.drawable.ic_tab_close_tabstrip_24dp,
                             Resources.ID_NULL,
                             /* clickSlopDp= */ 0.f,
                             /* hasLongClickAction= */ false);
@@ -656,10 +655,7 @@ public class StripLayoutTrailingButtonsCoordinator {
      */
     public void getVirtualViews(List<VirtualView> views) {
         if (isGlicButtonVisible()) {
-            views.add(mGlicButton);
-        }
-        if (isGlicDismissNudgeButtonVisible()) {
-            views.add(mGlicDismissNudgeButton);
+            mGlicButton.getVirtualViews(views);
         }
         if (isGlicActorButtonVisible()) {
             views.add(mGlicActorButton);
@@ -1543,7 +1539,7 @@ public class StripLayoutTrailingButtonsCoordinator {
                 || !mSideUiStateProvider.canShowSideUi(SideUiId.SIDE_PANEL)) {
             return false;
         }
-        if (!GlicUtils.isTabStripGlicSupported(mProfile)
+        if (!GlicUtils.isTabStripGlicSupported(mContext, mProfile)
                 || !GlicUtils.isButtonPinnedToTabStrip(mProfile)) {
             return false;
         }
@@ -1676,7 +1672,11 @@ public class StripLayoutTrailingButtonsCoordinator {
     public boolean onHoverEvent(float x, float y) {
         boolean msbHovered =
                 mModelSelectorButton != null && mModelSelectorButton.checkClickedOrHovered(x, y);
-        boolean glicHovered = mGlicButton != null && mGlicButton.checkClickedOrHovered(x, y);
+        boolean dismissHovered =
+                mGlicDismissNudgeButton != null
+                        && mGlicDismissNudgeButton.checkClickedOrHovered(x, y);
+        boolean glicHovered =
+                (mGlicButton != null && mGlicButton.checkClickedOrHovered(x, y)) || dismissHovered;
         boolean actorHovered =
                 mGlicActorButton != null && mGlicActorButton.checkClickedOrHovered(x, y);
         boolean renderNeeded = false;
@@ -1687,6 +1687,11 @@ public class StripLayoutTrailingButtonsCoordinator {
         }
         if (mGlicButton != null && glicHovered != mGlicButton.isHovered()) {
             mGlicButton.setHovered(glicHovered);
+            renderNeeded = true;
+        }
+        if (mGlicDismissNudgeButton != null
+                && dismissHovered != mGlicDismissNudgeButton.isHovered()) {
+            mGlicDismissNudgeButton.setHovered(dismissHovered);
             renderNeeded = true;
         }
         if (mGlicActorButton != null && actorHovered != mGlicActorButton.isHovered()) {
@@ -1711,6 +1716,10 @@ public class StripLayoutTrailingButtonsCoordinator {
             mGlicButton.setHovered(false);
             renderNeeded = true;
         }
+        if (mGlicDismissNudgeButton != null && mGlicDismissNudgeButton.isHovered()) {
+            mGlicDismissNudgeButton.setHovered(false);
+            renderNeeded = true;
+        }
         if (mGlicActorButton != null && mGlicActorButton.isHovered()) {
             mGlicActorButton.setHovered(false);
             renderNeeded = true;
@@ -1729,6 +1738,10 @@ public class StripLayoutTrailingButtonsCoordinator {
      */
     public boolean checkClickedOrHovered(float x, float y) {
         if (mModelSelectorButton != null && mModelSelectorButton.checkClickedOrHovered(x, y)) {
+            return true;
+        }
+        if (mGlicDismissNudgeButton != null
+                && mGlicDismissNudgeButton.checkClickedOrHovered(x, y)) {
             return true;
         }
         if (mGlicButton != null && mGlicButton.checkClickedOrHovered(x, y)) {
@@ -1771,6 +1784,13 @@ public class StripLayoutTrailingButtonsCoordinator {
         if (mModelSelectorButton != null && mModelSelectorButton.checkClickedOrHovered(x, y)) {
             if (mModelSelectorButton.click(x, y, buttons)) {
                 mModelSelectorButton.handleClick(time, buttons, modifiers);
+                return true;
+            }
+        }
+        if (mGlicDismissNudgeButton != null
+                && mGlicDismissNudgeButton.checkClickedOrHovered(x, y)) {
+            if (mGlicDismissNudgeButton.click(x, y, buttons)) {
+                mGlicDismissNudgeButton.handleClick(time, buttons, modifiers);
                 return true;
             }
         }

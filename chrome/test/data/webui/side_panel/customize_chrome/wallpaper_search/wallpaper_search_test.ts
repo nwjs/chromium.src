@@ -73,12 +73,8 @@ suite('WallpaperSearchTest', () => {
 
   function updateCrFeedbackButtons(option: CrFeedbackOption) {
     wallpaperSearchElement.$.feedbackButtons.selectedOption = option;
-    wallpaperSearchElement.$.feedbackButtons.dispatchEvent(
-        new CustomEvent('selected-option-changed', {
-          bubbles: true,
-          composed: true,
-          detail: {value: option},
-        }));
+    wallpaperSearchElement.$.feedbackButtons.fire(
+        'selected-option-changed', {value: option});
   }
 
   setup(() => {
@@ -1371,7 +1367,7 @@ suite('WallpaperSearchTest', () => {
         });
       });
 
-      test(`shows generic error if there is history`, async () => {
+      test('shows generic error if there is history', async () => {
         loadTimeData.overrideValues(
             {genericErrorDescriptionWithHistory: 'generic error with history'});
         handler.setResultFor(
@@ -1407,7 +1403,7 @@ suite('WallpaperSearchTest', () => {
             wallpaperSearchElement.$.wallpaperSearch, 'display', 'none');
       });
 
-      test(`shows generic error if there is inspiration`, async () => {
+      test('shows generic error if there is inspiration', async () => {
         loadTimeData.overrideValues({
           wallpaperSearchInspirationCardEnabled: true,
           genericErrorDescriptionWithInspiration:
@@ -1449,7 +1445,7 @@ suite('WallpaperSearchTest', () => {
       });
 
       test(
-          `shows generic error if there is history and inspiration`,
+          'shows generic error if there is history and inspiration',
           async () => {
             loadTimeData.overrideValues({
               wallpaperSearchInspirationCardEnabled: true,

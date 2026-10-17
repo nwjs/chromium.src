@@ -8,10 +8,10 @@
 #include "base/functional/callback.h"
 #include "base/json/json_reader.h"
 #include "base/task/task_traits.h"
+#include "chrome/browser/ash/power/ml/smart_dim/example_preprocessor.pb.h"
 #include "chrome/browser/ash/power/ml/smart_dim/metrics.h"
 #include "chrome/browser/ash/power/ml/smart_dim/ml_agent_util.h"
 #include "chromeos/services/machine_learning/public/cpp/service_connection.h"
-#include "components/assist_ranker/proto/example_preprocessor.pb.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -64,7 +64,7 @@ bool DownloadWorker::IsReady() {
 
 void DownloadWorker::InitializeFromComponent(
     const ComponentFileContents& contents) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
 
   auto [metadata_json, preprocessor_proto, model_flatbuffer] = contents;
 
@@ -103,8 +103,8 @@ void DownloadWorker::SetOnReadyForTest(base::OnceClosure on_ready) {
 
 void DownloadWorker::LoadModelAndCreateGraphExecutor(
     const std::string& model_flatbuffer) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  DCHECK(!model_.is_bound() && !executor_.is_bound());
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
+  CHECK(!model_.is_bound() && !executor_.is_bound(), base::NotFatalUntil::M160);
 
   chromeos::machine_learning::ServiceConnection::GetInstance()
       ->GetMachineLearningService()

@@ -40,7 +40,6 @@
 #include "components/policy/core/common/mock_configuration_policy_provider.h"
 #include "components/policy/policy_constants.h"
 #include "components/prefs/pref_service.h"
-#include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "components/signin/public/identity_manager/account_capabilities_test_mutator.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
@@ -533,6 +532,11 @@ IN_PROC_BROWSER_TEST_F(SettingsTest, GmailOtpDisclaimerDialog) {
 
 IN_PROC_BROWSER_TEST_F(SettingsTest, WebuiRefresh2026) {
   RunTest("settings/settings_ui_test.js", "runMochaSuite('WebuiRefresh2026')");
+}
+
+IN_PROC_BROWSER_TEST_F(SettingsTest, SettingsRefresh2026) {
+  RunTest("settings/settings_ui_test.js",
+          "runMochaSuite('SettingsRefresh2026')");
 }
 
 IN_PROC_BROWSER_TEST_F(SettingsTest, ActiveTimer) {
@@ -1144,6 +1148,10 @@ IN_PROC_BROWSER_TEST_F(SettingsTest, MAYBE_SearchEngines) {
   RunTest("settings/search_engines_page_test.js", "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(SettingsTest, SearchMetricsRecorder) {
+  RunTest("settings/search_metrics_recorder_test.js", "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(SettingsTest, SearchPageIndex) {
   RunTest("settings/search_page_index_test.js", "mocha.run()");
 }
@@ -1424,16 +1432,7 @@ IN_PROC_BROWSER_TEST_F(SettingsClearBrowsingDataTest,
           "runMochaSuite('DeleteBrowsingDataTimePicker')");
 }
 
-class SettingsCookiesPageTest : public SettingsBrowserTest {
- public:
-  SettingsCookiesPageTest() {
-    scoped_feature_list_.InitAndEnableFeature(
-        privacy_sandbox::kRelatedWebsiteSetsUi);
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
+using SettingsCookiesPageTest = SettingsBrowserTest;
 
 IN_PROC_BROWSER_TEST_F(SettingsCookiesPageTest, CookiesPageTest) {
   RunTest("settings/cookies_page_test.js", "runMochaSuite('CookiesPageTest')");
@@ -1611,7 +1610,13 @@ IN_PROC_BROWSER_TEST_F(SettingsPrivacyGuideTest, CookiesFragment) {
           "runMochaSuite('CookiesFragment')");
 }
 
-IN_PROC_BROWSER_TEST_F(SettingsPrivacyGuideTest, CompletionFragment) {
+// TODO(b/565007916): Fix test.
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_CompletionFragment DISABLED_CompletionFragment
+#else
+#define MAYBE_CompletionFragment CompletionFragment
+#endif  // BUILDFLAG(IS_MAC)
+IN_PROC_BROWSER_TEST_F(SettingsPrivacyGuideTest, MAYBE_CompletionFragment) {
   RunTest("settings/privacy_guide_completion_fragment_test.js",
           "runMochaSuite('CompletionFragment')");
 }
@@ -1902,6 +1907,11 @@ IN_PROC_BROWSER_TEST_F(SettingsSiteListTest, SiteListEmbargoedOrigin) {
 IN_PROC_BROWSER_TEST_F(SettingsSiteListTest, SiteListCookiesExceptionTypes) {
   RunTest("settings/site_list_test.js",
           "runMochaSuite('SiteListCookiesExceptionTypes')");
+}
+
+IN_PROC_BROWSER_TEST_F(SettingsSiteListTest, SiteListPopulatedWhileHidden) {
+  RunTest("settings/site_list_test.js",
+          "runMochaSuite('SiteListPopulatedWhileHidden')");
 }
 
 IN_PROC_BROWSER_TEST_F(SettingsSiteListTest, SiteListSearchTests) {

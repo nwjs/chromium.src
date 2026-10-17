@@ -7,6 +7,7 @@
 
 #include "base/memory/raw_ref.h"
 #include "base/scoped_observation.h"
+#include "base/time/time.h"
 #include "build/build_config.h"
 #include "chrome/browser/signin/signin_promo.h"
 #include "components/signin/public/base/signin_buildflags.h"
@@ -93,7 +94,7 @@ struct ProfileMenuAvatarButtonPromoInfo {
     kBatchUploadPromo = 1,
     kBatchUploadBookmarksPromo = 2,
     kBatchUploadWindows10DepreciationPromo = 3,
-    kSyncPromo = 4,
+    // kSyncPromo = 4,  // Deprecated, not used anymore.
     kSigninPromo = 5,
 
     kMaxValue = kSigninPromo,
@@ -127,6 +128,11 @@ inline constexpr signin_metrics::AccessPoint
     kHistoryOptinAvatarPromoAccessPoint =
         signin_metrics::AccessPoint::kHistorySyncOptinExpansionPillOnStartup;
 
+// Returns whether a sign in can be offered to `profile`, for the account that
+// would be used in promos. Returns `false` if signing in is not possible, e.g.
+// when sign in is disallowed by the `BrowserSignin` enterprise policy.
+bool CanOfferSignInForPromos(Profile& profile);
+
 // Based on the `profile` current state, compute the data to be shown for the
 // promos, if any, based on the promo priority and the profile state. The promo
 // between the ProfileMenu and the AvatarButton should always be aligned.
@@ -145,6 +151,9 @@ void ComputeProfileMenuAvatarButtonPromoInfo(
 // via `ComputeProfileMenuAvatarButtonPromoInfo()`.
 class AvatarButtonPromoManager : public signin::IdentityManager::Observer {
  public:
+  static constexpr base::TimeDelta kSigninPromoMinimumDelayForNextPromoAllowed =
+      base::Days(7);
+
   AvatarButtonPromoManager(
       signin::IdentityManager* identity_manager,
       signin::AccountPreviewDataService* account_preview_data_service,

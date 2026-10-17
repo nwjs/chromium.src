@@ -158,14 +158,14 @@ export {SettingsLiveTranslateElement} from './a11y_page/live_translate.js';
 // </if>
 
 export {SettingsAiModeSearchPageElement} from './ai_page/ai_mode_search_page.js';
-export {isFeatureDisabledByPolicy, SettingsAiPolicyIndicator} from './ai_page/ai_policy_indicator.js';
+export {isFeatureDisabledByPolicy, SettingsAiPolicyIndicatorElement} from './ai_page/ai_policy_indicator.js';
 export {SettingsAiSuggestionsPageElement} from './ai_page/ai_suggestions_page.js';
 export {AiEnterpriseFeaturePrefName, AiPageActions, FeatureOptInState, SettingsAiPageFeaturePrefName} from './ai_page/constants.js';
 export type {DictationBrowserProxy} from './ai_page/dictation_browser_proxy.js';
 export {DictationBrowserProxyImpl} from './ai_page/dictation_browser_proxy.js';
 export {SettingsDictationPageElement} from './ai_page/dictation_page.js';
 export {SettingsHistorySearchPageElement} from './ai_page/history_search_page.js';
-export {InlineCueMenuPageElement} from './ai_page/inline_cue_menu_page.js';
+export {SettingsInlineCueMenuPageElement} from './ai_page/inline_cue_menu_page.js';
 export {COMPOSE_PROACTIVE_NUDGE_DISABLED_SITES_PREF, COMPOSE_PROACTIVE_NUDGE_PREF, SettingsOfferWritingHelpPageElement} from './ai_page/offer_writing_help_page.js';
 // <if expr="_google_chrome">
 export type {OnDeviceAiBrowserProxy, OnDeviceAiEnabled} from './ai_page/on_device_ai_browser_proxy.js';
@@ -203,7 +203,6 @@ export {SettingsPaymentsPageElement} from './autofill_page/payments/payments_pag
 export {SettingsVirtualCardUnenrollDialogElement} from './autofill_page/payments/virtual_card_unenroll_dialog.js';
 export {SettingsShoppingPageElement} from './autofill_page/shopping/shopping_page.js';
 export {SettingsSuggestionsFromGeminiPageElement} from './autofill_page/suggestions_from_gemini/suggestions_from_gemini_page.js';
-export type {AtMemoryTriggerPrefValue} from './autofill_page/suggestions_from_gemini/suggestions_from_gemini_page.js';
 export {SettingsTravelPageElement} from './autofill_page/travel/travel_page.js';
 export {SettingsWalletablePassDetectionToggleElement} from './autofill_page/walletable_pass_detection_toggle.js';
 // <if expr="not is_chromeos">

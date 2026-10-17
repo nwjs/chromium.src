@@ -26,7 +26,7 @@ export class TestContentBrowserProxy extends TestBrowserProxy implements
   endOffset: number = -1;
   hasValidSelectionVal: boolean = true;
   readabilityEnabled: boolean = true;
-  isReadabilitySelectTextEnabledFlag: boolean = false;
+  isReadabilitySelectTextEnabledFlag: boolean = true;
   textContentMap: {[key: number]: string} = {2: 'some text content'};
   prefixText: string = '';
   rootId: number = 1;
@@ -34,7 +34,6 @@ export class TestContentBrowserProxy extends TestBrowserProxy implements
   htmlContent: string = '';
   documentUrl: string = '';
   googleDocs: boolean = false;
-  docsLoadMoreButtonVisible: boolean = false;
   unexpectedUpdateContentStopSource: number = 0;
   axMapping: AxSegment[] = [];
   htmlTagMap: {[key: number]: string} = {1: 'div'};
@@ -71,7 +70,6 @@ export class TestContentBrowserProxy extends TestBrowserProxy implements
       'attemptLogEarlySelection',
       'onSelectionChange',
       'onScroll',
-      'onScrolledToBottom',
       'getTextContent',
       'getPrefixText',
       'getRootId',
@@ -79,7 +77,6 @@ export class TestContentBrowserProxy extends TestBrowserProxy implements
       'getHtmlContent',
       'getDocumentUrl',
       'isGoogleDocs',
-      'isDocsLoadMoreButtonVisible',
       'getUnexpectedUpdateContentStopSource',
       'getAxMapping',
       'getHtmlTag',
@@ -292,15 +289,6 @@ export class TestContentBrowserProxy extends TestBrowserProxy implements
   getDistillationTypeScreen2x(): number {
     this.methodCalled('getDistillationTypeScreen2x');
     return this.distillationTypeScreen2x;
-  }
-
-  isDocsLoadMoreButtonVisible(): boolean {
-    this.methodCalled('isDocsLoadMoreButtonVisible');
-    return this.docsLoadMoreButtonVisible;
-  }
-
-  onScrolledToBottom(): void {
-    this.methodCalled('onScrolledToBottom');
   }
 
   onCopy(): void {

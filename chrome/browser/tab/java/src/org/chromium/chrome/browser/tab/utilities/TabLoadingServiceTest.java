@@ -8,6 +8,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -30,11 +31,14 @@ import org.chromium.base.SysUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tab.utilities.TabLoadingService.LoadIfNeededCallback;
 import org.chromium.chrome.browser.tab.utilities.TabLoadingService.LoadResult;
+import org.chromium.content_public.browser.NavigationController;
+import org.chromium.content_public.browser.WebContents;
 import org.chromium.url.JUnitTestGURLs;
 
 /** Unit tests for {@link TabLoadingService}. */
@@ -45,6 +49,9 @@ public class TabLoadingServiceTest {
     @Mock private Tab mTab;
     @Mock private Tab mTab2;
     @Mock private Tab mTab3;
+    @Mock private Tab mTab4;
+    @Mock private WebContents mWebContents;
+    @Mock private NavigationController mNavigationController;
     @Mock private LoadIfNeededCallback mCallback;
     @Mock private LoadIfNeededCallback mCallback3;
     @Mock private LoadIfNeededCallback mSecondCallback;
@@ -54,6 +61,19 @@ public class TabLoadingServiceTest {
     private static final int TAB_ID = 123;
     private static final int TAB_ID_2 = 124;
     private static final int TAB_ID_3 = 125;
+    private static final int TAB_ID_4 = 126;
+
+    // The optimization params all default to false, so each test opts into the one it exercises.
+    private static final String OPTIMIZATION_LIMIT_LOADS =
+            ChromeFeatureList.ON_DEMAND_BACKGROUND_TAB_CONTEXT_CAPTURE_OPTIMIZATION
+                    + ":limit_concurrent_load_if_needed/true";
+    private static final String OPTIMIZATION_RELEASE_SLOT =
+            OPTIMIZATION_LIMIT_LOADS + "/release_slot_on_dom_content_loaded/true";
+    private static final String OPTIMIZATION_FIRST_PAINT =
+            ChromeFeatureList.ON_DEMAND_BACKGROUND_TAB_CONTEXT_CAPTURE_OPTIMIZATION
+                    + ":enable_first_paint/true";
+    private static final String OPTIMIZATION_FIRST_PAINT_DELAYED =
+            OPTIMIZATION_FIRST_PAINT + "/first_paint_delay_ms/500";
 
     @Before
     public void setUp() {
@@ -189,7 +209,7 @@ public class TabLoadingServiceTest {
     }
 
     @Test
-    @EnableFeatures(ChromeFeatureList.ON_DEMAND_BACKGROUND_TAB_CONTEXT_CAPTURE_OPTIMIZATION)
+    @EnableFeatures(OPTIMIZATION_FIRST_PAINT)
     public void testDidFirstVisuallyNonEmptyPaint_FeatureEnabled() {
         when(mTab.loadIfNeeded(true)).thenReturn(true);
         when(mTab.isLoading()).thenReturn(true);
@@ -259,9 +279,7 @@ public class TabLoadingServiceTest {
     }
 
     @Test
-    @EnableFeatures(
-            ChromeFeatureList.ON_DEMAND_BACKGROUND_TAB_CONTEXT_CAPTURE_OPTIMIZATION
-                    + ":first_paint_delay_ms/500")
+    @EnableFeatures(OPTIMIZATION_FIRST_PAINT_DELAYED)
     public void testDidFirstVisuallyNonEmptyPaint_WithDelay() {
         when(mTab.loadIfNeeded(true)).thenReturn(true);
         when(mTab.isLoading()).thenReturn(true);
@@ -287,9 +305,7 @@ public class TabLoadingServiceTest {
     }
 
     @Test
-    @EnableFeatures(
-            ChromeFeatureList.ON_DEMAND_BACKGROUND_TAB_CONTEXT_CAPTURE_OPTIMIZATION
-                    + ":first_paint_delay_ms/500")
+    @EnableFeatures(OPTIMIZATION_FIRST_PAINT_DELAYED)
     public void testDidFirstVisuallyNonEmptyPaint_FailureDuringDelayDoesNotResolveSuccess() {
         when(mTab.loadIfNeeded(true)).thenReturn(true);
         when(mTab.isLoading()).thenReturn(true);
@@ -311,9 +327,7 @@ public class TabLoadingServiceTest {
     }
 
     @Test
-    @EnableFeatures(
-            ChromeFeatureList.ON_DEMAND_BACKGROUND_TAB_CONTEXT_CAPTURE_OPTIMIZATION
-                    + ":first_paint_delay_ms/500")
+    @EnableFeatures(OPTIMIZATION_FIRST_PAINT_DELAYED)
     public void testDidFirstVisuallyNonEmptyPaint_RequeuedDuringDelay_DispatchesOnlyNewLoad() {
         when(mTab.loadIfNeeded(true)).thenReturn(true);
         when(mTab.isLoading()).thenReturn(true);
@@ -346,7 +360,7 @@ public class TabLoadingServiceTest {
     }
 
     @Test
-    @EnableFeatures(ChromeFeatureList.ON_DEMAND_BACKGROUND_TAB_CONTEXT_CAPTURE_OPTIMIZATION)
+    @EnableFeatures(OPTIMIZATION_LIMIT_LOADS)
     public void testConcurrentLoadLimit_QueuesExcessTabs() {
         configureConcurrentServiceWithMemoryGb(2);
         setupTabForLoad(mTab, TAB_ID);
@@ -364,7 +378,7 @@ public class TabLoadingServiceTest {
     }
 
     @Test
-    @EnableFeatures(ChromeFeatureList.ON_DEMAND_BACKGROUND_TAB_CONTEXT_CAPTURE_OPTIMIZATION)
+    @EnableFeatures(OPTIMIZATION_LIMIT_LOADS)
     public void testConcurrentLoadLimit_DrainsQueueOnCompletion() {
         configureConcurrentServiceWithMemoryGb(2);
         setupTabForLoad(mTab, TAB_ID);
@@ -383,7 +397,7 @@ public class TabLoadingServiceTest {
     }
 
     @Test
-    @EnableFeatures(ChromeFeatureList.ON_DEMAND_BACKGROUND_TAB_CONTEXT_CAPTURE_OPTIMIZATION)
+    @EnableFeatures(OPTIMIZATION_LIMIT_LOADS)
     public void testConcurrentLoadLimit_PendingTabDestroyedBeforeLoad() {
         configureConcurrentServiceWithMemoryGb(2);
         setupTabForLoad(mTab, TAB_ID);
@@ -401,6 +415,359 @@ public class TabLoadingServiceTest {
 
         verify(mCallback3).onLoadFinished(mTab3, LoadResult.DESTROYED);
         assertFalse(mService.isTabQueuedForLoad(TAB_ID_3));
+    }
+
+    @Test
+    @EnableFeatures(OPTIMIZATION_LIMIT_LOADS)
+    public void testCancelLoadIfNeeded_ActivelyLoadingTab() {
+        configureConcurrentServiceWithMemoryGb(2);
+        setupTabForLoad(mTab, TAB_ID);
+        setupTabForLoad(mTab2, TAB_ID_2);
+        setupTabForLoad(mTab3, TAB_ID_3);
+        when(mTab.getWebContents()).thenReturn(mWebContents);
+        when(mWebContents.getNavigationController()).thenReturn(mNavigationController);
+
+        mService.queueLoadIfNeeded(mTab);
+        mService.queueLoadIfNeeded(mTab2);
+        mService.queueLoadIfNeeded(mTab3);
+
+        assertTrue(mService.cancelLoadIfNeeded(mTab));
+        verify(mTab).stopLoading();
+        verify(mNavigationController).setNeedsReload();
+        verify(mTab3).loadIfNeeded(true);
+        assertFalse(mService.isTabQueuedForLoad(TAB_ID));
+    }
+
+    @Test
+    @EnableFeatures(OPTIMIZATION_LIMIT_LOADS)
+    public void testCancelLoadIfNeeded_PendingTab() {
+        configureConcurrentServiceWithMemoryGb(2);
+        setupTabForLoad(mTab, TAB_ID);
+        setupTabForLoad(mTab2, TAB_ID_2);
+        when(mTab3.getId()).thenReturn(TAB_ID_3);
+        when(mTab3.isFrozen()).thenReturn(true);
+
+        mService.queueLoadIfNeeded(mTab);
+        mService.queueLoadIfNeeded(mTab2);
+        mService.queueLoadIfNeeded(mTab3);
+
+        assertTrue(mService.cancelLoadIfNeeded(mTab3));
+        verify(mTab3, never()).stopLoading();
+        assertFalse(mService.isTabQueuedForLoad(TAB_ID_3));
+
+        verify(mTab).addObserver(mTabObserverCaptor.capture());
+        mTabObserverCaptor.getValue().onPageLoadFinished(mTab, JUnitTestGURLs.EXAMPLE_URL);
+        verify(mTab3, never()).loadIfNeeded(true);
+    }
+
+    @Test
+    @EnableFeatures(OPTIMIZATION_LIMIT_LOADS)
+    public void testCancelLoadIfNeeded_PendingTabRemovesObserver() {
+        configureConcurrentServiceWithMemoryGb(2);
+        setupTabForLoad(mTab, TAB_ID);
+        setupTabForLoad(mTab2, TAB_ID_2);
+        when(mTab3.getId()).thenReturn(TAB_ID_3);
+        when(mTab3.isFrozen()).thenReturn(true);
+
+        mService.queueLoadIfNeeded(mTab);
+        mService.queueLoadIfNeeded(mTab2);
+        mService.queueLoadIfNeeded(mTab3);
+        verify(mTab3).addObserver(any(TabObserver.class));
+
+        assertTrue(mService.cancelLoadIfNeeded(mTab3));
+        verify(mTab3).removeObserver(any(TabObserver.class));
+    }
+
+    @Test
+    @EnableFeatures(OPTIMIZATION_LIMIT_LOADS)
+    public void testCancelLoadIfNeeded_NotifiesCallbacks() {
+        configureConcurrentServiceWithMemoryGb(2);
+        setupTabForLoad(mTab, TAB_ID);
+        mService.queueLoadIfNeeded(mTab);
+        mService.addLoadIfNeededCallback(mTab, mCallback);
+
+        assertTrue(mService.cancelLoadIfNeeded(mTab));
+
+        verify(mCallback).onLoadFinished(mTab, LoadResult.CANCELLED);
+    }
+
+    @Test
+    @EnableFeatures(OPTIMIZATION_LIMIT_LOADS)
+    public void testCancelLoadIfNeeded_DestroyedTabSkipsStopLoading() {
+        configureConcurrentServiceWithMemoryGb(2);
+        setupTabForLoad(mTab, TAB_ID);
+        mService.queueLoadIfNeeded(mTab);
+        when(mTab.isDestroyed()).thenReturn(true);
+
+        assertTrue(mService.cancelLoadIfNeeded(mTab));
+
+        verify(mTab, never()).stopLoading();
+    }
+
+    @Test
+    @EnableFeatures(OPTIMIZATION_LIMIT_LOADS)
+    public void testCancelLoadIfNeeded_DestroyedTabStillSchedulesPendingTab() {
+        configureConcurrentServiceWithMemoryGb(2);
+        setupTabForLoad(mTab, TAB_ID);
+        setupTabForLoad(mTab2, TAB_ID_2);
+        setupTabForLoad(mTab3, TAB_ID_3);
+        mService.queueLoadIfNeeded(mTab);
+        mService.queueLoadIfNeeded(mTab2);
+        mService.queueLoadIfNeeded(mTab3);
+        when(mTab.isDestroyed()).thenReturn(true);
+
+        assertTrue(mService.cancelLoadIfNeeded(mTab));
+
+        verify(mTab3).loadIfNeeded(true);
+    }
+
+    @Test
+    @EnableFeatures(OPTIMIZATION_LIMIT_LOADS)
+    public void testCancelLoadIfNeeded_DestroyedWebContentsSkipsNeedsReload() {
+        configureConcurrentServiceWithMemoryGb(2);
+        setupTabForLoad(mTab, TAB_ID);
+        when(mTab.getWebContents()).thenReturn(mWebContents);
+        when(mWebContents.isDestroyed()).thenReturn(true);
+        mService.queueLoadIfNeeded(mTab);
+
+        assertTrue(mService.cancelLoadIfNeeded(mTab));
+
+        verify(mNavigationController, never()).setNeedsReload();
+    }
+
+    @Test
+    @EnableFeatures(OPTIMIZATION_LIMIT_LOADS)
+    public void testCancelLoadIfNeeded_ActivatedTabSkipsStopLoading() {
+        configureConcurrentServiceWithMemoryGb(2);
+        setupTabForLoad(mTab, TAB_ID);
+        setupTabForLoad(mTab2, TAB_ID_2);
+        when(mTab.isActivated()).thenReturn(true);
+
+        mService.queueLoadIfNeeded(mTab);
+        mService.queueLoadIfNeeded(mTab2);
+
+        assertTrue(mService.cancelLoadIfNeeded(mTab));
+
+        verify(mTab, never()).stopLoading();
+        verify(mNavigationController, never()).setNeedsReload();
+        verify(mTab2).loadIfNeeded(true);
+        assertFalse(mService.isTabQueuedForLoad(TAB_ID));
+    }
+
+    @Test
+    @EnableFeatures(OPTIMIZATION_LIMIT_LOADS)
+    public void testConcurrentLoadLimit_RecordsQueueDepth() {
+        configureConcurrentServiceWithMemoryGb(2);
+        setupTabForLoad(mTab, TAB_ID);
+        setupTabForLoad(mTab2, TAB_ID_2);
+        setupTabForLoad(mTab3, TAB_ID_3);
+
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord("Android.TabLoadingService.PendingQueueDepth", 0)
+                        .expectIntRecord("Android.TabLoadingService.PendingQueueDepth", 0)
+                        .expectIntRecord("Android.TabLoadingService.PendingQueueDepth", 1)
+                        .build();
+
+        mService.queueLoadIfNeeded(mTab);
+        mService.queueLoadIfNeeded(mTab2);
+        mService.queueLoadIfNeeded(mTab3);
+
+        watcher.assertExpected();
+    }
+
+    @Test
+    @EnableFeatures(OPTIMIZATION_LIMIT_LOADS)
+    public void testConcurrentLoadLimit_RecordsQueueWaitDurationOnDrain() {
+        configureConcurrentServiceWithMemoryGb(2);
+        setupTabForLoad(mTab, TAB_ID);
+        setupTabForLoad(mTab2, TAB_ID_2);
+        setupTabForLoad(mTab3, TAB_ID_3);
+
+        mService.queueLoadIfNeeded(mTab);
+        mService.queueLoadIfNeeded(mTab2);
+        mService.queueLoadIfNeeded(mTab3);
+
+        verify(mTab).addObserver(mTabObserverCaptor.capture());
+        TabObserver observer = mTabObserverCaptor.getValue();
+
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectAnyRecord("Android.TabLoadingService.QueueWaitDuration")
+                        .build();
+
+        observer.onPageLoadFinished(mTab, JUnitTestGURLs.EXAMPLE_URL);
+
+        watcher.assertExpected();
+    }
+
+    @Test
+    @EnableFeatures(OPTIMIZATION_LIMIT_LOADS)
+    public void testCancelLoadIfNeeded_PendingTab_DoesNotRecordQueueWaitDuration() {
+        configureConcurrentServiceWithMemoryGb(2);
+        setupTabForLoad(mTab, TAB_ID);
+        setupTabForLoad(mTab2, TAB_ID_2);
+        when(mTab3.getId()).thenReturn(TAB_ID_3);
+        when(mTab3.isFrozen()).thenReturn(true);
+
+        mService.queueLoadIfNeeded(mTab);
+        mService.queueLoadIfNeeded(mTab2);
+        mService.queueLoadIfNeeded(mTab3);
+
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords("Android.TabLoadingService.QueueWaitDuration")
+                        .build();
+
+        mService.cancelLoadIfNeeded(mTab3);
+
+        watcher.assertExpected();
+    }
+
+    @Test
+    @EnableFeatures(OPTIMIZATION_RELEASE_SLOT)
+    public void testReleaseSlotOnDcl_StartsNextPendingTab() {
+        TabObserver observer = queueFourTabsAndGetFirstObserver();
+
+        observer.onDocumentLoadedInPrimaryMainFrame(mTab);
+
+        verify(mTab3).loadIfNeeded(true);
+        verify(mTab4, never()).loadIfNeeded(true);
+    }
+
+    @Test
+    @EnableFeatures(OPTIMIZATION_RELEASE_SLOT)
+    public void testReleaseSlotOnDcl_RepeatedSignalReleasesOnce() {
+        TabObserver observer = queueFourTabsAndGetFirstObserver();
+
+        observer.onDocumentLoadedInPrimaryMainFrame(mTab);
+        observer.onDocumentLoadedInPrimaryMainFrame(mTab);
+
+        verify(mTab4, never()).loadIfNeeded(true);
+    }
+
+    @Test
+    @EnableFeatures(OPTIMIZATION_LIMIT_LOADS)
+    public void testReleaseSlotOnDcl_ParamDisabledKeepsSlot() {
+        TabObserver observer = queueFourTabsAndGetFirstObserver();
+
+        observer.onDocumentLoadedInPrimaryMainFrame(mTab);
+
+        verify(mTab3, never()).loadIfNeeded(true);
+    }
+
+    @Test
+    @EnableFeatures(OPTIMIZATION_RELEASE_SLOT)
+    public void testReleaseSlotOnDcl_DoesNotNotifyCallbacks() {
+        TabObserver observer = queueFourTabsAndGetFirstObserver();
+        mService.addLoadIfNeededCallback(mTab, mCallback);
+
+        observer.onDocumentLoadedInPrimaryMainFrame(mTab);
+
+        verify(mCallback, never()).onLoadFinished(any(), anyInt());
+        assertTrue(mService.isTabQueuedForLoad(TAB_ID));
+    }
+
+    @Test
+    @EnableFeatures(OPTIMIZATION_RELEASE_SLOT)
+    public void testReleaseSlotOnDcl_PageLoadFinishedStillNotifiesCallbacks() {
+        TabObserver observer = queueFourTabsAndGetFirstObserver();
+        mService.addLoadIfNeededCallback(mTab, mCallback);
+        observer.onDocumentLoadedInPrimaryMainFrame(mTab);
+
+        observer.onPageLoadFinished(mTab, JUnitTestGURLs.EXAMPLE_URL);
+
+        verify(mCallback).onLoadFinished(mTab, LoadResult.SUCCESS);
+    }
+
+    @Test
+    @EnableFeatures(OPTIMIZATION_RELEASE_SLOT)
+    public void testCancelLoadIfNeeded_SlotReleasedTabStopsLoading() {
+        TabObserver observer = queueFourTabsAndGetFirstObserver();
+        when(mTab.getWebContents()).thenReturn(mWebContents);
+        when(mWebContents.getNavigationController()).thenReturn(mNavigationController);
+        observer.onDocumentLoadedInPrimaryMainFrame(mTab);
+
+        assertTrue(mService.cancelLoadIfNeeded(mTab));
+
+        verify(mTab).stopLoading();
+        verify(mNavigationController).setNeedsReload();
+    }
+
+    @Test
+    @EnableFeatures(OPTIMIZATION_RELEASE_SLOT)
+    public void testCancelLoadIfNeeded_SlotReleasedTabRemovesObserver() {
+        TabObserver observer = queueFourTabsAndGetFirstObserver();
+        observer.onDocumentLoadedInPrimaryMainFrame(mTab);
+
+        mService.cancelLoadIfNeeded(mTab);
+
+        verify(mTab).removeObserver(observer);
+    }
+
+    @Test
+    @EnableFeatures(OPTIMIZATION_RELEASE_SLOT)
+    public void testCancelLoadIfNeeded_SlotReleasedTabDoesNotFreeSecondSlot() {
+        TabObserver observer = queueFourTabsAndGetFirstObserver();
+        observer.onDocumentLoadedInPrimaryMainFrame(mTab);
+
+        mService.cancelLoadIfNeeded(mTab);
+
+        verify(mTab4, never()).loadIfNeeded(true);
+    }
+
+    @Test
+    @EnableFeatures(OPTIMIZATION_RELEASE_SLOT)
+    public void testReleaseSlotOnDcl_RespectsInFlightCeiling() {
+        queueFourTabsOnSingleSlotService();
+
+        releaseSlot(mTab);
+        releaseSlot(mTab2);
+
+        // One slot allows two tabs in flight, and both are still loading after their release.
+        verify(mTab3, never()).loadIfNeeded(true);
+    }
+
+    @Test
+    @EnableFeatures(OPTIMIZATION_RELEASE_SLOT)
+    public void testCancelLoadIfNeeded_SlotReleasedTabStartsNextPendingTab() {
+        queueFourTabsOnSingleSlotService();
+        releaseSlot(mTab);
+        releaseSlot(mTab2);
+
+        mService.cancelLoadIfNeeded(mTab);
+
+        verify(mTab3).loadIfNeeded(true);
+    }
+
+    /** Fills both slots of a 2-slot service with two more tabs pending behind them. */
+    private TabObserver queueFourTabsAndGetFirstObserver() {
+        queueFourTabsWithMemoryGb(2);
+        verify(mTab).addObserver(mTabObserverCaptor.capture());
+        return mTabObserverCaptor.getValue();
+    }
+
+    /** Fills the only slot of a 1-slot service with three more tabs pending behind it. */
+    private void queueFourTabsOnSingleSlotService() {
+        queueFourTabsWithMemoryGb(1);
+    }
+
+    private void queueFourTabsWithMemoryGb(int gb) {
+        configureConcurrentServiceWithMemoryGb(gb);
+        setupTabForLoad(mTab, TAB_ID);
+        setupTabForLoad(mTab2, TAB_ID_2);
+        setupTabForLoad(mTab3, TAB_ID_3);
+        setupTabForLoad(mTab4, TAB_ID_4);
+        mService.queueLoadIfNeeded(mTab);
+        mService.queueLoadIfNeeded(mTab2);
+        mService.queueLoadIfNeeded(mTab3);
+        mService.queueLoadIfNeeded(mTab4);
+    }
+
+    /** Signals DOMContentLoaded on a tab that has started loading. */
+    private void releaseSlot(Tab tab) {
+        verify(tab, atLeastOnce()).addObserver(mTabObserverCaptor.capture());
+        mTabObserverCaptor.getValue().onDocumentLoadedInPrimaryMainFrame(tab);
     }
 
     private void setupTabForLoad(Tab tab, int id) {

@@ -5,7 +5,8 @@
 #ifndef CHROME_ENTERPRISE_COMPANION_ENTERPRISE_COMPANION_STATUS_H_
 #define CHROME_ENTERPRISE_COMPANION_ENTERPRISE_COMPANION_STATUS_H_
 
-#include <cstdint>
+#include <stddef.h>
+
 #include <ostream>
 #include <string>
 #include <utility>

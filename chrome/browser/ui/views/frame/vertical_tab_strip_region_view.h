@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_UI_VIEWS_FRAME_VERTICAL_TAB_STRIP_REGION_VIEW_H_
 #define CHROME_BROWSER_UI_VIEWS_FRAME_VERTICAL_TAB_STRIP_REGION_VIEW_H_
 
+#include <memory>
 #include <optional>
 
 #include "base/callback_list.h"
@@ -20,6 +21,7 @@
 #include "chrome/browser/ui/views/frame/base_tab_strip_region_view.h"
 #include "chrome/browser/ui/views/tabs/common/tab_strip_view.h"
 #include "chrome/browser/ui/views/tabs/hovercard/tab_hover_card_controller.h"
+#include "chrome/browser/ui/views/tabs/organizer/organizer_panel_host.h"
 #include "chrome/browser/ui/views/tabs/shared/drop_arrow.h"
 #include "chrome/browser/ui/views/tabs/vertical/vertical_tab_strip_expand_on_hover_lock.h"
 #include "components/tabs/public/tab_interface.h"
@@ -30,6 +32,7 @@
 #include "ui/views/accessible_pane_view.h"
 #include "ui/views/controls/resize_area_delegate.h"
 #include "ui/views/focus/focus_manager.h"
+#include "ui/views/layout/delegating_layout_manager.h"
 
 class BrowserView;
 class VerticalTabStripTopContainer;
@@ -45,7 +48,6 @@ namespace views {
 class ResizeArea;
 class Separator;
 class View;
-class FlexLayout;
 }  // namespace views
 
 // Container for the vertical tabstrip and the other views sharing space with
@@ -54,7 +56,9 @@ class VerticalTabStripRegionView final
     : public BaseTabStripRegionView,
       public views::ResizeAreaDelegate,
       public OmniboxTabHelper::Observer,
-      public tabs::VerticalTabStripStateController::Delegate {
+      public tabs::VerticalTabStripStateController::Delegate,
+      public OrganizerPanelHost,
+      public views::LayoutDelegate {
   METADATA_HEADER(VerticalTabStripRegionView, BaseTabStripRegionView)
 
  public:
@@ -101,6 +105,10 @@ class VerticalTabStripRegionView final
   void SetTransitionButtonOpacity(float opacity);
   bool WillWrapDueToOverflow(int available_width) const;
 
+  // views::LayoutDelegate:
+  views::ProposedLayout CalculateProposedLayout(
+      const views::SizeBounds& size_bounds) const override;
+
   // views::View:
   void AddedToWidget() override;
   void RemovedFromWidget() override;
@@ -133,6 +141,9 @@ class VerticalTabStripRegionView final
       base::RepeatingCallback<void(bool)> callback) override;
   bool IsCollapsing() override;
   void RequestCollapse(bool collapse) override;
+
+  void SetOrganizerPanelShowPercent(double percent);
+  void UpdatePanelClips();
 
   views::Separator* tabs_separator_for_testing() {
     return tab_strip_view() ? tab_strip_view()->GetTabsSeparator() : nullptr;
@@ -195,15 +206,18 @@ class VerticalTabStripRegionView final
   // Used to create and destroy locks for the expand on hover state.
   friend class VerticalTabStripExpandOnHoverLock;
 
+  // OrganizerPanelHost:
+  void SetOrganizerPanelView(std::unique_ptr<views::View> panel_view) override;
+  std::unique_ptr<views::View> TakeOrganizerPanelView() override;
+  bool HasOrganizerPanelView() const override;
+
   void HandleMouseExited();
 
-  void OnTabStripViewSet() override;
-  void OnTabStripViewWillClear() override;
+  void AddTabStripView(std::unique_ptr<views::View> view) override;
+  std::unique_ptr<views::View> RemoveTabStripView(views::View* view) override;
 
   void OnCollapseStateChanged(
       tabs::VerticalTabStripCollapseState collapse_state);
-
-  void UpdateColors();
 
   void OnAnimationProgressed(const BrowserAnimationController* controller,
                              BrowserAnimationUpdate status);
@@ -211,7 +225,6 @@ class VerticalTabStripRegionView final
   // Get whether the collapse/expand animation is running.
   bool IsAnimatingSize() const;
 
-  bool IsFrameActive() const;
   bool IsCollapseButtonHovered() const;
 
   // Returns the bounds within which tabs can be dragged in the vertical tab
@@ -238,6 +251,12 @@ class VerticalTabStripRegionView final
 
   void OnActiveTabChanged(const tabs::TabInterface* active_tab) override;
 
+  // Organizer panel:
+  raw_ptr<views::View> organizer_panel_view_ = nullptr;
+  double organizer_panel_show_percent_ = 0.0;
+  bool organizer_panel_was_visible_ = false;
+
+  raw_ptr<views::View> content_area_view_ = nullptr;
   raw_ptr<VerticalTabStripTopContainer> top_button_container_ = nullptr;
   raw_ptr<views::Separator> top_button_separator_ = nullptr;
   raw_ptr<VerticalTabStripBottomContainer> bottom_button_container_ = nullptr;
@@ -245,7 +264,6 @@ class VerticalTabStripRegionView final
   raw_ptr<views::ResizeArea> resize_area_ = nullptr;
   raw_ptr<ShadowFrameView> shadow_frame_ = nullptr;
   int resize_area_width_;
-  raw_ptr<views::FlexLayout> flex_layout_ = nullptr;
 
   const raw_ptr<tabs::VerticalTabStripStateController> state_controller_;
   std::optional<base::CallbackListSubscription>

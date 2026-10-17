@@ -62,6 +62,7 @@
 #include "third_party/blink/renderer/platform/data_resource_helper.h"
 #include "third_party/blink/renderer/platform/file_metadata.h"
 #include "third_party/blink/renderer/platform/fonts/font_selector.h"
+#include "third_party/blink/renderer/platform/geometry/length_size.h"
 #include "third_party/blink/renderer/platform/graphics/touch_action.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/text/writing_mode.h"
@@ -114,10 +115,7 @@ AppearanceValue AutoAppearanceFor(const Element& element) {
         element.FastGetAttribute(html_names::kIdAttr);
     if (id_value == shadow_element_names::kIdSliderThumb)
       return AppearanceValue::kSliderThumbHorizontal;
-    if (id_value == shadow_element_names::kIdSearchClearButton ||
-        (!RuntimeEnabledFeatures::
-             HTMLInputElementDropWebkitClearButtonEnabled() &&
-         id_value == shadow_element_names::kIdClearButton)) {
+    if (id_value == shadow_element_names::kIdSearchClearButton) {
       return AppearanceValue::kSearchFieldCancelButton;
     }
 
@@ -538,6 +536,21 @@ void LayoutTheme::AdjustRadioStyle(ComputedStyleBuilder& builder) const {
   // border - honored by WinIE, but looks terrible (just paints in the control
   // box and turns off the Windows XP theme) for now, we will not honor it.
   ResetBorder(builder);
+
+  // The theme paints a circle, but box-shadow and outline are derived from the
+  // border radius of the CSS box, which ResetBorder() above has just cleared.
+  // Without a radius they follow the square border box and leak out past the
+  // painted circle. Give the box the shape the theme paints so they match.
+  // Only a natively painted radio reaches here: appearance:none returns before
+  // AdjustRadioStyle() is called, so an author rebuilding the control keeps a
+  // square box unless they ask for a radius themselves.
+  if (RuntimeEnabledFeatures::RadioButtonCircularBorderRadiusEnabled()) {
+    const LengthSize radius(Length::Percent(50), Length::Percent(50));
+    builder.SetBorderTopLeftRadius(radius);
+    builder.SetBorderTopRightRadius(radius);
+    builder.SetBorderBottomLeftRadius(radius);
+    builder.SetBorderBottomRightRadius(radius);
+  }
 
   builder.SetShouldIgnoreOverflowPropertyForInlineBlockBaseline();
   builder.SetInlineBlockBaselineEdge(EInlineBlockBaselineEdge::kBorderBox);

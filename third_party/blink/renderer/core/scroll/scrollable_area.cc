@@ -54,6 +54,8 @@
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
+#include "third_party/blink/renderer/core/frame/web_frame_widget_impl.h"
+#include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
 #include "third_party/blink/renderer/core/html/anchor_element_viewport_position_tracker.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
 #include "third_party/blink/renderer/core/layout/layout_box.h"
@@ -938,6 +940,16 @@ bool ScrollableArea::UsesCompositedOverlayScrollbars() const {
       !UsesCompositedScrolling()) {
     return false;
   }
+  if (const auto* box = GetLayoutBox()) {
+    // Some overlay scrollbar themes (e.g. Aura) needs the non-composited code
+    // path to initially show overlay scrollbars before the actual composited
+    // scrollbar is created. Only observed a difference in browser test
+    // SitePerProcessHitTestBrowserTest.CrossProcessMouseCapture on ChromeOS,
+    // but this is a safe check to have in place.
+    if (!box->GetFrameView()->GetPaintArtifactCompositor()) {
+      return false;
+    }
+  }
   if (const auto* scrollbar = HorizontalScrollbar()) {
     if (MayCompositeScrollbar(*scrollbar)) {
       return true;
@@ -1026,6 +1038,26 @@ const Document* ScrollableArea::GetDocument() const {
   if (auto* box = GetLayoutBox())
     return &box->GetDocument();
   return nullptr;
+}
+
+bool ScrollableArea::IsLatchedForGestureScroll() const {
+  const Document* document = GetDocument();
+  if (!document) {
+    return false;
+  }
+  LocalFrame* frame = document->GetFrame();
+  if (!frame) {
+    return false;
+  }
+  auto* web_frame = WebLocalFrameImpl::FromFrame(frame);
+  if (!web_frame) {
+    return false;
+  }
+  WebFrameWidgetImpl* widget = web_frame->LocalRootFrameWidget();
+  if (!widget) {
+    return false;
+  }
+  return widget->ScrollLatchedElementId() == GetScrollElementId();
 }
 
 gfx::Vector2d ScrollableArea::ClampScrollOffset(

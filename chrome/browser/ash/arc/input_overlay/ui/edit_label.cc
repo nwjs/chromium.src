@@ -108,18 +108,19 @@ void EditLabel::PerformPulseAnimation(int pulse_count) {
   }
 
   auto* widget = GetWidget();
-  DCHECK(widget);
+  CHECK(widget, base::NotFatalUntil::M160);
 
   // Initiate pulse layer if it starts to pulse for the first time.
   if (pulse_count == 0) {
     pulse_layer_ = std::make_unique<ui::LayerSolidColor>();
+    pulse_layer_->SetName("EditLabel:Pulse");
     widget->GetLayer()->Add(pulse_layer_.get());
     pulse_layer_->SetColor(
         SkColor4f::FromColor(widget->GetColorProvider()->GetColor(
             cros_tokens::kCrosSysHighlightText)));
   }
 
-  DCHECK(pulse_layer_);
+  CHECK(pulse_layer_, base::NotFatalUntil::M160);
 
   // Initial bounds in its widget coordinate.
   auto view_bounds = ConvertRectToWidget(gfx::Rect(size()));
@@ -166,9 +167,9 @@ void EditLabel::Init() {
 }
 
 void EditLabel::SetLabelContent() {
-  DCHECK(!action_->IsDeleted());
+  CHECK(!action_->IsDeleted(), base::NotFatalUntil::M160);
   const auto& keys = action_->GetCurrentDisplayedInput().keys();
-  DCHECK(size_t(direction_index_) < keys.size());
+  CHECK(size_t(direction_index_) < keys.size(), base::NotFatalUntil::M160);
   std::u16string output_string = GetDisplayText(keys[size_t(direction_index_)]);
   if (action_->is_new() && output_string == kUnknownBind) {
     output_string = u"";
@@ -202,7 +203,7 @@ void EditLabel::SetTextLabel(const std::u16string& text) {
 
 void EditLabel::SetNameTagState(bool is_error,
                                 const std::u16string& error_tooltip) {
-  DCHECK(parent());
+  CHECK(parent(), base::NotFatalUntil::M160);
   auto* parent_view = views::AsViewClass<EditLabels>(parent());
   parent_view->SetNameTagState(is_error, error_tooltip);
 }
@@ -249,7 +250,7 @@ void EditLabel::UpdateAccessibleName() {
 }
 
 void EditLabel::ChangeFocusToNextLabel() {
-  DCHECK(parent());
+  CHECK(parent(), base::NotFatalUntil::M160);
   if (auto* parent_view = views::AsViewClass<EditLabels>(parent())) {
     parent_view->FocusLabel();
   }
@@ -373,7 +374,7 @@ bool EditLabel::OnKeyPressed(const ui::KeyEvent& event) {
     default:
       NOTREACHED();
   }
-  DCHECK(input);
+  CHECK(input, base::NotFatalUntil::M160);
   controller_->OnInputBindingChange(action_, std::move(input));
   ChangeFocusToNextLabel();
   return true;

@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_READALOUD_ANDROID_READ_ALOUD_BRIDGE_H_
 #define CHROME_BROWSER_READALOUD_ANDROID_READ_ALOUD_BRIDGE_H_
 
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -54,7 +55,7 @@ class ReadAloudBridge : public ReadAloudService::Delegate {
   void OnPlaybackProgressUpdated(base::TimeDelta elapsed,
                                  base::TimeDelta duration) override;
   void OnPlaybackStateChanged(
-      ReadAloudService::PlaybackState playback_state) override;
+      read_aloud::mojom::PlaybackState playback_state) override;
   void OnVoicesAvailable(const std::vector<ReadAloudService::Voice>& voices,
                          std::string_view selected_voice_id) override;
   void OnWordHighlightUpdated(int absolute_start_index,
@@ -65,7 +66,7 @@ class ReadAloudBridge : public ReadAloudService::Delegate {
   void OnPlaybackError(std::string_view error_message) override;
   void OnVoicePreviewPlaybackStateChanged(
       std::string_view voice_id,
-      ReadAloudService::PlaybackState playback_state) override;
+      read_aloud::mojom::PlaybackState playback_state) override;
   void OnReadabilityResult(const GURL& url, bool is_readable) override;
   void OnNativeDestroyed() override;
 

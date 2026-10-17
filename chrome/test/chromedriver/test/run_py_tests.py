@@ -902,6 +902,38 @@ class ChromeDriverTest(ChromeDriverBaseTestWithWebServer):
     self.assertEqual(unrenderedHeaderElement.GetComputedLabel(), '')
     self.assertEqual(unrenderedHeaderElement.GetComputedRole(), 'none')
 
+  def testGetElementTagNamePreservesQualifiedName(self):
+    self._driver.Load(self.GetHttpUrlForFile('/chromedriver/empty.html'))
+
+    html_element, parsed_svg_element = self._driver.ExecuteScript("""
+      document.body.innerHTML =
+          '<INPUT><svg><linearGradient></linearGradient></svg>';
+      return [
+        document.body.firstElementChild,
+        document.querySelector('svg').firstElementChild,
+      ];
+    """)
+    # HTML parsing normalizes uppercase tag names to lowercase.
+    self.assertEqual('input', html_element.GetTagName())
+    self.assertEqual('linearGradient', parsed_svg_element.GetTagName())
+
+    script_created_svg_element = self._driver.ExecuteScript("""
+      const element = document.createElementNS(
+          'http://www.w3.org/2000/svg', 'textPath');
+      document.body.appendChild(element);
+      return element;
+    """)
+    self.assertEqual('textPath', script_created_svg_element.GetTagName())
+
+    prefixed_svg_element = self._driver.ExecuteScript("""
+      const element = document.createElementNS(
+          'http://www.w3.org/2000/svg', 'SvG:linearGradient');
+      document.body.appendChild(element);
+      return element;
+    """)
+    self.assertEqual('SvG:linearGradient',
+                     prefixed_svg_element.GetTagName())
+
   def testLoadUrl(self):
     self._driver.Load(self.GetHttpUrlForFile('/chromedriver/empty.html'))
 
@@ -1270,6 +1302,83 @@ class ChromeDriverTest(ChromeDriverBaseTestWithWebServer):
     self.assertEqual(
         4,
         self._driver.ExecuteScript('return 4'))
+
+  def testExecuteAsyncScriptZeroTimeout(self):
+    # A genuinely pending async operation must respect a zero driver timeout.
+    self._driver.SetTimeouts({'script': 0})
+    with self.assertRaises(chromedriver.ScriptTimeout):
+      self._driver.ExecuteAsyncScript('void 0;')
+
+    # Regular script can still run after an async timeout.
+    self._driver.SetTimeouts({'script': 1000})
+    self.assertEqual(
+        4,
+        self._driver.ExecuteScript('return 4'))
+
+  def testExecuteAsyncScriptRejectsRaisesJavaScriptError(self):
+    # A returned-promise rejection that wins over the callback should map to
+    # JavaScriptError, not ScriptTimeout.
+    self._driver.Load(self.GetHttpUrlForFile('/chromedriver/empty.html'))
+    self._driver.SetTimeouts({'script': 1000})
+    with self.assertRaisesRegex(chromedriver.JavaScriptError, 'boom'):
+      self._driver.ExecuteAsyncScript(
+          'setTimeout(() => arguments[0](42), 50);'
+          'return Promise.reject(new Error("boom"));')
+
+  def testExecuteAsyncScriptReturnedPromiseFulfillmentDoesNotBeatCallback(
+      self):
+    self._driver.Load(self.GetHttpUrlForFile('/chromedriver/empty.html'))
+    self._driver.SetTimeouts({'script': 1000})
+    self.assertEqual(
+        42,
+        self._driver.ExecuteAsyncScript(
+            'setTimeout(() => arguments[0](42), 50);'
+            'return Promise.resolve(24);'))
+
+  def testExecuteAsyncScriptUnboundedTimeout(self):
+    self._driver.Load(self.GetHttpUrlForFile('/chromedriver/empty.html'))
+    # Replace a short finite timeout with null, then wait longer than the old
+    # timeout to prove that null is applied rather than ignored.
+    self._driver.SetTimeouts({'script': 10})
+    self._driver.SetTimeouts({'script': None})
+    self.assertIsNone(self._driver.GetTimeouts()['script'])
+    self.assertEqual(
+        7,
+        self._driver.ExecuteAsyncScript(
+            'setTimeout(()=>arguments[0](7), 100);'))
+
+    # Reset script to a finite value so this also proves that the mixed request
+    # forwards its null value rather than silently dropping it.
+    self._driver.SetTimeouts({'script': 10})
+    self._driver.SetTimeouts({'script': None, 'implicit': 0})
+    timeouts = self._driver.GetTimeouts()
+    self.assertIsNone(timeouts['script'])
+    self.assertEqual(0, timeouts['implicit'])
+
+  def testExecuteAsyncScriptLargeTimeout(self):
+    self._driver.Load(self.GetHttpUrlForFile('/chromedriver/empty.html'))
+    timeout = 2**31
+    # Bypass the test client's independent HTTP timeout guard. This verifies
+    # that the WebDriver endpoint accepts a timeout beyond setTimeout's signed
+    # 32-bit delay range and that an immediate callback still completes.
+    self._driver.ExecuteCommand(
+        chromedriver.Command.SET_TIMEOUTS, {'script': timeout})
+    self.assertEqual(timeout, self._driver.GetTimeouts()['script'])
+    self.assertEqual(
+        7,
+        self._driver.ExecuteAsyncScript('arguments[0](7);'))
+
+  def testExecuteAsyncScriptDoesNotUsePageSetTimeout(self):
+    self._driver.Load(self.GetHttpUrlForFile('/chromedriver/empty.html'))
+    try:
+      self._driver.ExecuteScript(
+          'window.setTimeout = function() { throw new Error("unexpected"); };')
+      self._driver.SetTimeouts({'script': 1000})
+      self.assertEqual(
+          7,
+          self._driver.ExecuteAsyncScript('arguments[0](7);'))
+    finally:
+      self._driver.Load(self.GetHttpUrlForFile('/chromedriver/empty.html'))
 
   def testSwitchToFrame(self):
     self._driver.ExecuteScript(
@@ -2471,7 +2580,18 @@ class ChromeDriverTest(ChromeDriverBaseTestWithWebServer):
     self.assertEqual('', value)
 
   def testSendKeysToInputFileElement(self):
-    file_name = os.path.join(_TEST_DATA_DIR, 'anchor_download_test.png')
+    host_file_name = os.path.join(_TEST_DATA_DIR, 'anchor_download_test.png')
+    file_name = host_file_name
+    if _ANDROID_PACKAGE_KEY:
+      device_dir = '/data/local/tmp/chromedriver_file_input_%d' % os.getpid()
+      self._device.RemovePath(device_dir, force=True, recursive=True)
+      self._device.RunShellCommand(
+          ['mkdir', '-p', device_dir], check_return=True)
+      self.addCleanup(
+          self._device.RemovePath, device_dir, force=True, recursive=True)
+      file_name = device_dir + '/anchor_download_test.png'
+      self._device.PushChangedFiles([(host_file_name, file_name)])
+
     self._driver.Load(ChromeDriverTest.GetHttpUrlForFile(
         '/chromedriver/file_input.html'))
     elem = self._driver.FindElement('css selector', '#id_file')
@@ -2480,9 +2600,10 @@ class ChromeDriverTest(ChromeDriverBaseTestWithWebServer):
         'var input = document.getElementById("id_file").value;'
         'return input;')
     self.assertEqual('C:\\fakepath\\anchor_download_test.png', text)
+
     if not _ANDROID_PACKAGE_KEY:
       self.assertRaises(chromedriver.InvalidArgument,
-                                  elem.SendKeys, "/blah/blah/blah")
+                        elem.SendKeys, "/blah/blah/blah")
 
   def testSendKeysToNonTypeableInputElement(self):
     self._driver.Load("about:blank")
@@ -6809,6 +6930,76 @@ class ChromeDriverPageLoadTimeoutTest(ChromeDriverBaseTestWithWebServer):
 
 class ChromeDriverAndroidTest(ChromeDriverBaseTestWithWebServer):
   """End to end tests for Android-specific tests."""
+
+  def testSendKeysToInputFileElementRejectsMalformedPaths(self):
+    self._driver = self.CreateDriver()
+    self._driver.Load(self.GetHttpUrlForFile('/chromedriver/file_input.html'))
+    elem = self._driver.FindElement('css selector', '#id_file')
+    self._driver.ExecuteScript(
+        'document.getElementById("id_file").multiple = true;')
+
+    for malformed_path in (
+        'data/local/tmp/file.txt',
+        '/data/local/tmp/../file.txt'):
+      with self.subTest(path=malformed_path):
+        self.assertRaises(chromedriver.InvalidArgument,
+                          elem.SendKeys, malformed_path)
+        self.assertEqual('', elem.GetProperty('value'))
+        self.assertEqual(0, self._driver.ExecuteScript(
+            'return document.getElementById("id_file").files.length;'))
+
+    # Reject the whole request without assigning the valid first path.
+    valid_absolute_path = '/data/local/tmp/file.txt'
+    malformed_path = '/data/local/tmp/../file.txt'
+    self.assertRaises(chromedriver.InvalidArgument, elem.SendKeys,
+                      valid_absolute_path + '\n' + malformed_path)
+    self.assertEqual('', elem.GetProperty('value'))
+    self.assertEqual(0, self._driver.ExecuteScript(
+        'return document.getElementById("id_file").files.length;'))
+
+  def testSendKeysToInputFileElementMultipleDeviceLocalFiles(self):
+    self._driver = self.CreateDriver()
+    host_file = os.path.join(_TEST_DATA_DIR, 'anchor_download_test.png')
+    with open(host_file, 'rb') as file:
+      expected_bytes = list(file.read())
+    device_dir = ('/data/local/tmp/chromedriver_file_input_multiple_%d' %
+                  os.getpid())
+    self._device.RemovePath(device_dir, force=True, recursive=True)
+    self._device.RunShellCommand(
+        ['mkdir', '-p', device_dir], check_return=True)
+    self.addCleanup(
+        self._device.RemovePath, device_dir, force=True, recursive=True)
+    first_file = device_dir + '/first.png'
+    second_file = device_dir + '/second.png'
+    self._device.PushChangedFiles([
+        (host_file, first_file),
+        (host_file, second_file),
+    ])
+
+    self._driver.Load(self.GetHttpUrlForFile('/chromedriver/file_input.html'))
+    elem = self._driver.FindElement('css selector', '#id_file')
+    self._driver.ExecuteScript(
+        'document.getElementById("id_file").multiple = true;')
+
+    elem.SendKeys(first_file + '\n' + second_file)
+    files = self._driver.ExecuteAsyncScript('''
+        const resolve = arguments[0];
+        const files = Array.from(
+            document.getElementById('id_file').files);
+        Promise.all(files.map(async file => ({
+          name: file.name,
+          size: file.size,
+          bytes: Array.from(new Uint8Array(await file.arrayBuffer())),
+        }))).then(resolve);
+    ''')
+    expected_file = {
+      'size': len(expected_bytes),
+      'bytes': expected_bytes,
+    }
+    self.assertEqual([
+      dict(expected_file, name='first.png'),
+      dict(expected_file, name='second.png'),
+    ], files)
 
   def testLatestAndroidAppInstalled(self):
     if ('stable' not in _ANDROID_PACKAGE_KEY and

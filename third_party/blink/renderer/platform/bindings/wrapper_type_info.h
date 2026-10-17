@@ -51,21 +51,21 @@ class ScriptWrappable;
 
 // LINT.IfChange(ScriptWrappableStartTag)
 constexpr std::underlying_type_t<v8::CppHeapPointerTag>
-    kScriptWrappableStartTag = 256;
+    kScriptWrappableStartTag =
+        static_cast<std::underlying_type_t<v8::CppHeapPointerTag>>(
+            gin::kBlinkWrappableTagRange.first);
+static_assert(kScriptWrappableStartTag == 256);
 // LINT.ThenChange(third_party/blink/renderer/bindings/scripts/web_idl/idl_compiler.py:ScriptWrappableStartTag)
 
 // The upper bound of all `ScriptWrappable` tags that we currently generate. If
 // you add a new `ScriptWrappable` in the codebase and hit a `static_assert`
 // that this is too small, increase this value.
-// LINT.IfChange(LastGeneratedScriptWrappableTag)
 static constexpr std::underlying_type_t<v8::CppHeapPointerTag>
     kLastGeneratedScriptWrappableTag = 2000;
-// LINT.ThenChange(gin/public/wrappable_pointer_tags.h)
 
-enum class CppHeapPointerTag : std::underlying_type_t<
-    v8::CppHeapPointerTag> {
+enum class CppHeapPointerTag : std::underlying_type_t<v8::CppHeapPointerTag> {
   kFirst = kLastGeneratedScriptWrappableTag,
-  kDOMArrayBufferTag,
+  kDOMArrayBufferTag = kFirst,
   // Start of DOMArrayBufferView subclasses
   kDOMArrayBufferViewTag,
   kDOMDataViewTag,
@@ -85,13 +85,12 @@ enum class CppHeapPointerTag : std::underlying_type_t<
   kDOMSharedArrayBufferTag,
   kFrozenArrayTag,
   kScriptFunctionHolderTag,
-  kScriptStateTag,
   // Start of ObservableArrayExoticObject subclasses
   kObservableArrayExoticObjectTag,
   kV8ObservableArrayCSSStyleSheetTag,
   kV8ObservableArraySpeechRecognitionPhraseTag,
   // End of ObservableArrayExoticObject subclasses
-  kLastTag,
+  kLastScriptWrappableTag = kV8ObservableArraySpeechRecognitionPhraseTag,
 };
 
 // `kLastScriptWrappableTag` is an upper bound on the number of ScriptWrappable
@@ -99,30 +98,16 @@ enum class CppHeapPointerTag : std::underlying_type_t<
 // accordingly. Ideally this upper bound would be generated automatically, but
 // that may be difficult.
 static constexpr v8::CppHeapPointerTag kLastScriptWrappableTag =
-    static_cast<v8::CppHeapPointerTag>(CppHeapPointerTag::kLastTag);
-
-static_assert(static_cast<uint16_t>(kLastScriptWrappableTag) <
-                  static_cast<uint16_t>(gin::kFirstPointerTag),
-              "The tag range of ScriptWrappable and gin::Wrappable should be "
-              "disjoint. If they overlap, then the gin:Wrappable range should "
-              "be moved backwards");
-
-static_assert(
-    static_cast<uint16_t>(gin::kLastPointerTag) <
-        static_cast<uint16_t>(v8::CppHeapPointerTag::kFirstV8InternalTag),
-    "The tag range of gin::Wrappable and v8-internal tags should be "
-    "disjoint.");
-
-static_assert(static_cast<std::underlying_type_t<v8::CppHeapPointerTag>>(
-                  CppHeapExternalTag::kLastTag) < kScriptWrappableStartTag);
+    static_cast<v8::CppHeapPointerTag>(
+        CppHeapPointerTag::kLastScriptWrappableTag);
 
 constexpr v8::CppHeapPointerTagRange kScriptWrappableTagRange(
     static_cast<v8::CppHeapPointerTag>(kScriptWrappableStartTag),
     kLastScriptWrappableTag);
 
 static_assert(
-    v8::kObjectWrappableTagRange.Contains(kScriptWrappableTagRange),
-    "ScriptWrappable tag range must be within kObjectWrappableTagRange");
+    gin::kBlinkWrappableTagRange.Contains(kScriptWrappableTagRange),
+    "ScriptWrappable tag range must be within kBlinkWrappableTagRange");
 
 // This struct provides a way to store a bunch of information that is helpful
 // when unwrapping v8 objects. Each v8 bindings class has exactly one static

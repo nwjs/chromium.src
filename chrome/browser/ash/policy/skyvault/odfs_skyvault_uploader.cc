@@ -5,6 +5,7 @@
 #include "chrome/browser/ash/policy/skyvault/odfs_skyvault_uploader.h"
 
 #include <optional>
+#include <utility>
 
 #include "base/check_is_test.h"
 #include "base/files/file_path.h"
@@ -28,9 +29,9 @@ namespace ash::cloud_upload {
 
 namespace {
 
-// A factory that can be injected in tests.
-static OdfsMigrationUploader::FactoryCallback g_testing_factory_ =
-    OdfsMigrationUploader::FactoryCallback();
+// A factory that can be injected in tests. Heap-allocated and intentionally
+// never destroyed so that no exit-time destructor is registered.
+OdfsMigrationUploader::FactoryCallback* g_testing_factory = nullptr;
 
 // Runs the upload callback provided to `OdfsSkyvaultUploader::Upload`.
 void OnUploadDone(
@@ -66,7 +67,7 @@ base::WeakPtr<OdfsSkyvaultUploader> OdfsSkyvaultUploader::Upload(
     std::optional<const gfx::Image> thumbnail) {
   auto* file_system_context =
       file_manager::util::GetFileManagerFileSystemContext(profile);
-  DCHECK(file_system_context);
+  CHECK(file_system_context, base::NotFatalUntil::M160);
   base::FilePath tmp_dir;
   CHECK((base::GetTempDir(&tmp_dir) && tmp_dir.IsParent(path)) ||
         trigger == UploadTrigger::kMigration);
@@ -95,7 +96,7 @@ base::WeakPtr<OdfsSkyvaultUploader> OdfsSkyvaultUploader::Upload(
     std::optional<const gfx::Image> thumbnail) {
   auto* file_system_context =
       file_manager::util::GetFileManagerFileSystemContext(profile);
-  DCHECK(file_system_context);
+  CHECK(file_system_context, base::NotFatalUntil::M160);
   base::FilePath tmp_dir;
   auto file_system_url = file_system_context->CreateCrackedFileSystemURL(
       blink::StorageKey(), storage::kFileSystemTypeLocal, path);
@@ -286,9 +287,10 @@ void OdfsSkyvaultUploader::OnIOTaskStatus(
 void OdfsSkyvaultUploader::ProcessError(
     const ::file_manager::io_task::ProgressStatus& status) {
   // It's always one file.
-  DCHECK_EQ(status.sources.size(), 1u);
-  DCHECK_EQ(status.outputs.size(), 1u);
-  DCHECK_EQ(status.state, file_manager::io_task::State::kError);
+  CHECK_EQ(status.sources.size(), 1u, base::NotFatalUntil::M160);
+  CHECK_EQ(status.outputs.size(), 1u, base::NotFatalUntil::M160);
+  CHECK_EQ(status.state, file_manager::io_task::State::kError,
+           base::NotFatalUntil::M160);
 
   base::File::Error error =
       status.outputs.front().error.value_or(base::File::FILE_ERROR_FAILED);
@@ -384,9 +386,9 @@ scoped_refptr<OdfsMigrationUploader> OdfsMigrationUploader::Create(
     const storage::FileSystemURL& file_system_url,
     const base::FilePath& relative_source_path,
     const std::string& upload_root) {
-  if (g_testing_factory_) {
+  if (g_testing_factory) {
     CHECK_IS_TEST();
-    return g_testing_factory_.Run(profile, id, file_system_url,
+    return g_testing_factory->Run(profile, id, file_system_url,
                                   relative_source_path);
   }
   return new OdfsMigrationUploader(profile, id, file_system_url,
@@ -396,7 +398,9 @@ scoped_refptr<OdfsMigrationUploader> OdfsMigrationUploader::Create(
 // static
 void OdfsMigrationUploader::SetFactoryForTesting(FactoryCallback factory) {
   CHECK_IS_TEST();
-  g_testing_factory_ = factory;
+  delete g_testing_factory;
+  g_testing_factory =
+      factory ? new FactoryCallback(std::move(factory)) : nullptr;
 }
 
 OdfsMigrationUploader::OdfsMigrationUploader(

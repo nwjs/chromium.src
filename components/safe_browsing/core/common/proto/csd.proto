@@ -388,6 +388,7 @@ message ClipboardExtractedData {
 }
 
 // Verdict based on IntelligentScanInfo included in ClientPhishingRequest
+// LINT.IfChange(IntelligentScanVerdict)
 enum IntelligentScanVerdict {
   INTELLIGENT_SCAN_VERDICT_UNSPECIFIED = 0;
   INTELLIGENT_SCAN_VERDICT_SAFE = 1;
@@ -395,9 +396,11 @@ enum IntelligentScanVerdict {
   SCAM_EXPERIMENT_VERDICT_2 = 3;
   SCAM_EXPERIMENT_VERDICT_3 = 4;
   SCAM_EXPERIMENT_VERDICT_4 = 5;
+  SCAM_EXPERIMENT_VERDICT_BILLING = 6;
   SCAM_EXPERIMENT_CATCH_ALL_ENFORCEMENT = 999;
   SCAM_EXPERIMENT_CATCH_ALL_TELEMETRY = 1000;
 }
+// LINT.ThenChange(//tools/metrics/histograms/metadata/sb_client/enums.xml:IntelligentScanVerdict)
 
 message ClientPhishingResponse {
   required bool phishy = 1;
@@ -1830,8 +1833,8 @@ message ClientSafeBrowsingReportRequest {
     URL_SUSPICIOUS = 15;
     BILLING = 16;
     APK_DOWNLOAD = 17;
-    BLOCKED_AD_REDIRECT = 19;
-    BLOCKED_AD_POPUP = 20;
+    BLOCKED_AD_REDIRECT = 19 [deprecated = true];
+    BLOCKED_AD_POPUP = 20 [deprecated = true];
     HASH_PREFIX_REAL_TIME_EXPERIMENT = 21 [deprecated = true];
     PHISHY_SITE_INTERACTIONS = 22;
     WARNING_SHOWN = 23;
@@ -2294,6 +2297,7 @@ message ClientSafeBrowsingReportRequest {
       UWS_INTERSTITIAL = 4;
       BILLING_INTERSTITIAL = 5;
       BINARY_MALWARE_DOWNLOAD_WARNING = 6;
+      SUSPICIOUS_SITE_WARNING = 7;
     }
     optional WarningUXType warning_type = 1;
 

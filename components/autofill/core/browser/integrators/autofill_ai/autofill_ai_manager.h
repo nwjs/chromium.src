@@ -11,23 +11,26 @@
 #include <optional>
 #include <vector>
 
-#include "base/containers/lru_cache.h"
 #include "base/containers/span.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
+#include "base/types/expected.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
-#include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
 #include "components/autofill/core/browser/foundations/autofill_manager.h"
 #include "components/autofill/core/browser/foundations/scoped_autofill_managers_observation.h"
+#include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_wallet_util.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/metrics/autofill_ai_logger.h"
 #include "components/autofill/core/browser/network/autofill_ai/autofill_ai_personal_context_access_manager.h"
+#include "components/autofill/core/browser/network/autofill_ai/wallet_pass_access_manager.h"
+#include "components/autofill/core/browser/payments/wallet_reminder_notice_manager.h"
 #include "components/autofill/core/browser/strike_databases/autofill_ai/autofill_ai_save_strike_database_by_attribute.h"
 #include "components/autofill/core/browser/strike_databases/autofill_ai/autofill_ai_save_strike_database_by_host.h"
 #include "components/autofill/core/browser/strike_databases/autofill_ai/autofill_ai_update_strike_database.h"
+#include "components/autofill/core/browser/studies/hats_surveys_util.h"
 #include "components/autofill/core/common/dense_set.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/unique_ids.h"
@@ -63,9 +66,10 @@ class AutofillAiManager
       const FormStructure& form,
       const FormFieldData& trigger_field);
 
-  // Attempts to display an import bubble for `form` if Autofill AI is
-  // interested in the form. Returns whether an import bubble will be shown.
-  // Also contains metric logging logic.
+  // Attempts to display an import bubble or wallet reminder notice for `form`
+  // if Autofill AI is interested in the form. Returns whether an import bubble
+  // or a wallet reminder notice was displayed to the user. Also contains
+  // metric logging logic.
   virtual bool OnFormSubmitted(const FormStructure& form,
                                ukm::SourceId ukm_source_id);
 
@@ -106,17 +110,16 @@ class AutofillAiManager
   // `form`.
   void UpdateLoggerReadinessData(const FormStructure& form);
 
+  // Returns the recent user interactions with AutofillAi suggestions relevant
+  // for HaTS surveys. Returns `std::nullopt` if there was no recent
+  // AutofillAi-related activity on the form with `form_id`.
+  std::optional<RecentUserAutofillAiInteractionsForHats::InteractionDetails>
+  GetRecentUserInteractionForHats(FormGlobalId form_id) const;
+
   base::WeakPtr<AutofillAiManager> GetWeakPtr();
 
  private:
   friend class AutofillAiManagerTestApi;
-  struct UserSuggestionInteractionDetails {
-    std::optional<EntityType> entity_type_accepted;
-    std::optional<EntityInstance::RecordType> accepted_entity_record_type;
-    // The types of the field where the suggestion was shown or accepted.
-    FieldTypeSet autofill_ai_field_types;
-  };
-  const size_t kSuggestionInteractionCacheMaxSize = 5;
 
   // Strike database related methods:
   void AddOrClearImportPromptStrikes(
@@ -205,6 +208,10 @@ class AutofillAiManager
   // interested in the form. Returns whether an import bubble will be shown.
   bool MaybeImportForm(const FormStructure& form, ukm::SourceId ukm_source_id);
 
+  // Displays a Wallet reminder notice if the last accepted suggestion on `form`
+  // was for an eligible saved Wallet pass. Returns true if a notice was shown.
+  bool MaybeShowWalletReminderNotice(const FormStructure& form);
+
   // Handles the logic that needs to run when an import prompt is closed.
   void HandlePromptResult(
       const FormData& form,
@@ -213,7 +220,36 @@ class AutofillAiManager
       AutofillClient::AutofillAiImportPromptType prompt_type,
       AutofillClient::AutofillAiBubbleResult result,
       std::optional<EntityInstance> edited_entity,
-      const AutofillClient::EntityImportUIContext& ui_context);
+      const AutofillClient::EntityImportUIContext& ui_context,
+      std::optional<std::string> context_token);
+
+  // Handles the response of `GetDetailsForUpsertPass`. If the request
+  // succeeded, `ShowEntityImportBubble` is called with the retrieved legal
+  // disclosure details and `context_token`. If the request failed, the entity
+  // falls back to a local save (`EntityInstance::RecordType::kLocal`) and
+  // `ShowEntityImportBubble` is called without details.
+  void OnGetDetailsForUpsertPassResponse(
+      const FormData& form,
+      ukm::SourceId ukm_source_id,
+      AutofillClient::AutofillAiImportPromptType prompt_type,
+      EntityInstance new_entity,
+      std::optional<EntityInstance> old_entity,
+      bool is_save_synchronous,
+      base::expected<WalletPassAccessManager::GetDetailsForUpsertPassResponse,
+                     wallet::WalletHttpClient::WalletRequestError> response);
+
+  // Displays the entity import bubble on `client_`. If `public_passes_notice`
+  // is present, its legal disclosure messages will be shown in the prompt.
+  // `context_token` is forwarded to `HandlePromptResult` upon acceptance.
+  void ShowEntityImportBubble(
+      const FormData& form,
+      ukm::SourceId ukm_source_id,
+      AutofillClient::AutofillAiImportPromptType prompt_type,
+      EntityInstance new_entity,
+      std::optional<EntityInstance> old_entity,
+      bool is_save_synchronous,
+      LegalMessageLines public_passes_notice,
+      std::optional<std::string> context_token);
 
   // Handles the fallback UI and storage logic when a Wallet save is
   // accepted but the user is no longer eligible. This can happen if eligibility
@@ -254,11 +290,8 @@ class AutofillAiManager
   // is to be updated.
   std::unique_ptr<AutofillAiUpdateStrikeDatabase> update_strike_db_;
 
-  // Keeps suggestions details about the five most recent forms the user has
-  // interacted with.
-  base::LRUCache<FormGlobalId, UserSuggestionInteractionDetails>
-      user_suggestion_interactions_per_form_{
-          kSuggestionInteractionCacheMaxSize};
+  RecentUserAutofillAiInteractionsForHats
+      user_suggestion_interactions_per_form_;
 
   // Tracks the UKM source ID for which the suggestions shown timing metric was
   // last logged, ensuring it is logged at most once per page.

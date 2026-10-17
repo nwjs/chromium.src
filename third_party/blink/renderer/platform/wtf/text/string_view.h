@@ -169,8 +169,12 @@ class WTF_EXPORT StringView {
       : impl_(StringImpl::empty16_bit_),
         bytes_(chars.data()),
         length_(base::checked_cast<size_type>(chars.size())) {}
+  template <size_t kLength>
   // NOLINTNEXTLINE(google-explicit-constructor)
-  StringView(const UChar* chars);
+  StringView(const UChar (&chars)[kLength])
+      : StringView(base::span(chars).template first<kLength - 1>()) {
+    DCHECK_EQ(chars[kLength - 1], 0);
+  }
 
   // StringView(const T*, size_type) are deleted explicitly because `const T*`
   // is converted to a StringView implicitly and StringView(const StringView&,
@@ -293,7 +297,7 @@ class WTF_EXPORT StringView {
     if (Is8Bit()) {
       return Span8();
     }
-    return base::as_byte_span(Span16());
+    return base::as_bytes(Span16());
   }
 
   // This is not named impl() like String because it has different semantics.
@@ -614,8 +618,14 @@ inline bool StringView::IsAllSpecialCharacters() const {
   if (empty()) {
     return true;
   }
-  return Is8Bit() ? std::ranges::all_of(Span8(), is_special_character)
-                  : std::ranges::all_of(Span16(), is_special_character);
+  // Not `std::ranges::all_of()`: checking its constraints is expensive at
+  // compile time.
+  if (Is8Bit()) {
+    auto span = Span8();
+    return std::all_of(span.begin(), span.end(), is_special_character);
+  }
+  auto span = Span16();
+  return std::all_of(span.begin(), span.end(), is_special_character);
 }
 
 WTF_EXPORT std::ostream& operator<<(std::ostream&, const StringView&);

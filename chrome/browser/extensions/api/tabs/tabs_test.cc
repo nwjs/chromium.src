@@ -73,6 +73,7 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_navigation_observer.h"
+#include "extensions/browser/api/constants.h"
 #include "extensions/browser/api_test_utils.h"
 #include "extensions/browser/event_router.h"
 #include "extensions/browser/extension_function_dispatcher.h"
@@ -84,6 +85,7 @@
 #include "extensions/common/extension_builder.h"
 #include "extensions/common/manifest_constants.h"
 #include "extensions/common/mojom/context_type.mojom.h"
+#include "extensions/common/permissions/permissions_data.h"
 #include "extensions/test/extension_test_message_listener.h"
 #include "extensions/test/result_catcher.h"
 #include "extensions/test/test_extension_dir.h"
@@ -2315,7 +2317,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, DiscardWithInvalidId) {
   EXPECT_FALSE(GetTabListInterface()->GetTab(1)->GetContents()->WasDiscarded());
 
   // Check error message.
-  EXPECT_TRUE(base::MatchPattern(error, ExtensionTabUtil::kTabNotFoundError));
+  EXPECT_TRUE(base::MatchPattern(error, kTabNotFoundError));
 }
 
 // Tests chrome.tabs.discard for an incognito tab when the extension doesn't
@@ -2350,7 +2352,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, DiscardIncognitoWithoutPermission) {
   std::string error = utils::RunFunctionAndReturnError(
       discard.get(), base::StringPrintf("[%u]", tab_id), profile());
   EXPECT_FALSE(incognito_web_contents->WasDiscarded());
-  EXPECT_TRUE(base::MatchPattern(error, ExtensionTabUtil::kTabNotFoundError));
+  EXPECT_TRUE(base::MatchPattern(error, kTabNotFoundError));
 
   // Now run without passing an id. The extension only has access to the normal
   // tabs, so only the normal tabs should be discardable.
@@ -3304,10 +3306,10 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsZoomTest, CannotZoomInvalidTab) {
 
   int bogus_id = tab_id + 100;
   std::string error = RunSetZoomExpectError(bogus_id, 3.14159);
-  EXPECT_TRUE(base::MatchPattern(error, ExtensionTabUtil::kTabNotFoundError));
+  EXPECT_TRUE(base::MatchPattern(error, kTabNotFoundError));
 
   error = RunSetZoomSettingsExpectError(bogus_id, "manual", "per-tab");
-  EXPECT_TRUE(base::MatchPattern(error, ExtensionTabUtil::kTabNotFoundError));
+  EXPECT_TRUE(base::MatchPattern(error, kTabNotFoundError));
 
   const char kNewTestTabArgs[] = "chrome://version/";
   web_contents = OpenUrlAndWaitForLoad(GURL(kNewTestTabArgs));
@@ -4529,6 +4531,91 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest,
   }
 }
 
+IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, QueryWithPolicyBlockedHost) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  auto tab_urls = std::to_array<GURL>({
+      embedded_test_server()->GetURL("www.google.com", "/empty.html"),
+      embedded_test_server()->GetURL("www.example.com", "/empty.html"),
+  });
+  auto tab_titles =
+      std::to_array<std::string>({"Sample title", "Sample title"});
+
+  std::array<content::WebContents*, std::size(tab_urls)> web_contentses;
+  for (size_t i = 0; i < std::size(tab_urls); ++i) {
+    tabs::TabInterface* tab = GetTabListInterface()->OpenTab(tab_urls[i], -1);
+    content::WebContents* raw_web_contents = tab->GetContents();
+    web_contentses[i] = raw_web_contents;
+    content::WaitForLoadStop(raw_web_contents);
+    raw_web_contents->GetController().GetVisibleEntry()->SetTitle(
+        base::ASCIIToUTF16(tab_titles[i]));
+  }
+
+  scoped_refptr<const Extension> extension =
+      ExtensionBuilder()
+          .SetManifest(base::DictValue()
+                           .Set("name", "Extension with host permissions")
+                           .Set("version", "1.0")
+                           .Set("manifest_version", 3)
+                           .Set("host_permissions",
+                                base::ListValue()
+                                    .Append("*://www.google.com/*")
+                                    .Append("*://www.example.com/*")))
+          .Build();
+
+  URLPatternSet policy_blocked_hosts;
+  policy_blocked_hosts.AddOrigin(Extension::kValidHostPermissionSchemes,
+                                 GURL("http://www.google.com"));
+  extension->permissions_data()->SetPolicyHostRestrictions(policy_blocked_hosts,
+                                                           URLPatternSet());
+
+  // Query for www.google.com tabs should return 0 tabs due to policy
+  // restriction.
+  const char* kBlockedURLQueryInfo = "[{\"url\": \"*://www.google.com/*\"}]";
+  base::ListValue blocked_tabs =
+      RunQueryFunction(extension.get(), kBlockedURLQueryInfo);
+  EXPECT_EQ(0u, blocked_tabs.size());
+
+  // Query with title on blocked host should not match.
+  const char* kBlockedTitleQueryInfo =
+      "[{\"title\": \"Sample title\", \"url\": \"*://www.google.com/*\"}]";
+  base::ListValue blocked_title_tabs =
+      RunQueryFunction(extension.get(), kBlockedTitleQueryInfo);
+  EXPECT_EQ(0u, blocked_title_tabs.size());
+
+  // Query for unblocked www.example.com should match.
+  const char* kAllowedURLQueryInfo = "[{\"url\": \"*://www.example.com/*\"}]";
+  base::ListValue allowed_tabs =
+      RunQueryFunction(extension.get(), kAllowedURLQueryInfo);
+  EXPECT_EQ(1u, allowed_tabs.size());
+  if (!allowed_tabs.empty()) {
+    EXPECT_TRUE(allowed_tabs[0].is_dict());
+    EXPECT_EQ(ExtensionTabUtil::GetTabId(web_contentses[1]),
+              allowed_tabs[0].GetDict().FindInt("id"));
+  }
+}
+
+IN_PROC_BROWSER_TEST_F(ExtensionTabsTest,
+                       QueryExtensionOwnOriginWithoutTabsPermission) {
+  scoped_refptr<const Extension> extension =
+      ExtensionBuilder("Extension own origin").Build();
+
+  GURL options_url = extension->GetResourceURL("options.html");
+  tabs::TabInterface* tab = GetTabListInterface()->OpenTab(options_url, -1);
+  content::WebContents* raw_web_contents = tab->GetContents();
+  content::WaitForLoadStop(raw_web_contents);
+
+  std::string query_info = base::StringPrintf(
+      "[{\"url\": \"chrome-extension://%s/*\"}]", extension->id().c_str());
+  base::ListValue tabs_list =
+      RunQueryFunction(extension.get(), query_info.c_str());
+  EXPECT_EQ(1u, tabs_list.size());
+  if (!tabs_list.empty()) {
+    EXPECT_TRUE(tabs_list[0].is_dict());
+    EXPECT_EQ(ExtensionTabUtil::GetTabId(raw_web_contents),
+              tabs_list[0].GetDict().FindInt("id"));
+  }
+}
+
 #if BUILDFLAG(ENABLE_PDF)
 // Test that using the PDF extension for tab updates is treated as a
 // renderer-initiated navigation. crbug.com/40085816
@@ -4573,7 +4660,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, TabsMoveNonExistentTab) {
                 function.get(),
                 base::StringPrintf(R"([%d, {"index": 0}])", kNonExistentTabId),
                 profile()),
-            base::StringPrintf("No tab with id: %d.", kNonExistentTabId));
+            ErrorUtils::FormatErrorMessage(
+                kTabNotFoundError, base::NumberToString(kNonExistentTabId)));
 }
 
 // Test that the tabs.move() function correctly rearranges sets of tabs within a
@@ -5362,6 +5450,40 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest,
   EXPECT_EQ(ErrorUtils::FormatErrorMessage(keys::kCannotDuplicateTab,
                                            base::NumberToString(pip_tab_id)),
             error);
+}
+
+IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, CannotDuplicateAppPopupWindows) {
+  // Create app popup browser.
+  BrowserWindowInterface* app_popup_browser =
+      CreateBrowserWindowWithType(BrowserWindowInterface::Type::TYPE_APP_POPUP);
+  TabListInterface* app_popup_tab_list =
+      TabListInterface::From(app_popup_browser);
+
+  // Ensure we have a tab.
+  if (app_popup_tab_list->GetTabCount() == 0) {
+    app_popup_tab_list->OpenTab(GURL(url::kAboutBlankURL), -1);
+  }
+  ASSERT_GE(app_popup_tab_list->GetTabCount(), 1);
+  content::WebContents* web_contents =
+      app_popup_tab_list->GetTab(0)->GetContents();
+  ASSERT_NE(web_contents, nullptr);
+  int app_popup_tab_id = ExtensionTabUtil::GetTabId(web_contents);
+  ASSERT_GT(app_popup_tab_id, 0);
+
+  // Attempt to duplicate the app popup tab. This should fail as app popup tabs
+  // are not allowed to be duplicated.
+  auto function = base::MakeRefCounted<TabsDuplicateFunction>();
+  scoped_refptr<const Extension> extension =
+      ExtensionBuilder("Test").AddAPIPermission("tabs").Build();
+  function->set_extension(extension);
+  std::string args = base::StringPrintf("[%d]", app_popup_tab_id);
+  std::string error = utils::RunFunctionAndReturnError(
+      function.get(), args, app_popup_browser->GetProfile(),
+      utils::FunctionMode::kNone);
+  EXPECT_EQ(
+      ErrorUtils::FormatErrorMessage(keys::kCannotDuplicateTab,
+                                     base::NumberToString(app_popup_tab_id)),
+      error);
 }
 
 #endif  // !BUILDFLAG(IS_ANDROID)

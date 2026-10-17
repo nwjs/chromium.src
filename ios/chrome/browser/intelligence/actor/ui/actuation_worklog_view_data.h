@@ -136,4 +136,95 @@ enum class ActuationWorklogItemStyle {
 
 @end
 
+// Visual layouts for an interactive intervention in the actuation worklog.
+enum class ActuationInterventionType {
+  // Card with `title`, optional `subtitle`, and a primary action button.
+  kCard,
+  // Standalone full-width primary action button.
+  kSingleButton,
+  // Standalone, side-by-side secondary and primary action buttons.
+  kDualButton,
+};
+
+// User action triggered on an active worklog intervention.
+enum class ActuationInterventionAction {
+  // The primary confirmation/continuation action.
+  kPrimary,
+  // The secondary cancellation/alternative action.
+  kSecondary,
+};
+
+// View data object describing an intervention in the actuation worklog.
+@interface ActuationInterventionData : NSObject
+
+// The visual layout type of the intervention.
+@property(nonatomic, assign, readonly) ActuationInterventionType type;
+
+// Optional title text (mandatory if `type == kCard`).
+@property(nonatomic, copy, readonly) NSString* title;
+
+// Optional subtitle text (used if `type == kCard`).
+@property(nonatomic, copy, readonly) NSString* subtitle;
+
+// Mandatory primary action button title.
+@property(nonatomic, copy, readonly) NSString* primaryButtonText;
+
+// Optional secondary action button title (mandatory if `type == kDualButton`).
+@property(nonatomic, copy, readonly) NSString* secondaryButtonText;
+
+- (instancetype)init NS_UNAVAILABLE;
+
+#pragma mark - Factory Constructors
+
+// Creates a card layout intervention with a single action button.
++ (instancetype)cardItemWithTitle:(NSString*)title
+                         subtitle:(NSString*)subtitle
+                primaryButtonText:(NSString*)primaryButtonText;
+
+// Creates a single-button layout intervention.
++ (instancetype)singleButtonItemWithPrimaryButtonText:
+    (NSString*)primaryButtonText;
+
+// Creates a dual-button layout intervention.
++ (instancetype)dualButtonItemWithPrimaryButtonText:(NSString*)primaryButtonText
+                                secondaryButtonText:
+                                    (NSString*)secondaryButtonText;
+
+@end
+
+// View data object describing a button in the actuation header. The button will
+// trigger `action` or presents `menu` on tap; exactly one of them is non-nil.
+@interface ActuationHeaderItem : NSObject
+
+// Icon displayed in the button.
+@property(nonatomic, strong, readonly) UIImage* icon;
+
+// Title of the item, used as the accessibility label of the icon-only button.
+@property(nonatomic, copy, readonly) NSString* title;
+
+// Optional accessibility identifier of the button.
+@property(nonatomic, copy, readonly) NSString* accessibilityIdentifier;
+
+// Action triggered on tap. Nil when `menu` is set.
+@property(nonatomic, strong, readonly) UIAction* action;
+
+// Menu presented on tap. Nil when `action` is set.
+@property(nonatomic, strong, readonly) UIMenu* menu;
+
+// Creates an item triggering `action` on tap.
+- (instancetype)initWithIcon:(UIImage*)icon
+                       title:(NSString*)title
+     accessibilityIdentifier:(NSString*)accessibilityIdentifier
+                      action:(UIAction*)action NS_DESIGNATED_INITIALIZER;
+
+// Creates an item presenting `menu` on tap.
+- (instancetype)initWithIcon:(UIImage*)icon
+                       title:(NSString*)title
+     accessibilityIdentifier:(NSString*)accessibilityIdentifier
+                        menu:(UIMenu*)menu NS_DESIGNATED_INITIALIZER;
+
+- (instancetype)init NS_UNAVAILABLE;
+
+@end
+
 #endif  // IOS_CHROME_BROWSER_INTELLIGENCE_ACTOR_UI_ACTUATION_WORKLOG_VIEW_DATA_H_

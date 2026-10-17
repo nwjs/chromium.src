@@ -47,6 +47,7 @@
 #include "gpu/command_buffer/service/shared_image/shared_image_representation.h"
 #include "gpu/command_buffer/service/shared_image/skia_gl_image_representation.h"
 #include "gpu/command_buffer/service/shared_image/skia_graphite_dawn_image_representation.h"
+#include "gpu/command_buffer/service/shared_image/skia_graphite_vk_android_image_representation.h"
 #include "gpu/command_buffer/service/shared_image/skia_vk_android_image_representation.h"
 #include "gpu/command_buffer/service/skia_utils.h"
 #include "gpu/command_buffer/service/texture_manager.h"
@@ -137,12 +138,32 @@ GLuint CreateAndBindTexture(EGLImage image, GLenum target) {
   api->glGenTexturesFn(1, &service_id);
   gl::ScopedTextureBinder texture_binder(target, service_id);
 
+  if (target == GL_TEXTURE_2D_ARRAY) {
+    if (gl::g_current_gl_driver &&
+        gl::g_current_gl_driver->ext.b_GL_EXT_EGL_image_storage &&
+        gl::g_current_gl_driver->fn.glEGLImageTargetTexStorageEXTFn) {
+      api->glEGLImageTargetTexStorageEXTFn(target, image, nullptr);
+    } else if (gl::g_current_gl_driver &&
+               gl::g_current_gl_driver->ext.b_GL_EXT_EGL_image_array &&
+               gl::g_current_gl_driver->fn.glEGLImageTargetTexture2DOESFn) {
+      api->glEGLImageTargetTexture2DOESFn(target, image);
+    } else {
+      LOG(ERROR) << "Neither glEGLImageTargetTexStorageEXT nor "
+                    "glEGLImageTargetTexture2DOES is supported for "
+                    "GL_TEXTURE_2D_ARRAY";
+      api->glDeleteTexturesFn(1, &service_id);
+      return 0;
+    }
+    api->glTexParameteriFn(target, GL_TEXTURE_BASE_LEVEL, 0);
+    api->glTexParameteriFn(target, GL_TEXTURE_MAX_LEVEL, 0);
+  } else {
+    api->glEGLImageTargetTexture2DOESFn(target, image);
+  }
+
   api->glTexParameteriFn(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   api->glTexParameteriFn(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   api->glTexParameteriFn(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   api->glTexParameteriFn(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-  glEGLImageTargetTexture2DOES(target, image);
 
   return service_id;
 }
@@ -421,6 +442,9 @@ class AHardwareBufferImageBacking : public AndroidImageBacking {
     GLuint service_id = 0;
   };
 
+  std::unique_ptr<VulkanImage> CreateVulkanImageFromAHB(
+      SharedContextState* context_state);
+
   std::optional<GLTextureParams> GetGLTextureParams();
 
   const base::android::ScopedHardwareBufferHandle hardware_buffer_handle_;
@@ -453,6 +477,26 @@ class SkiaVkAHBImageRepresentation : public SkiaVkAndroidImageRepresentation {
     DCHECK(promise_texture_);
   }
 };
+
+#if BUILDFLAG(SKIA_USE_GRAPHITE_VULKAN)
+class SkiaGraphiteVkAHBImageRepresentation
+    : public SkiaGraphiteVkAndroidImageRepresentation {
+ public:
+  SkiaGraphiteVkAHBImageRepresentation(
+      SharedImageManager* manager,
+      AndroidImageBacking* backing,
+      scoped_refptr<SharedContextState> context_state,
+      MemoryTypeTracker* tracker,
+      std::unique_ptr<VulkanImage> vulkan_image)
+      : SkiaGraphiteVkAndroidImageRepresentation(manager,
+                                                 backing,
+                                                 std::move(context_state),
+                                                 tracker) {
+    CHECK(vulkan_image);
+    SetVulkanImage(std::move(vulkan_image));
+  }
+};
+#endif
 
 class OverlayAHBImageRepresentation : public OverlayImageRepresentation {
  public:
@@ -602,8 +646,16 @@ AHardwareBufferImageBacking::GetGLTextureParams() {
     gl_format_desc = gl_format_caps_.ToGLFormatDescOverrideHalfFloatType(
         format(), /*plane_index=*/0);
   }
+
+  if (array_layers() > 1) {
+    gl_format_desc.target = GL_TEXTURE_2D_ARRAY;
+  }
+
   GLuint service_id =
       CreateAndBindTexture(egl_image.get(), gl_format_desc.target);
+  if (!service_id) {
+    return std::nullopt;
+  }
 
   GLTextureParams params;
   params.egl_image = std::move(egl_image);
@@ -624,7 +676,7 @@ AHardwareBufferImageBacking::ProduceGLTexture(SharedImageManager* manager,
       params->service_id, params->gl_format_desc.target);
   texture->SetLevelInfo(params->gl_format_desc.target, 0,
                         params->gl_format_desc.image_internal_format,
-                        size().width(), size().height(), 1, 0,
+                        size().width(), size().height(), array_layers(), 0,
                         params->gl_format_desc.data_format,
                         params->gl_format_desc.data_type, ClearedRect());
   texture->SetImmutable(true, false);
@@ -656,28 +708,41 @@ AHardwareBufferImageBacking::ProduceSkiaGraphite(
     MemoryTypeTracker* tracker,
     scoped_refptr<SharedContextState> context_state) {
   CHECK(context_state);
-  CHECK(context_state->IsGraphiteDawn());
+
+  if (context_state->IsGraphiteDawn()) {
 #if BUILDFLAG(SKIA_USE_DAWN)
-  auto device = context_state->dawn_context_provider()->GetDevice();
-  auto backend_type = context_state->dawn_context_provider()->backend_type();
-  auto dawn_representation = ProduceDawn(manager, tracker, device, backend_type,
-                                         /*view_formats=*/{}, context_state);
-  if (!dawn_representation) {
-    LOG(ERROR) << "Could not create Dawn Representation";
-    return nullptr;
+    auto device = context_state->dawn_context_provider()->GetDevice();
+    auto backend_type = context_state->dawn_context_provider()->backend_type();
+    auto dawn_representation =
+        ProduceDawn(manager, tracker, device, backend_type,
+                    /*view_formats=*/{}, context_state);
+    if (!dawn_representation) {
+      LOG(ERROR) << "Could not create Dawn Representation";
+      return nullptr;
+    }
+
+    // Use GPU main recorder since this should only be called for
+    // fulfilling Graphite promise images on GPU main thread.
+    // NOTE: AHardwareBufferImageBacking doesn't support multiplanar formats,
+    // so there is no need to specify the `is_yuv_plane` or
+    // `legacy_plane_index` optional parameters.
+    return std::make_unique<SkiaGraphiteDawnImageRepresentation>(
+        std::move(dawn_representation), context_state,
+        context_state->gpu_main_graphite_recorder(), manager, this, tracker);
+#endif
+  } else if (context_state->IsGraphiteVulkan()) {
+#if BUILDFLAG(SKIA_USE_GRAPHITE_VULKAN)
+    auto vulkan_image = CreateVulkanImageFromAHB(context_state.get());
+    if (!vulkan_image) {
+      return nullptr;
+    }
+    return std::make_unique<SkiaGraphiteVkAHBImageRepresentation>(
+        manager, this, std::move(context_state), tracker,
+        std::move(vulkan_image));
+#endif
   }
 
-  // Use GPU main recorder since this should only be called for
-  // fulfilling Graphite promise images on GPU main thread.
-  // NOTE: AHardwareBufferImageBacking doesn't support multiplanar formats,
-  // so there is no need to specify the `is_yuv_plane` or
-  // `legacy_plane_index` optional parameters.
-  return std::make_unique<SkiaGraphiteDawnImageRepresentation>(
-      std::move(dawn_representation), context_state,
-      context_state->gpu_main_graphite_recorder(), manager, this, tracker);
-#else
-  NOTREACHED();
-#endif
+  return nullptr;
 }
 
 std::unique_ptr<SkiaGaneshImageRepresentation>
@@ -690,28 +755,10 @@ AHardwareBufferImageBacking::ProduceSkiaGanesh(
   // Check whether we are in Vulkan mode OR GL mode and accordingly create
   // Skia representation.
   if (context_state->GrContextIsVulkan()) {
-    uint32_t queue_family = VK_QUEUE_FAMILY_EXTERNAL;
-    if (usage().Has(SHARED_IMAGE_USAGE_SCANOUT)) {
-      // Any Android API that consume or produce buffers (e.g SurfaceControl)
-      // requires a foreign queue.
-      queue_family = VK_QUEUE_FAMILY_FOREIGN_EXT;
-    }
-    auto vulkan_image = CreateVkImageFromAhbHandle(
-        GetAhbHandle(), context_state.get(), size(), format(), queue_family);
-
+    auto vulkan_image = CreateVulkanImageFromAHB(context_state.get());
     if (!vulkan_image) {
       return nullptr;
     }
-
-    // TODO(496392525, vasilyt): Move the following check to
-    // `AHardwareBufferImageBackingFactory::CreateSharedImage`
-    // (i.e calling AHardwareBuffer_Desc and reject if size of AHB doesn't match
-    // size of SI).
-    if (vulkan_image->size().width() < size().width() ||
-        vulkan_image->size().height() < size().height()) {
-      return nullptr;
-    }
-
     return std::make_unique<SkiaVkAHBImageRepresentation>(
         manager, this, std::move(context_state), std::move(vulkan_image),
         tracker);
@@ -849,6 +896,35 @@ void AHardwareBufferImageBacking::EndOverlayAccess() {
   }
 }
 
+std::unique_ptr<VulkanImage>
+AHardwareBufferImageBacking::CreateVulkanImageFromAHB(
+    SharedContextState* context_state) {
+  uint32_t queue_family = VK_QUEUE_FAMILY_EXTERNAL;
+  if (usage().Has(SHARED_IMAGE_USAGE_SCANOUT)) {
+    // Any Android API that consume or produce buffers (e.g SurfaceControl)
+    // requires a foreign queue.
+    queue_family = VK_QUEUE_FAMILY_FOREIGN_EXT;
+  }
+
+  auto vulkan_image = CreateVkImageFromAhbHandle(
+      GetAhbHandle(), context_state, size(), format(), queue_family);
+
+  if (!vulkan_image) {
+    return nullptr;
+  }
+
+  // TODO(496392525, vasilyt): Move the following check to
+  // `AHardwareBufferImageBackingFactory::CreateSharedImage`
+  // (i.e calling AHardwareBuffer_Desc and reject if size of AHB doesn't match
+  // size of SI).
+  if (vulkan_image->size().width() < size().width() ||
+      vulkan_image->size().height() < size().height()) {
+    return nullptr;
+  }
+
+  return vulkan_image;
+}
+
 AHardwareBufferImageBackingFactory::AHardwareBufferImageBackingFactory(
     const gles2::FeatureInfo* feature_info,
     const GpuPreferences& gpu_preferences,
@@ -876,6 +952,21 @@ AHardwareBufferImageBackingFactory::AHardwareBufferImageBackingFactory(
   // Vulkan mode, we should only need this with GLES2.
   gl::GLApi* api = gl::g_current_gl_context;
   api->glGetIntegervFn(GL_MAX_TEXTURE_SIZE, &max_gl_texture_size_);
+  const bool has_egl_image_array =
+      gl::g_current_gl_driver &&
+      gl::g_current_gl_driver->ext.b_GL_EXT_EGL_image_array &&
+      gl::g_current_gl_driver->fn.glEGLImageTargetTexture2DOESFn;
+  const bool has_egl_image_storage =
+      gl::g_current_gl_driver &&
+      gl::g_current_gl_driver->ext.b_GL_EXT_EGL_image_storage &&
+      gl::g_current_gl_driver->fn.glEGLImageTargetTexStorageEXTFn;
+  if (has_egl_image_array || has_egl_image_storage) {
+    api->glGetIntegervFn(GL_MAX_ARRAY_TEXTURE_LAYERS,
+                         &max_gl_array_texture_layers_);
+    max_gl_array_texture_layers_ = std::max(1, max_gl_array_texture_layers_);
+  } else {
+    max_gl_array_texture_layers_ = 1;
+  }
 
   // Ensure max_texture_size_ is less than INT_MAX so that gfx::Rect and friends
   // can be used to accurately represent all valid sub-rects, with overflow
@@ -889,11 +980,31 @@ AHardwareBufferImageBackingFactory::~AHardwareBufferImageBackingFactory() =
 bool AHardwareBufferImageBackingFactory::ValidateUsage(
     SharedImageUsageSet usage,
     const gfx::Size& size,
-    viz::SharedImageFormat format) const {
+    viz::SharedImageFormat format,
+    uint32_t array_layers) const {
   if (!AHardwareBufferSupportedFormat(format)) {
     LOG(ERROR) << "viz::SharedImageFormat " << format.ToString()
                << " not supported by AHardwareBuffer";
     return false;
+  }
+
+  CHECK_GE(array_layers, 1u);
+  if (static_cast<int32_t>(array_layers) > max_gl_array_texture_layers_) {
+    LOG(ERROR) << "CreateSharedImage: invalid array_layers=" << array_layers
+               << " max_gl_array_texture_layers="
+               << max_gl_array_texture_layers_;
+    return false;
+  }
+
+  if (array_layers > 1) {
+    const SharedImageUsageSet allowed_array_usages =
+        SHARED_IMAGE_USAGE_GLES2_READ | SHARED_IMAGE_USAGE_GLES2_WRITE;
+    if (!allowed_array_usages.HasAll(usage)) {
+      LOG(ERROR)
+          << "CreateSharedImage: array_layers > 1 is only supported for GLES2 "
+             "read/write usage";
+      return false;
+    }
   }
 
   // Check if AHB can be created with the current size restrictions.
@@ -923,7 +1034,12 @@ AHardwareBufferImageBackingFactory::MakeBacking(
 
   DCHECK(!format.IsCompressed());
 
-  if (!ValidateUsage(usage, size, format)) {
+  if (!ValidateUsage(usage, size, format, si_info.array_layers)) {
+    return nullptr;
+  }
+
+  if (si_info.array_layers > 1 && !pixel_data.empty()) {
+    LOG(ERROR) << "Initial pixel data is not supported for array_layers > 1";
     return nullptr;
   }
 
@@ -933,6 +1049,15 @@ AHardwareBufferImageBackingFactory::MakeBacking(
     LOG(ERROR) << "Failed to calculate SharedImage size";
     return nullptr;
   }
+
+  base::CheckedNumeric<size_t> safe_total_estimated_size =
+      estimated_size.value();
+  safe_total_estimated_size *= si_info.array_layers;
+  if (!safe_total_estimated_size.IsValid()) {
+    LOG(ERROR) << "Invalid estimated size for array layers";
+    return nullptr;
+  }
+  const size_t total_estimated_size = safe_total_estimated_size.ValueOrDie();
 
   // Setup AHardwareBuffer.
   AHardwareBuffer* buffer = nullptr;
@@ -968,7 +1093,7 @@ AHardwareBufferImageBackingFactory::MakeBacking(
     hwb_desc.usage |= AHARDWAREBUFFER_USAGE_CPU_WRITE_RARELY;
 
   // Number of images in an image array.
-  hwb_desc.layers = 1;
+  hwb_desc.layers = si_info.array_layers;
 
   // The following three are not used here.
   hwb_desc.stride = 0;
@@ -1024,9 +1149,8 @@ AHardwareBufferImageBackingFactory::MakeBacking(
   }
 
   auto backing = std::make_unique<AHardwareBufferImageBacking>(
-      mailbox, si_info, std::move(handle), estimated_size.value(),
-      is_thread_safe, std::move(initial_upload_fd), use_passthrough_,
-      gl_format_caps_);
+      mailbox, si_info, std::move(handle), total_estimated_size, is_thread_safe,
+      std::move(initial_upload_fd), use_passthrough_, gl_format_caps_);
 
   // If we uploaded initial data, set the backing as cleared.
   if (!pixel_data.empty())
@@ -1110,7 +1234,7 @@ AHardwareBufferImageBackingFactory::CreateSharedImage(
   const auto usage = si_info.usage;
 
   CHECK_EQ(handle.type, gfx::ANDROID_HARDWARE_BUFFER);
-  if (!ValidateUsage(usage, size, format) &&
+  if (!ValidateUsage(usage, size, format, si_info.array_layers) &&
       !IsSupportedForMappableBuffer(usage, format, handle.type)) {
     return nullptr;
   }

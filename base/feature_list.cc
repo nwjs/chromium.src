@@ -11,6 +11,8 @@
 #include <string>
 #include <string_view>
 #include <tuple>
+#include <utility>
+#include <vector>
 
 #include "base/base_switches.h"
 #include "base/check_is_test.h"
@@ -32,6 +34,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/metrics_hashes.h"
 #include "base/metrics/persistent_memory_allocator.h"
+#include "base/metrics/runtime_field_trial_overrides.h"
 #include "base/no_destructor.h"
 #include "base/notreached.h"
 #include "base/pickle.h"
@@ -534,19 +537,18 @@ FeatureList::GetRuntimeMutableFeatureState(
 
 FeatureList::RuntimeMutableFeatureUpdate::RuntimeMutableFeatureUpdate(
     internal::RuntimeMutableFeatureState& state_entry,
-    std::string_view field_trial_name,
-    std::string_view group_name,
+    const RuntimeFieldTrialInfo* override_info,
     OverrideState override_state)
     : state_entry_(&state_entry),
-      field_trial_name_(field_trial_name),
-      group_name_(group_name),
-      override_state_(override_state) {}
+      override_info_(override_info),
+      override_state_(override_state) {
+  CHECK(override_info_);
+}
 
 FeatureList::RuntimeMutableFeatureUpdate::RuntimeMutableFeatureUpdate(
     RuntimeMutableFeatureUpdate&& other) noexcept
     : state_entry_(other.state_entry_),
-      field_trial_name_(std::move(other.field_trial_name_)),
-      group_name_(std::move(other.group_name_)),
+      override_info_(std::move(other.override_info_)),
       override_state_(other.override_state_),
       stage_(std::exchange(other.stage_, Stage::kMovedFrom)) {}
 
@@ -557,8 +559,7 @@ FeatureList::RuntimeMutableFeatureUpdate::operator=(
     CHECK(stage_ == Stage::kInitial || stage_ == Stage::kPostMutationRun ||
           stage_ == Stage::kMovedFrom);
     state_entry_ = other.state_entry_;
-    field_trial_name_ = std::move(other.field_trial_name_);
-    group_name_ = std::move(other.group_name_);
+    override_info_ = std::move(other.override_info_);
     override_state_ = other.override_state_;
     stage_ = std::exchange(other.stage_, Stage::kMovedFrom);
   }
@@ -574,9 +575,9 @@ void FeatureList::RuntimeMutableFeatureUpdate::RunPreMutationCallback() {
   CHECK_EQ(stage_, Stage::kInitial);
   stage_ = Stage::kPreMutationRun;
   if (!state_entry_->pre_mutation_callback.is_null()) {
-    state_entry_->pre_mutation_callback.Run(state_entry_->feature.get(),
-                                            field_trial_name_, group_name_,
-                                            override_state_);
+    state_entry_->pre_mutation_callback.Run(
+        state_entry_->feature.get(), override_info_->trial_name,
+        override_info_->group_name, override_state_);
   }
 }
 
@@ -584,7 +585,7 @@ void FeatureList::RuntimeMutableFeatureUpdate::UpdateState() {
   CHECK_EQ(stage_, Stage::kPreMutationRun);
   stage_ = Stage::kStateUpdated;
   state_entry_->override_state = override_state_;
-  state_entry_->field_trial_name = field_trial_name_;
+  state_entry_->override_info = override_info_;
   LogRuntimeMutabilityResult(state_entry_->feature.get().name,
                              internal::RuntimeMutabilityResult::kSuccess);
 }
@@ -593,24 +594,44 @@ void FeatureList::RuntimeMutableFeatureUpdate::RunPostMutationCallback() {
   CHECK_EQ(stage_, Stage::kStateUpdated);
   stage_ = Stage::kPostMutationRun;
   if (!state_entry_->post_mutation_callback.is_null()) {
-    state_entry_->post_mutation_callback.Run(state_entry_->feature.get(),
-                                             field_trial_name_, group_name_,
-                                             override_state_);
+    state_entry_->post_mutation_callback.Run(
+        state_entry_->feature.get(), override_info_->trial_name,
+        override_info_->group_name, override_state_);
   }
 }
 
 std::optional<FeatureList::RuntimeMutableFeatureUpdate>
 FeatureList::PrepareRuntimeMutableFeatureStateUpdate(
     base::PassKey<variations::VariationsService>,
-    std::string_view field_trial_name,
-    std::string_view group_name,
+    const RuntimeFieldTrialInfo* override_info,
+    std::string_view feature_name,
+    OverrideState override_state) {
+  return PrepareRuntimeMutableFeatureStateUpdateImpl(
+      override_info, feature_name, override_state);
+}
+
+std::optional<FeatureList::RuntimeMutableFeatureUpdate>
+FeatureList::PrepareRuntimeMutableFeatureStateUpdate(
+    base::PassKey<base::test::ScopedFeatureList>,
+    const RuntimeFieldTrialInfo* override_info,
+    std::string_view feature_name,
+    OverrideState override_state) {
+  return PrepareRuntimeMutableFeatureStateUpdateImpl(
+      override_info, feature_name, override_state);
+}
+
+std::optional<FeatureList::RuntimeMutableFeatureUpdate>
+FeatureList::PrepareRuntimeMutableFeatureStateUpdateImpl(
+    const RuntimeFieldTrialInfo* override_info,
     std::string_view feature_name,
     OverrideState override_state) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  CHECK(override_info);
 
   // For V0 of runtime mutability, we only support disabling of features. This
   // means we don't need to consider feature params (which are only supported
   // for enabled features).
+  // TODO: http://crbug.com/536852160 - Remove to support enablement.
   if (override_state != OVERRIDE_DISABLE_FEATURE) {
     LogRuntimeMutabilityResult(
         feature_name,
@@ -643,8 +664,7 @@ FeatureList::PrepareRuntimeMutableFeatureStateUpdate(
   // If we get here, the feature is registered for runtime mutability. The
   // feature pointer in the entry is guaranteed to be non-null and the feature
   // has its runtime mutability bits properly set.
-  return RuntimeMutableFeatureUpdate(it->second, field_trial_name, group_name,
-                                     override_state);
+  return RuntimeMutableFeatureUpdate(it->second, override_info, override_state);
 }
 
 bool FeatureList::HasRuntimeMutabilityEnabledByFeatureName(
@@ -656,23 +676,18 @@ bool FeatureList::HasRuntimeMutabilityEnabledByFeatureName(
   return runtime_mutable_overrides_.contains(feature_name);
 }
 
-std::string_view
-FeatureList::GetAssociatedRuntimeFieldTrialOverrideByFeatureName(
+std::optional<const RuntimeFieldTrialInfo*>
+FeatureList::GetAssociatedRuntimeFieldTrialOverrideInfoByFeatureName(
     std::string_view feature_name) const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   CHECK(initialized_);
   DCHECK(IsValidFeatureOrFieldTrialName(feature_name)) << feature_name;
-  DCHECK(HasRuntimeMutabilityEnabledByFeatureName(feature_name));
 
   auto it = runtime_mutable_overrides_.find(feature_name);
   if (it == runtime_mutable_overrides_.end()) {
-    // This should not happen since this function should only be called for
-    // runtime-mutable-enabled features (as determined by a DCHECK above).
-    return "";
+    return std::nullopt;
   }
-  // If the feature is not currently runtime overridden, this will be an empty
-  // string.
-  return it->second.field_trial_name;
+  return it->second.override_info.get();
 }
 
 FeatureList::ControllingTrialInfo
@@ -682,14 +697,11 @@ FeatureList::GetControllingTrialInfoByFeatureName(
   CHECK(initialized_);
   DCHECK(IsValidFeatureOrFieldTrialName(feature_name)) << feature_name;
 
-  if (HasRuntimeMutabilityEnabledByFeatureName(feature_name)) {
-    std::string_view runtime_override_trial =
-        GetAssociatedRuntimeFieldTrialOverrideByFeatureName(feature_name);
-    if (!runtime_override_trial.empty()) {
-      return ControllingTrialInfo{
-          .trial_name = std::string(runtime_override_trial),
-          .is_runtime_override = true};
-    }
+  auto override_info =
+      GetAssociatedRuntimeFieldTrialOverrideInfoByFeatureName(feature_name);
+  if (override_info.has_value() && override_info.value()) {
+    return ControllingTrialInfo{.trial_name = override_info.value()->trial_name,
+                                .is_runtime_override = true};
   }
 
   base::FieldTrial* trial = GetAssociatedFieldTrialByFeatureName(feature_name);
@@ -703,25 +715,33 @@ FeatureList::GetControllingTrialInfoByFeatureName(
 
 base::flat_set<std::string> FeatureList::GetFeaturesAssociatedWithTrial(
     const ControllingTrialInfo& controlling_trial_info) const {
-  // TODO(crbug.com/482450632): Implement this more efficiently by maintaining
-  // a map of trials to associated features.
+  // The non-runtime lookup is served by `trial_to_features_`, which is only
+  // built once initialization is complete.
+  CHECK(initialized_);
+
   base::flat_set<std::string> associated_features;
   if (controlling_trial_info.is_runtime_override) {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+    // TODO(crbug.com/482450632): Optimize this code path. This iterates over
+    // every runtime mutable features, so may become slow as more and more
+    // features are enabled for runtime mutability.
     for (const auto& [feature_name, runtime_override_info] :
          runtime_mutable_overrides_) {
-      if (runtime_override_info.field_trial_name ==
-          controlling_trial_info.trial_name) {
+      if (runtime_override_info.override_info &&
+          runtime_override_info.override_info->trial_name ==
+              controlling_trial_info.trial_name) {
         associated_features.insert(feature_name);
       }
     }
   } else {
-    for (const auto& [feature_name, override_info] : overrides_) {
-      if (override_info.field_trial &&
-          override_info.field_trial->trial_name() ==
-              controlling_trial_info.trial_name) {
-        associated_features.insert(feature_name);
-      }
+    // `trial_to_features_` holds views into the keys of `overrides_`, so verify
+    // that `overrides_` has not been mutated since the index was built.
+    CHECK_EQ(overrides_.size(), overrides_size_when_indexed_);
+
+    auto it = trial_to_features_.find(controlling_trial_info.trial_name);
+    if (it != trial_to_features_.end()) {
+      associated_features =
+          base::flat_set<std::string>(it->second.begin(), it->second.end());
     }
   }
   return associated_features;
@@ -749,7 +769,10 @@ void FeatureList::AssociateReportingFieldTrial(
     const std::string& feature_name,
     OverrideState for_overridden_state,
     FieldTrial* field_trial) {
-  DCHECK(!initialized_);
+  // Mutating an entry's field trial after initialization would make
+  // `trial_to_features_` stale.
+  CHECK(!initialized_);
+
   DCHECK(
       IsFeatureOverriddenFromCommandLine(feature_name, for_overridden_state));
 
@@ -1153,7 +1176,24 @@ void FeatureList::FinalizeInitialization() {
   DCHECK(!initialized_);
   // Store the field trial list pointer for DCHECKing.
   field_trial_list_ = FieldTrialList::GetInstance();
+  BuildTrialToFeaturesIndex();
   initialized_ = true;
+}
+
+void FeatureList::BuildTrialToFeaturesIndex() {
+  // The index is built exactly once, from the final contents of `overrides_`.
+  CHECK(!initialized_);
+  CHECK(trial_to_features_.empty());
+
+  for (const auto& [feature_name, override_entry] : overrides_) {
+    if (!override_entry.field_trial) {
+      continue;
+    }
+    trial_to_features_[override_entry.field_trial->trial_name()].push_back(
+        feature_name);
+  }
+
+  overrides_size_when_indexed_ = overrides_.size();
 }
 
 bool FeatureList::IsFeatureEnabled(const Feature& feature) const {
@@ -1399,7 +1439,10 @@ void FeatureList::RegisterOverride(std::string_view feature_name,
                                    OverrideState overridden_state,
                                    FieldTrial* field_trial,
                                    bool replace_use_default_overrides) {
-  DCHECK(!initialized_);
+  // Registering an override after initialization would make
+  // `trial_to_features_` stale.
+  CHECK(!initialized_);
+
   DCheckOverridesAllowed();
   if (field_trial) {
     DCHECK(IsValidFeatureOrFieldTrialName(field_trial->trial_name()))

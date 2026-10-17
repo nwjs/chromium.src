@@ -34,6 +34,7 @@
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink-forward.h"
 #include "third_party/blink/renderer/bindings/core/v8/idl_types.h"
+#include "third_party/blink/renderer/bindings/core/v8/js_event_handler.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_typedefs.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/css_primitive_value.h"
@@ -128,6 +129,7 @@ class ElementAnimations;
 class ElementInternals;
 class ElementIntersectionObserverData;
 class ExceptionState;
+class FloatClipRect;
 class FocusEvent;
 class FocusOptions;
 class GetAnimationsOptions;
@@ -172,6 +174,7 @@ class StyleRecalcContext;
 class StyleScopeData;
 class TextVisitor;
 class TrustedHTMLParserOptions;
+class UIEvent;
 class V8UnionBooleanOrScrollIntoViewOptions;
 class V8UnionCSSPseudoElementOrDocumentOrElementOrText;
 class V8UnionKeyframeAnimationOptionsOrUnrestrictedDouble;
@@ -520,8 +523,7 @@ class CORE_EXPORT Element : public ContainerNode {
   // Returns attributes that should be checked against Trusted Types
   virtual const AttrNameToTrustedType& GetCheckedAttributeTypes() const;
   const std::tuple<SpecificTrustedType, const AtomicString, const AtomicString>
-  GetTrustedTypeDataForAttribute(const QualifiedName& q_name,
-                                 const char* legacy_sink_name) const;
+  GetTrustedTypeDataForAttribute(const QualifiedName& q_name) const;
 
   static std::optional<QualifiedName> ParseAttributeName(
       const AtomicString& namespace_uri,
@@ -1182,7 +1184,7 @@ class CORE_EXPORT Element : public ContainerNode {
   void VerifySubtreeIsInCanvas(bool value);
 #endif
 
-  // Returns the nearest ancestor <canvas layoutsubtree> if this element is
+  // Returns the nearest ancestor <canvas content=drawable> if this element is
   // eligible for drawing into it (i.e. is connected, is in a canvas subtree,
   // is not a pseudo-element, and is an immediate child of the canvas or has
   // the 'drawable' attribute). Returns nullptr otherwise.
@@ -1199,6 +1201,16 @@ class CORE_EXPORT Element : public ContainerNode {
   const gfx::Transform* GetCanvasTransform() const;
   void SetCanvasTransform(const gfx::Transform& transform);
   void ClearCanvasTransform();
+
+  // Returns the clip that should be used for hit-testing in the coordinate
+  // space of the element's canvas transform. When the element has a
+  // CanvasForDrawing, this affects hit-testing of the element and its
+  // descendants. Returns an infinite clip rect if the element does not have a
+  // CanvasForDrawing.
+  FloatClipRect GetUsedCanvasClip() const;
+  FloatClipRect GetCanvasClip() const;
+  void SetCanvasClip(const FloatClipRect& clip);
+  void ClearCanvasClip();
 
   bool IsDefined() const {
     // An element whose custom element state is "uncustomized" or "custom"
@@ -1389,7 +1401,8 @@ class CORE_EXPORT Element : public ContainerNode {
     return false;
   }
   virtual bool HandleCommandInternal(HTMLElement& invoker,
-                                     CommandEventType command) {
+                                     CommandEventType command,
+                                     UIEvent* activate_event) {
     CHECK(command != CommandEventType::kCustom &&
           command != CommandEventType::kNone);
 
@@ -1453,10 +1466,15 @@ class CORE_EXPORT Element : public ContainerNode {
       InterestLostPopoverBehavior =
           InterestLostPopoverBehavior::kClosePopovers);
 
+  enum class InterestForType {
+    kAny,
+    kExplicitOnly,
+  };
+
   // Returns the target of the `interestfor` attribute, if any, and only if
   // the element supports this attribute. For example, `interestfor` is not
   // allowed on a `<div>`.
-  Element* InterestForElement() const;
+  Element* InterestForElement(InterestForType = InterestForType::kAny) const;
   // Checks that the provided interest invoker relationship is valid. For this
   // call, `this` is the interest invoker (with the `interestfor` attribute),
   // and the provided `target` is the proposed target element.
@@ -1724,8 +1742,8 @@ class CORE_EXPORT Element : public ContainerNode {
   bool CanContainRangeEndPoint() const override { return true; }
 
   // Used for disabled form elements; if true, prevents mouse events from being
-  // dispatched to event listeners, and prevents DOMActivate events from being
-  // sent at all.
+  // dispatched to event listeners, and prevents activation behavior from
+  // running.
   virtual bool IsDisabledFormControl() const { return false; }
 
   void SetCustomElementDefinition(CustomElementDefinition*);
@@ -2331,6 +2349,27 @@ class CORE_EXPORT Element : public ContainerNode {
     return false;
   }
 
+  void SetElementAttributeEventListenerFromScriptBody(
+      const AtomicString& event_type_name,
+      const QualifiedName& attribute_name,
+      const AtomicString& script_body,
+      AttributeModificationReason,
+      JSEventHandler::HandlerType = JSEventHandler::HandlerType::kEventHandler);
+
+  void SetDocumentAttributeEventListenerFromScriptBody(
+      const AtomicString& event_type_name,
+      const QualifiedName& attribute_name,
+      const AtomicString& script_body,
+      AttributeModificationReason,
+      JSEventHandler::HandlerType = JSEventHandler::HandlerType::kEventHandler);
+
+  void SetWindowAttributeEventListenerFromScriptBody(
+      const AtomicString& event_type_name,
+      const QualifiedName& attribute_name,
+      const AtomicString& script_body,
+      AttributeModificationReason,
+      JSEventHandler::HandlerType = JSEventHandler::HandlerType::kEventHandler);
+
  private:
   friend class AXObject;
   friend class KeyboardEventManager;
@@ -2640,11 +2679,9 @@ class CORE_EXPORT Element : public ContainerNode {
   void RemoveAttributeInternal(wtf_size_t index, AttributeModificationReason);
   AtomicString TrustedTypesCheckForAttribute(const QualifiedName&,
                                              AtomicString value,
-                                             const char* legacy_sink_name,
                                              ExceptionState&) const;
   AtomicString TrustedTypesCheckForAttribute(const QualifiedName&,
                                              const V8TrustedType* value,
-                                             const char* legacy_sink_name,
                                              ExceptionState&) const;
 
   // These Hinted versions of the functions are subtle hot path

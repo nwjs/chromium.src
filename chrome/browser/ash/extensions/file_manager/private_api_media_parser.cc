@@ -13,8 +13,8 @@
 #include "base/values.h"
 #include "chrome/browser/apps/platform_apps/api/media_galleries/blob_data_source_factory.h"
 #include "chrome/browser/ash/extensions/file_manager/private_api_media_parser_util.h"
-#include "chrome/common/extensions/api/file_manager_private.h"
-#include "chrome/common/extensions/api/file_manager_private_internal.h"
+#include "chromeos/ash/experiences/extensions/common/api/file_manager_private.h"
+#include "chromeos/ash/experiences/extensions/common/api/file_manager_private_internal.h"
 #include "components/media_gallery_util/public/mojom/media_parser.mojom.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -52,7 +52,7 @@ FileManagerPrivateInternalGetContentMimeTypeFunction::Run() {
 
 void FileManagerPrivateInternalGetContentMimeTypeFunction::ReadBlobBytes(
     const std::string& blob_uuid) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
 
   BlobReader::Read(  // Read net::kMaxBytesToSniff bytes from the front.
       browser_context()->GetBlobRemote(blob_uuid),
@@ -66,7 +66,7 @@ void FileManagerPrivateInternalGetContentMimeTypeFunction::SniffMimeType(
     const std::string& blob_uuid,
     std::string sniff_bytes,
     int64_t /*length*/) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
 
   std::string mime_type;
   if (!net::SniffMimeTypeFromLocalData(sniff_bytes, &mime_type)) {
@@ -106,7 +106,7 @@ void FileManagerPrivateInternalGetContentMetadataFunction::ReadBlobSize(
     const std::string& blob_uuid,
     const std::string& mime_type,
     bool include_images) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
 
   BlobReader::Read(  // Read net::kMaxBytesToSniff bytes from the front.
       browser_context()->GetBlobRemote(blob_uuid),
@@ -122,7 +122,7 @@ void FileManagerPrivateInternalGetContentMetadataFunction::CanParseBlob(
     bool include_images,
     std::string /*sniff_bytes*/,
     int64_t length) {  // The length of the original input blob.
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
 
   if (!net::MatchesMimeType("audio/*", mime_type) &&
       !net::MatchesMimeType("video/*", mime_type)) {
@@ -142,7 +142,7 @@ void FileManagerPrivateInternalGetContentMetadataFunction::ParseBlob(
     const std::string& mime_type,
     bool include_images,
     int64_t length) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
 
   auto input_blob_data_source =
       std::make_unique<chrome_apps::api::BlobDataSourceFactory>(
@@ -161,14 +161,14 @@ void FileManagerPrivateInternalGetContentMetadataFunction::ParserDone(
     bool parser_success,
     chrome::mojom::MediaMetadataPtr metadata,
     std::unique_ptr<std::vector<metadata::AttachedImage>> images) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
 
   if (!parser_success) {
     Respond(Error("Could not parse the media metadata."));
     return;
   }
 
-  DCHECK(metadata);
+  CHECK(metadata, base::NotFatalUntil::M160);
   base::DictValue dictionary =
       extensions::api::file_manager_private::MojoMediaMetadataToValue(
           std::move(metadata));
@@ -176,7 +176,7 @@ void FileManagerPrivateInternalGetContentMetadataFunction::ParserDone(
   metadata::AttachedImage* image = nullptr;
   int size = 0;
 
-  DCHECK(images);
+  CHECK(images, base::NotFatalUntil::M160);
   if (!images->empty()) {
     image = &images->front();
     if (base::IsValueInRangeForNumericType<int>(image->data.size())) {

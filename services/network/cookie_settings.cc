@@ -34,7 +34,6 @@
 #include "net/cookies/cookie_setting_override.h"
 #include "net/cookies/cookie_util.h"
 #include "net/cookies/static_cookie_policy.h"
-#include "net/first_party_sets/first_party_set_metadata.h"
 #include "services/network/public/cpp/features.h"
 #include "url/gurl.h"
 #include "url/origin.h"
@@ -186,7 +185,7 @@ bool CookieSettings::ShouldIgnoreSameSiteRestrictions(
       !site_for_cookies.IsNull()) {
     return true;
   }
-  return secure_origin_cookies_allowed_origins_.contains(top_level_origin);
+  return HasSecureOriginException(top_level_origin, url);
 }
 
 bool CookieSettings::IsCookieAccessible(
@@ -194,7 +193,6 @@ bool CookieSettings::IsCookieAccessible(
     const GURL& url,
     const net::SiteForCookies& site_for_cookies,
     base::optional_ref<const url::Origin> top_frame_origin,
-    const net::FirstPartySetMetadata& first_party_set_metadata,
     net::CookieSettingOverrides overrides,
     net::CookieInclusionStatus* cookie_inclusion_status) const {
   const CookieSettingWithMetadata setting_with_metadata =
@@ -203,8 +201,7 @@ bool CookieSettings::IsCookieAccessible(
   bool allowed = IsCookieAllowed(cookie, setting_with_metadata);
   if (cookie_inclusion_status) {
     AugmentInclusionStatus(cookie, top_frame_origin, setting_with_metadata,
-                           first_party_set_metadata, overrides,
-                           *cookie_inclusion_status);
+                           overrides, *cookie_inclusion_status);
   }
 
   return allowed;
@@ -226,8 +223,7 @@ bool CookieSettings::ShouldAlwaysAllowCookies(
             first_party_url.scheme())) {
       return true;
     }
-    if (secure_origin_cookies_allowed_origins_.contains(
-            url::Origin::Create(first_party_url))) {
+    if (HasSecureOriginException(url::Origin::Create(first_party_url), url)) {
       return true;
     }
   }
@@ -269,7 +265,6 @@ bool CookieSettings::AnnotateAndMoveUserBlockedCookies(
     const GURL& url,
     const net::SiteForCookies& site_for_cookies,
     base::optional_ref<const url::Origin> top_frame_origin,
-    const net::FirstPartySetMetadata& first_party_set_metadata,
     net::CookieSettingOverrides overrides,
     net::CookieAccessResultList& maybe_included_cookies,
     net::CookieAccessResultList& excluded_cookies) const {
@@ -281,13 +276,13 @@ bool CookieSettings::AnnotateAndMoveUserBlockedCookies(
   // that ought to be blocked.
   for (net::CookieWithAccessResult& cookie : maybe_included_cookies) {
     AugmentInclusionStatus(cookie.cookie, top_frame_origin,
-                           setting_with_metadata, first_party_set_metadata,
-                           overrides, cookie.access_result.status);
+                           setting_with_metadata, overrides,
+                           cookie.access_result.status);
   }
   for (net::CookieWithAccessResult& cookie : excluded_cookies) {
     AugmentInclusionStatus(cookie.cookie, top_frame_origin,
-                           setting_with_metadata, first_party_set_metadata,
-                           overrides, cookie.access_result.status);
+                           setting_with_metadata, overrides,
+                           cookie.access_result.status);
   }
   const auto to_be_moved = std::ranges::stable_partition(
       maybe_included_cookies, [](const net::CookieWithAccessResult& cookie) {
@@ -316,6 +311,17 @@ bool CookieSettings::HasSessionOnlyOrigins() const {
     }
   }
   return false;
+}
+
+bool CookieSettings::HasSecureOriginException(
+    const url::Origin& first_party_origin,
+    const GURL& url) const {
+  auto it = secure_origin_cookies_allowed_origins_.find(first_party_origin);
+  if (it == secure_origin_cookies_allowed_origins_.end()) {
+    return false;
+  }
+  net::SchemefulSite url_site(url);
+  return std::ranges::contains(it->second, url_site);
 }
 
 const std::vector<content_settings::HostIndexedContentSettings>&
@@ -387,7 +393,6 @@ void CookieSettings::AugmentInclusionStatus(
     const net::CanonicalCookie& cookie,
     base::optional_ref<const url::Origin> top_frame_origin,
     const CookieSettings::CookieSettingWithMetadata& setting_with_metadata,
-    const net::FirstPartySetMetadata& first_party_set_metadata,
     net::CookieSettingOverrides overrides,
     net::CookieInclusionStatus& out_status) const {
   const bool could_be_affected_by_tpc_phaseout =
@@ -424,12 +429,6 @@ void CookieSettings::AugmentInclusionStatus(
     }
     out_status.AddExclusionReason(net::CookieInclusionStatus::ExclusionReason::
                                       EXCLUDE_THIRD_PARTY_PHASEOUT);
-
-    if (first_party_set_metadata.AreSitesInSameFirstPartySet()) {
-      out_status.AddExclusionReason(
-          net::CookieInclusionStatus::ExclusionReason::
-              EXCLUDE_THIRD_PARTY_BLOCKED_WITHIN_FIRST_PARTY_SET);
-    }
     return;
   }
 
@@ -445,11 +444,13 @@ bool CookieSettings::ShouldAlwaysAllowCookiesForTesting(
 }
 
 void CookieSettings::set_secure_origin_cookies_allowed_origins(
-    const std::vector<url::Origin>& secure_origin_cookies_allowed_origins) {
+    std::vector<std::pair<url::Origin, std::vector<net::SchemefulSite>>>
+        secure_origin_cookies_allowed_origins) {
   secure_origin_cookies_allowed_origins_.clear();
-  for (const auto& origin : secure_origin_cookies_allowed_origins) {
-    if (!origin.opaque()) {
-      secure_origin_cookies_allowed_origins_.insert(origin);
+  for (auto& kv : secure_origin_cookies_allowed_origins) {
+    if (!kv.first.opaque()) {
+      secure_origin_cookies_allowed_origins_.insert_or_assign(
+          kv.first, std::move(kv.second));
     }
   }
 }

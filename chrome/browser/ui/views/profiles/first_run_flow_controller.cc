@@ -168,11 +168,9 @@ class IntroStepController : public ProfileManagementStepController {
   explicit IntroStepController(
       ProfilePickerWebContentsHost* host,
       base::RepeatingCallback<void(IntroChoice)> choice_callback,
-      bool enable_animations,
       bool effects_button_shown_by_default,
       base::RepeatingCallback<bool()> query_effects_callback)
       : ProfileManagementStepController(host),
-        intro_url_(BuildIntroURL(enable_animations)),
         choice_callback_(std::move(choice_callback)),
         effects_button_shown_by_default_(effects_button_shown_by_default),
         query_effects_callback_(std::move(query_effects_callback)) {}
@@ -181,19 +179,20 @@ class IntroStepController : public ProfileManagementStepController {
 
   void Show(StepSwitchFinishedCallback step_shown_callback,
             bool reset_state) override {
+    const GURL intro_url = GURL(chrome::kChromeUIIntroURL);
     if (reset_state) {
       // Reload the WebUI in the picker contents.
-      host()->ShowScreenInPickerContents(
-          intro_url_, base::BindOnce(&IntroStepController::OnIntroLoaded,
-                                     weak_ptr_factory_.GetWeakPtr(),
-                                     std::move(step_shown_callback)));
+      host().ShowScreenInPickerContents(
+          intro_url, base::BindOnce(&IntroStepController::OnIntroLoaded,
+                                    weak_ptr_factory_.GetWeakPtr(),
+                                    std::move(step_shown_callback)));
     } else {
       // Just switch to the picker contents, which should be showing this step.
-      DCHECK_EQ(intro_url_, host()->GetPickerContents()->GetURL());
-      host()->ShowScreenInPickerContents(
+      CHECK_EQ(host().GetPickerContents()->GetURL(), intro_url);
+      host().ShowScreenInPickerContents(
           GURL(), base::BindOnce(std::move(step_shown_callback.value()), true));
       if (!effects_button_shown_by_default_) {
-        host()->SetNativeToolbarEffectsControlButtonVisible(true);
+        host().SetNativeToolbarEffectsControlButtonVisible(true);
       }
       ExpectSigninChoiceOnce();
       UpdateAnimationsState();
@@ -202,7 +201,7 @@ class IntroStepController : public ProfileManagementStepController {
 
   void OnHidden() override {
     if (!effects_button_shown_by_default_) {
-      host()->SetNativeToolbarEffectsControlButtonVisible(false);
+      host().SetNativeToolbarEffectsControlButtonVisible(false);
     }
   }
 
@@ -210,7 +209,7 @@ class IntroStepController : public ProfileManagementStepController {
     std::move(step_shown_callback.value()).Run(/*success=*/true);
 
     if (!effects_button_shown_by_default_) {
-      host()->SetNativeToolbarEffectsControlButtonVisible(true);
+      host().SetNativeToolbarEffectsControlButtonVisible(true);
     }
     ExpectSigninChoiceOnce();
     UpdateAnimationsState();
@@ -221,17 +220,9 @@ class IntroStepController : public ProfileManagementStepController {
   }
 
  private:
-  GURL BuildIntroURL(bool enable_animations) {
-    std::string url_string = chrome::kChromeUIIntroURL;
-    if (!enable_animations) {
-      url_string += "?noAnimations";
-    }
-    return GURL(url_string);
-  }
-
   void ExpectSigninChoiceOnce() {
     auto* intro_ui = host()
-                         ->GetPickerContents()
+                         .GetPickerContents()
                          ->GetWebUI()
                          ->GetController()
                          ->GetAs<IntroUI>();
@@ -246,7 +237,7 @@ class IntroStepController : public ProfileManagementStepController {
 
   void UpdateAnimationsState(bool active) {
     auto* intro_ui = host()
-                         ->GetPickerContents()
+                         .GetPickerContents()
                          ->GetWebUI()
                          ->GetController()
                          ->GetAs<IntroUI>();
@@ -254,8 +245,6 @@ class IntroStepController : public ProfileManagementStepController {
       intro_ui->ToggleAnimations(active);
     }
   }
-
-  const GURL intro_url_;
 
   // `choice_callback_` is a `Repeating` one to be able to advance the flow more
   // than once in case we navigate back to this step.
@@ -359,7 +348,7 @@ class DefaultBrowserStepController : public ProfileManagementStepController {
 
   void OnLoadFinished(bool can_pin) {
     auto* intro_ui = host()
-                         ->GetPickerContents()
+                         .GetPickerContents()
                          ->GetWebUI()
                          ->GetController()
                          ->GetAs<IntroUI>();
@@ -414,7 +403,7 @@ class DefaultBrowserStepController : public ProfileManagementStepController {
               .Then(std::move(navigation_finished_closure));
     }
 
-    host()->ShowScreenInPickerContents(
+    host().ShowScreenInPickerContents(
         GURL(chrome::kChromeUIIntroDefaultBrowserURL),
         std::move(navigation_finished_closure));
   }
@@ -461,14 +450,14 @@ class FinishOrContinueStepController : public ProfileManagementStepController {
             .Resolve(chrome::kChromeUIIntroFinishOrContinueSubPage),
         "showcase", std::move(eligibility_callback_).Run() ? "true" : "false");
 
-    host()->ShowScreenInPickerContents(
+    host().ShowScreenInPickerContents(
         url, base::BindOnce(&FinishOrContinueStepController::OnLoadFinished,
                             weak_ptr_factory_.GetWeakPtr()));
   }
 
   void OnHidden() override {
     if (!effects_button_shown_by_default_) {
-      host()->SetNativeToolbarEffectsControlButtonVisible(false);
+      host().SetNativeToolbarEffectsControlButtonVisible(false);
     }
   }
 
@@ -481,12 +470,12 @@ class FinishOrContinueStepController : public ProfileManagementStepController {
     CHECK(!step_shown_callback_->is_null());
     std::move(step_shown_callback_.value()).Run(/*success=*/true);
     if (!effects_button_shown_by_default_) {
-      host()->SetNativeToolbarEffectsControlButtonVisible(true);
+      host().SetNativeToolbarEffectsControlButtonVisible(true);
     }
     UpdateAnimationsState();
 
     IntroUI* intro_ui = host()
-                            ->GetPickerContents()
+                            .GetPickerContents()
                             ->GetWebUI()
                             ->GetController()
                             ->GetAs<IntroUI>();
@@ -511,7 +500,7 @@ class FinishOrContinueStepController : public ProfileManagementStepController {
 
   void UpdateAnimationsState(bool active) {
     auto* intro_ui = host()
-                         ->GetPickerContents()
+                         .GetPickerContents()
                          ->GetWebUI()
                          ->GetController()
                          ->GetAs<IntroUI>();
@@ -752,7 +741,7 @@ class FeatureShowcaseStepController : public ProfileManagementStepController {
 
   void ShowScreen(const std::vector<std::string>& eligible_steps,
                   bool can_pin) {
-    host()->ShowScreenInPickerContents(
+    host().ShowScreenInPickerContents(
         BuildFeatureShowcaseURL(eligible_steps),
         base::BindOnce(&FeatureShowcaseStepController::OnLoadFinished,
                        weak_ptr_factory_.GetWeakPtr(), can_pin));
@@ -768,10 +757,10 @@ class FeatureShowcaseStepController : public ProfileManagementStepController {
     if (!step_shown_callback_->is_null()) {
       std::move(step_shown_callback_.value()).Run(/*success=*/true);
     }
-    host()->SetNativeToolbarStartBrowsingButtonVisible(true);
+    host().SetNativeToolbarStartBrowsingButtonVisible(true);
 
     auto* showcase_ui = host()
-                            ->GetPickerContents()
+                            .GetPickerContents()
                             ->GetWebUI()
                             ->GetController()
                             ->GetAs<FeatureShowcaseUI>();
@@ -791,7 +780,7 @@ class FeatureShowcaseStepController : public ProfileManagementStepController {
   }
 
   void OnHidden() override {
-    host()->SetNativeToolbarStartBrowsingButtonVisible(false);
+    host().SetNativeToolbarStartBrowsingButtonVisible(false);
     toggle_ambient_sound_callback_.Run(false);
   }
 
@@ -843,7 +832,7 @@ class WelcomeStepController : public ProfileManagementStepController {
   void Show(StepSwitchFinishedCallback step_shown_callback,
             bool reset_state) override {
     CHECK(reset_state);
-    host()->ShowScreenInPickerContents(
+    host().ShowScreenInPickerContents(
         GURL(chrome::kChromeUIIntroURL)
             .Resolve(chrome::kChromeUIIntroWelcomeSubPage),
         base::BindOnce(&WelcomeStepController::OnLoadFinished,
@@ -857,7 +846,7 @@ class WelcomeStepController : public ProfileManagementStepController {
     std::move(step_shown_callback.value()).Run(/*success=*/true);
 
     auto* intro_ui = host()
-                         ->GetPickerContents()
+                         .GetPickerContents()
                          ->GetWebUI()
                          ->GetController()
                          ->GetAs<IntroUI>();
@@ -873,12 +862,11 @@ class WelcomeStepController : public ProfileManagementStepController {
 std::unique_ptr<ProfileManagementStepController> CreateIntroStep(
     ProfilePickerWebContentsHost* host,
     base::RepeatingCallback<void(IntroChoice)> choice_callback,
-    bool enable_animations,
     base::RepeatingCallback<bool()> query_effects_callback,
     bool effects_button_shown_by_default) {
   return std::make_unique<IntroStepController>(
-      host, std::move(choice_callback), enable_animations,
-      effects_button_shown_by_default, std::move(query_effects_callback));
+      host, std::move(choice_callback), effects_button_shown_by_default,
+      std::move(query_effects_callback));
 }
 
 std::unique_ptr<ProfileManagementStepController> CreateDefaultBrowserStep(
@@ -991,16 +979,6 @@ ProfilePickerToolbar::Builder FirstRunFlowController::CreateToolbarBuilder() {
       ProfileManagementFlowController::CreateToolbarBuilder();
   const bool is_in_search_engine_choice_region =
       IsProfileInSearchEngineChoiceRegion(profile_);
-  if (switches::IsFirstRunDesktopRefreshEnabled(
-          is_in_search_engine_choice_region) &&
-      switches::kFirstRunDesktopSignInPromoVariation.Get() ==
-          switches::FirstRunDesktopSignInPromoVariation::
-              kDontSignInOnGaiaPage) {
-    builder.WithDontSignInButton(
-        base::BindRepeating(&FirstRunFlowController::CancelSigninFlow,
-                            weak_ptr_factory_.GetWeakPtr()));
-  }
-
   if (switches::IsFirstRunDesktopRevampEnabled(
           is_in_search_engine_choice_region)) {
     builder.WithEffectsControlButton(
@@ -1389,7 +1367,6 @@ void FirstRunFlowController::RegisterAndSwitchToIntroStep(
           host(),
           base::BindRepeating(&FirstRunFlowController::HandleIntroSigninChoice,
                               weak_ptr_factory_.GetWeakPtr()),
-          /*enable_animations=*/true,
           base::BindRepeating(&FirstRunFlowController::AreEffectsEnabled,
                               base::Unretained(this)),
           effects_button_shown_by_default));

@@ -1,0 +1,65 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+import {html} from '//resources/lit/v3_0/lit.rollup.js';
+
+import type {SettingsGlicLoginPermissionsPageElement} from './glic_login_permissions_page.js';
+
+export function getHtml(this: SettingsGlicLoginPermissionsPageElement) {
+  return html`<!--_html_template_start_-->
+${this.selectedPermissionToRemove_ ? html`
+  <settings-simple-confirmation-dialog
+      title-text="$i18n{glicRemoveActorLoginDialogTitle}"
+      body-text="${this.getRemoveDialogDescription_()}"
+      confirm-text="$i18n{remove}"
+      @close="${this.onRemoveDialogClose_}">
+  </settings-simple-confirmation-dialog>
+` : ''}
+<settings-subpage page-title="$i18n{glicActorLoginPermissionsSectionTitle}">
+  <div class="header-container section">
+    <div id="actorLoginPermissionsTitle">
+      $i18n{glicLoginPermissionsPageTitle}
+    </div>
+    <div id="actorLoginPermissionsHeader" class="cr-secondary-text">
+      $i18n{glicLoginPermissionsPageDescription}
+    </div>
+  </div>
+  <div id="actorLoginPermissionsList" class="section">
+    ${!this.isOnline_ ? html`
+      <div id="offlineWarning" class="no-sites cr-secondary-text">
+        $i18n{glicLoginPermissionsOfflineWarning}
+      </div>
+    ` : html`
+      <div class="no-sites cr-secondary-text"
+          ?hidden="${!!this.actorLoginPermissions_.length}">
+        $i18n{glicLoginPermissionsNoSites}
+      </div>
+      ${this.actorLoginPermissions_.map((item, index) => html`
+        <div class="flex-centered">
+          <site-favicon class="favicon" url="${item.signonRealm}">
+          </site-favicon>
+          <div class="permission-item">
+            <div class="url-column">${item.displayName}</div>
+            <div class="username-column">${item.username}</div>
+            <cr-icon-button
+                class="icon-clear"
+                data-index="${index}"
+                @click="${this.onRemoveActorLoginPermissionClick_}"
+                title="$i18n{remove}"
+                aria-label="${this.i18n(
+                        'glicRevokeActorLoginPermissionAriaLabel',
+                        item.displayName)}">
+            </cr-icon-button>
+          </div>
+        </div>
+      `)}
+    `}
+  </div>
+</settings-subpage>
+
+<cr-toast id="removeErrorToast" duration="3000">
+  <div>$i18n{glicLoginPermissionsRemoveError}</div>
+</cr-toast>
+<!--_html_template_end_-->`;
+}

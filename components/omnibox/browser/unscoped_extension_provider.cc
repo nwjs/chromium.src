@@ -22,7 +22,7 @@
 UnscopedExtensionProvider::UnscopedExtensionProvider(
     AutocompleteProviderClient* client,
     AutocompleteProviderListener* listener)
-    : AutocompleteProvider(AutocompleteProvider::TYPE_UNSCOPED_EXTENSION),
+    : AutocompleteProvider(AutocompleteProvider::Type::kUnscopedExtension),
       client_(client),
       template_url_service_(client->GetTemplateURLService()),
       delegate_(client->GetUnscopedExtensionProviderDelegate(this)) {

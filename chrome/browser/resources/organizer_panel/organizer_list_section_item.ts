@@ -15,6 +15,7 @@ import type {CrUrlListItemElement, CrUrlListItemSize} from '//resources/cr_eleme
 import {MouseHoverableMixinLit} from '//resources/cr_elements/mouse_hoverable_mixin_lit.js';
 import type {TemplateResult} from '//resources/lit/v3_0/lit.rollup.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
+import type {Range} from '/tab_group_shared/search.js';
 
 import {getCss} from './organizer_list_section_item.css.js';
 import {getHtml} from './organizer_list_section_item.html.js';
@@ -80,6 +81,17 @@ export interface OrganizerListSectionItem<T> {
   data?: T;
 }
 
+// Search metadata attached to an item for highlighting matching ranges.
+export interface HighlightableItem {
+  highlightRanges?: {
+    title?: Range[][],
+    description?: Range[][],
+  };
+}
+
+export type HighlightableOrganizerListSectionItem<T = unknown> =
+    OrganizerListSectionItem<T>&HighlightableItem;
+
 export interface OrganizerListSectionItemElement {
   $: {
     actionButton: CrIconButtonElement,
@@ -113,18 +125,33 @@ export class OrganizerListSectionItemElement extends
     };
   }
 
-  accessor item: OrganizerListSectionItem<unknown> = {
+  accessor item: HighlightableOrganizerListSectionItem<unknown> = {
     title: [],
   };
 
+  private listFormatter_ = new Intl.ListFormat(
+      document.documentElement.lang || undefined,
+      {style: 'narrow', type: 'conjunction'});
+  private boundOnContextmenu_ = this.onContextmenu_.bind(this);
+
+  override connectedCallback() {
+    super.connectedCallback();
+    this.addEventListener('contextmenu', this.boundOnContextmenu_);
+  }
+
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    this.removeEventListener('contextmenu', this.boundOnContextmenu_);
+  }
+
   protected getAriaLabel_(): string {
-    // TODO(crbug.com/560308768): Update to use a GRD string.
-    return this.item.title.join(' | ');
+    return this.listFormatter_.format(this.item.title);
   }
 
   protected getAriaDescription_(): string {
-    // TODO(crbug.com/560308768): Update to use a GRD string.
-    return this.item.description?.map(d => d.text).join(' · ') || '';
+    return this.item.description ?
+        this.listFormatter_.format(this.item.description.map(d => d.text)) :
+        '';
   }
 
   protected hasDescription_(): boolean {
@@ -145,6 +172,29 @@ export class OrganizerListSectionItemElement extends
       item: this.item,
       buttonElement: e.currentTarget as HTMLElement,
     });
+  }
+
+  protected onContextmenu_(e: MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    this.fire('context-menu-click', {
+      item: this.item,
+      x: e.clientX,
+      y: e.clientY,
+    });
+  }
+
+  protected titleHighlightRanges_(): Range[][] {
+    return this.item.highlightRanges?.title ?? this.item.title.map(() => []);
+  }
+
+  protected descriptionHighlightRanges_(): Range[][] {
+    return this.item.highlightRanges?.description ??
+        (this.item.description?.map(() => []) || []);
+  }
+
+  resetActionButtonStateIfNeeded() {
+    this.$.actionButton.blur();
   }
 }
 

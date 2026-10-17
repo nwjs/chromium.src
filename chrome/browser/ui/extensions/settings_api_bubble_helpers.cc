@@ -125,10 +125,10 @@ void MaybeShowExtensionControlledHomeNotification(
 
 void MaybeShowExtensionControlledSearchNotification(
     content::WebContents* web_contents,
-    AutocompleteMatch::Type match_type) {
+    omnibox::AutocompleteMatchType match_type) {
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
   if (!AutocompleteMatch::IsSearchType(match_type) ||
-      match_type == AutocompleteMatchType::SEARCH_OTHER_ENGINE) {
+      match_type == omnibox::AutocompleteMatchType::kSearchOtherEngine) {
     return;
   }
 

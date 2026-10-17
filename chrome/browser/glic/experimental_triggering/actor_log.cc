@@ -82,6 +82,10 @@ std::string_view ExperimentalTriggeringRequestPayloadCaseToString(
       return "GetScreenshotRequest";
     case Request::kContinueActuationRequest:
       return "ContinueActuationRequest";
+    case Request::kExecuteActionsRequest:
+      return "ExecuteActionsRequest";
+    case Request::kSubmitConfirmation:
+      return "SubmitConfirmation";
     case Request::PAYLOAD_NOT_SET:
       return "PAYLOAD_NOT_SET";
   }
@@ -121,17 +125,32 @@ void LogGlicExperimentalTriggeringProto(
                     proto.request().payload_case()));
   }
 
-  if (proto.has_response() && proto.response().has_task_update()) {
-    const auto& task_update = proto.response().task_update();
-    if (task_update.has_state()) {
-      builder.Add("state", TaskUpdateStateToString(task_update.state()));
-    }
-    if (task_update.has_data_type()) {
-      builder.Add("data_type",
-                  TaskUpdateDataTypeToString(task_update.data_type()));
-    }
-    if (task_update.has_data()) {
-      builder.Add("data", task_update.data());
+  if (proto.has_response()) {
+    if (proto.response().has_task_update()) {
+      const auto& task_update = proto.response().task_update();
+      if (task_update.has_state()) {
+        builder.Add("state", TaskUpdateStateToString(task_update.state()));
+      }
+      if (task_update.has_data_type()) {
+        builder.Add("data_type",
+                    TaskUpdateDataTypeToString(task_update.data_type()));
+      }
+      if (task_update.has_data()) {
+        builder.Add("data", task_update.data());
+      }
+    } else if (proto.response().has_execute_actions_response()) {
+      const auto& exec_resp = proto.response().execute_actions_response();
+      if (exec_resp.has_actions_result()) {
+        builder.Add("actions_result_code",
+                    exec_resp.actions_result().action_result());
+        builder.Add("script_tools_results_count",
+                    exec_resp.actions_result().script_tool_results_size());
+      }
+    } else if (proto.response().has_confirmation_result()) {
+      const auto& conf_resp = proto.response().confirmation_result();
+      if (conf_resp.has_status()) {
+        builder.Add("confirmation_status", conf_resp.status());
+      }
     }
   }
 

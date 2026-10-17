@@ -41,6 +41,7 @@
 #include "chromeos/ash/components/settings/cros_settings_names.h"
 #include "chromeos/ash/components/system/fake_statistics_provider.h"
 #include "components/account_id/account_id.h"
+#include "components/account_id/account_id_literal.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/testing_pref_service.h"
@@ -63,23 +64,34 @@ namespace ash {
 
 namespace {
 
+constexpr char kDeviceLocalAccountId[] = "device_local_account";
+constexpr char kOwnerEmail[] = "owner@example.com";
+
+constexpr AccountId::Literal kOwnerAccountId =
+    AccountId::Literal::FromUserEmailGaiaId(kOwnerEmail,
+                                            GaiaId::Literal("1234567890"));
+constexpr AccountId::Literal kAccountId0 =
+    AccountId::Literal::FromUserEmailGaiaId("user0@example.com",
+                                            GaiaId::Literal("0123456789"));
+constexpr AccountId::Literal kAccountId1 =
+    AccountId::Literal::FromUserEmailGaiaId("user1@example.com",
+                                            GaiaId::Literal("9012345678"));
+constexpr AccountId::Literal kAccountId2 =
+    AccountId::Literal::FromUserEmailGaiaId("user2@example.com",
+                                            GaiaId::Literal("8901234567"));
+constexpr AccountId::Literal kAccountId3 =
+    AccountId::Literal::FromUserEmailGaiaId("user3@example.com",
+                                            GaiaId::Literal("7890123456"));
+constexpr AccountId::Literal kAccountId4 =
+    AccountId::Literal::FromUserEmailGaiaId("user4@example.com",
+                                            GaiaId::Literal("6789012345"));
+
 AccountId CreateDeviceLocalAccountId(const std::string& account_id,
                                      policy::DeviceLocalAccountType type) {
   return AccountId::FromUserEmail(
       policy::GenerateDeviceLocalAccountUserId(account_id, type));
 }
 
-constexpr char kDeviceLocalAccountId[] = "device_local_account";
-
-const AccountId kOwnerAccountId =
-    AccountId::FromUserEmailGaiaId("owner@example.com", GaiaId("1234567890"));
-const AccountId kAccountId0 =
-    AccountId::FromUserEmailGaiaId("user0@example.com", GaiaId("0123456789"));
-const AccountId kAccountId1 =
-    AccountId::FromUserEmailGaiaId("user1@example.com", GaiaId("9012345678"));
-const AccountId kKioskAccountId =
-    CreateDeviceLocalAccountId(kDeviceLocalAccountId,
-                               policy::DeviceLocalAccountType::kKioskApp);
 }  // namespace
 
 class UserManagerObserverTest : public user_manager::UserManager::Observer {
@@ -224,6 +236,10 @@ class UserManagerTest : public testing::Test {
     settings_helper_.SetString(kDeviceOwner, owner);
   }
 
+  void SetMaxUserProfilesDeviceSetting(int max_users) {
+    settings_helper_.SetInteger(kAccountsPrefDeviceMaxUserProfiles, max_users);
+  }
+
   void SetKioskAccountPrefs(
       policy::DeviceLocalAccount::EphemeralMode ephemeral_mode,
       const std::string& account_id = kDeviceLocalAccountId,
@@ -288,6 +304,10 @@ class UserManagerTest : public testing::Test {
   }
 
  protected:
+  const AccountId kiosk_account_id_ =
+      CreateDeviceLocalAccountId(kDeviceLocalAccountId,
+                                 policy::DeviceLocalAccountType::kKioskApp);
+
   // The call chain
   // - `ProfileRequiresPolicyUnknown`
   // - `UserManagerImpl::UserLoggedIn()`
@@ -321,7 +341,7 @@ TEST_F(UserManagerTest, RetrieveTrustedDevicePolicies) {
 
   SetDeviceSettings(
       /* ephemeral_users_enabled= */ false,
-      /* owner= */ kOwnerAccountId.GetUserEmail());
+      /* owner= */ kOwnerEmail);
   RetrieveTrustedDevicePolicies();
 
   EXPECT_FALSE(IsEphemeralAccountId(EmptyAccountId()));
@@ -336,7 +356,7 @@ TEST_F(UserManagerTest, IsEphemeralAccountIdFalseForOwnerAccountId) {
 
   SetDeviceSettings(
       /* ephemeral_users_enabled= */ true,
-      /* owner= */ kOwnerAccountId.GetUserEmail());
+      /* owner= */ kOwnerEmail);
   RetrieveTrustedDevicePolicies();
 
   EXPECT_FALSE(IsEphemeralAccountId(kOwnerAccountId));
@@ -349,7 +369,7 @@ TEST_F(UserManagerTest, IsEphemeralAccountIdTrueForGuestAccountId) {
 
   SetDeviceSettings(
       /* ephemeral_users_enabled= */ false,
-      /* owner= */ kOwnerAccountId.GetUserEmail());
+      /* owner= */ kOwnerEmail);
   RetrieveTrustedDevicePolicies();
 
   EXPECT_TRUE(IsEphemeralAccountId(user_manager::GuestAccountId()));
@@ -362,7 +382,7 @@ TEST_F(UserManagerTest, IsEphemeralAccountIdFalseForStubAccountId) {
 
   SetDeviceSettings(
       /* ephemeral_users_enabled= */ true,
-      /* owner= */ kOwnerAccountId.GetUserEmail());
+      /* owner= */ kOwnerEmail);
   RetrieveTrustedDevicePolicies();
 
   EXPECT_FALSE(IsEphemeralAccountId(user_manager::StubAccountId()));
@@ -375,7 +395,7 @@ TEST_F(UserManagerTest, IsEphemeralAccountIdTrueForPublicAccountId) {
   // don't affect ephemeral mode of the public account.
   SetDeviceSettings(
       /* ephemeral_users_enabled= */ false,
-      /* owner= */ kOwnerAccountId.GetUserEmail());
+      /* owner= */ kOwnerEmail);
   SetDeviceLocalPublicAccount(
       kDeviceLocalAccountId, policy::DeviceLocalAccountType::kPublicSession,
       policy::DeviceLocalAccount::EphemeralMode::kDisable);
@@ -393,7 +413,7 @@ TEST_F(UserManagerTest, IsEphemeralAccountIdUsesEphemeralUsersEnabledPolicy) {
 
   SetDeviceSettings(
       /* ephemeral_users_enabled= */ true,
-      /* owner= */ kOwnerAccountId.GetUserEmail());
+      /* owner= */ kOwnerEmail);
   RetrieveTrustedDevicePolicies();
 
   EXPECT_TRUE(IsEphemeralAccountId(EmptyAccountId()));
@@ -404,73 +424,73 @@ TEST_F(UserManagerTest, IsEphemeralAccountIdUsesEphemeralUsersEnabledPolicy) {
 // `IsEphemeralAccountId(account_id)` function.
 TEST_F(UserManagerTest,
        IsEphemeralAccountIdRespectsFollowDeviceWidePolicyEphemeralMode) {
-  EXPECT_FALSE(IsEphemeralAccountId(kKioskAccountId));
+  EXPECT_FALSE(IsEphemeralAccountId(kiosk_account_id_));
 
   SetDeviceSettings(
       /* ephemeral_users_enabled= */ true,
-      /* owner= */ kOwnerAccountId.GetUserEmail());
+      /* owner= */ kOwnerEmail);
   SetKioskAccountPrefs(
       policy::DeviceLocalAccount::EphemeralMode::kFollowDeviceWidePolicy);
   RetrieveTrustedDevicePolicies();
-  EXPECT_TRUE(IsEphemeralAccountId(kKioskAccountId));
+  EXPECT_TRUE(IsEphemeralAccountId(kiosk_account_id_));
 
   SetDeviceSettings(
       /* ephemeral_users_enabled= */ false,
-      /* owner= */ kOwnerAccountId.GetUserEmail());
+      /* owner= */ kOwnerEmail);
   RetrieveTrustedDevicePolicies();
-  EXPECT_FALSE(IsEphemeralAccountId(kKioskAccountId));
+  EXPECT_FALSE(IsEphemeralAccountId(kiosk_account_id_));
 }
 
 // Tests that `UserManager` correctly parses device-local accounts with
 // ephemeral mode equals to `kUnset` by calling
 // `IsEphemeralAccountId(account_id)` function.
 TEST_F(UserManagerTest, IsEphemeralAccountIdRespectsUnsetEphemeralMode) {
-  EXPECT_FALSE(IsEphemeralAccountId(kKioskAccountId));
+  EXPECT_FALSE(IsEphemeralAccountId(kiosk_account_id_));
 
   SetDeviceSettings(
       /* ephemeral_users_enabled= */ true,
-      /* owner= */ kOwnerAccountId.GetUserEmail());
+      /* owner= */ kOwnerEmail);
   SetKioskAccountPrefs(policy::DeviceLocalAccount::EphemeralMode::kUnset);
   RetrieveTrustedDevicePolicies();
-  EXPECT_TRUE(IsEphemeralAccountId(kKioskAccountId));
+  EXPECT_TRUE(IsEphemeralAccountId(kiosk_account_id_));
 
   SetDeviceSettings(
       /* ephemeral_users_enabled= */ false,
-      /* owner= */ kOwnerAccountId.GetUserEmail());
+      /* owner= */ kOwnerEmail);
   RetrieveTrustedDevicePolicies();
-  EXPECT_FALSE(IsEphemeralAccountId(kKioskAccountId));
+  EXPECT_FALSE(IsEphemeralAccountId(kiosk_account_id_));
 }
 
 // Tests that `UserManager` correctly parses device-local accounts with
 // ephemeral mode equals to `kDisable` by calling
 // `IsEphemeralAccountId(account_id)` function.
 TEST_F(UserManagerTest, IsEphemeralAccountIdRespectsDisableEphemeralMode) {
-  EXPECT_FALSE(IsEphemeralAccountId(kKioskAccountId));
+  EXPECT_FALSE(IsEphemeralAccountId(kiosk_account_id_));
 
   SetDeviceSettings(
       /* ephemeral_users_enabled= */ true,
-      /* owner= */ kOwnerAccountId.GetUserEmail());
+      /* owner= */ kOwnerEmail);
   SetKioskAccountPrefs(policy::DeviceLocalAccount::EphemeralMode::kDisable);
   RetrieveTrustedDevicePolicies();
 
   EXPECT_TRUE(IsEphemeralAccountId(EmptyAccountId()));
-  EXPECT_FALSE(IsEphemeralAccountId(kKioskAccountId));
+  EXPECT_FALSE(IsEphemeralAccountId(kiosk_account_id_));
 }
 
 // Tests that `UserManager` correctly parses device-local accounts with
 // ephemeral mode equals to `kEnable` by calling
 // `IsEphemeralAccountId(account_id)` function.
 TEST_F(UserManagerTest, IsEphemeralAccountIdRespectsEnableEphemeralMode) {
-  EXPECT_FALSE(IsEphemeralAccountId(kKioskAccountId));
+  EXPECT_FALSE(IsEphemeralAccountId(kiosk_account_id_));
 
   SetDeviceSettings(
       /* ephemeral_users_enabled= */ false,
-      /* owner= */ kOwnerAccountId.GetUserEmail());
+      /* owner= */ kOwnerEmail);
   SetKioskAccountPrefs(policy::DeviceLocalAccount::EphemeralMode::kEnable);
   RetrieveTrustedDevicePolicies();
 
   EXPECT_FALSE(IsEphemeralAccountId(EmptyAccountId()));
-  EXPECT_TRUE(IsEphemeralAccountId(kKioskAccountId));
+  EXPECT_TRUE(IsEphemeralAccountId(kiosk_account_id_));
 }
 
 // This test covers b/293320330.
@@ -479,8 +499,8 @@ TEST_F(UserManagerTest, IsEphemeralAccountIdRespectsEnableEphemeralMode) {
 TEST_F(UserManagerTest, DoNotSaveKioskAccountsToKRegularUsersPref) {
   SetKioskAccountPrefs(policy::DeviceLocalAccount::EphemeralMode::kEnable);
   user_manager::UserManager::Get()->UserLoggedIn(
-      kKioskAccountId,
-      user_manager::TestHelper::GetFakeUsernameHash(kKioskAccountId));
+      kiosk_account_id_,
+      user_manager::TestHelper::GetFakeUsernameHash(kiosk_account_id_));
   ResetUserManager();
   ASSERT_TRUE(user_manager::TestHelper(user_manager::UserManager::Get())
                   .AddRegularUser(kAccountId0));
@@ -496,7 +516,7 @@ TEST_F(UserManagerTest, DoNotSaveKioskAccountsToKRegularUsersPref) {
 
   SetDeviceSettings(
       /* ephemeral_users_enabled= */ true,
-      /* owner= */ kOwnerAccountId.GetUserEmail());
+      /* owner= */ kOwnerEmail);
   RetrieveTrustedDevicePolicies();
 
   EXPECT_TRUE(TestingBrowserProcess::GetGlobal()
@@ -593,34 +613,34 @@ TEST_F(UserManagerTest, RemoveRegularUsersExceptOwnerFromList) {
 
   SetKioskAccountPrefs(policy::DeviceLocalAccount::EphemeralMode::kEnable);
   user_manager::UserManager::Get()->UserLoggedIn(
-      kKioskAccountId,
-      user_manager::TestHelper::GetFakeUsernameHash(kKioskAccountId));
+      kiosk_account_id_,
+      user_manager::TestHelper::GetFakeUsernameHash(kiosk_account_id_));
   ResetUserManager();
 
   const user_manager::UserList* users =
       &user_manager::UserManager::Get()->GetPersistedUsers();
   ASSERT_EQ(4U, users->size());
-  EXPECT_EQ((*users)[0]->GetAccountId(), kKioskAccountId);
+  EXPECT_EQ((*users)[0]->GetAccountId(), kiosk_account_id_);
   EXPECT_EQ((*users)[1]->GetAccountId(), kAccountId1);
   EXPECT_EQ((*users)[2]->GetAccountId(), kAccountId0);
   EXPECT_EQ((*users)[3]->GetAccountId(), kOwnerAccountId);
 
   SetDeviceSettings(
       /* ephemeral_users_enabled= */ true,
-      /* owner= */ kOwnerAccountId.GetUserEmail());
+      /* owner= */ kOwnerEmail);
   RetrieveTrustedDevicePolicies();
 
   users = &user_manager::UserManager::Get()->GetPersistedUsers();
   EXPECT_EQ(2U, users->size());
   // Kiosk is not a regular user and is not removed.
-  EXPECT_EQ((*users)[0]->GetAccountId(), kKioskAccountId);
+  EXPECT_EQ((*users)[0]->GetAccountId(), kiosk_account_id_);
   EXPECT_EQ((*users)[1]->GetAccountId(), kOwnerAccountId);
 }
 
 TEST_F(UserManagerTest, RegularUserLoggedInAsEphemeral) {
   SetDeviceSettings(
       /* ephemeral_users_enabled= */ true,
-      /* owner= */ kOwnerAccountId.GetUserEmail());
+      /* owner= */ kOwnerEmail);
   RetrieveTrustedDevicePolicies();
 
   ASSERT_TRUE(user_manager::TestHelper(user_manager::UserManager::Get())
@@ -694,12 +714,12 @@ TEST_F(UserManagerTest, RecordOwner) {
 
   // Save a user as an owner.
   user_manager::UserManager::Get()->RecordOwner(
-      AccountId::FromUserEmail(kOwnerAccountId.GetUserEmail()));
+      AccountId::FromUserEmail(kOwnerEmail));
 
   // Now `GetOwnerEmail` should return the email of the user above.
   owner = user_manager::UserManager::Get()->GetOwnerEmail();
   ASSERT_TRUE(owner.has_value());
-  EXPECT_EQ(owner.value(), kOwnerAccountId.GetUserEmail());
+  EXPECT_EQ(owner.value(), kOwnerEmail);
 }
 
 TEST_F(UserManagerTest, RemoveDeprecatedArcKioskAccountOnStartUpByDefault) {
@@ -860,6 +880,252 @@ TEST_F(UserManagerTest, EnsureUserPublicAccount) {
   // due to crash). In the case, the created user should not be listed in
   // the persisted list.
   EXPECT_EQ(user_manager_->GetPersistedUsers().size(), 0u);
+}
+
+TEST_F(UserManagerTest, MaxUserProfilesPolicyEnforcementOnLoginScreen) {
+  const std::vector<AccountId> accounts = {
+      kAccountId0, kAccountId1, kAccountId2, kAccountId3, kAccountId4};
+  for (const auto& account_id : accounts) {
+    ASSERT_TRUE(user_manager::TestHelper(user_manager::UserManager::Get())
+                    .AddRegularUser(account_id));
+    user_manager::UserManager::Get()->UserLoggedIn(
+        account_id, user_manager::TestHelper::GetFakeUsernameHash(account_id));
+    ResetUserManager();
+  }
+
+  const user_manager::UserList* users =
+      &user_manager::UserManager::Get()->GetPersistedUsers();
+  ASSERT_EQ(5U, users->size());
+  EXPECT_EQ((*users)[0]->GetAccountId(), kAccountId4);
+  EXPECT_EQ((*users)[1]->GetAccountId(), kAccountId3);
+  EXPECT_EQ((*users)[2]->GetAccountId(), kAccountId2);
+  EXPECT_EQ((*users)[3]->GetAccountId(), kAccountId1);
+  EXPECT_EQ((*users)[4]->GetAccountId(), kAccountId0);
+
+  // Set policy to allow at most 3 user profiles.
+  SetMaxUserProfilesDeviceSetting(3);
+  RetrieveTrustedDevicePolicies();
+
+  users = &user_manager::UserManager::Get()->GetPersistedUsers();
+  EXPECT_EQ(3U, users->size());
+  EXPECT_EQ((*users)[0]->GetAccountId(), kAccountId4);
+  EXPECT_EQ((*users)[1]->GetAccountId(), kAccountId3);
+  EXPECT_EQ((*users)[2]->GetAccountId(), kAccountId2);
+}
+
+TEST_F(UserManagerTest, MaxUserProfilesNotEnforcedDuringSession) {
+  // Set policy to allow at most 2 user profiles.
+  SetMaxUserProfilesDeviceSetting(2);
+  RetrieveTrustedDevicePolicies();
+
+  // User 0 logs in.
+  ASSERT_TRUE(user_manager::TestHelper(user_manager::UserManager::Get())
+                  .AddRegularUser(kAccountId0));
+  user_manager::UserManager::Get()->UserLoggedIn(
+      kAccountId0, user_manager::TestHelper::GetFakeUsernameHash(kAccountId0));
+  ResetUserManager();
+
+  // User 1 logs in.
+  ASSERT_TRUE(user_manager::TestHelper(user_manager::UserManager::Get())
+                  .AddRegularUser(kAccountId1));
+  user_manager::UserManager::Get()->UserLoggedIn(
+      kAccountId1, user_manager::TestHelper::GetFakeUsernameHash(kAccountId1));
+  ResetUserManager();
+
+  // User 2 logs in, exceeding the limit.
+  ASSERT_TRUE(user_manager::TestHelper(user_manager::UserManager::Get())
+                  .AddRegularUser(kAccountId2));
+  user_manager::UserManager::Get()->UserLoggedIn(
+      kAccountId2, user_manager::TestHelper::GetFakeUsernameHash(kAccountId2));
+
+  // Apply the policy while the session is running: the limit is set on the
+  // `UserManager`, but enforcement is skipped because a user is logged in.
+  RetrieveTrustedDevicePolicies();
+
+  // Users are not trimmed while a session is running.
+  EXPECT_EQ(3U, user_manager::UserManager::Get()->GetPersistedUsers().size());
+
+  // The limit is enforced once back on the login screen. `ResetUserManager()`
+  // creates a fresh `UserManager` whose limit is unset - the value lives in
+  // CrosSettings and is only pushed into `UserManager` by
+  // `RetrieveTrustedDevicePolicies()` - so re-apply the policy explicitly.
+  ResetUserManager();
+  RetrieveTrustedDevicePolicies();
+
+  const user_manager::UserList& users =
+      user_manager::UserManager::Get()->GetPersistedUsers();
+  ASSERT_EQ(2U, users.size());
+  EXPECT_EQ(users[0]->GetAccountId(), kAccountId2);
+  EXPECT_EQ(users[1]->GetAccountId(), kAccountId1);
+}
+
+TEST_F(UserManagerTest, MaxUserProfilesPreservesDeviceOwner) {
+  SetDeviceSettings(/*ephemeral_users_enabled=*/false,
+                    /*owner=*/kOwnerEmail);
+  RetrieveTrustedDevicePolicies();
+
+  // Owner logs in first.
+  ASSERT_TRUE(user_manager::TestHelper(user_manager::UserManager::Get())
+                  .AddRegularUser(kOwnerAccountId));
+  user_manager::UserManager::Get()->UserLoggedIn(
+      kOwnerAccountId,
+      user_manager::TestHelper::GetFakeUsernameHash(kOwnerAccountId));
+  ResetUserManager();
+
+  // User 0 logs in.
+  ASSERT_TRUE(user_manager::TestHelper(user_manager::UserManager::Get())
+                  .AddRegularUser(kAccountId0));
+  user_manager::UserManager::Get()->UserLoggedIn(
+      kAccountId0, user_manager::TestHelper::GetFakeUsernameHash(kAccountId0));
+  ResetUserManager();
+
+  // User 1 logs in.
+  ASSERT_TRUE(user_manager::TestHelper(user_manager::UserManager::Get())
+                  .AddRegularUser(kAccountId1));
+  user_manager::UserManager::Get()->UserLoggedIn(
+      kAccountId1, user_manager::TestHelper::GetFakeUsernameHash(kAccountId1));
+  ResetUserManager();
+
+  const user_manager::UserList* users =
+      &user_manager::UserManager::Get()->GetPersistedUsers();
+  ASSERT_EQ(3U, users->size());
+  EXPECT_EQ((*users)[0]->GetAccountId(), kAccountId1);
+  EXPECT_EQ((*users)[1]->GetAccountId(), kAccountId0);
+  EXPECT_EQ((*users)[2]->GetAccountId(), kOwnerAccountId);
+
+  // Set policy to allow at most 2 user profiles.
+  SetMaxUserProfilesDeviceSetting(2);
+  RetrieveTrustedDevicePolicies();
+
+  users = &user_manager::UserManager::Get()->GetPersistedUsers();
+  EXPECT_EQ(2U, users->size());
+  // Owner is preserved even though it is the oldest account; User 0 is pruned.
+  EXPECT_EQ((*users)[0]->GetAccountId(), kAccountId1);
+  EXPECT_EQ((*users)[1]->GetAccountId(), kOwnerAccountId);
+}
+
+TEST_F(UserManagerTest, MaxUserProfilesExemptsDeviceLocalAccounts) {
+  // Add 2 regular users.
+  ASSERT_TRUE(user_manager::TestHelper(user_manager::UserManager::Get())
+                  .AddRegularUser(kAccountId0));
+  user_manager::UserManager::Get()->UserLoggedIn(
+      kAccountId0, user_manager::TestHelper::GetFakeUsernameHash(kAccountId0));
+  ResetUserManager();
+
+  ASSERT_TRUE(user_manager::TestHelper(user_manager::UserManager::Get())
+                  .AddRegularUser(kAccountId1));
+  user_manager::UserManager::Get()->UserLoggedIn(
+      kAccountId1, user_manager::TestHelper::GetFakeUsernameHash(kAccountId1));
+  ResetUserManager();
+
+  // Add a Kiosk account.
+  SetKioskAccountPrefs(policy::DeviceLocalAccount::EphemeralMode::kDisable);
+  user_manager::UserManager::Get()->UserLoggedIn(
+      kiosk_account_id_,
+      user_manager::TestHelper::GetFakeUsernameHash(kiosk_account_id_));
+  ResetUserManager();
+
+  const user_manager::UserList* users =
+      &user_manager::UserManager::Get()->GetPersistedUsers();
+  ASSERT_EQ(3U, users->size());
+
+  // Cap regular profiles at 1.
+  SetMaxUserProfilesDeviceSetting(1);
+  RetrieveTrustedDevicePolicies();
+
+  users = &user_manager::UserManager::Get()->GetPersistedUsers();
+  // 1 Kiosk + 1 regular user remaining (User 0 was pruned).
+  EXPECT_EQ(2U, users->size());
+  EXPECT_EQ((*users)[0]->GetAccountId(), kiosk_account_id_);
+  EXPECT_EQ((*users)[1]->GetAccountId(), kAccountId1);
+}
+
+TEST_F(UserManagerTest, MaxUserProfilesZeroAndNegativeAllowsUnlimitedUsers) {
+  const std::vector<AccountId> accounts = {kAccountId0, kAccountId1,
+                                           kAccountId2};
+  for (const auto& account_id : accounts) {
+    ASSERT_TRUE(user_manager::TestHelper(user_manager::UserManager::Get())
+                    .AddRegularUser(account_id));
+    user_manager::UserManager::Get()->UserLoggedIn(
+        account_id, user_manager::TestHelper::GetFakeUsernameHash(account_id));
+    ResetUserManager();
+  }
+
+  EXPECT_EQ(3U, user_manager::UserManager::Get()->GetPersistedUsers().size());
+
+  // 0 means unlimited.
+  SetMaxUserProfilesDeviceSetting(0);
+  RetrieveTrustedDevicePolicies();
+  EXPECT_FALSE(
+      user_manager::UserManager::Get()->GetMaxUserProfiles().has_value());
+  EXPECT_EQ(3U, user_manager::UserManager::Get()->GetPersistedUsers().size());
+
+  // Negative value also means unlimited.
+  SetMaxUserProfilesDeviceSetting(-1);
+  RetrieveTrustedDevicePolicies();
+  EXPECT_FALSE(
+      user_manager::UserManager::Get()->GetMaxUserProfiles().has_value());
+  EXPECT_EQ(3U, user_manager::UserManager::Get()->GetPersistedUsers().size());
+}
+
+TEST_F(UserManagerTest, MaxUserProfilesChildAccountTrimmed) {
+  // Add a regular user first.
+  ASSERT_TRUE(user_manager::TestHelper(user_manager::UserManager::Get())
+                  .AddRegularUser(kAccountId0));
+  user_manager::UserManager::Get()->UserLoggedIn(
+      kAccountId0, user_manager::TestHelper::GetFakeUsernameHash(kAccountId0));
+  ResetUserManager();
+
+  // Add a child user second (more recent).
+  ASSERT_TRUE(user_manager::TestHelper(user_manager::UserManager::Get())
+                  .AddChildUser(kAccountId1));
+  user_manager::UserManager::Get()->UserLoggedIn(
+      kAccountId1, user_manager::TestHelper::GetFakeUsernameHash(kAccountId1));
+  ResetUserManager();
+
+  EXPECT_EQ(2U, user_manager::UserManager::Get()->GetPersistedUsers().size());
+
+  // Cap at 1 profile. Oldest regular user (User 0) should be pruned, child user
+  // (User 1) kept.
+  SetMaxUserProfilesDeviceSetting(1);
+  RetrieveTrustedDevicePolicies();
+
+  const auto& users = user_manager::UserManager::Get()->GetPersistedUsers();
+  EXPECT_EQ(1U, users.size());
+  EXPECT_EQ(users[0]->GetAccountId(), kAccountId1);
+}
+
+TEST_F(UserManagerTest, MaxUserProfilesPreservesDeviceOwnerWhenLimitIsOne) {
+  SetDeviceSettings(/*ephemeral_users_enabled=*/false,
+                    /*owner=*/kOwnerEmail);
+  RetrieveTrustedDevicePolicies();
+
+  // Owner logs in.
+  ASSERT_TRUE(user_manager::TestHelper(user_manager::UserManager::Get())
+                  .AddRegularUser(kOwnerAccountId));
+  user_manager::UserManager::Get()->UserLoggedIn(
+      kOwnerAccountId,
+      user_manager::TestHelper::GetFakeUsernameHash(kOwnerAccountId));
+  ResetUserManager();
+
+  // User 0 logs in.
+  ASSERT_TRUE(user_manager::TestHelper(user_manager::UserManager::Get())
+                  .AddRegularUser(kAccountId0));
+  user_manager::UserManager::Get()->UserLoggedIn(
+      kAccountId0, user_manager::TestHelper::GetFakeUsernameHash(kAccountId0));
+  ResetUserManager();
+
+  EXPECT_EQ(2U, user_manager::UserManager::Get()->GetPersistedUsers().size());
+
+  // Cap at 1 profile. The owner cannot be removed, so User 0 is pruned even
+  // though it is the most recently used account.
+  SetMaxUserProfilesDeviceSetting(1);
+  RetrieveTrustedDevicePolicies();
+
+  const user_manager::UserList& users =
+      user_manager::UserManager::Get()->GetPersistedUsers();
+  ASSERT_EQ(1U, users.size());
+  EXPECT_EQ(users[0]->GetAccountId(), kOwnerAccountId);
 }
 
 }  // namespace ash

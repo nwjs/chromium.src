@@ -28,6 +28,7 @@ namespace webapps {
 
 namespace test {
 extern int g_minimum_favicon_size_for_testing;
+extern int g_ideal_favicon_size_for_testing;
 }  // namespace test
 
 // This class is responsible for fetching the primary icon for installing a site
@@ -47,6 +48,8 @@ class InstallableIconFetcher {
   InstallableIconFetcher(const InstallableIconFetcher&) = delete;
   InstallableIconFetcher& operator=(const InstallableIconFetcher&) = delete;
 
+  friend class InstallableIconFetcherTest;
+
  private:
   void TryFetchingNextIcon();
   void OnManifestIconFetched(
@@ -56,10 +59,19 @@ class InstallableIconFetcher {
 
   void FetchFavicon();
   void OnFaviconFetched(const favicon_base::LargeIconResult& result);
+  void OnFaviconProcessingFailed(InstallableStatusCode code);
+
+  void FetchFaviconFromCandidates();
+  void OnFaviconCandidateDownloaded(const GURL& icon_url,
+                                    const SkBitmap& bitmap);
 
   void OnIconFetched(const GURL& icon_url,
                      const blink::mojom::ManifestImageResource_Purpose purpose,
                      const SkBitmap& bitmap);
+
+  void OnRootFaviconDownloaded(const GURL& icon_url,
+                               InstallableStatusCode code,
+                               const SkBitmap& bitmap);
 
   // Gives a chance for desktop android to generate an icon instead of
   // ending with an error. Other platforms end immediately with an error.
@@ -80,6 +92,7 @@ class InstallableIconFetcher {
       manifest_icons_;
   bool prefer_maskable_;
   const bool fetch_favicon_;
+  bool probed_root_favicon_ = false;
   base::OnceCallback<void(InstallableStatusCode)> finish_callback_;
 
   base::CancelableTaskTracker favicon_task_tracker_;

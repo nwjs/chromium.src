@@ -13,6 +13,8 @@
 #import "base/test/task_environment.h"
 #import "base/test/test_future.h"
 #import "base/uuid.h"
+#import "ios/web/extension/extension_controller_impl.h"
+#import "ios/web/public/extension/extension_controller.h"
 #import "ios/web/public/js_messaging/content_world.h"
 #import "ios/web/public/js_messaging/java_script_feature.h"
 #import "ios/web/public/test/fakes/fake_browser_state.h"
@@ -97,6 +99,30 @@ API_AVAILABLE(ios(27)) {
                      .defaultWebpagePreferences.globalPrivacyControlEnabled);
 
     provider.SetUniversalOptOutEnabled(true);
+    EXPECT_TRUE(provider.GetWebViewConfiguration()
+                    .defaultWebpagePreferences.globalPrivacyControlEnabled);
+  }
+}
+
+// Tests that ResetWithWebViewConfiguration updates defaultWebpagePreferences
+// based on GetUniversalOptOutState for iOS 27+.
+TEST_F(WKWebViewConfigurationProviderTest,
+       ResetWithWebViewConfigurationUniversalOptOut)
+API_AVAILABLE(ios(27)) {
+  if (@available(iOS 27, *)) {
+    GetWebClient()->SetUniversalOptOutState(UniversalOptOutState::kNotEligible);
+    WKWebViewConfigurationProvider& provider = GetProvider();
+    provider.ResetWithWebViewConfiguration(nil);
+    EXPECT_FALSE(provider.GetWebViewConfiguration()
+                     .defaultWebpagePreferences.globalPrivacyControlEnabled);
+
+    GetWebClient()->SetUniversalOptOutState(UniversalOptOutState::kEligible);
+    provider.ResetWithWebViewConfiguration(nil);
+    EXPECT_FALSE(provider.GetWebViewConfiguration()
+                     .defaultWebpagePreferences.globalPrivacyControlEnabled);
+
+    GetWebClient()->SetUniversalOptOutState(UniversalOptOutState::kEnabled);
+    provider.ResetWithWebViewConfiguration(nil);
     EXPECT_TRUE(provider.GetWebViewConfiguration()
                     .defaultWebpagePreferences.globalPrivacyControlEnabled);
   }
@@ -538,6 +564,35 @@ TEST_F(WKWebViewConfigurationProviderTest,
   EXPECT_NSNE(data_store, recorded_data_store);
   // Ensure data store is reset again for `//ios/web` managed browser.
   EXPECT_NSNE(config_data_store, recorded_data_store);
+}
+
+// Tests that webExtensionController is set when WebClient provides an
+// ExtensionController, and nil when it does not.
+TEST_F(WKWebViewConfigurationProviderTest, WebExtensionControllerConfigured)
+API_AVAILABLE(ios(18.4)) {
+  WKWebViewConfigurationProvider& provider = GetProvider();
+
+  // ExtensionController is not provided: webExtensionController is not
+  // configured.
+  GetWebClient()->SetExtensionController(nullptr);
+  provider.ResetWithWebViewConfiguration(nil);
+  EXPECT_NSEQ(nil, provider.GetWebViewConfiguration().webExtensionController);
+
+  std::unique_ptr<ExtensionController> controller =
+      ExtensionController::Create();
+  ASSERT_TRUE(controller);
+  auto* impl = static_cast<ExtensionControllerImpl*>(controller.get());
+  GetWebClient()->SetExtensionController(controller.get());
+
+  // ExtensionController is provided: webExtensionController is configured.
+  provider.ResetWithWebViewConfiguration(nil);
+  EXPECT_NSEQ(impl->GetWKWebExtensionController(),
+              provider.GetWebViewConfiguration().webExtensionController);
+
+  // ExtensionController is reset: webExtensionController is cleared.
+  GetWebClient()->SetExtensionController(nullptr);
+  provider.ResetWithWebViewConfiguration(nil);
+  EXPECT_NSEQ(nil, provider.GetWebViewConfiguration().webExtensionController);
 }
 
 }  // namespace

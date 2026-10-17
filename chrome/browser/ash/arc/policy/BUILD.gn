@@ -36,7 +36,6 @@ static_library("policy") {
     "//chrome/browser/ash/profiles",
     "//chrome/browser/chromeos/platform_keys",
     "//chrome/browser/profiles:profile",
-    "//chrome/browser/signin",
     "//chrome/common:constants",
     "//chromeos/ash/components/system",
     "//chromeos/ash/experiences/arc",
@@ -87,8 +86,11 @@ source_set("unit_tests") {
     "//chrome/browser/ash/login/users:test_support",
     "//chrome/browser/ash/policy/arc:test_support",
     "//chrome/browser/ash/policy/core",
+    "//chrome/browser/consent_auditor",
     "//chrome/browser/profiles:profile",
+    "//chrome/browser/signin",
     "//chrome/test:test_support",
+    "//chrome/test/base:testing_browser_process",
     "//chromeos/ash/components/dbus/concierge",
     "//chromeos/ash/components/dbus/upstart",
     "//chromeos/ash/components/system",
@@ -99,14 +101,11 @@ source_set("unit_tests") {
     "//components/session_manager/core",
     "//components/session_manager/core:test_support",
     "//components/session_manager/test:test_support",
+    "//components/supervised_user/core/browser:test_support",
     "//components/sync_preferences:test_support",
     "//components/user_manager",
     "//content/test:test_support",
     "//testing/gmock",
     "//testing/gtest",
   ]
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }

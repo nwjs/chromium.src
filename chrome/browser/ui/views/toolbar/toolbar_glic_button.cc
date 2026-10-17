@@ -26,6 +26,7 @@
 #include "ui/gfx/vector_icon_types.h"
 #include "ui/views/animation/ink_drop.h"
 #include "ui/views/background.h"
+#include "ui/views/layout/box_layout.h"
 
 namespace {
 constexpr int kCloseButtonSize = 16;
@@ -270,8 +271,24 @@ void ToolbarGlicButton::OnBoundsChanged(const gfx::Rect& previous_bounds) {
   }
 }
 
+void ToolbarGlicButton::SetIsShowingNudge(bool is_showing) {
+  GlicButton<ToolbarButton>::SetIsShowingNudge(is_showing);
+}
+
 bool ToolbarGlicButton::GetIsShowingNudge() const {
   return width_state_ == WidthState::kNudge;
+}
+
+void ToolbarGlicButton::SetNudgeLabel(std::string label) {
+  GlicButton<ToolbarButton>::SetNudgeLabel(std::move(label));
+}
+
+void ToolbarGlicButton::SetVisible(bool visible) {
+  GlicButton<ToolbarButton>::SetVisible(visible);
+}
+
+void ToolbarGlicButton::SetGlicPanelIsOpen(bool open) {
+  GlicButton<ToolbarButton>::SetGlicPanelIsOpen(open);
 }
 
 void ToolbarGlicButton::ResetSplitButtonCornerStyling() {

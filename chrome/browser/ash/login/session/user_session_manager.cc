@@ -77,7 +77,6 @@
 #include "chrome/browser/ash/login/existing_user_controller.h"
 #include "chrome/browser/ash/login/helper.h"
 #include "chrome/browser/ash/login/lock/screen_locker_controller.h"
-#include "chrome/browser/ash/login/onboarding_user_activity_counter.h"
 #include "chrome/browser/ash/login/profile_auth_data.h"
 #include "chrome/browser/ash/login/quick_unlock/pin_backend.h"
 #include "chrome/browser/ash/login/saml/password_sync_token_verifier.h"
@@ -123,7 +122,6 @@
 #include "chrome/browser/signin/chrome_device_id_helper.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/supervised_user/child_accounts/child_account_service_factory.h"
-#include "chrome/browser/trusted_vault/trusted_vault_service_factory.h"
 #include "chrome/browser/ui/ash/login/input_events_blocker.h"
 #include "chrome/browser/ui/ash/login/login_display_host.h"
 #include "chrome/browser/ui/ash/system/system_tray_client_impl.h"
@@ -148,6 +146,7 @@
 #include "chromeos/ash/components/settings/cros_settings.h"
 #include "chromeos/ash/components/settings/cros_settings_names.h"
 #include "chromeos/ash/components/tpm/prepare_tpm.h"
+#include "chromeos/ash/components/trusted_vault/trusted_vault_service_provider.h"
 #include "chromeos/ash/experiences/arc/arc_prefs.h"
 #include "chromeos/ash/experiences/frozen_update/frozen_update_notification.h"
 #include "chromeos/dbus/tpm_manager/tpm_manager.pb.h"
@@ -264,32 +263,10 @@ constexpr char kEventHandleProfileLoad[] = "HandleProfileLoad";
 // is not included.
 constexpr char kEventInitUserDesktop[] = "InitUserDesktop";
 
-constexpr base::TimeDelta kActivityTimeBeforeOnboardingSurvey = base::Hours(1);
-
 // A special version used to backfill the OnboardingCompletedVersion for
 // existing users to indicate that they are already completed the onboarding
 // flow in unknown past version.
 constexpr char kOnboardingBackfillVersion[] = "0.0.0.0";
-
-base::TimeDelta GetActivityTimeBeforeOnboardingSurvey() {
-  auto* command_line = base::CommandLine::ForCurrentProcess();
-  const auto& time_switch =
-      switches::kTimeBeforeOnboardingSurveyInSecondsForTesting;
-
-  if (!command_line->HasSwitch(time_switch)) {
-    return kActivityTimeBeforeOnboardingSurvey;
-  }
-  int seconds;
-  if (!base::StringToInt(command_line->GetSwitchValueASCII(time_switch),
-                         &seconds)) {
-    return kActivityTimeBeforeOnboardingSurvey;
-  }
-
-  if (seconds <= 0)
-    return kActivityTimeBeforeOnboardingSurvey;
-
-  return base::Seconds(seconds);
-}
 
 void InitLocaleAndInputMethodsForNewUser(
     const std::string& application_locale,
@@ -1932,7 +1909,8 @@ void UserSessionManager::FinalizePrepareProfile(Profile* profile) {
     if (user_context_.GetSyncTrustedVaultKeys().has_value()) {
       SaveSyncTrustedVaultKeysToProfile(
           user_context_.GetGaiaID(), *user_context_.GetSyncTrustedVaultKeys(),
-          TrustedVaultServiceFactory::GetForProfile(profile));
+          TrustedVaultServiceProvider::Get().Find(
+              user_context_.GetAccountId()));
     }
 
     VLOG(1) << "Clearing all secrets";
@@ -1972,16 +1950,6 @@ void UserSessionManager::InitializeBrowser(Profile* profile) {
   // resolved.
   if (delegate_)
     delegate_->OnProfilePrepared(profile, browser_launched);
-
-  if (ProfileHelper::IsPrimaryProfile(profile) &&
-      OnboardingUserActivityCounter::ShouldStart(profile->GetPrefs())) {
-    onboarding_user_activity_counter_ =
-        std::make_unique<OnboardingUserActivityCounter>(
-            profile->GetPrefs(), GetActivityTimeBeforeOnboardingSurvey(),
-            base::BindOnce(
-                &UserSessionManager::OnUserEligibleForOnboardingSurvey,
-                GetUserSessionManagerAsWeakPtr(), profile));
-  }
 }
 
 void UserSessionManager::MaybeLaunchHelpAppForFirstRun(Profile* profile) const {
@@ -2031,8 +1999,6 @@ bool UserSessionManager::MaybeStartNewUserOnboarding(Profile* profile) {
     LOG(WARNING) << "Can't start user onboarding as LoginDisplayHost has been "
                     "already  destroyed!";
   }
-
-  OnboardingUserActivityCounter::MaybeMarkForStart(profile);
 
   return true;
 }
@@ -2575,10 +2541,6 @@ void UserSessionManager::DoBrowserLaunchInternal(Profile* profile,
     hats_notification_controller_ =
         new HatsNotificationController(profile, kHatsSlowAndLaggyDeepDive);
   } else if (HatsNotificationController::ShouldShowSurveyToProfile(
-                 profile, kHatsEntSurvey)) {
-    hats_notification_controller_ =
-        new HatsNotificationController(profile, kHatsEntSurvey);
-  } else if (HatsNotificationController::ShouldShowSurveyToProfile(
                  profile, kHatsStabilitySurvey)) {
     hats_notification_controller_ =
         new HatsNotificationController(profile, kHatsStabilitySurvey);
@@ -2745,10 +2707,6 @@ void UserSessionManager::Shutdown() {
   token_handle_store_ = nullptr;
   frozen_update_notification_handler_.clear();
 
-  // NOTE: Make sure that the current session length is accumulated on the prefs
-  // before the primary Profile is destroyed.
-  onboarding_user_activity_counter_.reset();
-
   // NOTE: This may report UMA metric of the hats notification status.
   hats_notification_controller_.reset();
 }
@@ -2846,27 +2804,6 @@ bool UserSessionManager::IsFullRestoreEnabled(Profile* profile) {
   auto* full_restore_service =
       full_restore::FullRestoreServiceFactory::GetForProfile(profile);
   return full_restore_service != nullptr;
-}
-
-void UserSessionManager::OnUserEligibleForOnboardingSurvey(Profile* profile) {
-  onboarding_user_activity_counter_.reset();
-
-  if (profile != ProfileManager::GetActiveUserProfile())
-    return;
-
-  DCHECK(!session_manager::SessionManager::Get()->IsUserSessionBlocked());
-
-  // Do not run more than one HATS survey.
-  if (hats_notification_controller_)
-    return;
-
-  if (!HatsNotificationController::ShouldShowSurveyToProfile(
-          profile, kHatsOnboardingSurvey)) {
-    return;
-  }
-
-  hats_notification_controller_ =
-      new HatsNotificationController(profile, kHatsOnboardingSurvey);
 }
 
 void UserSessionManager::LoadShillProfile(const AccountId& account_id) {

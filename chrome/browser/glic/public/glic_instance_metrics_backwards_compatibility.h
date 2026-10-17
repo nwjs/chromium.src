@@ -6,11 +6,7 @@
 #define CHROME_BROWSER_GLIC_PUBLIC_GLIC_INSTANCE_METRICS_BACKWARDS_COMPATIBILITY_H_
 
 #include "base/time/time.h"
-#include "chrome/browser/glic/host/glic.mojom.h"
-
-namespace tabs {
-class TabInterface;
-}
+#include "chrome/browser/glic/host/glic.mojom-forward.h"
 
 namespace glic {
 
@@ -24,7 +20,6 @@ class GlicInstanceMetricsBackwardsCompatibility {
 
   virtual void OnUserInputSubmitted(mojom::WebClientMode mode,
                                     mojom::PromptType prompt_type) = 0;
-  virtual void DidRequestContextFromTab(tabs::TabInterface& tab) = 0;
   virtual void OnResponseStarted() = 0;
   virtual void OnResponseStopped(mojom::ResponseStopCause cause) = 0;
 };

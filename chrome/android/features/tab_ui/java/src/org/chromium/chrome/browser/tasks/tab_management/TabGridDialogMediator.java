@@ -524,8 +524,8 @@ public class TabGridDialogMediator
                     }
 
                     @Override
-                    public void didMoveTabOutOfGroup(Tab movedTab, int prevFilterIndex) {
-                        if (!isVisible()) return;
+                    public void didMoveTabOutOfGroup(Tab movedTab, Token oldTabGroupId) {
+                        if (!isVisible() || !currentTabGroupIdMatches(oldTabGroupId)) return;
                         updateDialog();
                     }
 
@@ -580,7 +580,10 @@ public class TabGridDialogMediator
                             bottomSheetController,
                             /* supportsShowNewGroup= */ true,
                             /* destroyOnHide= */ false,
-                            /* windowAndroid= */ null);
+                            /* windowAndroid= */ null,
+                            mDataSharingTabManager != null
+                                    ? mDataSharingTabManager.getTabGroupUiActionHandler()
+                                    : null);
 
             CollaborationService collaborationService =
                     CollaborationServiceFactory.getForProfile(profile);

@@ -18,8 +18,7 @@ import {createAutocompleteMatch, SearchboxBrowserProxy} from './searchbox_browse
 import type {SearchboxIconElement} from './searchbox_icon.js';
 import {getCss} from './searchbox_match.css.js';
 import {getHtml} from './searchbox_match.html.js';
-import {selectionsEqual} from './searchbox_selection_mixin.js';
-import {announce, mojoTimeTicks} from './utils.js';
+import {mojoTimeTicks} from './utils.js';
 
 
 
@@ -277,14 +276,9 @@ export class SearchboxMatchElement extends CrLitElement {
     if (changedProperties.has('selection') || changedProperties.has('match')) {
       this.updateAriaLabel_();
     }
-    if (this.virtualFocusEnabled && this.selection.line === this.matchIndex &&
-        this.selection.state !== SelectionLineState.kFocusedButtonAim) {
-      const oldSelection = changedProperties.get('selection');
-      if (changedProperties.has('selection') &&
-          (!oldSelection || !selectionsEqual(oldSelection, this.selection))) {
-        announce(this, this.ariaLabel);
-      }
-    }
+    // Virtual focus selection changes are narrated by the hosting searchbox's
+    // input (see `SearchboxMixin.getSelectionA11yLabel()`), so this match must
+    // not announce them too.
   }
 
   private updateAriaLabel_() {
@@ -415,12 +409,10 @@ export class SearchboxMatchElement extends CrLitElement {
     if (!this.match) {
       return '';
     }
-    let label = this.match.a11yLabel;
-    const description = this.getMatchDescription_();
-    if (description) {
-      label = `${label}, ${description}`;
-    }
-    return label;
+    // `a11yLabel` is the complete label, computed in C++ with the same logic
+    // used by the omnibox edit model. It already includes the description
+    // for match types where it is relevant.
+    return this.match.a11yLabel;
   }
 
   /**
@@ -589,46 +581,22 @@ export class SearchboxMatchElement extends CrLitElement {
     return container;
   }
 
+  // `contents` and `description` are already swapped in the browser when
+  // needed, so `contents` is always the primary text.
   private getMatchContents_(): string {
-    if (!this.match) {
-      return '';
-    }
-
-    const match = this.match;
-    const matchContents = match.contents;
-    const matchDescription = match.description;
-
-    return match.swapContentsAndDescription ? matchDescription : matchContents;
+    return this.match ? this.match.contents : '';
   }
 
   private getMatchDescription_(): string {
-    if (!this.match) {
-      return '';
-    }
-
-    const match = this.match;
-    const matchContents = match.contents;
-    const matchDescription = match.description;
-
-    return match.swapContentsAndDescription ? matchContents : matchDescription;
+    return this.match ? this.match.description : '';
   }
 
   private getMatchContentsClassifications_(): ACMatchClassification[] {
-    if (!this.match) {
-      return [];
-    }
-    const match = this.match;
-    return match.swapContentsAndDescription ? match.descriptionClass :
-                                              match.contentsClass;
+    return this.match ? this.match.contentsClass : [];
   }
 
   private getMatchDescriptionClassifications_(): ACMatchClassification[] {
-    if (!this.match) {
-      return [];
-    }
-    const match = this.match;
-    return match.swapContentsAndDescription ? match.contentsClass :
-                                              match.descriptionClass;
+    return this.match ? this.match.descriptionClass : [];
   }
 
   protected getFocusIndicatorCssClass_(): string {

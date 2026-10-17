@@ -315,7 +315,7 @@ TEST_F(AudioManagerTest, EnumerateInputDevicesPulseaudio) {
   ABORT_AUDIO_TEST_IF_NOT(InputDevicesAvailable());
 
   CreateAudioManagerForTesting<AudioManagerPulse>();
-  if (audio_manager_.get()) {
+  if (audio_manager_) {
     AudioDeviceDescriptions device_descriptions;
     device_info_accessor_->GetAudioInputDeviceDescriptions(
         &device_descriptions);
@@ -329,7 +329,7 @@ TEST_F(AudioManagerTest, EnumerateOutputDevicesPulseaudio) {
   ABORT_AUDIO_TEST_IF_NOT(OutputDevicesAvailable());
 
   CreateAudioManagerForTesting<AudioManagerPulse>();
-  if (audio_manager_.get()) {
+  if (audio_manager_) {
     AudioDeviceDescriptions device_descriptions;
     device_info_accessor_->GetAudioOutputDeviceDescriptions(
         &device_descriptions);
@@ -607,10 +607,8 @@ TEST_F(AudioManagerTest, CheckMinMaxAudioBufferSizeCallbacks) {
 #if BUILDFLAG(IS_MAC)
   // On OSX the preferred output buffer size is higher than the minimum
   // but users may request the minimum size explicitly.
-  ASSERT_GT(
-      default_params.frames_per_buffer(),
-      AudioManagerMac::GetMinAudioBufferSizeMacOS(
-          media::limits::kMinAudioBufferSize, default_params.sample_rate()));
+  ASSERT_GT(default_params.frames_per_buffer(),
+            default_params.hardware_capabilities()->min_frames_per_buffer);
 #else
   static_assert(BUILDFLAG(USE_CRAS));
   // On CRAS the preferred output buffer size varies per board and may be as low

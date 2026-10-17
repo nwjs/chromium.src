@@ -47,11 +47,14 @@ import org.chromium.chrome.browser.ui.side_panel.test.SidePanelContainerCoordina
 import org.chromium.chrome.browser.url_constants.UrlConstantResolver;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
+import org.chromium.chrome.test.transit.ChromeTriggers;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
+import org.chromium.chrome.test.transit.hub.UndoSnackbarFacility;
 import org.chromium.chrome.test.transit.ntp.IncognitoNewTabPageStation;
 import org.chromium.chrome.test.transit.ntp.RegularNewTabPageStation;
 import org.chromium.chrome.test.transit.page.WebPageStation;
 import org.chromium.chrome.test.util.ChromeTabUtils;
+import org.chromium.components.browser_ui.widget.RecyclerViewTestUtils;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.test.util.RenderTestRule;
 import org.chromium.ui.util.ColorUtils;
@@ -84,7 +87,8 @@ public class SidePanelContainerCoordinatorIntegrationTest {
     @Rule
     public RenderTestRule mRenderTestRule =
             RenderTestRule.Builder.withPublicCorpus()
-                    .setRevision(1)
+                    .setRevision(2)
+                    .setDescription("Ligatures and contextual alternates disabled in UI text")
                     .setBugComponent(RenderTestRule.Component.UI_BROWSER_TOP_CHROME_SIDE_PANEL)
                     .build();
 
@@ -299,6 +303,7 @@ public class SidePanelContainerCoordinatorIntegrationTest {
     @Test
     @MediumTest
     @Feature({"RenderTest"})
+    @DisableFeatures(ChromeFeatureList.DISABLE_GRID_TAB_SWITCHER)
     public void openAndClosePanel_tabThumbnailHasCorrectWidth() throws Exception {
         // Arrange: Get the tab showing the responsive page.
         var tab = mResponsivePageStation.getTab();
@@ -486,7 +491,9 @@ public class SidePanelContainerCoordinatorIntegrationTest {
 
     @Test
     @MediumTest
-    public void closeAllTabsInGridTabSwitcher_closesSidePanel() {
+    @DisableFeatures(ChromeFeatureList.DISABLE_GRID_TAB_SWITCHER)
+    @EnableFeatures(ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL_DEV_FEATURE + ":scope/tab")
+    public void closeAllTabsInGridTabSwitcher_closesTabScopedSidePanel() {
         // Arrange: Open 2 tabs.
         var tab1 = mResponsivePageStation.getTab();
         var newTabPageStation = mResponsivePageStation.openNewTabFast();
@@ -510,6 +517,156 @@ public class SidePanelContainerCoordinatorIntegrationTest {
 
         // Assert: The side panel is not shown.
         waitForContainerViewClose(coordinator);
+    }
+
+    @Test
+    @MediumTest
+    @DisableFeatures(ChromeFeatureList.DISABLE_GRID_TAB_SWITCHER)
+    @EnableFeatures(ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL_DEV_FEATURE + ":scope/window")
+    public void closeAllTabsInGridTabSwitcher_closesWindowScopedSidePanel() {
+        // Arrange: Open a second tab.
+        var newTabPageStation = mResponsivePageStation.openNewTabFast();
+        var newTab = newTabPageStation.getTab();
+
+        // Arrange: Open the window-scoped side panel.
+        var coordinator = getSidePanelContainerCoordinator();
+        showPanel(newTab);
+        waitForContainerViewOpen(coordinator);
+
+        // Act: Go to the grid tab switcher (GTS), and use the three-dot menu to close all tabs.
+        var tabSwitcherStation = newTabPageStation.openRegularTabSwitcher();
+        var dialogFacility = tabSwitcherStation.openAppMenu().clickCloseAllTabs();
+        dialogFacility.positiveButtonElement.clickTo().exitFacility();
+
+        // Act: Stay in GTS, use the "+" button to create a new tab.
+        tabSwitcherStation.openNewTab();
+
+        // Assert: The side panel is not shown.
+        waitForContainerViewClose(coordinator);
+    }
+
+    @Test
+    @MediumTest
+    @DisableFeatures(ChromeFeatureList.DISABLE_GRID_TAB_SWITCHER)
+    @EnableFeatures(ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL_DEV_FEATURE + ":scope/tab")
+    public void closeAllTabsInGridTabSwitcher_undo_restoresTabScopedSidePanel() {
+        // Arrange: Open 2 tabs.
+        var tab1 = mResponsivePageStation.getTab();
+        var newTabPageStation = mResponsivePageStation.openNewTabFast();
+        var tab2 = newTabPageStation.getTab();
+
+        // Arrange: Open the side panel for each tab.
+        var coordinator = getSidePanelContainerCoordinator();
+        showPanel(tab2);
+        waitForContainerViewOpen(coordinator);
+        mResponsivePageStation = newTabPageStation.selectTabFast(tab1, WebPageStation::newBuilder);
+        showPanel(tab1);
+        waitForContainerViewOpen(coordinator);
+
+        // Act: Go to the grid tab switcher (GTS), and use the three-dot menu to close all tabs.
+        var tabSwitcherStation = mResponsivePageStation.openRegularTabSwitcher();
+        var dialogFacility = tabSwitcherStation.openAppMenu().clickCloseAllTabs();
+        var undoSnackbar =
+                dialogFacility
+                        .positiveButtonElement
+                        .clickTo()
+                        .exitFacilityAnd()
+                        .enterFacility(new UndoSnackbarFacility<>("tabs closed"));
+
+        // Assert: The side panel is closed in the 0-tab GTS state.
+        waitForContainerViewClose(coordinator);
+
+        // Act: Undo the tab closure using the undo snackbar.
+        undoSnackbar.pressUndo();
+        RecyclerViewTestUtils.waitForView(tabSwitcherStation.recyclerViewElement.value(), 0);
+        RecyclerViewTestUtils.waitForView(tabSwitcherStation.recyclerViewElement.value(), 1);
+
+        // Act: Select the restored tab 1.
+        mResponsivePageStation =
+                tabSwitcherStation.selectTabAtIndex(0, WebPageStation.newBuilder());
+
+        // Assert: The side panel for tab 1 is automatically restored and reopened.
+        waitForContainerViewOpen(coordinator);
+
+        // Act: Select the restored tab 2.
+        mResponsivePageStation.selectTabFast(tab2, RegularNewTabPageStation::newBuilder);
+
+        // Assert: The side panel for tab 2 is automatically restored and reopened.
+        waitForContainerViewOpen(coordinator);
+    }
+
+    @Test
+    @MediumTest
+    @DisableFeatures(ChromeFeatureList.DISABLE_GRID_TAB_SWITCHER)
+    @EnableFeatures(ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL_DEV_FEATURE + ":scope/window")
+    public void closeAllTabsInGridTabSwitcher_undo_restoresWindowScopedSidePanel() {
+        // Arrange: Open a second tab.
+        var newTabPageStation = mResponsivePageStation.openNewTabFast();
+        var newTab = newTabPageStation.getTab();
+
+        // Arrange: Open the window-scoped side panel.
+        var coordinator = getSidePanelContainerCoordinator();
+        showPanel(newTab);
+        waitForContainerViewOpen(coordinator);
+
+        // Act: Go to the grid tab switcher (GTS), and use the three-dot menu to close all tabs.
+        var tabSwitcherStation = newTabPageStation.openRegularTabSwitcher();
+        var dialogFacility = tabSwitcherStation.openAppMenu().clickCloseAllTabs();
+        var undoSnackbar =
+                dialogFacility
+                        .positiveButtonElement
+                        .clickTo()
+                        .exitFacilityAnd()
+                        .enterFacility(new UndoSnackbarFacility<>("tabs closed"));
+
+        // Assert: The side panel is closed in the 0-tab GTS state.
+        waitForContainerViewClose(coordinator);
+
+        // Act: Undo the tab closure using the undo snackbar.
+        undoSnackbar.pressUndo();
+        RecyclerViewTestUtils.waitForView(tabSwitcherStation.recyclerViewElement.value(), 0);
+        RecyclerViewTestUtils.waitForView(tabSwitcherStation.recyclerViewElement.value(), 1);
+
+        // Act: Select the restored tab 1.
+        mResponsivePageStation =
+                tabSwitcherStation.selectTabAtIndex(0, WebPageStation.newBuilder());
+
+        // Assert: The side panel is automatically restored and reopened.
+        waitForContainerViewOpen(coordinator);
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures(ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL_DEV_FEATURE + ":scope/tab")
+    public void closeTab_undo_restoresTabScopedSidePanel() {
+        // Arrange: Open a second tab and show the side panel on it.
+        var newTabPageStation = mResponsivePageStation.openNewTabFast();
+        var newTab = newTabPageStation.getTab();
+        var coordinator = getSidePanelContainerCoordinator();
+        showPanel(newTab);
+        waitForContainerViewOpen(coordinator);
+
+        // Act: Close the new (active) tab.
+        var undoSnackbar =
+                ChromeTriggers.invokeCustomMenuActionTo(
+                                org.chromium.chrome.R.id.close_tab, newTabPageStation)
+                        .arriveAtAnd(
+                                WebPageStation.newBuilder()
+                                        .initFrom(newTabPageStation)
+                                        .withIsSelectingTabs(1)
+                                        .build())
+                        .enterFacility(new UndoSnackbarFacility<>("Closed"));
+
+        // Assert: The side panel is closed because the first tab doesn't have an open side panel.
+        waitForContainerViewClose(coordinator);
+
+        // Act: Undo the tab closure.
+        undoSnackbar
+                .pressUndoTo()
+                .arriveAt(RegularNewTabPageStation.newBuilder().initSelectingExistingTab().build());
+
+        // Assert: The side panel for the second tab is automatically restored and reopened.
+        waitForContainerViewOpen(coordinator);
     }
 
     @Test
@@ -899,7 +1056,7 @@ public class SidePanelContainerCoordinatorIntegrationTest {
         assertTrue(containerView instanceof ViewGroup);
 
         CriteriaHelper.pollUiThread(
-                () -> containerView.getWidth() > 0,
+                () -> containerView.isShown() && containerView.getWidth() > 0,
                 "The container View should have been attached and laid out.");
         return (ViewGroup) containerView;
     }

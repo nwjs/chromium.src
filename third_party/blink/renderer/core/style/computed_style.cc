@@ -179,7 +179,7 @@ PseudoElementStyleCache& ComputedStyle::EnsurePseudoElementStyleCache() const {
   return *cached_data_->pseudo_element_styles_;
 }
 
-const ComputedStyle* ComputedStyle::GetInitialStyleSingleton() {
+const ComputedStyle& ComputedStyle::GetInitialStyleSingleton() {
   DEFINE_THREAD_SAFE_STATIC_LOCAL(
       ThreadSpecific<Persistent<const ComputedStyle>>,
       thread_specific_initial_style, ());
@@ -188,7 +188,7 @@ const ComputedStyle* ComputedStyle::GetInitialStyleSingleton() {
     persistent = MakeGarbageCollected<ComputedStyle>(PassKey());
     LEAK_SANITIZER_IGNORE_OBJECT(&persistent);
   }
-  return persistent.Get();
+  return *persistent;
 }
 
 Vector<AtomicString>* ComputedStyle::GetVariableNamesCache() const {
@@ -283,11 +283,13 @@ bool ComputedStyle::DiffAffectsContainerQueries(
 
 static bool DiffAffectsScrollAnimations(const ComputedStyle& old_style,
                                         const ComputedStyle& new_style) {
-  if ((old_style.ScrollTimelineName() != new_style.ScrollTimelineName()) ||
+  if (!base::ValuesEquivalent(old_style.ScrollTimelineName(),
+                              new_style.ScrollTimelineName()) ||
       (old_style.ScrollTimelineAxis() != new_style.ScrollTimelineAxis())) {
     return true;
   }
-  if ((old_style.ViewTimelineName() != new_style.ViewTimelineName()) ||
+  if (!base::ValuesEquivalent(old_style.ViewTimelineName(),
+                              new_style.ViewTimelineName()) ||
       (old_style.ViewTimelineAxis() != new_style.ViewTimelineAxis()) ||
       (old_style.ViewTimelineInset() != new_style.ViewTimelineInset())) {
     return true;
@@ -491,6 +493,10 @@ ComputedStyle::ComputeDifferenceIgnoringInheritedFirstLineStyle(
       old_style.HasAnyPseudoElementStyles()) {
     return Difference::kPseudoElementStyle;
   }
+  if (old_style.ScrollMarkerGroupPosition() !=
+      new_style.ScrollMarkerGroupPosition()) {
+    return Difference::kPseudoElementStyle;
+  }
   if (old_style.Display() != new_style.Display() &&
       (new_style.IsDisplayListItem() || old_style.IsDisplayListItem())) {
     return Difference::kPseudoElementStyle;
@@ -502,13 +508,13 @@ StyleSelfAlignmentData ResolvedSelfAlignment(
     const StyleSelfAlignmentData& value,
     const StyleSelfAlignmentData& normal_value_behavior,
     bool has_anchor_center_offset) {
-  if (value.GetPosition() == ItemPosition::kLegacy ||
-      value.GetPosition() == ItemPosition::kNormal ||
-      value.GetPosition() == ItemPosition::kAuto) {
+  if (value.GetComputedPosition() == ItemPosition::kLegacy ||
+      value.GetComputedPosition() == ItemPosition::kNormal ||
+      value.GetComputedPosition() == ItemPosition::kAuto) {
     return normal_value_behavior;
   }
   if (!has_anchor_center_offset &&
-      value.GetPosition() == ItemPosition::kAnchorCenter) {
+      value.GetComputedPosition() == ItemPosition::kAnchorCenter) {
     return {ItemPosition::kCenter, value.Overflow(), value.PositionType()};
   }
   return value;
@@ -519,7 +525,8 @@ StyleSelfAlignmentData ComputedStyle::ResolvedAlignSelf(
     const ComputedStyle* parent_style) const {
   // We will return the behaviour of 'normal' value if needed, which is specific
   // of each layout model.
-  if (!parent_style || AlignSelf().GetPosition() != ItemPosition::kAuto) {
+  if (!parent_style ||
+      AlignSelf().GetComputedPosition() != ItemPosition::kAuto) {
     return ResolvedSelfAlignment(AlignSelf(), normal_value_behavior,
                                  AnchorCenterOffset().has_value());
   }
@@ -535,7 +542,8 @@ StyleSelfAlignmentData ComputedStyle::ResolvedJustifySelf(
     const ComputedStyle* parent_style) const {
   // We will return the behaviour of 'normal' value if needed, which is specific
   // of each layout model.
-  if (!parent_style || JustifySelf().GetPosition() != ItemPosition::kAuto) {
+  if (!parent_style ||
+      JustifySelf().GetComputedPosition() != ItemPosition::kAuto) {
     return ResolvedSelfAlignment(JustifySelf(), normal_value_behavior,
                                  AnchorCenterOffset().has_value());
   }
@@ -1507,7 +1515,7 @@ namespace {
 
 gfx::RectF GetReferenceBox(const LayoutBox* box, CoordBox coord_box) {
   if (box) {
-    if (const LayoutBlock* containing_block = box->ContainingBlock()) {
+    if (const LayoutBox* containing_block = box->ContainingBlock()) {
       // In SVG contexts, all values behave as view-box.
       if (box->IsSVG()) {
         return gfx::RectF(SVGViewportResolver(*box).ResolveViewport());
@@ -1533,7 +1541,7 @@ gfx::RectF GetReferenceBox(const LayoutBox* box, CoordBox coord_box) {
 
 gfx::PointF GetOffsetFromContainingBlock(const LayoutBox* box) {
   if (box) {
-    if (const LayoutBlock* containing_block = box->ContainingBlock()) {
+    if (const LayoutBox* containing_block = box->ContainingBlock()) {
       gfx::PointF offset =
           box->LocalToAncestorPoint(gfx::PointF(), containing_block,
                                     {MapCoordinatesMode::kIgnoreTransforms});
@@ -2004,7 +2012,7 @@ String ApplyMathAutoTransform(const String& text, TextOffsetMap* offset_map) {
 }  // namespace
 
 String ComputedStyle::ApplyTextTransform(const String& text,
-                                         UChar previous_character,
+                                         UChar32 previous_character,
                                          TextOffsetMap* offset_map) const {
   ETextTransform transform = TextTransform();
 
@@ -2022,7 +2030,13 @@ String ComputedStyle::ApplyTextTransform(const String& text,
     if (RuntimeEnabledFeatures::ICUCapitalizationEnabled()) {
       const LayoutLocale* locale = GetFontDescription().Locale();
       CaseMap case_map(locale ? locale->CaseMapLocale() : CaseMap::Locale());
-      result = case_map.ToTitle(result, offset_map, previous_character);
+      if (RuntimeEnabledFeatures::
+              CapitalizeAfterSupplementaryCharacterFixEnabled()) {
+        result = case_map.ToTitle(result, offset_map, previous_character);
+      } else {
+        result = case_map.ToTitle(result, offset_map,
+                                  static_cast<UChar>(previous_character));
+      }
     } else {
       result = Capitalize(result, previous_character);
     }

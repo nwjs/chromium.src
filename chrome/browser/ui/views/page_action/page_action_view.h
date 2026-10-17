@@ -58,7 +58,6 @@ class PageActionView : public IconLabelBubbleView,
   std::u16string GetTooltipText() const override;
   std::u16string GetAccessibleName() const override;
   void SetVisible(bool visible) override;
-  IconLabelBubbleView* GetIconLabelBubbleViewNotMigrated() override;
 
   // Sets the controller for this view, and attaches this view in the
   // controller.
@@ -159,6 +158,7 @@ class PageActionView : public IconLabelBubbleView,
 
   // IconLabelBubbleView:
   SkColor GetBackgroundColor() const override;
+  SkColor GetForegroundColor() const override;
   bool PaintedOnSolidBackground() const override;
 
  private:

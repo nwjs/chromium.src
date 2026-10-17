@@ -21,6 +21,9 @@ class Widget;
 namespace dictation {
 
 // This class implements the agent toast UI for dictation.
+// TODO(b/555790343): Generalize the name and terms in this class to be more
+// voice-centric and less dictation-specific.
+// TODO(b/555790343): Make the toggle button optional.
 class DictationBubbleUi : public views::BubbleDialogDelegate {
  public:
   explicit DictationBubbleUi(
@@ -37,6 +40,8 @@ class DictationBubbleUi : public views::BubbleDialogDelegate {
   gfx::Rect GetBubbleBounds() override;
   void Init() override;
   views::View* GetInitiallyFocusedView() override;
+
+  UiState state() const { return state_; }
 
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kViewElementIdForTesting);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kCloseButtonElementIdForTesting);

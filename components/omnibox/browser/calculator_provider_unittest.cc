@@ -65,10 +65,11 @@ class CalculatorProviderTest : public testing::Test,
                            AutocompleteInput input) {
     search_provider_->matches_.clear();
     for (const auto& search_match : search_matches) {
-      AutocompleteMatch match(search_provider_.get(), 1000, true,
-                              search_match.is_calc
-                                  ? AutocompleteMatchType::CALCULATOR
-                                  : AutocompleteMatchType::SEARCH_SUGGEST);
+      AutocompleteMatch match(
+          search_provider_.get(), 1000, true,
+          search_match.is_calc
+              ? omnibox::AutocompleteMatchType::kCalculator
+              : omnibox::AutocompleteMatchType::kSearchSuggest);
       match.contents = search_match.contents;
       search_provider_->matches_.push_back(match);
     }

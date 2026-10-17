@@ -9,6 +9,7 @@
 
 #include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_panel_controller.h"
 #include "chrome/browser/ui/immersive/immersive_mode_controller.h"
@@ -27,11 +28,14 @@ class LayerOwner;
 
 class ContextualTasksButton
     : public ToolbarButton,
+      public ui::SimpleMenuModel::Delegate,
       public contextual_tasks::ContextualTasksPanelController::Observer,
       public ImmersiveModeController::Observer {
   METADATA_HEADER(ContextualTasksButton, ToolbarButton)
 
  public:
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(
+      kContextualTasksEphemeralButtonRemoveForTaskMenuItem);
   enum class Shape {
     kCircle,
     kFlatEdgeLeft,
@@ -49,6 +53,9 @@ class ContextualTasksButton
   bool IsTrailing() const;
   bool IsSidePanelRightAligned() const;
   ui::Layer* GetDropShadowLayerForTesting() const;
+
+  // ui::SimpleMenuModel::Delegate:
+  void ExecuteCommand(int command_id, int event_flags) override;
   // contextual_tasks::ContextualTasksPanelController::Observer:
   void OnSurfaceStateChanged(
       contextual_tasks::ContextualTasksPanelHost::SurfaceState state,
@@ -101,6 +108,8 @@ class ContextualTasksButton
   base::ScopedObservation<ImmersiveModeController,
                           ImmersiveModeController::Observer>
       immersive_mode_observation_{this};
+
+  base::WeakPtrFactory<ContextualTasksButton> weak_ptr_factory_{this};
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_CONTEXTUAL_TASKS_CONTEXTUAL_TASKS_BUTTON_H_

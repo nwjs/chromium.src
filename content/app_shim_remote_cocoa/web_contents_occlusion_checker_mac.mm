@@ -11,9 +11,12 @@
 #include "base/auto_reset.h"
 #include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
+#include "base/feature.h"
+#include "base/feature_list.h"
 #include "base/mac/mac_util.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/no_destructor.h"
+#import "components/remote_cocoa/app_shim/native_widget_ns_window_bridge.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/common/content_client.h"
 
@@ -27,6 +30,60 @@ bool IsBrowserProcess() {
   return base::CommandLine::ForCurrentProcess()
       ->GetSwitchValueASCII("type")
       .empty();
+}
+
+// Emergency shutoff for macOS 26 / Stage Manager. See
+// https://crbug.com/448103577 for the history here. Hopefully this can all be
+// removed soon.
+
+enum MacOcclusionForceShutoff {
+  kNoShutoff,
+  kShutoffMacOS26Entirely,
+  kShutoffStageManagerEntirely,
+  kShutoffMacOS26StageManager,
+};
+
+BASE_FEATURE(kMacOcclusionForceShutoff, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(int, kShutoffType, &kMacOcclusionForceShutoff, kNoShutoff);
+
+bool IsEmergencyShutoffEnabled() {
+  if (!base::FeatureList::IsEnabled(kMacOcclusionForceShutoff)) {
+    return false;
+  }
+
+  bool is_macos26 = base::mac::MacOSMajorVersion() >= 26;
+  bool is_stage_manager_enabled = [] {
+    NSDictionary* window_manager_prefs = [NSUserDefaults.standardUserDefaults
+        persistentDomainForName:@"com.apple.WindowManager"];
+    NSNumber* value = base::apple::ObjCCast<NSNumber>(
+        window_manager_prefs[@"GloballyEnabled"]);
+    return value.boolValue;
+  }();
+
+  switch (kShutoffType.Get()) {
+    default:
+      // Huh?
+      return false;
+    case kShutoffMacOS26Entirely:
+      return is_macos26;
+    case kShutoffStageManagerEntirely:
+      return is_stage_manager_enabled;
+    case kShutoffMacOS26StageManager:
+      return is_macos26 && is_stage_manager_enabled;
+  }
+}
+
+bool WindowHasOpaqueFrameBackgroundView(NSView* view) {
+  if ([view.identifier
+          isEqualToString:remote_cocoa::kOpaqueFrameBackgroundViewIdentifier]) {
+    return true;
+  }
+  for (NSView* subview in [view subviews]) {
+    if (WindowHasOpaqueFrameBackgroundView(subview)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 }  // namespace
@@ -71,7 +128,11 @@ bool IsBrowserProcess() {
 }
 
 + (BOOL)manualOcclusionDetectionSupportedForPackedVersion:(int)version {
-  if ((version >= 13'00'00 && version < 13'03'00) || version >= 26'00'00) {
+  if (version >= 13'00'00 && version < 13'03'00) {
+    return NO;
+  }
+
+  if (IsEmergencyShutoffEnabled()) {
     return NO;
   }
 
@@ -436,7 +497,13 @@ bool IsBrowserProcess() {
   // Non-opaque windows still hide what's beneath them as long as they paint
   // an opaque background (embedders clear -isOpaque just to get rounded
   // corners).
-  return [[window backgroundColor] alphaComponent] >= 1.0;
+  if ([[window backgroundColor] alphaComponent] >= 1.0) {
+    return YES;
+  }
+  // Browser windows with a glass frame are non-opaque and have a clear
+  // background to enable the glass frame effect, but paint an opaque
+  // background view behind the client area.
+  return WindowHasOpaqueFrameBackgroundView([window contentView]);
 }
 
 // Returns YES if `window` is occluded, either according to macOS or via

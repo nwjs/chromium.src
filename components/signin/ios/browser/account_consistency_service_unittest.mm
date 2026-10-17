@@ -17,6 +17,7 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/values.h"
+#include "build/blink_buildflags.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/prefs/pref_service.h"
@@ -34,7 +35,6 @@
 #include "ios/web/public/navigation/web_state_policy_decider.h"
 #include "ios/web/public/test/fakes/fake_browser_state.h"
 #import "ios/web/public/test/fakes/fake_web_state.h"
-#include "ios/web/public/test/web_task_environment.h"
 #include "net/base/apple/url_conversions.h"
 #include "net/cookies/cookie_util.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -42,6 +42,12 @@
 #include "testing/platform_test.h"
 #include "third_party/ocmock/OCMock/OCMock.h"
 #include "third_party/ocmock/gtest_support.h"
+
+#if BUILDFLAG(USE_BLINK)
+#include "content/public/test/browser_task_environment.h"
+#else
+#include "ios/web/public/test/web_task_environment.h"
+#endif
 
 using testing::NiceMock;
 
@@ -119,9 +125,10 @@ class FakeManageAccountsDelegate : public ManageAccountsDelegate {
   void OnGoIncognito(const GURL& url, web::WebState* web_state) override {
     go_incognito_call_count_++;
   }
-  bool SigninEnabled() const override { return true; }
+  bool SigninEnabled() const override { return signin_enabled_; }
+  void SetSigninEnabled(bool enabled) { signin_enabled_ = enabled; }
 
-  int total_call_count() {
+  int TotalCallCount() {
     return restore_cookies_call_count_ + manage_accounts_call_count_ +
            add_account_call_count_ + show_promo_call_count_ +
            go_incognito_call_count_;
@@ -133,6 +140,7 @@ class FakeManageAccountsDelegate : public ManageAccountsDelegate {
   int show_promo_call_count_ = 0;
   int go_incognito_call_count_ = 0;
   std::string add_account_email_;
+  bool signin_enabled_ = true;
 };
 
 // FakeWebState that allows control over its policy decider.
@@ -342,7 +350,11 @@ class AccountConsistencyServiceTest : public PlatformTest {
   }
 
   // Properties available for tests.
+#if BUILDFLAG(USE_BLINK)
+  content::BrowserTaskEnvironment task_environment_{
+#else
   web::WebTaskEnvironment task_environment_{
+#endif
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   web::FakeBrowserState browser_state_;
   sync_preferences::TestingPrefServiceSyncable prefs_;
@@ -447,7 +459,7 @@ TEST_F(AccountConsistencyServiceTest, ChromeManageAccountsNotOnGaia) {
       headerFields:headers];
 
   SimulateNavigateToURL(response, &delegate_);
-  EXPECT_EQ(0, delegate_.total_call_count());
+  EXPECT_EQ(0, delegate_.TotalCallCount());
 }
 
 // Tests that navigation to Gaia signon realm with no X-Chrome-Manage-Accounts
@@ -461,7 +473,7 @@ TEST_F(AccountConsistencyServiceTest, ChromeManageAccountsNoHeader) {
       headerFields:headers];
 
   SimulateNavigateToURL(response, &delegate_);
-  EXPECT_EQ(0, delegate_.total_call_count());
+  EXPECT_EQ(0, delegate_.TotalCallCount());
 }
 
 // Tests that the ManageAccountsDelegate is notified when a navigation on Gaia
@@ -481,8 +493,75 @@ TEST_F(AccountConsistencyServiceTest, ChromeManageAccountsDefault) {
 
   SimulateNavigateToURLWithInterruption(response, &delegate_);
 
-  EXPECT_EQ(1, delegate_.total_call_count());
+  EXPECT_EQ(1, delegate_.TotalCallCount());
   EXPECT_EQ(1, delegate_.manage_accounts_call_count_);
+}
+
+// Tests that the ManageAccountsDelegate is not notified when a navigation on
+// Gaia signon realm returns with a X-Chrome-Manage-Accounts header with action
+// DEFAULT if sign-in is disabled.
+TEST_F(AccountConsistencyServiceTest,
+       ChromeManageAccountsDefault_SigninDisabled) {
+  delegate_.SetSigninEnabled(false);
+  NSDictionary* headers =
+      [NSDictionary dictionaryWithObject:@"action=DEFAULT"
+                                  forKey:@"X-Chrome-Manage-Accounts"];
+  NSHTTPURLResponse* response = [[NSHTTPURLResponse alloc]
+       initWithURL:[NSURL URLWithString:@"https://accounts.google.com/"]
+        statusCode:200
+       HTTPVersion:@"HTTP/1.1"
+      headerFields:headers];
+  EXPECT_CALL(*account_reconcilor_, OnReceivedManageAccountsResponse(
+                                        signin::GAIA_SERVICE_TYPE_DEFAULT));
+
+  SimulateNavigateToURLWithInterruption(response, &delegate_);
+
+  EXPECT_EQ(0, delegate_.TotalCallCount());
+  EXPECT_EQ(0, delegate_.manage_accounts_call_count_);
+}
+
+// Tests that the ManageAccountsDelegate is notified when a navigation on Gaia
+// signon realm returns with a X-Chrome-Manage-Accounts header with action
+// SIGNOUT.
+TEST_F(AccountConsistencyServiceTest, ChromeManageAccountsSignout) {
+  NSDictionary* headers =
+      [NSDictionary dictionaryWithObject:@"action=SIGNOUT"
+                                  forKey:@"X-Chrome-Manage-Accounts"];
+  NSHTTPURLResponse* response = [[NSHTTPURLResponse alloc]
+       initWithURL:[NSURL URLWithString:@"https://accounts.google.com/"]
+        statusCode:200
+       HTTPVersion:@"HTTP/1.1"
+      headerFields:headers];
+  EXPECT_CALL(*account_reconcilor_, OnReceivedManageAccountsResponse(
+                                        signin::GAIA_SERVICE_TYPE_SIGNOUT));
+
+  SimulateNavigateToURLWithInterruption(response, &delegate_);
+
+  EXPECT_EQ(1, delegate_.TotalCallCount());
+  EXPECT_EQ(1, delegate_.manage_accounts_call_count_);
+}
+
+// Tests that the ManageAccountsDelegate is not notified when a navigation on
+// Gaia signon realm returns with a X-Chrome-Manage-Accounts header with action
+// SIGNOUT if sign-in is disabled.
+TEST_F(AccountConsistencyServiceTest,
+       ChromeManageAccountsSignout_SigninDisabled) {
+  delegate_.SetSigninEnabled(false);
+  NSDictionary* headers =
+      [NSDictionary dictionaryWithObject:@"action=SIGNOUT"
+                                  forKey:@"X-Chrome-Manage-Accounts"];
+  NSHTTPURLResponse* response = [[NSHTTPURLResponse alloc]
+       initWithURL:[NSURL URLWithString:@"https://accounts.google.com/"]
+        statusCode:200
+       HTTPVersion:@"HTTP/1.1"
+      headerFields:headers];
+  EXPECT_CALL(*account_reconcilor_, OnReceivedManageAccountsResponse(
+                                        signin::GAIA_SERVICE_TYPE_SIGNOUT));
+
+  SimulateNavigateToURLWithInterruption(response, &delegate_);
+
+  EXPECT_EQ(0, delegate_.TotalCallCount());
+  EXPECT_EQ(0, delegate_.manage_accounts_call_count_);
 }
 
 // Tests that the ManageAccountsDelegate is notified when a navigation on Gaia
@@ -498,7 +577,7 @@ TEST_F(AccountConsistencyServiceTest, ChromeShowConsistencyPromo) {
 
   SimulateNavigateToURL(response, &delegate_);
 
-  EXPECT_EQ(1, delegate_.total_call_count());
+  EXPECT_EQ(1, delegate_.TotalCallCount());
   EXPECT_EQ(1, delegate_.show_promo_call_count_);
 }
 
@@ -514,7 +593,7 @@ TEST_F(AccountConsistencyServiceTest,
       headerFields:headers];
 
   SimulateNavigateToURLWithPageLoadFailure(response, &delegate_);
-  EXPECT_EQ(0, delegate_.total_call_count());
+  EXPECT_EQ(0, delegate_.TotalCallCount());
 }
 
 // Tests that the consistency promo is not displayed when a page fails to load
@@ -545,7 +624,7 @@ TEST_F(AccountConsistencyServiceTest,
 
   SimulateNavigateToURLWithInterruption(responseAddAccount, &delegate_);
 
-  EXPECT_EQ(1, delegate_.total_call_count());
+  EXPECT_EQ(1, delegate_.TotalCallCount());
   EXPECT_EQ(1, delegate_.add_account_call_count_);
   EXPECT_EQ(0, delegate_.show_promo_call_count_);
 }
@@ -566,8 +645,72 @@ TEST_F(AccountConsistencyServiceTest, ChromeManageAccountsShowAddAccount) {
                                         signin::GAIA_SERVICE_TYPE_ADDSESSION));
 
   SimulateNavigateToURLWithInterruption(response, &delegate_);
-  EXPECT_EQ(1, delegate_.total_call_count());
+  EXPECT_EQ(1, delegate_.TotalCallCount());
   EXPECT_EQ(1, delegate_.add_account_call_count_);
+}
+
+// Tests that the ManageAccountsDelegate is not notified when a navigation on
+// Gaia signon realm returns with a X-Chrome-Manage-Accounts header with
+// ADDSESSION action if sign-in is disabled.
+TEST_F(AccountConsistencyServiceTest,
+       ChromeManageAccountsShowAddAccount_SigninDisabled) {
+  delegate_.SetSigninEnabled(false);
+  NSDictionary* headers =
+      [NSDictionary dictionaryWithObject:@"action=ADDSESSION"
+                                  forKey:@"X-Chrome-Manage-Accounts"];
+  NSHTTPURLResponse* response = [[NSHTTPURLResponse alloc]
+       initWithURL:[NSURL URLWithString:@"https://accounts.google.com/"]
+        statusCode:200
+       HTTPVersion:@"HTTP/1.1"
+      headerFields:headers];
+  EXPECT_CALL(*account_reconcilor_, OnReceivedManageAccountsResponse(
+                                        signin::GAIA_SERVICE_TYPE_ADDSESSION));
+
+  SimulateNavigateToURLWithInterruption(response, &delegate_);
+  EXPECT_EQ(0, delegate_.TotalCallCount());
+  EXPECT_EQ(0, delegate_.add_account_call_count_);
+}
+
+// Tests that the ManageAccountsDelegate is notified when a navigation on Gaia
+// signon realm returns with a X-Chrome-Manage-Accounts header with SIGNUP
+// action.
+TEST_F(AccountConsistencyServiceTest, ChromeManageAccountsSignup) {
+  NSDictionary* headers =
+      [NSDictionary dictionaryWithObject:@"action=SIGNUP"
+                                  forKey:@"X-Chrome-Manage-Accounts"];
+  NSHTTPURLResponse* response = [[NSHTTPURLResponse alloc]
+       initWithURL:[NSURL URLWithString:@"https://accounts.google.com/"]
+        statusCode:200
+       HTTPVersion:@"HTTP/1.1"
+      headerFields:headers];
+  EXPECT_CALL(*account_reconcilor_, OnReceivedManageAccountsResponse(
+                                        signin::GAIA_SERVICE_TYPE_SIGNUP));
+
+  SimulateNavigateToURLWithInterruption(response, &delegate_);
+  EXPECT_EQ(1, delegate_.TotalCallCount());
+  EXPECT_EQ(1, delegate_.add_account_call_count_);
+}
+
+// Tests that the ManageAccountsDelegate is not notified when a navigation on
+// Gaia signon realm returns with a X-Chrome-Manage-Accounts header with SIGNUP
+// action if sign-in is disabled.
+TEST_F(AccountConsistencyServiceTest,
+       ChromeManageAccountsSignup_SigninDisabled) {
+  delegate_.SetSigninEnabled(false);
+  NSDictionary* headers =
+      [NSDictionary dictionaryWithObject:@"action=SIGNUP"
+                                  forKey:@"X-Chrome-Manage-Accounts"];
+  NSHTTPURLResponse* response = [[NSHTTPURLResponse alloc]
+       initWithURL:[NSURL URLWithString:@"https://accounts.google.com/"]
+        statusCode:200
+       HTTPVersion:@"HTTP/1.1"
+      headerFields:headers];
+  EXPECT_CALL(*account_reconcilor_, OnReceivedManageAccountsResponse(
+                                        signin::GAIA_SERVICE_TYPE_SIGNUP));
+
+  SimulateNavigateToURLWithInterruption(response, &delegate_);
+  EXPECT_EQ(0, delegate_.TotalCallCount());
+  EXPECT_EQ(0, delegate_.add_account_call_count_);
 }
 
 // Tests that domains with cookie are correctly loaded from the prefs on service
@@ -678,7 +821,7 @@ TEST_F(AccountConsistencyServiceTest, GAIACookieMissingOnSignin) {
   SimulateNavigateToURLWithInterruption(response, &delegate_);
   histogram_tester.ExpectTotalCount(kGAIACookieOnNavigationHistogram, 1);
 
-  EXPECT_EQ(1, delegate_.total_call_count());
+  EXPECT_EQ(1, delegate_.TotalCallCount());
   EXPECT_EQ(1, delegate_.add_account_call_count_);
 }
 
@@ -738,7 +881,7 @@ TEST_F(AccountConsistencyServiceTest,
   SimulateNavigateToURL(response, &delegate_);
 
   CheckNoChromeConnectedCookies();
-  EXPECT_EQ(0, delegate_.total_call_count());
+  EXPECT_EQ(0, delegate_.TotalCallCount());
 }
 
 // Ensures that CHROME_CONNECTED cookies are not set when the user is signed out
@@ -761,7 +904,7 @@ TEST_F(AccountConsistencyServiceTest,
   web_state_.OnPageLoaded(web::PageLoadCompletionStatus::SUCCESS);
 
   CheckNoChromeConnectedCookies();
-  EXPECT_EQ(1, delegate_.total_call_count());
+  EXPECT_EQ(1, delegate_.TotalCallCount());
   EXPECT_EQ(1, delegate_.show_promo_call_count_);
 }
 
@@ -829,16 +972,13 @@ TEST_F(AccountConsistencyServiceTest, ChromeAddSessionWithEmail) {
                                         signin::GAIA_SERVICE_TYPE_ADDSESSION));
 
   SimulateNavigateToURLWithInterruption(response, &delegate_);
-  EXPECT_EQ(1, delegate_.total_call_count());
+  EXPECT_EQ(1, delegate_.TotalCallCount());
   EXPECT_EQ(1, delegate_.add_account_call_count_);
   EXPECT_EQ("test@gmail.com", delegate_.add_account_email_);
 }
 
 // Tests that the X-Chrome-Manage-Accounts header is ignored in a subframe.
 TEST_F(AccountConsistencyServiceTest, ChromeManageAccountsIgnoredInSubframe) {
-  base::test::ScopedFeatureList feature_list(
-      switches::kIgnoreChromeManageAccountsInSubframes);
-
   NSDictionary* headers =
       [NSDictionary dictionaryWithObject:@"action=DEFAULT"
                                   forKey:@"X-Chrome-Manage-Accounts"];
@@ -850,10 +990,155 @@ TEST_F(AccountConsistencyServiceTest, ChromeManageAccountsIgnoredInSubframe) {
 
   SetWebStateHandler(&delegate_);
 
-  // When feature is enabled, header is ignored and response is allowed.
+  // Header is ignored in subframes and response is allowed.
   EXPECT_TRUE(web_state_.ShouldAllowResponse(response,
                                              /* for_main_frame = */ false));
   web_state_.SetCurrentURL(net::GURLWithNSURL(response.URL));
   web_state_.OnPageLoaded(web::PageLoadCompletionStatus::SUCCESS);
-  EXPECT_EQ(0, delegate_.total_call_count());
+  EXPECT_EQ(0, delegate_.TotalCallCount());
+}
+
+// Test that a navigation to Gaia with action=INCOGNITO initiated by a Google
+// domain is processed.
+TEST_F(AccountConsistencyServiceTest,
+       ChromeManageAccountsIncognitoFromGoogleInitiator) {
+  base::test::ScopedFeatureList feature_list(
+      switches::kVerifyRequestInitiatorForMirrorHeaders);
+  base::HistogramTester histogram_tester;
+  web_state_.SetCurrentURL(GURL("https://google.com/"));
+
+  NSDictionary* headers = @{
+    @"X-Chrome-Manage-Accounts" :
+        @"action=INCOGNITO,continue_url=\"https://www.google.com/\""
+  };
+  NSHTTPURLResponse* response = [[NSHTTPURLResponse alloc]
+       initWithURL:[NSURL URLWithString:@"https://accounts.google.com/"]
+        statusCode:204
+       HTTPVersion:@"HTTP/1.1"
+      headerFields:headers];
+  EXPECT_CALL(*account_reconcilor_, OnReceivedManageAccountsResponse(
+                                        signin::GAIA_SERVICE_TYPE_INCOGNITO));
+
+  SimulateNavigateToURLWithInterruption(response, &delegate_);
+
+  EXPECT_EQ(1, delegate_.TotalCallCount());
+  EXPECT_EQ(1, delegate_.go_incognito_call_count_);
+  histogram_tester.ExpectUniqueSample(
+      "Signin.ProcessMirrorHeaders.AllowedFromInitiator.GoIncognito", true, 1);
+}
+
+// Test that a navigation to Gaia with action=INCOGNITO initiated by a YouTube
+// domain is processed.
+TEST_F(AccountConsistencyServiceTest,
+       ChromeManageAccountsIncognitoFromYoutubeInitiator) {
+  base::test::ScopedFeatureList feature_list(
+      switches::kVerifyRequestInitiatorForMirrorHeaders);
+  base::HistogramTester histogram_tester;
+  web_state_.SetCurrentURL(GURL("https://youtube.com/"));
+
+  NSDictionary* headers = @{
+    @"X-Chrome-Manage-Accounts" :
+        @"action=INCOGNITO,continue_url=\"https://www.youtube.com/\""
+  };
+  NSHTTPURLResponse* response = [[NSHTTPURLResponse alloc]
+       initWithURL:[NSURL URLWithString:@"https://accounts.google.com/"]
+        statusCode:204
+       HTTPVersion:@"HTTP/1.1"
+      headerFields:headers];
+  EXPECT_CALL(*account_reconcilor_, OnReceivedManageAccountsResponse(
+                                        signin::GAIA_SERVICE_TYPE_INCOGNITO));
+
+  SimulateNavigateToURLWithInterruption(response, &delegate_);
+
+  EXPECT_EQ(1, delegate_.TotalCallCount());
+  EXPECT_EQ(1, delegate_.go_incognito_call_count_);
+  histogram_tester.ExpectUniqueSample(
+      "Signin.ProcessMirrorHeaders.AllowedFromInitiator.GoIncognito", true, 1);
+}
+
+// Test that a navigation to Gaia with action=INCOGNITO initiated by a
+// non-Google domain is ignored.
+TEST_F(AccountConsistencyServiceTest,
+       ChromeManageAccountsIncognitoFromNonGoogleInitiator) {
+  base::test::ScopedFeatureList feature_list(
+      switches::kVerifyRequestInitiatorForMirrorHeaders);
+  base::HistogramTester histogram_tester;
+  web_state_.SetCurrentURL(GURL("https://example.com/"));
+
+  NSDictionary* headers = @{
+    @"X-Chrome-Manage-Accounts" :
+        @"action=INCOGNITO,continue_url=\"https://www.google.com/\""
+  };
+  NSHTTPURLResponse* response = [[NSHTTPURLResponse alloc]
+       initWithURL:[NSURL URLWithString:@"https://accounts.google.com/"]
+        statusCode:204
+       HTTPVersion:@"HTTP/1.1"
+      headerFields:headers];
+  EXPECT_CALL(*account_reconcilor_, OnReceivedManageAccountsResponse(
+                                        signin::GAIA_SERVICE_TYPE_INCOGNITO));
+
+  SimulateNavigateToURLWithInterruption(response, &delegate_);
+
+  EXPECT_EQ(0, delegate_.TotalCallCount());
+  EXPECT_EQ(0, delegate_.go_incognito_call_count_);
+  histogram_tester.ExpectUniqueSample(
+      "Signin.ProcessMirrorHeaders.AllowedFromInitiator.GoIncognito", false, 1);
+}
+
+// Test that a navigation to Gaia with action=INCOGNITO initiated with an empty
+// initiator URL is ignored.
+TEST_F(AccountConsistencyServiceTest,
+       ChromeManageAccountsIncognitoFromEmptyInitiator) {
+  base::test::ScopedFeatureList feature_list(
+      switches::kVerifyRequestInitiatorForMirrorHeaders);
+  base::HistogramTester histogram_tester;
+  web_state_.SetCurrentURL(GURL());
+
+  NSDictionary* headers = @{
+    @"X-Chrome-Manage-Accounts" :
+        @"action=INCOGNITO,continue_url=\"https://www.google.com/\""
+  };
+  NSHTTPURLResponse* response = [[NSHTTPURLResponse alloc]
+       initWithURL:[NSURL URLWithString:@"https://accounts.google.com/"]
+        statusCode:204
+       HTTPVersion:@"HTTP/1.1"
+      headerFields:headers];
+  EXPECT_CALL(*account_reconcilor_, OnReceivedManageAccountsResponse(
+                                        signin::GAIA_SERVICE_TYPE_INCOGNITO));
+
+  SimulateNavigateToURLWithInterruption(response, &delegate_);
+
+  EXPECT_EQ(0, delegate_.TotalCallCount());
+  EXPECT_EQ(0, delegate_.go_incognito_call_count_);
+  histogram_tester.ExpectUniqueSample(
+      "Signin.ProcessMirrorHeaders.AllowedFromInitiator.GoIncognito", false, 1);
+}
+
+// Test that a navigation to Gaia with action=INCOGNITO initiated by a
+// Google-associated domain (not google or youtube) is ignored.
+TEST_F(AccountConsistencyServiceTest,
+       ChromeManageAccountsIncognitoFromGoogleAssociatedInitiator) {
+  base::test::ScopedFeatureList feature_list(
+      switches::kVerifyRequestInitiatorForMirrorHeaders);
+  base::HistogramTester histogram_tester;
+  web_state_.SetCurrentURL(GURL("https://storage.googleapis.com/"));
+
+  NSDictionary* headers = @{
+    @"X-Chrome-Manage-Accounts" :
+        @"action=INCOGNITO,continue_url=\"https://www.google.com/\""
+  };
+  NSHTTPURLResponse* response = [[NSHTTPURLResponse alloc]
+       initWithURL:[NSURL URLWithString:@"https://accounts.google.com/"]
+        statusCode:204
+       HTTPVersion:@"HTTP/1.1"
+      headerFields:headers];
+  EXPECT_CALL(*account_reconcilor_, OnReceivedManageAccountsResponse(
+                                        signin::GAIA_SERVICE_TYPE_INCOGNITO));
+
+  SimulateNavigateToURLWithInterruption(response, &delegate_);
+
+  EXPECT_EQ(0, delegate_.TotalCallCount());
+  EXPECT_EQ(0, delegate_.go_incognito_call_count_);
+  histogram_tester.ExpectUniqueSample(
+      "Signin.ProcessMirrorHeaders.AllowedFromInitiator.GoIncognito", false, 1);
 }

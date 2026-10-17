@@ -198,7 +198,6 @@
 <translation id="1525508553941733066">SLUITEN</translation>
 <translation id="152629053603783244">Linux opnieuw opstarten</translation>
 <translation id="1526448108126799339">Nieuw tabblad openen in een nieuw venster</translation>
-<translation id="1528259147807435347">In de afgelopen week bewerkt</translation>
 <translation id="1536604384701784949">Als je <ph name="USER_EMAIL_ADDRESS" /> wilt gebruiken, moet je eerst uitloggen van alle accounts. Wil je uitloggen, selecteer dan Annuleren om terug te gaan. Selecteer daarna de tijd om het statusgedeelte te openen en kies Uitloggen. Log dan weer in op <ph name="USER_EMAIL_ADDRESS_2" />.</translation>
 <translation id="15373452373711364">Grote cursor</translation>
 <translation id="1545331255323159851">Recente foto's, media en meldingen van je telefoon bekijken</translation>
@@ -372,7 +371,6 @@
 <translation id="2075520525463668108"><ph name="CAPTURE_MEDIUM" /> schakelen. <ph name="CAPTURE_MEDIUM" /> is <ph name="CAPTURE_STATE" /></translation>
 <translation id="2079545284768500474">Ongedaan maken</translation>
 <translation id="2086334242442703436">Emoji-kiezer openen</translation>
-<translation id="2088116547584365419">games</translation>
 <translation id="2089550919269323883"><ph name="VM_NAME" /> installeren wordt geblokkeerd door het bedrijfsbeleid. Neem contact op met je systeembeheerder voor support. De foutcode is <ph name="ERROR" />.</translation>
 <translation id="2093792000875799555">Nieuws over Steam voor Chromebook</translation>
 <translation id="209965399369889474">Niet verbonden met netwerk</translation>
@@ -472,7 +470,6 @@
 <translation id="240789602312469910">Stuur gebruiks- en diagnostische gegevens. Verbeter de Android-functionaliteit voor je kind door automatisch diagnostische, apparaat- en app-gebruiksgegevens naar Google te sturen. Deze gegevens worden niet gebruikt om je kind te identificeren en kunnen helpen om de systeem- en app-stabiliteit te verbeteren en andere optimalisaties mogelijk te maken. Ook zijn bepaalde verzamelde gegevens nuttig voor Google-apps en -partners, zoals Android-ontwikkelaars. Deze <ph name="BEGIN_LINK1" />instelling<ph name="END_LINK1" /> wordt afgedwongen door de eigenaar. De eigenaar kan ervoor kiezen diagnostische en gebruiksgegevens voor dit apparaat naar Google te sturen. Als de instelling voor aanvullende Web- en app-activiteit aanstaat voor je kind, kunnen deze gegevens worden opgeslagen in hun Google-account. <ph name="BEGIN_LINK2" />Meer informatie over statistieken<ph name="BEGIN_LINK2_END" />Meer informatie<ph name="END_LINK2" /></translation>
 <translation id="2408955596600435184">Je pincode invoeren</translation>
 <translation id="2412593942846481727">Update beschikbaar</translation>
-<translation id="2416438829169535743">Weergave sluiten?</translation>
 <translation id="2417486498593892439">Inloggen bij netwerk</translation>
 <translation id="2423619675829330672">Te veel pincodepogingen. Wacht <ph name="TIME_LEFT" /> en probeer het opnieuw.</translation>
 <translation id="2426051945783024481">Cameraframe automatisch gecentreerd</translation>
@@ -480,7 +477,6 @@
 <translation id="2429753432712299108">Bluetooth-apparaat '<ph name="DEVICE_NAME" />' wil rechten om te koppelen. Bevestig vóór het accepteren dat de volgende toegangscode op dat apparaat wordt getoond: <ph name="PASSKEY" /></translation>
 <translation id="2435457462613246316">Wachtwoord bekijken</translation>
 <translation id="2437771564543046790">Batterij bijna leeg. Batterijbesparing staat aan.</translation>
-<translation id="243878895369688216">Gisteren geopend</translation>
 <translation id="2440978926514840421">Gif-opname gemaakt</translation>
 <translation id="2441427462554639370">Opname beëindigd omdat er zeer weinig opslagruimte beschikbaar is</translation>
 <translation id="2445449901874883781">Hoge dichtheid gebruiken</translation>
@@ -689,7 +685,6 @@ Anders wordt de ingebouwde touchpad over <ph name="TIMEOUT_SECONDS" /> weer aang
 <translation id="3039491566278747710">Offline beleid instellen op het apparaat is mislukt.</translation>
 <translation id="3039939407102840004">Batterij van stylus op <ph name="PERCENTAGE" /> procent.</translation>
 <translation id="304097922505898963">App voor sneltoetsen openen</translation>
-<translation id="3040982432432547149">Help ons Steam voor Chromebook te verbeteren</translation>
 <translation id="304417730895741346">Je vastgezette en geopende apps staan op de plank. Als je een app wilt vastzetten op de plank, klik je met de rechtermuisknop op een app of tik je met 2 vingers op de touchpad.</translation>
 <translation id="3045670165536837541">Geselecteerde handgreep rechtsboven, gebruik de pijltoetsen om te verplaatsen</translation>
 <translation id="3046178388369461825">Er is zeer weinig Linux-schijfruimte beschikbaar</translation>
@@ -873,7 +868,6 @@ Anders wordt de ingebouwde touchpad over <ph name="TIMEOUT_SECONDS" /> weer aang
 <translation id="3563432852173030730">Kiosk-app kan niet worden gedownload.</translation>
 <translation id="3563558822383875692">DLC instellen.</translation>
 <translation id="3563775809269155755">Hotspot aanzetten</translation>
-<translation id="3566240529365775567">Zojuist geopend</translation>
 <translation id="3571734092741541777">Instellen</translation>
 <translation id="3573179567135747900">Teruggaan naar '<ph name="FROM_LOCALE" />' (opnieuw starten vereist)</translation>
 <translation id="3576141592585647168">Tijdzone wijzigen</translation>
@@ -960,7 +954,6 @@ Sluit je apparaat aan op een stopcontact.</translation>
 <translation id="3756485814916578707">Scherm casten</translation>
 <translation id="3765246971671567135">Kan beleid voor offline demomodus niet lezen.</translation>
 <translation id="3765841382945324995">De sneltoets <ph name="SIX_PACK_KEY_NAME" /> is geüpdatet van <ph name="OLD_SHORTCUT" /> naar <ph name="NEW_SHORTCUT" /></translation>
-<translation id="3765841986579723851">Vandaag bewerkt</translation>
 <translation id="3772109172035555611">Je TrackPoint aanpassen</translation>
 <translation id="3773700760453577392">Een beheerder heeft geen toestemming gegeven voor toegang tot meerdere accounts voor <ph name="USER_EMAIL" />. Alle gebruikers moeten uitloggen om door te gaan.</translation>
 <translation id="3779139509281456663"><ph name="NAME" /> koppelen</translation>
@@ -1000,7 +993,6 @@ Sluit je apparaat aan op een stopcontact.</translation>
 <translation id="3873915545594852654">Er is een probleem opgetreden met ARC++.</translation>
 <translation id="3879748587602334249">Downloadbeheer</translation>
 <translation id="3884007280698606545">USB-limiet bereikt</translation>
-<translation id="3886872229787704059">Vandaag geopend</translation>
 <translation id="3892148308691398805">Tekst kopiëren</translation>
 <translation id="3893630138897523026">ChromeVox (gesproken feedback)</translation>
 <translation id="3898464793473355515">Scherm 90 graden rechtsom draaien</translation>
@@ -1018,7 +1010,6 @@ Sluit je apparaat aan op een stopcontact.</translation>
 <translation id="394485226368336402">Audio-instellingen</translation>
 <translation id="3945319193631853098">Tik om het instellen af te ronden</translation>
 <translation id="3945867833895287237">Verbinding maken met hotspot...</translation>
-<translation id="3950272133184491871">Nu uitloggen?</translation>
 <translation id="3950820424414687140">Inloggen</translation>
 <translation id="3953130726459169782">Nog geen opdrachten afgerond.</translation>
 <translation id="3957844511978444971">Tik op Accepteren om je instellingen voor deze Google-services te bevestigen.</translation>
@@ -1087,7 +1078,6 @@ Sluit je apparaat aan op een stopcontact.</translation>
 <translation id="4147911968024186208">Probeer het opnieuw. Als je deze fout opnieuw ziet, neem je contact op met een medewerker van support.</translation>
 <translation id="4150201353443180367">Weergave</translation>
 <translation id="4151054805501931758">Portret retoucheren</translation>
-<translation id="4151449637210235443">Vertel ons over je recente gameplay</translation>
 <translation id="4156293514828496577">Nog <ph name="PERCENTAGE" />% batterijlading (ongeveer <ph name="TIME_LEFT" />).
 Sommige functies worden beperkt om de batterijduur te verlengen.</translation>
 <translation id="4158003972857765638">Ordenen in een nieuw bureau</translation>
@@ -1792,7 +1782,6 @@ Geen apparaten verbonden.</translation>
 <translation id="6095008505822982596">Spreeksnelheid</translation>
 <translation id="6095425951508823973">Verbinding met <ph name="PROVIDER" /> toevoegen</translation>
 <translation id="6095541101974653012">Je bent uitgelogd.</translation>
-<translation id="6099678161144790572">In de afgelopen maand bewerkt</translation>
 <translation id="6103838137565245112">systeem</translation>
 <translation id="6108952804512516814">Maken met AI</translation>
 <translation id="6114505516289286752">Spraakbestanden in het <ph name="LANGUAGE" /> gedownload</translation>
@@ -1949,7 +1938,6 @@ Geen apparaten verbonden.</translation>
 <translation id="6555373427270923730">Typ een webadres in de adresbalk en druk dan op <ph name="MODIFIER" /> en <ph name="KEY" /></translation>
 <translation id="655633303491376835"><ph name="APP_NAME" />
 Nieuwe installatie</translation>
-<translation id="6559158502366839560">Meer apps en games verkennen</translation>
 <translation id="6560151649238390891">Suggestie ingevoegd</translation>
 <translation id="6562447480759345110">Focus beëindigen</translation>
 <translation id="6565007273808762236">Kan geen verbinding maken met e-simkaart</translation>
@@ -2055,7 +2043,6 @@ Nieuwe installatie</translation>
 <translation id="6848716236260083778">Laat je kind de vingerafdruksensor aanraken om een vingerafdruk in te stellen. De vingerafdrukgegevens van je kind worden beveiligd opgeslagen en blijven uitsluitend op de <ph name="DEVICE_TYPE" /> staan.</translation>
 <translation id="6852052252232534364">Klik om te activeren</translation>
 <translation id="6852628153543175788">10 minuten toevoegen</translation>
-<translation id="6855029042976311970">Zojuist bewerkt</translation>
 <translation id="6856708615407876657">Zoekresultatencategorieën aan-/uitzetten</translation>
 <translation id="6856756288284651804">Chromebook geüpdatet</translation>
 <translation id="6857725247182211756"><ph name="SECONDS" /> s</translation>
@@ -2150,7 +2137,6 @@ Nieuwe installatie</translation>
 <translation id="7118597077555700347"><ph name="SEARCH_RESULT_TEXT" /> openen</translation>
 <translation id="7119327711295338600">Het volgende woord of de volgende letter selecteren</translation>
 <translation id="7124556000457919678">Muistoetsen onderbreken en hervatten als deze functie aanstaat</translation>
-<translation id="7126996685418858413">In de afgelopen week geopend</translation>
 <translation id="7131634465328662194">Je wordt automatisch uitgelogd.</translation>
 <translation id="7143207342074048698">Verbinden</translation>
 <translation id="7144878232160441200">Opnieuw proberen</translation>
@@ -2181,7 +2167,6 @@ Nieuwe installatie</translation>
 <translation id="7256057185598509352">ExpressKey 2</translation>
 <translation id="7256634071279256947">Microfoon aan achterzijde</translation>
 <translation id="7258225044283673131">De app reageert niet. Selecteer 'Nu sluiten' om de app te sluiten.</translation>
-<translation id="7258828758145722155">Gisteren bewerkt</translation>
 <translation id="726276584504105859">Sleep hier naartoe om het scherm te splitsen</translation>
 <translation id="7264788308526527464"><ph name="FOCUS_DURATION_DELTA" /> inkorten</translation>
 <translation id="7267875682732693301">Raak de sensor meerdere keren aan om de verschillende delen van je vingerafdruk toe te voegen.</translation>
@@ -2254,7 +2239,6 @@ Nieuwe installatie</translation>
 <translation id="7491962110804786152">tab</translation>
 <translation id="7497767806359279797">Taal en toetsenbord kiezen</translation>
 <translation id="7507162824403726948">De verificatie van je identiteit afronden</translation>
-<translation id="7508690557411636492">Geopend in de afgelopen maand</translation>
 <translation id="7509246181739783082">Je identiteit verifiëren</translation>
 <translation id="7512509370370076552">De sneltoets voor klikken met de rechtermuisknop is geüpdatet van alt + klikken naar <ph name="LAUNCHER_KEY_NAME" />-toets + klikken</translation>
 <translation id="7512726380443357693"><ph name="BUTTON_LABEL" />, niet geselecteerd</translation>
@@ -2396,7 +2380,6 @@ Als je het apparaat wilt uitzetten, houd je de aan/uit-knop op het apparaat weer
 <translation id="7850320739366109486">Niet storen</translation>
 <translation id="7851039877802112575">De focus naar pop-ups en dialoogvensters verplaatsen</translation>
 <translation id="7851768487828137624">Canary</translation>
-<translation id="7862292329216937261">Als je het apparaat wilt gebruiken als gast, log je uit en selecteer je onderaan het scherm Gebruiken als gast.</translation>
 <translation id="7866482334467279021">aan</translation>
 <translation id="7870790288828963061">Er zijn geen Kiosk-apps met een nieuwere versie gevonden. Er is niets om te updaten. Verwijder de USB-stick.</translation>
 <translation id="7872786842639831132">Uit</translation>
@@ -2709,7 +2692,6 @@ Als je het apparaat wilt uitzetten, houd je de aan/uit-knop op het apparaat weer
 <translation id="8753368202781196133">Deze taal wordt op dit moment niet ondersteund.</translation>
 <translation id="8755498163081687682">Je identiteit verifiëren: <ph name="ORIGIN_NAME" /> wil bevestigen dat jij het bent</translation>
 <translation id="875593634123171288">VPN-instellingen bekijken</translation>
-<translation id="8756799553341497810">Nadat je deze weergave hebt gesloten, kun je de indeling van je app aanpassen.</translation>
 <translation id="8759408218731716181">Kan toegang tot meerdere accounts niet instellen</translation>
 <translation id="8759753423332885148">Meer informatie.</translation>
 <translation id="8760172428247796445">Je <ph name="DEVICE_TYPE" /> wordt nu vergrendeld.

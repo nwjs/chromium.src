@@ -27,6 +27,7 @@ namespace ui {
 class TrackedElement;
 }
 
+class BrowserWindowInterface;
 class ToolbarView;
 class WebUIToolbarWebView;
 
@@ -39,9 +40,13 @@ class WebUIToolbarWebViewTestBase : public InProcessBrowserTest {
 
   void SetUpOnMainThread() override;
 
-  ToolbarView* GetToolbarView();
-  WebUIToolbarWebView* GetWebUIToolbar();
-  content::WebContents* GetWebUIWebContents();
+  // For all of these, if `browser_instance` is nullptr, browser() is used.
+  ToolbarView* GetToolbarView(
+      BrowserWindowInterface* browser_instance = nullptr);
+  WebUIToolbarWebView* GetWebUIToolbar(
+      BrowserWindowInterface* browser_instance = nullptr);
+  content::WebContents* GetWebUIWebContents(
+      BrowserWindowInterface* browser_instance = nullptr);
 
   // Sets the size of a test-only element on the toolbar-app with the provided
   // size, which should cause responsive controls to be asynchronously laid out
@@ -55,28 +60,55 @@ class WebUIToolbarWebViewTestBase : public InProcessBrowserTest {
   //
   // Note that first adding the spacer will likely add some extra
   // margins/padding in addition to `width`.
-  [[nodiscard]] content::EvalJsResult SetSpacerWidth(int width);
+  [[nodiscard]] content::EvalJsResult SetSpacerWidth(
+      int width,
+      BrowserWindowInterface* browser_instance = nullptr);
 
   // Gets the specified tracked element.
-  ui::TrackedElement* GetTrackedElement(ui::ElementIdentifier id);
+  ui::TrackedElement* GetTrackedElement(
+      ui::ElementIdentifier id,
+      BrowserWindowInterface* browser_instance = nullptr);
 
   // Waits until all `visible` elements are visible and all `hidden` elements
   // are hidden.
   [[nodiscard]] bool WaitForTrackedElements(
       const std::vector<ui::ElementIdentifier>& visible,
-      const std::vector<ui::ElementIdentifier>& hidden = {});
+      const std::vector<ui::ElementIdentifier>& hidden = {},
+      BrowserWindowInterface* browser_instance = nullptr);
 
   // Waits until the specified tracked element is visible. Returns null on
   // failure, or if it's detected as visible, but is then hidden before the
   // function returns.
-  ui::TrackedElement* WaitForTrackedElementVisible(ui::ElementIdentifier id);
+  ui::TrackedElement* WaitForTrackedElementVisible(
+      ui::ElementIdentifier id,
+      BrowserWindowInterface* browser_instance = nullptr);
 
   // Waits until the specified tracked element is hidden (or destroyed).
-  [[nodiscard]] bool WaitForTrackedElementHidden(ui::ElementIdentifier id);
+  [[nodiscard]] bool WaitForTrackedElementHidden(
+      ui::ElementIdentifier id,
+      BrowserWindowInterface* browser_instance = nullptr);
 
-  // Enables Battery Saver mode and waits until the button is visible.
+  // Enables battery saver mode and waits until the button is visible.
   void EnableBatterySaverButton(
       content::WebContents* webui_web_contents = nullptr);
+
+  // Returns whether the media button is supported by the WebUI toolbar. The
+  // media button is not available on all platforms, so tests that depend on it
+  // should check this at runtime, rather than hardcoding the list of supported
+  // platforms, which could otherwise silently go stale.
+  bool IsMediaButtonSupported();
+
+  // Shows the media button and waits until the button is visible, as observed
+  // by the ElementTracker. Calls directly into the media button to show it,
+  // rather than by playing audio. The media button must be supported on the
+  // current platform.
+  void ShowMediaButton();
+
+  // Disables (that is, greys out, rather than hides) the media button and waits
+  // until the WebUI renderer process's DOM element is updated to be disabled.
+  // Requires the media button to already be visible. Calls directly into the
+  // media button to disable it, as opposed to by opening a dialog.
+  void DisableMediaButton();
 
  protected:
   WebUIToolbarWebViewTestBase(

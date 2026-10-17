@@ -30,6 +30,7 @@ import androidx.test.filters.MediumTest;
 
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -43,6 +44,7 @@ import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.base.test.util.UserActionTester;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
@@ -70,6 +72,7 @@ public class UniversalOptOutSettingsFragmentTest {
 
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
+    private UserActionTester mActionTester;
     @Mock private SettingsIndexData mSearchIndexDataMock;
     @Mock private SettingsCustomTabLauncher mCustomTabLauncherMock;
 
@@ -81,6 +84,12 @@ public class UniversalOptOutSettingsFragmentTest {
                 () -> {
                     getPrefService().clearPref(Pref.UNIVERSAL_OPT_OUT_ENABLED);
                 });
+        mActionTester = new UserActionTester();
+    }
+
+    @After
+    public void tearDown() {
+        if (mActionTester != null) mActionTester.tearDown();
     }
 
     private PrefService getPrefService() {
@@ -134,17 +143,29 @@ public class UniversalOptOutSettingsFragmentTest {
         ChromeSwitchPreference switchPref =
                 fragment.findPreference(UniversalOptOutSettings.PREF_UNIVERSAL_OPT_OUT_SWITCH);
         assertNotNull(switchPref);
+        assertFalse(switchPref.isChecked());
 
+        // Click the switch preference to turn it on.
+        ThreadUtils.runOnUiThreadBlocking(() -> switchPref.performClick());
+
+        assertTrue(switchPref.isChecked());
+        assertTrue(
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> getPrefService().getBoolean(Pref.UNIVERSAL_OPT_OUT_ENABLED)));
+
+        assertEquals(1, mActionTester.getActionCount("Privacy.UniversalOptOut.SettingsToggleOn"));
+        assertEquals(0, mActionTester.getActionCount("Privacy.UniversalOptOut.SettingsToggleOff"));
+
+        // Click the switch preference again to turn it off.
+        ThreadUtils.runOnUiThreadBlocking(() -> switchPref.performClick());
+
+        assertFalse(switchPref.isChecked());
         assertFalse(
                 ThreadUtils.runOnUiThreadBlocking(
                         () -> getPrefService().getBoolean(Pref.UNIVERSAL_OPT_OUT_ENABLED)));
 
-        // Click the switch preference
-        ThreadUtils.runOnUiThreadBlocking(() -> switchPref.performClick());
-
-        assertTrue(
-                ThreadUtils.runOnUiThreadBlocking(
-                        () -> getPrefService().getBoolean(Pref.UNIVERSAL_OPT_OUT_ENABLED)));
+        assertEquals(1, mActionTester.getActionCount("Privacy.UniversalOptOut.SettingsToggleOn"));
+        assertEquals(1, mActionTester.getActionCount("Privacy.UniversalOptOut.SettingsToggleOff"));
     }
 
     @Test

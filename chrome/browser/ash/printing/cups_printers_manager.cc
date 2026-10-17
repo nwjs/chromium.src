@@ -147,7 +147,7 @@ class CupsPrintersManagerImpl
       SyncedPrintersManager* synced_printers_manager,
       std::unique_ptr<PrinterDetector> usb_detector,
       std::unique_ptr<PrinterDetector> zeroconf_detector,
-      scoped_refptr<PpdProvider> ppd_provider,
+      std::unique_ptr<PpdProvider> ppd_provider,
       DlcserviceClient* dlc_service_client,
       std::unique_ptr<UsbPrinterNotificationController>
           usb_notification_controller,
@@ -426,7 +426,7 @@ class CupsPrintersManagerImpl
     if (printers_being_setup_[id].fingerprint != fingerprint) {
       printers_being_setup_[id].configurer =
           PrinterConfigurer::Create(&application_locale_storage_.get(),
-                                    ppd_provider_, dlc_service_client_);
+                                    ppd_provider_.get(), dlc_service_client_);
       printers_being_setup_[id].fingerprint = fingerprint;
       printers_being_setup_[id].configurer->SetUpPrinterInCups(
           printer, base::BindOnce(
@@ -1166,7 +1166,7 @@ class CupsPrintersManagerImpl
 
     std::map<std::string, PrinterSetupTracker>::iterator it =
         printers_being_setup_.find(printer_id);
-    DCHECK(it != printers_being_setup_.end());
+    CHECK(it != printers_being_setup_.end(), base::NotFatalUntil::M160);
 
     if (result == PrinterSetupResult::kSuccess) {
       installed_printer_fingerprints_[printer_id] = it->second.fingerprint;
@@ -1233,7 +1233,7 @@ class CupsPrintersManagerImpl
 
   std::unique_ptr<PrinterDetector> zeroconf_detector_;
 
-  scoped_refptr<PpdProvider> ppd_provider_;
+  std::unique_ptr<PpdProvider> ppd_provider_;
   raw_ptr<DlcserviceClient> dlc_service_client_;
 
   std::unique_ptr<UsbPrinterNotificationController>
@@ -1333,7 +1333,7 @@ std::unique_ptr<CupsPrintersManager> CupsPrintersManager::CreateForTesting(
     SyncedPrintersManager* synced_printers_manager,
     std::unique_ptr<PrinterDetector> usb_detector,
     std::unique_ptr<PrinterDetector> zeroconf_detector,
-    scoped_refptr<PpdProvider> ppd_provider,
+    std::unique_ptr<PpdProvider> ppd_provider,
     DlcserviceClient* dlc_service_client,
     std::unique_ptr<UsbPrinterNotificationController>
         usb_notification_controller,

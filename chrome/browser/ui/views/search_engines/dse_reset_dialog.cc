@@ -33,6 +33,10 @@
 #include "ui/views/controls/link.h"
 #include "url/gurl.h"
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+#include "ui/views/bubble/bubble_dialog_delegate_view.h"
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+
 namespace search_engines {
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
@@ -139,7 +143,7 @@ void ShowSearchEngineResetNotification(
 
 void MaybeShowSearchEngineResetNotification(
     BrowserWindowInterface* browser,
-    AutocompleteMatch::Type match_type) {
+    omnibox::AutocompleteMatchType match_type) {
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
   // Ensure it is a non-navigation search query.
   if (!AutocompleteMatch::IsSearchType(match_type)) {

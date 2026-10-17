@@ -106,7 +106,7 @@ TEST_F(SuggestInventoryFallbackUtilsTest,
   EXPECT_EQ(matches.size(), kDefaultFallbackNumSuggestions);
   int expected_relevance = kDefaultFallbackSuggestRelevance;
   for (const auto& match : matches) {
-    EXPECT_EQ(match.type, AutocompleteMatchType::SEARCH_SUGGEST);
+    EXPECT_EQ(match.type, AutocompleteMatchType::kSearchSuggest);
     EXPECT_EQ(match.relevance, expected_relevance--);
     EXPECT_FALSE(match.keyword.empty());
     EXPECT_EQ(match.keyword,

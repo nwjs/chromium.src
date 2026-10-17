@@ -589,36 +589,41 @@ void VideoRendererImpl::FrameReady(VideoDecoderStream::ReadResult result) {
   pending_read_ = false;
 
   // Can happen when demuxers are preparing for a new Seek().
-  switch (result.code()) {
-    case DecoderStatus::Codes::kOk:
-      break;
-    case DecoderStatus::Codes::kAborted:
-      // TODO(liberato): This used to check specifically for the value
-      // DEMUXER_READ_ABORTED, which was more specific than |kAborted|.
-      // However, since it's a dcheck, this seems okay.
-      return;
-    default:
-      // Anything other than `kOk` or `kAborted` is treated as an error.
-      DCHECK(!result.has_value());
-
-      std::optional<PipelineStatus> status;
-      switch (result.code()) {
-        case DecoderStatus::Codes::kDisconnected:
-          status = {PIPELINE_ERROR_DISCONNECTED, std::move(result).error()};
-          break;
-        case DecoderStatus::Codes::kOutOfMemory:
-          status = {PIPELINE_ERROR_OUT_OF_MEMORY, std::move(result).error()};
-          break;
-        default:
-          status = {PIPELINE_ERROR_DECODE, std::move(result).error()};
-          break;
-      }
-      DCHECK(status.has_value());
-      task_runner_->PostTask(FROM_HERE,
-                             base::BindOnce(&VideoRendererImpl::OnPlaybackError,
-                                            weak_factory_.GetWeakPtr(),
-                                            std::move(status).value()));
-      return;
+  if (!result.has_value()) {
+    switch (result.error().code()) {
+      case DecoderStatus::Codes::kOk:
+        // TODO(crbug.com/8448214): Remove OK from DecoderStatus.
+        NOTREACHED();
+      case DecoderStatus::Codes::kAborted:
+        // TODO(liberato): This used to check specifically for the value
+        // DEMUXER_READ_ABORTED, which was more specific than |kAborted|.
+        // However, since it's a dcheck, this seems okay.
+        return;
+      case DecoderStatus::Codes::kDisconnected:
+        task_runner_->PostTask(
+            FROM_HERE,
+            base::BindOnce(&VideoRendererImpl::OnPlaybackError,
+                           weak_factory_.GetWeakPtr(),
+                           PipelineStatus{PIPELINE_ERROR_DISCONNECTED,
+                                          std::move(result).error()}));
+        return;
+      case DecoderStatus::Codes::kOutOfMemory:
+        task_runner_->PostTask(
+            FROM_HERE,
+            base::BindOnce(&VideoRendererImpl::OnPlaybackError,
+                           weak_factory_.GetWeakPtr(),
+                           PipelineStatus{PIPELINE_ERROR_OUT_OF_MEMORY,
+                                          std::move(result).error()}));
+        return;
+      default:
+        task_runner_->PostTask(
+            FROM_HERE,
+            base::BindOnce(&VideoRendererImpl::OnPlaybackError,
+                           weak_factory_.GetWeakPtr(),
+                           PipelineStatus{PIPELINE_ERROR_DECODE,
+                                          std::move(result).error()}));
+        return;
+    }
   }
 
   DCHECK(result.has_value());
@@ -1002,10 +1007,13 @@ bool VideoRendererImpl::IsBeforeStartTime(const VideoFrame& frame) {
 bool VideoRendererImpl::HasBestFirstFrame(const VideoFrame& frame) {
   // We have the best first frame in the queue if our current frame has a
   // timestamp after `start_timestamp_` or straddles `start_timestamp_`.
+  // Ignore <= 1ms deltas to prevent container timestamp quantization jitter
+  // (e.g. 1ms timecode scale in Matroska) from causing a preceding frame to
+  // appear to straddle the seek target of the subsequent frame.
   return frame.timestamp() >= start_timestamp_ ||
          frame.timestamp() + frame.metadata().frame_duration.value_or(
                                  last_decoder_stream_avg_duration_) >
-             start_timestamp_;
+             start_timestamp_ + base::Milliseconds(1);
 }
 
 void VideoRendererImpl::RemoveFramesForUnderflowOrBackgroundRendering() {

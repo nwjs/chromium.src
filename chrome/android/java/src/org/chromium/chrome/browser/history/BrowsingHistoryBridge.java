@@ -12,12 +12,15 @@ import org.chromium.base.Callback;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.history.HistoryProvider.ClientInfo;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.components.browsing_data.DeleteBrowsingDataAction;
 import org.chromium.url.GURL;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /** The JNI bridge for Android to fetch and manipulate browsing history. */
 @NullMarked
@@ -45,15 +48,15 @@ public class BrowsingHistoryBridge implements HistoryProvider {
     }
 
     @Override
-    public void queryHistory(String query, @Nullable String appId) {
+    public void queryHistory(String query, QueryOptions options) {
         BrowsingHistoryBridgeJni.get()
-                .queryHistory(mNativeHistoryBridge, new ArrayList<>(), query, appId, false);
-    }
-
-    @Override
-    public void queryHistoryForHost(String hostName) {
-        BrowsingHistoryBridgeJni.get()
-                .queryHistory(mNativeHistoryBridge, new ArrayList<>(), hostName, null, true);
+                .queryHistory(
+                        mNativeHistoryBridge,
+                        new ArrayList<>(),
+                        query,
+                        options.appId,
+                        options.hostName,
+                        options.clientId);
     }
 
     @Override
@@ -64,12 +67,22 @@ public class BrowsingHistoryBridge implements HistoryProvider {
 
     @Override
     public void queryApps() {
-        BrowsingHistoryBridgeJni.get().getAllAppIds(mNativeHistoryBridge, new ArrayList<>());
+        BrowsingHistoryBridgeJni.get().getAllAppIds(mNativeHistoryBridge);
+        // Native will call onQueryAppsComplete asynchronously.
+    }
+
+    @Override
+    public void queryClients() {
+        List<ClientInfo> clients =
+                BrowsingHistoryBridgeJni.get().getAllClients(mNativeHistoryBridge);
+        if (mObserver != null) mObserver.onQueryClientsComplete(clients);
     }
 
     @CalledByNative
-    public static void addAppIdToList(List<String> items, @JniType("std::string") String appId) {
-        items.add(appId);
+    public static ClientInfo createClientInfo(
+            @JniType("std::vector<std::string>") List<String> clientIds,
+            @JniType("std::string") String clientName) {
+        return new ClientInfo(clientIds, clientName);
     }
 
     @Override
@@ -87,7 +100,7 @@ public class BrowsingHistoryBridge implements HistoryProvider {
                         mNativeHistoryBridge,
                         item.getUrl(),
                         item.getAppId(),
-                        item.getNativeTimestamps());
+                        item.getAllTimestamps());
     }
 
     @Override
@@ -117,9 +130,15 @@ public class BrowsingHistoryBridge implements HistoryProvider {
             @JniType("std::u16string") String title,
             @JniType("std::optional<std::string>") @Nullable String appId,
             long mostRecentJavaTimestamp,
-            @JniType("std::vector<int64_t>") long[] nativeTimestamps,
+            @JniType("std::vector<GURL>") List<GURL> urls,
+            @JniType("std::vector<std::vector<int64_t>>") List<long[]> nativeTimestampsList,
             boolean blockedVisit,
             boolean isActorVisit) {
+        assert urls.size() == nativeTimestampsList.size();
+        Map<GURL, long[]> allTimestamps = new HashMap<>();
+        for (int i = 0; i < urls.size(); i++) {
+            allTimestamps.put(urls.get(i), nativeTimestampsList.get(i));
+        }
         items.add(
                 new HistoryItem(
                         url,
@@ -127,7 +146,7 @@ public class BrowsingHistoryBridge implements HistoryProvider {
                         title,
                         appId,
                         mostRecentJavaTimestamp,
-                        nativeTimestamps,
+                        allTimestamps,
                         blockedVisit,
                         isActorVisit));
     }
@@ -138,7 +157,7 @@ public class BrowsingHistoryBridge implements HistoryProvider {
     }
 
     @CalledByNative
-    public void onQueryAppsComplete(List<String> items) {
+    public void onQueryAppsComplete(@JniType("std::vector<std::string>") List<String> items) {
         if (mObserver != null) mObserver.onQueryAppsComplete(items);
     }
 
@@ -178,7 +197,8 @@ public class BrowsingHistoryBridge implements HistoryProvider {
                 List<HistoryItem> historyItems,
                 @JniType("std::u16string") String query,
                 @JniType("std::optional<std::string>") @Nullable String appId,
-                boolean hostOnly);
+                @JniType("std::optional<std::string>") @Nullable String hostnameSuffix,
+                @JniType("std::optional<std::string>") @Nullable String clientId);
 
         void queryHistoryContinuation(
                 long nativeBrowsingHistoryBridge, List<HistoryItem> historyItems);
@@ -188,14 +208,26 @@ public class BrowsingHistoryBridge implements HistoryProvider {
                 @JniType("std::string") String hostName,
                 Callback<Long> callback);
 
+        /**
+         * Marks a history item for removal.
+         *
+         * @param url Primary URL of the history item entry.
+         * @param appId ID of the app that generated the item, if any.
+         * @param nativeTimestampsMap Map of URLs (primary and any grouped similar visit URLs) to
+         *     their native microsecond visit timestamps.
+         */
         void markItemForRemoval(
                 long nativeBrowsingHistoryBridge,
                 @JniType("GURL") GURL url,
                 @JniType("std::optional<std::string>") @Nullable String appId,
-                @JniType("std::vector<int64_t>") long[] nativeTimestamps);
+                @JniType("std::map<GURL, std::vector<int64_t>>")
+                        Map<GURL, long[]> nativeTimestampsMap);
 
         void removeItems(long nativeBrowsingHistoryBridge);
 
-        void getAllAppIds(long nativeBrowsingHistoryBridge, List<String> appIds);
+        void getAllAppIds(long nativeBrowsingHistoryBridge);
+
+        @JniType("std::vector<const syncer::DeviceInfo*>")
+        List<ClientInfo> getAllClients(long nativeBrowsingHistoryBridge);
     }
 }

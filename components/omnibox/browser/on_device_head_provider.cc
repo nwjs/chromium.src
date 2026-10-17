@@ -101,7 +101,7 @@ OnDeviceHeadProvider* OnDeviceHeadProvider::Create(
 OnDeviceHeadProvider::OnDeviceHeadProvider(
     AutocompleteProviderClient* client,
     AutocompleteProviderListener* listener)
-    : AutocompleteProvider(AutocompleteProvider::TYPE_ON_DEVICE_HEAD),
+    : AutocompleteProvider(AutocompleteProvider::Type::kOnDeviceHead),
       client_(client),
       worker_task_runner_(base::ThreadPool::CreateSequencedTaskRunner(
           {base::TaskPriority::BEST_EFFORT,

@@ -50,7 +50,7 @@ const LayoutBlockFlow* GetInlineFormattingContext(const Node& node) {
   // For <textarea>, ignore internal anonymous IFCs for backward compatibility.
   if (block_flow && block_flow->IsAnonymous() &&
       node.IsInUserAgentShadowRoot()) {
-    for (const LayoutBlock* parent = block_flow->ContainingBlock(); parent;
+    for (const LayoutBox* parent = block_flow->ContainingBlock(); parent;
          parent = parent->ContainingBlock()) {
       if (!parent->IsAnonymous() && parent->IsLayoutBlockFlow()) {
         return To<LayoutBlockFlow>(parent);
@@ -80,6 +80,16 @@ bool FindBuffer::ShouldIgnoreContents(const Node& node) {
   if (RuntimeEnabledFeatures::FindIgnoreSuggestionFixEnabled()) {
     if (const auto* control = DynamicTo<HTMLFormControlElement>(element)) {
       if (control->IsPreviewed()) {
+        return true;
+      }
+    }
+    // TODO(crbug.com/562224383): Fix the state desync issue between
+    // autofill_state_ and suggested_option_ and replace this temporary fix
+    // with a CHECK that the autofill popover is closed.
+    if (const auto* select = DynamicTo<HTMLSelectElement>(element)) {
+      HTMLSelectElement::SelectAutofillPreviewElement* preview =
+          select->GetAutofillPreviewElement();
+      if (preview && preview->popoverOpen()) {
         return true;
       }
     }
@@ -375,11 +385,14 @@ bool FindBuffer::IsInSameUninterruptedBlock(const Node& start_node,
 
   // It's possible that 2 nodes are in the same block flow but there is a node
   // in between that has a separate block flow. An example is an input field.
-  for (const Node* node = &start_node; !node->isSameNode(&end_node);
-       node = FlatTreeTraversal::Next(*node)) {
+  const Node* node = &start_node;
+  while (node && !node->isSameNode(&end_node)) {
     const ComputedStyle* style = ComputedStyle::NullifyEnsured(
         GetComputedStyleForElementOrLayoutObject(*node));
     if (ShouldIgnoreContents(*node) || !VisibleForStyle(style)) {
+      node = RuntimeEnabledFeatures::FindBufferSkipIgnoredSubtreesEnabled()
+                 ? FlatTreeTraversal::NextSkippingChildren(*node)
+                 : FlatTreeTraversal::Next(*node);
       continue;
     }
 
@@ -387,6 +400,7 @@ bool FindBuffer::IsInSameUninterruptedBlock(const Node& start_node,
         GetInlineFormattingContext(*node) != start_block_flow) {
       return false;
     }
+    node = FlatTreeTraversal::Next(*node);
   }
 
   return true;

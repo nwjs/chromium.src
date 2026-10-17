@@ -16,6 +16,7 @@
 #include "base/logging.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/types/expected.h"
 #include "base/values.h"
 #include "media/base/media_export.h"
 #include "media/base/media_serializers_base.h"
@@ -405,6 +406,16 @@ class MEDIA_EXPORT TypedStatus {
 
     ~Or() = default;
 
+    // Create an Or type implicitly from a base::expected. This only exists
+    // to facilitate the eventual removal of this 'Or' class.
+    Or(base::expected<O, TypedStatus<T>>&& expected) {
+      if (expected.has_value()) {
+        value_ = std::move(expected).value();
+      } else {
+        error_ = std::move(expected).error();
+      }
+    }
+
     // Create an Or type implicitly from a TypedStatus
     Or(TypedStatus<T>&& error) : error_(std::move(error)) {
       if constexpr (internal::StatusTraitsHelper<Traits>::HasOkEnumValue()) {
@@ -521,20 +532,6 @@ class MEDIA_EXPORT TypedStatus {
           helper::OkEnumValue().has_value(),
           "Cannot call Or::code() without OkEnumValue or kOk defined");
       return error_ ? error_->code() : *helper::OkEnumValue();
-    }
-
-    template <typename Fn,
-              typename R = decltype(std::declval<Fn>()(std::declval<O>()))>
-    typename OrTypeUnwrapper<R>::Type MapValue(Fn&& lambda) && {
-      CHECK(error_ || value_);
-      if (!has_value()) {
-        auto error = std::move(*error_);
-        error_.reset();
-        return error;
-      }
-      auto value = std::move(std::get<0>(*value_));
-      value_.reset();
-      return std::invoke(std::forward<Fn>(lambda), std::move(value));
     }
 
    private:

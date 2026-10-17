@@ -4,14 +4,22 @@
 
 #include "components/autofill/core/browser/integrators/at_memory/memory_data_type_util.h"
 
+#include <optional>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
+#include "base/containers/fixed_flat_set.h"
 #include "base/i18n/time_formatting.h"
 #include "base/time/time.h"
+#include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
+#include "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
 #include "components/autofill/core/browser/integrators/at_memory/memory_data_type.h"
 #include "components/autofill/core/browser/integrators/at_memory/memory_search_result.h"
+#include "components/autofill/core/browser/network/autofill_ai/personal_context_conversion_util.h"
+#include "components/autofill/core/common/dense_set.h"
 #include "components/personal_context/proto/features/at_memory.pb.h"
 #include "components/personal_context/proto/features/common_data.pb.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -24,217 +32,8 @@ using ::testing::ElementsAre;
 using ::testing::Eq;
 using ::testing::Field;
 using ::testing::IsEmpty;
+using ::testing::Message;
 using ::testing::Ne;
-
-// Tests that `ToPersonalContextEntity` correctly converts individual memory
-// entry attributes and metadata into the corresponding fields of the personal
-// context Entity proto message.
-TEST(MemoryDataTypeUtilTest, ToPersonalContextEntity) {
-  // Test Passport conversion.
-  {
-    std::u16string value = u"P12345";
-    MemoryDataType memory_data_type = MemoryDataType::kPassportNumber;
-
-    std::vector<EntryMetadata> metadata_list;
-    metadata_list.emplace_back(MemoryDataType::kPassportName, u"Passport Name",
-                               u"Jane Doe");
-    metadata_list.emplace_back(MemoryDataType::kPassportCountry,
-                               u"Passport Country", u"US");
-    metadata_list.emplace_back(MemoryDataType::kPassportExpirationDate,
-                               u"Passport Expiration Date", u"2030-05-20");
-
-    personal_context::proto::Entity entity =
-        ToPersonalContextEntity(value, /*typed_value=*/std::nullopt,
-                                memory_data_type, metadata_list);
-
-    ASSERT_TRUE(entity.has_passport());
-    EXPECT_EQ(entity.passport().number(), "P12345");
-    EXPECT_EQ(entity.passport().name(), "Jane Doe");
-    EXPECT_EQ(entity.passport().issuing_country(), "US");
-    EXPECT_EQ(entity.passport().expiration_date().year(), 2030);
-    EXPECT_EQ(entity.passport().expiration_date().month(), 5);
-    EXPECT_EQ(entity.passport().expiration_date().day(), 20);
-  }
-
-  // Test Order conversion, including order date parsing and product names list.
-  {
-    std::u16string value = u"ORD-123";
-    MemoryDataType memory_data_type = MemoryDataType::kOrderId;
-
-    std::vector<EntryMetadata> metadata_list;
-    metadata_list.emplace_back(MemoryDataType::kOrderDate, u"Order Date",
-                               u"2026-07-07");
-    metadata_list.emplace_back(MemoryDataType::kOrderProductNames, u"Products",
-                               u"Book A, Toy B");
-
-    personal_context::proto::Entity entity =
-        ToPersonalContextEntity(value, /*typed_value=*/std::nullopt,
-                                memory_data_type, metadata_list);
-
-    ASSERT_TRUE(entity.has_order());
-    EXPECT_EQ(entity.order().order_id(), "ORD-123");
-    EXPECT_EQ(entity.order().order_date().year(), 2026);
-    EXPECT_EQ(entity.order().order_date().month(), 7);
-    EXPECT_EQ(entity.order().order_date().day(), 7);
-    ASSERT_EQ(entity.order().product_names_size(), 2);
-    EXPECT_EQ(entity.order().product_names(0), "Book A");
-    EXPECT_EQ(entity.order().product_names(1), "Toy B");
-  }
-
-  // Test Shipment conversion, including associated order IDs parsing and
-  // shipped date parsing.
-  {
-    std::u16string value = u"TRACK-888";
-    MemoryDataType memory_data_type = MemoryDataType::kShipmentTrackingNumber;
-
-    std::vector<EntryMetadata> metadata_list;
-    metadata_list.emplace_back(MemoryDataType::kShipmentAssociatedOrderId,
-                               u"Order IDs", u"ORD-001, ORD-002");
-    metadata_list.emplace_back(MemoryDataType::kShipmentShippedDate,
-                               u"Ship Date", u"2026-07-07");
-
-    personal_context::proto::Entity entity =
-        ToPersonalContextEntity(value, /*typed_value=*/std::nullopt,
-                                memory_data_type, metadata_list);
-
-    ASSERT_TRUE(entity.has_shipment());
-    EXPECT_EQ(entity.shipment().tracking_number(), "TRACK-888");
-    ASSERT_EQ(entity.shipment().associated_order_ids_size(), 2);
-    EXPECT_EQ(entity.shipment().associated_order_ids(0), "ORD-001");
-    EXPECT_EQ(entity.shipment().associated_order_ids(1), "ORD-002");
-    EXPECT_EQ(entity.shipment().ship_date().year(), 2026);
-    EXPECT_EQ(entity.shipment().ship_date().month(), 7);
-    EXPECT_EQ(entity.shipment().ship_date().day(), 7);
-  }
-}
-
-// Tests that `ToPersonalContextEntity` uses `TypedValue` when available for
-// country codes, dates, datetimes, and string lists even when string values are empty.
-TEST(MemoryDataTypeUtilTest, ToPersonalContextEntityWithTypedValues) {
-  // Test Passport with CountryCode and Date TypedValues.
-  {
-    std::u16string value = u"P98765";
-    MemoryDataType memory_data_type = MemoryDataType::kPassportNumber;
-
-    personal_context::proto::TypedValue country_typed;
-    country_typed.set_country_code("DE");
-
-    personal_context::proto::TypedValue expiry_typed;
-    expiry_typed.mutable_date()->set_year(2035);
-    expiry_typed.mutable_date()->set_month(11);
-    expiry_typed.mutable_date()->set_day(25);
-
-    // Country code and expiration date TypedValues are set while their string
-    // values are left empty.
-    std::vector<EntryMetadata> metadata_list;
-    metadata_list.emplace_back(MemoryDataType::kPassportName, u"Passport Name",
-                               u"Max Mustermann");
-    metadata_list.emplace_back(MemoryDataType::kPassportCountry,
-                               u"Passport Country", u"",
-                               std::move(country_typed));
-    metadata_list.emplace_back(MemoryDataType::kPassportExpirationDate,
-                               u"Passport Expiration Date", u"",
-                               std::move(expiry_typed));
-
-    personal_context::proto::Entity entity =
-        ToPersonalContextEntity(value, /*typed_value=*/std::nullopt,
-                                memory_data_type, metadata_list);
-
-    // Verify that the resulting Entity proto is populated with the correct
-    // values from the TypedValues.
-    ASSERT_TRUE(entity.has_passport());
-    EXPECT_EQ(entity.passport().number(), "P98765");
-    EXPECT_EQ(entity.passport().name(), "Max Mustermann");
-    EXPECT_EQ(entity.passport().issuing_country(), "DE");
-    EXPECT_EQ(entity.passport().expiration_date().year(), 2035);
-    EXPECT_EQ(entity.passport().expiration_date().month(), 11);
-    EXPECT_EQ(entity.passport().expiration_date().day(), 25);
-  }
-
-  // Test FlightReservation with DateTime and Date TypedValues on metadata.
-  {
-    std::u16string value = u"LH400";
-    MemoryDataType memory_data_type =
-        MemoryDataType::kFlightReservationFlightNumber;
-
-    personal_context::proto::TypedValue dep_time_typed;
-    dep_time_typed.mutable_date_time()->set_year(2026);
-    dep_time_typed.mutable_date_time()->set_month(9);
-    dep_time_typed.mutable_date_time()->set_day(15);
-    dep_time_typed.mutable_date_time()->set_hours(10);
-    dep_time_typed.mutable_date_time()->set_minutes(30);
-
-    personal_context::proto::TypedValue arr_date_typed;
-    arr_date_typed.mutable_date()->set_year(2026);
-    arr_date_typed.mutable_date()->set_month(9);
-    arr_date_typed.mutable_date()->set_day(15);
-
-    // DepartureDate DateTime TypedValue and ArrivalDate Date TypedValue are set
-    // while their string values are left empty.
-    std::vector<EntryMetadata> metadata_list;
-    metadata_list.emplace_back(MemoryDataType::kFlightReservationDepartureDate,
-                               u"Departure Date", u"",
-                               std::move(dep_time_typed));
-    metadata_list.emplace_back(MemoryDataType::kFlightReservationArrivalDate,
-                               u"Arrival Date", u"",
-                               std::move(arr_date_typed));
-
-    personal_context::proto::Entity entity =
-        ToPersonalContextEntity(value, /*typed_value=*/std::nullopt,
-                                memory_data_type, metadata_list);
-
-    // Verify that the departure and arrival times on the resulting Entity proto
-    // are correctly set from the TypedValues.
-    ASSERT_TRUE(entity.has_flight_reservation());
-    EXPECT_EQ(entity.flight_reservation().flight_number(), "LH400");
-    EXPECT_EQ(entity.flight_reservation().departure_time().year(), 2026);
-    EXPECT_EQ(entity.flight_reservation().departure_time().month(), 9);
-    EXPECT_EQ(entity.flight_reservation().departure_time().day(), 15);
-    EXPECT_EQ(entity.flight_reservation().departure_time().hours(), 10);
-    EXPECT_EQ(entity.flight_reservation().departure_time().minutes(), 30);
-    EXPECT_EQ(entity.flight_reservation().arrival_time().year(), 2026);
-    EXPECT_EQ(entity.flight_reservation().arrival_time().month(), 9);
-    EXPECT_EQ(entity.flight_reservation().arrival_time().day(), 15);
-  }
-
-  // Test Order with StringList and Date TypedValues, with primary Date TypedValue.
-  {
-    // Primary OrderDate string value is empty while its TypedValue is set.
-    std::u16string value = u"";
-    MemoryDataType memory_data_type = MemoryDataType::kOrderDate;
-
-    personal_context::proto::TypedValue primary_date_typed;
-    primary_date_typed.mutable_date()->set_year(2026);
-    primary_date_typed.mutable_date()->set_month(8);
-    primary_date_typed.mutable_date()->set_day(1);
-
-    personal_context::proto::TypedValue products_typed;
-    products_typed.mutable_string_list()->add_values("Item A, with comma");
-    products_typed.mutable_string_list()->add_values("Item B");
-
-    // OrderProductNames string value is empty while its TypedValue is set.
-    std::vector<EntryMetadata> metadata_list;
-    metadata_list.emplace_back(MemoryDataType::kOrderId, u"Order ID",
-                               u"ORD-555");
-    metadata_list.emplace_back(MemoryDataType::kOrderProductNames, u"Products",
-                               u"", std::move(products_typed));
-
-    personal_context::proto::Entity entity =
-        ToPersonalContextEntity(value, primary_date_typed,
-                                memory_data_type, metadata_list);
-
-    // Verify that the order date and product names on the resulting Entity proto
-    // are correctly set from the TypedValues.
-    ASSERT_TRUE(entity.has_order());
-    EXPECT_EQ(entity.order().order_id(), "ORD-555");
-    EXPECT_EQ(entity.order().order_date().year(), 2026);
-    EXPECT_EQ(entity.order().order_date().month(), 8);
-    EXPECT_EQ(entity.order().order_date().day(), 1);
-    ASSERT_EQ(entity.order().product_names_size(), 2);
-    EXPECT_EQ(entity.order().product_names(0), "Item A, with comma");
-    EXPECT_EQ(entity.order().product_names(1), "Item B");
-  }
-}
 
 // Tests mapping of proto MemoryDataType enum values to local MemoryDataType
 // enums.
@@ -281,6 +80,87 @@ TEST(MemoryDataTypeUtilTest, ToAttributeType) {
   EXPECT_EQ(ToAttributeType(MemoryDataType::kIban), std::nullopt);
 }
 
+TEST(MemoryDataTypeUtilTest, ToEntityType) {
+  EXPECT_EQ(ToEntityType(MemoryDataType::kPassportNumber),
+            EntityType(EntityTypeName::kPassport));
+  EXPECT_EQ(ToEntityType(MemoryDataType::kDriversLicenseNumber),
+            EntityType(EntityTypeName::kDriversLicense));
+  EXPECT_EQ(ToEntityType(MemoryDataType::kNationalIdCardNumber),
+            EntityType(EntityTypeName::kNationalIdCard));
+  EXPECT_EQ(ToEntityType(MemoryDataType::kFlightReservationArrivalDate),
+            EntityType(EntityTypeName::kFlightReservation));
+  EXPECT_EQ(ToEntityType(MemoryDataType::kKnownTravelerNumberNumber),
+            EntityType(EntityTypeName::kKnownTravelerNumber));
+  EXPECT_EQ(ToEntityType(MemoryDataType::kRedressNumberNumber),
+            EntityType(EntityTypeName::kRedressNumber));
+  EXPECT_EQ(ToEntityType(MemoryDataType::kVehicleMake),
+            EntityType(EntityTypeName::kVehicle));
+  EXPECT_EQ(ToEntityType(MemoryDataType::kOrderGrandTotal),
+            EntityType(EntityTypeName::kOrder));
+  EXPECT_EQ(ToEntityType(MemoryDataType::kShipmentDeliveryAddress),
+            EntityType(EntityTypeName::kShipment));
+  EXPECT_EQ(ToEntityType(MemoryDataType::kShipmentAssociatedOrderId),
+            EntityType(EntityTypeName::kShipment));
+  EXPECT_EQ(ToEntityType(MemoryDataType::kShipmentEstimatedDeliveryDate),
+            EntityType(EntityTypeName::kShipment));
+  EXPECT_EQ(ToEntityType(MemoryDataType::kNameFull), std::nullopt);
+  EXPECT_EQ(ToEntityType(MemoryDataType::kCreditCardNumber), std::nullopt);
+  EXPECT_EQ(ToEntityType(MemoryDataType::kIban), std::nullopt);
+  EXPECT_EQ(ToEntityType(MemoryDataType::kUnknown), std::nullopt);
+}
+
+// Values that were removed from the `MemoryDataType` enum.
+constexpr auto kDeprecatedMemoryDataTypeValues =
+    base::MakeFixedFlatSet<std::underlying_type_t<MemoryDataType>>(
+        {13, 21, 27, 36, 45, 51, 54, 58, 64});
+
+// Tests that the per-type `ToAttributeType()` mapping and the per-category
+// `ToEntityType()` mapping cannot drift apart. Every attribute of every entity
+// must resolve to that same entity.
+TEST(MemoryDataTypeUtilTest, ToEntityTypeIsConsistentWithToAttributeType) {
+  for (EntityType entity_type : DenseSet<EntityType>::all()) {
+    for (AttributeType attribute_type : entity_type.attributes()) {
+      MemoryDataType type = AttributeTypeToMemoryDataType(attribute_type);
+      if (type == MemoryDataType::kUnknown) {
+        // Not every `AttributeType` has a `MemoryDataType` counterpart.
+        continue;
+      }
+      SCOPED_TRACE(Message() << attribute_type);
+      EXPECT_EQ(ToEntityType(type), entity_type);
+      EXPECT_EQ(ToAttributeType(type), attribute_type);
+    }
+  }
+
+  for (std::underlying_type_t<MemoryDataType> value = 1;
+       value <= std::to_underlying(MemoryDataType::kMaxValue); ++value) {
+    if (kDeprecatedMemoryDataTypeValues.contains(value)) {
+      continue;
+    }
+    const auto type = static_cast<MemoryDataType>(value);
+    if (std::optional<AttributeType> mapped_attribute = ToAttributeType(type)) {
+      SCOPED_TRACE(Message() << MemoryDataTypeToStringView(type));
+      EXPECT_EQ(ToEntityType(type), mapped_attribute->entity_type());
+    }
+  }
+}
+
+// Tests that no `MemoryDataType` renders as an empty string. Types that are
+// absent from `entity_schema.json` cannot be resolved via `ToAttributeType()`
+// and need their own string.
+TEST(MemoryDataTypeUtilTest, EveryTypeHasANonEmptyNameForI18n) {
+  // `kUnknown` is 0 and intentionally has no name: such entries carry a
+  // free-form `MemorySearchResult::type_name` instead.
+  for (std::underlying_type_t<MemoryDataType> value = 1;
+       value <= std::to_underlying(MemoryDataType::kMaxValue); ++value) {
+    if (kDeprecatedMemoryDataTypeValues.contains(value)) {
+      continue;
+    }
+    const auto type = static_cast<MemoryDataType>(value);
+    SCOPED_TRACE(Message() << MemoryDataTypeToStringView(type));
+    EXPECT_FALSE(GetMemoryDataTypeNameForI18n(type).empty());
+  }
+}
+
 TEST(MemoryDataTypeUtilTest, GetMemoryDataTypeCategory) {
   EXPECT_EQ(GetMemoryDataTypeCategory(MemoryDataType::kNameFull),
             MemoryDataTypeCategory::kContactInfo);
@@ -321,8 +201,10 @@ TEST(MemoryDataTypeUtilTest, ExtractSourcesFromProto) {
   personal_context::proto::AtMemorySearchResult proto_result;
   personal_context::proto::SourceReference* source_gmail =
       proto_result.add_sources();
-  source_gmail->mutable_gmail()->set_message_url(
-      "https://mail.google.com/mail/u/0/#inbox/123");
+  source_gmail->mutable_gmail()->mutable_message_urls()->set_desktop_web_url(
+      "https://mail.google.com/mail/#inbox/123");
+  source_gmail->mutable_gmail()->mutable_message_urls()->set_mobile_web_url(
+      "https://mail.google.com/mail/mu/mp/#cv/Inbox/123");
 
   personal_context::proto::SourceReference* source_photos =
       proto_result.add_sources();
@@ -333,7 +215,7 @@ TEST(MemoryDataTypeUtilTest, ExtractSourcesFromProto) {
   ASSERT_EQ(sources.size(), 2u);
   EXPECT_EQ(sources[0].type, MemoryEntrySourceType::kGmail);
   EXPECT_EQ(sources[0].deeplink_url,
-            "https://mail.google.com/mail/u/0/#inbox/123");
+            GetGmailSourceUrl(source_gmail->gmail()).spec());
   EXPECT_EQ(sources[1].type, MemoryEntrySourceType::kPhotos);
   EXPECT_EQ(sources[1].deeplink_url, "https://photos.google.com/photo/456");
 }
@@ -362,7 +244,7 @@ TEST(MemoryDataTypeUtilTest,
   EXPECT_EQ(result.type, MemoryDataType::kPassportNumber);
   EXPECT_EQ(result.value, u"A12345678");
   EXPECT_EQ(result.confidence_score, 0.85f);
-  EXPECT_TRUE(result.is_obfuscated);
+  EXPECT_FALSE(result.is_obfuscated);
   ASSERT_EQ(result.metadata_list.size(), 1u);
   EXPECT_EQ(result.metadata_list[0].type, MemoryDataType::kPassportCountry);
   EXPECT_EQ(result.metadata_list[0].value, u"US");

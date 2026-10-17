@@ -37,7 +37,6 @@
 <translation id="1123537484474186311"><ph name="TAB_TITLE" />, pestaña de imagen en imagen</translation>
 <translation id="1126696498560056882">Gestionar las cuentas de este dispositivo</translation>
 <translation id="1135018701024399762">El modo Incógnito protege la privacidad de tu navegación frente a otros usuarios que usan tu dispositivo</translation>
-<translation id="113752097246673894">Para acceder a tus marcadores y otras opciones en todos tus dispositivos, inicia sesión en Chrome como <ph name="EMAIL" /></translation>
 <translation id="1138458427267715730">Recibe alertas cuando el precio baje en cualquier sitio de la Web</translation>
 <translation id="1140317858355046628">Si lo eliminas, todos los usuarios perderán inmediatamente el acceso al grupo de pestañas <ph name="GROUP_NAME" /> y se eliminará de todos los dispositivos.</translation>
 <translation id="1142732900304639782">No ofrecer que se traduzcan estos sitios</translation>
@@ -205,7 +204,6 @@ Solo las personas que tengan tu frase de contraseña podrán leer tus datos cifr
 <translation id="1815975907734103433"><ph name="TAB_TITLE" />, pestaña de grabación</translation>
 <translation id="1819443852740954262">Abrir todas en una ventana de Incógnito</translation>
 <translation id="1820408774134375111">Hoja inferior de inicio de sesión</translation>
-<translation id="1823492026305965829">Iniciar sesión como <ph name="USER_FULL_NAME" /></translation>
 <translation id="1824902652744048041">Toca Eliminar datos de navegación</translation>
 <translation id="1829244130665387512">Buscar en la página</translation>
 <translation id="1832459821645506983">Sí, acepto</translation>
@@ -307,7 +305,6 @@ Solo las personas que tengan tu frase de contraseña podrán leer tus datos cifr
 <translation id="2226826835915474236">Atajos inactivos</translation>
 <translation id="2227179592712503583">Eliminar sugerencia</translation>
 <translation id="2227444325776770048">Continuar como <ph name="USER_FULL_NAME" /></translation>
-<translation id="2230411774874187555">Accede a toda tu información guardada</translation>
 <translation id="2230777942707397948">Ventana vacía</translation>
 <translation id="223356358902285214">Actividad en la Web y en Apps</translation>
 <translation id="2233735624724508540">Elige un periodo y, a continuación, toca Eliminar datos</translation>
@@ -361,7 +358,6 @@ Solo las personas que tengan tu frase de contraseña podrán leer tus datos cifr
 <translation id="2413014528833954543">No se pueden comprobar las contraseñas en este dispositivo</translation>
 <translation id="2414886740292270097">Oscuro</translation>
 <translation id="2415037988255164008">¿Restaurar ventanas?</translation>
-<translation id="2426805022920575512">Elegir otra cuenta</translation>
 <translation id="2427025860753516072">{FILE_COUNT,plural, =1{Vídeos, 1 vídeo en la lista}other{Vídeos, # vídeos en la lista}}</translation>
 <translation id="2433507940547922241">Aspecto</translation>
 <translation id="2449931042095204989">Cuando un sitio o una aplicación de Google te pregunta si quieres precargar de forma privada los enlaces de su página, Chrome cifra y precarga las páginas mediante los servidores de Google sin cookies. De esta manera, se oculta tu identidad en el sitio precargado.</translation>
@@ -439,7 +435,6 @@ Solo las personas que tengan tu frase de contraseña podrán leer tus datos cifr
 <translation id="2723001399770238859">audio</translation>
 <translation id="2739887572830526131">Conserva este grupo para añadir pestañas más tarde o elimínalo si ya no lo necesitas.</translation>
 <translation id="2742373789128106053"><ph name="IDENTITY_PROVIDER_ETLD_PLUS_ONE" /> no está disponible en este momento.</translation>
-<translation id="2751271371269891762">Inicia sesión como <ph name="EMAIL" /> para acceder a tus marcadores y otras opciones en todos tus dispositivos</translation>
 <translation id="2760805590727089264">MM/AA</translation>
 <translation id="2761162135224472056">¿Reproducir en modo envolvente?</translation>
 <translation id="2762000892062317888">justo ahora</translation>
@@ -514,7 +509,6 @@ Solo las personas que tengan tu frase de contraseña podrán leer tus datos cifr
 <translation id="2996291259634659425">Crear frase de contraseña</translation>
 <translation id="2996682533106928201">Toca para cerrar</translation>
 <translation id="2996809686854298943">URL necesaria</translation>
-<translation id="3007318536447999974">Para hablar con Gemini, dale permiso para usar el micrófono. También puedes gestionar esto en <ph name="BEGIN_LINK" />Ajustes<ph name="END_LINK" /></translation>
 <translation id="3024215143424744261">Preferencias del modo Lectura cerradas</translation>
 <translation id="3024277805447899099">Previsualizar imagen</translation>
 <translation id="3026955690410463085">Incluir enlace</translation>
@@ -609,7 +603,6 @@ Solo las personas que tengan tu frase de contraseña podrán leer tus datos cifr
 <translation id="3435738964857648380">Seguridad</translation>
 <translation id="3435914367318771664">Añadir pestaña a nuevo grupo</translation>
 <translation id="3436118221454753036">Pregunta al Modo IA</translation>
-<translation id="3438681572027105609">Para acceder a tus contraseñas y más en todos tus dispositivos, inicia sesión en Chrome</translation>
 <translation id="3439276997620616816">Aquí verás tus pestañas recientes</translation>
 <translation id="3443221991560634068">Vuelve a cargar la página actual</translation>
 <translation id="3444179773590444986">¿Enviar comentarios sobre el tema oscuro para sitios?</translation>
@@ -754,7 +747,6 @@ Solo las personas que tengan tu frase de contraseña podrán leer tus datos cifr
 <translation id="4000212216660919741">Página principal del modo sin conexión</translation>
 <translation id="4000670338830950598">Personalizar y controlar Google Chrome con un elemento destacado</translation>
 <translation id="4015643064997321279">{NUM_PASSWORDS,plural, =1{1 contraseña vulnerada en tu cuenta de Google}other{# contraseñas vulneradas en tu cuenta de Google}}</translation>
-<translation id="4023638601467301498">Inicia sesión en Chrome para acceder a tus marcadores y otros elementos en todos tus dispositivos</translation>
 <translation id="4024768890073681126">Tu padre o madre gestiona tu navegador</translation>
 <translation id="4027569221211770437">Carpeta <ph name="FOLDER_TITLE" /></translation>
 <translation id="4034817413553209278">{HOURS,plural, =1{# h}other{# h}}</translation>
@@ -897,7 +889,6 @@ Es posible que tu cuenta de Google tenga otros tipos de historial de navegación
 <translation id="4535755320005483982">Grupo de pestañas <ph name="GROUP_TITLE" /> compartido</translation>
 <translation id="4537137366307982887">Aceptación de notificaciones de consejos abierta a altura completa</translation>
 <translation id="4537987892902330164">Has mantenido la sesión iniciada como <ph name="NAME_OR_EMAIL" />.</translation>
-<translation id="4543131175509360848">No hay ninguna hoja de llaves de acceso</translation>
 <translation id="4547551584605870320">{TAB_COUNT,plural, =1{<ph name="TAB_COUNT_ONE" /> pestaña}other{<ph name="TAB_COUNT_MANY" /> pestañas, <ph name="TAB_COUNT_INCOGNITO" /> de incógnito}}</translation>
 <translation id="4558311620361989323">Combinaciones de teclas en páginas web</translation>
 <translation id="4572422548854449519">Iniciar sesión en la cuenta gestionada</translation>
@@ -935,7 +926,6 @@ Es posible que tu cuenta de Google tenga otros tipos de historial de navegación
 <translation id="4685741273709472646">Selecciona una opción de la lista desplegable</translation>
 <translation id="468924408576231679">Copia el enlace a la página web <ph name="PAGE_TITLE" />. Fuente: <ph name="PAGE_URL" /></translation>
 <translation id="4692623383562244444">Buscadores</translation>
-<translation id="469286762610133730">Disfruta de mejor contenido</translation>
 <translation id="4695891336199304370">{SHIPPING_OPTIONS,plural, =1{<ph name="SHIPPING_OPTION_PREVIEW" />\u2026 y <ph name="NUMBER_OF_ADDITIONAL_SHIPPING_OPTIONS" /> más}other{<ph name="SHIPPING_OPTION_PREVIEW" />\u2026 y <ph name="NUMBER_OF_ADDITIONAL_SHIPPING_OPTIONS" /> más}}</translation>
 <translation id="4698757800236023795">Activas (<ph name="ITEM_COUNT" />)</translation>
 <translation id="4699172675775169585">Archivos e imágenes en caché</translation>
@@ -943,6 +933,7 @@ Es posible que tu cuenta de Google tenga otros tipos de historial de navegación
 <translation id="4719927025381752090">Ofrecer la traducción</translation>
 <translation id="4720556299488643018">Dar de baja</translation>
 <translation id="4732120983431207637">Desenrollado de pila</translation>
+<translation id="4734965478015604180">Horizontal</translation>
 <translation id="4736934858538408121">Tarjeta virtual</translation>
 <translation id="473775607612524610">Actualizar</translation>
 <translation id="4738065825338914557">Anulando suscripción…</translation>
@@ -991,11 +982,11 @@ Es posible que tu cuenta de Google tenga otros tipos de historial de navegación
 <translation id="488187801263602086">Cambiar nombre de archivo</translation>
 <translation id="4885273946141277891">Número de instancias de Chrome no admitido.</translation>
 <translation id="4890973535105146893">No hay contraseñas guardadas en tu cuenta de Google</translation>
+<translation id="490375751687810070">Vertical</translation>
 <translation id="4905823827770127520">Incluir un enlace a la página</translation>
 <translation id="4910889077668685004">Aplicaciones para pagar</translation>
 <translation id="4911042367886397055">¡Hola de nuevo, <ph name="USER_NAME" />!</translation>
 <translation id="4913169188695071480">Dejar de actualizar</translation>
-<translation id="4921224083091001889">Para acceder a tus contraseñas y otras opciones en todos tus dispositivos, inicia sesión en Chrome como <ph name="EMAIL" /></translation>
 <translation id="4923173329789776645">Tu organización no recomienda esta descarga</translation>
 <translation id="4924398189611529766">Cuando navegues en Incógnito, los demás usuarios de este dispositivo no verán tu actividad, por lo que podrás navegar de forma más privada. <ph name="BEGIN_LINK" />Más información<ph name="END_LINK" /></translation>
 <translation id="4925120120285606924">Captura de pantalla <ph name="CURRENT_DATE_ISO" /></translation>
@@ -1156,7 +1147,6 @@ Es posible que tu cuenta de Google tenga otros tipos de historial de navegación
 <translation id="5601180634394228718">Si quieres ver más ajustes que usan datos para mejorar tu experiencia con Chrome, ve a los <ph name="BEGIN_LINK" />servicios de Google<ph name="END_LINK" />.</translation>
 <translation id="5601924940067278327">Accede a tus pestañas y otros elementos en todos tus dispositivos</translation>
 <translation id="5611398002774823980">Guardar en la cuenta</translation>
-<translation id="5613381935190035031">Inicia sesión en Chrome como <ph name="EMAIL" /> para acceder a tus pestañas y otros elementos en todos tus dispositivos</translation>
 <translation id="5614625640221885312">Inicia sesión para acceder a tus marcadores, contraseñas y más en todos tus dispositivos</translation>
 <translation id="5619633276517849615">Tu organización ha activado Navegación segura</translation>
 <translation id="5620163320393916465">No hay ninguna contraseña guardada</translation>
@@ -1243,7 +1233,6 @@ Es posible que tu cuenta de Google tenga otros tipos de historial de navegación
 <translation id="5978661847409534366">{ITEMS_COUNT,plural, =1{1 página en tu lista de lectura}other{# páginas en tu lista de lectura}}</translation>
 <translation id="5992182727984874868"><ph name="PERMISSION_1" /> y <ph name="PERMISSION_2" /> <ph name="SEPARATOR" /> Chrome ha eliminado estos permisos porque no has visitado el sitio recientemente</translation>
 <translation id="5995726099713306770">¿Volver a descargar esta página?</translation>
-<translation id="5998675059699164418">Tu organización requiere que inicies sesión para usar Chrome.</translation>
 <translation id="6000066717592683814">Mantener Google como motor de búsqueda predeterminado</translation>
 <translation id="6002122790816966947">Tus dispositivos</translation>
 <translation id="6011308810877101166">Mejorar las sugerencias de búsqueda</translation>
@@ -1299,8 +1288,8 @@ Es posible que tu cuenta de Google tenga otros tipos de historial de navegación
 <translation id="6192907950379606605">Obtener descripciones</translation>
 <translation id="6193448654517602979">Seleccionar pestañas</translation>
 <translation id="6196315980958524839">Las contraseñas se guardan en el Gestor de contraseñas de Google en este dispositivo</translation>
+<translation id="6200780647297916498">Posición de las pestañas</translation>
 <translation id="6204781143409202534">Chrome ha detectado posible spam de <ph name="DOMAIN" />.</translation>
-<translation id="6210748933810148297">¿No eres <ph name="EMAIL" />?</translation>
 <translation id="6211386937064921208">Mostrando vista previa de esta página</translation>
 <translation id="6212567362666004597">Añadir pestaña al grupo</translation>
 <translation id="6225572914528673855">Barra de direcciones</translation>
@@ -1454,12 +1443,10 @@ Por ejemplo, algunos sitios web pueden responder a la solicitud mostrándote anu
 <translation id="6738867403308150051">Descargando…</translation>
 <translation id="6745063744988317486">Mono</translation>
 <translation id="6746338529702829275">Revisa los datos de tu cuenta</translation>
-<translation id="6746834324024491643">Para acceder a tus contraseñas y a más cosas en todos tus dispositivos, inicia sesión como <ph name="EMAIL" /></translation>
 <translation id="6751521182688001123">Abre una pestaña nueva rápidamente. Para editar este acceso directo, mantenlo pulsado.</translation>
 <translation id="6754359471209693699">Iniciar nueva búsqueda</translation>
 <translation id="6756507620369789050">Enviar comentarios</translation>
 <translation id="6762511428368667596"><ph name="NAME" />, <ph name="EMAIL" />.</translation>
-<translation id="676305334223455055">Inicia sesión para ver contenido basado en tus intereses</translation>
 <translation id="6764137532716892442">Grupo de pestañas <ph name="GROUP_TITLE" /> compartido con actividad nueva</translation>
 <translation id="6783664456110886353">{TAB_COUNT,plural, =1{Se cerrarán <ph name="INCOGNITO_TAB_COUNT" /> pestaña de Incógnito y <ph name="TAB_COUNT_ONE" /> pestaña más}other{Se cerrarán <ph name="INCOGNITO_TAB_COUNT" /> pestaña de Incógnito y <ph name="TAB_COUNT_MANY" /> pestañas más}}</translation>
 <translation id="6785476624617658922">Términos del Servicio Adicionales de Chrome y ChromeOS</translation>
@@ -1709,6 +1696,7 @@ Para cambiar este ajuste, <ph name="BEGIN_LINK" />elimina los datos de Chrome de
 <translation id="7630202231528827509">URL del proveedor</translation>
 <translation id="7638584964844754484">Frase de contraseña incorrecta</translation>
 <translation id="764047009170754705">Aceptación de Chrome Finds cerrada</translation>
+<translation id="7645712301713737707">Personaliza el diseño de tus pestañas para que aparezcan en la parte superior o en el lateral de tu navegador.</translation>
 <translation id="7646499124171960488">Te avisa de los sitios públicos no seguros</translation>
 <translation id="7655240423373329753">los últimos 7 días</translation>
 <translation id="7656721520530864426">No hay sitios</translation>
@@ -1759,7 +1747,6 @@ Para cambiar este ajuste, <ph name="BEGIN_LINK" />elimina los datos de Chrome de
 <translation id="7822705602465980873">Cuando inicias sesión, estos datos se vinculan a tu cuenta de Google para protegerte en los servicios de Google (por ejemplo, con una mayor protección en Gmail tras un incidente de seguridad).</translation>
 <translation id="7824665136384946951">Tu organización ha desactivado Navegación segura</translation>
 <translation id="7825973332242257878">Grupos de pestañas</translation>
-<translation id="7826342993930002256">Llévate tu Chrome a todas partes</translation>
 <translation id="7845155831233417403">Puedes tener hasta <ph name="MAX_INSTANCE_COUNT" /> ventanas. Cierra una ventana para continuar.</translation>
 <translation id="7846161022626028328">Se ha producido un error. Inténtalo de nuevo.</translation>
 <translation id="7846296061357476882">Servicios de Google</translation>
@@ -1835,7 +1822,6 @@ Para cambiar este ajuste, <ph name="BEGIN_LINK" />elimina los datos de Chrome de
 <translation id="8110024788458304985">Ayudar a mejorar las funciones y el rendimiento de Chrome</translation>
 <translation id="8110087112193408731">¿Mostrar tu actividad de Chrome en Bienestar digital?</translation>
 <translation id="8118117428362942925">Si necesitas ayuda, pídesela a tu padre o madre (<ph name="PARENT_NAME" />)</translation>
-<translation id="8118151008374483324">Inicia sesión en Chrome para acceder a tus pestañas y otros elementos en todos tus dispositivos</translation>
 <translation id="8120286190326371840">No hay contraseñas vulneradas en este dispositivo</translation>
 <translation id="8122623268651408616">Ordenados por más reciente</translation>
 <translation id="8127542551745560481">Editar página principal</translation>
@@ -1963,7 +1949,6 @@ Para cambiar este ajuste, <ph name="BEGIN_LINK" />elimina los datos de Chrome de
 <translation id="8570677896027847510">El archivo no se puede descargar de forma segura</translation>
 <translation id="8571213806525832805">Últimas 4 semanas</translation>
 <translation id="8580435650274205305">Fecha de vencimiento, obligatorio</translation>
-<translation id="8582529315803410153">Aquí verás tus pestañas de otros dispositivos</translation>
 <translation id="8585103689515290060">Servicios de autocompletado</translation>
 <translation id="8586116786993312006">Toca para eliminar los datos de navegación en Chrome</translation>
 <translation id="859046281437143747">Sigue el precio desde el botón Más opciones</translation>
@@ -2018,6 +2003,7 @@ Para cambiar este ajuste, <ph name="BEGIN_LINK" />elimina los datos de Chrome de
 <translation id="8816556050903368450">Incluyendo enlace: <ph name="ORIGIN" /></translation>
 <translation id="881688628773363275">La vista previa del contenido de la pestaña no está disponible.</translation>
 <translation id="8820817407110198400">Marcadores</translation>
+<translation id="8822533681006532064">Para hablar con Gemini, dale permiso para usar el micrófono. También puedes gestionar esta opción en <ph name="BEGIN_LINK" />Ajustes<ph name="END_LINK" />.</translation>
 <translation id="8840953339110955557">Esta página puede ser distinta de la versión online.</translation>
 <translation id="8847988622838149491">USB</translation>
 <translation id="8849001918648564819">Oculto</translation>
@@ -2127,7 +2113,6 @@ Para cambiar este ajuste, <ph name="BEGIN_LINK" />elimina los datos de Chrome de
 <translation id="9218430445555521422">Establecer como predeterminado</translation>
 <translation id="9219103736887031265">Imágenes</translation>
 <translation id="922152298093051471">Personalizar Chrome</translation>
-<translation id="9222198206152536936">Inicia sesión como <ph name="EMAIL" /> para acceder a tus pestañas y otros elementos en todos tus dispositivos</translation>
 <translation id="924447568950697217">Establece Chrome como navegador predeterminado</translation>
 <translation id="926205370408745186">Eliminar tu actividad de Chrome de Bienestar digital</translation>
 <translation id="927968626442779827">Usa el modo básico en Google Chrome</translation>
@@ -2140,6 +2125,7 @@ Para cambiar este ajuste, <ph name="BEGIN_LINK" />elimina los datos de Chrome de
 <translation id="945522503751344254">Enviar comentarios</translation>
 <translation id="948276827484905248">Crear código QR</translation>
 <translation id="95817756606698420">Chrome puede utilizar <ph name="BEGIN_BOLD" />Sogou<ph name="END_BOLD" /> para hacer búsquedas en China. Puedes cambiar esta opción en <ph name="BEGIN_LINK" />Configuración<ph name="END_LINK" />.</translation>
+<translation id="959544960061022767">Tu organización requiere que inicies sesión para usar Chrome</translation>
 <translation id="961856697154696964">Borrar datos de navegación</translation>
 <translation id="963246339335003378">Abrir administrador de tareas</translation>
 <translation id="966337994629449077">Has iniciado sesión como <ph name="FROM_EMAIL" />.\n\nPara continuar desde tu ordenador, cambia a <ph name="TO_EMAIL" />. Podrás acceder a las contraseñas, los marcadores y otro contenido de esta cuenta.</translation>

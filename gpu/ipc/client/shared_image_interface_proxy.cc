@@ -58,8 +58,9 @@ std::vector<SyncToken> GenerateDependenciesFromSyncTokens(
     std::vector<SyncToken> sync_tokens,
     GpuChannelHost* const host) {
   DCHECK(host);
+  std::erase_if(sync_tokens, [](const SyncToken& st) { return !st.HasData(); });
   for (auto& sync_token : sync_tokens) {
-    if (sync_token.HasData() && !sync_token.verified_flush()) {
+    if (!sync_token.verified_flush()) {
       // Only allow unverified sync tokens for the same channel.
       DCHECK_EQ(sync_token.namespace_id(), gpu::CommandBufferNamespace::GPU_IO);
       int sync_token_channel_id =
@@ -74,10 +75,7 @@ std::vector<SyncToken> GenerateDependenciesFromSyncTokens(
 std::vector<SyncToken> GenerateDependenciesFromSyncToken(
     SyncToken sync_token,
     GpuChannelHost* const host) {
-  if (sync_token.HasData()) {
-    return GenerateDependenciesFromSyncTokens({sync_token}, host);
-  }
-  return std::vector<SyncToken>();
+  return GenerateDependenciesFromSyncTokens({std::move(sync_token)}, host);
 }
 
 mojom::SharedImageInfoPtr CreateSharedImageInfo(
@@ -149,6 +147,9 @@ Mailbox SharedImageInterfaceProxy::CreateSharedImage(
       (handle_to_populate->type ==
        gfx::GpuMemoryBufferType::SHARED_MEMORY_BUFFER)) {
     si_info.format.ClearPrefersExternalSampler();
+    if (si_info.alpha_type == kPremul_SkAlphaType) {
+      si_info.alpha_type = kUnpremul_SkAlphaType;
+    }
   }
 
   // Call existing SI method to create a SI from handle. Note that we are doing
@@ -328,10 +329,11 @@ void SharedImageInterfaceProxy::UpdateSharedImage(
   }
 }
 
-void SharedImageInterfaceProxy::DestroySharedImage(const SyncToken& sync_token,
-                                                   const Mailbox& mailbox) {
+void SharedImageInterfaceProxy::DestroySharedImage(
+    std::vector<SyncToken> sync_tokens,
+    const Mailbox& mailbox) {
   std::vector<SyncToken> dependencies =
-      GenerateDependenciesFromSyncToken(std::move(sync_token), host_);
+      GenerateDependenciesFromSyncTokens(std::move(sync_tokens), host_);
   {
     base::AutoLock lock(lock_);
 

@@ -39,6 +39,7 @@ import {Deferred} from '../../../utils/Deferred.js';
 import {type LoggerFn, LogType} from '../../../utils/log.js';
 import {getTimestamp} from '../../../utils/time.js';
 import {inchesFromCm} from '../../../utils/unitConversions.js';
+import {urlMatchesAboutBlank} from '../../../utils/urlHelpers.js';
 import {uuidv4} from '../../../utils/uuid.js';
 import type {ContextConfigStorage} from '../browser/ContextConfigStorage.js';
 import type {CdpTarget} from '../cdp/CdpTarget.js';
@@ -57,7 +58,8 @@ import {
 } from './NavigationTracker.js';
 
 export class BrowsingContextImpl {
-  static readonly LOGGER_PREFIX = `${LogType.debug}:browsingContext` as const;
+  static readonly LOGGER_PREFIX: `${LogType.debug}:browsingContext` =
+    `${LogType.debug}:browsingContext` as const;
 
   /** Direct children browsing contexts. */
   readonly #children = new Set<BrowsingContext.BrowsingContext>();
@@ -66,7 +68,15 @@ export class BrowsingContextImpl {
   readonly userContext: string;
   // Used for running helper scripts.
   readonly #hiddenSandbox = uuidv4();
-  readonly #downloadIdToUrlMap = new Map<string, string>();
+  // Maps active CDP download GUIDs initiated in this context to their info from
+  // `Browser.downloadWillBegin`. Required to populate `browsingContext.downloadEnd`
+  // because CDP's `Browser.downloadProgress` event only provides `guid`, `state`,
+  // and `filePath` (and does not include the downloaded resource's `url` or the
+  // associated BiDi `navigation` ID).
+  readonly #downloadIdToInfoMap = new Map<
+    string,
+    {url: string; navigation: string | null}
+  >();
 
   /**
    * The ID of the parent browsing context.
@@ -210,8 +220,14 @@ export class BrowsingContextImpl {
     return this.#navigationTracker.currentNavigationId;
   }
 
-  dispose(emitContextDestroyed: boolean) {
+  dispose(emitContextDestroyed: boolean): void {
     this.#navigationTracker.dispose();
+
+    // Reject any pending callers awaiting the default realm when the context
+    // is destroyed before its default realm is created.
+    this.#defaultRealmDeferred.reject(
+      new NoSuchFrameException(`Context ${this.id} was destroyed`),
+    );
 
     this.#realmStorage.deleteRealms({
       browsingContextId: this.id,
@@ -310,7 +326,7 @@ export class BrowsingContextImpl {
     return topContext;
   }
 
-  addChild(childId: BrowsingContext.BrowsingContext) {
+  addChild(childId: BrowsingContext.BrowsingContext): void {
     this.#children.add(childId);
   }
 
@@ -322,8 +338,11 @@ export class BrowsingContextImpl {
     return this.#cdpTarget;
   }
 
-  updateCdpTarget(cdpTarget: CdpTarget) {
+  updateCdpTarget(cdpTarget: CdpTarget): void {
     this.#cdpTarget = cdpTarget;
+    if (this.#defaultRealmDeferred.isFinished) {
+      this.#defaultRealmDeferred = new Deferred<Realm>();
+    }
     this.#initListeners();
   }
 
@@ -331,7 +350,7 @@ export class BrowsingContextImpl {
     return this.#navigationTracker.url;
   }
 
-  async lifecycleLoaded() {
+  async lifecycleLoaded(): Promise<void> {
     await this.#lifecycle.load;
   }
 
@@ -359,9 +378,13 @@ export class BrowsingContextImpl {
   async #getOrCreateSandboxInternal(
     sandbox: string | undefined,
   ): Promise<Realm> {
+    // Always await the default realm first so that sandbox creation waits for
+    // the active document to be ready rather than creating an isolated world
+    // on a loading or provisional document.
+    const defaultRealm = await this.#defaultRealmDeferred;
+
     if (sandbox === undefined || sandbox === '') {
-      // Default realm is not guaranteed to be created at this point, so return a deferred.
-      return await this.#defaultRealmDeferred;
+      return defaultRealm;
     }
 
     let maybeSandboxes = this.#realmStorage.findRealms({
@@ -415,7 +438,7 @@ export class BrowsingContextImpl {
     };
   }
 
-  onTargetInfoChanged(params: Protocol.Target.TargetInfoChangedEvent) {
+  onTargetInfoChanged(params: Protocol.Target.TargetInfoChangedEvent): void {
     this.#navigationTracker.onTargetInfoChanged(params.targetInfo.url);
   }
 
@@ -489,6 +512,19 @@ export class BrowsingContextImpl {
     this.#cdpTarget.cdpClient.on('Page.frameStartedNavigating', (params) => {
       if (this.id !== params.frameId) {
         return;
+      }
+
+      // When a newly opened context (e.g. via `window.open(url)`) starts its
+      // initial navigation to a non-`about:blank` URL, reset `#defaultRealmDeferred`
+      // so that commands awaiting the context's default realm wait for the
+      // navigating document's default realm to be created.
+      if (
+        this.#navigationTracker.isInitialNavigation &&
+        !urlMatchesAboutBlank(params.url)
+      ) {
+        if (this.#defaultRealmDeferred.isFinished) {
+          this.#defaultRealmDeferred = new Deferred<Realm>();
+        }
       }
 
       this.#navigationTracker.frameStartedNavigating(
@@ -651,6 +687,12 @@ export class BrowsingContextImpl {
         );
 
         if (auxData.isDefault) {
+          // If `#defaultRealmDeferred` was already resolved to a previous realm
+          // (without a preceding reset), replace it with a fresh Deferred so
+          // calling `resolve(realm)` updates it to the new default realm.
+          if (this.#defaultRealmDeferred.isFinished) {
+            this.#defaultRealmDeferred = new Deferred<Realm>();
+          }
           this.#defaultRealmDeferred.resolve(realm);
 
           // Initialize ChannelProxy listeners for all the channels of all the
@@ -670,6 +712,9 @@ export class BrowsingContextImpl {
     this.#cdpTarget.cdpClient.on(
       'Runtime.executionContextDestroyed',
       (params) => {
+        // If the destroyed context is the currently resolved default realm,
+        // reset `#defaultRealmDeferred` to pending so subsequent callers wait
+        // for the next default realm.
         if (
           this.#defaultRealmDeferred.isFinished &&
           this.#defaultRealmDeferred.result.executionContextId ===
@@ -686,12 +731,13 @@ export class BrowsingContextImpl {
     );
 
     this.#cdpTarget.cdpClient.on('Runtime.executionContextsCleared', () => {
-      if (!this.#defaultRealmDeferred.isFinished) {
-        this.#defaultRealmDeferred.reject(
-          new UnknownErrorException('execution contexts cleared'),
-        );
+      // Only replace `#defaultRealmDeferred` if it was already resolved.
+      // If it is currently pending, do not reject it so callers waiting for
+      // a navigating context's realm will resolve when the new default realm
+      // is created.
+      if (this.#defaultRealmDeferred.isFinished) {
+        this.#defaultRealmDeferred = new Deferred<Realm>();
       }
-      this.#defaultRealmDeferred = new Deferred<Realm>();
       this.#realmStorage.deleteRealms({
         cdpSessionId: this.#cdpTarget.cdpSessionId,
       });
@@ -810,23 +856,58 @@ export class BrowsingContextImpl {
           return;
         }
 
-        this.#downloadIdToUrlMap.set(params.guid, params.url);
+        let openerContext: BrowsingContextImpl | undefined;
+        if (
+          this.#originalOpener !== undefined &&
+          this.#navigationTracker.isInitialCommittedNavigation
+        ) {
+          openerContext = this.#browsingContextStorage.findContext(
+            this.#originalOpener,
+          );
+        }
+        const targetContext = openerContext ?? this;
+
+        const navigation = this.#navigationTracker.downloadWillBegin();
+        targetContext.#downloadIdToInfoMap.set(params.guid, {
+          url: params.url,
+          navigation,
+        });
+
+        if (openerContext !== undefined && navigation !== null) {
+          // When a download starts in a temporary `_blank` browsing context
+          // that has not committed any navigation, attribute the navigation
+          // and download events to the opener context.
+          this.#eventManager.registerEvent(
+            {
+              type: 'event',
+              method: ChromiumBidi.BrowsingContext.EventNames.NavigationStarted,
+              params: {
+                context: openerContext.id,
+                navigation,
+                timestamp: getTimestamp(),
+                url: params.url,
+                userContext: openerContext.userContext,
+              },
+            },
+            openerContext.id,
+          );
+        }
 
         this.#eventManager.registerEvent(
-          // @ts-expect-error we do not support download yet. https://github.com/GoogleChromeLabs/chromium-bidi/issues/4155.
           {
             type: 'event',
             method: ChromiumBidi.BrowsingContext.EventNames.DownloadWillBegin,
             params: {
-              context: this.id,
+              context: targetContext.id,
+              download: params.guid,
               suggestedFilename: params.suggestedFilename,
-              navigation: params.guid,
+              navigation,
               timestamp: getTimestamp(),
               url: params.url,
-              userContext: this.userContext,
+              userContext: targetContext.userContext,
             },
           },
-          this.id,
+          targetContext.id,
         );
       },
     );
@@ -834,7 +915,7 @@ export class BrowsingContextImpl {
     this.#cdpTarget.browserCdpClient.on(
       'Browser.downloadProgress',
       (params) => {
-        if (!this.#downloadIdToUrlMap.has(params.guid)) {
+        if (!this.#downloadIdToInfoMap.has(params.guid)) {
           // The event is not related to this browsing context.
           return;
         }
@@ -844,19 +925,20 @@ export class BrowsingContextImpl {
           return;
         }
 
-        const url = this.#downloadIdToUrlMap.get(params.guid)!;
+        const {url, navigation} = this.#downloadIdToInfoMap.get(params.guid)!;
+        this.#downloadIdToInfoMap.delete(params.guid);
 
         switch (params.state) {
           case 'canceled':
             this.#eventManager.registerEvent(
-              // @ts-expect-error we do not support download yet. https://github.com/GoogleChromeLabs/chromium-bidi/issues/4155.
               {
                 type: 'event',
                 method: ChromiumBidi.BrowsingContext.EventNames.DownloadEnd,
                 params: {
                   status: 'canceled',
                   context: this.id,
-                  navigation: params.guid,
+                  download: params.guid,
+                  navigation,
                   timestamp: getTimestamp(),
                   url,
                   userContext: this.userContext,
@@ -867,7 +949,6 @@ export class BrowsingContextImpl {
             break;
           case 'completed':
             this.#eventManager.registerEvent(
-              // @ts-expect-error we do not support download yet. https://github.com/GoogleChromeLabs/chromium-bidi/issues/4155.
               {
                 type: 'event',
                 method: ChromiumBidi.BrowsingContext.EventNames.DownloadEnd,
@@ -875,7 +956,8 @@ export class BrowsingContextImpl {
                   filepath: params.filePath ?? null,
                   status: 'complete',
                   context: this.id,
-                  navigation: params.guid,
+                  download: params.guid,
+                  navigation,
                   timestamp: getTimestamp(),
                   url,
                   userContext: this.userContext,
@@ -1148,7 +1230,7 @@ export class BrowsingContextImpl {
     viewport: BrowsingContext.Viewport | null,
     devicePixelRatio: number | null,
     screenOrientation: Emulation.ScreenOrientation | null,
-  ) {
+  ): Promise<void> {
     // Set the target's viewport.
     const config = this.#configStorage.getActiveConfig(
       this.id,
@@ -1160,6 +1242,7 @@ export class BrowsingContextImpl {
       screenOrientation,
       config.screenArea ?? null,
       config.scrollbarType ?? null,
+      config.viewportMeta ?? null,
     );
   }
 
@@ -1953,7 +2036,7 @@ export class BrowsingContextImpl {
     );
   }
 
-  async setScriptingEnabled(scriptingEnabled: false | null) {
+  async setScriptingEnabled(scriptingEnabled: false | null): Promise<void> {
     await Promise.all(
       this.#getAllRelatedCdpTargets().map(
         async (cdpTarget) =>
@@ -1967,7 +2050,7 @@ export class BrowsingContextImpl {
     acceptLanguage: string | null | undefined,
     clientHints:
       UAClientHints.UserAgentClientHints.ClientHintsMetadata | null | undefined,
-  ) {
+  ): Promise<void> {
     await Promise.all(
       this.#getAllRelatedCdpTargets().map(
         async (cdpTarget) =>
@@ -1982,7 +2065,7 @@ export class BrowsingContextImpl {
 
   async setEmulatedNetworkConditions(
     networkConditions: Emulation.NetworkConditions | null,
-  ) {
+  ): Promise<void> {
     await Promise.all(
       this.#getAllRelatedCdpTargets().map(
         async (cdpTarget) =>
@@ -1991,7 +2074,7 @@ export class BrowsingContextImpl {
     );
   }
 
-  async setTouchOverride(maxTouchPoints: number | null) {
+  async setTouchOverride(maxTouchPoints: number | null): Promise<void> {
     await Promise.allSettled(
       this.#getAllRelatedCdpTargets().map(
         async (cdpTarget) => await cdpTarget.setTouchOverride(maxTouchPoints),
@@ -2033,11 +2116,27 @@ export class BrowsingContextImpl {
       config.screenOrientation ?? null,
       config.screenArea ?? null,
       scrollbarType,
+      config.viewportMeta ?? null,
+    );
+  }
+
+  async setViewportMetaOverride(viewportMeta: true | null): Promise<void> {
+    const config = this.#configStorage.getActiveConfig(
+      this.id,
+      this.userContext,
+    );
+    await this.cdpTarget.setDeviceMetricsOverride(
+      config.viewport ?? null,
+      config.devicePixelRatio ?? null,
+      config.screenOrientation ?? null,
+      config.screenArea ?? null,
+      config.scrollbarType ?? null,
+      viewportMeta,
     );
   }
 }
 
-export function serializeOrigin(origin: string) {
+export function serializeOrigin(origin: string): string {
   // https://html.spec.whatwg.org/multipage/origin.html#ascii-serialisation-of-an-origin
   if (['://', ''].includes(origin)) {
     origin = 'null';

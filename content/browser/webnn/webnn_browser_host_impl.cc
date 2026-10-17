@@ -111,7 +111,7 @@ mojo::Remote<webnn::mojom::WebNNCompilerService> LaunchCompilerProcess(
     const base::FilePath& ep_library_path,
     const webnn::EpDeviceInfo& target_device,
     ServiceProcessHostPreloadLibraries::PassKey pass_key) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
 
   ServiceProcessHost::Options options;
   options.WithDisplayName(base::StrCat(
@@ -167,7 +167,7 @@ mojo::Remote<webnn::mojom::WebNNCompilerService> LaunchCompilerProcess(
 // static
 void WebNNBrowserHostImpl::Create(
     mojo::PendingReceiver<webnn::mojom::WebNNBrowserHost> receiver) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
   // The instance is owned by its receiver and deleted when it disconnects.
   mojo::MakeSelfOwnedReceiver(std::make_unique<WebNNBrowserHostImpl>(
                                   base::PassKey<WebNNBrowserHostImpl>()),
@@ -176,7 +176,7 @@ void WebNNBrowserHostImpl::Create(
 
 WebNNBrowserHostImpl::WebNNBrowserHostImpl(
     base::PassKey<WebNNBrowserHostImpl>) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
 }
 
 WebNNBrowserHostImpl::~WebNNBrowserHostImpl() = default;
@@ -184,7 +184,7 @@ WebNNBrowserHostImpl::~WebNNBrowserHostImpl() = default;
 #if BUILDFLAG(IS_WIN)
 void WebNNBrowserHostImpl::EnsureExecutionProvidersReady(
     EnsureExecutionProvidersReadyCallback callback) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
   webnn::EnsureExecutionProvidersReady(std::move(callback));
 }
 
@@ -196,7 +196,7 @@ void WebNNBrowserHostImpl::RequestCompilerContext(
         compiler_context_receiver,
     mojo::PendingRemote<webnn::mojom::WebNNModelLoader> model_loader_remote,
     RequestCompilerContextCallback callback) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
 
   auto wrapped_callback = mojo::WrapCallbackWithDefaultInvokeIfNotRun(
       std::move(callback), /*success=*/false);
@@ -247,7 +247,7 @@ void WebNNBrowserHostImpl::OnEpsResolvedForCompilerContext(
     RequestCompilerContextCallback callback,
     base::flat_map<std::string, webnn::mojom::EpPackageInfoPtr>
         ep_package_info_map) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
 
   const auto ep_it = ep_package_info_map.find(target_device.ep_name);
   if (ep_it == ep_package_info_map.end()) {
@@ -288,7 +288,7 @@ void WebNNBrowserHostImpl::OnDisconnected(
     const webnn::EpDeviceInfo& device_info,
     uint32_t reason,
     const std::string& description) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
   webnn_compiler_remotes_.erase(device_info);
 
   // `reason` comes from a less-trusted child process. Verify it matches a
@@ -322,7 +322,7 @@ void WebNNBrowserHostImpl::OnDisconnected(
 // function here from `weights_file_provider.cc`.
 void WebNNBrowserHostImpl::CreateWeightsFile(
     CreateWeightsFileCallback callback) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
   webnn::CreateWeightsFile(std::move(callback));
 }
 
@@ -330,7 +330,7 @@ void WebNNBrowserHostImpl::CreateWeightsFile(
 void WebNNBrowserHostImpl::CopyCompiledModel(
     const base::FilePath& compiler_model_path,
     CopyCompiledModelCallback callback) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
 
   base::FilePath temp_dir;
   if (!base::GetTempDir(&temp_dir)) {
@@ -354,9 +354,11 @@ void WebNNBrowserHostImpl::CopyCompiledModel(
             base::FilePath compiler_protected_dir = base::MakeAbsoluteFilePath(
                 temp_dir.AppendASCII("webnn_compiler_protected"));
             base::FilePath abs_src_path = base::MakeAbsoluteFilePath(src_path);
+            base::FilePath src_scoped_dir = abs_src_path.DirName();
             if (abs_src_path.empty() || compiler_protected_dir.empty() ||
                 abs_src_path.ReferencesParent() ||
-                !compiler_protected_dir.IsParent(abs_src_path)) {
+                abs_src_path.BaseName().value() != "model.mlmodelc" ||
+                src_scoped_dir.DirName() != compiler_protected_dir) {
               LOG(ERROR)
                   << "[WebNN] Security validation failed: compiled model path "
                   << src_path << " is not within default temp directory.";
@@ -376,12 +378,32 @@ void WebNNBrowserHostImpl::CopyCompiledModel(
               return std::nullopt;
             }
             base::FilePath dest_parent_dir = gpu_model_dir.GetPath();
+            // Copy from `src_scoped_dir` (a direct child of
+            // `compiler_protected_dir`) rather than `abs_src_path` directly so
+            // that `CopyDirectoryNoFollow` checks `src_scoped_dir` itself with
+            // `O_NOFOLLOW` and traverses into `model.mlmodelc` via
+            // `openat(..., O_NOFOLLOW)`, preventing TOCTOU symlink swaps on
+            // `src_scoped_dir`.
+            if (!base::CopyDirectoryNoFollow(src_scoped_dir, dest_parent_dir,
+                                             /*recursive=*/true)) {
+              LOG(ERROR) << "[WebNN] Failed to copy compiled model from "
+                         << src_scoped_dir << " to " << dest_parent_dir;
+              return std::nullopt;
+            }
+            // Because `dest_parent_dir` already exists, `CopyDirectoryNoFollow`
+            // copies `src_scoped_dir` as a subdirectory inside
+            // `dest_parent_dir`. Move `model.mlmodelc` up one level so
+            // `gpu_model_path->DirName()` is `dest_parent_dir` as expected by
+            // the GPU process.
+            base::FilePath copied_scoped_dir =
+                dest_parent_dir.Append(src_scoped_dir.BaseName());
             base::FilePath gpu_model_path =
                 dest_parent_dir.AppendASCII("model.mlmodelc");
-            if (!base::CopyDirectory(src_path, gpu_model_path,
-                                     /*recursive=*/true)) {
-              LOG(ERROR) << "[WebNN] Failed to copy compiled model from "
-                         << src_path << " to " << gpu_model_path;
+            if (!base::Move(copied_scoped_dir.AppendASCII("model.mlmodelc"),
+                            gpu_model_path) ||
+                !base::DeletePathRecursively(copied_scoped_dir)) {
+              LOG(ERROR) << "[WebNN] Failed to move compiled model to "
+                         << gpu_model_path;
               return std::nullopt;
             }
             // Take ownership of the temp directory so it is not

@@ -28,6 +28,7 @@
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/webview/web_contents_set_background_color.h"
 #include "ui/views/controls/webview/webview.h"
+#include "ui/views/layout/fill_layout.h"
 #include "ui/views/view_class_properties.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -41,6 +42,7 @@ class OrganizerPanelViewImpl : public OrganizerPanelView {
  public:
   explicit OrganizerPanelViewImpl(BrowserWindowInterface& browser)
       : OrganizerPanelView(browser) {
+    SetLayoutManager(std::make_unique<views::FillLayout>());
     auto web_view = std::make_unique<views::WebView>(browser.GetProfile());
     webui::SetBrowserWindowInterface(web_view->GetWebContents(), &browser);
     views::WebContentsSetBackgroundColor::CreateForWebContentsWithColor(
@@ -84,7 +86,7 @@ OrganizerPanelView::OrganizerPanelView(BrowserWindowInterface& browser)
   layer()->SetIsFastRoundedCorner(true);
 
   SetPreferredSize(gfx::Size(organizer_panel::kOrganizerPanelMinWidth, 0));
-  SetProperty(views::kElementIdentifierKey, kOrganizerPanelViewElementId);
+  SetProperty(views::kElementIdentifierKey, kOrganizerPanelElementId);
 
   auto& accessibility = GetViewAccessibility();
   accessibility.SetRole(ax::mojom::Role::kPane);
@@ -96,40 +98,6 @@ OrganizerPanelView::~OrganizerPanelView() = default;
 
 bool OrganizerPanelView::IsInExtensionModeForTesting() const {
   return false;
-}
-
-void OrganizerPanelView::Layout(PassKey) {
-  LayoutSuperclass<views::View>(this);
-
-  // Set clip region based on parent.
-  if (parent()) {
-    const gfx::Rect clip_bounds = GetLocalBounds();
-    const gfx::Rect parent_bounds = views::View::ConvertRectToTarget(
-        parent(), this, parent()->GetLocalBounds());
-    gfx::Rect clip_rect = clip_bounds;
-    clip_rect.Intersect(parent_bounds);
-    layer()->SetClipRect(clip_rect);
-    gfx::RoundedCornersF corners;
-    if (parent()->background()) {
-      if (auto* const background =
-              parent()->background()->AsA<CustomCornersBackground>();
-          background && background->is_visible()) {
-        // Note: this mirrors for RtL.
-        corners = background->GetRoundedCornerRadii().value_or(
-            gfx::RoundedCornersF());
-        // These bounds are also mirrored for RtL.
-        if (clip_bounds.x() < parent_bounds.x()) {
-          corners.set_upper_left(0.f);
-          corners.set_lower_left(0.f);
-        }
-        if (clip_bounds.right() > parent_bounds.right()) {
-          corners.set_upper_right(0.f);
-          corners.set_lower_right(0.f);
-        }
-      }
-    }
-    layer()->SetRoundedCornerRadius(corners);
-  }
 }
 
 BEGIN_METADATA(OrganizerPanelView)

@@ -28,6 +28,7 @@ import org.chromium.components.omnibox.OmniboxCapabilities;
 import org.chromium.components.omnibox.OmniboxFocusReason;
 import org.chromium.components.omnibox.PageClassificationUtils;
 import org.chromium.components.omnibox.TextSelection;
+import org.chromium.components.omnibox.ToolModeProtoIntDef.ToolMode;
 import org.chromium.components.omnibox.ToolModeUtils;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.url.GURL;
@@ -66,7 +67,8 @@ public class FuseboxSessionState implements UserData {
                     FuseboxSessionState.this.onAttachmentListChanged();
                 }
             };
-    private final Callback<Integer> mOnRequestTypeChanged = this::onRequestTypeChanged;
+    private final Callback<@AutocompleteRequestType Integer> mOnRequestTypeChanged =
+            this::onRequestTypeChanged;
 
     /**
      * Details about the user input in the Omnibox. Retained to allow session reconstruction, for
@@ -154,7 +156,12 @@ public class FuseboxSessionState implements UserData {
         // Use current URL if the Retention is active as the starting input.
         // On eligible LFF devices the Omnibox should, by default, present the
         // current page URL (if the URL is eligible for display).
+        // Hub and Tab Search always start with an empty search box (see below), so the page URL
+        // must not become their initial input either. Otherwise an empty search box would be
+        // treated as text edited by the user (crbug.com/561860973).
         if (OmniboxCapabilities.hasDesktopExperience(context)
+                && !PageClassificationUtils.isHubOrTabSearch(
+                        mAutocompleteInput.getPageClassification())
                 && UrlBarData.shouldShowUrl(
                         mAutocompleteInput.getPageUrl(), /* isOffTheRecord= */ false)) {
             GURL pageUrl = mAutocompleteInput.getPageUrl();
@@ -165,10 +172,10 @@ public class FuseboxSessionState implements UserData {
                 initialUserText = UrlUtilities.stripTrailingSlash(initialUserText);
             }
             mAutocompleteInput.setPreviewMatchUrl(pageUrl);
-            mAutocompleteInput.setInitialUserText(initialUserText);
+            mAutocompleteInput.setInitialInput(initialUserText, pageUrl);
         } else {
             mAutocompleteInput.setPreviewMatchUrl(null);
-            mAutocompleteInput.setInitialUserText("");
+            mAutocompleteInput.setInitialInput("", null);
         }
 
         // Apply the initial default value unless user text is already set.
@@ -332,6 +339,7 @@ public class FuseboxSessionState implements UserData {
 
     private void onRequestTypeChanged(@AutocompleteRequestType int requestType) {
         if (mComposeBoxQueryControllerBridge != null) {
+            @ToolMode
             int toolMode =
                     ToolModeUtils.getToolModeForRequestType(
                             requestType, /* hasAttachments= */ false);

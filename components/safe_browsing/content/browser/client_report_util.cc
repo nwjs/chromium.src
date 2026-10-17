@@ -47,12 +47,8 @@ CSBRR::ReportType GetReportTypeFromSBThreatType(SBThreatType threat_type) {
       return CSBRR::URL_UNWANTED;
     case SB_THREAT_TYPE_URL_CLIENT_SIDE_PHISHING:
       return CSBRR::URL_CLIENT_SIDE_PHISHING;
-    case SB_THREAT_TYPE_BLOCKED_AD_POPUP:
-      return CSBRR::BLOCKED_AD_POPUP;
     case SB_THREAT_TYPE_AD_SAMPLE:
       return CSBRR::AD_SAMPLE;
-    case SB_THREAT_TYPE_BLOCKED_AD_REDIRECT:
-      return CSBRR::BLOCKED_AD_REDIRECT;
     case SB_THREAT_TYPE_SAVED_PASSWORD_REUSE:
     case SB_THREAT_TYPE_SIGNED_IN_SYNC_PASSWORD_REUSE:
     case SB_THREAT_TYPE_SIGNED_IN_NON_SYNC_PASSWORD_REUSE:
@@ -60,6 +56,8 @@ CSBRR::ReportType GetReportTypeFromSBThreatType(SBThreatType threat_type) {
       return CSBRR::URL_PASSWORD_PROTECTION_PHISHING;
     case SB_THREAT_TYPE_SUSPICIOUS_SITE:
       return CSBRR::URL_SUSPICIOUS;
+    case SB_THREAT_TYPE_WARNABLE_SUSPICIOUS_SITE:
+      return CSBRR::WARNING_SHOWN;
     case SB_THREAT_TYPE_BILLING:
       return CSBRR::BILLING;
     case SB_THREAT_TYPE_APK_DOWNLOAD:
@@ -75,9 +73,10 @@ CSBRR::ReportType GetReportTypeFromSBThreatType(SBThreatType threat_type) {
     case SB_THREAT_TYPE_CSD_DOWNLOAD_ALLOWLIST:
     case DEPRECATED_SB_THREAT_TYPE_URL_PASSWORD_PROTECTION_PHISHING:
     case DEPRECATED_SB_THREAT_TYPE_URL_CLIENT_SIDE_MALWARE:
+    case DEPRECATED_SB_THREAT_TYPE_BLOCKED_AD_REDIRECT:
+    case DEPRECATED_SB_THREAT_TYPE_BLOCKED_AD_POPUP:
     case SB_THREAT_TYPE_MANAGED_POLICY_WARN:
     case SB_THREAT_TYPE_MANAGED_POLICY_BLOCK:
-    case SB_THREAT_TYPE_WARNABLE_SUSPICIOUS_SITE:
       // Gated by SafeBrowsingBlockingPage::ShouldReportThreatDetails.
       NOTREACHED() << "We should not send report for threat type: "
                    << static_cast<int>(threat_type);
@@ -99,9 +98,9 @@ CSBRR::WarningShownInfo::WarningUXType GetWarningUXTypeFromSBThreatType(
       return CSBRR::WarningShownInfo::CLIENT_SIDE_PHISHING_INTERSTITIAL;
     case SB_THREAT_TYPE_BILLING:
       return CSBRR::WarningShownInfo::BILLING_INTERSTITIAL;
-    case SB_THREAT_TYPE_BLOCKED_AD_POPUP:
+    case SB_THREAT_TYPE_WARNABLE_SUSPICIOUS_SITE:
+      return CSBRR::WarningShownInfo::SUSPICIOUS_SITE_WARNING;
     case SB_THREAT_TYPE_AD_SAMPLE:
-    case SB_THREAT_TYPE_BLOCKED_AD_REDIRECT:
     case SB_THREAT_TYPE_SAVED_PASSWORD_REUSE:
     case SB_THREAT_TYPE_SIGNED_IN_SYNC_PASSWORD_REUSE:
     case SB_THREAT_TYPE_SIGNED_IN_NON_SYNC_PASSWORD_REUSE:
@@ -119,9 +118,10 @@ CSBRR::WarningShownInfo::WarningUXType GetWarningUXTypeFromSBThreatType(
     case SB_THREAT_TYPE_CSD_DOWNLOAD_ALLOWLIST:
     case DEPRECATED_SB_THREAT_TYPE_URL_PASSWORD_PROTECTION_PHISHING:
     case DEPRECATED_SB_THREAT_TYPE_URL_CLIENT_SIDE_MALWARE:
+    case DEPRECATED_SB_THREAT_TYPE_BLOCKED_AD_REDIRECT:
+    case DEPRECATED_SB_THREAT_TYPE_BLOCKED_AD_POPUP:
     case SB_THREAT_TYPE_MANAGED_POLICY_WARN:
     case SB_THREAT_TYPE_MANAGED_POLICY_BLOCK:
-    case SB_THREAT_TYPE_WARNABLE_SUSPICIOUS_SITE:
       NOTREACHED() << "We should not send report for threat type: "
                    << static_cast<int>(threat_type);
   }
@@ -224,9 +224,9 @@ GURL GetReferrerUrl(const security_interstitials::UnsafeResource& resource) {
 void FillReportBasicResourceDetails(
     CSBRR* report,
     const security_interstitials::UnsafeResource& resource) {
+  report->set_type(GetReportTypeFromSBThreatType(resource.threat_type));
   if (IsReportableUrl(resource.url)) {
     report->set_url(resource.url.spec());
-    report->set_type(GetReportTypeFromSBThreatType(resource.threat_type));
     report->set_url_request_destination(CSBRR::DOCUMENT);
   }
 

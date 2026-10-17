@@ -171,6 +171,22 @@ std::unique_ptr<ExternalVkImageBacking> ExternalVkImageBacking::Create(
     base::span<const uint8_t> pixel_data) {
   auto format = si_info.format;
   auto usage = si_info.usage;
+
+  bool use_separate_gl_texture =
+      ExternalVkImageBacking::UseSeparateGLTexture(context_state.get(), format);
+  // The separate GL texture path keeps an independent GL texture in sync with
+  // the VkImage by copying pixels on access. WebGPU interop requires a single
+  // allocation aliased into both APIs, and ExternalVkImageBackingFactory
+  // already refuses formats that would end up here, so this is unreachable
+  // unless a caller bypasses IsSupported(). Fail rather than silently handing
+  // back a backing that cannot keep its two copies coherent. This must happen
+  // before any VulkanImage is allocated, since those must be explicitly
+  // destroyed.
+  if (enable_webgpu_on_vk_via_gl_interop && use_separate_gl_texture) {
+    DLOG(ERROR) << "Separate GL texture is not supported with WebGPU interop";
+    return nullptr;
+  }
+
   bool is_external = context_state->support_vulkan_external_object();
   auto* device_queue = context_state->vk_context_provider()->GetDeviceQueue();
 
@@ -232,6 +248,11 @@ std::unique_ptr<ExternalVkImageBacking> ExternalVkImageBacking::Create(
                                   VK_IMAGE_TILING_OPTIMAL);
     }
     if (!image) {
+      // VulkanImages must be explicitly destroyed, so release the images
+      // already allocated for earlier planes.
+      for (auto& texture : textures) {
+        texture.vulkan_image->Destroy();
+      }
       return nullptr;
     }
 
@@ -239,9 +260,6 @@ std::unique_ptr<ExternalVkImageBacking> ExternalVkImageBacking::Create(
     textures.emplace_back(std::move(image), format, si_info.color_space);
   }
 
-  bool use_separate_gl_texture =
-      ExternalVkImageBacking::UseSeparateGLTexture(context_state.get(), format);
-  DCHECK(!enable_webgpu_on_vk_via_gl_interop || !use_separate_gl_texture);
   auto backing = std::make_unique<ExternalVkImageBacking>(
       base::PassKey<ExternalVkImageBacking>(), mailbox, si_info, estimated_size,
       std::move(context_state), std::move(textures), command_pool,
@@ -254,7 +272,10 @@ std::unique_ptr<ExternalVkImageBacking> ExternalVkImageBacking::Create(
       return nullptr;
     }
     SkPixmap pixmap(image_info, pixel_data.data(), image_info.minRowBytes());
-    backing->UploadToVkImage({pixmap});
+    if (!backing->UploadToVkImage({pixmap})) {
+      DLOG(ERROR) << "Failed to upload initial pixel data to VkImage";
+      return nullptr;
+    }
 
     // Mark the backing as cleared.
     backing->SetCleared();
@@ -283,6 +304,14 @@ std::unique_ptr<ExternalVkImageBacking> ExternalVkImageBacking::CreateFromGMB(
     return nullptr;
   }
 
+  bool use_separate_gl_texture =
+      ExternalVkImageBacking::UseSeparateGLTexture(context_state.get(), format);
+  // See the comment on the same check in Create().
+  if (enable_webgpu_on_vk_via_gl_interop && use_separate_gl_texture) {
+    DLOG(ERROR) << "Separate GL texture is not supported with WebGPU interop";
+    return nullptr;
+  }
+
   auto* vulkan_implementation =
       context_state->vk_context_provider()->GetVulkanImplementation();
   auto* device_queue = context_state->vk_context_provider()->GetDeviceQueue();
@@ -307,15 +336,16 @@ std::unique_ptr<ExternalVkImageBacking> ExternalVkImageBacking::CreateFromGMB(
   textures.reserve(1);
   textures.emplace_back(std::move(image), format, color_space);
 
-  bool use_separate_gl_texture =
-      ExternalVkImageBacking::UseSeparateGLTexture(context_state.get(), format);
-  DCHECK(!enable_webgpu_on_vk_via_gl_interop || !use_separate_gl_texture);
   auto backing = std::make_unique<ExternalVkImageBacking>(
       base::PassKey<ExternalVkImageBacking>(), mailbox, si_info, estimated_size,
       std::move(context_state), std::move(textures), command_pool,
       use_separate_gl_texture, enable_webgpu_on_vk_via_gl_interop,
       std::move(handle), std::move(buffer_usage));
   backing->SetCleared();
+  // The imported buffer's content is in the VkImage. Without recording that,
+  // UpdateContent() sees no content bits set at all and copies nothing, so a
+  // GL read of a separate GL texture would observe uninitialized storage.
+  backing->latest_content_ = kInVkImage;
   return backing;
 }
 
@@ -454,6 +484,12 @@ bool ExternalVkImageBacking::BeginAccess(
     return true;
   }
 
+  if (is_write_in_progress_ || (!readonly && reads_in_progress_)) {
+    DLOG(ERROR) << "Unable to begin read or write access because another "
+                   "conflicting access is in progress";
+    return false;
+  }
+
   if (readonly && !reads_in_progress_) {
     if (!is_updating_content_) {
       UpdateContent(kInVkImage);
@@ -461,6 +497,8 @@ bool ExternalVkImageBacking::BeginAccess(
     if (!gl_textures_.empty() && !is_updating_content_) {
       UpdateContent(kInGLTexture);
     }
+  } else if (!readonly && !is_updating_content_) {
+    UpdateContent(is_gl ? kInGLTexture : kInVkImage);
   }
 
   if (gl_reads_in_progress_ && need_synchronization()) {
@@ -1016,15 +1054,22 @@ void ExternalVkImageBacking::UpdateContent(uint32_t content_flags) {
   if ((latest_content_ & content_flags) == content_flags)
     return;
 
+  // Only mark the destination as holding valid content if the copy actually
+  // succeeded. Setting the bit unconditionally permanently masks a failed sync,
+  // because the early-out at the top of this function short-circuits every
+  // subsequent call, and leaves readers sampling uninitialized VkDeviceMemory
+  // or GL texture storage.
   if (content_flags == kInVkImage) {
     if ((latest_content_ & kInGLTexture)) {
-      CopyPixelsFromGLTextureToVkImage();
-      latest_content_ |= kInVkImage;
+      if (CopyPixelsFromGLTextureToVkImage()) {
+        latest_content_ |= kInVkImage;
+      }
     }
   } else if (content_flags == kInGLTexture) {
     if (latest_content_ & kInVkImage) {
-      CopyPixelsFromVkImageToGLTexture();
-      latest_content_ |= kInGLTexture;
+      if (CopyPixelsFromVkImageToGLTexture()) {
+        latest_content_ |= kInGLTexture;
+      }
     }
   }
 }
@@ -1049,12 +1094,12 @@ ExternalVkImageBacking::GetMapPlaneData() const {
   return {data, total_data_bytes};
 }
 
-void ExternalVkImageBacking::CopyPixelsFromGLTextureToVkImage() {
+bool ExternalVkImageBacking::CopyPixelsFromGLTextureToVkImage() {
   DCHECK(use_separate_gl_texture());
   DCHECK_EQ(vk_textures_.size(), gl_textures_.size());
 
   if (!MakeGLContextCurrent()) {
-    return;
+    return false;
   }
 
   auto [plane_data, total_data_bytes] = GetMapPlaneData();
@@ -1071,21 +1116,23 @@ void ExternalVkImageBacking::CopyPixelsFromGLTextureToVkImage() {
 
     if (!gl_textures_[plane]->ReadbackToMemory(pixmaps.back())) {
       DLOG(ERROR) << "GL readback failed";
-      return;
+      return false;
     }
   }
 
   if (!UploadToVkImage(pixmaps)) {
     DLOG(ERROR) << "UploadToVkImage failed";
+    return false;
   }
+  return true;
 }
 
-void ExternalVkImageBacking::CopyPixelsFromVkImageToGLTexture() {
+bool ExternalVkImageBacking::CopyPixelsFromVkImageToGLTexture() {
   DCHECK(use_separate_gl_texture());
   DCHECK_EQ(vk_textures_.size(), gl_textures_.size());
 
   if (!MakeGLContextCurrent()) {
-    return;
+    return false;
   }
 
   auto [plane_data, total_data_bytes] = GetMapPlaneData();
@@ -1103,12 +1150,14 @@ void ExternalVkImageBacking::CopyPixelsFromVkImageToGLTexture() {
 
   if (!ReadbackToMemory(pixmaps)) {
     DLOG(ERROR) << "ReadbackToMemory failed";
-    return;
+    return false;
   }
 
   if (!UploadToGLTexture(pixmaps)) {
     DLOG(ERROR) << "UploadToGLTexture failed";
+    return false;
   }
+  return true;
 }
 
 bool ExternalVkImageBacking::UploadToVkImage(

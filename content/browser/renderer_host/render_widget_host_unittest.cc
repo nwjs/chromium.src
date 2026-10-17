@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <limits>
 #include <memory>
 #include <string_view>
 #include <tuple>
@@ -15,12 +16,15 @@
 #include "base/location.h"
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/simple_test_tick_clock.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
+#include "base/unguessable_token.h"
 #include "build/build_config.h"
 #include "cc/mojom/render_frame_metadata.mojom.h"
 #include "cc/trees/render_frame_metadata.h"
@@ -68,6 +72,7 @@
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/remote.h"
+#include "mojo/public/cpp/test_support/test_utils.h"
 #include "skia/ext/skia_utils_base.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -91,7 +96,6 @@
 #include "ui/gfx/canvas.h"
 
 #if BUILDFLAG(IS_ANDROID)
-#include "base/strings/utf_string_conversions.h"
 #include "content/browser/renderer_host/render_widget_host_view_android.h"
 #include "ui/android/screen_android.h"
 #endif
@@ -1001,6 +1005,30 @@ TEST_F(RenderWidgetHostTest, SetPopupBoundsConstrainedByDelegate) {
   EXPECT_EQ(gfx::Rect(5, 100, 20, 20), view_->GetViewBounds());
 }
 
+// Tests that oversized popup bounds from the renderer are clamped to the
+// display, since their area would otherwise overflow int browser side.
+TEST_F(RenderWidgetHostTest, PopupBoundsAreClampedToTheDisplay) {
+  // Let the initial screen rects settle, otherwise the popup bounds below are
+  // dropped rather than clamped.
+  ClearScreenRects();
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return !host_->waiting_for_screen_rects_ack_; }));
+
+  const gfx::Rect work_area =
+      display::Screen::Get()->GetPrimaryDisplay().work_area();
+  ASSERT_FALSE(work_area.IsEmpty());
+
+  constexpr gfx::Rect kHugeBounds(0, 0, 100000, 100000);
+  ASSERT_FALSE(kHugeBounds.size().GetCheckedArea().IsValid());
+  static_cast<blink::mojom::PopupWidgetHost*>(host_.get())
+      ->SetPopupBounds(kHugeBounds, base::DoNothing());
+
+  const gfx::Rect bounds = view_->GetViewBounds();
+  EXPECT_EQ(work_area.width(), bounds.width());
+  EXPECT_EQ(work_area.height(), bounds.height());
+  EXPECT_TRUE(bounds.size().GetCheckedArea().IsValid());
+}
+
 TEST_F(RenderWidgetHostTest, SynchronizeVisualProperties) {
   ClearVisualProperties();
 
@@ -1178,6 +1206,51 @@ TEST_F(RenderWidgetHostTest, SynchronizeVisualProperties) {
             host_->old_visual_properties_->new_size_device_px);
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(1u, widget_.ReceivedVisualProperties().size());
+}
+
+// Verify that fullscreen transitions occurring while an ack is pending advance
+// `fullscreen_grant_count`, so a rapid enter/exit pair that reverts
+// `is_fullscreen_granted` before the ack arrives still triggers a
+// `VisualProperties` update with the incremented grant count once the ack is
+// received (https://crbug.com/561969557).
+TEST_F(RenderWidgetHostTest,
+       FullscreenChangeAndRevertWhileAckPendingSendsUpdatedGrantCountOnAck) {
+  // Put the host into a state where an ack is outstanding, so that any further
+  // update is subject to throttling.
+  ClearVisualProperties();
+  view_->SetBounds(gfx::Rect(0, 0, 100, 100));
+  ASSERT_TRUE(host_->SynchronizeVisualProperties());
+  ASSERT_TRUE(host_->visual_properties_ack_pending_);
+  ASSERT_FALSE(host_->old_visual_properties_->is_fullscreen_granted);
+  const uint64_t initial_grant_count =
+      host_->old_visual_properties_->fullscreen_grant_count;
+
+  ClearVisualProperties();
+
+  // Entering and immediately exiting fullscreen while
+  // `visual_properties_ack_pending_` is true is throttled, leaving
+  // `is_fullscreen_granted` back at `false`.
+  delegate_->set_is_fullscreen(true);
+  EXPECT_FALSE(host_->SynchronizeVisualProperties());
+  delegate_->set_is_fullscreen(false);
+  EXPECT_FALSE(host_->SynchronizeVisualProperties());
+  EXPECT_TRUE(widget_.ReceivedVisualProperties().empty());
+
+  // When the pending ack arrives, `StoredVisualPropertiesNeedsUpdate` detects
+  // that `fullscreen_grant_count` advanced and sends the update despite
+  // `is_fullscreen_granted` still being `false` and the size being unchanged.
+  cc::RenderFrameMetadata metadata;
+  metadata.viewport_size_in_pixels = gfx::Size(100, 100);
+  metadata.local_surface_id = std::nullopt;
+  static_cast<RenderFrameMetadataProvider::Observer&>(*host_)
+      .OnLocalSurfaceIdChanged(metadata);
+
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return !widget_.ReceivedVisualProperties().empty(); }));
+  ASSERT_EQ(1u, widget_.ReceivedVisualProperties().size());
+  EXPECT_FALSE(widget_.ReceivedVisualProperties()[0].is_fullscreen_granted);
+  EXPECT_EQ(initial_grant_count + 1,
+            widget_.ReceivedVisualProperties()[0].fullscreen_grant_count);
 }
 
 // Test that a resize event is sent if SynchronizeVisualProperties() is called
@@ -2662,6 +2735,55 @@ TEST_F(RenderWidgetHostDragTest, SanitizeFilenameExtensionOnDrag) {
             FILE_PATH_LITERAL("payload.so"));
 }
 
+// Internal drag_id in DropData must never be exposed to untrusted
+// drop target renderers in outgoing DragData.
+TEST_F(RenderWidgetHostDragTest, DragIdNotExposedInOutgoingDragData) {
+  DropData drop_data;
+  drop_data.drag_id = base::UnguessableToken::Create();
+  drop_data.custom_data[u"application/x-custom-key"] = u"custom-value";
+
+  blink::mojom::DragDataPtr drag_data =
+      DropDataToDragData(drop_data, GetFileSystemAccessManager(),
+                         main_test_rfh()->GetProcess()->GetDeprecatedID(),
+                         GetChromeBlobStorageContext());
+
+  ASSERT_TRUE(drag_data);
+  ASSERT_EQ(drag_data->items.size(), 1u);
+  ASSERT_TRUE(drag_data->items[0]->is_string());
+  EXPECT_EQ(drag_data->items[0]->get_string()->string_type,
+            "application/x-custom-key");
+  EXPECT_EQ(drag_data->items[0]->get_string()->string_data, u"custom-value");
+}
+
+// Internal drag_id in DropData must never be exposed to renderers in
+// dragenter metadata.
+TEST_F(RenderWidgetHostDragTest, DragIdNotExposedInDragEnterMetaData) {
+  mojo::PendingAssociatedReceiver<blink::mojom::FrameWidget> receiver =
+      BindFakeFrameWidgetInterfaces(main_test_rfh());
+  DragCaptureFrameWidget mock_frame_widget(std::move(receiver));
+
+  DropData drop_data;
+  drop_data.drag_id = base::UnguessableToken::Create();
+  drop_data.custom_data[u"application/x-custom-key"] = u"custom-value";
+
+  base::RunLoop run_loop;
+  GetRenderWidgetHost()->DragTargetDragEnter(
+      drop_data, gfx::PointF(), gfx::PointF(),
+      blink::DragOperationsMask::kDragOperationEvery, 0,
+      base::BindOnce(
+          [](base::OnceClosure quit_closure, ui::mojom::DragOperation operation,
+             bool document_is_handling_drag) { std::move(quit_closure).Run(); },
+          run_loop.QuitClosure()));
+  run_loop.Run();
+
+  const auto& captured_drag_data = mock_frame_widget.drag_data();
+  ASSERT_TRUE(captured_drag_data);
+  ASSERT_EQ(captured_drag_data->items.size(), 1u);
+  ASSERT_TRUE(captured_drag_data->items[0]->is_string());
+  EXPECT_EQ(captured_drag_data->items[0]->get_string()->string_type,
+            "application/x-custom-key");
+}
+
 TEST_F(RenderWidgetHostDragTest, DragEnterDoesNotLeakPaths) {
   // Bind our mock frame widget.
   mojo::PendingAssociatedReceiver<blink::mojom::FrameWidget> receiver =
@@ -3298,6 +3420,257 @@ TEST_F(RenderWidgetHostTest, AnimateDoubleTapZoomEmptyBounds) {
 
   static_cast<blink::mojom::FrameWidgetHost*>(host_.get())
       ->AnimateDoubleTapZoomInMainFrame(tap_point, valid_rect);
+}
+
+TEST(RenderFrameMetadataMojoTraitsTest, ValidMetadata) {
+  cc::RenderFrameMetadata input;
+  input.device_scale_factor = 2.0f;
+  input.page_scale_factor = 1.0f;
+  input.external_page_scale_factor = 1.0f;
+  input.browser_controls_metadata.top_controls_height = 100.0f;
+  input.browser_controls_metadata.top_controls_shown_ratio = 1.0f;
+  input.viewport_size_in_pixels = gfx::Size(800, 600);
+
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+  input.browser_controls_metadata.bottom_controls_height = 50.0f;
+  input.browser_controls_metadata.bottom_controls_shown_ratio = 0.5f;
+  input.browser_controls_metadata.top_controls_min_height_offset = 10.0f;
+  input.browser_controls_metadata.bottom_controls_min_height_offset = 5.0f;
+  input.min_page_scale_factor = 0.5f;
+  input.max_page_scale_factor = 4.0f;
+  input.scrollable_viewport_size = gfx::SizeF(800.0f, 600.0f);
+  input.root_layer_size = gfx::SizeF(800.0f, 2000.0f);
+#endif
+
+  cc::RenderFrameMetadata output;
+  EXPECT_TRUE(
+      mojo::test::SerializeAndDeserialize<cc::mojom::RenderFrameMetadata>(
+          input, output));
+  EXPECT_EQ(input.device_scale_factor, output.device_scale_factor);
+  EXPECT_EQ(input.page_scale_factor, output.page_scale_factor);
+  EXPECT_EQ(input.external_page_scale_factor,
+            output.external_page_scale_factor);
+  EXPECT_EQ(input.browser_controls_metadata.top_controls_height,
+            output.browser_controls_metadata.top_controls_height);
+  EXPECT_EQ(input.browser_controls_metadata.top_controls_shown_ratio,
+            output.browser_controls_metadata.top_controls_shown_ratio);
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+  EXPECT_EQ(input.browser_controls_metadata.bottom_controls_height,
+            output.browser_controls_metadata.bottom_controls_height);
+  EXPECT_EQ(input.browser_controls_metadata.bottom_controls_shown_ratio,
+            output.browser_controls_metadata.bottom_controls_shown_ratio);
+  EXPECT_EQ(input.browser_controls_metadata.top_controls_min_height_offset,
+            output.browser_controls_metadata.top_controls_min_height_offset);
+  EXPECT_EQ(input.browser_controls_metadata.bottom_controls_min_height_offset,
+            output.browser_controls_metadata.bottom_controls_min_height_offset);
+  EXPECT_EQ(input.min_page_scale_factor, output.min_page_scale_factor);
+  EXPECT_EQ(input.max_page_scale_factor, output.max_page_scale_factor);
+#endif
+}
+
+TEST(RenderFrameMetadataMojoTraitsTest, BoundaryShownRatios) {
+  cc::RenderFrameMetadata input;
+  cc::RenderFrameMetadata output;
+
+  for (float ratio : {0.0f, 0.5f, 1.0f}) {
+    input.browser_controls_metadata.top_controls_shown_ratio = ratio;
+    EXPECT_TRUE(
+        mojo::test::SerializeAndDeserialize<cc::mojom::RenderFrameMetadata>(
+            input, output));
+    EXPECT_EQ(ratio, output.browser_controls_metadata.top_controls_shown_ratio);
+
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+    input.browser_controls_metadata.bottom_controls_shown_ratio = ratio;
+    EXPECT_TRUE(
+        mojo::test::SerializeAndDeserialize<cc::mojom::RenderFrameMetadata>(
+            input, output));
+    EXPECT_EQ(ratio,
+              output.browser_controls_metadata.bottom_controls_shown_ratio);
+#endif
+  }
+}
+
+TEST(RenderFrameMetadataMojoTraitsTest, InvalidScaleFactors) {
+  cc::RenderFrameMetadata input;
+  cc::RenderFrameMetadata output;
+
+  const float invalid_scales[] = {
+      0.0f,
+      -0.001f,
+      -1.0f,
+      std::numeric_limits<float>::infinity(),
+      -std::numeric_limits<float>::infinity(),
+      std::numeric_limits<float>::quiet_NaN(),
+  };
+
+  for (float scale : invalid_scales) {
+    input = cc::RenderFrameMetadata();
+    input.device_scale_factor = scale;
+    EXPECT_FALSE(
+        mojo::test::SerializeAndDeserialize<cc::mojom::RenderFrameMetadata>(
+            input, output));
+
+    input = cc::RenderFrameMetadata();
+    input.page_scale_factor = scale;
+    EXPECT_FALSE(
+        mojo::test::SerializeAndDeserialize<cc::mojom::RenderFrameMetadata>(
+            input, output));
+
+    input = cc::RenderFrameMetadata();
+    input.external_page_scale_factor = scale;
+    EXPECT_FALSE(
+        mojo::test::SerializeAndDeserialize<cc::mojom::RenderFrameMetadata>(
+            input, output));
+  }
+
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+  const float invalid_scale_limits[] = {
+      -0.001f,
+      -1.0f,
+      std::numeric_limits<float>::infinity(),
+      -std::numeric_limits<float>::infinity(),
+      std::numeric_limits<float>::quiet_NaN(),
+  };
+
+  for (float scale : invalid_scale_limits) {
+    input = cc::RenderFrameMetadata();
+    input.min_page_scale_factor = scale;
+    EXPECT_FALSE(
+        mojo::test::SerializeAndDeserialize<cc::mojom::RenderFrameMetadata>(
+            input, output));
+
+    input = cc::RenderFrameMetadata();
+    input.max_page_scale_factor = scale;
+    EXPECT_FALSE(
+        mojo::test::SerializeAndDeserialize<cc::mojom::RenderFrameMetadata>(
+            input, output));
+  }
+
+  // Max page scale factor less than min page scale factor.
+  input = cc::RenderFrameMetadata();
+  input.min_page_scale_factor = 2.0f;
+  input.max_page_scale_factor = 1.0f;
+  EXPECT_FALSE(
+      mojo::test::SerializeAndDeserialize<cc::mojom::RenderFrameMetadata>(
+          input, output));
+#endif
+}
+
+TEST(RenderFrameMetadataMojoTraitsTest, InvalidTopControlsValues) {
+  cc::RenderFrameMetadata input;
+  cc::RenderFrameMetadata output;
+
+  const float invalid_heights[] = {
+      -0.001f,
+      -1.0f,
+      -100.0f,
+      std::numeric_limits<float>::infinity(),
+      -std::numeric_limits<float>::infinity(),
+      std::numeric_limits<float>::quiet_NaN(),
+  };
+
+  for (float height : invalid_heights) {
+    input = cc::RenderFrameMetadata();
+    input.browser_controls_metadata.top_controls_height = height;
+    EXPECT_FALSE(
+        mojo::test::SerializeAndDeserialize<cc::mojom::RenderFrameMetadata>(
+            input, output));
+  }
+
+  const float invalid_ratios[] = {
+      -0.1f,
+      -0.001f,
+      1.001f,
+      1.1f,
+      100.0f,
+      std::numeric_limits<float>::infinity(),
+      -std::numeric_limits<float>::infinity(),
+      std::numeric_limits<float>::quiet_NaN(),
+  };
+
+  for (float ratio : invalid_ratios) {
+    input = cc::RenderFrameMetadata();
+    input.browser_controls_metadata.top_controls_shown_ratio = ratio;
+    EXPECT_FALSE(
+        mojo::test::SerializeAndDeserialize<cc::mojom::RenderFrameMetadata>(
+            input, output));
+  }
+}
+
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+TEST(RenderFrameMetadataMojoTraitsTest, InvalidBottomControlsAndOffsets) {
+  cc::RenderFrameMetadata input;
+  cc::RenderFrameMetadata output;
+
+  const float invalid_heights[] = {
+      -0.001f,
+      -1.0f,
+      -100.0f,
+      std::numeric_limits<float>::infinity(),
+      -std::numeric_limits<float>::infinity(),
+      std::numeric_limits<float>::quiet_NaN(),
+  };
+
+  for (float height : invalid_heights) {
+    input = cc::RenderFrameMetadata();
+    input.browser_controls_metadata.bottom_controls_height = height;
+    EXPECT_FALSE(
+        mojo::test::SerializeAndDeserialize<cc::mojom::RenderFrameMetadata>(
+            input, output));
+
+    input = cc::RenderFrameMetadata();
+    input.browser_controls_metadata.top_controls_min_height_offset = height;
+    EXPECT_FALSE(
+        mojo::test::SerializeAndDeserialize<cc::mojom::RenderFrameMetadata>(
+            input, output));
+
+    input = cc::RenderFrameMetadata();
+    input.browser_controls_metadata.bottom_controls_min_height_offset = height;
+    EXPECT_FALSE(
+        mojo::test::SerializeAndDeserialize<cc::mojom::RenderFrameMetadata>(
+            input, output));
+  }
+
+  const float invalid_ratios[] = {
+      -0.1f,
+      -0.001f,
+      1.001f,
+      1.1f,
+      100.0f,
+      std::numeric_limits<float>::infinity(),
+      -std::numeric_limits<float>::infinity(),
+      std::numeric_limits<float>::quiet_NaN(),
+  };
+
+  for (float ratio : invalid_ratios) {
+    input = cc::RenderFrameMetadata();
+    input.browser_controls_metadata.bottom_controls_shown_ratio = ratio;
+    EXPECT_FALSE(
+        mojo::test::SerializeAndDeserialize<cc::mojom::RenderFrameMetadata>(
+            input, output));
+  }
+}
+#endif
+
+TEST_F(RenderWidgetHostTest, RenderFrameMetadataOutOfRangeMessageDisconnects) {
+  mojo::Remote<cc::mojom::RenderFrameMetadataObserverClient> client_remote;
+  mojo::PendingRemote<cc::mojom::RenderFrameMetadataObserver> observer_remote;
+  mojo::PendingReceiver<cc::mojom::RenderFrameMetadataObserver>
+      observer_receiver = observer_remote.InitWithNewPipeAndPassReceiver();
+
+  host_->RegisterRenderFrameMetadataObserver(
+      client_remote.BindNewPipeAndPassReceiver(), std::move(observer_remote));
+
+  base::RunLoop run_loop;
+  client_remote.set_disconnect_handler(run_loop.QuitClosure());
+
+  cc::RenderFrameMetadata invalid_metadata;
+  invalid_metadata.browser_controls_metadata.top_controls_shown_ratio = 100.0f;
+
+  client_remote->OnRenderFrameMetadataChanged(1u, invalid_metadata);
+  run_loop.Run();
+
+  EXPECT_FALSE(client_remote.is_connected());
 }
 
 }  // namespace content

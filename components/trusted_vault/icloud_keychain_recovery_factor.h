@@ -11,6 +11,7 @@
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/trusted_vault/local_recovery_factor.h"
 #include "components/trusted_vault/standalone_trusted_vault_storage.h"
+#include "components/trusted_vault/trusted_vault_connection.h"
 #include "components/trusted_vault/trusted_vault_histograms.h"
 #include "components/trusted_vault/trusted_vault_throttling_connection.h"
 #include "google_apis/gaia/gaia_id.h"
@@ -22,13 +23,12 @@ class ICloudRecoveryKey;
 // It stores required (private) keys in the iCloud Keychain.
 class ICloudKeychainRecoveryFactor : public LocalRecoveryFactor {
  public:
-  // `storage` and `connection` must not be null and must outlive this object.
-  // `storage` must contain a vault for `primary_account` when calling any
-  // method of this class.
+  // `registration_storage`, `key_storage`, and `connection` must not be null
+  // and must outlive this object.
   ICloudKeychainRecoveryFactor(
       const std::string& icloud_keychain_access_group_prefix,
       const SecurityDomainId security_domain_id,
-      ICloudKeychainStorage* storage,
+      RecoveryFactorRegistrationStorage* registration_storage,
       KeyStorage* key_storage,
       TrustedVaultThrottlingConnection* connection,
       CoreAccountInfo primary_account);
@@ -39,12 +39,14 @@ class ICloudKeychainRecoveryFactor : public LocalRecoveryFactor {
 
   LocalRecoveryFactorType GetRecoveryFactorType() const override;
 
-  void AttemptRecovery(AttemptRecoveryCallback cb) override;
+  void AttemptRecovery(SecurityDomainId security_domain_id,
+                       AttemptRecoveryCallback cb) override;
 
-  bool IsRegistered() override;
-  void MarkAsNotRegistered() override;
+  bool IsRegistered(SecurityDomainId security_domain_id) override;
+  void MarkAsNotRegistered(SecurityDomainId security_domain_id) override;
 
   TrustedVaultRecoveryFactorRegistrationStateForUMA MaybeRegister(
+      SecurityDomainId security_domain_id,
       RegisterCallback cb) override;
 
  private:
@@ -74,7 +76,7 @@ class ICloudKeychainRecoveryFactor : public LocalRecoveryFactor {
 
   const std::string icloud_keychain_access_group_;
   const SecurityDomainId security_domain_id_;
-  const raw_ptr<ICloudKeychainStorage> storage_;
+  const raw_ptr<RecoveryFactorRegistrationStorage> registration_storage_;
   const raw_ptr<KeyStorage> key_storage_;
   const raw_ptr<TrustedVaultThrottlingConnection> connection_;
   const CoreAccountInfo primary_account_;

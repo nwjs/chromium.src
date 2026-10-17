@@ -18,9 +18,6 @@
 
 BASE_FEATURE(kOverrideFeedSettings, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kNTPHeaderUseTransformsForAnimations,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kFeedSwipeInProductHelp, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kUseFeedEligibilityService, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -33,7 +30,7 @@ BASE_FEATURE(kMVTInBottomSheet, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kNewTabPageUICleanup, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kAimButtonRefactor, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kNewTabPageEphemeralTheme, base::FEATURE_DISABLED_BY_DEFAULT);
 
 #pragma mark - Feature parameters
 
@@ -65,26 +62,50 @@ BASE_FEATURE_PARAM(int,
                    kNewTabPageUICleanupArmParam,
                    static_cast<int>(NTPUICleanupVariation::kTightPadding));
 
-const char kAimButtonRefactorArmParam[] = "aim-button-refactor-arm";
+BASE_FEATURE_PARAM(std::string,
+                   kNewTabPageEphemeralThemeAnimationUrlParam,
+                   &kNewTabPageEphemeralTheme,
+                   "animation-url",
+                   "");
+
+BASE_FEATURE_PARAM(std::string,
+                   kNewTabPageEphemeralThemeAnimationColorMappingParam,
+                   &kNewTabPageEphemeralTheme,
+                   "animation-colormapping",
+                   "");
+
+BASE_FEATURE_PARAM(std::string,
+                   kNewTabPageEphemeralThemeAnimationPromoUrlParam,
+                   &kNewTabPageEphemeralTheme,
+                   "animation-promo-url",
+                   "");
+
+BASE_FEATURE_PARAM(std::string,
+                   kNewTabPageEphemeralThemeAnimationPromoColorMappingParam,
+                   &kNewTabPageEphemeralTheme,
+                   "animation-promo-colormapping",
+                   "");
+
+BASE_FEATURE_PARAM(std::string,
+                   kNewTabPageEphemeralThemeSeedColorParam,
+                   &kNewTabPageEphemeralTheme,
+                   "seed-color",
+                   "");
+
+BASE_FEATURE_PARAM(int,
+                   kNewTabPageEphemeralThemeVersionParam,
+                   &kNewTabPageEphemeralTheme,
+                   "version",
+                   0);
 
 #pragma mark - Helpers
 
-AimButtonRefactorArm GetAimButtonRefactorArm() {
-  if (base::FeatureList::IsEnabled(kAimButtonRefactor)) {
-    return static_cast<AimButtonRefactorArm>(
-        base::GetFieldTrialParamByFeatureAsInt(kAimButtonRefactor,
-                                               kAimButtonRefactorArmParam,
-                                               /*default_value=*/0));
-  }
-  return AimButtonRefactorArm::kDisabled;
-}
-
-bool IsAimButtonRefactorEnabled() {
-  return GetAimButtonRefactorArm() != AimButtonRefactorArm::kDisabled;
-}
-
 bool IsMVTInBottomSheetEnabled() {
   return base::FeatureList::IsEnabled(kMVTInBottomSheet);
+}
+
+bool IsNTPEphemeralThemeEnabled() {
+  return base::FeatureList::IsEnabled(kNewTabPageEphemeralTheme);
 }
 
 bool IsDiscoverFeedTopSyncPromoEnabled() {
@@ -126,13 +147,8 @@ bool IsConsistentLogoDoodleHeightEnabled() {
   return base::FeatureList::IsEnabled(kConsistentLogoDoodleHeight);
 }
 
-bool IsNTPHeaderTransformsForAnimationsEnabled() {
-  return base::FeatureList::IsEnabled(kNTPHeaderUseTransformsForAnimations);
-}
-
 bool IsNTPRedesignEnabled() {
-  return base::FeatureList::IsEnabled(kNewTabPageRedesign) &&
-         ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET;
+  return base::FeatureList::IsEnabled(kNewTabPageRedesign);
 }
 
 NTPUICleanupVariation GetNewTabPageUICleanupVariation() {

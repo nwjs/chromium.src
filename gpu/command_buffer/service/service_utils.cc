@@ -157,8 +157,7 @@ gl::GLContextAttribs GenerateGLContextAttribsForDecoder(
     if (IsWebGL2OrES3ContextType(context_type)) {
       attribs.client_major_es_version = 3;
       attribs.client_minor_es_version = 0;
-      attribs.allow_es_version_fallback =
-          !features::ShouldFallbackToSWIfGLES3NotSupported();
+      attribs.allow_es_version_fallback = false;
     } else {
       DCHECK(IsWebGL1OrES2ContextType(context_type));
       attribs.client_major_es_version = 2;
@@ -336,10 +335,18 @@ GrContextType ParseDefaultGrContextType(const base::CommandLine* command_line) {
     // With late check, only the disable flag gates Graphite; the full
     // feature/device check is deferred to the GPU process post-blocklist.
     if (!command_line->HasSwitch(switches::kDisableSkiaGraphite)) {
+      if (command_line->HasSwitch(switches::kSkiaGraphiteVulkanBackend)) {
+        return GrContextType::kGraphiteVulkan;
+      }
+
       return GrContextType::kGraphiteDawn;
     }
   } else {
     if (features::IsSkiaGraphiteEnabled(command_line)) {
+      if (command_line->HasSwitch(switches::kSkiaGraphiteVulkanBackend)) {
+        return GrContextType::kGraphiteVulkan;
+      }
+
       auto value =
           command_line->GetSwitchValueASCII(switches::kSkiaGraphiteDawnBackend);
       if (value.empty() || value == switches::kSkiaGraphiteDawnBackendD3D11 ||

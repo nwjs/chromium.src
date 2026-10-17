@@ -10,6 +10,8 @@
 #include "base/functional/bind.h"
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_service_factory.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_ui_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
@@ -137,6 +139,7 @@ void ContextualTasksEphemeralButtonController::OnTaskAssociatedToTab(
 void ContextualTasksEphemeralButtonController::OnTaskDisassociatedFromTab(
     const base::Uuid& task_id,
     SessionID tab_id) {
+  std::erase(ephemeral_button_eligible_tabs_, tab_id);
   MaybeNotifyVisibilityShouldChange();
 }
 
@@ -279,6 +282,28 @@ bool ContextualTasksEphemeralButtonController::ShouldShowEphemeralButton() {
   }
 
   return should_show_button;
+}
+
+void ContextualTasksEphemeralButtonController::
+    RemoveEphemeralButtonForCurrentTask() {
+  if (!base::FeatureList::IsEnabled(
+          contextual_tasks::kContextualTasksEphemeralButtonContextMenu)) {
+    return;
+  }
+
+  std::optional<SessionID> current_tab_session_id = GetCurrentTabSessionId();
+  if (current_tab_session_id.has_value()) {
+    std::erase(ephemeral_button_eligible_tabs_, current_tab_session_id.value());
+  }
+
+  contextual_tasks::ContextualTasksUiService* ui_service =
+      contextual_tasks::ContextualTasksUiServiceFactory::GetForBrowserContext(
+          browser_window_interface_->GetProfile());
+  if (ui_service) {
+    ui_service->DestroyClosedSidePanel(browser_window_interface_);
+  }
+
+  MaybeNotifyVisibilityShouldChange();
 }
 
 contextual_tasks::ContextualTasksService*

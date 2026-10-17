@@ -48,6 +48,7 @@ Kontuan hartu beharrekoak:
 <translation id="1784567647421309104">Gorde pasahitzak Chrome-n</translation>
 <translation id="1790080846677398234">Idatzitako URLak Chrome-ko laster-marketan gehitzen ditu.</translation>
 <translation id="1799920918471566157">Chrome-ri buruzko aholkuak</translation>
+<translation id="1802420021606590788">Chrome-k hodeiko eremu pribatu batean prozesatzen ditu orrien izenak eta URLak</translation>
 <translation id="1830634592642484976">Helbide hau Chrome-n gordeta dago une honetan. Google-ren beste produktuetan ere erabiltzeko, gorde ezazu Google-ko kontuan (<ph name="USER_EMAIL" />).</translation>
 <translation id="1891812034154776216">Ezkutatu ezkutuko moduko fitxa irekiak Chrome-tik irtetean</translation>
 <translation id="1894434821386148799">Hemen, Chrome-ren ezarpenak eta abar aurki ditzakezu</translation>
@@ -140,6 +141,7 @@ Laster-marka batzuk ezabatu arte, ezingo da beste laster-markarik gorde kontuan.
 <translation id="3984746313391923992">Chrome-n saioa amaituta edukitzea eskatzen dizu zure erakundeak.</translation>
 <translation id="3988789688219830639">Google Chrome-k ez du argazki eta bideoetarako sarbiderik. Gaitu ezazu iOS sistemako Settings &gt; Privacy &gt; Photos atalean.</translation>
 <translation id="4064699917955374540">Chrome-ko datuak Google-ko kontuan gordetzeko eta erabiltzeko, egiaztatu zeu zarela.</translation>
+<translation id="4093789416346364876">Edonon arakatzen duzula ere Gemini-ren estatistikak lortzeko, ezarri Chrome arakatzaile lehenetsi gisa</translation>
 <translation id="411154422556990518">Egin prezioen jarraipenaren informazio eguneratuaren eta Chrome-ri buruzko aholku lagungarrien jarraipena.</translation>
 <translation id="417201473131094001">Ez da bateragarria Chrome Canary-rekin</translation>
 <translation id="424864128008805179">Chrome-ko saioa amaitu nahi duzu?</translation>
@@ -268,6 +270,7 @@ Chrome-ren erabilera hobetzeko datuak erabiltzen dituzten ezarpen gehiago ikuste
 <translation id="7061455974939528301">Eduki sakatuta Chrome-ren ikonoa eta sakatu "Editatu orri nagusia"</translation>
 <translation id="7095110968493193530">Google-ren Pasahitz-kudeatzailea zerbitzuan (<ph name="EMAIL" /> kontuan)</translation>
 <translation id="7124339256045485976">Mantendu Chrome eguneratuta</translation>
+<translation id="7135936755418321901">Zure kokapena webguneekin partekatzeko, sakatu Ezarpenak eta eman kokapena erabiltzeko baimena Chrome-ri.</translation>
 <translation id="7145599899567697473">Gorde pasahitzak eta bete itzazu automatikoki Chrome-rekin</translation>
 <translation id="7161390184744336561">Google Chrome zaharkituta dago</translation>
 <translation id="7165736900384873061">Hasi Google Chrome QR eskanerra erabiltzen</translation>
@@ -282,6 +285,7 @@ Chrome-ren erabilera hobetzeko datuak erabiltzen dituzten ezarpen gehiago ikuste
 <translation id="7272930098487145294">Irudiak gordetzeko, sakatu Ezarpenak eta eman argazkiak gehitzeko baimena Chrome-ri</translation>
 <translation id="7275945473750112644">Kontua <ph name="HOSTED_DOMAIN" /> domeinuak kudeatzen duenez, Chrome-ko datuak garbitu egingo dira gailu honetatik</translation>
 <translation id="7284245284340063465">Pasaesaldia ahazten bazaizu edo ezarpena aldatu nahi baduzu, <ph name="BEGIN_LINK" />ezabatu kontuko Chrome-ko datuak<ph name="END_LINK" />.</translation>
+<translation id="7287957555760192025">Iradokizun bat hautatzen edo baztertzen baduzu, Chrome etorkizunean iradokizun egokiagoak erakusteko egokituko da.</translation>
 <translation id="7296102444587051536">iOS-erako Chrome</translation>
 <translation id="7299681342915173313">Orain, Chrome erabili ahalko duzu mezu elektronikoetan, dokumentuetan eta aplikazioetan estekak sakatzen dituzunean.</translation>
 <translation id="7334364820047587268">Jadanik badauzkazu kontu hauetarako pasahitzak Google-ren Pasahitz-kudeatzailea zerbitzuan. Beheko pasahitzetako bat inportatzea aukeratzen baduzu, lehendik dagoena ordeztuko du.</translation>
@@ -355,6 +359,7 @@ Datuak pasaesaldiarekin enkriptatu ziren data honetan: <ph name="TIME" />. Chrom
 <translation id="8544583291890527417">Chrome-k zuretzat hautematen dituen pribatutasun- edo segurtasun-arazoei buruzko alertak.</translation>
 <translation id="855027533751209304">Chrome-ri buruzko aholkua: bilatu ikusten duzuna</translation>
 <translation id="8558480467877843976">Orain, Chrome erabili ahalko duzu arakatzen duzunean, edo mezuetako, dokumentuetako eta aplikazioetako estekak sakatzen dituzunean.</translation>
+<translation id="8589791109349384456">Iradokizunak desaktibatuta ere, ez da kontrolatuko Chrome-k beste eginbide batzuen orrien izenak eta URLak nola prozesatzen dituen. Datu horietarako sarbidea kudeatzeko, joan <ph name="BEGIN_LINK" />sinkronizazio-ezarpenetara<ph name="END_LINK" />.</translation>
 <translation id="8603022514504485810">Google-ren Pasahitz-kudeatzailea zerbitzuak ezin izan ditu egiaztatu pasahitz guztiak. Saiatu berriro bihar edo <ph name="BEGIN_LINK" />egiaztatu pasahitzak Google-ko kontuan<ph name="END_LINK" />.</translation>
 <translation id="8610372330814566250">Erabili Safari-ko pasahitzak, historia, laster-markak eta kreditu-txartelak Chrome-n</translation>
 <translation id="8630122478628016441">Aktibatu "Blokeatu ezkutuko moduko fitxak Chrome ixten duzunean".</translation>

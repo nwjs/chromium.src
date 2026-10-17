@@ -114,6 +114,7 @@ ts_library("build_ts") {
     "//chrome/browser/resources/suggest_internals:build_ts",
     "//chrome/browser/resources/support_tool:build_ts",
     "//chrome/browser/resources/tab_group_home:build_ts",
+    "//chrome/browser/resources/tab_group_shared:build_ts",
     "//chrome/browser/resources/tab_search:build_ts",
     "//chrome/browser/resources/unexportable_keys_internals:build_ts",
     "//chrome/browser/resources/updater:build_ts",
@@ -182,6 +183,7 @@ ts_library("build_ts") {
     "//ui/webui/resources/cr_components/searchbox:build_ts",
     "//ui/webui/resources/cr_components/theme_color_picker:build_ts",
     "//ui/webui/resources/cr_elements:build_ts",
+    "//ui/webui/resources/tools:webui_resources_tools_python_unittests",
   ]
   tsconfig_base = "tsconfig_base.json"
   composite = true

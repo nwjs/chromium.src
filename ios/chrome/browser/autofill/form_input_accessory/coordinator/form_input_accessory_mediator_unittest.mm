@@ -27,7 +27,9 @@
 #import "ios/chrome/browser/autofill/model/bottom_sheet/autofill_bottom_sheet_tab_helper.h"
 #import "ios/chrome/browser/autofill/model/features.h"
 #import "ios/chrome/browser/autofill/model/form_input_suggestions_provider.h"
+#import "ios/chrome/browser/intelligence/bwg/utils/gemini_prefs.h"
 #import "ios/chrome/browser/passwords/model/password_tab_helper.h"
+#import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/shared/model/web_state_list/test/fake_web_state_list_delegate.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
@@ -78,6 +80,8 @@ FormSuggestion* CreateFormSuggestion(NSString* value) {
                   payload:autofill::Suggestion::Payload()
            requiresReauth:NO];
 }
+
+NSString* const kTestSuggestionValue = @"value";
 
 }  // namespace
 
@@ -863,7 +867,8 @@ TEST_F(FormInputAccessoryMediatorTest,
 }
 
 // Tests that `updateWithNewWebState:` does not hide `atMemoryButtonHidden` when
-// AutofillAtMemory and SkipEligibility are enabled.
+// AutofillAtMemory and SkipEligibility are enabled and user consented to
+// Gemini.
 TEST_F(FormInputAccessoryMediatorTest,
        UpdateWithNewWebStateAtMemoryButtonNotHidden) {
   base::test::ScopedFeatureList feature_list;
@@ -874,6 +879,9 @@ TEST_F(FormInputAccessoryMediatorTest,
 
   autofill::TestAutofillClientIOS autofill_client(
       web_state_list_.GetActiveWebState(), nil);
+  autofill_client.GetPrefs()->registry()->RegisterBooleanPref(
+      prefs::kIOSBwgConsent, false);
+  gemini::UpdateUserConsentPrefs(true, autofill_client.GetPrefs());
 
   OCMExpect([consumer_ setAtMemoryButtonHidden:NO]);
 
@@ -974,4 +982,51 @@ TEST_F(FormInputAccessoryMediatorTest,
   [mediator_ disconnect];
 
   EXPECT_EQ(mediator_.lastFocusedFieldGlobalId, std::nullopt);
+}
+
+// Test that `setSuggestionsEnabled:YES` with
+// `kThrottleFormInputAccessorySuggestionRefresh` enabled refreshes suggestions
+// when suggestions have not yet been shown (even though `suggestionsEnabled` is
+// `YES` by default), and throttles redundant refreshes once suggestions have
+// been shown.
+TEST_F(FormInputAccessoryMediatorTest,
+       SetSuggestionsEnabledThrottlesOnlyAfterSuggestionsShown) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      kThrottleFormInputAccessorySuggestionRefresh);
+
+  CaptureAccessorySuggestions();
+  FormActivityParams params =
+      CreateFormActivityParams(FormActivityParams::FieldType::kText);
+  NSMutableArray<FormSuggestionsReadyCompletion>* suggestions_completions =
+      SetUpProviderWithPendingSuggestionQueries(params);
+
+  // Register a form activity so `_hasLastSeenParams` is set, and return empty
+  // suggestions initially so `_suggestionsHaveBeenShown` remains `NO`.
+  test_form_activity_tab_helper_.FormActivityRegistered(main_frame_.get(),
+                                                        params);
+  ASSERT_EQ(suggestions_completions.count, 1ul);
+  suggestions_completions[0](@[], provider_);
+  EXPECT_EQ(received_suggestions_.count, 0u);
+
+  // Even though `suggestionsEnabled` is `YES` by default, calling
+  // `setSuggestionsEnabled:YES` must refresh suggestions because no
+  // suggestions have been shown yet.
+  [mediator_ setSuggestionsEnabled:YES];
+  ASSERT_EQ(suggestions_completions.count, 2ul);
+
+  // Deliver non-empty suggestions so `_suggestionsHaveBeenShown` becomes `YES`.
+  NSArray<FormSuggestion*>* suggestions =
+      @[ CreateFormSuggestion(kTestSuggestionValue) ];
+  suggestions_completions[1](suggestions, provider_);
+  EXPECT_EQ(received_suggestions_.count, 1u);
+
+  // Calling `setSuggestionsEnabled:YES` again while `suggestionsEnabled` is
+  // already `YES` and suggestions have been shown should now be throttled.
+  [mediator_ setSuggestionsEnabled:YES];
+  EXPECT_EQ(suggestions_completions.count, 2ul);
+
+  // Disabling and re-enabling suggestions should still trigger a refresh.
+  [mediator_ setSuggestionsEnabled:NO];
+  [mediator_ setSuggestionsEnabled:YES];
+  EXPECT_EQ(suggestions_completions.count, 3ul);
 }

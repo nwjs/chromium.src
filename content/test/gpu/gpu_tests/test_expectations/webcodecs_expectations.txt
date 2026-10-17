@@ -254,6 +254,12 @@ crbug.com/416294710 [ sequoia intel-0x3e9b ] WebCodecs_*hvc*prefer-hardware* [ F
 crbug.com/416294710 [ sequoia intel-0x3e9b ] WebCodecs_ContentHint_hvc1.1.6.L123.00_detail [ Failure ]
 crbug.com/416294710 [ sequoia intel-0x3e9b ] WebCodecs_ContentHint_hvc1.1.6.L123.00_text [ Failure ]
 
+# Pixel 6
+crbug.com/563435062 [ android android-pixel-6 ] WebCodecs_EncodeColorSpace_avc1.42001E_prefer-hardware [ RetryOnFailure ]
+crbug.com/563435062 [ android android-pixel-6 ] WebCodecs_Encode_hw_decoder_avc1.42001E_prefer-hardware [ RetryOnFailure ]
+crbug.com/563435062 [ android android-pixel-6 ] WebCodecs_FrameSizeChange_avc1.42001E_hw_decoder [ RetryOnFailure ]
+crbug.com/563435062 [ android android-pixel-6 ] WebCodecs_MixedSourceEncoding_* [ RetryOnFailure ]
+
 # Pixel 10
 crbug.com/447317875 [ android mobile android-pixel-10 ] WebCodecs_EncodingRateControl_avc1.420034_prefer-hardware_variable_1500000 [ Failure ]
 crbug.com/447317875 [ android mobile android-pixel-10 ] WebCodecs_EncodingRateControl_hvc1.1.6.L123.00_prefer-hardware_variable_1500000 [ Failure ]
@@ -275,9 +281,6 @@ crbug.com/473593123 [ mac apple-angle-metal-renderer:-apple-m2 ] WebCodecs_Encod
 crbug.com/473593123 [ mac apple-angle-metal-renderer:-apple-m2 ] WebCodecs_EncodingRateControl_hvc1.1.6.L123.00_prefer-software_constant_2000000 [ Failure ]
 crbug.com/473593123 [ apple-angle-metal-renderer:-apple-m2 graphite-enabled mac ] WebCodecs_EncodingRateControl_hvc1.1.6.L123.00_prefer-software_constant_3000000 [ Failure ]
 crbug.com/473593123 [ apple-angle-metal-renderer:-apple-m2 graphite-enabled mac ] WebCodecs_EncodingRateControl_hvc1.1.6.L123.00_prefer-software_variable_1500000 [ Failure ]
-
-# Somewhat reliable failures on M2 devices
-crbug.com/559266103 [ apple-angle-metal-renderer:-apple-m2 graphite-enabled mac ] WebCodecs_FrameSizeChange_avc1.42001E_camera [ Failure ]
 
 # EncodingError: Decoding error.
 crbug.com/487768758 [ amd-0x7480 linux ] WebCodecs_cropEncode_hw_decoder_*_prefer-software [ Failure ]

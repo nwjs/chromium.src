@@ -19,6 +19,7 @@
 #include "chrome/browser/glic/glic_warming_checks.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/host/glic_web_contents_warming_pool.h"
+#include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_invoke_options.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
@@ -408,13 +409,29 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest,
 }
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
+// Not supported on ChromeOS (auth is part of OS session).
+#if BUILDFLAG(IS_CHROMEOS)
+#define MAYBE_AccountInvalidatedWhileGlicOpen \
+  DISABLED_AccountInvalidatedWhileGlicOpen
+#else
+#define MAYBE_AccountInvalidatedWhileGlicOpen AccountInvalidatedWhileGlicOpen
+#endif
 IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest,
-                       AccountInvalidatedWhileGlicOpen) {
+                       MAYBE_AccountInvalidatedWhileGlicOpen) {
   TrackGlicInstanceWithTabIndex(0);
-  RunTestSequence(
-      SimulateGlicHotkey(), WaitForWebUIState(mojom::WebUiState::kReady),
-      ForceInvalidateAccount(), WaitForWebUIState(mojom::WebUiState::kSignIn),
-      ForceReauthAccount(), WaitForWebUIState(mojom::WebUiState::kReady));
+  if (features::IsGlicNoWebviewEnabled()) {
+    RunTestSequence(ToggleGlicWindow(GlicWindowMode::kAttached),
+                    WaitForWebClientConnected(), ForceInvalidateAccount(),
+                    WaitForErrorPanelType(mojom::ErrorPanelType::kSignIn),
+                    ForceReauthAccount(), WaitForErrorPanelType(std::nullopt),
+                    WaitForWebClientConnected());
+  } else {
+    RunTestSequence(
+        ToggleGlicWindow(GlicWindowMode::kAttached),
+        WaitForWebUIState(mojom::WebUiState::kReady), ForceInvalidateAccount(),
+        WaitForWebUIState(mojom::WebUiState::kSignIn), ForceReauthAccount(),
+        WaitForWebUIState(mojom::WebUiState::kReady));
+  }
 }
 
 IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest,
@@ -673,12 +690,16 @@ class GlicInstanceCoordinatorWithDelayedPreloadingUiTest
         [this]() { glic_service()->TryPreload(GlicWarmingTrigger::kStartup); });
   }
 
-  auto CheckWarmed() {
-    return Do([this]() {
-      EXPECT_TRUE(GetInstanceCoordinator()
-                      .GetWebContentsWarmingPoolForTesting()
-                      .HasWarmedContainerForTesting());
-    });
+  auto WaitUntilWarmed() {
+    return WaitUntil(
+        [this]() -> std::string {
+          return GetInstanceCoordinator()
+                         .GetWebContentsWarmingPoolForTesting()
+                         .HasWarmedContainerForTesting()
+                     ? "warmed"
+                     : "not warmed";
+        },
+        "warmed", "Wait for warmed container");
   }
 
  private:
@@ -687,10 +708,8 @@ class GlicInstanceCoordinatorWithDelayedPreloadingUiTest
 
 IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorWithDelayedPreloadingUiTest,
                        Preload) {
-  // TODO(crbug.com/411100559): Wait for preload completion rather than assuming
-  // that it will finish before the next step in the sequence.
   RunTestSequence(
-      ResetPreloading(), TryPreload(), CheckWarmed(),
+      ResetPreloading(), TryPreload(), WaitUntilWarmed(),
       PressButton(kGlicButtonElementId),
       InAnyContext(
           WaitForShow(kGlicViewElementId).SetMustRemainVisible(false)));

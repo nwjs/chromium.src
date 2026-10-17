@@ -566,10 +566,6 @@ IN_PROC_BROWSER_TEST_F(PredictionManagerModelDownloadingBrowserTest,
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.PredictionModelDownloadManager.DownloadStatus",
       PredictionModelDownloadStatus::kSuccess, 1);
-
-  // No error when moving the file so there will be no record.
-  histogram_tester.ExpectTotalCount(
-      "OptimizationGuide.PredictionModelDownloadManager.ReplaceFileError", 0);
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.PredictionModelUpdateVersion.PainfulPageLoad",
       kSuccessfulModelVersion, 1);
@@ -623,10 +619,6 @@ IN_PROC_BROWSER_TEST_F(PredictionManagerModelDownloadingBrowserTest,
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.PredictionModelDownloadManager.DownloadStatus",
       PredictionModelDownloadStatus::kSuccess, 1);
-
-  // No error when moving the file so there will be no record.
-  histogram_tester.ExpectTotalCount(
-      "OptimizationGuide.PredictionModelDownloadManager.ReplaceFileError", 0);
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.PredictionModelUpdateVersion.PainfulPageLoad",
       kSuccessfulModelVersion, 1);
@@ -751,8 +743,6 @@ IN_PROC_BROWSER_TEST_F(PredictionManagerModelDownloadingBrowserTest,
       "OptimizationGuide.PredictionModelDownloadManager.DownloadStatus", 0);
   histogram_tester->ExpectTotalCount(
       "OptimizationGuide.PredictionModelUpdateVersion.PainfulPageLoad", 0);
-  histogram_tester->ExpectTotalCount(
-      "OptimizationGuide.PredictionModelRemoved.PainfulPageLoad", 0);
   histogram_tester->ExpectTotalCount(
       "OptimizationGuide.PredictionModelStore.ModelRemovalReason."
       "PainfulPageLoad",

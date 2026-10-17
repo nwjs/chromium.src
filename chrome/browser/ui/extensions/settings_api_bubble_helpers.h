@@ -51,7 +51,7 @@ void MaybeShowExtensionControlledHomeNotification(
 // controlling extension takes effect.
 void MaybeShowExtensionControlledSearchNotification(
     content::WebContents* web_contents,
-    AutocompleteMatch::Type match_type);
+    omnibox::AutocompleteMatchType match_type);
 
 // Shows a bubble notifying the user that the new tab page is controlled by an
 // extension. This bubble is shown only the first time the new tab page is shown

@@ -380,6 +380,7 @@ source_set("impl") {
       ":browser_activity_watcher",
       "//chrome/browser:after_startup_task_utils",
       "//chrome/browser/performance_manager/public/user_tuning",
+      "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui/location_bar",
       "//chrome/browser/ui/performance_controls",
       "//chrome/browser/ui/tabs",
@@ -570,6 +571,8 @@ source_set("unit_tests") {
     "//chrome/browser/sync",
     "//chrome/browser/ui:ui_features",
     "//chrome/test:test_support",
+    "//chrome/test/base:chrome_render_view_host_test_harness",
+    "//chrome/test/base:testing_browser_process",
     "//components/component_updater:test_support",
     "//components/metrics:test_support",
     "//components/metrics/private_metrics:dwa_recorder",
@@ -751,6 +754,7 @@ source_set("platform_browser_tests") {
     "//base",
     "//chrome/browser:chrome_browser_main",
     "//chrome/test:test_support",
+    "//chrome/test/base:chrome_test_utils",
     "//content/test:test_support",
     "//media:test_support",
     "//testing/gtest",
@@ -765,6 +769,9 @@ source_set("platform_browser_tests") {
 
   if (is_chromeos) {
     sources += [ "cros_pre_choice_metrics_manager_browsertest.cc" ]
+  }
+  if (!is_android) {
+    deps += [ "//chrome/browser/ui:browser_window_header" ]
   }
 }
 
@@ -800,8 +807,11 @@ if (!is_android) {
       "//chrome/browser/metrics/structured:test_support",
       "//chrome/browser/sync",
       "//chrome/browser/sync/test/integration:sync_integration_test_support",
+      "//chrome/browser/ui:browser_commands",
+      "//chrome/browser/ui/views/frame:browser_view_header",
       "//chrome/browser/unified_consent",
       "//chrome/test:test_support_ui",
+      "//chrome/test/base:testing_browser_process",
       "//chrome/test/base:tracing",
       "//components/metrics/demographics",
       "//components/metrics/demographics:test_support",
@@ -871,6 +881,7 @@ if (is_android) {
       "//chrome/browser/ui/android/tab_model:test_support",
       "//chrome/browser/unified_consent",
       "//chrome/test:test_support",
+      "//chrome/test/base:testing_browser_process",
       "//components/background_task_scheduler:factory",
       "//components/metrics/demographics",
       "//components/metrics/demographics:test_support",

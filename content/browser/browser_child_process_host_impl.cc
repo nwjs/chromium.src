@@ -137,12 +137,18 @@ std::unique_ptr<BrowserChildProcessHost> BrowserChildProcessHost::Create(
 }
 
 BrowserChildProcessHost* BrowserChildProcessHost::FromID(int child_process_id) {
+  return FromID(ChildProcessId::FromUnsafeValue(child_process_id));
+}
+
+BrowserChildProcessHost* BrowserChildProcessHost::FromID(
+    ChildProcessId child_process_id) {
   CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
   BrowserChildProcessHostImpl::BrowserChildProcessList* process_list =
       g_child_process_list.Pointer();
   for (BrowserChildProcessHostImpl* host : *process_list) {
-    if (host->GetData().id == child_process_id)
+    if (host->GetData().GetChildProcessId() == child_process_id) {
       return host;
+    }
   }
   return nullptr;
 }
@@ -279,8 +285,9 @@ void BrowserChildProcessHostImpl::LaunchWithFileData(
     std::unique_ptr<SandboxedProcessLauncherDelegate> delegate,
     std::unique_ptr<base::CommandLine> cmd_line,
     std::unique_ptr<ChildProcessLauncherFileData> file_data) {
-  GetContentClient()->browser()->AppendExtraCommandLineSwitches(cmd_line.get(),
-                                                                data_.id);
+  // TODO(crbug.com/379869738): Remove GetUnsafeValue.
+  GetContentClient()->browser()->AppendExtraCommandLineSwitches(
+      cmd_line.get(), data_.GetChildProcessId().GetUnsafeValue());
   LaunchWithoutExtraCommandLineSwitches(
       std::move(delegate), std::move(cmd_line), std::move(file_data));
 }
@@ -549,25 +556,25 @@ void BrowserChildProcessHostImpl::CreateMetricsAllocator() {
   auto shared_memory_config =
       GetHistogramSharedMemoryConfig(data_.process_type);
   if (!shared_memory_config.has_value()) {
-    DVLOG(1) << "No histogram shared memory configured: " << "pid=" << data_.id
-             << "; process_type='"
+    DVLOG(1) << "No histogram shared memory configured: pid="
+             << data_.GetChildProcessId().value() << "; process_type='"
              << GetProcessTypeNameInEnglish(data_.process_type) << "'";
     return;
   }
 
   // Create the shared memory region and histogram allocator.
   auto shared_memory = base::HistogramSharedMemory::Create(
-      data_.id, shared_memory_config.value());
+      data_.GetChildProcessId().value(), shared_memory_config.value());
 
   if (!shared_memory.has_value()) {
-    DVLOG(1) << "Failed to create histogram shared memory for pid=" << data_.id
-             << "; process_type='"
+    DVLOG(1) << "Failed to create histogram shared memory for pid="
+             << data_.GetChildProcessId().value() << "; process_type='"
              << GetProcessTypeNameInEnglish(data_.process_type) << "'";
     return;
   }
 
-  DVLOG(1) << "Createdhistogram shared memory for pid=" << data_.id
-           << "; process_type='"
+  DVLOG(1) << "Createdhistogram shared memory for pid="
+           << data_.GetChildProcessId().value() << "; process_type='"
            << GetProcessTypeNameInEnglish(data_.process_type) << "'";
 
   metrics_shared_region_ =
@@ -680,7 +687,7 @@ void BrowserChildProcessHostImpl::OnProcessLaunched() {
       process.Pid(), base::BindRepeating(&BindTracedProcessFromUIThread,
                                          weak_factory_.GetWeakPtr()));
   BackgroundTracingManagerImpl::ActivateForProcess(
-      GetData().id,
+      GetData().GetChildProcessId(),
       static_cast<ChildProcessHostImpl*>(GetHost())->child_process());
 
 #if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_ANDROID)

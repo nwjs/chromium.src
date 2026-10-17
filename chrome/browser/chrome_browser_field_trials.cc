@@ -19,7 +19,6 @@
 #include "chrome/browser/metrics/chrome_browser_sampling_trials.h"
 #include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
 #include "chrome/browser/metrics/chrome_metrics_service_client.h"
-#include "chrome/common/channel_info.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "components/feed/feed_feature_list.h"
@@ -57,6 +56,7 @@
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS)
+#include "chrome/common/channel_info.h"
 #include "chromeos/ash/services/multidevice_setup/public/cpp/first_run_field_trial.h"
 #endif
 
@@ -127,12 +127,6 @@ void ChromeBrowserFieldTrials::RegisterFeatureOverrides(
     base::FeatureList* feature_list) {
   variations::FeatureOverrides feature_overrides(*feature_list);
 
-  // TODO(crbug.com/552456654): Remove when rollout is complete to stable.
-  if (chrome::GetChannel() != version_info::Channel::STABLE) {
-    feature_overrides.EnableFeature(
-        blink::features::kSingleAxisScrollContainers);
-  }
-
 #if BUILDFLAG(IS_ANDROID)
 #if BUILDFLAG(IS_DESKTOP_ANDROID)
   // Nota bene: Anything here is expected to be short-lived, unless deemed too
@@ -140,12 +134,6 @@ void ChromeBrowserFieldTrials::RegisterFeatureOverrides(
   // should be the exception, and not the norm. Instead, you should place the
   // override in the generic IS_ANDROID block below, guarded by an appropriate
   // runtime check.
-
-  // Enable the "Ask Gemini" context-menu and text-selection entry points on
-  // desktop Android (AL); disabled by default on other Android form factors.
-  // TODO(crbug.com/545717789): Remove when rollout to phones/tablets is
-  // complete.
-  feature_overrides.EnableFeature(chrome::android::kClankGlicContextMenu);
 
   // Enables media capture (tab+window+screen sharing).
   // TODO(crbug.com/352187279): Remove when tablet rollout is complete.
@@ -401,6 +389,11 @@ void ChromeBrowserFieldTrials::RegisterFeatureOverrides(
   // TODO(crbug.com/404074424): Remove when rollout to all form factors is
   // complete.
   feature_overrides.EnableFeature(chrome::android::kSubmenusInAppMenuLff);
+
+  // Enables DevTools frontend on desktop Android.
+  // TODO(crbug.com/438369690): Remove when we enable DevTools frontend on all
+  // LFF devices.
+  feature_overrides.EnableFeature(features::kAndroidDevToolsFrontend);
 
 #endif  // BUILDFLAG(IS_DESKTOP_ANDROID)
   // Desktop-first features which are past incubation should either end up here,

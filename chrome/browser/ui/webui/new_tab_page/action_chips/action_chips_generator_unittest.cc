@@ -107,7 +107,7 @@ struct CreateSuggestionOptions {
 SearchSuggestionParser::SuggestResult CreateSuggestion(
     const CreateSuggestionOptions& options) {
   SearchSuggestionParser::SuggestResult result(
-      options.suggestion, AutocompleteMatchType::SEARCH_SUGGEST,
+      options.suggestion, omnibox::AutocompleteMatchType::kSearchSuggest,
       options.suggest_type, options.subtypes,
       base::UTF8ToUTF16(options.match_contents),
       /*match_contents_prefix=*/u"", base::UTF8ToUTF16(options.annotation),

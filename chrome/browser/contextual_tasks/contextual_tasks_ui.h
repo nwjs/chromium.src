@@ -36,7 +36,6 @@
 #include "components/contextual_tasks/public/contextual_tasks_service.h"
 #include "components/lens/lens_overlay_invocation_source.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
-#include "components/user_education/webui/help_bubble_handler.h"  // nogncheck
 #include "content/public/browser/host_zoom_map.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -52,7 +51,6 @@
 #include "ui/base/resource/resource_scale_factor.h"
 #include "ui/webui/mojo_web_ui_controller.h"
 #include "ui/webui/resources/cr_components/composebox/composebox.mojom.h"
-#include "ui/webui/resources/cr_components/help_bubble/help_bubble.mojom.h"  // nogncheck
 
 #if !BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 #include "components/guest_view/browser/slim_web_view/slim_web_view_page_handler_factory.h"  // nogncheck
@@ -71,6 +69,7 @@ namespace contextual_tasks {
 class ContextualTasksAutoSuggestionManager;
 class ContextualTasksComposeboxHandlerInterface;
 class ContextualTasksUiService;
+class ContextualTasksUiTest;
 
 }  // namespace contextual_tasks
 
@@ -95,7 +94,6 @@ class ContextualTasksUI
 #endif
       public contextual_tasks::mojom::PageHandlerFactory,
       public composebox::mojom::PageHandlerFactory,
-      public help_bubble::mojom::HelpBubbleHandlerFactory,
       public contextual_tasks_internals::mojom::
           ContextualTasksInternalsPageHandlerFactory,
       public signin::IdentityManager::Observer,
@@ -106,6 +104,7 @@ class ContextualTasksUI
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kSmartTabSharingMenuItemElementId);
 
   friend class ContextualTasksUIBrowserTest;
+  friend class contextual_tasks::ContextualTasksUiTest;
 
   // A WebContentsObserver used to observe navigations or URL changes in the
   // frame being hosted by this WebUI. Top-level navigations are ignored since
@@ -161,11 +160,6 @@ class ContextualTasksUI
   void BindInterface(
       mojo::PendingReceiver<composebox::mojom::PageHandlerFactory> receiver);
 
-  // help_bubble::mojom::HelpBubbleHandlerFactory:
-  void CreateHelpBubbleHandler(
-      mojo::PendingRemote<help_bubble::mojom::HelpBubbleClient> client,
-      mojo::PendingReceiver<help_bubble::mojom::HelpBubbleHandler> handler)
-      override;
 
   // contextual_tasks::mojom::PageHandlerFactory:
   void CreatePageHandler(
@@ -197,6 +191,7 @@ class ContextualTasksUI
   void TransferNavigationToEmbeddedPage(content::OpenURLParams params) override;
   void CloseSidePanel() override;
   void OnSidePanelStateChanged() override;
+  void FocusComposebox() override;
   void OnActiveTabContextStatusChanged() override;
   void SyncAutoSuggestedTabContext() override;
   void ResetForNewThread(const base::Uuid& task_id, const GURL& url) override;
@@ -210,6 +205,7 @@ class ContextualTasksUI
   void OnPageContextEligibilityChecked(bool is_page_context_eligible) override;
   bool IsActiveTabContextSuggestionShowing() const override;
   void MoveTaskUiToNewTab() override;
+  void ShowThreadHistory() override;
   bool CanExpandToFullTab() const override;
   void PostAimMessage(const lens::ClientToAimMessage& message) override;
   contextual_search::ContextualSearchSessionHandle*
@@ -223,6 +219,12 @@ class ContextualTasksUI
   void RemoveObserver(contextual_tasks::ContextualTasksUIInterface::Observer*
                           observer) override;
 
+  // Returns whether the user was signed in to the browser with valid
+  // credentials as of the most recent primary page load. This is a snapshot,
+  // refreshed on every primary page change, so that mid-session sign-in state
+  // changes can be detected and the user prompted to reload.
+  bool IsSignedInOnPageLoad() const { return is_signed_in_on_page_load_; }
+
   void ClearContextualSessionHandle();
 
   std::unique_ptr<contextual_search::InputStateModel> TakeInputStateModel()
@@ -232,6 +234,7 @@ class ContextualTasksUI
       contextual_tasks::ContextualTasksComposeboxHandlerInterface* handler)
       override;
   mojo::Remote<contextual_tasks::mojom::Page>& GetPageRemote() override;
+  contextual_tasks_toolbar::mojom::Page* GetToolbarPageRemote() override;
   const GURL& GetInnerFrameUrl() const override;
   content::WebContents* GetInnerWebContents() const override;
 
@@ -271,9 +274,6 @@ class ContextualTasksUI
       mojo::PendingReceiver<contextual_tasks::mojom::PageHandlerFactory>
           pending_receiver);
 
-  void BindInterface(
-      mojo::PendingReceiver<help_bubble::mojom::HelpBubbleHandlerFactory>
-          pending_receiver);
 
   // Instantiates the implementor of the contextual_tasks::mojom::
   // ContextualTasksInternalsPageHandlerFactory mojo interface passing the
@@ -363,8 +363,6 @@ class ContextualTasksUI
                              const GURL& url,
                              bool replace_navigation_entry) override;
 
-  contextual_tasks::ContextualTasksPanelController* GetPanelController();
-
   void UpdateExpandButtonEnabled(bool enabled) override;
 
   std::unique_ptr<contextual_tasks::ContextualTasksAutoSuggestionManager>
@@ -393,10 +391,6 @@ class ContextualTasksUI
   mojo::Receiver<composebox::mojom::PageHandlerFactory>
       composebox_page_handler_factory_receiver_{this};
 
-  std::unique_ptr<user_education::HelpBubbleHandler> help_bubble_handler_;
-
-  mojo::Receiver<help_bubble::mojom::HelpBubbleHandlerFactory>
-      help_bubble_factory_receiver_{this};
 
   std::unique_ptr<InnerFrameCreationObvserver>
       inner_web_contents_creation_observer_;
@@ -420,8 +414,6 @@ class ContextualTasksUI
   // changing, it is very likely that `task_id` should also change.
   std::optional<std::string> thread_id_;
 
-  std::optional<std::string> thread_title_;
-
   mojo::Remote<contextual_tasks::mojom::Page> page_;
 
   base::ObserverList<contextual_tasks::ContextualTasksUIInterface::Observer>
@@ -444,6 +436,7 @@ class ContextualTasksUI
   bool is_lens_overlay_showing_ = false;
   bool are_tab_inputs_supported_on_init_ = false;
   bool is_contextual_tasks_eligible_on_init_ = false;
+  bool is_signed_in_on_page_load_ = false;
   bool is_history_thread_loading_ = false;
 
   // Scoped observation for contextual_tasks_service_.

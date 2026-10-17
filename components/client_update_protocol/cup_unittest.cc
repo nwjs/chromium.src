@@ -4,8 +4,10 @@
 
 #include "components/client_update_protocol/cup.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <array>
-#include <cstdint>
 #include <memory>
 #include <string>
 #include <string_view>

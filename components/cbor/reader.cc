@@ -21,23 +21,25 @@
 #include <iterator>
 #include <limits>
 #include <map>
+#include <optional>
 #include <utility>
 
 #include "base/bit_cast.h"
 #include "base/check_op.h"
+#include "base/compiler_specific.h"
 #include "base/containers/to_vector.h"
 #include "base/memory/raw_ref.h"
-#include "base/metrics/histogram_functions.h"
+#include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/numerics/checked_math.h"
 #include "base/numerics/safe_conversions.h"
-#include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "base/strings/string_view_util.h"
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
 #include "components/cbor/cbor_buildflags.h"
 #include "components/cbor/constants.h"
+#include "components/cbor/experiment_metrics.h"
 
 #if BUILDFLAG(USE_CBOR_RUST)
 #include "components/cbor/rust/cbor_rust.h"
@@ -115,55 +117,50 @@ const char kOutOfRangeIntegerValue[] =
 const char kMapKeyDuplicate[] = "Duplicate map keys are not allowed.";
 const char kUnknownError[] = "An unknown error occured.";
 
-#if BUILDFLAG(USE_CBOR_RUST)
-
-Value ConvertRustMapKeyToCpp(const cbor::rust::MapKey& rust_key) {
-  switch (rust_key.kind().tag) {
-    case cbor::rust::MapKeyKind::Tag::Int:
-      return Value(*rust_key.as_int());
-    case cbor::rust::MapKeyKind::Tag::String:
-      return Value(rust_key.as_string()->to_string_view(), Value::Type::STRING);
-    case cbor::rust::MapKeyKind::Tag::Bytestring:
-      return Value(rust_key.as_bytestring()->to_span());
-  }
-  NOTREACHED();
-}
-#endif
-
 class [[nodiscard]] ScopedMetricsReporter {
  public:
-  ScopedMetricsReporter(bool is_rust,
-                        size_t payload_size,
-                        const Reader::DecoderError& error_code)
-      : backend_(is_rust ? ".Rust" : ".Cpp"),
-        payload_size_(payload_size),
-        error_code_(error_code) {}
+  ScopedMetricsReporter(size_t payload_size,
+                        const Reader::DecoderError& error_code LIFETIME_BOUND)
+      : payload_size_(payload_size), error_code_(error_code) {}
+  ScopedMetricsReporter(size_t, Reader::DecoderError&&) = delete;
+
+  ScopedMetricsReporter(const ScopedMetricsReporter&) = delete;
+  ScopedMetricsReporter& operator=(const ScopedMetricsReporter&) = delete;
+
   ~ScopedMetricsReporter() {
-    base::UmaHistogramEnumeration(base::StrCat({"CBOR.ReadResult", backend_}),
-                                  *error_code_);
-    base::UmaHistogramCounts10M(base::StrCat({"CBOR.Read.Size", backend_}),
-                                payload_size_);
+    const base::TimeDelta elapsed = timer_.Elapsed();
+
+    UMA_HISTOGRAM_ENUMERATION("CBOR.Read.Result", *error_code_);
+    UMA_HISTOGRAM_COUNTS_10M("CBOR.Read.Size",
+                             base::saturated_cast<int>(payload_size_));
     if (base::TimeTicks::IsHighResolution()) {
-      base::UmaHistogramCustomMicrosecondsTimes(
-          base::StrCat({"CBOR.Read.Duration", backend_}), timer_.Elapsed(),
-          base::Microseconds(1), base::Milliseconds(100), 50);
+      UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES("CBOR.Read.Duration", elapsed,
+                                              base::Microseconds(1),
+                                              base::Milliseconds(100), 50);
     }
   }
 
-  explicit ScopedMetricsReporter(ScopedMetricsReporter&&) = delete;
-  ScopedMetricsReporter& operator=(ScopedMetricsReporter&&) = delete;
-
  private:
-  const std::string_view backend_;
   const size_t payload_size_;
   const base::raw_ref<const Reader::DecoderError> error_code_;
-  base::ElapsedTimer timer_;
+  const base::ElapsedTimer timer_;
 };
+
+// Resolves `Reader::Config::use_rust`, defaulting to `kUseRustCborParser`.
+bool ShouldUseRustParser(std::optional<bool> use_rust) {
+  if (use_rust.has_value()) {
+    return *use_rust;
+  }
+#if BUILDFLAG(USE_CBOR_RUST)
+  return base::FeatureList::IsEnabled(kUseRustCborParser);
+#else
+  return false;
+#endif
+}
 
 }  // namespace
 
-Reader::Config::Config()
-    : use_rust(base::FeatureList::IsEnabled(kUseRustCborParser)) {}
+Reader::Config::Config() = default;
 Reader::Config::~Config() = default;
 
 Reader::Reader(base::span<const uint8_t> data)
@@ -171,6 +168,25 @@ Reader::Reader(base::span<const uint8_t> data)
 Reader::~Reader() = default;
 
 #if BUILDFLAG(USE_CBOR_RUST)
+// static
+Value Reader::ConvertRustMapKeyToCpp(const cbor::rust::MapKey& rust_key) {
+  switch (rust_key.kind().tag) {
+    case cbor::rust::MapKeyKind::Tag::Int:
+      return Value(*rust_key.as_int());
+    case cbor::rust::MapKeyKind::Tag::String:
+      return Value(rust_key.as_string()->to_string_view());
+    case cbor::rust::MapKeyKind::Tag::Bytestring:
+      return Value(rust_key.as_bytestring()->to_span());
+    case cbor::rust::MapKeyKind::Tag::InvalidUtf8:
+      // Unreachable when parsing (`allow_invalid_utf8` does not apply to map
+      // keys); exists so `Writer` can encode test-only `INVALID_UTF8` keys.
+      return Value(rust_key.as_invalid_utf8()->to_span(),
+                   Value::Type::INVALID_UTF8);
+  }
+  NOTREACHED();
+}
+
+// static
 Value Reader::ConvertRustValueToCpp(const cbor::rust::Value& rust_val) {
   switch (rust_val.kind().tag) {
     case cbor::rust::ValueKind::Tag::Int:
@@ -178,14 +194,13 @@ Value Reader::ConvertRustValueToCpp(const cbor::rust::Value& rust_val) {
     case cbor::rust::ValueKind::Tag::Boolean:
       return Value(*rust_val.as_bool());
     case cbor::rust::ValueKind::Tag::Null:
-      return Value(Value::SimpleValue::NULL_VALUE);
+      return Value(Value::Null());
     case cbor::rust::ValueKind::Tag::Undefined:
-      return Value(Value::SimpleValue::UNDEFINED);
+      return Value(Value::Undefined());
     case cbor::rust::ValueKind::Tag::Bytestring:
-      return Value(rust_val.as_bytestring()->to_span(),
-                   Value::Type::BYTE_STRING);
+      return Value(rust_val.as_bytestring()->to_span());
     case cbor::rust::ValueKind::Tag::String:
-      return Value(rust_val.as_string()->to_string_view(), Value::Type::STRING);
+      return Value(rust_val.as_string()->to_string_view());
     case cbor::rust::ValueKind::Tag::InvalidUtf8:
       return Value(rust_val.as_invalid_utf8()->to_span(),
                    Value::Type::INVALID_UTF8);
@@ -240,10 +255,15 @@ std::optional<Value> Reader::Read(base::span<uint8_t const> data,
   DecoderError& error_code_out =
       config.error_code_out ? *config.error_code_out : ignored_error_code_out;
 
-  ScopedMetricsReporter reporter(config.use_rust, data.size(), error_code_out);
+  const bool use_rust = ShouldUseRustParser(config.use_rust);
+
+  std::optional<ScopedMetricsReporter> reporter;
+  if (internal::ShouldRecordMetrics(config.use_rust)) {
+    reporter.emplace(data.size(), error_code_out);
+  }
 
 #if BUILDFLAG(USE_CBOR_RUST)
-  if (config.use_rust) {
+  if (use_rust) {
     cbor::rust::Config rust_config;
     rust_config.allow_invalid_utf8 = config.allow_invalid_utf8;
     rust_config.max_nesting_level = config.max_nesting_level;
@@ -275,8 +295,7 @@ std::optional<Value> Reader::Read(base::span<uint8_t const> data,
     return ConvertRustValueToCpp(result->value);
   }
 #else
-  CHECK(!config.use_rust)
-      << "CBOR Rust parser is statically disabled in this build";
+  CHECK(!use_rust) << "CBOR Rust parser is statically disabled in this build";
 #endif
 
   Reader reader(data);
@@ -325,7 +344,6 @@ std::optional<Value> Reader::DecodeCompleteDataItem(const Config& config,
       return ReadMapContent(*header, config, max_nesting_level);
     case Value::Type::SIMPLE_VALUE:
       return DecodeToSimpleValue(*header);
-    case Value::Type::NONE:
     case Value::Type::INVALID_UTF8:
       break;
   }
@@ -420,10 +438,13 @@ std::optional<Value> Reader::DecodeToSimpleValue(const DataItemHeader& header) {
       static_cast<Value::SimpleValue>(static_cast<int>(header.value));
   switch (possibly_unsupported_simple_value) {
     case Value::SimpleValue::FALSE_VALUE:
+      return Value(false);
     case Value::SimpleValue::TRUE_VALUE:
+      return Value(true);
     case Value::SimpleValue::NULL_VALUE:
+      return Value(Value::Null());
     case Value::SimpleValue::UNDEFINED:
-      return Value(possibly_unsupported_simple_value);
+      return Value(Value::Undefined());
   }
 
   error_code_ = DecoderError::UNSUPPORTED_SIMPLE_VALUE;

@@ -56,6 +56,7 @@
 #include "components/permissions/features.h"
 #include "components/permissions/permission_uma_util.h"
 #include "components/permissions/permission_util.h"
+#include "components/safe_browsing/buildflags.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "components/safety_check/safety_check.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
@@ -512,6 +513,7 @@ class RevokedPermissionsServiceTest
   }
 
  private:
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
   void SetUpSafeBrowsingService() override {
     if (!ShouldSetupSafeBrowsing()) {
       return;
@@ -534,9 +536,10 @@ class RevokedPermissionsServiceTest
     TestingBrowserProcess::GetGlobal()->SetSafeBrowsingService(nullptr);
   }
 
-  scoped_refptr<MockSafeBrowsingDatabaseManager> fake_database_manager_;
   std::unique_ptr<safe_browsing::TestSafeBrowsingServiceFactory>
       safe_browsing_factory_;
+#endif
+  scoped_refptr<MockSafeBrowsingDatabaseManager> fake_database_manager_;
 };
 
 TEST_P(RevokedPermissionsServiceTest, RevokedPermissionsServiceTest) {
@@ -585,12 +588,13 @@ TEST_P(RevokedPermissionsServiceTest, RevokedPermissionsServiceTest) {
 
   // The old settings should now be tracked as unused.
   safety_hub_test_util::UpdateRevokedPermissionsServiceAsync(service());
+  std::unique_ptr<RevokedPermissionsTabHelper> tab_helper;
   if (ShouldSetupUnusedSites()) {
     EXPECT_EQ(service()->GetTrackedUnusedPermissionsForTesting().size(), 3u);
     EXPECT_EQ(GetRevokedUnusedPermissions(hcsm()).size(), 0u);
     // Visit `url2` and check that the corresponding content setting got
     // updated.
-    RevokedPermissionsService::TabHelper::CreateForWebContents(web_contents(),
+    tab_helper = std::make_unique<RevokedPermissionsTabHelper>(web_contents(),
                                                                service());
   }
   NavigateAndCommit(GURL(url2));
@@ -1930,7 +1934,11 @@ INSTANTIATE_TEST_SUITE_P(
     All,
     RevokedPermissionsServiceTest,
     testing::Combine(
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
         /*should_setup_abusive_notification_sites=*/testing::Bool(),
+#else
+        /*should_setup_abusive_notification_sites=*/testing::Values(false),
+#endif
         /*should_setup_unused_sites=*/testing::Bool(),
         /*should_setup_disruptive_sites=*/testing::Bool()));
 

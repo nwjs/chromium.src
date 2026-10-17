@@ -36,11 +36,11 @@
 #import "components/safe_browsing/core/common/features.h"
 #import "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #import "components/safe_browsing/core/common/utils.h"
+#import "components/search_engines/template_url.h"
+#import "components/search_engines/template_url_service.h"
 #import "components/strings/grit/components_strings.h"
 #import "components/supervised_user/core/browser/supervised_user_interstitial.h"
 #import "components/translate/ios/browser/translate_java_script_feature.h"
-#import "components/universal_optout/features.h"
-#import "components/universal_optout/prefs.h"
 #import "components/version_info/version_info.h"
 #import "components/webauthn/ios/features.h"
 #import "components/webauthn/ios/passkey_java_script_feature.h"
@@ -81,6 +81,7 @@
 #import "ios/chrome/browser/safe_browsing/model/safe_browsing_blocking_page.h"
 #import "ios/chrome/browser/search_engines/model/search_engine_java_script_feature.h"
 #import "ios/chrome/browser/search_engines/model/search_engine_tab_helper_factory.h"
+#import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/send_tab_to_self/model/send_tab_to_self_text_fragment_selector_generator.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
@@ -97,6 +98,8 @@
 #import "ios/chrome/browser/supervised_user/model/supervised_user_url_filter_tab_helper.h"
 #import "ios/chrome/browser/unified_consent/model/url_keyed_data_collection_consent_helper_factory_ios.h"
 #import "ios/chrome/browser/unified_consent/model/url_keyed_data_collection_consent_helper_ios.h"
+#import "ios/chrome/browser/universal_optout/model/eligibility_utils.h"
+#import "ios/chrome/browser/universal_optout/model/universal_optout_service_factory.h"
 #import "ios/chrome/browser/web/model/browser_about_rewriter.h"
 #import "ios/chrome/browser/web/model/choose_file/choose_file_java_script_feature.h"
 #import "ios/chrome/browser/web/model/choose_file/choose_file_tab_helper.h"
@@ -109,6 +112,8 @@
 #import "ios/chrome/browser/web/model/java_script_console/java_script_console_feature_factory.h"
 #import "ios/chrome/browser/web/model/print/print_java_script_feature.h"
 #import "ios/chrome/browser/web/model/web_performance_metrics/web_performance_metrics_java_script_feature.h"
+#import "ios/chrome/browser/web_extension/model/extension_service.h"
+#import "ios/chrome/browser/web_extension/model/extension_service_factory.h"
 #import "ios/chrome/browser/web_selection/model/web_selection_java_script_feature.h"
 #import "ios/chrome/common/channel_info.h"
 #import "ios/chrome/common/crash_report/crash_helper.h"
@@ -145,6 +150,7 @@
 #import "ui/base/l10n/l10n_util.h"
 #import "ui/base/resource/resource_bundle.h"
 #import "url/gurl.h"
+#import "url/origin.h"
 #import "url/url_constants.h"
 
 namespace {
@@ -210,7 +216,10 @@ NSString* GetLookalikeUrlErrorPageHtml(web::WebState* web_state,
           lookalike_info->match_type,
           std::make_unique<LookalikeUrlControllerClient>(
               web_state, lookalike_info->safe_url, lookalike_info->request_url,
-              GetApplicationContext()->GetApplicationLocaleStorage()->Get()));
+              std::string(GetApplicationContext()
+                              ->GetApplicationLocaleStorage()
+                              ->GetTag()
+                              .tag_string())));
   std::string error_page_content = page->GetHtmlContents();
   security_interstitials::IOSBlockingPageTabHelper::FromWebState(web_state)
       ->AssociateBlockingPage(navigation_id, std::move(page));
@@ -235,7 +244,10 @@ NSString* GetHttpsOnlyModeErrorPageHtml(web::WebState* web_state,
           web_state, container->http_url(), service,
           std::make_unique<HttpsOnlyModeControllerClient>(
               web_state, container->http_url(),
-              GetApplicationContext()->GetApplicationLocaleStorage()->Get()));
+              std::string(GetApplicationContext()
+                              ->GetApplicationLocaleStorage()
+                              ->GetTag()
+                              .tag_string())));
 
   std::string error_page_content = page->GetHtmlContents();
   security_interstitials::IOSBlockingPageTabHelper::FromWebState(web_state)
@@ -270,7 +282,10 @@ NSString* GetSupervisedUserErrorPageHTML(web::WebState* web_state,
           error_info->filtering_result().reason,
           container->IsRemoteApprovalPendingForUrl(url),
           error_info->is_main_frame(),
-          GetApplicationContext()->GetApplicationLocaleStorage()->Get(),
+          std::string(GetApplicationContext()
+                          ->GetApplicationLocaleStorage()
+                          ->GetTag()
+                          .tag_string()),
           ui_util::SystemSuggestedFontSizeMultiplier());
 
   security_interstitials::IOSBlockingPageTabHelper::FromWebState(web_state)
@@ -338,7 +353,10 @@ void ChromeWebClient::AddAdditionalSchemes(Schemes* schemes) const {
 
 std::string ChromeWebClient::GetApplicationLocale() const {
   DCHECK(GetApplicationContext());
-  return GetApplicationContext()->GetApplicationLocaleStorage()->Get();
+  return std::string(GetApplicationContext()
+                         ->GetApplicationLocaleStorage()
+                         ->GetTag()
+                         .tag_string());
 }
 
 bool ChromeWebClient::IsAppSpecificURL(const GURL& url) const {
@@ -614,7 +632,6 @@ void ChromeWebClient::CleanupNativeRestoreURLs(web::WebState* web_state) const {
     // title. When restoring the NTP, be sure to re-add the title below.
     web::NavigationItem* item = navigationManager->GetItemAtIndex(i);
     NewTabPageTabHelper::UpdateItem(item);
-
   }
 }
 
@@ -706,19 +723,54 @@ bool ChromeWebClient::IsSmoothScrollingSupported() const {
          ios::provider::IsFullscreenSmoothScrollingSupported();
 }
 
-bool ChromeWebClient::IsUniversalOptOutEnabled(
+web::UniversalOptOutState ChromeWebClient::GetUniversalOptOutState(
     web::BrowserState* browser_state) const {
-  if (!base::FeatureList::IsEnabled(
-          universal_optout::features::kUniversalOptOut) ||
-      !base::FeatureList::IsEnabled(
-          universal_optout::features::kUniversalOptOutSettings)) {
-    return false;
-  }
-
   ProfileIOS* profile = ProfileIOS::FromBrowserState(browser_state);
   CHECK(profile);
-  PrefService* prefs = profile->GetPrefs();
-  CHECK(prefs);
+  return universal_optout::GetUniversalOptOutState(
+      profile->GetPrefs(),
+      universal_optout::UniversalOptOutServiceFactory::GetForProfile(profile));
+}
 
-  return prefs->GetBoolean(universal_optout::prefs::kUniversalOptOutEnabled);
+web::ExtensionController* ChromeWebClient::GetExtensionController(
+    web::BrowserState* browser_state) const {
+  ProfileIOS* profile = ProfileIOS::FromBrowserState(browser_state);
+  ExtensionService* service = ExtensionServiceFactory::GetForProfile(profile);
+  return service ? service->GetExtensionController() : nullptr;
+}
+
+bool ChromeWebClient::ShouldBlockUniversalLinksForURL(
+    web::BrowserState* browser_state,
+    const GURL& url) const {
+  if (!url.is_valid() || !url.SchemeIsHTTPOrHTTPS() || !browser_state) {
+    return false;
+  }
+  ProfileIOS* profile = ProfileIOS::FromBrowserState(browser_state);
+  TemplateURLService* template_url_service =
+      ios::TemplateURLServiceFactory::GetForProfile(profile);
+  if (!template_url_service) {
+    return false;
+  }
+  const TemplateURL* default_provider =
+      template_url_service->GetDefaultSearchProvider();
+  if (!default_provider) {
+    return false;
+  }
+  const SearchTermsData& search_terms_data =
+      template_url_service->search_terms_data();
+  if (default_provider->IsSearchURL(url, search_terms_data)) {
+    return true;
+  }
+
+  // Match the DSE homepage/root URL while excluding non-search paths on the
+  // same origin (e.g., `https://www.google.com/maps/...`) and other
+  // subdomains (e.g., `maps.google.com`, `drive.google.com`) so native
+  // Universal Links are not blocked for non-search ecosystem apps.
+  GURL dse_url = default_provider->GenerateSearchURL(search_terms_data);
+  if (url::Origin::Create(url) == url::Origin::Create(dse_url) &&
+      (url.path().empty() || url.path() == "/")) {
+    return true;
+  }
+
+  return false;
 }

@@ -30,27 +30,28 @@ class CompareWithDemoteByType {
     if (page_classification ==
         metrics::OmniboxEventProto::
             SEARCH_RESULT_PAGE_NO_SEARCH_TERM_REPLACEMENT) {
-      demotions_ = {{AutocompleteMatchType::Type::HISTORY_URL, 0.61f},
-                    {AutocompleteMatchType::Type::HISTORY_TITLE, 0.61f},
-                    {AutocompleteMatchType::Type::HISTORY_BODY, 0.61f},
-                    {AutocompleteMatchType::Type::HISTORY_KEYWORD, 0.61f},
-                    {AutocompleteMatchType::Type::BOOKMARK_TITLE, 0.61f},
-                    {AutocompleteMatchType::Type::DOCUMENT_SUGGESTION, 0.61f}};
+      demotions_ = {
+          {omnibox::AutocompleteMatchType::kHistoryUrl, 0.61f},
+          {omnibox::AutocompleteMatchType::kHistoryTitle, 0.61f},
+          {omnibox::AutocompleteMatchType::kHistoryBody, 0.61f},
+          {omnibox::AutocompleteMatchType::kHistoryKeyword, 0.61f},
+          {omnibox::AutocompleteMatchType::kBookmarkTitle, 0.61f},
+          {omnibox::AutocompleteMatchType::kDocumentSuggestion, 0.61f}};
     }
 #endif
     omnibox::CheckObsoletePageClass(page_classification);
 
     if (page_classification == metrics::OmniboxEventProto::NTP_REALBOX) {
       demotions_ = {
-          {AutocompleteMatchType::Type::HISTORY_URL, 0.1f},
-          {AutocompleteMatchType::Type::HISTORY_TITLE, 0.1f},
-          {AutocompleteMatchType::Type::HISTORY_BODY, 0.1f},
-          {AutocompleteMatchType::Type::HISTORY_KEYWORD, 0.1f},
-          {AutocompleteMatchType::Type::NAVSUGGEST, 0.1f},
-          {AutocompleteMatchType::Type::BOOKMARK_TITLE, 0.1f},
-          {AutocompleteMatchType::Type::NAVSUGGEST_PERSONALIZED, 0.1f},
-          {AutocompleteMatchType::Type::DOCUMENT_SUGGESTION, 0.1f},
-          {AutocompleteMatchType::Type::STARTER_PACK, 0.0f}};
+          {omnibox::AutocompleteMatchType::kHistoryUrl, 0.1f},
+          {omnibox::AutocompleteMatchType::kHistoryTitle, 0.1f},
+          {omnibox::AutocompleteMatchType::kHistoryBody, 0.1f},
+          {omnibox::AutocompleteMatchType::kHistoryKeyword, 0.1f},
+          {omnibox::AutocompleteMatchType::kNavsuggest, 0.1f},
+          {omnibox::AutocompleteMatchType::kBookmarkTitle, 0.1f},
+          {omnibox::AutocompleteMatchType::kNavsuggestPersonalized, 0.1f},
+          {omnibox::AutocompleteMatchType::kDocumentSuggestion, 0.1f},
+          {omnibox::AutocompleteMatchType::kStarterPack, 0.0f}};
     }
   }
 
@@ -66,9 +67,9 @@ class CompareWithDemoteByType {
     //   specific to a provider emerges, we should refactor
     //   `CompareWithDemoteByType` to `CompareWithDemoteByProviderAndType`.
     return (demotion_it == demotions_.end() ||
-            (match.type == AutocompleteMatchType::NAVSUGGEST &&
+            (match.type == omnibox::AutocompleteMatchType::kNavsuggest &&
              match.provider->type() ==
-                 AutocompleteProvider::Type::TYPE_ENTERPRISE_SEARCH_AGGREGATOR))
+                 AutocompleteProvider::Type::kEnterpriseSearchAggregator))
                ? match.relevance
                : (match.relevance * demotion_it->second);
   }

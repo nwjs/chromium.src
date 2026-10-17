@@ -17,6 +17,8 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/field_trial.h"
+#include "base/metrics/field_trial_params.h"
+#include "base/metrics/runtime_field_trial_overrides.h"
 #include "base/observer_list.h"
 #include "base/sequence_checker.h"
 #include "base/time/time.h"
@@ -73,6 +75,9 @@ class DeviceVariationsRestrictionByPolicyApplicator;
 // When enabled, runtime mutable field trials from the periodically fetched
 // seeds will be applied to the current session.
 BASE_DECLARE_FEATURE(kVariationsRuntimeMutability);
+// When set, the UMA log will be rotated (closed and reopened) every time
+// runtime mutable experiments are applied.
+BASE_DECLARE_FEATURE_PARAM(bool, kVariationsRuntimeMutabilityRotateUmaLog);
 
 // Used to (a) set up field trials based on stored variations seed data and (b)
 // fetch new seed data from the variations server.
@@ -333,7 +338,7 @@ class VariationsService
                          std::string seed_signature,
                          std::string country_code,
                          std::string geo_level1,
-                         base::Time date_fetched,
+                         base::Time seed_date,
                          bool is_delta_compressed,
                          bool is_gzip_compressed);
 
@@ -378,10 +383,11 @@ class VariationsService
   // streaks.
   void RecordSuccessfulFetchNewSeed();
 
-  // Like VariationsService::RecordSuccessfulFetchNewSeed(), but intended to be
-  // called for 304 responses from the variations server. Also, updates the seed
-  // date and client fetch time.
-  void RecordSuccessfulFetchSeedNotModified(base::Time response_date);
+  // Records a 304 response from the variations server. Updates the client fetch
+  // time and clears failure streaks. If `response_date` has a value (present on
+  // secure HTTPS responses), updates the stored seed date.
+  void RecordSuccessfulFetchSeedNotModified(
+      std::optional<base::Time> response_date);
 
   // Performs a simulation of the given `seed` to find any runtime mutable
   // changes that need to be applied to the current session, and apply them.
@@ -473,11 +479,14 @@ class VariationsService
     RuntimeMutableChanges& operator=(RuntimeMutableChanges&&);
     ~RuntimeMutableChanges();
 
+    // TODO(crbug.com/536852160): clean up redundant members (study_name,
+    // group_name) and see if we can avoid copying feature_names.
     std::string study_name;
     std::string group_name;
     raw_ptr<const base::FieldTrial> trial_to_override = nullptr;
     std::string previous_override_to_replace;
     std::vector<std::string> feature_names;
+    std::unique_ptr<const base::RuntimeFieldTrialInfo> override_info;
     std::vector<base::FeatureList::RuntimeMutableFeatureUpdate> feature_updates;
   };
 

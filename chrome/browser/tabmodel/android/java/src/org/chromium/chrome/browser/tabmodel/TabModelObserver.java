@@ -96,13 +96,6 @@ public interface TabModelObserver {
     default void didMoveTab(Tab tab, int newIndex, int curIndex) {}
 
     /**
-     * Called when a tab's pin state is about to change.
-     *
-     * @param tab The tab whose pin state is about to change.
-     */
-    default void willChangePinState(Tab tab) {}
-
-    /**
      * Called when a tab's pin state has changed.
      *
      * @param tab The tab whose pin state has changed.
@@ -313,9 +306,8 @@ public interface TabModelObserver {
      * {@link TabGroupObserver} for tab groups over this interface and method.
      *
      * @param groupId The ID of the group that was moved.
-     * @param oldIndex The previous index of the group in the tab strip.
      */
-    default void onTabGroupMoved(Token groupId, int oldIndex) {}
+    default void onTabGroupMoved(Token groupId) {}
 
     /**
      * Called after a tab group's visual data (title, color, etc.) is changed. Note that new code

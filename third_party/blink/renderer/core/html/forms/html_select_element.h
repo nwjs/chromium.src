@@ -54,6 +54,7 @@ class V8UnionHTMLElementOrLong;
 class V8UnionHTMLOptGroupElementOrHTMLOptionElement;
 class HTMLSelectedContentElement;
 class SelectMutationObserver;
+class UIEvent;
 
 enum class SelectPopupHideBehavior {
   kNormal,
@@ -295,7 +296,8 @@ class CORE_EXPORT HTMLSelectElement final
   bool IsValidBuiltinCommand(HTMLElement& invoker,
                              CommandEventType command) override;
   bool HandleCommandInternal(HTMLElement& invoker,
-                             CommandEventType command) override;
+                             CommandEventType command,
+                             UIEvent* activate_event) override;
 
   // SlottedButton returns the first child <button> in the light dom tree. If
   // this select is in a state where the <button> can't be rendered, such as a
@@ -358,8 +360,6 @@ class CORE_EXPORT HTMLSelectElement final
   // This should only be called when UsesMenuList() returns true.
   void SetIsAppearanceBasePickerForDisplayNone(bool);
 
-  void SelectedContentElementInsertedLegacy(
-      HTMLSelectedContentElement* selectedcontent);
   void SelectedContentElementInserted(
       HTMLSelectedContentElement* selectedcontent);
   void SelectedContentElementRemoved(

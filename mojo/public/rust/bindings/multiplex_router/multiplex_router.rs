@@ -33,18 +33,22 @@
 
 chromium::import! {
   "//mojo/public/rust/system";
+  "//base:scoped_refptr";
   "//base:sequenced_task_runner";
 }
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, Weak};
 
+use scoped_refptr::ScopedRefPtr;
+use sequenced_task_runner::SequencedTaskRunnerHandle;
 use system::message_pipe::MessageEndpoint;
 
 use super::arc_or_weak::ArcOrWeak;
 use super::control_messages::{
     construct_peer_endpoint_closed_message, parse_incoming_control_message, RunOrClosePipeInput,
 };
+use super::cpp_interop::ffi;
 
 use crate::message::MojomMessage;
 use crate::message_pipe_watcher::{MessagePipeWatcher, ResponseSender};
@@ -72,7 +76,7 @@ enum Task {
 /// `MultiplexRouterHandle`, which is analogous to an Arc, but with extra
 /// functionality, including a drop handler and tracking the interface ID.
 #[derive(Clone)]
-pub(super) struct MultiplexRouter {
+pub struct MultiplexRouter {
     // This will usually be a weak reference, except for the primary endpoint.
     endpoint_watcher: ArcOrWeak<MessagePipeWatcher>,
     shared_state: Arc<Mutex<MultiplexRouterSharedState>>,
@@ -97,6 +101,15 @@ pub(super) struct MultiplexRouterSharedState {
     /// schedule the disconnect handler for any new endpoints as soon as they're
     /// bound.
     pipe_closed: bool,
+    /// The C++ `AssociatedGroupController` for this router, if any C++
+    /// endpoint has needed one. This is just a cache so that new
+    /// C++ endpoints re-use the same controller; each endpoint
+    /// stores its own reference to the controller. The controller
+    /// also has a reference back to the router, so to prevent
+    /// reference cycles we enforce the following invariant:
+    /// Invariant: this field is only `Some` while the pipe is
+    /// connected.
+    cpp_group_controller: Option<ScopedRefPtr<ffi::RustAssociatedGroupController>>,
 }
 
 impl MultiplexRouter {
@@ -121,6 +134,7 @@ impl MultiplexRouter {
             registry: EndpointRegistry::new(sets_high_bit, endpoint_map),
             unscheduled_tasks: VecDeque::new(),
             pipe_closed: false,
+            cpp_group_controller: None,
         }));
         let shared_state_clone = Arc::clone(&shared_state);
 
@@ -163,6 +177,7 @@ impl MultiplexRouter {
                 registry: EndpointRegistry::new(sets_high_bit, HashMap::new()),
                 unscheduled_tasks: VecDeque::new(),
                 pipe_closed: false,
+                cpp_group_controller: None,
             })),
         }
     }
@@ -180,9 +195,8 @@ impl MultiplexRouter {
     /// Will panic if this router has run out of IDs to allocate.
     ///
     /// Will return `None` if called with an interface ID that is already
-    /// registered with the router. Since each pair of endpoints should have a
-    /// unique ID, this should only happen if we receive a malformed mojo
-    /// message.
+    /// registered with the router, or if it is invalid. This should only
+    /// happen if we receive a malformed mojo message.
     ///
     /// Note: This function is only called for _associated_ endpoints, never the
     /// primary one (those use `new` instead).
@@ -191,12 +205,19 @@ impl MultiplexRouter {
         interface_id_opt: Option<InterfaceId>,
         endpoint_info: Option<EndpointInfo>,
     ) -> Option<InterfaceId> {
+        if matches!(interface_id_opt, Some(PRIMARY_INTERFACE_ID | CONTROL_INTERFACE_ID)) {
+            return None;
+        }
         // Will be initialized in the block below, while shared_state is locked.
         let interface_id;
         {
             let mut shared_state = self.shared_state.lock().unwrap();
-            interface_id =
-                interface_id_opt.unwrap_or_else(|| shared_state.registry.get_new_interface_id());
+            interface_id = match interface_id_opt {
+                // We should only ever get IDs allocated by the peer.
+                Some(id) if !shared_state.registry.is_peer_allocated_id(id) => return None,
+                Some(id) => id,
+                None => shared_state.registry.get_new_interface_id(),
+            };
 
             let previous_entry =
                 shared_state.registry.endpoint_map.insert(interface_id, endpoint_info);
@@ -233,15 +254,22 @@ impl MultiplexRouter {
     /// Optionally the user may provide a disconnect handler, which will be run
     /// if the endpoint can no longer receive messages from the other side of
     /// the pipe.
-    pub(super) fn bind_interface(&self, interface_id: InterfaceId, endpoint_info: EndpointInfo) {
+    pub(crate) fn bind_interface(&self, interface_id: InterfaceId, endpoint_info: EndpointInfo) {
         {
             let mut shared_state = self.shared_state.lock().unwrap();
-            shared_state
-                .registry
-                .endpoint_map
-                .get_mut(&interface_id)
-                .map(|info_opt| *info_opt = Some(endpoint_info))
-                .expect("bind_interface should only be called for real interface IDs");
+            // TODO(crbug.com/524990003): It's sometimes valid for the interface
+            // ID to not yet be in the map; figure out the specific conditions
+            // and document/check for them.
+            let previous =
+                shared_state.registry.endpoint_map.insert(interface_id, Some(endpoint_info));
+            // Whatever the story is for the missing-entry case, overwriting an
+            // entry is always a bug: either the endpoint was already bound (and
+            // we just threw away its handlers), or it was removed because it
+            // disconnected (and we just resurrected a dead ID).
+            assert!(
+                !matches!(previous, Some(Some(_))),
+                "Endpoint {interface_id} was already bound to this router"
+            );
             // If the router's underlying pipe has been disconnected, we should
             // immediately schedule the disconnect router for this endpoint.
             // Note that if any messages have already arrived for
@@ -255,12 +283,22 @@ impl MultiplexRouter {
 
     /// Send a message through the underlying pipe with the given interface ID.
     pub(super) fn send_message(&self, mut msg: MojomMessage, interface_id: InterfaceId) {
-        // Don't bother sending the message if we've been disconnected.
-        // Technically this is just an optimization, since incoming messages to
-        // a disconnected ID will be ignored on the other side.
-        if self.shared_state.lock().unwrap().registry.endpoint_map.contains_key(&interface_id) {
-            msg.header.interface_id = interface_id;
-            self.endpoint_watcher.with(|watcher| watcher.send_message(msg.into()));
+        msg.header.interface_id = interface_id;
+        // If the message fails to send, then Mojo will close any attached
+        // handles for us. But we have to close any attach associated
+        // interfaces ourselves, so get the list of interface IDs (if
+        // any) before we give away the message.
+        let ids = msg.associated_interface_ids();
+        let sent = self.send_raw_message(interface_id, msg.into());
+        if !sent {
+            for id in ids {
+                // We should never have invalid IDs in this array
+                debug_assert!(id != PRIMARY_INTERFACE_ID && id != INVALID_INTERFACE_ID);
+                // The IDs were registered with this router prior to the sending
+                // process, so we need to notify _ourselves_
+                // that they've just been dropped.
+                self.notify_peer_closed(id);
+            }
         }
     }
 
@@ -271,9 +309,14 @@ impl MultiplexRouter {
     /// entire pipe is closed, so instead we send disconnect messages to all
     /// the _associated_ interfaces on this side. The other endpoint's router
     /// will handle the notification to the interfaces on the other side.
-    pub(super) fn notify_dropped(&self, interface_id: InterfaceId) {
-        let _ = self.shared_state.lock().unwrap().registry.endpoint_map.remove(&interface_id);
-        if interface_id == 0 {
+    pub(crate) fn notify_dropped(&self, interface_id: InterfaceId) {
+        // If the interface was already removed, no need to do anything
+        let previous =
+            self.shared_state.lock().unwrap().registry.endpoint_map.remove(&interface_id);
+        if previous.is_none() {
+            return;
+        }
+        if interface_id == PRIMARY_INTERFACE_ID {
             // If the primary interface is being dropped, then we don't need to
             // notify it of anything, but we do need to alert all the associated
             // interfaces on this side that they've been disconnected.
@@ -294,6 +337,38 @@ impl MultiplexRouter {
             });
 
             self.schedule_all_possible_tasks();
+        }
+    }
+
+    /// Tell the router that the peer of this associated interface has been
+    /// closed, so the local endpoint should be disconnected.
+    ///
+    /// This is meant for FFI use; normally disconnect handlers are scheduled
+    /// via an incoming notification from mojo, but it's also possible for C++
+    /// to notify us instead.
+    pub(crate) fn notify_peer_closed(&self, interface_id: InterfaceId) {
+        let mut shared_state = self.shared_state.lock().unwrap();
+        if shared_state.registry.endpoint_map.contains_key(&interface_id) {
+            shared_state.unscheduled_tasks.push_back(Task::Disconnect(interface_id));
+        }
+        drop(shared_state);
+        // Doesn't actually run the disconnect handler yet, just schedules it
+        self.schedule_all_possible_tasks();
+    }
+
+    /// Sends a raw message through the underlying pipe if the interface is
+    /// connected.
+    pub(super) fn send_raw_message(
+        &self,
+        interface_id: InterfaceId,
+        msg: system::message::SendableMessage,
+    ) -> bool {
+        if self.shared_state.lock().unwrap().registry.endpoint_map.contains_key(&interface_id) {
+            self.endpoint_watcher
+                .with(|watcher| watcher.send_message(msg))
+                .is_some_and(|result| result.is_ok())
+        } else {
+            false
         }
     }
 
@@ -368,6 +443,12 @@ impl MultiplexRouter {
                     // _yet_ registered, because you can't
                     // send messages until one side is bound to a pipe, and that
                     // process registers both sides.
+                    // TODO(crbug.com/524990003): It actually is possible to get
+                    // a _disconnect_ notification for an
+                    // ID which we haven't yet registered. In that case we'll
+                    // need to mark it as "preemptively disconnected" and run
+                    // the disconnect handler if it ever
+                    // gets bound, rather than blocking everything.
                     unscheduled_tasks.pop_front();
                     continue;
                 }
@@ -376,7 +457,10 @@ impl MultiplexRouter {
                     // to anything yet. We can't handle this
                     // message until that happens. To preserve FIFO ordering,
                     // we can't process any later messages either, so we're done
-                    // for now.
+                    // for now. TODO(crbug.com/524990003):
+                    // Actually, maybe this shouldn't block future
+                    // messages, and instead it should also mark as
+                    // "preemptively disconnected".
                     return;
                 }
                 Some(Some(endpoint_info)) => endpoint_info,
@@ -439,6 +523,11 @@ impl MultiplexRouter {
             }
 
             shared_state.pipe_closed = true;
+            // The cached controller holds a reference back to this router, so
+            // we have to drop it to break the cycle. C++ endpoints
+            // that are still alive hold their own references, so
+            // they are unaffected.
+            drop(shared_state.cpp_group_controller.take());
         }
         self.schedule_all_possible_tasks();
     }
@@ -454,5 +543,50 @@ impl MultiplexRouter {
     /// registry information, ignoring their reference to the watcher.
     pub(super) fn same_registry(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.shared_state, &other.shared_state)
+    }
+
+    /// Return a reference to the C++ `AssociatedGroupController` for this
+    /// router, creating it if it doesn't exist yet.
+    ///
+    /// The controller holds a reference back to this router. To avoid a
+    /// reference cycle, a controller is only cached while the pipe is still
+    /// usable; any endpoints that are added after that point get a
+    /// freshly-created controller.
+    pub(super) fn cpp_group_controller(&self) -> ScopedRefPtr<ffi::RustAssociatedGroupController> {
+        let mut shared_state = self.shared_state.lock().unwrap();
+        if let Some(controller) = shared_state.cpp_group_controller.as_ref() {
+            return controller.clone();
+        }
+
+        // The controller uses the primary endpoint's sequence,
+        // if it exists. Otherwise, whatever sequence it's created on.
+        let runner = shared_state
+            .registry
+            .endpoint_map
+            .get(&PRIMARY_INTERFACE_ID)
+            .and_then(|info| info.as_ref())
+            .map(|info| info.runner.clone())
+            .or_else(SequencedTaskRunnerHandle::get_current_default)
+            .expect("Mojo endpoints must be used in a sequenced context");
+
+        // The controller only ever gets a weak reference to the pipe, so that
+        // C++ endpoints can't keep it alive on their own.
+        let controller_ptr = ffi::CreateGroupControllerForRustRouter(
+            Box::new(self.clone_and_downgrade()),
+            runner.as_scoped_refptr().as_pin(),
+        );
+        // SAFETY: The controller was just created, and the returned pointer
+        // owns one of its ref-counts.
+        let controller = unsafe { ScopedRefPtr::wrap_ref_counted(controller_ptr) }
+            .expect("Failed to create a group controller");
+
+        // Only cache while there's a live pipe, because closing the pipe is the
+        // only thing that breaks the cycle between the shared state and the
+        // controller. A router with no pipe at all is only used in tests.
+        if !shared_state.pipe_closed && self.endpoint_watcher.to_arc().is_some() {
+            shared_state.cpp_group_controller = Some(controller.clone());
+        }
+
+        controller
     }
 }

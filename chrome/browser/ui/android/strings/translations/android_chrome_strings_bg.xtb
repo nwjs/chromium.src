@@ -37,7 +37,6 @@
 <translation id="1123537484474186311"><ph name="TAB_TITLE" /> – раздел „картина в картината“</translation>
 <translation id="1126696498560056882">Управление на профилите на това устройство</translation>
 <translation id="1135018701024399762">Режим „инкогнито“ скрива сърфирането ви от другите хора, които използват устройството ви</translation>
-<translation id="113752097246673894">Влезте в Chrome с профила <ph name="EMAIL" />, за да получите отметките си и др. на всичките си устройства</translation>
 <translation id="1138458427267715730">Получавайте сигнали при понижение на цената в който и да е сайт в мрежата</translation>
 <translation id="1140317858355046628">Ако я изтриете, всички хора незабавно ще загубят достъп до групата раздели „<ph name="GROUP_NAME" />“ и тя ще бъде изтрита от всички устройства.</translation>
 <translation id="1142732900304639782">Да не се предлага превод на тези сайтове</translation>
@@ -205,7 +204,6 @@
 <translation id="1815975907734103433"><ph name="TAB_TITLE" /> – раздел, който записва</translation>
 <translation id="1819443852740954262">Отваряне на всички в прозорец в режим „инкогнито“</translation>
 <translation id="1820408774134375111">Долен лист за вход в профила</translation>
-<translation id="1823492026305965829">Вход като <ph name="USER_FULL_NAME" /></translation>
 <translation id="1824902652744048041">Докоснете „Данни за сърфир.: Изтриване“.</translation>
 <translation id="1829244130665387512">Търсене в страницата</translation>
 <translation id="1832459821645506983">Да, ще участвам</translation>
@@ -307,7 +305,6 @@
 <translation id="2226826835915474236">Неактивни преки пътища</translation>
 <translation id="2227179592712503583">Премахване на предложението</translation>
 <translation id="2227444325776770048">Продължаване като <ph name="USER_FULL_NAME" /></translation>
-<translation id="2230411774874187555">Получаване на цялата запазена информация</translation>
 <translation id="2230777942707397948">Празен прозорец</translation>
 <translation id="223356358902285214">Активност в мрежата и приложенията</translation>
 <translation id="2233735624724508540">Изберете период от време и докоснете „Изтриване на данните“.</translation>
@@ -361,7 +358,6 @@
 <translation id="2413014528833954543">Паролите не могат да се проверяват на това устройство</translation>
 <translation id="2414886740292270097">Тъмно</translation>
 <translation id="2415037988255164008">Да се възстановят ли прозорците?</translation>
-<translation id="2426805022920575512">Избиране на друг профил</translation>
 <translation id="2427025860753516072">{FILE_COUNT,plural, =1{Видеоклипове, 1 видеоклип в списъка}other{Видеоклипове, # видеоклипа в списъка}}</translation>
 <translation id="2433507940547922241">Облик</translation>
 <translation id="2449931042095204989">Когато сайт или приложение на Google поиска частно предварително зареждане на връзките в страницата си, Chrome шифрова и зарежда предварително съответните страници чрез сървърите на Google, без да използва „бисквитки“. По този начин самоличността ви се скрива от заредения предварително сайт.</translation>
@@ -439,7 +435,6 @@
 <translation id="2723001399770238859">звук</translation>
 <translation id="2739887572830526131">Запазете тази група, за да добавяте раздели по-късно, или я изтрийте, ако вече не ви е нужна.</translation>
 <translation id="2742373789128106053">В момента <ph name="IDENTITY_PROVIDER_ETLD_PLUS_ONE" /> не е налице.</translation>
-<translation id="2751271371269891762">Влезте с профила <ph name="EMAIL" />, за да получите отметките си и др. на всичките си устройства</translation>
 <translation id="2760805590727089264">ММ/ГГ</translation>
 <translation id="2761162135224472056">Да се използва ли режимът за виртуална реалност?</translation>
 <translation id="2762000892062317888">току-що</translation>
@@ -514,7 +509,6 @@
 <translation id="2996291259634659425">Създаване на пропуск</translation>
 <translation id="2996682533106928201">Докоснете, за да отхвърлите</translation>
 <translation id="2996809686854298943">Изисква се URL адрес</translation>
-<translation id="3007318536447999974">За да разговаряте с Gemini, дайте разрешение на услугата да използва микрофона ви. Можете да управлявате това и от <ph name="BEGIN_LINK" />настройките<ph name="END_LINK" /></translation>
 <translation id="3024215143424744261">Листът с предпочитания за режима на четене е затворен</translation>
 <translation id="3024277805447899099">Визуализация на изображението</translation>
 <translation id="3026955690410463085">Включване на връзката</translation>
@@ -609,7 +603,6 @@
 <translation id="3435738964857648380">Сигурност</translation>
 <translation id="3435914367318771664">Добавяне на раздела към нова група</translation>
 <translation id="3436118221454753036">Режим „Попитайте AI“</translation>
-<translation id="3438681572027105609">Влезте в Chrome, за да получите паролите си и др. на всичките си устройства</translation>
 <translation id="3439276997620616816">Тук ще се показват скорошните ви раздели</translation>
 <translation id="3443221991560634068">Презареждане на текущата страница</translation>
 <translation id="3444179773590444986">Искате ли да споделите отзиви за тъмната тема за сайтовете?</translation>
@@ -754,7 +747,6 @@
 <translation id="4000212216660919741">Начална страница в офлайн режим</translation>
 <translation id="4000670338830950598">Персонализиране и контролиране на Google Chrome с откроен елемент</translation>
 <translation id="4015643064997321279">{NUM_PASSWORDS,plural, =1{1 компрометирана парола в профила ви в Google}other{# компрометирани пароли в профила ви в Google}}</translation>
-<translation id="4023638601467301498">Влезте в Chrome, за да получите отметките си и др. на всичките си устройства</translation>
 <translation id="4024768890073681126">Браузърът се управлява от родител</translation>
 <translation id="4027569221211770437">Папка <ph name="FOLDER_TITLE" /></translation>
 <translation id="4034817413553209278">{HOURS,plural, =1{# ч}other{# ч}}</translation>
@@ -897,7 +889,6 @@
 <translation id="4535755320005483982"><ph name="GROUP_TITLE" /> – споделена група раздели</translation>
 <translation id="4537137366307982887">Долният лист за включване на известията със съвети е отворен на пълната височина</translation>
 <translation id="4537987892902330164">Продължихте да сте влезли като <ph name="NAME_OR_EMAIL" />.</translation>
-<translation id="4543131175509360848">Долен лист без налични ключове за достъп</translation>
 <translation id="4547551584605870320">{TAB_COUNT,plural, =1{<ph name="TAB_COUNT_ONE" /> раздел}other{<ph name="TAB_COUNT_MANY" /> раздела, <ph name="TAB_COUNT_INCOGNITO" /> в режим „инкогнито“}}</translation>
 <translation id="4558311620361989323">Комбинации за уеб страници</translation>
 <translation id="4572422548854449519">Вход в управляван профил</translation>
@@ -935,7 +926,6 @@
 <translation id="4685741273709472646">Избиране от падащия списък</translation>
 <translation id="468924408576231679">Копиране на връзката към уеб страницата <ph name="PAGE_TITLE" />. Източник: <ph name="PAGE_URL" /></translation>
 <translation id="4692623383562244444">Търсещи машини</translation>
-<translation id="469286762610133730">Получавайте по-добро съдържание</translation>
 <translation id="4695891336199304370">{SHIPPING_OPTIONS,plural, =1{<ph name="SHIPPING_OPTION_PREVIEW" />\u2026 и още <ph name="NUMBER_OF_ADDITIONAL_SHIPPING_OPTIONS" />}other{<ph name="SHIPPING_OPTION_PREVIEW" />\u2026 и още <ph name="NUMBER_OF_ADDITIONAL_SHIPPING_OPTIONS" />}}</translation>
 <translation id="4698757800236023795">Активно (<ph name="ITEM_COUNT" />)</translation>
 <translation id="4699172675775169585">Кеширани изображения и файлове</translation>
@@ -943,6 +933,7 @@
 <translation id="4719927025381752090">Предложения за превод</translation>
 <translation id="4720556299488643018">Отписване</translation>
 <translation id="4732120983431207637">Stack Unwinder</translation>
+<translation id="4734965478015604180">Хоризонтално</translation>
 <translation id="4736934858538408121">Виртуална карта</translation>
 <translation id="473775607612524610">Актуализиране</translation>
 <translation id="4738065825338914557">Отписвате се…</translation>
@@ -991,11 +982,11 @@
 <translation id="488187801263602086">Преименуване на файла</translation>
 <translation id="4885273946141277891">Неподдържан брой екземпляри на Chrome.</translation>
 <translation id="4890973535105146893">В профила ви в Google няма запазени пароли</translation>
+<translation id="490375751687810070">Вертикално</translation>
 <translation id="4905823827770127520">Включване на връзка към страницата</translation>
 <translation id="4910889077668685004">Приложения за плащане</translation>
 <translation id="4911042367886397055">Добре дошли отново, <ph name="USER_NAME" />!</translation>
 <translation id="4913169188695071480">Спиране на опресняването</translation>
-<translation id="4921224083091001889">Влезте в Chrome с профила <ph name="EMAIL" />, за да получите паролите си и др. на всичките си устройства</translation>
 <translation id="4923173329789776645">Изтеглянето не се препоръчва от организацията ви</translation>
 <translation id="4924398189611529766">Когато сърфирате в режим „инкогнито“, другите хора, които използват това устройство, няма да виждат активността ви, за да можете да сърфирате частно. <ph name="BEGIN_LINK" />Научете повече<ph name="END_LINK" /></translation>
 <translation id="4925120120285606924">Екранна снимка от <ph name="CURRENT_DATE_ISO" /></translation>
@@ -1156,7 +1147,6 @@
 <translation id="5601180634394228718">За още настройки, които използват данни с цел подобряване на практическата ви работа с Chrome, отворете <ph name="BEGIN_LINK" />услугите на Google<ph name="END_LINK" />.</translation>
 <translation id="5601924940067278327">Получете разделите си и др. на всичките си устройства</translation>
 <translation id="5611398002774823980">Запазване в профила</translation>
-<translation id="5613381935190035031">Влезте в Chrome с профила <ph name="EMAIL" />, за да получите разделите си и др. на всичките си устройства</translation>
 <translation id="5614625640221885312">Влезте в профила си, за да имате достъп до своите отметки, пароли и др. на всичките си устройства</translation>
 <translation id="5619633276517849615">Организацията ви включи Безопасно сърфиране</translation>
 <translation id="5620163320393916465">Няма запазени пароли</translation>
@@ -1243,7 +1233,6 @@
 <translation id="5978661847409534366">{ITEMS_COUNT,plural, =1{В списъка ви за четене има 1 страница}other{В списъка ви за четене има # страници}}</translation>
 <translation id="5992182727984874868">„<ph name="PERMISSION_1" />“ и „<ph name="PERMISSION_2" />“ <ph name="SEPARATOR" /> Chrome премахна тези разрешения, защото не сте посещавали този сайт наскоро</translation>
 <translation id="5995726099713306770">Искате ли отново да изтеглите страницата?</translation>
-<translation id="5998675059699164418">Организацията ви изисква да влезете в профила си, за да използвате Chrome.</translation>
 <translation id="6000066717592683814">Запазване на Google</translation>
 <translation id="6002122790816966947">Вашите устройства</translation>
 <translation id="6011308810877101166">Подобряване на предложенията за търсене</translation>
@@ -1299,8 +1288,8 @@
 <translation id="6192907950379606605">Описания на изображенията</translation>
 <translation id="6193448654517602979">Избиране на раздели</translation>
 <translation id="6196315980958524839">Паролите се запазват в Google Мениджър на пароли на това устройство</translation>
+<translation id="6200780647297916498">Позиция на раздела</translation>
 <translation id="6204781143409202534">Chrome откри възможен спам от <ph name="DOMAIN" />.</translation>
-<translation id="6210748933810148297">Не сте <ph name="EMAIL" />?</translation>
 <translation id="6211386937064921208">Страницата се визуализира</translation>
 <translation id="6212567362666004597">Добавяне на раздела към група</translation>
 <translation id="6225572914528673855">Адресна лента</translation>
@@ -1454,12 +1443,10 @@
 <translation id="6738867403308150051">Изтегля се…</translation>
 <translation id="6745063744988317486">Моно</translation>
 <translation id="6746338529702829275">Преглед на данните за профила ви</translation>
-<translation id="6746834324024491643">За да получите паролите си и др. на всичките си устройства, влезте като <ph name="EMAIL" /></translation>
 <translation id="6751521182688001123">Бързо отваряне на нов раздел. За да редактирате този пряк път, докоснете и задръжте.</translation>
 <translation id="6754359471209693699">Стартиране на ново търсене</translation>
 <translation id="6756507620369789050">Споделяне на отзиви</translation>
 <translation id="6762511428368667596"><ph name="NAME" /> (<ph name="EMAIL" />).</translation>
-<translation id="676305334223455055">Влезте в профила си, за да получавате съдържание въз основа на интересите си</translation>
 <translation id="6764137532716892442"><ph name="GROUP_TITLE" /> – споделена група раздели с нова активност</translation>
 <translation id="6783664456110886353">{TAB_COUNT,plural, =1{Следните раздели ще бъдат затворени: <ph name="INCOGNITO_TAB_COUNT" /> в режим „инкогнито“ и още <ph name="TAB_COUNT_ONE" />}other{Следните раздели ще бъдат затворени: <ph name="INCOGNITO_TAB_COUNT" /> в режим „инкогнито“ и още <ph name="TAB_COUNT_MANY" />}}</translation>
 <translation id="6785476624617658922">Допълнителни общи условия на Chrome и Chrome OS</translation>
@@ -1709,6 +1696,7 @@
 <translation id="7630202231528827509">URL адрес на доставчика</translation>
 <translation id="7638584964844754484">Неправилен пропуск</translation>
 <translation id="764047009170754705">Долният лист за включване в Chrome Finds е затворен</translation>
+<translation id="7645712301713737707">Персонализирайте оформлението на разделите, така че да се показват в горната част или отстрани на браузъра.</translation>
 <translation id="7646499124171960488">Предупреждава ви за незащитени обществени сайтове</translation>
 <translation id="7655240423373329753">последните 7 дни</translation>
 <translation id="7656721520530864426">Няма сайтове</translation>
@@ -1759,7 +1747,6 @@
 <translation id="7822705602465980873">Тези данни се свързват с профила ви в Google, когато сте влезли в него, с цел защита в услугите ни (например повишаване на нивото на защита в Gmail след инцидент, свързан със сигурността).</translation>
 <translation id="7824665136384946951">Организацията ви е изключила Безопасно сърфиране</translation>
 <translation id="7825973332242257878">Групи раздели</translation>
-<translation id="7826342993930002256">Вашият Chrome навсякъде</translation>
 <translation id="7845155831233417403">Можете да отворите най-много <ph name="MAX_INSTANCE_COUNT" /> прозореца. Затворете прозорец, за да продължите.</translation>
 <translation id="7846161022626028328">Възникна грешка. Опитайте отново.</translation>
 <translation id="7846296061357476882">Услуги на Google</translation>
@@ -1835,7 +1822,6 @@
 <translation id="8110024788458304985">Помощ за подобряването на функциите и ефективността на Chrome</translation>
 <translation id="8110087112193408731">Искате ли активността ви в Chrome да се показва в „Дигитално благополучие“?</translation>
 <translation id="8118117428362942925">Ако се нуждаете от помощ, попитайте родителя си (<ph name="PARENT_NAME" />)</translation>
-<translation id="8118151008374483324">Влезте в Chrome, за да получите разделите си и др. на всичките си устройства</translation>
 <translation id="8120286190326371840">На това устройство няма компрометирани пароли</translation>
 <translation id="8122623268651408616">Сортиране по най-нови</translation>
 <translation id="8127542551745560481">Редактиране на началната страница</translation>
@@ -1963,7 +1949,6 @@
 <translation id="8570677896027847510">Файлът не може да бъде изтеглен по сигурен начин</translation>
 <translation id="8571213806525832805">Последните 4 седмици</translation>
 <translation id="8580435650274205305">Дата на валидност, задължителна</translation>
-<translation id="8582529315803410153">Тук ще се показват разделите ви от други устройства</translation>
 <translation id="8585103689515290060">Услуги за автоматично попълване</translation>
 <translation id="8586116786993312006">Докоснете, за да изтриете данните за сърфирането в Chrome</translation>
 <translation id="859046281437143747">Проследявайте цени от бутона „Още опции“</translation>
@@ -2018,6 +2003,7 @@
 <translation id="8816556050903368450">Включително връзката: <ph name="ORIGIN" /></translation>
 <translation id="881688628773363275">Не е възможна визуализация на съдържанието на раздела.</translation>
 <translation id="8820817407110198400">Отметки</translation>
+<translation id="8822533681006532064">За да разговаряте с Gemini, дайте разрешение на услугата да използва микрофона ви. Можете да управлявате това и от <ph name="BEGIN_LINK" />настройките<ph name="END_LINK" />.</translation>
 <translation id="8840953339110955557">Тази страница може да се различава от онлайн версията.</translation>
 <translation id="8847988622838149491">USB</translation>
 <translation id="8849001918648564819">Скрито</translation>
@@ -2127,7 +2113,6 @@
 <translation id="9218430445555521422">Задаване като основен избор</translation>
 <translation id="9219103736887031265">Изображения</translation>
 <translation id="922152298093051471">Персонализиране на Chrome</translation>
-<translation id="9222198206152536936">Влезте с профила <ph name="EMAIL" />, за да получите разделите си и др. на всичките си устройства</translation>
 <translation id="924447568950697217">Задаване на Chrome като браузър по подразбиране</translation>
 <translation id="926205370408745186">Премахване на активността ви в Chrome от „Дигитално благополучие“</translation>
 <translation id="927968626442779827">Използване на олекотения режим в Google Chrome</translation>
@@ -2140,6 +2125,7 @@
 <translation id="945522503751344254">Изпращане на отзиви</translation>
 <translation id="948276827484905248">Създаване на QR код</translation>
 <translation id="95817756606698420">Chrome може да използва <ph name="BEGIN_BOLD" />Sogou<ph name="END_BOLD" /> за търсене в Китай. Можете да промените това от <ph name="BEGIN_LINK" />Настройки<ph name="END_LINK" />.</translation>
+<translation id="959544960061022767">Организацията ви изисква да влезете в профила си, за да използвате Chrome</translation>
 <translation id="961856697154696964">Данни за сърфир.: Изтриване</translation>
 <translation id="963246339335003378">Отваряне на „Диспечер на задачите“</translation>
 <translation id="966337994629449077">Влезли сте като <ph name="FROM_EMAIL" />.\n\nЗа да продължите от компютъра си, превключете към <ph name="TO_EMAIL" />. Ще получите паролите, отметките и др. от този профил.</translation>

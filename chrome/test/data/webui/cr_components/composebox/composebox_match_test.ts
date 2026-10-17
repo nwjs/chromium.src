@@ -9,12 +9,18 @@ import {PageHandlerRemote} from 'chrome://resources/cr_components/composebox/com
 import type {ComposeboxMatchElement} from 'chrome://resources/cr_components/composebox/composebox_match.js';
 import {ComposeboxProxyImpl, createAutocompleteMatch} from 'chrome://resources/cr_components/composebox/composebox_proxy.js';
 import {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote, SuggestStyle} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
-import {ToolMode} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {TestMock} from 'chrome://webui-test/test_mock.js';
 import {eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 import {assertStyle, installMock} from './composebox_test_utils.js';
+
+function getTextContent(
+    element: ComposeboxMatchElement, selector: string): string {
+  const child = element.shadowRoot.querySelector(selector);
+  assertTrue(!!child);
+  return child.textContent.trim();
+}
 
 suite('ComposeboxMatch', () => {
   let matchElement: ComposeboxMatchElement;
@@ -37,13 +43,89 @@ suite('ComposeboxMatch', () => {
   });
 
   test('renders match contents', async () => {
+    // Single-row matches don't show their description.
     matchElement.match = createAutocompleteMatch({
       contents: 'test contents',
+      description: 'test description',
     });
     await microtasksFinished();
 
     const contents = matchElement.$.textContainer;
     assertEquals('test contents', contents.textContent.trim());
+  });
+
+  test('renders the secondary text on a second row', async () => {
+    matchElement.match = createAutocompleteMatch({
+      contents: 'test contents',
+      description: 'test description',
+      isTwoRowSuggestion: true,
+    });
+    await microtasksFinished();
+
+    assertTrue(matchElement.isTwoRowSuggestion);
+    assertTrue(matchElement.hasAttribute('is-two-row-suggestion'));
+    assertEquals('test contents', getTextContent(matchElement, '#contents'));
+    assertEquals(
+        'test description', getTextContent(matchElement, '#description'));
+
+    // The two-row height is not fixed; it falls out of the 24px primary line
+    // and 20px secondary line inside the 10px of block padding.
+    const container =
+        matchElement.shadowRoot.querySelector<HTMLElement>('.container');
+    assertTrue(!!container);
+    assertEquals(64, container.offsetHeight);
+  });
+
+  test('does not apply two-row styling to rich image matches', async () => {
+    // SearchboxHandler sets is_two_row_suggestion for every match that has an
+    // image_url, which is also what makes a match eligible for the rich image
+    // style, so rich image matches carry the attribute too. The two-row rules
+    // are qualified with the suggest style so that they do not pick it up.
+    matchElement.richImageSuggestionsEnabled = true;
+    matchElement.match = createAutocompleteMatch({
+      contents: 'test contents',
+      imageUrl: 'https://example.com/image.png',
+      isTwoRowSuggestion: true,
+      suggestStyle: SuggestStyle.kRichImage,
+    });
+    await microtasksFinished();
+
+    assertTrue(matchElement.isRichImage);
+    assertTrue(matchElement.hasAttribute('is-two-row-suggestion'));
+    const container = matchElement.shadowRoot.querySelector('.container');
+    assertTrue(!!container);
+    assertStyle(container, 'padding-block-start', '0px');
+    assertStyle(container, 'padding-block-end', '0px');
+  });
+
+  test('clamps the primary text of two-row matches', async () => {
+    // #textContainer holds both rows for two-row matches, so a line clamp on it
+    // would cut the secondary text and has to be applied to #contents instead.
+    // `overrideClampLineNum` is read in connectedCallback, so it has to be set
+    // before the element is attached.
+    const el: ComposeboxMatchElement =
+        document.createElement('cr-composebox-match');
+    el.overrideClampLineNum = 3;
+    document.body.appendChild(el);
+    el.match = createAutocompleteMatch({
+      contents: 'Very long text '.repeat(20),
+      description: 'test description',
+      isTwoRowSuggestion: true,
+    });
+    await microtasksFinished();
+
+    const contents = el.shadowRoot.querySelector('#contents');
+    const description = el.shadowRoot.querySelector('#description');
+    assertTrue(!!contents);
+    assertTrue(!!description);
+    assertStyle(el.$.textContainer, '-webkit-line-clamp', 'none');
+    assertStyle(contents, '-webkit-line-clamp', '3');
+    // The secondary text always stays on a single line.
+    assertStyle(description, '-webkit-line-clamp', 'none');
+    assertStyle(description, 'white-space', 'nowrap');
+
+    // Clean up.
+    el.remove();
   });
 
   test(
@@ -151,19 +233,6 @@ suite('ComposeboxMatch', () => {
     assertEquals(2, event.detail.index);
   });
 
-  test('clamps lines for deep search', async () => {
-    assertStyle(matchElement.$.textContainer, '-webkit-line-clamp', 'none');
-
-    matchElement.toolMode = ToolMode.kDeepSearch;
-    await microtasksFinished();
-    assertEquals('2', matchElement.style.getPropertyValue('--clamp-line-num'));
-    assertStyle(matchElement.$.textContainer, '-webkit-line-clamp', '2');
-
-    matchElement.toolMode = ToolMode.kUnspecified;
-    await microtasksFinished();
-    assertStyle(matchElement.$.textContainer, '-webkit-line-clamp', 'none');
-  });
-
   test(
       'clamps lines according to `overrideClampLineNum` property', async () => {
         const el: ComposeboxMatchElement =
@@ -173,13 +242,9 @@ suite('ComposeboxMatch', () => {
         await microtasksFinished();
 
         assertEquals('3', el.style.getPropertyValue('--clamp-line-num'));
-        assertStyle(el.$.textContainer, '-webkit-line-clamp', '3');
-
-        el.toolMode = ToolMode.kDeepSearch;
-        await microtasksFinished();
-        // Should still respect the override.
-        assertEquals('3', el.style.getPropertyValue('--clamp-line-num'));
-        assertStyle(el.$.textContainer, '-webkit-line-clamp', '3');
+        const contents = el.shadowRoot.querySelector('#contents');
+        assertTrue(!!contents);
+        assertStyle(contents, '-webkit-line-clamp', '3');
 
         // Clean up.
         el.remove();

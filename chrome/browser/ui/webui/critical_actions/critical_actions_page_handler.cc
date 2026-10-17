@@ -40,6 +40,8 @@ std::string ActionTypeToString(ActionType type) {
       return "FederatedLogin";
     case ActionType::kCredentialsOtp:
       return "CredentialsOtp";
+    case ActionType::kWebMcpTool:
+      return "WebMcpTool";
     case ActionType::kUnknown:
       return "Unknown";
   }
@@ -67,10 +69,6 @@ bool MatchesSearchQuery(const CriticalActionEntry& entry,
   }
 
   if (base::ToLowerASCII(entry.critical_action_id).find(query_lower) !=
-      std::string::npos) {
-    return true;
-  }
-  if (base::ToLowerASCII(entry.url.spec()).find(query_lower) !=
       std::string::npos) {
     return true;
   }
@@ -208,7 +206,6 @@ void CriticalActionsPageHandler::OnGetCriticalActionsComplete(
       item->action_source_str = ActionSourceToString(entry.action_source);
       item->label = entry.GetLabel();
       item->tooltip = entry.GetTooltip();
-      item->url = entry.url.spec();
       item->metadata = entry.metadata;
       list->entries.push_back(std::move(item));
     }

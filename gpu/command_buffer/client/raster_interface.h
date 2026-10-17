@@ -27,6 +27,7 @@ class SkCanvas;
 namespace cc {
 class DisplayItemList;
 class ImageProvider;
+class PaintRecord;
 struct ElementId;
 }  // namespace cc
 
@@ -45,6 +46,7 @@ extern "C" typedef const struct _GLcolorSpace* GLcolorSpace;
 
 namespace gpu {
 
+struct Capabilities;
 class ClientSharedImage;
 struct Mailbox;
 
@@ -56,6 +58,24 @@ class RasterInterface : public InterfaceBase {
  public:
   RasterInterface() {}
   virtual ~RasterInterface() {}
+
+  virtual const Capabilities& GetCapabilities() const = 0;
+
+  struct CopySharedImageResult {
+    SyncToken source_sync_token;
+    SyncToken dest_sync_token;
+  };
+
+  // This function will not perform any color conversion during the copy.
+  // `source_rect` specifies the subregion of `source` to copy from, and
+  // `dest_offset` specifies the offset within `dest` to copy to.
+  virtual CopySharedImageResult CopySharedImage(
+      const scoped_refptr<ClientSharedImage>& source,
+      const SyncToken& source_sync_token,
+      const scoped_refptr<ClientSharedImage>& dest,
+      const SyncToken& dest_sync_token,
+      const gfx::Rect& source_rect,
+      const gfx::Point& dest_offset);
 
   // This function will not perform any color conversion during the copy.
   // The same width/height is assumed for the destination.
@@ -102,6 +122,14 @@ class RasterInterface : public InterfaceBase {
                               const SkYUVAPixmaps& src_yuv_pixmap) = 0;
 
   // OOP-Raster
+
+  SyncToken RasterSharedImage(
+      const scoped_refptr<ClientSharedImage>& dest,
+      const SyncToken& sync_token,
+      cc::PaintRecord record,
+      cc::ImageProvider* image_provider,
+      bool needs_clear,
+      base::RepeatingCallback<void(SkCanvas*, uint32_t)> custom_callback = {});
 
   // msaa_sample_count has no effect unless msaa_mode is set to kMSAA
   virtual void BeginRasterCHROMIUM(SkColor4f sk_color_4f,
@@ -184,8 +212,10 @@ class RasterInterface : public InterfaceBase {
   // from |source_mailbox| into caller-owned memory |dst_pixels|. |plane_index|
   // applies to multiplanar textures in mailboxes, for example YUV images
   // produced by the VideoDecoder. |plane_index| as 0 should be passed for known
-  // single-plane textures.
+  // single-plane textures. |source_size| specifies the dimensions of the plane
+  // identified by |plane_index|.
   virtual bool ReadbackImagePixels(const gpu::Mailbox& source_mailbox,
+                                   const gfx::Size& source_size,
                                    const SkImageInfo& dst_info,
                                    GLuint dst_row_bytes,
                                    int src_x,

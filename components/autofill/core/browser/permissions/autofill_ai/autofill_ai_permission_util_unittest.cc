@@ -10,7 +10,6 @@
 #include <utility>
 
 #include "base/feature_list.h"
-#include "base/system/sys_info.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
@@ -30,8 +29,6 @@
 #include "components/personal_context/core/personal_context_types.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
-#include "components/subscription_eligibility/subscription_eligibility_prefs.h"
-#include "components/subscription_eligibility/subscription_eligibility_service.h"
 #include "components/sync/test/test_sync_service.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -104,7 +101,7 @@ DenseSet<EntityType> GetPrivatePasses() {
 
 class MockSyncService : public syncer::TestSyncService {
  public:
-  MOCK_METHOD(syncer::DataTypeSet, GetActiveDataTypes, (), (const override));
+  MOCK_METHOD(syncer::DataTypeSet, GetActiveDataTypes, (), (const, override));
 };
 
 // A test fixture that sets up default state so that all AutofillAI-related
@@ -118,8 +115,7 @@ class AutofillAiPermissionUtilsTest : public ::testing::Test {
          {features::kAutofillAiWalletVehicleRegistration, {}},
          {features::kAutofillAiWalletFlightReservation, {}},
          {features::kAutofillAmbientAutofill,
-          {{"ambient_autofill_eligible_tiers", "1"},
-           {"ambient_autofill_supported_entity_types",
+          {{"ambient_autofill_supported_entity_types",
             "Passport,Driver's license,Vehicle,National Id Card,Flight "
             "Reservation,Order,Shipment"}}},
          {features::kAutofillAiServerModel,
@@ -127,9 +123,6 @@ class AutofillAiPermissionUtilsTest : public ::testing::Test {
         // TODO(crbug.com/477163013): Once this feature launches, kLogToMqls can
         // be deprecated as the behavior will be disabled for everyone.
         {features::kAutofillAiUsePrivateAi});
-
-    client().GetPrefs()->SetInteger(
-        subscription_eligibility::prefs::kAiSubscriptionTier, 1);
 
     client().set_entity_data_manager(std::make_unique<EntityDataManager>(
         client().GetPrefs(), client().GetIdentityManager(),
@@ -620,8 +613,7 @@ TEST_F(AutofillAiPermissionUtilsTest,
     base::test::ScopedFeatureList feature_list;
     feature_list.InitAndEnableFeatureWithParameters(
         features::kAutofillAmbientAutofill,
-        {{"ambient_autofill_eligible_tiers", "1"},
-         {"ambient_autofill_supported_entity_types",
+        {{"ambient_autofill_supported_entity_types",
           "Passport,Driver's license,Flight Reservation"}});
 
     EXPECT_TRUE(MayPerformAutofillAiAction(
@@ -720,84 +712,6 @@ TEST_F(AutofillAiPermissionUtilsTest, AmbientAutofillFillingRequiresOptIn) {
       MayPerformAutofillAiAction(client(), AutofillAiAction::kAmbientAutofill));
 }
 #endif
-
-TEST_F(AutofillAiPermissionUtilsTest, kAmbientAutofill_G1Tiers) {
-  client().set_personal_context_eligibility_state(
-      personal_context::PersonalContextEligibilityState::kEligible);
-
-  // Scenario 1: Tiers 1 and 2 are eligible.
-  {
-    base::test::ScopedFeatureList feature_list;
-    feature_list.InitAndEnableFeatureWithParameters(
-        features::kAutofillAmbientAutofill,
-        {{"ambient_autofill_eligible_tiers", "1,2"}});
-
-    client().GetPrefs()->SetInteger(
-        subscription_eligibility::prefs::kAiSubscriptionTier, 1);
-    EXPECT_TRUE(MayPerformAutofillAiAction(client(),
-                                           AutofillAiAction::kAmbientAutofill));
-
-    client().GetPrefs()->SetInteger(
-        subscription_eligibility::prefs::kAiSubscriptionTier, 2);
-    EXPECT_TRUE(MayPerformAutofillAiAction(client(),
-                                           AutofillAiAction::kAmbientAutofill));
-
-    client().GetPrefs()->SetInteger(
-        subscription_eligibility::prefs::kAiSubscriptionTier, 3);
-    EXPECT_FALSE(MayPerformAutofillAiAction(
-        client(), AutofillAiAction::kAmbientAutofill));
-  }
-
-  // Scenario 2: Feature disabled.
-  {
-    base::test::ScopedFeatureList feature_list;
-    feature_list.InitAndDisableFeature(features::kAutofillAmbientAutofill);
-
-    client().GetPrefs()->SetInteger(
-        subscription_eligibility::prefs::kAiSubscriptionTier, 1);
-    EXPECT_FALSE(MayPerformAutofillAiAction(
-        client(), AutofillAiAction::kAmbientAutofill));
-  }
-}
-
-TEST_F(AutofillAiPermissionUtilsTest,
-       kAmbientAutofill_IneligibleTierAndDevice) {
-  client().set_personal_context_eligibility_state(
-      personal_context::PersonalContextEligibilityState::kEligible);
-
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      features::kAutofillAmbientAutofill,
-      {{"ambient_autofill_eligible_tiers", "2"},
-       {"ambient_autofill_enabled_devices", "NonExistentDevice"}});
-
-  client().GetPrefs()->SetInteger(
-      subscription_eligibility::prefs::kAiSubscriptionTier, 1);
-
-  EXPECT_FALSE(
-      MayPerformAutofillAiAction(client(), AutofillAiAction::kAmbientAutofill));
-}
-
-#if BUILDFLAG(IS_ANDROID)
-TEST_F(AutofillAiPermissionUtilsTest, kAmbientAutofill_AndroidDeviceEligible) {
-  client().set_personal_context_eligibility_state(
-      personal_context::PersonalContextEligibilityState::kEligible);
-
-  const std::string actual_model_name = base::SysInfo::HardwareModelName();
-
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      features::kAutofillAmbientAutofill,
-      {{"ambient_autofill_eligible_tiers", "2"},
-       {"ambient_autofill_enabled_devices", actual_model_name}});
-
-  client().GetPrefs()->SetInteger(
-      subscription_eligibility::prefs::kAiSubscriptionTier, 1);
-
-  EXPECT_TRUE(
-      MayPerformAutofillAiAction(client(), AutofillAiAction::kAmbientAutofill));
-}
-#endif  // BUILDFLAG(IS_ANDROID)
 
 TEST_F(AutofillAiPermissionUtilsTest,
        AmbientAutofillRequiresPersonalContextPref) {

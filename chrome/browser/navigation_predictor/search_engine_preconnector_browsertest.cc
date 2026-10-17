@@ -38,6 +38,7 @@
 
 #if BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
 #include "chrome/browser/navigation_predictor/navigation_predictor_features.h"
+#include "chrome/browser/preloading/preloading_prefs.h"
 #include "chrome/common/pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/search_engines/template_url_service.h"
@@ -105,33 +106,55 @@ class SearchEnginePreconnectorBrowserTest
     return https_server_->GetURL(file);
   }
 
+  void OnPreconnectUrl(
+      const GURL& url,
+      int num_sockets,
+      bool allow_credentials,
+      const net::NetworkAnonymizationKey& network_anonymization_key,
+      mojo::PendingRemote<network::mojom::ConnectionChangeObserverClient>&
+          observer) override {
+    const GURL origin = url.DeprecatedGetOriginAsURL();
+    if (!preresolve_counts_.contains(origin)) {
+      return;
+    }
+
+    // Take the observer so that we can manually send mojo message.
+    if (observer.is_valid()) {
+      remote_.reset();
+      remote_.Bind(std::move(observer));
+    }
+
+    ++preresolve_counts_[origin];
+    if (run_loops_[origin]) {
+      run_loops_[origin]->Quit();
+    }
+  }
+
   void OnPreresolveFinished(
       const GURL& url,
       const net::NetworkAnonymizationKey& network_anonymization_key,
       mojo::PendingRemote<network::mojom::ConnectionChangeObserverClient>&
           observer,
       bool success) override {
-    // Take the observer so that we can manually send mojo message.
-    if (observer.is_valid() && !remote_.is_bound()) {
-      remote_.Bind(std::move(observer));
-    }
-
     const GURL origin = url.DeprecatedGetOriginAsURL();
     if (!preresolve_counts_.contains(origin)) {
       return;
     }
 
-    // Only assert the positive case: the test URL must preconnect. Don't
-    // assert the search host fails to resolve, because a leaked
-    // "*"->127.0.0.1 rule in the shared network service can't be cleared
-    // from the test, so the search host may resolve to 127.0.0.1 here too.
-    if (origin == GetTestURL("/").DeprecatedGetOriginAsURL()) {
-      EXPECT_TRUE(success);
+    // In legacy pipeline, for unresolvable test hosts (e.g. www.google.com with
+    // cleared DNS rules), PreconnectUrl is skipped, so we record completion
+    // here and bind the observer remote so tests can simulate connection
+    // changes.
+    if (!success) {
+      if (observer.is_valid()) {
+        remote_.reset();
+        remote_.Bind(std::move(observer));
+      }
+      ++preresolve_counts_[origin];
+      if (run_loops_[origin]) {
+        run_loops_[origin]->Quit();
+      }
     }
-
-    ++preresolve_counts_[origin];
-    if (run_loops_[origin])
-      run_loops_[origin]->Quit();
   }
 
   void WaitForPreresolveCountForURL(const GURL& url, int expected_count) {
@@ -676,22 +699,20 @@ class SearchEnginePreconnectorWithPreconnect2FeatureBrowserTest
                                                 disabled_features);
   }
 
-  bool PreconnectFromKeyedServiceEnabled() const override { return GetParam(); }
+  void SetUpOnMainThread() override {
+    SearchEnginePreconnector* preconnector = GetSearchEnginePreconnector();
+    ASSERT_TRUE(preconnector);
+    preconnector->ResetStateForTesting();
 
-  void OnPreresolveFinished(
-      const GURL& url,
-      const net::NetworkAnonymizationKey& network_anonymization_key,
-      mojo::PendingRemote<network::mojom::ConnectionChangeObserverClient>&
-          observer,
-      bool success) override {
-    // Take the observer so that we can manually send mojo message.
-    if (observer.is_valid() && !remote_.is_bound()) {
-      remote_.Bind(std::move(observer));
+    SearchEnginePreconnectorBrowserTest::SetUpOnMainThread();
+
+    for (auto& [url, count] : preresolve_counts_) {
+      count = 0;
     }
-
-    SearchEnginePreconnectorBrowserTest::OnPreresolveFinished(
-        url, network_anonymization_key, observer, success);
+    remote_.reset();
   }
+
+  bool PreconnectFromKeyedServiceEnabled() const override { return GetParam(); }
 };
 
 class SearchEnginePreconnectorWithResetConnectionFailureOnSessionUsedBrowserTest
@@ -722,21 +743,20 @@ class SearchEnginePreconnectorWithResetConnectionFailureOnSessionUsedBrowserTest
                                                 disabled_features);
   }
 
-  bool PreconnectFromKeyedServiceEnabled() const override { return GetParam(); }
+  void SetUpOnMainThread() override {
+    SearchEnginePreconnector* preconnector = GetSearchEnginePreconnector();
+    ASSERT_TRUE(preconnector);
+    preconnector->ResetStateForTesting();
 
-  void OnPreresolveFinished(
-      const GURL& url,
-      const net::NetworkAnonymizationKey& network_anonymization_key,
-      mojo::PendingRemote<network::mojom::ConnectionChangeObserverClient>&
-          observer,
-      bool success) override {
-    if (observer.is_valid() && !remote_.is_bound()) {
-      remote_.Bind(std::move(observer));
+    SearchEnginePreconnectorBrowserTest::SetUpOnMainThread();
+
+    for (auto& [url, count] : preresolve_counts_) {
+      count = 0;
     }
-
-    SearchEnginePreconnectorBrowserTest::OnPreresolveFinished(
-        url, network_anonymization_key, observer, success);
+    remote_.reset();
   }
+
+  bool PreconnectFromKeyedServiceEnabled() const override { return GetParam(); }
 };
 
 INSTANTIATE_TEST_SUITE_P(
@@ -1298,33 +1318,6 @@ class SearchEnginePreconnectorWithBindReceiversEverytimeFeatureBrowserTest
     feature_list_.InitWithFeaturesAndParameters(enabled_features,
                                                 disabled_features);
   }
-
-  void OnPreresolveFinished(
-      const GURL& url,
-      const net::NetworkAnonymizationKey& network_anonymization_key,
-      mojo::PendingRemote<network::mojom::ConnectionChangeObserverClient>&
-          observer,
-      bool success) override {
-    if (observer.is_valid()) {
-      // This will disconnect the old remote if it is bound.
-      remote_.reset();
-      remote_.Bind(std::move(observer));
-    }
-
-    const GURL origin = url.DeprecatedGetOriginAsURL();
-    if (!preresolve_counts_.contains(origin)) {
-      return;
-    }
-
-    if (origin == GetTestURL("/").DeprecatedGetOriginAsURL()) {
-      EXPECT_TRUE(success);
-    }
-
-    ++preresolve_counts_[origin];
-    if (run_loops_[origin]) {
-      run_loops_[origin]->Quit();
-    }
-  }
 };
 
 INSTANTIATE_TEST_SUITE_P(
@@ -1605,5 +1598,186 @@ IN_PROC_BROWSER_TEST_F(SearchEnginePreconnectorDeviceBoundSessionBrowserTest,
   preconnector->StartPreconnecting(/*with_startup_delay=*/false);
 
   EXPECT_FALSE(preconnector->HasDeviceBoundSessionPrewarmerForTesting());
+}
+
+// Parameterized over the DSE prewarmer mode.
+class SearchEnginePreconnectorDeviceBoundSessionModeBrowserTest
+    : public SearchEnginePreconnectorBrowserTest,
+      public ::testing::WithParamInterface<features::DsePrewarmerLifetime> {
+ public:
+  using Mode = features::DsePrewarmerLifetime;
+
+  static std::string ModeToString(Mode mode) {
+    switch (mode) {
+      case Mode::kFollowPreconnector:
+        return "follow-preconnector";
+      case Mode::kStickyRespectingPrefs:
+        return "sticky-respecting-prefs";
+      case Mode::kSticky:
+        return "sticky";
+    }
+  }
+
+  SearchEnginePreconnectorDeviceBoundSessionModeBrowserTest() {
+    feature_list_.InitWithFeaturesAndParameters(
+        {{features::kDeviceBoundSessionsDsePrewarmer,
+          {{features::kDeviceBoundSessionsDsePrewarmerMode.name,
+            ModeToString(GetParam())}}},
+         {features::kPreconnectToSearch,
+          {{"skip_in_background", "false"},
+           // Large delay so that the preconnector itself does not run
+           // `PreconnectDSE()` during the test unless explicitly asked to.
+           {"startup_delay_ms", "3600000"}}}},
+        // SearchEnginePreconnect2 triggers `PreconnectDSE()` on visibility
+        // changes, which would make the prewarmer lifetime non-deterministic.
+        {net::features::kSearchEnginePreconnect2});
+  }
+
+  void SetUpOnMainThread() override {
+    SearchEnginePreconnectorBrowserTest::SetUpOnMainThread();
+    TemplateURLService* model =
+        TemplateURLServiceFactory::GetForProfile(browser()->GetProfile());
+    ASSERT_TRUE(model);
+    search_test_utils::WaitForTemplateURLServiceToLoad(model);
+    ASSERT_TRUE(model->loaded());
+  }
+
+  bool IsSticky() const { return GetParam() != Mode::kFollowPreconnector; }
+  bool IgnoresPrefs() const { return GetParam() == Mode::kSticky; }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    ,
+    SearchEnginePreconnectorDeviceBoundSessionModeBrowserTest,
+    ::testing::Values(features::DsePrewarmerLifetime::kFollowPreconnector,
+                      features::DsePrewarmerLifetime::kStickyRespectingPrefs,
+                      features::DsePrewarmerLifetime::kSticky),
+    [](const ::testing::TestParamInfo<features::DsePrewarmerLifetime>& info) {
+      switch (info.param) {
+        case features::DsePrewarmerLifetime::kFollowPreconnector:
+          return "FollowPreconnector";
+        case features::DsePrewarmerLifetime::kStickyRespectingPrefs:
+          return "StickyRespectingPrefs";
+        case features::DsePrewarmerLifetime::kSticky:
+          return "Sticky";
+      }
+    });
+
+IN_PROC_BROWSER_TEST_P(
+    SearchEnginePreconnectorDeviceBoundSessionModeBrowserTest,
+    PrewarmerCreatedOnStart) {
+  auto* preconnector = GetSearchEnginePreconnector();
+  ASSERT_TRUE(preconnector);
+  // The keyed service is started with a startup delay, which is large, so the
+  // prewarmer can only have been created directly by `StartPreconnecting()`,
+  // which happens only in sticky modes.
+  EXPECT_EQ(IsSticky(),
+            preconnector->HasDeviceBoundSessionPrewarmerForTesting());
+}
+
+IN_PROC_BROWSER_TEST_P(
+    SearchEnginePreconnectorDeviceBoundSessionModeBrowserTest,
+    PrewarmerNotCreatedOnConstruction) {
+  // A preconnector that is never started (such as the one embedded in
+  // NavigationPredictorKeyedService) must not have a prewarmer in any mode.
+  SearchEnginePreconnector preconnector(browser()->GetProfile());
+  EXPECT_FALSE(preconnector.HasDeviceBoundSessionPrewarmerForTesting());
+
+  preconnector.StartPreconnecting(/*with_startup_delay=*/true);
+  EXPECT_EQ(IsSticky(),
+            preconnector.HasDeviceBoundSessionPrewarmerForTesting());
+}
+
+IN_PROC_BROWSER_TEST_P(
+    SearchEnginePreconnectorDeviceBoundSessionModeBrowserTest,
+    PrewarmerOnStartWhenSearchSuggestDisabled) {
+  browser()->GetProfile()->GetPrefs()->SetBoolean(prefs::kSearchSuggestEnabled,
+                                                  false);
+
+  SearchEnginePreconnector preconnector(browser()->GetProfile());
+  preconnector.StartPreconnecting(/*with_startup_delay=*/true);
+  // Only the sticky mode that ignores prefs creates the prewarmer.
+  EXPECT_EQ(IgnoresPrefs(),
+            preconnector.HasDeviceBoundSessionPrewarmerForTesting());
+}
+
+IN_PROC_BROWSER_TEST_P(
+    SearchEnginePreconnectorDeviceBoundSessionModeBrowserTest,
+    PrewarmerOnStartWhenPreloadingDisabled) {
+  // Covers the "Preload pages" setting / NetworkPredictionOptions policy.
+  prefetch::SetPreloadPagesState(browser()->GetProfile()->GetPrefs(),
+                                 prefetch::PreloadPagesState::kNoPreloading);
+
+  SearchEnginePreconnector preconnector(browser()->GetProfile());
+  preconnector.StartPreconnecting(/*with_startup_delay=*/true);
+  // Only the sticky mode that ignores prefs creates the prewarmer.
+  EXPECT_EQ(IgnoresPrefs(),
+            preconnector.HasDeviceBoundSessionPrewarmerForTesting());
+}
+
+IN_PROC_BROWSER_TEST_P(
+    SearchEnginePreconnectorDeviceBoundSessionModeBrowserTest,
+    PrewarmerKeptWhenPreconnectSkippedOnlyIfSticky) {
+  auto* preconnector = GetSearchEnginePreconnector();
+  ASSERT_TRUE(preconnector);
+  preconnector->StartPreconnecting(/*with_startup_delay=*/false);
+  ASSERT_TRUE(preconnector->HasDeviceBoundSessionPrewarmerForTesting());
+
+  // Disabling search suggestions makes `PreconnectDSE()` bail out early. This
+  // tears down the prewarmer only in the non-sticky mode.
+  browser()->GetProfile()->GetPrefs()->SetBoolean(prefs::kSearchSuggestEnabled,
+                                                  false);
+  preconnector->StartPreconnecting(/*with_startup_delay=*/false);
+
+  EXPECT_EQ(IsSticky(),
+            preconnector->HasDeviceBoundSessionPrewarmerForTesting());
+}
+
+IN_PROC_BROWSER_TEST_P(
+    SearchEnginePreconnectorDeviceBoundSessionModeBrowserTest,
+    PrewarmerKeptWhenStoppedOnlyIfSticky) {
+  auto* preconnector = GetSearchEnginePreconnector();
+  ASSERT_TRUE(preconnector);
+  preconnector->StartPreconnecting(/*with_startup_delay=*/false);
+  ASSERT_TRUE(preconnector->HasDeviceBoundSessionPrewarmerForTesting());
+
+  // Stop preconnector (e.g. when app goes to background).
+  preconnector->StopPreconnecting();
+  EXPECT_EQ(IsSticky(),
+            preconnector->HasDeviceBoundSessionPrewarmerForTesting());
+}
+
+IN_PROC_BROWSER_TEST_P(
+    SearchEnginePreconnectorDeviceBoundSessionModeBrowserTest,
+    PrewarmerRebuiltWhenDseChanges) {
+  const GURL new_url("https://example.com/");
+
+  auto* preconnector = GetSearchEnginePreconnector();
+  ASSERT_TRUE(preconnector);
+  preconnector->StartPreconnecting(/*with_startup_delay=*/false);
+  // The prewarmer must initially exist for the original DSE.
+  ASSERT_TRUE(preconnector->HasDeviceBoundSessionPrewarmerForTesting());
+  const GURL initial_url =
+      preconnector->GetDeviceBoundSessionPrewarmerUrlForTesting();
+  ASSERT_TRUE(initial_url.is_valid());
+  ASSERT_NE(initial_url, new_url);
+
+  TemplateURLService* model =
+      TemplateURLServiceFactory::GetForProfile(browser()->GetProfile());
+  TemplateURLData data;
+  data.SetShortName(u"https_engine");
+  data.SetKeyword(data.short_name());
+  data.SetURL("https://example.com/search?q={searchTerms}");
+  data.preconnect_to_search_url = true;
+  TemplateURL* template_url = model->Add(std::make_unique<TemplateURL>(data));
+  ASSERT_TRUE(template_url);
+  model->SetUserSelectedDefaultSearchProvider(template_url);
+
+  preconnector->StartPreconnecting(/*with_startup_delay=*/false);
+  EXPECT_EQ(new_url,
+            preconnector->GetDeviceBoundSessionPrewarmerUrlForTesting());
 }
 #endif  // BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)

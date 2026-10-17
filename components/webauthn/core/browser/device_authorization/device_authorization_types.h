@@ -10,6 +10,7 @@
 
 #include "base/functional/callback.h"
 #include "components/webauthn/core/browser/device_authorization/proto/device_authorization_key.pb.h"
+#include "components/webauthn/core/browser/device_authorization/proto/device_authorization_local_storage.pb.h"
 
 namespace webauthn {
 
@@ -61,6 +62,9 @@ using PopulatePlatformDataCallback =
     base::OnceCallback<void(sync_pb::GetDeviceAuthorizationKeyRequest)>;
 using FetchDeviceAuthKeysCallback =
     base::OnceCallback<void(DeviceAuthFetchResult)>;
+using GetCachedKeysCallback =
+    base::OnceCallback<void(std::optional<CachedDeviceAuthorizationKeys>)>;
+using StoreKeysCallback = base::OnceCallback<void(bool success)>;
 
 }  // namespace webauthn
 

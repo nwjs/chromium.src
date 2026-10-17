@@ -92,16 +92,16 @@ void ParseSuggestResults(const base::ListValue& results_list,
       continue;
     }
 
-    AutocompleteMatchType::Type match_type =
-        AutocompleteMatchType::SEARCH_SUGGEST;
+    omnibox::AutocompleteMatchType match_type =
+        omnibox::AutocompleteMatchType::kSearchSuggest;
     omnibox::SuggestType suggest_type = omnibox::TYPE_QUERY;
     if (suggestion_dict.FindBool("is_entity").value_or(false)) {
       // Entities predate `type` and are flagged by `is_entity` instead.
       suggest_type = omnibox::TYPE_ENTITY;
-      match_type = AutocompleteMatchType::SEARCH_SUGGEST_ENTITY;
+      match_type = omnibox::AutocompleteMatchType::kSearchSuggestEntity;
     } else if (GetVerticalType(suggestion_dict) == "calculator") {
       suggest_type = omnibox::TYPE_CALCULATOR;
-      match_type = AutocompleteMatchType::CALCULATOR;
+      match_type = omnibox::AutocompleteMatchType::kCalculator;
     }
     // Verticals that are not handled above stay plain query suggestions.
 

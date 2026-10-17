@@ -614,6 +614,7 @@ void WorkerThread::InitializeOnWorkerThread(
       TaskType::kBackgroundFetch,
       TaskType::kCanvasBlobSerialization,
       TaskType::kDatabaseAccess,
+      TaskType::kClipboard,
       TaskType::kDOMManipulation,
       TaskType::kFileReading,
       TaskType::kFontLoading,

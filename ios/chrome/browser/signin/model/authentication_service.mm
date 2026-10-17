@@ -46,7 +46,6 @@
 #import "ios/chrome/browser/shared/model/profile/profile_manager_ios.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/public/features/system_flags.h"
-#import "ios/chrome/browser/signin/model/authentication_service_delegate.h"
 #import "ios/chrome/browser/signin/model/authentication_service_observer.h"
 #import "ios/chrome/browser/signin/model/refresh_access_token_error.h"
 #import "ios/chrome/browser/signin/model/signin_util.h"
@@ -111,11 +110,6 @@ void AuthenticationService::RegisterPrefs(
     user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterBooleanPref(prefs::kSigninShouldPromptForSigninAgain,
                                 false);
-}
-
-void AuthenticationService::Initialize(
-    std::unique_ptr<AuthenticationServiceDelegate> delegate) {
-  Initialize();
 }
 
 void AuthenticationService::Initialize() {
@@ -456,6 +450,11 @@ void AuthenticationService::SignOut(
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce(completion));
   }
+}
+
+void AuthenticationService::SignOut(
+    signin_metrics::ProfileSignout signout_source) {
+  SignOut(signout_source, nil);
 }
 
 AuthenticationService::ProfileInitializationOutcome
@@ -861,9 +860,6 @@ void AuthenticationService::ClearAccountSettingsPrefsOfRemovedAccounts() {
   }
   sync_service_->GetUserSettings()->KeepAccountSettingsPrefsOnlyForUsers(
       available_gaia_ids);
-  syncer::KeepAccountKeyedPrefValuesOnlyForUsers(
-      pref_service_, prefs::kSigninHasAcceptedManagementDialog,
-      base::ToVector(available_gaia_ids, &signin::GaiaIdHash::FromGaiaId));
 }
 
 bool AuthenticationService::IsPersonalProfile() {

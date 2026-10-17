@@ -156,6 +156,9 @@ bool ShouldDisplayLensShopTipWithImage();
 // considered inactive after a minute.
 bool ShouldUseInactiveTabsDemoThreshold();
 
+// Whether the Inactive Tabs user education screen should always be displayed.
+bool ShouldForceInactiveTabsUserEducation();
+
 // Whether Inactive Tabs should be in Automated Testing mode, where
 // tabs are immediately considered inactive.
 bool ShouldUseInactiveTabsTestThreshold();
@@ -210,6 +213,19 @@ int GetForcedPushNotificationType();
 
 // Returns the delay in seconds before triggering the forced push notification.
 int GetForcedPushNotificationDelay();
+
+// The forced state of Universal Opt-Out eligibility from experimental settings.
+enum class UniversalOptOutEligibilityOverride {
+  kDefault = 0,
+  kForcedOn = 1,
+  kForcedOff = 2,
+};
+
+// Returns the forced state of Universal Opt-Out eligibility.
+UniversalOptOutEligibilityOverride GetUniversalOptOutEligibilityOverride();
+
+// Whether App Switcher AI summarization external URL testing is enabled.
+bool IsAppSwitcherAISummarizationTestingExternalURLEnabled();
 
 }  // namespace experimental_flags
 

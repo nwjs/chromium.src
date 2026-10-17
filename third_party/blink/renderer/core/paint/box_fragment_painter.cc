@@ -1616,16 +1616,14 @@ void BoxFragmentPainter::PaintGapDecorations(
     final_paint_info = &contents_paint_state->GetPaintInfo();
   }
 
-  // TODO(javiercon): Should introduce a `DisplayItem::GapRules` in place of
-  // `ColumnRules` and use that instead.
   if (DrawingRecorder::UseCachedDrawingIfPossible(final_paint_info->context,
                                                   *background_client,
-                                                  DisplayItem::kColumnRules)) {
+                                                  DisplayItem::kGapRules)) {
     return;
   }
 
   DrawingRecorder recorder(final_paint_info->context, *background_client,
-                           DisplayItem::kColumnRules, visual_rect);
+                           DisplayItem::kGapRules, visual_rect);
 
   ERuleOverlap paint_order = box_fragment_.Style().RuleOverlap();
   // `rule-overlap` dictates whether to paint the columns over the
@@ -1827,8 +1825,10 @@ void BoxFragmentPainter::PaintAllPhasesAtomically(const PaintInfo& paint_info) {
   local_paint_info.phase = PaintPhase::kBlockBackground;
   PaintInternal(local_paint_info);
 
-  local_paint_info.phase = PaintPhase::kForcedColorsModeBackplate;
-  PaintInternal(local_paint_info);
+  if (box_fragment_.GetDocument().InForcedColorsMode()) {
+    local_paint_info.phase = PaintPhase::kForcedColorsModeBackplate;
+    PaintInternal(local_paint_info);
+  }
 
   local_paint_info.phase = PaintPhase::kFloat;
   PaintInternal(local_paint_info);

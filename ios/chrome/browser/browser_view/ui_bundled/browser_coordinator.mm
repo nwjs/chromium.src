@@ -32,7 +32,6 @@
 #import "components/google/core/common/google_util.h"
 #import "components/infobars/core/infobar.h"
 #import "components/infobars/core/infobar_manager.h"
-#import "components/password_manager/core/browser/ui/credential_ui_entry.h"
 #import "components/password_manager/core/common/password_manager_features.h"
 #import "components/prefs/pref_service.h"
 #import "components/profile_metrics/browser_profile_type.h"
@@ -726,6 +725,7 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
   _modalHost = nil;
 
   [self.dispatcher stopDispatchingToTarget:self];
+  _dispatcher = nil;
   _webUsageEnablerObserver.reset();
   _activityOverlayCallback.RunAndReset();
 }
@@ -972,7 +972,6 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
 - (void)startModalDispatching {
   _modalHost = [[BrowserModalHost alloc] initWithBrowser:self.browser];
   [_modalHost startHostingCommandProtocols];
-  _modalHost.passwordControllerDelegate = self;
 }
 
 // Creates the browser view controller dependencies.
@@ -1243,7 +1242,6 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
   self.snackbarCoordinator = nil;
 
   _keyCommandsProvider = nil;
-  _dispatcher = nil;
   _layoutGuideCenter = nil;
   _webNavigationBrowserAgent = nil;
   _urlLoadingBrowserAgent = nil;
@@ -2245,40 +2243,44 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
 #pragma mark - AutofillSettingsNavigator
 
 - (void)openSettingsForPage:(AutofillSettingsPage)page {
+  id<SettingsCommands> settingsHandler =
+      HandlerForProtocol(self.dispatcher, SettingsCommands);
   switch (page) {
     case AutofillSettingsPage::kPasswordManager:
-      [HandlerForProtocol(self.dispatcher, SettingsCommands)
+      [settingsHandler
           showSavedPasswordsSettingsFromViewController:self.viewController];
       break;
     case AutofillSettingsPage::kPasswordSettings:
-      [HandlerForProtocol(self.dispatcher, SettingsCommands)
+      [settingsHandler
           showPasswordSettingsFromViewController:self.viewController];
       break;
     case AutofillSettingsPage::kAddresses:
-      [HandlerForProtocol(self.dispatcher, SettingsCommands)
+      [settingsHandler
           showProfileSettingsFromViewController:self.viewController];
       break;
     case AutofillSettingsPage::kCreditCards:
-      [HandlerForProtocol(self.dispatcher, SettingsCommands)
-          showCreditCardSettings];
+      [settingsHandler showCreditCardSettings];
       break;
     case AutofillSettingsPage::kIdentityDocs:
-      [HandlerForProtocol(self.dispatcher, SettingsCommands)
-          showIdentityDocsWithReferrer:autofill::autofill_metrics::
-                                           AutofillSettingsReferrer::
-                                               kFillingFlowDropdown];
+      [settingsHandler showIdentityDocsWithReferrer:
+                           autofill::autofill_metrics::
+                               AutofillSettingsReferrer::kFillingFlowDropdown];
       break;
     case AutofillSettingsPage::kShopping:
-      [HandlerForProtocol(self.dispatcher, SettingsCommands)
-          showShoppingWithReferrer:autofill::autofill_metrics::
-                                       AutofillSettingsReferrer::
-                                           kFillingFlowDropdown];
+      [settingsHandler showShoppingWithReferrer:autofill::autofill_metrics::
+                                                    AutofillSettingsReferrer::
+                                                        kFillingFlowDropdown];
       break;
     case AutofillSettingsPage::kTravel:
-      [HandlerForProtocol(self.dispatcher, SettingsCommands)
-          showTravelWithReferrer:autofill::autofill_metrics::
-                                     AutofillSettingsReferrer::
-                                         kFillingFlowDropdown];
+      [settingsHandler showTravelWithReferrer:autofill::autofill_metrics::
+                                                  AutofillSettingsReferrer::
+                                                      kFillingFlowDropdown];
+      break;
+    case AutofillSettingsPage::kSuggestionsFromGemini:
+      [settingsHandler showSuggestionsFromGemini];
+      break;
+    case AutofillSettingsPage::kSuggestionsFromGeminiHelpImprove:
+      [settingsHandler showSuggestionsFromGeminiHelpImprove];
       break;
   }
 }
@@ -2934,7 +2936,9 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
 }
 
 - (void)showHomeBackgroundCustomizationPromoWithUIHandler:
-    (id<PromosManagerUIHandler>)promosUIHandler {
+            (id<PromosManagerUIHandler>)promosUIHandler
+                                shouldAlertFETOfDismissal:
+                                    (BOOL)shouldAlertFETOfDismissal {
   // The promos manager tries to check if the current page is an NTP before
   // showing the promo, but asynchronous navigation can cause that to be
   // incorrect.
@@ -2943,7 +2947,9 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
     return;
   }
   [_NTPCoordinator
-      showHomeBackgroundCustomizationPromoWithUIHandler:promosUIHandler];
+      showHomeBackgroundCustomizationPromoWithUIHandler:promosUIHandler
+                              shouldAlertFETOfDismissal:
+                                  shouldAlertFETOfDismissal];
 }
 
 #pragma mark - WebNavigationNTPDelegate
@@ -3115,22 +3121,6 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
   [self.viewController.view addSubview:viewController.view];
   [viewController didMoveToParentViewController:self.viewController];
   return YES;
-}
-
-- (void)displaySavedPasswordList {
-  // TODO(crbug.com/544597154): Remove this method.
-  id<SettingsCommands> settingsHandler =
-      HandlerForProtocol(_dispatcher, SettingsCommands);
-  [settingsHandler
-      showSavedPasswordsSettingsFromViewController:self.viewController];
-}
-
-- (void)showPasswordDetailsForCredential:
-    (password_manager::CredentialUIEntry)credential {
-  // TODO(crbug.com/544597154): Remove this method.
-  id<SettingsCommands> settingsHandler =
-      HandlerForProtocol(_dispatcher, SettingsCommands);
-  [settingsHandler showPasswordDetailsForCredential:credential inEditMode:NO];
 }
 
 #pragma mark - RepostFormCoordinatorDelegate

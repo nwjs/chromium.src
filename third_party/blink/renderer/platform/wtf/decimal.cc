@@ -222,7 +222,7 @@ static uint64_t ScaleUp(uint64_t x, int n) {
 }  // namespace
 
 Decimal::EncodedData::EncodedData(Sign sign, FormatClass format_class)
-    : coefficient_(0), exponent_(0), format_class_(format_class), sign_(sign) {}
+    : format_class_(format_class), sign_(sign) {}
 
 Decimal::EncodedData::EncodedData(Sign sign, int exponent, uint64_t coefficient)
     : format_class_(coefficient ? kClassNormal : kClassZero), sign_(sign) {
@@ -680,8 +680,8 @@ Decimal Decimal::FromString(const String& str) {
   }
 
   uint64_t accumulator = 0;
-  for (unsigned index = 0; index < str.length(); ++index) {
-    const int ch = str[index];
+  for (wtf_size_t index = 0; index < str.length(); ++index) {
+    const UChar ch = str[index];
     switch (state) {
       case kStateDigit:
         if (IsAsciiDigit(ch)) {

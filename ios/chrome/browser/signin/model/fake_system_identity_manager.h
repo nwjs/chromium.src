@@ -189,12 +189,8 @@ class FakeSystemIdentityManager final : public SystemIdentityManager {
   NSString* GetCachedHostedDomainForIdentity(id<SystemIdentity> identity) final;
   void FetchCapabilities(id<SystemIdentity> identity,
                          const std::vector<std::string>& names,
-                         FetchCapabilitiesCallback callback) final;
-  void FetchCapabilitiesWithPartial(
-      id<SystemIdentity> identity,
-      const std::vector<std::string>& names,
-      FetchCapabilitiesCompletion completion,
-      FetchPartialCapabilitiesCallback partial_callback) final;
+                         FetchPartialCapabilitiesCallback partial_callback,
+                         FetchCapabilitiesCompletion completion) final;
 
   void RegisterExternalPrivacyContextProvider(
       id<ExternalPrivacyContextUIProvider> provider) final;
@@ -238,15 +234,10 @@ class FakeSystemIdentityManager final : public SystemIdentityManager {
   void GetHostedDomainAsync(id<SystemIdentity> identity,
                             HostedDomainCallback callback);
 
-  // Helper used to implement the asynchronous part of `GetHostedDomain`.
+  // Helper used to implement the asynchronous part of `FetchCapabilities`.
   void FetchCapabilitiesAsync(id<SystemIdentity> identity,
                               const std::vector<std::string>& names,
                               FetchCapabilitiesCallback callback);
-  void FetchCapabilitiesWithPartialAsync(
-      id<SystemIdentity> identity,
-      const std::vector<std::string>& names,
-      FetchCapabilitiesCompletion completion,
-      FetchPartialCapabilitiesCallback partial_callback);
 
   // Posts `closure` to be executed asynchronously on the current sequence
   // while maintaining a counter of pending callbacks. The counter is used

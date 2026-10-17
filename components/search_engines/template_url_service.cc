@@ -53,6 +53,7 @@
 #include "components/search_engines/regulatory_extension_type.h"
 #include "components/search_engines/search_engine_choice/search_engine_choice_service.h"
 #include "components/search_engines/search_engine_choice/search_engine_choice_utils.h"
+#include "components/search_engines/search_engine_settings_data_provider.h"
 #include "components/search_engines/search_engine_split_metrics.h"
 #include "components/search_engines/search_engine_type.h"
 #include "components/search_engines/search_engines_pref_names.h"
@@ -547,6 +548,16 @@ class TemplateURLService::PreLoadingProviders {
         host, &search_terms_data));
   }
 
+  // Returns the best `TemplateURL` found with a URL with the specified `id`,
+  // or nullptr if no such URL can be found.
+  const TemplateURL* GetTemplateURLForId(TemplateURLID id) const {
+    return GetTemplateURLForSelector(base::BindRepeating(
+        [](TemplateURLID id, const TemplateURL& turl) {
+          return turl.id() == id;
+        },
+        id));
+  }
+
  private:
   // Returns a pointer to a `TemplateURL` `t` such that `selector(t) == true`.
   // Prioritizes DSP.
@@ -573,27 +584,6 @@ class TemplateURLService::PreLoadingProviders {
   // loaded and it can be merged into |template_urls_|.
   TemplateURLService::OwnedTemplateURLVector search_engines_;
 };
-
-// TemplateURLService::CategorizedTemplateUrls --------------------------------
-
-TemplateURLService::CategorizedTemplateUrls::CategorizedTemplateUrls() =
-    default;
-TemplateURLService::CategorizedTemplateUrls::~CategorizedTemplateUrls() =
-    default;
-TemplateURLService::CategorizedTemplateUrls::CategorizedTemplateUrls(
-    const CategorizedTemplateUrls& other) = default;
-
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
-// TemplateURLService::PrepopulatedAndRecentlyVisitedTemplateUrls -------------
-
-TemplateURLService::PrepopulatedAndRecentlyVisitedTemplateUrls::
-    PrepopulatedAndRecentlyVisitedTemplateUrls() = default;
-TemplateURLService::PrepopulatedAndRecentlyVisitedTemplateUrls::
-    ~PrepopulatedAndRecentlyVisitedTemplateUrls() = default;
-TemplateURLService::PrepopulatedAndRecentlyVisitedTemplateUrls::
-    PrepopulatedAndRecentlyVisitedTemplateUrls(
-        const PrepopulatedAndRecentlyVisitedTemplateUrls& other) = default;
-#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
 
 // TemplateURLService ---------------------------------------------------------
 
@@ -820,6 +810,21 @@ const TemplateURL* TemplateURLService::GetTemplateURLForHost(
   return loaded_ ? nullptr
                  : pre_loading_providers_->GetTemplateURLForHost(
                        host, search_terms_data());
+}
+
+TemplateURL* TemplateURLService::GetTemplateURLForId(TemplateURLID id) {
+  return const_cast<TemplateURL*>(
+      static_cast<const TemplateURLService*>(this)->GetTemplateURLForId(id));
+}
+
+const TemplateURL* TemplateURLService::GetTemplateURLForId(
+    TemplateURLID id) const {
+  auto elem(id_to_turl_.find(id));
+  if (elem != id_to_turl_.end()) {
+    return elem->second;
+  }
+
+  return loaded_ ? nullptr : pre_loading_providers_->GetTemplateURLForId(id);
 }
 
 TemplateURL* TemplateURLService::Add(
@@ -1384,87 +1389,12 @@ const TemplateURL* TemplateURLService::GetDefaultSearchProvider() const {
                  : pre_loading_providers_->default_search_provider();
 }
 
-const TemplateURLService::CategorizedTemplateUrls
-TemplateURLService::GetCategorizedTemplateURLs(
-    template_url_starter_pack_data::StarterPackIdSet
-        disabled_starter_pack_ids) {
-  CategorizedTemplateUrls data;
-
-  for (TemplateURL* url : GetTemplateURLs()) {
-    // Exclude those URL's that cannot be enabled or should be hidden.
-    if (disabled_starter_pack_ids.Has(url->starter_pack_id()) ||
-        HiddenFromLists(url)) {
-      continue;
-    }
-
-    const bool is_starter_pack =
-        url->starter_pack_id() !=
-        template_url_starter_pack_data::StarterPackId::kNone;
-    const bool is_extension = url->type() == TemplateURL::OMNIBOX_API_EXTENSION;
-
-    if (ShowInDefaultList(url)) {
-      data.active_site_shortcuts.push_back(url);
-    } else if (is_starter_pack || is_extension) {
-      if (ShowInActivesList(url)) {
-        data.active_feature_shortcuts.push_back(url);
-      } else {
-        data.inactive_feature_shortcuts.push_back(url);
-      }
-    } else {
-      if (ShowInActivesList(url)) {
-        data.active_site_shortcuts.push_back(url);
-      } else {
-        data.inactive_site_shortcuts.push_back(url);
-      }
-    }
-  }
-
-  std::ranges::sort(
-      data.active_site_shortcuts,
-      internal::OrderTemplateUrlsByPrepopulatedAndManagedAndAlphabetically(
-          prepopulate_data_resolver_->GetPrepopulatedEngines()));
-  std::ranges::sort(data.inactive_site_shortcuts,
-                    internal::OrderTemplateUrlsByManagedAndAlphabetically());
-
-  return data;
+std::unique_ptr<search_engines::SearchEngineSettingsDataProvider>
+TemplateURLService::CreateSearchEngineSettingsDataProvider() {
+  return std::make_unique<search_engines::SearchEngineSettingsDataProvider>(
+      *this, *prepopulate_data_resolver_, *regional_capabilities_service_,
+      *profile_metrics_service_);
 }
-
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
-TemplateURLService::PrepopulatedAndRecentlyVisitedTemplateUrls
-TemplateURLService::GetPrepopulatedAndRecentlyVisitedTemplateURLs() {
-  PrepopulatedAndRecentlyVisitedTemplateUrls data;
-
-  for (TemplateURL* url : GetTemplateURLs()) {
-    if (HiddenFromLists(url)) {
-      continue;
-    }
-
-    if (ShowInDefaultList(url)) {
-      data.prepopulated_urls.push_back(url);
-      continue;
-    }
-
-    const bool is_starter_pack =
-        url->starter_pack_id() !=
-        template_url_starter_pack_data::StarterPackId::kNone;
-    const bool is_extension = url->type() == TemplateURL::OMNIBOX_API_EXTENSION;
-
-    if (is_starter_pack || is_extension) {
-      continue;
-    }
-
-    data.recently_visited_urls.push_back(url);
-  }
-
-  std::ranges::sort(
-      data.prepopulated_urls,
-      internal::OrderTemplateUrlsByPrepopulatedAndManagedAndAlphabetically(
-          prepopulate_data_resolver_->GetPrepopulatedEngines()));
-  internal::SortAndFilterRecentlyVisitedURLs(data.recently_visited_urls);
-
-  return data;
-}
-#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
 
 url::Origin TemplateURLService::GetDefaultSearchProviderOrigin() const {
   const TemplateURL* template_url = GetDefaultSearchProvider();
@@ -1517,6 +1447,15 @@ GURL TemplateURLService::GenerateSearchURLForDefaultSearchProvider(
   return default_provider ? default_provider->GenerateSearchURL(
                                 search_terms_data(), search_terms)
                           : GURL();
+}
+
+GURL TemplateURLService::ExpandUrlTemplate(
+    const std::string& url_template,
+    const std::u16string& search_terms) const {
+  TemplateURLData turl_data;
+  turl_data.SetURL(url_template);
+  TemplateURL turl(turl_data);
+  return turl.GenerateSearchURL(search_terms_data(), search_terms);
 }
 
 std::optional<TemplateURLService::SearchMetadata>
@@ -2752,6 +2691,12 @@ void TemplateURLService::RemoveFromMaps(const TemplateURL* template_url) {
     }
   }
 
+  // Remove from `id_to_turl_`.
+  auto it = id_to_turl_.find(template_url->id());
+  if (it != id_to_turl_.end() && it->second == template_url) {
+    id_to_turl_.erase(it);
+  }
+
   if (template_url->type() == TemplateURL::OMNIBOX_API_EXTENSION) {
     return;
   }
@@ -2778,6 +2723,7 @@ void TemplateURLService::RemoveFromMaps(const TemplateURL* template_url) {
 void TemplateURLService::AddToMaps(TemplateURL* template_url) {
   const std::u16string& keyword = template_url->keyword();
   keyword_to_turl_.insert(std::make_pair(keyword, template_url));
+  id_to_turl_.insert(std::make_pair(template_url->id(), template_url));
 
   if (template_url->type() == TemplateURL::OMNIBOX_API_EXTENSION) {
     return;
@@ -3201,10 +3147,8 @@ bool TemplateURLService::ApplyDefaultSearchChangeNoMetrics(
       previous_default_search_engine_guid.empty()
           ? nullptr
           : GetTemplateURLForGUID(previous_default_search_engine_guid);
-  if (previous_turl &&
-      previous_turl->starter_pack_id() ==
-          template_url_starter_pack_data::StarterPackId::kNone &&
-      !IsPrepopulatedOrDefaultProviderByPolicy(previous_turl) &&
+  if (previous_turl && !ShowInDefaultList(previous_turl) &&
+      CanMakeDefault(previous_turl) &&
       base::FeatureList::IsEnabled(
           switches::kVisitCustomSearchOnUndefaulting)) {
     UpdateTemplateURLVisitTime(previous_turl);
@@ -3258,10 +3202,17 @@ void TemplateURLService::ApplyEnterpriseSearchChanges(
       keywords_to_remove.insert(keyword);
     }
   }
-  std::ranges::for_each(keywords_to_remove,
-                        [this](const std::u16string& keyword) {
-                          Remove(enterprise_search_keyword_to_turl_[keyword]);
-                        });
+  for (const std::u16string& keyword : keywords_to_remove) {
+    // `Remove()` can synchronously re-enter this method (it records
+    // overridable keywords in a pref observed by `EnterpriseSearchManager`),
+    // and the nested call may already have removed `keyword`. Look it up with
+    // `find()`: `operator[]` would insert a null TemplateURL and pass it to
+    // `Remove()`.
+    auto it = enterprise_search_keyword_to_turl_.find(keyword);
+    if (it != enterprise_search_keyword_to_turl_.end()) {
+      Remove(it->second);
+    }
+  }
 
   // Either add new site search entries or update existing ones if necessary.
   for (auto& search_engine : policy_search_engines) {

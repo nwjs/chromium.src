@@ -41,6 +41,8 @@ std::string_view SuggestionTypeToStringView(SuggestionType type) {
       return "kManageIban";
     case SuggestionType::kManageLoyaltyCard:
       return "kManageLoyaltyCard";
+    case SuggestionType::kManageOffers:
+      return "kManageOffers";
     case SuggestionType::kComposeResumeNudge:
       return "kComposeResumeNudge";
     case SuggestionType::kComposeDisable:
@@ -163,6 +165,12 @@ std::string_view SuggestionTypeToStringView(SuggestionType type) {
       return "kRemoveAutofillAi";
     case SuggestionType::kAutofillAiSourceAttribution:
       return "kAutofillAiSourceAttribution";
+    case SuggestionType::kGmailOneTimePasswordEntry:
+      return "kGmailOneTimePasswordEntry";
+    case SuggestionType::kOpenGmailForOtps:
+      return "kOpenGmailForOtps";
+    case SuggestionType::kAtMemoryShortcutSettingsPromo:
+      return "kAtMemoryShortcutSettingsPromo";
   }
   NOTREACHED();
 }

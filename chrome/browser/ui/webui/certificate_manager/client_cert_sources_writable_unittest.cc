@@ -28,6 +28,7 @@
 #include "chrome/test/base/testing_profile_manager.h"
 #include "components/prefs/pref_service.h"
 #include "components/user_manager/scoped_user_manager.h"
+#include "components/user_manager/test_helper.h"
 #include "content/public/browser/web_contents.h"
 #include "crypto/hash.h"
 #include "crypto/nss_util_internal.h"
@@ -169,6 +170,7 @@ class ClientCertSourceWritableUnitTest
     fake_user_manager_->AddUserWithAffiliationAndTypeAndProfile(
         account_, /*is_affiliated=*/true, user_manager::UserType::kRegular,
         profile());
+    // TODO(crbug.com/40225390): Use ProfileUserManagerController.
     fake_user_manager_->OnUserProfileCreated(account_, profile()->GetPrefs());
     fake_user_manager_->LoginUser(account_);
 #else
@@ -199,7 +201,7 @@ class ClientCertSourceWritableUnitTest
   bool use_hardware_backed() const { return GetParam(); }
 
   std::string username_hash() const {
-    return user_manager::FakeUserManager::GetFakeUsernameHash(account_);
+    return user_manager::TestHelper::GetFakeUsernameHash(account_);
   }
 #endif
 

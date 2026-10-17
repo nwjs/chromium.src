@@ -975,7 +975,7 @@ std::unique_ptr<StoredPage> PrerenderHost::Activate(
   // Prerender is activated. Set the status to kSuccess.
   SetTriggeringOutcome(PreloadingTriggeringOutcome::kSuccess);
   devtools_instrumentation::DidActivatePrerender(
-      navigation_request, initiator_devtools_navigation_token());
+      navigation_request, initiator_web_contents().get());
   return page;
 }
 
@@ -2065,9 +2065,10 @@ void PrerenderHost::UpgradeToFullPrerender() {
   }
 
   upgraded_to_full_prerender_ = true;
-
-  // TODO(502133187): Notify DevTools that the prerender-until-script attempt
-  // has been upgraded.
+  if (devtools_attempt_) {
+    devtools_attempt_->SetEffectiveAction(
+        attributes_, blink::mojom::SpeculationAction::kPrerender);
+  }
 
   // Send the upgrade IPC to every RenderViewHost in the prerender frame tree,
   // mirroring how PageImpl::Activate propagates activation. This ensures all

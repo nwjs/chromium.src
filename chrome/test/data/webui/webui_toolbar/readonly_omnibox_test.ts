@@ -4,7 +4,7 @@
 
 import 'chrome://webui-toolbar.top-chrome/app.js';
 
-import {assertEquals, assertGE, assertLE, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {assertEquals, assertFalse, assertGE, assertLE, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {TestSearchboxBrowserProxy} from 'chrome://webui-test/cr_components/searchbox/test_searchbox_browser_proxy.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
 import {BrowserProxyImpl, OmniboxTextColor, SearchboxBrowserProxy} from 'chrome://webui-toolbar.top-chrome/app.js';
@@ -447,6 +447,14 @@ suite('ReadonlyOmnibox', function() {
     assertEquals('visible', style.get('visibility')?.toString());
 
     getTextInput().dispatchEvent(new CompositionEvent('compositionend'));
+    await microtasksFinished();
+
+    // Ending composition immediately transitions inline autocompletion from the
+    // standalone span to selected text in the input.
+    assertEquals('example.com/articles/1/', getTextInput().value);
+    assertEquals('les/1/', getStringSelection());
+    style = omnibox.$.inlineAutocomplete.computedStyleMap();
+    assertEquals('hidden', style.get('visibility')?.toString());
 
     // Now try with IME uninvolved.
     omnibox.browserOmniboxState = {
@@ -1307,5 +1315,99 @@ suite('ReadonlyOmnibox', function() {
     assertTrue(!!args[0].textInput);
     assertEquals('', args[0].textInput.text);
     assertEquals(omnibox.$.textInput, omnibox.shadowRoot.activeElement);
+  });
+
+  test(
+      'Arrow and Page keys with modifiers do not forward or preventDefault',
+      async () => {
+        uiHandler.reset();
+        const input = getTextInput();
+        const arrowModifiersList = [
+          {ctrlKey: true},
+          {altKey: true},
+          {shiftKey: true},
+          {metaKey: true},
+          {metaKey: true, altKey: true},
+        ];
+
+        for (const key of ['ArrowUp', 'ArrowDown']) {
+          for (const modifiers of arrowModifiersList) {
+            const ev = new KeyboardEvent('keydown', {
+              key,
+              cancelable: true,
+              ...modifiers,
+            });
+            input.dispatchEvent(ev);
+            await microtasksFinished();
+            assertFalse(ev.defaultPrevented);
+            assertEquals(0, uiHandler.getCallCount('onOmniboxAction'));
+          }
+        }
+
+        const pageModifiersList = [
+          {ctrlKey: true},
+          {altKey: true},
+          {shiftKey: true},
+        ];
+
+        for (const key of ['PageUp', 'PageDown']) {
+          for (const modifiers of pageModifiersList) {
+            const ev = new KeyboardEvent('keydown', {
+              key,
+              cancelable: true,
+              ...modifiers,
+            });
+            input.dispatchEvent(ev);
+            await microtasksFinished();
+            assertFalse(ev.defaultPrevented);
+            assertEquals(0, uiHandler.getCallCount('onOmniboxAction'));
+          }
+        }
+
+        // Plain keys without modifiers should preventDefault and forward.
+        for (const key of ['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown']) {
+          uiHandler.reset();
+          const ev = new KeyboardEvent('keydown', {
+            key,
+            cancelable: true,
+          });
+          input.dispatchEvent(ev);
+          await microtasksFinished();
+          assertTrue(ev.defaultPrevented);
+          assertEquals(1, uiHandler.getCallCount('onOmniboxAction'));
+          const lastArgs = uiHandler.getArgs('onOmniboxAction').at(-1);
+          assertTrue(!!lastArgs.key);
+          assertEquals(key, lastArgs.key.key);
+        }
+      });
+
+  // https://crbug.com/565552101: Keys used by the IME during composition (e.g.
+  // Enter to commit raw Pinyin text) must not be forwarded to the browser.
+  test('Keys during IME composition are not forwarded', async () => {
+    const input = getTextInput();
+    for (const key
+             of ['Enter', 'Escape', 'ArrowUp', 'ArrowDown', ' ', 'Backspace',
+                 'Tab', 'PageUp', 'PageDown']) {
+      uiHandler.reset();
+      input.dispatchEvent(new KeyboardEvent('keydown', {
+        key,
+        cancelable: true,
+        isComposing: true,
+      }));
+      await microtasksFinished();
+      assertEquals(0, uiHandler.getCallCount('onOmniboxAction'), key);
+    }
+
+    // Enter outside of composition is forwarded.
+    uiHandler.reset();
+    input.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Enter',
+      cancelable: true,
+    }));
+    await microtasksFinished();
+    assertEquals(1, uiHandler.getCallCount('onOmniboxAction'));
+    const lastArgs = uiHandler.getArgs('onOmniboxAction').at(-1);
+    assertTrue(!!lastArgs.key);
+    assertEquals('Enter', lastArgs.key.key);
   });
 });

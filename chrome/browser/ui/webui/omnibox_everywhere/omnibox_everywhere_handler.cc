@@ -128,7 +128,7 @@ class OmniboxEverywhereClient : public ContextualOmniboxClient {
       TemplateURLRef::PostContent* post_content,
       WindowOpenDisposition disposition,
       ui::PageTransition transition,
-      AutocompleteMatchType::Type match_type,
+      omnibox::AutocompleteMatchType match_type,
       base::TimeTicks match_selection_timestamp,
       bool destination_url_entered_without_scheme,
       bool destination_url_entered_with_http_scheme,
@@ -256,7 +256,9 @@ void OmniboxEverywhereHandler::OnDriveUploadClicked(
     OnDriveUploadClickedCallback callback) {
   // Notify the service that the Google Drive picker is being opened so it can
   // suppress auto-dismissal of the standalone Omnibox Everywhere widget.
-  service_->OnDrivePickerOpened();
+  if (service_) {
+    service_->OnDrivePickerOpened();
+  }
 
   // Since the Omnibox Everywhere widget is a standalone popup without a native
   // embedding browser window, we must dynamically associate the WebContents
@@ -303,7 +305,9 @@ void OmniboxEverywhereHandler::CleanupDrivePicker() {
   // Notify the service that the Drive picker has closed (either via success,
   // cancel, or error) so that the widget can regain focus and restore standard
   // auto-dismissal.
-  service_->OnDrivePickerClosed();
+  if (service_) {
+    service_->OnDrivePickerClosed();
+  }
 }
 
 void OmniboxEverywhereHandler::SubmitQuery(const std::string& query_text,

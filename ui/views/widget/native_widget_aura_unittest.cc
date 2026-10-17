@@ -1223,4 +1223,106 @@ TEST_F(NativeWidgetAuraWithNoDelegateTest, UpdateVisualStateTest) {
   native_widget_->UpdateVisualState();
 }
 
+namespace {
+
+// An aura::WindowObserver that deletes the window when it is hidden.
+class DeleteWindowOnHide : public aura::WindowObserver {
+ public:
+  explicit DeleteWindowOnHide(aura::Window* window) {
+    observation_.Observe(window);
+  }
+
+  // aura::WindowObserver:
+  void OnWindowVisibilityChanged(aura::Window* window, bool visible) override {
+    if (!visible && observation_.IsObservingSource(window)) {
+      observation_.Reset();
+      delete window;
+    }
+  }
+
+ private:
+  base::ScopedObservation<aura::Window, aura::WindowObserver> observation_{
+      this};
+};
+
+}  // namespace
+
+// Regression test for use-after-free in Close() (b/553134101).
+TEST_F(NativeWidgetAuraTest, CloseTailUseAfterFreeViaVisibilityObserver) {
+  auto widget = std::make_unique<Widget>();
+  Widget::InitParams params(Widget::InitParams::Ownership::CLIENT_OWNS_WIDGET,
+                            Widget::InitParams::TYPE_POPUP);
+  params.parent = root_window();
+  params.bounds = gfx::Rect(10, 10, 200, 200);
+  widget->Init(std::move(params));
+  widget->Show();
+
+  DeleteWindowOnHide deleter(widget->GetNativeView());
+  widget->Close();
+}
+
+namespace {
+
+// Closes (and thereby destroys) a widget's aura::Window synchronously from
+// within the window-visibility-changed observer fan-out that
+// aura::Window::Show() dispatches. Aura explicitly permits observers to
+// delete the window during this notification (see
+// Window::NotifyWindowVisibilityChangedAtReceiver). This models production
+// destroyer chains in which showing a window synchronously re-enters
+// hide/teardown logic that closes the widget (e.g. an overview-force-hidden
+// window being re-hidden by ScopedOverviewHideWindows, whose nested Hide()
+// runs WindowEventDispatcher::OnWindowHidden gesture-cancel/capture-release
+// handlers that close the widget).
+class SyncWidgetCloserOnVisibilityChange : public aura::WindowObserver {
+ public:
+  SyncWidgetCloserOnVisibilityChange(aura::Window* window, Widget* widget)
+      : widget_(widget) {
+    observation_.Observe(window);
+  }
+
+  // aura::WindowObserver:
+  void OnWindowVisibilityChanged(aura::Window* window, bool visible) override {
+    if (!visible || !widget_) {
+      return;
+    }
+    observation_.Reset();
+    Widget* widget = widget_;
+    widget_ = nullptr;
+    // Widget::CloseNow() -> NativeWidgetAura::CloseNow() -> delete window_ ->
+    // ~Window -> NativeWidgetAura::OnWindowDestroyed() -> delete this
+    // (ownership is CLIENT_OWNS_WIDGET), all synchronously while
+    // NativeWidgetAura::Show() is still on the stack.
+    widget->CloseNow();
+  }
+
+ private:
+  raw_ptr<Widget> widget_;
+  base::ScopedObservation<aura::Window, aura::WindowObserver> observation_{
+      this};
+};
+
+}  // namespace
+
+// Regression test for a use-after-free in NativeWidgetAura::Show(): the
+// window-visibility observer fan-out triggered by window_->Show() may
+// synchronously destroy the aura::Window. Under NATIVE_WIDGET_OWNS_WIDGET or
+// CLIENT_OWNS_WIDGET ownership, NativeWidgetAura::OnWindowDestroyed() then
+// runs `delete this`, and the remainder of Show() (delegate_->CanActivate(),
+// Activate(), IsActive(), SetInitialFocus(), Minimize()) executes on the
+// freed NativeWidgetAura (heap-use-after-free under ASAN).
+TEST_F(NativeWidgetAuraTest, ShowWithSynchronousWindowDestruction) {
+  auto widget = std::make_unique<Widget>();
+  Widget::InitParams params(Widget::InitParams::Ownership::CLIENT_OWNS_WIDGET,
+                            Widget::InitParams::TYPE_POPUP);
+  params.parent = root_window();
+  widget->Init(std::move(params));
+
+  SyncWidgetCloserOnVisibilityChange closer(widget->GetNativeView(),
+                                            widget.get());
+
+  // The NativeWidgetAura is deleted inside window_->Show(); the tail of
+  // NativeWidgetAura::Show() must not touch |this| afterwards.
+  widget->Show();
+}
+
 }  // namespace views

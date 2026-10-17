@@ -4,6 +4,9 @@
 
 #include "components/update_client/net/network_impl.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <memory>
 #include <utility>
 

@@ -33,6 +33,7 @@ NavigationRequestInfo::NavigationRequestInfo(
     int64_t navigation_id,
     bool is_ad_tagged,
     bool force_no_https_upgrade,
+    bool is_visible,
     bool nw_trusted)
     : common_params(std::move(common_params)),
       begin_params(std::move(begin_params)),
@@ -56,6 +57,7 @@ NavigationRequestInfo::NavigationRequestInfo(
       navigation_id(navigation_id),
       is_ad_tagged(is_ad_tagged),
       force_no_https_upgrade(force_no_https_upgrade),
+      is_visible(is_visible),
       nw_trusted(nw_trusted) {}
 
 NavigationRequestInfo::~NavigationRequestInfo() {}

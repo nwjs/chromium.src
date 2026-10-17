@@ -166,7 +166,7 @@ base::Process& ChildProcessHostImpl::GetPeerProcess() {
       if (!peer_process_.IsValid()) {
         peer_process_ = process.Duplicate();
       }
-      DCHECK(peer_process_.IsValid());
+      CHECK(peer_process_.IsValid(), base::NotFatalUntil::M160);
     }
   }
 
@@ -183,8 +183,8 @@ ChildProcessHostImpl::GetMojoInvitation() {
 }
 
 void ChildProcessHostImpl::CreateChannel() {
-  DCHECK(!channel_);
-  DCHECK(child_process_);
+  CHECK(!channel_, base::NotFatalUntil::M160);
+  CHECK(child_process_, base::NotFatalUntil::M160);
 
   mojo::ScopedMessagePipeHandle bootstrap =
       mojo_invitation_->AttachMessagePipe(kLegacyIpcBootstrapAttachmentName);
@@ -193,7 +193,7 @@ void ChildProcessHostImpl::CreateChannel() {
       base::SingleThreadTaskRunner::GetCurrentDefault(),
       base::SingleThreadTaskRunner::GetCurrentDefault());
 
-  DCHECK(channel_);
+  CHECK(channel_, base::NotFatalUntil::M160);
 
   // Since we're initializing a legacy IPC Channel, we will use its connection
   // status to monitor child process lifetime instead of using the status of
@@ -203,7 +203,7 @@ void ChildProcessHostImpl::CreateChannel() {
   }
 
   bool initialized = InitChannel();
-  DCHECK(initialized);
+  CHECK(initialized, base::NotFatalUntil::M160);
 }
 
 bool ChildProcessHostImpl::InitChannel() {
@@ -258,11 +258,6 @@ uint64_t ChildProcessHostImpl::ChildProcessIdToTracingProcessId(
   return static_cast<uint64_t>(
              base::PersistentHash(base::byte_span_from_ref(child_process_id))) +
          1;
-}
-
-uint64_t ChildProcessHostImpl::ChildProcessUniqueIdToTracingProcessId(
-    int child_process_id) {
-  return ChildProcessIdToTracingProcessId(ChildProcessId(child_process_id));
 }
 
 void ChildProcessHostImpl::Ping(PingCallback callback) {

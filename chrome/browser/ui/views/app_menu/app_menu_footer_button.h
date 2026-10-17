@@ -13,8 +13,10 @@
 #include "ui/views/controls/button/button.h"
 
 namespace views {
+class BoxLayout;
 class ImageView;
 class Label;
+class MenuItemView;
 }  // namespace views
 
 namespace ui {
@@ -26,19 +28,23 @@ class AppMenuFooterButton : public views::Button {
   METADATA_HEADER(AppMenuFooterButton, views::Button)
 
  public:
-  explicit AppMenuFooterButton(PressedCallback callback = PressedCallback());
+  explicit AppMenuFooterButton(views::MenuItemView* submenu_item = nullptr);
   AppMenuFooterButton(const AppMenuFooterButton&) = delete;
   AppMenuFooterButton& operator=(const AppMenuFooterButton&) = delete;
   ~AppMenuFooterButton() override;
 
   void SetText(std::u16string_view text);
   void SetImageModel(const ui::ImageModel& image_model);
-  void SetHasSubmenu(bool has_submenu);
+  void SetUseRowStyle(bool use_row_style);
 
   // views::Button:
   std::unique_ptr<views::ActionViewInterface> GetActionViewInterface() override;
 
  private:
+  views::MenuItemView* GetSubmenuItem() const;
+
+  bool use_row_style_ = false;
+  raw_ptr<views::BoxLayout> layout_ = nullptr;
   raw_ptr<views::ImageView> icon_view_ = nullptr;
   raw_ptr<views::Label> label_ = nullptr;
   raw_ptr<views::ImageView> submenu_arrow_view_ = nullptr;

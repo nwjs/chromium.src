@@ -23,6 +23,12 @@ class Uuid;
 namespace synced_sessions {
 struct DistantSession;
 }  // namespace synced_sessions
+namespace fake_server {
+class FakeServer;
+}  // namespace fake_server
+namespace syncer {
+class LoopbackServerEntity;
+}  // namespace syncer
 namespace tab_groups {
 class SavedTabGroup;
 class SavedTabGroupTab;
@@ -46,13 +52,17 @@ void TearDownFakeSyncServer();
 // nothing.
 void ClearFakeSyncServerData();
 
+// Returns the active fake sync server, or `nullptr` if none is set up.
+fake_server::FakeServer* GetFakeSyncServer();
+
+// Injects an entity into the active fake sync server.
+void InjectFakeSyncServerEntity(
+    std::unique_ptr<syncer::LoopbackServerEntity> entity);
+
 // Ensures that all of the FakeServer's data is persisted to disk. This is
 // useful before app restarts, where otherwise the FakeServer may not get to do
 // its usual on-destruction flush.
 void FlushFakeSyncServerToDisk();
-
-// Triggers a sync cycle for a `type`.
-void TriggerSyncCycle(syncer::DataType type);
 
 // Gets the number of entities of the given `type`.
 int GetNumberOfSyncEntities(syncer::DataType type);

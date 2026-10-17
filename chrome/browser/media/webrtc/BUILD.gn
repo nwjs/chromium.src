@@ -237,7 +237,9 @@ source_set("webrtc") {
     ]
     deps += [
       "//chrome/browser/controlled_frame:media_access_handler",
+      "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui/tabs:tab_strip",
+      "//chrome/browser/ui/views/frame:browser_view_header",
       "//chrome/browser/ui/web_applications",
       "//extensions/browser",
       "//extensions/browser/kiosk",
@@ -365,6 +367,10 @@ source_set("webrtc") {
   }
 
   defines = [ "ZLIB_CONST" ]
+
+  if (toolkit_views) {
+    deps += [ "//chrome/browser/ui/views/frame:browser_widget" ]
+  }
 }
 
 source_set("test_support") {
@@ -444,6 +450,8 @@ if (!is_android) {
       "//chrome/browser/permissions",
       "//chrome/browser/sessions:test_support",
       "//chrome/browser/ui",
+      "//chrome/browser/ui:browser_commands",
+      "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui/apps",
       "//chrome/browser/ui/tab_sharing",
       "//chrome/browser/ui/tabs:tab_strip",
@@ -517,6 +525,8 @@ source_set("unit_tests") {
     "//chrome/browser/prefs",
     "//chrome/common",
     "//chrome/test:test_support",
+    "//chrome/test/base:chrome_render_view_host_test_harness",
+    "//chrome/test/base:testing_browser_process",
     "//components/infobars/content",
     "//components/media_device_salt",
     "//components/prefs:test_support",
@@ -632,6 +642,8 @@ if (!is_android && !is_chromeos_device) {
       "//chrome/browser/profiles:profile",
       "//chrome/browser/ui",
       "//chrome/browser/ui/tabs:tab_strip",
+      "//chrome/browser/ui/views/frame:browser_view_header",
+      "//chrome/browser/ui/views/frame:browser_widget",
       "//chrome/common",
       "//chrome/test:test_support",
       "//chrome/test:test_support_ui",

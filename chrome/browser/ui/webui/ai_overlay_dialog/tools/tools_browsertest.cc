@@ -229,6 +229,15 @@ IN_PROC_BROWSER_TEST_F(AiOverlayToolsBrowserTest, OpenUrlInvalid) {
   EXPECT_EQ("Invalid URL", future.Get().error());
 }
 
+IN_PROC_BROWSER_TEST_F(AiOverlayToolsBrowserTest, OpenUrlBlocksNonHttpSchemes) {
+  base::test::TestFuture<OpenUrlResult> future;
+  tools()->OpenUrl("file:///tmp/local_secret.txt", /*new_tab=*/true,
+                   future.GetCallback());
+
+  EXPECT_FALSE(future.Get().has_value());
+  EXPECT_EQ("Invalid URL", future.Get().error());
+}
+
 IN_PROC_BROWSER_TEST_F(AiOverlayToolsBrowserTest, SwitchTabByTitle) {
   AddTabWithTitle(embedded_test_server()->GetURL("/empty.html?1"), "First Tab");
   AddTabWithTitle(embedded_test_server()->GetURL("/empty.html?2"),
@@ -258,6 +267,22 @@ IN_PROC_BROWSER_TEST_F(AiOverlayToolsBrowserTest, SwitchTabByUrl) {
   EXPECT_TRUE(future.Get().has_value());
   EXPECT_EQ(target_url, future.Get().value()->url);
   EXPECT_EQ(initial_active - 1, browser()->GetTabStripModel()->active_index());
+}
+
+IN_PROC_BROWSER_TEST_F(AiOverlayToolsBrowserTest,
+                       SwitchTabBlocksNonHttpSchemes) {
+  AddTabWithTitle(embedded_test_server()->GetURL("/empty.html?1"), "First Tab");
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(), GURL("chrome://version"),
+      WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+  AddTabWithTitle(embedded_test_server()->GetURL("/empty.html?3"), "Third Tab");
+
+  base::test::TestFuture<SwitchTabResult> future;
+  tools()->SwitchTab("version", future.GetCallback());
+
+  EXPECT_FALSE(future.Get().has_value());
+  EXPECT_EQ("No matching tab found", future.Get().error());
 }
 
 IN_PROC_BROWSER_TEST_F(AiOverlayToolsBrowserTest, SwitchTabNotFound) {
@@ -393,25 +418,36 @@ IN_PROC_BROWSER_TEST_F(AiOverlayToolsBrowserTest, Scroll) {
 
 IN_PROC_BROWSER_TEST_F(AiOverlayToolsBrowserTest, FindAndHighlightSuccess) {
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), GURL("data:text/html,<html><body><p>This is a test paragraph "
-                      "that we want to find.</p></body></html>")));
+      browser(), embedded_test_server()->GetURL("/title1.html")));
 
   base::test::TestFuture<FindAndHighlightResult> future;
-  tools()->FindAndHighlight("test paragraph", future.GetCallback());
+  tools()->FindAndHighlight("This page has no title", future.GetCallback());
 
   EXPECT_TRUE(future.Get().has_value());
 }
 
 IN_PROC_BROWSER_TEST_F(AiOverlayToolsBrowserTest, FindAndHighlightNotFound) {
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), GURL("data:text/html,<html><body><p>This is a test paragraph "
-                      "that we want to find.</p></body></html>")));
+      browser(), embedded_test_server()->GetURL("/title1.html")));
 
   base::test::TestFuture<FindAndHighlightResult> future;
   tools()->FindAndHighlight("missing text", future.GetCallback());
 
   EXPECT_FALSE(future.Get().has_value());
   EXPECT_EQ("No match found", future.Get().error());
+}
+
+IN_PROC_BROWSER_TEST_F(AiOverlayToolsBrowserTest,
+                       FindAndHighlightBlocksNonHttpSchemes) {
+  ASSERT_TRUE(
+      ui_test_utils::NavigateToURL(browser(), GURL("chrome://version")));
+
+  base::test::TestFuture<FindAndHighlightResult> future;
+  tools()->FindAndHighlight("Google Chrome", future.GetCallback());
+
+  EXPECT_FALSE(future.Get().has_value());
+  EXPECT_EQ("FindAndHighlight is only supported on HTTP/HTTPS pages",
+            future.Get().error());
 }
 
 IN_PROC_BROWSER_TEST_F(AiOverlayToolsBrowserTest, PlayVideoNoMediaSession) {
@@ -766,13 +802,14 @@ IN_PROC_BROWSER_TEST_F(AiOverlayToolsBrowserTest, OpenPageHistorySearch) {
 
 IN_PROC_BROWSER_TEST_F(AiOverlayToolsBrowserTest, OpenPageSearchByTitle) {
   // 1. Setup tab 0 with a unique page title that does not appear in its URL.
-  GURL tab0_url("data:text/html,<title>Unique Special Page Title</title><h1>Tab 0</h1>");
-  GURL tab1_url("data:text/html,<title>Other Page</title><h1>Tab 1</h1>");
+  GURL tab0_url = embedded_test_server()->GetURL("/empty.html?0");
+  GURL tab1_url = embedded_test_server()->GetURL("/empty.html?1");
 
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), tab0_url));
-  ui_test_utils::NavigateToURLWithDisposition(
-      browser(), tab1_url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+  EXPECT_TRUE(
+      content::ExecJs(browser()->GetTabStripModel()->GetActiveWebContents(),
+                      "document.title = 'Unique Special Page Title'"));
+  AddTabWithTitle(tab1_url, "Other Page");
 
   TabStripModel* tab_strip = browser()->GetTabStripModel();
   ASSERT_EQ(2, tab_strip->count());

@@ -8,13 +8,14 @@ import {assertNotReached} from '//resources/js/assert.js';
 import {CrLitElement, html} from '//resources/lit/v3_0/lit.rollup.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
-import {OverflowableToolbarActionContainerMixin} from 'chrome://webui-toolbar.top-chrome/app.js';
-import type {OverflowableToolbarAction} from 'chrome://webui-toolbar.top-chrome/app.js';
+import {OverflowableToolbarActionContainerMixin, OverflowableToolbarActionMixin} from 'chrome://webui-toolbar.top-chrome/app.js';
+import type {OverflowableToolbarActionElement} from 'chrome://webui-toolbar.top-chrome/app.js';
 import type {OverflowMenuItem} from 'chrome://webui-toolbar.top-chrome/shared/toolbar_ui_api.mojom-webui.js';
 import {PinnedToolbarAction} from 'chrome://webui-toolbar.top-chrome/shared/toolbar_ui_api_data_model.mojom-webui.js';
 
-class DummyIconElement extends CrLitElement implements
-    OverflowableToolbarAction {
+const DummyActionElementBase = OverflowableToolbarActionMixin(CrLitElement);
+
+class DummyIconElement extends DummyActionElementBase {
   static get is() {
     return 'dummy-icon';
   }
@@ -29,11 +30,7 @@ class DummyIconElement extends CrLitElement implements
   accessor action: PinnedToolbarAction = PinnedToolbarAction.kPrint;
   accessor enabled: boolean = true;
 
-  isDivider(): boolean {
-    return false;
-  }
-
-  getOverflowMenuItem(): OverflowMenuItem {
+  override getOverflowMenuItem(): OverflowMenuItem {
     return {
       id: {
         pinnedAction: this.action,
@@ -44,17 +41,14 @@ class DummyIconElement extends CrLitElement implements
 }
 customElements.define(DummyIconElement.is, DummyIconElement);
 
-class DummyDividerElement extends CrLitElement implements
-    OverflowableToolbarAction {
+class DummyDividerElement extends DummyActionElementBase {
   static get is() {
     return 'dummy-divider';
   }
 
-  isDivider(): boolean {
-    return true;
-  }
+  override isDivider: boolean = true;
 
-  getOverflowMenuItem(): OverflowMenuItem {
+  override getOverflowMenuItem(): OverflowMenuItem {
     assertNotReached('Divider does not have overflow menu item');
   }
 }
@@ -80,11 +74,10 @@ class TestOverflowableToolbarActionContainerElement extends
     `;
   }
 
-  override getActions(): Array<CrLitElement&OverflowableToolbarAction> {
+  override getActions(): OverflowableToolbarActionElement[] {
     return Array.from(
-        this.shadowRoot
-            .querySelectorAll<CrLitElement&OverflowableToolbarAction>(
-                'dummy-icon, dummy-divider'));
+        this.shadowRoot.querySelectorAll<OverflowableToolbarActionElement>(
+            'dummy-icon, dummy-divider'));
   }
 }
 customElements.define(
@@ -115,11 +108,10 @@ class TestDynamicOverflowableToolbarActionContainerElement extends
 
   accessor items: string[] = ['icon1', 'icon2', 'divider', 'icon3'];
 
-  override getActions(): Array<CrLitElement&OverflowableToolbarAction> {
+  override getActions(): OverflowableToolbarActionElement[] {
     return Array.from(
-        this.shadowRoot
-            .querySelectorAll<CrLitElement&OverflowableToolbarAction>(
-                'dummy-icon, dummy-divider'));
+        this.shadowRoot.querySelectorAll<OverflowableToolbarActionElement>(
+            'dummy-icon, dummy-divider'));
   }
 }
 customElements.define(
@@ -152,6 +144,41 @@ suite('OverflowableToolbarActionContainerMixinTest', () => {
     for (const el of control.getActions()) {
       assertTrue(el.classList.contains('overflow-display-none'));
     }
+  });
+
+  test('setToMinWidth with preventOverflow', () => {
+    const actions = control.getActions();
+    const icon1 = actions[0]! as DummyIconElement;
+    const icon2 = actions[1]! as DummyIconElement;
+    const icon3 = actions[3]! as DummyIconElement;
+
+    // If `icon3` is always visible, only `icon3` should be visible.
+    icon3.preventOverflow = true;
+    control.setToMinWidth();
+    assertTrue(actions[0]!.classList.contains('overflow-display-none'));
+    assertTrue(actions[1]!.classList.contains('overflow-display-none'));
+    assertTrue(actions[2]!.classList.contains('overflow-display-none'));
+    assertFalse(actions[3]!.classList.contains('overflow-display-none'));
+
+    // If `icon2` is always visible, the divider after it should be visible as
+    // well.
+    icon2.preventOverflow = true;
+    icon3.preventOverflow = false;
+    control.setToMinWidth();
+    assertTrue(actions[0]!.classList.contains('overflow-display-none'));
+    assertFalse(actions[1]!.classList.contains('overflow-display-none'));
+    assertFalse(actions[2]!.classList.contains('overflow-display-none'));
+    assertTrue(actions[3]!.classList.contains('overflow-display-none'));
+
+    // For the sake of completeness, check the case where only `icon1` is
+    // visible.
+    icon1.preventOverflow = true;
+    icon2.preventOverflow = false;
+    control.setToMinWidth();
+    assertFalse(actions[0]!.classList.contains('overflow-display-none'));
+    assertTrue(actions[1]!.classList.contains('overflow-display-none'));
+    assertTrue(actions[2]!.classList.contains('overflow-display-none'));
+    assertTrue(actions[3]!.classList.contains('overflow-display-none'));
   });
 
   test('setToPreferredWidth with enough space', () => {
@@ -213,6 +240,53 @@ suite('OverflowableToolbarActionContainerMixinTest', () => {
     assertFalse(actions[2]!.classList.contains('overflow-display-none'));
     assertFalse(actions[1]!.classList.contains('overflow-display-none'));
     assertTrue(actions[0]!.classList.contains('overflow-display-none'));
+  });
+
+  test('expandUpToPreferredWidth with preventOverflow', () => {
+    const actions = control.getActions();
+    const icon2 = actions[1]! as DummyIconElement;
+    icon2.preventOverflow = true;
+
+    // Simulate no available space to expand the pinned actions.
+    let mockHost = {
+      getAvailableWidth: () => -10,
+    };
+    Object.defineProperty(control, 'getRootNode', {
+      value: () => ({host: mockHost}),
+      configurable: true,
+    });
+
+    control.setToMinWidth();
+
+    // At min width, `icon2` (`actions[1]`) and its preceding divider
+    // (`actions[2]`) should be visible.
+    assertTrue(actions[0]!.classList.contains('overflow-display-none'));
+    assertFalse(actions[1]!.classList.contains('overflow-display-none'));
+    assertFalse(actions[2]!.classList.contains('overflow-display-none'));
+    assertTrue(actions[3]!.classList.contains('overflow-display-none'));
+
+    control.expandUpToPreferredWidth();
+
+    // With no available space to expand, exactly the same elements as before
+    // should be visible. No elements should be hidden, no new elements should
+    // be shown.
+    assertTrue(actions[0]!.classList.contains('overflow-display-none'));
+    assertFalse(actions[1]!.classList.contains('overflow-display-none'));
+    assertFalse(actions[2]!.classList.contains('overflow-display-none'));
+    assertTrue(actions[3]!.classList.contains('overflow-display-none'));
+
+    // Simulate ample available space to expand all controls.
+    mockHost = {
+      getAvailableWidth: () => 100,
+    };
+
+    control.expandUpToPreferredWidth();
+
+    // With sufficient space, all elements should be visible.
+    assertFalse(actions[0]!.classList.contains('overflow-display-none'));
+    assertFalse(actions[1]!.classList.contains('overflow-display-none'));
+    assertFalse(actions[2]!.classList.contains('overflow-display-none'));
+    assertFalse(actions[3]!.classList.contains('overflow-display-none'));
   });
 
   test('controlsToAddToOverflowMenu', () => {
@@ -277,6 +351,33 @@ suite('OverflowableToolbarActionContainerMixinTest', () => {
     // Removing one element should trigger a layout.
     layoutFiredCount = 0;
     dynamicControl.items = ['icon3', 'divider', 'icon2'];
+    await microtasksFinished();
+    assertEquals(1, layoutFiredCount);
+  });
+
+  test('request-layout on preventOverflow change', async () => {
+    const icon1 = control.getActions()[0]! as DummyIconElement;
+    assertFalse(icon1.preventOverflow);
+
+    let layoutFiredCount = 0;
+    control.addEventListener('request-layout', () => {
+      layoutFiredCount++;
+    });
+
+    // Setting `preventOverflow` to its current value should not request a
+    // layout.
+    icon1.preventOverflow = false;
+    await microtasksFinished();
+    assertEquals(0, layoutFiredCount);
+
+    // Changing `preventOverflow` from false to true should request a layout.
+    icon1.preventOverflow = true;
+    await microtasksFinished();
+    assertEquals(1, layoutFiredCount);
+
+    // Changing `preventOverflow` from true to false should request a layout.
+    layoutFiredCount = 0;
+    icon1.preventOverflow = false;
     await microtasksFinished();
     assertEquals(1, layoutFiredCount);
   });

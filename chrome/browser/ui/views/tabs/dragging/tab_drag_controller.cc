@@ -21,6 +21,7 @@
 #include "base/memory/weak_auto_reset.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/numerics/safe_conversions.h"
+#include "base/pickle.h"
 #include "base/run_loop.h"
 #include "base/scoped_observation.h"
 #include "base/trace_event/trace_event.h"
@@ -32,6 +33,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
+#include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/sad_tab_helper.h"
 #include "chrome/browser/ui/tabs/split_tab_util.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
@@ -41,6 +43,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/omnibox/omnibox_popup_presenter_base.h"
 #include "chrome/browser/ui/views/tabs/dragging/drag_session_data.h"
 #include "chrome/browser/ui/views/tabs/dragging/tab_drag_context.h"
 #include "chrome/browser/ui/views/tabs/dragging/tab_drag_target.h"
@@ -63,6 +66,7 @@
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
+#include "ui/base/base_window.h"
 #include "ui/base/clipboard/clipboard_constants.h"
 #include "ui/base/dragdrop/os_exchange_data_provider_factory.h"
 #include "ui/base/mojom/window_show_state.mojom.h"
@@ -70,6 +74,7 @@
 #include "ui/compositor/presentation_time_recorder.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
+#include "ui/events/event_observer.h"
 #include "ui/events/gestures/gesture_recognizer.h"
 #include "ui/events/types/event_type.h"
 #include "ui/gfx/geometry/rect.h"
@@ -81,6 +86,7 @@
 #include "ui/views/interaction/element_tracker_views.h"
 #include "ui/views/view.h"
 #include "ui/views/view_tracker.h"
+#include "ui/views/widget/native_widget.h"
 #include "ui/views/widget/widget.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -121,6 +127,17 @@ namespace {
 // maximized size.
 constexpr int kMaximizedWindowInset = 10;  // DIPs.
 
+// Returns true if `window` hosts a WebUI omnibox popup.
+bool IsWebUIOmniboxPopupWindow(gfx::NativeWindow window) {
+  if (!window) {
+    return false;
+  }
+  views::Widget* widget = views::Widget::GetWidgetForNativeWindow(window);
+  return widget &&
+         widget->GetNativeWindowProperty(views::kWidgetIdentifierKey) ==
+             omnibox::kOmniboxWebUIPopupWidgetId;
+}
+
 class VisibilityWaiter : public views::WidgetObserver {
  public:
   explicit VisibilityWaiter(views::Widget* widget) {
@@ -152,6 +169,29 @@ constexpr char kTabDraggingPresentationTimeMaxHistogram[] =
     "Browser.TabDragging.PresentationTimeMax";
 constexpr char kDragToNewBrowserPresentationTimeHistogram[] =
     "Browser.TabDragging.DragToNewBrowserPresentationTime";
+
+// Finalizes browsers whose tab strips emptied mid-drag and whose close was
+// therefore deferred (see
+// `TabDragController::OnBrowserTabStripEmptyDuringDrag()`). A browser that is
+// still empty is closed, as `Browser::TabStripEmpty()` originally intended. A
+// browser that received a tab during the drag must not be closed, but it was
+// hidden while it was empty, so re-show it; otherwise it would linger as an
+// invisible window that the user can neither see nor close.
+void CloseOrRestoreDeferredEmptyBrowsers(
+    std::vector<base::WeakPtr<BrowserWindowInterface>> browsers) {
+  for (const base::WeakPtr<BrowserWindowInterface>& weak_browser : browsers) {
+    if (!weak_browser) {
+      continue;
+    }
+    if (weak_browser->GetTabStripModel()->empty()) {
+      weak_browser->GetWindow()->Close();
+    } else {
+#if !BUILDFLAG(IS_LINUX)
+      weak_browser->GetWindow()->ShowInactive();
+#endif
+    }
+  }
+}
 
 #if BUILDFLAG(IS_CHROMEOS)
 
@@ -393,6 +433,9 @@ TabDragController::~TabDragController() {
   }
   CHECK(!IsInObserverList());
 
+  CloseOrRestoreDeferredEmptyBrowsers(
+      std::exchange(empty_browsers_to_close_on_end_drag_, {}));
+
   DCHECK(!expect_stay_alive_)
       << "TabDragController was destroyed when it shouldn't have been. Check "
          "up the stack for reentrancy.";
@@ -586,6 +629,34 @@ bool TabDragController::IsAttachedTo(const TabDragContext* context) {
 // static
 bool TabDragController::IsActive() {
   return g_tab_drag_controller && g_tab_drag_controller->active();
+}
+
+// static
+bool TabDragController::OnBrowserTabStripEmptyDuringDrag(
+    BrowserWindowInterface* browser) {
+  if (!browser || !IsActive()) {
+    return false;
+  }
+
+  // Only touch drags need the deferral. The OS delivers the active touch
+  // sequence to the native window (`source_context_`) the gesture started on,
+  // so destroying that window mid-gesture strands the drag. Temporary browsers
+  // created mid-drag when detaching a subset of tabs (or unrelated browsers)
+  // do not own the initial touch sequence and can close immediately.
+  if (g_tab_drag_controller->event_source() !=
+          ui::mojom::DragEventSource::kTouch ||
+      !g_tab_drag_controller->source_context_ ||
+      browser->GetTabStripModel() !=
+          g_tab_drag_controller->source_context_->GetTabStripModel()) {
+    return false;
+  }
+
+  // Do not hide `browser` here. This runs inside a `TabStripModel`
+  // mutation, and hiding a window releases capture which would re-enter
+  // `EndDrag(EndDragReason::kCaptureLost)`.
+  g_tab_drag_controller->empty_browsers_to_close_on_end_drag_.push_back(
+      browser->GetWeakPtr());
+  return true;
 }
 
 // static
@@ -1525,6 +1596,24 @@ void TabDragController::AttachToNewContext(
   attached_context_->OwnDragController(std::move(controller));
 
   AttachImpl();
+
+  // Safe to hide now: `AttachImpl()` moved capture to `attached_context_`, so
+  // hiding the emptied browsers can no longer release the drag's capture.
+  HideDeferredEmptyBrowsers();
+}
+
+void TabDragController::HideDeferredEmptyBrowsers() {
+#if !BUILDFLAG(IS_LINUX)
+  // `Browser::TabStripEmpty()` normally closes the window, which hides it
+  // immediately. Since the close is deferred until the drag ends, hide the
+  // window here so it doesn't linger on screen tabless for the rest of the
+  // drag. Skip on Linux, where hiding a window loses capture.
+  for (auto& weak_browser : empty_browsers_to_close_on_end_drag_) {
+    if (weak_browser && weak_browser->GetTabStripModel()->empty()) {
+      weak_browser->GetWindow()->Hide();
+    }
+  }
+#endif
 }
 
 void TabDragController::AttachImpl() {
@@ -2053,9 +2142,14 @@ void TabDragController::EndDragImpl(EndDragType type) {
     ResetDragTarget();
   }
 
+  std::vector<base::WeakPtr<BrowserWindowInterface>> deferred_browsers =
+      std::exchange(empty_browsers_to_close_on_end_drag_, {});
+
   TabDragContext* owning_context =
       attached_context_ ? attached_context_.get() : source_context_.get();
   owning_context->DestroyDragController();
+
+  CloseOrRestoreDeferredEmptyBrowsers(std::move(deferred_browsers));
 }
 
 void TabDragController::RevertDrag() {
@@ -2890,12 +2984,8 @@ TabDragController::Liveness TabDragController::GetLocalProcessWindow(
     }
   }
 
-#if BUILDFLAG(IS_LINUX)
-  // Exclude windows which are pending deletion via Browser::TabStripEmpty().
-  // These windows can be returned in the Linux Aura port because the browser
-  // window which was used for dragging is not hidden once all of its tabs are
-  // attached to another browser window in DragBrowserToNewTabStrip().
-  // TODO(pkotwicz): Fix this properly (crbug.com/41098538)
+  // Exclude windows whose tab strips are empty and pending closure once the
+  // drag ends via Browser::TabStripEmpty().
   ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
       [&exclude](BrowserWindowInterface* browser) {
         if (browser->GetTabStripModel()->empty()) {
@@ -2903,9 +2993,22 @@ TabDragController::Liveness TabDragController::GetLocalProcessWindow(
         }
         return true;
       });
-#endif
+
   base::WeakPtr<TabDragController> ref(weak_factory_.GetWeakPtr());
   *window = window_finder_->GetLocalProcessWindowAtPoint(screen_point, exclude);
+
+  // Look through a WebUI omnibox popup to whatever lies beneath it. The popup
+  // is hosted in its own native window, and its transparent top margin overlaps
+  // the bottom of the browser's tab strip. For points in that margin,
+  // `GetLocalProcessWindowAtPoint()` returns the popup instead of the browser,
+  // and `CanAttachTo()` rejects it. Without this, a tab dragged along its own
+  // strip tears off, and a dragged browser held over a strip cannot reattach.
+  if (ref && omnibox::internal::IsWebUIOmniboxFullPopupEnabled() &&
+      IsWebUIOmniboxPopupWindow(*window)) {
+    exclude.insert(*window);
+    *window =
+        window_finder_->GetLocalProcessWindowAtPoint(screen_point, exclude);
+  }
   return ref ? Liveness::kAlive : Liveness::kDeleted;
 }
 
@@ -2936,6 +3039,9 @@ bool TabDragController::CanAttachTo(gfx::NativeWindow window) {
     return false;
   }
   BrowserWindowInterface* other_browser = other_browser_view->browser();
+  if (other_browser->GetTabStripModel()->empty()) {
+    return false;
+  }
 
   // Do not allow dragging into a window with a modal dialog, it causes a
   // weird behavior.  See crbug.com/40348569

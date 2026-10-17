@@ -155,6 +155,9 @@ std::optional<AccessPoint> AccessPointFromInt(int value) {
     case AccessPoint::kComposeboxDriveContextMenuOptionBubble:
     case AccessPoint::kSkills:
     case AccessPoint::kAccountMenuSignedOutState:
+    case AccessPoint::kAppSwitcherAISummarization:
+    case AccessPoint::kGeminiExternalAppStoreEvent:
+    case AccessPoint::kPasswordManagerCard:
       return access_point;
   }
 
@@ -545,6 +548,10 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
       base::RecordAction(
           base::UserMetricsAction("Signin_Signin_FromRecentTabs"));
       break;
+    case AccessPoint::kHistoryPage:
+      base::RecordAction(
+          base::UserMetricsAction("Signin_Signin_FromHistoryPage"));
+      break;
     case AccessPoint::kPasswordBubble:
       base::RecordAction(
           base::UserMetricsAction("Signin_Signin_FromPasswordBubble"));
@@ -583,7 +590,6 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
     case AccessPoint::kWebauthnModalDialog:
     case AccessPoint::kCctAccountMismatchNotification:
     case AccessPoint::kDriveFilePickerIos:
-    case AccessPoint::kHistoryPage:
     case AccessPoint::kWidget:
     case AccessPoint::kHistorySyncEducationalTip:
     case AccessPoint::kManagedProfileAutoSigninIos:
@@ -594,6 +600,8 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
     case AccessPoint::kDeepLinkDefault:
     case AccessPoint::kAgeMismatchSignout:
     case AccessPoint::kAccountMenuSignedOutState:
+    case AccessPoint::kAppSwitcherAISummarization:
+    case AccessPoint::kGeminiExternalAppStoreEvent:
       NOTREACHED() << "Access point " << static_cast<int>(access_point)
                    << " is not supposed to log signin user actions.";
     case AccessPoint::kCollaborationShareTabGroup:
@@ -777,6 +785,10 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
     case AccessPoint::kSkills:
       base::RecordAction(base::UserMetricsAction("Signin_Signin_FromSkills"));
       break;
+    case AccessPoint::kPasswordManagerCard:
+      base::RecordAction(
+          base::UserMetricsAction("Signin_Signin_FromPasswordManagerCard"));
+      break;
   }
 }
 
@@ -925,6 +937,10 @@ void RecordSigninImpressionUserActionForAccessPoint(AccessPoint access_point) {
       base::RecordAction(base::UserMetricsAction(
           "Signin_Impression_FromComposeboxDriveContextMenuOptionBubble"));
       break;
+    case AccessPoint::kPasswordManagerCard:
+      base::RecordAction(
+          base::UserMetricsAction("Signin_Impression_FromPasswordManagerCard"));
+      break;
     case AccessPoint::kExtensions:
     case AccessPoint::kMachineLogon:
     case AccessPoint::kForcedSignin:
@@ -979,6 +995,8 @@ void RecordSigninImpressionUserActionForAccessPoint(AccessPoint access_point) {
     case AccessPoint::kSignoutUndoSnackbar:
     case AccessPoint::kSkills:
     case AccessPoint::kAccountMenuSignedOutState:
+    case AccessPoint::kAppSwitcherAISummarization:
+    case AccessPoint::kGeminiExternalAppStoreEvent:
       NOTREACHED() << "Signin_Impression_From* user actions are not recorded "
                       "for access point "
                    << static_cast<int>(access_point);

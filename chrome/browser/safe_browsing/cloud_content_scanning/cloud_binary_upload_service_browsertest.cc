@@ -5,14 +5,12 @@
 #include "chrome/browser/safe_browsing/cloud_content_scanning/cloud_binary_upload_service.h"
 
 #include "base/test/test_future.h"
-#include "chrome/browser/browser_process.h"
 #include "chrome/browser/enterprise/connectors/common.h"
 #include "chrome/browser/enterprise/connectors/connectors_service.h"
 #include "chrome/browser/enterprise/test/management_context_mixin.h"
 #include "chrome/browser/enterprise/test/test_constants.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/cloud_binary_upload_service_factory.h"
-#include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/test/base/mixin_based_in_process_browser_test.h"
 #include "components/keyed_service/core/keyed_service.h"
@@ -180,9 +178,8 @@ class CloudBinaryUploadServiceRequestValidationBrowserTest
       content::BrowserContext* browser_context) {
     Profile* profile = Profile::FromBrowserContext(browser_context);
     return std::make_unique<safe_browsing::TestCloudBinaryUploadService>(
-        g_browser_process->safe_browsing_service()->GetURLLoaderFactory(
-            profile),
-        profile, management_context(), connector_, profile_request());
+        profile->GetURLLoaderFactory(), profile, management_context(),
+        connector_, profile_request());
   }
 
   enterprise_connectors::CloudBinaryUploadServiceBase* service() {

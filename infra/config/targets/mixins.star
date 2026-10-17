@@ -1122,6 +1122,30 @@ targets.mixin(
 )
 
 targets.mixin(
+    name = "ios_runtime_cache_27_1",
+    swarming = targets.swarming(
+        named_caches = [
+            swarming.cache(
+                name = "runtime_ios_27_1",
+                path = "Runtime-ios-27.1",
+            ),
+        ],
+    ),
+)
+
+targets.mixin(
+    name = "ios_runtime_cache_27_2",
+    swarming = targets.swarming(
+        named_caches = [
+            swarming.cache(
+                name = "runtime_ios_27_2",
+                path = "Runtime-ios-27.2",
+            ),
+        ],
+    ),
+)
+
+targets.mixin(
     name = "tvos_runtime_cache_26_0",
     swarming = targets.swarming(
         named_caches = [
@@ -1750,7 +1774,7 @@ targets.mixin(
             targets.cipd_package(
                 package = "infra/tools/mac_toolchain/${platform}",
                 location = ".",
-                revision = "git_revision:07e67ff89ff11ed0e3071867ed6bb49319a91b05",
+                revision = "git_revision:ed58ac9443fe1754e84d596bdaf9961cbaa6e85b",
             ),
         ],
     ),
@@ -2327,15 +2351,31 @@ targets.mixin(
 )
 
 targets.mixin(
-    name = "xcode_27_beta",
+    name = "xcode_27_1",
     args = [
         "--xcode-build-version",
-        "27a266a",
+        "27a9269",
     ],
     swarming = targets.swarming(
         named_caches = [
             swarming.cache(
-                name = "xcode_ios_27a266a",
+                name = "xcode_ios_27a9269",
+                path = "Xcode.app",
+            ),
+        ],
+    ),
+)
+
+targets.mixin(
+    name = "xcode_27_beta",
+    args = [
+        "--xcode-build-version",
+        "27b5019j",
+    ],
+    swarming = targets.swarming(
+        named_caches = [
+            swarming.cache(
+                name = "xcode_ios_27b5019j",
                 path = "Xcode.app",
             ),
         ],

@@ -6,6 +6,7 @@
 
 #include "base/compiler_specific.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/run_loop.h"
 #include "base/test/gtest_util.h"
 #include "base/test/task_environment.h"
@@ -399,6 +400,8 @@ TEST_F(CompositingStructTraitsTest, CopyOutputRequest_BitmapRequest) {
   EXPECT_TRUE(output->has_result_selection());
   EXPECT_EQ(result_rect, output->result_selection());
 
+  EXPECT_FALSE(output->is_secure());
+
   SkBitmap bitmap;
   bitmap.allocPixels(SkImageInfo::MakeN32Premul(
       result_rect.width(), result_rect.height(), SkColorSpace::MakeSRGB()));
@@ -407,6 +410,18 @@ TEST_F(CompositingStructTraitsTest, CopyOutputRequest_BitmapRequest) {
   // If the CopyOutputRequest callback is called, this ends. Otherwise, the test
   // will time out and fail.
   run_loop.Run();
+}
+
+TEST_F(CompositingStructTraitsTest, CopyOutputRequest_SecureRequest) {
+  auto input = std::make_unique<CopyOutputRequest>(
+      CopyOutputRequest::ResultFormat::RGBA,
+      CopyOutputRequest::ResultDestination::kSystemMemory, base::DoNothing());
+  input->set_is_secure(true);
+  EXPECT_TRUE(input->is_secure());
+
+  std::unique_ptr<CopyOutputRequest> output;
+  mojo::test::SerializeAndDeserialize<mojom::CopyOutputRequest>(input, output);
+  EXPECT_TRUE(output->is_secure());
 }
 
 TEST_F(CompositingStructTraitsTest, CopyOutputRequest_MessagePipeBroken) {
@@ -615,7 +630,7 @@ TEST_F(CompositingStructTraitsTest, CompositorFrame) {
   // TransferableResource constants.
   const ResourceId single_plane_id(1337);
   const ResourceId multi_plane_id(1338);
-  const SharedImageFormat single_plane_format = SinglePlaneFormat::kALPHA_8;
+  const SharedImageFormat single_plane_format = SinglePlaneFormat::kRGBA_8888;
   const SharedImageFormat multi_plane_format = MultiPlaneFormat::kNV12;
   const gfx::Size tr_size(1234, 5678);
   TransferableResource single_plane_resource = TransferableResource::Make(
@@ -840,6 +855,7 @@ TEST_F(CompositingStructTraitsTest, CompositorFrameMetadata) {
   const float device_scale_factor = 2.6f;
   const gfx::PointF root_scroll_offset(1234.5f, 6789.1f);
   const float page_scale_factor = 1337.5f;
+  const float surface_backing_size_scale_factor = 2.5f;
   const gfx::SizeF scrollable_viewport_size(1337.7f, 1234.5f);
   const bool may_contain_video = true;
   const SkColor4f root_background_color = {0.0f, 0.02f, 0.224f, 0.0f};
@@ -866,6 +882,7 @@ TEST_F(CompositingStructTraitsTest, CompositorFrameMetadata) {
   input.device_scale_factor = device_scale_factor;
   input.root_scroll_offset = root_scroll_offset;
   input.page_scale_factor = page_scale_factor;
+  input.surface_backing_size_scale_factor = surface_backing_size_scale_factor;
   input.scrollable_viewport_size = scrollable_viewport_size;
   input.may_contain_video = may_contain_video;
   input.root_background_color = root_background_color;
@@ -887,6 +904,8 @@ TEST_F(CompositingStructTraitsTest, CompositorFrameMetadata) {
   EXPECT_EQ(device_scale_factor, output.device_scale_factor);
   EXPECT_EQ(root_scroll_offset, output.root_scroll_offset);
   EXPECT_EQ(page_scale_factor, output.page_scale_factor);
+  EXPECT_EQ(surface_backing_size_scale_factor,
+            output.surface_backing_size_scale_factor);
   EXPECT_EQ(scrollable_viewport_size, output.scrollable_viewport_size);
   EXPECT_EQ(may_contain_video, output.may_contain_video);
   EXPECT_EQ(root_background_color, output.root_background_color);
@@ -1498,7 +1517,7 @@ TEST_F(CompositingStructTraitsTest, OffsetTagDefinition) {
 
 TEST_F(CompositingStructTraitsTest, TransferableResource) {
   const ResourceId id(1337);
-  const SharedImageFormat format = SinglePlaneFormat::kALPHA_8;
+  const SharedImageFormat format = SinglePlaneFormat::kRGBA_8888;
   const gfx::Size size(1234, 5678);
   const int8_t mailbox_name[GL_MAILBOX_SIZE_CHROMIUM] = {
       0, 9, 8, 7, 6, 5, 4, 3, 2, 1, 9, 7, 5, 3, 1, 2};

@@ -149,6 +149,7 @@ _CONFIG = [
             'base::PostJob',
             'base::PowerMonitor',
             'base::Process',
+            'base::DegToRad',
             'base::RadToDeg',
             'base::raw_span',
             'base::RefCountedData',
@@ -589,6 +590,7 @@ _CONFIG = [
             'base::ToLowerASCII',
             'network::cors::IsCorsSafelistedResponseHeaderName',
             'network::mojom::FetchResponseType',
+            'network::ParseUnencodedDigestsFromHeaders',
         ],
     },
     {
@@ -626,7 +628,6 @@ _CONFIG = [
             'gfx::HDRMetadata',
             'gfx::HdrMetadataAgtm',
             'gfx::HdrMetadataExtendedRange',
-            'gfx::ICCProfile',
 
             # For fast cos/sin functions
             'gfx::SinCosDegrees',
@@ -894,6 +895,7 @@ _CONFIG = [
             'cors::.+',
             'css_parsing_utils::.+',
             'cssvalue::.+',
+            'date_time_format::.+',
             'element_locator::.+',
             'encoding::.+',
             'encoding_enum::.+',

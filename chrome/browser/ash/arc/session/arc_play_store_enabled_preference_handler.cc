@@ -6,6 +6,7 @@
 
 #include <string>
 
+#include "base/check_deref.h"
 #include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
@@ -13,11 +14,11 @@
 #include "chrome/browser/ash/arc/arc_optin_uma.h"
 #include "chrome/browser/ash/arc/arc_util.h"
 #include "chrome/browser/ash/arc/session/arc_session_manager.h"
-#include "chrome/browser/consent_auditor/consent_auditor_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/ash/shelf/chrome_shelf_controller.h"
 #include "chrome/grit/generated_resources.h"
+#include "chromeos/ash/components/browser_context_helper/annotated_account_id.h"
+#include "chromeos/ash/components/signin/identity_manager_provider.h"
 #include "chromeos/ash/experiences/arc/app/arc_app_constants.h"
 #include "chromeos/ash/experiences/arc/arc_prefs.h"
 #include "chromeos/ash/experiences/arc/arc_util.h"
@@ -37,10 +38,13 @@ namespace arc {
 
 ArcPlayStoreEnabledPreferenceHandler::ArcPlayStoreEnabledPreferenceHandler(
     Profile* profile,
-    ArcSessionManager* arc_session_manager)
-    : profile_(profile), arc_session_manager_(arc_session_manager) {
-  DCHECK(profile_);
-  DCHECK(arc_session_manager_);
+    ArcSessionManager* arc_session_manager,
+    consent_auditor::ConsentAuditor* consent_auditor)
+    : profile_(profile),
+      arc_session_manager_(arc_session_manager),
+      consent_auditor_(CHECK_DEREF(consent_auditor)) {
+  CHECK(profile_, base::NotFatalUntil::M160);
+  CHECK(arc_session_manager_, base::NotFatalUntil::M160);
 }
 
 ArcPlayStoreEnabledPreferenceHandler::~ArcPlayStoreEnabledPreferenceHandler() {
@@ -48,7 +52,7 @@ ArcPlayStoreEnabledPreferenceHandler::~ArcPlayStoreEnabledPreferenceHandler() {
 }
 
 void ArcPlayStoreEnabledPreferenceHandler::Start() {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
 
   // Start observing Google Play Store enabled preference.
   pref_change_registrar_.Init(profile_->GetPrefs());
@@ -98,7 +102,7 @@ void ArcPlayStoreEnabledPreferenceHandler::Start() {
 }
 
 void ArcPlayStoreEnabledPreferenceHandler::OnPreferenceChanged() {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
   const bool is_play_store_enabled = IsArcPlayStoreEnabledForProfile(profile_);
   if (!IsArcPlayStoreEnabledPreferenceManagedForProfile(profile_)) {
     // Update UMA only for non-Managed cases. Note, that multiple OptIn/OptOut
@@ -132,13 +136,15 @@ void ArcPlayStoreEnabledPreferenceHandler::OnPreferenceChanged() {
 
       // Tell Consent Auditor that the Play Store consent was revoked.
       signin::IdentityManager* identity_manager =
-          IdentityManagerFactory::GetForProfile(profile_);
+          ash::IdentityManagerProvider::Get().Find(CHECK_DEREF(
+              ash::AnnotatedAccountId::Get(profile_->GetOriginalProfile())));
       // TODO(crbug.com/40579665): Fix unrelated tests that are not properly
       // setting up the state of identity_manager and enable the DCHECK instead
       // of the conditional below.
       // DCHECK(identity_manager->HasPrimaryAccount(
       //            signin::ConsentLevel::kSignin));
-      if (identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
+      if (identity_manager &&
+          identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
         // This class doesn't care about browser sync consent.
         const GaiaId gaia_id =
             identity_manager
@@ -153,8 +159,7 @@ void ArcPlayStoreEnabledPreferenceHandler::OnPreferenceChanged() {
             IDS_OS_SETTINGS_ANDROID_APPS_DISABLE_DIALOG_MESSAGE);
         play_consent.set_consent_flow(
             UserConsentTypes::ArcPlayTermsOfServiceConsent::SETTING_CHANGE);
-        ConsentAuditorFactory::GetForProfile(profile_)->RecordArcPlayConsent(
-            gaia_id, play_consent);
+        consent_auditor_->RecordArcPlayConsent(gaia_id, play_consent);
       }
     }
   }

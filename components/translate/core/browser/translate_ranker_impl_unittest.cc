@@ -13,10 +13,10 @@
 #include "base/run_loop.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
-#include "components/assist_ranker/proto/ranker_model.pb.h"
-#include "components/assist_ranker/proto/translate_ranker_model.pb.h"
-#include "components/assist_ranker/ranker_model.h"
 #include "components/translate/core/browser/mock_translate_metrics_logger.h"
+#include "components/translate/core/browser/ranker_model.h"
+#include "components/translate/core/browser/ranker_model.pb.h"
+#include "components/translate/core/browser/translate_ranker_model.pb.h"
 #include "components/ukm/test_ukm_recorder.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_source.h"
@@ -92,7 +92,7 @@ void TranslateRankerImplTest::InitFeatures(
 
 std::unique_ptr<TranslateRankerImpl> TranslateRankerImplTest::GetRankerForTest(
     float threshold) {
-  auto model = std::make_unique<assist_ranker::RankerModel>();
+  auto model = std::make_unique<RankerModel>();
   model->mutable_proto()->mutable_translate()->set_version(kModelVersion);
   auto* details = model->mutable_proto()
                       ->mutable_translate()

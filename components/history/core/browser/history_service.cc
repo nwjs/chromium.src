@@ -72,11 +72,6 @@ using base::Time;
 
 namespace history {
 
-void EmitVisitedLinksAdditionCausedBy404Uma(bool was_addition_caused_by_404) {
-  UMA_HISTOGRAM_BOOLEAN("History.VisitedLinks.AdditionCausedBy404",
-                        was_addition_caused_by_404);
-}
-
 // These values are logged to UMA. Entries should not be renumbered and
 // numeric values should never be reused. Please keep in sync with
 // "PageTransitionForVisitedLinks" in tools/metrics/histograms/enums.xml.
@@ -436,6 +431,20 @@ base::CancelableTaskTracker::TaskId HistoryService::GetMostRecentClusters(
       std::move(callback));
 }
 
+base::CancelableTaskTracker::TaskId HistoryService::GetJourney(
+    const std::string& journey_id,
+    GetJourneyCallback callback,
+    base::CancelableTaskTracker* tracker) {
+  TRACE_EVENT0("browser", "HistoryService::GetJourney");
+  CHECK(backend_runner_) << "History service being called after cleanup";
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  return tracker->PostTaskAndReplyWithResult(
+      GetBackendTaskRunner(), FROM_HERE,
+      base::BindOnce(&HistoryBackend::GetJourneyWithVisits, history_backend_,
+                     journey_id),
+      std::move(callback));
+}
+
 base::CancelableTaskTracker::TaskId HistoryService::GetAllJourneys(
     GetAllJourneysCallback callback,
     base::CancelableTaskTracker* tracker) {
@@ -703,20 +712,11 @@ void HistoryService::AddPartitionedVisitedLinks(
       VisitedLink link = {redirect, net::SchemefulSite(*args.top_level_url),
                           url::Origin::Create(*args.frame_url)};
       visit_delegate_->AddVisitedLink(link);
-      // Redirects for chains ending in a 404 are saved to History because the
-      // final 404 visit is saved. Therefore, VisitedLink hashtable entries
-      // for redirects in chains ending in a 404 are caused by the 404 visit.
-      EmitVisitedLinksAdditionCausedBy404Uma(
-          /*was_addition_caused_by_404=*/args.response_code_category ==
-          VisitResponseCodeCategory::k404);
     }
   } else {
     VisitedLink link = {args.url, net::SchemefulSite(*args.top_level_url),
                         url::Origin::Create(*args.frame_url)};
     visit_delegate_->AddVisitedLink(link);
-    EmitVisitedLinksAdditionCausedBy404Uma(
-        /*was_addition_caused_by_404=*/args.response_code_category ==
-        VisitResponseCodeCategory::k404);
   }
 }
 

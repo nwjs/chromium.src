@@ -55,6 +55,8 @@ source_set("unit_tests") {
     "//chromeos/ash/services/multidevice_setup/public/cpp:test_support",
     "//chromeos/dbus/power",
     "//chromeos/dbus/tpm_manager",
+    "//components/account_id",
+    "//components/account_id:test_support",
     "//components/policy/core/browser",
     "//components/policy/core/browser:test_support",
     "//components/prefs:test_support",
@@ -211,6 +213,7 @@ source_set("unit_tests") {
     # the other for test only modules, then let this target depend on
     # the latter.
     "//chrome/browser/ash/ownership",
+    "//chrome/test/base:testing_browser_process",
   ]
 
   if (is_cfm) {
@@ -218,10 +221,6 @@ source_set("unit_tests") {
   }
 
   data = [ "//chromeos/test/data/" ]
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 group("browser_tests") {
@@ -245,7 +244,6 @@ group("browser_tests") {
     "//chrome/browser/ash/arc:browser_tests",
     "//chrome/browser/ash/audio:browser_tests",
     "//chrome/browser/ash/base:browser_tests",
-    "//chrome/browser/ash/bluetooth:browser_tests",
     "//chrome/browser/ash/boca/on_task:browser_tests",
     "//chrome/browser/ash/boca/spotlight:browser_tests",
     "//chrome/browser/ash/bruschetta:browser_tests",

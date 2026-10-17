@@ -1203,8 +1203,7 @@ void SkiaRenderer::SwapBuffers(SwapFrameData swap_frame_data) {
   output_frame.latency_info = std::move(swap_frame_data.latency_info);
   output_frame.choreographer_vsync_id = swap_frame_data.choreographer_vsync_id;
   output_frame.size = viewport_size_for_swap_buffers();
-  output_frame.data.seq = swap_frame_data.seq;
-  output_frame.data.swap_trace_id = swap_frame_data.swap_trace_id;
+  output_frame.data = std::move(swap_frame_data.frame_data);
   if (use_partial_swap_) {
     swap_buffer_rect_.Intersect(gfx::Rect(surface_size_for_swap_buffers()));
     output_frame.sub_buffer_rect = swap_buffer_rect_;
@@ -1213,17 +1212,6 @@ void SkiaRenderer::SwapBuffers(SwapFrameData swap_frame_data) {
     output_frame.delegated_ink_metadata =
         delegated_ink_handler_->TakeMetadata();
   }
-  output_frame.data.display_hdr_headroom = swap_frame_data.display_hdr_headroom;
-#if BUILDFLAG(IS_APPLE)
-  output_frame.data.ca_layer_error_code = swap_frame_data.ca_layer_error_code;
-#endif
-
-#if BUILDFLAG(IS_MAC)
-  output_frame.data.is_handling_interaction =
-      swap_frame_data.is_handling_interaction;
-  output_frame.data.is_handling_animation =
-      swap_frame_data.is_handling_animation;
-#endif
 
   if (root_buffer_queue_) {
     root_buffer_queue_->SwapBuffers();
@@ -2982,9 +2970,10 @@ void SkiaRenderer::ScheduleOverlays() {
       bool is_10bit = overlay.format == MultiPlaneFormat::kP010;
       gpu::Mailbox detiled_image = GetProtectedSharedImage(is_10bit);
       skia_output_surface_->DetileOverlay(
-          overlay.mailbox, overlay.resource_size_in_pixels, lock.sync_token(),
-          detiled_image, overlay.display_rect, overlay.uv_rect,
-          std::get<gfx::OverlayTransform>(overlay.transform), is_10bit);
+          overlay.mailbox, overlay.resource_size_in_pixels,
+          lock.GetSyncTokens(), detiled_image, overlay.display_rect,
+          overlay.uv_rect, std::get<gfx::OverlayTransform>(overlay.transform),
+          is_10bit);
       overlay.uv_rect = gfx::RectF(
           static_cast<float>(overlay.display_rect.width()) /
               static_cast<float>(kMaxProtectedContentWidth),
@@ -3065,8 +3054,9 @@ void SkiaRenderer::ScheduleOverlays() {
 
     // Sync tokens ensure the texture to be overlaid is available before
     // scheduling it for display.
-    if (lock.sync_token().HasData())
-      sync_tokens.push_back(lock.sync_token());
+    auto tokens_from_lock = lock.GetSyncTokens();
+    sync_tokens.insert(sync_tokens.end(), tokens_from_lock.begin(),
+                       tokens_from_lock.end());
 
     overlay.mailbox = lock.mailbox();
     DCHECK(!overlay.mailbox.IsZero());

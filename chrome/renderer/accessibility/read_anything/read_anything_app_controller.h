@@ -9,28 +9,25 @@
 #include <map>
 #include <memory>
 #include <optional>
-#include <set>
 #include <string>
 #include <vector>
 
-#include "base/memory/raw_ptr.h"
-#include "base/memory/safe_ref.h"
+#include "base/functional/callback.h"
 #include "base/scoped_observation.h"
 #include "base/threading/sequence_bound.h"
 #include "base/values.h"
 #include "chrome/common/read_anything/read_anything.mojom.h"
 #include "chrome/renderer/accessibility/read_anything/read_aloud_app_model.h"
 #include "chrome/renderer/accessibility/read_anything/read_anything_app_model.h"
+#include "chrome/renderer/accessibility/read_anything/read_anything_distiller.h"
 #include "content/public/renderer/render_frame_observer.h"
 #include "gin/wrappable.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "third_party/skia/include/core/SkBitmap.h"
-#include "third_party/skia/include/core/SkColor.h"
 #include "ui/accessibility/ax_location_and_scroll_updates.h"
 #include "ui/accessibility/ax_node_id_forward.h"
-#include "ui/accessibility/ax_node_position.h"
 #include "ui/accessibility/ax_position.h"
 #include "ui/accessibility/ax_tree_observer.h"
 #include "ui/accessibility/ax_tree_update_forward.h"
@@ -51,11 +48,8 @@ class MojoUkmRecorder;
 
 class AXTreeDistiller;
 class DependencyParserModel;
-struct DistillationRequest;
-struct DistillationResult;
 class ReadAnythingAppControllerReadabilityTest;
 class ReadAnythingAppControllerTest;
-class ReadAnythingDistiller;
 class ReadAnythingDistillerFactory;
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -149,12 +143,6 @@ class ReadAnythingAppController
       const ui::AXTreeID& tree_id,
       const std::vector<ui::AXTreeUpdate>& updates,
       const std::vector<ui::AXEvent>& events) override;
-  void AccessibilityLocationChangesReceived(
-      const ui::AXTreeID& tree_id,
-      ui::AXLocationAndScrollUpdates& details) override;
-  void AccessibilityLocationChangesReceived(
-      const ui::AXTreeID& tree_id,
-      const ui::AXLocationAndScrollUpdates& details) override;
   void OnActiveAXTreeIDChanged(const ui::AXTreeID& tree_id,
                                ukm::SourceId ukm_source_id,
                                bool is_pdf) override;
@@ -322,7 +310,7 @@ class ReadAnythingAppController
                          ui::AXNodeID focus_node_id,
                          int focus_offset);
   void OnCollapseSelection();
-  bool MaybeHasKeyPointsSection() const;
+  v8::Local<v8::Value> GetOriginalPageMetrics();
   std::string GetKeyPointsRegex() const;
   void AttemptLogEarlySelection(bool from_side_panel);
   void OnDistilled(int word_count);
@@ -361,8 +349,6 @@ class ReadAnythingAppController
   void OnIsAudioCurrentlyPlayingChanged(bool is_audio_currently_playing);
   std::string GetValidatedFontName(const std::string& font) const;
   std::vector<std::string> GetAllFonts() const;
-  void OnScrolledToBottom();
-  bool IsDocsLoadMoreButtonVisible() const;
   void OnNoTextContent();
   void UpdateWordsSeen(int words_seen);
   void UpdateWordsHeard(int words_heard);
@@ -462,7 +448,17 @@ class ReadAnythingAppController
 
   // Initiates distillation by ensuring the active distiller matches the
   // model's next distillation method and dispatching the `request`.
-  void ExecuteDistillation(const DistillationRequest& request);
+  // DOM-based engines (Readability) that distill in the browser process do not
+  // need an AXTree and omit `request`; tree-based engines (Screen2x) must
+  // supply a populated `request`.
+  void ExecuteDistillation(
+      std::optional<DistillationRequest> request = std::nullopt);
+
+  // Forwards a Readability distillation request to the browser process via
+  // `page_handler_`. Passed as a callback to ReadAnythingDistillerFactory.
+  void RequestReadabilityDistillation(
+      read_anything::mojom::UntrustedPageHandler::
+          RequestReadabilityDistillationCallback callback);
 
   void DrawSelection();
   void DrawEmptyState();

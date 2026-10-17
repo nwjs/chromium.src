@@ -96,7 +96,7 @@ CSSLengthArray& SetLengthArray(String text, CSSLengthArray& length_array) {
 }
 
 TEST(CSSCalculationValue, AccumulatePixelsAndPercent) {
-  ComputedStyleBuilder builder(*ComputedStyle::GetInitialStyleSingleton());
+  ComputedStyleBuilder builder(ComputedStyle::GetInitialStyleSingleton());
   builder.SetEffectiveZoom(5);
   const ComputedStyle* style = builder.TakeStyle();
   CSSToLengthConversionData::Flags ignored_flags = 0;
@@ -661,6 +661,20 @@ TEST(CSSMathExpressionNode, TestFunctionsWithNumberReturn) {
     css_node = CSSMathExpressionNode::Create(*calc_node);
     EXPECT_EQ(css_node->CustomCSSText(), test_case.serialized);
   }
+}
+
+TEST(CSSMathExpressionNode, TestPreserveNegatedZero) {
+  const StringView input = "sign(0% - 0px)";
+  CSSParserTokenStream stream(input);
+  const CSSParserContext* context = MakeGarbageCollected<CSSParserContext>(
+      kHTMLStandardMode, SecureContextMode::kInsecureContext);
+  CSSParserLocalContext local_context =
+      CSSParserLocalContext::CreateWithoutPropertyForTest();
+  const CSSMathExpressionNode* css_node =
+      CSSMathExpressionNode::ParseMathFunction(
+          CSSValueID::kCalc, stream, *context, local_context,
+          Flags({Flag::AllowPercent}), kCSSAnchorQueryTypesNone);
+  EXPECT_EQ(css_node->CustomCSSText(), input);
 }
 
 TEST(CSSMathExpressionNode, TestColorChannelExpressionWithSubstitution) {

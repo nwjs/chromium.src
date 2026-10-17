@@ -23,6 +23,7 @@
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
 #include "base/environment.h"
+#include "base/feature_list.h"
 #include "base/features.h"
 #include "base/files/file.h"
 #include "base/files/file_enumerator.h"
@@ -31,6 +32,7 @@
 #include "base/files/scoped_file.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/logging.h"
 #include "base/path_service.h"
 #include "base/rand_util.h"
@@ -1503,92 +1505,6 @@ TEST_F(FileUtilTest, CopyDirectoryPermissionsOverExistingFile) {
   EXPECT_EQ(0777, mode);
 }
 
-TEST_F(FileUtilTest, CopyDirectoryExclDoesNotOverwrite) {
-  // Create source directory.
-  FilePath dir_name_from =
-      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("Copy_From_Subdir"));
-  CreateDirectory(dir_name_from);
-  ASSERT_TRUE(PathExists(dir_name_from));
-
-  // Create a file under the directory.
-  FilePath file_name_from =
-      dir_name_from.Append(FILE_PATH_LITERAL("Reggy-1.txt"));
-  CreateTextFile(file_name_from, L"Mordecai");
-  ASSERT_TRUE(PathExists(file_name_from));
-
-  // Create destination directory.
-  FilePath dir_name_to =
-      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("Copy_To_Subdir"));
-  CreateDirectory(dir_name_to);
-  ASSERT_TRUE(PathExists(dir_name_to));
-
-  // Create a file under the directory with the same name.
-  FilePath file_name_to = dir_name_to.Append(FILE_PATH_LITERAL("Reggy-1.txt"));
-  CreateTextFile(file_name_to, L"Rigby");
-  ASSERT_TRUE(PathExists(file_name_to));
-
-  // Ensure that copying failed and the file was not overwritten.
-  EXPECT_FALSE(CopyDirectoryExcl(dir_name_from, dir_name_to, false));
-  ASSERT_TRUE(PathExists(file_name_to));
-  ASSERT_EQ(L"Rigby", ReadTextFile(file_name_to));
-}
-
-TEST_F(FileUtilTest, CopyDirectoryExclDirectoryOverExistingFile) {
-  // Create source directory.
-  FilePath dir_name_from =
-      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("Copy_From_Subdir"));
-  CreateDirectory(dir_name_from);
-  ASSERT_TRUE(PathExists(dir_name_from));
-
-  // Create a subdirectory.
-  FilePath subdir_name_from = dir_name_from.Append(FILE_PATH_LITERAL("Subsub"));
-  CreateDirectory(subdir_name_from);
-  ASSERT_TRUE(PathExists(subdir_name_from));
-
-  // Create destination directory.
-  FilePath dir_name_to =
-      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("Copy_To_Subdir"));
-  CreateDirectory(dir_name_to);
-  ASSERT_TRUE(PathExists(dir_name_to));
-
-  // Create a regular file under the directory with the same name.
-  FilePath file_name_to = dir_name_to.Append(FILE_PATH_LITERAL("Subsub"));
-  CreateTextFile(file_name_to, L"Rigby");
-  ASSERT_TRUE(PathExists(file_name_to));
-
-  // Ensure that copying failed and the file was not overwritten.
-  EXPECT_FALSE(CopyDirectoryExcl(dir_name_from, dir_name_to, false));
-  ASSERT_TRUE(PathExists(file_name_to));
-  ASSERT_EQ(L"Rigby", ReadTextFile(file_name_to));
-}
-
-TEST_F(FileUtilTest, CopyDirectoryExclDirectoryOverExistingDirectory) {
-  // Create source directory.
-  FilePath dir_name_from =
-      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("Copy_From_Subdir"));
-  CreateDirectory(dir_name_from);
-  ASSERT_TRUE(PathExists(dir_name_from));
-
-  // Create a subdirectory.
-  FilePath subdir_name_from = dir_name_from.Append(FILE_PATH_LITERAL("Subsub"));
-  CreateDirectory(subdir_name_from);
-  ASSERT_TRUE(PathExists(subdir_name_from));
-
-  // Create destination directory.
-  FilePath dir_name_to =
-      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("Copy_To_Subdir"));
-  CreateDirectory(dir_name_to);
-  ASSERT_TRUE(PathExists(dir_name_to));
-
-  // Create a subdirectory under the directory with the same name.
-  FilePath subdir_name_to = dir_name_to.Append(FILE_PATH_LITERAL("Subsub"));
-  CreateDirectory(subdir_name_to);
-  ASSERT_TRUE(PathExists(subdir_name_to));
-
-  // Ensure that copying failed and the file was not overwritten.
-  EXPECT_FALSE(CopyDirectoryExcl(dir_name_from, dir_name_to, false));
-}
-
 TEST_F(FileUtilTest, CopyFileExecutablePermission) {
   FilePath src = temp_dir_.GetPath().Append(FPL("src.txt"));
   const std::wstring file_contents(L"Gooooooooooooooooooooogle");
@@ -2419,6 +2335,51 @@ TEST_F(FileUtilTest,
   EXPECT_FALSE(PathExists(target_file));
 }
 
+TEST_F(FileUtilTest, DeletePathRecursively_WithoutFeatureList) {
+  std::unique_ptr<FeatureList> original_feature_list =
+      FeatureList::ClearInstanceForTesting();
+  FeatureList::FailOnFeatureAccessWithoutFeatureList();
+
+  base::ScopedClosureRunner restore_feature_list(base::BindOnce(
+      [](std::unique_ptr<FeatureList> feature_list) {
+        FeatureList::ClearInstanceForTesting();
+        if (feature_list) {
+          FeatureList::RestoreInstanceForTesting(std::move(feature_list));
+        }
+      },
+      std::move(original_feature_list)));
+
+  // Create a target directory with a file.
+  FilePath target_dir = temp_dir_.GetPath().Append(FPL("target_dir"));
+  ASSERT_TRUE(CreateDirectory(target_dir));
+  FilePath target_file = target_dir.Append(FPL("target_file.txt"));
+  CreateTextFile(target_file, bogus_content);
+  ASSERT_TRUE(PathExists(target_file));
+
+  // Also create a junction inside the directory to verify reparse point
+  // traversal behavior without FeatureList.
+  FilePath junction_target = temp_dir_.GetPath().Append(FPL("junction_target"));
+  ASSERT_TRUE(CreateDirectory(junction_target));
+  FilePath junction_file = junction_target.Append(FPL("junction_file.txt"));
+  CreateTextFile(junction_file, bogus_content);
+  ASSERT_TRUE(PathExists(junction_file));
+
+  FilePath junction_path = target_dir.Append(FPL("junction"));
+  ASSERT_TRUE(CreateDirectory(junction_path));
+  std::optional<test::FilePathReparsePoint> reparse_point =
+      test::FilePathReparsePoint::Create(junction_path, junction_target);
+  ASSERT_TRUE(reparse_point.has_value());
+  ASSERT_TRUE(PathExists(junction_path.Append(FPL("junction_file.txt"))));
+
+  // Should succeed without crashing even when FeatureList is uninitialized.
+  EXPECT_TRUE(DeletePathRecursively(target_dir));
+  EXPECT_FALSE(PathExists(target_dir));
+  // Reparse point traversal prevention must remain enabled by default,
+  // ensuring the junction target contents were not deleted.
+  EXPECT_TRUE(PathExists(junction_target));
+  EXPECT_TRUE(PathExists(junction_file));
+}
+
 TEST_F(FileUtilTest, IsLink) {
   // Create a target directory with a file.
   FilePath target_dir = temp_dir_.GetPath().Append(FPL("target_dir"));
@@ -2862,24 +2823,6 @@ TEST_F(FileUtilTest, CopyFileWithCopyDirectoryRecursiveToExistingDirectory) {
   EXPECT_TRUE(PathExists(file_name_to));
 }
 
-TEST_F(FileUtilTest, CopyFileFailureWithCopyDirectoryExcl) {
-  // Create a file
-  FilePath file_name_from =
-      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("Copy_Test_File.txt"));
-  CreateTextFile(file_name_from, L"Gooooooooooooooooooooogle");
-  ASSERT_TRUE(PathExists(file_name_from));
-
-  // Make a destination file.
-  FilePath file_name_to = temp_dir_.GetPath().Append(
-      FILE_PATH_LITERAL("Copy_Test_File_Destination.txt"));
-  CreateTextFile(file_name_to, L"Old file content");
-  ASSERT_TRUE(PathExists(file_name_to));
-
-  // Overwriting the destination should fail.
-  EXPECT_FALSE(CopyDirectoryExcl(file_name_from, file_name_to, true));
-  EXPECT_EQ(L"Old file content", ReadTextFile(file_name_to));
-}
-
 TEST_F(FileUtilTest, CopyDirectoryWithTrailingSeparators) {
   // Create a directory.
   FilePath dir_name_from =
@@ -2963,169 +2906,6 @@ TEST_F(FileUtilTest, CopyDirectoryWithNonRegularFiles) {
   EXPECT_TRUE(PathExists(file_name_to));
   EXPECT_FALSE(PathExists(symlink_name_to));
   EXPECT_FALSE(PathExists(fifo_name_to));
-}
-
-TEST_F(FileUtilTest, CopyDirectoryExclFileOverSymlink) {
-  // Create a directory.
-  FilePath dir_name_from =
-      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("Copy_From_Subdir"));
-  ASSERT_TRUE(CreateDirectory(dir_name_from));
-  ASSERT_TRUE(PathExists(dir_name_from));
-
-  // Create a file under the directory.
-  FilePath file_name_from =
-      dir_name_from.Append(FILE_PATH_LITERAL("Copy_Test_File.txt"));
-  CreateTextFile(file_name_from, L"Gooooooooooooooooooooogle");
-  ASSERT_TRUE(PathExists(file_name_from));
-
-  // Create a destination directory with a symlink of the same name.
-  FilePath dir_name_to =
-      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("Copy_To_Subdir"));
-  ASSERT_TRUE(CreateDirectory(dir_name_to));
-  ASSERT_TRUE(PathExists(dir_name_to));
-
-  FilePath symlink_target =
-      dir_name_to.Append(FILE_PATH_LITERAL("Symlink_Target.txt"));
-  CreateTextFile(symlink_target, L"asdf");
-  ASSERT_TRUE(PathExists(symlink_target));
-
-  FilePath symlink_name_to =
-      dir_name_to.Append(FILE_PATH_LITERAL("Copy_Test_File.txt"));
-  ASSERT_TRUE(CreateSymbolicLink(symlink_target, symlink_name_to));
-  ASSERT_TRUE(PathExists(symlink_name_to));
-
-  // Check that copying fails.
-  EXPECT_FALSE(CopyDirectoryExcl(dir_name_from, dir_name_to, false));
-}
-
-TEST_F(FileUtilTest, CopyDirectoryExclDirectoryOverSymlink) {
-  // Create a directory.
-  FilePath dir_name_from =
-      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("Copy_From_Subdir"));
-  ASSERT_TRUE(CreateDirectory(dir_name_from));
-  ASSERT_TRUE(PathExists(dir_name_from));
-
-  // Create a subdirectory.
-  FilePath subdir_name_from = dir_name_from.Append(FILE_PATH_LITERAL("Subsub"));
-  CreateDirectory(subdir_name_from);
-  ASSERT_TRUE(PathExists(subdir_name_from));
-
-  // Create a destination directory with a symlink of the same name.
-  FilePath dir_name_to =
-      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("Copy_To_Subdir"));
-  ASSERT_TRUE(CreateDirectory(dir_name_to));
-  ASSERT_TRUE(PathExists(dir_name_to));
-
-  FilePath symlink_target = dir_name_to.Append(FILE_PATH_LITERAL("Subsub"));
-  CreateTextFile(symlink_target, L"asdf");
-  ASSERT_TRUE(PathExists(symlink_target));
-
-  FilePath symlink_name_to =
-      dir_name_to.Append(FILE_PATH_LITERAL("Copy_Test_File.txt"));
-  ASSERT_TRUE(CreateSymbolicLink(symlink_target, symlink_name_to));
-  ASSERT_TRUE(PathExists(symlink_name_to));
-
-  // Check that copying fails.
-  EXPECT_FALSE(CopyDirectoryExcl(dir_name_from, dir_name_to, false));
-}
-
-TEST_F(FileUtilTest, CopyDirectoryExclFileOverDanglingSymlink) {
-  // Create a directory.
-  FilePath dir_name_from =
-      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("Copy_From_Subdir"));
-  ASSERT_TRUE(CreateDirectory(dir_name_from));
-  ASSERT_TRUE(PathExists(dir_name_from));
-
-  // Create a file under the directory.
-  FilePath file_name_from =
-      dir_name_from.Append(FILE_PATH_LITERAL("Copy_Test_File.txt"));
-  CreateTextFile(file_name_from, L"Gooooooooooooooooooooogle");
-  ASSERT_TRUE(PathExists(file_name_from));
-
-  // Create a destination directory with a dangling symlink of the same name.
-  FilePath dir_name_to =
-      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("Copy_To_Subdir"));
-  ASSERT_TRUE(CreateDirectory(dir_name_to));
-  ASSERT_TRUE(PathExists(dir_name_to));
-
-  FilePath symlink_target =
-      dir_name_to.Append(FILE_PATH_LITERAL("Symlink_Target.txt"));
-  CreateTextFile(symlink_target, L"asdf");
-  ASSERT_TRUE(PathExists(symlink_target));
-
-  FilePath symlink_name_to =
-      dir_name_to.Append(FILE_PATH_LITERAL("Copy_Test_File.txt"));
-  ASSERT_TRUE(CreateSymbolicLink(symlink_target, symlink_name_to));
-  ASSERT_TRUE(PathExists(symlink_name_to));
-  ASSERT_TRUE(DeleteFile(symlink_target));
-
-  // Check that copying fails and that no file was created for the symlink's
-  // referent.
-  EXPECT_FALSE(CopyDirectoryExcl(dir_name_from, dir_name_to, false));
-  EXPECT_FALSE(PathExists(symlink_target));
-}
-
-TEST_F(FileUtilTest, CopyDirectoryExclDirectoryOverDanglingSymlink) {
-  // Create a directory.
-  FilePath dir_name_from =
-      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("Copy_From_Subdir"));
-  ASSERT_TRUE(CreateDirectory(dir_name_from));
-  ASSERT_TRUE(PathExists(dir_name_from));
-
-  // Create a subdirectory.
-  FilePath subdir_name_from = dir_name_from.Append(FILE_PATH_LITERAL("Subsub"));
-  CreateDirectory(subdir_name_from);
-  ASSERT_TRUE(PathExists(subdir_name_from));
-
-  // Create a destination directory with a dangling symlink of the same name.
-  FilePath dir_name_to =
-      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("Copy_To_Subdir"));
-  ASSERT_TRUE(CreateDirectory(dir_name_to));
-  ASSERT_TRUE(PathExists(dir_name_to));
-
-  FilePath symlink_target =
-      dir_name_to.Append(FILE_PATH_LITERAL("Symlink_Target.txt"));
-  CreateTextFile(symlink_target, L"asdf");
-  ASSERT_TRUE(PathExists(symlink_target));
-
-  FilePath symlink_name_to =
-      dir_name_to.Append(FILE_PATH_LITERAL("Copy_Test_File.txt"));
-  ASSERT_TRUE(CreateSymbolicLink(symlink_target, symlink_name_to));
-  ASSERT_TRUE(PathExists(symlink_name_to));
-  ASSERT_TRUE(DeleteFile(symlink_target));
-
-  // Check that copying fails and that no directory was created for the
-  // symlink's referent.
-  EXPECT_FALSE(CopyDirectoryExcl(dir_name_from, dir_name_to, false));
-  EXPECT_FALSE(PathExists(symlink_target));
-}
-
-TEST_F(FileUtilTest, CopyDirectoryExclFileOverFifo) {
-  // Create a directory.
-  FilePath dir_name_from =
-      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("Copy_From_Subdir"));
-  ASSERT_TRUE(CreateDirectory(dir_name_from));
-  ASSERT_TRUE(PathExists(dir_name_from));
-
-  // Create a file under the directory.
-  FilePath file_name_from =
-      dir_name_from.Append(FILE_PATH_LITERAL("Copy_Test_File.txt"));
-  CreateTextFile(file_name_from, L"Gooooooooooooooooooooogle");
-  ASSERT_TRUE(PathExists(file_name_from));
-
-  // Create a destination directory with a fifo of the same name.
-  FilePath dir_name_to =
-      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("Copy_To_Subdir"));
-  ASSERT_TRUE(CreateDirectory(dir_name_to));
-  ASSERT_TRUE(PathExists(dir_name_to));
-
-  FilePath fifo_name_to =
-      dir_name_to.Append(FILE_PATH_LITERAL("Copy_Test_File.txt"));
-  ASSERT_EQ(0, mkfifo(fifo_name_to.value().c_str(), 0644));
-  ASSERT_TRUE(PathExists(fifo_name_to));
-
-  // Check that copying fails.
-  EXPECT_FALSE(CopyDirectoryExcl(dir_name_from, dir_name_to, false));
 }
 #endif  // BUILDFLAG(IS_POSIX)
 
@@ -5669,6 +5449,110 @@ TEST_F(FileUtilTest, IsReservedNameOnWindows) {
     EXPECT_TRUE(IsReservedNameOnWindows(basename)) << basename;
   }
 }
+
+#if BUILDFLAG(IS_POSIX)
+
+TEST_F(FileUtilTest, CopyDirectoryNoFollowSuccess) {
+  FilePath dir_name_from =
+      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("Copy_From_Subdir"));
+  ASSERT_TRUE(CreateDirectory(dir_name_from));
+
+  FilePath file_name_from =
+      dir_name_from.Append(FILE_PATH_LITERAL("Copy_Test_File.txt"));
+  CreateTextFile(file_name_from, L"Gooooooooooooooooooooogle");
+
+  FilePath subdir_name_from = dir_name_from.Append(FILE_PATH_LITERAL("Subdir"));
+  ASSERT_TRUE(CreateDirectory(subdir_name_from));
+  FilePath subfile_name_from =
+      subdir_name_from.Append(FILE_PATH_LITERAL("Sub_File.txt"));
+  CreateTextFile(subfile_name_from, L"Subdir content");
+
+  FilePath dir_name_to =
+      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("Copy_To_Subdir"));
+
+  EXPECT_TRUE(
+      CopyDirectoryNoFollow(dir_name_from, dir_name_to, /*recursive=*/true));
+
+  EXPECT_TRUE(
+      PathExists(dir_name_to.Append(FILE_PATH_LITERAL("Copy_Test_File.txt"))));
+  EXPECT_TRUE(PathExists(dir_name_to.Append(FILE_PATH_LITERAL("Subdir"))
+                             .Append(FILE_PATH_LITERAL("Sub_File.txt"))));
+
+  // Copy a directory into an already-existing destination directory,
+  // which copies `dir_name_from` as a subdirectory.
+  FilePath dir_name_to_existing =
+      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("Copy_To_Existing_Dir"));
+  ASSERT_TRUE(CreateDirectory(dir_name_to_existing));
+  EXPECT_TRUE(CopyDirectoryNoFollow(dir_name_from, dir_name_to_existing,
+                                    /*recursive=*/true));
+  EXPECT_TRUE(PathExists(
+      dir_name_to_existing.Append(FILE_PATH_LITERAL("Copy_From_Subdir"))
+          .Append(FILE_PATH_LITERAL("Copy_Test_File.txt"))));
+
+  // Copy a single regular file into an existing directory.
+  FilePath existing_dir_to =
+      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("Copy_File_To_Dir"));
+  ASSERT_TRUE(CreateDirectory(existing_dir_to));
+  EXPECT_TRUE(CopyDirectoryNoFollow(file_name_from, existing_dir_to,
+                                    /*recursive=*/true));
+  EXPECT_TRUE(PathExists(
+      existing_dir_to.Append(FILE_PATH_LITERAL("Copy_Test_File.txt"))));
+
+  // Copy a single regular file to a new destination file path.
+  FilePath file_name_to =
+      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("Copied_Single_File.txt"));
+  EXPECT_TRUE(
+      CopyDirectoryNoFollow(file_name_from, file_name_to, /*recursive=*/true));
+  EXPECT_TRUE(PathExists(file_name_to));
+}
+
+TEST_F(FileUtilTest, CopyDirectoryNoFollowRejectsSymlinksAndFifos) {
+  FilePath dir_name_from =
+      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("Copy_From_Subdir"));
+  ASSERT_TRUE(CreateDirectory(dir_name_from));
+
+  FilePath file_name_from =
+      dir_name_from.Append(FILE_PATH_LITERAL("Copy_Test_File.txt"));
+  CreateTextFile(file_name_from, L"Gooooooooooooooooooooogle");
+
+  // 1. Reject symlink as source root.
+  FilePath symlink_root =
+      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("Symlink_Root"));
+  ASSERT_TRUE(CreateSymbolicLink(dir_name_from, symlink_root));
+  FilePath dir_name_to1 =
+      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("Copy_To_1"));
+  EXPECT_FALSE(
+      CopyDirectoryNoFollow(symlink_root, dir_name_to1, /*recursive=*/true));
+
+  // 2. Reject symlink as destination root.
+  FilePath real_dst = temp_dir_.GetPath().Append(FILE_PATH_LITERAL("Real_Dst"));
+  ASSERT_TRUE(CreateDirectory(real_dst));
+  FilePath symlink_dst =
+      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("Symlink_Dst"));
+  ASSERT_TRUE(CreateSymbolicLink(real_dst, symlink_dst));
+  EXPECT_FALSE(
+      CopyDirectoryNoFollow(dir_name_from, symlink_dst, /*recursive=*/true));
+
+  // 3. Reject symlink inside source directory.
+  FilePath symlink_inside =
+      dir_name_from.Append(FILE_PATH_LITERAL("Symlink_Inside"));
+  ASSERT_TRUE(CreateSymbolicLink(file_name_from, symlink_inside));
+  FilePath dir_name_to3 =
+      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("Copy_To_3"));
+  EXPECT_FALSE(
+      CopyDirectoryNoFollow(dir_name_from, dir_name_to3, /*recursive=*/true));
+  ASSERT_TRUE(DeleteFile(symlink_inside));
+
+  // 4. Reject non-regular file (FIFO) inside source directory.
+  FilePath fifo_inside = dir_name_from.Append(FILE_PATH_LITERAL("Fifo"));
+  ASSERT_EQ(0, mkfifo(fifo_inside.value().c_str(), 0644));
+  FilePath dir_name_to4 =
+      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("Copy_To_4"));
+  EXPECT_FALSE(
+      CopyDirectoryNoFollow(dir_name_from, dir_name_to4, /*recursive=*/true));
+}
+
+#endif  // BUILDFLAG(IS_POSIX)
 
 }  // namespace
 

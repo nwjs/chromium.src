@@ -19,6 +19,7 @@
 #import "base/task/thread_pool.h"
 #import "base/time/time.h"
 #import "base/trace_event/trace_event.h"
+#import "base/values.h"
 #import "components/feature_engagement/public/event_constants.h"
 #import "components/feature_engagement/public/tracker.h"
 #import "components/image_fetcher/core/image_fetcher.h"
@@ -31,6 +32,7 @@
 #import "components/omnibox/common/omnibox_features.h"
 #import "components/prefs/ios/pref_observer_bridge.h"
 #import "components/prefs/pref_change_registrar.h"
+#import "components/prefs/pref_service.h"
 #import "components/regional_capabilities/regional_capabilities_service.h"
 #import "components/search/search.h"
 #import "components/signin/public/base/signin_switches.h"
@@ -62,12 +64,14 @@
 #import "ios/chrome/browser/ntp/shared/metrics/feed_metrics_constants.h"
 #import "ios/chrome/browser/ntp/shared/metrics/feed_metrics_recorder.h"
 #import "ios/chrome/browser/ntp/shared/metrics/new_tab_page_metrics_constants.h"
+#import "ios/chrome/browser/ntp/ui_bundled/ai_mode_button_service_ios.h"
 #import "ios/chrome/browser/ntp/ui_bundled/feed_control_delegate.h"
 #import "ios/chrome/browser/ntp/ui_bundled/feed_wrapper_view_controller.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_color_palette.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_color_palette_util.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_consumer.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_content_delegate.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_header_constants.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_header_consumer.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_image_background_trait.h"
@@ -319,6 +323,8 @@ void CleanupImageFetcherCacheIfNeeded(PrefService* pref_service,
       _fullscreenBrowserAgentObserverBridge;
   // AIM eligibility service.
   raw_ptr<AimEligibilityService> _aimEligibilityService;
+  // Service vending the AI Mode button configuration.
+  AIModeButtonServiceIOS* _aiModeButtonServiceIOS;
   // AIM eligibility subscription.
   base::CallbackListSubscription _aimEligibilitySubscription;
   // Whether AIM is currently allowed.
@@ -427,6 +433,8 @@ void CleanupImageFetcherCacheIfNeeded(PrefService* pref_service,
               featureEngagementTracker:(feature_engagement::Tracker*)tracker
                  aimEligibilityService:
                      (AimEligibilityService*)aimEligibilityService
+                aiModeButtonServiceIOS:
+                    (AIModeButtonServiceIOS*)aiModeButtonServiceIOS
                 fullscreenBrowserAgent:
                     (FullscreenBrowserAgent*)fullscreenBrowserAgent {
   self = [super init];
@@ -466,6 +474,7 @@ void CleanupImageFetcherCacheIfNeeded(PrefService* pref_service,
     _signedInIdentity = _authService->GetPrimaryIdentity();
     _tracker = tracker;
     _aimEligibilityService = aimEligibilityService;
+    _aiModeButtonServiceIOS = aiModeButtonServiceIOS;
     if (_aimEligibilityService) {
       __weak __typeof(self) weakSelf = self;
       _aimEligibilitySubscription =
@@ -497,8 +506,14 @@ void CleanupImageFetcherCacheIfNeeded(PrefService* pref_service,
     if (IsBottomOmniboxAvailable()) {
       [self.consumer setOmniboxInBottomPosition:_bottomOmniboxEnabled.value];
     }
-    if (IsFullscreenRefactoringEnabled() && _fullscreenBrowserAgent) {
-      [self.consumer
+  }
+}
+
+- (void)setScrollConsumer:(id<NewTabPageScrollConsumer>)scrollConsumer {
+  _scrollConsumer = scrollConsumer;
+  if (IsChromeNextIaEnabled()) {
+    if (_fullscreenBrowserAgent && IsFullscreenRefactoringEnabled()) {
+      [self.scrollConsumer
           setFeedBottomInset:_fullscreenBrowserAgent->max_insets().bottom];
     }
   }
@@ -624,6 +639,7 @@ void CleanupImageFetcherCacheIfNeeded(PrefService* pref_service,
   _identityManager = nullptr;
   _aimEligibilitySubscription = {};
   _aimEligibilityService = nullptr;
+  _aiModeButtonServiceIOS = nil;
   _isAIMAllowed = NO;
   self.feedControlDelegate = nil;
   _backgroundCustomizationServiceObserverBridge = nullptr;
@@ -641,7 +657,7 @@ void CleanupImageFetcherCacheIfNeeded(PrefService* pref_service,
 }
 
 - (void)restoreNTPScrollPositionForWebState:(web::WebState*)webState {
-  [self.consumer
+  [self.scrollConsumer
       restoreScrollPosition:NewTabPageTabHelper::FromWebState(webState)
                                 ->GetNTPScrollPosition()];
 }
@@ -677,7 +693,7 @@ void CleanupImageFetcherCacheIfNeeded(PrefService* pref_service,
 #pragma mark - FullscreenBrowserAgentObserving
 
 - (void)fullscreenDidUpdateObscuredInsetRange:(FullscreenBrowserAgent*)agent {
-  [self.consumer setFeedBottomInset:agent->max_insets().bottom];
+  [self.scrollConsumer setFeedBottomInset:agent->max_insets().bottom];
 }
 
 #pragma mark - BooleanObserver
@@ -803,6 +819,9 @@ void CleanupImageFetcherCacheIfNeeded(PrefService* pref_service,
   HomeCustomizationFramingCoordinates* coordinates =
       [self framingCoordinatesForCustomBackground:customBackground];
   coordinates.originalImageSize = originalImageSize;
+  [self.consumer setAnimatedBackgroundPath:nil
+                    lightModeColorProvider:nil
+                     darkModeColorProvider:nil];
   [self.consumer setBackgroundImage:image framingCoordinates:coordinates];
 
   CustomUITraitAccessor* traitAccessor = [[CustomUITraitAccessor alloc]
@@ -845,6 +864,8 @@ void CleanupImageFetcherCacheIfNeeded(PrefService* pref_service,
   [self.consumer setAIMAllowed:aimAllowed];
   [self.headerConsumer setAIMAllowed:aimAllowed];
   [self.headerConsumer setFuseboxEligible:fuseboxEligible];
+  [self.consumer setAIMTitle:_aiModeButtonServiceIOS.title
+                        icon:_aiModeButtonServiceIOS.icon];
 
   if (aimAllowed == _isAIMAllowed) {
     return;
@@ -985,6 +1006,9 @@ void CleanupImageFetcherCacheIfNeeded(PrefService* pref_service,
     return;
   }
 
+  [self.consumer setAnimatedBackgroundPath:nil
+                    lightModeColorProvider:nil
+                     darkModeColorProvider:nil];
   [self.consumer setBackgroundImage:nil framingCoordinates:nil];
 
   std::optional<sync_pb::UserColorTheme> colorTheme =
@@ -1001,6 +1025,27 @@ void CleanupImageFetcherCacheIfNeeded(PrefService* pref_service,
     [traitAccessor setBoolForNewTabPageImageBackgroundTrait:NO];
     UIColor* tintColor = colorPalette.tintColor;
     [self.logoMediator setLogoTintColor:tintColor];
+    if (_backgroundCustomizationService->IsCurrentEphemeralTheme() &&
+        IsNTPEphemeralThemeEnabled()) {
+      NSDictionary<NSString*, UIColor*>* lightModeColorProvider = nil;
+      NSDictionary<NSString*, UIColor*>* darkModeColorProvider = nil;
+      if (_prefService) {
+        const base::DictValue& themeData =
+            _prefService->GetDict(prefs::kIosNtpEphemeralThemeData);
+        const base::DictValue* colorMapping =
+            themeData.FindDict(kEphemeralThemeAnimationColorMappingKey);
+        if (colorMapping) {
+          lightModeColorProvider = ColorProviderDictionaryFromDict(
+              colorMapping->FindDict(kEphemeralThemeLightModeColorsKey));
+          darkModeColorProvider = ColorProviderDictionaryFromDict(
+              colorMapping->FindDict(kEphemeralThemeDarkModeColorsKey));
+        }
+      }
+      [self.consumer
+          setAnimatedBackgroundPath:[self ephemeralThemeAnimatedBackgroundPath]
+             lightModeColorProvider:lightModeColorProvider
+              darkModeColorProvider:darkModeColorProvider];
+    }
     if (initialLoad) {
       base::UmaHistogramEnumeration(
           "IOS.HomeCustomization.Background.Ntp.Loaded",
@@ -1018,6 +1063,22 @@ void CleanupImageFetcherCacheIfNeeded(PrefService* pref_service,
     base::UmaHistogramEnumeration("IOS.HomeCustomization.Background.Ntp.Loaded",
                                   HomeCustomizationBackgroundStyle::kDefault);
   }
+}
+
+// Returns the local file path for the ephemeral theme animated background from
+// preferences, or nil if unavailable.
+- (NSString*)ephemeralThemeAnimatedBackgroundPath {
+  if (!_prefService || !IsNTPEphemeralThemeEnabled()) {
+    return nil;
+  }
+  const base::DictValue& themeData =
+      _prefService->GetDict(prefs::kIosNtpEphemeralThemeData);
+  const std::string* path =
+      themeData.FindString(kEphemeralThemeAnimationPathKey);
+  if (!path || path->empty()) {
+    return nil;
+  }
+  return base::SysUTF8ToNSString(*path);
 }
 
 // Fetches and applies a custom background image.

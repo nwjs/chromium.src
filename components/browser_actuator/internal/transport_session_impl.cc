@@ -4,10 +4,17 @@
 
 #include "components/browser_actuator/internal/transport_session_impl.h"
 
+#include <optional>
+#include <string>
+#include <string_view>
+#include <tuple>
+
 #include "base/check.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
+#include "components/browser_actuator/internal/metrics_utils.h"
 #include "components/browser_actuator/internal/proto/transport_messages.pb.h"
+#include "components/browser_actuator/public/payload_type_mapping.h"
 #include "components/browser_actuator/public/transport_channel.h"
 #include "components/browser_actuator/public/transport_handler.h"
 #include "components/browser_actuator/public/transport_handler_factory.h"
@@ -33,7 +40,8 @@ std::string_view TransportSessionImpl::GetSessionId() const {
   return session_id_;
 }
 
-base::expected<void, SendMessageError> TransportSessionImpl::SendMessage(
+base::expected<void, SendUpstreamMessageError>
+TransportSessionImpl::SendUpstreamMessage(
     PayloadType payload_type,
     const google::protobuf::MessageLite& message) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -41,22 +49,32 @@ base::expected<void, SendMessageError> TransportSessionImpl::SendMessage(
     channel_->SendUpstreamMessage(session_id_, payload_type, message);
     return {};
   }
-  return base::unexpected(SendMessageError::kChannelDisconnected);
+  return base::unexpected(SendUpstreamMessageError::kChannelDisconnected);
 }
 
 void TransportSessionImpl::OnMessage(
     PayloadType payload_type,
     const google::protobuf::MessageLite& message) {
-  std::ignore = ProcessPayload(payload_type, message);
+  // This entry point exists for the FCM wake-up path, which receives an
+  // already-parsed proto because the sharing stack parses the enclosing
+  // SharingMessage before this layer ever sees it. Handlers consume bytes, so
+  // serialize here rather than give every handler a second, parsed overload to
+  // implement. The round-trip is confined to wake-ups, which arrive at most
+  // once per session.
+  // TODO(crbug.com/538161953): Once the FCM flow delivers an
+  // ActuatorDownstreamMessage through ProcessDownstreamMessage, this method
+  // and its round-trip can be deleted along with TransportSession::OnMessage.
+  const std::string serialized_payload = message.SerializeAsString();
+  std::ignore = ProcessPayload(payload_type, serialized_payload);
 }
 
 base::expected<void, TransportSessionImpl::ProcessPayloadError>
-TransportSessionImpl::ProcessPayload(
-    PayloadType payload_type,
-    const google::protobuf::MessageLite& message) {
-  return DispatchToHandlers(
-      payload_type,
-      [&message](TransportHandler* handler) { handler->OnMessage(message); });
+TransportSessionImpl::ProcessPayload(PayloadType payload_type,
+                                     std::string_view serialized_payload) {
+  return DispatchToHandlers(payload_type, [payload_type, serialized_payload](
+                                              TransportHandler* handler) {
+    handler->OnMessage(payload_type, serialized_payload);
+  });
 }
 
 base::expected<void, TransportSessionImpl::ProcessPayloadError>
@@ -160,31 +178,52 @@ void TransportSessionImpl::ProcessDownstreamMessage(
 
   base::WeakPtr<TransportSessionImpl> weak_this = GetWeakPtr();
   for (const auto& typed_payload : message.typed_payloads()) {
+    // A handler's OnMessage() may have synchronously destroyed this session.
     if (!weak_this) {
       break;
     }
-    // Map ActuatorDownstreamPayloadType to public PayloadType
-    switch (typed_payload.payload_type()) {
-      case ACTUATOR_DOWNSTREAM_PAYLOAD_TYPE_CONTROL_COMMAND: {
-        ControlCommand command;
-        if (!command.ParseFromString(typed_payload.proto_payload().value())) {
-          DLOG(WARNING) << "Failed to parse ControlCommand payload";
-          continue;
-        }
-        auto result = ProcessPayload(PayloadType::kControl, command);
-        if (!result.has_value()) {
-          DLOG(WARNING) << "Failed to process payload "
-                        << "error: " << static_cast<int>(result.error());
-        }
-        break;
-      }
-      case ACTUATOR_DOWNSTREAM_PAYLOAD_TYPE_UNSPECIFIED:
-      default:
-        // Ignore unspecified or unknown payload types
-        DLOG(WARNING) << "Ignoring payload with unspecified or unknown type: "
-                      << typed_payload.payload_type();
-        continue;
-    }
+    ProcessTypedPayload(typed_payload);
+  }
+}
+
+void TransportSessionImpl::ProcessTypedPayload(
+    const ActuatorDownstreamTypedPayload& typed_payload) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  std::optional<PayloadType> payload_type =
+      FromDownstreamProtoPayloadType(typed_payload.payload_type());
+  if (!payload_type.has_value()) {
+    DLOG(WARNING) << "Ignoring payload with unspecified or unknown type: "
+                  << typed_payload.payload_type();
+    RecordDownstreamPayloadDropped(DownstreamPayloadDropReason::kUnknownType);
+    return;
+  }
+
+  // `Any::Is<T>()` is unavailable for LITE_RUNTIME protos, so `type_url` is
+  // compared by hand. An empty value is accepted; the server does not always
+  // populate it.
+  // TODO(crbug.com/560176806): Require `type_url` once the server always sets
+  // it.
+  const std::string& type_url = typed_payload.proto_payload().type_url();
+  if (!type_url.empty() && type_url != ExpectedTypeUrl(*payload_type)) {
+    DLOG(WARNING) << "Ignoring payload with unexpected type_url: " << type_url
+                  << ", expected: " << ExpectedTypeUrl(*payload_type);
+    RecordDownstreamPayloadDropped(
+        DownstreamPayloadDropReason::kTypeUrlMismatch);
+    return;
+  }
+
+  auto result =
+      ProcessPayload(*payload_type, typed_payload.proto_payload().value());
+  // WARNING: `this` may have been deleted by a handler. Do not access any
+  // member variables here.
+  if (!result.has_value()) {
+    DLOG(WARNING) << "Failed to process payload "
+                  << "error: " << static_cast<int>(result.error());
+    RecordDownstreamPayloadDropped(
+        result.error() == ProcessPayloadError::kNoFactoriesRegistered
+            ? DownstreamPayloadDropReason::kNoHandler
+            : DownstreamPayloadDropReason::kDispatchFailed);
   }
 }
 

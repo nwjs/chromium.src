@@ -311,7 +311,6 @@ public class TabGridDialogMediatorUnitTest {
         when(mEditable.toString()).thenReturn(CUSTOMIZED_DIALOG_TITLE);
         when(mRecyclerViewPositionSupplier.get()).thenReturn(null);
         when(mTabModel.getTabGroupTitle(any(Token.class))).thenReturn(UNSET_TAB_GROUP_TITLE);
-        when(mTabModel.getTabGroupTitle(any(Tab.class))).thenReturn(UNSET_TAB_GROUP_TITLE);
 
         mActivity = Robolectric.buildActivity(TestActivity.class).get();
         mModel = spy(new PropertyModel(TabGridDialogProperties.ALL_KEYS));
@@ -1786,7 +1785,7 @@ public class TabGridDialogMediatorUnitTest {
         List<Tab> remainingTabs = new ArrayList<>(Arrays.asList(mTab1));
         when(mTabModel.getTabsInGroup(TAB_GROUP_ID)).thenReturn(remainingTabs);
 
-        mTabGroupObserverCaptor.getValue().didMoveTabOutOfGroup(mTab2, 1);
+        mTabGroupObserverCaptor.getValue().didMoveTabOutOfGroup(mTab2, TAB_GROUP_ID);
 
         // Header title should update to reflect 1 tab.
         assertEquals(
@@ -1803,10 +1802,26 @@ public class TabGridDialogMediatorUnitTest {
         // Simulate moving the last tab out of the group.
         when(mTabModel.getTabsInGroup(TAB_GROUP_ID)).thenReturn(List.of());
 
-        mTabGroupObserverCaptor.getValue().didMoveTabOutOfGroup(mTab1, 0);
+        mTabGroupObserverCaptor.getValue().didMoveTabOutOfGroup(mTab1, TAB_GROUP_ID);
 
         // Verify dialog is hidden/dismissed.
         assertFalse(mModel.get(TabGridDialogProperties.IS_DIALOG_VISIBLE));
+    }
+
+    @Test
+    public void testTabGroupObserver_didMoveTabOutOfGroup_DifferentGroup() {
+        List<Tab> tabGroup = new ArrayList<>(Arrays.asList(mTab1, mTab2));
+        createTabGroup(tabGroup, TAB_GROUP_ID);
+        assertTrue(mMediator.onReset(tabGroup));
+
+        String originalTitle = mModel.get(TabGridDialogProperties.HEADER_TITLE);
+
+        Tab tab3 = prepareTab(TAB3_ID, TAB3_TITLE);
+        Token otherGroupId = new Token(3L, 4L);
+        mTabGroupObserverCaptor.getValue().didMoveTabOutOfGroup(tab3, otherGroupId);
+
+        // Header title should remain unchanged since the tab was moved out of a different group.
+        assertEquals(originalTitle, mModel.get(TabGridDialogProperties.HEADER_TITLE));
     }
 
     @Test

@@ -70,7 +70,6 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/content_mock_cert_verifier.h"
-#include "content/public/test/fenced_frame_test_util.h"
 #include "content/public/test/preconnect_test_util.h"
 #include "content/public/test/prerender_test_util.h"
 #include "content/public/test/simple_url_loader_test_helper.h"
@@ -227,11 +226,21 @@ class TestPreconnectManagerObserver
     preconnect_manager->SetObserverForTesting(this);
   }
 
-  void OnPreconnectUrl(const GURL& url,
-                       int num_sockets,
-                       bool allow_credentials) override {
+  void OnPreconnectUrl(
+      const GURL& url,
+      int num_sockets,
+      bool allow_credentials,
+      const net::NetworkAnonymizationKey& network_anonymization_key,
+      mojo::PendingRemote<network::mojom::ConnectionChangeObserverClient>&
+          connection_change_observer_client) override {
     preconnect_url_attempts_.insert(url.DeprecatedGetOriginAsURL());
     preconnect_url_attempts_history_.push_back(url.DeprecatedGetOriginAsURL());
+    if (!ProxyFound(url, network_anonymization_key)) {
+      ResolveHostRequestInfo preconnect_info{url.GetHost(),
+                                             network_anonymization_key};
+      successful_dns_lookups_.insert(preconnect_info);
+    }
+    CheckForWaitingLoop();
   }
 
   void OnPreresolveFinished(
@@ -2980,7 +2989,7 @@ class ConnectionAllowlistLoadingPredictorBrowserTest
   ConnectionAllowlistLoadingPredictorBrowserTest() {
     feature_list_.InitWithFeatures(
         /*enabled_features=*/{network::features::kConnectionAllowlists},
-        /*disabled_features=*/{});
+        /*disabled_features=*/{features::kPreconnectManagerDirectFastPath});
   }
 
   // Note: `LoadingPredictorBrowserTest::SetUpOnMainThread()` sets up the

@@ -162,7 +162,7 @@ class ChromeAutocompleteProviderClient : public AutocompleteProviderClient {
   bool ShouldOpenComposeboxForAskG() const override;
   void OpenComposeboxForAskG() override;
   void IssueContextualSearchRequest(const GURL& destination_url,
-                                    AutocompleteMatchType::Type match_type,
+                                    omnibox::AutocompleteMatchType match_type,
                                     bool is_zero_prefix_suggestion) override;
 
   // For testing.

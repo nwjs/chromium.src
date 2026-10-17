@@ -32,6 +32,7 @@
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
+#import "ios/chrome/browser/shared/public/commands/scene_sign_in_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
 #import "ios/chrome/browser/shared/public/commands/show_signin_command.h"
 #import "ios/chrome/browser/signin/model/account_consistency_service_factory.h"
@@ -52,6 +53,8 @@ AccountConsistencyBrowserAgent::AccountConsistencyBrowserAgent(
   StartObserving(browser);
   application_handler_ =
       HandlerForProtocol(browser_->GetCommandDispatcher(), SceneCommands);
+  scene_sign_in_handler_ =
+      HandlerForProtocol(browser_->GetCommandDispatcher(), SceneSignInCommands);
   settings_handler_ =
       HandlerForProtocol(browser_->GetCommandDispatcher(), SettingsCommands);
 }
@@ -108,6 +111,7 @@ void AccountConsistencyBrowserAgent::OnRestoreGaiaCookies() {
 void AccountConsistencyBrowserAgent::OnManageAccounts(
     const GURL& url,
     web::WebState* web_state) {
+  CHECK(SigninEnabled(), base::NotFatalUntil::M160);
   Browser::Type browser_type = browser_->type();
   base::UmaHistogramEnumeration("Signin.ShowManageAccountFromGaia.BrowserType",
                                 browser_type);
@@ -129,7 +133,7 @@ void AccountConsistencyBrowserAgent::OnManageAccounts(
                             ->GetNumberOfProfiles();
   // If there are any profiles beside the current one, it's likely the user
   // wanted to switch to another profile rather than add/manage accounts.
-  if (num_profiles > 1 && CanShowAccountMenu()) {
+  if (num_profiles > 1 && HasPrimaryAccount()) {
     ShowAccountMenu(url);
   } else {
     [settings_handler_
@@ -149,7 +153,7 @@ void AccountConsistencyBrowserAgent::OnShowConsistencyPromo(
   CHECK(reconcilor);
   signin_metrics::LogAccountReconcilorStateOnGaiaResponse(
       reconcilor->GetState());
-  [application_handler_
+  [scene_sign_in_handler_
       showWebSigninPromoFromViewController:base_view_controller_
                                        URL:url];
 }
@@ -158,6 +162,7 @@ void AccountConsistencyBrowserAgent::OnAddAccount(
     const GURL& url,
     const std::string& prefilled_email,
     web::WebState* web_state) {
+  CHECK(SigninEnabled(), base::NotFatalUntil::M160);
   if (!IsActiveWebState(web_state)) {
     return;
   }
@@ -179,6 +184,7 @@ void AccountConsistencyBrowserAgent::OnAddAccount(
 void AccountConsistencyBrowserAgent::OnAddPrefilledAccount(
     const GURL& url,
     const std::string& prefilled_email) {
+  CHECK(SigninEnabled(), base::NotFatalUntil::M160);
   CHECK(!prefilled_email.empty());
   BOOL email_in_identity_on_device =
       signin::GetAccountInfoOnDeviceWithEmail(
@@ -197,14 +203,14 @@ void AccountConsistencyBrowserAgent::OnAddPrefilledAccount(
                        prefilledEmail:base::SysUTF8ToNSString(prefilled_email)];
     return;
   }
-  if (CanShowAccountMenu()) {
+  if (HasPrimaryAccount()) {
     // The user is signed-in, so they must select the account in the account
     // menu.
     ShowAccountMenu(url);
   } else {
     // The user is signed-out and the account is on the device, so they must
     // select the account in the account consistency view.
-    [application_handler_
+    [scene_sign_in_handler_
         showWebSigninPromoFromViewController:base_view_controller_
                                          URL:url];
   }
@@ -217,7 +223,7 @@ void AccountConsistencyBrowserAgent::OnAddUnkwownAccount(const GURL& url) {
                             ->GetNumberOfProfiles();
   // If there are any profiles beside the current one, it's likely the user
   // wanted to switch to another profile rather than add/manage accounts.
-  if (num_profiles > 1 && CanShowAccountMenu()) {
+  if (num_profiles > 1 && HasPrimaryAccount()) {
     ShowAccountMenu(url);
   } else {
     id<BrowserCoordinatorCommands> browser_coordinator_handler =
@@ -261,7 +267,10 @@ bool AccountConsistencyBrowserAgent::SigninEnabled() const {
   return signin_enabled_data_source_->SigninEnabled();
 }
 
-bool AccountConsistencyBrowserAgent::CanShowAccountMenu() const {
+bool AccountConsistencyBrowserAgent::HasPrimaryAccount() const {
+  // Web responses are handled asynchronously, so sign-in could have been
+  // disabled since the web page was loaded.
+  CHECK(SigninEnabled(), base::NotFatalUntil::M160);
   ProfileIOS* profile = browser_->GetProfile()->GetOriginalProfile();
   signin::IdentityManager* identity_manager =
       IdentityManagerFactory::GetForProfile(profile);

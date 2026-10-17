@@ -121,11 +121,6 @@ Lưu ý: Hãy đọc thêm về chính sách giảm thiểu quy trình (https://
 <translation id="1076751984131277498">Danh sách thiết bị USB được phép tháo</translation>
 <translation id="1077675271127011209">Tắt tính năng báo cáo về hoạt động sử dụng và dữ liệu liên quan đến sự cố</translation>
 <translation id="1079498696402787191">Sử dụng giá trị mặc định cho các hàm băm được phép trong quá trình giao tiếp qua TLS.</translation>
-<translation id="1081263326166769685">Nếu bạn đặt chính sách này thành Bật, <ph name="PRODUCT_OS_NAME" /> sẽ báo cáo lại cho Google chỉ số sử dụng và dữ liệu chẩn đoán, bao gồm cả báo cáo sự cố. Nếu bạn đặt chính sách này thành Tắt, tính năng báo cáo chỉ số và dữ liệu chẩn đoán sẽ tắt.
-
-Đối với các thiết bị được quản lý, chính sách này sẽ bật theo mặc định và gửi các chỉ số cho Google.
-
-Đối với các thiết bị không được quản lý, việc có gửi chỉ số hay không là quyền của người dùng khi bạn không đặt chính sách này.</translation>
 <translation id="1081470306474387129">Controlled Frame API, dành cho một số ngữ cảnh tách biệt nhất định như Ứng dụng web tách biệt (IWA), cho phép một ứng dụng nhúng và thao tác trên nội dung tuỳ ý.
 Vui lòng truy cập vào https://github.com/WICG/controlled-frame để biết thông tin chi tiết.
 
@@ -542,6 +537,7 @@ Các chính sách của Chrome sẽ được ưu tiên hơn chính sách này, c
       Chính sách này ghi đè <ph name="DEFAULT_SERIAL_GUARD_SETTING_POLICY_NAME" />, <ph name="SERIAL_ASK_FOR_URLS_POLICY_NAME" />, <ph name="SERIAL_BLOCKED_FOR_URLS_POLICY_NAME" /> và các lựa chọn ưu tiên của người dùng.</translation>
 <translation id="1413768951234456918">Xoá nhật ký duyệt web</translation>
 <translation id="1413936351612032792">Báo cáo thông tin về việc sử dụng các ứng dụng Linux</translation>
+<translation id="1417591892602709307">Số lượng hồ sơ người dùng tối đa được lưu trữ trên thiết bị</translation>
 <translation id="1417776888841750570">Chính sách này kiểm soát hành vi của trình duyệt sau khi người dùng đăng nhập vào tài khoản được quản lý trong vùng nội dung.
 
 Chính sách này ghi đè <ph name="MANAGED_ACCOUNTS_SIGNIN_RESTRICTION_POLICY_NAME" />.
@@ -695,6 +691,25 @@ Nếu bạn tắt chính sách này, thì việc cuộn trang web đến các ph
       Lưu ý: Chính sách này cũng áp dụng cho các tiện ích thành phần, chẳng hạn như tiện ích Hangout Services.</translation>
 <translation id="148194404518916594">Cho phép người dùng sử dụng tính năng Chạm để tìm kiếm</translation>
 <translation id="1484190167468437592">Tắt chế độ đơn âm</translation>
+<translation id="1484391060024155139">Chính sách này định cấu hình <ph name="PRODUCT_NAME" /> để sắp xếp thứ tự các thuật toán mật mã mã hoá được ưu tiên trong giao thức TLS 1.3 nhằm thể hiện mức độ ưu tiên đối với các thuật toán đã được một cơ chế tuân thủ cụ thể phê duyệt.
+
+Việc đặt chính sách này không đảm bảo rằng thuật toán cụ thể sẽ được thương lượng.
+
+Chính sách này được thiết lập để cho phép các nhà điều hành máy chủ muốn hỗ trợ cả những máy khách có và không có yêu cầu tuân thủ phân biệt các máy khách đó, đồng thời chỉ sử dụng một số thuật toán không mặc định có độ mạnh mật mã cao hơn đối với những máy khách được định cấu hình rõ ràng để ưu tiên chúng.
+
+Việc đặt chính sách thành "<ph name="CNSA_NAME" />" sẽ định cấu hình <ph name="PRODUCT_NAME" /> để ưu tiên các thuật toán mật mã cần thiết cho việc tuân thủ phiên bản 1.0 và 2.0 của Bộ thuật toán bảo mật quốc gia thương mại (CNSA 1.0 và 2.0).
+
+Nếu bạn không đặt chính sách này hoặc đặt chính sách này thành "<ph name="DEFAULT_NAME" />", thì <ph name="PRODUCT_NAME" /> sẽ được định cấu hình để sử dụng các thuật toán mật mã mặc định.
+
+Bạn không cần đặt chính sách này để đảm bảo bảo mật. Mật mã mặc định mà <ph name="PRODUCT_NAME" /> sử dụng đủ mạnh để chống chịu một cuộc tấn công brute force dùng toàn bộ năng lượng của Mặt trời.
+
+Nếu bạn đặt chính sách này, <ph name="PRODUCT_NAME" /> sẽ chậm hơn khi truy cập vào các trang web.
+
+Chính sách này chỉ ảnh hưởng đến TLS 1.3 và QUIC, chứ không ảnh hưởng đến các phiên bản TLS trước đó.
+
+Bạn có thể đặt chính sách này cho máy và cho người dùng. Nếu bạn đặt cho người dùng, chính sách này chỉ ảnh hưởng đến các yêu cầu mạng do hồ sơ người dùng khởi tạo và có thể không ảnh hưởng đến các yêu cầu mạng do <ph name="PRODUCT_NAME" /> đưa ra để thực hiện các tác vụ trong nền trên toàn trình duyệt; những yêu cầu đó được kiểm soát bằng giá trị ở cấp máy. Nếu bạn đặt chính sách này ở cả cấp máy và cấp người dùng, thì giá trị ở cấp máy sẽ được áp dụng, trừ phi thứ tự ưu tiên của chính sách đã được thay đổi theo chính sách <ph name="CLOUD_USER_POLICY_OVERRIDES_CLOUD_MACHINE_POLICY_POLICY_NAME" />.
+
+Đối với các phiên bản từ 155 trở xuống, chính sách này chỉ áp dụng trên toàn bộ máy.</translation>
 <translation id="1486021504508098388">Báo cáo thông tin về đèn nền</translation>
 <translation id="1487722536912664411">Cho phép người dùng sử dụng <ph name="PRODUCT_NAME" /></translation>
 <translation id="1487916040416013623">Nếu bạn đặt chính sách này, hệ thống sẽ chỉ định máy chủ nào sẽ được phép dùng cho quy trình xác thực tích hợp. Tính năng xác thực tích hợp chỉ bật khi <ph name="PRODUCT_NAME" /> nhận được thử thách xác thực từ một proxy hoặc từ một máy chủ có trong danh sách cho phép này.
@@ -943,7 +958,6 @@ Ngưỡng tối thiểu là 1 phút.
 <translation id="1625700732886306811">Cho phép <ph name="PRODUCT_NAME" /> kết nối với các thiết bị trên mọi địa chỉ IP</translation>
 <translation id="1626379196197114720">Cho phép sử dụng bộ nhớ đệm cho thao tác tiến/lùi</translation>
 <translation id="1628974048137236820">Trang thẻ mới sẽ không hiển thị thẻ</translation>
-<translation id="1628984674324273832">Không cho phép tính năng Tìm và điền bằng Gemini.</translation>
 <translation id="163200210584085447">Các mẫu trong danh sách này sẽ được đối sánh dựa trên nguồn gốc
       bảo mật của URL yêu cầu.  Nếu tìm thấy mẫu phù hợp, quyền
       truy cập thiết bị quay video sẽ được cấp trên
@@ -957,6 +971,21 @@ Ngưỡng tối thiểu là 1 phút.
 <translation id="1635748761015837179">Cho phép ghi vào thiết bị bộ nhớ ngoài</translation>
 <translation id="1639468541408865385">Bật bộ nhớ đệm xác thực HTTP có phạm vi toàn cầu</translation>
 <translation id="1639673466479276550">Bật trình bảo vệ màn hình trên màn hình đăng nhập.</translation>
+<translation id="1640646094704433064">Cho phép bạn thiết lập một danh sách mẫu URL trang web để chỉ định các trang web không được phép chạy JavaScript bật trình biên dịch JIT (Just In Time).
+
+          Việc tắt JavaScript JIT có nghĩa là <ph name="PRODUCT_NAME" /> có thể hiển thị nội dung trên web chậm hơn và cũng có thể vô hiệu hoá các phần của JavaScript (bao gồm cả WebAssembly). Việc tắt JavaScript JIT có thể cho phép <ph name="PRODUCT_NAME" /> hiển thị nội dung trên web ở một cấu hình an toàn hơn.
+
+          Để biết thông tin chi tiết về các mẫu URL hợp lệ, vui lòng truy cập vào https://chromeenterprise.google/policies/url-patterns. Cho phép sử dụng ký tự đại diện <ph name="WILDCARD_VALUE" />.
+
+          Bạn có thể đặt các ngoại lệ về chính sách cho những miền con cụ thể cũng như toàn bộ trang web. Ví dụ: một chính sách chỉ được đặt cho subdomain.site.com sẽ áp dụng cho subdomain.site.com mà không ảnh hưởng đến site.com. Trong một số trường hợp không thể tách biệt miền con khỏi trang web mẹ, miền con đó có thể kế thừa chính sách được đặt trên site.com. Các ngoại lệ cũng có thể không có hiệu lực đối với những khung được tải trong một thẻ hiện có cho đến khi trang web được mở trong một thẻ mới. Trên các thiết bị <ph name="ANDROID_NAME" /> có bộ nhớ thấp, những ngoại lệ dành riêng cho từng trang web có thể không được thực thi. Thay vào đó, các trang web sẽ sử dụng chính sách của <ph name="DEFAULT_JAVA_SCRIPT_JIT_SETTING_POLICY_NAME" /> (nếu chính sách này được thiết lập) hoặc mặc định sử dụng chế độ cài đặt JavaScript JIT của hồ sơ.
+
+          Để thực thi các ngoại lệ, <ph name="PRODUCT_NAME" /> có thể đặt các trang web hoặc miền con có chế độ cài đặt khác với chế độ cài đặt mặc định vào các quy trình riêng. Việc này có thể làm tăng mức sử dụng bộ nhớ, đặc biệt là trên <ph name="ANDROID_NAME" /> hoặc khi một mẫu ký tự đại diện khớp với nhiều miền con, vì mỗi nguồn gốc khớp có thể được tách biệt riêng. Các miền con tách biệt cũng không thể sử dụng document.domain để truy cập vào trang web mẹ.
+
+          Lưu ý: Trong các phiên bản từ 155 trở về trước, những ngoại lệ về chính sách chỉ được thực thi ở cấp độ trang web (eTLD+1). Nếu chỉ đặt chính sách trên subdomain.site.com thì chính sách đó không có hiệu lực, ngay cả đối với subdomain.site.com; bạn phải đặt chính sách đó trên site.com để áp dụng cho cả site.com và subdomain.site.com.
+
+          Chính sách này áp dụng theo từng khung chứ không chỉ dựa trên URL gốc cấp cao nhất. Ví dụ: nếu site-one.com có trong chính sách <ph name="JAVA_SCRIPT_JIT_BLOCKED_FOR_SITES_POLICY_NAME" /> nhưng site-one.com tải một khung chứa site-two.com, thì site-one.com sẽ bị tắt JavaScript JIT, còn site-two.com sẽ sử dụng chính sách của <ph name="DEFAULT_JAVA_SCRIPT_JIT_SETTING_POLICY_NAME" /> (nếu có) hoặc mặc định bật JavaScript JIT. Các mục trong danh sách chặn có mức độ ưu tiên cao hơn danh sách cho phép và do đó có mức độ ưu tiên cao hơn so với giá trị mặc định được định cấu hình.
+
+          Nếu bạn không đặt chính sách này cho một trang web thì hệ thống sẽ áp dụng chính sách của <ph name="DEFAULT_JAVA_SCRIPT_JIT_SETTING_POLICY_NAME" /> cho trang web đó (nếu có), nếu không thì trang web sẽ được bật JavaScript JIT.</translation>
 <translation id="1640824698339859203">Bật dịch vụ SSO di động và chuyển trạng thái xác thực dịch vụ web của người dùng sang thiết bị mới</translation>
 <translation id="1643642938972654829">Cho phép truy cập vào trang thử nghiệm chính sách</translation>
 <translation id="1645793986494086629">Lược đồ:</translation>
@@ -1117,6 +1146,24 @@ gặp sự cố do thay đổi này. Phiên bản cuối cùng hỗ trợ chính
       Lưu ý: Tùy chọn cài đặt này sẽ ghi đè chính sách <ph name="REMOTE_ACCESS_HOST_DOMAIN_POLICY_NAME" />, nếu có.</translation>
 <translation id="1723571018091915166">Không cho phép chia sẻ thẻ thông minh với các công cụ tích hợp <ph name="GOOGLE_AI_MODE_PRODUCT_NAME" />.</translation>
 <translation id="172374442286684480">Cho phép tất cả trang web lưu dữ liệu trên máy</translation>
+<translation id="1726467454355516626">Khi bạn đặt chính sách này thành True (Đúng), các Ứng dụng Chrome do quản trị viên cài đặt có thể tiếp tục chạy và được cài đặt, bất kể trạng thái bật Ứng dụng Chrome theo mặc định.
+
+Nếu bạn đặt chính sách này thành False (Sai) hoặc không đặt, chế độ mặc định được xác định trên thiết bị sẽ được sử dụng.
+
+Khi cố gắng khởi chạy một Ứng dụng Chrome đang tắt, người dùng sẽ thấy thông báo giải thích lý do ứng dụng không khởi chạy và đề xuất liên hệ với bộ phận CNTT.
+
+ChromeOS M184 sẽ là mốc quan trọng cuối cùng của ChromeOS hỗ trợ các Ứng dụng Chrome.</translation>
+<translation id="1726477280489844651">Kiểm soát việc <ph name="PRODUCT_NAME" /> có mở cửa sổ trình duyệt khi người dùng đăng nhập vào <ph name="MS_WIN_NAME" /> hay không.
+
+<ph name="PRODUCT_NAME" /> có chế độ cài đặt "Khởi động <ph name="PRODUCT_NAME" /> bằng <ph name="MS_WIN_NAME" />" để tự đăng ký khởi chạy khi người dùng đăng nhập, nhờ đó trình duyệt sẽ sẵn sàng hoạt động ngay lập tức. Người dùng cũng có thể thấy lời nhắc đề nghị họ thay đổi chế độ cài đặt này.
+
+Nếu bạn đặt chính sách này thành Enabled (Bật), <ph name="PRODUCT_NAME" /> sẽ khởi chạy và mở một cửa sổ trình duyệt khi người dùng đăng nhập. Người dùng không thể thay đổi chế độ cài đặt này và cũng không thấy lời nhắc thay đổi chế độ cài đặt này.
+
+Nếu bạn đặt chính sách này thành Disabled (Tắt), <ph name="PRODUCT_NAME" /> sẽ không chạy khi người dùng đăng nhập. Người dùng không thể thay đổi chế độ cài đặt này và cũng không thấy lời nhắc thay đổi chế độ cài đặt này.
+
+Nếu bạn không đặt chính sách này, người dùng sẽ có thể thay đổi chế độ cài đặt.
+
+Chính sách này không ảnh hưởng đến các phiên bản <ph name="PRODUCT_NAME" /> không có chế độ cài đặt "Khởi động <ph name="PRODUCT_NAME" /> bằng <ph name="MS_WIN_NAME" />".</translation>
 <translation id="1729169799290004131">Việc đặt chính sách này sẽ chỉ định tỷ lệ phần trăm độ sáng màn hình, tắt các tính năng tự động điều chỉnh độ sáng. Độ sáng màn hình ban đầu sẽ thay đổi theo giá trị của chính sách nhưng người dùng có thể thay đổi giá trị này.
 
       Nếu bạn không đặt chính sách này, các tùy chọn kiểm soát màn hình của người dùng và tính năng tự động điều chỉnh độ sáng sẽ không bị ảnh hưởng.
@@ -1219,6 +1266,40 @@ Chính sách này không có hiệu lực nếu không có tuỳ chọn lưu gi�
 
       Nếu bạn không đặt chính sách này, thì người dùng có thể thao tác trên toàn bộ danh sách gồm các ngôn ngữ ưu tiên.</translation>
 <translation id="1803646570632580723">Danh sách các ứng dụng được ghim sẽ hiển thị trong trình chạy</translation>
+<translation id="180432221123109556">Cho phép bạn lập một danh sách các mẫu URL trang web để chỉ định các trang web được bật tính năng tối ưu hoá JavaScript nâng cao.
+
+Để biết thông tin chi tiết về các mẫu URL trang web hợp lệ, vui lòng truy cập vào https://chromeenterprise.google/policies/url-patterns.
+Cho phép sử dụng ký tự đại diện <ph name="WILDCARD_VALUE" />.
+
+Bạn có thể đặt các ngoại lệ về chính sách cho những miền con cụ thể cũng như toàn bộ trang web.
+Ví dụ: một chính sách chỉ được đặt cho subdomain.site.com sẽ áp dụng cho
+subdomain.site.com mà không ảnh hưởng đến site.com. Trong một số trường hợp
+không thể tách biệt miền con khỏi trang web mẹ, miền con đó có thể kế thừa chính sách
+được đặt trên site.com. Các ngoại lệ cũng có thể không có hiệu lực đối với những khung được tải trong
+thẻ đang mở cho đến khi trang web được mở trong thẻ mới. Trên các
+thiết bị <ph name="ANDROID_NAME" /> có bộ nhớ thấp, những ngoại lệ dành riêng cho từng trang web có thể
+không được thực thi. Thay vào đó, các trang web sẽ sử dụng chính sách của
+<ph name="DEFAULT_JAVA_SCRIPT_OPTIMIZER_SETTING_POLICY_NAME" />
+(nếu chính sách này được thiết lập) hoặc mặc định sử dụng chế độ cài đặt JavaScript JIT của hồ sơ.
+
+Để thực thi các ngoại lệ, <ph name="PRODUCT_NAME" />
+có thể đặt các trang web hoặc miền con có chế độ cài đặt khác với chế độ cài đặt mặc định vào
+các quy trình riêng. Việc này có thể làm tăng mức sử dụng bộ nhớ, đặc biệt là trên
+<ph name="ANDROID_NAME" /> hoặc khi một mẫu ký tự đại diện khớp với nhiều
+miền con, vì mỗi nguồn gốc khớp có thể được tách biệt riêng. Các miền con
+tách biệt cũng không thể sử dụng document.domain để truy cập vào trang web mẹ.
+
+Lưu ý: Trong các phiên bản từ 138 trở về trước, những ngoại lệ về chính sách chỉ được thực thi ở cấp độ trang web (eTLD+1). Nếu chỉ đặt chính sách trên subdomain.site.com thì chính sách đó không có
+hiệu lực, ngay cả đối với subdomain.site.com; bạn phải đặt chính sách đó trên site.com để
+áp dụng cho cả site.com và subdomain.site.com.
+
+Chính sách này áp dụng theo từng khung chứ không chỉ dựa trên URL gốc
+cấp cao nhất. Ví dụ: nếu site-one.com có trong chính sách <ph name="JAVA_SCRIPT_OPTIMIZER_ALLOWED_FOR_SITES_POLICY_NAME" /> nhưng site-one.com tải một khung
+chứa site-two.com, thì site-one.com sẽ được bật tính năng
+tối ưu hoá JavaScript, còn site-two.com sẽ sử dụng chính sách của <ph name="DEFAULT_JAVA_SCRIPT_OPTIMIZER_SETTING_POLICY_NAME" /> (nếu được thiết lập) hoặc mặc định bật tính năng
+tối ưu hoá JavaScript. Các mục trong danh sách chặn có mức độ ưu tiên cao hơn danh sách cho phép và do đó có mức độ ưu tiên cao hơn so với giá trị mặc định được định cấu hình.
+
+Nếu bạn không đặt chính sách này cho một trang web thì hệ thống sẽ áp dụng chính sách của <ph name="DEFAULT_JAVA_SCRIPT_OPTIMIZER_SETTING_POLICY_NAME" /> cho trang web đó (nếu được thiết lập), còn không thì trang web đó sẽ được bật tính năng tối ưu hoá JavaScript.</translation>
 <translation id="1807539058116290184">Không cho phép dùng cử chỉ chụm để thu phóng ở chế độ Kiosk</translation>
 <translation id="1808715480127969042">Chặn cookie trên các trang web này</translation>
 <translation id="1810261428246410396">Cho phép sử dụng tính năng Chia sẻ Internet tức thì.</translation>
@@ -1447,6 +1528,7 @@ Nếu bạn không đặt chính sách này, thì tính năng Nhấp để gọi
       Xin lưu ý rằng chính sách này chặn JavaScript dựa trên việc nguồn gốc của tài liệu cấp cao nhất (thường là URL của trang cũng hiển thị trong thanh địa chỉ) có khớp với mẫu nào hay không. Do đó, chính sách này không phù hợp cho mục đích giảm thiểu các cuộc tấn công vào chuỗi cung ứng web. Ví dụ: Việc cung cấp mẫu "https://[*.]foo.com/" sẽ không ngăn một trang (được lưu trữ trên https://example.com chẳng hạn) chạy tập lệnh được tải từ https://www.foo.com/example.js. Hơn nữa, việc cung cấp mẫu "https://example.com/" sẽ không ngăn tài liệu trên https://example.com chạy tập lệnh nếu đó không phải là tài liệu cấp cao nhất nhưng được nhúng dưới dạng khung phụ vào một trang được lưu trữ trên nguồn gốc khác (chẳng hạn như https://www.bar.com).</translation>
 <translation id="1942015922182679826">Cho phép xoá mật khẩu không giải mã được</translation>
 <translation id="1942626390957213764">Tắt trung tâm chia sẻ trên máy tính</translation>
+<translation id="1943628907052340534">Không mở <ph name="PRODUCT_NAME" /> khi người dùng đăng nhập vào <ph name="MS_WIN_NAME" /></translation>
 <translation id="194407941132272412">Tắt tính năng tách biệt trang web đối với tất cả trang web nhưng cho phép người dùng bật tính năng này</translation>
 <translation id="1945994447126139909">Chính sách doanh nghiệp này là để áp dụng trong thời gian ngắn và sẽ bị loại bỏ trong phiên bản <ph name="PRODUCT_NAME" /> 88.
 
@@ -1718,7 +1800,6 @@ Trên <ph name="MAC_OS_NAME" />, chính sách này chỉ có trên các phiên b
 <translation id="2107601598727098402">
         Chính sách này không còn dùng trong M72 nữa. Thay vào đó, hãy sử dụng CloudManagementEnrollmentToken.
         </translation>
-<translation id="2111355600078097861">Cho phép tính năng Tìm và điền bằng Gemini nhưng không cải tiến các mô hình AI.</translation>
 <translation id="2112656109118682849">Cho phép người dùng bật/tắt chế độ hiển thị thông tin hệ thống trên màn hình đăng nhập</translation>
 <translation id="2113068765175018713">Giới hạn thời gian hoạt động của thiết bị bằng cách tự động khởi động lại</translation>
 <translation id="211386002920955760">Kiểm soát việc người dùng doanh nghiệp có thể sử dụng tính năng chia sẻ nhóm thẻ trong Chrome hay không.
@@ -1811,6 +1892,7 @@ Việc không đặt chính sách này đối với người dùng thông thư�
       Nếu bạn không đặt chính sách này, thì trình duyệt sẽ chỉ bắt đầu tìm cách tiết kiệm bộ nhớ sau khi phát hiện thấy rằng dung lượng bộ nhớ thực trên máy ở mức thấp.</translation>
 <translation id="2161348910646846717">Cho phép người dùng thay đổi kênh phát hành</translation>
 <translation id="2162703823039992020">Thành phần tích hợp theo ngữ cảnh của các dịch vụ của Google trên <ph name="PRODUCT_OS_NAME" /></translation>
+<translation id="2163451780572451889">URL ứng dụng web của phiên bản <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> cho tổ chức này. Phải là một URL loại HTTPS hợp lệ.</translation>
 <translation id="2166155400701622446">Có một danh sách các cổng bị hạn chế được tích hợp sẵn trong <ph name="PRODUCT_NAME" />. Kết nối với các cổng này sẽ không thực hiện được. Chế độ cài đặt này cho phép bỏ qua danh sách đó. Giá trị này là một danh sách được phân tách bằng dấu phẩy, có thể trống hoặc gồm một hay nhiều cổng cho phép thực hiện các kết nối đi.
 
       Các cổng bị hạn chế nhằm ngăn chặn hành vi lợi dụng <ph name="PRODUCT_NAME" /> để khai thác các lỗ hổng bảo mật của mạng. Việc thiết lập chính sách này có thể khiến mạng của bạn có nguy cơ bị tấn công. Chính sách này dùng để xử lý tạm thời các lỗi có mã "ERR_UNSAFE_PORT" khi di chuyển một dịch vụ đang chạy trên cổng bị chặn sang một cổng thông thường (ví dụ: cổng 80 hoặc 443).
@@ -2082,6 +2164,11 @@ Trên <ph name="MAC_OS_NAME" />, chính sách này chỉ có trên các phiên b
       Chính sách này chỉ ảnh hưởng đến quyền truy cập vào thiết bị USB thông qua API WebUSB. Để cấp quyền truy cập vào thiết bị USB thông qua API Web Serial, hãy xem chính sách <ph name="SERIAL_ALLOW_USB_DEVICES_FOR_URLS_POLICY_NAME" />.</translation>
 <translation id="2318353380372431186">Cho phép người dùng cài đặt IWA</translation>
 <translation id="2318583605563438459">Cho phép cha mẹ thêm tài khoản được giám sát</translation>
+<translation id="2323318142178972965">Kiểm soát số lượng hồ sơ người dùng tối đa được giữ lại trên thiết bị.
+
+Khi bạn đặt chính sách này thành một số nguyên dương <ph name="MAX_USERS" />, <ph name="PRODUCT_OS_NAME" /> sẽ giữ lại tối đa <ph name="MAX_USERS" /> hồ sơ người dùng thông thường trên thiết bị. Khi một người dùng mới đăng nhập và vượt quá giới hạn, (các) hồ sơ người dùng ít được sử dụng gần đây nhất (ngoại trừ người dùng hiện đang đăng nhập) sẽ tự động bị xoá cùng với bộ nhớ cục bộ tương ứng để duy trì dung lượng ổ đĩa trống.
+
+Nếu bạn không đặt chính sách này hoặc đặt thành 0, thì sẽ không có giới hạn về số lượng hồ sơ người dùng có thể thêm vào thiết bị. Để không lưu giữ hồ sơ người dùng nào trên thiết bị, hãy chuyển sang sử dụng chính sách <ph name="DEVICE_EPHEMERAL_USERS_ENABLED_POLICY_NAME" />.</translation>
 <translation id="2326031114717677574">Chu kỳ hệ thống lấy mẫu và thu thập dữ liệu âm thanh. Thời gian tối thiểu cho phép là 1 phút.
 
       Nếu bạn không đặt chính sách này, thì chu kỳ mặc định là 15 phút sẽ được áp dụng.</translation>
@@ -2191,9 +2278,6 @@ Nếu bạn không đặt chính sách này, thì màn hình bảo vệ quyền 
 <translation id="2421779938235645781">Màu đèn nền bàn phím khớp với hình nền hiện tại</translation>
 <translation id="2423255396068675416">Nếu bạn không đặt hoặc đặt chính sách này thành Bật, thì người dùng có thể chạy <ph name="PRODUCT_CROSTINI_NAME" /> miễn là <ph name="VIRTUAL_MACHINES_ALLOWED_POLICY_NAME" /> và <ph name="CROSTINI_ALLOWED_POLICY_NAME" /> đều được đặt thành Bật. Việc đặt chính sách này thành Tắt sẽ tắt <ph name="PRODUCT_CROSTINI_NAME" /> đối với người dùng. Khi bạn đổi chính sách này thành Tắt, chính sách sẽ được áp dụng cho các vùng chứa <ph name="PRODUCT_CROSTINI_NAME" /> mới đang khởi động, chứ không phải các vùng chứa đã chạy.</translation>
 <translation id="2423654977291507457">Tắt thành phần tích hợp</translation>
-<translation id="2424141395604579502">Nếu bạn đặt chính sách này thành True (Đúng) hoặc không đặt, người dùng sẽ có thể thêm, xoá, sửa đổi hoặc tải dấu trang lên.
-
-      Nếu bạn đặt chính sách này thành False (Sai), người dùng sẽ không thể thêm, xoá, sửa đổi hoặc tải dấu trang lên. Người dùng vẫn có thể sử dụng dấu trang hiện có.</translation>
 <translation id="242521047682347997">Không cho phép người dùng đồng bộ hoá tin nhắn SMS giữa Chromebook và điện thoại</translation>
 <translation id="2426782419955104525">Bật tính năng Instant của <ph name="PRODUCT_NAME" /> và chặn người dùng thay đổi cài đặt này.
 
@@ -2274,6 +2358,7 @@ Chính sách này chỉ là biện pháp tạm thời để kiểm soát tính n
 <translation id="2479760962196319822">Chính sách này kiểm soát việc người dùng <ph name="PRODUCT_OS_NAME" /> có thể lưu trữ dữ liệu trên máy hay không.
       Nếu bạn đặt chính sách này thành False thì hệ thống sẽ chặn quyền truy cập vào bộ nhớ cục bộ trên <ph name="PRODUCT_OS_NAME" />, tức là người dùng không thể lưu trữ dữ liệu trên máy và cũng không thể truy cập vào các thư mục trên máy.
       Nếu bạn đặt chính sách này thành True hoặc không đặt thì hệ thống sẽ cho phép truy cập vào bộ nhớ cục bộ trên <ph name="PRODUCT_OS_NAME" />, tức là người dùng có thể lưu trữ dữ liệu ở bất cứ đâu và truy cập bất cứ thư mục nào.</translation>
+<translation id="2481931731272002134">Cho phép sử dụng các tính năng AI tạo sinh trong Tự động điền và tham gia cải tiến các mô hình AI.</translation>
 <translation id="2482676533225429905">Máy chủ nhắn tin gốc</translation>
 <translation id="2483146640187052324">Dự đoán tác vụ mạng trên kết nối mạng bất kỳ</translation>
 <translation id="2487495476672607707">Tính năng đồng bộ hoá tệp <ph name="PRODUCT_OS_NAME" /> sẽ tự động đặt các tệp <ph name="GOOGLE_DRIVE_NAME" /> trong “Drive của tôi” của người dùng ở chế độ có thể sử dụng khi không có mạng (nếu có đủ dung lượng) trên thiết bị <ph name="CHROMEBOOK_PLUS_NAME" />.
@@ -2397,24 +2482,6 @@ Nếu bạn đặt chính sách này thành Tắt, tính năng mã hoá nội du
 <translation id="2521581787935130926">Hiển thị lối tắt ứng dụng trong thanh dấu trang</translation>
 <translation id="2522304491589804974">Định cấu hình danh sách cho phép cài đặt tiện ích</translation>
 <translation id="2523511232831599126">Bật lối tắt hỗ trợ tiếp cận trên màn hình đăng nhập</translation>
-<translation id="252611686271192278">Direct Sockets API cho phép giao tiếp với các điểm cuối tuỳ ý bằng TCP và UDP.
-Vui lòng truy cập vào https://github.com/WICG/direct-sockets để biết thông tin chi tiết.
-
-Điểm cuối trên mạng riêng tư là những điểm cuối sử dụng địa chỉ IP từ không gian địa chỉ IP riêng tư, được định nghĩa trong https://wicg.github.io/private-network-access/#ip-address-space-private.
-
-Nếu đặt chính sách này, bạn có thể lập danh sách các mẫu URL chỉ định những trang web bị chặn truy cập mạng riêng tư trong Direct Sockets API.
-Các mẫu hợp lệ được giới hạn ở Ứng dụng web tách biệt.
-
-Khi bạn không đặt chính sách này, <ph name="DEFAULT_DIRECT_SOCKETS_PRIVATE_NETWORK_ACCESS_SETTING_POLICY_NAME" /> (nếu được đặt) sẽ áp dụng cho tất cả trang web.
-
-Các mẫu URL không được xung đột với <ph name="DIRECT_SOCKETS_PRIVATE_NETWORK_ACCESS_ALLOWED_FOR_URLS_POLICY_NAME" />. Không chính sách nào được ưu tiên nếu một URL khớp với cả hai chính sách.
-
-Để biết thông tin chi tiết về các mẫu URL hợp lệ, vui lòng truy cập vào https://chromeenterprise.google/policies/url-patterns. Chúng tôi không chấp nhận giá trị <ph name="WILDCARD_VALUE" /> đối với chính sách này.
-
-Xin lưu ý rằng chính sách này chỉ áp dụng nếu nguồn gốc được phép sử dụng Direct Sockets API.
-Vui lòng tham khảo <ph name="DEFAULT_DIRECT_SOCKETS_SETTING_POLICY_NAME" />, <ph name="DIRECT_SOCKETS_ALLOWED_FOR_URLS_POLICY_NAME" /> và <ph name="DIRECT_SOCKETS_BLOCKED_FOR_URLS_POLICY_NAME" /> để biết thêm thông tin chi tiết.
-
-Chính sách này chỉ áp dụng cho những lần kết nối mới và không vô hiệu hoá những kết nối hiện có.</translation>
 <translation id="252742292004421898">Cho phép Direct Sockets API trên các trang web này</translation>
 <translation id="2528762900096510743">Bật dịch vụ tự động đăng xuất</translation>
 <translation id="2529880111512635313">Định cấu hình danh sách các ứng dụng và tiện ích buộc phải cài đặt</translation>
@@ -3132,6 +3199,13 @@ Chính sách <ph name="FLOATING_SSO_DOMAIN_BLOCKLIST_EXCEPTIONS_POLICY_NAME" /> 
 quản lý thiết bị trên toàn thiết bị.
 
 Lựa chọn thuật toán khoá <ph name="EC_KEY_ALGORITHM_VALUE_NAME" /> được hỗ trợ kể từ phiên bản <ph name="PRODUCT_OS_NAME" /> 132.</translation>
+<translation id="2953620259874711778">Chính sách này không còn dùng trong phiên bản M156 nữa, vui lòng sử dụng <ph name="AUTOFILL_SETTINGS_POLICY_NAME" />.
+
+Để duy trì hành vi hiện tại là tắt <ph name="AUTOFILL_ADDRESS_ENABLED_POLICY_NAME" /> hiện tại, hãy định cấu hình <ph name="AUTOFILL_SETTINGS_POLICY_NAME" /> với "url_pattern" được đặt thành "*" và "blocked_types" được đặt thành ["contact_info", "identity_docs", "travel"].
+
+Nếu bạn đặt chính sách này thành True hoặc không đặt chính sách này, thì người dùng sẽ có quyền kiểm soát tính năng Tự động điền cho địa chỉ trong giao diện người dùng.
+
+Nếu bạn đặt chính sách này thành False, thì tính năng Tự động điền sẽ không bao giờ gợi ý hoặc điền thông tin địa chỉ hay lưu thông tin địa chỉ bổ sung mà người dùng gửi trong khi duyệt web.</translation>
 <translation id="2957506574938329824">Không cho phép bất kỳ trang web nào yêu cầu quyền truy cập vào thiết bị Bluetooth qua API Web Bluetooth</translation>
 <translation id="2957513448235202597">Loại tài khoản để xác thực <ph name="HTTP_NEGOTIATE" /></translation>
 <translation id="2959469725686993410">Luôn gửi điểm truy cập Wi-Fi tới máy chủ trong khi phân giải múi giờ</translation>
@@ -3740,17 +3814,6 @@ Nếu bạn đặt thành False hoặc không đặt chính sách này, thì bà
 
 Nếu bạn không đặt hoặc đặt chính sách này thành true, thì người dùng này sẽ có quyền truy cập ở cấp gốc vào vùng chứa Crostini.
 Nếu bạn đặt chính sách này thành false, thì người dùng này sẽ không có quyền truy cập ở cấp gốc vào cả vùng chứa Crostini hiện có lẫn vùng chứa Crostini mới.</translation>
-<translation id="3370759229531293665">Cho phép bạn thiết lập một danh sách mẫu URL trang web để chỉ định các trang web không được phép chạy JavaScript bật trình biên dịch JIT (Just In Time).
-
-          Việc tắt JavaScript JIT có nghĩa là <ph name="PRODUCT_NAME" /> có thể hiển thị nội dung trên web chậm hơn và cũng có thể vô hiệu hoá các phần của JavaScript (bao gồm cả WebAssembly). Việc tắt JavaScript JIT có thể cho phép <ph name="PRODUCT_NAME" /> hiển thị nội dung trên web ở một cấu hình an toàn hơn.
-
-          Để biết thông tin chi tiết về các mẫu URL hợp lệ, vui lòng truy cập vào https://chromeenterprise.google/policies/url-patterns. Cho phép sử dụng ký tự đại diện <ph name="WILDCARD_VALUE" />.
-
-          Các ngoại lệ về chính sách đối với JavaScript JIT sẽ chỉ được thực thi chi tiết ở mức độ trang web (eTLD+1). Nếu bạn đặt một chính sách chỉ dành cho trang web subdomain.site.com thì chính sách đó sẽ không áp dụng chính xác cho site.com hoặc subdomain.site.com. Lý do là vì cả hai trang web này đều phân giải thành cùng một tên miền eTLD+1 (site.com) không được chính sách nào quy định. Trong trường hợp này, bạn phải đặt chính sách trên site.com để áp dụng chính xác cho cả site.com và subdomain.site.com.
-
-          Chính sách này áp dụng trên cơ sở từng khung và không hoàn toàn dựa vào URL gốc cấp cao nhất. Ví dụ: nếu site-one.com được liệt kê trong chính sách của <ph name="JAVA_SCRIPT_JIT_BLOCKED_FOR_SITES_POLICY_NAME" /> nhưng site-one.com tải một khung chứa site-two.com thì site-one.com sẽ tắt JavaScript JIT, nhưng site-two.com sẽ sử dụng chính sách của <ph name="DEFAULT_JAVA_SCRIPT_JIT_SETTING_POLICY_NAME" /> (nếu có) hoặc bật JavaScript JIT theo mặc định.
-
-          Nếu bạn không đặt chính sách này cho một trang web thì hệ thống sẽ áp dụng chính sách của <ph name="DEFAULT_JAVA_SCRIPT_JIT_SETTING_POLICY_NAME" /> cho trang web đó (nếu có), nếu không thì trang web sẽ bật JavaScript JIT.</translation>
 <translation id="3373381043600809954">Bật <ph name="PRODUCT_NAME" /></translation>
 <translation id="3374587000313305002">Định cấu hình thư mục mà <ph name="PRODUCT_NAME" /> sẽ dùng để lưu trữ dữ liệu của người dùng.
 
@@ -4272,6 +4335,7 @@ Nếu bạn không đặt cả <ph name="CONTENT_TRANSFER_ENABLEMENT_STATUS_STAR
 Bạn cũng cần bật tuỳ chọn chuyển dữ liệu bằng Takeout để ứng dụng Chuyển nội dung hoạt động đúng cách. Truy cập vào https://support.google.com/a/answer/6364687 để biết thêm thông tin.</translation>
 <translation id="3702518095257671450">Chứng thực từ xa</translation>
 <translation id="3702647575225525306"><ph name="POLICY_NAME" /> (Trường một dòng không dùng nữa và sẽ bị xóa trong tương lai. Hãy bắt đầu sử dụng hộp văn bản nhiều dòng bên dưới.)</translation>
+<translation id="370314752761795411">Khởi động <ph name="PRODUCT_NAME" /> bằng <ph name="MS_WIN_NAME" /></translation>
 <translation id="3711895659073496551">Tạm ngừng</translation>
 <translation id="3712861436661566358">Buộc phân tách hồ sơ</translation>
 <translation id="3719826155360621982">Trang chủ</translation>
@@ -4659,6 +4723,7 @@ Trên nền tảng máy tính, bạn cũng có thể tắt tính năng tải mô
 <translation id="3965339130942650562">Thời gian chờ cho tới khi đăng xuất của người dùng không hoạt động được thực thi</translation>
 <translation id="396536755218079668">Người dùng được giám sát</translation>
 <translation id="3968218878014278212">Cho phép bật Eche.</translation>
+<translation id="396848310647682467">Buộc cho phép các Ứng dụng Chrome do quản trị viên cài đặt</translation>
 <translation id="3971673686578912106">Khi bạn đặt chính sách này thành Bật, <ph name="PLUGIN_VM_NAME" /> sẽ bật cho thiết bị, với điều kiện là các tùy chọn cài đặt khác cũng cho phép chính sách này. Bạn phải đặt <ph name="PLUGIN_VM_ALLOWED_POLICY_NAME" /> và <ph name="USER_PLUGIN_VM_ALLOWED_POLICY_NAME" /> thành Bật, đồng thời đặt <ph name="PLUGIN_VM_LICENSE_KEY_POLICY_NAME" /> hoặc <ph name="PLUGIN_VM_USER_ID_POLICY_NAME" /> để <ph name="PLUGIN_VM_NAME" /> có thể chạy.
 
       Nếu bạn đặt thành Tắt hoặc không đặt chính sách này, <ph name="PLUGIN_VM_NAME" /> sẽ không bật cho thiết bị.</translation>
@@ -4682,9 +4747,6 @@ Lưu ý: Nếu chế độ cài đặt của cả máy chủ và máy khách kh�
 <translation id="3982624306233556415">Danh sách các nhà cung cấp dịch vụ danh tính bị chặn và không thể sử dụng Extensible Enterprise SSO cho trình duyệt</translation>
 <translation id="3983162212222338509">Quá trình phân giải DNS của hệ thống có thể chạy trong hoặc ngoài quy trình mạng, hoặc có một phần chạy trong và một phần chạy ngoài quy trình mạng, tuỳ vào cấu hình hệ thống và cờ tính năng.</translation>
 <translation id="3986700049001404598">Cho phép người dùng kết thúc quá trình bằng trình quản lý tác vụ Chrome</translation>
-<translation id="398884292557092447">Nếu bạn đặt chính sách này thành True hoặc không đặt, thì người dùng có thể kiểm soát các nội dung đề xuất tự động điền cho thẻ tín dụng trong giao diện người dùng.
-
-      Nếu bạn đặt chính sách này thành False, thì tính năng tự động điền sẽ không bao giờ gợi ý hoặc điền thông tin thẻ tín dụng hay lưu thông tin thẻ tín dụng bổ sung mà người dùng có thể gửi trong khi duyệt web.</translation>
 <translation id="3989635538409502728">Đăng xuất</translation>
 <translation id="3989829840000169163">Chặn các điểm tiện ích cũ của trình duyệt</translation>
 <translation id="3990391739475801018">Chế độ tiết kiệm pin sẽ tắt.</translation>
@@ -4759,6 +4821,7 @@ Những điều cần lưu ý:
 <translation id="4027608872760987929">Bật nhà cung cấp dịch vụ tìm kiếm mặc định</translation>
 <translation id="4030152268425532846">Tắt phím tắt bailout tự động đăng nhập</translation>
 <translation id="4032740546145417900">Không cho phép tính năng Nói để nhập.</translation>
+<translation id="4035252407064087455">Cho phép sử dụng các tính năng AI tạo sinh trong Tự động điền nhưng không tham gia cải tiến các mô hình AI.</translation>
 <translation id="4043796890723386527">Ngăn người dùng tạo và sử dụng các hồ sơ phụ cũng như dùng chế độ khách trong trình duyệt <ph name="LACROS_NAME" /></translation>
 <translation id="4047633048700722778">Khi bạn đặt chính sách này, hệ thống sẽ kiểm soát bộ lọc URL SafeSites. Bộ lọc này dùng API Tìm kiếm an toàn của Google để phân loại xem các URL có chứa nội dung khiêu dâm hay không.
 
@@ -5128,6 +5191,7 @@ Chính sách này dùng để tắt tính năng tự động nâng cấp nội d
 
       Khi bạn không đặt chính sách này, các trang web có thể yêu cầu quyền truy cập, nhưng người dùng có thể thay đổi tùy chọn cài đặt này.</translation>
 <translation id="4275048399551500192">Không hiện bộ điều khiển nội dung nghe nhìn cho các phiên <ph name="PRODUCT_NAME" /> do các thiết bị khác bắt đầu</translation>
+<translation id="4278195158478376952">Sử dụng chế độ mặc định.</translation>
 <translation id="4278656834593750050">Bật chuông báo khi sạc</translation>
 <translation id="4281322231545828290">Cho phép sử dụng tính năng tự động thay đổi mật khẩu</translation>
 <translation id="4282243913059705499">Luôn hiển thị biểu tượng <ph name="PRODUCT_NAME" /> trên thanh công cụ</translation>
@@ -5201,6 +5265,7 @@ Nếu bạn đặt chính sách này, người dùng sẽ không thể thay đ�
 Khi bạn đặt chính sách này, <ph name="PRODUCT_OS_NAME" /> chỉ cho phép người dùng kết nối với các dịch vụ Bluetooth đã chỉ định. Tuy nhiên, nếu danh sách đó trống thì mọi dịch vụ đều được phép sử dụng. Những UUID do Bluetooth SIG đặt trước có thể được biểu thị là <ph name="BLUETOOTH_RESERVED_UUID_WITH_0X" /> hoặc <ph name="BLUETOOTH_RESERVED_UUID_WITHOUT_0X" />. Những UUID tùy chỉnh có thể được biểu thị là <ph name="BLUETOOTH_CUSTOM_UUID" />. UUID không phân biệt chữ hoa chữ thường. Nếu bạn không đặt chính sách này, người dùng sẽ có thể kết nối với mọi dịch vụ Bluetooth.</translation>
 <translation id="4332177773549877617">Ghi lại các sự kiện cho lượt cài đặt ứng dụng Android</translation>
 <translation id="4333940819293342439">Chu kỳ thu thập dữ liệu sử dụng ứng dụng đo từ xa tính bằng mili giây.</translation>
+<translation id="4336096948197154521">Mở <ph name="PRODUCT_NAME" /> khi người dùng đăng nhập vào <ph name="MS_WIN_NAME" /></translation>
 <translation id="4340121900958123942">Đặt mức độ hoạt động của hệ thống định vị vị trí của <ph name="PRODUCT_OS_NAME" />.
 
 Đây là lớp kiểm soát bổ sung bên dưới lớp quyền dành cho các ứng dụng và trang web. Ví dụ: Nếu bạn đặt chính sách này thành <ph name="GLS_BLOCKED" /> hoặc <ph name="GLS_ONLY_ALLOWED_FOR_SYSTEM" /> thì không ứng dụng hoặc trang web nào có thể phân giải dữ liệu vị trí, bất kể quyền truy cập thông tin vị trí tương ứng. Tuy nhiên, nếu bạn đặt chính sách này thành <ph name="GLS_ALLOWED" /> thì các ứng dụng và trang web có thể lấy thông tin vị trí một cách riêng rẽ nếu được phép.
@@ -5592,6 +5657,11 @@ Các mẫu URL không được xung đột với <ph name="CONTROLLED_FRAME_BLOC
 <translation id="4561940244682063697">Không cho phép các trang web nhắc người dùng chia sẻ luồng video màn hình</translation>
 <translation id="4562165737444703281">Cho phép người dùng [bật/định cấu hình] dịch vụ chuyển tiếp cổng vào Crostini</translation>
 <translation id="456450545863578630">Bật chức năng chuyển tệp trong các kết nối hỗ trợ từ xa từ quản trị viên doanh nghiệp</translation>
+<translation id="4567614489737189156">Nếu bạn đặt chính sách này thành Bật, <ph name="PRODUCT_OS_NAME" /> sẽ báo cáo lại cho Google số liệu sử dụng và dữ liệu chẩn đoán, bao gồm cả báo cáo sự cố. Nếu bạn đặt chính sách này thành Tắt, báo cáo số liệu sử dụng và dữ liệu chẩn đoán sẽ tắt.
+
+Đối với các thiết bị được quản lý, nếu bạn không đặt chính sách này thì tính năng báo cáo chỉ số và dữ liệu chẩn đoán sẽ luôn bật theo mặc định.
+
+Đối với các thiết bị không được quản lý, chính sách này không áp dụng và người dùng có thể chọn hành vi báo cáo dữ liệu chẩn đoán và chỉ số trong quá trình thiết lập thiết bị hoặc sau đó thông qua phần cài đặt.</translation>
 <translation id="4570859815763368584">Không còn dùng trong M68. Hãy sử dụng lựa chọn DefaultPopupsSetting để thay thế.
 
       Để biết thông tin giải thích đầy đủ, hãy truy cập https://www.chromestatus.com/feature/5675755719622656.
@@ -5842,19 +5912,6 @@ Cho đến Chrome 114, chính sách này yêu cầu đặt chính sách <ph name
 
       Khi bạn không đặt chính sách này hoặc đặt chính sách thành bật, các tùy chọn kiểm tra chặn DNS sẽ được áp dụng. Khi bạn tắt hoàn toàn chính sách này, các tùy chọn kiểm tra nói trên sẽ không được áp dụng.</translation>
 <translation id="4700190441681139987">Không cho phép bất kỳ trang web nào sử dụng cảm biến</translation>
-<translation id="4700450186549212780">Định cấu hình chế độ cài đặt kết nối cho <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> trong <ph name="PRODUCT_NAME" />.
-
-Để định cấu hình <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" />, quản trị viên phải cung cấp:
-* URL ứng dụng web <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> (<ph name="GEMINI_ENTERPRISE_SETTINGS_URL_POLICY_VALUE" />) HOẶC
-* Cả ba tham số cũ: <ph name="GEMINI_ENTERPRISE_SETTINGS_PROJECT_ID_POLICY_VALUE" />, <ph name="GEMINI_ENTERPRISE_SETTINGS_APP_ID_POLICY_VALUE" /> và <ph name="GEMINI_ENTERPRISE_SETTINGS_LOCATION_POLICY_VALUE" />. Nếu bạn chỉ chỉ định 1 hoặc 2 trong số 3 tham số này mà không có URL thì chính sách sẽ bị từ chối.
-
-Nếu bạn định cấu hình cả tham số <ph name="GEMINI_ENTERPRISE_SETTINGS_URL_POLICY_VALUE" /> và các tham số cũ thì tham số <ph name="GEMINI_ENTERPRISE_SETTINGS_URL_POLICY_VALUE" /> sẽ được ưu tiên.
-
-Nếu bạn đặt chính sách này, <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> sẽ được định cấu hình cho những người dùng đăng nhập bằng tài khoản được quản lý hoặc qua trình duyệt được quản lý.
-
-Nếu bạn không đặt chính sách này, <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> sẽ không được định cấu hình.
-
-Xin lưu ý rằng chính sách này không kiểm soát việc tích hợp <ph name="GOOGLE_GEMINI_PRODUCT_NAME" /> nói chung. Bạn có thể kiểm soát việc tích hợp này qua chính sách <ph name="GEMINI_SETTINGS_POLICY_NAME" />.</translation>
 <translation id="4703402283970867140">Bật mô hình giảm độ sáng thông minh để kéo dài thời gian cho đến khi màn hình tối đi</translation>
 <translation id="4704958130749494760">Tự động cấp quyền cho các trang web để kết nối với thiết bị nối tiếp USB.</translation>
 <translation id="4705329890928008808">Nếu bạn đặt chính sách này thành CopyCaCerts, thì tất cả các chứng chỉ CA được cài đặt trên ONC có <ph name="WEB_TRUSTED_BIT" /> sẽ áp dụng cho ứng dụng dùng ARC.
@@ -5886,16 +5943,6 @@ Nếu các mẫu URL xung đột với <ph name="SERIAL_ASK_FOR_URLS_POLICY_NAME
 Giá trị hợp lệ nằm trong khoảng từ 1 giây đến 9999 giây. Nếu bạn không đặt chính sách này, <ph name="PRODUCT_OS_NAME" /> sẽ sử dụng giá trị mặc định là 60 giây.
 
 Chính sách này sẽ không có hiệu lực khi bạn đặt chính sách <ph name="DEVICE_SCREENSAVER_LOGIN_SCREEN_ENABLED_POLICY_NAME" /> thành false (sai).</translation>
-<translation id="4723615546736863060">Cho phép bạn lập một danh sách các mẫu URL trang web để chỉ định các trang web được bật tính năng tối ưu hoá JavaScript nâng cao.
-
-Để biết thông tin chi tiết về các mẫu URL trang web hợp lệ, vui lòng truy cập vào https://chromeenterprise.google/policies/url-patterns.
-Cho phép sử dụng ký tự đại diện <ph name="WILDCARD_VALUE" />.
-
-Các ngoại lệ về chính sách tối ưu hoá JavaScript sẽ chỉ được thực thi chi tiết ở cấp trang web (eTLD+1). Nếu bạn đặt một chính sách chỉ dành cho trang web subdomain.site.com thì chính sách đó sẽ không áp dụng chính xác cho site.com hoặc subdomain.site.com. Lý do là cả hai trang web này đều phân giải thành cùng một tên miền eTLD+1 (site.com) không được quy định chính sách nào. Trong trường hợp này, bạn phải đặt chính sách cho site.com để áp dụng chính xác chính sách cho cả site.com và subdomain.site.com.
-
-Chính sách này áp dụng trên cơ sở từng khung và không chỉ dựa vào URL gốc cấp cao nhất. Ví dụ: Nếu site-one.com nằm trong chính sách của <ph name="JAVA_SCRIPT_OPTIMIZER_ALLOWED_FOR_SITES_POLICY_NAME" /> nhưng site-one.com tải một khung chứa site-two.com thì site-one.com sẽ được bật tính năng tối ưu hoá JavaScript, nhưng site-two.com sẽ sử dụng chính sách của <ph name="DEFAULT_JAVA_SCRIPT_OPTIMIZER_SETTING_POLICY_NAME" /> (nếu có) hoặc được bật tính năng tối ưu hoá JavaScript theo mặc định. Các mục trong danh sách chặn có mức độ ưu tiên cao hơn danh sách cho phép và do đó có mức độ ưu tiên cao hơn so với giá trị mặc định được định cấu hình.
-
-Nếu bạn không đặt chính sách này cho một trang web thì hệ thống sẽ áp dụng chính sách của <ph name="DEFAULT_JAVA_SCRIPT_OPTIMIZER_SETTING_POLICY_NAME" /> cho trang web đó (nếu có), còn không thì trang web đó sẽ được bật tính năng tối ưu hoá JavaScript.</translation>
 <translation id="4723829699367336876">Bật tính năng chặn tường lửa từ máy khách truy cập từ xa</translation>
 <translation id="4725528134735324213">Bật Android Backup Service</translation>
 <translation id="4725691087141147920">Hiển thị màn hình Đồng ý đồng bộ hoá trong khi đăng nhập</translation>
@@ -5988,6 +6035,7 @@ Khi bạn đặt chính sách này thành Tắt, người dùng sẽ không th�
       <ph name="PAGE_SIZE_NAME" /> nên chứa một trong các định dạng được liệt kê hoặc giá trị "tùy chỉnh" nếu kích thước giấy bắt buộc không có trong danh sách đó. Nếu cung cấp giá trị "tùy chỉnh", thì bạn nên chỉ định thuộc tính <ph name="PAGE_SIZE_CUSTOM_SIZE" />. Thuộc tính này mô tả chiều dài và chiều rộng mong muốn tính bằng micromet. Nếu không, bạn không nên chỉ định thuộc tính <ph name="PAGE_SIZE_CUSTOM_SIZE" />. Chính sách vi phạm những quy tắc này sẽ bị bỏ qua.
 
       Nếu kích thước trang không có sẵn trên máy in mà người dùng chọn, thì chính sách này sẽ bị bỏ qua.</translation>
+<translation id="4787894429283141328">Không cho phép sử dụng các tính năng AI tạo sinh trong Tự động điền.</translation>
 <translation id="4789450349513792856">Chặn cửa sổ bật lên trên các trang web này</translation>
 <translation id="4790391579868456557">Sử dụng các cookie thiết yếu và không thiết yếu trong công cụ tìm kiếm.</translation>
 <translation id="4790588245699320140">Cho phép Trợ lý Google truy cập vào bối cảnh trên màn hình</translation>
@@ -6040,7 +6088,6 @@ tức là một mô-đun xử lý âm thanh giúp loại bỏ âm thanh phát l�
 Nếu bạn đặt chính sách này thành False (Sai), thì chế độ mặc định sẽ được sử dụng.</translation>
 <translation id="4820432864264617413">Không cho phép một người dùng chạy <ph name="BOREALIS_NAME" /></translation>
 <translation id="4821987881803903281">Chặn quyền kiểm soát Vị trí cửa sổ trên những trang web này</translation>
-<translation id="4825653993105771848">Kiểm soát quyền truy cập vào mạng riêng tư trong Direct Sockets API</translation>
 <translation id="4825777333376170738">Tắt tính năng báo cáo phiên kiosk của thiết bị</translation>
 <translation id="4826326557828204741">Tác vụ sẽ thực hiện khi đạt độ trễ không hoạt động trong khi chạy bằng nguồn pin</translation>
 <translation id="4826701474986856664">Hiển thị màn hình cảm biến sự có mặt của con người trong quá trình đăng nhập</translation>
@@ -6333,13 +6380,6 @@ Việc đặt chính sách này sẽ kiểm soát cách trình bày nội dung q
 <translation id="494924690085329212">Khởi động lại khi đăng xuất người dùng nếu Android đã khởi động.</translation>
 <translation id="4950447493143157880">Không bao giờ dùng ứng dụng DNS tích hợp sẵn</translation>
 <translation id="4953541641325278286">Không cho phép bất kỳ trang web nào phát hiện trạng thái không hoạt động của người dùng</translation>
-<translation id="4954185885991137927">Khi bạn đặt chính sách này thành Bật, tính năng Báo cáo mở rộng trong dịch vụ Duyệt web an toàn của <ph name="PRODUCT_NAME" /> sẽ bật. Tính năng này sẽ gửi một số thông tin hệ thống và nội dung trang tới máy chủ của Google nhằm giúp phát hiện những ứng dụng và trang web nguy hiểm.
-
-      Khi bạn đặt chính sách này thành Tắt, sẽ không có báo cáo nào được gửi.
-
-      Nếu bạn đặt chính sách này, người dùng sẽ không thể thay đổi được. Nếu bạn không đặt chính sách này, người dùng có thể quyết định có gửi báo cáo hay không.
-
-      Xem thêm về dịch vụ Duyệt web an toàn (https://developers.google.com/safe-browsing).</translation>
 <translation id="4954352279763128540">Thêm một miền điền sẵn vào hộp thoại xác thực Kerberos.
 
           Nếu bạn đặt chính sách này, thì trường "tên người dùng Kerberos" sẽ hiển thị miền điền sẵn ở bên phải. Nếu người dùng nhập tên người dùng của họ, thì tên này sẽ được nối vào miền điền sẵn. Nếu nội dung người dùng nhập vào có chứa "@", thì miền điền sẵn sẽ không hiển thị và không ảnh hưởng đến nội dung nhập.
@@ -6416,9 +6456,6 @@ Khi bạn không đặt hoặc đặt chính sách này thành True, thì nhữn
 Khi bạn đặt chính sách này thành False, thì những thông tin có thể dùng để nhận dạng máy sẽ không được thu thập.
 
 Chính sách này chỉ có hiệu lực khi máy đã đăng ký bằng <ph name="CLOUD_MANAGEMENT_ENROLLMENT_TOKEN" /> đối với <ph name="PRODUCT_NAME" />.</translation>
-<translation id="5017369989680827157">Nếu bạn đặt chính sách này thành True hoặc không đặt chính sách này, thì người dùng sẽ có quyền kiểm soát tính năng Tự động điền cho địa chỉ trong giao diện người dùng.
-
-      Nếu bạn đặt chính sách này thành False, thì tính năng Tự động điền sẽ không bao giờ gợi ý hoặc điền thông tin địa chỉ hay lưu thông tin địa chỉ bổ sung mà người dùng gửi trong khi duyệt web.</translation>
 <translation id="5017691827598069017">Bật tính năng Ghép nối nhanh (ghép nối Bluetooth nhanh)</translation>
 <translation id="5021550478471824215">Nếu bạn đặt chính sách này, hệ thống sẽ chỉ định một danh sách các lượt chia sẻ tệp trong mạng đã đặt trước. Mỗi mục là một đối tượng có 2 thuộc tính: <ph name="SHARE_URL_FIELD_NAME" /> và <ph name="MODE_FIELD_NAME" />.
 
@@ -6507,7 +6544,6 @@ Nếu bạn không đặt chính sách này thì hành vi của chính sách s�
 Nếu bạn không đặt chính sách này thì hành vi của chính sách sẽ do chính sách <ph name="GEN_AI_DEFAULT_SETTINGS_POLICY_NAME" /> xác định.
 
 Để biết thêm thông tin về cách xử lý dữ liệu cho các tính năng AI tạo sinh, vui lòng truy cập https://support.google.com/chrome/a?p=generative_ai_settings.</translation>
-<translation id="5070539335358964387">Cho phép tính năng Tìm và điền bằng Gemini và cải tiến các mô hình AI.</translation>
 <translation id="5071303485174858500">Tắt phiên khách được quản lý và bị hạn chế.</translation>
 <translation id="5073788301065423829">Chính sách này bật hoặc tắt tính năng "Giúp tôi viết" cho ChromeOS.
 
@@ -6587,6 +6623,7 @@ Chính sách này là giải pháp tạm thời để bạn có thời gian di c
       </translation>
 <translation id="5118635822783657217">Không cho phép cập nhật các thành phần không quan trọng</translation>
 <translation id="5120168808610189805">Bật chính sách nhập trang chủ trong lần chạy đầu tiên</translation>
+<translation id="5124321040285474825">Chế độ cài đặt cho các tính năng AI tạo sinh trong Tự động điền</translation>
 <translation id="5124368997194894978">Bật tính năng khởi động trên AC (dòng điện xoay chiều)</translation>
 <translation id="5124652340668722849">Định cấu hình danh sách các Miền cấp phép (PvD) mà <ph name="PRODUCT_NAME" /> sẽ sử dụng để tìm nạp cấu hình proxy một cách linh động.
 
@@ -7625,7 +7662,6 @@ Chính sách này ảnh hưởng đến cả quy trình xác thực khi đăng n
 <translation id="5728154254076636808">Bật tạo bản sao chuyển vùng cho dữ liệu hồ sơ của <ph name="PRODUCT_NAME" /></translation>
 <translation id="5729308727912841256">Mật khẩu Kerberos. Phần giữ chỗ <ph name="PASSWORD_PLACEHOLDER" /> được thay bằng mật khẩu đăng nhập.</translation>
 <translation id="5730610899971390601">Từ chối yêu cầu ghép nối Bluetooth "Just Works"</translation>
-<translation id="5731883586899464960">URL ứng dụng web của phiên bản <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> cho tổ chức này.</translation>
 <translation id="5732972008943405952">Nhập dữ liệu tự động điền vào biểu mẫu trên trình duyệt mặc định trong lần chạy đầu tiên</translation>
 <translation id="5733040281451845496">Nếu bạn đặt chính sách này thành Bật, thì thời gian trì hoãn của chính sách quản lý điện và giới hạn thời lượng phiên hoạt động sẽ chỉ bắt đầu sau khi hoạt động đầu tiên của người dùng xảy ra trong một phiên hoạt động.
 
@@ -8187,6 +8223,45 @@ Nếu bạn không đặt chính sách này thì tính năng đóng băng thẻ 
 <translation id="608788685013546076">Đặt ngưỡng pin cho chế độ chuyển đổi điện năng cao điểm theo phần trăm</translation>
 <translation id="6089679180657323464">Kiểm soát các tùy chọn cài đặt của bộ điều khiển đo từ xa và chẩn đoán wilco.</translation>
 <translation id="6091233616732024397">Buộc người dùng đăng nhập để sử dụng trình duyệt</translation>
+<translation id="6091279561320899147">Cho phép bạn lập một danh sách các mẫu URL trang web để chỉ định các trang web
+bị tắt tính năng tối ưu hoá JavaScript nâng cao.
+
+Việc tắt tính năng tối ưu hoá JavaScript có thể khiến <ph name="PRODUCT_NAME" /> hiển thị nội dung trên web chậm hơn.
+
+Để biết thông tin chi tiết về các mẫu URL hợp lệ, vui lòng truy cập vào
+https://chromeenterprise.google/policies/url-patterns.
+Cho phép sử dụng ký tự đại diện <ph name="WILDCARD_VALUE" />.
+
+Bạn có thể đặt các ngoại lệ về chính sách cho những miền con cụ thể cũng như toàn bộ trang web.
+Ví dụ: một chính sách chỉ được đặt cho subdomain.site.com sẽ áp dụng cho
+subdomain.site.com mà không ảnh hưởng đến site.com. Trong một số trường hợp
+không thể tách biệt miền con khỏi trang web mẹ, miền con đó có thể kế thừa chính sách
+được đặt trên site.com. Các ngoại lệ cũng có thể không có hiệu lực đối với những khung được tải trong
+thẻ đang mở cho đến khi trang web được mở trong thẻ mới. Trên các
+thiết bị <ph name="ANDROID_NAME" /> bộ nhớ thấp, những ngoại lệ cụ thể theo trang web có thể
+không được thực thi và thay vào đó, các trang web sẽ sử dụng chính sách của
+<ph name="DEFAULT_JAVA_SCRIPT_OPTIMIZER_SETTING_POLICY_NAME" />
+(nếu có) hoặc mặc định là chế độ cài đặt tính năng tối ưu hoá JavaScript của hồ sơ.
+
+Để thực thi các ngoại lệ, <ph name="PRODUCT_NAME" />
+có thể đặt các trang web hoặc miền con có chế độ cài đặt khác với chế độ cài đặt mặc định vào
+các quy trình riêng. Việc này có thể làm tăng mức sử dụng bộ nhớ, đặc biệt là trên
+<ph name="ANDROID_NAME" /> hoặc khi một mẫu ký tự đại diện khớp với nhiều
+miền con, vì mỗi nguồn gốc khớp có thể được tách biệt riêng. Các miền con
+tách biệt cũng không thể sử dụng document.domain để truy cập vào trang web mẹ.
+
+Lưu ý: Trong các phiên bản từ 138 trở về trước, những ngoại lệ về chính sách chỉ được thực thi ở cấp độ trang web (eTLD+1). Nếu chỉ đặt chính sách trên subdomain.site.com thì chính sách đó không có
+hiệu lực, ngay cả đối với subdomain.site.com; bạn phải đặt chính sách đó trên site.com để
+áp dụng cho cả site.com và subdomain.site.com.
+
+Chính sách này áp dụng theo từng khung chứ không chỉ dựa trên URL gốc
+cấp cao nhất. Ví dụ: nếu site-one.com có trong chính sách <ph name="JAVA_SCRIPT_OPTIMIZER_BLOCKED_FOR_SITES_POLICY_NAME" /> nhưng site-one.com tải một khung
+chứa site-two.com, thì site-one.com sẽ bị tắt tính năng
+tối ưu hoá JavaScript, còn site-two.com sẽ sử dụng chính sách của <ph name="DEFAULT_JAVA_SCRIPT_OPTIMIZER_SETTING_POLICY_NAME" /> (nếu có) hoặc mặc định bật tính năng
+tối ưu hoá JavaScript. Các mục trong danh sách chặn có mức độ ưu tiên cao hơn danh sách cho phép và do đó có mức độ ưu tiên cao hơn so với giá trị mặc định được định cấu hình.
+
+Nếu bạn không đặt chính sách này cho một trang web thì hệ thống sẽ áp dụng chính sách của <ph name="DEFAULT_JAVA_SCRIPT_OPTIMIZER_SETTING_POLICY_NAME" /> cho trang web đó (nếu có), còn không thì
+trang web đó sẽ được bật tính năng tối ưu hoá JavaScript.</translation>
 <translation id="6092073071805297119">Cho phép sử dụng tính năng Lọc hiệu suất hỗ trợ tiếp cận.</translation>
 <translation id="6093156968240188330">Cho phép người dùng ở xa tương tác với cửa sổ bật lên trong phiên hỗ trợ từ xa</translation>
 <translation id="6093551397728373988">Bắt buộc bật tất cả phương thức nhập được phép trong một phiên hoạt động của người dùng</translation>
@@ -8351,21 +8426,6 @@ Nếu bạn không đặt chính sách này, một giá trị mặc định chun
 <translation id="6207673917710036736">Bật lời nhắc đánh giá và đường liên kết xếp hạng tích hợp sẵn của tiện ích</translation>
 <translation id="6208896993204286313">Báo cáo thông tin chính sách của <ph name="PRODUCT_NAME" /></translation>
 <translation id="6210259502936598222">Báo cáo thông tin hệ điều hành và phiên bản của <ph name="PRODUCT_NAME" /></translation>
-<translation id="6214712395769944855">Chính sách này định cấu hình <ph name="PRODUCT_NAME" /> để sắp xếp thứ tự các thuật toán mật mã mã hoá được ưu tiên trong giao thức TLS 1.3 nhằm thể hiện mức độ ưu tiên đối với các thuật toán đã được một cơ chế tuân thủ cụ thể phê duyệt.
-
-Việc đặt chính sách này không đảm bảo rằng thuật toán cụ thể sẽ được thương lượng.
-
-Chính sách này được thiết lập để cho phép các nhà điều hành máy chủ muốn hỗ trợ cả những máy khách có và không có yêu cầu tuân thủ phân biệt các máy khách đó, đồng thời chỉ sử dụng một số thuật toán không mặc định có độ mạnh mật mã cao hơn đối với những máy khách được định cấu hình rõ ràng để ưu tiên chúng.
-
-Việc đặt chính sách thành "<ph name="CNSA_NAME" />" sẽ định cấu hình <ph name="PRODUCT_NAME" /> để ưu tiên các thuật toán mật mã cần thiết cho việc tuân thủ phiên bản 1.0 và 2.0 của Bộ thuật toán bảo mật quốc gia thương mại (CNSA 1.0 và 2.0).
-
-Nếu bạn không đặt chính sách này hoặc đặt chính sách này thành "<ph name="DEFAULT_NAME" />", thì <ph name="PRODUCT_NAME" /> sẽ được định cấu hình để sử dụng các thuật toán mật mã mặc định.
-
-Bạn không cần đặt chính sách này để đảm bảo bảo mật. Mật mã mặc định mà <ph name="PRODUCT_NAME" /> sử dụng đủ mạnh để chống chịu một cuộc tấn công brute force dùng toàn bộ năng lượng của Mặt trời.
-
-Nếu bạn đặt chính sách này, <ph name="PRODUCT_NAME" /> sẽ chậm hơn khi truy cập vào các trang web.
-
-Chính sách này chỉ ảnh hưởng đến TLS 1.3 và QUIC, chứ không ảnh hưởng đến các phiên bản TLS trước đó.</translation>
 <translation id="6219841576688651072">Không cho phép tạo nhóm cửa sổ tổng quan bằng AI tạo sinh.</translation>
 <translation id="6220835555850906733">Nếu bạn đặt chính sách này thành Bật hoặc không đặt chính sách này, thì tất cả thiết bị đầu ra âm thanh được hỗ trợ đều có thể hoạt động trên thiết bị của người dùng.
 
@@ -8917,7 +8977,6 @@ LƯU Ý: Các thiết bị dành cho người dùng thông thường và doanh n
 <translation id="647645276885673708">Bật <ph name="LACROS_NAME" /> và đặt trình duyệt này làm trình duyệt chính</translation>
 <translation id="647698599569353771">Cho phép bật tính năng Chia sẻ lân cận.</translation>
 <translation id="6477685422297715670">Đèn nền bàn phím màu xanh lục</translation>
-<translation id="6477933144150138501">Cho phép các nguồn gốc của Ứng dụng web tách biệt giao tiếp với điểm cuối trên mạng riêng tư trong Direct Sockets API</translation>
 <translation id="6478258366184919502">Nguồn gốc thông tin đăng nhập và màn hình</translation>
 <translation id="6478261301433199402">Việc đặt chính sách này sẽ chỉ định hình ảnh <ph name="PLUGIN_VM_NAME" /> cho một người dùng. Hãy chỉ định chính sách này làm một chuỗi định dạng JSON, trong đó <ph name="URL_PLUGIN_VM_IMAGE_FIELD" /> cho biết vị trí tải xuống hình ảnh đó và chỉ định <ph name="HASH_PLUGIN_VM_IMAGE_FIELD" /> làm một hàm băm SHA-256 dùng để xác minh tính toàn vẹn của tệp tải xuống.</translation>
 <translation id="6481245670325946423">Cho phép sử dụng Chế độ không có giao diện người dùng</translation>
@@ -8982,6 +9041,27 @@ Trình bảo vệ màn hình của người dùng hiển thị những hình ả
 Bạn có thể điều chỉnh thời gian chờ ở trạng thái rảnh trước khi khởi động trình bảo vệ màn hình và khoảng thời gian hiển thị một hình ảnh lần lượt theo chính sách <ph name="SCREENSAVER_LOCK_SCREEN_IDLE_TIMEOUT_SECONDS_POLICY_NAME" /> và <ph name="SCREENSAVER_LOCK_SCREEN_DISPLAY_INTERVAL_SECONDS_POLICY_NAME" />. Nếu bạn không đặt chính sách nào đó trong số này, giá trị mặc định của chính sách sẽ được sử dụng.</translation>
 <translation id="651248769129998376">Không tạo hoặc tải yêu cầu cài đặt tiện ích lên Bảng điều khiển dành cho quản trị viên</translation>
 <translation id="6513453889192806240">Độ trễ https</translation>
+<translation id="6514006253468048943">Các tính năng này trong <ph name="PRODUCT_NAME" /> sử dụng mô hình AI tạo sinh để giúp người dùng điền vào các biểu mẫu trên web. Để sử dụng các tính năng này, <ph name="PRODUCT_NAME" /> phải thu thập các dữ liệu như cấu trúc của biểu mẫu mà người dùng tương tác, cũng như các truy vấn dạng văn bản tự do mà người dùng nhập để tìm kiếm trong các ứng dụng Gemini được kết nối (đối với tính năng Tìm và điền bằng Gemini). Dữ liệu này sau đó sẽ được gửi đến một máy chủ do Google sở hữu và chạy mô hình AI tạo sinh.
+
+Nếu bạn đặt chính sách này thành 0 (Cho phép sử dụng các tính năng AI tạo sinh trong Tự động điền và tham gia cải tiến các mô hình AI) thì người dùng có thể sử dụng các tính năng này, đồng thời Google được phép sử dụng dữ liệu liên quan để cải tiến các mô hình AI. Tuỳ thuộc vào tính năng, dữ liệu liên quan có thể bao gồm câu lệnh, thông tin đầu vào, thông tin đầu ra, tài liệu nguồn và phản hồi bằng văn bản. 0 là giá trị mặc định, trừ phi có ghi chú bên dưới.
+
+Nếu bạn đặt chính sách này thành 1 (Cho phép sử dụng các tính năng AI tạo sinh trong Tự động điền nhưng không tham gia cải tiến các mô hình AI), thì người dùng có thể sử dụng các tính năng này nhưng Google không được phép sử dụng nội dung của người dùng (bao gồm cả câu lệnh, thông tin đầu vào, thông tin đầu ra, tài liệu nguồn và phản hồi bằng văn bản) để cải tiến các mô hình. 1 là giá trị mặc định cho Người dùng doanh nghiệp do <ph name="GOOGLE_ADMIN_CONSOLE_PRODUCT_NAME" /> quản lý và Tài khoản thuộc tổ chức giáo dục do <ph name="GOOGLE_WORKSPACE_PRODUCT_NAME" /> quản lý.
+
+Nếu bạn đặt chính sách này thành 2 (Không cho phép sử dụng các tính năng AI tạo sinh trong Tự động điền) thì người dùng sẽ không thể sử dụng các tính năng này.
+
+Nếu bạn không đặt chính sách này, hành vi của chính sách sẽ do chính sách <ph name="GEN_AI_DEFAULT_SETTINGS_POLICY_NAME" /> quyết định.
+
+Các tính năng AI tạo sinh trong Tự động điền bao gồm:
+
+– Hiểu biểu mẫu thông minh hơn: sử dụng AI để xác định và phân loại các trường của biểu mẫu, nhờ đó có thể điền nhiều trường hơn.
+
+– Tìm và điền bằng Gemini: tìm thông tin trong các ứng dụng mà người dùng đã kết nối với Gemini và cung cấp thông tin đó để hỗ trợ điền dữ liệu, dưới dạng đề xuất chủ động trên biểu mẫu hoặc để phản hồi câu hỏi mà người dùng nhập.
+
+Chính sách này thay thế chính sách <ph name="AUTOFILL_PREDICTION_SETTINGS_POLICY_NAME" /> (vẫn áp dụng khi chính sách này không được thiết lập). Tính năng "Tìm và điền bằng Gemini" cũng yêu cầu bạn không được tắt chính sách <ph name="GEMINI_SETTINGS_POLICY_NAME" />.
+
+Chính sách này không kiểm soát các tính năng Tự động điền không sử dụng AI tạo sinh.
+
+Để biết thêm thông tin về cách xử lý dữ liệu cho các tính năng AI tạo sinh, vui lòng truy cập https://support.google.com/chrome/a?p=generative_ai_settings.</translation>
 <translation id="6515357889978918016">Hình ảnh <ph name="PLUGIN_VM_NAME" /></translation>
 <translation id="6515520014183265350">Chỉ định một danh sách các nguồn gốc chạy trong một quy trình riêng.
 
@@ -9289,20 +9369,6 @@ Khi bạn bật chính sách này, tính năng Cập nhật thuật toán GREASE
       Lưu ý: Mặc dù chính sách này có thể chấp nhận nhiều mục trong <ph name="ENTRIES_FIELD_NAME" />, nhưng ngoại trừ mục đầu tiên, tất cả các mục khác đều sẽ bị bỏ qua.
       Cảnh báo: Khi bạn đặt chính sách này, việc áp dụng các bản cập nhật phần mềm có thể bị chậm trễ.</translation>
 <translation id="6695441448686167614">Chế độ cài đặt In trên web</translation>
-<translation id="6695983959768914375">Direct Sockets API cho phép giao tiếp với các điểm cuối tuỳ ý bằng TCP và UDP.
-Vui lòng truy cập vào https://github.com/WICG/direct-sockets để biết thông tin chi tiết.
-
-Điểm cuối trên mạng riêng tư là những điểm cuối sử dụng địa chỉ IP từ không gian địa chỉ IP riêng tư, được định nghĩa trong https://wicg.github.io/private-network-access/#ip-address-space-private.
-
-Nếu bạn đặt chính sách này thành 1 hoặc không đặt thì hệ thống sẽ cho phép các nguồn gốc của Ứng dụng web tách biệt giao tiếp với điểm cuối trên mạng riêng tư trong Direct Sockets API.
-
-Nếu bạn đặt chính sách này thành 2 thì các nguồn gốc của Ứng dụng web tách biệt sẽ không được giao tiếp với điểm cuối trên mạng riêng tư trong Direct Sockets API.
-
-Xin lưu ý rằng chính sách này chỉ áp dụng nếu nguồn gốc được phép sử dụng Direct Sockets API.
-Vui lòng tham khảo <ph name="DEFAULT_DIRECT_SOCKETS_SETTING_POLICY_NAME" />, <ph name="DIRECT_SOCKETS_ALLOWED_FOR_URLS_POLICY_NAME" /> và <ph name="DIRECT_SOCKETS_BLOCKED_FOR_URLS_POLICY_NAME" /> để biết thêm thông tin chi tiết.
-Bạn cũng có thể ghi đè giá trị mặc định đối với các URL khớp mẫu bằng cách sử dụng <ph name="DIRECT_SOCKETS_PRIVATE_NETWORK_ACCESS_ALLOWED_FOR_URLS_POLICY_NAME" /> và <ph name="DIRECT_SOCKETS_PRIVATE_NETWORK_ACCESS_BLOCKED_FOR_URLS_POLICY_NAME" />
-
-Chính sách này chỉ áp dụng cho những lần kết nối mới và không vô hiệu hoá những kết nối hiện có.</translation>
 <translation id="6698632841807204978">Bật chế độ in đen trắng</translation>
 <translation id="6699740789657890714">Chỉ định xem có cho phép các trang web gửi yêu cầu theo cách không an toàn đến các điểm cuối trên mạng có mức độ riêng tư cao hơn hay không.</translation>
 <translation id="6699880231565102694">Bật xác thực hai bước cho máy chủ truy cập từ xa</translation>
@@ -9364,7 +9430,6 @@ Nếu bạn đặt chính sách này thành Disabled (Tắt), người dùng s�
       Nếu bạn đặt chính sách này thành true, thì <ph name="PLUGIN_VM_NAME" /> sẽ được bật cho người dùng miễn là các tùy chọn cài đặt khác cũng cho phép điều này. Bạn cần phải đặt <ph name="PLUGIN_VM_ALLOWED_POLICY_NAME" /> và <ph name="USER_PLUGIN_VM_ALLOWED_POLICY_NAME" /> thành true, cũng như phải đặt <ph name="PLUGIN_VM_LICENSE_KEY_POLICY_NAME" /> hoặc <ph name="PLUGIN_VM_USER_ID_POLICY_NAME" /> để cho phép chạy <ph name="PLUGIN_VM_NAME" />.</translation>
 <translation id="6741318452269220158">Việc đặt chính sách này thành Đúng sẽ cho phép Native Client tiếp tục chạy ngay cả khi chế độ mặc định là Native Client đã tắt.
 Nếu bạn đặt chính sách này thành Sai hoặc không đặt chính sách này, thì chế độ mặc định sẽ được sử dụng.</translation>
-<translation id="6749641778238480311">Cho phép gọi các API subApps mà không cần cử chỉ trước đó của người dùng hay yêu cầu người dùng xác nhận.</translation>
 <translation id="6750902920405577210">Danh sách dữ liệu đo từ xa sẽ được báo cáo khi xảy ra sự kiện thay đổi cường độ tín hiệu.
 
       Mỗi dữ liệu đo từ xa được chỉ định sẽ chỉ được báo cáo khi không bị chính sách kiểm soát tắt.
@@ -9669,23 +9734,6 @@ Nếu bạn đặt chính sách này, thì người dùng sẽ không thể thay
 <translation id="6938524853892166974">Tắt tính năng Dịch trực tiếp</translation>
 <translation id="6940243892299228102">Không cho phép người dùng sử dụng các mẫu không gian làm việc</translation>
 <translation id="6943577887654905793">Tên tùy chọn Mac/Linux:</translation>
-<translation id="6944302005022384441">Vì lý do bảo mật, API web
-<ph name="SHOW_SUBAPPS_APP_API_NAME" />,
-<ph name="SHOW_SUBAPPS_REMOVE_API_NAME" /> và
-<ph name="SHOW_SUBAPPS_LIST_API_NAME" /> yêu cầu
-phải có cử chỉ trước đó của người dùng ("kích hoạt tạm thời") để gọi API nếu không sẽ
-không thành công. Ngoài ra, người dùng sẽ được yêu cầu xác nhận
-hoạt động thông qua hộp thoại xác nhận.
-
-Khi đặt chính sách này, quản trị viên có thể chỉ định những nguồn gốc có thể gọi
-các API này mà không cần cử chỉ trước đó của người dùng hay yêu cầu người dùng xác nhận.
-
-Để biết thông tin chi tiết về các mẫu URL hợp lệ, vui lòng truy cập vào
-https://chromeenterprise.google/policies/url-patterns/. Chúng tôi không chấp nhận giá trị *
-đối với chính sách này.
-
-Nếu bạn không đặt chính sách này, tất cả nguồn gốc sẽ yêu cầu cử chỉ trước đó của người dùng để gọi
-các API này và hiển thị hộp thoại xác nhận cho người dùng.</translation>
 <translation id="694602410134474029">Kiểm soát việc <ph name="PRODUCT_NAME" /> có tương tác với trình điều khiển máy in qua một quy trình dịch vụ riêng biệt hay không. Lệnh gọi in trên nền tảng để truy vấn máy in hiện có, lấy chế độ cài đặt trình điều khiển in và gửi tài liệu cần in tới máy in cục bộ sẽ được đưa ra từ một quy trình dịch vụ. Việc chuyển các lệnh gọi này ra khỏi quy trình của trình duyệt giúp cải thiện độ ổn định và giảm hành vi giao diện người dùng bị treo trong chế độ Xem trước bản in.
 
 Khi bạn đặt chính sách này thành Enabled (Bật) hoặc không đặt, <ph name="PRODUCT_NAME" /> sẽ sử dụng một quy trình dịch vụ riêng biệt cho các tác vụ in trên nền tảng.
@@ -9820,18 +9868,6 @@ Nếu bạn không đặt chính sách này, sẽ không có sự kiện nào tr
 Nếu bạn đặt chính sách này thành <ph name="PROVISION_MANAGED_CLIENT_CERTIFICATE_FOR_USER_DISABLED" /> (giá trị 0) thì trình duyệt sẽ không thể yêu cầu chứng chỉ máy khách. Nếu chứng chỉ máy khách được quản lý của một hồ sơ đã được cấp (do trước đó bạn đã bật chính sách này) thì chứng chỉ này sẽ không bị xoá nhưng cũng không dùng được cho các kết nối mTLS và không được gia hạn khi hết hạn.</translation>
 <translation id="7013484314513229844">Bật tính năng khởi động khi cắm nguồn AC</translation>
 <translation id="7014427417852575165">Người dùng đã đăng ký tham gia chương trình Bảo vệ nâng cao sẽ có thêm các biện pháp bảo vệ</translation>
-<translation id="7015750050379345684">Cho phép bạn lập một danh sách các mẫu URL trang web để chỉ định các trang web bị tắt tính năng tối ưu hoá JavaScript nâng cao.
-
-Việc tắt tính năng tối ưu hoá JavaScript có thể khiến <ph name="PRODUCT_NAME" /> hiển thị nội dung trên web chậm hơn.
-
-Để biết thông tin chi tiết về các mẫu URL hợp lệ, vui lòng truy cập vào https://chromeenterprise.google/policies/url-patterns.
-Cho phép sử dụng ký tự đại diện <ph name="WILDCARD_VALUE" />.
-
-Các ngoại lệ về chính sách tối ưu hoá JavaScript sẽ chỉ được thực thi chi tiết ở cấp trang web (eTLD+1). Nếu bạn đặt một chính sách chỉ dành cho trang web subdomain.site.com thì chính sách đó sẽ không áp dụng chính xác cho site.com hoặc subdomain.site.com. Lý do là cả hai trang web này đều phân giải thành cùng một tên miền eTLD+1 (site.com) không được quy định chính sách nào. Trong trường hợp này, bạn phải đặt chính sách trên site.com để áp dụng chính xác chính sách cho cả site.com và subdomain.site.com.
-
-Chính sách này áp dụng trên cơ sở từng khung và không hoàn toàn dựa vào URL gốc cấp cao nhất. Ví dụ: nếu site-one.com được liệt kê trong chính sách của <ph name="JAVA_SCRIPT_OPTIMIZER_BLOCKED_FOR_SITES_POLICY_NAME" /> nhưng site-one.com tải một khung chứa site-two.com thì site-one.com sẽ bị tắt tính năng tối ưu hoá JavaScript, nhưng site-two.com sẽ sử dụng chính sách của <ph name="DEFAULT_JAVA_SCRIPT_OPTIMIZER_SETTING_POLICY_NAME" /> (nếu có) hoặc được bật tính năng tối ưu hoá JavaScript theo mặc định. Các mục trong danh sách chặn có mức độ ưu tiên cao hơn danh sách cho phép và do đó có mức độ ưu tiên cao hơn so với giá trị mặc định được định cấu hình.
-
-Nếu bạn không đặt chính sách này cho một trang web thì hệ thống sẽ áp dụng chính sách của <ph name="DEFAULT_JAVA_SCRIPT_OPTIMIZER_SETTING_POLICY_NAME" /> cho trang web đó (nếu có), còn không thì trang web đó sẽ được bật tính năng tối ưu hoá JavaScript.</translation>
 <translation id="7016587686120059767">Tắt chế độ khách</translation>
 <translation id="7019805045859631636">Nhanh</translation>
 <translation id="7021590945154530517">Bật tính năng theo dõi tình trạng thiết bị</translation>
@@ -10097,7 +10133,6 @@ Nếu bạn không đặt chính sách này thì hành vi của chính sách s�
 <translation id="7136237405361383549">Sử dụng trình kết xuất đồ hoạ mặc định dựa trên cấu hình thực nghiệm.</translation>
 <translation id="7138762292550697459">Kiểm soát thời gian chờ tối thiểu trong hàm JavaScript setTimeout().</translation>
 <translation id="7138792262152376158">Tuân theo tiến trình ngừng sử dụng thông thường đối với PrefixedVideoFullscreen API</translation>
-<translation id="7140755255968613921">Chế độ cài đặt cho tính năng Tìm và điền bằng Gemini</translation>
 <translation id="7140760943584613237">Nhà cung cấp dịch vụ danh tính trên đám mây của Microsoft®</translation>
 <translation id="714219487865269980">Bật tính năng làm nổi bật tiêu điểm bằng bàn phím</translation>
 <translation id="7144022711746703451">
@@ -10509,32 +10544,10 @@ Giá trị thực tế của dữ liệu nhạy cảm (như cookie hoặc giá t
       Trường hợp ngoại lệ: Thông tin TPM do <ph name="REPORT_DEVICE_HARDWARE_STATUS" /> kiểm soát trong M95 trở xuống.</translation>
 <translation id="739556497251174388">Cho phép sử dụng lại thông tin đăng nhập <ph name="PRODUCT_OS_NAME" /> để xác thực mạng</translation>
 <translation id="7395790871181951311">Không cho phép Ứng dụng tách biệt kết nối với Thẻ thông minh</translation>
-<translation id="7396487166653169044">Cho phép bạn thiết lập một danh sách mẫu URL trang web để chỉ định các trang web được phép chạy JavaScript bật trình biên dịch JIT (Just In Time).
-
-          Để biết thông tin chi tiết về các mẫu URL trang web hợp lệ, vui lòng truy cập vào https://chromeenterprise.google/policies/url-patterns. Cho phép sử dụng ký tự đại diện <ph name="WILDCARD_VALUE" />.
-
-          Các ngoại lệ về chính sách đối với JavaScript JIT sẽ chỉ được thực thi chi tiết ở mức độ trang web (eTLD+1). Nếu bạn đặt một chính sách chỉ dành cho trang web subdomain.site.com thì chính sách đó sẽ không áp dụng chính xác cho site.com hoặc subdomain.site.com. Lý do là vì cả hai trang web này đều phân giải thành cùng một tên miền eTLD+1 (site.com) không được chính sách nào quy định. Trong trường hợp này, bạn phải đặt chính sách trên site.com để áp dụng chính xác cho cả site.com và subdomain.site.com.
-
-          Chính sách này áp dụng trên cơ sở từng khung và không hoàn toàn dựa vào URL gốc cấp cao nhất. Ví dụ: nếu site-one.com được liệt kê trong chính sách của <ph name="JAVA_SCRIPT_JIT_ALLOWED_FOR_SITES_POLICY_NAME" /> nhưng site-one.com tải một khung chứa site-two.com thì site-one.com sẽ bật JavaScript JIT, nhưng site-two.com sẽ sử dụng chính sách của <ph name="DEFAULT_JAVA_SCRIPT_JIT_SETTING_POLICY_NAME" /> (nếu có) hoặc bật JavaScript JIT theo mặc định.
-
-          Nếu bạn không đặt chính sách này cho một trang web thì hệ thống sẽ áp dụng chính sách của <ph name="DEFAULT_JAVA_SCRIPT_JIT_SETTING_POLICY_NAME" /> cho trang web đó (nếu có), nếu không thì trang web sẽ bật JavaScript JIT.</translation>
 <translation id="7400208209734208176">Mở đường liên kết bằng trình duyệt Chrome theo mặc định</translation>
 <translation id="7402257017733669351">Ngăn quy trình của trình duyệt tạo mã động</translation>
 <translation id="7406039009275722824">Việc tắt <ph name="CHROME_SYNC_NAME" /> sẽ khiến tính năng Sao lưu và khôi phục trên Android hoạt động không bình thường.</translation>
 <translation id="7406276857470642718">Kiểm soát các chế độ cài đặt của người dùng được xác thực qua SAML bằng IdP bên ngoài</translation>
-<translation id="7407431811343706437">Kiểm soát việc người dùng có thể sử dụng tính năng "Tìm và điền bằng Gemini" trong <ph name="PRODUCT_NAME" /> hay không.
-
-0 = Cho phép sử dụng tính năng này và cho phép Google sử dụng dữ liệu liên quan để cải tiến các mô hình AI. Tuỳ thuộc vào tính năng, dữ liệu liên quan có thể bao gồm câu lệnh, thông tin đầu vào, thông tin đầu ra, tài liệu nguồn và phản hồi bằng văn bản. 0 là giá trị mặc định, trừ phi có ghi chú bên dưới.
-
-1 = Cho phép sử dụng tính năng nhưng không cho phép Google sử dụng nội dung của người dùng (bao gồm câu lệnh, thông tin đầu vào, thông tin đầu ra, tài liệu nguồn và phản hồi bằng văn bản) để cải tiến các mô hình. 1 là giá trị mặc định cho Người dùng doanh nghiệp do <ph name="GOOGLE_ADMIN_CONSOLE_PRODUCT_NAME" /> quản lý và Tài khoản thuộc tổ chức giáo dục do <ph name="GOOGLE_WORKSPACE_PRODUCT_NAME" /> quản lý.
-
-2 = Không cho phép sử dụng tính năng này.
-
-Chính sách này không có hiệu lực khi ứng dụng Gemini bị tắt. Ví dụ: Ứng dụng Gemini có thể bị tắt theo chính sách <ph name="GEMINI_SETTINGS_POLICY_NAME" />.
-
-Nếu bạn không đặt chính sách này thì hành vi của chính sách sẽ do chính sách <ph name="GEN_AI_DEFAULT_SETTINGS_POLICY_NAME" /> xác định.
-
-Để biết thêm thông tin về cách xử lý dữ liệu cho các tính năng AI tạo sinh, vui lòng truy cập https://support.google.com/chrome/a?p=generative_ai_settings.</translation>
 <translation id="7407441173422042771">Chính sách này kiểm soát tính năng gợi ý mạng trong <ph name="PRODUCT_NAME" />. Chính sách này còn kiểm soát tính năng tìm nạp trước DNS, kết nối trước TCP và SSL, cũng như tính năng hiển thị trước trang web.
 
       Nếu bạn đặt chính sách này, người dùng sẽ không thể thay đổi được. Nếu bạn không đặt chính sách này, tính năng gợi ý mạng sẽ bật nhưng người dùng có thể thay đổi tùy chọn này.</translation>
@@ -10548,6 +10561,25 @@ Nếu bạn đặt chính sách này thành Bật, thì tính năng XSLT sẽ ho
 Nếu bạn đặt chính sách này thành Tắt, thì tính năng XSLT sẽ không hoạt động, bất kể trạng thái mặc định của tính năng này trong trình duyệt.
 Nếu bạn không đặt chính sách này, thì khả năng sử dụng tính năng XSLT sẽ được xác định theo chế độ cài đặt mặc định của trình duyệt và các thử nghiệm thực tế.
 Đây là chính sách tạm thời và sẽ bị loại bỏ trong phiên bản M164.</translation>
+<translation id="7416280188470120885">Chính sách này định cấu hình <ph name="PRODUCT_NAME" /> để sắp xếp thứ tự thuật toán thoả thuận về khoá được ưu tiên (nhóm được hỗ trợ) trong giao thức TLS 1.3 nhằm thể hiện mức độ ưu tiên đối với các thuật toán đã được một cơ chế tuân thủ cụ thể phê duyệt.
+
+Việc đặt chính sách này không đảm bảo rằng thuật toán cụ thể sẽ được thương lượng.
+
+Chính sách này được thiết lập để cho phép các nhà điều hành máy chủ muốn hỗ trợ cả những máy khách có và không có yêu cầu tuân thủ phân biệt các máy khách đó, đồng thời chỉ sử dụng một số thuật toán không mặc định có độ mạnh mật mã cao hơn đối với những máy khách được định cấu hình rõ ràng để ưu tiên chúng.
+
+Việc đặt chính sách thành "<ph name="CNSA2_NAME" />" sẽ định cấu hình <ph name="PRODUCT_NAME" /> để ưu tiên các phương thức trao đổi khoá cần thiết cho việc tuân thủ Bộ thuật toán bảo mật quốc gia thương mại 2.0 (CNSA 2.0).
+
+Nếu bạn không đặt chính sách này hoặc đặt thành "<ph name="DEFAULT_NAME" />", thì <ph name="PRODUCT_NAME" /> sẽ được định cấu hình để sử dụng các phương thức trao đổi khoá mặc định.
+
+Bạn không cần đặt chính sách này để đảm bảo bảo mật. Mật mã mặc định mà <ph name="PRODUCT_NAME" /> sử dụng đủ mạnh để chống chịu một cuộc tấn công brute force dùng toàn bộ năng lượng của Mặt trời.
+
+Nếu bạn đặt chính sách này, <ph name="PRODUCT_NAME" /> sẽ chậm hơn khi truy cập vào các trang web.
+
+Chính sách này chỉ ảnh hưởng đến TLS 1.3 và QUIC, chứ không ảnh hưởng đến các phiên bản TLS trước đó.
+
+Bạn có thể đặt chính sách này cho máy và cho người dùng. Nếu bạn đặt cho người dùng, chính sách này chỉ ảnh hưởng đến các yêu cầu mạng do hồ sơ người dùng khởi tạo và có thể không ảnh hưởng đến các yêu cầu mạng do <ph name="PRODUCT_NAME" /> đưa ra để thực hiện các tác vụ trong nền trên toàn trình duyệt; những yêu cầu đó được kiểm soát bằng giá trị ở cấp máy. Nếu bạn đặt chính sách này ở cả cấp máy và cấp người dùng, thì giá trị ở cấp máy sẽ được áp dụng, trừ phi thứ tự ưu tiên của chính sách đã được thay đổi theo chính sách <ph name="CLOUD_USER_POLICY_OVERRIDES_CLOUD_MACHINE_POLICY_POLICY_NAME" />.
+
+Đối với các phiên bản từ 155 trở xuống, chính sách này chỉ áp dụng trên toàn bộ máy.</translation>
 <translation id="7417438464912687020">Cho phép các kết nối truy cập từ xa vào máy này</translation>
 <translation id="7417972229667085380">Tỷ lệ phần trăm theo đó xác định độ trễ khi không hoạt động trong chế độ bản trình bày (không dùng nữa)</translation>
 <translation id="7421230730436851224">Không bao giờ chạy quy trình âm thanh trong hộp cát</translation>
@@ -10682,22 +10714,6 @@ Một số quốc gia hoặc một số ngôn ngữ không hỗ trợ việc kí
 <translation id="7512514325152952954">Các phần tải dữ liệu tự động cập nhật trên <ph name="PRODUCT_OS_NAME" /> có thể được tải xuống qua HTTP thay vì HTTPS. Điều này cho phép lưu các tài nguyên đã tải xuống qua HTTP vào bộ nhớ đệm HTTP thông suốt.
 
 Nếu bạn đặt chính sách này thành true, <ph name="PRODUCT_OS_NAME" /> sẽ cố gắng tải xuống các phần tải dữ liệu tự động cập nhật qua HTTP. Nếu bạn đặt chính sách này thành false hoặc không đặt, HTTPS sẽ được dùng để tải xuống các phần tải dữ liệu tự động cập nhật.</translation>
-<translation id="7512603255315110634">Direct Sockets API cho phép giao tiếp với các điểm cuối tuỳ ý bằng TCP và UDP.
-Vui lòng truy cập vào https://github.com/WICG/direct-sockets để biết thông tin chi tiết.
-
-Điểm cuối trên mạng riêng tư là những điểm cuối sử dụng địa chỉ IP từ không gian địa chỉ IP riêng tư, được định nghĩa trong https://wicg.github.io/private-network-access/#ip-address-space-private.
-
-Nếu đặt chính sách này, bạn có thể lập danh sách các mẫu URL chỉ định những trang web được phép giao tiếp với điểm cuối trên mạng riêng tư trong Direct Sockets API.
-Các mẫu hợp lệ được giới hạn ở Ứng dụng web tách biệt.
-
-Khi bạn không đặt chính sách này, <ph name="DEFAULT_DIRECT_SOCKETS_PRIVATE_NETWORK_ACCESS_SETTING_POLICY_NAME" /> (nếu được đặt) sẽ áp dụng cho tất cả trang web.
-
-Các mẫu URL không được xung đột với <ph name="DIRECT_SOCKETS_PRIVATE_NETWORK_ACCESS_BLOCKED_FOR_URLS_POLICY_NAME" />. Không chính sách nào được ưu tiên nếu một URL khớp với cả hai chính sách.
-
-Để biết thông tin chi tiết về các mẫu URL hợp lệ, vui lòng truy cập vào https://chromeenterprise.google/policies/url-patterns. Chúng tôi không chấp nhận giá trị <ph name="WILDCARD_VALUE" /> đối với chính sách này.
-
-Xin lưu ý rằng chính sách này chỉ áp dụng nếu nguồn gốc được phép sử dụng Direct Sockets API.
-Vui lòng tham khảo <ph name="DEFAULT_DIRECT_SOCKETS_SETTING_POLICY_NAME" />, <ph name="DIRECT_SOCKETS_ALLOWED_FOR_URLS_POLICY_NAME" /> và <ph name="DIRECT_SOCKETS_BLOCKED_FOR_URLS_POLICY_NAME" /> để biết thêm thông tin chi tiết.</translation>
 <translation id="7515953732107149296">Chính sách này đã bị xoá khỏi M53 sau khi RC4 bị xoá khỏi <ph name="PRODUCT_NAME" />.
 
       Nếu bạn đặt chính sách này thành sai hoặc không đặt, thì bộ thuật toán mật mã RC4 trong TLS (Bảo mật tầng truyền tải) sẽ không được kích hoạt. Nếu không, bạn có thể đặt chính sách này thành đúng để duy trì khả năng tương thích với máy chủ lỗi thời. Đây chỉ là giải pháp tạm thời nên bạn cần thiết lập lại máy chủ.</translation>
@@ -10956,6 +10972,21 @@ Khi bạn tắt chính sách này, trình xem PDF sẽ sử dụng trình kết 
 
 Khi bạn không đặt chính sách này, trình duyệt sẽ chọn trình kết xuất đồ hoạ PDF.</translation>
 <translation id="7704244074621846004">Bật thời gian hoạt động lâu hơn cho SharedWorker</translation>
+<translation id="7706986409083477132">Cho phép bạn thiết lập một danh sách mẫu URL trang web để chỉ định các trang web được phép chạy JavaScript bật trình biên dịch JIT (Just In Time).
+
+          Để biết thông tin chi tiết về các mẫu URL trang web hợp lệ, vui lòng truy cập vào https://chromeenterprise.google/policies/url-patterns. Cho phép sử dụng ký tự đại diện <ph name="WILDCARD_VALUE" />.
+
+          Bạn có thể đặt các ngoại lệ về chính sách cho những miền con cụ thể cũng như toàn bộ trang web. Ví dụ: một chính sách chỉ được đặt cho subdomain.site.com sẽ áp dụng cho subdomain.site.com mà không ảnh hưởng đến site.com. Trong một số trường hợp không thể tách biệt miền con khỏi trang web mẹ, miền con đó có thể kế thừa chính sách được đặt trên site.com. Các ngoại lệ cũng có thể không có hiệu lực đối với những khung được tải trong một thẻ hiện có cho đến khi trang web được mở trong một thẻ mới. Trên các thiết bị <ph name="ANDROID_NAME" /> có bộ nhớ thấp, những ngoại lệ dành riêng cho từng trang web có thể không được thực thi. Thay vào đó, các trang web sẽ sử dụng chính sách của <ph name="DEFAULT_JAVA_SCRIPT_JIT_SETTING_POLICY_NAME" /> (nếu chính sách này được thiết lập) hoặc mặc định sử dụng chế độ cài đặt JavaScript JIT của hồ sơ.
+
+          Để thực thi các ngoại lệ, <ph name="PRODUCT_NAME" />
+có thể đặt các trang web hoặc miền con có chế độ cài đặt khác với chế độ cài đặt mặc định vào
+các quy trình riêng. Việc này có thể làm tăng mức sử dụng bộ nhớ, đặc biệt là trên <ph name="ANDROID_NAME" /> hoặc khi một mẫu ký tự đại diện khớp với nhiều miền con, vì mỗi nguồn gốc khớp có thể được tách biệt riêng. Các miền con tách biệt cũng không thể sử dụng document.domain để truy cập vào trang web mẹ.
+
+          Lưu ý: Trong các phiên bản từ 155 trở về trước, những ngoại lệ về chính sách chỉ được thực thi ở cấp độ trang web (eTLD+1). Nếu chỉ đặt chính sách trên subdomain.site.com thì chính sách đó không có hiệu lực, ngay cả đối với subdomain.site.com; bạn phải đặt chính sách đó trên site.com để áp dụng cho cả site.com và subdomain.site.com.
+
+          Chính sách này áp dụng theo từng khung chứ không chỉ dựa trên URL gốc cấp cao nhất. Ví dụ: nếu site-one.com có trong chính sách <ph name="JAVA_SCRIPT_JIT_ALLOWED_FOR_SITES_POLICY_NAME" /> nhưng site-one.com tải một khung chứa site-two.com, thì site-one.com sẽ được bật JavaScript JIT, còn site-two.com sẽ sử dụng chính sách của <ph name="DEFAULT_JAVA_SCRIPT_JIT_SETTING_POLICY_NAME" /> (nếu được thiết lập) hoặc mặc định bật JavaScript JIT. Các mục trong danh sách chặn có mức độ ưu tiên cao hơn trong danh sách cho phép và do đó có mức độ ưu tiên cao hơn so với giá trị mặc định được định cấu hình.
+
+          Nếu bạn không đặt chính sách này cho một trang web thì hệ thống sẽ áp dụng chính sách của <ph name="DEFAULT_JAVA_SCRIPT_JIT_SETTING_POLICY_NAME" /> cho trang web đó (nếu được thiết lập), nếu không thì trang web sẽ bật JavaScript JIT.</translation>
 <translation id="7707869387893611318">Bật tính năng phát chuông báo khi sạc.
 
           Tính năng này có nhiệm vụ phát chuông báo khi sạc.
@@ -11173,7 +11204,6 @@ Chế độ này tương tự như <ph name="POLICY_VALUE_PRIMARY_ACCOUNT_KEEP_E
 <translation id="7832225468415136704">Không cho phép tính năng Làm sạch Chrome quét hệ thống theo định kỳ và không cho phép người dùng tự quét</translation>
 <translation id="7833148823006528332">Mã ứng dụng Android, chẳng hạn như "com.google.android.gm" cho Gmail</translation>
 <translation id="7835218570504220753">Tắt tính năng tự động nhấp</translation>
-<translation id="7836591982756027878">Cho phép truy cập mạng riêng tư trong Direct Sockets API trên các trang web này</translation>
 <translation id="7839124608155212387">Chu kỳ hệ thống thu thập dữ liệu sử dụng ứng dụng đo từ xa trên các thiết bị đã đăng ký của người dùng liên kết. Thời gian tối thiểu cho phép là 5 phút.
 
       Nếu bạn không đặt chính sách này, thì chu kỳ mặc định là 15 phút sẽ được áp dụng.</translation>
@@ -11349,7 +11379,6 @@ Nếu bạn đặt chính sách <ph name="ENABLE_MEDIA_ROUTER_POLICY_NAME" /> th
 <translation id="7937766917976512374">Cho phép hoặc từ chối quay video</translation>
 <translation id="7941528208359969119">Cho phép thực hiện hoạt động kiểm tra <ph name="OCSP_CRL_LABEL" /> trực tuyến</translation>
 <translation id="7941975817681987555">Không dự đoán tác vụ mạng trên kết nối mạng bất kỳ</translation>
-<translation id="794447754389837404">Chặn quyền truy cập vào mạng riêng tư trong Direct Sockets API trên các trang web này</translation>
 <translation id="7945445169067895719">Bật khoá khi thiết bị tạm ngưng hoặc đóng nắp</translation>
 <translation id="7945744599423774764">Cho phép ngẫu nhiên hoá kích thước nhóm socket cho các máy chủ proxy</translation>
 <translation id="7946350455013548764">Khi bạn đặt chính sách này thành 3, các trang web có thể yêu cầu quyền truy cập vào thiết bị HID. Khi bạn đặt chính sách này thành 2, các trang web sẽ không truy cập được vào các thiết bị HID.
@@ -11530,21 +11559,6 @@ Có nhiều chính sách liệt kê những nguồn gốc ảnh hưởng đến 
 <translation id="8062485064082966327">Dùng một dịch vụ ẩn danh của Google để cung cấp nội dung mô tả tự động cho những hình ảnh chưa gắn nhãn</translation>
 <translation id="8064875716442437829">Bật tính năng hỗ trợ tiếp cận của trình kết xuất</translation>
 <translation id="8066428282805800713">Gửi thêm dữ liệu phần cứng trên ChromeOS Flex</translation>
-<translation id="8069233292746468045">Chính sách này định cấu hình <ph name="PRODUCT_NAME" /> để sắp xếp thứ tự thuật toán thoả thuận về khoá được ưu tiên (nhóm được hỗ trợ) trong giao thức TLS 1.3 nhằm thể hiện mức độ ưu tiên đối với các thuật toán đã được một cơ chế tuân thủ cụ thể phê duyệt.
-
-Việc đặt chính sách này không đảm bảo rằng thuật toán cụ thể sẽ được thương lượng.
-
-Chính sách này được thiết lập để cho phép các nhà điều hành máy chủ muốn hỗ trợ cả những máy khách có và không có yêu cầu tuân thủ phân biệt các máy khách đó, đồng thời chỉ sử dụng một số thuật toán không mặc định có độ mạnh mật mã cao hơn đối với những máy khách được định cấu hình rõ ràng để ưu tiên chúng.
-
-Việc đặt chính sách thành "<ph name="CNSA2_NAME" />" sẽ định cấu hình <ph name="PRODUCT_NAME" /> để ưu tiên các phương thức trao đổi khoá cần thiết cho việc tuân thủ Bộ thuật toán bảo mật quốc gia thương mại 2.0 (CNSA 2.0).
-
-Nếu bạn không đặt chính sách này hoặc đặt thành "<ph name="DEFAULT_NAME" />", thì <ph name="PRODUCT_NAME" /> sẽ được định cấu hình để sử dụng các phương thức trao đổi khoá mặc định.
-
-Bạn không cần đặt chính sách này để đảm bảo bảo mật. Mật mã mặc định mà <ph name="PRODUCT_NAME" /> sử dụng đủ mạnh để chống chịu một cuộc tấn công brute force dùng toàn bộ năng lượng của Mặt trời.
-
-Nếu bạn đặt chính sách này, <ph name="PRODUCT_NAME" /> sẽ chậm hơn khi truy cập vào các trang web.
-
-Chính sách này chỉ ảnh hưởng đến TLS 1.3 và QUIC, chứ không ảnh hưởng đến các phiên bản TLS trước đó.</translation>
 <translation id="8071371098891664137">Nếu bạn chọn <ph name="PRINTERS_BLOCKLIST" /> cho <ph name="PRINTERS_BULK_ACCESS_MODE_POLICY_NAME" />, thì việc đặt <ph name="PRINTERS_BULK_BLOCKLIST_POLICY_NAME" /> sẽ chỉ định những máy in mà người dùng không thể sử dụng. Tất cả máy in sẽ được cung cấp cho người dùng, ngoại trừ những mã nhận dạng được liệt kê trong chính sách này. Các mã nhận dạng này phải tương ứng với trường <ph name="ID_FIELD" /> hoặc <ph name="GUID_FIELD" /> ở tệp được chỉ định trong <ph name="PRINTERS_BULK_CONFIGURATION_POLICY_NAME" />.</translation>
 <translation id="8076539570602616846">Hạn chế những Tài khoản Google đủ điều kiện lưu tệp PDF vào Google Drive từ Trình xem PDF <ph name="PRODUCT_NAME" /></translation>
 <translation id="8078297389450285582">Nếu bạn không đặt hoặc đặt chính sách này thành Bật, thì hệ thống sẽ bật mô hình giảm độ sáng thông minh và có thể kéo dài thời gian cho đến khi màn hình tối đi. Nếu chính sách này trì hoãn thời gian, thì thời gian trì hoãn tắt màn hình, thời gian trì hoãn khóa màn hình và thời gian trì hoãn khi ở chế độ rảnh sẽ điều chỉnh để duy trì cùng khoảng thời gian với thời gian trì hoãn giảm độ sáng màn hình như được đặt ban đầu.
@@ -11681,6 +11695,7 @@ Nếu bạn không đặt chính sách này, thì màn hình bảo vệ quyền 
 <translation id="8164687848393015214">Nếu bạn đặt chính sách thành Bật (<ph name="HEARTBEATS_TERM" />), thì thiết bị sẽ gửi thông tin theo dõi gói mạng đến máy chủ quản lý để theo dõi trạng thái trực tuyến, giúp máy chủ phát hiện xem thiết bị có kết nối mạng hay không.
 
       Nếu bạn không đặt hoặc đặt chính sách này thành Tắt, thì thiết bị sẽ không gửi thông tin theo dõi gói mạng.</translation>
+<translation id="8165152191100365965">Gửi chỉ số đến Google trên các thiết bị được quản lý hoặc cho phép người dùng quyết định trên các thiết bị không được quản lý</translation>
 <translation id="8168359201203671567">Đèn nền bàn phím màu cầu vồng</translation>
 <translation id="8169452762291746260">Tắt tính năng theo dõi tình trạng thiết bị</translation>
 <translation id="8170359860920320269">Lọc các trang web có nội dung người lớn</translation>
@@ -12359,6 +12374,7 @@ Kể từ <ph name="PRODUCT_NAME" /> 147, chính sách này sẽ không được
 <translation id="859579553230883285">Tắt chế độ cài đặt Quảng cáo do trang web đề xuất của <ph name="PRIVACY_SANDBOX_NAME" /> cho người dùng.</translation>
 <translation id="8596784129804979039">Sử dụng cấu hình mặc định cho hộp cát dịch vụ mạng</translation>
 <translation id="8597758693275075382">Chuỗi SMBIOS của OEM (Nhà sản xuất thiết bị gốc) được truyền đến máy ảo trong quá trình cài đặt. Giá trị mặc định là danh sách trống.</translation>
+<translation id="8598252733604444967">Cho phép các Ứng dụng Chrome do quản trị viên cài đặt hoạt động.</translation>
 <translation id="8598786284856179541">Bật chính sách báo cáo thông tin phiên bản</translation>
 <translation id="859937827887158048">Không cho phép tự động tải bản cập nhật xuống thông qua kết nối ngang hàng</translation>
 <translation id="8600280933078435582">Ứng dụng Linux</translation>
@@ -12922,7 +12938,6 @@ Nếu bạn không đặt chính sách này, thì hệ thống sẽ ngăn mọi 
 <translation id="8955719471735800169">Quay lại đầu trang</translation>
 <translation id="8956312248048980644">Cho phép phân nhóm tác nhân theo khoá nguồn gốc theo mặc định.</translation>
 <translation id="8963464192296208229">Chế độ cài đặt phím F11 sử dụng phím tắt chứa phím bổ trợ alt</translation>
-<translation id="8966888925105658202">Không cho phép các nguồn gốc của Ứng dụng web tách biệt giao tiếp với điểm cuối trên mạng riêng tư trong Direct Sockets API.</translation>
 <translation id="8973579598359969188">Chọn có cho người dùng thấy lời nhắc của <ph name="PRIVACY_SANDBOX_NAME" /> hay không</translation>
 <translation id="8974457039656761249">Kiểm soát tính năng gợi ý khi viết bằng bàn phím vật lý</translation>
 <translation id="8974588819713914715">Chính sách này không còn được dùng nữa và không được hỗ trợ, vui lòng dùng chính sách "<ph name="URL_ALLOWLIST_POLICY_NAME" />".</translation>
@@ -13069,6 +13084,9 @@ Nếu bạn không đặt chính sách này, <ph name="PRODUCT_NAME" /> sẽ m�
       Nếu mẫu URI chứa biến <ph name="HTTP_VARIABLE_DNS" />, thì các yêu cầu tới trình phân giải sẽ dùng <ph name="HTTP_METHOD_GET" />; nếu không, các yêu cầu sẽ dùng <ph name="HTTP_METHOD_POST" />.
 
       Các mẫu không đúng định dạng sẽ bị bỏ qua.</translation>
+<translation id="9066972193987544412">Nếu bạn đặt chính sách này thành Bật hoặc không đặt, người dùng sẽ có thể thêm, xoá, sửa đổi hoặc tải dấu trang lên.
+
+      Nếu bạn đặt chính sách này thành Tắt, người dùng sẽ không thể thêm, xoá, sửa đổi hoặc tải dấu trang lên. Người dùng vẫn có thể sử dụng dấu trang hiện có.</translation>
 <translation id="9068629430243705879">cổng 6566 (có thể được bỏ chặn cho đến ngày 15/10/2021)</translation>
 <translation id="9069432851455606924">Chế độ cài đặt định vị vị trí</translation>
 <translation id="9069503402414011061">Nếu bạn đặt chính sách này, hệ thống sẽ chỉ định thời gian tồn tại (tính theo giờ) của bộ nhớ đệm lưu dữ liệu xác thực. Bộ nhớ đệm chứa dữ liệu về các vùng được vùng của máy này tin cậy (vùng được liên kết). Vì vậy, việc lưu dữ liệu xác thực vào bộ nhớ đệm sẽ giúp quá trình đăng nhập diễn ra nhanh chóng. Dữ liệu riêng của người dùng và dữ liệu cho các vùng chưa liên kết không được lưu vào bộ nhớ đệm.
@@ -13141,6 +13159,21 @@ Nếu bạn không đặt chính sách này, thì <ph name="ASK_NOTIFICATIONS_PO
 <translation id="9122865885571719292">Kiểm soát việc có khôi phục hay không và cách <ph name="PRODUCT_OS_NAME" /> khôi phục phiên trước đó khi đăng nhập.
 Chính sách này chỉ có hiệu lực khi bạn đặt chính sách <ph name="FULL_RESTORE_ENABLED_NAME" /> thành true (đúng).</translation>
 <translation id="9123464369663964441">Cho phép người dùng thêm trường hợp ngoại lệ để cho phép nội dung hỗn hợp</translation>
+<translation id="9123738611041078443">Định cấu hình chế độ cài đặt kết nối cho <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> trong <ph name="PRODUCT_NAME" />.
+
+Để định cấu hình <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" />, quản trị viên phải cung cấp:
+* URL ứng dụng web <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> (<ph name="GEMINI_ENTERPRISE_SETTINGS_URL_POLICY_VALUE" />) HOẶC
+* Cả ba tham số cũ: <ph name="GEMINI_ENTERPRISE_SETTINGS_PROJECT_ID_POLICY_VALUE" />, <ph name="GEMINI_ENTERPRISE_SETTINGS_APP_ID_POLICY_VALUE" /> và <ph name="GEMINI_ENTERPRISE_SETTINGS_LOCATION_POLICY_VALUE" />. Nếu bạn chỉ khai báo 1 hoặc 2 trong số 3 tham số này mà không có URL thì <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> sẽ không được định cấu hình.
+
+Tham số <ph name="GEMINI_ENTERPRISE_SETTINGS_URL_POLICY_VALUE" /> phải là một URL hợp lệ sử dụng giao thức HTTPS, trỏ đến miền <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> và không chứa tên người dùng hoặc mật khẩu. Nếu không đáp ứng các yêu cầu này, chính sách sẽ bị bỏ qua và <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> sẽ không được định cấu hình.
+
+Nếu bạn định cấu hình cả tham số <ph name="GEMINI_ENTERPRISE_SETTINGS_URL_POLICY_VALUE" /> và các tham số cũ thì tham số <ph name="GEMINI_ENTERPRISE_SETTINGS_URL_POLICY_VALUE" /> sẽ được ưu tiên.
+
+Nếu bạn đặt chính sách này, <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> sẽ được định cấu hình cho những người dùng đăng nhập bằng tài khoản được quản lý hoặc qua trình duyệt được quản lý.
+
+Nếu bạn không đặt chính sách này, <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> sẽ không được định cấu hình.
+
+Xin lưu ý rằng chính sách này không kiểm soát việc tích hợp <ph name="GOOGLE_GEMINI_PRODUCT_NAME" /> nói chung. Bạn có thể kiểm soát việc tích hợp này qua chính sách <ph name="GEMINI_SETTINGS_POLICY_NAME" />.</translation>
 <translation id="9124770007620653639">Không bao giờ gửi dữ liệu về độ tin cậy của miền cho Google</translation>
 <translation id="9126331659955304300">Cho phép tính năng lựa chọn hình đại diện của người dùng từ hệ thống tệp, máy ảnh và hồ sơ trên Google</translation>
 <translation id="9126694586349976283">Cho phép sử dụng các API AI tích hợp sẵn.</translation>
@@ -13318,6 +13351,20 @@ Xác định xem người dùng có được phép định cấu hình tên máy
       Nếu bạn đặt chính sách này thành tắt, thì chỉ những người dùng có tên trong <ph name="DEVICE_USER_ALLOWLIST_POLICY_NAME" /> mới có thể đăng nhập.
 
       Nếu bạn đặt chính sách này thành bật hoặc không đặt, thì tất cả người dùng sẽ có thể đăng nhập.</translation>
+<translation id="963342674988073839">Chính sách này không còn dùng trong phiên bản M156 nữa, vui lòng sử dụng <ph name="AUTOFILL_SETTINGS_POLICY_NAME" />.
+
+Để duy trì hành vi hiện tại là tắt <ph name="AUTOFILL_CREDIT_CARD_ENABLED_POLICY_NAME" />, hãy định cấu hình <ph name="AUTOFILL_SETTINGS_POLICY_NAME" /> với "url_pattern" được đặt thành "*" và "blocked_types" được đặt thành ["payments"].
+
+Nếu bạn đặt chính sách này thành True hoặc không đặt, thì người dùng có thể kiểm soát các nội dung đề xuất tự động điền cho thẻ tín dụng trong giao diện người dùng.
+
+Nếu bạn đặt chính sách này thành False, thì tính năng tự động điền sẽ không bao giờ gợi ý hoặc điền thông tin thẻ tín dụng hay lưu thông tin thẻ tín dụng bổ sung mà người dùng có thể gửi trong khi duyệt web.</translation>
+<translation id="963375545567956229">Chính sách này không được dùng nữa và không có hiệu lực kể từ M145. Tính năng Báo cáo mở rộng của Duyệt web an toàn đã bị xoá khỏi <ph name="PRODUCT_NAME" />, nên <ph name="PRODUCT_NAME" /> không gửi các báo cáo này nữa bất kể cách thiết lập chính sách này, đồng thời chế độ cài đặt tương ứng không hiển thị với người dùng nữa.
+
+      Để <ph name="PRODUCT_NAME" /> gửi thêm thông tin giúp cải thiện tính năng Duyệt web an toàn, hãy bật chế độ Bảo vệ nâng cao thông qua chính sách <ph name="SAFE_BROWSING_PROTECTION_LEVEL_POLICY_NAME" />.
+
+      Trước M145, việc đặt chính sách này thành Bật sẽ bật tính năng Báo cáo mở rộng của Duyệt web an toàn của <ph name="PRODUCT_NAME" />. Tính năng này gửi một số thông tin về hệ thống và nội dung trang đến các máy chủ của Google để giúp phát hiện các ứng dụng và trang web nguy hiểm. Nếu bạn đặt chính sách này thành Tắt, báo cáo sẽ không bao giờ được gửi. Nếu bạn đặt chính sách này, người dùng sẽ không thể thay đổi; nếu không đặt chính sách này, người dùng có thể quyết định có gửi báo cáo hay không.
+
+      Xem thêm về dịch vụ Duyệt web an toàn (https://developers.google.com/safe-browsing).</translation>
 <translation id="966425658642788645">Áp dụng hành vi mặc định</translation>
 <translation id="971677226939413180">Lựa chọn In dưới dạng hình ảnh không có sẵn đối với người dùng.</translation>
 <translation id="974349541138387272">Chỉ định mẫu URI của trình phân giải DNS qua HTTPS mà bạn muốn</translation>

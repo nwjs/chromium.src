@@ -6,6 +6,7 @@ ci/Linux Tests (dbg)(1)
 ci/linux-wayland-mutter-rel-tests
 ci/linux-wayland-weston-rel-tests
 try/linux-rel
+try/linux-rel-compilator
 try/linux-wayland-mutter-rel
 try/linux-wayland-weston-rel
 try/linux_chromium_compile_dbg_ng

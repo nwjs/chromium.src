@@ -11,6 +11,7 @@
 #include <string>
 #include <utility>
 
+#include "base/barrier_closure.h"
 #include "base/check.h"
 #include "base/containers/map_util.h"
 #include "base/containers/to_vector.h"
@@ -18,6 +19,7 @@
 #include "base/sequence_checker.h"
 #include "base/uuid.h"
 #include "components/autofill/core/browser/webdata/personal_context/entity_suppression_sync_util.h"
+#include "components/os_crypt/async/browser/os_crypt_async.h"
 #include "components/os_crypt/async/common/encryptor.h"
 #include "components/sync/base/data_type.h"
 #include "components/sync/base/deletion_origin.h"
@@ -70,14 +72,24 @@ DecryptSuppressionSpecifics(const std::string& encrypted_value,
 EntitySuppressionSyncBridge::EntitySuppressionSyncBridge(
     std::unique_ptr<syncer::DataTypeLocalChangeProcessor> change_processor,
     syncer::OnceDataTypeStoreFactory store_factory,
-    scoped_refptr<const os_crypt_async::Encryptor> encryptor)
-    : syncer::DataTypeSyncBridge(std::move(change_processor)),
-      encryptor_(std::move(encryptor)) {
-  CHECK(encryptor_);
+    os_crypt_async::OSCryptAsync* os_crypt_async)
+    : syncer::DataTypeSyncBridge(std::move(change_processor)) {
+  CHECK(os_crypt_async);
+  // Reading and decrypting local suppression records requires both the
+  // `DataTypeStore` and the `os_crypt_async::Encryptor`. Since both are
+  // initialized asynchronously, wait for both callbacks to complete before
+  // reading data from the store.
+  base::RepeatingClosure barrier = base::BarrierClosure(
+      /*num_closures=*/2,
+      base::BindOnce(&EntitySuppressionSyncBridge::OnRequiredServicesReady,
+                     weak_ptr_factory_.GetWeakPtr()));
+  os_crypt_async->GetInstance(
+      base::BindOnce(&EntitySuppressionSyncBridge::OnEncryptorReady,
+                     weak_ptr_factory_.GetWeakPtr(), barrier));
   std::move(store_factory)
       .Run(syncer::AUTOFILL_ENTITY_SUPPRESSION,
            base::BindOnce(&EntitySuppressionSyncBridge::OnStoreCreated,
-                          weak_ptr_factory_.GetWeakPtr()));
+                          weak_ptr_factory_.GetWeakPtr(), barrier));
 }
 
 EntitySuppressionSyncBridge::~EntitySuppressionSyncBridge() {
@@ -167,12 +179,44 @@ bool EntitySuppressionSyncBridge::Unsuppress(
   return true;
 }
 
+bool EntitySuppressionSyncBridge::ClearAllSuppressions() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  CHECK(IsLoaded());
+
+  if (guids_by_entry_.empty()) {
+    return false;
+  }
+
+  std::unique_ptr<syncer::DataTypeStore::WriteBatch> batch =
+      store_->CreateWriteBatch();
+  for (const auto& [entry, guid] : guids_by_entry_) {
+    batch->DeleteData(guid);
+    change_processor()->Delete(guid, syncer::DeletionOrigin::Unspecified(),
+                               batch->GetMetadataChangeList());
+  }
+  guids_by_entry_.clear();
+
+  store_->CommitWriteBatch(
+      std::move(batch),
+      base::BindOnce(&EntitySuppressionSyncBridge::ReportErrorIfSet,
+                     weak_ptr_factory_.GetWeakPtr()));
+
+  NotifySuppressionsChanged();
+  return true;
+}
+
 base::flat_set<EntitySuppressionEntry>
 EntitySuppressionSyncBridge::GetSuppressions() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return {base::sorted_unique,
           base::ToVector(guids_by_entry_,
                          [](const auto& pair) { return pair.first; })};
+}
+
+bool EntitySuppressionSyncBridge::IsSuppressed(
+    const EntitySuppressionEntry& entry) const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  return guids_by_entry_.contains(entry);
 }
 
 bool EntitySuppressionSyncBridge::IsLoaded() const {
@@ -192,12 +236,98 @@ EntitySuppressionSyncBridge::CreateMetadataChangeList() {
   return syncer::DataTypeStore::WriteBatch::CreateMetadataChangeList();
 }
 
+bool EntitySuppressionSyncBridge::ApplyRemoteEntry(
+    const std::string& storage_key,
+    const sync_pb::AutofillEntitySuppressionSpecifics& specifics,
+    EntitySuppressionEntry entry,
+    syncer::DataTypeStore::WriteBatch& batch) {
+  std::optional<std::string> encrypted_value =
+      EncryptSuppressionSpecifics(specifics, *encryptor_);
+  if (!encrypted_value) {
+    // TODO(crbug.com/501036619): Report a ModelError when encryption is
+    // unavailable.
+    return false;
+  }
+
+  const std::string* existing_guid = base::FindOrNull(guids_by_entry_, entry);
+  if (!existing_guid) {
+    batch.WriteData(storage_key, *encrypted_value);
+    guids_by_entry_.insert_or_assign(std::move(entry), storage_key);
+    return true;
+  }
+
+  if (*existing_guid == storage_key) {
+    batch.WriteData(storage_key, *encrypted_value);
+    return false;
+  }
+
+  auto delete_entry = [&](const std::string& guid) {
+    batch.DeleteData(guid);
+    change_processor()->Delete(guid, syncer::DeletionOrigin::Unspecified(),
+                               batch.GetMetadataChangeList());
+  };
+
+  // Duplicate GUIDs for the same suppression entry. Smaller GUID
+  // lexicographically wins.
+  if (storage_key < *existing_guid) {
+    delete_entry(*existing_guid);
+    batch.WriteData(storage_key, *encrypted_value);
+    guids_by_entry_.insert_or_assign(std::move(entry), storage_key);
+  } else {
+    delete_entry(storage_key);
+  }
+
+  return false;
+}
+
 std::optional<syncer::ModelError>
 EntitySuppressionSyncBridge::MergeFullSyncData(
     std::unique_ptr<syncer::MetadataChangeList> metadata_change_list,
     syncer::EntityChangeList entity_data) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  // TODO(crbug.com/501036619): Implement.
+  CHECK(IsLoaded());
+  // TODO(crbug.com/501036619): Consider schema_version when merging.
+  // TODO(crbug.com/501036619): Limit the maximum number of suppressions.
+  std::unique_ptr<syncer::DataTypeStore::WriteBatch> batch =
+      store_->CreateWriteBatch(std::move(metadata_change_list));
+
+  absl::flat_hash_set<std::string> synced_remote_guids;
+  synced_remote_guids.reserve(entity_data.size());
+  bool added_remote_suppressions = false;
+
+  for (const std::unique_ptr<syncer::EntityChange>& change : entity_data) {
+    const sync_pb::AutofillEntitySuppressionSpecifics& specifics =
+        change->data().specifics.autofill_entity_suppression();
+    std::optional<EntitySuppressionEntry> entry =
+        CreateEntitySuppressionEntryFromSpecifics(specifics);
+    CHECK(entry);
+
+    synced_remote_guids.insert(change->storage_key());
+    if (ApplyRemoteEntry(change->storage_key(), specifics, std::move(*entry),
+                         *batch)) {
+      added_remote_suppressions = true;
+    }
+  }
+
+  // Upload local-only entries to Sync (including any local entries that won
+  // conflict resolution against remote duplicates).
+  for (const auto& [entry, guid] : guids_by_entry_) {
+    if (!synced_remote_guids.contains(guid)) {
+      change_processor()->Put(
+          guid, CreateEntityDataFromEntitySuppressionEntry(guid, entry),
+          batch->GetMetadataChangeList());
+    }
+  }
+
+  store_->CommitWriteBatch(
+      std::move(batch),
+      base::BindOnce(&EntitySuppressionSyncBridge::ReportErrorIfSet,
+                     weak_ptr_factory_.GetWeakPtr()));
+
+  if (added_remote_suppressions) {
+    NotifySuppressionsChanged();
+  }
+
   return std::nullopt;
 }
 
@@ -206,14 +336,71 @@ EntitySuppressionSyncBridge::ApplyIncrementalSyncChanges(
     std::unique_ptr<syncer::MetadataChangeList> metadata_change_list,
     syncer::EntityChangeList entity_changes) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  // TODO(crbug.com/501036619): Implement.
+  CHECK(IsLoaded());
+  std::unique_ptr<syncer::DataTypeStore::WriteBatch> batch =
+      store_->CreateWriteBatch(std::move(metadata_change_list));
+
+  bool suppressions_changed = false;
+
+  for (const std::unique_ptr<syncer::EntityChange>& change : entity_changes) {
+    switch (change->type()) {
+      case syncer::EntityChange::ACTION_ADD: {
+        const sync_pb::AutofillEntitySuppressionSpecifics& specifics =
+            change->data().specifics.autofill_entity_suppression();
+        std::optional<EntitySuppressionEntry> entry =
+            CreateEntitySuppressionEntryFromSpecifics(specifics);
+        CHECK(entry);
+
+        if (ApplyRemoteEntry(change->storage_key(), specifics,
+                             std::move(*entry), *batch)) {
+          suppressions_changed = true;
+        }
+        break;
+      }
+      case syncer::EntityChange::ACTION_UPDATE:
+        // Entity suppressions are immutable; updates are ignored.
+        break;
+      case syncer::EntityChange::ACTION_DELETE: {
+        batch->DeleteData(change->storage_key());
+        const size_t removed_count =
+            base::EraseIf(guids_by_entry_, [&](const auto& pair) {
+              return pair.second == change->storage_key();
+            });
+        if (removed_count > 0) {
+          suppressions_changed = true;
+        }
+        break;
+      }
+    }
+  }
+
+  store_->CommitWriteBatch(
+      std::move(batch),
+      base::BindOnce(&EntitySuppressionSyncBridge::ReportErrorIfSet,
+                     weak_ptr_factory_.GetWeakPtr()));
+
+  if (suppressions_changed) {
+    NotifySuppressionsChanged();
+  }
+
   return std::nullopt;
 }
 
 void EntitySuppressionSyncBridge::ApplyDisableSyncChanges(
     std::unique_ptr<syncer::MetadataChangeList> delete_metadata_change_list) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  // TODO(crbug.com/501036619): Implement.
+  CHECK(IsLoaded());
+  store_->DeleteAllDataAndMetadata(
+      std::move(delete_metadata_change_list),
+      base::BindOnce(&EntitySuppressionSyncBridge::ReportErrorIfSet,
+                     weak_ptr_factory_.GetWeakPtr()));
+
+  const bool had_entries = !guids_by_entry_.empty();
+  guids_by_entry_.clear();
+
+  if (had_entries) {
+    NotifySuppressionsChanged();
+  }
 }
 
 std::unique_ptr<syncer::MutableDataBatch>
@@ -273,14 +460,38 @@ EntitySuppressionSyncBridge::TrimAllSupportedFieldsFromRemoteSpecifics(
 }
 
 void EntitySuppressionSyncBridge::OnStoreCreated(
+    base::RepeatingClosure barrier,
     const std::optional<syncer::ModelError>& error,
     std::unique_ptr<syncer::DataTypeStore> store) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (error) {
     change_processor()->ReportError(*error);
+  } else {
+    CHECK(store);
+    store_ = std::move(store);
+  }
+  barrier.Run();
+}
+
+void EntitySuppressionSyncBridge::OnEncryptorReady(
+    base::RepeatingClosure barrier,
+    scoped_refptr<os_crypt_async::Encryptor> encryptor) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  CHECK(encryptor);
+  if (encryptor->IsEncryptionAvailable()) {
+    encryptor_ = std::move(encryptor);
+  } else {
+    // TODO(crbug.com/501036619): Report a ModelError when encryption is
+    // unavailable.
+  }
+  barrier.Run();
+}
+
+void EntitySuppressionSyncBridge::OnRequiredServicesReady() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (!store_ || !encryptor_) {
     return;
   }
-  store_ = std::move(store);
   store_->ReadAllDataAndMetadata(
       base::BindOnce(&EntitySuppressionSyncBridge::OnReadAllDataAndMetadata,
                      weak_ptr_factory_.GetWeakPtr()));
@@ -304,8 +515,8 @@ void EntitySuppressionSyncBridge::OnReadAllDataAndMetadata(
     }
   }
 
-  change_processor()->ModelReadyToSync(std::move(metadata_batch));
   is_loaded_ = true;
+  change_processor()->ModelReadyToSync(std::move(metadata_batch));
 
   NotifySuppressionsChanged();
 }

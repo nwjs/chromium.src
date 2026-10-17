@@ -18,36 +18,26 @@
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/no_destructor.h"
-#include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
-#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
 #include "chrome/common/read_anything/read_anything_util.h"
-#include "read_anything_app_model.h"
 #if !BUILDFLAG(IS_CHROMEOS)
 #include "chrome/common/webui_url_constants.h"
 #include "content/public/common/url_constants.h"
 #endif
-#include "chrome/renderer/accessibility/read_anything/read_aloud_traversal_utils.h"
 #include "chrome/renderer/accessibility/read_anything/read_anything_node_utils.h"
-#include "content/public/renderer/render_thread.h"
-#include "services/strings/grit/services_strings.h"
 #include "third_party/re2/src/re2/re2.h"
 #include "ui/accessibility/accessibility_features.h"
-#include "ui/accessibility/ax_enum_util.h"
 #include "ui/accessibility/ax_enums.mojom-shared.h"
 #include "ui/accessibility/ax_node.h"
 #include "ui/accessibility/ax_node_id_forward.h"
 #include "ui/accessibility/ax_role_properties.h"
 #include "ui/accessibility/ax_selection.h"
 #include "ui/accessibility/ax_serializable_tree.h"
-#include "ui/accessibility/ax_text_utils.h"
 #include "ui/accessibility/ax_tree_id.h"
 #include "ui/accessibility/ax_tree_observer.h"
-#include "ui/accessibility/ax_tree_update_util.h"
-#include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
 #include "url/url_util.h"
 
@@ -347,6 +337,40 @@ bool ReadAnythingAppModel::ContentNodesOnlyContainHeadings() {
   return true;
 }
 
+ReadAnythingAppModel::OriginalPageMetrics
+ReadAnythingAppModel::GetOriginalPageMetrics() const {
+  if (!ContainsActiveTree()) {
+    return {};
+  }
+  const auto it = tree_infos_.find(active_tree_id_);
+  if (it == tree_infos_.end()) {
+    return {};
+  }
+  const AXTreeInfo* tree_info = it->second.get();
+  if (tree_info->original_page_metrics.has_value()) {
+    return tree_info->original_page_metrics.value();
+  }
+
+  ui::AXSerializableTree* active_tree = GetTreeFromId(active_tree_id_);
+  if (!active_tree || !active_tree->root()) {
+    tree_info->original_page_metrics = OriginalPageMetrics();
+    return tree_info->original_page_metrics.value();
+  }
+
+  OriginalPageMetrics metrics;
+  for (ui::AXNode* node = active_tree->root(); node;
+       node = node->GetNextUnignoredInTreeOrder()) {
+    if (IsNodeLikelyKeyPoints(node)) {
+      metrics.maybe_has_key_points = true;
+      break;
+    }
+  }
+
+  tree_info->original_page_metrics = metrics;
+  return metrics;
+}
+
+// Checks if a specific AXNode seems likely to indicate a key points section.
 // This method uses a heuristic to make an educated guess about whether the
 // original page that reading mode was opened on has some type of key points
 // section. This heuristic checks if there's a heading or button that has
@@ -354,25 +378,6 @@ bool ReadAnythingAppModel::ContentNodesOnlyContainHeadings() {
 // that could likely indicate that a section represents a "key points."
 // This is just intended as an approximation for metrics purposes to better
 // understand the types of pages that reading mode is opened on.
-bool ReadAnythingAppModel::MaybeHasKeyPointsSection() const {
-  if (!ContainsActiveTree()) {
-    return false;
-  }
-  ui::AXSerializableTree* active_tree = GetTreeFromId(active_tree_id_);
-  if (!active_tree || !active_tree->root()) {
-    return false;
-  }
-
-  for (ui::AXNode* node = active_tree->root(); node;
-       node = node->GetNextUnignoredInTreeOrder()) {
-    if (IsNodeLikelyKeyPoints(node)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-// Checks if a specific AXNode seems likely to indicate a key points section.
 bool ReadAnythingAppModel::IsNodeLikelyKeyPoints(ui::AXNode* node) const {
   if (node->GetRole() == ax::mojom::Role::kHeading ||
       node->GetRole() == ax::mojom::Role::kButton ||
@@ -712,6 +717,9 @@ void ReadAnythingAppModel::UnserializeUpdates(const Updates& updates,
 
   // Set URL info if it hasn't already been set.
   SetTreeInfoUrlInformation(*it->second);
+
+  // Reset cached original page metrics since tree structure changed.
+  it->second->original_page_metrics.reset();
 
   ProcessGeneratedEvents(tree_id, event_generator, prev_tree_size,
                          tree->size());

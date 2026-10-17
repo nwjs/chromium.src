@@ -304,6 +304,9 @@ Try waiting a few minutes before switching accounts. If you switch accounts now,
       <message name="IDS_IOS_DEFAULT_BROWSER_BANNER_PROMO_TEXT" desc="Text for the default browser banner promo [iOS only]">
         Open links in Chrome by Default
       </message>
+      <message name="IDS_IOS_DEFAULT_BROWSER_CONTEXTUAL_GEMINI_SUBTITLE" desc="Subtitle for the contextual default browser promo for Gemini [iOS only].">
+        Make Chrome your default to get Gemini insights anywhere you browse
+      </message>
       <message name="IDS_IOS_DEFAULT_BROWSER_LEARN_MORE_INSTRUCTIONS_MESSAGE" desc="Description to user about how to reach the default browser setting in their device. [iOS only]">
           To make Chrome your default:
   1. Open Settings
@@ -497,6 +500,15 @@ Things to consider:
       </message>
       <message name="IDS_IOS_FIRST_RUN_WELCOME_SCREEN_SUBTITLE" desc="The subtitle of the welcome screen presented to the user on First Run [iOS only]">
         Get more done with a simple, secure, and faster-than-ever Google Chrome.
+      </message>
+      <message name="IDS_IOS_GEMINI_SUGGESTIONS_ADAPT_DESCRIPTION" desc="Description explaining that Chrome adapts suggestions based on user selection or ignoring.">
+        If you select or ignore a suggestion, Chrome will adapt to help show you more relevant suggestions in the future.
+      </message>
+      <message name="IDS_IOS_GEMINI_SUGGESTIONS_PRIVATE_SPACE_DESCRIPTION" desc="Description explaining that Chrome processes page titles and URLs in a private space in the cloud.">
+        Chrome processes page titles and URLs in a private space in the cloud
+      </message>
+      <message name="IDS_IOS_GEMINI_SUGGESTIONS_TURNING_OFF_DESCRIPTION" desc="Description explaining that turning off suggestions does not affect processing for other features and points to sync settings.">
+        Turning off suggestions doesn't control Chrome's processing of page titles and URLs for other features. You can manage access to this data in your <ph name="BEGIN_LINK">BEGIN_LINK</ph>sync settings<ph name="END_LINK">END_LINK</ph>.
       </message>
       <message name="IDS_IOS_GOOGLE_SERVICES_SETTINGS_ALLOW_SIGNIN_DETAIL" desc="Feature detail text in the Google services Settings for the user to enable/disable Chrome express sign-in from the web [iOS only]">
         Shows prompts to sign in to Chrome.
@@ -713,6 +725,9 @@ Things to consider:
       </message>
       <message name="IDS_IOS_LEVEL_UP_PROMO_SUBTITLE" desc="Text for the Level Up promo subtitle. [iOS only]">
         Complete quick tasks and discover ways to get the most out of Chrome:
+      </message>
+      <message name="IDS_IOS_LOCATION_SETTINGS_HELP_DETAIL" desc="Body of modal dialog shown when the user browses to a page trying to use location but we lack permission to use the geolocation. This body tells the user he'll be redirected to the Settings app. [iOS only].">
+        To share your location with websites, tap on Settings to let Chrome use your location.
       </message>
       <message name="IDS_IOS_LOCATION_WHEN_IN_USE_USAGE_DESCRIPTION" desc="Specifies the reason for accessing the user's location information while the app is in use [Length: unlimited] [iOS only].">
         Chrome shares your location with sites you allow.

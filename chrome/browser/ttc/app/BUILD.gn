@@ -1,0 +1,153 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# The headers in public are the only ones that should be accessible from
+# core. This is enforced via DEPS.
+source_set("public") {
+  public = [
+    "public/conversation.h",
+    "public/make_conversation.h",
+    "public/tool_types.h",
+  ]
+  public_deps = [
+    "//base",
+    "//components/actor/public/mojom:mojo_bindings",
+    "//components/optimization_guide/proto:optimization_guide_proto",
+    "//url",
+  ]
+}
+
+source_set("app") {
+  public = [
+    "audio_controller.h",
+    "error_codes.h",
+    "ttc_backend.h",
+    "ttc_mes_client.h",
+  ]
+  public_deps = [
+    ":public",
+    "//base",
+    "//chrome/browser/optimization_guide",
+    "//components/optimization_guide/core",
+    "//components/optimization_guide/proto:optimization_guide_proto",
+    "//media",
+    "//media/mojo/mojom",
+    "//mojo/public/cpp/bindings",
+    "//url",
+  ]
+}
+
+source_set("impl") {
+  sources = [
+    "audio_controller.cc",
+    "conversation_impl.cc",
+    "conversation_impl.h",
+    "make_conversation.cc",
+    "tool_types.cc",
+    "ttc_mes_client.cc",
+  ]
+  deps = [
+    ":app",
+    "//base",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/ttc/core",
+    "//content/public/browser",
+    "//services/audio/public/cpp",
+  ]
+}
+
+source_set("test_support") {
+  testonly = true
+  sources = [
+    "test_utils.cc",
+    "test_utils.h",
+  ]
+  public_deps = [
+    ":app",
+    "//base",
+    "//components/optimization_guide/proto:optimization_guide_proto",
+    "//testing/gmock",
+    "//url",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [
+    "audio_controller_unittest.cc",
+    "conversation_impl_unittest.cc",
+    "ttc_mes_client_unittest.cc",
+  ]
+  deps = [
+    ":app",
+    ":impl",
+    ":test_support",
+    "//base/test:test_support",
+    "//chrome/browser/optimization_guide:test_support",
+    "//chrome/browser/ttc/core",
+    "//chrome/test:test_support",
+    "//content/test:test_support",
+    "//media",
+    "//media:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+}
+
+if (!is_android) {
+  source_set("browser_test_support") {
+    testonly = true
+    sources = [
+      "app_browser_test_base.cc",
+      "app_browser_test_base.h",
+    ]
+    public_deps = [
+      ":app",
+      "//base",
+      "//base/test:test_support",
+      "//chrome/browser/optimization_guide:test_support",
+      "//chrome/test:test_support",
+      "//content/public/browser",
+      "//media",
+      "//media:test_support",
+      "//testing/gmock",
+      "//third_party/protobuf:protobuf_lite",
+    ]
+    deps = [
+      ":impl",
+      "//chrome/browser/optimization_guide",
+      "//chrome/browser/profiles:profile",
+      "//chrome/browser/ttc/core",
+      "//chrome/browser/ttc/core:impl",
+      "//components/keyed_service/core",
+      "//components/optimization_guide/core",
+      "//net:test_support",
+      "//testing/gtest",
+    ]
+  }
+
+  source_set("browser_tests") {
+    testonly = true
+    defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+    sources = [
+      "audio_controller_browsertest.cc",
+      "protocol_browsertest.cc",
+    ]
+    deps = [
+      ":app",
+      ":browser_test_support",
+      ":impl",
+      "//base",
+      "//chrome/browser/optimization_guide:test_support",
+      "//chrome/browser/ttc/core",
+      "//chrome/browser/ttc/core:impl",
+      "//chrome/test:test_support",
+      "//components/optimization_guide/proto:optimization_guide_proto",
+      "//content/test:browsertest_support",
+      "//content/test:test_support",
+      "//testing/gmock",
+      "//testing/gtest",
+    ]
+  }
+}

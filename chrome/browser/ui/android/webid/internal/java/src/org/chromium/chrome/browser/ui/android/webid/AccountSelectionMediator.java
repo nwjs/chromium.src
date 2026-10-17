@@ -405,7 +405,7 @@ class AccountSelectionMediator {
             @RpContext.EnumType int rpContext,
             Boolean isMultipleIdps) {
         Runnable closeOnClickRunnable = null;
-        if (!mBottomSheetController.isLargeFormFactorUiEnabled(mBottomSheetContent)) {
+        if (!mBottomSheetController.willShowFrameworkCloseButton(mBottomSheetContent)) {
             closeOnClickRunnable =
                     () -> {
                         onDismissed(IdentityRequestDialogDismissReason.CLOSE_BUTTON);
@@ -832,6 +832,14 @@ class AccountSelectionMediator {
         } else {
             showContent();
         }
+    }
+
+    /**
+     * Whether FedCM UI may currently be shown. Flows that do not go through {@link #showContent()}
+     * (such as the native app UI, which hands off to another activity) must consult this directly.
+     */
+    boolean canShowUi() {
+        return mCanShowUi;
     }
 
     void showUrl(Context context, @IdentityRequestDialogLinkType int linkType, GURL url) {
@@ -1295,8 +1303,6 @@ class AccountSelectionMediator {
     }
 
     private void recordCloseSheetMetrics() {
-        RecordHistogram.recordBooleanHistogram(
-                "Blink.FedCm.CloseVerifySheet.Android", mHeaderType == HeaderType.VERIFY);
         RecordHistogram.recordEnumeratedHistogram(
                 "Blink.FedCm.ClosedSheetType.Android", getSheetType(), SheetType.MAX_VALUE + 1);
     }

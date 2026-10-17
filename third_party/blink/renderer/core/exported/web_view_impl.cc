@@ -1079,16 +1079,15 @@ WebInputEventResult WebViewImpl::SendContextMenuEvent() {
 WebPagePopupImpl* WebViewImpl::OpenPagePopup(PagePopupClient* client) {
   CHECK(client);
 
-  // This guarantees there is never more than 1 PagePopup active at a time.
-  // CancelPagePopup may fire a synchronous change event when a select element
-  // is closed, but that event handler shouldn't be able to open another picker
-  // because it would require multiple user activations to be created and
-  // consumed within the same task.
+  // Make sure there is never more than one page popup active at a time.
   CancelPagePopup();
-  if (RuntimeEnabledFeatures::FileColorPickerConsumeActivationEnabled()) {
-    CHECK(!page_popup_);
-  } else {
-    DCHECK(!page_popup_);
+  // CancelPagePopup may fire a synchronous change event when a select element
+  // is closed, which may then try to open another page popup. We prevent this
+  // through this early return. Note that `WebPagePopupImpl::Create` call below
+  // asynchronously prevents multiple popups with a single user activation
+  // anyway.
+  if (page_popup_) {
+    return nullptr;
   }
 
   LocalFrame* opener_frame = client->OwnerElement().GetDocument().GetFrame();
@@ -1552,6 +1551,10 @@ void WebViewImpl::DidEnterFullscreen() {
   fullscreen_controller_->DidEnterFullscreen();
 }
 
+void WebViewImpl::DidFailToEnterFullscreen() {
+  fullscreen_controller_->DidFailToEnterFullscreen();
+}
+
 void WebViewImpl::DidExitFullscreen() {
   fullscreen_controller_->DidExitFullscreen();
 }
@@ -1979,6 +1982,11 @@ void WebView::ApplyWebPreferences(const web_pref::WebPreferences& prefs,
     RuntimeEnabledFeatures::SetAIRewriterAPIEnabled(true);
     RuntimeEnabledFeatures::SetAIWriterAPIEnabled(true);
   }
+
+  // Set on the core Settings directly: this is Blink-internal, and does not
+  // need to be part of the public WebSettings API.
+  web_view_impl->GetPage()->GetSettings().SetXSLTDeprecationBannerSuppressed(
+      prefs.is_xslt_deprecation_banner_suppressed);
 
 #if BUILDFLAG(IS_MAC) && BUILDFLAG(USE_EXTERNAL_POPUP_MENU)
   const bool use_external_popups = !prefs.should_disable_external_popups;
@@ -2499,7 +2507,7 @@ void WebViewImpl::SetPageScaleFactorAndLocation(float scale_factor,
 
   GetPage()->GetVisualViewport().SetScaleAndLocation(
       ClampPageScaleFactorToLimits(scale_factor), is_pinch_gesture_active,
-      location);
+      location, mojom::blink::ScrollType::kCompositor);
 }
 
 void WebViewImpl::SetPageScaleFactor(float scale_factor) {
@@ -2960,7 +2968,7 @@ void ValidatePausedStateConsistency() {
       }
       const bool microtasks_are_paused =
           window->GetAgent()->event_loop()->AreMicrotasksPaused();
-      CHECK(!microtasks_are_paused, base::NotFatalUntil::M156) << window->Url();
+      CHECK(!microtasks_are_paused, base::NotFatalUntil::M162) << window->Url();
     }
   }
 }
@@ -3466,6 +3474,7 @@ void WebViewImpl::ResetScaleStateImmediately() {
 void WebViewImpl::ResetScrollAndScaleState() {
   // Skip scroll restoration when restoring from back-forward cache.
   if (last_page_lifecycle_state_update_restored_from_bfcache_) {
+    last_page_lifecycle_state_update_restored_from_bfcache_ = false;
     return;
   }
   GetPage()->GetVisualViewport().Reset();
@@ -4014,7 +4023,6 @@ void WebViewImpl::DidCommitLoad(bool is_new_navigation,
     }
   }
 
-  last_page_lifecycle_state_update_restored_from_bfcache_ = false;
   // Give the visual viewport's scroll layer its initial size.
   GetPage()->GetVisualViewport().MainFrameDidChangeSize();
 }

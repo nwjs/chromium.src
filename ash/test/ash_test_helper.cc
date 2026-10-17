@@ -201,7 +201,6 @@ void AshTestHelper::TearDown() {
   system_tray_client_.reset();
   session_controller_client_.reset();
   wallpaper_controller_client_.reset();
-  notifier_settings_controller_.reset();
   new_window_delegate_.reset();
   test_keyboard_controller_observer_.reset();
 
@@ -308,6 +307,11 @@ void AshTestHelper::TearDown() {
     input_method_manager_ = nullptr;
     input_method::InputMethodManager::Shutdown();
   }
+
+  // Tests can mark a display internal; clear that again so later tests in this
+  // process do not see a stale internal display. SetUp() clears it too, but
+  // only helps fixtures that go on to create an AshTestHelper.
+  display::SetInternalDisplayIds({});
 }
 
 aura::Window* AshTestHelper::GetContext() {
@@ -542,8 +546,6 @@ void AshTestHelper::SetUp(InitParams init_params) {
 
   system_tray_client_ = std::make_unique<TestSystemTrayClient>();
   shell->system_tray_model()->SetClient(system_tray_client_.get());
-  notifier_settings_controller_ =
-      std::make_unique<TestNotifierSettingsController>();
   prefs_provider_ = std::make_unique<TestPrefServiceProvider>();
 
   // Requires the AppListController the Shell creates.

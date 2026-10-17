@@ -418,6 +418,7 @@ try_.builder(
     contact_team_email = "chrome-fuzzing-core@google.com",
     cq_settings = try_.cq_settings(
         on_default_cq = True,
+        reuse_max_commit_distance = 800 if settings.is_main else None,
     ),
     experiments = {
         # crbug/940930
@@ -494,6 +495,7 @@ try_.orchestrator_builder(
 try_.compilator_builder(
     name = "linux-rel-compilator",
     branch_selector = branches.selector.LINUX_BRANCHES,
+    contact_team_email = "chrome-linux-engprod@google.com",
     main_list_view = "try",
 )
 
@@ -730,6 +732,7 @@ try_.orchestrator_builder(
     # use_orchestrator_pool = True,
     cq_settings = try_.cq_settings(
         on_default_cq = True,
+        reuse_max_commit_distance = 800 if settings.is_main else None,
     ),
     experiments = {
         # go/nplus1shardsproposal
@@ -747,6 +750,7 @@ try_.orchestrator_builder(
 try_.compilator_builder(
     name = "linux_chromium_asan_rel_ng-compilator",
     branch_selector = branches.selector.LINUX_BRANCHES,
+    contact_team_email = "chrome-sanitizer-builder-owners@google.com",
     main_list_view = "try",
 )
 
@@ -885,6 +889,7 @@ try_.builder(
     contact_team_email = "chrome-linux-engprod@google.com",
     cq_settings = try_.cq_settings(
         on_default_cq = True,
+        reuse_max_commit_distance = 800 if settings.is_main else None,
     ),
     experiments = {
         # crbug/940930
@@ -994,6 +999,7 @@ try_.orchestrator_builder(
     # use_orchestrator_pool = True,
     cq_settings = try_.cq_settings(
         on_default_cq = True,
+        reuse_max_commit_distance = 800 if settings.is_main else None,
     ),
     experiments = {
         # go/nplus1shardsproposal
@@ -1011,6 +1017,7 @@ try_.orchestrator_builder(
 try_.compilator_builder(
     name = "linux_chromium_tsan_rel_ng-compilator",
     branch_selector = branches.selector.LINUX_BRANCHES,
+    contact_team_email = "chrome-sanitizer-builder-owners@google.com",
     main_list_view = "try",
 )
 
@@ -1056,7 +1063,10 @@ try_.builder(
     properties = {
         "$build/chromium_toolchain": {
             "toolchain": "CLANG",
+            "trusted_build_instance": "lexan-release-infra-linux-prod",
+            "trusted_build_instance_env": "prod",
             "trusted_build_instance_pool": "high-cpu",
+            "trusted_build_instance_project": "lexan-release-infra-prod",
             "config_path": "build/lexan/configs/tbi/linux-patched-fix-strict-deps.textproto",
         },
     },
@@ -1279,15 +1289,6 @@ try_.builder(
             cq.location_filter(path_regexp = r".*/README\.(chromium|angle|pdfium|crashpad|skia|swarming|v8|webrtc|google|libaom)"),
         ],
     ),
-)
-
-try_.builder(
-    name = "linux-tsgo-rel",
-    mirrors = [
-        "ci/linux-tsgo-rel",
-    ],
-    gn_args = "ci/linux-tsgo-rel",
-    contact_team_email = "chrome-webui@google.com",
 )
 
 try_.builder(

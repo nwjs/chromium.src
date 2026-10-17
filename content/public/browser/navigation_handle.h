@@ -36,6 +36,7 @@
 #include "net/http/http_connection_info.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "services/network/public/mojom/declarative_performance_observer.mojom-forward.h"
+#include "services/network/public/mojom/device_bound_sessions.mojom-forward.h"
 #include "services/network/public/mojom/web_sandbox_flags.mojom-forward.h"
 #include "third_party/blink/public/common/runtime_feature_state/runtime_feature_state_context.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
@@ -357,15 +358,18 @@ class CONTENT_EXPORT NavigationHandle : public base::SupportsUserData {
   // Whether the navigation was initiated by a user gesture.
   //
   // Differences from `StartedWithTransientActivation()`:
-  // 1. This returns `true` for browser-initiated navigations.
-  // 2. For renderer-initiated navigations, this is filtered out during proxy
-  //    navigations, to prevent it from being exposed to the committed document.
+  // 1. This can return `true` for browser-initiated navigations. (Note that
+  //    some browser-initiated navigations won't have a user gesture, such as
+  //    from session restore or extensions.)
+  // 2. For renderer-initiated navigations, this is filtered out if the
+  //    navigation went through NavigateFromFrameProxy(), to prevent it from
+  //    being exposed to the committed document.
   virtual bool HasUserGesture() = 0;
 
   // Whether the navigation started with a transient user activation.
   //
   // Differences from `HasUserGesture()`:
-  // 1. This returns `false` for browser-initiated navigations.
+  // 1. This always returns `false` for browser-initiated navigations.
   // 2. For renderer-initiated navigations, this provides the raw, unfiltered
   //    initiator state.
   virtual bool StartedWithTransientActivation() = 0;
@@ -572,6 +576,11 @@ class CONTENT_EXPORT NavigationHandle : public base::SupportsUserData {
   // redirect). The headers returned should not be modified, as modifications
   // will not be reflected in the network stack.
   virtual const net::HttpResponseHeaders* GetResponseHeaders() = 0;
+
+  // Returns the device bound session usage for the request, or kUnknown if
+  // response headers haven't been received yet.
+  virtual network::mojom::DeviceBoundSessionUsage GetDeviceBoundSessionUsage()
+      const = 0;
 
   // Returns the parsed Declarative Performance Observer policy for the request,
   // or nullptr if it hasn't been received yet.

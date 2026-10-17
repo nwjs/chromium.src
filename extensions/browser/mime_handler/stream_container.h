@@ -7,11 +7,13 @@
 
 #include <string>
 
+#include "base/functional/callback.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "extensions/common/api/mime_handler.mojom.h"
 #include "extensions/common/extension_id.h"
 #include "mojo/public/cpp/system/data_pipe.h"
+#include "services/network/public/mojom/url_response_head.mojom.h"
 #include "third_party/blink/public/mojom/loader/transferrable_url_loader.mojom.h"
 #include "url/gurl.h"
 
@@ -51,8 +53,12 @@ class StreamContainer {
   const std::string& mime_type() const { return mime_type_; }
   const GURL& original_url() const { return original_url_; }
   const GURL& stream_url() const { return stream_url_; }
-  net::HttpResponseHeaders* response_headers() const {
-    return response_headers_.get();
+  const net::HttpResponseHeaders* response_headers() const {
+    return response_head_->headers.get();
+  }
+
+  const network::mojom::URLResponseHead* response_head() const {
+    return response_head_.get();
   }
 
   const mime_handler::PdfPluginAttributesPtr& pdf_plugin_attributes() const {
@@ -67,10 +73,12 @@ class StreamContainer {
   // replayed into a fresh data pipe on fallback.
   void SetBodyCache(scoped_refptr<MimeHandlerBodyCache> cache);
 
-  // Creates a new data pipe consumer containing the cached body data.
-  // Returns an invalid handle if no cache is attached or the source has not
-  // been fully drained yet.
-  mojo::ScopedDataPipeConsumerHandle GetFallbackDataPipe();
+  using FallbackDataPipeCallback =
+      base::OnceCallback<void(mojo::ScopedDataPipeConsumerHandle)>;
+
+  // Runs `callback` with a replay pipe once the body cache is ready, or with
+  // an invalid handle when no cache is attached.
+  void GetFallbackDataPipeAsync(FallbackDataPipeCallback callback);
 
   // Returns the number of cached body bytes currently held by the attached
   // body cache. Returns 0 if no cache is attached. The cache stores
@@ -87,7 +95,8 @@ class StreamContainer {
   std::string mime_type_;
   GURL original_url_;
   GURL stream_url_;
-  scoped_refptr<net::HttpResponseHeaders> response_headers_;
+  // The original response head.
+  network::mojom::URLResponseHeadPtr response_head_;
   mime_handler::PdfPluginAttributesPtr pdf_plugin_attributes_;
   scoped_refptr<MimeHandlerBodyCache> body_cache_;
 

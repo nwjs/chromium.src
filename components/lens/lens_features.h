@@ -149,10 +149,6 @@ BASE_DECLARE_FEATURE(kLensOverlayTextSelectionContextMenuEntrypoint);
 COMPONENT_EXPORT(LENS_FEATURES)
 BASE_DECLARE_FEATURE(kLensOverlayForceEmptyCsbQuery);
 
-// Enables using a webview for the results frame instead of an iframe.
-COMPONENT_EXPORT(LENS_FEATURES)
-BASE_DECLARE_FEATURE(kLensSidePanelEnableWebviewResults);
-
 // Enables AIM suggestions in the composebox.
 COMPONENT_EXPORT(LENS_FEATURES)
 BASE_DECLARE_FEATURE(kLensAimSuggestions);
@@ -226,6 +222,14 @@ BASE_DECLARE_FEATURE(kLensOnlySendAaiForModalityChips);
 COMPONENT_EXPORT(LENS_FEATURES)
 BASE_DECLARE_FEATURE(
     kLensRestrictAnnotatedPageContentToSameSiteFramesForNextQueries);
+
+// Enables temporarily marking a hidden tab as visible to its renderer while
+// extracting its annotated page content. Hidden pages may be frozen by the
+// renderer scheduler (e.g. after being backgrounded for a while on Android), in
+// which case extraction would otherwise stall until it times out. Enabled by
+// default only on Android, where background page freezing is on by default.
+COMPONENT_EXPORT(LENS_FEATURES)
+BASE_DECLARE_FEATURE(kLensWakeHiddenTabForPageContentExtraction);
 
 // Enables deletion of context if a previously uploaded context is associated
 // with a page that was navigated away from or tab that was closed.
@@ -1055,11 +1059,6 @@ extern bool IsLensOverlayTextSelectionContextMenuEntrypointContextualized();
 // internal debugging only.
 COMPONENT_EXPORT(LENS_FEATURES)
 extern bool IsLensOverlayForceEmptyCsbQueryEnabled();
-
-// Whether to use a webview for the results frame instead of an iframe.
-COMPONENT_EXPORT(LENS_FEATURES)
-extern bool IsLensSidePanelWebviewResultsEnabled();
-
 
 // Whether the feature to enable the special handling for video citations is
 // enabled.

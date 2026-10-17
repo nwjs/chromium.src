@@ -5,12 +5,18 @@
 #ifndef IOS_CHROME_BROWSER_HOME_CUSTOMIZATION_MODEL_HOME_BACKGROUND_CUSTOMIZATION_SERVICE_H_
 #define IOS_CHROME_BROWSER_HOME_CUSTOMIZATION_MODEL_HOME_BACKGROUND_CUSTOMIZATION_SERVICE_H_
 
+#import <Foundation/Foundation.h>
+
 #import <string>
+#import <string_view>
 #import <variant>
+#import <vector>
 
 #import "base/base64.h"
 #import "base/containers/hashing_lru_cache.h"
+#import "base/files/file_path.h"
 #import "base/memory/raw_ref.h"
+#import "base/memory/scoped_refptr.h"
 #import "base/observer_list.h"
 #import "base/task/sequenced_task_runner.h"
 #import "base/values.h"
@@ -22,12 +28,19 @@
 #import "ios/chrome/browser/home_customization/model/home_background_image_service.h"
 #import "ios/chrome/browser/home_customization/model/theme_syncable_service_ios.h"
 #import "third_party/skia/include/core/SkColor.h"
+#import "url/gurl.h"
 
-class GURL;
 class HomeBackgroundCustomizationServiceObserver;
+enum class HomeCustomizationBackgroundStyle : NSInteger;
 class PrefRegistrySimple;
 class PrefService;
+class PromosManager;
 class UserUploadedImageManager;
+
+namespace network {
+class SharedURLLoaderFactory;
+class SimpleURLLoader;
+}  // namespace network
 
 namespace syncer {
 class SyncableService;
@@ -123,15 +136,40 @@ bool operator==(const sync_pb::ThemeIosSpecifics& lhs,
                 const sync_pb::ThemeIosSpecifics& rhs);
 }  // namespace sync_pb
 
+// Preference dictionary keys, subdirectory name, and filenames for
+// `prefs::kIosNtpEphemeralThemeData`.
+inline constexpr std::string_view kEphemeralThemeAnimationPathKey =
+    "animation_path";
+inline constexpr std::string_view kEphemeralThemeAnimationColorMappingKey =
+    "animation_colormapping";
+inline constexpr std::string_view kEphemeralThemeAnimationPromoPathKey =
+    "animation_promo_path";
+inline constexpr std::string_view kEphemeralThemeAnimationPromoColorMappingKey =
+    "animation_promo_colormapping";
+inline constexpr std::string_view kEphemeralThemeSeedColorKey = "seed_color";
+inline constexpr std::string_view kEphemeralThemeVersionKey = "version";
+inline constexpr std::string_view kPreEphemeralThemeBackgroundStyleKey =
+    "pre_ephemeral_background_style";
+
+inline constexpr std::string_view kEphemeralThemeDirectoryName =
+    "ephemeral_theme";
+inline constexpr std::string_view kEphemeralThemeAnimationFileName =
+    "ephemeral_animation.json";
+inline constexpr std::string_view kEphemeralThemePromoAnimationFileName =
+    "ephemeral_promo.json";
+
 // Service for allowing customization of the Home surface background.
 class HomeBackgroundCustomizationService
     : public KeyedService,
       public ThemeSyncableServiceIOS::Delegate {
  public:
-  explicit HomeBackgroundCustomizationService(
+  HomeBackgroundCustomizationService(
       PrefService* pref_service,
       UserUploadedImageManager* user_image_manager,
-      HomeBackgroundImageService* home_background_image_service);
+      HomeBackgroundImageService* home_background_image_service,
+      scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
+      const base::FilePath& state_path,
+      PromosManager* promos_manager = nullptr);
 
   HomeBackgroundCustomizationService(
       const HomeBackgroundCustomizationService&) = delete;
@@ -198,6 +236,19 @@ class HomeBackgroundCustomizationService
   // Resets the current background to the default/no changes without persisting
   // this change to disk.
   void ClearCurrentBackground();
+
+  // Sets the current background to the ephemeral theme without persisting this
+  // change to disk or adding it to the recently used backgrounds list.
+  void SetCurrentEphemeralTheme(
+      SkColor color,
+      sync_pb::UserColorTheme::BrowserColorVariant color_variant);
+
+  // Applies and stores the cached ephemeral theme if no custom background or
+  // color theme is currently set (or if an ephemeral theme is already active).
+  void MaybeApplyEphemeralTheme();
+
+  // Returns whether the ephemeral theme is currently active.
+  bool IsCurrentEphemeralTheme() const;
 
   // Stores the current theme to disk.
   void StoreCurrentTheme();
@@ -282,6 +333,53 @@ class HomeBackgroundCustomizationService
   void ClearCachedUserUploadedBackground(
       const RecentlyUsedBackground& recent_background);
 
+  // Metadata for a single ephemeral theme asset to download and persist.
+  struct EphemeralThemeAsset {
+    GURL url;
+    std::string_view file_name;
+    std::string_view pref_key;
+  };
+
+  // Returns the `HomeCustomizationBackgroundStyle` corresponding to the
+  // currently active background.
+  HomeCustomizationBackgroundStyle GetCurrentBackgroundStyle();
+
+  // Restores the most recently used background, or clears the current
+  // background to the default if no recently used backgrounds exist.
+  void RestoreMostRecentBackground();
+
+  // Restores the previous non-ephemeral background if the ephemeral theme is
+  // currently active, deletes cached ephemeral theme asset files from disk, and
+  // clears `prefs::kIosNtpEphemeralThemeData`.
+  void CleanupEphemeralThemeData();
+
+  // Evaluates Finch parameters and fetches the ephemeral theme data (main
+  // animation JSON and promo animation JSON) sequentially if not already cached
+  // in prefs.
+  void MaybeFetchEphemeralThemeData();
+
+  // Downloads the next asset in `pending_assets`, or persists `theme_dict` to
+  // `prefs::kIosNtpEphemeralThemeData` and registers the promo once all assets
+  // have been saved.
+  void FetchNextEphemeralThemeAsset(
+      std::vector<EphemeralThemeAsset> pending_assets,
+      base::DictValue theme_dict);
+
+  // Handles completion of downloading the current asset in `pending_assets` and
+  // writes `data` to disk.
+  void OnEphemeralThemeAssetDownloaded(
+      std::vector<EphemeralThemeAsset> pending_assets,
+      base::DictValue theme_dict,
+      std::string data);
+
+  // Handles completion of writing the current asset in `pending_assets` to disk
+  // at `file_path` and advances to the next asset.
+  void OnEphemeralThemeAssetSavedToDisk(
+      std::vector<EphemeralThemeAsset> pending_assets,
+      base::DictValue theme_dict,
+      const base::FilePath& file_path,
+      bool success);
+
   sync_pb::ThemeIosSpecifics current_theme_;
 
   std::optional<HomeUserUploadedBackground> current_user_uploaded_background_;
@@ -291,13 +389,25 @@ class HomeBackgroundCustomizationService
   RecentlyUsedBackgroundsCache recently_used_backgrounds_;
 
   // The PrefService associated with the Profile.
-  raw_ptr<PrefService> pref_service_;
+  raw_ptr<PrefService> pref_service_ = nullptr;
 
   // Image manager used for interacting with the filesystem.
-  raw_ptr<UserUploadedImageManager> user_image_manager_;
+  raw_ptr<UserUploadedImageManager> user_image_manager_ = nullptr;
 
   // Service used to load lists of recently used images.
-  raw_ptr<HomeBackgroundImageService> home_background_image_service_;
+  raw_ptr<HomeBackgroundImageService> home_background_image_service_ = nullptr;
+
+  // URL loader factory for network requests.
+  scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory_;
+
+  // Active URL loader for downloading the ephemeral theme animations.
+  std::unique_ptr<network::SimpleURLLoader> ephemeral_promo_url_loader_;
+
+  // Profile state directory path on disk.
+  base::FilePath state_path_;
+
+  // Promos manager used to register the ephemeral theme promo.
+  raw_ptr<PromosManager> promos_manager_ = nullptr;
 
   // The service responsible for syncing theme data. This is null if the
   // `kSyncThemesIos` feature is disabled.

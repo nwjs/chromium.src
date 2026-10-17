@@ -384,10 +384,11 @@ void MultiContentsView::SetTargetContentBounds(
   InvalidateLayout(/*avoid_propagate_during_layout=*/true);
 }
 
-void MultiContentsView::SetIsAnimatingContent(bool is_animating) {
+void MultiContentsView::SetIsAnimatingContent(bool is_animating,
+                                              bool is_origin_changing) {
   for (auto& contents_container_view : contents_container_views_) {
     contents_container_view->contents_view()->SetIsAnimatingBounds(
-        is_animating);
+        is_animating, is_origin_changing);
   }
 }
 
@@ -620,7 +621,7 @@ void MultiContentsView::BeforeApplyLayout(const views::ProposedLayout& layout) {
 
 gfx::Rect MultiContentsView::CalculateDropTargetLayout(
     const gfx::Rect& available_space,
-    std::vector<views::ChildLayout>& child_layouts) const {
+    views::ProposedLayout::ChildLayoutList& child_layouts) const {
   CHECK(IsDragAndDropEnabled());
   if (!drop_target_view_->GetVisible()) {
     child_layouts.emplace_back(drop_target_view_.get(), false, gfx::Rect());
@@ -656,7 +657,7 @@ gfx::Rect MultiContentsView::CalculateDropTargetLayout(
 
 gfx::Rect MultiContentsView::CalculateSeparatorLayouts(
     const gfx::Rect& available_space,
-    std::vector<views::ChildLayout>& child_layouts) const {
+    views::ProposedLayout::ChildLayoutList& child_layouts) const {
   if (IsInSplitView()) {
     child_layouts.emplace_back(contents_separators_.top_separator.get(), false,
                                gfx::Rect());

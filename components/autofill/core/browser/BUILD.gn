@@ -559,6 +559,8 @@ static_library("browser") {
     "data_manager/autofill_ai/entity_suppression_entry.cc",
     "data_manager/autofill_ai/entity_suppression_entry.h",
     "data_manager/autofill_ai/entity_suppression_manager.h",
+    "data_manager/autofill_ai/entity_suppression_manager_impl.cc",
+    "data_manager/autofill_ai/entity_suppression_manager_impl.h",
     "data_manager/autofill_ai/entity_suppression_sync_bridge.cc",
     "data_manager/autofill_ai/entity_suppression_sync_bridge.h",
     "data_manager/autofill_ai/in_memory_entity_suppression_manager.cc",
@@ -902,6 +904,8 @@ static_library("browser") {
     "metrics/form_events/loyalty_card_form_event_logger.h",
     "metrics/form_interactions_ukm_logger.cc",
     "metrics/form_interactions_ukm_logger.h",
+    "metrics/javascript_dropdown_metrics.cc",
+    "metrics/javascript_dropdown_metrics.h",
     "metrics/log_event.cc",
     "metrics/log_event.h",
     "metrics/loyalty_cards_metrics.cc",
@@ -936,6 +940,8 @@ static_library("browser") {
     "metrics/payments/mandatory_reauth_metrics.h",
     "metrics/payments/payments_window_metrics.cc",
     "metrics/payments/payments_window_metrics.h",
+    "metrics/payments/promo_code_metrics.cc",
+    "metrics/payments/promo_code_metrics.h",
     "metrics/payments/risk_data_metrics.cc",
     "metrics/payments/risk_data_metrics.h",
     "metrics/payments/save_and_fill_metrics.cc",
@@ -1084,6 +1090,8 @@ static_library("browser") {
     "payments/payments_requests/get_details_for_enrollment_request.h",
     "payments/payments_requests/get_details_for_update_bnpl_payment_instrument_request.cc",
     "payments/payments_requests/get_details_for_update_bnpl_payment_instrument_request.h",
+    "payments/payments_requests/get_details_for_update_card_request.cc",
+    "payments/payments_requests/get_details_for_update_card_request.h",
     "payments/payments_requests/get_iban_upload_details_request.cc",
     "payments/payments_requests/get_iban_upload_details_request.h",
     "payments/payments_requests/get_unmask_details_request.cc",
@@ -1157,6 +1165,8 @@ static_library("browser") {
     "strike_databases/autofill_ai/autofill_ai_update_strike_database.h",
     "strike_databases/evp/email_verification_not_signed_in_strike_database.h",
     "strike_databases/evp/email_verification_strike_database.h",
+    "strike_databases/payments/cardholder_name_fix_flow_strike_database.cc",
+    "strike_databases/payments/cardholder_name_fix_flow_strike_database.h",
     "strike_databases/payments/credit_card_save_strike_database.cc",
     "strike_databases/payments/credit_card_save_strike_database.h",
     "strike_databases/payments/cvc_storage_strike_database.cc",
@@ -1172,6 +1182,8 @@ static_library("browser") {
     "studies/autofill_ablation_study.h",
     "studies/autofill_experiments.cc",
     "studies/autofill_experiments.h",
+    "studies/hats_surveys_util.cc",
+    "studies/hats_surveys_util.h",
     "suggestions/addresses/address_suggestion_generator.cc",
     "suggestions/addresses/address_suggestion_generator.h",
     "suggestions/at_memory/at_memory_nudge_generator.cc",
@@ -1248,6 +1260,7 @@ static_library("browser") {
     "ui/payments/card_unmask_prompt_options.cc",
     "ui/payments/card_unmask_prompt_options.h",
     "ui/payments/card_unmask_prompt_view.h",
+    "ui/payments/payments_churned_users_ui_delegate.h",
     "ui/payments/payments_ui_closed_reasons.h",
     "ui/payments/payments_window_user_consent_dialog.h",
     "ui/payments/payments_window_user_consent_dialog_controller.h",
@@ -1490,6 +1503,7 @@ static_library("browser") {
     "//components/one_time_tokens/core/browser",
     "//components/optimization_guide/core",
     "//components/optimization_guide/proto:optimization_guide_proto",
+    "//components/os_crypt/async/browser",
     "//components/os_crypt/async/common",
     "//components/os_crypt/common",
     "//components/password_manager/core/browser/features:password_features",
@@ -1769,6 +1783,7 @@ static_library("test_support") {
     "payments/payments_requests/get_details_for_create_bnpl_payment_instrument_request_test_api.h",
     "payments/payments_requests/get_details_for_create_card_request_test_api.h",
     "payments/payments_requests/get_details_for_update_bnpl_payment_instrument_request_test_api.h",
+    "payments/payments_requests/get_details_for_update_card_request_test_api.h",
     "payments/payments_requests/get_wallet_reminder_notice_request_test_api.h",
     "payments/payments_requests/payments_request_test_api.h",
     "payments/payments_requests/update_bnpl_payment_instrument_request_test_api.h",
@@ -2008,6 +2023,7 @@ source_set("unit_tests") {
     "data_manager/autofill_ai/entity_data_manager_unittest.cc",
     "data_manager/autofill_ai/entity_instance_cleaner_unittest.cc",
     "data_manager/autofill_ai/entity_suppression_entry_unittest.cc",
+    "data_manager/autofill_ai/entity_suppression_manager_impl_unittest.cc",
     "data_manager/autofill_ai/entity_suppression_sync_bridge_unittest.cc",
     "data_manager/autofill_ai/in_memory_entity_suppression_manager_unittest.cc",
     "data_manager/payments/payments_data_manager_test_base.cc",
@@ -2146,11 +2162,13 @@ source_set("unit_tests") {
     "metrics/form_events/form_event_logger_base_unittest.cc",
     "metrics/form_events/loyalty_card_form_event_logger_unittest.cc",
     "metrics/form_interactions_ukm_logger_unittest.cc",
+    "metrics/javascript_dropdown_metrics_unittest.cc",
     "metrics/payments/bnpl_metrics_unittest.cc",
     "metrics/payments/card_info_retrieval_enrolled_metrics_unittest.cc",
     "metrics/payments/card_metadata_metrics_unittest.cc",
     "metrics/payments/cvc_storage_metrics_unittest.cc",
     "metrics/payments/iban_metrics_unittest.cc",
+    "metrics/payments/promo_code_metrics_unittest.cc",
     "metrics/payments/save_and_fill_metrics_unittest.cc",
     "metrics/payments/virtual_card_standalone_cvc_suggestion_metrics_unittest.cc",
     "metrics/payments/wallet_reminder_notice_metrics_unittest.cc",
@@ -2203,6 +2221,7 @@ source_set("unit_tests") {
     "payments/payments_requests/get_details_for_create_card_request_unittest.cc",
     "payments/payments_requests/get_details_for_enrollment_request_unittest.cc",
     "payments/payments_requests/get_details_for_update_bnpl_payment_instrument_request_unittest.cc",
+    "payments/payments_requests/get_details_for_update_card_request_unittest.cc",
     "payments/payments_requests/get_iban_upload_details_request_unittest.cc",
     "payments/payments_requests/get_wallet_reminder_notice_request_unittest.cc",
     "payments/payments_requests/payments_request_unittest.cc",
@@ -2226,6 +2245,7 @@ source_set("unit_tests") {
     "strike_databases/autofill_ai/autofill_ai_save_strike_database_by_host_unittest.cc",
     "strike_databases/evp/email_verification_not_signed_in_strike_database_unittest.cc",
     "strike_databases/evp/email_verification_strike_database_unittest.cc",
+    "strike_databases/payments/cardholder_name_fix_flow_strike_database_unittest.cc",
     "strike_databases/payments/payments_churned_users_strike_database_unittest.cc",
     "strike_databases/payments/virtual_card_enrollment_strike_database_unittest.cc",
     "studies/autofill_ablation_study_unittest.cc",
@@ -2369,6 +2389,7 @@ source_set("unit_tests") {
     "//base/i18n:test_support",
     "//base/test:test_support",
     "//base/version_info",
+    "//build:blink_buildflags",
     "//components/autofill/core/browser/actor:unit_tests",
     "//components/autofill/core/common:autofill_regex",
     "//components/autofill/core/common:credit_card_number_validation",
@@ -2447,6 +2468,10 @@ source_set("unit_tests") {
     deps += [ "//build:branding_buildflags" ]
   }
 
+  if (is_android) {
+    deps += [ "//components/autofill/android:main_autofill_jni_headers" ]
+  }
+
   if (!is_ios && !is_android) {
     deps += [ "//ui/native_theme" ]
   }
@@ -2467,7 +2492,7 @@ source_set("unit_tests") {
   }
 
   if (!is_fuchsia) {
-    deps += [ "//components/autofill/core/browser/at_memory/policy:unit_tests" ]
+    deps += [ "//components/autofill/core/browser/policy:unit_tests" ]
   }
 
   if (is_win || is_mac || is_linux || is_chromeos || is_android) {

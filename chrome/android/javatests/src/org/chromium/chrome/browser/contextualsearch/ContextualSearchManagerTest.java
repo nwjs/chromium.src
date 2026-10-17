@@ -70,7 +70,6 @@ import org.chromium.chrome.browser.overlay_panel.PanelState;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tabmodel.TabClosureParams;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
@@ -250,7 +249,7 @@ public class ContextualSearchManagerTest extends ContextualSearchInstrumentation
         TabModelSelectorObserver observer =
                 new TabModelSelectorObserver() {
                     @Override
-                    public void onNewTabCreated(Tab tab, @TabCreationState int creationState) {
+                    public void onNewTabCreated(Tab tab) {
                         tabCreatedHelper.notifyCalled();
                     }
                 };
@@ -341,49 +340,46 @@ public class ContextualSearchManagerTest extends ContextualSearchInstrumentation
 
         InstrumentationRegistry.getInstrumentation()
                 .runOnMainSync(
-                        new Runnable() {
-                            @Override
-                            public void run() {
-                                AtomicBoolean result = new AtomicBoolean(false);
-                                RequiredCallback<Boolean> resultCallback =
-                                        new RequiredCallback<>(
-                                                (Boolean shouldIgnore) -> {
-                                                    result.set(shouldIgnore);
-                                                });
-                                mPanel.getOverlayPanelContent()
-                                        .getInterceptNavigationDelegateForTesting()
-                                        .shouldIgnoreNavigation(
-                                                navigationHandle,
-                                                initialUrl,
-                                                false,
-                                                false,
-                                                false,
-                                                resultCallback);
-                                Assert.assertEquals(0, mActivityMonitor.getHits());
-                                Assert.assertFalse(result.get());
+                        () -> {
+                            AtomicBoolean result = new AtomicBoolean(false);
+                            RequiredCallback<Boolean> resultCallback =
+                                    new RequiredCallback<>(
+                                            (Boolean shouldIgnore) -> {
+                                                result.set(shouldIgnore);
+                                            });
+                            mPanel.getOverlayPanelContent()
+                                    .getInterceptNavigationDelegateForTesting()
+                                    .shouldIgnoreNavigation(
+                                            navigationHandle,
+                                            initialUrl,
+                                            false,
+                                            false,
+                                            false,
+                                            resultCallback);
+                            Assert.assertEquals(0, mActivityMonitor.getHits());
+                            Assert.assertFalse(result.get());
 
-                                resultCallback =
-                                        new RequiredCallback<>(
-                                                (Boolean shouldIgnore) -> {
-                                                    result.set(shouldIgnore);
-                                                });
-                                navigationHandle.didRedirect(
-                                        redirectUrl,
-                                        true,
-                                        /* referrerUrl= */ GURL.emptyGURL(),
-                                        /* referrerPolicy= */ ReferrerPolicy.DEFAULT);
-                                mPanel.getOverlayPanelContent()
-                                        .getInterceptNavigationDelegateForTesting()
-                                        .shouldIgnoreNavigation(
-                                                navigationHandle,
-                                                redirectUrl,
-                                                false,
-                                                false,
-                                                false,
-                                                resultCallback);
-                                Assert.assertEquals(1, mActivityMonitor.getHits());
-                                Assert.assertTrue(result.get());
-                            }
+                            resultCallback =
+                                    new RequiredCallback<>(
+                                            (Boolean shouldIgnore) -> {
+                                                result.set(shouldIgnore);
+                                            });
+                            navigationHandle.didRedirect(
+                                    redirectUrl,
+                                    true,
+                                    /* referrerUrl= */ GURL.emptyGURL(),
+                                    /* referrerPolicy= */ ReferrerPolicy.DEFAULT);
+                            mPanel.getOverlayPanelContent()
+                                    .getInterceptNavigationDelegateForTesting()
+                                    .shouldIgnoreNavigation(
+                                            navigationHandle,
+                                            redirectUrl,
+                                            false,
+                                            false,
+                                            false,
+                                            resultCallback);
+                            Assert.assertEquals(1, mActivityMonitor.getHits());
+                            Assert.assertTrue(result.get());
                         });
     }
 
@@ -420,26 +416,23 @@ public class ContextualSearchManagerTest extends ContextualSearchInstrumentation
 
         InstrumentationRegistry.getInstrumentation()
                 .runOnMainSync(
-                        new Runnable() {
-                            @Override
-                            public void run() {
-                                AtomicBoolean result = new AtomicBoolean(false);
-                                RequiredCallback<Boolean> resultCallback =
-                                        new RequiredCallback<>(
-                                                (Boolean shouldIgnore) -> {
-                                                    result.set(shouldIgnore);
-                                                });
-                                mPanel.getOverlayPanelContent()
-                                        .getInterceptNavigationDelegateForTesting()
-                                        .shouldIgnoreNavigation(
-                                                navigationHandle,
-                                                url,
-                                                false,
-                                                false,
-                                                false,
-                                                resultCallback);
-                                Assert.assertTrue(result.get());
-                            }
+                        () -> {
+                            AtomicBoolean result = new AtomicBoolean(false);
+                            RequiredCallback<Boolean> resultCallback =
+                                    new RequiredCallback<>(
+                                            (Boolean shouldIgnore) -> {
+                                                result.set(shouldIgnore);
+                                            });
+                            mPanel.getOverlayPanelContent()
+                                    .getInterceptNavigationDelegateForTesting()
+                                    .shouldIgnoreNavigation(
+                                            navigationHandle,
+                                            url,
+                                            false,
+                                            false,
+                                            false,
+                                            resultCallback);
+                            Assert.assertTrue(result.get());
                         });
 
         Assert.assertEquals(hasGesture ? 1 : 0, mActivityMonitor.getHits());

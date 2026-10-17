@@ -476,8 +476,7 @@ bool CanApplyStartOverhang(const LineInfo& line_info,
   if (previous_item_style.FontSize() > ruby_style.FontSize()) {
     return false;
   }
-  if (RuntimeEnabledFeatures::TextEmphasisWithRubyEnabled() &&
-      previous_item_style.GetTextEmphasisMark() != TextEmphasisMark::kNone &&
+  if (previous_item_style.GetTextEmphasisMark() != TextEmphasisMark::kNone &&
       ruby_style.GetRubyPosition() ==
           previous_item_style.GetTextEmphasisLineLogicalSide()) {
     return false;
@@ -544,8 +543,7 @@ LayoutUnit CommitPendingEndOverhang(const InlineItem& text_item,
   if (column_base_line_style.FontSize() < text_item.Style()->FontSize()) {
     return LayoutUnit();
   }
-  if (RuntimeEnabledFeatures::TextEmphasisWithRubyEnabled() &&
-      text_item.Style()->GetTextEmphasisMark() != TextEmphasisMark::kNone &&
+  if (text_item.Style()->GetTextEmphasisMark() != TextEmphasisMark::kNone &&
       column_base_line_style.GetRubyPosition() ==
           text_item.Style()->GetTextEmphasisLineLogicalSide()) {
     return LayoutUnit();
@@ -786,19 +784,13 @@ AnnotationMetrics ComputeAnnotationOverflow(
   if (annotation_metrics) {
     if (annotation_metrics->ascent) {
       LayoutUnit item_over =
-          line_box_metrics.ascent - annotation_metrics->ascent;
-      if (RuntimeEnabledFeatures::TextEmphasisWithRubyEnabled()) {
-        item_over -= over_emphasis;
-      }
+          line_box_metrics.ascent - annotation_metrics->ascent - over_emphasis;
       content_over = std::min(content_over, item_over);
       has_over_annotation = true;
     }
     if (annotation_metrics->descent) {
-      LayoutUnit item_under =
-          line_box_metrics.ascent + annotation_metrics->descent;
-      if (RuntimeEnabledFeatures::TextEmphasisWithRubyEnabled()) {
-        item_under += under_emphasis;
-      }
+      LayoutUnit item_under = line_box_metrics.ascent +
+                              annotation_metrics->descent + under_emphasis;
       content_under = std::max(content_under, item_under);
       has_under_annotation = true;
     }
@@ -1084,80 +1076,17 @@ RubyBlockPositionCalculator& RubyBlockPositionCalculator::PlaceLines(
   DCHECK(!ruby_lines_.empty()) << "This must be called after GroupLines().";
   annotation_metrics_ = FontHeight();
 
-  if (RuntimeEnabledFeatures::TreeRubyPlacementEnabled()) {
-    RubyLine* root = BuildTree();
-    CHECK(root);
-    FontHeight total_subtree_metrics =
-        ComputeRelativeOffsets(*root, base_line_items, line_box_metrics);
-    ComputeOffsetsFromBase(*root, LayoutUnit());
+  RubyLine* root = BuildTree();
+  CHECK(root);
+  FontHeight total_subtree_metrics =
+      ComputeRelativeOffsets(*root, base_line_items, line_box_metrics);
+  ComputeOffsetsFromBase(*root, LayoutUnit());
 
-    if (!root->OverChildren().empty()) {
-      annotation_metrics_.ascent = total_subtree_metrics.ascent;
-    }
-    if (!root->UnderChildren().empty()) {
-      annotation_metrics_.descent = total_subtree_metrics.descent;
-    }
-    return *this;
+  if (!root->OverChildren().empty()) {
+    annotation_metrics_.ascent = total_subtree_metrics.ascent;
   }
-
-  // Sort `ruby_lines` from the lowest to the highest.
-  std::ranges::sort(ruby_lines_, [](const Member<RubyLine>& line1,
-                                    const Member<RubyLine>& line2) {
-    return *line1 < *line2;
-  });
-
-  auto base_iterator = std::ranges::find_if(
-      ruby_lines_,
-      [](const Member<RubyLine>& line) { return line->Level().empty(); });
-  CHECK_NE(base_iterator, ruby_lines_.end());
-
-  // Place "under" annotations from the base level to the lowest one.
-  if (base_iterator != ruby_lines_.begin()) {
-    auto first_under_iterator = std::ranges::find_if(
-        ruby_lines_.begin(), base_iterator,
-        [](const Member<RubyLine>& line) { return line->IsFirstUnderLevel(); });
-    FontHeight em_height = ComputeLogicalLineEmHeight(
-        base_line_items, (**first_under_iterator).BaseIndexList());
-    if (!em_height.LineHeight()) {
-      em_height = line_box_metrics;
-    }
-    LayoutUnit offset = em_height.descent;
-    auto lines_before_base =
-        base::span(ruby_lines_)
-            .first(base::checked_cast<size_t>(
-                std::distance(ruby_lines_.begin(), base_iterator)));
-    for (auto& ruby_line : base::Reversed(lines_before_base)) {
-      FontHeight metrics = ruby_line->UpdateMetrics();
-      offset += metrics.ascent;
-      ruby_line->MoveInBlockDirection(offset);
-      ruby_line->SetOffset(offset);
-      offset += metrics.descent;
-    }
-    annotation_metrics_.descent = offset;
-  }
-
-  // Place "over" annotations from the base level to the highest one.
-  if (std::next(base_iterator) != ruby_lines_.end()) {
-    auto first_over_iterator = std::ranges::find_if(
-        base_iterator, ruby_lines_.end(),
-        [](const Member<RubyLine>& line) { return line->IsFirstOverLevel(); });
-    FontHeight em_height = ComputeLogicalLineEmHeight(
-        base_line_items, (**first_over_iterator).BaseIndexList());
-    if (!em_height.LineHeight()) {
-      em_height = line_box_metrics;
-    }
-    LayoutUnit offset = -em_height.ascent;
-    for (auto& ruby_line :
-         base::span(ruby_lines_)
-             .last(base::checked_cast<size_t>(
-                 std::distance(base_iterator, ruby_lines_.end()) - 1))) {
-      FontHeight metrics = ruby_line->UpdateMetrics();
-      offset -= metrics.descent;
-      ruby_line->MoveInBlockDirection(offset);
-      ruby_line->SetOffset(offset);
-      offset -= metrics.ascent;
-    }
-    annotation_metrics_.ascent = -offset;
+  if (!root->UnderChildren().empty()) {
+    annotation_metrics_.descent = total_subtree_metrics.descent;
   }
   return *this;
 }

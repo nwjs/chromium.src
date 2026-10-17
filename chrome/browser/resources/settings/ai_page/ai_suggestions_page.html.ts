@@ -1,0 +1,101 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+import {html} from 'chrome://resources/lit/v3_0/lit.rollup.js';
+
+import type {SettingsAiSuggestionsPageElement} from './ai_suggestions_page.js';
+import {FeatureOptInState} from './constants.js';
+
+export function getHtml(this: SettingsAiSuggestionsPageElement) {
+  return html`<!--_html_template_start_-->
+<settings-subpage page-title="$i18n{aiSuggestionsLabel}"
+    route-path="${this.routePath}">
+  <div class="settings-row first">
+    ${!this.isDisabledByPolicy_() ? html`
+      <div class="cr-row first flex">
+        <div class="flex cr-padded-text">
+          <div id="aiSuggestionsLabel">$i18n{aiSuggestionsToggleLabel}</div>
+          <div class="secondary">
+            <span>$i18n{aiSuggestionsToggleSublabel}</span>
+            <a href="$i18n{aiSuggestionsHelpCenterArticleLink}"
+                aria-label="$i18n{learnMore}"
+                aria-description="$i18n{opensInNewTab}" id="learnMoreLink"
+                @click="${this.onLearnMoreLinkClick_}" target="_blank">
+              $i18n{learnMore}
+            </a>
+          </div>
+        </div>
+      </div>
+      <div class="separator"></div>
+    ` : html`
+      <div class="cr-row first">
+        <div class="flex cr-padded-text">
+          <div id="aiSuggestionsLabel">$i18n{aiSuggestionsToggleLabel}</div>
+          <div class="secondary">
+            <span>$i18n{aiSuggestionsToggleSublabel}</span>
+            <a href="$i18n{aiSuggestionsHelpCenterArticleLink}"
+                aria-label="$i18n{learnMore}"
+                aria-description="$i18n{opensInNewTab}" id="learnMoreLink"
+                @click="${this.onLearnMoreLinkClick_}" target="_blank">
+              $i18n{learnMore}
+            </a>
+          </div>
+        </div>
+      </div>
+      <settings-ai-policy-indicator id="policyIndicator"
+          pref-key="contextual_cueing.chrome_suggestions_settings">
+      </settings-ai-policy-indicator>
+    `}
+    <settings-toggle-button
+        id="showSuggestionsToggle"
+        aria-label="$i18n{aiSuggestionsToggleLabel}"
+        pref-key="optimization_guide.contextual_cueing_setting_state"
+        .numericUncheckedValues="${this.computeNumericUncheckedValues_()}"
+        .numericCheckedValue="${FeatureOptInState.ENABLED}"
+        ?disabled="${this.isDisabledByPolicy_()}"
+        @settings-boolean-control-change="${
+            this.onShowSuggestionsToggleSettingsBooleanControlChange_}">
+    </settings-toggle-button>
+  </div>
+  <div class="settings-columned-section">
+    <div class="column">
+      <h2 class="description-header">$i18n{columnHeadingWhenUsed}</h2>
+      <ul class="icon-bulleted-list">
+        <li>
+          <cr-icon icon="settings20:text-analysis" aria-hidden="true"></cr-icon>
+          <div class="secondary">$i18n{aiSuggestionsWhenOn1}</div>
+        </li>
+        <li>
+          <cr-icon icon="settings20:lightbulb-tips" aria-hidden="true">
+          </cr-icon>
+          <div class="secondary">$i18n{aiSuggestionsWhenOn2}</div>
+        </li>
+      </ul>
+    </div>
+    <div class="column">
+      <h2 class="description-header">$i18n{columnHeadingConsider}</h2>
+      <ul class="icon-bulleted-list">
+        <li>
+          <cr-icon icon="settings20:screensaver-auto"
+              aria-hidden="true"></cr-icon>
+          <div class="secondary">$i18n{aiSuggestionsConsider1}</div>
+        </li>
+        <li>
+          <cr-icon icon="settings20:shield" aria-hidden="true"></cr-icon>
+          <div class="secondary">
+            <span>$i18n{aiSuggestionsConsider2} </span>
+            <a href="chrome://settings/syncSetup"
+                aria-label="$i18n{aiSuggestionsConsider2Link}"
+                aria-description="$i18n{opensInNewTab}" id="syncSettingsLink"
+                @click="${this.onSyncSettingsLinkClick_}" target="_blank">
+              $i18n{aiSuggestionsConsider2Link}
+            </a>
+          </div>
+        </li>
+      </ul>
+    </div>
+  </div>
+</settings-subpage>
+<!--_html_template_end_-->`;
+}

@@ -9,13 +9,37 @@ import '//resources/cr_elements/cr_tabs/cr_tabs.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 
-import {ActuationTarget, FeatureMode, FormFactor, FreOverride, InvocationSource, Platform} from '../glic_enums.mojom-webui.js';
-import {ActuationEligibility, browserProxyFactory, FreCompletionWaitMode, GlicExperimentalTriggeringState} from '../glic_internals.mojom-webui.js';
-import type {BrowserProxy, InternalsDataPayload, TriggerInvokeFromInternalsOptions} from '../glic_internals.mojom-webui.js';
+import {             //
+  ActuationTarget,   //
+  FeatureMode,       //
+  FormFactor,        //
+  FreOverride,       //
+  InvocationSource,  //
+  Platform,          //
+} from '../glic_enums.mojom-webui.js';
+import {                            //
+  ActuationEligibility,             //
+  browserProxyFactory,              //
+  FreCompletionWaitMode,            //
+  GlicExperimentalTriggeringState,  //
+} from '../glic_internals.mojom-webui.js';
+import type {                                   //
+             BrowserProxy,                      //
+             InternalsDataPayload,              //
+             TriggerInvokeFromInternalsOptions, //
+} from '../glic_internals.mojom-webui.js';
 
 import {getCss} from './glic_internals_app.css.js';
 import {getHtml} from './glic_internals_app.html.js';
 
+function getEnumEntries<E extends Record<string, unknown>>(enumObj: E):
+    Array<{name: string, value: number}> {
+  return Object.entries(enumObj)
+      .filter(
+          ([key]) =>
+              isNaN(Number(key)) && key !== 'MIN_VALUE' && key !== 'MAX_VALUE')
+      .map(([name, value]) => ({name, value: Number(value)}));
+}
 
 export class GlicInternalsAppElement extends CrLitElement {
   static get is() {
@@ -108,20 +132,12 @@ export class GlicInternalsAppElement extends CrLitElement {
   protected accessor selectedTabIndex_: number = 0;
   protected accessor tabNames_: string[] = ['General', 'Debug Controls'];
   protected accessor featureModeEnumValues_:
-      Array<{name: string, value: number}> =
-          Object.entries(FeatureMode)
-              .filter(([key]) => isNaN(Number(key)))
-              .map(([name, value]) => ({name, value: value as number}));
+      Array<{name: string, value: number}> = getEnumEntries(FeatureMode);
   protected accessor actuationTargetEnumValues_:
-      Array<{name: string, value: number}> =
-          Object.entries(ActuationTarget)
-              .filter(([key]) => isNaN(Number(key)))
-              .map(([name, value]) => ({name, value: value as number}));
+      Array<{name: string, value: number}> = getEnumEntries(ActuationTarget);
   protected accessor freCompletionWaitModeEnumValues_:
       Array<{name: string, value: number}> =
-          Object.entries(FreCompletionWaitMode)
-              .filter(([key]) => isNaN(Number(key)))
-              .map(([name, value]) => ({name, value: value as number}));
+          getEnumEntries(FreCompletionWaitMode);
 
 
 
@@ -533,10 +549,9 @@ export class GlicInternalsAppElement extends CrLitElement {
     ];
   }
 
-  protected getInvocationSourceOptions_() {
-    return Object.entries(InvocationSource)
-        .filter(([_, value]) => typeof value === 'number')
-        .map(([key, value]) => ({name: key, value: value}));
+  protected getInvocationSourceOptions_():
+      Array<{name: string, value: number}> {
+    return getEnumEntries(InvocationSource);
   }
 
   protected onInvokePromptInput_(e: Event) {
@@ -869,6 +884,10 @@ export class GlicInternalsAppElement extends CrLitElement {
       {
         label: 'GlicTieredRolloutV2 Feature Flag',
         value: debugInfo.glicTieredRolloutV2FeatureEnabled,
+      },
+      {
+        label: 'GlicSubscriptionBenefitsEligibility Feature Flag',
+        value: debugInfo.glicSubscriptionBenefitsEligibilityFeatureEnabled,
       },
       {
         label: 'Platform',

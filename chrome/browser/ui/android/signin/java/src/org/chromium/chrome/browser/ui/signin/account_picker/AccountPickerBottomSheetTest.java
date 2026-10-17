@@ -72,6 +72,7 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
@@ -790,6 +791,7 @@ public class AccountPickerBottomSheetTest {
 
     @Test
     @MediumTest
+    @DisabledTest(message = "crbug.com/565232252")
     public void testProfileDataUpdateOnInitialExpandedSheet() {
         buildAndShowBottomSheet(AccountPickerLaunchMode.CHOOSE_ACCOUNT);
         String newFullName = "New Full Name1";
@@ -1487,6 +1489,7 @@ public class AccountPickerBottomSheetTest {
 
     @Test
     @MediumTest
+    @DisabledTest(message = "https://crbug.com/562983248")
     public void testSigninWithAddedAccount_removeAccountAfterManagementNotice() {
         mIsAccountManaged = true;
         buildAndShowCollapsedThenExpandedBottomSheet();

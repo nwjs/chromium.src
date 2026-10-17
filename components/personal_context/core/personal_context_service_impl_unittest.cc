@@ -10,10 +10,12 @@
 
 #include "base/containers/span.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/protobuf_matchers.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test.pb.h"
 #include "base/test/test_future.h"
+#include "components/personal_context/core/mock_personal_context_eligibility_service.h"
 #include "components/personal_context/core/personal_context_features.h"
 #include "components/personal_context/core/personal_context_key_manager.h"
 #include "components/personal_context/core/personal_context_prefs.h"
@@ -27,13 +29,40 @@
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 #include "services/network/test/test_url_loader_factory.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace personal_context {
 
 namespace {
 
+using ::base::test::EqualsProto;
 using ::base::test::TestMessage;
+
+proto::Timestamp CreateTimestamp(int64_t seconds, int32_t nanos = 0) {
+  proto::Timestamp timestamp;
+  timestamp.set_seconds(seconds);
+  timestamp.set_nanos(nanos);
+  return timestamp;
+}
+
+proto::DateTime CreateDateTime(int year,
+                               int month,
+                               int day,
+                               int hours,
+                               int minutes,
+                               int seconds,
+                               int nanos = 0) {
+  proto::DateTime date_time;
+  date_time.set_year(year);
+  date_time.set_month(month);
+  date_time.set_day(day);
+  date_time.set_hours(hours);
+  date_time.set_minutes(minutes);
+  date_time.set_seconds(seconds);
+  date_time.set_nanos(nanos);
+  return date_time;
+}
 
 proto::FetchContextResponse BuildFetchContextResponse(std::string_view output) {
   proto::FetchContextResponse fetch_response;
@@ -45,7 +74,12 @@ proto::FetchContextResponse BuildFetchContextResponse(std::string_view output) {
 
 class PersonalContextServiceImplTest : public testing::Test {
  public:
-  PersonalContextServiceImplTest() = default;
+  PersonalContextServiceImplTest() {
+    scoped_feature_list_.InitWithFeatures(
+        {features::kPersonalContext,
+         features::kPersonalContextHandleEncryptedPayloads},
+        {});
+  }
   ~PersonalContextServiceImplTest() override = default;
 
   void SetUp() override {
@@ -53,9 +87,11 @@ class PersonalContextServiceImplTest : public testing::Test {
     url_loader_factory_ =
         base::MakeRefCounted<network::WeakWrapperSharedURLLoaderFactory>(
             &test_url_loader_factory_);
+    key_manager_ = std::make_unique<PersonalContextKeyManager>(
+        &pref_service_, &fake_sync_service_, &mock_eligibility_service_);
     personal_context_service_ = std::make_unique<PersonalContextServiceImpl>(
         url_loader_factory_, identity_test_env_.identity_manager(),
-        &pref_service_, /*device_info_sync_service=*/nullptr);
+        &pref_service_, &fake_sync_service_, &mock_eligibility_service_);
   }
 
   void SetAutomaticIssueOfAccessTokens() {
@@ -88,12 +124,15 @@ class PersonalContextServiceImplTest : public testing::Test {
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   variations::test::ScopedVariationsIdsProvider scoped_variations_ids_provider_{
       variations::VariationsIdsProvider::Mode::kUseSignedInState};
-  base::test::ScopedFeatureList scoped_feature_list_{
-      features::kPersonalContext};
+  base::test::ScopedFeatureList scoped_feature_list_;
   signin::IdentityTestEnvironment identity_test_env_;
   TestingPrefServiceSimple pref_service_;
+  syncer::FakeDeviceInfoSyncService fake_sync_service_;
+  testing::NiceMock<MockPersonalContextEligibilityService>
+      mock_eligibility_service_;
   scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory_;
   network::TestURLLoaderFactory test_url_loader_factory_;
+  std::unique_ptr<PersonalContextKeyManager> key_manager_;
   std::unique_ptr<PersonalContextServiceImpl> personal_context_service_;
 };
 
@@ -140,9 +179,6 @@ TEST_F(PersonalContextServiceImplTest, FetchPiiEntitiesDelegatesToManager) {
 }
 
 TEST_F(PersonalContextServiceImplTest, DecryptEntitySuccess_Passport) {
-  PersonalContextKeyManager key_manager(&pref_service_,
-                                        /*device_info_sync_service=*/nullptr);
-
   proto::DecryptedEntity decrypted_entity;
   decrypted_entity.mutable_passport()->set_full_name("Jane Doe");
   decrypted_entity.mutable_passport()->set_number("123456789");
@@ -154,10 +190,19 @@ TEST_F(PersonalContextServiceImplTest, DecryptEntitySuccess_Passport) {
   decrypted_entity.mutable_passport()->mutable_expiration_date()->set_month(1);
   decrypted_entity.mutable_passport()->mutable_expiration_date()->set_day(15);
 
+  // 1780605015s = 2026-06-04T20:30:15Z.
   proto::DecryptedReference* gmail_ref = decrypted_entity.add_references();
   gmail_ref->mutable_gmail_message()->set_subject("Your Passport Application");
-  gmail_ref->mutable_gmail_message()->set_message_url(
-      "https://mail.google.com/mail/u/0/#inbox/123");
+  gmail_ref->mutable_gmail_message()
+      ->mutable_message_urls()
+      ->set_desktop_web_url("https://mail.google.com/mail/#inbox/123");
+  gmail_ref->mutable_gmail_message()
+      ->mutable_message_urls()
+      ->set_mobile_web_url("https://mail.google.com/mail/mu/mp/#cv/Inbox/123");
+  gmail_ref->mutable_gmail_message()->set_message_id(111);
+  gmail_ref->mutable_gmail_message()->set_thread_id(222);
+  *gmail_ref->mutable_gmail_message()->mutable_timestamp() =
+      CreateTimestamp(1780605015, 123456789);
 
   proto::DecryptedReference* drive_ref = decrypted_entity.add_references();
   drive_ref->mutable_drive_file()->set_name("passport_scan.pdf");
@@ -165,8 +210,8 @@ TEST_F(PersonalContextServiceImplTest, DecryptEntitySuccess_Passport) {
       "https://drive.google.com/file/d/456");
 
   std::string serialized_entity = decrypted_entity.SerializeAsString();
-  std::optional<std::vector<uint8_t>> ciphertext = key_manager.Seal(
-      key_manager.GetPublicKey(), base::as_byte_span(serialized_entity));
+  std::optional<std::vector<uint8_t>> ciphertext = key_manager_->Seal(
+      key_manager_->GetPublicKey(), base::as_byte_span(serialized_entity));
   ASSERT_TRUE(ciphertext.has_value());
 
   proto::Entity entity;
@@ -191,8 +236,16 @@ TEST_F(PersonalContextServiceImplTest, DecryptEntitySuccess_Passport) {
   ASSERT_EQ(result->source_references_size(), 2);
   EXPECT_EQ(result->source_references(0).gmail().subject(),
             "Your Passport Application");
-  EXPECT_EQ(result->source_references(0).gmail().message_url(),
-            "https://mail.google.com/mail/u/0/#inbox/123");
+  EXPECT_EQ(
+      result->source_references(0).gmail().message_urls().desktop_web_url(),
+      "https://mail.google.com/mail/#inbox/123");
+  EXPECT_EQ(
+      result->source_references(0).gmail().message_urls().mobile_web_url(),
+      "https://mail.google.com/mail/mu/mp/#cv/Inbox/123");
+  EXPECT_EQ(result->source_references(0).gmail().message_id(), 111);
+  EXPECT_EQ(result->source_references(0).gmail().thread_id(), 222);
+  EXPECT_THAT(result->source_references(0).gmail().timestamp(),
+              EqualsProto(CreateDateTime(2026, 6, 4, 20, 30, 15, 123456789)));
   EXPECT_EQ(result->source_references(1).drive().name(), "passport_scan.pdf");
   EXPECT_EQ(result->source_references(1).drive().url(),
             "https://drive.google.com/file/d/456");
@@ -207,9 +260,6 @@ TEST_F(PersonalContextServiceImplTest, DecryptEntitySuccess_Passport) {
 }
 
 TEST_F(PersonalContextServiceImplTest, DecryptEntitySuccess_DriversLicense) {
-  PersonalContextKeyManager key_manager(&pref_service_,
-                                        /*device_info_sync_service=*/nullptr);
-
   proto::DecryptedEntity decrypted_entity;
   decrypted_entity.mutable_drivers_license()->set_full_name("John Smith");
   decrypted_entity.mutable_drivers_license()->set_number("D1234567");
@@ -221,21 +271,30 @@ TEST_F(PersonalContextServiceImplTest, DecryptEntitySuccess_DriversLicense) {
   decrypted_entity.mutable_drivers_license()->mutable_expiration_date()->set_month(6);
   decrypted_entity.mutable_drivers_license()->mutable_expiration_date()->set_day(1);
 
+  // 1780605015s = 2026-06-04T20:30:15Z.
   proto::DecryptedReference* photo_ref = decrypted_entity.add_references();
   photo_ref->mutable_photo()->set_deeplink_url(
       "https://photos.google.com/photo/123");
+  *photo_ref->mutable_photo()->mutable_timestamp() =
+      CreateTimestamp(1780605015, 123456789);
 
+  // 1780691415s = 2026-06-05T20:30:15Z.
   proto::DecryptedReference* video_ref = decrypted_entity.add_references();
   video_ref->mutable_video()->set_deeplink_url(
       "https://photos.google.com/video/456");
+  *video_ref->mutable_video()->mutable_timestamp() =
+      CreateTimestamp(1780691415, 500);
 
+  // 1780777815s = 2026-06-06T20:30:15Z.
   proto::DecryptedReference* album_ref = decrypted_entity.add_references();
   album_ref->mutable_photos_album()->set_deeplink_url(
       "https://photos.google.com/album/789");
+  *album_ref->mutable_photos_album()->mutable_start_time() =
+      CreateTimestamp(1780777815);
 
   std::string serialized_entity = decrypted_entity.SerializeAsString();
-  std::optional<std::vector<uint8_t>> ciphertext = key_manager.Seal(
-      key_manager.GetPublicKey(), base::as_byte_span(serialized_entity));
+  std::optional<std::vector<uint8_t>> ciphertext = key_manager_->Seal(
+      key_manager_->GetPublicKey(), base::as_byte_span(serialized_entity));
   ASSERT_TRUE(ciphertext.has_value());
 
   proto::Entity entity;
@@ -260,10 +319,18 @@ TEST_F(PersonalContextServiceImplTest, DecryptEntitySuccess_DriversLicense) {
   ASSERT_EQ(result->source_references_size(), 3);
   EXPECT_EQ(result->source_references(0).photos().photos_url(),
             "https://photos.google.com/photo/123");
+  EXPECT_THAT(result->source_references(0).photos().timestamp(),
+              EqualsProto(CreateDateTime(2026, 6, 4, 20, 30, 15, 123456789)));
+
   EXPECT_EQ(result->source_references(1).photos().photos_url(),
             "https://photos.google.com/video/456");
+  EXPECT_THAT(result->source_references(1).photos().timestamp(),
+              EqualsProto(CreateDateTime(2026, 6, 5, 20, 30, 15, 500)));
+
   EXPECT_EQ(result->source_references(2).photos().photos_url(),
             "https://photos.google.com/album/789");
+  EXPECT_THAT(result->source_references(2).photos().timestamp(),
+              EqualsProto(CreateDateTime(2026, 6, 6, 20, 30, 15)));
 
   histogram_tester.ExpectUniqueSample("PersonalContext.DecryptEntity.Result",
                                       /*sample=*/true,
@@ -275,18 +342,20 @@ TEST_F(PersonalContextServiceImplTest, DecryptEntitySuccess_DriversLicense) {
 }
 
 TEST_F(PersonalContextServiceImplTest, DecryptEntity_IgnoresUnspecifiedAndEmptyFields) {
-  PersonalContextKeyManager key_manager(&pref_service_,
-                                        /*device_info_sync_service=*/nullptr);
-
   proto::DecryptedEntity decrypted_entity;
   decrypted_entity.mutable_passport()->set_full_name("UNSPECIFIED");
   decrypted_entity.mutable_passport()->set_number("  unspecified  ");
   decrypted_entity.mutable_passport()->set_issuing_country("");
 
-  // Gmail reference with unspecified message_url should be ignored.
+  // Gmail reference with unspecified message_urls should be ignored.
   proto::DecryptedReference* gmail_ref = decrypted_entity.add_references();
   gmail_ref->mutable_gmail_message()->set_subject("Subject");
-  gmail_ref->mutable_gmail_message()->set_message_url("UNSPECIFIED");
+  gmail_ref->mutable_gmail_message()
+      ->mutable_message_urls()
+      ->set_desktop_web_url("UNSPECIFIED");
+  gmail_ref->mutable_gmail_message()
+      ->mutable_message_urls()
+      ->set_mobile_web_url("UNSPECIFIED");
 
   // Drive reference with unspecified name should only set url.
   proto::DecryptedReference* drive_ref = decrypted_entity.add_references();
@@ -294,8 +363,8 @@ TEST_F(PersonalContextServiceImplTest, DecryptEntity_IgnoresUnspecifiedAndEmptyF
   drive_ref->mutable_drive_file()->set_url("https://drive.google.com/file/d/456");
 
   std::string serialized_entity = decrypted_entity.SerializeAsString();
-  std::optional<std::vector<uint8_t>> ciphertext = key_manager.Seal(
-      key_manager.GetPublicKey(), base::as_byte_span(serialized_entity));
+  std::optional<std::vector<uint8_t>> ciphertext = key_manager_->Seal(
+      key_manager_->GetPublicKey(), base::as_byte_span(serialized_entity));
   ASSERT_TRUE(ciphertext.has_value());
 
   proto::Entity entity;
@@ -317,9 +386,6 @@ TEST_F(PersonalContextServiceImplTest, DecryptEntity_IgnoresUnspecifiedAndEmptyF
 }
 
 TEST_F(PersonalContextServiceImplTest, DecryptEntity_DeduplicatesReferences) {
-  PersonalContextKeyManager key_manager(&pref_service_,
-                                        /*device_info_sync_service=*/nullptr);
-
   proto::DecryptedEntity decrypted_entity;
   decrypted_entity.mutable_passport()->set_full_name("Jane Doe");
 
@@ -331,8 +397,8 @@ TEST_F(PersonalContextServiceImplTest, DecryptEntity_DeduplicatesReferences) {
   photo2->mutable_photo()->set_deeplink_url("https://photos.google.com/photo/123");
 
   std::string serialized_entity = decrypted_entity.SerializeAsString();
-  std::optional<std::vector<uint8_t>> ciphertext = key_manager.Seal(
-      key_manager.GetPublicKey(), base::as_byte_span(serialized_entity));
+  std::optional<std::vector<uint8_t>> ciphertext = key_manager_->Seal(
+      key_manager_->GetPublicKey(), base::as_byte_span(serialized_entity));
   ASSERT_TRUE(ciphertext.has_value());
 
   proto::Entity entity;
@@ -348,15 +414,12 @@ TEST_F(PersonalContextServiceImplTest, DecryptEntity_DeduplicatesReferences) {
 }
 
 TEST_F(PersonalContextServiceImplTest, DecryptEntity_EmptyDecryptedEntityReturnsNullopt) {
-  PersonalContextKeyManager key_manager(&pref_service_,
-                                        /*device_info_sync_service=*/nullptr);
-
   proto::DecryptedEntity decrypted_entity;
   // Neither passport nor drivers_license set.
 
   std::string serialized_entity = decrypted_entity.SerializeAsString();
-  std::optional<std::vector<uint8_t>> ciphertext = key_manager.Seal(
-      key_manager.GetPublicKey(), base::as_byte_span(serialized_entity));
+  std::optional<std::vector<uint8_t>> ciphertext = key_manager_->Seal(
+      key_manager_->GetPublicKey(), base::as_byte_span(serialized_entity));
   ASSERT_TRUE(ciphertext.has_value());
 
   proto::Entity entity;
@@ -379,7 +442,8 @@ TEST_F(PersonalContextServiceImplTest, DecryptEntity_EmptyDecryptedEntityReturns
 TEST_F(PersonalContextServiceImplTest, DecryptEntityNullKeyManager) {
   PersonalContextServiceImpl service_without_prefs(
       url_loader_factory_, identity_test_env_.identity_manager(),
-      /*pref_service=*/nullptr, /*device_info_sync_service=*/nullptr);
+      /*pref_service=*/nullptr, /*device_info_sync_service=*/nullptr,
+      /*eligibility_service=*/nullptr);
 
   base::HistogramTester histogram_tester;
   proto::Entity entity;
@@ -432,12 +496,9 @@ TEST_F(PersonalContextServiceImplTest,
 
 TEST_F(PersonalContextServiceImplTest,
        DecryptEntityInvalidProtoPayloadReturnsNullopt) {
-  PersonalContextKeyManager key_manager(&pref_service_,
-                                        /*device_info_sync_service=*/nullptr);
-
   const std::string invalid_proto_bytes = "\xFF\xFF\xFF\xFF\xFF";
-  std::optional<std::vector<uint8_t>> ciphertext = key_manager.Seal(
-      key_manager.GetPublicKey(), base::as_byte_span(invalid_proto_bytes));
+  std::optional<std::vector<uint8_t>> ciphertext = key_manager_->Seal(
+      key_manager_->GetPublicKey(), base::as_byte_span(invalid_proto_bytes));
   ASSERT_TRUE(ciphertext.has_value());
 
   proto::Entity entity;
@@ -458,21 +519,17 @@ TEST_F(PersonalContextServiceImplTest,
 
 TEST_F(PersonalContextServiceImplTest,
        DecryptEntityGeneratesKeyAndCallsRefreshLocalDeviceInfo) {
-  syncer::FakeDeviceInfoSyncService fake_sync_service;
-  PersonalContextServiceImpl service(
-      url_loader_factory_, identity_test_env_.identity_manager(),
-      &pref_service_, &fake_sync_service);
-  EXPECT_EQ(fake_sync_service.RefreshLocalDeviceInfoCount(), 0);
+  EXPECT_EQ(fake_sync_service_.RefreshLocalDeviceInfoCount(), 0);
 
   proto::Entity entity;
   entity.set_encrypted_entity("some_ciphertext");
-  service.DecryptEntity(entity);
-  EXPECT_EQ(fake_sync_service.RefreshLocalDeviceInfoCount(), 1);
+  personal_context_service()->DecryptEntity(entity);
+  EXPECT_EQ(fake_sync_service_.RefreshLocalDeviceInfoCount(), 1);
 
   // Decrypting again with the key already stored in prefs should not trigger
   // an additional refresh.
-  service.DecryptEntity(entity);
-  EXPECT_EQ(fake_sync_service.RefreshLocalDeviceInfoCount(), 1);
+  personal_context_service()->DecryptEntity(entity);
+  EXPECT_EQ(fake_sync_service_.RefreshLocalDeviceInfoCount(), 1);
 }
 
 }  // namespace

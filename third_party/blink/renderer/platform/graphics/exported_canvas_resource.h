@@ -28,12 +28,10 @@ class PLATFORM_EXPORT ExportedCanvasResource
   gfx::Size Size() const;
   bool OriginClean() const;
   scoped_refptr<StaticBitmapImage> Bitmap();
-  void Transfer();
   void EndDisplayCompositorAccess(gpu::SharedImageExportResult export_result,
                                   bool is_lost);
-  bool PrepareTransferableResource(
-      viz::TransferableResource* transferable_resource,
-      bool needs_verified_synctoken);
+  void EndDisplayCompositorAccess(gpu::SyncToken export_result, bool is_lost);
+  viz::TransferableResource PrepareTransferableResource();
 
   CanvasResource* GetResourceForTesting() const { return resource_.get(); }
 

@@ -28,6 +28,7 @@
 #include "chrome/browser/infobars/browser_infobar_manager.h"
 #include "chrome/browser/infobars/infobar_features.h"
 #include "chrome/browser/infobars/test_support/infobar_observer.h"
+#include "chrome/browser/omnibox/chrome_omnibox_navigation_observer_base.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
@@ -175,7 +176,8 @@ class InfoBarUiTest : public TestInfoBar,
     if (GetParam()) {
       feature_list_.InitAndEnableFeatureWithParameters(
           infobars::kCentralizedInfoBarFramework,
-          {{"MigratedCollectedCookies", "true"},
+          {{"MigratedAlternateNav", "true"},
+           {"MigratedCollectedCookies", "true"},
            {"MigratedPageInfo", "true"},
            {"MigratedGoogleApiKeys", "true"},
            {"MigratedKeystonePromotion", "true"},
@@ -222,6 +224,7 @@ void InfoBarUiTest::ShowUi(const std::string& name) {
 
   constexpr auto kIdentifiers =
       base::MakeFixedFlatMap<std::string_view, IBD::InfoBarIdentifier>({
+          {"alternate_nav", IBD::ALTERNATE_NAV_INFOBAR_DELEGATE},
           {"dev_tools", IBD::DEV_TOOLS_INFOBAR_DELEGATE},
           {"extension_dev_tools", IBD::EXTENSION_DEV_TOOLS_INFOBAR_DELEGATE},
           {"incognito_connectability",
@@ -257,6 +260,15 @@ void InfoBarUiTest::ShowUi(const std::string& name) {
   const auto infobar_identifier = id_entry->second;
   AddExpectedInfoBar(infobar_identifier);
   switch (infobar_identifier) {
+    case IBD::ALTERNATE_NAV_INFOBAR_DELEGATE: {
+      AutocompleteMatch match;
+      match.destination_url = GURL("http://intranetsite/");
+      ChromeOmniboxNavigationObserverBase::ShowAlternativeNavInfoBar(
+          GetWebContents(), std::u16string(), match,
+          GURL("http://example.test/"));
+      break;
+    }
+
     case IBD::DEV_TOOLS_INFOBAR_DELEGATE:
       DevToolsInfoBarDelegate::Create(
           l10n_util::GetStringFUTF16(
@@ -505,6 +517,10 @@ bool InfoBarUiTest::VerifyUi() {
                             ->infobar_container(),
                         test_info->test_suite_name(),
                         test_info->name()) != ui::test::ActionResult::kFailed);
+}
+
+IN_PROC_BROWSER_TEST_P(InfoBarUiTest, InvokeUi_alternate_nav) {
+  ShowAndVerifyUi();
 }
 
 #if BUILDFLAG(IS_WIN)

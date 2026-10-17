@@ -14,12 +14,16 @@
 #include "base/base64.h"
 #include "base/containers/span.h"
 #include "base/feature_list.h"
+#include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/i18n/rtl.h"
+#include "base/location.h"
 #include "base/memory/weak_ptr.h"
 #include "base/no_destructor.h"
+#include "base/run_loop.h"
 #include "base/strings/string_util.h"
 #include "base/task/cancelable_task_tracker.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/test/gmock_callback_support.h"
 #include "base/test/gmock_move_support.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -180,11 +184,6 @@ class MockPasswordManagerDriver : public StubPasswordManagerDriver {
   MOCK_METHOD(bool, CanShowAutofillUi, (), (const override));
   MOCK_METHOD(bool, HasValidURL, (bool), (override));
   MOCK_METHOD(bool, IsRenderFrameHostSupported, (), (override));
-
-  gfx::RectF TransformToRootCoordinates(
-      const gfx::RectF& bounds_in_frame_coordinates) override {
-    return bounds_in_frame_coordinates;  // No transformation in tests.
-  }
 };
 
 class TestPasswordManagerClient : public StubPasswordManagerClient {
@@ -355,8 +354,10 @@ class PasswordAutofillManagerTest : public testing::Test {
                                          MockAutofillClient* autofill_client) {
     password_autofill_manager_ = std::make_unique<PasswordAutofillManager>(
         client->mock_driver(), autofill_client, client);
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
     password_autofill_manager_->SetManualFallbackFlowForTest(
         std::make_unique<NiceMock<MockPasswordSuggestionFlow>>());
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
     favicon::MockFaviconService favicon_service;
     EXPECT_CALL(*client, GetFaviconService())
         .WillOnce(Return(&favicon_service));
@@ -403,10 +404,12 @@ class PasswordAutofillManagerTest : public testing::Test {
     EXPECT_CALL(*authenticator, AuthenticateWithMessage);
   }
 
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   MockPasswordSuggestionFlow& manual_fallback_flow() {
     return *static_cast<MockPasswordSuggestionFlow*>(
         password_autofill_manager_->manual_fallback_flow());
   }
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
   PasskeyCredential MakeTestPasskeyCredential() {
     return PasskeyCredential(PasskeyCredential::Source::kAndroidPhone,
@@ -462,11 +465,70 @@ TEST_F(PasswordAutofillManagerTest, NoFillingOnNavigation) {
   InitializePasswordAutofillManager(&client, &autofill_client);
 
   EXPECT_CALL(*client.mock_driver(), FillSuggestion).Times(0);
-  password_autofill_manager_->DidNavigateMainFrame();
+  password_autofill_manager_->DidNavigateFrame();
   password_autofill_manager_->DidAcceptSuggestion(
       autofill::test::CreateAutofillSuggestion(
           autofill::SuggestionType::kPasswordEntry, test_username_),
       SuggestionPosition{.multi_index = {0}});
+}
+
+// Tests that a navigation hides the suggestions shown by the manager.
+TEST_F(PasswordAutofillManagerTest, NavigationHidesOwnSuggestions) {
+  TestPasswordManagerClient client;
+  NiceMock<MockAutofillClient> autofill_client;
+  InitializePasswordAutofillManager(&client, &autofill_client);
+  AutofillClient::PopupOpenArgs open_args;
+  EXPECT_CALL(autofill_client, ShowAutofillSuggestions)
+      .WillOnce(
+          SavePopupOpenArgsAndShowSuggestions(autofill_client, open_args));
+  password_autofill_manager_->ShowSuggestions(kTriggeringField);
+
+  EXPECT_CALL(autofill_client,
+              HideSuggestions(autofill::SuggestionHidingReason::kStaleData,
+                              std::optional(FillingProduct::kPassword)));
+  password_autofill_manager_->DidNavigateFrame();
+}
+
+// Tests that a navigation doesn't hide suggestions that weren't shown by the
+// manager, e.g. suggestions shown for another frame.
+TEST_F(PasswordAutofillManagerTest, NavigationDoesNotHideOtherSuggestions) {
+  TestPasswordManagerClient client;
+  NiceMock<MockAutofillClient> autofill_client;
+  InitializePasswordAutofillManager(&client, &autofill_client);
+  AutofillClient::PopupOpenArgs open_args;
+  EXPECT_CALL(autofill_client, ShowAutofillSuggestions)
+      .WillOnce(
+          SavePopupOpenArgsAndShowSuggestions(autofill_client, open_args));
+  password_autofill_manager_->ShowSuggestions(kTriggeringField);
+  // Simulate that another delegate replaced the suggestions.
+  autofill_client.TestAutofillClient::ShowAutofillSuggestions(
+      open_args, /*delegate=*/nullptr);
+
+  EXPECT_CALL(autofill_client, HideSuggestions).Times(0);
+  password_autofill_manager_->DidNavigateFrame();
+}
+
+// Tests that the fill data that was posted for the previous document (see
+// `ContentPasswordManagerDriver::PropagateFillDataOnParsingCompletion()`) is
+// dropped on navigation.
+TEST_F(PasswordAutofillManagerTest, NavigationDropsPendingFillData) {
+  TestPasswordManagerClient client;
+  InitializePasswordAutofillManager(&client, /*autofill_client=*/nullptr);
+
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE,
+      base::BindOnce(&PasswordAutofillManager::OnAddPasswordFillData,
+                     password_autofill_manager_->GetWeakPtr(), fill_data()));
+  password_autofill_manager_->DidNavigateFrame();
+  // Tasks run in posting order, so the task above is processed before the run
+  // loop quits.
+  base::RunLoop run_loop;
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, run_loop.QuitClosure());
+  run_loop.Run();
+
+  EXPECT_FALSE(
+      password_autofill_manager_->PreviewSuggestionForTest(test_username_));
 }
 
 TEST_F(PasswordAutofillManagerTest, PreviewSuggestion) {
@@ -484,7 +546,7 @@ TEST_F(PasswordAutofillManagerTest, PreviewSuggestion) {
   EXPECT_FALSE(
       password_autofill_manager_->PreviewSuggestionForTest(kInvalidUsername));
 
-  password_autofill_manager_->DidNavigateMainFrame();
+  password_autofill_manager_->DidNavigateFrame();
   EXPECT_FALSE(
       password_autofill_manager_->PreviewSuggestionForTest(test_username_));
 }
@@ -2033,6 +2095,29 @@ TEST_F(PasswordAutofillManagerTest, WebAuthnSuggestionsLogMetrics) {
   }
 }
 
+TEST_F(PasswordAutofillManagerTest,
+       ShowingPasskeyQrCodeSuggestionNotifiesCredentialsDelegate) {
+  TestPasswordManagerClient client;
+  NiceMock<MockAutofillClient> autofill_client;
+  InitializePasswordAutofillManager(&client, &autofill_client);
+
+  // A dropdown that does not contain the QR code suggestion is not reported.
+  EXPECT_CALL(*webauthn_credentials_delegate_, OnPasskeyQrCodeSuggestionShown)
+      .Times(0);
+  std::vector<Suggestion> suggestions = {
+      Suggestion(autofill::SuggestionType::kPasswordEntry)};
+  password_autofill_manager_->OnSuggestionsShown(suggestions,
+                                                 /*metadata=*/{});
+  testing::Mock::VerifyAndClearExpectations(
+      webauthn_credentials_delegate_.get());
+
+  // A dropdown that does contain it is reported once, when it is shown.
+  EXPECT_CALL(*webauthn_credentials_delegate_, OnPasskeyQrCodeSuggestionShown);
+  suggestions.emplace_back(autofill::SuggestionType::kWebauthnPasskeyQrCode);
+  password_autofill_manager_->OnSuggestionsShown(suggestions,
+                                                 /*metadata=*/{});
+}
+
 // Test that the AutofillSuggestionAvailability is set according to the popup
 // availability.
 TEST_F(PasswordAutofillManagerTest,
@@ -2085,6 +2170,7 @@ TEST_F(PasswordAutofillManagerTest, NoPreviewSuggestionWithAuthBeforeFilling) {
   testing::Mock::VerifyAndClearExpectations(client.mock_driver());
 }
 
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 TEST_F(PasswordAutofillManagerTest, ManualFallback_InvokesFlow) {
   base::test::ScopedFeatureList security_checks_feature_list{
       features::kPasswordManualFallbackSecurityChecks};
@@ -2165,10 +2251,11 @@ TEST_F(PasswordAutofillManagerTest, ManualFallback_FlowResetOnNavigation) {
       autofill::AutofillSuggestionTriggerSource::kManualFallbackPasswords;
   password_autofill_manager_->ShowSuggestions(field);
   EXPECT_TRUE(password_autofill_manager_->manual_fallback_flow());
-  password_autofill_manager_->DidNavigateMainFrame();
+  password_autofill_manager_->DidNavigateFrame();
 
   EXPECT_FALSE(password_autofill_manager_->manual_fallback_flow());
 }
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 TEST_F(PasswordAutofillManagerTest,
        WebAuthnCredentialSuggestionsPersistLoadingStateUntilHidePopup) {
@@ -2249,7 +2336,7 @@ TEST_F(PasswordAutofillManagerTest,
                                     /*autofill_client=*/nullptr);
 
   base::HistogramTester histograms;
-  password_autofill_manager_->DidNavigateMainFrame();
+  password_autofill_manager_->DidNavigateFrame();
 
   EXPECT_THAT(histograms.GetTotalCountsForPrefix("Autofill.Funnel."),
               ::testing::IsEmpty());

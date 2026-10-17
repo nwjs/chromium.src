@@ -23,16 +23,61 @@ ZeroStateSuggestion* CreateSuggestion(NSString* text, NSString* query) {
   return suggestion;
 }
 
-// Recursively finds all UIButton instances in the view hierarchy.
+// Recursively finds all chip UIButton instances (with titles) in the view
+// hierarchy.
 NSArray<UIButton*>* FindButtons(UIView* view) {
   NSMutableArray<UIButton*>* buttons = [NSMutableArray array];
   if ([view isKindOfClass:[UIButton class]]) {
-    [buttons addObject:static_cast<UIButton*>(view)];
+    UIButton* button = static_cast<UIButton*>(view);
+    if (button.configuration.title.length > 0) {
+      [buttons addObject:button];
+    }
   }
   for (UIView* subview in view.subviews) {
     [buttons addObjectsFromArray:FindButtons(subview)];
   }
   return buttons;
+}
+
+// Recursively finds the close UIButton instance in the view hierarchy.
+UIButton* FindCloseButton(UIView* view) {
+  if ([view isKindOfClass:[UIButton class]]) {
+    UIButton* button = static_cast<UIButton*>(view);
+    if (button.configuration.image && !button.configuration.title.length) {
+      return button;
+    }
+  }
+  for (UIView* subview in view.subviews) {
+    UIButton* found = FindCloseButton(subview);
+    if (found) {
+      return found;
+    }
+  }
+  return nil;
+}
+
+// Recursively finds all UILabel instances in the view hierarchy.
+NSArray<UILabel*>* FindLabels(UIView* view) {
+  NSMutableArray<UILabel*>* labels = [NSMutableArray array];
+  if ([view isKindOfClass:[UILabel class]]) {
+    [labels addObject:static_cast<UILabel*>(view)];
+  }
+  for (UIView* subview in view.subviews) {
+    [labels addObjectsFromArray:FindLabels(subview)];
+  }
+  return labels;
+}
+
+// Recursively finds all UIImageView instances in the view hierarchy.
+NSArray<UIImageView*>* FindImageViews(UIView* view) {
+  NSMutableArray<UIImageView*>* imageViews = [NSMutableArray array];
+  if ([view isKindOfClass:[UIImageView class]]) {
+    [imageViews addObject:static_cast<UIImageView*>(view)];
+  }
+  for (UIView* subview in view.subviews) {
+    [imageViews addObjectsFromArray:FindImageViews(subview)];
+  }
+  return imageViews;
 }
 
 }  // namespace
@@ -132,4 +177,91 @@ TEST_F(GeminiZeroStateViewControllerTest, TapChipButtonNotifiesMutator) {
 
   id self = nil;
   OCMVerifyAll(mock_mutator_);
+}
+
+// Tests that tapping the close button notifies the mutator.
+TEST_F(GeminiZeroStateViewControllerTest, TapCloseButtonNotifiesMutator) {
+  [view_controller_ loadViewIfNeeded];
+
+  UIButton* close_button = FindCloseButton(view_controller_.view);
+  ASSERT_NE(close_button, nil);
+
+  OCMExpect([mock_mutator_ didTapZeroStateCloseButton]);
+
+  [close_button sendActionsForControlEvents:UIControlEventTouchUpInside];
+
+  id self = nil;
+  OCMVerifyAll(mock_mutator_);
+}
+
+// Tests that the greeting label displays the default text when the mutator
+// provides no user first name.
+TEST_F(GeminiZeroStateViewControllerTest, DefaultGreetingWithoutUserFirstName) {
+  OCMStub([mock_mutator_ userFirstName]).andReturn(nil);
+
+  [view_controller_ loadViewIfNeeded];
+
+  NSArray<UILabel*>* labels = FindLabels(view_controller_.view);
+  ASSERT_GE(labels.count, 1u);
+  EXPECT_NSEQ(labels[0].text, @"What do you want to work on?");
+}
+
+// Tests that the greeting label is personalized with the first name provided
+// by the mutator when the view loads.
+TEST_F(GeminiZeroStateViewControllerTest,
+       GreetingWithUserFirstNameFromMutator) {
+  OCMStub([mock_mutator_ userFirstName]).andReturn(@"Alex");
+
+  [view_controller_ loadViewIfNeeded];
+
+  NSArray<UILabel*>* labels = FindLabels(view_controller_.view);
+  ASSERT_GE(labels.count, 1u);
+  EXPECT_NSEQ(labels[0].text, @"What do you want to work on, Alex?");
+}
+
+// Tests that a whitespace-only user first name falls back to the default
+// greeting.
+TEST_F(GeminiZeroStateViewControllerTest, GreetingWithWhitespaceUserFirstName) {
+  OCMStub([mock_mutator_ userFirstName]).andReturn(@"   ");
+
+  [view_controller_ loadViewIfNeeded];
+
+  NSArray<UILabel*>* labels = FindLabels(view_controller_.view);
+  ASSERT_GE(labels.count, 1u);
+  EXPECT_NSEQ(labels[0].text, @"What do you want to work on?");
+}
+
+// Tests that an empty user first name falls back to the default greeting.
+TEST_F(GeminiZeroStateViewControllerTest, GreetingWithEmptyUserFirstName) {
+  OCMStub([mock_mutator_ userFirstName]).andReturn(@"");
+
+  [view_controller_ loadViewIfNeeded];
+
+  NSArray<UILabel*>* labels = FindLabels(view_controller_.view);
+  ASSERT_GE(labels.count, 1u);
+  EXPECT_NSEQ(labels[0].text, @"What do you want to work on?");
+}
+
+// Tests that suggestion chips maintain their intrinsic height and are not
+// vertically stretched when the view controller's view has extra height.
+TEST_F(GeminiZeroStateViewControllerTest,
+       ChipsMaintainIntrinsicHeightWhenViewExpands) {
+  ZeroStateSuggestion* suggestion1 =
+      CreateSuggestion(@"Summarize page", @"Summarize");
+  ZeroStateSuggestion* suggestion2 =
+      CreateSuggestion(@"Key takeaways", @"Takeaways");
+  [view_controller_ setZeroStateSuggestions:@[ suggestion1, suggestion2 ]];
+  [view_controller_ loadViewIfNeeded];
+
+  view_controller_.view.frame = CGRectMake(0, 0, 375, 600);
+  [view_controller_.view layoutIfNeeded];
+
+  NSArray<UIButton*>* buttons = FindButtons(view_controller_.view);
+  ASSERT_EQ(buttons.count, 2u);
+
+  // Both buttons should have intrinsic chip height and not be stretched to
+  // fill the 600 pt height.
+  EXPECT_NEAR(buttons[0].frame.size.height, buttons[1].frame.size.height, 1.0);
+  EXPECT_LT(buttons[0].frame.size.height, 60.0);
+  EXPECT_LT(buttons[1].frame.size.height, 60.0);
 }

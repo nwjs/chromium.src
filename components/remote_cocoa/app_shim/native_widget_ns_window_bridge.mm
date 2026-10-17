@@ -48,6 +48,7 @@
 #include "ui/base/cocoa/animation_utils.h"
 #import "ui/base/cocoa/constrained_window/constrained_window_animation.h"
 #include "ui/base/cocoa/cursor_utils.h"
+#include "ui/base/cocoa/drag_permission.h"
 #include "ui/base/cocoa/remote_accessibility_api.h"
 #import "ui/base/cocoa/window_size_constants.h"
 #include "ui/base/emoji/emoji_panel_helper.h"
@@ -498,6 +499,8 @@ void NativeWidgetNSWindowBridge::SetCommandDispatcher(
 }
 
 void NativeWidgetNSWindowBridge::SetParent(uint64_t new_parent_id) {
+  const bool was_allowing_screenshots = ShouldAllowScreenshots();
+
   // Remove from the old parent.
   if (parent_) {
     parent_->RemoveChildWindow(this);
@@ -525,6 +528,9 @@ void NativeWidgetNSWindowBridge::SetParent(uint64_t new_parent_id) {
     // collection behavior.
     window_.collectionBehavior =
         collectionBehavior | NSWindowCollectionBehaviorManaged;
+    if (!was_allowing_screenshots || !ShouldAllowScreenshots()) {
+      UpdateCaptureExclusion();
+    }
     return;
   }
 
@@ -537,6 +543,10 @@ void NativeWidgetNSWindowBridge::SetParent(uint64_t new_parent_id) {
   // transient collection behavior. See https://crbug.com/41305285.
   window_.collectionBehavior =
       collectionBehavior | NSWindowCollectionBehaviorTransient;
+
+  if (!was_allowing_screenshots || !ShouldAllowScreenshots()) {
+    UpdateCaptureExclusion();
+  }
 
   if (wants_to_be_visible_) {
     parent_->OrderChildren();
@@ -627,6 +637,10 @@ void NativeWidgetNSWindowBridge::InitWindow(
              name:NSApplicationDidHideNotification
            object:nil];
 
+  // TODO(crbug.com/448692747): Remove this observer once
+  // `kThemeChangeOptimization` is enabled by default, as
+  // `NSSystemColorsDidChangeNotification` is handled centrally by
+  // `OsSettingsProviderMac`.
   [[NSNotificationCenter defaultCenter]
       addObserver:window_delegate_
          selector:@selector(onWindowWillStartLiveResize:)
@@ -1376,11 +1390,35 @@ void NativeWidgetNSWindowBridge::DisplayContextMenu(
 }
 
 void NativeWidgetNSWindowBridge::SetAllowScreenshots(bool allow) {
+  if (allow_screenshots_ == allow) {
+    return;
+  }
   allow_screenshots_ = allow;
+  UpdateCaptureExclusion();
+}
+
+bool NativeWidgetNSWindowBridge::ShouldAllowScreenshots() const {
+  // A window inherits the capture exclusion of its ancestors: if this window or
+  // any of its ancestors disallows screenshots, this window is excluded from
+  // capture. This mirrors the Windows implementation, where an owned window
+  // inherits the display affinity of its owner. See
+  // `DesktopWindowTreeHostWin::UpdateDisplayAffinity()`.
+  if (!allow_screenshots_) {
+    return false;
+  }
+  return !parent_ || parent_->ShouldAllowScreenshots();
+}
+
+void NativeWidgetNSWindowBridge::UpdateCaptureExclusion() {
+  const bool allow = ShouldAllowScreenshots();
   if (capture_exclusion_applier_for_testing_) {
     capture_exclusion_applier_for_testing_.Run(ns_window(), allow);
   } else {
     ApplyCaptureExclusion(ns_window(), allow);
+  }
+
+  for (NativeWidgetNSWindowBridge* child : child_windows_) {
+    child->UpdateCaptureExclusion();
   }
 }
 
@@ -1398,6 +1436,10 @@ void NativeWidgetNSWindowBridge::BeginFileDrag(
     const gfx::PointF& mouse_location) {
   if (!window_ || !bridged_view_) {
     DLOG(WARNING) << "BeginFileDrag failed: window or bridged_view is null";
+    return;
+  }
+  if (!ui::IsDragSessionInitiationAllowed()) {
+    DLOG(WARNING) << "BeginFileDrag failed: drag session not allowed";
     return;
   }
 
@@ -1500,8 +1542,10 @@ void NativeWidgetNSWindowBridge::OnWindowWillClose() {
 
 void NativeWidgetNSWindowBridge::OnSizeChanged() {
   UpdateWindowGeometry();
-  if (!allow_screenshots_) {
-    SetAllowScreenshots(false);
+  // The capture exclusion shape is expressed in window coordinates, so it has
+  // to be re-applied to match the new window size.
+  if (!ShouldAllowScreenshots()) {
+    UpdateCaptureExclusion();
   }
 }
 
@@ -2111,6 +2155,16 @@ void NativeWidgetNSWindowBridge::SetCALayerParams(
   if (pending_alpha_value_.has_value()) {
     window_.alphaValue = pending_alpha_value_.value();
     pending_alpha_value_ = std::nullopt;
+
+    // Now that the window has visually transitioned from invisible to visible,
+    // inform observers that the window's occlusion state has changed. AppKit
+    // does not post notifications when `alphaValue` changes, so without this
+    // notification, manual occlusion detection (e.g.
+    // WebContentsOcclusionCheckerMac) could miss that this window can now
+    // occlude other windows beneath it which is needed for glass frame.
+    [[NSNotificationCenter defaultCenter]
+        postNotificationName:NSWindowDidChangeOcclusionStateNotification
+                      object:window_];
   }
 
   if (invalidate_shadow_on_frame_swap_) {

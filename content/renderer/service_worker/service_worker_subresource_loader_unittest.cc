@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/base64.h"
 #include "base/containers/span.h"
 #include "base/debug/stack_trace.h"
 #include "base/functional/bind.h"
@@ -35,9 +36,11 @@
 #include "net/url_request/url_request.h"
 #include "services/network/public/cpp/timing_allow_origin_parser.h"
 #include "services/network/public/cpp/wrapper_shared_url_loader_factory.h"
+#include "services/network/public/mojom/blocked_by_response_reason.mojom.h"
 #include "services/network/test/test_data_pipe_getter.h"
 #include "services/network/test/test_url_loader_client.h"
 #include "services/network/test/test_url_loader_factory.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/service_worker/service_worker_router_rule.h"
 #include "third_party/blink/public/mojom/blob/blob.mojom.h"
@@ -130,7 +133,8 @@ class FakeControllerServiceWorker
       std::string cache_storage_cache_name,
       network::mojom::FetchResponseType response_type =
           network::mojom::FetchResponseType::kDefault,
-      network::mojom::ParsedHeadersPtr parsed_headers = nullptr) {
+      network::mojom::ParsedHeadersPtr parsed_headers = nullptr,
+      bool timing_allow_passed = true) {
     auto response = blink::mojom::FetchAPIResponse::New();
     response->status_code = 200;
     response->status_text = "OK";
@@ -139,6 +143,7 @@ class FakeControllerServiceWorker
     response->response_time = response_time;
     response->cache_storage_cache_name = cache_storage_cache_name;
     response->parsed_headers = std::move(parsed_headers);
+    response->timing_allow_passed = timing_allow_passed;
     response->blob = std::move(blob_body);
     if (response->blob) {
       response->headers.emplace("Content-Length",
@@ -218,6 +223,15 @@ class FakeControllerServiceWorker
         blob_body_->blob.InitWithNewPipeAndPassReceiver());
   }
 
+  void RespondWithBlobAndHeaders(
+      std::optional<std::vector<uint8_t>> metadata,
+      std::string body,
+      std::vector<std::pair<std::string, std::string>> headers) {
+    RespondWithBlob(std::move(metadata), std::move(body));
+    response_mode_ = ResponseMode::kBlobWithHeaders;
+    extra_headers_ = std::move(headers);
+  }
+
   // Tells this controller to respond to fetch events with a 206 partial
   // response, returning a blob composed of the requested bytes of |body|
   // according to the request headers.
@@ -284,6 +298,9 @@ class FakeControllerServiceWorker
 
   void ResetTimingAllowOrigin() { parsed_headers_.reset(); }
 
+  void SetTimingAllowPassed(bool passed) { timing_allow_passed_ = passed; }
+  void ResetTimingAllowPassed() { timing_allow_passed_ = true; }
+
   // blink::mojom::ControllerServiceWorker:
   void DispatchFetchEventForSubresource(
       blink::mojom::DispatchFetchEventParamsPtr params,
@@ -309,7 +326,8 @@ class FakeControllerServiceWorker
             OkResponse(nullptr /* blob_body */, response_source_,
                        response_time_, cache_storage_cache_name_,
                        response_type_,
-                       parsed_headers_ ? parsed_headers_->Clone() : nullptr),
+                       parsed_headers_ ? parsed_headers_->Clone() : nullptr,
+                       timing_allow_passed_),
             std::move(timing), /*errors=*/nullptr);
         std::move(callback).Run(
             blink::mojom::ServiceWorkerEventStatus::COMPLETED);
@@ -328,13 +346,22 @@ class FakeControllerServiceWorker
             blink::mojom::ServiceWorkerEventStatus::COMPLETED);
         break;
       case ResponseMode::kBlob:
-        response_callback->OnResponse(
+      case ResponseMode::kBlobWithHeaders: {
+        auto response =
             OkResponse(std::move(blob_body_), response_source_, response_time_,
-                       cache_storage_cache_name_, response_type_),
-            std::move(timing), /*errors=*/nullptr);
+                       cache_storage_cache_name_, response_type_,
+                       parsed_headers_ ? parsed_headers_->Clone() : nullptr);
+        if (response_mode_ == ResponseMode::kBlobWithHeaders) {
+          for (const auto& pair : extra_headers_) {
+            response->headers.emplace(pair.first, pair.second);
+          }
+        }
+        response_callback->OnResponse(std::move(response), std::move(timing),
+                                      /*errors=*/nullptr);
         std::move(callback).Run(
             blink::mojom::ServiceWorkerEventStatus::COMPLETED);
         break;
+      }
 
       case ResponseMode::kBlobRange: {
         // Parse the Range header.
@@ -432,10 +459,12 @@ class FakeControllerServiceWorker
     kFallbackResponse,
     kErrorResponse,
     kRedirectResponse,
-    kDontRespond
+    kDontRespond,
+    kBlobWithHeaders
   };
 
   ResponseMode response_mode_ = ResponseMode::kDefault;
+  std::vector<std::pair<std::string, std::string>> extra_headers_;
   scoped_refptr<network::ResourceRequestBody> request_body_;
 
   int fetch_event_count_ = 0;
@@ -469,6 +498,7 @@ class FakeControllerServiceWorker
   std::string cache_storage_cache_name_;
   base::Time response_time_;
   network::mojom::ParsedHeadersPtr parsed_headers_;
+  bool timing_allow_passed_ = true;
 };
 
 class FakeServiceWorkerContainerHost
@@ -1771,30 +1801,45 @@ TEST_F(ServiceWorkerSubresourceLoaderTest, TimingAllowPassedByResponseType) {
   struct {
     network::mojom::FetchResponseType response_type;
     std::optional<std::string> timing_allow_origin;
+    bool response_timing_allow_passed;
     bool expected_timing_allow_passed;
   } kTestCases[] = {
-      // Basic and Default responses always pass timing allow check.
-      {network::mojom::FetchResponseType::kBasic, std::nullopt, true},
-      {network::mojom::FetchResponseType::kDefault, std::nullopt, true},
+      // Basic and Default responses pass timing allow check if
+      // response_timing_allow_passed is true.
+      {network::mojom::FetchResponseType::kBasic, std::nullopt, true, true},
+      {network::mojom::FetchResponseType::kDefault, std::nullopt, true, true},
+      // Basic and Default responses fail timing allow check if
+      // response_timing_allow_passed is false (e.g. redirected from cross-origin
+      // without TAO).
+      {network::mojom::FetchResponseType::kBasic, std::nullopt, false, false},
+      {network::mojom::FetchResponseType::kDefault, std::nullopt, false, false},
       // Filtered responses without Timing-Allow-Origin header fail.
-      {network::mojom::FetchResponseType::kCors, std::nullopt, false},
-      {network::mojom::FetchResponseType::kError, std::nullopt, false},
-      {network::mojom::FetchResponseType::kOpaque, std::nullopt, false},
-      {network::mojom::FetchResponseType::kOpaqueRedirect, std::nullopt, false},
-      // Filtered responses with valid Timing-Allow-Origin pass.
-      {network::mojom::FetchResponseType::kCors, "*", true},
-      {network::mojom::FetchResponseType::kOpaque, "*", true},
+      {network::mojom::FetchResponseType::kCors, std::nullopt, true, false},
+      {network::mojom::FetchResponseType::kError, std::nullopt, true, false},
+      {network::mojom::FetchResponseType::kOpaque, std::nullopt, true, false},
+      {network::mojom::FetchResponseType::kOpaqueRedirect, std::nullopt, true,
+       false},
+      // Filtered responses with valid Timing-Allow-Origin pass if
+      // response_timing_allow_passed is true.
+      {network::mojom::FetchResponseType::kCors, "*", true, true},
+      {network::mojom::FetchResponseType::kOpaque, "*", true, true},
       {network::mojom::FetchResponseType::kCors, "https://www.example.com",
-       true},
+       true, true},
+      // Filtered responses fail if response_timing_allow_passed is false even with
+      // TAO: *.
+      {network::mojom::FetchResponseType::kCors, "*", false, false},
+      {network::mojom::FetchResponseType::kOpaque, "*", false, false},
       // Filtered responses with mismatching Timing-Allow-Origin fail.
       {network::mojom::FetchResponseType::kCors, "https://other.example.com",
-       false},
+       true, false},
       {network::mojom::FetchResponseType::kOpaque, "https://other.example.com",
-       false},
+       true, false},
   };
 
   for (const auto& test_case : kTestCases) {
     fake_controller_.SetResponseType(test_case.response_type);
+    fake_controller_.SetTimingAllowPassed(
+        test_case.response_timing_allow_passed);
     if (test_case.timing_allow_origin) {
       fake_controller_.SetTimingAllowOrigin(*test_case.timing_allow_origin);
     } else {
@@ -1814,6 +1859,88 @@ TEST_F(ServiceWorkerSubresourceLoaderTest, TimingAllowPassedByResponseType) {
     EXPECT_EQ(test_case.expected_timing_allow_passed,
               client->response_head()->timing_allow_passed);
   }
+}
+
+TEST_F(ServiceWorkerSubresourceLoaderTest, SRIMessageSignatureRejected) {
+  fake_controller_.RespondWithBlobAndHeaders(
+      std::nullopt, "sample text",
+      {{"Signature",
+        "sig=:"
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        "AAAAAAAAAAAAAAAAAAAA=:"},
+       {"Signature-Input",
+        "sig=(\"unencoded-digest\";sf);keyid=\"JrQLj5P/"
+        "89iXES9+vFgrIy29clF9CC/oPPsw3c5D0bs=\";tag=\"ed25519-integrity\""},
+       {"Unencoded-Digest",
+        "sha-256=:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=:"}});
+
+  mojo::Remote<network::mojom::URLLoaderFactory> factory =
+      CreateSubresourceLoaderFactory();
+
+  network::ResourceRequest request =
+      CreateRequest(GURL("https://www.example.com/foo.js"));
+  request.expected_public_keys = {
+      *base::Base64Decode("JrQLj5P/89iXES9+vFgrIy29clF9CC/oPPsw3c5D0bs=")};
+  mojo::Remote<network::mojom::URLLoader> loader;
+  std::unique_ptr<network::TestURLLoaderClient> client;
+  StartRequest(factory, request, &loader, &client);
+  client->RunUntilComplete();
+
+  EXPECT_EQ(net::ERR_BLOCKED_BY_RESPONSE,
+            client->completion_status().error_code);
+  EXPECT_THAT(client->completion_status().blocked_by_response_reason,
+              testing::Optional(network::mojom::BlockedByResponseReason::
+                                    kSRIMessageSignatureMismatch));
+}
+
+TEST_F(ServiceWorkerSubresourceLoaderTest, SRIMessageSignatureAccepted) {
+  fake_controller_.RespondWithBlobAndHeaders(
+      std::nullopt, "sample text",
+      {{"Signature",
+        "signature=:SbCdPUyjc0IBJjFbVRWs81ucEUcFz87b37nQ63d6kDW+/"
+        "JvDmET6O5cSdwlddePvlwemLdaWFuY6pQGO+hrkAg==:"},
+       {"Signature-Input",
+        "signature=(\"unencoded-digest\";sf);keyid=\"JrQLj5P/"
+        "89iXES9+vFgrIy29clF9CC/oPPsw3c5D0bs=\";tag=\"ed25519-integrity\""},
+       {"Unencoded-Digest",
+        "sha-256=:X48E9qOokqqrvdts8nOJRJN3OWDUoyWxBf7kbu9DBPE=:"}});
+
+  mojo::Remote<network::mojom::URLLoaderFactory> factory =
+      CreateSubresourceLoaderFactory();
+
+  network::ResourceRequest request =
+      CreateRequest(GURL("https://www.example.com/foo.js"));
+  request.expected_public_keys = {
+      *base::Base64Decode("JrQLj5P/89iXES9+vFgrIy29clF9CC/oPPsw3c5D0bs=")};
+  mojo::Remote<network::mojom::URLLoader> loader;
+  std::unique_ptr<network::TestURLLoaderClient> client;
+  StartRequest(factory, request, &loader, &client);
+  client->RunUntilComplete();
+
+  EXPECT_EQ(net::OK, client->completion_status().error_code);
+  EXPECT_EQ(client->completion_status().blocked_by_response_reason,
+            std::nullopt);
+}
+
+TEST_F(ServiceWorkerSubresourceLoaderTest, SRIMessageSignatureAllowsRedirect) {
+  fake_controller_.RespondWithRedirect("https://www.example.com/redirected.js");
+
+  mojo::Remote<network::mojom::URLLoaderFactory> factory =
+      CreateSubresourceLoaderFactory();
+
+  network::ResourceRequest request =
+      CreateRequest(GURL("https://www.example.com/foo.js"));
+  request.expected_public_keys = {
+      *base::Base64Decode("JrQLj5P/89iXES9+vFgrIy29clF9CC/oPPsw3c5D0bs=")};
+  mojo::Remote<network::mojom::URLLoader> loader;
+  std::unique_ptr<network::TestURLLoaderClient> client;
+  StartRequest(factory, request, &loader, &client);
+  client->RunUntilRedirectReceived();
+
+  EXPECT_EQ(net::OK, client->completion_status().error_code);
+  EXPECT_TRUE(client->has_received_redirect());
+  EXPECT_EQ(GURL("https://www.example.com/redirected.js"),
+            client->redirect_info().new_url);
 }
 
 }  // namespace service_worker_subresource_loader_unittest

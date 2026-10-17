@@ -45,6 +45,14 @@ BASE_DECLARE_FEATURE(kWebUIOmniboxAimPopup);
 // TODO(crbug.com/521521553): Remove this feature flag once the
 // feature flag is fully rolled out.
 BASE_DECLARE_FEATURE(kWebUIOmniboxSimplification);
+BASE_DECLARE_FEATURE(kWebUIOmniboxFullPopup);
+
+// Returns true if `kWebUIOmniboxFullPopup` is enabled.
+// UI and model callers must instead query:
+// - `OmniboxPopupPresenterDelegate::is_full_webui_omnibox()`
+// - `OmniboxView::IsFullWebUIOmnibox()`
+// - `OmniboxViewViews::IsFullWebUIOmniboxReady()`
+bool IsWebUIOmniboxFullPopupEnabled();
 
 }  // namespace internal
 
@@ -63,7 +71,6 @@ BASE_DECLARE_FEATURE(kOmniboxEverywhereFre);
 BASE_DECLARE_FEATURE(kAiModeSpaceDoesNotActivate);
 BASE_DECLARE_FEATURE(kWebUIOmniboxDisableCaretColorAnimation);
 BASE_DECLARE_FEATURE(kWebUIOmniboxAimPopupDisableAnimation);
-BASE_DECLARE_FEATURE(kWebUIOmniboxFullPopup);
 BASE_DECLARE_FEATURE(kWebUIOmniboxFullPopupDoubleClick);
 BASE_DECLARE_FEATURE(kOmniboxEverywhere);
 BASE_DECLARE_FEATURE(kWebUIOmniboxPopupDebug);
@@ -101,6 +108,14 @@ extern const base::FeatureParam<bool> kShowContextMenu;
 extern const base::FeatureParam<bool> kOmniboxEverywhereMostVisitedParam;
 // Controls whether small Loomnibox (480px width) is enabled.
 extern const base::FeatureParam<bool> kOmniboxEverywhereSmallLoomniboxParam;
+// Controls whether dynamic sizing is enabled for OmniboxEverywhere.
+extern const base::FeatureParam<bool> kOmniboxEverywhereDynamicSizingParam;
+// Controls the expanded content width (680 or 600) when DynamicSizing is
+// enabled.
+extern const base::FeatureParam<int> kOmniboxEverywhereDynamicSizingWidthParam;
+// Controls whether small (14px) font size is enabled for OmniboxEverywhere.
+extern const base::FeatureParam<bool> kOmniboxEverywhereSmallFontParam;
+
 // Controls showing titles under most visited tiles in OmniboxEverywhere.
 extern const base::FeatureParam<bool>
     kOmniboxEverywhereMostVisitedShowTitleParam;
@@ -140,9 +155,6 @@ extern const base::FeatureParam<bool> kWebUIOmniboxDynamicColorScheme;
 // Returns true if `kWebUIOmniboxPopup` is enabled.
 bool IsWebUIOmniboxPopupEnabled();
 
-// Returns true if `kWebUIOmniboxFullPopup` is enabled.
-bool IsWebUIOmniboxFullPopupEnabled();
-
 // Returns true if the webui omnibox should use the WebuiOmniboxFullHandler
 bool ShouldUseWebUIOmniboxFullHandler();
 
@@ -153,6 +165,20 @@ bool IsWebUIOmniboxInBrowserViewEnabled();
 // This does NOT include user eligibility checks. Most UI code should use the
 // profile-based `IsAimPopupEnabled()` function below instead.
 bool IsAimPopupFeatureEnabled();
+
+// Whether the page, rather than the Views frame, paints the popup's drop
+// shadow. The Views layer and the page must agree exactly: if they disagree
+// the shadow margin is either reserved twice or not at all. Call these from
+// both sides rather than recombining the underlying flags.
+bool ShouldDrawAimShadowInWebUI();
+bool ShouldDrawFullPopupShadowInWebUI();
+
+// Enables the use of separate flags for pre/post Full WebUI Omnibox. There
+// are new flicker issues with AIM + Full WebUI and these functions will allow
+// us to control the fixes independently of if Full WebUI is enabled.
+bool ShouldDeferAimShowUntilVisualStateReady();
+bool ShouldApplyAimHeightWorkarounds();
+bool ShouldAimEvictOnHide();
 
 // Returns true if the AIM Popup feature is fully enabled for the given
 // `profile`. This is the correct function for external code to use, as it

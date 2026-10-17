@@ -5,6 +5,8 @@
 package org.chromium.chrome.browser.actor;
 
 import android.app.Activity;
+import android.text.TextUtils;
+import android.util.ArrayMap;
 import android.util.DisplayMetrics;
 import android.view.View;
 
@@ -20,7 +22,10 @@ import org.chromium.chrome.browser.app.tabmodel.TabModelOrchestrator;
 import org.chromium.chrome.browser.app.tabwindow.TabWindowManagerSingleton;
 import org.chromium.chrome.browser.compositor.CompositorViewHolderSupplier;
 import org.chromium.chrome.browser.init.AsyncInitializationActivity;
+import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.PersistedInstanceType;
+import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabBuilder;
 import org.chromium.chrome.browser.tab.TabDelegateFactory;
@@ -29,6 +34,7 @@ import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabPersistentStore;
+import org.chromium.chrome.browser.tabwindow.TabWindowInfo;
 import org.chromium.chrome.browser.tabwindow.TabWindowManager;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.ui.base.ActivityWindowAndroid;
@@ -37,8 +43,11 @@ import org.chromium.url.GURL;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Orchestrates background actuation of agent tasks by provisioning offscreen tabs and windows.
@@ -53,6 +62,10 @@ public class ActorBackgroundActuationManager {
 
     // List of active background sessions.
     private final List<BackgroundSession> mBackgroundSessions = new ArrayList<>();
+    // Map of triggering message ID to pending tab undergoing initial about:blank load.
+    private final Map<String, Tab> mPendingActuationTabs = new ArrayMap<>();
+    // Set of tab IDs originally provisioned via FCM background triggering.
+    private final Set<Integer> mFcmInitiatedTabIds = new HashSet<>();
 
     /** Returns the list of currently active background sessions. */
     public List<BackgroundSession> getBackgroundSessions() {
@@ -66,6 +79,31 @@ public class ActorBackgroundActuationManager {
 
     /** Default constructor. */
     public ActorBackgroundActuationManager() {}
+
+    /**
+     * Returns the window holding the tab handed off to background actuation for the given task, or
+     * {@link TabWindowManager#INVALID_WINDOW_ID} if there is none.
+     */
+    public int getWindowIdForTask(int taskId) {
+        for (BackgroundSession session : mBackgroundSessions) {
+            if (session.getTaskId() == null || session.getTaskId() != taskId) continue;
+
+            for (BackgroundSession.BackgroundTabData tabData : session.getTabDataList()) {
+                int tabWindowId = tabData.getTabWindowId();
+                if (tabWindowId != TabWindowManager.INVALID_WINDOW_ID) {
+                    return tabWindowId;
+                }
+                Integer placeholderTabId = tabData.getPlaceholderTabId();
+                if (placeholderTabId != null && placeholderTabId != Tab.INVALID_TAB_ID) {
+                    TabWindowInfo placeholderInfo =
+                            TabWindowManagerSingleton.getInstance()
+                                    .getTabWindowInfoById(placeholderTabId);
+                    if (placeholderInfo != null) return placeholderInfo.windowId;
+                }
+            }
+        }
+        return TabWindowManager.INVALID_WINDOW_ID;
+    }
 
     /**
      * Starts background actuation for the given profile and context.
@@ -93,16 +131,6 @@ public class ActorBackgroundActuationManager {
                             TAG,
                             "Background tab ready for JNI call. messageId=%s",
                             glicTriggerMessageId);
-                    if (findSessionByMessageId(glicTriggerMessageId) == null) {
-                        // TODO(crbug.com/534401462): Revisit if notifySetupFailed is needed here.
-                        // This depends on whether the handler expects a failure callback when
-                        // setup is cancelled.
-                        Log.d(
-                                TAG,
-                                "Context %s was cleaned up before page load finished.",
-                                glicTriggerMessageId);
-                        return;
-                    }
                     ActorKeyedService actorService =
                             ActorKeyedServiceFactory.getForProfile(profile);
                     if (actorService == null) {
@@ -110,7 +138,22 @@ public class ActorBackgroundActuationManager {
                         notifySetupFailed(profile, glicTriggerMessageId);
                         return;
                     }
-                    actorService.setPreparedBackgroundTab(tab, glicTriggerMessageId);
+                    mPendingActuationTabs.remove(glicTriggerMessageId);
+                    mFcmInitiatedTabIds.add(tab.getId());
+                    tab.addObserver(
+                            new TabObserver() {
+                                @Override
+                                public void onDestroyed(Tab destroyedTab) {
+                                    mFcmInitiatedTabIds.remove(destroyedTab.getId());
+                                    destroyedTab.removeObserver(this);
+                                }
+                            });
+                    BackgroundSession session = new BackgroundSession(tab, glicTriggerMessageId);
+                    mBackgroundSessions.add(session);
+                    ingestSessionsIntoPool(profile, List.of(session));
+                    actorService.setTabReady(tab, glicTriggerMessageId);
+                    ActorMetrics.recordBackgroundActuationTrigger(
+                            ActorMetrics.ActorBackgroundActuationTrigger.TASK_INIT_BY_FCM);
                 });
     }
 
@@ -143,6 +186,7 @@ public class ActorBackgroundActuationManager {
                     } else {
                         session.addTab(preparedTab);
                     }
+                    ingestSessionsIntoPool(profile, List.of(session));
                     callback.onResult(preparedTab);
                 });
     }
@@ -167,8 +211,45 @@ public class ActorBackgroundActuationManager {
             return;
         }
 
+        Set<Integer> fcmTaskIds = new HashSet<>();
+        for (BackgroundSession session : detachedSessions) {
+            if (session.getTaskId() != null && isFcmInitiatedSession(session)) {
+                fcmTaskIds.add(session.getTaskId());
+            }
+        }
+
+        for (BackgroundSession session : detachedSessions) {
+            Integer taskId = session.getTaskId();
+            if (taskId != null) {
+                if (fcmTaskIds.contains(taskId)) {
+                    ActorMetrics.markBackgroundActuationTriggerRecorded(taskId);
+                    for (Tab tab : session.getTabs()) {
+                        if (tab != null) {
+                            mFcmInitiatedTabIds.remove(tab.getId());
+                        }
+                    }
+                } else {
+                    ActorMetrics.maybeRecordBackgroundActuationTrigger(
+                            taskId,
+                            ActorMetrics.ActorBackgroundActuationTrigger.TASK_INIT_BY_CHROME);
+                }
+            }
+        }
+
         mBackgroundSessions.addAll(detachedSessions);
         ingestSessionsIntoPool(profile, detachedSessions);
+    }
+
+    private boolean isFcmInitiatedSession(BackgroundSession session) {
+        if (!TextUtils.isEmpty(session.getGlicTriggerMessageId())) {
+            return true;
+        }
+        for (Tab tab : session.getTabs()) {
+            if (tab != null && mFcmInitiatedTabIds.contains(tab.getId())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void ingestSessionsIntoPool(Profile profile, List<BackgroundSession> sessions) {
@@ -177,7 +258,7 @@ public class ActorBackgroundActuationManager {
             for (BackgroundSession session : sessions) {
                 for (BackgroundSession.BackgroundTabData tabData : session.getTabDataList()) {
                     Tab tab = tabData.getTab();
-                    if (tab != null && !tab.isDestroyed()) {
+                    if (tab != null && !tab.isDestroyed() && pool.getLiveTab(tab.getId()) == null) {
                         Integer placeholderId = tabData.getPlaceholderTabId();
                         int placeholderTabId =
                                 placeholderId != null ? placeholderId : Tab.INVALID_TAB_ID;
@@ -188,6 +269,7 @@ public class ActorBackgroundActuationManager {
                                         placeholderTabId,
                                         session.getTaskId(),
                                         tabData.getOriginalTabIndex());
+                        LiveBackgroundTab.markDirty(tab);
                         pool.addLiveTab(liveTab);
                     }
                 }
@@ -204,16 +286,83 @@ public class ActorBackgroundActuationManager {
      */
     public void cleanupContext(String glicTriggerMessageId) {
         ThreadUtils.assertOnUiThread();
+        Tab pendingTab = mPendingActuationTabs.remove(glicTriggerMessageId);
+        if (pendingTab != null) {
+            OffscreenRenderingManager.getInstance().stopOffscreenRendering(pendingTab);
+            pendingTab.destroy();
+            return;
+        }
+
         BackgroundSession session = findSessionByMessageId(glicTriggerMessageId);
         if (session != null) {
+            for (Tab tab : session.getTabs()) {
+                if (tab != null) {
+                    mFcmInitiatedTabIds.remove(tab.getId());
+                }
+            }
             restoreWarmSession(session);
-            if (mBackgroundSessions.remove(session)) {
-                Tab lastActiveTab = session.getLastActiveTab();
-                if (lastActiveTab != null) {
-                    OffscreenRenderingManager.getInstance().stopOffscreenRendering(lastActiveTab);
+            if (mBackgroundSessions.contains(session)) {
+                for (Tab tab : session.getTabs()) {
+                    if (tab != null) {
+                        if (!tab.isDestroyed()) {
+                            LiveBackgroundTab.markDirty(tab);
+                        }
+                        OffscreenRenderingManager.getInstance().stopOffscreenRendering(tab);
+                    }
                 }
             }
         }
+    }
+
+    /**
+     * Returns whether the given task currently has an active background actuation session.
+     *
+     * @param taskId The ID of the task to check.
+     * @return True if the task has an active background session, false otherwise.
+     */
+    public boolean hasBackgroundSessionForTask(int taskId) {
+        ThreadUtils.assertOnUiThread();
+        if (BackgroundSession.getSessionForTask(mBackgroundSessions, taskId) != null) {
+            return true;
+        }
+        // TODO(crbug.com/570050447): Bind message-scoped BackgroundSessions to their taskId once
+        // the task is created so this tab-ID fallback can be replaced by
+        // BackgroundSession.getSessionForTask.
+        Map<Profile, @Nullable Set<Integer>> taskTabIdsByProfile = new ArrayMap<>();
+        for (BackgroundSession session : mBackgroundSessions) {
+            if (session.getTaskId() != null) continue;
+            for (Tab tab : session.getTabs()) {
+                if (tab == null || tab.isDestroyed()) continue;
+                Profile profile = tab.getProfile();
+                if (profile == null) continue;
+                Profile originalProfile = profile.getOriginalProfile();
+                Set<Integer> taskTabIds;
+                if (taskTabIdsByProfile.containsKey(originalProfile)) {
+                    taskTabIds = taskTabIdsByProfile.get(originalProfile);
+                } else {
+                    taskTabIds = getTaskTabIdsForProfile(originalProfile, taskId);
+                    taskTabIdsByProfile.put(originalProfile, taskTabIds);
+                }
+                if (taskTabIds != null && taskTabIds.contains(tab.getId())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static @Nullable Set<Integer> getTaskTabIdsForProfile(Profile profile, int taskId) {
+        ActorKeyedService service = ActorKeyedServiceFactory.getForProfile(profile);
+        ActorTask task = service != null ? service.getTask(taskId) : null;
+        if (task == null) {
+            return null;
+        }
+        Set<Integer> tabIds = new HashSet<>(task.getTabs());
+        int lastActuatedTabId = task.getLastActuatedTabId();
+        if (lastActuatedTabId != Tab.INVALID_TAB_ID) {
+            tabIds.add(lastActuatedTabId);
+        }
+        return tabIds;
     }
 
     /**
@@ -224,12 +373,32 @@ public class ActorBackgroundActuationManager {
      */
     public void onTaskCompleted(int taskId) {
         ThreadUtils.assertOnUiThread();
+        if (ProfileManager.isInitialized()) {
+            Profile profile = ProfileManager.getLastUsedRegularProfile();
+            ActorKeyedService service = ActorKeyedServiceFactory.getForProfile(profile);
+            if (service != null) {
+                ActorTask task = service.getTask(taskId);
+                if (task != null) {
+                    mFcmInitiatedTabIds.removeAll(task.getTabs());
+                    int lastActuatedTabId = task.getLastActuatedTabId();
+                    if (lastActuatedTabId != Tab.INVALID_TAB_ID) {
+                        mFcmInitiatedTabIds.remove(lastActuatedTabId);
+                    }
+                }
+            }
+        }
+
         BackgroundSession session =
                 BackgroundSession.getSessionForTask(mBackgroundSessions, taskId);
         if (session == null) {
             return;
         }
 
+        for (Tab tab : session.getTabs()) {
+            if (tab != null) {
+                mFcmInitiatedTabIds.remove(tab.getId());
+            }
+        }
         restoreWarmSession(session);
         if (mBackgroundSessions.contains(session)) {
             // If no activity was alive to restore into, stop offscreen rendering on all
@@ -246,6 +415,15 @@ public class ActorBackgroundActuationManager {
     /** Destroys all active background sessions. */
     public void destroy() {
         ThreadUtils.assertOnUiThread();
+        for (Tab pendingTab : mPendingActuationTabs.values()) {
+            if (pendingTab != null) {
+                OffscreenRenderingManager.getInstance().stopOffscreenRendering(pendingTab);
+                pendingTab.destroy();
+            }
+        }
+        mPendingActuationTabs.clear();
+        mFcmInitiatedTabIds.clear();
+
         restoreWarmSessions();
         // Copy to avoid ConcurrentModificationException when onDestroyed triggers callback
         List<BackgroundSession> sessions = new ArrayList<>(mBackgroundSessions);
@@ -291,6 +469,8 @@ public class ActorBackgroundActuationManager {
 
         BackgroundTabPool pool = BackgroundTabPoolManager.acquire(profile);
         List<BackgroundSession> sessionsToRemove = new ArrayList<>();
+        Set<Integer> usableWindowIds =
+                MultiWindowUtils.getUsableInstanceIds(PersistedInstanceType.ACTIVE);
         try {
             for (BackgroundSession session : backgroundSessions) {
                 Iterator<BackgroundSession.BackgroundTabData> iterator =
@@ -299,11 +479,13 @@ public class ActorBackgroundActuationManager {
                     BackgroundSession.BackgroundTabData tabData = iterator.next();
                     int tabWindowId = tabData.getTabWindowId();
 
-                    boolean windowMatches =
+                    // A window whose task is gone can never claim its tabs back.
+                    boolean shouldRestoreIntoThisWindow =
                             (tabWindowId == TabWindowManager.INVALID_WINDOW_ID
-                                    || tabWindowId == activeWindowId);
+                                    || tabWindowId == activeWindowId
+                                    || !usableWindowIds.contains(tabWindowId));
 
-                    if (windowMatches) {
+                    if (shouldRestoreIntoThisWindow) {
                         restoreSessionTab(tabData, pool, model, window, tabDelegateFactory);
                         iterator.remove();
                     }
@@ -470,11 +652,16 @@ public class ActorBackgroundActuationManager {
         ThreadUtils.assertOnUiThread();
         Log.d(TAG, "Provisioning offscreen tab for message: %s", glicTriggerMessageId);
         Tab tab = createOffscreenTab(profile);
+        mPendingActuationTabs.put(glicTriggerMessageId, tab);
 
-        BackgroundSession session = new BackgroundSession(tab, glicTriggerMessageId);
-        mBackgroundSessions.add(session);
-
-        loadBlankThenCallback(tab, callback);
+        loadBlankThenCallback(
+                tab,
+                (preparedTab) -> {
+                    if (!mPendingActuationTabs.containsKey(glicTriggerMessageId)) {
+                        return;
+                    }
+                    callback.onResult(preparedTab);
+                });
     }
 
     private void loadBlankThenCallback(Tab tab, Callback<@Nullable Tab> callback) {

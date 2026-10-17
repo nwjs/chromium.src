@@ -15,7 +15,6 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks.mojom.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_interface.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
-#include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
 #include "components/contextual_tasks/public/contextual_tasks_service.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -51,8 +50,7 @@ mojom::ComposeboxPositionPtr InputPlateConfigToMojo(
 
 class ContextualTasksPageHandler
     : public contextual_tasks::mojom::PageHandler,
-      public contextual_tasks::ContextualTasksService::Observer,
-      public PinnedToolbarActionsModel::Observer {
+      public contextual_tasks::ContextualTasksService::Observer {
  public:
   ContextualTasksPageHandler(
       mojo::PendingReceiver<contextual_tasks::mojom::PageHandler> receiver,
@@ -75,17 +73,9 @@ class ContextualTasksPageHandler
   void IsEmbeddedPageErrorDocument(
       IsEmbeddedPageErrorDocumentCallback callback) override;
   void CloseSidePanel() override;
-  void ShowThreadHistory() override;
   void IsShownInTab(IsShownInTabCallback callback) override;
-  void OpenMyActivityUi() override;
-  void OpenFeedbackUi() override;
   void OpenOnboardingHelpUi() override;
-  void OpenOverflowMenuHelpUi() override;
   void OpenAskGHelpUi() override;
-  void MoveTaskUiToNewTab() override;
-  void OnTabClickedFromSourcesMenu(int32_t tab_id, const GURL& url) override;
-  void OnFileClickedFromSourcesMenu(const GURL& url) override;
-  void OnImageClickedFromSourcesMenu(const GURL& url) override;
   void OnWebviewMessage(const std::vector<uint8_t>& message) override;
   void GetCommonSearchParams(bool is_dark_mode,
                              bool is_side_panel,
@@ -93,8 +83,6 @@ class ContextualTasksPageHandler
   void OnboardingTooltipDismissed() override;
   void AskGTooltipDismissed() override;
   void ReopenTabs() override;
-  void PinSidePanel() override;
-  void UnpinSidePanel() override;
   void OnContextMenuOpened() override;
   void NotifySmartTabSharingTryItIphResult(bool accepted) override;
   void NotifySmartTabSharingDefaultOnIphResult(bool accepted) override;
@@ -118,16 +106,9 @@ class ContextualTasksPageHandler
       const contextual_tasks::ContextualTask& task,
       contextual_tasks::ContextualTasksService::TriggerSource source) override;
 
-  void set_skip_feedback_ui_for_testing(bool skip) {
-    skip_feedback_ui_for_testing_ = skip;
-  }
-
   actor::ActorActionsRunner* actions_runner_for_testing() const {
     return actions_runner_.get();
   }
-
-  // PinnedToolbarActionsModel::Observer:
-  void OnActionsChanged() override;
 
  private:
   void OnCookieSyncCompleted();
@@ -136,7 +117,6 @@ class ContextualTasksPageHandler
       const lens::UpdateThreadContextLibrary& message);
   void OnReceivedInjectInput(const lens::InjectInput& inject_input);
   void OnReceivedRemoveInjectedInput(const std::string& id);
-  void OnPinStateChanged(bool is_pinned);
   void OnReceivedExecuteActions(const lens::ExecuteActions& execute_actions);
   void OnActionsComplete();
   void SendActionsResult(
@@ -148,15 +128,9 @@ class ContextualTasksPageHandler
   raw_ptr<contextual_tasks::ContextualTasksService> contextual_tasks_service_;
   raw_ptr<contextual_tasks::ContextualTasksPanelController> panel_controller_;
 
-  bool skip_feedback_ui_for_testing_ = false;
-
   base::ScopedObservation<contextual_tasks::ContextualTasksService,
                           contextual_tasks::ContextualTasksService::Observer>
       contextual_tasks_service_observation_{this};
-
-  base::ScopedObservation<PinnedToolbarActionsModel,
-                          PinnedToolbarActionsModel::Observer>
-      pinned_toolbar_actions_model_observation_{this};
 
   std::unique_ptr<actor::ActorActionsRunner> actions_runner_;
 

@@ -13,6 +13,7 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModelActionListener.DialogType;
 import org.chromium.components.browser_ui.widget.ActionConfirmationResult;
 
+import java.util.List;
 import java.util.function.Supplier;
 
 /**
@@ -23,12 +24,20 @@ import java.util.function.Supplier;
 @NullMarked
 public class PassthroughTabRemover implements TabRemover {
     private final Supplier<@Nullable TabModel> mTabModelSupplier;
+    private final TabClosePrompter mTabClosePrompter;
 
     /**
      * @param tabModelSupplier The supplier of the {@link TabModel}.
      */
     public PassthroughTabRemover(Supplier<@Nullable TabModel> tabModelSupplier) {
+        this(tabModelSupplier, new BeforeUnloadTabClosePrompter());
+    }
+
+    @VisibleForTesting
+    PassthroughTabRemover(
+            Supplier<@Nullable TabModel> tabModelSupplier, TabClosePrompter tabClosePrompter) {
         mTabModelSupplier = tabModelSupplier;
+        mTabClosePrompter = tabClosePrompter;
     }
 
     @Override
@@ -45,14 +54,47 @@ public class PassthroughTabRemover implements TabRemover {
             boolean allowDialog,
             @Nullable TabModelActionListener listener,
             Callback<TabClosureParams> onPreparedCallback) {
-        if (listener != null) {
-            listener.willPerformActionOrShowDialog(DialogType.NONE, /* willSkipDialog= */ true);
+        Callback<TabClosureParams> proceedWithClose =
+                params -> {
+                    if (listener != null) {
+                        listener.willPerformActionOrShowDialog(
+                                DialogType.NONE, /* willSkipDialog= */ true);
+                    }
+                    onPreparedCallback.onResult(params);
+                    if (listener != null) {
+                        listener.onConfirmationDialogResult(
+                                DialogType.NONE, ActionConfirmationResult.IMMEDIATE_CONTINUE);
+                    }
+                };
+
+        if (!allowDialog) {
+            proceedWithClose.onResult(tabClosureParams);
+            return;
         }
-        onPreparedCallback.onResult(tabClosureParams);
-        if (listener != null) {
-            listener.onConfirmationDialogResult(
-                    DialogType.NONE, ActionConfirmationResult.IMMEDIATE_CONTINUE);
+
+        List<Tab> tabsToClose =
+                tabClosureParams.isAllTabs
+                        ? TabModelUtils.convertTabListToListOfTabs(getTabModel())
+                        : tabClosureParams.tabs;
+        if (tabsToClose == null) {
+            proceedWithClose.onResult(tabClosureParams);
+            return;
         }
+
+        TabRemover.checkBeforeUnloadAndProceed(
+                tabClosureParams,
+                tabsToClose,
+                mTabClosePrompter,
+                /* abandonBatchOnCancel= */ tabClosureParams.isAllTabs,
+                listener,
+                confirmedTabs ->
+                        TabRemover.proceedWithConfirmedTabs(
+                                tabClosureParams,
+                                getTabModel(),
+                                tabsToClose,
+                                confirmedTabs,
+                                listener,
+                                proceedWithClose));
     }
 
     @Override

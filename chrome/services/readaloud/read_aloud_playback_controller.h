@@ -12,6 +12,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
 #include "base/time/time.h"
+#include "base/timer/timer.h"
 #include "chrome/common/readaloud/read_aloud.mojom.h"
 #include "chrome/common/readaloud/read_aloud_constants.h"
 #include "chrome/services/readaloud/decoded_audio_segment.h"
@@ -43,9 +44,13 @@ class ReadAloudPlaybackController
     : public read_aloud::mojom::ReadAloudPlaybackControllerFactory,
       public read_aloud::mojom::ReadAloudPlaybackController {
  public:
+  using AudioRendererFactory =
+      base::RepeatingCallback<std::unique_ptr<ReadAloudAudioRenderer>()>;
+
   explicit ReadAloudPlaybackController(
       mojo::PendingReceiver<
-          read_aloud::mojom::ReadAloudPlaybackControllerFactory> receiver);
+          read_aloud::mojom::ReadAloudPlaybackControllerFactory> receiver,
+      AudioRendererFactory audio_renderer_factory = {});
 
   ReadAloudPlaybackController(const ReadAloudPlaybackController&) = delete;
   ReadAloudPlaybackController& operator=(const ReadAloudPlaybackController&) =
@@ -68,6 +73,7 @@ class ReadAloudPlaybackController
       mojo::PendingRemote<media::mojom::AudioOutputStream> stream,
       media::mojom::ReadWriteAudioDataPipePtr data_pipe,
       const media::AudioParameters& params) override;
+  void SetPlaybackMode(read_aloud::mojom::PlaybackMode mode) override;
   void SetTextContent(
       std::vector<read_aloud::mojom::TextSegmentPtr> segments) override;
   void Play() override;
@@ -101,6 +107,26 @@ class ReadAloudPlaybackController
                                  mojo_base::BigBuffer response_bytes,
                                  bool success);
 
+  // Maximum duration a Play request will remain deferred before timing out.
+  static constexpr base::TimeDelta kPlayOnReadyTimeout = base::Seconds(10);
+
+  // Triggered if play_on_ready_ remains true beyond kPlayOnReadyTimeout.
+  void OnPlayOnReadyTimeout();
+
+  // Evaluates whether all prerequisites for audio playback are satisfied.
+  bool IsReadyToPlay() const;
+  bool IsTextSet() const;
+  bool IsAudioInitialized() const;
+
+  // Evaluates playback readiness. If all requirements are met, starts playback
+  // pipeline, clears play_on_ready_, and returns true.
+  bool PlayIfReady();
+
+  // If a Play request is pending (play_on_ready_) and all prerequisites are satisfied
+  // (IsReadyToPlay()), fulfills the pending Play intent and starts playback.
+  // Returns true if playback was started.
+  bool MaybePlayOnReady();
+
   mojo::Receiver<read_aloud::mojom::ReadAloudPlaybackControllerFactory>
       receiver_;
   mojo::Receiver<read_aloud::mojom::ReadAloudPlaybackController>
@@ -109,9 +135,17 @@ class ReadAloudPlaybackController
 
   // Active text segments currently loaded for playback in this session.
   std::vector<read_aloud::mojom::TextSegmentPtr> segments_;
+  // Current playback mode (Classic full text vs AI Overview summary dialogue).
+  read_aloud::mojom::PlaybackMode playback_mode_ =
+      read_aloud::mojom::PlaybackMode::kClassic;
   // Current playback rate multiplier (clamped between kMinPlaybackRate and
   // kMaxPlaybackRate).
   float playback_rate_ = 1.0f;
+
+  // True if a Play request was received while requirements were unfulfilled.
+  bool play_on_ready_ = false;
+  // Timer tracking maximum wait duration for pending play_on_ready_ state.
+  base::OneShotTimer play_on_ready_timer_;
 
   // Manages document-bound speech synthesis caching and sentence timeline.
   PrefetchManager prefetch_manager_;
@@ -145,6 +179,7 @@ class ReadAloudPlaybackController
     std::unique_ptr<media::AudioDeviceThread> audio_thread;
   };
   std::optional<AudioResources> audio_resources_;
+  AudioRendererFactory audio_renderer_factory_;
 
   SEQUENCE_CHECKER(sequence_checker_);
   base::WeakPtrFactory<ReadAloudPlaybackController> session_weak_factory_{this};

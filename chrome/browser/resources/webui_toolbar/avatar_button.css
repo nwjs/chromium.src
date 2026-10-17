@@ -17,6 +17,15 @@
   interpolate-size: allow-keywords;
 }
 
+:host(.overflow-display-none) {
+  display: none !important;
+}
+
+#button[has-label] {
+  margin-inline: calc(var(--toolbar-button-refresh-expanded-margin) -
+                      var(--toolbar-icon-default-margin));
+}
+
 #button {
   /* Set padding variables for the nested button */
   --toolbar-chip-padding-start: var(--avatar-chip-padding-left);
@@ -62,6 +71,10 @@
   margin-inline-start: 0;
   max-width: 0;
   opacity: 0;
+}
+
+:host(.initial-load) #text {
+  transition: none !important;
 }
 
 #button.highlight-default {

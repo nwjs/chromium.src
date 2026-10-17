@@ -254,10 +254,10 @@ void ColorInputType::HandleDOMActivateEvent(Event& event) {
     document.AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
         mojom::blink::ConsoleMessageSource::kJavaScript,
         mojom::blink::ConsoleMessageLevel::kWarning,
-        "A user gesture is required to show the color picker."));
+        "User activation is required to show the color picker."));
     return;
   }
-  if (RuntimeEnabledFeatures::FileColorPickerConsumeActivationEnabled()) {
+  if (!RuntimeEnabledFeatures::PopupWidgetRequiresUserActivationEnabled()) {
     LocalFrame::ConsumeTransientUserActivation(document.GetFrame());
   }
 
@@ -268,6 +268,10 @@ void ColorInputType::HandleDOMActivateEvent(Event& event) {
                           ? WebFeature::kColorInputTypeChooserByTrustedClick
                           : WebFeature::kColorInputTypeChooserByUntrustedClick);
     OpenPopupView();
+  }
+
+  if (RuntimeEnabledFeatures::PopupWidgetRequiresUserActivationEnabled()) {
+    LocalFrame::ConsumeTransientUserActivation(document.GetFrame());
   }
 
   event.SetDefaultHandled();

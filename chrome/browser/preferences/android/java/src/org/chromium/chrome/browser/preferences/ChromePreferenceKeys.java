@@ -495,6 +495,18 @@ public final class ChromePreferenceKeys {
     public static final String INCOGNITO_REAUTH_PROMO_CARD_ENABLED =
             "Chrome.IncognitoReauth.PromoCardEnabled";
 
+    /** Timestamp when the user last declined an in-app update download. */
+    public static final String IN_APP_UPDATE_DISCOVERY_BACKOFF_TIMESTAMP =
+            "Chrome.InAppUpdate.DiscoveryBackoffTimestamp";
+
+    /** Timestamp when an in-app update download last failed. */
+    public static final String IN_APP_UPDATE_FAILURE_BACKOFF_TIMESTAMP =
+            "Chrome.InAppUpdate.FailureBackoffTimestamp";
+
+    /** Timestamp when the user last declined an in-app update restart prompt. */
+    public static final String IN_APP_UPDATE_RESTART_BACKOFF_TIMESTAMP =
+            "Chrome.InAppUpdate.RestartBackoffTimestamp";
+
     /** Whether Google is set as Chrome's default search engine. Default value is false. */
     public static final String IS_CHROME_DEFAULT_SEARCH_ENGINE_GOOGLE =
             "Chrome.GoogleBottomBar.IsDefaultSearchEngineGoogle";
@@ -696,17 +708,6 @@ public final class ChromePreferenceKeys {
     public static final String PIH_PRIVACY_NOTICE_CLOSED =
             "Chrome.PageInsightsHub.PrivacyNoticeClosedByUser";
 
-    /** Indicates the latest timestamp when Privacy Notice was shown to the user */
-    public static final String PIH_PRIVACY_NOTICE_LAST_SHOWN_TIMESTAMP =
-            "Chrome.PageInsightsHub.PageInsightsHubLastOpenedTimestamp";
-
-    /**
-     * Indicates the number of times Privacy Notice of Page Insights Hub was opened by user till now
-     * . The privacy notice is not shown after it has been shown 3 times.
-     */
-    public static final String PIH_PRIVACY_NOTICE_SHOWN_TOTAL_COUNT =
-            "Chrome.PageInsightsHub.NumberOfTimesPageInsightsHubOpenedByUser";
-
     /** Whether NTP magic stack cards are enabled (if false, no cards can show). */
     public static final String HOME_MODULE_CARDS_ENABLED = "Chrome.HomeModules.Enabled";
 
@@ -888,8 +889,6 @@ public final class ChromePreferenceKeys {
 
     public static final String SEARCH_WIDGET_IS_VOICE_SEARCH_AVAILABLE =
             "Chrome.Widget.IsVoiceSearchAvailable";
-    public static final String SEARCH_WIDGET_NUM_CONSECUTIVE_CRASHES =
-            "Chrome.Widget.NumConsecutiveCrashes";
     public static final String SEARCH_WIDGET_SEARCH_ENGINE_SHORTNAME =
             "Chrome.Widget.SearchEngineShortName";
     public static final String SEARCH_WIDGET_SEARCH_ENGINE_URL = "Chrome.Widget.SearchEngineUrl";
@@ -1072,15 +1071,6 @@ public final class ChromePreferenceKeys {
 
     public static final String TOS_ACKED_ACCOUNTS = "ToS acknowledged accounts";
 
-    /**
-     * Keys for deferred recording of the outcomes of showing the clear data dialog after Trusted
-     * Web Activity client apps are uninstalled or have their data cleared.
-     */
-    public static final String TWA_DIALOG_NUMBER_OF_DISMISSALS_ON_CLEAR_DATA =
-            "twa_dialog_number_of_dismissals_on_clear_data";
-
-    public static final String TWA_DIALOG_NUMBER_OF_DISMISSALS_ON_UNINSTALL =
-            "twa_dialog_number_of_dismissals_on_uninstall";
     public static final String TWA_DISCLOSURE_ACCEPTED_PACKAGES =
             "trusted_web_activity_disclosure_accepted_packages";
     public static final String TWA_DISCLOSURE_SEEN_PACKAGES =
@@ -1109,6 +1099,14 @@ public final class ChromePreferenceKeys {
     /** Stores the timestamp when vertical tabs were enabled. */
     public static final String VERTICAL_TABS_ENABLED_TIMESTAMP =
             "Chrome.VerticalTabs.EnabledTimestamp";
+
+    /**
+     * Stores the expanded vertical tabs rail width, in dp, that the user last chose by dragging the
+     * rail's resize handle. Unset (or non-positive) means the user has never resized the rail, so
+     * its width is determined automatically from the window size.
+     */
+    public static final String VERTICAL_TABS_USER_RESIZED_WIDTH_DP =
+            "Chrome.VerticalTabs.UserResizedWidthDp";
 
     /** Key for deferred recording of list of uninstalled WebAPK packages. */
     public static final String WEBAPK_UNINSTALLED_PACKAGES = "webapk_uninstalled_packages";
@@ -1262,6 +1260,9 @@ public final class ChromePreferenceKeys {
                 IMAGE_DESCRIPTIONS_DONT_ASK_AGAIN,
                 INCOGNITO_REAUTH_PROMO_CARD_ENABLED,
                 INCOGNITO_REAUTH_PROMO_SHOW_COUNT,
+                IN_APP_UPDATE_DISCOVERY_BACKOFF_TIMESTAMP,
+                IN_APP_UPDATE_FAILURE_BACKOFF_TIMESTAMP,
+                IN_APP_UPDATE_RESTART_BACKOFF_TIMESTAMP,
                 IS_CHROME_DEFAULT_SEARCH_ENGINE_GOOGLE,
                 IS_EEA_CHOICE_COUNTRY,
                 IS_LAST_VISITED_TAB_SRP,
@@ -1294,8 +1295,6 @@ public final class ChromePreferenceKeys {
                 PASSWORD_PROTECTION_ACCOUNTS,
                 PERSISTENT_OFFLINE_CONTENT_AVAILABILITY_STATUS,
                 PIH_PRIVACY_NOTICE_CLOSED,
-                PIH_PRIVACY_NOTICE_LAST_SHOWN_TIMESTAMP,
-                PIH_PRIVACY_NOTICE_SHOWN_TOTAL_COUNT,
                 POLICY_USER_FEEDBACK_ALLOWED,
                 PRICE_TRACKING_ANNOTATIONS_ENABLED_METRICS_TIMESTAMP,
                 PRICE_TRACKING_CHROME_MANAGED_NOTIFICATIONS_TIMESTAMPS,
@@ -1323,7 +1322,6 @@ public final class ChromePreferenceKeys {
                 SEARCH_WIDGET_IS_GOOGLE_LENS_AVAILABLE,
                 SEARCH_WIDGET_IS_INCOGNITO_AVAILABLE,
                 SEARCH_WIDGET_IS_VOICE_SEARCH_AVAILABLE,
-                SEARCH_WIDGET_NUM_CONSECUTIVE_CRASHES,
                 SEARCH_WIDGET_SEARCH_ENGINE_SHORTNAME,
                 SEARCH_WIDGET_SEARCH_ENGINE_URL,
                 SEGMENTATION_FEED_ACTIVE_USER,
@@ -1372,6 +1370,7 @@ public final class ChromePreferenceKeys {
                 VERTICAL_TABS_COLLAPSED,
                 VERTICAL_TABS_ENABLED,
                 VERTICAL_TABS_ENABLED_TIMESTAMP,
+                VERTICAL_TABS_USER_RESIZED_WIDTH_DP,
                 WEB_SIGNIN_ACCOUNT_PICKER_ACTIVE_DISMISSAL_COUNT,
                 WINDOW_CONTROLS_OVERLAY_ENABLED_PACKAGES);
     }

@@ -4,6 +4,7 @@
 
 #include "chrome/browser/infobars/browser_infobar_manager.h"
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <string>
@@ -25,6 +26,7 @@
 #include "components/infobars/core/confirm_infobar_delegate.h"
 #include "components/infobars/core/infobar.h"
 #include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "ui/base/window_open_disposition.h"
@@ -73,6 +75,10 @@ class RegistryInfoBarDelegate final : public ConfirmInfoBarDelegate,
   // Keeps a manager-initiated removal from being reported as an outcome.
   void suppress_result() { pending_result_.reset(); }
 
+  // Whether an outcome is still owed at destruction (i.e. the user has not yet
+  // acted via Accept, Cancel, or Dismiss, and result was not suppressed).
+  bool has_pending_result() const { return pending_result_.has_value(); }
+
   infobars::InfoBarDelegate::InfoBarIdentifier GetIdentifier() const override {
     return spec_.identifier();
   }
@@ -115,7 +121,19 @@ class RegistryInfoBarDelegate final : public ConfirmInfoBarDelegate,
     return params_.link_text.value_or(spec_.link_text());
   }
 
+  std::optional<std::u16string> GetLinkAccessibleText() const override {
+    return spec_.link_accessible_text();
+  }
+
   GURL GetLinkURL() const override { return spec_.link_navigation_url(); }
+
+  bool ShouldShowLinkBeforeButton() const override {
+    return spec_.should_show_link_before_button();
+  }
+
+  int GetLinkSpacingWhenPositionedBeforeButton() const override {
+    return spec_.link_spacing_when_positioned_before_button();
+  }
 
   int GetIconId() const override { return spec_.icon_id(); }
 
@@ -276,6 +294,14 @@ content::WebContents* GetActiveWebContents() {
 // here was created by this manager, so the cast is safe.
 void SuppressInfoBarResult(infobars::InfoBar* infobar) {
   static_cast<RegistryInfoBarDelegate*>(infobar->delegate())->suppress_result();
+}
+
+// Whether `infobar` still has an outcome pending (i.e. the user has not acted
+// on it via Accept, Cancel, or Dismiss). Every infobar here was created by
+// this manager, so the cast is safe.
+bool HasPendingResult(infobars::InfoBar* infobar) {
+  return static_cast<RegistryInfoBarDelegate*>(infobar->delegate())
+      ->has_pending_result();
 }
 
 // Removes `infobar` without reporting a result.
@@ -502,47 +528,52 @@ void BrowserInfoBarManager::OnBrowserClosed(BrowserWindowInterface* browser) {
 
 void BrowserInfoBarManager::OnInfoBarRemoved(infobars::InfoBar* infobar,
                                              bool animate) {
-  infobars::InfoBarDelegate::InfoBarIdentifier identifier =
+  // Only tracked instances matter here. Everything in
+  // `active_global_infobars_` was put there by ShowGlobally(), which only
+  // accepts global specs, so membership is the scope check.
+  const infobars::InfoBarDelegate::InfoBarIdentifier identifier =
       infobar->delegate()->GetIdentifier();
-
-  infobars::InfoBarManager* found_manager = nullptr;
   auto it = active_global_infobars_.find(identifier);
-  if (it != active_global_infobars_.end()) {
-    auto& manager_map = it->second.active_instances;
-    for (auto& [manager, ib] : manager_map) {
-      if (ib == infobar) {
-        found_manager = manager;
-        break;
-      }
-    }
-    if (found_manager) {
-      manager_map.erase(found_manager);
-    }
+  if (it == active_global_infobars_.end()) {
+    return;
   }
 
-  if (found_manager) {
-    if (IsGlobal(identifier)) {
-      content::WebContents* web_contents =
-          ContentInfoBarManager::WebContentsFromInfoBar(infobar);
-      if (web_contents) {
-        BrowserWindowInterface* browser =
-            FindBrowserWithWebContents(web_contents);
-        if (browser) {
-          if (browser->GetTabStripModel()->closing_all() ||
-              browser->IsDeleteScheduled()) {
-            // The window is closing, not the infobar, which stays up in the
-            // other browsers. This instance must not report an outcome for
-            // a logical infobar the user can still see; whichever instance
-            // goes last reports for it.
-            if (!it->second.active_instances.empty()) {
-              SuppressInfoBarResult(infobar);
-            }
-          } else {
-            Hide(identifier);
-          }
-        }
-      }
-    }
+  auto& instances = it->second.active_instances;
+  const auto instance = std::ranges::find_if(
+      instances,
+      [infobar](const auto& entry) { return entry.second == infobar; });
+  if (instance == instances.end()) {
+    return;
+  }
+  instances.erase(instance);
+
+  content::WebContents* web_contents =
+      ContentInfoBarManager::WebContentsFromInfoBar(infobar);
+  tabs::TabInterface* tab =
+      web_contents ? tabs::TabInterface::MaybeGetFromContents(web_contents)
+                   : nullptr;
+  BrowserWindowInterface* browser =
+      tab ? tab->GetBrowserWindowInterface() : nullptr;
+  if (!browser) {
+    return;
+  }
+  // An individual tab can go away while its window stays open, and during fast
+  // shutdown its renderer may already be gone, so neither `closing_all()` nor
+  // `IsDeleteScheduled()` is sufficient on its own to detect teardown.
+  const bool is_tearing_down =
+      browser->GetTabStripModel()->closing_all() ||
+      browser->IsDeleteScheduled() || web_contents->IsBeingDestroyed() ||
+      !web_contents->GetPrimaryMainFrame()->IsRenderFrameLive();
+  if (!is_tearing_down || !HasPendingResult(infobar)) {
+    Hide(identifier);
+    return;
+  }
+  // The window or tab's renderer is closing/gone, not the infobar, which stays
+  // up in the other browsers. This instance must not report an outcome for a
+  // logical infobar the user can still see; whichever instance goes last
+  // reports for it.
+  if (!instances.empty()) {
+    SuppressInfoBarResult(infobar);
   }
 }
 
@@ -615,13 +646,6 @@ void BrowserInfoBarManager::OnActiveTabChanged(
   last_active_managers_[browser] = new_manager;
 }
 
-bool BrowserInfoBarManager::IsGlobal(
-    infobars::InfoBarDelegate::InfoBarIdentifier identifier) {
-  auto it = registered_specs_.find(identifier);
-  return it != registered_specs_.end() &&
-         it->second.scope() == InfoBarScope::kGlobal;
-}
-
 bool BrowserInfoBarManager::IsTrackedGlobalInstance(
     infobars::InfoBar* infobar) const {
   auto it = active_global_infobars_.find(infobar->delegate()->GetIdentifier());
@@ -634,18 +658,6 @@ bool BrowserInfoBarManager::IsTrackedGlobalInstance(
     }
   }
   return false;
-}
-
-BrowserWindowInterface* BrowserInfoBarManager::FindBrowserWithWebContents(
-    content::WebContents* web_contents) {
-  for (const auto& [browser, subscription] : active_tab_subscriptions_) {
-    for (tabs::TabInterface* tab : browser->GetAllTabInterfaces()) {
-      if (tab->GetContents() == web_contents) {
-        return browser;
-      }
-    }
-  }
-  return nullptr;
 }
 
 }  // namespace infobars

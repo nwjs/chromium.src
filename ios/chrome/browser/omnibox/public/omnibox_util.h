@@ -17,11 +17,11 @@
 // Converts `type` to the appropriate icon type for this match type to show in
 // the omnibox.
 OmniboxSuggestionIconType GetOmniboxSuggestionIconTypeForAutocompleteMatchType(
-    AutocompleteMatchType::Type type);
+    omnibox::AutocompleteMatchType type);
 
 // Converts `type` to the appropriate icon for this type to show in the omnibox.
 UIImage* GetOmniboxSuggestionIconForAutocompleteMatchType(
-    AutocompleteMatchType::Type type);
+    omnibox::AutocompleteMatchType type);
 
 // Converts Suggest proto icon `type` to the appropriate icon type to show in
 // the omnibox.

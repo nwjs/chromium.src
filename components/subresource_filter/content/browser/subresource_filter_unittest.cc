@@ -6,8 +6,8 @@
 
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
+#include "components/safe_browsing/core/browser/db/sb_protocol_manager_util.h"
 #include "components/safe_browsing/core/browser/db/util.h"
-#include "components/safe_browsing/core/browser/db/v4_protocol_manager_util.h"
 #include "components/subresource_filter/content/browser/content_activation_list_utils.h"
 #include "components/subresource_filter/content/browser/content_subresource_filter_throttle_manager.h"
 #include "components/subresource_filter/content/browser/fake_safe_browsing_database_manager.h"
@@ -146,6 +146,9 @@ TEST_F(SubresourceFilterTest, SimpleDisallowedLoad_WithObserver) {
   GURL disallowed_url(SubresourceFilterTest::kDefaultDisallowedUrl);
   auto* subframe =
       content::RenderFrameHostTester::For(main_rfh())->AppendChild("subframe");
+  // Save the FrameTreeNodeId, as `subframe` may be destroyed when the error
+  // page for the blocked navigation commits in another RenderFrameHost.
+  content::FrameTreeNodeId subframe_id = subframe->GetFrameTreeNodeId();
 
   content::TestNavigationObserver navigation_observer(
       web_contents(), content::MessageLoopRunner::QuitMode::IMMEDIATE,
@@ -156,7 +159,7 @@ TEST_F(SubresourceFilterTest, SimpleDisallowedLoad_WithObserver) {
 
   EXPECT_EQ(LoadPolicy::DISALLOW,
             *observer.GetChildFrameLoadPolicy(disallowed_url));
-  EXPECT_TRUE(observer.GetIsAdFrame(subframe->GetFrameTreeNodeId()));
+  EXPECT_TRUE(observer.GetIsAdFrame(subframe_id));
 }
 
 TEST_F(SubresourceFilterTest, RefreshMetadataOnActivation) {

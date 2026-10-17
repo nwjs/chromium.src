@@ -42,6 +42,7 @@
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/history_embeddings/history_embeddings_utils.h"
 #include "chrome/browser/omnibox/autocomplete_controller_emitter_factory.h"
+#include "chrome/browser/omnibox/chrome_omnibox_navigation_observer_base.h"
 #include "chrome/browser/page_load_metrics/chrome_initiator_location.h"
 #include "chrome/browser/predictors/autocomplete_action_predictor.h"
 #include "chrome/browser/predictors/autocomplete_action_predictor_factory.h"
@@ -72,7 +73,6 @@
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
-#include "chrome/browser/ui/omnibox/chrome_omnibox_navigation_observer.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/omnibox/omnibox_tab_helper.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -531,7 +531,7 @@ void ChromeOmniboxClient::ProcessExtensionMatch(
   // In unscoped mode, the input is sent verbatim. In scoped (keyword) mode, the
   // keyword and input are split, and only the input after the keyword is sent.
   std::string input =
-      match.provider->type() == AutocompleteProvider::TYPE_UNSCOPED_EXTENSION
+      match.provider->type() == AutocompleteProvider::Type::kUnscopedExtension
           ? base::UTF16ToUTF8(match.fill_into_edit)
           : base::UTF16ToUTF8(remaining_input);
   extensions::ExtensionOmniboxEventRouter::OnInputEntered(
@@ -948,7 +948,7 @@ void ChromeOmniboxClient::OnAutocompleteAccept(
     TemplateURLRef::PostContent* post_content,
     WindowOpenDisposition disposition,
     ui::PageTransition transition,
-    AutocompleteMatchType::Type match_type,
+    omnibox::AutocompleteMatchType match_type,
     base::TimeTicks match_selection_timestamp,
     bool destination_url_entered_without_scheme,
     bool destination_url_entered_with_http_scheme,
@@ -981,8 +981,8 @@ void ChromeOmniboxClient::OnAutocompleteAccept(
         AttachOmniboxDefaultSearchEngineNavigationHandleUserData(*navigation);
       }
     }
-    ChromeOmniboxNavigationObserver::Create(navigation.get(), profile_, text,
-                                            match, alternative_nav_match);
+    ChromeOmniboxNavigationObserverBase::Create(
+        navigation.get(), profile_, text, match, alternative_nav_match);
     search_engines::MaybeShowSearchEngineResetNotification(browser_,
                                                            match_type);
   }

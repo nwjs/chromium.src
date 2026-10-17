@@ -45,6 +45,7 @@ source_set("default_browser_prompt") {
   ]
 
   deps = [ "//chrome/browser/default_browser" ]
+  check_includes_strict = CHECK_INCLUDES_STRICT_PUBLIC_INCLUDES_PRIVATE
 }
 
 source_set("impl") {
@@ -73,8 +74,10 @@ source_set("impl") {
     "//chrome/browser/default_browser",
     "//chrome/browser/infobars",
     "//chrome/browser/profiles:profile_manager",
+    "//chrome/browser/ui:browser_actions",
     "//chrome/browser/ui:browser_tab_strip_tracker",
     "//chrome/browser/ui:ui_features",
+    "//chrome/browser/ui/actions:actions_headers",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/tabs:tab_strip",
     "//chrome/browser/ui/views/frame:toolbar_button_provider",
@@ -88,6 +91,7 @@ source_set("impl") {
     "//components/vector_icons",
     "//components/version_info",
     "//content/public/common",
+    "//ui/actions",
     "//ui/base",
   ]
 
@@ -96,6 +100,10 @@ source_set("impl") {
       "//chrome/browser/win",
       "//chrome/installer/util:with_no_strings",
     ]
+  }
+
+  if (!is_android) {
+    deps += [ "//chrome/browser/ui/views/frame:browser_view_header" ]
   }
 }
 
@@ -114,6 +122,7 @@ source_set("unit_tests") {
     "//chrome/browser/default_browser",
     "//chrome/common:constants",
     "//chrome/test:test_support",
+    "//chrome/test/base:testing_browser_process",
     "//components/infobars/content",
     "//components/prefs",
     "//components/prefs:test_support",
@@ -169,6 +178,7 @@ source_set("interactive_ui_tests") {
     "//chrome/browser/default_browser:test_support",
     "//chrome/browser/infobars",
     "//chrome/browser/profiles:profile",
+    "//chrome/browser/ui:browser_commands",
     "//chrome/browser/ui:browser_element_identifiers",
     "//chrome/browser/ui:chrome_pages",
     "//chrome/browser/ui/browser_window",
@@ -199,5 +209,9 @@ source_set("interactive_ui_tests") {
       "//chrome/browser/ui/startup/default_browser_prompt/pin_infobar",
       "//chrome/browser/ui/startup/default_browser_prompt/pin_infobar:impl",
     ]
+  }
+
+  if (!is_android) {
+    deps += [ "//chrome/browser/ui/views/frame:browser_view_header" ]
   }
 }

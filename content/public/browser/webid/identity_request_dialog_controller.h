@@ -53,6 +53,50 @@ struct CONTENT_EXPORT IdentityCredentialTokenError {
   GURL url;
 };
 
+// Everything a native identity provider application needs in order to take
+// over both halves of an active mode FedCM request: rendering the account
+// chooser, and issuing the assertion token that the id_assertion_endpoint would
+// otherwise have returned.
+//
+// `assertion_params` carries the request parameters destined for the IdP. It is
+// produced by ComputeUrlEncodedTokenPostData(), the same function that builds
+// the id_assertion_endpoint POST body, so a native application receives exactly
+// what an HTTP endpoint would and the two paths cannot drift as new request
+// parameters are added. Anything the application needs in order to render its
+// account chooser (`fields`, for instance) is in there too, so it is
+// deliberately not duplicated as a separate member.
+struct CONTENT_EXPORT NativeAppRequestOptions {
+  NativeAppRequestOptions();
+  NativeAppRequestOptions(const GURL& config_url,
+                          const url::Origin& rp_origin,
+                          const std::string& assertion_params,
+                          const std::string& login_hint,
+                          const std::string& domain_hint);
+  NativeAppRequestOptions(const NativeAppRequestOptions& other);
+  NativeAppRequestOptions(NativeAppRequestOptions&& other);
+  NativeAppRequestOptions& operator=(const NativeAppRequestOptions& other);
+  NativeAppRequestOptions& operator=(NativeAppRequestOptions&& other);
+  ~NativeAppRequestOptions();
+
+  // The IdP config URL. Identifies which IdP this request is for and is the
+  // origin that the application's Digital Asset Links are verified against.
+  GURL config_url;
+
+  // The top frame (embedding) origin of the page that invoked FedCM. This
+  // matches the origin used for the browser's own IdP network requests.
+  url::Origin rp_origin;
+
+  // URL-encoded id_assertion_endpoint request parameters (client_id, nonce,
+  // mode, fields, params, type, ...). See ComputeUrlEncodedTokenPostData().
+  std::string assertion_params;
+
+  // Account filtering hints. Per spec these are used by the user agent and are
+  // not forwarded to the IdP, so they are deliberately not part of
+  // `assertion_params`. Empty when unspecified by the relying party.
+  std::string login_hint;
+  std::string domain_hint;
+};
+
 // The metadata about the identity provider that will be used to display a FedCM
 // dialog. This data is extracted from the config file which is fetched when the
 // FedCM API is invoked.
@@ -192,9 +236,10 @@ class CONTENT_EXPORT IdentityRequestDialogController {
                               const std::string& /*account_id*/,
                               bool /*is_sign_in*/)>;
   struct CONTENT_EXPORT NativeAppResult {
-    enum class Type { kToken, kLoginFinished };
-    Type type;
+    enum class Type { kToken, kError, kLoginFinished };
+    Type type = Type::kError;
     std::string token;
+    std::optional<IdentityCredentialTokenError> error;
   };
 
   using NativeAppResultCallback = base::OnceCallback<void(NativeAppResult)>;
@@ -311,6 +356,12 @@ class CONTENT_EXPORT IdentityRequestDialogController {
       IdentityRequestAccount::SignInMode sign_in_mode,
       blink::mojom::RpMode rp_mode,
       AccountsDisplayedCallback accounts_displayed_callback);
+
+  // Shows the native app UI flow. Returns true if the native app UI was
+  // initiated. When false, the caller should assume the flow cannot be shown.
+  virtual bool ShowNativeAppUi(const NativeAppRequestOptions& request_options,
+                               DismissCallback dismiss_callback,
+                               NativeAppResultCallback native_result_callback);
 
   // Only to be called after a dialog is shown.
   virtual std::string GetTitle() const;

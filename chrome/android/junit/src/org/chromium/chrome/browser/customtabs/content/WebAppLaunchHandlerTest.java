@@ -99,7 +99,8 @@ public class WebAppLaunchHandlerTest {
     @Mock Activity mActivityMock;
     @Mock WebAppLaunchHandler.Natives mWebAppLaunchHandlerJniMock;
     @Mock CustomTabsConnection mCustomTabsConnectionMock;
-    @Mock SessionHolder<CustomTabsSessionToken> mSessionMock;
+    private final SessionHolder.CustomTab mSessionHolder =
+            SessionHolder.of(CustomTabsSessionToken.createMockSessionTokenForTesting());
     @Mock CustomTabActivityTabProvider mTabProviderMock;
 
     @Before
@@ -113,8 +114,10 @@ public class WebAppLaunchHandlerTest {
                         new CurrentPageVerifier.VerificationState(
                                 "", "", CurrentPageVerifier.VerificationStatus.SUCCESS));
 
-        when(mCustomTabsConnectionMock.getClientUidForSession(eq(mSessionMock))).thenReturn(12345);
-        when(mCustomTabsConnectionMock.getClientPidForSession(eq(mSessionMock))).thenReturn(67890);
+        when(mCustomTabsConnectionMock.getClientUidForSession(eq(mSessionHolder)))
+                .thenReturn(12345);
+        when(mCustomTabsConnectionMock.getClientPidForSession(eq(mSessionHolder)))
+                .thenReturn(67890);
         when(mWebContentsMock.getLastCommittedUrl()).thenReturn(JUnitTestGURLs.INITIAL_URL);
         when(mTabProviderMock.getInitialTabCreationMode()).thenReturn(TabCreationMode.DEFAULT);
         when(mTabProviderMock.getSpeculatedUrl()).thenReturn(null);
@@ -184,7 +187,7 @@ public class WebAppLaunchHandlerTest {
         when(dataProvider.getUrlToLoad()).thenReturn(url);
         when(dataProvider.getClientPackageName()).thenReturn(TEST_PACKAGE_NAME);
         when(dataProvider.getFileHandlingData()).thenReturn(mFileHandlingData);
-        when(dataProvider.getSession()).thenReturn(mSessionMock);
+        when(dataProvider.getSession()).thenReturn(mSessionHolder);
         when(dataProvider.getIntent()).thenReturn(intent);
         when(dataProvider.isTrustedIntent()).thenReturn(isTrusted);
         return dataProvider;
@@ -988,7 +991,7 @@ public class WebAppLaunchHandlerTest {
         CustomTabIntentDataProvider dataProvider = mock(CustomTabIntentDataProvider.class);
         when(dataProvider.getIntent()).thenReturn(intent);
         when(dataProvider.getShareData()).thenReturn(rawData);
-        when(dataProvider.getSession()).thenReturn(mSessionMock);
+        when(dataProvider.getSession()).thenReturn(mSessionHolder);
 
         when(mActivityMock.checkUriPermission(
                         eq(authorizedUri),
@@ -1026,7 +1029,7 @@ public class WebAppLaunchHandlerTest {
         CustomTabIntentDataProvider dataProvider = mock(CustomTabIntentDataProvider.class);
         when(dataProvider.getIntent()).thenReturn(intent);
         when(dataProvider.getShareData()).thenReturn(rawData);
-        when(dataProvider.getSession()).thenReturn(mSessionMock);
+        when(dataProvider.getSession()).thenReturn(mSessionHolder);
 
         when(mActivityMock.checkUriPermission(
                         eq(validUri),
@@ -1130,7 +1133,7 @@ public class WebAppLaunchHandlerTest {
         CustomTabIntentDataProvider dataProvider = mock(CustomTabIntentDataProvider.class);
         when(dataProvider.getIntent()).thenReturn(intent);
         when(dataProvider.getFileHandlingData()).thenReturn(rawData);
-        when(dataProvider.getSession()).thenReturn(mSessionMock);
+        when(dataProvider.getSession()).thenReturn(mSessionHolder);
         when(dataProvider.getUrlToLoad()).thenReturn(INITIAL_URL);
         when(dataProvider.getClientPackageName()).thenReturn(TEST_PACKAGE_NAME);
 

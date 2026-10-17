@@ -29,6 +29,7 @@
 #include "third_party/blink/renderer/core/css/css_image_set_value.h"
 #include "third_party/blink/renderer/core/css/css_image_value.h"
 #include "third_party/blink/renderer/core/css/css_paint_value.h"
+#include "third_party/blink/renderer/core/css/css_primitive_value.h"
 #include "third_party/blink/renderer/core/css/css_property_names.h"
 #include "third_party/blink/renderer/core/css/css_to_length_conversion_data.h"
 #include "third_party/blink/renderer/core/css/css_uri_value.h"
@@ -62,6 +63,27 @@ namespace blink {
 
 namespace {
 
+// Records the viewport-unit dependency described by `types` on
+// `conversion_data`, so that a viewport resize triggers a style recalc for this
+// element, and returns the viewport size to snapshot on the generated image.
+// Gradient color stops and positions are resolved lazily when the image is
+// painted rather than during style resolution, so without the snapshot the
+// recalc would produce an equal StyleImage, leaving the previously rasterized
+// gradient in place.
+CSSToLengthConversionData::ViewportSize GradientViewportSize(
+    const CSSPrimitiveValue::LengthTypeFlags& types,
+    const CSSToLengthConversionData* conversion_data) {
+  using ViewportSize = CSSToLengthConversionData::ViewportSize;
+  if (!conversion_data) {
+    return ViewportSize();
+  }
+  if (!CSSPrimitiveValue::HasStaticViewportUnits(types) &&
+      !CSSPrimitiveValue::HasDynamicViewportUnits(types)) {
+    return ViewportSize();
+  }
+  return conversion_data->ViewportSizes(types);
+}
+
 class StyleImageLoader {
   STACK_ALLOCATED();
 
@@ -70,10 +92,12 @@ class StyleImageLoader {
 
   StyleImageLoader(Document& document,
                    ComputedStyleBuilder& builder,
+                   const CSSToLengthConversionData* conversion_data,
                    const PreCachedContainerSizes& pre_cached_container_sizes,
                    float device_scale_factor)
       : document_(document),
         builder_(builder),
+        conversion_data_(conversion_data),
         pre_cached_container_sizes_(pre_cached_container_sizes),
         device_scale_factor_(device_scale_factor) {}
 
@@ -92,6 +116,7 @@ class StyleImageLoader {
 
   Document& document_;
   ComputedStyleBuilder& builder_;
+  const CSSToLengthConversionData* conversion_data_;
   const PreCachedContainerSizes& pre_cached_container_sizes_;
   const float device_scale_factor_;
 };
@@ -107,8 +132,9 @@ StyleImage* StyleImageLoader::Load(
   }
 
   if (auto* paint_value = DynamicTo<CSSPaintValue>(value)) {
-    auto* image = MakeGarbageCollected<StyleGeneratedImage>(*paint_value,
-                                                            ContainerSizes());
+    auto* image = MakeGarbageCollected<StyleGeneratedImage>(
+        *paint_value, ContainerSizes(),
+        CSSToLengthConversionData::ViewportSize());
     builder_.AddPaintImage(image);
     return image;
   }
@@ -126,18 +152,22 @@ StyleImage* StyleImageLoader::Load(
 
   if (auto* image_gradient_value =
           DynamicTo<cssvalue::CSSGradientValue>(value)) {
+    CSSPrimitiveValue::LengthTypeFlags types;
+    image_gradient_value->AccumulateLengthUnitTypes(types);
     const ContainerSizes& container_sizes =
-        image_gradient_value->IsUsingContainerRelativeUnits()
+        CSSPrimitiveValue::HasContainerRelativeUnits(types)
             ? pre_cached_container_sizes_.Get()
             : ContainerSizes();
-    return MakeGarbageCollected<StyleGeneratedImage>(*image_gradient_value,
-                                                     container_sizes);
+    return MakeGarbageCollected<StyleGeneratedImage>(
+        *image_gradient_value, container_sizes,
+        GradientViewportSize(types, conversion_data_));
   }
 
   if (auto* image_set_value = DynamicTo<CSSImageSetValue>(value)) {
     StyleImage* style_image =
         ResolveImageSet(*image_set_value, cross_origin, length_resolver);
-    return image_set_value->CacheImage(style_image, device_scale_factor_);
+    return image_set_value->CacheImage(document_.Fetcher(), style_image,
+                                       device_scale_factor_);
   }
 
   NOTREACHED();
@@ -201,7 +231,7 @@ ElementStyleResources::ElementStyleResources(Element& element,
 
 bool ElementStyleResources::IsPending(const CSSValue& value) const {
   if (auto* img_value = DynamicTo<CSSImageValue>(value)) {
-    return img_value->IsCachePending();
+    return img_value->IsCachePending(element_.GetDocument().Fetcher());
   }
 
   // paint(...) is always treated as pending because it needs to call
@@ -222,7 +252,8 @@ bool ElementStyleResources::IsPending(const CSSValue& value) const {
   }
 
   if (auto* img_set_value = DynamicTo<CSSImageSetValue>(value)) {
-    return img_set_value->IsCachePending(device_scale_factor_);
+    return img_set_value->IsCachePending(element_.GetDocument().Fetcher(),
+                                         device_scale_factor_);
   }
 
   NOTREACHED();
@@ -233,22 +264,26 @@ StyleImage* ElementStyleResources::CachedStyleImage(
   DCHECK(!IsPending(value));
   if (auto* img_value = DynamicTo<CSSImageValue>(value)) {
     img_value->RestoreCachedResourceIfNeeded(element_.GetDocument());
-    return img_value->CachedImage();
+    return img_value->CachedImage(element_.GetDocument().Fetcher());
   }
 
   // Gradient functions are never pending (but don't cache StyleImages).
   if (auto* gradient_value = DynamicTo<cssvalue::CSSGradientValue>(value)) {
     using ContainerSizes = CSSToLengthConversionData::ContainerSizes;
+    CSSPrimitiveValue::LengthTypeFlags types;
+    gradient_value->AccumulateLengthUnitTypes(types);
     const ContainerSizes& container_sizes =
-        gradient_value->IsUsingContainerRelativeUnits()
+        CSSPrimitiveValue::HasContainerRelativeUnits(types)
             ? pre_cached_container_sizes_.Get()
             : ContainerSizes();
-    return MakeGarbageCollected<StyleGeneratedImage>(*gradient_value,
-                                                     container_sizes);
+    return MakeGarbageCollected<StyleGeneratedImage>(
+        *gradient_value, container_sizes,
+        GradientViewportSize(types, conversion_data_));
   }
 
   if (auto* img_set_value = DynamicTo<CSSImageSetValue>(value)) {
-    return img_set_value->CachedImage(device_scale_factor_);
+    return img_set_value->CachedImage(element_.GetDocument().Fetcher(),
+                                      device_scale_factor_);
   }
 
   NOTREACHED();
@@ -386,7 +421,8 @@ StyleImage* ElementStyleResources::LoadMaskSource(CSSValue& pending_value) {
   StyleImage* image = image_value->CacheImage(element_.GetDocument(),
                                               kCrossOriginAttributeAnonymous);
   return MakeGarbageCollected<StyleMaskSourceImage>(
-      To<StyleFetchedImage>(image), image_value->EnsureSVGResource(),
+      To<StyleFetchedImage>(image),
+      image_value->EnsureSVGResource(element_.GetDocument().Fetcher()),
       image_value);
 }
 
@@ -410,7 +446,7 @@ void ElementStyleResources::LoadPendingImages(
   // If we eagerly loaded the images we'd fetch a.png, even though it's not
   // used. If we didn't null check below we'd crash since the none actually
   // removed all background images.
-  StyleImageLoader loader(element_.GetDocument(), builder,
+  StyleImageLoader loader(element_.GetDocument(), builder, conversion_data_,
                           pre_cached_container_sizes_, device_scale_factor_);
   for (CSSPropertyID property : pending_image_properties_) {
     switch (property) {
@@ -526,6 +562,7 @@ void ElementStyleResources::LoadPendingResources(
 
 void ElementStyleResources::UpdateLengthConversionData(
     const CSSToLengthConversionData* conversion_data) {
+  conversion_data_ = conversion_data;
   pre_cached_container_sizes_ = PreCachedContainerSizes(conversion_data);
 }
 

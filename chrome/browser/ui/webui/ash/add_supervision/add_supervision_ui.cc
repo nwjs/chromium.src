@@ -27,8 +27,10 @@
 #include "chrome/grit/supervision_resources_map.h"
 #include "chromeos/ash/components/browser_context_helper/annotated_account_id.h"
 #include "chromeos/ash/components/signin/identity_manager_provider.h"
+#include "chromeos/ash/components/supervised_user/supervised_user_service_provider.h"
 #include "components/application_locale_storage/application_locale_storage.h"
 #include "components/google/core/common/google_util.h"
+#include "components/supervised_user/core/browser/supervised_user_service.h"
 #include "content/public/browser/url_data_source.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
@@ -36,6 +38,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/mojom/ui_base_types.mojom-shared.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/base/webui/web_ui_util.h"
 #include "ui/resources/grit/ui_resources.h"
 #include "ui/web_dialogs/web_dialog_delegate.h"
 #include "ui/webui/webui_util.h"
@@ -165,8 +168,8 @@ AddSupervisionUIConfig::~AddSupervisionUIConfig() = default;
 std::unique_ptr<content::WebUIController>
 AddSupervisionUIConfig::CreateWebUIController(content::WebUI* web_ui,
                                               const GURL& url) {
-  return std::make_unique<AddSupervisionUI>(web_ui,
-                                            application_locale_storage_->Get());
+  return std::make_unique<AddSupervisionUI>(
+      web_ui, std::string(application_locale_storage_->GetTag().tag_string()));
 }
 
 // AddSupervisionUI implementations.
@@ -208,14 +211,17 @@ void AddSupervisionUI::SetUpForTest(signin::IdentityManager* identity_manager) {
 void AddSupervisionUI::BindInterface(
     mojo::PendingReceiver<add_supervision::mojom::AddSupervisionHandler>
         receiver) {
+  const AccountId& account_id =
+      CHECK_DEREF(AnnotatedAccountId::Get(Profile::FromWebUI(web_ui())));
   signin::IdentityManager* identity_manager =
-      test_identity_manager_
-          ? test_identity_manager_
-          : IdentityManagerProvider::Get().Find(CHECK_DEREF(
-                AnnotatedAccountId::Get(Profile::FromWebUI(web_ui()))));
+      test_identity_manager_ ? test_identity_manager_
+                             : IdentityManagerProvider::Get().Find(account_id);
+  supervised_user::SupervisedUserService* supervised_user_service =
+      SupervisedUserServiceProvider::Get().Find(account_id);
 
   mojo_api_handler_ = std::make_unique<AddSupervisionHandler>(
-      std::move(receiver), web_ui(), identity_manager, this);
+      std::move(receiver), web_ui(), identity_manager, supervised_user_service,
+      this);
 }
 
 void AddSupervisionUI::SetUpResources(const std::string& app_locale) {
@@ -237,17 +243,16 @@ void AddSupervisionUI::SetUpResources(const std::string& app_locale) {
   source->AddResourcePaths(kAddSupervisionResources);
   source->AddResourcePaths(kSupervisionResources);
 
-  source->AddLocalizedString("pageTitle", IDS_ADD_SUPERVISION_PAGE_TITLE);
-  source->AddLocalizedString("webviewLoadingMessage",
-                             IDS_ADD_SUPERVISION_WEBVIEW_LOADING_MESSAGE);
-  source->AddLocalizedString("supervisedUserErrorDescription",
-                             IDS_SUPERVISED_USER_ERROR_DESCRIPTION);
-  source->AddLocalizedString("supervisedUserErrorTitle",
-                             IDS_SUPERVISED_USER_ERROR_TITLE);
-  source->AddLocalizedString("supervisedUserOfflineDescription",
-                             IDS_SUPERVISED_USER_OFFLINE_DESCRIPTION);
-  source->AddLocalizedString("supervisedUserOfflineTitle",
-                             IDS_SUPERVISED_USER_OFFLINE_TITLE);
+  static constexpr webui::LocalizedString kLocalizedStrings[] = {
+      {"pageTitle", IDS_ADD_SUPERVISION_PAGE_TITLE},
+      {"webviewLoadingMessage", IDS_ADD_SUPERVISION_WEBVIEW_LOADING_MESSAGE},
+      {"supervisedUserErrorDescription", IDS_SUPERVISED_USER_ERROR_DESCRIPTION},
+      {"supervisedUserErrorTitle", IDS_SUPERVISED_USER_ERROR_TITLE},
+      {"supervisedUserOfflineDescription",
+       IDS_SUPERVISED_USER_OFFLINE_DESCRIPTION},
+      {"supervisedUserOfflineTitle", IDS_SUPERVISED_USER_OFFLINE_TITLE},
+  };
+  source->AddLocalizedStrings(kLocalizedStrings);
 
   source->UseStringsJs();
   source->SetDefaultResource(IDR_ADD_SUPERVISION_ADD_SUPERVISION_HTML);

@@ -58,12 +58,8 @@ class ChromiumSystemIdentityManager final : public SystemIdentityManager {
   NSString* GetCachedHostedDomainForIdentity(id<SystemIdentity> identity) final;
   void FetchCapabilities(id<SystemIdentity> identity,
                          const std::vector<std::string>& names,
-                         FetchCapabilitiesCallback callback) final;
-  void FetchCapabilitiesWithPartial(
-      id<SystemIdentity> identity,
-      const std::vector<std::string>& names,
-      FetchCapabilitiesCompletion completion,
-      FetchPartialCapabilitiesCallback partial_callback) final;
+                         FetchPartialCapabilitiesCallback partial_callback,
+                         FetchCapabilitiesCompletion completion) final;
   void RegisterExternalPrivacyContextProvider(
       id<ExternalPrivacyContextUIProvider> provider) final;
   void UnregisterExternalPrivacyContextProvider(
@@ -192,15 +188,8 @@ NSString* ChromiumSystemIdentityManager::GetCachedHostedDomainForIdentity(
 void ChromiumSystemIdentityManager::FetchCapabilities(
     id<SystemIdentity> identity,
     const std::vector<std::string>& names,
-    FetchCapabilitiesCallback callback) {
-  NOTREACHED();
-}
-
-void ChromiumSystemIdentityManager::FetchCapabilitiesWithPartial(
-    id<SystemIdentity> identity,
-    const std::vector<std::string>& names,
-    FetchCapabilitiesCompletion completion,
-    FetchPartialCapabilitiesCallback partial_callback) {
+    FetchPartialCapabilitiesCallback partial_callback,
+    FetchCapabilitiesCompletion completion) {
   NOTREACHED();
 }
 

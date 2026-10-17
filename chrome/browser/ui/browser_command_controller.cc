@@ -16,6 +16,7 @@
 #include "base/debug/profiler.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
+#include "base/i18n/number_formatting.h"
 #include "base/i18n/rtl.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/user_metrics.h"
@@ -31,7 +32,6 @@
 #include "chrome/browser/browsing_data/browsing_data_important_sites_util.h"
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/devtools/devtools_window.h"
-#include "chrome/browser/devtools/features.h"
 #include "chrome/browser/enterprise/isolated_mode/isolated_mode_settings_service_factory.h"
 #include "chrome/browser/feedback/public/feedback_source.h"
 #include "chrome/browser/feedback/show_feedback_page.h"
@@ -53,6 +53,8 @@
 #include "chrome/browser/signin/signin_ui_util.h"
 #include "chrome/browser/sync/sync_ui_util.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
+#include "chrome/browser/ttc/core/states.h"
+#include "chrome/browser/ttc/core/ttc_keyed_service.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/actions/chrome_action_properties.h"
 #include "chrome/browser/ui/actions/command_action_updater.h"
@@ -92,6 +94,7 @@
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/toolbar/chrome_labs/chrome_labs_utils.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/side_panel/tabs_from_other_devices/tabs_from_other_devices_side_panel_coordinator.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
@@ -110,6 +113,7 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/common/webui_url_constants.h"
+#include "chrome/grit/generated_resources.h"
 #include "components/bookmarks/browser/bookmark_model_load_waiter.h"
 #include "components/bookmarks/common/bookmark_bar_visibility_state.h"
 #include "components/bookmarks/common/bookmark_pref_names.h"
@@ -126,9 +130,11 @@
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
+#include "components/skills/features.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/translate/core/browser/translate_manager.h"
+#include "components/zoom/zoom_controller.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_frame_host.h"
@@ -143,6 +149,7 @@
 #include "printing/buildflags/buildflags.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/actions/actions.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/events/keycodes/keyboard_codes.h"
@@ -348,23 +355,6 @@ BrowserCommandController::BrowserCommandController(BrowserWindowInterface* bwi)
   }
 
   profile_pref_registrar_.Init(profile()->GetPrefs());
-  if (!base::FeatureList::IsEnabled(features::kDevToolsShowPolicyDialog)) {
-    profile_pref_registrar_.Add(
-        prefs::kDevToolsAvailability,
-        base::BindRepeating(
-            &BrowserCommandController::UpdateCommandsForDevTools,
-            base::Unretained(this)));
-    profile_pref_registrar_.Add(
-        prefs::kDeveloperToolsAvailabilityAllowlist,
-        base::BindRepeating(
-            &BrowserCommandController::UpdateCommandsForDevTools,
-            base::Unretained(this)));
-    profile_pref_registrar_.Add(
-        prefs::kDeveloperToolsAvailabilityBlocklist,
-        base::BindRepeating(
-            &BrowserCommandController::UpdateCommandsForDevTools,
-            base::Unretained(this)));
-  }
   profile_pref_registrar_.Add(
       bookmarks::prefs::kEditBookmarksEnabled,
       base::BindRepeating(
@@ -427,6 +417,13 @@ BrowserCommandController::BrowserCommandController(BrowserWindowInterface* bwi)
                       &BrowserCommandController::GlicActiveInstanceChanged,
                       base::Unretained(this)));
     }
+  }
+
+  if (ttc::TtcKeyedService* ttc_service =
+          ttc::TtcKeyedService::Get(profile())) {
+    ttc_state_subscription_ = ttc_service->RegisterStateChangedCallback(
+        base::BindRepeating(&BrowserCommandController::TtcStateChanged,
+                            base::Unretained(this)));
   }
 
   InitCommandState();
@@ -580,6 +577,9 @@ void BrowserCommandController::GlicActiveInstanceChanged(
   UpdateGlicState();
 }
 
+void BrowserCommandController::TtcStateChanged(ttc::ServiceState state) {
+  UpdateTtcState(state);
+}
 
 void BrowserCommandController::FindBarVisibilityChanged() {
   // Block find command updates in locked fullscreen mode unless the instance is
@@ -918,8 +918,7 @@ void BrowserCommandController::HandleCommandWithDisposition(
     case IDC_TOGGLE_JAVASCRIPT_APPLE_EVENTS: {
       content::WebContents* web_contents =
           browser_->tab_strip_model()->GetActiveWebContents();
-      if (base::FeatureList::IsEnabled(features::kDevToolsShowPolicyDialog) &&
-          !DevToolsWindow::AllowDevToolsFor(profile(), web_contents)) {
+      if (!DevToolsWindow::AllowDevToolsFor(profile(), web_contents)) {
         DevToolsPolicyDialog::Show(web_contents);
       } else {
         chrome::ToggleJavaScriptFromAppleEventsAllowed(browser_);
@@ -944,8 +943,7 @@ void BrowserCommandController::HandleCommandWithDisposition(
     case IDC_VIEW_SOURCE: {
       content::WebContents* web_contents =
           browser_->tab_strip_model()->GetActiveWebContents();
-      if (base::FeatureList::IsEnabled(features::kDevToolsShowPolicyDialog) &&
-          !DevToolsWindow::AllowDevToolsFor(profile(), web_contents)) {
+      if (!DevToolsWindow::AllowDevToolsFor(profile(), web_contents)) {
 #if !BUILDFLAG(IS_ANDROID)
         DevToolsPolicyDialog::Show(web_contents);
 #endif
@@ -1051,6 +1049,9 @@ void BrowserCommandController::HandleCommandWithDisposition(
       break;
     case IDC_SHARING_HUB_SCREENSHOT:
       ScreenshotCapture(browser_);
+      break;
+    case IDC_SHOW_TTC_MENU:
+      ShowTtcMenuItem(browser_);
       break;
 
     // Clipboard commands
@@ -1230,6 +1231,7 @@ void BrowserCommandController::HandleCommandWithDisposition(
       break;
     case IDC_PROFILING_ENABLED:
       content::Profiling::Toggle();
+      UpdateCommandsForProfiling();
       break;
     case IDC_CARET_BROWSING_TOGGLE:
       ToggleCaretBrowsing(browser_);
@@ -1244,6 +1246,16 @@ void BrowserCommandController::HandleCommandWithDisposition(
       break;
     case IDC_SHOW_BOOKMARK_MANAGER:
       ShowBookmarkManager(webui::GetBrowserForOpeningWebUi(browser_));
+      break;
+    case IDC_MANAGE_SKILLS:
+      ShowSkillsYourSkills(webui::GetBrowserForOpeningWebUi(browser_));
+      BrowserUserEducationInterface::From(browser_)->NotifyNewBadgeFeatureUsed(
+          features::kSkillsAppMenu);
+      break;
+    case IDC_BROWSE_SKILLS:
+      ShowSkillsBrowse(webui::GetBrowserForOpeningWebUi(browser_));
+      BrowserUserEducationInterface::From(browser_)->NotifyNewBadgeFeatureUsed(
+          features::kSkillsAppMenu);
       break;
     case IDC_SHOW_BOOKMARK_SIDE_PANEL:
       SidePanelUI::From(browser_)->Show(SidePanelEntryId::kBookmarks,
@@ -1423,7 +1435,7 @@ void BrowserCommandController::HandleCommandWithDisposition(
       AddNewTabToRecentGroup(browser_);
       break;
     case IDC_UNFOCUS_TAB_GROUP:
-      UnfocusTabGroup(browser_, TabGroupFocusExitReason::kTabStripButton);
+      ExitFocusMode(browser_, TabGroupFocusExitReason::kTabStripButton);
       break;
     case IDC_WINDOW_CLOSE_TABS_TO_RIGHT:
       CloseTabsToRight(browser_);
@@ -1741,6 +1753,11 @@ void BrowserCommandController::InitCommandState() {
   command_updater_->UpdateCommandEnabled(IDC_SHOW_SEARCH_TOOLS, true);
   command_updater_->UpdateCommandEnabled(IDC_SHOW_AI_MODE_OMNIBOX_BUTTON, true);
 
+  // Skills menu commands
+  command_updater_->UpdateCommandEnabled(IDC_SKILLS_MENU, true);
+  command_updater_->UpdateCommandEnabled(IDC_MANAGE_SKILLS, true);
+  command_updater_->UpdateCommandEnabled(IDC_BROWSE_SKILLS, true);
+
   // Window management commands
   command_updater_->UpdateCommandEnabled(IDC_CLOSE_WINDOW, true);
   command_updater_->UpdateCommandEnabled(IDC_NEW_TAB, true);
@@ -1818,25 +1835,16 @@ void BrowserCommandController::InitCommandState() {
 
   command_updater_->UpdateCommandEnabled(IDC_OPEN_FILE, CanOpenFile(browser_));
 
-  if (base::FeatureList::IsEnabled(features::kDevToolsShowPolicyDialog)) {
-    const bool dev_tools_enabled = true;
-    command_updater_->UpdateCommandEnabled(IDC_DEV_TOOLS, dev_tools_enabled);
-    command_updater_->UpdateCommandEnabled(IDC_DEV_TOOLS_CONSOLE,
-                                           dev_tools_enabled);
-    command_updater_->UpdateCommandEnabled(IDC_DEV_TOOLS_DEVICES,
-                                           dev_tools_enabled);
-    command_updater_->UpdateCommandEnabled(IDC_DEV_TOOLS_INSPECT,
-                                           dev_tools_enabled);
-    command_updater_->UpdateCommandEnabled(IDC_DEV_TOOLS_TOGGLE,
-                                           dev_tools_enabled);
-    command_updater_->UpdateCommandEnabled(IDC_VIEW_SOURCE, dev_tools_enabled);
+  command_updater_->UpdateCommandEnabled(IDC_DEV_TOOLS, true);
+  command_updater_->UpdateCommandEnabled(IDC_DEV_TOOLS_CONSOLE, true);
+  command_updater_->UpdateCommandEnabled(IDC_DEV_TOOLS_DEVICES, true);
+  command_updater_->UpdateCommandEnabled(IDC_DEV_TOOLS_INSPECT, true);
+  command_updater_->UpdateCommandEnabled(IDC_DEV_TOOLS_TOGGLE, true);
+  command_updater_->UpdateCommandEnabled(IDC_VIEW_SOURCE, true);
 #if BUILDFLAG(IS_MAC)
-    command_updater_->UpdateCommandEnabled(IDC_TOGGLE_JAVASCRIPT_APPLE_EVENTS,
-                                           dev_tools_enabled);
+  command_updater_->UpdateCommandEnabled(IDC_TOGGLE_JAVASCRIPT_APPLE_EVENTS,
+                                         true);
 #endif
-  } else {
-    UpdateCommandsForDevTools();
-  }
   command_updater_->UpdateCommandEnabled(IDC_TASK_MANAGER,
                                          CanOpenTaskManager());
   command_updater_->UpdateCommandEnabled(IDC_TASK_MANAGER_APP_MENU,
@@ -2030,6 +2038,12 @@ void BrowserCommandController::InitCommandState() {
       IDC_GLIC_TOGGLE_PIN, glic::GlicEnabling::IsProfileEligible(profile()));
   UpdateGlicState();
 
+  // TTC commands.
+  if (ttc::TtcKeyedService* ttc_service =
+          ttc::TtcKeyedService::Get(profile())) {
+    UpdateTtcState(ttc_service->GetState());
+  }
+
   // Initialize other commands whose state changes based on various conditions.
   UpdateCommandsForFullscreenMode();
   UpdateCommandsForContentRestrictionState();
@@ -2046,19 +2060,20 @@ void BrowserCommandController::UpdateSharedCommandsForIncognitoAvailability(
     CommandUpdater* command_updater,
     Profile* profile) {
   policy::IncognitoModeAvailability incognito_availability =
-      IncognitoModePrefs::GetAvailability(profile->GetPrefs());
+      IncognitoModePrefs::GetAvailability(profile);
   command_updater->UpdateCommandEnabled(
       IDC_NEW_WINDOW,
       incognito_availability != policy::IncognitoModeAvailability::kForced);
-  bool isolated_mode_enabled =
-      enterprise_isolated_mode::IsolatedModeReplacesIncognito(profile);
 
   command_updater->UpdateCommandEnabled(
       IDC_NEW_INCOGNITO_WINDOW,
-      IncognitoModePrefs::IsIncognitoAllowed(profile));
+      IncognitoModePrefs::IsIncognitoTypeAllowed(
+          profile, IncognitoModePrefs::IncognitoModeType::kStandard));
 
-  command_updater->UpdateCommandEnabled(IDC_NEW_ISOLATED_WINDOW,
-                                        isolated_mode_enabled);
+  command_updater->UpdateCommandEnabled(
+      IDC_NEW_ISOLATED_WINDOW,
+      IncognitoModePrefs::IsIncognitoTypeAllowed(
+          profile, IncognitoModePrefs::IncognitoModeType::kEnterprise));
 
   const bool forced_incognito =
       incognito_availability == policy::IncognitoModeAvailability::kForced;
@@ -2232,15 +2247,6 @@ void BrowserCommandController::UpdateCommandsForTabState() {
   // Update the zoom commands when an active tab is selected.
   UpdateCommandsForZoomState();
   UpdateCommandsForTabKeyboardFocus(GetKeyboardFocusedTabIndex(browser_));
-  if (!base::FeatureList::IsEnabled(features::kDevToolsShowPolicyDialog)) {
-    UpdateCommandsForDevTools();
-  } else {
-    // Block the View Source command if DevTools are disabled.
-    command_updater_->UpdateCommandEnabled(
-        IDC_VIEW_SOURCE,
-        DevToolsWindow::AllowDevToolsFor(
-            profile(), browser_->tab_strip_model()->GetActiveWebContents()));
-  }
 }
 
 void BrowserCommandController::UpdateCommandsForZoomState() {
@@ -2257,6 +2263,14 @@ void BrowserCommandController::UpdateCommandsForZoomState() {
   command_updater_->UpdateCommandEnabled(IDC_ZOOM_NORMAL,
                                          CanResetZoom(contents));
   command_updater_->UpdateCommandEnabled(IDC_ZOOM_MINUS, CanZoomOut(contents));
+
+  if (const auto* zoom_controller =
+          zoom::ZoomController::FromWebContents(contents)) {
+    if (auto* const zoom_action = FindAction(kActionZoomNormal, browser_)) {
+      zoom_action->SetText(
+          base::FormatPercent(zoom_controller->GetZoomPercent()));
+    }
+  }
 }
 
 void BrowserCommandController::UpdateCommandsForContentRestrictionState() {
@@ -2270,34 +2284,6 @@ void BrowserCommandController::UpdateCommandsForContentRestrictionState() {
       IDC_PASTE, !(restrictions & CONTENT_RESTRICTION_PASTE));
   UpdateSaveAsState();
   UpdatePrintingState();
-}
-
-// TODO(crbug.com/442892562): Remove this function once the feature is launched.
-void BrowserCommandController::UpdateCommandsForDevTools() {
-  if (IsInLockedFullscreenMode(/*allow_ontask=*/false)) {
-    return;
-  }
-
-  bool dev_tools_enabled = DevToolsWindow::AllowDevToolsFor(
-      profile(), browser_->tab_strip_model()->GetActiveWebContents());
-  const base::CommandLine* command_line =
-      base::CommandLine::ForCurrentProcess();
-  if (command_line->HasSwitch(switches::kDisableDevTools))
-    dev_tools_enabled = false;
-  command_updater_->UpdateCommandEnabled(IDC_DEV_TOOLS, dev_tools_enabled);
-  command_updater_->UpdateCommandEnabled(IDC_DEV_TOOLS_CONSOLE,
-                                         dev_tools_enabled);
-  command_updater_->UpdateCommandEnabled(IDC_DEV_TOOLS_DEVICES,
-                                         dev_tools_enabled);
-  command_updater_->UpdateCommandEnabled(IDC_DEV_TOOLS_INSPECT,
-                                         dev_tools_enabled);
-  command_updater_->UpdateCommandEnabled(IDC_DEV_TOOLS_TOGGLE,
-                                         dev_tools_enabled);
-  command_updater_->UpdateCommandEnabled(IDC_VIEW_SOURCE, dev_tools_enabled);
-#if BUILDFLAG(IS_MAC)
-  command_updater_->UpdateCommandEnabled(IDC_TOGGLE_JAVASCRIPT_APPLE_EVENTS,
-                                         dev_tools_enabled);
-#endif
 }
 
 void BrowserCommandController::UpdateCommandsForBookmarkEditing() {
@@ -2339,6 +2325,22 @@ void BrowserCommandController::UpdateCommandsForBookmarkBar() {
                                          visibility_commands_enabled);
   command_updater_->UpdateCommandEnabled(IDC_BOOKMARK_BAR_SUBMENU_ONLY_ON_NTP,
                                          visibility_commands_enabled);
+
+  const int bookmark_bar_state = profile()->GetPrefs()->GetInteger(
+      bookmarks::prefs::kBookmarkBarVisibilityState);
+  UpdateCheckedState(
+      kActionBookmarkBarSubmenuAlwaysShow,
+      bookmark_bar_state ==
+          static_cast<int>(bookmarks::BookmarkBarVisibilityState::kAlwaysShow));
+  UpdateCheckedState(
+      kActionBookmarkBarSubmenuAlwaysHide,
+      bookmark_bar_state ==
+          static_cast<int>(bookmarks::BookmarkBarVisibilityState::kAlwaysHide));
+  UpdateCheckedState(
+      kActionBookmarkBarSubmenuOnlyOnNtp,
+      bookmark_bar_state ==
+          static_cast<int>(
+              bookmarks::BookmarkBarVisibilityState::kOnlyShowOnNtp));
 }
 
 void BrowserCommandController::UpdateCommandsForFileSelectionDialogs() {
@@ -2416,9 +2418,7 @@ void BrowserCommandController::UpdateCommandsForFullscreenMode() {
   command_updater_->UpdateCommandEnabled(IDC_SHOW_APP_MENU, show_main_ui);
   command_updater_->UpdateCommandEnabled(IDC_SHOW_MANAGEMENT_PAGE, true);
 
-  if (base::debug::IsProfilingSupported()) {
-    command_updater_->UpdateCommandEnabled(IDC_PROFILING_ENABLED, show_main_ui);
-  }
+  UpdateCommandsForProfiling();
 
 #if !BUILDFLAG(IS_MAC)
   // Disable toggling into fullscreen mode if disallowed by pref.
@@ -2432,6 +2432,15 @@ void BrowserCommandController::UpdateCommandsForFullscreenMode() {
   command_updater_->UpdateCommandEnabled(IDC_FULLSCREEN, fullscreen_enabled);
   command_updater_->UpdateCommandEnabled(IDC_TOGGLE_FULLSCREEN_TOOLBAR,
                                          fullscreen_enabled);
+
+  if (auto* const fullscreen_action = FindAction(kActionFullscreen, browser_)) {
+    const int string_id =
+        is_fullscreen ? IDS_ACCNAME_EXIT_FULLSCREEN
+                      : (fullscreen_enabled ? IDS_ACCNAME_FULLSCREEN
+                                            : IDS_ACCNAME_FULLSCREEN_DISABLED);
+    fullscreen_action->SetTooltipText(l10n_util::GetStringUTF16(string_id));
+    fullscreen_action->SetAccessibleName(l10n_util::GetStringUTF16(string_id));
+  }
 
   UpdateCommandsForBookmarkBar();
   UpdateCommandsForIncognitoAvailability();
@@ -2503,6 +2512,18 @@ void BrowserCommandController::UpdateCommandsForLockedFullscreenMode() {
     if (IsLockedForOnTask(browser_)) {
       UpdateTabSwitchingCommandState();
       UpdateCommandsForFind();
+    }
+    if (auto* side_panel_ui = SidePanelUI::From(browser_)) {
+      if (side_panel_ui->GetCurrentEntryId() == SidePanelEntryId::kGlic) {
+        side_panel_ui->Close();
+      }
+    }
+    if (auto* const action = FindAction(kActionSidePanelShowGlic, browser_)) {
+      action->SetVisible(false);
+    }
+    if (auto* service =
+            glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile())) {
+      service->CloseFloatingPanel();
     }
   } else {
     // Do an init call to re-initialize command state after the
@@ -2587,6 +2608,15 @@ void BrowserCommandController::UpdateGlicState() {
   }
 }
 
+void BrowserCommandController::UpdateTtcState(ttc::ServiceState state) {
+  if (IsInLockedFullscreenMode(/*allow_ontask=*/false)) {
+    return;
+  }
+
+  UpdateCommandAndActionEnabled(IDC_SHOW_TTC_MENU, kActionShowTtcMenu,
+                                state == ttc::ServiceState::kSessionInactive);
+}
+
 void BrowserCommandController::UpdateSaveAsState() {
   if (IsInLockedFullscreenMode(/*allow_ontask=*/false)) {
     return;
@@ -2623,6 +2653,13 @@ void BrowserCommandController::UpdateTabRestoreCommandState() {
       IDC_RESTORE_TAB,
       tab_restore_service && (!tab_restore_service->IsLoaded() ||
                               !tab_restore_service->entries().empty()));
+}
+
+void BrowserCommandController::UpdateCheckedState(actions::ActionId action_id,
+                                                  bool checked) {
+  auto* const action = FindAction(action_id, browser_);
+  CHECK(action);
+  action->SetChecked(checked);
 }
 
 void BrowserCommandController::UpdateCommandsForFind() {
@@ -2772,6 +2809,15 @@ void BrowserCommandController::UpdateCommandsForTabGroupFocusChanged() {
             FindAction(kActionToggleCollapseVertical, browser_)) {
       action->SetVisible(!is_focused);
     }
+  }
+}
+
+void BrowserCommandController::UpdateCommandsForProfiling() {
+  if (base::debug::IsProfilingSupported()) {
+    command_updater_->UpdateCommandEnabled(IDC_PROFILING_ENABLED,
+                                           IsShowingMainUI());
+    UpdateCheckedState(kActionProfilingEnabled,
+                       content::Profiling::BeingProfiled());
   }
 }
 

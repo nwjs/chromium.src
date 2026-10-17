@@ -4,7 +4,6 @@
 
 package org.chromium.components.browser_ui.site_settings;
 
-import static org.chromium.build.NullUtil.assertNonNull;
 import static org.chromium.build.NullUtil.assumeNonNull;
 import static org.chromium.components.browser_ui.settings.SearchUtils.handleSearchNavigation;
 import static org.chromium.components.browser_ui.styles.SemanticColorUtils.getDefaultTextColorLink;
@@ -371,10 +370,31 @@ public class AllSiteSettings extends BaseSiteSettingsFragment
     @Override
     public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {
         String title = getArguments().getString(EXTRA_TITLE);
-        if (title != null) mPageTitle.set(title);
+        // A Url does not carry a title, and neither does a redirect from a page that could not be
+        // shown, so fall back to the name this category has on the Site settings page rather than
+        // leaving the toolbar empty.
+        mPageTitle.set(title != null ? title : defaultTitle());
 
         // Handled in onActivityCreated. Moving the addPreferencesFromResource call up to here
         // causes animation jank (crbug.com/985734).
+    }
+
+    /**
+     * Returns the title to show when the arguments do not name one, matching the category that
+     * {@link #onCreateView} will settle on.
+     */
+    private String defaultTitle() {
+        String categoryKey = getArguments().getString(EXTRA_CATEGORY, "");
+        if (categoryKey.equals(
+                SiteSettingsCategory.preferenceKey(SiteSettingsCategory.Type.USE_STORAGE))) {
+            return getString(R.string.website_settings_storage);
+        }
+        if (categoryKey.equals(
+                SiteSettingsCategory.preferenceKey(SiteSettingsCategory.Type.ZOOM))) {
+            return getString(R.string.zoom_info_preference_title);
+        }
+        // Anything else renders as "All sites", which is what onCreateView defaults to.
+        return getString(R.string.all_sites);
     }
 
     @Override
@@ -500,15 +520,8 @@ public class AllSiteSettings extends BaseSiteSettingsFragment
     private void addPreferencesFromXml() {
         if (mCategory.getType() == SiteSettingsCategory.Type.ALL_SITES) {
             SettingsUtils.addPreferencesFromResource(this, R.xml.all_site_preferences_v2);
-            // TODO(crbug.com/439911511): Remove the divider directly form the layout.
-            if (getSiteSettingsDelegate().isSettingsContainmentEnabled()) {
-                Preference divider = findPreference("clear_browsing_divider");
-                if (divider != null) {
-                    getPreferenceScreen().removePreference(divider);
-                }
-            }
-            ChromeBasePreference clearBrowsingDataLink = findPreference(PREF_CLEAR_BROWSING_DATA);
-            assertNonNull(clearBrowsingDataLink);
+            ChromeBasePreference clearBrowsingDataLink =
+                    assumeNonNull(findPreference(PREF_CLEAR_BROWSING_DATA));
             if (!getSiteSettingsDelegate().canLaunchClearBrowsingDataDialog()) {
                 getPreferenceScreen().removePreference(clearBrowsingDataLink);
                 return;

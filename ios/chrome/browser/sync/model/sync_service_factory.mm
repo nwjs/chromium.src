@@ -9,6 +9,7 @@
 #import "base/feature_list.h"
 #import "base/functional/bind.h"
 #import "base/functional/callback_helpers.h"
+#import "base/memory/weak_ptr.h"
 #import "base/no_destructor.h"
 #import "base/time/time.h"
 #import "components/autofill/core/browser/data_manager/personal_data_manager.h"
@@ -33,6 +34,7 @@
 #import "components/variations/service/google_groups_manager.h"
 #import "ios/chrome/browser/account_settings/model/ios_account_setting_service_factory.h"
 #import "ios/chrome/browser/aim/model/ios_chrome_aim_eligibility_service_factory.h"
+#import "ios/chrome/browser/autofill/model/ios_autofill_entity_suppression_manager_factory.h"
 #import "ios/chrome/browser/bookmarks/model/account_bookmark_sync_service_factory.h"
 #import "ios/chrome/browser/bookmarks/model/bookmark_model_factory.h"
 #import "ios/chrome/browser/bookmarks/model/local_or_syncable_bookmark_sync_service_factory.h"
@@ -82,6 +84,13 @@
 
 namespace {
 
+contextual_tasks::ContextualTasksService* GetContextualTasksService(
+    base::WeakPtr<ProfileIOS> profile) {
+  return profile
+             ? IOSContextualTasksServiceFactory::GetForProfile(profile.get())
+             : nullptr;
+}
+
 syncer::DataTypeController::TypeVector CreateControllers(
     ProfileIOS* profile,
     syncer::SyncService* sync_service) {
@@ -105,8 +114,10 @@ syncer::DataTypeController::TypeVector CreateControllers(
       collaboration::CollaborationServiceFactory::GetForProfile(profile));
   builder.SetAimEligibilityService(
       IOSChromeAimEligibilityServiceFactory::GetForProfile(profile));
-  builder.SetContextualTasksService(
-      IOSContextualTasksServiceFactory::GetForProfile(profile));
+  // A callback is needed here to decouple `SyncServiceFactory` from
+  // `IOSContextualTasksServiceFactory` and prevent dependency cycles.
+  builder.SetContextualTasksServiceGetter(
+      base::BindRepeating(&GetContextualTasksService, profile->AsWeakPtr()));
   builder.SetDataSharingService(
       data_sharing::DataSharingServiceFactory::GetForProfile(profile));
   builder.SetPersonalCollaborationDataService(
@@ -155,6 +166,8 @@ syncer::DataTypeController::TypeVector CreateControllers(
   builder.SetUserEventService(
       IOSUserEventServiceFactory::GetForProfile(profile));
   builder.SetNotebooksService(nullptr);
+  builder.SetEntitySuppressionManager(
+      IOSAutofillEntitySuppressionManagerFactory::GetForProfile(profile));
 
   syncer::DataTypeController::TypeVector controllers = builder.Build(
       /*disabled_types=*/{}, sync_service, ::GetChannel());
@@ -349,8 +362,8 @@ SyncServiceFactory::SyncServiceFactory()
   DependsOn(DeviceInfoSyncServiceFactory::GetInstance());
   DependsOn(GoogleGroupsManagerFactory::GetInstance());
   DependsOn(IdentityManagerFactory::GetInstance());
+  DependsOn(IOSAutofillEntitySuppressionManagerFactory::GetInstance());
   DependsOn(IOSChromeAimEligibilityServiceFactory::GetInstance());
-  DependsOn(IOSContextualTasksServiceFactory::GetInstance());
   DependsOn(ios::AboutSigninInternalsFactory::GetInstance());
   DependsOn(ios::AccountBookmarkSyncServiceFactory::GetInstance());
   DependsOn(ios::BookmarkModelFactory::GetInstance());

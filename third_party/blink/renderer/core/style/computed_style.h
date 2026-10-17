@@ -174,7 +174,7 @@ class TextDecoration;
 // Blink. It acts as a container where the computed value of every CSS property
 // can be retrieved after its created using a builder.
 //
-//   ComputedStyleBuilder builder(*ComputedStyle::GetInitialStyleSingleton());
+//   ComputedStyleBuilder builder(ComputedStyle::GetInitialStyleSingleton());
 //   builder.SetDisplay(EDisplay::kNone); //'display' keyword property
 //   auto style = builder.TakeStyle();
 //   style->Display();
@@ -354,7 +354,7 @@ class ComputedStyle final : public ComputedStyleBase {
   // Singletons to be used for StyleBuilder. The instances are
   // context-independent and must always be used as `const` versions to avoid
   // pollution of the style. Instances are allocated as per-thread singletons.
-  CORE_EXPORT static const ComputedStyle* GetInitialStyleSingleton();
+  CORE_EXPORT static const ComputedStyle& GetInitialStyleSingleton();
 
   static const ComputedStyle* NullifyEnsured(const ComputedStyle* style) {
     if (!style) {
@@ -521,8 +521,8 @@ class ComputedStyle final : public ComputedStyleBase {
                StylePositionAnchor::Type::kAuto &&
            HasOutOfFlowPosition() &&
            (HasAnchorFunctions() ||
-            AlignSelf().GetPosition() == ItemPosition::kAnchorCenter ||
-            JustifySelf().GetPosition() == ItemPosition::kAnchorCenter);
+            AlignSelf().GetComputedPosition() == ItemPosition::kAnchorCenter ||
+            JustifySelf().GetComputedPosition() == ItemPosition::kAnchorCenter);
   }
 
   // For containing blocks, use |HasNonInitialBackdropFilter()| which includes
@@ -971,7 +971,7 @@ class ComputedStyle final : public ComputedStyleBase {
   void SetChildHasExplicitInheritance() const {
     // Child-dependent flags are contextual, and must not mutate the shared
     // initial-style singleton.
-    DCHECK(this != GetInitialStyleSingleton());
+    DCHECK(this != &GetInitialStyleSingleton());
     ComputedStyleBase::SetChildHasExplicitInheritance();
   }
 
@@ -1268,7 +1268,7 @@ class ComputedStyle final : public ComputedStyleBase {
   // text-transform utility functions.
   [[nodiscard]] CORE_EXPORT String
   ApplyTextTransform(const String&,
-                     UChar previous_character = ' ',
+                     UChar32 previous_character = ' ',
                      TextOffsetMap* offset_map = nullptr) const;
 
   // Line-height utility functions.
@@ -2571,6 +2571,15 @@ class ComputedStyle final : public ComputedStyleBase {
       return std::nullopt;
     }
     return GetScrollMarkerGroup()->Mode();
+  }
+
+  // Empty value means scroll-marker-group: none.
+  std::optional<ScrollMarkerGroup::ScrollMarkerPosition>
+  ScrollMarkerGroupPosition() const {
+    if (!GetScrollMarkerGroup()) {
+      return std::nullopt;
+    }
+    return GetScrollMarkerGroup()->Position();
   }
 
   bool ScrollMarkerGroupNone() const { return !GetScrollMarkerGroup(); }

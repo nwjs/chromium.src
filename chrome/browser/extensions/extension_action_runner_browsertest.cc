@@ -15,6 +15,7 @@
 #include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/test_future.h"
 #include "chrome/browser/extensions/blocked_action_waiter.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
 #include "chrome/browser/extensions/tab_helper.h"
@@ -24,19 +25,25 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
-#include "content/public/test/fenced_frame_test_util.h"
+#include "content/public/test/prerender_test_util.h"
 #include "extensions/browser/browsertest_util.h"
 #include "extensions/browser/extension_action.h"
+#include "extensions/browser/extension_frame_host.h"
+#include "extensions/browser/extension_web_contents_observer.h"
 #include "extensions/browser/permissions/active_tab_permission_granter.h"
 #include "extensions/browser/permissions/scripting_permissions_modifier.h"
 #include "extensions/browser/permissions/site_permissions_helper.h"
 #include "extensions/browser/permissions_manager.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/extension_features.h"
+#include "extensions/common/mojom/injection_type.mojom-shared.h"
+#include "extensions/common/mojom/run_location.mojom-shared.h"
 #include "extensions/test/extension_test_message_listener.h"
 #include "extensions/test/permissions_manager_waiter.h"
 #include "extensions/test/test_extension_dir.h"
 #include "net/dns/mock_host_resolver.h"
+#include "net/test/embedded_test_server/http_request.h"
+#include "net/test/embedded_test_server/http_response.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
@@ -525,16 +532,23 @@ IN_PROC_BROWSER_TEST_F(ExtensionActionRunnerBrowserTest,
                        DONT_WITHHOLD_PERMISSIONS, DOES_NOT_REQUIRE_CONSENT);
 }
 
-class ExtensionActionRunnerFencedFrameBrowserTest
+// Tests that script injection requests from prerendered frames are not queued
+// or executed when the user runs an extension action on the primary page.
+class ExtensionActionRunnerPrerenderBrowserTest
     : public ExtensionActionRunnerBrowserTest {
  public:
-  ExtensionActionRunnerFencedFrameBrowserTest() = default;
-  ~ExtensionActionRunnerFencedFrameBrowserTest() override = default;
+  ExtensionActionRunnerPrerenderBrowserTest()
+      : prerender_helper_(base::BindRepeating(
+            &ExtensionActionRunnerPrerenderBrowserTest::GetActiveWebContents,
+            base::Unretained(this))) {}
 
-  ExtensionActionRunnerFencedFrameBrowserTest(
-      const ExtensionActionRunnerFencedFrameBrowserTest&) = delete;
-  ExtensionActionRunnerFencedFrameBrowserTest& operator=(
-      const ExtensionActionRunnerFencedFrameBrowserTest&) = delete;
+  void SetUp() override {
+    prerender_helper_.RegisterServerRequestMonitor(embedded_test_server());
+    embedded_test_server()->RegisterRequestHandler(base::BindRepeating(
+        &ExtensionActionRunnerPrerenderBrowserTest::HandleRequest,
+        base::Unretained(this)));
+    ExtensionActionRunnerBrowserTest::SetUp();
+  }
 
   void SetUpOnMainThread() override {
     host_resolver()->AddRule("*", "127.0.0.1");
@@ -543,53 +557,122 @@ class ExtensionActionRunnerFencedFrameBrowserTest
   }
 
  protected:
-  content::test::FencedFrameTestHelper fenced_frame_helper_;
+  content::test::PrerenderTestHelper& prerender_helper() {
+    return prerender_helper_;
+  }
+
+ private:
+  std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
+      const net::test_server::HttpRequest& request) {
+    if (request.relative_url == "/page/primary.html") {
+      auto resp = std::make_unique<net::test_server::BasicHttpResponse>();
+      resp->set_code(net::HTTP_OK);
+      resp->set_content_type("text/html");
+      resp->set_content("<!doctype html><title>primary</title>primary");
+      return resp;
+    }
+    if (request.relative_url == "/page/prerender.html") {
+      auto resp = std::make_unique<net::test_server::BasicHttpResponse>();
+      resp->set_code(net::HTTP_OK);
+      resp->set_content_type("text/html");
+      resp->AddCustomHeader("Supports-Loading-Mode", "credentialed-prerender");
+      resp->set_content("<!doctype html><title>prerender</title>prerender");
+      return resp;
+    }
+    return nullptr;
+  }
+
+  content::test::PrerenderTestHelper prerender_helper_;
 };
 
-// Tests that a fenced frame doesn't clear active extensions.
-
-
-IN_PROC_BROWSER_TEST_F(ExtensionActionRunnerFencedFrameBrowserTest,
-                       DoNotResetExtensionActionRunner) {
-  // Loadup an extension and navigate to test that a fenced frame doesn't reset
-  // ExtensionActionRunner's member variables.
-  const Extension* extension =
-      CreateExtension(ALL_HOSTS, CONTENT_SCRIPT, WITHHOLD_PERMISSIONS);
+IN_PROC_BROWSER_TEST_F(ExtensionActionRunnerPrerenderBrowserTest,
+                       PrerenderedCrossOriginPageDoesNotRunPendingScripts) {
+  TestExtensionDir ext_dir;
+  ext_dir.WriteManifest(R"({
+    "name": "script injection test",
+    "version": "1",
+    "manifest_version": 3,
+    "host_permissions": ["<all_urls>"],
+    "permissions": ["activeTab"],
+    "content_scripts": [{
+      "matches": ["<all_urls>"],
+      "js": ["cs.js"],
+      "run_at": "document_idle"
+    }]
+  })");
+  ext_dir.WriteFile(FILE_PATH_LITERAL("cs.js"),
+                    "document.title = 'INJECTED@' + location.hostname;");
+  const Extension* extension = LoadExtension(ext_dir.UnpackedPath());
   ASSERT_TRUE(extension);
+  ScriptingPermissionsModifier(profile(), extension)
+      .SetWithholdHostPermissions(true);
 
   content::WebContents* web_contents = GetActiveWebContents();
   ASSERT_TRUE(web_contents);
-  ExtensionActionRunner* action_runner =
+  ExtensionActionRunner* runner =
       ExtensionActionRunner::GetForWebContents(web_contents);
-  ASSERT_TRUE(action_runner);
+  ASSERT_TRUE(runner);
 
-  ExtensionTestMessageListener inject_success_listener(kInjectSucceeded);
-  inject_success_listener.set_extension_id(extension->id());
-
-  GURL url = embedded_test_server()->GetURL("/extensions/test_file.html");
-  ASSERT_TRUE(NavigateToURL(web_contents, url));
-
-  ScriptingPermissionsModifier modifier(profile(), extension);
-  modifier.SetWithholdHostPermissions(false);
+  const GURL primary_url =
+      embedded_test_server()->GetURL("a.test", "/page/primary.html");
+  {
+    BlockedActionWaiter waiter(runner);
+    ASSERT_TRUE(NavigateToURL(web_contents, primary_url));
+    waiter.Wait();
+  }
   EXPECT_TRUE(RunAllPendingInRenderer(web_contents));
+  EXPECT_TRUE(runner->WantsToRun(extension));
+  EXPECT_EQ("primary", content::EvalJs(web_contents->GetPrimaryMainFrame(),
+                                       "document.title"));
 
-  // Create a fenced frame and navigate the fenced frame url.
-  GURL fenced_frame_url =
-      embedded_test_server()->GetURL("/fenced_frames/title1.html");
-  content::RenderFrameHost* fenced_frame_host =
-      fenced_frame_helper_.CreateFencedFrame(
-          web_contents->GetPrimaryMainFrame(), fenced_frame_url);
-  ASSERT_TRUE(fenced_frame_host);
-  // Fenced frame doesn't clear pending script injection requests and the
-  // scripts.
-  EXPECT_EQ(1, action_runner->num_page_requests());
-  EXPECT_EQ(1U, action_runner->pending_scripts_.size());
+  const GURL prerender_url =
+      embedded_test_server()->GetURL("b.a.test", "/page/prerender.html");
+  const int requests_before_prerender = runner->num_page_requests();
+  content::PrerenderHostId host_id =
+      prerender_helper().AddPrerender(prerender_url);
+  EXPECT_FALSE(host_id.is_null());
+  content::RenderFrameHost* prerender_rfh =
+      prerender_helper().GetPrerenderedMainFrameHost(host_id);
+  ASSERT_TRUE(prerender_rfh);
+  EXPECT_NE(url::Origin::Create(primary_url),
+            url::Origin::Create(prerender_url));
+  EXPECT_EQ(runner->num_page_requests(), requests_before_prerender);
+  EXPECT_EQ("prerender", content::EvalJs(prerender_rfh, "document.title"));
 
-  // Navigate again on the primary main frame. Pending script injection requests
-  // and scripts should be cleared.
-  ASSERT_TRUE(NavigateToURL(web_contents, url));
-  EXPECT_EQ(0, action_runner->num_page_requests());
-  EXPECT_EQ(0U, action_runner->pending_scripts_.size());
+  // Verify that even if a renderer in a non-primary main frame attempts to
+  // request script injection permission directly, the browser-side check in
+  // ChromeExtensionFrameHost::RequestScriptInjectionPermission rejects it.
+  auto* extension_frame_host =
+      ExtensionWebContentsObserver::GetForWebContents(web_contents)
+          ->extension_frame_host_for_testing();
+  extension_frame_host->receivers_for_testing().SetCurrentTargetFrameForTesting(
+      prerender_rfh);
+  base::test::TestFuture<bool> permission_future;
+  extension_frame_host->RequestScriptInjectionPermission(
+      extension->id(), mojom::InjectionType::kContentScript,
+      mojom::RunLocation::kDocumentIdle, permission_future.GetCallback());
+  EXPECT_FALSE(permission_future.Get());
+  extension_frame_host->receivers_for_testing().SetCurrentTargetFrameForTesting(
+      nullptr);
+  EXPECT_EQ(runner->num_page_requests(), requests_before_prerender);
+
+  EXPECT_EQ(primary_url, web_contents->GetLastCommittedURL());
+  content::TitleWatcher title_watcher(web_contents, u"INJECTED@a.test");
+  runner->RunAction(extension, /*grant_tab_permissions=*/true);
+
+  // The visible primary page was granted permission, so its script runs.
+  EXPECT_EQ(u"INJECTED@a.test", title_watcher.WaitAndGetTitle());
+
+  // The prerendered cross-origin frame should NOT have run the script.
+  EXPECT_EQ("prerender", content::EvalJs(prerender_rfh, "document.title"));
+
+  // Navigate to activate the prerendered page.
+  prerender_helper().NavigatePrimaryPage(prerender_url);
+  EXPECT_EQ(prerender_url, web_contents->GetLastCommittedURL());
+
+  // Even after activation, the script should not have run on the cross-origin
+  // page.
+  EXPECT_EQ("prerender", content::EvalJs(web_contents->GetPrimaryMainFrame(),
+                                         "document.title"));
 }
-
 }  // namespace extensions

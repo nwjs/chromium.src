@@ -269,7 +269,7 @@ GridTrackSizingAlgorithm::ComputeFirstSetGeometry(
   // case of 'flow-start'/'flow-end' and their 'flex-start'/'flex-end' aliases,
   // position the track collection against the reversed flow edge in grid-lanes
   // layout.
-  switch (content_alignment.GetPosition()) {
+  switch (content_alignment.GetUsedPosition()) {
     case ContentPosition::kLeft: {
       DCHECK(is_for_columns);
       if (IsLtr(container_style.Direction())) {
@@ -293,18 +293,19 @@ GridTrackSizingAlgorithm::ComputeFirstSetGeometry(
       return geometry;
     }
     case ContentPosition::kEnd:
-    case ContentPosition::kFlexEnd:
     case ContentPosition::kFlowEnd: {
       geometry.start_offset += FreeSpace();
       return geometry;
     }
     case ContentPosition::kStart:
-    case ContentPosition::kFlexStart:
     case ContentPosition::kFlowStart:
     case ContentPosition::kNormal:
     case ContentPosition::kBaseline:
     case ContentPosition::kLastBaseline:
       return geometry;
+    case ContentPosition::kFlexStart:
+    case ContentPosition::kFlexEnd:
+      NOTREACHED();
   }
 }
 
@@ -1069,7 +1070,7 @@ void GridTrackSizingAlgorithm::StretchAutoTracks(
   // (or default) content distribution in the respective axis.
   if (content_alignment.Distribution() != ContentDistributionType::kStretch &&
       (content_alignment.Distribution() != ContentDistributionType::kDefault ||
-       content_alignment.GetPosition() != ContentPosition::kNormal)) {
+       content_alignment.GetComputedPosition() != ContentPosition::kNormal)) {
     return;
   }
 

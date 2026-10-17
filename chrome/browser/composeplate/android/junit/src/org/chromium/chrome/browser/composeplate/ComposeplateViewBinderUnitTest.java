@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.composeplate;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -14,6 +15,7 @@ import static org.mockito.Mockito.when;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.view.ContextThemeWrapper;
@@ -22,6 +24,7 @@ import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.TextView;
 
 import androidx.annotation.StyleRes;
 import androidx.test.core.app.ApplicationProvider;
@@ -35,8 +38,12 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.components.search_engines.AiModeButtonUiConfig;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
+import org.chromium.url.JUnitTestGURLs;
 
 /** Unit tests for {@link ComposeplateViewBinder}. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -103,6 +110,7 @@ public class ComposeplateViewBinderUnitTest {
     }
 
     @Test
+    @EnableFeatures({ChromeFeatureList.NTP_AURORA + ":change_button_color/false"})
     public void testApplyWhiteBackground() {
         // Bind PropertyModel with mView.
         PropertyModelChangeProcessor.create(mPropertyModel, mView, ComposeplateViewBinder::bind);
@@ -149,6 +157,104 @@ public class ComposeplateViewBinderUnitTest {
         @StyleRes int textStyleResId = R.style.TextAppearance_MediumStyle;
         mPropertyModel.set(ComposeplateProperties.TEXT_STYLE_RES_ID, textStyleResId);
         verify(mViewMock).setTextStyle(eq(textStyleResId));
+    }
+
+    @Test
+    public void testSetAiModeButtonUiConfig_withMockView() {
+        AiModeButtonUiConfig aiModeButtonUiConfig = createAiModeButtonUiConfig();
+        mPropertyModel.set(ComposeplateProperties.AI_MODE_BUTTON_UI_CONFIG, aiModeButtonUiConfig);
+        verify(mViewMock).setAiModeButtonUiConfig(eq(aiModeButtonUiConfig));
+    }
+
+    @Test
+    public void testSetAiModeButtonUiConfig() {
+        // Bind PropertyModel with mView.
+        PropertyModelChangeProcessor.create(mPropertyModel, mView, ComposeplateViewBinder::bind);
+
+        AiModeButtonUiConfig aiModeButtonUiConfig = createAiModeButtonUiConfig();
+        mPropertyModel.set(ComposeplateProperties.AI_MODE_BUTTON_UI_CONFIG, aiModeButtonUiConfig);
+
+        TextView composeplateButtonText = mView.findViewById(R.id.composeplate_button_text);
+        assertEquals(aiModeButtonUiConfig.text, composeplateButtonText.getText().toString());
+
+        View composeplateButton = mView.findViewById(R.id.composeplate_button);
+        assertEquals(aiModeButtonUiConfig.tooltip, composeplateButton.getTooltipText());
+        assertEquals(aiModeButtonUiConfig.a11yLabel, composeplateButton.getContentDescription());
+    }
+
+    @Test
+    public void testSetAiModeButtonIcon_withMockView() {
+        ComposeplateProperties.AiModeButtonIcon icon =
+                new ComposeplateProperties.AiModeButtonIcon(
+                        new ColorDrawable(Color.RED), /* shouldTint= */ true);
+        mPropertyModel.set(ComposeplateProperties.AI_MODE_BUTTON_ICON, icon);
+        verify(mViewMock).setAiModeButtonIcon(eq(icon));
+    }
+
+    @Test
+    public void testSetAiModeButtonIcon_Tinted() {
+        testSetAiModeButtonIconImpl(/* shouldTint= */ true);
+    }
+
+    @Test
+    public void testSetAiModeButtonIcon_NotTinted() {
+        testSetAiModeButtonIconImpl(/* shouldTint= */ false);
+    }
+
+    /**
+     * Verifies that switching from a full color icon back to a monochrome one restores the tint
+     * declared in the layout, even if no ColorStateList has been set.
+     */
+    @Test
+    public void testSetAiModeButtonIcon_RestoresLayoutTint() {
+        PropertyModelChangeProcessor.create(mPropertyModel, mView, ComposeplateViewBinder::bind);
+        ImageView iconView = mView.findViewById(R.id.composeplate_button_icon);
+        ColorStateList layoutTint = iconView.getImageTintList();
+
+        setAiModeButtonIcon(/* shouldTint= */ false);
+        assertNull(iconView.getImageTintList());
+
+        setAiModeButtonIcon(/* shouldTint= */ true);
+        assertEquals(layoutTint, iconView.getImageTintList());
+    }
+
+    private void testSetAiModeButtonIconImpl(boolean shouldTint) {
+        // Bind PropertyModel with mView.
+        PropertyModelChangeProcessor.create(mPropertyModel, mView, ComposeplateViewBinder::bind);
+        ImageView iconView = mView.findViewById(R.id.composeplate_button_icon);
+        ColorStateList colorStateList = mContext.getColorStateList(R.color.default_red);
+        mPropertyModel.set(ComposeplateProperties.COLOR_STATE_LIST, colorStateList);
+
+        Drawable drawable = setAiModeButtonIcon(shouldTint);
+
+        assertEquals(drawable, iconView.getDrawable());
+        assertEquals(shouldTint ? colorStateList : null, iconView.getImageTintList());
+
+        // A later ColorStateList, e.g. from a background change, must not tint a full color icon.
+        ColorStateList newColorStateList =
+                mContext.getColorStateList(R.color.default_icon_color_dark);
+        mPropertyModel.set(ComposeplateProperties.COLOR_STATE_LIST, newColorStateList);
+        assertEquals(shouldTint ? newColorStateList : null, iconView.getImageTintList());
+    }
+
+    private Drawable setAiModeButtonIcon(boolean shouldTint) {
+        Drawable drawable = new ColorDrawable(Color.RED);
+        mPropertyModel.set(
+                ComposeplateProperties.AI_MODE_BUTTON_ICON,
+                new ComposeplateProperties.AiModeButtonIcon(drawable, shouldTint));
+        return drawable;
+    }
+
+    private static AiModeButtonUiConfig createAiModeButtonUiConfig() {
+        return new AiModeButtonUiConfig(
+                "AI Mode",
+                "Ask AI Mode",
+                "AI Mode button",
+                "Always show AI Mode",
+                "Ask AI Mode",
+                /* faviconUrl= */ JUnitTestGURLs.RED_1,
+                /* navigationUrl= */ "https://www.red.com/search?q={searchTerms}",
+                /* navigationUrlEmpty= */ JUnitTestGURLs.URL_2);
     }
 
     private void verifyApplyBackground(View view) {

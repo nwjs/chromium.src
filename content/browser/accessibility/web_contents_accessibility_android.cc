@@ -379,8 +379,8 @@ std::optional<int> MaybeFindRowColumn(ui::BrowserAccessibility* start_node,
     }
 
     auto* node = table_node->node();
-    if (std::optional<int> row = node->GetTableCellRowIndex(),
-        col = node->GetTableCellColIndex();
+    if (std::optional<int> row = node->GetTableCellDomRowIndex(),
+        col = node->GetTableCellDomColIndex();
         row && col) {
       cell_node = node;
       cur_row_index = *row;
@@ -416,12 +416,12 @@ std::optional<int> MaybeFindRowColumn(ui::BrowserAccessibility* start_node,
   int want_row_index = cur_row_index, want_col_index = cur_col_index;
   if (want_row) {
     want_row_index +=
-        forwards ? cell_node->GetTableCellRowSpan().value_or(1) : -1;
+        forwards ? cell_node->GetTableCellDomRowSpan().value_or(1) : -1;
   }
 
   if (want_col) {
     want_col_index +=
-        forwards ? cell_node->GetTableCellColSpan().value_or(1) : -1;
+        forwards ? cell_node->GetTableCellDomColSpan().value_or(1) : -1;
   }
 
   if (want_col_bounds || want_table_bounds) {
@@ -578,6 +578,12 @@ bool IsSelectionPositionValid(
 // These restrictions are primarily validated in `blink::AXSelection::IsValid()`
 // for atomic text fields and in `blink::AssertUserSelection` in general, and
 // are based on the behavior in `blink::SelectionAdjuster` class.
+//
+// Note: selections that span shadow DOM tree scopes are intentionally not
+// rejected in this function. Unlike the other restrictions, Blink does not
+// treat them as invalid and `SelectionAdjuster` shrinks them to a single tree
+// scope (see `AdjustSelectionToAvoidCrossingShadowBoundaries`), and the
+// adjusted selection is reported back through the selection changed event.
 bool IsSelectionValid(
     const ui::BrowserAccessibility::AXPosition& start_position,
     const ui::BrowserAccessibility::AXPosition& end_position) {
@@ -596,7 +602,6 @@ bool IsSelectionValid(
       GetRootEditable(start_position->GetAnchor());
   ui::AXNode* end_root_editable = GetRootEditable(end_position->GetAnchor());
 
-  // TODO(crbug.com/443078007): Add checking for matching tree scopes.
   return start_root_editable == end_root_editable;
 }
 
@@ -653,7 +658,7 @@ int ResolvePositionToTextOffsetForNode(
   if (accessibility_focus->PlatformGetParent() == pos.node) {
     std::optional<size_t> index_in_parent =
         accessibility_focus->GetIndexInParent();
-    // TODO(crbug.com/443078007): Consider converting this to a CHECK.
+    // TODO(crbug.com/564162661): Consider converting this to a CHECK.
     if (!index_in_parent.has_value()) {
       DUMP_WILL_BE_NOTREACHED();
       return ui::kAXAndroidUndefinedSelectionIndex;
@@ -1193,28 +1198,6 @@ void WebContentsAccessibilityAndroid::HandleDefaultActionVerbChanged(
                                                                    unique_id);
 }
 
-void WebContentsAccessibilityAndroid::AnnounceLiveRegionText(
-    const std::u16string& text) {
-  CHECK(!base::FeatureList::IsEnabled(
-      features::kAccessibilityDeprecateTypeAnnounce))
-      << "No views should be forcing an announcement outside approved "
-         "instances.";
-
-  JNIEnv* env = AttachCurrentThread();
-  ScopedJavaLocalRef<jobject> obj = GetJavaObject(env);
-  if (obj.is_null()) {
-    return;
-  }
-
-  // Do not announce empty text.
-  if (text.empty()) {
-    return;
-  }
-
-  Java_WebContentsAccessibilityImpl_announceLiveRegionText(
-      env, obj, base::android::ConvertUTF16ToJavaString(env, text));
-}
-
 void WebContentsAccessibilityAndroid::HandleTextSelectionChanged(
     int32_t unique_id) {
   JNIEnv* env = AttachCurrentThread();
@@ -1637,8 +1620,8 @@ void WebContentsAccessibilityAndroid::
       node->IsPasswordField(), node->IsScrollable(), node->IsSelected(),
       node->IsTextSelectable(), node->IsVisibleToUser(),
       node->HasCharacterLocations(), node->IsRequired(),
-      node->IsHeading() || node->IsTableHeader(),
-      node->HasLayoutBasedActions());
+      node->IsHeading() || node->IsTableHeader(), node->HasLayoutBasedActions(),
+      !node->GetTextContentUTF16().empty());
 }
 
 void WebContentsAccessibilityAndroid::

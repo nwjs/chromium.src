@@ -18,7 +18,6 @@
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/sequence_checker.h"
-#include "base/time/clock.h"
 #include "components/services/storage/public/cpp/buckets/constants.h"
 #include "components/services/storage/public/cpp/quota_error_or.h"
 #include "sql/database.h"
@@ -73,8 +72,6 @@ const char kBucketsTableBootstrapped[] = "IsBucketsBootstrapped";
 const char kMediaLicenseDatabaseRemoved[] = "IsMediaLicenseDatabaseRemoved";
 
 const int kCommitIntervalMs = 30000;
-
-const base::Clock* g_clock_for_testing = nullptr;
 
 void RecordDatabaseResetHistogram(const DatabaseResetReason reason) {
   base::UmaHistogramEnumeration("Quota.QuotaDatabaseReset", reason);
@@ -238,24 +235,24 @@ QuotaErrorOr<BucketInfo> QuotaDatabase::UpdateOrCreateBucket(
 
   // Don't bother updating anything if the bucket is expired.
   if (!bucket_result->expiration.is_null() &&
-      (bucket_result->expiration <= GetNow())) {
+      (bucket_result->expiration <= base::Time::Now())) {
     return bucket_result;
   }
 
   // Update the parameters that can be changed.
   if (!params.expiration.is_null() &&
       (params.expiration != bucket_result->expiration)) {
-    CHECK(!bucket_result->is_default(), base::NotFatalUntil::M148);
+    CHECK(!bucket_result->is_default());
     bucket_result =
         UpdateBucketExpiration(bucket_result->id, params.expiration);
-    CHECK(bucket_result.has_value(), base::NotFatalUntil::M148);
+    CHECK(bucket_result.has_value());
   }
 
   if (params.persistent && (*params.persistent != bucket_result->persistent)) {
-    CHECK(!bucket_result->is_default(), base::NotFatalUntil::M148);
+    CHECK(!bucket_result->is_default());
     bucket_result =
         UpdateBucketPersistence(bucket_result->id, *params.persistent);
-    CHECK(bucket_result.has_value(), base::NotFatalUntil::M148);
+    CHECK(bucket_result.has_value());
   }
 
   return bucket_result;
@@ -473,7 +470,7 @@ QuotaError QuotaDatabase::SetStorageKeyLastAccessTime(
 QuotaError QuotaDatabase::SetBucketLastAccessTime(BucketId bucket_id,
                                                   base::Time last_accessed) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  CHECK(!bucket_id.is_null(), base::NotFatalUntil::M148);
+  CHECK(!bucket_id.is_null());
   QuotaError open_error = EnsureOpened();
   if (open_error != QuotaError::kNone) {
     return open_error;
@@ -500,7 +497,7 @@ QuotaError QuotaDatabase::SetBucketLastAccessTime(BucketId bucket_id,
 QuotaError QuotaDatabase::SetBucketLastModifiedTime(BucketId bucket_id,
                                                     base::Time last_modified) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  CHECK(!bucket_id.is_null(), base::NotFatalUntil::M148);
+  CHECK(!bucket_id.is_null());
   QuotaError open_error = EnsureOpened();
   if (open_error != QuotaError::kNone) {
     return open_error;
@@ -550,7 +547,7 @@ QuotaError QuotaDatabase::RegisterInitialStorageKeyInfo(
 QuotaErrorOr<mojom::BucketTableEntryPtr> QuotaDatabase::GetBucketInfoForTest(
     BucketId bucket_id) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  CHECK(!bucket_id.is_null(), base::NotFatalUntil::M148);
+  CHECK(!bucket_id.is_null());
   QuotaError open_error = EnsureOpened();
   if (open_error != QuotaError::kNone) {
     return base::unexpected(open_error);
@@ -718,8 +715,8 @@ QuotaErrorOr<std::set<BucketLocator>> QuotaDatabase::GetBucketsModifiedBetween(
     return base::unexpected(open_error);
   }
 
-  CHECK(!begin.is_max(), base::NotFatalUntil::M148);
-  CHECK(end != base::Time(), base::NotFatalUntil::M148);
+  CHECK(!begin.is_max());
+  CHECK(end != base::Time());
   // clang-format off
   static constexpr char kSql[] =
       "SELECT id, storage_key, name FROM buckets "
@@ -755,7 +752,7 @@ QuotaErrorOr<std::set<BucketInfo>> QuotaDatabase::GetExpiredBuckets(
   // have already done so, or should not do so yet, then we just want to clear
   // expired buckets here and not do the full query.
   if (already_evicted_stale_storage_ ||
-      GetNow() < evict_stale_buckets_after_) {
+      base::Time::Now() < evict_stale_buckets_after_) {
     // clang-format off
     static constexpr char kSqlExpired[] =
         "SELECT " BUCKET_INFO_FIELDS_SELECTOR
@@ -764,7 +761,7 @@ QuotaErrorOr<std::set<BucketInfo>> QuotaDatabase::GetExpiredBuckets(
     // clang-format on
     sql::Statement statement(
         db_->GetCachedStatement(SQL_FROM_HERE, kSqlExpired));
-    statement.BindTime(0, GetNow());
+    statement.BindTime(0, base::Time::Now());
     return BucketInfosFromSqlStatement(statement);
   }
 
@@ -781,12 +778,13 @@ QuotaErrorOr<std::set<BucketInfo>> QuotaDatabase::GetExpiredBuckets(
   // clang-format on
   sql::Statement statement(
       db_->GetCachedStatement(SQL_FROM_HERE, kSqlExpiredAndStaleAndOrphan));
-  base::Time expiration_cutoff = GetNow();
+  base::Time expiration_cutoff = base::Time::Now();
   statement.BindTime(0, expiration_cutoff);
-  base::Time stale_cutoff = GetNow() - base::Days(kStaleBucketCutoffInDays);
+  base::Time stale_cutoff =
+      base::Time::Now() - base::Days(kStaleBucketCutoffInDays);
   statement.BindTime(1, stale_cutoff);
   statement.BindTime(2, stale_cutoff);
-  base::Time orphan_cutoff = GetNow() - base::Days(1);
+  base::Time orphan_cutoff = base::Time::Now() - base::Days(1);
   statement.BindTime(3, orphan_cutoff);
   statement.BindTime(4, orphan_cutoff);
 
@@ -910,16 +908,6 @@ QuotaError QuotaDatabase::CorruptForTesting(
 void QuotaDatabase::SetDisabledForTesting(bool disable) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   is_disabled_ = disable;
-}
-
-// static
-base::Time QuotaDatabase::GetNow() {
-  return g_clock_for_testing ? g_clock_for_testing->Now() : base::Time::Now();
-}
-
-// static
-void QuotaDatabase::SetClockForTesting(const base::Clock* clock) {
-  g_clock_for_testing = clock;
 }
 
 void QuotaDatabase::SetAlreadyEvictedStaleStorageForTesting(
@@ -1193,9 +1181,9 @@ bool QuotaDatabase::CreateIndex(const IndexSchema& index) {
 
 bool QuotaDatabase::ResetStorage() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  CHECK(!db_file_path_.empty(), base::NotFatalUntil::M148);
-  CHECK(storage_directory_, base::NotFatalUntil::M148);
-  CHECK(!db_ || !db_->HasActiveTransactions(), base::NotFatalUntil::M148);
+  CHECK(!db_file_path_.empty());
+  CHECK(storage_directory_);
+  CHECK(!db_ || !db_->HasActiveTransactions());
   VLOG(1) << "Deleting existing quota data and starting over.";
 
   meta_table_.reset();
@@ -1264,7 +1252,7 @@ QuotaErrorOr<BucketInfo> QuotaDatabase::CreateBucketInternal(
 
   // First verify this won't exceed the max bucket count if one is given.
   if (max_bucket_count > 0) {
-    CHECK_NE(params.name, kDefaultBucketName, base::NotFatalUntil::M148);
+    CHECK_NE(params.name, kDefaultBucketName);
     // Note that technically we should be filtering out default buckets when
     // counting existing buckets so that the max count only applies to
     // non-default buckets. However the precise bucket count is not that
@@ -1297,7 +1285,7 @@ QuotaErrorOr<BucketInfo> QuotaDatabase::CreateBucketInternal(
         " RETURNING " BUCKET_INFO_FIELDS_SELECTOR;
   // clang-format on
   sql::Statement statement(db_->GetCachedStatement(SQL_FROM_HERE, kSql));
-  const base::Time now = GetNow();
+  const base::Time now = base::Time::Now();
   BindBucketInitParamsToInsertStatement(params,
                                         /*use_count=*/0,
                                         /*last_accessed=*/now,

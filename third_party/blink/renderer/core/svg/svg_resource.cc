@@ -5,6 +5,7 @@
 #include "third_party/blink/renderer/core/svg/svg_resource.h"
 
 #include "services/network/public/mojom/content_security_policy.mojom-blink.h"
+#include "third_party/blink/public/common/loader/referrer_utils.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/id_target_observer.h"
@@ -163,23 +164,28 @@ bool SVGResource::FindCycle(SVGResourceClient& client) const {
   auto* container = ResourceContainerNoCycleCheck();
   if (!container)
     return false;
-  ClientEntry& entry = it->value;
-  switch (entry.cached_cycle_check) {
+  switch (it->value.cached_cycle_check) {
     case kNeedCheck: {
-      entry.cached_cycle_check = kPerformingCheck;
+      it->value.cached_cycle_check = kPerformingCheck;
       bool has_cycle = container->FindCycle();
-      DCHECK_EQ(entry.cached_cycle_check, kPerformingCheck);
+      // FindCycle() can modify clients_ and invalidate the iterator
+      it = clients_.find(&client);
+      CHECK(it != clients_.end());
+      DCHECK_EQ(it->value.cached_cycle_check, kPerformingCheck);
       // Update our cached state based on the result of FindCycle(), but don't
       // signal a cycle since ResourceContainer() will consider the resource
       // invalid if one is present, thus we break the cycle at this resource.
-      entry.cached_cycle_check = has_cycle ? kHasCycle : kNoCycle;
+      it->value.cached_cycle_check = has_cycle ? kHasCycle : kNoCycle;
       return false;
     }
     case kNoCycle: {
-      entry.cached_cycle_check = kPerformingCheck;
+      it->value.cached_cycle_check = kPerformingCheck;
       bool has_cycle = container->FindCycle();
-      DCHECK_EQ(entry.cached_cycle_check, kPerformingCheck);
-      entry.cached_cycle_check = kNoCycle;
+      // FindCycle() can modify clients_ and invalidate the iterator
+      it = clients_.find(&client);
+      CHECK(it != clients_.end());
+      DCHECK_EQ(it->value.cached_cycle_check, kPerformingCheck);
+      it->value.cached_cycle_check = kNoCycle;
       return has_cycle;
     }
     case kPerformingCheck:
@@ -235,8 +241,9 @@ void LocalSVGResource::Trace(Visitor* visitor) const {
 
 ExternalSVGResourceDocumentContent::ExternalSVGResourceDocumentContent(
     const KURL& url,
-    const CSSUrlRequestModifiers& modifiers)
-    : url_(url), modifiers_(modifiers) {}
+    const CSSUrlRequestModifiers& modifiers,
+    const Referrer& referrer)
+    : url_(url), modifiers_(modifiers), referrer_(referrer) {}
 
 void ExternalSVGResourceDocumentContent::Load(
     Document& document,
@@ -252,10 +259,15 @@ void ExternalSVGResourceDocumentContent::Load(
   options.initiator_info.name = fetch_initiator_type_names::kCSS;
   FetchParameters params(ResourceRequest(url_), options);
 
+  ResourceRequest& resource_request = params.MutableResourceRequest();
   if (modifiers_.referrer_policy) {
-    params.MutableResourceRequest().SetReferrerPolicy(
-        *modifiers_.referrer_policy);
+    resource_request.SetReferrerPolicy(*modifiers_.referrer_policy);
+  } else {
+    resource_request.SetReferrerPolicy(
+        ReferrerUtils::MojoReferrerPolicyResolveDefault(
+            referrer_.referrer_policy));
   }
+  resource_request.SetReferrerString(referrer_.referrer);
 
   CrossOriginAttributeValue effective_cross_origin =
       modifiers_.cross_origin != kCrossOriginAttributeNotSet

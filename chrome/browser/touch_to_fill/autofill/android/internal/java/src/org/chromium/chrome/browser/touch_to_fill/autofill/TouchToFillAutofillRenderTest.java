@@ -72,7 +72,8 @@ public class TouchToFillAutofillRenderTest {
     @Rule
     public final ChromeRenderTestRule mRenderTestRule =
             ChromeRenderTestRule.Builder.withPublicCorpus()
-                    .setRevision(2)
+                    .setRevision(4)
+                    .setDescription("Reworded attribution message")
                     .setBugComponent(Component.UI_BROWSER_AUTOFILL)
                     .build();
 
@@ -128,7 +129,7 @@ public class TouchToFillAutofillRenderTest {
     public void testShowsPersonalContextNotice() throws IOException {
         runOnUiThreadBlocking(
                 () -> {
-                    mCoordinator.show();
+                    mCoordinator.showPersonalContextNotice();
                 });
         BottomSheetTestSupport.waitForOpen(mBottomSheetController);
 

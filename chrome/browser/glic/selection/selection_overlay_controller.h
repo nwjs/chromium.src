@@ -11,11 +11,15 @@
 #include "base/memory/weak_ptr.h"
 #include "base/unguessable_token.h"
 #include "chrome/browser/glic/host/context/glic_page_context_fetcher.h"
-#include "chrome/browser/glic/host/glic.mojom-forward.h"
+#include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/selection/selection_overlay.mojom.h"
+#include "chrome/browser/selection/mojom/action.mojom-forward.h"
+#include "chrome/browser/selection/suggestion_service.h"
 #include "chrome/browser/ui/lens/overlay_base_controller.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "components/page_content_annotations/content/page_context_fetcher.h"
+#include "mojo/public/cpp/bindings/generic_pending_associated_receiver.h"
+#include "mojo/public/cpp/bindings/pending_associated_receiver.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -30,6 +34,10 @@ class WebContents;
 
 namespace input {
 struct NativeWebKeyboardEvent;
+}
+
+namespace views {
+class WebView;
 }
 
 namespace glic {
@@ -100,6 +108,10 @@ class SelectionOverlayController
                   tabs::TabInterface::DetachReason reason);
   void TabDeactivated(tabs::TabInterface* tab);
   void OnFocusedTabChanged(const FocusedTabData& tab_data);
+  // Called when the overlay's WebView takes focus, e.g. when the user clicks
+  // on it. In a split view the overlay can be rendered over the inactive tab,
+  // in which case `tab_` needs to be activated.
+  void OnOverlayWebViewFocused(views::WebView* web_view);
 
   void InitializeOverlay();
 
@@ -143,7 +155,9 @@ class SelectionOverlayController
   void GetSuggestedActions(
       mojo::PendingRemote<selection::SuggestedActionsListener> listener)
       override;
-  void ExecuteSuggestedAction(const base::UnguessableToken& action_id) override;
+  void ExecuteSuggestedAction(
+      const base::UnguessableToken& action_id,
+      mojo::GenericPendingAssociatedReceiver channel) override;
 
  private:
   void OnScreenshotTaken(const SkBitmap& bitmap);
@@ -158,8 +172,30 @@ class SelectionOverlayController
   // Render all the `selected_regions_` on top of `redacted_screenshot_`.
   void RenderRegions(bool should_focus_panel);
 
+  struct SelectedRegionData {
+    explicit SelectedRegionData(selection::SelectedRegionPtr region);
+    SelectedRegionData(SelectedRegionData&&);
+    SelectedRegionData& operator=(SelectedRegionData&&);
+    ~SelectedRegionData();
+
+    selection::SelectedRegionPtr region;
+    std::vector<std::pair<base::UnguessableToken,
+                          std::unique_ptr<::selection::Suggestion>>>
+        suggestions;
+    bool suggestions_requested = false;
+    bool suggestions_complete = false;
+    // The generation of the region. Incremented each time the region is
+    // adjusted, and used to invalidate old suggestions.
+    uint64_t generation = 0;
+  };
+
   void Reset();
-  std::vector<selection::SuggestedActionPtr> GetDefaultSuggestedActions();
+  void RequestNewSuggestions(SelectedRegionData& region_data);
+  void OnSuggestionsReceived(
+      const base::UnguessableToken& region_id,
+      uint64_t generation,
+      std::vector<std::unique_ptr<::selection::Suggestion>> suggestions,
+      bool complete);
   glic::mojom::AdditionalContextPtr CreateAdditionalContext(
       std::vector<std::pair<base::UnguessableToken,
                             glic::mojom::CapturedRegionPtr>> regions);
@@ -170,8 +206,10 @@ class SelectionOverlayController
   mojo::Receiver<selection::SelectionOverlayPageHandler> receiver_{this};
   mojo::Remote<selection::SelectionOverlayPage> page_;
 
-  // Legacy IPC that's used to signal the WebUI any browser side errors, and
-  // used to dismiss the overlay from the WebUI.
+  // Legacy IPC that's used to signal the web client any browser side errors,
+  // and used to dismiss the overlay from the web client. Only bound if the
+  // overlay is invoked from the web client (web client UI, keyboard shortcut).
+  // There are other invocations from outside the web client.
   // TODO(b/452032491): Remove this once the old codepath is no longer used.
   mojo::Remote<mojom::CaptureRegionObserver> capture_region_observer_;
 
@@ -181,13 +219,18 @@ class SelectionOverlayController
   SkBitmap redacted_screenshot_;
   mojom::TabContextResultPtr tab_context_;
   mojom::TabContextOptionsPtr options_;
-  // Caches the user-selected region. To be renderer on top of
-  // `initial_screenshot_`.
-  base::flat_map<base::UnguessableToken, selection::SelectedRegionPtr>
-      selected_regions_;
-  // Maps suggested action IDs to prompt strings.
-  base::flat_map<base::UnguessableToken, std::string> suggested_actions_;
+  // Caches the user-selected regions and their associated suggestions. To be
+  // rendered on top of `initial_screenshot_`.
+  base::flat_map<base::UnguessableToken, SelectedRegionData> selected_regions_;
+  std::optional<base::UnguessableToken> active_region_id_;
   mojo::Remote<selection::SuggestedActionsListener> suggested_actions_listener_;
+  // Subscription for `OverlayBaseController::overlay_web_view_` taking focus.
+  // Scoped to the lifetime of that WebView.
+  base::CallbackListSubscription overlay_web_view_focus_subscription_;
+  // The static suggestion tool is only temporary, and will be removed once
+  // suggestions are served from the server endpoint.
+  std::unique_ptr<::selection::SuggestionTool> static_suggestion_tool_;
+  std::unique_ptr<::selection::SuggestionTool> quick_answers_tool_;
 
   ui::ScopedUnownedUserData<SelectionOverlayController>
       scoped_unowned_user_data_;

@@ -65,10 +65,6 @@ namespace {
 BASE_FEATURE(kDeferWaitSyncTokenInExternalCanvasResource,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// We don't need to verify SyncTokens unless we send them cross process via ipc
-// channel that is different from the ones they were created on. Kill-switch for
-// safery.
-BASE_FEATURE(kDontVerifySyncTokenOnTransfer, base::FEATURE_ENABLED_BY_DEFAULT);
 }  // namespace
 
 CanvasResource::CanvasResource(
@@ -120,31 +116,15 @@ void CanvasResource::DropRefOnOwningThread(
   raw_resource->OnRefReturned(std::move(resource));
 }
 
-bool CanvasResource::PrepareTransferableResource(
-    viz::TransferableResource* out_resource,
-    bool needs_verified_synctoken) {
-  if (!out_resource)
-    return true;
-
-  auto client_shared_image = GetSharedImage();
-  if (!client_shared_image) {
-    return false;
-  }
-
+viz::TransferableResource CanvasResource::PrepareTransferableResource() {
   TRACE_EVENT0("blink", "CanvasResource::PrepareTransferableResource");
 
-  if (CreatesAcceleratedTransferableResources() && !ContextProviderWrapper()) {
-    return false;
-  }
+  CHECK(!CreatesAcceleratedTransferableResources() || ContextProviderWrapper());
 
-  if (needs_verified_synctoken) {
-    VerifySyncToken();
-  }
+  auto resource = viz::TransferableResource::Make(
+      GetSharedImage(), GetTransferableResourceSource(), sync_token());
 
-  *out_resource = viz::TransferableResource::Make(
-      client_shared_image, GetTransferableResourceSource(), sync_token());
-
-  out_resource->hdr_metadata = GetHdrMetadata();
+  resource.hdr_metadata = GetHdrMetadata();
 
   // When the compositor returns an accelerated resource, it provides a sync
   // token to allow subsequent accelerated raster operations to properly
@@ -157,11 +137,11 @@ bool CanvasResource::PrepareTransferableResource(
   // synchronization with the GPU service.
   if (!UsesAcceleratedRaster() && CreatesAcceleratedTransferableResources()) {
     DCHECK(SharedGpuContext::IsGpuCompositingEnabled());
-    out_resource->synchronization_type =
+    resource.synchronization_type =
         viz::TransferableResource::SynchronizationType::kGpuCommandsCompleted;
   }
 
-  return true;
+  return resource;
 }
 
 // CanvasResourceSharedImage
@@ -294,18 +274,6 @@ CanvasResourceSharedImage::~CanvasResourceSharedImage() {
   }
 }
 
-void CanvasResourceSharedImage::Transfer() {
-  if (is_cross_thread() || !ContextProviderWrapper())
-    return;
-
-  if (!base::FeatureList::IsEnabled(kDontVerifySyncTokenOnTransfer)) {
-    // TODO(khushalsagar): This is for consistency with MailboxTextureHolder
-    // transfer path. It's unclear why the verification can not be deferred
-    // until the resource needs to be transferred cross-process.
-    VerifySyncToken();
-  }
-}
-
 scoped_refptr<StaticBitmapImage> CanvasResourceSharedImage::Bitmap() {
   TRACE_EVENT0("blink", "CanvasResourceSharedImage::Bitmap");
 
@@ -425,19 +393,6 @@ void CanvasResourceSharedImage::EndAccess(
   GetSharedImage()->UpdateDestructionSyncToken(sync_token);
 }
 
-void CanvasResourceSharedImage::VerifySyncToken() {
-  DCHECK(!is_cross_thread());
-  auto sync_token = GetSyncToken();
-  if (!sync_token.verified_flush()) {
-    int8_t* token_data = sync_token.GetData();
-    auto* raster_interface = RasterInterface();
-    raster_interface->ShallowFlushCHROMIUM();
-    raster_interface->VerifySyncTokensCHROMIUM(&token_data, 1);
-    sync_token.SetVerifyFlush();
-    SetReleaseSyncToken(sync_token);
-  }
-}
-
 void CanvasResourceSharedImage::NotifyResourceLost() {
   DCHECK(!is_cross_thread());
   resource_is_lost_ = true;
@@ -553,22 +508,6 @@ void ExternalCanvasResource::WaitSyncToken(const gpu::SyncToken& sync_token) {
         interface_base->WaitSyncTokenCHROMIUM(sync_token.GetConstData());
       }
     }
-  }
-}
-
-void ExternalCanvasResource::VerifySyncToken() {
-  auto sync_token = GetSyncToken();
-  if (!sync_token.verified_flush()) {
-    // The offscreencanvas usage needs the sync_token to be verified in order to
-    // be able to use it by the compositor. This is why this method produces a
-    // verified token even if no verification is explicitly requested.
-    int8_t* token_data = sync_token.GetData();
-    auto* interface = InterfaceBase();
-    DCHECK(interface);
-    interface->ShallowFlushCHROMIUM();
-    interface->VerifySyncTokensCHROMIUM(&token_data, 1);
-    sync_token.SetVerifyFlush();
-    SetReleaseSyncToken(sync_token);
   }
 }
 

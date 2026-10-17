@@ -86,7 +86,7 @@ class LockedSessionWindowTracker : public KeyedService,
   void OnPauseModeChanged(bool paused);
 
   bool can_start_navigation_throttle() {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
     return can_start_navigation_throttle_;
   }
   virtual void set_can_start_navigation_throttle(bool is_ready);
@@ -133,7 +133,8 @@ class LockedSessionWindowTracker : public KeyedService,
                     bool will_delete) override;
   void OnActiveWebContentsChanged(ash::BrowserDelegate* browser,
                                   content::WebContents* old_contents,
-                                  content::WebContents* new_contents) override;
+                                  content::WebContents* new_contents,
+                                  bool selection_only) override;
 
   // ash::BrowserController::Observer:
   void OnBrowserCreated(ash::BrowserDelegate* browser) override;

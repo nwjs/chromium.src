@@ -300,7 +300,7 @@ TEST_F(OmniboxTextUtilTest, AdjustTextForCopy) {
                                    input[i].input != input[i].url_for_display);
 
     AutocompleteMatch match;
-    match.type = AutocompleteMatchType::NAVSUGGEST;
+    match.type = omnibox::AutocompleteMatchType::kNavsuggest;
     match.destination_url = GURL(input[i].match_destination_url);
 
     EXPECT_CALL(*client(), GetContextualTasksInnerFrameURL())

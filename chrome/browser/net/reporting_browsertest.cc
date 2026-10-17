@@ -6,6 +6,7 @@
 #include <string>
 
 #include "base/base_switches.h"
+#include "base/process/kill.h"
 #include "base/strings/escape.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -15,12 +16,16 @@
 #include "base/values.h"
 #include "build/build_config.h"
 #include "chrome/browser/ssl/cert_verifier_browser_test.h"
+#include "chrome/browser/task_manager/task_manager_browsertest_util.h"
+#include "chrome/browser/task_manager/task_manager_tester.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/sessions/content/session_tab_helper.h"
+#include "content/public/browser/back_forward_cache.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
@@ -30,6 +35,7 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/no_renderer_crashes_assertion.h"
+#include "content/public/test/prerender_test_util.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "net/base/features.h"
 #include "net/dns/mock_host_resolver.h"
@@ -38,6 +44,7 @@
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/embedded_test_server/http_request.h"
 #include "partition_alloc/page_allocator.h"
+#include "sandbox/policy/switches.h"
 #include "services/network/public/cpp/features.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/chrome_debug_urls.h"
@@ -190,7 +197,10 @@ class ReportingBrowserTest : public BaseReportingBrowserTest {
 
 class CrashReportingBrowserTest : public ReportingBrowserTest {
  public:
-  CrashReportingBrowserTest() {
+  CrashReportingBrowserTest()
+      : prerender_helper_(
+            base::BindRepeating(&CrashReportingBrowserTest::web_contents,
+                                base::Unretained(this))) {
     // Disable WebUI toolbar features to avoid intermittent timeouts in
     // InProcessBrowserTest::PreRunTestOnMainThread() when waiting for the
     // initial WebUI toolbar paint callback.
@@ -208,7 +218,38 @@ class CrashReportingBrowserTest : public ReportingBrowserTest {
 
   ~CrashReportingBrowserTest() override = default;
 
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    ReportingBrowserTest::SetUpCommandLine(command_line);
+#if BUILDFLAG(IS_LINUX)
+    // Disable the sandbox so that renderers do not run as PID 1 inside a Linux
+    // PID namespace (where the kernel marks the process with SIGNAL_UNKILLABLE)
+    // and without seccomp-bpf restrictions during crash handling.
+    //
+    // When simulating an in-renderer crash (e.g. via OOM_CRASH(0) /
+    // PA_IMMEDIATE_CRASH(), which executes `int3` followed by `ud2`), Crashpad
+    // catches `SIGTRAP` (`int3`), records the dump, restores `SIG_DFL`, and
+    // re-raises `SIGTRAP` via `raise(SIGTRAP)` in
+    // `Signals::RestoreHandlerAndReraiseSignalOnReturn()`. When the renderer is
+    // PID 1 of its PID namespace, `SIGNAL_UNKILLABLE` causes the kernel to
+    // ignore `raise(SIGTRAP)` with `SIG_DFL`, allowing execution to continue to
+    // `ud2` (`SIGILL`). `SIGILL` then enters `StackDumpSignalHandler`, which
+    // calls `alarm()` (triggering a seccomp-bpf `SIGSYS` violation) and fails
+    // to terminate the `SIGNAL_UNKILLABLE` process after restoring `SIG_DFL`,
+    // causing `RenderProcessHostWatcher::Wait()` to time out.
+    command_line->AppendSwitch(sandbox::policy::switches::kNoSandbox);
+#endif  // BUILDFLAG(IS_LINUX)
+  }
+
+  content::WebContents* web_contents() {
+    return browser()->tab_strip_model()->GetActiveWebContents();
+  }
+
+  content::test::PrerenderTestHelper& prerender_helper() {
+    return prerender_helper_;
+  }
+
  private:
+  content::test::PrerenderTestHelper prerender_helper_;
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
@@ -751,6 +792,292 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
   EXPECT_EQ("oom", *reason);
 }
 
+// This test is Windows-only because Windows is the only platform that has the
+// relevant exit code (`base::win::kStatusInvalidImageHashExitCode`).
+#if BUILDFLAG(IS_WIN)
+IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
+                       DISABLED_ON_ASAN(CrashReportIntegrityFailure)) {
+  content::WebContents* contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  GURL main_url = server()->GetURL(
+      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+  EXPECT_TRUE(NavigateToURL(contents, main_url));
+
+  content::RenderFrameHost* frame = contents->GetPrimaryMainFrame();
+  ASSERT_TRUE(frame);
+
+  content::RenderProcessHost* rph = frame->GetProcess();
+  content::RenderProcessHostWatcher watcher(
+      rph, content::RenderProcessHostWatcher::WATCH_FOR_PROCESS_EXIT);
+
+  content::ScopedAllowRendererCrashes allow_renderer_crashes(contents);
+  EXPECT_TRUE(rph->Shutdown(base::win::kStatusInvalidImageHashExitCode));
+  watcher.Wait();
+  EXPECT_FALSE(watcher.did_exit_normally());
+  EXPECT_TRUE(contents->IsCrashed());
+
+  upload_response()->WaitForRequest();
+  base::ListValue response =
+      ParseReportUpload(upload_response()->http_request()->content);
+  ASSERT_FALSE(response.empty());
+  upload_response()->Send("HTTP/1.1 200 OK\r\n");
+  upload_response()->Send("\r\n");
+  upload_response()->Done();
+
+  // Verify that the crash report was generated with no reason.
+  const base::DictValue& report = response.begin()->GetDict();
+  const std::string* type = report.FindString("type");
+  const std::string* url = report.FindString("url");
+  const base::DictValue* body = report.FindDict("body");
+  ASSERT_NE(body, nullptr);
+  const std::string* reason = body->FindString("reason");
+
+  ASSERT_NE(type, nullptr);
+  EXPECT_EQ("crash", *type);
+
+  ASSERT_NE(url, nullptr);
+  EXPECT_EQ(*url, main_url.spec());
+
+  EXPECT_EQ(reason, nullptr);
+}
+#endif  // BUILDFLAG(IS_WIN)
+
+IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
+                       DISABLED_ON_ASAN(CrashReportKilledBadMessage)) {
+  content::WebContents* contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  GURL main_url = server()->GetURL(
+      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+  EXPECT_TRUE(NavigateToURL(contents, main_url));
+
+  content::RenderFrameHost* frame = contents->GetPrimaryMainFrame();
+  ASSERT_TRUE(frame);
+
+  content::RenderProcessHost* rph = frame->GetProcess();
+  content::RenderProcessHostWatcher watcher(
+      rph, content::RenderProcessHostWatcher::WATCH_FOR_PROCESS_EXIT);
+
+  content::ScopedAllowRendererCrashes allow_renderer_crashes(contents);
+  EXPECT_TRUE(rph->Shutdown(content::RESULT_CODE_KILLED_BAD_MESSAGE));
+  watcher.Wait();
+  EXPECT_FALSE(watcher.did_exit_normally());
+  EXPECT_TRUE(contents->IsCrashed());
+
+  upload_response()->WaitForRequest();
+  base::ListValue response =
+      ParseReportUpload(upload_response()->http_request()->content);
+  ASSERT_FALSE(response.empty());
+  upload_response()->Send("HTTP/1.1 200 OK\r\n");
+  upload_response()->Send("\r\n");
+  upload_response()->Done();
+
+  // Verify that the crash report was generated with no reason.
+  const base::DictValue& report = response.begin()->GetDict();
+  const std::string* type = report.FindString("type");
+  const std::string* url = report.FindString("url");
+  const base::DictValue* body = report.FindDict("body");
+  ASSERT_NE(body, nullptr);
+  const std::string* reason = body->FindString("reason");
+
+  ASSERT_NE(type, nullptr);
+  EXPECT_EQ("crash", *type);
+
+  ASSERT_NE(url, nullptr);
+  EXPECT_EQ(*url, main_url.spec());
+
+  EXPECT_EQ(reason, nullptr);
+}
+
+#if BUILDFLAG(IS_POSIX)
+IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
+                       DISABLED_ON_ASAN(CrashReportProcessWasKilledBySigkill)) {
+  content::WebContents* contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  GURL main_url = server()->GetURL(
+      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+  EXPECT_TRUE(NavigateToURL(contents, main_url));
+
+  content::RenderFrameHost* frame = contents->GetPrimaryMainFrame();
+  ASSERT_TRUE(frame);
+
+  content::RenderProcessHost* rph = frame->GetProcess();
+  content::RenderProcessHostWatcher watcher(
+      rph, content::RenderProcessHostWatcher::WATCH_FOR_PROCESS_EXIT);
+
+  content::ScopedAllowRendererCrashes allow_renderer_crashes(contents);
+  ASSERT_EQ(0, kill(rph->GetProcess().Pid(), SIGKILL));
+  watcher.Wait();
+  EXPECT_FALSE(watcher.did_exit_normally());
+  EXPECT_TRUE(contents->IsCrashed());
+
+  upload_response()->WaitForRequest();
+  base::ListValue response =
+      ParseReportUpload(upload_response()->http_request()->content);
+  ASSERT_FALSE(response.empty());
+  upload_response()->Send("HTTP/1.1 200 OK\r\n");
+  upload_response()->Send("\r\n");
+  upload_response()->Done();
+
+  const base::DictValue& report = response.begin()->GetDict();
+  const std::string* type = report.FindString("type");
+  const std::string* url = report.FindString("url");
+  const base::DictValue* body = report.FindDict("body");
+  ASSERT_NE(body, nullptr);
+  const std::string* reason = body->FindString("reason");
+
+  ASSERT_NE(type, nullptr);
+  EXPECT_EQ("crash", *type);
+
+  ASSERT_NE(url, nullptr);
+  EXPECT_EQ(*url, main_url.spec());
+
+#if BUILDFLAG(IS_CHROMEOS)
+  // On ChromeOS, an external SIGKILL on a responsive renderer is mapped to
+  // TERMINATION_STATUS_PROCESS_WAS_KILLED_BY_OOM and reported as "oom".
+  ASSERT_NE(reason, nullptr);
+  EXPECT_EQ("oom", *reason);
+#else
+  EXPECT_EQ(reason, nullptr);
+#endif
+}
+
+IN_PROC_BROWSER_TEST_P(
+    CrashReportingBrowserTest,
+    DISABLED_ON_ASAN(CrashReportUnresponsiveProcessWasKilledBySigkill)) {
+  content::WebContents* contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  GURL main_url = server()->GetURL(
+      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+  EXPECT_TRUE(NavigateToURL(contents, main_url));
+
+  content::RenderFrameHost* frame = contents->GetPrimaryMainFrame();
+  ASSERT_TRUE(frame);
+
+  content::WebContentsConsoleObserver console_observer(contents);
+  console_observer.SetPattern("infiniteLoop");
+  ExecuteInfiniteLoopScriptAsync(frame);
+  ASSERT_TRUE(console_observer.Wait());
+
+  content::RenderProcessHost* rph = frame->GetProcess();
+  content::RenderProcessHostWatcher watcher(
+      rph, content::RenderProcessHostWatcher::WATCH_FOR_PROCESS_EXIT);
+
+  // Mark the widget as unresponsive before killing the process with SIGKILL.
+  content::SimulateUnresponsiveRenderer(contents, frame->GetRenderWidgetHost());
+
+  content::ScopedAllowRendererCrashes allow_renderer_crashes(contents);
+  ASSERT_EQ(0, kill(rph->GetProcess().Pid(), SIGKILL));
+  watcher.Wait();
+  EXPECT_FALSE(watcher.did_exit_normally());
+  EXPECT_TRUE(contents->IsCrashed());
+
+  upload_response()->WaitForRequest();
+  base::ListValue response =
+      ParseReportUpload(upload_response()->http_request()->content);
+  ASSERT_FALSE(response.empty());
+  upload_response()->Send("HTTP/1.1 200 OK\r\n");
+  upload_response()->Send("\r\n");
+  upload_response()->Done();
+
+  // Verify that even when terminated with SIGKILL (which maps to
+  // TERMINATION_STATUS_PROCESS_WAS_KILLED_BY_OOM on ChromeOS), an unresponsive
+  // renderer is reported with reason: "unresponsive" rather than "oom".
+  const base::DictValue& report = response.begin()->GetDict();
+  const std::string* type = report.FindString("type");
+  const std::string* url = report.FindString("url");
+  const base::DictValue* body = report.FindDict("body");
+  ASSERT_NE(body, nullptr);
+  const std::string* reason = body->FindString("reason");
+
+  ASSERT_NE(type, nullptr);
+  EXPECT_EQ("crash", *type);
+
+  ASSERT_NE(url, nullptr);
+  EXPECT_EQ(*url, main_url.spec());
+
+  ASSERT_NE(reason, nullptr);
+  EXPECT_EQ("unresponsive", *reason);
+}
+#endif  // BUILDFLAG(IS_POSIX)
+
+IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
+                       DISABLED_ON_ASAN(NoCrashReportForTaskManagerKill)) {
+  content::WebContents* contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  GURL killed_url = server()->GetURL(
+      kReportingHost,
+      "/set-header?" + GetAppropriateReportingHeader() + "&killed");
+  EXPECT_TRUE(NavigateToURL(contents, killed_url));
+
+  auto tester =
+      task_manager::TaskManagerTester::Create(base::RepeatingClosure());
+  ASSERT_NO_FATAL_FAILURE(
+      task_manager::browsertest_util::WaitForTaskManagerRows(
+          1, task_manager::browsertest_util::MatchAnyTab()));
+
+  SessionID tab_id = sessions::SessionTabHelper::IdForTab(contents);
+  std::optional<size_t> tab_row;
+  for (size_t i = 0; i < tester->GetRowCount(); ++i) {
+    if (tester->GetTabId(i) == tab_id) {
+      tab_row = i;
+      break;
+    }
+  }
+  ASSERT_TRUE(tab_row.has_value());
+
+  content::RenderProcessHost* rph =
+      contents->GetPrimaryMainFrame()->GetProcess();
+  content::RenderProcessHostWatcher watcher(
+      rph, content::RenderProcessHostWatcher::WATCH_FOR_PROCESS_EXIT);
+
+  content::ScopedAllowRendererCrashes allow_renderer_crashes(contents);
+  tester->Kill(*tab_row);
+  watcher.Wait();
+  EXPECT_FALSE(watcher.did_exit_normally());
+  EXPECT_TRUE(contents->IsCrashed());
+
+  // Crash report delivery is asynchronous across the NetworkContext Mojo pipe
+  // and the subsequent HTTP POST to `upload_response()`, so asserting
+  // immediately after `watcher.Wait()` could pass before a queued report
+  // arrives, while calling `upload_response()->WaitForRequest()` directly would
+  // hang when no report is sent.
+  //
+  // To deterministically flush the reporting pipeline without arbitrary sleeps,
+  // navigate to a second reporting-enabled page on the same endpoint and
+  // trigger a real crash. Any report queued for `killed_url` would either
+  // arrive at `upload_response()` first or be batched into the same upload
+  // payload.
+  GURL crashed_url = server()->GetURL(
+      kReportingHost,
+      "/set-header?" + GetAppropriateReportingHeader() + "&crashed");
+  EXPECT_TRUE(NavigateToURL(contents, crashed_url));
+
+  content::SimulateOOMPrimaryMainFrameAndWaitForExit(contents);
+
+  upload_response()->WaitForRequest();
+  base::ListValue response =
+      ParseReportUpload(upload_response()->http_request()->content);
+  ASSERT_EQ(1u, response.size());
+  upload_response()->Send("HTTP/1.1 200 OK\r\n");
+  upload_response()->Send("\r\n");
+  upload_response()->Done();
+
+  const base::DictValue& report = response.begin()->GetDict();
+  const std::string* type = report.FindString("type");
+  const std::string* url = report.FindString("url");
+
+  ASSERT_NE(type, nullptr);
+  EXPECT_EQ("crash", *type);
+
+  ASSERT_NE(url, nullptr);
+  EXPECT_EQ(crashed_url.spec(), *url);
+}
+
 IN_PROC_BROWSER_TEST_P(
     CrashReportingBrowserTest,
     DISABLED_ON_ASAN(CrashReportOOMTakesPriorityOverUnresponsive)) {
@@ -797,17 +1124,8 @@ IN_PROC_BROWSER_TEST_P(
   EXPECT_EQ("oom", *reason);
 }
 
-// This test deliberately exhausts memory, which is too slow/flaky under MSan
-// and on debug ChromeOS builds.
-// TODO(crbug.com/402535088): Re-enable on these configurations.
-#if defined(ADDRESS_SANITIZER) || defined(MEMORY_SANITIZER) || \
-    (BUILDFLAG(IS_CHROMEOS) && !defined(NDEBUG))
-#define MAYBE_CrashReportMemoryExhaust DISABLED_CrashReportMemoryExhaust
-#else
-#define MAYBE_CrashReportMemoryExhaust CrashReportMemoryExhaust
-#endif
 IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
-                       MAYBE_CrashReportMemoryExhaust) {
+                       DISABLED_ON_ASAN(CrashReportBlinkOOM)) {
   content::WebContents* contents =
       browser()->tab_strip_model()->GetActiveWebContents();
 
@@ -821,7 +1139,7 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
   content::ScopedAllowRendererCrashes allow_renderer_crashes(contents);
   content::RenderProcessHostWatcher crash_observer(
       contents, content::RenderProcessHostWatcher::WATCH_FOR_PROCESS_EXIT);
-  contents->GetController().LoadURL(GURL(blink::kChromeUIMemoryExhaustURL),
+  contents->GetController().LoadURL(GURL(blink::kChromeUIBlinkOOMURL),
                                     content::Referrer(),
                                     ui::PAGE_TRANSITION_TYPED, std::string());
   crash_observer.Wait();
@@ -851,6 +1169,223 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
 
   ASSERT_NE(reason, nullptr);
   EXPECT_EQ("oom", *reason);
+}
+
+IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
+                       DISABLED_ON_ASAN(CrashReportBlinkWorkerOOM)) {
+  content::WebContents* contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  GURL main_url = server()->GetURL(
+      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+  EXPECT_TRUE(NavigateToURL(contents, main_url));
+
+  content::RenderFrameHost* frame = contents->GetPrimaryMainFrame();
+  ASSERT_TRUE(frame);
+
+  content::ScopedAllowRendererCrashes allow_renderer_crashes(contents);
+  content::RenderProcessHostWatcher crash_observer(
+      contents, content::RenderProcessHostWatcher::WATCH_FOR_PROCESS_EXIT);
+  contents->GetController().LoadURL(GURL(blink::kChromeUIBlinkWorkerOOMURL),
+                                    content::Referrer(),
+                                    ui::PAGE_TRANSITION_TYPED, std::string());
+  crash_observer.Wait();
+
+  upload_response()->WaitForRequest();
+  base::ListValue response =
+      ParseReportUpload(upload_response()->http_request()->content);
+  ASSERT_FALSE(response.empty());
+  upload_response()->Send("HTTP/1.1 200 OK\r\n");
+  upload_response()->Send("\r\n");
+  upload_response()->Done();
+
+  // Verify that the crash report was generated with reason: "oom" from Blink's
+  // OOM callback on the worker thread.
+  const base::DictValue& report = response.begin()->GetDict();
+  const std::string* type = report.FindString("type");
+  const std::string* url = report.FindString("url");
+  const base::DictValue* body = report.FindDict("body");
+  ASSERT_NE(body, nullptr);
+  const std::string* reason = body->FindString("reason");
+
+  ASSERT_NE(type, nullptr);
+  EXPECT_EQ("crash", *type);
+
+  ASSERT_NE(url, nullptr);
+  EXPECT_EQ(*url, main_url.spec());
+
+  ASSERT_NE(reason, nullptr);
+  EXPECT_EQ("oom", *reason);
+}
+
+IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
+                       DISABLED_ON_ASAN(CrashReportV8OOM)) {
+  content::WebContents* contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  GURL main_url = server()->GetURL(
+      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+  EXPECT_TRUE(NavigateToURL(contents, main_url));
+
+  content::RenderFrameHost* frame = contents->GetPrimaryMainFrame();
+  ASSERT_TRUE(frame);
+
+  content::ScopedAllowRendererCrashes allow_renderer_crashes(contents);
+  content::RenderProcessHostWatcher crash_observer(
+      contents, content::RenderProcessHostWatcher::WATCH_FOR_PROCESS_EXIT);
+  contents->GetController().LoadURL(GURL(blink::kChromeUIV8OOMURL),
+                                    content::Referrer(),
+                                    ui::PAGE_TRANSITION_TYPED, std::string());
+  crash_observer.Wait();
+
+  upload_response()->WaitForRequest();
+  base::ListValue response =
+      ParseReportUpload(upload_response()->http_request()->content);
+  ASSERT_FALSE(response.empty());
+  upload_response()->Send("HTTP/1.1 200 OK\r\n");
+  upload_response()->Send("\r\n");
+  upload_response()->Done();
+
+  // Verify that the crash report was generated with reason: "oom" from Blink's
+  // OOM callback when V8 triggers FatalProcessOutOfMemory.
+  const base::DictValue& report = response.begin()->GetDict();
+  const std::string* type = report.FindString("type");
+  const std::string* url = report.FindString("url");
+  const base::DictValue* body = report.FindDict("body");
+  ASSERT_NE(body, nullptr);
+  const std::string* reason = body->FindString("reason");
+
+  ASSERT_NE(type, nullptr);
+  EXPECT_EQ("crash", *type);
+
+  ASSERT_NE(url, nullptr);
+  EXPECT_EQ(*url, main_url.spec());
+
+  ASSERT_NE(reason, nullptr);
+  EXPECT_EQ("oom", *reason);
+}
+
+IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
+                       DISABLED_ON_ASAN(NoCrashReportForBFCachedPage)) {
+  if (!content::BackForwardCache::IsBackForwardCacheFeatureEnabled()) {
+    GTEST_SKIP();
+  }
+
+  content::WebContents* contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  GURL bfcached_url = server()->GetURL(
+      kReportingHost,
+      "/set-header?" + GetAppropriateReportingHeader() + "&bfcached");
+  EXPECT_TRUE(NavigateToURL(contents, bfcached_url));
+
+  content::RenderFrameHostWrapper rfh_bfcached(contents->GetPrimaryMainFrame());
+  ASSERT_TRUE(rfh_bfcached.get());
+
+  // Navigate to a second reporting-enabled page so the first page enters
+  // BackForwardCache.
+  GURL active_url = server()->GetURL(
+      kReportingHost,
+      "/set-header?" + GetAppropriateReportingHeader() + "&active");
+  EXPECT_TRUE(NavigateToURL(contents, active_url));
+
+  ASSERT_FALSE(rfh_bfcached.IsDestroyed());
+  ASSERT_EQ(rfh_bfcached->GetLifecycleState(),
+            content::RenderFrameHost::LifecycleState::kInBackForwardCache);
+
+  content::RenderFrameHost* rfh_active = contents->GetPrimaryMainFrame();
+  ASSERT_TRUE(rfh_active);
+
+  content::ScopedAllowRendererCrashes allow_renderer_crashes;
+  if (rfh_bfcached->GetProcess() != rfh_active->GetProcess()) {
+    content::RenderProcessHost* rph_bfcached = rfh_bfcached->GetProcess();
+    content::RenderProcessHostWatcher bfcached_watcher(
+        rph_bfcached,
+        content::RenderProcessHostWatcher::WATCH_FOR_PROCESS_EXIT);
+    rph_bfcached->Shutdown(content::RESULT_CODE_HUNG);
+    bfcached_watcher.Wait();
+  }
+
+  // Crash the active page's renderer process.
+  content::SimulateOOMPrimaryMainFrameAndWaitForExit(contents);
+
+  upload_response()->WaitForRequest();
+  base::ListValue response =
+      ParseReportUpload(upload_response()->http_request()->content);
+  ASSERT_EQ(1u, response.size());
+  upload_response()->Send("HTTP/1.1 200 OK\r\n");
+  upload_response()->Send("\r\n");
+  upload_response()->Done();
+
+  // Verify that only the active page generated a crash report, and not the
+  // BFCached page.
+  const base::DictValue& report = response.begin()->GetDict();
+  const std::string* type = report.FindString("type");
+  const std::string* url = report.FindString("url");
+
+  ASSERT_NE(type, nullptr);
+  EXPECT_EQ("crash", *type);
+
+  ASSERT_NE(url, nullptr);
+  EXPECT_EQ(active_url.spec(), *url);
+}
+
+IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
+                       DISABLED_ON_ASAN(NoCrashReportForPrerenderedPage)) {
+  content::WebContents* contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  GURL main_url = server()->GetURL(
+      kReportingHost,
+      "/set-header?" + GetAppropriateReportingHeader() + "&main");
+  EXPECT_TRUE(NavigateToURL(contents, main_url));
+
+  GURL prerender_url = server()->GetURL(
+      kReportingHost,
+      "/set-header?" + GetAppropriateReportingHeader() + "&prerender");
+  content::PrerenderHostId host_id =
+      prerender_helper().AddPrerender(prerender_url);
+  content::RenderFrameHost* rfh_prerender =
+      prerender_helper().GetPrerenderedMainFrameHost(host_id);
+  ASSERT_TRUE(rfh_prerender);
+  ASSERT_EQ(rfh_prerender->GetLifecycleState(),
+            content::RenderFrameHost::LifecycleState::kPrerendering);
+
+  content::RenderFrameHost* rfh_main = contents->GetPrimaryMainFrame();
+  ASSERT_TRUE(rfh_main);
+
+  content::ScopedAllowRendererCrashes allow_renderer_crashes;
+  if (rfh_prerender->GetProcess() != rfh_main->GetProcess()) {
+    content::RenderProcessHost* rph_prerender = rfh_prerender->GetProcess();
+    content::RenderProcessHostWatcher prerender_watcher(
+        rph_prerender,
+        content::RenderProcessHostWatcher::WATCH_FOR_PROCESS_EXIT);
+    rph_prerender->Shutdown(content::RESULT_CODE_HUNG);
+    prerender_watcher.Wait();
+  }
+
+  // Crash the active page's renderer process.
+  content::SimulateOOMPrimaryMainFrameAndWaitForExit(contents);
+
+  upload_response()->WaitForRequest();
+  base::ListValue response =
+      ParseReportUpload(upload_response()->http_request()->content);
+  ASSERT_EQ(1u, response.size());
+  upload_response()->Send("HTTP/1.1 200 OK\r\n");
+  upload_response()->Send("\r\n");
+  upload_response()->Done();
+
+  // Verify that only the active page generated a crash report, and not the
+  // prerendered page.
+  const base::DictValue& report = response.begin()->GetDict();
+  const std::string* type = report.FindString("type");
+  const std::string* url = report.FindString("url");
+
+  ASSERT_NE(type, nullptr);
+  EXPECT_EQ("crash", *type);
+
+  ASSERT_NE(url, nullptr);
+  EXPECT_EQ(main_url.spec(), *url);
 }
 
 IN_PROC_BROWSER_TEST_P(ReportingBrowserTestCrashReportingStorage,

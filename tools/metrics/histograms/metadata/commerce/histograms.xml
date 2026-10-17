@@ -211,7 +211,7 @@ https://chromium.googlesource.com/chromium/src.git/+/HEAD/tools/metrics/histogra
 </histogram>
 
 <histogram name="Commerce.Discounts.DiscountsBubbleIsAutoShown"
-    enum="BooleanYesNo" expires_after="2027-01-17">
+    enum="BooleanYesNo" expires_after="2027-03-21">
   <owner>meiliang@chromium.org</owner>
   <owner>chrome-shopping@google.com</owner>
   <summary>
@@ -359,7 +359,7 @@ https://chromium.googlesource.com/chromium/src.git/+/HEAD/tools/metrics/histogra
 </histogram>
 
 <histogram name="Commerce.IconComputationTime" units="ms"
-    expires_after="2026-07-06">
+    expires_after="2027-09-21">
   <owner>meiliang@chromium.org</owner>
   <owner>chrome-shopping-eng@google.com</owner>
   <summary>
@@ -367,6 +367,9 @@ https://chromium.googlesource.com/chromium/src.git/+/HEAD/tools/metrics/histogra
     duration between finished navigation and received all commerce page action
     server responses. This histogram is emitted after all server responses are
     received and ready to compute which page action to expand.
+
+    Warning: this histogram was expired from 2026-07-06 to 2026-09-21; data may
+    be missing.
   </summary>
 </histogram>
 
@@ -382,7 +385,7 @@ https://chromium.googlesource.com/chromium/src.git/+/HEAD/tools/metrics/histogra
 </histogram>
 
 <histogram name="Commerce.PDPNavigation.{FeatureName}.Eligible" enum="Boolean"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>ayman@chromium.org</owner>
   <owner>mdjones@chromium.org</owner>
   <owner>chrome-shopping@google.com</owner>
@@ -783,7 +786,7 @@ https://chromium.googlesource.com/chromium/src.git/+/HEAD/tools/metrics/histogra
 </histogram>
 
 <histogram name="Commerce.ShoppingService.ProductInfo.FallbackDataContent"
-    enum="ShoppingDataProviderFallback" expires_after="2027-01-17">
+    enum="ShoppingDataProviderFallback" expires_after="2027-03-21">
   <owner>ayman@chromium.org</owner>
   <owner>mdjones@chromium.org</owner>
   <summary>

@@ -202,6 +202,10 @@ BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
 // enabled.
 BASE_DECLARE_FEATURE_PARAM(int, kInfiniteTabsFreezingOnMemoryPressurePercent);
 
+// If enabled, periodic unfreezing of tabs is disabled while the system is under
+// critical memory pressure.
+BASE_DECLARE_FEATURE(kDisablePeriodicUnfreezeOnCriticalMemoryPressure);
+
 // If enabled, tabs may be discarded on Windows when the system approaches the
 // commit limit.
 BASE_DECLARE_FEATURE(kDiscardOnCommitLimit);
@@ -213,9 +217,6 @@ BASE_DECLARE_FEATURE_PARAM(int, kDiscardOnCommitLimit_MinAvailablePercent);
 // When enabled, Resource Attribution measurements will include contexts for
 // individual origins.
 BASE_DECLARE_FEATURE(kResourceAttributionIncludeOrigins);
-
-// When enabled, change the ordering of frame swap in render (crbug/357649043).
-BASE_DECLARE_FEATURE(kSeamlessRenderFrameSwap);
 
 // When enabled, visible unimportant frames receives a lesser priority than
 // non unimportant frames.
@@ -261,6 +262,13 @@ BASE_DECLARE_FEATURE(kDisableTabDiscarding);
 BASE_DECLARE_FEATURE(kUseLoadingStateToDetectBackgroundTitleOrFaviconUpdate);
 
 BASE_DECLARE_FEATURE(kGlicActuationPriorityVoter);
+
+// When enabled, casts a kUserBlocking vote for every frame of a page that an
+// embedder is withholding from view until it is ready to be shown (see
+// PageLiveStateDecorator::MarkWithheldFromView). Fixes a deadlock where such a
+// page is deprioritized for being hidden, so it loads slowly, so it is never
+// shown (crbug.com/549552319).
+BASE_DECLARE_FEATURE(kPMWithheldFromViewVoter);
 
 // When enabled, ignores kMediaQueryChange favicon updates (e.g.
 // prefers-color-scheme toggles) when determining whether a background tab

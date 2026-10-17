@@ -24,6 +24,8 @@
 #include "chrome/test/base/web_ui_mocha_browser_test.h"
 #include "components/optimization_guide/core/delivery/model_util.h"
 #include "components/optimization_guide/core/delivery/prediction_model_override.h"
+#include "components/optimization_guide/core/model_quality/model_quality_log_entry.h"
+#include "components/optimization_guide/core/model_quality/model_quality_logs_uploader_service.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/core/optimization_guide_logger.h"
 #include "components/optimization_guide/optimization_guide_internals/webui/url_constants.h"
@@ -78,6 +80,33 @@ class OptimizationGuideInternalsLoggerBrowserTest
 IN_PROC_BROWSER_TEST_F(OptimizationGuideInternalsLoggerBrowserTest,
                        DebugLogEnabledOnInternalsPage) {
   RunTestCase("EmptyTest");
+}
+
+IN_PROC_BROWSER_TEST_F(OptimizationGuideInternalsBrowserTest,
+                       FilterUrlParamsReflection) {
+  RunTestCase("FilterUrlParamsReflection");
+}
+
+IN_PROC_BROWSER_TEST_F(OptimizationGuideInternalsBrowserTest,
+                       FilterUrlParamsPopstate) {
+  RunTestCase("FilterUrlParamsPopstate");
+}
+
+IN_PROC_BROWSER_TEST_F(OptimizationGuideInternalsBrowserTest,
+                       FilterUrlParamsInitial) {
+  g_browser_process->local_state()->SetBoolean(
+      chrome_urls::kInternalOnlyUisEnabled, true);
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), GURL("chrome://optimization-guide-internals/"
+                      "?include=init_inc&exclude=init_exc")));
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  ASSERT_TRUE(RunTestOnWebContents(
+      web_contents,
+      "optimization_guide_internals/optimization_guide_internals_test.js",
+      "runMochaTest('OptimizationGuideInternalsTest', "
+      "'FilterUrlParamsInitial')",
+      /*skip_test_loader=*/true));
 }
 
 class OptimizationGuideInternalsLogMessageBrowserTest

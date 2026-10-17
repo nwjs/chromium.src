@@ -1078,16 +1078,32 @@ void WillInitiatePrerender(FrameTree& frame_tree) {
 }
 
 void DidActivatePrerender(const NavigationRequest& nav_request,
-                          const std::optional<base::UnguessableToken>&
-                              initiator_devtools_navigation_token) {
+                          WebContents* initiator_web_contents) {
   FrameTreeNode* ftn = nav_request.frame_tree_node();
+  WebContents* activated_web_contents = WebContentsImpl::FromFrameTreeNode(ftn);
+  const bool should_update_initiator =
+      initiator_web_contents &&
+      initiator_web_contents != activated_web_contents &&
+      !initiator_web_contents->IsBeingDestroyed();
   UpdateChildFrameTrees(ftn, /* update_target_info= */ true);
+
+  // New-tab prerenders are auto attached to the initiator's DevTools target.
+  // After activation, update the initiator to detach the now independent page.
+  if (!should_update_initiator) {
+    return;
+  }
+  auto* initiator_host =
+      WebContentsDevToolsAgentHost::GetFor(initiator_web_contents);
+  if (initiator_host) {
+    initiator_host->UpdateChildFrameTrees(/* update_target_info= */ false);
+  }
 }
 
 void DidUpdatePrerenderStatus(
     FrameTreeNodeId initiator_frame_tree_node_id,
     const base::UnguessableToken& initiator_devtools_navigation_token,
     blink::mojom::SpeculationAction action,
+    std::optional<blink::mojom::SpeculationAction> effective_action,
     const GURL& prerender_url,
     bool form_submission,
     std::optional<blink::mojom::SpeculationTargetHint> target_hint,
@@ -1113,14 +1129,15 @@ void DidUpdatePrerenderStatus(
   // We update DevToolsPreloadStorage, even if there are no active DevTools
   // sessions, to persist the latest status update.
   devtools_preload_storage->UpdatePrerenderStatus(
-      action, prerender_url, form_submission, target_hint, preload_pipeline_id,
-      status, prerender_status, disallowed_mojo_interface, mismatched_headers);
+      action, effective_action, prerender_url, form_submission, target_hint,
+      preload_pipeline_id, status, prerender_status, disallowed_mojo_interface,
+      mismatched_headers);
 
   DispatchToAgents(ftn, &protocol::PreloadHandler::DidUpdatePrerenderStatus,
-                   initiator_devtools_navigation_token, action, prerender_url,
-                   form_submission, target_hint, preload_pipeline_id, status,
-                   prerender_status, disallowed_mojo_interface,
-                   mismatched_headers);
+                   initiator_devtools_navigation_token, action,
+                   effective_action, prerender_url, form_submission,
+                   target_hint, preload_pipeline_id, status, prerender_status,
+                   disallowed_mojo_interface, mismatched_headers);
 }
 
 namespace {
@@ -2152,18 +2169,6 @@ bool HandleCertificateError(WebContents* web_contents,
   return !callback;
 }
 
-void FencedFrameCreated(
-    base::SafeRef<RenderFrameHostImpl> owner_render_frame_host,
-    FencedFrame* fenced_frame) {
-  auto* agent_host = static_cast<RenderFrameDevToolsAgentHost*>(
-      RenderFrameDevToolsAgentHost::GetFor(
-          owner_render_frame_host->frame_tree_node()));
-  if (!agent_host) {
-    return;
-  }
-  agent_host->DidCreateFencedFrame(fenced_frame);
-}
-
 void WillStartDragging(FrameTreeNode* main_frame_tree_node,
                        const DropData& drop_data,
                        const blink::mojom::DragDataPtr drag_data,
@@ -2210,13 +2215,6 @@ std::unique_ptr<protocol::Array<protocol::String>> BuildExclusionReasons(
                                     EXCLUDE_DOMAIN_NON_ASCII)) {
     exclusion_reasons->push_back(
         protocol::Audits::CookieExclusionReasonEnum::ExcludeDomainNonASCII);
-  }
-  if (status.HasExclusionReason(
-          net::CookieInclusionStatus::ExclusionReason::
-              EXCLUDE_THIRD_PARTY_BLOCKED_WITHIN_FIRST_PARTY_SET)) {
-    exclusion_reasons->push_back(
-        protocol::Audits::CookieExclusionReasonEnum::
-            ExcludeThirdPartyCookieBlockedInFirstPartySet);
   }
   if (status.HasExclusionReason(net::CookieInclusionStatus::ExclusionReason::
                                     EXCLUDE_THIRD_PARTY_PHASEOUT)) {

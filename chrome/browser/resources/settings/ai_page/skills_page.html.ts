@@ -1,0 +1,55 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+import {html} from 'chrome://resources/lit/v3_0/lit.rollup.js';
+
+import type {SettingsSkillsPageElement} from './skills_page.js';
+
+export function getHtml(this: SettingsSkillsPageElement) {
+  return html`<!--_html_template_start_-->
+<settings-subpage page-title="$i18n{skillsSettingLabel}"
+    route-path="${this.routePath}">
+  <settings-toggle-button
+      id="skillsToggle"
+      pref-key="skills.enabled"
+      label="$i18n{skillsToggleLabel}"
+      sub-label="$i18n{skillsSettingSublabel}">
+  </settings-toggle-button>
+  <div class="settings-columned-section">
+    <div class="column">
+      <h2 class="description-header">$i18n{columnHeadingWhenOn}</h2>
+      <ul class="icon-bulleted-list">
+        <li>
+          <cr-icon icon="settings20:summarize" aria-hidden="true"></cr-icon>
+          <div class="secondary">$i18n{skillsWhenOnBulletOne}</div>
+        </li>
+        <li>
+          <cr-icon icon="settings20:button-magic" aria-hidden="true"></cr-icon>
+          <div class="secondary">$i18n{skillsWhenOnBulletTwo}</div>
+        </li>
+      </ul>
+    </div>
+    <div class="column">
+      <h2 class="description-header">$i18n{columnHeadingConsider}</h2>
+      <ul class="icon-bulleted-list">
+        <li>
+          <cr-icon icon="settings20:google" aria-hidden="true"></cr-icon>
+          <div class="secondary">$i18n{skillsThingsToConsiderBulletOne}</div>
+        </li>
+        <li>
+          <cr-icon icon="settings20:account-circle" aria-hidden="true">
+          </cr-icon>
+          <div class="secondary">$i18n{skillsThingsToConsiderBulletTwo}</div>
+        </li>
+      </ul>
+    </div>
+  </div>
+  <cr-link-row id="skillsGalleryLink" class="hr"
+      label="$i18n{skillsGalleryHeader}"
+      sub-label="$i18n{skillsGalleryLabel}"
+      @click="${this.onSkillsGalleryLinkClick_}" external>
+  </cr-link-row>
+</settings-subpage>
+<!--_html_template_end_-->`;
+}

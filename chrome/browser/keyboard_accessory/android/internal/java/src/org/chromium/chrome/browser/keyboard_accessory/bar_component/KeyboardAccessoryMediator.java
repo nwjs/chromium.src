@@ -318,7 +318,7 @@ class KeyboardAccessoryMediator
         if (showFloatingKeyboardAccessory()) {
             fixedBarItems.add(mModel.get(SHEET_OPENER_ITEM));
             // Dismiss button shouldn't be added when dynamic positioning is used.
-            // TODO(crbug.com/458610269): Delete the the dismiss button after dynamic positioning is
+            // TODO(crbug.com/458610269): Delete the dismiss button after dynamic positioning is
             // launched.
             if (!ChromeFeatureList.isEnabled(
                     ChromeFeatureList.AUTOFILL_ANDROID_KEYBOARD_ACCESSORY_DYNAMIC_POSITIONING)) {
@@ -431,15 +431,19 @@ class KeyboardAccessoryMediator
             AutofillDelegate delegate, int pos, AutofillSuggestion suggestion) {
         return new Action(
                 AccessoryAction.AUTOFILL_SUGGESTION,
-                result -> {
+                wasObscured -> {
                     ManualFillingMetricsRecorder.recordActionSelected(
                             AccessoryAction.AUTOFILL_SUGGESTION);
                     if (suggestion.showLoadingOnAcceptance()) {
                         showLoadingUIOnSuggestion(suggestion);
                     }
-                    delegate.suggestionAccepted(pos, suggestion.showLoadingOnAcceptance());
+                    delegate.suggestionAccepted(
+                            pos, suggestion.showLoadingOnAcceptance(), wasObscured);
                 },
-                result -> {
+                () -> {
+                    if (maybeShowAutofillAiSuggestionDetails(delegate, pos, suggestion)) {
+                        return;
+                    }
                     if (maybeShowDialogOnLongPress(delegate, suggestion)) {
                         return;
                     }
@@ -449,6 +453,16 @@ class KeyboardAccessoryMediator
                                 ChromeFeatureList.AUTOFILL_ANDROID_KEYBOARD_ACCESSORY_HOVER_PREVIEW)
                         ? selected -> delegate.suggestionSelectionStateChanged(pos, selected)
                         : null);
+    }
+
+    private boolean maybeShowAutofillAiSuggestionDetails(
+            AutofillDelegate delegate, int pos, AutofillSuggestion suggestion) {
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.AUTOFILL_AMBIENT_AUTOFILL_SUPPRESSION)
+                && suggestion.getSuggestionType() == SuggestionType.FILL_AUTOFILL_AI) {
+            delegate.showAutofillAiSuggestionDetails(pos);
+            return true;
+        }
+        return false;
     }
 
     private boolean maybeShowDialogOnLongPress(
@@ -471,22 +485,23 @@ class KeyboardAccessoryMediator
         if (sublabel == null) {
             return false;
         }
-        mDialog.show(
+        final String description =
+                mContext.getString(R.string.autofill_ai_suggestion_long_press_dialog_description);
+        final String positiveButton =
+                mContext.getString(
+                        R.string.autofill_ai_suggestion_long_press_dialog_positive_button);
+        final String negativeButton =
+                mContext.getString(
+                        R.string.autofill_ai_suggestion_long_press_dialog_negative_button);
+        ConfirmationDialogParams confirmationDialog =
                 new ConfirmationDialogParams.Builder(mContext)
                         .withTitle(sublabel)
-                        .withDescription(
-                                mContext.getString(
-                                        R.string
-                                                .autofill_ai_suggestion_long_press_dialog_description))
-                        .withPositiveButton(
-                                mContext.getString(
-                                        R.string
-                                                .autofill_ai_suggestion_long_press_dialog_positive_button))
-                        .withNegativeButton(
-                                mContext.getString(
-                                        R.string
-                                                .autofill_ai_suggestion_long_press_dialog_negative_button))
-                        .build(),
+                        .withDescription(description)
+                        .withPositiveButton(positiveButton)
+                        .withNegativeButton(negativeButton)
+                        .build();
+        mDialog.show(
+                confirmationDialog,
                 (dismissHandler, buttonClickResult, stopShowing) ->
                         handleDialogAction(
                                 delegate,

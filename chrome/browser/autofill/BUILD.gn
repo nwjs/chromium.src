@@ -98,8 +98,8 @@ static_library("autofill") {
     "//components/prefs",
     "//components/safe_browsing:buildflags",
     "//components/safe_browsing/core/browser/db:database_manager",
+    "//components/safe_browsing/core/browser/db:sb_protocol_manager_util",
     "//components/safe_browsing/core/browser/db:util",
-    "//components/safe_browsing/core/browser/db:v4_protocol_manager_util",
     "//components/strings:components_strings_grit",
     "//components/variations/service",
     "//components/wallet/core/browser",
@@ -118,6 +118,8 @@ static_library("autofill") {
       "android/autofill_ai_save_update_entity_prompt_controller.cc",
       "android/autofill_ai_save_update_entity_prompt_controller.h",
       "android/autofill_ai_save_update_entity_prompt_view.h",
+      "android/autofill_ai_source_attribution_info.cc",
+      "android/autofill_ai_source_attribution_info.h",
       "android/autofill_fallback_surface_launcher.cc",
       "android/autofill_fallback_surface_launcher.h",
       "android/autofill_image_fetcher_impl.cc",
@@ -272,9 +274,11 @@ source_set("browser_tests") {
     "//chrome/browser/ui/navigator",
     "//chrome/browser/webdata_services",
     "//chrome/test:test_support",
+    "//chrome/test/base:chrome_test_utils",
     "//chrome/test/base:test_switches",
     "//components/autofill/content/browser:test_support",
     "//components/autofill/core/common:test_support",
+    "//components/one_time_tokens/core/browser:test_support",
     "//components/optimization_guide/content/browser",
     "//components/password_manager/content/browser:test_support",
     "//components/ukm:test_support",
@@ -284,7 +288,10 @@ source_set("browser_tests") {
   if (is_android) {
     deps += [ "//content/test:browsertest_support" ]
   } else {
-    deps += [ "//chrome/browser/ui/tabs:tab_strip" ]
+    deps += [
+      "//chrome/browser/ui:browser_window_header",
+      "//chrome/browser/ui/tabs:tab_strip",
+    ]
   }
 
   # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
@@ -343,6 +350,7 @@ if (!is_android) {
       "//chrome/browser/profiles:profile",
       "//chrome/browser/profiles:profile_io_data",
       "//chrome/browser/ui",
+      "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui/autofill",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/translate",
@@ -408,6 +416,7 @@ if (!is_android) {
     deps = [
       ":test_support",
       "//chrome/browser/autofill:test_support_ui",
+      "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui/autofill",
       "//chrome/browser/ui/autofill:test_support",
       "//chrome/browser/ui/translate:test_support",
@@ -430,12 +439,14 @@ source_set("unit_tests") {
     ":test_support",
     "//base",
     "//chrome/test:test_support",
+    "//chrome/test/base:chrome_render_view_host_test_harness",
+    "//chrome/test/base:testing_browser_process",
     "//components/autofill/core/browser/proto",
     "//components/safe_browsing:buildflags",
     "//components/safe_browsing/core/browser/db:database_manager",
+    "//components/safe_browsing/core/browser/db:sb_protocol_manager_util",
     "//components/safe_browsing/core/browser/db:test_database_manager",
     "//components/safe_browsing/core/browser/db:util",
-    "//components/safe_browsing/core/browser/db:v4_protocol_manager_util",
     "//components/safe_browsing/core/browser/db:v5_get_hash_protocol_manager",
     "//content/test:test_support",
     "//testing/gmock",
@@ -464,6 +475,7 @@ source_set("unit_tests") {
     sources += [
       "android/attribute_instance_android_unittest.cc",
       "android/autofill_ai_save_update_entity_prompt_controller_unittest.cc",
+      "android/autofill_ai_source_attribution_info_unittest.cc",
       "android/entity_data_manager_android_unittest.cc",
       "android/entity_instance_android_unittest.cc",
       "android/mock_autofill_ai_save_update_entity_prompt_view.cc",

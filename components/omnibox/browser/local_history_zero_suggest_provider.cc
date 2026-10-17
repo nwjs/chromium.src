@@ -194,7 +194,7 @@ LocalHistoryZeroSuggestProvider::LocalHistoryZeroSuggestProvider(
     AutocompleteProviderClient* client,
     AutocompleteProviderListener* listener)
     : AutocompleteProvider(
-          AutocompleteProvider::TYPE_ZERO_SUGGEST_LOCAL_HISTORY),
+          AutocompleteProvider::Type::kZeroSuggestLocalHistory),
       max_matches_(AutocompleteResult::GetMaxMatches(true)),
       client_(client) {
   AddListener(listener);
@@ -247,7 +247,8 @@ void LocalHistoryZeroSuggestProvider::QueryURLDatabase(
             ? result->term
             : result->normalized_term;
     SearchSuggestionParser::SuggestResult suggestion(
-        /*suggestion=*/suggestion_term, AutocompleteMatchType::SEARCH_HISTORY,
+        /*suggestion=*/suggestion_term,
+        omnibox::AutocompleteMatchType::kSearchHistory,
         /*suggest_type=*/omnibox::TYPE_NATIVE_CHROME,
         /*subtypes=*/{}, /*from_keyword=*/false,
         /*navigational_intent=*/omnibox::NAV_INTENT_NONE, relevance--,

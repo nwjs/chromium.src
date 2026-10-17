@@ -362,7 +362,7 @@ cr-tabs {
 }
 
 @media (max-width: 480px) {
-  #flagsTemplate>.flex-container:first-child:not('.version') {
+  #flagsTemplate>.flex-container:first-child:not(.version) {
     flex-direction: column;
     text-align: left;
     /* csschecker-disable-line left-right */
@@ -407,4 +407,13 @@ cr-tabs {
 
 .actions-container cr-icon-button {
   margin-inline-start: 8px;
+}
+
+cr-toast {
+  /* Ensure toasts appear above the #needs-restart tray (z-index: 10). */
+  z-index: 11;
+}
+
+.dropdown-item:hover {
+  background-color: var(--cr-hover-background-color);
 }

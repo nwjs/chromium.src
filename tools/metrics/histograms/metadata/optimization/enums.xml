@@ -62,11 +62,6 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Annotated"/>
 </enum>
 
-<enum name="BooleanStored">
-  <int value="0" label="Not Stored"/>
-  <int value="1" label="Stored"/>
-</enum>
-
 <enum name="FeatureCurrentlyEnabledResult">
   <summary>Records whether a feature is currently enabled.</summary>
   <int value="0" label="Unknown"/>
@@ -104,18 +99,6 @@ chromium-metrics-reviews@google.com.
       label="DEPRECATED: Not visible because the feature is already graduated"/>
   <int value="8"
       label="Not visible because the device is unsupported by the feature."/>
-</enum>
-
-<enum name="HintCacheStoreEntryType">
-  <summary>
-    Possible store entry types contained within the HintCacheStore.
-  </summary>
-  <int value="0" label="Unknown"/>
-  <int value="1" label="Metadata"/>
-  <int value="2" label="Component Hint"/>
-  <int value="3" label="Fetched Hint"/>
-  <int value="4" label="Prediction Model"/>
-  <int value="5" label="[Deprecated] Host Model Features"/>
 </enum>
 
 <!-- LINT.IfChange(OnDeviceBaseModelEnum) -->
@@ -180,6 +163,7 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="Parse error"/>
   <int value="5" label="Not allowed by user setting"/>
   <int value="6" label="The installed component is obsolete"/>
+  <int value="7" label="Evicted due to no recent usage"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/optimization_guide/core/model_execution/manifest_broker/manifest.h:UninstallReason) -->
@@ -712,13 +696,6 @@ chromium-metrics-reviews@google.com.
   </int>
 </enum>
 
-<enum name="OptimizationGuideReadCacheResult">
-  <int value="0" label="Unknown"/>
-  <int value="1" label="Success"/>
-  <int value="2" label="Invalid protobuf"/>
-  <int value="3" label="Base64 decoding error"/>
-</enum>
-
 <enum name="OptimizationGuideTextSafetyInferenceResult">
   <int value="0" label="Success"/>
   <int value="1" label="Encoding failed"/>
@@ -854,6 +831,7 @@ chromium-metrics-reviews@google.com.
   <int value="131" label="FILTER_EXTRACT_ATTRIBUTES"/>
   <int value="132" label="AUTOFILL_AT_MEMORY_BLOCKED"/>
   <int value="133" label="FILTER_EXECUTION_STRATEGY"/>
+  <int value="134" label="PAYMENT_QR_CODE_MERCHANT_URL_REGEX_ALLOWLIST"/>
 </enum>
 
 <enum name="PageContentAnnotationsStorageStatus">

@@ -561,6 +561,7 @@ ci.builder(
     ),
     builderless = True,
     os = os.WINDOWS_DEFAULT,
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "debug|win (64)",
         short_name = "bld",
@@ -602,6 +603,7 @@ ci.builder(
     ),
     builderless = True,
     os = os.WINDOWS_DEFAULT,
+    ssd = None,
     free_space = builders.free_space.high,
     console_view_entry = consoles.console_view_entry(
         category = "debug|win (32)",
@@ -645,6 +647,7 @@ ci.builder(
     ),
     builderless = True,
     os = os.WINDOWS_DEFAULT,
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "release|win (64)",
         short_name = "bld",
@@ -686,6 +689,7 @@ ci.builder(
     ),
     builderless = True,
     os = os.WINDOWS_DEFAULT,
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "release|win (32)",
         short_name = "bld",

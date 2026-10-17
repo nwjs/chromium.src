@@ -2747,11 +2747,16 @@ TEST_P(AuthenticatorImplRemoteDesktopExtensionTest, MakeCredential) {
               test.success ? AuthenticatorStatus::SUCCESS
                            : AuthenticatorStatus::
                                  REMOTE_DESKTOP_CLIENT_OVERRIDE_NOT_AUTHORIZED);
-    // remoteClientDataJSON must reach the authenticator unchanged.
-    if (test.success && result.response &&
-        GetParam() == RemoteDesktopExtension::kRemoteClientDataJSON) {
-      EXPECT_EQ(base::as_string_view(result.response->info->client_data_json),
-                MakeClientDataJSON(test.remote_origin));
+    if (test.success) {
+      ASSERT_TRUE(result.response);
+      const bool used_remote_client_data_json =
+          GetParam() == RemoteDesktopExtension::kRemoteClientDataJSON;
+      EXPECT_EQ(result.response->echo_remote_client_data_json,
+                used_remote_client_data_json);
+      if (used_remote_client_data_json) {
+        EXPECT_EQ(base::as_string_view(result.response->info->client_data_json),
+                  MakeClientDataJSON(test.remote_origin));
+      }
     }
   }
 }
@@ -2789,11 +2794,17 @@ TEST_P(AuthenticatorImplRemoteDesktopExtensionTest, GetAssertion) {
               test.success ? AuthenticatorStatus::SUCCESS
                            : AuthenticatorStatus::
                                  REMOTE_DESKTOP_CLIENT_OVERRIDE_NOT_AUTHORIZED);
-    // remoteClientDataJSON must reach the authenticator unchanged.
-    if (test.success && result.response &&
-        GetParam() == RemoteDesktopExtension::kRemoteClientDataJSON) {
-      EXPECT_EQ(base::as_string_view(result.response->info->client_data_json),
-                MakeGetClientDataJSON(test.remote_origin));
+    if (test.success) {
+      ASSERT_TRUE(result.response);
+      ASSERT_TRUE(result.response->extensions);
+      const bool used_remote_client_data_json =
+          GetParam() == RemoteDesktopExtension::kRemoteClientDataJSON;
+      EXPECT_EQ(result.response->extensions->echo_remote_client_data_json,
+                used_remote_client_data_json);
+      if (used_remote_client_data_json) {
+        EXPECT_EQ(base::as_string_view(result.response->info->client_data_json),
+                  MakeGetClientDataJSON(test.remote_origin));
+      }
     }
   }
 }
@@ -3010,6 +3021,32 @@ TEST_F(AuthenticatorImplRemoteClientDataJSONDisabledTest,
 
   mojo::Remote<blink::mojom::Authenticator> authenticator =
       ConnectToAuthenticator();
+  base::test::TestFuture<void> mojo_error_future;
+  SetMojoErrorHandler(base::BindLambdaForTesting([&](const std::string& error) {
+    EXPECT_EQ(error, "invalid remoteClientDataJSON request");
+    mojo_error_future.SetValue();
+  }));
+
+  authenticator->MakeCredential(std::move(options), base::DoNothing());
+  EXPECT_TRUE(mojo_error_future.Wait());
+}
+
+TEST_F(AuthenticatorImplRemoteClientDataJSONDisabledTest,
+       CrossOriginMakeCredentialRejectsExtensionWhenFeatureDisabled) {
+  NavigateAndCommit(GURL(kExampleOrigin));
+  RenderFrameHost* child =
+      RenderFrameHostTester::For(main_rfh())->AppendChild("child");
+  child = NavigationSimulator::NavigateAndCommitFromDocument(
+      GURL(kOtherRdpOrigin), child);
+
+  PublicKeyCredentialCreationOptionsPtr options =
+      GetTestPublicKeyCredentialCreationOptions();
+  options->relying_party.id = kExampleRpId;
+  options->remote_client_data_json = MakeClientDataJSON(kExampleOrigin);
+
+  mojo::Remote<blink::mojom::Authenticator> authenticator;
+  static_cast<RenderFrameHostImpl*>(child)->GetWebAuthenticationService(
+      authenticator.BindNewPipeAndPassReceiver());
   base::test::TestFuture<void> mojo_error_future;
   SetMojoErrorHandler(base::BindLambdaForTesting([&](const std::string& error) {
     EXPECT_EQ(error, "invalid remoteClientDataJSON request");
@@ -3328,6 +3365,10 @@ TEST_F(AuthenticatorImplRequestDelegateTest, FailureReasonForTimeout) {
   auto mock_delegate = std::make_unique<
       ::testing::NiceMock<MockAuthenticatorRequestDelegateObserver>>(
       failure_reason_future.GetCallback());
+  EXPECT_CALL(*mock_delegate,
+              OnTransactionFailed(std::optional<device::AuthenticatorType>(),
+                                  AuthenticatorRequestClientDelegate::
+                                      InterestingFailureReason::kTimeout));
   auto authenticator = ConnectToFakeAuthenticator(std::move(mock_delegate));
 
   TestGetCredentialFuture future;
@@ -3383,6 +3424,11 @@ TEST_F(AuthenticatorImplRequestDelegateTest,
   auto mock_delegate = std::make_unique<
       ::testing::NiceMock<MockAuthenticatorRequestDelegateObserver>>(
       failure_reason_future.GetCallback());
+  EXPECT_CALL(
+      *mock_delegate,
+      OnTransactionFailed(std::optional(device::AuthenticatorType::kOther),
+                          AuthenticatorRequestClientDelegate::
+                              InterestingFailureReason::kKeyNotRegistered));
   auto authenticator = ConnectToFakeAuthenticator(std::move(mock_delegate));
 
   TestGetCredentialFuture future;

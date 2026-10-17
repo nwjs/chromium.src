@@ -7,9 +7,12 @@
 #include <algorithm>
 #include <cstdio>
 #include <sstream>
+#include <string>
+#include <vector>
 
 #include "base/base64.h"
 #include "base/command_line.h"
+#include "base/containers/flat_set.h"
 #include "base/functional/callback_helpers.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
@@ -275,6 +278,8 @@ std::string InvocationSourceToString(glic::mojom::InvocationSource source) {
       return "kWebContinuity";
     case glic::mojom::InvocationSource::kHistoryPageChatLinkout:
       return "kHistoryPageChatLinkout";
+    case glic::mojom::InvocationSource::kContextHubTopics:
+      return "kContextHubTopics";
   }
   LOG(ERROR) << "Unexpected value for InvocationSource: "
              << static_cast<int>(source);
@@ -523,7 +528,7 @@ void GlicInternalsPageHandler::GetInternalsDataPayload(
                             : nullptr);
 
   mojom::ConfigInfoPtr config = mojom::ConfigInfo::New();
-  config->guest_url = GetGuestURL();
+  config->guest_url = GetGuestURL(browser_context_);
 
   config->autopush_guest_url = GURL(g_browser_process->local_state()->GetString(
       prefs::kGlicGuestUrlPresetAutopush));
@@ -562,6 +567,9 @@ void GlicInternalsPageHandler::GetInternalsDataPayload(
       base::FeatureList::IsEnabled(features::kGlicTieredRollout);
   debug_info->glic_tiered_rollout_v2_feature_enabled =
       base::FeatureList::IsEnabled(features::kGlicTieredRolloutV2);
+  debug_info->glic_subscription_benefits_eligibility_feature_enabled =
+      base::FeatureList::IsEnabled(
+          features::kGlicSubscriptionBenefitsEligibility);
 
   // Platform and form factor
   debug_info->platform = state->platform;
@@ -657,12 +665,17 @@ void GlicInternalsPageHandler::GetInternalsDataPayload(
   payload->debug_info = std::move(debug_info);
 
   auto tiered_rollout_info = mojom::TieredRolloutInfo::New();
+  const bool use_subscription_benefits = base::FeatureList::IsEnabled(
+      features::kGlicSubscriptionBenefitsEligibility);
   subscription_eligibility::SubscriptionEligibilityService*
       subscription_eligibility_service = subscription_eligibility::
           SubscriptionEligibilityServiceFactory::GetForProfile(profile);
+  base::flat_set<std::string> subscription_benefits;
   if (subscription_eligibility_service) {
     tiered_rollout_info->ai_subscription_tier =
         subscription_eligibility_service->GetAiSubscriptionTier();
+    subscription_benefits =
+        subscription_eligibility_service->GetSubscriptionBenefits();
   }
   tiered_rollout_info->is_eligible_for_tiered_rollout_v1 =
       base::FeatureList::IsEnabled(features::kGlicTieredRollout) &&
@@ -672,12 +685,22 @@ void GlicInternalsPageHandler::GetInternalsDataPayload(
       subscription_eligibility_service &&
       features::GetGlicTieredRolloutV2EligibleTiers().contains(
           subscription_eligibility_service->GetAiSubscriptionTier());
+  tiered_rollout_info->is_eligible_for_benefit_based_rollout =
+      use_subscription_benefits && subscription_eligibility_service &&
+      features::HasAnyEligibleGlicBenefit(
+          subscription_benefits, features::GetGlicEligibleBenefits());
   tiered_rollout_info->is_eligible_overall =
       GlicEnabling::IsEligibleForGlicTieredRollout(profile);
   tiered_rollout_info->glic_rollout_eligibility_pref =
       profile->GetPrefs()->GetBoolean(prefs::kGlicRolloutEligibility);
   tiered_rollout_info->tiered_rollout_v2_eligible_tiers =
       features::kGlicTieredRolloutV2EligibleTiers.Get();
+  tiered_rollout_info->subscription_benefits.assign_range(
+      subscription_benefits);
+  tiered_rollout_info->eligible_benefits =
+      features::kGlicEligibleBenefits.Get();
+  tiered_rollout_info->actor_eligible_benefits =
+      features::kGlicActorEligibleBenefits.Get();
 
   std::string sync_status = "Sync Service Not Found";
   if (syncer::SyncService* sync_service =
@@ -815,69 +838,7 @@ void GlicInternalsPageHandler::TriggerInvokeFromInternalsAction(
 
   options.on_error = base::BindOnce(
       [](TriggerInvokeFromInternalsActionCallback cb, GlicInvokeError error) {
-        std::string error_msg;
-        // LINT.IfChange(GlicInvokeError)
-        switch (error) {
-          case GlicInvokeError::kTimeout:
-            error_msg = "Timeout";
-            break;
-          case GlicInvokeError::kInvalidConversationId:
-            error_msg = "Invalid Conversation ID";
-            break;
-          case GlicInvokeError::kInvalidTab:
-            error_msg = "Invalid Tab";
-            break;
-          case GlicInvokeError::kTabClosed:
-            error_msg = "Tab Closed";
-            break;
-          case GlicInvokeError::kInstanceDestroyed:
-            error_msg = "Instance Destroyed";
-            break;
-          case GlicInvokeError::kInvokeInProgress:
-            error_msg = "Invoke In Progress";
-            break;
-          case GlicInvokeError::kInvalidConfiguration:
-            error_msg = "Invalid Configuration";
-            break;
-          case GlicInvokeError::kAdditionalContextSawNavigation:
-            error_msg = "Navigation during context gathering";
-            break;
-          case GlicInvokeError::kAdditionalContextFailedCopyPolicy:
-            error_msg = "Copy policy check failed";
-            break;
-          case GlicInvokeError::kAdditionalContextFailedPastePolicy:
-            error_msg = "Paste policy check failed";
-            break;
-          case GlicInvokeError::kAdditionalContextNoSourceFrame:
-            error_msg = "No source frame for context";
-            break;
-          case GlicInvokeError::kAdditionalContextNoClientFrame:
-            error_msg = "No client frame for context";
-            break;
-          case GlicInvokeError::kAdditionalContextNoClipboardMetadata:
-            error_msg = "No clipboard metadata for context";
-            break;
-          case GlicInvokeError::kInstanceNotFound:
-            error_msg = "Instance Not Found";
-            break;
-          case GlicInvokeError::kProfileNotEnabled:
-            error_msg = "Profile Not Enabled";
-            break;
-          case GlicInvokeError::kSuperseded:
-            error_msg = "Superseded By Another Invocation";
-            break;
-          case GlicInvokeError::kUnknown:
-            error_msg = "Unknown Error";
-            break;
-          case GlicInvokeError::kCancelled:
-            error_msg = "Cancelled";
-            break;
-          default:
-            error_msg = "Unknown Error";
-            break;
-        }
-        // LINT.ThenChange(//chrome/browser/glic/public/glic_invoke_options.h:GlicInvokeError)
-        std::move(cb).Run(false, error_msg);
+        std::move(cb).Run(false, std::string(GlicInvokeErrorToString(error)));
       },
       std::move(split_callback.second));
 

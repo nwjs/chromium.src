@@ -19,10 +19,8 @@ include_rules = [
   "+chrome/browser/ash/policy/core",
   "+chrome/browser/ash/policy/test_support",
   "+chrome/browser/ash/profiles",
-  "+chrome/browser/browser_process.h",
   "+chrome/browser/extensions/install_tracker_factory.h",
   "+chrome/browser/extensions/policy_test_utils.h",
-  "+chrome/browser/policy",
   "+chrome/browser/profiles",
   "+chrome/browser/ui/ash/keyboard",
   "+chrome/browser/ui/ash/login",
@@ -34,6 +32,13 @@ include_rules = [
 ]
 
 specific_include_rules = {
+  # Only tests need //chrome/browser/policy.
+  "signin_profile_extensions_policy_browsertest\\.cc": [
+    "+chrome/browser/policy/extension_force_install_mixin.h",
+  ],
+  ".*(unittest|browsertest)\\.cc": [
+    "+chrome/browser/browser_process.h",
+  ],
   "login_screen_default_policy_browsertest\\.cc": [
     "+chrome/common/pref_names.h",
   ],

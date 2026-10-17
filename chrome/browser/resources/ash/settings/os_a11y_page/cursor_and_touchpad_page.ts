@@ -136,7 +136,7 @@ export class SettingsCursorAndTouchpadPageElement extends
         readOnly: true,
         type: Array,
         value() {
-          const options = [
+          return [
             {
               value: DEFAULT_BLACK_CURSOR_COLOR,
               name: loadTimeData.getString('cursorColorBlack'),
@@ -169,15 +169,11 @@ export class SettingsCursorAndTouchpadPageElement extends
               value: 0xf50057,  // Pink A400
               name: loadTimeData.getString('cursorColorPink'),
             },
-          ];
-          if (loadTimeData.getBoolean(
-                  'isAccessibilityInvertedMouseCursorEnabled')) {
-            options.push({
+            {
               value: INVERTED_CURSOR_COLOR,
               name: loadTimeData.getString('cursorColorInverted'),
-            });
-          }
-          return options;
+            },
+          ];
         },
       },
 
@@ -248,18 +244,6 @@ export class SettingsCursorAndTouchpadPageElement extends
             'prefs.settings.a11y.tablet_mode_shelf_nav_buttons_enabled)',
       },
 
-
-      /**
-       * Whether the controlling the mouse cursor with the keyboard feature is
-       * enabled.
-       */
-      isAccessibilityMouseKeysEnabled_: {
-        type: Boolean,
-        value() {
-          return loadTimeData.getBoolean('isAccessibilityMouseKeysEnabled');
-        },
-      },
-
       /**
        * Check if at least one mouse is connected.
        */
@@ -313,7 +297,6 @@ export class SettingsCursorAndTouchpadPageElement extends
       chrome.settingsPrivate.PrefObject<boolean>;
   declare private showFaceGazeRow_: boolean;
   declare private showShelfNavigationButtonsSettings_: boolean;
-  declare private readonly isAccessibilityMouseKeysEnabled_: boolean;
   declare private hasMouse_: boolean;
   declare private hasTouchpad_: boolean;
   declare private hasPointingStick_: boolean;

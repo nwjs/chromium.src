@@ -29,6 +29,7 @@
 #include <optional>
 #include <ranges>
 
+#include "base/test/gtest_util.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/renderer/platform/wtf/hash_set.h"
@@ -496,19 +497,21 @@ void TestVectorDestructorAndConstructorCallsWhenSwappingWithInlineCapacity() {
   vector2.push_back(&counter);
   EXPECT_EQ(2u, LivenessCounter::live_);
 
-  for (unsigned i = 0; i < 13; i++) {
-    for (unsigned j = 0; j < 13; j++) {
+  for (wtf_size_t i = 0; i < 13; ++i) {
+    for (wtf_size_t j = 0; j < 13; ++j) {
       vector.clear();
       vector2.clear();
       EXPECT_EQ(0u, LivenessCounter::live_);
 
-      for (unsigned k = 0; k < j; k++)
+      for (wtf_size_t k = 0; k < j; ++k) {
         vector.push_back(&counter);
+      }
       EXPECT_EQ(j, LivenessCounter::live_);
       EXPECT_EQ(j, vector.size());
 
-      for (unsigned k = 0; k < i; k++)
+      for (wtf_size_t k = 0; k < i; ++k) {
         vector2.push_back(&counter);
+      }
       EXPECT_EQ(i + j, LivenessCounter::live_);
       EXPECT_EQ(i, vector2.size());
 
@@ -517,10 +520,10 @@ void TestVectorDestructorAndConstructorCallsWhenSwappingWithInlineCapacity() {
       EXPECT_EQ(i, vector.size());
       EXPECT_EQ(j, vector2.size());
 
-      unsigned size = vector.size();
-      unsigned size2 = vector2.size();
+      wtf_size_t size = vector.size();
+      wtf_size_t size2 = vector2.size();
 
-      for (unsigned k = 0; k < 5; k++) {
+      for (wtf_size_t k = 0; k < 5; ++k) {
         vector.swap(vector2);
         std::swap(size, size2);
         EXPECT_EQ(i + j, LivenessCounter::live_);
@@ -540,26 +543,30 @@ TEST(VectorTest, SwapWithConstructorsAndDestructors) {
   TestVectorDestructorAndConstructorCallsWhenSwappingWithInlineCapacity<10>();
 }
 
-template <size_t inlineCapacity>
+template <size_t kInlineCapacity>
 void TestVectorValuesMovedAndSwappedWithInlineCapacity() {
-  Vector<unsigned, inlineCapacity> vector;
-  Vector<unsigned, inlineCapacity> vector2;
+  Vector<wtf_size_t, kInlineCapacity> vector;
+  Vector<wtf_size_t, kInlineCapacity> vector2;
 
-  for (unsigned size = 0; size < 13; size++) {
-    for (unsigned size2 = 0; size2 < 13; size2++) {
+  for (wtf_size_t size = 0; size < 13; ++size) {
+    for (wtf_size_t size2 = 0; size2 < 13; ++size2) {
       vector.clear();
       vector2.clear();
-      for (unsigned i = 0; i < size; i++)
+      for (wtf_size_t i = 0; i < size; ++i) {
         vector.push_back(i);
-      for (unsigned i = 0; i < size2; i++)
+      }
+      for (wtf_size_t i = 0; i < size2; ++i) {
         vector2.push_back(i + 42);
+      }
       EXPECT_EQ(size, vector.size());
       EXPECT_EQ(size2, vector2.size());
       vector.swap(vector2);
-      for (unsigned i = 0; i < size; i++)
+      for (wtf_size_t i = 0; i < size; ++i) {
         EXPECT_EQ(i, vector2[i]);
-      for (unsigned i = 0; i < size2; i++)
+      }
+      for (wtf_size_t i = 0; i < size2; ++i) {
         EXPECT_EQ(i + 42, vector[i]);
+      }
     }
   }
 }
@@ -698,10 +705,10 @@ TEST(VectorTest, Optional) {
 TEST(VectorTest, emplace_back) {
   struct Item {
     Item() = default;
-    explicit Item(int value1) : value1(value1), value2() {}
+    explicit Item(int value1) : value1(value1) {}
     Item(int value1, int value2) : value1(value1), value2(value2) {}
-    int value1;
-    int value2;
+    int value1 = 0;
+    int value2 = 0;
   };
 
   Vector<Item> vector;
@@ -859,8 +866,8 @@ TEST(VectorTest, MutationDuringIteration) {
   auto it = vector.begin();
   EXPECT_EQ(*it, 1);
   vector.push_back(4);
-  EXPECT_DEATH_IF_SUPPORTED([[maybe_unused]] int val = *it,
-                            "Vector modified while being iterated.");
+  EXPECT_CHECK_DEATH_WITH([[maybe_unused]] int val = *it,
+                          "Vector modified while being iterated.");
 }
 
 TEST(VectorTest, NoMutationDuringIteration) {
@@ -885,8 +892,8 @@ TEST(VectorTest, EraseDuringIteration) {
   auto it = vector.begin();
   EXPECT_EQ(*it, 1);
   vector.EraseAt(1);
-  EXPECT_DEATH_IF_SUPPORTED([[maybe_unused]] int val = *it,
-                            "Vector modified while being iterated.");
+  EXPECT_CHECK_DEATH_WITH([[maybe_unused]] int val = *it,
+                          "Vector modified while being iterated.");
 }
 #endif
 

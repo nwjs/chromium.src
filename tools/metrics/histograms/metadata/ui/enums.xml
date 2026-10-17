@@ -80,6 +80,7 @@ chromium-metrics-reviews@google.com.
   <int value="32" label="Create image with Gemini in Chrome"/>
   <int value="33" label="Remove from dictionary"/>
   <int value="34" label="Open link in isolated window"/>
+  <int value="35" label="Ask Google about this page"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/renderer_context_menu/render_view_context_menu.cc:ContextMenuOptionDesktop) -->
@@ -160,6 +161,8 @@ chromium-metrics-reviews@google.com.
   <int value="6" label="User navigated the guide tab away before completion"/>
   <int value="7"
       label="User moved or resized the Settings window (degraded to floating)"/>
+  <int value="8"
+      label="Settings page layout unpredictable (degraded to floating)"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/webui/default_browser/visual_guided_setter_controller_win.h:DefaultBrowserVisualGuideOutcome) -->
@@ -427,6 +430,8 @@ chromium-metrics-reviews@google.com.
   <int value="167" label="IDC_SPELLCHECK_REMOVE_FROM_DICTIONARY"/>
   <int value="168" label="IDC_CONTENT_CONTEXT_SAVE_TO_MEMORY_BANKS"/>
   <int value="169" label="IDC_CONTENT_CONTEXT_OPENLINK_ISOLATED"/>
+  <int value="170" label="IDC_CONTENT_CONTEXT_ASK_GOOGLE_ABOUT_THIS_PAGE"/>
+  <int value="171" label="IDC_CONTENT_CONTEXT_CONTEXTUAL_TASKS_SUBMENU"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/renderer_context_menu/render_view_context_menu.cc:RenderViewContextMenuItem) -->
@@ -559,6 +564,8 @@ chromium-metrics-reviews@google.com.
       label="UMA_FACILITATED_PAYMENTS_PIX_ACCOUNT_LINKING_FAILURE_NOTIFICATION"/>
   <int value="95" label="UMA_GLIC_UNPIN_UNDO"/>
   <int value="96" label="UMA_GLIC_MIC_DISABLED"/>
+  <int value="97" label="UMA_AUTOFILL_AI_SUPPRESSION_UNDO"/>
+  <int value="98" label="UMA_ACTOR_EXTERNAL_TRIGGER"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/messages/android/java/src/org/chromium/chrome/browser/ui/messages/snackbar/Snackbar.java:SnackbarIdentifier) -->
@@ -1268,6 +1275,7 @@ chromium-metrics-reviews@google.com.
   <int value="102"
       label="(Obsolete) Show contextual tasks side panel. Removed 12/18/25"/>
   <int value="103" label="New isolated window"/>
+  <int value="104" label="TTC app menu"/>
 </enum>
 
 <!-- LINT.ThenChange(/chrome/browser/ui/toolbar/app_menu_model.h:AppMenuAction) -->

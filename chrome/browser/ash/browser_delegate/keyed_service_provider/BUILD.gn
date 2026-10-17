@@ -6,14 +6,37 @@ assert(is_chromeos)
 
 group("keyed_service_provider") {
   public_deps = [
+    ":consent_auditor_provider_impl",
     ":desk_sync_service_provider_impl",
     ":favicon_service_provider_impl",
     ":feature_engagement_tracker_provider_impl",
+    ":history_service_provider_impl",
     ":identity_manager_provider_impl",
+    ":supervised_user_service_provider_impl",
     ":sync_service_provider_impl",
     ":template_url_service_provider_impl",
+    ":trusted_vault_service_provider_impl",
     ":wifi_configuration_sync_service_provider_impl",
   ]
+}
+
+source_set("consent_auditor_provider_impl") {
+  sources = [
+    "consent_auditor_provider_impl.cc",
+    "consent_auditor_provider_impl.h",
+  ]
+
+  deps = [
+    "//base",
+    "//chrome/browser/consent_auditor",
+    "//chrome/browser/profiles",
+    "//chromeos/ash/components/browser_context_helper",
+    "//chromeos/ash/components/consent_auditor:consent_auditor_provider",
+    "//components/account_id",
+    "//content/public/browser",
+  ]
+
+  visibility = [ ":keyed_service_provider" ]
 }
 
 source_set("desk_sync_service_provider_impl") {
@@ -48,6 +71,26 @@ source_set("feature_engagement_tracker_provider_impl") {
     "//chromeos/ash/components/feature_engagement:feature_engagement_tracker_provider",
     "//components/account_id",
     "//components/feature_engagement/public",
+    "//content/public/browser",
+  ]
+
+  visibility = [ ":keyed_service_provider" ]
+}
+
+source_set("history_service_provider_impl") {
+  sources = [
+    "history_service_provider_impl.cc",
+    "history_service_provider_impl.h",
+  ]
+
+  deps = [
+    "//base",
+    "//chrome/browser/history",
+    "//chrome/browser/profiles",
+    "//chromeos/ash/components/browser_context_helper",
+    "//chromeos/ash/components/history:history_service_provider",
+    "//components/account_id",
+    "//components/keyed_service/core",
     "//content/public/browser",
   ]
 
@@ -110,6 +153,25 @@ source_set("identity_manager_provider_impl") {
   visibility = [ ":keyed_service_provider" ]
 }
 
+source_set("supervised_user_service_provider_impl") {
+  sources = [
+    "supervised_user_service_provider_impl.cc",
+    "supervised_user_service_provider_impl.h",
+  ]
+
+  deps = [
+    "//base",
+    "//chrome/browser/profiles",
+    "//chrome/browser/supervised_user",
+    "//chromeos/ash/components/browser_context_helper",
+    "//chromeos/ash/components/supervised_user:supervised_user_service_provider",
+    "//components/account_id",
+    "//content/public/browser",
+  ]
+
+  visibility = [ ":keyed_service_provider" ]
+}
+
 source_set("sync_service_provider_impl") {
   sources = [
     "sync_service_provider_impl.cc",
@@ -141,6 +203,25 @@ source_set("template_url_service_provider_impl") {
     "//chrome/browser/search_engines",
     "//chromeos/ash/components/browser_context_helper",
     "//chromeos/ash/components/search_engines",
+    "//components/account_id",
+    "//content/public/browser",
+  ]
+
+  visibility = [ ":keyed_service_provider" ]
+}
+
+source_set("trusted_vault_service_provider_impl") {
+  sources = [
+    "trusted_vault_service_provider_impl.cc",
+    "trusted_vault_service_provider_impl.h",
+  ]
+
+  deps = [
+    "//base",
+    "//chrome/browser/profiles",
+    "//chrome/browser/trusted_vault",
+    "//chromeos/ash/components/browser_context_helper",
+    "//chromeos/ash/components/trusted_vault:trusted_vault_service_provider",
     "//components/account_id",
     "//content/public/browser",
   ]

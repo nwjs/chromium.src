@@ -160,4 +160,51 @@ TEST_F(WebUISourcesTest, ThemeAllowedOrigin) {
   EXPECT_EQ(
       theme_source()->GetAccessControlAllowOriginForOrigin("http://google.com"),
       "");
+  // Only the source serving chrome-untrusted://theme allows
+  // chrome-untrusted:// origins.
+  EXPECT_EQ(theme_source()->GetAccessControlAllowOriginForOrigin(
+                "chrome-untrusted://new-tab-page"),
+            "");
+}
+
+TEST_F(WebUISourcesTest, ThemeAllowedOriginUntrusted) {
+  ThemeSource untrusted_theme_source(profile(), /*serve_untrusted=*/true);
+  EXPECT_EQ(untrusted_theme_source.GetAccessControlAllowOriginForOrigin(
+                "chrome-untrusted://new-tab-page"),
+            "chrome-untrusted://new-tab-page");
+  EXPECT_EQ(untrusted_theme_source.GetAccessControlAllowOriginForOrigin(
+                "chrome://settings"),
+            "chrome://settings");
+  EXPECT_EQ(untrusted_theme_source.GetAccessControlAllowOriginForOrigin(
+                "chrome-extensions://some-id"),
+            "");
+  EXPECT_EQ(untrusted_theme_source.GetAccessControlAllowOriginForOrigin(
+                "http://google.com"),
+            "");
+}
+
+TEST_F(WebUISourcesTest, ThemeSourceShouldServiceRequest) {
+  EXPECT_TRUE(theme_source()->ShouldServiceRequest(
+      GURL("chrome://theme/colors.css"), nullptr, -1));
+  EXPECT_TRUE(theme_source()->ShouldServiceRequest(
+      GURL("chrome://theme/IDR_THEME_FRAME"), nullptr, -1));
+
+  EXPECT_TRUE(theme_source()->ShouldServiceRequest(
+      GURL("devtools://theme/colors.css"), nullptr, -1));
+  EXPECT_TRUE(theme_source()->ShouldServiceRequest(
+      GURL("devtools://theme/colors.css?sets=ui,chrome"), nullptr, -1));
+
+  EXPECT_FALSE(theme_source()->ShouldServiceRequest(
+      GURL("devtools://theme/IDR_THEME_FRAME"), nullptr, -1));
+  EXPECT_FALSE(theme_source()->ShouldServiceRequest(
+      GURL("devtools://theme/css/new_tab_theme.css"), nullptr, -1));
+  EXPECT_FALSE(theme_source()->ShouldServiceRequest(GURL("devtools://theme/"),
+                                                    nullptr, -1));
+  // TODO(https://crbug.com/562108905): URLDataSource currently allows both
+  // chrome: and chrome-untrusted: requests by default. We should tighten this
+  // so that chrome: sources only service chrome: requests.
+  EXPECT_TRUE(theme_source()->ShouldServiceRequest(
+      GURL("chrome-untrusted://theme/colors.css"), nullptr, -1));
+  EXPECT_FALSE(theme_source()->ShouldServiceRequest(
+      GURL("https://theme/colors.css"), nullptr, -1));
 }

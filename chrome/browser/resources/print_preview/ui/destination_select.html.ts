@@ -15,7 +15,7 @@ export function getHtml(this: DestinationSelectElement) {
     <div class="throbber-container" ?hidden="${this.loaded}">
       <div class="throbber"></div>
     </div>
-    <select class="md-select" aria-labelledby="destination-label"
+    <select id="select" class="md-select" aria-labelledby="destination-label"
         ?hidden="${!this.loaded}" ?disabled="${this.disabled}"
         .style="background-image:${this.getBackgroundImages_()};"
         @change="${this.onSelectChange}">
@@ -32,9 +32,6 @@ export function getHtml(this: DestinationSelectElement) {
       <option value="noDestinations" ?hidden="${!this.noDestinations}"
           ?selected="${this.noDestinations}">
         $i18n{noDestinationsMessage}
-      </option>
-      <option value="seeMore" aria-label="$i18n{seeMoreDestinationsLabel}">
-        $i18n{seeMore}
       </option>
     </select>
   </div>

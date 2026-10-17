@@ -23,6 +23,11 @@ feature kSmartSearch {
   const bool default_state = false;
 };
 
+feature kTopics {
+  const string name = "Topics";
+  const bool default_state = false;
+};
+
 enum AutoTodoStatus {
   kActive,
   kCompleted,
@@ -186,6 +191,48 @@ struct SmartSearchResult {
   array<SourceReference> source_references;
 };
 
+// A browsing history visit belonging to a Topic.
+struct TopicVisit {
+  // URL of the visited page.
+  url.mojom.Url url;
+  // Title of the visited page.
+  string title;
+};
+
+// A suggested way for the user to pick a Topic back up.
+struct TopicContinuationQuery {
+  // Human-readable title shown to the user.
+  string title;
+  // Query used to run the follow-up search.
+  string prompt;
+};
+
+// A grouping of related browsing history shown in the Topics view.
+struct Topic {
+  // Stable identifier for the Topic.
+  string id;
+  // Display title of the Topic.
+  string title;
+  // When the Topic was created.
+  mojo_base.mojom.Time creation_time;
+  // Emoji representing the Topic, if there is one.
+  string? emoji;
+  // Long summary of the Topic, if there is one.
+  string? overview;
+  // Short summary of the Topic, if there is one.
+  string? short_overview;
+  // Visits belonging to the Topic.
+  array<TopicVisit> visits;
+  // Suggested follow-up searches for the Topic.
+  array<TopicContinuationQuery> continuation_queries;
+};
+
+// Represents either a topic ID or a full topic URL.
+union TopicIdOrUrl {
+  string topic_id;
+  url.mojom.Url topic_url;
+};
+
 // Interface for the browser process to push updates to the WebUI page.
 // Implemented in the renderer process (the Context Hub WebUI).
 interface Page {
@@ -318,9 +365,11 @@ interface PageHandler {
   ClearTabGroupChatHistory() => ();
 
   // Sends a request to Gemini with the user command and selected memory bank
-  // entry IDs.
+  // entry IDs. If `save_to_history` is true, the turn is saved to the memory
+  // bank chat history.
   AskGeminiWithContext(
-      string user_command, array<int64> memory_bank_entry_ids)
+      string user_command, array<int64> memory_bank_entry_ids,
+      bool save_to_history)
       => (ChatMessage response);
 
   // Returns stored memory bank chat history.
@@ -357,4 +406,31 @@ interface PageHandler {
   // artifacts.
   [RuntimeFeature=kSmartSearch]
   ExecuteSmartSearch(string query) => (array<SmartSearchResult> results);
+
+  // Opens the specified URLs (capped to 10) into a new tab group.
+  [RuntimeFeature=kTopics]
+  OpenUrlsInTabGroup(string group_label, array<url.mojom.Url> urls)
+      => (bool success);
+
+  // Returns the Topics stored for this profile, newest first by creation time.
+  // Topics that cannot be fully populated are omitted.
+  [RuntimeFeature=kTopics]
+  GetTopics() => (array<Topic> topics);
+
+  // Returns the Topic identified by `id`, or null if there is no such topic or
+  // it cannot be fully populated (i.e. it would be omitted by `GetTopics()`).
+  [RuntimeFeature=kTopics]
+  GetTopic(string id) => (Topic? topic);
+
+  // Opens the specified topic (by topic ID or full URL) in a new tab.
+  [RuntimeFeature=kTopics]
+  OpenTopic(TopicIdOrUrl topic_id_or_url);
+
+  // Opens the Glic side panel bound to the tab hosting this page, offering
+  // `prompts` (capped to 3) as suggestion chips. If the panel is already
+  // showing for that tab, its suggestion chips are replaced with `prompts`
+  // without stealing focus. Safe to call on every page load. No-op if Glic is
+  // unavailable for the profile or if the page is not hosted in a tab.
+  [RuntimeFeature=kTopics]
+  OpenGlicPanel(array<string> prompts);
 };

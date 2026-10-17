@@ -829,6 +829,7 @@ class CORE_EXPORT WebFrameWidgetImpl
   bool WillBeDestroyed() const;
 
   bool IsScrollGestureActive() const;
+  cc::ElementId ScrollLatchedElementId() const;
 
   // Request the compositor thread to tell the GPU process to generate a
   // screenshot of the current viewport. The screenshot is tagged with `token`.
@@ -1234,6 +1235,9 @@ class CORE_EXPORT WebFrameWidgetImpl
   bool is_pinch_gesture_active_in_mainframe_ = false;
 
   bool is_scroll_gesture_active_ = false;
+  // ElementId of the container currently latched for a gesture scroll on the
+  // compositor thread, if any. Otherwise, ElementId().
+  cc::ElementId scroll_latched_element_id_;
 
   // If set, the (plugin) element which has mouse capture.
   Member<HTMLPlugInElement> mouse_capture_element_;
@@ -1299,8 +1303,10 @@ class CORE_EXPORT WebFrameWidgetImpl
 
   std::optional<gfx::Point> host_context_menu_location_;
 
-  // Indicates whether tab-initiated fullscreen was granted.
+  // Indicates whether tab-initiated fullscreen was granted, and the browser's
+  // count of how many times fullscreen has been granted.
   bool is_fullscreen_granted_ = false;
+  uint64_t fullscreen_grant_count_ = 0;
 
   // Indicates whether we need to consume scroll gestures to move cursor.
   bool swipe_to_move_cursor_activated_ = false;

@@ -11,10 +11,15 @@
 #include "base/check.h"
 #include "base/containers/span.h"
 #include "base/containers/to_vector.h"
+#include "base/functional/bind.h"
 #include "base/time/time.h"
-#include "components/autofill/core/browser/integrators/at_memory/memory_data_type_util.h"
+#include "components/autofill/core/browser/foundations/autofill_client.h"
+#include "components/autofill/core/browser/foundations/autofill_driver.h"
+#include "components/autofill/core/browser/foundations/autofill_manager.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/history/core/browser/history_service.h"
+#include "components/personal_context/core/personal_context_prefs.h"
+#include "components/prefs/pref_service.h"
 
 namespace autofill {
 
@@ -66,30 +71,50 @@ const Suggestion& GetSuggestionToStore(
   return accepted_suggestion;
 }
 
-// Returns true if `suggestion`'s `payload` contains sensitive
-// personal information (SPII).
-bool HasSpiiPayload(const Suggestion& suggestion) {
-  if (const Suggestion::AtMemoryPayload* payload =
-          std::get_if<Suggestion::AtMemoryPayload>(&suggestion.payload)) {
-    return IsSpiiMemoryDataType(payload->memory_data_type);
-  }
-  return false;
-}
-
-// Returns true if `suggestion` or any of its children contains sensitive
-// personal information (SPII).
-bool IsSpiiSuggestion(const Suggestion& suggestion) {
-  return HasSpiiPayload(suggestion) ||
-         std::ranges::any_of(suggestion.children, &HasSpiiPayload);
+// Returns true if `driver` belongs to the tab's *primary* main frame, i.e. the
+// main frame of the page that is currently presented to the user.
+//
+// In MPArch terminology, a frame is the primary main frame if it is
+// - a main frame: it has no parent frame (`GetParent() == nullptr`),
+// - outermost: its frame tree is not embedded in another page by a
+//   <fencedframe> or a GuestView (`!IsEmbedded()`), and
+// - primary: the page is displayed, i.e. it is neither prerendered nor in the
+//   back/forward cache (`IsActive()`).
+bool IsPrimaryMainFrame(AutofillDriver& driver) {
+  return driver.GetParent() == nullptr && !driver.IsEmbedded() &&
+         driver.IsActive();
 }
 
 }  // namespace
 
 AtMemoryPersistedStateManager::AtMemoryPersistedStateManager(
-    history::HistoryService* history_service) {
+    AutofillClient* client,
+    history::HistoryService* history_service,
+    base::RepeatingClosure on_reset_callback)
+    : on_reset_callback_(std::move(on_reset_callback)) {
+  CHECK(client);
   if (history_service) {
     history_service_observation_.Observe(history_service);
   }
+  if (PrefService* pref_service = client->GetPrefs()) {
+    pref_registrar_.Init(pref_service);
+    pref_registrar_.Add(
+        personal_context::prefs::
+            kPersonalContextInAutofillSettingsToggleStatus,
+        base::BindRepeating(&AtMemoryPersistedStateManager::OnPrefChanged,
+                            base::Unretained(this)));
+  }
+  if (signin::IdentityManager* identity_manager =
+          client->GetIdentityManager()) {
+    identity_manager_observation_.Observe(identity_manager);
+  }
+  if (personal_context::PersonalContextEligibilityService* eligibility_service =
+          client->GetPersonalContextEligibilityService()) {
+    eligibility_service_observation_.Observe(eligibility_service);
+  }
+  autofill_managers_observation_.Observe(
+      client, ScopedAutofillManagersObservation::InitializationPolicy::
+                  kObservePreexistingManagers);
 }
 
 AtMemoryPersistedStateManager::~AtMemoryPersistedStateManager() = default;
@@ -159,10 +184,8 @@ void AtMemoryPersistedStateManager::OnSuggestionAccepted(
     const auto it =
         std::ranges::find(previously_filled_suggestions_, suggestion_to_store,
                           &ExpiringSuggestion::suggestion);
-    const base::TimeDelta ttl = IsSpiiSuggestion(suggestion_to_store)
-                                    ? kSpiiTimeToLive
-                                    : kDefaultTimeToLive;
-    const base::TimeTicks expiration_time = base::TimeTicks::Now() + ttl;
+    const base::TimeTicks expiration_time =
+        base::TimeTicks::Now() + kDefaultTimeToLive;
 
     if (it != previously_filled_suggestions_.end()) {
       it->expiration_time = expiration_time;
@@ -205,10 +228,58 @@ void AtMemoryPersistedStateManager::HistoryServiceBeingDeleted(
   history_service_observation_.Reset();
 }
 
+void AtMemoryPersistedStateManager::OnEligibilityStateChanged(
+    personal_context::PersonalContextEligibilityState new_state) {
+  switch (new_state) {
+    case personal_context::PersonalContextEligibilityState::kEligible:
+      break;
+    case personal_context::PersonalContextEligibilityState::
+        kDisabledNotEligible:
+      Reset();
+      break;
+  }
+}
+
+void AtMemoryPersistedStateManager::OnPrimaryAccountChanged(
+    const signin::PrimaryAccountChangeEvent& event_details) {
+  if (event_details.GetEventTypeFor(signin::ConsentLevel::kSignin) !=
+      signin::PrimaryAccountChangeEvent::Type::kNone) {
+    Reset();
+  }
+}
+
+void AtMemoryPersistedStateManager::OnIdentityManagerShutdown(
+    signin::IdentityManager* identity_manager) {
+  identity_manager_observation_.Reset();
+}
+
+void AtMemoryPersistedStateManager::OnAutofillManagerStateChanged(
+    AutofillManager& manager,
+    AutofillManager::LifecycleState old_state,
+    AutofillManager::LifecycleState new_state) {
+  switch (new_state) {
+    case AutofillManager::LifecycleState::kInactive:
+    case AutofillManager::LifecycleState::kActive:
+      return;
+    case AutofillManager::LifecycleState::kPendingReset:
+    case AutofillManager::LifecycleState::kPendingDeletion:
+      break;
+  }
+  if (IsPrimaryMainFrame(manager.driver())) {
+    Reset();
+  }
+}
+
 void AtMemoryPersistedStateManager::Reset() {
   ResetSearchState();
   previously_filled_suggestions_.clear();
   previously_filled_suggestions_timer_.Stop();
+  // TODO(crbug.com/535486238): Consider cancelling ongoing queries directly in
+  // `PersonalContextService` / `AtMemoryQueryService` when enablement state
+  // changes. This would require adding cancellation functions to said services.
+  if (on_reset_callback_) {
+    on_reset_callback_.Run();
+  }
 }
 
 void AtMemoryPersistedStateManager::ResetSearchState() {
@@ -218,9 +289,19 @@ void AtMemoryPersistedStateManager::ResetSearchState() {
   search_state_.reset();
 }
 
+void AtMemoryPersistedStateManager::OnSearchStateTimerExpired() {
+  const bool has_suggestions =
+      search_state_ && !search_state_->suggestions.empty();
+  ResetSearchState();
+  if (has_suggestions && on_reset_callback_) {
+    on_reset_callback_.Run();
+  }
+}
+
 void AtMemoryPersistedStateManager::RestartSearchStateTimer() {
-  search_state_timer_.Start(FROM_HERE, kDefaultTimeToLive, this,
-                            &AtMemoryPersistedStateManager::ResetSearchState);
+  search_state_timer_.Start(
+      FROM_HERE, kDefaultTimeToLive, this,
+      &AtMemoryPersistedStateManager::OnSearchStateTimerExpired);
 }
 
 void AtMemoryPersistedStateManager::RestartPreviouslyFilledSuggestionsTimer() {
@@ -245,6 +326,14 @@ void AtMemoryPersistedStateManager::RemoveExpiredPreviouslyFilledSuggestions() {
                   return entry.expiration_time <= now;
                 });
   RestartPreviouslyFilledSuggestionsTimer();
+}
+
+void AtMemoryPersistedStateManager::OnPrefChanged() {
+  if (!pref_registrar_.prefs()->GetBoolean(
+          personal_context::prefs::
+              kPersonalContextInAutofillSettingsToggleStatus)) {
+    Reset();
+  }
 }
 
 }  // namespace autofill

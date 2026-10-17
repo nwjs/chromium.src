@@ -6,12 +6,14 @@
 
 #import "base/strings/sys_string_conversions.h"
 #import "ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h"
+#import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/gemini_commands.h"
 #import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_params.h"
+#import "net/base/apple/url_conversions.h"
 #import "url/gurl.h"
 
 @implementation GeminiLinkOpeningHandler {
@@ -45,6 +47,24 @@
 
 - (void)closePresentedViewsAndOpenURLInNewTab:(NSString*)URL {
   [self openURL:URL closePresentedViews:YES];
+}
+
+- (void)openImmersiveLearningCardURLInWebModal:(NSURL*)URL {
+  if (ShouldOpenGeminiQuizzesInNewTab()) {
+    [self openURLInNewTab:URL.absoluteString];
+    return;
+  }
+
+  GURL gurl = net::GURLWithNSURL(URL);
+  if (!gurl.is_valid()) {
+    return;
+  }
+
+  RecordURLOpened();
+  RecordGeminiImmersiveLearningCardWebModalOpened();
+  id<GeminiCommands> geminiHandler =
+      HandlerForProtocol(_dispatcher, GeminiCommands);
+  [geminiHandler showGeminiWebModalForURL:gurl];
 }
 
 - (void)openURL:(NSString*)URL closePresentedViews:(BOOL)closePresentedViews {

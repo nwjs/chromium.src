@@ -694,7 +694,7 @@ void RenderWidgetHostViewAura::ShowImpl(PageVisibilityState page_visibility) {
   // OnShowWithPageVisibility will not call NotifyHostAndDelegateOnWasShown,
   // which updates `visibility_`, unless the host is hidden. Make sure no update
   // is needed.
-  CHECK(host_->IsHidden() || visibility_ == Visibility::VISIBLE);
+  CHECK(host()->IsHidden() || visibility_ == Visibility::VISIBLE);
   OnShowWithPageVisibility(page_visibility);
 }
 
@@ -713,7 +713,7 @@ void RenderWidgetHostViewAura::NotifyHostAndDelegateOnWasShown(
     std::optional<blink::RecordContentToVisibleTimeRequest>
         tab_switch_start_state) {
   CHECK(delegated_frame_host_) << "Cannot be invoked during destruction.";
-  CHECK(host_->IsHidden());
+  CHECK(host()->IsHidden());
   CHECK_NE(visibility_, Visibility::VISIBLE);
 
   visibility_ = Visibility::VISIBLE;
@@ -802,7 +802,7 @@ void RenderWidgetHostViewAura::
     RequestSuccessfulPresentationTimeFromHostOrDelegate(
         blink::RecordContentToVisibleTimeRequest visible_time_request) {
   CHECK(delegated_frame_host_) << "Cannot be invoked during destruction.";
-  CHECK(!host_->IsHidden());
+  CHECK(!host()->IsHidden());
   CHECK_EQ(visibility_, Visibility::VISIBLE);
 
   // If the frame for the renderer is already available, then the tab-switching
@@ -823,7 +823,7 @@ void RenderWidgetHostViewAura::
 void RenderWidgetHostViewAura::
     CancelSuccessfulPresentationTimeRequestForHostAndDelegate() {
   CHECK(delegated_frame_host_) << "Cannot be invoked during destruction.";
-  CHECK(!host_->IsHidden());
+  CHECK(!host()->IsHidden());
   CHECK_EQ(visibility_, Visibility::VISIBLE);
 
   host()->CancelSuccessfulPresentationTimeRequest();
@@ -872,7 +872,7 @@ void RenderWidgetHostViewAura::UpdateBackgroundColor() {
 
   SkColor4f background_color =
       SkColor4f::FromColor(GetBackgroundColor().value());
-  window_->layer()->SetFillsBoundsOpaquely(background_color.isOpaque());
+  window_->SetTransparent(!background_color.isOpaque());
   window_->layer()->AsSurface()->SetFallbackBackgroundColor(background_color);
 }
 
@@ -1157,6 +1157,28 @@ void RenderWidgetHostViewAura::UpdateTooltip(
 void RenderWidgetHostViewAura::UpdateTooltipFromKeyboard(
     const std::u16string& tooltip_text,
     const gfx::Rect& bounds) {
+  if (!window_) {
+    return;
+  }
+
+  if (tooltip_text.empty()) {
+    ClearKeyboardTriggeredTooltip();
+    return;
+  }
+
+  gfx::Rect visible_bounds = bounds;
+  gfx::Size view_size = GetVisibleViewportSize();
+  if (view_size.IsEmpty()) {
+    view_size = window_->bounds().size();
+  }
+  if (!view_size.IsEmpty()) {
+    visible_bounds.Intersect(gfx::Rect(view_size));
+  }
+  if (visible_bounds.IsEmpty()) {
+    ClearKeyboardTriggeredTooltip();
+    return;
+  }
+
   SetTooltipText(tooltip_text);
 
   wm::TooltipClient* tooltip_client =
@@ -1164,7 +1186,7 @@ void RenderWidgetHostViewAura::UpdateTooltipFromKeyboard(
   if (tooltip_client) {
     // Content tooltips should be visible indefinitely.
     tooltip_client->SetHideTooltipTimeout(window_, {});
-    tooltip_client->UpdateTooltipFromKeyboard(bounds, window_);
+    tooltip_client->UpdateTooltipFromKeyboard(visible_bounds, window_);
   }
 }
 
@@ -1174,11 +1196,14 @@ void RenderWidgetHostViewAura::ClearKeyboardTriggeredTooltip() {
 
   wm::TooltipClient* tooltip_client =
       wm::GetTooltipClient(window_->GetRootWindow());
-  if (!tooltip_client || !tooltip_client->IsTooltipSetFromKeyboard(window_))
+  if (tooltip_client && !tooltip_client->IsTooltipSetFromKeyboard(window_)) {
     return;
+  }
 
   SetTooltipText(std::u16string());
-  tooltip_client->UpdateTooltipFromKeyboard(gfx::Rect(), window_);
+  if (tooltip_client) {
+    tooltip_client->UpdateTooltipFromKeyboard(gfx::Rect(), window_);
+  }
 }
 
 void RenderWidgetHostViewAura::CopyFromSurface(
@@ -1446,13 +1471,11 @@ void RenderWidgetHostViewAura::ProcessAckedTouchEvent(
         return;
       }
       if (touch.event.touch_start_or_first_touch_move &&
-          result == ui::ER_HANDLED && host()->delegate() &&
-          host()->delegate()->GetInputEventRouter()) {
-        host()
-            ->delegate()
-            ->GetInputEventRouter()
-            ->OnHandledTouchStartOrFirstTouchMove(
-                touch.event.unique_touch_event_id);
+          result == ui::ER_HANDLED && host()) {
+        if (auto* router = host()->GetInputEventRouter()) {
+          router->OnHandledTouchStartOrFirstTouchMove(
+              touch.event.unique_touch_event_id);
+        }
       }
       sent_ack = true;
     }
@@ -1761,14 +1784,18 @@ gfx::Rect RenderWidgetHostViewAura::GetCaretBounds() const {
   // Check selection bound first (currently populated only for EditContext)
   const std::optional<gfx::Rect> text_selection_bound =
       text_input_manager_->GetTextSelectionBounds();
-  if (text_selection_bound)
-    return ConvertRectToScreen(text_selection_bound.value());
+  if (text_selection_bound) {
+    gfx::Rect caret_rect = ConvertRectToScreen(text_selection_bound.value());
+    caret_rect.AdjustToFit(window_->GetBoundsInScreen());
+    return caret_rect;
+  }
 
   // If no selection bound, we fall back to use selection region.
   const TextInputManager::SelectionRegion* region =
       text_input_manager_->GetSelectionRegion();
   gfx::Rect caret_rect = ConvertRectToScreen(
       gfx::RectBetweenSelectionBounds(region->anchor, region->focus));
+  caret_rect.AdjustToFit(window_->GetBoundsInScreen());
   TRACE_EVENT1("ime", "RenderWidgetHostViewAura::GetCaretBounds", "caret_rect",
                caret_rect.ToString());
   return caret_rect;
@@ -1905,6 +1932,7 @@ bool RenderWidgetHostViewAura::GetCompositionCharacterBounds(
   if (index >= composition_range_info->character_bounds.size())
     return false;
   *rect = ConvertRectToScreen(composition_range_info->character_bounds[index]);
+  rect->AdjustToFit(window_->GetBoundsInScreen());
   TRACE_EVENT1("ime", "RenderWidgetHostViewAura::GetCompositionCharacterBounds",
                "comp_char_rect", rect->ToString());
   return true;
@@ -2129,16 +2157,20 @@ gfx::Range RenderWidgetHostViewAura::GetAutocorrectRange() const {
 }
 
 gfx::Rect RenderWidgetHostViewAura::GetAutocorrectCharacterBounds() const {
-  if (!text_input_manager_ || !text_input_manager_->GetActiveWidget())
+  if (!text_input_manager_ || !text_input_manager_->GetActiveWidget()) {
     return gfx::Rect();
+  }
 
   const std::vector<ui::mojom::ImeTextSpanInfoPtr>& ime_text_spans_info =
       text_input_manager_->GetTextInputState()->ime_text_spans_info;
 
   // If there are multiple autocorrect spans, use the first one.
   for (const auto& ime_text_span_info : ime_text_spans_info) {
-    if (ime_text_span_info->span.type == ui::ImeTextSpan::Type::kAutocorrect) {
-      return ConvertRectToScreen(ime_text_span_info->bounds);
+    if (ime_text_span_info->span.type == ui::ImeTextSpan::Type::kAutocorrect &&
+        !ime_text_span_info->bounds.IsEmpty()) {
+      gfx::Rect rect = ConvertRectToScreen(ime_text_span_info->bounds);
+      rect.AdjustToFit(window_->GetBoundsInScreen());
+      return rect;
     }
   }
   return {};
@@ -3087,7 +3119,7 @@ void RenderWidgetHostViewAura::CreateAuraWindow(aura::client::WindowType type) {
   window_->Init(ui::LAYER_SURFACE);
   SkColor4f background_color = SkColor4f::FromColor(
       GetBackgroundColor() ? *GetBackgroundColor() : SK_ColorWHITE);
-  window_->layer()->SetFillsBoundsOpaquely(background_color.isOpaque());
+  window_->SetTransparent(!background_color.isOpaque());
   window_->layer()->AsSurface()->SetFallbackBackgroundColor(background_color);
   UpdateFrameSinkIdRegistration();
 }
@@ -3630,7 +3662,17 @@ void RenderWidgetHostViewAura::OnUpdateTextInputStateCalled(
     return true;
   };
 
-  if (did_update_state) {
+  const bool is_active_view =
+      text_input_manager->GetActiveWidget() &&
+      text_input_manager->GetActiveWidget()->GetView() == updated_view;
+  const bool is_focused_view =
+      text_input_manager->IsViewFocused(updated_view);
+
+  const ui::TextInputType current_type = GetTextInputType();
+  if (did_update_state &&
+      (is_active_view || is_focused_view ||
+       current_type != last_text_input_type_)) {
+    last_text_input_type_ = current_type;
     GetInputMethod()->OnTextInputTypeChanged(this);
     if (!check_alive()) {
       return;
@@ -3641,7 +3683,7 @@ void RenderWidgetHostViewAura::OnUpdateTextInputStateCalled(
       text_input_manager_->GetTextInputState();
 
 #if BUILDFLAG(IS_CHROMEOS)
-  if (state && state->type != ui::TEXT_INPUT_TYPE_NONE) {
+  if (is_active_view && state && state->type != ui::TEXT_INPUT_TYPE_NONE) {
     if (state->last_vk_visibility_request ==
         ui::mojom::VirtualKeyboardVisibilityRequest::SHOW) {
       GetInputMethod()->SetVirtualKeyboardVisibilityIfEnabled(true);
@@ -3659,7 +3701,7 @@ void RenderWidgetHostViewAura::OnUpdateTextInputStateCalled(
 #endif
 
   // Show the virtual keyboard if needed.
-  if (state && state->type != ui::TEXT_INPUT_TYPE_NONE &&
+  if (is_active_view && state && state->type != ui::TEXT_INPUT_TYPE_NONE &&
       state->mode != ui::TEXT_INPUT_MODE_NONE) {
 #if !BUILDFLAG(IS_WIN)
     if (state->show_ime_if_needed &&
@@ -3693,7 +3735,7 @@ void RenderWidgetHostViewAura::OnUpdateTextInputStateCalled(
   }
 
   // Ensure that selection bounds changes are sent to the IME.
-  if (state && state->type != ui::TEXT_INPUT_TYPE_NONE) {
+  if (state && state->type != ui::TEXT_INPUT_TYPE_NONE && is_active_view) {
     text_input_manager->NotifySelectionBoundsChanged(updated_view);
     if (!check_alive()) {
       return;
@@ -3707,7 +3749,7 @@ void RenderWidgetHostViewAura::OnUpdateTextInputStateCalled(
     // Monitor the composition information if there is a focused editable node.
     render_widget_host->RequestCompositionUpdates(
         false /* immediate_request */,
-        state &&
+        is_active_view && state &&
             (state->type != ui::TEXT_INPUT_TYPE_NONE) /* monitor_updates */);
   }
 }

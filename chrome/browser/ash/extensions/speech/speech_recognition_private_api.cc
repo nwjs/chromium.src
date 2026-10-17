@@ -10,7 +10,7 @@
 #include "chrome/browser/ash/extensions/speech/speech_recognition_private_manager.h"
 #include "chrome/browser/ash/extensions/speech/speech_recognition_private_manager_factory.h"
 #include "chrome/browser/speech/speech_recognition_constants.h"
-#include "chromeos/ash/experiences/extensions/api/speech_recognition_private.h"
+#include "chromeos/ash/experiences/extensions/common/api/speech_recognition_private.h"
 #include "content/public/browser/browser_context.h"
 
 namespace extensions {
@@ -22,7 +22,7 @@ ExtensionFunction::ResponseAction SpeechRecognitionPrivateStartFunction::Run() {
   EXTENSION_FUNCTION_VALIDATE(params);
   const api::speech_recognition_private::StartOptions* options =
       &params->options;
-  DCHECK(options);
+  CHECK(options, base::NotFatalUntil::M160);
   std::optional<int> client_id;
   std::optional<std::string> locale;
   std::optional<bool> interim_results;
@@ -63,7 +63,7 @@ ExtensionFunction::ResponseAction SpeechRecognitionPrivateStopFunction::Run() {
   EXTENSION_FUNCTION_VALIDATE(params);
   const api::speech_recognition_private::StopOptions* options =
       &params->options;
-  DCHECK(options);
+  CHECK(options, base::NotFatalUntil::M160);
   std::optional<int> client_id;
   if (options->client_id)
     client_id = *options->client_id;

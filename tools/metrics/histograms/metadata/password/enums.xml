@@ -297,9 +297,10 @@ chromium-metrics-reviews@google.com.
   <int value="13" label="Passkey from a security key"/>
   <int value="14" label="Passkey hybrid or security key"/>
   <int value="15" label="Passkey unknown source"/>
+  <int value="16" label="Passkey stored in GPM facilitated through iOS UI"/>
 </enum>
 
-<!-- LINT.ThenChange(//components/password_manager/core/browser/password_manager_metrics_util.h:BrowserAssistedLoginType) -->
+<!-- LINT.ThenChange(//components/password_manager/core/common/browser_assisted_login_type.h:BrowserAssistedLoginType) -->
 
 <enum name="ChangePasswordFormFinderError">
   <int value="0" label="Failed to capture page content"/>
@@ -720,11 +721,25 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//components/password_manager/core/browser/ode/on_device_encryption_data_type_specific_metrics_reporter.h:OnDeviceEncryptionStateHistogramBucket) -->
 
+<!-- LINT.IfChange(PasskeysMigrationStatus) -->
+
 <enum name="PasskeysMigrationStatus">
   <int value="0" label="Passkey created"/>
   <int value="1" label="Passkey updated"/>
   <int value="2" label="Invalid passkey"/>
 </enum>
+
+<!-- LINT.ThenChange(//ios/chrome/browser/credential_provider/model/credential_provider_migrator.h:PasskeysMigrationStatus) -->
+
+<!-- LINT.IfChange(PasskeysSignalMigrationAction) -->
+
+<enum name="PasskeysSignalMigrationAction">
+  <int value="0" label="Passkey hidden"/>
+  <int value="1" label="Passkey restored"/>
+  <int value="2" label="Passkey details updated"/>
+</enum>
+
+<!-- LINT.ThenChange(//ios/chrome/browser/credential_provider/model/credential_provider_migrator.h:PasskeysSignalMigrationAction) -->
 
 <enum name="PasswordAddLoginSyncError">
   <int value="0" label="None"/>
@@ -1884,6 +1899,7 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="Sharing service unavailable"/>
   <int value="8" label="Sharing failed"/>
   <int value="9" label="Request already in progress"/>
+  <int value="10" label="Blocked by policy"/>
 </enum>
 
 <!-- LINT.ThenChange(/chrome/browser/password_manager/remote_actor/remote_actor_credential_sharing_impl.h:RemoteActorCredentialSharingResult) -->

@@ -6,8 +6,10 @@
 
 #include <windows.h>
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <algorithm>
-#include <cstdint>
 #include <string>
 
 #include "base/compiler_specific.h"

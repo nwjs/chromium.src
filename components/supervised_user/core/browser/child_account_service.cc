@@ -55,11 +55,7 @@ ChildAccountService::ChildAccountService(
   OnSupervisionStatusChanged();
 
   identity_manager_observer_.Observe(identity_manager);
-}
 
-ChildAccountService::~ChildAccountService() = default;
-
-void ChildAccountService::Init() {
   std::move(check_user_child_status_callback_)
       .Run(supervised_user::IsSubjectToParentalControls(user_prefs_.get()));
 
@@ -71,9 +67,10 @@ void ChildAccountService::Init() {
 
   if (!primary_account_info.IsEmpty()) {
     OnExtendedAccountInfoUpdated(primary_account_info);
-    UpdateForceGoogleSafeSearch();
   }
 }
+
+ChildAccountService::~ChildAccountService() = default;
 
 void ChildAccountService::Shutdown() {
   identity_manager_observer_.Reset();

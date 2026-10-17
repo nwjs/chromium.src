@@ -3,12 +3,11 @@
 // found in the LICENSE file.
 
 // clang-format off
-import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
-import type {SettingsPaymentsPageElement, SettingsCreditCardListEntryElement, SettingsIbanListEntryElement} from 'chrome://settings/lazy_load.js';
+import type {SettingsPaymentsPageElement, SettingsCreditCardListEntryElement, SettingsIbanListEntryElement, SettingsPaymentsListElement} from 'chrome://settings/lazy_load.js';
 import {PaymentsManagerImpl} from 'chrome://settings/lazy_load.js';
+import {PrefsBrowserProxy, PrefService} from 'chrome://settings/settings.js';
 import {assertEquals, assertFalse, assertTrue, assertLT} from 'chrome://webui-test/chai_assert.js';
-import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
-import {eventToPromise, whenAttributeIs} from 'chrome://webui-test/test_util.js';
+import {eventToPromise, microtasksFinished, whenAttributeIs} from 'chrome://webui-test/test_util.js';
 // <if expr="is_win or is_macosx">
 import {loadTimeData} from 'chrome://settings/settings.js';
 
@@ -16,8 +15,76 @@ import {loadTimeData} from 'chrome://settings/settings.js';
 
 import {PaymentsManagerExpectations, TestPaymentsManager} from './autofill_fake_data.js';
 import type {TestMetricsBrowserProxy} from './test_metrics_browser_proxy.js';
+import {TestPrefsBrowserProxy} from './test_prefs_browser_proxy.js';
 
 // clang-format on
+
+export function getPaymentsPrefs(
+    prefValues:
+        Record<string, Partial<chrome.settingsPrivate.PrefObject>> = {}):
+    chrome.settingsPrivate.PrefObject[] {
+  return [
+    {
+      key: 'autofill.credit_card_enabled',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: true,
+      ...prefValues['credit_card_enabled'],
+    },
+    {
+      key: 'autofill.types_blocked',
+      type: chrome.settingsPrivate.PrefType.LIST,
+      value: [],
+      ...prefValues['types_blocked'],
+    },
+    {
+      key: 'autofill.payment_methods_mandatory_reauth',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: false,
+      ...prefValues['payment_methods_mandatory_reauth'],
+    },
+    {
+      key: 'autofill.payment_cvc_storage',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: true,
+      ...prefValues['payment_cvc_storage'],
+    },
+    {
+      key: 'autofill.payment_card_benefits',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: true,
+      ...prefValues['payment_card_benefits'],
+    },
+    {
+      key: 'autofill.bnpl_enabled',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: true,
+      ...prefValues['bnpl_enabled'],
+    },
+    {
+      key: 'payments.can_make_payment_enabled',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: true,
+      ...prefValues['can_make_payment_enabled'],
+    },
+    {
+      key: 'signin.allowed_on_next_startup',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: true,
+    },
+  ];
+}
+
+export async function setupPaymentsPrefs(
+    prefValues:
+        Record<string, Partial<chrome.settingsPrivate.PrefObject>> = {}):
+    Promise<TestPrefsBrowserProxy> {
+  const prefsBrowserProxy =
+      new TestPrefsBrowserProxy(getPaymentsPrefs(prefValues));
+  PrefsBrowserProxy.setInstance(prefsBrowserProxy);
+  PrefService.resetInstanceForTesting();
+  await PrefService.getInstance().whenInitialized();
+  return prefsBrowserProxy;
+}
 
 /**
  * Creates the payments autofill page for the given list.
@@ -27,7 +94,9 @@ export async function createPaymentsPage(
     creditCards: chrome.autofillPrivate.CreditCardEntry[],
     ibans: chrome.autofillPrivate.IbanEntry[],
     payOverTimeIssuers: chrome.autofillPrivate.PayOverTimeIssuerEntry[],
-    prefValues: unknown): Promise<SettingsPaymentsPageElement> {
+    prefValues:
+        Record<string, Partial<chrome.settingsPrivate.PrefObject>> = {}):
+    Promise<SettingsPaymentsPageElement> {
   // Override the PaymentsManagerImpl for testing.
   const paymentsManager = new TestPaymentsManager();
   paymentsManager.data.creditCards = creditCards;
@@ -39,22 +108,11 @@ export async function createPaymentsPage(
   // </if>
   PaymentsManagerImpl.setInstance(paymentsManager);
 
+  await setupPaymentsPrefs(prefValues);
+
   const page = document.createElement('settings-payments-page');
-  page.prefs = {
-    autofill: {
-      credit_card_enabled: {
-        type: chrome.settingsPrivate.PrefType.BOOLEAN,
-        value: true,
-      },
-      types_blocked: {
-        type: chrome.settingsPrivate.PrefType.LIST,
-        value: [],
-      },
-      ...(prefValues as Record<string, unknown>),
-    },
-  };
   document.body.appendChild(page);
-  await flushTasks();
+  await microtasksFinished();
 
   return page;
 }
@@ -85,20 +143,21 @@ export function getDefaultExpectations(): PaymentsManagerExpectations {
  * Returns an array containing the local and server credit card items.
  */
 export function getLocalAndServerCreditCardListItems() {
-  return document.body.querySelector('settings-payments-page')!.shadowRoot!
-      .querySelector('#paymentsList')!.shadowRoot!.querySelectorAll(
+  return document.body.querySelector('settings-payments-page')!.shadowRoot
+      .querySelector('settings-payments-list')!.shadowRoot.querySelectorAll(
           'settings-credit-card-list-entry');
 }
 
 /**
- * Returns the shadow root of the card row from the specified list of
- * payment methods.
+ * Returns the first credit card row from the specified list of payment methods.
  */
-export function getCardRowShadowRoot(paymentsList: HTMLElement): ShadowRoot {
+export function getFirstCreditCardEntry(
+    paymentsList: SettingsPaymentsListElement):
+    SettingsCreditCardListEntryElement {
   const row =
-      paymentsList.shadowRoot!.querySelector('settings-credit-card-list-entry');
+      paymentsList.shadowRoot.querySelector('settings-credit-card-list-entry');
   assertTrue(!!row);
-  return row.shadowRoot!;
+  return row;
 }
 
 type PaymentEntryElement =
@@ -139,18 +198,18 @@ async function executeUiManipulationsToDeletePaymentMethod(
   const entry = getPaymentMethodEntry(page, id);
   assertTrue(!!entry.dotsMenu);
   entry.dotsMenu.click();
-  flush();
+  await microtasksFinished();
 
   // Click the Delete button:
   const deleteButton =
-      page.shadowRoot!.querySelector<HTMLButtonElement>(deleteButtonSelector);
+      page.shadowRoot.querySelector<HTMLButtonElement>(deleteButtonSelector);
   assertTrue(!!deleteButton);
   deleteButton.click();
-  flush();
+  await microtasksFinished();
 
   // Confirm the deletion in the dialog:
   const confirmationDialog =
-      page.shadowRoot!.querySelector('settings-simple-confirmation-dialog');
+      page.shadowRoot.querySelector('settings-simple-confirmation-dialog');
   assertTrue(!!confirmationDialog);
   await whenAttributeIs(confirmationDialog.$.dialog, 'open', '');
   const closePromise = eventToPromise('close', confirmationDialog.$.dialog);
@@ -185,7 +244,7 @@ export async function deletePaymentMethod(
       ([], manager.data.creditCards, manager.data.ibans,
        manager.data.payOverTimeIssuers);
 
-  await flushTasks();
+  await microtasksFinished();
 }
 
 /**

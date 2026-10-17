@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "base/memory/raw_ptr.h"
+#include "base/test/scoped_feature_list.h"
 #include "chrome/browser/ui/autofill/payments/offer_notification_bubble_controller_impl.h"
 #include "chrome/browser/ui/views/autofill/payments/offer_notification_bubble_views.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -82,6 +83,9 @@ class OfferNotificationBubbleViewsTestBase
   std::unique_ptr<AutofillOfferData> CreateGPayPromoCodeOfferDataWithDomains(
       const std::vector<GURL>& domains);
 
+  std::unique_ptr<AutofillOfferData> CreateWalletDirectOfferDataWithDomains(
+      const std::vector<GURL>& domains);
+
   void SetUpOfferDataWithDomains(AutofillOfferData::OfferType offer_type,
                                  const std::vector<GURL>& domains);
 
@@ -89,6 +93,8 @@ class OfferNotificationBubbleViewsTestBase
   void SetUpCardLinkedOfferDataWithDomains(const std::vector<GURL>& domains);
 
   void SetUpGPayPromoCodeOfferDataWithDomains(const std::vector<GURL>& domains);
+
+  void SetUpWalletDirectOfferDataWithDomains(const std::vector<GURL>& domains);
 
   TestAutofillManager* GetAutofillManager();
 
@@ -136,8 +142,13 @@ class OfferNotificationBubbleViewsTestBase
   // data.
   std::string GetDefaultTestUsageInstructionsText() const;
 
-  // Returns the offer details url string used for the default GPay promo code.
+  // Returns the offer details url string used for the default GPay promo code
+  // and Wallet direct offer data.
   std::string GetDefaultTestDetailsUrlString() const;
+
+  // Returns the offer short title used for the default Wallet direct offer
+  // data, which is shown as the title of the offer notification bubble.
+  std::string GetDefaultTestOfferShortTitle() const;
 
  private:
   test::AutofillBrowserTestEnvironment autofill_test_environment_;
@@ -146,6 +157,7 @@ class OfferNotificationBubbleViewsTestBase
   std::unique_ptr<EventWaiter<DialogEvent>> event_waiter_;
   net::EmbeddedTestServer https_server_;
   content::ContentMockCertVerifier cert_verifier_;
+  base::test::ScopedFeatureList feature_list_;
 };
 
 }  // namespace autofill

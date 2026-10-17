@@ -1980,7 +1980,9 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
   _menuState->UpdateCommandEnabled(IDC_HELP_PAGE_VIA_MENU, true);
   _menuState->UpdateCommandEnabled(IDC_IMPORT_SETTINGS, true);
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  _menuState->UpdateCommandEnabled(IDC_FEEDBACK, true);
+  _menuState->UpdateCommandEnabled(
+      IDC_FEEDBACK,
+      !base::FeatureList::IsEnabled(features::kFeedbackDisabledDialog));
 #endif
   _menuState->UpdateCommandEnabled(IDC_TASK_MANAGER_MAIN_MENU, true);
   _menuState->UpdateCommandEnabled(IDC_EXIT, true);
@@ -2201,11 +2203,8 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
     return dockMenu;
   }
 
-  bool isolated_mode_enabled =
-      enterprise_isolated_mode::IsolatedModeReplacesIncognito(profile);
-
-  if (IncognitoModePrefs::GetAvailability(profile->GetPrefs()) !=
-      policy::IncognitoModeAvailability::kDisabled) {
+  if (IncognitoModePrefs::GetIncognitoModeType(profile) ==
+      IncognitoModePrefs::IncognitoModeType::kStandard) {
     titleStr = l10n_util::GetNSStringWithFixup(IDS_NEW_INCOGNITO_WINDOW_MAC);
     item = [[NSMenuItem alloc] initWithTitle:titleStr
                                       action:@selector(commandFromDock:)
@@ -2216,7 +2215,8 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
     [dockMenu addItem:item];
   }
 
-  if (isolated_mode_enabled) {
+  if (IncognitoModePrefs::GetIncognitoModeType(profile) ==
+      IncognitoModePrefs::IncognitoModeType::kEnterprise) {
     titleStr = l10n_util::GetNSStringWithFixup(IDS_NEW_ISOLATED_WINDOW_MAC);
     item = [[NSMenuItem alloc] initWithTitle:titleStr
                                       action:@selector(commandFromDock:)
@@ -2655,12 +2655,18 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
 
 - (void)setLastProfileForTesting:(Profile*)profile {
   _lastProfile = profile;
+  if (!profile) {
+    _lastActiveBrowser.reset();
+    return;
+  }
   ProfileBrowserCollection* collection =
       ProfileBrowserCollection::GetForProfile(profile);
   if (!collection) {
+    _lastActiveBrowser.reset();
     return;
   }
-  _lastActiveBrowser = collection->GetLastActiveBrowser()->GetWeakPtr();
+  BrowserWindowInterface* browser = collection->GetLastActiveBrowser();
+  _lastActiveBrowser = browser ? browser->GetWeakPtr() : nullptr;
 }
 
 @end  // @implementation AppController

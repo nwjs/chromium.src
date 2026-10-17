@@ -17,6 +17,8 @@ interface MathService {
     Add(uint32 a, uint32 b) => (uint32 ret);
     // So many different sizes! I guess we don't have to worry about overflow.
     AddTwoInts(TwoInts ns) => (uint32 ret);
+    DoNothing();
+    DoNothingWithAck() => ();
 };
 
 interface HandleService {
@@ -36,8 +38,11 @@ interface AssociatedSender {
     // Sends one end of a pipe to be held (and bound) by the receiver
     SendRemote(pending_associated_remote<MathService> remote);
     SendReceiver(pending_associated_receiver<MathService> receiver);
+    SendHandleReceiver(pending_associated_receiver<HandleService> receiver);
+    SendAssociatedSender(pending_associated_receiver<AssociatedSender> receiver);
     // Requests that the receiver create a pipe, hold/bind one end, and send the other to us
     RequestRemote() => (pending_associated_remote<MathService> remote);
     RequestReceiver() => (pending_associated_receiver<MathService> receiver);
+    RequestHandleRemote() => (pending_associated_remote<HandleService> remote);
     ClearActiveEndpoints();
 };

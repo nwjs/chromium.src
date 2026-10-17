@@ -128,7 +128,7 @@ ChildProcessLauncher::ChildProcessLauncher(
       terminate_child_on_shutdown_(true)
 #endif
 {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
   TRACE_EVENT_BEGIN("startup", "ChildProcessLauncher",
                     CreateTracingTrackUnderChildProcess(
                         child_process_id, "ChildProcessLauncher"));
@@ -151,7 +151,7 @@ ChildProcessLauncher::ChildProcessLauncher(
 }
 
 ChildProcessLauncher::~ChildProcessLauncher() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
   if (process_.process.IsValid() && terminate_child_on_shutdown_) {
     // Client has gone away, so just kill the process.
     ChildProcessLauncherHelper::ForceNormalProcessTerminationAsync(
@@ -162,18 +162,17 @@ ChildProcessLauncher::~ChildProcessLauncher() {
 #if BUILDFLAG(IS_ANDROID)
 void ChildProcessLauncher::SetRenderProcessPriority(
     const RenderProcessPriority& priority) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  base::Process to_pass = process_.process.Duplicate();
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
   GetProcessLauncherTaskRunner()->PostTask(
       FROM_HERE,
       base::BindOnce(
           &ChildProcessLauncherHelper::SetRenderProcessPriorityOnLauncherThread,
-          helper_, std::move(to_pass), priority, base::TimeTicks::Now()));
+          helper_, priority, base::TimeTicks::Now()));
 }
 #else   // !BUILDFLAG(IS_ANDROID)
 void ChildProcessLauncher::SetProcessPriority(
     base::Process::Priority priority) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
 
   if (priority == priority_) {
     return;
@@ -188,7 +187,7 @@ void ChildProcessLauncher::Notify(ChildProcessLauncherHelper::Process process,
                                   DWORD last_error,
 #endif
                                   int error_code) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
   // Corresponds to the TRACE_EVENT_BEGIN in ChildProcessLauncher.
   TRACE_EVENT_END("startup",
                   CreateTracingTrackUnderChildProcess(
@@ -252,29 +251,28 @@ void ChildProcessLauncher::OnReceivedTaskPort(
 void ChildProcessLauncher::SetProcessPriorityImpl(
     base::Process::Priority priority) {
   priority_ = priority;
-  base::Process to_pass = process_.process.Duplicate();
   GetProcessLauncherTaskRunner()->PostTask(
       FROM_HERE,
       base::BindOnce(
           &ChildProcessLauncherHelper::SetProcessPriorityOnLauncherThread,
-          helper_, std::move(to_pass), priority));
+          helper_, priority));
 }
 #endif
 
 bool ChildProcessLauncher::IsStarting() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
   return starting_;
 }
 
 const base::Process& ChildProcessLauncher::GetProcess() const {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  DCHECK(!starting_);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
+  CHECK(!starting_, base::NotFatalUntil::M160);
   return process_.process;
 }
 
 ChildProcessTerminationInfo ChildProcessLauncher::GetChildTerminationInfo(
     bool known_dead) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
 
   if (!process_.process.IsValid()) {
     // Make sure to avoid using the default termination status if the process
@@ -309,6 +307,13 @@ ChildProcessTerminationInfo ChildProcessLauncher::GetChildTerminationInfo(
   // close the handle here.
   if (termination_info_.status != base::TERMINATION_STATUS_STILL_RUNNING) {
     process_.process.Close();
+    // Release the launcher thread's copy of the handle as well, so that it
+    // doesn't keep the process object alive now that the child has exited.
+    GetProcessLauncherTaskRunner()->PostTask(
+        FROM_HERE,
+        base::BindOnce(
+            &ChildProcessLauncherHelper::CloseProcessOnLauncherThread,
+            helper_));
   }
 
   return termination_info_;
@@ -333,10 +338,9 @@ ChildProcessLauncher::GetEffectiveChildBindingState() {
 }
 
 void ChildProcessLauncher::DumpProcessStack() {
-  base::Process to_pass = process_.process.Duplicate();
   GetProcessLauncherTaskRunner()->PostTask(
-      FROM_HERE, base::BindOnce(&ChildProcessLauncherHelper::DumpProcessStack,
-                                helper_, std::move(to_pass)));
+      FROM_HERE,
+      base::BindOnce(&ChildProcessLauncherHelper::DumpProcessStack, helper_));
 }
 
 void ChildProcessLauncher::OnSpareRendererPriorityGraduated(bool is_alive) {

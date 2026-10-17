@@ -2,7 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//build/config/android/config.gni")
 import("//build/config/arm.gni")
 import("//build/config/linux/pkg_config.gni")
 import("//build/config/ozone.gni")
@@ -184,6 +183,7 @@ source_set("base") {
     "device_enumeration_outcome.h",
     "djb2.cc",
     "djb2.h",
+    "eme_constants.cc",
     "eme_constants.h",
     "encoder_status.cc",
     "encoder_status.h",
@@ -203,8 +203,6 @@ source_set("base") {
     "frame_rate_estimator.h",
     "hdr_metadata_reordering_map.cc",
     "hdr_metadata_reordering_map.h",
-    "hdr_metadata_track.cc",
-    "hdr_metadata_track.h",
     "interval_map.h",
     "key_system_capability.cc",
     "key_system_capability.h",
@@ -270,6 +268,8 @@ source_set("base") {
     "media_util.h",
     "memory_dump_provider_proxy.cc",
     "memory_dump_provider_proxy.h",
+    "metadata_track.cc",
+    "metadata_track.h",
     "mime_util.cc",
     "mime_util.h",
     "mime_util_internal.cc",
@@ -555,7 +555,7 @@ static_library("test_support") {
     "//media/base/android:test_support",
     "//media/filters:test_support",
     "//media/formats:test_support",
-    "//media/renderers:test_support",
+    "//media/gfx:test_support",
     "//media/video:test_support",
   ]
   testonly = true
@@ -659,13 +659,13 @@ source_set("unit_tests") {
     "frame_buffer_pool_unittest.cc",
     "frame_rate_estimator_unittest.cc",
     "hdr_metadata_reordering_map_unittest.cc",
-    "hdr_metadata_track_unittest.cc",
     "interval_map_unittest.cc",
     "key_system_names_unittest.cc",
     "key_systems_unittest.cc",
     "limiting_audio_queue_unittest.cc",
     "media_log_unittest.cc",
     "media_serializers_unittest.cc",
+    "metadata_track_unittest.cc",
     "mime_util_unittest.cc",
     "multi_channel_resampler_unittest.cc",
     "null_video_sink_unittest.cc",

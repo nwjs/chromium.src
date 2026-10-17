@@ -72,6 +72,19 @@ PermissionSetting GetPermissionSettingForSubscription(
       NOTREACHED();
   }
 }
+
+// Returns an embedder-provided permission override if one applies to the given
+// `render_frame_host` and `requesting_origin` (e.g. for PrivilegedWebContents).
+std::optional<content::PermissionResult> GetPermissionResultOverride(
+    content::RenderFrameHost* render_frame_host,
+    const GURL& requesting_origin,
+    ContentSettingsType permission) {
+  if (!render_frame_host) {
+    return std::nullopt;
+  }
+  return PermissionsClient::Get()->GetPermissionResultOverride(
+      render_frame_host, requesting_origin, permission);
+}
 }  // anonymous namespace
 
 class PermissionManager::PendingRequest {
@@ -272,6 +285,14 @@ void PermissionManager::RequestPermissionsInternal(
 
     auto response_callback = std::make_unique<PermissionResponseCallback>(
         weak_factory_.GetWeakPtr(), request_local_id, i);
+
+    if (auto override_result = GetPermissionResultOverride(
+            render_frame_host, request_description.requesting_origin,
+            permission)) {
+      response_callback->OnPermissionsRequestResponse(*override_result);
+      continue;
+    }
+
     PermissionContextBase* context = GetPermissionContext(permission);
     if (!context || PermissionUtil::IsPermissionBlockedInPartition(
                         permission, request_description.requesting_origin,
@@ -631,7 +652,17 @@ void PermissionManager::OnPermissionChanged(
   DCHECK(primary_pattern.IsValid());
   DCHECK(secondary_pattern.IsValid());
 
-  std::vector<base::OnceClosure> callbacks;
+  // Callbacks are collected first and run only after both loops below, to
+  // prevent re-entrance issues. A callback may unsubscribe another
+  // subscription, so each callback is paired with a weak pointer to its
+  // subscription and is skipped if that subscription is gone by the time it
+  // would run.
+  std::vector<std::pair<base::WeakPtr<content::PermissionResultSubscription>,
+                        base::OnceClosure>>
+      permission_callbacks;
+  std::vector<std::pair<base::WeakPtr<ContentSettingsTypeSubscription>,
+                        base::OnceClosure>>
+      content_settings_callbacks;
 
   if (subscriptions()) {
     for (content::PermissionController::SubscriptionsMap::iterator iter(
@@ -640,6 +671,13 @@ void PermissionManager::OnPermissionChanged(
       content::PermissionResultSubscription* subscription =
           iter.GetCurrentValue();
       if (!subscription) {
+        continue;
+      }
+      // Skip subscriptions that are still being set up. A subscription is
+      // inserted into the map before
+      // OnPermissionStatusChangeSubscriptionAdded() computes its initial
+      // result, and that method can re-enter here.
+      if (!subscription->permission_result) {
         continue;
       }
       if (!content_type_set.Contains(
@@ -686,10 +724,10 @@ void PermissionManager::OnPermissionChanged(
 
       subscription->permission_result = new_result;
 
-      // Add the callback to |callbacks| which will be run after the loop to
-      // prevent re-entrance issues.
-      callbacks.push_back(base::BindOnce(subscription->callback, new_result,
-                                         /*ignore_status_override=*/false));
+      permission_callbacks.emplace_back(
+          subscription->GetWeakPtr(),
+          base::BindOnce(subscription->callback, new_result,
+                         /*ignore_status_override=*/false));
     }
   }
 
@@ -737,11 +775,23 @@ void PermissionManager::OnPermissionChanged(
 
     subscription->last_setting = new_setting;
 
-    callbacks.push_back(base::BindOnce(subscription->callback, new_setting));
+    content_settings_callbacks.emplace_back(
+        subscription->GetWeakPtr(),
+        base::BindOnce(subscription->callback, new_setting));
   }
 
-  for (auto& callback : callbacks)
+  for (auto& [subscription, callback] : permission_callbacks) {
+    if (!subscription) {
+      continue;
+    }
     std::move(callback).Run();
+  }
+  for (auto& [subscription, callback] : content_settings_callbacks) {
+    if (!subscription) {
+      continue;
+    }
+    std::move(callback).Run();
+  }
 }
 
 content::PermissionResult PermissionManager::GetPermissionStatusInternal(
@@ -753,13 +803,19 @@ content::PermissionResult PermissionManager::GetPermissionStatusInternal(
     bool should_include_device_status) {
   DCHECK(!render_process_host || !render_frame_host);
 
+  auto content_settings_type =
+      PermissionUtil::PermissionTypeToContentSettingsType(
+          blink::PermissionDescriptorToPermissionType(permission_descriptor));
+
+  if (auto override_result = GetPermissionResultOverride(
+          render_frame_host, requesting_origin, content_settings_type)) {
+    return *override_result;
+  }
+
   // TODO(crbug.com/40218610): Move this to PermissionContextBase.
   content::RenderProcessHost* rph =
       render_frame_host ? render_frame_host->GetProcess() : render_process_host;
 
-  auto content_settings_type =
-      PermissionUtil::PermissionTypeToContentSettingsType(
-          blink::PermissionDescriptorToPermissionType(permission_descriptor));
   PermissionContextBase* context = GetPermissionContext(content_settings_type);
 
   if (!context || (rph && PermissionUtil::IsPermissionBlockedInPartition(

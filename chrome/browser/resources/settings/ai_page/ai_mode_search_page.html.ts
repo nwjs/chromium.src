@@ -1,0 +1,114 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+import {html} from 'chrome://resources/lit/v3_0/lit.rollup.js';
+
+import type {SettingsAiModeSearchPageElement} from './ai_mode_search_page.js';
+
+export function getHtml(this: SettingsAiModeSearchPageElement) {
+  return html`<!--_html_template_start_-->
+<settings-section page-title="$i18n{stsSettingsEntrypointGoogleSearchAiMode}">
+  <div class="settings-row first">
+    ${!this.isDisabledByPolicy_() ? html`
+      <cr-link-row
+          label="$i18n{stsSettingsOption1ShareOpenTabsForEveryThreadV3}"
+          @click="${this.onLearnMoreRowClick_}" external>
+        <div slot="sub-label">
+          <span>$i18n{stsSettingsOption1ChooseHowRelevantOpenTabsCanBeUsedV3}</span>
+          <a href="https://support.google.com/chrome?p=ai_mode_search"
+              aria-label="$i18n{stsSettingsOption1LearnMore}"
+              aria-description="$i18n{opensInNewTab}"
+              @click="${this.onLearnMoreClick_}" target="_blank">
+            $i18n{stsSettingsOption1LearnMore}
+          </a>
+        </div>
+      </cr-link-row>
+      <div class="separator"></div>
+    ` : html`
+      <div class="cr-row first">
+        <div class="flex cr-padded-text">
+          <div id="stsLabel">
+            $i18n{stsSettingsOption1ShareOpenTabsForEveryThreadV3}
+          </div>
+          <div class="secondary">
+            <span>$i18n{stsSettingsOption1ChooseHowRelevantOpenTabsCanBeUsedV3}</span>
+            <a href="https://support.google.com/chrome?p=ai_mode_search"
+                aria-label="$i18n{stsSettingsOption1LearnMore}"
+                aria-description="$i18n{opensInNewTab}" id="learnMoreLink"
+                @click="${this.onLearnMoreClick_}" target="_blank">
+              $i18n{stsSettingsOption1LearnMore}
+            </a>
+          </div>
+        </div>
+      </div>
+      <div class="cr-row first" id="aiPolicyIndicator">
+        <cr-policy-pref-indicator .pref="${this.enterprisePref_}">
+        </cr-policy-pref-indicator>
+        $i18n{aiSubpageFeatureManagedDisabledLabel}
+      </div>
+    `}
+    <settings-toggle-button
+        id="shareTabsEveryThreadToggle"
+        aria-label="$i18n{stsSettingsOption1ShareOpenTabsForEveryThreadV3}"
+        pref-key="contextual_tasks.share_open_tabs_every_thread"
+        ?disabled="${this.isDisabledByPolicy_()}">
+    </settings-toggle-button>
+  </div>
+  <div class="hr"></div>
+  <div class="cr-row continuation">
+    <div class="cr-padded-text">
+      $i18n{stsSettingsOption1NeverShareTheseSites}
+      <div class="secondary">
+        $i18n{stsSettingsOption1SitesAddedHereWontBeReferenced}
+      </div>
+    </div>
+    <cr-button id="addSiteButton" @click="${this.onAddSiteClick_}">
+      $i18n{add}
+    </cr-button>
+  </div>
+  <div id="noSitesAddedLabel" class="list-frame"
+      ?hidden="${this.hasSites_()}">
+    <div class="list-item">
+      <div class="flex secondary">
+        No sites added
+      </div>
+    </div>
+  </div>
+  <div id="siteList" class="list-frame" role="list">
+    ${this.siteList_.map(item => html`
+      <div class="list-item" role="listitem">
+        <div class="start cr-padded-text">${item}</div>
+        <cr-icon-button
+            class="icon-more-vert"
+            aria-label="More actions"
+            data-site="${item}"
+            @click="${this.onMenuClick_}"
+            title="More actions">
+        </cr-icon-button>
+      </div>
+    `)}
+  </div>
+
+  <cr-lazy-render-lit id="menu" .template="${() => html`
+    <cr-action-menu>
+      <button id="edit" class="dropdown-item" role="menuitem"
+          @click="${this.onEditClick_}">
+        $i18n{edit}
+      </button>
+      <button id="delete" class="dropdown-item" role="menuitem"
+          @click="${this.onRemoveSiteClick_}">
+        $i18n{remove}
+      </button>
+    </cr-action-menu>
+  `}">
+  </cr-lazy-render-lit>
+
+  ${this.showAddSiteDialog_ ? html`
+    <ai-site-add-dialog @close="${this.onAddSiteDialogClose_}"
+        @add-site="${this.onAddSite_}" .site="${this.siteToEdit_}">
+    </ai-site-add-dialog>
+  ` : ''}
+</settings-section>
+<!--_html_template_end_-->`;
+}

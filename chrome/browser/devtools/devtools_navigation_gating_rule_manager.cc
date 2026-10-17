@@ -52,23 +52,22 @@ DevToolsNavigationGatingRuleManager::CreateForTesting(
 }
 
 DevToolsNavigationGatingRuleManager::DevToolsNavigationGatingRuleManager(
-    std::string_view rules_json)
-    : origin_gating_checker_(
-          *this,
-          origin_gating::OriginGatingConfiguration(
-              {
-                  {origin_gating::CustomPredicate(
-                       base::BindRepeating(
-                           &DevToolsNavigationGatingRuleManager::EvaluateRules,
-                           // Safe because `origin_gating_checker_` is owned by
-                           // `this`, so the callback is guaranteed to be
-                           // destroyed before `this` is.
-                           base::Unretained(this)),
-                       DevToolsCustomPredicate::
-                           kDevToolsNavigationGatingRuleset),
-                   origin_gating::GateableEventSet::All()},
-              },
-              /*use_site_keyed_cache=*/false)) {
+    std::string_view rules_json) {
+  origin_gating_checker_.emplace(
+      weak_ptr_factory_.GetWeakPtr(),
+      origin_gating::OriginGatingConfiguration(
+          {
+              {origin_gating::CustomPredicate(
+                   base::BindRepeating(
+                       &DevToolsNavigationGatingRuleManager::EvaluateRules,
+                       // Safe because `origin_gating_checker_` is owned by
+                       // `this`, so the callback is guaranteed to be
+                       // destroyed before `this` is.
+                       base::Unretained(this)),
+                   DevToolsCustomPredicate::kDevToolsNavigationGatingRuleset),
+               origin_gating::GateableEventSet::All()},
+          },
+          /*use_site_keyed_cache=*/false));
   if (rules_json.empty()) {
     return;
   }
@@ -130,9 +129,11 @@ DevToolsNavigationGatingRuleManager::~DevToolsNavigationGatingRuleManager() =
 void DevToolsNavigationGatingRuleManager::IsNavigationAllowed(
     const GURL& url,
     base::OnceCallback<void(bool)> callback) {
-  origin_gating_checker_.ComputeGatingDecision(
-      /*context=*/nullptr, origin_gating::GateableEvent::kNavigationRequest,
-      /*source=*/GURL(), /*destination=*/url,
+  CHECK(origin_gating_checker_);
+  origin_gating_checker_->ComputeGatingDecision(
+      /*context=*/nullptr,
+      origin_gating::GateableEvent(origin_gating::NavigationRequestEvent{
+          .source = GURL(), .destination = url}),
       base::BindOnce([](std::unique_ptr<origin_gating::GatingDecisionContext>
                             context,
                         origin_gating::GatingDecision decision) {
@@ -146,9 +147,7 @@ bool DevToolsNavigationGatingRuleManager::MayBlockNavigation() const {
 
 void DevToolsNavigationGatingRuleManager::DoesOriginRequireUserConfirmation(
     origin_gating::GatingDecisionContext* context,
-    origin_gating::GateableEvent event,
-    const GURL& source,
-    const GURL& destination,
+    const origin_gating::GateableEvent& event,
     DoesOriginRequireUserConfirmationCallback callback) const {
   NOTREACHED();
 }
@@ -161,9 +160,7 @@ void DevToolsNavigationGatingRuleManager::EvaluateEnterprisePolicy(
 
 void DevToolsNavigationGatingRuleManager::OnNoVerdict(
     origin_gating::GatingDecisionContext* context,
-    origin_gating::GateableEvent event,
-    const GURL& source,
-    const GURL& destination,
+    const origin_gating::GateableEvent& event,
     bool requires_user_confirmation,
     base::OnceCallback<void(NoVerdictResult)> callback) {
   NOTREACHED();
@@ -171,15 +168,14 @@ void DevToolsNavigationGatingRuleManager::OnNoVerdict(
 
 origin_gating::Decision DevToolsNavigationGatingRuleManager::EvaluateRules(
     origin_gating::GatingDecisionContext*,
-    const GURL& source,
-    const GURL& destination) const {
+    const origin_gating::GateableEvent& event) const {
   if (!MayBlockNavigation()) {
     return origin_gating::Decision::kAllowed;
   }
 
   // GURL() is passed as primary_url to represent the wildcard source pattern.
   const content_settings::RuleEntry* rule_entry =
-      rules_.Find(GURL(), destination);
+      rules_.Find(GURL(), event.destination());
 
   if (!rule_entry) {
     return has_allowlist_ ? origin_gating::Decision::kBlocked

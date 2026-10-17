@@ -128,21 +128,6 @@ void LayoutBlock::StyleDidChange(
 
   LayoutBox::StyleDidChange(diff, old_style, new_style, style_change_context);
 
-  if (old_style && Parent()) {
-    if (old_style->GetPosition() != new_style.GetPosition() &&
-        new_style.GetPosition() != EPosition::kStatic) {
-      // In LayoutObject::styleWillChange() we already removed ourself from our
-      // old containing block's positioned descendant list, and we will be
-      // inserted to the new containing block's list during layout. However the
-      // positioned descendant layout logic assumes layout objects to obey
-      // parent-child order in the list. Remove our descendants here so they
-      // will be re-inserted after us.
-      if (LayoutBlock* cb = ContainingBlock()) {
-        cb->RemovePositionedObjects(this);
-      }
-    }
-  }
-
   PropagateStyleToAnonymousChildren();
 
   if (!RuntimeEnabledFeatures::SvgIgnoreOuterTransformsEnabled() &&
@@ -288,54 +273,6 @@ void LayoutBlock::ImageChanged(WrappedImagePtr image,
         break;
       }
     }
-  }
-}
-
-void LayoutBlock::RemovePositionedObjects(LayoutObject* stay_within) {
-  NOT_DESTROYED();
-
-  auto ProcessPositionedObjectRemoval = [&](LayoutObject* positioned_object) {
-    if (stay_within && (!positioned_object->IsDescendantOf(stay_within) ||
-                        stay_within == positioned_object)) {
-      return false;
-    }
-
-    positioned_object->SetChildNeedsLayout(kMarkOnlyThis);
-
-    // It is parent blocks job to add positioned child to positioned objects
-    // list of its containing block.
-    // Parent layout needs to be invalidated to ensure this happens.
-    positioned_object->MarkParentForSpannerOrOutOfFlowPositionedChange();
-    return true;
-  };
-
-  bool has_positioned_children_in_fragment_tree = false;
-
-  // PositionedObjects() is populated in legacy, and in NG when inside a
-  // fragmentation context root. But in other NG cases it's empty as an
-  // optimization, since we can just look at the children in the fragment tree.
-  for (const PhysicalBoxFragment& fragment : PhysicalFragments()) {
-    if (!fragment.HasOutOfFlowFragmentChild()) {
-      continue;
-    }
-    for (const PhysicalFragmentLink& fragment_child : fragment.Children()) {
-      if (!fragment_child->IsOutOfFlowPositioned()) {
-        continue;
-      }
-      if (LayoutObject* child = fragment_child->GetMutableLayoutObject()) {
-        if (ProcessPositionedObjectRemoval(child)) {
-          has_positioned_children_in_fragment_tree = true;
-        }
-      }
-    }
-  }
-
-  // Invalidate the nearest OOF container to ensure it is marked for layout.
-  // Fixed containing blocks are always absolute containing blocks too,
-  // so we only need to look for absolute containing blocks.
-  if (has_positioned_children_in_fragment_tree) {
-    if (LayoutBlock* containing_block = ContainingBlockForAbsolutePosition())
-      containing_block->SetChildNeedsLayout(kMarkContainerChain);
   }
 }
 
@@ -669,12 +606,6 @@ LayoutBlock* LayoutBlock::CreateAnonymousWithParentAndDisplay(
   layout_block->SetDocumentForAnonymous(parent->GetDocument());
   layout_block->SetStyle(new_style);
   return layout_block;
-}
-
-RecalcScrollableOverflowResult LayoutBlock::RecalcScrollableOverflow() {
-  NOT_DESTROYED();
-  DCHECK(!DisableLayoutSideEffectsScope::IsDisabled());
-  return RecalcScrollableOverflowNG();
 }
 
 void LayoutBlock::RecalcVisualOverflow() {

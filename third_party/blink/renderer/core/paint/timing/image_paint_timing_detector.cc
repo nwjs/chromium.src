@@ -97,6 +97,10 @@ void ImagePaintTimingDetector::SendRectsToHud() {
 void ImagePaintTimingDetector::NotifyImageRemoved(
     const LayoutObject& object,
     const MediaTiming* media_timing) {
+  if (paint_timing::ShouldIgnoreImageContentForPaintTiming(object,
+                                                           media_timing)) {
+    return;
+  }
   RemoveRecord(MediaRecordId::GenerateHash(&object, media_timing));
   ForEachPaintTimingClient([&](PaintTimingClient* client) {
     client->OnImageRemoved(object, media_timing);
@@ -126,6 +130,11 @@ void ImagePaintTimingDetector::RecordImage(
     const gfx::Rect& image_border) {
   Node* node = object.GetNode();
   if (!node) {
+    return;
+  }
+
+  if (paint_timing::ShouldIgnoreImageContentForPaintTiming(object,
+                                                           &media_timing)) {
     return;
   }
 
@@ -295,6 +304,10 @@ void ImagePaintTimingDetector::RecordImage(
 void ImagePaintTimingDetector::NotifyImageFinished(
     const LayoutObject& object,
     const MediaTiming* media_timing) {
+  if (paint_timing::ShouldIgnoreImageContentForPaintTiming(object,
+                                                           media_timing)) {
+    return;
+  }
   auto hash(MediaRecordId::GenerateHash(&object, media_timing));
   const auto& insertion_result =
       image_finished_times_.insert(hash, base::TimeTicks());
@@ -313,13 +326,9 @@ void ImagePaintTimingDetector::NotifyBackgroundImageFinished(
 }
 
 void ImagePaintTimingDetector::ReportLargestIgnoredImage() {
-  // TODO(crbug.com/454082773): This is called on style change, so there's a
-  // window between style and paint where the image can be removed. We should
-  // defer this until paint time.
   auto* lcp_manager = GetLargestContentfulPaintManager();
-  if (!lcp_manager) {
-    return;
-  }
+  CHECK(lcp_manager);
+
   ImageRecord* record = lcp_manager->TakeLargestIgnoredImage();
   if (!record) {
     return;

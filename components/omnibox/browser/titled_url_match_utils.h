@@ -25,7 +25,7 @@ namespace bookmarks {
 // compute it.
 AutocompleteMatch TitledUrlMatchToAutocompleteMatch(
     const TitledUrlMatch& match,
-    AutocompleteMatchType::Type type,
+    omnibox::AutocompleteMatchType type,
     int relevance,
     int bookmark_count,
     AutocompleteProvider* provider,

@@ -63,7 +63,7 @@ class MockOmniboxAction : public OmniboxAction {
 
 TEST_F(SearchboxUtilsTest, OpenMatchNormal) {
   AutocompleteMatch match(nullptr, 1000, false,
-                          AutocompleteMatchType::URL_WHAT_YOU_TYPED);
+                          omnibox::AutocompleteMatchType::kUrlWhatYouTyped);
   match.destination_url = GURL("https://example.com");
 
   autocomplete_controller_.internal_result_.AppendMatches({match});
@@ -84,14 +84,14 @@ TEST_F(SearchboxUtilsTest, OpenMatchNormal) {
       .Times(1);
 
   OpenMatch(&autocomplete_controller_, &client_,
-            autocomplete_controller_.input(), OmniboxPopupSelection(0), match,
-            WindowOpenDisposition::CURRENT_TAB, metrics_tracker,
-            metrics::OmniboxEventProto::INVALID, u"");
+            MakeAutocompleteSnapshot(&autocomplete_controller_),
+            OmniboxPopupSelection(0), match, WindowOpenDisposition::CURRENT_TAB,
+            metrics_tracker, metrics::OmniboxEventProto::INVALID, u"");
 }
 
 TEST_F(SearchboxUtilsTest, OpenMatchWithAction) {
   AutocompleteMatch match(nullptr, 1000, false,
-                          AutocompleteMatchType::SEARCH_SUGGEST);
+                          omnibox::AutocompleteMatchType::kSearchSuggest);
   match.destination_url = GURL("https://example.com");
   scoped_refptr<MockOmniboxAction> action =
       base::MakeRefCounted<MockOmniboxAction>(GURL("chrome://settings"));
@@ -114,11 +114,11 @@ TEST_F(SearchboxUtilsTest, OpenMatchWithAction) {
   EXPECT_CALL(*action, Execute(_)).Times(1);
 
   OmniboxPopupSelection selection(
-      0, OmniboxPopupSelection::FOCUSED_BUTTON_ACTION, 0);
+      0, OmniboxPopupSelection::LineState::kFocusedButtonAction, 0);
 
   OpenMatch(&autocomplete_controller_, &client_,
-            autocomplete_controller_.input(), selection, match,
-            WindowOpenDisposition::CURRENT_TAB, metrics_tracker,
+            MakeAutocompleteSnapshot(&autocomplete_controller_), selection,
+            match, WindowOpenDisposition::CURRENT_TAB, metrics_tracker,
             metrics::OmniboxEventProto::INVALID, u"");
 }
 
@@ -168,7 +168,7 @@ TEST_F(SearchboxUtilsTest, ClassifyStringUrl) {
                  /*allow_exact_keyword_match=*/true, &match,
                  &alternate_nav_url);
   EXPECT_TRUE(match.destination_url.is_valid());
-  EXPECT_EQ(AutocompleteMatchType::URL_WHAT_YOU_TYPED, match.type);
+  EXPECT_EQ(omnibox::AutocompleteMatchType::kUrlWhatYouTyped, match.type);
   EXPECT_EQ(GURL("https://example.com/"), match.destination_url);
 }
 
@@ -180,7 +180,7 @@ TEST_F(SearchboxUtilsTest, ClassifyStringSearchQuery) {
                  &alternate_nav_url);
   EXPECT_TRUE(match.destination_url.is_valid());
   EXPECT_TRUE(AutocompleteMatch::IsSearchType(match.type));
-  EXPECT_EQ(AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED, match.type);
+  EXPECT_EQ(omnibox::AutocompleteMatchType::kSearchWhatYouTyped, match.type);
 }
 
 TEST_F(SearchboxUtilsTest, CanPasteAndGo) {
@@ -230,7 +230,7 @@ TEST_F(SearchboxUtilsTest, GenerateDotComMatch) {
   EXPECT_TRUE(generated_input.prevent_inline_autocomplete());
   EXPECT_TRUE(generated_input.allow_exact_keyword_match());
 
-  EXPECT_EQ(AutocompleteMatchType::URL_WHAT_YOU_TYPED, match.type);
+  EXPECT_EQ(omnibox::AutocompleteMatchType::kUrlWhatYouTyped, match.type);
   EXPECT_TRUE(match.destination_url.is_valid());
   EXPECT_EQ(GURL("http://www.example.com/"), match.destination_url);
 }

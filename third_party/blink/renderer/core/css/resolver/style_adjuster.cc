@@ -87,6 +87,7 @@
 #include "third_party/blink/renderer/core/layout/list/list_marker.h"
 #include "third_party/blink/renderer/core/mathml/mathml_element.h"
 #include "third_party/blink/renderer/core/mathml/mathml_table_cell_element.h"
+#include "third_party/blink/renderer/core/overscroll/overscroll_area_tracker.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/core/style/computed_style_base_constants.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
@@ -747,28 +748,28 @@ void StyleAdjuster::AdjustOverflow(ComputedStyleBuilder& builder,
   }
 }
 
-static bool IsCanvasWithLayoutSubtree(const Element* element) {
+static bool IsCanvasWithContentDrawable(const Element* element) {
   if (!element || !element->IsCanvasOrInCanvasSubtree()) {
     return false;
   }
 
   if (const auto* canvas = DynamicTo<HTMLCanvasElement>(element)) {
-    return canvas->layoutSubtree();
+    return canvas->IsContentDrawable();
   }
 
   return false;
 }
 
-// Direct children of a <canvas layoutsubtree> element have their style adjusted
-// to be blockified and have static position.
+// Direct children of a <canvas content=drawable> element have their style
+// adjusted to be blockified and have static position.
 // See: https://github.com/WICG/html-in-canvas
-static bool IsLayoutSubtreeCanvasChild(const Element* element) {
+static bool IsContentDrawableCanvasChild(const Element* element) {
   if (!element || !element->IsInCanvasSubtree()) {
     return false;
   }
   const auto* parent_canvas = DynamicTo<HTMLCanvasElement>(
       FlatTreeTraversal::ParentElementSkippingSlots(*element));
-  return parent_canvas && parent_canvas->layoutSubtree();
+  return parent_canvas && parent_canvas->IsContentDrawable();
 }
 
 void StyleAdjuster::AdjustStyleForDisplay(
@@ -776,7 +777,7 @@ void StyleAdjuster::AdjustStyleForDisplay(
     const ComputedStyle& layout_parent_style,
     const Element* element,
     Document* document) {
-  bool is_immediate_canvas_child = IsLayoutSubtreeCanvasChild(element);
+  bool is_immediate_canvas_child = IsContentDrawableCanvasChild(element);
 
   if ((layout_parent_style.BlockifiesChildren() && !HostIsInputFile(element)) ||
       is_immediate_canvas_child) {
@@ -1237,6 +1238,7 @@ void StyleAdjuster::AdjustComputedStyle(StyleResolverState& state,
     if (is_document_element && builder.HasBackdropFilter() &&
         element->GetDocument().IsInMainFrame()) {
       builder.SetBackdropFilter(FilterOperations());
+      builder.ClearAnimatedSource(CSSPropertyID::kBackdropFilter);
     }
   }
 
@@ -1248,8 +1250,8 @@ void StyleAdjuster::AdjustComputedStyle(StyleResolverState& state,
   builder.SetForcesStackingContext(false);
 
   // https://github.com/WICG/html-in-canvas
-  // The `layoutsubtree` attribute ... causes descendants of the <canvas> with
-  // the `drawable` attribute to imply `isolation: isolate`.
+  // The `content=drawable` attribute ... causes descendants of the <canvas>
+  // with the `drawable` attribute to imply `isolation: isolate`.
   if (element && element->CanvasForDrawing()) {
     builder.SetIsolation(EIsolation::kIsolate);
   }
@@ -1274,7 +1276,7 @@ void StyleAdjuster::AdjustComputedStyle(StyleResolverState& state,
       (element && IsA<SVGForeignObjectElement>(*element)) || is_in_top_layer ||
       builder.StyleType() == kPseudoIdBackdrop ||
       builder.StyleType() == kPseudoIdViewTransition ||
-      IsCanvasWithLayoutSubtree(element)) {
+      IsCanvasWithContentDrawable(element)) {
     builder.SetForcesStackingContext(true);
   }
 
@@ -1344,11 +1346,20 @@ void StyleAdjuster::AdjustComputedStyle(StyleResolverState& state,
     builder.SetSubtreeIsSticky(true);
   }
 
+  // If this node is an overscroll container, it marks the creation of an
+  // overscroll container subtree for overscroll gestures and inertness.
+  // Descendants will inherit this bit so they can quickly identify whether
+  // they have an ancestor overscroll container.
+  if (builder.EffectiveOverscrollContainerType() !=
+      EOverscrollContainerType::kNone) {
+    builder.SetIsInOverscrollContainer(true);
+  }
+
   // If the inherited value of justify-items includes the 'legacy'
   // keyword (plus 'left', 'right' or 'center'), 'legacy' computes to
   // the the inherited value.  Otherwise, 'auto' computes to 'normal'.
   if (parent_style.JustifyItems().PositionType() == ItemPositionType::kLegacy &&
-      builder.JustifyItems().GetPosition() == ItemPosition::kLegacy) {
+      builder.JustifyItems().GetComputedPosition() == ItemPosition::kLegacy) {
     builder.SetJustifyItems(parent_style.JustifyItems());
   }
 
@@ -1386,7 +1397,8 @@ void StyleAdjuster::RunUncacheableStyleAdjustment(
     ComputedStyleBuilder& builder,
     Element& element,
     const Element* element_or_pseudo_element,
-    const Element* styled_element) {
+    const Element* styled_element,
+    const ComputedStyle* parent_style) {
   // Elements are almost never view transition scopes (i.e., we get an
   // early-out), so it's just as cheap to do the logic here as in
   // AdjustComputedStyle().
@@ -1417,6 +1429,28 @@ void StyleAdjuster::RunUncacheableStyleAdjustment(
     }
   }
 
+  // File selector buttons must inherent appearance base from
+  // their parents. This cannot be done via a UA style rule
+  // because both auto and none appearance file inputs must
+  // have auto appearance buttons.
+  if (RuntimeEnabledFeatures::AppearanceBaseEnabled()) {
+    const AtomicString& pseudo_id = element.ShadowPseudoId();
+
+    if (pseudo_id == shadow_element_names::kPseudoFileUploadButton &&
+        builder.Appearance() == AppearanceValue::kAuto) {
+      if (parent_style) {
+        AppearanceValue parent_appearance = parent_style->EffectiveAppearance();
+
+        if (parent_appearance == AppearanceValue::kNone ||
+            parent_appearance == AppearanceValue::kAuto) {
+          builder.SetAppearance(AppearanceValue::kAuto);
+        } else if (parent_appearance == AppearanceValue::kBase) {
+          builder.SetAppearance(AppearanceValue::kBase);
+        }
+      }
+    }
+  }
+
   // The layout theme has its own style adjustment, mostly related to
   // the appearance property (although it can also modify display,
   // seemingly for historical reasons).
@@ -1441,9 +1475,12 @@ void StyleAdjuster::RunUncacheableStyleAdjustment(
   }
   if (builder.InBaseAppearance() && !builder.HasBaseAppearance()) {
     // Don't allow base appearance to be inherited to elements which actually
-    // support the appearance property.
-    if (element.SupportsBaseAppearance(AppearanceValue::kBase) ||
-        element.SupportsBaseAppearance(AppearanceValue::kBaseSelect)) {
+    // support the appearance property, other than for file selector buttons
+    // which must inherit base appearance from the input element.
+    if ((element.SupportsBaseAppearance(AppearanceValue::kBase) ||
+         element.SupportsBaseAppearance(AppearanceValue::kBaseSelect)) &&
+        element.ShadowPseudoId() !=
+            shadow_element_names::kPseudoFileUploadButton) {
       builder.SetInBaseAppearance(false);
     }
   }
@@ -1523,7 +1560,7 @@ StyleAdjuster::ElementTypeForCache StyleAdjuster::GetElementTypeCacheKey(
   }
 
   // Has special handling in a number of places (including depending on
-  // parents' layoutSubtree() status).
+  // parents' IsContentDrawable() status).
   if (element.IsCanvasOrInCanvasSubtree()) {
     return {ElementType::kIsNotElement};
   }
@@ -1564,7 +1601,7 @@ StyleAdjuster::ElementTypeForCache StyleAdjuster::GetElementTypeCacheKey(
   switch (element.GetElementType()) {
     case ElementType::kHTMLCanvasElement:
       // <canvas> has special handling for touch-action and stacking contexts
-      // depending on whether it has layoutSubtree() or not, and also
+      // depending on whether it has IsContentDrawable() or not, and also
       // CanExecuteScripts(). It seems rare enough that we don't bother checking
       // the properties on the elements, and just exclude all canvas elements.
       return {ElementType::kIsNotElement};
@@ -1599,6 +1636,7 @@ StyleAdjuster::ElementTypeForCache StyleAdjuster::GetElementTypeCacheKey(
     case ElementType::kHTMLFrameElement:
     case ElementType::kHTMLIFrameElement:
     case ElementType::kHTMLFencedFrameElement:
+    case ElementType::kHTMLPersistentWidgetElement:
       // HTMLFrameOwnerElement descendants have special touch-action behavior.
       // There is also special handling of position and zoom, but this is moot,
       // as we exclude them anyway.
@@ -1840,6 +1878,25 @@ StyleAdjuster::ElementTypeForCache StyleAdjuster::GetElementTypeCacheKey(
       // from new HTML elements, even if the StyleAdjuster does not otherwise
       // care about them.
   }
+}
+
+void StyleAdjuster::AdjustOverscrollInertness(
+    const StyleResolverState& state,
+    std::optional<bool>& html_inert,
+    bool& can_escape_overscroll_inertness) {
+  DCHECK(state.HasOverscrollContainerAncestor());
+  if (!RuntimeEnabledFeatures::OverscrollGesturesEnabled() ||
+      state.IsForPseudoElement() || html_inert.has_value()) {
+    return;
+  }
+
+  Element& element = state.GetElement();
+  bool is_overscroll_area = OverscrollAreaTracker::IsValidOverscrollArea(
+      element, state.StyleBuilder(), state.ParentStyle());
+
+  OverscrollAreaTracker::AdjustInertness(element, is_overscroll_area,
+                                         *state.ParentStyle(), html_inert,
+                                         can_escape_overscroll_inertness);
 }
 
 }  // namespace blink

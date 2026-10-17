@@ -11,7 +11,10 @@
 #include "base/values.h"
 #include "build/build_config.h"
 #include "components/enterprise/browser/reporting/report_request.h"
+#include "components/enterprise/buildflags/buildflags.h"
 #include "components/enterprise/connectors/connectors_internals.mojom.h"
+#include "components/enterprise/connectors/core/connectors_internals_utils.h"
+#include "components/enterprise/connectors/core/provisioning_domain_refresh_helper.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 
@@ -49,6 +52,8 @@ class ConnectorsInternalsPageHandler
       GetSignalsReportingStateCallback callback) override;
   void GetProvisioningDomainState(
       GetProvisioningDomainStateCallback callback) override;
+  void RefreshProvisioningDomainConfigs(
+      RefreshProvisioningDomainConfigsCallback callback) override;
 
   void OnReportGenerated(
       GetSignalsReportingStateCallback callback,
@@ -56,16 +61,18 @@ class ConnectorsInternalsPageHandler
       base::expected<enterprise_reporting::ReportRequestQueue,
                      enterprise_reporting::ReportGenerationError> result);
 
-#if !BUILDFLAG(IS_ANDROID)
   void OnSignalsCollected(GetDeviceTrustStateCallback callback,
                           bool is_device_trust_enabled,
                           const base::DictValue signals);
-#endif  // !BUILDFLAG(IS_ANDROID)
 
   mojo::Receiver<connectors_internals::mojom::PageHandler> receiver_;
   raw_ptr<Profile> profile_;
   std::unique_ptr<enterprise_reporting::ChromeProfileRequestGenerator>
       request_generator_;
+
+#if BUILDFLAG(ENTERPRISE_PROXY)
+  ProvisioningDomainRefreshHelper pvd_refresh_helper_;
+#endif
 
   base::WeakPtrFactory<ConnectorsInternalsPageHandler> weak_ptr_factory_{this};
 };

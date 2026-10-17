@@ -9,6 +9,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "base/check.h"
@@ -24,12 +25,19 @@
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
 #include "components/personal_context/proto/features/common_data.pb.h"
+#include "third_party/abseil-cpp/absl/functional/overload.h"
+#include "ui/base/device_form_factor.h"
+#include "url/gurl.h"
 
 namespace autofill {
 
 namespace {
 
 using enum AttributeTypeName;
+using GmailSourceMetadata =
+    EntityInstance::PersonalContextRecordTypePayload::GmailSourceMetadata;
+using PhotosSourceMetadata =
+    EntityInstance::PersonalContextRecordTypePayload::PhotosSourceMetadata;
 
 std::u16string FormatDate(const personal_context::proto::Date& date) {
   if (date.year() <= 0 || date.month() <= 0 || date.day() <= 0) {
@@ -95,22 +103,50 @@ void AddStringAttribute(AttributeTypeName type,
   AddAttribute(type, base::UTF8ToUTF16(value), attributes, passkey);
 }
 
+bool IsSourceValid(
+    const EntityInstance::PersonalContextRecordTypePayload::Source& source) {
+  if (!source.url.is_valid()) {
+    return false;
+  }
+  return std::visit(absl::Overload{[](const GmailSourceMetadata& gmail) {
+                                     return !gmail.title.empty();
+                                   },
+                                   [](const PhotosSourceMetadata& photos) {
+                                     return !photos.timestamp.is_null();
+                                   }},
+                    source.metadata);
+}
+
 std::optional<EntityInstance::PersonalContextRecordTypePayload::Source>
 PersonalContextSourceReferenceToSource(
     const personal_context::proto::SourceReference& source_reference) {
   using Source = EntityInstance::PersonalContextRecordTypePayload::Source;
+  std::optional<EntityInstance::PersonalContextRecordTypePayload::Source>
+      source;
   switch (source_reference.source_reference_case()) {
     case personal_context::proto::SourceReference::kGmail:
-      return Source{.type = Source::Type::kGmail,
-                    .url = std::string(source_reference.gmail().message_url())};
+      source =
+          Source{.url = GetGmailSourceUrl(source_reference.gmail()),
+                 .metadata = GmailSourceMetadata{
+                     .title = std::string(source_reference.gmail().subject())}};
+      break;
     case personal_context::proto::SourceReference::kPhotos:
-      return Source{.type = Source::Type::kPhotos,
-                    .url = std::string(source_reference.photos().photos_url())};
+      source = Source{
+          .url = GURL(source_reference.photos().photos_url()),
+          .metadata = PhotosSourceMetadata{
+              .timestamp = source_reference.photos().has_timestamp()
+                               ? FormatDateTimeAsTime(
+                                     source_reference.photos().timestamp())
+                               : base::Time()}};
+      break;
     case personal_context::proto::SourceReference::kDrive:
     case personal_context::proto::SourceReference::SOURCE_REFERENCE_NOT_SET:
       return std::nullopt;
   }
-  return std::nullopt;
+  if (!source.has_value() || !IsSourceValid(*source)) {
+    return std::nullopt;
+  }
+  return source;
 }
 
 EntityInstance::PersonalContextRecordTypePayload
@@ -337,6 +373,18 @@ EntityInstance PersonalContextKnownTravelerNumberToEntityInstance(
 }
 
 }  // namespace
+
+GURL GetGmailSourceUrl(const personal_context::proto::GmailReference& gmail) {
+  // Large form factors (such as tablets and Android desktop form factors) use
+  // the desktop Gmail URL instead of the mobile one.
+  const ui::DeviceFormFactor form_factor = ui::GetDeviceFormFactor();
+  if (form_factor != ui::DEVICE_FORM_FACTOR_DESKTOP &&
+      form_factor != ui::DEVICE_FORM_FACTOR_TABLET) {
+    return GURL(gmail.message_urls().mobile_web_url());
+  }
+
+  return GURL(gmail.message_urls().desktop_web_url());
+}
 
 void MaskSpiiEntityFields(personal_context::proto::Entity& entity) {
   auto GetMaskedValue = [](std::string_view value) {

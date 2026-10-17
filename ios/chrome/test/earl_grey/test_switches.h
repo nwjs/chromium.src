@@ -25,6 +25,9 @@ extern const char kSimulatePostDeviceRestore[];
 // Switch used to enable FakeTabGroupSyncService for testing.
 extern const char kEnableFakeTabGroupSyncService[];
 
+// Switch used to enable FakeExtensionService for testing.
+extern const char kEnableFakeExtensionService[];
+
 // Switch used to force the status of fetching the Google Family for the user in
 // Earl Grey tests. If not specified, unknown status is retuned for all tests.
 extern const char kFamilyStatus[];
@@ -41,6 +44,12 @@ extern const char kLoadMinimalAppUI[];
 
 // Switch to use the default infobar duration instead a longer one for EGTests.
 extern const char kUseDefaultInfobarDuration[];
+
+// Switch used to pause the application startup sequence at the background
+// initialization stage (AppInitStage::kBrowserObjectsForBackgroundHandlers),
+// keeping connected scenes in the background, to simulate background launch
+// conditions.
+extern const char kPauseStartupAtBackgroundStage[];
 
 }  // namespace test_switches
 

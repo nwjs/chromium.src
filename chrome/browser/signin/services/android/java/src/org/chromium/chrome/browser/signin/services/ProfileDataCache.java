@@ -103,7 +103,7 @@ public class ProfileDataCache
     private final @Nullable SubscriptionEligibilityService mSubscriptionEligibilityService;
     private final @Px int mRingThicknessPx;
     private final @Nullable SubscriptionTierBrandingDelegate mBrandingDelegate;
-    private @Nullable Drawable mPlaceholderImageWithAiTierRingPadding;
+    private @Nullable Drawable mAccountCirclePlaceholderImage;
 
     @VisibleForTesting
     ProfileDataCache(
@@ -242,33 +242,28 @@ public class ProfileDataCache
     }
 
     /**
-     * @return A {@link Drawable} containing the placeholder (padded for the AI tier ring if
-     *     enabled).
+     * @return A {@link Drawable} containing the placeholder image. Note that the generated image
+     *     size will strictly be the image size this cache was created with.
      */
     public Drawable getPlaceholderImage() {
-        Drawable accountCircle =
-                AppCompatResources.getDrawable(mContext, R.drawable.account_circle);
-        if (!mAiTierRingEnabled) {
-            return accountCircle;
-        }
-        if (mPlaceholderImageWithAiTierRingPadding == null) {
-            Bitmap paddedPicture =
-                    Bitmap.createBitmap(mImageSize, mImageSize, Bitmap.Config.ARGB_8888);
-            paddedPicture.setDensity(mContext.getResources().getDisplayMetrics().densityDpi);
-            Canvas canvas = new Canvas(paddedPicture);
+        // TODO(crbug.com/543773382): Consider deduplicating with getScaledPlaceholderImage().
+        if (mAccountCirclePlaceholderImage == null) {
+            Drawable accountCircle =
+                    AppCompatResources.getDrawable(mContext, R.drawable.account_circle);
+            assert accountCircle != null;
+            Bitmap output = Bitmap.createBitmap(mImageSize, mImageSize, Bitmap.Config.ARGB_8888);
+            output.setDensity(mContext.getResources().getDisplayMetrics().densityDpi);
+            Canvas canvas = new Canvas(output);
 
-            Rect oldBounds = accountCircle.getBounds();
             accountCircle.setBounds(
                     mTotalPadding,
                     mTotalPadding,
                     mImageSize - mTotalPadding,
                     mImageSize - mTotalPadding);
             accountCircle.draw(canvas);
-            accountCircle.setBounds(oldBounds);
-            mPlaceholderImageWithAiTierRingPadding =
-                    new BitmapDrawable(mContext.getResources(), paddedPicture);
+            mAccountCirclePlaceholderImage = new BitmapDrawable(mContext.getResources(), output);
         }
-        return mPlaceholderImageWithAiTierRingPadding;
+        return mAccountCirclePlaceholderImage;
     }
 
     /**
@@ -285,41 +280,29 @@ public class ProfileDataCache
     }
 
     /**
-     * Returns cached {@link DisplayableProfileData} for the given account ID, or null if missing.
-     *
-     * <p>Method is synchronous and does not trigger any account info fetches. First it checks if
-     * the {@link DisplayableProfileData} is in the cache, then it updates the cache if the account
-     * is missing.
-     *
-     * @param accountId The account ID for which to get the profile data.
-     * @return The {@link DisplayableProfileData} for the given account ID, or null if not found.
-     */
-    public @Nullable DisplayableProfileData tryGetById(CoreAccountId accountId) {
-        if (!mAccountsCache.isLoaded() || !mAccountsCache.contains(accountId)) {
-            updateCache();
-        }
-
-        return mAccountsCache.getByAccountId(accountId);
-    }
-
-    /**
      * Returns cached {@link DisplayableProfileData} for the given account ID.
      *
      * <p>Method is synchronous and does not trigger any account info fetches. First it checks if
-     * the {@link DisplayableProfileData} is in the cache, then it updates the cache if the account
-     * is missing. Throws an {@link IllegalArgumentException} if the account still cannot be found.
+     * the {@link DisplayableProfileData} is in the cache. If the cache hasn't been populated yet,
+     * or doesn't know the account, the cache is refreshed from the current source of accounts. If
+     * the account still cannot be found afterwards, an {@link IllegalArgumentException} is thrown -
+     * this means data for this account is not available.
      *
      * @param accountId The account ID for which to get the profile data.
      * @throws IllegalArgumentException if the account is not found.
      * @return The {@link DisplayableProfileData} for the given account ID.
      */
     public DisplayableProfileData getById(CoreAccountId accountId) {
-        var profileData = tryGetById(accountId);
-        if (profileData != null) {
-            return profileData;
+        if (!mAccountsCache.isLoaded() || !mAccountsCache.contains(accountId)) {
+            updateCache();
         }
 
-        throw new IllegalArgumentException("Account not found");
+        var profileData = mAccountsCache.getByAccountId(accountId);
+        if (profileData == null) {
+            throw new IllegalArgumentException("Account not found");
+        }
+
+        return profileData;
     }
 
     /**
@@ -417,6 +400,15 @@ public class ProfileDataCache
     public void onAiSubscriptionTierChanged() {
         // AI tier rings are only displayed for eligible tiers. We must update the cache
         // when the tier changes so that the ring is applied (or removed) accordingly.
+        if (!mAiTierRingEnabled) return;
+        updateCache();
+    }
+
+    /** Implements {@link SubscriptionEligibilityService.Observer}. */
+    @Override
+    public void onSubscriptionBenefitsChanged() {
+        // Subscription benefits ring is only displayed for eligible tiers. We must update the cache
+        // when benefits change so that the ring is applied (or removed) accordingly.
         if (!mAiTierRingEnabled) return;
         updateCache();
     }

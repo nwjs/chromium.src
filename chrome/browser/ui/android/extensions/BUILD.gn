@@ -15,6 +15,7 @@ if (enable_extensions_core) {
   source_set("public") {
     sources = [
       "extension_developer_private_bridge.h",
+      "extension_site_settings_android.h",
       "extension_util_bridge.h",
     ]
     deps = [ "//base" ]
@@ -36,6 +37,8 @@ if (enable_extensions_core) {
       "extension_install_dialog_view_android.h",
       "extension_keybinding_registry_android.cc",
       "extension_keybinding_registry_android.h",
+      "extension_site_settings_android.cc",
+      "extension_site_settings_android.h",
       "extension_util_bridge.cc",
       "extension_util_bridge.h",
       "extensions_menu_delegate_android.cc",
@@ -51,11 +54,11 @@ if (enable_extensions_core) {
       "//chrome/browser/extensions",
       "//chrome/browser/extensions/api/omnibox",
       "//chrome/browser/extensions/api/web_navigation",
+      "//chrome/browser/flags:flags_android",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/ui/android/extensions:jni_headers",
       "//chrome/browser/ui/android/tab_model",
       "//chrome/browser/ui/browser_window",
-      "//chrome/browser/ui/browser_window/internal",
       "//chrome/browser/ui/color:color_headers",
       "//chrome/browser/ui/extensions",
       "//chrome/browser/ui/extensions:extensions_menu_handler",
@@ -252,7 +255,6 @@ if (enable_extensions_core) {
       "//third_party/android_deps:material_design_java",
       "//third_party/androidx:androidx_test_core_java",
       "//third_party/androidx:androidx_test_ext_junit_java",
-      "//third_party/androidx:androidx_test_runner_java",
       "//third_party/junit",
       "//third_party/mockito:mockito_java",
       "//ui/android:ui_java_test_support",

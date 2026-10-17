@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "base/containers/span.h"
+#include "base/feature.h"
 #include "base/memory/raw_ptr.h"
 #include "base/trace_event/memory_dump_provider.h"
 #include "cc/paint/paint_cache.h"
@@ -46,6 +47,8 @@ struct SharedMemoryLimits;
 namespace raster {
 
 class RasterCmdHelper;
+
+RASTER_EXPORT BASE_DECLARE_FEATURE(kDisableErrorHandlingForReadback);
 
 // This class emulates Raster over command buffers. It can be used by a client
 // program so that the program does not need deal with shared memory and command
@@ -111,6 +114,7 @@ class RASTER_EXPORT RasterImplementation : public RasterInterface,
 #include "gpu/command_buffer/client/raster_implementation_autogen.h"
 
   // RasterInterface implementation.
+  const Capabilities& GetCapabilities() const override;
   void CopySharedImage(const gpu::Mailbox& source_mailbox,
                        const gpu::Mailbox& dest_mailbox,
                        GLint xoffset,
@@ -181,6 +185,7 @@ class RASTER_EXPORT RasterImplementation : public RasterInterface,
       base::OnceCallback<void()> release_mailbox,
       base::OnceCallback<void(bool)> readback_done) override;
   bool ReadbackImagePixels(const gpu::Mailbox& source_mailbox,
+                           const gfx::Size& source_size,
                            const SkImageInfo& dst_info,
                            GLuint dst_row_bytes,
                            int src_x,
@@ -296,13 +301,14 @@ class RASTER_EXPORT RasterImplementation : public RasterInterface,
   const std::string& GetLogPrefix() const;
 
   bool ReadbackImagePixelsINTERNAL(const gpu::Mailbox& source_mailbox,
+                                   const gfx::Size& source_size,
                                    const SkImageInfo& dst_info,
                                    GLuint dst_row_bytes,
                                    int src_x,
                                    int src_y,
                                    int plane_index,
                                    base::OnceCallback<void(bool)> readback_done,
-                                   void* dst_pixels);
+                                   base::span<uint8_t> dst_pixels);
 
   struct AsyncARGBReadbackRequest;
   void OnAsyncARGBReadbackDone(AsyncARGBReadbackRequest* request);

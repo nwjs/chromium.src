@@ -86,10 +86,8 @@ class IncognitoClearBrowsingDataDialogCoordinator;
 class InitialWebUIManager;
 class InitialWebUIWindowMetricsManager;
 class IOSPromoController;
-class LocationBar;
 class LocationBarModel;
 class MemorySaverOptInIPHController;
-class PinnedToolbarActions;
 class ProfileMenuCoordinator;
 class OrganizerPanelController;
 class ReadingListSidePanelCoordinator;
@@ -261,6 +259,7 @@ class TabStripUIControllerImpl;
 
 namespace ttc {
 class AiOverlayDialogController;
+class EntrypointController;
 }  // namespace ttc
 
 namespace web_app {
@@ -301,34 +300,6 @@ class BrowserWindowFeatures {
 
   // Called exactly once to tear down state that depends on the window object.
   void TearDownPreBrowserWindowDestruction();
-
-  // Get the FindBarController for this browser window, creating it if it does
-  // not yet exist.
-  FindBarController* GetFindBarController();
-
-  // Returns true if a FindBarController exists for this browser window.
-  bool HasFindBarController() const;
-
-  // Returns the LocationBar for this browser window. Currently delegates to
-  // BrowserWindow::GetLocationBar() via downcast, but should eventually become
-  // an owned member of BrowserWindowFeatures.
-  LocationBar* location_bar();
-  const LocationBar* location_bar() const;
-
-  LocationBarModel* location_bar_model() { return location_bar_model_.get(); }
-  const LocationBarModel* location_bar_model() const {
-    return location_bar_model_.get();
-  }
-#if defined(UNIT_TEST)
-  void swap_location_bar_models(
-      std::unique_ptr<LocationBarModel>* location_bar_model) {
-    location_bar_model->swap(location_bar_model_);
-  }
-#endif
-
-  PinnedToolbarActions* pinned_toolbar_actions() {
-    return pinned_toolbar_actions_;
-  }
 
   static ui::UserDataFactoryWithOwner<BrowserWindowInterface>&
   GetUserDataFactoryForTesting();
@@ -445,7 +416,7 @@ class BrowserWindowFeatures {
   // Helper which implements the LocationBarModelDelegate interface.
   std::unique_ptr<BrowserLocationBarModelDelegate> location_bar_model_delegate_;
 
-  // The model for the toolbar view.
+  // The model for the toolbar view, exposed via LocationBarModel::From().
   std::unique_ptr<LocationBarModel> location_bar_model_;
 
   std::unique_ptr<memory_saver::MemorySaverBubbleController>
@@ -488,6 +459,7 @@ class BrowserWindowFeatures {
       tabs_from_other_devices_side_panel_coordinator_;
   std::unique_ptr<ToastService> toast_service_;
   std::unique_ptr<TranslateBubbleController> translate_bubble_controller_;
+  std::unique_ptr<ttc::EntrypointController> ttc_entrypoint_controller_;
   std::unique_ptr<UpgradeNotificationController>
       upgrade_notification_controller_;
   std::unique_ptr<BrowserUserEducationInterface> user_education_;
@@ -589,7 +561,6 @@ class BrowserWindowFeatures {
   // TODO(crbug.com/423956131): Remove this.
   raw_ptr<BrowserWindowInterface> browser_ = nullptr;
 
-  raw_ptr<PinnedToolbarActions> pinned_toolbar_actions_ = nullptr;
   raw_ptr<TabStripModel> tab_strip_model_;
 
   // Embedder features. Must be declared last.

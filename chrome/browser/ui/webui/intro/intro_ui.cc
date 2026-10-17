@@ -41,6 +41,7 @@
 #include "content/public/browser/web_ui_data_source.h"
 #include "services/network/public/mojom/content_security_policy.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/webui/web_ui_util.h"
 #include "ui/webui/webui_util.h"
 
 namespace {
@@ -104,22 +105,14 @@ IntroUI::IntroUI(content::WebUI* web_ui)
                                   ? IDR_INTRO_INTRO_REFRESH_HTML
                                   : IDR_INTRO_INTRO_HTML);
 
-  const bool is_dont_sign_in_on_gaia_page_variation =
-      is_first_run_desktop_refresh_enabled &&
-      switches::kFirstRunDesktopSignInPromoVariation.Get() ==
-          switches::FirstRunDesktopSignInPromoVariation::kDontSignInOnGaiaPage;
-
-  const int title_id = is_dont_sign_in_on_gaia_page_variation
-                           ? IDS_FRE_GET_YOUR_BROWSER_READY_TITLE
-                           : IDS_FRE_SIGN_IN_TITLE_0;
-
   // Setting the title here instead of relying on the one provided from the
   // page itself makes it available much earlier, and avoids having to fallback
   // to the one obtained from `NavigationEntry::GetTitleForDisplay()` (which
   // ends up being the URL) when we try to get it on startup for a11y purposes.
-  web_ui->OverrideTitle(l10n_util::GetStringUTF16(title_id));
+  web_ui->OverrideTitle(l10n_util::GetStringUTF16(IDS_FRE_SIGN_IN_TITLE_0));
 
-  constexpr webui::LocalizedString localized_strings[] = {
+  static constexpr webui::LocalizedString kLocalizedStrings[] = {
+      {"pageTitle", IDS_FRE_SIGN_IN_TITLE_0},
       {"pageSubtitle", IDS_FRE_SIGN_IN_SUBTITLE_0},
       {"devicesCardTitle", IDS_FRE_DEVICES_CARD_TITLE},
       {"devicesCardDescription", IDS_FRE_DEVICES_CARD_DESCRIPTION},
@@ -127,7 +120,6 @@ IntroUI::IntroUI(content::WebUI* web_ui)
       {"securityCardDescription", IDS_FRE_SECURITY_CARD_DESCRIPTION},
       {"backupCardTitle", IDS_FRE_BACKUP_CARD_TITLE},
       {"acceptSignInButtonTitle", IDS_FRE_ACCEPT_SIGN_IN_BUTTON_TITLE},
-      {"createAccountDisclaimer", IDS_FRE_CREATE_ACCOUNT_DESCRIPTION},
       {"productLogoAltText", IDS_SHORT_PRODUCT_LOGO_ALT_TEXT},
       // Strings for welcome subpage.
       {"welcomeTitle", IDS_FRE_WELCOME_TITLE},
@@ -153,7 +145,7 @@ IntroUI::IntroUI(content::WebUI* web_ui)
       {"startBrowsingButtonLabel",
        IDS_FRE_FINISH_OR_CONTINUE_START_BROWSING_BUTTON_LABEL},
   };
-  source->AddLocalizedStrings(localized_strings);
+  source->AddLocalizedStrings(kLocalizedStrings);
 
   // Metrics popup on welcome page is only shown for branded builds.
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
@@ -181,7 +173,6 @@ IntroUI::IntroUI(content::WebUI* web_ui)
   source->AddString("welcomeMetricsPopupCloseButtonLabel", "");
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
-  source->AddLocalizedString("pageTitle", title_id);
   source->AddLocalizedString(
       "backupCardDescription",
       GetBackupCardDescriptionId(is_first_run_desktop_refresh_enabled));
@@ -191,11 +182,6 @@ IntroUI::IntroUI(content::WebUI* web_ui)
           switches::kProfileCreationDeclineSigninCTAExperiment)
           ? IDS_FRE_STAY_SIGNED_OUT_BUTTON_TITLE
           : IDS_FRE_DECLINE_SIGN_IN_BUTTON_TITLE);
-
-  source->AddLocalizedString("acceptSignInButtonTitle",
-                             is_dont_sign_in_on_gaia_page_variation
-                                 ? IDS_FRE_NEXT_BUTTON_TITLE
-                                 : IDS_FRE_ACCEPT_SIGN_IN_BUTTON_TITLE);
 
   const bool is_device_managed =
       policy::ManagementServiceFactory::GetForPlatform()->IsManaged();
@@ -242,12 +228,6 @@ IntroUI::IntroUI(content::WebUI* web_ui)
     source->AddBoolean("disableAnimations", false);
   }
 
-  if (is_first_run_desktop_refresh_enabled) {
-    source->AddInteger(
-        "signInPromoVariation",
-        static_cast<int>(switches::kFirstRunDesktopSignInPromoVariation.Get()));
-  }
-
   if (switches::IsPreFirstRunDesktopRefreshEnabled()) {
     source->AddResourcePath(
         chrome::kChromeUIIntroWelcomeSubPage,
@@ -269,12 +249,13 @@ IntroUI::IntroUI(content::WebUI* web_ui)
         chrome::kChromeUIIntroFinishOrContinueSubPage,
         IDR_INTRO_FINISH_OR_CONTINUE_FINISH_OR_CONTINUE_HTML);
 
-    source->AddLocalizedString(
-        "seeMoreTipsButtonLabel",
-        IDS_FRE_FINISH_OR_CONTINUE_SEE_MORE_TIPS_BUTTON_LABEL);
-    source->AddLocalizedString(
-        "seeWhatsNewButtonLabel",
-        IDS_FRE_FINISH_OR_CONTINUE_SEE_WHATS_NEW_BUTTON_LABEL);
+    static constexpr webui::LocalizedString kRevampStrings[] = {
+        {"seeMoreTipsButtonLabel",
+         IDS_FRE_FINISH_OR_CONTINUE_SEE_MORE_TIPS_BUTTON_LABEL},
+        {"seeWhatsNewButtonLabel",
+         IDS_FRE_FINISH_OR_CONTINUE_SEE_WHATS_NEW_BUTTON_LABEL},
+    };
+    source->AddLocalizedStrings(kRevampStrings);
   }
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)

@@ -304,6 +304,7 @@ PaymentsDataManager::PaymentsDataManager(
 PaymentsDataManager::~PaymentsDataManager() {
   CancelPendingLocalQuery(&pending_creditcards_query_);
   CancelPendingLocalQuery(&pending_local_ibans_query_);
+  CancelPendingLocalQuery(&pending_offer_data_query_);
   CancelPendingServerQueries();
 }
 
@@ -313,10 +314,10 @@ void PaymentsDataManager::Shutdown() {
 }
 
 void PaymentsDataManager::OnAutofillChangedBySync(syncer::DataType data_type) {
-  if (data_type == syncer::AUTOFILL_WALLET_CREDENTIAL ||
+  if (data_type == syncer::AUTOFILL_VALUABLE ||
+      data_type == syncer::AUTOFILL_WALLET_CREDENTIAL ||
       data_type == syncer::AUTOFILL_WALLET_DATA ||
       data_type == syncer::AUTOFILL_WALLET_METADATA ||
-      data_type == syncer::AUTOFILL_WALLET_OFFER ||
       data_type == syncer::AUTOFILL_WALLET_USAGE) {
     Refresh();
   }
@@ -592,7 +593,7 @@ const Iban* PaymentsDataManager::GetIbanByGUID(const std::string& guid) const {
 }
 
 const AutofillOfferData* PaymentsDataManager::GetMerchantPromoCodeByOfferId(
-    const int64_t offer_id) const {
+    std::string_view offer_id) const {
   auto iter = std::ranges::find_if(
       autofill_offer_data_,
       [&offer_id](const std::unique_ptr<AutofillOfferData>& offer_data) {
@@ -962,39 +963,29 @@ PaymentsDataManager::GetActiveAutofillPromoCodeOffersForOrigin(
   if (!IsAutofillWalletImportEnabled() || !IsAutofillPaymentMethodsEnabled()) {
     return {};
   }
-  std::vector<const AutofillOfferData*> promo_code_offers_for_origin;
-  std::ranges::for_each(
-      autofill_offer_data_,
-      [&](const std::unique_ptr<AutofillOfferData>& autofill_offer_data) {
-        if (autofill_offer_data.get()->IsGPayPromoCodeOffer() &&
-            autofill_offer_data.get()->IsActiveAndEligibleForOrigin(origin)) {
-          promo_code_offers_for_origin.push_back(autofill_offer_data.get());
-        }
-      });
-  return promo_code_offers_for_origin;
-}
-
-std::vector<const AutofillOfferData*>
-PaymentsDataManager::GetActiveAutofillWalletDirectOffersForOrigin(
-    GURL origin) const {
   if (!base::FeatureList::IsEnabled(
           features::kAutofillEnableWalletDirectOffers)) {
     return {};
   }
-  // TODO(crbug.com/546252995): Add filtering logic for direct offer data from
-  // `autofill_offer_data_` after Chrome Sync logic is added.
-  std::vector<const AutofillOfferData*> wallet_direct_offers_for_origin;
-  wallet_direct_offers_for_origin.reserve(autofill_offer_data_.size());
-  std::ranges::for_each(
-      autofill_offer_data_,
-      [&](const std::unique_ptr<AutofillOfferData>& autofill_offer_data) {
-        if (autofill_offer_data->IsActiveAndEligibleForOrigin(origin)) {
-          wallet_direct_offers_for_origin.push_back(autofill_offer_data.get());
-        }
-      });
-  return wallet_direct_offers_for_origin;
+  if ((app_locale_ != "en-US" && app_locale_ != "en-CA" &&
+       app_locale_ != "en-GB") ||
+      GetCountryCodeForExperimentGroup() != "US") {
+    return {};
+  }
+  std::vector<const AutofillOfferData*> promo_code_offers_for_origin;
+  promo_code_offers_for_origin.reserve(autofill_offer_data_.size());
+  for (const std::unique_ptr<AutofillOfferData>& autofill_offer_data :
+       autofill_offer_data_) {
+    // TODO(crbug.com/546252995): Drop empty promo codes at the sync
+    // bridge / disk loading level instead of filtering them here.
+    if (autofill_offer_data->IsActiveAndEligibleForOrigin(origin) &&
+        !autofill_offer_data->GetDisplayStrings().value_prop_text.empty() &&
+        !autofill_offer_data->GetPromoCode().empty()) {
+      promo_code_offers_for_origin.push_back(autofill_offer_data.get());
+    }
+  }
+  return promo_code_offers_for_origin;
 }
-
 GURL PaymentsDataManager::GetCardArtURL(const CreditCard& credit_card) const {
   if (credit_card.card_art_url().is_valid()) {
     return credit_card.card_art_url();
@@ -1822,6 +1813,10 @@ void PaymentsDataManager::RecordUseOfIban(Iban& iban) {
   Refresh();
 }
 
+// TODO(crbug.com/546252995): Rename these (and the corresponding
+// `PaymentsDatabaseHelper` methods). "Local" is a misnomer now: the profile
+// database stores local data as well as server data that is persisted across
+// restarts, such as Wallet direct offers written by the `ValuableSyncBridge`.
 scoped_refptr<AutofillWebDataService> PaymentsDataManager::GetLocalDatabase() {
   return database_helper_->GetLocalDatabase();
 }
@@ -1837,7 +1832,6 @@ void PaymentsDataManager::CancelPendingServerQueries() {
   CancelPendingServerQuery(&pending_customer_data_query_);
   CancelPendingServerQuery(&pending_server_creditcard_cloud_token_data_query_);
   CancelPendingServerQuery(&pending_server_ibans_query_);
-  CancelPendingServerQuery(&pending_offer_data_query_);
   CancelPendingServerQuery(&pending_virtual_card_usage_data_query_);
   CancelPendingServerQuery(&pending_credit_card_benefit_query_);
   if (AreBankAccountsSupported()) {
@@ -1957,14 +1951,20 @@ void PaymentsDataManager::LoadPaymentInstruments() {
 }
 
 void PaymentsDataManager::LoadAutofillOffers() {
-  if (!database_helper_->GetServerDatabase()) {
+  // Offers are Wallet direct offers, which are synced through the
+  // `AUTOFILL_VALUABLE` data type. Its `ValuableSyncBridge` is attached to the
+  // profile (local) database in both full sync and transport mode, so the
+  // offers are read from there. Reading them from the server database would
+  // miss them entirely for users who didn't enable the sync feature, since in
+  // that case the server database is the ephemeral account storage.
+  if (!database_helper_->GetLocalDatabase()) {
     return;
   }
 
-  CancelPendingServerQuery(&pending_offer_data_query_);
+  CancelPendingLocalQuery(&pending_offer_data_query_);
 
   pending_offer_data_query_ =
-      database_helper_->GetServerDatabase()->GetAutofillOffers(
+      database_helper_->GetLocalDatabase()->GetAutofillOffers(
           base::BindOnce(&PaymentsDataManager::OnWebDataServiceRequestDone,
                          weak_ptr_factory_.GetWeakPtr()));
 }
@@ -2525,25 +2525,28 @@ void PaymentsDataManager::CacheIfEwalletCreationOption(
   const sync_pb::EwalletCreationOption& ewallet_creation_option =
       payment_instrument_creation_option.ewallet_creation_option();
 
-  std::u16string ewallet_issuer_display_name =
-      base::UTF8ToUTF16(ewallet_creation_option.issuer_display_name());
-  if (std::ranges::contains(ewallet_creation_options_,
-                            ewallet_issuer_display_name,
+  std::u16string ewallet_issuer_id =
+      base::UTF8ToUTF16(ewallet_creation_option.issuer_id());
+  if (std::ranges::contains(ewallet_creation_options_, ewallet_issuer_id,
                             &Ewallet::ewallet_name)) {
     return;
   }
+
+  std::u16string ewallet_issuer_display_name =
+      base::UTF8ToUTF16(ewallet_creation_option.issuer_display_name());
 
   std::vector<std::u16string> supported_payment_link_uris = base::ToVector(
       ewallet_creation_option.supported_payment_link_uris(),
       [](const std::string& uri) { return base::UTF8ToUTF16(uri); });
 
-  ewallet_creation_options_.emplace_back(0,       // instrument_id = 0
-                                         u"",     // nickname
-                                         GURL(),  // display_icon_url
-                                         ewallet_issuer_display_name,
-                                         u"",  // account_display_name
-                                         supported_payment_link_uris,
-                                         false  // is_fido_enrolled
+  ewallet_creation_options_.emplace_back(
+      0,                            // instrument_id = 0
+      u"",                          // nickname
+      GURL(),                       // display_icon_url
+      ewallet_issuer_id,            // ewallet_name
+      ewallet_issuer_display_name,  // account_display_name
+      supported_payment_link_uris,
+      false  // is_fido_enrolled
   );
 }
 

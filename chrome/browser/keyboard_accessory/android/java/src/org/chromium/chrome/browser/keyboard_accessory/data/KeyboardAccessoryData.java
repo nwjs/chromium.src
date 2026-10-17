@@ -37,7 +37,7 @@ public class KeyboardAccessoryData {
         private final @Nullable Listener mListener;
         private final SettableNonNullObservableSupplier<Integer> mIconIdSupplier;
 
-        /** A Tab's Listener get's notified when e.g. the Tab was assigned a view. */
+        /** A Tab's Listener gets notified when e.g. the Tab was assigned a view. */
         public interface Listener {
             /**
              * Triggered when the tab was successfully created.
@@ -138,26 +138,28 @@ public class KeyboardAccessoryData {
      * example hereof is the "Generate Password" action.
      */
     public static final class Action {
-        private final Callback<Action> mActionCallback;
-        private final @Nullable Callback<Action> mLongPressCallback;
+        // The boolean parameter indicates if the application window was fully or partially
+        // obscured when the action was triggered by a click event.
+        private final Callback<Boolean> mActionCallback;
+        private final @Nullable Runnable mLongPressCallback;
         private final @Nullable Callback<Boolean> mHoverCallback;
         private final @AccessoryAction int mType;
 
-        public Action(@AccessoryAction int type, Callback<Action> actionCallback) {
+        public Action(@AccessoryAction int type, Callback<Boolean> actionCallback) {
             this(type, actionCallback, /* longPressCallback= */ null);
         }
 
         public Action(
                 @AccessoryAction int type,
-                Callback<Action> actionCallback,
-                @Nullable Callback<Action> longPressCallback) {
+                Callback<Boolean> actionCallback,
+                @Nullable Runnable longPressCallback) {
             this(type, actionCallback, longPressCallback, /* hoverCallback= */ null);
         }
 
         public Action(
                 @AccessoryAction int type,
-                Callback<Action> actionCallback,
-                @Nullable Callback<Action> longPressCallback,
+                Callback<Boolean> actionCallback,
+                @Nullable Runnable longPressCallback,
                 @Nullable Callback<Boolean> hoverCallback) {
             mActionCallback = actionCallback;
             mLongPressCallback = longPressCallback;
@@ -165,11 +167,11 @@ public class KeyboardAccessoryData {
             mType = type;
         }
 
-        public Callback<Action> getCallback() {
+        public Callback<Boolean> getCallback() {
             return mActionCallback;
         }
 
-        public @Nullable Callback<Action> getLongPressCallback() {
+        public @Nullable Runnable getLongPressCallback() {
             return mLongPressCallback;
         }
 

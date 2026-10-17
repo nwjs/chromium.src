@@ -24,6 +24,7 @@ import org.chromium.chrome.browser.tab_ui.TabListFaviconProvider;
 import org.chromium.chrome.browser.tab_ui.ThumbnailFetcher;
 import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.ShoppingPersistedTabDataFetcher;
 import org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties;
+import org.chromium.chrome.browser.tasks.tab_management.labels.TabCardLabelData;
 import org.chromium.chrome.browser.tasks.tab_management.vertical_tabs.VerticalTabHoverController.TabHoverListener;
 import org.chromium.components.browser_ui.util.TextResolver;
 import org.chromium.components.browser_ui.widget.selectable_list.SelectionDelegate;
@@ -186,9 +187,6 @@ public class TabProperties {
     public static final WritableObjectPropertyKey<SelectionDelegate<TabListEditorItemSelectionId>>
             TAB_SELECTION_DELEGATE = new WritableObjectPropertyKey<>();
 
-    public static final WritableObjectPropertyKey<String> URL_DOMAIN =
-            new WritableObjectPropertyKey<>();
-
     public static final WritableObjectPropertyKey<AccessibilityDelegate> ACCESSIBILITY_DELEGATE =
             new WritableObjectPropertyKey<>();
 
@@ -276,7 +274,6 @@ public class TabProperties {
                 CARD_ALPHA,
                 CARD_ANIMATION_STATUS,
                 TAB_SELECTION_DELEGATE,
-                URL_DOMAIN,
                 ACCESSIBILITY_DELEGATE,
                 CARD_TYPE,
                 CONTENT_DESCRIPTION_TEXT_RESOLVER,
@@ -348,7 +345,6 @@ public class TabProperties {
                 // go/keep-sorted start
                 ACCESSIBILITY_DELEGATE,
                 ACTION_BUTTON_DESCRIPTION_TEXT_RESOLVER,
-                ACTOR_UI_STATE,
                 ALERT_STATE,
                 CARD_TYPE,
                 CONTENT_DESCRIPTION_TEXT_RESOLVER,

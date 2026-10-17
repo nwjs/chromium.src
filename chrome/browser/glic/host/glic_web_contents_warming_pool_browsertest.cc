@@ -30,6 +30,7 @@
 #include "components/policy/policy_constants.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/test/browser_test.h"
+#include "content/public/test/memory_coordinator_browsertest_util.h"
 #include "net/base/network_change_notifier.h"
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
@@ -210,9 +211,13 @@ IN_PROC_BROWSER_TEST_F(GlicManualWarmingPoolBrowserTest,
         return warming_pool.HasWarmedContainerForTesting();
       },
       "Wait for initial cold warming"));
-  auto* warmed_container = warming_pool.GetWarmedContainerForTesting();
-  ASSERT_TRUE(warmed_container);
-  content::WaitForLoadStop(warmed_container->active_web_contents());
+  {
+    auto warmed_contents = warming_pool.GetWarmedWebContents();
+    ASSERT_TRUE(warmed_contents);
+    content::WaitForLoadStop(warmed_contents->guest_contents
+                                 ? warmed_contents->guest_contents.get()
+                                 : warmed_contents->webui_contents.get());
+  }
 
   ProfileDestructionWaiter profile_destruction_waiter(new_profile);
   profile_manager->GetDeleteProfileHelper().MaybeScheduleProfileForDeletion(
@@ -299,8 +304,10 @@ IN_PROC_BROWSER_TEST_F(GlicWarmingPoolBrowserTest,
                "Wait for initial preload"));
 
   // Simulate critical memory pressure.
-  base::MemoryPressureListener::SimulatePressureNotification(
-      base::MEMORY_PRESSURE_LEVEL_CRITICAL);
+  content::test::ScopedMemoryLimitOverride scoped_memory_limit_override(
+      GlicInstanceCoordinatorImpl::kMemoryConsumerName);
+  scoped_memory_limit_override.SetLimit(base::kCriticalMemoryPressureThreshold);
+  scoped_memory_limit_override.NotifyReleaseMemory();
 
   // Verify it is cleared immediately by the coordinator.
   EXPECT_FALSE(pool().HasWarmedContainerForTesting());

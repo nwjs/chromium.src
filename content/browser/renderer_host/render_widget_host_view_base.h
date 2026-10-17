@@ -427,7 +427,10 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
   // processing.
   //
   // Once the last `input::ScopedInputDispatchPin` has been removed
-  // `DestroyImpl` is called to actually `delete this`.
+  // `DestroyImpl` is called to actually `delete this`. Pins that are both
+  // acquired and released while `DestroyOrDefer` is executing (e.g. by an
+  // observer synchronously dispatching input) never trigger `DestroyImpl`;
+  // `DestroyOrDefer` itself decides once teardown is complete.
   void DestroyOrDefer();
   virtual void DestroyImpl() = 0;
   virtual void OnDestroyOrDefer() {}
@@ -703,10 +706,6 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
   // and platform-specific bookkeeping needed.
   virtual void CancelSuccessfulPresentationTimeRequestForHostAndDelegate() = 0;
 
-  // The model object. Access is protected to allow access to
-  // RenderWidgetHostViewChildFrame.
-  raw_ptr<RenderWidgetHostImpl, DanglingUntriaged> host_;
-
   std::unique_ptr<UnboundedSurfaceWindow> unbounded_surface_window_;
 
   // Whether this view is a frame or a popup.
@@ -782,6 +781,14 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
   // opaque.
   bool IsBackgroundColorOpaque();
 
+  // This is only ever assigned in the constructor and cleared in
+  // `DestroyOrDefer()`. RenderWidgetHostImpl::Destroy() always routes through
+  // `view_->DestroyOrDefer()`, so `host_` is cleared before the
+  // RenderWidgetHostImpl is destroyed. This holds even when this view outlives
+  // the host, which happens when teardown is deferred while input is being
+  // dispatched (`pin_count_ > 0`).
+  raw_ptr<RenderWidgetHostImpl> host_;
+
   bool is_evicted_ = false;
 
   bool is_frame_sink_id_owner_ = false;
@@ -796,6 +803,12 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
   // early-exit visual updates that are no longer required. So that we can
   // gracefully clean up input dispatch.
   bool destroy_pending_ = false;
+  // `true` while `DestroyOrDefer` is on the stack. Observers notified during
+  // teardown can synchronously dispatch input to, and pin, `this`. Releasing
+  // such a pin must not call `DestroyImpl` while `DestroyOrDefer` is still
+  // executing, otherwise `this` would be deleted out from under it, and then
+  // deleted a second time when `DestroyOrDefer` completes.
+  bool in_destroy_or_defer_ = false;
 
   base::WeakPtrFactory<RenderWidgetHostViewBase> weak_factory_{this};
 };

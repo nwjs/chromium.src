@@ -6,6 +6,7 @@
 
 #include <optional>
 #include <string>
+#include <utility>
 
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
@@ -24,7 +25,8 @@ AutofillSnackbarControllerImpl::AutofillSnackbarControllerImpl(
     : web_contents_(web_contents) {}
 
 AutofillSnackbarControllerImpl::~AutofillSnackbarControllerImpl() {
-  // If the tab is killed then dismiss the snackbar if it's showing.
+  on_dismiss_callback_.reset();
+  on_action_clicked_callback_.Reset();
   Dismiss();
 }
 
@@ -42,10 +44,10 @@ void AutofillSnackbarControllerImpl::ShowWithDurationAndCallback(
     base::OnceClosure on_action_clicked_callback,
     std::optional<base::OnceClosure> on_dismiss_callback) {
   CHECK_NE(autofill_snackbar_type, AutofillSnackbarType::kUnspecified);
-  if (autofill_snackbar_view_) {
-    // A snackbar is already showing. Ignore the new request.
-    return;
+  while (autofill_snackbar_view_) {
+    Dismiss();
   }
+  CHECK(!autofill_snackbar_view_);
 
   on_action_clicked_callback_ = std::move(on_action_clicked_callback);
   on_dismiss_callback_ = std::move(on_dismiss_callback);
@@ -61,12 +63,14 @@ void AutofillSnackbarControllerImpl::ShowWithDurationAndCallback(
 }
 
 void AutofillSnackbarControllerImpl::ShowPaymentsSnackbar(
-    AutofillSnackbarType autofill_snackbar_type,
+    AutofillSnackbarType type,
     const CreditCard& filled_card,
     base::OnceClosure on_action_clicked_callback) {
+  while (autofill_snackbar_view_) {
+    Dismiss();
+  }
   filled_card_ = filled_card;
-
-  Show(autofill_snackbar_type, std::move(on_action_clicked_callback));
+  Show(type, std::move(on_action_clicked_callback));
 }
 
 void AutofillSnackbarControllerImpl::OnActionClicked() {
@@ -75,18 +79,21 @@ void AutofillSnackbarControllerImpl::OnActionClicked() {
                     ".ActionClicked"}),
       true);
 
-  std::move(on_action_clicked_callback_).Run();
+  auto action_callback = std::move(on_action_clicked_callback_);
+  auto dismiss_callback = std::exchange(on_dismiss_callback_, std::nullopt);
+  ResetState();
+
+  if (action_callback) {
+    std::move(action_callback).Run();
+  }
+  if (dismiss_callback) {
+    std::move(*dismiss_callback).Run();
+  }
 }
 
 void AutofillSnackbarControllerImpl::OnDismissed() {
-  autofill_snackbar_view_ = nullptr;
-  autofill_snackbar_type_ = AutofillSnackbarType::kUnspecified;
-  autofill_snackbar_duration_ = kDefaultSnackbarDuration;
-
-  if (on_dismiss_callback_) {
-    std::move(*on_dismiss_callback_).Run();
-    on_dismiss_callback_.reset();
-  }
+  ResetState();
+  RunDismissCallbackIfAny();
 }
 
 std::u16string AutofillSnackbarControllerImpl::GetMessageText() const {
@@ -123,6 +130,9 @@ std::u16string AutofillSnackbarControllerImpl::GetMessageText() const {
     case AutofillSnackbarType::kAutofillAiFetchEntityFailure:
       return l10n_util::GetStringUTF16(
           IDS_AUTOFILL_AI_FETCH_ENTITY_FAILURE_NOTIFICATION);
+    case AutofillSnackbarType::kAutofillAiSuppressionUndo:
+      return l10n_util::GetStringUTF16(
+          IDS_AUTOFILL_AI_SUPPRESSION_UNDO_SNACKBAR_MESSAGE);
     case AutofillSnackbarType::kUnspecified:
       NOTREACHED();
   }
@@ -151,6 +161,9 @@ std::u16string AutofillSnackbarControllerImpl::GetActionButtonText() const {
     case AutofillSnackbarType::kAutofillAiFetchEntityFailure:
       return l10n_util::GetStringUTF16(
           IDS_AUTOFILL_AI_SNACK_BAR_CONFIRMATION_BUTTON_LABEL);
+    case AutofillSnackbarType::kAutofillAiSuppressionUndo:
+      return l10n_util::GetStringUTF16(
+          IDS_AUTOFILL_AI_SUPPRESSION_UNDO_SNACKBAR_ACTION);
     case AutofillSnackbarType::kUnspecified:
       NOTREACHED();
   }
@@ -164,15 +177,36 @@ content::WebContents* AutofillSnackbarControllerImpl::GetWebContents() const {
   return web_contents_;
 }
 
+AutofillSnackbarType AutofillSnackbarControllerImpl::GetSnackbarType() const {
+  return autofill_snackbar_type_;
+}
+
 void AutofillSnackbarControllerImpl::Dismiss() {
   if (!autofill_snackbar_view_) {
     return;
   }
-
-  autofill_snackbar_view_->Dismiss();
+  ResetState();
+  RunDismissCallbackIfAny();
 }
 
-std::string AutofillSnackbarControllerImpl::GetSnackbarTypeForLogging() {
+void AutofillSnackbarControllerImpl::ResetState() {
+  if (AutofillSnackbarView* const view =
+          std::exchange(autofill_snackbar_view_, nullptr)) {
+    view->Dismiss();
+  }
+  autofill_snackbar_type_ = AutofillSnackbarType::kUnspecified;
+  autofill_snackbar_duration_ = kDefaultSnackbarDuration;
+  on_action_clicked_callback_.Reset();
+  filled_card_.reset();
+}
+
+void AutofillSnackbarControllerImpl::RunDismissCallbackIfAny() {
+  if (auto callback = std::exchange(on_dismiss_callback_, std::nullopt)) {
+    std::move(*callback).Run();
+  }
+}
+
+std::string AutofillSnackbarControllerImpl::GetSnackbarTypeForLogging() const {
   switch (autofill_snackbar_type_) {
     case AutofillSnackbarType::kVirtualCard:
       return "VirtualCard";
@@ -192,6 +226,8 @@ std::string AutofillSnackbarControllerImpl::GetSnackbarTypeForLogging() {
       return "AutofillAiSaveToWalletFailure";
     case AutofillSnackbarType::kAutofillAiFetchEntityFailure:
       return "AutofillAiFetchFromWalletFailure";
+    case AutofillSnackbarType::kAutofillAiSuppressionUndo:
+      return "AutofillAiSuppressionUndo";
     case AutofillSnackbarType::kUnspecified:
       return "Unspecified";
   }

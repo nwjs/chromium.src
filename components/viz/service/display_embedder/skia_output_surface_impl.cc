@@ -527,7 +527,6 @@ SkCanvas* SkiaOutputSurfaceImpl::BeginPaintCurrentFrame() {
     // won't have or support those usages.
     skgpu::graphite::TextureInfo texture_info = gpu::GraphiteBackendTextureInfo(
         gr_context_type_, format_, /*plane_index=*/0,
-        /*is_yuv_plane=*/false,
         /*mipmapped=*/false, /*scanout_dcomp_surface=*/false);
     CHECK(texture_info.isValid());
     current_paint_.emplace(graphite_recorder_, image_info, texture_info,
@@ -821,8 +820,7 @@ SkCanvas* SkiaOutputSurfaceImpl::BeginPaintRenderPass(
         static_cast<SkAlphaType>(alpha_type), color_space.ToSkColorSpace());
     skgpu::graphite::TextureInfo texture_info = gpu::GraphiteBackendTextureInfo(
         gr_context_type_, format, /*plane_index=*/0,
-        /*is_yuv_plane=*/false, mipmap == skgpu::Mipmapped::kYes,
-        scanout_dcomp_surface);
+        mipmap == skgpu::Mipmapped::kYes, scanout_dcomp_surface);
     if (!texture_info.isValid()) {
       DLOG(ERROR) << "BeginPaintRenderPass: invalid Graphite TextureInfo";
       return nullptr;
@@ -1034,10 +1032,12 @@ void SkiaOutputSurfaceImpl::CopyOutput(
   }
 
   if (request->has_blit_request()) {
-    const auto& sync_token = request->blit_request().sync_token();
-    if (sync_token.HasData()) {
-      resource_sync_tokens_.push_back(sync_token);
-    }
+    const auto& blit_request = request->blit_request();
+    std::vector<gpu::SyncToken> sync_tokens =
+        blit_request.shared_image()->GetSyncTokensForDisplayCompositor(
+            blit_request.sync_token());
+    resource_sync_tokens_.insert(resource_sync_tokens_.end(),
+                                 sync_tokens.begin(), sync_tokens.end());
   }
 
   auto callback = base::BindOnce(&SkiaOutputSurfaceImplOnGpu::CopyOutput,
@@ -1494,8 +1494,8 @@ SkiaOutputSurfaceImpl::GetGraphitePromiseTextureInfo(
     int plane_index,
     bool mipmap) {
   return gpu::GraphitePromiseTextureInfo(
-      gr_context_type_, image_context->format(), image_context->ycbcr_info(),
-      plane_index, mipmap);
+      gr_context_type_, image_context->format(), image_context->color_space(),
+      image_context->ycbcr_info(), plane_index, mipmap);
 }
 
 GrBackendFormat SkiaOutputSurfaceImpl::GetGrBackendFormatForTexture(
@@ -1701,20 +1701,21 @@ bool SkiaOutputSurfaceImpl::SupportsBGRA() const {
 
 #if BUILDFLAG(ENABLE_VULKAN) && BUILDFLAG(IS_CHROMEOS) && \
     BUILDFLAG(USE_V4L2_CODEC)
-void SkiaOutputSurfaceImpl::DetileOverlay(gpu::Mailbox input,
-                                          const gfx::Size& input_visible_size,
-                                          gpu::SyncToken input_sync_token,
-                                          gpu::Mailbox output,
-                                          const gfx::RectF& display_rect,
-                                          const gfx::RectF& crop_rect,
-                                          gfx::OverlayTransform transform,
-                                          bool is_10bit) {
+void SkiaOutputSurfaceImpl::DetileOverlay(
+    gpu::Mailbox input,
+    const gfx::Size& input_visible_size,
+    std::vector<gpu::SyncToken> input_sync_tokens,
+    gpu::Mailbox output,
+    const gfx::RectF& display_rect,
+    const gfx::RectF& crop_rect,
+    gfx::OverlayTransform transform,
+    bool is_10bit) {
   auto task = base::BindOnce(&SkiaOutputSurfaceImplOnGpu::DetileOverlay,
                              base::Unretained(impl_on_gpu_.get()), input,
                              input_visible_size, output, display_rect,
                              crop_rect, transform, is_10bit);
-  EnqueueGpuTask(std::move(task), {input_sync_token}, /*make_current=*/false,
-                 /*need_framebuffer=*/false);
+  EnqueueGpuTask(std::move(task), std::move(input_sync_tokens),
+                 /*make_current=*/false, /*need_framebuffer=*/false);
 }
 
 void SkiaOutputSurfaceImpl::CleanupImageProcessor() {

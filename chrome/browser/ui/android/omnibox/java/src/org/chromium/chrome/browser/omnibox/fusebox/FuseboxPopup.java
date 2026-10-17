@@ -14,6 +14,7 @@ import android.widget.PopupWindow.OnDismissListener;
 import android.widget.TextView;
 
 import androidx.annotation.DrawableRes;
+import androidx.annotation.IdRes;
 import androidx.core.graphics.Insets;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.window.layout.WindowMetrics;
@@ -24,6 +25,7 @@ import org.chromium.base.task.TaskTraits;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.omnibox.R;
+import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.CurrentTabPlacement;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.PopupState;
 import org.chromium.components.omnibox.OmniboxCapabilities;
 import org.chromium.ui.base.LocalizationUtils;
@@ -45,6 +47,10 @@ class FuseboxPopup {
     /* package */ final ViewGroup mViewGroup;
     /* package */ final FuseboxScrollView mScrollView;
     /* package */ final View mAddCurrentTab;
+
+    /** Divider below the "Add current tab" button; only present when it is placed on top. */
+    /* package */ final @Nullable View mCurrentTabTopDivider;
+
     /* package */ final View mTabButton;
     /* package */ final View mCameraButton;
     /* package */ final View mGalleryButton;
@@ -57,9 +63,11 @@ class FuseboxPopup {
 
     /* package */ final View mModelsDivider;
     /* package */ final TextView mModelsHeader;
-    /* package */ final @Nullable TextView mRecentTabsHeader;
-    /* package */ final @Nullable ViewGroup mRecentTabsContainer;
-    /* package */ final @Nullable View mRecentTabsDivider;
+    /* package */ final TextView mAttachmentsHeader;
+    /* package */ final View mAttachmentsContainer;
+    /* package */ final TextView mRecentTabsHeader;
+    /* package */ final ViewGroup mRecentTabsContainer;
+    /* package */ final View mRecentTabsDivider;
     /* package */ final List<View> mAttachmentButtons;
     /* package */ final Set<View> mDynamicThemedButtons = new HashSet<>();
     /* package */ final List<View> mDividers;
@@ -105,7 +113,9 @@ class FuseboxPopup {
             View contentView,
             DynamicRectProvider dynamicRectProvider,
             boolean isBottomSheet,
-            boolean useCarousel) {
+            boolean useCarousel,
+            boolean useScrollableCarousel,
+            @CurrentTabPlacement int currentTabPlacement) {
         mActivity = activity;
         mPopupWindow = popupWindow;
         mPopupWindow.setClippingEnabled(false);
@@ -137,11 +147,17 @@ class FuseboxPopup {
         ViewStub stub = contentView.findViewById(R.id.fusebox_attachments_stub);
         stub.setLayoutResource(
                 useCarousel
-                        ? R.layout.fusebox_horizontal_attachments
+                        ? useScrollableCarousel
+                                ? R.layout.fusebox_horizontal_scrollable_attachments
+                                : R.layout.fusebox_horizontal_attachments
                         : R.layout.fusebox_vertical_attachments);
-        stub.inflate();
+        mAttachmentsContainer = stub.inflate();
 
-        mAddCurrentTab = contentView.findViewById(R.id.fusebox_add_current_tab);
+        mAddCurrentTab = contentView.findViewById(getAddCurrentTabId(currentTabPlacement));
+        mCurrentTabTopDivider =
+                currentTabPlacement == CurrentTabPlacement.ABOVE_ATTACHMENTS
+                        ? contentView.findViewById(R.id.fusebox_current_tab_top_divider)
+                        : null;
         mTabButton = contentView.findViewById(R.id.fusebox_pick_tabs_button);
         mCameraButton = contentView.findViewById(R.id.fusebox_camera_button);
         mGalleryButton = contentView.findViewById(R.id.fusebox_pick_picture_button);
@@ -198,6 +214,7 @@ class FuseboxPopup {
         mModelsDivider = contentView.findViewById(R.id.fusebox_models_divider);
         mModelsHeader = contentView.findViewById(R.id.fusebox_models_header);
 
+        mAttachmentsHeader = contentView.findViewById(R.id.fusebox_attachments_header);
         mRecentTabsDivider = contentView.findViewById(R.id.fusebox_recent_tabs_divider);
         mRecentTabsHeader = contentView.findViewById(R.id.fusebox_recent_tabs_header);
         mRecentTabsContainer = contentView.findViewById(R.id.fusebox_recent_tabs_container);
@@ -212,13 +229,14 @@ class FuseboxPopup {
                         mDriveButton);
 
         mDividers =
-                mRecentTabsDivider != null
-                        ? List.of(mRecentTabsDivider, mToolsDivider, mModelsDivider)
-                        : List.of(mToolsDivider, mModelsDivider);
-        mHeaders =
-                mRecentTabsHeader != null
-                        ? List.of(mRecentTabsHeader, mToolsHeader, mModelsHeader)
-                        : List.of(mToolsHeader, mModelsHeader);
+                mCurrentTabTopDivider != null
+                        ? List.of(
+                                mCurrentTabTopDivider,
+                                mRecentTabsDivider,
+                                mToolsDivider,
+                                mModelsDivider)
+                        : List.of(mRecentTabsDivider, mToolsDivider, mModelsDivider);
+        mHeaders = List.of(mRecentTabsHeader, mToolsHeader, mModelsHeader);
     }
 
     void destroy() {
@@ -400,5 +418,17 @@ class FuseboxPopup {
     private void updateDesiredWidth() {
         int width = mDynamicRectProvider.getPopupWidth(mCurrentState, mViewGroup.getResources());
         mPopupWindow.updateDesiredContentSize(width, /* height= */ 0, /* updateLayout= */ true);
+    }
+
+    private static @IdRes int getAddCurrentTabId(@CurrentTabPlacement int placement) {
+        return switch (placement) {
+            case CurrentTabPlacement.ABOVE_ATTACHMENTS -> R.id.fusebox_add_current_tab_top;
+            case CurrentTabPlacement.WITH_ATTACHMENTS -> R.id.fusebox_add_current_tab;
+            case CurrentTabPlacement.BELOW_ATTACHMENTS -> R.id.fusebox_add_current_tab_pinned;
+            default -> {
+                assert false : "Unknown CurrentTabPlacement: " + placement;
+                yield R.id.fusebox_add_current_tab;
+            }
+        };
     }
 }

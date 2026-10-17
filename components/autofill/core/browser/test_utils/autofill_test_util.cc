@@ -626,7 +626,7 @@ CreditCardCloudTokenData GetCreditCardCloudTokenData2() {
   return data;
 }
 
-AutofillOfferData GetCardLinkedOfferData1(int64_t offer_id) {
+AutofillOfferData GetCardLinkedOfferData1(std::string offer_id) {
   // Sets the expiry to be 45 days later.
   base::Time expiry = AutofillClock::Now() + base::Days(45);
   GURL offer_details_url = GURL("http://www.example1.com");
@@ -640,11 +640,11 @@ AutofillOfferData GetCardLinkedOfferData1(int64_t offer_id) {
   std::vector<int64_t> eligible_instrument_id{111111};
 
   return AutofillOfferData::GPayCardLinkedOffer(
-      offer_id, expiry, merchant_origins, offer_details_url, display_strings,
-      eligible_instrument_id, offer_reward_amount);
+      std::move(offer_id), expiry, merchant_origins, offer_details_url,
+      display_strings, eligible_instrument_id, offer_reward_amount);
 }
 
-AutofillOfferData GetCardLinkedOfferData2(int64_t offer_id) {
+AutofillOfferData GetCardLinkedOfferData2(std::string offer_id) {
   // Sets the expiry to be 40 days later.
   base::Time expiry = AutofillClock::Now() + base::Days(40);
   GURL offer_details_url = GURL("http://www.example2.com");
@@ -658,16 +658,22 @@ AutofillOfferData GetCardLinkedOfferData2(int64_t offer_id) {
   std::vector<int64_t> eligible_instrument_id{222222};
 
   return AutofillOfferData::GPayCardLinkedOffer(
-      offer_id, expiry, merchant_origins, offer_details_url, display_strings,
-      eligible_instrument_id, offer_reward_amount);
+      std::move(offer_id), expiry, merchant_origins, offer_details_url,
+      display_strings, eligible_instrument_id, offer_reward_amount);
 }
 
 AutofillOfferData GetPromoCodeOfferData(GURL origin,
                                         bool is_expired,
-                                        int64_t offer_id) {
+                                        std::string offer_id) {
   // Sets the expiry to be later if not expired, or earlier if expired.
   base::Time expiry = is_expired ? AutofillClock::Now() - base::Days(1)
                                  : AutofillClock::Now() + base::Days(35);
+  // `PaymentsAutofillTable` stores the expiry with millisecond precision, while
+  // `AutofillClock::Now()` has microsecond precision, so truncate it to
+  // millisecond precision to match real data.
+  expiry = base::Time::FromMillisecondsSinceUnixEpoch(
+      expiry.InMillisecondsSinceUnixEpoch());
+
   std::vector<GURL> merchant_origins{origin};
   DisplayStrings display_strings;
   display_strings.value_prop_text = "5% off on shoes. Up to $50.";
@@ -675,11 +681,12 @@ AutofillOfferData GetPromoCodeOfferData(GURL origin,
   display_strings.usage_instructions_text =
       "Click the promo code field at checkout to autofill it.";
   std::string promo_code = "5PCTOFFSHOES";
+  std::string offer_reward_amount = "5% off on shoes.";
   GURL offer_details_url = GURL("https://pay.google.com");
 
-  return AutofillOfferData::GPayPromoCodeOffer(
-      offer_id, expiry, merchant_origins, offer_details_url, display_strings,
-      promo_code);
+  return AutofillOfferData(std::move(offer_id), expiry, merchant_origins,
+                           offer_details_url, display_strings, promo_code,
+                           offer_reward_amount);
 }
 
 VirtualCardUsageData GetVirtualCardUsageData1() {

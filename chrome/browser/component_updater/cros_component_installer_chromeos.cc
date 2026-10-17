@@ -4,6 +4,9 @@
 
 #include "chrome/browser/component_updater/cros_component_installer_chromeos.h"
 
+#include <stdint.h>
+#include <string.h>
+
 #include <algorithm>
 #include <map>
 #include <string_view>
@@ -245,8 +248,6 @@ DemoAppInstallerPolicy::GetInstallerAttributes() const {
       ash::demo_mode::StoreNumber(local_state);
   demo_app_installer_attributes["demo_country"] =
       ash::demo_mode::Country(local_state);
-  demo_app_installer_attributes["is_cloud_gaming_device"] =
-      base::ToString(ash::demo_mode::IsCloudGamingDevice());
   demo_app_installer_attributes["is_feature_aware_device"] =
       base::ToString(ash::demo_mode::IsFeatureAwareDevice());
 

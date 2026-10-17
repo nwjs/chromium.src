@@ -85,6 +85,7 @@ class BnplStrategy;
 class BnplUiDelegate;
 class MandatoryReauthManager;
 class MultipleRequestPaymentsNetworkInterface;
+class PaymentsChurnedUsersUiDelegate;
 class PaymentsNetworkInterface;
 class PaymentsWindowManager;
 class SaveAndFillManager;
@@ -829,6 +830,10 @@ class PaymentsAutofillClient : public RiskDataLoader {
   // client.
   virtual WalletReminderNoticeManager* GetWalletReminderNoticeManager();
 
+  // Gets the `PaymentsChurnedUsersUiDelegate` instance associated with the
+  // client. Handles the resurrection UI for the Payments Churned Users flow.
+  virtual PaymentsChurnedUsersUiDelegate* GetPaymentsChurnedUsersUiDelegate();
+
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   // Gets the `OmniboxAutofillDelegate` instance associated with the client, or
   // nullptr on unsupported platforms. Handles the Autofill flow where the
@@ -854,14 +859,6 @@ class PaymentsAutofillClient : public RiskDataLoader {
   // Hides the entire omnibox chip.
   virtual void HideOmniboxAutofillChip() = 0;
 #endif
-
-  // Shows the Payments Churned Users UI. This UI is responsible for providing
-  // users that have turned off autofill with a value prop to turn autofill back
-  // on.
-  // TODO(crbug.com/524740910): Rename to MaybeShowPaymentsChurnedUsersUi().
-  virtual void ShowPaymentsChurnedUsersUI(base::OnceClosure accept_callback,
-                                          base::OnceClosure cancel_callback,
-                                          base::OnceClosure closed_callback) {}
 };
 
 }  // namespace payments

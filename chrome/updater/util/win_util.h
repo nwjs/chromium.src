@@ -11,7 +11,6 @@
 #include <wrl/implements.h>
 
 #include <algorithm>
-#include <cstdint>
 #include <optional>
 #include <string>
 #include <tuple>
@@ -285,6 +284,12 @@ bool SetEulaAccepted(UpdaterScope scope, bool eula_accepted);
 
 // Returns `true` if the COM caller is an admin.
 HResultOr<bool> IsCOMCallerAdmin();
+
+// Returns the SID of the COM caller, or the SID of the current process user if
+// called in-proc and not running as LocalSystem, or an empty string otherwise.
+// Must be called on the thread servicing the incoming COM call and while the
+// thread is not already impersonating a client.
+std::wstring GetCOMCallerSid();
 
 // Returns `true` if the UAC is enabled.
 bool IsUACOn();

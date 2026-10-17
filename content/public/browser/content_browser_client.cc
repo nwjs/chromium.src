@@ -245,7 +245,7 @@ bool ContentBrowserClient::ShouldTreatAsFirstPartyWhenTopLevel(
 
 bool ContentBrowserClient::ShouldIgnoreSameSiteCookieRestrictionsWhenTopLevel(
     const url::Origin& top_frame_origin,
-    bool is_embedded_origin_secure) {
+    const GURL& current_url_chain_entry) {
   return false;
 }
 
@@ -665,6 +665,12 @@ bool ContentBrowserClient::AllowWorkerWebLocks(
   return true;
 }
 
+bool ContentBrowserClient::AllowWorkerWriteToClipboard(
+    const url::Origin& origin,
+    BrowserContext* browser_context) {
+  return false;
+}
+
 bool ContentBrowserClient::IsPrivacySandboxReportingDestinationAttested(
     content::BrowserContext* browser_context,
     const url::Origin& destination_origin,
@@ -811,6 +817,11 @@ FeatureObserverClient* ContentBrowserClient::GetFeatureObserverClient() {
 }
 
 bool ContentBrowserClient::IsPopupBypassAllowed(
+    RenderFrameHost* render_frame_host) {
+  return false;
+}
+
+bool ContentBrowserClient::IsUnboundedElementAllowed(
     RenderFrameHost* render_frame_host) {
   return false;
 }
@@ -1443,10 +1454,11 @@ bool ContentBrowserClient::IsBuiltinComponent(BrowserContext* browser_context,
 
 void ContentBrowserClient::StartRtcDiagnosticLogging(
     RenderFrameHost& frame_host,
+    const base::Uuid& session_id,
     bool should_upload_on_stop,
     const base::flat_map<std::string, std::string>& metadata,
-    base::OnceCallback<void(const std::string&)> callback) {
-  std::move(callback).Run(base::Uuid::GenerateRandomV4().AsLowercaseString());
+    base::OnceClosure callback) {
+  std::move(callback).Run();
 }
 
 void ContentBrowserClient::FinishRtcDiagnosticLogging(
@@ -1640,6 +1652,8 @@ void ContentBrowserClient::OnKeepaliveRequestFinished() {}
 void ContentBrowserClient::OnFetchKeepAliveRequestCreated(BrowserContext&) {}
 
 void ContentBrowserClient::OnFetchKeepAliveRequestDestroyed(BrowserContext&) {}
+
+void ContentBrowserClient::SuppressXSLTDeprecationBanner(RenderFrameHost*) {}
 
 #if BUILDFLAG(IS_MAC)
 bool ContentBrowserClient::SetupEmbedderSandboxParameters(

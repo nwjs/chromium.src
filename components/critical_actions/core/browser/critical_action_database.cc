@@ -6,10 +6,12 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <utility>
 #include <vector>
 
 #include "base/functional/bind.h"
 #include "base/logging.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/strings/cstring_view.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
@@ -17,8 +19,8 @@
 #include "sql/error_delegate_util.h"
 #include "sql/sqlite_result_code.h"
 #include "sql/statement.h"
+#include "sql/table_management_helpers.h"
 #include "sql/transaction.h"
-#include "url/gurl.h"
 
 namespace critical_actions {
 
@@ -28,8 +30,8 @@ namespace {
 // SQLite's parameter limits (SQLITE_MAX_VARIABLE_NUMBER) and minimizing
 // parser memory.
 constexpr size_t kMaxBatchSize = 500;
-constexpr int kCurrentVersion = 2;
-constexpr int kCompatibleVersion = 1;
+constexpr int kCurrentVersion = 3;
+constexpr int kCompatibleVersion = 3;
 
 constexpr std::string_view kTableNames[] = {
     "CriticalActionConversations",
@@ -80,6 +82,68 @@ std::string BuildDeleteByVisitIdsQuery(std::string_view table_name,
   });
 }
 
+// Schema definition for version 2. Kept frozen to support sequential
+// migration from version 1.
+bool InitSchemaV2(sql::Database& db) {
+  if (!db.Execute("CREATE TABLE IF NOT EXISTS CriticalActionEntries ("
+                  "  critical_action_id TEXT PRIMARY KEY NOT NULL,"
+                  "  timestamp INTEGER NOT NULL,"
+                  "  actor_task_id TEXT,"
+                  "  action_type INTEGER NOT NULL,"
+                  "  url TEXT,"
+                  "  metadata TEXT"
+                  ")")) {
+    return false;
+  }
+
+  if (!db.Execute("CREATE INDEX IF NOT EXISTS idx_entries_timestamp ON "
+                  "CriticalActionEntries(timestamp)")) {
+    return false;
+  }
+
+  if (!db.Execute("CREATE INDEX IF NOT EXISTS idx_entries_action_type ON "
+                  "CriticalActionEntries(action_type)")) {
+    return false;
+  }
+
+  if (!db.Execute("CREATE INDEX IF NOT EXISTS idx_entries_actor_task_id ON "
+                  "CriticalActionEntries(actor_task_id)")) {
+    return false;
+  }
+
+  if (!db.Execute("CREATE INDEX IF NOT EXISTS idx_entries_url ON "
+                  "CriticalActionEntries(url)")) {
+    return false;
+  }
+
+  if (!db.Execute("CREATE TABLE IF NOT EXISTS CriticalActionVisits ("
+                  "  critical_action_id TEXT PRIMARY KEY NOT NULL,"
+                  "  visit_id INTEGER NOT NULL"
+                  ")")) {
+    return false;
+  }
+
+  if (!db.Execute("CREATE INDEX IF NOT EXISTS idx_visits_visit_id ON "
+                  "CriticalActionVisits(visit_id)")) {
+    return false;
+  }
+
+  if (!db.Execute("CREATE TABLE IF NOT EXISTS CriticalActionConversations ("
+                  "  critical_action_id TEXT PRIMARY KEY NOT NULL,"
+                  "  conversation_id TEXT NOT NULL"
+                  ")")) {
+    return false;
+  }
+
+  if (!db.Execute(
+          "CREATE INDEX IF NOT EXISTS idx_conversations_conversation_id ON "
+          "CriticalActionConversations(conversation_id)")) {
+    return false;
+  }
+
+  return true;
+}
+
 }  // namespace
 
 CriticalActionDatabase::CriticalActionDatabase(const base::FilePath& db_path)
@@ -124,7 +188,17 @@ bool CriticalActionDatabase::Init() {
     return false;
   }
 
-  return transaction.Commit();
+  if (!transaction.Commit()) {
+    return false;
+  }
+
+  if (std::exchange(needs_vacuum_, false)) {
+    DCHECK(!db_.HasActiveTransactions());
+    base::UmaHistogramBoolean("CriticalActions.Database.MigrationVacuumResult",
+                              db_.Vacuum());
+  }
+
+  return true;
 }
 
 bool CriticalActionDatabase::InitSchema() {
@@ -135,7 +209,6 @@ bool CriticalActionDatabase::InitSchema() {
                    "  timestamp INTEGER NOT NULL,"
                    "  actor_task_id TEXT,"
                    "  action_type INTEGER NOT NULL,"
-                   "  url TEXT,"
                    "  metadata TEXT"
                    ")")) {
     return false;
@@ -153,11 +226,6 @@ bool CriticalActionDatabase::InitSchema() {
 
   if (!db_.Execute("CREATE INDEX IF NOT EXISTS idx_entries_actor_task_id ON "
                    "CriticalActionEntries(actor_task_id)")) {
-    return false;
-  }
-
-  if (!db_.Execute("CREATE INDEX IF NOT EXISTS idx_entries_url ON "
-                   "CriticalActionEntries(url)")) {
     return false;
   }
 
@@ -212,6 +280,8 @@ bool CriticalActionDatabase::MigrateToVersion(int version) {
   switch (version) {
     case 2:
       return MigrateFromV1ToV2();
+    case 3:
+      return MigrateFromV2ToV3();
     default:
       return true;
   }
@@ -225,7 +295,7 @@ bool CriticalActionDatabase::MigrateFromV1ToV2() {
     return false;
   }
 
-  if (!InitSchema()) {
+  if (!InitSchemaV2(db_)) {
     return false;
   }
 
@@ -262,6 +332,38 @@ bool CriticalActionDatabase::MigrateFromV1ToV2() {
   return transaction.Commit();
 }
 
+bool CriticalActionDatabase::MigrateFromV2ToV3() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  sql::Transaction transaction(&db_);
+  if (!transaction.Begin()) {
+    return false;
+  }
+
+  // SQLite cannot drop an indexed column, so remove the (never-queried) index
+  // on `url` first.
+  if (!db_.Execute("DROP INDEX IF EXISTS idx_entries_url")) {
+    return false;
+  }
+  if (!sql::DropColumn(db_, "CriticalActionEntries", "url")) {
+    return false;
+  }
+
+  // Older clients SELECT/INSERT `url`, so they can no longer read this file.
+  // MetaTable::Init()'s compatible_version argument only applies to newly
+  // created databases, so existing ones must be updated explicitly.
+  if (!meta_table_.SetCompatibleVersionNumber(kCompatibleVersion)) {
+    return false;
+  }
+
+  // Dropping a column rewrites every row, freeing pages that SQLite will not
+  // return to the OS by itself. Init() vacuums once after committing, since
+  // VACUUM cannot run inside a transaction.
+  needs_vacuum_ = true;
+
+  return transaction.Commit();
+}
+
 bool CriticalActionDatabase::AddCriticalAction(
     const CriticalActionEntry& entry) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -274,14 +376,13 @@ bool CriticalActionDatabase::AddCriticalAction(
   sql::Statement stmt_entry(db_.GetCachedStatement(
       SQL_FROM_HERE,
       "INSERT INTO CriticalActionEntries (critical_action_id, timestamp, "
-      "action_type, url, metadata, actor_task_id) "
-      "VALUES (?, ?, ?, ?, ?, ?)"));
+      "action_type, metadata, actor_task_id) "
+      "VALUES (?, ?, ?, ?, ?)"));
   stmt_entry.BindString(0, entry.critical_action_id);
   stmt_entry.BindTime(1, entry.timestamp);
   stmt_entry.BindInt(2, static_cast<int>(entry.action_type));
-  stmt_entry.BindString(3, entry.url.spec());
-  stmt_entry.BindString(4, entry.metadata);
-  stmt_entry.BindString(5, entry.actor_task_id);
+  stmt_entry.BindString(3, entry.metadata);
+  stmt_entry.BindString(4, entry.actor_task_id);
   if (!stmt_entry.Run()) {
     return false;
   }
@@ -313,6 +414,43 @@ bool CriticalActionDatabase::AddCriticalAction(
   return transaction.Commit();
 }
 
+bool CriticalActionDatabase::SetCriticalActionsConversationId(
+    const std::vector<std::string>& critical_action_ids,
+    std::string_view conversation_id) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (critical_action_ids.empty()) {
+    // No-op succeeds since nothing needs updating.
+    return true;
+  }
+  if (conversation_id.empty()) {
+    return false;
+  }
+
+  sql::Transaction transaction(&db_);
+  if (!transaction.Begin()) {
+    return false;
+  }
+
+  // Unlike DeleteCriticalActionsByVisitIds which runs rarely and in bulk, this
+  // is called often with only a few actor tasks per conversation, making
+  // GetCachedStatement preferred over dynamic statement compilation.
+  sql::Statement insert_stmt(db_.GetCachedStatement(
+      SQL_FROM_HERE,
+      "INSERT OR REPLACE INTO CriticalActionConversations "
+      "(critical_action_id, conversation_id) VALUES (?, ?) "));
+
+  for (const std::string& critical_action_id : critical_action_ids) {
+    insert_stmt.Reset(true);
+    insert_stmt.BindString(0, critical_action_id);
+    insert_stmt.BindString(1, conversation_id);
+    if (!insert_stmt.Run()) {
+      return false;
+    }
+  }
+
+  return transaction.Commit();
+}
+
 std::optional<CriticalActionEntry> CriticalActionDatabase::GetCriticalAction(
     std::string_view critical_action_id) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -321,7 +459,7 @@ std::optional<CriticalActionEntry> CriticalActionDatabase::GetCriticalAction(
       SQL_FROM_HERE,
       "SELECT e.critical_action_id, e.timestamp, v.visit_id, "
       "c.conversation_id, "
-      "       e.actor_task_id, e.action_type, e.url, e.metadata "
+      "       e.actor_task_id, e.action_type, e.metadata "
       "FROM CriticalActionEntries e "
       "LEFT JOIN CriticalActionVisits v ON e.critical_action_id = "
       "v.critical_action_id "
@@ -385,7 +523,7 @@ std::string CriticalActionDatabase::BuildGetCriticalActionsQuery(
   std::string sql_query =
       "SELECT e.critical_action_id, e.timestamp, v.visit_id, "
       "c.conversation_id, "
-      "       e.actor_task_id, e.action_type, e.url, e.metadata "
+      "       e.actor_task_id, e.action_type, e.metadata "
       "FROM CriticalActionEntries e "
       "LEFT JOIN CriticalActionVisits v ON e.critical_action_id = "
       "v.critical_action_id "
@@ -471,8 +609,7 @@ CriticalActionEntry CriticalActionDatabase::StatementToEntry(
   entry.conversation_id = statement.ColumnString(3);
   entry.actor_task_id = statement.ColumnString(4);
   entry.action_type = static_cast<ActionType>(statement.ColumnInt(5));
-  entry.url = GURL(statement.ColumnString(6));
-  entry.metadata = statement.ColumnString(7);
+  entry.metadata = statement.ColumnString(6);
   return entry;
 }
 

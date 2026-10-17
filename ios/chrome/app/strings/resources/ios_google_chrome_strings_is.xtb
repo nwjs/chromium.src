@@ -48,6 +48,7 @@ Hafðu í huga:
 <translation id="1784567647421309104">Vistaðu aðgangsorðin þín í Chrome</translation>
 <translation id="1790080846677398234">Bæta innteknum vefslóðum við bókamerkin þín í Chrome.</translation>
 <translation id="1799920918471566157">Ábendingar fyrir Chrome</translation>
+<translation id="1802420021606590788">Chrome vinnur úr síðutitlum og vefslóðum í lokuðu rými í skýinu</translation>
 <translation id="1830634592642484976">Þetta heimilisfang er vistað á Chrome eins og stendur. Til að nota það í Google-vörum skaltu vista það á Google-reikningnum þínum: <ph name="USER_EMAIL" />.</translation>
 <translation id="1891812034154776216">Fela opna huliðsflipa þegar þú lokar Chrome</translation>
 <translation id="1894434821386148799">Hér finnurðu Chrome-stillingar og fleira</translation>
@@ -140,6 +141,7 @@ Ekki er hægt að vista ný bókamerki á reikningnum þínum fyrr en þú eyði
 <translation id="3984746313391923992">Fyrirtækið þitt krefst þess að þú skráir þig ekki inn í Chrome.</translation>
 <translation id="3988789688219830639">Google Chrome hefur ekki aðgang að myndunum þínum eða myndskeiðum. Veittu aðgang í iOS Settings &gt; Privacy &gt; Photos.</translation>
 <translation id="4064699917955374540">Staðfestu að þetta sért þú til að nota og vista Chrome-gögn á Google-reikningnum þínum.</translation>
+<translation id="4093789416346364876">Gerðu Chrome að sjálfgefnum vafra til að fá innsýn Gemini hvar sem þú skoðar þig um á netinu</translation>
 <translation id="411154422556990518">Fáðu tilkynningar um verðrakningu og ábendingar frá Chrome til að vera með á nótunum.</translation>
 <translation id="417201473131094001">Ekki stutt í Chrome Canary</translation>
 <translation id="424864128008805179">Viltu skrá þig út úr Chrome?</translation>
@@ -268,6 +270,7 @@ Til að skoða fleiri stillingar sem nota gögn til að bæta Chrome-upplifunina
 <translation id="7061455974939528301">Haltu Chrome-tákninu inni og smelltu á „Breyta heimaskjá“</translation>
 <translation id="7095110968493193530">Í Google-aðgangsorðastjórnun fyrir <ph name="EMAIL" /></translation>
 <translation id="7124339256045485976">Haltu Chrome uppfærðu</translation>
+<translation id="7135936755418321901">Til að deila staðsetningunni þinni með vefsvæðum skaltu ýta á Stillingar til að leyfa Chrome að nota staðsetninguna þína.</translation>
 <translation id="7145599899567697473">Vista og fylla aðgangsorð sjálfkrafa út í Chrome</translation>
 <translation id="7161390184744336561">Google Chrome er úrelt</translation>
 <translation id="7165736900384873061">Byrjaðu að nota QR-skanna Google Chrome</translation>
@@ -282,6 +285,7 @@ Til að skoða fleiri stillingar sem nota gögn til að bæta Chrome-upplifunina
 <translation id="7272930098487145294">Til að vista myndir og láta Chrome bæta við myndirnar þínar skaltu ýta á Stillingar</translation>
 <translation id="7275945473750112644">Reikningurinn þinn er í umsjón <ph name="HOSTED_DOMAIN" /> og því verður Chrome gögnunum þínum eytt úr þessu tæki</translation>
 <translation id="7284245284340063465">Ef þú gleymdir aðgangsorðinu eða vilt breyta þessari stillingu skaltu <ph name="BEGIN_LINK" />eyða Chrome-gögnunum á reikningnum þínum<ph name="END_LINK" />.</translation>
+<translation id="7287957555760192025">Ef þú velur eða hunsar tillögu mun Chrome aðlagast því til að birta þér gagnlegri tillögur í framtíðinni.</translation>
 <translation id="7296102444587051536">Chrome fyrir iOS</translation>
 <translation id="7299681342915173313">Núna geturðu notað Chrome hvenær sem þú ýtir á tengil í tölvupóstum, skjölum og öðrum forritum.</translation>
 <translation id="7334364820047587268">Þú ert þegar með aðgangsorð fyrir þessa reikninga í Google-aðgangsorðastjórnun. Ef þú velur að flytja inn eitthvert aðgangsorðanna hér að neðan mun það koma í stað fyrirliggjandi aðgangsorðs.</translation>
@@ -355,6 +359,7 @@ Gögnin þín voru dulkóðuð með aðgangsorði <ph name="TIME" />. Sláðu þ
 <translation id="8544583291890527417">Viðvaranir varðandi öll persónuverndar- eða öryggismál sem Chrome greinir fyrir þig.</translation>
 <translation id="855027533751209304">Chrome-ábending: Leitaðu að því sem þú sérð</translation>
 <translation id="8558480467877843976">Núna geturðu notað Chrome hvenær sem þú skoðar eða ýtir á tengil í skilaboðum, skjölum og öðrum forritum.</translation>
+<translation id="8589791109349384456">Þó slökkt sé á tillögum stjórnar það ekki úrvinnslu Chrome á síðutitlum og vefslóðum fyrir aðra eiginleika. Þú getur stjórnað aðgangi að þessum gögnum í <ph name="BEGIN_LINK" />stillingum samstillingar<ph name="END_LINK" />.</translation>
 <translation id="8603022514504485810">Google-aðgangsorðastjórnun gat ekki athugað öll aðgangsorð. Reyndu aftur á morgun eða <ph name="BEGIN_LINK" />athugaðu aðgangsorð á Google-reikningnum þínum.<ph name="END_LINK" /></translation>
 <translation id="8610372330814566250">Notaðu aðgangsorðin þín, feril, bókamerki og kreditkort í Safar í Chrome</translation>
 <translation id="8630122478628016441">Kveiktu á „Læsa huliðsflipum þegar þú lokar Chrome“.</translation>

@@ -6,6 +6,7 @@
 
 #include <optional>
 
+#include "base/containers/flat_set.h"
 #include "base/memory/ptr_util.h"
 #include "components/sync/base/data_type.h"
 #include "components/sync/base/sync_util.h"
@@ -81,7 +82,11 @@ class MockDeviceInfoSyncClient : public DeviceInfoSyncClient {
               GetGlicExperimentalTriggeringVersion,
               (),
               (const override));
-  MOCK_METHOD(std::optional<DeviceInfo::PersonalContextInfo>,
+  MOCK_METHOD(base::flat_set<std::string>,
+              GetGlicExperimentalTriggeringCapabilities,
+              (),
+              (const override));
+  MOCK_METHOD(DeviceInfo::PersonalContextInfo::StatusOrInfo,
               GetLocalPersonalContextInfo,
               (),
               (const override));
@@ -313,6 +318,26 @@ TEST_F(LocalDeviceInfoProviderImplTest, ExperimentalTriggeringVersion) {
       std::optional<int>(42));
 }
 
+TEST_F(LocalDeviceInfoProviderImplTest, ExperimentalTriggeringCapabilities) {
+  ON_CALL(device_info_sync_client_, GetGlicExperimentalTriggeringCapabilities())
+      .WillByDefault(Return(base::flat_set<std::string>{}));
+
+  InitializeProvider();
+
+  ASSERT_THAT(provider_->GetLocalDeviceInfo(), NotNull());
+  EXPECT_TRUE(provider_->GetLocalDeviceInfo()
+                  ->glic_experimental_triggering_capabilities()
+                  .empty());
+
+  ON_CALL(device_info_sync_client_, GetGlicExperimentalTriggeringCapabilities())
+      .WillByDefault(Return(base::flat_set<std::string>{"screenshot"}));
+
+  ASSERT_THAT(provider_->GetLocalDeviceInfo(), NotNull());
+  EXPECT_EQ(provider_->GetLocalDeviceInfo()
+                ->glic_experimental_triggering_capabilities(),
+            base::flat_set<std::string>{"screenshot"});
+}
+
 TEST_F(LocalDeviceInfoProviderImplTest, SharingInfo) {
   ON_CALL(device_info_sync_client_, GetLocalSharingInfo())
       .WillByDefault(Return(std::nullopt));
@@ -350,7 +375,7 @@ TEST_F(LocalDeviceInfoProviderImplTest, SharingInfo) {
 
 TEST_F(LocalDeviceInfoProviderImplTest, PersonalContextInfo) {
   ON_CALL(device_info_sync_client_, GetLocalPersonalContextInfo())
-      .WillByDefault(Return(std::nullopt));
+      .WillByDefault(Return(DeviceInfo::PersonalContextInfo::NotEligible()));
 
   InitializeProvider();
 
@@ -402,6 +427,8 @@ TEST_F(LocalDeviceInfoProviderImplTest, ShouldKeepStoredInvalidationFields) {
 
   DeviceInfo::PhoneAsASecurityKeyInfo paask_info =
       SamplePhoneAsASecurityKeyInfo();
+  DeviceInfo::PersonalContextInfo personal_context_info{
+      .serialized_tink_keyset = {1, 2, 3}};
   const DeviceInfo device_info_restored_from_store(
       kLocalDeviceGuid, "name", "chrome_version", "user_agent",
       DeviceInfo::DeviceType::kLinux, DeviceInfo::OsType::kLinux,
@@ -422,12 +449,14 @@ TEST_F(LocalDeviceInfoProviderImplTest, ShouldKeepStoredInvalidationFields) {
       DeviceInfo::GlicExperimentalTriggeringState::kUnavailable,
       /*glic_experimental_triggering_version=*/
       std::nullopt,
+      /*glic_experimental_triggering_capabilities=*/{},
       /*android_os_build_fingerprint_prefix=*/std::nullopt,
-      /*personal_context_info=*/std::nullopt);
+      personal_context_info);
 
-  // |kFCMRegistrationToken|, |kInterestedDataTypes|,
-  // and |paask_info| should be taken from |device_info_restored_from_store|
-  // when |device_info_sync_client_| returns nullopt.
+  // |kFCMRegistrationToken|, |kInterestedDataTypes|, |paask_info|, and
+  // |personal_context_info| should be taken from
+  // |device_info_restored_from_store| when |device_info_sync_client_| is not
+  // ready.
   provider_->Initialize(kLocalDeviceGuid, kLocalDeviceClientName,
                         kLocalDeviceManufacturerName, kLocalDeviceModelName,
                         kLocalFullHardwareClass,
@@ -440,19 +469,26 @@ TEST_F(LocalDeviceInfoProviderImplTest, ShouldKeepStoredInvalidationFields) {
       .WillRepeatedly(Return(std::nullopt));
   EXPECT_CALL(device_info_sync_client_, GetPhoneAsASecurityKeyInfo())
       .WillOnce(Return(DeviceInfo::PhoneAsASecurityKeyInfo::NotReady()));
+  EXPECT_CALL(device_info_sync_client_, GetLocalPersonalContextInfo())
+      .WillOnce(Return(DeviceInfo::PersonalContextInfo::NotReady()));
 
   const DeviceInfo* local_device_info = provider_->GetLocalDeviceInfo();
   EXPECT_EQ(local_device_info->interested_data_types(), kInterestedDataTypes);
   EXPECT_EQ(local_device_info->fcm_registration_token(), kFCMRegistrationToken);
   EXPECT_TRUE(
       local_device_info->paask_info()->NonRotatingFieldsEqual(paask_info));
+  EXPECT_EQ(local_device_info->personal_context_info(), personal_context_info);
 
-  // `GetPhoneAsASecurityKeyInfo` can erase the field too.
+  // `GetPhoneAsASecurityKeyInfo` and `GetLocalPersonalContextInfo` can erase
+  // the fields too.
   EXPECT_CALL(device_info_sync_client_, GetPhoneAsASecurityKeyInfo())
       .WillOnce(Return(DeviceInfo::PhoneAsASecurityKeyInfo::NoSupport()));
+  EXPECT_CALL(device_info_sync_client_, GetLocalPersonalContextInfo())
+      .WillOnce(Return(DeviceInfo::PersonalContextInfo::NotEligible()));
 
   const DeviceInfo* local_device_info2 = provider_->GetLocalDeviceInfo();
   EXPECT_FALSE(local_device_info2->paask_info().has_value());
+  EXPECT_FALSE(local_device_info2->personal_context_info().has_value());
 }
 
 TEST_F(LocalDeviceInfoProviderImplTest, PhoneAsASecurityKeyInfo) {

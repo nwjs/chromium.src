@@ -34,16 +34,16 @@ void SearchScoringSignalsAnnotator::UpdateMatchTypeScoringSignals(
     AutocompleteMatch& match,
     const std::u16string& input_text) {
   match.scoring_signals->set_is_search_suggest_entity(
-      match.type == AutocompleteMatchType::SEARCH_SUGGEST_ENTITY);
+      match.type == omnibox::AutocompleteMatchType::kSearchSuggestEntity);
   match.scoring_signals->set_is_verbatim(match.IsVerbatimType() ||
                                          match.contents == input_text);
   match.scoring_signals->set_is_navsuggest(
-      match.type == AutocompleteMatchType::NAVSUGGEST ||
-      match.type == AutocompleteMatchType::NAVSUGGEST_PERSONALIZED ||
-      match.type == AutocompleteMatchType::TILE_NAVSUGGEST ||
-      match.type == AutocompleteMatchType::TILE_MOST_VISITED_SITE);
+      match.type == omnibox::AutocompleteMatchType::kNavsuggest ||
+      match.type == omnibox::AutocompleteMatchType::kNavsuggestPersonalized ||
+      match.type == omnibox::AutocompleteMatchType::kTileNavsuggest ||
+      match.type == omnibox::AutocompleteMatchType::kTileMostVisitedSite);
   match.scoring_signals->set_is_search_suggest_tail(
-      match.type == AutocompleteMatchType::SEARCH_SUGGEST_TAIL);
+      match.type == omnibox::AutocompleteMatchType::kSearchSuggestTail);
   match.scoring_signals->set_is_calculator_suggest(
-      match.type == AutocompleteMatchType::CALCULATOR);
+      match.type == omnibox::AutocompleteMatchType::kCalculator);
 }

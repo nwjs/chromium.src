@@ -17,6 +17,7 @@
 #include "partition_alloc/build_config.h"
 #include "partition_alloc/buildflags.h"
 #include "partition_alloc/compressed_pointer.h"
+#include "partition_alloc/debug_data_on_stack.h"
 #include "partition_alloc/internal/page_allocator_internal.h"
 #include "partition_alloc/page_allocator.h"
 #include "partition_alloc/partition_alloc_base/bits.h"
@@ -25,7 +26,7 @@
 #include "partition_alloc/partition_alloc_base/files/platform_file.h"
 #include "partition_alloc/partition_alloc_check.h"
 #include "partition_alloc/partition_alloc_config.h"
-#include "partition_alloc/partition_alloc_constants.h"
+#include "partition_alloc/partition_alloc_public_constants.h"
 #include "partition_alloc/thread_isolation/thread_isolation.h"
 
 #if PA_BUILDFLAG(IS_IOS)

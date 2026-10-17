@@ -6,11 +6,11 @@
 
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
-#include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/accelerator_utils.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/find_bar/find_bar_controller.h"
 #include "chrome/browser/ui/read_anything/read_anything_contents_wrapper.h"
 #include "chrome/browser/ui/read_anything/read_anything_entry_point_controller.h"
@@ -25,22 +25,26 @@
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
-#include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/webui/side_panel/read_anything/read_anything_untrusted_ui.h"
 #include "chrome/browser/ui/webui/top_chrome/webui_contents_wrapper.h"
+#include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/find_in_page/find_tab_helper.h"
+#include "components/input/native_web_keyboard_event.h"
 #include "components/prefs/pref_service.h"
+#include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/page.h"
+#include "content/public/browser/page_navigator.h"
+#include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/accessibility/accessibility_features.h"
-#include "ui/views/accessibility/view_accessibility.h"
+#include "ui/base/window_open_disposition.h"
+#include "ui/events/keycodes/keyboard_codes.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // WebContentsObserverInstance
@@ -102,7 +106,7 @@ void ReadAnythingController::
 }
 
 ReadAnythingController* ReadAnythingController::From(tabs::TabInterface* tab) {
-  return Get(tab->GetUnownedUserDataHost());
+  return tab ? Get(tab->GetUnownedUserDataHost()) : nullptr;
 }
 
 ReadAnythingController::ReadAnythingController(
@@ -125,7 +129,9 @@ ReadAnythingController::ReadAnythingController(
           &ReadAnythingController::MaybeUpdateFindBarController,
           base::Unretained(this))));
 
-  if (features::IsReadAnythingOmniboxChipEnabled()) {
+  if (features::IsReadAnythingOmniboxChipEnabled() &&
+      tab_->GetBrowserWindowInterface() && tab_->GetTabFeatures() &&
+      tab_->GetTabFeatures()->page_action_controller()) {
     omnibox_controller_ = std::make_unique<ReadAnythingOmniboxController>(tab_);
   }
 
@@ -197,14 +203,13 @@ void ReadAnythingController::RemoveImmersiveActivationObserver(
 void ReadAnythingController::OnEntryShown(ReadAnythingOpenTrigger trigger) {
   observers_.Notify(&Observer::Activate, /*active=*/true, trigger,
                     /*completed_session_duration=*/std::nullopt);
-  active_service_ =
-      ReadAnythingService::Get(tab_->GetBrowserWindowInterface()->GetProfile());
   // At the moment, services are created for normal, guest, and incognito
   // profiles but not unusual profile types. On the other hand,
   // ReadAnythingController is created for all tabs. Thus we need a
   // nullptr check.
-  if (active_service_) {
-    active_service_->OnReadAnythingShown();
+  if (auto* service = ReadAnythingService::Get(
+          tab_->GetBrowserWindowInterface()->GetProfile())) {
+    service->OnReadAnythingShown();
   }
 
   if (is_presentation_transitioning_) {
@@ -246,11 +251,6 @@ void ReadAnythingController::OnEntryHidden() {
   observers_.Notify(&Observer::Activate, /*active=*/false,
                     /*trigger=*/ReadAnythingOpenTrigger::kUnknown,
                     completed_session_duration);
-
-  if (active_service_) {
-    active_service_->OnReadAnythingHidden();
-    active_service_ = nullptr;
-  }
 }
 
 std::optional<base::TimeDelta>
@@ -324,6 +324,16 @@ ReadAnythingContentsWrapper ReadAnythingController::GetOrCreateWebUIWrapper(
 
     ReadAnythingControllerGlue::CreateForWebContents(
         web_ui_wrapper_->web_contents(), this);
+    // A single WebUIContentsWrapper is reused across both presentations, so
+    // the embedding context is set once here, at the point of creation,
+    // rather than in each host view. `ReadAnythingImmersiveWebView` never set
+    // it, while `ReadAnythingSidePanelWebView` inherits the call from
+    // `SidePanelWebUIView`, so the context depended on which presentation
+    // happened to create the wrapper first. `SidePanelWebUIView` still makes
+    // the same call when Reading Mode is shown in the side panel; because the
+    // tab is unchanged, that call is an early-return no-op (see
+    // `EmbeddingTabTracker::SetTabInterface`).
+    webui::SetTabInterface(web_ui_wrapper_->web_contents(), tab_);
     find_in_page::FindTabHelper::CreateForWebContents(
         web_ui_wrapper_->web_contents());
   }
@@ -393,16 +403,16 @@ void ReadAnythingController::MaybeUpdateFindBarController() {
     target_contents = tab_->GetContents();
   }
 
-  // If the target is just the main web contents, we don't need to force the
-  // FindBarController's creation if it doesn't already exist.
-  auto& window_features = tab_->GetBrowserWindowInterface()->GetFeatures();
-  if (target_contents == tab_->GetContents() &&
-      !window_features.HasFindBarController()) {
+  auto* find_bar_controller =
+      FindBarController::From(tab_->GetBrowserWindowInterface());
+  if (!find_bar_controller) {
     return;
   }
 
-  auto* find_bar_controller = window_features.GetFindBarController();
-  if (!find_bar_controller) {
+  // If the target is just the main web contents, we don't need to force the
+  // FindBar's creation if it doesn't already exist.
+  if (target_contents == tab_->GetContents() &&
+      !find_bar_controller->HasFindBar()) {
     return;
   }
 
@@ -661,7 +671,73 @@ void ReadAnythingController::ReleaseMainContentsCapture() {
   main_contents_capturer_handle_.RunAndReset();
 }
 
+content::WebContents* ReadAnythingController::OpenURLFromTab(
+    content::WebContents* source,
+    const content::OpenURLParams& params,
+    base::OnceCallback<void(content::NavigationHandle&)>
+        navigation_handle_callback) {
+  // Reading Mode only renders links from distilled web content, so restrict
+  // forwarded navigations to web schemes.
+  if (!params.url.SchemeIsHTTPOrHTTPS()) {
+    return nullptr;
+  }
+  if (tab_ && tab_->GetBrowserWindowInterface()) {
+    content::OpenURLParams modified_params = params;
+    content::RenderFrameHost* source_rfh = nullptr;
+    if (params.initiator_frame_token.has_value()) {
+      source_rfh = content::RenderFrameHost::FromFrameToken(
+          content::GlobalRenderFrameHostToken(
+              params.initiator_process_id,
+              params.initiator_frame_token.value()));
+    }
 
+    // Check that user_gesture is really true, by confirming that there was a
+    // recent activation in the RM rfh
+    if (modified_params.user_gesture &&
+        (!source_rfh || !source_rfh->HasTransientUserActivation())) {
+      modified_params.user_gesture = false;
+    }
+
+    // If a compromised renderer requests a CURRENT_TAB navigation, it
+    // bypasses the popup blocker, and also has other security risks like
+    // spoofing the original webpage. Set to NEW_FOREGROUND_TAB to make sure
+    // the popup blocker runs on links opened from the untrusted webui. We
+    // strictly allow-list dispositions that open new windows/tabs, and demote
+    // all others.
+    switch (modified_params.disposition) {
+      case WindowOpenDisposition::NEW_FOREGROUND_TAB:
+      case WindowOpenDisposition::NEW_BACKGROUND_TAB:
+      case WindowOpenDisposition::NEW_POPUP:
+      case WindowOpenDisposition::NEW_WINDOW:
+      case WindowOpenDisposition::SAVE_TO_DISK:
+      case WindowOpenDisposition::OFF_THE_RECORD:
+        break;
+      default:
+        modified_params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+        break;
+    }
+
+    // Pass the main tab's WebContents as the source so the navigation pipeline
+    // has the correct context to evaluate disposition and blocking rules.
+    content::WebContents* tab_contents = tab_->GetContents();
+    if (tab_contents && tab_contents->GetDelegate()) {
+      return tab_contents->GetDelegate()->OpenURLFromTab(
+          tab_contents, modified_params, std::move(navigation_handle_callback));
+    }
+  }
+  return nullptr;
+}
+
+bool ReadAnythingController::HandleEscapeKey(
+    const input::NativeWebKeyboardEvent& event) {
+  if (event.windows_key_code == ui::VKEY_ESCAPE && tab_ &&
+      tab_->GetBrowserWindowInterface()) {
+    ExclusiveAccessManager::From(tab_->GetBrowserWindowInterface())
+        ->HandleUserKeyEvent(event);
+    return true;
+  }
+  return false;
+}
 
 void ReadAnythingController::OnDistillationStateChanged(
     DistillationState new_state) {
@@ -698,5 +774,7 @@ void ReadAnythingController::OnDistillationStateChanged(
 }
 
 void ReadAnythingController::SetDwellTimeForTesting(base::TimeTicks test_time) {
-  omnibox_controller_->SetDwellTimeForTesting(test_time);
+  if (omnibox_controller_) {
+    omnibox_controller_->SetDwellTimeForTesting(test_time);
+  }
 }

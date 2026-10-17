@@ -55,6 +55,7 @@ void PrintTo(const BrowsingHistoryService::QueryResultsInfo& info,
 namespace {
 
 using ::testing::AllOf;
+using ::testing::Each;
 using ::testing::ElementsAre;
 using ::testing::Field;
 using ::testing::IsEmpty;
@@ -165,6 +166,11 @@ class TestBrowsingHistoryDriver : public BrowsingHistoryDriver {
 
   int GetHistoryDeletedCount() { return history_deleted_count_; }
 
+  const std::vector<ExpireHistoryArgs>& GetExpireHistoryArgs() const {
+    return expire_list_;
+  }
+  void ClearExpireHistoryArgs() { expire_list_.clear(); }
+
   void RunContinuation() {
     EXPECT_TRUE(continuation_closure_);
     std::move(continuation_closure_).Run();
@@ -182,7 +188,9 @@ class TestBrowsingHistoryDriver : public BrowsingHistoryDriver {
   void OnRemoveVisitsComplete() override {}
   void OnRemoveVisitsFailed() override {}
   void OnRemoveVisits(
-      const std::vector<ExpireHistoryArgs>& expire_list) override {}
+      const std::vector<ExpireHistoryArgs>& expire_list) override {
+    expire_list_ = expire_list;
+  }
   void HistoryDeleted() override { history_deleted_count_++; }
   void HasOtherFormsOfBrowsingHistory(bool has_other_forms,
                                       bool has_synced_results) override {}
@@ -195,6 +203,7 @@ class TestBrowsingHistoryDriver : public BrowsingHistoryDriver {
       base::OnceCallback<void(bool)> callback) override {}
 
   int history_deleted_count_ = 0;
+  std::vector<ExpireHistoryArgs> expire_list_;
   std::vector<QueryResult> query_results_;
   base::OnceClosure continuation_closure_;
   raw_ptr<WebHistoryService> web_history_;
@@ -389,7 +398,7 @@ class BrowsingHistoryServiceTest : public ::testing::Test {
   std::unique_ptr<TestBrowsingHistoryService> browsing_history_service_;
 };
 
-TEST_F(BrowsingHistoryServiceTest, QueryHistoryExcludes404s) {
+TEST_F(BrowsingHistoryServiceTest, QueryHistoryIncludes404s) {
   // Add a non-404 visit.
   AddHistory({{kUrl1, 1, kLocal}});
 
@@ -402,10 +411,11 @@ TEST_F(BrowsingHistoryServiceTest, QueryHistoryExcludes404s) {
 
   BlockUntilHistoryProcessesPendingRequests();
 
-  // 404s should be excluded from query results.
+  // 404s should be included in the query results by default.
   EXPECT_THAT(QueryHistory(),
               MatchesQueryResult(baseline_time_, /*reached_beginning*/ true,
-                                 std::vector<TestResult>{{kUrl1, 1, kLocal}}));
+                                 std::vector<TestResult>{{kUrl2, 2, kLocal},
+                                                         {kUrl1, 1, kLocal}}));
 }
 
 TEST_F(BrowsingHistoryServiceTest, QueryHistoryNoSources) {
@@ -560,7 +570,6 @@ TEST_F(BrowsingHistoryServiceTest, QueryHistoryHostOnlyRemote) {
 
   QueryOptions options;
   options.max_count = 0;
-  options.host_only = false;
   EXPECT_THAT(QueryHistory(u"eight.com", options),
               MatchesQueryResult(baseline_time_,
                                  /*reached_beginning*/ true,
@@ -569,12 +578,62 @@ TEST_F(BrowsingHistoryServiceTest, QueryHistoryHostOnlyRemote) {
                                      {kUrl9, 2, kRemote},
                                      {kUrl8, 1, kRemote},
                                  }));
-  options.host_only = true;
-  EXPECT_THAT(QueryHistory(u"eight.com", options),
+  options.hostname_suffix = "eight.com";
+  EXPECT_THAT(QueryHistory(u"", options),
               MatchesQueryResult(baseline_time_, /*reached_beginning*/ true,
                                  std::vector<TestResult>{
                                      {kUrl8, 1, kRemote},
                                  }));
+}
+
+TEST_F(BrowsingHistoryServiceTest, QueryHistoryHostOnlyRemoteSuffixMatching) {
+  const char kSubdomainUrl[] = "http://sub.eight.com";
+  AddHistory({{kUrl8, 1, kRemote}, {kSubdomainUrl, 2, kRemote}});
+
+  QueryOptions options;
+  options.max_count = 0;
+  options.hostname_suffix = "eight.com";
+
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndEnableFeature(
+        kBrowsingHistoryImprovedHostnameSuffixMatching);
+
+    // With feature enabled, both sub.eight.com and eight.com match, and
+    // matching is case-insensitive.
+    EXPECT_THAT(QueryHistory(u"", options),
+                MatchesQueryResult(baseline_time_, /*reached_beginning*/ true,
+                                   std::vector<TestResult>{
+                                       {kSubdomainUrl, 2, kRemote},
+                                       {kUrl8, 1, kRemote},
+                                   }));
+    options.hostname_suffix = "EiGhT.cOm";
+    EXPECT_THAT(QueryHistory(u"", options),
+                MatchesQueryResult(baseline_time_, /*reached_beginning*/ true,
+                                   std::vector<TestResult>{
+                                       {kSubdomainUrl, 2, kRemote},
+                                       {kUrl8, 1, kRemote},
+                                   }));
+  }
+
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndDisableFeature(
+        kBrowsingHistoryImprovedHostnameSuffixMatching);
+
+    // With feature disabled, only exact host eight.com matches, and matching
+    // is case-sensitive.
+    options.hostname_suffix = "eight.com";
+    EXPECT_THAT(QueryHistory(u"", options),
+                MatchesQueryResult(baseline_time_, /*reached_beginning*/ true,
+                                   std::vector<TestResult>{
+                                       {kUrl8, 1, kRemote},
+                                   }));
+    options.hostname_suffix = "EiGhT.cOm";
+    EXPECT_THAT(QueryHistory(u"", options),
+                MatchesQueryResult(baseline_time_, /*reached_beginning*/ true,
+                                   std::vector<TestResult>{}));
+  }
 }
 
 TEST_F(BrowsingHistoryServiceTest, QueryHistoryLocalPagingPartial) {
@@ -972,6 +1031,50 @@ TEST_F(BrowsingHistoryServiceTest, RemoveVisitsMetric) {
   }
 }
 
+TEST_F(BrowsingHistoryServiceTest, RemoveVisitsDeduplicatedEntries) {
+  std::vector<HistoryEntry> entries;
+
+  {
+    HistoryEntry entry;
+    entry.url = GURL("http://www.a.com");
+    entry.all_timestamps[GURL("http://www.a.com")] = {
+        OffsetToTime(1), OffsetToTime(2), OffsetToTime(3)};
+    entry.all_timestamps[GURL("http://www.a.com/1")] = {OffsetToTime(4),
+                                                        OffsetToTime(5)};
+    entry.all_timestamps[GURL("http://www.a.com/2")] = {OffsetToTime(6)};
+    entries.push_back(std::move(entry));
+  }
+  {
+    HistoryEntry entry;
+    entry.url = GURL("http://www.b.com");
+    entry.all_timestamps[GURL("http://www.b.com")] = {OffsetToTime(1)};
+    entry.all_timestamps[GURL("http://www.b.com/2")] = {
+        OffsetToTime(2), OffsetToTime(3), OffsetToTime(4)};
+    entries.push_back(std::move(entry));
+  }
+
+  service()->RemoveVisits(entries);
+
+  std::vector<ExpireHistoryArgs> expire_list = driver()->GetExpireHistoryArgs();
+  EXPECT_EQ(2u, expire_list.size());
+
+  // Each entry's ExpireHistoryArgs should contain all unique URLs from
+  // `all_timestamps`.
+  EXPECT_THAT(expire_list,
+              ElementsAre(Field(&ExpireHistoryArgs::urls,
+                                ElementsAre(GURL("http://www.a.com"),
+                                            GURL("http://www.a.com/1"),
+                                            GURL("http://www.a.com/2"))),
+                          Field(&ExpireHistoryArgs::urls,
+                                ElementsAre(GURL("http://www.b.com"),
+                                            GURL("http://www.b.com/2")))));
+
+  EXPECT_THAT(expire_list,
+              Each(AllOf(Field(&ExpireHistoryArgs::begin_time, baseline_time_),
+                         Field(&ExpireHistoryArgs::end_time,
+                               baseline_time_ + base::Days(1)))));
+}
+
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 TEST_F(BrowsingHistoryServiceTest, IncludeActorVisits) {
   AddHistory({
@@ -1048,7 +1151,7 @@ TEST_F(BrowsingHistoryServiceTest, GroupSimilarVisits) {
   HistoryAddPageArgs page2;
   page2.url = GURL("http://www.b.com/1");
   page2.time = OffsetToTime(3);
-  page2.title = u"Title B";
+  page2.title = u"Title A";
   local_history()->AddPage(page2);
 
   // Add a remote page with a different URL but the same domain and title as

@@ -147,6 +147,7 @@ public class TemplateUrl {
         return extensionId.isEmpty() ? null : extensionId;
     }
 
+    @CalledByNative
     public long getNativePtr() {
         return mTemplateUrlPtr;
     }

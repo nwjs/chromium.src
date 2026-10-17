@@ -13,7 +13,6 @@
 #include <optional>
 
 #include "base/android/android_info.h"
-#include "base/android/jni_android.h"
 #include "base/bits.h"
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
@@ -34,7 +33,6 @@
 #include "gpu/command_buffer/service/shared_image/shared_image_manager.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_representation.h"
 #include "media/base/android/media_codec_util.h"
-#include "media/base/android/media_jni_headers/VideoAcceleratorUtil_jni.h"
 #include "media/base/bitstream_buffer.h"
 #include "media/base/encoder_status.h"
 #include "media/base/media_serializers_base.h"
@@ -86,11 +84,8 @@ constexpr const char* kMediaFormatKeyVideoBitrateLayering =
     "video-bitrate-layering";
 
 bool IsTemporalLayerEncodingEnabled() {
-  static bool enabled = []() {
-    JNIEnv* env = base::android::AttachCurrentThread();
-    return Java_VideoAcceleratorUtil_isTemporalLayerEncodingEnabled(env);
-  }();
-  return enabled;
+  return base::android::android_info::sdk_int() >=
+         base::android::android_info::SDK_VERSION_CINNAMON_BUN;
 }
 
 bool IsNdkSvcApiSupported() {
@@ -885,6 +880,8 @@ void NdkVideoEncodeAccelerator::NotifyEncoderInfo() {
 
   if (config_.HasSpatialLayer() || config_.HasTemporalLayer()) {
     DCHECK(!config_.spatial_layers.empty());
+    CHECK_LE(config_.spatial_layers.size(),
+             VideoEncoderInfo::kMaxSpatialLayers);
     for (size_t i = 0; i < config_.spatial_layers.size(); ++i) {
       encoder_info_.fps_allocation[i] =
           GetFpsAllocation(config_.spatial_layers[i].num_of_temporal_layers);

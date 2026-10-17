@@ -70,24 +70,21 @@ namespace media {
 // This does not verify any of the codec parameters that may be included in the
 // log entry.
 MATCHER_P(SimpleCreatedFFmpegDemuxerStream, stream_type, "") {
-  return CONTAINS_STRING(arg, "\"info\":\"FFmpegDemuxer: created " +
-                                  std::string(stream_type) +
-                                  " stream, config codec:");
+  return arg.contains("\"info\":\"FFmpegDemuxer: created " +
+                      std::string(stream_type) + " stream, config codec:");
 }
 
 MATCHER_P(FailedToCreateValidDecoderConfigFromStream, stream_type, "") {
-  return CONTAINS_STRING(
-      arg,
+  return arg.contains(
       "\"debug\":\"Warning, FFmpegDemuxer failed to create a "
       "valid/supported " +
-          std::string(stream_type) +
-          " decoder configuration from muxed stream");
+      std::string(stream_type) + " decoder configuration from muxed stream");
 }
 
 MATCHER_P(SkippingUnsupportedStream, stream_type, "") {
-  return CONTAINS_STRING(
-      arg, "\"info\":\"FFmpegDemuxer: skipping invalid or unsupported " +
-               std::string(stream_type) + " track");
+  return arg.contains(
+      "\"info\":\"FFmpegDemuxer: skipping invalid or unsupported " +
+      std::string(stream_type) + " track");
 }
 
 const auto kEncryptedMediaInitData = std::to_array<uint8_t>({
@@ -1939,7 +1936,7 @@ TEST_F(FFmpegDemuxerTest, MultitrackMemoryUsage) {
   EXPECT_EQ(GetExpectedMemoryUsage(896, 156011), demuxer_->GetMemoryUsage());
 }
 
-TEST_F(FFmpegDemuxerTest, AgtmMetadata) {
+TEST_F(FFmpegDemuxerTest, AgtmMetadataWebM) {
   base::test::ScopedFeatureList scoped_feature_list(features::kHdrAgtm);
   CreateDemuxer("vp9-agtm.webm");
   InitializeDemuxer();
@@ -1948,5 +1945,36 @@ TEST_F(FFmpegDemuxerTest, AgtmMetadata) {
   Read(video, FROM_HERE, 3792, 0, true, DemuxerStream::Status::kOk,
        base::TimeDelta(), true);
 }
+
+#if BUILDFLAG(ENABLE_AV1_DECODER)
+// The metadata track is attached to the video track by a `cdsc` track
+// reference, which points from the metadata track to the video track.
+TEST_F(FFmpegDemuxerTest, AgtmMetadataMp4CdscTrack) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      {features::kHdrAgtm, kFFmpegDemuxerIT35MetadataTrack}, {});
+  CreateDemuxer("agtm-metadata-cdsc-track.mp4");
+  InitializeDemuxer();
+
+  DemuxerStream* video = GetStream(DemuxerStream::VIDEO);
+  Read(video, FROM_HERE, 40, 100000, true, DemuxerStream::Status::kOk,
+       base::TimeDelta(), true);
+}
+
+// The metadata track is attached to the video track by a `rndr` track
+// reference, which points from the video track to the metadata track.
+TEST_F(FFmpegDemuxerTest, AgtmMetadataMp4RndrTrack) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      {features::kHdrAgtm, kFFmpegDemuxerIT35MetadataTrack}, {});
+  CreateDemuxer("agtm-metadata-rndr-track.mp4");
+  InitializeDemuxer();
+
+  DemuxerStream* video = GetStream(DemuxerStream::VIDEO);
+  Read(video, FROM_HERE, 40, 100000, true, DemuxerStream::Status::kOk,
+       base::TimeDelta(), true);
+}
+
+#endif  // BUILDFLAG(ENABLE_AV1_DECODER)
 
 }  // namespace media

@@ -31,9 +31,9 @@
 #include "build/build_config.h"
 #include "components/safe_browsing/core/browser/db/database_manager.h"
 #include "components/safe_browsing/core/browser/db/sb_database.h"
+#include "components/safe_browsing/core/browser/db/sb_protocol_manager_util.h"
 #include "components/safe_browsing/core/browser/db/sb_store.h"
 #include "components/safe_browsing/core/browser/db/sb_test_util.h"
-#include "components/safe_browsing/core/browser/db/v4_protocol_manager_util.h"
 #include "components/safe_browsing/core/browser/db/v5_get_hash_protocol_manager.h"
 #include "components/safe_browsing/core/browser/db/v5_search_hashes_cache.h"
 #include "components/safe_browsing/core/common/features.h"
@@ -45,7 +45,6 @@
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/platform_test.h"
 
-// TODO(crbug.com/362791941): Handle v4 references
 namespace safe_browsing {
 
 using enum ExtendedReportingLevel;
@@ -76,7 +75,11 @@ class FakeGetHashProtocolManager : public V4GetHashProtocolManager {
       const SBProtocolConfig& config,
       const FullHashInfos& full_hash_infos)
       : V4GetHashProtocolManager(url_loader_factory, stores_to_check, config),
-        full_hash_infos_(full_hash_infos) {}
+        full_hash_infos_(full_hash_infos) {
+    // FakeGetHashProtocolManager should not be instantiated when V5 local
+    // lists are enabled; V5 uses its own protocol manager.
+    CHECK(!base::FeatureList::IsEnabled(kLocalListsUseSBv5));
+  }
 
   void GetFullHashes(const FullHashToStoreAndHashPrefixesMap,
                      const std::vector<std::string>&,
@@ -123,6 +126,17 @@ class ScopedFakeGetHashProtocolManagerFactory {
   }
 };
 
+class TestWebUIDelegate : public V5GetHashProtocolManager::WebUIDelegate {
+ public:
+  bool HasListener() const override { return has_listener_; }
+  void AddToV5GetHashLookups(
+      const V5GetHashProtocolManager::V5GetHashLookup& lookup) override {}
+  void set_has_listener(bool has_listener) { has_listener_ = has_listener; }
+
+ private:
+  bool has_listener_ = false;
+};
+
 // Use this if you want V5 GetFullHashes() to always return prescribed results.
 class FakeV5GetHashProtocolManager : public V5GetHashProtocolManager {
  public:
@@ -130,9 +144,13 @@ class FakeV5GetHashProtocolManager : public V5GetHashProtocolManager {
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
       const SBProtocolConfig& config,
       V5SearchHashesCache* cache,
+      WebUIDelegate* webui_delegate,
       SBThreatType threat_type,
       ThreatMetadata metadata)
-      : V5GetHashProtocolManager(url_loader_factory, config, cache),
+      : V5GetHashProtocolManager(url_loader_factory,
+                                 config,
+                                 cache,
+                                 webui_delegate),
         threat_type_(threat_type),
         metadata_(metadata) {}
 
@@ -142,10 +160,12 @@ class FakeV5GetHashProtocolManager : public V5GetHashProtocolManager {
 
   ~FakeV5GetHashProtocolManager() override = default;
 
-  void GetFullHashes(const std::map<FullHashStr, std::vector<SBThreatType>>&
+  void GetFullHashes(std::map<FullHashStr, std::vector<SBThreatType>>
                          full_hash_to_threat_types,
-                     FullHashCallback callback) override {
-    last_full_hash_to_threat_types_ = full_hash_to_threat_types;
+                     FullHashCallback callback,
+                     std::optional<CheckContext> check_context) override {
+    last_full_hash_to_threat_types_ = std::move(full_hash_to_threat_types);
+    last_check_context_ = std::move(check_context);
     if (hold_callback_) {
       held_callback_ = std::move(callback);
       return;
@@ -158,6 +178,10 @@ class FakeV5GetHashProtocolManager : public V5GetHashProtocolManager {
   const std::map<FullHashStr, std::vector<SBThreatType>>&
   last_full_hash_to_threat_types() const {
     return last_full_hash_to_threat_types_;
+  }
+
+  const std::optional<CheckContext>& last_check_context() const {
+    return last_check_context_;
   }
 
   void set_hold_callback(bool hold) { hold_callback_ = hold; }
@@ -173,6 +197,7 @@ class FakeV5GetHashProtocolManager : public V5GetHashProtocolManager {
   ThreatMetadata metadata_;
   std::map<FullHashStr, std::vector<SBThreatType>>
       last_full_hash_to_threat_types_;
+  std::optional<CheckContext> last_check_context_;
   bool hold_callback_ = false;
   FullHashCallback held_callback_;
 };
@@ -713,7 +738,7 @@ class SBLocalDatabaseManagerTest : public PlatformTest {
           std::make_unique<V5SearchHashesCache>(/*history_service=*/nullptr);
       v5_fake_manager_ = std::make_unique<FakeV5GetHashProtocolManager>(
           test_shared_loader_factory_, GetTestSBProtocolConfig(),
-          v5_cache_.get(), threat_type, metadata);
+          v5_cache_.get(), &test_webui_delegate_, threat_type, metadata);
     }
     client.SetV5GetHashProtocolManager(v5_fake_manager_->GetWeakPtr());
   }
@@ -721,6 +746,8 @@ class SBLocalDatabaseManagerTest : public PlatformTest {
   FakeV5GetHashProtocolManager* v5_fake_manager() {
     return v5_fake_manager_.get();
   }
+
+  TestWebUIDelegate& test_webui_delegate() { return test_webui_delegate_; }
 
   void ResetV5FakeManager() { v5_fake_manager_.reset(); }
 
@@ -733,6 +760,7 @@ class SBLocalDatabaseManagerTest : public PlatformTest {
   base::test::TaskEnvironment task_environment_;
   base::HistogramTester histogram_tester_;
   scoped_refptr<SBLocalDatabaseManager> sb_local_database_manager_;
+  TestWebUIDelegate test_webui_delegate_;
   std::unique_ptr<V5SearchHashesCache> v5_cache_;
   std::unique_ptr<FakeV5GetHashProtocolManager> v5_fake_manager_;
 };
@@ -882,6 +910,40 @@ class SBLocalDatabaseManagerTest_V5 : public SBLocalDatabaseManagerTest {
  public:
   SBLocalDatabaseManagerTest_V5() {
     feature_list_.InitAndEnableFeature(kLocalListsUseSBv5);
+  }
+
+  void RunCheckBrowseUrlCheckContextTest(bool has_webui_listener) {
+    ResetLocalDatabaseManager();
+    WaitForTasksOnTaskRunner();
+
+    std::string url_bad_no_scheme("example.com/bad/");
+    FullHashStr bad_full_hash(std::string(
+        base::as_string_view(crypto::hash::Sha256(url_bad_no_scheme))));
+    const HashPrefixStr bad_hash_prefix(bad_full_hash.substr(0, 5));
+    StoreAndHashPrefixes store_and_hash_prefixes;
+    store_and_hash_prefixes.emplace_back(GetUrlMalwareId(), bad_hash_prefix);
+    ReplaceSBDatabase(store_and_hash_prefixes);
+
+    const GURL url_bad("https://" + url_bad_no_scheme);
+    TestClient client(SB_THREAT_TYPE_SAFE, url_bad);
+    SetUpV5Client(client, /*threat_type=*/SB_THREAT_TYPE_SAFE,
+                  /*metadata=*/ThreatMetadata());
+    test_webui_delegate().set_has_listener(has_webui_listener);
+
+    EXPECT_FALSE(sb_local_database_manager_->CheckBrowseUrl(
+        url_bad, usual_threat_types_, &client,
+        CheckBrowseUrlType::kHashDatabase));
+    WaitForTasksOnTaskRunner();
+
+    EXPECT_TRUE(client.on_check_browse_url_result_called());
+    if (has_webui_listener) {
+      EXPECT_EQ(v5_fake_manager()->last_check_context(),
+                (V5GetHashProtocolManager::CheckContext{
+                    /*urls=*/{url_bad},
+                    /*check_type=*/ClientCallbackType::CHECK_BROWSE_URL}));
+    } else {
+      EXPECT_EQ(v5_fake_manager()->last_check_context(), std::nullopt);
+    }
   }
 
  private:
@@ -1056,6 +1118,16 @@ TEST_F(SBLocalDatabaseManagerTest_V5,
   ResetV5FakeManager();
   WaitForTasksOnTaskRunner();
   EXPECT_TRUE(client.on_check_browse_url_result_called());
+}
+
+TEST_F(SBLocalDatabaseManagerTest_V5,
+       CheckBrowseUrl_CheckContext_PopulatedWhenListenerActive) {
+  RunCheckBrowseUrlCheckContextTest(/*has_webui_listener=*/true);
+}
+
+TEST_F(SBLocalDatabaseManagerTest_V5,
+       CheckBrowseUrl_CheckContext_NulloptWhenNoListener) {
+  RunCheckBrowseUrlCheckContextTest(/*has_webui_listener=*/false);
 }
 
 TEST_P(SBLocalDatabaseManagerTest_V4V5, TestCheckCsdAllowlistWithPrefixMatch) {

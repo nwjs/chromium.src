@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 
 /** A data structure that holds all the {@link Snackbar}s managed by {@link SnackbarManager}. */
 @NullMarked
@@ -27,9 +28,15 @@ class SnackbarCollection {
     private final Deque<Snackbar> mSnackbars = new ArrayDeque<>();
     // Queue for persistent notifications (e.g., "Offline mode").
     private final Deque<Snackbar> mPersistentSnackbars = new ArrayDeque<>();
-    // Holds a single High Priority security warning (e.g., Fullscreen).
-    // This isolates HP snackbars from the standard queues, allowing O(1) interruption.
-    private @Nullable Snackbar mActiveHighPriority;
+    // TODO(crbug.com/564820082): Explore alternatives to handle preemption and resumption across
+    // different notice lifecycles (transient countdown vs. persistent state).
+    // Holds a transient High Priority security warning (e.g., Fullscreen ExclusiveAccessBubble).
+    // Takes precedence over persistent disclosures so its timeout can run immediately.
+    private @Nullable Snackbar mActiveTransientHighPriority;
+    // Holds a persistent High Priority disclosure (e.g., TWA / WebAPK "Running in Chrome").
+    // Displayed whenever no transient HP warning is active, completely isolated from standard
+    // queues.
+    private @Nullable Snackbar mActivePersistentHighPriority;
 
     private static final int MAX_SNACKBARS = 10;
 
@@ -38,33 +45,39 @@ class SnackbarCollection {
                 "Snackbar.QueueDepthAtInsertion",
                 mSnackbars.size()
                         + mPersistentSnackbars.size()
-                        + (mActiveHighPriority != null ? 1 : 0),
+                        + (mActiveTransientHighPriority != null ? 1 : 0)
+                        + (mActivePersistentHighPriority != null ? 1 : 0),
                 MAX_SNACKBARS + 1);
 
         if (snackbar.isHighPriority()) {
-            // High Priority (HP) Security Warnings bypass the regular queues entirely.
-            if (mActiveHighPriority != null) {
+            Snackbar currentHpInSlot =
+                    snackbar.isTypePersistent()
+                            ? mActivePersistentHighPriority
+                            : mActiveTransientHighPriority;
+            if (currentHpInSlot != null) {
                 // State Deduplication: Rapid oscillation attacks (e.g., spamming requestFullscreen)
                 // are collapsed here. If it's the exact same warning, we ignore the duplicate.
-                if (mActiveHighPriority.getController() == snackbar.getController()
-                        && objectsAreEqual(
-                                mActiveHighPriority.getActionData(), snackbar.getActionData())) {
+                if (currentHpInSlot.getController() == snackbar.getController()
+                        && Objects.equals(
+                                currentHpInSlot.getActionData(), snackbar.getActionData())) {
+                    // Defensive update: If a controller submits a new Snackbar instance with
+                    // modified content (e.g., updated text) instead of mutating in place,
+                    // update the active instance rather than dropping the update as a duplicate.
+                    if (!currentHpInSlot.equals(snackbar)) {
+                        setHighPrioritySlot(snackbar);
+                    }
                     return; // Deduplication: already have this HP snackbar.
                 }
-                // LIFO Immediate Interruption: The new HP warning instantly overwrites the old one.
+                // HP snackbars of the same rank replace each other.
                 RecordHistogram.recordEnumeratedHistogram(
                         "Snackbar.DismissalReason",
                         DismissalReason.REPLACED_BY_HIGH_PRIORITY,
                         DismissalReason.NUM_ENTRIES);
-                assert mActiveHighPriority.getController() != null;
-                if (mActiveHighPriority.getController() != null) {
-                    mActiveHighPriority
-                            .getController()
-                            .onDismissNoAction(mActiveHighPriority.getActionData());
-                }
+                assert currentHpInSlot.getController() != null;
+                currentHpInSlot.getController().onDismissNoAction(currentHpInSlot.getActionData());
             }
-            // Assign to the VIP slot. getCurrent() will now prioritize this above all else.
-            mActiveHighPriority = snackbar;
+            // Assign to its dedicated HP rank slot without disturbing the other HP rank slot.
+            setHighPrioritySlot(snackbar);
             return;
         }
 
@@ -73,7 +86,9 @@ class SnackbarCollection {
                     : "Persistent snackbars require action text.";
             mPersistentSnackbars.addFirst(snackbar);
         } else if (snackbar.isTypeAction()) {
-            if (getCurrent() != null && !getCurrent().isTypeAction()) {
+            if (getCurrent() != null
+                    && !getCurrent().isTypeAction()
+                    && !getCurrent().isHighPriority()) {
                 removeCurrent(DismissalReason.REPLACED_BY_ACTION_SNACKBAR);
             }
             mSnackbars.addFirst(snackbar);
@@ -88,6 +103,14 @@ class SnackbarCollection {
         }
         while (mPersistentSnackbars.size() > MAX_SNACKBARS) {
             removeOldestUnseenSnackbar(mPersistentSnackbars);
+        }
+    }
+
+    private void setHighPrioritySlot(Snackbar snackbar) {
+        if (snackbar.isTypePersistent()) {
+            mActivePersistentHighPriority = snackbar;
+        } else {
+            mActiveTransientHighPriority = snackbar;
         }
     }
 
@@ -108,13 +131,15 @@ class SnackbarCollection {
     }
 
     boolean contains(Snackbar snackbar) {
-        return snackbar == mActiveHighPriority
+        return snackbar == mActiveTransientHighPriority
+                || snackbar == mActivePersistentHighPriority
                 || mSnackbars.contains(snackbar)
                 || mPersistentSnackbars.contains(snackbar);
     }
 
     @Nullable Snackbar getCurrent() {
-        if (mActiveHighPriority != null) return mActiveHighPriority;
+        if (mActiveTransientHighPriority != null) return mActiveTransientHighPriority;
+        if (mActivePersistentHighPriority != null) return mActivePersistentHighPriority;
         Snackbar actionCurrent = mSnackbars.peekFirst();
         Snackbar persistentCurrent = mPersistentSnackbars.peekFirst();
         return actionCurrent != null ? actionCurrent : persistentCurrent;
@@ -132,8 +157,10 @@ class SnackbarCollection {
         Snackbar current = getCurrent();
         if (current == null) return null;
 
-        if (current == mActiveHighPriority) {
-            mActiveHighPriority = null;
+        if (current == mActiveTransientHighPriority) {
+            mActiveTransientHighPriority = null;
+        } else if (current == mActivePersistentHighPriority) {
+            mActivePersistentHighPriority = null;
         } else if (!mSnackbars.isEmpty() && mSnackbars.peekFirst() == current) {
             mSnackbars.pollFirst();
         } else {
@@ -154,7 +181,8 @@ class SnackbarCollection {
     }
 
     boolean isEmpty() {
-        return mActiveHighPriority == null
+        return mActiveTransientHighPriority == null
+                && mActivePersistentHighPriority == null
                 && mSnackbars.isEmpty()
                 && mPersistentSnackbars.isEmpty();
     }
@@ -173,16 +201,29 @@ class SnackbarCollection {
         removeCurrent(DismissalReason.TIMEOUT);
     }
 
+    private boolean dismissHighPriorityIfMatching(
+            @Nullable Snackbar hp,
+            SnackbarController controller,
+            @Nullable Object actionData,
+            boolean matchActionData) {
+        if (hp == null || hp.getController() != controller) return false;
+        if (matchActionData && !Objects.equals(hp.getActionData(), actionData)) return false;
+        RecordHistogram.recordEnumeratedHistogram(
+                "Snackbar.DismissalReason",
+                DismissalReason.DISMISSED_BY_CALLER,
+                DismissalReason.NUM_ENTRIES);
+        controller.onDismissNoAction(hp.getActionData());
+        return true;
+    }
+
     boolean removeMatchingSnackbars(SnackbarController controller) {
         boolean removed = false;
-        if (mActiveHighPriority != null && mActiveHighPriority.getController() == controller) {
-            Snackbar removedHp = mActiveHighPriority;
-            mActiveHighPriority = null;
-            RecordHistogram.recordEnumeratedHistogram(
-                    "Snackbar.DismissalReason",
-                    DismissalReason.DISMISSED_BY_CALLER,
-                    DismissalReason.NUM_ENTRIES);
-            controller.onDismissNoAction(removedHp.getActionData());
+        if (dismissHighPriorityIfMatching(mActiveTransientHighPriority, controller, null, false)) {
+            mActiveTransientHighPriority = null;
+            removed = true;
+        }
+        if (dismissHighPriorityIfMatching(mActivePersistentHighPriority, controller, null, false)) {
+            mActivePersistentHighPriority = null;
             removed = true;
         }
         removed |=
@@ -215,16 +256,12 @@ class SnackbarCollection {
 
     boolean removeMatchingSnackbars(SnackbarController controller, Object data) {
         boolean removed = false;
-        if (mActiveHighPriority != null
-                && mActiveHighPriority.getController() == controller
-                && objectsAreEqual(mActiveHighPriority.getActionData(), data)) {
-            Snackbar removedHp = mActiveHighPriority;
-            mActiveHighPriority = null;
-            RecordHistogram.recordEnumeratedHistogram(
-                    "Snackbar.DismissalReason",
-                    DismissalReason.DISMISSED_BY_CALLER,
-                    DismissalReason.NUM_ENTRIES);
-            controller.onDismissNoAction(assumeNonNull(removedHp.getActionData()));
+        if (dismissHighPriorityIfMatching(mActiveTransientHighPriority, controller, data, true)) {
+            mActiveTransientHighPriority = null;
+            removed = true;
+        }
+        if (dismissHighPriorityIfMatching(mActivePersistentHighPriority, controller, data, true)) {
+            mActivePersistentHighPriority = null;
             removed = true;
         }
         removed |=
@@ -250,7 +287,7 @@ class SnackbarCollection {
         while (iter.hasNext()) {
             Snackbar snackbar = iter.next();
             if (snackbar.getController() == controller
-                    && objectsAreEqual(snackbar.getActionData(), data)) {
+                    && Objects.equals(snackbar.getActionData(), data)) {
                 iter.remove();
                 removedSnackbars.add(snackbar);
             }
@@ -261,11 +298,5 @@ class SnackbarCollection {
             controller.onDismissNoAction(assumeNonNull(snackbar.getActionData()));
         }
         return !removedSnackbars.isEmpty();
-    }
-
-    private static boolean objectsAreEqual(@Nullable Object a, @Nullable Object b) {
-        if (a == null && b == null) return true;
-        if (a == null || b == null) return false;
-        return a.equals(b);
     }
 }

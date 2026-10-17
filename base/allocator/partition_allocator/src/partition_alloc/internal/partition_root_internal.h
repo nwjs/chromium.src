@@ -7,6 +7,7 @@
 
 #include <bit>
 #include <cstring>
+#include <limits>
 
 #include "partition_alloc/address_pool_manager_types.h"
 #include "partition_alloc/allocation_guard.h"
@@ -14,6 +15,7 @@
 #include "partition_alloc/buildflags.h"
 #include "partition_alloc/in_slot_metadata.h"
 #include "partition_alloc/internal/partition_page_internal.h"
+#include "partition_alloc/internal/partition_root_internal_forward.h"
 #include "partition_alloc/internal/reservation_offset_table_internal.h"
 #include "partition_alloc/internal/thread_cache_internal.h"
 #include "partition_alloc/partition_address_space.h"
@@ -102,6 +104,45 @@ void DCheckIfManagedByPartitionAllocBRPPool(uintptr_t address);
 PA_ALWAYS_INLINE void DCheckIfManagedByPartitionAllocBRPPool(
     uintptr_t address) {}
 #endif
+
+#if PA_BUILDFLAG(CHECKED_SPAN_HAS_METADATA_SUPPORT)
+
+// Preconditions:
+// *  `object` is a slot start
+// *  `usable_size` is appropriate for the slot
+PA_UNSAFE_BUFFER_USAGE PA_ALWAYS_INLINE void
+SmuggleRequestedSize(void* object, size_t usable_size, size_t requested_size) {
+  PA_CHECK(
+      requested_size <
+      std::numeric_limits<internal::CheckedSpanSmuggledRequestedSize>::max());
+  unsigned char* target =
+      // SAFETY: as long as preconditions are met, this is an
+      // ordinary write into the usable space of the slot.
+      PA_UNSAFE_BUFFERS(static_cast<unsigned char*>(object) + usable_size -
+                        sizeof(internal::CheckedSpanSmuggledRequestedSize));
+  PA_CHECK(UntagPtr(target) %
+               alignof(internal::CheckedSpanSmuggledRequestedSize) ==
+           0u);
+  *reinterpret_cast<internal::CheckedSpanSmuggledRequestedSize*>(target) =
+      static_cast<internal::CheckedSpanSmuggledRequestedSize>(requested_size);
+}
+
+// Preconditions: as above.
+PA_ALWAYS_INLINE internal::CheckedSpanSmuggledRequestedSize GetSmuggledSize(
+    void* object,
+    size_t usable_size) {
+  internal::CheckedSpanSmuggledRequestedSize requested_size =
+      *reinterpret_cast<internal::CheckedSpanSmuggledRequestedSize*>(
+          // SAFETY: as long as preconditions are met, this is an
+          // ordinary read from the usable space of the slot.
+          PA_UNSAFE_BUFFERS(
+              static_cast<uint8_t*>(object) + usable_size -
+              sizeof(internal::CheckedSpanSmuggledRequestedSize)));
+  return requested_size;
+}
+
+#endif  // PA_BUILDFLAG(CHECKED_SPAN_HAS_METADATA_SUPPORT)
+
 }  // namespace internal
 
 // AllocInternal exposed for testing.
@@ -121,7 +162,7 @@ PartitionRoot::GetSlotUsableSize(const SlotSpanMetadata* slot_span) const {
 
 PA_ALWAYS_INLINE size_t PartitionRoot::GetSlotUsableSize(
     const internal::BucketSizeDetails& size_details,
-    SlotSpanMetadata* slot_span) const {
+    const SlotSpanMetadata* slot_span) const {
   if (size_details.slot_size <= kThreadCacheLargeSizeThreshold) [[likely]] {
     PA_DCHECK(!slot_span->CanStoreRawSize());
     auto usable_size = AdjustSizeForExtrasSubtract(size_details.slot_size);
@@ -186,20 +227,20 @@ PartitionRoot::GetDirectMapMetadataAndGuardPagesSize() {
 
 PA_ALWAYS_INLINE PAGE_ALLOCATOR_CONSTANTS_DECLARE_CONSTEXPR size_t
 PartitionRoot::GetDirectMapSlotSize(size_t raw_size) {
-  // Caller must check that the size is not above the MaxAllocationSize()
-  // limit before calling. This also guards against integer overflow in the
-  // calculation here.
-  PA_DCHECK(raw_size <= MaxAllocationSize());
+  // Caller must check that the size is not above the MaxAllocationSize() /
+  // MaxGigaAllocationSize() limit before calling. This also guards against
+  // integer overflow in the calculation here.
+  PA_DCHECK(raw_size <= MaxGigaAllocationSize());
   return partition_alloc::internal::base::bits::AlignUp(
       raw_size, internal::SystemPageSize());
 }
 
 PA_ALWAYS_INLINE size_t
 PartitionRoot::GetDirectMapReservationSize(size_t padded_raw_size) {
-  // Caller must check that the size is not above the MaxAllocationSize()
-  // limit before calling. This also guards against integer overflow in the
-  // calculation here.
-  PA_DCHECK(padded_raw_size <= MaxAllocationSize());
+  // Caller must check that the size is not above the MaxAllocationSize() /
+  // MaxGigaAllocationSize() limit before calling. This also guards against
+  // integer overflow in the calculation here.
+  PA_DCHECK(padded_raw_size <= MaxGigaAllocationSize());
   return partition_alloc::internal::base::bits::AlignUp(
       padded_raw_size + GetDirectMapMetadataAndGuardPagesSize(),
       internal::DirectMapAllocationGranularity());
@@ -280,7 +321,7 @@ PA_ALWAYS_INLINE bool PartitionRoot::IsDirectMappedBucket(
 }
 template <AllocFlags flags>
 PA_ALWAYS_INLINE bool PartitionRoot::AllocWithMemoryToolProlog(size_t size) {
-  if (size > MaxAllocationSize()) {
+  if (size > GetMaxAllocationSize<flags>()) {
     if constexpr (ContainsFlags(flags, AllocFlags::kReturnNull)) {
       // Early return indicating not to proceed with allocation
       return false;
@@ -1228,7 +1269,8 @@ PartitionRoot::SizeToBucketIndex(size_t size,
 }
 
 PA_ALWAYS_INLINE internal::BucketSizeDetails
-PartitionRoot::SlotSpanToBucketSizeDetails(SlotSpanMetadata* slot_span) const {
+PartitionRoot::SlotSpanToBucketSizeDetails(
+    const SlotSpanMetadata* slot_span) const {
   return internal::BucketSizeDetails{
       .bucket_index =
           static_cast<uint16_t>(slot_span->bucket - this->buckets_.data()),
@@ -1237,8 +1279,9 @@ PartitionRoot::SlotSpanToBucketSizeDetails(SlotSpanMetadata* slot_span) const {
 }
 
 PA_ALWAYS_INLINE internal::BucketSizeDetails
-PartitionRoot::SizeToBucketSizeDetails(size_t requested_size,
-                                       SlotSpanMetadata* slot_span) const {
+PartitionRoot::SizeToBucketSizeDetails(
+    size_t requested_size,
+    const SlotSpanMetadata* slot_span) const {
   auto raw_size = AdjustSizeForExtrasAdd(requested_size);
   if (raw_size <= BucketIndexLookup::kMaxBucketSize) [[likely]] {
     // For non-direct-mapped allocations, `bucket_index` and `slot_size` are
@@ -1277,7 +1320,7 @@ PartitionRoot::AllocInternal(size_t requested_size,
 
 #if PA_BUILDFLAG(MEMORY_TOOL_REPLACES_ALLOCATOR)
   if constexpr (!ContainsFlags(flags, AllocFlags::kNoMemoryToolOverride)) {
-    if (!PartitionRoot::AllocWithMemoryToolProlog<flags>(requested_size)) {
+    if (!AllocWithMemoryToolProlog<flags>(requested_size)) {
       // Early return if AllocWithMemoryToolProlog returns false
       return {nullptr, std::nullopt};
     }
@@ -1516,14 +1559,46 @@ PartitionRoot::AllocInternalNoHooks(size_t requested_size,
 
 #if PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
   if (brp_enabled()) [[likely]] {
-    auto* ref_count =
+    [[maybe_unused]] auto* ref_count =
         new (internal::InSlotMetadata::From(raw_alloc_result->slot_and_size))
             internal::InSlotMetadata();
 #if PA_CONFIG(IN_SLOT_METADATA_STORE_REQUESTED_SIZE)
     ref_count->SetRequestedSize(requested_size);
-#else
-    (void)ref_count;
 #endif
+
+#if PA_BUILDFLAG(CHECKED_SPAN_HAS_METADATA_SUPPORT)
+    // To provide exact bounds for Checked Span, we smuggle in the
+    // requested size at the end of the slot. This is not accounted as
+    // an "extra" in the usual sense.
+    //
+    // Exceptions:
+    // *  the slot doesn't have
+    //    `sizeof(CheckedSpanSmuggledRequestedSize)` bytes at the end.
+    // *  the slot can store its raw size (i.e. is a single-slot span).
+    //    This simplifies working around the cookie.
+    // *  the caller explicitly requested zero-fill. Checked Span
+    //    doesn't attempt to stop an attacker from reading zeroes.
+    if constexpr (!zero_fill) {
+      if (!raw_alloc_result->can_store_raw_size) {
+        // We prefer to write the smuggled size whenever we can. This
+        // has the side effect of obliterating the last few bytes of any
+        // memory being reused (e.g. a slot pulled out of the thread
+        // cache).
+        PA_UNSAFE_BUFFERS(internal::SmuggleRequestedSize(
+            object, raw_alloc_result->usable_size, requested_size));
+
+        // If the "unused" space (see "Layout inside the slot") has enough
+        // room to maintain the requested size (without being clobbered
+        // by the requester), we set the bit that tells Checked Span that
+        // it should query (and `CHECK()` for) the requested size.
+        if (requested_size +
+                sizeof(internal::CheckedSpanSmuggledRequestedSize) <=
+            raw_alloc_result->usable_size) {
+          ref_count->SetHasSmuggledSizeBit();
+        }
+      }
+    }
+#endif  // PA_BUILDFLAG(CHECKED_SPAN_HAS_METADATA_SUPPORT)
   }
 #endif  // PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
 
@@ -1584,7 +1659,9 @@ PartitionRoot::GetAdjustedSizeForAlignment(size_t alignment,
   PA_CHECK(std::has_single_bit(alignment));
   // Catch unsupported alignment requests early.
   PA_CHECK(alignment <= internal::kMaxSupportedAlignment);
-  PA_CHECK(requested_size <= MaxAllocationSize());
+  PA_CHECK(requested_size <= (settings_.allow_giga_allocations
+                                  ? MaxGigaAllocationSize()
+                                  : MaxAllocationSize()));
 
   // Memory returned by the regular allocator *always* respects |kAlignment|,
   // which is a power of two, and any valid alignment is also a power of two.
@@ -1638,7 +1715,7 @@ PA_ALWAYS_INLINE void* PartitionRoot::AlignedAllocInline(
   // platforms. Other allocation paths (Alloc, Realloc(nullptr, ...)) do not
   // perform prior size adjustment and are checked downstream in
   // PartitionDirectMap.
-  if (requested_size > MaxAllocationSize()) [[unlikely]] {
+  if (requested_size > GetMaxAllocationSize<flags>()) [[unlikely]] {
     if constexpr (ContainsFlags(flags, AllocFlags::kReturnNull)) {
       return nullptr;
     }
@@ -1680,7 +1757,7 @@ void* PartitionRoot::ReallocInline(void* ptr,
                                    const char* type_name) {
   static_assert(!ContainsFlags(alloc_flags, AllocFlags::kAlignedAlloc));
 #if PA_BUILDFLAG(MEMORY_TOOL_REPLACES_ALLOCATOR)
-  if (!PartitionRoot::AllocWithMemoryToolProlog<alloc_flags>(new_size)) {
+  if (!AllocWithMemoryToolProlog<alloc_flags>(new_size)) {
     // Early return if AllocWithMemoryToolProlog returns false
     return nullptr;
   }
@@ -1701,7 +1778,7 @@ void* PartitionRoot::ReallocInline(void* ptr,
     return nullptr;
   }
 
-  if (new_size > MaxAllocationSize()) {
+  if (new_size > GetMaxAllocationSize<alloc_flags>()) {
     if constexpr (ContainsFlags(alloc_flags, AllocFlags::kReturnNull)) {
       return nullptr;
     }

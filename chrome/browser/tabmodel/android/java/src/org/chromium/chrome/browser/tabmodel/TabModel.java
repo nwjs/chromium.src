@@ -450,6 +450,7 @@ public interface TabModel extends TabList {
     int getTabCountForGroup(@Nullable Token tabGroupId);
 
     /** Returns whether a tab group exists with {@code tabGroupId}. */
+    // TODO(crbug.com/517544602): Rename to containsTabGroup to match TabListInterface.
     boolean tabGroupExists(@Nullable Token tabGroupId);
 
     /**
@@ -493,13 +494,8 @@ public interface TabModel extends TabList {
     /**
      * Creates a tab group containing a single tab.
      *
-     * @param tabId The tab id of the tab to create the group for.
+     * @param tab The tab to create the group for.
      */
-    default void createSingleTabGroup(@TabId int tabId) {
-        createSingleTabGroup(getTabByIdChecked(tabId));
-    }
-
-    /** Same as {@link #createSingleTabGroup(int)}, but with a {@link Tab} object. */
     void createSingleTabGroup(Tab tab);
 
     /**
@@ -523,22 +519,7 @@ public interface TabModel extends TabList {
      * @param sourceTabId The id of the {@link Tab} to get the source group.
      * @param destinationTabId The id of a {@link Tab} to get the destination group.
      */
-    default void mergeTabsToGroup(@TabId int sourceTabId, @TabId int destinationTabId) {
-        mergeTabsToGroup(sourceTabId, destinationTabId, /* skipUpdateTabModel= */ false);
-    }
-
-    /**
-     * This method merges the source group that contains the {@code sourceTabId} to the destination
-     * group that contains the {@code destinationTabId}. This method only operates if two groups are
-     * in the same {@code TabModel}.
-     *
-     * @param sourceTabId The id of the {@link Tab} to get the source group.
-     * @param destinationTabId The id of a {@link Tab} to get the destination group.
-     * @param skipUpdateTabModel True if updating the tab model will be handled elsewhere (e.g. by
-     *     the tab strip).
-     */
-    void mergeTabsToGroup(
-            @TabId int sourceTabId, @TabId int destinationTabId, boolean skipUpdateTabModel);
+    void mergeTabsToGroup(@TabId int sourceTabId, @TabId int destinationTabId);
 
     /**
      * This method appends a list of {@link Tab}s to the destination group that contains the {@code}
@@ -634,14 +615,6 @@ public interface TabModel extends TabList {
      */
     String getTabGroupTitle(Token tabGroupId);
 
-    /**
-     * @see #getTabGroupTitle(Token). This looks up the tab group via {@code groupedTab}. This is
-     *     primarily to be used if the tab group has already been closed. Prefer the {@link
-     *     TabGroupTitleUtils#getDisplayableTitle} or {@link #getTabGroupTitle(Token)} method in
-     *     most cases.
-     */
-    String getTabGroupTitle(Tab groupedTab);
-
     /** Stores the given title for the tab group. */
     void setTabGroupTitle(Token tabGroupId, String title);
 
@@ -665,14 +638,6 @@ public interface TabModel extends TabList {
      */
     @TabGroupColorId
     int getTabGroupColorWithFallback(Token tabGroupId);
-
-    /**
-     * @see #getTabGroupColorWithFallback(Token). This looks up the tab group via {@code
-     *     groupedTab}. This is primarily to be used if the tab group has already been closed.
-     *     Prefer the {@link #getTabGroupColorWithFallback(Token)} method in most cases.
-     */
-    @TabGroupColorId
-    int getTabGroupColorWithFallback(Tab groupedTab);
 
     /** Stores the given color for the tab group. */
     void setTabGroupColor(Token tabGroupId, @TabGroupColorId int color);

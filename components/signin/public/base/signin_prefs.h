@@ -133,6 +133,13 @@ class SigninPrefs {
   void IncrementBookmarkSigninPromoImpressionCount(const GaiaId& gaia_id);
   int GetBookmarkSigninPromoImpressionCount(const GaiaId& gaia_id) const;
 
+  void IncrementBookmarkManagerSigninPromoImpressionCount(
+      const GaiaId& gaia_id);
+  int GetBookmarkManagerSigninPromoImpressionCount(const GaiaId& gaia_id) const;
+
+  void IncrementBookmarkManagerSigninPromoDismissCount(const GaiaId& gaia_id);
+  int GetBookmarkManagerSigninPromoDismissCount(const GaiaId& gaia_id) const;
+
   void IncrementSearchAIModeSigninPromoImpressionCount(const GaiaId& gaia_id);
   int GetSearchAIModeSigninPromoImpressionCount(const GaiaId& gaia_id) const;
 
@@ -169,12 +176,6 @@ class SigninPrefs {
       base::Time last_impression_time);
   std::optional<base::Time> GetSearchAIModeSigninPromoLastImpressionTime(
       const GaiaId& gaia_id) const;
-
-  // Sync promo on the avatar button.
-  void IncrementSyncPromoIdentityPillShownCount(const GaiaId& gaia_id);
-  int GetSyncPromoIdentityPillShownCount(const GaiaId& gaia_id) const;
-  void IncrementSyncPromoIdentityPillUsedCount(const GaiaId& gaia_id);
-  int GetSyncPromoIdentityPillUsedCount(const GaiaId& gaia_id) const;
 
   // History sync promo on the history page.
   int GetHistoryPageHistorySyncPromoShownCount(const GaiaId& gaia_id) const;

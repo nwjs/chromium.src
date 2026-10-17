@@ -1,0 +1,16 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+[
+    Exposed=Window,
+    SecureContext,
+    RuntimeEnabled=WebMCP
+] interface ToolCancelEvent : Event {
+    constructor(DOMString type, optional ToolCancelEventInit eventInitDict = {});
+    readonly attribute DOMString toolName;
+};
+
+dictionary ToolCancelEventInit : EventInit {
+    DOMString toolName = "";
+};

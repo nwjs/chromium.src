@@ -14,7 +14,6 @@ namespace blink {
 
 class Attribute;
 class Document;
-class String;
 
 // Represents the <install> HTML element, which provides a mechanism to
 // install web applications. It has two optional attributes:
@@ -43,9 +42,6 @@ class CORE_EXPORT HTMLInstallElement : public HTMLCapabilityElementBase {
   // HTMLElement:
   bool IsHTMLInstallElement() const final { return true; }
 
-  const String& ManifestId() const;
-  const String& Manifest() const;
-
   DEFINE_ATTRIBUTE_EVENT_LISTENER(installresult, kInstallresult)
 
   void Trace(Visitor*) const override;
@@ -53,6 +49,8 @@ class CORE_EXPORT HTMLInstallElement : public HTMLCapabilityElementBase {
   bool show_as_launch() const { return show_as_launch_; }
 
  private:
+  FRIEND_TEST_ALL_PREFIXES(HTMLInstallElementTestBase,
+                           LaunchIconScalesWithFontSize);
   FRIEND_TEST_ALL_PREFIXES(HTMLInstallElementTestBase,
                            InstalledStateHiddenInCanvasSubtree);
   FRIEND_TEST_ALL_PREFIXES(HTMLInstallElementTestBase,
@@ -67,6 +65,7 @@ class CORE_EXPORT HTMLInstallElement : public HTMLCapabilityElementBase {
   void UpdateIcon(mojom::blink::PermissionName permission) override;
   mojom::blink::EmbeddedPermissionRequestDescriptorPtr
   CreateEmbeddedPermissionRequestDescriptor() override;
+  void RunActivationBehavior(Event&, EventDispatchHandlingState*) override;
   void DefaultEventHandler(Event&) override;
 
   void OnIsInstalledResult(bool is_installed);

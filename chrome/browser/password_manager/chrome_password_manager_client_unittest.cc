@@ -45,6 +45,7 @@
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
+#include "components/affiliations/core/browser/match_type.h"
 #include "components/autofill/content/browser/autofill_test_util.h"
 #include "components/autofill/content/browser/content_autofill_client.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
@@ -197,7 +198,7 @@ PasswordForm MakePasswordForm() {
   form.submit_element = u"signIn";
   form.signon_realm = "https://www.example.com/";
   form.in_store = PasswordForm::Store::kProfileStore;
-  form.match_type = PasswordForm::MatchType::kExact;
+  form.match_type = affiliations::MatchType::kExact;
   return form;
 }
 #endif
@@ -914,7 +915,7 @@ TEST_F(ChromePasswordManagerClientTest,
           GetClient()->GetPasswordManager())
           ->GetClassifierModelPredictionsForTesting();
   // Check that predictions are available for the form.
-  auto form_key = std::make_pair(password_driver, form.renderer_id());
+  auto form_key = std::make_pair(password_driver->GetId(), form.renderer_id());
   ASSERT_THAT(received_predictions, UnorderedElementsAre(Key(form_key)));
   // Check that predictions are available for all form fields.
   EXPECT_THAT(received_predictions[form_key],

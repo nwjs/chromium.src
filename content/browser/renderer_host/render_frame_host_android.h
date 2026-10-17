@@ -60,6 +60,8 @@ class RenderFrameHostAndroid : public base::SupportsUserData::Data {
 
   void NotifyUserActivation(JNIEnv* env);
 
+  bool ConsumeTransientUserActivation(JNIEnv* env);
+
   void NotifyWebAuthnAssertionRequestSucceeded(JNIEnv* env);
 
   bool IsCloseWatcherActive(JNIEnv* env) const;
@@ -118,6 +120,8 @@ class RenderFrameHostAndroid : public base::SupportsUserData::Data {
   void ViewSource(JNIEnv* env);
 
   RenderFrameHostImpl* render_frame_host() const { return render_frame_host_; }
+
+  bool IsCrossOriginIsolated(JNIEnv* env) const;
 
  private:
   const raw_ptr<RenderFrameHostImpl> render_frame_host_;

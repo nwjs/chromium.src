@@ -24,6 +24,7 @@
 #include "media/base/audio_sample_types.h"
 #include "media/base/channel_layout.h"
 #include "media/base/fake_audio_render_callback.h"
+#include "media/base/limits.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace media {
@@ -218,39 +219,6 @@ TEST_F(AudioBusTest, AllChannels) {
   int current_channel = 0;
   for (auto channel : bus->AllChannels()) {
     EXPECT_EQ(channel, bus->channel(current_channel++));
-  }
-
-  EXPECT_EQ(current_channel, kDefaultChannels);
-}
-
-TEST_F(AudioBusTest, AllChannelsSubspan) {
-  AllocateDataPerChannel();
-
-  std::unique_ptr<AudioBus> bus = AudioBus::CreateWrapper(kDefaultChannels);
-  bus->set_frames(kFrameCount);
-  AudioBus::ChannelVector channels;
-  int value = 1;
-  for (AlignedFloatArray& data : data_) {
-    AudioBus::Channel channel(data);
-
-    // Fill each sample with a different value.
-    for (float& sample : channel) {
-      sample = value++;
-    }
-
-    channels.push_back(channel);
-  }
-
-  bus->SetAllChannels(channels);
-
-  // Verify looping through `AllChannelsSubspan()` is equivalent to getting each
-  // channel individually and applying `subspan()` to them.
-  int current_channel = 0;
-  constexpr size_t kOffset = 3;
-  constexpr size_t kCount = 25;
-  for (auto channel : bus->AllChannelsSubspan(kOffset, kCount)) {
-    EXPECT_EQ(channel,
-              bus->channel(current_channel++).subspan(kOffset, kCount));
   }
 
   EXPECT_EQ(current_channel, kDefaultChannels);
@@ -837,6 +805,61 @@ TEST_F(AudioBusTest, Bitstream) {
   bus->Zero();
   EXPECT_EQ(0u, bus->bitstream_data().size());
   EXPECT_EQ(0, bus->GetBitstreamFrames());
+}
+
+TEST_F(AudioBusTest, TryCreate) {
+  // Test valid creation.
+  auto bus = AudioBus::TryCreate(2, 512);
+  ASSERT_TRUE(bus);
+  EXPECT_EQ(2, bus->channels());
+  EXPECT_EQ(512, bus->frames());
+  VerifyReadWriteAndAlignment(bus.get());
+
+  // Test creation with AudioParameters.
+  AudioParameters params(AudioParameters::AUDIO_PCM_LINEAR,
+                         ChannelLayoutConfig::Stereo(), 48000, 512);
+  auto params_bus = AudioBus::TryCreate(params);
+  ASSERT_TRUE(params_bus);
+  EXPECT_EQ(2, params_bus->channels());
+  EXPECT_EQ(512, params_bus->frames());
+  VerifyReadWriteAndAlignment(params_bus.get());
+
+  // Test copy and scale operations on TryCreate bus.
+  auto dest_bus = AudioBus::TryCreate(2, 512);
+  ASSERT_TRUE(dest_bus);
+  CopyTest(bus.get(), dest_bus.get());
+
+  // Test max channels.
+  auto max_channels_bus = AudioBus::TryCreate(limits::kMaxChannels, 128);
+  ASSERT_TRUE(max_channels_bus);
+  EXPECT_EQ(limits::kMaxChannels, max_channels_bus->channels());
+  EXPECT_EQ(128, max_channels_bus->frames());
+
+  // Test invalid channel counts.
+  EXPECT_FALSE(AudioBus::TryCreate(0, 512));
+  EXPECT_FALSE(AudioBus::TryCreate(-1, 512));
+  EXPECT_FALSE(AudioBus::TryCreate(limits::kMaxChannels + 1, 512));
+
+  // Test invalid frame counts.
+  EXPECT_FALSE(AudioBus::TryCreate(2, 0));
+  EXPECT_FALSE(AudioBus::TryCreate(2, -1));
+
+  // Test invalid AudioParameters.
+  AudioParameters invalid_params;
+  EXPECT_FALSE(AudioBus::TryCreate(invalid_params));
+
+  // Test bitstream AudioParameters (not supported by TryCreate).
+  AudioParameters bitstream_params(AudioParameters::AUDIO_BITSTREAM_AC3,
+                                   ChannelLayoutConfig::Stereo(), 48000, 512);
+  EXPECT_FALSE(AudioBus::TryCreate(bitstream_params));
+
+#if defined(ARCH_CPU_32_BITS)
+  // Test arithmetic overflow on 32-bit platforms where
+  // channels * frames * sizeof(float) overflows uint32_t.
+  EXPECT_FALSE(AudioBus::TryCreate(2, std::numeric_limits<int>::max()));
+  EXPECT_FALSE(AudioBus::TryCreate(limits::kMaxChannels,
+                                   std::numeric_limits<int>::max() / 2));
+#endif
 }
 
 }  // namespace media

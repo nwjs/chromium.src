@@ -17,16 +17,15 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.app.appmenu.AppMenuItemTheme;
 import org.chromium.chrome.browser.app.appmenu.AppMenuItemUtils;
-import org.chromium.chrome.browser.app.tabwindow.TabWindowManagerSingleton;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabFavicon;
 import org.chromium.chrome.browser.tabmodel.TabGroupUtils;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.browser.tabwindow.TabWindowManager;
 import org.chromium.chrome.browser.tasks.tab_management.GroupWindowChecker;
 import org.chromium.chrome.browser.tasks.tab_management.GroupWindowInfo;
+import org.chromium.chrome.browser.tasks.tab_management.GroupWindowState;
 import org.chromium.chrome.browser.tasks.tab_management.TabGroupUiUtils;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuHandler;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuItemProperties;
@@ -209,7 +208,8 @@ import java.util.function.Supplier;
         List<GroupWindowInfo> sortedGroups = windowChecker.getDefaultSortedGroupList();
 
         for (GroupWindowInfo tabGroup : sortedGroups) {
-            if (tabGroup.localId == null && !TabGroupUiUtils.isRemoteGroupOperationsEnabled()) {
+            if ((tabGroup.localId == null || tabGroup.groupWindowState == GroupWindowState.HIDDEN)
+                    && !TabGroupUiUtils.isRemoteGroupOperationsEnabled()) {
                 continue;
             }
             if (currentGroupId != null && Objects.equals(currentGroupId, tabGroup.localId)) {
@@ -307,6 +307,21 @@ import java.util.function.Supplier;
             return submenuItems;
         }
 
+        List<ListItem> groupItems = new ArrayList<>();
+        for (GroupWindowInfo tabGroup : sortedGroups) {
+            if ((tabGroup.localId == null || tabGroup.groupWindowState == GroupWindowState.HIDDEN)
+                    && !TabGroupUiUtils.isRemoteGroupOperationsEnabled()) {
+                continue;
+            }
+            groupItems.add(buildTabGroupParentSubmenuItem(tabGroup, showIcons, tabModel));
+        }
+        if (groupItems.isEmpty()) {
+            if (submenuItems.isEmpty()) {
+                submenuItems.add(AppMenuItemUtils.buildEmptySubmenuItem());
+            }
+            return submenuItems;
+        }
+
         submenuItems.add(
                 new ListItem(
                         AppMenuHandler.AppMenuItemType.DIVIDER,
@@ -318,13 +333,7 @@ import java.util.function.Supplier;
                         R.id.tab_groups_header_menu_id,
                         R.string.menu_tab_groups,
                         mIsMenuIconAtStart));
-
-        for (GroupWindowInfo tabGroup : sortedGroups) {
-            if (tabGroup.localId == null && !TabGroupUiUtils.isRemoteGroupOperationsEnabled()) {
-                continue;
-            }
-            submenuItems.add(buildTabGroupParentSubmenuItem(tabGroup, showIcons, tabModel));
-        }
+        submenuItems.addAll(groupItems);
         return submenuItems;
     }
 
@@ -365,20 +374,12 @@ import java.util.function.Supplier;
         }
 
         Token groupId = tabGroup.localId;
-        List<Tab> tabs = tabModel.getTabsInGroup(groupId);
-        if (tabs.isEmpty() && TabGroupUiUtils.isCrossWindowTabGroupOperationsEnabled()) {
-            TabWindowManager windowManager = TabWindowManagerSingleton.getInstance();
-            if (windowManager != null) {
-                int windowId = windowManager.findWindowIdForTabGroup(groupId);
-                if (windowId != TabWindowManager.INVALID_WINDOW_ID) {
-                    List<Tab> crossWindowTabs =
-                            windowManager.getGroupedTabsByWindow(
-                                    windowId, groupId, tabModel.isIncognito());
-                    if (crossWindowTabs != null) {
-                        tabs = crossWindowTabs;
-                    }
-                }
+        List<Tab> tabs = TabGroupUiUtils.getLocalOrCrossWindowTabsInGroup(tabModel, groupId);
+        if (tabs.isEmpty()) {
+            if (TabGroupUiUtils.isRemoteGroupOperationsEnabled() && tabGroup.syncId != null) {
+                return buildSubmenuForRemoteGroup(tabGroup, tabModel);
             }
+            return Collections.emptyList();
         }
         Profile profile = tabModel.getProfile();
         assert profile != null;
@@ -392,6 +393,7 @@ import java.util.function.Supplier;
                                     mIsMenuIconAtStart)
                             .with(AppMenuItemProperties.TITLE, tab.getTitle())
                             .with(AppMenuTabItemProperties.TAB_ID, tab.getId())
+                            .with(AppMenuTabItemProperties.TAB_URL, tab.getUrl())
                             .with(
                                     AppMenuItemProperties.ICON_SUPPLIER,
                                     AppMenuItemUtils.createIconSupplierForTab(
@@ -446,6 +448,7 @@ import java.util.function.Supplier;
                         .with(
                                 AppMenuTabItemProperties.TAB_ID,
                                 tab.localId != null ? tab.localId : Tab.INVALID_TAB_ID)
+                        .with(AppMenuTabItemProperties.TAB_URL, tabUrl)
                         .with(
                                 AppMenuItemProperties.ICON_SUPPLIER,
                                 AppMenuItemUtils.createIconSupplierForTab(

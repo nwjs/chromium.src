@@ -158,8 +158,7 @@ class AccessibilityControllerTest : public AccessibilityControllerTestBase {
 
   void SetUp() override {
     scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/{ash::features::kOnDeviceSpeechRecognition,
-                              ::features::kAccessibilityMouseKeys},
+        /*enabled_features=*/{ash::features::kOnDeviceSpeechRecognition},
         /*disabled_features=*/{});
     AccessibilityControllerTestBase::SetUp();
     normal_duration_.emplace(
@@ -1387,10 +1386,6 @@ TEST_F(AccessibilityControllerTest, ChangingCursorColorPrefChangesCursorColor) {
 
   {
     // Set cursor color pref to inverted.
-    base::test::ScopedFeatureList scoped_feature_list;
-    scoped_feature_list.InitAndEnableFeature(
-        ::features::kAccessibilityInvertedMouseCursor);
-
     prefs()->SetBoolean(prefs::kAccessibilityCursorColorEnabled, true);
     prefs()->SetInteger(prefs::kAccessibilityCursorColor,
                         kAccessibilityCursorColorInverted);

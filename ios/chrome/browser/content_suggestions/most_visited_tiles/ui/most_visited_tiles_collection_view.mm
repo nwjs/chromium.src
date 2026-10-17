@@ -8,13 +8,13 @@
 #import "base/check.h"
 #import "base/task/sequenced_task_runner.h"
 #import "ios/chrome/browser/content_suggestions/magic_stack/public/magic_stack_utils.h"
+#import "ios/chrome/browser/content_suggestions/most_visited_tiles/public/most_visited_tiles_constants.h"
 #import "ios/chrome/browser/content_suggestions/most_visited_tiles/ui/most_visited_item.h"
 #import "ios/chrome/browser/content_suggestions/most_visited_tiles/ui/most_visited_tiles_collection_view_layout.h"
 #import "ios/chrome/browser/content_suggestions/most_visited_tiles/ui/most_visited_tiles_commands.h"
 #import "ios/chrome/browser/content_suggestions/most_visited_tiles/ui/most_visited_tiles_config.h"
 #import "ios/chrome/browser/content_suggestions/most_visited_tiles/ui/most_visited_tiles_plus_button_item.h"
 #import "ios/chrome/browser/content_suggestions/public/content_suggestions_constants.h"
-#import "ios/chrome/browser/content_suggestions/ui/cells/content_suggestions_cells_constants.h"
 #import "ios/chrome/browser/content_suggestions/ui/content_suggestions_image_data_source.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
 #import "ios/chrome/browser/shared/ui/util/layout_guide_names.h"
@@ -31,9 +31,6 @@ NSString* const kSectionIdentifier =
 /// Cell identifier in the `MostVisitedTilesCollectionView`.
 NSString* const kCellReuseIdentifier =
     @"MostVisitedTilesCollectionViewCellIdentifier";
-
-/// Maximum number of items that should be added to the collection view..
-NSUInteger const kMaximumItems = 8;
 
 /// Item identifier for the plus button.
 const int kPlusButtonIdentifier = -1;
@@ -55,6 +52,8 @@ const int kPlusButtonIdentifier = -1;
   __weak id<MostVisitedTilesCommands> _mostVisitedTilesHandler;
   /// Data source object powering the display of the collection view.
   UICollectionViewDiffableDataSource* _diffableDataSource;
+  /// Compositional layout of the collection view.
+  MostVisitedTilesCollectionViewLayout* _layout;
 }
 
 - (instancetype)initWithConfig:(MostVisitedTilesConfig*)config {
@@ -63,6 +62,7 @@ const int kPlusButtonIdentifier = -1;
           initWithItemCount:config.mostVisitedItems.count + 1];
   self = [super initWithFrame:CGRectZero collectionViewLayout:layout];
   if (self) {
+    _layout = layout;
     _items = config.mostVisitedItems;
     _imageDataSource = config.imageDataSource;
     _layoutGuideCenter = config.layoutGuideCenter;
@@ -83,6 +83,14 @@ const int kPlusButtonIdentifier = -1;
     [self initializeDataSource];
   }
   return self;
+}
+
+- (NSUInteger)maxVisibleItems {
+  return _layout.maxVisibleItems;
+}
+
+- (void)setMaxVisibleItems:(NSUInteger)maxVisibleItems {
+  _layout.maxVisibleItems = maxVisibleItems;
 }
 
 - (void)setContentSize:(CGSize)contentSize {
@@ -184,7 +192,7 @@ const int kPlusButtonIdentifier = -1;
     [indices addObject:@(i)];
   }
   /// Add the "+" button.
-  if (!_items.lastObject.isPinned || count < kMaximumItems) {
+  if (!_items.lastObject.isPinned || count < MaximumMostVisitedTilesCount()) {
     [indices addObject:@(kPlusButtonIdentifier)];
   }
   [snapshot appendItemsWithIdentifiers:indices
@@ -208,8 +216,12 @@ const int kPlusButtonIdentifier = -1;
     plusButtonItem.mostVisitedTilesHandler = _mostVisitedTilesHandler;
     cell.contentConfiguration = plusButtonItem;
   } else {
-    [self loadFaviconIfNeeded:identifier];
-    cell.contentConfiguration = _items[identifier.unsignedIntValue];
+    CHECK_LT(identifier.unsignedIntValue, _items.count);
+    MostVisitedItem* item = _items[identifier.unsignedIntValue];
+    if (![item isAIMTile]) {
+      [self loadFaviconIfNeeded:identifier];
+    }
+    cell.contentConfiguration = item;
   }
   /// Mark the first item in the tiles for layout guide
   /// `kNTPFirstMostVisitedTileGuide`.
@@ -227,7 +239,12 @@ const int kPlusButtonIdentifier = -1;
 
 /// Loads the favicon for item with `identifier`.
 - (void)loadFaviconIfNeeded:(NSNumber*)identifier {
-  MostVisitedItem* item = _items[identifier.unsignedIntValue];
+  NSUInteger index = identifier.unsignedIntegerValue;
+  CHECK_LT(index, _items.count);
+  MostVisitedItem* item = _items[index];
+  if ([item isAIMTile]) {
+    return;
+  }
   if (!item.attributes) {
     __weak MostVisitedTilesCollectionView* weakSelf = self;
     void (^completion)(FaviconAttributes*) = ^(FaviconAttributes* attributes) {

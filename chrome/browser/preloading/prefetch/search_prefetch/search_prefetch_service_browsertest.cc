@@ -4819,7 +4819,7 @@ IN_PROC_BROWSER_TEST_F(SearchPrefetchUnsupportedModeBrowserTest,
 
   // Create an AIM suggestion.
   AutocompleteMatch match(nullptr, 0, false,
-                          AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED);
+                          omnibox::AutocompleteMatchType::kSearchWhatYouTyped);
   match.destination_url = GetSearchServerQueryURL(search_terms);
   match.search_terms_args = std::make_unique<TemplateURLRef::SearchTermsArgs>(
       base::UTF8ToUTF16(search_terms));

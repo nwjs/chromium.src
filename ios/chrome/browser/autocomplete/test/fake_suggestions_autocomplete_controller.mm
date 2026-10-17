@@ -18,7 +18,8 @@ FakeSuggestionsAutocompleteController::FakeSuggestionsAutocompleteController()
           AutocompleteControllerConfig{
               .provider_types =
                   AutocompleteClassifier::DefaultOmniboxProviders()}) {
-  provider_ = new FakeAutocompleteProvider(AutocompleteProvider::TYPE_BUILTIN);
+  provider_ =
+      new FakeAutocompleteProvider(AutocompleteProvider::Type::kBuiltin);
   suggestions_builder_ = std::make_unique<FakeSuggestionsBuilder>();
 }
 

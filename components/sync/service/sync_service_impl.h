@@ -160,6 +160,7 @@ class SyncServiceImpl : public SyncService,
       base::RepeatingCallback<void(const TypeEntitiesCount&)> callback)
       const override;
   const GURL& GetSyncServiceUrlForDebugging() const override;
+  base::FilePath GetLocalSyncBackendFolderForDebugging() const override;
   std::string GetUnrecoverableErrorMessageForDebugging() const override;
   base::Location GetUnrecoverableErrorLocationForDebugging() const override;
   void AddProtocolEventObserver(ProtocolEventObserver* observer) override;
@@ -515,6 +516,8 @@ class SyncServiceImpl : public SyncService,
 
   // Manages the start and stop of the data types.
   std::unique_ptr<DataTypeManager> data_type_manager_;
+
+  bool is_shutting_down_ = false;
 
   // Note: This is an Optional so that we can control its destruction - in
   // particular, to trigger the "check_empty" test in Shutdown().

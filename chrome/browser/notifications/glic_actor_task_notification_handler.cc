@@ -12,9 +12,9 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
-#include "chrome/browser/actor/ui/actor_ui_state_manager_interface.h"
-#include "chrome/browser/glic/browser_ui/glic_actor_task_icon_manager.h"
-#include "chrome/browser/glic/browser_ui/glic_actor_task_icon_manager_factory.h"
+#include "chrome/browser/actor/ui/actor_ui_state_manager.h"
+#include "chrome/browser/glic/public/glic_keyed_service.h"
+#include "chrome/browser/glic/public/service/glic_activity_manager.h"
 #include "chrome/browser/notifications/notification_display_service.h"
 #include "chrome/browser/notifications/notification_display_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -64,11 +64,7 @@ void GlicActorTaskNotificationHandler::MaybeShow(Profile* profile,
     return;
   }
 
-  auto* actor_service = actor::ActorKeyedService::Get(profile);
-  if (!actor_service) {
-    return;
-  }
-  auto* state_manager = actor_service->GetActorUiStateManager();
+  auto* state_manager = actor::ui::ActorUiStateManager::Get(profile);
   if (!state_manager) {
     return;
   }
@@ -146,16 +142,11 @@ void GlicActorTaskNotificationHandler::OnClick(
                                 notification_id);
   }
 
-  if (auto* icon_manager =
-          glic::GlicActorTaskIconManagerFactory::GetForProfile(profile)) {
-    icon_manager->ProcessRowInTaskListBubble(task_id);
+  if (auto* activity_manager = glic::GlicActivityManager::Get(profile)) {
+    activity_manager->ProcessRowInTaskListBubble(task_id);
   }
 
-  auto* actor_service = actor::ActorKeyedService::Get(profile);
-  if (!actor_service) {
-    return;
-  }
-  auto* state_manager = actor_service->GetActorUiStateManager();
+  auto* state_manager = actor::ui::ActorUiStateManager::Get(profile);
   if (!state_manager) {
     return;
   }

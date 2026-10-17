@@ -12,9 +12,9 @@
             },
             {
                 "domain": "Page",
-                "include": [ "enable", "disable", "setAdBlockingEnabled", "getInstallabilityErrors", "getManifestIcons", "printToPDF", "getAppId", "setSPCTransactionMode", "setRPHRegistrationMode" ],
+                "include": [ "enable", "disable", "setAdBlockingEnabled", "getInstallabilityErrors", "getManifestIcons", "printToPDF", "getAppId", "getSubApps", "getSiblingSubApps", "setSPCTransactionMode", "setRPHRegistrationMode" ],
                 "include_events": [],
-                "async": ["getInstallabilityErrors", "getManifestIcons", "printToPDF", "getAppId" ]
+                "async": ["getInstallabilityErrors", "getManifestIcons", "printToPDF", "getAppId", "getSubApps", "getSiblingSubApps" ]
             },
             {
                 "domain": "Browser",
@@ -49,8 +49,9 @@
             },
             {
                 "domain": "Storage",
-                "include": ["runBounceTrackingMitigations", "getRelatedWebsiteSets"],
-                "async": ["runBounceTrackingMitigations", "getRelatedWebsiteSets"]
+                "include": ["runBounceTrackingMitigations", "getPrivateVerificationTokens", "getPrivateVerificationTokensIssuerConfigs", "clearPrivateVerificationTokens", "deletePrivateVerificationToken", "setPrivateVerificationTokensTracking"],
+                "include_events": ["privateVerificationTokensUpdated"],
+                "async": ["runBounceTrackingMitigations", "getPrivateVerificationTokens", "clearPrivateVerificationTokens", "deletePrivateVerificationToken"]
             },
             {
                 "domain": "SystemInfo",

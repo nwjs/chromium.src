@@ -6,8 +6,10 @@
 
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "base/command_line.h"
+#include "base/containers/flat_set.h"
 #include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/single_thread_task_runner.h"
@@ -17,8 +19,10 @@
 #include "base/test/mock_log.h"
 #include "base/test/scoped_command_line.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/values.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
+#include "chrome/browser/glic/experimental_triggering/glic_experimental_triggering_types.h"
 #include "chrome/browser/glic/glic_enums.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/glic_pref_names_internal.h"
@@ -1654,6 +1658,48 @@ TEST_F(GlicEnablingProfileReadyStateTestBase,
   EXPECT_TRUE(enabling.GetExperimentalTriggeringEnabled());
 }
 
+TEST_F(GlicEnablingProfileReadyStateTestBase,
+       GetExperimentalTriggeringCapabilities_UnavailableReturnsEmpty) {
+  auto& enabling = glic::GlicKeyedService::Get(profile())->enabling();
+  // With experimental triggering unavailable, capabilities must be empty.
+  EXPECT_TRUE(enabling.GetExperimentalTriggeringCapabilities().empty());
+}
+
+TEST_F(GlicEnablingProfileReadyStateTestBase,
+       GetExperimentalTriggeringCapabilities_ScreenshotFlag) {
+  auto& enabling = glic::GlicKeyedService::Get(profile())->enabling();
+  enabling.SetCompletedFre(prefs::FreStatus::kCompleted);
+  profile()->GetPrefs()->SetBoolean(prefs::kGlicUserEnabledActuationOnWeb,
+                                    true);
+  profile()->GetPrefs()->SetBoolean(prefs::kGlicExperimentalTriggeringEnabled,
+                                    true);
+
+  {
+    base::test::ScopedFeatureList features;
+    features.InitWithFeatures(
+        /*enabled_features=*/{features::kGlicExperimentalTriggering},
+        /*disabled_features=*/{
+            features::kGlicExperimentalTriggeringScreenshot});
+
+    EXPECT_EQ(enabling.GetExperimentalTriggeringState(),
+              syncer::DeviceInfo::GlicExperimentalTriggeringState::kReady);
+    EXPECT_TRUE(enabling.GetExperimentalTriggeringCapabilities().empty());
+  }
+
+  {
+    base::test::ScopedFeatureList features;
+    features.InitWithFeatures(
+        /*enabled_features=*/{features::kGlicExperimentalTriggering,
+                              features::kGlicExperimentalTriggeringScreenshot},
+        /*disabled_features=*/{});
+
+    EXPECT_EQ(enabling.GetExperimentalTriggeringState(),
+              syncer::DeviceInfo::GlicExperimentalTriggeringState::kReady);
+    EXPECT_EQ(enabling.GetExperimentalTriggeringCapabilities(),
+              base::flat_set<std::string>{kGlicCapabilityScreenshot});
+  }
+}
+
 class GlicEnablingCombinedObserverTest
     : public GlicEnablingProfileReadyStateTestBase {
  public:
@@ -2055,6 +2101,146 @@ TEST_F(GlicEnablingWebActuationToggleTest, ManagedProfile_CanActOnWeb) {
 
   auto* glic_service = GlicKeyedService::Get(profile());
   EXPECT_TRUE(glic_service->enabling().ShouldShowWebActuationToggle());
+}
+
+// Tests for the subscription benefits priority pref
+// (`kSubscriptionBenefits`), which replaces the AI subscription tier check
+// when `kGlicSubscriptionBenefitsEligibility` is enabled.
+namespace {
+
+constexpr char kEligibleBenefit[] = "chrome_autobrowse";
+constexpr char kIneligibleBenefit[] = "some_other_benefit";
+
+void SetSubscriptionBenefits(Profile* profile,
+                             std::vector<std::string> benefits) {
+  base::ListValue benefit_list;
+  for (const std::string& benefit : benefits) {
+    benefit_list.Append(benefit);
+  }
+  profile->GetPrefs()->SetList(
+      subscription_eligibility::prefs::kSubscriptionBenefits,
+      std::move(benefit_list));
+}
+
+void SetUpCapableAccount(signin::IdentityTestEnvironment* identity_test_env) {
+  AccountInfo account_info = identity_test_env->MakePrimaryAccountAvailable(
+      "test@example.com", signin::ConsentLevel::kSignin);
+  AccountCapabilitiesTestMutator mutator(&account_info);
+  mutator.set_can_use_model_execution_features(true);
+  signin::UpdateAccountInfoForAccount(identity_test_env->identity_manager(),
+                                      account_info);
+}
+
+}  // namespace
+
+TEST_F(GlicEnablingWebActuationToggleTest,
+       ManagedProfile_CanActOnWeb_SubscriptionBenefits) {
+  base::test::ScopedFeatureList scoped_features;
+  scoped_features.InitAndEnableFeatureWithParameters(
+      features::kGlicSubscriptionBenefitsEligibility,
+      {{features::kGlicActorEligibleBenefits.name, kEligibleBenefit}});
+
+  SetUpCapableAccount(identity_test_env_adaptor_->identity_test_env());
+
+  policy::ScopedManagementServiceOverrideForTesting browser_management(
+      policy::ManagementServiceFactory::GetForProfile(profile()),
+      policy::EnterpriseManagementAuthority::CLOUD_DOMAIN);
+
+  profile()->GetPrefs()->SetInteger(
+      glic::prefs::kGlicActuationOnWeb,
+      std::to_underlying(glic::prefs::GlicActuationOnWebPolicyState::kEnabled));
+  // The tier pref is intentionally left unset: eligibility must come from the
+  // benefits pref alone.
+  SetSubscriptionBenefits(profile(), {kEligibleBenefit});
+
+  auto* glic_service = GlicKeyedService::Get(profile());
+  EXPECT_TRUE(glic_service->enabling().ShouldShowWebActuationToggle());
+}
+
+TEST_F(GlicEnablingWebActuationToggleTest,
+       ManagedProfile_CannotActOnWeb_SubscriptionBenefitsMismatch) {
+  base::test::ScopedFeatureList scoped_features;
+  scoped_features.InitAndEnableFeatureWithParameters(
+      features::kGlicSubscriptionBenefitsEligibility,
+      {{features::kGlicActorEligibleBenefits.name, kEligibleBenefit}});
+
+  SetUpCapableAccount(identity_test_env_adaptor_->identity_test_env());
+
+  policy::ScopedManagementServiceOverrideForTesting browser_management(
+      policy::ManagementServiceFactory::GetForProfile(profile()),
+      policy::EnterpriseManagementAuthority::CLOUD_DOMAIN);
+
+  profile()->GetPrefs()->SetInteger(
+      glic::prefs::kGlicActuationOnWeb,
+      std::to_underlying(glic::prefs::GlicActuationOnWebPolicyState::kEnabled));
+  // An eligible tier must not grant access while the benefits check is active.
+  profile()->GetPrefs()->SetInteger(
+      subscription_eligibility::prefs::kAiSubscriptionTier, 1);
+
+  auto* glic_service = GlicKeyedService::Get(profile());
+  // Profile has an eligible tier, but no benefits set: must not be enabled.
+  EXPECT_FALSE(glic_service->enabling().ShouldShowWebActuationToggle());
+
+  // Profile has an eligible tier, but wrong benefit: must not be enabled.
+  SetSubscriptionBenefits(profile(), {kIneligibleBenefit});
+  EXPECT_FALSE(glic_service->enabling().ShouldShowWebActuationToggle());
+}
+
+TEST_F(GlicEnablingWebActuationToggleTest,
+       UnmanagedProfile_SubscriptionBenefits) {
+  base::test::ScopedFeatureList scoped_features;
+  scoped_features.InitWithFeaturesAndParameters(
+      /*enabled_features=*/
+      {{features::kGlicSubscriptionBenefitsEligibility,
+        {{features::kGlicActorEligibleBenefits.name, kEligibleBenefit}}},
+       {features::kGlicWebActuationSettingsToggle, {}}},
+      /*disabled_features=*/{});
+
+  SetUpCapableAccount(identity_test_env_adaptor_->identity_test_env());
+
+  auto* glic_service = GlicKeyedService::Get(profile());
+  // An eligible tier must not grant access while the benefits check is active.
+  profile()->GetPrefs()->SetInteger(
+      subscription_eligibility::prefs::kAiSubscriptionTier, 1);
+
+  // Profile has an eligible tier, but no benefits set yet: must not be enabled.
+  EXPECT_FALSE(glic_service->enabling().ShouldShowWebActuationToggle());
+
+  // Profile has an eligible tier, but wrong benefit: must not be enabled.
+  SetSubscriptionBenefits(profile(), {kIneligibleBenefit});
+  EXPECT_FALSE(glic_service->enabling().ShouldShowWebActuationToggle());
+
+  // Profile has matching eligible benefit: now enabled.
+  SetSubscriptionBenefits(profile(), {kIneligibleBenefit, kEligibleBenefit});
+  EXPECT_TRUE(glic_service->enabling().ShouldShowWebActuationToggle());
+}
+
+TEST_F(GlicEnablingWebActuationToggleTest,
+       TieredRollout_SubscriptionBenefitsPrecedenceOverV2Tier) {
+  base::test::ScopedFeatureList scoped_features;
+  scoped_features.InitWithFeaturesAndParameters(
+      /*enabled_features=*/
+      {{features::kGlicSubscriptionBenefitsEligibility,
+        {{features::kGlicEligibleBenefits.name, kEligibleBenefit}}},
+       {features::kGlicTieredRolloutV2,
+        {{features::kGlicTieredRolloutV2EligibleTiers.name, "1,2"}}}},
+      /*disabled_features=*/{});
+
+  // Profile has an eligible tier for V2 (tier 1).
+  profile()->GetPrefs()->SetInteger(
+      subscription_eligibility::prefs::kAiSubscriptionTier, 1);
+
+  // 1. When benefits flag is enabled, having an eligible tier with no benefits
+  // set must not grant eligibility under kGlicTieredRolloutV2.
+  EXPECT_FALSE(GlicEnabling::IsEligibleForGlicTieredRollout(profile()));
+
+  // 2. Profile with wrong benefit must not grant eligibility despite tier 1.
+  SetSubscriptionBenefits(profile(), {kIneligibleBenefit});
+  EXPECT_FALSE(GlicEnabling::IsEligibleForGlicTieredRollout(profile()));
+
+  // 3. Profile with matching eligible benefit is eligible.
+  SetSubscriptionBenefits(profile(), {kEligibleBenefit});
+  EXPECT_TRUE(GlicEnabling::IsEligibleForGlicTieredRollout(profile()));
 }
 
 // Tests for ShouldShowExperimentalTriggeringToggle(), which gates the

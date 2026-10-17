@@ -106,7 +106,6 @@ suite('ContextualTasksComposeboxZeroStateTest', () => {
     mockTimer = new MockTimer();
 
     loadTimeData.overrideValues({
-      useContextualTasksComposeboxFork: false,
       contextualMenuUsePecApi: false,
       composeboxSmartTabSharingVisible: false,
       contextManagementInComposeboxEnabled: false,
@@ -600,7 +599,6 @@ suite('ContextualTasksComposeboxZeroStateTest', () => {
     mockTimer.install();
 
     const composeboxElement = contextualTasksApp.$.composebox;
-    const tooltip = contextualTasksApp.$.onboardingTooltip;
     contextualTasksApp.numberOfTimesTooltipShownForTesting = 0;
     contextualTasksApp.userDismissedTooltipForTesting = false;
 
@@ -612,7 +610,10 @@ suite('ContextualTasksComposeboxZeroStateTest', () => {
 
     // Show tooltip.
     contextualTasksApp.updateTooltipVisibilityForTesting();
-    assertTrue(tooltip!.shouldShow);
+    const tooltip = contextualTasksApp.shadowRoot.querySelector(
+        'contextual-tasks-onboarding-tooltip');
+    assertTrue(!!tooltip);
+    assertTrue(tooltip.shouldShow);
 
     // Advance time partially.
     mockTimer.tick(1000);
@@ -621,7 +622,7 @@ suite('ContextualTasksComposeboxZeroStateTest', () => {
     // Hide tooltip (e.g. chip disappears).
     innerComposebox.getHasAutomaticActiveTabChipToken = () => false;
     contextualTasksApp.updateTooltipVisibilityForTesting();
-    assertFalse(tooltip!.shouldShow);
+    assertFalse(tooltip.shouldShow);
 
     // Advance past original deadline.
     mockTimer.tick(5000);
@@ -637,18 +638,12 @@ suite('ContextualTasksComposeboxZeroStateTest', () => {
         const composebox = contextualTasksApp.$.composebox.$.composebox;
 
         composebox.animationState = GlowAnimationState.SUBMITTING;
-        composebox.dispatchEvent(new CustomEvent('composebox-focus-out', {
-          bubbles: true,
-          composed: true,
-        }));
+        composebox.fire('composebox-focus-out');
         await microtasksFinished();
         assertEquals(composebox.animationState, GlowAnimationState.SUBMITTING);
 
         composebox.animationState = GlowAnimationState.LISTENING;
-        composebox.dispatchEvent(new CustomEvent('composebox-focus-out', {
-          bubbles: true,
-          composed: true,
-        }));
+        composebox.fire('composebox-focus-out');
         await microtasksFinished();
         assertEquals(composebox.animationState, GlowAnimationState.LISTENING);
       });
@@ -656,10 +651,7 @@ suite('ContextualTasksComposeboxZeroStateTest', () => {
   test('on focus out sets animation state as none otherwise', async () => {
     const composebox = contextualTasksApp.$.composebox.$.composebox;
     composebox.animationState = GlowAnimationState.EXPANDING;
-    composebox.dispatchEvent(new CustomEvent('composebox-focus-out', {
-      bubbles: true,
-      composed: true,
-    }));
+    composebox.fire('composebox-focus-out');
     await microtasksFinished();
     assertEquals(composebox.animationState, GlowAnimationState.NONE);
   });
@@ -901,10 +893,16 @@ suite('ContextualTasksComposeboxZeroStateTest', () => {
 
     const token1 = {high: 0n, low: 1n} as unknown as UnguessableToken;
     const token2 = {high: 0n, low: 2n} as unknown as UnguessableToken;
-    innerComposebox.addFileContextForTesting(
-        {type: 'image/png', uuid: token1} as ComposeboxFile);
-    innerComposebox.addFileContextForTesting(
-        {type: 'application/pdf', uuid: token2} as ComposeboxFile);
+    innerComposebox.addFileContextForTesting({
+      type: 'image/png',
+      uuid: token1,
+      status: ContextUploadStatus.kUploadSuccessful,
+    } as ComposeboxFile);
+    innerComposebox.addFileContextForTesting({
+      type: 'application/pdf',
+      uuid: token2,
+      status: ContextUploadStatus.kUploadSuccessful,
+    } as ComposeboxFile);
     await contextualComposebox.updateComplete;
     await innerComposebox.updateComplete;
 
@@ -918,8 +916,11 @@ suite('ContextualTasksComposeboxZeroStateTest', () => {
     const innerComposebox = contextualComposebox.$.composebox;
 
     const token = {high: 0n, low: 1n} as unknown as UnguessableToken;
-    innerComposebox.addFileContextForTesting(
-        {type: 'tab', uuid: token} as ComposeboxFile);
+    innerComposebox.addFileContextForTesting({
+      type: 'tab',
+      uuid: token,
+      status: ContextUploadStatus.kUploadSuccessful,
+    } as ComposeboxFile);
     await contextualComposebox.updateComplete;
     await innerComposebox.updateComplete;
 
@@ -933,8 +934,11 @@ suite('ContextualTasksComposeboxZeroStateTest', () => {
     const innerComposebox = contextualComposebox.$.composebox;
 
     const token = {high: 0n, low: 1n} as unknown as UnguessableToken;
-    innerComposebox.addFileContextForTesting(
-        {type: 'image/png', uuid: token} as ComposeboxFile);
+    innerComposebox.addFileContextForTesting({
+      type: 'image/png',
+      uuid: token,
+      status: ContextUploadStatus.kUploadSuccessful,
+    } as ComposeboxFile);
     await contextualComposebox.updateComplete;
     await innerComposebox.updateComplete;
 
@@ -948,8 +952,11 @@ suite('ContextualTasksComposeboxZeroStateTest', () => {
     const innerComposebox = contextualComposebox.$.composebox;
 
     const token = {high: 0n, low: 1n} as unknown as UnguessableToken;
-    innerComposebox.addFileContextForTesting(
-        {type: 'application/pdf', uuid: token} as ComposeboxFile);
+    innerComposebox.addFileContextForTesting({
+      type: 'application/pdf',
+      uuid: token,
+      status: ContextUploadStatus.kUploadSuccessful,
+    } as ComposeboxFile);
     await contextualComposebox.updateComplete;
     await innerComposebox.updateComplete;
 
@@ -963,8 +970,11 @@ suite('ContextualTasksComposeboxZeroStateTest', () => {
     const innerComposebox = contextualComposebox.$.composebox;
 
     const token = {high: 0n, low: 1n} as unknown as UnguessableToken;
-    innerComposebox.addFileContextForTesting(
-        {type: 'unknown/type', uuid: token} as ComposeboxFile);
+    innerComposebox.addFileContextForTesting({
+      type: 'unknown/type',
+      uuid: token,
+      status: ContextUploadStatus.kUploadSuccessful,
+    } as ComposeboxFile);
     await contextualComposebox.updateComplete;
     await innerComposebox.updateComplete;
 
@@ -983,8 +993,11 @@ suite('ContextualTasksComposeboxZeroStateTest', () => {
 
     // Add an image file.
     const token = {high: 0n, low: 1n} as unknown as UnguessableToken;
-    innerComposebox.addFileContextForTesting(
-        {type: 'image/png', uuid: token} as ComposeboxFile);
+    innerComposebox.addFileContextForTesting({
+      type: 'image/png',
+      uuid: token,
+      status: ContextUploadStatus.kUploadSuccessful,
+    } as ComposeboxFile);
 
     await contextualComposebox.updateComplete;
     await innerComposebox.updateComplete;

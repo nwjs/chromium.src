@@ -228,7 +228,7 @@ OmniboxResultView::OmniboxResultView(OmniboxPopupViewViews* popup_view,
       [](const OmniboxResultView* result_view, const View* view) {
         return view->GetVisible() && result_view->GetMatchSelected() &&
                result_view->popup_view_->GetSelection().state ==
-                   OmniboxPopupSelection::FOCUSED_IPH_LINK;
+                   OmniboxPopupSelection::LineState::kFocusedIphLink;
       },
       base::Unretained(this)));
   iph_link_focus_ring->SetColorId(kColorOmniboxResultsFocusIndicator);
@@ -240,7 +240,7 @@ OmniboxResultView::OmniboxResultView(OmniboxPopupViewViews* popup_view,
           IDS_ACC_THUMBS_UP_SUGGESTION_BUTTON,
           base::BindRepeating(
               &OmniboxResultView::ButtonPressed, base::Unretained(this),
-              OmniboxPopupSelection::FOCUSED_BUTTON_THUMBS_UP)));
+              OmniboxPopupSelection::LineState::kFocusedButtonThumbsUp)));
   thumbs_up_button_->SetProperty(views::kMarginsKey,
                                  gfx::Insets::TLBR(0, 0, 0, 8));
   views::InstallCircleHighlightPathGenerator(thumbs_up_button_);
@@ -251,7 +251,7 @@ OmniboxResultView::OmniboxResultView(OmniboxPopupViewViews* popup_view,
       [](const OmniboxResultView* results, const View* view) {
         return view->GetVisible() && results->GetMatchSelected() &&
                (results->popup_view_->GetSelection().state ==
-                OmniboxPopupSelection::FOCUSED_BUTTON_THUMBS_UP);
+                OmniboxPopupSelection::LineState::kFocusedButtonThumbsUp);
       },
       base::Unretained(this)));
   thumbs_up_focus_ring->SetColorId(kColorOmniboxResultsFocusIndicator);
@@ -261,7 +261,7 @@ OmniboxResultView::OmniboxResultView(OmniboxPopupViewViews* popup_view,
           IDS_ACC_THUMBS_DOWN_SUGGESTION_BUTTON,
           base::BindRepeating(
               &OmniboxResultView::ButtonPressed, base::Unretained(this),
-              OmniboxPopupSelection::FOCUSED_BUTTON_THUMBS_DOWN)));
+              OmniboxPopupSelection::LineState::kFocusedButtonThumbsDown)));
   thumbs_down_button_->SetProperty(views::kMarginsKey,
                                    gfx::Insets::TLBR(0, 0, 0, 8));
   views::InstallCircleHighlightPathGenerator(thumbs_down_button_);
@@ -273,7 +273,7 @@ OmniboxResultView::OmniboxResultView(OmniboxPopupViewViews* popup_view,
       [](const OmniboxResultView* results, const View* view) {
         return view->GetVisible() && results->GetMatchSelected() &&
                (results->popup_view_->GetSelection().state ==
-                OmniboxPopupSelection::FOCUSED_BUTTON_THUMBS_DOWN);
+                OmniboxPopupSelection::LineState::kFocusedButtonThumbsDown);
       },
       base::Unretained(this)));
   thumbs_down_focus_ring->SetColorId(kColorOmniboxResultsFocusIndicator);
@@ -281,9 +281,10 @@ OmniboxResultView::OmniboxResultView(OmniboxPopupViewViews* popup_view,
   remove_suggestion_button_ = suggestion_and_buttons->AddChildView(
       std::make_unique<OmniboxResultViewButton>(
           IDS_ACC_REMOVE_SUGGESTION_BUTTON,
-          base::BindRepeating(
-              &OmniboxResultView::ButtonPressed, base::Unretained(this),
-              OmniboxPopupSelection::FOCUSED_BUTTON_REMOVE_SUGGESTION)));
+          base::BindRepeating(&OmniboxResultView::ButtonPressed,
+                              base::Unretained(this),
+                              OmniboxPopupSelection::LineState::
+                                  kFocusedButtonRemoveSuggestion)));
   remove_suggestion_button_->SetProperty(views::kMarginsKey,
                                          gfx::Insets::TLBR(0, 0, 0, 16));
   views::InstallCircleHighlightPathGenerator(remove_suggestion_button_);
@@ -293,7 +294,8 @@ OmniboxResultView::OmniboxResultView(OmniboxPopupViewViews* popup_view,
       [](const OmniboxResultView* results, const View* view) {
         return view->GetVisible() && results->GetMatchSelected() &&
                (results->popup_view_->GetSelection().state ==
-                OmniboxPopupSelection::FOCUSED_BUTTON_REMOVE_SUGGESTION);
+                OmniboxPopupSelection::LineState::
+                    kFocusedButtonRemoveSuggestion);
       },
       base::Unretained(this)));
   remove_focus_ring->SetColorId(kColorOmniboxResultsFocusIndicator);
@@ -387,7 +389,7 @@ void OmniboxResultView::SetMatch(const AutocompleteMatch& match) {
 
   button_row_->UpdateFromModel();
 
-  if (match_.type == AutocompleteMatchType::Type::HISTORY_EMBEDDINGS_ANSWER) {
+  if (match_.type == omnibox::AutocompleteMatchType::kHistoryEmbeddingsAnswer) {
     if (!local_answer_header_) {
       local_answer_header_ =
           local_answer_header_and_suggestion_and_buttons_->AddChildViewAt(
@@ -483,7 +485,7 @@ void OmniboxResultView::ApplyThemeAndRefreshIcons(bool force_reapply_styles) {
   // TODO(crbug.com/430318151): We should finish migrating this logic to live
   // entirely within OmniboxTextView, which should keep track of its own
   // OmniboxPart.
-  if (match_.type == AutocompleteMatchType::NULL_RESULT_MESSAGE) {
+  if (match_.type == omnibox::AutocompleteMatchType::kNullResultMessage) {
     suggestion_view_->content()->ApplyTextColor(
         match_.IsIphSuggestion() || match_.IsToolbelt()
             ? kColorOmniboxResultsTextDimmed
@@ -502,16 +504,15 @@ void OmniboxResultView::ApplyThemeAndRefreshIcons(bool force_reapply_styles) {
   // show the selection indicator if an auxiliary button is selected.
   if (match_.HasInstantKeyword(
           popup_view_->controller()->client()->GetTemplateURLService())) {
-    const OmniboxPopupSelection::LineState line_state =
-        popup_view_->GetSelection().state;
+    const auto line_state = popup_view_->GetSelection().state;
     selection_indicator_->SetVisible(
         selected &&
-        (line_state == OmniboxPopupSelection::LineState::NORMAL ||
-         line_state == OmniboxPopupSelection::LineState::KEYWORD_MODE));
+        (line_state == OmniboxPopupSelection::LineState::kNormal ||
+         line_state == OmniboxPopupSelection::LineState::kKeywordMode));
   } else {
-    selection_indicator_->SetVisible(selected &&
-                                     popup_view_->GetSelection().state ==
-                                         OmniboxPopupSelection::NORMAL);
+    selection_indicator_->SetVisible(
+        selected && popup_view_->GetSelection().state ==
+                        OmniboxPopupSelection::LineState::kNormal);
   }
 
   if (suggestion_view_->iph_link_view()->GetVisible()) {
@@ -543,13 +544,13 @@ views::Button* OmniboxResultView::GetActiveAuxiliaryButtonForAccessibility() {
 const views::Button*
 OmniboxResultView::GetActiveAuxiliaryButtonForAccessibility() const {
   if (popup_view_->GetSelection().state ==
-      OmniboxPopupSelection::FOCUSED_BUTTON_THUMBS_UP) {
+      OmniboxPopupSelection::LineState::kFocusedButtonThumbsUp) {
     return thumbs_up_button_;
   } else if (popup_view_->GetSelection().state ==
-             OmniboxPopupSelection::FOCUSED_BUTTON_THUMBS_DOWN) {
+             OmniboxPopupSelection::LineState::kFocusedButtonThumbsDown) {
     return thumbs_down_button_;
   } else if (popup_view_->GetSelection().state ==
-             OmniboxPopupSelection::FOCUSED_BUTTON_REMOVE_SUGGESTION) {
+             OmniboxPopupSelection::LineState::kFocusedButtonRemoveSuggestion) {
     return remove_suggestion_button_;
   }
 
@@ -560,7 +561,7 @@ OmniboxPartState OmniboxResultView::GetThemeState() const {
   // NULL_RESULT_MESSAGE matches are no-op suggestions that only deliver a
   // message. The selected and hovered states imply an action can be taken from
   // that suggestion, so do not allow those states for this result.
-  if (match_.type == AutocompleteMatchType::NULL_RESULT_MESSAGE) {
+  if (match_.type == omnibox::AutocompleteMatchType::kNullResultMessage) {
     if (match_.IsToolbelt()) {
       return OmniboxPartState::TOOLBELT;
     }
@@ -593,7 +594,8 @@ void OmniboxResultView::ButtonPressed(OmniboxPopupSelection::LineState state,
       OmniboxPopupSelection(model_index_, state), event.time_stamp(),
       WindowOpenDisposition::CURRENT_TAB,
       /*via_keyboard=*/event.IsKeyEvent());
-  if (state == OmniboxPopupSelection::FOCUSED_BUTTON_REMOVE_SUGGESTION) {
+  if (state ==
+      OmniboxPopupSelection::LineState::kFocusedButtonRemoveSuggestion) {
     // The button could be pressed and the deletion successful, but the match
     // may continue to appear with the X button remaining so it looked like it
     // didn't delete. There may be a deeper async matches issue involved, but
@@ -677,11 +679,12 @@ gfx::Image OmniboxResultView::GetIcon() const {
   // kColorOmniboxResultsUrl[Selected] color which is intended for the URL text
   // in suggestion texts.
   ui::ColorId vector_icon_color_id;
-  if (match_.type == AutocompleteMatchType::STARTER_PACK ||
-      match_.type == AutocompleteMatchType::FEATURED_ENTERPRISE_SEARCH) {
+  if (match_.type == omnibox::AutocompleteMatchType::kStarterPack ||
+      match_.type ==
+          omnibox::AutocompleteMatchType::kFeaturedEnterpriseSearch) {
     vector_icon_color_id = kColorOmniboxResultsStarterPackIcon;
-  } else if (match_.type == AutocompleteMatchType::HISTORY_CLUSTER ||
-             match_.type == AutocompleteMatchType::PEDAL) {
+  } else if (match_.type == omnibox::AutocompleteMatchType::kHistoryCluster ||
+             match_.type == omnibox::AutocompleteMatchType::kPedal) {
     vector_icon_color_id = kColorOmniboxAnswerIconGM3Foreground;
   } else {
     vector_icon_color_id = GetMatchSelected() ? kColorOmniboxResultsIconSelected
@@ -731,7 +734,8 @@ void OmniboxResultView::UpdateFeedbackButtonsVisibility() {
   const bool new_visibility =
       popup_view_->controller()->edit_model()->IsPopupControlPresentOnMatch(
           OmniboxPopupSelection(
-              model_index_, OmniboxPopupSelection::FOCUSED_BUTTON_THUMBS_UP)) &&
+              model_index_,
+              OmniboxPopupSelection::LineState::kFocusedButtonThumbsUp)) &&
       (GetMatchSelected() || IsMouseHovered());
 
   // Same rules apply to both buttons.
@@ -749,9 +753,9 @@ void OmniboxResultView::UpdateRemoveSuggestionVisibility() {
   const bool old_visibility = remove_suggestion_button_->GetVisible();
   const bool new_visibility =
       popup_view_->controller()->edit_model()->IsPopupControlPresentOnMatch(
-          OmniboxPopupSelection(
-              model_index_,
-              OmniboxPopupSelection::FOCUSED_BUTTON_REMOVE_SUGGESTION)) &&
+          OmniboxPopupSelection(model_index_,
+                                OmniboxPopupSelection::LineState::
+                                    kFocusedButtonRemoveSuggestion)) &&
       (GetMatchSelected() || IsMouseHovered());
 
   remove_suggestion_button_->SetVisible(new_visibility);
@@ -799,7 +803,7 @@ void OmniboxResultView::UpdateAccessibleName() {
                    ->edit_model()
                    ->MaybeGetPopupAccessibilityLabelForIPHSuggestion();
     } else {
-      label = AutocompleteMatchType::ToAccessibilityLabel(
+      label = omnibox::AutocompleteMatchToAccessibilityLabel(
           raw_match,
           popup_view_->controller()
               ->autocomplete_controller()

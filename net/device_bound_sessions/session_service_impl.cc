@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -113,7 +114,7 @@ bool SessionMatchesFilter(
 class DebugHeaderBuilder {
  public:
   void AddSkippedSession(SessionKey key, RefreshResult result) {
-    structured_headers::Item item;
+    std::string_view token;
     switch (result) {
       case RefreshResult::kRefreshed:
       // TODO(crbug.com/417401759): Add "transient_signing_error" as a supported
@@ -126,22 +127,23 @@ class DebugHeaderBuilder {
       case RefreshResult::kInitializedService:
         NOTREACHED();
       case RefreshResult::kUnreachable:
-        item = structured_headers::Item("unreachable",
-                                        structured_headers::Item::kTokenType);
+        token = "unreachable";
         break;
       case RefreshResult::kServerError:
-        item = structured_headers::Item("server_error",
-                                        structured_headers::Item::kTokenType);
+        token = "server_error";
         break;
       case RefreshResult::kSigningQuotaExceeded:
-        item = structured_headers::Item("quota_exceeded",
-                                        structured_headers::Item::kTokenType);
+        token = "quota_exceeded";
         break;
     }
 
     structured_headers::Parameters params = {
-        {"session_identifier", structured_headers::Item(key.id.value())}};
-    skipped_sessions_.emplace_back(std::move(item), std::move(params));
+        {"session_identifier",
+         structured_headers::Item(structured_headers::Item::string,
+                                  key.id.value())}};
+    skipped_sessions_.emplace_back(
+        structured_headers::Item(structured_headers::Item::token, token),
+        std::move(params));
   }
 
   std::optional<std::string> Build() {
@@ -149,7 +151,7 @@ class DebugHeaderBuilder {
       return std::nullopt;
     }
 
-    return structured_headers::SerializeList(std::move(skipped_sessions_));
+    return structured_headers::SerializeList(skipped_sessions_);
   }
 
  private:
@@ -735,8 +737,7 @@ SessionServiceImpl::GetSessionsForSite(const SchemefulSite& site) {
 
 std::optional<SessionService::DeferralParams> SessionServiceImpl::ShouldDefer(
     DbscRequest& request,
-    HttpRequestHeaders* extra_headers,
-    const FirstPartySetMetadata& first_party_set_metadata) {
+    HttpRequestHeaders* extra_headers) {
   if (request.device_bound_session_mode() ==
           net::DeviceBoundSessionMode::kDisabled ||
       request.device_bound_session_mode() ==
@@ -760,8 +761,8 @@ std::optional<SessionService::DeferralParams> SessionServiceImpl::ShouldDefer(
       continue;
     }
 
-    base::TimeDelta minimum_lifetime = session->MinimumBoundCookieLifetime(
-        request, first_party_set_metadata, session_key);
+    base::TimeDelta minimum_lifetime =
+        session->MinimumBoundCookieLifetime(request, session_key);
     if (minimum_lifetime.is_zero()) {
       auto previous_deferrals_it = previous_deferrals.find(session_key);
       if (previous_deferrals_it != previous_deferrals.end() &&
@@ -798,7 +799,7 @@ void SessionServiceImpl::DeferRequestForRefresh(
   if (deferral.is_pending_initialization) {
     CHECK(pending_initialization_);
     requests_before_initialization_++;
-    // Due to the need to recompute `first_party_set_metadata`, we always
+    // Due to the need to re-evaluate session state and cookies, we always
     // restart the request after initialization completes.
     queued_operations_.push_back(base::BindOnce(
         std::move(callback), RefreshResult::kInitializedService));
@@ -1006,10 +1007,9 @@ void SessionServiceImpl::UnblockWaitingRequests(
 void SessionServiceImpl::SetChallengeForBoundSession(
     OnAccessCallback on_access_callback,
     DbscRequest& request,
-    const FirstPartySetMetadata& first_party_set_metadata,
     const SessionChallengeParam& param) {
   ChallengeResult result = SetChallengeForBoundSessionInternal(
-      std::move(on_access_callback), request, first_party_set_metadata, param);
+      std::move(on_access_callback), request, param);
   NotifyIfEventCallbackListeners([&] {
     return SessionEvent::MakeChallengeEvent(
         SchemefulSite(request.url()), param.session_id(),
@@ -1020,7 +1020,6 @@ void SessionServiceImpl::SetChallengeForBoundSession(
 ChallengeResult SessionServiceImpl::SetChallengeForBoundSessionInternal(
     OnAccessCallback on_access_callback,
     DbscRequest& request,
-    const FirstPartySetMetadata& first_party_set_metadata,
     const SessionChallengeParam& param) {
   if (!param.session_id()) {
     return ChallengeResult::kNoSessionId;
@@ -1033,7 +1032,7 @@ ChallengeResult SessionServiceImpl::SetChallengeForBoundSessionInternal(
     return ChallengeResult::kNoSessionMatch;
   }
 
-  if (!session->CanSetBoundCookie(request, first_party_set_metadata)) {
+  if (!session->CanSetBoundCookie(request)) {
     return ChallengeResult::kCantSetBoundCookie;
   }
 
@@ -1822,10 +1821,8 @@ void SessionServiceImpl::MaybeStartProactiveRefresh(
       });
 }
 
-void SessionServiceImpl::HandleResponseHeaders(
-    DbscRequest& request,
-    HttpResponseHeaders* headers,
-    const FirstPartySetMetadata& first_party_set_metadata) {
+void SessionServiceImpl::HandleResponseHeaders(DbscRequest& request,
+                                               HttpResponseHeaders* headers) {
   if (request.device_bound_session_mode() ==
       net::DeviceBoundSessionMode::kDisabled) {
     return;
@@ -1854,8 +1851,7 @@ void SessionServiceImpl::HandleResponseHeaders(
                                                                   headers);
   for (auto& param : challenge_params) {
     SetChallengeForBoundSession(request.device_bound_session_access_callback(),
-                                request, first_party_set_metadata,
-                                std::move(param));
+                                request, std::move(param));
   }
 }
 

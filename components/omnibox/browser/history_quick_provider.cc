@@ -55,7 +55,7 @@ constexpr int kAndroidHubMaxMatches = 5;
 bool HistoryQuickProvider::disabled_ = false;
 
 HistoryQuickProvider::HistoryQuickProvider(AutocompleteProviderClient* client)
-    : HistoryProvider(AutocompleteProvider::TYPE_HISTORY_QUICK, client),
+    : HistoryProvider(AutocompleteProvider::Type::kHistoryQuick, client),
       in_memory_url_index_(client->GetInMemoryURLIndex()) {}
 
 void HistoryQuickProvider::Start(const AutocompleteInput& input,
@@ -244,8 +244,8 @@ AutocompleteMatch HistoryQuickProvider::QuickMatchToACMatch(
       !!info.visit_count() && client()->AllowDeletingBrowserHistory();
   AutocompleteMatch match(this, score, deletable,
                           history_match.url_matches.empty()
-                              ? AutocompleteMatchType::HISTORY_TITLE
-                              : AutocompleteMatchType::HISTORY_URL);
+                              ? omnibox::AutocompleteMatchType::kHistoryTitle
+                              : omnibox::AutocompleteMatchType::kHistoryUrl);
   match.typed_count = info.typed_count();
   match.destination_url = info.url();
   DCHECK(match.destination_url.is_valid());

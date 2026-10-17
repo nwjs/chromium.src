@@ -8,6 +8,7 @@
 
 #include <array>
 #include <memory>
+#include <optional>
 #include <ranges>
 #include <set>
 #include <string_view>
@@ -783,11 +784,13 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest,
     if (tab.navigations[0].virtual_url() == url2) {
       timestamp = tab.navigations[0].timestamp();
       http_status_code = tab.navigations[0].http_status_code();
-      std::vector<sessions::LiveTab*> content = service->RestoreEntryById(
-          nullptr, tab.id, WindowOpenDisposition::UNKNOWN);
-      ASSERT_EQ(1U, content.size());
+      std::optional<std::vector<sessions::LiveTab*>> content =
+          service->RestoreEntryById(nullptr, tab.id,
+                                    WindowOpenDisposition::UNKNOWN);
+      ASSERT_TRUE(content.has_value());
+      ASSERT_EQ(1U, content->size());
       sessions::ContentLiveTab* live_tab =
-          static_cast<sessions::ContentLiveTab*>(content[0]);
+          static_cast<sessions::ContentLiveTab*>((*content)[0]);
       ASSERT_TRUE(live_tab);
       EXPECT_EQ(url2, live_tab->GetWebContents().GetURL());
       break;
@@ -3509,6 +3512,9 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest,
 // The real test copies the file and verifies restore.
 class SessionRestoreWithIncompleteFileTest : public InProcessBrowserTest {
   void SetUpCommandLine(base::CommandLine* command_line) override {
+    // TODO(crbug.com/479420496): Add support for encrypted files before full
+    // launch of encrypted sessions.
+    feature_list_.InitAndDisableFeature(sessions::kEncryptSessionStorage);
     command_line->AppendSwitch(switches::kRestoreLastSession);
   }
   bool SetUpUserDataDirectory() override {
@@ -3547,6 +3553,9 @@ class SessionRestoreWithIncompleteFileTest : public InProcessBrowserTest {
     }
     return true;
   }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(SessionRestoreWithIncompleteFileTest,
@@ -5440,7 +5449,7 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreFocusModeTest, RestoreFocusedTabGroup) {
   // Group the tabs and enter Focus Mode for the group.
   const tab_groups::TabGroupId group =
       browser()->tab_strip_model()->AddToNewGroup({0, 1});
-  browser()->tab_strip_model()->SetFocusedGroup(group);
+  browser()->tab_strip_model()->EnterFocusMode(group);
   EXPECT_EQ(group, browser()->tab_strip_model()->GetFocusedGroup());
 
   // Quit and restore the session.

@@ -31,8 +31,6 @@ import android.os.Bundle;
 import android.os.PersistableBundle;
 import android.text.format.DateUtils;
 
-import androidx.test.filters.SmallTest;
-
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
@@ -46,6 +44,7 @@ import org.mockito.Spy;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.ApkInfo;
 import org.chromium.base.BaseSwitches;
 import org.chromium.base.DeviceInfo;
 import org.chromium.base.IntentUtils;
@@ -54,7 +53,6 @@ import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
-import org.chromium.build.BuildConfig;
 import org.chromium.chrome.browser.ChromeInactivityTracker;
 import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -134,7 +132,6 @@ public class ReturnToChromeUtilUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testShouldShowTabSwitcher() {
         Assert.assertEquals(
                 sStartSurfaceReturnTimeTabletSecs.getDefaultValue(),
@@ -154,7 +151,6 @@ public class ReturnToChromeUtilUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testShouldShowNtpAsHomeSurfaceAtStartup() {
         // Sets main intent from launcher:
         Intent intent = createMainIntentFromLauncher();
@@ -190,7 +186,6 @@ public class ReturnToChromeUtilUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testShowNtpAsHomeSurfaceAtResumeOnTabletWithExistingNtp() {
         doAnswer(inv -> List.of(mTab1, mNtpTab).iterator()).when(mCurrentTabModel).iterator();
         doReturn(2).when(mCurrentTabModel).getCount();
@@ -265,7 +260,6 @@ public class ReturnToChromeUtilUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testShowNtpAsHomeSurfaceAtResumeOnTabletWithoutAnyExistingNtp() {
         doAnswer(inv -> List.of(mTab1).iterator()).when(mCurrentTabModel).iterator();
         doReturn(1).when(mCurrentTabModel).getCount();
@@ -309,7 +303,6 @@ public class ReturnToChromeUtilUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testShowNtpAsHomeSurfaceAtResumeOnTabletWithMixedNtps() {
         doReturn(3).when(mCurrentTabModel).getCount();
         doReturn(JUnitTestGURLs.URL_1).when(mTab1).getUrl();
@@ -374,7 +367,6 @@ public class ReturnToChromeUtilUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testNoAnyTabCase() {
         doAnswer(inv -> Collections.emptyList().iterator()).when(mCurrentTabModel).iterator();
         doReturn(0).when(mCurrentTabModel).getCount();
@@ -391,7 +383,6 @@ public class ReturnToChromeUtilUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testColdStartupWithOnlyLastActiveTabUrl_MagicStack() {
         when(mTab1.getUrl()).thenReturn(JUnitTestGURLs.URL_1);
         when(mNtpTab.isNativePage()).thenReturn(true);
@@ -418,7 +409,6 @@ public class ReturnToChromeUtilUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testShouldNotShowNtpOnRecreate() {
         // Sets main intent from launcher:
         Intent intent = createMainIntentFromLauncher();
@@ -464,7 +454,6 @@ public class ReturnToChromeUtilUnitTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures({ChromeFeatureList.PERSIST_ACROSS_REBOOTS})
     public void testShouldNotShowNtpOnAppUpdate() {
         // Sets main intent from launcher:
@@ -488,24 +477,24 @@ public class ReturnToChromeUtilUnitTest {
         assertTrue(IntentUtils.isMainIntentFromLauncher(intent));
 
         PersistableBundle persistentState = new PersistableBundle();
-        persistentState.putLong(PREVIOUS_VERSION_CODE, BuildConfig.VERSION_CODE);
+        long currentVersionCode = ApkInfo.getPackageVersionCodeAsLong();
+        persistentState.putLong(PREVIOUS_VERSION_CODE, currentVersionCode);
         assertTrue(
                 ReturnToChromeUtil.shouldShowNtpAsHomeSurfaceAtStartup(
                         intent, mSaveInstanceState, persistentState, mInactivityTracker));
 
-        persistentState.putLong(PREVIOUS_VERSION_CODE, BuildConfig.VERSION_CODE - 1);
+        persistentState.putLong(PREVIOUS_VERSION_CODE, currentVersionCode - 1);
         assertFalse(
                 ReturnToChromeUtil.shouldShowNtpAsHomeSurfaceAtStartup(
                         intent, mSaveInstanceState, persistentState, mInactivityTracker));
 
-        persistentState.putLong(PREVIOUS_VERSION_CODE, BuildConfig.VERSION_CODE);
+        persistentState.putLong(PREVIOUS_VERSION_CODE, currentVersionCode);
         assertTrue(
                 ReturnToChromeUtil.shouldShowNtpAsHomeSurfaceAtStartup(
                         intent, mSaveInstanceState, persistentState, mInactivityTracker));
     }
 
     @Test
-    @SmallTest
     public void testLogFailToShowHomeSurfaceUi() {
         HistogramWatcher histogram =
                 HistogramWatcher.newBuilder()

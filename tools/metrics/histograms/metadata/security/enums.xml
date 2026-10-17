@@ -166,6 +166,10 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="kEsbPairing">
     The interstitial was shown because HFM was enabled via ESB pairing.
   </int>
+  <int value="8" label="kIsolatedMode">
+    The interstitial was shown because the user was in Enterprise Isolated Mode
+    and HTTPS-First Mode in Incognito was enabled.
+  </int>
 </enum>
 
 <enum name="HttpsFirstModeNavigationEvent">
@@ -415,6 +419,24 @@ chromium-metrics-reviews@google.com.
   <int value="2"
       label="The process is a privileged web page (e.g., a hosted app) in an
              outermost main frame"/>
+</enum>
+
+<enum name="PrivateVerificationTokensFetchSetupResult">
+  <int value="0" label="Success"/>
+  <int value="1" label="Invalid Version"/>
+  <int value="2" label="Fetcher Initialization Failed"/>
+</enum>
+
+<enum name="PrivateVerificationTokensTokenParsingResult">
+  <int value="0" label="Success"/>
+  <int value="1" label="Net Error"/>
+  <int value="2" label="Null Response"/>
+  <int value="3" label="Invalid Batch Size"/>
+  <int value="4" label="Invalid Bucket Count"/>
+  <int value="5" label="Client Request Generation Failed"/>
+  <int value="6" label="Already Finalized"/>
+  <int value="7" label="Invalid Response Body Length"/>
+  <int value="8" label="Client Finalize Failed"/>
 </enum>
 
 <enum name="ReusePendingOrCommittedSiteEnum">

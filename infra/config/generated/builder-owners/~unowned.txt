@@ -1,15 +1,6 @@
 ci/ios-simulator
 ci/ios-simulator-full-configs
-try/android-arm64-rel-compilator
 try/android-binary-size
 try/fuchsia-binary-size
-try/fuchsia-x64-cast-receiver-rel-compilator
 try/ios-simulator
-try/ios-simulator-compilator
 try/ios-simulator-full-configs
-try/linux-chromeos-rel-compilator
-try/linux-rel-compilator
-try/linux_chromium_asan_rel_ng-compilator
-try/linux_chromium_tsan_rel_ng-compilator
-try/mac-rel-compilator
-try/win-rel-compilator

@@ -21,6 +21,9 @@ config("jni_zero_chromium_defines") {
 generate_jni("generate_jni") {
   sources = [
     "java/src/org/jni_zero/CommonApis.java",
+    "java/src/org/jni_zero/JniPtrImpl.java",
+    "java/src/org/jni_zero/JniRawPtrImpl.java",
+    "java/src/org/jni_zero/JniUniquePtrImpl.java",
     "java/src/org/jni_zero/JniZero.java",
   ]
   visibility = [
@@ -132,14 +135,11 @@ if (enable_java_templates && is_android) {
       "java/src/org/jni_zero/CalledByNativeUnchecked.java",
       "java/src/org/jni_zero/CommonApis.java",
       "java/src/org/jni_zero/JNINamespace.java",
-      "java/src/org/jni_zero/JniPtr.java",
       "java/src/org/jni_zero/JniPtrImpl.java",
-      "java/src/org/jni_zero/JniPtrInner.java",
       "java/src/org/jni_zero/JniRawPtr.java",
       "java/src/org/jni_zero/JniRawPtrImpl.java",
       "java/src/org/jni_zero/JniTestInstancesSnapshot.java",
       "java/src/org/jni_zero/JniType.java",
-      "java/src/org/jni_zero/JniTypeToken.java",
       "java/src/org/jni_zero/JniUniquePtr.java",
       "java/src/org/jni_zero/JniUniquePtrImpl.java",
       "java/src/org/jni_zero/JniZero.java",
@@ -155,8 +155,12 @@ if (enable_java_templates && is_android) {
     supports_android = true
     sources = [
       "java/src/org/jni_zero/CheckDiscard.java",
+      "java/src/org/jni_zero/JniPtr.java",
+      "java/src/org/jni_zero/JniPtrInner.java",
       "java/src/org/jni_zero/JniStaticTestMocker.java",
       "java/src/org/jni_zero/JniTestInstanceHolder.java",
+      "java/src/org/jni_zero/JniTypeToken.java",
+      "java/src/org/jni_zero/JniZeroInternal.java",
       "java/src/org/jni_zero/internal/NullUnmarked.java",
       "java/src/org/jni_zero/internal/Nullable.java",
     ]

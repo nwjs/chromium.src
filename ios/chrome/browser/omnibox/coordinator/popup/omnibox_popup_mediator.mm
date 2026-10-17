@@ -180,16 +180,16 @@ const NSUInteger kMaxSuggestTileTypePosition = 15;
 
     // A search using clipboard link or text is activity that should indicate a
     // user that would be interested in setting the browser as the default.
-    if (match.type == AutocompleteMatchType::CLIPBOARD_URL) {
+    if (match.type == omnibox::AutocompleteMatchType::kClipboardUrl) {
       default_browser::NotifyOmniboxURLCopyPasteAndNavigate(
           self.incognito, self.tracker, self.sceneState);
     }
-    if (match.type == AutocompleteMatchType::CLIPBOARD_TEXT) {
+    if (match.type == omnibox::AutocompleteMatchType::kClipboardText) {
       default_browser::NotifyOmniboxTextCopyPasteAndNavigate(self.tracker);
     }
 
     if (!self.incognito &&
-        match.type == AutocompleteMatchType::TILE_NAVSUGGEST) {
+        match.type == omnibox::AutocompleteMatchType::kTileNavsuggest) {
       [self logSelectedAutocompleteTile:match];
     }
     [self.omniboxAutocompleteController
@@ -316,7 +316,7 @@ const NSUInteger kMaxSuggestTileTypePosition = 15;
 
 /// Logs selected tile index and type.
 - (void)logSelectedAutocompleteTile:(const AutocompleteMatch&)match {
-  DCHECK(match.type == AutocompleteMatchType::TILE_NAVSUGGEST);
+  DCHECK(match.type == omnibox::AutocompleteMatchType::kTileNavsuggest);
   for (size_t i = 0; i < match.suggest_tiles.size(); ++i) {
     const AutocompleteMatch::SuggestTile& tile = match.suggest_tiles[i];
     // AutocompleteMatch contains all tiles, find the tile corresponding to the

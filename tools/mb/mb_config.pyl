@@ -131,7 +131,7 @@
     },
 
     'client.devtools-frontend.integration': {
-      'DevTools Linux': 'release_trybot_blink_do_typecheck_siso',
+      'DevTools Linux': 'release_trybot_blink_siso',
     },
 
     'client.openscreen.chromium': {
@@ -161,10 +161,9 @@
     },
 
     'internal.chrome.fyi': {
-      'android-buildspeed-dbg': 'android_debug_bot_remoteexec_fastbuild',
       'android-emulator-finch-smoke-chrome': 'android_release_bot_minimal_symbols_x86_fastbuild_webview_trichrome_remoteexec',
       'linux-finch-smoke-chrome': 'official_remoteexec',
-      'lorenz-graph-dbg': 'android_debug_bot_remoteexec_external_fastbuild',
+      'lorenz-graph-dbg': 'android_debug_static_no_symbols_remoteexec_external_fastbuild',
       'mac-arm64-finch-smoke-chrome': 'official_remoteexec_mac_arm',
       'win-celab-rel': 'official_celab_release_bot',
       'win-finch-smoke-chrome': 'official_remoteexec',
@@ -241,8 +240,8 @@
 
     'tryserver.devtools-frontend': {
       # Align devtools blink builders with chromium linux-rel
-      'devtools_frontend_linux_blink_light_rel': 'release_trybot_blink_do_typecheck_siso',
-      'devtools_frontend_linux_blink_rel': 'release_trybot_blink_do_typecheck_siso',
+      'devtools_frontend_linux_blink_light_rel': 'release_trybot_blink_siso',
+      'devtools_frontend_linux_blink_rel': 'release_trybot_blink_siso',
     },
 
     'tryserver.internal.chrome.fyi': {
@@ -295,12 +294,9 @@
   # we must support. A given config *may* be platform-specific but
   # is not necessarily so.
   'configs': {
-    'android_debug_bot_remoteexec_external_fastbuild': [
-      'android', 'debug_bot_remoteexec', 'android_external', 'android_fastbuild',
-    ],
-
-    'android_debug_bot_remoteexec_fastbuild': [
-      'android', 'debug_bot_remoteexec', 'android_fastbuild',
+    'android_debug_static_no_symbols_remoteexec_external_fastbuild': [
+      'android', 'debug', 'static', 'remoteexec', 'no_symbols',
+      'android_external', 'android_fastbuild',
     ],
 
     'android_release_bot_minimal_symbols_x86_fastbuild_webview_trichrome_remoteexec': [
@@ -661,10 +657,6 @@
       'release_bot_remoteexec', 'use_siso',
     ],
 
-    'release_trybot_blink_do_typecheck_siso': [
-      'release_trybot_blink', 'devtools_do_typecheck', 'use_siso',
-    ],
-
     'release_trybot_blink_siso': [
       'release_trybot_blink', 'use_siso',
     ],
@@ -851,10 +843,6 @@
       'mixins': ['debug', 'shared', 'remoteexec', 'minimal_symbols'],
     },
 
-    # Representative GN args for developer builds.
-    'devtools_do_typecheck': {
-      'gn_args': 'devtools_skip_typecheck=false',
-    },
 
     'devtools_instrumentation_dumping': {
       'gn_args': 'devtools_instrumentation_dumping=true',

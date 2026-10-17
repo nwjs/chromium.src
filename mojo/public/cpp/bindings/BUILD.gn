@@ -280,7 +280,10 @@ component("bindings") {
     "//mojo/public/interfaces/bindings",
   ]
 
-  deps = [ "//mojo/core/embedder" ]
+  deps = [
+    "//mojo:buildflags",
+    "//mojo/core/embedder",
+  ]
 
   configs += [ "//build/config/compiler:wexit_time_destructors" ]
 

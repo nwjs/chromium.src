@@ -18,18 +18,17 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 
 import static org.chromium.ui.test.util.ViewUtils.clickOnClickableSpan;
 
+import android.app.Activity;
 import android.text.TextUtils;
 import android.view.View;
 import android.widget.TextView;
 
 import androidx.recyclerview.widget.RecyclerView;
-import androidx.test.core.app.ApplicationProvider;
 import androidx.test.espresso.contrib.RecyclerViewActions;
 import androidx.test.filters.LargeTest;
 import androidx.test.filters.MediumTest;
@@ -45,16 +44,19 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.ApplicationStatus;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
+import org.chromium.base.test.util.ApplicationTestUtils;
+import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisabledTest;
-import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
+import org.chromium.base.test.util.RequiresRestart;
 import org.chromium.base.test.util.UserActionTester;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -76,7 +78,6 @@ import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.chrome.test.util.browser.signin.SigninTestRule;
 import org.chromium.components.browser_ui.settings.SettingsNavigation;
 import org.chromium.components.browser_ui.settings.search.SettingsIndexData;
-import org.chromium.components.browser_ui.site_settings.SingleCategorySettings;
 import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridge;
 import org.chromium.components.content_settings.ContentSetting;
 import org.chromium.components.content_settings.ContentSettingsType;
@@ -94,7 +95,7 @@ import java.util.concurrent.TimeUnit;
 /** Tests for {@link PrivacySettings}. */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
-@DoNotBatch(reason = "Child account can leak to other tests in the suite.")
+@Batch(Batch.PER_CLASS)
 @DisableFeatures(ChromeFeatureList.SETTINGS_MULTI_COLUMN)
 public class PrivacySettingsFragmentTest {
     // Name of the histogram to record the entry on Privacy Guide via the S&P link-row.
@@ -130,14 +131,26 @@ public class PrivacySettingsFragmentTest {
 
     @Mock private SettingsIndexData mSearchIndexDataMock;
 
-    private void waitForOptionsMenu() {
+    /**
+     * Waits until the settings UI is ready to be captured by a render test.
+     *
+     * <p>The toolbar and its menu are inflated before the preference list is populated, and
+     * RecyclerView cross-fades rows as preferences are updated, so taking a screenshot as soon as
+     * the menu exists can capture an empty list. Wait for the rows, then drop the item animator,
+     * which ends any in-flight fade and keeps later preference updates from starting a new one.
+     */
+    private void waitForSettingsToRender() {
         CriteriaHelper.pollUiThread(
                 () -> {
-                    return mSettingsActivityTestRule
-                                    .getActivity()
-                                    .findViewById(R.id.menu_id_targeted_help)
-                            != null;
+                    Activity activity = mSettingsActivityTestRule.getActivity();
+                    if (activity.findViewById(R.id.menu_id_targeted_help) == null) {
+                        return false;
+                    }
+                    RecyclerView listView = mSettingsActivityTestRule.getFragment().getListView();
+                    return listView != null && listView.getChildCount() > 0;
                 });
+        PrivacySettings fragment = mSettingsActivityTestRule.getFragment();
+        ThreadUtils.runOnUiThreadBlocking(() -> fragment.getListView().setItemAnimator(null));
     }
 
     private void scrollToSetting(Matcher<View> matcher) {
@@ -189,7 +202,34 @@ public class PrivacySettingsFragmentTest {
 
     @After
     public void tearDown() {
+        // Tests which navigate to the Privacy Guide leave a second SettingsActivity on the task,
+        // and the rule only finishes the activity it launched itself. In a batched class that
+        // leftover activity is still on top of the task when the next test calls
+        // startSettingsActivity(), so its FLAG_ACTIVITY_SINGLE_TOP intent is delivered to the
+        // leftover activity instead of creating a fresh one. The next test then either crashes the
+        // process with "Single-use callback called a second time", because waitForActivityWithClass
+        // observes both the old activity pausing and the new one being created, or times out
+        // waiting for an activity that never reaches RESUMED.
+        for (Activity activity : ApplicationStatus.getRunningActivities()) {
+            ApplicationTestUtils.finishActivity(activity);
+        }
         if (mActionTester != null) mActionTester.tearDown();
+        ChromeSharedPreferences.getInstance()
+                .getEditor()
+                .remove(ChromePreferenceKeys.OS_ADVANCED_PROTECTION_SETTING)
+                .remove(ChromePreferenceKeys.OS_ADVANCED_PROTECTION_SETTING_UPDATED_TIME)
+                .apply();
+        mAdvancedProtectionRule.setIsAdvancedProtectionRequestedByOs(false);
+        setPrivacyGuideViewed(false);
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    WebsitePreferenceBridge.setDefaultContentSetting(
+                            ProfileManager.getLastUsedRegularProfile(),
+                            ContentSettingsType.JAVASCRIPT_OPTIMIZER,
+                            ContentSetting.DEFAULT);
+                    getPrefService().clearPref(Pref.UNIVERSAL_OPT_OUT_ENABLED);
+                    getPrefService().clearPref(Pref.UNIVERSAL_OPT_OUT_ELIGIBLE);
+                });
     }
 
     @Test
@@ -198,7 +238,7 @@ public class PrivacySettingsFragmentTest {
     @DisableFeatures({ChromeFeatureList.SETTINGS_MULTI_COLUMN})
     public void testRenderTopView() throws IOException {
         mSettingsActivityTestRule.startSettingsActivity();
-        waitForOptionsMenu();
+        waitForSettingsToRender();
         View view =
                 mSettingsActivityTestRule
                         .getActivity()
@@ -213,7 +253,7 @@ public class PrivacySettingsFragmentTest {
     @DisableFeatures({ChromeFeatureList.SETTINGS_MULTI_COLUMN})
     public void testRenderBottomView() throws IOException {
         mSettingsActivityTestRule.startSettingsActivity();
-        waitForOptionsMenu();
+        waitForSettingsToRender();
         PrivacySettings fragment = mSettingsActivityTestRule.getFragment();
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -235,7 +275,7 @@ public class PrivacySettingsFragmentTest {
     public void testRenderWhenPrivacyGuideViewed() throws IOException {
         setPrivacyGuideViewed(true);
         mSettingsActivityTestRule.startSettingsActivity();
-        waitForOptionsMenu();
+        waitForSettingsToRender();
         View view =
                 mSettingsActivityTestRule
                         .getActivity()
@@ -251,7 +291,7 @@ public class PrivacySettingsFragmentTest {
     public void testRenderWhenPrivacyGuideNotViewed() throws IOException {
         setPrivacyGuideViewed(false);
         mSettingsActivityTestRule.startSettingsActivity();
-        waitForOptionsMenu();
+        waitForSettingsToRender();
         View view =
                 mSettingsActivityTestRule
                         .getActivity()
@@ -268,7 +308,7 @@ public class PrivacySettingsFragmentTest {
         IncognitoReauthManager.setIsIncognitoReauthFeatureAvailableForTesting(true);
 
         mSettingsActivityTestRule.startSettingsActivity();
-        waitForOptionsMenu();
+        waitForSettingsToRender();
         PrivacySettings fragment = mSettingsActivityTestRule.getFragment();
 
         mRenderTestRule.render(
@@ -285,7 +325,7 @@ public class PrivacySettingsFragmentTest {
         IncognitoReauthSettingUtils.setIsDeviceScreenLockEnabledForTesting(true);
 
         mSettingsActivityTestRule.startSettingsActivity();
-        waitForOptionsMenu();
+        waitForSettingsToRender();
         PrivacySettings fragment = mSettingsActivityTestRule.getFragment();
 
         mRenderTestRule.render(
@@ -346,6 +386,7 @@ public class PrivacySettingsFragmentTest {
     @Test
     @LargeTest
     @DisabledTest(message = "crbug.com/40265353")
+    @RequiresRestart("Child account can leak to other tests in the suite.")
     public void testPrivacyGuideNotDisplayedWhenUserIsChild() {
         mSigninTestRule.addChildTestAccountThenWaitForSignin();
         mSettingsActivityTestRule.startSettingsActivity();
@@ -567,31 +608,6 @@ public class PrivacySettingsFragmentTest {
         onView(withText(containsString(webGpuDisabledString))).check(matches(isDisplayed()));
     }
 
-    /**
-     * Test that Javascript-optimizer settings are shown when the user clicks the
-     * javascript-optimizer link in the advanced-protection section.
-     */
-    @Test
-    @LargeTest
-    public void testOnJavascriptOptimizerLinkClicked() {
-        SettingsNavigationFactory.setInstanceForTesting(mSettingsNavigation);
-        PrivacySettings.onJavascriptOptimizerLinkClicked(
-                ApplicationProvider.getApplicationContext());
-
-        verify(mSettingsNavigation)
-                .startSettings(
-                        any(),
-                        eq(SingleCategorySettings.class),
-                        argThat(
-                                fragmentArgs -> {
-                                    String category =
-                                            fragmentArgs.getString(
-                                                    SingleCategorySettings.EXTRA_CATEGORY);
-                                    return "javascript_optimizer".equals(category);
-                                }),
-                        eq(true));
-    }
-
     @Test
     @LargeTest
     @EnableFeatures({
@@ -604,7 +620,12 @@ public class PrivacySettingsFragmentTest {
                     getPrefService().setBoolean(Pref.UNIVERSAL_OPT_OUT_ENABLED, true);
                     getPrefService().setBoolean(Pref.UNIVERSAL_OPT_OUT_ELIGIBLE, true);
                 });
+        var histogram =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Privacy.UniversalOptOut.SettingsVisibility", true);
         mSettingsActivityTestRule.startSettingsActivity();
+        histogram.assertExpected();
+
         scrollToSetting(withText(R.string.universal_opt_out_title));
         onView(withText(R.string.universal_opt_out_title)).check(matches(isDisplayed()));
     }
@@ -621,7 +642,13 @@ public class PrivacySettingsFragmentTest {
                     getPrefService().setBoolean(Pref.UNIVERSAL_OPT_OUT_ENABLED, false);
                     getPrefService().setBoolean(Pref.UNIVERSAL_OPT_OUT_ELIGIBLE, true);
                 });
+
+        var histogram =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Privacy.UniversalOptOut.SettingsVisibility", true);
         mSettingsActivityTestRule.startSettingsActivity();
+        histogram.assertExpected();
+
         scrollToSetting(withText(R.string.universal_opt_out_title));
         onView(withText(R.string.universal_opt_out_title)).check(matches(isDisplayed()));
     }
@@ -638,7 +665,12 @@ public class PrivacySettingsFragmentTest {
                     getPrefService().setBoolean(Pref.UNIVERSAL_OPT_OUT_ENABLED, true);
                     getPrefService().setBoolean(Pref.UNIVERSAL_OPT_OUT_ELIGIBLE, false);
                 });
+        var histogram =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Privacy.UniversalOptOut.SettingsVisibility", true);
         mSettingsActivityTestRule.startSettingsActivity();
+        histogram.assertExpected();
+
         scrollToSetting(withText(R.string.universal_opt_out_title));
         onView(withText(R.string.universal_opt_out_title)).check(matches(isDisplayed()));
     }
@@ -655,7 +687,12 @@ public class PrivacySettingsFragmentTest {
                     getPrefService().setBoolean(Pref.UNIVERSAL_OPT_OUT_ENABLED, false);
                     getPrefService().setBoolean(Pref.UNIVERSAL_OPT_OUT_ELIGIBLE, false);
                 });
+        var histogram =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Privacy.UniversalOptOut.SettingsVisibility", false);
         mSettingsActivityTestRule.startSettingsActivity();
+        histogram.assertExpected();
+
         onView(withText(R.string.universal_opt_out_title)).check(doesNotExist());
     }
 
@@ -663,7 +700,12 @@ public class PrivacySettingsFragmentTest {
     @LargeTest
     @DisableFeatures(ChromeFeatureList.UNIVERSAL_OPT_OUT_SETTINGS)
     public void testUniversalOptOutSettingsHidden_FeatureDisabled() {
+        var histogram =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Privacy.UniversalOptOut.SettingsVisibility", false);
         mSettingsActivityTestRule.startSettingsActivity();
+        histogram.assertExpected();
+
         onView(withText(R.string.universal_opt_out_title)).check(doesNotExist());
     }
 

@@ -35,6 +35,35 @@ static_library("core") {
     "//components/segmentation_platform/internal",
     "//ui/base",
   ]
+
+  if (is_android) {
+    public_deps += [ "//chrome/browser/flags:flags_android" ]
+  }
+}
+
+source_set("test_support") {
+  testonly = true
+  sources = [
+    "tips_service_test_base.cc",
+    "tips_service_test_base.h",
+  ]
+  public_deps = [
+    ":core",
+    "//base",
+    "//chrome/browser/segmentation_platform:test_utils",
+    "//chrome/test:test_support",
+    "//components/segmentation_platform/internal",
+    "//components/segmentation_platform/public",
+    "//components/sync_preferences:test_support",
+    "//components/ukm:test_support",
+    "//content/test:test_support",
+    "//testing/gtest",
+  ]
+  deps = [
+    "//base/test:test_support",
+    "//chrome/browser/segmentation_platform",
+    "//components/segmentation_platform/public:test_support",
+  ]
 }
 
 source_set("unit_tests") {
@@ -45,6 +74,7 @@ source_set("unit_tests") {
   ]
   deps = [
     ":core",
+    ":test_support",
     "//base",
     "//base/test:test_support",
     "//chrome/app:generated_resources",
@@ -52,14 +82,18 @@ source_set("unit_tests") {
     "//chrome/browser/segmentation_platform",
     "//chrome/browser/segmentation_platform:test_utils",
     "//chrome/test:test_support",
-    "//components/prefs:test_support",
     "//components/segmentation_platform/internal",
     "//components/segmentation_platform/public",
     "//components/segmentation_platform/public:test_support",
+    "//components/sync_preferences:test_support",
     "//components/ukm:test_support",
     "//content/test:test_support",
     "//testing/gmock",
     "//testing/gtest",
     "//ui/base",
   ]
+
+  if (is_android) {
+    deps += [ "//chrome/browser/flags:flags_android" ]
+  }
 }

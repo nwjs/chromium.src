@@ -5,7 +5,12 @@
 #ifndef IOS_CHROME_BROWSER_NTP_UI_BUNDLED_NEW_TAB_PAGE_FEATURE_H_
 #define IOS_CHROME_BROWSER_NTP_UI_BUNDLED_NEW_TAB_PAGE_FEATURE_H_
 
-#include "base/feature_list.h"
+#import <Foundation/Foundation.h>
+
+#import <string>
+
+#import "base/feature_list.h"
+#import "base/metrics/field_trial_params.h"
 
 class PrefService;
 
@@ -26,29 +31,7 @@ enum class NTPUICleanupVariation {
   kFakeboxBackgroundAndShadow,
 };
 
-// Defines the arms for the AIM Refactor Experiment.
-enum class AimButtonRefactorArm {
-  kDisabled = 0,
-  // Present AIM button in the Quick Actions row alongside one merchandising
-  // chips.
-  kOneMerchandisingChip = 1,
-  // Present AIM button in the Quick Actions row alongside two merchandising
-  // chips.
-  kTwoMerchandisingChips = 2,
-  // Present the AIM button as a standalone module beside the Most Visited
-  // Tiles. Remove the Quick Actions row from the NTP.
-  kAimAsModule = 3,
-  // Present the AIM button as a Most Visited Tile. Remove the Quick Actions row
-  // from the NTP.
-  kAimAsMvt = 4,
-  // Remove the AIM button and the Quick Actions row from the NTP.
-  kNoChips = 5,
-};
-
 #pragma mark - Feature declarations
-
-// Feature flag to change the location of the AIM button on the NTP.
-BASE_DECLARE_FEATURE(kAimButtonRefactor);
 
 // Flag to modify the feed header through the server. Enabling this feature on
 // its own does nothing; relies on feature parameters.
@@ -57,12 +40,6 @@ BASE_DECLARE_FEATURE(kFeedHeaderSettings);
 // Flag to override feed settings through the server. Enabling this feature on
 // its own does nothing; relies on feature parameters.
 BASE_DECLARE_FEATURE(kOverrideFeedSettings);
-
-// Feature flag to enable transform-based animations for the NTP header.
-BASE_DECLARE_FEATURE(kNTPHeaderUseTransformsForAnimations);
-
-// Checks if transform-based animations are enabled for the NTP header.
-bool IsNTPHeaderTransformsForAnimationsEnabled();
 
 // Feature flag to enable in-product help for swipe action on the Feed.
 BASE_DECLARE_FEATURE(kFeedSwipeInProductHelp);
@@ -83,6 +60,12 @@ BASE_DECLARE_FEATURE(kMVTInBottomSheet);
 
 // Checks if the Most Visited Tiles should be placed in the bottom sheet.
 bool IsMVTInBottomSheetEnabled();
+
+// Feature flag to enable custom ephemeral themes on the New Tab Page.
+BASE_DECLARE_FEATURE(kNewTabPageEphemeralTheme);
+
+// Checks if the New Tab Page ephemeral theme feature is enabled.
+bool IsNTPEphemeralThemeEnabled();
 
 #pragma mark - Feature parameters
 
@@ -111,8 +94,29 @@ extern const char kFeedSwipeInProductHelpArmParam[];
 // enabled.
 extern const char kNewTabPageUICleanupArmParam[];
 
-// Parameter to indicate which arm of the feature kAimButtonRefactor is enabled.
-extern const char kAimButtonRefactorArmParam[];
+// URL parameter for the ephemeral theme Lottie animation.
+BASE_DECLARE_FEATURE_PARAM(std::string,
+                           kNewTabPageEphemeralThemeAnimationUrlParam);
+
+// JSON string parameter for the ephemeral theme light/dark color mapping.
+BASE_DECLARE_FEATURE_PARAM(std::string,
+                           kNewTabPageEphemeralThemeAnimationColorMappingParam);
+
+// URL parameter for the ephemeral theme promo Lottie animation.
+BASE_DECLARE_FEATURE_PARAM(std::string,
+                           kNewTabPageEphemeralThemeAnimationPromoUrlParam);
+
+// JSON string parameter for the ephemeral theme promo light/dark color mapping.
+BASE_DECLARE_FEATURE_PARAM(
+    std::string,
+    kNewTabPageEphemeralThemeAnimationPromoColorMappingParam);
+
+// Seed color parameter for the ephemeral theme.
+BASE_DECLARE_FEATURE_PARAM(std::string,
+                           kNewTabPageEphemeralThemeSeedColorParam);
+
+// Version parameter for the ephemeral theme configuration.
+BASE_DECLARE_FEATURE_PARAM(int, kNewTabPageEphemeralThemeVersionParam);
 
 #pragma mark - Helpers
 
@@ -151,11 +155,5 @@ bool ShouldApplyFakeboxBackgroundAndShadow();
 
 // Returns the enabled variation of feature kNewTabPageUICleanup.
 NTPUICleanupVariation GetNewTabPageUICleanupVariation();
-
-// Returns the active arm for the AimButtonRefactor feature.
-AimButtonRefactorArm GetAimButtonRefactorArm();
-
-// Returns whether the AimButtonRefactor feature is enabled.
-bool IsAimButtonRefactorEnabled();
 
 #endif  // IOS_CHROME_BROWSER_NTP_UI_BUNDLED_NEW_TAB_PAGE_FEATURE_H_

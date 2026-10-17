@@ -9,6 +9,7 @@ rust_static_library("bindings_unittests") {
   sources = [
     "cxx.rs",
     "lib.rs",
+    "rust_associated_sender.rs",
     "state_objects.rs",
     "tests.rs",
   ]
@@ -19,6 +20,7 @@ rust_static_library("bindings_unittests") {
     ":bindings_unittests_mojom_rust",
     ":math_service_cpp",
     "..:bindings",
+    "../../mojom_value_parser",
     "../../system",
     "../../system/test_util",
     "//base",
@@ -34,13 +36,18 @@ source_set("math_service_cpp") {
   sources = [
     "cpp/add_seven_service.cc",
     "cpp/add_seven_service.h",
+    "cpp/associated_services.cc",
+    "cpp/associated_services.h",
     "cpp/cxx_shim.cc",
     "cpp/cxx_shim.h",
+    "cpp/test_runners.cc",
+    "cpp/test_runners.h",
   ]
   deps = [
     ":bindings_unittests_cxx_generated_gen",
     ":bindings_unittests_mojom",
     "../../system",
+    "//base/test:test_support",
     "//mojo/public/cpp/bindings",
     "//mojo/public/rust/bindings:cpp_router_handle_cc",
     "//testing/gtest",

@@ -44,7 +44,7 @@ class PLATFORM_EXPORT SegmentedSubstring {
   SegmentedSubstring() { Clear(); }
 
   explicit SegmentedSubstring(const String& str) : string_(str) {
-    unsigned len = str.length();
+    wtf_size_t len = str.length();
     if (len) {
       if (string_.Is8Bit()) {
         is_8bit_ = true;
@@ -127,9 +127,9 @@ class PLATFORM_EXPORT SegmentedSubstring {
 
   // Advances up to `delta` characters, returning how many characters were
   // advanced. This will not advance past the last character.
-  unsigned Advance(unsigned delta) {
+  wtf_size_t Advance(wtf_size_t delta) {
     DCHECK_NE(0, length());
-    delta = std::min(static_cast<unsigned>(length()) - 1, delta);
+    delta = std::min(static_cast<wtf_size_t>(length()) - 1, delta);
     // Unsafe since a stronger check for non-zero length is required.
     if (is_8bit_)
       UNSAFE_TODO(data_.string8_ptr += delta);
@@ -142,7 +142,7 @@ class PLATFORM_EXPORT SegmentedSubstring {
     return UNSAFE_TODO(is_8bit_ ? *++data_.string8_ptr : *++data_.string16_ptr);
   }
 
-  StringView CurrentSubString(unsigned len) const {
+  StringView CurrentSubString(wtf_size_t len) const {
     return StringView(string_, offset(), len);
   }
 
@@ -183,20 +183,10 @@ class PLATFORM_EXPORT SegmentedString {
   DISALLOW_NEW();
 
  public:
-  SegmentedString()
-      : number_of_characters_consumed_prior_to_current_string_(0),
-        number_of_characters_consumed_prior_to_current_line_(0),
-        current_line_(0),
-        closed_(false),
-        empty_(true),
-        current_char_('\0') {}
+  SegmentedString() = default;
 
   SegmentedString(const String& str)
       : current_string_(str),
-        number_of_characters_consumed_prior_to_current_string_(0),
-        number_of_characters_consumed_prior_to_current_line_(0),
-        current_line_(0),
-        closed_(false),
         empty_(!str.length()),
         current_char_(empty_ ? '\0' : current_string_.GetCurrentChar()) {}
 
@@ -225,7 +215,7 @@ class PLATFORM_EXPORT SegmentedString {
   void Push(UChar);
 
   bool IsEmpty() const { return empty_; }
-  unsigned length() const;
+  wtf_size_t length() const;
 
   bool IsClosed() const { return closed_; }
 
@@ -246,7 +236,7 @@ class PLATFORM_EXPORT SegmentedString {
   // `num_chars` and `num_lines`. This function advances without analyzing the
   // input string in anyway. As a result, the caller must know `num_lines` and
   // `current_column`.
-  void Advance(unsigned num_chars, unsigned num_lines, int current_column);
+  void Advance(wtf_size_t num_chars, wtf_size_t num_lines, int current_column);
 
   ALWAYS_INLINE UChar Advance() {
     if (current_string_.CanAdvance()) [[likely]] {
@@ -355,7 +345,7 @@ class PLATFORM_EXPORT SegmentedString {
 
   template <TextCaseSensitivity kCaseSensitivity>
   inline LookAheadResult LookAheadInline(const String& string) {
-    if (string.length() <= static_cast<unsigned>(current_string_.length())) {
+    if (string.length() <= static_cast<wtf_size_t>(current_string_.length())) {
       StringView current_prefix =
           current_string_.CurrentSubString(string.length());
       if (kCaseSensitivity == TextCaseSensitivity::kTextCaseSensitive
@@ -370,7 +360,7 @@ class PLATFORM_EXPORT SegmentedString {
 
   LookAheadResult LookAheadSlowCase(const String& string,
                                     TextCaseSensitivity case_sensitivity) {
-    unsigned count = string.length();
+    wtf_size_t count = string.length();
     if (count > length())
       return kNotEnoughCharacters;
     base::span<UChar> consumed_characters;
@@ -390,13 +380,13 @@ class PLATFORM_EXPORT SegmentedString {
   bool IsComposite() const { return !substrings_.empty(); }
 
   SegmentedSubstring current_string_;
-  int number_of_characters_consumed_prior_to_current_string_;
-  int number_of_characters_consumed_prior_to_current_line_;
-  int current_line_;
+  int number_of_characters_consumed_prior_to_current_string_ = 0;
+  int number_of_characters_consumed_prior_to_current_line_ = 0;
+  int current_line_ = 0;
   Deque<SegmentedSubstring> substrings_;
-  bool closed_;
-  bool empty_;
-  UChar current_char_;
+  bool closed_ = false;
+  bool empty_ = true;
+  UChar current_char_ = '\0';
   raw_ptr<const SegmentedString> next_segmented_string_ = nullptr;
 };
 

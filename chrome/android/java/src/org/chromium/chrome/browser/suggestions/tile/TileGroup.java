@@ -442,6 +442,14 @@ public class TileGroup implements MostVisitedSites.Observer {
         return mTileGroupDelegate.getSuggestionScore(url);
     }
 
+    /**
+     * Kills drag session if any is active, to prevent conflicts between a suggestion update and an
+     * active drag session that's based on stale data.
+     */
+    private void maybeKillDragSession() {
+        mTileDragDelegate.cancelActiveSession();
+    }
+
     /** Loads tile data from {@link #mPendingChanges.siteSuggestions} and clears it afterwards. */
     private void loadTiles() {
         assert mPendingChanges.siteSuggestions != null;
@@ -460,6 +468,8 @@ public class TileGroup implements MostVisitedSites.Observer {
                 isInitialLoad || !tileListAreEqual(oldPersonalizedTiles, newPersonalizedTiles);
 
         if (dataChanged) {
+            maybeKillDragSession();
+
             mCustomTileCountIsUnderLimit =
                     TileUtils.customTileCountIsUnderLimit(newPersonalizedTiles);
 

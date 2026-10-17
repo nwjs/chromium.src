@@ -21,6 +21,7 @@
 #include "base/strings/strcat.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
+#include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
 #include "components/autofill/core/browser/data_model/data_model_util.h"
@@ -84,12 +85,15 @@ CreateAmbientAutofillRequest(DenseSet<EntityType> types,
     request.add_requested_types(
         AutofillEntityTypeToPersonalContextEntityType(type));
   }
-  // Do not request presence if spii cache is enabled.
-  if (!base::FeatureList::IsEnabled(
+
+  if (base::FeatureList::IsEnabled(
           features::kAutofillAmbientAutofillSpiiCache)) {
+    request.set_client_id(std::move(client_id));
+  } else {
+    // Do not request presence if spii cache is enabled.
     request.set_return_spii_presence(return_spii_presence);
   }
-  request.set_client_id(std::move(client_id));
+
   return request;
 }
 
@@ -185,7 +189,24 @@ PersonalContextPrefetchEntityValidationResult ValidateAmbientAutofillEntity(
         kFailedImportConstraints;
   }
 
-  return ValidateTtl(entity);
+  PersonalContextPrefetchEntityValidationResult ttl_result =
+      ValidateTtl(entity);
+  if (ttl_result != PersonalContextPrefetchEntityValidationResult::kValid) {
+    return ttl_result;
+  }
+
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillAmbientAutofillFilterEntitiesWithoutSource)) {
+    const auto& payload =
+        std::get<EntityInstance::PersonalContextRecordTypePayload>(
+            entity.record_type_data());
+    if (payload.sources.empty()) {
+      return PersonalContextPrefetchEntityValidationResult::
+          kFailedMissingSource;
+    }
+  }
+
+  return PersonalContextPrefetchEntityValidationResult::kValid;
 }
 
 // Logs the request latency of a personal context network request.
@@ -236,8 +257,6 @@ AutofillAiPersonalContextAccessManagerImpl::
         personal_context::PersonalContextService* personal_context_service,
         personal_context::PersonalContextEligibilityService*
             personal_context_eligibility_service,
-        subscription_eligibility::SubscriptionEligibilityService*
-            subscription_eligibility_service,
         PrefService* pref_service,
         syncer::DeviceInfoSyncService* device_info_sync_service,
         EntitySuppressionManager* suppression_manager)
@@ -248,10 +267,6 @@ AutofillAiPersonalContextAccessManagerImpl::
       device_info_sync_service_(device_info_sync_service) {
   eligibility_service_observation_.Observe(
       personal_context_eligibility_service);
-  if (subscription_eligibility_service) {
-    subscription_eligibility_observation_.Observe(
-        subscription_eligibility_service);
-  }
   if (suppression_manager) {
     suppression_observation_.Observe(suppression_manager);
   }
@@ -475,7 +490,9 @@ void AutofillAiPersonalContextAccessManagerImpl::GetUnmaskedSpiiEntity(
   const base::TimeTicks request_start_time = base::TimeTicks::Now();
 
   if (base::FeatureList::IsEnabled(
-          features::kAutofillAmbientAutofillSpiiCache)) {
+          features::kAutofillAmbientAutofillSpiiCache) &&
+      proto_entity->entity_case() ==
+          personal_context::proto::Entity::kEncryptedEntity) {
     if (std::optional<EntityInstance> unmasked_entity =
             ConvertProtoToEntityInstance(*proto_entity,
                                          /*mask_spii=*/false)) {
@@ -622,6 +639,7 @@ void AutofillAiPersonalContextAccessManagerImpl::ProcessPrefetchedEntities(
   entities.reserve(parsed_entities.size());
   const EntitySuppressionManager* suppression_manager =
       suppression_observation_.GetSource();
+  size_t suppressed_count = 0;
   for (ParsedEntity& entity : parsed_entities) {
     if (const auto* signal =
             std::get_if<SpiiEntityPresenceSignal>(&entity.instance)) {
@@ -639,9 +657,12 @@ void AutofillAiPersonalContextAccessManagerImpl::ProcessPrefetchedEntities(
     prefetched_proto_cache_.emplace(instance.guid(), std::move(entity.proto));
     if (!suppression_manager || !suppression_manager->IsSuppressed(instance)) {
       entities.push_back(std::move(instance));
+    } else {
+      suppressed_count++;
     }
   }
 
+  LogEntitySuppressionEntitiesFilteredPerPrefetch(suppressed_count);
   NotifyPrefetchStatusObservers(entities);
 }
 
@@ -714,11 +735,6 @@ void AutofillAiPersonalContextAccessManagerImpl::OnEligibilityStateChanged(
   }
 }
 
-void AutofillAiPersonalContextAccessManagerImpl::OnAiSubscriptionTierUpdated(
-    int32_t /*new_subscription_tier*/) {
-  ComputeAndMaybeLogNonEligibilityReason();
-}
-
 void AutofillAiPersonalContextAccessManagerImpl::
     OnPersonalContextSettingsToggleChanged() {
   ComputeAndMaybeLogNonEligibilityReason();
@@ -739,14 +755,6 @@ void AutofillAiPersonalContextAccessManagerImpl::
 
   std::optional<PersonalContextNonEligibilityReason> non_eligibility_reason =
       personal_context_eligibility_service_->GetNonEligibilityReason();
-
-  if (non_eligibility_reason ==
-          PersonalContextNonEligibilityReason::kEligible &&
-      !IsDeviceOrSubscriptionTierEligibleForAmbientAutofill(
-          subscription_eligibility_observation_.GetSource())) {
-    non_eligibility_reason = PersonalContextNonEligibilityReason::
-        kNotG1SubscriberOrAndroidPremiumDevice;
-  }
 
   if (non_eligibility_reason ==
           PersonalContextNonEligibilityReason::kEligible &&

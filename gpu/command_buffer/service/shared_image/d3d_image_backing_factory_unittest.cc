@@ -10,6 +10,7 @@
 #include <dawn/webgpu_cpp.h>
 
 #include <algorithm>
+#include <array>
 #include <memory>
 #include <utility>
 
@@ -1530,7 +1531,7 @@ D3DImageBackingFactoryTest::CreateVideoImage(const gfx::Size& size,
     shared_image_backing = shared_image_factory_->CreateSharedImage(
         mailbox,
         {viz::MultiPlaneFormat::kNV12, size, gfx::ColorSpace(),
-         kTopLeft_GrSurfaceOrigin, kPremul_SkAlphaType, usage, "TestLabel"},
+         kTopLeft_GrSurfaceOrigin, kUnpremul_SkAlphaType, usage, "TestLabel"},
         /*is_thread_safe=*/false, std::move(gmb_handle));
     if (!shared_image_backing) {
       return {};
@@ -1546,7 +1547,7 @@ D3DImageBackingFactoryTest::CreateVideoImage(const gfx::Size& size,
     shared_image_backing = D3DImageBacking::Create(
         mailbox,
         SharedImageInfo(viz::MultiPlaneFormat::kNV12, size, gfx::ColorSpace(),
-                        kTopLeft_GrSurfaceOrigin, kPremul_SkAlphaType, usage,
+                        kTopLeft_GrSurfaceOrigin, kUnpremul_SkAlphaType, usage,
                         "TestLabel"),
         d3d11_texture, std::move(dxgi_shared_handle_state),
         context_state_->GetGLFormatCaps(), GL_TEXTURE_EXTERNAL_OES,
@@ -1561,7 +1562,7 @@ D3DImageBackingFactoryTest::CreateVideoImage(const gfx::Size& size,
   EXPECT_EQ(backing->format(), viz::MultiPlaneFormat::kNV12);
   EXPECT_EQ(backing->color_space(), gfx::ColorSpace());
   EXPECT_EQ(backing->surface_origin(), kTopLeft_GrSurfaceOrigin);
-  EXPECT_EQ(backing->alpha_type(), kPremul_SkAlphaType);
+  EXPECT_EQ(backing->alpha_type(), kUnpremul_SkAlphaType);
   EXPECT_EQ(backing->usage(), usage);
   EXPECT_TRUE(backing->IsCleared());
 
@@ -1861,7 +1862,7 @@ void D3DImageBackingFactoryTest::RunCreateFromSharedMemoryMultiplanarTest(
       shared_image_factory_.get(), copy_manager_, mailbox,
       std::move(shm_gmb_handle),
       SharedImageInfo(viz::MultiPlaneFormat::kNV12, size, gfx::ColorSpace(),
-                      kTopLeft_GrSurfaceOrigin, kPremul_SkAlphaType, usage,
+                      kTopLeft_GrSurfaceOrigin, kUnpremul_SkAlphaType, usage,
                       "TestLabel"));
   EXPECT_NE(backing, nullptr);
 
@@ -1870,7 +1871,7 @@ void D3DImageBackingFactoryTest::RunCreateFromSharedMemoryMultiplanarTest(
   EXPECT_EQ(backing->format(), viz::MultiPlaneFormat::kNV12);
   EXPECT_EQ(backing->color_space(), gfx::ColorSpace());
   EXPECT_EQ(backing->surface_origin(), kTopLeft_GrSurfaceOrigin);
-  EXPECT_EQ(backing->alpha_type(), kPremul_SkAlphaType);
+  EXPECT_EQ(backing->alpha_type(), kUnpremul_SkAlphaType);
   EXPECT_EQ(backing->usage(), usage);
   EXPECT_TRUE(backing->IsCleared());
 
@@ -1997,7 +1998,7 @@ TEST_P(D3DImageBackingFactoryTest, CreateFromSharedMemoryMultiplanarAsyncCopy) {
 void D3DImageBackingFactoryTest::RunMultiplanarUploadAndReadback() {
   constexpr gfx::Size size(32, 32);
   constexpr size_t kDataSize = size.width() * size.height() * 3 / 2;
-  constexpr SkAlphaType alpha_type = kPremul_SkAlphaType;
+  constexpr SkAlphaType alpha_type = kOpaque_SkAlphaType;
   constexpr gfx::ColorSpace color_space;
   constexpr gpu::SharedImageUsageSet usage =
       gpu::SHARED_IMAGE_USAGE_RASTER_READ |
@@ -2266,10 +2267,11 @@ TEST_P(D3DImageBackingFactoryTest, ReadbackAfterSkiaWrite) {
   ASSERT_TRUE(backing->ReadbackToMemory(pixmaps));
 
   // Verify every pixel is blue (RGBA: 0, 0, 255, 255).
-  const uint8_t kExpectedColor[] = {0, 0, 255, 255};  // Blue
+  constexpr auto kExpectedColor =
+      std::to_array<uint8_t>({0, 0, 255, 255});  // Blue
   for (size_t i = 0; i < num_pixels; ++i) {
     for (size_t j = 0; j < 4; ++j) {
-      ASSERT_EQ(readback_pixels[i * 4 + j], UNSAFE_TODO(kExpectedColor[j]))
+      ASSERT_EQ(readback_pixels[i * 4 + j], kExpectedColor[j])
           << "Mismatch at pixel " << i << " component " << j;
     }
   }
@@ -2297,6 +2299,46 @@ TEST_P(D3DImageBackingFactoryTest, CanCreateScanoutBacking) {
           gpu::SHARED_IMAGE_USAGE_SCANOUT, viz::SinglePlaneFormat::kBGRA_8888,
           arbitrary_size, /*thread_safe=*/false,
           gfx::GpuMemoryBufferType::EMPTY_BUFFER, GrContextType ::kGL, {}));
+}
+
+TEST_P(D3DImageBackingFactoryTest, CreateP010Backing) {
+  if (context_state_->IsGraphiteDawnD3D12()) {
+    GTEST_SKIP() << "The factory has no D3D11 device to create textures with.";
+  }
+
+  Microsoft::WRL::ComPtr<ID3D11Device> d3d11_device =
+      gl::QueryD3D11DeviceObjectFromANGLE();
+  ASSERT_TRUE(d3d11_device);
+
+  constexpr UINT kRequiredUsage = D3D11_FORMAT_SUPPORT_TEXTURE2D |
+                                  D3D11_FORMAT_SUPPORT_SHADER_SAMPLE |
+                                  D3D11_FORMAT_SUPPORT_RENDER_TARGET;
+  UINT format_support = 0;
+  if (FAILED(d3d11_device->CheckFormatSupport(DXGI_FORMAT_P010,
+                                              &format_support)) ||
+      (format_support & kRequiredUsage) != kRequiredUsage) {
+    GTEST_SKIP() << "D3D device does not support P010";
+  }
+
+  constexpr gfx::Size size(32, 32);
+  constexpr auto format = viz::MultiPlaneFormat::kP010;
+  constexpr gpu::SharedImageUsageSet usage =
+      gpu::SHARED_IMAGE_USAGE_RASTER_READ |
+      gpu::SHARED_IMAGE_USAGE_DISPLAY_READ | gpu::SHARED_IMAGE_USAGE_CPU_UPLOAD;
+
+  EXPECT_TRUE(shared_image_factory_->CanCreateSharedImage(
+      usage, format, size, /*thread_safe=*/false,
+      gfx::GpuMemoryBufferType::EMPTY_BUFFER, context_state_->gr_context_type(),
+      {}));
+
+  auto backing = shared_image_factory_->CreateSharedImage(
+      gpu::Mailbox::Generate(),
+      {format, size, gfx::ColorSpace(), kTopLeft_GrSurfaceOrigin,
+       kUnpremul_SkAlphaType, usage, "TestLabel"},
+      kNullSurfaceHandle, /*is_thread_safe=*/false);
+  ASSERT_NE(backing, nullptr);
+  EXPECT_EQ(backing->format(), format);
+  EXPECT_EQ(backing->size(), size);
 }
 
 TEST_P(D3DImageBackingFactoryTest, CanProduceDCompTextureOverlay) {

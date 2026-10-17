@@ -33,12 +33,14 @@ class TrustedVaultThrottlingConnectionImpl
       const TrustedVaultThrottlingConnectionImpl& other) = delete;
   ~TrustedVaultThrottlingConnectionImpl() override;
 
-  bool AreRequestsThrottled(const CoreAccountInfo& account_info) override;
-  void RecordFailedRequestForThrottling(
-      const CoreAccountInfo& account_info) override;
+  bool AreRequestsThrottled(const CoreAccountInfo& account_info,
+                            SecurityDomainId domain) override;
+  void RecordFailedRequestForThrottling(const CoreAccountInfo& account_info,
+                                        SecurityDomainId domain) override;
 
   std::unique_ptr<Request> RegisterAuthenticationFactor(
       const CoreAccountInfo& account_info,
+      SecurityDomainId security_domain,
       const MemberKeysSource& member_keys_source,
       const SecureBoxPublicKey& authentication_factor_public_key,
       AuthenticationFactorTypeAndRegistrationParams
@@ -47,36 +49,43 @@ class TrustedVaultThrottlingConnectionImpl
 
   std::unique_ptr<Request> RegisterLocalDeviceWithoutKeys(
       const CoreAccountInfo& account_info,
+      SecurityDomainId security_domain,
       const SecureBoxPublicKey& device_public_key,
       RegisterAuthenticationFactorCallback callback) override;
 
   std::unique_ptr<Request> DownloadNewKeys(
       const CoreAccountInfo& account_info,
+      SecurityDomainId security_domain,
       const TrustedVaultKeyAndVersion& last_trusted_vault_key_and_version,
       std::unique_ptr<SecureBoxKeyPair> device_key_pair,
       DownloadNewKeysCallback callback) override;
 
   std::unique_ptr<Request> DownloadIsRecoverabilityDegraded(
       const CoreAccountInfo& account_info,
+      SecurityDomainId security_domain,
       IsRecoverabilityDegradedCallback callback) override;
 
   std::unique_ptr<Request> DownloadGaiaPasswordPublicKey(
       const CoreAccountInfo& account_info,
+      SecurityDomainId security_domain,
       DownloadGaiaPasswordPublicKeyCallback callback) override;
 
   std::unique_ptr<Request> RotateSharedKey(
       const CoreAccountInfo& account_info,
+      SecurityDomainId security_domain,
       const trusted_vault_pb::RotateSharedKeyRequest& request,
       RotateSharedKeyCallback callback) override;
 
   std::unique_ptr<TrustedVaultConnection::Request>
   DownloadAuthenticationFactorsRegistrationState(
       const CoreAccountInfo& account_info,
+      SecurityDomainId security_domain,
       DownloadAuthenticationFactorsRegistrationStateCallback callback,
       base::RepeatingClosure keep_alive_callback) override;
 
   std::unique_ptr<Request> DownloadAuthenticationFactorsRegistrationState(
       const CoreAccountInfo& account_info,
+      SecurityDomainId security_domain,
       std::set<trusted_vault_pb::SecurityDomainMember_MemberType>
           recovery_factor_filter,
       DownloadAuthenticationFactorsRegistrationStateCallback callback,

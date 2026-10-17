@@ -11,6 +11,7 @@
 #include <optional>
 #include <utility>
 
+#include "base/check.h"
 #include "base/notreached.h"
 #include "base/numerics/checked_math.h"
 #include "base/numerics/safe_conversions.h"
@@ -99,6 +100,9 @@ constexpr base::TimeDelta kDefaultIncomingMaxAge = base::Seconds(60);
 // in DatagramQueue, where incomingMaxBufferedDatagrams and incomingMaxAge keep
 // applying to datagrams that have already arrived.
 constexpr size_t kDatagramsReadableHighWaterMark = 0;
+
+constexpr char kInvalidStateMessage[] =
+    "The WebTransport connection is not open.";
 
 // Converts the Blink congestion control enum to its Mojo equivalent for
 // renderer-to-browser IPC.
@@ -755,9 +759,8 @@ class WebTransport::DatagramQueue final
       max_age = kDefaultIncomingMaxAge;
     }
 
-    // base::TimeTicks::Now() is far away from the origin of the monotonic
-    // clock, so subtracting `max_age` cannot produce a bogus (saturated) value.
-    DCHECK_GT(now, base::TimeTicks());
+    // This subtraction will never wrap around because TimeTicks uses
+    // ClampedNumeric internally.
     const base::TimeTicks older_than = now - max_age;
 
     bool discarded = false;
@@ -830,7 +833,7 @@ class WebTransport::DatagramSource : public GarbageCollectedMixin {
     if (waiting_for_datagrams_) {
       // This can happen if a second read is issued while a read is already
       // pending.
-      DCHECK(queue_->empty());
+      CHECK(queue_->empty());
       return ToResolvedUndefinedPromise(script_state_.Get());
     }
 
@@ -855,7 +858,7 @@ class WebTransport::DatagramSource : public GarbageCollectedMixin {
     if (exception) {
       code = exception->streamErrorCode().value_or(0);
     }
-    VLOG(1) << "DatagramSource::CancelDatagrams() with code " << code;
+    DVLOG(1) << "DatagramSource::CancelDatagrams() with code " << code;
 
     waiting_for_datagrams_ = false;
     canceled_ = true;
@@ -994,6 +997,10 @@ class WebTransport::DatagramUnderlyingByteSource final
  private:
   void Enqueue(DOMUint8Array* datagram,
                ExceptionState& exception_state) override {
+    ScriptState::Scope scope(GetScriptState());
+    if (RespondToBYOBRequest(datagram->ByteSpan(), exception_state)) {
+      return;
+    }
     controller_->enqueue(GetScriptState(), NotShared(datagram),
                          exception_state);
   }
@@ -1001,25 +1008,35 @@ class WebTransport::DatagramUnderlyingByteSource final
   void EnqueueReceivedData(base::span<const uint8_t> data,
                            ExceptionState& exception_state) override {
     ScriptState::Scope scope(GetScriptState());
-    if (ReadableStreamBYOBRequest* request = controller_->byobRequest()) {
-      DOMArrayPiece view(request->view().Get());
-      if (view.ByteLength() < data.size()) {
-        controller_->error(
-            GetScriptState(),
-            ScriptValue(GetScriptState()->GetIsolate(),
-                        V8ThrowException::CreateRangeError(
-                            GetScriptState()->GetIsolate(),
-                            "supplied view is not large enough.")));
-        return;
-      }
-      view.ByteSpan().copy_prefix_from(data);
-      request->respond(GetScriptState(), data.size(), exception_state);
+    if (RespondToBYOBRequest(data, exception_state)) {
       return;
     }
 
     controller_->enqueue(GetScriptState(),
                          NotShared(DOMUint8Array::Create(data)),
                          exception_state);
+  }
+
+  bool RespondToBYOBRequest(base::span<const uint8_t> data,
+                            ExceptionState& exception_state) {
+    ReadableStreamBYOBRequest* request = controller_->byobRequest();
+    if (!request) {
+      return false;
+    }
+
+    DOMArrayPiece view(request->view().Get());
+    if (view.ByteLength() < data.size()) {
+      controller_->error(
+          GetScriptState(),
+          ScriptValue(GetScriptState()->GetIsolate(),
+                      V8ThrowException::CreateRangeError(
+                          GetScriptState()->GetIsolate(),
+                          "supplied view is not large enough.")));
+      return true;
+    }
+    view.ByteSpan().copy_prefix_from(data);
+    request->respond(GetScriptState(), data.size(), exception_state);
+    return true;
   }
 
   void ErrorController(v8::Local<v8::Value> error) override {
@@ -1287,8 +1304,6 @@ ScriptPromise<WritableStream> WebTransport::createUnidirectionalStream(
   }
 
   if (!connection_pending_ && !transport_remote_.is_bound()) {
-    constexpr char kInvalidStateMessage[] =
-        "The WebTransport connection is not open.";
     auto* resolver =
         MakeGarbageCollected<ScriptPromiseResolver<WritableStream>>(
             script_state, exception_state.GetContext());
@@ -1339,8 +1354,6 @@ ScriptPromise<BidirectionalStream> WebTransport::createBidirectionalStream(
   }
 
   if (!connection_pending_ && !transport_remote_.is_bound()) {
-    constexpr char kInvalidStateMessage[] =
-        "The WebTransport connection is not open.";
     auto* resolver =
         MakeGarbageCollected<ScriptPromiseResolver<BidirectionalStream>>(
             script_state, exception_state.GetContext());
@@ -2268,8 +2281,6 @@ void WebTransport::Cleanup(WebTransportCloseInfo* info,
   cleanup_started_ = true;
   v8::Isolate* isolate = script_state_->GetIsolate();
 
-  constexpr char kInvalidStateMessage[] =
-      "The WebTransport connection is not open.";
   v8::Local<v8::Value> stream_error = V8ThrowDOMException::CreateOrEmpty(
       isolate, DOMExceptionCode::kInvalidStateError, kInvalidStateMessage);
   RejectPendingStreamCreations(stream_error);
@@ -2602,6 +2613,12 @@ void WebTransport::setAnticipatedConcurrentIncomingBidirectionalStreams(
 
 WebTransportSendGroup* WebTransport::createSendGroup(
     ExceptionState& exception_state) {
+  if (!connection_pending_ && !transport_remote_.is_bound()) {
+    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
+                                      kInvalidStateMessage);
+    return nullptr;
+  }
+
   if (next_send_group_id_ == std::numeric_limits<uint32_t>::max()) {
     exception_state.ThrowDOMException(DOMExceptionCode::kOperationError,
                                       "Too many send groups.");

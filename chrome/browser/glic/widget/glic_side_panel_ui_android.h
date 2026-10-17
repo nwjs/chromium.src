@@ -11,7 +11,6 @@
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/glic/common/local_hotkey_manager.h"
-#include "chrome/browser/glic/host/context/glic_screenshot_capturer.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/host/glic_webui.mojom.h"
 #include "chrome/browser/glic/host/host.h"
@@ -85,9 +84,6 @@ class GlicSidePanelUi
   void SwitchConversation(
       glic::mojom::ConversationInfoPtr info,
       mojom::WebClientHandler::SwitchConversationCallback callback) override;
-  void CaptureScreenshot(
-      glic::mojom::WebClientHandler::CaptureScreenshotCallback callback)
-      override;
 
   // GlicUiEmbedder and Host::Delegate:
   bool IsShowing() const override;
@@ -148,7 +144,19 @@ class GlicSidePanelUi
   FRIEND_TEST_ALL_PREFIXES(GlicSidePanelUiAndroidTest,
                            MicPermissionDialogAcceptedWithDeadWebContents);
   FRIEND_TEST_ALL_PREFIXES(GlicSidePanelUiAndroidTest,
-                           DeactivationSuppressedDuringPermissionRequest);
+                           MicPermissionDialogAcceptedAndSystemGranted);
+  FRIEND_TEST_ALL_PREFIXES(GlicSidePanelUiAndroidTest,
+                           MicPermissionDialogAcceptedButSystemDenied);
+  FRIEND_TEST_ALL_PREFIXES(
+      GlicSidePanelUiAndroidTest,
+      WindowDeactivatedDuringPermissionRequestIsSuppressed);
+  FRIEND_TEST_ALL_PREFIXES(GlicSidePanelUiAndroidTest,
+                           SuppressedDeactivationDeliveredAfterDialogDismissed);
+  FRIEND_TEST_ALL_PREFIXES(
+      GlicSidePanelUiAndroidTest,
+      SuppressedDeactivationDeliveredAfterSystemPromptCompletes);
+  FRIEND_TEST_ALL_PREFIXES(GlicSidePanelUiAndroidTest,
+                           NoDeactivationWhenWindowRegainsFocusAfterPrompt);
 
   GlicSidePanelCoordinator* GetGlicSidePanelCoordinator() const;
 
@@ -197,8 +205,6 @@ class GlicSidePanelUi
   std::unique_ptr<PanelFocusDependentHotkeyManager>
       panel_focus_dependent_hotkey_manager_;
   raw_ptr<Profile> profile_;
-
-  std::unique_ptr<GlicScreenshotCapturer> screenshot_capturer_;
 
   // True while a microphone/camera permission prompt is in front of the
   // window. Deactivation notifications are suppressed during this time so the

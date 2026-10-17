@@ -7,6 +7,7 @@
 #import "base/strings/string_number_conversions.h"
 #import "base/strings/sys_string_conversions.h"
 #import "ios/chrome/browser/level_up/ui/level_up_progress_bar.h"
+#import "ios/chrome/browser/level_up/ui/level_up_view_controller.h"
 #import "ios/chrome/browser/shared/ui/elements/gradient/multi_color_gradient_view.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
@@ -54,6 +55,8 @@ const CGFloat kCompletionRowSpacing = 16.0;
   // Switch toggling task notifications.
   UISwitch* _notificationToggleSwitch;
 }
+
+@synthesize delegate = _delegate;
 
 - (instancetype)initWithFrame:(CGRect)frame {
   self = [super initWithFrame:frame];
@@ -111,18 +114,12 @@ const CGFloat kCompletionRowSpacing = 16.0;
 
 #pragma mark - LevelUpConsumer
 
-- (void)setLevel:(NSInteger)level tasksForLevel:(NSArray<LevelUpTask*>*)tasks {
+- (void)setLevel:(NSInteger)level
+    remainingTasksForNextLevel:(NSInteger)tasksRemaining
+        totalTasksForNextLevel:(NSInteger)totalTasks {
   _levelLabel.text = l10n_util::GetNSStringF(IDS_IOS_LEVEL_UP_LEVEL_TITLE,
                                              base::NumberToString16(level));
 
-  NSInteger completedTasksForLevel = 0;
-  for (LevelUpTask* task in tasks) {
-    if (task.completed) {
-      completedTasksForLevel++;
-    }
-  }
-  NSInteger totalTasksForLevel = tasks.count;
-  NSInteger tasksRemaining = totalTasksForLevel - completedTasksForLevel;
   NSString* progressMessage = nil;
   if (tasksRemaining > 0) {
     _completionBadgeContainer.hidden = YES;
@@ -140,10 +137,20 @@ const CGFloat kCompletionRowSpacing = 16.0;
   }
   _subtitleLabel.text = progressMessage;
 
-  [_progressBar setCompleted:completedTasksForLevel total:totalTasksForLevel];
+  int completed = totalTasks - tasksRemaining;
+  [_progressBar setCompleted:completed total:totalTasks];
+}
+
+- (void)setNewTasksNotificationEnabled:(BOOL)enabled {
+  _notificationToggleSwitch.on = enabled;
 }
 
 #pragma mark - Private
+
+// Called when the notification switch is toggled.
+- (void)notificationSwitchToggled:(UISwitch*)sender {
+  [self.delegate didToggleNewTasksNotification:sender.isOn];
+}
 
 // Creates the header view.
 - (UIStackView*)createHeaderView {
@@ -225,6 +232,9 @@ const CGFloat kCompletionRowSpacing = 16.0;
   UISwitch* toggleSwitch = [[UISwitch alloc] init];
   toggleSwitch.translatesAutoresizingMaskIntoConstraints = NO;
   toggleSwitch.onTintColor = [UIColor colorNamed:kBlueColor];
+  [toggleSwitch addTarget:self
+                   action:@selector(notificationSwitchToggled:)
+         forControlEvents:UIControlEventValueChanged];
   [toggleSwitch
       setContentCompressionResistancePriority:UILayoutPriorityRequired
                                       forAxis:UILayoutConstraintAxisHorizontal];

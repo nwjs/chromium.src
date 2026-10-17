@@ -237,6 +237,7 @@ ci.builder(
 
 ci.builder(
     name = "Deterministic Linux",
+    description_html = "Verifies that Linux x64 release builds are deterministic.",
     executable = "recipe:swarming/deterministic_build",
     gn_args = gn_args.config(
         configs = [
@@ -267,6 +268,7 @@ ci.builder(
 
 ci.builder(
     name = "Deterministic Linux (dbg)",
+    description_html = "Verifies that Linux x64 debug builds are deterministic.",
     executable = "recipe:swarming/deterministic_build",
     gn_args = {
         "local": gn_args.config(
@@ -277,6 +279,10 @@ ci.builder(
         ),
     },
     cores = 32,
+    # This builder uses almost as much disk space as is available on a standard
+    # VM, which causes issues if there are any caches from other builders. So,
+    # target higher disk space instances.
+    free_space = builders.free_space.high,
     console_view_entry = consoles.console_view_entry(
         category = "debug|builder",
         short_name = "det",
@@ -291,6 +297,7 @@ ci.builder(
 
 ci.builder(
     name = "Leak Detection Linux",
+    description_html = "Builds and runs memory leak detection tests on Linux x64 release builds.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(config = "chromium"),
         chromium_config = builder_config.chromium_config(
@@ -333,6 +340,7 @@ ci.builder(
 ci.builder(
     name = "Linux Builder",
     branch_selector = branches.selector.LINUX_BRANCHES,
+    description_html = "Compiles Linux x64 release builds for triggered testers.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -358,7 +366,6 @@ ci.builder(
             "gpu_tests",
             "release_builder",
             "remoteexec",
-            "devtools_do_typecheck",
             "linux",
             "x64",
         ],
@@ -386,6 +393,7 @@ ci.builder(
 ci.builder(
     name = "Linux Builder (dbg)",
     branch_selector = branches.selector.LINUX_BRANCHES,
+    description_html = "Compiles Linux x64 debug builds for triggered testers.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -539,6 +547,7 @@ ci.thin_tester(
 ci.builder(
     name = "Linux Builder (Wayland)",
     branch_selector = branches.selector.LINUX_BRANCHES,
+    description_html = "Compiles Linux x64 Wayland release builds for triggered testers.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -645,6 +654,7 @@ ci.thin_tester(
 ci.thin_tester(
     name = "Linux Tests",
     branch_selector = branches.selector.LINUX_BRANCHES,
+    description_html = "Runs standard Chromium test suites against Linux x64 release builds.",
     parent = "ci/Linux Builder",
     builder_spec = builder_config.builder_spec(
         execution_mode = builder_config.execution_mode.TEST,
@@ -781,6 +791,7 @@ ci.thin_tester(
 ci.thin_tester(
     name = "Linux Tests (dbg)(1)",
     branch_selector = branches.selector.LINUX_BRANCHES,
+    description_html = "Runs standard Chromium test suites against Linux x64 debug builds.",
     parent = "ci/Linux Builder (dbg)",
     builder_spec = builder_config.builder_spec(
         execution_mode = builder_config.execution_mode.TEST,
@@ -819,7 +830,7 @@ ci.thin_tester(
                 # crbug.com/1508286
                 # crbug.com/404871436
                 swarming = targets.swarming(
-                    shards = 90,
+                    shards = 152,
                 ),
             ),
             "content_browsertests": targets.mixin(
@@ -847,7 +858,7 @@ ci.thin_tester(
                 ],
                 # Slow on certain debug builders, see crbug.com/1513713.
                 swarming = targets.swarming(
-                    shards = 25,
+                    shards = 41,
                 ),
             ),
             "leveldb_unittests": targets.mixin(
@@ -1106,6 +1117,7 @@ ci.thin_tester(
 # For documentation, see //services/network/README.md.
 ci.builder(
     name = "Network Service Linux",
+    description_html = "Builds and runs extra Network Service test suites on Linux x64 release builds.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -1247,6 +1259,7 @@ ci.builder(
 
 ci.builder(
     name = "linux-bfcache-rel",
+    description_html = "Builds and runs tests with Back-Forward Cache (bfcache) enabled on Linux x64 release builds.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -1299,6 +1312,7 @@ ci.builder(
 
 ci.builder(
     name = "linux-extended-tracing-rel",
+    description_html = "Builds Chromium with extended tracing enabled on Linux x64 release builds.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -1422,6 +1436,7 @@ ci.builder(
 ci.builder(
     name = "linux-v4l2-codec-rel",
     branch_selector = branches.selector.MAIN,
+    description_html = "Compiles Chromium and V4L2 test targets with Video4Linux2 (V4L2) hardware video codec support enabled on Linux x64 release builds.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",

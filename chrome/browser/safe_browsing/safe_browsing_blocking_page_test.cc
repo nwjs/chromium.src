@@ -24,6 +24,7 @@
 #include "base/i18n/test/scoped_icu_locale.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/run_loop.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
@@ -34,6 +35,7 @@
 #include "base/test/simple_test_clock.h"
 #include "base/test/test_future.h"
 #include "base/values.h"
+#include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/browser_process.h"
@@ -46,6 +48,7 @@
 #include "chrome/browser/policy/policy_test_utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/renderer_context_menu/render_view_context_menu_test_util.h"
+#include "chrome/browser/safe_browsing/chrome_enterprise_url_lookup_service_factory.h"
 #include "chrome/browser/safe_browsing/safe_browsing_blocking_page_platform_test_helper.h"
 #include "chrome/browser/safe_browsing/safe_browsing_metrics_collector_factory.h"
 #include "chrome/browser/safe_browsing/test_safe_browsing_service.h"
@@ -75,6 +78,7 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/enterprise/connectors/core/common.h"
 #include "components/enterprise/connectors/core/connectors_prefs.h"
+#include "components/enterprise/isolated_mode/isolated_mode_features.h"
 #include "components/google/core/common/google_util.h"
 #include "components/grit/components_resources.h"
 #include "components/omnibox/browser/omnibox_prefs.h"
@@ -92,8 +96,8 @@
 #include "components/safe_browsing/content/common/safe_browsing.mojom.h"
 #include "components/safe_browsing/core/browser/db/database_manager.h"
 #include "components/safe_browsing/core/browser/db/fake_database_manager.h"
+#include "components/safe_browsing/core/browser/db/sb_protocol_manager_util.h"
 #include "components/safe_browsing/core/browser/db/util.h"
-#include "components/safe_browsing/core/browser/db/v4_protocol_manager_util.h"
 #include "components/safe_browsing/core/browser/db/v5_search_hashes_cache.h"
 #include "components/safe_browsing/core/browser/safe_browsing_metrics_collector.h"
 #include "components/safe_browsing/core/browser/verdict_cache_manager.h"
@@ -126,7 +130,6 @@
 #include "content/public/common/isolated_world_ids.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
-#include "content/public/test/fenced_frame_test_util.h"
 #include "content/public/test/prerender_test_util.h"
 #include "content/public/test/render_view_test.h"
 #include "content/public/test/test_frame_navigation_observer.h"
@@ -144,11 +147,16 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/events/test/test_event.h"
+#include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/controls/styled_label.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/metrics/desktop_session_duration/desktop_session_duration_tracker.h"
 #endif
+
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING) && !BUILDFLAG(IS_CHROMEOS)
+#include "chrome/test/base/scoped_channel_override.h"
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING) && !BUILDFLAG(IS_CHROMEOS)
 
 using chrome_browser_interstitials::SecurityInterstitialIDNTest;
 using content::BrowserThread;
@@ -402,8 +410,9 @@ class SafeBrowsingBlockingPageBrowserTest
     raw_blocking_page_factory_ = blocking_page_factory.get();
     factory_.SetTestUIManager(
         new FakeSafeBrowsingUIManager(std::move(blocking_page_factory)));
-    factory_.SetTestDatabaseManager(new FakeSafeBrowsingDatabaseManager(
-        content::GetUIThreadTaskRunner({})));
+    factory_.SetTestDatabaseManager(
+        base::MakeRefCounted<FakeSafeBrowsingDatabaseManager>(
+            content::GetUIThreadTaskRunner({})));
     SafeBrowsingService::RegisterFactory(&factory_);
     ThreatDetails::RegisterFactory(&details_factory_);
   }
@@ -2130,8 +2139,9 @@ class SafeBrowsingBlockingPageDelayedWarningBrowserTest
     // the browser is started but after threads are created.
     factory_.SetTestUIManager(new FakeSafeBrowsingUIManager(
         std::make_unique<TestSafeBrowsingBlockingPageFactory>()));
-    factory_.SetTestDatabaseManager(new FakeSafeBrowsingDatabaseManager(
-        content::GetUIThreadTaskRunner({})));
+    factory_.SetTestDatabaseManager(
+        base::MakeRefCounted<FakeSafeBrowsingDatabaseManager>(
+            content::GetUIThreadTaskRunner({})));
     SafeBrowsingService::RegisterFactory(&factory_);
     ThreatDetails::RegisterFactory(&details_factory_);
   }
@@ -2782,8 +2792,9 @@ class SafeBrowsingBlockingPageEnhancedProtectionMessageTest
     // the browser is started but after threads are created.
     factory_.SetTestUIManager(new FakeSafeBrowsingUIManager(
         std::make_unique<TestSafeBrowsingBlockingPageFactory>()));
-    factory_.SetTestDatabaseManager(new FakeSafeBrowsingDatabaseManager(
-        content::GetUIThreadTaskRunner({})));
+    factory_.SetTestDatabaseManager(
+        base::MakeRefCounted<FakeSafeBrowsingDatabaseManager>(
+            content::GetUIThreadTaskRunner({})));
     SafeBrowsingService::RegisterFactory(&factory_);
     ThreatDetails::RegisterFactory(&details_factory_);
   }
@@ -2932,8 +2943,9 @@ class SafeBrowsingBlockingPageAsyncChecksTestBase
     // the browser is started but after threads are created.
     factory_.SetTestUIManager(new FakeSafeBrowsingUIManager(
         std::make_unique<TestSafeBrowsingBlockingPageFactory>()));
-    factory_.SetTestDatabaseManager(new FakeSafeBrowsingDatabaseManager(
-        content::GetUIThreadTaskRunner({})));
+    factory_.SetTestDatabaseManager(
+        base::MakeRefCounted<FakeSafeBrowsingDatabaseManager>(
+            content::GetUIThreadTaskRunner({})));
     SafeBrowsingService::RegisterFactory(&factory_);
   }
 
@@ -3830,6 +3842,124 @@ IN_PROC_BROWSER_TEST_F(SafeBrowsingBlockingPageRealTimeUrlCheckTest,
       /*expected_bucket_count=*/1);
 }
 
+class SafeBrowsingBlockingPageEnterpriseIsolatedModeTestBase
+    : public SafeBrowsingBlockingPageRealTimeUrlCheckTest {
+ public:
+  SafeBrowsingBlockingPageEnterpriseIsolatedModeTestBase() = default;
+
+  void TestEnterpriseRealTimeUrlCheck(bool is_isolated_mode_enabled) {
+    // Create an incognito/isolated browser before enabling enterprise lookup so
+    // that the initial about:blank page load does not trigger an uncached
+    // lookup.
+    BrowserWindowInterface* incognito_browser =
+        CreateIncognitoBrowser(browser()->GetProfile());
+
+    ASSERT_TRUE(incognito_browser);
+    ASSERT_EQ(
+        incognito_browser->GetProfile()->IsEnterpriseIsolatedModeProfile(),
+        is_isolated_mode_enabled);
+
+    safe_browsing::SetSafeBrowsingState(
+        browser()->GetProfile()->GetPrefs(),
+        safe_browsing::SafeBrowsingState::STANDARD_PROTECTION);
+
+    // Set up enterprise lookup, including DM token.
+    browser()->GetProfile()->GetPrefs()->SetInteger(
+        enterprise_connectors::kEnterpriseRealTimeUrlCheckMode,
+        enterprise_connectors::REAL_TIME_CHECK_FOR_MAINFRAME_ENABLED);
+    browser()->GetProfile()->GetPrefs()->SetInteger(
+        enterprise_connectors::kEnterpriseRealTimeUrlCheckScope,
+        policy::POLICY_SCOPE_MACHINE);
+    SetDMTokenForTesting(policy::DMToken::CreateValidToken("dm_token"));
+
+    GURL url = embedded_test_server()->GetURL(kEmptyPage);
+    ASSERT_TRUE(url.is_valid());
+    SetupUrlRealTimeVerdictInCacheManager(
+        url, incognito_browser->GetProfile(),
+        RTLookupResponse::ThreatInfo::DANGEROUS,
+        RTLookupResponse::ThreatInfo::SOCIAL_ENGINEERING);
+
+    base::HistogramTester histogram_tester;
+
+    ASSERT_TRUE(ui_test_utils::NavigateToURL(incognito_browser, url));
+    SafeBrowsingBlockingPageTestHelper::MaybeWaitForAsyncChecksToComplete(
+        incognito_browser->GetTabStripModel()->GetActiveWebContents(),
+        GetUiManager(), /*wait_for_load_stop=*/true);
+
+    if (is_isolated_mode_enabled) {
+      EXPECT_TRUE(chrome_browser_interstitials::IsShowingInterstitial(
+          incognito_browser->GetTabStripModel()->GetActiveWebContents()));
+      histogram_tester.ExpectUniqueSample(
+          "SafeBrowsing.RT.EnterpriseRealTimePolicyEnabled.HasDmToken",
+          /*sample=*/true,
+          /*expected_bucket_count=*/1);
+    } else {
+      EXPECT_FALSE(chrome_browser_interstitials::IsShowingInterstitial(
+          incognito_browser->GetTabStripModel()->GetActiveWebContents()));
+      histogram_tester.ExpectTotalCount(
+          "SafeBrowsing.RT.EnterpriseRealTimePolicyEnabled.HasDmToken", 0);
+    }
+  }
+};
+
+class SafeBrowsingBlockingPageEnterpriseIsolatedModeTest
+    : public SafeBrowsingBlockingPageEnterpriseIsolatedModeTestBase {
+ public:
+  SafeBrowsingBlockingPageEnterpriseIsolatedModeTest() = default;
+
+  void SetUp() override {
+    scoped_feature_list_.InitWithFeatures(
+        /*enabled_features=*/{enterprise_isolated_mode::
+                                  kEnableEnterpriseIsolatedMode},
+        /*disabled_features=*/{kDelayedWarnings});
+    SafeBrowsingBlockingPagePlatformBrowserTest::SetUp();
+  }
+
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    SafeBrowsingBlockingPageEnterpriseIsolatedModeTestBase::SetUpCommandLine(
+        command_line);
+    command_line->AppendSwitch(
+        enterprise_isolated_mode::switches::
+            kForceEnterpriseIsolatedModeReplacesIncognito);
+  }
+
+ private:
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING) && !BUILDFLAG(IS_CHROMEOS)
+  chrome::ScopedChannelOverride channel_override_{
+      chrome::ScopedChannelOverride::Channel::kDev};
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING) && !BUILDFLAG(IS_CHROMEOS)
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+class SafeBrowsingBlockingPageEnterpriseIsolatedModeDisabledTest
+    : public SafeBrowsingBlockingPageEnterpriseIsolatedModeTestBase {
+ public:
+  SafeBrowsingBlockingPageEnterpriseIsolatedModeDisabledTest() = default;
+
+  void SetUp() override {
+    scoped_feature_list_.InitWithFeatures(
+        /*enabled_features=*/{},
+        /*disabled_features=*/{
+            enterprise_isolated_mode::kEnableEnterpriseIsolatedMode,
+            kDelayedWarnings});
+    SafeBrowsingBlockingPagePlatformBrowserTest::SetUp();
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(SafeBrowsingBlockingPageEnterpriseIsolatedModeTest,
+                       EnterpriseRealTimeUrlCheck_IsolatedModeProfile) {
+  TestEnterpriseRealTimeUrlCheck(/*is_isolated_mode_enabled=*/true);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    SafeBrowsingBlockingPageEnterpriseIsolatedModeDisabledTest,
+    EnterpriseRealTimeUrlCheck_IsolatedModeProfileDisabled) {
+  TestEnterpriseRealTimeUrlCheck(/*is_isolated_mode_enabled=*/false);
+}
+
 IN_PROC_BROWSER_TEST_F(SafeBrowsingBlockingPageRealTimeUrlCheckTest,
                        EnterpriseRealTimeUrlCheck_HistogramHasNoDmToken) {
   base::HistogramTester histogram_tester;
@@ -3913,8 +4043,9 @@ class SafeBrowsingBlockingPageHashRealTimeCheckTest
     // the browser is started but after threads are created.
     factory_.SetTestUIManager(new FakeSafeBrowsingUIManager(
         std::make_unique<TestSafeBrowsingBlockingPageFactory>()));
-    factory_.SetTestDatabaseManager(new FakeSafeBrowsingDatabaseManager(
-        content::GetUIThreadTaskRunner({})));
+    factory_.SetTestDatabaseManager(
+        base::MakeRefCounted<FakeSafeBrowsingDatabaseManager>(
+            content::GetUIThreadTaskRunner({})));
     SafeBrowsingService::RegisterFactory(&factory_);
   }
 

@@ -45,14 +45,24 @@
 #include "ui/views/window/non_client_view.h"
 #include "url/origin.h"
 
+#if !BUILDFLAG(IS_WIN)
+#include "chrome/browser/picture_in_picture/picture_in_picture_widget_fade_animator.h"
+#endif
+
 #if BUILDFLAG(IS_MAC)
 #include "chrome/browser/ui/views/picture_in_picture/document_pip_native_widget_mac.h"
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+#include "chrome/browser/extensions/chrome_extension_web_contents_observer.h"
+#include "chrome/browser/extensions/tab_helper.h"
+#include "components/sessions/content/session_tab_helper.h"
+#include "components/zoom/zoom_controller.h"
 #include "extensions/browser/extension_registry.h"
+#include "extensions/browser/view_type_utils.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
+#include "extensions/common/mojom/view_type.mojom.h"
 #endif
 
 namespace {
@@ -125,6 +135,12 @@ void DocumentPipHost::CreateAndShowPipWindow(
 
   CHECK(child_web_contents);
   pip_options_ = std::move(pip_options);
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+  session_id_ = SessionID::NewUnique();
+  extensions::SetViewType(child_web_contents.get(),
+                          extensions::mojom::ViewType::kTabContents);
+#endif
 
   // Store a back-pointer on the child so the content-settings refresh path can
   // find this host given the captured (child) WebContents. Done before the
@@ -202,6 +218,12 @@ void DocumentPipHost::CreateAndShowPipWindow(
   CreateChildWebContentsHelpers(GetChildWebContents());
 
   restore_focus_on_activation_ = true;
+#if !BUILDFLAG(IS_WIN)
+  // Resizable Windows PiP widgets cannot be translucent.
+  fade_animator_ = std::make_unique<PictureInPictureWidgetFadeAnimator>();
+  fade_animator_->AnimateShowWindow(
+      widget_.get(), PictureInPictureWidgetFadeAnimator::WidgetShowType::kNone);
+#endif
   widget_->Show();
 }
 
@@ -273,6 +295,12 @@ void DocumentPipHost::PrimaryPageChanged(content::Page& page) {
   ClosePipWindow();
 }
 
+void DocumentPipHost::TitleWasSet(content::NavigationEntry* entry) {
+  if (widget_) {
+    widget_->UpdateWindowTitle();
+  }
+}
+
 // =============================================================================
 // WebContentsDelegate - Navigation & State
 // =============================================================================
@@ -291,7 +319,7 @@ void DocumentPipHost::CloseContents(content::WebContents* source) {
 void DocumentPipHost::NavigationStateChanged(
     content::WebContents* source,
     content::InvalidateTypes changed_flags) {
-  // Update the frame view's title when the page title changes.
+  // Refresh window metadata without using the child page's title.
   if (widget_ && (changed_flags & content::INVALIDATE_TYPE_TITLE)) {
     widget_->UpdateWindowTitle();
   }
@@ -606,6 +634,23 @@ bool DocumentPipHost::CheckMediaAccessPermission(
 
 void DocumentPipHost::CreateChildWebContentsHelpers(
     content::WebContents* child_web_contents) {
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+  extensions::ChromeExtensionWebContentsObserver::CreateForWebContents(
+      child_web_contents);
+  // Supply extension identity without registering the script-created document
+  // with session restore. TabHelper preserves an existing SessionTabHelper.
+  sessions::SessionTabHelper::CreateForWebContents(
+      child_web_contents, sessions::SessionTabHelper::DelegateLookup());
+  auto* session_helper =
+      sessions::SessionTabHelper::FromWebContents(child_web_contents);
+  extensions::ChromeExtensionWebContentsObserver::FromWebContents(
+      child_web_contents)
+      ->ListenToWindowIdChangesFrom(session_helper);
+  session_helper->SetWindowID(session_id_);
+  extensions::TabHelper::CreateForWebContents(child_web_contents);
+  zoom::ZoomController::CreateForWebContents(child_web_contents);
+#endif
+
   // Create PageSpecificContentSettings so media grants from the PiP document
   // are recorded on the child and mirrored onto the opener via the PiP
   // synced-settings path (MaybeGetSyncedSettingsForPictureInPicture). Without
@@ -648,10 +693,30 @@ void DocumentPipHost::ClosePipWindow() {
     return;
   }
 
-  modal_dialog_host_observer_list_.Notify(
-      &web_modal::ModalDialogHostObserver::OnHostDestroying);
+  PrepareForWidgetDestruction();
+
+  // CLIENT_OWNS_WIDGET: synchronously destroy the widget. This tears down the
+  // view tree -> DocumentPipContentsView (the WebView) -> child WebContents.
+  // The widget references `widget_delegate_` by raw pointer, so destroy the
+  // widget first, then the delegate.
+  widget_.reset();
+  widget_delegate_.reset();
+}
+
+void DocumentPipHost::PrepareForWidgetDestruction() {
+  // An external native close prepares here before the synchronous close
+  // callback releases ownership. Run the cleanup only once per window.
+  if (!widget_observation_.IsObserving()) {
+    return;
+  }
+
   widget_observation_.Reset();
   contents_view_observation_.Reset();
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+  session_id_ = SessionID::InvalidValue();
+#endif
+  modal_dialog_host_observer_list_.Notify(
+      &web_modal::ModalDialogHostObserver::OnHostDestroying);
 
   // Destroy the child-dialog observer before the widget it observes, so its
   // scoped observations remove themselves while the widget is still alive.
@@ -668,16 +733,15 @@ void DocumentPipHost::ClosePipWindow() {
     child->SetDelegate(nullptr);
   }
 
+#if !BUILDFLAG(IS_WIN)
+  if (fade_animator_) {
+    fade_animator_->CancelAndReset();
+    fade_animator_.reset();
+  }
+#endif
   // Destroy the tucker before the widget, since it references the widget.
   tucker_.reset();
   is_tucking_forced_ = false;
-
-  // CLIENT_OWNS_WIDGET: synchronously destroy the widget. This tears down the
-  // view tree -> DocumentPipContentsView (the WebView) -> child WebContents.
-  // The widget references `widget_delegate_` by raw pointer, so destroy the
-  // widget first, then the delegate.
-  widget_.reset();
-  widget_delegate_.reset();
 }
 
 void DocumentPipHost::OnWidgetCloseRequested(
@@ -853,7 +917,9 @@ void DocumentPipHost::OnWidgetBoundsChanged(views::Widget* widget,
 }
 
 void DocumentPipHost::OnWidgetDestroying(views::Widget* widget) {
-  ClosePipWindow();
+  // Views still uses the client view after this notification. The
+  // MakeCloseSynchronous callback releases the widget after native destruction.
+  PrepareForWidgetDestruction();
 }
 
 void DocumentPipHost::OnViewBoundsChanged(views::View* observed_view) {

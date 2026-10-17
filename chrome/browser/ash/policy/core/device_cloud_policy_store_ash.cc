@@ -19,10 +19,10 @@
 #include "base/task/thread_pool.h"
 #include "chrome/browser/ash/login/startup_utils.h"
 #include "chrome/browser/ash/policy/core/device_policy_decoder.h"
-#include "chrome/browser/ash/policy/dev_mode/dev_mode_policy_util.h"
-#include "chrome/browser/ash/policy/value_validation/onc_device_policy_value_validator.h"
 #include "chrome/browser/browser_process.h"
 #include "chromeos/ash/components/install_attributes/install_attributes.h"
+#include "chromeos/ash/components/policy/dev_mode/dev_mode_policy_util.h"
+#include "chromeos/ash/components/policy/value_validation/onc_device_policy_value_validator.h"
 #include "chromeos/dbus/constants/dbus_paths.h"
 #include "components/ownership/owner_key_util.h"
 #include "components/policy/core/common/cloud/cloud_external_data_manager.h"
@@ -75,7 +75,7 @@ void DeviceCloudPolicyStoreAsh::Store(const em::PolicyFetchResponse& policy) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // The policy and the public key must have already been loaded by the device
   // settings service.
-  DCHECK(is_initialized());
+  CHECK(is_initialized(), base::NotFatalUntil::M160);
 
   // Cancel all pending requests.
   weak_factory_.InvalidateWeakPtrs();

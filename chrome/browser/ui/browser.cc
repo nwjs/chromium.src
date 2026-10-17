@@ -52,7 +52,6 @@
 #include "chrome/browser/ai/ai_data_keyed_service_factory.h"  // nogncheck
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/buildflags.h"
-#include "chrome/browser/content_settings/sound_content_setting_observer.h"
 #include "chrome/browser/custom_handlers/protocol_handler_registry_factory.h"
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/devtools/devtools_toggle_action.h"
@@ -124,6 +123,7 @@
 #include "chrome/browser/ui/tabs/tab_utils.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/unload_controller.h"
+#include "chrome/browser/ui/views/tabs/dragging/tab_drag_controller.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_modal/browser_window_modal_dialog_delegate.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service.h"
@@ -383,6 +383,11 @@ Browser::Browser(BrowserWindowCreateParams params)
   } else if (profile_->IsIncognitoProfile()) {
     base::UmaHistogramCounts100(
         "Browser.WindowCount.Incognito",
+        ProfileBrowserCollection::GetForProfile(profile_)
+            ->GetOffTheRecordBrowserCount());
+  } else if (profile_->IsEnterpriseIsolatedModeProfile()) {
+    base::UmaHistogramCounts100(
+        "Browser.WindowCount.EnterpriseIsolated",
         ProfileBrowserCollection::GetForProfile(profile_)
             ->GetOffTheRecordBrowserCount());
   }
@@ -649,13 +654,13 @@ void Browser::OnTabStripModelChanged(TabStripModel* tab_strip_model,
                tab_strip_model, "change", change);
   switch (change.type()) {
     case TabStripModelChange::kInserted: {
-      // Initialize find bar controller when tab having active find session
+      // Initialize find bar when tab having active find session
       // is inserted in a new window.
       find_in_page::FindTabHelper* find_tab_helper =
           find_in_page::FindTabHelper::FromWebContents(selection.new_contents);
-      if (!HasFindBarController() && find_tab_helper &&
+      if (!FindBarController::From(this)->HasFindBar() && find_tab_helper &&
           find_tab_helper->is_find_session_active()) {
-        std::ignore = CreateOrGetFindBarController();
+        FindBarController::From(this)->find_bar();
       }
       for (const auto& contents : change.GetInsert()->contents) {
         OnTabInsertedAt(contents.contents, contents.index);
@@ -697,6 +702,14 @@ void Browser::OnTabStripModelChanged(TabStripModel* tab_strip_model,
 }
 
 void Browser::TabStripEmpty() {
+  // A touch tab drag session may still be delivering OS touch events to this
+  // window's native widget. Destroying it mid-gesture would strand the drag, so
+  // let TabDragController take ownership of closing this browser once the drag
+  // completes.
+  if (TabDragController::OnBrowserTabStripEmptyDuringDrag(this)) {
+    return;
+  }
+
   in_tabstrip_empty_ = true;
   // Note: even though the tab strip is empty, the call to Close() may not
   // result in closing this Browser. This can happen in the case of closing
@@ -953,8 +966,8 @@ void Browser::OnActiveTabChanged(const TabStripModelChange& change,
     }
   }
 
-  if (HasFindBarController()) {
-    CreateOrGetFindBarController()->HandleActiveTabChanged(
+  if (FindBarController::From(this)->HasFindBar()) {
+    FindBarController::From(this)->HandleActiveTabChanged(
         selection.new_contents);
   }
 
@@ -1024,15 +1037,7 @@ void Browser::TabDetachedAtImpl(content::WebContents* contents,
   SetAsDelegate(contents, false);
   BrowserUiController::From(this)->RemoveScheduledUpdatesFor(contents);
 
-  if (HasFindBarController() && was_active) {
-    CreateOrGetFindBarController()->ChangeWebContents(nullptr);
+  if (FindBarController::From(this)->HasFindBar() && was_active) {
+    FindBarController::From(this)->ChangeWebContents(nullptr);
   }
-}
-
-FindBarController* Browser::CreateOrGetFindBarController() {
-  return GetFeatures().GetFindBarController();
-}
-
-bool Browser::HasFindBarController() {
-  return GetFeatures().HasFindBarController();
 }

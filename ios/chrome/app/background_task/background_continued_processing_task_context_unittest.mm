@@ -9,6 +9,7 @@
 #import "base/test/gtest_util.h"
 #import "base/test/task_environment.h"
 #import "base/test/test_future.h"
+#import "ios/chrome/app/background_mode_buildflags.h"
 #import "ios/chrome/app/background_task/background_continued_processing_task_configuration.h"
 #import "testing/gtest/include/gtest/gtest.h"
 #import "testing/gtest_mac.h"
@@ -45,8 +46,8 @@ class BackgroundContinuedProcessingTaskContextTest : public PlatformTest {
     BackgroundContinuedProcessingTaskConfiguration* config =
         [[BackgroundContinuedProcessingTaskConfiguration alloc]
                 initWithTitle:kTestTaskTitle
+                     subtitle:kTestTaskSubtitle
             expirationHandler:expirationHandler];
-    config.subtitle = kTestTaskSubtitle;
     return [[BackgroundContinuedProcessingTaskContext alloc]
         initWithTaskIdentifier:taskId
                  configuration:config
@@ -58,6 +59,7 @@ class BackgroundContinuedProcessingTaskContextTest : public PlatformTest {
   id mock_scheduler_;
 };
 
+#if BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
 // Tests that completing the context before the OS delivers the underlying task
 // cancels the pending task request, and immediately marks the system task with
 // the recorded outcome (success or failure) upon delivery.
@@ -105,6 +107,7 @@ TEST_F(BackgroundContinuedProcessingTaskContextTest,
     }
   }
 }
+#endif  // BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
 
 // Tests that multiple completion calls are idempotent and mutations after
 // completion are ignored.
@@ -150,23 +153,45 @@ TEST_F(BackgroundContinuedProcessingTaskContextTest, TestPostCompletionSafety) {
   EXPECT_EQ(failureContext.completedUnits, 0);
 }
 
-// Tests that setting an empty title fails.
-TEST_F(BackgroundContinuedProcessingTaskContextTest, TestEmptyTitleFails) {
+// Tests that setting an empty title fails, while setting a nil subtitle
+// defaults to an empty string.
+TEST_F(BackgroundContinuedProcessingTaskContextTest,
+       TestEmptyTitleFailsAndNilSubtitleDefaultsToEmpty) {
   BackgroundContinuedProcessingTaskContext* context =
       CreateTestContext(@"empty.title.test.id");
 
+  NSString* nilString = nil;
   EXPECT_DEATH_IF_SUPPORTED(context.title = @"", "");
   EXPECT_DEATH_IF_SUPPORTED([context updateTitle:@"" subtitle:@"Bar"], "");
+
+  context.subtitle = nilString;
+  EXPECT_NSEQ(context.subtitle, @"");
+
+  [context updateTitle:@"Foo" subtitle:@"NonEmpty"];
+  EXPECT_NSEQ(context.subtitle, @"NonEmpty");
+
+  [context updateTitle:@"Foo" subtitle:nilString];
+  EXPECT_NSEQ(context.subtitle, @"");
 }
 
-// Tests that configuring invalid progress invariants triggers a crash.
+// Tests that configuring invalid progress invariants triggers a crash, while
+// nil subtitles default to an empty string.
 TEST_F(BackgroundContinuedProcessingTaskContextTest,
-       TestInvalidConfigurationFails) {
+       TestConfigurationInvariantsAndSubtitleDefaulting) {
+  NSString* nilString = nil;
   BackgroundContinuedProcessingTaskConfiguration* config =
       [[BackgroundContinuedProcessingTaskConfiguration alloc]
               initWithTitle:kTestTaskTitle
+                   subtitle:nilString
           expirationHandler:^{
           }];
+  EXPECT_NSEQ(config.subtitle, @"");
+
+  config.subtitle = kTestTaskSubtitle;
+  EXPECT_NSEQ(config.subtitle, kTestTaskSubtitle);
+
+  config.subtitle = nilString;
+  EXPECT_NSEQ(config.subtitle, @"");
 
   EXPECT_DEATH_IF_SUPPORTED(config.totalUnits = 0, "");
   EXPECT_DEATH_IF_SUPPORTED(config.totalUnits = -1, "");
@@ -183,6 +208,7 @@ TEST_F(BackgroundContinuedProcessingTaskContextTest,
     BackgroundContinuedProcessingTaskConfiguration* config =
         [[BackgroundContinuedProcessingTaskConfiguration alloc]
                 initWithTitle:kTestTaskTitle
+                     subtitle:kTestTaskSubtitle
             expirationHandler:^{
             }];
     config.totalUnits = 1;
@@ -207,6 +233,7 @@ TEST_F(BackgroundContinuedProcessingTaskContextTest,
     BackgroundContinuedProcessingTaskConfiguration* config =
         [[BackgroundContinuedProcessingTaskConfiguration alloc]
                 initWithTitle:kTestTaskTitle
+                     subtitle:kTestTaskSubtitle
             expirationHandler:^{
             }];
     config.totalUnits = 2;
@@ -236,6 +263,7 @@ TEST_F(BackgroundContinuedProcessingTaskContextTest,
     BackgroundContinuedProcessingTaskConfiguration* config =
         [[BackgroundContinuedProcessingTaskConfiguration alloc]
                 initWithTitle:kTestTaskTitle
+                     subtitle:kTestTaskSubtitle
             expirationHandler:^{
             }];
     config.totalUnits = 10;
@@ -359,6 +387,7 @@ TEST_F(BackgroundContinuedProcessingTaskContextTest,
   BackgroundContinuedProcessingTaskConfiguration* config =
       [[BackgroundContinuedProcessingTaskConfiguration alloc]
               initWithTitle:kTestTaskTitle
+                   subtitle:kTestTaskSubtitle
           expirationHandler:^{
           }];
   config.expectedStepCount = 10;
@@ -386,6 +415,7 @@ TEST_F(BackgroundContinuedProcessingTaskContextTest,
     BackgroundContinuedProcessingTaskConfiguration* singleStepConfig =
         [[BackgroundContinuedProcessingTaskConfiguration alloc]
                 initWithTitle:kTestTaskTitle
+                     subtitle:kTestTaskSubtitle
             expirationHandler:^{
             }];
     singleStepConfig.expectedStepCount = 1;
@@ -416,6 +446,7 @@ TEST_F(BackgroundContinuedProcessingTaskContextTest,
   BackgroundContinuedProcessingTaskConfiguration* config =
       [[BackgroundContinuedProcessingTaskConfiguration alloc]
               initWithTitle:kTestTaskTitle
+                   subtitle:kTestTaskSubtitle
           expirationHandler:^{
           }];
   config.totalUnits = kCustomTotalUnits;
@@ -526,6 +557,7 @@ TEST_F(BackgroundContinuedProcessingTaskContextTest,
   EXPECT_EQ(failureContext.completedUnits, unitsBeforeFailure);
 }
 
+#if BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
 // Tests that updating progress syncs to the underlying OS task when attached.
 TEST_F(BackgroundContinuedProcessingTaskContextTest,
        TestProgressSyncsToUnderlyingTask) {
@@ -698,3 +730,4 @@ TEST_F(BackgroundContinuedProcessingTaskContextTest,
     EXPECT_OCMOCK_VERIFY(mockTask);
   }
 }
+#endif  // BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)

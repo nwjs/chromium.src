@@ -388,11 +388,11 @@ struct QueryOptions {
   // enough room. When 0, this will return everything.
   int max_count = 0;
 
-  // Temporarily defaulted to `kExclude404s`; this may change in the future.
+  // Defaulted to `kInclude404s`.
   // Callers are strongly encouraged to explicitly set a value, unless they are
   // certain that the handling of 404 visits is irrelevant for their use case.
   VisitQuery404sPolicy policy_for_404_visits =
-      VisitQuery404sPolicy::kExclude404s;
+      VisitQuery404sPolicy::kInclude404s;
 
   enum DuplicateHandling {
     // Omit visits for which there is a more recent visit to the same URL.
@@ -417,9 +417,9 @@ struct QueryOptions {
   // query_parser::MatchingAlgorithm::DEFAULT;
   std::optional<query_parser::MatchingAlgorithm> matching_algorithm;
 
-  // Whether the history query should only search through hostnames.
-  // When this is true, the matching_algorithm field is ignored.
-  bool host_only = false;
+  // If not empty, restricts results to visits whose URL hostname matches
+  // or is a subdomain of this suffix.
+  std::string hostname_suffix;
 
   enum VisitOrder {
     RECENT_FIRST,
@@ -1069,10 +1069,10 @@ struct DuplicateClusterVisit {
   VisitID visit_id = 0;
 
   // Not persisted; derived from visit_id.
-  GURL url = {};
+  GURL url;
 
   // Not persisted; derived from visit_id.
-  base::Time visit_time = {};
+  base::Time visit_time;
 };
 
 // An `AnnotatedVisit` associated with some other metadata from clustering.

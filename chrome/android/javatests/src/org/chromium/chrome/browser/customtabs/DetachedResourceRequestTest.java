@@ -97,7 +97,7 @@ public class DetachedResourceRequestTest {
     @SmallTest
     public void testCanDoParallelRequest() {
         CustomTabsSessionToken session = CustomTabsSessionToken.createMockSessionTokenForTesting();
-        var sessionHolder = new SessionHolder<>(session);
+        var sessionHolder = SessionHolder.of(session);
         Assert.assertTrue(mConnection.newSession(session));
         ThreadUtils.runOnUiThreadBlocking(
                 () -> Assert.assertFalse(mConnection.canDoParallelRequest(sessionHolder, ORIGIN)));
@@ -116,7 +116,7 @@ public class DetachedResourceRequestTest {
     @SmallTest
     public void testCanDoResourcePrefetch() throws Exception {
         CustomTabsSessionToken session = CustomTabsSessionToken.createMockSessionTokenForTesting();
-        var sessionHolder = new SessionHolder<>(session);
+        var sessionHolder = SessionHolder.of(session);
         Assert.assertTrue(mConnection.newSession(session));
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -641,8 +641,9 @@ public class DetachedResourceRequestTest {
         intent.putExtra(CustomTabsConnection.PARALLEL_REQUEST_URL_KEY, url);
         intent.putExtra(CustomTabsConnection.PARALLEL_REQUEST_REFERRER_KEY, ORIGIN);
 
-        var sessionHolder = SessionHolder.getSessionHolderFromIntent(intent);
-        Assert.assertTrue(mConnection.newSession(sessionHolder.getSessionAsCustomTab()));
+        var sessionHolder =
+                SessionHolder.of(CustomTabsSessionToken.getSessionTokenFromIntent(intent));
+        Assert.assertTrue(mConnection.newSession(sessionHolder.getToken()));
         mConnection.mClientManager.setAllowParallelRequestForSession(sessionHolder, true);
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -765,16 +766,16 @@ public class DetachedResourceRequestTest {
         }
     }
 
-    private SessionHolder<?> prepareSession() throws Exception {
+    private SessionHolder prepareSession() throws Exception {
         return prepareSession(ORIGIN, null);
     }
 
-    private SessionHolder<?> prepareSession(Uri origin, CustomTabsCallback callback)
-            throws Exception {
+    private SessionHolder prepareSession(Uri origin, CustomTabsCallback callback) throws Exception {
         CustomTabsSession session = CustomTabsTestUtils.bindWithCallback(callback).session;
         Intent intent = new CustomTabsIntent.Builder(session).build().intent;
-        var sessionHolder = SessionHolder.getSessionHolderFromIntent(intent);
-        Assert.assertTrue(mConnection.newSession(sessionHolder.getSessionAsCustomTab()));
+        var sessionHolder =
+                SessionHolder.of(CustomTabsSessionToken.getSessionTokenFromIntent(intent));
+        Assert.assertTrue(mConnection.newSession(sessionHolder.getToken()));
         mConnection.mClientManager.setAllowParallelRequestForSession(sessionHolder, true);
         mConnection.mClientManager.setAllowResourcePrefetchForSession(sessionHolder, true);
         ThreadUtils.runOnUiThreadBlocking(
@@ -797,7 +798,7 @@ public class DetachedResourceRequestTest {
     }
 
     private CallbackHelper waitForDetachedRequest(
-            SessionHolder<?> session, String relativeUrl, boolean afterNative)
+            SessionHolder session, String relativeUrl, boolean afterNative)
             throws TimeoutException {
         // Count the number of times data is read from the socket.
         // We expect 1 for the detached request.

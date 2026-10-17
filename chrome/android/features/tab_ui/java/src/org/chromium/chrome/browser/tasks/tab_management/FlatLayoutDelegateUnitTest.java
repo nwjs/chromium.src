@@ -112,21 +112,35 @@ public class FlatLayoutDelegateUnitTest {
     }
 
     @Test
-    public void testGetAlertState() {
+    public void testGetAlertStateForTab() {
         when(mTab1.getAlertState()).thenReturn(TabAlert.AUDIO_PLAYING);
-        PropertyModel model = new PropertyModel(TabProperties.ALL_KEYS_TAB_GRID);
-        @TabAlert int state = mDelegate.getAlertState(mTab1, model);
+        @TabAlert int state = mDelegate.getAlertStateForTab(mTab1);
         assertEquals(TabAlert.AUDIO_PLAYING, state);
     }
 
     @Test
     public void testGetInsertionIndexOfTab() {
         addTabsToModelList(TAB1_ID);
-        when(mMediator.getRelatedTabsForId(TAB1_ID)).thenReturn(List.of(mTab1, mTab2));
+        when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+        when(mTab2.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+        when(mTabModel.getTabById(TAB1_ID)).thenReturn(mTab1);
+        when(mTabModel.getIndexOfTabInGroup(mTab2)).thenReturn(1);
 
         int insertionIndex = mDelegate.getInsertionIndexOfTab(mTab2);
 
         assertEquals(1, insertionIndex);
+    }
+
+    @Test
+    public void testGetInsertionIndexOfTab_DifferentGroup() {
+        addTabsToModelList(TAB1_ID);
+        when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+        when(mTab2.getTabGroupId()).thenReturn(TAB_GROUP_ID_2);
+        when(mTabModel.getTabById(TAB1_ID)).thenReturn(mTab1);
+
+        int insertionIndex = mDelegate.getInsertionIndexOfTab(mTab2);
+
+        assertEquals(TabModel.INVALID_TAB_INDEX, insertionIndex);
     }
 
     @Test
@@ -144,7 +158,10 @@ public class FlatLayoutDelegateUnitTest {
     @Test
     public void testOnTabAdded_NewTab() {
         addTabsToModelList(TAB1_ID);
-        when(mMediator.getRelatedTabsForId(TAB1_ID)).thenReturn(List.of(mTab1, mTab2));
+        when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+        when(mTab2.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+        when(mTabModel.getTabById(TAB1_ID)).thenReturn(mTab1);
+        when(mTabModel.getIndexOfTabInGroup(mTab2)).thenReturn(1);
 
         int index = mDelegate.onTabAdded(mTab2);
 
@@ -165,7 +182,10 @@ public class FlatLayoutDelegateUnitTest {
     @Test
     public void testDidAddTab() {
         addTabsToModelList(TAB1_ID);
-        when(mMediator.getRelatedTabsForId(TAB1_ID)).thenReturn(List.of(mTab1, mTab2));
+        when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+        when(mTab2.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+        when(mTabModel.getTabById(TAB1_ID)).thenReturn(mTab1);
+        when(mTabModel.getIndexOfTabInGroup(mTab2)).thenReturn(1);
 
         mDelegate.didAddTab(mTab2, TabLaunchType.FROM_CHROME_UI);
 
@@ -175,7 +195,10 @@ public class FlatLayoutDelegateUnitTest {
     @Test
     public void testTabClosureUndone() {
         addTabsToModelList(TAB1_ID);
-        when(mMediator.getRelatedTabsForId(TAB1_ID)).thenReturn(List.of(mTab1, mTab2));
+        when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+        when(mTab2.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+        when(mTabModel.getTabById(TAB1_ID)).thenReturn(mTab1);
+        when(mTabModel.getIndexOfTabInGroup(mTab2)).thenReturn(1);
 
         mDelegate.tabClosureUndone(mTab2);
 
@@ -203,11 +226,9 @@ public class FlatLayoutDelegateUnitTest {
     public void testOnUrlUpdated() {
         addTabsToModelList(TAB1_ID);
         PropertyModel model = mModelList.get(0).model;
-        when(mMediator.getDomainForTab(mTab1, model)).thenReturn("example.com");
 
         mDelegate.onUrlUpdated(mTab1);
 
-        assertEquals("example.com", model.get(TabProperties.URL_DOMAIN));
         verify(mMediator).updateThumbnailFetcher(model, TAB1_ID);
         verify(mMediator).updateFaviconForTab(model, mTab1, null, null);
     }
@@ -216,7 +237,6 @@ public class FlatLayoutDelegateUnitTest {
     public void testOnUrlUpdated_NotFound() {
         mDelegate.onUrlUpdated(mTab1);
 
-        verify(mMediator, never()).getDomainForTab(any(), any());
         verify(mMediator, never()).updateThumbnailFetcher(any(), anyInt());
         verify(mMediator, never()).updateFaviconForTab(any(), any(), any(), any());
     }
@@ -399,9 +419,7 @@ public class FlatLayoutDelegateUnitTest {
         verify(mMediator, never()).updateFaviconForTab(any(), any(), any(), any());
 
         mDelegate.onUrlUpdated(mTab1);
-        verify(mMediator, never()).getDomainForTab(any(), any());
         verify(mMediator, never()).updateThumbnailFetcher(any(), anyInt());
-        assertNull(model.get(TabProperties.URL_DOMAIN));
 
         mDelegate.onAlertStateChanged(mTab1, TabAlert.AUDIO_PLAYING);
         assertEquals(TabAlert.NONE, model.get(TabProperties.ALERT_STATE));
@@ -505,7 +523,7 @@ public class FlatLayoutDelegateUnitTest {
         addTabsToModelList(TAB1_ID, TAB2_ID);
 
         // Execute moving mTab1 out.
-        mDelegate.didMoveTabOutOfGroup(mTab1, 0);
+        mDelegate.didMoveTabOutOfGroup(mTab1, TAB_GROUP_ID);
 
         verify(mMediator).removeObserversForTab(mTab1);
         assertModelListTabIds(TAB2_ID);
@@ -516,7 +534,7 @@ public class FlatLayoutDelegateUnitTest {
         addTabsToModelList(TAB1_ID);
 
         // Execute moving mTab1 (last tab) out.
-        mDelegate.didMoveTabOutOfGroup(mTab1, 0);
+        mDelegate.didMoveTabOutOfGroup(mTab1, TAB_GROUP_ID);
 
         verify(mMediator).removeObserversForTab(mTab1);
         assertModelListTabIds();
@@ -526,7 +544,7 @@ public class FlatLayoutDelegateUnitTest {
     public void testDidMoveTabOutOfGroup_NotInModelList() {
         addTabsToModelList(TAB2_ID);
 
-        mDelegate.didMoveTabOutOfGroup(mTab1, 0);
+        mDelegate.didMoveTabOutOfGroup(mTab1, TAB_GROUP_ID);
 
         verify(mMediator, never()).removeObserversForTab(any());
         // Verify no-op when tab is not in model list.
@@ -540,9 +558,7 @@ public class FlatLayoutDelegateUnitTest {
         when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
         when(mTab2.getTabGroupId()).thenReturn(TAB_GROUP_ID);
         when(mTabModel.getTabById(TAB1_ID)).thenReturn(mTab1);
-        when(mTabModel.getGroupLastShownTabId(TAB_GROUP_ID)).thenReturn(TAB1_ID);
-
-        when(mMediator.getRelatedTabsForId(TAB1_ID)).thenReturn(List.of(mTab1, mTab2));
+        when(mTabModel.getIndexOfTabInGroup(mTab2)).thenReturn(1);
 
         // Execute merging mTab2.
         mDelegate.didMergeTabToGroup(mTab2, /* isDestinationTab= */ false);
@@ -577,15 +593,8 @@ public class FlatLayoutDelegateUnitTest {
 
     @Test
     public void testDidMoveTabGroup_NoOp() {
-        mDelegate.didMoveTabGroup(mTab1, 0, 1);
-
-        // Flat layout does not display tab group headers, so no updates should occur.
-        verifyNoInteractions(mMediator);
-    }
-
-    @Test
-    public void testDidCreateNewGroup_NoOp() {
-        mDelegate.didCreateNewGroup(mTab1, mTabModel);
+        mDelegate.didMoveTabGroup(
+                TAB_GROUP_ID, /* tabModelOldIndex= */ 0, /* tabModelNewIndex= */ 1);
 
         // Flat layout does not display tab group headers, so no updates should occur.
         verifyNoInteractions(mMediator);
@@ -593,7 +602,7 @@ public class FlatLayoutDelegateUnitTest {
 
     @Test
     public void testDidRemoveTabGroup_NoOp() {
-        mDelegate.didRemoveTabGroup(1, null, TabGroupObserver.DidRemoveTabGroupReason.MERGE);
+        mDelegate.didRemoveTabGroup(TAB_GROUP_ID, TabGroupObserver.DidRemoveTabGroupReason.MERGE);
 
         // Flat layout does not display tab group headers, so no updates should occur.
         verifyNoInteractions(mMediator);
@@ -610,11 +619,11 @@ public class FlatLayoutDelegateUnitTest {
     }
 
     @Test
-    public void testGetUiIndexForTab() {
+    public void testGetIndexFromTabId() {
         addTabsToModelList(TAB1_ID, TAB2_ID);
-        assertEquals(0, mDelegate.getUiIndexForTab(TAB1_ID));
-        assertEquals(1, mDelegate.getUiIndexForTab(TAB2_ID));
-        assertEquals(TabModel.INVALID_TAB_INDEX, mDelegate.getUiIndexForTab(3));
+        assertEquals(0, mDelegate.getIndexFromTabId(TAB1_ID));
+        assertEquals(1, mDelegate.getIndexFromTabId(TAB2_ID));
+        assertEquals(TabModel.INVALID_TAB_INDEX, mDelegate.getIndexFromTabId(3));
     }
 
     @Test
@@ -632,7 +641,8 @@ public class FlatLayoutDelegateUnitTest {
 
     @Test
     public void testAreTabsInSameGroup_ReturnsFalse() {
-        assertFalse(mDelegate.areTabsInSameGroup(TAB1_ID, mTab2));
+        PropertyModel model = new PropertyModel(TabProperties.ALL_KEYS_TAB_GRID);
+        assertFalse(mDelegate.areTabsInSameGroup(model, mTab2));
     }
 
     @Test

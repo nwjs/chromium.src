@@ -11,7 +11,6 @@
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
 #include "base/thread_annotations.h"
-#include "base/threading/thread_checker.h"
 #include "media/audio/audio_debug_file_writer.h"
 #include "media/base/audio_parameters.h"
 #include "media/base/media_export.h"
@@ -27,7 +26,8 @@ class AudioBus;
 enum class AudioDebugRecordingStreamType {
   kInput = 0,
   kOutput = 1,
-  kLoopback = 2
+  kLoopback = 2,
+  kVoiceIsolation = 3
 };
 
 // Interface for feeding data to a recorder.

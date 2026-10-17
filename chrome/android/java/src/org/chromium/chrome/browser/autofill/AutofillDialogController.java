@@ -64,7 +64,8 @@ public class AutofillDialogController {
 
     @CalledByNative
     static @Nullable AutofillDialogController create(
-            long nativeAutofillDialogView, WindowAndroid windowAndroid) {
+            long nativeAutofillDialogView,
+            @JniType("ui::WindowAndroid*") WindowAndroid windowAndroid) {
         Context context = windowAndroid.getContext().get();
         if (context == null) {
             return null;
@@ -77,18 +78,22 @@ public class AutofillDialogController {
      *
      * @param title The title of the dialog.
      * @param description The description of the dialog.
-     * @param buttonText The text of the positive button.
+     * @param positiveButtonText The text of the positive button.
+     * @param negativeButtonText The text of the negative button. The negative button is not
+     *     displayed when an empty negative button text is passed.
      */
     @CalledByNative
     void show(
             @JniType("std::u16string") String title,
             @JniType("std::u16string") String description,
-            @JniType("std::u16string") String buttonText) {
+            @JniType("std::u16string") String positiveButtonText,
+            @JniType("std::u16string") String negativeButtonText) {
         mDialog.show(
                 new ConfirmationDialogParams.Builder(mContext)
                         .withTitle(title)
                         .withDescription(description)
-                        .withPositiveButton(buttonText)
+                        .withPositiveButton(positiveButtonText)
+                        .withNegativeButton(negativeButtonText)
                         .build(),
                 this::handleDialogAction);
     }
@@ -164,7 +169,7 @@ public class AutofillDialogController {
     }
 
     @NativeMethods
-    public interface Natives {
+    interface Natives {
         void onPositiveButtonClicked(long nativeAutofillDialogViewAndroid);
 
         void onDismissed(long nativeAutofillDialogViewAndroid);

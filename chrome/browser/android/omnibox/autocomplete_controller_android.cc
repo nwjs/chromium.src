@@ -99,10 +99,10 @@ using metrics::OmniboxEventProto;
 
 namespace {
 
-void RecordClipboardMetrics(AutocompleteMatchType::Type match_type) {
-  if (match_type != AutocompleteMatchType::CLIPBOARD_URL &&
-      match_type != AutocompleteMatchType::CLIPBOARD_TEXT &&
-      match_type != AutocompleteMatchType::CLIPBOARD_IMAGE) {
+void RecordClipboardMetrics(omnibox::AutocompleteMatchType match_type) {
+  if (match_type != omnibox::AutocompleteMatchType::kClipboardUrl &&
+      match_type != omnibox::AutocompleteMatchType::kClipboardText &&
+      match_type != omnibox::AutocompleteMatchType::kClipboardImage) {
     return;
   }
 
@@ -110,13 +110,13 @@ void RecordClipboardMetrics(AutocompleteMatchType::Type match_type) {
       ClipboardRecentContent::GetInstance()->GetClipboardContentAge();
   UMA_HISTOGRAM_LONG_TIMES_100("MobileOmnibox.PressedClipboardSuggestionAge",
                                age);
-  if (match_type == AutocompleteMatchType::CLIPBOARD_URL) {
+  if (match_type == omnibox::AutocompleteMatchType::kClipboardUrl) {
     UMA_HISTOGRAM_LONG_TIMES_100(
         "MobileOmnibox.PressedClipboardSuggestionAge.URL", age);
-  } else if (match_type == AutocompleteMatchType::CLIPBOARD_TEXT) {
+  } else if (match_type == omnibox::AutocompleteMatchType::kClipboardText) {
     UMA_HISTOGRAM_LONG_TIMES_100(
         "MobileOmnibox.PressedClipboardSuggestionAge.TEXT", age);
-  } else if (match_type == AutocompleteMatchType::CLIPBOARD_IMAGE) {
+  } else if (match_type == omnibox::AutocompleteMatchType::kClipboardImage) {
     UMA_HISTOGRAM_LONG_TIMES_100(
         "MobileOmnibox.PressedClipboardSuggestionAge.IMAGE", age);
   }

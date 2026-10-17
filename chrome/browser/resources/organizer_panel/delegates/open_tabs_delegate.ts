@@ -2,14 +2,23 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import '../icons.html.js';
+import '/tab_group_shared/tab_group_dot.js';
+
 import {assert} from '//resources/js/assert.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
-import type {Token} from '//resources/mojo/mojo/public/mojom/base/token.mojom-webui.js';
+import {html} from '//resources/lit/v3_0/lit.rollup.js';
 
 import type {OrganizerListSectionClient, OrganizerListSectionDelegate} from '../organizer_list_section_delegate.js';
-import type {OrganizerListSectionItem, OrganizerListSectionItemDescriptionPart, OrganizerListSectionItemIcon} from '../organizer_list_section_item.js';
-import type {BrowserProxy, ProfileData, Tab, TabsRemovedInfo, TabUpdateInfo} from '../tab_search.mojom-webui.js';
+import type {OrganizerListSectionItem, OrganizerListSectionItemIcon} from '../organizer_list_section_item.js';
+import type {BrowserProxy, ProfileData, Tab, TabGroup, TabsRemovedInfo, TabUpdateInfo} from '../tab_search.mojom-webui.js';
 import {browserProxyFactory, SplitTabLayout} from '../tab_search.mojom-webui.js';
+import {TabAlertState} from '../tabs.mojom-webui.js';
+
+import {compareTimeDescending, getTabDescriptionParts, tokenToString} from './tab_delegate_utils.js';
+
+// Trailing icon shown for tabs that are playing or muting audio.
+const AUDIO_ICON = 'organizer-panel:volume-up';
 
 export enum OpenTabsItemType {
   TAB = 'tab',
@@ -32,30 +41,30 @@ export function isSplitTab(item: OpenTabsItem): item is SplitTabItem {
   return item.type === OpenTabsItemType.SPLIT_TAB;
 }
 
-function tokenToString(token: Token): string {
-  return `${token.high.toString()}#${token.low.toString()}`;
-}
-
-function getHostnameOrUrl(url: string): string {
-  try {
-    return new URL(url).hostname;
-  } catch {
-    return url;
-  }
-}
-
-function getLastActiveTimeTicks(tab: Tab): bigint {
-  return tab.lastActiveTimeTicks?.internalValue ?? 0n;
-}
-
 function getMostRecentTab(item: OpenTabsItem): Tab {
   if (!isSplitTab(item)) {
     return item.tab;
   }
-  return getLastActiveTimeTicks(item.tabs[1]) >
-          getLastActiveTimeTicks(item.tabs[0]) ?
+  return compareTimeDescending(
+             item.tabs[0].lastActiveTimeTicks,
+             item.tabs[1].lastActiveTimeTicks) > 0 ?
       item.tabs[1] :
       item.tabs[0];
+}
+
+function tabHasAudioAlert(tab: Tab): boolean {
+  return tab.alertStates.some(
+      alertState => alertState === TabAlertState.kAudioPlaying ||
+          alertState === TabAlertState.kAudioMuting);
+}
+
+function hasAudioAlert(item: OpenTabsItem): boolean {
+  return isSplitTab(item) ? item.tabs.some(tabHasAudioAlert) :
+                            tabHasAudioAlert(item.tab);
+}
+
+export function isActive(item: OpenTabsItem): boolean {
+  return isSplitTab(item) ? item.tabs.some(tab => tab.active) : item.tab.active;
 }
 
 export class OpenTabsDelegate implements
@@ -64,6 +73,7 @@ export class OpenTabsDelegate implements
   private client_?: OrganizerListSectionClient;
   private listenerIds_: number[] = [];
   private tabs_: Tab[] = [];
+  private tabGroupsMap_: Map<string, TabGroup> = new Map();
 
   init(sectionClient: OrganizerListSectionClient) {
     this.client_ = sectionClient;
@@ -111,7 +121,13 @@ export class OpenTabsDelegate implements
 
   private async updateTabs_() {
     const {profileData} = await this.browserProxy_.handler.getProfileData();
+    this.updateFromProfileData_(profileData);
+  }
+
+  private updateFromProfileData_(profileData: ProfileData) {
     this.tabs_ = this.extractTabs_(profileData);
+    this.tabGroupsMap_ = new Map(
+        profileData.tabGroups.map(group => [tokenToString(group.id), group]));
   }
 
   private notifyClient_() {
@@ -120,7 +136,7 @@ export class OpenTabsDelegate implements
   }
 
   private onTabsChanged_(profileData: ProfileData) {
-    this.tabs_ = this.extractTabs_(profileData);
+    this.updateFromProfileData_(profileData);
     this.notifyClient_();
   }
 
@@ -149,6 +165,16 @@ export class OpenTabsDelegate implements
       }
     }
     return allTabs;
+  }
+
+  private getTabGroupFromItem_(item: OpenTabsItem): TabGroup|null {
+    const groupId = isSplitTab(item) ?
+        (item.tabs[0].groupId ?? item.tabs[1].groupId) :
+        item.tab.groupId;
+    if (!groupId) {
+      return null;
+    }
+    return this.tabGroupsMap_.get(tokenToString(groupId)) ?? null;
   }
 
   private getOpenTabsItems_(): OpenTabsItem[] {
@@ -194,10 +220,24 @@ export class OpenTabsDelegate implements
       });
     }
 
+    // The currently active tab is placed at the end of the list so that users
+    // can more easily navigate to their other tabs. Tabs playing or muting
+    // audio are surfaced first, and within each group items are ordered by most
+    // recently used.
     items.sort((a, b) => {
-      const timeA = getLastActiveTimeTicks(getMostRecentTab(a));
-      const timeB = getLastActiveTimeTicks(getMostRecentTab(b));
-      return timeB > timeA ? 1 : (timeB < timeA ? -1 : 0);
+      const activeA = isActive(a);
+      const activeB = isActive(b);
+      if (activeA !== activeB) {
+        return activeA ? 1 : -1;
+      }
+      const audioA = hasAudioAlert(a);
+      const audioB = hasAudioAlert(b);
+      if (audioA !== audioB) {
+        return audioA ? -1 : 1;
+      }
+      return compareTimeDescending(
+          getMostRecentTab(a).lastActiveTimeTicks,
+          getMostRecentTab(b).lastActiveTimeTicks);
     });
 
     return items;
@@ -223,20 +263,23 @@ export class OpenTabsDelegate implements
 
     const title = tabs.map(tab => tab.title);
 
-    const description: OrganizerListSectionItemDescriptionPart[] =
-        tabs.map(tab => ({
-                   text: getHostnameOrUrl(tab.url),
-                   elideFromStart: true,
-                 }));
-    const elapsedText = getMostRecentTab(item).lastActiveElapsedText;
-    if (elapsedText) {
-      description.push({text: elapsedText});
+    const description = getTabDescriptionParts(
+        tabs.map(tab => tab.url), getMostRecentTab(item).lastActiveElapsedText);
+
+    const tabGroup = this.getTabGroupFromItem_(item);
+    if (tabGroup) {
+      description.push({
+        text: tabGroup.title,
+        prefixElement: html`<tab-group-dot .color="${tabGroup.color}">
+            </tab-group-dot>`,
+      });
     }
 
     return {
       title,
       description,
       prefixIcon,
+      trailingIcon: hasAudioAlert(item) ? AUDIO_ICON : undefined,
       hoveredActionButton: {
         icon: 'cr:close',
         ariaLabel: loadTimeData.getString('closeTab'),

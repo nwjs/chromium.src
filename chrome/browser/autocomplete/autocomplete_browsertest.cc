@@ -163,7 +163,7 @@ IN_PROC_BROWSER_TEST_F(AutocompleteBrowserTest, MAYBE_Autocomplete) {
     const AutocompleteResult& result = autocomplete_controller->result();
     ASSERT_GE(result.size(), 1U) << AutocompleteResultAsString(result);
     AutocompleteMatch match = result.match_at(0);
-    EXPECT_EQ(AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED, match.type);
+    EXPECT_EQ(omnibox::AutocompleteMatchType::kSearchWhatYouTyped, match.type);
     EXPECT_FALSE(match.deletable);
   }
 
@@ -187,8 +187,7 @@ IN_PROC_BROWSER_TEST_F(AutocompleteBrowserTest, TabAwayRevertSelect) {
   EXPECT_EQ(url::kAboutBlankURL16, omnibox_view->GetText());
   omnibox_view->SetUserText(std::u16string());
   content::CreateAndLoadWebContentsObserver observer;
-  chrome::AddSelectedTabWithURL(browser(),
-                                GURL(url::kAboutBlankURL),
+  chrome::AddSelectedTabWithURL(browser(), GURL(url::kAboutBlankURL),
                                 ui::PAGE_TRANSITION_AUTO_TOPLEVEL);
   observer.Wait();
   EXPECT_EQ(url::kAboutBlankURL16, omnibox_view->GetText());

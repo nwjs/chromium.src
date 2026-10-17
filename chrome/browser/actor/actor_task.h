@@ -8,10 +8,12 @@
 #include <iosfwd>
 #include <memory>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "base/callback_list.h"
 #include "base/cancelable_callback.h"
+#include "base/check.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
@@ -24,7 +26,7 @@
 #include "chrome/browser/actor/actor_navigation_throttle.h"
 #include "chrome/browser/actor/actor_task_delegate.h"
 #include "chrome/browser/actor/tools/tool_request.h"
-#include "chrome/browser/glic/host/glic.mojom.h"
+#include "chrome/browser/glic/host/glic.mojom-forward.h"
 #include "chrome/common/actor_webui.mojom-forward.h"
 #include "chrome/common/glic_enums.mojom.h"
 #include "components/actor/core/actor_ui_mode.h"
@@ -105,6 +107,14 @@ class ActorTask : public base::SupportsUserData {
 
   const TaskSourceInfo& source_info() const { return source_info_; }
 
+  // Used for late registration/backfilling of the source-defined ID (e.g. Glic
+  // conversation ID) when it is not yet known at task creation time.
+  void SetSourceId(std::string id) {
+    DCHECK(!id.empty());
+    DCHECK(!source_info_.id.has_value() || source_info_.id == id);
+    source_info_.id = std::move(id);
+  }
+
   glic::mojom::FeatureMode feature_mode() const { return feature_mode_; }
 
   std::optional<glic::mojom::InvocationSource> initial_invocation_source()
@@ -168,7 +178,8 @@ class ActorTask : public base::SupportsUserData {
     kMaxValue = kTimeout,
   };
   // LINT.ThenChange(//tools/metrics/histograms/metadata/actor/histograms.xml:StoppedReason,
-  // //tools/metrics/histograms/metadata/actor/enums.xml:StoppedReasonEnum)
+  // //tools/metrics/histograms/metadata/actor/enums.xml:StoppedReasonEnum,
+  // //chrome/browser/actor/android/java/src/org/chromium/chrome/browser/actor/ActorMetrics.java:StoppedReasonName)
 
   enum class TaskDuration {
     kDefault = 0,
@@ -250,6 +261,10 @@ class ActorTask : public base::SupportsUserData {
   // Returns true if the task has completed, either successfully or cancelled.
   bool IsCompleted() const;
   static bool IsCompletedState(State state);
+
+  std::optional<StoppedReason> stopped_reason() const {
+    return stopped_reason_;
+  }
 
   ExecutionEngine& GetExecutionEngine() const;
 

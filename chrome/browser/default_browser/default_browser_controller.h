@@ -37,7 +37,11 @@ enum class DefaultBrowserEntrypointType {
   kModalDialogWithSettingsIllustration = 4,
   // Modal dialog without settings illustration.
   kModalDialogWithoutSettingsIllustration = 5,
-  kMaxValue = kModalDialogWithoutSettingsIllustration,
+  // Sticky modal dialog with settings illustration.
+  kStickyModalDialogWithSettingsIllustration = 6,
+  // Sticky modal dialog without settings illustration.
+  kStickyModalDialogWithoutSettingsIllustration = 7,
+  kMaxValue = kStickyModalDialogWithoutSettingsIllustration,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/ui/histograms.xml:DefaultBrowserEntrypointType)
 
@@ -54,6 +58,10 @@ enum class DefaultBrowserInteractionType {
   kMaxValue = kDismissed
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/ui/enums.xml:DefaultBrowserUserInteraction)
+
+// Retry counts at or above this value are reported in a single "3+" bucket of
+// the `RetryCount` histogram.
+inline constexpr int kMaxRecordedRetryCount = 3;
 
 std::string UiEntrypointTypeToString(
     DefaultBrowserEntrypointType ui_entrypoint);
@@ -80,6 +88,9 @@ class DefaultBrowserController {
       const DefaultBrowserSetter::ExecuteParams& params = {});
   void OnIgnored();
   void OnDismissed();
+
+  static void RecordRetryCount(DefaultBrowserEntrypointType ui_entrypoint,
+                               int retry_count);
 
  private:
   void OnSetterExecutionComplete(

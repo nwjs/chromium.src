@@ -11,6 +11,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/frame/contents_web_view.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/browser_accessibility_state.h"
@@ -106,7 +107,7 @@ IN_PROC_BROWSER_TEST_F(WebViewBrowserTest, DISABLED_ResizeWebView) {
       browser()->GetTabStripModel()->GetActiveWebContents();
 
   BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
-  views::WebView* contents_web_view = browser_view->contents_web_view();
+  views::View* contents_web_view = browser_view->GetContentsView();
 
   // Resize the web view so that only one of the two buttons fits.
   contents_web_view->SetSize(gfx::Size(300, 140));
@@ -158,7 +159,7 @@ class WebViewInAXTreeBrowserTest : public WebViewBrowserTest {
   }
 
   views::WebView* contents_web_view() {
-    return browser_view()->contents_web_view();
+    return browser_view()->contents_web_view_for_testing();
   }
 
   views::WidgetAXManager* widget_ax_manager() {

@@ -137,6 +137,7 @@ UseCounterMetricsRecorder::GetAllowedUkmFeatures() {
           WebFeature::kV8MediaSession_Metadata_AttributeSetter,
           WebFeature::kV8MediaSession_SetActionHandler_Method,
           WebFeature::kLargeStickyAd,
+          WebFeature::kStickyVideoAdDetected,
           WebFeature::
               kElementWithLeftwardOrUpwardOverflowDirection_ScrollLeftOrTopSetPositive,
           WebFeature::kThirdPartyFileSystem,
@@ -507,6 +508,7 @@ UseCounterMetricsRecorder::GetAllowedUkmFeatures() {
           WebFeature::kModelContextGetTools,
           WebFeature::kXmlCAPAlert,
           WebFeature::kXmlCAPAlertWithXSLT,
+          WebFeature::kGeolocationAccuracyModeApproximate,
           // NOTE: before adding new use counters here, verify in UMA that
           // their emissions are very rare, e.g. <1% of page loads.
       }));

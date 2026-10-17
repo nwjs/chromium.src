@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.actor;
 
 import org.chromium.base.Callback;
 import org.chromium.base.ThreadUtils;
+import org.chromium.base.TimeUtils;
 import org.chromium.base.Token;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
@@ -40,7 +41,9 @@ import org.chromium.ui.base.WindowAndroid;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -75,18 +78,33 @@ public class ActorTabStateHelper {
     }
 
     /**
-     * Iterates over a copy of the model's tabs, detects active tasks, and performs transitions.
-     * Only creates and populates sessions for tabs whose placeholders were inserted correctly.
+     * Iterates over tabs in the model, matches any active tasks, and performs transitions. Only
+     * creates and populates sessions for tabs whose placeholders were inserted correctly.
      */
     private static List<BackgroundSession> findAndDetachActiveSessions(
             TabModel model, ActorKeyedService service, int windowId, Callback<Tab> onTabDetaching) {
+        // TODO: Support tabs associated with multiple active tasks. For now, map each tab to
+        // the first active task found in iteration order.
+        Map<Integer, Integer> activeTabIdToTaskId = new HashMap<>();
+        for (ActorTask task : service.getActiveTasks()) {
+            if (!task.isCompleted()) {
+                for (int tabId : task.getTabs()) {
+                    activeTabIdToTaskId.putIfAbsent(tabId, task.getId());
+                }
+            }
+        }
+
+        if (activeTabIdToTaskId.isEmpty()) {
+            return Collections.emptyList();
+        }
+
         List<BackgroundSession> sessions = new ArrayList<>();
         TabGroupSyncService syncService = getTabGroupSyncService(model);
 
         for (Tab originalTab : model) {
             if (originalTab == null) continue;
 
-            Integer taskId = ActorTaskHelper.getActiveTaskIdOnTab(service, originalTab);
+            Integer taskId = activeTabIdToTaskId.get(originalTab.getId());
             if (taskId == null) continue;
 
             int originalIndex = model.indexOf(originalTab);
@@ -116,6 +134,8 @@ public class ActorTabStateHelper {
             } else {
                 sessions.add(new BackgroundSession(tabData, taskId));
             }
+            // TODO(crbug.com/565409746): Ensure tabs for tasks that are in the PAUSED or
+            // NEEDS_USER_ATTENTION state are not moved to offscreen rendering.
             onTabDetaching.onResult(originalTab);
 
             setTabGroupSyncPaused(syncService, /* isPaused= */ true);
@@ -278,11 +298,8 @@ public class ActorTabStateHelper {
             Tab sourceTab,
             int destinationTabId) {
         if (syncService == null || !ActorUtils.isTabGroupSyncHandlingEnabled()) return;
-        Token tabGroupId = sourceTab.getTabGroupId();
-        if (tabGroupId == null) return;
-
-        LocalTabGroupId localTabGroupId = TabGroupSyncUtils.getLocalTabGroupId(model, tabGroupId);
-        if (localTabGroupId == null) return;
+        LocalTabGroupId localTabGroupId = TabGroupSyncUtils.getLocalTabGroupId(sourceTab);
+        if (localTabGroupId == null || !model.tabGroupExists(localTabGroupId.tabGroupId)) return;
 
         SavedTabGroup savedGroup = syncService.getGroup(localTabGroupId);
         if (savedGroup == null) return;
@@ -392,7 +409,7 @@ public class ActorTabStateHelper {
             @Nullable TabModelSelector selector, @Nullable LayoutManager layoutManager, int tabId) {
         if (selector == null) return null;
         Tab target = selector.getTabById(tabId);
-        if (target == null) return null;
+        if (target == null || target.isClosing() || target.isDestroyed()) return null;
         selector.selectModel(target.isIncognito());
         TabModel model = selector.getModel(target.isIncognito());
         if (model != null) {
@@ -434,27 +451,46 @@ public class ActorTabStateHelper {
             @Nullable LayoutManager layoutManager,
             int tabId,
             @Nullable Callback<@Nullable Tab> onTabSelected) {
-        if (selector == null || tabId == Tab.INVALID_TAB_ID) {
+        if (tabId == Tab.INVALID_TAB_ID) {
+            ActorMetrics.recordNotificationFetchTabIdStatus(
+                    ActorMetrics.ActorFetchTabIdStatus.INVALID_ID);
             if (onTabSelected != null) {
                 onTabSelected.onResult(null);
             }
             return;
         }
-        if (selector.getTabById(tabId) != null) {
+        if (selector == null) {
+            ActorMetrics.recordNotificationFetchTabIdStatus(
+                    ActorMetrics.ActorFetchTabIdStatus.TAB_NOT_FOUND);
+            if (onTabSelected != null) {
+                onTabSelected.onResult(null);
+            }
+            return;
+        }
+        Tab existingTab = selector.getTabById(tabId);
+        if (existingTab != null) {
+            if (existingTab.isClosing() || existingTab.isDestroyed()) {
+                ActorMetrics.recordNotificationFetchTabIdStatus(
+                        ActorMetrics.ActorFetchTabIdStatus.TAB_CLOSED);
+                if (onTabSelected != null) {
+                    onTabSelected.onResult(null);
+                }
+                return;
+            }
             Tab target = selectTabAndShow(selector, layoutManager, tabId);
+            ActorMetrics.recordNotificationFetchTabIdStatus(
+                    target != null
+                            ? ActorMetrics.ActorFetchTabIdStatus.SUCCESS
+                            : ActorMetrics.ActorFetchTabIdStatus.TAB_NOT_FOUND);
             if (onTabSelected != null) {
                 onTabSelected.onResult(target);
             }
             return;
         }
+        boolean wasTabStateInitialized = selector.isTabStateInitialized();
+        boolean isColdStart = !wasTabStateInitialized;
+        long startTimeMs = TimeUtils.uptimeMillis();
         AtomicBoolean isCompleted = new AtomicBoolean(false);
-        Callback<@Nullable Tab> completeOnce =
-                (selected) -> {
-                    if (isCompleted.getAndSet(true)) return;
-                    if (onTabSelected != null) {
-                        onTabSelected.onResult(selected);
-                    }
-                };
         TabModelSelectorTabModelObserver observer =
                 new TabModelSelectorTabModelObserver(selector) {
                     @Override
@@ -465,9 +501,28 @@ public class ActorTabStateHelper {
                             boolean markedForSelection) {
                         if (isCompleted.get()) return;
                         if (tab.getId() == tabId) {
+                            if (tab.isClosing() || tab.isDestroyed()) {
+                                destroy();
+                                completeTabSelectionOnce(
+                                        isCompleted,
+                                        onTabSelected,
+                                        /* selected= */ null,
+                                        ActorMetrics.ActorFetchTabIdStatus.TAB_CLOSED,
+                                        startTimeMs,
+                                        isColdStart);
+                                return;
+                            }
                             Tab selected = selectTabAndShow(selector, layoutManager, tabId);
                             destroy();
-                            completeOnce.onResult(selected);
+                            completeTabSelectionOnce(
+                                    isCompleted,
+                                    onTabSelected,
+                                    selected,
+                                    selected != null
+                                            ? ActorMetrics.ActorFetchTabIdStatus.SUCCESS
+                                            : ActorMetrics.ActorFetchTabIdStatus.TAB_NOT_FOUND,
+                                    startTimeMs,
+                                    isColdStart);
                         }
                     }
                 };
@@ -475,10 +530,30 @@ public class ActorTabStateHelper {
                 selector,
                 (unused) -> {
                     if (isCompleted.get()) return;
-                    if (selector.getTabById(tabId) != null) {
+                    Tab tab = selector.getTabById(tabId);
+                    if (tab != null) {
+                        if (tab.isClosing() || tab.isDestroyed()) {
+                            observer.destroy();
+                            completeTabSelectionOnce(
+                                    isCompleted,
+                                    onTabSelected,
+                                    /* selected= */ null,
+                                    ActorMetrics.ActorFetchTabIdStatus.TAB_CLOSED,
+                                    startTimeMs,
+                                    isColdStart);
+                            return;
+                        }
                         Tab selected = selectTabAndShow(selector, layoutManager, tabId);
                         observer.destroy();
-                        completeOnce.onResult(selected);
+                        completeTabSelectionOnce(
+                                isCompleted,
+                                onTabSelected,
+                                selected,
+                                selected != null
+                                        ? ActorMetrics.ActorFetchTabIdStatus.SUCCESS
+                                        : ActorMetrics.ActorFetchTabIdStatus.TAB_NOT_FOUND,
+                                startTimeMs,
+                                isColdStart);
                         return;
                     }
                     // Background tab restoration runs on tab state initialized as well. Post a task
@@ -488,14 +563,55 @@ public class ActorTabStateHelper {
                             TaskTraits.UI_DEFAULT,
                             () -> {
                                 if (isCompleted.get()) return;
+                                Tab postedTab = selector.getTabById(tabId);
                                 Tab selected = null;
-                                if (selector.getTabById(tabId) != null) {
-                                    selected = selectTabAndShow(selector, layoutManager, tabId);
+                                @ActorMetrics.ActorFetchTabIdStatus int status;
+                                if (postedTab != null) {
+                                    if (postedTab.isClosing() || postedTab.isDestroyed()) {
+                                        status = ActorMetrics.ActorFetchTabIdStatus.TAB_CLOSED;
+                                    } else {
+                                        selected = selectTabAndShow(selector, layoutManager, tabId);
+                                        status =
+                                                selected != null
+                                                        ? ActorMetrics.ActorFetchTabIdStatus.SUCCESS
+                                                        : ActorMetrics.ActorFetchTabIdStatus
+                                                                .TAB_NOT_FOUND;
+                                    }
+                                } else {
+                                    status =
+                                            wasTabStateInitialized
+                                                    ? ActorMetrics.ActorFetchTabIdStatus
+                                                            .TAB_NOT_FOUND
+                                                    : ActorMetrics.ActorFetchTabIdStatus.TIMEOUT;
                                 }
                                 observer.destroy();
-                                completeOnce.onResult(selected);
+                                completeTabSelectionOnce(
+                                        isCompleted,
+                                        onTabSelected,
+                                        selected,
+                                        status,
+                                        startTimeMs,
+                                        isColdStart);
                             });
                 });
+    }
+
+    private static void completeTabSelectionOnce(
+            AtomicBoolean isCompleted,
+            @Nullable Callback<@Nullable Tab> onTabSelected,
+            @Nullable Tab selected,
+            @ActorMetrics.ActorFetchTabIdStatus int status,
+            long startTimeMs,
+            boolean isColdStart) {
+        if (isCompleted.getAndSet(true)) return;
+        ActorMetrics.recordNotificationFetchTabIdStatus(status);
+        if (selected != null) {
+            ActorMetrics.recordOnTabAddedLatency(
+                    TimeUtils.uptimeMillis() - startTimeMs, isColdStart);
+        }
+        if (onTabSelected != null) {
+            onTabSelected.onResult(selected);
+        }
     }
 
     /**

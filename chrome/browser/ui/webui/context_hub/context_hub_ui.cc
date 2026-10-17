@@ -36,6 +36,7 @@ ContextHubUI::ContextHubUI(content::WebUI* web_ui)
 
   source->AddResourcePath("save_to_memory_bank",
                           IDR_CONTEXT_HUB_SAVE_TO_MEMORY_BANK_HTML);
+  source->AddResourcePath("topic_details", IDR_CONTEXT_HUB_TOPIC_DETAILS_HTML);
 
   source->AddBoolean("kAutoTabGroups",
                      base::FeatureList::IsEnabled(
@@ -46,6 +47,8 @@ ContextHubUI::ContextHubUI(content::WebUI* web_ui)
   source->AddBoolean(
       "kSmartSearch",
       base::FeatureList::IsEnabled(browser::context_hub::mojom::kSmartSearch));
+  source->AddBoolean("kTopics", base::FeatureList::IsEnabled(
+                                    browser::context_hub::mojom::kTopics));
   source->AddInteger("kMaxTabGroupChatHistoryTurns",
                      context_hub::features::kMaxTabGroupChatHistoryTurns.Get());
   source->AddInteger(

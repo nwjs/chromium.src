@@ -4,7 +4,9 @@
 
 #include "chrome/updater/app/app_net_worker.h"
 
-#include <cstdint>
+#include <stddef.h>
+#include <stdint.h>
+
 #include <memory>
 #include <optional>
 #include <string>

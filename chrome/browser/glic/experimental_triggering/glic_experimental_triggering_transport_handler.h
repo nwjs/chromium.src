@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_GLIC_EXPERIMENTAL_TRIGGERING_GLIC_EXPERIMENTAL_TRIGGERING_TRANSPORT_HANDLER_H_
 
 #include <memory>
+#include <string_view>
 #include <vector>
 
 #include "base/memory/raw_ptr.h"
@@ -42,13 +43,13 @@ class GlicExperimentalTriggeringTransportHandler
       const GlicExperimentalTriggeringTransportHandler&) = delete;
 
   // browser_actuator::TransportHandler implementation:
-  void OnMessage(const google::protobuf::MessageLite& message) override;
+  void OnMessage(browser_actuator::PayloadType payload_type,
+                 std::string_view serialized_payload) override;
 
  private:
   void SendResponse(ExperimentalTriggeringResponse response);
 
   const raw_ptr<Profile> profile_;
-  const raw_ptr<browser_actuator::TransportSession> session_;
   std::unique_ptr<GlicExperimentalTriggeringCoordinator> coordinator_;
   base::WeakPtrFactory<GlicExperimentalTriggeringTransportHandler>
       weak_ptr_factory_{this};

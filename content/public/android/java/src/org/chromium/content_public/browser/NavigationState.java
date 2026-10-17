@@ -32,9 +32,11 @@ public class NavigationState {
     private final boolean mHasCommitted;
     private final boolean mIsErrorPage;
     private final int mHttpStatusCode;
+    private final long mNavigationStartMs;
     private final @NetError int mErrorCode;
     private final @Nullable String mErrorDescription;
     private final @Nullable Map<String, String> mResponseHeaders;
+    private final @Nullable PageState mCommittedPageState;
 
     private static final String TAG = "NavigationState";
 
@@ -53,11 +55,13 @@ public class NavigationState {
             boolean isForward,
             boolean hasCommitted,
             boolean isErrorPage,
+            long navigationStartMs,
             int httpStatusCode,
             @NetError int errorCode,
             @Nullable String errorDescription,
             @Nullable Map<String, String> responseHeaders,
             boolean started,
+            @Nullable PageState committedPageState,
             NavigationHandle navigationHandle) {
         mUrl = url;
         mIsRendererInitiated = isRendererInitiated;
@@ -72,6 +76,7 @@ public class NavigationState {
         mHttpStatusCode = httpStatusCode;
         mErrorCode = errorCode;
         mErrorDescription = errorDescription;
+        mNavigationStartMs = navigationStartMs;
 
         if (responseHeaders == null) {
             mResponseHeaders = null;
@@ -80,6 +85,7 @@ public class NavigationState {
         }
 
         mStarted = started;
+        mCommittedPageState = committedPageState;
         mNavigationHandle = navigationHandle;
     }
 
@@ -146,6 +152,15 @@ public class NavigationState {
 
     public boolean isRestore() {
         return mIsRestore;
+    }
+
+    public long getNavigationStartMs() {
+        assert mStarted;
+        return mNavigationStartMs;
+    }
+
+    public @Nullable PageState getCommittedPageState() {
+        return mCommittedPageState;
     }
 
     public NavigationHandle getNavigation() {

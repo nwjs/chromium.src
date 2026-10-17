@@ -250,6 +250,9 @@ struct BLINK_COMMON_EXPORT WebPreferences {
 
   bool fullscreen_supported = true;
 
+  // NOTE: When modifying behavior related to this flag, please e-mail
+  // webview-font-settings@google.com as an FYI. Googlers, more info is
+  // available at go/webview-font-settings.
   bool text_size_adjust_enabled = BUILDFLAG(IS_ANDROID);
 
   // Representation of the Web App Manifest scope if any.
@@ -304,6 +307,9 @@ struct BLINK_COMMON_EXPORT WebPreferences {
   // Long press on links selects text instead of triggering context menu.
   bool long_press_link_select_text = false;
   // Support WebView font scaling behavior that differs from Chrome.
+  // NOTE: When modifying behavior related to this flag, please e-mail
+  // webview-font-settings@google.com as an FYI. Googlers, more info is
+  // available at go/webview-font-settings.
   bool scale_all_fonts_if_no_meta_text_scale_tag = false;
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -483,6 +489,16 @@ struct BLINK_COMMON_EXPORT WebPreferences {
   // Set if this is in a WebView for chrome/browser/indigo/onboarding/.
   // Consumed only in chrome/renderer/ (not by Blink).
   bool is_indigo_onboarding = false;
+
+  // True if the user dismissed the XSLT deprecation warning banner with the
+  // "Never show this warning" checkbox checked. The banner is injected into the
+  // document by the renderer, so this state has to be sent from the embedder,
+  // which stores it as a profile preference.
+  // TODO(crbug.com/560233256): This preference is temporary, and is only
+  // required before XSLT is disabled by default in M158. It can be removed in
+  // M158, or whenever XSLT is disabled by default (other than for origin
+  // trials and enterprise policy).
+  bool is_xslt_deprecation_banner_suppressed = false;
 
   // We try to keep the default values the same as the default values in
   // chrome, except for the cases where it would require lots of extra work for

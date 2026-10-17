@@ -19,10 +19,14 @@
 @protocol LevelUpConsumer <NSObject>
 
 @optional
-// Sets the active level and list of tasks.
-// - level: The user's current Chrome level number.
-// - tasks: The array of LevelUpTask objects required for this level.
-- (void)setLevel:(NSInteger)level tasksForLevel:(NSArray<LevelUpTask*>*)tasks;
+// Sets the active level and how many tasks are required in total and remaining
+// to reach the next level.
+- (void)setLevel:(NSInteger)level
+    remainingTasksForNextLevel:(NSInteger)remainingTasksForNextLevel
+        totalTasksForNextLevel:(NSInteger)totalTasksForNextLevel;
+
+// Sets some recommended tasks to complete.
+- (void)setRecommendedTasks:(NSArray<LevelUpTask*>*)recommendedTasks;
 
 // Adds a new category card to the expanded view.
 - (void)addCategoryCard:(LevelUpCategory*)category;
@@ -32,6 +36,9 @@
 
 // Sets whether the progress updates are enabled or disabled.
 - (void)setProgressUpdatesEnabled:(BOOL)enabled;
+
+// Sets whether notifications for new tasks are enabled or disabled.
+- (void)setNewTasksNotificationEnabled:(BOOL)enabled;
 
 // The delegate to notify the coordinator about card actions.
 @property(nonatomic, weak) id<LevelUpViewControllerDelegate> delegate;

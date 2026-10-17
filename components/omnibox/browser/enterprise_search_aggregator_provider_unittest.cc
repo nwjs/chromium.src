@@ -815,7 +815,7 @@ class EnterpriseSearchAggregatorProviderTest : public testing::Test {
 
   AutocompleteMatch CreateAutocompleteMatch(std::u16string url) {
     AutocompleteMatch match(provider_.get(), 1000, false,
-                            AutocompleteMatchType::NAVSUGGEST);
+                            omnibox::AutocompleteMatchType::kNavsuggest);
     match.destination_url = GURL(url);
     return match;
   }
@@ -1134,7 +1134,7 @@ TEST_F(EnterpriseSearchAggregatorProviderTest, Parse) {
   ACMatches matches = provider_->matches_;
   ASSERT_EQ(matches.size(), 3u);
 
-  EXPECT_EQ(matches[0].type, AutocompleteMatchType::NAVSUGGEST);
+  EXPECT_EQ(matches[0].type, omnibox::AutocompleteMatchType::kNavsuggest);
   EXPECT_EQ(matches[0].relevance, 810);
   EXPECT_EQ(matches[0].contents,
             l10n_util::GetStringFUTF16(IDS_PERSON_SUGGESTION_DESCRIPTION,
@@ -1149,7 +1149,7 @@ TEST_F(EnterpriseSearchAggregatorProviderTest, Parse) {
   EXPECT_EQ(matches[0].fill_into_edit,
             u"keyword https://example.com/people/jdoe");
 
-  EXPECT_EQ(matches[1].type, AutocompleteMatchType::NAVSUGGEST);
+  EXPECT_EQ(matches[1].type, omnibox::AutocompleteMatchType::kNavsuggest);
   EXPECT_EQ(matches[1].relevance, 410);
   EXPECT_EQ(matches[1].contents, u"10/15/07 - John Doe - Google Docs");
   EXPECT_EQ(matches[1].description, u"John's doodle");
@@ -1160,7 +1160,7 @@ TEST_F(EnterpriseSearchAggregatorProviderTest, Parse) {
                                        ui::PAGE_TRANSITION_KEYWORD));
   EXPECT_EQ(matches[1].fill_into_edit, u"keyword https://www.example.com");
 
-  EXPECT_EQ(matches[2].type, AutocompleteMatchType::SEARCH_SUGGEST);
+  EXPECT_EQ(matches[2].type, omnibox::AutocompleteMatchType::kSearchSuggest);
   EXPECT_EQ(matches[2].relevance, 0);
   EXPECT_EQ(matches[2].contents, u"John's Document 1");
   EXPECT_EQ(matches[2].description, u"");
@@ -1185,7 +1185,7 @@ TEST_F(EnterpriseSearchAggregatorProviderTest, Parse_MultipleResponses) {
   ACMatches matches = provider_->matches_;
   ASSERT_EQ(matches.size(), 3u);
 
-  EXPECT_EQ(matches[0].type, AutocompleteMatchType::NAVSUGGEST);
+  EXPECT_EQ(matches[0].type, omnibox::AutocompleteMatchType::kNavsuggest);
   EXPECT_EQ(matches[0].relevance, 810);
   EXPECT_EQ(matches[0].contents,
             l10n_util::GetStringFUTF16(IDS_PERSON_SUGGESTION_DESCRIPTION,
@@ -1200,7 +1200,7 @@ TEST_F(EnterpriseSearchAggregatorProviderTest, Parse_MultipleResponses) {
   EXPECT_EQ(matches[0].fill_into_edit,
             u"keyword https://example.com/people/jdoe");
 
-  EXPECT_EQ(matches[1].type, AutocompleteMatchType::NAVSUGGEST);
+  EXPECT_EQ(matches[1].type, omnibox::AutocompleteMatchType::kNavsuggest);
   EXPECT_EQ(matches[1].relevance, 410);
   EXPECT_EQ(matches[1].contents, u"10/15/07 - John Doe - Google Docs");
   EXPECT_EQ(matches[1].description, u"John's doodle");
@@ -1211,7 +1211,7 @@ TEST_F(EnterpriseSearchAggregatorProviderTest, Parse_MultipleResponses) {
                                        ui::PAGE_TRANSITION_KEYWORD));
   EXPECT_EQ(matches[1].fill_into_edit, u"keyword https://www.example.com");
 
-  EXPECT_EQ(matches[2].type, AutocompleteMatchType::SEARCH_SUGGEST);
+  EXPECT_EQ(matches[2].type, omnibox::AutocompleteMatchType::kSearchSuggest);
   EXPECT_EQ(matches[2].relevance, 0);
   EXPECT_EQ(matches[2].contents, u"John's Document 1");
   EXPECT_EQ(matches[2].description, u"");

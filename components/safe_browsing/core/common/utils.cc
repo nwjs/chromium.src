@@ -190,6 +190,8 @@ std::string_view GetExtraExtraMetricsSuffix(
       return "scam_experiment_verdict_4";
     case safe_browsing::ThreatSubtype::SCAM_EXPERIMENT_CATCH_ALL_ENFORCEMENT:
       return "scam_experiment_catch_all";
+    case safe_browsing::ThreatSubtype::SCAM_EXPERIMENT_VERDICT_BILLING:
+      return "scam_experiment_verdict_billing";
     case safe_browsing::ThreatSubtype::UNKNOWN:
       return "";
   }
@@ -224,12 +226,12 @@ std::string GetThreatTypeStringForInterstitial(
     case SB_THREAT_TYPE_CSD_ALLOWLIST:
     case DEPRECATED_SB_THREAT_TYPE_URL_PASSWORD_PROTECTION_PHISHING:
     case DEPRECATED_SB_THREAT_TYPE_URL_CLIENT_SIDE_MALWARE:
+    case DEPRECATED_SB_THREAT_TYPE_BLOCKED_AD_POPUP:
+    case DEPRECATED_SB_THREAT_TYPE_BLOCKED_AD_REDIRECT:
     case SB_THREAT_TYPE_SAVED_PASSWORD_REUSE:
     case SB_THREAT_TYPE_SIGNED_IN_SYNC_PASSWORD_REUSE:
     case SB_THREAT_TYPE_SIGNED_IN_NON_SYNC_PASSWORD_REUSE:
     case SB_THREAT_TYPE_AD_SAMPLE:
-    case SB_THREAT_TYPE_BLOCKED_AD_POPUP:
-    case SB_THREAT_TYPE_BLOCKED_AD_REDIRECT:
     case SB_THREAT_TYPE_SUSPICIOUS_SITE:
     case SB_THREAT_TYPE_ENTERPRISE_PASSWORD_REUSE:
     case SB_THREAT_TYPE_APK_DOWNLOAD:

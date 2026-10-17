@@ -18,10 +18,21 @@ ToJniType<autofill::WalletPassAccessManager::GetDetailsForUpsertPassResponse>(
     const autofill::WalletPassAccessManager::GetDetailsForUpsertPassResponse&
         response) {
   return autofill::Java_DetailsForUpsertPass_Constructor(
-      env,
-      autofill::LegalMessageLineAndroid::ConvertToJavaLinkedList(
-          response.legal_message_lines),
-      response.context_token);
+      env, response.legal_message_lines, response.context_token);
+}
+
+template <>
+base::android::ScopedJavaLocalRef<jobject> ToJniType<base::expected<
+    autofill::WalletPassAccessManager::GetDetailsForUpsertPassResponse,
+    wallet::WalletHttpClient::WalletRequestError>>(
+    JNIEnv* env,
+    const base::expected<
+        autofill::WalletPassAccessManager::GetDetailsForUpsertPassResponse,
+        wallet::WalletHttpClient::WalletRequestError>& response) {
+  if (!response.has_value()) {
+    return nullptr;
+  }
+  return ToJniType(env, *response);
 }
 
 }  // namespace jni_zero

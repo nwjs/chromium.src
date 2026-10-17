@@ -83,7 +83,8 @@ TEST_F(TitledUrlMatchUtilsTest, TitledUrlMatchToAutocompleteMatch) {
   std::u16string input_text(u"goo");
   std::u16string match_title(u"Google Search");
   GURL match_url("https://www.google.com/");
-  AutocompleteMatchType::Type type = AutocompleteMatchType::BOOKMARK_TITLE;
+  omnibox::AutocompleteMatchType type =
+      omnibox::AutocompleteMatchType::kBookmarkTitle;
   int relevance = 123;
   int bookmark_count = 3;
 
@@ -94,7 +95,7 @@ TEST_F(TitledUrlMatchUtilsTest, TitledUrlMatchToAutocompleteMatch) {
   titled_url_match.url_match_positions = {{12, 15}};
 
   scoped_refptr<FakeAutocompleteProvider> provider =
-      new FakeAutocompleteProvider(AutocompleteProvider::Type::TYPE_BOOKMARK);
+      new FakeAutocompleteProvider(AutocompleteProvider::Type::kBookmark);
   TestSchemeClassifier classifier;
   AutocompleteInput input(input_text, metrics::OmniboxEventProto::NTP,
                           classifier);
@@ -140,7 +141,8 @@ AutocompleteMatch BuildTestAutocompleteMatch(
     const bookmarks::TitledUrlMatch::MatchPositions& match_positions) {
   std::u16string input_text(base::ASCIIToUTF16(input_text_s));
   std::u16string match_title(u"The Facebook");
-  AutocompleteMatchType::Type type = AutocompleteMatchType::BOOKMARK_TITLE;
+  omnibox::AutocompleteMatchType type =
+      omnibox::AutocompleteMatchType::kBookmarkTitle;
   int relevance = 123;
   int bookmark_count = 3;
 
@@ -164,7 +166,7 @@ AutocompleteMatch BuildTestAutocompleteMatch(
 TEST_F(TitledUrlMatchUtilsTest, DoTrimHttpScheme) {
   scoped_refptr<FakeAutocompleteProvider> provider =
       base::MakeRefCounted<FakeAutocompleteProvider>(
-          AutocompleteProvider::Type::TYPE_BOOKMARK);
+          AutocompleteProvider::Type::kBookmark);
   GURL match_url("http://www.facebook.com/");
   AutocompleteMatch autocomplete_match =
       BuildTestAutocompleteMatch(provider, "face", match_url, {{11, 15}});
@@ -192,7 +194,7 @@ TEST_F(TitledUrlMatchUtilsTest, DontTrimHttpSchemeIfInputHasScheme) {
 
   scoped_refptr<FakeAutocompleteProvider> provider =
       base::MakeRefCounted<FakeAutocompleteProvider>(
-          AutocompleteProvider::Type::TYPE_BOOKMARK);
+          AutocompleteProvider::Type::kBookmark);
   GURL match_url("http://www.facebook.com/");
   AutocompleteMatch autocomplete_match = BuildTestAutocompleteMatch(
       provider, "http://face", match_url, {{11, 15}});
@@ -216,7 +218,7 @@ TEST_F(TitledUrlMatchUtilsTest, DontTrimHttpSchemeIfInputHasScheme) {
 TEST_F(TitledUrlMatchUtilsTest, DoTrimHttpsScheme) {
   scoped_refptr<FakeAutocompleteProvider> provider =
       base::MakeRefCounted<FakeAutocompleteProvider>(
-          AutocompleteProvider::Type::TYPE_BOOKMARK);
+          AutocompleteProvider::Type::kBookmark);
   GURL match_url("https://www.facebook.com/");
   AutocompleteMatch autocomplete_match =
       BuildTestAutocompleteMatch(provider, "face", match_url, {{12, 16}});
@@ -244,7 +246,7 @@ TEST_F(TitledUrlMatchUtilsTest, DontTrimHttpsSchemeIfInputHasScheme) {
 
   scoped_refptr<FakeAutocompleteProvider> provider =
       base::MakeRefCounted<FakeAutocompleteProvider>(
-          AutocompleteProvider::Type::TYPE_BOOKMARK);
+          AutocompleteProvider::Type::kBookmark);
   GURL match_url("https://www.facebook.com/");
   AutocompleteMatch autocomplete_match = BuildTestAutocompleteMatch(
       provider, "https://face", match_url, {{12, 16}});
@@ -271,7 +273,8 @@ TEST_F(TitledUrlMatchUtilsTest, EmptyInlineAutocompletion) {
   std::u16string input_text(u"goo");
   std::u16string match_title(u"Email by Google");
   GURL match_url("http://www.gmail.com/google");
-  AutocompleteMatchType::Type type = AutocompleteMatchType::BOOKMARK_TITLE;
+  omnibox::AutocompleteMatchType type =
+      omnibox::AutocompleteMatchType::kBookmarkTitle;
   int relevance = 123;
   int bookmark_count = 3;
 
@@ -283,7 +286,7 @@ TEST_F(TitledUrlMatchUtilsTest, EmptyInlineAutocompletion) {
   titled_url_match.has_ancestor_match = false;
 
   scoped_refptr<FakeAutocompleteProvider> provider =
-      new FakeAutocompleteProvider(AutocompleteProvider::Type::TYPE_BOOKMARK);
+      new FakeAutocompleteProvider(AutocompleteProvider::Type::kBookmark);
   TestSchemeClassifier classifier;
   AutocompleteInput input(input_text, metrics::OmniboxEventProto::NTP,
                           classifier);
@@ -326,7 +329,7 @@ TEST_F(TitledUrlMatchUtilsTest, EmptyInlineAutocompletion) {
 
 TEST_F(TitledUrlMatchUtilsTest, PathsInContentsAndDescription) {
   scoped_refptr<FakeAutocompleteProvider> provider =
-      new FakeAutocompleteProvider(AutocompleteProvider::Type::TYPE_BOOKMARK);
+      new FakeAutocompleteProvider(AutocompleteProvider::Type::kBookmark);
   TestSchemeClassifier classifier;
   std::vector<std::u16string> ancestors = {u"parent", u"grandparent"};
 
@@ -348,7 +351,7 @@ TEST_F(TitledUrlMatchUtilsTest, PathsInContentsAndDescription) {
     AutocompleteInput input(std::u16string(), metrics::OmniboxEventProto::NTP,
                             classifier);
     AutocompleteMatch autocomplete_match = TitledUrlMatchToAutocompleteMatch(
-        titled_url_match, AutocompleteMatchType::BOOKMARK_TITLE, 1,
+        titled_url_match, omnibox::AutocompleteMatchType::kBookmarkTitle, 1,
         /*bookmark_count=*/3, provider.get(), classifier, input,
         std::u16string());
     EXPECT_EQ(base::UTF16ToUTF8(autocomplete_match.contents),

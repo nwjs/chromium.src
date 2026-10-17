@@ -38,13 +38,13 @@
 #include "content/public/browser/commit_deferring_condition.h"
 #include "content/public/browser/devtools_agent_host.h"
 #include "content/public/browser/global_routing_id.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/render_frame_metadata_provider.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_process_host_observer.h"
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/render_widget_host_observer.h"
 #include "content/public/browser/spare_render_process_host_manager.h"
-#include "content/public/browser/web_contents_delegate.h"
 #include "content/public/browser/web_contents_media_capture_id.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/isolated_world_ids.h"
@@ -382,9 +382,6 @@ void SimulateUnresponsiveRenderer(WebContents* web_contents,
 // Notes:
 // - Input events to a page may not work right after a page load, see
 // `SimulateEndOfPaintHoldingOnPrimaryMainFrame` for a workaround.
-// - For simulating clicks inside a fenced frame tree, this function does not
-// work. Use `SimulateClickInFencedFrameTree` in
-// `content/public/test/fenced_frame_test_util.cc`
 void SimulateMouseClick(WebContents* web_contents,
                         int modifiers,
                         blink::WebMouseEvent::Button button);
@@ -398,9 +395,6 @@ void SimulateMouseClick(WebContents* web_contents,
 // Notes:
 // - Input events to a page may not work right after a page load, see
 // `SimulateEndOfPaintHoldingOnPrimaryMainFrame` for a workaround.
-// - For simulating clicks inside a fenced frame tree, this function does not
-// work. Use `SimulateClickInFencedFrameTree` in
-// `content/public/test/fenced_frame_test_util.cc`
 void SimulateMouseClickAt(WebContents* web_contents,
                           int modifiers,
                           blink::WebMouseEvent::Button button,
@@ -1291,9 +1285,6 @@ std::vector<RenderWidgetHostView*> GetInputEventRouterRenderWidgetHostViews(
 
 // Returns the focused RenderWidgetHost.
 RenderWidgetHost* GetFocusedRenderWidgetHost(WebContents* web_contents);
-
-// Returns whether or not the RenderWidgetHost thinks it is focused.
-bool IsRenderWidgetHostFocused(const RenderWidgetHost*);
 
 // Returns the focused WebContents.
 WebContents* GetFocusedWebContents(WebContents* web_contents);
@@ -2704,11 +2695,6 @@ RegisterWebContentsCreationCallback(
 // and/or main. This can be useful to enable when the process hosting the window
 // is a standalone executable without an Info.plist.
 bool EnableNativeWindowActivation();
-
-// Ensures that if no key window is set (can happen in apps that are not
-// frontmost), we simulate the frontmost window becoming key, which triggers
-// any logic that would normally run in this case.
-void HandleMissingKeyWindow();
 #endif  // BUILDFLAG(IS_MAC)
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)

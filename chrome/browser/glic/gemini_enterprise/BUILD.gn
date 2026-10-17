@@ -2,6 +2,42 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+# GEiC Finch and command-line configuration helpers.
+#
+# This is a GLiC-internal helper, not a general purpose enablement check; see
+# geic_enabling.h. Including geic_enabling.h is restricted to an allowlist in
+# chrome/browser/glic/host/DEPS so that feature code goes through GLiC's
+# enablement utilities instead.
+source_set("geic_enabling") {
+  sources = [
+    "geic_enabling.cc",
+    "geic_enabling.h",
+  ]
+
+  deps = [
+    ":url_allowlist",
+    "//base",
+    "//chrome/browser/glic",
+    "//chrome/browser/glic/public:features",
+    "//chrome/browser/profiles:profile",
+    "//components/prefs",
+    "//content/public/browser",
+    "//net",
+    "//url",
+  ]
+}
+
+# Gemini Enterprise host allowlist, shared by GEiC guest URL resolution and the
+# GeminiEnterpriseSettings policy handler.
+source_set("url_allowlist") {
+  sources = [
+    "geic_url_allowlist.cc",
+    "geic_url_allowlist.h",
+  ]
+
+  deps = [ "//url" ]
+}
+
 source_set("gemini_enterprise") {
   sources = [
     "glic_gemini_enterprise_manager.cc",
@@ -9,7 +45,9 @@ source_set("gemini_enterprise") {
   ]
 
   deps = [
+    ":geic_enabling",
     "//base",
+    "//chrome/browser/glic",
     "//chrome/browser/glic:mojo_bindings",
     "//chrome/browser/glic/common",
     "//chrome/browser/profiles:profile",
@@ -27,15 +65,22 @@ source_set("gemini_enterprise") {
 
 source_set("unit_tests") {
   testonly = true
-  sources = [ "glic_gemini_enterprise_manager_unittest.cc" ]
+  sources = [
+    "geic_enabling_unittest.cc",
+    "glic_gemini_enterprise_manager_unittest.cc",
+  ]
 
   deps = [
+    ":geic_enabling",
     ":gemini_enterprise",
     "//base",
     "//base/test:test_support",
+    "//chrome/browser/glic",
     "//chrome/browser/glic:mojo_bindings",
+    "//chrome/browser/glic/public:features",
     "//chrome/common:constants",
     "//chrome/test:test_support",
+    "//components/prefs",
     "//content/test:test_support",
     "//mojo/public/cpp/bindings",
     "//testing/gtest",
@@ -52,6 +97,7 @@ source_set("browser_tests") {
   ]
 
   deps = [
+    ":geic_enabling",
     ":gemini_enterprise",
     "//base",
     "//base/test:test_support",

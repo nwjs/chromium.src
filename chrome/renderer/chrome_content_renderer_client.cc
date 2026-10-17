@@ -93,6 +93,8 @@
 #include "components/dom_distiller/core/url_constants.h"
 #include "components/error_page/common/error.h"
 #include "components/error_page/common/localized_error.h"
+#include "components/facilitated_payments/content/renderer/facilitated_payments_agent.h"
+#include "components/facilitated_payments/core/features/features.h"
 #include "components/feed/feed_feature_list.h"
 #include "components/grit/components_scaled_resources.h"
 #include "components/guest_view/buildflags/buildflags.h"
@@ -369,6 +371,13 @@ std::unique_ptr<base::Unwinder> CreateV8Unwinder(v8::Isolate* isolate) {
 }  // namespace
 
 ChromeContentRendererClient::ChromeContentRendererClient()
+    : ChromeContentRendererClient(
+          /*create_extensions_client=*/
+          !base::CommandLine::ForCurrentProcess()->HasSwitch(
+              switches::kSingleProcess)) {}
+
+ChromeContentRendererClient::ChromeContentRendererClient(
+    bool create_extensions_client)
 #if BUILDFLAG(IS_WIN)
     : remote_module_watcher_(nullptr, base::OnTaskRunnerDeleter(nullptr))
 #endif
@@ -386,8 +395,10 @@ ChromeContentRendererClient::ChromeContentRendererClient()
       sampling_profiler::ThreadProfiler::CreateAndStartOnMainThread();
 #endif
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
-  extensions_client_ =
-      std::make_unique<extensions::ScopedChromeExtensionsClient>();
+  if (create_extensions_client) {
+    extensions_client_ =
+        std::make_unique<extensions::ScopedChromeExtensionsClient>();
+  }
   ChromeExtensionsRendererClient::Create();
 #endif
 }
@@ -435,23 +446,22 @@ void ChromeContentRendererClient::RenderThreadStarted() {
       thread->GetIOTaskRunner(), std::move(module_event_sink));
 #endif
 
-  browser_interface_broker_ =
-      blink::Platform::Current()->GetBrowserInterfaceBroker();
-
-  chrome_observer_ = std::make_unique<ChromeRenderThreadObserver>();
-  web_cache_impl_ = std::make_unique<web_cache::WebCacheImpl>();
-
 #if BUILDFLAG(ENABLE_REQUEST_HEADER_INTEGRITY)
   if (request_header_integrity::RequestHeaderIntegrityURLLoaderThrottle::
           IsFeatureEnabled()) {
     mojo::PendingRemote<request_header_integrity::mojom::ChromeCompanero>
         remote;
-    browser_interface_broker_->GetInterface(
-        remote.InitWithNewPipeAndPassReceiver());
+    thread->BindHostReceiver(remote.InitWithNewPipeAndPassReceiver());
     request_header_integrity::ChromeCompaneroLoader::GetInstance()
         .SetMojoRemote(std::move(remote));
   }
 #endif
+
+  browser_interface_broker_ =
+      blink::Platform::Current()->GetBrowserInterfaceBroker();
+
+  chrome_observer_ = std::make_unique<ChromeRenderThreadObserver>();
+  web_cache_impl_ = std::make_unique<web_cache::WebCacheImpl>();
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   auto* extensions_renderer_client =
@@ -838,6 +848,16 @@ void ChromeContentRendererClient::RenderFrameCreated(
           wallet::features::kWalletablePassDetection) &&
       render_frame->IsMainFrame()) {
     wallet::ImageExtractor::Create(render_frame, registry);
+  }
+
+  // Scans the DOM for payment QR codes. The main frame check precedes the
+  // feature flag check so that subframes never enroll into the experiment and
+  // dilute its metrics.
+  if (render_frame->IsMainFrame() &&
+      base::FeatureList::IsEnabled(
+          payments::facilitated::kEnableDesktopQrCodeDetection)) {
+    new payments::facilitated::FacilitatedPaymentsAgent(render_frame,
+                                                        associated_interfaces);
   }
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -1292,6 +1312,22 @@ bool ChromeContentRendererClient::AllowPopup() {
 #endif
 }
 
+bool ChromeContentRendererClient::IsUnboundedElementAllowed(
+    content::RenderFrame* render_frame) {
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+  if (render_frame && render_frame->GetWebFrame()) {
+    const blink::WebSecurityOrigin origin =
+        render_frame->GetWebFrame()->GetSecurityOrigin();
+    if (!origin.IsNull() &&
+        origin.Protocol().Equals(extensions::kExtensionScheme) &&
+        origin.Host().Equals(extension_misc::kContextualTasksExtensionId)) {
+      return true;
+    }
+  }
+#endif
+  return false;
+}
+
 bool ChromeContentRendererClient::ShouldNotifyServiceWorkerOnWebSocketActivity(
     v8::Local<v8::Context> context) {
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
@@ -1716,4 +1752,3 @@ void ChromeContentRendererClient::AppendContentSecurityPolicy(
                   network::mojom::ContentSecurityPolicySource::kHTTP});
 #endif
 }
-

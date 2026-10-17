@@ -48,6 +48,7 @@ Mga bagay na dapat isaalang-alang:
 <translation id="1784567647421309104">I-save ang Iyong Mga Password sa Chrome</translation>
 <translation id="1790080846677398234">Idaragdag ang mga in-input na URL sa iyong mga bookmark sa Chrome.</translation>
 <translation id="1799920918471566157">Mga Tip sa Chrome</translation>
+<translation id="1802420021606590788">Pinoproseso ng Chrome ang mga pamagat ng page at URL sa pribadong space sa cloud</translation>
 <translation id="1830634592642484976">Kasalukuyang naka-save ang address na ito sa Chrome. Para gamitin ito sa mga produkto ng Google, i-save ito sa iyong Google Account na <ph name="USER_EMAIL" />.</translation>
 <translation id="1891812034154776216">I-hide ang mga nakabukas na tab na Incognito kapag umalis ka sa Chrome</translation>
 <translation id="1894434821386148799">Makikita mo ang mga setting ng Chrome at higit pa rito</translation>
@@ -140,6 +141,7 @@ Hindi mase-save ang mga bagong bookmark sa iyong account hangga't hindi ka nagde
 <translation id="3984746313391923992">Hinihiling sa iyo ng organisasyon mo na manatiling naka-sign out sa Chrome.</translation>
 <translation id="3988789688219830639">Walang access ang Google Chrome sa larawan o video. I-enable ang access sa Mga Setting ng iOS &gt; Privacy &gt; Mga Larawan.</translation>
 <translation id="4064699917955374540">Para magamit at ma-save ang data ng Chrome sa iyong Google Account, i-verify na ikaw ito.</translation>
+<translation id="4093789416346364876">Gawing default mo ang Chrome para makakuha ng mga insight ng Gemini saan ka man mag-browse</translation>
 <translation id="411154422556990518">Maging updated sa pagsubaybay sa presyo at mga tip sa Chrome.</translation>
 <translation id="417201473131094001">Hindi sinusuportahan sa Chrome Canary</translation>
 <translation id="424864128008805179">Mag-sign out sa Chrome?</translation>
@@ -268,6 +270,7 @@ Para sa higit pang setting na gumagamit ng data para pahusayin ang iyong experie
 <translation id="7061455974939528301">Pindutin nang matagal ang icon ng Chrome at i-click ang "I-edit ang home screen"</translation>
 <translation id="7095110968493193530">Sa Google Password Manager para sa <ph name="EMAIL" /></translation>
 <translation id="7124339256045485976">Panatilihing up to date ang Chrome</translation>
+<translation id="7135936755418321901">Para i-share ang iyong lokasyon sa mga website, mag-tap sa Mga Setting para hayaan ang Chrome na gamitin ang lokasyon mo.</translation>
 <translation id="7145599899567697473">Mag-save at mag-autofill ng mga password sa Chrome</translation>
 <translation id="7161390184744336561">Luma na ang Google Chrome</translation>
 <translation id="7165736900384873061">Simulan ang paggamit ng QR scanner ng Google Chrome</translation>
@@ -282,6 +285,7 @@ Para sa higit pang setting na gumagamit ng data para pahusayin ang iyong experie
 <translation id="7272930098487145294">Para makapag-save ng mga larawan, mag-tap sa Mga Setting para payagan ang Chrome na magdagdag sa iyong mga larawan</translation>
 <translation id="7275945473750112644">Pinapamahalaan ng <ph name="HOSTED_DOMAIN" /> ang iyong account, kaya maki-clear ang data mo sa Chrome sa device na ito</translation>
 <translation id="7284245284340063465">Kung nakalimutan mo ang iyong passphrase o gusto mong baguhin ang setting na ito, <ph name="BEGIN_LINK" />i-delete ang data sa Chrome sa iyong account<ph name="END_LINK" />.</translation>
+<translation id="7287957555760192025">Kung pipiliin o babalewalain mo ang isang suhestyon, aangkop ang Chrome para makatulong na magpakita sa iyo ng mga mas nauugnay na suhestyon sa hinaharap.</translation>
 <translation id="7296102444587051536">Chrome para sa iOS</translation>
 <translation id="7299681342915173313">Magagamit mo na ngayon ang Chrome sa tuwing magta-tap ka ng mga link sa mga email, dokumento, at iba pang app.</translation>
 <translation id="7334364820047587268">Mayroon ka nang mga password para sa mga account na ito sa iyong Google Password Manager. Kung pipiliin mong i-import ang isa sa mga password sa ibaba, papalitan nito ang kasalukuyang password.</translation>
@@ -355,6 +359,7 @@ Na-encrypt ang iyong data gamit ang passphrase mo noong <ph name="TIME" />. Ilag
 <translation id="8544583291890527417">Mga alerto sa anumang isyu sa privacy o seguridad na dine-detect ng Chrome para sa iyo.</translation>
 <translation id="855027533751209304">Tip sa Chrome: Hanapin ang nakikita mo</translation>
 <translation id="8558480467877843976">Magagamit mo na ngayon ang Chrome sa tuwing magbo-browse o magta-tap ka ng mga link sa mga mensahe, dokumento, at iba pang app.</translation>
+<translation id="8589791109349384456">Hindi kinokontrol ng pag-off sa mga suhestyon ang pagpoproseso ng Chrome sa mga pamagat ng page at URL para sa iba pang feature. Puwede mong pamahalaan ang access sa data na ito sa iyong <ph name="BEGIN_LINK" />mga setting ng pag-sync<ph name="END_LINK" />.</translation>
 <translation id="8603022514504485810">Hindi masuri ng Google Password Manager ang lahat ng password. Subukan ulit bukas o <ph name="BEGIN_LINK" />suriin ang mga password sa iyong Google Account.<ph name="END_LINK" /></translation>
 <translation id="8610372330814566250">Gamitin sa Chrome ang iyong mga password, history, mga bookmark, at mga credit card sa Safari</translation>
 <translation id="8630122478628016441">I-on ang “I-lock ang mga tab na Incognito kapag isinara mo ang Chrome.”</translation>

@@ -10,10 +10,11 @@ from __future__ import annotations
 
 import dataclasses
 import enum
-import io
+import os
 import os.path
 import subprocess
 import sys
+import tempfile
 import textwrap
 import unittest
 from unittest import mock
@@ -294,7 +295,7 @@ class CheckNoUNIT_TESTInSourceFilesTest(unittest.TestCase):
             '# if defined(UNIT_TEST) && defined(VALID)',
             '# else  // defined(UNIT_TEST)', '#endif  // defined(UNIT_TEST)'
         ]
-        errors = PRESUBMIT._CheckNoUNIT_TESTInSourceFiles(
+        errors = PRESUBMIT._CheckNoUNIT_TESTInFile(
             MockInputApi(), MockFile('some/path/source.cc', lines))
         self.assertEqual(len(lines), len(errors))
 
@@ -308,7 +309,7 @@ class CheckNoUNIT_TESTInSourceFilesTest(unittest.TestCase):
             '#ifdef _UNIT_TEST', '#ifdef UNIT_TEST_', '#ifndef _UNIT_TEST',
             '#ifndef UNIT_TEST_'
         ]
-        errors = PRESUBMIT._CheckNoUNIT_TESTInSourceFiles(
+        errors = PRESUBMIT._CheckNoUNIT_TESTInFile(
             MockInputApi(), MockFile('some/path/source.cc', lines))
         self.assertEqual(0, len(errors))
 
@@ -775,6 +776,25 @@ class JSONParsingTest(unittest.TestCase):
 
 class IDLParsingTest(unittest.TestCase):
 
+    def setUp(self):
+        self._temp_dir = tempfile.TemporaryDirectory()
+
+    def tearDown(self):
+        self._temp_dir.cleanup()
+
+    def _WriteTempFile(self, filename, contents):
+        full_path = os.path.join(self._temp_dir.name, filename)
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+        with open(full_path, 'w', encoding='utf-8', newline='') as f:
+            f.write('\n'.join(contents))
+        return full_path
+
+    def _RunIDLParse(self, input_api, filename):
+        output_api = MockOutputApi()
+        results = input_api.RunTests(
+            [PRESUBMIT._GetIDLParseCommand(input_api, output_api, filename)])
+        return results[0].message if results else None
+
     def testSuccess(self):
         input_api = MockInputApi()
         filename = 'valid_idl_basics.idl'
@@ -798,8 +818,8 @@ class IDLParsingTest(unittest.TestCase):
             '    static void onFoo2(MyType1 arg);',
             '    static void onFoo3(EnumType type);', '  };', '};'
         ]
-        input_api.files = [MockFile(filename, contents)]
-        self.assertIsNone(PRESUBMIT._GetIDLParseError(input_api, filename))
+        full_path = self._WriteTempFile(filename, contents)
+        self.assertIsNone(self._RunIDLParse(input_api, full_path))
 
     def testFailure(self):
         input_api = MockInputApi()
@@ -807,7 +827,7 @@ class IDLParsingTest(unittest.TestCase):
             ('invalid_idl_1.idl', [
                 '//', 'namespace test {', '  dictionary {', '    DOMString s;',
                 '  };', '};'
-            ], 'Unexpected "{" after keyword "dictionary".\n'),
+            ], 'Unexpected "{" after keyword "dictionary".'),
             # TODO(yoz): Disabled because it causes the IDL parser to hang.
             # See crbug.com/363830.
             # ('invalid_idl_2.idl',
@@ -845,16 +865,49 @@ class IDLParsingTest(unittest.TestCase):
                 '//', 'namespace test {', '  interface {',
                 '    static void function1();', '  };', '};'
             ], 'Interface missing name.'),
+            ('invalid_idl_non_ascii.idl', [
+                '// Non-ascii \xa0 char', 'namespace test {};'
+            ], 'UnicodeEncodeError'),
         ]
 
-        input_api.files = [
-            MockFile(filename, contents)
-            for (filename, contents, _) in test_data
-        ]
-
-        for (filename, _, expected_error) in test_data:
-            actual_error = PRESUBMIT._GetIDLParseError(input_api, filename)
+        for (filename, contents, expected_error) in test_data:
+            full_path = self._WriteTempFile(filename, contents)
+            actual_error = self._RunIDLParse(input_api, full_path)
             self.assertIn(expected_error, str(actual_error))
+
+    def testCheckIDLParseErrors(self):
+        input_api = MockInputApi()
+        output_api = MockOutputApi()
+        valid_path = 'extensions/common/api/valid.idl'
+        invalid_path = 'extensions/common/api/invalid.idl'
+        valid_contents = [
+            '// Valid comment.',
+            'namespace valid_ns {',
+            '  dictionary MyDict { DOMString a; };',
+            '};',
+        ]
+        invalid_contents = [
+            '// Invalid comment.',
+            'namespace invalid_ns {',
+            '  dictionary { DOMString s; };',
+            '};',
+        ]
+        self._WriteTempFile(valid_path, valid_contents)
+        self._WriteTempFile(invalid_path, invalid_contents)
+        input_api.files = [
+            MockAffectedFile(valid_path,
+                             valid_contents,
+                             local_root=self._temp_dir.name),
+            MockAffectedFile(invalid_path,
+                             invalid_contents,
+                             local_root=self._temp_dir.name),
+        ]
+        results = PRESUBMIT.CheckIDLParseErrors(input_api, output_api)
+        self.assertEqual(1, len(results))
+        self.assertIn(invalid_path, results[0].message)
+        self.assertIn('Unexpected "{" after keyword "dictionary".',
+                      results[0].message)
+
 
 
 class UserMetricsActionTest(unittest.TestCase):
@@ -908,71 +961,22 @@ class UserMetricsActionTest(unittest.TestCase):
 
 class PydepsNeedsUpdatingTest(unittest.TestCase):
 
-    class MockPopen:
-
-        def __init__(self, stdout):
-            self.stdout = io.StringIO(stdout)
-
-        def wait(self):
-            return 0
-
-    class MockSubprocess:
-        CalledProcessError = subprocess.CalledProcessError
-        PIPE = 0
-
-        def __init__(self):
-            self._popen_func = None
-
-        def SetPopenCallback(self, func):
-            self._popen_func = func
-
-        def Popen(self, cmd, *args, **kwargs):
-            return PydepsNeedsUpdatingTest.MockPopen(self._popen_func(cmd))
-
-    def _MockParseGclientArgs(self, is_android=True):
-        return lambda: {'checkout_android': 'true' if is_android else 'false'}
-
     def setUp(self):
         mock_all_pydeps = ['A.pydeps', 'B.pydeps', 'D.pydeps']
         self.old_ALL_PYDEPS_FILES = PRESUBMIT._ALL_PYDEPS_FILES
         PRESUBMIT._ALL_PYDEPS_FILES = mock_all_pydeps
-        mock_android_pydeps = ['D.pydeps']
-        self.old_ANDROID_SPECIFIC_PYDEPS_FILES = (
-            PRESUBMIT._ANDROID_SPECIFIC_PYDEPS_FILES)
-        PRESUBMIT._ANDROID_SPECIFIC_PYDEPS_FILES = mock_android_pydeps
-        self.old_ParseGclientArgs = PRESUBMIT._ParseGclientArgs
-        PRESUBMIT._ParseGclientArgs = self._MockParseGclientArgs()
         self.mock_input_api = MockInputApi()
+        self.mock_input_api.platform = 'linux'
         self.mock_output_api = MockOutputApi()
-        self.mock_input_api.subprocess = PydepsNeedsUpdatingTest.MockSubprocess(
-        )
-        self.checker = PRESUBMIT.PydepsChecker(self.mock_input_api,
-                                               mock_all_pydeps)
-        self.checker._file_cache = {
-            'A.pydeps':
-            '# Generated by:\n# CMD --output A.pydeps A\nA.py\nC.py\n',
-            'B.pydeps':
-            '# Generated by:\n# CMD --output B.pydeps B\nB.py\nC.py\n',
-            'D.pydeps': '# Generated by:\n# CMD --output D.pydeps D\nD.py\n',
-        }
 
     def tearDown(self):
         PRESUBMIT._ALL_PYDEPS_FILES = self.old_ALL_PYDEPS_FILES
-        PRESUBMIT._ANDROID_SPECIFIC_PYDEPS_FILES = (
-            self.old_ANDROID_SPECIFIC_PYDEPS_FILES)
-        PRESUBMIT._ParseGclientArgs = self.old_ParseGclientArgs
 
     def _RunCheck(self):
-        return PRESUBMIT.CheckPydepsNeedsUpdating(
-            self.mock_input_api,
-            self.mock_output_api,
-            checker_for_tests=self.checker)
+        return PRESUBMIT.CheckPydepsNeedsUpdating(self.mock_input_api,
+                                                  self.mock_output_api)
 
     def testAddedPydep(self):
-        # PRESUBMIT.CheckPydepsNeedsUpdating is only implemented for Linux.
-        if not self.mock_input_api.platform.startswith('linux'):
-            return
-
         self.mock_input_api.InitFiles([
             MockAffectedFile('new.pydeps', [], action='A'),
         ])
@@ -990,136 +994,12 @@ class PydepsNeedsUpdatingTest(unittest.TestCase):
         self.assertEqual(0, len(results))
 
     def testRemovedPydep(self):
-        # PRESUBMIT.CheckPydepsNeedsUpdating is only implemented for Linux.
-        if not self.mock_input_api.platform.startswith('linux'):
-            return
-
         self.mock_input_api.InitFiles([
             MockAffectedFile(PRESUBMIT._ALL_PYDEPS_FILES[0], [], action='D'),
         ])
         results = self._RunCheck()
         self.assertEqual(1, len(results))
         self.assertIn('PYDEPS_FILES', str(results[0]))
-
-    def testRandomPyIgnored(self):
-        # PRESUBMIT.CheckPydepsNeedsUpdating is only implemented for Linux.
-        if not self.mock_input_api.platform.startswith('linux'):
-            return
-
-        self.mock_input_api.files = [
-            MockAffectedFile('random.py', []),
-        ]
-
-        results = self._RunCheck()
-        self.assertEqual(0, len(results), 'Unexpected results: %r' % results)
-
-    def testRelevantPyNoChange(self):
-        # PRESUBMIT.CheckPydepsNeedsUpdating is only implemented for Linux.
-        if not self.mock_input_api.platform.startswith('linux'):
-            return
-
-        self.mock_input_api.files = [
-            MockAffectedFile('A.py', []),
-        ]
-
-        def popen_callback(cmd):
-            self.assertEqual('CMD --output A.pydeps A --output ""', cmd)
-            return self.checker._file_cache['A.pydeps']
-
-        self.mock_input_api.subprocess.SetPopenCallback(popen_callback)
-
-        results = self._RunCheck()
-        self.assertEqual(0, len(results), 'Unexpected results: %r' % results)
-
-    def testRelevantPyOneChange(self):
-        # PRESUBMIT.CheckPydepsNeedsUpdating is only implemented for Linux.
-        if not self.mock_input_api.platform.startswith('linux'):
-            return
-
-        self.mock_input_api.files = [
-            MockAffectedFile('A.py', []),
-        ]
-
-        def popen_callback(cmd):
-            self.assertEqual('CMD --output A.pydeps A --output ""', cmd)
-            return 'changed data'
-
-        self.mock_input_api.subprocess.SetPopenCallback(popen_callback)
-
-        results = self._RunCheck()
-        self.assertEqual(1, len(results))
-        # Check that --output "" is not included.
-        self.assertNotIn('""', str(results[0]))
-        self.assertIn('File is stale', str(results[0]))
-
-    def testRelevantPyTwoChanges(self):
-        # PRESUBMIT.CheckPydepsNeedsUpdating is only implemented for Linux.
-        if not self.mock_input_api.platform.startswith('linux'):
-            return
-
-        self.mock_input_api.files = [
-            MockAffectedFile('C.py', []),
-        ]
-
-        def popen_callback(cmd):
-            return 'changed data'
-
-        self.mock_input_api.subprocess.SetPopenCallback(popen_callback)
-
-        results = self._RunCheck()
-        self.assertEqual(2, len(results))
-        self.assertIn('File is stale', str(results[0]))
-        self.assertIn('File is stale', str(results[1]))
-
-    def testRelevantAndroidPyInNonAndroidCheckout(self):
-        # PRESUBMIT.CheckPydepsNeedsUpdating is only implemented for Linux.
-        if not self.mock_input_api.platform.startswith('linux'):
-            return
-
-        self.mock_input_api.files = [
-            MockAffectedFile('D.py', []),
-        ]
-
-        def popen_callback(cmd):
-            self.assertEqual('CMD --output D.pydeps D --output ""', cmd)
-            return 'changed data'
-
-        self.mock_input_api.subprocess.SetPopenCallback(popen_callback)
-        PRESUBMIT._ParseGclientArgs = self._MockParseGclientArgs(
-            is_android=False)
-
-        results = self._RunCheck()
-        self.assertEqual(1, len(results))
-        self.assertIn('Android', str(results[0]))
-        self.assertIn('D.pydeps', str(results[0]))
-
-    def testGnPathsAndMissingOutputFlag(self):
-        # PRESUBMIT.CheckPydepsNeedsUpdating is only implemented for Linux.
-        if not self.mock_input_api.platform.startswith('linux'):
-            return
-
-        self.checker._file_cache = {
-            'A.pydeps':
-            '# Generated by:\n# CMD --gn-paths A\n//A.py\n//C.py\n',
-            'B.pydeps':
-            '# Generated by:\n# CMD --gn-paths B\n//B.py\n//C.py\n',
-            'D.pydeps': '# Generated by:\n# CMD --gn-paths D\n//D.py\n',
-        }
-
-        self.mock_input_api.files = [
-            MockAffectedFile('A.py', []),
-        ]
-
-        def popen_callback(cmd):
-            self.assertEqual('CMD --gn-paths A --output A.pydeps --output ""',
-                             cmd)
-            return 'changed data'
-
-        self.mock_input_api.subprocess.SetPopenCallback(popen_callback)
-
-        results = self._RunCheck()
-        self.assertEqual(1, len(results))
-        self.assertIn('File is stale', str(results[0]))
 
 
 class IncludeGuardTest(unittest.TestCase):
@@ -2722,19 +2602,19 @@ class IpcSecurityOwnerTest(_SecurityOwnersTestCase):
             'per-file *.mojom=file://ipc/SECURITY_OWNERS'
         ]
 
-        def FakeReadFile(filename):
-            self.assertEqual(
-                mock_input_api.os_path.join('chromium', 'src',
-                                            new_owners_file_path), filename)
-            return '\n'.join(new_owners_file)
-
-        mock_input_api.ReadFile = FakeReadFile
+        repo_root = mock_input_api.change.RepositoryRoot()
         mock_input_api.files = [
-            MockAffectedFile(new_owners_file_path, new_owners_file),
+            MockAffectedFile(new_owners_file_path, new_owners_file,
+                             local_root=repo_root),
             MockAffectedFile(
                 mock_input_api.os_path.join('services', 'goat', 'public',
                                             'goat.mojom'),
-                ['// Scary contents.'])
+                ['// Scary contents.'],
+                local_root=repo_root),
+            MockAffectedFile(
+                mock_input_api.os_path.join('ipc', 'SECURITY_OWNERS'),
+                ['apple@chromium.org', 'orange@chromium.org'],
+                local_root=repo_root),
         ]
         self._setupFakeChange(mock_input_api)
         self._injectFakeChangeOwnerAndReviewers(mock_input_api,
@@ -3034,7 +2914,11 @@ class SecurityChangeTest(_SecurityOwnersTestCase):
         mock_input_api.is_committing = False
         mock_input_api.files = [
             MockAffectedFile('file.cc',
-                             ['GetServiceSandboxType<Goat>(Sandbox)'])
+                             ['GetServiceSandboxType<Goat>(Sandbox)']),
+            MockAffectedFile(
+                mock_input_api.os_path.join('chromium', 'src', 'ipc',
+                                            'SECURITY_OWNERS'),
+                ['apple@chromium.org', 'orange@chromium.org']),
         ]
         mock_output_api = MockOutputApi()
         result = PRESUBMIT.CheckSecurityChanges(mock_input_api,
@@ -3092,7 +2976,11 @@ class SecurityChangeTest(_SecurityOwnersTestCase):
                                                 'orange@chromium.org',
                                                 ['pear@chromium.org'])
         mock_input_api.files = [
-            MockAffectedFile('file.cc', ['GetServiceSandboxType<T>(Sandbox)'])
+            MockAffectedFile('file.cc', ['GetServiceSandboxType<T>(Sandbox)']),
+            MockAffectedFile(
+                mock_input_api.os_path.join('chromium', 'src', 'ipc',
+                                            'SECURITY_OWNERS'),
+                ['apple@chromium.org', 'orange@chromium.org']),
         ]
         mock_output_api = MockOutputApi()
         result = PRESUBMIT.CheckSecurityChanges(mock_input_api,
@@ -5163,6 +5051,32 @@ class MojomStabilityCheckTest(unittest.TestCase):
         ])
         self.assertEqual([], errors)
 
+    def testNonMojomChangeWithCaseInsensitiveFooter(self):
+        mock_input_api = MockInputApi()
+        mock_input_api.files = [MockFile('docs/README.md', [])]
+        mock_output_api = MockOutputApi()
+        # Non-mojom change with no footer exits immediately with []
+        mock_input_api.change.DescriptionText = lambda: (
+            'Commit title\n\nClean description\n')
+        res = PRESUBMIT.CheckStableMojomChanges(mock_input_api, mock_output_api)
+        self.assertEqual(res, [])
+
+        # Non-mojom change with valid lowercase footer must complain about unnecessary footer
+        mock_input_api.change.DescriptionText = lambda: (
+            'Commit title\n\nno-stable-mojom-checks: true\n')
+        mock_input_api.change.footers['No-Stable-Mojom-Checks'] = ['true']
+        res = PRESUBMIT.CheckStableMojomChanges(mock_input_api, mock_output_api)
+        self.assertEqual(len(res), 1)
+        self.assertIn('unnecessary git footer', res[0].message)
+
+        # Non-mojom change with invalid lowercase footer must fail validation
+        mock_input_api.change.DescriptionText = lambda: (
+            'Commit title\n\nno-stable-mojom-checks: false\n')
+        mock_input_api.change.footers['No-Stable-Mojom-Checks'] = ['false']
+        res = PRESUBMIT.CheckStableMojomChanges(mock_input_api, mock_output_api)
+        self.assertEqual(len(res), 1)
+        self.assertIn('No-Stable-Mojom-Checks only accepts', res[0].message)
+
 
 class CheckForUseOfChromeAppsDeprecationsTest(unittest.TestCase):
 
@@ -7038,7 +6952,15 @@ class CheckNoDirectRefToAndroidSidePanelCachedFlagTest(unittest.TestCase):
                 'chrome/browser/ui/side_panel/android/java/src/org/chromium/chrome/browser/ui/side_panel/AndroidSidePanelEnabledFn.java',
                 ['ChromeFeatureList.sEnableAndroidSidePanel.isEnabled()']),
             MockAffectedFile(
+                ('chrome/browser/ui/side_panel/android/java/src/org/chromium/'
+                 'chrome/browser/ui/side_panel/AndroidSidePanelEnabledFn.kt'),
+                ['ChromeFeatureList.sEnableAndroidSidePanel.isEnabled()']),
+            MockAffectedFile(
                 'chrome/browser/flags/android/java/src/org/chromium/chrome/browser/flags/ChromeFeatureList.java',
+                ['sEnableAndroidSidePanel']),
+            MockAffectedFile(
+                ('chrome/browser/flags/android/java/src/org/chromium/chrome/'
+                 'browser/flags/ChromeFeatureList.kt'),
                 ['sEnableAndroidSidePanel']),
             MockAffectedFile('PRESUBMIT.py', ['sEnableAndroidSidePanel']),
             MockAffectedFile('PRESUBMIT_test.py', ['sEnableAndroidSidePanel']),
@@ -7085,6 +7007,18 @@ class CheckNoDirectRefToAndroidSidePanelCachedFlagTest(unittest.TestCase):
         }
         results = PRESUBMIT.CheckNoDirectRefToAndroidSidePanelCachedFlag(mock_input_api, MockOutputApi())
         self.assertEqual(1, len(results))
+
+    def testKotlinFile(self):
+        mock_output_api = MockOutputApi()
+        mock_input_api = MockInputApi()
+        mock_file = MockFile(
+            'chrome/android/java/src/org/chromium/Panel.kt',
+            ['ChromeFeatureList.sEnableAndroidSidePanel.isEnabled()'])
+        mock_input_api.files = [mock_file]
+        res = PRESUBMIT.CheckNoDirectRefToAndroidSidePanelCachedFlag(
+            mock_input_api, mock_output_api)
+        self.assertEqual(len(res), 1)
+        self.assertIn('sEnableAndroidSidePanel', res[0].message)
 
 
 class CheckUnwantedDependenciesTest(unittest.TestCase):
@@ -7188,9 +7122,16 @@ class CheckUnwantedDependenciesTest(unittest.TestCase):
             MockFile('base/android/java/src/org/chromium/base/Foo.java',
                      ['import java.util.List;']),
         ]
-        results = PRESUBMIT.CheckUnwantedDependencies(
-            mock_input_api, MockOutputApi())
-        self.assertEqual(0, len(results))
+        with mock.patch.object(checkdeps.DepsChecker,
+                               'CheckAddedJavaImports',
+                               return_value=[]) as mock_check:
+            results = PRESUBMIT.CheckUnwantedDependencies(
+                mock_input_api, MockOutputApi())
+            mock_check.assert_called_once_with(
+                [[mock_input_api.files[0].AbsoluteLocalPath(),
+                  mock_input_api.files[0].NewContents()]],
+                PRESUBMIT._JAVA_MULTIPLE_DEFINITION_EXCLUDED_PATHS)
+            self.assertEqual(0, len(results))
 
     def testProtoImportQuotes(self):
         """Proto import statements with single quotes should be recognized
@@ -7305,10 +7246,23 @@ class CheckUnwantedDependenciesTest(unittest.TestCase):
                 'WebViewChromiumFactoryProvider.java',
                 ['import org.chromium.content.app.ContentMain;']),
         ]
-        results = PRESUBMIT.CheckUnwantedDependencies(
-            mock_input_api, MockOutputApi())
-        self.assertEqual(1, len(results))
-        self.assertEqual('error', results[0].type)
+        disallow_rule = [
+            ('android_webview/glue/java/src/com/android/webview/chromium/'
+             'WebViewChromiumFactoryProvider.java',
+             Rule.DISALLOW,
+             'Illegal import: org.chromium.content.app.ContentMain')
+        ]
+        with mock.patch.object(checkdeps.DepsChecker,
+                               'CheckAddedJavaImports',
+                               return_value=disallow_rule) as mock_check:
+            results = PRESUBMIT.CheckUnwantedDependencies(
+                mock_input_api, MockOutputApi())
+            mock_check.assert_called_once_with(
+                [[mock_input_api.files[0].AbsoluteLocalPath(),
+                  mock_input_api.files[0].NewContents()]],
+                PRESUBMIT._JAVA_MULTIPLE_DEFINITION_EXCLUDED_PATHS)
+            self.assertEqual(1, len(results))
+            self.assertEqual('error', results[0].type)
 
     def testJavaImportWithDollar(self):
         """Java imports referencing identifiers with $ should be recognized
@@ -7330,10 +7284,266 @@ class CheckUnwantedDependenciesTest(unittest.TestCase):
                                return_value=disallow_rule) as mock_check:
             results = PRESUBMIT.CheckUnwantedDependencies(
                 mock_input_api, MockOutputApi())
-            mock_check.assert_called_once()
+            mock_check.assert_called_once_with(
+                [[mock_input_api.files[0].AbsoluteLocalPath(),
+                  mock_input_api.files[0].NewContents()]],
+                PRESUBMIT._JAVA_MULTIPLE_DEFINITION_EXCLUDED_PATHS)
             self.assertEqual(1, len(results))
             self.assertEqual('error', results[0].type)
 
+    def testJavaImportEndToEnd(self):
+        """End-to-end test verifying CheckUnwantedDependencies with real
+        DepsChecker on Java files using an isolated directory.
+        """
+        git_cmd = 'git.bat' if os.name == 'nt' else 'git'
+        with tempfile.TemporaryDirectory() as temp_dir:
+            subprocess.run([git_cmd, 'init', '-q', temp_dir], check=True)
+
+            with open(os.path.join(temp_dir, 'DEPS'), 'w') as f:
+                f.write('include_rules = ["-bad", "+good"]\n')
+
+            bad_dir = os.path.join(temp_dir, 'bad')
+            os.mkdir(bad_dir)
+            with open(os.path.join(bad_dir, 'Bad.java'), 'w') as f:
+                f.write('package bad;\npublic class Bad {}\n')
+
+            good_dir = os.path.join(temp_dir, 'good')
+            os.mkdir(good_dir)
+            with open(os.path.join(good_dir, 'Good.java'), 'w') as f:
+                f.write('package good;\npublic class Good {}\n')
+
+            subprocess.run([git_cmd, '-C', temp_dir, 'add', '.'], check=True)
+
+            # Place consumers in a separate package ('client') so that
+            # checkdeps' implicit same-directory allow rule (+good) does not
+            # match good.Good, ensuring DEPS rules ("+good", "-bad") are truly
+            # evaluated.
+            client_dir = os.path.join(temp_dir, 'client')
+            os.mkdir(client_dir)
+
+            # Allowed import passes cleanly end-to-end via "+good" in DEPS.
+            mock_input_api = MockInputApi()
+            mock_input_api.PresubmitLocalPath = lambda: temp_dir
+            mock_input_api.files = [
+                MockAffectedFile(os.path.join('client', 'ConsumerAllowed.java'),
+                                 ['package client;', 'import good.Good;'],
+                                 local_root=temp_dir),
+            ]
+            results = PRESUBMIT.CheckUnwantedDependencies(
+                mock_input_api, MockOutputApi())
+            self.assertEqual(0, len(results))
+
+            # Disallowed import triggers error end-to-end via "-bad" in DEPS.
+            mock_input_api = MockInputApi()
+            mock_input_api.PresubmitLocalPath = lambda: temp_dir
+            mock_input_api.files = [
+                MockAffectedFile(
+                    os.path.join('client', 'ConsumerDisallowed.java'),
+                    ['package client;', 'import bad.Bad;'],
+                    local_root=temp_dir),
+            ]
+            results = PRESUBMIT.CheckUnwantedDependencies(
+                mock_input_api, MockOutputApi())
+            self.assertEqual(1, len(results))
+            self.assertEqual('error', results[0].type)
+
+
+class ExtensionFastPathsTest(unittest.TestCase):
+
+    def _make_input(self, *files):
+        mock_input_api = MockInputApi()
+        mock_input_api.files = [
+            f if isinstance(f, (MockFile, MockAffectedFile))
+            else MockFile(f, [])
+            for f in files
+        ]
+        return mock_input_api
+
+    def testHasFileHelpers(self):
+        inp = self._make_input('assets/logo.png')
+        self.assertFalse(PRESUBMIT._HasCPlusPlusFiles(inp))
+        self.assertFalse(PRESUBMIT._HasCPlusPlusHeaderFiles(inp))
+        self.assertFalse(PRESUBMIT._HasJavaFiles(inp))
+        self.assertFalse(PRESUBMIT._HasPythonFiles(inp))
+        self.assertFalse(PRESUBMIT._HasGnFiles(inp))
+        self.assertFalse(PRESUBMIT._HasMojomFiles(inp))
+        self.assertFalse(PRESUBMIT._HasPotentialMacroFiles(inp))
+
+        inp_md = self._make_input('docs/readme.md')
+        self.assertFalse(PRESUBMIT._HasCPlusPlusFiles(inp_md))
+        self.assertFalse(PRESUBMIT._HasPotentialMacroFiles(inp_md))
+
+        inp_cc = self._make_input('base/foo.cc')
+        self.assertTrue(PRESUBMIT._HasCPlusPlusFiles(inp_cc))
+        self.assertFalse(PRESUBMIT._HasCPlusPlusHeaderFiles(inp_cc))
+        self.assertTrue(PRESUBMIT._HasPotentialMacroFiles(inp_cc))
+
+        inp_h = self._make_input('base/foo.h')
+        self.assertTrue(PRESUBMIT._HasCPlusPlusFiles(inp_h))
+        self.assertTrue(PRESUBMIT._HasCPlusPlusHeaderFiles(inp_h))
+
+        inp_java = self._make_input('base/Foo.java')
+        self.assertTrue(PRESUBMIT._HasJavaFiles(inp_java))
+
+        inp_py = self._make_input('base/script.py')
+        self.assertTrue(PRESUBMIT._HasPythonFiles(inp_py))
+        self.assertFalse(PRESUBMIT._HasPotentialMacroFiles(inp_py))
+
+        inp_gn = self._make_input('base/BUILD.gn')
+        self.assertTrue(PRESUBMIT._HasGnFiles(inp_gn))
+
+        inp_mojom = self._make_input('base/foo.mojom')
+        self.assertTrue(PRESUBMIT._HasMojomFiles(inp_mojom))
+
+    def testHasPotentialMacroFilesPositiveAllowlist(self):
+        # Code files that can contain macros
+        inp_cc = self._make_input('base/foo.cc')
+        self.assertTrue(PRESUBMIT._HasPotentialMacroFiles(inp_cc))
+        inp_mojom = self._make_input('base/foo.mojom')
+        self.assertTrue(PRESUBMIT._HasPotentialMacroFiles(inp_mojom))
+        inp_asm = self._make_input('base/crc32c.s')
+        self.assertTrue(PRESUBMIT._HasPotentialMacroFiles(inp_asm))
+        inp_asm2 = self._make_input('base/crc32c.asm')
+        self.assertTrue(PRESUBMIT._HasPotentialMacroFiles(inp_asm2))
+        inp_rs = self._make_input('base/lib.rs')
+        self.assertTrue(PRESUBMIT._HasPotentialMacroFiles(inp_rs))
+
+        # Non-macro files must NOT trigger macro checks
+        inp_gn = self._make_input('base/BUILD.gn')
+        self.assertFalse(PRESUBMIT._HasPotentialMacroFiles(inp_gn))
+        inp_png = self._make_input('assets/logo.png')
+        self.assertFalse(PRESUBMIT._HasPotentialMacroFiles(inp_png))
+        inp_json = self._make_input('data/test.json')
+        self.assertFalse(PRESUBMIT._HasPotentialMacroFiles(inp_json))
+        inp_deps = self._make_input('DEPS')
+        self.assertFalse(PRESUBMIT._HasPotentialMacroFiles(inp_deps))
+        inp_owners = self._make_input('OWNERS')
+        self.assertFalse(PRESUBMIT._HasPotentialMacroFiles(inp_owners))
+        inp_md = self._make_input('docs/README.md')
+        self.assertFalse(PRESUBMIT._HasPotentialMacroFiles(inp_md))
+
+    def testCppIncludeExtensionHandled(self):
+        mock_input_api = self._make_input('base/win/windows_defines.inc')
+        self.assertTrue(PRESUBMIT._HasCPlusPlusFiles(mock_input_api))
+        self.assertTrue(PRESUBMIT._HasCPlusPlusHeaderFiles(mock_input_api))
+
+    def testHasKotlinFiles(self):
+        inp_kt = self._make_input('chrome/android/Panel.kt')
+        self.assertTrue(PRESUBMIT._HasKotlinFiles(inp_kt))
+        self.assertFalse(PRESUBMIT._HasJavaFiles(inp_kt))
+
+        inp_java = self._make_input('chrome/android/Panel.java')
+        self.assertFalse(PRESUBMIT._HasKotlinFiles(inp_java))
+        self.assertTrue(PRESUBMIT._HasJavaFiles(inp_java))
+
+    def testDeprecatedOSMacrosInCode(self):
+        mock_output_api = MockOutputApi()
+        for path in ('base/foo.cc', 'base/test.mojom',
+                     'base/crc32c.s', 'base/crc32c.asm'):
+            mock_input_api = self._make_input(
+                MockFile(path, ['#if defined(OS_WIN)']))
+            res = PRESUBMIT.CheckForDeprecatedOSMacros(mock_input_api,
+                                                      mock_output_api)
+            self.assertEqual(len(res), 1, f'Failed for {path}')
+            self.assertIn('defined(OS_WIN)', res[0].items[0])
+
+    def testDeprecatedOSMacrosSkipsPython(self):
+        mock_output_api = MockOutputApi()
+        mock_input_api = self._make_input(
+            MockFile('base/script.py', ['# defined(OS_WIN)']))
+        res = PRESUBMIT.CheckForDeprecatedOSMacros(mock_input_api,
+                                                  mock_output_api)
+        self.assertEqual(res, [])
+
+        mock_input_api = self._make_input(
+            MockFile('base/style.css', ['/* #if defined(OS_WIN) */']))
+        res = PRESUBMIT.CheckForDeprecatedOSMacros(mock_input_api,
+                                                  mock_output_api)
+        self.assertEqual(res, [])
+
+    def testCPlusPlusCheckEarlyExitOnJavaFile(self):
+        mock_input_api = self._make_input('base/Foo.java')
+        mock_output_api = MockOutputApi()
+        self.assertEqual(
+            PRESUBMIT.CheckNoIOStreamInHeaders(mock_input_api,
+                                               mock_output_api), [])
+        self.assertEqual(
+            PRESUBMIT.CheckNoUNIT_TESTInSourceFiles(mock_input_api,
+                                                   mock_output_api), [])
+        self.assertEqual(
+            PRESUBMIT.CheckNoDISABLETypoInTests(mock_input_api,
+                                                mock_output_api), [])
+        self.assertEqual(
+            PRESUBMIT.CheckForgettingMAYBEInTests(mock_input_api,
+                                                  mock_output_api), [])
+
+    def testCheckNoStrCatRedefinesGuards(self):
+        mock_output_api = MockOutputApi()
+        mock_inp_java = self._make_input(
+            MockFile('base/Foo.java', ['#include <shlwapi.h>']))
+        self.assertEqual(
+            PRESUBMIT.CheckNoStrCatRedefines(mock_inp_java, mock_output_api),
+            [])
+
+        mock_inp_cc = self._make_input(
+            MockFile('base/foo.cc', ['#include <shlwapi.h>']))
+        res = PRESUBMIT.CheckNoStrCatRedefines(mock_inp_cc, mock_output_api)
+        self.assertEqual(len(res), 1)
+
+    def testCheckForIPCRulesGuards(self):
+        mock_output_api = MockOutputApi()
+        mock_inp_cc = self._make_input(
+            MockFile('base/foo.cc', ['IPC_ENUM_TRAITS(Foo)']))
+        self.assertEqual(
+            PRESUBMIT.CheckForIPCRules(mock_inp_cc, mock_output_api), [])
+
+        mock_inp_h = self._make_input(
+            MockFile('base/foo.h', ['IPC_ENUM_TRAITS(Foo)']))
+        res = PRESUBMIT.CheckForIPCRules(mock_inp_h, mock_output_api)
+        self.assertEqual(len(res), 1)
+
+    def testNewLLVMStyleFuzzersOnUploadGuards(self):
+        mock_output_api = MockOutputApi()
+        mock_inp_java = self._make_input(
+            MockFile('base/Foo.java', ['fuzzer_test("my_fuzzer") {']))
+        self.assertEqual(
+            PRESUBMIT.CheckNewLLVMStyleFuzzersOnUpload(mock_inp_java,
+                                                      mock_output_api), [])
+
+        mock_inp_gn = self._make_input(
+            MockFile('base/BUILD.gn', ['  fuzzer_test("my_fuzzer") {']))
+        res = PRESUBMIT.CheckNewLLVMStyleFuzzersOnUpload(mock_inp_gn,
+                                                        mock_output_api)
+        self.assertEqual(len(res), 1)
+
+        mock_inp_cc = self._make_input(
+            MockFile('base/foo.cc', ['LLVMFuzzerTestOneInput']))
+        res = PRESUBMIT.CheckNewLLVMStyleFuzzersOnUpload(mock_inp_cc,
+                                                        mock_output_api)
+        self.assertEqual(len(res), 1)
+
+    def testJavaCheckEarlyExitOnCPlusPlusFile(self):
+        mock_input_api = self._make_input('base/foo.cc')
+        mock_output_api = MockOutputApi()
+        self.assertEqual(
+            PRESUBMIT.CheckNoProductionCodeUsingTestOnlyFunctionsJava(
+                mock_input_api, mock_output_api), [])
+        self.assertEqual(
+            PRESUBMIT.CheckFlakyTestUsage(mock_input_api, mock_output_api), [])
+        self.assertEqual(
+            PRESUBMIT.CheckSettingsChanges(mock_input_api, mock_output_api), [])
+
+    def testRootDotfileGnHandling(self):
+        mock_input_api = self._make_input('.gn')
+        self.assertTrue(PRESUBMIT._HasGnFiles(mock_input_api))
+
+    def testHccAndInlExtensions(self):
+        mock_inp_hcc = self._make_input('base/fuzz.hcc')
+        self.assertTrue(PRESUBMIT._HasCPlusPlusFiles(mock_inp_hcc))
+
+        mock_inp_inl = self._make_input('base/inline.inl')
+        self.assertTrue(PRESUBMIT._HasCPlusPlusFiles(mock_inp_inl))
+        self.assertTrue(PRESUBMIT._HasCPlusPlusHeaderFiles(mock_inp_inl))
 
 if __name__ == '__main__':
     unittest.main()

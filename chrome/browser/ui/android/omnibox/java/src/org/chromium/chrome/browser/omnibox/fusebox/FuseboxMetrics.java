@@ -13,14 +13,16 @@ import androidx.annotation.VisibleForTesting;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.UmaRecorderHolder;
 import org.chromium.build.annotations.NullMarked;
-import org.chromium.chrome.browser.omnibox.fusebox.FuseboxProperties.PopupButtonData;
-import org.chromium.chrome.browser.omnibox.fusebox.FuseboxProperties.PopupButtonType;
+import org.chromium.chrome.browser.omnibox.fusebox.PopupButtonData.PopupButtonType;
 import org.chromium.components.browser_ui.util.ConversionUtils;
 import org.chromium.components.contextual_search.ContextUploadErrorType;
 import org.chromium.components.contextual_search.ContextUploadStatus;
 import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.feature_engagement.Tracker;
+import org.chromium.components.omnibox.AimModelsProtoIntDef.ModelMode;
 import org.chromium.components.omnibox.AutocompleteRequestType;
+import org.chromium.components.omnibox.OmniboxFeatures;
+import org.chromium.components.omnibox.ToolModeProtoIntDef.ToolMode;
 import org.chromium.components.omnibox.ToolModeUtils;
 import org.chromium.ui.base.MimeTypeUtils;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -160,6 +162,7 @@ public class FuseboxMetrics {
 
     private boolean mSessionStarted;
     private boolean mAttachmentsPopupButtonUsedInSession;
+    private boolean mAccordionExpandedInSession;
     private final boolean[] mAttachmentButtonsShownInSession =
             new boolean[FuseboxAttachmentButtonType.COUNT];
     private final boolean[] mAttachmentButtonsUsedInSession =
@@ -187,6 +190,13 @@ public class FuseboxMetrics {
                 FILE_ATTACHMENT_SIZE_LIMIT_CHECK_HISTOGRAM,
                 result,
                 FuseboxAttachmentSizeLimitCheck.COUNT);
+    }
+
+    public void notifyAccordionToggled(boolean expanded) {
+        RecordHistogram.recordBooleanHistogram("Omnibox.MobileFusebox.AccordionToggled", expanded);
+        if (expanded) {
+            mAccordionExpandedInSession = true;
+        }
     }
 
     void notifyAttachmentsPopupToggled(boolean toShowPopup, PropertyModel model, Tracker tracker) {
@@ -239,19 +249,19 @@ public class FuseboxMetrics {
         mAttachmentButtonsUsedInSession[attachmentType] = true;
     }
 
-    private static void notifyToolButtonShown(int toolMode) {
+    private static void notifyToolButtonShown(@ToolMode int toolMode) {
         RecordHistogram.recordEnumeratedHistogram(
                 "Omnibox.MobileFusebox.ToolButtonShown", toolMode, TOOL_MODE_HISTOGRAM_BOUND);
     }
 
-    static void notifyToolButtonSelected(int toolMode) {
+    static void notifyToolButtonSelected(@ToolMode int toolMode) {
         RecordHistogram.recordEnumeratedHistogram(
                 "Omnibox.MobileFusebox.ToolButtonSelected", toolMode, TOOL_MODE_HISTOGRAM_BOUND);
     }
 
-    static void notifyModelButtonSelected(int modelId) {
+    static void notifyModelButtonSelected(@ModelMode int modelMode) {
         RecordHistogram.recordEnumeratedHistogram(
-                "Omnibox.MobileFusebox.ModelButtonSelected", modelId, MODEL_MODE_HISTOGRAM_BOUND);
+                "Omnibox.MobileFusebox.ModelButtonSelected", modelMode, MODEL_MODE_HISTOGRAM_BOUND);
     }
 
     void notifyOmniboxSessionStarted() {
@@ -261,11 +271,16 @@ public class FuseboxMetrics {
     void notifyOmniboxSessionEnded(
             boolean userDidNavigate,
             @AutocompleteRequestType int autocompleteRequestType,
-            int modelId) {
+            @ModelMode int modelMode) {
         if (!mSessionStarted) return;
         RecordHistogram.recordBooleanHistogram(
                 "Omnibox.MobileFusebox.AttachmentsPopupButtonClickedInSession",
                 mAttachmentsPopupButtonUsedInSession);
+        if (mAttachmentsPopupButtonUsedInSession && OmniboxFeatures.hasAccordion()) {
+            RecordHistogram.recordBooleanHistogram(
+                    "Omnibox.MobileFusebox.AccordionExpandedInSession",
+                    mAccordionExpandedInSession);
+        }
         for (int attachmentType = 0;
                 attachmentType < FuseboxAttachmentButtonType.COUNT;
                 attachmentType++) {
@@ -290,11 +305,12 @@ public class FuseboxMetrics {
                 requestTypeHistogram, autocompleteRequestType, AutocompleteRequestType.COUNT);
         if (ToolModeUtils.isAimRequest(autocompleteRequestType)) {
             RecordHistogram.recordEnumeratedHistogram(
-                    modelHistogram, modelId, MODEL_MODE_HISTOGRAM_BOUND);
+                    modelHistogram, modelMode, MODEL_MODE_HISTOGRAM_BOUND);
         }
 
         mSessionStarted = false;
         mAttachmentsPopupButtonUsedInSession = false;
+        mAccordionExpandedInSession = false;
         Arrays.fill(mAttachmentButtonsShownInSession, false);
         Arrays.fill(mAttachmentButtonsUsedInSession, false);
     }

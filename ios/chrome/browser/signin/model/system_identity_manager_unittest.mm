@@ -89,14 +89,8 @@ class TestSystemIdentityManager : public SystemIdentityManager {
   }
   void FetchCapabilities(id<SystemIdentity> identity,
                          const std::vector<std::string>& names,
-                         FetchCapabilitiesCallback callback) final {
-    NOTREACHED();
-  }
-  void FetchCapabilitiesWithPartial(
-      id<SystemIdentity> identity,
-      const std::vector<std::string>& names,
-      FetchCapabilitiesCompletion completion,
-      FetchPartialCapabilitiesCallback partial_callback) final {
+                         FetchPartialCapabilitiesCallback partial_callback,
+                         FetchCapabilitiesCompletion completion) final {
     NOTREACHED();
   }
   bool HandleMDMNotification(id<SystemIdentity> identity,

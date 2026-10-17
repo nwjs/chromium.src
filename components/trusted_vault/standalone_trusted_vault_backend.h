@@ -38,7 +38,7 @@ namespace trusted_vault {
 // sequence.
 class StandaloneTrustedVaultBackend
     : public base::RefCountedThreadSafe<StandaloneTrustedVaultBackend>,
-      public TrustedVaultDegradedRecoverabilityHandler::Delegate {
+      public TrustedVaultDegradedRecoverabilityHandler::Observer {
  public:
   using FetchKeysCallback = base::OnceCallback<void(
       const std::vector<std::vector<uint8_t>>& vault_keys)>;
@@ -99,11 +99,9 @@ class StandaloneTrustedVaultBackend
   StandaloneTrustedVaultBackend& operator=(
       const StandaloneTrustedVaultBackend& other) = delete;
 
-  // TrustedVaultDegradedRecoverabilityHandler::Delegate implementation.
-  void WriteDegradedRecoverabilityState(
-      const trusted_vault_pb::LocalTrustedVaultDegradedRecoverabilityState&
-          degraded_recoverability_state) override;
-  void OnDegradedRecoverabilityChanged() override;
+  // TrustedVaultDegradedRecoverabilityHandler::Observer implementation.
+  void OnDegradedRecoverabilityChanged(
+      SecurityDomainId security_domain) override;
 
   // Restores state saved on disk, should be called before using the object.
   void ReadDataFromDisk();
@@ -152,8 +150,7 @@ class StandaloneTrustedVaultBackend
 
   std::optional<CoreAccountInfo> GetPrimaryAccountForTesting() const;
 
-  trusted_vault_pb::LocalDeviceRegistrationInfo
-  GetDeviceRegistrationInfoForTesting(const GaiaId& gaia_id);
+  bool IsDeviceRegisteredForTesting(const GaiaId& gaia_id);
 
   std::vector<uint8_t> GetLastAddedRecoveryMethodPublicKeyForTesting() const;
   int GetLastKeyVersionForTesting(const GaiaId& gaia_id);
@@ -205,12 +202,14 @@ class StandaloneTrustedVaultBackend
   // LocalTrustedVaultPerUser for given |gaia_id|.
   void OnRecoveryFactorRegistered(
       LocalRecoveryFactorType local_recovery_factor_type,
+      SecurityDomainId security_domain_id,
       TrustedVaultRegistrationStatus status,
       int key_version,
       bool had_local_keys);
 
   void AttemptRecoveryFactor(size_t local_recovery_factor);
   void OnKeysRecovered(size_t current_local_recovery_factor,
+                       SecurityDomainId security_domain_id,
                        LocalRecoveryFactor::RecoveryStatus status,
                        const std::vector<std::vector<uint8_t>>& new_vault_keys,
                        int last_vault_key_version);

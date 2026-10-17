@@ -276,6 +276,7 @@ class GnParser:
 
             self.java_jar_excluded_patterns = []
             self.java_jar_included_patterns = []
+            self.java_prevent_excluded_classes_from_classpath = False
             # This is only populated for build script actions. It refers to the directory for which
             # the original source files are.
             self.rust_source_dir = None
@@ -550,6 +551,10 @@ class GnParser:
                 "java_library_jar_excluded_patterns", [])
             target.java_jar_included_patterns = metadata.get(
                 "java_library_jar_included_patterns", [])
+            target.java_prevent_excluded_classes_from_classpath = bool(
+                metadata.get(
+                    "java_library_prevent_excluded_classes_from_classpath",
+                    [False])[0])
 
             android_sdk_dep = metadata.get("java_library_android_sdk_dep",
                                            None)
@@ -614,6 +619,16 @@ class GnParser:
         elif target.type == 'group':
             # Group targets are bubbled upward without creating an equivalent GN target.
             pass
+        elif target.type == 'generated_file':
+            # generated_file() targets are evaluated by GN at `gn gen` time:
+            # they write a file (e.g. jni_zero's `*__type_catalogs.json`) by
+            # walking the metadata of their deps. They have no Ninja build step
+            # and no Soong equivalent, so we never emit a module for them (see
+            # create_modules_from_target). Their deps merely define the scope of
+            # that metadata walk rather than describing real build inputs, so
+            # stop the traversal here instead of pulling targets that Soong does
+            # not need into the graph.
+            return target
         elif target.type == 'copy':
             # Copy targets, except for a few exception (see handling of action
             # targets above), are bubbled upward without creating an equivalent
@@ -625,7 +640,9 @@ class GnParser:
             target.arch[arch].sources.update(
                 source for source in desc.get('sources', [])
                 if not source.startswith("//out"))
-            target.arch[arch].inputs.update(desc.get('inputs', []))
+            target.arch[arch].inputs.update(inp
+                                            for inp in desc.get('inputs', [])
+                                            if not inp.startswith("//out"))
             target.rust_package_version = _extract_rust_package_version(
                 desc['rustenv'])
         else:
@@ -747,6 +764,14 @@ class GnParser:
                     target.update(dep, arch)
                     target.transitive_jni_java_sources.update(
                         dep.transitive_jni_java_sources)
+                elif dep.type == 'generated_file':
+                    # generated_file() targets must not contribute anything to
+                    # their dependents - see parse_gn_desc(), which stops
+                    # traversing at them, so they have no deps to propagate in
+                    # the first place. `continue` (as opposed to `pass`) also
+                    # skips the transitive static_library/source_set bubbling
+                    # below, which must not run for a dep we never traversed.
+                    continue
                 elif dep.type in ['action', 'action_foreach']:
                     arch_obj.deps.add(dep.name)
                     target.transitive_jni_java_sources.update(

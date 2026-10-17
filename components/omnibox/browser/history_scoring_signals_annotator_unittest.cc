@@ -103,18 +103,18 @@ void HistoryScoringSignalsAnnotatorTest::FillHistoryDbData() {
 void HistoryScoringSignalsAnnotatorTest::CreateAutocompleteResult() {
   AutocompleteMatch url_match_not_in_db;
   url_match_not_in_db.destination_url = GURL("http://test1.com/");
-  url_match_not_in_db.type = AutocompleteMatchType::HISTORY_URL;
+  url_match_not_in_db.type = omnibox::AutocompleteMatchType::kHistoryUrl;
 
   AutocompleteMatch url_match;
   url_match.destination_url = GURL("http://test.com/");
-  url_match.type = AutocompleteMatchType::HISTORY_URL;
+  url_match.type = omnibox::AutocompleteMatchType::kHistoryUrl;
 
   // Search matches will be skipped for annotation.
   AutocompleteMatch search_match;
   search_match.contents = u"hello";
   search_match.destination_url =
       GURL("https://google.com/search?q=hello&p=a1b2");
-  search_match.type = AutocompleteMatchType::SEARCH_HISTORY;
+  search_match.type = omnibox::AutocompleteMatchType::kSearchHistory;
 
   std::vector<AutocompleteMatch> matches{url_match_not_in_db, url_match,
                                          search_match};

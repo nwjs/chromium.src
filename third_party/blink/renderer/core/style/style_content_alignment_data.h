@@ -35,8 +35,21 @@ class StyleContentAlignmentData {
     overflow_ = static_cast<unsigned>(overflow);
   }
 
-  ContentPosition GetPosition() const {
+  ContentPosition GetComputedPosition() const {
     return static_cast<ContentPosition>(position_);
+  }
+  // Returns the used position, which is the keyword that we are actually using
+  // internally. In the case of 'flex-start'/'flex-end', it aliases to
+  // 'flow-start'/'flow-end', which is what we use internally.
+  ContentPosition GetUsedPosition() const {
+    const ContentPosition position = GetComputedPosition();
+    if (position == ContentPosition::kFlexStart) {
+      return ContentPosition::kFlowStart;
+    }
+    if (position == ContentPosition::kFlexEnd) {
+      return ContentPosition::kFlowEnd;
+    }
+    return position;
   }
   ContentDistributionType Distribution() const {
     return static_cast<ContentDistributionType>(distribution_);

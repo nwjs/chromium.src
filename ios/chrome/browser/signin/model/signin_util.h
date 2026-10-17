@@ -74,16 +74,11 @@ std::optional<AccountInfo> GetPreRestoreIdentity(PrefService* profile_pref);
 // Returns whether history sync was enabled before the restore.
 bool GetPreRestoreHistorySyncEnabled(PrefService* profile_pref);
 
-// Returns the list of account capability service names supported in Chrome.
-// This is exposed to allow for prefetching capabilities on app startup.
-base::span<const std::string_view> GetAccountCapabilityNamesForPrefetch();
-
-// Pre-fetches system capabilities for the given identities so that they
-// can be cached for later usage.
-void RunSystemCapabilitiesPrefetch(NSArray<id<SystemIdentity>>* identities);
-
 // Resets the data related to device restore. This is for test only.
 void ResetDeviceRestoreDataForTesting();
+
+// Sets the first session after device restore. This is for test only.
+void SetFirstSessionAfterDeviceRestoreForTesting(signin::Tribool tribool);
 
 // Returns the user given name of `identity`. In case it’s nil, returns the full
 // name or the email.

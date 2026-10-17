@@ -23,15 +23,17 @@
 #include "base/memory/free_deleter.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/power_monitor/power_monitor.h"
 #include "base/power_monitor/power_observer.h"
+#include "base/sequence_checker.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/task/bind_post_task.h"
-#include "base/threading/thread_checker.h"
+#include "base/thread_annotations.h"
 #include "base/time/time.h"
 #include "media/audio/apple/audio_auhal.h"
 #include "media/audio/apple/audio_low_latency_input.h"
@@ -51,6 +53,7 @@
 
 namespace media {
 namespace {
+
 bool IsCatapLoopbackAudioEnabledForDevice(const std::string& device_id) {
   // TODO(https://crbug.com/425902990): Remove check of
   // `kLoopbackWithMuteDeviceIdCast` once CatapAudioInputStream is launched
@@ -67,6 +70,18 @@ bool IsCatapLoopbackAudioEnabledForDevice(const std::string& device_id) {
   }
   return true;
 }
+
+constexpr int GetMinAudioBufferSizeMacOS(int sample_rate) {
+  // The default buffer size is too small for higher sample rates and may lead
+  // to glitching.  Adjust upwards by multiples of the default size.
+  if (sample_rate > 96000) {
+    return 4 * limits::kMinAudioBufferSize;
+  } else if (sample_rate > 48000) {
+    return 2 * limits::kMinAudioBufferSize;
+  }
+  return limits::kMinAudioBufferSize;
+}
+
 }  // namespace
 
 // Maximum number of output streams that can be open simultaneously.
@@ -288,9 +303,8 @@ bool AudioManagerMac::GetDefaultOutputDevice(AudioDeviceID* output_device,
   return true;
 }
 
-// Returns the total number of channels on a device; regardless of what the
-// device's preferred rendering layout looks like. Should only be used for the
-// channel count when a device has more than kMaxConcurrentChannels.
+// Returns the total number of channels on a device, regardless of what the
+// device's preferred rendering layout looks like.
 static bool GetDeviceTotalChannelCount(AudioDeviceID device,
                                        AudioObjectPropertyScope scope,
                                        int* channels) {
@@ -379,70 +393,6 @@ static bool GetInputDeviceChannels(AudioDeviceID device, int* channels) {
   return true;
 }
 
-// Attempts to find a standard Chromium layout that matches the Apple
-// `AudioChannelLayout`. If no valid channels are found, we default to zero
-// channels and `CHANNEL_LAYOUT_DISCRETE`.
-void ParseCoreAudioChannelLayout(AudioChannelLayout* device_layout,
-                                 uint32_t* channels,
-                                 ChannelLayout* channel_layout) {
-  // There is no channel info for stereo, assume so for mono as well.
-  if (device_layout->mNumberChannelDescriptions == 1 ||
-      device_layout->mNumberChannelDescriptions == 2) {
-    *channels = device_layout->mNumberChannelDescriptions;
-    *channel_layout =
-        *channels == 2 ? CHANNEL_LAYOUT_STEREO : CHANNEL_LAYOUT_MONO;
-    return;
-  }
-
-  *channels = 0;
-  // use `CHANNEL_LAYOUT_DISCRETE` as the default layout if we can't
-  // find out a matched one.
-  *channel_layout = CHANNEL_LAYOUT_DISCRETE;
-
-  const auto descriptions = GetDescriptions(*device_layout);
-  std::vector<Channels> channels_to_match;
-  for (const auto& description : descriptions) {
-    AudioChannelLabel label = description.mChannelLabel;
-    if (label == kAudioChannelLabel_Unknown) {
-      continue;
-    }
-
-    *channels += 1;
-
-    const std::optional<Channels> maybe_channel =
-        AudioChannelLabelToChannel(label);
-    if (maybe_channel.has_value()) {
-      channels_to_match.push_back(*maybe_channel);
-    }
-  }
-
-  if (*channels == 0 || *channels != channels_to_match.size()) {
-    return;
-  }
-
-  for (int i = 0; i <= ChannelLayout::CHANNEL_LAYOUT_MAX; i++) {
-    ChannelLayout layout = static_cast<ChannelLayout>(i);
-    if (static_cast<uint32_t>(ChannelLayoutToChannelCount(layout)) !=
-        *channels) {
-      continue;
-    }
-
-    bool matched = true;
-    for (const auto& channel : channels_to_match) {
-      auto channel_order = ChannelOrder(layout, channel);
-      if (channel_order == -1) {
-        matched = false;
-        break;
-      }
-    }
-
-    if (matched) {
-      *channel_layout = layout;
-      return;
-    }
-  }
-}
-
 // Returns the `channels` and `channel_layout` for `device` as provided by the
 // AudioUnit attached to that output device. Returns true if the `channels` and
 // `channel_layout` could be pulled from the AudioUnit successfully, otherwise
@@ -471,10 +421,19 @@ static bool GetOutputDeviceChannelsAndLayout(AudioDeviceID device,
     result = AudioObjectGetPropertyData(device, &pa, 0, nullptr, &size,
                                         preferred_layout->layout());
     if (result == noErr) {
-      ParseCoreAudioChannelLayout(preferred_layout->layout(), channels,
+      ParseCoreAudioChannelLayout(*preferred_layout->layout(), channels,
                                   channel_layout);
       // Some devices can return noErr but 0 channels.
       if (*channels) {
+        // Discrete layouts have no speaker arrangement to honor, so use the
+        // hardware channel count directly instead of the layout's count.
+        int total_channel_count = 0;
+        if (*channel_layout == CHANNEL_LAYOUT_DISCRETE &&
+            GetDeviceTotalChannelCount(device, kAudioDevicePropertyScopeOutput,
+                                       &total_channel_count) &&
+            total_channel_count > 0) {
+          *channels = base::checked_cast<uint32_t>(total_channel_count);
+        }
         return true;
       }
     }
@@ -489,7 +448,7 @@ static bool GetOutputDeviceChannelsAndLayout(AudioDeviceID device,
   if (GetDeviceTotalChannelCount(device, kAudioDevicePropertyScopeOutput,
                                  &total_channel_count) &&
       total_channel_count > kMaxConcurrentChannels) {
-    *channels = total_channel_count;
+    *channels = base::checked_cast<uint32_t>(total_channel_count);
     *channel_layout = CHANNEL_LAYOUT_DISCRETE;
   } else {
     ScopedAudioUnit au(device, AUElement::OUTPUT);
@@ -499,6 +458,14 @@ static bool GetOutputDeviceChannelsAndLayout(AudioDeviceID device,
 
     if (!GetOutputDeviceChannelsAndLayout(au.audio_unit(), channels,
                                           channel_layout)) {
+      return false;
+    }
+
+    // Use the hardware channel count for discrete layouts (see above).
+    if (*channel_layout == CHANNEL_LAYOUT_DISCRETE && total_channel_count > 0) {
+      *channels = base::checked_cast<uint32_t>(total_channel_count);
+    }
+    if (*channels == 0) {
       return false;
     }
   }
@@ -519,7 +486,7 @@ static bool GetOutputDeviceChannelsAndLayout(AudioUnit audio_unit,
     return false;
   }
 
-  ParseCoreAudioChannelLayout(scoped_device_layout->layout(), channels,
+  ParseCoreAudioChannelLayout(*scoped_device_layout->layout(), channels,
                               channel_layout);
   return true;
 }
@@ -543,7 +510,7 @@ class AudioManagerMac::AudioPowerObserver : public base::PowerSuspendObserver {
   AudioPowerObserver& operator=(const AudioPowerObserver&) = delete;
 
   ~AudioPowerObserver() override {
-    DCHECK(thread_checker_.CalledOnValidThread());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     if (!is_monitoring_) {
       return;
     }
@@ -551,33 +518,33 @@ class AudioManagerMac::AudioPowerObserver : public base::PowerSuspendObserver {
   }
 
   bool IsSuspending() const {
-    DCHECK(thread_checker_.CalledOnValidThread());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     return is_suspending_;
   }
 
   size_t num_resume_notifications() const { return num_resume_notifications_; }
 
   bool ShouldDeferStreamStart() const {
-    DCHECK(thread_checker_.CalledOnValidThread());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     // Start() should be deferred if the system is in the middle of a suspend or
     // has recently started the process of resuming.
     return is_suspending_ || base::TimeTicks::Now() < earliest_start_time_;
   }
 
   bool IsOnBatteryPower() const {
-    DCHECK(thread_checker_.CalledOnValidThread());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     return base::PowerMonitor::GetInstance()->IsOnBatteryPower();
   }
 
  private:
   void OnSuspend() override {
-    DCHECK(thread_checker_.CalledOnValidThread());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     DVLOG(1) << "AudioPowerObserver::" << __FUNCTION__;
     is_suspending_ = true;
   }
 
   void OnResume() override {
-    DCHECK(thread_checker_.CalledOnValidThread());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     DVLOG(1) << "AudioPowerObserver::" << __FUNCTION__;
     ++num_resume_notifications_;
     is_suspending_ = false;
@@ -586,10 +553,10 @@ class AudioManagerMac::AudioPowerObserver : public base::PowerSuspendObserver {
         base::Seconds(std::to_underlying(kStartDelayInSecsForPowerEvents));
   }
 
-  bool is_suspending_;
+  bool is_suspending_ GUARDED_BY_CONTEXT(sequence_checker_);
   const bool is_monitoring_;
-  base::TimeTicks earliest_start_time_;
-  base::ThreadChecker thread_checker_;
+  base::TimeTicks earliest_start_time_ GUARDED_BY_CONTEXT(sequence_checker_);
+  SEQUENCE_CHECKER(sequence_checker_);
   size_t num_resume_notifications_;
 };
 
@@ -785,12 +752,11 @@ AudioParameters AudioManagerMac::GetInputStreamParameters(
   const int buffer_size = ChooseBufferSize(true, sample_rate);
 
   // TODO(grunell): query the native channel layout for the specific device.
-  AudioParameters params(
-      AudioParameters::AUDIO_PCM_LOW_LATENCY, channel_layout_config,
-      sample_rate, buffer_size,
-      AudioParameters::HardwareCapabilities(
-          GetMinAudioBufferSizeMacOS(limits::kMinAudioBufferSize, sample_rate),
-          limits::kMaxAudioBufferSize));
+  AudioParameters params(AudioParameters::AUDIO_PCM_LOW_LATENCY,
+                         channel_layout_config, sample_rate, buffer_size,
+                         AudioParameters::HardwareCapabilities(
+                             GetMinAudioBufferSizeMacOS(sample_rate),
+                             limits::kMaxAudioBufferSize));
 
   if (DeviceSupportsAmbientNoiseReduction(device)) {
     params.set_effects(AudioParameters::NOISE_SUPPRESSION);
@@ -1012,10 +978,8 @@ AudioParameters AudioManagerMac::GetPreferredOutputStreamParameters(
     // If passed in via the input_params we allow buffer sizes to go as
     // low as the the kMinAudioBufferSize, ignoring what
     // ChooseBufferSize() normally returns.
-    buffer_size =
-        std::min(static_cast<int>(limits::kMaxAudioBufferSize),
-                 std::max(scaled_buffer_size,
-                          static_cast<int>(limits::kMinAudioBufferSize)));
+    buffer_size = std::clamp(scaled_buffer_size, limits::kMinAudioBufferSize,
+                             limits::kMaxAudioBufferSize);
   } else {
     buffer_size = ChooseBufferSize(false, hardware_sample_rate);
   }
@@ -1050,14 +1014,12 @@ AudioParameters AudioManagerMac::GetPreferredOutputStreamParameters(
     output_channel_layout = hardware_channel_layout;
   }
 
-  AudioParameters params(
-      AudioParameters::AUDIO_PCM_LOW_LATENCY,
-      {output_channel_layout, output_channels}, hardware_sample_rate,
-      buffer_size,
-      AudioParameters::HardwareCapabilities(
-          GetMinAudioBufferSizeMacOS(limits::kMinAudioBufferSize,
-                                     hardware_sample_rate),
-          limits::kMaxAudioBufferSize));
+  AudioParameters params(AudioParameters::AUDIO_PCM_LOW_LATENCY,
+                         {output_channel_layout, output_channels},
+                         hardware_sample_rate, buffer_size,
+                         AudioParameters::HardwareCapabilities(
+                             GetMinAudioBufferSizeMacOS(hardware_sample_rate),
+                             limits::kMaxAudioBufferSize));
   return params;
 }
 
@@ -1097,16 +1059,11 @@ int AudioManagerMac::ChooseBufferSize(bool is_input, int sample_rate) {
   // to the browser within the allowed time by the OS. The workaround is to
   // use 256 samples as the default output buffer size for sample rates
   // smaller than 96KHz.
-  // TODO(xians): Remove this workaround after WebAudio supports user defined
-  // buffer size.  See https://github.com/WebAudio/web-audio-api/issues/348
-  // for details.
-  int buffer_size =
-      is_input ? limits::kMinAudioBufferSize : 2 * limits::kMinAudioBufferSize;
   const int user_buffer_size = GetUserBufferSize();
-  buffer_size = user_buffer_size
-                    ? user_buffer_size
-                    : GetMinAudioBufferSizeMacOS(buffer_size, sample_rate);
-  return buffer_size;
+  return user_buffer_size ? user_buffer_size
+         : is_input       ? GetMinAudioBufferSizeMacOS(sample_rate)
+                          : std::max(2 * limits::kMinAudioBufferSize,
+                                     GetMinAudioBufferSizeMacOS(sample_rate));
 }
 
 bool AudioManagerMac::IsSuspending() const {
@@ -1559,23 +1516,6 @@ AudioDeviceID AudioManagerMac::FindFirstOutputSubdevice(
   }
 
   return kAudioObjectUnknown;
-}
-
-// static
-int AudioManagerMac::GetMinAudioBufferSizeMacOS(int min_buffer_size,
-                                                int sample_rate) {
-  int buffer_size = min_buffer_size;
-  if (sample_rate > 48000) {
-    // The default buffer size is too small for higher sample rates and may lead
-    // to glitching.  Adjust upwards by multiples of the default size.
-    if (sample_rate <= 96000) {
-      buffer_size = 2 * limits::kMinAudioBufferSize;
-    } else if (sample_rate <= 192000) {
-      buffer_size = 4 * limits::kMinAudioBufferSize;
-    }
-  }
-  DCHECK_EQ(limits::kMaxWebAudioBufferSize % buffer_size, 0);
-  return buffer_size;
 }
 
 OSStatus AudioManagerMac::GetInputDeviceStreamFormat(

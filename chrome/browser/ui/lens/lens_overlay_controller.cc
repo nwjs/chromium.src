@@ -399,6 +399,13 @@ bool LensOverlayController::HasRegionSelection() const {
          !initialization_data_->selected_region_.is_null();
 }
 
+const lens::mojom::CenterRotatedBoxPtr& LensOverlayController::selected_region()
+    const {
+  static const base::NoDestructor<lens::mojom::CenterRotatedBoxPtr> kEmpty;
+  return initialization_data_ ? initialization_data_->selected_region_
+                              : *kEmpty;
+}
+
 void LensOverlayController::IssueLensRegionRequestForTesting(
     lens::mojom::CenterRotatedBoxPtr region,
     bool is_click) {
@@ -420,6 +427,12 @@ void LensOverlayController::
   RecordUkmAndTaskCompletionForLensOverlayInteraction(user_action);
 }
 
+const SkBitmap& LensOverlayController::initial_screenshot() const {
+  static const base::NoDestructor<SkBitmap> kEmptyBitmap;
+  return initialization_data_ ? initialization_data_->initial_screenshot_
+                              : *kEmptyBitmap;
+}
+
 void LensOverlayController::RecordSemanticEventForTesting(
     lens::mojom::SemanticEvent event) {
   RecordLensOverlaySemanticEvent(event);
@@ -428,7 +441,7 @@ void LensOverlayController::RecordSemanticEventForTesting(
 void LensOverlayController::IssueSearchBoxRequestForTesting(
     base::Time query_start_time,
     const std::string& search_box_text,
-    AutocompleteMatchType::Type match_type,
+    omnibox::AutocompleteMatchType match_type,
     bool is_zero_prefix_suggestion,
     std::map<std::string, std::string> additional_query_params) {
   IssueSearchBoxRequest(query_start_time, search_box_text, match_type,
@@ -741,7 +754,7 @@ void LensOverlayController::StartScreenshotFlow() {
 void LensOverlayController::IssueTextSearchRequest(
     std::string query_text,
     std::map<std::string, std::string> additional_query_parameters,
-    AutocompleteMatchType::Type match_type,
+    omnibox::AutocompleteMatchType match_type,
     bool is_zero_prefix_suggestion,
     lens::LensOverlayInvocationSource invocation_source) {
   IssueTextSearchRequestInner(
@@ -754,7 +767,7 @@ void LensOverlayController::IssueTextSearchRequestInner(
     base::Time query_start_time,
     std::string query_text,
     std::map<std::string, std::string> additional_query_parameters,
-    AutocompleteMatchType::Type match_type,
+    omnibox::AutocompleteMatchType match_type,
     bool is_zero_prefix_suggestion,
     lens::LensOverlayInvocationSource invocation_source) {
   // Ignore the request if the overlay is off or closing.
@@ -813,7 +826,7 @@ void LensOverlayController::IssueTextSearchRequestInner(
   }
 
   IssueSearchBoxRequest(query_start_time, query_text,
-                        AutocompleteMatch::Type::SEARCH_SUGGEST,
+                        omnibox::AutocompleteMatchType::kSearchSuggest,
                         /*is_zero_prefix_suggestion=*/false,
                         additional_query_parameters, invocation_source);
 }
@@ -1000,7 +1013,7 @@ void LensOverlayController::IssueMultimodalRequest(
 void LensOverlayController::IssueSearchBoxRequest(
     base::Time query_start_time,
     const std::string& search_box_text,
-    AutocompleteMatchType::Type match_type,
+    omnibox::AutocompleteMatchType match_type,
     bool is_zero_prefix_suggestion,
     std::map<std::string, std::string> additional_query_params,
     std::optional<lens::LensOverlayInvocationSource> invocation_source) {
@@ -1376,6 +1389,8 @@ bool LensOverlayController::CoBrowsePanelWithLensOverlayEnabled() const {
 bool LensOverlayController::ShouldHideNonBlockingPrivacyNotice() const {
   return invocation_source_ ==
              lens::LensOverlayInvocationSource::kOmniboxPopupButton ||
+         invocation_source_ ==
+             lens::LensOverlayInvocationSource::kContextualTasksComposebox ||
          CoBrowsePanelWithLensOverlayEnabled();
 }
 
@@ -1713,7 +1728,7 @@ void LensOverlayController::ClosePreselectionBubble() {
 void LensOverlayController::IssueSearchBoxRequestPart2(
     base::Time query_start_time,
     const std::string& search_box_text,
-    AutocompleteMatchType::Type match_type,
+    omnibox::AutocompleteMatchType match_type,
     bool is_zero_prefix_suggestion,
     std::map<std::string, std::string> additional_query_params,
     std::optional<lens::LensOverlayInvocationSource> invocation_source) {
@@ -1733,7 +1748,8 @@ void LensOverlayController::IssueSearchBoxRequestPart2(
     lens_selection_type_ = lens::UNKNOWN_SELECTION_TYPE;
   } else if (is_zero_prefix_suggestion) {
     lens_selection_type_ = lens::MULTIMODAL_SUGGEST_ZERO_PREFIX;
-  } else if (match_type == AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED) {
+  } else if (match_type ==
+             omnibox::AutocompleteMatchType::kSearchWhatYouTyped) {
     lens_selection_type_ = lens::MULTIMODAL_SEARCH;
   } else {
     lens_selection_type_ = lens::MULTIMODAL_SUGGEST_TYPEAHEAD;
@@ -2196,7 +2212,7 @@ void LensOverlayController::OnPageContextUpdatedForSuggestion(
     base::Time query_start_time,
     std::string query,
     std::map<std::string, std::string> additional_query_parameters,
-    AutocompleteMatchType::Type match_type,
+    omnibox::AutocompleteMatchType match_type,
     bool is_zero_prefix_suggestion,
     lens::LensOverlayInvocationSource invocation_source) {
   // TODO(crbug.com/404941800): Eventually, this should be a CHECK or removed

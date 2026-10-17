@@ -75,7 +75,6 @@ class AccessibilityPanel;
 class ActiveSessionAuthControllerImpl;
 class AmbientWidgetDelegate;
 class AppListView;
-class AppsCollectionsDismissDialog;
 class AssistantWebContainerView;
 class AuthDialogContentsViewPixelTest;
 class AuthDialogContentsViewTest;
@@ -919,7 +918,6 @@ class VIEWS_EXPORT WidgetDelegateView : public WidgetDelegate, public View {
   FRIEND_TEST_ALL_PREFIXES(::AcceleratorCommandsFullscreenBrowserTest,
                            ToggleFullscreen);
   friend class ::ash::AppListView;
-  friend class ::ash::AppsCollectionsDismissDialog;
   friend class ::ash::AssistantWebContainerView;
   friend class ::ash::ClientControlledStateTestWidgetDelegate;
   friend class ::ash::ConnectionErrorDialogDelegateView;

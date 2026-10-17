@@ -13,8 +13,10 @@ import android.content.Context;
 import android.graphics.Rect;
 import android.util.AttributeSet;
 import android.view.Gravity;
+import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.ViewPropertyAnimator;
 import android.view.animation.AccelerateInterpolator;
@@ -36,6 +38,7 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.keyboard_accessory.R;
 import org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryStyle.NotchPosition;
+import org.chromium.components.browser_ui.widget.security.SecurityTouchEventInterceptionHelper;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.ui.base.ViewUtils;
 import org.chromium.ui.widget.ViewRectProvider;
@@ -52,6 +55,7 @@ class KeyboardAccessoryView extends LinearLayout {
     private static final int FADE_ANIMATION_DURATION_MS = 150; // Total duration of show/hide.
     private static final int HIDING_ANIMATION_DELAY_MS = 50; // Shortens animation duration.
 
+    private final SecurityTouchEventInterceptionHelper mSecurityHelper;
     private @Nullable Tracker mFeatureEngagementTracker;
     private @Nullable Callback<Integer> mObfuscatedLastChildAt;
     private @Nullable Callback<Boolean> mOnTouchEvent;
@@ -179,23 +183,48 @@ class KeyboardAccessoryView extends LinearLayout {
     /** Constructor for inflating from XML which is why it must be public. */
     public KeyboardAccessoryView(Context context, AttributeSet attrs) {
         super(context, attrs);
+        mSecurityHelper = new SecurityTouchEventInterceptionHelper();
+    }
+
+    @Override
+    public boolean dispatchGenericMotionEvent(MotionEvent motionEvent) {
+        if (motionEvent.getAction() == MotionEvent.ACTION_SCROLL
+                && motionEvent.isFromSource(InputDevice.SOURCE_CLASS_POINTER)) {
+            return onGenericMotionEvent(motionEvent);
+        }
+        return super.dispatchGenericMotionEvent(motionEvent);
     }
 
     @Override
     public boolean onGenericMotionEvent(MotionEvent motionEvent) {
+        if (motionEvent.getAction() != MotionEvent.ACTION_SCROLL
+                || !motionEvent.isFromSource(InputDevice.SOURCE_CLASS_POINTER)) {
+            return true;
+        }
+        float vScroll = motionEvent.getAxisValue(MotionEvent.AXIS_VSCROLL);
+        float hScroll = motionEvent.getAxisValue(MotionEvent.AXIS_HSCROLL);
+        if (vScroll == 0 && hScroll == 0) {
+            return true;
+        }
+        int rtlFactor = isLayoutRtl() ? -1 : 1;
+        float scrollAmount = hScroll == 0 ? vScroll : hScroll;
+        float scrollStep = ViewConfiguration.get(getContext()).getScaledHorizontalScrollFactor();
+        int scrollPixels = Math.round(-scrollAmount * scrollStep * rtlFactor);
+        mBarItemsView.scrollBy(scrollPixels, 0);
+
         return true; // Accessory view is a sink for all events. Touch/Click is handled earlier.
+    }
+
+    public boolean wasClickedWhenObscured() {
+        return mSecurityHelper.isWindowObscured();
     }
 
     @Override
     public boolean onInterceptTouchEvent(MotionEvent event) {
-        final boolean isViewObscured =
-                (event.getFlags()
-                                & (MotionEvent.FLAG_WINDOW_IS_PARTIALLY_OBSCURED
-                                        | MotionEvent.FLAG_WINDOW_IS_OBSCURED))
-                        != 0;
+        mSecurityHelper.registerMotionEvent(event);
         // The event is filtered out when the keyboard accessory view is fully or partially obscured
         // given that no user education bubbles are shown to the user.
-        final boolean shouldFilterEvent = isViewObscured && !mAllowClicksWhileObscured;
+        final boolean shouldFilterEvent = wasClickedWhenObscured() && !mAllowClicksWhileObscured;
         if (mOnTouchEvent != null) {
             mOnTouchEvent.onResult(shouldFilterEvent);
         }

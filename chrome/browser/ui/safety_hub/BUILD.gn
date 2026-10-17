@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//components/safe_browsing/buildflags.gni")
 import("//extensions/buildflags/buildflags.gni")
 
 assert(is_win || is_mac || is_linux || is_chromeos || is_android)
@@ -118,7 +119,7 @@ source_set("impl") {
     "//components/permissions",
     "//components/permissions:permissions_common",
     "//components/safe_browsing/core/browser:safe_browsing_metrics_collector",
-    "//components/safe_browsing/core/browser/db:v4_protocol_manager_util",
+    "//components/safe_browsing/core/browser/db:sb_protocol_manager_util",
     "//components/safe_browsing/core/common:features",
     "//components/safe_browsing/core/common:safe_browsing_prefs",
     "//components/safety_check",
@@ -222,7 +223,6 @@ if (!is_android) {
       "//chrome/browser/engagement",
       "//chrome/browser/permissions",
       "//chrome/browser/profiles:profile",
-      "//chrome/browser/safe_browsing:test_support",
       "//chrome/browser/ui",
       "//chrome/browser/ui/browser_window",
       "//chrome/test:test_support_ui",
@@ -230,9 +230,13 @@ if (!is_android) {
       "//components/content_settings/core/common",
       "//components/content_settings/core/common:features",
       "//components/permissions:permissions_common",
+      "//components/safe_browsing:buildflags",
       "//components/safe_browsing/core/common:features",
       "//content/test:test_support",
     ]
+    if (safe_browsing_mode != 0) {
+      deps += [ "//chrome/browser/safe_browsing:test_support" ]
+    }
   }
 }
 
@@ -270,6 +274,8 @@ source_set("unit_tests") {
     "//chrome/common:chrome_features",
     "//chrome/common:constants",
     "//chrome/test:test_support",
+    "//chrome/test/base:chrome_render_view_host_test_harness",
+    "//chrome/test/base:testing_browser_process",
     "//components/content_settings/core/browser",
     "//components/content_settings/core/common",
     "//components/content_settings/core/test:test_support",
@@ -277,6 +283,7 @@ source_set("unit_tests") {
     "//components/permissions",
     "//components/permissions:permissions_common",
     "//components/prefs:test_support",
+    "//components/safe_browsing:buildflags",
     "//components/safe_browsing/core/browser:safe_browsing_metrics_collector",
     "//components/safe_browsing/core/common:features",
     "//components/safe_browsing/core/common:safe_browsing_prefs",

@@ -31,6 +31,7 @@ import org.chromium.components.autofill.autofill_ai.EntityInstance;
 import org.chromium.components.autofill.autofill_ai.EntityInstanceWithLabels;
 import org.chromium.components.autofill.autofill_ai.EntityType;
 import org.chromium.components.autofill.autofill_ai.EntityTypeName;
+import org.chromium.components.autofill.autofill_ai.RecordType;
 import org.chromium.components.autofill.autofill_ai.utils.TestUtils;
 
 import java.util.ArrayList;
@@ -90,21 +91,63 @@ public class EntityDataManagerTest {
         int descriptionStringId = 123;
         int acceptButtonStringId = 456;
         mEntityDataManager.addOrUpdateEntityInstance(
-                mEntityInstance, descriptionStringId, acceptButtonStringId, localSaveFallback);
+                mEntityInstance,
+                descriptionStringId,
+                acceptButtonStringId,
+                /* contextToken= */ null,
+                localSaveFallback);
         verify(mEntityDataManagerJniMock)
                 .addOrUpdateEntityInstance(
                         NATIVE_PTR,
                         mEntityInstance,
                         descriptionStringId,
                         acceptButtonStringId,
+                        null,
                         localSaveFallback);
     }
 
     @Test
-    public void testGetDetailsForUpsertPass() {
-        mEntityDataManager.getDetailsForUpsertPass(mGetDetailsForUpsertPassCallback);
+    public void testAddOrUpdateEntityInstance_withContextToken() {
+        Runnable localSaveFallback = () -> {};
+        int descriptionStringId = 123;
+        int acceptButtonStringId = 456;
+        String contextToken = "context_token";
+        mEntityDataManager.addOrUpdateEntityInstance(
+                mEntityInstance,
+                descriptionStringId,
+                acceptButtonStringId,
+                contextToken,
+                localSaveFallback);
         verify(mEntityDataManagerJniMock)
-                .getDetailsForUpsertPass(NATIVE_PTR, mGetDetailsForUpsertPassCallback);
+                .addOrUpdateEntityInstance(
+                        NATIVE_PTR,
+                        mEntityInstance,
+                        descriptionStringId,
+                        acceptButtonStringId,
+                        contextToken,
+                        localSaveFallback);
+    }
+
+    @Test
+    public void testIsEligibleForWalletNotice() {
+        when(mEntityDataManagerJniMock.isEligibleForWalletNotice(
+                        NATIVE_PTR, EntityTypeName.VEHICLE, RecordType.SERVER_WALLET))
+                .thenReturn(true);
+        assertTrue(
+                mEntityDataManager.isEligibleForWalletNotice(
+                        EntityTypeName.VEHICLE, RecordType.SERVER_WALLET));
+        verify(mEntityDataManagerJniMock)
+                .isEligibleForWalletNotice(
+                        NATIVE_PTR, EntityTypeName.VEHICLE, RecordType.SERVER_WALLET);
+    }
+
+    @Test
+    public void testGetDetailsForUpsertPass() {
+        mEntityDataManager.getDetailsForUpsertPass(
+                EntityTypeName.VEHICLE, mGetDetailsForUpsertPassCallback);
+        verify(mEntityDataManagerJniMock)
+                .getDetailsForUpsertPass(
+                        NATIVE_PTR, EntityTypeName.VEHICLE, mGetDetailsForUpsertPassCallback);
     }
 
     @Test

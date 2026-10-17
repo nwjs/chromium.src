@@ -1292,7 +1292,7 @@ std::string SetupSyncModeAsString(SyncTest::SetupSyncMode sync_test_mode) {
 // enabled by default, e.g. HISTORY requires a dedicated opt-in via
 // SyncUserSettings::SetSelectedTypes().
 syncer::DataTypeSet AllowedTypesInStandaloneTransportMode() {
-  static_assert(65 == syncer::GetNumDataTypes(),
+  static_assert(64 == syncer::GetNumDataTypes(),
                 "Add new types below if they can run in transport mode");
 
 #if BUILDFLAG(IS_ANDROID)
@@ -1374,10 +1374,7 @@ syncer::DataTypeSet AllowedTypesInStandaloneTransportMode() {
       allowed_types.Put(syncer::SHARED_TAB_GROUP_DATA);
       allowed_types.Put(syncer::COLLABORATION_GROUP);
 
-      if (base::FeatureList::IsEnabled(
-              syncer::kSyncSharedTabGroupAccountData)) {
-        allowed_types.Put(syncer::SHARED_TAB_GROUP_ACCOUNT_DATA);
-      }
+      allowed_types.Put(syncer::SHARED_TAB_GROUP_ACCOUNT_DATA);
 
       if (base::FeatureList::IsEnabled(syncer::kSyncSharedComment)) {
         allowed_types.Put(syncer::SHARED_COMMENT);

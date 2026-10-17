@@ -8,33 +8,43 @@
 #include <optional>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "base/check.h"
 #include "base/check_deref.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/memory/weak_ptr.h"
+#include "base/notreached.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/types/expected.h"
 #include "base/types/optional_ref.h"
+#include "base/values.h"
 #include "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_component.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
 #include "components/autofill/core/browser/network/autofill_ai/private_pass_conversion_util.h"
+#include "components/autofill/core/browser/payments/legal_message_line.h"
 #include "components/consent_auditor/consent_auditor.h"
 #include "components/wallet/core/browser/network/wallet_http_client.h"
+#include "components/wallet/core/browser/proto/common.pb.h"
 #include "components/wallet/core/browser/proto/private_pass.pb.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 
 namespace autofill {
 
 namespace {
 
+using ::wallet::LegalMessage;
 using ::wallet::PrivatePass;
+using PassType = ::wallet::WalletHttpClient::PassType;
 using WalletRequestError = ::wallet::WalletHttpClient::WalletRequestError;
 
 // Attempts to extract the pass number from the `response` and constructs an
@@ -81,6 +91,62 @@ bool AttributeCorrespondsToEntity(const AttributeInstance& attribute,
                                   const EntityInstance& entity) {
   return attribute.type().entity_type() == entity.type() &&
          entity.attribute(attribute.type()).has_value();
+}
+
+PassType PassTypeFromEntityType(EntityType entity_type) {
+  switch (entity_type.name()) {
+    case EntityTypeName::kVehicle:
+      return PassType::kVehicleRegistration;
+    case EntityTypeName::kPassport:
+    case EntityTypeName::kDriversLicense:
+    case EntityTypeName::kNationalIdCard:
+    case EntityTypeName::kKnownTravelerNumber:
+    case EntityTypeName::kRedressNumber:
+    case EntityTypeName::kFlightReservation:
+    case EntityTypeName::kOrder:
+    case EntityTypeName::kShipment:
+      NOTREACHED();
+  }
+}
+
+base::DictValue LegalMessageToDict(const LegalMessage& legal_message) {
+  base::ListValue lines_list;
+  for (const LegalMessage::Line& line : legal_message.line()) {
+    base::ListValue parameters_list;
+    for (const LegalMessage::Link& link : line.template_parameter()) {
+      parameters_list.Append(base::DictValue()
+                                 .Set("display_text", link.display_text())
+                                 .Set("url", link.url()));
+    }
+    lines_list.Append(
+        base::DictValue()
+            .Set("template", line.template_())
+            .Set("template_parameter", std::move(parameters_list)));
+  }
+  return base::DictValue().Set("line", std::move(lines_list));
+}
+
+base::expected<WalletPassAccessManager::GetDetailsForUpsertPassResponse,
+               WalletRequestError>
+ToGetDetailsForUpsertPassResponse(
+    base::expected<wallet::WalletHttpClient::PassUpsertDetails,
+                   WalletRequestError> response) {
+  if (!response.has_value()) {
+    return base::unexpected(response.error());
+  }
+  LegalMessageLines legal_message_lines;
+  if (response->legal_message) {
+    if (!LegalMessageLine::Parse(LegalMessageToDict(*response->legal_message),
+                                 &legal_message_lines,
+                                 /*escape_apostrophes=*/true)) {
+      return base::unexpected(WalletRequestError::kParseResponseFailed);
+    }
+  }
+  return WalletPassAccessManager::GetDetailsForUpsertPassResponse{
+      .legal_message_lines = std::move(legal_message_lines),
+      .context_token = std::move(response->context_token).value_or(""),
+      .user_eligibility = response->user_eligibility,
+  };
 }
 
 }  // namespace
@@ -159,21 +225,60 @@ void WalletPassAccessManagerImpl::GetUnmaskedWalletEntityInstance(
           .Then(std::move(callback)));
 }
 
-void WalletPassAccessManagerImpl::GetDetailsForUpsertPass(
-    GetDetailsForUpsertPassCallback callback) {
-  // TODO(crbug.com/553442816): Update to call the actual RPC once it is in place.
-  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE,
+void WalletPassAccessManagerImpl::PreloadDetailsForUpsertPass(
+    EntityType entity_type) {
+  PassType pass_type = PassTypeFromEntityType(entity_type);
+
+  // Avoid duplicate network requests.
+  if (upsert_details_cache_.contains(pass_type) ||
+      !in_flight_preloads_.insert(pass_type).second) {
+    return;
+  }
+
+  FetchDetailsForUpsertPass(
+      pass_type,
       base::BindOnce(
-          [](base::WeakPtr<WalletPassAccessManagerImpl> access_manager,
-             GetDetailsForUpsertPassCallback callback) {
-            if (!access_manager) {
-              return;
-            }
-            std::move(callback).Run(
-                WalletPassAccessManager::GetDetailsForUpsertPassResponse{});
-          },
-          weak_factory_.GetWeakPtr(), std::move(callback)));
+          &WalletPassAccessManagerImpl::OnPreloadDetailsForUpsertPassComplete,
+          weak_factory_.GetWeakPtr(), pass_type));
+}
+
+void WalletPassAccessManagerImpl::GetDetailsForUpsertPass(
+    EntityType entity_type,
+    GetDetailsForUpsertPassCallback callback) {
+  CHECK(callback);
+  PassType pass_type = PassTypeFromEntityType(entity_type);
+
+  // Google Wallet `context_token`s are single-use tokens bound to a specific
+  // upsert operation. Once read by an active consumer, the cached entry must
+  // be removed so that subsequent flows do not attempt to reuse an expired or
+  // spent token.
+  if (auto it = upsert_details_cache_.find(pass_type);
+      it != upsert_details_cache_.end()) {
+    GetDetailsForUpsertPassResponse response = std::move(it->second);
+    upsert_details_cache_.erase(it);
+
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(std::move(callback), std::move(response)));
+    return;
+  }
+
+  // If no cached response is available, initiate a direct fetch for the active
+  // consumer. If a background preload is already in flight, this fetch runs
+  // concurrently rather than coalescing. Preloading is opportunistic and
+  // designed to warm the cache; decoupling foreground fetches ensures the
+  // consumer receives an isolated, single-use `context_token` without
+  // introducing callback synchronization across async boundaries. Any
+  // in-flight preload completing later remains cached for subsequent
+  // operations.
+  FetchDetailsForUpsertPass(pass_type, std::move(callback));
+}
+
+void WalletPassAccessManagerImpl::FetchDetailsForUpsertPass(
+    wallet::WalletHttpClient::PassType pass_type,
+    GetDetailsForUpsertPassCallback callback) {
+  http_client_->GetDetailsForUpsertPass(
+      pass_type, base::BindOnce(&ToGetDetailsForUpsertPassResponse)
+                     .Then(std::move(callback)));
 }
 
 base::OnceCallback<std::optional<EntityInstance>(
@@ -266,6 +371,23 @@ void WalletPassAccessManagerImpl::CacheUnmaskResult(EntityInstance entity) {
           },
           weak_factory_.GetWeakPtr(), id),
       kCacheTTL);
+}
+
+// Google Wallet `context_token`s and legal disclosure lines are issued for a
+// specific pass type and validate that the user was presented with the
+// required disclosures before upserting a pass. Because they do not depend on
+// any client-side entity instances, responses are safely cached regardless of
+// any intervening changes to `EntityDataManager`.
+void WalletPassAccessManagerImpl::OnPreloadDetailsForUpsertPassComplete(
+    wallet::WalletHttpClient::PassType pass_type,
+    base::expected<GetDetailsForUpsertPassResponse,
+                   wallet::WalletHttpClient::WalletRequestError> response) {
+  in_flight_preloads_.erase(pass_type);
+
+  if (response.has_value()) {
+    upsert_details_cache_.insert_or_assign(pass_type,
+                                           std::move(response).value());
+  }
 }
 
 void WalletPassAccessManagerImpl::OnEntityInstancesChanged() {

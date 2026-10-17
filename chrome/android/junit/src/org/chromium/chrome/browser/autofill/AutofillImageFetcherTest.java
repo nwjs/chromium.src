@@ -22,7 +22,6 @@ import android.graphics.drawable.Drawable;
 import android.os.Handler;
 
 import androidx.appcompat.content.res.AppCompatResources;
-import androidx.test.filters.SmallTest;
 
 import org.junit.After;
 import org.junit.Before;
@@ -47,9 +46,10 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.components.autofill.ImageSize;
 import org.chromium.components.autofill.ImageType;
 import org.chromium.components.image_fetcher.ImageFetchResult;
-import org.chromium.components.image_fetcher.ImageFetcher;
 import org.chromium.components.image_fetcher.ImageFetcher.Params;
+import org.chromium.components.image_fetcher.ImageFetcher;
 import org.chromium.components.image_fetcher.RequestMetadata;
+import org.chromium.net.NetError;
 import org.chromium.ui.test.util.MockitoHelper;
 import org.chromium.url.GURL;
 
@@ -67,10 +67,13 @@ public class AutofillImageFetcherTest {
     private static final ImageFetchResult TEST_IMAGE_FETCH_RESULT =
             new ImageFetchResult(
                     TEST_IMAGE,
-                    new RequestMetadata("image/jpeg", 200, "test_content_location_header"));
+                    new RequestMetadata(
+                            "image/jpeg", 200, NetError.OK, "test_content_location_header"));
     private static final ImageFetchResult TEST_IMAGE_FETCH_NULL_BITMAP_RESULT =
             new ImageFetchResult(
-                    null, new RequestMetadata("image/jpeg", -1, "null_image_location_header"));
+                    null,
+                    new RequestMetadata(
+                            "image/jpeg", -1, NetError.OK, "null_image_location_header"));
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -106,7 +109,6 @@ public class AutofillImageFetcherTest {
     }
 
     @Test
-    @SmallTest
     public void testPrefetchCardArtImages_validUrl_successfulImageFetch() {
         IconSpecs cardIconSpecsSmall =
                 IconSpecs.create(
@@ -158,7 +160,6 @@ public class AutofillImageFetcherTest {
     }
 
     @Test
-    @SmallTest
     public void testPrefetchCardArtImages_imageInCache_imageNotFetched() {
         IconSpecs cardIconSpecs =
                 IconSpecs.create(
@@ -189,7 +190,6 @@ public class AutofillImageFetcherTest {
     }
 
     @Test
-    @SmallTest
     public void testPrefetchCardArtImages_validUrl_unsuccessfulImageFetch() {
         doAnswer(
                         invocation -> {
@@ -232,7 +232,6 @@ public class AutofillImageFetcherTest {
     }
 
     @Test
-    @SmallTest
     public void testPrefetchCardArtImages_validUrl_unsuccessfulImageFetch_successOnRetry() {
         // Use AtomicInteger to track the number of calls.
         AtomicInteger callCount = new AtomicInteger(0);
@@ -296,7 +295,6 @@ public class AutofillImageFetcherTest {
     }
 
     @Test
-    @SmallTest
     @DisableFeatures(ChromeFeatureList.AUTOFILL_RETRY_IMAGE_FETCH_ON_FAILURE)
     public void testPrefetchCardArtImages_validUrl_unsuccessfulImageFetch_retryDisabled() {
         doAnswer(
@@ -336,7 +334,6 @@ public class AutofillImageFetcherTest {
     }
 
     @Test
-    @SmallTest
     public void testPrefetchCardArtImages_invalidOrEmptyUrl() {
         GURL invalidUrl = new GURL("invalid-image-url");
         GURL emptyUrl = new GURL("");
@@ -360,7 +357,6 @@ public class AutofillImageFetcherTest {
     }
 
     @Test
-    @SmallTest
     public void testPrefetchCardArtImages_capitalOneStaticImageUrl_notFetched() {
         GURL capitalOneStaticImageUrl = new GURL(AutofillUiUtils.CAPITAL_ONE_ICON_URL);
         // No histogram should be logged since image isn't fetched for Capital One's static card art
@@ -384,7 +380,6 @@ public class AutofillImageFetcherTest {
     }
 
     @Test
-    @SmallTest
     public void testPrefetchPixAccountImages_validUrl_successfulImageFetch() {
         GURL imageCacheKey =
                 AutofillImageFetcherUtils.getPixAccountImageUrlWithParams(TEST_IMAGE_URL);
@@ -417,7 +412,6 @@ public class AutofillImageFetcherTest {
     }
 
     @Test
-    @SmallTest
     public void testPrefetchPixAccountImages_imageInCache_imageNotFetched() {
         GURL imageCacheKey =
                 AutofillImageFetcherUtils.getPixAccountImageUrlWithParams(TEST_IMAGE_URL);
@@ -443,7 +437,6 @@ public class AutofillImageFetcherTest {
     }
 
     @Test
-    @SmallTest
     public void testPrefetchPixAccountImages_validUrl_unsuccessfulImageFetch() {
         doAnswer(
                         invocation -> {
@@ -485,7 +478,6 @@ public class AutofillImageFetcherTest {
     }
 
     @Test
-    @SmallTest
     public void testPrefetchPixAccountImages_validUrl_unsuccessfulImageFetch_successOnRetry() {
         // Use AtomicInteger to track the number of calls.
         AtomicInteger callCount = new AtomicInteger(0);
@@ -542,7 +534,6 @@ public class AutofillImageFetcherTest {
     }
 
     @Test
-    @SmallTest
     public void testPrefetchPixAccountImages_invalidOrEmptyUrl() {
         GURL invalidUrl = new GURL("invalid-image-url");
         GURL emptyUrl = new GURL("");
@@ -566,7 +557,6 @@ public class AutofillImageFetcherTest {
     }
 
     @Test
-    @SmallTest
     public void testGetPixAccountIcon_imageInCache() {
         mAutofillImageFetcher.addImageToCacheForTesting(
                 AutofillImageFetcherUtils.getPixAccountImageUrlWithParams(TEST_IMAGE_URL),
@@ -585,7 +575,6 @@ public class AutofillImageFetcherTest {
     }
 
     @Test
-    @SmallTest
     public void testGetPixAccountIcon_imageNotInCache() {
         Context context = ContextUtils.getApplicationContext();
         Drawable genericBankAccountIcon =
@@ -602,7 +591,6 @@ public class AutofillImageFetcherTest {
     }
 
     @Test
-    @SmallTest
     public void testPrefetchValuableImages_successfulImageFetch() {
         // Image fetcher has a predefined number of image sizes to fetch.
         final int imageNumber = AutofillImageFetcher.VALUABLE_IMAGE_SIZES.length;
@@ -643,7 +631,6 @@ public class AutofillImageFetcherTest {
     }
 
     @Test
-    @SmallTest
     public void testPrefetchValuableImages_unsuccessfulImageFetch() {
         // Image fetcher has a predefined number of image sizes to fetch.
         final int imageNumber = AutofillImageFetcher.VALUABLE_IMAGE_SIZES.length;
@@ -685,7 +672,6 @@ public class AutofillImageFetcherTest {
     }
 
     @Test
-    @SmallTest
     public void testPrefetchValuableImages_invalidOrEmptyUrl() {
         GURL invalidUrl = new GURL("invalid-image-url");
         GURL emptyUrl = new GURL("");
@@ -710,7 +696,6 @@ public class AutofillImageFetcherTest {
     }
 
     @Test
-    @SmallTest
     public void testObserverNotifiedOnImageFetched() {
         mAutofillImageFetcher.addObserver(mMockObserver);
 

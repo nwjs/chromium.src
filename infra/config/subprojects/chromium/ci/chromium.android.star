@@ -77,6 +77,7 @@ branches.console_view_entry(
 ci.builder(
     name = "Android arm Builder (dbg)",
     branch_selector = branches.selector.ANDROID_BRANCHES,
+    description_html = "Compiles an Android ARM debug build.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -135,6 +136,7 @@ ci.builder(
 ci.builder(
     name = "Android arm64 Builder (dbg)",
     branch_selector = branches.selector.ANDROID_BRANCHES,
+    description_html = "Compiles an Android ARM64 debug build for trybot mirroring.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -197,6 +199,7 @@ ci.builder(
 ci.builder(
     name = "Android arm64 Builder All Targets (dbg)",
     branch_selector = branches.selector.ANDROID_BRANCHES,
+    description_html = "Compiles all targets for Android ARM64 debug build to verify full build coverage on CI.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -253,6 +256,7 @@ ci.builder(
 # branches, "Android x64 Builder All Targets (dbg)" is already building all.
 ci.builder(
     name = "Android x64 Builder (dbg)",
+    description_html = "Compiles an Android x64 debug build for triggered testers and trybot mirroring.",
     builder_spec = builder_config.copy_from("ci/Android x64 Builder All Targets (dbg)"),
     gn_args = gn_args.config(
         configs = [
@@ -286,6 +290,7 @@ ci.builder(
 ci.builder(
     name = "Android x64 Builder All Targets (dbg)",
     branch_selector = branches.selector.ANDROID_BRANCHES,
+    description_html = "Compiles all targets for Android x64 debug build to verify full build coverage on CI.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -336,6 +341,7 @@ ci.builder(
 ci.builder(
     name = "Android x86 Builder (dbg)",
     branch_selector = branches.selector.ANDROID_BRANCHES,
+    description_html = "Compiles an Android x86 debug build.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -383,6 +389,7 @@ ci.builder(
 
 ci.builder(
     name = "android-x86-rel",
+    description_html = "Compiles an Android x86 release build.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -427,6 +434,7 @@ ci.builder(
 
 ci.thin_tester(
     name = "android-webview-10-x86-rel-tests",
+    description_html = "Runs WebView CTS tests on Android 10 x86 release emulators.",
     parent = "ci/android-x86-rel",
     builder_spec = builder_config.builder_spec(
         execution_mode = builder_config.execution_mode.TEST,
@@ -703,6 +711,7 @@ ci.builder(
 
 ci.builder(
     name = "Deterministic Android",
+    description_html = "Verifies that Android ARM release builds are deterministic.",
     executable = "recipe:swarming/deterministic_build",
     gn_args = gn_args.config(
         configs = [
@@ -716,6 +725,10 @@ ci.builder(
         ],
     ),
     cores = 32,
+    # This builder uses almost as much disk space as is available on a standard
+    # VM, which causes issues if there are any caches from other builders. So,
+    # target higher disk space instances.
+    free_space = builders.free_space.high,
     tree_closing = True,
     console_view_entry = consoles.console_view_entry(
         category = "builder|det",
@@ -731,6 +744,7 @@ ci.builder(
 
 ci.builder(
     name = "Deterministic Android (dbg)",
+    description_html = "Verifies that Android ARM debug builds are deterministic.",
     executable = "recipe:swarming/deterministic_build",
     gn_args = gn_args.config(
         configs = [
@@ -864,7 +878,7 @@ ci.builder(
                      "All/PaymentHandlerEnforceFullDelegationTest.WhenEnabled_ShowPaymentSheet_WhenDisabled_Reject/1"),
                 ],
                 swarming = targets.swarming(
-                    shards = 6,
+                    shards = 12,
                 ),
             ),
             "base_unittests": targets.mixin(
@@ -1043,6 +1057,7 @@ ci.builder(
 
 ci.builder(
     name = "android-arm64-proguard-rel",
+    description_html = "Builds and tests Android ARM64 release builds with ProGuard optimization enabled.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -1210,6 +1225,7 @@ ci.builder(
 
 ci.builder(
     name = "android-binary-size-generator",
+    description_html = "Generates Android binary size reference data for ARM and ARM64 trunk builds.",
     executable = "recipe:binary_size_generator_tot",
     gn_args = gn_args.config(
         configs = [
@@ -1240,6 +1256,7 @@ ci.builder(
 ci.builder(
     name = "android-cronet-arm-dbg",
     branch_selector = branches.selector.ANDROID_BRANCHES,
+    description_html = "Builds and tests Cronet on Android ARM debug.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -1292,6 +1309,7 @@ ci.builder(
 ci.builder(
     name = "android-cronet-arm-rel",
     branch_selector = branches.selector.ANDROID_BRANCHES,
+    description_html = "Builds and tests Cronet on Android ARM release.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -1346,6 +1364,7 @@ ci.builder(
 
 ci.builder(
     name = "android-cronet-arm64-dbg",
+    description_html = "Builds and tests Cronet on Android ARM64 debug.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -1395,6 +1414,7 @@ ci.builder(
 
 ci.builder(
     name = "android-cronet-arm64-rel",
+    description_html = "Builds and tests Cronet on Android ARM64 release.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -1541,6 +1561,7 @@ ci.builder(
 ci.builder(
     name = "android-cronet-x86-dbg",
     branch_selector = branches.selector.ANDROID_BRANCHES,
+    description_html = "Builds Cronet on Android x86 debug.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -1602,6 +1623,7 @@ ci.builder(
 ci.builder(
     name = "android-cronet-x64-dbg",
     branch_selector = branches.selector.ANDROID_BRANCHES,
+    description_html = "Builds Cronet on Android x64 debug.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -1662,6 +1684,7 @@ ci.builder(
 
 ci.thin_tester(
     name = "android-cronet-x64-dbg-12-tests",
+    description_html = "Runs Cronet tests on Android 12 x64 debug emulators.",
     parent = "ci/android-cronet-x64-dbg",
     builder_spec = builder_config.builder_spec(
         execution_mode = builder_config.execution_mode.TEST,
@@ -1710,6 +1733,7 @@ ci.thin_tester(
 
 ci.thin_tester(
     name = "android-cronet-x64-dbg-13-tests",
+    description_html = "Runs Cronet tests on Android 13 x64 debug emulators.",
     parent = "ci/android-cronet-x64-dbg",
     builder_spec = builder_config.builder_spec(
         execution_mode = builder_config.execution_mode.TEST,
@@ -1908,6 +1932,7 @@ ci.thin_tester(
 
 ci.thin_tester(
     name = "android-cronet-x86-dbg-nougat-tests",
+    description_html = "Runs Cronet tests on Android Nougat x86 debug emulators.",
     parent = "ci/android-cronet-x86-dbg",
     builder_spec = builder_config.builder_spec(
         execution_mode = builder_config.execution_mode.TEST,
@@ -1956,6 +1981,7 @@ ci.thin_tester(
 
 ci.thin_tester(
     name = "android-cronet-x86-dbg-oreo-tests",
+    description_html = "Runs Cronet tests on Android Oreo x86 debug emulators.",
     parent = "ci/android-cronet-x86-dbg",
     builder_spec = builder_config.builder_spec(
         execution_mode = builder_config.execution_mode.TEST,
@@ -2011,6 +2037,7 @@ ci.thin_tester(
 
 ci.thin_tester(
     name = "android-cronet-x86-dbg-pie-tests",
+    description_html = "Runs Cronet tests on Android Pie x86 debug emulators.",
     parent = "ci/android-cronet-x86-dbg",
     builder_spec = builder_config.builder_spec(
         execution_mode = builder_config.execution_mode.TEST,
@@ -2068,6 +2095,7 @@ ci.thin_tester(
 ci.thin_tester(
     name = "android-cronet-x86-dbg-10-tests",
     branch_selector = branches.selector.ANDROID_BRANCHES,
+    description_html = "Runs Cronet tests on Android 10 x86 debug emulators.",
     parent = "ci/android-cronet-x86-dbg",
     builder_spec = builder_config.builder_spec(
         execution_mode = builder_config.execution_mode.TEST,
@@ -2123,6 +2151,7 @@ ci.thin_tester(
 
 ci.thin_tester(
     name = "android-cronet-x86-dbg-11-tests",
+    description_html = "Runs Cronet tests on Android 11 x86 debug emulators.",
     parent = "ci/android-cronet-x86-dbg",
     builder_spec = builder_config.builder_spec(
         execution_mode = builder_config.execution_mode.TEST,
@@ -2171,6 +2200,7 @@ ci.thin_tester(
 
 ci.builder(
     name = "android-cronet-x86-rel",
+    description_html = "Builds and tests Cronet on Android x86 release.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -2222,6 +2252,7 @@ ci.builder(
 
 ci.builder(
     name = "android-cronet-x64-rel",
+    description_html = "Builds and tests Cronet on Android x64 release.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -2586,6 +2617,7 @@ ci.builder(
                 args = [
                     "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_10.content_browsertests.filter",
                 ],
+                enable_rts_filtering = True,
                 swarming = targets.swarming(
                     dimensions = {
                         # use 8-core to shorten runtime
@@ -2706,6 +2738,7 @@ ci.builder(
 # TODO(crbug.com/40152686): Update the console view config once on CQ
 ci.builder(
     name = "android-11-x86-rel",
+    description_html = "Builds and runs Chromium tests on Android 11 x86 release emulators.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -3556,7 +3589,9 @@ ci.builder(
                     # https://crbug.com/375086487
                     ("--gtest_filter=-InstallableManagerBrowserTest.CheckManifestWithIconThatIsTooSmall:" +
                      # https://crbug.com/542940281
-                     "PrerenderBrowserTest.HTTPFormActivation"),
+                     "PrerenderBrowserTest.HTTPFormActivation:" +
+                     # https://crbug.com/565259101
+                     "SearchPrefetchActivationBeaconBrowserTest.SearchPrefetchToPrerenderUpgradeActivationBeaconSent"),
                 ],
                 swarming = targets.swarming(
                     shards = 2,
@@ -4153,7 +4188,23 @@ ci.builder(
         ],
         per_test_modifications = {
             "android_browsertests": targets.mixin(
+                enable_rts_filtering = True,
                 swarming = targets.swarming(
+                    optional_dimensions = {
+                        # TODO(crrev.com/541675870): Remove x86-64-n4 when migration is done.
+                        # Wait 30 seconds for n4 cpu with cache, wait 30 seconds for n4 cpu
+                        # wait 60 seconds for any bot with a cache.
+                        30: {
+                            "cpu": "x86-64-n4",
+                            "caches": "android_36_google_apis_x64",
+                        },
+                        60: {
+                            "cpu": "x86-64-n4",
+                        },
+                        120: {
+                            "caches": "android_36_google_apis_x64",
+                        },
+                    },
                     shards = 25,
                 ),
             ),
@@ -4190,7 +4241,23 @@ ci.builder(
                     "--emulator-debug-tags=all",
                     "--enable-leak-checks",
                 ],
+                enable_rts_filtering = True,
                 swarming = targets.swarming(
+                    optional_dimensions = {
+                        # TODO(crrev.com/541675870): Remove x86-64-n4 when migration is done.
+                        # Wait 30 seconds for n4 cpu with cache, wait 30 seconds for n4 cpu
+                        # wait 60 seconds for any bot with a cache.
+                        30: {
+                            "cpu": "x86-64-n4",
+                            "caches": "android_36_google_apis_x64",
+                        },
+                        60: {
+                            "cpu": "x86-64-n4",
+                        },
+                        120: {
+                            "caches": "android_36_google_apis_x64",
+                        },
+                    },
                     shards = 47,
                 ),
             ),

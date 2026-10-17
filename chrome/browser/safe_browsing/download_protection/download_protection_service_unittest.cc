@@ -98,8 +98,8 @@
 #include "components/safe_browsing/content/browser/web_ui/web_ui_content_info_singleton.h"
 #include "components/safe_browsing/content/common/file_type_policies_test_util.h"
 #include "components/safe_browsing/core/browser/db/database_manager.h"
+#include "components/safe_browsing/core/browser/db/sb_protocol_manager_util.h"
 #include "components/safe_browsing/core/browser/db/test_database_manager.h"
-#include "components/safe_browsing/core/browser/db/v4_protocol_manager_util.h"
 #include "components/safe_browsing/core/browser/db/v5_get_hash_protocol_manager.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "components/safe_browsing/core/common/proto/csd.pb.h"
@@ -322,7 +322,8 @@ class FakeSafeBrowsingService : public TestSafeBrowsingService {
     services_delegate_ = ServicesDelegate::CreateForTest(this, this);
     CloudBinaryUploadServiceFactory::GetInstance()->SetTestingFactory(
         profile, base::BindRepeating(&CreateTestBinaryUploadService));
-    mock_database_manager_ = new NiceMock<MockSafeBrowsingDatabaseManager>();
+    mock_database_manager_ =
+        base::MakeRefCounted<NiceMock<MockSafeBrowsingDatabaseManager>>();
   }
   FakeSafeBrowsingService(const FakeSafeBrowsingService&) = delete;
   FakeSafeBrowsingService& operator=(const FakeSafeBrowsingService&) = delete;
@@ -400,8 +401,9 @@ class FakeSafeBrowsingService : public TestSafeBrowsingService {
 #endif
   }
 
-  safe_browsing::SafeBrowsingDatabaseManager* CreateDatabaseManager() override {
-    return mock_database_manager_.get();
+  scoped_refptr<safe_browsing::SafeBrowsingDatabaseManager>
+  CreateDatabaseManager() override {
+    return mock_database_manager_;
   }
 
   IncidentReportingService* CreateIncidentReportingService() override {
@@ -3799,7 +3801,8 @@ TEST_F(DownloadProtectionServiceTest,
       web_contents(), HostContentSettingsMapFactory::GetForProfile(profile()),
       SafeBrowsingNavigationObserverManagerFactory::GetForBrowserContext(
           profile()),
-      profile()->GetPrefs(), g_browser_process->safe_browsing_service());
+      profile()->GetPrefs(), g_browser_process->safe_browsing_service(),
+      /*is_referrer_chain_needed_for_enterprise=*/false);
 
   // Simulate 6 user interactions
   SimulateLinkClick(GURL("http://example.com/0"));
@@ -3844,7 +3847,8 @@ TEST_F(DownloadProtectionServiceTest, VerifyReferrerChainLength) {
       web_contents(), HostContentSettingsMapFactory::GetForProfile(profile()),
       SafeBrowsingNavigationObserverManagerFactory::GetForBrowserContext(
           profile()),
-      profile()->GetPrefs(), g_browser_process->safe_browsing_service());
+      profile()->GetPrefs(), g_browser_process->safe_browsing_service(),
+      /*is_referrer_chain_needed_for_enterprise=*/false);
 
   // Simulate 6 user interactions
   SimulateLinkClick(GURL("http://example.com/0"));
@@ -6600,7 +6604,7 @@ TEST_F(DownloadProtectionServiceTest,
   safe_browsing::V5GetHashProtocolManager v5_protocol_manager(
       /*url_loader_factory=*/nullptr,
       safe_browsing::SBProtocolConfig("test", false, "key", "1.0"),
-      /*cache=*/nullptr);
+      /*cache=*/nullptr, /*webui_delegate=*/nullptr);
 
   NiceMockDownloadItem item;
   PrepareBasicDownloadItem(&item, {"http://www.evil.com/a.exe"},

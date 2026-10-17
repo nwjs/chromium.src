@@ -246,6 +246,10 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   const viz::FrameSinkId& GetFrameSinkId() override;
   std::optional<GlobalRenderFrameHostId> GetPopupCreatorFrameId()
       const override;
+  void set_popup_creator_frame_id_for_testing(
+      std::optional<GlobalRenderFrameHostId> id) {
+    popup_creator_frame_id_ = id;
+  }
   void UpdateTextDirection(base::i18n::TextDirection direction) override;
   void NotifyTextDirection() override;
   void SetExternallySourcedComposition(
@@ -1139,10 +1143,28 @@ class CONTENT_EXPORT RenderWidgetHostImpl
  private:
   FRIEND_TEST_ALL_PREFIXES(FullscreenDetectionTest,
                            EncompassingDivNotFullscreen);
+  FRIEND_TEST_ALL_PREFIXES(NavigationControllerTest,
+                           VisuallyNonEmptyCompositorFrameRevertsPendingURL);
+  FRIEND_TEST_ALL_PREFIXES(
+      NavigationControllerTest,
+      VisuallyNonEmptyCompositorFrameAfterFailRevertsPendingURL);
+  FRIEND_TEST_ALL_PREFIXES(NavigationControllerTest,
+                           VisuallyNonEmptyCompositorFrameWithoutPendingEntry);
+  FRIEND_TEST_ALL_PREFIXES(NavigationControllerTest,
+                           VisuallyNonEmptyCompositorFrameAfterReportedAccess);
+  FRIEND_TEST_ALL_PREFIXES(
+      NavigationControllerTest,
+      VisuallyNonEmptyCompositorFrameAfterBrowserInitiatedAbort);
+  FRIEND_TEST_ALL_PREFIXES(NavigationControllerTest,
+                           VisuallyNonEmptyCompositorFrameWithFeatureDisabled);
+  FRIEND_TEST_ALL_PREFIXES(NavigationControllerTest,
+                           VisuallyNonEmptyCompositorFrameAfterCommitIsNoOp);
   FRIEND_TEST_ALL_PREFIXES(RenderWidgetHostTest,
                            DoNotAcceptPopupBoundsUntilScreenRectsAcked);
   FRIEND_TEST_ALL_PREFIXES(RenderWidgetHostTest,
                            DontPostponeInputEventAckTimeout);
+  FRIEND_TEST_ALL_PREFIXES(RenderWidgetHostTest,
+                           PopupBoundsAreClampedToTheDisplay);
   FRIEND_TEST_ALL_PREFIXES(RenderWidgetHostTest, RendererExitedNoDrag);
   FRIEND_TEST_ALL_PREFIXES(RenderWidgetHostTest,
                            StopAndStartInputEventAckTimeout);
@@ -1317,6 +1339,29 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // has a view and is the owner for the FrameSinkId assigned to it.
   void MaybeDispatchBufferedFrameSinkRequest();
 
+  // Asks Viz to report the first CompositorFrame with visually non-empty
+  // content for this widget's FrameSinkId, if this widget is for a main frame
+  // initial empty document. Must be called before CreateCompositorFrameSink()
+  // is sent for the same FrameSinkId. See https://crbug.com/40055319.
+  void MaybeRequestNonEmptyCompositorFrameNotification();
+
+  // Withdraws any request made by
+  // MaybeRequestNonEmptyCompositorFrameNotification(), once the notification
+  // can no longer tell us anything about the initial empty document (e.g.,
+  // after a cross-document navigation commits). Requires a non-null `view_`.
+  void CancelNonEmptyCompositorFrameNotification();
+
+  // Returns true if this widget is for a main frame initial empty document
+  // whose first visually non-empty CompositorFrame tells us it is no longer
+  // safe to show a renderer-initiated pending URL.
+  bool ShouldRequestNonEmptyCompositorFrameNotification() const;
+
+  // Called when Viz reports that this widget activated a CompositorFrame with
+  // visually non-empty content, having been armed by
+  // MaybeRequestNonEmptyCompositorFrameNotification(). Also called directly by
+  // tests.
+  void OnFirstVisuallyNonEmptyCompositorFrame();
+
   raw_ptr<FrameTree> frame_tree_;
 
   // RenderWidgetHost are either:
@@ -1431,6 +1476,14 @@ class CONTENT_EXPORT RenderWidgetHostImpl
 
   // Visual properties that were most recently sent to the renderer.
   std::unique_ptr<blink::VisualProperties> old_visual_properties_;
+
+  // Tracks the last observed value of `delegate_->IsFullscreen()` and
+  // increments `fullscreen_grant_count_` each time fullscreen is entered so
+  // that fullscreen transitions coalesced while waiting for a visual properties
+  // ack are still detected.
+  void UpdateFullscreenGrantCount();
+  bool was_fullscreen_ = false;
+  uint64_t fullscreen_grant_count_ = 0;
 
   // True if the render widget host should track the render widget's size as
   // opposed to visa versa.

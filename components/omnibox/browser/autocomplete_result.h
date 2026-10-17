@@ -258,13 +258,12 @@ class AutocompleteResult {
       const ACMatches& matches,
       const CompareWithDemoteByType<AutocompleteMatch>& comparing_object);
   // Determines how many matches to keep depending on how many URLs would be
-  // shown. Increases the match limit if there are TYPE_UNSCOPED_EXTENSION
-  // suggestions available so they don't replace other match types.
-  // CalculateNumMatches defers to CalculateNumMatchesPerUrlCount if
-  // all of the following are true:
-  // 1) not in zero suggest.
-  // 2) not in exact featured keyword mode.
-  // 3) `kDynamicMaxAutocomplete` feature is enabled.
+  // shown. Increases the match limit if there are
+  // AutocompleteProvider::Type::kUnscopedExtension suggestions available so
+  // they don't replace other match types. CalculateNumMatches defers to
+  // CalculateNumMatchesPerUrlCount if all of the following are true: 1) not in
+  // zero suggest. 2) not in exact featured keyword mode. 3)
+  // `kDynamicMaxAutocomplete` feature is enabled.
   static size_t CalculateNumMatchesPerUrlCount(
       const ACMatches& matches,
       const CompareWithDemoteByType<AutocompleteMatch>& comparing_object);

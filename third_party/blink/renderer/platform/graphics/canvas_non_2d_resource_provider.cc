@@ -18,7 +18,6 @@
 #include "base/trace_event/process_memory_dump.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
-#include "cc/paint/display_item_list.h"
 #include "cc/paint/skia_paint_canvas.h"
 #include "components/viz/common/gpu/raster_context_provider.h"
 #include "components/viz/common/resources/shared_image_format_utils.h"
@@ -662,8 +661,7 @@ CanvasNon2DResourceProvider::DoExternalOverdrawAndSnapshot(
   return Snapshot(orientation);
 }
 
-std::unique_ptr<gpu::RasterScopedAccess>
-CanvasNon2DResourceProvider::WillDrawInternal() {
+void CanvasNon2DResourceProvider::EnsureResourceReadyForDraw() {
   DCHECK(resource_);
 
   // Since the resource will be updated, the cached snapshot is no longer valid.
@@ -675,25 +673,25 @@ CanvasNon2DResourceProvider::WillDrawInternal() {
   // Determine if a new resource is needed for accelerated resources. Note that
   // for unaccelerated resources, writes to the SharedImage are deferred to
   // ProduceCanvasResource.
-  if (is_software_ || !ShouldReplaceTargetBuffer(cached_content_id_)) {
-    return resource_->BeginAccess(/*readonly=*/false);
+  if (!is_software_ && ShouldReplaceTargetBuffer(cached_content_id_)) {
+    cached_content_id_ = PaintImage::kInvalidContentId;
+    DCHECK(!current_resource_has_write_access_)
+        << "Write access must be released before sharing the resource";
+
+    resource_ = NewOrRecycledResource();
+
+    // As the image might have just been created, we need to ensure that it is
+    // cleared on the next BeginRasterCHROMIUM to satisfy service-side security
+    // requirements (note: as an optimization we could avoid doing this if the
+    // resource was recycled as in that case there are no security implications).
+    is_cleared_ = false;
   }
+}
 
-  std::unique_ptr<gpu::RasterScopedAccess> dst_access;
-  cached_content_id_ = PaintImage::kInvalidContentId;
-  DCHECK(!current_resource_has_write_access_)
-      << "Write access must be released before sharing the resource";
-
-  resource_ = NewOrRecycledResource();
-  dst_access = resource_->BeginAccess(/*readonly=*/false);
-
-  // As the image might have just been created, we need to ensure that it is
-  // cleared on the next BeginRasterCHROMIUM to satisfy service-side security
-  // requirements (note: as an optimization we could avoid doing this if the
-  // resource was recycled as in that case there are no security implications).
-  is_cleared_ = false;
-
-  return dst_access;
+std::unique_ptr<gpu::RasterScopedAccess>
+CanvasNon2DResourceProvider::WillDrawInternal() {
+  EnsureResourceReadyForDraw();
+  return resource_->BeginAccess(/*readonly=*/false);
 }
 
 
@@ -847,52 +845,17 @@ void CanvasNon2DResourceProvider::FlushRecording(
     }
     skia_canvas_->drawPicture(std::move(last_recording));
   } else if (!IsGpuContextLost()) {
-    auto access = WillDrawInternal();
+    EnsureResourceReadyForDraw();
     EnsureWriteAccess();
 
     const bool needs_clear = !is_cleared_;
     is_cleared_ = true;
-
-    gpu::raster::RasterInterface* ri = RasterInterface();
-    SkColor4f background_color = GetAlphaType() == kOpaque_SkAlphaType
-                                     ? SkColors::kBlack
-                                     : SkColors::kTransparent;
-
-    auto list = base::MakeRefCounted<cc::DisplayItemList>();
-    list->StartPaint();
-    list->push<cc::DrawRecordOp>(std::move(last_recording));
-    list->EndPaintOfUnpaired(gfx::Rect(Size().width(), Size().height()));
-    list->Finalize();
-
-    gfx::Size size(Size().width(), Size().height());
-    size_t max_op_size_hint =
-        gpu::raster::RasterInterface::kDefaultMaxOpSizeHint;
-    gfx::Rect full_raster_rect(Size().width(), Size().height());
-    gfx::Rect playback_rect(Size().width(), Size().height());
-    gfx::Vector2dF post_translate(0.f, 0.f);
-    gfx::Vector2dF post_scale(1.f, 1.f);
-
-    const bool can_use_lcd_text = GetAlphaType() == kOpaque_SkAlphaType;
-    const auto& caps =
-        context_provider_wrapper_->ContextProvider().GetCapabilities();
-    bool use_msaa = !caps.msaa_is_slow && !caps.avoid_stencil_buffers;
-    ri->BeginRasterCHROMIUM(background_color, needs_clear,
-                            /*msaa_sample_count=*/use_msaa ? 1 : 0,
-                            use_msaa ? gpu::raster::MsaaMode::kDMSAA
-                                     : gpu::raster::MsaaMode::kNoMSAA,
-                            can_use_lcd_text, /*visible=*/true, GetColorSpace(),
-                            /*hdr_headroom=*/0.f,
-                            resource()->GetSharedImage()->mailbox().name);
-
     auto* image_provider = GetOrCreateImageProvider();
-    ri->RasterCHROMIUM(
-        list.get(), image_provider, size, full_raster_rect, playback_rect,
-        post_translate, post_scale, /*requires_clear=*/false,
-        /*raster_inducing_scroll_offsets=*/nullptr, &max_op_size_hint,
-        base::RepeatingCallback<void(SkCanvas*, uint32_t)>());
 
-    ri->EndRasterCHROMIUM();
-    resource()->EndAccess(std::move(access));
+    gpu::SyncToken sync_token = RasterInterface()->RasterSharedImage(
+        resource()->GetSharedImage(), resource()->acquire_sync_token(),
+        std::move(last_recording), image_provider, needs_clear);
+    resource()->SetReleaseSyncToken(sync_token);
   }
 
   // Images are locked for the duration of the rasterization, in case they get

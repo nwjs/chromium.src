@@ -574,7 +574,8 @@ void InitializeDownloadHistory(content::BrowserContext* context) {
   DownloadCoreService* service =
       DownloadCoreServiceFactory::GetForBrowserContext(context);
   if (service) {
-    service->InitializeHistory();
+    service->InitializeHistory(
+        DownloadCoreService::DownloadHistoryLoadTrigger::kExtensionApi);
   }
 }
 
@@ -1756,7 +1757,7 @@ ExtensionFunction::ResponseAction DownloadsSetShelfEnabledFunction::Run() {
     // below).
     BrowserWindowInterface* browser = window->GetBrowser();
     BrowserWindow* browser_window = BrowserWindow::FromBrowser(browser);
-    if (browser_window->GetDownloadBubbleUIController()) {
+    if (browser_window && browser_window->GetDownloadBubbleUIController()) {
       browser_window->GetDownloadBubbleUIController()->HideDownloadUi();
     }
 #endif
@@ -1807,7 +1808,7 @@ ExtensionFunction::ResponseAction DownloadsSetUiOptionsFunction::Run() {
 #if !BUILDFLAG(IS_CHROMEOS) && BUILDFLAG(ENABLE_EXTENSIONS)
     BrowserWindowInterface* browser = window->GetBrowser();
     BrowserWindow* browser_window = BrowserWindow::FromBrowser(browser);
-    if (browser_window->GetDownloadBubbleUIController()) {
+    if (browser_window && browser_window->GetDownloadBubbleUIController()) {
       browser_window->GetDownloadBubbleUIController()->HideDownloadUi();
     }
 #endif

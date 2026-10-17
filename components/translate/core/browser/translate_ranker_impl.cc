@@ -20,12 +20,12 @@
 #include "base/task/task_runner.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
-#include "components/assist_ranker/proto/ranker_model.pb.h"
-#include "components/assist_ranker/proto/translate_ranker_model.pb.h"
-#include "components/assist_ranker/ranker_model.h"
-#include "components/assist_ranker/ranker_model_loader_impl.h"
+#include "components/translate/core/browser/ranker_model.h"
+#include "components/translate/core/browser/ranker_model.pb.h"
+#include "components/translate/core/browser/ranker_model_loader_impl.h"
 #include "components/translate/core/browser/translate_download_manager.h"
 #include "components/translate/core/browser/translate_metrics_logger.h"
+#include "components/translate/core/browser/translate_ranker_model.pb.h"
 #include "components/translate/core/common/translate_switches.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
@@ -37,10 +37,6 @@ namespace translate {
 
 namespace {
 
-using assist_ranker::RankerModel;
-using assist_ranker::RankerModelProto;
-using assist_ranker::RankerModelStatus;
-using assist_ranker::TranslateRankerModel;
 using metrics::TranslateEventProto;
 
 const double kTranslationOfferDefaultThreshold = 0.5;
@@ -153,7 +149,7 @@ TranslateRankerImpl::TranslateRankerImpl(const base::FilePath& model_path,
       is_enforcement_enabled_(
           base::FeatureList::IsEnabled(kTranslateRankerEnforcement)) {
   if (is_query_enabled_ || is_enforcement_enabled_) {
-    model_loader_ = std::make_unique<assist_ranker::RankerModelLoaderImpl>(
+    model_loader_ = std::make_unique<RankerModelLoaderImpl>(
         base::BindRepeating(&ValidateModel),
         base::BindRepeating(&TranslateRankerImpl::OnModelAvailable,
                             weak_ptr_factory_.GetWeakPtr()),

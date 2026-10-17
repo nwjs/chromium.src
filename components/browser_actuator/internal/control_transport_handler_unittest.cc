@@ -8,9 +8,11 @@
 #include <string>
 
 #include "base/functional/callback_helpers.h"
+#include "base/strings/strcat.h"
 #include "base/test/bind.h"
 #include "components/browser_actuator/internal/proto/transport_messages.pb.h"
 #include "components/browser_actuator/public/common.h"
+#include "components/browser_actuator/public/payload_type_mapping.h"
 #include "components/browser_actuator/public/transport_session.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -25,7 +27,7 @@ class TestTransportSession : public TransportSession {
   ~TestTransportSession() override = default;
 
   std::string_view GetSessionId() const override { return session_id_; }
-  base::expected<void, SendMessageError> SendMessage(
+  base::expected<void, SendUpstreamMessageError> SendUpstreamMessage(
       PayloadType payload_type,
       const google::protobuf::MessageLite& message) override {
     return {};
@@ -37,12 +39,56 @@ class TestTransportSession : public TransportSession {
   std::string session_id_;
 };
 
+class MockTransportSession : public TransportSession {
+ public:
+  explicit MockTransportSession(std::string_view session_id)
+      : session_id_(session_id) {}
+  ~MockTransportSession() override = default;
+
+  std::string_view GetSessionId() const override { return session_id_; }
+  MOCK_METHOD((base::expected<void, SendUpstreamMessageError>),
+              SendUpstreamMessage,
+              (PayloadType payload_type,
+               const google::protobuf::MessageLite& message),
+              (override));
+  MOCK_METHOD(void,
+              OnMessage,
+              (PayloadType payload_type,
+               const google::protobuf::MessageLite& message),
+              (override));
+
+ private:
+  std::string session_id_;
+};
+
+TEST(ControlTransportHandlerTest, OnMessageStartSessionSendsAck) {
+  MockTransportSession session("session_1");
+  ControlTransportHandler handler(&session, base::DoNothing(),
+                                  base::DoNothing());
+
+  EXPECT_CALL(session, SendUpstreamMessage(PayloadType::kControl, testing::_))
+      .WillOnce([&](PayloadType type, const google::protobuf::MessageLite& msg)
+                    -> base::expected<void, SendUpstreamMessageError> {
+        EXPECT_EQ(msg.GetTypeName(),
+                  ControlCommand::default_instance().GetTypeName());
+        const auto* cmd = static_cast<const ControlCommand*>(&msg);
+        EXPECT_TRUE(cmd->has_start_session_ack());
+        return {};
+      });
+
+  ControlCommand command;
+  command.mutable_start_session();
+
+  handler.OnMessage(PayloadType::kControl, command.SerializeAsString());
+}
+
 TEST(ControlTransportHandlerTest, OnMessageCloseChannel) {
   bool close_channel_called = false;
   bool close_session_called = false;
 
+  TestTransportSession session("session_1");
   ControlTransportHandler handler(
-      "session_1",
+      &session,
       base::BindLambdaForTesting([&]() { close_channel_called = true; }),
       base::BindLambdaForTesting(
           [&](std::string_view) { close_session_called = true; }));
@@ -50,7 +96,7 @@ TEST(ControlTransportHandlerTest, OnMessageCloseChannel) {
   ControlCommand command;
   command.mutable_close_channel();
 
-  handler.OnMessage(command);
+  handler.OnMessage(PayloadType::kControl, command.SerializeAsString());
 
   EXPECT_TRUE(close_channel_called);
   EXPECT_FALSE(close_session_called);
@@ -60,8 +106,9 @@ TEST(ControlTransportHandlerTest, OnMessageCloseSession) {
   bool close_channel_called = false;
   std::string closed_session_id;
 
+  TestTransportSession session("session_1");
   ControlTransportHandler handler(
-      "session_1",
+      &session,
       base::BindLambdaForTesting([&]() { close_channel_called = true; }),
       base::BindLambdaForTesting([&](std::string_view session_id) {
         closed_session_id = session_id;
@@ -70,43 +117,66 @@ TEST(ControlTransportHandlerTest, OnMessageCloseSession) {
   ControlCommand command;
   command.mutable_close_session();
 
-  handler.OnMessage(command);
+  handler.OnMessage(PayloadType::kControl, command.SerializeAsString());
 
   EXPECT_FALSE(close_channel_called);
   EXPECT_EQ(closed_session_id, "session_1");
+}
+
+TEST(ControlTransportHandlerTest, OnMessageCloseSessionWithNullSessionNoops) {
+  bool close_channel_called = false;
+  bool close_session_called = false;
+
+  ControlTransportHandler handler(
+      nullptr,
+      base::BindLambdaForTesting([&]() { close_channel_called = true; }),
+      base::BindLambdaForTesting(
+          [&](std::string_view) { close_session_called = true; }));
+
+  ControlCommand command;
+  command.mutable_close_session();
+
+  handler.OnMessage(PayloadType::kControl, command.SerializeAsString());
+
+  EXPECT_FALSE(close_channel_called);
+  EXPECT_FALSE(close_session_called);
 }
 
 TEST(ControlTransportHandlerTest, OnMessageUnsetCommand) {
   bool close_channel_called = false;
   bool close_session_called = false;
 
+  TestTransportSession session("session_1");
   ControlTransportHandler handler(
-      "session_1",
+      &session,
       base::BindLambdaForTesting([&]() { close_channel_called = true; }),
       base::BindLambdaForTesting(
           [&](std::string_view) { close_session_called = true; }));
 
   ControlCommand command;  // empty, command_case() is COMMAND_NOT_SET
 
-  handler.OnMessage(command);
+  handler.OnMessage(PayloadType::kControl, command.SerializeAsString());
 
   EXPECT_FALSE(close_channel_called);
   EXPECT_FALSE(close_session_called);
 }
 
-TEST(ControlTransportHandlerTest, UnexpectedMessageTypeIsIgnored) {
+// The handler receives raw bytes, so a payload that is not a ControlCommand
+// surfaces as a parse failure rather than as a type mismatch. It must be
+// dropped without invoking any callback.
+TEST(ControlTransportHandlerTest, MalformedPayloadIsIgnored) {
   bool close_channel_called = false;
   bool close_session_called = false;
 
+  TestTransportSession session("session_1");
   ControlTransportHandler handler(
-      "session_1",
+      &session,
       base::BindLambdaForTesting([&]() { close_channel_called = true; }),
       base::BindLambdaForTesting(
           [&](std::string_view) { close_session_called = true; }));
 
-  ActuatorDownstreamMessage unexpected_message;
-
-  handler.OnMessage(unexpected_message);
+  // Field number 13 with wire type 6, which is not a valid wire type.
+  handler.OnMessage(PayloadType::kControl, "not a valid proto");
 
   EXPECT_FALSE(close_channel_called);
   EXPECT_FALSE(close_session_called);
@@ -149,9 +219,15 @@ TEST(ControlTransportHandlerTest, FactoryOnNewSession) {
   ControlCommand command;
   command.mutable_close_session();
 
-  handler->OnMessage(command);
+  handler->OnMessage(PayloadType::kControl, command.SerializeAsString());
 
   EXPECT_EQ(closed_session_id, "session_abc");
+}
+
+// Pins `ExpectedTypeUrl` to the generated proto; this layer may include it.
+TEST(ControlTransportHandlerTest, ExpectedTypeUrlMatchesControlCommand) {
+  EXPECT_EQ(ExpectedTypeUrl(PayloadType::kControl),
+            base::StrCat({kTypeUrlPrefix, ControlCommand().GetTypeName()}));
 }
 
 }  // namespace

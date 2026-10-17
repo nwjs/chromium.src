@@ -137,6 +137,7 @@ source_set("unit_tests") {
     "//chrome/browser/ui",
     "//chrome/common:chrome_features",
     "//chrome/test:test_support",
+    "//chrome/test/base:testing_browser_process",
     "//chromeos/ash/components/disks",
     "//chromeos/ash/components/disks:test_support",
     "//chromeos/ash/experiences/screenshot_area",
@@ -163,10 +164,6 @@ source_set("unit_tests") {
     "//ui/base",
     "//url",
   ]
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 source_set("browser_tests") {
@@ -213,6 +210,7 @@ source_set("browser_tests") {
     "//chrome/browser/media/webrtc",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui",
+    "//chrome/browser/ui:browser_window_header",
     "//chrome/browser/ui/ash/capture_mode",
     "//chrome/browser/ui/ash/system_web_apps",
     "//chrome/common",
@@ -250,8 +248,4 @@ source_set("browser_tests") {
     "//ui/views",
     "//url",
   ]
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }

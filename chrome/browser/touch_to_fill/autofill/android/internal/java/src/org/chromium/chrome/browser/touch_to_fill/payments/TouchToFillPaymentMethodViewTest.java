@@ -93,7 +93,6 @@ import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaym
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.LoyaltyCardProperties.ON_LOYALTY_CARD_CLICK_ACTION;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ProgressIconProperties.PROGRESS_CONTENT_DESCRIPTION_ID;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.SHEET_CLOSED_DESCRIPTION_ID;
-import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.SHEET_CONTENT_DESCRIPTION_ID;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.SHEET_FULL_HEIGHT_DESCRIPTION_ID;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.SHEET_HALF_HEIGHT_DESCRIPTION_ID;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.SHEET_ITEMS;
@@ -151,7 +150,6 @@ import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.ScalableTimeout;
 import org.chromium.chrome.browser.autofill.AutofillUiUtils;
 import org.chromium.chrome.browser.autofill.PersonalDataManager.CreditCard;
-import org.chromium.chrome.browser.autofill.PersonalDataManager.Iban;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.touch_to_fill.R;
@@ -174,6 +172,7 @@ import org.chromium.components.autofill.LoyaltyCard;
 import org.chromium.components.autofill.PaymentsPayload;
 import org.chromium.components.autofill.SuggestionType;
 import org.chromium.components.autofill.payments.BnplIssuerContext;
+import org.chromium.components.autofill.payments.Iban;
 import org.chromium.components.autofill.payments.LegalMessageLine;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.SheetState;
@@ -496,7 +495,6 @@ public class TouchToFillPaymentMethodViewTest {
                                     .with(SHEET_ITEMS, new ModelList())
                                     .with(BACK_PRESS_HANDLER, mBackPressHandler)
                                     .with(DISMISS_HANDLER, mDismissCallback)
-                                    .with(SHEET_CONTENT_DESCRIPTION_ID, R.string.ok)
                                     .with(SHEET_HALF_HEIGHT_DESCRIPTION_ID, R.string.ok)
                                     .with(SHEET_FULL_HEIGHT_DESCRIPTION_ID, R.string.ok)
                                     .with(SHEET_CLOSED_DESCRIPTION_ID, R.string.ok)
@@ -926,7 +924,7 @@ public class TouchToFillPaymentMethodViewTest {
                 });
         BottomSheetTestSupport.waitForOpen(mBottomSheetController);
 
-        // Make sure touch events are ignored if something is drawn on top the the bottom sheet.
+        // Make sure touch events are ignored if something is drawn on top of the bottom sheet.
         onView(withText(NICKNAMED_VISA_SUGGESTION.getLabel()))
                 .perform(createClickActionWithFlags(MotionEvent.FLAG_WINDOW_IS_OBSCURED));
         onView(withText(NICKNAMED_VISA_SUGGESTION.getLabel()))
@@ -1242,7 +1240,7 @@ public class TouchToFillPaymentMethodViewTest {
                 });
         BottomSheetTestSupport.waitForOpen(mBottomSheetController);
 
-        // Make sure touch events are ignored if something is drawn on top the the bottom sheet.
+        // Make sure touch events are ignored if something is drawn on top of the bottom sheet.
         onView(withText(LOCAL_IBAN.getLabel()))
                 .perform(createClickActionWithFlags(MotionEvent.FLAG_WINDOW_IS_OBSCURED));
         onView(withText(LOCAL_IBAN.getLabel()))

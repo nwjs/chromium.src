@@ -570,7 +570,7 @@ public final class MostVisitedTilesProcessorUnitTest {
                         OmniboxSuggestionType.TILE_MOST_VISITED_SITE,
                         OmniboxSuggestionType.TILE_REPEATABLE_QUERY);
 
-        for (@OmniboxSuggestionType int type = 0; type < OmniboxSuggestionType.NUM_TYPES; type++) {
+        for (@OmniboxSuggestionType int type = 0; type <= OmniboxSuggestionType.MAX_VALUE; type++) {
             var match = AutocompleteMatchBuilder.searchWithType(type).build();
             assertEquals(supportedTypes.contains(type), mProcessor.doesProcessSuggestion(match, 0));
         }

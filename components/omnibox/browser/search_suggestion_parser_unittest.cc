@@ -496,8 +496,9 @@ TEST(SearchSuggestionParserTest, ParseBothPrefetchAndPrerenderSuggestion) {
 
 TEST(SearchSuggestionParserTest, SuggestClassification) {
   SearchSuggestionParser::SuggestResult result(
-      u"foobar", AutocompleteMatchType::SEARCH_SUGGEST, omnibox::TYPE_QUERY, {},
-      false, omnibox::NAV_INTENT_NONE, 400, true, std::u16string());
+      u"foobar", omnibox::AutocompleteMatchType::kSearchSuggest,
+      omnibox::TYPE_QUERY, {}, false, omnibox::NAV_INTENT_NONE, 400, true,
+      std::u16string());
   AutocompleteMatch::ValidateClassifications(result.match_contents(),
                                              result.match_contents_class());
 
@@ -540,7 +541,7 @@ TEST(SearchSuggestionParserTest, NavigationClassification) {
   TestSchemeClassifier scheme_classifier;
   SearchSuggestionParser::NavigationResult result(
       scheme_classifier, GURL("https://news.google.com/"),
-      AutocompleteMatchType::Type::NAVSUGGEST, omnibox::TYPE_NAVIGATION, {},
+      omnibox::AutocompleteMatchType::kNavsuggest, omnibox::TYPE_NAVIGATION, {},
       std::u16string(), std::string(), false, omnibox::NAV_INTENT_HIGH, 400,
       true, u"google");
   AutocompleteMatch::ValidateClassifications(result.match_contents(),
@@ -1221,20 +1222,21 @@ TEST(SearchSuggestionParserTest, ParseValidTypes) {
   {
     const auto& suggestion_result = results.suggest_results[0];
     ASSERT_EQ(u"one", suggestion_result.suggestion());
-    ASSERT_EQ(AutocompleteMatchType::SEARCH_SUGGEST, suggestion_result.type());
+    ASSERT_EQ(omnibox::AutocompleteMatchType::kSearchSuggest,
+              suggestion_result.type());
     ASSERT_EQ(omnibox::TYPE_QUERY, suggestion_result.suggest_type());
   }
   {
     const auto& suggestion_result = results.suggest_results[1];
     ASSERT_EQ(u"two", suggestion_result.suggestion());
-    ASSERT_EQ(AutocompleteMatchType::SEARCH_SUGGEST_ENTITY,
+    ASSERT_EQ(omnibox::AutocompleteMatchType::kSearchSuggestEntity,
               suggestion_result.type());
     ASSERT_EQ(omnibox::TYPE_ENTITY, suggestion_result.suggest_type());
   }
   {
     const auto& suggestion_result = results.suggest_results[2];
     ASSERT_EQ(u"three", suggestion_result.suggestion());
-    ASSERT_EQ(AutocompleteMatchType::SEARCH_SUGGEST_ENTITY,
+    ASSERT_EQ(omnibox::AutocompleteMatchType::kSearchSuggestEntity,
               suggestion_result.type());
     ASSERT_EQ(omnibox::TYPE_CATEGORICAL_QUERY,
               suggestion_result.suggest_type());
@@ -1242,13 +1244,15 @@ TEST(SearchSuggestionParserTest, ParseValidTypes) {
   {
     const auto& suggestion_result = results.suggest_results[3];
     ASSERT_EQ(u"four", suggestion_result.suggestion());
-    ASSERT_EQ(AutocompleteMatchType::SEARCH_SUGGEST, suggestion_result.type());
+    ASSERT_EQ(omnibox::AutocompleteMatchType::kSearchSuggest,
+              suggestion_result.type());
     ASSERT_EQ(omnibox::TYPE_QUERY, suggestion_result.suggest_type());
   }
   {
     const auto& suggestion_result = results.suggest_results[4];
     ASSERT_EQ(u"five", suggestion_result.suggestion());
-    ASSERT_EQ(AutocompleteMatchType::SEARCH_SUGGEST, suggestion_result.type());
+    ASSERT_EQ(omnibox::AutocompleteMatchType::kSearchSuggest,
+              suggestion_result.type());
     ASSERT_EQ(omnibox::TYPE_QUERY, suggestion_result.suggest_type());
   }
 }

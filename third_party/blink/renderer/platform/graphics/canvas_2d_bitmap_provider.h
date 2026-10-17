@@ -26,7 +26,6 @@
 #include "third_party/skia/include/core/SkRefCnt.h"
 
 namespace cc {
-class AnimatedImageFrameIndexMap;
 class SkiaPaintCanvas;
 }  // namespace cc
 
@@ -43,9 +42,7 @@ class ProcessMemoryDump;
 namespace blink {
 
 class CanvasImageProvider;
-class CanvasRenderingContext2D;
 class CanvasResourceProviderDelegate;
-class OffscreenCanvasRenderingContext2D;
 
 // Renders canvas2D ops to a Skia RAM-backed bitmap. Mailboxing is not
 // supported : cannot be directly composited. For usage by (Offscreen)Canvas2D
@@ -72,16 +69,12 @@ class PLATFORM_EXPORT Canvas2DBitmapProvider final
   ~Canvas2DBitmapProvider() override;
 
   bool IsValid() const { return GetSkSurface(); }
-  bool IsGpuContextLost() const { return true; }
   void SetDelegate(CanvasResourceProviderDelegate* delegate) {
     delegate_ = delegate;
   }
   scoped_refptr<StaticBitmapImage> Snapshot(
       ImageOrientation = ImageOrientationEnum::kDefault);
   void ReleaseImageProviderImages();
-
-  void SetAnimatedImageFrameIndexes(
-      scoped_refptr<const cc::AnimatedImageFrameIndexMap>);
 
   void RasterRecord(cc::PaintRecord last_recording);
   bool WritePixels(const SkImageInfo& orig_info,
@@ -99,15 +92,9 @@ class PLATFORM_EXPORT Canvas2DBitmapProvider final
     return base::ByteSize(format_.EstimatedSizeInBytes(size_));
   }
 
-  size_t max_recorded_op_bytes() const { return max_recorded_op_bytes_; }
-  size_t max_pinned_image_bytes() const { return max_pinned_image_bytes_; }
-
   void RestoreBackBuffer(const cc::PaintImage&);
 
  private:
-  friend class CanvasRenderingContext2D;
-  friend class OffscreenCanvasRenderingContext2D;
-
   Canvas2DBitmapProvider(gfx::Size size,
                          viz::SharedImageFormat format,
                          SkAlphaType alpha_type,
@@ -141,8 +128,6 @@ class PLATFORM_EXPORT Canvas2DBitmapProvider final
   SkAlphaType alpha_type_;
   gfx::ColorSpace color_space_;
   gfx::HDRMetadata hdr_metadata_;
-  size_t max_recorded_op_bytes_;
-  size_t max_pinned_image_bytes_;
   raw_ptr<CanvasResourceProviderDelegate> delegate_ = nullptr;
   mutable sk_sp<SkSurface> surface_;
   std::unique_ptr<cc::SkiaPaintCanvas> skia_canvas_;

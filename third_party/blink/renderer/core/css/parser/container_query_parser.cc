@@ -272,8 +272,7 @@ const ContainerQuery* ContainerQueryParser::ConsumeContainerQuery(
   }
 
   const ConditionalExpNode* query = ParseCondition(stream);
-  if (query ||
-      (!name.IsNull() && RuntimeEnabledFeatures::ContainerNameOnlyEnabled())) {
+  if (query || !name.IsNull()) {
     return MakeGarbageCollected<ContainerQuery>(
         ContainerSelector(std::move(name), query), query);
   }
@@ -296,7 +295,6 @@ const ContainerQuerySet* ContainerQueryParser::ParseContainerQuerySet(
     }
     stream.ConsumeWhitespace();
   } while (!stream.AtEnd() &&
-           RuntimeEnabledFeatures::CommaSeparatedContainerQueriesEnabled() &&
            css_parsing_utils::ConsumeCommaIncludingWhitespace(stream));
 
   return MakeGarbageCollected<ContainerQuerySet>(std::move(queries));

@@ -247,6 +247,9 @@ BASE_FEATURE_PARAM(int,
                    "percent_threshold",
                    15);
 
+BASE_FEATURE(kDisablePeriodicUnfreezeOnCriticalMemoryPressure,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kDiscardOnCommitLimit, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE_PARAM(int,
@@ -257,8 +260,6 @@ BASE_FEATURE_PARAM(int,
 
 BASE_FEATURE(kResourceAttributionIncludeOrigins,
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kSeamlessRenderFrameSwap, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kUnimportantFramesPriority, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -315,6 +316,7 @@ BASE_FEATURE(kUseLoadingStateToDetectBackgroundTitleOrFaviconUpdate,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicActuationPriorityVoter, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kPMWithheldFromViewVoter, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kIgnoreMediaQueryFaviconUpdates, base::FEATURE_ENABLED_BY_DEFAULT);
 

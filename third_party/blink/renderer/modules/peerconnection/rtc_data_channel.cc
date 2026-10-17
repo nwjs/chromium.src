@@ -24,46 +24,69 @@
 
 #include "third_party/blink/renderer/modules/peerconnection/rtc_data_channel.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <memory>
-#include <string>
+#include <optional>
 #include <utility>
 
+#include "base/check.h"
+#include "base/check_op.h"
 #include "base/containers/span.h"
+#include "base/location.h"
+#include "base/logging.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/notreached.h"
+#include "base/numerics/checked_math.h"
 #include "base/numerics/safe_conversions.h"
+#include "base/sequence_checker.h"
 #include "base/task/single_thread_task_runner.h"
 #include "components/webrtc/thread_wrapper.h"
+#include "third_party/blink/public/mojom/devtools/console_message.mojom-blink.h"
 #include "third_party/blink/public/platform/task_type.h"
+#include "third_party/blink/renderer/bindings/core/v8/active_script_wrappable.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_binary_type.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_data_channel_state.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_priority_type.h"
+#include "third_party/blink/renderer/core/dom/events/event.h"
+#include "third_party/blink/renderer/core/event_type_names.h"
 #include "third_party/blink/renderer/core/events/message_event.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/fileapi/blob.h"
 #include "third_party/blink/renderer/core/fileapi/file_error.h"
 #include "third_party/blink/renderer/core/fileapi/file_reader_client.h"
+#include "third_party/blink/renderer/core/fileapi/file_reader_data.h"
 #include "third_party/blink/renderer/core/fileapi/file_reader_loader.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
+#include "third_party/blink/renderer/core/typed_arrays/array_buffer_view_helpers.h"
 #include "third_party/blink/renderer/core/typed_arrays/dom_array_buffer.h"
 #include "third_party/blink/renderer/core/typed_arrays/dom_array_buffer_view.h"
-#include "third_party/blink/renderer/modules/peerconnection/adapters/web_rtc_cross_thread_copier.h"
 #include "third_party/blink/renderer/modules/peerconnection/rtc_error_event.h"
 #include "third_party/blink/renderer/modules/peerconnection/rtc_peer_connection.h"
-#include "third_party/blink/renderer/modules/peerconnection/rtc_peer_connection_handler.h"
+#include "third_party/blink/renderer/platform/bindings/exception_code.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
+#include "third_party/blink/renderer/platform/blob/blob_data.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
 #include "third_party/blink/renderer/platform/scheduler/public/scheduling_policy.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_std.h"
+#include "third_party/blink/renderer/platform/wtf/casting.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
-#include "third_party/blink/renderer/platform/wtf/thread_safe_ref_counted.h"
+#include "third_party/blink/renderer/platform/wtf/functional.h"
+#include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
+#include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
+#include "third_party/webrtc/api/data_channel_interface.h"
 #include "third_party/webrtc/api/priority.h"
+#include "third_party/webrtc/api/rtc_error.h"
+#include "third_party/webrtc/api/scoped_refptr.h"
+#include "third_party/webrtc/rtc_base/copy_on_write_buffer.h"
 
 namespace blink {
 
@@ -516,14 +539,13 @@ void RTCDataChannel::send(DOMArrayBuffer* data,
     return;
   }
 
-  size_t data_length = data->ByteLength();
-
-  if (!ValidateSendLength(data_length, exception_state))
+  if (!ValidateSendLength(data->ByteLength(), exception_state)) {
     return;
+  }
 
   // Increase the value of the [[BufferedAmount]] slot by the byte size of data.
-  buffered_amount_ += data_length;
-  SendRawData(static_cast<const char*>((data->Data())), data_length);
+  buffered_amount_ += data->ByteLength();
+  SendRawData(data->ByteSpan());
 }
 
 void RTCDataChannel::send(NotShared<DOMArrayBufferView> data,
@@ -540,8 +562,7 @@ void RTCDataChannel::send(NotShared<DOMArrayBufferView> data,
     return;
 
   buffered_amount_ += data->byteLength();
-  SendRawData(static_cast<const char*>(data->BaseAddress()),
-              data->byteLength());
+  SendRawData(data->ByteSpan());
 }
 
 void RTCDataChannel::send(Blob* data, ExceptionState& exception_state) {
@@ -804,10 +825,10 @@ RTCDataChannel::channel() const {
   return observer_->channel();
 }
 
-void RTCDataChannel::SendRawData(const char* data, size_t length) {
+void RTCDataChannel::SendRawData(base::span<const uint8_t> data) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   CHECK(!was_transferred_);
-  webrtc::CopyOnWriteBuffer buffer(data, length);
+  webrtc::CopyOnWriteBuffer buffer(data);
   webrtc::DataBuffer data_buffer(buffer, true);
   RecordMessageSent(*channel(), data_buffer.size());
 
@@ -901,9 +922,7 @@ void RTCDataChannel::PendingMessage::Trace(Visitor* visitor) const {
 void RTCDataChannel::BlobReader::DidFinishLoading(FileReaderData data) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DOMArrayBuffer* array_buffer = std::move(data).AsDOMArrayBuffer();
-  webrtc::CopyOnWriteBuffer buffer(
-      static_cast<const char*>((array_buffer->Data())),
-      array_buffer->ByteLength());
+  webrtc::CopyOnWriteBuffer buffer(array_buffer->ByteSpan());
   message_->buffer_ = webrtc::DataBuffer(buffer, true);
   message_->type_ = RTCDataChannel::PendingMessage::Type::kBufferReady;
   data_channel_->ProcessSendQueue();

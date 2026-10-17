@@ -11,6 +11,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.app.Activity;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
 import android.transition.Transition;
 import android.view.Gravity;
 import android.view.InputDevice;
@@ -20,6 +23,7 @@ import android.view.PointerIcon;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
+import android.view.ViewOutlineProvider;
 import android.view.ViewStub;
 import android.widget.FrameLayout;
 
@@ -35,10 +39,12 @@ import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
+import org.robolectric.annotation.GraphicsMode;
 
 import org.chromium.base.UserDataHost;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
+import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.supplier.SettableNullableObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -100,6 +106,8 @@ public class ActorOverlayCoordinatorTest {
     private SettableNullableObservableSupplier<Tab> mCurrentTabSupplier;
     private UserDataHost mUserDataHost;
     private SettableMonotonicObservableSupplier<LayoutManager> mLayoutManagerSupplier;
+    private final SettableNonNullObservableSupplier<Boolean> mOmniboxFocusStateSupplier =
+            ObservableSuppliers.createNonNull(false);
     private SettableMonotonicObservableSupplier<Profile> mProfileSupplier;
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
@@ -180,6 +188,7 @@ public class ActorOverlayCoordinatorTest {
                         mBackPressHandlerRegistry,
                         mLayoutManagerSupplier,
                         mProfileSupplier,
+                        mOmniboxFocusStateSupplier,
                         mSideUiStateProvider);
         mLayoutManagerSupplier.set(mLayoutManager);
     }
@@ -471,6 +480,47 @@ public class ActorOverlayCoordinatorTest {
         mCurrentTabSupplier.set(mTab);
 
         verify(mView).setVisibility(View.GONE);
+    }
+
+    @Test
+    public void testUpdateCanShowOverlayOnContentChanged() {
+        verify(mTab).addObserver(mTabObserverCaptor.capture());
+
+        ActorUiTabController tabController = ActorUiTabController.from(mTab);
+        tabController.onUiTabStateChange(
+                new UiTabState(
+                        /* tabId= */ TAB_ID,
+                        /* actorOverlay= */ new ActorOverlayState(
+                                /* isActive= */ true,
+                                /* borderGlowVisible= */ false,
+                                /* mouseDown= */ false),
+                        /* handoffButton= */ new HandoffButtonState(
+                                /* isActive= */ true, /* controller= */ 0),
+                        /* tabIndicator= */ 0,
+                        /* borderGlowVisible= */ false));
+
+        // Tab starts on a native page (e.g. NTP). Overlay and handoff button should be hidden.
+        Mockito.when(mTab.isNativePage()).thenReturn(true);
+        clearInvocations(mView);
+        mTabObserverCaptor.getValue().onContentChanged(mTab);
+        verify(mView).setVisibility(View.GONE);
+        Assert.assertFalse(mCoordinator.getModelForTesting().get(ActorOverlayProperties.VISIBLE));
+        Assert.assertFalse(
+                mCoordinator
+                        .getModelForTesting()
+                        .get(ActorOverlayProperties.TAKE_OVER_TASK_BUTTON_VISIBLE));
+
+        // Tab navigates away from the native page to a web page. Overlay and handoff button should
+        // become visible immediately on content change.
+        Mockito.when(mTab.isNativePage()).thenReturn(false);
+        clearInvocations(mView);
+        mTabObserverCaptor.getValue().onContentChanged(mTab);
+        verify(mView).setVisibility(View.VISIBLE);
+        Assert.assertTrue(mCoordinator.getModelForTesting().get(ActorOverlayProperties.VISIBLE));
+        Assert.assertTrue(
+                mCoordinator
+                        .getModelForTesting()
+                        .get(ActorOverlayProperties.TAKE_OVER_TASK_BUTTON_VISIBLE));
     }
 
     @Test
@@ -767,6 +817,38 @@ public class ActorOverlayCoordinatorTest {
     }
 
     @Test
+    public void testOmniboxFocusHidesOverlayAndTakeOverButton() {
+        mCurrentTabSupplier.set(mTab);
+        Mockito.when(mLayoutManager.getActiveLayoutType()).thenReturn(LayoutType.BROWSING);
+
+        UiTabState activeState =
+                new UiTabState(
+                        TAB_ID,
+                        new ActorOverlayState(true, false, false),
+                        new HandoffButtonState(true, 0),
+                        0,
+                        false);
+        mTabController.onUiTabStateChange(activeState);
+
+        PropertyModel model = mCoordinator.getModelForTesting();
+        Assert.assertTrue(model.get(ActorOverlayProperties.VISIBLE));
+        Assert.assertTrue(model.get(ActorOverlayProperties.TAKE_OVER_TASK_BUTTON_VISIBLE));
+
+        // Focusing the omnibox draws the suggestions list above the overlay, so the overlay glow
+        // and the handoff button must be suppressed.
+        mOmniboxFocusStateSupplier.set(true);
+
+        Assert.assertFalse(model.get(ActorOverlayProperties.VISIBLE));
+        Assert.assertFalse(model.get(ActorOverlayProperties.TAKE_OVER_TASK_BUTTON_VISIBLE));
+
+        // Unfocusing restores both.
+        mOmniboxFocusStateSupplier.set(false);
+
+        Assert.assertTrue(model.get(ActorOverlayProperties.VISIBLE));
+        Assert.assertTrue(model.get(ActorOverlayProperties.TAKE_OVER_TASK_BUTTON_VISIBLE));
+    }
+
+    @Test
     public void testButtonDrawnFirstThenOverlayDrawn() {
         mCurrentTabSupplier.set(mTab);
 
@@ -976,20 +1058,23 @@ public class ActorOverlayCoordinatorTest {
         Assert.assertNotNull(observer);
 
         SideUiCoordinator.SideUiSpecs specs = new SideUiCoordinator.SideUiSpecs(120, 80);
+        SideUiCoordinator.UiUpdateRequest request =
+                SideUiCoordinator.UiUpdateRequest.getRequestForTesting(
+                        /* suppressAnimations= */ true);
 
         // Test onSideUiSpecsChanged updates margins in model
-        observer.onSideUiSpecsChanged(specs);
+        observer.onSideUiSpecsChanged(specs, request);
 
         PropertyModel model = mCoordinator.getModelForTesting();
         Assert.assertEquals(120, model.get(ActorOverlayProperties.LEFT_MARGIN));
         Assert.assertEquals(80, model.get(ActorOverlayProperties.RIGHT_MARGIN));
 
         // Test onPreSideUiSpecsChange returns null when view is not visible / not inflated
-        Assert.assertNull(observer.onPreSideUiSpecsChange(specs));
+        Assert.assertNull(observer.onPreSideUiSpecsChange(specs, request));
 
         // Test onPreSideUiSpecsChange returns transition when visible
         mCoordinator.showOverlayForTesting(true);
-        Transition transition = observer.onPreSideUiSpecsChange(specs);
+        Transition transition = observer.onPreSideUiSpecsChange(specs, request);
         Assert.assertNotNull(transition);
     }
 
@@ -1005,6 +1090,7 @@ public class ActorOverlayCoordinatorTest {
                         mBackPressHandlerRegistry,
                         mLayoutManagerSupplier,
                         mProfileSupplier,
+                        mOmniboxFocusStateSupplier,
                         /* sideUiStateProvider= */ null);
 
         PropertyModel model = coordinator.getModelForTesting();
@@ -1170,6 +1256,46 @@ public class ActorOverlayCoordinatorTest {
         expectedTopMargin = 200 - buttonContainerHeight / 2;
         lp = (FrameLayout.LayoutParams) mHandoffButtonView.getLayoutParams();
         Assert.assertEquals(expectedTopMargin, lp.topMargin);
+    }
+
+    @Test
+    public void testOverlayViewClipsToOutline() {
+        mCoordinator.showOverlayForTesting(true);
+        ActorOverlayView overlayView = mCoordinator.getOverlayViewForTesting();
+        Assert.assertNotNull(overlayView);
+        Assert.assertEquals(ViewOutlineProvider.BOUNDS, overlayView.getOutlineProvider());
+        Assert.assertTrue(overlayView.getClipToOutline());
+    }
+
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    public void testOverlayContainerDoesNotBleedIntoTopControls() {
+        int width = 800;
+        int height = 500;
+        int topControlsHeight = 112;
+
+        mCoordinator.showOverlayForTesting(true);
+        PropertyModel model = mCoordinator.getModelForTesting();
+        model.set(ActorOverlayProperties.TOP_MARGIN, topControlsHeight);
+        model.set(ActorOverlayProperties.CONTROLS_POSITION, ControlsPosition.TOP);
+        model.set(ActorOverlayProperties.TAKE_OVER_TASK_BUTTON_VISIBLE, true);
+
+        mContainer.measure(
+                View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY));
+        mContainer.layout(0, 0, width, height);
+
+        Bitmap rendered = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        mContainer.draw(new Canvas(rendered));
+
+        // Outside the centered handoff button (e.g. x = 40), the top controls region (y < 112)
+        // must remain completely transparent.
+        for (int y = 0; y < topControlsHeight; y++) {
+            Assert.assertEquals(
+                    "Unexpected glow bleed in top controls at y=" + y,
+                    Color.TRANSPARENT,
+                    rendered.getPixel(40, y));
+        }
     }
 
     @Test

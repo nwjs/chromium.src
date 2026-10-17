@@ -24,22 +24,25 @@
 #include "components/enterprise/client_certificates/core/upload_client_error.h"  // nogncheck
 #endif  // BUILDFLAG(ENTERPRISE_CLIENT_CERTIFICATES)
 
+#if BUILDFLAG(ENTERPRISE_PROXY)
+namespace enterprise_net {
+class EnterpriseProxyService;
+}
+#endif  // BUILDFLAG(ENTERPRISE_PROXY)
+
 class PrefService;
 
 namespace base {
 class Time;
 }  // namespace base
-
 namespace client_certificates {
 class CertificateProvisioningService;
 }  // namespace client_certificates
 
-#if !BUILDFLAG(IS_ANDROID)
 namespace enterprise_connectors {
 class DeviceTrustConnectorService;
 enum class DTCPolicyLevel;
 }  // namespace enterprise_connectors
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 namespace enterprise_reporting {
 class ReportRequest;
@@ -82,6 +85,17 @@ CreateClientCertificateState(
 
 #endif  // BUILDFLAG(ENTERPRISE_CLIENT_CERTIFICATES)
 
+#if BUILDFLAG(ENTERPRISE_PROXY)
+
+// Converts debug info from `proxy_service` into a Mojo
+// `ProvisioningDomainStatePtr`. Returns an empty state if `proxy_service` is
+// null.
+connectors_internals::mojom::ProvisioningDomainStatePtr
+GetProvisioningDomainState(
+    enterprise_net::EnterpriseProxyService* proxy_service);
+
+#endif  // BUILDFLAG(ENTERPRISE_PROXY)
+
 // Maps a signature algorithm to a Mojo key type.
 connectors_internals::mojom::KeyType AlgorithmToType(
     crypto::sign::SignatureKind algorithm);
@@ -101,7 +115,6 @@ std::string GetJsonForReportRequest(
 // if `timestamp` is null.
 std::string GetStringFromTimestamp(base::Time timestamp);
 
-#if !BUILDFLAG(IS_ANDROID)
 // Converts `level` to its string representation ("Browser" or "User").
 std::string ConvertPolicyLevelToString(
     enterprise_connectors::DTCPolicyLevel level);
@@ -111,7 +124,6 @@ std::string ConvertPolicyLevelToString(
 std::vector<std::string> GetPolicyEnabledLevels(
     const enterprise_connectors::DeviceTrustConnectorService*
         connector_service);
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 // Creates a DeviceTrustState indicating that Device Trust is unsupported.
 connectors_internals::mojom::DeviceTrustStatePtr

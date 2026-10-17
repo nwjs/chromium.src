@@ -39,7 +39,6 @@
 #include "chromeos/ash/components/growth/campaigns_manager.h"
 #include "chromeos/ash/components/install_attributes/install_attributes.h"
 #include "chromeos/ash/experiences/arc/arc_util.h"
-#include "chromeos/constants/chromeos_features.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 #include "google_apis/gaia/google_service_auth_error.h"
@@ -427,7 +426,7 @@ bool DemoSetupController::IsOobeDemoSetupFlowInProgress() {
 std::string DemoSetupController::GetSubOrganizationEmail(
     const PrefService& local_state) {
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
-  DCHECK(command_line);
+  CHECK(command_line, base::NotFatalUntil::M160);
 
   if (command_line->HasSwitch(switches::kDemoModeEnrollingUsername)) {
     std::string customUser =
@@ -447,11 +446,6 @@ std::string DemoSetupController::GetSubOrganizationEmail(
   // Exclude US as it is the default country.
   if (std::ranges::contains(demo_mode::kSupportedCountries,
                             country_uppercase)) {
-    if (chromeos::features::IsCloudGamingDeviceEnabled()) {
-      return base::StringPrintf("admin-%s-blazey@%s", country_lowercase.c_str(),
-                                policy::kDemoModeDomain);
-    }
-
     return "admin-" + country_lowercase + "@" + policy::kDemoModeDomain;
   }
   return std::string();
@@ -508,7 +502,7 @@ void DemoSetupController::Enroll(
     const OnSetCurrentSetupStep& set_current_setup_step) {
   DCHECK_NE(demo_config_, DemoSession::DemoModeConfig::kNone)
       << "Demo config needs to be explicitly set before calling Enroll()";
-  DCHECK(!enrollment_launcher_);
+  CHECK(!enrollment_launcher_, base::NotFatalUntil::M160);
 
   set_current_setup_step_ = set_current_setup_step;
   on_setup_success_ = std::move(on_setup_success);
@@ -572,7 +566,8 @@ void DemoSetupController::LoadDemoComponents() {
 }
 
 void DemoSetupController::OnDemoComponentsLoaded() {
-  DCHECK_EQ(demo_config_, DemoSession::DemoModeConfig::kOnline);
+  CHECK_EQ(demo_config_, DemoSession::DemoModeConfig::kOnline,
+           base::NotFatalUntil::M160);
 
   base::TimeDelta download_duration =
       base::TimeTicks::Now() - download_start_time_;
@@ -611,8 +606,9 @@ void DemoSetupController::OnDemoComponentsLoaded() {
       component_updater::ComponentManagerAsh::Error::NONE) {
     // There should be no error on the resources component loading if we've got
     // to this point. It should've been handled in the previous "if block".
-    DCHECK(resources_component_error ==
-           component_updater::ComponentManagerAsh::Error::NONE);
+    CHECK(resources_component_error ==
+              component_updater::ComponentManagerAsh::Error::NONE,
+          base::NotFatalUntil::M160);
     base::UmaHistogramEnumeration(
         kDemoSetupComponentlLoadingResultHistogram,
         DemoSetupComponentLoadingResult::kAppFailureResourcesSuccess);
@@ -633,9 +629,10 @@ void DemoSetupController::OnDemoComponentsLoaded() {
 
   enroll_start_time_ = base::TimeTicks::Now();
 
-  DCHECK(policy::EnrollmentRequisitionManager::GetDeviceRequisition(
-             local_state_.get())
-             .empty());
+  CHECK(policy::EnrollmentRequisitionManager::GetDeviceRequisition(
+            local_state_.get())
+            .empty(),
+        base::NotFatalUntil::M160);
   policy::EnrollmentRequisitionManager::SetDeviceRequisition(
       local_state_.get(),
       policy::EnrollmentRequisitionManager::kDemoRequisition);
@@ -664,7 +661,8 @@ void DemoSetupController::OnOtherError(EnrollmentLauncher::OtherError error) {
 }
 
 void DemoSetupController::OnDeviceEnrolled() {
-  DCHECK_NE(demo_config_, DemoSession::DemoModeConfig::kNone);
+  CHECK_NE(demo_config_, DemoSession::DemoModeConfig::kNone,
+           base::NotFatalUntil::M160);
 
   // `enroll_start_time_` is only set for online enrollment.
   if (!enroll_start_time_.is_null()) {
@@ -740,7 +738,8 @@ void DemoSetupController::SetupFailed(const DemoSetupError& error) {
 }
 
 void DemoSetupController::Reset() {
-  DCHECK_NE(demo_config_, DemoSession::DemoModeConfig::kNone);
+  CHECK_NE(demo_config_, DemoSession::DemoModeConfig::kNone,
+           base::NotFatalUntil::M160);
 
   // `demo_config_` is not reset here, because it is needed for retrying setup.
   enrollment_launcher_.reset();

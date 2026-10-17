@@ -38,10 +38,12 @@ source_set("plugins") {
       "//components/infobars/core",
       "//components/keyed_service/core",
       "//components/prefs",
+      "//components/tabs:public",
       "//extensions/buildflags",
       "//media:media_buildflags",
       "//services/network/public/mojom",
       "//third_party/blink/public/common",
+      "//ui/base/unowned_user_data",
     ]
   }
 
@@ -51,6 +53,10 @@ source_set("plugins") {
 
   if (is_android) {
     sources += [ "plugin_observer_android.h" ]
+    public_deps += [
+      "//components/tabs:public",
+      "//ui/base/unowned_user_data",
+    ]
   }
 }
 
@@ -136,6 +142,7 @@ source_set("unit_tests") {
     "//base/test:test_support",
     "//chrome/browser/content_settings:content_settings_factory",
     "//chrome/test:test_support",
+    "//chrome/test/base:chrome_render_view_host_test_harness",
     "//components/pdf/common:constants",
     "//components/pdf/common:util",
     "//content/public/common",

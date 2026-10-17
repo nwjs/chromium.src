@@ -15,6 +15,7 @@ import androidx.annotation.VisibleForTesting;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.autofill.settings.PersonalContextSettingsLauncher;
 import org.chromium.chrome.browser.autofill.settings.options.AutofillOptionsReferrer;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -25,6 +26,7 @@ import org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.Not
 import org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.ScreenId;
 import org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.SuggestionItemProperties;
 import org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.TextWithClickableLinkProperties;
+import org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.TitleItemProperties;
 import org.chromium.chrome.browser.ui.autofill.internal.R;
 import org.chromium.components.autofill.AtMemoryPayload;
 import org.chromium.components.autofill.AutofillSuggestion;
@@ -93,12 +95,12 @@ class AtMemoryBottomSheetMediator implements AtMemorySearchBarView.Delegate {
         return mFlyoutModel;
     }
 
-    void show(List<AutofillSuggestion> suggestions) {
-        applyScreenState(getScreenState(suggestions), suggestions);
+    void show(List<AutofillSuggestion> suggestions, @Nullable String searchBarInitialValue) {
+        applyScreenState(getScreenState(suggestions), suggestions, searchBarInitialValue);
     }
 
     void onDismissed() {
-        applyScreenState(AtMemoryScreenState.HIDDEN, List.of());
+        applyScreenState(AtMemoryScreenState.HIDDEN, List.of(), null);
 
         mDelegate.onDismissed();
     }
@@ -118,9 +120,14 @@ class AtMemoryBottomSheetMediator implements AtMemorySearchBarView.Delegate {
     }
 
     private void applyScreenState(
-            AtMemoryScreenState screenState, List<AutofillSuggestion> suggestions) {
+            AtMemoryScreenState screenState,
+            List<AutofillSuggestion> suggestions,
+            @Nullable String searchBarInitialValue) {
         mModel.set(CURRENT_SCREEN, ScreenId.HOME_SCREEN);
         mHomeModel.set(HomeProperties.IS_LOADING, screenState.isLoading);
+        if (searchBarInitialValue != null) {
+            mHomeModel.set(HomeProperties.SEARCH_BAR_INITIAL_VALUE, searchBarInitialValue);
+        }
 
         ModelList sheetItems = mHomeModel.get(HomeProperties.SHEET_ITEMS);
         sheetItems.clear();
@@ -188,6 +195,9 @@ class AtMemoryBottomSheetMediator implements AtMemorySearchBarView.Delegate {
                     HomeProperties.ItemType.ILLUSTRATION_CARD,
                     createIllustrationCardModel(suggestion));
         }
+        if (suggestion.getSuggestionType() == SuggestionType.TITLE) {
+            return new ListItem(HomeProperties.ItemType.TITLE, createTitleModel(suggestion));
+        }
         return new ListItem(
                 HomeProperties.ItemType.SUGGESTION, createSuggestionModel(suggestion, position));
     }
@@ -216,7 +226,7 @@ class AtMemoryBottomSheetMediator implements AtMemorySearchBarView.Delegate {
                 mContext, AutofillOptionsReferrer.PERSONAL_CONTEXT_ATMEMORY_NOTICE);
     }
 
-    private void onSuggestionClicked(AutofillSuggestion suggestion, int position) {
+    private void onSuggestionAccepted(AutofillSuggestion suggestion, int position) {
         if (!suggestion.isAcceptable()) {
             return;
         }
@@ -229,7 +239,7 @@ class AtMemoryBottomSheetMediator implements AtMemorySearchBarView.Delegate {
             }
             return;
         }
-        mDelegate.onSuggestionClicked(position);
+        mDelegate.onSuggestionAccepted(position);
     }
 
     private void onFlyoutClicked(AutofillSuggestion suggestion, int position) {
@@ -251,7 +261,7 @@ class AtMemoryBottomSheetMediator implements AtMemorySearchBarView.Delegate {
     }
 
     private void onFlyoutSuggestionClicked(int parentPosition, int childPosition) {
-        mDelegate.onChildSuggestionClicked(parentPosition, childPosition);
+        mDelegate.onChildSuggestionAccepted(parentPosition, childPosition);
     }
 
     @Override
@@ -271,6 +281,12 @@ class AtMemoryBottomSheetMediator implements AtMemorySearchBarView.Delegate {
         if (hasFocus) {
             mDelegate.requestExpandSheet(/* expandInFullHeight= */ true);
         }
+    }
+
+    private PropertyModel createTitleModel(AutofillSuggestion suggestion) {
+        return new PropertyModel.Builder(TitleItemProperties.ALL_KEYS)
+                .with(TitleItemProperties.TITLE, suggestion.getLabel())
+                .build();
     }
 
     private PropertyModel createIllustrationCardModel(AutofillSuggestion suggestion) {
@@ -335,7 +351,7 @@ class AtMemoryBottomSheetMediator implements AtMemorySearchBarView.Delegate {
                 .with(SuggestionItemProperties.IS_LOADING, suggestion.isLoading())
                 .with(
                         SuggestionItemProperties.ON_SUGGESTION_CLICKED,
-                        () -> onSuggestionClicked(suggestion, position))
+                        () -> onSuggestionAccepted(suggestion, position))
                 .with(
                         SuggestionItemProperties.ON_FLYOUT_CLICKED,
                         () -> onFlyoutClicked(suggestion, position))

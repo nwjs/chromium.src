@@ -5,6 +5,9 @@
 #include "chrome/browser/ash/app_list/arc/arc_app_test.h"
 
 #include <algorithm>
+#include <array>
+#include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/check_deref.h"
@@ -24,12 +27,15 @@
 #include "chrome/browser/ash/arc/session/arc_session_manager.h"
 #include "chrome/browser/ash/arc/test/test_arc_session_manager.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
+#include "chrome/browser/consent_auditor/consent_auditor_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chromeos/ash/components/browser_context_helper/annotated_account_id.h"
 #include "chromeos/ash/components/dbus/concierge/concierge_client.h"
 #include "chromeos/ash/components/dbus/dlcservice/dlcservice_client.h"
+#include "chromeos/ash/components/signin/fake_identity_manager_provider.h"
 #include "chromeos/ash/experiences/arc/arc_util.h"
 #include "chromeos/ash/experiences/arc/dlc_installer/arc_dlc_installer.h"
 #include "chromeos/ash/experiences/arc/intent_helper/arc_intent_helper_bridge.h"
@@ -68,7 +74,8 @@ constexpr char kWebAppInfoStartURL4[] = "https://example.com/app?start";
 constexpr char kWebAppInfoScope4[] = "https://example.com/app";
 constexpr char kWebAppInfoCertificateFingerprint4[] = "abc";
 
-const std::vector<std::string> kSupportedLocales5 = {"en-US", "ja"};
+constexpr auto kSupportedLocales5 =
+    std::to_array<std::string_view>({"en-US", "ja"});
 constexpr char kSelectedLocale5[] = "en-US";
 
 }  // namespace
@@ -194,6 +201,7 @@ void ArcAppTest::PostProfileSetUp(Profile* profile) {
                                    /*for_test=*/true);
     }
 
+    // TODO(crbug.com/40225390): Use ProfileUserManagerController.
     user_manager_.Get()->OnUserProfileCreated(user_->GetAccountId(),
                                               profile->GetPrefs());
 
@@ -207,6 +215,20 @@ void ArcAppTest::PostProfileSetUp(Profile* profile) {
   }
 
   arc::ResetArcAllowedCheckForTesting(profile_);
+
+  // Nothing else in this test process registers an
+  // ash::IdentityManagerProvider; ArcPlayStoreEnabledPreferenceHandler (below)
+  // needs one.
+  identity_manager_provider_ =
+      std::make_unique<ash::FakeIdentityManagerProvider>();
+  // Register under the profile's annotated AccountId, which is the key the
+  // production lookup uses. It's absent in UserManagerMode::kDoNothing when
+  // the fixture doesn't annotate the profile itself; the map then stays empty
+  // and Find() returns nullptr, as before this CL.
+  if (const AccountId* account_id = ash::AnnotatedAccountId::Get(profile_)) {
+    identity_manager_provider_->SetIdentityManagerForAccount(
+        *account_id, IdentityManagerFactory::GetForProfile(profile_));
+  }
 
   // ArcServiceLauncher::MaybeSetProfile:
   CHECK(arc_session_manager_);
@@ -236,11 +258,13 @@ void ArcAppTest::PostProfileSetUp(Profile* profile) {
     // Ensure that the singleton apps::ArcApps is constructed.
     apps::ArcAppsFactory::GetForProfile(profile_);
 
-    arc_session_manager_->Initialize();
+    arc_session_manager_->Initialize(
+        ConsentAuditorFactory::GetForProfile(profile_));
 
     arc_play_store_enabled_preference_handler_ =
         std::make_unique<arc::ArcPlayStoreEnabledPreferenceHandler>(
-            profile_, arc_session_manager_.get());
+            profile_, arc_session_manager_.get(),
+            ConsentAuditorFactory::GetForProfile(profile_));
     arc_play_store_enabled_preference_handler_->Start();
   }
 
@@ -392,8 +416,10 @@ void ArcAppTest::CreateFakeAppsAndPackages() {
       nullptr /* web_app_info */, std::nullopt, std::move(permissions5),
       std::nullopt /* version_name */, false /* preinstalled */,
       arc::mojom::InstallPriority::kUndefined /* priority */,
-      arc::mojom::PackageLocaleInfo::New(kSupportedLocales5,
-                                         kSelectedLocale5)));
+      arc::mojom::PackageLocaleInfo::New(
+          std::vector<std::string>(kSupportedLocales5.begin(),
+                                   kSupportedLocales5.end()),
+          kSelectedLocale5)));
 
   for (int i = 1; i <= 5; ++i) {
     arc::mojom::ShortcutInfo shortcut_info;
@@ -416,6 +442,7 @@ void ArcAppTest::PreProfileTearDown() {
   }
   app_instance_.reset();
   arc_play_store_enabled_preference_handler_.reset();
+  identity_manager_provider_.reset();
 
   CHECK(arc_session_manager_);
   arc_session_manager_->Shutdown();

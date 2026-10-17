@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/toolbar/toolbar_pref_names.h"
 
+#include "chrome/browser/ttc/core/features.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "components/pref_registry/pref_registry_syncable.h"
@@ -33,6 +34,14 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
     }
   }
 
+  if (base::FeatureList::IsEnabled(ttc::kTtc)) {
+    const std::optional<std::string>& ttc_action =
+        actions::ActionIdMap::ActionIdToString(kActionTtcToolbar);
+    if (ttc_action.has_value()) {
+      default_pinned_actions.Append(ttc_action.value());
+    }
+  }
+
   registry->RegisterListPref(prefs::kPinnedActions,
                              std::move(default_pinned_actions),
                              user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
@@ -47,6 +56,9 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
   registry->RegisterBooleanPref(prefs::kTabsFromOtherDevicesAutoPinnedMigration,
                                 false);
+  registry->RegisterBooleanPref(
+      prefs::kTtcAutoPinnedMigration, false,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
 }
 
 }  // namespace toolbar

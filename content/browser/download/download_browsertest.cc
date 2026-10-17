@@ -58,14 +58,15 @@
 #include "content/public/common/content_switches.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/common/webplugininfo.h"
+#include "content/public/test/back_forward_cache_util.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/content_browser_test.h"
 #include "content/public/test/content_browser_test_content_browser_client.h"
 #include "content/public/test/content_browser_test_utils.h"
 #include "content/public/test/download_test_observer.h"
-#include "content/public/test/fenced_frame_test_util.h"
 #include "content/public/test/prerender_test_util.h"
+#include "content/public/test/render_frame_host_test_support.h"
 #include "content/public/test/slow_download_http_response.h"
 #include "content/public/test/test_download_http_response.h"
 #include "content/public/test/test_file_error_injector.h"
@@ -1530,65 +1531,6 @@ class DownloadPrerenderTest : public DownloadContentTest {
   WebContents* GetWebContents() { return shell()->web_contents(); }
 
   test::PrerenderTestHelper prerender_helper_;
-};
-
-class DownloadFencedFrameTest : public DownloadContentTest {
- public:
-  DownloadFencedFrameTest() {
-    fenced_frame_helper_ = std::make_unique<test::FencedFrameTestHelper>();
-
-    // Fenced frame requires a secure context to disable untrusted network.
-    embedded_https_test_server().SetSSLConfig(
-        net::EmbeddedTestServer::CERT_TEST_NAMES);
-  }
-
-  ~DownloadFencedFrameTest() override = default;
-
-  void SetUpOnMainThread() override {
-    DownloadContentTest::SetUpOnMainThread();
-    ASSERT_TRUE(embedded_test_server()->Started());
-  }
-
- protected:
-  RenderFrameHost* CreateFencedFrame(RenderFrameHost* fenced_frame_parent,
-                                     const GURL& url) {
-    if (fenced_frame_helper_) {
-      return fenced_frame_helper_->CreateFencedFrame(fenced_frame_parent, url);
-    }
-
-    // FencedFrameTestHelper only supports the MPArch version of fenced frames.
-    // So need to maually create a fenced frame for the ShadowDOM version.
-    constexpr char kAddFencedFrameScript[] = R"({
-        const fenced_frame = document.createElement('fencedframe');
-        document.body.appendChild(fenced_frame);
-    })";
-    EXPECT_TRUE(ExecJs(fenced_frame_parent, kAddFencedFrameScript));
-
-    // Navigate the fenced frame from inside itself, just like the
-    // `FencedFrameTestHelper` does for MPArch.
-    RenderFrameHostImpl* rfh =
-        static_cast<RenderFrameHostImpl*>(ChildFrameAt(fenced_frame_parent, 0));
-    FrameTreeNode* target_node = rfh->frame_tree_node();
-    constexpr char kNavigateInFencedFrameScript[] = R"({
-        location.href = $1;
-    })";
-
-    TestNavigationManager navigation(shell()->web_contents(), url);
-    EXPECT_EQ(url.spec(),
-              EvalJs(rfh, JsReplace(kNavigateInFencedFrameScript, url)));
-    EXPECT_TRUE(navigation.WaitForNavigationFinished());
-
-    EXPECT_FALSE(target_node->current_frame_host()->IsErrorDocument());
-    return target_node->current_frame_host();
-  }
-
-  test::FencedFrameTestHelper* fenced_frame_helper() {
-    return fenced_frame_helper_.get();
-  }
-
- private:
-  std::unique_ptr<test::FencedFrameTestHelper> fenced_frame_helper_;
-  base::test::ScopedFeatureList feature_list_;
 };
 
 }  // namespace
@@ -5461,74 +5403,55 @@ IN_PROC_BROWSER_TEST_F(DownloadPrerenderTest, DiscardContextMenuSaveDownload) {
   EXPECT_TRUE(downloads.empty());
 }
 
-// Verify that downloads not triggered by navigation are discarded when
-// initiated from a fenced frame.
-IN_PROC_BROWSER_TEST_F(DownloadFencedFrameTest, DiscardNonNavigationDownload) {
-  const GURL kInitialUrl = embedded_test_server()->GetURL("/empty.html");
-  const GURL kFencedFrameUrl =
-      embedded_test_server()->GetURL("/fenced_frames/title1.html");
+// Verify that a DownloadURL request with `is_context_menu_save` set is
+// discarded when initiated from a frame that is pending deletion.
+IN_PROC_BROWSER_TEST_F(DownloadContentTest,
+                       DiscardDownloadFromPendingDeletionFrame) {
+  const GURL kUrlA = embedded_test_server()->GetURL("a.test", "/empty.html");
+  const GURL kUrlB = embedded_test_server()->GetURL("b.test", "/empty.html");
   const GURL kDownloadUrl =
-      embedded_test_server()->GetURL("/download/download-test.lib");
+      embedded_test_server()->GetURL("a.test", "/download/download-test.lib");
 
-  // Create fenced frame
-  EXPECT_TRUE(NavigateToURL(shell(), kInitialUrl));
-  RenderFrameHost* fenced_frame_host = CreateFencedFrame(
-      shell()->web_contents()->GetPrimaryMainFrame(), kFencedFrameUrl);
+  DisableBackForwardCacheForTesting(shell()->web_contents(),
+                                    BackForwardCache::TEST_REQUIRES_NO_CACHING);
 
-  // Do a download without navigation from the fenced frame RenderFrameHost.
-  // The download will be dropped.
-  auto* download_manager =
-      fenced_frame_host->GetBrowserContext()->GetDownloadManager();
+  // Navigate to A and force the RenderFrameHost to linger after being
+  // navigated away from.
+  EXPECT_TRUE(NavigateToURL(shell(), kUrlA));
+  auto* rfh_a = static_cast<RenderFrameHostImpl*>(
+      shell()->web_contents()->GetPrimaryMainFrame());
+  LeaveInPendingDeletionState(rfh_a);
+
+  // Navigate to B so that `rfh_a` enters the pending deletion state.
+  EXPECT_TRUE(NavigateToURL(shell(), kUrlB));
+  EXPECT_FALSE(rfh_a->IsActive());
+
+  auto* download_manager = DownloadManagerForShell(shell());
   MockDownloadManagerObserver dm_observer(download_manager);
-  EXPECT_CALL(dm_observer, OnDownloadCreated(_, _)).Times(0);
-  EXPECT_CALL(dm_observer, OnDownloadDropped(_)).Times(1);
+  EXPECT_CALL(dm_observer, OnDownloadCreated(_, _)).Times(1);
+  EXPECT_CALL(dm_observer, OnDownloadDropped(_)).Times(0);
 
-  auto params = blink::mojom::DownloadURLParams::New();
-  params->url = kDownloadUrl;
-  static_cast<RenderFrameHostImpl*>(fenced_frame_host)
-      ->DownloadURL(std::move(params));
-
-  // Verify there were no downloads.
-  EXPECT_TRUE(EnsureNoPendingDownloads());
-  std::vector<raw_ptr<download::DownloadItem, VectorExperimental>> downloads;
-  download_manager->GetAllDownloads(&downloads);
-  EXPECT_TRUE(downloads.empty());
-}
-
-// Verify that context-menu-save downloads are also discarded when initiated
-// from a fenced frame.
-IN_PROC_BROWSER_TEST_F(DownloadFencedFrameTest,
-                       DiscardContextMenuSaveDownload) {
-  const GURL kInitialUrl = embedded_test_server()->GetURL("/empty.html");
-  const GURL kFencedFrameUrl =
-      embedded_test_server()->GetURL("/fenced_frames/title1.html");
-  const GURL kDownloadUrl =
-      embedded_test_server()->GetURL("/download/download-test.lib");
-
-  // Create a fenced frame.
-  EXPECT_TRUE(NavigateToURL(shell(), kInitialUrl));
-  RenderFrameHost* fenced_frame_host = CreateFencedFrame(
-      shell()->web_contents()->GetPrimaryMainFrame(), kFencedFrameUrl);
-
-  // Do a context-menu-save download from the fenced frame RenderFrameHost.
-  // The download will be dropped.
-  auto* download_manager =
-      fenced_frame_host->GetBrowserContext()->GetDownloadManager();
-  MockDownloadManagerObserver dm_observer(download_manager);
-  EXPECT_CALL(dm_observer, OnDownloadCreated(_, _)).Times(0);
-  EXPECT_CALL(dm_observer, OnDownloadDropped(_)).Times(1);
-
+  // Send a DownloadURL request from the pending deletion frame with
+  // `is_context_menu_save` set. It should not result in a download.
   auto params = blink::mojom::DownloadURLParams::New();
   params->url = kDownloadUrl;
   params->should_prompt_for_save_location = true;
-  static_cast<RenderFrameHostImpl*>(fenced_frame_host)
-      ->DownloadURL(std::move(params));
+  rfh_a->DownloadURL(std::move(params));
 
-  // Verify there were no downloads.
-  EXPECT_TRUE(EnsureNoPendingDownloads());
+  // Trigger a download from the primary main frame and wait for it to
+  // complete. This ensures any download from the request above would have
+  // been observed by now.
+  std::unique_ptr<DownloadTestObserver> observer(CreateWaiter(shell(), 1));
+  auto barrier_parameters =
+      DownloadRequestUtils::CreateDownloadForWebContentsMainFrame(
+          shell()->web_contents(), kDownloadUrl, TRAFFIC_ANNOTATION_FOR_TESTS);
+  download_manager->DownloadUrl(std::move(barrier_parameters));
+  observer->WaitForFinished();
+
+  // Verify only the primary main frame download exists.
   std::vector<raw_ptr<download::DownloadItem, VectorExperimental>> downloads;
   download_manager->GetAllDownloads(&downloads);
-  EXPECT_TRUE(downloads.empty());
+  EXPECT_EQ(1u, downloads.size());
 }
 
 // A download triggered by clicking on a link with a |download| attribute should

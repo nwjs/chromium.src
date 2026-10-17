@@ -34,7 +34,6 @@ namespace gpu {
 namespace {
 
 constexpr GrSurfaceOrigin kSurfaceOrigin = kTopLeft_GrSurfaceOrigin;
-constexpr SkAlphaType kAlphaType = kPremul_SkAlphaType;
 constexpr auto kColorSpace = gfx::ColorSpace::CreateSRGB();
 constexpr SharedImageUsageSet kUsage =
     SHARED_IMAGE_USAGE_DISPLAY_READ | SHARED_IMAGE_USAGE_RASTER_READ |
@@ -69,12 +68,6 @@ class WrappedSkImageBackingFactoryTest
       GTEST_SKIP();
     }
 
-    // We don't use WrappedSkImageBacking with ALPHA8 if it's GL context.
-    if (format == viz::SinglePlaneFormat::kALPHA_8 &&
-        gr_context_type == GrContextType::kGL) {
-      GTEST_SKIP();
-    }
-
     // We don't support RGBA_4444 as format is not supported with Dawn.
     if (gr_context_type == GrContextType::kGraphiteDawn &&
         format == viz::SinglePlaneFormat::kRGBA_4444) {
@@ -97,9 +90,10 @@ TEST_P(WrappedSkImageBackingFactoryTest, Basic) {
       gr_context_type(), {});
   ASSERT_TRUE(supported);
 
+  const SkAlphaType alpha_type = GetAlphaType(format);
   auto backing = backing_factory_->CreateSharedImage(
       mailbox,
-      {format, size, kColorSpace, kSurfaceOrigin, kAlphaType, kUsage,
+      {format, size, kColorSpace, kSurfaceOrigin, alpha_type, kUsage,
        "TestLabel"},
       gpu::kNullSurfaceHandle, /*is_thread_safe=*/false);
   ASSERT_TRUE(backing);
@@ -178,7 +172,7 @@ TEST_P(WrappedSkImageBackingFactoryTest, Upload) {
 
   auto backing = backing_factory_->CreateSharedImage(
       mailbox,
-      {format, size, kColorSpace, kSurfaceOrigin, kAlphaType, kUsage,
+      {format, size, kColorSpace, kSurfaceOrigin, GetAlphaType(format), kUsage,
        "TestLabel"},
       gpu::kNullSurfaceHandle, /*is_thread_safe=*/false);
   ASSERT_TRUE(backing);
@@ -200,9 +194,10 @@ TEST_P(WrappedSkImageBackingFactoryTest, UploadAndReadback) {
   auto mailbox = Mailbox::Generate();
   gfx::Size size(100, 100);
 
+  const SkAlphaType alpha_type = GetAlphaType(format);
   auto backing = backing_factory_->CreateSharedImage(
       mailbox,
-      {format, size, kColorSpace, kSurfaceOrigin, kAlphaType, kUsage,
+      {format, size, kColorSpace, kSurfaceOrigin, alpha_type, kUsage,
        "TestLabel"},
       gpu::kNullSurfaceHandle, /*is_thread_safe=*/false);
   ASSERT_TRUE(backing);
@@ -221,7 +216,7 @@ TEST_P(WrappedSkImageBackingFactoryTest, UploadAndReadback) {
     SkColorType plane_color_type = viz::ToClosestSkColorType(format, plane);
     gfx::Size plane_size = format.GetPlaneSize(plane, size);
     readback_bitmaps[plane].allocPixels(SkImageInfo::Make(
-        plane_size.width(), plane_size.height(), plane_color_type, kAlphaType));
+        plane_size.width(), plane_size.height(), plane_color_type, alpha_type));
   }
   std::vector<SkPixmap> readback_pixmaps = GetSkPixmaps(readback_bitmaps);
 
@@ -250,8 +245,7 @@ std::string TestParamToString(
 // BGRA_1010102 fails to create backing. BGRX_8888 and BGR_565 "work" but Skia
 // just thinks is RGBX_8888 and RGB_565 respectively so upload doesn't work.
 // TODO(kylechar): Add RGBA_F16 where it works.
-const auto kFormats = ::testing::Values(viz::SinglePlaneFormat::kALPHA_8,
-                                        viz::SinglePlaneFormat::kR_8,
+const auto kFormats = ::testing::Values(viz::SinglePlaneFormat::kR_8,
                                         viz::SinglePlaneFormat::kRG_88,
                                         viz::SinglePlaneFormat::kRGBA_4444,
                                         viz::SinglePlaneFormat::kRGBA_8888,

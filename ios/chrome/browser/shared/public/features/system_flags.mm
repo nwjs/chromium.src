@@ -63,7 +63,11 @@ BASE_FEATURE(kEnableThirdPartyKeyboardWorkaround,
 NSString* const kTipsMagicStackLensShopWithImage =
     @"TipsMagicStackLensShopWithImage";
 NSString* const kTipsMagicStackStateOverride = @"TipsMagicStackStateOverride";
+NSString* const kUniversalOptOutEligibilityOverride =
+    @"UniversalOptOutEligibilityOverride";
 NSString* const kInactiveTabsDemoMode = @"InactiveTabsDemoMode";
+NSString* const kForceInactiveTabsUserEducation =
+    @"ForceInactiveTabsUserEducation";
 NSString* const kInactiveTabsTestMode = @"InactiveTabsTestMode";
 NSString* const kAsyncStartupOverrideResponse = @"AsyncStartupOverrideResponse";
 NSString* const kLensResultPanelGwsURL = @"LensResultPanelGwsURL";
@@ -83,6 +87,8 @@ NSString* const kForceMultiProfileForcedMigrationDone =
 NSString* const kShowBackendPromoDebugTools = @"ShowBackendPromoDebugTools";
 NSString* const kForcedPushNotificationType = @"ForcedPushNotificationType";
 NSString* const kForcedPushNotificationDelay = @"ForcedPushNotificationDelay";
+NSString* const kEnableAppSwitcherAISummarizationTestingExternalURL =
+    @"EnableAppSwitcherAISummarizationTestingExternalURL";
 }  // namespace
 
 namespace experimental_flags {
@@ -338,6 +344,11 @@ bool ShouldUseInactiveTabsDemoThreshold() {
       [[NSUserDefaults standardUserDefaults] boolForKey:kInactiveTabsDemoMode];
 }
 
+bool ShouldForceInactiveTabsUserEducation() {
+  return [[NSUserDefaults standardUserDefaults]
+      boolForKey:kForceInactiveTabsUserEducation];
+}
+
 bool ShouldUseInactiveTabsTestThreshold() {
   return
       [[NSUserDefaults standardUserDefaults] boolForKey:kInactiveTabsTestMode];
@@ -429,6 +440,27 @@ int GetForcedPushNotificationType() {
 int GetForcedPushNotificationDelay() {
   return [[NSUserDefaults standardUserDefaults]
       integerForKey:kForcedPushNotificationDelay];
+}
+
+UniversalOptOutEligibilityOverride GetUniversalOptOutEligibilityOverride() {
+  int value = [[NSUserDefaults standardUserDefaults]
+      integerForKey:kUniversalOptOutEligibilityOverride];
+  switch (value) {
+    case 1:
+      return UniversalOptOutEligibilityOverride::kForcedOn;
+    case 2:
+      return UniversalOptOutEligibilityOverride::kForcedOff;
+    default:
+      return UniversalOptOutEligibilityOverride::kDefault;
+  }
+}
+
+bool IsAppSwitcherAISummarizationTestingExternalURLEnabled() {
+  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+  return [[NSUserDefaults standardUserDefaults]
+             boolForKey:kEnableAppSwitcherAISummarizationTestingExternalURL] ||
+         command_line->HasSwitch(
+             switches::kEnableAppSwitcherAISummarizationTestingExternalURL);
 }
 
 }  // namespace experimental_flags

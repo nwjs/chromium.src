@@ -107,9 +107,6 @@ BASE_FEATURE(kLensOverlayTextSelectionContextMenuEntrypoint,
 
 BASE_FEATURE(kLensOverlayForceEmptyCsbQuery, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kLensSidePanelEnableWebviewResults,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kLensAimSuggestions, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensAimSuggestionsGradientBackground,
@@ -157,6 +154,14 @@ const base::FeatureParam<bool> kLensOnlySendAaiExcludeRawAndDriveFiles{
 
 BASE_FEATURE(kLensRestrictAnnotatedPageContentToSameSiteFramesForNextQueries,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kLensWakeHiddenTabForPageContentExtraction,
+#if BUILDFLAG(IS_ANDROID)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 
 BASE_FEATURE(kLensDeleteContextOnPageNavigation,
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1259,11 +1264,6 @@ bool IsLensOverlayTextSelectionContextMenuEntrypointContextualized() {
 bool IsLensOverlayForceEmptyCsbQueryEnabled() {
   return base::FeatureList::IsEnabled(kLensOverlayForceEmptyCsbQuery);
 }
-
-bool IsLensSidePanelWebviewResultsEnabled() {
-  return base::FeatureList::IsEnabled(kLensSidePanelEnableWebviewResults);
-}
-
 
 bool IsLensVideoCitationsEnabled() {
   return base::FeatureList::IsEnabled(kLensVideoCitations);

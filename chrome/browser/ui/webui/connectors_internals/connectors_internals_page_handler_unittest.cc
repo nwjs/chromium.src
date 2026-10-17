@@ -8,10 +8,12 @@
 #include <utility>
 #include <vector>
 
+#include "base/json/json_reader.h"
 #include "base/test/bind.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "base/values.h"
-#include "base/json/json_reader.h"
+#include "build/build_config.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/enterprise/buildflags/buildflags.h"
 #include "content/public/test/browser_task_environment.h"
@@ -19,6 +21,10 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+
+#if BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/enterprise/connectors/device_trust/device_trust_features.h"
+#endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(ENTERPRISE_PROXY)
 #include "chrome/browser/enterprise/net/enterprise_proxy_service_factory.h"
@@ -39,14 +45,11 @@ base::DictValue CreatePvdPolicy(const std::string& pvd_id) {
   return policy;
 }
 
-base::DictValue CreateFetchedConfig(const std::string& identifier) {
-  base::DictValue config;
-  config.Set("identifier", identifier);
-  return config;
-}
-
 class ConnectorsInternalsPageHandlerTest : public testing::Test {
  public:
+  ConnectorsInternalsPageHandlerTest()
+      : task_environment_(base::test::TaskEnvironment::TimeSource::MOCK_TIME) {}
+
   void SetUp() override {
 #if BUILDFLAG(ENTERPRISE_PROXY)
     EnterpriseProxyServiceFactory::GetInstance()->SetTestingFactory(
@@ -119,80 +122,85 @@ TEST_F(ConnectorsInternalsPageHandlerTest, GetProvisioningDomainState) {
 #endif
 }
 
-TEST_F(ConnectorsInternalsPageHandlerTest,
-       GetProvisioningDomainState_NoDomains) {
+TEST_F(ConnectorsInternalsPageHandlerTest, RefreshProvisioningDomainConfigs) {
 #if BUILDFLAG(ENTERPRISE_PROXY)
   auto* mock_service = static_cast<enterprise_net::MockEnterpriseProxyService*>(
       EnterpriseProxyServiceFactory::GetForProfile(&profile_));
-  base::DictValue debug_info;
 
-  EXPECT_CALL(*mock_service, GetDebugInfo())
-      .WillOnce(Return(std::move(debug_info)));
-#endif
+  // Initially not in progress, then becomes in progress after
+  // ForceRefreshAllConfigs.
+  EXPECT_CALL(*mock_service, ForceRefreshAllConfigs()).Times(1);
+  EXPECT_CALL(*mock_service, IsRefreshInProgress())
+      .WillOnce(Return(false))
+      .WillOnce(Return(true))
+      .WillRepeatedly(Return(false));
 
   base::test::TestFuture<
       connectors_internals::mojom::ProvisioningDomainStatePtr>
       future;
-  page_handler_->GetProvisioningDomainState(future.GetCallback());
-  auto state = future.Take();
+  page_handler_->RefreshProvisioningDomainConfigs(future.GetCallback());
 
-  EXPECT_TRUE(state->pvd_configs.empty());
-}
+  EXPECT_FALSE(future.IsReady());
 
-TEST_F(ConnectorsInternalsPageHandlerTest,
-       GetProvisioningDomainState_EdgeCases) {
-#if BUILDFLAG(ENTERPRISE_PROXY)
-  auto* mock_service = static_cast<enterprise_net::MockEnterpriseProxyService*>(
-      EnterpriseProxyServiceFactory::GetForProfile(&profile_));
+  // Simulate refresh completion.
   base::DictValue debug_info;
   base::ListValue domains;
-
-  // Non-dict entry (should be skipped)
-  domains.Append("not a dict");
-
-  // No policy.pvd_id, fallback to fetched_config.identifier
-  base::DictValue domain2;
-  domain2.Set("fetched_config", CreateFetchedConfig("fallback_id_2"));
-  domains.Append(std::move(domain2));
-
-  // Empty policy.pvd_id, fallback to fetched_config.identifier
-  base::DictValue domain3;
-  domain3.Set("policy", CreatePvdPolicy(""));
-  domain3.Set("fetched_config", CreateFetchedConfig("fallback_id_3"));
-  domains.Append(std::move(domain3));
-
-  // Neither available
-  base::DictValue domain4;
-  domains.Append(std::move(domain4));
-
-  // Both available, prefers policy.pvd_id
-  base::DictValue domain5;
-  domain5.Set("policy", CreatePvdPolicy("preferred_id"));
-  domain5.Set("fetched_config", CreateFetchedConfig("ignored_id"));
-  domains.Append(std::move(domain5));
-
+  base::DictValue domain;
+  domain.Set("policy", CreatePvdPolicy("refreshed_id"));
+  domains.Append(std::move(domain));
   debug_info.Set("domains", std::move(domains));
 
   EXPECT_CALL(*mock_service, GetDebugInfo())
       .WillOnce(Return(std::move(debug_info)));
-#endif
 
+  mock_service->NotifyObservers();
+
+  auto state = future.Take();
+  ASSERT_EQ(state->pvd_configs.size(), 1u);
+  EXPECT_EQ(state->pvd_configs[0]->pvd_id, "refreshed_id");
+#else
   base::test::TestFuture<
       connectors_internals::mojom::ProvisioningDomainStatePtr>
       future;
-  page_handler_->GetProvisioningDomainState(future.GetCallback());
+  page_handler_->RefreshProvisioningDomainConfigs(future.GetCallback());
   auto state = future.Take();
-
-#if BUILDFLAG(ENTERPRISE_PROXY)
-  ASSERT_EQ(state->pvd_configs.size(), 4u);
-  EXPECT_EQ(state->pvd_configs[0]->pvd_id, "fallback_id_2");
-  EXPECT_EQ(state->pvd_configs[1]->pvd_id, "fallback_id_3");
-  EXPECT_EQ(state->pvd_configs[2]->pvd_id, "");
-  EXPECT_EQ(state->pvd_configs[3]->pvd_id, "preferred_id");
-#else
   EXPECT_TRUE(state->pvd_configs.empty());
 #endif
 }
+
+#if BUILDFLAG(IS_ANDROID)
+TEST_F(ConnectorsInternalsPageHandlerTest,
+       GetDeviceTrustState_FeatureDisabled) {
+  base::test::ScopedFeatureList scoped_features;
+  scoped_features.InitAndDisableFeature(kDeviceTrustConnectorAndroid);
+
+  base::test::TestFuture<connectors_internals::mojom::DeviceTrustStatePtr>
+      future;
+  page_handler_->GetDeviceTrustState(future.GetCallback());
+  auto state = future.Take();
+
+  EXPECT_FALSE(state->is_enabled);
+  EXPECT_TRUE(state->policy_enabled_levels.empty());
+  EXPECT_EQ(
+      state->key_info->is_key_manager_initialized,
+      connectors_internals::mojom::KeyManagerInitializedValue::UNSUPPORTED);
+}
+
+TEST_F(ConnectorsInternalsPageHandlerTest, GetDeviceTrustState_NoService) {
+  base::test::ScopedFeatureList scoped_features;
+  scoped_features.InitAndEnableFeature(kDeviceTrustConnectorAndroid);
+
+  // No DeviceTrustService is created for testing profiles, so the handler is
+  // expected to gracefully return an unsupported state.
+  base::test::TestFuture<connectors_internals::mojom::DeviceTrustStatePtr>
+      future;
+  page_handler_->GetDeviceTrustState(future.GetCallback());
+  auto state = future.Take();
+
+  EXPECT_FALSE(state->is_enabled);
+  EXPECT_TRUE(state->policy_enabled_levels.empty());
+}
+#endif  // BUILDFLAG(IS_ANDROID)
 
 }  // namespace
 

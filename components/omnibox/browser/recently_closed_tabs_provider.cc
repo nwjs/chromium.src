@@ -19,7 +19,7 @@
 RecentlyClosedTabsProvider::RecentlyClosedTabsProvider(
     AutocompleteProviderClient* client,
     AutocompleteProviderListener* listener)
-    : AutocompleteProvider(AutocompleteProvider::TYPE_RECENTLY_CLOSED_TABS),
+    : AutocompleteProvider(AutocompleteProvider::Type::kRecentlyClosedTabs),
       client_(client) {
   AddListener(listener);
 }
@@ -34,7 +34,7 @@ void RecentlyClosedTabsProvider::Start(const AutocompleteInput& input,
 
   matches_.clear();
   AutocompleteMatch match{this, 2000, false,
-                          AutocompleteMatchType::HISTORY_URL};
+                          omnibox::AutocompleteMatchType::kHistoryUrl};
   match.destination_url = GURL{"https://google.com"};
   match.contents = u"";
   match.description = u"";

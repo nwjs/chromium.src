@@ -6,6 +6,7 @@
 #define COMPONENTS_SAFE_BROWSING_CORE_BROWSER_WEB_UI_WEB_UI_INFO_SINGLETON_H_
 
 #include "components/safe_browsing/buildflags.h"
+#include "components/safe_browsing/core/browser/db/v5_get_hash_protocol_manager.h"
 #include "components/safe_browsing/core/browser/download_check_result.h"
 #include "components/safe_browsing/core/browser/hashprefix_realtime/hash_realtime_service.h"
 #include "components/safe_browsing/core/browser/ping_manager.h"
@@ -23,7 +24,8 @@ class WebUIInfoSingletonEventObserver;
 
 class WebUIInfoSingleton : public RealTimeUrlLookupServiceBase::WebUIDelegate,
                            public PingManager::WebUIDelegate,
-                           public HashRealTimeService::WebUIDelegate {
+                           public HashRealTimeService::WebUIDelegate,
+                           public V5GetHashProtocolManager::WebUIDelegate {
  public:
   WebUIInfoSingleton();
   ~WebUIInfoSingleton() override;
@@ -32,7 +34,7 @@ class WebUIInfoSingleton : public RealTimeUrlLookupServiceBase::WebUIDelegate,
   WebUIInfoSingleton& operator=(const WebUIInfoSingleton&) = delete;
 
   // Returns true when there is a listening chrome://safe-browsing tab.
-  bool HasListener();
+  bool HasListener() const override;
 
   // Add the new message in |download_urls_checked_| and send it to all
   // the open chrome://safe-browsing tabs.
@@ -133,6 +135,22 @@ class WebUIInfoSingleton : public RealTimeUrlLookupServiceBase::WebUIDelegate,
 
   // Clear the list of sent hash-prefix real-time pings and responses.
   void ClearHPRTLookupPings();
+
+  // V5GetHashProtocolManager::WebUIDelegate:
+  // Adds the completed V5 get-hash network check and sends it to all the open
+  // chrome://safe-browsing tabs.
+  //  - `lookup`: the details of the network check and its outcome.
+  void AddToV5GetHashLookups(
+      const V5GetHashProtocolManager::V5GetHashLookup& lookup) override;
+
+  // Clear `v5_get_hash_lookups_`.
+  void ClearV5GetHashLookups();
+
+  // Returns the list of logged V5 get-hash lookups.
+  const std::vector<V5GetHashProtocolManager::V5GetHashLookup>&
+  v5_get_hash_lookups() const {
+    return v5_get_hash_lookups_;
+  }
 
   // Log an arbitrary message. Frequently used for debugging.
   void LogMessage(const std::string& message);
@@ -431,6 +449,10 @@ class WebUIInfoSingleton : public RealTimeUrlLookupServiceBase::WebUIDelegate,
   // currently open chrome://safe-browsing tab was opened. Keyed by the index of
   // the corresponding request in |hprt_lookup_pings_|.
   std::map<int, V5::SearchHashesResponse> hprt_lookup_responses_;
+
+  // List of V5 get-hash lookups logged since the oldest currently open
+  // chrome://safe-browsing tab was opened.
+  std::vector<V5GetHashProtocolManager::V5GetHashLookup> v5_get_hash_lookups_;
 
   // List of WebUI listener objects. "WebUIInfoSingletonEventObserver*" cannot
   // be const, due to being used by functions that call AllowJavascript(), which

@@ -9,12 +9,21 @@
 #include <string_view>
 #include <utility>
 
+#include "base/feature_list.h"
+#include "base/functional/bind.h"
+#include "base/i18n/break_iterator.h"
+#include "base/i18n/rtl.h"
 #include "base/memory/raw_ptr.h"
+#include "base/metrics/histogram_functions.h"
+#include "base/metrics/user_metrics.h"
+#include "base/metrics/user_metrics_action.h"
+#include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/tab_group_attention_indicator.h"
@@ -185,11 +194,15 @@ TabGroupHeader::TabGroupHeader(TabSlotController& tab_slot_controller,
   editor_bubble_opened_subscription_ =
       editor_bubble_tracker_.RegisterOnBubbleOpened(
           base::BindRepeating(&TabSlotController::NotifyTabstripBubbleOpened,
-                              base::Unretained(tab_slot_controller_)));
+                              base::Unretained(tab_slot_controller_))
+              .Then(base::BindRepeating(&TabGroupHeader::VisualsChanged,
+                                        base::Unretained(this))));
   editor_bubble_closed_subscription_ =
       editor_bubble_tracker_.RegisterOnBubbleClosed(
           base::BindRepeating(&TabSlotController::NotifyTabstripBubbleClosed,
-                              base::Unretained(tab_slot_controller_)));
+                              base::Unretained(tab_slot_controller_))
+              .Then(base::BindRepeating(&TabGroupHeader::VisualsChanged,
+                                        base::Unretained(this))));
 
   TabGroup* const tab_group = tab_slot_controller_->GetTabGroup(group);
   if (tab_group) {
@@ -246,12 +259,6 @@ void TabGroupHeader::Init(const tab_groups::TabGroupId& group) {
 
   GetViewAccessibility().SetRole(ax::mojom::Role::kTabList);
   GetViewAccessibility().SetIsEditable(true);
-
-  title_text_changed_subscription_ =
-      title_->AddTextChangedCallback(base::BindRepeating(
-          &TabGroupHeader::UpdateTooltipText, base::Unretained(this)));
-
-  UpdateTooltipText();
 }
 
 bool TabGroupHeader::OnKeyPressed(const ui::KeyEvent& event) {
@@ -345,13 +352,8 @@ void TabGroupHeader::OnMouseReleased(const ui::MouseEvent& event) {
 }
 
 void TabGroupHeader::OnMouseEntered(const ui::MouseEvent& event) {
-  if (features::IsTabGroupHoverCardsEnabled()) {
-    tab_slot_controller_->UpdateHoverCard(
-        this, TabSlotController::HoverCardUpdateType::kHover);
-  } else {
-    tab_slot_controller_->UpdateHoverCard(
-        nullptr, TabSlotController::HoverCardUpdateType::kHover);
-  }
+  tab_slot_controller_->UpdateHoverCard(
+      this, TabSlotController::HoverCardUpdateType::kHover);
 }
 
 void TabGroupHeader::OnGestureEvent(ui::GestureEvent* event) {
@@ -387,18 +389,12 @@ void TabGroupHeader::OnGestureEvent(ui::GestureEvent* event) {
 void TabGroupHeader::OnFocus() {
   View::OnFocus();
 
-  if (features::IsTabGroupHoverCardsEnabled()) {
-    tab_slot_controller_->UpdateHoverCard(
-        this, TabSlotController::HoverCardUpdateType::kFocus);
-  } else {
-    tab_slot_controller_->UpdateHoverCard(
-        nullptr, TabSlotController::HoverCardUpdateType::kFocus);
-  }
+  tab_slot_controller_->UpdateHoverCard(
+      this, TabSlotController::HoverCardUpdateType::kFocus);
 }
 
 void TabGroupHeader::OnBlur() {
-  if (features::IsTabGroupHoverCardsEnabled() &&
-      !tab_slot_controller_->IsFocusInTabStrip()) {
+  if (!tab_slot_controller_->IsFocusInTabStrip()) {
     tab_slot_controller_->UpdateHoverCard(
         nullptr, TabSlotController::HoverCardUpdateType::kFocus);
   }
@@ -440,7 +436,6 @@ bool TabGroupHeader::NeedsToShowThumbnail() const {
 }
 
 bool TabGroupHeader::IsValidHoverCardTarget() const {
-  DCHECK(features::IsTabGroupHoverCardsEnabled());
   return group().has_value() &&
          tab_slot_controller_->GetTabGroup(group().value()) != nullptr;
 }
@@ -455,7 +450,10 @@ views::BubbleBorder::Arrow TabGroupHeader::GetAnchorPosition() const {
 
 void TabGroupHeader::OnGroupContentsChanged() {
   UpdateAccessibleName();
-  UpdateTooltipText();
+  TabGroup* tab_group = tab_slot_controller_->GetTabGroup(group().value());
+  if (tab_group && tab_group->is_ephemeral()) {
+    VisualsChanged();
+  }
 }
 
 void TabGroupHeader::ShowContextMenuForViewImpl(
@@ -520,10 +518,33 @@ void TabGroupHeader::VisualsChanged() {
   // TODO(crbug.com/372296676): Make TabGroupHeader observe the group for
   // changes to cut down on the number of times we recalculate the view.
   const tab_groups::TabGroupId tab_group_id = group().value();
-  group_title_ = tab_slot_controller_->GetGroupTitle(tab_group_id);
-
-  color_ = tab_slot_controller_->GetPaintedGroupColor(
-      tab_slot_controller_->GetGroupColorId(tab_group_id));
+  TabGroup* tab_group = tab_slot_controller_->GetTabGroup(tab_group_id);
+  if (tab_group && tab_group->is_ephemeral()) {
+    const int tab_count = tab_group->tab_count();
+    group_title_ = l10n_util::GetPluralStringFUTF16(
+        IDS_TAB_GROUP_HEADER_EPHEMERAL_TAB_COUNT, tab_count);
+    if (GetColorProvider()) {
+      const bool frame_active =
+          GetWidget() && GetWidget()->ShouldPaintAsActive();
+      const SkColor normal_bg = GetColorProvider()->GetColor(
+          frame_active ? ui::kColorSysOnHeaderDivider
+                       : ui::kColorSysOnHeaderDividerInactive);
+      if (editor_bubble_tracker_.is_open()) {
+        const SkColor press_ink =
+            GetColorProvider()->GetColor(ui::kColorSysStateHoverOnSubtle);
+        color_ = color_utils::GetResultingPaintColor(press_ink, normal_bg);
+      } else {
+        color_ = normal_bg;
+      }
+    } else {
+      color_ = tab_slot_controller_->GetPaintedGroupColor(
+          tab_slot_controller_->GetGroupColorId(tab_group_id));
+    }
+  } else {
+    group_title_ = tab_slot_controller_->GetGroupTitle(tab_group_id);
+    color_ = tab_slot_controller_->GetPaintedGroupColor(
+        tab_slot_controller_->GetGroupColorId(tab_group_id));
+  }
   should_show_header_icon_ = ShouldShowHeaderIcon();
 
   // Update collapsed state before changing any UI.
@@ -630,7 +651,16 @@ void TabGroupHeader::UpdateTitleView() {
   title_->SetText(group_title_);
 
   if (!group_title_.empty()) {
-    title_->SetEnabledColor(color_utils::GetColorWithMaxContrast(color_));
+    TabGroup* tab_group = tab_slot_controller_->GetTabGroup(group().value());
+    if (tab_group && tab_group->is_ephemeral() && GetColorProvider()) {
+      const bool frame_active =
+          GetWidget() && GetWidget()->ShouldPaintAsActive();
+      title_->SetEnabledColor(GetColorProvider()->GetColor(
+          frame_active ? ui::kColorSysOnSurfacePrimary
+                       : ui::kColorSysOnSurfacePrimaryInactive));
+    } else {
+      title_->SetEnabledColor(color_utils::GetColorWithMaxContrast(color_));
+    }
   }
 }
 
@@ -804,77 +834,9 @@ void TabGroupHeader::CreateHeaderWithTitle() {
   }
 }
 
-void TabGroupHeader::UpdateTooltipText() {
-  if (!group().has_value() || features::IsTabGroupHoverCardsEnabled()) {
-    return;
-  }
-
-  TabGroup* tab_group = tab_slot_controller_->GetTabGroup(group().value());
-  if (!tab_group || tab_group->IsEmpty() || tab_group->ListTabs().is_empty()) {
-    return;
-  }
-
-  if (!title_->GetText().empty()) {
-    SetTooltipText(l10n_util::GetStringFUTF16(
-        IDS_TAB_GROUPS_NAMED_GROUP_TOOLTIP, std::u16string(title_->GetText()),
-        tab_slot_controller_->GetGroupContentString(group().value())));
-  } else {
-    SetTooltipText(l10n_util::GetStringFUTF16(
-        IDS_TAB_GROUPS_UNNAMED_GROUP_TOOLTIP,
-        tab_slot_controller_->GetGroupContentString(group().value())));
-  }
-}
-
 void TabGroupHeader::UpdateAccessibleName() {
-  if (features::IsTabGroupHoverCardsEnabled()) {
-    GetViewAccessibility().SetName(tab_groups::GetHoverCardAccessibilityText(
-        tab_group_data_observer_->tab_group_data()));
-    return;
-  }
-
-  TabGroup* tab_group = tab_slot_controller_->GetTabGroup(group().value());
-  if (tab_group && tab_group->ListTabs().length() == 0) {
-    return;
-  }
-
-  std::u16string title(tab_slot_controller_->GetGroupTitle(group().value()));
-  std::u16string contents =
-      tab_slot_controller_->GetGroupContentString(group().value());
-  std::u16string group_status = std::u16string();
-
-// Windows screen reader properly announces the state set above in `node_data`
-// and will read out the state change when the header's collapsed state is
-// toggled. The state is added into the title for other platforms and the title
-// will be reread with the updated state when the header's collapsed state is
-// toggled.
-#if !BUILDFLAG(IS_WIN)
-  bool is_collapsed = tab_slot_controller_->IsGroupCollapsed(group().value());
-  group_status = is_collapsed
-                     ? l10n_util::GetStringUTF16(IDS_GROUP_AX_LABEL_COLLAPSED)
-                     : l10n_util::GetStringUTF16(IDS_GROUP_AX_LABEL_EXPANDED);
-#endif
-
-  std::u16string shared_state = u"";
-
-  if (SupportsDataSharing() && should_show_header_icon_) {
-    shared_state = l10n_util::GetStringUTF16(IDS_SAVED_GROUP_AX_LABEL_SHARED);
-    if (ShouldShowAttentionIndicator()) {
-      group_status += u", " + l10n_util::GetStringUTF16(
-                                  DATA_SHARING_GROUP_LABEL_NEW_ACTIVITY);
-    }
-  }
-
-  std::u16string final_name;
-  if (title.empty()) {
-    final_name =
-        l10n_util::GetStringFUTF16(IDS_GROUP_AX_LABEL_UNNAMED_GROUP_FORMAT,
-                                   shared_state, contents, group_status);
-  } else {
-    final_name =
-        l10n_util::GetStringFUTF16(IDS_GROUP_AX_LABEL_NAMED_GROUP_FORMAT,
-                                   shared_state, title, contents, group_status);
-  }
-  GetViewAccessibility().SetName(final_name);
+  GetViewAccessibility().SetName(tab_groups::GetHoverCardAccessibilityText(
+      tab_group_data_observer_->tab_group_data()));
 }
 
 void TabGroupHeader::OnTabGroupDataChanged() {

@@ -157,6 +157,13 @@ public class RenderFrameHostImpl implements RenderFrameHost {
     }
 
     @Override
+    public boolean consumeTransientUserActivation() {
+        if (mNativeRenderFrameHostAndroid == 0) return false;
+        return RenderFrameHostImplJni.get()
+                .consumeTransientUserActivation(mNativeRenderFrameHostAndroid);
+    }
+
+    @Override
     public void notifyWebAuthnAssertionRequestSucceeded() {
         if (mNativeRenderFrameHostAndroid == 0) return;
         RenderFrameHostImplJni.get()
@@ -335,6 +342,12 @@ public class RenderFrameHostImpl implements RenderFrameHost {
         RenderFrameHostImplJni.get().viewSource(mNativeRenderFrameHostAndroid);
     }
 
+    @Override
+    public boolean isCrossOriginIsolated() {
+        if (mNativeRenderFrameHostAndroid == 0) return false;
+        return RenderFrameHostImplJni.get().isCrossOriginIsolated(mNativeRenderFrameHostAndroid);
+    }
+
     @NativeMethods
     interface Natives {
         GURL getLastCommittedURL(long nativeRenderFrameHostAndroid);
@@ -360,6 +373,8 @@ public class RenderFrameHostImpl implements RenderFrameHost {
         UnguessableToken getAndroidOverlayRoutingToken(long nativeRenderFrameHostAndroid);
 
         void notifyUserActivation(long nativeRenderFrameHostAndroid);
+
+        boolean consumeTransientUserActivation(long nativeRenderFrameHostAndroid);
 
         void notifyWebAuthnAssertionRequestSucceeded(long nativeRenderFrameHostAndroid);
 
@@ -415,5 +430,7 @@ public class RenderFrameHostImpl implements RenderFrameHost {
         boolean hasHitTestDataForTesting(long nativeRenderFrameHostAndroid);
 
         void viewSource(long nativeRenderFrameHostAndroid);
+
+        boolean isCrossOriginIsolated(long nativeRenderFrameHostAndroid);
     }
 }

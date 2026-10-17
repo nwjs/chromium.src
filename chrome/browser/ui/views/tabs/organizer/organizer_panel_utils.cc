@@ -4,6 +4,8 @@
 
 #include "chrome/browser/ui/views/tabs/organizer/organizer_panel_utils.h"
 
+#include "base/feature.h"
+
 namespace organizer_panel {
 
 BASE_FEATURE(kOrganizerPanel, base::FEATURE_DISABLED_BY_DEFAULT);

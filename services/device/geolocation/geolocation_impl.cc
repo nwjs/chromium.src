@@ -11,7 +11,6 @@
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "services/device/geolocation/geolocation_context.h"
-#include "services/device/public/cpp/geolocation/geoposition.h"
 
 namespace device {
 
@@ -19,6 +18,10 @@ namespace {
 void RecordUmaGeolocationImplClientId(mojom::GeolocationClientId client_id) {
   base::UmaHistogramEnumeration("Geolocation.GeolocationImpl.ClientId",
                                 client_id);
+}
+
+bool IsPrecisePosition(const mojom::GeopositionResult* result) {
+  return result && result->is_position() && result->get_position()->is_precise;
 }
 }  // namespace
 
@@ -51,27 +54,15 @@ GeolocationImpl::~GeolocationImpl() {
   }
 }
 
-void GeolocationImpl::PauseUpdates() {
-  geolocation_subscription_ = {};
-}
-
-void GeolocationImpl::ResumeUpdates() {
-  if (position_override_) {
-    OnLocationUpdate(*position_override_);
-    return;
-  }
-
-  StartListeningForUpdates();
-}
-
 void GeolocationImpl::StartListeningForUpdates() {
   const bool effective_high_accuracy =
       high_accuracy_hint_ && has_precise_permission_;
 
-  if (effective_high_accuracy_ != effective_high_accuracy) {
+  if (!geolocation_subscription_ ||
+      effective_high_accuracy_ != effective_high_accuracy) {
     effective_high_accuracy_ = effective_high_accuracy;
-    // When the accuracy requirement changes, we should reset `current_result_`
-    // so we will not report a stale position.
+    // When the accuracy requirement changes or subscription is restarted, we
+    // should reset `current_result_` so we will not report a stale position.
     current_result_.reset();
     // `geolocation_subscription_` is not explicitly reset here. Allowing a
     // short period of concurrent high/low accuracy subscriptions is preferred
@@ -124,8 +115,7 @@ void GeolocationImpl::QueryCachedPosition(
 
   // If the cached position is precise but the client only has approximate
   // permission, treat it as unavailable to avoid leaking precise location.
-  if (result && result->is_position() && result->get_position()->is_precise &&
-      !has_precise_permission_) {
+  if (!has_precise_permission_ && IsPrecisePosition(result.get())) {
     result.reset();
   }
 
@@ -151,11 +141,6 @@ void GeolocationImpl::SetOverride(const mojom::GeopositionResult& result) {
   }
 
   position_override_ = result.Clone();
-  if (result.is_error() ||
-      (result.is_position() && !ValidateGeoposition(*result.get_position()))) {
-    ResumeUpdates();
-  }
-
   geolocation_subscription_ = {};
 
   OnLocationUpdate(*position_override_);
@@ -181,6 +166,14 @@ void GeolocationImpl::OnPermissionUpdated(
   } else {
     has_precise_permission_ =
         (permission_level == mojom::GeolocationPermissionLevel::kPrecise);
+    if (position_override_) {
+      // When an override is active, the overridden position is preserved as-is
+      // regardless of permission level, and provider updates remain disabled.
+      return;
+    }
+    if (!has_precise_permission_ && IsPrecisePosition(current_result_.get())) {
+      current_result_.reset();
+    }
     StartListeningForUpdates();
   }
 }
@@ -195,14 +188,24 @@ void GeolocationImpl::OnConnectionError() {
 void GeolocationImpl::OnLocationUpdate(const mojom::GeopositionResult& result) {
   DCHECK(context_);
 
+  // Drop precise location updates if this client only has approximate
+  // permission (unless a position override is active).
+  if (!position_override_ && !has_precise_permission_ &&
+      IsPrecisePosition(&result)) {
+    return;
+  }
+
   current_result_ = result.Clone();
 
-  if (!position_callback_.is_null())
+  if (!position_callback_.is_null()) {
     ReportCurrentPosition();
+  }
 }
 
 void GeolocationImpl::ReportCurrentPosition() {
   CHECK(current_result_);
+  CHECK(position_override_ || !IsPrecisePosition(current_result_.get()) ||
+        has_precise_permission_);
   std::move(position_callback_).Run(std::move(current_result_));
 }
 

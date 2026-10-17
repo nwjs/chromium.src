@@ -229,15 +229,6 @@ class VirtualCardUsageData;
 //                      Server-driven UI string to instruct the user on how they
 //                      can redeem the offer.
 // -----------------------------------------------------------------------------
-// offer_eligible_instrument
-//                      Contains the mapping of credit cards and card linked
-//                      offers.
-//
-//   offer_id           Int 64 to identify the relevant offer. Matches the
-//                      `offer_id` in the `offer_data` table.
-//   instrument_id      The new form of instrument id of the card. Will not be
-//                      used for now.
-// -----------------------------------------------------------------------------
 // offer_merchant_domain
 //                      Contains the mapping of merchant domains and card linked
 //                      offers.
@@ -515,6 +506,13 @@ class PaymentsAutofillTable : public WebDatabaseTable {
   bool GetAutofillOffers(
       std::vector<std::unique_ptr<AutofillOfferData>>* autofill_offer_data);
 
+  // Inserts `autofill_offer_data`, replacing any offer with the same offer id.
+  bool AddOrUpdateAutofillOffer(const AutofillOfferData& autofill_offer_data);
+  // Removes the offer with `offer_id`. Succeeds if no such offer exists.
+  bool RemoveAutofillOffer(std::string_view offer_id);
+  // Returns whether an offer with `offer_id` is stored.
+  bool AutofillOfferExists(std::string_view offer_id);
+
   // CRUD operations for VirtualCardUsageData in the virtual_card_usage_data
   // table
   bool AddOrUpdateVirtualCardUsageData(
@@ -603,6 +601,7 @@ class PaymentsAutofillTable : public WebDatabaseTable {
   bool MigrateToVersion144AddCardCreationSourceColumn();
   bool MigrateToVersion153ReplaceOriginWithIsUserConfirmed();
   bool MigrateToVersion156ClearLegacyOffers();
+  bool MigrateToVersion158OfferIdAsString();
 
  private:
   // Adds to `masked_credit_cards` and updates `server_card_metadata`.
@@ -627,7 +626,6 @@ class PaymentsAutofillTable : public WebDatabaseTable {
   bool InitServerCreditCardCloudTokenDataTable();
   bool InitStoredCvcTable();
   bool InitOfferDataTable();
-  bool InitOfferEligibleInstrumentTable();
   bool InitOfferMerchantDomainTable();
   bool InitVirtualCardUsageDataTable();
   bool InitMaskedBankAccountsTable();

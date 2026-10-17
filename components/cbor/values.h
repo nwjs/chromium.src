@@ -17,6 +17,7 @@
 #include "base/containers/flat_map.h"
 #include "base/containers/span.h"
 #include "base/notreached.h"
+#include "base/strings/string_view_util.h"
 #include "components/cbor/cbor_export.h"
 
 namespace cbor {
@@ -25,11 +26,12 @@ namespace cbor {
 // This does not support indefinite-length encodings.
 class CBOR_EXPORT Value {
  public:
+  enum class Type;
+
   struct Less {
     // Comparison predicate to order keys in a dictionary as required by the
-    // canonical CBOR order defined in
-    // https://tools.ietf.org/html/rfc7049#section-3.9
-    // TODO(crbug.com/40560917): Clarify where this stands.
+    // CTAP2 canonical CBOR encoding form:
+    // https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#ctap2-canonical-cbor-encoding-form
     bool operator()(const Value& a, const Value& b) const {
       // The current implementation only supports integer, text string, byte
       // string and invalid UTF8 keys.
@@ -38,17 +40,20 @@ class CBOR_EXPORT Value {
              (b.is_integer() || b.is_string() || b.is_bytestring() ||
               b.is_invalid_utf8()));
 
-      // Below text from https://tools.ietf.org/html/rfc7049 errata 4409:
+      // Per CTAP2 canonical CBOR encoding form:
       // *  If the major types are different, the one with the lower value
       //    in numerical order sorts earlier.
-      if (a.type() != b.type())
-        return a.type() < b.type();
+      const Type a_type = MajorType(a);
+      const Type b_type = MajorType(b);
+      if (a_type != b_type) {
+        return a_type < b_type;
+      }
 
       // *  If two keys have different lengths, the shorter one sorts
       //    earlier;
       // *  If two keys have the same length, the one with the lower value
       //    in (byte-wise) lexical order sorts earlier.
-      switch (a.type()) {
+      switch (a_type) {
         case Type::UNSIGNED:
           // For unsigned integers, the smaller value has shorter length,
           // and (byte-wise) lexical representation.
@@ -58,9 +63,9 @@ class CBOR_EXPORT Value {
           // and (byte-wise) lexical representation.
           return a.GetInteger() > b.GetInteger();
         case Type::STRING: {
-          const auto& a_str = a.GetString();
+          const std::string_view a_str = TextString(a);
           const size_t a_length = a_str.size();
-          const auto& b_str = b.GetString();
+          const std::string_view b_str = TextString(b);
           const size_t b_length = b_str.size();
           return std::tie(a_length, a_str) < std::tie(b_length, b_str);
         }
@@ -68,13 +73,6 @@ class CBOR_EXPORT Value {
           const auto& a_str = a.GetBytestring();
           const size_t a_length = a_str.size();
           const auto& b_str = b.GetBytestring();
-          const size_t b_length = b_str.size();
-          return std::tie(a_length, a_str) < std::tie(b_length, b_str);
-        }
-        case Type::INVALID_UTF8: {
-          const auto& a_str = a.GetInvalidUTF8();
-          const size_t a_length = a_str.size();
-          const auto& b_str = b.GetInvalidUTF8();
           const size_t b_length = b_str.size();
           return std::tie(a_length, a_str) < std::tie(b_length, b_str);
         }
@@ -86,6 +84,18 @@ class CBOR_EXPORT Value {
     }
 
     using is_transparent = void;
+
+   private:
+    // `Type::INVALID_UTF8` is encoded as a text string (major type 3), so it
+    // sorts with `Type::STRING` rather than by its negative enum value.
+    static Type MajorType(const Value& v) {
+      return v.is_invalid_utf8() ? Type::STRING : v.type();
+    }
+
+    static std::string_view TextString(const Value& v LIFETIME_BOUND) {
+      return v.is_string() ? std::string_view(v.GetString())
+                           : base::as_string_view(v.GetInvalidUTF8());
+    }
   };
 
   using BinaryValue = std::vector<uint8_t>;
@@ -101,7 +111,6 @@ class CBOR_EXPORT Value {
     MAP = 5,
     // TAG = 6, but not actually supported.
     SIMPLE_VALUE = 7,
-    NONE = -1,
     INVALID_UTF8 = -2,
   };
 
@@ -115,29 +124,48 @@ class CBOR_EXPORT Value {
     kMaxValue = UNDEFINED,
   };
 
+  struct Null final {};
+
+  struct Undefined final {};
+
   // Returns a Value with Type::INVALID_UTF8. This factory method lets tests
   // encode such a value as a CBOR string. It should never be used outside of
   // tests since encoding may yield invalid CBOR data.
   static Value InvalidUTF8StringValueForTesting(std::string_view in_string);
 
-  Value(Value&& that) noexcept;
-  Value() noexcept;  // A NONE value.
+  // Use std::optional<Value> to represent an absent value.
+  Value() = delete;
 
+  explicit Value(bool boolean_value) noexcept;
+  explicit Value(Null) noexcept;
+  explicit Value(Undefined) noexcept;
+
+  // Deprecated: Use one of the constructors accepting `bool`, `Null`, or
+  // `Undefined`.
   explicit Value(SimpleValue in_simple);
-  explicit Value(bool boolean_value);
+
   explicit Value(float float_value) = delete;
   explicit Value(double float_value) = delete;
 
   explicit Value(int integer_value);
-  explicit Value(int64_t integer_value);
+  explicit Value(int64_t integer_value) noexcept;
   explicit Value(uint64_t integer_value) = delete;
 
+  // Constructors for `Type::BYTE_STRING`.
   explicit Value(base::span<const uint8_t> in_bytes);
   explicit Value(BinaryValue&& in_bytes) noexcept;
 
-  explicit Value(const char* in_string, Type type = Type::STRING);
-  explicit Value(std::string&& in_string, Type type = Type::STRING) noexcept;
-  explicit Value(std::string_view in_string, Type type = Type::STRING);
+  // Constructors for `Type::STRING`.
+  explicit Value(const char* in_string);
+  explicit Value(std::string&& in_string) noexcept;
+  explicit Value(std::string_view in_string);
+
+  // Deprecated: Use one of the constructors for `Type::BYTE_STRING` or
+  // `Type::STRING` above; consider using the former with `base::as_byte_span`
+  // or `base::byte_span_from_cstring`.
+  explicit Value(const char* in_string, Type type);
+  explicit Value(std::string&& in_string, Type type) noexcept;
+  explicit Value(std::string_view in_string, Type type);
 
   explicit Value(const ArrayValue& in_array);
   explicit Value(ArrayValue&& in_array) noexcept;
@@ -145,7 +173,12 @@ class CBOR_EXPORT Value {
   explicit Value(const MapValue& in_map);
   explicit Value(MapValue&& in_map) noexcept;
 
-  Value& operator=(Value&& that) noexcept;
+  // Prevent pointers from implicitly converting to `bool`.
+  template <typename T>
+  explicit Value(const T*) = delete;
+
+  Value(Value&&) noexcept;
+  Value& operator=(Value&&) noexcept;
 
   Value(const Value&) = delete;
   Value& operator=(const Value&) = delete;
@@ -161,7 +194,6 @@ class CBOR_EXPORT Value {
 
   // Returns true if the current object represents a given type.
   bool is_type(Type type) const { return type == type_; }
-  bool is_none() const { return type() == Type::NONE; }
   bool is_invalid_utf8() const { return type() == Type::INVALID_UTF8; }
   bool is_simple() const { return type() == Type::SIMPLE_VALUE; }
   bool is_bool() const {
@@ -192,6 +224,7 @@ class CBOR_EXPORT Value {
 
  private:
   friend class Reader;
+
   // This constructor allows INVALID_UTF8 values to be created, which only
   // |Reader| and InvalidUTF8StringValueForTesting() may do.
   Value(base::span<const uint8_t> in_bytes, Type type);
@@ -208,6 +241,9 @@ class CBOR_EXPORT Value {
   };
 
   void InternalMoveConstructFrom(Value&& that);
+
+  // Destroys the active union member without updating |type_|. Only valid
+  // immediately before InternalMoveConstructFrom() or destruction.
   void InternalCleanup();
 };
 

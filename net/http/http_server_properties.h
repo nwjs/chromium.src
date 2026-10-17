@@ -8,11 +8,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <compare>
 #include <map>
 #include <memory>
 #include <optional>
 #include <set>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <vector>
 
@@ -340,6 +342,12 @@ class NET_EXPORT HttpServerProperties
                                       int alternate_port,
                                       bool is_suffix = false);
 
+  // Configures whether to try QUIC by default for all HTTPS origins when no
+  // specific alternative service or known QUIC hint is found. If enabled,
+  // candidate QUIC alternative services will be returned for HTTPS requests
+  // on the destination's port, unless the service is currently marked broken.
+  void SetTryQuicByDefault(bool enable);
+
   // Marks |alternative_service| as broken in the context of
   // |network_anonymization_key|. |alternative_service.host| must not be empty.
   void MarkAlternativeServiceBroken(
@@ -507,14 +515,40 @@ class NET_EXPORT HttpServerProperties
     return properties_manager_.get();
   }
 
+  bool try_quic_by_default_for_testing() const { return try_quic_by_default_; }
+
  private:
   // TODO (wangyix): modify HttpServerProperties unit tests so this
   // friendness is no longer required.
   friend class HttpServerPropertiesPeer;
 
+  struct WildcardAlternativeServiceKeyRef {
+    std::string_view host_suffix;
+    uint16_t port = 0;
+
+    auto operator<=>(const WildcardAlternativeServiceKeyRef&) const = default;
+  };
+
+  struct WildcardAlternativeServiceKey {
+    std::string host_suffix;
+    uint16_t port = 0;
+
+    WildcardAlternativeServiceKeyRef AsRef() const {
+      return {host_suffix, port};
+    }
+
+    auto operator<=>(const WildcardAlternativeServiceKey&) const = default;
+    friend std::strong_ordering operator<=>(
+        const WildcardAlternativeServiceKey& a,
+        const WildcardAlternativeServiceKeyRef& b) {
+      return a.AsRef() <=> b;
+    }
+  };
+
   using KnownAlternativeServiceMap =
       base::flat_map<url::SchemeHostPort, AlternativeService>;
-  using KnownAlternativeServiceSuffixSet = base::flat_set<std::string>;
+  using WildcardAlternativeServiceMap =
+      base::flat_map<WildcardAlternativeServiceKey, AlternativeService>;
 
   using CanonicalMap = base::flat_map<ServerInfoMapKey, url::SchemeHostPort>;
   using QuicCanonicalMap =
@@ -671,15 +705,14 @@ class NET_EXPORT HttpServerProperties
   KnownAlternativeServiceMap known_alternative_service_map_;
 
   // Contains a map of suffixes for servers which use a known alternative
-  // service. Map from a scheme/host/port to the AlternativeService
-  // with the known alternative service info. Hosts are reversed to allow for
-  // efficient comparison.
-  KnownAlternativeServiceMap wildcard_known_alternative_service_map_;
+  // service. Map from a suffix/port key to the AlternativeService with the
+  // known alternative service info.
+  WildcardAlternativeServiceMap wildcard_known_alternative_service_map_;
 
-  // Contains list of suffixes of hostnames with known alternative
-  // services. Suffixes are reversed to allow for efficient comparison.
-  KnownAlternativeServiceSuffixSet
-      reversed_known_alternative_service_suffixes_set_;
+  // When true, requests to HTTPS servers that do not have a specific or
+  // known alternative service configured will attempt to use QUIC by default
+  // on the server's port, unless the alternative service is marked broken.
+  bool try_quic_by_default_ = false;
 
   // Contains a map of servers which could share the same alternate protocol.
   // Map from a Canonical scheme/host/port/NAK (host is some postfix of host

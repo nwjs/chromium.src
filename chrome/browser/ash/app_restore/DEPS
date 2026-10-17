@@ -18,11 +18,8 @@ include_rules = [
   "+chrome/browser/ash/profiles",
   "+chrome/browser/ash/system_web_apps",
   "+chrome/browser/first_run",
-  "+chrome/browser/policy",
-  "+chrome/browser/prefs",
   "+chrome/browser/profiles",
   "+chrome/browser/sessions",
-  "+chrome/browser/signin",
   "+chrome/browser/ui/ash",
   "+chrome/browser/ui/startup",
   "+chrome/browser/ui/webui/ash/settings",
@@ -33,6 +30,24 @@ include_rules = [
 ]
 
 specific_include_rules = {
+  # Only tests need //chrome/browser/policy.
+  "full_restore_policy_browsertest\\.cc": [
+    "+chrome/browser/policy/policy_test_utils.h",
+  ],
+  # PrefServiceSyncableFromProfile() narrows the profile PrefService to the
+  # syncable one; everything after that is //components API.
+  "new_user_restore_pref_handler\\.cc": [
+    "+chrome/browser/prefs/pref_service_syncable_util.h",
+  ],
+  # Reads the browser session-startup preference.
+  "(browser_restore_observer|full_restore_app_launch_handler|full_restore_prefs)\\.cc": [
+    "+chrome/browser/prefs/session_startup_pref.h",
+  ],
+  ".*(unittest|browsertest)\\.cc": [
+    "+chrome/browser/prefs/browser_prefs.h",
+    "+chrome/browser/prefs/session_startup_pref.h",
+    "+chrome/browser/signin/identity_test_environment_profile_adaptor.h",
+  ],
   "app_restore_arc_task_handler_factory\\.cc": [
     "+chrome/browser/browser_process.h",
     "+chrome/browser/browser_process_platform_part.h",

@@ -32,6 +32,7 @@
 #include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
 #include "third_party/blink/renderer/core/events/message_event.h"
 #include "third_party/blink/renderer/core/exported/web_view_impl.h"
+#include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_client.h"
@@ -54,7 +55,6 @@
 #include "third_party/blink/renderer/core/loader/mixed_content_checker.h"
 #include "third_party/blink/renderer/core/messaging/blink_transferable_message.h"
 #include "third_party/blink/renderer/core/page/page.h"
-#include "third_party/blink/renderer/core/page/plugin_script_forbidden_scope.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/core/scroll/scroll_into_view_util.h"
@@ -314,6 +314,18 @@ void RemoteFrame::Navigate(FrameLoadRequest& frame_request,
   params->is_container_initiated = frame_request.IsContainerInitiated();
   params->has_rel_opener = frame_request.GetWindowFeatures().explicit_opener;
 
+  // Navigations initiated from an isolated world (e.g., by an extension
+  // content script) bypass the main world's CSP. This mirrors what
+  // FrameLoader::StartNavigation() does for navigations of local frames, so
+  // that CSP enforcement doesn't depend on whether the navigated frame happens
+  // to live in another process. See the comment on
+  // OpenURLParams::should_check_main_world_csp for more details.
+  params->should_check_main_world_csp =
+      ContentSecurityPolicy::ShouldBypassMainWorldDeprecated(
+          frame_request.JavascriptWorld())
+          ? network::mojom::CSPDisposition::DO_NOT_CHECK
+          : network::mojom::CSPDisposition::CHECK;
+
   GetRemoteFrameHostRemote().OpenURL(std::move(params));
 }
 
@@ -326,8 +338,6 @@ bool RemoteFrame::NavigationShouldReplaceCurrentHistoryEntry(
 }
 
 bool RemoteFrame::DetachImpl(FrameDetachType type) {
-  PluginScriptForbiddenScope forbid_plugin_destructor_scripting;
-
   if (!DetachChildren())
     return false;
 

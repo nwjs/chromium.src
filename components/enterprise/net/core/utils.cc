@@ -15,12 +15,18 @@
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
+#include "build/build_config.h"
+#include "components/enterprise/net/core/auth_scope_metadata.h"
 #include "components/policy/core/common/values_util.h"
 #include "net/base/proxy_chain.h"
 #include "net/base/proxy_server.h"
 #include "net/base/proxy_string_util.h"
 #include "net/http/http_util.h"
 #include "url/gurl.h"
+
+#if BUILDFLAG(IS_IOS)
+#include "base/logging.h"
+#endif  // BUILDFLAG(IS_IOS)
 
 namespace enterprise_net {
 
@@ -57,10 +63,9 @@ constexpr char kProfileIdCamelPlaceholder[] = "${profileId}";
 constexpr char kAcceptLanguagePlaceholder[] = "${accept_language}";
 constexpr char kAcceptLanguageCamelPlaceholder[] = "${acceptLanguage}";
 
-// Auth type and scope string values.
+// Auth type string values.
 constexpr char kAuthNone[] = "none";
 constexpr char kAuthTypeProfileBearerToken[] = "profile_bearer_token";
-constexpr char kAuthScopeCloudSecureGateway[] = "cloud_secure_gateway";
 
 std::string AuthTypeToString(AuthType type) {
   switch (type) {
@@ -68,15 +73,6 @@ std::string AuthTypeToString(AuthType type) {
       return kAuthNone;
     case AuthType::kProfileBearerToken:
       return kAuthTypeProfileBearerToken;
-  }
-}
-
-std::string AuthScopeToString(AuthScope scope) {
-  switch (scope) {
-    case AuthScope::kNone:
-      return kAuthNone;
-    case AuthScope::kCloudSecureGateway:
-      return kAuthScopeCloudSecureGateway;
   }
 }
 
@@ -122,7 +118,9 @@ base::ListValue ExtraHeadersToList(
 base::DictValue AuthConfigToDict(const ProxyAuthConfig& auth) {
   base::DictValue dict;
   dict.Set(kTypeKey, AuthTypeToString(auth.type));
-  dict.Set(kScopeKey, AuthScopeToString(auth.scope));
+  if (std::optional<std::string_view> scope = AuthScopeToString(auth.scope)) {
+    dict.Set(kScopeKey, *scope);
+  }
   return dict;
 }
 
@@ -150,17 +148,6 @@ AuthType ParseAuthType(std::string_view type_str) {
   return it != kAuthTypeMap.end() ? it->second : AuthType::kNone;
 }
 
-AuthScope ParseAuthScope(std::string_view scope_str) {
-  std::string normalized = base::ToLowerASCII(scope_str);
-  static constexpr auto kAuthScopeMap =
-      base::MakeFixedFlatMap<std::string_view, AuthScope>({
-          {kAuthNone, AuthScope::kNone},
-          {kAuthScopeCloudSecureGateway, AuthScope::kCloudSecureGateway},
-      });
-  auto it = kAuthScopeMap.find(normalized);
-  return it != kAuthScopeMap.end() ? it->second : AuthScope::kNone;
-}
-
 std::vector<ProxyExtraHeader> ParseExtraHeadersList(
     const base::ListValue* extra_headers_list) {
   std::vector<ProxyExtraHeader> extra_headers;
@@ -186,9 +173,15 @@ std::vector<ProxyExtraHeader> ParseExtraHeadersList(
                                  ProxyExtraHeader::HeaderType::kVariable);
     } else if (const std::string* value = header_dict.FindString(kValueKey)) {
       const std::string* type = header_dict.FindString(kTypeKey);
-      auto header_type = (type && *type == "variable")
-                             ? ProxyExtraHeader::HeaderType::kVariable
-                             : ProxyExtraHeader::HeaderType::kConstant;
+      ProxyExtraHeader::HeaderType header_type =
+          ProxyExtraHeader::HeaderType::kConstant;
+      if (type) {
+        if (base::EqualsCaseInsensitiveASCII(*type, "variable")) {
+          header_type = ProxyExtraHeader::HeaderType::kVariable;
+        }
+      } else if (value->find("${") != std::string::npos) {
+        header_type = ProxyExtraHeader::HeaderType::kVariable;
+      }
       extra_headers.emplace_back(*key, *value, header_type);
     }
   }
@@ -260,6 +253,26 @@ ParseProxy(const base::DictValue& proxy_dict) {
           std::move(proxy_chain), std::move(auth), std::move(extra_headers)));
 }
 
+#if BUILDFLAG(IS_IOS)
+// Clears `ports` so that the rule matches every port of its destinations.
+// WebKit's proxy configuration API cannot match on port, so the only way to
+// honor a rule that declares ports is to proxy the whole host/address.
+void StripPortMatchers(std::vector<uint16_t>& ports, bool is_wildcard_rule) {
+  if (ports.empty()) {
+    return;
+  }
+
+  const char* affected_destinations =
+      is_wildcard_rule ? "all destinations" : "the matched destinations";
+  DVLOG(1) << "PvD routing rule declares " << ports.size()
+           << " port matcher(s), but WebKit's proxy configuration API cannot "
+              "match on port. Proxying all ports for "
+           << affected_destinations << ".";
+
+  ports.clear();
+}
+#endif  // BUILDFLAG(IS_IOS)
+
 }  // namespace
 
 std::optional<ProvisioningDomainProxyConfig::RoutingRule> ParseRoutingRule(
@@ -319,9 +332,17 @@ std::optional<ProvisioningDomainProxyConfig::RoutingRule> ParseRoutingRule(
     }
   }
 
+  // A rule without domains and subnets is scoped only by its ports, so dropping
+  // them widens it to every destination.
+  const bool is_wildcard_rule = domains.empty() && subnets.empty();
+
+#if BUILDFLAG(IS_IOS)
+  StripPortMatchers(ports, is_wildcard_rule);
+#endif  // BUILDFLAG(IS_IOS)
+
   net::ProxyHostMatchingRules destination_matchers;
 
-  if (domains.empty() && subnets.empty()) {
+  if (is_wildcard_rule) {
     // If no domain or subnet patterns are specified, match all traffic ("*").
     if (!ports.empty()) {
       for (uint16_t port : ports) {

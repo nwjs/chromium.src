@@ -261,6 +261,16 @@ bool InlineItemsBuilderTemplate<MappingBuilder>::BoxInfo::
   if (text_metrics != child.text_metrics)
     return true;
 
+  // `BoxInfo::text_metrics` is computed before `text-box-trim` is applied. When
+  // `child` has `text-box-trim`, its height and/or location in the block
+  // direction may differ from this box, and a culled parent would otherwise use
+  // the child's trimmed fragment.
+  if (child_style.TextBoxTrim() != ETextBoxTrim::kNone &&
+      RuntimeEnabledFeatures::TextBoxTrimOnInlineBoxTextDecorationEnabled())
+      [[unlikely]] {
+    return true;
+  }
+
   return false;
 }
 
@@ -1428,17 +1438,7 @@ void InlineItemsBuilderTemplate<
   mapping_builder_.RestoreTrailingCollapsibleSpace(
       To<LayoutText>(*item->GetLayoutObject()), item->EndOffset());
 
-  // TODO(kojii): Implement StringBuilder::insert().
-  UChar space_char = GetCollapsedSpaceChar(item->Style());
-  if (text_.length() == item->EndOffset()) {
-    text_.Append(space_char);
-  } else {
-    String current = text_.ToString();
-    text_.Clear();
-    text_.Append(StringView(current, 0, item->EndOffset()));
-    text_.Append(space_char);
-    text_.Append(StringView(current, item->EndOffset()));
-  }
+  text_.Insert(item->EndOffset(), GetCollapsedSpaceChar(item->Style()));
 
   item->SetEndOffset(item->EndOffset() + 1);
   item->SetEndCollapseType(InlineItem::kCollapsible);

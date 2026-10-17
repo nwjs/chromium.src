@@ -117,7 +117,7 @@ DedicatedWorkerGlobalScope* DedicatedWorkerGlobalScope::Create(
 
   if (global_scope->IsOffMainThreadScriptFetchDisabled()) {
     // Legacy on-the-main-thread worker script fetch (to be removed):
-    // Pass dummy origin trial tokens here as it is already set to outside's
+    // Pass null origin trial tokens here as it is already set to outside's
     // origin trial tokens in DedicatedWorkerGlobalScope's constructor.
     global_scope->Initialize(response_script_url, response_referrer_policy,
                              std::move(response_csp),
@@ -355,26 +355,9 @@ void DedicatedWorkerGlobalScope::FetchAndRunClassicScript(
       mojom::blink::RequestContextType::WORKER;
   network::mojom::RequestDestination destination =
       network::mojom::RequestDestination::kWorker;
-
-  // Step 12.1. "Set request's reserved client to inside settings."
-  // The browesr process takes care of this.
-
-  // Step 12.2. "Fetch request, and asynchronously wait to run the remaining
-  // steps as part of fetch's process response for the response response."
-  WorkerClassicScriptLoader* classic_script_loader =
-      MakeGarbageCollected<WorkerClassicScriptLoader>();
-  classic_script_loader->LoadTopLevelScriptAsynchronously(
-      *this,
-      CreateOutsideSettingsFetcher(outside_settings_object,
-                                   outside_resource_timing_notifier),
-      script_url, std::move(worker_main_script_load_params), context_type,
-      destination, network::mojom::RequestMode::kSameOrigin,
-      network::mojom::CredentialsMode::kSameOrigin,
-      BindOnce(&DedicatedWorkerGlobalScope::DidReceiveResponseForClassicScript,
-               WrapWeakPersistent(this), WrapPersistent(classic_script_loader)),
-      BindOnce(&DedicatedWorkerGlobalScope::DidFetchClassicScript,
-               WrapWeakPersistent(this), WrapPersistent(classic_script_loader),
-               stack_id));
+  FetchClassicScript(script_url, std::move(worker_main_script_load_params),
+                     outside_settings_object, outside_resource_timing_notifier,
+                     context_type, destination, stack_id);
 }
 
 // https://html.spec.whatwg.org/C/#worker-processing-model
@@ -479,71 +462,6 @@ void DedicatedWorkerGlobalScope::postMessage(ScriptState* script_state,
             std::move(context), GetExecutionContext(), trace_id);
       },
       perfetto::Flow::Global(trace_id));  // SchedulePostMessage
-}
-
-void DedicatedWorkerGlobalScope::DidReceiveResponseForClassicScript(
-    WorkerClassicScriptLoader* classic_script_loader) {
-  DCHECK(IsContextThread());
-  probe::DidReceiveScriptResponse(this, classic_script_loader->Identifier());
-}
-
-// https://html.spec.whatwg.org/C/#worker-processing-model
-void DedicatedWorkerGlobalScope::DidFetchClassicScript(
-    WorkerClassicScriptLoader* classic_script_loader,
-    const v8_inspector::V8StackTraceId& stack_id) {
-  DCHECK(IsContextThread());
-  TRACE_EVENT("blink.worker",
-              "DedicatedWorkerGlobalScope::DidFetchClassicScript");
-  TRACE_EVENT_END("blink.worker",
-                  perfetto::NamedTrack::FromPointer(
-                      "blink::DedicatedWorkerGlobalScope", this));
-  base::UmaHistogramTimes(
-      "Worker.TopLevelScript.FetchClassicScriptTime",
-      base::TimeTicks::Now() - fetch_classic_script_start_time_);
-
-  // Step 12. "If the algorithm asynchronously completes with null, then:"
-  if (classic_script_loader->Failed()) {
-    // Step 12.1. "Queue a task to fire an event named error at worker."
-    // DidFailToFetchClassicScript() will asynchronously fire the event.
-    ReportingProxy().DidFailToFetchClassicScript();
-
-    // Step 12.2. "Run the environment discarding steps for inside settings."
-    // Do nothing because the HTML spec doesn't define these steps for web
-    // workers.
-
-    // Schedule worker termination.
-    close();
-
-    // Step 12.3. "Return."
-    return;
-  }
-  ReportingProxy().DidFetchScript();
-  probe::ScriptImported(this, classic_script_loader->Identifier(),
-                        classic_script_loader->SourceText());
-
-  auto response_referrer_policy = network::mojom::ReferrerPolicy::kDefault;
-  if (!classic_script_loader->GetReferrerPolicy().IsNull()) {
-    SecurityPolicy::ReferrerPolicyFromHeaderValue(
-        classic_script_loader->GetReferrerPolicy(),
-        kDoNotSupportReferrerPolicyLegacyKeywords, &response_referrer_policy);
-  }
-
-  // Step 12.3-12.6 are implemented in Initialize().
-  // Pass dummy origin trial tokens here as it is already set to outside's
-  // origin trial tokens in DedicatedWorkerGlobalScope's constructor.
-  Initialize(classic_script_loader->ResponseURL(), response_referrer_policy,
-             classic_script_loader->GetContentSecurityPolicy()
-                 ? mojo::Clone(classic_script_loader->GetContentSecurityPolicy()
-                                   ->GetParsedPolicies())
-                 : Vector<network::mojom::blink::ContentSecurityPolicyPtr>(),
-             classic_script_loader->GetDocumentPolicy(),
-             nullptr /* response_origin_trial_tokens */);
-
-  // Step 12.7. "Asynchronously complete the perform the fetch steps with
-  // response."
-  EvaluateClassicScript(
-      classic_script_loader->ResponseURL(), classic_script_loader->SourceText(),
-      classic_script_loader->ReleaseCachedMetadata(), stack_id);
 }
 
 int DedicatedWorkerGlobalScope::requestAnimationFrame(

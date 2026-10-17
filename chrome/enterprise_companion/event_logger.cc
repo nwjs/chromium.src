@@ -4,6 +4,9 @@
 
 #include "chrome/enterprise_companion/event_logger.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <algorithm>
 #include <iterator>
 #include <memory>

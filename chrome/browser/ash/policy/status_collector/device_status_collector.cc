@@ -10,6 +10,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -450,7 +452,7 @@ bool ReadAndroidStatus(StatusCollector::AndroidStatusReceiver receiver) {
 
 void ReadTpmStatus(DeviceStatusCollector::TpmStatusReceiver callback) {
   // D-Bus calls are allowed only on the UI thread.
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
   auto tpm_status_combiner =
       base::MakeRefCounted<TpmStatusCombiner>(std::move(callback));
   chromeos::TpmManagerClient::Get()->GetTpmNonsensitiveStatus(
@@ -484,8 +486,8 @@ int ConvertWifiSignalStrength(int signal_strength) {
   //
   // To convert back to dBm, we use the inverse of the function above to yield
   // a clamped dBm value in the range of -88 to -44dBm.
-  DCHECK_GT(signal_strength, 0);
-  DCHECK_LE(signal_strength, 100);
+  CHECK_GT(signal_strength, 0, base::NotFatalUntil::M160);
+  CHECK_LE(signal_strength, 100, base::NotFatalUntil::M160);
   return (signal_strength - 200) * 11 / 25;
 }
 
@@ -834,7 +836,8 @@ class DeviceStatusCollectorState : public StatusCollectorState {
       const std::vector<em::CPUTempInfo>& cpu_temp_info) {
     // Only one of OnCrosHealthdDataReceived or OnCPUTempInfoReceived should be
     // called.
-    DCHECK_EQ(response_params_.device_status->cpu_temp_infos_size(), 0);
+    CHECK_EQ(response_params_.device_status->cpu_temp_infos_size(), 0,
+             base::NotFatalUntil::M160);
 
     DLOG_IF(WARNING, cpu_temp_info.empty())
         << "Unable to read CPU temp information.";
@@ -859,7 +862,7 @@ class DeviceStatusCollectorState : public StatusCollectorState {
 
   void OnTpmStatusReceived(const em::TpmStatusInfo& tpm_status_info) {
     // Make sure we edit the state on the right thread.
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
     response_params_.device_status->mutable_tpm_status_info()->MergeFrom(
         tpm_status_info);
     SetDeviceStatusReported();
@@ -876,7 +879,7 @@ class DeviceStatusCollectorState : public StatusCollectorState {
       const base::circular_deque<std::unique_ptr<SampledData>>& samples) {
     namespace cros_healthd = ::ash::cros_healthd::mojom;
     // Make sure we edit the state on the right thread.
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
 
     if (probe_result.is_null()) {
       return;
@@ -1542,7 +1545,8 @@ class DeviceStatusCollectorState : public StatusCollectorState {
     }
     em::StatefulPartitionInfo* stateful_partition_info =
         response_params_.device_status->mutable_stateful_partition_info();
-    DCHECK_GE(hdsi.total_space(), hdsi.available_space());
+    CHECK_GE(hdsi.total_space(), hdsi.available_space(),
+             base::NotFatalUntil::M160);
     stateful_partition_info->CopyFrom(hdsi);
     SetDeviceStatusReported();
   }
@@ -1568,7 +1572,8 @@ class DeviceStatusCollectorState : public StatusCollectorState {
 
   void OnCrashReportInfoReceived(
       const std::vector<em::CrashReportInfo>& crash_report_infos) {
-    DCHECK_EQ(response_params_.device_status->crash_report_infos_size(), 0);
+    CHECK_EQ(response_params_.device_status->crash_report_infos_size(), 0,
+             base::NotFatalUntil::M160);
     for (const em::CrashReportInfo& info : crash_report_infos) {
       *response_params_.device_status->add_crash_report_infos() = info;
     }
@@ -1766,8 +1771,9 @@ DeviceStatusCollector::DeviceStatusCollector(
       base::BindRepeating(&DeviceStatusCollector::ReportingUsersChanged,
                           weak_factory_.GetWeakPtr()));
 
-  DCHECK(local_state_->GetInitializationStatus() !=
-         PrefService::INITIALIZATION_STATUS_WAITING);
+  CHECK(local_state_->GetInitializationStatus() !=
+            PrefService::INITIALIZATION_STATUS_WAITING,
+        base::NotFatalUntil::M160);
   activity_storage_ = std::make_unique<EnterpriseActivityStorage>(
       &local_state_.get(), ash::prefs::kDeviceActivityTimes);
 }
@@ -1999,7 +2005,7 @@ void DeviceStatusCollector::PowerChanged(
 void DeviceStatusCollector::SampleMemoryUsage() {
   // Results must be written in the creation thread since that's where they
   // are read from in the Get*StatusAsync methods.
-  DCHECK(thread_checker_.CalledOnValidThread());
+  CHECK(thread_checker_.CalledOnValidThread(), base::NotFatalUntil::M160);
 
   if (!report_memory_info_) {
     return;
@@ -2017,7 +2023,7 @@ void DeviceStatusCollector::SampleMemoryUsage() {
 void DeviceStatusCollector::SampleCpuUsage() {
   // Results must be written in the creation thread since that's where they
   // are read from in the Get*StatusAsync methods.
-  DCHECK(thread_checker_.CalledOnValidThread());
+  CHECK(thread_checker_.CalledOnValidThread(), base::NotFatalUntil::M160);
 
   // If report cpu info has been disabled, do nothing here.
   if (!report_cpu_info_) {
@@ -2054,14 +2060,16 @@ void DeviceStatusCollector::ReceiveCPUStatistics(const std::string& stats) {
     int vals = UNSAFE_TODO(sscanf(
         stats.c_str(), "cpu %" SCNu64 " %" SCNu64 " %" SCNu64 " %" SCNu64,
         &user, &nice, &system, &idle));
-    DCHECK_EQ(4, vals);
+    CHECK_EQ(4, vals, base::NotFatalUntil::M160);
 
     // The values returned from /proc/stat are cumulative totals, so calculate
     // the difference between the last sample and this one.
     uint64_t active = user + nice + system;
     uint64_t total = active + idle;
     uint64_t last_total = last_cpu_active_ + last_cpu_idle_;
-    DCHECK_GE(active, last_cpu_active_);
+    CHECK_GE(active, last_cpu_active_, base::NotFatalUntil::M160);
+    // TODO(crbug.com/568722898): CHECK-exclusion: Convert to a CHECK once we
+    // are confident it won't be triggered.
     DCHECK_GE(idle, last_cpu_idle_);
     DCHECK_GE(total, last_total);
 
@@ -2073,6 +2081,8 @@ void DeviceStatusCollector::ReceiveCPUStatistics(const std::string& stats) {
     last_cpu_idle_ = idle;
   }
 
+  // TODO(crbug.com/568722898): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
   DCHECK_LE(cpu_usage_percent, 100);
 
   // This timestamp is used in both ResourceUsage and SampledData for CPU
@@ -2104,7 +2114,7 @@ void DeviceStatusCollector::SampleProbeData(
     std::unique_ptr<SampledData> sample,
     SamplingProbeResultCallback callback,
     ash::cros_healthd::mojom::TelemetryInfoPtr result) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
 
   if (result.is_null()) {
     return;
@@ -2147,7 +2157,8 @@ void DeviceStatusCollector::SampleProbeData(
   // power_manager_->RequestStatusUpdate() as well as for other reasons,
   // so we store power_status_callback_ here instead of triggering
   // SampleDischargeRate from PowerChanged().
-  DCHECK(power_status_callback_.is_null());  // Previous sampling is completed.
+  CHECK(power_status_callback_.is_null(),
+        base::NotFatalUntil::M160);  // Previous sampling is completed.
 
   power_status_callback_ = base::BindOnce(
       &DeviceStatusCollector::SampleDischargeRate, weak_factory_.GetWeakPtr(),
@@ -2211,7 +2222,7 @@ void DeviceStatusCollector::AddDataSample(std::unique_ptr<SampledData> sample,
 void DeviceStatusCollector::FetchCrosHealthdData(
     std::vector<ash::cros_healthd::mojom::ProbeCategoryEnum> probe_categories,
     CrosHealthdDataReceiver callback) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
   SamplingProbeResultCallback completion_callback;
 
   completion_callback =
@@ -2233,7 +2244,7 @@ void DeviceStatusCollector::FetchCrosHealthdData(
 void DeviceStatusCollector::OnProbeDataFetched(
     CrosHealthdDataReceiver callback,
     ash::cros_healthd::mojom::TelemetryInfoPtr reply) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
   std::move(callback).Run(std::move(reply), sampled_data_);
 }
 
@@ -2378,10 +2389,11 @@ bool DeviceStatusCollector::GetWriteProtectSwitch(
 bool DeviceStatusCollector::GetNetworkConfiguration(
     em::DeviceStatusReportRequest* status) {
   // Note: keep in sync with `::reporting::NetworkInfoSampler`
-  static const struct {
+  struct DeviceTypeMapping {
     const char* type_string;
     em::NetworkInterface::NetworkDeviceType type_constant;
-  } kDeviceTypeMap[] = {
+  };
+  constexpr auto kDeviceTypeMap = std::to_array<DeviceTypeMapping>({
       {
           shill::kTypeEthernet,
           em::NetworkInterface::TYPE_ETHERNET,
@@ -2394,7 +2406,7 @@ bool DeviceStatusCollector::GetNetworkConfiguration(
           shill::kTypeCellular,
           em::NetworkInterface::TYPE_CELLULAR,
       },
-  };
+  });
 
   ash::NetworkStateHandler::DeviceStateList device_list;
   ash::NetworkStateHandler* network_state_handler =
@@ -2404,23 +2416,17 @@ bool DeviceStatusCollector::GetNetworkConfiguration(
   bool anything_reported = false;
   ash::NetworkStateHandler::DeviceStateList::const_iterator device;
   for (device = device_list.begin(); device != device_list.end(); ++device) {
-    // Determine the type enum constant for |device|.
-    size_t type_idx = 0;
-    for (; type_idx < std::size(kDeviceTypeMap); ++type_idx) {
-      if ((*device)->type() ==
-          UNSAFE_TODO(kDeviceTypeMap[type_idx]).type_string) {
-        break;
-      }
-    }
-
-    // If the type isn't in |kDeviceTypeMap|, the interface is not relevant for
-    // reporting. This filters out VPN devices.
-    if (type_idx >= std::size(kDeviceTypeMap)) {
+    // Determine the type enum constant for |device|. If the type isn't in
+    // |kDeviceTypeMap|, the interface is not relevant for reporting. This
+    // filters out VPN devices.
+    const auto it = std::ranges::find(kDeviceTypeMap, (*device)->type(),
+                                      &DeviceTypeMapping::type_string);
+    if (it == kDeviceTypeMap.end()) {
       continue;
     }
 
     em::NetworkInterface* interface = status->add_network_interfaces();
-    interface->set_type(UNSAFE_TODO(kDeviceTypeMap[type_idx]).type_constant);
+    interface->set_type(it->type_constant);
     if (!(*device)->mac_address().empty()) {
       interface->set_mac_address((*device)->mac_address());
     }
@@ -2694,7 +2700,7 @@ bool DeviceStatusCollector::GetRunningKioskApp(
     em::DeviceStatusReportRequest* status) {
   // Must be on creation thread since some stats are written to in that thread
   // and accessing them from another thread would lead to race conditions.
-  DCHECK(thread_checker_.CalledOnValidThread());
+  CHECK(thread_checker_.CalledOnValidThread(), base::NotFatalUntil::M160);
 
   std::unique_ptr<const DeviceLocalAccount> account =
       GetAutoLaunchedKioskSessionInfo();
@@ -2793,7 +2799,7 @@ void DeviceStatusCollector::GetStatusAsync(StatusCollectorCallback response) {
 
   // Must be on creation thread since some stats are written to in that thread
   // and accessing them from another thread would lead to race conditions.
-  DCHECK(thread_checker_.CalledOnValidThread());
+  CHECK(thread_checker_.CalledOnValidThread(), base::NotFatalUntil::M160);
   // Some of the data we're collecting is gathered in background threads.
   // This object keeps track of the state of each async request.
   scoped_refptr<DeviceStatusCollectorState> state(

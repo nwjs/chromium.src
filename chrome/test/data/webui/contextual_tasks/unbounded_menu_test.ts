@@ -7,26 +7,30 @@ import 'chrome://contextual-tasks/sources_menu.js';
 import 'chrome://contextual-tasks/overflow_menu.js';
 
 import {BrowserProxyImpl} from 'chrome://contextual-tasks/contextual_tasks_browser_proxy.js';
+import {ToolbarBrowserProxyImpl} from 'chrome://contextual-tasks/contextual_tasks_toolbar_browser_proxy.js';
 import type {SourcesMenuElement} from 'chrome://contextual-tasks/sources_menu.js';
 import type {TopToolbarElement} from 'chrome://contextual-tasks/top_toolbar.js';
 import type {UnboundedDialog} from 'chrome://contextual-tasks/utils.js';
+import type {CrActionMenuElement} from 'chrome://resources/cr_elements/cr_action_menu/cr_action_menu.js';
+import type {CrIconButtonElement} from 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
-import type {CrActionMenuElement} from 'chrome://resources/cr_elements/cr_action_menu/cr_action_menu.js';
-import type {CrIconButtonElement} from 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
 
-import {TestContextualTasksBrowserProxy} from './test_contextual_tasks_browser_proxy.js';
+import {TestContextualTasksBrowserProxy, TestToolbarBrowserProxy} from './test_contextual_tasks_browser_proxy.js';
 
 suite('UnboundedMenuTest', () => {
   let topToolbar: TopToolbarElement;
   let proxy: TestContextualTasksBrowserProxy;
+  let toolbarProxy: TestToolbarBrowserProxy;
 
   setup(() => {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     proxy = new TestContextualTasksBrowserProxy(
         'chrome://webui-test/contextual_tasks/test.html');
     BrowserProxyImpl.setInstance(proxy);
+    toolbarProxy = new TestToolbarBrowserProxy();
+    ToolbarBrowserProxyImpl.setInstance(toolbarProxy);
 
     loadTimeData.overrideValues({
       contextManagementInComposeboxEnabled: false,
@@ -95,12 +99,15 @@ suite('UnboundedMenuTest', () => {
       await microtasksFinished();
 
       assertTrue(hideUnboundedCalled, 'hideUnboundedCalled should be true');
-      assertFalse(
+      // The `unbounded` attribute stays in sync with the menu's unbounded mode,
+      // which remains enabled after close. hideUnboundedElement() tears down
+      // the native surface.
+      assertTrue(
           dialogEl.hasAttribute('unbounded'),
-          'dialogEl should not have unbounded attribute');
+          'dialogEl should have unbounded attribute');
 
       const [tabId, url] =
-          await proxy.handler.whenCalled('onTabClickedFromSourcesMenu');
+          await toolbarProxy.handler.whenCalled('onTabClickedFromSourcesMenu');
       assertEquals(tabId, 1);
       assertDeepEquals(url, tab.url);
     });
@@ -170,7 +177,50 @@ suite('UnboundedMenuTest', () => {
       menu.close();
       await microtasksFinished();
       assertTrue(hideUnboundedCalled);
-      assertFalse(dialogEl.hasAttribute('unbounded'));
+      // The `unbounded` attribute stays in sync with the menu's unbounded mode,
+      // which remains enabled after close. hideUnboundedElement() tears down
+      // the native surface.
+      assertTrue(dialogEl.hasAttribute('unbounded'));
+    });
+
+    test('stays usable when unbounded API is unsupported', async () => {
+      const original =
+          (HTMLElement.prototype as unknown as
+           Record<string, unknown>)['showUnboundedElement'];
+      delete (
+          HTMLElement.prototype as unknown as
+          Record<string, unknown>)['showUnboundedElement'];
+
+      try {
+        const moreButton =
+            topToolbar.shadowRoot.querySelector<CrIconButtonElement>(
+                '#overflowMenuButton');
+        assertTrue(!!moreButton);
+        moreButton.click();
+        await microtasksFinished();
+
+        const menu = topToolbar.$.overflowMenu.get();
+        const dialogEl = menu.$.menu.getDialog();
+        // Regression test for b/560101585. If the platform does not support
+        // unbounded elements (e.g. Android < U), showAt() must open the menu
+        // as a normal bounded menu without setting 'unbounded'.
+        assertFalse(
+            dialogEl.hasAttribute('unbounded'),
+            'unbounded attribute should not be set when API is unsupported');
+        const crActionMenu = menu.shadowRoot.querySelector<CrActionMenuElement>(
+            'cr-action-menu');
+        assertTrue(!!crActionMenu);
+        assertTrue(crActionMenu.open, 'menu should remain open');
+        assertTrue(
+            dialogEl.checkVisibility({visibilityProperty: true}),
+            'menu should still be visible');
+        menu.close();
+      } finally {
+        if (original !== undefined) {
+          (HTMLElement.prototype as unknown as
+           Record<string, unknown>)['showUnboundedElement'] = original;
+        }
+      }
     });
   });
 });

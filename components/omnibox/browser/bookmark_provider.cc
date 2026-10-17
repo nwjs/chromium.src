@@ -37,7 +37,7 @@ using bookmarks::BookmarkNode;
 using bookmarks::TitledUrlMatch;
 
 BookmarkProvider::BookmarkProvider(AutocompleteProviderClient* client)
-    : AutocompleteProvider(AutocompleteProvider::TYPE_BOOKMARK),
+    : AutocompleteProvider(AutocompleteProvider::Type::kBookmark),
       client_(client),
       bookmark_model_(client ? client_->GetBookmarkModel() : nullptr) {}
 
@@ -110,9 +110,9 @@ void BookmarkProvider::DoAutocomplete(const AutocompleteInput& input) {
         CalculateBookmarkMatchRelevance(bookmark_match);
     if (relevance > 0) {
       AutocompleteMatch match = TitledUrlMatchToAutocompleteMatch(
-          bookmark_match, AutocompleteMatchType::BOOKMARK_TITLE, relevance,
-          bookmark_count, this, client_->GetSchemeClassifier(), adjusted_input,
-          fixed_up_input);
+          bookmark_match, omnibox::AutocompleteMatchType::kBookmarkTitle,
+          relevance, bookmark_count, this, client_->GetSchemeClassifier(),
+          adjusted_input, fixed_up_input);
       // If the input was in a starter pack keyword scope, set the `keyword` and
       // `transition` appropriately to avoid popping the user out of keyword
       // mode.

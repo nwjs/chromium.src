@@ -6,9 +6,8 @@
 #define CHROME_UPDATER_NET_CHUNK_QUEUE_H_
 
 #import <Foundation/Foundation.h>
-
-#include <cstddef>
-#include <cstdint>
+#include <stddef.h>
+#include <stdint.h>
 
 #include "base/containers/span.h"
 #include "base/functional/callback.h"

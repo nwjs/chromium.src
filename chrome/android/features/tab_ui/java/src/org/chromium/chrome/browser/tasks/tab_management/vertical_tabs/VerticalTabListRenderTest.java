@@ -53,8 +53,6 @@ import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.actor.ui.ActorUiTabController.UiTabState;
-import org.chromium.chrome.browser.actor.ui.TabIndicatorStatus;
 import org.chromium.chrome.browser.collaboration.CollaborationServiceFactory;
 import org.chromium.chrome.browser.compositor.overlays.strip.TabContextMenuCoordinator;
 import org.chromium.chrome.browser.compositor.overlays.strip.TabContextMenuCoordinator.AnchorInfo;
@@ -165,10 +163,9 @@ public class VerticalTabListRenderTest {
 
     @Before
     public void setUp() throws Exception {
-        // ClankGlicContextMenu is force-enabled on desktop Android (see
-        // chrome_browser_field_trials.cc), and the tab context menu tests below build the menu
-        // with a mock Profile. Short-circuit the Glic enablement checks so the menu code never
-        // calls into native with a Profile that has no native counterpart, which would crash the
+        // The tab context menu tests below build the menu with a mock Profile. Short-circuit the
+        // Glic enablement checks in case ClankGlicContextMenu is enabled via fieldtrial config so
+        // mock Profiles without a native counterpart do not call into JNI, which would crash the
         // test process.
         GlicEnabling.setEnabledForTesting(false);
         mActivityTestRule.launchActivity(null);
@@ -200,6 +197,19 @@ public class VerticalTabListRenderTest {
                                         config, mActivity.getResources().getDisplayMetrics());
                     });
         }
+    }
+
+    private VerticalTabItemLayout inflateAndAttachTabItemView() {
+        return (VerticalTabItemLayout) inflateAndAttachView(R.layout.vertical_tab_item);
+    }
+
+    /** Mirrors the pinned tab view factory: inflate the shared row and switch it to pinned mode. */
+    private VerticalTabItemLayout inflateAndAttachPinnedTabItemView(int contentWidthPx) {
+        VerticalTabItemLayout view =
+                (VerticalTabItemLayout)
+                        inflateAndAttachView(R.layout.vertical_tab_item, contentWidthPx);
+        view.configureAsPinnedTab();
+        return view;
     }
 
     private ViewGroup inflateAndAttachView(int layoutResId) {
@@ -300,15 +310,13 @@ public class VerticalTabListRenderTest {
     @Feature({"RenderTest"})
     public void testStandardTab_ActorIndicator_Dynamic() throws IOException {
         if (mIsIncognito) return;
-        ViewGroup[] view = new ViewGroup[1];
+        VerticalTabItemLayout[] view = new VerticalTabItemLayout[1];
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    view[0] = inflateAndAttachView(R.layout.vertical_tab_item);
-                    UiTabState uiTabState =
-                            new UiTabState(0, null, null, TabIndicatorStatus.DYNAMIC, false);
+                    view[0] = inflateAndAttachTabItemView();
                     PropertyModel model =
                             createTabListItemModelBuilder("AI Tab", /* groupId= */ null)
-                                    .with(TabProperties.ACTOR_UI_STATE, uiTabState)
+                                    .with(TabProperties.ALERT_STATE, TabAlert.ACTOR_ACCESSING)
                                     .with(
                                             TabProperties.TAB_ACTION_BUTTON_DATA,
                                             new TabActionButtonData(
@@ -327,15 +335,13 @@ public class VerticalTabListRenderTest {
     @Feature({"RenderTest"})
     public void testStandardTab_ActorIndicator_Static() throws IOException {
         if (mIsIncognito) return;
-        ViewGroup[] view = new ViewGroup[1];
+        VerticalTabItemLayout[] view = new VerticalTabItemLayout[1];
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    view[0] = inflateAndAttachView(R.layout.vertical_tab_item);
-                    UiTabState uiTabState =
-                            new UiTabState(0, null, null, TabIndicatorStatus.STATIC, false);
+                    view[0] = inflateAndAttachTabItemView();
                     PropertyModel model =
                             createTabListItemModelBuilder("AI Tab", /* groupId= */ null)
-                                    .with(TabProperties.ACTOR_UI_STATE, uiTabState)
+                                    .with(TabProperties.ALERT_STATE, TabAlert.ACTOR_WAITING_ON_USER)
                                     .with(
                                             TabProperties.TAB_ACTION_BUTTON_DATA,
                                             new TabActionButtonData(
@@ -354,10 +360,10 @@ public class VerticalTabListRenderTest {
     @Feature({"RenderTest"})
     public void testStandardTab_GlicIndicator_Active() throws IOException {
         if (mIsIncognito) return;
-        ViewGroup[] view = new ViewGroup[1];
+        VerticalTabItemLayout[] view = new VerticalTabItemLayout[1];
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    view[0] = inflateAndAttachView(R.layout.vertical_tab_item);
+                    view[0] = inflateAndAttachTabItemView();
                     PropertyModel model =
                             createTabListItemModelBuilder("Glic Tab", /* groupId= */ null)
                                     .with(TabProperties.IS_GLIC_ACTIVE, true)
@@ -379,10 +385,10 @@ public class VerticalTabListRenderTest {
     @Feature({"RenderTest"})
     public void testChildTab_GlicIndicator_Active() throws IOException {
         if (mIsIncognito) return;
-        ViewGroup[] view = new ViewGroup[1];
+        VerticalTabItemLayout[] view = new VerticalTabItemLayout[1];
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    view[0] = inflateAndAttachView(R.layout.vertical_tab_item);
+                    view[0] = inflateAndAttachTabItemView();
                     PropertyModel model =
                             createTabListItemModelBuilder(
                                             "Child Glic Tab", /* groupId= */ Token.createRandom())
@@ -405,16 +411,14 @@ public class VerticalTabListRenderTest {
     @Feature({"RenderTest"})
     public void testChildTab_ActorIndicator_Dynamic() throws IOException {
         if (mIsIncognito) return;
-        ViewGroup[] view = new ViewGroup[1];
+        VerticalTabItemLayout[] view = new VerticalTabItemLayout[1];
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    view[0] = inflateAndAttachView(R.layout.vertical_tab_item);
-                    UiTabState uiTabState =
-                            new UiTabState(0, null, null, TabIndicatorStatus.DYNAMIC, false);
+                    view[0] = inflateAndAttachTabItemView();
                     PropertyModel model =
                             createTabListItemModelBuilder(
                                             "Child AI Tab", /* groupId= */ Token.createRandom())
-                                    .with(TabProperties.ACTOR_UI_STATE, uiTabState)
+                                    .with(TabProperties.ALERT_STATE, TabAlert.ACTOR_ACCESSING)
                                     .with(
                                             TabProperties.TAB_ACTION_BUTTON_DATA,
                                             new TabActionButtonData(
@@ -433,16 +437,14 @@ public class VerticalTabListRenderTest {
     @Feature({"RenderTest"})
     public void testStandardTab_Active_ActorIndicator_Dynamic() throws IOException {
         if (mIsIncognito) return;
-        ViewGroup[] view = new ViewGroup[1];
+        VerticalTabItemLayout[] view = new VerticalTabItemLayout[1];
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    view[0] = inflateAndAttachView(R.layout.vertical_tab_item);
-                    UiTabState uiTabState =
-                            new UiTabState(0, null, null, TabIndicatorStatus.DYNAMIC, false);
+                    view[0] = inflateAndAttachTabItemView();
                     PropertyModel model =
                             createTabListItemModelBuilder("Active AI Tab", /* groupId= */ null)
                                     .with(TabProperties.IS_SELECTED, true)
-                                    .with(TabProperties.ACTOR_UI_STATE, uiTabState)
+                                    .with(TabProperties.ALERT_STATE, TabAlert.ACTOR_ACCESSING)
                                     .with(
                                             TabProperties.TAB_ACTION_BUTTON_DATA,
                                             new TabActionButtonData(
@@ -461,16 +463,14 @@ public class VerticalTabListRenderTest {
     @Feature({"RenderTest"})
     public void testStandardTab_Active_ActorIndicator_Static() throws IOException {
         if (mIsIncognito) return;
-        ViewGroup[] view = new ViewGroup[1];
+        VerticalTabItemLayout[] view = new VerticalTabItemLayout[1];
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    view[0] = inflateAndAttachView(R.layout.vertical_tab_item);
-                    UiTabState uiTabState =
-                            new UiTabState(0, null, null, TabIndicatorStatus.STATIC, false);
+                    view[0] = inflateAndAttachTabItemView();
                     PropertyModel model =
                             createTabListItemModelBuilder("Active AI Tab", /* groupId= */ null)
                                     .with(TabProperties.IS_SELECTED, true)
-                                    .with(TabProperties.ACTOR_UI_STATE, uiTabState)
+                                    .with(TabProperties.ALERT_STATE, TabAlert.ACTOR_WAITING_ON_USER)
                                     .with(
                                             TabProperties.TAB_ACTION_BUTTON_DATA,
                                             new TabActionButtonData(
@@ -489,10 +489,10 @@ public class VerticalTabListRenderTest {
     @Feature({"RenderTest"})
     public void testStandardTab_AlertIndicator() throws IOException {
         if (mIsIncognito) return;
-        ViewGroup[] view = new ViewGroup[1];
+        VerticalTabItemLayout[] view = new VerticalTabItemLayout[1];
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    view[0] = inflateAndAttachView(R.layout.vertical_tab_item);
+                    view[0] = inflateAndAttachTabItemView();
                     PropertyModel model =
                             createTabListItemModelBuilder("Media Tab", /* groupId= */ null)
                                     .with(TabProperties.ALERT_STATE, TabAlert.AUDIO_PLAYING)
@@ -516,17 +516,14 @@ public class VerticalTabListRenderTest {
         if (mIsIncognito) return;
         LocalizationUtils.setRtlForTesting(true);
         try {
-            ViewGroup[] view = new ViewGroup[1];
+            VerticalTabItemLayout[] view = new VerticalTabItemLayout[1];
             ThreadUtils.runOnUiThreadBlocking(
                     () -> {
-                        view[0] = inflateAndAttachView(R.layout.vertical_tab_item);
-                        UiTabState uiTabState =
-                                new UiTabState(0, null, null, TabIndicatorStatus.DYNAMIC, false);
+                        view[0] = inflateAndAttachTabItemView();
                         PropertyModel model =
                                 createTabListItemModelBuilder("AI Media Tab", /* groupId= */ null)
                                         .with(TabProperties.IS_GLIC_ACTIVE, true)
-                                        .with(TabProperties.ACTOR_UI_STATE, uiTabState)
-                                        .with(TabProperties.ALERT_STATE, TabAlert.AUDIO_PLAYING)
+                                        .with(TabProperties.ALERT_STATE, TabAlert.ACTOR_ACCESSING)
                                         .with(
                                                 TabProperties.TAB_ACTION_BUTTON_DATA,
                                                 new TabActionButtonData(
@@ -607,12 +604,10 @@ public class VerticalTabListRenderTest {
     @MediumTest
     @Feature({"RenderTest"})
     public void testPinnedTab_GlicIndicator_Active() throws IOException {
-        ViewGroup[] view = new ViewGroup[1];
+        VerticalTabItemLayout[] view = new VerticalTabItemLayout[1];
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    view[0] =
-                            inflateAndAttachView(
-                                    R.layout.vertical_tab_pinned_item, mPinnedItemWidthPx);
+                    view[0] = inflateAndAttachPinnedTabItemView(mPinnedItemWidthPx);
                     PropertyModel model =
                             createTabListItemModelBuilder(
                                             (mIsIncognito ? "Incognito " : "") + "Pinned Tab",
@@ -1228,7 +1223,8 @@ public class VerticalTabListRenderTest {
                                     /* onNewTabClick= */ () -> {},
                                     /* canActivateTabLayoutToggleMenuSupplier= */ () ->
                                             canToggleLayout,
-                                    TabContextMenuCoordinator.TabStripLayoutType.VERTICAL);
+                                    TabContextMenuCoordinator.TabStripLayoutType.VERTICAL,
+                                    /* onMenuDismissedCallback= */ null);
 
                     // Generate the complete menu list with all rows, dividers, text, click
                     // delegates.
@@ -1367,7 +1363,9 @@ public class VerticalTabListRenderTest {
                                         /* modalDialogManager= */ null,
                                         TabClosingSource.VERTICAL_TAB_STRIP,
                                         () -> canToggleLayout,
-                                        TabContextMenuCoordinator.TabStripLayoutType.VERTICAL);
+                                        TabContextMenuCoordinator.TabStripLayoutType.VERTICAL,
+                                        /* tabGroupUiActionHandler= */ null,
+                                        /* onMenuDismissedCallback= */ null);
 
                         View menuContentView =
                                 coordinatorHolder[0].buildMenuView(anchorInfo, mIsIncognito);
@@ -1509,10 +1507,10 @@ public class VerticalTabListRenderTest {
             boolean isHovered,
             String goldenName)
             throws IOException {
-        ViewGroup[] view = new ViewGroup[1];
+        VerticalTabItemLayout[] view = new VerticalTabItemLayout[1];
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    view[0] = inflateAndAttachView(R.layout.vertical_tab_item);
+                    view[0] = inflateAndAttachTabItemView();
                     PropertyModel model =
                             createTabListItemModelBuilder(
                                             (mIsIncognito ? "Incognito " : "") + title,
@@ -1549,10 +1547,10 @@ public class VerticalTabListRenderTest {
 
     private void testStandardTabMultiSelected(String title, boolean isHovered, String goldenName)
             throws IOException {
-        ViewGroup[] view = new ViewGroup[1];
+        VerticalTabItemLayout[] view = new VerticalTabItemLayout[1];
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    view[0] = inflateAndAttachView(R.layout.vertical_tab_item);
+                    view[0] = inflateAndAttachTabItemView();
                     PropertyModel model =
                             createTabListItemModelBuilder(
                                             (mIsIncognito ? "Incognito " : "") + title,
@@ -1594,12 +1592,10 @@ public class VerticalTabListRenderTest {
             boolean isHovered,
             String goldenName)
             throws IOException {
-        ViewGroup[] view = new ViewGroup[1];
+        VerticalTabItemLayout[] view = new VerticalTabItemLayout[1];
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    view[0] =
-                            inflateAndAttachView(
-                                    R.layout.vertical_tab_pinned_item, mPinnedItemWidthPx);
+                    view[0] = inflateAndAttachPinnedTabItemView(mPinnedItemWidthPx);
                     PropertyModel model =
                             createTabListItemModelBuilder(
                                             (mIsIncognito ? "Incognito " : "") + title,
@@ -1632,12 +1628,10 @@ public class VerticalTabListRenderTest {
 
     private void testPinnedTabMultiSelected(String title, boolean isHovered, String goldenName)
             throws IOException {
-        ViewGroup[] view = new ViewGroup[1];
+        VerticalTabItemLayout[] view = new VerticalTabItemLayout[1];
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    view[0] =
-                            inflateAndAttachView(
-                                    R.layout.vertical_tab_pinned_item, mPinnedItemWidthPx);
+                    view[0] = inflateAndAttachPinnedTabItemView(mPinnedItemWidthPx);
                     PropertyModel model =
                             createTabListItemModelBuilder(
                                             (mIsIncognito ? "Incognito " : "") + title,
@@ -1888,7 +1882,7 @@ public class VerticalTabListRenderTest {
                 TabVerticalViewBinder::bindTabGroupHeader);
         adapter.registerType(
                 UiType.TAB,
-                parent -> inflateView(R.layout.vertical_tab_item, parent),
+                parent -> (VerticalTabItemLayout) inflateView(R.layout.vertical_tab_item, parent),
                 TabVerticalViewBinder::bindTab);
         return adapter;
     }
@@ -1897,7 +1891,12 @@ public class VerticalTabListRenderTest {
         SimpleRecyclerViewAdapter adapter = new SimpleRecyclerViewAdapter(pinnedTabsModel);
         adapter.registerType(
                 UiType.PINNED_TAB,
-                parent -> inflateView(R.layout.vertical_tab_pinned_item, parent),
+                parent -> {
+                    VerticalTabItemLayout view =
+                            (VerticalTabItemLayout) inflateView(R.layout.vertical_tab_item, parent);
+                    view.configureAsPinnedTab();
+                    return view;
+                },
                 TabVerticalViewBinder::bindPinnedTab);
         return adapter;
     }

@@ -13,7 +13,6 @@
 #include <vector>
 
 #include "ash/app_list/app_list_view_delegate.h"
-#include "ash/app_list/apps_collections_controller.h"
 #include "ash/public/cpp/app_list/app_list_client.h"
 #include "ash/public/cpp/app_list/app_list_controller.h"
 #include "ash/public/cpp/app_list/app_list_features.h"
@@ -37,7 +36,6 @@
 #include "chrome/browser/ash/app_list/app_list_controller_delegate.h"
 #include "chrome/browser/ash/app_list/app_list_model_updater.h"
 #include "chrome/browser/ash/app_list/app_list_notifier_impl.h"
-#include "chrome/browser/ash/app_list/app_list_survey_handler.h"
 #include "chrome/browser/ash/app_list/app_list_syncable_service.h"
 #include "chrome/browser/ash/app_list/app_list_syncable_service_factory.h"
 #include "chrome/browser/ash/app_list/app_sync_ui_state_watcher.h"
@@ -171,7 +169,7 @@ AppListClientImpl::AppListClientImpl(PrefService* local_state,
   user_manager->AddSessionStateObserver(this);
   session_manager::SessionManager::Get()->AddObserver(this);
 
-  DCHECK(!g_app_list_client_instance);
+  CHECK(!g_app_list_client_instance, base::NotFatalUntil::M160);
   g_app_list_client_instance = this;
 
   app_list_notifier_ =
@@ -188,7 +186,7 @@ AppListClientImpl::~AppListClientImpl() {
 
   session_manager::SessionManager::Get()->RemoveObserver(this);
 
-  DCHECK_EQ(this, g_app_list_client_instance);
+  CHECK_EQ(this, g_app_list_client_instance, base::NotFatalUntil::M160);
   g_app_list_client_instance = nullptr;
 
   if (app_list_controller_) {
@@ -261,8 +259,10 @@ void AppListClientImpl::OpenSearchResult(int profile_id,
   }
 
   auto requested_model_updater_iter = profile_model_mappings_.find(profile_id);
-  DCHECK(requested_model_updater_iter != profile_model_mappings_.end());
-  DCHECK_EQ(current_model_updater_, requested_model_updater_iter->second);
+  CHECK(requested_model_updater_iter != profile_model_mappings_.end(),
+        base::NotFatalUntil::M160);
+  CHECK_EQ(current_model_updater_, requested_model_updater_iter->second,
+           base::NotFatalUntil::M160);
 
   ChromeSearchResult* result = search_controller_->FindSearchResult(result_id);
   if (!result) {
@@ -381,7 +381,7 @@ void AppListClientImpl::ActivateItem(int profile_id,
   CHECK_EQ(requested_model_updater, current_model_updater_);
 
   MaybeRecordLauncherAction(launched_from);
-  MaybeRecordActivatedItemVisibility(id, launched_from, is_above_the_fold);
+  MaybeRecordActivatedItemVisibility(id, is_above_the_fold);
   requested_model_updater->ActivateChromeItem(id, event_flags);
 }
 
@@ -412,26 +412,6 @@ void AppListClientImpl::OnAppListVisibilityWillChange(bool visible) {
   }
 }
 
-void AppListClientImpl::MaybeRecalculateAppsGridDefaultOrder() {
-  // Do not attempt to calculate the experimental arm if the active
-  // profile is not the primary profile.
-  if (!IsPrimaryProfile(user_manager_.get(),
-                        ProfileManager::GetActiveUserProfile())) {
-    return;
-  }
-
-  ash::AppsCollectionsController* apps_collections_controller =
-      ash::AppsCollectionsController::Get();
-  apps_collections_controller->CalculateExperimentalArm();
-  if (apps_collections_controller->GetUserExperimentalArm() !=
-      ash::AppsCollectionsController::ExperimentalArm::kModifiedOrder) {
-    return;
-  }
-  CHECK(current_model_updater_);
-
-  current_model_updater_->RequestDefaultPositionForModifiedOrder();
-}
-
 void AppListClientImpl::OnAppListVisibilityChanged(bool visible) {
   app_list_visible_ = visible;
   if (visible) {
@@ -440,11 +420,7 @@ void AppListClientImpl::OnAppListVisibilityChanged(bool visible) {
       window->SetProperty(constrained_window::kModalDialogHostKey,
                           static_cast<web_modal::ModalDialogHost*>(this));
     }
-    RecordViewShown(
-        ash::AppsCollectionsController::Get()->ShouldShowAppsCollection());
-    if (survey_handler_) {
-      survey_handler_->MaybeTriggerSurvey();
-    }
+    RecordViewShown();
   } else if (current_model_updater_) {
     current_model_updater_->OnAppListHidden();
     // If the user started search, record no action if a result open event has
@@ -507,7 +483,7 @@ void AppListClientImpl::SetProfile(Profile* new_profile) {
   }
 
   if (profile_) {
-    DCHECK(current_model_updater_);
+    CHECK(current_model_updater_, base::NotFatalUntil::M160);
     current_model_updater_->SetActive(false);
 
     search_controller_.reset();
@@ -597,7 +573,7 @@ void AppListClientImpl::OnSessionStateChanged() {
 }
 
 void AppListClientImpl::OnTemplateURLServiceChanged() {
-  DCHECK(current_model_updater_);
+  CHECK(current_model_updater_, base::NotFatalUntil::M160);
 
   const TemplateURL* default_provider =
       template_url_service_->GetDefaultSearchProvider();
@@ -707,13 +683,9 @@ void AppListClientImpl::OnUserProfileCreated(const user_manager::User& user) {
             return;
           }
           self->is_primary_profile_new_user_ = was_first_sync_ever;
-          if (was_first_sync_ever) {
-            self->MaybeRecalculateAppsGridDefaultOrder();
-          }
         },
         weak_ptr_factory_.GetWeakPtr()));
   }
-  survey_handler_ = std::make_unique<app_list::AppListSurveyHandler>(profile);
 }
 
 ash::AppListNotifier* AppListClientImpl::GetNotifier() {
@@ -788,7 +760,7 @@ ash::AppListSortOrder AppListClientImpl::GetPermanentSortingOrder() const {
       ->GetPermanentSortingOrder();
 }
 
-void AppListClientImpl::RecordViewShown(bool is_app_collections_shown) {
+void AppListClientImpl::RecordViewShown() {
   base::RecordAction(base::UserMetricsAction("Launcher_Show"));
 
   // Record the time duration between session activation and the first launcher
@@ -802,7 +774,7 @@ void AppListClientImpl::RecordViewShown(bool is_app_collections_shown) {
   // TODO(crbug.com/40767698): If this bug is fixed, we might need to
   // do some changes here.
   if (!user_manager_->IsCurrentUserNew()) {
-    DCHECK(!state_for_new_user_);
+    CHECK(!state_for_new_user_, base::NotFatalUntil::M160);
     return;
   }
 
@@ -854,12 +826,6 @@ void AppListClientImpl::RecordViewShown(bool is_app_collections_shown) {
           "ClamshellMode",
           /*sample=*/opening_duration, kTimeMetricsMin, kTimeMetricsMax,
           kTimeMetricsBucketCount);
-      if (is_app_collections_shown) {
-        base::UmaHistogramTimes(
-            "Apps."
-            "TimeDurationBetweenNewUserSessionActivationAndAppsCollectionShown",
-            opening_duration);
-      }
     }
   }
 }
@@ -895,19 +861,19 @@ void AppListClientImpl::RecordOpenedResultFromSearchBox(
 
 void AppListClientImpl::MaybeRecordLauncherAction(
     ash::AppListLaunchedFrom launched_from) {
-  DCHECK(
+  CHECK(
       launched_from == ash::AppListLaunchedFrom::kLaunchedFromGrid ||
       launched_from == ash::AppListLaunchedFrom::kLaunchedFromRecentApps ||
       launched_from == ash::AppListLaunchedFrom::kLaunchedFromSearchBox ||
       launched_from == ash::AppListLaunchedFrom::kLaunchedFromContinueTask ||
       launched_from == ash::AppListLaunchedFrom::kLaunchedFromQuickAppAccess ||
-      launched_from == ash::AppListLaunchedFrom::kLaunchedFromAppsCollections ||
       launched_from == ash::AppListLaunchedFrom::kLaunchedFromDiscoveryChip ||
-      launched_from == ash::AppListLaunchedFrom::kLaunchedFromSearchBoxIcon);
+      launched_from == ash::AppListLaunchedFrom::kLaunchedFromSearchBoxIcon,
+      base::NotFatalUntil::M160);
 
   // Return early if the current user is not new.
   if (!user_manager_->IsCurrentUserNew()) {
-    DCHECK(!state_for_new_user_);
+    CHECK(!state_for_new_user_, base::NotFatalUntil::M160);
     return;
   }
 
@@ -925,7 +891,8 @@ void AppListClientImpl::MaybeRecordLauncherAction(
         "Apps.NewUserFirstLauncherAction.ClamshellMode", launched_from);
   }
 
-  DCHECK(new_user_session_activation_time_.has_value());
+  CHECK(new_user_session_activation_time_.has_value(),
+        base::NotFatalUntil::M160);
   const base::TimeDelta launcher_action_duration =
       base::Time::Now() - *new_user_session_activation_time_;
   if (launcher_action_duration >= base::TimeDelta()) {
@@ -951,7 +918,6 @@ void AppListClientImpl::MaybeRecordLauncherAction(
 
 void AppListClientImpl::MaybeRecordActivatedItemVisibility(
     const std::string& id,
-    ash::AppListLaunchedFrom launched_from,
     bool is_app_above_the_fold) {
   // Do not record this metric for tablet mode.
   if (display::Screen::Get()->InTabletMode()) {
@@ -964,17 +930,11 @@ void AppListClientImpl::MaybeRecordActivatedItemVisibility(
     return;
   }
 
-  const std::string_view app_list_page =
-      launched_from == ash::AppListLaunchedFrom::kLaunchedFromAppsCollections
-          ? "AppsCollectionsPage"
-          : "AppsPage";
   const std::string_view visibility =
       is_app_above_the_fold ? "AboveTheFold" : "BelowTheFold";
   base::UmaHistogramEnumeration(
-      base::StrCat({"Apps.AppListBubble.", app_list_page,
-                    ".AppLaunchesByVisibility.", visibility,
-                    ash::AppsCollectionsController::Get()
-                        ->GetUserExperimentalArmAsHistogramSuffix()}),
+      base::StrCat(
+          {"Apps.AppListBubble.AppsPage.AppLaunchesByVisibility.", visibility}),
       default_app_name.value());
 }
 
@@ -998,21 +958,12 @@ void AppListClientImpl::RecordAppsDefaultVisibility(
     return;
   }
 
-  const std::string app_list_page =
-      is_apps_collections_page ? "AppsCollectionsPage" : "AppsPage";
-
   RecordDefaultAppsForHistogram(
-      base::StrCat({"Apps.AppListBubble.", app_list_page,
-                    ".AppVisibilityOnLauncherShown.AboveTheFold",
-                    ash::AppsCollectionsController::Get()
-                        ->GetUserExperimentalArmAsHistogramSuffix()}),
+      "Apps.AppListBubble.AppsPage.AppVisibilityOnLauncherShown.AboveTheFold",
       apps_above_the_fold);
 
   RecordDefaultAppsForHistogram(
-      base::StrCat({"Apps.AppListBubble.", app_list_page,
-                    ".AppVisibilityOnLauncherShown.BelowTheFold",
-                    ash::AppsCollectionsController::Get()
-                        ->GetUserExperimentalArmAsHistogramSuffix()}),
+      "Apps.AppListBubble.AppsPage.AppVisibilityOnLauncherShown.BelowTheFold",
       apps_below_the_fold);
 }
 

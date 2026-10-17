@@ -52,6 +52,8 @@
 <translation id="1965068424387304464">የChromium ጠቃሚ ምክር፦ የተቀመጡ የይለፍ ቃላት</translation>
 <translation id="1992653360331625459">ቀድሞውኑ በእርስዎ የይለፍ ቃል አስተዳዳሪ ውስጥ ለእነዚህ መለያዎች የይለፍ ቃላት አሉዎት። ከታች ካሉት የይለፍ ቃላት አንዱን ለማስመጣት ከመረጡ እሱ ነባሩን ይተካል።</translation>
 <translation id="2006345422933397527">Chromium ዝማኔዎች ካሉ መፈተሽ አልቻለም። የበይነመረብ ግንኙነትዎን ለመፈተሽ ይሞክሩ።</translation>
+<translation id="2025935492422922097">Chromium የገጽ ርዕሶችን እና ዩአርኤሎችን በደመና ውስጥ ባለ የግል ቦታ ውስጥ ያሰናዳል</translation>
+<translation id="2027881372245801507">ጥቆማዎችን ማጥፋት Chromium ለሌሎች ባህሪያት የገጽ ርዕሶችን እና ዩአርኤሎችን ማሰናዳቱን አይቆጣጠርም። የዚህን ውሂብ መዳረሻ በእርስዎ <ph name="BEGIN_LINK" />የሥምረት ቅንብሮች<ph name="END_LINK" /> ውስጥ ማስተዳደር ይችላሉ።</translation>
 <translation id="2042889939382983733">የእርስዎን የChromium ታሪክ ይመልከቱ</translation>
 <translation id="2052320862053429062">Chromium በየጊዜው የእርስዎን የይለፍ ቃላት መስመር ላይ ከታተሙ ዝርዝሮች ጋር እያነጻጸረ ይፈትሻል። ይህን በሚያደርግበት ጊዜ የእርስዎ የይለፍ ቃላት እና የተጠቃሚ ስሞች Googleን ጨምሮ በሌላ ማንም ወገን እንዳይነበቡ ይመሠጠራሉ።</translation>
 <translation id="2059365270911640413">Chromium ማዋቀርን ያጠናቅቁ</translation>
@@ -104,6 +106,7 @@
 <translation id="3072591112723064972">አገናኞችን እዚህ በቅጽበት ለማስጀመር Chromiumን ነባሪ አሳሽዎ ያድርጉ።</translation>
 <translation id="3115956258722352278">Chromium የእርስዎ ነባሪ አሳሽ ይደረግ?</translation>
 <translation id="3180939591219927904">Chromium በሚዘጉበት ጊዜ «ማንነት የማያሳውቁ ትሮችን ይቆልፉ» የሚለውን ያብሩ</translation>
+<translation id="3239426886813624481">አካባቢዎን ለድር ጣቢያዎች ለማጋራት Chromium አካባቢዎን እንዲጠቀም ለመፍቀድ ቅንብሮች ላይ መታ ያድርጉ።</translation>
 <translation id="327628223428512207">ይህን የይለፍ ቃል ለማስቀመጥ እና በሁሉም መሣሪያዎችዎ ላይ የChromium ውሂብን ለማግኘት የይለፍ ሐረግ ያስገቡ</translation>
 <translation id="328933489847748230">{count,plural, =1{አሁን 1 Chromium መስኮትን በማሳየት ላይ}one{አሁን {count} Chromium መስኮቶችን በማሳየት ላይ}other{አሁን {count} Chromium መስኮቶችን በማሳየት ላይ}}</translation>
 <translation id="3344204225393848305">Chromiumን እንደ ነባሪ አቀናብር</translation>
@@ -350,6 +353,8 @@
 <translation id="865600487977764604">በChromium ላይ ደህንነትዎን ይጠብቃል እና በመለያ በገቡባቸው ሌሎች የGoogle መተግበሪያዎች ላይ ደህንነትዎን ለማሻሻል ሥራ ላይ ሊውል ይችላል።</translation>
 <translation id="8663480472502753423">Chromiumን እንደተዘመነ ያቆዩ</translation>
 <translation id="8685813584220679697">ወደዚህ ጣቢያ እና Chromium ይግቡ።</translation>
+<translation id="8697693743327341604">አንድን ጥቆማ ከመረጡ ወይም ችላ ካሉ፣ Chromium ወደፊት ይበልጥ አግባብነት ያላቸው ጥቆማዎችን ለእርስዎ ለማሳየት እንዲያግዝ ይጣጣማል።</translation>
+<translation id="869832267508702259">በሚያስሱበት ማንኛውም ቦታ የGemini ግንዛቤዎችን ለማግኘት Chromiumን የእርስዎ ነባሪ ያድርጉት</translation>
 <translation id="8698780336333802489">ወደ Chromium አምጣ</translation>
 <translation id="8730503818204408000">Chromiumን እንደ ነባሪ አሳሸ ለማቀናበር የChromium ቅንብርን ይከፍታል።</translation>
 <translation id="8754966941001340678">Chromium የላቀ ጥበቃን ይመክራል</translation>

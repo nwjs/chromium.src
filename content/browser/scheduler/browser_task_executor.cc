@@ -10,6 +10,7 @@
 #include "base/functional/bind.h"
 #include "base/message_loop/message_pump_type.h"
 #include "base/run_loop.h"
+#include "base/system/sys_info.h"
 #include "base/task/deferred_sequenced_task_runner.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
@@ -87,6 +88,18 @@ QueueType BrowserTaskExecutor::GetQueueType(const BrowserTaskTraits& traits) {
     case BrowserTaskType::kUserInput:
       return QueueType::kUserInput;
 
+    case BrowserTaskType::kMainFrameNavigationNetworkResponse:
+      if (base::FeatureList::IsEnabled(
+              features::kPrioritizeMainFrameNavigationNetworkResponse) &&
+          base::FeatureList::IsEnabled(
+              features::kNavigationNetworkResponseQueue) &&
+          (!base::SysInfo::IsLowEndDevice() ||
+           features::
+               kPrioritizeMainFrameNavigationNetworkResponseEnableOnLowEndDevices
+                   .Get())) {
+        return QueueType::kMainFrameNavigationNetworkResponse;
+      }
+      [[fallthrough]];
     case BrowserTaskType::kNavigationNetworkResponse:
       if (base::FeatureList::IsEnabled(
               features::kNavigationNetworkResponseQueue)) {
@@ -137,7 +150,8 @@ BrowserTaskExecutor::~BrowserTaskExecutor() = default;
 
 // static
 void BrowserTaskExecutor::Create() {
-  DCHECK(!base::SingleThreadTaskRunner::HasCurrentDefault());
+  CHECK(!base::SingleThreadTaskRunner::HasCurrentDefault(),
+        base::NotFatalUntil::M160);
   CreateInternal(std::make_unique<BrowserUIThreadScheduler>(),
                  std::make_unique<BrowserIOThreadDelegate>());
 }
@@ -154,7 +168,7 @@ void BrowserTaskExecutor::CreateForTesting(
 void BrowserTaskExecutor::CreateInternal(
     std::unique_ptr<BrowserUIThreadScheduler> browser_ui_thread_scheduler,
     std::unique_ptr<BrowserIOThreadDelegate> browser_io_thread_delegate) {
-  DCHECK(!g_browser_task_executor);
+  CHECK(!g_browser_task_executor, base::NotFatalUntil::M160);
 
   g_browser_task_executor =
       new BrowserTaskExecutor(std::move(browser_ui_thread_scheduler),
@@ -220,7 +234,7 @@ void BrowserTaskExecutor::Shutdown() {
     return;
   }
 
-  DCHECK(Get()->browser_ui_thread_scheduler_);
+  CHECK(Get()->browser_ui_thread_scheduler_, base::NotFatalUntil::M160);
   // We don't delete |g_browser_task_executor| because other threads may
   // PostTask or call BrowserTaskExecutor::GetTaskRunner while we're tearing
   // things down. We don't want to add locks so we just leak instead of dealing
@@ -235,7 +249,7 @@ void BrowserTaskExecutor::Shutdown() {
 // static
 void BrowserTaskExecutor::RunAllPendingTasksOnThreadForTesting(
     BrowserThread::ID identifier) {
-  DCHECK(Get());
+  CHECK(Get(), base::NotFatalUntil::M160);
 
   base::RunLoop run_loop(base::RunLoop::Type::kNestableTasksAllowed);
 
@@ -280,7 +294,7 @@ void BrowserTaskExecutor::InitializeIOThread() {
 }
 
 std::unique_ptr<BrowserProcessIOThread> BrowserTaskExecutor::CreateIOThread() {
-  DCHECK(Get()->browser_io_thread_delegate_);
+  CHECK(Get()->browser_io_thread_delegate_, base::NotFatalUntil::M160);
 
   TRACE_EVENT0("startup", "BrowserTaskExecutor::CreateIOThread");
 

@@ -40,7 +40,8 @@ import {loadTimeData} from '../i18n_setup.js';
 import {routes} from '../route.js';
 import type {Route} from '../router.js';
 import {RouteObserverMixin, Router} from '../router.js';
-import type {SettingsMainElement} from '../settings_main/settings_main.js';
+import {SearchMetricsRecorder} from '../search_metrics_recorder.js';
+import type {SearchFinishedDetail, SettingsMainElement} from '../settings_main/settings_main.js';
 import type {SettingsMenuElement} from '../settings_menu/settings_menu.js';
 
 import {getTemplate} from './settings_ui.html.js';
@@ -56,6 +57,7 @@ export interface SettingsUiElement {
     container: HTMLElement,
     drawer: CrDrawerElement,
     drawerTemplate: DomIf,
+    left: HTMLElement,
     leftMenu: SettingsMenuElement,
     main: SettingsMainElement,
     scrollableShadow: HTMLElement,
@@ -99,6 +101,11 @@ export class SettingsUiElement extends SettingsUiElementBase {
         type: String,
         value: '',
       },
+
+      isSettingsRefresh2026_: {
+        type: Boolean,
+        value: () => loadTimeData.getString('settingsRefresh2026') !== '',
+      },
     };
   }
 
@@ -106,8 +113,12 @@ export class SettingsUiElement extends SettingsUiElementBase {
   declare private toolbarSpinnerActive_: boolean;
   declare private narrow_: boolean;
   declare private lastSearchQuery_: string;
+  declare private isSettingsRefresh2026_: boolean;
 
   private activeTimer_: ActiveTimer|null = null;
+
+  private searchMetricsRecorder_: SearchMetricsRecorder =
+      new SearchMetricsRecorder();
 
   constructor() {
     super();
@@ -177,6 +188,8 @@ export class SettingsUiElement extends SettingsUiElementBase {
           'WebUI.Settings.ActiveDuration', duration);
     });
     this.activeTimer_.start();
+
+    this.searchMetricsRecorder_.start();
   }
 
   override disconnectedCallback() {
@@ -189,6 +202,8 @@ export class SettingsUiElement extends SettingsUiElementBase {
       this.activeTimer_.stop();
       this.activeTimer_ = null;
     }
+
+    this.searchMetricsRecorder_.stop();
   }
 
   override currentRouteChanged(route: Route) {
@@ -257,6 +272,21 @@ export class SettingsUiElement extends SettingsUiElementBase {
   }
 
   /**
+   * Handles the 'search-finished' event fired from settings-main.
+   */
+  private onSearchFinished_(e: CustomEvent<SearchFinishedDetail>) {
+    this.searchMetricsRecorder_.onSearchFinished(
+        e.detail.query, e.detail.matchCount);
+  }
+
+  /**
+   * Handles the 'search-result-interaction' event fired from settings-main.
+   */
+  private onSearchResultInteraction_() {
+    this.searchMetricsRecorder_.onSearchResultInteraction();
+  }
+
+  /**
    * Called when a section is selected.
    */
   private onIronActivate_() {
@@ -291,7 +321,22 @@ export class SettingsUiElement extends SettingsUiElementBase {
     });
   }
 
+  private getLeftMenuHidden_(): boolean {
+    return this.narrow_ && !this.isSettingsRefresh2026_;
+  }
+
+  private getLeftMenuCollapsed_(): boolean {
+    return this.narrow_ && this.isSettingsRefresh2026_;
+  }
+
   private onNarrowChanged_() {
+    // In SettingsRefresh2026, the left menu collapses instead of hiding and
+    // the drawer menu is not used, so focus does not need to move to the
+    // toolbar drawer button.
+    if (this.isSettingsRefresh2026_) {
+      return;
+    }
+
     if (this.$.drawer.open && !this.narrow_) {
       this.$.drawer.close();
     }

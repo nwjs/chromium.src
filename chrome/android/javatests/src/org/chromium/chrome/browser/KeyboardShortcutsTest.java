@@ -63,9 +63,11 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabRemover;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController;
+import org.chromium.components.policy.test.annotations.Policies;
 import org.chromium.content_public.browser.ContentFeatureList;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.ui.util.KeyEventUtils;
 import org.chromium.url.GURL;
 import org.chromium.url.JUnitTestGURLs;
 
@@ -239,6 +241,31 @@ public class KeyboardShortcutsTest {
         assertTrue("Expected key event to be handled", isKeyEventHandled);
         verify(mMenuOrKeyboardActionController, times(1))
                 .onMenuOrKeyboardAction(/* id= */ eq(R.id.close_window), /* fromMenu= */ eq(false));
+    }
+
+    @Test
+    @SmallTest
+    @Features.EnableFeatures(ChromeFeatureList.ANDROID_KEYBOARD_SHORTCUT_OPEN_FILE)
+    public void testOpenFile() {
+        boolean isKeyEventHandled =
+                keyDown(KeyEvent.KEYCODE_O, KeyEvent.META_CTRL_ON, /* isCurrentTabVisible= */ true);
+
+        assertTrue("Expected key event to be handled", isKeyEventHandled);
+        verify(mMenuOrKeyboardActionController, times(1))
+                .onMenuOrKeyboardAction(/* id= */ eq(R.id.open_file_id), /* fromMenu= */ eq(false));
+    }
+
+    @Test
+    @SmallTest
+    @Features.EnableFeatures(ChromeFeatureList.ANDROID_KEYBOARD_SHORTCUT_OPEN_FILE)
+    @Policies.Add({@Policies.Item(key = "AllowFileSelectionDialogs", string = "false")})
+    public void testOpenFile_disallowedByPolicy() {
+        boolean isKeyEventHandled =
+                keyDown(KeyEvent.KEYCODE_O, KeyEvent.META_CTRL_ON, /* isCurrentTabVisible= */ true);
+
+        assertTrue("Expected key event to be handled", isKeyEventHandled);
+        verify(mMenuOrKeyboardActionController, times(1))
+                .onMenuOrKeyboardAction(/* id= */ eq(R.id.open_file_id), /* fromMenu= */ eq(false));
     }
 
     @Test
@@ -737,15 +764,21 @@ public class KeyboardShortcutsTest {
                 .onMenuOrKeyboardAction(eq(R.id.toggle_caret_browsing), eq(false));
     }
 
-    /** Test that pressing F1 triggers the help action. */
+    /** Tests that pressing F1 from an alphabetic keyboard triggers the help action. */
     @Test
     @SmallTest
     public void testOpenHelp() {
-        // Ensure we handle F1 key
+        KeyEventUtils.setIsFromAlphabeticKeyboardForTesting(true);
         assertTrue(keyDown(KeyEvent.KEYCODE_F1, 0, true));
-
-        // Ensure we trigger the help action
         verify(mMenuOrKeyboardActionController).onMenuOrKeyboardAction(eq(R.id.help_id), eq(false));
+    }
+
+    /** Tests that pressing F1 is ignored when it does not come from an alphabetic keyboard. */
+    @Test
+    @SmallTest
+    public void testOpenHelp_nonAlphabeticKeyboard() {
+        KeyEventUtils.setIsFromAlphabeticKeyboardForTesting(false);
+        assertFalse(dispatchKeyEvent(KeyEvent.KEYCODE_F1, 0));
     }
 
     @Test

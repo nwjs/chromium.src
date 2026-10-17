@@ -5,21 +5,38 @@
 #ifndef CHROME_COMMON_REQUEST_HEADER_INTEGRITY_REQUEST_HEADER_INTEGRITY_URL_LOADER_THROTTLE_H_
 #define CHROME_COMMON_REQUEST_HEADER_INTEGRITY_REQUEST_HEADER_INTEGRITY_URL_LOADER_THROTTLE_H_
 
+#include <string>
+#include <vector>
+
+#include "base/memory/raw_ref.h"
+#include "services/network/public/mojom/network_context.mojom-forward.h"
 #include "third_party/blink/public/common/loader/url_loader_throttle.h"
+
+class GURL;
 
 namespace net {
 class HttpRequestHeaders;
 }
 
-namespace network::mojom {
-class NetworkContextParams;
-}
-
 namespace request_header_integrity {
+
+class ChromeCompaneroLoader;
 
 class RequestHeaderIntegrityURLLoaderThrottle
     : public blink::URLLoaderThrottle {
  public:
+  // The kind of request that the integrity headers are attached to. Selects
+  // which RequestHeaderIntegrity.DynamicHeaderPresent.{ResourceType} histogram
+  // is recorded.
+  enum class ResourceType {
+    // Top-level frame / window navigation.
+    kMainResource,
+    // Any other request, including iframe navigations.
+    kSubresource,
+    // Navigational prefetch, including its redirects.
+    kPrefetch,
+  };
+
   RequestHeaderIntegrityURLLoaderThrottle();
   RequestHeaderIntegrityURLLoaderThrottle(
       const RequestHeaderIntegrityURLLoaderThrottle&) = delete;
@@ -41,6 +58,13 @@ class RequestHeaderIntegrityURLLoaderThrottle
   static void UpdateCorsExemptHeaders(
       network::mojom::NetworkContextParams* params);
 
+  // Adds the integrity headers, and records whether the dynamic integrity
+  // header could be attached in the histogram for `resource_type`.
+  static void AddRequestIntegrityHeaders(
+      net::HttpRequestHeaders* headers,
+      ChromeCompaneroLoader& companero_loader,
+      ResourceType resource_type);
+
   // Called both for initial requests and upon redirects during prefetching.
   // - Adds the integrity header names to `removed_headers` in the case where
   //   the request is redirection from a target domain to a non-target domain
@@ -51,6 +75,21 @@ class RequestHeaderIntegrityURLLoaderThrottle
       const GURL& url,
       std::vector<std::string>& removed_headers,
       net::HttpRequestHeaders& modified_cors_exempt_headers);
+
+ protected:
+  // Test seam. Production code uses the default constructor, which binds
+  // ChromeCompaneroLoader::GetInstance(); tests derive from this class to
+  // inject their own loader. `companero_loader` must outlive `this`.
+  explicit RequestHeaderIntegrityURLLoaderThrottle(
+      ChromeCompaneroLoader& companero_loader);
+
+ private:
+  const raw_ref<ChromeCompaneroLoader> companero_loader_;
+
+  // Type of the request this throttle is attached to (throttles are
+  // per-request). Set in WillStartRequest() so that redirects are recorded in
+  // the same histogram as the request being redirected.
+  ResourceType resource_type_ = ResourceType::kSubresource;
 };
 
 }  // namespace request_header_integrity

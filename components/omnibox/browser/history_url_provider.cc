@@ -399,7 +399,7 @@ size_t HistoryURLProviderParams::EstimateMemoryUsage() const {
 
 HistoryURLProvider::HistoryURLProvider(AutocompleteProviderClient* client,
                                        AutocompleteProviderListener* listener)
-    : HistoryProvider(AutocompleteProvider::TYPE_HISTORY_URL, client),
+    : HistoryProvider(AutocompleteProvider::Type::kHistoryUrl, client),
       params_(nullptr),
       search_url_database_(OmniboxFieldTrial::HUPSearchDatabase()) {
   AddListener(listener);
@@ -1120,7 +1120,7 @@ AutocompleteMatch HistoryURLProvider::HistoryMatchToACMatch(
   bool deletable =
       !!info.visit_count() && client()->AllowDeletingBrowserHistory();
   AutocompleteMatch match(this, relevance, deletable,
-                          AutocompleteMatchType::HISTORY_URL);
+                          omnibox::AutocompleteMatchType::kHistoryUrl);
   match.typed_count = info.typed_count();
   match.destination_url = info.url();
   DCHECK(match.destination_url.is_valid());

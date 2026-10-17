@@ -12,11 +12,17 @@
 #include "components/viz/common/resources/shared_image_format_utils.h"
 #include "gpu/command_buffer/service/feature_info.h"
 #include "gpu/vulkan/vulkan_ycbcr_info.h"
+#include "ui/gfx/color_space.h"
 #include "ui/gl/gl_bindings.h"
 #include "ui/gl/gl_version_info.h"
 
 #if BUILDFLAG(SKIA_USE_DAWN)
 #include "third_party/skia/include/gpu/graphite/dawn/DawnTypes.h"
+#endif
+
+#if BUILDFLAG(SKIA_USE_GRAPHITE_VULKAN)
+#include "gpu/command_buffer/service/skia_utils.h"
+#include "third_party/skia/include/gpu/graphite/vk/VulkanGraphiteTypes.h"
 #endif
 
 namespace gpu {
@@ -56,8 +62,6 @@ VkFormat ToVkFormatSinglePlanarInternal(viz::SharedImageFormat format) {
     return VK_FORMAT_A2B10G10R10_UNORM_PACK32;
   } else if (format == viz::SinglePlaneFormat::kBGRA_1010102) {
     return VK_FORMAT_A2R10G10B10_UNORM_PACK32;
-  } else if (format == viz::SinglePlaneFormat::kALPHA_8) {
-    return VK_FORMAT_R8_UNORM;
   } else if (format == viz::SinglePlaneFormat::kETC1) {
     return VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK;
   } else if (format == viz::SinglePlaneFormat::kLUMINANCE_F16 ||
@@ -80,8 +84,6 @@ GLenum GLDataFormat(viz::SharedImageFormat format, int plane_index) {
       return GL_RGBA;
     } else if (format == viz::SinglePlaneFormat::kBGRA_8888) {
       return GL_BGRA_EXT;
-    } else if (format == viz::SinglePlaneFormat::kALPHA_8) {
-      return GL_ALPHA;
     } else if (format == viz::SinglePlaneFormat::kLUMINANCE_F16) {
       return GL_LUMINANCE;
     } else if (format == viz::SinglePlaneFormat::kBGR_565 ||
@@ -114,7 +116,6 @@ GLenum GLDataType(viz::SharedImageFormat format) {
   if (format.is_single_plane()) {
     if (format == viz::SinglePlaneFormat::kRGBA_8888 ||
         format == viz::SinglePlaneFormat::kBGRA_8888 ||
-        format == viz::SinglePlaneFormat::kALPHA_8 ||
         format == viz::SinglePlaneFormat::kETC1 ||
         format == viz::SinglePlaneFormat::kR_8 ||
         format == viz::SinglePlaneFormat::kRG_88 ||
@@ -206,8 +207,6 @@ GLenum TextureStorageFormat(viz::SharedImageFormat format,
       return GL_RGBA16F_EXT;
     } else if (format == viz::SinglePlaneFormat::kRGBA_4444) {
       return GL_RGBA4;
-    } else if (format == viz::SinglePlaneFormat::kALPHA_8) {
-      return GL_ALPHA8_EXT;
     } else if (format == viz::SinglePlaneFormat::kBGR_565) {
       return GL_RGB565;
     } else if (format == viz::SinglePlaneFormat::kR_8) {
@@ -397,16 +396,10 @@ GLFormatDesc GLFormatCaps::ToGLFormatDescOverrideHalfFloatType(
 }
 
 GLenum GLFormatCaps::GetFallbackFormatIfNotSupported(GLenum gl_format) const {
-  // Fallback to GL_ALPHA for unsized RED format.
-  if (gl_format == GL_RED_EXT && !ext_texture_rg_) {
-    return GL_ALPHA;
-  }
-  // Fallback to GL_ALPHA8 for sized R8 format.
-  if (gl_format == GL_R8_EXT && !ext_texture_rg_) {
-    return GL_ALPHA8_EXT;
-  }
-  // No fallback for sized/unsize RG8 format without texture_rg extension.
-  if ((gl_format == GL_RG_EXT || gl_format == GL_RG8_EXT) && !ext_texture_rg_) {
+  // No fallback for sized/unsize R8, RG8 format without texture_rg extension.
+  if ((gl_format == GL_RED_EXT || gl_format == GL_R8_EXT ||
+       gl_format == GL_RG_EXT || gl_format == GL_RG8_EXT) &&
+      !ext_texture_rg_) {
     return GL_ZERO;
   }
   // No fallback for R16, RG16 format without texture_norm16 extension.
@@ -502,6 +495,29 @@ VkFormat ToVkFormat(viz::SharedImageFormat format, int plane_index) {
       return num_channels == 2 ? VK_FORMAT_R16G16_SFLOAT : VK_FORMAT_R16_SFLOAT;
   }
 }
+
+VkImageUsageFlags SupportedVkImageUsage(viz::SharedImageFormat format,
+                                        bool is_yuv_plane) {
+  // TextureBinding usage is always supported.
+  VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT;
+
+  if (format.PrefersExternalSampler()) {
+    return usage;
+  }
+
+  if (format == viz::SinglePlaneFormat::kETC1) {
+    return usage | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+           VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+  }
+
+  if (!is_yuv_plane) {
+    return usage | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+           VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT |
+           VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+  }
+
+  return usage;
+}
 #endif
 
 #if BUILDFLAG(IS_WIN)
@@ -517,6 +533,8 @@ DXGI_FORMAT ToDXGIFormat(viz::SharedImageFormat format) {
     return DXGI_FORMAT_R8G8B8A8_UNORM;
   } else if (format == viz::MultiPlaneFormat::kNV12) {
     return DXGI_FORMAT_NV12;
+  } else if (format == viz::MultiPlaneFormat::kP010) {
+    return DXGI_FORMAT_P010;
   } else if (format == viz::SinglePlaneFormat::kRGBA_1010102) {
     return DXGI_FORMAT_R10G10B10A2_UNORM;
   } else if (format == viz::SinglePlaneFormat::kR_8) {
@@ -540,8 +558,7 @@ wgpu::TextureFormat ToDawnFormat(viz::SharedImageFormat format) {
   } else if (format == viz::SinglePlaneFormat::kBGRA_8888 ||
              format == viz::SinglePlaneFormat::kBGRX_8888) {
     return wgpu::TextureFormat::BGRA8Unorm;
-  } else if (format == viz::SinglePlaneFormat::kR_8 ||
-             format == viz::SinglePlaneFormat::kALPHA_8) {
+  } else if (format == viz::SinglePlaneFormat::kR_8) {
     return wgpu::TextureFormat::R8Unorm;
   } else if (format == viz::SinglePlaneFormat::kRG_88) {
     return wgpu::TextureFormat::RG8Unorm;
@@ -663,33 +680,65 @@ wgpu::TextureAspect ToDawnTextureAspect(bool is_yuv_plane, int plane_index) {
   }
 }
 
+namespace {
+
+#if BUILDFLAG(SKIA_USE_GRAPHITE_VULKAN)
+skgpu::graphite::VulkanTextureInfo GraphiteVulkanTextureInfo(
+    viz::SharedImageFormat format,
+    int plane_index,
+    bool mipmapped) {
+  VkImageCreateFlags create_flags = 0;
+  VkImageUsageFlags usage_flags =
+      SupportedVkImageUsage(format, /*is_yuv_plane=*/false);
+  VkFormat vk_format = format.PrefersExternalSampler()
+                           ? ToVkFormatExternalSampler(format)
+                           : ToVkFormat(format, plane_index);
+
+  skgpu::graphite::VulkanTextureInfo image_info(
+      VK_SAMPLE_COUNT_1_BIT,
+      mipmapped ? skgpu::Mipmapped::kYes : skgpu::Mipmapped::kNo, create_flags,
+      vk_format, VK_IMAGE_TILING_OPTIMAL, usage_flags,
+      VK_SHARING_MODE_EXCLUSIVE, VK_IMAGE_ASPECT_COLOR_BIT,
+      skgpu::VulkanYcbcrConversionInfo());
+
+  return image_info;
+}
+#endif
+
+}  // namespace
+
 skgpu::graphite::TextureInfo GraphiteBackendTextureInfo(
     GrContextType gr_context_type,
     viz::SharedImageFormat format,
     int plane_index,
-    bool is_yuv_plane,
     bool mipmapped,
     bool scanout_dcomp_surface) {
 #if BUILDFLAG(SKIA_USE_DAWN)
-  CHECK_EQ(gr_context_type, GrContextType::kGraphiteDawn);
-  return skgpu::graphite::TextureInfos::MakeDawn(DawnBackendTextureInfo(
-      format, /*readonly=*/false, is_yuv_plane, plane_index,
-      /*array_slice=*/0, mipmapped, scanout_dcomp_surface,
-      /*supports_multiplanar_rendering=*/false,
-      /*support_multiplanar_copy=*/false));
-#else
-  NOTREACHED();
+  if (gr_context_type == GrContextType::kGraphiteDawn) {
+    return skgpu::graphite::TextureInfos::MakeDawn(DawnBackendTextureInfo(
+        format, /*readonly=*/false, /*is_yuv_plane=*/false, plane_index,
+        /*array_slice=*/0, mipmapped, scanout_dcomp_surface,
+        /*supports_multiplanar_rendering=*/false,
+        /*support_multiplanar_copy=*/false));
+  }
 #endif
+#if BUILDFLAG(SKIA_USE_GRAPHITE_VULKAN)
+  if (gr_context_type == GrContextType::kGraphiteVulkan) {
+    return skgpu::graphite::TextureInfos::MakeVulkan(
+        GraphiteVulkanTextureInfo(format, plane_index, mipmapped));
+  }
+#endif
+  NOTREACHED();
 }
 
-skgpu::graphite::TextureInfo GraphitePromiseTextureInfo(
-    GrContextType gr_context_type,
+namespace {
+
+#if BUILDFLAG(SKIA_USE_DAWN)
+skgpu::graphite::DawnTextureInfo GraphiteDawnPromiseTextureInfo(
     viz::SharedImageFormat format,
     std::optional<VulkanYCbCrInfo> ycbcr_info,
     int plane_index,
     bool mipmapped) {
-#if BUILDFLAG(SKIA_USE_DAWN)
-  CHECK_EQ(gr_context_type, GrContextType::kGraphiteDawn);
   skgpu::graphite::DawnTextureInfo dawn_texture_info;
   dawn_texture_info.fSampleCount = skgpu::graphite::SampleCount::k1;
 
@@ -700,7 +749,7 @@ skgpu::graphite::TextureInfo GraphitePromiseTextureInfo(
     wgpu::TextureFormat wgpu_view_format =
         gpu::ToDawnTextureViewFormat(format, plane_index);
     if (wgpu_view_format == wgpu::TextureFormat::Undefined) {
-      return skgpu::graphite::TextureInfos::MakeDawn(dawn_texture_info);
+      return dawn_texture_info;
     }
     // For multiplanar shared image, we don't know the real texture format until
     // the promise image is fulfilled, so set the fFormat to Undefined for now.
@@ -725,10 +774,74 @@ skgpu::graphite::TextureInfo GraphitePromiseTextureInfo(
         ToDawnYCbCrVkDescriptor(ycbcr_info.value());
   }
 #endif
-  return skgpu::graphite::TextureInfos::MakeDawn(dawn_texture_info);
-#else
-  NOTREACHED();
+  return dawn_texture_info;
+}
 #endif
+
+#if BUILDFLAG(SKIA_USE_GRAPHITE_VULKAN)
+skgpu::graphite::VulkanTextureInfo GraphiteVulkanPromiseTextureInfo(
+    viz::SharedImageFormat format,
+    const gfx::ColorSpace& color_space,
+    std::optional<VulkanYCbCrInfo> ycbcr_info,
+    int plane_index,
+    bool mipmapped) {
+  VkFormat vk_format;
+  if (ycbcr_info && ycbcr_info->external_format != 0) {
+    vk_format = VK_FORMAT_UNDEFINED;
+  } else if (format.PrefersExternalSampler()) {
+    vk_format = ToVkFormatExternalSampler(format);
+  } else {
+    vk_format = ToVkFormat(format, plane_index);
+  }
+
+  skgpu::VulkanYcbcrConversionInfo ycbcr;
+  if (ycbcr_info) {
+    // If YCbCR info is provided it must already have format_features defined
+    // as VkPhysicalDevice isn't provided to look it up.
+    CHECK_NE(ycbcr_info->format_features, 0u);
+    ycbcr = CreateVulkanYcbcrConversionInfo(
+        /*physical_device=*/VK_NULL_HANDLE, VK_IMAGE_TILING_OPTIMAL, vk_format,
+        format, color_space, ycbcr_info);
+  }
+
+  VkImageCreateFlags create_flags = 0;
+  // For promise textures, Skia just needs SAMPLED usage for sampling.
+  VkImageUsageFlags usage_flags = VK_IMAGE_USAGE_SAMPLED_BIT;
+
+  skgpu::graphite::VulkanTextureInfo imageInfo(
+      VK_SAMPLE_COUNT_1_BIT,
+      mipmapped ? skgpu::Mipmapped::kYes : skgpu::Mipmapped::kNo, create_flags,
+      vk_format, VK_IMAGE_TILING_OPTIMAL, usage_flags,
+      VK_SHARING_MODE_EXCLUSIVE, VK_IMAGE_ASPECT_COLOR_BIT, ycbcr);
+
+  return imageInfo;
+}
+#endif
+
+}  // namespace
+
+skgpu::graphite::TextureInfo GraphitePromiseTextureInfo(
+    GrContextType gr_context_type,
+    viz::SharedImageFormat format,
+    const gfx::ColorSpace& color_space,
+    std::optional<VulkanYCbCrInfo> ycbcr_info,
+    int plane_index,
+    bool mipmapped) {
+#if BUILDFLAG(SKIA_USE_DAWN)
+  if (gr_context_type == GrContextType::kGraphiteDawn) {
+    return skgpu::graphite::TextureInfos::MakeDawn(
+        GraphiteDawnPromiseTextureInfo(format, ycbcr_info, plane_index,
+                                       mipmapped));
+  }
+#endif
+#if BUILDFLAG(SKIA_USE_GRAPHITE_VULKAN)
+  if (gr_context_type == GrContextType::kGraphiteVulkan) {
+    return skgpu::graphite::TextureInfos::MakeVulkan(
+        GraphiteVulkanPromiseTextureInfo(format, color_space, ycbcr_info,
+                                         plane_index, mipmapped));
+  }
+#endif
+  NOTREACHED();
 }
 
 #if BUILDFLAG(ENABLE_VULKAN) && BUILDFLAG(SKIA_USE_DAWN)
@@ -802,22 +915,32 @@ skgpu::graphite::DawnTextureInfo DawnBackendTextureInfo(
 skgpu::graphite::TextureInfo FallbackGraphiteBackendTextureInfo(
     const skgpu::graphite::TextureInfo& texture_info) {
 #if BUILDFLAG(SKIA_USE_DAWN)
-  skgpu::graphite::DawnTextureInfo info;
-  if (!skgpu::graphite::TextureInfos::GetDawnTextureInfo(texture_info, &info)) {
-    return texture_info;
+  skgpu::graphite::DawnTextureInfo dawn_info;
+  if (skgpu::graphite::TextureInfos::GetDawnTextureInfo(texture_info,
+                                                        &dawn_info)) {
+    // Fallback image needs to be renderable in order to draw to it.
+    dawn_info.fUsage |= wgpu::TextureUsage::RenderAttachment;
+    if (dawn_info.fFormat == wgpu::TextureFormat::Undefined) {
+      // For multiplanar textures, the fFormat of promise images is Undefined,
+      // so the fViewFormat should be used to create fallback textures.
+      dawn_info.fFormat = dawn_info.fViewFormat;
+      dawn_info.fAspect = wgpu::TextureAspect::All;
+    }
+    return skgpu::graphite::TextureInfos::MakeDawn(dawn_info);
   }
-  // Fallback image needs to be renderable in order to draw to it.
-  info.fUsage |= wgpu::TextureUsage::RenderAttachment;
-  if (info.fFormat == wgpu::TextureFormat::Undefined) {
-    // For multiplanar textures, the fFormat of promise images is Undefined,
-    // so the fViewFormat should be used to create fallback textures.
-    info.fFormat = info.fViewFormat;
-    info.fAspect = wgpu::TextureAspect::All;
-  }
-  return skgpu::graphite::TextureInfos::MakeDawn(info);
-#else
-  return texture_info;
 #endif
+#if BUILDFLAG(SKIA_USE_GRAPHITE_VULKAN)
+  skgpu::graphite::VulkanTextureInfo vk_info;
+  if (skgpu::graphite::TextureInfos::GetVulkanTextureInfo(texture_info,
+                                                          &vk_info)) {
+    // Fallback image needs to be renderable in order to draw to it.
+    vk_info.fImageUsageFlags |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                                VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+    vk_info.fAspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    return skgpu::graphite::TextureInfos::MakeVulkan(vk_info);
+  }
+#endif
+  return texture_info;
 }
 
 }  // namespace gpu

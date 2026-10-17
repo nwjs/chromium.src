@@ -13,6 +13,7 @@
 #include "content/browser/bluetooth/web_bluetooth_pairing_manager_delegate.h"
 #include "content/browser/bluetooth/web_bluetooth_service_impl.h"
 #include "content/public/browser/bluetooth_delegate.h"
+#include "device/base/public/cpp/string_util.h"
 
 namespace content {
 
@@ -110,7 +111,7 @@ constexpr int WebBluetoothPairingManagerImpl::kMaxPairAttempts;
 WebBluetoothPairingManagerImpl::WebBluetoothPairingManagerImpl(
     WebBluetoothPairingManagerDelegate* pairing_manager_delegate)
     : pairing_manager_delegate_(pairing_manager_delegate) {
-  DCHECK(pairing_manager_delegate_);
+  CHECK(pairing_manager_delegate_, base::NotFatalUntil::M160);
 }
 
 WebBluetoothPairingManagerImpl::~WebBluetoothPairingManagerImpl() {
@@ -227,7 +228,7 @@ void WebBluetoothPairingManagerImpl::PairDevice(
     blink::WebBluetoothDeviceId device_id,
     int num_pair_attempts,
     device::BluetoothDevice::ConnectCallback callback) {
-  DCHECK(device_id.IsValid());
+  CHECK(device_id.IsValid(), base::NotFatalUntil::M160);
   if (pending_pair_device_ids_.contains(device_id)) {
     std::move(callback).Run(
         BluetoothDevice::ConnectErrorCode::ERROR_AUTH_CANCELED);
@@ -264,7 +265,7 @@ void WebBluetoothPairingManagerImpl::RequestPinCode(BluetoothDevice* device) {
   blink::WebBluetoothDeviceId device_id =
       pairing_manager_delegate_->GetWebBluetoothDeviceId(device->GetAddress());
   pairing_manager_delegate_->PromptForBluetoothPairing(
-      device->GetNameForDisplay(),
+      device::ContainStringForDisplay(device->GetNameForDisplay()),
       base::BindOnce(&WebBluetoothPairingManagerImpl::OnPinCodeResult,
                      weak_ptr_factory_.GetWeakPtr(), device_id),
       BluetoothDelegate::PairingKind::kProvidePin, std::nullopt);
@@ -331,7 +332,7 @@ void WebBluetoothPairingManagerImpl::ConfirmPasskey(BluetoothDevice* device,
   std::u16string pin = base::ASCIIToUTF16(base::StringPrintf("%06u", passkey));
 
   pairing_manager_delegate_->PromptForBluetoothPairing(
-      device->GetNameForDisplay(),
+      device::ContainStringForDisplay(device->GetNameForDisplay()),
       base::BindOnce(&WebBluetoothPairingManagerImpl::OnPairConfirmResult,
                      weak_ptr_factory_.GetWeakPtr(), device_id),
       BluetoothDelegate::PairingKind::kConfirmPinMatch, pin);
@@ -341,7 +342,7 @@ void WebBluetoothPairingManagerImpl::AuthorizePairing(BluetoothDevice* device) {
   blink::WebBluetoothDeviceId device_id =
       pairing_manager_delegate_->GetWebBluetoothDeviceId(device->GetAddress());
   pairing_manager_delegate_->PromptForBluetoothPairing(
-      device->GetNameForDisplay(),
+      device::ContainStringForDisplay(device->GetNameForDisplay()),
       base::BindOnce(&WebBluetoothPairingManagerImpl::OnPairConfirmResult,
                      weak_ptr_factory_.GetWeakPtr(), device_id),
       BluetoothDelegate::PairingKind::kConfirmOnly, std::nullopt);

@@ -60,7 +60,6 @@ http/tests/inspector-protocol/target/auto-attach-sub-sub-frame.js [ Skip ]
 http/tests/inspector-protocol/target/message-to-detached-session.js [ Skip ]
 http/tests/inspector-protocol/target/tab-target.js [ Skip ]
 http/tests/inspector-protocol/target/target-filter.js [ Skip ]
-virtual/fenced-frame-mparch/http/tests/inspector-protocol/fenced-frame/fenced-frame-in-oopif-auto-attach.js [ Skip ]
 http/tests/inspector-protocol/target/target-info-changed-auto-attach.js [ Skip ]
 http/tests/inspector-protocol/page/frame-detached-oopif.js [ Skip ]
 http/tests/inspector-protocol/page/addScriptToEvaluateOnNewDocument-reload.js [ Skip ]
@@ -167,10 +166,6 @@ external/wpt/html/document-isolation-policy/* [ Skip ]
 virtual/isolated-context/* [ Skip ]
 virtual/isolated-context-stable/* [ Skip ]
 virtual/subapps/* [ Skip ]
-
-# Reftest failure related to off-main-thread interaction (imperceptible AA differences)
-crbug.com/395909730 virtual/off-main-thread-css-paint/http/tests/csspaint/paint2d-zoom.html [ Failure ]  # Reftest image failure
-crbug.com/395909730 virtual/off-main-thread-css-paint/http/tests/csspaint/transform-with-page-zoom-003.html [ Failure ]  # Reftest image failure
 
 [ Linux ] external/wpt/clear-site-data/clear-cache.https.html [ Failure ]  # Flaky output
 

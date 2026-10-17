@@ -17,8 +17,6 @@
 #include "ash/test/pixel/ash_pixel_test_init_params.h"
 #include "base/auto_reset.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/test/scoped_feature_list.h"
-#include "chromeos/constants/chromeos_features.h"
 #include "ui/base/models/image_model.h"
 #include "ui/compositor/layer.h"
 #include "ui/message_center/public/cpp/notification.h"
@@ -47,16 +45,16 @@ constexpr char kMediumTitleScreenshot[] =
     "ash_notification_multiline_medium_title";
 constexpr char kLongTitleScreenshot[] = "ash_notification_multiline_long_title";
 
-const ui::ImageModel test_green_icon = ui::ImageModel::FromImageSkia(
-    CreateSolidColorTestImage(gfx::Size(/*width=*/48, /*height=*/48),
-                              SK_ColorGREEN));
+ui::ImageModel GetTestGreenIcon() {
+  return ui::ImageModel::FromImageSkia(CreateSolidColorTestImage(
+      gfx::Size(/*width=*/48, /*height=*/48), SK_ColorGREEN));
+}
 }  // namespace
 
 class AshPixelTestBase : public AshTestBase {
  public:
-  AshPixelTestBase(bool increase_notification_width, bool enable_system_blur)
-      : increase_notification_width_(increase_notification_width),
-        enable_system_blur_(enable_system_blur) {}
+  explicit AshPixelTestBase(bool enable_system_blur)
+      : enable_system_blur_(enable_system_blur) {}
 
   // AshTestBase:
   std::optional<pixel_test::InitParams> CreatePixelTestInitParams()
@@ -72,16 +70,9 @@ class AshPixelTestBase : public AshTestBase {
     test_api_ = std::make_unique<NotificationCenterTestApi>();
   }
 
-  // AshTestBase:
-  std::string GenerateScreenshotName(const std::string& title) override {
-    return pixel_test_helper()->GenerateScreenshotName(
-        title + (increase_notification_width_ ? "_new_width" : "_old_width"));
-  }
-
   NotificationCenterTestApi* test_api() { return test_api_.get(); }
 
  private:
-  const bool increase_notification_width_;
   const bool enable_system_blur_;
   std::unique_ptr<NotificationCenterTestApi> test_api_;
 };
@@ -89,25 +80,13 @@ class AshPixelTestBase : public AshTestBase {
 // Pixel tests for Chrome OS Notification views.
 class AshNotificationViewPixelTest
     : public AshPixelTestBase,
-      public testing::WithParamInterface<
-          std::tuple</*IsNotificationWidthIncreaseEnabled()=*/bool,
-                     /*IsSystemBlurEnabled()=*/bool>> {
+      public testing::WithParamInterface</*IsSystemBlurEnabled()=*/bool> {
  public:
-  AshNotificationViewPixelTest()
-      : AshPixelTestBase(IsNotificationWidthIncreaseEnabled(),
-                         IsSystemBlurEnabled()) {}
+  AshNotificationViewPixelTest() : AshPixelTestBase(IsSystemBlurEnabled()) {}
 
-  bool IsNotificationWidthIncreaseEnabled() const {
-    return std::get<0>(GetParam());
-  }
-  bool IsSystemBlurEnabled() const { return std::get<1>(GetParam()); }
+  bool IsSystemBlurEnabled() const { return GetParam(); }
 
   void SetUp() override {
-    scoped_feature_list_ = std::make_unique<base::test::ScopedFeatureList>();
-    scoped_feature_list_->InitWithFeatureState(
-        chromeos::features::kNotificationWidthIncrease,
-        IsNotificationWidthIncreaseEnabled());
-
     // Forcibly disable the tooltip for pixel diff stability.
     notification_control_buttons_view_tooltip_enabled_resetter_ =
         message_center::NotificationControlButtonsView::
@@ -124,18 +103,15 @@ class AshNotificationViewPixelTest
   }
 
  private:
-  std::unique_ptr<base::test::ScopedFeatureList> scoped_feature_list_;
   std::optional<base::AutoReset<std::optional<bool>>>
       notification_control_buttons_view_tooltip_enabled_resetter_;
   std::optional<base::AutoReset<std::optional<bool>>>
       counter_expand_button_tooltip_disable_resetter_;
 };
 
-INSTANTIATE_TEST_SUITE_P(
-    All,
-    AshNotificationViewPixelTest,
-    testing::Combine(/*IsNotificationWidthIncreaseEnabled()=*/testing::Bool(),
-                     /*IsSystemBlurEnabled()=*/testing::Bool()));
+INSTANTIATE_TEST_SUITE_P(All,
+                         AshNotificationViewPixelTest,
+                         /*IsSystemBlurEnabled()=*/testing::Bool());
 
 // Tests that a notification's close button is visible when it is focused.
 TEST_P(AshNotificationViewPixelTest, CloseButtonFocused) {
@@ -166,7 +142,7 @@ TEST_P(AshNotificationViewPixelTest, CloseButtonFocused) {
   EXPECT_EQ(control_buttons_layer->opacity(), 1);
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
       GenerateScreenshotName("close_button_focused"),
-      /*revision_number=*/pixel_test_helper()->IsSystemBlurEnabled() ? 5 : 0,
+      /*revision_number=*/pixel_test_helper()->IsSystemBlurEnabled() ? 7 : 2,
       notification_view));
 }
 
@@ -176,7 +152,7 @@ TEST_P(AshNotificationViewPixelTest, DISABLED_CollapsedNoMessage) {
   // Create a notification with no message, and open the notification center
   // bubble to view it.
   const std::string id = test_api()->AddCustomNotification(
-      u"Notification title", u"", test_green_icon);
+      u"Notification title", u"", GetTestGreenIcon());
   test_api()->ToggleBubble();
 
   // Make sure the notification is collapsed.
@@ -189,7 +165,7 @@ TEST_P(AshNotificationViewPixelTest, DISABLED_CollapsedNoMessage) {
   // centered.
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
       GenerateScreenshotName("collapsed_no_message"),
-      /*revision_number=*/pixel_test_helper()->IsSystemBlurEnabled() ? 5 : 0,
+      /*revision_number=*/pixel_test_helper()->IsSystemBlurEnabled() ? 6 : 1,
       notification_view));
 }
 
@@ -212,7 +188,7 @@ TEST_P(AshNotificationViewPixelTest, ProgressCollapsed) {
   // centered.
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
       GenerateScreenshotName("progress_collapsed"),
-      /*revision_number=*/pixel_test_helper()->IsSystemBlurEnabled() ? 5 : 0,
+      /*revision_number=*/pixel_test_helper()->IsSystemBlurEnabled() ? 7 : 2,
       notification_view));
 }
 
@@ -236,7 +212,7 @@ TEST_P(AshNotificationViewPixelTest, CloseControlButton) {
   // the proper placement.
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
       GenerateScreenshotName("close_control_button"),
-      /*revision_number=*/pixel_test_helper()->IsSystemBlurEnabled() ? 5 : 0,
+      /*revision_number=*/pixel_test_helper()->IsSystemBlurEnabled() ? 7 : 2,
       notification_view));
 }
 
@@ -260,7 +236,7 @@ TEST_P(AshNotificationViewPixelTest, SettingsAndCloseControlButtons) {
   // proper spacing between them.
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
       GenerateScreenshotName("settings_and_close_control_buttons"),
-      /*revision_number=*/pixel_test_helper()->IsSystemBlurEnabled() ? 5 : 0,
+      /*revision_number=*/pixel_test_helper()->IsSystemBlurEnabled() ? 7 : 2,
       notification_view));
 }
 
@@ -286,7 +262,7 @@ TEST_P(AshNotificationViewPixelTest, InlineReply) {
   // Verify with a pixel test that the inline reply field is correctly drawn.
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
       GenerateScreenshotName("inline_reply_focused"),
-      /*revision_number=*/pixel_test_helper()->IsSystemBlurEnabled() ? 5 : 0,
+      /*revision_number=*/pixel_test_helper()->IsSystemBlurEnabled() ? 7 : 2,
       notification_view));
 }
 
@@ -303,7 +279,7 @@ TEST_P(AshNotificationViewPixelTest, ExpandButtonFocusRing) {
 
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
       GenerateScreenshotName("expand_button_focus_ring"),
-      /*revision_number=*/pixel_test_helper()->IsSystemBlurEnabled() ? 5 : 0,
+      /*revision_number=*/pixel_test_helper()->IsSystemBlurEnabled() ? 7 : 2,
       notification_view));
 }
 
@@ -317,7 +293,7 @@ TEST_P(AshNotificationViewPixelTest, NotificationViewFocusRing) {
 
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
       GenerateScreenshotName("notification_view_focus_ring"),
-      /*revision_number=*/pixel_test_helper()->IsSystemBlurEnabled() ? 5 : 0,
+      /*revision_number=*/pixel_test_helper()->IsSystemBlurEnabled() ? 7 : 2,
       notification_view));
 }
 
@@ -335,7 +311,7 @@ TEST_P(AshNotificationViewPixelTest, NotificationPopupFocusRing) {
 
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
       GenerateScreenshotName("notification_popup_focus_ring"),
-      /*revision_number=*/pixel_test_helper()->IsSystemBlurEnabled() ? 6 : 1,
+      /*revision_number=*/pixel_test_helper()->IsSystemBlurEnabled() ? 8 : 3,
       notification_view));
 }
 
@@ -343,27 +319,14 @@ TEST_P(AshNotificationViewPixelTest, NotificationPopupFocusRing) {
 // different sizes.
 class AshNotificationViewIconPixelTest
     : public AshPixelTestBase,
-      public testing::WithParamInterface<std::tuple<int, bool, bool>> {
+      public testing::WithParamInterface<
+          std::tuple<int /*icon size*/, bool /*system blur enabled*/>> {
  public:
   AshNotificationViewIconPixelTest()
-      : AshPixelTestBase(IsNotificationWidthIncreaseEnabled(),
-                         IsSystemBlurEnabled()) {}
+      : AshPixelTestBase(IsSystemBlurEnabled()) {}
 
   int GetIconSize() { return std::get<0>(GetParam()); }
-  bool IsNotificationWidthIncreaseEnabled() { return std::get<1>(GetParam()); }
-  bool IsSystemBlurEnabled() { return std::get<2>(GetParam()); }
-
-  // AshPixelTestBase:
-  void SetUp() override {
-    scoped_feature_list_ = std::make_unique<base::test::ScopedFeatureList>();
-    scoped_feature_list_->InitWithFeatureState(
-        chromeos::features::kNotificationWidthIncrease,
-        IsNotificationWidthIncreaseEnabled());
-    AshPixelTestBase::SetUp();
-  }
-
- private:
-  std::unique_ptr<base::test::ScopedFeatureList> scoped_feature_list_;
+  bool IsSystemBlurEnabled() { return std::get<1>(GetParam()); }
 };
 
 INSTANTIATE_TEST_SUITE_P(
@@ -376,7 +339,6 @@ INSTANTIATE_TEST_SUITE_P(
                          128,
                          512,
                      }),
-                     /*IsNotificationWidthIncreaseEnabled()=*/testing::Bool(),
                      /*IsSystemBlurEnabled()=*/testing::Bool()));
 
 TEST_P(AshNotificationViewIconPixelTest, DISABLED_NotificationIcon) {
@@ -398,7 +360,7 @@ TEST_P(AshNotificationViewIconPixelTest, DISABLED_NotificationIcon) {
   // centered.
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
       GenerateScreenshotName(base::StringPrintf("expanded_icon_size_%u", size)),
-      /*revision_number=*/pixel_test_helper()->IsSystemBlurEnabled() ? 5 : 0,
+      /*revision_number=*/pixel_test_helper()->IsSystemBlurEnabled() ? 6 : 1,
       notification_view));
 
   notification_view->ToggleExpand();
@@ -411,7 +373,7 @@ TEST_P(AshNotificationViewIconPixelTest, DISABLED_NotificationIcon) {
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
       GenerateScreenshotName(
           base::StringPrintf("collapsed_icon_size_%u", size)),
-      /*revision_number=*/pixel_test_helper()->IsSystemBlurEnabled() ? 4 : 0,
+      /*revision_number=*/pixel_test_helper()->IsSystemBlurEnabled() ? 5 : 1,
       notification_view));
 }
 
@@ -419,28 +381,13 @@ class AshNotificationViewTitlePixelTest
     : public AshPixelTestBase,
       public testing::WithParamInterface<
           std::tuple<const char* /*notification title string*/,
-                     bool /*notification width increase*/,
                      bool /*system blur enabled*/>> {
  public:
   AshNotificationViewTitlePixelTest()
-      : AshPixelTestBase(IsNotificationWidthIncreaseEnabled(),
-                         IsSystemBlurEnabled()) {}
+      : AshPixelTestBase(IsSystemBlurEnabled()) {}
 
   const std::string GetTitle() { return std::get<0>(GetParam()); }
-  bool IsNotificationWidthIncreaseEnabled() { return std::get<1>(GetParam()); }
-  bool IsSystemBlurEnabled() { return std::get<2>(GetParam()); }
-
-  // AshPixelTestBase:
-  void SetUp() override {
-    scoped_feature_list_ = std::make_unique<base::test::ScopedFeatureList>();
-    scoped_feature_list_->InitWithFeatureState(
-        chromeos::features::kNotificationWidthIncrease,
-        IsNotificationWidthIncreaseEnabled());
-    AshPixelTestBase::SetUp();
-  }
-
- private:
-  std::unique_ptr<base::test::ScopedFeatureList> scoped_feature_list_;
+  bool IsSystemBlurEnabled() { return std::get<1>(GetParam()); }
 };
 
 INSTANTIATE_TEST_SUITE_P(
@@ -449,7 +396,6 @@ INSTANTIATE_TEST_SUITE_P(
     testing::Combine(/*GetTitle()=*/testing::ValuesIn({kShortTitleString,
                                                        kMediumTitleString,
                                                        kLongTitleString}),
-                     /*IsNotificationWidthIncreaseEnabled()=*/testing::Bool(),
                      /*IsSystemBlurEnabled()=*/testing::Bool()));
 
 // Regression test for b/251686063. Tests that a notification with a medium
@@ -460,7 +406,7 @@ TEST_P(AshNotificationViewTitlePixelTest, DISABLED_NotificationTitleTest) {
   const std::string title = GetTitle();
 
   const std::string id = test_api()->AddCustomNotification(
-      base::UTF8ToUTF16(title), u"Notification Content", test_green_icon);
+      base::UTF8ToUTF16(title), u"Notification Content", GetTestGreenIcon());
 
   test_api()->ToggleBubble();
 
@@ -481,7 +427,7 @@ TEST_P(AshNotificationViewTitlePixelTest, DISABLED_NotificationTitleTest) {
   }
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
       GenerateScreenshotName(screenshot_name),
-      /*revision_number=*/pixel_test_helper()->IsSystemBlurEnabled() ? 5 : 0,
+      /*revision_number=*/pixel_test_helper()->IsSystemBlurEnabled() ? 6 : 1,
       notification_view));
 }
 
@@ -490,29 +436,14 @@ class AshNotificationViewCollapsedLongTextPixelTest
       public testing::WithParamInterface<
           std::tuple<bool /*whether there is an icon*/,
                      bool /*whether there is a settings control button*/,
-                     bool /*notification width increase*/,
                      bool /*system blur enabled*/>> {
  public:
   AshNotificationViewCollapsedLongTextPixelTest()
-      : AshPixelTestBase(IsNotificationWidthIncreaseEnabled(),
-                         IsSystemBlurEnabled()) {}
+      : AshPixelTestBase(IsSystemBlurEnabled()) {}
 
   bool HasIcon() { return std::get<0>(GetParam()); }
   bool HasSettingsControlButton() { return std::get<1>(GetParam()); }
-  bool IsNotificationWidthIncreaseEnabled() { return std::get<2>(GetParam()); }
-  bool IsSystemBlurEnabled() { return std::get<3>(GetParam()); }
-
-  // AshPixelTestBase
-  void SetUp() override {
-    scoped_feature_list_ = std::make_unique<base::test::ScopedFeatureList>();
-    scoped_feature_list_->InitWithFeatureState(
-        chromeos::features::kNotificationWidthIncrease,
-        IsNotificationWidthIncreaseEnabled());
-    AshPixelTestBase::SetUp();
-  }
-
- private:
-  std::unique_ptr<base::test::ScopedFeatureList> scoped_feature_list_;
+  bool IsSystemBlurEnabled() { return std::get<2>(GetParam()); }
 };
 
 INSTANTIATE_TEST_SUITE_P(
@@ -520,7 +451,6 @@ INSTANTIATE_TEST_SUITE_P(
     AshNotificationViewCollapsedLongTextPixelTest,
     testing::Combine(/*HasIcon()=*/testing::Bool(),
                      /*HasSettingsControlButton()=*/testing::Bool(),
-                     /*IsNotificationWidthIncreaseEnabled()=*/testing::Bool(),
                      /*IsSystemBlurEnabled()=*/testing::Bool()));
 
 // Tests the spacing between long, elided title/message text content and the
@@ -540,7 +470,7 @@ TEST_P(AshNotificationViewCollapsedLongTextPixelTest,
   const std::string id = test_api()->AddCustomNotification(
       base::UTF8ToUTF16(std::string(kLongTitleString)),
       base::UTF8ToUTF16(std::string(kLongMessageString)),
-      /*icon=*/HasIcon() ? test_green_icon : ui::ImageModel(),
+      /*icon=*/HasIcon() ? GetTestGreenIcon() : ui::ImageModel(),
       /*display_source=*/u"", /*url=*/GURL(),
       /*notifier_id=*/message_center::NotifierId(), optional_fields);
   test_api()->AddNotification();
@@ -559,7 +489,7 @@ TEST_P(AshNotificationViewCollapsedLongTextPixelTest,
   // Verify the spacing with a pixel test.
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
       GenerateScreenshotName("elided_text_spacing"),
-      /*revision_number=*/pixel_test_helper()->IsSystemBlurEnabled() ? 5 : 0,
+      /*revision_number=*/pixel_test_helper()->IsSystemBlurEnabled() ? 6 : 1,
       notification_view));
 }
 

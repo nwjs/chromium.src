@@ -87,7 +87,7 @@ void SmbShareFinder::RegisterHostLocator(std::unique_ptr<HostLocator> locator) {
 }
 
 SmbUrl SmbShareFinder::GetResolvedUrl(const SmbUrl& url) const {
-  DCHECK(url.IsValid());
+  CHECK(url.IsValid(), base::NotFatalUntil::M160);
 
   const std::string ip_address = scanner_.ResolveHost(url.GetHost()).ToString();
   // Return the original URL if the resolved host cannot be found or if there is
@@ -100,7 +100,7 @@ SmbUrl SmbShareFinder::GetResolvedUrl(const SmbUrl& url) const {
 }
 
 net::IPAddress SmbShareFinder::GetResolvedHost(const std::string& host) const {
-  DCHECK(!host.empty());
+  CHECK(!host.empty(), base::NotFatalUntil::M160);
   return scanner_.ResolveHost(host);
 }
 
@@ -111,7 +111,7 @@ bool SmbShareFinder::TryResolveUrl(const SmbUrl& url,
 }
 
 void SmbShareFinder::OnHostsFound(bool success, const HostMap& hosts) {
-  DCHECK_EQ(0u, host_counter_);
+  CHECK_EQ(0u, host_counter_, base::NotFatalUntil::M160);
 
   RunDiscoveryCallbacks();
 
@@ -142,6 +142,8 @@ void SmbShareFinder::OnSharesFound(
     const std::string& host_name,
     smbprovider::ErrorType error,
     const smbprovider::DirectoryEntryListProto& entries) {
+  // TODO(crbug.com/568684182): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
   DCHECK_GT(host_counter_, 0u);
   --host_counter_;
 

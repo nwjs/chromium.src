@@ -18,7 +18,6 @@
 #include "base/threading/scoped_blocking_call.h"
 #include "content/public/browser/browser_thread.h"
 #include "mojo/public/cpp/platform/platform_handle.h"
-#include "mojo/public/cpp/system/platform_handle.h"
 #include "net/base/io_buffer.h"
 #include "net/base/net_errors.h"
 
@@ -74,9 +73,9 @@ int ArcContentFileSystemFileStreamWriter::Write(
     net::IOBuffer* buffer,
     int buffer_length,
     net::CompletionOnceCallback callback) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
-  DCHECK(!has_pending_operation_);
-  DCHECK(cancel_callback_.is_null());
+  CHECK_CURRENTLY_ON(content::BrowserThread::IO, base::NotFatalUntil::M160);
+  CHECK(!has_pending_operation_, base::NotFatalUntil::M160);
+  CHECK(cancel_callback_.is_null(), base::NotFatalUntil::M160);
 
   has_pending_operation_ = true;
   if (file_) {
@@ -97,7 +96,7 @@ int ArcContentFileSystemFileStreamWriter::Cancel(
   if (!has_pending_operation_)
     return net::ERR_UNEXPECTED;
 
-  DCHECK(!callback.is_null());
+  CHECK(!callback.is_null(), base::NotFatalUntil::M160);
   cancel_callback_ = std::move(callback);
   return net::ERR_IO_PENDING;
 }
@@ -105,8 +104,8 @@ int ArcContentFileSystemFileStreamWriter::Cancel(
 int ArcContentFileSystemFileStreamWriter::Flush(
     storage::FlushMode /*flush_mode*/,
     net::CompletionOnceCallback callback) {
-  DCHECK(!has_pending_operation_);
-  DCHECK(cancel_callback_.is_null());
+  CHECK(!has_pending_operation_, base::NotFatalUntil::M160);
+  CHECK(cancel_callback_.is_null(), base::NotFatalUntil::M160);
 
   // Write() is not called yet, so there's nothing to flush.
   if (!file_)
@@ -137,10 +136,10 @@ void ArcContentFileSystemFileStreamWriter::WriteInternal(
     net::IOBuffer* buffer,
     int buffer_length,
     net::CompletionOnceCallback callback) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
-  DCHECK(file_);
-  DCHECK(file_->IsValid());
-  DCHECK(has_pending_operation_);
+  CHECK_CURRENTLY_ON(content::BrowserThread::IO, base::NotFatalUntil::M160);
+  CHECK(file_, base::NotFatalUntil::M160);
+  CHECK(file_->IsValid(), base::NotFatalUntil::M160);
+  CHECK(has_pending_operation_, base::NotFatalUntil::M160);
 
   // |file_| is alive on WriteFile(), since the destructor will destruct
   // |task_runner_| along with |file_| and WriteFile() won't be called.
@@ -155,8 +154,8 @@ void ArcContentFileSystemFileStreamWriter::WriteInternal(
 void ArcContentFileSystemFileStreamWriter::OnWrite(
     net::CompletionOnceCallback callback,
     std::optional<size_t> result) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
-  DCHECK(has_pending_operation_);
+  CHECK_CURRENTLY_ON(content::BrowserThread::IO, base::NotFatalUntil::M160);
+  CHECK(has_pending_operation_, base::NotFatalUntil::M160);
 
   if (CancelIfRequested()) {
     return;
@@ -175,10 +174,10 @@ void ArcContentFileSystemFileStreamWriter::OnOpenFileSession(
     int buffer_length,
     net::CompletionOnceCallback callback,
     mojom::FileSessionPtr file_session) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
-  DCHECK(!file_);
-  DCHECK(has_pending_operation_);
-  DCHECK(session_id_.empty());
+  CHECK_CURRENTLY_ON(content::BrowserThread::IO, base::NotFatalUntil::M160);
+  CHECK(!file_, base::NotFatalUntil::M160);
+  CHECK(has_pending_operation_, base::NotFatalUntil::M160);
+  CHECK(session_id_.empty(), base::NotFatalUntil::M160);
 
   if (CancelIfRequested())
     return;
@@ -190,18 +189,17 @@ void ArcContentFileSystemFileStreamWriter::OnOpenFileSession(
   }
 
   session_id_ = std::move(file_session->url_id);
-  DCHECK(session_id_.length() > 0);
-  mojo::PlatformHandle platform_handle =
-      mojo::UnwrapPlatformHandle(std::move(file_session->fd));
+  CHECK(session_id_.length() > 0, base::NotFatalUntil::M160);
+  mojo::PlatformHandle platform_handle = std::move(file_session->fd);
   if (!platform_handle.is_valid()) {
     has_pending_operation_ = false;
-    LOG(ERROR) << "PassWrappedInternalPlatformHandle failed";
+    LOG(ERROR) << "Invalid platform handle";
     CloseInternal(CloseStatus::kStatusError);
     std::move(callback).Run(net::ERR_INVALID_HANDLE);
     return;
   }
-  file_ = std::make_unique<base::File>(platform_handle.ReleaseFD());
-  DCHECK(file_->IsValid());
+  file_ = std::make_unique<base::File>(platform_handle.TakeFD());
+  CHECK(file_->IsValid(), base::NotFatalUntil::M160);
   if (offset_ == 0) {
     // We can skip the step to seek the file.
     OnSeekFile(buf, buffer_length, std::move(callback), 0);
@@ -221,10 +219,10 @@ void ArcContentFileSystemFileStreamWriter::OnSeekFile(
     int buffer_length,
     net::CompletionOnceCallback callback,
     int seek_result) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
-  DCHECK(file_);
-  DCHECK(file_->IsValid());
-  DCHECK(has_pending_operation_);
+  CHECK_CURRENTLY_ON(content::BrowserThread::IO, base::NotFatalUntil::M160);
+  CHECK(file_, base::NotFatalUntil::M160);
+  CHECK(file_->IsValid(), base::NotFatalUntil::M160);
+  CHECK(has_pending_operation_, base::NotFatalUntil::M160);
 
   if (CancelIfRequested())
     return;
@@ -245,8 +243,8 @@ void ArcContentFileSystemFileStreamWriter::OnSeekFile(
 void ArcContentFileSystemFileStreamWriter::OnFlushFile(
     net::CompletionOnceCallback callback,
     int flush_result) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
-  DCHECK(has_pending_operation_);
+  CHECK_CURRENTLY_ON(content::BrowserThread::IO, base::NotFatalUntil::M160);
+  CHECK(has_pending_operation_, base::NotFatalUntil::M160);
 
   if (CancelIfRequested())
     return;
@@ -255,7 +253,7 @@ void ArcContentFileSystemFileStreamWriter::OnFlushFile(
 }
 
 bool ArcContentFileSystemFileStreamWriter::CancelIfRequested() {
-  DCHECK(has_pending_operation_);
+  CHECK(has_pending_operation_, base::NotFatalUntil::M160);
 
   if (cancel_callback_.is_null())
     return false;

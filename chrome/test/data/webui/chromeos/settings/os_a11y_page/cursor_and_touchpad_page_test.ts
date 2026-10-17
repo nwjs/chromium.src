@@ -12,7 +12,7 @@ import type {CrToggleElement} from 'chrome://resources/ash/common/cr_elements/cr
 import {assert, assertNotReachedCase} from 'chrome://resources/js/assert.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
-import {assertEquals, assertFalse, assertNotEquals, assertNull, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {assertEquals, assertFalse, assertNotEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {waitAfterNextRender, waitBeforeNextRender} from 'chrome://webui-test/polymer_test_util.js';
 import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
 
@@ -134,11 +134,7 @@ suite('<settings-cursor-and-touchpad-page>', () => {
     assertFalse(cursorColorEnabledPref.value);
   });
 
-  test('cursor color inverted option visible only with flag', async () => {
-    // Enable the flag.
-    loadTimeData.overrideValues({
-      isAccessibilityInvertedMouseCursorEnabled: true,
-    });
+  test('cursor color inverted option is present', async () => {
     await initPage();
 
     const cursorColorDropdown =
@@ -160,34 +156,6 @@ suite('<settings-cursor-and-touchpad-page>', () => {
       }
     }
     assertTrue(foundInverted);
-
-    // Disable the flag and re-init page.
-    page.remove();
-    prefElement.remove();
-    loadTimeData.overrideValues({
-      isAccessibilityInvertedMouseCursorEnabled: false,
-    });
-    await initPage();
-
-    const cursorColorDropdown2 =
-        page.shadowRoot!.querySelector<SettingsDropdownMenuElement>(
-            '#cursorColorDropdown');
-    assert(cursorColorDropdown2);
-    await waitAfterNextRender(cursorColorDropdown2);
-    const cursorColorSelectElement2 =
-        cursorColorDropdown2.shadowRoot!.querySelector('select');
-    assert(cursorColorSelectElement2);
-
-    // Check if inverted option is NOT present.
-    let foundInverted2 = false;
-    for (let i = 0; i < cursorColorSelectElement2.options.length; i++) {
-      if (cursorColorSelectElement2.options[i]!.value ===
-          String(INVERTED_CURSOR_COLOR)) {
-        foundInverted2 = true;
-        break;
-      }
-    }
-    assertFalse(foundInverted2);
   });
 
   test(
@@ -656,24 +624,7 @@ suite('<settings-cursor-and-touchpad-page>', () => {
         routes.MANAGE_FACEGAZE_SETTINGS, Router.getInstance().currentRoute);
   });
 
-  test('Mouse keys feature disabled.', async () => {
-    loadTimeData.overrideValues({
-      isAccessibilityMouseKeysEnabled: false,
-    });
-
-    await initPage();
-
-    // Toggle shouldn't be available if flag is disabled.
-    const enableMouseKeysToggle =
-        page.shadowRoot!.querySelector<SettingsToggleButtonElement>(
-            '#mouseKeysToggle');
-    assertNull(enableMouseKeysToggle);
-  });
-
   test('Mouse keys: toggle is in sync with pref', async () => {
-    loadTimeData.overrideValues({
-      isAccessibilityMouseKeysEnabled: true,
-    });
     await initPage();
 
     // If the flag is enabled, check that the UI works.

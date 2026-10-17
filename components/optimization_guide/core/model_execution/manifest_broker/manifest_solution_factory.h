@@ -12,10 +12,13 @@
 
 #include "base/byte_size.h"
 #include "base/containers/flat_map.h"
+#include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
+#include "base/metrics/field_trial_params.h"
 #include "base/sequence_checker.h"
+#include "base/time/time.h"
 #include "base/types/expected.h"
 #include "base/version.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/manifest.h"
@@ -28,9 +31,18 @@
 #include "services/on_device_model/public/cpp/model_assets.h"
 #include "services/on_device_model/public/cpp/service_client.h"
 #include "services/on_device_model/public/mojom/on_device_model.mojom.h"
-#include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 
 namespace optimization_guide {
+
+// Feature and parameter controlling the idle timeout before loaded on-device
+// models (base models, adaptations, and safety models) disconnect and unload.
+// NOTE: This feature and parameter are actively used by automated benchmarks
+// and tests (e.g. Web-Workloads blink-ai, see crbug.com/562517320) via
+// `--enable-features=OnDeviceModelIdleTimeout:on_device_model_idle_timeout/10s`
+// to lower model offload latency between test runs. Do not remove as a dead
+// feature.
+BASE_DECLARE_FEATURE(kOnDeviceModelIdleTimeout);
+extern const base::FeatureParam<base::TimeDelta> kOnDeviceModelIdleTimeoutParam;
 
 class UsageTracker;
 
@@ -126,6 +138,9 @@ class ManifestSolutionFactory {
  private:
   class Solution;
 
+  // Unloads models and resets state associated with the given asset.
+  void UnloadAsset(const std::string& asset_id);
+
   // Resolves a file reference to a file path.
   // Returns nullopt if the asset is not available.
   std::optional<base::FilePath> ResolveFile(
@@ -143,6 +158,12 @@ class ManifestSolutionFactory {
   // Creates a solution for the given use case, if possible.
   ModelBrokerImpl::MaybeSolution CreateSolutionForUseCase(
       const std::string& use_case_name);
+
+  // Logs the model's version, backend and cache configuration to the
+  // optimization guide internals page.
+  void LogBaseModelInitialization(const std::string& model_id,
+                                  const proto::BaseModelRecipe& recipe,
+                                  const BaseModelState& state) const;
 
   // Gets or loads the model.
   mojo::Remote<on_device_model::mojom::OnDeviceModel>& GetOrLoadModel(

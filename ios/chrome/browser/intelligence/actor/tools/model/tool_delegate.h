@@ -5,6 +5,7 @@
 #ifndef IOS_CHROME_BROWSER_INTELLIGENCE_ACTOR_TOOLS_MODEL_TOOL_DELEGATE_H_
 #define IOS_CHROME_BROWSER_INTELLIGENCE_ACTOR_TOOLS_MODEL_TOOL_DELEGATE_H_
 
+#import "components/origin_gating/core/checker_id.h"
 #import "ios/chrome/browser/intelligence/actor/public/actor_types.h"
 #import "ios/web/public/navigation/navigation_manager.h"
 
@@ -57,6 +58,10 @@ class ToolDelegate {
       int32_t window_id,
       const web::NavigationManager::WebLoadParams& load_params,
       bool in_background) = 0;
+
+  // Returns the origin gating checker ID used for evaluating navigation and
+  // actuation policies.
+  virtual origin_gating::CheckerId GetOriginGatingCheckerId() const = 0;
 };
 
 }  // namespace actor

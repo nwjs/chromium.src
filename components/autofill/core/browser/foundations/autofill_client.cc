@@ -6,7 +6,6 @@
 
 #include <stdint.h>
 
-#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -30,6 +29,7 @@
 #include "components/autofill/core/browser/integrators/password_manager/password_manager_delegate.h"
 #include "components/autofill/core/browser/integrators/touch_to_fill/touch_to_fill_autofill_delegate.h"
 #include "components/autofill/core/browser/payments/credit_card_access_manager.h"
+#include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/studies/autofill_ablation_study.h"
 #include "components/autofill/core/browser/studies/autofill_experiments.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
@@ -46,7 +46,8 @@ namespace autofill {
 
 AutofillClient::PopupOpenArgs::PopupOpenArgs() = default;
 AutofillClient::PopupOpenArgs::PopupOpenArgs(
-    LocalFrameToken frame_token,
+    FormGlobalId form_id,
+    FieldGlobalId field_id,
     const gfx::RectF& element_bounds,
     base::i18n::TextDirection text_direction,
     std::vector<Suggestion> suggestions,
@@ -56,7 +57,8 @@ AutofillClient::PopupOpenArgs::PopupOpenArgs(
     bool show_tabbed_popup,
     bool prefer_prev_arrow_side_on_suggestions_update,
     std::u16string search_bar_initial_value)
-    : frame_token(std::move(frame_token)),
+    : form_id(std::move(form_id)),
+      field_id(std::move(field_id)),
       element_bounds(element_bounds),
       text_direction(text_direction),
       suggestions(std::move(suggestions)),
@@ -244,6 +246,19 @@ AutofillClient::GetPaymentsAutofillClient() const {
   return const_cast<AutofillClient*>(this)->GetPaymentsAutofillClient();
 }
 
+payments::WalletReminderNoticeManager*
+AutofillClient::GetWalletReminderNoticeManager() {
+  payments::PaymentsAutofillClient* payments_client =
+      GetPaymentsAutofillClient();
+  return payments_client ? payments_client->GetWalletReminderNoticeManager()
+                         : nullptr;
+}
+
+const payments::WalletReminderNoticeManager*
+AutofillClient::GetWalletReminderNoticeManager() const {
+  return const_cast<AutofillClient*>(this)->GetWalletReminderNoticeManager();
+}
+
 GeoIpCountryCode AutofillClient::GetVariationConfigCountryCode() const {
   return GeoIpCountryCode(std::string());
 }
@@ -293,24 +308,15 @@ void AutofillClient::DismissAutofillAiLoadingDialog() {
 }
 #endif
 
-void AutofillClient::TriggerUserPerceptionOfAutofillSurvey(
-    FillingProduct filling_product,
-    const std::map<std::string, std::string>& field_filling_stats_data) {
-  NOTIMPLEMENTED();
-}
-
 void AutofillClient::TriggerDeclinedSaveAddressReasonSurvey() {
   NOTIMPLEMENTED();
 }
 
-void AutofillClient::TriggerAutofillAiFillingJourneySurvey(
-    bool suggestion_accepted,
-    EntityType entity_type,
-    const base::flat_set<EntityTypeName>& saved_entities,
-    const FieldTypeSet& triggering_field_types) {
+void AutofillClient::TriggerPersonalizationAndTrustSurveys(
+    FillingProduct filling_product,
+    const HatsSurveyStringData& field_filling_stats_data) {
   NOTIMPLEMENTED();
 }
-
 
 bool AutofillClient::IsTabInActorMode() const {
   return false;
@@ -413,6 +419,7 @@ void AutofillClient::ShowEntityImportBubble(
     EntityInstance new_entity,
     std::optional<EntityInstance> old_entity,
     bool save_is_synchronous,
+    LegalMessageLines public_passes_notice,
     EntityImportPromptResultCallback prompt_closed_callback) {}
 
 void AutofillClient::CloseEntityImportBubble() {
@@ -444,7 +451,17 @@ void AutofillClient::ShowAutofillAiPrivateInferenceNotice() {
   NOTIMPLEMENTED();
 }
 
-void AutofillClient::ShowEmailVerifiedToast(const GURL& issuer) {
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+void AutofillClient::ShowAutofillAiSuppressionConfirmationDialog(
+    const EntityInstance& entity,
+    base::OnceCallback<void(bool)> callback) {
+  NOTIMPLEMENTED();
+}
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+
+void AutofillClient::ShowAutofillAiSuggestionRemovedNotification(
+    const EntityInstance& entity,
+    base::OnceClosure on_undo_clicked) {
   NOTIMPLEMENTED();
 }
 
@@ -453,7 +470,24 @@ void AutofillClient::ShowEmailVerificationPopup(
     const net::SchemefulSite& issuer_site,
     const std::u16string& email,
     base::OnceCallback<void(EmailVerificationPermissionUiStatus)> callback) {
+  NOTIMPLEMENTED();
   std::move(callback).Run(EmailVerificationPermissionUiStatus::kOther);
+}
+
+void AutofillClient::HideEmailVerificationPopup() {
+  NOTIMPLEMENTED();
+}
+
+void AutofillClient::ShowEmailVerificationLoadingToast() {
+  NOTIMPLEMENTED();
+}
+
+void AutofillClient::ShowEmailVerifiedToast(const GURL& issuer) {
+  NOTIMPLEMENTED();
+}
+
+void AutofillClient::ShowEmailVerificationErrorToast() {
+  NOTIMPLEMENTED();
 }
 
 OtpFieldDetector* AutofillClient::GetOtpFieldDetector() {
@@ -473,6 +507,10 @@ one_time_tokens::OneTimeTokenService* AutofillClient::GetOneTimeTokenService()
   return nullptr;
 }
 
+one_time_tokens::GmailOtpBackend* AutofillClient::GetGmailOtpBackend() const {
+  return nullptr;
+}
+
 bool AutofillClient::DocumentUsedWebOTP() {
   return false;
 }
@@ -489,6 +527,8 @@ AutofillManager* AutofillClient::GetAutofillManagerForPrimaryMainFrame() {
 OtpPhishGuardDelegate* AutofillClient::GetOtpPhishGuardDelegate() {
   return nullptr;
 }
+
+void AutofillClient::OpenGmailForOtps() {}
 
 void AutofillClient::OpenGeminiInSidebar(const std::u16string& prompt) {
   // TODO(crbug.com/493824736): Implement opening Gemini in the sidebar.

@@ -175,16 +175,18 @@ BASE_DECLARE_FEATURE(kPasswordFormClientsideClassifier);
 // Enables offering credentials for filling across grouped domains.
 BASE_DECLARE_FEATURE(kPasswordFormGroupedAffiliations);
 
+// Kill switch for dropping fullscreen and checking pointer lock before
+// showing or accepting password generation popups.
+BASE_DECLARE_FEATURE(kPasswordGenerationDropFullscreenAndCheckPointerLock);
+
 // Enables logging the content of chrome://password-manager-internals to the
 // terminal.
 BASE_DECLARE_FEATURE(kPasswordManagerLogToTerminal);
 
-#if !BUILDFLAG(IS_ANDROID)
 // Enables the OnDeviceEncryptionMetricsReporter service which tracks
 // on-device encryption states of passwords and passkeys and records
 // readiness metrics.
 BASE_DECLARE_FEATURE(kPasswordManagerOnDeviceEncryptionMetricsReporter);
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 // Performs additional security checks wrt. the triggering frame before adding
 // the "Select password" entry to the context menu.

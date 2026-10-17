@@ -457,6 +457,17 @@ GURL NormalizeExternalFileUrl(const GURL& url) {
 }
 #endif
 
+// Returns the ID that identifies `browser_context`, or a null token if
+// `browser_context` is null (which means that the corresponding operation
+// applies to all profiles).
+//
+// TODO(crbug.com/466132514): This should eventually return a separate type for
+// BrowserContext IDs based on base::TokenType().
+base::UnguessableToken GetBrowserContextId(BrowserContext* browser_context) {
+  return browser_context ? browser_context->UniqueToken()
+                         : base::UnguessableToken::Null();
+}
+
 }  // namespace
 
 ChildProcessSecurityPolicyImpl::Handle::Handle() = default;
@@ -916,8 +927,7 @@ class ChildProcessSecurityPolicyImpl::ProcessState {
   }
 
   void SetProcessLock(const ProcessLock& lock_to_set,
-                      const IsolationContext& context,
-                      bool is_process_used) {
+                      const IsolationContext& context) {
     CHECK(!lock_to_set.is_invalid());
     CHECK(!process_lock_.IsLockedToSite());
     CHECK_NE(SiteInstanceImpl::GetDefaultSiteURL(),
@@ -943,7 +953,7 @@ class ChildProcessSecurityPolicyImpl::ProcessState {
         // Do not allow a lock to become more strict if the process has already
         // been used to render any pages.
         if (lock_to_set.IsLockedToSite()) {
-          CHECK(!is_process_used)
+          CHECK(process_lock_.is_unused())
               << "Cannot lock an already used process to " << lock_to_set;
         }
       } else {
@@ -954,6 +964,8 @@ class ChildProcessSecurityPolicyImpl::ProcessState {
     process_lock_ = lock_to_set;
     AddBrowsingInstanceInfo(context);
   }
+
+  void SetProcessIsUsed() { process_lock_.set_is_used(); }
 
   void AddBrowsingInstanceInfo(const IsolationContext& context) {
     CHECK(!context.browsing_instance_id().is_null(), base::NotFatalUntil::M159);
@@ -1308,7 +1320,6 @@ void ChildProcessSecurityPolicyImpl::AddForTesting(
                   OriginAgentClusterIsolationState::CreateForDefaultIsolation(
                       browser_context)),
               child_id,
-              /*is_process_used=*/false,
               ProcessLock::CreateAllowAnySite(
                   StoragePartitionConfig::CreateDefault(browser_context),
                   WebExposedIsolationInfo::CreateNonIsolated(),
@@ -2785,7 +2796,7 @@ bool ChildProcessSecurityPolicyImpl::PerformJailAndCitadelChecks(
         // such navigations to succeed (i.e. pass CanCommitOriginAndUrl checks).
         // We don't expect unused processes to be used outside of navigations
         // (e.g. when checking CanAccessDataForOrigin for localStorage, etc.).
-        if (process->IsUnused()) {
+        if (actual_process_lock.is_unused()) {
           return true;
         }
       }
@@ -2984,7 +2995,6 @@ void ChildProcessSecurityPolicyImpl::IncludeIsolationContext(
 void ChildProcessSecurityPolicyImpl::LockProcess(
     const IsolationContext& context,
     ChildProcessId child_id,
-    bool is_process_used,
     const ProcessLock& process_lock) {
   // LockProcess should only be called on the UI thread (OTOH, it is okay to
   // call GetProcessLock from any thread).
@@ -2993,7 +3003,16 @@ void ChildProcessSecurityPolicyImpl::LockProcess(
   base::AutoLock lock(lock_);
   auto* state = process_states_.GetProcessStateForMutation(child_id);
   CHECK(state);
-  state->SetProcessLock(process_lock, context, is_process_used);
+  state->SetProcessLock(process_lock, context);
+}
+
+void ChildProcessSecurityPolicyImpl::SetProcessIsUsed(ChildProcessId child_id) {
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
+
+  base::AutoLock lock(lock_);
+  auto* state = process_states_.GetProcessStateForMutation(child_id);
+  CHECK(state);
+  state->SetProcessIsUsed();
 }
 
 void ChildProcessSecurityPolicyImpl::LockProcessForTesting(
@@ -3001,7 +3020,7 @@ void ChildProcessSecurityPolicyImpl::LockProcessForTesting(
     ChildProcessId child_id,
     const GURL& url) {
   SiteInfo site_info = SiteInfo::CreateForTesting(isolation_context, url);
-  LockProcess(isolation_context, child_id, /* is_process_used=*/false,
+  LockProcess(isolation_context, child_id,
               ProcessLock::FromSiteInfo(site_info));
 }
 
@@ -3138,24 +3157,20 @@ void ChildProcessSecurityPolicyImpl::AddFutureIsolatedOrigins(
     BrowsingInstanceId browsing_instance_id =
         SiteInstanceImpl::NextBrowsingInstanceId();
 
-    AddIsolatedOriginInternal(browser_context, origin_to_add,
-                              true /* applies_to_future_browsing_instances */,
-                              browsing_instance_id,
-                              pattern.isolate_all_subdomains(), source);
+    AddIsolatedOriginInternal(
+        GetBrowserContextId(browser_context), origin_to_add,
+        true /* applies_to_future_browsing_instances */, browsing_instance_id,
+        pattern.isolate_all_subdomains(), source);
   }
 }
 
 void ChildProcessSecurityPolicyImpl::AddIsolatedOriginInternal(
-    BrowserContext* browser_context,
+    const base::UnguessableToken& browser_context_id,
     const url::Origin& origin_to_add,
     bool applies_to_future_browsing_instances,
     BrowsingInstanceId browsing_instance_id,
     bool isolate_all_subdomains,
     IsolatedOriginSource source) {
-  base::UnguessableToken browser_context_id =
-      browser_context ? browser_context->UniqueToken()
-                      : base::UnguessableToken::Null();
-
   RUST_CPP_VOID_FUNCTION(
       rust::child_process_security_policy::add_isolated_origin_internal(
           browser_context_id,
@@ -3324,6 +3339,8 @@ std::vector<url::Origin> ChildProcessSecurityPolicyImpl::GetIsolatedOrigins(
     BrowserContext* browser_context) {
   std::vector<url::Origin> rust_origins;
   std::vector<url::Origin> cpp_origins;
+  base::UnguessableToken browser_context_id =
+      GetBrowserContextId(browser_context);
 
   // TODO(https://crbug.com/40226863): This doesn't use RUST_CPP_RETURN_FUNCTION
   // because Rust and C++ may end up sorting the returned origin vector
@@ -3334,10 +3351,8 @@ std::vector<url::Origin> ChildProcessSecurityPolicyImpl::GetIsolatedOrigins(
   RUST_CPP_VOID_FUNCTION(
       rust::child_process_security_policy::get_isolated_origins(
           source.has_value(), source.value_or(IsolatedOriginSource::BUILT_IN),
-          browser_context ? browser_context->UniqueToken()
-                          : base::UnguessableToken::Null(),
-          rust_origins),
-      GetIsolatedOrigins_Cpp(source, browser_context, &cpp_origins));
+          browser_context_id, rust_origins),
+      GetIsolatedOrigins_Cpp(source, browser_context_id, &cpp_origins));
 
   const RustPolicy rust_cpp_policy = GetRustPolicy();
   if (rust_cpp_policy == RustPolicy::kRustAndCpp) {
@@ -3354,7 +3369,7 @@ std::vector<url::Origin> ChildProcessSecurityPolicyImpl::GetIsolatedOrigins(
 
 void ChildProcessSecurityPolicyImpl::GetIsolatedOrigins_Cpp(
     std::optional<IsolatedOriginSource> source,
-    BrowserContext* browser_context,
+    const base::UnguessableToken& browser_context_id,
     std::vector<url::Origin>* origins) {
   CHECK(origins);
   base::AutoLock isolated_origins_lock(isolated_origins_lock_);
@@ -3364,13 +3379,10 @@ void ChildProcessSecurityPolicyImpl::GetIsolatedOrigins_Cpp(
         continue;
       }
 
-      // If browser_context is specified, ensure that the entry matches it.  If
-      // the browser_context is not specified, only consider entries that are
-      // not associated with a profile (i.e., which apply globally to the
-      // entire browser).
-      if (!isolated_origin_entry.MatchesProfile(
-              browser_context ? browser_context->UniqueToken()
-                              : base::UnguessableToken())) {
+      // If `browser_context_id` is specified, ensure that the entry matches it.
+      // If it is not specified, only consider entries that are not associated
+      // with a profile (i.e., which apply globally to the entire browser).
+      if (!isolated_origin_entry.MatchesProfile(browser_context_id)) {
         continue;
       }
 
@@ -3500,9 +3512,7 @@ std::optional<url::Origin> ChildProcessSecurityPolicyImpl::
   // TODO(crbug.com/466132514): This should eventually use a separate type for
   // BrowserContext IDs based on base::TokenType().
   base::UnguessableToken browser_context_id =
-      isolation_context.browser_context()
-          ? isolation_context.browser_context()->UniqueToken()
-          : base::UnguessableToken::Null();
+      GetBrowserContextId(isolation_context.browser_context());
 
   // If |isolation_context| does not specify a BrowsingInstance ID (which should
   // only happen in tests), then assume that we want to retrieve the latest
@@ -3946,10 +3956,11 @@ void ChildProcessSecurityPolicyImpl::AddCoopIsolatedOriginForBrowsingInstance(
   // ones.  Note that it's possible for `origin` to also become isolated for
   // future BrowsingInstances if AddFutureIsolatedOrigins() is called for it
   // later.
-  AddIsolatedOriginInternal(isolation_context.browser_context(), origin,
-                            false /* applies_to_future_browsing_instances */,
-                            isolation_context.browsing_instance_id(),
-                            false /* isolate_all_subdomains */, source);
+  AddIsolatedOriginInternal(
+      GetBrowserContextId(isolation_context.browser_context()), origin,
+      false /* applies_to_future_browsing_instances */,
+      isolation_context.browsing_instance_id(),
+      false /* isolate_all_subdomains */, source);
 }
 
 void ChildProcessSecurityPolicyImpl::

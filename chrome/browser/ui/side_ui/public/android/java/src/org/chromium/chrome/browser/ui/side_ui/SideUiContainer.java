@@ -4,10 +4,12 @@
 
 package org.chromium.chrome.browser.ui.side_ui;
 
+import android.content.res.Resources;
 import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.Px;
+import androidx.annotation.StringRes;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.tab.Tab;
@@ -16,6 +18,7 @@ import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.HeightType;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiId;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiSpecs;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiSpecs.SideUiSize;
+import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.UiUpdateRequest.UpdateReason;
 
 /**
  * Container for a side UI view that will be anchored to either the left or right side of the main
@@ -33,7 +36,7 @@ public interface SideUiContainer {
      * {@link View} to the view hierarchy.
      *
      * <p>In addition, this {@link SideUiContainer} should not directly resize or reposition this
-     * backing view outside of implementing {@link #setWidth}.
+     * backing view outside of implementing {@link #setRenderedWidth}.
      *
      * @return the {@link View} held by this container.
      */
@@ -54,13 +57,18 @@ public interface SideUiContainer {
      * Called by {@link SideUiCoordinator} for this container to determine its <i>showable</i> size,
      * given the constraints of {@code availableWidth} and {@code windowWidth}.
      *
-     * <p>"Showable width" is the width for <i>when</i> this {@link SideUiContainer} is shown. A
-     * non-zero showable width means there is enough space for this {@link SideUiContainer}, but it
-     * does <i>not</i> mean the {@link SideUiContainer} will actually be shown.
+     * <p>"Showable width" is the {@link SideUiSize#mReservedWidth} for <i>when</i> this {@link
+     * SideUiContainer} is shown. A non-zero showable width means there is enough space for this
+     * {@link SideUiContainer}, but it does <i>not</i> mean the {@link SideUiContainer} will
+     * actually be shown.
      *
-     * <p>Therefore, the width in {@link SideUiSize} should depend on {@code availableWidth} and
-     * {@code windowWidth}, but it should <i>not</i> depend on states like whether there is content
-     * to show.
+     * <p>Therefore, the widths in {@link SideUiSize} should depend on {@code availableWidth} and
+     * {@code windowWidth}, but they should <i>not</i> depend on states like whether there is
+     * content to show.
+     *
+     * <p>A container that overlays other browser UI returns a {@link SideUiSize#mRenderedWidth}
+     * larger than its {@link SideUiSize#mReservedWidth}; only the reserved width is taken from the
+     * available width.
      *
      * @param availableWidth The available width that this container can consume in px.
      * @param windowWidth The new window width in px.
@@ -87,12 +95,15 @@ public interface SideUiContainer {
     boolean hasContentToShow(Tab tab);
 
     /**
-     * Sets the new width. <strong>Important:</strong> this should only be called by the {@link
-     * SideUiCoordinator} that this container is registered to.
+     * Sets the new rendered width, i.e. {@link SideUiSize#mRenderedWidth}, which is larger than the
+     * reserved width while the container overlays other browser UI.
      *
-     * @param width The new width in px.
+     * <p><strong>Important:</strong> this should only be called by the {@link SideUiCoordinator}
+     * that this container is registered to.
+     *
+     * @param renderedWidth The new rendered width in px.
      */
-    void setWidth(@Px int width);
+    void setRenderedWidth(@Px int renderedWidth);
 
     /**
      * Returns whether browser top controls should remain locked (i.e. prevented from scrolling off)
@@ -105,16 +116,18 @@ public interface SideUiContainer {
      * SideUiContainer}. This is after {@link SideUiCoordinator} computes the upcoming {@link
      * SideUiUpdateSpecs}, but before these specs have been committed or used to update view state.
      *
-     * @param oldWidth The stable width of this {@link SideUiContainer} before the UI update.
-     * @param newWidth The stable width of this {@link SideUiContainer} after the UI update.
+     * @param oldReservedWidth The stable reserved width of this {@link SideUiContainer} before the
+     *     UI update.
+     * @param newReservedWidth The stable reserved width of this {@link SideUiContainer} after the
+     *     UI update.
      * @param oldHeightType The stable {@link HeightType} of this {@link SideUiContainer} before the
      *     UI update.
      * @param newHeightType The stable {@link HeightType} of this {@link SideUiContainer} after the
      *     UI update.
      */
     default void onUiUpdateStarting(
-            @Px int oldWidth,
-            @Px int newWidth,
+            @Px int oldReservedWidth,
+            @Px int newReservedWidth,
             @HeightType int oldHeightType,
             @HeightType int newHeightType) {}
 
@@ -126,16 +139,18 @@ public interface SideUiContainer {
      * SideUiCoordinator#updateUi} or other events that may affect {@link SideUiCoordinator}s and
      * {@link SideUiObserver}s (such as when a window is resized).
      *
-     * @param oldWidth The stable width of this {@link SideUiContainer} before the UI update.
-     * @param newWidth The stable width of this {@link SideUiContainer} after the UI update.
+     * @param oldReservedWidth The stable reserved width of this {@link SideUiContainer} before the
+     *     UI update.
+     * @param newReservedWidth The stable reserved width of this {@link SideUiContainer} after the
+     *     UI update.
      * @param oldHeightType The stable {@link HeightType} of this {@link SideUiContainer} before the
      *     UI update.
      * @param newHeightType The stable {@link HeightType} of this {@link SideUiContainer} after the
      *     UI update.
      */
     default void onUiUpdateCompleted(
-            @Px int oldWidth,
-            @Px int newWidth,
+            @Px int oldReservedWidth,
+            @Px int newReservedWidth,
             @HeightType int oldHeightType,
             @HeightType int newHeightType) {}
 
@@ -165,4 +180,55 @@ public interface SideUiContainer {
      * @see #onWillAutoClose
      */
     default void onWillAutoRestore() {}
+
+    /**
+     * Returns whether this container supports manual resizing, i.e. whether {@link
+     * SideUiCoordinator} should show a resize handle on the container's inner edge (the edge facing
+     * the web contents) while the container is showing.
+     *
+     * <p>Base this on the container's feature configuration, e.g. whether manual resizing is
+     * enabled by its feature flag or params.
+     *
+     * <p>Do not base it on the space available to the container. {@link #determineShowableSize} is
+     * called for every width a drag proposes, so clamping belongs there.
+     */
+    default boolean supportsManualResize() {
+        return false;
+    }
+
+    /**
+     * Returns the resource id of the resize handle's content description, e.g. "Resize tab rail",
+     * or {@link Resources#ID_NULL} for none.
+     *
+     * <p>Only called while {@link #supportsManualResize()} returns true.
+     */
+    default @StringRes int getResizeHandleContentDescriptionRes() {
+        return Resources.ID_NULL;
+    }
+
+    /**
+     * Called for each pointer move while the resize handle is being dragged.
+     *
+     * <p>The proposed width is the raw width implied by the pointer position; it is not clamped.
+     * Implementations should record it as a transient width for {@link #determineShowableSize}. The
+     * Side UI framework triggers a {@link UpdateReason#RESIZE_LIVE} UI update immediately after
+     * this call, so implementations must not call {@link SideUiCoordinator#updateUi} in this
+     * method.
+     *
+     * @param proposedWidthPx The raw candidate width in px.
+     */
+    default void onResizeLive(@Px int proposedWidthPx) {}
+
+    /**
+     * Called when the resize gesture ends.
+     *
+     * <p>Implementations should drop the transient width recorded by {@link #onResizeLive}, and
+     * either persist {@code finalWidthPx} or fall back to another state, e.g. collapsing when the
+     * width is below the container's minimum. The Side UI framework triggers a {@link
+     * UpdateReason#RESIZE_COMMITTED} UI update immediately after this call, so implementations must
+     * not call {@link SideUiCoordinator#updateUi} in this method.
+     *
+     * @param finalWidthPx The raw candidate width in px at the end of the gesture.
+     */
+    default void onResizeCommitted(@Px int finalWidthPx) {}
 }

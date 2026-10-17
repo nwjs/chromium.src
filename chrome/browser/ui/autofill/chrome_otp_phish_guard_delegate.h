@@ -18,7 +18,9 @@ class WebContents;
 
 namespace autofill {
 
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 class OtpFillingSafeBrowsingCheckerClient;
+#endif
 
 class ChromeOtpPhishGuardDelegate : public OtpPhishGuardDelegate {
  public:
@@ -38,8 +40,10 @@ class ChromeOtpPhishGuardDelegate : public OtpPhishGuardDelegate {
 #endif
 
   const raw_ref<content::WebContents> web_contents_;
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
   std::unique_ptr<OtpFillingSafeBrowsingCheckerClient>
       safe_browsing_checker_client_;
+#endif
 
   base::WeakPtrFactory<ChromeOtpPhishGuardDelegate> weak_factory_{this};
 };

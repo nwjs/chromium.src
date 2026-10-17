@@ -33,6 +33,8 @@
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/common/is_required.h"
+#include "third_party/abseil-cpp/absl/functional/overload.h"
+#include "url/gurl.h"
 
 namespace sync_pb {
 class AutofillValuableSpecifics;
@@ -307,20 +309,55 @@ class EntityInstance final {
                            const LocalRecordTypePayload&) = default;
   };
   struct WalletRecordTypePayload {
+    // Canonical management URL for this entity on wallet.google.com.
+    // Empty if not provided by the server or before sync propagation.
+    // TODO(crbug.com/560061580): This field is not yet populated.
+    std::string management_url = internal::IsRequired();
+
     friend bool operator==(const WalletRecordTypePayload&,
                            const WalletRecordTypePayload&) = default;
   };
   struct PersonalContextRecordTypePayload {
+    struct GmailSourceMetadata {
+      std::string title;
+      friend bool operator==(const GmailSourceMetadata&,
+                             const GmailSourceMetadata&) = default;
+    };
+    struct PhotosSourceMetadata {
+      base::Time timestamp;
+      friend bool operator==(const PhotosSourceMetadata&,
+                             const PhotosSourceMetadata&) = default;
+    };
+
+    using SourceMetadata =
+        std::variant<GmailSourceMetadata, PhotosSourceMetadata>;
+
     // Captures the provenance of an entity (e.g., its product source and URL).
     struct Source {
+      // These values are persisted to logs. Entries should not be renumbered
+      // and numeric values should never be reused.
+      // GENERATED_JAVA_ENUM_PACKAGE: (
+      //   org.chromium.components.autofill.autofill_ai)
+      // GENERATED_JAVA_CLASS_NAME_OVERRIDE: SourceType
       enum class Type {
-        kUnspecified = 0,
-        kGmail = 1,
-        kPhotos = 2,
+        // LINT.IfChange(SourceType)
+        kGmail = 0,
+        kPhotos = 1,
+        kMaxValue = kPhotos,
+        // LINT.ThenChange(/tools/metrics/histograms/metadata/autofill/enums.xml:AutofillAiSourceType)
       };
 
-      Type type = Type::kUnspecified;
-      std::string url;
+      GURL url;
+      SourceMetadata metadata;
+
+      // Derived from `metadata` so type and payload can never get out of sync.
+      Type type() const {
+        return std::visit(
+            absl::Overload{
+                [](const GmailSourceMetadata&) { return Type::kGmail; },
+                [](const PhotosSourceMetadata&) { return Type::kPhotos; }},
+            metadata);
+      }
 
       friend bool operator==(const Source&, const Source&) = default;
     };

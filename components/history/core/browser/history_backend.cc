@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "base/compiler_specific.h"
+#include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
 #include "base/feature_list.h"
 #include "base/files/file_enumerator.h"
@@ -33,6 +34,7 @@
 #include "base/observer_list.h"
 #include "base/rand_util.h"
 #include "base/strings/escape.h"
+#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
@@ -1355,11 +1357,10 @@ void HistoryBackend::InitImpl(
   {
     std::unique_ptr<InMemoryHistoryBackend> mem_backend(
         new InMemoryHistoryBackend);
-    if (mem_backend->Init(history_name)) {
+    if (mem_backend->Init(*db_)) {
       delegate_->SetInMemoryBackend(std::move(mem_backend));
     }
   }
-  db_->BeginExclusiveMode();  // Must be after the mem backend read the data.
   if (!local_device_originator_cache_guid_.empty()) {
     db_->SetLocalDeviceOriginatorCacheGuid(local_device_originator_cache_guid_);
   }
@@ -1472,7 +1473,6 @@ std::pair<URLID, VisitID> HistoryBackend::AddPageVisit(
       DLOG(ERROR) << "AddPageVisit: Adding URL failed: " << url_info.url();
       return std::make_pair(0, 0);
     }
-    UMA_HISTOGRAM_BOOLEAN("History.URLRowAddedAsHidden", url_info.hidden());
     url_info.set_id(url_id);
   }
 
@@ -1543,12 +1543,6 @@ std::pair<URLID, VisitID> HistoryBackend::AddPageVisit(
   }
 
   if (visit_info.visit_id) {
-    // For redirect chains that end in a 404 visit, the redirect visits are
-    // saved due to the 404 visit. Here, the `response_code_category` is
-    // always for the final navigation in the chain.
-    UMA_HISTOGRAM_BOOLEAN(
-        "History.VisitAddedDueTo404",
-        response_code_category == VisitResponseCodeCategory::k404);
     // Broadcast a notification of the visit.
     NotifyURLVisited(VisitedURLInfo(
         url_info, visit_info, response_code_category, local_navigation_id));
@@ -2158,6 +2152,14 @@ std::vector<journeys::Journey> HistoryBackend::GetAllJourneysWithVisits() {
     return {};
   }
   return journeys::GetAllJourneysWithResolvedVisits(*db_);
+}
+
+std::optional<journeys::Journey> HistoryBackend::GetJourneyWithVisits(
+    const std::string& journey_id) {
+  if (!db_) {
+    return std::nullopt;
+  }
+  return journeys::GetJourneyWithResolvedVisits(*db_, journey_id);
 }
 
 bool HistoryBackend::DeleteAllJourneys() {
@@ -2875,7 +2877,7 @@ QueryResults HistoryBackend::QueryHistory(const std::u16string& text_query,
                                           const QueryOptions& options) {
   QueryResults query_results;
   if (db_) {
-    if (text_query.empty()) {
+    if (text_query.empty() && options.hostname_suffix.empty()) {
       // Basic history query for the main database.
       QueryHistoryBasic(options, &query_results);
     } else {
@@ -2889,6 +2891,8 @@ QueryResults HistoryBackend::QueryHistory(const std::u16string& text_query,
 // Basic time-based querying of history.
 void HistoryBackend::QueryHistoryBasic(const QueryOptions& options,
                                        QueryResults* result) {
+  base::ElapsedTimer timer;
+
   // First get all visits.
   VisitVector visits;
   bool has_more_results = db_->GetVisibleVisitsInRange(options, &visits);
@@ -2898,6 +2902,104 @@ void HistoryBackend::QueryHistoryBasic(const QueryOptions& options,
   GetVisitsSource(visits, &sources);
 
   // Now add them and the URL rows to the results.
+  std::vector<URLResult> matching_results =
+      base::FeatureList::IsEnabled(kHistoryQueryBatchedLookups)
+          ? QueryHistoryBasicBatched(visits, sources)
+          : QueryHistoryBasicLegacy(visits, sources);
+
+  base::UmaHistogramTimes("History.QueryHistoryBasic.Duration",
+                          timer.Elapsed());
+  base::UmaHistogramCounts1000("History.QueryHistoryBasic.ResultCount",
+                               matching_results.size());
+
+  result->SetURLResults(std::move(matching_results));
+
+  if (!has_more_results && options.begin_time <= first_recorded_time_) {
+    result->set_reached_beginning(true);
+  }
+}
+
+std::vector<URLResult> HistoryBackend::QueryHistoryBasicBatched(
+    const VisitVector& visits,
+    const VisitSourceMap& sources) {
+  // Phase 1: Collect unique URL IDs and visit IDs for batched database
+  // lookups.
+  std::vector<URLID> unique_url_ids;
+  unique_url_ids.reserve(visits.size());
+  std::vector<VisitID> visit_ids;
+  visit_ids.reserve(visits.size());
+  for (const auto& visit : visits) {
+    unique_url_ids.push_back(visit.url_id);
+    visit_ids.push_back(visit.visit_id);
+  }
+  std::ranges::sort(unique_url_ids);
+  auto to_remove = std::ranges::unique(unique_url_ids);
+  unique_url_ids.erase(to_remove.begin(), to_remove.end());
+
+  base::flat_map<URLID, URLRow> url_rows;
+  db_->GetURLRows(unique_url_ids, &url_rows);
+
+  base::flat_map<VisitID, VisitContentAnnotations> content_annotations_map;
+  db_->GetContentAnnotationsForVisits(visit_ids, &content_annotations_map);
+
+  // Phase 2: Assemble matching results in original visit order.
+  std::vector<URLResult> matching_results;
+  matching_results.reserve(visits.size());
+  for (const auto& visit : visits) {
+    // Add a result row for this visit, get the URL info from the DB.
+    auto url_it = url_rows.find(visit.url_id);
+    if (url_it == url_rows.end()) {
+      DLOG(ERROR) << "Failed to get id " << visit.url_id
+                  << " from history.urls.";
+      continue;  // DB out of sync and URL doesn't exist, try to recover.
+    }
+
+    const URLRow& url_row = url_it->second;
+    if (!url_row.url().is_valid()) {
+      DVLOG(0) << "Got invalid URL from history.urls with id " << visit.url_id
+               << ":  " << url_row.url().possibly_invalid_spec();
+      continue;  // Don't report invalid URLs in case of corruption.
+    }
+
+    URLResult url_result(url_row);
+    url_result.set_visit_id(visit.visit_id);
+    url_result.set_visit_time(visit.visit_time);
+    url_result.set_app_id(visit.app_id);
+
+    auto annot_it = content_annotations_map.find(visit.visit_id);
+    if (annot_it != content_annotations_map.end()) {
+      url_result.set_content_annotations(std::move(annot_it->second));
+    }
+
+    VisitSource visit_source;
+    if (visit.source.has_value()) {
+      visit_source = visit.source.value();
+    } else {
+      auto source_it = sources.find(visit.visit_id);
+      if (source_it == sources.end()) {
+        visit_source = VisitSource::SOURCE_BROWSED;
+      } else {
+        visit_source = source_it->second;
+      }
+    }
+    url_result.set_actor_source(visit_source == VisitSource::SOURCE_ACTOR);
+
+    // Set whether the visit was blocked for a managed user by looking at the
+    // transition type.
+    url_result.set_blocked_visit(
+        (visit.transition & ui::PAGE_TRANSITION_BLOCKED) != 0);
+
+    // We don't set any of the query-specific parts of the URLResult, since
+    // snippets and stuff don't apply to basic querying.
+    matching_results.push_back(std::move(url_result));
+  }
+  return matching_results;
+}
+
+std::vector<URLResult> HistoryBackend::QueryHistoryBasicLegacy(
+    const VisitVector& visits,
+    const VisitSourceMap& sources) {
+  // Legacy per-visit loop: executes 2 individual queries per visit.
   std::vector<URLResult> matching_results;
   URLResult url_result;
   for (const auto& visit : visits) {
@@ -2920,44 +3022,55 @@ void HistoryBackend::QueryHistoryBasic(const QueryOptions& options,
 
     VisitContentAnnotations content_annotations;
     db_->GetContentAnnotationsForVisit(visit.visit_id, &content_annotations);
-    url_result.set_content_annotations(content_annotations);
+    url_result.set_content_annotations(std::move(content_annotations));
 
     VisitSource visit_source;
     if (visit.source.has_value()) {
       visit_source = visit.source.value();
-    } else if (sources.count(visit.visit_id) == 0) {
-      visit_source = VisitSource::SOURCE_BROWSED;
     } else {
-      visit_source = sources[visit.visit_id];
+      auto source_it = sources.find(visit.visit_id);
+      if (source_it == sources.end()) {
+        visit_source = VisitSource::SOURCE_BROWSED;
+      } else {
+        visit_source = source_it->second;
+      }
     }
     url_result.set_actor_source(visit_source == VisitSource::SOURCE_ACTOR);
 
-    // Set whether the visit was blocked for a managed user by looking at the
-    // transition type.
     url_result.set_blocked_visit(
         (visit.transition & ui::PAGE_TRANSITION_BLOCKED) != 0);
 
-    // We don't set any of the query-specific parts of the URLResult, since
-    // snippets and stuff don't apply to basic querying.
     matching_results.push_back(std::move(url_result));
   }
-  result->SetURLResults(std::move(matching_results));
-
-  if (!has_more_results && options.begin_time <= first_recorded_time_) {
-    result->set_reached_beginning(true);
-  }
+  return matching_results;
 }
 
 // Text-based querying of history.
 void HistoryBackend::QueryHistoryText(const std::u16string& text_query,
                                       const QueryOptions& options,
                                       QueryResults* result) {
-  URLRows text_matches =
-      options.host_only
-          ? GetMatchesForHost(text_query)
-          : db_->GetTextMatchesWithAlgorithm(
-                text_query, options.matching_algorithm.value_or(
-                                query_parser::MatchingAlgorithm::DEFAULT));
+  URLRows text_matches;
+  if (text_query.empty()) {
+    // Host-only search.
+    text_matches = GetMatchesForHost(options.hostname_suffix);
+  } else {
+    // Text search or combined text + host search.
+    text_matches = db_->GetTextMatchesWithAlgorithm(
+        text_query, options.matching_algorithm.value_or(
+                        query_parser::MatchingAlgorithm::DEFAULT));
+
+    if (!options.hostname_suffix.empty()) {
+      const bool use_improved_matching = base::FeatureList::IsEnabled(
+          kBrowsingHistoryImprovedHostnameSuffixMatching);
+      const std::string hostname_suffix =
+          use_improved_matching ? base::ToLowerASCII(options.hostname_suffix)
+                                : options.hostname_suffix;
+      std::erase_if(text_matches, [&](const URLRow& row) {
+        return use_improved_matching ? !row.url().DomainIs(hostname_suffix)
+                                     : (row.url().GetHost() != hostname_suffix);
+      });
+    }
+  }
 
   std::vector<URLResult> matching_visits;
   for (const auto& text_match : text_matches) {
@@ -3010,19 +3123,21 @@ void HistoryBackend::QueryHistoryText(const std::u16string& text_query,
   }
 }
 
-URLRows HistoryBackend::GetMatchesForHost(const std::u16string& host_name) {
+URLRows HistoryBackend::GetMatchesForHost(const std::string& hostname_suffix) {
   URLRows results;
   URLDatabase::URLEnumerator iter;
 
   if (db_ && db_->InitURLEnumeratorForEverything(&iter)) {
     URLRow row;
-    std::string host_name_utf8 = base::UTF16ToUTF8(host_name);
     const bool improved_suffix_matching = base::FeatureList::IsEnabled(
         kBrowsingHistoryImprovedHostnameSuffixMatching);
+    const std::string target_host = improved_suffix_matching
+                                        ? base::ToLowerASCII(hostname_suffix)
+                                        : hostname_suffix;
     while (iter.GetNextURL(&row)) {
       const bool matches_host = improved_suffix_matching
-                                    ? row.url().DomainIs(host_name_utf8)
-                                    : (row.url().GetHost() == host_name_utf8);
+                                    ? row.url().DomainIs(target_host)
+                                    : (row.url().GetHost() == target_host);
       if (row.url().is_valid() && matches_host) {
         results.push_back(std::move(row));
       }

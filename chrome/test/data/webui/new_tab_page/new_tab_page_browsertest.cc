@@ -331,7 +331,14 @@ class NewTabPageAppComposeboxInvariantTest
   bool GetAnimationEnabled() const { return std::get<1>(GetParam()); }
 };
 
-IN_PROC_BROWSER_TEST_P(NewTabPageAppComposeboxInvariantTest, InvariantChecks) {
+// TODO(crbug.com/564567296): Flaky timeout on Linux debug builds.
+#if BUILDFLAG(IS_LINUX) && !defined(NDEBUG)
+#define MAYBE_InvariantChecks DISABLED_InvariantChecks
+#else
+#define MAYBE_InvariantChecks InvariantChecks
+#endif
+IN_PROC_BROWSER_TEST_P(NewTabPageAppComposeboxInvariantTest,
+                       MAYBE_InvariantChecks) {
   RunTest("new_tab_page/app_test.js",
           base::StringPrintf("runMochaSuite('NewTabPageAppTest "
                              "ComposeboxInvariantChecks_%s_%s')",
@@ -402,7 +409,13 @@ IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, AutoRemovalToast) {
           "runMochaSuite('NewTabPageAppTest AutoRemovalToast')");
 }
 
-IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, VoiceSearchCoherence) {
+// TODO(crbug.com/527605085): Flaky timeout on Linux debug builds.
+#if BUILDFLAG(IS_LINUX) && !defined(NDEBUG)
+#define MAYBE_VoiceSearchCoherence DISABLED_VoiceSearchCoherence
+#else
+#define MAYBE_VoiceSearchCoherence VoiceSearchCoherence
+#endif
+IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, MAYBE_VoiceSearchCoherence) {
   RunTest("new_tab_page/app_test.js",
           "runMochaSuite('NewTabPageAppTest VoiceSearchCoherence')");
 }

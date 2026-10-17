@@ -40,6 +40,7 @@
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/testing_pref_service.h"
 #include "device/bluetooth/bluetooth_adapter_factory.h"
+#include "device/bluetooth/public/cpp/bluetooth_uuid.h"
 #include "device/bluetooth/test/mock_bluetooth_adapter.h"
 #include "device/bluetooth/test/mock_bluetooth_device.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -61,39 +62,40 @@ constexpr char kFastPairEngagementFlowMetricSubsequentWithFakeMetadata[] =
     "FastPairNotificationType";
 constexpr char kInitialSuccessFunnelMetric[] = "FastPair.InitialPairing";
 constexpr char kSubsequentSuccessFunnelMetric[] = "FastPair.SubsequentPairing";
-const char kFastPairRetroactiveEngagementFlowMetric[] =
+constexpr char kFastPairRetroactiveEngagementFlowMetric[] =
     "Bluetooth.ChromeOS.FastPair.RetroactiveEngagementFunnel.Steps";
-const char kFastPairRetroactiveEngagementFlowMetricWithFakeMetadata[] =
+constexpr char kFastPairRetroactiveEngagementFlowMetricWithFakeMetadata[] =
     "Bluetooth.ChromeOS.FastPair.RetroactiveEngagementFunnel.Steps."
     "TrueWirelessHeadphonesDeviceType.FastPairNotificationType";
 constexpr char kFastPairPairTimeMetricInitial[] =
     "Bluetooth.ChromeOS.FastPair.TotalUxPairTime.InitialPairingProtocol2";
 constexpr char kFastPairPairTimeMetricSubsequent[] =
     "Bluetooth.ChromeOS.FastPair.TotalUxPairTime.SubsequentPairingProtocol2";
-const char kPairingMethodMetric[] = "Bluetooth.ChromeOS.FastPair.PairingMethod";
-const char kRetroactivePairingResultMetric[] =
+constexpr char kPairingMethodMetric[] =
+    "Bluetooth.ChromeOS.FastPair.PairingMethod";
+constexpr char kRetroactivePairingResultMetric[] =
     "Bluetooth.ChromeOS.FastPair.RetroactivePairing.Result";
-const char kFastPairPairFailureMetricInitial[] =
+constexpr char kFastPairPairFailureMetricInitial[] =
     "Bluetooth.ChromeOS.FastPair.PairFailure.InitialPairingProtocol";
-const char kFastPairPairFailureMetricSubsequent[] =
+constexpr char kFastPairPairFailureMetricSubsequent[] =
     "Bluetooth.ChromeOS.FastPair.PairFailure.SubsequentPairingProtocol";
-const char kFastPairPairFailureMetricRetroactive[] =
+constexpr char kFastPairPairFailureMetricRetroactive[] =
     "Bluetooth.ChromeOS.FastPair.PairFailure.RetroactivePairingProtocol";
-const char kFastPairPairResultMetricInitial[] =
+constexpr char kFastPairPairResultMetricInitial[] =
     "Bluetooth.ChromeOS.FastPair.Pairing.Result.InitialPairingProtocol";
-const char kFastPairPairResultMetricSubsequent[] =
+constexpr char kFastPairPairResultMetricSubsequent[] =
     "Bluetooth.ChromeOS.FastPair.Pairing.Result.SubsequentPairingProtocol";
-const char kFastPairPairResultMetricRetroactive[] =
+constexpr char kFastPairPairResultMetricRetroactive[] =
     "Bluetooth.ChromeOS.FastPair.Pairing.Result.RetroactivePairingProtocol";
-const char kFastPairAccountKeyWriteResultMetricInitial[] =
+constexpr char kFastPairAccountKeyWriteResultMetricInitial[] =
     "Bluetooth.ChromeOS.FastPair.AccountKey.Write.Result."
     "InitialPairingProtocol";
-const char kFastPairAccountKeyWriteResultMetricRetroactive[] =
+constexpr char kFastPairAccountKeyWriteResultMetricRetroactive[] =
     "Bluetooth.ChromeOS.FastPair.AccountKey.Write.Result."
     "RetroactivePairingProtocol";
-const char kFastPairAccountKeyWriteFailureMetricInitial[] =
+constexpr char kFastPairAccountKeyWriteFailureMetricInitial[] =
     "Bluetooth.ChromeOS.FastPair.AccountKey.Failure.InitialPairingProtocol";
-const char kFastPairAccountKeyWriteFailureMetricRetroactive[] =
+constexpr char kFastPairAccountKeyWriteFailureMetricRetroactive[] =
     "Bluetooth.ChromeOS.FastPair.AccountKey.Failure.RetroactivePairingProtocol";
 constexpr char kRetroactiveSuccessFunnelMetric[] =
     "FastPair.RetroactivePairing";
@@ -165,15 +167,8 @@ class QuickPairMetricsLoggerTest : public NoSessionAshTestBase {
     RegisterUserProfilePrefs(user_prefs->registry(), /*country=*/"",
                              /*for_test=*/true);
 
-    AccountId account_id =
-        SimulateUserLogin({kUserEmail},
-                          /*account_id=*/std::nullopt, std::move(user_prefs));
-
-    static_cast<TestingPrefServiceSimple*>(
-        ash_test_helper()->prefs_provider()->GetUserPrefs(account_id))
-        ->registry()
-        ->RegisterBooleanPref(ash::prefs::kUserPairedWithFastPair,
-                              /*default_value=*/false);
+    SimulateUserLogin({kUserEmail},
+                      /*account_id=*/std::nullopt, std::move(user_prefs));
 
     adapter_ = base::MakeRefCounted<FakeMetricBluetoothAdapter>();
     device::BluetoothAdapterFactory::SetAdapterForTesting(adapter_);
@@ -476,18 +471,11 @@ class QuickPairMetricsLoggerTest : public NoSessionAshTestBase {
                                               std::string classic_address) {
     std::unique_ptr<testing::NiceMock<device::MockBluetoothDevice>>
         bluetooth_device = CreateTestBluetoothDevice(classic_address);
-    bluetooth_device->AddUUID(ash::quick_pair::kFastPairBluetoothUuid);
+    bluetooth_device->AddUUID(
+        device::BluetoothUUID(ash::quick_pair::kFastPairBluetoothUuid));
     auto* bt_device_ptr = bluetooth_device.get();
     adapter_->AddMockDevice(std::move(bluetooth_device));
     adapter_->NotifyDevicePairedChanged(bt_device_ptr, new_paired_status);
-  }
-
-  void AssertUserPairedWithFastPairPref(bool pref_value) {
-    EXPECT_EQ(Shell::Get()
-                  ->session_controller()
-                  ->GetLastActiveUserPrefService()
-                  ->GetBoolean(ash::prefs::kUserPairedWithFastPair),
-              pref_value);
   }
 
   base::HistogramTester& histogram_tester() { return histogram_tester_; }
@@ -904,7 +892,6 @@ TEST_F(QuickPairMetricsLoggerTest,
 }
 
 TEST_F(QuickPairMetricsLoggerTest, LogDiscoveryUiConnectPressed_Initial) {
-  AssertUserPairedWithFastPairPref(false);
   SimulateDiscoveryUiConnectPressed(Protocol::kFastPairInitial);
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(histogram_tester().GetBucketCount(
@@ -951,11 +938,9 @@ TEST_F(QuickPairMetricsLoggerTest, LogDiscoveryUiConnectPressed_Initial) {
                 kFastPairEngagementFlowMetricInitial,
                 FastPairEngagementFlowEvent::kDiscoveryUiDismissedByTimeout),
             0);
-  AssertUserPairedWithFastPairPref(true);
 }
 
 TEST_F(QuickPairMetricsLoggerTest, LogDiscoveryUiConnectPressed_Subsequent) {
-  AssertUserPairedWithFastPairPref(false);
   SimulateDiscoveryUiConnectPressed(Protocol::kFastPairSubsequent);
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(histogram_tester().GetBucketCount(
@@ -1002,7 +987,6 @@ TEST_F(QuickPairMetricsLoggerTest, LogDiscoveryUiConnectPressed_Subsequent) {
                 kFastPairEngagementFlowMetricSubsequent,
                 FastPairEngagementFlowEvent::kDiscoveryUiDismissedByTimeout),
             0);
-  AssertUserPairedWithFastPairPref(true);
 }
 
 TEST_F(QuickPairMetricsLoggerTest, LogPairingFailed_Initial) {
@@ -1838,7 +1822,6 @@ TEST_F(QuickPairMetricsLoggerTest, LogAssociateAccountDismissedByTimeout) {
 }
 
 TEST_F(QuickPairMetricsLoggerTest, LogAssociateAccountSavePressed) {
-  AssertUserPairedWithFastPairPref(false);
   SimulateAssociateAccountUiSavePressed();
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(
@@ -1891,7 +1874,6 @@ TEST_F(QuickPairMetricsLoggerTest, LogAssociateAccountSavePressed) {
                 FastPairRetroactiveEngagementFlowEvent::
                     kAssociateAccountUiDismissedByTimeout),
             0);
-  AssertUserPairedWithFastPairPref(true);
 }
 
 TEST_F(QuickPairMetricsLoggerTest, LogAssociateAccountLearnMorePressed) {

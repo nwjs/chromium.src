@@ -4,9 +4,14 @@
 
 #include "components/webapps/browser/installable/installable_icon_fetcher.h"
 
+#include <algorithm>
+#include <vector>
+
 #include "base/check_is_test.h"
+#include "base/feature_list.h"
 #include "base/functional/callback.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/strings/string_util.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/task_traits.h"
@@ -18,12 +23,16 @@
 #include "components/favicon_base/favicon_types.h"
 #include "components/webapps/browser/features.h"
 #include "components/webapps/browser/installable/installable_evaluator.h"
+#include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/manifest_icon_downloader.h"
 #include "content/public/browser/web_contents.h"
 #include "third_party/blink/public/common/manifest/manifest_icon_selector.h"
+#include "third_party/blink/public/mojom/favicon/favicon_url.mojom.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/gfx/codec/png_codec.h"
 #include "url/gurl.h"
+#include "url/origin.h"
+#include "url/url_constants.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "components/webapps/browser/android/webapps_icon_utils.h"
@@ -51,6 +60,10 @@ const int kMinimumPrimaryAdaptiveLauncherIconSizeInPx = 83;
 using IconPurpose = blink::mojom::ManifestImageResource_Purpose;
 
 int GetIdealPrimaryIconSizeInPx(IconPurpose purpose) {
+  if (test::g_ideal_favicon_size_for_testing) {
+    CHECK_IS_TEST();
+    return test::g_ideal_favicon_size_for_testing;
+  }
 #if BUILDFLAG(IS_ANDROID)
   if (purpose == IconPurpose::MASKABLE) {
     return WebappsIconUtils::GetIdealAdaptiveLauncherIconSizeInPx();
@@ -80,9 +93,9 @@ int GetMinimumPrimaryIconSizeInPx(IconPurpose purpose) {
 
 // On Android, |LargeIconWorker::GetLargeIconRawBitmap| will try to find the
 // largest icon that is also larger than the minimum size from database, and
-// scale to the ideal size. However it doesn't work on desktop as Chrome stores
-// icons scaled to 16x16 and 32x32 in the database. We need to find other way to
-// fetch favicon on desktop.
+// scale to the ideal size. If the database does not have a large enough icon
+// (such as on Desktop Android where only 16dp favicons are cached), we fall
+// back to downloading favicon candidates from the DOM on demand.
 int GetMinimumFaviconForPrimaryIconSizeInPx() {
   if (test::g_minimum_favicon_size_for_testing) {
     CHECK_IS_TEST();
@@ -91,7 +104,7 @@ int GetMinimumFaviconForPrimaryIconSizeInPx() {
 #if BUILDFLAG(IS_ANDROID)
     return features::kMinimumFaviconSize;
 #else
-    NOTREACHED();
+    return InstallableEvaluator::GetMinimumIconSizeInPx();
 #endif
   }
 }
@@ -134,10 +147,54 @@ void GenerateHomeScreenIconInBackground(
 }
 #endif  // BUILDFLAG(IS_DESKTOP_ANDROID)
 
+bool IsIconSvg(const GURL& icon_url) {
+  if (base::EndsWith(icon_url.ExtractFileName(), ".svg",
+                     base::CompareCase::INSENSITIVE_ASCII)) {
+    return true;
+  }
+  if (icon_url.SchemeIs(url::kDataScheme) &&
+      icon_url.GetContentPiece().starts_with("image/svg+xml")) {
+    return true;
+  }
+  return false;
+}
+
+bool IsCandidateBigEnough(const blink::mojom::FaviconURL& favicon_url,
+                          int ideal_size) {
+  if (favicon_url.icon_type == blink::mojom::FaviconIconType::kInvalid ||
+      !favicon_url.icon_url.is_valid() || favicon_url.is_default_icon) {
+    return false;
+  }
+
+  if (IsIconSvg(favicon_url.icon_url)) {
+    return true;
+  }
+
+  for (const auto& size : favicon_url.icon_sizes) {
+    if (size.IsEmpty()) {
+      return true;
+    }
+    if (size.width() >= ideal_size && size.height() >= ideal_size) {
+      return true;
+    }
+  }
+
+  if (favicon_url.icon_sizes.empty() &&
+      (favicon_url.icon_type == blink::mojom::FaviconIconType::kTouchIcon ||
+       favicon_url.icon_type ==
+           blink::mojom::FaviconIconType::kTouchPrecomposedIcon)) {
+    constexpr int kEstimatedTouchIconSize = 180;
+    return kEstimatedTouchIconSize >= ideal_size;
+  }
+
+  return false;
+}
+
 }  // namespace
 
 namespace test {
 int g_minimum_favicon_size_for_testing = 0;
+int g_ideal_favicon_size_for_testing = 0;
 }
 
 InstallableIconFetcher::InstallableIconFetcher(
@@ -216,10 +273,15 @@ void InstallableIconFetcher::OnManifestIconFetched(const GURL& icon_url,
 }
 
 void InstallableIconFetcher::FetchFavicon() {
+  if (!web_contents_) {
+    MaybeEndWithError(InstallableStatusCode::NO_ACCEPTABLE_ICON);
+    return;
+  }
+
   favicon::LargeIconService* favicon_service =
       favicon::GetLargeIconService(web_contents_->GetBrowserContext());
   if (!favicon_service) {
-    MaybeEndWithError(InstallableStatusCode::NO_ACCEPTABLE_ICON);
+    FetchFaviconFromCandidates();
     return;
   }
 
@@ -236,7 +298,7 @@ void InstallableIconFetcher::FetchFavicon() {
 void InstallableIconFetcher::OnFaviconFetched(
     const favicon_base::LargeIconResult& result) {
   if (!result.bitmap.is_valid()) {
-    MaybeEndWithError(InstallableStatusCode::NO_ACCEPTABLE_ICON);
+    FetchFaviconFromCandidates();
     return;
   }
 
@@ -244,13 +306,72 @@ void InstallableIconFetcher::OnFaviconFetched(
       FROM_HERE,
       {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
        base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN},
-      base::BindOnce(&ProcessFaviconInBackground, result.bitmap,
-                     base::SingleThreadTaskRunner::GetCurrentDefault(),
-                     base::BindOnce(&InstallableIconFetcher::OnIconFetched,
-                                    weak_ptr_factory_.GetWeakPtr(),
-                                    result.bitmap.icon_url, IconPurpose::ANY),
-                     base::BindOnce(&InstallableIconFetcher::MaybeEndWithError,
-                                    weak_ptr_factory_.GetWeakPtr())));
+      base::BindOnce(
+          &ProcessFaviconInBackground, result.bitmap,
+          base::SingleThreadTaskRunner::GetCurrentDefault(),
+          base::BindOnce(&InstallableIconFetcher::OnIconFetched,
+                         weak_ptr_factory_.GetWeakPtr(), result.bitmap.icon_url,
+                         IconPurpose::ANY),
+          base::BindOnce(&InstallableIconFetcher::OnFaviconProcessingFailed,
+                         weak_ptr_factory_.GetWeakPtr())));
+}
+
+void InstallableIconFetcher::OnFaviconProcessingFailed(
+    InstallableStatusCode code) {
+  FetchFaviconFromCandidates();
+}
+
+void InstallableIconFetcher::FetchFaviconFromCandidates() {
+  if (!web_contents_) {
+    MaybeEndWithError(InstallableStatusCode::NO_ACCEPTABLE_ICON);
+    return;
+  }
+
+  const int min_size = GetMinimumFaviconForPrimaryIconSizeInPx();
+  const int ideal_size =
+      std::max(GetIdealPrimaryIconSizeInPx(IconPurpose::ANY), min_size);
+  const int max_size =
+      std::max(InstallableEvaluator::kMaximumIconSizeInPx, ideal_size);
+
+  for (const auto& favicon_url : web_contents_->GetFaviconURLs()) {
+    if (!IsCandidateBigEnough(*favicon_url, ideal_size)) {
+      continue;
+    }
+
+    bool can_download_icon = content::ManifestIconDownloader::Download(
+        web_contents_.get(), favicon_url->icon_url, ideal_size, min_size,
+        max_size,
+        base::BindOnce(&InstallableIconFetcher::OnFaviconCandidateDownloaded,
+                       weak_ptr_factory_.GetWeakPtr(), favicon_url->icon_url),
+        /*square_only=*/true,
+        /*initiator_frame_routing_id=*/content::GlobalRenderFrameHostId(),
+        /*suppress_warnings=*/true);
+    if (can_download_icon) {
+      return;
+    }
+  }
+
+  // No big enough candidate was found.
+  MaybeEndWithError(InstallableStatusCode::NO_ACCEPTABLE_ICON);
+}
+
+void InstallableIconFetcher::OnFaviconCandidateDownloaded(
+    const GURL& icon_url,
+    const SkBitmap& bitmap) {
+  if (bitmap.drawsNothing()) {
+    if (web_contents_) {
+      const GURL page_url = web_contents_->GetLastCommittedURL();
+      if (page_url.SchemeIsHTTPOrHTTPS() &&
+          icon_url ==
+              url::Origin::Create(page_url).GetURL().Resolve("favicon.ico")) {
+        probed_root_favicon_ = true;
+      }
+    }
+    MaybeEndWithError(InstallableStatusCode::NO_ACCEPTABLE_ICON);
+    return;
+  }
+
+  OnIconFetched(icon_url, IconPurpose::ANY, bitmap);
 }
 
 void InstallableIconFetcher::OnIconFetched(const GURL& icon_url,
@@ -261,6 +382,36 @@ void InstallableIconFetcher::OnIconFetched(const GURL& icon_url,
 }
 
 void InstallableIconFetcher::MaybeEndWithError(InstallableStatusCode code) {
+  if (!web_contents_) {
+    EndWithError(code);
+    return;
+  }
+  // Root-favicon fallback: every linked candidate has been evaluated and
+  // rejected by now. Blink never reports <origin>/favicon.ico when the page
+  // links any icon, so try it once before giving up / generating.
+  if (fetch_favicon_ && !probed_root_favicon_ &&
+      base::FeatureList::IsEnabled(features::kInstallableRootFaviconFallback)) {
+    probed_root_favicon_ = true;
+    const GURL page_url = web_contents_->GetLastCommittedURL();
+    if (page_url.SchemeIsHTTPOrHTTPS()) {
+      const GURL favicon_url =
+          url::Origin::Create(page_url).GetURL().Resolve("favicon.ico");
+      // 48 px on Android.
+      const int min_size = GetMinimumFaviconForPrimaryIconSizeInPx();
+      const int ideal_size =
+          std::max(GetIdealPrimaryIconSizeInPx(IconPurpose::ANY), min_size);
+      if (content::ManifestIconDownloader::Download(
+              web_contents_.get(), favicon_url, ideal_size, min_size,
+              std::max(InstallableEvaluator::kMaximumIconSizeInPx, ideal_size),
+              base::BindOnce(&InstallableIconFetcher::OnRootFaviconDownloaded,
+                             weak_ptr_factory_.GetWeakPtr(), favicon_url, code),
+              /*square_only=*/true,
+              /*initiator_frame_routing_id=*/content::GlobalRenderFrameHostId(),
+              /*suppress_warnings=*/true)) {
+        return;  // continues in OnRootFaviconDownloaded
+      }
+    }
+  }
 #if BUILDFLAG(IS_DESKTOP_ANDROID)
   // Desktop android will generate an icon if none is available.
   base::ThreadPool::PostTask(
@@ -278,6 +429,16 @@ void InstallableIconFetcher::MaybeEndWithError(InstallableStatusCode code) {
   // Other platforms report an error if no icon is available.
   EndWithError(code);
 #endif  // BUILDFLAG(IS_DESKTOP_ANDROID)
+}
+
+void InstallableIconFetcher::OnRootFaviconDownloaded(const GURL& icon_url,
+                                                     InstallableStatusCode code,
+                                                     const SkBitmap& bitmap) {
+  if (bitmap.drawsNothing()) {
+    MaybeEndWithError(code);  // probed_root_favicon_ prevents a second probe
+    return;
+  }
+  OnIconFetched(icon_url, IconPurpose::ANY, bitmap);
 }
 
 void InstallableIconFetcher::EndWithError(InstallableStatusCode code) {

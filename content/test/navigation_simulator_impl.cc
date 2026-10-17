@@ -10,6 +10,7 @@
 #include "base/functional/bind.h"
 #include "base/memory/ptr_util.h"
 #include "base/run_loop.h"
+#include "base/test/run_until.h"
 #include "content/browser/back_forward_cache/back_forward_cache_metrics.h"
 #include "content/browser/renderer_host/debug_urls.h"
 #include "content/browser/renderer_host/frame_tree_node.h"
@@ -914,6 +915,22 @@ void NavigationSimulatorImpl::CommitErrorPage() {
       << "NavigationSimulatorImpl::CommitErrorPage cannot be called after the "
          "navigation has finished";
 
+  // Navigations that are blocked by a NavigationThrottle do not go through
+  // FailComplete(), which is where the RenderFrameHost committing the error
+  // page is picked up for navigations failed via Fail(). Note that blocking a
+  // navigation in WillStartRequest fails it asynchronously, see
+  // NavigationRequest::OnStartChecksComplete(), so the RenderFrameHost may not
+  // have been selected yet.
+  CHECK(base::test::RunUntil([&]() {
+    return request_ && request_->HasRenderFrameHost();
+  })) << "Timed out waiting for the error page's RenderFrameHost";
+
+  // Update the RenderFrameHost now that we know which one will commit the
+  // error page. It may differ from the one selected for the original
+  // navigation, e.g. when error page isolation is enabled.
+  render_frame_host_ =
+      static_cast<TestRenderFrameHost*>(request_->GetRenderFrameHost());
+
   // Keep a pointer to the current RenderFrameHost that may be pending deletion
   // after commit.
   // RenderDocument: The |previous_rfh| might also be immediately deleted after
@@ -1482,6 +1499,9 @@ bool NavigationSimulatorImpl::SimulateRendererInitiatedStart() {
   common_params->href_translate = href_translate_;
   common_params->request_destination =
       network::mojom::RequestDestination::kDocument;
+  if (source_location_) {
+    common_params->source_location = source_location_.Clone();
+  }
 
   mojo::PendingAssociatedRemote<mojom::NavigationClient>
       navigation_client_remote;

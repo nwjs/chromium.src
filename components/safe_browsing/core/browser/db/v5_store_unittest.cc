@@ -6,6 +6,7 @@
 
 #include <optional>
 
+#include "base/containers/flat_set.h"
 #include "base/containers/span.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_util.h"
@@ -2429,6 +2430,13 @@ TEST_F(V5StoreTest, CleanUpOldFiles) {
   SBStorePtr updated_store = RunApplyUpdateTest(store, std::move(hash_list));
   ASSERT_TRUE(updated_store);
 
+  // Before cleanup, the dummy files exist.
+  EXPECT_TRUE(base::PathExists(dummy_file1));
+  EXPECT_TRUE(base::PathExists(dummy_file2));
+
+  SBStore::CleanupExtraFiles(store_path_, base::flat_set<base::FilePath>(
+                                              updated_store->GetPathsInUse()));
+
   // The dummy files should be deleted.
   EXPECT_FALSE(base::PathExists(dummy_file1));
   EXPECT_FALSE(base::PathExists(dummy_file2));
@@ -2551,6 +2559,7 @@ TEST_F(V5StoreTest, TestCollectStoreInfo) {
   EXPECT_EQ("kSuccess", updated_store_info.v5_update_status());
   EXPECT_EQ("new_version", updated_store_info.state());
   EXPECT_TRUE(updated_store_info.has_last_apply_update_time_millis());
+  EXPECT_EQ(2u, updated_store_info.checks_attempted());
 }
 
 TEST_F(V5StoreTest, TestRecordAndReturnFileSize) {

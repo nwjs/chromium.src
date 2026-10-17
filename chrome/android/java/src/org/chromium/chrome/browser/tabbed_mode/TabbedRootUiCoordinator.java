@@ -64,8 +64,10 @@ import org.chromium.chrome.browser.ActivityTabProvider.ActivityTabTabObserver;
 import org.chromium.chrome.browser.ChromeActivitySessionTracker;
 import org.chromium.chrome.browser.ChromeInactivityTracker;
 import org.chromium.chrome.browser.ChromeInactivityTracker.InactivityObserver;
+import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.SwipeRefreshHandler;
 import org.chromium.chrome.browser.accessibility.PageZoomIphController;
+import org.chromium.chrome.browser.actor.ActorMetrics;
 import org.chromium.chrome.browser.actor.ui.ActorOverlayCoordinator;
 import org.chromium.chrome.browser.app.tabwindow.TabWindowManagerSingleton;
 import org.chromium.chrome.browser.back_press.BackPressManager;
@@ -167,6 +169,7 @@ import org.chromium.chrome.browser.offlinepages.indicator.OfflineIndicatorContro
 import org.chromium.chrome.browser.offlinepages.indicator.OfflineIndicatorInProductHelpController;
 import org.chromium.chrome.browser.omnibox.LocationBarEmbedder;
 import org.chromium.chrome.browser.omnibox.OmniboxChipManager;
+import org.chromium.chrome.browser.omnibox.OmniboxStub;
 import org.chromium.chrome.browser.omnibox.UrlFocusChangeListener;
 import org.chromium.chrome.browser.open_in_app.OpenInAppUtils;
 import org.chromium.chrome.browser.open_in_app.TabbedOpenInAppEntryPoint;
@@ -275,7 +278,6 @@ import org.chromium.chrome.browser.ui.system.StatusBarColorController.StatusBarC
 import org.chromium.chrome.browser.ui.vertical_tabs.VerticalTabUtils;
 import org.chromium.chrome.browser.user_education.UserEducationUtils;
 import org.chromium.chrome.browser.user_education.UserEducationUtils.OptionalPromoType;
-import org.chromium.chrome.browser.webapps.PwaRestorePromoUtils;
 import org.chromium.components.bookmarks.BookmarkBarVisibilityState;
 import org.chromium.components.browser_ui.accessibility.PageZoomUtils;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
@@ -293,6 +295,8 @@ import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.prefs.PrefChangeRegistrar;
 import org.chromium.components.signin.AccountManagerFacadeProvider;
+import org.chromium.components.signin.SigninFeatureMap;
+import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.base.AccountInfo;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.tab_group_sync.SavedTabGroup;
@@ -357,6 +361,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
     private @Nullable DesktopSiteSettingsIphController mDesktopSiteSettingsIphController;
     private @Nullable PdfPageIphController mPdfPageIphController;
     private @Nullable UrlFocusChangeListener mUrlFocusChangeListener;
+    private @Nullable UrlFocusChangeListener mActorUrlFocusChangeListener;
     private @Nullable ToolbarButtonInProductHelpController mToolbarButtonInProductHelpController;
     private @Nullable PwaBottomSheetController mPwaBottomSheetController;
     private @Nullable NotificationPermissionController mNotificationPermissionController;
@@ -509,12 +514,13 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         }
 
         @Override
-        public void onSideUiSpecsChanged(SideUiCoordinator.SideUiSpecs sideUiSpecs) {
+        public void onSideUiSpecsChanged(
+                SideUiCoordinator.SideUiSpecs sideUiSpecs,
+                SideUiCoordinator.UiUpdateRequest request) {
             if (mIsInHub) {
-                super.onSideUiSpecsChanged(
-                        new SideUiCoordinator.SideUiSpecs(Collections.emptyMap()));
+                updateMarginsForSideUi(new SideUiCoordinator.SideUiSpecs(Collections.emptyMap()));
             } else {
-                super.onSideUiSpecsChanged(sideUiSpecs);
+                updateMarginsForSideUi(sideUiSpecs);
             }
         }
 
@@ -522,8 +528,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         public void onStartedShowing(@LayoutType int layoutType) {
             if (layoutType == LayoutType.HUB) {
                 mIsInHub = true;
-                super.onSideUiSpecsChanged(
-                        new SideUiCoordinator.SideUiSpecs(Collections.emptyMap()));
+                updateMarginsForSideUi(new SideUiCoordinator.SideUiSpecs(Collections.emptyMap()));
             }
         }
 
@@ -533,7 +538,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                 mIsInHub = false;
                 var sideUiCoordinator = mSideUiCoordinatorSupplier.get();
                 if (sideUiCoordinator != null) {
-                    super.onSideUiSpecsChanged(sideUiCoordinator.getCurrentSideUiSpecs());
+                    updateMarginsForSideUi(sideUiCoordinator.getCurrentSideUiSpecs());
                 }
             }
         }
@@ -721,8 +726,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         if (BottomBarConfigUtils.isBottomBarEnabled(activity)) {
             if (BottomBarConfigUtils.shouldShowOnGts()) {
                 Function<HubManager, NonNullObservableSupplier<Integer>> supplierGetter =
-                        hubManager ->
-                                assumeNonNull(hubManager.getHubBottomOverviewColorSupplier());
+                        hubManager -> assumeNonNull(hubManager.getHubBottomOverviewColorSupplier());
                 mBottomOverviewColorSupplier =
                         initHubOverviewColorSupplier(hubManagerSupplier, supplierGetter);
             }
@@ -909,6 +913,13 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
 
         if (mToolbarManager != null) {
             mToolbarManager.getOmniboxStub().removeUrlFocusChangeListener(mUrlFocusChangeListener);
+            if (mActorUrlFocusChangeListener != null) {
+                OmniboxStub omniboxStub = mToolbarManager.getOmniboxStub();
+                if (omniboxStub != null) {
+                    omniboxStub.removeUrlFocusChangeListener(mActorUrlFocusChangeListener);
+                }
+                mActorUrlFocusChangeListener = null;
+            }
         }
 
         if (mOfflineIndicatorInProductHelpController != null) {
@@ -1137,6 +1148,24 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                 || VerticalTabUtils.isVerticalTabsEligible(mActivity)) {
             mToolbarManager.setSideUiStateProviderSupplier(mSideUiStateProviderSupplier);
         }
+
+        mActorUrlFocusChangeListener =
+                new UrlFocusChangeListener() {
+                    @Override
+                    public void onUrlFocusChange(boolean hasFocus) {
+                        if (hasFocus) {
+                            ActorMetrics.recordOmniboxFocus(mActivityTabProvider.get());
+                        }
+                    }
+                };
+        mToolbarManager
+                .getOmniboxStubSupplier()
+                .onAvailable(
+                        omniboxStub -> {
+                            if (mActorUrlFocusChangeListener != null) {
+                                omniboxStub.addUrlFocusChangeListener(mActorUrlFocusChangeListener);
+                            }
+                        });
     }
 
     @Override
@@ -1161,18 +1190,30 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         return mDataSharingTabManager;
     }
 
-    /** Returns the {@link LoadingFullscreenCoordinator} to control loading over the activity. */
+    /**
+     * Returns the {@link LoadingFullscreenCoordinator} to control loading over the activity,
+     * creating it if needed, or null if it cannot be created because this coordinator has been
+     * destroyed.
+     */
     public @Nullable LoadingFullscreenCoordinator getLoadingFullscreenCoordinator() {
-        if (ChromeFeatureList.sAndroidStartupImprovements.isEnabled()
-                && mLoadingFullscreenCoordinator == null) {
-            initLoadingFullscreenCoordinator();
-        }
+        initLoadingFullscreenCoordinator();
         return mLoadingFullscreenCoordinator;
     }
 
+    /**
+     * Creates the {@link LoadingFullscreenCoordinator} if it does not exist yet.
+     *
+     * <p>This is called eagerly from {@link #onInflationComplete()}, or lazily by {@link
+     * #getLoadingFullscreenCoordinator()} the first time a client asks for it. It is a no-op once
+     * the coordinator exists or after {@link #onDestroy()}: the loading view stub is consumed by
+     * the first inflation and the activity is gone, so the coordinator must not be resurrected.
+     */
     private void initLoadingFullscreenCoordinator() {
+        if (mActivity == null) return;
+        if (mLoadingFullscreenCoordinator != null) return;
+
         ViewStub loadingStub = mActivity.findViewById(R.id.loading_stub);
-        assert loadingStub != null;
+        if (loadingStub == null) return;
 
         loadingStub.setLayoutResource(R.layout.loading_fullscreen);
         loadingStub.inflate();
@@ -1405,7 +1446,9 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         PwaBottomSheetControllerFactory.attach(mWindowAndroid, mPwaBottomSheetController);
         initCommerceSubscriptionsService();
 
-        new OneShotCallback<>(mProfileSupplier, this::initCollaborationDelegatesOnProfile);
+        new OneShotCallback<>(
+                mProfileSupplier,
+                mCallbackController.makeCancelable(this::initCollaborationDelegatesOnProfile));
 
         if (BookmarkBarUtils.isDeviceBookmarkBarCompatible(mActivity)) {
             if (ChromeFeatureList.isEnabled(ChromeFeatureList.BOOKMARKS_BAR_NTP)) {
@@ -1439,7 +1482,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         initializeTabBottomSheetManagers();
 
         if (GlicEnabling.isEnabledByFlags()
-                && (mTabBottomSheetManager != null || AndroidSidePanelEnabledFn.isEnabled())) {
+                && (mTabBottomSheetManager != null || GlicUtils.isSidePanelFormFactor(mActivity))) {
             GlicNavigationUtils.setLauncher(SigninAndHistorySyncActivityLauncherImpl::get);
             ViewStub actorOverlayStub = mActivity.findViewById(R.id.actor_overlay_stub);
             mGlicUiCoordinator =
@@ -1456,7 +1499,11 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                             mLayoutManagerSupplier,
                             actorOverlayStub,
                             mActivityLifecycleDispatcher,
+                            getOmniboxFocusStateSupplier(),
                             mSideUiStateProviderSupplier.get());
+            if (IntentHandler.hasPendingActorTaskExtra(mActivity.getIntent())) {
+                mGlicUiCoordinator.onPendingActorTaskTrigger();
+            }
         }
 
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.ANDROID_DEVICE_SIGNALS_DISCLAIMER)) {
@@ -2119,7 +2166,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
      */
     public void initializeCoBrowseViewFactory() {
         if (TabBottomSheetUtils.isTabBottomSheetEnabled()
-                || AndroidSidePanelEnabledFn.isEnabled()) {
+                || GlicUtils.isSidePanelFormFactor(mActivity)) {
             ContextMenuPopulatorFactory contextMenuPopulatorFactory =
                     new ChromeContextMenuPopulatorFactory(
                             /* itemDelegate= */ null,
@@ -2844,6 +2891,13 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         return mGlicUiCoordinator;
     }
 
+    /** Notifies the Glic UI that a pending actor task trigger was received. */
+    public void onPendingActorTaskTrigger() {
+        if (mGlicUiCoordinator != null) {
+            mGlicUiCoordinator.onPendingActorTaskTrigger();
+        }
+    }
+
     public @Nullable TabBottomSheetManager getTabBottomSheetManagerForTesting() {
         return mTabBottomSheetManager;
     }
@@ -2877,13 +2931,28 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         if (mEnterpriseSignalsDisclaimerController != null
                 && !CommandLine.getInstance().hasSwitch(ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE)
                 && !CommandLine.getInstance().hasSwitch(ChromeSwitches.DISABLE_STARTUP_PROMOS)
-                && mEnterpriseSignalsDisclaimerController.maybeShow()) {
+                && mEnterpriseSignalsDisclaimerController.maybeShowOnStartup()) {
             return true;
         }
 
         if (ChoiceDialogCoordinator.maybeShow(
                 mActivity, mModalDialogManagerSupplier.get(), mActivityLifecycleDispatcher)) {
             return true;
+        }
+
+        // The controller is created whenever the policy is supported, even if no prompt is
+        // displayed now, since it observes sign-out events for the lifetime of the activity.
+        if (SigninFeatureMap.isEnabled(SigninFeatures.SUPPORT_FORCED_SIGNIN_POLICY)) {
+            assert mForcedSigninController == null;
+            mForcedSigninController =
+                    new ForcedSigninController(
+                            mActivity,
+                            mProfileSupplier.asNonNull().get().getOriginalProfile(),
+                            SigninAndHistorySyncActivityLauncherImpl.get(),
+                            mActivityLifecycleDispatcher);
+            if (mForcedSigninController.showFullscreenSigninPromptIfRequired()) {
+                return true;
+            }
         }
 
         final Supplier<RationaleDelegate> rationaleUIDelegateSupplier =
@@ -2939,10 +3008,6 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                         ChromePreferenceKeys.PROMOS_SKIPPED_ON_FIRST_START, true);
             }
 
-            if (FirstRunStatus.isFirstRunTriggered()) {
-                notifyPromosOfFirstRunTriggered();
-            }
-
             return isShowingPromo;
         }
     }
@@ -2952,40 +3017,16 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         // Any promo that has a force-show feature flag should be added to this list (and of course
         // any promo that you want to trigger at every startup (temporarily for debugging and/or
         // development).
-
-        mForcedSigninController =
-                new ForcedSigninController(
-                        mActivity,
-                        mProfileSupplier.asNonNull().get().getOriginalProfile(),
-                        SigninAndHistorySyncActivityLauncherImpl.get(),
-                        mActivityLifecycleDispatcher);
-        if (mForcedSigninController.showFullscreenSigninPromptIfForced()) {
-            return true;
-        }
-        if (PwaRestorePromoUtils.maybeForceShowPromo(profile, mWindowAndroid)) {
+        if (FullscreenSigninPromoLauncher.launchPromoIfForced(
+                mActivity, profile, SigninAndHistorySyncActivityLauncherImpl.get())) {
             return true;
         }
 
         return false;
     }
 
-    /** Notifies promos of the First Run Experience having triggered during this launch. */
-    private void notifyPromosOfFirstRunTriggered() {
-        PwaRestorePromoUtils.notifyFirstRunPromoTriggered();
-    }
-
     private boolean maybeShowPromo(Profile profile) {
         // NOTE: Only one promo can be shown in one run to avoid nagging users too much.
-
-        // The PWA Restore promotion runs when we've detected that a user has switched to a new
-        // device but is leaving behind web apps on the old device. It promotes the idea that the
-        // user can restore their web apps from their old device (if they have any), and as such it
-        // is most effective when shown shortly after the first-run experience. It is therefore
-        // at the front of the list of promotions.
-        if (PwaRestorePromoUtils.launchPromoIfNeeded(profile, mWindowAndroid)) {
-            UserEducationUtils.recordOptionalPromoType(OptionalPromoType.PWA_RESTORE_PROMO);
-            return true;
-        }
 
         if (mBottomBarHostManager != null && mBottomBarHostManager.maybeShowPromoDialog(profile)) {
             return true;
@@ -3399,5 +3440,10 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
     @Override
     public @Nullable OneshotSupplier<String> getCountrySupplierForTesting() {
         return mCountrySupplier;
+    }
+
+    /** Returns the {@link TabSearchOverlayCoordinator} for testing. */
+    public @Nullable TabSearchOverlayCoordinator getTabSearchOverlayCoordinatorForTesting() {
+        return mTabSearchOverlayCoordinator;
     }
 }

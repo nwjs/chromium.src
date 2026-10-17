@@ -103,9 +103,8 @@ class NewTabPageHandler
 
   ~NewTabPageHandler() override;
 
-  // Histograms being recorded when a module is dismissed or restored.
+  // Histograms being recorded when a module is dismissed.
   static const char kModuleDismissedHistogram[];
-  static const char kModuleRestoredHistogram[];
   // Histograms being recorded when auto removal/undo event is triggered.
   static const char kModuleAutoRemovalHistogram[];
   static const char kModuleAutoRemovalUndoneHistogram[];
@@ -129,7 +128,6 @@ class NewTabPageHandler
   void GetMostVisitedSettings(GetMostVisitedSettingsCallback callback) override;
   void GetDoodle(GetDoodleCallback callback) override;
   void OnDismissModule(const std::string& module_id) override;
-  void OnRestoreModule(const std::string& module_id) override;
   void SetModulesVisible(bool visible) override;
   void SetModulesDisabled(const std::vector<std::string>& module_ids,
                           bool disabled,
@@ -213,7 +211,9 @@ class NewTabPageHandler
   void MaybeLaunchInteractionSurvey(std::string_view interaction,
                                     const std::string& module_id,
                                     int delay_time_ms = 0);
+#if !BUILDFLAG(IS_ANDROID)
   void MaybeShowWebstoreToast();
+#endif  // !BUILDFLAG(IS_ANDROID)
 
   void RecordModuleInteraction(const std::string& module_id);
 
@@ -251,10 +251,8 @@ class NewTabPageHandler
   bool SyncMicrosoftModulesWithAuth();
 
   NTPUserDataLogger logger_;
-#if !BUILDFLAG(IS_ANDROID)
   base::ScopedObservation<ThemeService, ThemeServiceObserver>
       theme_service_observation_{this};
-#endif
   base::ScopedObservation<MicrosoftAuthService, MicrosoftAuthServiceObserver>
       microsoft_auth_service_observation_{this};
 #if !BUILDFLAG(IS_ANDROID)

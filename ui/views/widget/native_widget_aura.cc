@@ -437,7 +437,8 @@ Widget* NativeWidgetAura::GetTopLevelWidget() {
 }
 
 const ui::Compositor* NativeWidgetAura::GetCompositor() const {
-  return window_ ? window_->layer()->GetCompositor() : nullptr;
+  return window_ && window_->GetHost() ? window_->GetHost()->compositor()
+                                       : nullptr;
 }
 
 const ui::Layer* NativeWidgetAura::GetLayer() const {
@@ -743,14 +744,17 @@ void NativeWidgetAura::Close() {
   DCHECK(window_ ||
          ownership_ == Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET ||
          ownership_ == Widget::InitParams::CLIENT_OWNS_WIDGET);
+  auto weak_this = weak_factory.GetWeakPtr();
   if (window_) {
     Hide();
+    if (!weak_this || !window_) {
+      return;
+    }
     window_->SetProperty(aura::client::kModalKey, ui::mojom::ModalType::kNone);
   }
 
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE,
-      base::BindOnce(&NativeWidgetAura::CloseNow, weak_factory.GetWeakPtr()));
+      FROM_HERE, base::BindOnce(&NativeWidgetAura::CloseNow, weak_this));
 }
 
 void NativeWidgetAura::CloseNow() {
@@ -792,10 +796,24 @@ void NativeWidgetAura::Show(ui::mojom::WindowShowState show_state,
     disabler.emplace(window_);
   }
 
+  // `window_->Show()` and `Activate()` below fan out to aura::Window
+  // observers, which are explicitly permitted to synchronously destroy
+  // `window_` (see Window::NotifyWindowVisibilityChangedAtReceiver()). When
+  // that happens under NATIVE_WIDGET_OWNS_WIDGET or CLIENT_OWNS_WIDGET
+  // ownership, OnWindowDestroyed() deletes `this`, so the rest of this method
+  // must not run.
+  auto weak_this = weak_factory.GetWeakPtr();
+
   window_->Show();
+  if (!weak_this || !window_) {
+    return;
+  }
   if (delegate_->CanActivate()) {
     if (show_state != ui::mojom::WindowShowState::kInactive) {
       Activate();
+      if (!weak_this || !window_) {
+        return;
+      }
     }
     // SetInitialFocus() should be always be called, even for
     // SHOW_STATE_INACTIVE. If the window has to stay inactive, the method will

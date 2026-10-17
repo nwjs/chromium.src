@@ -13,8 +13,8 @@
 #include "base/time/time.h"
 #include "components/optimization_guide/core/model_execution/feature_keys.h"
 #include "components/optimization_guide/core/optimization_guide_enums.h"
+#include "components/optimization_guide/core/optimization_guide_logger.h"
 #include "components/optimization_guide/core/optimization_guide_permissions_util.h"
-#include "components/optimization_guide/core/optimization_guide_switches.h"
 #include "components/optimization_guide/proto/common_types.pb.h"
 #include "components/optimization_guide/proto/model_execution.pb.h"
 
@@ -24,12 +24,10 @@
         optimization_guide_logger->ShouldEnableDebugLogs()) {                  \
       optimization_guide_logger->OnLogMessageAdded(                            \
           base::Time::Now(), log_source, __FILE__, __LINE__, message);         \
-    }                                                                          \
-    if (optimization_guide::switches::IsDebugLogsEnabled())                    \
       DVLOG(0) << message;                                                     \
+    }                                                                          \
   } while (0)
 
-class OptimizationGuideLogger;
 class PrefService;
 
 namespace network {

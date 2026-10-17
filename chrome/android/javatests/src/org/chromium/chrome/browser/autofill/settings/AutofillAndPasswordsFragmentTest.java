@@ -11,6 +11,7 @@ import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.isEnabled;
+import static androidx.test.espresso.matcher.ViewMatchers.isRoot;
 import static androidx.test.espresso.matcher.ViewMatchers.withEffectiveVisibility;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
@@ -27,6 +28,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import static org.chromium.chrome.browser.settings.SettingsSearchTestUtils.assertPreferenceScreenMatchesIndex;
+import static org.chromium.ui.test.util.ViewUtils.VIEW_NULL;
+import static org.chromium.ui.test.util.ViewUtils.withEventualExpectedViewState;
 
 import android.app.PendingIntent;
 import android.content.Context;
@@ -38,6 +41,7 @@ import androidx.test.espresso.matcher.ViewMatchers.Visibility;
 import androidx.test.filters.MediumTest;
 import androidx.test.filters.SmallTest;
 
+import org.junit.After;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Rule;
@@ -91,8 +95,8 @@ import org.chromium.chrome.test.util.browser.signin.SigninTestRule;
 import org.chromium.components.browser_ui.settings.SettingsNavigation;
 import org.chromium.components.browser_ui.settings.search.SettingsIndexData;
 import org.chromium.components.policy.test.annotations.Policies;
-import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
+import org.chromium.components.signin.test.util.FakeAccountManagerFacade;
 import org.chromium.components.signin.test.util.TestAccounts;
 
 /** Tests for {@link AutofillAndPasswordsFragment}. */
@@ -100,8 +104,11 @@ import org.chromium.components.signin.test.util.TestAccounts;
 @Batch(Batch.PER_CLASS)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 public class AutofillAndPasswordsFragmentTest {
+    private static final FakeAccountManagerFacade sFakeAccountManagerFacade =
+            new FakeAccountManagerFacade();
+
     @Rule(order = 0)
-    public SigninTestRule mSigninTestRule = new SigninTestRule();
+    public SigninTestRule mSigninTestRule = new SigninTestRule(sFakeAccountManagerFacade);
 
     @Rule(order = 1)
     public SettingsTestRule<AutofillAndPasswordsFragment> mSettingsTestRule =
@@ -182,11 +189,16 @@ public class AutofillAndPasswordsFragmentTest {
                                         .AUTOFILL_AND_PASSWORDS));
     }
 
+    @After
+    public void tearDown() {
+        ThreadUtils.runOnUiThreadBlocking(sFakeAccountManagerFacade::removeAllAccounts);
+    }
+
     @Test
     @SmallTest
     public void testHelpMenuTriggersAutofillHelp() {
         // Settings in a tab doesn't have a help button or menu.
-        Assume.assumeTrue(!SettingsInTab.isEnabled());
+        Assume.assumeTrue(!SettingsInTab.shouldOpenSettingsInTab());
 
         mSettingsTestRule.startSettingsActivity();
 
@@ -202,12 +214,7 @@ public class AutofillAndPasswordsFragmentTest {
 
     @Test
     @SmallTest
-    @EnableFeatures({
-        SigninFeatures.ENABLE_SEAMLESS_SIGNIN
-                + ":seamless-signin-promo-type/compact"
-                + "/seamless-signin-string-type/continueButton",
-        ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID
-    })
+    @EnableFeatures({ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID})
     public void testSignInPromoVisible_noAccount() {
         signInPromoDeclined(false);
 
@@ -223,17 +230,13 @@ public class AutofillAndPasswordsFragmentTest {
                                         R.string
                                                 .signin_promo_description_autofill_and_passwords_seamless)));
         onView(withId(R.id.signin_promo_primary_button)).check(matches(isDisplayed()));
-        onView(withId(R.id.signin_promo_secondary_button)).check(doesNotExist());
+        onView(withId(R.id.account_picker_selected_account))
+                .check(matches(withEffectiveVisibility(Visibility.GONE)));
     }
 
     @Test
     @SmallTest
-    @EnableFeatures({
-        SigninFeatures.ENABLE_SEAMLESS_SIGNIN
-                + ":seamless-signin-promo-type/compact"
-                + "/seamless-signin-string-type/continueButton",
-        ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID
-    })
+    @EnableFeatures({ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID})
     public void testSignInPromoNotSelectable() {
         signInPromoDeclined(false);
 
@@ -248,12 +251,7 @@ public class AutofillAndPasswordsFragmentTest {
 
     @Test
     @SmallTest
-    @EnableFeatures({
-        SigninFeatures.ENABLE_SEAMLESS_SIGNIN
-                + ":seamless-signin-promo-type/compact"
-                + "/seamless-signin-string-type/continueButton",
-        ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID
-    })
+    @EnableFeatures({ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID})
     public void testSignInPromoVisible_withAccount() {
         mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
         signInPromoDeclined(false);
@@ -270,36 +268,12 @@ public class AutofillAndPasswordsFragmentTest {
                                         R.string
                                                 .signin_promo_description_autofill_and_passwords_seamless)));
         onView(withId(R.id.signin_promo_primary_button)).check(matches(isDisplayed()));
-        onView(withId(R.id.signin_promo_secondary_button)).check(doesNotExist());
+        onView(withId(R.id.account_picker_selected_account)).check(matches(isDisplayed()));
     }
 
     @Test
     @SmallTest
     @EnableFeatures({ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID})
-    @DisableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
-    public void testSignInPromoVisible_seamlessDisabled() {
-        mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
-        signInPromoDeclined(false);
-
-        mSettingsTestRule.startSettingsActivity(createFragmentArgs());
-
-        onView(withId(R.id.signin_promo_view_container)).check(matches(isDisplayed()));
-        onView(withId(R.id.sync_promo_title))
-                .check(matches(withText(R.string.signin_promo_title_autofill_and_passwords)));
-        onView(withId(R.id.sync_promo_description))
-                .check(matches(withText(R.string.signin_promo_description_autofill_and_passwords)));
-        onView(withId(R.id.sync_promo_choose_account_button)).check(matches(isDisplayed()));
-        onView(withId(R.id.sync_promo_signin_button)).check(matches(isDisplayed()));
-    }
-
-    @Test
-    @SmallTest
-    @EnableFeatures({
-        SigninFeatures.ENABLE_SEAMLESS_SIGNIN
-                + ":seamless-signin-promo-type/compact"
-                + "/seamless-signin-string-type/continueButton",
-        ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID
-    })
     public void testSignInPromoDismiss() {
         signInPromoDeclined(false);
 
@@ -308,7 +282,14 @@ public class AutofillAndPasswordsFragmentTest {
         onView(withId(R.id.signin_promo_view_container)).check(matches(isDisplayed()));
         onView(withId(R.id.signin_promo_dismiss_button)).perform(click());
 
-        onView(withId(R.id.signin_promo_view_container)).check(doesNotExist());
+        // Dismissing the promo hides the SigninPromoPreference, but PreferenceGroupAdapter
+        // applies visibility changes on a posted runnable and RecyclerView only detaches the
+        // row on a subsequent layout pass. Neither is covered by Espresso's idle detection, so
+        // poll for the removal instead of sampling the hierarchy once.
+        onView(isRoot())
+                .check(
+                        withEventualExpectedViewState(
+                                withId(R.id.signin_promo_view_container), VIEW_NULL));
         assertTrue(
                 ChromeSharedPreferences.getInstance()
                         .readBoolean(
@@ -318,12 +299,7 @@ public class AutofillAndPasswordsFragmentTest {
 
     @Test
     @SmallTest
-    @EnableFeatures({
-        SigninFeatures.ENABLE_SEAMLESS_SIGNIN
-                + ":seamless-signin-promo-type/compact"
-                + "/seamless-signin-string-type/continueButton",
-        ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID
-    })
+    @EnableFeatures({ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID})
     public void testSignInPromoClick() {
         signInPromoDeclined(false);
 
@@ -337,12 +313,7 @@ public class AutofillAndPasswordsFragmentTest {
 
     @Test
     @SmallTest
-    @EnableFeatures({
-        SigninFeatures.ENABLE_SEAMLESS_SIGNIN
-                + ":seamless-signin-promo-type/compact"
-                + "/seamless-signin-string-type/continueButton",
-        ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID
-    })
+    @EnableFeatures({ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID})
     public void testSignInPromoMaxImpressions() {
         signInPromoDeclined(false);
         ChromeSharedPreferences.getInstance()
@@ -359,12 +330,7 @@ public class AutofillAndPasswordsFragmentTest {
 
     @Test
     @SmallTest
-    @EnableFeatures({
-        SigninFeatures.ENABLE_SEAMLESS_SIGNIN
-                + ":seamless-signin-promo-type/compact"
-                + "/seamless-signin-string-type/continueButton",
-        ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID
-    })
+    @EnableFeatures(ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID)
     public void testSignInPromoNotVisible_whenLaunchedFromSearch() {
         signInPromoDeclined(false);
 

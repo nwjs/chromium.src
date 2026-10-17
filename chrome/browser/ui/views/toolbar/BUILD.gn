@@ -11,7 +11,6 @@ source_set("toolbar") {
   public = [
     "ai_overlay_toolbar_button.h",
     "app_menu.h",
-    "app_menu_control.h",
     "avatar_toolbar_button_interface.h",
     "back_forward_button.h",
     "browser_app_menu_button.h",
@@ -34,13 +33,12 @@ source_set("toolbar") {
     "toolbar_action_hover_card_bubble_view.h",
     "toolbar_action_hover_card_controller.h",
     "toolbar_action_view.h",
-    "toolbar_button.h",
-    "toolbar_button_menu_highlighter.h",
     "toolbar_chip_button.h",
     "toolbar_controller.h",
     "toolbar_divider.h",
     "toolbar_glic_actor_task_icon.h",
     "toolbar_glic_button.h",
+    "toolbar_glic_button_interface.h",
     "toolbar_glic_constants.h",
     "toolbar_icon_container_view.h",
     "toolbar_ink_drop_util.h",
@@ -49,6 +47,7 @@ source_set("toolbar") {
     "webui_avatar_toolbar_button.h",
     "webui_back_forward_control.h",
     "webui_battery_saver_control.h",
+    "webui_glic_control.h",
     "webui_home_control.h",
     "webui_media_toolbar_button.h",
     "webui_overflow_button.h",
@@ -61,6 +60,8 @@ source_set("toolbar") {
   ]
 
   public_deps = [
+    ":app_menu_control",
+    ":toolbar_button",
     "//base",
     "//build:buildflag_header_h",
     "//chrome/browser:command_updater_impl",
@@ -68,6 +69,7 @@ source_set("toolbar") {
     "//chrome/browser/glic",
     "//chrome/browser/glic/browser_ui",
     "//chrome/browser/lifetime",
+    "//chrome/browser/ui:browser_command_controller",
     "//chrome/browser/ui:browser_element_identifiers",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/color:color_headers",
@@ -83,12 +85,14 @@ source_set("toolbar") {
     "//chrome/browser/ui/views/app_menu",
     "//chrome/browser/ui/views/bookmarks",
     "//chrome/browser/ui/views/bookmarks/saved_tab_groups",
-    "//chrome/browser/ui/views/frame",
+    "//chrome/browser/ui/views/frame:app_menu_button",
+    "//chrome/browser/ui/views/frame:browser_root_view",
     "//chrome/browser/ui/views/frame:toolbar_button_provider",
     "//chrome/browser/ui/views/glic",
     "//chrome/browser/ui/views/global_media_controls:media_toolbar_button",
     "//chrome/browser/ui/views/location_bar",
     "//chrome/browser/ui/views/profiles:avatar_toolbar_button_types",
+    "//chrome/browser/ui/views/profiles:profile_menu_coordinator",
     "//chrome/browser/ui/views/tabs/hovercard:hovercard_helpers",
     "//chrome/browser/ui/webui/webui_toolbar",
     "//chrome/browser/ui/webui/webui_toolbar/adapters",
@@ -118,6 +122,46 @@ source_set("toolbar") {
   if (is_chromeos) {
     public_deps += [ "//chromeos/ash/experiences/arc/intent_helper" ]
   }
+}
+
+# Interface for controlling the app menu, which may be implemented by a Views
+# button or a WebUI-based control.
+source_set("app_menu_control") {
+  public = [ "app_menu_control.h" ]
+
+  public_deps = [
+    "//chrome/browser/ui/toolbar",
+    "//ui/views",
+  ]
+}
+
+# The ToolbarButton base class and the interfaces it implements. This is a leaf
+# so that buttons defined outside this directory (e.g.
+# //chrome/browser/ui/views/frame:app_menu_button) can derive from them without
+# depending on :toolbar, which would be circular because :toolbar's own
+# browser_app_menu_button.h derives from AppMenuButton.
+source_set("toolbar_button") {
+  public = [
+    "toolbar_button.h",
+    "toolbar_button_menu_highlighter.h",
+  ]
+
+  public_deps = [
+    "//base",
+    "//chrome/browser/lifetime",
+    "//chrome/browser/ui/color:color_headers",
+    "//chrome/browser/ui/views",
+    "//components/user_education/common",
+    "//ui/base",
+    "//ui/base:features",
+    "//ui/base/interaction",
+    "//ui/base/metadata",
+    "//ui/base/mojom:ui_base_types",
+    "//ui/gfx",
+    "//ui/gfx/animation",
+    "//ui/gfx/geometry",
+    "//ui/views",
+  ]
 }
 
 source_set("impl") {
@@ -159,6 +203,7 @@ source_set("impl") {
     "webui_avatar_toolbar_button.cc",
     "webui_back_forward_control.cc",
     "webui_battery_saver_control.cc",
+    "webui_glic_control.cc",
     "webui_home_control.cc",
     "webui_media_toolbar_button.cc",
     "webui_overflow_button.cc",
@@ -190,14 +235,15 @@ source_set("impl") {
     "//chrome/browser:flags",
     "//chrome/browser:primitives",
     "//chrome/browser:resources",
-    "//chrome/browser/actor/ui/task_list_bubble:controller",
-    "//chrome/browser/actor/ui/task_list_bubble:ui",
     "//chrome/browser/bookmarks",
     "//chrome/browser/extensions",
     "//chrome/browser/external_protocol",
     "//chrome/browser/favicon",
     "//chrome/browser/feedback",
+    "//chrome/browser/glic",
     "//chrome/browser/glic/browser_ui",
+    "//chrome/browser/glic/browser_ui/activity_list_bubble:controller",
+    "//chrome/browser/glic/browser_ui/activity_list_bubble:ui",
     "//chrome/browser/lifetime",
     "//chrome/browser/media/router:media_router_feature",
     "//chrome/browser/performance_manager/public/user_tuning",
@@ -214,8 +260,13 @@ source_set("impl") {
     "//chrome/browser/sync:factories",
     "//chrome/browser/themes",
     "//chrome/browser/ui:browser_actions",
+    "//chrome/browser/ui:browser_command_controller",
+    "//chrome/browser/ui:browser_commands",
     "//chrome/browser/ui:browser_content_setting_bubble_model_delegate",
+    "//chrome/browser/ui:browser_window_header",
+    "//chrome/browser/ui:intent_picker_tab_helper",
     "//chrome/browser/ui:layout_constants",
+    "//chrome/browser/ui:singleton_tabs",
     "//chrome/browser/ui:toolbar_controller_util",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui:view_ids",
@@ -250,8 +301,11 @@ source_set("impl") {
     "//chrome/browser/ui/views/extensions:extensions_toolbar_coordinator",
     "//chrome/browser/ui/views/extensions:extensions_views_utils",
     "//chrome/browser/ui/views/frame:app_menu_button_observer",
+    "//chrome/browser/ui/views/frame:browser_frame_view",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/ui/views/frame:custom_corners_background",
     "//chrome/browser/ui/views/frame:toolbar_button_provider",
+    "//chrome/browser/ui/views/frame:top_container_view",
     "//chrome/browser/ui/views/glic",
     "//chrome/browser/ui/views/global_media_controls",
     "//chrome/browser/ui/views/interaction",
@@ -341,6 +395,8 @@ if (!is_android) {
     sources = [
       "mock_webui_toolbar_control_delegate.cc",
       "mock_webui_toolbar_control_delegate.h",
+      "test_support/app_menu_test_accessor.cc",
+      "test_support/app_menu_test_accessor.h",
       "webui_test_utils.cc",
       "webui_test_utils.h",
     ]
@@ -351,7 +407,9 @@ if (!is_android) {
       "//chrome/browser/ui",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/interaction",
+      "//chrome/browser/ui/toolbar",
       "//chrome/browser/ui/views/frame",
+      "//chrome/browser/ui/views/frame:browser_view_header",
       "//chrome/browser/ui/views/profiles:avatar_toolbar_button",
       "//chrome/browser/ui/window_feature_controller",
       "//components/metrics:content",
@@ -385,6 +443,9 @@ if (!is_android) {
       "//base/test:test_support",
       "//chrome/browser:flags",
       "//chrome/browser/ui:browser_actions",
+      "//chrome/browser/ui:browser_command_controller",
+      "//chrome/browser/ui:browser_commands",
+      "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui:layout_constants",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/actions",
@@ -400,8 +461,11 @@ if (!is_android) {
       "//chrome/browser/ui/views/extensions:extensions_menu_coordinator",
       "//chrome/browser/ui/views/frame",
       "//chrome/browser/ui/views/frame:app_menu_button_observer",
+      "//chrome/browser/ui/views/frame:browser_view_header",
+      "//chrome/browser/ui/views/frame:top_container_view",
       "//chrome/browser/ui/views/page_info",
       "//chrome/browser/ui/views/web_apps/frame_toolbar:test_support",
+      "//chrome/browser/ui/views/web_apps/frame_toolbar:web_app_frame_toolbar_view",
       "//chrome/browser/ui/webui/searchbox:searchbox_test_utils",
       "//chrome/browser/ui/webui/webui_toolbar:impl",
       "//chrome/browser/web_applications:web_applications_test_support",
@@ -428,6 +492,7 @@ if (!is_android) {
     if (toolkit_views) {
       sources += [
         "toolbar_view_browsertest.cc",
+        "webui_home_control_browsertest.cc",
         "webui_home_control_test_base.cc",
         "webui_home_control_test_base.h",
         "webui_pinned_toolbar_actions_browsertest.cc",
@@ -449,6 +514,8 @@ if (!is_android) {
         "//chrome/browser/ui/views/global_media_controls",
         "//chrome/browser/ui/views/performance_controls",
         "//chrome/browser/ui/views/profiles:avatar_toolbar_button",
+        "//chrome/browser/ui/views/profiles:profile_menu_coordinator",
+        "//chrome/browser/ui/views/profiles:profile_menu_view_base",
         "//chrome/browser/ui/webui:webui_util",
         "//chrome/browser/ui/webui/webui_toolbar:test_support",
       ]
@@ -523,7 +590,10 @@ if (!is_android && !is_chromeos_device) {
       "//chrome/browser/profiles:misc",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/ui:browser_actions",
+      "//chrome/browser/ui:browser_command_controller",
+      "//chrome/browser/ui:browser_commands",
       "//chrome/browser/ui:browser_tabrestore",
+      "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui:test_support",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui:view_ids",
@@ -533,11 +603,14 @@ if (!is_android && !is_chromeos_device) {
       "//chrome/browser/ui/tabs:features",
       "//chrome/browser/ui/tabs:tab_menu",
       "//chrome/browser/ui/tabs:tab_strip",
+      "//chrome/browser/ui/translate:test_support",
       "//chrome/browser/ui/views/extensions:extension_popup",
       "//chrome/browser/ui/views/extensions:extensions_menu_coordinator",
       "//chrome/browser/ui/views/extensions:extensions_toolbar_button",
       "//chrome/browser/ui/views/extensions:test_support",
       "//chrome/browser/ui/views/frame",
+      "//chrome/browser/ui/views/frame:browser_view_header",
+      "//chrome/browser/ui/views/frame:browser_view_layout",
       "//chrome/browser/ui/views/page_info",
       "//chrome/browser/ui/views/tabs:tab",
       "//chrome/browser/ui/views/tabs:tab_strip",
@@ -562,6 +635,9 @@ if (!is_android && !is_chromeos_device) {
       "//ui/events:test_support",
       "//ui/views",
     ]
+    if (is_chromeos) {
+      deps += [ "//components/user_manager" ]
+    }
     if (toolkit_views) {
       deps += [
         "//chrome/browser/ui:toolbar_controller_util",
@@ -586,6 +662,7 @@ if (toolkit_views) {
       "toolbar_controller_unittest.cc",
       "toolbar_ink_drop_util_unittest.cc",
       "webui_battery_saver_control_unittest.cc",
+      "webui_glic_control_unittest.cc",
     ]
 
     deps = [
@@ -615,6 +692,7 @@ if (toolkit_views) {
       "//chrome/browser/ui/waap",
       "//chrome/common:buildflags",
       "//chrome/test:test_support",
+      "//chrome/test/base:chrome_render_view_host_test_harness",
       "//chrome/test/user_education:impl",
       "//components/keyed_service/core",
       "//components/prefs",

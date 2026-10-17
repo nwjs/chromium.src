@@ -68,7 +68,7 @@
 #include "gpu/vulkan/vulkan_implementation.h"
 #include "gpu/vulkan/vulkan_util.h"
 
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_FUCHSIA)
 #include "gpu/command_buffer/service/external_semaphore_pool.h"
 #endif
 
@@ -307,8 +307,7 @@ SharedContextState::SharedContextState(
 #endif
   ) {
     if (vk_context_provider_) {
-#if BUILDFLAG(ENABLE_VULKAN) && \
-    (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_WIN))
+#if BUILDFLAG(ENABLE_VULKAN) && (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_FUCHSIA))
       external_semaphore_pool_ = std::make_unique<ExternalSemaphorePool>(this);
 #endif
     }
@@ -348,8 +347,7 @@ SharedContextState::~SharedContextState() {
     UnbindCacheFromCurrentOpenGLContext();
   }
 
-#if BUILDFLAG(ENABLE_VULKAN) && \
-    (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_WIN))
+#if BUILDFLAG(ENABLE_VULKAN) && (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_FUCHSIA))
   external_semaphore_pool_.reset();
 #endif
 
@@ -393,6 +391,11 @@ gpu::GraphiteSharedContext* SharedContextState::graphite_shared_context()
     return dawn_context_provider_->GetGraphiteSharedContext();
   }
 #endif
+#if BUILDFLAG(SKIA_USE_GRAPHITE_VULKAN)
+  if (vk_context_provider_) {
+    return vk_context_provider_->GetGraphiteContext();
+  }
+#endif
   return nullptr;
 }
 
@@ -406,6 +409,11 @@ bool SharedContextState::IsUsingGL() const {
 bool SharedContextState::IsGraphiteDawn() const {
   return gr_context_type() == GrContextType::kGraphiteDawn &&
          dawn_context_provider();
+}
+
+bool SharedContextState::IsGraphiteVulkan() const {
+  return gr_context_type() == GrContextType::kGraphiteVulkan &&
+         vk_context_provider();
 }
 
 bool SharedContextState::IsGraphiteDawnMetal() const {
@@ -477,7 +485,8 @@ bool SharedContextState::InitializeSkia(
     return true;
   }
 
-  if (gr_context_type_ == GrContextType::kGraphiteDawn) {
+  if (gr_context_type_ == GrContextType::kGraphiteDawn ||
+      gr_context_type_ == GrContextType::kGraphiteVulkan) {
     return InitializeGraphite(gpu_preferences, workarounds,
                               use_shader_cache_shm_count);
   }
@@ -515,6 +524,8 @@ bool SharedContextState::InitializeGanesh(
   if(workarounds.msaa_is_slow && !workarounds.msaa_is_slow_2)
     options.fInternalMultisampleCount = 4;
   options.fReduceOpsTaskSplitting = GrContextOptions::Enable::kNo;
+  options.fAllowMSAAOnImagination =
+      base::FeatureList::IsEnabled(features::kVulkanImaginationMSAA);
   if (persistent_cache_) {
     options.fPersistentCache = persistent_cache_.get();
   } else {
@@ -612,15 +623,23 @@ bool SharedContextState::InitializeGraphite(
 
   gpu::GraphiteSharedContext* graphite_shared_context = nullptr;
 
+  if (gr_context_type_ == GrContextType::kGraphiteDawn) {
 #if BUILDFLAG(SKIA_USE_DAWN)
-  CHECK_EQ(gr_context_type_, GrContextType::kGraphiteDawn);
-  CHECK(dawn_context_provider_);
-  if (dawn_context_provider_->InitializeGraphiteContext(
-          context_options, use_shader_cache_shm_count)) {
-    graphite_shared_context =
-        dawn_context_provider_->GetGraphiteSharedContext();
-  }
+    CHECK(dawn_context_provider_);
+    if (dawn_context_provider_->InitializeGraphiteContext(
+            context_options, use_shader_cache_shm_count)) {
+      graphite_shared_context =
+          dawn_context_provider_->GetGraphiteSharedContext();
+    }
 #endif  // BUILDFLAG(SKIA_USE_DAWN)
+  } else if (gr_context_type_ == GrContextType::kGraphiteVulkan) {
+#if BUILDFLAG(SKIA_USE_GRAPHITE_VULKAN)
+    CHECK(vk_context_provider_);
+    if (vk_context_provider_->InitializeGraphiteContext(context_options)) {
+      graphite_shared_context = vk_context_provider_->GetGraphiteContext();
+    }
+#endif  // BUILDFLAG(SKIA_USE_GRAPHITE_VULKAN)
+  }
 
   if (!graphite_shared_context) {
     // Note: the caller will handle this case by exiting the GPU process.
@@ -1090,7 +1109,7 @@ void SharedContextState::RemoveContextLostObserver(ContextLostObserver* obs) {
   context_lost_observers_.RemoveObserver(obs);
 }
 
-void SharedContextState::PurgeGaneshMemory(int memory_limit) {
+void SharedContextState::PurgeGaneshMemory(base::MemoryLimit memory_limit) {
   DCHECK(gr_context_);
 
   if (memory_limit <= base::kCriticalMemoryPressureThreshold) {
@@ -1122,7 +1141,7 @@ void SharedContextState::PurgeGaneshMemory(int memory_limit) {
   }
 }
 
-void SharedContextState::PurgeGraphiteMemory(int memory_limit) {
+void SharedContextState::PurgeGraphiteMemory(base::MemoryLimit memory_limit) {
   DCHECK(gpu_main_graphite_cache_controller_);
 
   if (memory_limit <= base::kCriticalMemoryPressureThreshold) {
@@ -1132,7 +1151,7 @@ void SharedContextState::PurgeGraphiteMemory(int memory_limit) {
   }
 }
 
-void SharedContextState::PurgeMemory(int memory_limit) {
+void SharedContextState::PurgeMemory(base::MemoryLimit memory_limit) {
   // Ensure the context is current before doing any GPU cleanup.
   if (!MakeCurrent(nullptr)) {
     return;
@@ -1163,7 +1182,7 @@ void SharedContextState::PurgeMemory(int memory_limit) {
   }
 }
 
-void SharedContextState::OnUpdateMemoryLimit(int memory_limit) {
+void SharedContextState::OnUpdateMemoryLimit(base::MemoryLimit memory_limit) {
   if (base::FeatureList::IsEnabled(base::kStatefulMemoryPressure)) {
     if (transfer_cache_) {
       transfer_cache_->OnUpdateMemoryLimit(memory_limit);
@@ -1445,7 +1464,7 @@ int32_t SharedContextState::GetMaxTextureSize() {
   if (IsUsingGL()) {
     gl::GLApi* const api = gl::g_current_gl_context;
     api->glGetIntegervFn(GL_MAX_TEXTURE_SIZE, &max_texture_size);
-  } else if (GrContextIsVulkan()) {
+  } else if (GrContextIsVulkan() || IsGraphiteVulkan()) {
 #if BUILDFLAG(ENABLE_VULKAN)
     max_texture_size = vk_context_provider()
                            ->GetDeviceQueue()

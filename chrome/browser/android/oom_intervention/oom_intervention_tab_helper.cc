@@ -43,7 +43,6 @@ bool OomInterventionTabHelper::IsEnabled() {
 OomInterventionTabHelper::OomInterventionTabHelper(
     content::WebContents* web_contents)
     : content::WebContentsObserver(web_contents),
-      content::WebContentsUserData<OomInterventionTabHelper>(*web_contents),
       decider_(OomInterventionDecider::GetForBrowserContext(
           web_contents->GetBrowserContext())) {
   scoped_observation_.Observe(
@@ -188,14 +187,14 @@ void OomInterventionTabHelper::DocumentOnLoadCompletedInPrimaryMainFrame() {
 }
 
 void OomInterventionTabHelper::OnCrashDumpProcessed(
-    int rph_id,
+    content::ChildProcessId rph_id,
     const crash_reporter::CrashMetricsReporter::ReportedCrashTypeSet&
         reported_counts) {
   if (rph_id != web_contents()
                     ->GetPrimaryPage()
                     .GetMainDocument()
                     .GetProcess()
-                    ->GetDeprecatedID()) {
+                    ->GetID()) {
     return;
   }
   if (!reported_counts.count(
@@ -282,5 +281,3 @@ void OomInterventionTabHelper::ResetInterfaces() {
   intervention_.reset();
   receiver_.reset();
 }
-
-WEB_CONTENTS_USER_DATA_KEY_IMPL(OomInterventionTabHelper);

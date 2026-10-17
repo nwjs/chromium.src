@@ -76,6 +76,17 @@ void MergePolicyValuesAndIds(base::DictValue policy_values,
   out_policy_values.Merge(std::move(policy_values));
 }
 
+void MergePolicyValuesAndIdsMojo(
+    base::flat_map<std::string, policy::mojom::PolicyGroupPtr> policy_values,
+    base::flat_map<std::string, policy::mojom::PolicyGroupPtr>&
+        out_policy_values,
+    std::vector<std::string>& out_policy_ids) {
+  for (auto& [id, policy_group] : policy_values) {
+    out_policy_ids.push_back(id);
+    out_policy_values.insert_or_assign(id, std::move(policy_group));
+  }
+}
+
 // Returns the PolicyStatusProvider for user policies for the current platform.
 std::unique_ptr<policy::PolicyStatusProvider> GetUserPolicyStatusProvider(
     Profile* profile) {
@@ -244,14 +255,15 @@ base::DictValue PolicyValueAndStatusAggregator::GetAggregatedPolicyStatus() {
 base::flat_map<std::string, policy::mojom::StatusPtr>
 PolicyValueAndStatusAggregator::GetAggregatedPolicyStatusMojo() {
   std::vector<std::pair<std::string, policy::mojom::StatusPtr>> entries;
-  for (const auto& status_provider_description_pair : status_providers_) {
-    DVLOG_POLICY(3, POLICY_PROCESSING)
-        << status_provider_description_pair.first
-        << " status: " << status_provider_description_pair.second->GetStatus();
-
-    entries.emplace_back(
-        status_provider_description_pair.first,
-        status_provider_description_pair.second->GetStatusMojo());
+  for (const auto& [name, provider] : status_providers_) {
+    if (auto status = provider->GetStatusMojo()) {
+      DVLOG_POLICY(3, POLICY_PROCESSING)
+          << "Processing policy status for " << name;
+      entries.emplace_back(name, std::move(status));
+    } else {
+      DVLOG_POLICY(3, POLICY_PROCESSING)
+          << "Policy status provider " << name << " returned a null status";
+    }
   }
   return base::flat_map<std::string, policy::mojom::StatusPtr>(
       std::move(entries));
@@ -284,6 +296,40 @@ base::DictValue PolicyValueAndStatusAggregator::GetAggregatedPolicyNames() {
     policy_names.Merge(value_provider->GetNames());
   }
   return policy_names;
+}
+
+base::flat_map<std::string, policy::mojom::PolicyGroupNamesPtr>
+PolicyValueAndStatusAggregator::GetAggregatedPolicyNamesMojo() {
+  base::flat_map<std::string, policy::mojom::PolicyGroupNamesPtr> policy_names;
+  for (const auto& value_provider : value_providers_) {
+    for (auto& [id, group_names] : value_provider->GetNamesMojo()) {
+      policy_names.insert_or_assign(id, std::move(group_names));
+    }
+  }
+  for (const policy::PolicyValueProvider* value_provider :
+       value_providers_unowned_) {
+    for (auto& [id, group_names] : value_provider->GetNamesMojo()) {
+      policy_names.insert_or_assign(id, std::move(group_names));
+    }
+  }
+  return policy_names;
+}
+
+policy::mojom::PolicyGroupsResponsePtr
+PolicyValueAndStatusAggregator::GetAggregatedPolicyValuesMojo() {
+  base::flat_map<std::string, policy::mojom::PolicyGroupPtr> policy_values;
+  std::vector<std::string> policy_ids;
+  for (const auto& value_provider : value_providers_) {
+    MergePolicyValuesAndIdsMojo(value_provider->GetValuesMojo(), policy_values,
+                                policy_ids);
+  }
+  for (const policy::PolicyValueProvider* value_provider :
+       value_providers_unowned_) {
+    MergePolicyValuesAndIdsMojo(value_provider->GetValuesMojo(), policy_values,
+                                policy_ids);
+  }
+  return policy::mojom::PolicyGroupsResponse::New(std::move(policy_ids),
+                                                  std::move(policy_values));
 }
 
 void PolicyValueAndStatusAggregator::Refresh() {

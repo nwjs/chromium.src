@@ -177,7 +177,7 @@ public class WebAppLaunchHandler {
             String targetUrl,
             String packageName,
             @Nullable FileHandlingData fileHandlingData,
-            @Nullable SessionHolder<?> session,
+            @Nullable SessionHolder session,
             @Nullable Intent intent,
             @Nullable Object caller) {
         List<Uri> fileUris = null;
@@ -596,7 +596,7 @@ public class WebAppLaunchHandler {
     public static boolean doesCallerHavePermissionForUri(
             Activity activity,
             @Nullable Object caller,
-            @Nullable SessionHolder<?> session,
+            @Nullable SessionHolder session,
             Uri uri,
             int requestedPermission) {
         int uid = -1;
@@ -651,7 +651,7 @@ public class WebAppLaunchHandler {
             }
         }
 
-        SessionHolder<?> session = SessionHolder.getSessionHolderFromIntent(sourceIntent);
+        SessionHolder session = SessionHolder.getSessionHolderFromIntent(sourceIntent);
         List<Uri> verifiedUris = new ArrayList<>();
         List<Boolean> canWriteList = new ArrayList<>();
         for (Uri uri : fileHandlingData.uris) {
@@ -737,7 +737,7 @@ public class WebAppLaunchHandler {
             }
         }
 
-        SessionHolder<?> session = SessionHolder.getSessionHolderFromIntent(sourceIntent);
+        SessionHolder session = SessionHolder.getSessionHolderFromIntent(sourceIntent);
         List<Uri> verifiedUris = new ArrayList<>();
         for (Uri uri : shareData.uris) {
             if (!isValidLaunchUri(uri)) {

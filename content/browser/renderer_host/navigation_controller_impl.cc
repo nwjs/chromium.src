@@ -281,22 +281,23 @@ std::optional<url::Origin> GetCommittedOriginForFrameEntry(
   return std::make_optional(params.origin);
 }
 
-bool IsValidURLForNavigation(FrameTreeNode* node,
-                             const GURL& virtual_url,
-                             const GURL& dest_url) {
+std::optional<NavigationNotStartedReason> CheckURLForNavigationError(
+    FrameTreeNode* node,
+    const GURL& virtual_url,
+    const GURL& dest_url) {
   // Don't attempt to navigate if the virtual URL is non-empty and invalid.
   if (node->IsOutermostMainFrame() && !virtual_url.is_valid() &&
       !virtual_url.is_empty()) {
     LOG(WARNING) << "Refusing to load for invalid virtual URL: "
                  << virtual_url.possibly_invalid_spec();
-    return false;
+    return NavigationNotStartedReason::kInvalidUrl;
   }
 
   // Don't attempt to navigate to non-empty invalid URLs.
   if (!dest_url.is_valid() && !dest_url.is_empty()) {
     LOG(WARNING) << "Refusing to load invalid URL: "
                  << dest_url.possibly_invalid_spec();
-    return false;
+    return NavigationNotStartedReason::kInvalidUrl;
   }
 
   // The renderer will reject IPC messages with URLs longer than
@@ -304,7 +305,7 @@ bool IsValidURLForNavigation(FrameTreeNode* node,
   if (dest_url.spec().size() > url::kMaxURLChars) {
     LOG(WARNING) << "Refusing to load URL as it exceeds " << url::kMaxURLChars
                  << " characters.";
-    return false;
+    return NavigationNotStartedReason::kOversizedUrl;
   }
 
   // Reject renderer debug URLs because they should have been handled before
@@ -316,7 +317,7 @@ bool IsValidURLForNavigation(FrameTreeNode* node,
   if (blink::IsRendererDebugURL(dest_url)) {
     LOG(WARNING) << "Refusing to load renderer debug URL: "
                  << dest_url.possibly_invalid_spec();
-    return false;
+    return NavigationNotStartedReason::kBlockedRendererDebugUrl;
   }
 
 #if 0 //nwjs: fails issue6229-webview-executeScript
@@ -335,12 +336,12 @@ bool IsValidURLForNavigation(FrameTreeNode* node,
         !dest_url.SchemeIs(url::kAboutScheme)) {
       LOG(WARNING) << "Refusing to load unsafe URL in a guest: "
                    << dest_url.possibly_invalid_spec();
-      return false;
+      return NavigationNotStartedReason::kDisallowedScheme;
     }
   }
 #endif
 
-  return true;
+  return std::nullopt;
 }
 
 // See replaced_navigation_entry_data.h for details: this information is meant
@@ -1743,7 +1744,8 @@ base::WeakPtr<NavigationHandle> NavigationControllerImpl::LoadURL(
   return LoadURLWithParams(params);
 }
 
-base::WeakPtr<NavigationHandle> NavigationControllerImpl::LoadURLWithParams(
+base::expected<base::WeakPtr<NavigationHandle>, NavigationNotStartedReason>
+NavigationControllerImpl::LoadURLWithParamsForResult(
     const LoadURLParams& params) {
   // For now, treat this as the actual navigation start time, even though a fair
   // amount of work is done in the browser process between the various ways to
@@ -1760,7 +1762,7 @@ base::WeakPtr<NavigationHandle> NavigationControllerImpl::LoadURLWithParams(
   }
 
   TRACE_EVENT1("browser,navigation",
-               "NavigationControllerImpl::LoadURLWithParams", "url",
+               "NavigationControllerImpl::LoadURLWithParamsForResult", "url",
                params.url.possibly_invalid_spec());
 
   if (IsDebugURL(params.url)) {
@@ -1772,7 +1774,8 @@ base::WeakPtr<NavigationHandle> NavigationControllerImpl::LoadURLWithParams(
             GetTargetFrameTreeNodeForNavigation(params)
                 ->current_frame_host())) {
       DiscardPendingEntry(false);
-      return nullptr;
+      return base::unexpected(
+          NavigationNotStartedReason::kBlockedRendererDebugUrl);
     }
     HandleDebugURL(params.url, params.transition_type,
                    client->IsExplicitNavigation(params.transition_type));
@@ -1780,7 +1783,8 @@ base::WeakPtr<NavigationHandle> NavigationControllerImpl::LoadURLWithParams(
     // unhandled, otherwise Telemetry can't tell if Navigation completed.
     if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
             switches::kEnableGpuBenchmarking)) {
-      return nullptr;
+      return base::unexpected(
+          NavigationNotStartedReason::kRendererDebugUrlHandled);
     }
   }
 
@@ -3338,7 +3342,8 @@ void NavigationControllerImpl::NavigateFromFrameProxy(
     bool is_unfenced_top_navigation,
     bool force_new_browsing_instance,
     bool is_container_initiated,
-    bool has_rel_opener) {
+    bool has_rel_opener,
+    network::mojom::CSPDisposition should_check_main_world_csp) {
   SiteInstanceImpl* source_site_instance =
       initiator_navigation_state ? static_cast<InitiatorNavigationStateImpl*>(
                                        initiator_navigation_state.get())
@@ -3464,17 +3469,15 @@ void NavigationControllerImpl::NavigateFromFrameProxy(
   params.started_by_ad = started_by_ad;
   params.has_rel_opener = has_rel_opener;
 
-  std::unique_ptr<NavigationRequest> request =
-      CreateNavigationRequestFromLoadParams(
-          node, params, override_user_agent, should_replace_current_entry,
-          std::move(source_location), ReloadType::NONE, entry.get(),
-          frame_entry.get(), actual_navigation_start_time,
-          navigation_start_time,
-          /*from_frame_proxy=*/true,
-          is_embedder_initiated_fenced_frame_navigation,
-          is_unfenced_top_navigation, is_container_initiated);
+  auto request = CreateNavigationRequestFromLoadParams(
+      node, params, override_user_agent, should_replace_current_entry,
+      std::move(source_location), ReloadType::NONE, entry.get(),
+      frame_entry.get(), actual_navigation_start_time, navigation_start_time,
+      /*from_frame_proxy=*/true, is_embedder_initiated_fenced_frame_navigation,
+      is_unfenced_top_navigation, is_container_initiated,
+      should_check_main_world_csp);
 
-  if (!request) {
+  if (!request.has_value()) {
     return;
   }
 
@@ -3482,7 +3485,7 @@ void NavigationControllerImpl::NavigateFromFrameProxy(
   // This is used by _unfencedTop in fenced frames to ensure that navigations
   // leaving the fenced context create a new browsing instance.
   if (force_new_browsing_instance) {
-    request->coop_status().ForceBrowsingInstanceSwap();
+    request.value()->coop_status().ForceBrowsingInstanceSwap();
   }
 
   // At this stage we are proceeding with this navigation. If this was renderer
@@ -3490,7 +3493,7 @@ void NavigationControllerImpl::NavigateFromFrameProxy(
   // remains of a cancelled browser initiated navigation to avoid URL spoofs.
   DiscardNonCommittedEntries();
 
-  node->navigator().Navigate(std::move(request), ReloadType::NONE);
+  node->navigator().Navigate(std::move(request).value(), ReloadType::NONE);
 }
 
 void NavigationControllerImpl::SetSessionStorageNamespace(
@@ -4274,7 +4277,8 @@ void NavigationControllerImpl::FindFramesToNavigate(
   }
 }
 
-base::WeakPtr<NavigationHandle> NavigationControllerImpl::NavigateWithoutEntry(
+base::expected<base::WeakPtr<NavigationHandle>, NavigationNotStartedReason>
+NavigationControllerImpl::NavigateWithoutEntry(
     const LoadURLParams& params,
     base::TimeTicks actual_navigation_start) {
   FrameTreeNode* node = GetTargetFrameTreeNodeForNavigation(params);
@@ -4318,7 +4322,8 @@ base::WeakPtr<NavigationHandle> NavigationControllerImpl::NavigateWithoutEntry(
     if (GetContentClient()->browser()->ShouldBlockRendererDebugURL(
             params.url, browser_context_, node->current_frame_host())) {
       DiscardPendingEntry(false);
-      return nullptr;
+      return base::unexpected(
+          NavigationNotStartedReason::kBlockedRendererDebugUrl);
     }
 
     // Don't trust opaque origins to run debug URLs (like javascript: URLs) on
@@ -4326,11 +4331,13 @@ base::WeakPtr<NavigationHandle> NavigationControllerImpl::NavigateWithoutEntry(
     if (params.initiator_origin.has_value() &&
         params.initiator_origin->opaque()) {
       DiscardPendingEntry(true);
-      return nullptr;
+      return base::unexpected(
+          NavigationNotStartedReason::kBlockedRendererDebugUrl);
     }
 
     HandleRendererDebugURL(node, params.url);
-    return nullptr;
+    return base::unexpected(
+        NavigationNotStartedReason::kRendererDebugUrlHandled);
   }
 
   DCHECK(pending_entry_);
@@ -4394,35 +4401,48 @@ base::WeakPtr<NavigationHandle> NavigationControllerImpl::NavigateWithoutEntry(
   // will be updated when the BeforeUnload ack is received.
   const auto navigation_start_time = base::TimeTicks::Now();
 
-  std::unique_ptr<NavigationRequest> request =
-      CreateNavigationRequestFromLoadParams(
-          node, params, override_user_agent, should_replace_current_entry,
-          network::mojom::SourceLocation::New(), reload_type, pending_entry_,
-          pending_entry_->GetFrameEntry(node), actual_navigation_start,
-          navigation_start_time, /*from_frame_proxy=*/false);
+  auto request = CreateNavigationRequestFromLoadParams(
+      node, params, override_user_agent, should_replace_current_entry,
+      network::mojom::SourceLocation::New(), reload_type, pending_entry_,
+      pending_entry_->GetFrameEntry(node), actual_navigation_start,
+      navigation_start_time, /*from_frame_proxy=*/false);
 
   // If the navigation couldn't start, return immediately and discard the
   // pending NavigationEntry.
-  if (!request) {
+  if (!request.has_value()) {
     DiscardPendingEntry(false);
-    return nullptr;
+    return base::unexpected(request.error());
   }
 
 #if DCHECK_IS_ON()
   // Safety check that NavigationRequest and NavigationEntry match.
-  ValidateRequestMatchesEntry(request.get(), pending_entry_);
+  ValidateRequestMatchesEntry(request.value().get(), pending_entry_);
 #endif
+
+  base::WeakPtr<NavigationRequest> created_request =
+      request.value()->GetWeakPtr();
 
   // Ensure that no re-entrant calls or discards of the pending entry occur
   // while calling `Navigator::Navigate` for a pending entry.
   ScopedPendingEntryReentrancyGuard reentrancy_guard(
       weak_factory_.GetSafeRef());
 
-  base::WeakPtr<NavigationHandle> created_navigation_handle(
-      request->GetWeakPtr());
-  node->navigator().Navigate(std::move(request), reload_type);
+  std::optional<NavigationNotStartedReason> not_started_reason =
+      node->navigator().Navigate(std::move(request).value(), reload_type);
 
-  return created_navigation_handle;
+  if (not_started_reason.has_value()) {
+    return base::unexpected(*not_started_reason);
+  }
+
+  // `Navigator::Navigate()` has several paths that drop the request without
+  // reporting a reason, e.g. a NavigationThrottle cancelling synchronously
+  // during BeginNavigation(). Report them uniformly rather than handing back a
+  // null handle that callers would have to null-check themselves.
+  if (!created_request) {
+    return base::unexpected(NavigationNotStartedReason::kCancelledDuringStart);
+  }
+
+  return created_request;
   // `reentrancy_guard` deleted here.
 }
 
@@ -4585,7 +4605,7 @@ NavigationControllerImpl::CreateNavigationEntryFromLoadParams(
   return entry;
 }
 
-std::unique_ptr<NavigationRequest>
+base::expected<std::unique_ptr<NavigationRequest>, NavigationNotStartedReason>
 NavigationControllerImpl::CreateNavigationRequestFromLoadParams(
     FrameTreeNode* node,
     const LoadURLParams& params,
@@ -4600,7 +4620,8 @@ NavigationControllerImpl::CreateNavigationRequestFromLoadParams(
     bool from_frame_proxy,
     bool is_embedder_initiated_fenced_frame_navigation,
     bool is_unfenced_top_navigation,
-    bool is_container_initiated) {
+    bool is_container_initiated,
+    network::mojom::CSPDisposition should_check_main_world_csp) {
   DCHECK_EQ(-1, GetIndexOfEntry(entry));
 
   // TODO(https://crbug.com/40467594): Add a CHECK(frame_entry) once all
@@ -4663,11 +4684,13 @@ NavigationControllerImpl::CreateNavigationRequestFromLoadParams(
   if (node->render_manager()->is_attaching_inner_delegate()) {
     // Avoid starting any new navigations since this node is now preparing for
     // attaching an inner delegate.
-    return nullptr;
+    return base::unexpected(
+        NavigationNotStartedReason::kAttachingInnerDelegate);
   }
 
-  if (!IsValidURLForNavigation(node, virtual_url, url_to_load)) {
-    return nullptr;
+  auto reason = CheckURLForNavigationError(node, virtual_url, url_to_load);
+  if (reason.has_value()) {
+    return base::unexpected(*reason);
   }
 
   // Look for a pending commit that is to another document in this
@@ -4700,7 +4723,10 @@ NavigationControllerImpl::CreateNavigationRequestFromLoadParams(
   std::string page_state_data =
       frame_entry ? frame_entry->page_state().ToEncodedData() : std::string();
 
-  // TODO(clamy): See if user gesture should be propagated to `common_params`.
+  // Filter out user gestures for proxy navigations, to prevent them from being
+  // exposed to the committed document in the renderer. (See
+  // `has_possibly_filtered_user_gesture` in
+  // //third_party/blink/public/mojom/navigation/navigation_params.mojom.)
   bool has_user_gesture_for_common_params =
       from_frame_proxy ? false : params.has_user_gesture;
 
@@ -4715,9 +4741,8 @@ NavigationControllerImpl::CreateNavigationRequestFromLoadParams(
           params.load_type == LOAD_TYPE_HTTP_POST ? "POST" : "GET",
           params.post_data, std::move(source_location),
           params.started_from_context_menu, has_user_gesture_for_common_params,
-          false /* has_text_fragment_token */,
-          network::mojom::CSPDisposition::CHECK, std::vector<int>(),
-          params.href_translate,
+          false /* has_text_fragment_token */, should_check_main_world_csp,
+          std::vector<int>(), params.href_translate,
           false /* is_history_navigation_in_new_child_frame */,
 	  params.block_parser,
           params.input_start, network::mojom::RequestDestination::kEmpty);
@@ -4794,7 +4819,7 @@ NavigationControllerImpl::CreateNavigationRequestFromLoadParams(
           /*lcpp_hint=*/nullptr, blink::CreateDefaultRendererContentSettings(),
           /*visited_link_salt=*/std::nullopt,
           /*local_surface_id=*/std::nullopt,
-          node->current_frame_host()->GetCachedPermissionStatuses(),
+          /*initial_permission_statuses=*/std::nullopt,
           /*should_skip_screentshot=*/false,
           /*force_new_document_sequence_number=*/false,
           /*navigation_metrics_token=*/base::UnguessableToken::Create(),
@@ -4856,9 +4881,8 @@ NavigationControllerImpl::CreateNavigationRequestFromLoadParams(
       embedder_isolation_mode, is_embedder_initiated_fenced_frame_navigation,
       is_container_initiated, params.has_rel_opener);
 
-  if (!navigation_request) {
-    return nullptr;
-  }
+  // NavigationRequest::Create() always returns a newly created request.
+  CHECK(navigation_request);
 
   navigation_request->set_from_download_cross_origin_redirect(
       params.from_download_cross_origin_redirect);
@@ -4905,8 +4929,9 @@ NavigationControllerImpl::CreateNavigationRequestFromEntry(
     return nullptr;
   }
 
-  if (!IsValidURLForNavigation(frame_tree_node, entry->GetVirtualURL(),
-                               dest_url)) {
+  if (CheckURLForNavigationError(frame_tree_node, entry->GetVirtualURL(),
+                                 dest_url)
+          .has_value()) {
     return nullptr;
   }
 
@@ -4992,8 +5017,6 @@ NavigationControllerImpl::CreateNavigationRequestFromEntry(
           frame_tree_node->AncestorOrSelfHasCSPEE(),
           soft_navigation_heuristics_task_id);
   commit_params->post_content_type = post_content_type;
-  commit_params->initial_permission_statuses =
-      frame_tree_node->current_frame_host()->GetCachedPermissionStatuses();
 
   if (common_params->url.IsAboutSrcdoc()) {
     // TODO(wjmaclean): initialize this in NavigationRequest's constructor
@@ -5699,10 +5722,17 @@ NavigationControllerImpl::GetNavigationApiHistoryEntryVectors(
                                        .initiator_frame_tree_node_id();
     if (initiator_id) {
       auto* initiator_node = FrameTreeNode::GloballyFindByID(initiator_id);
-      previous_entry = initiator_node->frame_tree()
-                           .controller()
-                           .GetLastCommittedEntry()
-                           ->GetFrameEntry(initiator_node);
+      // The initiator frame may have been destroyed if the initiator tab was
+      // closed while a new-tab prerender is still committing its initial
+      // navigation. The prerender WebContents destruction is deferred via
+      // DeleteSoon, creating a window where the initiator's FrameTreeNode is
+      // gone but the prerender is still alive.
+      if (initiator_node) {
+        previous_entry = initiator_node->frame_tree()
+                             .controller()
+                             .GetLastCommittedEntry()
+                             ->GetFrameEntry(initiator_node);
+      }
     }
   } else if (GetLastCommittedEntryIndex() != -1 &&
              GetLastCommittedEntryIndex() >= backmost_index &&

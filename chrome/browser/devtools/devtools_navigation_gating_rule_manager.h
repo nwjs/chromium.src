@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_DEVTOOLS_DEVTOOLS_NAVIGATION_GATING_RULE_MANAGER_H_
 
 #include <memory>
+#include <optional>
 #include <string_view>
 
 #include "base/functional/callback_forward.h"
@@ -51,17 +52,13 @@ class DevToolsNavigationGatingRuleManager
   // origin_gating::OriginGatingChecker::Delegate implementation:
   void DoesOriginRequireUserConfirmation(
       origin_gating::GatingDecisionContext* context,
-      origin_gating::GateableEvent event,
-      const GURL& source,
-      const GURL& destination,
+      const origin_gating::GateableEvent& event,
       DoesOriginRequireUserConfirmationCallback callback) const override;
   void EvaluateEnterprisePolicy(
       const GURL& destination,
       EvaluateEnterprisePolicyCallback callback) const override;
   void OnNoVerdict(origin_gating::GatingDecisionContext* context,
-                   origin_gating::GateableEvent event,
-                   const GURL& source,
-                   const GURL& destination,
+                   const origin_gating::GateableEvent& event,
                    bool requires_user_confirmation,
                    base::OnceCallback<void(NoVerdictResult)> callback) override;
 
@@ -72,12 +69,20 @@ class DevToolsNavigationGatingRuleManager
 
   origin_gating::Decision EvaluateRules(
       origin_gating::GatingDecisionContext* context,
-      const GURL& source,
-      const GURL& destination) const;
+      const origin_gating::GateableEvent& event) const;
 
   content_settings::HostIndexedContentSettings rules_;
   bool has_allowlist_ = false;
-  origin_gating::OriginGatingChecker origin_gating_checker_;
+
+  // TODO(http://b/545563794): Migrate DevTools navigation gating to a
+  // KeyedService that uses OriginGatingService.
+  // The checker needs a weak pointer to this class, which serves as the
+  // delegate. The weak pointer is not available until the constructor which
+  // means this checker cannot be a direct member and is an optional instead to
+  // allow for this delayed initialization.
+  std::optional<origin_gating::OriginGatingChecker> origin_gating_checker_;
+  base::WeakPtrFactory<DevToolsNavigationGatingRuleManager> weak_ptr_factory_{
+      this};
 };
 
 #endif  // CHROME_BROWSER_DEVTOOLS_DEVTOOLS_NAVIGATION_GATING_RULE_MANAGER_H_

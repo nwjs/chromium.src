@@ -34,6 +34,10 @@
 #include "ui/views/view_utils.h"
 #include "ui/views/widget/native_widget.h"
 
+#if BUILDFLAG(IS_MAC)
+#include "chrome/browser/ui/views/omnibox/omnibox_popup_native_widget_mac.h"
+#endif
+
 namespace omnibox {
 const void* kOmniboxWebUIPopupWidgetId = &kOmniboxWebUIPopupWidgetId;
 }
@@ -315,6 +319,18 @@ bool OmniboxPopupPresenterBase::IsShown() const {
 }
 
 void OmniboxPopupPresenterBase::OnContentHeightChanged(int content_height) {
+  if (ShouldDrawShadowInWebUI()) {
+    // The WebUI reserves the shadow margin inside its own document, so the
+    // reported height includes it. Strip it back out so `content_height_`
+    // keeps meaning "height of the popup content"; `SynchronizePopupBounds()`
+    // adds the shadow margin back when sizing the widget.
+    // TODO(crbug.com/563367122): Streamline height coordination between WebUI
+    // and Views so shadow insets do not need to be manually stripped and
+    // re-added.
+    content_height =
+        std::max(1, content_height -
+                        RoundedOmniboxResultsFrame::GetShadowInsets().height());
+  }
   content_height_ = content_height;
   // Restore opacity once we receive a valid content height.
   if (ShouldHideForInitialLayout() && content_height_ > 1 && widget_) {
@@ -401,7 +417,7 @@ void OmniboxPopupPresenterBase::SetWebUIContent(
 }
 
 bool OmniboxPopupPresenterBase::ShouldDestroyWidgetOnHide() const {
-  return omnibox::IsWebUIOmniboxFullPopupEnabled() &&
+  return delegate().is_full_webui_omnibox() &&
          base::FeatureList::IsEnabled(
              omnibox::kOmniboxFullWebUIDestroyWidgetOnHide);
 }
@@ -427,6 +443,12 @@ void OmniboxPopupPresenterBase::EnsureWidgetCreated() {
   params.context = parent_widget->GetNativeWindow();
 
   RoundedOmniboxResultsFrame::OnBeforeWidgetInit(&params, widget_.get());
+#if BUILDFLAG(IS_MAC)
+  // Makes window managers move the browser window, not the popup.
+  if (delegate().is_full_webui_omnibox()) {
+    params.native_widget = CreateOmniboxPopupNativeWidget(widget_.get());
+  }
+#endif
 
   widget_->MakeCloseSynchronous(base::BindOnce(
       &OmniboxPopupPresenterBase::OnWidgetClosed, base::Unretained(this)));
@@ -456,6 +478,10 @@ OmniboxPopupPresenterBase::CreateResultsFrame(
 }
 
 bool OmniboxPopupPresenterBase::ShouldShowLocationBarCutout() const {
+  return false;
+}
+
+bool OmniboxPopupPresenterBase::ShouldDrawShadowInWebUI() const {
   return false;
 }
 

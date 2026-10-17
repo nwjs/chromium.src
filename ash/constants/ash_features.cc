@@ -283,19 +283,6 @@ BASE_FEATURE(kBocaScreenSharingTeacher, base::FEATURE_ENABLED_BY_DEFAULT);
 // Enables or disables sharing student's screen in the Boca app.
 BASE_FEATURE(kBocaScreenSharingStudent, base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables or disables Boca receiver custom polling.
-BASE_FEATURE(kBocaReceiverCustomPolling, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Custom boca receiver polling time interval.
-const base::FeatureParam<base::TimeDelta> kBocaReceiverCustomPollingInterval{
-    &kBocaReceiverCustomPolling, "BocaReceiverCustomPollingInterval",
-    base::Seconds(10)};
-
-// Max number of consecutive polling failures to end receiver session.
-const base::FeatureParam<int> kBocaReceiverCustomPollingMaxFailuresCount{
-    &kBocaReceiverCustomPolling, "BocaReceiverCustomPollingMaxFailuresCount",
-    3};
-
 BASE_FEATURE(kCrosSwitcher, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables Camera Cloud Storage for saving photos and videos on Google Drive
@@ -361,9 +348,6 @@ const base::FeatureParam<BorealisZinkGlDriverParam> kBorealisZinkGlDriverParam{
     &kBorealisZinkGlDriver, "BorealisZinkGlDriverParam",
     BorealisZinkGlDriverParam::kZinkEnableRecommended,
     &borealis_zink_gl_driver_options};
-
-// Enables the feature to parameterize glyph for "Campbell" feature.
-BASE_FEATURE(kCampbellGlyph, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables the nudges/tutorials that inform users of the screen capture keyboard
 // shortcut and feature tile.
@@ -544,9 +528,6 @@ BASE_FEATURE(kDiacriticsOnPhysicalKeyboardLongpressDefaultOn,
 BASE_FEATURE(kDisableBruschettaInstallChecks,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Disconnect WiFi when the device get connected to Ethernet.
-BASE_FEATURE(kDisconnectWiFiOnEthernetConnected,
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables indicators to hint where displays are connected.
 BASE_FEATURE(kDisplayAlignAssist, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -619,17 +600,6 @@ BASE_FEATURE(kEnableTouchscreenCalibration, base::FEATURE_ENABLED_BY_DEFAULT);
 // will continue to exist in NSS DB.
 BASE_FEATURE(kEnableNssDbClientCertsRollback,
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables WiFi QoS to detect and prioritize selected egress network traffic
-// using WiFi QoS/WMM in congested WiFi environments.
-BASE_FEATURE(kEnableWifiQos, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables WiFi QoS to detect and prioritize selected egress network traffic
-// using WiFi QoS/WMM in congested WiFi environments. For an Enterprise enrolled
-// device:
-// - If this flag is enabled, the feature will be controlled by EnableWifiQos;
-// - If this flag is disabled, the feature will be disabled.
-BASE_FEATURE(kEnableWifiQosEnterprise, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables entering overview mode by clicking the wallpaper with the mouse.
 BASE_FEATURE(kEnterOverviewFromWallpaper, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1121,19 +1091,6 @@ const base::FeatureParam<bool> kLanguagePacksFontsLoadAfterDownloadDuringLogin =
 // via the corresponding Settings page.
 BASE_FEATURE(kLanguagePacksInSettings, base::FEATURE_DISABLED_BY_DEFAULT);
 
-// When enabled, launcher continue section will suggest drive files based on
-// recency, instead of fetching them using drive's ItemSuggest API.
-BASE_FEATURE(kLauncherContinueSectionWithRecents,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Same as `kLauncherContinueSectionWithRecents`, but used to enable the feature
-// via finch, while ensuring minimum Chrome version - i.e. to avoid finch config
-// from enabling the feature on versions where
-// LauncherContinueSectionWithRecents was first added.
-BASE_FEATURE(kLauncherContinueSectionWithRecentsRollout,
-             "LauncherContinueSectionWithRecentsRollout125",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Uses short intervals for launcher nudge for testing if enabled.
 BASE_FEATURE(kLauncherNudgeShortInterval, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -1192,10 +1149,6 @@ BASE_FEATURE(kLocalFactorsPasswordComplexity, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables local authentication controller with PIN support.
 BASE_FEATURE(kLocalAuthenticationWithPin, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables nearby-internals logs to be automatically saved to disk and attached
-// to feedback reports.
-BASE_FEATURE(kLinkCrossDeviceInternals, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Feature to allow MAC address randomization to be enabled for WiFi networks.
 BASE_FEATURE(kMacAddressRandomization, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1746,11 +1699,6 @@ const base::FeatureParam<SystemShortcutBehaviorParam>
 // Enables or disables the shadows of system tray bubbles.
 BASE_FEATURE(kSystemTrayShadow, base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables the ChromeOS system-proxy daemon, only for system services. This
-// means that system services like tlsdate, update engine etc. can opt to be
-// authenticated to a remote HTTP web proxy via system-proxy.
-BASE_FEATURE(kSystemProxyForSystemServices, base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enables the UI to allow Chromebook hotspot functionality for experimental
 // carriers, modem and modem FW.
 BASE_FEATURE(kTetheringExperimentalFunctionality,
@@ -1891,9 +1839,6 @@ BASE_FEATURE(kVcTrayTitleHeader,
 // Enables or disables web API support for ChromeOS video conferencing.
 BASE_FEATURE(kVcWebApi, base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Controls whether to allow enabling wake on WiFi features in shill.
-BASE_FEATURE(kWakeOnWifiAllowed, base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enable "daily" refresh wallpaper to refresh every ten seconds for testing.
 BASE_FEATURE(kWallpaperFastRefresh, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -1977,12 +1922,6 @@ BASE_FEATURE(kDeviceMoveConfigSave, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kDeviceWeeklyScheduledSuspendMgs,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-
-// Enables or disables peripherals logging.
-BASE_FEATURE(kEnablePeripheralsLogging,
-             "PeripheralsLogging",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enable peripheral notification to notify users when a input device is
 // connected to the user's chromebook for the first time.
 BASE_FEATURE(kPeripheralNotification, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -2042,9 +1981,6 @@ BASE_FEATURE(kHappinessTrackingSystemBatteryLife,
 BASE_FEATURE(kHappinessTrackingSystemPeripherals,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables or disables the Happiness Tracking System for the Ent survey.
-BASE_FEATURE(kHappinessTrackingSystemEnt, base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enables or disables the Happiness Tracking System for the Stability survey.
 BASE_FEATURE(kHappinessTrackingSystemStability,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -2053,25 +1989,9 @@ BASE_FEATURE(kHappinessTrackingSystemStability,
 BASE_FEATURE(kHappinessTrackingSystemPerformance,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables or disables the Happiness Tracking System for Onboarding Experience.
-BASE_FEATURE(kHappinessTrackingSystemOnboarding,
-             "HappinessTrackingOnboardingExperience",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables or disables the Happiness Tracking System for ARC Games survey.
-BASE_FEATURE(kHappinessTrackingSystemArcGames,
-             "HappinessTrackingArcGames",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enables or disables the Happiness Tracking System for Audio survey.
 BASE_FEATURE(kHappinessTrackingSystemAudio,
              "HappinessTrackingAudio",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables or disables the Happiness Tracking System for Audio Output
-// Processing.
-BASE_FEATURE(kHappinessTrackingSystemAudioOutputProc,
-             "HappinessTrackingAudioOutputProc",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables or disables the Happiness Tracking System for Bluetooth Audio survey.
@@ -2115,20 +2035,6 @@ BASE_FEATURE(kHappinessTrackingGeneralCameraPrioritized,
 BASE_FEATURE(kHappinessTrackingOsSettingsSearch,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables the Happiness Tracking System for Borealis games survey.
-BASE_FEATURE(kHappinessTrackingBorealisGames,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables the Happiness Tracking System for ChromeOS Launcher survey. This
-// survey is enabled to 25% of users.
-BASE_FEATURE(kHappinessTrackingLauncherAppsFinding,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables the Happiness Tracking System for ChromeOS Launcher survey. This
-// survey is enabled to 75% of users.
-BASE_FEATURE(kHappinessTrackingLauncherAppsNeeding,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enables the Happiness Tracking System for the Office integration.
 BASE_FEATURE(kHappinessTrackingOffice, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -2157,11 +2063,6 @@ BASE_FEATURE(kSmartDim, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables or disables TPM firmware update capability on Chrome OS.
 BASE_FEATURE(kTPMFirmwareUpdate, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables infrastructure for generating Ansible playbooks for the default
-// Crostini container from software configurations in JSON schema.
-BASE_FEATURE(kCrostiniAnsibleSoftwareManagement,
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables reporting Chrome app activity for supervised users.
 BASE_FEATURE(kUnicornChromeActivityReporting,
@@ -2357,10 +2258,6 @@ bool IsBocaScreenSharingStudentEnabled() {
   return base::FeatureList::IsEnabled(kBocaScreenSharingStudent);
 }
 
-bool IsBocaReceiverCustomPollingEnabled() {
-  return base::FeatureList::IsEnabled(kBocaReceiverCustomPolling);
-}
-
 bool IsOnTaskStatusCheckEnabled() {
   return base::FeatureList::IsEnabled(kOnTaskStatusCheck);
 }
@@ -2447,11 +2344,6 @@ bool IsDeviceMoveConfigSaveEnabled() {
 
 bool IsDisplayPerformanceModeEnabled() {
   return base::FeatureList::IsEnabled(kDisplayPerformanceMode);
-}
-
-
-bool IsPeripheralsLoggingEnabled() {
-  return base::FeatureList::IsEnabled(kEnablePeripheralsLogging);
 }
 
 bool IsDisplayAlignmentAssistanceEnabled() {
@@ -2749,16 +2641,6 @@ bool IsInternalServerSideSpeechRecognitionEnabledByFinch() {
 bool IsJupiterScreensaverEnabled() {
   return base::FeatureList::IsEnabled(kJupiterScreensaver) &&
          IsTimeOfDayScreenSaverEnabled();
-}
-
-bool IsLauncherContinueSectionWithRecentsEnabled() {
-  return base::FeatureList::IsEnabled(kLauncherContinueSectionWithRecents) ||
-         base::FeatureList::IsEnabled(
-             kLauncherContinueSectionWithRecentsRollout);
-}
-
-bool IsLinkCrossDeviceInternalsEnabled() {
-  return base::FeatureList::IsEnabled(kLinkCrossDeviceInternals);
 }
 
 bool IsLobsterEnabled() {
@@ -3086,9 +2968,8 @@ bool IsShimlessRMAHideGoogleSKUEnabled() {
 }
 
 bool IsShowSharingUserInLauncherContinueSectionEnabled() {
-  return IsLauncherContinueSectionWithRecentsEnabled() &&
-         base::FeatureList::IsEnabled(
-             kShowSharingUserInLauncherContinueSection);
+  return base::FeatureList::IsEnabled(
+      kShowSharingUserInLauncherContinueSection);
 }
 
 bool IsSunfishFeatureEnabled() {
@@ -3280,18 +3161,6 @@ bool IsWebAuthNAuthDialogMergeEnabled() {
 
 bool ShouldEnterOverviewFromWallpaper() {
   return base::FeatureList::IsEnabled(kEnterOverviewFromWallpaper);
-}
-
-bool UseMixedFileLauncherContinueSection() {
-  return (base::FeatureList::IsEnabled(kLauncherContinueSectionWithRecents) &&
-          base::GetFieldTrialParamByFeatureAsBool(
-              features::kLauncherContinueSectionWithRecents,
-              "mix_local_and_drive", false)) ||
-         (base::FeatureList::IsEnabled(
-              kLauncherContinueSectionWithRecentsRollout) &&
-          base::GetFieldTrialParamByFeatureAsBool(
-              features::kLauncherContinueSectionWithRecentsRollout,
-              "mix_local_and_drive", false));
 }
 
 bool IsUseTokenHandleStoreEnabled() {

@@ -82,6 +82,7 @@
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_context.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
+#include "chrome/browser/ui/exclusive_access/fullscreen_tab_params.h"
 #include "chrome/browser/ui/fullscreen/browser_window_fullscreen_controller.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
@@ -186,6 +187,7 @@
 #include "ui/base/ui_base_features.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/display/types/display_constants.h"
+#include "ui/views/controls/webview/webview.h"
 #include "ui/views/focus/focus_manager.h"
 
 #if BUILDFLAG(IS_MAC)
@@ -2805,6 +2807,24 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, CanDuplicateTab) {
   EXPECT_TRUE(chrome::CanDuplicateTab(browser()));
   EXPECT_TRUE(chrome::CanDuplicateTabAt(browser(), 0));
   EXPECT_TRUE(chrome::CanDuplicateTabAt(browser(), 1));
+
+  BrowserWindowInterface* app_popup_browser =
+      CreateBrowserWindow(BrowserWindowCreateParams::CreateForAppPopup(
+          "app_name", /*trusted_source=*/true, gfx::Rect(),
+          browser()->GetProfile(), /*user_gesture=*/true));
+  AddBlankTabAndShow(app_popup_browser);
+  EXPECT_FALSE(chrome::CanDuplicateTab(app_popup_browser));
+  EXPECT_FALSE(chrome::CanDuplicateTabAt(app_popup_browser, 0));
+  EXPECT_FALSE(chrome::CanDuplicateKeyboardFocusedTab(app_popup_browser));
+  EXPECT_EQ(chrome::DuplicateTabAt(app_popup_browser, 0), nullptr);
+
+  BrowserWindowInterface* devtools_browser = CreateBrowserWindow(
+      BrowserWindowCreateParams::CreateForDevTools(browser()->GetProfile()));
+  AddBlankTabAndShow(devtools_browser);
+  EXPECT_FALSE(chrome::CanDuplicateTab(devtools_browser));
+  EXPECT_FALSE(chrome::CanDuplicateTabAt(devtools_browser, 0));
+  EXPECT_FALSE(chrome::CanDuplicateKeyboardFocusedTab(devtools_browser));
+  EXPECT_EQ(chrome::DuplicateTabAt(devtools_browser, 0), nullptr);
 }
 
 namespace {

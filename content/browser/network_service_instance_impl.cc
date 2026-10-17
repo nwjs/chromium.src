@@ -49,7 +49,6 @@
 #include "components/performance_manager/scenario_api/performance_scenario_observer.h"
 #include "components/performance_manager/scenario_api/performance_scenarios.h"
 #include "content/browser/browser_main_loop.h"
-#include "content/browser/first_party_sets/first_party_sets_handler_impl.h"
 #include "content/browser/network/http_cache_backend_file_operations_factory.h"
 #include "content/browser/network_sandbox_grant_result.h"
 #include "content/browser/network_sandbox_grant_result_helper.h"
@@ -71,7 +70,6 @@
 #include "net/base/network_change_notifier.h"
 #include "net/base/scheduler/sequence_manager_configurator.h"
 #include "net/base/switches.h"
-#include "net/first_party_sets/global_first_party_sets.h"
 #include "net/log/file_net_log_observer.h"
 #include "net/log/net_log_util.h"
 #include "sandbox/policy/features.h"
@@ -253,7 +251,8 @@ std::unique_ptr<network::NetworkService>& GetLocalNetworkService() {
 
 base::Thread& GetNetworkServiceDedicatedThread() {
   static base::NoDestructor<base::Thread> thread{"NetworkService"};
-  DCHECK(base::FeatureList::IsEnabled(kNetworkServiceDedicatedThread));
+  CHECK(base::FeatureList::IsEnabled(kNetworkServiceDedicatedThread),
+        base::NotFatalUntil::M160);
   return *thread;
 }
 
@@ -386,9 +385,6 @@ network::mojom::NetworkServiceParamsPtr CreateNetworkServiceParams() {
           net::NetworkChangeNotifier::GetConnectionSubtype());
   network_service_params->default_observer =
       g_client->BindURLLoaderNetworkServiceObserver();
-  network_service_params->first_party_sets_enabled =
-      GetContentClient()->browser()->IsFirstPartySetsEnabled();
-
 #if BUILDFLAG(IS_LINUX)
   if (IsOutOfProcessNetworkService()) {
     auto [address_map, online_links] =
@@ -477,10 +473,13 @@ base::RepeatingCallbackList<void(bool)>& GetProcessGoneHandlersList() {
 }
 
 void OnNetworkServiceProcessGone(bool crashed) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  DCHECK(g_observed_network_service);
-  DCHECK(g_observed_network_service->remote().is_bound());
-  DCHECK(!crashed || !g_observed_network_service->remote().is_connected());
+  CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI),
+        base::NotFatalUntil::M160);
+  CHECK(g_observed_network_service, base::NotFatalUntil::M160);
+  CHECK(g_observed_network_service->remote().is_bound(),
+        base::NotFatalUntil::M160);
+  CHECK(!crashed || !g_observed_network_service->remote().is_connected(),
+        base::NotFatalUntil::M160);
   GetProcessGoneHandlersList().Notify(crashed);
 }
 
@@ -764,18 +763,6 @@ network::mojom::NetworkService* GetNetworkService() {
         }
       }
 
-      if (FirstPartySetsHandlerImpl::GetInstance()->IsEnabled()) {
-        if (std::optional<net::GlobalFirstPartySets> sets =
-                FirstPartySetsHandlerImpl::GetInstance()->GetSets(
-                    base::BindOnce([](net::GlobalFirstPartySets sets) {
-                      GetNetworkService()->SetFirstPartySets(std::move(sets));
-                    }));
-            sets.has_value()) {
-          g_observed_network_service->remote()->SetFirstPartySets(
-              std::move(sets.value()));
-        }
-      }
-
       GetContentClient()->browser()->OnNetworkServiceCreated(
           g_observed_network_service->remote().get());
     }
@@ -785,14 +772,15 @@ network::mojom::NetworkService* GetNetworkService() {
 
 base::CallbackListSubscription RegisterNetworkServiceProcessGoneHandler(
     NetworkServiceProcessGoneHandler handler) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  DCHECK(!handler.is_null());
+  CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI),
+        base::NotFatalUntil::M160);
+  CHECK(!handler.is_null(), base::NotFatalUntil::M160);
 
   return GetProcessGoneHandlersList().Add(std::move(handler));
 }
 
 void AddNetworkServiceProcessObserver(NetworkServiceProcessObserver* observer) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
   if (!g_observed_network_service) {
     g_observed_network_service =
         new ObservedServiceRemote<network::mojom::NetworkService>;
@@ -802,7 +790,7 @@ void AddNetworkServiceProcessObserver(NetworkServiceProcessObserver* observer) {
 
 void RemoveNetworkServiceProcessObserver(
     NetworkServiceProcessObserver* observer) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
   if (!g_observed_network_service) {
     return;
   }
@@ -816,7 +804,8 @@ net::NetworkChangeNotifier* GetNetworkChangeNotifier() {
 #endif
 
 void FlushNetworkServiceInstanceForTesting() {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI),
+        base::NotFatalUntil::M160);
 
   if (g_observed_network_service) {
     g_observed_network_service->remote().FlushForTesting();  // IN-TEST
@@ -824,8 +813,9 @@ void FlushNetworkServiceInstanceForTesting() {
 }
 
 network::NetworkConnectionTracker* GetNetworkConnectionTracker() {
-  DCHECK(!BrowserThread::IsThreadInitialized(BrowserThread::UI) ||
-         BrowserThread::CurrentlyOn(BrowserThread::UI));
+  CHECK(!BrowserThread::IsThreadInitialized(BrowserThread::UI) ||
+            BrowserThread::CurrentlyOn(BrowserThread::UI),
+        base::NotFatalUntil::M160);
   if (!g_network_connection_tracker) {
     g_network_connection_tracker = new network::NetworkConnectionTracker(
         base::BindRepeating(&BindNetworkChangeManagerReceiver));
@@ -848,16 +838,18 @@ CreateNetworkConnectionTrackerAsyncGetter() {
 
 void SetNetworkConnectionTrackerForTesting(
     network::NetworkConnectionTracker* network_connection_tracker) {
-  DCHECK(!BrowserThread::IsThreadInitialized(BrowserThread::UI) ||
-         BrowserThread::CurrentlyOn(BrowserThread::UI));
+  CHECK(!BrowserThread::IsThreadInitialized(BrowserThread::UI) ||
+            BrowserThread::CurrentlyOn(BrowserThread::UI),
+        base::NotFatalUntil::M160);
   if (g_network_connection_tracker != network_connection_tracker) {
-    DCHECK(!g_network_connection_tracker || !network_connection_tracker);
+    CHECK(!g_network_connection_tracker || !network_connection_tracker,
+          base::NotFatalUntil::M160);
     g_network_connection_tracker = network_connection_tracker;
   }
 }
 
 const scoped_refptr<base::SequencedTaskRunner>& GetNetworkTaskRunner() {
-  DCHECK(IsInProcessNetworkService());
+  CHECK(IsInProcessNetworkService(), base::NotFatalUntil::M160);
   return GetNetworkTaskRunnerStorage();
 }
 
@@ -905,8 +897,9 @@ cert_verifier::mojom::CertVerifierServiceFactory*
 
 std::unique_ptr<cert_verifier::CertVerifierServiceFactoryImpl>&
 GetCertVerifierServiceFactoryImplStorage() {
-  DCHECK(!BrowserThread::IsThreadInitialized(BrowserThread::UI) ||
-         BrowserThread::CurrentlyOn(BrowserThread::UI));
+  CHECK(!BrowserThread::IsThreadInitialized(BrowserThread::UI) ||
+            BrowserThread::CurrentlyOn(BrowserThread::UI),
+        base::NotFatalUntil::M160);
   static base::SequenceLocalStorageSlot<
       std::unique_ptr<cert_verifier::CertVerifierServiceFactoryImpl>>
       service_factory_slot;
@@ -936,8 +929,9 @@ GetCertVerifierServiceFactoryRemoteStorage() {
 // Returns a pointer to a CertVerifierServiceFactory usable on the UI thread.
 cert_verifier::mojom::CertVerifierServiceFactory*
 GetCertVerifierServiceFactory() {
-  DCHECK(!BrowserThread::IsThreadInitialized(BrowserThread::UI) ||
-         BrowserThread::CurrentlyOn(BrowserThread::UI));
+  CHECK(!BrowserThread::IsThreadInitialized(BrowserThread::UI) ||
+            BrowserThread::CurrentlyOn(BrowserThread::UI),
+        base::NotFatalUntil::M160);
   if (g_cert_verifier_service_factory_for_testing)
     return g_cert_verifier_service_factory_for_testing;
 
@@ -1011,27 +1005,43 @@ void SetCertVerifierServiceFactoryForTesting(
   g_cert_verifier_service_factory_for_testing = service_factory;
 }
 
+void PopulateHttpCacheDirectories(
+    network::mojom::NetworkContextParams* params) {
+  CHECK(params);
+  // An empty path would turn the appends below into CWD-relative paths, and
+  // the caller treats a non-empty `http_cache_directory` as a valid one.
+  if (!params->http_cache_enabled || !params->file_paths ||
+      !params->file_paths->http_cache_directory ||
+      params->file_paths->http_cache_directory->path().empty()) {
+    return;
+  }
+
+  const base::FilePath cache_parent =
+      params->file_paths->http_cache_directory->path();
+
+  if (!params->file_paths->no_vary_search_directory.has_value()) {
+    params->file_paths->no_vary_search_directory =
+        cache_parent.Append(kNoVarySearchDirectoryName);
+  }
+
+  if (!params->file_paths->logical_invalidation_directory.has_value()) {
+    params->file_paths->logical_invalidation_directory =
+        cache_parent.Append(kLogicalInvalidationDirectoryName);
+  }
+
+  params->file_paths->http_cache_directory =
+      cache_parent.Append(kCacheDataDirectoryName);
+}
+
 void CreateNetworkContextInNetworkService(
     mojo::PendingReceiver<network::mojom::NetworkContext> context,
     network::mojom::NetworkContextParamsPtr params) {
   TRACE_EVENT0("loading", "CreateNetworkContextInNetworkService");
-  DCHECK(!BrowserThread::IsThreadInitialized(BrowserThread::UI) ||
-         BrowserThread::CurrentlyOn(BrowserThread::UI));
+  CHECK(!BrowserThread::IsThreadInitialized(BrowserThread::UI) ||
+            BrowserThread::CurrentlyOn(BrowserThread::UI),
+        base::NotFatalUntil::M160);
 
-  if (params->http_cache_enabled && params->file_paths &&
-      params->file_paths->http_cache_directory) {
-    if (!params->file_paths->no_vary_search_directory.has_value()) {
-      static constexpr base::FilePath::CharType kNoVarySearchDirectoryName[] =
-          FILE_PATH_LITERAL("No_Vary_Search");
-
-      params->file_paths->no_vary_search_directory =
-          params->file_paths->http_cache_directory->path().Append(
-              kNoVarySearchDirectoryName);
-    }
-    params->file_paths->http_cache_directory =
-        params->file_paths->http_cache_directory->path().Append(
-            kCacheDataDirectoryName);
-  }
+  PopulateHttpCacheDirectories(params.get());
 
   const bool has_valid_http_cache_path =
       params->http_cache_enabled && params->file_paths &&
@@ -1056,7 +1066,8 @@ void CreateNetworkContextInNetworkService(
   if (params->cookie_manager) {
     if (params->file_paths) {
       // No migration should ever be attempted under this configuration.
-      DCHECK(!params->file_paths->unsandboxed_data_path);
+      CHECK(!params->file_paths->unsandboxed_data_path,
+            base::NotFatalUntil::M160);
     }
     CreateNetworkContextInternal(
         std::move(context), std::move(params),

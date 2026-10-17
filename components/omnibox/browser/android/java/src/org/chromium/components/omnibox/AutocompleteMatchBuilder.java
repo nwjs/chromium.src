@@ -7,7 +7,8 @@ package org.chromium.components.omnibox;
 import androidx.collection.ArraySet;
 
 import org.chromium.chrome.browser.omnibox.MatchClassificationStyle;
-import org.chromium.components.omnibox.SuggestTemplateInfoProto.SuggestTemplateInfo;
+import org.chromium.components.omnibox.AutocompleteMatch.MatchClassification;
+import org.chromium.components.omnibox.SuggestTemplateInfoProto.SuggestTemplateInfo.IconType;
 import org.chromium.components.omnibox.action.OmniboxAction;
 import org.chromium.components.search_engines.StarterPackId;
 import org.chromium.url.GURL;
@@ -29,9 +30,9 @@ public class AutocompleteMatchBuilder {
     private @OmniboxSuggestionKind int mSuggestionKind;
     private int mIconType;
     private String mDisplayText;
-    private List<AutocompleteMatch.MatchClassification> mDisplayTextClassifications;
+    private List<MatchClassification> mDisplayTextClassifications;
     private String mDescription;
-    private List<AutocompleteMatch.MatchClassification> mDescriptionClassifications;
+    private List<MatchClassification> mDescriptionClassifications;
     private byte[] mSerializedAnswerTemplate;
     private String mFillIntoEdit;
     private GURL mUrl;
@@ -54,6 +55,7 @@ public class AutocompleteMatchBuilder {
     private String mAssociatedKeyword;
     private byte[] mSerializedSuggestTemplate;
     private @DocumentType int mDocumentType;
+    private boolean mIsExtensionMatch;
 
     /**
      * Create a suggestion builder for a search suggestion.
@@ -88,7 +90,7 @@ public class AutocompleteMatchBuilder {
         mDescription = null;
         mDescriptionClassifications = new ArrayList<>();
         mSerializedAnswerTemplate = null;
-        mFillIntoEdit = null;
+        mFillIntoEdit = "";
         mUrl = GURL.emptyGURL();
         mImageUrl = GURL.emptyGURL();
         mImageDominantColor = null;
@@ -109,11 +111,10 @@ public class AutocompleteMatchBuilder {
         mAssociatedKeyword = null;
         mSerializedSuggestTemplate = null;
         mDocumentType = DocumentType.NONE;
+        mIsExtensionMatch = false;
 
-        mDisplayTextClassifications.add(
-                new AutocompleteMatch.MatchClassification(0, MatchClassificationStyle.NONE));
-        mDescriptionClassifications.add(
-                new AutocompleteMatch.MatchClassification(0, MatchClassificationStyle.NONE));
+        mDisplayTextClassifications.add(new MatchClassification(0, MatchClassificationStyle.NONE));
+        mDescriptionClassifications.add(new MatchClassification(0, MatchClassificationStyle.NONE));
     }
 
     /**
@@ -156,7 +157,8 @@ public class AutocompleteMatchBuilder {
                 mTabGroupUuid,
                 mAssociatedKeyword,
                 mSerializedSuggestTemplate,
-                mDocumentType);
+                mDocumentType,
+                mIsExtensionMatch);
     }
 
     /**
@@ -264,7 +266,7 @@ public class AutocompleteMatchBuilder {
      * @param iconType The icon type to apply to newly built suggestion.
      * @return Omnibox suggestion builder.
      */
-    public AutocompleteMatchBuilder setIconType(SuggestTemplateInfo.IconType iconType) {
+    public AutocompleteMatchBuilder setIconType(IconType iconType) {
         mIconType = iconType.getNumber();
         return this;
     }
@@ -417,6 +419,15 @@ public class AutocompleteMatchBuilder {
      */
     public AutocompleteMatchBuilder setDocumentType(@DocumentType int documentType) {
         mDocumentType = documentType;
+        return this;
+    }
+
+    /**
+     * @param isExtensionMatch Whether the suggestion represents an extension match.
+     * @return Omnibox suggestion builder.
+     */
+    public AutocompleteMatchBuilder setIsExtensionMatch(boolean isExtensionMatch) {
+        mIsExtensionMatch = isExtensionMatch;
         return this;
     }
 }

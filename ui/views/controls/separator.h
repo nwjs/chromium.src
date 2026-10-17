@@ -5,8 +5,6 @@
 #ifndef UI_VIEWS_CONTROLS_SEPARATOR_H_
 #define UI_VIEWS_CONTROLS_SEPARATOR_H_
 
-#include <optional>
-
 #include "ui/color/color_id.h"
 #include "ui/views/metadata/view_factory.h"
 #include "ui/views/view.h"
@@ -49,7 +47,11 @@ class VIEWS_EXPORT Separator : public View {
   // Overridden from View:
   gfx::Size CalculatePreferredSize(
       const SizeBounds& /*available_size*/) const override;
+  void OnThemeChanged() override;
   void OnPaint(gfx::Canvas* canvas) override;
+
+ protected:
+  virtual SkColor GetForegroundColor() const;
 
  private:
   int preferred_length_ = kThickness;

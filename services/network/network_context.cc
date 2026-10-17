@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -73,6 +74,7 @@
 #include "net/base/port_util.h"
 #include "net/base/reconnect_notifier.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
+#include "net/base/url_util.h"
 #include "net/cert/caching_cert_verifier.h"
 #include "net/cert/cert_verifier.h"
 #include "net/cert/coalescing_cert_verifier.h"
@@ -92,7 +94,6 @@
 #include "net/dns/mapped_host_resolver.h"
 #include "net/extras/sqlite/cookie_crypto_delegate.h"
 #include "net/extras/sqlite/sqlite_persistent_cookie_store.h"
-#include "net/first_party_sets/first_party_set_metadata.h"
 #include "net/http/http_auth.h"
 #include "net/http/http_auth_handler_factory.h"
 #include "net/http/http_auth_preferences.h"
@@ -183,6 +184,8 @@
 #include "services/network/url_request_context_builder_mojo.h"
 #include "services/network/web_transport.h"
 #include "url/gurl.h"
+#include "url/url_canon.h"
+#include "url/url_constants.h"
 
 #if BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
 #include "services/network/device_bound_session_service_delegate.h"
@@ -219,6 +222,10 @@
 #if BUILDFLAG(IS_P2P_ENABLED)
 #include "services/network/p2p/socket_manager.h"
 #endif  // BUILDFLAG(IS_P2P_ENABLED)
+
+#if BUILDFLAG(ENABLE_DISK_CACHE_SQL_BACKEND)
+#include "services/network/disk_cache/mojo_shared_http_cache_client_remote.h"
+#endif  // BUILDFLAG(ENABLE_DISK_CACHE_SQL_BACKEND)
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/application_status_listener.h"
@@ -720,10 +727,6 @@ NetworkContext::NetworkContext(
       params_(std::move(params)),
       on_connection_close_callback_(std::move(on_connection_close_callback)),
       receiver_(std::in_place_type<Receiver>, this),
-      first_party_sets_access_delegate_(
-          std::move(params_->first_party_sets_access_delegate_receiver),
-          std::move(params_->first_party_sets_access_delegate_params),
-          network_service_->first_party_sets_manager()),
       cors_preflight_controller_(network_service),
       http_auth_merged_preferences_(network_service),
       ohttp_handler_(this),
@@ -814,8 +817,7 @@ NetworkContext::NetworkContext(
   url_request_context_ = url_request_context_owner_.url_request_context.get();
 
   cookie_manager_ = std::make_unique<CookieManager>(
-      url_request_context_, &first_party_sets_access_delegate_,
-      std::move(session_cleanup_cookie_store),
+      url_request_context_, std::move(session_cleanup_cookie_store),
       std::move(params_->cookie_manager_params));
 
   cookie_manager_->AddSettingsWillChangeCallback(
@@ -930,14 +932,9 @@ NetworkContext::NetworkContext(
       is_observing_reporting_service_(false),
 #endif  // BUILDFLAG(ENABLE_REPORTING)
       receiver_(std::in_place_type<Receiver>, this),
-      first_party_sets_access_delegate_(
-          /*receiver=*/mojo::NullReceiver(),
-          /*params=*/nullptr,
-          /*manager=*/nullptr),
       cookie_manager_(std::make_unique<CookieManager>(
           url_request_context,
           nullptr,
-          /*first_party_sets_access_delegate=*/nullptr,
           /*params=*/nullptr)),
       socket_factory_(
           std::make_unique<SocketFactory>(url_request_context_->net_log(),
@@ -1203,17 +1200,12 @@ void NetworkContext::GetRestrictedCookieManager(
     const net::CookieSettingOverrides& devtools_cookie_setting_overrides,
     bool prefer_bound_cookie_context,
     mojo::PendingRemote<mojom::CookieAccessObserver> cookie_observer) {
-  net::FirstPartySetMetadata first_party_set_metadata =
-      RestrictedCookieManager::ComputeFirstPartySetMetadata(
-          origin, url_request_context_->cookie_store(), isolation_info);
-
   std::unique_ptr<RestrictedCookieManager> ptr =
       std::make_unique<RestrictedCookieManager>(
           role, url_request_context_->cookie_store(),
           cookie_manager_->cookie_settings(), origin, isolation_info,
           cookie_setting_overrides, devtools_cookie_setting_overrides,
           prefer_bound_cookie_context, std::move(cookie_observer),
-          std::move(first_party_set_metadata),
           network_service_->GetMetricsUpdater());
 
   auto callback = base::BindOnce(&NetworkContext::OnRCMDisconnect,
@@ -2161,7 +2153,8 @@ void NetworkContext::CreateWebSocket(
     mojo::PendingRemote<mojom::TrustedHeaderClient> header_client,
     const std::optional<base::UnguessableToken>& throttling_profile_id,
     const base::UnguessableToken& network_restrictions_id,
-    mojom::IPAddressSpace target_address_space) {
+    mojom::IPAddressSpace target_address_space,
+    std::optional<int64_t> target_network) {
 #if BUILDFLAG(ENABLE_WEBSOCKETS)
   if (!websocket_factory_) {
     websocket_factory_ = std::make_unique<WebSocketFactory>(this);
@@ -2176,7 +2169,8 @@ void NetworkContext::CreateWebSocket(
       static_cast<net::NetworkTrafficAnnotationTag>(traffic_annotation),
       std::move(handshake_client), std::move(url_loader_network_observer),
       std::move(auth_handler), std::move(header_client), throttling_profile_id,
-      network_restrictions_id, target_address_space);
+      network_restrictions_id, target_address_space,
+      target_network.value_or(net::handles::kInvalidNetworkHandle));
 #endif  // BUILDFLAG(ENABLE_WEBSOCKETS)
 }
 
@@ -3661,6 +3655,39 @@ void NetworkContext::ClearSharedDictionaryCacheForIsolationKey(
                                                        std::move(callback));
 }
 
+#if BUILDFLAG(ENABLE_DISK_CACHE_SQL_BACKEND)
+void NetworkContext::RegisterHttpCacheClient(
+    const net::NetworkIsolationKey& key,
+    mojo::PendingRemote<network::mojom::SharedHttpCacheClientFactory>
+        shared_http_cache_client) {
+  if (key.IsTransient()) {
+    return;
+  }
+  net::HttpCache* http_cache = GetHttpCache();
+  if (!http_cache) {
+    return;
+  }
+  auto split_callback = base::SplitOnceCallback(base::BindOnce(
+      [](const net::NetworkIsolationKey& key,
+         mojo::PendingRemote<network::mojom::SharedHttpCacheClientFactory>
+             shared_http_cache_client,
+         net::HttpCache::GetBackendResult result) {
+        if (result.first == net::OK && result.second &&
+            result.second->SupportsSharedCache()) {
+          result.second->RegisterSharedCacheClientRemote(
+              key, std::make_unique<MojoSharedHttpCacheClientRemote>(
+                       std::move(shared_http_cache_client)));
+        }
+      },
+      key, std::move(shared_http_cache_client)));
+  net::HttpCache::GetBackendResult result =
+      http_cache->GetBackend(std::move(split_callback.first));
+  if (result.first != net::ERR_IO_PENDING) {
+    std::move(split_callback.second).Run(result);
+  }
+}
+#endif  // BUILDFLAG(ENABLE_DISK_CACHE_SQL_BACKEND)
+
 void NetworkContext::ClearSharedDictionarySessionOnlyData(
     ClearSharedDictionarySessionOnlyDataCallback callback) {
   if (!shared_dictionary_manager_ || !cookie_manager_) {
@@ -3918,6 +3945,67 @@ void NetworkContext::AddQuicHints(
   }
 }
 
+void NetworkContext::AddWildcardQuicHints(
+    std::vector<mojom::WildcardQuicHintPtr> hints) {
+  if (!url_request_context_ ||
+      !url_request_context_->http_server_properties()) {
+    return;
+  }
+
+  for (const auto& hint : hints) {
+    if (!hint || hint->host_suffix.empty()) {
+      continue;
+    }
+    if (hint->port == 0 ||
+        !net::IsPortAllowedForScheme(hint->port, url::kHttpsScheme)) {
+      DVLOG(1) << "Invalid or restricted QUIC hint port: " << hint->port;
+      continue;
+    }
+
+    std::string_view domain = hint->host_suffix;
+    if (domain.starts_with("*.")) {
+      domain.remove_prefix(2);
+    } else if (domain.starts_with(".")) {
+      domain.remove_prefix(1);
+    } else {
+      DVLOG(1) << "Invalid QUIC hint suffix (missing wildcard prefix): "
+               << hint->host_suffix;
+      continue;
+    }
+
+    if (domain.empty()) {
+      DVLOG(1) << "Invalid QUIC hint suffix: " << hint->host_suffix;
+      continue;
+    }
+
+    url::CanonHostInfo host_info;
+    std::string canonical_domain = net::CanonicalizeHost(domain, &host_info);
+    if (canonical_domain.ends_with(".")) {
+      canonical_domain.pop_back();
+    }
+
+    if (canonical_domain.empty() || host_info.IsIPAddress() ||
+        !net::IsCanonicalizedHostCompliant(canonical_domain)) {
+      DVLOG(1) << "Invalid QUIC hint suffix: " << hint->host_suffix;
+      continue;
+    }
+
+    std::string canonical_suffix = base::StrCat({".", canonical_domain});
+    url_request_context_->http_server_properties()
+        ->SetKnownQuicAlternativeService(canonical_suffix, hint->port,
+                                         hint->port,
+                                         /*is_suffix=*/true);
+  }
+}
+
+void NetworkContext::SetTryQuicByDefault(bool enable) {
+  if (!url_request_context_ ||
+      !url_request_context_->http_server_properties()) {
+    return;
+  }
+  url_request_context_->http_server_properties()->SetTryQuicByDefault(enable);
+}
+
 bool NetworkContext::IsNetworkForNetworkRestrictionsIdAndUrlAllowed(
     const base::UnguessableToken& network_restrictions_id,
     const GURL& url,
@@ -4110,19 +4198,28 @@ void NetworkContext::OnInvalidationFiltersLoaded(
     return;
   }
 
-  // 1. Determine and save the final list of filters in O(N log N) time.
+  // 1. Determine and save the final list of filters.
   if (logical_invalidation_store_) {
-    std::vector<net::HttpCache::InvalidationFilter> filters_to_save(
-        loaded_filters);
-    filters_to_save.append_range(pending_additions_);
-    std::erase_if(filters_to_save, [&](const auto& filter) {
-      return std::ranges::contains(pending_removals_, filter);
-    });
-    std::ranges::sort(filters_to_save, std::less<>());
-    auto [first, last] =
-        std::ranges::unique(filters_to_save, std::equal_to<>());
-    filters_to_save.erase(first, last);
-    logical_invalidation_store_->Save(std::move(filters_to_save));
+    // Skip saving if no filters were added or removed during load, avoiding a
+    // redundant startup write (and avoiding overwriting an unparsable file
+    // with an empty list).
+    const bool skipped =
+        pending_additions_.empty() && pending_removals_.empty();
+    base::UmaHistogramBoolean(
+        "Net.HttpCache.LogicalInvalidation.StartupSaveSkipped", skipped);
+    if (!skipped) {
+      std::vector<net::HttpCache::InvalidationFilter> filters_to_save(
+          loaded_filters);
+      filters_to_save.append_range(pending_additions_);
+      std::erase_if(filters_to_save, [&](const auto& filter) {
+        return std::ranges::contains(pending_removals_, filter);
+      });
+      std::ranges::sort(filters_to_save, std::less<>());
+      auto [first, last] =
+          std::ranges::unique(filters_to_save, std::equal_to<>());
+      filters_to_save.erase(first, last);
+      logical_invalidation_store_->Save(std::move(filters_to_save));
+    }
   }
 
   // 2. Determine which loaded filters need to be registered logically in

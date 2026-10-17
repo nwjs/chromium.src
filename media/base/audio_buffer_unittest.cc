@@ -11,6 +11,7 @@
 #include <limits>
 #include <memory>
 
+#include "base/bits.h"
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/test/gtest_util.h"
@@ -408,6 +409,54 @@ TEST(AudioBufferTest, WrapExternalMemory) {
 
   EXPECT_EQ(buffer->channel_data()[0], first_channel_ptr);
   EXPECT_EQ(buffer->channel_data()[1], second_channel_ptr);
+}
+
+TEST(AudioBufferTest, CreateFromExternalMemoryPlanarF32OddFrames) {
+  constexpr ChannelLayout kChannelLayout = CHANNEL_LAYOUT_STEREO;
+  constexpr int kChannelCount = 2;
+  constexpr int kFrameCount = 5;
+  constexpr base::TimeDelta kTimestamp = base::Microseconds(1337);
+
+  constexpr std::array<float, kFrameCount> kChannel0 = {0.1f, 0.2f, 0.3f, 0.4f,
+                                                        0.5f};
+  constexpr std::array<float, kFrameCount> kChannel1 = {-0.1f, -0.2f, -0.3f,
+                                                        -0.4f, -0.5f};
+
+  std::vector<uint8_t> test_data;
+  auto ch0_bytes = base::as_byte_span(base::allow_nonunique_obj, kChannel0);
+  auto ch1_bytes = base::as_byte_span(base::allow_nonunique_obj, kChannel1);
+  test_data.insert(test_data.end(), ch0_bytes.begin(), ch0_bytes.end());
+  test_data.insert(test_data.end(), ch1_bytes.begin(), ch1_bytes.end());
+
+  uint8_t* first_channel_ptr = test_data.data();
+  uint8_t* second_channel_ptr =
+      base::span(test_data).subspan(ch0_bytes.size()).data();
+
+  auto external_memory =
+      std::make_unique<TestExternalMemory>(std::move(test_data));
+  auto buffer = AudioBuffer::CreateFromExternalMemory(
+      kSampleFormatPlanarF32, kChannelLayout, kChannelCount, kSampleRate,
+      kFrameCount, kTimestamp, std::move(external_memory));
+
+  EXPECT_EQ(buffer->channel_data()[0], first_channel_ptr);
+  EXPECT_EQ(buffer->channel_data()[1], second_channel_ptr);
+
+  auto read_bus = AudioBus::Create(kChannelCount, kFrameCount);
+  buffer->ReadFrames(kFrameCount, 0, 0, read_bus.get());
+  for (int i = 0; i < kFrameCount; ++i) {
+    EXPECT_FLOAT_EQ(read_bus->channel(0)[i], kChannel0[i]);
+    EXPECT_FLOAT_EQ(read_bus->channel(1)[i], kChannel1[i]);
+  }
+
+  // Plane 1 is at byte offset 20 (not 32-byte aligned), so WrapOrCopyToAudioBus
+  // should safely fall back to copying into an aligned AudioBus.
+  std::unique_ptr<AudioBus> wrapped_or_copied_bus =
+      AudioBuffer::WrapOrCopyToAudioBus(buffer);
+  ASSERT_TRUE(wrapped_or_copied_bus);
+  for (int i = 0; i < kFrameCount; ++i) {
+    EXPECT_FLOAT_EQ(wrapped_or_copied_bus->channel(0)[i], kChannel0[i]);
+    EXPECT_FLOAT_EQ(wrapped_or_copied_bus->channel(1)[i], kChannel1[i]);
+  }
 }
 
 TEST(AudioBufferTest, CreateBitstreamBufferIECDts) {
@@ -1034,5 +1083,291 @@ TEST(AudioBufferTest, WrapOrCopyToAudioBus_BitstreamDecoupledFrameCount) {
   EXPECT_DEATH_IF_SUPPORTED(
       bus->CopyPartialFramesTo(0, kFrameCount, 0, dest.get()), "");
 }
+
+TEST(AudioBufferTest, PlanarAccessors) {
+  constexpr ChannelLayout kChannelLayout = CHANNEL_LAYOUT_STEREO;
+  constexpr size_t kChannels = 2;
+  constexpr int kFrames = 100;
+  scoped_refptr<AudioBuffer> buffer = AudioBuffer::CreateBuffer(
+      kSampleFormatPlanarF32, kChannelLayout, kChannels, kSampleRate, kFrames);
+
+  base::span<const base::span<uint8_t>> planar_data = buffer->planar_data();
+  EXPECT_EQ(kChannels, planar_data.size());
+
+  const size_t expected_channel_bytes = kFrames * sizeof(float);
+  for (size_t ch = 0; ch < kChannels; ++ch) {
+    base::span<uint8_t> channel_span = buffer->planar_channel(ch);
+    EXPECT_EQ(planar_data[ch].data(), channel_span.data());
+    EXPECT_EQ(planar_data[ch].size(), channel_span.size());
+    EXPECT_EQ(expected_channel_bytes, channel_span.size());
+    EXPECT_EQ(buffer->channels()[ch].data(), channel_span.data());
+    EXPECT_EQ(expected_channel_bytes, buffer->channels()[ch].size());
+  }
+}
+
+TEST(AudioBufferTest, PlanarChannelSpansDoNotIncludePadding) {
+  constexpr ChannelLayout kChannelLayout = CHANNEL_LAYOUT_STEREO;
+  constexpr size_t kChannels = 2;
+  // Choose frame count such that `data_size_per_channel` is not a multiple of
+  // alignment.
+  constexpr int kFrames = 3;
+  constexpr size_t kBytesPerSample = sizeof(float);
+  constexpr size_t kDataSizePerChannel = kFrames * kBytesPerSample;
+  constexpr size_t kAlignment = AudioBus::kChannelAlignment;
+  const size_t expected_block_size =
+      base::bits::AlignUp(kDataSizePerChannel, kAlignment);
+  ASSERT_GT(expected_block_size, kDataSizePerChannel);
+
+  scoped_refptr<AudioBuffer> buffer = AudioBuffer::CreateBuffer(
+      kSampleFormatPlanarF32, kChannelLayout, kChannels, kSampleRate, kFrames);
+
+  EXPECT_EQ(buffer->data_size(), kChannels * expected_block_size);
+  for (size_t ch = 0; ch < kChannels; ++ch) {
+    EXPECT_EQ(kDataSizePerChannel, buffer->planar_channel(ch).size());
+    EXPECT_EQ(kDataSizePerChannel, buffer->channels()[ch].size());
+    EXPECT_EQ(kDataSizePerChannel, buffer->planar_data()[ch].size());
+  }
+}
+
+template <typename SampleType>
+void TestPlanarChannelCast(SampleFormat format) {
+  constexpr ChannelLayout kChannelLayout = CHANNEL_LAYOUT_STEREO;
+  constexpr size_t kChannels = 2;
+  constexpr int kFrames = 128;
+
+  scoped_refptr<AudioBuffer> buffer = AudioBuffer::CreateBuffer(
+      format, kChannelLayout, kChannels, kSampleRate, kFrames);
+
+  // Write distinct values to each channel via the mutable span accessor.
+  for (size_t ch = 0; ch < kChannels; ++ch) {
+    base::span<SampleType> channel =
+        buffer->planar_channel_cast<SampleType>(ch);
+    EXPECT_EQ(static_cast<size_t>(kFrames), channel.size());
+    std::ranges::fill(channel, static_cast<SampleType>(ch + 1));
+  }
+
+  // Verify each channel contains the expected values via the const span
+  // accessor.
+  for (size_t ch = 0; ch < kChannels; ++ch) {
+    base::span<const SampleType> const_channel =
+        buffer->planar_channel_cast<const SampleType>(ch);
+    EXPECT_EQ(static_cast<size_t>(kFrames), const_channel.size());
+    for (SampleType sample : const_channel) {
+      EXPECT_EQ(static_cast<SampleType>(ch + 1), sample);
+    }
+  }
+}
+
+TEST(AudioBufferTest, PlanarChannelCast) {
+  TestPlanarChannelCast<uint8_t>(kSampleFormatPlanarU8);
+  TestPlanarChannelCast<int16_t>(kSampleFormatPlanarS16);
+  TestPlanarChannelCast<int32_t>(kSampleFormatPlanarS32);
+  TestPlanarChannelCast<float>(kSampleFormatPlanarF32);
+}
+
+TEST(AudioBufferTest, TrimUpdatesPlanarChannelSpans) {
+  constexpr ChannelLayout kChannelLayout = CHANNEL_LAYOUT_STEREO;
+  constexpr size_t kChannels = 2;
+  constexpr int kFrames = 100;
+  constexpr size_t kBytesPerSample = sizeof(float);
+
+  scoped_refptr<AudioBuffer> buffer = AudioBuffer::CreateBuffer(
+      kSampleFormatPlanarF32, kChannelLayout, kChannels, kSampleRate, kFrames);
+
+  EXPECT_EQ(100 * kBytesPerSample, buffer->planar_channel(0).size());
+
+  buffer->TrimEnd(20);
+  EXPECT_EQ(80, buffer->frame_count());
+  EXPECT_EQ(80 * kBytesPerSample, buffer->planar_channel(0).size());
+  EXPECT_EQ(80 * kBytesPerSample, buffer->planar_channel(1).size());
+
+  buffer->TrimStart(10);
+  EXPECT_EQ(70, buffer->frame_count());
+  EXPECT_EQ(70 * kBytesPerSample, buffer->planar_channel(0).size());
+  EXPECT_EQ(70 * kBytesPerSample, buffer->planar_channel(1).size());
+
+  buffer->TrimRange(10, 30);
+  EXPECT_EQ(50, buffer->frame_count());
+  EXPECT_EQ(50 * kBytesPerSample, buffer->planar_channel(0).size());
+  EXPECT_EQ(50 * kBytesPerSample, buffer->planar_channel(1).size());
+}
+
+TEST(AudioBufferTest, TrimUpdatesInterleavedChannelSpans) {
+  constexpr ChannelLayout kChannelLayout = CHANNEL_LAYOUT_STEREO;
+  constexpr int kChannels = 2;
+  constexpr int kFrames = 100;
+  constexpr size_t kBytesPerFrame = kChannels * sizeof(float);
+
+  scoped_refptr<AudioBuffer> buffer = AudioBuffer::CreateBuffer(
+      kSampleFormatF32, kChannelLayout, kChannels, kSampleRate, kFrames);
+
+  EXPECT_EQ(100 * kBytesPerFrame, buffer->interleaved_data().size());
+
+  buffer->TrimEnd(20);
+  EXPECT_EQ(80, buffer->frame_count());
+  EXPECT_EQ(80 * kBytesPerFrame, buffer->interleaved_data().size());
+
+  buffer->TrimStart(10);
+  EXPECT_EQ(70, buffer->frame_count());
+  EXPECT_EQ(70 * kBytesPerFrame, buffer->interleaved_data().size());
+
+  buffer->TrimRange(10, 30);
+  EXPECT_EQ(50, buffer->frame_count());
+  EXPECT_EQ(50 * kBytesPerFrame, buffer->interleaved_data().size());
+}
+
+TEST(AudioBufferTest, InterleavedAccessors) {
+  constexpr ChannelLayout kChannelLayout = CHANNEL_LAYOUT_STEREO;
+  constexpr int kChannels = 2;
+  constexpr int kFrames = 100;
+  scoped_refptr<AudioBuffer> buffer = AudioBuffer::CreateBuffer(
+      kSampleFormatF32, kChannelLayout, kChannels, kSampleRate, kFrames);
+
+  base::span<uint8_t> interleaved = buffer->interleaved_data();
+  EXPECT_EQ(buffer->data_size(), interleaved.size());
+  EXPECT_EQ(kChannels * kFrames * sizeof(float), interleaved.size());
+  EXPECT_EQ(buffer->channels()[0].data(), interleaved.data());
+}
+
+template <typename SampleType>
+void TestInterleavedDataCast(SampleFormat format) {
+  constexpr ChannelLayout kChannelLayout = CHANNEL_LAYOUT_STEREO;
+  constexpr size_t kChannels = 2;
+  constexpr int kFrames = 100;
+  constexpr size_t kTotalSamples = kChannels * kFrames;
+
+  scoped_refptr<AudioBuffer> buffer = AudioBuffer::CreateBuffer(
+      format, kChannelLayout, kChannels, kSampleRate, kFrames);
+
+  // Write values through the mutable span accessor.
+  base::span<SampleType> interleaved =
+      buffer->interleaved_data_cast<SampleType>();
+  EXPECT_EQ(kTotalSamples, interleaved.size());
+  for (size_t i = 0; i < interleaved.size(); ++i) {
+    interleaved[i] = static_cast<SampleType>(i);
+  }
+
+  // Verify the values through the const span accessor.
+  base::span<const SampleType> const_interleaved =
+      buffer->interleaved_data_cast<const SampleType>();
+  EXPECT_EQ(kTotalSamples, const_interleaved.size());
+  for (size_t i = 0; i < const_interleaved.size(); ++i) {
+    EXPECT_EQ(static_cast<SampleType>(i), const_interleaved[i]);
+  }
+}
+
+TEST(AudioBufferTest, InterleavedDataCast) {
+  TestInterleavedDataCast<uint8_t>(kSampleFormatU8);
+  TestInterleavedDataCast<int16_t>(kSampleFormatS16);
+  TestInterleavedDataCast<int32_t>(kSampleFormatS32);
+  TestInterleavedDataCast<int32_t>(kSampleFormatS24);
+  TestInterleavedDataCast<float>(kSampleFormatF32);
+}
+
+TEST(AudioBufferTest, BitstreamAccessors) {
+  constexpr ChannelLayout kChannelLayout = CHANNEL_LAYOUT_STEREO;
+  constexpr int kChannels = 2;
+  constexpr int kFrames = 100;
+  constexpr uint8_t kData[] = {0x01, 0x02, 0x03, 0x04};
+  scoped_refptr<AudioBuffer> buffer = AudioBuffer::CopyBitstreamFrom(
+      kSampleFormatAc3, kChannelLayout, kChannels, kSampleRate, kFrames, kData,
+      base::Microseconds(1));
+
+  base::span<uint8_t> bitstream = buffer->bitstream_data();
+  EXPECT_EQ(sizeof(kData), bitstream.size());
+  EXPECT_EQ(sizeof(kData), buffer->data_size());
+  EXPECT_EQ(buffer->channels()[0].data(), bitstream.data());
+  EXPECT_EQ(bitstream, base::span(kData));
+}
+
+TEST(AudioBufferTest, FormatTypeCompatibility) {
+  for (int i = 0; i <= SampleFormat::kMaxValue; ++i) {
+    const auto format = static_cast<SampleFormat>(i);
+    const bool is_u8 =
+        format == kSampleFormatU8 || format == kSampleFormatPlanarU8;
+    const bool is_s16 =
+        format == kSampleFormatS16 || format == kSampleFormatPlanarS16;
+    const bool is_s32 = format == kSampleFormatS32 ||
+                        format == kSampleFormatPlanarS32 ||
+                        format == kSampleFormatS24;
+    const bool is_f32 =
+        format == kSampleFormatF32 || format == kSampleFormatPlanarF32;
+
+    EXPECT_EQ(is_u8, AudioBuffer::IsCompatibleSampleFormat<uint8_t>(format));
+    EXPECT_EQ(is_u8,
+              AudioBuffer::IsCompatibleSampleFormat<const uint8_t>(format));
+
+    EXPECT_EQ(is_s16, AudioBuffer::IsCompatibleSampleFormat<int16_t>(format));
+    EXPECT_EQ(is_s16,
+              AudioBuffer::IsCompatibleSampleFormat<const int16_t>(format));
+
+    EXPECT_EQ(is_s32, AudioBuffer::IsCompatibleSampleFormat<int32_t>(format));
+    EXPECT_EQ(is_s32,
+              AudioBuffer::IsCompatibleSampleFormat<const int32_t>(format));
+
+    EXPECT_EQ(is_f32, AudioBuffer::IsCompatibleSampleFormat<float>(format));
+    EXPECT_EQ(is_f32,
+              AudioBuffer::IsCompatibleSampleFormat<const float>(format));
+
+    // Unsupported types should always return false.
+    EXPECT_FALSE(AudioBuffer::IsCompatibleSampleFormat<double>(format));
+    EXPECT_FALSE(AudioBuffer::IsCompatibleSampleFormat<int64_t>(format));
+  }
+}
+
+#if GTEST_HAS_DEATH_TEST
+TEST(AudioBufferDeathTest, IncompatibleAccessors) {
+  constexpr ChannelLayout kChannelLayout = CHANNEL_LAYOUT_STEREO;
+  constexpr size_t kChannels = 2;
+  constexpr int kFrames = 100;
+  constexpr uint8_t kData[] = {0x01, 0x02, 0x03, 0x04};
+
+  // Planar buffer should disallow interleaved and bitstream accessors, and
+  // planar_channel with out-of-bounds index.
+  scoped_refptr<AudioBuffer> planar = AudioBuffer::CreateBuffer(
+      kSampleFormatPlanarF32, kChannelLayout, kChannels, kSampleRate, kFrames);
+  EXPECT_CHECK_DEATH(planar->interleaved_data());
+  EXPECT_CHECK_DEATH(planar->bitstream_data());
+  EXPECT_CHECK_DEATH(planar->planar_channel(kChannels));
+  EXPECT_CHECK_DEATH(planar->planar_channel_cast<int16_t>(0));
+  // Type mismatch even though sizes match (sizeof(int32_t) == sizeof(float)).
+  EXPECT_CHECK_DEATH(planar->planar_channel_cast<int32_t>(0));
+  EXPECT_CHECK_DEATH(planar->interleaved_data_cast<float>());
+
+  // Interleaved buffer should disallow planar and bitstream accessors.
+  scoped_refptr<AudioBuffer> interleaved = AudioBuffer::CreateBuffer(
+      kSampleFormatF32, kChannelLayout, kChannels, kSampleRate, kFrames);
+  EXPECT_CHECK_DEATH(interleaved->planar_data());
+  EXPECT_CHECK_DEATH(interleaved->planar_channel(0));
+  EXPECT_CHECK_DEATH(interleaved->bitstream_data());
+  EXPECT_CHECK_DEATH(interleaved->interleaved_data_cast<int16_t>());
+  // Type mismatch even though sizes match (sizeof(int32_t) == sizeof(float)).
+  EXPECT_CHECK_DEATH(interleaved->interleaved_data_cast<int32_t>());
+  EXPECT_CHECK_DEATH(interleaved->planar_channel_cast<float>(0));
+
+  // Bitstream buffer should disallow planar and interleaved accessors.
+  scoped_refptr<AudioBuffer> bitstream = AudioBuffer::CopyBitstreamFrom(
+      kSampleFormatAc3, kChannelLayout, kChannels, kSampleRate, kFrames, kData,
+      base::Microseconds(1));
+  EXPECT_CHECK_DEATH(bitstream->interleaved_data());
+  EXPECT_CHECK_DEATH(bitstream->planar_data());
+  EXPECT_CHECK_DEATH(bitstream->planar_channel(0));
+
+  // End-of-stream buffer should disallow all data accessors.
+  scoped_refptr<AudioBuffer> eos = AudioBuffer::CreateEOSBuffer();
+  EXPECT_CHECK_DEATH(eos->interleaved_data());
+  EXPECT_CHECK_DEATH(eos->planar_data());
+  EXPECT_CHECK_DEATH(eos->planar_channel(0));
+  EXPECT_CHECK_DEATH(eos->bitstream_data());
+
+  // Empty buffer should disallow all data accessors.
+  scoped_refptr<AudioBuffer> empty = AudioBuffer::CreateEmptyBuffer(
+      kChannelLayout, kChannels, kSampleRate, kFrames, base::TimeDelta());
+  EXPECT_CHECK_DEATH(empty->interleaved_data());
+  EXPECT_CHECK_DEATH(empty->planar_data());
+  EXPECT_CHECK_DEATH(empty->planar_channel(0));
+  EXPECT_CHECK_DEATH(empty->bitstream_data());
+}
+#endif  // GTEST_HAS_DEATH_TEST
 
 }  // namespace media

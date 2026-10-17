@@ -48,6 +48,7 @@ Things to consider:
 <translation id="1784567647421309104">Save your passwords in Chrome</translation>
 <translation id="1790080846677398234">Adds the inputted URLs to your bookmarks in Chrome.</translation>
 <translation id="1799920918471566157">Chrome tips</translation>
+<translation id="1802420021606590788">Chrome processes page titles and URLs in a private space in the cloud</translation>
 <translation id="1830634592642484976">This address is currently saved to Chrome. To use it across Google products, save it in your Google Account, <ph name="USER_EMAIL" />.</translation>
 <translation id="1891812034154776216">Hide open Incognito tabs when you leave Chrome</translation>
 <translation id="1894434821386148799">You can find Chrome settings and more here</translation>
@@ -140,6 +141,7 @@ New bookmarks can't be saved in your account until you delete some. If you sign 
 <translation id="3984746313391923992">Your organisation requires you to stay signed out of Chrome.</translation>
 <translation id="3988789688219830639">Google Chrome does not have access to your photos or videos. Enable access in iOS Settings &gt; Privacy &gt; Photos.</translation>
 <translation id="4064699917955374540">To use and save Chrome data in your Google Account, verify that it's you.</translation>
+<translation id="4093789416346364876">Make Chrome your default to get Gemini insights anywhere that you browse</translation>
 <translation id="411154422556990518">Keep up with price tracking updates and Chrome tips.</translation>
 <translation id="417201473131094001">Not supported on Chrome Canary</translation>
 <translation id="424864128008805179">Sign out of Chrome?</translation>
@@ -268,6 +270,7 @@ For more settings that use data to improve your Chrome experience, go to <ph nam
 <translation id="7061455974939528301">Press and hold the Chrome icon and click 'Edit home screen'</translation>
 <translation id="7095110968493193530">To Google Password Manager for <ph name="EMAIL" /></translation>
 <translation id="7124339256045485976">Keep Chrome up to date</translation>
+<translation id="7135936755418321901">To share your location with websites, tap on Settings to let Chrome use your location.</translation>
 <translation id="7145599899567697473">Save and autofill passwords in Chrome</translation>
 <translation id="7161390184744336561">Google Chrome is out of date</translation>
 <translation id="7165736900384873061">Start Using Google Chrome QR Scanner</translation>
@@ -282,6 +285,7 @@ For more settings that use data to improve your Chrome experience, go to <ph nam
 <translation id="7272930098487145294">To save images, tap on settings to let Chrome add to your photos</translation>
 <translation id="7275945473750112644">Your account is managed by <ph name="HOSTED_DOMAIN" />, so your Chrome data will be cleared from this device</translation>
 <translation id="7284245284340063465">If you forgot your passphrase or want to change this setting, <ph name="BEGIN_LINK" />delete the Chrome data in your account<ph name="END_LINK" />.</translation>
+<translation id="7287957555760192025">If you select or ignore a suggestion, Chrome will adapt to help show you more relevant suggestions in the future.</translation>
 <translation id="7296102444587051536">Chrome for iOS</translation>
 <translation id="7299681342915173313">You can now use Chrome any time that you tap links in emails, documents and other apps.</translation>
 <translation id="7334364820047587268">You already have passwords for these accounts in your Google Password Manager. If you choose to import one of the passwords below, it will replace the existing one.</translation>
@@ -355,6 +359,7 @@ Your data was encrypted with your passphrase on <ph name="TIME" />. Enter it to 
 <translation id="8544583291890527417">Alerts on any privacy or security issues that Chrome detects for you.</translation>
 <translation id="855027533751209304">Chrome tip: Search what you see</translation>
 <translation id="8558480467877843976">You can now use Chrome any time that you browse or tap links in messages, documents and other apps.</translation>
+<translation id="8589791109349384456">Turning off suggestions doesn't control Chrome's processing of page titles and URLs for other features. You can manage access to this data in your <ph name="BEGIN_LINK" />sync settings<ph name="END_LINK" />.</translation>
 <translation id="8603022514504485810">Google Password Manager couldn't check all passwords. Try again tomorrow or <ph name="BEGIN_LINK" />check passwords in your Google Account.<ph name="END_LINK" /></translation>
 <translation id="8610372330814566250">Use your Safari passwords, history, bookmarks and credit cards in Chrome</translation>
 <translation id="8630122478628016441">Turn on 'Lock Incognito tabs when you close Chrome'.</translation>

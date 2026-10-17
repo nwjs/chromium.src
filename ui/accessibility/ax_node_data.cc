@@ -766,6 +766,16 @@ bool AXNodeData::IsClickable() const {
   return ui::IsClickable(role);
 }
 
+bool AXNodeData::IsStructuralElementContainedInActiveLiveRegion() const {
+  if (!HasStringAttribute(ax::mojom::StringAttribute::kContainerLiveStatus)) {
+    return false;
+  }
+  const std::string& aria_container_live_status =
+      GetStringAttribute(ax::mojom::StringAttribute::kContainerLiveStatus);
+
+  return aria_container_live_status != "off";
+}
+
 bool AXNodeData::IsContainedInActiveLiveRegion() const {
   if (!HasStringAttribute(ax::mojom::StringAttribute::kContainerLiveStatus)) {
     return false;
@@ -885,6 +895,18 @@ bool AXNodeData::SupportsExpandCollapse() const {
     return true;
 
   return ui::SupportsExpandCollapse(role);
+}
+
+bool AXNodeData::HasValidAXNodeIDsFromRenderer() const {
+  if (!IsValidAXNodeIDFromRenderer(id)) {
+    return false;
+  }
+  for (AXNodeID child_id : child_ids) {
+    if (!IsValidAXNodeIDFromRenderer(child_id)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 // TODO(accessibility) Consider reusing code from AXTreeFormatterBlink, where

@@ -4,6 +4,9 @@
 
 #include "services/audio/voice_isolation_handler.h"
 
+#include <algorithm>
+#include <string>
+#include <string_view>
 #include <utility>
 
 #include "base/check.h"
@@ -12,14 +15,20 @@
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/strings/stringprintf.h"
+#include "base/strings/to_string.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "base/trace_event/trace_event.h"
+#include "media/audio/audio_debug_recording_helper.h"
+#include "media/audio/audio_debug_recording_manager.h"
 #include "media/base/audio_bus.h"
+#include "media/base/media_switches.h"
 #include "media/webrtc/ml_model_handle.h"
 #include "media/webrtc/voice_isolation/voice_isolation.h"
 #include "media/webrtc/voice_isolation/voice_isolation_component.h"
 #include "services/audio/ml_model_manager.h"
+#include "services/audio/processing_audio_fifo.h"
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
 
 namespace audio {
@@ -83,18 +92,29 @@ class VoiceIsolationHandler::StartupMetricsLogger {
 
 VoiceIsolationHandler::VoiceIsolationHandler(
     scoped_refptr<media::MlModelHandle> model_handle,
+    std::unique_ptr<media::AudioDebugRecorder> debug_recorder,
     const media::AudioParameters& output_params,
-    DeliverProcessedAudioCallback deliver_processed_audio_callback)
+    DeliverProcessedAudioCallback deliver_processed_audio_callback,
+    LogCallback log_callback)
     : model_handle_(std::move(model_handle)),
       output_params_(output_params),
       deliver_processed_audio_callback_(
           std::move(deliver_processed_audio_callback)),
+      log_callback_(std::move(log_callback)),
       output_bus_(media::AudioBus::Create(output_params)),
+      debug_recorder_(std::move(debug_recorder)),
       bypass_voice_isolation_(true),
       startup_metrics_logger_(std::make_unique<StartupMetricsLogger>()) {
   CHECK(!deliver_processed_audio_callback_.is_null());
+  CHECK(!log_callback_.is_null());
   CHECK(output_bus_);
   CHECK(model_handle_);
+
+  SendLogMessage(
+      base::StringPrintf("%s({output_params_=[%s], async=true})", __func__,
+                         output_params_.AsHumanReadableString().c_str()));
+
+  processing_fifo_ = MaybeCreateProcessingFifo();
 
   TRACE_EVENT_BEGIN(
       "audio", "VoiceIsolationHandler::Initialize",
@@ -109,22 +129,58 @@ VoiceIsolationHandler::VoiceIsolationHandler(
 
 VoiceIsolationHandler::VoiceIsolationHandler(
     std::unique_ptr<media::VoiceIsolation> voice_isolation,
+    std::unique_ptr<media::AudioDebugRecorder> debug_recorder,
     const media::AudioParameters& output_params,
-    DeliverProcessedAudioCallback deliver_processed_audio_callback)
+    DeliverProcessedAudioCallback deliver_processed_audio_callback,
+    LogCallback log_callback)
     : model_handle_(nullptr),
       output_params_(output_params),
       deliver_processed_audio_callback_(
           std::move(deliver_processed_audio_callback)),
+      log_callback_(std::move(log_callback)),
       output_bus_(media::AudioBus::Create(output_params)),
+      debug_recorder_(std::move(debug_recorder)),
       voice_isolation_(std::move(voice_isolation)),
       bypass_voice_isolation_(false) {
   CHECK(!deliver_processed_audio_callback_.is_null());
+  CHECK(!log_callback_.is_null());
   CHECK(output_bus_);
   CHECK(voice_isolation_);
+
+  SendLogMessage(
+      base::StringPrintf("%s({output_params_=[%s], async=false})", __func__,
+                         output_params_.AsHumanReadableString().c_str()));
+
+  processing_fifo_ = MaybeCreateProcessingFifo();
+}
+
+std::unique_ptr<ProcessingAudioFifo>
+VoiceIsolationHandler::MaybeCreateProcessingFifo() {
+  if (!base::FeatureList::IsEnabled(
+          media::kWebRtcVoiceIsolationProcessingFifo)) {
+    return nullptr;
+  }
+  const int fifo_size =
+      std::clamp(media::kWebRtcVoiceIsolationProcessingFifoSize.Get(), 1, 100);
+  SendLogMessage(base::StringPrintf("%s({fifo_size=%d})", __func__, fifo_size));
+
+  // `base::Unretained(this)` is safe because VoiceIsolationHandler owns the
+  // FIFO.
+  return std::make_unique<ProcessingAudioFifo>(
+      output_params_, fifo_size,
+      base::BindRepeating(&VoiceIsolationHandler::ProcessCapturedAudioInternal,
+                          base::Unretained(this)),
+      base::BindRepeating(&VoiceIsolationHandler::SendLogMessage,
+                          base::Unretained(this)),
+      ProcessingAudioFifo::FifoType::kVoiceIsolation);
 }
 
 VoiceIsolationHandler::~VoiceIsolationHandler() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(owning_sequence_);
+  StopProcessing();
+  SendLogMessage(
+      base::StringPrintf("%s({initialized=%s})", __func__,
+                         base::ToString(voice_isolation_ != nullptr)));
   if (!voice_isolation_) {
     TRACE_EVENT_END("audio", perfetto::NamedTrack::FromPointer(
                                  "audio::VoiceIsolationHandler", this));
@@ -135,6 +191,9 @@ void VoiceIsolationHandler::OnComponentCreated(
     std::unique_ptr<media::VoiceIsolationComponent> component) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(owning_sequence_);
   TRACE_EVENT("audio", "VoiceIsolationHandler::OnComponentCreated");
+  SendLogMessage(base::StringPrintf("%s({success=%s})", __func__,
+                                    base::ToString(component != nullptr)));
+
   CHECK(startup_metrics_logger_);
   startup_metrics_logger_->SetResult(component ? StartupResult::kSuccess
                                                : StartupResult::kFailed);
@@ -151,23 +210,78 @@ void VoiceIsolationHandler::OnComponentCreated(
   if (voice_isolation_enabled_) {
     bypass_voice_isolation_.store(false, std::memory_order_release);
   }
+
+  SendLogMessage(base::StringPrintf(
+      "%s => bypass=%s", __func__,
+      base::ToString(bypass_voice_isolation_.load(std::memory_order_relaxed))));
+}
+
+void VoiceIsolationHandler::StartProcessing() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(owning_sequence_);
+  if (processing_fifo_) {
+    processing_fifo_->Start();
+  }
+}
+
+void VoiceIsolationHandler::StopProcessing() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(owning_sequence_);
+  processing_fifo_.reset();
 }
 
 void VoiceIsolationHandler::ProcessCapturedAudio(
     const media::AudioBus& audio_source,
     base::TimeTicks audio_capture_time,
     const media::AudioGlitchInfo& audio_glitch_info) {
-  TRACE_EVENT("audio", "VoiceIsolationHandler::ProcessCapturedAudio");
-  if (IsVoiceIsolationBypassed()) {
-    deliver_processed_audio_callback_.Run(audio_source, audio_capture_time,
-                                          audio_glitch_info);
+  TRACE_EVENT("audio", "VoiceIsolationHandler::ProcessCapturedAudio", "frames",
+              audio_source.frames(), "channels", audio_source.channels());
+
+  // When processing is performed in the audio service, the consumer is not
+  // expected to use the input volume. Pass a placeholder of 1.0.
+  if (processing_fifo_) {
+    processing_fifo_->PushData(&audio_source, audio_capture_time,
+                               /*volume=*/1.0, audio_glitch_info);
     return;
   }
-  DCHECK(voice_isolation_);
-  DCHECK_EQ(output_bus_->channels(), audio_source.channels());
-  DCHECK_EQ(output_bus_->frames(), audio_source.frames());
-  voice_isolation_->ProcessAudio(audio_source, *output_bus_);
-  deliver_processed_audio_callback_.Run(*output_bus_, audio_capture_time,
+  ProcessCapturedAudioInternal(audio_source, audio_capture_time, /*volume=*/1.0,
+                               audio_glitch_info);
+}
+
+void VoiceIsolationHandler::ProcessCapturedAudioInternal(
+    const media::AudioBus& audio_source,
+    base::TimeTicks audio_capture_time,
+    double /*volume*/,
+    const media::AudioGlitchInfo& audio_glitch_info) {
+  TRACE_EVENT("audio", "VoiceIsolationHandler::ProcessCapturedAudioInternal",
+              "frames", audio_source.frames(), "channels",
+              audio_source.channels());
+
+  const media::AudioBus* delivered_bus = &audio_source;
+  if (IsVoiceIsolationBypassed()) {
+    if (!was_previously_bypassed_) {
+      // Stop using voice_isolation, purge trapped lookahead frames immediately.
+      // Note: Because the voice isolation pipeline introduces lookahead and
+      // algorithmic delay (~10-20ms), immediately discarding buffered frames
+      // and forwarding raw audio introduces a minor time discontinuity.
+      // Dropping these lookahead frames is intentional to prevent stale or
+      // echoed speech from leaking when voice isolation is re-enabled.
+      was_previously_bypassed_ = true;
+      CHECK(voice_isolation_);
+      voice_isolation_->ClearBuffers();
+    }
+  } else {
+    CHECK(voice_isolation_);
+    DCHECK_EQ(output_bus_->channels(), audio_source.channels());
+    DCHECK_EQ(output_bus_->frames(), audio_source.frames());
+    was_previously_bypassed_ = false;
+    voice_isolation_->ProcessAudio(audio_source, *output_bus_);
+    delivered_bus = output_bus_.get();
+  }
+
+  if (debug_recorder_) {
+    debug_recorder_->OnData(delivered_bus);
+  }
+
+  deliver_processed_audio_callback_.Run(*delivered_bus, audio_capture_time,
                                         audio_glitch_info);
 }
 
@@ -178,12 +292,6 @@ void VoiceIsolationHandler::SetVoiceIsolation(bool enabled) {
   }
   voice_isolation_enabled_ = enabled;
   if (!enabled) {
-    // TODO(crbug.com/544689562): Disabling/bypassing voice isolation leaves
-    // stranded audio inside the internal lookahead buffers or FIFOs. When
-    // re-enabled, this stale audio can be delivered belatedly alongside new
-    // audio, yielding audible glitches or echoes. We must reset or flush the
-    // internal state of media::VoiceIsolation when voice isolation is
-    // re-enabled or bypassed.
     bypass_voice_isolation_.store(true, std::memory_order_release);
   } else if (voice_isolation_) {
     // If initialization has already finished, activate processing immediately.
@@ -191,6 +299,10 @@ void VoiceIsolationHandler::SetVoiceIsolation(bool enabled) {
     // bypassed until OnComponentCreated() finishes creating `voice_isolation_`.
     bypass_voice_isolation_.store(false, std::memory_order_release);
   }
+
+  SendLogMessage(base::StringPrintf(
+      "%s({enabled=%s}) => bypass=%s", __func__, base::ToString(enabled),
+      base::ToString(bypass_voice_isolation_.load(std::memory_order_relaxed))));
 }
 
 bool VoiceIsolationHandler::IsVoiceIsolationBypassed() const {
@@ -198,13 +310,27 @@ bool VoiceIsolationHandler::IsVoiceIsolationBypassed() const {
 }
 
 bool VoiceIsolationHandler::HasProcessingThread() const {
-  return false;
+  return processing_fifo_ != nullptr;
+}
+
+int VoiceIsolationHandler::GetFifoSizeForTesting() const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(owning_sequence_);
+  return processing_fifo_ ? processing_fifo_->fifo_size() : 0;
+}
+
+void VoiceIsolationHandler::SendLogMessage(std::string_view message) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(owning_sequence_);
+  log_callback_.Run(base::StringPrintf("VIH::%.*s [id=%s]",
+                                       static_cast<int>(message.size()),
+                                       message.data(), id_.ToString().c_str()));
 }
 
 std::unique_ptr<VoiceIsolationHandler> VoiceIsolationHandler::MaybeCreate(
     MlModelManager& ml_model_manager,
     const media::AudioParameters& output_params,
-    DeliverProcessedAudioCallback deliver_processed_audio_callback) {
+    DeliverProcessedAudioCallback deliver_processed_audio_callback,
+    LogCallback log_callback,
+    media::AudioDebugRecordingManager* debug_recording_manager) {
   TRACE_EVENT("audio", "VoiceIsolationHandler::MaybeCreate");
   scoped_refptr<media::MlModelHandle> model_handle =
       ml_model_manager.GetModel(mojom::MlModelType::kVoiceIsolationDenoiser);
@@ -214,17 +340,25 @@ std::unique_ptr<VoiceIsolationHandler> VoiceIsolationHandler::MaybeCreate(
     return nullptr;
   }
 
-  return base::WrapUnique(
-      new VoiceIsolationHandler(std::move(model_handle), output_params,
-                                std::move(deliver_processed_audio_callback)));
+  std::unique_ptr<media::AudioDebugRecorder> debug_recorder;
+  if (debug_recording_manager) {
+    debug_recorder = debug_recording_manager->RegisterDebugRecordingSource(
+        media::AudioDebugRecordingStreamType::kVoiceIsolation, output_params);
+  }
+
+  return base::WrapUnique(new VoiceIsolationHandler(
+      std::move(model_handle), std::move(debug_recorder), output_params,
+      std::move(deliver_processed_audio_callback), std::move(log_callback)));
 }
 
 std::unique_ptr<VoiceIsolationHandler> VoiceIsolationHandler::CreateForTesting(
     std::unique_ptr<media::VoiceIsolation> voice_isolation,
     const media::AudioParameters& output_params,
-    DeliverProcessedAudioCallback deliver_processed_audio_callback) {
-  return base::WrapUnique(
-      new VoiceIsolationHandler(std::move(voice_isolation), output_params,
-                                std::move(deliver_processed_audio_callback)));
+    DeliverProcessedAudioCallback deliver_processed_audio_callback,
+    LogCallback log_callback,
+    std::unique_ptr<media::AudioDebugRecorder> debug_recorder) {
+  return base::WrapUnique(new VoiceIsolationHandler(
+      std::move(voice_isolation), std::move(debug_recorder), output_params,
+      std::move(deliver_processed_audio_callback), std::move(log_callback)));
 }
 }  // namespace audio

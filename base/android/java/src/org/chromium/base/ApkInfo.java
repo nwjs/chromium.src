@@ -17,7 +17,6 @@ import org.jni_zero.JNINamespace;
 import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
-import org.chromium.base.version_info.VersionInfo;
 import org.chromium.build.BuildConfig;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -122,11 +121,21 @@ public final class ApkInfo {
     }
 
     /**
+     * Same as {@link #isDebugApp()}, but reads straight from the given {@link ApplicationInfo}
+     * instead of forcing {@link ApkInfo} to initialize. Prefer this on startup-critical paths,
+     * since initializing ApkInfo requires several PackageManager calls.
+     */
+    public static boolean isDebugAppNoInit(ApplicationInfo appInfo) {
+        return (appInfo.flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+    }
+
+    /**
      * Check if this is either a debuggable build of Android or of the host app. Use this to enable
      * developer-only features.
      */
     public static boolean isDebugAndroidOrApp() {
-        return AndroidInfo.isDebugAndroid() || isDebugApp();
+        return AndroidInfo.isDebugAndroid()
+                || isDebugAppNoInit(ContextUtils.getApplicationContext().getApplicationInfo());
     }
 
     /**
@@ -195,13 +204,13 @@ public final class ApkInfo {
         Context appContext = ContextUtils.getApplicationContext();
         String appContextPackageName = appContext.getPackageName();
         PackageManager pm = appContext.getPackageManager();
+        ApplicationInfo appInfo = appContext.getApplicationInfo();
 
         String providedHostPackageName = null;
         String providedHostPackageLabel = null;
         String providedPackageName = null;
         String providedPackageVersionName = null;
         Long providedHostVersionCode = null;
-        mIApkInfo.packageVersionCode = String.valueOf(BuildConfig.VERSION_CODE);
 
         // The child processes are running in an isolated process so they can't grab a lot of
         // package information in the same way that we normally would retrieve them. To get around
@@ -232,8 +241,7 @@ public final class ApkInfo {
         // In the case of the SDK Runtime, we would like to retrieve the package name loading the
         // SDK.
         String appInstalledPackageName = appContextPackageName;
-        ApplicationInfo appInfo = appContext.getApplicationInfo();
-        mIApkInfo.isDebugApp = (appInfo.flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+        mIApkInfo.isDebugApp = isDebugAppNoInit(appInfo);
         mIApkInfo.isSystemApp = (appInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0;
 
         if (hostInformationProvided) {
@@ -241,6 +249,7 @@ public final class ApkInfo {
             mIApkInfo.hostPackageLabel = assumeNonNull(providedHostPackageLabel);
             mIApkInfo.hostVersionCode = String.valueOf(assumeNonNull(providedHostVersionCode));
             mIApkInfo.packageVersionName = assumeNonNull(providedPackageVersionName);
+            mIApkInfo.packageVersionCode = mIApkInfo.hostVersionCode;
             mIApkInfo.packageName = assumeNonNull(providedPackageName);
             mBrowserApplicationInfo = appInfo;
         } else {
@@ -276,13 +285,18 @@ public final class ApkInfo {
                         assumeNonNull(PackageUtils.getPackageInfo(appInstalledPackageName, 0));
                 mIApkInfo.hostVersionCode = String.valueOf(PackageUtils.packageVersionCode(pi));
                 mIApkInfo.packageName = sBrowserPackageInfo.packageName;
+                mIApkInfo.packageVersionCode =
+                        String.valueOf(PackageUtils.packageVersionCode(sBrowserPackageInfo));
                 mIApkInfo.packageVersionName = nullToEmpty(sBrowserPackageInfo.versionName);
                 mBrowserApplicationInfo = sBrowserPackageInfo.applicationInfo;
                 sBrowserPackageInfo = null;
             } else {
+                PackageInfo pi =
+                        assumeNonNull(PackageUtils.getPackageInfo(appInstalledPackageName, 0));
                 mIApkInfo.packageName = appContextPackageName;
-                mIApkInfo.hostVersionCode = String.valueOf(BuildConfig.VERSION_CODE);
-                mIApkInfo.packageVersionName = VersionInfo.getProductVersion();
+                mIApkInfo.packageVersionCode = String.valueOf(PackageUtils.packageVersionCode(pi));
+                mIApkInfo.hostVersionCode = mIApkInfo.packageVersionCode;
+                mIApkInfo.packageVersionName = nullToEmpty(pi.versionName);
                 mBrowserApplicationInfo = appInfo;
             }
         }

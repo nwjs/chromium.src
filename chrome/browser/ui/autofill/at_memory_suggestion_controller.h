@@ -50,9 +50,9 @@ class AtMemorySuggestionController : public AutofillSuggestionController {
 
   // AutofillSuggestionController:
   void OnSuggestionsChanged() override;
-  void AcceptSuggestion(
-      int index,
-      AutofillMetrics::SuggestionAcceptedMethod accept_method) override;
+  void AcceptSuggestion(int index,
+                        AutofillMetrics::SuggestionAcceptedMethod accept_method,
+                        bool was_obscured) override;
   void SelectSuggestion(int index) override;
   void UnselectSuggestion() override;
   bool RemoveSuggestion(int index) override;
@@ -69,10 +69,11 @@ class AtMemorySuggestionController : public AutofillSuggestionController {
   std::optional<UiSessionId> GetUiSessionId() const override;
   void SetKeepPopupOpenForTesting(bool keep_popup_open_for_testing) override;
   void UpdateDataListValues(base::span<const SelectOption> options) override;
-  const LocalFrameToken& GetFrameToken() const override;
+  const LocalFrameToken& GetAnchorFrameToken() const override;
   bool MayRecycle(
       base::WeakPtr<AutofillSuggestionDelegate> delegate,
       content::WebContents* web_contents,
+      const LocalFrameToken& anchor_frame_token,
       AutofillSuggestionTriggerSource trigger_source) const override;
   void Recycle(PopupControllerCommon controller_common,
                int32_t form_control_ax_id) override;
@@ -80,10 +81,10 @@ class AtMemorySuggestionController : public AutofillSuggestionController {
   virtual void OnDismissed();
   void OnQuerySubmitted(const std::u16string& query);
   void OnQueryTextChanged(const std::u16string& query);
-  void OnSuggestionSelected(int position);
+  void OnSuggestionAccepted(int position);
   void OnSuggestionDismissed(int position);
   void OnChildSuggestionsShown(int parent_position);
-  void OnChildSuggestionSelected(int parent_position, int child_position);
+  void OnChildSuggestionAccepted(int parent_position, int child_position);
   bool IsSearching() const;
 
   void SetBridgeForTesting(std::unique_ptr<AtMemoryBottomSheetBridge> bridge);

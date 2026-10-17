@@ -85,7 +85,7 @@ std::vector<AutocompleteMatch> MaybeCreateFallbackMatchesForSuggestInventory(
   int relevance = kDefaultFallbackSuggestRelevance;
   for (const auto& prompt : prompts) {
     AutocompleteMatch match(provider, relevance--, false,
-                            AutocompleteMatchType::SEARCH_SUGGEST);
+                            AutocompleteMatchType::kSearchSuggest);
     match.keyword = template_url->keyword();
     match.suggestion_group_id = omnibox::GROUP_AI_MODE_ZERO_SUGGEST_CANNED;
     match.contents = prompt.first;

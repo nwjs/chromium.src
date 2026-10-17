@@ -12,6 +12,8 @@
 #include "base/threading/thread_restrictions.h"
 #include "content/browser/process_lock.h"
 #include "content/browser/renderer_host/frame_tree_node.h"
+#include "content/browser/renderer_host/render_frame_host_impl.h"
+#include "content/browser/renderer_host/render_frame_proxy_host.h"
 #include "content/browser/security/cpsp/child_process_security_policy_impl.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/browser/webui/web_ui_controller_factory_registry.h"
@@ -39,6 +41,7 @@
 #include "content/shell/browser/shell.h"
 #include "content/test/content_browser_test_utils_internal.h"
 #include "net/base/url_util.h"
+#include "third_party/blink/public/mojom/frame/frame.mojom.h"
 #include "ui/webui/untrusted_web_ui_browsertest_util.h"
 #include "url/gurl.h"
 
@@ -343,6 +346,61 @@ IN_PROC_BROWSER_TEST_F(WebUISecurityTest, WebUICrossSiteSubframe) {
     EXPECT_EQ(BindingsPolicySet({BindingsPolicyValue::kMojoWebUi}),
               child->current_frame_host()->GetEnabledBindings());
   }
+}
+
+// Verify that when a trusted WebUI frame navigates another frame via a
+// remote frame proxy, the navigation is upgraded to browser-initiated and the
+// referrer is stripped.
+IN_PROC_BROWSER_TEST_F(
+    WebUISecurityTest,
+    RemoteFrameNavigationFromWebUIUpgradesToBrowserInitiated) {
+  EXPECT_TRUE(embedded_test_server()->Start());
+
+  GURL main_frame_url(
+      GetWebUIURL("web-ui/page_with_blank_iframe.html?childsrc=child-src *;"));
+  EXPECT_TRUE(NavigateToURL(shell(), main_frame_url));
+
+  FrameTreeNode* root = static_cast<WebContentsImpl*>(shell()->web_contents())
+                            ->GetPrimaryFrameTree()
+                            .root();
+  EXPECT_EQ(1U, root->child_count());
+
+  FrameTreeNode* child = root->child_at(0);
+  GURL child_frame_url =
+      embedded_test_server()->GetURL("b.com", "/title1.html");
+  NavigateFrameToURL(child, child_frame_url);
+
+  SiteInstanceImpl* root_instance =
+      root->current_frame_host()->GetSiteInstance();
+  RenderFrameProxyHost* child_proxy =
+      child->current_frame_host()
+          ->browsing_context_state()
+          ->GetRenderFrameProxyHost(root_instance->group());
+  ASSERT_TRUE(child_proxy);
+
+  GURL dest_url = embedded_test_server()->GetURL("b.com", "/title2.html");
+  TestNavigationManager nav_manager(shell()->web_contents(), dest_url);
+
+  auto params = blink::mojom::OpenURLParams::New();
+  params->url = dest_url;
+  params->disposition = WindowOpenDisposition::CURRENT_TAB;
+  params->initiator_state_token =
+      root->current_frame_host()->current_initiator_state_token();
+  params->initiator_document_token =
+      root->current_frame_host()->GetDocumentToken();
+  params->initiator_frame_token = root->current_frame_host()->GetFrameToken();
+  params->referrer = blink::mojom::Referrer::New(
+      main_frame_url, network::mojom::ReferrerPolicy::kDefault);
+
+  static_cast<blink::mojom::RemoteFrameHost*>(child_proxy)
+      ->OpenURL(std::move(params));
+
+  EXPECT_TRUE(nav_manager.WaitForRequestStart());
+
+  NavigationHandle* handle = nav_manager.GetNavigationHandle();
+  ASSERT_TRUE(handle);
+  EXPECT_FALSE(handle->IsRendererInitiated());
+  EXPECT_TRUE(handle->GetReferrer().url.is_empty());
 }
 
 // Verify that SiteInstance and WebUI reuse happens in subframes as well.
@@ -778,6 +836,177 @@ IN_PROC_BROWSER_TEST_F(
   }
 }
 
+// Verify a cross-origin fetch request from a chrome-untrusted:// page to
+// another chrome-untrusted:// page is blocked when the requested data source
+// does not allow the requesting origin through its
+// Access-Control-Allow-Origin value, even if the requesting page's Content
+// Security Policy allows the request.
+// Note: Both CORS and NO_CORS modes fail with "Failed to fetch" because
+// WebUIURLLoaderFactory rejects unpermitted cross-origin requests at the
+// factory level with net::ERR_FAILED, preventing even opaque responses.
+IN_PROC_BROWSER_TEST_F(WebUISecurityTest,
+                       DisallowCrossOriginFetchRequestToChromeUntrustedSource) {
+  TestUntrustedDataSourceHeaders headers;
+  headers.default_src = "default-src chrome-untrusted://test2;";
+  const GURL untrusted_url1 = GURL("chrome-untrusted://test1/title1.html");
+  WebUIConfigMap::GetInstance().AddUntrustedWebUIConfig(
+      std::make_unique<ui::TestUntrustedWebUIConfig>(untrusted_url1.GetHost(),
+                                                     headers));
+
+  // The data source for test2 does not serve an Access-Control-Allow-Origin
+  // header to other origins.
+  const GURL untrusted_url2 = GURL("chrome-untrusted://test2/title2.html");
+  AddUntrustedDataSource(shell()->web_contents()->GetBrowserContext(),
+                         untrusted_url2.GetHost());
+
+  EXPECT_TRUE(NavigateToURL(shell(), untrusted_url1));
+
+  EXPECT_EQ("Failed to fetch",
+            PerformFetch(shell(), untrusted_url2, FetchMode::CORS));
+  EXPECT_EQ("Failed to fetch",
+            PerformFetch(shell(), untrusted_url2, FetchMode::NO_CORS));
+}
+
+// Verify that a sandboxed iframe embedded within a chrome-untrusted:// page
+// (which has an opaque origin with a chrome-untrusted:// precursor) can fetch
+// subresources from its precursor origin.
+IN_PROC_BROWSER_TEST_F(WebUISecurityTest,
+                       SandboxedFrameSubresourceFetchToPrecursorAllowed) {
+  TestUntrustedDataSourceHeaders headers;
+  headers.no_xfo = true;
+  headers.child_src = "child-src 'self';";
+  WebUIConfigMap::GetInstance().AddUntrustedWebUIConfig(
+      std::make_unique<ui::TestUntrustedWebUIConfig>("test-host", headers));
+
+  const GURL untrusted_url(GetChromeUntrustedUIURL("test-host/title1.html"));
+  EXPECT_TRUE(NavigateToURL(shell(), untrusted_url));
+
+  // Create a sandboxed iframe without allow-same-origin so its origin is
+  // opaque.
+  const char kCreateIframeScript[] =
+      "new Promise((resolve) => {"
+      "  const iframe = document.createElement('iframe');"
+      "  iframe.sandbox = 'allow-scripts';"
+      "  iframe.id = 'sandboxed_frame';"
+      "  iframe.src = $1;"
+      "  iframe.onload = () => resolve('loaded');"
+      "  document.body.appendChild(iframe);"
+      "});";
+
+  EXPECT_EQ("loaded",
+            EvalJs(shell(), JsReplace(kCreateIframeScript, untrusted_url),
+                   EXECUTE_SCRIPT_DEFAULT_OPTIONS, 1 /* world_id */));
+
+  FrameTreeNode* root = static_cast<WebContentsImpl*>(shell()->web_contents())
+                            ->GetPrimaryFrameTree()
+                            .root();
+  ASSERT_EQ(1U, root->child_count());
+  RenderFrameHostImpl* sandboxed_rfh = root->child_at(0)->current_frame_host();
+  EXPECT_TRUE(sandboxed_rfh->GetLastCommittedOrigin().opaque());
+  EXPECT_EQ(
+      url::Origin::Create(untrusted_url).GetTupleOrPrecursorTupleIfOpaque(),
+      sandboxed_rfh->GetLastCommittedOrigin()
+          .GetTupleOrPrecursorTupleIfOpaque());
+
+  // Fetch a subresource on the same precursor origin from the sandboxed iframe.
+  const char kFetchScript[] =
+      "fetch($1).then("
+      "  response => 'success',"
+      "  error => error.message"
+      ");";
+  const GURL subresource_url(GetChromeUntrustedUIURL("test-host/title2.html"));
+  EXPECT_EQ("success",
+            EvalJs(sandboxed_rfh, JsReplace(kFetchScript, subresource_url),
+                   EXECUTE_SCRIPT_DEFAULT_OPTIONS, 1 /* world_id */));
+}
+
+// Verify that a sandboxed iframe embedded within a chrome-untrusted:// page
+// cannot fetch subresources from a different chrome-untrusted:// origin that
+// has not opted into cross-origin access.
+IN_PROC_BROWSER_TEST_F(WebUISecurityTest,
+                       SandboxedFrameSubresourceFetchToDifferentOriginDenied) {
+  TestUntrustedDataSourceHeaders headers;
+  headers.no_xfo = true;
+  headers.child_src = "child-src 'self';";
+  headers.default_src = "default-src chrome-untrusted://test2 'self';";
+  WebUIConfigMap::GetInstance().AddUntrustedWebUIConfig(
+      std::make_unique<ui::TestUntrustedWebUIConfig>("test1", headers));
+
+  // test2 does not allow cross-origin access.
+  const GURL untrusted_url2 = GURL("chrome-untrusted://test2/title2.html");
+  AddUntrustedDataSource(shell()->web_contents()->GetBrowserContext(),
+                         untrusted_url2.GetHost());
+
+  const GURL untrusted_url1 = GURL("chrome-untrusted://test1/title1.html");
+  EXPECT_TRUE(NavigateToURL(shell(), untrusted_url1));
+
+  // Create a sandboxed iframe inside test1.
+  const char kCreateIframeScript[] =
+      "new Promise((resolve) => {"
+      "  const iframe = document.createElement('iframe');"
+      "  iframe.sandbox = 'allow-scripts';"
+      "  iframe.id = 'sandboxed_frame';"
+      "  iframe.src = $1;"
+      "  iframe.onload = () => resolve('loaded');"
+      "  document.body.appendChild(iframe);"
+      "});";
+
+  EXPECT_EQ("loaded",
+            EvalJs(shell(), JsReplace(kCreateIframeScript, untrusted_url1),
+                   EXECUTE_SCRIPT_DEFAULT_OPTIONS, 1 /* world_id */));
+
+  FrameTreeNode* root = static_cast<WebContentsImpl*>(shell()->web_contents())
+                            ->GetPrimaryFrameTree()
+                            .root();
+  ASSERT_EQ(1U, root->child_count());
+  RenderFrameHostImpl* sandboxed_rfh = root->child_at(0)->current_frame_host();
+  EXPECT_TRUE(sandboxed_rfh->GetLastCommittedOrigin().opaque());
+
+  // Attempt to fetch test2 from the sandboxed iframe.
+  const char kFetchScript[] =
+      "fetch($1).then("
+      "  response => 'success',"
+      "  error => error.message"
+      ");";
+  EXPECT_EQ("Failed to fetch",
+            EvalJs(sandboxed_rfh, JsReplace(kFetchScript, untrusted_url2),
+                   EXECUTE_SCRIPT_DEFAULT_OPTIONS, 1 /* world_id */));
+}
+
+// Verify a chrome-untrusted:// page can load scripts from the shared
+// resources at chrome-untrusted://resources, which are served to all WebUI
+// origins.
+IN_PROC_BROWSER_TEST_F(WebUISecurityTest,
+                       AllowChromeUntrustedScriptRequestToSharedResources) {
+  TestUntrustedDataSourceHeaders headers;
+  headers.no_trusted_types = true;
+  WebUIConfigMap::GetInstance().AddUntrustedWebUIConfig(
+      std::make_unique<ui::TestUntrustedWebUIConfig>("test-host", headers));
+
+  const GURL untrusted_url(GetChromeUntrustedUIURL("test-host/title1.html"));
+  EXPECT_TRUE(NavigateToURL(shell(), untrusted_url));
+
+  const char kLoadModuleScript[] =
+      "new Promise((resolve) => {"
+      "  const script = document.createElement('script');"
+      "  script.type = 'module';"
+      "  script.onload = () => {"
+      "    resolve('Script loaded');"
+      "  };"
+      "  script.onerror = () => {"
+      "    resolve('Load failed');"
+      "  };"
+      "  script.src = $1;"
+      "  document.body.appendChild(script);"
+      "});";
+
+  const GURL shared_resource_url(
+      GURL("chrome-untrusted://resources/js/assert.js"));
+  EXPECT_EQ("Script loaded",
+            EvalJs(shell(), JsReplace(kLoadModuleScript, shared_resource_url),
+                   EXECUTE_SCRIPT_DEFAULT_OPTIONS, 1 /* world_id */));
+}
+
 // Verify cross-origin fetch request from a chrome-untrusted:// page to another
 // chrome-untrusted:// page succeeds if Content Security Policy allows it.
 IN_PROC_BROWSER_TEST_F(WebUISecurityTest,
@@ -938,6 +1167,30 @@ IN_PROC_BROWSER_TEST_F(
 
   EXPECT_TRUE(NavigateToURL(shell(), untrusted_url1));
   EXPECT_EQ("success", PerformXHRRequest(shell(), untrusted_url2));
+}
+
+// Verify a cross-origin XHR request from a chrome-untrusted:// page to
+// another chrome-untrusted:// page is blocked when the requested data source
+// does not allow the requesting origin through its
+// Access-Control-Allow-Origin value, even if the requesting page's Content
+// Security Policy allows the request.
+IN_PROC_BROWSER_TEST_F(WebUISecurityTest,
+                       DisallowCrossOriginXHRRequestToChromeUntrustedSource) {
+  TestUntrustedDataSourceHeaders headers;
+  headers.default_src = "default-src chrome-untrusted://test2;";
+  const GURL untrusted_url1 = GURL("chrome-untrusted://test1/title1.html");
+  WebUIConfigMap::GetInstance().AddUntrustedWebUIConfig(
+      std::make_unique<ui::TestUntrustedWebUIConfig>(untrusted_url1.GetHost(),
+                                                     headers));
+
+  // The data source for test2 does not serve an Access-Control-Allow-Origin
+  // header to other origins.
+  const GURL untrusted_url2 = GURL("chrome-untrusted://test2/title2.html");
+  AddUntrustedDataSource(shell()->web_contents()->GetBrowserContext(),
+                         untrusted_url2.GetHost());
+
+  EXPECT_TRUE(NavigateToURL(shell(), untrusted_url1));
+  EXPECT_EQ("error", PerformXHRRequest(shell(), untrusted_url2));
 }
 
 // Verify XHR request from a chrome-untrusted:// page to a chrome:// page is

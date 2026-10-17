@@ -5,7 +5,9 @@
 package org.chromium.chrome.browser.sync.synced_set_up;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -14,7 +16,10 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -24,8 +29,10 @@ import static org.chromium.chrome.browser.ntp_customization.ntp_cards.NtpCardsMe
 import static org.chromium.chrome.browser.ntp_customization.theme_sync.ServiceStatus.ACTIVE;
 import static org.chromium.chrome.browser.ntp_customization.theme_sync.ServiceStatus.INITIALIZING;
 import static org.chromium.chrome.browser.ntp_customization.theme_sync.ServiceStatus.SYNC_DISABLED;
+import static org.chromium.chrome.browser.sync.synced_set_up.CrossDeviceSettingImporter.INVALID_TASK_ID;
 
 import android.app.Activity;
+import android.graphics.Bitmap;
 
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 
@@ -56,11 +63,13 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.magic_stack.HomeModulesConfigManager;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationConfigManager;
+import org.chromium.chrome.browser.ntp_customization.theme.NtpThemeStateProvider;
 import org.chromium.chrome.browser.ntp_customization.theme.chrome_colors.NtpThemeColorInfo.NtpThemeColorId;
 import org.chromium.chrome.browser.ntp_customization.theme.theme_collections.CustomBackgroundInfo;
 import org.chromium.chrome.browser.ntp_customization.theme_sync.CrossDeviceThemeTracker;
 import org.chromium.chrome.browser.ntp_customization.theme_sync.data.NtpBackgroundDataBase;
 import org.chromium.chrome.browser.ntp_customization.theme_sync.data.NtpBackgroundDataColor;
+import org.chromium.chrome.browser.ntp_customization.theme_sync.data.NtpBackgroundDataCustomizedColor;
 import org.chromium.chrome.browser.ntp_customization.theme_sync.data.NtpBackgroundDataThemeCollection;
 import org.chromium.chrome.browser.ntp_customization.theme_sync.data.PlatformType;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
@@ -72,6 +81,7 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.chrome.browser.sync.prefs.CrossDevicePrefTrackerFactory;
 import org.chromium.chrome.browser.sync.synced_set_up.CrossDeviceSettingImporter.CrossDeviceSettingImportOutcome;
+import org.chromium.chrome.browser.sync.synced_set_up.CrossDeviceSettingImporter.PendingSnackbar;
 import org.chromium.chrome.browser.sync.synced_set_up.CrossDeviceSettingImporter.SyncedSetupSettings;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabObserver;
@@ -168,12 +178,7 @@ public class CrossDeviceSettingImporterUnitTest {
         NtpCustomizationConfigManager.setInstanceForTesting(mNtpCustomizationConfigManager);
         SyncServiceFactory.setInstanceForTesting(mSyncService);
 
-        // Native pref mocks.
-        LocalStatePrefs.setNativePrefsLoadedForTesting(true);
-        LocalStatePrefsJni.setInstanceForTesting(mLocalStatePrefsNatives);
-        when(mLocalStatePrefsNatives.getPrefService()).thenReturn(mLocalPrefService);
-
-        // Sync and Cross-Device tracker mocks.
+        // Sync and Cross-Device tracker mocks (registered before LocalStatePrefs notifications).
         CrossDevicePrefTrackerFactory.setInstanceForTesting(mCrossDevicePrefTracker);
         CrossDeviceThemeTracker.setInstanceForTesting(mCrossDeviceThemeTrackerNatives);
         when(mCrossDeviceThemeTrackerNatives.getForProfile(mProfile))
@@ -181,8 +186,14 @@ public class CrossDeviceSettingImporterUnitTest {
         when(mCrossDeviceThemeTracker.getServiceStatus()).thenReturn(ACTIVE);
         SyncedSetUpUtilsBridgeJni.setInstanceForTesting(mSyncedSetUpUtilsBridgeNatives);
 
+        // Native pref mocks.
+        LocalStatePrefsJni.setInstanceForTesting(mLocalStatePrefsNatives);
+        when(mLocalStatePrefsNatives.getPrefService()).thenReturn(mLocalPrefService);
+        LocalStatePrefs.setNativePrefsLoadedForTesting(true);
+
         mUserActionTester = new UserActionTester();
         RobolectricUtil.runAllBackgroundAndUi();
+        CrossDeviceSettingImporter.setPendingSnackbarForTesting(null);
     }
 
     private CrossDeviceSettingImporter initializeCrossDeviceSettingImporter() {
@@ -198,7 +209,16 @@ public class CrossDeviceSettingImporterUnitTest {
 
     @After
     public void tearDown() {
-        mUserActionTester.tearDown();
+        if (mCrossDeviceSettingImporter != null) {
+            mCrossDeviceSettingImporter.destroy();
+        }
+        // Clear static pending snackbar state so snackbars scheduled by production code paths in
+        // tests do not leak across test cases (mock SnackbarManager does not trigger auto-dismiss).
+        CrossDeviceSettingImporter.setPendingSnackbarForTesting(null);
+        RobolectricUtil.runAllBackgroundAndUi();
+        if (mUserActionTester != null) {
+            mUserActionTester.tearDown();
+        }
         ChromeSharedPreferences.getInstance()
                 .removeKey(ChromePreferenceKeys.CROSS_DEVICE_IMPORTED_ALL_SETTINGS);
         ChromeSharedPreferences.getInstance()
@@ -235,6 +255,288 @@ public class CrossDeviceSettingImporterUnitTest {
         mCrossDeviceSettingImporter.destroy();
 
         verify(mModalDialogManager).removeObserver(mModalDialogManagerObserverCaptor.getValue());
+    }
+
+    @Test
+    public void testOnTabChangeOrGainFocus_incognitoProfile_ignored() {
+        when(mProfile.isOffTheRecord()).thenReturn(true);
+        CrossDeviceSettingImporter importer = initializeCrossDeviceSettingImporter();
+
+        verify(mCrossDevicePrefTracker, never()).getServiceStatus();
+        verify(mSnackbarManager, never()).showSnackbar(any());
+        importer.destroy();
+    }
+
+    @Test
+    public void testPendingSnackbar_recreateSurvival_undoSnackbar() {
+        Activity spyActivity1 = spy(mActivity);
+        CrossDeviceSettingImporter importer1 =
+                new CrossDeviceSettingImporter(
+                        mActivityLifecycleDispatcher,
+                        mActivityTabSupplier,
+                        spyActivity1,
+                        mModalDialogManagerSupplier,
+                        mSnackbarManagerSupplier);
+        Map<String, Object> prefs = Map.of(Pref.MAGIC_STACK_HOME_MODULE_ENABLED, false);
+        SyncedSetupSettings prev =
+                new SyncedSetupSettings(Map.of(Pref.MAGIC_STACK_HOME_MODULE_ENABLED, true));
+        SyncedSetupSettings toApply = new SyncedSetupSettings(prefs);
+
+        importer1.showOfferUndoSnackbarAfterDialogs(mProfile, prev, toApply, /* nonNtp= */ false);
+        verify(mSnackbarManager).showSnackbar(mSnackbarCaptor.capture());
+        Snackbar initialSnackbar = mSnackbarCaptor.getValue();
+
+        // Simulate activity terminating due to configuration change (theme recreate or rotation):
+        // SnackbarManager.onStop() calls onDismissNoAction(), followed by importer1.destroy().
+        doReturn(true).when(spyActivity1).isChangingConfigurations();
+        initialSnackbar.getController().onDismissNoAction(null);
+        importer1.destroy();
+
+        PendingSnackbar pending = CrossDeviceSettingImporter.getPendingSnackbarForTesting();
+        assertNotNull(
+                "Pending snackbar should survive recreate/rotation onStop & destroy", pending);
+        assertFalse(pending.isRedo);
+        assertEquals(prev, pending.previousSettings);
+        assertEquals(toApply, pending.settingsToApply);
+
+        // Simulate activity recreation: new importer instance with same task ID.
+        Activity spyActivity2 = spy(mActivity);
+        CrossDeviceSettingImporter importer2 =
+                new CrossDeviceSettingImporter(
+                        mActivityLifecycleDispatcher,
+                        mActivityTabSupplier,
+                        spyActivity2,
+                        mModalDialogManagerSupplier,
+                        mSnackbarManagerSupplier);
+
+        // On tab focus/change in the recreated activity, the pending snackbar should be restored
+        // and displayed.
+        importer2.onTabChangeOrGainFocus(mTab);
+
+        verify(mSnackbarManager, times(2)).showSnackbar(mSnackbarCaptor.capture());
+        Snackbar restoredSnackbar = mSnackbarCaptor.getValue();
+        assertEquals(
+                mActivity.getString(R.string.synced_set_up_snackbar_applied_confirmation),
+                restoredSnackbar.getTextForTesting());
+        assertEquals(mActivity.getString(R.string.undo), restoredSnackbar.getActionText());
+
+        // Subsequent tab changes in the same activity should not re-trigger snackbar restoration.
+        importer2.onTabChangeOrGainFocus(mTab);
+        verify(mSnackbarManager, times(2)).showSnackbar(any());
+
+        // Simulate a second activity recreation before timeout (e.g. screen rotation while snackbar
+        // is active): pending snackbar should survive and be restored again.
+        doReturn(true).when(spyActivity2).isChangingConfigurations();
+        restoredSnackbar.getController().onDismissNoAction(null);
+        importer2.destroy();
+
+        CrossDeviceSettingImporter importer3 =
+                new CrossDeviceSettingImporter(
+                        mActivityLifecycleDispatcher,
+                        mActivityTabSupplier,
+                        mActivity,
+                        mModalDialogManagerSupplier,
+                        mSnackbarManagerSupplier);
+        importer3.onTabChangeOrGainFocus(mTab);
+        verify(mSnackbarManager, times(3)).showSnackbar(mSnackbarCaptor.capture());
+        Snackbar restoredSnackbar2 = mSnackbarCaptor.getValue();
+
+        // Dismiss without action when NOT changing configurations should clear the pending
+        // snackbar.
+        restoredSnackbar2.getController().onDismissNoAction(null);
+        assertNull(
+                "Pending snackbar should be cleared on dismiss no action",
+                CrossDeviceSettingImporter.getPendingSnackbarForTesting());
+        importer3.destroy();
+    }
+
+    @Test
+    public void testDestroy_clearsPendingSnackbarWhenNotChangingConfigurations() {
+        Activity spyActivity = spy(mActivity);
+        CrossDeviceSettingImporter importer =
+                new CrossDeviceSettingImporter(
+                        mActivityLifecycleDispatcher,
+                        mActivityTabSupplier,
+                        spyActivity,
+                        mModalDialogManagerSupplier,
+                        mSnackbarManagerSupplier);
+        SyncedSetupSettings prev =
+                new SyncedSetupSettings(Map.of(Pref.MAGIC_STACK_HOME_MODULE_ENABLED, true));
+        SyncedSetupSettings toApply =
+                new SyncedSetupSettings(Map.of(Pref.MAGIC_STACK_HOME_MODULE_ENABLED, false));
+
+        importer.showOfferUndoSnackbarAfterDialogs(mProfile, prev, toApply, /* nonNtp= */ false);
+        assertNull(
+                "Pending snackbar should not be set statically during normal operation",
+                CrossDeviceSettingImporter.getPendingSnackbarForTesting());
+
+        // Destroy with configuration change promotes active snackbar to static pending snackbar.
+        doReturn(true).when(spyActivity).isChangingConfigurations();
+        importer.destroy();
+        assertNotNull(CrossDeviceSettingImporter.getPendingSnackbarForTesting());
+
+        // Normal destroy (not configuration change) clears static pending snackbar.
+        CrossDeviceSettingImporter importer2 = initializeCrossDeviceSettingImporter();
+        importer2.destroy();
+        assertNull(CrossDeviceSettingImporter.getPendingSnackbarForTesting());
+    }
+
+    @Test
+    public void testPendingSnackbar_noDuplicateOnSameActivityWithoutRecreate() {
+        CrossDeviceSettingImporter importer = initializeCrossDeviceSettingImporter();
+        SyncedSetupSettings prev =
+                new SyncedSetupSettings(Map.of(Pref.MAGIC_STACK_HOME_MODULE_ENABLED, true));
+        SyncedSetupSettings toApply =
+                new SyncedSetupSettings(Map.of(Pref.MAGIC_STACK_HOME_MODULE_ENABLED, false));
+
+        importer.showOfferUndoSnackbarAfterDialogs(mProfile, prev, toApply, /* nonNtp= */ false);
+        verify(mSnackbarManager, times(1)).showSnackbar(any());
+        assertNull(CrossDeviceSettingImporter.getPendingSnackbarForTesting());
+
+        // Subsequent tab focus/load on the same non-recreating activity must not re-show snackbar.
+        importer.onTabChangeOrGainFocus(mTab);
+        verify(mSnackbarManager, times(1)).showSnackbar(any());
+        importer.destroy();
+    }
+
+    @Test
+    public void testPendingSnackbar_recreateSurvival_redoSnackbar() {
+        Activity spyActivity1 = spy(mActivity);
+        CrossDeviceSettingImporter importer1 =
+                new CrossDeviceSettingImporter(
+                        mActivityLifecycleDispatcher,
+                        mActivityTabSupplier,
+                        spyActivity1,
+                        mModalDialogManagerSupplier,
+                        mSnackbarManagerSupplier);
+        SyncedSetupSettings toApply =
+                new SyncedSetupSettings(Map.of(Pref.MAGIC_STACK_HOME_MODULE_ENABLED, false));
+
+        importer1.showOfferRedoSnackbarAfterDialogs(
+                mProfile, toApply, /* hadThemeChange= */ true, /* nonNtp= */ false);
+        verify(mSnackbarManager).showSnackbar(mSnackbarCaptor.capture());
+        Snackbar initialSnackbar = mSnackbarCaptor.getValue();
+
+        doReturn(true).when(spyActivity1).isChangingConfigurations();
+        initialSnackbar.getController().onDismissNoAction(null);
+        importer1.destroy();
+
+        PendingSnackbar pending = CrossDeviceSettingImporter.getPendingSnackbarForTesting();
+        assertNotNull("Pending redo snackbar should be stored across recreate", pending);
+        assertTrue(pending.isRedo);
+        assertEquals(toApply, pending.settingsToApply);
+        assertTrue(pending.hadThemeChange);
+
+        // Simulate activity recreation: new importer instance with same task ID.
+        Activity spyActivity2 = spy(mActivity);
+        CrossDeviceSettingImporter importer2 =
+                new CrossDeviceSettingImporter(
+                        mActivityLifecycleDispatcher,
+                        mActivityTabSupplier,
+                        spyActivity2,
+                        mModalDialogManagerSupplier,
+                        mSnackbarManagerSupplier);
+
+        importer2.onTabChangeOrGainFocus(mTab);
+
+        verify(mSnackbarManager, times(2)).showSnackbar(mSnackbarCaptor.capture());
+        Snackbar restoredSnackbar = mSnackbarCaptor.getValue();
+        assertEquals(
+                mActivity.getString(R.string.synced_set_up_snackbar_removed_confirmation),
+                restoredSnackbar.getTextForTesting());
+        assertEquals(mActivity.getString(R.string.redo), restoredSnackbar.getActionText());
+
+        // Click Redo: onAction should clear the redo pending snackbar and trigger apply.
+        restoredSnackbar.getController().onAction(null);
+        verify(mSnackbarManager, times(3)).showSnackbar(mSnackbarCaptor.capture());
+        Snackbar undoSnackbarAfterRedo = mSnackbarCaptor.getValue();
+
+        doReturn(true).when(spyActivity2).isChangingConfigurations();
+        undoSnackbarAfterRedo.getController().onDismissNoAction(null);
+        importer2.destroy();
+
+        PendingSnackbar newPending = CrossDeviceSettingImporter.getPendingSnackbarForTesting();
+        assertNotNull(newPending);
+        assertFalse(newPending.isRedo);
+    }
+
+    @Test
+    public void testPendingSnackbar_differentTaskId_ignored() {
+        when(mPrefService.isDefaultValuePreference(any())).thenReturn(true);
+        CrossDeviceSettingImporter importer = initializeCrossDeviceSettingImporter();
+        int currentTaskId = importer.getTaskId();
+        int differentTaskId = currentTaskId + 1;
+
+        SyncedSetupSettings prev =
+                new SyncedSetupSettings(Map.of(Pref.MAGIC_STACK_HOME_MODULE_ENABLED, true));
+        SyncedSetupSettings toApply =
+                new SyncedSetupSettings(Map.of(Pref.MAGIC_STACK_HOME_MODULE_ENABLED, false));
+
+        PendingSnackbar pending =
+                new PendingSnackbar(
+                        /* isRedo= */ false,
+                        prev,
+                        toApply,
+                        /* hadThemeChange= */ false,
+                        /* nonNtp= */ false,
+                        differentTaskId);
+        CrossDeviceSettingImporter.setPendingSnackbarForTesting(pending);
+
+        assertFalse(importer.matchesCurrentTask(differentTaskId));
+        assertFalse(importer.matchesCurrentTask(INVALID_TASK_ID));
+        assertFalse(importer.maybeShowPendingSnackbar(mProfile));
+        assertEquals(pending, CrossDeviceSettingImporter.getPendingSnackbarForTesting());
+
+        importer.onTabChangeOrGainFocus(mTab);
+        verify(mSnackbarManager, never()).showSnackbar(any());
+        assertTrue(
+                ChromeSharedPreferences.getInstance()
+                        .readBoolean(
+                                ChromePreferenceKeys.CROSS_DEVICE_IMPORTED_ALL_SETTINGS, false));
+        assertEquals(pending, CrossDeviceSettingImporter.getPendingSnackbarForTesting());
+
+        importer.destroy();
+        assertEquals(pending, CrossDeviceSettingImporter.getPendingSnackbarForTesting());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.XPLAT_SYNCED_SETUP_THEMES)
+    public void testApplyThemeSettings_notifiesThemeChanges() {
+        NtpThemeStateProvider.Observer observer = mock(NtpThemeStateProvider.Observer.class);
+        NtpThemeStateProvider.getInstance().addObserver(observer);
+
+        try {
+            NtpBackgroundDataBase theme =
+                    new NtpBackgroundDataColor(
+                            mActivity,
+                            PlatformType.ANDROID,
+                            NtpThemeColorId.NTP_COLORS_BLUE,
+                            false);
+            initializeCrossDeviceSettingImporter().applyThemeSettings(theme);
+
+            verify(mNtpCustomizationConfigManager).onBackgroundDataChanged(any(), eq(theme));
+            verify(observer).applyThemeChanges();
+        } finally {
+            NtpThemeStateProvider.getInstance().removeObserver(observer);
+        }
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.XPLAT_SYNCED_SETUP_THEMES)
+    public void testApplyThemeSettings_customizedColor() {
+        NtpBackgroundDataBase theme =
+                new NtpBackgroundDataCustomizedColor(
+                        mActivity,
+                        PlatformType.DESKTOP,
+                        /* primaryColorLight= */ 0xFF112233,
+                        /* primaryColorDark= */ 0xFF445566,
+                        /* ntpBackgroundColorLight= */ 0xFF778899,
+                        /* ntpBackgroundColorDark= */ 0xFFAABBCC);
+        initializeCrossDeviceSettingImporter().applyThemeSettings(theme);
+
+        verify(mNtpCustomizationConfigManager).onBackgroundDataChanged(any(), eq(theme));
+        verify(mNtpCustomizationConfigManager)
+                .maybeSaveUserSelectedBackgroundTypeToSharedPreference(any());
     }
 
     @Test
@@ -389,6 +691,7 @@ public class CrossDeviceSettingImporterUnitTest {
     public void testAskToApplySettingImportIfNeeded_NonNtp_differs() {
         Map<String, Object> preferencesToApply = new HashMap<>();
         preferencesToApply.put(Pref.IS_OMNIBOX_IN_BOTTOM_POSITION, false);
+        preferencesToApply.put(Pref.MAGIC_STACK_HOME_MODULE_ENABLED, false);
         when(mLocalPrefService.getBoolean(Pref.IS_OMNIBOX_IN_BOTTOM_POSITION)).thenReturn(true);
 
         when(mCrossDevicePrefTracker.getServiceStatus())
@@ -574,6 +877,7 @@ public class CrossDeviceSettingImporterUnitTest {
 
         initializeCrossDeviceSettingImporter().onTabChangeOrGainFocus(mTab);
 
+        verify(mNtpCustomizationConfigManager, never()).ensureInitialized(any());
         verify(mSnackbarManager, never()).showSnackbar(any());
     }
 
@@ -1675,5 +1979,276 @@ public class CrossDeviceSettingImporterUnitTest {
         verify(mSnackbarManager).showSnackbar(any());
         // Crucially: onBackgroundDataChanged must NOT be called with a null bitmap!
         verify(mNtpCustomizationConfigManager, never()).onBackgroundDataChanged(any(), any());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.XPLAT_SYNCED_SETUP_THEMES)
+    public void testPendingSnackbar_asyncActivityRecreateFromInFlightImageDownload() {
+        CustomBackgroundInfo bgInfo =
+                new CustomBackgroundInfo(
+                        new GURL("https://example.com/theme.png"),
+                        "collection_1",
+                        /* isUploadedImage= */ false,
+                        /* isDailyRefreshEnabled= */ false);
+        NtpBackgroundDataThemeCollection inFlightRemoteTheme =
+                new NtpBackgroundDataThemeCollection(
+                        PlatformType.ANDROID, bgInfo, /* previewBitmap= */ null);
+
+        when(mNtpCustomizationConfigManager.getNtpBackgroundData()).thenReturn(null);
+        when(mCrossDeviceThemeTracker.getThemeForDeviceGuid(any(), any()))
+                .thenReturn(inFlightRemoteTheme);
+        when(mCrossDevicePrefTracker.getServiceStatus()).thenReturn(ServiceStatus.AVAILABLE);
+        when(mPrefService.isDefaultValuePreference(any(String.class))).thenReturn(true);
+        when(mPrefService.getBoolean(Pref.MAGIC_STACK_HOME_MODULE_ENABLED)).thenReturn(true);
+        when(mLocalPrefService.getBoolean(Pref.IS_OMNIBOX_IN_BOTTOM_POSITION)).thenReturn(false);
+
+        Activity spyActivity = spy(mActivity);
+        SyncedSetUpUtilsBridge.setCrossDeviceSettingsForTesting(
+                Map.of(Pref.IS_OMNIBOX_IN_BOTTOM_POSITION, true));
+        CrossDeviceSettingImporter importer =
+                spy(
+                        new CrossDeviceSettingImporter(
+                                mActivityLifecycleDispatcher,
+                                mActivityTabSupplier,
+                                spyActivity,
+                                mModalDialogManagerSupplier,
+                                mSnackbarManagerSupplier));
+        doReturn(123).when(importer).getTaskId();
+        doReturn(true).when(importer).matchesCurrentTask(123);
+
+        // 1. Trigger initial import on Activity 1 while theme image download is in flight.
+        importer.onTabChangeOrGainFocus(mTab);
+        verify(mSnackbarManager, times(1)).showSnackbar(mSnackbarCaptor.capture());
+        Snackbar initialUndoSnackbar = mSnackbarCaptor.getValue();
+
+        // 2. Simulate NtpSyncedThemeManager finishing the image download in flight and
+        // NtpCustomizationConfigManager triggering an async Activity recreate.
+        Bitmap downloadedBitmap = mock(Bitmap.class);
+        NtpBackgroundDataThemeCollection downloadedTheme =
+                new NtpBackgroundDataThemeCollection(
+                        PlatformType.ANDROID,
+                        bgInfo,
+                        /* backgroundImageInfo= */ null,
+                        downloadedBitmap,
+                        /* primaryColor= */ 0xFF112233,
+                        /* fileIdHash= */ "hash_1");
+        when(mNtpCustomizationConfigManager.getNtpBackgroundData()).thenReturn(downloadedTheme);
+
+        doReturn(true).when(spyActivity).isChangingConfigurations();
+        initialUndoSnackbar.getController().onDismissNoAction(null);
+        importer.destroy();
+        doReturn(false).when(spyActivity).isChangingConfigurations();
+
+        // 3. Activity 2 starts up and restores the Undo snackbar.
+        CrossDeviceSettingImporter recreatedImporter =
+                spy(
+                        new CrossDeviceSettingImporter(
+                                mActivityLifecycleDispatcher,
+                                mActivityTabSupplier,
+                                spyActivity,
+                                mModalDialogManagerSupplier,
+                                mSnackbarManagerSupplier));
+        doReturn(123).when(recreatedImporter).getTaskId();
+        doReturn(true).when(recreatedImporter).matchesCurrentTask(123);
+
+        recreatedImporter.onTabChangeOrGainFocus(mTab);
+        verify(mSnackbarManager, times(2)).showSnackbar(mSnackbarCaptor.capture());
+        Snackbar restoredUndoSnackbar = mSnackbarCaptor.getValue();
+
+        // 4. User clicks Undo on the restored snackbar.
+        restoredUndoSnackbar.getController().onAction(null);
+        // Continuous Android theme sync is disabled and theme is reverted to initial null state.
+        verify(mSyncService).setSelectedType(UserSelectableType.THEMES, false);
+        verify(mNtpCustomizationConfigManager).onBackgroundDataChanged(any(), isNull());
+        verify(mSnackbarManager, times(3)).showSnackbar(mSnackbarCaptor.capture());
+        Snackbar redoSnackbar = mSnackbarCaptor.getValue();
+
+        // 5. Simulate Activity recreate caused by Undo reverting the theme (with destroy() called
+        // before onDismissNoAction() to verify order independence).
+        when(mNtpCustomizationConfigManager.getNtpBackgroundData()).thenReturn(null);
+        doReturn(true).when(spyActivity).isChangingConfigurations();
+        recreatedImporter.destroy();
+        redoSnackbar.getController().onDismissNoAction(null);
+        doReturn(false).when(spyActivity).isChangingConfigurations();
+
+        // 6. Activity 3 starts up and restores the Redo snackbar.
+        CrossDeviceSettingImporter thirdImporter =
+                spy(
+                        new CrossDeviceSettingImporter(
+                                mActivityLifecycleDispatcher,
+                                mActivityTabSupplier,
+                                spyActivity,
+                                mModalDialogManagerSupplier,
+                                mSnackbarManagerSupplier));
+        doReturn(123).when(thirdImporter).getTaskId();
+        doReturn(true).when(thirdImporter).matchesCurrentTask(123);
+
+        thirdImporter.onTabChangeOrGainFocus(mTab);
+        verify(mSnackbarManager, times(4)).showSnackbar(mSnackbarCaptor.capture());
+        Snackbar restoredRedoSnackbar = mSnackbarCaptor.getValue();
+
+        // 7. User clicks Redo on the restored snackbar.
+        // Because maybeUpdateSettingsWithDownloadedTheme enriched the theme with the downloaded
+        // bitmap, Redo re-applies the downloaded image theme and resets
+        // isBitmapSaved so the image file is re-saved to disk!
+        restoredRedoSnackbar.getController().onAction(null);
+        verify(mSyncService).setSelectedType(UserSelectableType.THEMES, true);
+        ArgumentCaptor<NtpBackgroundDataBase> appliedThemeCaptor =
+                ArgumentCaptor.forClass(NtpBackgroundDataBase.class);
+        verify(mNtpCustomizationConfigManager, times(2))
+                .onBackgroundDataChanged(any(), appliedThemeCaptor.capture());
+        NtpBackgroundDataThemeCollection appliedRedoTheme =
+                (NtpBackgroundDataThemeCollection) appliedThemeCaptor.getValue();
+        assertEquals(downloadedBitmap, appliedRedoTheme.getBitmap());
+        assertEquals(Integer.valueOf(0xFF112233), appliedRedoTheme.getPrimaryColor());
+        assertFalse(appliedRedoTheme.isBitmapSaved());
+        thirdImporter.destroy();
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.XPLAT_SYNCED_SETUP_THEMES)
+    public void testPendingSnackbar_inFlightDownload_preservesCrossPlatformTypeAndPrimaryColor() {
+        CustomBackgroundInfo bgInfo =
+                new CustomBackgroundInfo(
+                        new GURL("https://example.com/desktop_theme.png"),
+                        "collection_desktop",
+                        /* isUploadedImage= */ false,
+                        /* isDailyRefreshEnabled= */ false);
+        // Desktop theme arrives with null primaryColor and PlatformType.DESKTOP, with null bitmap
+        // while download is in flight.
+        NtpBackgroundDataThemeCollection desktopInFlightTheme =
+                new NtpBackgroundDataThemeCollection(
+                        PlatformType.DESKTOP,
+                        bgInfo,
+                        /* backgroundImageInfo= */ null,
+                        /* bitmap= */ null,
+                        /* primaryColor= */ null,
+                        /* fileIdHash= */ null);
+
+        when(mNtpCustomizationConfigManager.getNtpBackgroundData()).thenReturn(null);
+        when(mCrossDeviceThemeTracker.getThemeForDeviceGuid(any(), any()))
+                .thenReturn(desktopInFlightTheme);
+        when(mCrossDevicePrefTracker.getServiceStatus()).thenReturn(ServiceStatus.AVAILABLE);
+        when(mPrefService.isDefaultValuePreference(any(String.class))).thenReturn(true);
+
+        CrossDeviceSettingImporter importer = initializeCrossDeviceSettingImporter();
+        importer.onTabChangeOrGainFocus(mTab);
+        verify(mSnackbarManager, times(1)).showSnackbar(mSnackbarCaptor.capture());
+        Snackbar undoSnackbar = mSnackbarCaptor.getValue();
+
+        // Simulate Android NtpSyncedThemeManager finishing the download with PlatformType.ANDROID
+        // and a bitmap-extracted seed color (0xFF112233).
+        Bitmap downloadedBitmap = mock(Bitmap.class);
+        NtpBackgroundDataThemeCollection downloadedAndroidTheme =
+                new NtpBackgroundDataThemeCollection(
+                        PlatformType.ANDROID,
+                        bgInfo,
+                        /* backgroundImageInfo= */ null,
+                        downloadedBitmap,
+                        /* primaryColor= */ 0xFF112233,
+                        /* fileIdHash= */ "hash_desktop");
+        when(mNtpCustomizationConfigManager.getSyncedNtpBackgroundData())
+                .thenReturn(downloadedAndroidTheme);
+
+        // User clicks Undo: because platformType is preserved as DESKTOP, THEMES sync toggle must
+        // NOT be disabled! And the original desktopInFlightTheme must not be mutated in place.
+        undoSnackbar.getController().onAction(null);
+        verify(mSyncService, never()).setSelectedType(eq(UserSelectableType.THEMES), anyBoolean());
+        assertNull(desktopInFlightTheme.getBitmap());
+        assertNull(desktopInFlightTheme.getPrimaryColor());
+
+        // User clicks Redo: because platformType is preserved as DESKTOP, Redo re-applies the
+        // enriched theme with the downloaded bitmap and extracted seed color (0xFF112233)!
+        verify(mSnackbarManager, times(2)).showSnackbar(mSnackbarCaptor.capture());
+        Snackbar redoSnackbar = mSnackbarCaptor.getValue();
+        redoSnackbar.getController().onAction(null);
+
+        ArgumentCaptor<NtpBackgroundDataBase> appliedThemeCaptor =
+                ArgumentCaptor.forClass(NtpBackgroundDataBase.class);
+        verify(mNtpCustomizationConfigManager, atLeastOnce())
+                .onBackgroundDataChanged(any(), appliedThemeCaptor.capture());
+        NtpBackgroundDataThemeCollection appliedRedoTheme =
+                (NtpBackgroundDataThemeCollection) appliedThemeCaptor.getValue();
+        assertEquals(PlatformType.DESKTOP, appliedRedoTheme.getPlatformType());
+        assertEquals(Integer.valueOf(0xFF112233), appliedRedoTheme.getPrimaryColor());
+        assertEquals(downloadedBitmap, appliedRedoTheme.getBitmap());
+        assertEquals("hash_desktop", appliedRedoTheme.getFileIdHash());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.XPLAT_SYNCED_SETUP_THEMES)
+    public void testPendingSnackbar_inFlightDownload_differentPrimaryColor_doesNotMatch() {
+        CustomBackgroundInfo bgInfo =
+                new CustomBackgroundInfo(
+                        new GURL("https://example.com/desktop_theme.png"),
+                        "collection_desktop",
+                        /* isUploadedImage= */ false,
+                        /* isDailyRefreshEnabled= */ false);
+        // Desktop theme with an explicit user-chosen primary color (0xFF998877).
+        NtpBackgroundDataThemeCollection desktopInFlightTheme =
+                new NtpBackgroundDataThemeCollection(
+                        PlatformType.DESKTOP,
+                        bgInfo,
+                        /* backgroundImageInfo= */ null,
+                        /* bitmap= */ null,
+                        /* primaryColor= */ 0xFF998877,
+                        /* fileIdHash= */ null);
+
+        when(mNtpCustomizationConfigManager.getNtpBackgroundData()).thenReturn(null);
+        when(mCrossDeviceThemeTracker.getThemeForDeviceGuid(any(), any()))
+                .thenReturn(desktopInFlightTheme);
+        when(mCrossDevicePrefTracker.getServiceStatus()).thenReturn(ServiceStatus.AVAILABLE);
+        when(mPrefService.isDefaultValuePreference(any(String.class))).thenReturn(true);
+
+        CrossDeviceSettingImporter importer = initializeCrossDeviceSettingImporter();
+        importer.onTabChangeOrGainFocus(mTab);
+        verify(mSnackbarManager, times(1)).showSnackbar(mSnackbarCaptor.capture());
+        Snackbar undoSnackbar = mSnackbarCaptor.getValue();
+
+        // Android download has a different non-null primaryColor (0xFF112233) -> must not match.
+        Bitmap downloadedBitmap = mock(Bitmap.class);
+        NtpBackgroundDataThemeCollection downloadedAndroidTheme =
+                new NtpBackgroundDataThemeCollection(
+                        PlatformType.ANDROID,
+                        bgInfo,
+                        /* backgroundImageInfo= */ null,
+                        downloadedBitmap,
+                        /* primaryColor= */ 0xFF112233,
+                        /* fileIdHash= */ "hash_desktop");
+        when(mNtpCustomizationConfigManager.getSyncedNtpBackgroundData())
+                .thenReturn(downloadedAndroidTheme);
+
+        undoSnackbar.getController().onAction(null);
+        verify(mNtpCustomizationConfigManager).onBackgroundDataChanged(any(), isNull());
+
+        verify(mSnackbarManager, times(2)).showSnackbar(mSnackbarCaptor.capture());
+        Snackbar redoSnackbar = mSnackbarCaptor.getValue();
+        redoSnackbar.getController().onAction(null);
+
+        // Because the two non-null primary colors differed, desktopInFlightTheme was not enriched
+        // with downloadedAndroidTheme's bitmap, so Redo does not call onBackgroundDataChanged a
+        // second time (only the 1 call from Undo resetting to null).
+        verify(mNtpCustomizationConfigManager, times(1)).onBackgroundDataChanged(any(), any());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.XPLAT_SYNCED_SETUP_THEMES)
+    public void
+            testApplyThemeSettings_samePlatformNullBitmap_callsMaybeApplyBackgroundUpdateFromDeviceSync() {
+        CustomBackgroundInfo bgInfo =
+                new CustomBackgroundInfo(
+                        new GURL("https://example.com/android_theme.png"),
+                        "collection_1",
+                        /* isUploadedImage= */ false,
+                        /* isDailyRefreshEnabled= */ false);
+        NtpBackgroundDataThemeCollection androidThemeWithNullBitmap =
+                new NtpBackgroundDataThemeCollection(
+                        PlatformType.ANDROID, bgInfo, /* previewBitmap= */ null);
+
+        initializeCrossDeviceSettingImporter().applyThemeSettings(androidThemeWithNullBitmap);
+
+        verify(mNtpCustomizationConfigManager, never()).onBackgroundDataChanged(any(), any());
+        verify(mNtpCustomizationConfigManager)
+                .maybeApplyBackgroundUpdateFromDeviceSync(eq(mActivity));
     }
 }

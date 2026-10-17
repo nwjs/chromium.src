@@ -542,9 +542,9 @@ class OmniboxEditModel {
   void TryDeletingPopupLine(size_t line);
 
   // Returns the popup's accessibility label for current selection. This is an
-  // extended version of AutocompleteMatchType::ToAccessibilityLabel() which
-  // also returns narration about the any focused secondary button.
-  // Never call this when the current selection is kNoMatch.
+  // extended version of omnibox::AutocompleteMatchToAccessibilityLabel()
+  // which also returns narration about the any focused secondary button. Never
+  // call this when the current selection is kNoMatch.
   std::u16string GetPopupAccessibilityLabelForCurrentSelection(
       const std::u16string& match_text,
       bool include_positional_info,
@@ -775,7 +775,7 @@ class OmniboxEditModel {
   // Helper for `OpenAiMode()` to determine whether the AIM popup should open or
   // a navigation should occur.
   bool ShouldOpenAimPopup(AimActivation activation,
-                          AutocompleteMatchType::Type current_match_type);
+                          omnibox::AutocompleteMatchType current_match_type);
 
   // Helper for `OpenAiMode()` to initialize `query_contextualizer_`. No-op if
   // called before. `query_contextualizer_` may be null after this is called.
@@ -958,7 +958,7 @@ class OmniboxEditModel {
   // The current popup selection; set to normal kNoMatch when there's no popup.
   OmniboxPopupSelection popup_selection_ =
       OmniboxPopupSelection(OmniboxPopupSelection::kNoMatch,
-                            OmniboxPopupSelection::NORMAL);
+                            OmniboxPopupSelection::LineState::kNormal);
 
   // When a result changes, this informs of the URL in the previously selected
   // suggestion whose tab switch button was focused, so that we may compare

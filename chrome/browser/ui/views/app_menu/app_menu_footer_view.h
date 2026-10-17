@@ -14,27 +14,53 @@
 
 namespace actions {
 class ActionItem;
+class BaseAction;
 }  // namespace actions
 
 namespace views {
 class ActionViewController;
+class MenuItemView;
+class Separator;
 }  // namespace views
 
-// A view containing the footer elements (Settings, Help, Exit buttons) for the
-// ActionAppMenu.
+// A view containing the footer elements (Settings, Help, Exit buttons, and
+// optional managed row) for the ActionAppMenu.
 class AppMenuFooterView : public views::BoxLayoutView {
   METADATA_HEADER(AppMenuFooterView, views::BoxLayoutView)
 
  public:
+  using ExecuteCommandCallback =
+      base::RepeatingCallback<void(actions::ActionId, int)>;
+  using PopulateSubmenuCallback =
+      base::RepeatingCallback<void(views::MenuItemView*, actions::BaseAction*)>;
+
   AppMenuFooterView(
+      views::MenuItemView* parent_menu_item,
       actions::ActionItem* footer_action_item,
       views::ActionViewController* action_view_controller,
       base::flat_map<int, raw_ptr<actions::BaseAction>>* command_to_action_map,
-      base::RepeatingCallback<void(actions::ActionId)>
-          execute_command_callback);
+      ExecuteCommandCallback execute_command_callback,
+      PopulateSubmenuCallback populate_submenu_callback);
   AppMenuFooterView(const AppMenuFooterView&) = delete;
   AppMenuFooterView& operator=(const AppMenuFooterView&) = delete;
   ~AppMenuFooterView() override;
+
+  views::BoxLayoutView* top_container_for_testing() { return top_container_; }
+  views::BoxLayoutView* left_container_for_testing() { return left_container_; }
+  views::BoxLayoutView* right_container_for_testing() {
+    return right_container_;
+  }
+  views::BoxLayoutView* bottom_container_for_testing() {
+    return bottom_container_;
+  }
+  views::Separator* separator_for_testing() { return separator_; }
+
+ private:
+  raw_ptr<views::BoxLayoutView> top_container_ = nullptr;
+  raw_ptr<views::BoxLayoutView> left_container_ = nullptr;
+  raw_ptr<views::BoxLayoutView> right_container_ = nullptr;
+  raw_ptr<views::BoxLayoutView> bottom_container_ = nullptr;
+  raw_ptr<views::Separator> separator_ = nullptr;
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_APP_MENU_APP_MENU_FOOTER_VIEW_H_

@@ -85,23 +85,6 @@ int ToInt(GlicActuationOnWebPolicyState state) {
   return std::to_underlying(state);
 }
 
-// An observer of the GlicInstanceCoordinator's panel state. Fires the given
-// callback when the state changes to the given kind.
-class PanelStateObserver : public GlicInstanceCoordinator::StateObserver {
- public:
-  PanelStateObserver(mojom::PanelStateKind kind, base::OnceClosure callback)
-      : kind_(kind), callback_(std::move(callback)) {}
-
-  void PanelStateChanged(const mojom::PanelState& panel_state) override {
-    if (panel_state.kind == kind_) {
-      std::move(callback_).Run();
-    }
-  }
-
- private:
-  mojom::PanelStateKind kind_;
-  base::OnceClosure callback_;
-};
 
 class GlicAppStateObserver : public Host::Observer {
  public:
@@ -151,7 +134,8 @@ class GlicPolicyTest : public PolicyTest {
               // the time we wait for it.
               {features::kGlicMaxLoadingTimeMs.name, "500"},
           }}},
-        {});
+        // TODO(b/559775860): revisit this test for GlicNoWebview.
+        {features::kGlicNoWebview});
   }
 
   GlicPolicyTest(const GlicPolicyTest&) = delete;

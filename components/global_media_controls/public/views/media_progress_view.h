@@ -93,15 +93,15 @@ class COMPONENT_EXPORT(GLOBAL_MEDIA_CONTROLS) MediaProgressView
   // Updates the progress in UI given the new media position.
   void UpdateProgress(const media_session::MediaPosition& media_position);
 
-  // Returns the update interval based on the current progress line type
-  // (squiggly vs. straight).
+  // Returns the update interval based on whether the view is drawn and the
+  // current progress line type (squiggly vs. straight).
   base::TimeDelta GetUpdateInterval() const;
 
   // Helper functions for testing:
   double current_value_for_testing() const;
-  int phase_offset_for_testing() const;
-  double progress_amp_fraction_for_testing() const;
-  int straight_progress_stroke_width_for_testing() const;
+  float phase_offset_for_testing() const;
+  float progress_amp_fraction_for_testing() const;
+  float straight_progress_stroke_width_for_testing() const;
   bool is_paused_for_testing() const;
   bool is_live_for_testing() const;
   bool use_paused_colors_for_testing() const;
@@ -115,8 +115,9 @@ class COMPONENT_EXPORT(GLOBAL_MEDIA_CONTROLS) MediaProgressView
   gfx::SlideAnimation& thickness_animation_for_testing();
 
  private:
-  // Fires an accessibility event if the progress has changed.
-  void MaybeNotifyAccessibilityValueChanged();
+  // Runs the progress update callback and updates the accessible value if the
+  // media position in seconds has changed.
+  void MaybeNotifyProgressPositionChanged();
 
   // Handles the event when user drags the progress line using a mouse or
   // gesture on a tablet. If the user only intends to click, these functions are
@@ -157,19 +158,19 @@ class COMPONENT_EXPORT(GLOBAL_MEDIA_CONTROLS) MediaProgressView
   double current_value_ = 0.0;
 
   // Current media position and media duration.
-  base::TimeDelta current_position_;
+  base::TimeDelta current_position_ = base::TimeDelta::Min();
   base::TimeDelta media_duration_ = base::TimeDelta::Max();
 
   // Fraction of the progress amplitude used for progress path to transition
   // between squiggly and straight lines, in the range from 0.0 to 1.0.
-  double progress_amp_fraction_ = 0;
+  float progress_amp_fraction_ = 0.0f;
 
   // The media position last announced for accessibility.
-  base::TimeDelta last_announced_position_;
+  base::TimeDelta last_announced_position_ = base::TimeDelta::Min();
 
   // The progress phase offset changing as time passes for the progress wave to
   // move.
-  int phase_offset_ = 0;
+  float phase_offset_ = 0.0f;
 
   // Animation for progress path to transition between squiggly and straight
   // lines.
@@ -210,7 +211,7 @@ class COMPONENT_EXPORT(GLOBAL_MEDIA_CONTROLS) MediaProgressView
 
   // Stroke width for the straight progress line that changes depending on
   // whether the user is dragging the progress line.
-  int straight_progress_stroke_width_ = 0;
+  float straight_progress_stroke_width_ = 0.0f;
 };
 
 }  // namespace global_media_controls

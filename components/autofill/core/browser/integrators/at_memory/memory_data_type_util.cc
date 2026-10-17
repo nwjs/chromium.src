@@ -23,6 +23,10 @@
 #include "components/autofill/core/browser/data_model/autofill_ai/date_info.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #include "components/autofill/core/browser/data_model/data_model_util.h"
+#include "components/autofill/core/browser/data_model/payments/credit_card.h"
+#include "components/autofill/core/browser/filling/field_filling_util.h"
+#include "components/autofill/core/browser/network/autofill_ai/personal_context_conversion_util.h"
+#include "components/autofill/core/browser/suggestions/payments/payments_suggestion_generator_util.h"
 #include "components/personal_context/proto/features/at_memory.pb.h"
 #include "components/personal_context/proto/features/common_data.pb.h"
 #include "components/strings/grit/components_strings.h"
@@ -54,38 +58,6 @@ std::optional<personal_context::proto::Date> ParseDate(std::string_view str) {
     date.set_month(m);
     date.set_day(d);
     return date;
-  }
-  return std::nullopt;
-}
-
-// Returns a `personal_context::proto::Date` extracted from `typed_val` (using
-// `date()`) or parsed from `val`. Returns `std::nullopt` if no valid date can
-// be obtained.
-std::optional<personal_context::proto::Date> ToDate(
-    const std::optional<personal_context::proto::TypedValue>& typed_val,
-    std::string_view val) {
-  if (typed_val && typed_val->has_date()) {
-    return typed_val->date();
-  }
-  return ParseDate(val);
-}
-
-// Returns a `personal_context::proto::DateTime` extracted from `typed_val`
-// (using `date_time()` or `date()`) or parsed from `val`. Returns
-// `std::nullopt` if no valid date/time can be obtained.
-std::optional<personal_context::proto::DateTime> ToDateTime(
-    const std::optional<personal_context::proto::TypedValue>& typed_val,
-    std::string_view val) {
-  if (typed_val && typed_val->has_date_time()) {
-    return typed_val->date_time();
-  }
-  if (std::optional<personal_context::proto::Date> date =
-          ToDate(typed_val, val)) {
-    personal_context::proto::DateTime date_time;
-    date_time.set_year(date->year());
-    date_time.set_month(date->month());
-    date_time.set_day(date->day());
-    return date_time;
   }
   return std::nullopt;
 }
@@ -296,270 +268,87 @@ bool IsSpiiMemoryDataType(MemoryDataType type) {
   NOTREACHED();
 }
 
-personal_context::proto::Entity ToPersonalContextEntity(
-    std::u16string_view value,
-    const std::optional<personal_context::proto::TypedValue>& typed_value,
-    MemoryDataType memory_data_type,
-    base::span<const EntryMetadata> metadata_list) {
-  personal_context::proto::Entity entity;
-
-  auto process_attribute = [&entity](
-      MemoryDataType type, std::string val,
-      const std::optional<personal_context::proto::TypedValue>& typed_val) {
-    switch (type) {
-      case MemoryDataType::kPassportNumber:
-        entity.mutable_passport()->set_number(std::move(val));
-        break;
-      case MemoryDataType::kPassportName:
-        entity.mutable_passport()->set_name(std::move(val));
-        break;
-      case MemoryDataType::kPassportCountry:
-        if (typed_val && typed_val->has_country_code()) {
-          entity.mutable_passport()->set_issuing_country(
-              typed_val->country_code());
-        } else {
-          entity.mutable_passport()->set_issuing_country(std::move(val));
-        }
-        break;
-      case MemoryDataType::kPassportIssueDate:
-        if (std::optional<personal_context::proto::Date> date =
-                ToDate(typed_val, val)) {
-          *entity.mutable_passport()->mutable_issue_date() = std::move(*date);
-        }
-        break;
-      case MemoryDataType::kPassportExpirationDate:
-        if (std::optional<personal_context::proto::Date> date =
-                ToDate(typed_val, val)) {
-          *entity.mutable_passport()->mutable_expiration_date() =
-              std::move(*date);
-        }
-        break;
-
-      case MemoryDataType::kDriversLicenseNumber:
-        entity.mutable_drivers_license()->set_number(std::move(val));
-        break;
-      case MemoryDataType::kDriversLicenseName:
-        entity.mutable_drivers_license()->set_name(std::move(val));
-        break;
-      case MemoryDataType::kDriversLicenseState:
-        entity.mutable_drivers_license()->set_state(std::move(val));
-        break;
-      case MemoryDataType::kDriversLicenseIssueDate:
-        if (std::optional<personal_context::proto::Date> date =
-                ToDate(typed_val, val)) {
-          *entity.mutable_drivers_license()->mutable_issue_date() =
-              std::move(*date);
-        }
-        break;
-      case MemoryDataType::kDriversLicenseExpirationDate:
-        if (std::optional<personal_context::proto::Date> date =
-                ToDate(typed_val, val)) {
-          *entity.mutable_drivers_license()->mutable_expiration_date() =
-              std::move(*date);
-        }
-        break;
-
-      case MemoryDataType::kNationalIdCardNumber:
-        entity.mutable_national_id()->set_number(std::move(val));
-        break;
-      case MemoryDataType::kNationalIdCardName:
-        entity.mutable_national_id()->set_name(std::move(val));
-        break;
-      case MemoryDataType::kNationalIdCardCountry:
-        if (typed_val && typed_val->has_country_code()) {
-          entity.mutable_national_id()->set_issuing_country(
-              typed_val->country_code());
-        } else {
-          entity.mutable_national_id()->set_issuing_country(std::move(val));
-        }
-        break;
-      case MemoryDataType::kNationalIdCardIssueDate:
-        if (std::optional<personal_context::proto::Date> date =
-                ToDate(typed_val, val)) {
-          *entity.mutable_national_id()->mutable_issue_date() =
-              std::move(*date);
-        }
-        break;
-      case MemoryDataType::kNationalIdCardExpirationDate:
-        if (std::optional<personal_context::proto::Date> date =
-                ToDate(typed_val, val)) {
-          *entity.mutable_national_id()->mutable_expiration_date() =
-              std::move(*date);
-        }
-        break;
-
-      case MemoryDataType::kFlightReservationFlightNumber:
-        entity.mutable_flight_reservation()->set_flight_number(std::move(val));
-        break;
-      case MemoryDataType::kFlightReservationTicketNumber:
-        entity.mutable_flight_reservation()->set_flight_ticket_number(
-            std::move(val));
-        break;
-      case MemoryDataType::kFlightReservationConfirmationCode:
-        entity.mutable_flight_reservation()->set_flight_confirmation_code(
-            std::move(val));
-        break;
-      case MemoryDataType::kFlightReservationPassengerName:
-        entity.mutable_flight_reservation()->set_passenger_name(std::move(val));
-        break;
-      case MemoryDataType::kFlightReservationDepartureAirport:
-        entity.mutable_flight_reservation()->set_departure_airport(
-            std::move(val));
-        break;
-      case MemoryDataType::kFlightReservationArrivalAirport:
-        entity.mutable_flight_reservation()->set_arrival_airport(
-            std::move(val));
-        break;
-      case MemoryDataType::kFlightReservationDepartureDate:
-        if (std::optional<personal_context::proto::DateTime> date_time =
-                ToDateTime(typed_val, val)) {
-          *entity.mutable_flight_reservation()->mutable_departure_time() =
-              std::move(*date_time);
-        }
-        break;
-      case MemoryDataType::kFlightReservationArrivalDate:
-        if (std::optional<personal_context::proto::DateTime> date_time =
-                ToDateTime(typed_val, val)) {
-          *entity.mutable_flight_reservation()->mutable_arrival_time() =
-              std::move(*date_time);
-        }
-        break;
-
-      case MemoryDataType::kVehicleMake:
-        entity.mutable_vehicle()->set_vehicle_make(std::move(val));
-        break;
-      case MemoryDataType::kVehicleModel:
-        entity.mutable_vehicle()->set_vehicle_model(std::move(val));
-        break;
-      case MemoryDataType::kVehicleYear:
-        entity.mutable_vehicle()->set_vehicle_year(std::move(val));
-        break;
-      case MemoryDataType::kVehicleVin:
-        entity.mutable_vehicle()->set_vehicle_identification_number(
-            std::move(val));
-        break;
-      case MemoryDataType::kVehiclePlateNumber:
-        entity.mutable_vehicle()->set_vehicle_license_plate(std::move(val));
-        break;
-      case MemoryDataType::kVehiclePlateState:
-        entity.mutable_vehicle()->set_license_plate_region(std::move(val));
-        break;
-      case MemoryDataType::kVehicleOwner:
-        entity.mutable_vehicle()->set_owner_name(std::move(val));
-        break;
-
-      case MemoryDataType::kOrderId:
-        entity.mutable_order()->set_order_id(std::move(val));
-        break;
-      case MemoryDataType::kOrderAccount:
-        entity.mutable_order()->set_account(std::move(val));
-        break;
-      case MemoryDataType::kOrderMerchantName:
-        entity.mutable_order()->set_merchant_name(std::move(val));
-        break;
-      case MemoryDataType::kOrderMerchantDomain:
-        entity.mutable_order()->set_merchant_domain(std::move(val));
-        break;
-      case MemoryDataType::kOrderDate:
-        if (std::optional<personal_context::proto::Date> date =
-                ToDate(typed_val, val)) {
-          *entity.mutable_order()->mutable_order_date() = std::move(*date);
-        }
-        break;
-      case MemoryDataType::kOrderProductNames:
-        if (typed_val && typed_val->has_string_list()) {
-          *entity.mutable_order()->mutable_product_names() =
-              typed_val->string_list().values();
-        } else {
-          for (std::string_view name : base::SplitStringPiece(
-                   val, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY)) {
-            entity.mutable_order()->add_product_names(std::string(name));
-          }
-        }
-        break;
-
-      case MemoryDataType::kShipmentTrackingNumber:
-        entity.mutable_shipment()->set_tracking_number(std::move(val));
-        break;
-      case MemoryDataType::kShipmentCarrierName:
-        entity.mutable_shipment()->set_carrier_name(std::move(val));
-        break;
-      case MemoryDataType::kShipmentCarrierDomain:
-        entity.mutable_shipment()->set_carrier_domain(std::move(val));
-        break;
-      case MemoryDataType::kShipmentDeliveryZipCode:
-        entity.mutable_shipment()->set_delivery_zip_code(std::move(val));
-        break;
-      case MemoryDataType::kShipmentAssociatedOrderId:
-        if (typed_val && typed_val->has_string_list()) {
-          *entity.mutable_shipment()->mutable_associated_order_ids() =
-              typed_val->string_list().values();
-        } else {
-          for (std::string_view id : base::SplitStringPiece(
-                   val, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY)) {
-            entity.mutable_shipment()->add_associated_order_ids(std::string(id));
-          }
-        }
-        break;
-      case MemoryDataType::kShipmentEstimatedDeliveryDate:
-        if (std::optional<personal_context::proto::Date> date =
-                ToDate(typed_val, val)) {
-          *entity.mutable_shipment()->mutable_estimated_delivery_date() =
-              std::move(*date);
-        }
-        break;
-      case MemoryDataType::kShipmentShippedDate:
-        if (std::optional<personal_context::proto::Date> date =
-                ToDate(typed_val, val)) {
-          *entity.mutable_shipment()->mutable_ship_date() = std::move(*date);
-        }
-        break;
-
-      case MemoryDataType::kKnownTravelerNumberNumber:
-        entity.mutable_known_traveler_number()->set_number(std::move(val));
-        break;
-      case MemoryDataType::kKnownTravelerNumberName:
-        entity.mutable_known_traveler_number()->set_name(std::move(val));
-        break;
-
-      case MemoryDataType::kUnknown:
-      case MemoryDataType::kNameFull:
-      case MemoryDataType::kAddressFull:
-      case MemoryDataType::kAddressStreetAddress:
-      case MemoryDataType::kAddressCity:
-      case MemoryDataType::kAddressState:
-      case MemoryDataType::kAddressZip:
-      case MemoryDataType::kAddressCountry:
-      case MemoryDataType::kPhone:
-      case MemoryDataType::kEmail:
-      case MemoryDataType::kCompanyName:
-      case MemoryDataType::kIban:
-      case MemoryDataType::kIbanNickname:
-      case MemoryDataType::kShipmentDeliveryAddress:
-      case MemoryDataType::kRedressNumberName:
-      case MemoryDataType::kRedressNumberNumber:
-      case MemoryDataType::kKnownTravelerNumberExpirationDate:
-      case MemoryDataType::kOrderGrandTotal:
-      case MemoryDataType::kCreditCardNumber:
-      case MemoryDataType::kCreditCardExpirationDate:
-      case MemoryDataType::kCreditCardSecurityCode:
-      case MemoryDataType::kCreditCardNameOnCard:
-      case MemoryDataType::kCreditCardNickname:
-        break;
+std::u16string ObfuscateSpiiValue(MemoryDataType type,
+                                  std::u16string_view value) {
+  CHECK(IsSpiiMemoryDataType(type));
+  switch (type) {
+    case MemoryDataType::kIban:
+      return GetObfuscatedIban(value);
+    case MemoryDataType::kCreditCardSecurityCode:
+      return CreditCard::GetMidlineEllipsisPlainDots(value.size());
+    case MemoryDataType::kCreditCardNumber: {
+      CreditCard credit_card;
+      credit_card.SetNumber(std::u16string(value));
+      return credit_card.ObfuscatedNumberWithVisibleLastFourDigits();
     }
-  };
-
-  if (memory_data_type != MemoryDataType::kUnknown) {
-    process_attribute(memory_data_type, base::UTF16ToUTF8(value), typed_value);
+    case MemoryDataType::kPassportNumber:
+    case MemoryDataType::kNationalIdCardNumber:
+    case MemoryDataType::kDriversLicenseNumber:
+    case MemoryDataType::kRedressNumberNumber:
+    case MemoryDataType::kKnownTravelerNumberNumber:
+      return GetObfuscatedValue(value, /*visible_suffix_length=*/4);
+    case MemoryDataType::kNameFull:
+    case MemoryDataType::kAddressFull:
+    case MemoryDataType::kAddressStreetAddress:
+    case MemoryDataType::kAddressCity:
+    case MemoryDataType::kAddressState:
+    case MemoryDataType::kAddressZip:
+    case MemoryDataType::kAddressCountry:
+    case MemoryDataType::kPhone:
+    case MemoryDataType::kCompanyName:
+    case MemoryDataType::kEmail:
+    case MemoryDataType::kIbanNickname:
+    case MemoryDataType::kVehicleMake:
+    case MemoryDataType::kVehicleModel:
+    case MemoryDataType::kVehicleYear:
+    case MemoryDataType::kVehicleOwner:
+    case MemoryDataType::kVehiclePlateNumber:
+    case MemoryDataType::kVehiclePlateState:
+    case MemoryDataType::kVehicleVin:
+    case MemoryDataType::kPassportName:
+    case MemoryDataType::kPassportCountry:
+    case MemoryDataType::kPassportIssueDate:
+    case MemoryDataType::kPassportExpirationDate:
+    case MemoryDataType::kFlightReservationFlightNumber:
+    case MemoryDataType::kFlightReservationTicketNumber:
+    case MemoryDataType::kFlightReservationConfirmationCode:
+    case MemoryDataType::kFlightReservationPassengerName:
+    case MemoryDataType::kFlightReservationDepartureAirport:
+    case MemoryDataType::kFlightReservationArrivalAirport:
+    case MemoryDataType::kFlightReservationDepartureDate:
+    case MemoryDataType::kFlightReservationArrivalDate:
+    case MemoryDataType::kNationalIdCardName:
+    case MemoryDataType::kNationalIdCardCountry:
+    case MemoryDataType::kNationalIdCardIssueDate:
+    case MemoryDataType::kNationalIdCardExpirationDate:
+    case MemoryDataType::kDriversLicenseName:
+    case MemoryDataType::kDriversLicenseState:
+    case MemoryDataType::kDriversLicenseIssueDate:
+    case MemoryDataType::kDriversLicenseExpirationDate:
+    case MemoryDataType::kRedressNumberName:
+    case MemoryDataType::kKnownTravelerNumberName:
+    case MemoryDataType::kKnownTravelerNumberExpirationDate:
+    case MemoryDataType::kCreditCardExpirationDate:
+    case MemoryDataType::kCreditCardNameOnCard:
+    case MemoryDataType::kCreditCardNickname:
+    case MemoryDataType::kOrderId:
+    case MemoryDataType::kOrderAccount:
+    case MemoryDataType::kOrderDate:
+    case MemoryDataType::kShipmentShippedDate:
+    case MemoryDataType::kOrderMerchantName:
+    case MemoryDataType::kOrderMerchantDomain:
+    case MemoryDataType::kOrderProductNames:
+    case MemoryDataType::kOrderGrandTotal:
+    case MemoryDataType::kShipmentTrackingNumber:
+    case MemoryDataType::kShipmentAssociatedOrderId:
+    case MemoryDataType::kShipmentDeliveryAddress:
+    case MemoryDataType::kShipmentDeliveryZipCode:
+    case MemoryDataType::kShipmentCarrierName:
+    case MemoryDataType::kShipmentCarrierDomain:
+    case MemoryDataType::kShipmentEstimatedDeliveryDate:
+    case MemoryDataType::kUnknown:
+      NOTREACHED();
   }
-  for (const EntryMetadata& metadata : metadata_list) {
-    if (metadata.type != MemoryDataType::kUnknown) {
-      process_attribute(metadata.type, base::UTF16ToUTF8(metadata.value),
-                        metadata.typed_value);
-    }
-  }
-
-  return entity;
 }
 
 MemoryDataType AttributeTypeToMemoryDataType(AttributeType type) {
@@ -661,12 +450,23 @@ std::u16string GetMemoryDataTypeNameForI18n(MemoryDataType type) {
       return u"Name on card";
     case MemoryDataType::kCreditCardNickname:
       return u"Card Nickname";
-    // Special handling for arrival date because it is present in
-    // `MemoryDataType` but does not have a corresponding AutofillAi
-    // `AttributeType`.
+    // Special handling for types that are present in `MemoryDataType` but do
+    // not have a corresponding AutofillAi `AttributeType`.
     case MemoryDataType::kFlightReservationArrivalDate:
       return l10n_util::GetStringUTF16(
           IDS_AUTOFILL_AI_FLIGHT_RESERVATION_ARRIVAL_DATE_ATTRIBUTE_NAME);
+    case MemoryDataType::kShipmentDeliveryAddress:
+      return l10n_util::GetStringUTF16(
+          IDS_AUTOFILL_AI_SHIPMENT_DELIVERY_ADDRESS_ATTRIBUTE_NAME);
+    case MemoryDataType::kShipmentEstimatedDeliveryDate:
+      return l10n_util::GetStringUTF16(
+          IDS_AUTOFILL_AI_SHIPMENT_ESTIMATED_DELIVERY_DATE_ATTRIBUTE_NAME);
+    case MemoryDataType::kShipmentAssociatedOrderId:
+      return l10n_util::GetStringUTF16(
+          IDS_AUTOFILL_AI_SHIPMENT_ASSOCIATED_ORDER_ID_ATTRIBUTE_NAME);
+    case MemoryDataType::kOrderGrandTotal:
+      return l10n_util::GetStringUTF16(
+          IDS_AUTOFILL_AI_ORDER_GRAND_TOTAL_ATTRIBUTE_NAME);
     // Attribute types:
     case MemoryDataType::kVehicleMake:
     case MemoryDataType::kVehicleModel:
@@ -708,19 +508,16 @@ std::u16string GetMemoryDataTypeNameForI18n(MemoryDataType type) {
     case MemoryDataType::kOrderMerchantName:
     case MemoryDataType::kOrderMerchantDomain:
     case MemoryDataType::kOrderProductNames:
-    case MemoryDataType::kOrderGrandTotal:
     case MemoryDataType::kShipmentTrackingNumber:
-    case MemoryDataType::kShipmentAssociatedOrderId:
-    case MemoryDataType::kShipmentDeliveryAddress:
     case MemoryDataType::kShipmentDeliveryZipCode:
     case MemoryDataType::kShipmentCarrierName:
     case MemoryDataType::kShipmentCarrierDomain:
-    case MemoryDataType::kShipmentEstimatedDeliveryDate:
     case MemoryDataType::kShipmentShippedDate: {
       std::optional<AttributeType> attribute_type = ToAttributeType(type);
       return attribute_type ? attribute_type->GetNameForI18n() : u"";
     }
   }
+  NOTREACHED();
 }
 
 std::string_view MemoryDataTypeToStringView(MemoryDataType type) {
@@ -1033,11 +830,11 @@ std::vector<MemoryEntrySource> ExtractSources(
   for (const personal_context::proto::SourceReference& proto_source :
        proto_result.sources()) {
     if (proto_source.has_gmail()) {
-      std::string_view message_url = proto_source.gmail().message_url();
+      GURL message_url = GetGmailSourceUrl(proto_source.gmail());
       sources.emplace_back(MemoryEntrySourceType::kGmail,
-                           message_url.empty()
+                           message_url.is_empty()
                                ? std::nullopt
-                               : std::make_optional<std::string>(message_url));
+                               : std::make_optional(message_url.spec()));
     } else if (proto_source.has_photos()) {
       std::string_view photos_url = proto_source.photos().photos_url();
       sources.emplace_back(MemoryEntrySourceType::kPhotos,
@@ -1099,7 +896,6 @@ MemorySearchResult ConvertToMemorySearchResult(
       proto_result.relevance_score(), std::move(primary_typed_value));
   pcontext_result.sources = ExtractSources(proto_result);
   pcontext_result.metadata_list = ExtractMetadata(proto_result, app_locale);
-  pcontext_result.is_obfuscated = IsSpiiMemoryDataType(memory_data_type);
   return pcontext_result;
 }
 
@@ -1118,99 +914,6 @@ std::vector<MemorySearchResult> ExtractRemoteResults(
     }
   }
   return remote_results;
-}
-
-std::optional<std::u16string> GetUnmaskedPiiFromEntity(
-    const personal_context::proto::Entity& entity,
-    MemoryDataType data_type) {
-  switch (data_type) {
-    case MemoryDataType::kPassportNumber:
-      if (entity.has_passport()) {
-        return base::UTF8ToUTF16(entity.passport().number());
-      }
-      break;
-    case MemoryDataType::kDriversLicenseNumber:
-      if (entity.has_drivers_license()) {
-        return base::UTF8ToUTF16(entity.drivers_license().number());
-      }
-      break;
-    case MemoryDataType::kNationalIdCardNumber:
-      if (entity.has_national_id()) {
-        return base::UTF8ToUTF16(entity.national_id().number());
-      }
-      break;
-    case MemoryDataType::kKnownTravelerNumberNumber:
-      if (entity.has_known_traveler_number()) {
-        return base::UTF8ToUTF16(entity.known_traveler_number().number());
-      }
-      break;
-    case MemoryDataType::kUnknown:
-    case MemoryDataType::kNameFull:
-    case MemoryDataType::kAddressFull:
-    case MemoryDataType::kAddressStreetAddress:
-    case MemoryDataType::kAddressCity:
-    case MemoryDataType::kAddressState:
-    case MemoryDataType::kAddressZip:
-    case MemoryDataType::kAddressCountry:
-    case MemoryDataType::kPhone:
-    case MemoryDataType::kEmail:
-    case MemoryDataType::kCompanyName:
-    case MemoryDataType::kIban:
-    case MemoryDataType::kIbanNickname:
-    case MemoryDataType::kVehicleMake:
-    case MemoryDataType::kVehicleModel:
-    case MemoryDataType::kVehicleYear:
-    case MemoryDataType::kVehicleOwner:
-    case MemoryDataType::kVehiclePlateNumber:
-    case MemoryDataType::kVehiclePlateState:
-    case MemoryDataType::kVehicleVin:
-    case MemoryDataType::kPassportName:
-    case MemoryDataType::kPassportCountry:
-    case MemoryDataType::kPassportIssueDate:
-    case MemoryDataType::kPassportExpirationDate:
-    case MemoryDataType::kFlightReservationFlightNumber:
-    case MemoryDataType::kFlightReservationTicketNumber:
-    case MemoryDataType::kFlightReservationConfirmationCode:
-    case MemoryDataType::kFlightReservationPassengerName:
-    case MemoryDataType::kFlightReservationDepartureAirport:
-    case MemoryDataType::kFlightReservationArrivalAirport:
-    case MemoryDataType::kFlightReservationDepartureDate:
-    case MemoryDataType::kFlightReservationArrivalDate:
-    case MemoryDataType::kShipmentTrackingNumber:
-    case MemoryDataType::kShipmentAssociatedOrderId:
-    case MemoryDataType::kShipmentDeliveryAddress:
-    case MemoryDataType::kShipmentDeliveryZipCode:
-    case MemoryDataType::kShipmentCarrierName:
-    case MemoryDataType::kShipmentCarrierDomain:
-    case MemoryDataType::kShipmentEstimatedDeliveryDate:
-    case MemoryDataType::kShipmentShippedDate:
-    case MemoryDataType::kNationalIdCardName:
-    case MemoryDataType::kNationalIdCardCountry:
-    case MemoryDataType::kNationalIdCardIssueDate:
-    case MemoryDataType::kNationalIdCardExpirationDate:
-    case MemoryDataType::kRedressNumberName:
-    case MemoryDataType::kRedressNumberNumber:
-    case MemoryDataType::kKnownTravelerNumberName:
-    case MemoryDataType::kKnownTravelerNumberExpirationDate:
-    case MemoryDataType::kDriversLicenseName:
-    case MemoryDataType::kDriversLicenseState:
-    case MemoryDataType::kDriversLicenseIssueDate:
-    case MemoryDataType::kDriversLicenseExpirationDate:
-    case MemoryDataType::kOrderId:
-    case MemoryDataType::kOrderAccount:
-    case MemoryDataType::kOrderDate:
-    case MemoryDataType::kOrderMerchantName:
-    case MemoryDataType::kOrderMerchantDomain:
-    case MemoryDataType::kOrderProductNames:
-    case MemoryDataType::kOrderGrandTotal:
-    case MemoryDataType::kCreditCardNumber:
-    case MemoryDataType::kCreditCardExpirationDate:
-    case MemoryDataType::kCreditCardSecurityCode:
-    case MemoryDataType::kCreditCardNameOnCard:
-    case MemoryDataType::kCreditCardNickname:
-      return std::nullopt;
-  }
-  return std::nullopt;
 }
 
 AttributeType GetPrimaryAttributeType(EntityType entity_type) {
@@ -1584,6 +1287,35 @@ MemoryDataTypeCategory GetMemoryDataTypeCategory(MemoryDataType type) {
   NOTREACHED();
 }
 
+std::optional<EntityType> ToEntityType(MemoryDataType type) {
+  switch (GetMemoryDataTypeCategory(type)) {
+    case MemoryDataTypeCategory::kPassport:
+      return EntityType(EntityTypeName::kPassport);
+    case MemoryDataTypeCategory::kDriversLicense:
+      return EntityType(EntityTypeName::kDriversLicense);
+    case MemoryDataTypeCategory::kNationalIdCard:
+      return EntityType(EntityTypeName::kNationalIdCard);
+    case MemoryDataTypeCategory::kFlightReservation:
+      return EntityType(EntityTypeName::kFlightReservation);
+    case MemoryDataTypeCategory::kKnownTravelerNumber:
+      return EntityType(EntityTypeName::kKnownTravelerNumber);
+    case MemoryDataTypeCategory::kRedressNumber:
+      return EntityType(EntityTypeName::kRedressNumber);
+    case MemoryDataTypeCategory::kVehicle:
+      return EntityType(EntityTypeName::kVehicle);
+    case MemoryDataTypeCategory::kOrder:
+      return EntityType(EntityTypeName::kOrder);
+    case MemoryDataTypeCategory::kShipment:
+      return EntityType(EntityTypeName::kShipment);
+    case MemoryDataTypeCategory::kContactInfo:
+    case MemoryDataTypeCategory::kCreditCard:
+    case MemoryDataTypeCategory::kIban:
+    case MemoryDataTypeCategory::kUnknown:
+      return std::nullopt;
+  }
+  NOTREACHED();
+}
+
 std::optional<AutofillClient::AutofillPolicyDataCategory>
 ToAutofillPolicyDataCategory(MemoryDataType type) {
   switch (type) {
@@ -1752,26 +1484,6 @@ Suggestion::Icon GetSuggestionIcon(MemoryDataType type, bool is_autofill_only) {
     case MemoryDataTypeCategory::kUnknown:
       return is_autofill_only ? Suggestion::Icon::kNoIcon
                               : Suggestion::Icon::kTextSpark;
-  }
-}
-
-bool IsDynamicTransactionType(MemoryDataType data_type) {
-  switch (GetMemoryDataTypeCategory(data_type)) {
-    case MemoryDataTypeCategory::kOrder:
-    case MemoryDataTypeCategory::kShipment:
-      return true;
-    case MemoryDataTypeCategory::kContactInfo:
-    case MemoryDataTypeCategory::kCreditCard:
-    case MemoryDataTypeCategory::kIban:
-    case MemoryDataTypeCategory::kPassport:
-    case MemoryDataTypeCategory::kDriversLicense:
-    case MemoryDataTypeCategory::kNationalIdCard:
-    case MemoryDataTypeCategory::kVehicle:
-    case MemoryDataTypeCategory::kFlightReservation:
-    case MemoryDataTypeCategory::kKnownTravelerNumber:
-    case MemoryDataTypeCategory::kRedressNumber:
-    case MemoryDataTypeCategory::kUnknown:
-      return false;
   }
 }
 

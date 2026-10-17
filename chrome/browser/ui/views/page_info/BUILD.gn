@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//components/safe_browsing/buildflags.gni")
 import("//extensions/buildflags/buildflags.gni")
 
 source_set("page_info") {
@@ -75,7 +76,6 @@ source_set("impl") {
     "safety_tip_page_info_bubble_view.cc",
     "security_information_view.cc",
     "star_rating_view.cc",
-    "suspicious_site_bubble_view.cc",
     "web_view_side_panel_view.cc",
   ]
 
@@ -87,7 +87,7 @@ source_set("impl") {
     "//chrome/browser/file_system_access",
     "//chrome/browser/page_info",
     "//chrome/browser/safe_browsing",
-    "//chrome/browser/safe_browsing/suspicious_site_warnings",
+    "//chrome/browser/ui:browser_window_header",
     "//chrome/browser/ui:chrome_pages",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/browser_web_contents_delegate",
@@ -101,13 +101,13 @@ source_set("impl") {
     "//chrome/browser/ui/views/accessibility",
     "//chrome/browser/ui/views/controls",
     "//chrome/browser/ui/views/file_system_access",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/vr",
     "//components/content_settings/browser/ui",
     "//components/dom_distiller/core",
     "//components/omnibox/browser:vector_icons",
     "//components/page_info/core",
     "//components/privacy_sandbox:features",
-    "//components/safe_browsing/core/browser:suspicious_site_warning_allowlist",
     "//components/strings:components_branded_strings_grit",
     "//components/strings:components_strings_grit",
     "//components/strings:privacy_sandbox_strings_grit",
@@ -122,6 +122,14 @@ source_set("impl") {
   if (enable_extensions_core) {
     deps += [ "//chrome/browser/extensions" ]
   }
+
+  if (safe_browsing_mode != 0) {
+    sources += [ "suspicious_site_bubble_view.cc" ]
+    deps += [
+      "//chrome/browser/safe_browsing/suspicious_site_warnings",
+      "//components/safe_browsing/core/browser:suspicious_site_warning_allowlist",
+    ]
+  }
 }
 
 source_set("unit_tests") {
@@ -131,26 +139,34 @@ source_set("unit_tests") {
     "page_info_bubble_view_unittest.cc",
     "page_info_cookies_content_view_unittest.cc",
     "page_info_permission_content_view_unittest.cc",
+    "page_info_security_content_view_unittest.cc",
     "safety_tip_page_info_bubble_view_unittest.cc",
     "star_rating_view_unittest.cc",
-    "suspicious_site_bubble_view_unittest.cc",
   ]
   deps = [
     ":page_info",
     "//base/test:test_support",
+    "//chrome/browser/bluetooth",
     "//chrome/browser/content_settings",
     "//chrome/browser/privacy_sandbox:test_support",
     "//chrome/browser/ui/hats:test_support",
     "//chrome/browser/usb",
     "//chrome/test:test_support",
+    "//chrome/test/base:chrome_render_view_host_test_harness",
+    "//chrome/test/base:testing_browser_process",
     "//components/media_effects/test:test_support",
     "//components/omnibox/browser:vector_icons",
-    "//components/safe_browsing/core/browser:suspicious_site_warning_allowlist",
     "//content/test:test_support",
     "//testing/gtest",
+    "//third_party/blink/public/common",
     "//ui/views:test_support",
   ]
   configs += [ "//build/config/compiler:no_exit_time_destructors" ]
+
+  if (safe_browsing_mode != 0) {
+    sources += [ "suspicious_site_bubble_view_unittest.cc" ]
+    deps += [ "//components/safe_browsing/core/browser:suspicious_site_warning_allowlist" ]
+  }
 }
 
 source_set("browser_tests") {
@@ -163,7 +179,6 @@ source_set("browser_tests") {
     "page_info_bubble_view_dialog_browsertest.cc",
     "page_info_bubble_view_sync_browsertest.cc",
     "safety_tip_page_info_bubble_view_browsertest.cc",
-    "suspicious_site_bubble_view_browsertest.cc",
   ]
   deps = [
     ":page_info",
@@ -174,6 +189,8 @@ source_set("browser_tests") {
     "//chrome/browser/sync",
     "//chrome/browser/sync/test/integration:sync_integration_test_support",
     "//chrome/browser/ui",
+    "//chrome/browser/ui:browser_commands",
+    "//chrome/browser/ui:browser_window_header",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui:view_ids",
     "//chrome/browser/ui/file_system_access",
@@ -181,19 +198,26 @@ source_set("browser_tests") {
     "//chrome/browser/ui/side_panel",
     "//chrome/browser/ui/side_panel:side_panel_views_dependent",
     "//chrome/browser/ui/views:file_system_access_test_support",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/ui/views/frame:contents_container_outline",
+    "//chrome/browser/ui/views/frame:contents_container_view",
+    "//chrome/browser/ui/views/frame:multi_contents_view",
     "//chrome/browser/web_applications:web_applications_test_support",
     "//chrome/test:test_support",
     "//chrome/test:test_support_ui",
     "//components/lookalikes/core:proto_gen",
     "//components/lookalikes/core:safety_tips",
     "//components/safe_browsing/content/browser/password_protection:test_support",
-    "//components/safe_browsing/core/browser:suspicious_site_warning_allowlist",
     "//content/test:test_support",
     "//testing/gtest",
     "//ui/events:test_support",
   ]
   configs += [ "//build/config/compiler:no_exit_time_destructors" ]
+
+  if (safe_browsing_mode != 0) {
+    sources += [ "suspicious_site_bubble_view_browsertest.cc" ]
+    deps += [ "//components/safe_browsing/core/browser:suspicious_site_warning_allowlist" ]
+  }
 }
 
 source_set("interactive_ui_tests") {
@@ -204,6 +228,7 @@ source_set("interactive_ui_tests") {
     ":page_info",
     "//base",
     "//chrome/browser/ui",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/test:test_support",
     "//chrome/test:test_support_ui",
     "//content/test:test_support",

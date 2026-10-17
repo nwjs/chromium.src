@@ -4,9 +4,11 @@
 
 #include "components/safe_browsing/core/browser/web_ui/web_ui_info_singleton.h"
 
+#include "base/feature_list.h"
 #include "base/functional/callback_helpers.h"
 #include "base/strings/strcat.h"
 #include "components/safe_browsing/core/browser/web_ui/web_ui_info_singleton_event_observer.h"
+#include "components/safe_browsing/core/common/features.h"
 #include "components/sync/protocol/user_event_specifics.pb.h"
 #include "services/network/public/mojom/network_context.mojom.h"
 
@@ -16,7 +18,7 @@ WebUIInfoSingleton::WebUIInfoSingleton() = default;
 
 WebUIInfoSingleton::~WebUIInfoSingleton() = default;
 
-bool WebUIInfoSingleton::HasListener() {
+bool WebUIInfoSingleton::HasListener() const {
   return has_test_listener_ || !webui_instances_.empty();
 }
 
@@ -297,6 +299,29 @@ void WebUIInfoSingleton::ClearHPRTLookupPings() {
   std::map<int, V5::SearchHashesResponse>().swap(hprt_lookup_responses_);
 }
 
+void WebUIInfoSingleton::AddToV5GetHashLookups(
+    const V5GetHashProtocolManager::V5GetHashLookup& lookup) {
+  if (!base::FeatureList::IsEnabled(kLocalListsUseSBv5WebUI)) {
+    return;
+  }
+
+  if (!HasListener()) {
+    return;
+  }
+
+  for (safe_browsing::WebUIInfoSingletonEventObserver* webui_listener :
+       webui_instances_) {
+    webui_listener->NotifyV5GetHashLookupJsListener(lookup);
+  }
+
+  v5_get_hash_lookups_.push_back(lookup);
+}
+
+void WebUIInfoSingleton::ClearV5GetHashLookups() {
+  std::vector<V5GetHashProtocolManager::V5GetHashLookup>().swap(
+      v5_get_hash_lookups_);
+}
+
 void WebUIInfoSingleton::LogMessage(const std::string& message) {
   if (!HasListener()) {
     return;
@@ -521,6 +546,7 @@ void WebUIInfoSingleton::MaybeClearData() {
     ClearPGPings();
     ClearURTLookupPings();
     ClearHPRTLookupPings();
+    ClearV5GetHashLookups();
     ClearLogMessages();
     ClearReportingEvents();
 

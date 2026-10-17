@@ -81,11 +81,7 @@ suite('PrivacyPage', function() {
     const dialog =
         page.shadowRoot!.querySelector('settings-clear-browsing-data-dialog');
     assertTrue(!!dialog);
-    dialog.dispatchEvent(new CustomEvent('browsing-data-deleted', {
-      bubbles: true,
-      composed: true,
-      detail: {deletionConfirmationText: 'test'},
-    }));
+    dialog.fire('browsing-data-deleted', {deletionConfirmationText: 'test'});
     dialog.$.deleteBrowsingDataDialog.close();
     await eventToPromise('close', dialog);
     flush();
@@ -104,7 +100,7 @@ suite('PrivacyPage', function() {
 });
 
 
-suite(`CookiesSubpage`, function() {
+suite('CookiesSubpage', function() {
   let page: SettingsPrivacyPageElement;
   let settingsPrefs: SettingsPrefsElement;
 

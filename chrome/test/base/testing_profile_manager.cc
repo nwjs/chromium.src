@@ -35,7 +35,7 @@
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_types.h"
 #include "components/account_id/account_id.h"
-#include "components/user_manager/fake_user_manager.h"
+#include "components/user_manager/test_helper.h"
 #else
 #include "components/policy/core/common/cloud/cloud_policy_manager.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
@@ -101,12 +101,14 @@ TestingProfile* TestingProfileManager::CreateTestingProfile(
   // Create the profile and register it.
   TestingProfile::Builder builder;
   builder.SetPrefService(std::move(prefs));
-  if (is_supervised_profile)
+  if (is_supervised_profile) {
     builder.SetIsSupervisedProfile();
+  }
   builder.SetProfileName(profile_name);
   builder.SetIsNewProfile(is_new_profile.value_or(false));
-  if (policy_service)
+  if (policy_service) {
     builder.SetPolicyService(std::move(*policy_service));
+  }
   if (user_cloud_policy_manager) {
 #if BUILDFLAG(IS_CHROMEOS)
     builder.SetUserCloudPolicyManagerAsh(std::move(user_cloud_policy_manager));
@@ -274,7 +276,6 @@ void TestingProfileManager::DeleteAllTestingProfiles() {
   }
 }
 
-
 void TestingProfileManager::DeleteGuestProfile() {
   DCHECK(called_set_up_);
 
@@ -307,12 +308,13 @@ base::FilePath TestingProfileManager::GetProfilePath(
 #if BUILDFLAG(IS_CHROMEOS)
   if (ash::IsUserBrowserContextBaseName(base::FilePath(profile_name))) {
     const std::string fake_email =
-        profile_name.find('@') == std::string::npos
+        (profile_name.find('@') == std::string::npos &&
+         profile_name != kGuestProfileName)
             ? base::ToLowerASCII(profile_name) + "@test"
             : profile_name;
     profile_path =
         profile_path.Append(ash::ProfileHelper::Get()->GetUserProfileDir(
-            user_manager::FakeUserManager::GetFakeUsernameHash(
+            user_manager::TestHelper::GetFakeUsernameHash(
                 AccountId::FromUserEmail(fake_email))));
   } else {
     profile_path = profile_path.AppendASCII(profile_name);

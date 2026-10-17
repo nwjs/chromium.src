@@ -120,6 +120,8 @@ def _const_value(field):
 
 
 def _return_type_cpp_non_mirror(return_type):
+  if return_type.is_safe_pointer():
+    return return_type.to_backend_cpp_type()
   if ret := return_type.converted_type:
     return ret
   ret = return_type.to_cpp()
@@ -129,6 +131,10 @@ def _return_type_cpp_non_mirror(return_type):
 
 
 def _param_type_cpp_non_mirror(java_type):
+  if java_type.is_safe_pointer():
+    if java_type.java_class == java_types.JNI_UNIQUE_PTR_CLASS:
+      return f'{java_type.to_backend_cpp_type()}&&'
+    return java_type.to_backend_cpp_type()
   if type_str := java_type.converted_type:
     if java_type.is_primitive():
       return type_str
@@ -144,6 +150,8 @@ def _param_type_cpp_non_mirror(java_type):
 
 
 def _param_type_cpp_mirror(java_type):
+  if java_type.is_safe_pointer():
+    return _param_type_cpp_non_mirror(java_type)
   if java_type.enable_mirror():
     jobject_type = java_type.to_mirror_cpp()
     return (f'const ::jni_zero::JavaRef<{jobject_type}>&')
@@ -154,6 +162,24 @@ def _prep_param(sb, param):
   """Returns the snippet to use for the parameter."""
   ret = param.cpp_name()
   java_type = param.java_type
+
+  if java_type.is_safe_pointer():
+    converted_name = f'converted_{param.name}'
+    if java_type.java_class == java_types.JNI_PTR_CLASS:
+      sb(f'::jni_zero::ScopedJavaLocalRef<jobject> {converted_name} = '
+         f'::jni_zero::internal::CreateJavaJniPtr(env, '
+         f'reinterpret_cast<jlong>({ret}));\n')
+    elif java_type.java_class == java_types.JNI_UNIQUE_PTR_CLASS:
+      sb(f'jlong {converted_name}_deleter = {ret}.deleter_address();\n')
+      sb(f'::jni_zero::ScopedJavaLocalRef<jobject> {converted_name} = '
+         f'::jni_zero::internal::CreateJavaJniUniquePtr(env, '
+         f'reinterpret_cast<jlong>({ret}.release()), {converted_name}_deleter);\n'
+         )
+    elif java_type.java_class == java_types.JNI_RAW_PTR_CLASS:
+      sb(f'::jni_zero::ScopedJavaLocalRef<jobject> {converted_name} = '
+         f'::jni_zero::internal::CreateJavaJniRawPtr(env, '
+         f'reinterpret_cast<jlong>({ret}.get()));\n')
+    return f'{converted_name}.obj()'
 
   if converted_type := java_type.converted_type:
     if not java_type.is_primitive():
@@ -418,19 +444,38 @@ def method_definition(sb,
         sb(f'env->{_jni_function_name(cbn)}')
       sb.param_list(call_args)
 
-    if not is_void:
-      if return_type.is_primitive() or return_type.converted_type:
-        with sb.statement():
-          sb('return ')
-          if return_type.converted_type:
-            convert_type.from_jni_expression(sb,
-                                             return_rvalue,
-                                             return_type,
-                                             release_ref=True)
-          else:
-            sb(return_rvalue)
-        return
+    for p in cbn.params:
+      if (p.java_type.is_safe_pointer()
+          and p.java_type.java_class == java_types.JNI_PTR_CLASS):
+        converted_name = f'converted_{p.name}'
+        sb(f'::jni_zero::internal::ReleaseJavaJniPtr(env, {converted_name});\n')
 
+    if is_void:
+      return
+
+    if return_type.is_safe_pointer():
+      inner_type = return_type.generics[0]
+      inner_cpp = inner_type.converted_type or inner_type.to_backend_cpp_type()
+      raw = (f'reinterpret_cast<{inner_cpp}*>('
+             f'::jni_zero::internal::GetJavaJniPtrRawValue(env, '
+             f'::jni_zero::AdoptRef(env, {return_rvalue})))')
+      if return_type.java_class != java_types.JNI_PTR_CLASS:
+        raise ValueError(
+            f'{return_type.java_class.name} cannot be a @CalledByNative '
+            f'return type; this should have been rejected during parsing.')
+      with sb.statement():
+        sb(f'return {raw}')
+    elif return_type.is_primitive() or return_type.converted_type:
+      with sb.statement():
+        sb('return ')
+        if return_type.converted_type:
+          convert_type.from_jni_expression(sb,
+                                           return_rvalue,
+                                           return_type,
+                                           release_ref=True)
+        else:
+          sb(return_rvalue)
+    else:
       jobject_type = return_type.to_cpp()
       if jobject_type != 'jobject':
         return_rvalue = '_ret2'
@@ -673,7 +718,12 @@ def _mirrored_cpp_function(sb, java_type, cbn):
           plist.append('*this_obj')
         for p in cbn.params:
           expr = p.cpp_name()
-          if p.java_type.converted_type:
+          if p.java_type.is_safe_pointer():
+            # JniPtr (T*) and JniRawPtr are trivially copyable and passed by
+            # value; only JniUniquePtr is move-only (&&) and needs std::move().
+            if p.java_type.java_class == java_types.JNI_UNIQUE_PTR_CLASS:
+              expr = f'std::move({expr})'
+          elif p.java_type.converted_type:
             if not p.java_type.is_primitive():
               expr = f'std::move({expr})'
           plist.append(expr)

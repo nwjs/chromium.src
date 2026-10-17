@@ -20,9 +20,7 @@ std::vector<StaticAppId> GetDefaultPinnedApps(
   std::vector<StaticAppId> app_ids;
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  if (chromeos::features::IsGeminiAppPreinstallEnabled()) {
-    app_ids.push_back(ash::kGeminiAppId);
-  }
+  app_ids.push_back(ash::kGeminiAppId);
   app_ids.push_back(ash::kNotebookLmAppId);
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
@@ -39,10 +37,6 @@ std::vector<StaticAppId> GetDefaultPinnedApps(
                                     ash::kYoutubeAppId,
                                     arc::kGooglePhotosAppId,
                                 });
-
-  if (chromeos::features::IsCloudGamingDeviceEnabled()) {
-    app_ids.push_back(ash::kNvidiaGeForceNowAppId);
-  }
 
   return app_ids;
 }

@@ -51,6 +51,10 @@ using WrlRuntimeDispatchClass = Microsoft::WRL::RuntimeClass<
 
 }  // namespace
 
+namespace test {
+class LegacyAppCommandWebImplTest;
+}  // namespace test
+
 // The `IDispatchImpl` class implements `IDispatch` for interface
 // `TDualInterface`, where `TDualInterface` is a dual interface. The IDispatch
 // implementation relies on the typelib/typeinfo for interface `TDualInterface`.
@@ -244,8 +248,9 @@ class LegacyProcessLauncherImpl
 // elevated.
 //
 // Parameters can be placeholders (%1-%9) that can be filled by the numbered
-// parameters in `IAppCommandWeb::execute`. Literal `%` characters must be
-// escaped by doubling them.
+// parameters in `IAppCommandWeb::execute`. `%CALLER_SID%` (case-sensitive) can
+// also be used and is replaced with the caller's SID (in SDDL format). Literal
+// `%` characters must be escaped by doubling them.
 //
 // If parameters to `IAppCommandWeb::execute` are AA and BB
 // respectively, a command format of:
@@ -286,6 +291,19 @@ class LegacyAppCommandWebImpl : public IDispatchImpl<IAppCommandWeb> {
                                      &LegacyAppCommandWebImpl::SendPing));
 
   // Overrides for IAppCommandWeb.
+  //
+  // `get_status` returns:
+  // * `COMMAND_STATUS_INIT` if the command has not been launched, including
+  //   when `execute` failed to launch it.
+  // * `COMMAND_STATUS_RUNNING` while the command is being monitored.
+  // * `COMMAND_STATUS_COMPLETE` if the command exited while being monitored;
+  //   `get_exitCode` then returns `S_OK` and the exit code.
+  // * `COMMAND_STATUS_ERROR` if monitoring timed out before the command exited.
+  //   The command process is not terminated. `get_exitCode` returns `S_FALSE`
+  //   and this status does not change even if the process exits later.
+  //
+  // `get_exitCode` returns `S_FALSE` and leaves `exit_code` unmodified unless
+  // the status is `COMMAND_STATUS_COMPLETE`.
   IFACEMETHODIMP get_status(UINT* status) override;
   IFACEMETHODIMP get_exitCode(DWORD* exit_code) override;
   IFACEMETHODIMP get_output(BSTR* output) override;
@@ -293,8 +311,10 @@ class LegacyAppCommandWebImpl : public IDispatchImpl<IAppCommandWeb> {
   // Executes the AppCommand with the optional substitutions provided. `execute`
   // fails if the number of non-empty VARIANT substitutions provided to
   // `execute` are less than the number of parameter placeholders in the
-  // loaded-from-the-registry command format. Each placeholder %N is replaced
-  // with the corresponding `substitutionN`.
+  // loaded-from-the-registry command format, or if `%CALLER_SID%` is present
+  // but the caller's SID cannot be determined. Each placeholder %N is replaced
+  // with the corresponding `substitutionN`. `%CALLER_SID%` is replaced with the
+  // caller's SID.
   // An empty (VT_EMPTY) or invalid (non BSTR) substitution causes the following
   // substitutions to be ignored; for example, if `substitution2` is VT_EMPTY,
   // then `substitution3` through `substitution9` will be ignored.
@@ -314,7 +334,7 @@ class LegacyAppCommandWebImpl : public IDispatchImpl<IAppCommandWeb> {
   }
 
  private:
-  friend class LegacyAppCommandWebImplTest;
+  friend class test::LegacyAppCommandWebImplTest;
 
   static void SendPing(UpdaterScope scope,
                        const std::string& app_id,

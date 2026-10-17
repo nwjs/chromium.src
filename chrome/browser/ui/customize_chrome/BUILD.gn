@@ -4,11 +4,6 @@
 
 import("//ui/webui/webui_features.gni")
 
-if (is_android) {
-  import("//build/config/android/rules.gni")
-  import("//third_party/jni_zero/jni_zero.gni")
-}
-
 assert(enable_webui_ntp)
 
 source_set("customize_chrome") {
@@ -34,8 +29,11 @@ source_set("customize_chrome_base") {
   public_deps = [ ":customize_chrome" ]
 
   deps = [
+    "//chrome/browser/search/background",
+
     # Does not actually depend on //ui/views for is_android.
     "//chrome/browser/ui/side_panel:side_panel_views_dependent",
+    "//chrome/browser/ui/webui/side_panel/customize_chrome:customize_chrome_ui",
   ]
 
   if (is_android) {
@@ -44,27 +42,40 @@ source_set("customize_chrome_base") {
       "side_panel_controller_android.h",
     ]
     deps += [
-      ":jni_headers",
+      "//chrome/browser/android/thin_webview",
+      "//chrome/browser/ui/side_panel/android",
       "//ui/android",
-    ]
-  } else {
-    deps += [
-      "//chrome/browser/search/background",
-      "//chrome/browser/ui/webui/side_panel/customize_chrome:customize_chrome_ui",
     ]
   }
 }
 
 if (is_android) {
-  generate_jni("jni_headers") {
-    sources = [ "android/java/src/org/chromium/chrome/browser/ui/customize_chrome/CustomizeChromeSidePanelHelper.java" ]
-  }
-
-  android_library("java") {
-    sources = [ "android/java/src/org/chromium/chrome/browser/ui/customize_chrome/CustomizeChromeSidePanelHelper.java" ]
+  source_set("android_browsertests") {
+    testonly = true
+    visibility = [ "//chrome/test:*" ]
+    defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+    sources = [ "side_panel_controller_android_browsertest.cc" ]
     deps = [
-      "//third_party/jni_zero:jni_zero_java",
-      "//ui/android:ui_java",
+      ":customize_chrome_base",
+      "//base",
+      "//chrome/browser/android/thin_webview",
+      "//chrome/browser/tab_list",
+      "//chrome/browser/ui/browser_window",
+      "//chrome/browser/ui/side_panel",
+      "//chrome/browser/ui/side_panel:side_panel_views_dependent",
+      "//chrome/browser/ui/side_panel/test/android:browser_test_support",
+      "//components/input",
+      "//components/search",
+      "//components/sessions:session_id",
+      "//components/tabs:public",
+      "//content/public/browser",
+      "//content/test:test_support",
+      "//testing/gtest",
+      "//third_party/blink/public/common:headers",
+      "//third_party/jni_zero",
+      "//ui/android",
+      "//ui/base",
+      "//ui/events",
     ]
   }
 }

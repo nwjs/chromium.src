@@ -19,6 +19,7 @@
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/test/navigation_simulator.h"
 #include "content/public/test/web_contents_tester.h"
+#include "extensions/browser/api/constants.h"
 #include "extensions/browser/api_test_utils.h"
 #include "extensions/browser/guest_view/mime_handler_view/mime_handler_view_guest.h"
 #include "extensions/browser/mime_handler/mime_handler_stream_manager.h"
@@ -159,7 +160,8 @@ class PdfViewerPrivateApiUnitTest : public ChromeRenderViewHostTestHarness {
     manager->AddStreamContainer(
         embedder_host->GetFrameTreeNodeId(), "internal_id",
         extensions::mime_handler::GenerateSampleStreamContainer(1),
-        std::make_unique<pdf::PdfHandlerStreamDelegate>());
+        std::make_unique<pdf::PdfHandlerStreamDelegate>(),
+        mime_handler::kFakeNavigationId);
     manager->ClaimStreamInfoForTesting(embedder_host);
 
     // After navigation, the extension host needs to be appended again.
@@ -441,7 +443,7 @@ TEST_F(PdfViewerPrivateApiUnitTest, SaveToDriveNoActiveBrowser) {
 
   EXPECT_EQ(
       ErrorUtils::FormatErrorMessage(
-          ExtensionTabUtil::kTabNotFoundError,
+          kTabNotFoundError,
           base::NumberToString(save_to_drive::GetTabId(extension_host()))),
       api_test_utils::RunFunctionAndReturnError(function, R"(["ORIGINAL"])",
                                                 profile()));

@@ -12,8 +12,8 @@ namespace app_list {
 namespace {
 TEST(SearchControllerFactoryTest, LauncherSearchProviderTypes) {
   const int types = LauncherSearchProviderTypes();
-  EXPECT_FALSE(types & AutocompleteProvider::TYPE_DOCUMENT);
-  EXPECT_TRUE(types & AutocompleteProvider::TYPE_OPEN_TAB);
+  EXPECT_FALSE(types & static_cast<int>(AutocompleteProvider::Type::kDocument));
+  EXPECT_TRUE(types & static_cast<int>(AutocompleteProvider::Type::kOpenTab));
 }
 }  // namespace
 }  // namespace app_list

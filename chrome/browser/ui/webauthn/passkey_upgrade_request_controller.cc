@@ -46,6 +46,7 @@
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/sync/service/sync_service.h"
 #include "components/trusted_vault/trusted_vault_connection.h"
+#include "components/trusted_vault/trusted_vault_server_constants.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
@@ -69,6 +70,14 @@ PasskeyUpgradeRequestController::PasskeyUpgradeRequestController(
       enclave_manager_(
           EnclaveManagerFactory::GetAsEnclaveManagerForProfile(profile_)),
       enclave_request_callback_(enclave_request_callback) {
+  if (profile_->IsOffTheRecord() || profile_->IsGuestSession()) {
+    FinishRequest(PasskeyUpgradeResult::kOffTheRecord);
+    return;
+  }
+  if (!enclave_manager_) {
+    FinishRequest(PasskeyUpgradeResult::kEnclaveNotInitialized);
+    return;
+  }
   if (cmtg_key_requested) {
     cmtg_key_fetcher_ = std::make_unique<CmtgKeyFetcher>(
         CmtgDeviceKeyProviderFactory::GetForProfile(profile()),
@@ -114,7 +123,7 @@ void PasskeyUpgradeRequestController::TryUpgradePasswordToPasskey(
       // ContinuePendingUpgradeRequest().
       break;
     case EnclaveState::kError:
-      FinishRequest(PasskeyUpgradeResult::kEnclaveNotInitialized);
+      FinishRequest(*error_reason_);
       break;
     case EnclaveState::kReady:
       ContinuePendingUpgradeRequest();
@@ -275,10 +284,7 @@ PasskeyUpgradeRequestController::MaybeGetRenderFrameHost() const {
 void PasskeyUpgradeRequestController::OnEnclaveLoaded() {
   CHECK(enclave_manager_->IsLoaded());
   if (!enclave_manager_->IsReady()) {
-    enclave_state_ = EnclaveState::kError;
-    if (pending_request_) {
-      FinishRequest(PasskeyUpgradeResult::kEnclaveNotInitialized);
-    }
+    FinishRequest(PasskeyUpgradeResult::kEnclaveNotInitialized);
     return;
   }
 
@@ -287,14 +293,14 @@ void PasskeyUpgradeRequestController::OnEnclaveLoaded() {
 
   auto* rfh = MaybeGetRenderFrameHost();
   if (!rfh) {
-    enclave_state_ = EnclaveState::kError;
-    if (pending_request_) {
-      FinishRequest(PasskeyUpgradeResult::kEnclaveError);
-    }
+    FinishRequest(PasskeyUpgradeResult::kEnclaveError);
     return;
   }
+  // The identity manager is expected to be available because we know we're not
+  // on an off-the-record or guest profile.
   auto* const identity_manager =
       IdentityManagerFactory::GetForProfile(profile());
+  CHECK(identity_manager);
   scoped_refptr<network::SharedURLLoaderFactory> testing_url_loader =
       EnclaveManagerFactory::url_loader_override();
   scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory =
@@ -310,7 +316,7 @@ void PasskeyUpgradeRequestController::OnEnclaveLoaded() {
       identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin);
   download_account_state_request_ =
       conn->DownloadAuthenticationFactorsRegistrationState(
-          account,
+          account, trusted_vault::SecurityDomainId::kPasskeys,
           base::BindOnce(
               &PasskeyUpgradeRequestController::OnAccountStateDownloaded,
               weak_factory_.GetWeakPtr(), std::move(trusted_vault_conn)),
@@ -337,14 +343,18 @@ void PasskeyUpgradeRequestController::OnAccountStateDownloaded(
     return;
   }
 
-  enclave_state_ = EnclaveState::kError;
-  if (pending_request_) {
-    FinishRequest(PasskeyUpgradeResult::kSecurityDomainStateStale);
-  }
+  FinishRequest(PasskeyUpgradeResult::kSecurityDomainStateStale);
 }
 
 void PasskeyUpgradeRequestController::FinishRequest(
     PasskeyUpgradeResult result) {
+  if (!pending_request_) {
+    enclave_state_ = EnclaveState::kError;
+    error_reason_ = result;
+    return;
+  }
+  pending_request_ = false;
+
   FIDO_LOG(ERROR) << "Passkey upgrade request complete: "
                   << static_cast<int>(result);
 

@@ -33,18 +33,13 @@ source_set("impl") {
     "//chrome/browser/ui:url_identity",
     "//chrome/browser/ui/exclusive_access",
     "//chrome/browser/ui/immersive:immersive_mode_controller",
+    "//chrome/browser/ui/views/frame:top_container_view",
     "//components/fullscreen_control",
     "//components/viz/common",
     "//ui/base",
     "//ui/strings:ui_strings_grit",
     "//ui/views",
   ]
-
-  # exclusive_access_bubble_views.cc includes views/frame/top_container_view.h,
-  # which is still compiled in //chrome/browser/ui:ui. Reach it via
-  # browser_public_dependencies; the reverse edge is the
-  # allow_circular_includes_from entry on //chrome/browser/ui:ui.
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 }
 
 source_set("browser_tests") {
@@ -62,6 +57,7 @@ source_set("browser_tests") {
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/exclusive_access",
     "//chrome/browser/ui/views/frame",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/test:test_support",
     "//components/fullscreen_control",
     "//content/test:test_support",
@@ -83,6 +79,7 @@ source_set("interactive_ui_tests") {
     "//chrome/browser/ui/exclusive_access",
     "//chrome/browser/ui/exclusive_access:test_support",
     "//chrome/browser/ui/views/frame",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/test:test_support",
     "//content/test:test_support",
     "//ui/base:ozone_buildflags",

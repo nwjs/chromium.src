@@ -55,7 +55,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_prefs.h"
 #include "chrome/browser/ui/tabs/test_tab_strip_model_delegate.h"
-#include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
+#include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller_impl.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/test/user_education/mock_browser_user_education_interface.h"
@@ -441,8 +441,8 @@ class TabStatsTrackerTest : public ChromeRenderViewHostTestHarness {
             &mock_browser_window_interface_);
 
     vertical_tab_strip_state_controller_ =
-        std::make_unique<tabs::VerticalTabStripStateController>(
-            &mock_browser_window_interface_, &pref_service_, nullptr, nullptr,
+        std::make_unique<tabs::VerticalTabStripStateControllerImpl>(
+            mock_browser_window_interface_, &pref_service_, nullptr, nullptr,
             SessionID::InvalidValue(), std::nullopt, std::nullopt);
 
     static_cast<BrowserCollectionObserver*>(
@@ -1061,7 +1061,7 @@ TEST_F(TabStatsTrackerTest, HeartbeatMetricsFocusMode) {
 
   // Group tabs and focus the group.
   tab_groups::TabGroupId group_id = tab_strip_model_->AddToNewGroup({0, 1});
-  tab_strip_model_->SetFocusedGroup(group_id);
+  tab_strip_model_->EnterFocusMode(group_id);
   EXPECT_EQ(group_id, tab_strip_model_->GetFocusedGroup());
 
   tab_stats_tracker_->OnHeartbeatEvent();
@@ -1071,7 +1071,7 @@ TEST_F(TabStatsTrackerTest, HeartbeatMetricsFocusMode) {
       UmaStatsReportingDelegate::kFocusModeIsActiveHistogramName, 2);
 
   // Unfocus the group.
-  tab_strip_model_->SetFocusedGroup(std::nullopt);
+  tab_strip_model_->ExitFocusMode();
   EXPECT_FALSE(tab_strip_model_->GetFocusedGroup().has_value());
 
   tab_stats_tracker_->OnHeartbeatEvent();

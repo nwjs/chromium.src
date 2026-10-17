@@ -290,6 +290,13 @@ const LayoutResult* ColumnLayoutAlgorithm::Layout() {
     gap_accumulator_.emplace(column_gap_size, row_gap_size_,
                              Style().ColumnCount(),
                              Style().HasAutoColumnCount());
+    if (const auto* break_token = GetBreakToken()) {
+      if (const auto* data =
+              DynamicTo<MulticolBreakTokenData>(break_token->TokenData())) {
+        first_unprocessed_row_gap_index_ =
+            data->GetFirstUnprocessedRowGapIndex();
+      }
+    }
   }
 
   // Calculate the space (along the inline axis) needed by column boxes within
@@ -345,6 +352,7 @@ const LayoutResult* ColumnLayoutAlgorithm::Layout() {
   intrinsic_block_size_ =
       std::max(intrinsic_block_size_, BorderScrollbarPadding().block_start);
 
+  std::optional<LayoutUnit> final_column_row_block_end;
   if (!Style().HasAutoColumnHeight()) {
     // Use all of column-height on the last row as well, but don't let that
     // overflow the outer fragmentainer, if nested.
@@ -359,6 +367,10 @@ const LayoutResult* ColumnLayoutAlgorithm::Layout() {
     if (remaining_column_height < RowHeight()) {
       intrinsic_block_size_ += remaining_column_height;
     }
+
+    // This is the final column row's block-end after accounting for its used
+    // column-height, which may differ from the container's content edge.
+    final_column_row_block_end = intrinsic_block_size_;
   }
 
   intrinsic_block_size_ += BorderScrollbarPadding().block_end;
@@ -420,9 +432,28 @@ const LayoutResult* ColumnLayoutAlgorithm::Layout() {
   container_builder_.HandleOofsAndSpecialDescendants();
 
   if (gap_accumulator_) {
-    if (const auto* gap_geometry = gap_accumulator_->BuildGapGeometry(
-            container_builder_, ColumnInlineSize())) {
+    const GapGeometry* gap_geometry = gap_accumulator_->BuildGapGeometry(
+        container_builder_, ColumnInlineSize(), final_column_row_block_end);
+    if (gap_geometry) {
       container_builder_.SetGapGeometry(gap_geometry);
+    }
+
+    // Carry row-gap progress into the next fragment. Preserve any row
+    // block-size progress already recorded when a row itself fragmented.
+    if (GetConstraintSpace().HasBlockFragmentation()) {
+      const wtf_size_t first_unprocessed_row_gap_index =
+          first_unprocessed_row_gap_index_ +
+          (gap_geometry ? gap_geometry->MulticolPaintableMainGapCount() : 0u) +
+          suppressed_row_gap_count_;
+      if (auto* existing_data = container_builder_.GetBreakTokenData()) {
+        To<MulticolBreakTokenData>(existing_data)
+            ->first_unprocessed_row_gap_index = first_unprocessed_row_gap_index;
+      } else {
+        container_builder_.SetBreakTokenData(
+            MakeGarbageCollected<MulticolBreakTokenData>(
+                /*consumed_row_block_size=*/LayoutUnit(),
+                first_unprocessed_row_gap_index));
+      }
     }
   }
 
@@ -741,8 +772,12 @@ const LayoutResult* ColumnLayoutAlgorithm::LayoutFragmentationContext(
       if (GetConstraintSpace().HasKnownFragmentainerBlockSize() &&
           !is_first_row && HasRowHeight() &&
           RowHeight() > FragmentainerSpaceLeftForChildren() - line_offset) {
-        // Another row doesn't fit in the outer fragmentainer. Break.
-        return result;
+        // Another row doesn't fit in the outer fragmentainer. Break. Its
+        // preceding row gap is suppressed at the fragmentation boundary.
+        if (HasRowGap()) {
+          ++suppressed_row_gap_count_;
+        }
+        break;
       }
     }
 
@@ -753,6 +788,11 @@ const LayoutResult* ColumnLayoutAlgorithm::LayoutFragmentationContext(
     if (!new_result) {
       // An outer fragmentainer break was inserted before this line.
       DCHECK(GetConstraintSpace().HasBlockFragmentation());
+      if (!is_first_row && HasRowGap()) {
+        // `LayoutLine` returned before adding the row gap before this line. The
+        // gap is suppressed at the fragmentation boundary, so record it here.
+        ++suppressed_row_gap_count_;
+      }
       return result;
     }
 
@@ -768,8 +808,11 @@ const LayoutResult* ColumnLayoutAlgorithm::LayoutFragmentationContext(
         // There wasn't even enough room for one row in the outer
         // fragmentainer. Resume the row in the next fragmentainer.
         container_builder_.SetBreakTokenData(
-            MakeGarbageCollected<MulticolBreakTokenData>(RowHeight() -
-                                                         overflow));
+            MakeGarbageCollected<MulticolBreakTokenData>(
+                RowHeight() - overflow, first_unprocessed_row_gap_index_));
+        // Stop before attempting the next row. This row continues in the next
+        // fragmentainer, so its following row gap is not suppressed here.
+        break;
       }
     }
     is_first_row = false;

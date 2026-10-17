@@ -2,13 +2,18 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <algorithm>
 #include <memory>
 #include <string>
+#include <vector>
 
+#include "base/containers/span.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
+#include "base/memory/weak_ptr.h"
 #include "base/path_service.h"
+#include "base/strings/string_util.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/threading/thread_restrictions.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
@@ -42,9 +47,12 @@
 #include "content/public/test/test_navigation_observer.h"
 #include "content/public/test/test_utils.h"
 #include "extensions/browser/mime_handler/mime_handler_registry.h"
+#include "extensions/browser/mime_handler/mime_handler_stream_delegate.h"
 #include "extensions/browser/mime_handler/mime_handler_stream_manager.h"
+#include "extensions/browser/mime_handler/stream_container.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension_features.h"
+#include "extensions/common/extension_id.h"
 #include "extensions/common/manifest_handlers/mime_types_handler.h"
 #include "extensions/test/result_catcher.h"
 #include "net/dns/mock_host_resolver.h"
@@ -134,6 +142,16 @@ class GenericMimeHandlerBrowserTest : public ExtensionApiTest {
     ASSERT_TRUE(StartEmbeddedTestServer());
   }
 
+  // Returns the highest-precedence candidate for `mime_type`, or an empty
+  // id when the registry holds none.
+  ExtensionId GetHandlerForMimeType(const std::string& mime_type) {
+    MimeHandlerRegistry* registry = MimeHandlerRegistry::Get(profile());
+    CHECK(registry);
+    base::span<const ExtensionId> handlers =
+        registry->GetHandlersForMimeType(mime_type);
+    return handlers.empty() ? ExtensionId() : handlers.front();
+  }
+
   // Returns the RFH identified by `MimeHandlerStreamManager` as the MIME
   // handler extension host in the active tab, or nullptr if none.
   content::RenderFrameHost* FindMimeHandlerExtensionFrame() {
@@ -194,11 +212,9 @@ IN_PROC_BROWSER_TEST_F(GenericMimeHandlerBrowserTest, GetStreamInfo) {
   // Verify the extension registered as a generic MIME handler.
   const MimeTypesHandler* handler = MimeTypesHandler::Get(*extension);
   ASSERT_TRUE(handler);
-  auto* registry = MimeHandlerRegistry::Get(profile());
-  ASSERT_TRUE(registry);
   ASSERT_FALSE(handler->IsPluginExtension());
   ASSERT_TRUE(handler->CanEmbedMimeType(kPdfMimeType));
-  ASSERT_EQ(extension->id(), registry->GetHandlerForMimeType(kPdfMimeType));
+  ASSERT_EQ(extension->id(), GetHandlerForMimeType(kPdfMimeType));
 
   // Set up ResultCatcher before navigation so it catches the extension's
   // chrome.test.succeed() call.
@@ -215,10 +231,11 @@ IN_PROC_BROWSER_TEST_F(GenericMimeHandlerBrowserTest, GetStreamInfo) {
 }
 
 // A generic (third-party) MIME handler sees exactly the CORS-safelisted
-// response headers fetch() would expose cross-origin: the safelisted
-// Content-Type / Cache-Control / Last-Modified stay visible, while the custom
-// X-Auth-Token is filtered out. handler.js already asserts mimeType and the
-// %PDF- body on this same navigation, so this test covers only responseHeaders.
+// response headers fetch() would expose cross-origin, plus Content-Disposition
+// and Accept-Ranges: the safelisted Content-Type / Cache-Control /
+// Last-Modified stay visible, while the custom X-Auth-Token is filtered out.
+// handler.js already asserts mimeType and the %PDF- body on this same
+// navigation, so this test covers only responseHeaders.
 IN_PROC_BROWSER_TEST_F(GenericMimeHandlerBrowserTest,
                        GetStreamInfoFiltersNonSafelistedResponseHeaders) {
   ASSERT_TRUE(LoadExtension(test_data_dir_.AppendASCII(kTestExtensionDir)));
@@ -231,6 +248,17 @@ IN_PROC_BROWSER_TEST_F(GenericMimeHandlerBrowserTest,
 
   content::RenderFrameHost* extension_frame = FindMimeHandlerExtensionFrame();
   ASSERT_TRUE(extension_frame);
+
+  // The browser must still hold the original response head.
+  auto* manager = mime_handler::MimeHandlerStreamManager::FromWebContents(
+      GetActiveWebContents());
+  ASSERT_TRUE(manager);
+  base::WeakPtr<StreamContainer> stream =
+      manager->GetStreamContainer(extension_frame->GetParent());
+  ASSERT_TRUE(stream);
+  EXPECT_TRUE(
+      stream->response_head()->headers->HasHeader(kAuthTokenHeaderName));
+  EXPECT_EQ(kPdfMimeType, stream->response_head()->mime_type);
 
   // Whether getStreamInfo()'s responseHeaders contains `name`
   // (case-insensitive).
@@ -254,6 +282,26 @@ IN_PROC_BROWSER_TEST_F(GenericMimeHandlerBrowserTest,
 
   // The non-safelisted header must be stripped.
   EXPECT_EQ(false, has_header("X-Auth-Token"));
+
+  // The handler's stream fetch is restricted the same way.
+  std::vector<std::string> fetch_header_names;
+  for (const base::Value& name :
+       content::EvalJs(extension_frame, "window.streamFetchHeaderNames")
+           .ExtractList()) {
+    fetch_header_names.push_back(base::ToLowerASCII(name.GetString()));
+  }
+  // An empty list would pass the negative checks, so look for a header first.
+  EXPECT_TRUE(std::ranges::contains(fetch_header_names, "content-type"));
+  EXPECT_FALSE(std::ranges::contains(fetch_header_names,
+                                     base::ToLowerASCII(kAuthTokenHeaderName)));
+  std::vector<std::string> disallowed;
+  for (const std::string& name : fetch_header_names) {
+    if (!IsResponseHeaderAllowedForHandler(name)) {
+      disallowed.push_back(name);
+    }
+  }
+  EXPECT_TRUE(disallowed.empty())
+      << "stream fetch exposed " << base::JoinString(disallowed, ", ");
 }
 
 // A PDF served with a strict Content-Security-Policy must still render at
@@ -354,7 +402,7 @@ IN_PROC_BROWSER_TEST_F(GenericMimeHandlerBrowserTest,
   // Before disable: extension is the active handler along both paths.
   auto* registry = MimeHandlerRegistry::Get(profile());
   ASSERT_TRUE(registry);
-  ASSERT_EQ(extension->id(), registry->GetHandlerForMimeType(kPdfMimeType));
+  ASSERT_EQ(extension->id(), GetHandlerForMimeType(kPdfMimeType));
   ASSERT_EQ(extension->id(),
             PluginUtils::GetExtensionIdForMimeType(profile(), kPdfMimeType,
                                                    /*embedded=*/false));
@@ -365,8 +413,7 @@ IN_PROC_BROWSER_TEST_F(GenericMimeHandlerBrowserTest,
   // Both lookup paths now skip this handler and fall through to the
   // built-in PDF extension, which is always registered for
   // application/pdf in this browsertest profile.
-  EXPECT_EQ(extension_misc::kPdfExtensionId,
-            registry->GetHandlerForMimeType(kPdfMimeType));
+  EXPECT_EQ(extension_misc::kPdfExtensionId, GetHandlerForMimeType(kPdfMimeType));
   EXPECT_EQ(extension_misc::kPdfExtensionId,
             PluginUtils::GetExtensionIdForMimeType(profile(), kPdfMimeType,
                                                    /*embedded=*/false));
@@ -400,7 +447,7 @@ IN_PROC_BROWSER_TEST_F(GenericMimeHandlerBrowserTest,
 
   auto* registry = MimeHandlerRegistry::Get(profile());
   ASSERT_TRUE(registry);
-  ASSERT_EQ(extension->id(), registry->GetHandlerForMimeType(kPdfMimeType));
+  ASSERT_EQ(extension->id(), GetHandlerForMimeType(kPdfMimeType));
 
   // First navigation: /test.pdf?action=disable. handler.js branches
   // to calling chrome.mimeHandler.setMimeHandlerOptions and then
@@ -418,8 +465,7 @@ IN_PROC_BROWSER_TEST_F(GenericMimeHandlerBrowserTest,
   // Both lookup paths now skip this handler and fall through to the
   // built-in PDF extension, which is always registered for
   // application/pdf in this browsertest profile.
-  EXPECT_EQ(extension_misc::kPdfExtensionId,
-            registry->GetHandlerForMimeType(kPdfMimeType));
+  EXPECT_EQ(extension_misc::kPdfExtensionId, GetHandlerForMimeType(kPdfMimeType));
   EXPECT_EQ(extension_misc::kPdfExtensionId,
             PluginUtils::GetExtensionIdForMimeType(profile(), kPdfMimeType,
                                                    /*embedded=*/false));

@@ -15,6 +15,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/time/time.h"
 #include "base/values.h"
+#include "build/build_config.h"
 #include "net/base/proxy_chain.h"
 #include "net/base/proxy_server.h"
 #include "net/base/proxy_string_util.h"
@@ -73,6 +74,17 @@ ProvisioningDomainProxyConfig::RoutingRule MakeRoutingRule(
     net::ProxyHostMatchingRules matchers) {
   return ProvisioningDomainProxyConfig::RoutingRule(std::move(proxies),
                                                     std::move(matchers));
+}
+
+// Returns the destination matcher expected for `host` combined with `port`.
+// Platforms that do not support port matchers strip the port at parse time and
+// match the whole host instead.
+std::string ExpectedPortMatcher(std::string_view host, uint16_t port) {
+#if BUILDFLAG(IS_IOS)
+  return std::string(host);
+#else
+  return base::StrCat({host, ":", base::NumberToString(port)});
+#endif
 }
 
 // Constructs a comprehensive valid PvD JSON response string matching the
@@ -293,6 +305,79 @@ TEST(ParseProxyProvisioningDomainPolicyTest, ParsesPolicyDictWithHyphenKey) {
   EXPECT_EQ(*policy, expected);
 }
 
+TEST(ParseProxyProvisioningDomainPolicyTest,
+     ParsesAndResolvesVariablePlaceholdersInPolicy) {
+  std::string policy_json = R"({
+    "pvd_id": "example.pvd.com",
+    "auth_config": {
+      "type": "profile_bearer_token",
+      "scope": "cloud_secure_gateway"
+    },
+    "extra_headers": [
+      {
+        "key": "x-resource-key",
+        "value": "arbitrary-resource-key-value"
+      },
+      {
+        "key": "x-profile-id",
+        "value": "${profile_id}"
+      },
+      {
+        "key": "x-prefixed-profile-id",
+        "value": "prefix-${profile_id}"
+      },
+      {
+        "key": "accept-language",
+        "value": "${accept_language}"
+      },
+      {
+        "key": "x-unknown",
+        "value": "${unknown_var}"
+      },
+      {
+        "key": "x-explicit-constant-placeholder",
+        "value": "${profile_id}",
+        "type": "constant"
+      }
+    ]
+  })";
+
+  std::optional<base::DictValue> domain_dict =
+      base::JSONReader::ReadDict(policy_json, 0);
+  ASSERT_TRUE(domain_dict.has_value());
+
+  std::optional<ProvisioningDomainConfig> policy =
+      ParseProxyProvisioningDomainPolicy(*domain_dict);
+  ASSERT_TRUE(policy.has_value());
+
+  std::vector<ProxyExtraHeader> expected_headers = {
+      ProxyExtraHeader("x-resource-key", "arbitrary-resource-key-value",
+                       ProxyExtraHeader::HeaderType::kConstant),
+      ProxyExtraHeader("x-profile-id", "${profile_id}",
+                       ProxyExtraHeader::HeaderType::kVariable),
+      ProxyExtraHeader("x-prefixed-profile-id", "prefix-${profile_id}",
+                       ProxyExtraHeader::HeaderType::kVariable),
+      ProxyExtraHeader("accept-language", "${accept_language}",
+                       ProxyExtraHeader::HeaderType::kVariable),
+      ProxyExtraHeader("x-unknown", "${unknown_var}",
+                       ProxyExtraHeader::HeaderType::kVariable),
+      ProxyExtraHeader("x-explicit-constant-placeholder", "${profile_id}",
+                       ProxyExtraHeader::HeaderType::kConstant),
+  };
+  EXPECT_EQ(policy->extra_headers, expected_headers);
+
+  net::HttpRequestHeaders resolved = ResolveExtraHeadersWithValues(
+      policy->extra_headers, kTestProfileId, kTestAcceptLanguages);
+
+  ExpectHeader(resolved, "x-resource-key", "arbitrary-resource-key-value");
+  ExpectHeader(resolved, "x-profile-id", kTestProfileId);
+  ExpectHeader(resolved, "x-prefixed-profile-id",
+               "prefix-" + std::string(kTestProfileId));
+  ExpectHeader(resolved, "accept-language", kTestAcceptLanguages);
+  EXPECT_FALSE(resolved.HasHeader("x-unknown"));
+  ExpectHeader(resolved, "x-explicit-constant-placeholder", "${profile_id}");
+}
+
 TEST(ParseProxyProvisioningDomainPolicyTest, RejectsInvalidPolicyDict) {
   base::DictValue missing_pvd_id;
   missing_pvd_id.Set("some_other_key", "value");
@@ -337,10 +422,8 @@ TEST(ParseProvisioningDomainConfigTest, ParsesValidPvdResponse) {
        ProxyEndpoint(MakeHttpsProxyChain(kTestProxyHost3))});
 
   net::ProxyHostMatchingRules matchers1;
-  matchers1.AddRuleFromString(
-      base::StrCat({kTestDomain, ":", base::NumberToString(kTestPort)}));
-  matchers1.AddRuleFromString(
-      base::StrCat({kTestSubnet, ":", base::NumberToString(kTestPort)}));
+  matchers1.AddRuleFromString(ExpectedPortMatcher(kTestDomain, kTestPort));
+  matchers1.AddRuleFromString(ExpectedPortMatcher(kTestSubnet, kTestPort));
   expected.routing_rules.push_back(
       MakeRoutingRule({kTestProxyIdentity1}, std::move(matchers1)));
 
@@ -632,8 +715,19 @@ TEST(ProvisioningDomainProxyConfigToDictTest, ParseAndSerializeRoundtrip) {
 
   const base::ListValue* rule0_matchers = rule0.FindList("domains");
   ASSERT_NE(nullptr, rule0_matchers);
-  EXPECT_EQ(1u, rule0_matchers->size());
-  EXPECT_EQ("test.domain.com:443", (*rule0_matchers)[0].GetString());
+  std::vector<std::string> rule0_matcher_strings;
+  for (const auto& matcher : *rule0_matchers) {
+    rule0_matcher_strings.push_back(matcher.GetString());
+  }
+#if BUILDFLAG(IS_IOS)
+  // Stripping the port also preserves the subnet matcher: `10.0.0.0/8:443` is
+  // not a pattern `net::ProxyHostMatchingRules` accepts, while `10.0.0.0/8` is.
+  EXPECT_THAT(rule0_matcher_strings, ElementsAre(kTestDomain, kTestSubnet));
+#else
+  EXPECT_THAT(rule0_matcher_strings,
+              ElementsAre(base::StrCat(
+                  {kTestDomain, ":", base::NumberToString(kTestPort)})));
+#endif  // BUILDFLAG(IS_IOS)
 
   // Verify 2-way roundtrip: parse serialized dict back into
   // ProvisioningDomainProxyConfig.
@@ -672,6 +766,93 @@ TEST(ParseRoutingRuleTest, WildcardApexDomainExpansion) {
       rule->destination_matchers.Matches(GURL("https://otherdomain.co/")));
 }
 
+#if BUILDFLAG(IS_IOS)
+
+// Test that port matchers are dropped from a rule scoped to domains, widening
+// it to every port of those domains.
+TEST(ParseRoutingRuleTest, StripsPortMatchersFromDomainRule) {
+  base::DictValue match_dict;
+  base::ListValue domains;
+  domains.Append("example.com");
+  match_dict.Set("domains", std::move(domains));
+
+  base::ListValue ports;
+  ports.Append("80");
+  ports.Append(8080);
+  match_dict.Set("ports", std::move(ports));
+
+  base::ListValue proxies;
+  proxies.Append("proxy1");
+  match_dict.Set("proxies", std::move(proxies));
+
+  std::optional<ProvisioningDomainProxyConfig::RoutingRule> rule =
+      ParseRoutingRule(match_dict);
+  ASSERT_TRUE(rule.has_value());
+
+  // The declared ports still match, and so does every other port.
+  EXPECT_TRUE(
+      rule->destination_matchers.Matches(GURL("http://example.com:80/")));
+  EXPECT_TRUE(
+      rule->destination_matchers.Matches(GURL("http://example.com:8080/")));
+  EXPECT_TRUE(
+      rule->destination_matchers.Matches(GURL("https://example.com:443/")));
+  EXPECT_TRUE(
+      rule->destination_matchers.Matches(GURL("http://example.com:9999/")));
+
+  // Stripping ports must not widen the rule beyond the declared domain.
+  EXPECT_FALSE(rule->destination_matchers.Matches(GURL("https://other.com/")));
+}
+
+// Test that a rule declaring only ports matches every destination once its
+// ports are stripped.
+TEST(ParseRoutingRuleTest, StripsPortMatchersFromWildcardRule) {
+  base::DictValue match_dict;
+  base::ListValue ports;
+  ports.Append(kTestPort);
+  match_dict.Set("ports", std::move(ports));
+
+  base::ListValue proxies;
+  proxies.Append("proxy1");
+  match_dict.Set("proxies", std::move(proxies));
+
+  std::optional<ProvisioningDomainProxyConfig::RoutingRule> rule =
+      ParseRoutingRule(match_dict);
+  ASSERT_TRUE(rule.has_value());
+
+  EXPECT_TRUE(
+      rule->destination_matchers.Matches(GURL("https://example.com:443/")));
+  EXPECT_TRUE(
+      rule->destination_matchers.Matches(GURL("http://other.com:8080/")));
+}
+
+// Test that port matchers are also dropped from subnet rules.
+TEST(ParseRoutingRuleTest, StripsPortMatchersFromSubnetRule) {
+  base::DictValue match_dict;
+  base::ListValue subnets;
+  subnets.Append(kTestSubnet);
+  match_dict.Set("subnets", std::move(subnets));
+
+  base::ListValue ports;
+  ports.Append(kTestPort);
+  match_dict.Set("ports", std::move(ports));
+
+  base::ListValue proxies;
+  proxies.Append("proxy1");
+  match_dict.Set("proxies", std::move(proxies));
+
+  std::optional<ProvisioningDomainProxyConfig::RoutingRule> rule =
+      ParseRoutingRule(match_dict);
+  ASSERT_TRUE(rule.has_value());
+
+  EXPECT_TRUE(rule->destination_matchers.Matches(GURL("https://10.1.2.3/")));
+  EXPECT_TRUE(
+      rule->destination_matchers.Matches(GURL("http://10.1.2.3:8080/")));
+  EXPECT_FALSE(
+      rule->destination_matchers.Matches(GURL("http://192.168.1.1:443/")));
+}
+
+#else
+
 TEST(ParseRoutingRuleTest, SinglePortParsingAndIgnoredPortRanges) {
   base::DictValue match_dict;
   base::ListValue domains;
@@ -708,6 +889,8 @@ TEST(ParseRoutingRuleTest, SinglePortParsingAndIgnoredPortRanges) {
   EXPECT_FALSE(
       rule->destination_matchers.Matches(GURL("http://example.com:8001/")));
 }
+
+#endif  // BUILDFLAG(IS_IOS)
 
 }  // namespace
 }  // namespace enterprise_net

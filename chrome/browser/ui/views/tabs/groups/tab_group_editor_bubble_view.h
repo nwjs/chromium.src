@@ -9,18 +9,18 @@
 #include <string>
 #include <vector>
 
+#include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "components/tab_groups/tab_group_color.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/mojom/menu_source_type.mojom-forward.h"
+#include "ui/display/display_observer.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/controls/textfield/textfield_controller.h"
-
-#include "base/callback_list.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "base/memory/raw_ref.h"
@@ -42,7 +42,8 @@ class ManageSharingRow;
 
 // A dialog for changing a tab group's visual parameters.
 class TabGroupEditorBubbleView : public views::BubbleDialogDelegateView,
-                                 public TabStripModelObserver {
+                                 public TabStripModelObserver,
+                                 public display::DisplayObserver {
   METADATA_HEADER(TabGroupEditorBubbleView, views::BubbleDialogDelegateView)
 
  public:
@@ -65,6 +66,9 @@ class TabGroupEditorBubbleView : public views::BubbleDialogDelegateView,
   static constexpr int TAB_GROUP_HEADER_CXMENU_FOCUS_GROUP = 12;
   static constexpr int TAB_GROUP_HEADER_CXMENU_HOME = 13;
   static constexpr int TAB_GROUP_HEADER_CXMENU_ASK_GEMINI = 14;
+
+  // The default size of icons displayed in the tab group editor bubble menu.
+  static constexpr int kDefaultIconSize = 16;
 
   friend class TabGroupEditorBubbleInteractiveUiTest;
 
@@ -95,6 +99,9 @@ class TabGroupEditorBubbleView : public views::BubbleDialogDelegateView,
   // TabStripModelObserver:
   void OnTabGroupChanged(const TabGroupChange& change) override;
 
+  // display::DisplayObserver:
+  void OnDisplayTabletStateChanged(display::TabletState state) override;
+
   void UpdateGroup();
   std::u16string GetTextForCloseButton() const;
 
@@ -108,10 +115,14 @@ class TabGroupEditorBubbleView : public views::BubbleDialogDelegateView,
 
   bool IsGroupSaved() const;
   bool IsGroupShared() const;
+  bool IsEphemeralTabGroup() const;
   bool ShouldShowSavedFooter() const;
   // Returns true if the user created the group. Returns false in cases where
   // the user was invited to join the group.
   bool OwnsGroup() const;
+
+  void OnEphemeralGroupPromoted();
+  void CancelEphemeralGroup();
 
   // When certain settings change, the menu items need to be updated, this
   // method destroys the children of the view, and then recreates them in the
@@ -121,6 +132,8 @@ class TabGroupEditorBubbleView : public views::BubbleDialogDelegateView,
 
   std::unique_ptr<views::Separator> BuildSeparator();
   std::unique_ptr<ColorPickerView> BuildColorPicker();
+  std::unique_ptr<views::Label> BuildEphemeralGroupTitle();
+  std::unique_ptr<views::View> BuildEphemeralGroupButtons();
   std::unique_ptr<views::LabelButton> BuildNewTabInGroupButton();
   std::unique_ptr<views::LabelButton> BuildHomeButton();
   std::unique_ptr<views::LabelButton> BuildAskGeminiButton();
@@ -256,6 +269,11 @@ class TabGroupEditorBubbleView : public views::BubbleDialogDelegateView,
 
   base::CallbackListSubscription browser_close_subscription_;
   void OnBrowserDidClose(BrowserWindowInterface* browser);
+
+  // Scoped to the bubble rather than TabGroupEditorBubbleTracker because there
+  // is one tracker per group header but at most one open bubble, so scoping it
+  // to the bubble registers exactly one observer and only while one is open.
+  display::ScopedDisplayObserver display_observer_{this};
 
 #if BUILDFLAG(IS_CHROMEOS)
   // Ensures the bubble dialog remains open when the emoji picker menu steals

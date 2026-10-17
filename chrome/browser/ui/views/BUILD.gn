@@ -5,6 +5,7 @@
 import("//build/config/features.gni")
 import("//build/config/ozone.gni")
 import("//build/config/ui.gni")
+import("//crypto/features.gni")
 import("//extensions/buildflags/buildflags.gni")
 import("//printing/buildflags/buildflags.gni")
 import("//ui/views/features.gni")
@@ -103,9 +104,12 @@ source_set("bubble_anchor_util_views_impl") {
     "//base",
     "//build:buildflag_header_h",
     "//chrome/browser/ui:browser_element_identifiers",
+    "//chrome/browser/ui:browser_window_header",
     "//chrome/browser/ui:bubble_anchor_util",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/immersive:immersive_mode_controller",
+    "//chrome/browser/ui/views/frame:browser_view_header",
+    "//chrome/browser/ui/views/frame:picture_in_picture_browser_frame_view",
     "//chrome/browser/ui/views/location_bar",
     "//chrome/browser/ui/views/payments",
     "//chrome/browser/ui/views/permissions/chip",
@@ -115,6 +119,54 @@ source_set("bubble_anchor_util_views_impl") {
     "//components/content_settings/core/common:features",
     "//components/tabs:public",
     "//content/public/browser",
+    "//ui/base",
+    "//ui/views",
+  ]
+}
+
+source_set("browser_commands_views") {
+  sources = [ "browser_commands_views.cc" ]
+  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
+  deps = [
+    "//base",
+    "//build:buildflag_header_h",
+    "//chrome/app:command_ids",
+    "//chrome/browser:primitives",
+    "//chrome/browser/ui:browser_commands",
+    "//chrome/browser/ui/views/frame:browser_view_header",
+    "//chrome/browser/ui/views/tabs:tab_strip",
+    "//ui/base:features",
+    "//ui/display",
+    "//ui/gfx",
+    "//ui/views",
+  ]
+  if (use_aura) {
+    deps += [
+      "//ui/aura",
+      "//ui/wm/public",
+    ]
+  }
+}
+
+source_set("browser_dialogs_views") {
+  sources = [ "browser_dialogs_views.cc" ]
+  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
+  deps = [
+    ":task_manager_view",
+    "//base",
+    "//build:buildflag_header_h",
+    "//chrome/browser/extensions",
+    "//chrome/browser/media/webrtc",
+    "//chrome/browser/task_manager",
+    "//chrome/browser/ui:browser_window_header",
+    "//chrome/browser/ui/bookmarks",
+    "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/dialogs:browser_dialogs",
+    "//chrome/browser/ui/views/bookmarks",
+    "//chrome/browser/ui/views/frame:browser_view_header",
+    "//chrome/browser/ui/views/select_audio_output",
+    "//components/constrained_window",
+    "//components/permissions",
     "//ui/base",
     "//ui/views",
   ]
@@ -286,6 +338,7 @@ if (is_win) {
       "//chrome/browser/profiles:profile",
       "//chrome/browser/ui:network_profile_bubble",
       "//chrome/browser/ui/browser_window",
+      "//chrome/browser/ui/views/frame:browser_view_header",
       "//chrome/browser/ui/views/toolbar",
       "//chrome/common:constants",
       "//components/prefs",
@@ -469,6 +522,20 @@ source_set("elevation_icon_setter") {
 }
 
 if (use_aura) {
+  source_set("accelerator_utils_aura") {
+    sources = [ "accelerator_utils_aura.cc" ]
+    public_deps = [ "//chrome/browser:browser_public_dependencies" ]
+    deps = [
+      "//base",
+      "//chrome/browser/ui:accelerator_table",
+      "//chrome/browser/ui/views/frame:browser_view_header",
+      "//ui/base",
+    ]
+    if (is_chromeos) {
+      deps += [ "//ash/public/cpp" ]
+    }
+  }
+
   source_set("theme_profile_key") {
     public = [ "theme_profile_key.h" ]
     sources = [ "theme_profile_key.cc" ]
@@ -669,6 +736,7 @@ if (is_linux) {
       "//chrome/browser:browser_public_dependencies",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/ui/browser_window",
+      "//chrome/browser/ui/views/frame:browser_frame_view_linux",
       "//chrome/common:constants",
       "//components/prefs",
       "//ui/base/mojom:ui_base_types",
@@ -721,6 +789,21 @@ source_set("javascript_app_modal_event_blocker") {
     public_deps += [
       "//ui/aura",
       "//ui/events",
+    ]
+  }
+}
+
+if (use_aura) {
+  source_set("javascript_app_modal_event_blocker_aura") {
+    sources = [ "javascript_app_modal_event_blocker_aura.cc" ]
+    public_deps = [ "//chrome/browser:browser_public_dependencies" ]
+    deps = [
+      ":javascript_app_modal_event_blocker",
+      "//base",
+      "//chrome/browser/ui/views/frame:browser_view_header",
+      "//ui/aura",
+      "//ui/events",
+      "//ui/wm",
     ]
   }
 }
@@ -1259,7 +1342,7 @@ source_set("chrome_browser_main_extra_parts_views") {
       "//ui/ozone",
     ]
     if (use_dbus) {
-      deps += [ "//ui/linux:dark_mode_manager" ]
+      deps += [ "//ui/linux:portal_settings" ]
     }
   }
 }
@@ -1442,6 +1525,7 @@ source_set("find_bar_views") {
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/color:color_headers",
     "//chrome/browser/ui/find_bar",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/user_education",
     "//components/find_in_page",
     "//components/strings:components_strings",
@@ -1468,6 +1552,7 @@ source_set("idle_bubble") {
     "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/ui:idle_bubble",
     "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/ui/views/interaction",
     "//chrome/browser/ui/views/toolbar",
     "//ui/base",
@@ -1518,6 +1603,7 @@ source_set("session_crashed_bubble_view") {
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui:bubble_anchor_util",
     "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/ui/views/toolbar",
     "//chrome/installer/util:with_no_strings",
     "//components/strings:components_strings",
@@ -1589,11 +1675,49 @@ source_set("sad_tab_view") {
   }
 }
 
+source_set("tab_search_bubble_host") {
+  public = [ "tab_search_bubble_host.h" ]
+  sources = [ "tab_search_bubble_host.cc" ]
+  public_deps = [
+    "//base",
+    "//chrome/browser/ui/views/bubble",
+    "//chrome/browser/ui/views/tabs:base",
+    "//chrome/browser/ui/webui/tab_search",
+    "//chrome/browser/ui/webui/tab_search:mojo_bindings",
+    "//ui/base/metadata",
+    "//ui/views",
+  ]
+  deps = [
+    ":views",
+    "//chrome/app:generated_resources",
+    "//chrome/browser/feature_engagement",
+    "//chrome/browser/ui:browser_element_identifiers",
+    "//chrome/browser/ui:layout_constants",
+    "//chrome/browser/ui:ui_features",
+    "//chrome/browser/ui:view_ids",
+    "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/tabs:tab_group",
+    "//chrome/browser/ui/tabs:tab_strip",
+    "//chrome/browser/ui/tabs/organizer",
+    "//chrome/browser/ui/views/frame:browser_view_header",
+    "//chrome/browser/ui/views/tabs:tab_strip",
+    "//chrome/browser/ui/views/tabs/organizer",
+    "//chrome/common",
+    "//components/feature_engagement/public",
+    "//components/prefs",
+    "//components/saved_tab_groups/public:features",
+    "//content/public/browser",
+    "//ui/base",
+    "//ui/compositor",
+    "//ui/gfx",
+  ]
+}
+
 source_set("browser_tests") {
   testonly = true
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
   sources = []
-  deps = []
+  deps = [ "//chrome/browser/ui/views/frame:browser_view_header" ]
 
   if (is_chromeos) {
     sources += [ "intent_picker_bubble_view_browsertest_chromeos.cc" ]
@@ -1603,12 +1727,56 @@ source_set("browser_tests") {
       "//chrome/browser/apps/link_capturing:test_support",
       "//chrome/browser/ash/app_list/arc",
       "//chrome/browser/ash/arc:arc_util",
+      "//chrome/browser/ui:browser_window_header",
+      "//chrome/browser/ui:intent_picker_tab_helper",
       "//chrome/browser/web_applications:features",
       "//chrome/test:test_support",
       "//chrome/test:test_support_ui",
       "//chromeos/ash/experiences/arc:arc_test_support",
       "//chromeos/ash/experiences/arc:notification_test_support",
       "//ui/events:test_support",
+    ]
+  }
+}
+
+source_set("tab_modal_confirm_dialog_views") {
+  public = [ "tab_modal_confirm_dialog_views.h" ]
+  sources = [ "tab_modal_confirm_dialog_views.cc" ]
+  public_deps = [
+    "//base",
+    "//chrome/browser/ui:tab_modal_confirm_dialog",
+    "//ui/views",
+  ]
+  deps = [
+    ":layout_provider",
+    "//chrome/browser/ui:tab_dialogs",
+    "//chrome/browser/ui:tab_modal_confirm_dialog_delegate",
+    "//chrome/common:constants",
+    "//components/constrained_window",
+    "//content/public/browser",
+    "//ui/base",
+    "//ui/base/mojom:ui_base_types",
+    "//ui/gfx",
+  ]
+}
+
+if (use_nss_certs && use_aura) {
+  source_set("crypto_module_password_dialog_view") {
+    public = [ "crypto_module_password_dialog_view.h" ]
+    sources = [ "crypto_module_password_dialog_view.cc" ]
+    public_deps = [
+      "//base",
+      "//chrome/browser/ui:crypto_module_password_dialog",
+      "//ui/base",
+      "//ui/views",
+    ]
+    deps = [
+      ":layout_provider",
+      "//chrome/app:generated_resources",
+      "//components/strings:components_strings",
+      "//ui/base/mojom:ui_base_types",
+      "//ui/events",
+      "//ui/gfx",
     ]
   }
 }

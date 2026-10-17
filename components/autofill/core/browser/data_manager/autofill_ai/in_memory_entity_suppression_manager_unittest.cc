@@ -67,12 +67,13 @@ TEST_F(InMemoryEntitySuppressionManagerTest,
 }
 
 // Tests unsuppressing a previously suppressed entity instance.
-TEST_F(InMemoryEntitySuppressionManagerTest, UnsuppressEntity) {
+TEST_F(InMemoryEntitySuppressionManagerTest, UndoInSessionSuppressedEntity) {
   EntityInstance passport = test::GetPassportEntityInstance();
   ASSERT_TRUE(suppression_manager_.SuppressEntity(passport));
   ASSERT_TRUE(suppression_manager_.IsSuppressed(passport));
 
-  EXPECT_TRUE(suppression_manager_.UnsuppressEntity(passport));
+  EXPECT_TRUE(
+      suppression_manager_.UndoInSessionSuppressedEntity(passport.guid()));
 
   EXPECT_FALSE(suppression_manager_.IsSuppressed(passport));
 }
@@ -186,7 +187,7 @@ TEST_F(InMemoryEntitySuppressionManagerTest,
 // Tests that observers are notified when an entity is successfully
 // unsuppressed.
 TEST_F(InMemoryEntitySuppressionManagerTest,
-       UnsuppressEntity_NotifiesObserversOnSuccess) {
+       UndoInSessionSuppressedEntity_NotifiesObserversOnSuccess) {
   EntityInstance passport = test::GetPassportEntityInstance();
   ASSERT_TRUE(suppression_manager_.SuppressEntity(passport));
 
@@ -194,19 +195,55 @@ TEST_F(InMemoryEntitySuppressionManagerTest,
   suppression_manager_.AddObserver(&observer);
 
   EXPECT_CALL(observer, OnEntitySuppressionsChanged()).Times(1);
-  EXPECT_TRUE(suppression_manager_.UnsuppressEntity(passport));
+  EXPECT_TRUE(
+      suppression_manager_.UndoInSessionSuppressedEntity(passport.guid()));
 }
 
 // Tests that observers are not notified when unsuppressing an entity that is
 // not suppressed.
 TEST_F(InMemoryEntitySuppressionManagerTest,
-       UnsuppressEntity_DoesNotNotifyObserversIfNotSuppressed) {
+       UndoInSessionSuppressedEntity_DoesNotNotifyObserversIfNotSuppressed) {
   MockEntitySuppressionManagerObserver observer;
   suppression_manager_.AddObserver(&observer);
 
   EntityInstance passport = test::GetPassportEntityInstance();
   EXPECT_CALL(observer, OnEntitySuppressionsChanged()).Times(0);
-  EXPECT_FALSE(suppression_manager_.UnsuppressEntity(passport));
+  EXPECT_FALSE(
+      suppression_manager_.UndoInSessionSuppressedEntity(passport.guid()));
+}
+
+// Tests that GetSyncControllerDelegate returns nullptr.
+TEST_F(InMemoryEntitySuppressionManagerTest,
+       GetSyncControllerDelegateReturnsNullptr) {
+  EXPECT_EQ(nullptr, suppression_manager_.GetSyncControllerDelegate());
+}
+
+// Tests that ClearAllSuppressions removes all suppressed entities and notifies
+// observers.
+TEST_F(InMemoryEntitySuppressionManagerTest, ClearAllSuppressions) {
+  EntityInstance passport = test::GetPassportEntityInstance();
+  EntityInstance vehicle = test::GetVehicleEntityInstance();
+  ASSERT_TRUE(suppression_manager_.SuppressEntity(passport));
+  ASSERT_TRUE(suppression_manager_.SuppressEntity(vehicle));
+
+  MockEntitySuppressionManagerObserver observer;
+  suppression_manager_.AddObserver(&observer);
+
+  EXPECT_CALL(observer, OnEntitySuppressionsChanged()).Times(1);
+  EXPECT_TRUE(suppression_manager_.ClearAllSuppressions());
+
+  EXPECT_FALSE(suppression_manager_.IsSuppressed(passport));
+  EXPECT_FALSE(suppression_manager_.IsSuppressed(vehicle));
+}
+
+// Tests that ClearAllSuppressions returns false and does not notify observers
+// when nothing is suppressed.
+TEST_F(InMemoryEntitySuppressionManagerTest, ClearAllSuppressions_Empty) {
+  MockEntitySuppressionManagerObserver observer;
+  suppression_manager_.AddObserver(&observer);
+
+  EXPECT_CALL(observer, OnEntitySuppressionsChanged()).Times(0);
+  EXPECT_FALSE(suppression_manager_.ClearAllSuppressions());
 }
 
 }  // namespace

@@ -93,7 +93,7 @@ class MockFakeOmniboxClient : public FakeOmniboxClient {
                TemplateURLRef::PostContent*,
                WindowOpenDisposition,
                ui::PageTransition,
-               AutocompleteMatchType::Type,
+               omnibox::AutocompleteMatchType,
                base::TimeTicks,
                bool,
                bool,
@@ -191,7 +191,7 @@ class OmniboxAutocompleteControllerTest : public PlatformTest {
   void OpenUrlFromEditBox(const std::u16string url_text,
                           bool is_autocompleted) {
     AutocompleteMatch match(autocomplete_controller_->search_provider(), 0,
-                            false, AutocompleteMatchType::OPEN_TAB);
+                            false, omnibox::AutocompleteMatchType::kOpenTab);
     match.destination_url = GURL(url_text);
     match.allowed_to_be_default_match = true;
     if (is_autocompleted) {
@@ -361,8 +361,8 @@ TEST_F(OmniboxAutocompleteControllerTest, OpenCreatedMatch) {
 TEST_F(OmniboxAutocompleteControllerTest, OpenClipboardURLMatch) {
   // Create an empty clipboard match in autocompleteController.
   AutocompleteMatch clipboard_match = CreateAutocompleteMatch(
-      "Clipboard match", AutocompleteMatchType::CLIPBOARD_URL, false, false,
-      100, std::nullopt);
+      "Clipboard match", omnibox::AutocompleteMatchType::kClipboardUrl, false,
+      false, 100, std::nullopt);
   clipboard_match.destination_url = GURL();
   autocomplete_controller_->SetAutocompleteMatches({clipboard_match});
 
@@ -383,8 +383,8 @@ TEST_F(OmniboxAutocompleteControllerTest, OpenClipboardURLMatch) {
 TEST_F(OmniboxAutocompleteControllerTest, OpenClipboardTextMatch) {
   // Create an empty clipboard match in autocompleteController.
   AutocompleteMatch clipboard_match = CreateAutocompleteMatch(
-      "Clipboard text match", AutocompleteMatchType::CLIPBOARD_TEXT, false,
-      false, 100, std::nullopt);
+      "Clipboard text match", omnibox::AutocompleteMatchType::kClipboardText,
+      false, false, 100, std::nullopt);
   clipboard_match.destination_url = GURL();
   autocomplete_controller_->SetAutocompleteMatches({clipboard_match});
 
@@ -405,8 +405,8 @@ TEST_F(OmniboxAutocompleteControllerTest, OpenClipboardTextMatch) {
 TEST_F(OmniboxAutocompleteControllerTest, OpenClipboardImageMatch) {
   // Create an empty clipboard match in autocompleteController.
   AutocompleteMatch clipboard_match = CreateAutocompleteMatch(
-      "Clipboard image match", AutocompleteMatchType::CLIPBOARD_IMAGE, false,
-      false, 100, std::nullopt);
+      "Clipboard image match", omnibox::AutocompleteMatchType::kClipboardImage,
+      false, false, 100, std::nullopt);
   clipboard_match.destination_url = GURL();
   autocomplete_controller_->SetAutocompleteMatches({clipboard_match});
 
@@ -428,7 +428,8 @@ TEST_F(OmniboxAutocompleteControllerTest, OpenClipboardImageMatch) {
   open_selection_waiter.Run();
 
   // Expect the clipboard content to be loaded.
-  EXPECT_EQ(LastOpenedMatch().type, AutocompleteMatchType::CLIPBOARD_IMAGE);
+  EXPECT_EQ(LastOpenedMatch().type,
+            omnibox::AutocompleteMatchType::kClipboardImage);
   EXPECT_FALSE(LastOpenedMatch().post_content->first.empty());
   EXPECT_FALSE(LastOpenedMatch().post_content->second.empty());
 }
@@ -440,7 +441,7 @@ TEST_F(OmniboxAutocompleteControllerTest, OpenClipboardImageMatch) {
 // no need to ever try and strip this scheme.
 TEST_F(OmniboxAutocompleteControllerTest, AlternateNavHasHTTP) {
   AutocompleteMatch match(autocomplete_controller_->search_provider(), 0, false,
-                          AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED);
+                          omnibox::AutocompleteMatchType::kSearchWhatYouTyped);
   // `match.destination_url` has to be set to ensure that OnAutocompleteAccept
   // is called and `alternate_nav_match` is populated.
   match.destination_url = GURL("https://foo/");

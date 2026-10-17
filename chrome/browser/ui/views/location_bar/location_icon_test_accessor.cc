@@ -18,6 +18,7 @@
 #include "chrome/browser/ui/views/toolbar/webui_toolbar_web_view.h"
 #include "content/public/test/browser_test_utils.h"
 #include "ui/events/test/test_event.h"
+#include "ui/views/controls/webview/webview.h"
 
 namespace {
 
@@ -133,7 +134,7 @@ void LocationIconTestAccessor::Click() {
 
     webui_view->OnLhsChipClicked(
         toolbar_ui_api::mojom::LhsChipIdentifier::kLocationIcon,
-        /*is_mouse_interaction=*/false);
+        /*is_mouse_interaction=*/false, /*state_token=*/0);
     return;
   }
 }

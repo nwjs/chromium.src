@@ -471,7 +471,7 @@ public class TabListEditorCoordinator {
      * @param tabGroupSyncIds List of syncIds tied to {@link SavedTabGroup}s to be shown.
      * @param quickMode whether to use quick mode.
      */
-    void resetWithListOfTabs(
+    public void resetWithListOfTabs(
             @Nullable List<Tab> tabs, @Nullable List<String> tabGroupSyncIds, boolean quickMode) {
         assumeNonNull(mTabListCoordinator);
         mTabListCoordinator.resetWithListOfTabs(tabs, tabGroupSyncIds, quickMode);
@@ -569,6 +569,22 @@ public class TabListEditorCoordinator {
             @StringRes int backButtonContentDescription) {
         mTabListEditorLayout.overrideContentDescriptions(
                 containerContentDescription, backButtonContentDescription);
+    }
+
+    /** Shows the loading UI in the layout. */
+    public void showLoadingUi() {
+        if (mTabListCoordinator != null) {
+            mTabListCoordinator.destroyEmptyView();
+        }
+        mTabListEditorLayout.showLoadingUi();
+    }
+
+    /** Hides the loading UI in the layout. */
+    public void hideLoadingUi() {
+        mTabListEditorLayout.hideLoadingUi();
+        if (mTabListCoordinator != null && mTabListEditorMediator.isVisible()) {
+            mTabListCoordinator.attachEmptyView();
+        }
     }
 
     private void createTabListCoordinator() {
@@ -708,8 +724,9 @@ public class TabListEditorCoordinator {
     }
 
     public void removeTabListItemSizeChangedObserver(TabListItemSizeChangedObserver observer) {
-        assert mTabListCoordinator != null;
-        mTabListCoordinator.removeTabListItemSizeChangedObserver(observer);
+        if (mTabListCoordinator != null) {
+            mTabListCoordinator.removeTabListItemSizeChangedObserver(observer);
+        }
     }
 
     private ThumbnailProvider initMultiThumbnailCardProvider(

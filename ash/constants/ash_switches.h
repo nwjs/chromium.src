@@ -294,11 +294,6 @@ inline constexpr char kBirchIsEvening[] = "birch-is-evening";
 // purposes.
 inline constexpr char kBirchIsMorning[] = "birch-is-morning";
 
-// Switch used to pass in a secret key for Campbell feature. Unless the correct
-// secret key is provided, Campbell feature will remain disabled, regardless of
-// the state of the associated feature flag.
-inline constexpr char kCampbellKey[] = "campbell-key";
-
 // If this flag is set, it indicates that this device is a "Cellular First"
 // device. Cellular First devices use cellular telephone data networks as
 // their primary means of connecting to the internet.
@@ -1093,11 +1088,6 @@ inline constexpr char kTetherHostScansIgnoreWiredConnections[] =
 // of fake networks desired, e.g. 'tether-stub=2'.
 inline constexpr char kTetherStub[] = "tether-stub";
 
-// Used for overriding the required user activity time before running the
-// onboarding survey.
-inline constexpr char kTimeBeforeOnboardingSurveyInSecondsForTesting[] =
-    "time-before-onboarding-survey-in-seconds-for-testing";
-
 // Chromebases' touchscreens can be used to wake from suspend, unlike the
 // touchscreens on other Chrome OS devices. If set, the touchscreen is kept
 // enabled while the screen is off so that it can be used to turn the screen
@@ -1306,9 +1296,6 @@ bool UseFakeCrasAudioClientForDBus();
 
 COMPONENT_EXPORT(ASH_CONSTANTS)
 bool ShouldAllowDefaultShelfPinLayoutIgnoringSync();
-
-COMPONENT_EXPORT(ASH_CONSTANTS)
-bool IsCampbellSecretKeyMatched();
 
 COMPONENT_EXPORT(ASH_CONSTANTS)
 bool IsScannerUpdateSecretKeyMatched();

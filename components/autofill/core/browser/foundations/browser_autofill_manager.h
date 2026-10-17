@@ -85,6 +85,17 @@ enum class ValuePatternsMetric {
   kMaxValue = kAchRoutingNumber,
 };
 
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// LINT.IfChange(JavaScriptDropdownType)
+enum class JavaScriptDropdownType {
+  kNone = 0,
+  kEmail = 1,
+  kAddress = 2,
+  kMaxValue = kAddress,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/autofill/enums.xml:AutofillJavaScriptDropdownType)
+
 class BrowserAutofillManager;
 
 // Manages saving and restoring the user's personal information entered into web
@@ -372,8 +383,8 @@ class BrowserAutofillManager : public AutofillManager {
   void OnDidDetectJavaScriptAutofillImpl(
       const FormData& form,
       const FieldGlobalId& trigger_field_id,
-      const std::vector<JavaScriptFieldModification>& field_modifications)
-      override;
+      const std::vector<JavaScriptFieldModification>& field_modifications,
+      base::TimeTicks detection_start_timestamp) override;
   void OnFormSubmittedImpl(const FormData& form,
                            mojom::SubmissionSource source) override;
   void OnFormWithEmailVerificationTokenSubmittedImpl(
@@ -732,6 +743,15 @@ class BrowserAutofillManager : public AutofillManager {
   // Handles general Address on typing feature management, mainly the logic
   // behind its strike database.
   AddressOnTypingManager address_on_typing_manager_;
+
+  // Invalidated before GenerateSuggestionsAndMaybeShowUIPhase2() is called to
+  // ensure that there are never two simultaneous pending
+  // GenerateSuggestionsAndMaybeShowUIPhase2() calls.
+  // TODO(crbug.com/409962888): Remove as part of cleaning up
+  // kAutofillNewSuggestionGeneration.
+  base::WeakPtrFactory<BrowserAutofillManager>
+      generate_suggestions_and_maybe_show_ui_phase2_weak_ptr_factory_{this};
+
   base::WeakPtrFactory<BrowserAutofillManager> weak_ptr_factory_{this};
 };
 

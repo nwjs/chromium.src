@@ -20,6 +20,7 @@
 #include "net/base/address_list.h"
 #include "net/base/ip_endpoint.h"
 #include "net/base/isolation_info.h"
+#include "net/disk_cache/buildflags.h"
 #include "net/http/http_request_headers.h"
 #include "net/net_buildflags.h"
 #include "net/storage_access_api/status.h"
@@ -227,7 +228,8 @@ class TestNetworkContext : public mojom::NetworkContext {
       mojo::PendingRemote<mojom::TrustedHeaderClient> header_client,
       const std::optional<base::UnguessableToken>& throttling_profile_id,
       const base::UnguessableToken& network_restrictions_id,
-      mojom::IPAddressSpace target_address_space) override {}
+      mojom::IPAddressSpace target_address_space,
+      std::optional<int64_t> target_network) override {}
   void CreateWebTransport(
       const GURL& url,
       const url::Origin& origin,
@@ -379,6 +381,12 @@ class TestNetworkContext : public mojom::NetworkContext {
       ClearSharedDictionaryCacheForIsolationKeyCallback callback) override {}
   void ClearSharedDictionarySessionOnlyData(
       ClearSharedDictionarySessionOnlyDataCallback callback) override {}
+#if BUILDFLAG(ENABLE_DISK_CACHE_SQL_BACKEND)
+  void RegisterHttpCacheClient(
+      const net::NetworkIsolationKey& key,
+      mojo::PendingRemote<network::mojom::SharedHttpCacheClientFactory>
+          shared_http_cache_client) override {}
+#endif  // BUILDFLAG(ENABLE_DISK_CACHE_SQL_BACKEND)
   void GetSharedDictionaryUsageInfo(
       GetSharedDictionaryUsageInfoCallback callback) override {}
   void GetSharedDictionaryInfo(
@@ -417,6 +425,9 @@ class TestNetworkContext : public mojom::NetworkContext {
   void AddQuicHints(
       const std::vector<url::SchemeHostPort>& origins,
       const net::NetworkAnonymizationKey& network_anonymization_key) override {}
+  void AddWildcardQuicHints(
+      std::vector<mojom::WildcardQuicHintPtr> hints) override {}
+  void SetTryQuicByDefault(bool enable) override {}
   void SetVariationsHeaders(
       variations::mojom::VariationsHeadersPtr variations_headers) override {}
 };

@@ -20,6 +20,9 @@
       0 1px 3px 0 rgba(0, 0, 0, 0.30);
   --cr-searchbox-voice-icon-offset: 16px;
   --cr-searchbox-voice-search-button-width: 0px;
+  --cr-searchbox-input-height: calc(
+      var(--cr-searchbox-height) -
+      2 * var(--location-bar-page-info-icon-vertical-padding));
   --cr-searchbox-width: calc(100% - 2 * var(--alignment-inset-horizontal));
   border-radius: var(--cr-searchbox-border-radius);
   display: block;
@@ -37,6 +40,7 @@
   /* Match Touch UI insets: 6px top, 1px horizontal. */
   --alignment-inset-top: 6px;
   --alignment-inset-horizontal: 1px;
+  --alignment-inset-bottom: 5px;
   --cr-searchbox-font-size: 15px;
   --cr-searchbox-height: 36px;
   --cr-searchbox-icon-size-in-searchbox: 20px;
@@ -50,10 +54,17 @@
    * Standard: 5px top, 6px horizontal. */
   --alignment-inset-top: 5px;
   --alignment-inset-horizontal: 6px;
+  --alignment-inset-bottom: 5px;
   --cr-searchbox-font-size: 14px;
-  --cr-searchbox-height: 32px;
+  --cr-searchbox-height: 34px;
   --cr-searchbox-icon-size-in-searchbox: 16px;
   --location-bar-page-info-icon-vertical-padding: 5px;
+}
+
+:host([is-mac_]:not([is-touch-ui_])) {
+  --alignment-inset-top: 5px;
+  --alignment-inset-horizontal: 5px;
+  --alignment-inset-bottom: 4px;
 }
 
 :host([searchbox-chrome-refresh-theming][dropdown-is-visible]) {
@@ -64,49 +75,45 @@
   --cr-searchbox-shadow: none;
 }
 
-/* TODO(b/511199705): Ensure input has correct size when results visible. */
 /* TODO(b/504669359): Define other location bar border colors such as high contrast. */
 :host(:not([dropdown-is-visible])) {
   --cr-searchbox-icon-right-position: 2px;
-  --cr-searchbox-input-height: calc(
-      var(--cr-searchbox-height) -
-      2 * var(--location-bar-page-info-icon-vertical-padding));
   --cr-searchbox-shadow: inset 0 0 0 1px var(--color-location-bar-border-on-mismatch);
-  --cr-searchbox-width: calc(100% - 2 * var(--alignment-inset-horizontal));
   box-sizing: border-box;
   margin-inline: auto;
   margin-top: var(--alignment-inset-top);
-  margin-bottom: var(--alignment-inset-top);
+  margin-bottom: var(--alignment-inset-bottom);
 }
 
-:host(:not([dropdown-is-visible]):not([has-input-selection]):not([is-logically-focused])) #inputWrapper:hover:not(:focus-within) {
+:host(:not([dropdown-is-visible]):not([has-input-selection_]):not([is-logically-focused_])) #inputWrapper:hover:not(:focus-within) {
   cursor: text;
   background-color: var(--color-omnibox-results-background-hovered);
 }
 
 :host(:not([dropdown-is-visible])) #inputWrapper:focus-within,
-:host([is-logically-focused]:not([dropdown-is-visible])) #inputWrapper,
-:host([is-logically-focused][has-input-selection]) #inputWrapper {
+:host([is-logically-focused_]:not([dropdown-is-visible])) #inputWrapper {
   --cr-searchbox-shadow: none;
   box-shadow: 0 0 0 2px var(--cr-focus-outline-color);
 }
 
-:host #inputWrapper:has(#composeButton:is(:focus-within, [has-virtual-focus])) {
-  box-shadow: none;
-}
-
+/* The compose button takes the focus ring's place while it has focus. With
+ * the dropdown visible there is no focus ring, and #inputWrapper's box-shadow
+ * is the popup's drop shadow, which stays. */
 :host(:not([dropdown-is-visible])) #inputWrapper:has(#composeButton:is(:focus-within, [has-virtual-focus])) {
   background-color: var(--color-location-bar-background, var(--color-omnibox-results-background-hovered));
+  box-shadow: none;
 }
 
 /* TODO(b/511199705): Widget is too wide when dropdown is visible. This is a
    workaround until we fix that. */
 :host([dropdown-is-visible]) {
   --cr-searchbox-icon-container-size: 28px;
-  --cr-searchbox-icon-left-position: 16px;
+  --cr-searchbox-icon-left-position: calc(
+      16px - var(--alignment-inset-horizontal));
   --cr-searchbox-icon-right-position: 10px;
   --cr-searchbox-border-radius: 16px;
   --cr-searchbox-width: 100%;
+  height: auto;
 }
 
 
@@ -118,12 +125,34 @@
   --cr-searchbox-voice-icon-offset: 53px;
 }
 
+/* With the dropdown visible, #inputWrapper is the popup's surface, so its
+ * shadow is the popup's drop shadow when the page paints it.
+ * TODO(crbug.com/563367122): Clean up shadow coordination between the inner
+ * searchbox and the outer popup shadow. */
+:host([webui-shadow-enabled_][dropdown-is-visible]) {
+  --cr-searchbox-shadow: var(--omnibox-webui-shadow);
+}
+
 @media (forced-colors: active) {
   :host {
     border: 1px solid ActiveBorder;
   }
 }
 
+#input {
+  flex: 0 0 auto;
+  height: var(--cr-searchbox-height);
+}
+
+:host([dropdown-is-visible]) #input {
+  margin-top: var(--alignment-inset-top);
+  margin-bottom: var(--alignment-inset-bottom);
+  margin-inline: auto;
+  width: calc(100% - 2 * var(--alignment-inset-horizontal));
+}
+
+/* Keep #inputWrapper free of ::before/::after pseudo-elements; see the note on
+ * '--omnibox-webui-shadow' in omnibox_popup_shared_style.css. */
 #inputWrapper {
   background-color: var(--color-searchbox-background);
   border-radius: var(--cr-searchbox-border-radius);
@@ -143,6 +172,10 @@ cr-searchbox-input::part(searchbox-input) {
   height: var(--cr-searchbox-input-height);
   padding-bottom: 2px;
   padding-top: 0;
+}
+
+:host(:not([aim-button-visible_])) cr-searchbox-input::part(searchbox-input) {
+  margin-inline-end: 18px;
 }
 
 /* When the window is inactive (top container has focus), the selection should
@@ -317,7 +350,9 @@ omnibox-popup-contextual-entrypoint {
 }
 
 :host([searchbox-dynamic-color-scheme_]) #composeButton::part(compose-button) {
-  background-color: var(--color-omnibox-results-background-hovered);
+  background-color: var(
+      --color-omnibox-composebox-context-entrypoint-background);
+  color: var(--color-omnibox-context-entrypoint-text);
 }
 
 #composeButton[has-virtual-focus]::part(compose-button),

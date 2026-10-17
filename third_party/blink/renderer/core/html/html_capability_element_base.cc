@@ -490,6 +490,16 @@ void HTMLCapabilityElementBase::SetPreciseLocation(bool is_precise_location) {
   UpdateAppearance();
 }
 
+bool HTMLCapabilityElementBase::IsIconOnly() const {
+  if (IsHTMLInstallElement() ||
+      !RuntimeEnabledFeatures::CapabilityElementIconOnlyModeEnabled(
+          GetDocument().GetExecutionContext())) {
+    return false;
+  }
+  return EqualIgnoringAsciiCase(FastGetAttribute(html_names::kDisplaymodeAttr),
+                                "icon-only");
+}
+
 void HTMLCapabilityElementBase::UpdatePermissionStatus() {
   if (std::ranges::any_of(permission_status_map_, [](const auto& status) {
         return status.value == MojoPermissionStatus::DENIED;
@@ -688,6 +698,14 @@ void HTMLCapabilityElementBase::ParseAttribute(
 
   if (params.name == html_names::kPreciselocationAttr) {
     SetPreciseLocation(params.new_value != nullptr);
+  } else if (params.name == html_names::kDisplaymodeAttr) {
+    if (!IsHTMLInstallElement() &&
+        RuntimeEnabledFeatures::CapabilityElementIconOnlyModeEnabled(
+            GetDocument().GetExecutionContext()) &&
+        EqualIgnoringAsciiCase(params.old_value, "icon-only") !=
+            EqualIgnoringAsciiCase(params.new_value, "icon-only")) {
+      UpdateAppearance();
+    }
   }
 
   HTMLElement::ParseAttribute(params);
@@ -1035,13 +1053,42 @@ String HTMLCapabilityElementBase::GetActivationErrorMessage() const {
   return error_message;
 }
 
+bool HTMLCapabilityElementBase::HasActivationBehavior() const {
+  if (!RuntimeEnabledFeatures::CleanUpActivationBehaviorEnabled()) {
+    return false;
+  }
+  return !fallback_mode_;
+}
+
+void HTMLCapabilityElementBase::RunActivationBehavior(
+    Event& event,
+    EventDispatchHandlingState* handling_state) {
+  if (!RuntimeEnabledFeatures::CleanUpActivationBehaviorEnabled()) {
+    HTMLElement::RunActivationBehavior(event, handling_state);
+    return;
+  }
+  if (event.defaultPrevented() || event.DefaultHandled()) {
+    return;
+  }
+  if (fallback_mode_) {
+    HTMLElement::RunActivationBehavior(event, handling_state);
+    return;
+  }
+
+  HandleActivation(
+      event,
+      blink::BindOnce(&HTMLCapabilityElementBase::RequestPageEmbededPermissions,
+                      WrapWeakPersistent(this)));
+}
+
 void HTMLCapabilityElementBase::DefaultEventHandler(Event& event) {
   if (fallback_mode_) {
     HTMLElement::DefaultEventHandler(event);
     return;
   }
 
-  if (event.type() == event_type_names::kDOMActivate) {
+  if (!RuntimeEnabledFeatures::CleanUpActivationBehaviorEnabled() &&
+      event.type() == event_type_names::kDOMActivate) {
     HandleActivation(
         event, blink::BindOnce(
                    &HTMLCapabilityElementBase::RequestPageEmbededPermissions,

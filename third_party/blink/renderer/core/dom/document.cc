@@ -334,7 +334,6 @@
 #include "third_party/blink/renderer/core/page/frame_tree.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/page/page_animator.h"
-#include "third_party/blink/renderer/core/page/plugin_script_forbidden_scope.h"
 #include "third_party/blink/renderer/core/page/pointer_lock_controller.h"
 #include "third_party/blink/renderer/core/page/scrolling/fragment_anchor.h"
 #include "third_party/blink/renderer/core/page/scrolling/root_scroller_controller.h"
@@ -1368,8 +1367,9 @@ AtomicString Document::ConvertLocalName(const AtomicString& name) {
 // custom element processing.
 // This is a common code for step 5.2 and 7.2 of "create an element"
 // <https://dom.spec.whatwg.org/#concept-create-element>
-// Functions other than this one should not use HTMLElementFactory and
-// SVGElementFactory because they don't support prefixes correctly.
+// Functions other than this one (and the prefix-less fast paths in
+// CreateElementForBinding / createElementNS) should not use HTMLElementFactory
+// and SVGElementFactory because they don't support prefixes correctly.
 Element* Document::CreateRawElement(const QualifiedName& qname,
                                     CreateElementFlags flags) {
   Element* element = nullptr;
@@ -1414,6 +1414,21 @@ Element* Document::CreateRawElement(const QualifiedName& qname,
 // https://dom.spec.whatwg.org/#dom-document-createelement
 Element* Document::CreateElementForBinding(const AtomicString& name,
                                            ExceptionState& exception_state) {
+  // Fast path: standard HTML tag names (e.g. "div", "span", "p", "a") are
+  // guaranteed to be valid XML 1.0 Names, lowercase ASCII, and never match
+  // autonomous custom elements (which require hyphens). Probing
+  // HTMLElementFactory::Create upfront bypasses string validation, lowercasing,
+  // and custom element checks on the hottest DOM creation paths in O(1) time
+  // without observable behavioral changes.
+  if (IsA<HTMLDocument>(this) || IsXHTMLDocument()) {
+    if (auto* element = HTMLElementFactory::Create(
+            name, *this, CreateElementFlags::ByCreateElement())) {
+      DCHECK(IsValidElementName(name));
+      DCHECK(!CustomElement::ShouldCreateCustomElement(ConvertLocalName(name)));
+      return element;
+    }
+  }
+
   if (!IsValidElementName(name)) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidCharacterError,
@@ -1563,6 +1578,32 @@ static inline QualifiedName CreateQualifiedName(
 Element* Document::createElementNS(const AtomicString& namespace_uri,
                                    const AtomicString& qualified_name,
                                    ExceptionState& exception_state) {
+  // Fast path: prefix-less standard elements in known namespaces bypass
+  // CreateQualifiedName parsing, prefix validation, and custom element checks.
+  // Any qualified name containing a prefix with a colon will miss in the
+  // factory map (which only contains prefix-less local names) and fall through
+  // to the general path.
+  Element* element = nullptr;
+  if (namespace_uri == svg_names::kNamespaceURI) {
+    element = SVGElementFactory::Create(qualified_name, *this,
+                                        CreateElementFlags::ByCreateElement());
+  } else if (namespace_uri == html_names::xhtmlNamespaceURI) {
+    element = HTMLElementFactory::Create(qualified_name, *this,
+                                         CreateElementFlags::ByCreateElement());
+  } else if (namespace_uri == mathml_names::kNamespaceURI) {
+    element = MathMLElementFactory::Create(
+        qualified_name, *this, CreateElementFlags::ByCreateElement());
+  }
+  if (element) {
+    DCHECK_EQ(CreateQualifiedName(
+                  namespace_uri, qualified_name, exception_state,
+                  Document::QualifiedNameParsingMode::kParsingElement),
+              element->TagQName());
+    DCHECK(!CustomElement::ShouldCreateCustomElement(element->TagQName()));
+    saw_elements_in_known_namespaces_ = true;
+    return element;
+  }
+
   QualifiedName q_name(
       CreateQualifiedName(namespace_uri, qualified_name, exception_state,
                           Document::QualifiedNameParsingMode::kParsingElement));
@@ -2090,6 +2131,10 @@ CaretPosition* Document::caretPositionFromPoint(
   Node* anchor_node = position_with_affinity.AnchorNode();
   if (TextControlElement* text_control = EnclosingTextControl(anchor_node)) {
     anchor_node = text_control;
+    CHECK(anchor_node == text_control ||
+          text_control->InnerEditorElement()->contains(anchor_node))
+        << "We should not expose positions in content (e.g., autofill "
+           "suggestions) not in the editor";
   }
   bool adjust_position = false;
   while (anchor_node->IsInShadowTree() &&
@@ -2635,7 +2680,6 @@ void Document::UpdateStyleAndLayoutTree(LayoutUpgrade& upgrade) {
     return;
   }
 
-  HTMLFrameOwnerElement::PluginDisposeSuspendScope suspend_plugin_dispose;
   ScriptForbiddenScope forbid_script;
 
   if (HTMLFrameOwnerElement* owner = LocalOwner()) {
@@ -3142,7 +3186,6 @@ void Document::UpdateStyleAndLayout(DocumentUpdateReason reason) {
   if (reason != DocumentUpdateReason::kBeginMainFrame && frame_view)
     frame_view->WillStartForcedLayout(reason, is_potentially_clean);
 
-  HTMLFrameOwnerElement::PluginDisposeSuspendScope suspend_plugin_dispose;
   ScriptForbiddenScope forbid_script;
 
   DCHECK(!frame_view || !frame_view->IsInPerformLayout())
@@ -3334,15 +3377,9 @@ void Document::Shutdown() {
   // Frame navigation can cause a new Document to be attached. Don't allow that,
   // since that will cause a situation where LocalFrame still has a Document
   // attached after this finishes!  Normally, it shouldn't actually be possible
-  // to trigger navigation here.  However, plugins (see below) can cause lots of
-  // crazy things to happen, since plugin detach involves nested run loops.
+  // to trigger navigation here.  However, plugins can cause lots of crazy
+  // things to happen, since plugin detach involves nested run loops.
   FrameNavigationDisabler navigation_disabler(*GetFrame());
-  // Defer plugin dispose to avoid plugins trying to run script inside
-  // ScriptForbiddenScope, which will crash the renderer after
-  // https://crrev.com/200984
-  // TODO(dcheng): This is a temporary workaround, Document::Shutdown() should
-  // not be running script at all.
-  HTMLFrameOwnerElement::PluginDisposeSuspendScope suspend_plugin_dispose;
   // Don't allow script to run in the middle of DetachLayoutTree() because a
   // detaching Document is not in a consistent state.
   ScriptForbiddenScope forbid_script;
@@ -3352,8 +3389,7 @@ void Document::Shutdown() {
   // Do not add code before this without a documented reason. A postcondition of
   // Shutdown() is that |dom_window_| must not have an attached Document.
   // Allowing script execution when the Document is shutting down can make it
-  // easy to accidentally violate this condition, and the ordering of the
-  // scopers above is subtle due to legacy interactions with plugins.
+  // easy to accidentally violate this condition.
 
   if (num_canvases_ > 0)
     UMA_HISTOGRAM_COUNTS_100("Blink.Canvas.NumCanvasesPerPage", num_canvases_);
@@ -4663,7 +4699,6 @@ void Document::DispatchUnloadEvents(
               perfetto::Flow::FromPointer(this));
   base::ScopedUmaHistogramTimer histogram_timer(
       "Navigation.Document.DispatchUnloadEvents");
-  PluginScriptForbiddenScope forbid_plugin_destructor_scripting;
   PageDismissalScope in_page_dismissal;
   if (parser_) {
     parser_->StopParsing();
@@ -4926,77 +4961,27 @@ void Document::writeln(const String& text,
 }
 
 void Document::write(v8::Isolate* isolate,
-                     const Vector<String>& text,
+                     const HeapVector<Member<V8UnionStringOrTrustedHTML>>& text,
                      ExceptionState& exception_state) {
-  StringBuilder builder;
-  for (const String& string : text)
-    builder.Append(string);
-  String string =
-      TrustedTypesCheckForHTML(builder.ReleaseString(), GetExecutionContext(),
-                               trusted_types_names::kDocument,
-                               trusted_types_names::kWrite, exception_state);
-  if (exception_state.HadException())
-    return;
-
-  write(string, EnteredDOMWindow(isolate), exception_state);
-}
-
-void Document::writeln(v8::Isolate* isolate,
-                       const Vector<String>& text,
-                       ExceptionState& exception_state) {
-  StringBuilder builder;
-  for (const String& string : text)
-    builder.Append(string);
-  String string =
-      TrustedTypesCheckForHTML(builder.ReleaseString(), GetExecutionContext(),
-                               trusted_types_names::kDocument,
-                               trusted_types_names::kWriteln, exception_state);
-  if (exception_state.HadException())
-    return;
-
-  writeln(string, EnteredDOMWindow(isolate), exception_state);
-}
-
-void Document::write(v8::Isolate* isolate,
-                     TrustedHTML* text,
-                     ExceptionState& exception_state) {
-  write(text->toString(), EnteredDOMWindow(isolate), exception_state);
-}
-
-void Document::writeln(v8::Isolate* isolate,
-                       TrustedHTML* text,
-                       ExceptionState& exception_state) {
-  writeln(text->toString(), EnteredDOMWindow(isolate), exception_state);
-}
-
-void Document::write(v8::Isolate* isolate,
-                     TrustedHTML* first_text,
-                     HeapVector<Member<V8UnionStringOrTrustedHTML>> other_texts,
-                     ExceptionState& exception_state) {
-  Write(isolate, first_text, other_texts, /*line_feed*/ false, "write",
-        exception_state);
+  Write(isolate, text, /*line_feed=*/false, "write", exception_state);
 }
 
 void Document::writeln(
     v8::Isolate* isolate,
-    TrustedHTML* first_text,
-    HeapVector<Member<V8UnionStringOrTrustedHTML>> other_texts,
+    const HeapVector<Member<V8UnionStringOrTrustedHTML>>& text,
     ExceptionState& exception_state) {
-  Write(isolate, first_text, other_texts, /*line_feed*/ true, "writeln",
-        exception_state);
+  Write(isolate, text, /*line_feed=*/true, "writeln", exception_state);
 }
 
 void Document::Write(v8::Isolate* isolate,
-                     TrustedHTML* first_text,
-                     HeapVector<Member<V8UnionStringOrTrustedHTML>> other_texts,
+                     const HeapVector<Member<V8UnionStringOrTrustedHTML>>& text,
                      bool line_feed,
                      const char* sink,
                      ExceptionState& exception_state) {
   // https://html.spec.whatwg.org/#document.write(), steps 1-3:
   StringBuilder builder;
-  builder.Append(first_text->toString());
   bool is_trusted = true;
-  for (const auto& text_or_trusted : other_texts) {
+  for (const auto& text_or_trusted : text) {
     if (text_or_trusted->IsString()) {
       builder.Append(text_or_trusted->GetAsString());
       is_trusted = false;
@@ -6212,9 +6197,7 @@ void Document::SendFocusNotification(Element* new_focused_element,
   }
 
   auto dom_node_id = mojom::blink::DOMNodeId::New(kInvalidDOMNodeId);
-  if (base::FeatureList::IsEnabled(
-          features::kPopulateDOMNodeIdInFocusedNodeDetails) &&
-      new_focused_element && (is_editable || is_richly_editable)) {
+  if (new_focused_element && (is_editable || is_richly_editable)) {
     dom_node_id->value = new_focused_element->GetDomNodeId();
   }
 
@@ -6257,6 +6240,10 @@ void Document::NotifyFocusedElementChanged(Element* old_focused_element,
 
   blink::NotifyPriorityScrollAnchorStatusChanged(old_focused_element,
                                                  new_focused_element);
+}
+
+bool Document::HasSequentialFocusNavigationStartingPoint() const {
+  return sequential_focus_navigation_starting_point_;
 }
 
 void Document::SetSequentialFocusNavigationStartingPoint(Node* node) {
@@ -9616,6 +9603,7 @@ void Document::Trace(Visitor* visitor) const {
   visitor->Trace(clear_focused_element_timer_);
   visitor->Trace(node_iterators_);
   visitor->Trace(ranges_);
+  visitor->Trace(unobserved_child_list_mutation_target_);
   visitor->Trace(document_explicit_root_intersection_observer_data_);
   visitor->Trace(style_engine_);
   visitor->Trace(form_controller_);
@@ -10201,11 +10189,33 @@ bool Document::IsLcpElementFoundInHtml() {
 }
 
 void Document::ScheduleShadowTreeCreation(HTMLInputElement& element) {
-  elements_needing_shadow_tree_.insert(&element);
+  DCHECK(!element.IsShadowTreeCreationScheduled());
+  DCHECK(IsActive());
+  element.SetScheduledShadowTreeCreationIndex(
+      elements_needing_shadow_tree_.size());
+  elements_needing_shadow_tree_.push_back(&element);
 }
 
 void Document::UnscheduleShadowTreeCreation(HTMLInputElement& element) {
-  elements_needing_shadow_tree_.erase(&element);
+  // Swap-remove, so that this is O(1) no matter in which order inputs are
+  // removed. The element only stores the low bits of its index; with more
+  // than kShadowTreeCreationIndexHintRange inputs pending, several slots share
+  // those bits and we probe each of them (the list is bounded by the number
+  // of inputs in the document, so this stays a handful of probes).
+  wtf_size_t index = element.ScheduledShadowTreeCreationIndexHint();
+  while (elements_needing_shadow_tree_[index] != &element) {
+    index += HTMLInputElement::kShadowTreeCreationIndexHintRange;
+    CHECK_LT(index, elements_needing_shadow_tree_.size());
+  }
+  // Note that `last` is `element` itself when removing the last entry, so
+  // the order matters: move `last` into the slot and update its hint first,
+  // then shrink the list, and clear `element` last so that it ends up
+  // unscheduled either way.
+  HTMLInputElement& last = *elements_needing_shadow_tree_.back();
+  elements_needing_shadow_tree_[index] = &last;
+  last.SetScheduledShadowTreeCreationIndex(index);
+  elements_needing_shadow_tree_.pop_back();
+  element.ClearScheduledShadowTreeCreation();
 }
 
 #if BUILDFLAG(IS_ANDROID)
@@ -10231,9 +10241,15 @@ void Document::ProcessScheduledShadowTreeCreationsNow() {
   if (elements_needing_shadow_tree_.empty()) {
     return;
   }
-  HeapHashSet<Member<HTMLInputElement>> elements_needing_shadow_tree;
+  // EnsureShadowSubtree() can schedule or unschedule other elements, so work
+  // on a swapped-out list, and mark every element unscheduled first so that
+  // such re-entrant calls never refer to the swapped-out list.
+  HeapVector<Member<HTMLInputElement>> elements_needing_shadow_tree;
   std::swap(elements_needing_shadow_tree, elements_needing_shadow_tree_);
-  for (auto& element : elements_needing_shadow_tree) {
+  for (HTMLInputElement* element : elements_needing_shadow_tree) {
+    element->ClearScheduledShadowTreeCreation();
+  }
+  for (HTMLInputElement* element : elements_needing_shadow_tree) {
     element->EnsureShadowSubtree();
   }
 }
@@ -10485,7 +10501,8 @@ void Document::UpdateOverscrollCommandTargets() {
   HeapHashSet<Member<Element>> new_targets;
   for (Element* element : overscroll_command_invokers_) {
     if (auto* html_element = DynamicTo<HTMLElement>(element)) {
-      if (Element* target = html_element->commandForElement()) {
+      if (Element* target = html_element->commandForElement();
+          target && target->GetTreeScope() == html_element->GetTreeScope()) {
         new_targets.insert(target);
       }
     }

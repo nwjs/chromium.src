@@ -16,7 +16,7 @@ import android.os.UserHandle;
 
 import androidx.annotation.RequiresApi;
 
-import org.chromium.base.AconfigFlaggedApiDelegate;
+import org.chromium.base.BaseFeatureList;
 import org.chromium.base.BindingRequestQueue;
 import org.chromium.base.ContextUtils;
 import org.chromium.build.BuildConfig;
@@ -122,8 +122,21 @@ public final class BindService {
         return longFlags;
     }
 
+    /**
+     * Calls or enqueues a `Context.rebindService()` for {@code connection}.
+     *
+     * @param context The context used to bind the service.
+     * @param connection The connection to rebind.
+     * @param flags The flags to use for the rebind.
+     * @param urgent Whether the updated flags must reach the system as soon as possible. A rebind
+     *     which raises the priority of a process is latency sensitive: the process is already
+     *     expected to produce visible content, so it must not keep its previous (lower) binding
+     *     flags until the enclosing {@link ScopedServiceBindingBatch} is closed. See
+     *     crbug.com/465607095.
+     */
     @SuppressWarnings("NewApi")
-    static void doRebindService(Context context, ServiceConnection connection, int flags) {
+    static void doRebindService(
+            Context context, ServiceConnection connection, int flags, boolean urgent) {
         if (sBinderCallCounter != null) {
             sBinderCallCounter.mRebindServiceCount++;
         }
@@ -135,12 +148,18 @@ public final class BindService {
             // This should never be null because shouldBatchUpdate() checks that the feature is
             // enabled.
             assert queue != null;
+            // Enqueue even when the request is urgent. The queue is keyed by ServiceConnection, so
+            // sending the request directly instead would leave an already enqueued request for the
+            // same connection in the queue, and that stale request would overwrite these flags when
+            // the queue is flushed later.
             queue.rebind(connection, bindServiceFlags);
+            if (urgent && BaseFeatureList.sRebindServiceBatchApiFlushOnUpgrade.getValue()) {
+                queue.flush();
+            }
             return;
         }
-        final AconfigFlaggedApiDelegate delegate = AconfigFlaggedApiDelegate.getInstance();
-        if (delegate != null) {
-            delegate.rebindService(context, connection, bindServiceFlags);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN) {
+            context.rebindService(connection, bindServiceFlags);
         }
     }
 

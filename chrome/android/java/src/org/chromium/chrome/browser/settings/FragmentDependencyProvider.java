@@ -54,6 +54,7 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.settings.FragmentSettingsNavigation;
 import org.chromium.components.browser_ui.settings.SearchViewProvider;
 import org.chromium.components.browser_ui.settings.SettingsCustomTabLauncher;
+import org.chromium.components.browser_ui.settings.SettingsNavigation;
 import org.chromium.components.browser_ui.site_settings.BaseSiteSettingsFragment;
 import org.chromium.ui.base.ActivityResultTracker;
 import org.chromium.ui.base.WindowAndroid;
@@ -80,8 +81,16 @@ public class FragmentDependencyProvider extends FragmentManager.FragmentLifecycl
     private final MonotonicObservableSupplier<ModalDialogManager> mModalDialogManagerSupplier;
     private final Supplier<@Nullable SettingsSearchCoordinator> mSearchCoordinatorSupplier;
 
+    /**
+     * Whether settings is being shown in a tab. Injected by the host so that the value stays
+     * constant for the lifetime of this object, even if the screen width changes (e.g. the device
+     * is folded or unfolded).
+     */
+    private final boolean mShownInTab;
+
     public FragmentDependencyProvider(
             Activity activity,
+            boolean shownInTab,
             Profile profile,
             OneshotSupplier<WindowAndroid> windowAndroidSupplier,
             ActivityResultTracker activityResultTracker,
@@ -90,6 +99,7 @@ public class FragmentDependencyProvider extends FragmentManager.FragmentLifecycl
             MonotonicObservableSupplier<ModalDialogManager> modalDialogManagerSupplier,
             Supplier<@Nullable SettingsSearchCoordinator> searchCoordinatorSupplier) {
         mActivity = activity;
+        mShownInTab = shownInTab;
         mProfile = profile;
         mWindowAndroidSupplier = windowAndroidSupplier;
         mActivityResultTracker = activityResultTracker;
@@ -114,15 +124,23 @@ public class FragmentDependencyProvider extends FragmentManager.FragmentLifecycl
         if (fragment instanceof FragmentSettingsNavigation) {
             FragmentSettingsNavigation fragmentSettingsNavigation =
                     (FragmentSettingsNavigation) fragment;
-            fragmentSettingsNavigation.setSettingsNavigation(
-                    SettingsNavigationFactory.createSettingsNavigation(mActivity));
+            SettingsHostFragment hostFragment = SettingsHostFragment.get(fragment);
+            SettingsNavigation hostNavigation =
+                    hostFragment != null ? hostFragment.getSettingsNavigation() : null;
+            // The host only has a navigation under URL navigation in a tab. Everywhere else the
+            // factory supplies the global instance, so a fragment is never left without one.
+            SettingsNavigation settingsNavigation =
+                    hostNavigation != null
+                            ? hostNavigation
+                            : SettingsNavigationFactory.createSettingsNavigation(mActivity);
+            fragmentSettingsNavigation.setSettingsNavigation(settingsNavigation);
         }
         if (fragment instanceof SettingsCustomTabLauncher.SettingsCustomTabLauncherClient) {
             ((SettingsCustomTabLauncher.SettingsCustomTabLauncherClient) fragment)
                     .setCustomTabLauncher(new SettingsCustomTabLauncherImpl());
         }
 
-        if (!SettingsInTab.isEnabled()) {
+        if (!mShownInTab) {
             // SettingsInTab always keeps the main search bar visible, even when fragments are
             // searching.
             if (fragment instanceof SearchViewProvider f) {

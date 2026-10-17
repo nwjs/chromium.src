@@ -4,14 +4,21 @@
 
 #include "ui/android/view_android.h"
 
+#include <utility>
+
 #include "base/android/jni_android.h"
+#include "base/functional/callback.h"
+#include "base/test/bind.h"
 #include "base/test/gtest_util.h"
+#include "base/test/scoped_feature_list.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/android/event_forwarder.h"
 #include "ui/android/test_view_android_delegate.h"
+#include "ui/android/ui_android_features.h"
 #include "ui/android/view_android.h"
 #include "ui/android/view_android_observer.h"
 #include "ui/android/window_android.h"
+#include "ui/color/android/color_provider_bridge.h"
 #include "ui/color/color_provider_key.h"
 #include "ui/events/android/event_handler_android.h"
 #include "ui/events/android/motion_event_android_factory.h"
@@ -113,12 +120,31 @@ class ViewAndroidBoundsTest : public testing::Test {
     TestEventHandler* handlers[4] = {&handler1_, &handler2_, &handler3_,
                                      &handlerm_};
     for (auto* handler : handlers) {
-      if (&hitHandler == handler)
+      if (&hitHandler == handler) {
         EXPECT_TRUE(handler->TouchEventHandled());
-      else
+      } else {
         EXPECT_FALSE(handler->TouchEventHandled());
+      }
     }
     Reset();
+  }
+
+  void AddThreeStackedChildren() {
+    view1_.SetLayoutForTesting(50, 50, 400, 600);
+    view2_.SetLayoutForTesting(50, 50, 400, 600);
+    view3_.SetLayoutForTesting(50, 50, 400, 600);
+    root_.AddChild(&view1_);
+    root_.AddChild(&view2_);
+    root_.AddChild(&view3_);
+  }
+
+  void RemoveAllChildren(ViewAndroid* view) {
+    view->RemoveAllChildren(/*attached_to_window=*/false);
+  }
+
+  // Teardown path that notifies each child, and so can re-enter.
+  void RemoveAllChildrenAttached(ViewAndroid* view) {
+    view->RemoveAllChildren(/*attached_to_window=*/true);
   }
 
   TestViewAndroid root_;
@@ -268,6 +294,213 @@ TEST_F(ViewAndroidBoundsTest, OnSizeChanged) {
   EXPECT_FALSE(handler3_.OnSizeCalled());
 }
 
+// Event handler that runs an arbitrary callback during dispatch, for reentrancy
+// tests.
+class ReentrantActionHandler : public EventHandlerAndroid {
+ public:
+  ReentrantActionHandler() = default;
+  explicit ReentrantActionHandler(base::RepeatingClosure action)
+      : action_(std::move(action)) {}
+
+  bool OnTouchEvent(const MotionEventAndroid& event) override {
+    ++count_;
+    if (action_) {
+      action_.Run();
+    }
+    return false;
+  }
+
+  void OnPhysicalBackingSizeChanged(
+      std::optional<base::TimeDelta> deadline_override) override {
+    ++count_;
+    if (action_) {
+      action_.Run();
+    }
+  }
+
+  void set_action(base::RepeatingClosure action) {
+    action_ = std::move(action);
+  }
+  int count() const { return count_; }
+
+ private:
+  base::RepeatingClosure action_;
+  int count_ = 0;
+};
+
+// Exercises StepIteratorsOver across both iteration directions:
+// - Reverse (HitTest): current element erases its next sibling, and the head
+//   element erases itself.
+// - Forward (OnPhysicalBackingSizeChanged): current element erases its next
+//   sibling (cursor sits on it and must be bumped), and the tail erases itself.
+TEST_F(ViewAndroidBoundsTest, ChildRemovalReentrancy) {
+  AddThreeStackedChildren();
+
+  // Reverse pass: view3_ erases view2_ (next); view1_ erases itself (head).
+  ReentrantActionHandler h3(
+      base::BindLambdaForTesting([&]() { view2_.RemoveFromParent(); }));
+  ReentrantActionHandler h2;
+  ReentrantActionHandler h1(
+      base::BindLambdaForTesting([&]() { view1_.RemoveFromParent(); }));
+  view3_.set_event_handler(&h3);
+  view2_.set_event_handler(&h2);
+  view1_.set_event_handler(&h1);
+
+  GenerateTouchEventAt(100.f, 100.f);
+  EXPECT_EQ(1, h3.count());
+  EXPECT_EQ(0, h2.count());
+  EXPECT_EQ(1, h1.count());
+
+  // Reset tree to [view1_, view2_, view3_] for the forward pass: view1_ erases
+  // view2_ (next); view3_ erases itself (tail).
+  RemoveAllChildren(&root_);
+  root_.AddChild(&view1_);
+  root_.AddChild(&view2_);
+  root_.AddChild(&view3_);
+  h1.set_action(
+      base::BindLambdaForTesting([&]() { view2_.RemoveFromParent(); }));
+  h3.set_action(
+      base::BindLambdaForTesting([&]() { view3_.RemoveFromParent(); }));
+
+  root_.OnPhysicalBackingSizeChanged(gfx::Size(100, 100), std::nullopt);
+  EXPECT_EQ(2, h1.count());
+  EXPECT_EQ(0, h2.count());
+  EXPECT_EQ(2, h3.count());
+}
+
+// Reordering mid-traversal via splice: StepIteratorsOver keeps the cursor from
+// following the moved node. Promoting a view moves it into already-visited
+// territory (skipped); demoting moves it ahead of the cursor (still visited).
+TEST_F(ViewAndroidBoundsTest, HitTestReorderReentrancy) {
+  AddThreeStackedChildren();
+  handler1_.SetHandleEvent(false);
+  handler2_.SetHandleEvent(false);
+
+  ReentrantActionHandler h3(base::BindLambdaForTesting([&]() {
+    root_.MoveToFront(&view1_);  // Moved behind reverse cursor -> skipped.
+    root_.MoveToBack(&view2_);   // Moved ahead of reverse cursor -> visited.
+  }));
+  view3_.set_event_handler(&h3);
+
+  GenerateTouchEventAt(100.f, 100.f);
+
+  EXPECT_EQ(1, h3.count());
+  EXPECT_TRUE(handler2_.TouchEventCalled());
+  EXPECT_FALSE(handler1_.TouchEventCalled());
+}
+
+// RemoveAllChildren() clears `parent_` on each child it detaches. If the child
+// reparents itself from its OnDetachedFromWindow() notification, that clear
+// must not run afterwards and strand the child with a null parent.
+TEST_F(ViewAndroidBoundsTest, RemoveAllChildrenKeepsReparentedChild) {
+  class ReparentingObserver : public ViewAndroidObserver {
+   public:
+    ReparentingObserver(ViewAndroid* child, ViewAndroid* new_parent)
+        : child_(child), new_parent_(new_parent) {}
+
+    void OnDetachedFromWindow() override {
+      if (reparented_) {
+        return;
+      }
+      reparented_ = true;
+      new_parent_->AddChild(child_);
+    }
+
+   private:
+    raw_ptr<ViewAndroid> child_;
+    raw_ptr<ViewAndroid> new_parent_;
+    bool reparented_ = false;
+  };
+
+  TestViewAndroid new_parent(ViewAndroid::LayoutType::kNormal);
+  root_.AddChild(&view1_);
+  root_.AddChild(&view2_);
+
+  ReparentingObserver observer(&view2_, &new_parent);
+  view2_.AddObserver(&observer);
+
+  RemoveAllChildrenAttached(&root_);
+
+  EXPECT_EQ(&new_parent, view2_.parent());
+  EXPECT_EQ(1u, new_parent.GetChildrenCountForTesting());
+  EXPECT_EQ(0u, root_.GetChildrenCountForTesting());
+
+  view2_.RemoveObserver(&observer);
+}
+
+// Helper observer that invokes a callback on OnDetachedFromWindow().
+class ReentrantDetachObserver : public ViewAndroidObserver {
+ public:
+  explicit ReentrantDetachObserver(base::OnceClosure action)
+      : action_(std::move(action)) {}
+
+  void OnDetachedFromWindow() override {
+    if (action_) {
+      std::move(action_).Run();
+    }
+  }
+
+ private:
+  base::OnceClosure action_;
+};
+
+// Verifies RemoveAllChildren() handles a child unlinking itself during
+// OnDetachedFromWindow().
+TEST_F(ViewAndroidBoundsTest, RemoveAllChildrenSurvivesChildUnlink) {
+  ReentrantDetachObserver observer(
+      base::BindLambdaForTesting([&]() { view1_.RemoveFromParent(); }));
+  view1_.AddObserver(&observer);
+
+  bool view2_detached = false;
+  ReentrantDetachObserver view2_observer(
+      base::BindLambdaForTesting([&]() { view2_detached = true; }));
+  view2_.AddObserver(&view2_observer);
+
+  root_.AddChild(&view1_);
+  root_.AddChild(&view2_);
+
+  RemoveAllChildrenAttached(&root_);
+
+  EXPECT_TRUE(view2_detached);
+  EXPECT_EQ(0u, root_.GetChildrenCountForTesting());
+  EXPECT_EQ(nullptr, view1_.parent());
+  EXPECT_EQ(nullptr, view2_.parent());
+
+  view1_.RemoveObserver(&observer);
+  view2_.RemoveObserver(&view2_observer);
+}
+
+// Verifies RemoveAllChildren() handles a child being destroyed during
+// OnDetachedFromWindow().
+TEST_F(ViewAndroidBoundsTest, RemoveAllChildrenSurvivesChildDestruction) {
+  auto child_to_destroy =
+      std::make_unique<TestViewAndroid>(ViewAndroid::LayoutType::kNormal);
+  ReentrantDetachObserver destroy_observer(
+      base::BindLambdaForTesting([&]() { child_to_destroy.reset(); }));
+
+  bool view2_detached = false;
+  ReentrantDetachObserver view2_observer(
+      base::BindLambdaForTesting([&]() { view2_detached = true; }));
+  view2_.AddObserver(&view2_observer);
+
+  // Detaching view1_ triggers destruction of `child_to_destroy`.
+  child_to_destroy->AddChild(&view1_);
+  view1_.AddObserver(&destroy_observer);
+  root_.AddChild(child_to_destroy.get());
+  root_.AddChild(&view2_);
+
+  RemoveAllChildrenAttached(&root_);
+
+  EXPECT_FALSE(child_to_destroy);
+  EXPECT_TRUE(view2_detached);
+  EXPECT_EQ(0u, root_.GetChildrenCountForTesting());
+  EXPECT_EQ(nullptr, view1_.parent());
+  EXPECT_EQ(nullptr, view2_.parent());
+
+  view1_.RemoveObserver(&destroy_observer);
+  view2_.RemoveObserver(&view2_observer);
+}
+
 TEST(ViewAndroidTest, ChecksMultipleEventForwarders) {
   ViewAndroid parent;
   ViewAndroid child;
@@ -408,6 +641,9 @@ TEST(ViewAndroidTest, WindowAndroidDestructionDetachesAllViewAndroid) {
 }
 
 TEST(ViewAndroidTest, WindowAndroidColorProviderSource) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(kAvoidPerContextColorProviders);
+
   std::unique_ptr<ui::WindowAndroid::ScopedWindowAndroidForTesting> window =
       ui::WindowAndroid::CreateForTesting();
   ui::WindowAndroid* window_android = window->get();
@@ -419,6 +655,38 @@ TEST(ViewAndroidTest, WindowAndroidColorProviderSource) {
   JNIEnv* env = base::android::AttachCurrentThread();
   base::android::ScopedJavaLocalRef<jobject> context = key.context.get(env);
   EXPECT_FALSE(context.is_null());
+}
+
+TEST(ViewAndroidTest,
+     WindowAndroidColorProviderKeyIsContextAgnosticWithoutBridge) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(kAvoidPerContextColorProviders);
+
+  // No ColorProviderBridge is registered in unit tests, so the key should not
+  // be scoped to the Context.
+  ASSERT_FALSE(ColorProviderBridge::HasInstance());
+
+  std::unique_ptr<ui::WindowAndroid::ScopedWindowAndroidForTesting> window =
+      ui::WindowAndroid::CreateForTesting();
+  ui::ColorProviderKey key = window->get()->GetColorProviderKey();
+
+  EXPECT_EQ(key.context_hash, 0);
+  JNIEnv* env = base::android::AttachCurrentThread();
+  EXPECT_TRUE(key.context.get(env).is_null());
+}
+
+TEST(ViewAndroidTest, WindowAndroidColorProviderKeyKeepsContextWithBridge) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(kAvoidPerContextColorProviders);
+
+  std::unique_ptr<ui::WindowAndroid::ScopedWindowAndroidForTesting> window =
+      ui::WindowAndroid::CreateForTesting();
+  ui::ColorProviderKey key = window->get()->GetColorProviderKeyForTesting(
+      /*has_color_provider_bridge=*/true);
+
+  EXPECT_NE(key.context_hash, 0);
+  JNIEnv* env = base::android::AttachCurrentThread();
+  EXPECT_FALSE(key.context.get(env).is_null());
 }
 
 }  // namespace ui

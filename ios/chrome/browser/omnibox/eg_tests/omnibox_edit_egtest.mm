@@ -49,7 +49,8 @@
     config.features_enabled.push_back(omnibox::kRichAutocompletion);
   }
 
-  // Disable AutocompleteProvider types: TYPE_SEARCH and TYPE_ON_DEVICE_HEAD.
+  // Disable AutocompleteProvider types: AutocompleteProvider::Type::kSearch and
+  // AutocompleteProvider::Type::kOnDeviceHead.
   omnibox::DisableAutocompleteProviders(config, 1056);
 
   return config;

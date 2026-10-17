@@ -10,6 +10,7 @@
 #include "third_party/blink/renderer/core/workers/worker_backing_thread.h"
 #include "third_party/blink/renderer/platform/bindings/dom_wrapper_world.h"
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_feature_checks.h"
 #include "third_party/blink/renderer/platform/scheduler/public/main_thread.h"
 #include "third_party/blink/renderer/platform/scheduler/public/main_thread_scheduler.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
@@ -94,7 +95,7 @@ void WebV8Features::EnableMojoJSFileSystemAccessHelper(
 
 // static
 void WebV8Features::EnableUnboundedElement(v8::Local<v8::Context> context,
-                                           bool enable) {
+                                           bool is_privileged) {
   ExecutionContext* execution_context = ExecutionContext::From(context);
   if (!execution_context) {
     return;
@@ -102,17 +103,12 @@ void WebV8Features::EnableUnboundedElement(v8::Local<v8::Context> context,
   ContextFeatureSettings::From(
       execution_context,
       ContextFeatureSettings::CreationMode::kCreateIfNotExists)
-      ->EnableUnboundedElement(enable);
+      ->EnableUnboundedElement(is_privileged);
 }
 
 // static
-void WebV8Features::InitializeMojoJSAllowedProtectedMemory() {
-  ContextFeatureSettings::InitializeMojoJSAllowedProtectedMemory();
-}
-
-// static
-void WebV8Features::AllowMojoJSForProcess() {
-  ContextFeatureSettings::AllowMojoJSForProcess();
+void WebV8Features::AllowMojoJSPerContextForProcess() {
+  blink::AllowMojoJSPerContextForProcess();
 }
 
 // static

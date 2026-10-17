@@ -31,7 +31,7 @@ bool IsBookmark(const sync_pb::SyncEntity& client_entity) {
 PersistentBookmarkEntity::~PersistentBookmarkEntity() = default;
 
 // static
-std::unique_ptr<LoopbackServerEntity> PersistentBookmarkEntity::CreateNew(
+std::unique_ptr<PersistentBookmarkEntity> PersistentBookmarkEntity::CreateNew(
     const sync_pb::SyncEntity& client_entity,
     const string& parent_id,
     const string& originator_cache_guid,
@@ -54,13 +54,12 @@ std::unique_ptr<LoopbackServerEntity> PersistentBookmarkEntity::CreateNew(
   return std::make_unique<PersistentBookmarkEntity>(
       id, 0, client_entity.name(), originator_cache_guid,
       originator_client_item_id, client_entity.client_tag_hash(),
-      client_entity.unique_position(), client_entity.specifics(),
-      client_entity.folder(), parent_id, client_entity.ctime(),
-      client_entity.mtime());
+      client_entity.unique_position(), client_entity.specifics(), parent_id,
+      client_entity.ctime(), client_entity.mtime());
 }
 
 // static
-std::unique_ptr<LoopbackServerEntity>
+std::unique_ptr<PersistentBookmarkEntity>
 PersistentBookmarkEntity::CreateUpdatedVersion(
     const sync_pb::SyncEntity& client_entity,
     const LoopbackServerEntity& current_server_entity,
@@ -80,24 +79,24 @@ PersistentBookmarkEntity::CreateUpdatedVersion(
   std::string originator_client_item_id;
   std::string client_tag_hash;
 
-  if (current_server_entity.IsDeleted()) {
-    // Handle undeletions.
+  if (const PersistentBookmarkEntity* current_bookmark_entity =
+          current_server_entity.AsBookmarkEntity()) {
+    // Regular case (non-undeletion).
+    originator_cache_guid = current_bookmark_entity->originator_cache_guid_;
+    originator_client_item_id =
+        current_bookmark_entity->originator_client_item_id_;
+    // Note that the client tag provided by the client in `client_entity` is
+    // ignored during non-creations updates, since it's meant to be immutable.
+    client_tag_hash = current_bookmark_entity->client_tag_hash_;
+  } else {
+    // Handle undeletions (or unexpected non-bookmark server entities) by
+    // replacing the entity using the committing client's metadata.
     originator_cache_guid = updating_client_cache_guid;
     originator_client_item_id =
         LoopbackServerEntity::GetInnerIdFromId(client_entity.id_string());
     // An undeletion is similar to a creation, so let's honor the client tag
     // provided by the client (if any).
     client_tag_hash = client_entity.client_tag_hash();
-  } else {
-    // Regular case (non-undeletion).
-    const PersistentBookmarkEntity& current_bookmark_entity =
-        static_cast<const PersistentBookmarkEntity&>(current_server_entity);
-    originator_cache_guid = current_bookmark_entity.originator_cache_guid_;
-    originator_client_item_id =
-        current_bookmark_entity.originator_client_item_id_;
-    // Note that the client tag provided by the client in `client_entity` is
-    // ignored during non-creations updates, since it's meant to be immutable.
-    client_tag_hash = current_bookmark_entity.client_tag_hash_;
   }
 
   // Using a version of 0 is okay here as it'll be updated before this entity is
@@ -105,13 +104,12 @@ PersistentBookmarkEntity::CreateUpdatedVersion(
   return std::make_unique<PersistentBookmarkEntity>(
       client_entity.id_string(), 0, client_entity.name(), originator_cache_guid,
       originator_client_item_id, client_tag_hash,
-      client_entity.unique_position(), client_entity.specifics(),
-      client_entity.folder(), parent_id, client_entity.ctime(),
-      client_entity.mtime());
+      client_entity.unique_position(), client_entity.specifics(), parent_id,
+      client_entity.ctime(), client_entity.mtime());
 }
 
 // static
-std::unique_ptr<LoopbackServerEntity>
+std::unique_ptr<PersistentBookmarkEntity>
 PersistentBookmarkEntity::CreateFromEntity(
     const sync_pb::SyncEntity& client_entity) {
   if (!IsBookmark(client_entity)) {
@@ -124,9 +122,8 @@ PersistentBookmarkEntity::CreateFromEntity(
       client_entity.originator_cache_guid(),
       client_entity.originator_client_item_id(),
       client_entity.client_tag_hash(), client_entity.unique_position(),
-      client_entity.specifics(), client_entity.folder(),
-      client_entity.parent_id_string(), client_entity.ctime(),
-      client_entity.mtime());
+      client_entity.specifics(), client_entity.parent_id_string(),
+      client_entity.ctime(), client_entity.mtime());
 }
 PersistentBookmarkEntity::PersistentBookmarkEntity(
     const string& id,
@@ -137,7 +134,6 @@ PersistentBookmarkEntity::PersistentBookmarkEntity(
     const string& client_tag_hash,
     const sync_pb::UniquePosition& unique_position,
     const sync_pb::EntitySpecifics& specifics,
-    bool is_folder,
     const string& parent_id,
     int64_t creation_time,
     int64_t last_modified_time)
@@ -145,7 +141,6 @@ PersistentBookmarkEntity::PersistentBookmarkEntity(
       originator_cache_guid_(originator_cache_guid),
       originator_client_item_id_(originator_client_item_id),
       client_tag_hash_(client_tag_hash),
-      is_folder_(is_folder),
       unique_position_(unique_position),
       parent_id_(parent_id),
       creation_time_(creation_time),
@@ -210,8 +205,13 @@ void PersistentBookmarkEntity::SerializeAsProto(
   unique_position->CopyFrom(unique_position_);
 }
 
-bool PersistentBookmarkEntity::IsFolder() const {
-  return is_folder_;
+PersistentBookmarkEntity* PersistentBookmarkEntity::AsBookmarkEntity() {
+  return this;
+}
+
+const PersistentBookmarkEntity* PersistentBookmarkEntity::AsBookmarkEntity()
+    const {
+  return this;
 }
 
 }  // namespace syncer

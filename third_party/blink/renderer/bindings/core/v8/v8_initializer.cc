@@ -64,6 +64,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_gc_controller.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_idle_task_runner.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_metrics.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_oom.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_throw_dom_exception.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_trusted_script.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_string_trustedscript.h"
@@ -539,10 +540,8 @@ std::pair<bool, v8::MaybeLocal<v8::String>> TrustedTypesCodeGenerationCheck(
 
   // If CSP allows eval in a Trusted Types environment ('trusted-types-eval'),
   // then pass it through.
-  if (RuntimeEnabledFeatures::TrustedTypesHTMLEnabled()) {
-    if (ContentSecurityPolicyTrustedTypesCodeGenerationCheck(context)) {
-      return {true, v8::MaybeLocal<v8::String>()};
-    }
+  if (ContentSecurityPolicyTrustedTypesCodeGenerationCheck(context)) {
+    return {true, v8::MaybeLocal<v8::String>()};
   }
 
   v8::TryCatch try_catch(isolate);
@@ -567,17 +566,15 @@ std::pair<bool, v8::MaybeLocal<v8::String>> TrustedTypesCodeGenerationCheck(
     return {false, v8::MaybeLocal<v8::String>()};
   }
 
-  if (RuntimeEnabledFeatures::TrustedTypesHTMLEnabled()) {
-    // This check implements steps 1.2.8 of
-    // https://w3c.github.io/webappsec-csp/#can-compile-strings
-    bool has_changed =
-        stringified_source !=
-        (string_or_trusted_script->IsString()
-             ? string_or_trusted_script->GetAsString()
-             : string_or_trusted_script->GetAsTrustedScript()->toString());
-    if (has_changed) {
-      return {false, v8::MaybeLocal<v8::String>()};
-    }
+  // This check implements steps 1.2.8 of
+  // https://w3c.github.io/webappsec-csp/#can-compile-strings
+  bool has_changed =
+      stringified_source !=
+      (string_or_trusted_script->IsString()
+           ? string_or_trusted_script->GetAsString()
+           : string_or_trusted_script->GetAsTrustedScript()->toString());
+  if (has_changed) {
+    return {false, v8::MaybeLocal<v8::String>()};
   }
 
   return {true, V8String(isolate, stringified_source)};
@@ -1236,22 +1233,6 @@ bool IsDOMExceptionWrapper(v8::Isolate* isolate, v8::Local<v8::Object> object) {
   return V8DOMException::HasInstance(isolate, object);
 }
 
-struct PrintV8OOM {
-  const char* location;
-  const v8::OOMDetails& details;
-};
-
-std::ostream& operator<<(std::ostream& os, const PrintV8OOM& oom_details) {
-  const auto [location, details] = oom_details;
-  os << "V8 " << (details.is_heap_oom ? "javascript" : "process") << " OOM ("
-     << location;
-  if (details.detail) {
-    os << "; detail: " << details.detail;
-  }
-  os << ").";
-  return os;
-}
-
 void EmitDevToolsEvent(v8::Isolate* isolate) {
   TRACE_EVENT_INSTANT(
       TRACE_DISABLED_BY_DEFAULT("devtools.timeline"), "UpdateCounters", "data",
@@ -1327,26 +1308,11 @@ void V8Initializer::InitializeContext(v8::Local<v8::Context> context,
           : CoarseTemporalHostSystemUTCEpochNanosecondsCallback);
 }
 
-// Callback functions called when V8 encounters a fatal or OOM error.
-// Keep them outside the anonymous namespace such that ChromeCrash recognizes
-// them.
+// Callback function called when V8 encounters a fatal error.
+// Keep it outside the anonymous namespace such that ChromeCrash recognizes
+// it.
 void ReportV8FatalError(const char* location, const char* message) {
   LOG(FATAL) << "V8 error: " << message << " (" << location << ").";
-}
-
-void ReportV8OOMError(const char* location, const v8::OOMDetails& details) {
-  if (location) {
-    static crash_reporter::CrashKeyString<64> location_key("v8-oom-location");
-    location_key.Set(location);
-  }
-
-  if (details.detail) {
-    static crash_reporter::CrashKeyString<128> detail_key("v8-oom-detail");
-    detail_key.Set(details.detail);
-  }
-
-  LOG(ERROR) << PrintV8OOM{location, details};
-  OOM_CRASH(0);
 }
 
 namespace {
@@ -1379,10 +1345,13 @@ class ArrayBufferAllocator : public v8::ArrayBuffer::Allocator {
   // http://www.ecma-international.org/ecma-262/6.0/#sec-createbytedatablock.
   void* Allocate(size_t size) override {
     if (max_allocation_ != 0 &&
-        std::atomic_load(&total_allocation_) > max_allocation_ - size)
+        (size > max_allocation_ ||
+         std::atomic_load(&total_allocation_) > max_allocation_ - size)) {
       return nullptr;
+    }
     void* result = ArrayBufferContents::AllocateMemoryOrNull(
-        size, ArrayBufferContents::kZeroInitialize);
+        size, ArrayBufferContents::kZeroInitialize,
+        ArrayBufferContents::MaxAllocationSizePolicy::kAllowGigaAllocations);
     if (max_allocation_ != 0 && result)
       total_allocation_.fetch_add(size, std::memory_order_relaxed);
     return result;
@@ -1390,10 +1359,13 @@ class ArrayBufferAllocator : public v8::ArrayBuffer::Allocator {
 
   void* AllocateUninitialized(size_t size) override {
     if (max_allocation_ != 0 &&
-        std::atomic_load(&total_allocation_) > max_allocation_ - size)
+        (size > max_allocation_ ||
+         std::atomic_load(&total_allocation_) > max_allocation_ - size)) {
       return nullptr;
+    }
     void* result = ArrayBufferContents::AllocateMemoryOrNull(
-        size, ArrayBufferContents::kDontInitialize);
+        size, ArrayBufferContents::kDontInitialize,
+        ArrayBufferContents::MaxAllocationSizePolicy::kAllowGigaAllocations);
     if (max_allocation_ != 0 && result)
       total_allocation_.fetch_add(size, std::memory_order_relaxed);
     return result;
@@ -1435,15 +1407,18 @@ class InSandboxAllocator final : public v8::Allocator {
   InSandboxAllocator() = default;
   void* Allocate(size_t size) override {
     return ArrayBufferContents::AllocateMemoryOrNull(
-        size, ArrayBufferContents::kZeroInitialize);
+        size, ArrayBufferContents::kZeroInitialize,
+        ArrayBufferContents::MaxAllocationSizePolicy::kNormal);
   }
   void* AllocateUninitialized(size_t size) override {
     return ArrayBufferContents::AllocateMemoryOrNull(
-        size, ArrayBufferContents::kDontInitialize);
+        size, ArrayBufferContents::kDontInitialize,
+        ArrayBufferContents::MaxAllocationSizePolicy::kNormal);
   }
   void* AllocateUninitializedOrCrash(size_t size) override {
     void* result = ArrayBufferContents::AllocateMemoryOrNull(
-        size, ArrayBufferContents::kDontInitialize);
+        size, ArrayBufferContents::kDontInitialize,
+        ArrayBufferContents::MaxAllocationSizePolicy::kNormal);
     if (!result) {
       OOM_CRASH(size);
     }

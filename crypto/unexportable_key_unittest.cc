@@ -29,9 +29,10 @@
 #include "crypto/scoped_fake_unexportable_key_provider.h"
 #include "crypto/scoped_mock_unexportable_key_provider.h"
 #include "crypto/sign.h"
-#include "crypto/signature_verifier.h"
 #include "crypto/tpm_parser.h"
+#include "crypto/unexportable_key_metrics.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/abseil-cpp/absl/strings/str_format.h"
 #include "third_party/boringssl/src/include/openssl/ec.h"
 
 #if BUILDFLAG(IS_MAC)
@@ -222,10 +223,10 @@ TEST_P(UnexportableKeyTest, RoundTrip) {
   LOG(INFO) << "Signing took " << (base::TimeTicks::Now() - sign_start);
   ASSERT_TRUE(sig);
 
-  crypto::SignatureVerifier verifier;
-  ASSERT_TRUE(verifier.VerifyInit(algorithm(), *sig, spki));
-  verifier.VerifyUpdate(msg);
-  ASSERT_TRUE(verifier.VerifyFinal());
+  std::optional<crypto::keypair::PublicKey> pub_key =
+      crypto::keypair::PublicKey::FromSubjectPublicKeyInfo(spki);
+  ASSERT_TRUE(pub_key);
+  EXPECT_TRUE(crypto::sign::Verify(algorithm(), *pub_key, msg, *sig));
 
   const base::TimeTicks import2_start = base::TimeTicks::Now();
   std::unique_ptr<crypto::UnexportableSigningKey> key2 =
@@ -241,10 +242,7 @@ TEST_P(UnexportableKeyTest, RoundTrip) {
   LOG(INFO) << "Signing took " << (base::TimeTicks::Now() - sign2_start);
   ASSERT_TRUE(sig2);
 
-  crypto::SignatureVerifier verifier2;
-  ASSERT_TRUE(verifier2.VerifyInit(algorithm(), *sig2, spki));
-  verifier2.VerifyUpdate(msg);
-  ASSERT_TRUE(verifier2.VerifyFinal());
+  EXPECT_TRUE(crypto::sign::Verify(algorithm(), *pub_key, msg, *sig2));
 
   crypto::StatefulUnexportableKeyProvider* stateful_provider =
       provider->AsStatefulUnexportableKeyProvider();
@@ -315,15 +313,7 @@ TEST_P(UnexportableKeyTest, AttestationKeyCannotSign) {
   EXPECT_NE(status, 0);
 }
 
-// TODO(crbug.com/558952298): Fix and re-enable on win11-arm64-rel.
-#if BUILDFLAG(IS_WIN) && defined(ARCH_CPU_ARM64)
-#define MAYBE_CertifyFailsForSoftwareSigningKey \
-  DISABLED_CertifyFailsForSoftwareSigningKey
-#else
-#define MAYBE_CertifyFailsForSoftwareSigningKey \
-  CertifyFailsForSoftwareSigningKey
-#endif
-TEST_P(UnexportableKeyTest, MAYBE_CertifyFailsForSoftwareSigningKey) {
+TEST_P(UnexportableKeyTest, CertifyFailsForSoftwareSigningKey) {
   if (provider_type() != Provider::kTPM) {
     GTEST_SKIP() << "Attestation keys are only supported on TPM.";
   }
@@ -363,7 +353,9 @@ TEST_P(UnexportableKeyTest, MAYBE_CertifyFailsForSoftwareSigningKey) {
   EXPECT_FALSE(statement.has_value());
 
   histogram_tester.ExpectTotalCount(
-      "Crypto.TPMOperation.Win.TpmCertifyExtractProperty.Result", 1);
+      absl::StrFormat("Crypto.TPMOperation.Win.KeyCertification%s.Error",
+                      AlgorithmToString(algorithm())),
+      1);
 }
 
 TEST_P(UnexportableKeyTest, FromWrappedAttestationKeyFailsForSigningKey) {

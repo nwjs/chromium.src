@@ -11,17 +11,26 @@
 #include "build/build_config.h"
 #include "chrome/browser/extensions/cws_info_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/pref_names.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/prefs/pref_service.h"
+#include "components/signin/public/identity_manager/identity_manager.h"
+#include "components/signin/public/identity_manager/tribool.h"
+#include "components/supervised_user/core/browser/family_link_user_capabilities.h"
 #include "components/url_formatter/elide_url.h"
 #include "components/url_formatter/url_fixer.h"
 #include "components/url_formatter/url_formatter.h"
 #include "content/public/browser/web_contents.h"
+#include "extensions/browser/blocklist_extension_prefs.h"
 #include "extensions/browser/cws_info_service.h"
+#include "extensions/browser/disable_reason.h"
+#include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registry.h"
+#include "extensions/browser/extension_system.h"
 #include "extensions/browser/extension_util.h"
+#include "extensions/browser/management_policy.h"
 #include "extensions/browser/ui_util.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/constants.h"
@@ -162,6 +171,45 @@ bool ShouldShowReviewPrompt(const Extension& extension, Profile& profile) {
 
   if (extension.location() != mojom::ManifestLocation::kInternal ||
       !extension.from_webstore()) {
+    return false;
+  }
+
+  signin::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(&profile);
+  // Prompts are suppressed when capabilities are unknown (fail closed).
+  if (identity_manager &&
+      supervised_user::IsPrimaryAccountSubjectToParentalControls(
+          identity_manager) != signin::Tribool::kFalse) {
+    return false;
+  }
+
+  ManagementPolicy* management_policy =
+      ExtensionSystem::Get(&profile)->management_policy();
+  CHECK(management_policy);
+  if (management_policy->MustRemainInstalled(&extension, nullptr)) {
+    return false;
+  }
+
+  // Suppress prompts for broken extensions; the UI offers a Repair/Reload
+  // affordance instead.
+  if (ExtensionRegistry::Get(&profile)->terminated_extensions().Contains(
+          extension.id())) {
+    return false;
+  }
+
+  ExtensionPrefs* extension_prefs = ExtensionPrefs::Get(&profile);
+  DisableReasonSet disable_reasons =
+      extension_prefs->GetDisableReasons(extension.id());
+  if (disable_reasons.contains(disable_reason::DISABLE_CORRUPTED) ||
+      disable_reasons.contains(disable_reason::DISABLE_NOT_VERIFIED)) {
+    return false;
+  }
+
+  // Safe Browsing, Omaha and the telemetry service can each flag an extension
+  // as harmful. This is a separate signal from the Chrome Web Store check.
+  if (blocklist_prefs::GetExtensionBlocklistState(extension.id(),
+                                                  extension_prefs) !=
+      BitMapBlocklistState::NOT_BLOCKLISTED) {
     return false;
   }
 

@@ -18,6 +18,7 @@
 #include "chrome/browser/actor/actor_task_metadata.h"
 #include "chrome/browser/actor/enterprise_policy_checker.h"
 #include "chrome/browser/actor/tab_observation_strategy.h"
+#include "chrome/browser/actor/ui/actor_ui_state_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/actor_webui.mojom.h"
 #include "components/actor/core/task_source_info.h"
@@ -143,12 +144,14 @@ ActorActionsRunner::ActorActionsRunner(
     TaskSourceInfo source_info,
     optimization_guide::proto::Actions actions,
     base::OnceClosure on_complete,
-    int32_t tab_id)
+    int32_t tab_id,
+    const EnterprisePolicyChecker* policy_checker)
     : profile_(profile),
       source_info_(std::move(source_info)),
       actions_(std::move(actions)),
       on_complete_(std::move(on_complete)),
-      tab_id_(tab_id) {}
+      tab_id_(tab_id),
+      policy_checker_(policy_checker) {}
 
 ActorActionsRunner::~ActorActionsRunner() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -188,12 +191,16 @@ void ActorActionsRunner::Start() {
 
   auto options = webui::mojom::TaskOptions::New();
   options->duration = webui::mojom::TaskDuration::kTransient;
-  // ActorActionsRunner executes transient actions on behalf of trusted browser
-  // features and extension APIs, which do not enforce enterprise policy URL
-  // blocking or content validation at the actor task level.
+  // Without a `policy_checker`, ActorActionsRunner executes transient actions
+  // on behalf of trusted browser features and extension APIs, which do not
+  // enforce enterprise policy URL blocking or content validation at the actor
+  // task level.
   task_id_ = actor_service->CreateTaskWithOptions(
-      source_info_, GetNullEnterprisePolicyChecker(), std::move(options),
-      nullptr, actor_service->GetActorUiStateManager());
+      source_info_,
+      policy_checker_ ? policy_checker_.get()
+                      : GetNullEnterprisePolicyChecker(),
+      std::move(options), nullptr,
+      ui::ActorUiStateManager::Get(&profile_.get()));
   if (!task_id_) {
     LOG(ERROR) << "Failed to create Actor task.";
     Finish(std::make_unique<optimization_guide::proto::ActionsResult>(

@@ -12,6 +12,11 @@
 inline constexpr NSString* const kActuationHeaderAccessibilityIdentifier =
     @"ActuationHeaderAccessibilityIdentifier";
 
+// Accessibility identifier for the actuation header close button.
+inline constexpr NSString* const
+    kActuationHeaderCloseButtonAccessibilityIdentifier =
+        @"ActuationHeaderCloseButtonAccessibilityIdentifier";
+
 // Accessibility identifier for the compact worklog view.
 inline constexpr NSString* const kCompactWorklogAccessibilityIdentifier =
     @"CompactWorklogAccessibilityIdentifier";
@@ -19,6 +24,21 @@ inline constexpr NSString* const kCompactWorklogAccessibilityIdentifier =
 // Accessibility identifier for the full worklog scroll view.
 inline constexpr NSString* const kFullWorklogScrollViewAccessibilityIdentifier =
     @"FullWorklogScrollViewAccessibilityIdentifier";
+
+// Accessibility identifier for the actuation intervention card view.
+inline constexpr NSString* const
+    kActuationInterventionCardAccessibilityIdentifier =
+        @"ActuationInterventionCardAccessibilityIdentifier";
+
+// Accessibility identifier for the primary action button in an intervention.
+inline constexpr NSString* const
+    kActuationInterventionPrimaryButtonAccessibilityIdentifier =
+        @"ActuationInterventionPrimaryButtonAccessibilityIdentifier";
+
+// Accessibility identifier for the secondary action button in an intervention.
+inline constexpr NSString* const
+    kActuationInterventionSecondaryButtonAccessibilityIdentifier =
+        @"ActuationInterventionSecondaryButtonAccessibilityIdentifier";
 
 // TODO(crbug.com/553535673): Remove C++ namespace for UI constants.
 namespace intelligence::actor {

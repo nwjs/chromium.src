@@ -6,7 +6,6 @@
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_UI_AUTOFILL_SUGGESTION_DELEGATE_H_
 
 #include <string>
-#include <variant>
 
 #include "base/check.h"
 #include "base/containers/span.h"
@@ -16,13 +15,7 @@
 #include "components/autofill/core/browser/ui/tabbed_pane_enums.h"
 #include "components/autofill/core/common/unique_ids.h"
 
-namespace password_manager {
-class PasswordManagerDriver;
-}
-
 namespace autofill {
-
-class AutofillDriver;
 
 // An interface for interaction with AutofillSuggestionController. It is notified
 // of suggestion-related events by the controller.
@@ -79,6 +72,11 @@ class AutofillSuggestionDelegate {
     // the search input is not empty).
     bool from_search_result = false;
 
+    // Indicates if the application window was fully or partially obscured when
+    // the suggestion was accepted. This flag is populated only on Android at
+    // the moment.
+    bool was_obscured = false;
+
     friend bool operator==(const SuggestionMetadata& lhs,
                            const SuggestionMetadata& rhs) = default;
   };
@@ -97,11 +95,6 @@ class AutofillSuggestionDelegate {
   // Returns true if a search is currently in progress.
   virtual bool IsSearching() const = 0;
 
-  // Will be removed together with kAutofillSimplifyFocusCheck.
-  virtual std::variant<AutofillDriver*,
-                       password_manager::PasswordManagerDriver*>
-  GetDriver_DoNotUse() = 0;
-
   // Called when Autofill `suggestions` are shown.
   // `metadata` contains metadata about the popup container context (e.g.
   // parent anchor indices if shown in a sub-popup).
@@ -115,11 +108,15 @@ class AutofillSuggestionDelegate {
 
   // Called when the autofill `suggestion` has been temporarily selected (e.g.,
   // hovered).
-  virtual void DidSelectSuggestion(const Suggestion& suggestion) = 0;
+  virtual void DidSelectSuggestion(const Suggestion& suggestion,
+                                   const FormGlobalId& form_id,
+                                   const FieldGlobalId& field_id) = 0;
 
   // Informs the delegate that a `suggestion` has been chosen.
   virtual void DidAcceptSuggestion(const Suggestion& suggestion,
-                                   const SuggestionMetadata& metadata) = 0;
+                                   const SuggestionMetadata& metadata,
+                                   const FormGlobalId& form_id,
+                                   const FieldGlobalId& field_id) = 0;
 
   // Informs the delegate to delete the described suggestion. Returns true if
   // something was deleted, or false if deletion is not allowed.

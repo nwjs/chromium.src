@@ -649,7 +649,7 @@ EnterpriseSearchAggregatorProvider::EnterpriseSearchAggregatorProvider(
     AutocompleteProviderClient* client,
     AutocompleteProviderListener* listener)
     : AutocompleteProvider(
-          AutocompleteProvider::TYPE_ENTERPRISE_SEARCH_AGGREGATOR),
+          AutocompleteProvider::Type::kEnterpriseSearchAggregator),
       client_(client),
       debouncer_(std::make_unique<AutocompleteProviderDebouncer>(true, 300)),
       template_url_service_(client_->GetTemplateURLService()) {
@@ -1177,8 +1177,8 @@ AutocompleteMatch EnterpriseSearchAggregatorProvider::CreateMatch(
     const std::u16string& description,
     const std::u16string& contents,
     const std::u16string& fill_into_edit) {
-  auto type = is_navigation ? AutocompleteMatchType::NAVSUGGEST
-                            : AutocompleteMatchType::SEARCH_SUGGEST;
+  auto type = is_navigation ? omnibox::AutocompleteMatchType::kNavsuggest
+                            : omnibox::AutocompleteMatchType::kSearchSuggest;
   AutocompleteMatch match(this, relevance_data.relevance, false, type);
 
   match.destination_url = GURL(url);

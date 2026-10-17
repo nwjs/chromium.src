@@ -1261,19 +1261,26 @@ class ChromeShelfControllerTestBase : public BrowserWithTestWindowTest,
     extension_registrar_->RemoveExtension(extension_id, reason);
   }
 
-  const GURL& GetWebAppUrl(const std::string& web_app_id) const {
-    static const base::flat_map<std::string, GURL> web_app_id_to_start_url{
+  GURL GetWebAppUrl(const std::string& web_app_id) const {
+    struct WebAppStartUrl {
+      std::string_view app_id;
+      std::string_view start_url;
+    };
+    static constexpr WebAppStartUrl kWebAppStartUrls[] = {
         {ash::kGmailAppId,
-         GURL("https://mail.google.com/mail/?usp=installed_webapp")},
-        {ash::kGoogleCalendarAppId,
-         GURL("https://calendar.google.com/calendar/r")},
+         "https://mail.google.com/mail/?usp=installed_webapp"},
+        {ash::kGoogleCalendarAppId, "https://calendar.google.com/calendar/r"},
         {ash::kGoogleDocsAppId,
-         GURL("https://docs.google.com/document/?usp=installed_webapp")},
-        {ash::kMessagesAppId, GURL("https://messages.google.com/web/")},
-        {ash::kYoutubeAppId, GURL("https://www.youtube.com/?feature=ytca")}};
+         "https://docs.google.com/document/?usp=installed_webapp"},
+        {ash::kMessagesAppId, "https://messages.google.com/web/"},
+        {ash::kYoutubeAppId, "https://www.youtube.com/?feature=ytca"}};
 
-    DCHECK(web_app_id_to_start_url.contains(web_app_id));
-    return web_app_id_to_start_url.at(web_app_id);
+    for (const auto& entry : kWebAppStartUrls) {
+      if (entry.app_id == web_app_id) {
+        return GURL(std::string(entry.start_url));
+      }
+    }
+    NOTREACHED() << "Unknown web app id: " << web_app_id;
   }
 
   void AddWebApp(const std::string& web_app_id) {
@@ -1988,7 +1995,7 @@ TEST_F(ChromeShelfControllerTest, MergePolicyAndUserPrefPinnedApps) {
   InitShelfController();
 
   // Install two versions of google docs with different install_urls.
-  const GURL& google_docs_start_url = GetWebAppUrl(ash::kGoogleDocsAppId);
+  const GURL google_docs_start_url = GetWebAppUrl(ash::kGoogleDocsAppId);
 
   const GURL google_docs_install_url_v1{
       base::StrCat({google_docs_start_url.spec(), "&v=1"})};
@@ -4985,12 +4992,16 @@ TEST_F(ChromeShelfControllerArcDefaultAppsTest, DeferredLaunchMetric) {
 
   constexpr char kHistogramName[] =
       "Arc.FirstAppLaunchDelay.TimeDeltaUntilAppLaunch";
+  // Use a HistogramTester rather than querying the StatisticsRecorder, which
+  // is process-wide: an earlier test in the same process may already have
+  // recorded this histogram.
+  base::HistogramTester histogram_tester;
 
   // Launch Play Store in deferred mode.
   arc::LaunchApp(profile(), arc::kPlayStoreAppId, ui::EF_LEFT_MOUSE_BUTTON,
                  arc::UserInteractionType::NOT_USER_INITIATED);
 
-  EXPECT_FALSE(base::StatisticsRecorder::FindHistogram(kHistogramName));
+  histogram_tester.ExpectTotalCount(kHistogramName, 0);
 
   std::vector<arc::mojom::AppInfoPtr> apps;
   apps.emplace_back(arc::mojom::AppInfo::New("", arc::kPlayStorePackage,
@@ -4998,7 +5009,7 @@ TEST_F(ChromeShelfControllerArcDefaultAppsTest, DeferredLaunchMetric) {
   arc_app_test_.app_instance()->SendRefreshAppList(apps);
 
   // No window attached at this time.
-  EXPECT_FALSE(base::StatisticsRecorder::FindHistogram(kHistogramName));
+  histogram_tester.ExpectTotalCount(kHistogramName, 0);
 
   std::string play_store_window_id("org.chromium.arc.1");
   views::Widget* const play_store_window =
@@ -5008,11 +5019,7 @@ TEST_F(ChromeShelfControllerArcDefaultAppsTest, DeferredLaunchMetric) {
       1, *apps[0], arc_app_test_.app_instance()->launch_intents()[0]);
 
   // UMA is reported since app becomes ready.
-  base::HistogramBase* const histogram =
-      base::StatisticsRecorder::FindHistogram(kHistogramName);
-  ASSERT_TRUE(histogram);
-  std::unique_ptr<base::HistogramSamples> samples = histogram->SnapshotDelta();
-  ASSERT_EQ(1, samples->TotalCount());
+  histogram_tester.ExpectTotalCount(kHistogramName, 1);
   play_store_window->Close();
 
   arc_app_test_.PreProfileTearDown();

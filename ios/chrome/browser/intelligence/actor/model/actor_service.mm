@@ -12,12 +12,13 @@
 #import "base/functional/bind.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/actor/core/aggregated_journal.h"
-#import "components/actor/core/safety_list_manager.h"
-#import "components/origin_gating/core/origin_gating_configuration.h"
-#import "components/origin_gating/core/types.h"
-#import "ios/chrome/app/background_mode_buildflags.h"
-#import "ios/chrome/browser/intelligence/actor/model/actor_origin_gating_checker_delegate_ios.h"
+#import "ios/chrome/app/application_delegate/app_state.h"
+#import "ios/chrome/app/background_task/background_continued_processing_app_agent.h"
+#import "ios/chrome/app/background_task/background_continued_processing_task_configuration.h"
+#import "ios/chrome/app/background_task/background_continued_processing_task_context.h"
+#import "ios/chrome/app/profile/profile_state.h"
 #import "ios/chrome/browser/intelligence/actor/model/actor_task.h"
+#import "ios/chrome/browser/intelligence/actor/public/actor_task_intervention_delegate.h"
 #import "ios/chrome/browser/intelligence/actor/public/actor_task_updates_observer.h"
 #import "ios/chrome/browser/intelligence/actor/public/actor_types.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/actor_tool_factory.h"
@@ -29,61 +30,22 @@
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/intelligence/proto_wrappers/page_context_wrapper.h"
 #import "ios/chrome/browser/intelligence/proto_wrappers/page_context_wrapper_config.h"
+#import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
+#import "ios/chrome/browser/shared/model/browser/browser_list_utils.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/web_state_list/browser_util.h"
 #import "ios/web/public/web_state.h"
-
-#if BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
-#import "ios/chrome/app/application_delegate/app_state.h"  // nogncheck
-#import "ios/chrome/app/background_task/background_continued_processing_app_agent.h"  // nogncheck
-#import "ios/chrome/app/background_task/background_continued_processing_task_configuration.h"  // nogncheck
-#import "ios/chrome/app/background_task/background_continued_processing_task_context.h"  // nogncheck
-#import "ios/chrome/app/profile/profile_state.h"  // nogncheck
-#import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"  // nogncheck
-#import "ios/chrome/browser/shared/model/browser/browser_list_utils.h"
-#endif
-
-namespace {
-
-// Evaluates the destination against the Actor Safety List component data.
-origin_gating::Decision EvaluateSafetyListPredicate(
-    origin_gating::GatingDecisionContext* context,
-    const GURL& source,
-    const GURL& destination) {
-  actor::SafetyListManager* safety_list_manager =
-      actor::SafetyListManager::GetInstance();
-  if (!safety_list_manager) {
-    return origin_gating::Decision::kNoDecision;
-  }
-
-  const GURL& effective_source = source.is_empty() ? destination : source;
-  switch (safety_list_manager->Find(effective_source, destination)) {
-    case actor::SafetyListManager::Decision::kAllow:
-      return origin_gating::Decision::kAllowed;
-    case actor::SafetyListManager::Decision::kBlock:
-      return origin_gating::Decision::kBlocked;
-    case actor::SafetyListManager::Decision::kNone:
-      return origin_gating::Decision::kNoDecision;
-  }
-}
-
-}  // namespace
 
 namespace actor {
 
 ActorService::ActorService(ProfileIOS* profile)
     : profile_(profile),
       tool_factory_(std::make_unique<ActorToolFactory>(profile)),
-      journal_(std::make_unique<AggregatedJournal>()),
-      origin_gating_checker_(
-          std::make_unique<origin_gating::OriginGatingChecker>(
-              origin_gating_delegate_,
-              CreateOriginGatingConfig())) {
+      journal_(std::make_unique<AggregatedJournal>()) {
   CHECK(tool_factory_);
-  CHECK(origin_gating_checker_);
 }
 
 ActorService::~ActorService() {
@@ -92,6 +54,7 @@ ActorService::~ActorService() {
 
 void ActorService::Shutdown() {
   task_observers_.clear();
+  active_tasks_.clear();
 }
 
 ActorTaskId ActorService::CreateTask(const std::string& title,
@@ -104,9 +67,7 @@ ActorTaskId ActorService::CreateTask(const std::string& title,
       task_id, title, allow_incognito_web_states, journal_.get(),
       tool_factory_.get(), browser_list);
 
-#if BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
   RegisterBackgroundTask(task.get());
-#endif  // BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
 
   for (id<ActorTaskUpdatesObserver> observer : task_observers_) {
     if (observer) {
@@ -186,9 +147,29 @@ void ActorService::PauseTask(ActorTaskId task_id, bool from_actor) {
   // TODO(crbug.com/496163986): Implement and test.
 }
 
+void ActorService::SetTaskInterventionDelegate(
+    ActorTaskId task_id,
+    id<ActorTaskInterventionDelegate> delegate) {
+  auto it = active_tasks_.find(task_id);
+  if (it != active_tasks_.end()) {
+    it->second->SetInterventionDelegate(delegate);
+  }
+}
+
 void ActorService::InterruptTask(ActorTaskId task_id,
-                                 ActorTaskInterruptReason reason) {
-  // TODO(crbug.com/548051839): Implement and test.
+                                 ActorTaskInterruptReason reason,
+                                 std::string_view message) {
+  auto it = active_tasks_.find(task_id);
+  if (it == active_tasks_.end()) {
+    return;
+  }
+  it->second->Interrupt(reason, message);
+  // TODO(crbug.com/532978481): Clean up once `ActorTask` routes
+  // task-initiated stops directly through `ActorService::StopTask`.
+  it = active_tasks_.find(task_id);
+  if (it != active_tasks_.end() && IsTerminalState(it->second->GetState())) {
+    active_tasks_.erase(it);
+  }
 }
 
 void ActorService::StopTask(ActorTaskId task_id,
@@ -265,10 +246,6 @@ void ActorService::AddControlledWebState(ActorTaskId task_id,
   if (it != active_tasks_.end()) {
     it->second->AddControlledWebState(web_state);
   }
-}
-
-origin_gating::OriginGatingChecker* ActorService::GetOriginGatingChecker() {
-  return origin_gating_checker_.get();
 }
 
 #pragma mark - Private
@@ -377,7 +354,6 @@ web::WebState* ActorService::GetWebState(web::WebStateID web_state_id,
       browser_and_index.tab_index);
 }
 
-#if BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
 bool ActorService::RegisterBackgroundTask(ActorTask* task) {
   CHECK(task);
   const ActorTaskId task_id = task->task_id();
@@ -420,6 +396,7 @@ bool ActorService::RegisterBackgroundTask(ActorTask* task) {
   BackgroundContinuedProcessingTaskConfiguration* config =
       [[BackgroundContinuedProcessingTaskConfiguration alloc]
               initWithTitle:base::SysUTF8ToNSString(task->title())
+                   subtitle:@""
           expirationHandler:expiration_handler];
 
   std::string task_id_string = base::NumberToString(task_id.value());
@@ -438,30 +415,6 @@ bool ActorService::RegisterBackgroundTask(ActorTask* task) {
                   "ActorService::RegisterBackgroundTask",
                   {{"status", "success (not guaranteed to be executed)"}});
   return true;
-}
-#endif  // BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
-
-// static
-origin_gating::OriginGatingConfiguration
-ActorService::CreateOriginGatingConfig() {
-  return origin_gating::OriginGatingConfiguration(
-      /*predicates=*/
-      {
-          origin_gating::PredicateConfiguration(
-              /*predicate=*/origin_gating::CustomPredicate(
-                  base::BindRepeating(&EvaluateSafetyListPredicate),
-                  ActorCustomPredicate::kSafetyList),
-              /*events=*/
-              {// Gate navigations to prevent the actor from navigating to
-               // unapproved or dangerous destinations.
-               origin_gating::GateableEvent::kNavigationResponse,
-               // Gate user/actor page interactions (clicks, from inputs,
-               // etc.) within the loaded page.
-               origin_gating::GateableEvent::kPageAction}),
-      },
-      // Do not cache decisions per-site, as actor safety policies require
-      // re-evaluating each navigation and page action dynamically.
-      /*use_site_keyed_cache=*/false);
 }
 
 }  // namespace actor

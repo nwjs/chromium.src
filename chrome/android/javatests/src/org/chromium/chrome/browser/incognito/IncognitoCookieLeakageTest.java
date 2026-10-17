@@ -8,7 +8,6 @@ import static org.junit.Assert.assertEquals;
 
 import android.os.Build;
 
-import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.LargeTest;
 
 import org.hamcrest.Matchers;
@@ -64,9 +63,7 @@ public class IncognitoCookieLeakageTest {
 
     @Before
     public void setUp() throws TimeoutException {
-        mTestServer =
-                EmbeddedTestServer.createAndStartServer(
-                        ApplicationProvider.getApplicationContext());
+        mTestServer = mChromeActivityTestRule.getTestServer();
         mCookiesTestPage = mTestServer.getURL(COOKIES_SETTING_PATH);
     }
 

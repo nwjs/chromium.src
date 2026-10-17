@@ -25,6 +25,7 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.components.autofill.AutofillDelegate;
 import org.chromium.components.autofill.AutofillSuggestion;
+import org.chromium.components.autofill.autofill_ai.AutofillAiSourceAttributionInfo;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.AsyncViewStub;
@@ -243,7 +244,7 @@ class ManualFillingCoordinator implements ManualFillingComponent {
 
     @Override
     public boolean removeObserver(Observer observer) {
-        return mObserverList.addObserver(observer);
+        return mObserverList.removeObserver(observer);
     }
 
     @Override
@@ -264,9 +265,17 @@ class ManualFillingCoordinator implements ManualFillingComponent {
             String body,
             String confirmButtonText,
             String primaryButtonText,
+            List<AutofillAiSourceAttributionInfo> sources,
             Runnable confirmedCallback,
             Runnable declinedCallback) {
-        // TODO(crbug.com/556058028): Forward to mMediator once implemented.
+        mMediator.showAutofillAiSuggestionDetails(
+                title,
+                body,
+                confirmButtonText,
+                primaryButtonText,
+                sources,
+                confirmedCallback,
+                declinedCallback);
     }
 
     ManualFillingMediator getMediatorForTesting() {

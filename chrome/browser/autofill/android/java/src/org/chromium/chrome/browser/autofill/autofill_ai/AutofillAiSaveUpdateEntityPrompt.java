@@ -10,9 +10,6 @@ import android.graphics.Paint;
 import android.text.SpannableStringBuilder;
 import android.text.TextUtils;
 import android.text.method.LinkMovementMethod;
-import android.text.style.ForegroundColorSpan;
-import android.text.style.RelativeSizeSpan;
-import android.text.style.SuperscriptSpan;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -37,7 +34,7 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.components.autofill.autofill_ai.EntityInstance;
 import org.chromium.components.autofill.payments.LegalMessageLine;
-import org.chromium.components.browser_ui.styles.SemanticColorUtils;
+import org.chromium.components.browser_ui.styles.NewLabelUtils;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modaldialog.DialogDismissalCause;
 import org.chromium.ui.modaldialog.ModalDialogManager;
@@ -46,7 +43,6 @@ import org.chromium.ui.modaldialog.SimpleModalDialogController;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.text.ChromeClickableSpan;
 import org.chromium.ui.text.SpanApplier;
-import org.chromium.ui.text.SpanApplier.SpanInfo;
 
 import java.util.List;
 
@@ -92,7 +88,9 @@ public class AutofillAiSaveUpdateEntityPrompt implements EntityEditorCoordinator
                                 ModalDialogProperties.ButtonStyles.PRIMARY_FILLED_NEGATIVE_OUTLINE)
                         .with(ModalDialogProperties.CUSTOM_VIEW, mDialogView);
         mDialogModel = builder.build();
-        mEntityEditor = new EntityEditorCoordinator(activity, this, profile, entityInstance);
+        mEntityEditor =
+                new EntityEditorCoordinator(
+                        activity, this, profile, entityInstance, /* detailsForUpsertPass= */ null);
     }
 
     @Override
@@ -261,18 +259,13 @@ public class AutofillAiSaveUpdateEntityPrompt implements EntityEditorCoordinator
 
         TextView attributeValue = attributeInfo.findViewById(R.id.attribute_value);
         attributeValue.setText(
-                SpanApplier.applySpans(
+                NewLabelUtils.withBadge(
+                        mContext,
                         mContext.getString(
                                         R.string
                                                 .autofill_ai_save_or_update_entity_new_attribute_with_badge)
                                 .replace("$1", updateDetails.getAttributeValue()),
-                        new SpanInfo(
-                                "<new>",
-                                "</new>",
-                                new SuperscriptSpan(),
-                                new RelativeSizeSpan(0.6f),
-                                new ForegroundColorSpan(
-                                        SemanticColorUtils.getDefaultTextColorAccent1(mContext)))));
+                        /* relativeTextSize= */ 0.6f));
     }
 
     private void configureUpdatedAttribute(
@@ -340,7 +333,9 @@ public class AutofillAiSaveUpdateEntityPrompt implements EntityEditorCoordinator
      */
     @CalledByNative
     @VisibleForTesting
-    void setPublicPassesNotice(@JniType("std::vector") List<LegalMessageLine> legalMessageLines) {
+    void setPublicPassesNotice(
+            @JniType("std::vector<autofill::LegalMessageLine>")
+                    List<LegalMessageLine> legalMessageLines) {
         TextView legalMessageView = mDialogView.findViewById(R.id.autofill_ai_public_passes_notice);
         if (legalMessageLines.isEmpty()) {
             legalMessageView.setVisibility(View.GONE);

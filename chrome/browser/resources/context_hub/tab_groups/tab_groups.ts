@@ -8,9 +8,6 @@ import '//resources/cr_elements/cr_button/cr_button.js';
 import '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import '//resources/cr_elements/cr_input/cr_input.js';
 import '//resources/cr_elements/cr_dialog/cr_dialog.js';
-import '//resources/cr_elements/cr_slider/cr_slider.js';
-import type {CrSliderElement} from
-    '//resources/cr_elements/cr_slider/cr_slider.js';
 import '//resources/cr_elements/cr_textarea/cr_textarea.js';
 import '//resources/cr_elements/icons.html.js';
 import '/strings.m.js';
@@ -240,7 +237,10 @@ export class TabGroupsElement extends CrLitElement {
         ...this.chatHistory_,
         {role: ChatRole.kAssistant, content: assistantContent},
       ]);
-      this.isGrouped_ = true;
+      this.isGrouped_ = this.groups_.length > 0;
+      if (!this.isGrouped_) {
+        this.tabs_ = ungroupedTabs;
+      }
     } catch (e) {
       console.error('Failed to retrieve and group tabs:', e);
       this.chatHistory_ = this.trimChatHistory_([
@@ -461,12 +461,26 @@ export class TabGroupsElement extends CrLitElement {
 
   protected getRatingBucket_(rating: number): string {
     return rating >= 9 ? 'Very Good (9-10)' :
-        rating >= 6 ? 'Good (6-8)' :
-        rating >= 4 ? 'Bad (4-5)' : 'Very Bad (1-3)';
+        rating >= 7 ? 'Good (7-8)' :
+        rating >= 4 ? 'Bad (4-6)' : 'Very Bad (1-3)';
   }
 
-  protected onRatingCrSliderValueChanged_(e: Event) {
-    this.feedbackRating_ = (e.target as CrSliderElement).value;
+  protected getRatingTierClass_(rating: number): string {
+    return rating >= 9 ? 'tier-very-good' :
+        rating >= 7 ? 'tier-good' :
+        rating >= 4 ? 'tier-bad' : 'tier-very-bad';
+  }
+
+  protected getRatingTierLabel_(rating: number): string {
+    return rating >= 9 ? 'Very Good' :
+        rating >= 7 ? 'Good' :
+        rating >= 4 ? 'Bad' : 'Very Bad';
+  }
+
+
+  protected onRatingChipClick_(e: Event) {
+    const btn = e.currentTarget as HTMLElement;
+    this.feedbackRating_ = Number(btn.dataset['score']);
   }
 
   protected onDefectChange_(e: Event) {

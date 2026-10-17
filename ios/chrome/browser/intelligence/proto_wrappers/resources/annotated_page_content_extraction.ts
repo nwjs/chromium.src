@@ -587,6 +587,7 @@ const STYLE_VALUE_AUTO = 'auto';
 const STYLE_VALUE_SCROLL = 'scroll';
 const STYLE_VALUE_CLIP = 'clip';
 const STYLE_VALUE_HIDDEN = 'hidden';
+const STYLE_VALUE_NONE = 'none';
 
 
 // Type alias for accessing webkit-specific fullscreen document properties that
@@ -615,13 +616,6 @@ const MAX_TABLE_ANCESTOR_LOOKUP_DEPTH = 100;
  * tables.
  */
 const MAX_CAPTION_CHILD_SEARCH_COUNT = 50;
-
-/**
- * Returns true if page context IPC optimization is enabled.
- */
-function isPageContextIPCOptimizationEnabled() {
-  return (window as any).gCrWebPlaceholderPageContextIPCOptimization ?? false;
-}
 
 /**
  * Returns true if page context actionable optimization is enabled.
@@ -783,41 +777,19 @@ const HEADING_6_FONT_SIZE_MULTIPLIER = 0.67;
  * Heading 6: 0.67em
  *
  * @param fontSize The font size string (e.g., "16px").
- * @param doc The document to use for root font size reference.
  * @param styleCache The style cache to use for computed styles.
  * @return The corresponding PageContentTextSize category.
  */
 function getTextSizeCategory(
-    fontSize: string, doc: Document,
-    styleCache?: StyleCache): PageContentTextSize {
+    fontSize: string, styleCache?: StyleCache): PageContentTextSize {
   const size = parseFloat(fontSize);
   if (isNaN(size)) {
     return PageContentTextSize.M;
   }
 
-  // If the cache exists, the font size should have already been computed
-  // pre-walk. Fallback to PageContentTextSize.M if it was not determined.
-  if (styleCache && styleCache.docFontSize === undefined) {
+  const docFontSize = styleCache?.docFontSize;
+  if (!docFontSize) {
     return PageContentTextSize.M;
-  }
-
-  let docFontSize = styleCache?.docFontSize;
-
-  // TODO(crbug.com/480945289): Remove this fallback when optimizations are
-  // enabled by default. It is evaluated at the beginning of the extraction.
-  // Fallback for cacheless path.
-  if (docFontSize === undefined) {
-    // Avoid caching the style as this would cause cache thrashing, erasing the
-    // latest walked element style.
-    const rootStyle =
-        getComputedStyleForElement(doc.documentElement, undefined);
-    if (!rootStyle) {
-      return PageContentTextSize.M;
-    }
-    docFontSize = parseFloat(rootStyle.fontSize);
-    if (isNaN(docFontSize) || docFontSize <= 0) {
-      return PageContentTextSize.M;
-    }
   }
 
   const multiplier = size / docFontSize;
@@ -1484,62 +1456,33 @@ function getScrollerInfo(
   const scrollWidth = safeScrollWidth(element);
   const scrollHeight = safeScrollHeight(element);
 
-  // TODO(crbug.com/480945289): Remove this when page context IPC optimization
-  // is enabled.
-  if (isPageContextIPCOptimizationEnabled()) {
-    // Make sure to call element.clientWidth before element.scrollWidth.
-    // This will guide the layout engine to perform the shallow layout first
-    // and then the deep layout calculation.
-    const visibleArea = {
-      x: scrollLeft,
-      y: scrollTop,
-      width: clientWidth,
-      height: clientHeight,
-      top: scrollTop,
-      right: scrollLeft + clientWidth,
-      bottom: scrollTop + clientHeight,
-      left: scrollLeft,
-    };
+  // Make sure to call element.clientWidth before element.scrollWidth.
+  // This will guide the layout engine to perform the shallow layout first
+  // and then the deep layout calculation.
+  const visibleArea = {
+    x: scrollLeft,
+    y: scrollTop,
+    width: clientWidth,
+    height: clientHeight,
+    top: scrollTop,
+    right: scrollLeft + clientWidth,
+    bottom: scrollTop + clientHeight,
+    left: scrollLeft,
+  };
 
-    // Populate bounds.
-    // Scrolling bounds = whole content size.
-    const scrollingBounds = {
-      width: scrollWidth,
-      height: scrollHeight,
-    };
+  // Populate bounds.
+  // Scrolling bounds = whole content size.
+  const scrollingBounds = {
+    width: scrollWidth,
+    height: scrollHeight,
+  };
 
-    return {
-      scrollingBounds,
-      visibleArea,
-      userScrollableHorizontal: isScrollableX && (scrollWidth > clientWidth),
-      userScrollableVertical: isScrollableY && (scrollHeight > clientHeight),
-    };
-  } else {
-    // Populate bounds.
-    // Scrolling bounds = whole content size.
-    const scrollingBounds = {
-      width: scrollWidth,
-      height: scrollHeight,
-    };
-
-    const visibleArea = {
-      x: scrollLeft,
-      y: scrollTop,
-      width: clientWidth,
-      height: clientHeight,
-      top: scrollTop,
-      right: scrollLeft + clientWidth,
-      bottom: scrollTop + clientHeight,
-      left: scrollLeft,
-    };
-
-    return {
-      scrollingBounds,
-      visibleArea,
-      userScrollableHorizontal: isScrollableX && (scrollWidth > clientWidth),
-      userScrollableVertical: isScrollableY && (scrollHeight > clientHeight),
-    };
-  }
+  return {
+    scrollingBounds,
+    visibleArea,
+    userScrollableHorizontal: isScrollableX && (scrollWidth > clientWidth),
+    userScrollableVertical: isScrollableY && (scrollHeight > clientHeight),
+  };
 }
 
 /**
@@ -2215,9 +2158,7 @@ function getAttributesForTextNode(
   const weight = style.fontWeight;
   const hasEmphasis = weight === 'bold' || weight === '700' ||
       parseInt(weight) >= 700 || style.fontStyle === 'italic';
-  const doc = safeOwnerDocument(domNode);
-  const textSize = doc ? getTextSizeCategory(style.fontSize, doc, styleCache) :
-                         PageContentTextSize.M;
+  const textSize = getTextSizeCategory(style.fontSize, styleCache);
   const color = parseCssColor(style.color)?.toString();
 
   return {
@@ -3441,6 +3382,64 @@ function populateFragmentsIfNeeded(
 }
 
 /**
+ * Checks whether an element establishes a containing block for fixed-position
+ * descendants (and by extension, absolute-position descendants).
+ *
+ * Per CSS Transforms, CSS Filter Effects, and CSS Containment specifications,
+ * elements with properties such as transform, translate, rotate, scale,
+ * perspective, filter, backdrop-filter, or contain: paint/layout/strict/content
+ * create a containing block for fixed descendants.
+ *
+ * @param style The computed style of the element.
+ * @return True if the element forms a containing block for fixed elements.
+ */
+function formsContainingBlockForFixed(style?: CSSStyleDeclaration): boolean {
+  if (!style) {
+    return false;
+  }
+  if (style.transform && style.transform !== STYLE_VALUE_NONE) {
+    return true;
+  }
+  if (style.translate && style.translate !== STYLE_VALUE_NONE) {
+    return true;
+  }
+  if (style.rotate && style.rotate !== STYLE_VALUE_NONE) {
+    return true;
+  }
+  if (style.scale && style.scale !== STYLE_VALUE_NONE) {
+    return true;
+  }
+  if (style.perspective && style.perspective !== STYLE_VALUE_NONE) {
+    return true;
+  }
+  if (style.filter && style.filter !== STYLE_VALUE_NONE) {
+    return true;
+  }
+  const backdropFilter = style.backdropFilter ||
+      (style as {webkitBackdropFilter?: string}).webkitBackdropFilter;
+  if (backdropFilter && backdropFilter !== STYLE_VALUE_NONE) {
+    return true;
+  }
+  const contain = style.contain;
+  if (contain && /\b(paint|layout|strict|content)\b/.test(contain)) {
+    return true;
+  }
+  const willChange = style.willChange;
+  if (willChange && willChange !== STYLE_VALUE_AUTO) {
+    const properties =
+        willChange.split(',').map(p => p.trim().replace(/^-webkit-/, ''));
+    if (properties.includes('transform') ||
+        properties.includes('perspective') || properties.includes('filter') ||
+        properties.includes('backdrop-filter') ||
+        properties.includes('translate') || properties.includes('rotate') ||
+        properties.includes('scale') || properties.includes('contain')) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Calculates and adds geometry information to a node's content attributes.
  * This includes the element's bounding box and visible bounding box, adjusted
  * for any clipping from parent elements.
@@ -3479,8 +3478,9 @@ function addNodeGeometry(
 
   if (position === ATTR_POSITION_FIXED) {
     // Fixed positioned elements are relative to the viewport, bypassing parent
-    // clips.
-    clipToUse = elementDoc ? getViewportRect(elementDoc) : null;
+    // clips, unless an ancestor established a containing block for fixed
+    // elements.
+    clipToUse = context.fixedClip;
   } else if (position === ATTR_POSITION_ABSOLUTE) {
     clipToUse = context.absoluteClip;
   } else {
@@ -3540,33 +3540,57 @@ function addNodeGeometry(
   // Determine the new clip context to pass down to children.
   let newNormalClip = context.normalClip;
   let newAbsoluteClip = context.absoluteClip;
+  let newFixedClip = context.fixedClip;
   let newHasOverflowClip = context.hasOverflowClip;
 
   const overflowX = style?.overflowX || '';
   const overflowY = style?.overflowY || '';
+  const isFixedContainingBlock = formsContainingBlockForFixed(style);
+  const isAbsoluteContainingBlock =
+      (position && position !== ATTR_POSITION_STATIC) || isFixedContainingBlock;
 
   if (isClippedStyle(overflowX) || isClippedStyle(overflowY)) {
     newHasOverflowClip = true;
     const visibleRectForClip = visibleRect;
 
     // If the element actively clips its children, its own visible bounds become
-    // the new absolute boundary for any descendant.
+    // the new boundary for normal flow descendants.
     newNormalClip = visibleRectForClip;
 
     // Absolute descendants are only clipped if this element forms a containing
-    // block (i.e., one that is not statically positioned).
-    if (position && position !== ATTR_POSITION_STATIC) {
+    // block.
+    if (isAbsoluteContainingBlock) {
       newAbsoluteClip = visibleRectForClip;
     }
-  } else if (position && position !== ATTR_POSITION_STATIC) {
-    // Since this positioned element forms a containing block but doesn't clip,
-    // reset the absolute clip to match the current normal flow clip.
-    newAbsoluteClip = context.normalClip;
+
+    // Fixed descendants are only clipped if this element forms a containing
+    // block for fixed-position elements.
+    if (isFixedContainingBlock) {
+      newFixedClip = visibleRectForClip;
+    }
+  } else {
+    if (position === ATTR_POSITION_ABSOLUTE ||
+        position === ATTR_POSITION_FIXED) {
+      newNormalClip = clipToUse;
+    }
+    if (isAbsoluteContainingBlock) {
+      // Since this element forms an absolute containing block but doesn't clip,
+      // reset the absolute clip to match the clip applied to this containing
+      // block.
+      newAbsoluteClip = clipToUse;
+    }
+    if (isFixedContainingBlock) {
+      // Since this element forms a fixed containing block but doesn't clip,
+      // reset the fixed clip to match the clip applied to this containing
+      // block.
+      newFixedClip = clipToUse;
+    }
   }
 
   return {
     normalClip: newNormalClip,
     absoluteClip: newAbsoluteClip,
+    fixedClip: newFixedClip,
     hasOverflowClip: newHasOverflowClip,
   };
 }
@@ -3703,14 +3727,19 @@ function shouldAcceptNode(node: Node, styleCache?: StyleCache): number {
 }
 
 /**
- * Tracks inherited clipping rectangles separately for normal flow elements
- * and absolute positioned elements.
+ * Tracks inherited clipping rectangles separately for normal flow elements,
+ * absolute positioned elements, and fixed positioned elements.
  */
 interface ClippingContext {
   /** Clipping rectangle applied to static and relative positioned elements. */
   normalClip: Rect|null;
   /** Clipping rectangle applied to absolute positioned elements. */
   absoluteClip: Rect|null;
+  /**
+   * Clipping rectangle applied to fixed positioned elements when an ancestor
+   * forms a containing block for fixed elements.
+   */
+  fixedClip: Rect|null;
   /** Whether an ancestor element has an overflow clipping style. */
   hasOverflowClip?: boolean;
 }
@@ -4278,24 +4307,22 @@ export function extractAnnotatedPageContent(
     return null;
   }
 
-  const styleCache = !isPageContextIPCOptimizationEnabled() ? undefined : {
+  const styleCache: StyleCache = {
     lastStyledNode: null,
     lastComputedStyle: undefined,
     window: documentWindow,
-  } as StyleCache;
+  };
 
-  // Pre-calculate root font size if optimization is enabled.
-  if (styleCache) {
-    let fontSize: number|undefined = undefined;
-    const rootStyle = documentWindow.getComputedStyle(document.documentElement);
-    if (rootStyle) {
-      const parsedSize = parseFloat(rootStyle.fontSize);
-      if (!isNaN(parsedSize) && parsedSize > 0) {
-        fontSize = parsedSize;
-      }
+  // Pre-calculate root font size.
+  let fontSize: number|undefined = undefined;
+  const rootStyle = documentWindow.getComputedStyle(document.documentElement);
+  if (rootStyle) {
+    const parsedSize = parseFloat(rootStyle.fontSize);
+    if (!isNaN(parsedSize) && parsedSize > 0) {
+      fontSize = parsedSize;
     }
-    styleCache.docFontSize = fontSize;
   }
+  styleCache.docFontSize = fontSize;
 
   const root = document.body;
   if (!root) {
@@ -4308,12 +4335,9 @@ export function extractAnnotatedPageContent(
   }
   safeSetAttribute(root, NONCE_ATTR, nonce);
 
-  // TODO(crbug.com/480945289): Assume there is a canvas when feature is
-  // disabled. We only need to extract the scroller info for nodes when there is
-  // a canvas on the page. It is required to compute the canvas heavy heuristic.
-  const hasCanvas = isPageContextIPCOptimizationEnabled() ?
-      document.querySelector('canvas') !== null :
-      true;
+  // We only need to extract the scroller info for nodes when there is a canvas
+  // on the page. It is required to compute the canvas heavy heuristic.
+  const hasCanvas = document.querySelector('canvas') !== null;
 
   // Perform pre-walk extraction of paid content globals and specific nodes.
   const paidContentContext = extractContainsPaidContent(
@@ -4354,6 +4378,7 @@ export function extractAnnotatedPageContent(
         root, rootNode.contentAttributes, {
           normalClip: getViewportRect(document),
           absoluteClip: getViewportRect(document),
+          fixedClip: null,
         },
         actionableMode, includeSensitivePaymentsForRedaction,
         extractAutofillOtpRedactions, extractPasswordScreenshotRedactions,
@@ -4409,13 +4434,8 @@ function walkTreeAndPopulate(
   // Instead, `shouldAcceptNode` will be called at the beginning of the loop
   // and will skip traversal of subtrees that should not be processed like
   // the tree walker does natively.
-  const walker = isPageContextIPCOptimizationEnabled() ?
-      document.createTreeWalker(
-          root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, undefined) :
-      document.createTreeWalker(
-          root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, (node) => {
-            return shouldAcceptNode(node, styleCache);
-          });
+  const walker = document.createTreeWalker(
+      root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, undefined);
 
   // Helper to find the next sibling after the current node's subtree.
   const jumpSubtree = (w: TreeWalker): Node|null => {
@@ -4441,16 +4461,14 @@ function walkTreeAndPopulate(
 
   let currentNode = walker.nextNode();
   while (currentNode) {
-    if (isPageContextIPCOptimizationEnabled()) {
-      const filterResult = shouldAcceptNode(currentNode, styleCache);
-      if (filterResult === NodeFilter.FILTER_REJECT) {
-        currentNode = jumpSubtree(walker);
-        continue;
-      }
-      if (filterResult === NodeFilter.FILTER_SKIP) {
-        currentNode = walker.nextNode();
-        continue;
-      }
+    const filterResult = shouldAcceptNode(currentNode, styleCache);
+    if (filterResult === NodeFilter.FILTER_REJECT) {
+      currentNode = jumpSubtree(walker);
+      continue;
+    }
+    if (filterResult === NodeFilter.FILTER_SKIP) {
+      currentNode = walker.nextNode();
+      continue;
     }
 
     // 1. Maintain Stack Invariant & Post-Pruning.

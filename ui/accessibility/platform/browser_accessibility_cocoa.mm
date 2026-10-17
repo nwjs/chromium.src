@@ -24,6 +24,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/sys_string_conversions.h"
@@ -499,6 +500,24 @@ void PerformShowMenuAction(ui::BrowserAccessibility& node) {
   }
 }
 
+// Returns true if `node` is a spin button that's part of a date or
+// date/time control, e.g. the month, day, or year field of an
+// <input type=date> or <input type=datetime-local>.
+bool IsDateOrDateTimeSpinButton(const ui::BrowserAccessibility& node) {
+  if (node.GetRole() != ax::mojom::Role::kSpinButton) {
+    return false;
+  }
+  for (ui::BrowserAccessibility* ancestor = node.PlatformGetParent(); ancestor;
+       ancestor = ancestor->PlatformGetParent()) {
+    if (ancestor->GetRole() == ax::mojom::Role::kDate ||
+        ancestor->GetRole() == ax::mojom::Role::kInputTime ||
+        ancestor->GetRole() == ax::mojom::Role::kDateTime) {
+      return true;
+    }
+  }
+  return false;
+}
+
 }  // namespace
 
 namespace ui {
@@ -865,8 +884,8 @@ bool IsAXCustomActionNamesForTestingProjectionEnabled() {
   if (![self instanceActive])
     return nil;
 
-  std::optional<int> column = _owner->node()->GetTableCellColIndex();
-  std::optional<int> colspan = _owner->node()->GetTableCellColSpan();
+  std::optional<int> column = _owner->node()->GetTableCellDomColIndex();
+  std::optional<int> colspan = _owner->node()->GetTableCellDomColSpan();
   if (column && colspan)
     return [NSValue valueWithRange:NSMakeRange(*column, *colspan)];
   return nil;
@@ -1461,7 +1480,7 @@ bool IsAXCustomActionNamesForTestingProjectionEnabled() {
   }
 
   // A table with no row headers.
-  if (isTableLike && !table->GetTableRowCount().has_value()) {
+  if (isTableLike && !table->GetTableDomRowCount().has_value()) {
     return nil;
   }
 
@@ -1471,7 +1490,7 @@ bool IsAXCustomActionNamesForTestingProjectionEnabled() {
     // Return the table's row headers.
     std::set<int32_t> headerIds;
 
-    int numberOfRows = table->GetTableRowCount().value();
+    int numberOfRows = table->GetTableDomRowCount().value();
 
     // Rows can have more than one row header cell. Also, we apparently need
     // to guard against duplicate row header ids. Storing in a set dedups.
@@ -1507,8 +1526,8 @@ bool IsAXCustomActionNamesForTestingProjectionEnabled() {
   if (![self instanceActive])
     return nil;
 
-  std::optional<int> row = _owner->node()->GetTableCellRowIndex();
-  std::optional<int> rowspan = _owner->node()->GetTableCellRowSpan();
+  std::optional<int> row = _owner->node()->GetTableCellDomRowIndex();
+  std::optional<int> rowspan = _owner->node()->GetTableCellDomRowSpan();
   if (row && rowspan)
     return [NSValue valueWithRange:NSMakeRange(*row, *rowspan)];
   return nil;
@@ -1878,8 +1897,24 @@ bool IsAXCustomActionNamesForTestingProjectionEnabled() {
   // Blink places the value of aria-valuetext in
   // ax::mojom::StringAttribute::kAriaValueText for objects that support range
   // values, i.e., progress bars, sliders and steppers.
-  return base::SysUTF8ToNSString(
-      _owner->GetStringAttribute(ax::mojom::StringAttribute::kAriaValueText));
+  if (_owner->HasStringAttribute(ax::mojom::StringAttribute::kAriaValueText)) {
+    return base::SysUTF8ToNSString(
+        _owner->GetStringAttribute(ax::mojom::StringAttribute::kAriaValueText));
+  }
+
+  // Date and date/time spin buttons might not have aria-valuetext set. If
+  // AXValueDescription is not exposed, VoiceOver will try to communicate a
+  // percentage, and percentages do not make sense for date spinners. As a
+  // fallback, surface a AXValueDescription equal to the kValueForRange to
+  // prevent this.
+  float value_for_range;
+  if (IsDateOrDateTimeSpinButton(*_owner) &&
+      _owner->GetFloatAttribute(ax::mojom::FloatAttribute::kValueForRange,
+                                &value_for_range)) {
+    return base::SysUTF8ToNSString(base::NumberToString(value_for_range));
+  }
+
+  return nil;
 }
 
 // LINT.IfChange

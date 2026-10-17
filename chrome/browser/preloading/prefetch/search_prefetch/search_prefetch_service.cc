@@ -438,15 +438,17 @@ void SearchPrefetchService::OnURLOpenedFromOmnibox(OmniboxLog* log) {
   }
 
   auto& match = log->result->match_at(log->selection.line);
-  if (match.type == AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED) {
+  if (match.type == omnibox::AutocompleteMatchType::kSearchWhatYouTyped) {
     bool has_search_suggest = false;
     bool has_history_search = false;
     for (auto& duplicate_match : match.duplicate_matches) {
-      if (duplicate_match.type == AutocompleteMatchType::SEARCH_SUGGEST ||
+      if (duplicate_match.type ==
+              omnibox::AutocompleteMatchType::kSearchSuggest ||
           AutocompleteMatch::IsSpecializedSearchType(duplicate_match.type)) {
         has_search_suggest = true;
       }
-      if (duplicate_match.type == AutocompleteMatchType::SEARCH_HISTORY) {
+      if (duplicate_match.type ==
+          omnibox::AutocompleteMatchType::kSearchHistory) {
         has_history_search = true;
       }
     }

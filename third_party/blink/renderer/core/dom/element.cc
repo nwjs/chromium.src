@@ -42,6 +42,7 @@
 #include "third_party/blink/public/web/web_autofill_state.h"
 #include "third_party/blink/renderer/bindings/core/v8/dictionary.h"
 #include "third_party/blink/renderer/bindings/core/v8/frozen_array.h"
+#include "third_party/blink/renderer/bindings/core/v8/js_event_handler_for_content_attribute.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_aria_notification_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
@@ -67,6 +68,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_stringlegacynulltoemptystring_trustedhtml.h"
 #include "third_party/blink/renderer/core/accessibility/ax_context.h"
 #include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
+#include "third_party/blink/renderer/core/ad_tracker/display_ad_element_monitor.h"
 #include "third_party/blink/renderer/core/animation/animation.h"
 #include "third_party/blink/renderer/core/animation/css/css_animations.h"
 #include "third_party/blink/renderer/core/animation/document_animations.h"
@@ -195,7 +197,6 @@
 #include "third_party/blink/renderer/core/html/custom/custom_element.h"
 #include "third_party/blink/renderer/core/html/custom/custom_element_registry.h"
 #include "third_party/blink/renderer/core/html/custom/element_internals.h"
-#include "third_party/blink/renderer/core/html/display_ad_element_monitor.h"
 #include "third_party/blink/renderer/core/html/forms/html_button_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_data_list_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_field_set_element.h"
@@ -303,6 +304,7 @@
 #include "third_party/blink/renderer/platform/bindings/v8_dom_wrapper.h"
 #include "third_party/blink/renderer/platform/bindings/v8_per_context_data.h"
 #include "third_party/blink/renderer/platform/geometry/calculation_value.h"
+#include "third_party/blink/renderer/platform/graphics/paint/float_clip_rect.h"
 #include "third_party/blink/renderer/platform/graphics/paint/tracked_element_data.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_set.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
@@ -673,6 +675,33 @@ void InvalidateForCanvasTransformChange(LayoutObject* layout_object) {
       }
     }
   }
+}
+
+void InvalidateForCanvasClipChange(LayoutObject* layout_object) {
+  if (layout_object) {
+    layout_object->SetNeedsPaintPropertyUpdate();
+  }
+}
+
+inline bool ShouldBlockInlineScriptAttributeSet(
+    ExecutionContext* context,
+    Element* target,
+    const EventListener* listener,
+    Element::AttributeModificationReason reason) {
+  if (!RuntimeEnabledFeatures::CheckCSPOnInlineScriptAttributeSetEnabled()) {
+    return false;
+  }
+
+  bool modified_by_author =
+      reason == Element::AttributeModificationReason::kDirectly ||
+      reason == Element::AttributeModificationReason::kByParser;
+  ContentSecurityPolicy* csp =
+      context ? context->GetContentSecurityPolicy() : nullptr;
+  return listener && modified_by_author && csp &&
+         !csp->AllowInline(ContentSecurityPolicy::InlineType::kScriptAttribute,
+                           target, listener->ScriptBody(), String(),
+                           context->Url().GetString(),
+                           TextPosition::BelowRangePosition());
 }
 
 }  // namespace
@@ -2103,8 +2132,15 @@ void Element::HandlePointerEventsForInterestFor(
 }
 
 void Element::HandleFocusEventsForInterestFor(FocusEvent* focus_event) {
-  if (!focus_event || !focus_event->isTrusted()) {
+  if (!focus_event) {
     return;
+  }
+  if (!RuntimeEnabledFeatures::CleanUpActivationBehaviorEnabled()) {
+    if (!focus_event->isTrusted()) {
+      return;
+    }
+  } else {
+    DCHECK(focus_event->isTrusted());
   }
   if (focus_event->sourceCapabilities() &&
       focus_event->sourceCapabilities()->firesTouchEvents()) {
@@ -2119,8 +2155,23 @@ void Element::HandleFocusEventsForInterestFor(FocusEvent* focus_event) {
 }
 
 void Element::DefaultEventHandler(Event& event) {
-  if (event.isTrusted() && (InterestForElement() || SourceInterestInvoker() ||
-                            GetInterestState() != InterestState::kNoInterest))
+#if DCHECK_IS_ON()
+  if (RuntimeEnabledFeatures::CleanUpActivationBehaviorEnabled()) {
+    const bool is_click =
+        event.IsMouseEvent() && event.type() == event_type_names::kClick;
+    const bool is_android_select_mousedown_quirk =
+        event.IsMouseEvent() && event.type() == event_type_names::kMousedown &&
+        IsA<HTMLSelectElement>(*this) && GetDocument().GetSettings() &&
+        GetDocument().GetSettings()->GetWideViewportQuirkEnabled();
+    DCHECK(event.isTrusted() || is_click || is_android_select_mousedown_quirk);
+  }
+#endif
+  const bool is_trusted =
+      !RuntimeEnabledFeatures::CleanUpActivationBehaviorEnabled()
+          ? event.isTrusted()
+          : true;
+  if (is_trusted && (InterestForElement() || SourceInterestInvoker() ||
+                     GetInterestState() != InterestState::kNoInterest))
       [[unlikely]] {
     // Handle new `interestfor` activation via keyboard or long-press.
     HandleFocusEventsForInterestFor(DynamicTo<FocusEvent>(event));
@@ -2377,7 +2428,17 @@ void Element::ScrollIntoViewNoVisualUpdate(
       container ? container->GetLayoutObject() : nullptr,
       /*from_remote_frame=*/false, include_self, resolver);
 
-  GetDocument().SetSequentialFocusNavigationStartingPoint(originating_element);
+  // Avoid creating a starting point before the first sequential focus
+  // navigation. Disabling the feature restores the legacy behavior.
+  const bool has_sequential_focus_navigation_starting_point =
+      GetDocument().FocusedElement() ||
+      GetDocument().HasSequentialFocusNavigationStartingPoint();
+  if (!RuntimeEnabledFeatures::
+          ScrollIntoViewNoInitialFocusNavigationStartingPointEnabled() ||
+      has_sequential_focus_navigation_starting_point) {
+    GetDocument().SetSequentialFocusNavigationStartingPoint(
+        originating_element);
+  }
 }
 
 void Element::scrollIntoViewIfNeeded(bool center_if_needed) {
@@ -3498,11 +3559,8 @@ ContainerQueryList* Element::matchContainer(const String& query) {
       ContainerQueryParser::ParseContainerQuerySet(query, *context);
   auto* list = MakeGarbageCollected<ContainerQueryList>(
       GetDocument().GetExecutionContext(), container_queries, this);
-  if (auto* window =
-          DynamicTo<LocalDOMWindow>(GetDocument().GetExecutionContext())) {
-    ContainerQueryListController::From(*window)->AddContainerQueryList(*this,
-                                                                       *list);
-  }
+  ContainerQueryListController::From(GetDocument())
+      ->AddContainerQueryList(*this, *list);
   return list;
 }
 
@@ -3672,82 +3730,47 @@ const AttrNameToTrustedType& Element::GetCheckedAttributeTypes() const {
 }
 
 const std::tuple<SpecificTrustedType, const AtomicString, const AtomicString>
-Element::GetTrustedTypeDataForAttribute(const QualifiedName& q_name,
-                                        const char* legacy_sink_name) const {
+Element::GetTrustedTypeDataForAttribute(const QualifiedName& q_name) const {
   // https://w3c.github.io/trusted-types/dist/spec/#abstract-opdef-get-trusted-type-data-for-attribute
 
-  // We implement both legacy and new behaviour, guarded by TrustedTypesHTML.
-  //
-  // Once TrustedTypesHTML is perma-enabled, the second branch can be removed,
-  // as can the legacy_sink_name parameter. And the return type can become
-  // AttrNameToTrustedType::value_type.
-  if (RuntimeEnabledFeatures::TrustedTypesHTMLEnabled()) {
-    // Step 1: Let data be null. (Nothing to do; we don't set data.)
-    // Step 2: If [... conditions ...] and attribute is the name of an event
-    //         handler content attribute: [...]
-    if (q_name.NamespaceURI().IsNull() &&
-        (namespaceURI() == html_names::xhtmlNamespaceURI ||
-         namespaceURI() == svg_names::kNamespaceURI ||
-         namespaceURI() == mathml_names::kNamespaceURI) &&
-        IsTrustedTypesEventHandlerAttribute(q_name)) {
-      return {SpecificTrustedType::kScript, trusted_types_names::kElement,
-              q_name.LocalName()};
-    }
-
-    // Step 3: Find the row in the following table [...]
-    // Since there's only one namespaced, TT-relevant attribute, we'll keep
-    // namespaces out of the tables. Thus, we'll handle the one namespaced
-    // attribute separately.
-    if (!q_name.NamespaceURI().empty() &&
-        !q_name.Matches(xlink_names::kHrefAttr)) {
-      return {SpecificTrustedType::kNone, trusted_types_names::kElement,
-              q_name.LocalName()};
-    }
-    const AttrNameToTrustedType* attribute_types = &GetCheckedAttributeTypes();
-    AttrNameToTrustedType::const_iterator iter =
-        attribute_types->find(q_name.LocalName());
-
-    // Step 4: Return data. [data might be null.]
-    if (iter == attribute_types->end()) {
-      return {SpecificTrustedType::kNone, trusted_types_names::kElement,
-              q_name.LocalName()};
-    }
-    return {iter->value.first, iter->value.second, q_name.LocalName()};
-  } else {
-    // Legacy behaviour; no longer spec compliant.
-
-    // TODO(vogelheim): Once the TrustedTypesHTML flag is removed, this code
-    // also gets removed and it should be easy to change the return type back
-    // to a reference.
-    AtomicString property_name(legacy_sink_name);
-    if (!q_name.NamespaceURI().IsNull() &&
-        !SVGAnimatedHref::IsKnownAttribute(q_name)) {
-      return {SpecificTrustedType::kNone, trusted_types_names::kElement,
-              property_name};
-    }
-    const AttrNameToTrustedType* attribute_types = &GetCheckedAttributeTypes();
-    AttrNameToTrustedType::const_iterator iter =
-        attribute_types->find(q_name.LocalName());
-    if (iter != attribute_types->end()) {
-      return {iter->value.first, trusted_types_names::kElement, property_name};
-    }
-
-    if (IsTrustedTypesEventHandlerAttribute(q_name)) {
-      return {SpecificTrustedType::kScript, trusted_types_names::kElement,
-              property_name};
-    }
-
-    return {SpecificTrustedType::kNone, trusted_types_names::kElement,
-            property_name};
+  // Step 1: Let data be null. (Nothing to do; we don't set data.)
+  // Step 2: If [... conditions ...] and attribute is the name of an event
+  //         handler content attribute: [...]
+  if (q_name.NamespaceURI().IsNull() &&
+      (namespaceURI() == html_names::xhtmlNamespaceURI ||
+       namespaceURI() == svg_names::kNamespaceURI ||
+       namespaceURI() == mathml_names::kNamespaceURI) &&
+      IsTrustedTypesEventHandlerAttribute(q_name)) {
+    return {SpecificTrustedType::kScript, trusted_types_names::kElement,
+            q_name.LocalName()};
   }
+
+  // Step 3: Find the row in the following table [...]
+  // Since there's only one namespaced, TT-relevant attribute, we'll keep
+  // namespaces out of the tables. Thus, we'll handle the one namespaced
+  // attribute separately.
+  if (!q_name.NamespaceURI().empty() &&
+      !q_name.Matches(xlink_names::kHrefAttr)) {
+    return {SpecificTrustedType::kNone, trusted_types_names::kElement,
+            q_name.LocalName()};
+  }
+  const AttrNameToTrustedType* attribute_types = &GetCheckedAttributeTypes();
+  AttrNameToTrustedType::const_iterator iter =
+      attribute_types->find(q_name.LocalName());
+
+  // Step 4: Return data. [data might be null.]
+  if (iter == attribute_types->end()) {
+    return {SpecificTrustedType::kNone, trusted_types_names::kElement,
+            q_name.LocalName()};
+  }
+  return {iter->value.first, iter->value.second, q_name.LocalName()};
 }
 
 AtomicString Element::TrustedTypesCheckForAttribute(
     const QualifiedName& q_name,
     const V8TrustedType* value,
-    const char* legacy_sink_name,
     ExceptionState& exception_state) const {
-  auto data = GetTrustedTypeDataForAttribute(q_name, legacy_sink_name);
+  auto data = GetTrustedTypeDataForAttribute(q_name);
   return TrustedTypesCheckFor(std::get<0>(data), value, GetExecutionContext(),
                               std::get<1>(data), std::get<2>(data),
                               exception_state);
@@ -3756,9 +3779,8 @@ AtomicString Element::TrustedTypesCheckForAttribute(
 AtomicString Element::TrustedTypesCheckForAttribute(
     const QualifiedName& q_name,
     AtomicString value,
-    const char* legacy_sink_name,
     ExceptionState& exception_state) const {
-  auto data = GetTrustedTypeDataForAttribute(q_name, legacy_sink_name);
+  auto data = GetTrustedTypeDataForAttribute(q_name);
   return TrustedTypesCheckFor(std::get<0>(data), std::move(value),
                               GetExecutionContext(), std::get<1>(data),
                               std::get<2>(data), exception_state);
@@ -3984,16 +4006,26 @@ void Element::UpdateSubtreeBloomFilterAfterInsert() {
 }
 
 void Element::UpdateSubtreeBloomFilterAfterChildRemoval() {
-  Element* first_child = ElementTraversal::FirstChild(*this);
-  if (first_child && first_child->nextSibling()) {
-    // Two or more children left; don't do anything, and don't propagate.
-    // Note that this may leave stale bits in the filter.
-    return;
+  // Removal updates are opportunistic. Keep stale bits rather than
+  // scan a potentially large amount of children to determine whether
+  // zero or one element children remain.
+  constexpr unsigned kMaxNonElementChildrenToScan = 32;
+  unsigned non_element_children = 0;
+  Element* element_child = nullptr;
+  for (Node& child : NodeTraversal::ChildrenOf(*this)) {
+    if (auto* element = DynamicTo<Element>(child)) {
+      if (element_child) {
+        return;
+      }
+      element_child = element;
+    } else if (++non_element_children > kMaxNonElementChildrenToScan) {
+      return;
+    }
   }
 
-  // Zero or one children left.
+  // Zero or one element children left.
   TinyBloomFilter new_bloom_filter =
-      first_child ? first_child->attribute_or_class_bloom_ : 0;
+      element_child ? element_child->attribute_or_class_bloom_ : 0;
   new_bloom_filter |= RecomputeLocalBloomFilter();
   if (attribute_or_class_bloom_ == new_bloom_filter) {
     // No need to do anything, nor traverse upwards.
@@ -4540,6 +4572,37 @@ void Element::ClearCanvasTransform() {
   }
 }
 
+FloatClipRect Element::GetCanvasClip() const {
+  if (const NodeRareData* data = RareData()) {
+    if (const FloatClipRect* clip = data->GetCanvasClip()) {
+      return *clip;
+    }
+  }
+  return FloatClipRect();
+}
+
+FloatClipRect Element::GetUsedCanvasClip() const {
+  return CanvasForDrawing() ? GetCanvasClip() : FloatClipRect();
+}
+
+void Element::SetCanvasClip(const FloatClipRect& clip) {
+  if (GetCanvasClip() == clip) {
+    return;
+  }
+  EnsureRareData().SetCanvasClip(clip).RefreshNode(*this);
+  InvalidateForCanvasClipChange(GetLayoutObject());
+}
+
+void Element::ClearCanvasClip() {
+  if (NodeRareData* data = RareData()) {
+    if (!data->GetCanvasClip()) {
+      return;
+    }
+    data->ClearCanvasClip();
+    InvalidateForCanvasClipChange(GetLayoutObject());
+  }
+}
+
 void Element::RemovedFrom(ContainerNode& insertion_point) {
   bool was_in_document = insertion_point.isConnected();
   if (Element* parent = DynamicTo<Element>(insertion_point)) {
@@ -4794,8 +4857,6 @@ void Element::AttachLayoutTree(AttachContext& context) {
   }
   children_context.use_previous_in_flow = true;
 
-  AttachLayoutSucceedingPseudoElements(context);
-
   if (skipped_container_descendants &&
       (!layout_object || !layout_object->IsEligibleForSizeContainment())) {
     style_engine.UpdateStyleForNonEligibleSizeContainer(*this);
@@ -4846,10 +4907,6 @@ void Element::AttachLayoutTree(AttachContext& context) {
   AttachSucceedingPseudoElements(children_context);
   AttachTransitionPseudoElements(children_context);
 
-  if (!IsPseudoElement() && layout_object) {
-    context.counters_context.LeaveObject(*layout_object);
-  }
-
   if (layout_object) {
     if (layout_object->AffectsWhitespaceSiblings()) {
       context.previous_in_flow = layout_object;
@@ -4858,11 +4915,22 @@ void Element::AttachLayoutTree(AttachContext& context) {
   } else {
     context.previous_in_flow = children_context.previous_in_flow;
   }
+
+  // These pseudo-elements (::scroll-button(), ::interest-button,
+  // ::scroll-marker-group(after)) are layout *siblings* of this element's box,
+  // so they are attached with `context` rather than `children_context`, and
+  // only once `context.previous_in_flow` has been updated above. They are
+  // still generated by this element, though, so counter() inside their
+  // 'content' must resolve in this element's counter scope, the same as
+  // ::after does. Hence they are attached before LeaveObject().
+  AttachLayoutSucceedingPseudoElements(context);
+
+  if (!IsPseudoElement() && layout_object) {
+    context.counters_context.LeaveObject(*layout_object);
+  }
 }
 
 void Element::DetachLayoutTree(bool performing_reattach) {
-  HTMLFrameOwnerElement::PluginDisposeSuspendScope suspend_plugin_dispose;
-
   // Pseudo-elements that may have child pseudo-elements (such as ::column) must
   // be cleared before clearing the rare data vector below.
   ClearColumnPseudoElements();
@@ -5700,28 +5768,38 @@ StyleRecalcChange Element::RecalcOwnStyle(
   // If we have an overscroll container, but it's the wrong one or we shouldn't
   // have one, remove this element from the overscroll container (which should
   // also clear GetOverscrollContainer() on `this`).
-  bool is_valid_overscroll_area =
-      new_style && new_style->IsInternalOverscrollPositionAuto() &&
-      parent_style &&
-      parent_style->EffectiveOverscrollContainerType() !=
-          EOverscrollContainerType::kNone &&
-      GetDocument().IsOverscrollCommandTarget(*this);
-  Element* parent = parentElement();
+  bool is_valid_overscroll_area = OverscrollAreaTracker::IsValidOverscrollArea(
+      *this, new_style, parent_style);
+  Element* overscroll_container = GetOverscrollContainer();
+  if (is_valid_overscroll_area || overscroll_container) {
+    Element* parent = FlatTreeTraversal::ParentElement(*this);
 
-  if (GetOverscrollContainer() && (!new_style || !is_valid_overscroll_area ||
-                                   GetOverscrollContainer() != parent)) {
-    DetachOverscroll();
-    // We may need to remove this element's ::-internal-overscroll-area-parent.
-    child_change =
-        child_change.EnsureAtLeast(StyleRecalcChange::kUpdatePseudoElements);
+    if (overscroll_container && (!new_style || !is_valid_overscroll_area ||
+                                 overscroll_container != parent)) {
+      DetachOverscroll();
+      overscroll_container = nullptr;
+      // We may need to remove this element's
+      // ::-internal-overscroll-area-parent.
+      child_change =
+          child_change.EnsureAtLeast(StyleRecalcChange::kUpdatePseudoElements);
+    }
+    // If we no longer have an overscroll container, but need one, add this
+    // element to the parent overscroll container.
+    if (!overscroll_container && is_valid_overscroll_area) {
+      parent->EnsureOverscrollAreaTracker().AddOverscroll(this);
+      // We need to add a ::-internal-overscroll-area-parent for this element.
+      child_change =
+          child_change.EnsureAtLeast(StyleRecalcChange::kUpdatePseudoElements);
+    }
   }
-  // If we no longer have an overscroll container, but need one, add this
-  // element to the parent overscroll container.
-  if (!GetOverscrollContainer() && is_valid_overscroll_area) {
-    parent->EnsureOverscrollAreaTracker().AddOverscroll(this);
-    // We need to add a ::-internal-overscroll-area-parent for this element.
+
+  if (GetOverscrollAreaTracker() && old_style && new_style &&
+      old_style->IsInert() != new_style->IsInert()) {
+    // Toggle invokers inside closed overscroll areas depend on the container's
+    // inertness via OverscrollAreaTracker::ShouldRemoveInertness(), and closed
+    // areas block independent inherited property propagation.
     child_change =
-        child_change.EnsureAtLeast(StyleRecalcChange::kUpdatePseudoElements);
+        child_change.EnsureAtLeast(StyleRecalcChange::kRecalcDescendants);
   }
 
   if (!new_style) {
@@ -6737,7 +6815,6 @@ ShadowRoot& Element::CreateAndAttachShadowRoot(ShadowRootMode type,
   NestingLevelIncrementer slot_assignment_recalc_forbidden_scope(
       GetDocument().SlotAssignmentRecalcForbiddenRecursionDepth());
 #endif
-  HTMLFrameOwnerElement::PluginDisposeSuspendScope suspend_plugin_dispose;
   EventDispatchForbiddenScope assert_no_event_dispatch;
   ScriptForbiddenScope forbid_script;
 
@@ -8200,7 +8277,7 @@ void Element::setAttributeNS(const AtomicString& namespace_uri,
   }
 
   AtomicString trusted_value = TrustedTypesCheckForAttribute(
-      *parsed_name, std::move(value), "setAttributeNS", exception_state);
+      *parsed_name, std::move(value), exception_state);
   if (exception_state.HadException()) {
     return;
   }
@@ -8219,7 +8296,7 @@ void Element::setAttributeNS(const AtomicString& namespace_uri,
   }
 
   AtomicString trusted_value = TrustedTypesCheckForAttribute(
-      *parsed_name, trusted_string, "setAttributeNS", exception_state);
+      *parsed_name, trusted_string, exception_state);
   if (exception_state.HadException()) {
     return;
   }
@@ -9116,8 +9193,9 @@ void Element::ActiveViewTransitionTypeStateChanged() {
 }
 
 void Element::OverscrollTargetStateChanged() {
-  SetNeedsStyleRecalc(kLocalStyleChange, StyleChangeReasonForTracing::Create(
-                                             style_change_reason::kOverscroll));
+  SetNeedsStyleRecalc(
+      kSubtreeStyleChange,
+      StyleChangeReasonForTracing::Create(style_change_reason::kOverscroll));
 }
 
 bool Element::MatchesOverscrollOpen() const {
@@ -9192,7 +9270,9 @@ bool Element::IsClickableControl(Node* node) {
     return true;
   }
   while (node && this != node) {
-    if (node->HasActivationBehavior()) {
+    if (node->HasActivationBehavior() ||
+        node->HasTagName(html_names::kEmbedTag) ||
+        node->HasTagName(html_names::kLabelTag)) {
       return true;
     }
     node = node->ParentOrShadowHostNode();
@@ -10618,7 +10698,7 @@ HTMLCanvasElement* Element::CanvasForDrawing() const {
   // immediate children as well.
   Element* ancestor = FlatTreeTraversal::ParentElementSkippingSlots(*this);
   if (auto* ancestor_canvas = DynamicTo<HTMLCanvasElement>(ancestor)) {
-    return ancestor_canvas->layoutSubtree() ? ancestor_canvas : nullptr;
+    return ancestor_canvas->IsContentDrawable() ? ancestor_canvas : nullptr;
   }
   if (!FastHasAttribute(html_names::kDrawableAttr)) {
     return nullptr;
@@ -10626,7 +10706,7 @@ HTMLCanvasElement* Element::CanvasForDrawing() const {
   while (ancestor) {
     ancestor = FlatTreeTraversal::ParentElementSkippingSlots(*ancestor);
     if (auto* ancestor_canvas = DynamicTo<HTMLCanvasElement>(ancestor)) {
-      return ancestor_canvas->layoutSubtree() ? ancestor_canvas : nullptr;
+      return ancestor_canvas->IsContentDrawable() ? ancestor_canvas : nullptr;
     }
   }
   return nullptr;
@@ -11538,7 +11618,8 @@ bool Element::CanGeneratePseudoElement(PseudoId pseudo_id) const {
       return false;
     }
   }
-  if (pseudo_id == kPseudoIdInterestButton && !InterestForElement()) {
+  if (pseudo_id == kPseudoIdInterestButton &&
+      !InterestForElement(InterestForType::kExplicitOnly)) {
     return false;
   }
   if (const ComputedStyle* style = GetComputedStyle()) {
@@ -11796,6 +11877,13 @@ void Element::SetIsInTopLayer(bool in_top_layer) {
     return;
   }
 
+  if (IsInCanvasSubtree()) {
+    // A popover inside a canvas subtree does not render with privacy
+    // protections when in the top layer. So treat transitioning between top
+    // layer states as equivalent to moving in or out of the canvas subtree.
+    DidChangeIsInCanvasSubtree();
+  }
+
   bool user_action_stops_at_top_layer =
       RuntimeEnabledFeatures::UserActionPseudosStopAtTopLayerEnabled();
   bool update_focus_within = user_action_stops_at_top_layer && HasFocusWithin();
@@ -11983,7 +12071,7 @@ inline void Element::UpdateId(const AtomicString& old_id,
 inline void Element::UpdateId(TreeScope& scope,
                               const AtomicString& old_id,
                               const AtomicString& new_id) {
-  DCHECK(IsInTreeScope());
+  DCHECK(IsInTreeScope() || scope.RootNode().IsInShadowTree());
   DCHECK_NE(old_id, new_id);
 
   if (!old_id.empty()) {
@@ -12193,6 +12281,7 @@ void Element::DidMoveToNewDocument(Document& old_document) {
   if (auto* context = GetDisplayLockContext()) {
     context->DidMoveToNewDocument(old_document);
   }
+  ContainerQueryListController::DidMoveToNewDocument(*this, old_document);
 }
 
 void Element::UpdateNamedItemRegistration(NamedItemType type,
@@ -12376,7 +12465,7 @@ void Element::CloneAttributesFrom(const Element& other) {
   }
 
   for (wtf_size_t i = 0; i < element_data_->Attributes().size(); ++i) {
-    const Attribute& attr = element_data_->Attributes().at(i);
+    const Attribute attr = element_data_->Attributes().at(i);
     attribute_or_class_bloom_ |= FilterForAttribute(attr.GetName());
     AttributeChangedWithInvalidations(
         AttributeModificationParams(attr.GetName(), g_null_atom, attr.Value(),
@@ -12998,14 +13087,14 @@ void Element::ScheduleInterestLostTask() {
       base::Seconds(hide_delay_seconds)));
 }
 
-Element* Element::InterestForElement() const {
+Element* Element::InterestForElement(InterestForType interest_for_type) const {
   Element* target =
       GetElementAttributeResolvingReferenceTarget(html_names::kInterestforAttr);
 
   // A `<menuitem>` can be an implicit interest invoker, if it has a command
   // invoker pointing to a `<menulist>`. If the element has an explicit
   // `interestfor` attribute, that overrides the implicit one provided by menus.
-  if (!target) {
+  if (!target && interest_for_type == InterestForType::kAny) {
     if (auto* menu_item = DynamicTo<HTMLMenuItemElement>(this)) {
       if (HTMLMenuListElement* sub_menu = menu_item->GetInvokedSubmenu()) {
         target = sub_menu;
@@ -13610,9 +13699,7 @@ Element::ValidateAttributeIndex(wtf_size_t index,
   // See https://crbug.com/333739948.
 
   if (index == kNotFound) {
-    return RuntimeEnabledFeatures::TrustedTypesHTMLEnabled()
-               ? FindAttributeIndex(qname)
-               : index;
+    return FindAttributeIndex(qname);
   }
 
   // If we previously found an attribute, we must also have attribute data.
@@ -13636,58 +13723,41 @@ void Element::SetAttributeWithoutValidation(const QualifiedName& name,
 void Element::SetAttributeWithValidation(Attr* attribute,
                                          const AtomicString& value,
                                          ExceptionState& exception_state) {
-  if (RuntimeEnabledFeatures::TrustedTypesHTMLEnabled()) {
-    CHECK(attribute);
-    // Corresponds to:
-    // https://whatpr.org/dom/1268.html#set-an-existing-attribute-value
-    // Eventually: https://dom.spec.whatwg.org/#set-an-existing-attribute-value
+  CHECK(attribute);
+  // Corresponds to:
+  // https://whatpr.org/dom/1268.html#set-an-existing-attribute-value
+  // Eventually: https://dom.spec.whatwg.org/#set-an-existing-attribute-value
 
-    // Step 1: If attribute's element is null, then set attribute [...]
-    // Note: Was performed by the caller.
-    // Step 2.1: Let originalElement be attribute's element.
-    // Note: originalElement is this. We already remember that.
+  // Step 1: If attribute's element is null, then set attribute [...]
+  // Note: Was performed by the caller.
+  // Step 2.1: Let originalElement be attribute's element.
+  // Note: originalElement is this. We already remember that.
 
-    // Step 2.2: Let verifiedValue be [..] verify attribute value [...].
-    AtomicString verified_value = TrustedTypesCheckForAttribute(
-        attribute->GetQualifiedName(), value, "setAttribute", exception_state);
-    if (exception_state.HadException()) {
-      return;
-    }
-
-    // Step 2.3: If attribute’s element is null, then set attribute’s value to
-    // value, and return.
-    // Note: Step 2.2 might have changed element_.
-    // Note: Without an owner element, attribute should accept the value without
-    //       additional checking.
-    if (!attribute->ownerElement()) {
-      attribute->setValue(verified_value, ASSERT_NO_EXCEPTION);
-      return;
-    }
-
-    // Step 2.4: If attribute’s element is not originalElement, then return.
-    if (attribute->ownerElement() != this) {
-      return;
-    }
-
-    // Step 2.5: Change attribute to verifiedValue.
-    // Note: We've done all the validations here, so we can now call 'without':
-    SetAttributeWithoutValidation(attribute->GetQualifiedName(),
-                                  verified_value);
-    return;
-  }
-
-  // Legacy behaviour. To be removed once TrustedTypesHTML is perma-enabled.
-  const QualifiedName name = attribute->GetQualifiedName();
-  SynchronizeAttribute(name);
-
-  AtomicString trusted_value = TrustedTypesCheckForAttribute(
-      name, value, "setAttribute", exception_state);
+  // Step 2.2: Let verifiedValue be [..] verify attribute value [...].
+  AtomicString verified_value = TrustedTypesCheckForAttribute(
+      attribute->GetQualifiedName(), value, exception_state);
   if (exception_state.HadException()) {
     return;
   }
 
-  SetAttributeInternal(FindAttributeIndex(name), name, trusted_value,
-                       AttributeModificationReason::kDirectly);
+  // Step 2.3: If attribute’s element is null, then set attribute’s value to
+  // value, and return.
+  // Note: Step 2.2 might have changed element_.
+  // Note: Without an owner element, attribute should accept the value without
+  //       additional checking.
+  if (!attribute->ownerElement()) {
+    attribute->setValue(verified_value, ASSERT_NO_EXCEPTION);
+    return;
+  }
+
+  // Step 2.4: If attribute’s element is not originalElement, then return.
+  if (attribute->ownerElement() != this) {
+    return;
+  }
+
+  // Step 2.5: Change attribute to verifiedValue.
+  // Note: We've done all the validations here, so we can now call 'without':
+  SetAttributeWithoutValidation(attribute->GetQualifiedName(), verified_value);
 }
 
 void Element::SetSynchronizedLazyAttribute(const QualifiedName& name,
@@ -13719,7 +13789,7 @@ void Element::SetAttributeHinted(AtomicString local_name,
   if (q_name.LocalName().starts_with("on") ||
       !GetCheckedAttributeTypes().empty()) [[unlikely]] {
     value = TrustedTypesCheckForAttribute(q_name, std::move(value),
-                                          "setAttribute", exception_state);
+                                          exception_state);
     if (exception_state.HadException()) {
       return;
     }
@@ -13731,8 +13801,8 @@ void Element::SetAttributeHinted(AtomicString local_name,
     // Check whether the "real" TT check would have come to the same result.
     // Debug-only, since not running the check at all is the whole point of this
     // branch.
-    DCHECK_EQ(value, TrustedTypesCheckForAttribute(
-                         q_name, value, "setAttribute", exception_state));
+    DCHECK_EQ(value,
+              TrustedTypesCheckForAttribute(q_name, value, exception_state));
     DCHECK(!exception_state.HadException());
     DCHECK_EQ(index, ValidateAttributeIndex(index, q_name));
   }
@@ -13755,8 +13825,8 @@ void Element::SetAttributeHinted(AtomicString local_name,
 
   auto [index, q_name] =
       LookupAttributeQNameHinted(std::move(local_name), hint);
-  AtomicString value = TrustedTypesCheckForAttribute(
-      q_name, trusted_string, "setAttribute", exception_state);
+  AtomicString value =
+      TrustedTypesCheckForAttribute(q_name, trusted_string, exception_state);
   if (exception_state.HadException()) {
     return;
   }
@@ -13823,8 +13893,7 @@ ALWAYS_INLINE void Element::SetAttributeInternal(
 Attr* Element::setAttributeNode(Attr* attr_node,
                                 ExceptionState& exception_state) {
   AtomicString value = TrustedTypesCheckForAttribute(
-      attr_node->GetQualifiedName(), attr_node->value(), "setAttributeNode",
-      exception_state);
+      attr_node->GetQualifiedName(), attr_node->value(), exception_state);
   if (exception_state.HadException()) {
     return nullptr;
   }
@@ -14187,6 +14256,48 @@ bool Element::SupportsBaseAppearance(AppearanceValue appearance_value) const {
     return SupportsBaseAppearanceInternal(*base_appearance_value);
   }
   return false;
+}
+
+void Element::SetElementAttributeEventListenerFromScriptBody(
+    const AtomicString& event_type_name,
+    const QualifiedName& attribute_name,
+    const AtomicString& script_body,
+    AttributeModificationReason reason,
+    JSEventHandler::HandlerType type) {
+  ExecutionContext* context = GetExecutionContext();
+  EventListener* listener = JSEventHandlerForContentAttribute::Create(
+      context, attribute_name, script_body, type);
+  if (!ShouldBlockInlineScriptAttributeSet(context, this, listener, reason)) {
+    SetAttributeEventListener(event_type_name, listener);
+  }
+}
+
+void Element::SetDocumentAttributeEventListenerFromScriptBody(
+    const AtomicString& event_type_name,
+    const QualifiedName& attribute_name,
+    const AtomicString& script_body,
+    AttributeModificationReason reason,
+    JSEventHandler::HandlerType type) {
+  ExecutionContext* context = GetExecutionContext();
+  EventListener* listener = JSEventHandlerForContentAttribute::Create(
+      context, attribute_name, script_body, type);
+  if (!ShouldBlockInlineScriptAttributeSet(context, this, listener, reason)) {
+    GetDocument().SetAttributeEventListener(event_type_name, listener);
+  }
+}
+
+void Element::SetWindowAttributeEventListenerFromScriptBody(
+    const AtomicString& event_type_name,
+    const QualifiedName& attribute_name,
+    const AtomicString& script_body,
+    AttributeModificationReason reason,
+    JSEventHandler::HandlerType type) {
+  ExecutionContext* context = GetExecutionContext();
+  EventListener* listener = JSEventHandlerForContentAttribute::Create(
+      context, attribute_name, script_body, type);
+  if (!ShouldBlockInlineScriptAttributeSet(context, this, listener, reason)) {
+    GetDocument().SetWindowAttributeEventListener(event_type_name, listener);
+  }
 }
 
 OverscrollAreaTracker& Element::EnsureOverscrollAreaTracker() {

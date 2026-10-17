@@ -9,9 +9,11 @@
 #include <cstdint>
 #include <map>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "base/containers/span.h"
+#include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
 #include "base/memory/raw_span.h"
 #include "pdf/accessibility_structs.h"
@@ -60,8 +62,42 @@ struct PageLayoutData {
   base::raw_span<const uint32_t> text_run_start_indices;
 };
 
+// Bundles a single text run with its character span and the following run on
+// the page.
+struct TextRunContext {
+  // The text run being evaluated.
+  const raw_ref<const chrome_pdf::AccessibilityTextRunInfo> run;
+
+  // The immediately following text run on the page, or nullptr if `run` is the
+  // last run.
+  raw_ptr<const chrome_pdf::AccessibilityTextRunInfo> next_run = nullptr;
+
+  // The characters belonging to `run`.
+  base::raw_span<const chrome_pdf::AccessibilityCharInfo> chars;
+};
+
+// Tracks the in-progress static text node being accumulated across consecutive
+// text runs with matching style.
+struct StaticTextState {
+  StaticTextState();
+  ~StaticTextState();
+
+  // The static text node currently being built, or nullptr if none is active.
+  raw_ptr<ui::AXNodeData> node = nullptr;
+
+  // The accumulated UTF-8 text of all inline text boxes added to `node` so far.
+  std::string text;
+
+  // The text style of `node` when style tracking is active.
+  std::optional<chrome_pdf::AccessibilityTextStyleInfo> style;
+};
+
 // Computed page-specific metrics, styling properties, and classification
 // thresholds used as decision factors by the heuristic tree builder.
+//
+// Every length, coordinate, and font size below uses the same units as
+// `chrome_pdf::AccessibilityTextRunInfo::bounds`: page-relative pixels, with
+// the origin at the top-left corner of the page and y increasing downward.
 struct HeuristicPageProperties {
   // The line spacing threshold above which a paragraph break is identified.
   float paragraph_spacing_threshold = 0.0f;
@@ -72,6 +108,30 @@ struct HeuristicPageProperties {
   // The minimum font size threshold required for a run to be considered a
   // heading.
   float heading_font_size_threshold = 0.0f;
+
+  // The height of the page.
+  float page_height = 0.0f;
+
+  // The vertical offset of the page in document coordinates.
+  float page_offset_y = 0.0f;
+
+  // The maximum width threshold for page numbers. Runs exceeding this width are
+  // disqualified from being considered page numbers.
+  float max_page_number_width = 0.0f;
+
+  // The Y-coordinate threshold for the header margin (top margin). Runs ending
+  // at or above this Y-coordinate are within the top margin.
+  float top_margin = 0.0f;
+
+  // The Y-coordinate threshold for page-number footers (bottom margin). Runs
+  // starting at or below this Y-coordinate are within the page number bottom
+  // margin.
+  float bottom_page_number_margin = 0.0f;
+
+  // The Y-coordinate threshold for non-page-number footers (bottom margin).
+  // Runs starting at or below this Y-coordinate are within the non-page-number
+  // bottom margin.
+  float bottom_non_page_number_margin = 0.0f;
 
   // The dominant body text color on the page (in ARGB format), if multiple
   // colors exist.
@@ -102,11 +162,13 @@ class PdfAccessibilityTreeBuilderHeuristic {
 
  private:
   ui::AXNodeData* CreateBlockLevelNode(
-      const chrome_pdf::AccessibilityTextRunInfo& current_run,
-      const chrome_pdf::AccessibilityTextRunInfo* next_run,
-      base::span<const chrome_pdf::AccessibilityCharInfo> current_run_chars,
+      const TextRunContext& run_context,
       const HeuristicPageProperties& page_properties,
       HeadingClassifier* out_heading_classifier);
+
+  ui::AXNodeData* AddTextRunToNode(size_t text_run_index,
+                                   ui::AXNodeData* parent_node,
+                                   StaticTextState* static_text_state);
 
   void AddTextToAXNode(size_t start_text_run_index,
                        uint32_t end_text_run_index,

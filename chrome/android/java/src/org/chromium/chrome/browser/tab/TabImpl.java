@@ -1196,6 +1196,13 @@ class TabImpl implements Tab, TabInternal {
     }
 
     @Override
+    public void openFile() {
+        if (mWebContentsDelegate != null) {
+            mWebContentsDelegate.openFile();
+        }
+    }
+
+    @Override
     public void stopLoading() {
         if (isLoading()) {
             for (TabObserver observer : getTabObservers()) {
@@ -1203,6 +1210,12 @@ class TabImpl implements Tab, TabInternal {
             }
         }
         if (getWebContents() != null) getWebContents().stop();
+    }
+
+    @Override
+    public void setSuppressBeforeUnloadAutoClose(boolean suppress) {
+        TabWebContentsDelegateAndroidImpl.setSuppressBeforeUnloadAutoClose(
+                getWebContents(), suppress);
     }
 
     @Override
@@ -1428,6 +1441,7 @@ class TabImpl implements Tab, TabInternal {
         }
     }
 
+    @CalledByNative
     @Override
     public boolean isClosing() {
         return mIsClosing;
@@ -2075,7 +2089,7 @@ class TabImpl implements Tab, TabInternal {
 
         // For incognito we fall through to startSettings(), which will redirect to the original
         // profile's window, similar to Win/Mac/Linux.
-        if (SettingsInTab.isEnabled() && !isIncognito()) return false;
+        if (SettingsInTab.isFeatureEnabled() && !isIncognito()) return false;
 
         // TODO(crbug.com/456164910): Use the URL path to open deeplinks into Settings.
         SettingsNavigationFactory.createSettingsNavigation().startSettings(getContext());
@@ -2171,9 +2185,15 @@ class TabImpl implements Tab, TabInternal {
         mPendingNativePageHost = nativePageHost;
         mIsAlreadyCreatingNativePage = true;
 
-        // Prefer reusing the NativePage when loading pdf.
+        // Prefer reusing the NativePage when loading pdf. Never offer a frozen page as the reuse
+        // candidate: it has no view, and NativePageFactory.createNativePageForCustomTab() would
+        // hand it straight back on URL match, leaving the tab frozen with a null view. See
+        // crbug.com/568278676.
         boolean loadPdf = PdfUtils.isReuseFragmentEnabled() && pdfInfo != null;
-        NativePage candidateForReuse = forceReload && !loadPdf ? null : getNativePage();
+        NativePage currentPage = getNativePage();
+        boolean canReuseCurrent =
+                currentPage != null && !currentPage.isFrozen() && (!forceReload || loadPdf);
+        NativePage candidateForReuse = canReuseCurrent ? currentPage : null;
 
         assumeNonNull(mDelegateFactory);
         NativePage nativePage =

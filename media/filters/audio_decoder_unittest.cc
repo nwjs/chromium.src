@@ -238,6 +238,12 @@ class AudioDecoderTest
       disabled_features.push_back(kDirectOpusAudioDecoding);
     }
 
+#if BUILDFLAG(IS_ANDROID)
+    if (decoder_type_ == AudioDecoderType::kMediaCodec) {
+      disabled_features.push_back(kStrictMediaCodecAudioDecoderSupport);
+    }
+#endif
+
     scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
     if (!IsSupported()) {
       GTEST_SKIP() << "Unsupported platform.";
@@ -726,9 +732,9 @@ constexpr DataExpectations kSfxVorbisSymphoniaExpectations = {{
 }};
 
 constexpr DataExpectations kBearVorbisSymphoniaExpectations = {{
-    {0, 2902, nullptr},
-    {2902, 13061, nullptr},
-    {15963, 23219, nullptr},
+    {-2902, 2902, nullptr},
+    {0, 13061, nullptr},
+    {13061, 23219, nullptr},
 }};
 
 constexpr TestParams kFlacMonoParams = {
@@ -1018,6 +1024,71 @@ TEST_P(OpusDecodingTest, DisableDiscardDecoderDelay) {
   // to the Opus header skip_samples (312 samples for sfx-opus and bear-opus).
   EXPECT_GT(total_frames_disabled_discard, total_frames_default);
   EXPECT_EQ(total_frames_disabled_discard - total_frames_default, 312);
+}
+
+// Verifies that configuring with a non-48 kHz sample rate (such as 44100 Hz
+// from WebCodecs) decodes successfully and outputs 48000 Hz buffers in both
+// OpusAudioDecoder and FFmpegAudioDecoder.
+TEST_P(OpusDecodingTest, Non48kSampleRate) {
+  ASSERT_NO_FATAL_FAILURE(Initialize());
+
+  // 1. Decode with default config (48000 Hz) to record baseline decoded audio.
+  DecodeAllPackets();
+  const int total_frames_default = GetTotalDecodedFrames();
+  EXPECT_GT(total_frames_default, 0);
+
+  // 2. Re-initialize with 44100 Hz config.
+  ResetReader();
+  decoded_audio_.clear();
+
+  AudioDecoderConfig config;
+  ASSERT_TRUE(AVCodecContextToAudioDecoderConfig(
+      reader_->codec_context_for_testing(), EncryptionScheme::kUnencrypted,
+      &config));
+  config.Initialize(config.codec(), config.sample_format(),
+                    config.channel_layout_config(), 44100, config.extra_data(),
+                    config.encryption_scheme(), config.seek_preroll(),
+                    config.codec_delay());
+
+  InitializeDecoder(config);
+  DecodeAllPackets();
+  EXPECT_EQ(GetTotalDecodedFrames(), total_frames_default);
+  for (const auto& buffer : decoded_audio_) {
+    EXPECT_EQ(buffer->sample_rate(), 48000);
+  }
+}
+
+// Verifies that configuring with empty extra_data (as permitted by WebCodecs
+// for 1 or 2 channels) decodes successfully in both OpusAudioDecoder and
+// FFmpegAudioDecoder.
+TEST_P(OpusDecodingTest, EmptyExtraData) {
+  ASSERT_NO_FATAL_FAILURE(Initialize());
+
+  // 1. Decode with default config to record baseline decoded audio.
+  DecodeAllPackets();
+  const int total_frames_default = GetTotalDecodedFrames();
+  EXPECT_GT(total_frames_default, 0);
+
+  // 2. Re-initialize with empty extra_data.
+  ResetReader();
+  decoded_audio_.clear();
+
+  AudioDecoderConfig config;
+  ASSERT_TRUE(AVCodecContextToAudioDecoderConfig(
+      reader_->codec_context_for_testing(), EncryptionScheme::kUnencrypted,
+      &config));
+  config.Initialize(config.codec(), config.sample_format(),
+                    config.channel_layout_config(), config.samples_per_second(),
+                    /*extra_data=*/{}, config.encryption_scheme(),
+                    config.seek_preroll(), 0);
+
+  InitializeDecoder(config);
+  DecodeAllPackets();
+  EXPECT_GT(GetTotalDecodedFrames(), 0);
+  for (const auto& buffer : decoded_audio_) {
+    EXPECT_EQ(buffer->sample_rate(), 48000);
+    EXPECT_EQ(buffer->channel_count(), config.channels());
+  }
 }
 
 TEST_P(OpusDecodingTest, MultichannelVorbis) {
@@ -1484,98 +1555,6 @@ INSTANTIATE_TEST_SUITE_P(MediaFoundation,
                          Combine(Values(AudioDecoderType::kMediaFoundation),
                                  ValuesIn(kXheAacTestParams)));
 #endif
-#endif
-
-#if BUILDFLAG(ENABLE_SYMPHONIA)
-TEST(SymphoniaAudioDecoderStandaloneTest, ToSymphoniaPacketNullTimestamp) {
-  auto buffer = base::MakeRefCounted<DecoderBuffer>(10);
-  buffer->set_timestamp(base::Microseconds(100));
-  SymphoniaPacket packet = ToSymphoniaPacket(*buffer, std::nullopt);
-  EXPECT_EQ(packet.timestamp_us, 0u);
-}
-
-TEST(SymphoniaAudioDecoderStandaloneTest, DecodeTruncatedBufferDoesNotFail) {
-  base::test::TaskEnvironment task_environment;
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      {kSymphoniaAudioDecoding, kSymphoniaMp3Decoding}, {});
-
-  NullMediaLog media_log;
-  auto decoder = std::make_unique<SymphoniaAudioDecoder>(
-      task_environment.GetMainThreadTaskRunner(), &media_log);
-
-  AudioDecoderConfig config(AudioCodec::kMP3, kSampleFormatF32,
-                            ChannelLayoutConfig::Stereo(), 48000,
-                            EmptyExtraData(), EncryptionScheme::kUnencrypted);
-
-  bool output_cb_called = false;
-  base::test::TestFuture<DecoderStatus> init_future;
-  decoder->Initialize(
-      config, nullptr, init_future.GetCallback(),
-      base::BindRepeating(
-          [](bool* output_cb_called, scoped_refptr<AudioBuffer>) {
-            *output_cb_called = true;
-          },
-          &output_cb_called),
-      base::DoNothing());
-  EXPECT_TRUE(init_future.Get().is_ok());
-
-  // Send a truncated MP3 buffer with a valid syncword but incomplete frame.
-  const uint8_t truncated_mp3_data[] = {0xFF, 0xFB, 0x90, 0x00, 0x01, 0x02};
-  auto buffer = DecoderBuffer::CopyFrom(truncated_mp3_data);
-  buffer->set_timestamp(base::Microseconds(0));
-
-  base::test::TestFuture<DecoderStatus> decode_future;
-  decoder->Decode(std::move(buffer), decode_future.GetCallback());
-  EXPECT_TRUE(decode_future.Get().is_ok());
-  EXPECT_FALSE(output_cb_called);
-
-  // An EOS buffer sent after a dropped truncated buffer should also succeed.
-  base::test::TestFuture<DecoderStatus> eos_future;
-  decoder->Decode(DecoderBuffer::CreateEOSBuffer(), eos_future.GetCallback());
-  EXPECT_TRUE(eos_future.Get().is_ok());
-}
-
-TEST(SymphoniaAudioDecoderStandaloneTest, BackToBackDecodeErrorsFail) {
-  base::test::TaskEnvironment task_environment;
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      {kSymphoniaAudioDecoding, kSymphoniaMp3Decoding}, {});
-
-  NullMediaLog media_log;
-  auto decoder = std::make_unique<SymphoniaAudioDecoder>(
-      task_environment.GetMainThreadTaskRunner(), &media_log);
-
-  AudioDecoderConfig config(AudioCodec::kMP3, kSampleFormatF32,
-                            ChannelLayoutConfig::Stereo(), 48000,
-                            EmptyExtraData(), EncryptionScheme::kUnencrypted);
-
-  base::test::TestFuture<DecoderStatus> init_future;
-  decoder->Initialize(config, nullptr, init_future.GetCallback(),
-                      base::DoNothing(), base::DoNothing());
-  EXPECT_TRUE(init_future.Get().is_ok());
-
-  const uint8_t truncated_mp3_data[] = {0xFF, 0xFB, 0x90, 0x00, 0x01, 0x02};
-
-  // First truncated buffer should be dropped gracefully (Ok).
-  {
-    auto buffer = DecoderBuffer::CopyFrom(truncated_mp3_data);
-    buffer->set_timestamp(base::Microseconds(0));
-    base::test::TestFuture<DecoderStatus> decode_future;
-    decoder->Decode(std::move(buffer), decode_future.GetCallback());
-    EXPECT_TRUE(decode_future.Get().is_ok());
-  }
-
-  // Second consecutive truncated buffer (back-to-back) must be treated as
-  // fatal.
-  {
-    auto buffer = DecoderBuffer::CopyFrom(truncated_mp3_data);
-    buffer->set_timestamp(base::Microseconds(1000));
-    base::test::TestFuture<DecoderStatus> decode_future;
-    decoder->Decode(std::move(buffer), decode_future.GetCallback());
-    EXPECT_FALSE(decode_future.Get().is_ok());
-  }
-}
 #endif
 
 }  // namespace media

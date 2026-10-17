@@ -22,7 +22,6 @@
 #include "base/strings/string_view_util.h"
 #include "base/values.h"
 #include "chrome/browser/ash/app_list/arc/arc_app_utils.h"
-#include "chrome/browser/consent_auditor/consent_auditor_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/extensions/app_launch_params.h"
 #include "chrome/browser/ui/extensions/application_launch.h"
@@ -235,20 +234,22 @@ ArcSupportHost::ErrorInfo& ArcSupportHost::ErrorInfo::operator=(
 ArcSupportHost::ArcSupportHost(
     PrefService* local_state,
     const ApplicationLocaleStorage* application_locale_storage,
-    Profile* profile)
+    Profile* profile,
+    consent_auditor::ConsentAuditor* consent_auditor)
     : local_state_(CHECK_DEREF(local_state)),
       application_locale_storage_(CHECK_DEREF(application_locale_storage)),
       profile_(profile),
+      consent_auditor_(CHECK_DEREF(consent_auditor)),
       request_open_app_callback_(base::BindRepeating(&RequestOpenApp)) {
-  DCHECK(profile_);
+  CHECK(profile_, base::NotFatalUntil::M160);
   content::URLDataSource::Add(profile_,
                               std::make_unique<ThemeSource>(profile_));
 }
 
 ArcSupportHost::~ArcSupportHost() {
   // Delegates should have been reset to nullptr at this point.
-  DCHECK(!tos_delegate_);
-  DCHECK(!error_delegate_);
+  CHECK(!tos_delegate_, base::NotFatalUntil::M160);
+  CHECK(!error_delegate_, base::NotFatalUntil::M160);
 
   if (message_host_)
     DisconnectMessageHost();
@@ -280,7 +281,8 @@ bool ArcSupportHost::GetShouldShowRunNetworkTests() {
 }
 
 void ArcSupportHost::SetArcManaged(bool is_arc_managed) {
-  DCHECK(!message_host_ || (is_arc_managed_ == is_arc_managed));
+  CHECK(!message_host_ || (is_arc_managed_ == is_arc_managed),
+        base::NotFatalUntil::M160);
   is_arc_managed_ = is_arc_managed;
 }
 
@@ -406,7 +408,7 @@ void ArcSupportHost::ShowError(ErrorInfo error_info,
     case Error::SIGN_IN_GMS_SIGNIN_ERROR:
     case Error::SIGN_IN_GMS_CHECKIN_ERROR:
     case Error::SIGN_IN_UNKNOWN_ERROR:
-      DCHECK(error_info.arg);
+      CHECK(error_info.arg, base::NotFatalUntil::M160);
       message = l10n_util::GetStringFUTF16(
           message_id, base::NumberToString16(error_info.arg.value()));
       break;
@@ -483,7 +485,7 @@ void ArcSupportHost::SetMessageHost(arc::ArcSupportMessageHost* message_host) {
     // Close() is called before opening the window.
     Close();
   } else if (ui_page_ == UIPage::ERROR) {
-    DCHECK(error_info_);
+    CHECK(error_info_, base::NotFatalUntil::M160);
     ShowError(error_info_.value(), should_show_send_feedback_,
               should_show_run_network_tests_);
   } else {
@@ -499,15 +501,15 @@ void ArcSupportHost::UnsetMessageHost(
 }
 
 void ArcSupportHost::DisconnectMessageHost() {
-  DCHECK(message_host_);
+  CHECK(message_host_, base::NotFatalUntil::M160);
   display_observer_.reset();
   message_host_->SetObserver(nullptr);
   message_host_ = nullptr;
 }
 
 void ArcSupportHost::RequestAppStart() {
-  DCHECK(!message_host_);
-  DCHECK(!app_start_pending_);
+  CHECK(!message_host_, base::NotFatalUntil::M160);
+  CHECK(!app_start_pending_, base::NotFatalUntil::M160);
 
   app_start_pending_ = true;
   request_open_app_callback_.Run(profile_.get());
@@ -515,14 +517,14 @@ void ArcSupportHost::RequestAppStart() {
 
 void ArcSupportHost::SetRequestOpenAppCallbackForTesting(
     const RequestOpenAppCallback& callback) {
-  DCHECK(!message_host_);
-  DCHECK(!app_start_pending_);
-  DCHECK(!callback.is_null());
+  CHECK(!message_host_, base::NotFatalUntil::M160);
+  CHECK(!app_start_pending_, base::NotFatalUntil::M160);
+  CHECK(!callback.is_null(), base::NotFatalUntil::M160);
   request_open_app_callback_ = callback;
 }
 
 bool ArcSupportHost::Initialize() {
-  DCHECK(message_host_);
+  CHECK(message_host_, base::NotFatalUntil::M160);
 
   const bool is_child =
       user_manager::UserManager::Get()->IsLoggedInAsChildUser();
@@ -665,8 +667,9 @@ bool ArcSupportHost::Initialize() {
   const std::string& country_code = base::CountryCodeForCurrentTimezone();
   loadtime_data.Set("countryCode", country_code);
 
-  const std::string& app_locale = application_locale_storage_->Get();
-  webui::SetLoadTimeDataDefaults(app_locale, &loadtime_data);
+  std::string_view app_locale =
+      application_locale_storage_->GetTag().tag_string();
+  webui::SetLoadTimeDataDefaults(std::string(app_locale), &loadtime_data);
   loadtime_data.Set("locale", app_locale);
 
   base::DictValue message;
@@ -711,11 +714,11 @@ void ArcSupportHost::OnMessage(const base::DictValue& message) {
     if (tos_delegate_) {
       tos_delegate_->OnTermsRejected();
     } else {
-      DCHECK(error_delegate_);
+      CHECK(error_delegate_, base::NotFatalUntil::M160);
       error_delegate_->OnWindowClosed();
     }
   } else if (*event == kEventOnAgreed || *event == kEventOnCanceled) {
-    DCHECK(tos_delegate_);
+    CHECK(tos_delegate_, base::NotFatalUntil::M160);
     std::optional<bool> tos_shown = message.FindBool(kTosShown);
     std::optional<bool> is_metrics_enabled =
         message.FindBool(kIsMetricsEnabled);
@@ -764,8 +767,7 @@ void ArcSupportHost::OnMessage(const base::DictValue& message) {
       play_consent.set_play_terms_of_service_hash(
           arc::GetSha1HashForArcPlayTermsOfService(*tos_content));
     }
-    ConsentAuditorFactory::GetForProfile(profile_)->RecordArcPlayConsent(
-        gaia_id, play_consent);
+    consent_auditor_->RecordArcPlayConsent(gaia_id, play_consent);
 
     // If the user - not policy - controls Backup and Restore setting, record
     // whether consent was given.
@@ -780,9 +782,8 @@ void ArcSupportHost::OnMessage(const base::DictValue& message) {
                                                 ? UserConsentTypes::GIVEN
                                                 : UserConsentTypes::NOT_GIVEN);
 
-      ConsentAuditorFactory::GetForProfile(profile_)
-          ->RecordArcBackupAndRestoreConsent(gaia_id,
-                                             backup_and_restore_consent);
+      consent_auditor_->RecordArcBackupAndRestoreConsent(
+          gaia_id, backup_and_restore_consent);
     }
 
     // If the user - not policy - controls Location Services setting, record
@@ -806,9 +807,8 @@ void ArcSupportHost::OnMessage(const base::DictValue& message) {
       location_service_consent.set_status(is_location_service_enabled.value()
                                               ? UserConsentTypes::GIVEN
                                               : UserConsentTypes::NOT_GIVEN);
-      ConsentAuditorFactory::GetForProfile(profile_)
-          ->RecordArcGoogleLocationServiceConsent(gaia_id,
-                                                  location_service_consent);
+      consent_auditor_->RecordArcGoogleLocationServiceConsent(
+          gaia_id, location_service_consent);
     }
 
     if (accepted) {
@@ -830,14 +830,14 @@ void ArcSupportHost::OnMessage(const base::DictValue& message) {
     if (tos_delegate_) {
       tos_delegate_->OnTermsRetryClicked();
     } else {
-      DCHECK(error_delegate_);
+      CHECK(error_delegate_, base::NotFatalUntil::M160);
       error_delegate_->OnRetryClicked();
     }
   } else if (*event == kEventOnSendFeedbackClicked) {
-    DCHECK(error_delegate_);
+    CHECK(error_delegate_, base::NotFatalUntil::M160);
     error_delegate_->OnSendFeedbackClicked();
   } else if (*event == kEventOnRunNetworkTestsClicked) {
-    DCHECK(error_delegate_);
+    CHECK(error_delegate_, base::NotFatalUntil::M160);
     error_delegate_->OnRunNetworkTestsClicked();
   } else if (*event == kEventOnTosLoadResult) {
     if (tos_delegate_) {
@@ -845,7 +845,7 @@ void ArcSupportHost::OnMessage(const base::DictValue& message) {
           message.FindBool(kSuccess).value_or(false));
     }
   } else if (*event == kEventOnErrorPageShown) {
-    DCHECK(error_delegate_);
+    CHECK(error_delegate_, base::NotFatalUntil::M160);
     error_delegate_->OnErrorPageShown(
         message.FindBool(kNetworkTestsShown).value_or(false));
   } else if (*event == kEventOnOpenPrivacySettingsPageClicked) {

@@ -26,7 +26,6 @@ namespace syncer {
 class SyncService;
 }
 
-class AuthenticationServiceDelegate;
 class AuthenticationServiceObserver;
 class FakeAuthenticationService;
 class PrefService;
@@ -77,8 +76,6 @@ class AuthenticationService : public KeyedService,
 
   // Initializes the AuthenticationService.
   void Initialize();
-  // TODO(crbug.com/407498240): Remove this overload with the unused `delegate`.
-  void Initialize(std::unique_ptr<AuthenticationServiceDelegate> delegate);
 
   // KeyedService implementation.
   void Shutdown() override;
@@ -136,6 +133,11 @@ class AuthenticationService : public KeyedService,
   // Virtual for testing.
   virtual void SignOut(signin_metrics::ProfileSignout signout_source,
                        ProceduralBlock completion);
+
+  // Overload without completion callback. SignOut() always completes
+  // synchronously.
+  // Virtual for testing.
+  virtual void SignOut(signin_metrics::ProfileSignout signout_source);
 
   // Returns whether there is a cached associated MDM error for `identity`.
   bool HasCachedMDMErrorForIdentity(id<SystemIdentity> identity);

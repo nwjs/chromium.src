@@ -149,6 +149,7 @@ class RenderFrameHostDestructionObserver : public WebContentsObserver {
     if (rfh == render_frame_host_) {
       CHECK(!deleted_);
       deleted_ = true;
+      render_frame_host_ = nullptr;
     }
 
     if (deleted_ && message_loop_runner_->loop_running()) {
@@ -160,7 +161,7 @@ class RenderFrameHostDestructionObserver : public WebContentsObserver {
  private:
   scoped_refptr<MessageLoopRunner> message_loop_runner_;
   bool deleted_;
-  raw_ptr<RenderFrameHost, AcrossTasksDanglingUntriaged> render_frame_host_;
+  raw_ptr<RenderFrameHost> render_frame_host_ = nullptr;
 };
 
 // A NavigationThrottle implementation that blocks all outgoing navigation

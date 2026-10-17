@@ -10,7 +10,6 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/page_info/about_this_site_service_factory.h"
-#include "chrome/browser/safe_browsing/chrome_password_protection_service.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/test/test_browser_dialog.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -46,9 +45,7 @@
 #include "components/permissions/permission_decision_auto_blocker.h"
 #include "components/permissions/permissions_client.h"
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
-#include "components/safe_browsing/content/browser/password_protection/password_protection_test_util.h"
-#include "components/safe_browsing/core/browser/password_protection/metrics_util.h"
-#include "components/safe_browsing/core/common/features.h"
+#include "components/safe_browsing/buildflags.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/webapps/common/web_app_id.h"
 #include "content/public/common/content_features.h"
@@ -61,8 +58,14 @@
 #include "net/test/test_data_directory.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/events/test/test_event.h"
+#include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "url/gurl.h"
 #include "url/origin.h"
+
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+#include "chrome/browser/safe_browsing/chrome_password_protection_service.h"
+#include "components/safe_browsing/core/common/proto/csd.pb.h"
+#endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 
 #if BUILDFLAG(IS_MAC)
 #include "chrome/browser/web_applications/os_integration/mac/app_shim_registry.h"
@@ -191,10 +194,12 @@ class PageInfoBubbleViewDialogBrowserTest : public DialogBrowserTest {
     constexpr char kMalware[] = "Malware";
     constexpr char kDeceptive[] = "Deceptive";
     constexpr char kUnwantedSoftware[] = "UnwantedSoftware";
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
     constexpr char kSignInSyncPasswordReuse[] = "SignInSyncPasswordReuse";
     constexpr char kSignInNonSyncPasswordReuse[] = "SignInNonSyncPasswordReuse";
     constexpr char kEnterprisePasswordReuse[] = "EnterprisePasswordReuse";
     constexpr char kSavedPasswordReuse[] = "SavedPasswordReuse";
+#endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
     constexpr char kMalwareAndBadCert[] = "MalwareAndBadCert";
     constexpr char kMixedContentForm[] = "MixedContentForm";
     constexpr char kMixedContent[] = "MixedContent";
@@ -259,7 +264,9 @@ class PageInfoBubbleViewDialogBrowserTest : public DialogBrowserTest {
     ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
     OpenPageInfoBubble(browser());
 
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
     safe_browsing::ReusedPasswordAccountType reused_password_account_type;
+#endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
     PageInfoUI::IdentityInfo identity;
     if (name == kInsecure) {
       identity.identity_status = PageInfo::SITE_IDENTITY_STATUS_NO_CERT;
@@ -288,6 +295,7 @@ class PageInfoBubbleViewDialogBrowserTest : public DialogBrowserTest {
     } else if (name == kUnwantedSoftware) {
       identity.safe_browsing_status =
           PageInfo::SAFE_BROWSING_STATUS_UNWANTED_SOFTWARE;
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
     } else if (name == kSignInSyncPasswordReuse) {
       reused_password_account_type.set_account_type(
           safe_browsing::ReusedPasswordAccountType::GSUITE);
@@ -312,6 +320,7 @@ class PageInfoBubbleViewDialogBrowserTest : public DialogBrowserTest {
       identity.safe_browsing_status =
           PageInfo::SAFE_BROWSING_STATUS_SAVED_PASSWORD_REUSE;
       identity.show_change_password_buttons = true;
+#endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
     } else if (name == kMalwareAndBadCert) {
       identity.identity_status = PageInfo::SITE_IDENTITY_STATUS_ERROR;
       identity.certificate = net::ImportCertFromFile(
@@ -370,6 +379,7 @@ class PageInfoBubbleViewDialogBrowserTest : public DialogBrowserTest {
                                     std::move(chosen_object_list));
     }
 
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
     if (name == kSignInSyncPasswordReuse ||
         name == kSignInNonSyncPasswordReuse ||
         name == kEnterprisePasswordReuse || name == kSavedPasswordReuse) {
@@ -381,6 +391,7 @@ class PageInfoBubbleViewDialogBrowserTest : public DialogBrowserTest {
       identity.safe_browsing_details = service->GetWarningDetailText(
           service->reused_password_account_type_for_last_shown_warning());
     }
+#endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 
     if (name == kSecureSubpage || name == kEvSecureSubpage) {
       PageInfoBubbleView* bubble_view = static_cast<PageInfoBubbleView*>(
@@ -537,6 +548,7 @@ IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewDialogBrowserTest,
   ShowAndVerifyUi();
 }
 
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 // Shows the Page Info bubble Safe Browsing warning after detecting the user has
 // re-used an existing password on a site, e.g. due to phishing.
 IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewDialogBrowserTest,
@@ -567,6 +579,7 @@ IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewDialogBrowserTest,
                        InvokeUi_EnterprisePasswordReuse) {
   ShowAndVerifyUi();
 }
+#endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 
 class PageInfoBubbleViewAboutThisSiteDialogBrowserTest
     : public DialogBrowserTest {

@@ -33,6 +33,8 @@ source_set("request_header_integrity") {
   sources = [
     "chrome_companero_loader.cc",
     "chrome_companero_loader.h",
+    "platform_runtime_headers.cc",
+    "platform_runtime_headers.h",
     "request_header_integrity_url_loader_throttle.cc",
     "request_header_integrity_url_loader_throttle.h",
   ]
@@ -54,6 +56,7 @@ source_set("request_header_integrity") {
     "//components/google/core/common",
     "//content/public/common",
     "//google_apis",
+    "//net",
     "//services/network/public/cpp",
     "//services/network/public/mojom",
     "//third_party/blink/public/common:headers",
@@ -71,6 +74,7 @@ source_set("unit_tests") {
 
   sources = [
     "chrome_companero_loader_unittest.cc",
+    "platform_runtime_headers_unittest.cc",
     "request_header_integrity_url_loader_throttle_unittest.cc",
   ]
 
@@ -103,6 +107,7 @@ if (!is_android) {
     deps = [
       ":request_header_integrity",
       "//base",
+      "//base/test:test_support",
       "//build:branding_buildflags",
       "//chrome/test:test_support_ui",
       "//components/network_session_configurator/common",
@@ -125,6 +130,13 @@ buildflag_header("buildflags") {
 }
 
 mojom("mojom") {
-  sources = [ "chrome_companero.mojom" ]
-  public_deps = [ "//services/network/public/mojom:url_loader_base" ]
+  sources = [
+    "chrome_companero.mojom",
+    "platform_runtime.mojom",
+  ]
+  public_deps = [
+    "//mojo/public/mojom/base",
+    "//sandbox/policy/mojom",
+    "//services/network/public/mojom:url_loader_base",
+  ]
 }

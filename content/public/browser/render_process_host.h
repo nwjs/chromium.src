@@ -152,9 +152,27 @@ class CONTENT_EXPORT RenderProcessHost : public IPC::Listener,
     kServiceWorker
   };
 
+  // Controls which active (initialized, non-dead, non-spare) RenderProcessHosts
+  // are counted by GetCurrentRenderProcessCountForTesting().
+  enum class RenderProcessCountMode {
+    // Counts all initialized, non-dead, non-spare RenderProcessHosts, including
+    // processes that only host prerendered frames or currently host no frames.
+    kIncludePrerenderOnlyOrEmptyProcess,
+
+    // Excludes RenderProcessHosts that only host prerendered frames or
+    // currently host no RenderFrameHosts (i.e., where
+    // IsOnlyHostingPrerenderedFramesOrEmpty() is true, such as transient
+    // speculative/prewarm prerender processes or worker-only processes).
+    kExcludePrerenderOnlyOrEmptyProcess,
+  };
+
   // General functions ---------------------------------------------------------
 
   ~RenderProcessHost() override {}
+
+  // Returns true if this is a test fake, such as MockRenderProcessHost, rather
+  // than the production RenderProcessHostImpl.
+  virtual bool IsMock() const = 0;
 
   // Initialize the new renderer process, returning true on success. This must
   // be called once before the object can be used, but can be called after
@@ -716,11 +734,11 @@ class CONTENT_EXPORT RenderProcessHost : public IPC::Listener,
           receiver) = 0;
 #endif
   virtual void CreateOneShotSyncService(
-      const url::Origin& origin,
+      const blink::StorageKey& storage_key,
       mojo::PendingReceiver<blink::mojom::OneShotBackgroundSyncService>
           receiver) = 0;
   virtual void CreatePeriodicSyncService(
-      const url::Origin& origin,
+      const blink::StorageKey& storage_key,
       mojo::PendingReceiver<blink::mojom::PeriodicBackgroundSyncService>
           receiver) = 0;
   virtual void BindQuotaManagerHost(
@@ -910,8 +928,12 @@ class CONTENT_EXPORT RenderProcessHost : public IPC::Listener,
   static void SetHungRendererAnalysisFunction(
       AnalyzeHungRendererFunction analyze_hung_renderer);
 
-  // Counts current RenderProcessHost(s), ignoring all spare processes.
-  static int GetCurrentRenderProcessCountForTesting();
+  // Counts current RenderProcessHost(s), ignoring all spare processes, and
+  // optionally ignoring processes that only host prerendered frames or no
+  // frames.
+  static int GetCurrentRenderProcessCountForTesting(
+      RenderProcessCountMode mode =
+          RenderProcessCountMode::kIncludePrerenderOnlyOrEmptyProcess);
 
   // Allows tests to override host interface binding behavior. Any interface
   // binding request which would normally pass through the RPH's internal

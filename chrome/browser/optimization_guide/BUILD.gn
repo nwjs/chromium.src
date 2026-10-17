@@ -132,6 +132,8 @@ source_set("test_support") {
     "browser_test_util.h",
     "mock_optimization_guide_keyed_service.cc",
     "mock_optimization_guide_keyed_service.h",
+    "mock_remote_model_executor.cc",
+    "mock_remote_model_executor.h",
   ]
   deps = [
     ":optimization_guide",
@@ -174,6 +176,7 @@ if (!is_android) {
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/webauthn",
       "//chrome/test:test_support",
+      "//chrome/test/base:profile_lifecycle_test_utils",
       "//components/metrics_services_manager",
       "//components/no_state_prefetch/browser",
       "//components/optimization_guide/core:test_support",
@@ -196,6 +199,8 @@ source_set("unit_tests") {
     ":optimization_guide",
     ":test_support",
     "//chrome/test:test_support",
+    "//chrome/test/base:chrome_render_view_host_test_harness",
+    "//chrome/test/base:testing_browser_process",
     "//components/component_updater:test_support",
     "//components/optimization_guide/core:test_support",
     "//components/prefs:test_support",

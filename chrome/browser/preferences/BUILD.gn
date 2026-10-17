@@ -19,7 +19,6 @@ android_library("java") {
   public_deps = [ "//base:base_shared_preferences_java" ]
 
   deps = [
-    "//base:base_cached_flags_java",
     "//base:base_java",
     "//build/android:build_java",
     "//components/browser_ui/share/android:constants_java",
@@ -45,8 +44,6 @@ android_library("pref_service_java") {
     "//components/prefs/android:java",
     "//components/user_prefs/android:java",
     "//content/public/android:content_full_java",
-    "//third_party/androidx:androidx_annotation_annotation_java",
-    "//third_party/jni_zero:jni_zero_java",
   ]
 }
 
@@ -54,7 +51,6 @@ android_library("pref_service_java") {
 # target for each pref file.
 java_cpp_strings("java_pref_names_srcjar") {
   sources = [
-    "//chrome/browser/enterprise/reporting/prefs.cc",
     "//chrome/browser/new_tab_page/prefs/ntp_pref_names.h",
     "//chrome/browser/ui/safety_hub/safety_hub_prefs.h",
     "//chrome/common/pref_names.h",
@@ -63,6 +59,7 @@ java_cpp_strings("java_pref_names_srcjar") {
     "//components/commerce/core/pref_names.h",
     "//components/dom_distiller/core/pref_names.h",
     "//components/embedder_support/pref_names.h",
+    "//components/enterprise/browser/reporting/common_pref_names.cc",
     "//components/feed/core/common/pref_names.cc",
     "//components/feed/core/shared_prefs/pref_names.cc",
     "//components/history/core/common/pref_names.cc",
@@ -112,7 +109,6 @@ robolectric_library("preferences_junit_tests") {
     "//base:base_junit_test_support",
     "//base/test:test_support_java",
     "//third_party/android_deps:guava_android_java",
-    "//third_party/androidx:androidx_test_runner_java",
     "//third_party/junit",
     "//third_party/mockito:mockito_java",
   ]

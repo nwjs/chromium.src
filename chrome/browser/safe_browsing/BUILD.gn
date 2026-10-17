@@ -137,6 +137,12 @@ static_library("safe_browsing") {
   }
 
   if (!is_android) {
+    deps += [
+      "//chrome/browser/ui:browser_commands",
+      "//chrome/browser/ui:browser_window_header",
+      "//chrome/browser/ui:scoped_tabbed_browser_displayer",
+      "//chrome/browser/ui/views/frame:browser_view_header",
+    ]
     public += [
       "generated_safe_browsing_pref.h",
       "generated_security_settings_bundle_pref.h",
@@ -170,6 +176,28 @@ static_library("safe_browsing") {
         [ "//chrome/browser/ui/views/safe_browsing" ]
   }
 
+  # Cloud content analysis is also used by enterprise connectors when Safe
+  # Browsing is disabled.
+  if (enterprise_cloud_content_analysis || safe_browsing_mode != 0) {
+    public += [
+      "cloud_content_scanning/cloud_binary_upload_service.h",
+      "cloud_content_scanning/cloud_binary_upload_service_factory.h",
+      "cloud_content_scanning/deep_scanning_utils.h",
+    ]
+    sources += [
+      "cloud_content_scanning/cloud_binary_upload_service.cc",
+      "cloud_content_scanning/cloud_binary_upload_service_factory.cc",
+      "cloud_content_scanning/deep_scanning_utils.cc",
+    ]
+    deps += [
+      ":advanced_protection",
+      "//components/enterprise/connectors/core:cloud_content_scanning",
+      "//components/policy/core/browser",
+      "//components/safe_browsing/core/common:safe_browsing_prefs",
+      "//content/public/browser",
+    ]
+  }
+
   if (safe_browsing_mode != 0) {
     # "Safe Browsing Basic" files used for safe browsing in full mode
     # (safe_browsing=1) and mobile (=2)
@@ -190,9 +218,6 @@ static_library("safe_browsing") {
       "client_side_detection_intelligent_scan_delegate_factory.h",
       "client_side_detection_intelligent_scan_delegate_util.h",
       "client_side_detection_service_factory.h",
-      "cloud_content_scanning/cloud_binary_upload_service.h",
-      "cloud_content_scanning/cloud_binary_upload_service_factory.h",
-      "cloud_content_scanning/deep_scanning_utils.h",
       "cloud_content_scanning/file_analysis_request.h",
       "delayed_warning_navigation_throttle.h",
       "download_protection/check_client_download_request.h",
@@ -252,9 +277,6 @@ static_library("safe_browsing") {
       "client_side_detection_intelligent_scan_delegate_factory.cc",
       "client_side_detection_intelligent_scan_delegate_util.cc",
       "client_side_detection_service_factory.cc",
-      "cloud_content_scanning/cloud_binary_upload_service.cc",
-      "cloud_content_scanning/cloud_binary_upload_service_factory.cc",
-      "cloud_content_scanning/deep_scanning_utils.cc",
       "cloud_content_scanning/file_analysis_request.cc",
       "delayed_warning_navigation_throttle.cc",
       "download_protection/check_client_download_request.cc",
@@ -769,6 +791,8 @@ source_set("unit_tests") {
     "//chrome/browser/safe_browsing:advanced_protection",
     "//chrome/browser/site_protection:utils",
     "//chrome/test:test_support",
+    "//chrome/test/base:chrome_render_view_host_test_harness",
+    "//chrome/test/base:testing_browser_process",
     "//components/content_settings/core/browser",
     "//components/content_settings/core/common",
     "//components/safe_browsing/core/common",
@@ -870,6 +894,20 @@ source_set("unit_tests") {
     ]
   }
 
+  if (enterprise_cloud_content_analysis || safe_browsing_mode == 1) {
+    sources += [
+      "cloud_content_scanning/cloud_binary_upload_service_unittest.cc",
+      "cloud_content_scanning/deep_scanning_utils_unittest.cc",
+    ]
+    deps += [ "//components/safe_browsing/content/browser/web_ui" ]
+  }
+
+  if (enterprise_cloud_content_analysis || safe_browsing_mode != 0) {
+    sources += [
+      "cloud_content_scanning/cloud_binary_upload_service_factory_unittest.cc",
+    ]
+  }
+
   if (safe_browsing_mode == 1) {
     sources += [
       "advanced_protection_status_manager_desktop_unittest.cc",
@@ -880,8 +918,6 @@ source_set("unit_tests") {
       "client_side_detection_intelligent_scan_delegate_factory_unittest.cc",
       "client_side_detection_service_factory_unittest.cc",
       "client_side_detection_service_unittest.cc",
-      "cloud_content_scanning/cloud_binary_upload_service_unittest.cc",
-      "cloud_content_scanning/deep_scanning_utils_unittest.cc",
       "cloud_content_scanning/file_analysis_request_unittest.cc",
       "download_protection/download_feedback_service_unittest.cc",
       "download_protection/download_feedback_unittest.cc",
@@ -1038,10 +1074,15 @@ source_set("unit_tests") {
     sources += [
       "generated_safe_browsing_pref_unittest.cc",
       "generated_security_settings_bundle_pref_unittest.cc",
-      "safe_browsing_pref_change_handler_unittest.cc",
-      "security_settings_bundle_pref_change_handler_unittest.cc",
       "security_settings_bundle_toast_helper_unittest.cc",
     ]
+
+    if (safe_browsing_mode != 0) {
+      sources += [
+        "safe_browsing_pref_change_handler_unittest.cc",
+        "security_settings_bundle_pref_change_handler_unittest.cc",
+      ]
+    }
 
     deps += [
       "//chrome/browser/sync",
@@ -1049,6 +1090,10 @@ source_set("unit_tests") {
       "//chrome/browser/ui/toasts",
       "//testing/gmock",
     ]
+  }
+
+  if (!is_android) {
+    deps += [ "//chrome/browser/ui:browser_manager_service" ]
   }
 }
 
@@ -1068,10 +1113,19 @@ source_set("test_support") {
     "//testing/gmock",
   ]
 
-  if (safe_browsing_mode != 0) {
+  if (enterprise_content_analysis || safe_browsing_mode != 0) {
     sources += [
       "cloud_content_scanning/test_binary_upload_service.cc",
       "cloud_content_scanning/test_binary_upload_service.h",
+    ]
+    deps += [
+      "//components/enterprise/common/proto:connectors_proto",
+      "//components/enterprise/connectors/core:cloud_content_scanning",
+    ]
+  }
+
+  if (safe_browsing_mode != 0) {
+    sources += [
       "test_safe_browsing_service.cc",
       "test_safe_browsing_service.h",
     ]
@@ -1089,16 +1143,14 @@ source_set("test_support") {
       "//chrome/browser/ui:test_support",
       "//chrome/browser/ui/browser_window",
       "//chrome/common",
-      "//components/enterprise/common/proto:connectors_proto",
-      "//components/enterprise/connectors/core:cloud_content_scanning",
       "//components/safe_browsing:buildflags",
       "//components/safe_browsing/content/browser",
       "//components/safe_browsing/content/browser:safe_browsing_blocking_page",
       "//components/safe_browsing/content/browser:safe_browsing_service",
       "//components/safe_browsing/core/browser/db:database_manager",
       "//components/safe_browsing/core/browser/db:sb_protocol_config",
+      "//components/safe_browsing/core/browser/db:sb_protocol_manager_util",
       "//components/safe_browsing/core/browser/db:test_database_manager",
-      "//components/safe_browsing/core/browser/db:v4_protocol_manager_util",
       "//components/safe_browsing/core/common/proto:crx_info_proto",
       "//services/network:test_support",
       "//testing/gtest",
@@ -1112,7 +1164,7 @@ source_set("test_support") {
     ]
   }
 
-  if (enable_extensions) {
+  if (enable_extensions && safe_browsing_mode != 0) {
     sources += [
       "test_extension_event_observer.cc",
       "test_extension_event_observer.h",
@@ -1121,6 +1173,7 @@ source_set("test_support") {
       "//chrome/browser/extensions",
       "//chrome/common/extensions/api",
       "//extensions:test_support",
+      "//testing/gtest",
     ]
   }
 }
@@ -1143,8 +1196,8 @@ source_set("test_database_helper") {
     ":safe_browsing",
     ":test_support",
     "//components/safe_browsing/core/browser/db:sb_database",
+    "//components/safe_browsing/core/browser/db:sb_protocol_manager_util",
     "//components/safe_browsing/core/browser/db:sb_test_util",
-    "//components/safe_browsing/core/browser/db:v4_protocol_manager_util",
     "//components/safe_browsing/core/browser/db:v5_search_hashes_cache",
     "//components/safe_browsing/core/common:features",
     "//components/security_interstitials/core:unsafe_resource",
@@ -1186,6 +1239,7 @@ if (safe_browsing_mode != 0) {
       "//chrome/browser/policy:test_support",
       "//chrome/browser/safe_browsing:metrics_collector",
       "//chrome/browser/safe_browsing:verdict_cache_manager_factory",
+      "//chrome/test/base:chrome_test_utils",
       "//components/safe_browsing/core/browser:verdict_cache_manager",
       "//components/security_interstitials/content:security_interstitial_page",
       "//content/test:test_support",
@@ -1200,6 +1254,28 @@ if (safe_browsing_mode != 0) {
   }
 }
 
+if (safe_browsing_mode != 0) {
+  source_set("platform_browser_tests") {
+    testonly = true
+    defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+
+    sources = [ "client_side_detection_service_browsertest.cc" ]
+
+    deps = [
+      ":safe_browsing",
+      "//chrome/test:test_support",
+      "//chrome/test/base:chrome_test_utils",
+      "//components/metrics:content",
+      "//components/safe_browsing/content/browser:client_side_detection",
+      "//components/safe_browsing/content/browser:client_side_detection_service",
+      "//components/safe_browsing/content/common:interfaces",
+      "//components/safe_browsing/core/browser:client_side_detection_service_base",
+      "//components/safe_browsing/core/common/proto:client_model_proto",
+      "//testing/gtest",
+    ]
+  }
+}
+
 source_set("browser_tests") {
   testonly = true
 
@@ -1209,11 +1285,11 @@ source_set("browser_tests") {
   deps = []
 
   if (!is_android) {
-    sources +=
-        [ "download_protection/download_protection_service_browsertest.cc" ]
     deps += [
       ":safe_browsing",
+      "//chrome/browser/ui:browser_commands",
       "//chrome/browser/ui/omnibox",
+      "//chrome/browser/ui/views/frame:browser_view_header",
       "//chrome/test:test_support",
       "//components/safe_browsing/content/browser/web_ui",
     ]
@@ -1234,7 +1310,10 @@ source_set("browser_tests") {
     }
 
     if (safe_browsing_mode != 0) {
-      sources += [ "gemini_antiscam_protection/gemini_antiscam_protection_service_browsertest.cc" ]
+      sources += [
+        "download_protection/download_protection_service_browsertest.cc",
+        "gemini_antiscam_protection/gemini_antiscam_protection_service_browsertest.cc",
+      ]
       deps += [
         "//components/optimization_guide/core:model_execution_test_support",
         "//components/safe_browsing/content/browser:client_side_detection",
@@ -1290,6 +1369,7 @@ source_set("browser_tests") {
       "safe_browsing_blocking_page_test.cc",
       "safe_browsing_navigation_observer_browsertest.cc",
       "safe_browsing_service_browsertest.cc",
+      "sb_embedded_test_server_browsertest.cc",
       "tailored_security/chrome_tailored_security_service_browsertest.cc",
       "url_lookup_service_browsertest.cc",
     ]
@@ -1299,6 +1379,7 @@ source_set("browser_tests") {
       ":verdict_cache_manager_factory",
       "//base",
       "//base/test:test_support",
+      "//build:branding_buildflags",
       "//chrome/browser/interstitials:idn_test_support",
       "//chrome/browser/metrics/desktop_session_duration",
       "//chrome/browser/optimization_guide:test_support",

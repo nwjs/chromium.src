@@ -166,14 +166,6 @@ BASE_DECLARE_FEATURE(kDisableLensCamera);
 // Feature flag to enable Lens on iPad.
 BASE_DECLARE_FEATURE(kEnableLensOnIPad);
 
-// Feature param for kEnableLensOnIPad presentation style.
-inline constexpr char kEnableLensOnIPadPresentationStyleParam[] =
-    "presentation-style";
-inline constexpr char kEnableLensOnIPadPresentationStyleSidePanel[] =
-    "side-panel";
-inline constexpr char kEnableLensOnIPadPresentationStyleBottomSheet[] =
-    "bottom-sheet";
-
 // Feature flag that allows the Auto-deletion feature to clear all downloaded
 // files scheduled for deletion on every application startup, regardless of when
 // the file was downloaded. This feature is intended for testing-only.
@@ -314,8 +306,12 @@ bool IsLiquidGlassEffectEnabled();
 // foreground inactive state after opening an external app.
 BASE_DECLARE_FEATURE(kInactiveNavigationAfterAppLaunchKillSwitch);
 
+// Returns whether the current device is an iPhone Duo device.
+bool IsDuoDevice();
+
 // Convenience method for determining if Pinned Tabs is enabled.
-// The Pinned Tabs feature is fully enabled on iPhone and disabled on iPad.
+// The Pinned Tabs feature is fully enabled on standard iPhone and disabled
+// on iPad and iPhone Duo.
 bool IsPinnedTabsEnabled();
 
 // Feature flag for caching the ios module ranker.
@@ -729,9 +725,8 @@ BASE_DECLARE_FEATURE(kAimCobrowse);
 // Returns true if the AimCobrowse feature is enabled.
 bool IsAimCobrowseEnabled();
 
-// Prevents Cobrowse from automatically opening when the user taps on an AIM SRP
-// link.
-BASE_DECLARE_FEATURE(kPreventCobrowseOnAimSrpTap);
+// Enables Cobrowse automatically opening when the user taps on an AIM SRP link.
+BASE_DECLARE_FEATURE(kEnableCobrowseOnAimSrpTap);
 
 // Removes or disables feedback entry points from Chrome UI for signed in users
 // who do not have the `can_submit_feedback` Account Capability.
@@ -831,8 +826,14 @@ bool IsUpdateTabGroupColorsEnabled();
 // Enables the plus button in NTP fakebox.
 BASE_DECLARE_FEATURE(kPlusButtonInFakebox);
 
+// Enables the plus button contextual menu in NTP fakebox.
+BASE_DECLARE_FEATURE(kPlusButtonMenuInFakebox);
+
 // Returns true if the plus button in NTP fakebox is enabled
 bool IsPlusButtonInFakeboxEnabled();
+
+// Returns true if the plus button contextual menu in NTP fakebox is enabled
+bool IsPlusButtonMenuInFakeboxEnabled();
 
 // Enables the `AssistantAimMinimizedState` feature.
 BASE_DECLARE_FEATURE(kAssistantAimMinimizedState);
@@ -946,5 +947,33 @@ BASE_DECLARE_FEATURE(kAimHistoryThreadsManagement);
 
 // Returns true if the AimHistoryThreadsManagement feature is enabled.
 bool IsAimHistoryThreadsManagementEnabled();
+
+// Enables TalkToChrome prototype.
+BASE_DECLARE_FEATURE(kTTCEnabled);
+
+// Returns true if the TTCEnabled feature is enabled.
+bool IsTTCEnabled();
+
+// Feature to enable importing and exporting flags in chrome://flags.
+BASE_DECLARE_FEATURE(kImportExportFlags);
+
+// Enables the AimCobrowseWebSelectionSearch feature.
+BASE_DECLARE_FEATURE(kAimCobrowseWebSelectionSearch);
+
+// Returns true if the AimCobrowseWebSelectionSearch feature is enabled.
+bool IsAimCobrowseWebSelectionSearchEnabled();
+
+// Enables a long-press menu on the AppBar assistant button letting the user
+// choose which entry point the button shows.
+BASE_DECLARE_FEATURE(kAppBarAssistantCustomization);
+
+// Returns true if the AppBarAssistantCustomization feature is enabled.
+bool IsAppBarAssistantCustomizationEnabled();
+
+// Enables the LightAppBar feature.
+BASE_DECLARE_FEATURE(kLightAppBar);
+
+// Returns true if the LightAppBar feature is enabled.
+bool IsLightAppBarEnabled();
 
 #endif  // IOS_CHROME_BROWSER_SHARED_PUBLIC_FEATURES_FEATURES_H_

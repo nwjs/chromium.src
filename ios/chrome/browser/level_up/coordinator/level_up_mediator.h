@@ -49,8 +49,11 @@ class IdentityManager;
 // Configures the consumer for all tasks.
 - (void)configureAllTasksConsumer:(id<LevelUpConsumer>)allTasksConsumer;
 
-// Toggles the progress updates enabled status.
-- (void)toggleProgressUpdates;
+// Toggles the progress updates enabled status and returns the new value.
+- (BOOL)toggleProgressUpdates;
+
+// Sets whether new tasks notifications are enabled.
+- (void)setNewTasksNotificationEnabled:(BOOL)enabled;
 
 // Resets task status and turns off Level Up.
 - (void)turnOffLevelUp;

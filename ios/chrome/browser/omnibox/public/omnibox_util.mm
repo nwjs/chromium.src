@@ -48,61 +48,61 @@ LocationBarSecurityIconType GetLocationBarSecurityIconTypeForSecurityState(
 #pragma mark - Suggestion icons.
 
 OmniboxSuggestionIconType GetOmniboxSuggestionIconTypeForAutocompleteMatchType(
-    AutocompleteMatchType::Type type) {
+    omnibox::AutocompleteMatchType type) {
   switch (type) {
-    case AutocompleteMatchType::BOOKMARK_TITLE:
-    case AutocompleteMatchType::CLIPBOARD_URL:
-    case AutocompleteMatchType::DOCUMENT_SUGGESTION:
-    case AutocompleteMatchType::HISTORY_BODY:
-    case AutocompleteMatchType::HISTORY_CLUSTER:
-    case AutocompleteMatchType::HISTORY_KEYWORD:
-    case AutocompleteMatchType::HISTORY_TITLE:
-    case AutocompleteMatchType::HISTORY_URL:
-    case AutocompleteMatchType::NAVSUGGEST:
-    case AutocompleteMatchType::NAVSUGGEST_PERSONALIZED:
-    case AutocompleteMatchType::OPEN_TAB:
-    case AutocompleteMatchType::PEDAL:
-    case AutocompleteMatchType::PHYSICAL_WEB_DEPRECATED:
-    case AutocompleteMatchType::PHYSICAL_WEB_OVERFLOW_DEPRECATED:
-    case AutocompleteMatchType::STARTER_PACK:
-    case AutocompleteMatchType::TAB_SEARCH_DEPRECATED:
-    case AutocompleteMatchType::TILE_NAVSUGGEST:
-    case AutocompleteMatchType::TILE_MOST_VISITED_SITE:
-    case AutocompleteMatchType::URL_WHAT_YOU_TYPED:
+    case omnibox::AutocompleteMatchType::kBookmarkTitle:
+    case omnibox::AutocompleteMatchType::kClipboardUrl:
+    case omnibox::AutocompleteMatchType::kCrossDeviceTab:
+    case omnibox::AutocompleteMatchType::kDocumentSuggestion:
+    case omnibox::AutocompleteMatchType::kHistoryBody:
+    case omnibox::AutocompleteMatchType::kHistoryCluster:
+    case omnibox::AutocompleteMatchType::kHistoryKeyword:
+    case omnibox::AutocompleteMatchType::kHistoryTitle:
+    case omnibox::AutocompleteMatchType::kHistoryUrl:
+    case omnibox::AutocompleteMatchType::kNavsuggest:
+    case omnibox::AutocompleteMatchType::kNavsuggestPersonalized:
+    case omnibox::AutocompleteMatchType::kOpenTab:
+    case omnibox::AutocompleteMatchType::kPedal:
+    case omnibox::AutocompleteMatchType::kPhysicalWebDeprecated:
+    case omnibox::AutocompleteMatchType::kPhysicalWebOverflowDeprecated:
+    case omnibox::AutocompleteMatchType::kStarterPack:
+    case omnibox::AutocompleteMatchType::kTabSearchDeprecated:
+    case omnibox::AutocompleteMatchType::kTileNavsuggest:
+    case omnibox::AutocompleteMatchType::kTileMostVisitedSite:
+    case omnibox::AutocompleteMatchType::kUrlWhatYouTyped:
       return OmniboxSuggestionIconType::kDefaultFavicon;
-    case AutocompleteMatchType::CLIPBOARD_IMAGE:
-    case AutocompleteMatchType::CLIPBOARD_TEXT:
-    case AutocompleteMatchType::CONTACT_DEPRECATED:
-    case AutocompleteMatchType::SEARCH_OTHER_ENGINE:
-    case AutocompleteMatchType::SEARCH_SUGGEST:
-    case AutocompleteMatchType::SEARCH_SUGGEST_ENTITY:
-    case AutocompleteMatchType::SEARCH_SUGGEST_PROFILE:
-    case AutocompleteMatchType::SEARCH_SUGGEST_TAIL:
-    case AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED:
-    case AutocompleteMatchType::VOICE_SUGGEST:
+    case omnibox::AutocompleteMatchType::kClipboardImage:
+    case omnibox::AutocompleteMatchType::kClipboardText:
+    case omnibox::AutocompleteMatchType::kContactDeprecated:
+    case omnibox::AutocompleteMatchType::kSearchOtherEngine:
+    case omnibox::AutocompleteMatchType::kSearchSuggest:
+    case omnibox::AutocompleteMatchType::kSearchSuggestEntity:
+    case omnibox::AutocompleteMatchType::kSearchSuggestProfile:
+    case omnibox::AutocompleteMatchType::kSearchSuggestTail:
+    case omnibox::AutocompleteMatchType::kSearchWhatYouTyped:
+    case omnibox::AutocompleteMatchType::kVoiceSuggest:
       return OmniboxSuggestionIconType::kSearch;
-    case AutocompleteMatchType::SEARCH_HISTORY:
-    case AutocompleteMatchType::SEARCH_SUGGEST_PERSONALIZED:
+    case omnibox::AutocompleteMatchType::kSearchHistory:
+    case omnibox::AutocompleteMatchType::kSearchSuggestPersonalized:
       return OmniboxSuggestionIconType::kSearchHistory;
-    case AutocompleteMatchType::CALCULATOR:
+    case omnibox::AutocompleteMatchType::kCalculator:
       return OmniboxSuggestionIconType::kCalculator;
-    case AutocompleteMatchType::EXTENSION_APP_DEPRECATED:
-    case AutocompleteMatchType::NULL_RESULT_MESSAGE:
-    case AutocompleteMatchType::NUM_TYPES:
-    case AutocompleteMatchType::TILE_SUGGESTION:
-    case AutocompleteMatchType::TILE_REPEATABLE_QUERY:
-    case AutocompleteMatchType::HISTORY_EMBEDDINGS:
-    case AutocompleteMatchType::FEATURED_ENTERPRISE_SEARCH:
-    case AutocompleteMatchType::HISTORY_EMBEDDINGS_ANSWER:
+    case omnibox::AutocompleteMatchType::kExtensionAppDeprecated:
+    case omnibox::AutocompleteMatchType::kNullResultMessage:
+    case omnibox::AutocompleteMatchType::kTileSuggestion:
+    case omnibox::AutocompleteMatchType::kTileRepeatableQuery:
+    case omnibox::AutocompleteMatchType::kHistoryEmbeddings:
+    case omnibox::AutocompleteMatchType::kFeaturedEnterpriseSearch:
+    case omnibox::AutocompleteMatchType::kHistoryEmbeddingsAnswer:
     default:
       DUMP_WILL_BE_NOTREACHED()
-          << "Unsupported AutocompleteMatchType: " << type;
+          << "Unsupported AutocompleteMatchType: " << static_cast<int>(type);
       return OmniboxSuggestionIconType::kDefaultFavicon;
   }
 }
 
 UIImage* GetOmniboxSuggestionIconForAutocompleteMatchType(
-    AutocompleteMatchType::Type type) {
+    omnibox::AutocompleteMatchType type) {
   OmniboxSuggestionIconType iconType =
       GetOmniboxSuggestionIconTypeForAutocompleteMatchType(type);
   return GetOmniboxSuggestionIcon(iconType);

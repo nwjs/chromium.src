@@ -6,12 +6,13 @@
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/run_until.h"
+#include "base/test/test_future.h"
+#include "build/build_config.h"
 #include "chrome/browser/glic/host/guest_util.h"
 #include "chrome/browser/glic/test_support/glic_api_test.h"
 #include "chrome/browser/glic/test_support/glic_browser_test.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
-#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "components/optimization_guide/content/browser/page_context_eligibility.h"
 #include "components/optimization_guide/content/browser/page_context_eligibility_observer.h"
 #include "content/public/browser/clipboard_types.h"
@@ -21,6 +22,10 @@
 #include "net/dns/mock_host_resolver.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
+
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
+#endif
 
 namespace glic {
 namespace {
@@ -128,17 +133,18 @@ class GlicPasteEligibilityBrowserTest : public GlicBrowserTest {
     // sequence number.
     glic::SetClipboardEligibilitySeqnoForTesting(metadata.seqno);
 
-    content::ClipboardEndpoint destination(
-        ui::DataTransferEndpoint(glic_guest->GetLastCommittedURL()),
-        base::BindLambdaForTesting(
-            [glic_guest] { return glic_guest->GetBrowserContext(); }),
-        *glic_guest->GetPrimaryMainFrame());
+    content::ClipboardEndpoint destination =
+        content::ClipboardEndpoint::ForFrame(
+            ui::DataTransferEndpoint(glic_guest->GetLastCommittedURL()),
+            base::BindLambdaForTesting(
+                [glic_guest] { return glic_guest->GetBrowserContext(); }),
+            *glic_guest->GetPrimaryMainFrame());
 
     // Simulate what ChromeContentBrowserClient::IsClipboardPasteAllowedByPolicy
     // does for Glic.
     glic::LogPasteAttempt(source, metadata);
     if (!glic::IsClipboardPasteAllowed(source, destination, metadata)) {
-      return content::ClipboardPasteData();  // Denied
+      return std::nullopt;  // Denied
     }
 
     content::ClipboardPasteData paste_data;
@@ -147,8 +153,7 @@ class GlicPasteEligibilityBrowserTest : public GlicBrowserTest {
   }
 
   content::WebContents* GetReadyGuest() {
-    WebUIStateListener listener(&GetOnlyGlicInstance()->host());
-    listener.WaitForWebUiState(mojom::WebUiState::kReady);
+    EXPECT_OK(WaitForGlicClient());
 
     content::WebContents* glic_guest =
         GetOnlyGlicInstance()->host().web_client_contents();
@@ -169,7 +174,7 @@ IN_PROC_BROWSER_TEST_F(GlicPasteEligibilityBrowserTest,
   content::WebContents* glic_guest = GetReadyGuest();
   ASSERT_TRUE(glic_guest);
 
-  content::ClipboardEndpoint source(
+  content::ClipboardEndpoint source = content::ClipboardEndpoint::ForFrame(
       ui::DataTransferEndpoint(url),
       base::BindLambdaForTesting(
           [source_contents] { return source_contents->GetBrowserContext(); }),
@@ -201,7 +206,7 @@ IN_PROC_BROWSER_TEST_F(GlicPasteEligibilityBrowserTest,
   content::WebContents* glic_guest = GetReadyGuest();
   ASSERT_TRUE(glic_guest);
 
-  content::ClipboardEndpoint source(
+  content::ClipboardEndpoint source = content::ClipboardEndpoint::ForFrame(
       ui::DataTransferEndpoint(url),
       base::BindLambdaForTesting(
           [source_contents] { return source_contents->GetBrowserContext(); }),
@@ -211,8 +216,7 @@ IN_PROC_BROWSER_TEST_F(GlicPasteEligibilityBrowserTest,
   base::HistogramTester histogram_tester;
 
   auto allowed_data = SyncCheckPasteEligibility(source, glic_guest);
-  EXPECT_TRUE(allowed_data.has_value());
-  EXPECT_TRUE(allowed_data->png.empty());  // Denied
+  EXPECT_FALSE(allowed_data.has_value());  // Denied
 
   histogram_tester.ExpectUniqueSample("Glic.Paste.AttemptedFormat.Web",
                                       2 /* kBitmap */, 1);
@@ -229,8 +233,9 @@ IN_PROC_BROWSER_TEST_F(GlicPasteEligibilityBrowserTest, AllowPasteFromOS) {
   // WebContents), it should be allowed anyway because we
   // don't block OS copies.
   const GURL ineligible_url("https://ineligible.example.com/path");
-  content::ClipboardEndpoint source_os{
-      ui::DataTransferEndpoint(ineligible_url)};
+  content::ClipboardEndpoint source_os =
+      content::ClipboardEndpoint::ForOutsideChrome(
+          ui::DataTransferEndpoint(ineligible_url));
   glic::OnBeforeClipboardCopy(source_os);
 
   base::HistogramTester histogram_tester;
@@ -255,19 +260,19 @@ IN_PROC_BROWSER_TEST_F(GlicPasteEligibilityBrowserTest,
       content::WebContents::Create(
           content::WebContents::CreateParams(GetProfile()));
 
-  content::ClipboardEndpoint source_non_tab(
-      ui::DataTransferEndpoint(GURL("https://example.com")),
-      base::BindLambdaForTesting([&non_tab_contents] {
-        return non_tab_contents->GetBrowserContext();
-      }),
-      *non_tab_contents->GetPrimaryMainFrame());
+  content::ClipboardEndpoint source_non_tab =
+      content::ClipboardEndpoint::ForFrame(
+          ui::DataTransferEndpoint(GURL("https://example.com")),
+          base::BindLambdaForTesting([&non_tab_contents] {
+            return non_tab_contents->GetBrowserContext();
+          }),
+          *non_tab_contents->GetPrimaryMainFrame());
   glic::OnBeforeClipboardCopy(source_non_tab);
 
   base::HistogramTester histogram_tester;
 
   auto allowed_data = SyncCheckPasteEligibility(source_non_tab, glic_guest);
-  EXPECT_TRUE(allowed_data.has_value());
-  EXPECT_TRUE(allowed_data->png.empty());  // Denied
+  EXPECT_FALSE(allowed_data.has_value());  // Denied
 
   histogram_tester.ExpectUniqueSample("Glic.Paste.AttemptedFormat.Web",
                                       2 /* kBitmap */, 1);
@@ -292,11 +297,12 @@ IN_PROC_BROWSER_TEST_F(GlicPasteEligibilityBrowserTest,
   content::WebContents* glic_guest = GetReadyGuest();
   ASSERT_TRUE(glic_guest);
 
-  content::ClipboardEndpoint captured_source(
-      ui::DataTransferEndpoint(ineligible_url),
-      base::BindLambdaForTesting(
-          [&]() { return source_contents->GetBrowserContext(); }),
-      *source_contents->GetPrimaryMainFrame());
+  content::ClipboardEndpoint captured_source =
+      content::ClipboardEndpoint::ForFrame(
+          ui::DataTransferEndpoint(ineligible_url),
+          base::BindLambdaForTesting(
+              [&]() { return source_contents->GetBrowserContext(); }),
+          *source_contents->GetPrimaryMainFrame());
   glic::OnBeforeClipboardCopy(captured_source);
 
   // Navigate the active tab to the eligible page in the outer sequence loop.
@@ -305,8 +311,7 @@ IN_PROC_BROWSER_TEST_F(GlicPasteEligibilityBrowserTest,
   base::HistogramTester histogram_tester;
 
   auto allowed_data = SyncCheckPasteEligibility(captured_source, glic_guest);
-  EXPECT_TRUE(allowed_data.has_value());
-  EXPECT_TRUE(allowed_data->png.empty());  // Blocked!
+  EXPECT_FALSE(allowed_data.has_value());  // Blocked!
 
   histogram_tester.ExpectUniqueSample("Glic.Paste.AttemptedFormat.Web",
                                       2 /* kBitmap */, 1);
@@ -335,23 +340,68 @@ IN_PROC_BROWSER_TEST_F(GlicPasteEligibilityBrowserTest,
 #endif
   const GURL url = embedded_test_server()->GetURL("/title1.html");
   ASSERT_TRUE(content::NavigateToURL(source_contents, url));
-  content::ClipboardEndpoint captured_source(
-      ui::DataTransferEndpoint(url), base::BindLambdaForTesting([&]() {
-        return source_contents->GetBrowserContext();
-      }),
-      *source_contents->GetPrimaryMainFrame());
+  content::ClipboardEndpoint captured_source =
+      content::ClipboardEndpoint::ForFrame(
+          ui::DataTransferEndpoint(url), base::BindLambdaForTesting([&]() {
+            return source_contents->GetBrowserContext();
+          }),
+          *source_contents->GetPrimaryMainFrame());
   glic::OnBeforeClipboardCopy(captured_source);
 
   base::HistogramTester histogram_tester;
 
   auto allowed_data = SyncCheckPasteEligibility(captured_source, glic_guest);
-  EXPECT_TRUE(allowed_data.has_value());
-  EXPECT_TRUE(allowed_data->png.empty());  // Blocked!
+  EXPECT_FALSE(allowed_data.has_value());  // Blocked!
 
   histogram_tester.ExpectUniqueSample("Glic.Paste.AttemptedFormat.Web",
                                       2 /* kBitmap */, 1);
   histogram_tester.ExpectUniqueSample("Glic.Paste.FailedEligibilityReason.Web",
                                       2 /* kCrossProfile */, 1);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    GlicPasteEligibilityBrowserTest,
+    IsClipboardPasteAllowedByPolicyReturnsNulloptWhenDenied) {
+  const GURL url =
+      embedded_test_server()->GetURL("ineligible.example.com", "/title1.html");
+  tabs::TabInterface* active_tab = GetTabListInterface()->GetActiveTab();
+  ASSERT_TRUE(content::NavigateToURL(active_tab->GetContents(), url));
+
+  ASSERT_OK(OpenGlicForActiveTab());
+
+  content::WebContents* source_contents = active_tab->GetContents();
+  content::WebContents* glic_guest = GetReadyGuest();
+
+  content::ClipboardEndpoint source = content::ClipboardEndpoint::ForFrame(
+      ui::DataTransferEndpoint(url),
+      base::BindLambdaForTesting(
+          [source_contents] { return source_contents->GetBrowserContext(); }),
+      *source_contents->GetPrimaryMainFrame());
+  glic::OnBeforeClipboardCopy(source);
+
+  ui::ClipboardMetadata metadata = {
+      .size = 4,
+      .format_type = ui::ClipboardFormatType::BitmapType(),
+  };
+  glic::SetClipboardEligibilitySeqnoForTesting(metadata.seqno);
+
+  content::ClipboardEndpoint destination = content::ClipboardEndpoint::ForFrame(
+      ui::DataTransferEndpoint(glic_guest->GetLastCommittedURL()),
+      base::BindLambdaForTesting(
+          [glic_guest] { return glic_guest->GetBrowserContext(); }),
+      *glic_guest->GetPrimaryMainFrame());
+
+  content::ClipboardPasteData paste_data;
+  paste_data.png = {1, 2, 3, 4};
+
+  base::test::TestFuture<std::optional<content::ClipboardPasteData>> future;
+  content::GetContentClientForTesting()
+      ->browser()
+      ->IsClipboardPasteAllowedByPolicy(source, destination, metadata,
+                                        std::move(paste_data),
+                                        future.GetCallback());
+
+  EXPECT_EQ(future.Get(), std::nullopt);
 }
 
 }  // namespace

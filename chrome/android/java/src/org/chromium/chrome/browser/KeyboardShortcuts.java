@@ -26,6 +26,7 @@ import org.chromium.base.ui.KeyboardUtils;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.bookmarks.bar.BookmarkBarUtils;
+import org.chromium.chrome.browser.devtools.DevToolsWindowAndroid;
 import org.chromium.chrome.browser.feedback.FeedbackPolicyManager;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
@@ -43,13 +44,12 @@ import org.chromium.chrome.browser.task_manager.TaskManager;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController;
 import org.chromium.content_public.browser.BrowserContextHandle;
-import org.chromium.content_public.browser.ContentFeatureList;
-import org.chromium.content_public.browser.ContentFeatureMap;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.device.gamepad.GamepadList;
 import org.chromium.ui.accessibility.AccessibilityState;
 import org.chromium.ui.base.PageTransition;
+import org.chromium.ui.util.KeyEventUtils;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -951,6 +951,13 @@ public class KeyboardShortcuts {
                 // Do not consume the AV device-related keys so that the system will take
                 // an appropriate action, such as switching to TV mode.
                 return false;
+            case KeyEvent.KEYCODE_F1:
+                // Do not consume F1 from non-alphabetic hardware buttons (e.g. physical side
+                // buttons mapped to KEYCODE_F1) so the system can handle actions like screenshots.
+                if (!KeyEventUtils.isFromAlphabeticKeyboard(event)) {
+                    return false;
+                }
+                break;
         }
 
         return null;
@@ -1021,7 +1028,7 @@ public class KeyboardShortcuts {
                     KeyEvent.KEYCODE_I,
                     KeyEvent.META_ALT_ON | KeyEvent.META_SHIFT_ON);
         }
-        if (ContentFeatureMap.isEnabled(ContentFeatureList.ANDROID_DEV_TOOLS_FRONTEND)) {
+        if (DevToolsWindowAndroid.isDevToolsAvailable(context)) {
             addShortcut(
                     context,
                     shortcutGroupsById,

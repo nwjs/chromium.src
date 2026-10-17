@@ -89,6 +89,7 @@
 #include "third_party/blink/public/common/chrome_debug_urls.h"
 #include "third_party/blink/public/common/input/synthetic_web_input_event_builders.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
+#include "third_party/blink/public/common/scheme_registry.h"
 #include "third_party/blink/public/common/security/protocol_handler_security_level.h"
 #include "third_party/blink/public/mojom/frame/fullscreen.mojom.h"
 #include "third_party/blink/public/mojom/image_downloader/image_downloader.mojom.h"
@@ -102,6 +103,7 @@
 #include "ui/native_theme/native_theme.h"
 #include "url/gurl.h"
 #include "url/url_constants.h"
+#include "url/url_util.h"
 
 namespace content {
 namespace {
@@ -1854,7 +1856,8 @@ TEST_F(WebContentsImplTest,
   // fullscreen will fail.
   main_test_rfh()->EnterFullscreen(blink::mojom::FullscreenOptions::New(),
                                    base::BindOnce(&ExpectFalse));
-  EXPECT_TRUE(contents()->IsTransientActivationRequiredForHtmlFullscreen());
+  EXPECT_TRUE(contents()->IsTransientActivationRequiredForHtmlFullscreen(
+      main_test_rfh(), /*is_xr_overlay=*/false));
   EXPECT_FALSE(
       main_test_rfh()->frame_tree_node()->HasTransientUserActivation());
   EXPECT_FALSE(contents()->IsFullscreen());
@@ -2045,12 +2048,13 @@ TEST_F(WebContentsImplTest, UpdateWebContentsVisibility) {
       main_test_rfh()->GetRenderViewHost()->GetWidget()->GetView());
   TestWebContentsObserver observer(contents());
 
-  EXPECT_FALSE(view->is_showing());
+  // Test WebContents always start visible.
+  EXPECT_TRUE(view->is_showing());
   EXPECT_FALSE(view->is_occluded());
 
-  // WebContents must be made visible once before it can be hidden.
+  // WebContents must be made visible once before its visibility can be changed.
   contents()->UpdateWebContentsVisibility(Visibility::HIDDEN);
-  EXPECT_FALSE(view->is_showing());
+  EXPECT_TRUE(view->is_showing());
   EXPECT_FALSE(view->is_occluded());
   EXPECT_EQ(Visibility::VISIBLE, contents()->GetVisibility());
 
@@ -2207,9 +2211,10 @@ void HideOrOccludeWithCapturerTest(WebContentsImpl* contents,
   TestRenderWidgetHostView* view = static_cast<TestRenderWidgetHostView*>(
       contents->GetRenderWidgetHostView());
 
-  EXPECT_FALSE(view->is_showing());
+  // Test WebContents always start visible.
+  EXPECT_TRUE(view->is_showing());
 
-  // WebContents must be made visible once before it can be hidden.
+  // WebContents must be made visible once before its visibility can be changed.
   contents->UpdateWebContentsVisibility(Visibility::VISIBLE);
   EXPECT_TRUE(view->is_showing());
   EXPECT_FALSE(view->is_occluded());
@@ -2277,7 +2282,8 @@ TEST_F(WebContentsImplTest, KeepVisibleUntilFirstVisuallyNonEmptyPaint) {
   TestRenderWidgetHostView* view = static_cast<TestRenderWidgetHostView*>(
       contents()->GetRenderWidgetHostView());
 
-  EXPECT_FALSE(view->is_showing());
+  // Test WebContents always start visible.
+  EXPECT_TRUE(view->is_showing());
 
   WebUIConfigMap::GetInstance().AddWebUIConfig(
       std::make_unique<KeepVisibleWebUIConfig>());
@@ -2285,6 +2291,7 @@ TEST_F(WebContentsImplTest, KeepVisibleUntilFirstVisuallyNonEmptyPaint) {
   const GURL kGURL("chrome://keep-visible/");
   NavigationSimulator::NavigateAndCommitFromBrowser(contents(), kGURL);
 
+  // WebContents must be made visible once before its visibility can be changed.
   contents()->UpdateWebContentsVisibility(Visibility::VISIBLE);
   EXPECT_TRUE(view->is_showing());
   EXPECT_FALSE(view->is_occluded());
@@ -3276,6 +3283,98 @@ TEST_F(WebContentsImplTest, RegisterProtocolHandlerDataURL) {
   contents()->SetDelegate(nullptr);
 }
 
+// Test suite for registering protocol handlers with an extension scheme.
+// A dedicated fixture is needed because `scoped_registry_` must outlive the
+// test harness teardown (`RenderViewHostTestHarness::TearDown()`), ensuring the
+// scheme remains registered while `WebContents` is destroyed and pending
+// IPC/Mojo messages are drained.
+//
+// This is a bit unusual, because we're (kind of) injecting knowledge of
+// extensions into the //content layer, which is normally a code smell. However,
+// in this case, the handling code lives in web_contents_impl.cc, so it makes
+// sense to have the test be coincident with that code.
+class WebContentsImplExtensionSchemeTest : public WebContentsImplTest {
+ public:
+  WebContentsImplExtensionSchemeTest() {
+    url::AddStandardScheme("chrome-extension", url::SCHEME_WITH_HOST);
+    url::AddSecureScheme("chrome-extension");
+    blink::CommonSchemeRegistry::RegisterURLSchemeAsExtension(
+        "chrome-extension");
+  }
+
+  ~WebContentsImplExtensionSchemeTest() override {
+    blink::CommonSchemeRegistry::RemoveURLSchemeAsExtensionForTest(
+        "chrome-extension");
+  }
+
+ private:
+  url::ScopedSchemeRegistryForTests scoped_registry_;
+};
+
+// Exercises schemes with increased protocol handler security levels registering
+// cross-origin handlers.
+TEST_F(WebContentsImplExtensionSchemeTest,
+       RegisterProtocolHandlerExtensionScheme) {
+  MockWebContentsDelegate delegate(
+      blink::ProtocolHandlerSecurityLevel::kExtensionFeatures);
+  contents()->SetDelegate(&delegate);
+
+  GURL extension_url("chrome-extension://ext-id-1/page.html");
+  GURL same_extension_handler("chrome-extension://ext-id-1/handler/%s");
+  GURL other_extension_handler("chrome-extension://ext-id-2/handler/%s");
+  GURL https_handler("https://www.example.com/handler/%s");
+
+  contents()->NavigateAndCommit(extension_url);
+
+  // A same-origin extension handler is allowed.
+  EXPECT_CALL(delegate, RegisterProtocolHandler(main_test_rfh(), "mailto",
+                                                same_extension_handler, true))
+      .Times(1);
+  // An extension may register a cross-origin HTTPS handler under
+  // kExtensionFeatures.
+  EXPECT_CALL(delegate, RegisterProtocolHandler(main_test_rfh(), "mailto",
+                                                https_handler, true))
+      .Times(1);
+  // A cross-origin extension handler must be rejected.
+  EXPECT_CALL(delegate, RegisterProtocolHandler(main_test_rfh(), "mailto",
+                                                other_extension_handler, true))
+      .Times(0);
+
+  contents()->RegisterProtocolHandler(main_test_rfh(), "mailto",
+                                      same_extension_handler,
+                                      /*user_gesture=*/true);
+  contents()->RegisterProtocolHandler(main_test_rfh(), "mailto", https_handler,
+                                      /*user_gesture=*/true);
+  contents()->RegisterProtocolHandler(main_test_rfh(), "mailto",
+                                      other_extension_handler,
+                                      /*user_gesture=*/true);
+
+  contents()->SetDelegate(nullptr);
+}
+
+TEST_F(WebContentsImplTest, RegisterProtocolHandlerOpaqueOrigin) {
+  MockWebContentsDelegate delegate(
+      blink::ProtocolHandlerSecurityLevel::kUntrustedOrigins);
+  contents()->SetDelegate(&delegate);
+
+  GURL data_url("data:text/html,<html><body>hello</body></html>");
+  GURL handler_url("https://www.google.com/handler/%s");
+
+  contents()->NavigateAndCommit(data_url);
+  EXPECT_TRUE(main_test_rfh()->GetLastCommittedOrigin().opaque());
+
+  // An opaque requesting origin must not be allowed to register a protocol
+  // handler, even at elevated security levels (kUntrustedOrigins).
+  EXPECT_CALL(delegate, RegisterProtocolHandler(main_test_rfh(), "mailto",
+                                                handler_url, true))
+      .Times(0);
+
+  contents()->RegisterProtocolHandler(main_test_rfh(), "mailto", handler_url,
+                                      /*user_gesture=*/true);
+
+  contents()->SetDelegate(nullptr);
+}
+
 TEST_F(WebContentsImplTest, RegisterProtocolHandlerInvalidURLSyntax) {
   MockWebContentsDelegate delegate;
   contents()->SetDelegate(&delegate);
@@ -4085,6 +4184,47 @@ TEST_F(WebContentsImplTest, RegisterFocusSelectionBoundsChanged) {
   EXPECT_FALSE(text_input_manager->HasObserver(contents()));
 }
 
+// The renderer-supplied selection bounding box is stored unclamped, but
+// GetTextSelectionBounds() is used to position UI, so the rect it returns must
+// lie inside the view even when the reported selection does not.
+TEST_F(WebContentsImplTest, GetTextSelectionBoundsIsClampedToView) {
+  TestRenderFrameHost* rfh = main_test_rfh();
+  auto* view = static_cast<RenderWidgetHostViewBase*>(rfh->GetView());
+  ASSERT_TRUE(view);
+  view->SetBounds(gfx::Rect(0, 0, 800, 600));
+
+  // Fetching the manager through the view is what registers the view with it.
+  TextInputManager* text_input_manager = view->GetTextInputManager();
+  ASSERT_TRUE(text_input_manager);
+  ASSERT_EQ(text_input_manager, contents()->GetTextInputManager());
+
+  ui::mojom::TextInputState state;
+  state.type = ui::TEXT_INPUT_TYPE_TEXT;
+  text_input_manager->UpdateTextInputState(view, state);
+
+  // A bounding box whose large negative y places it above the top of the view.
+  const gfx::Rect anchor_rect(8, 16, 0, 19);
+  const gfx::Rect out_of_view_bounding_box(200, -120, 40, 20);
+  text_input_manager->SelectionBoundsChanged(
+      view, anchor_rect, base::i18n::LEFT_TO_RIGHT, anchor_rect,
+      base::i18n::LEFT_TO_RIGHT, out_of_view_bounding_box,
+      /*is_anchor_first=*/true);
+
+  // The stored region keeps the unclamped extent.
+  const TextInputManager::SelectionRegion* region =
+      text_input_manager->GetSelectionRegion(view);
+  ASSERT_TRUE(region);
+  EXPECT_EQ(region->bounding_box, out_of_view_bounding_box);
+
+  // The bounds handed to callers are clamped into the view, then offset into
+  // screen coordinates.
+  const std::optional<gfx::Rect> bounds =
+      contents()->GetTextSelectionBounds(rfh);
+  ASSERT_TRUE(bounds.has_value());
+  const gfx::Vector2d offset = view->GetViewBounds().OffsetFromOrigin();
+  EXPECT_EQ(*bounds, gfx::Rect(gfx::Point(200, 0) + offset, gfx::Size(40, 20)));
+}
+
 class WebContentsImplTestKeyboardEvents
     : public WebContentsImplTest,
       public testing::WithParamInterface<blink::WebInputEvent::Type> {};
@@ -4243,38 +4383,33 @@ TEST_F(WebContentsImplTest, DragProvenanceLifecycle) {
 
   contents()->OnStartDragging(&drop_data, source_rfh_token);
 
-  auto it = drop_data.custom_data.find(u"chromium/x-drag-id");
-  ASSERT_NE(it, drop_data.custom_data.end())
-      << "drag_id should be added to custom_data when file_contents is "
-         "present.";
-
-  std::string drag_id_str = base::UTF16ToASCII(it->second);
-  std::optional<base::UnguessableToken> drag_id =
-      base::UnguessableToken::DeserializeFromString(drag_id_str);
-  ASSERT_TRUE(drag_id.has_value());
+  ASSERT_TRUE(drop_data.drag_id.has_value())
+      << "drag_id should be populated when dragging from a valid frame.";
+  EXPECT_TRUE(drop_data.custom_data.empty())
+      << "custom_data must remain untouched so internal drag tokens never leak "
+         "to web renderers via DataTransfer.";
+  base::UnguessableToken drag_id = *drop_data.drag_id;
 
   // 2. Verify global lookup works.
   EXPECT_EQ(WebContents::FromDragId(contents()->GetBrowserContext(),
-                                    WebContents::DragId(*drag_id)),
+                                    WebContents::DragId(drag_id)),
             contents());
 
   // 3. Verify drag id is NOT cleaned up on drag end (due to async race
   // conditions, especially on Mac).
   contents()->OnDragSourceEnded();
   EXPECT_EQ(WebContents::FromDragId(contents()->GetBrowserContext(),
-                                    WebContents::DragId(*drag_id)),
+                                    WebContents::DragId(drag_id)),
             contents());
 }
 
-TEST_F(WebContentsImplTest, NoStashIfNoFileContents) {
+TEST_F(WebContentsImplTest, NoStashIfInvalidSourceFrame) {
   DropData drop_data;
-  // Intentionally leaving file_contents empty.
 
   contents()->OnStartDragging(&drop_data, GlobalRenderFrameHostToken());
 
-  EXPECT_EQ(drop_data.custom_data.find(u"chromium/x-drag-id"),
-            drop_data.custom_data.end())
-      << "No drag_id should be created if file_contents is empty.";
+  EXPECT_FALSE(drop_data.drag_id.has_value());
+  EXPECT_TRUE(drop_data.custom_data.empty());
 }
 
 TEST_F(WebContentsImplTest, MultipleDragProvenancesAreIsolated) {
@@ -4286,15 +4421,17 @@ TEST_F(WebContentsImplTest, MultipleDragProvenancesAreIsolated) {
   data1.file_contents =
       base::ToVector(base::byte_span_from_cstring("content 1"));
   contents()->OnStartDragging(&data1, source_rfh_token);
-  base::UnguessableToken id1 = *base::UnguessableToken::DeserializeFromString(
-      base::UTF16ToASCII(data1.custom_data[u"chromium/x-drag-id"]));
+  ASSERT_TRUE(data1.drag_id.has_value());
+  EXPECT_TRUE(data1.custom_data.empty());
+  base::UnguessableToken id1 = *data1.drag_id;
 
   DropData data2;
   data2.file_contents =
       base::ToVector(base::byte_span_from_cstring("content 2"));
   contents()->OnStartDragging(&data2, source_rfh_token);
-  base::UnguessableToken id2 = *base::UnguessableToken::DeserializeFromString(
-      base::UTF16ToASCII(data2.custom_data[u"chromium/x-drag-id"]));
+  ASSERT_TRUE(data2.drag_id.has_value());
+  EXPECT_TRUE(data2.custom_data.empty());
+  base::UnguessableToken id2 = *data2.drag_id;
 
   EXPECT_NE(id1, id2);
   EXPECT_EQ(WebContents::FromDragId(contents()->GetBrowserContext(),

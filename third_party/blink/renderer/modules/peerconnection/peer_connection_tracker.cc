@@ -14,42 +14,69 @@
 #include <utility>
 #include <vector>
 
+#include "base/check.h"
+#include "base/check_op.h"
+#include "base/containers/span.h"
+#include "base/functional/callback_helpers.h"
+#include "base/location.h"
+#include "base/logging.h"
+#include "base/memory/scoped_refptr.h"
+#include "base/memory/weak_ptr.h"
+#include "base/notreached.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/threading/thread_checker.h"
+#include "base/time/time.h"
 #include "base/types/pass_key.h"
 #include "base/values.h"
 #include "build/build_config.h"
-#include "build/buildflag.h"
 #include "build/chromecast_buildflags.h"
+#include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "third_party/blink/public/mojom/peerconnection/peer_connection_tracker.mojom-blink.h"
 #include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
-#include "third_party/blink/public/platform/interface_registry.h"
-#include "third_party/blink/public/platform/modules/mediastream/web_media_stream.h"
 #include "third_party/blink/public/platform/platform.h"
+#include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/public/web/web_document.h"
 #include "third_party/blink/public/web/web_local_frame.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
+#include "third_party/blink/renderer/core/loader/document_load_timing.h"
 #include "third_party/blink/renderer/core/loader/document_loader.h"
 #include "third_party/blink/renderer/modules/mediastream/media_constraints.h"
-#include "third_party/blink/renderer/modules/mediastream/media_stream_track.h"
 #include "third_party/blink/renderer/modules/mediastream/user_media_request.h"
 #include "third_party/blink/renderer/modules/peerconnection/rtc_peer_connection_handler.h"
-#include "third_party/blink/renderer/modules/peerconnection/rtc_track_event.h"
+#include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/json/json_values.h"
 #include "third_party/blink/renderer/platform/mediastream/media_stream_component.h"
+#include "third_party/blink/renderer/platform/mediastream/media_stream_track_platform.h"
 #include "third_party/blink/renderer/platform/mojo/mojo_binding_context.h"
 #include "third_party/blink/renderer/platform/peerconnection/rtc_answer_options_platform.h"
 #include "third_party/blink/renderer/platform/peerconnection/rtc_ice_candidate_platform.h"
 #include "third_party/blink/renderer/platform/peerconnection/rtc_offer_options_platform.h"
 #include "third_party/blink/renderer/platform/peerconnection/rtc_peer_connection_handler_client.h"
+#include "third_party/blink/renderer/platform/peerconnection/rtc_rtp_receiver_platform.h"
+#include "third_party/blink/renderer/platform/peerconnection/rtc_rtp_sender_platform.h"
 #include "third_party/blink/renderer/platform/peerconnection/webrtc_util.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
-#include "third_party/blink/renderer/platform/scheduler/public/thread.h"
+#include "third_party/blink/renderer/platform/supplementable.h"
+#include "third_party/blink/renderer/platform/wtf/casting.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
+#include "third_party/blink/renderer/platform/wtf/functional.h"
+#include "third_party/blink/renderer/platform/wtf/text/strcat.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
+#include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
+#include "third_party/blink/renderer/platform/wtf/vector.h"
+#include "third_party/webrtc/api/legacy_stats_types.h"
+#include "third_party/webrtc/api/peer_connection_interface.h"
+#include "third_party/webrtc/api/rtp_parameters.h"
+#include "third_party/webrtc/api/rtp_transceiver_direction.h"
+#include "third_party/webrtc/api/scoped_refptr.h"
+#include "third_party/webrtc/api/stats/attribute.h"
+#include "third_party/webrtc/api/stats/rtc_stats_collector_callback.h"
+#include "third_party/webrtc/api/stats/rtc_stats_report.h"
 #include "third_party/webrtc/api/stats/rtcstats_objects.h"
+#include "third_party/webrtc/rtc_base/ref_counted_object.h"
 
 using webrtc::StatsReport;
 using webrtc::StatsReports;
@@ -137,7 +164,7 @@ String SerializeTransceiverKind(const RTCRtpTransceiverPlatform& transceiver) {
 }
 
 std::unique_ptr<JSONArray> SerializeEncodingParameters(
-    const std::vector<webrtc::RtpEncodingParameters>& send_encodings) {
+    base::span<const webrtc::RtpEncodingParameters> send_encodings) {
   auto encodings = std::make_unique<JSONArray>();
   for (const auto& encoding : send_encodings) {
     auto obj = std::make_unique<JSONObject>();
@@ -226,18 +253,47 @@ std::unique_ptr<JSONObject> SerializeTransceiver(
   return json;
 }
 
-// Serializes the parts of the "track" event that are of interest, i.e. the
-// kind, id and label of the remote track that was added and the ids of the
-// streams it belongs to.
-String SerializeTrackEvent(const RTCTrackEvent& event) {
-  const MediaStreamTrack& track = *event.track();
+// Serializes the arguments of an addTransceiver() call, using the same field
+// names SerializeTransceiver() uses for the resulting transceiver.
+String SerializeAddTransceiver(
+    const PeerConnectionTracker::AddTransceiverInfo& info) {
   auto json = std::make_unique<JSONObject>();
-  json->SetString("kind", track.kind());
-  json->SetString("id", track.id());
-  json->SetString("label", track.label());
+  json->SetString("kind", info.kind);
+  if (info.track_id.IsNull()) {
+    json->SetValue("track", JSONValue::Null());
+  } else {
+    json->SetString("track", info.track_id);
+  }
+  json->SetString("direction", SerializeDirection(info.direction));
   auto stream_ids = std::make_unique<JSONArray>();
-  for (const auto& stream : event.streams()) {
-    stream_ids->PushString(stream->id());
+  for (const auto& stream_id : info.stream_ids) {
+    stream_ids->PushString(stream_id);
+  }
+  json->SetArray("streams", std::move(stream_ids));
+  json->SetArray("encodings", SerializeEncodingParameters(info.send_encodings));
+
+  StringBuilder value;
+  json->WriteJSON(&value);
+  return value.ToString();
+}
+
+// Serializes the parts of a track that are of interest, i.e. its kind and id
+// and the ids of the streams it belongs to. Remote tracks additionally carry
+// a label; local ones take theirs from the capture device, which is not known
+// here.
+String SerializeTrackEvent(const PeerConnectionTracker::TrackInfo& track,
+                           bool remote) {
+  auto json = std::make_unique<JSONObject>();
+  json->SetString("kind", track.kind);
+  json->SetString("id", track.id);
+  if (remote) {
+    // Remote tracks take their label from their kind, see
+    // RemoteMediaStreamTrackAdapter.
+    json->SetString("label", StrCat({"remote ", track.kind}));
+  }
+  auto stream_ids = std::make_unique<JSONArray>();
+  for (const auto& stream_id : track.stream_ids) {
+    stream_ids->PushString(stream_id);
   }
   json->SetArray("streams", std::move(stream_ids));
 
@@ -780,11 +836,20 @@ void PeerConnectionTracker::TrackSetConfiguration(
       SerializeConfiguration(config, pc_handler->encoded_insertable_streams()));
 }
 
+void PeerConnectionTracker::TrackRestartIce(
+    RTCPeerConnectionHandler* pc_handler) {
+  DCHECK_CALLED_ON_VALID_THREAD(main_thread_);
+  int id = GetLocalIDForHandler(pc_handler);
+  if (id == -1) {
+    return;
+  }
+  SendPeerConnectionUpdate(id, "restartIce", g_empty_string);
+}
+
 void PeerConnectionTracker::TrackAddIceCandidate(
     RTCPeerConnectionHandler* pc_handler,
     RTCIceCandidatePlatform* candidate,
-    Source source,
-    bool succeeded) {
+    Source source) {
   DCHECK_CALLED_ON_VALID_THREAD(main_thread_);
   int id = GetLocalIDForHandler(pc_handler);
   if (id == -1)
@@ -805,17 +870,22 @@ void PeerConnectionTracker::TrackAddIceCandidate(
     json->SetString("relayProtocol", relay_protocol);
   }
 
-  // OnIceCandidate always succeeds as it's a callback from the browser.
-  DCHECK(source != kSourceLocal || succeeded);
-
   StringBuilder value;
   json->WriteJSON(&value);
-  const char* event =
-      (source == kSourceLocal)
-          ? "onicecandidate"
-          : (succeeded ? "addIceCandidate" : "addIceCandidateFailed");
+  SendPeerConnectionUpdate(
+      id, source == kSourceLocal ? "onicecandidate" : "addIceCandidate",
+      value.ToString());
+}
 
-  SendPeerConnectionUpdate(id, event, value.ToString());
+void PeerConnectionTracker::TrackAddIceCandidateFailed(
+    RTCPeerConnectionHandler* pc_handler,
+    const String& error) {
+  DCHECK_CALLED_ON_VALID_THREAD(main_thread_);
+  int id = GetLocalIDForHandler(pc_handler);
+  if (id == -1) {
+    return;
+  }
+  SendPeerConnectionUpdate(id, "addIceCandidateFailed", error);
 }
 
 void PeerConnectionTracker::TrackIceCandidateError(
@@ -885,19 +955,42 @@ void PeerConnectionTracker::TrackTransceiver(
   SendPeerConnectionUpdate(id, callback_type, value.ToString());
 }
 
-void PeerConnectionTracker::TrackOnTrack(RTCPeerConnectionHandler* pc_handler,
-                                         const RTCTrackEvent& event) {
+void PeerConnectionTracker::TrackAddTransceiverCall(
+    RTCPeerConnectionHandler* pc_handler,
+    const AddTransceiverInfo& info) {
   DCHECK_CALLED_ON_VALID_THREAD(main_thread_);
   int id = GetLocalIDForHandler(pc_handler);
   if (id == -1) {
     return;
   }
-  SendPeerConnectionUpdate(id, "ontrack", SerializeTrackEvent(event));
+  SendPeerConnectionUpdate(id, "addTransceiver", SerializeAddTransceiver(info));
+}
+
+void PeerConnectionTracker::TrackAddTrack(RTCPeerConnectionHandler* pc_handler,
+                                          const TrackInfo& track) {
+  DCHECK_CALLED_ON_VALID_THREAD(main_thread_);
+  int id = GetLocalIDForHandler(pc_handler);
+  if (id == -1) {
+    return;
+  }
+  SendPeerConnectionUpdate(id, "addTrack",
+                           SerializeTrackEvent(track, /*remote=*/false));
+}
+
+void PeerConnectionTracker::TrackOnTrack(RTCPeerConnectionHandler* pc_handler,
+                                         const TrackInfo& track) {
+  DCHECK_CALLED_ON_VALID_THREAD(main_thread_);
+  int id = GetLocalIDForHandler(pc_handler);
+  if (id == -1) {
+    return;
+  }
+  SendPeerConnectionUpdate(id, "ontrack",
+                           SerializeTrackEvent(track, /*remote=*/true));
 }
 
 void PeerConnectionTracker::TrackCreateDataChannel(
     RTCPeerConnectionHandler* pc_handler,
-    const webrtc::DataChannelInterface* data_channel,
+    const DataChannelInfo& channel,
     Source source) {
   DCHECK_CALLED_ON_VALID_THREAD(main_thread_);
   int id = GetLocalIDForHandler(pc_handler);
@@ -905,23 +998,22 @@ void PeerConnectionTracker::TrackCreateDataChannel(
     return;
   // See https://w3c.github.io/webrtc-pc/#dom-rtcdatachannelinit
   auto json = std::make_unique<JSONObject>();
-  json->SetString("label", String::FromUtf8(data_channel->label()));
-  json->SetBoolean("ordered", data_channel->ordered());
-  std::optional<uint16_t> maxPacketLifeTime = data_channel->maxPacketLifeTime();
-  if (maxPacketLifeTime.has_value()) {
-    json->SetInteger("maxPacketLifeTime", *maxPacketLifeTime);
+  json->SetString("label", channel.label);
+  json->SetBoolean("ordered", channel.ordered);
+  if (channel.max_packet_life_time.has_value()) {
+    json->SetInteger("maxPacketLifeTime", *channel.max_packet_life_time);
   }
-  std::optional<uint16_t> maxRetransmits = data_channel->maxRetransmitsOpt();
-  if (maxRetransmits.has_value()) {
-    json->SetInteger("maxRetransmits", *maxRetransmits);
+  if (channel.max_retransmits.has_value()) {
+    json->SetInteger("maxRetransmits", *channel.max_retransmits);
   }
-  if (!data_channel->protocol().empty()) {
-    json->SetString("protocol", String::FromUtf8(data_channel->protocol()));
+  if (!channel.protocol.empty()) {
+    json->SetString("protocol", channel.protocol);
   }
-  bool negotiated = data_channel->negotiated();
-  if (negotiated) {
+  if (channel.negotiated) {
     json->SetBoolean("negotiated", true);
-    json->SetInteger("id", data_channel->id());
+    if (channel.id.has_value()) {
+      json->SetInteger("id", *channel.id);
+    }
   }
   // TODO(crbug.com/1455847): add priority
   // https://w3c.github.io/webrtc-priority/#new-rtcdatachannelinit-member

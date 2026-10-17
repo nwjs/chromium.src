@@ -35,7 +35,15 @@ group("resources") {
       "new_tab_page_instant:resources",
       "new_tab_page_third_party:resources",
       "new_tab_shared:resources",
+      "side_panel/customize_chrome:resources",
     ]
+  }
+
+  # Unlike the targets above, side_panel/shared is not NTP-specific: it is also
+  # used by the bookmarks, reading list, history and other side panels, which
+  # are gated on !is_android. This matches the assert() in its BUILD.gn.
+  if (!is_android || enable_webui_ntp) {
+    public_deps += [ "side_panel/shared:resources" ]
   }
 
   if (enable_extensions_core) {
@@ -65,9 +73,7 @@ group("resources") {
       "drive_picker_host/untrusted:resources",
       "feedback:resources",
       "gaia_auth_host:resources",
-      "geic:resources",
       "glic/selection_overlay:resources",
-      "history:resources",
       "indigo:resources",
       "inspect:resources",
       "iwa_dev:resources",
@@ -86,18 +92,16 @@ group("resources") {
       "side_panel/bookmarks:resources",
       "side_panel/comments:resources",
       "side_panel/commerce:resources",
-      "side_panel/customize_chrome:resources",
       "side_panel/history:resources",
       "side_panel/history_clusters:resources",
       "side_panel/read_anything:resources",
       "side_panel/reading_list:resources",
-      "side_panel/shared:resources",
       "side_panel/tabs_from_other_devices:resources",
       "signin:resources",
       "support_tool:resources",
       "tab_group_home:resources",
+      "tab_group_shared:resources",
       "tab_search:resources",
-      "tab_search/shared:resources",
       "web_app_internals:resources",
       "webnn_internals:resources",
       "webui_browser:resources",
@@ -136,7 +140,6 @@ group("resources") {
     public_deps += [
       "unexportable_keys_internals:resources",
       "//chrome/browser/resources/media/mei_preload:component",
-      "//components/privacy_sandbox/privacy_sandbox_attestations/preload:component",
     ]
   }
 
@@ -208,6 +211,10 @@ group("resources") {
 
   if (enable_webui_certificate_viewer) {
     public_deps += [ "certificate_viewer:resources" ]
+  }
+
+  if (enable_webui_history) {
+    public_deps += [ "history:resources" ]
   }
 
   if (enable_compose) {

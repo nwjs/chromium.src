@@ -13,6 +13,7 @@ import static org.chromium.chrome.browser.tabwindow.TabWindowManager.ARCHIVED_WI
 import android.content.Context;
 
 import androidx.annotation.CheckResult;
+import androidx.annotation.IntDef;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ApplicationStatus;
@@ -27,6 +28,7 @@ import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
+import org.chromium.build.annotations.Contract;
 import org.chromium.build.annotations.EnsuresNonNull;
 import org.chromium.build.annotations.MonotonicNonNull;
 import org.chromium.build.annotations.NullMarked;
@@ -35,7 +37,6 @@ import org.chromium.build.annotations.RequiresNonNull;
 import org.chromium.chrome.browser.app.tabwindow.TabWindowManagerSingleton;
 import org.chromium.chrome.browser.crypto.CipherFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileKeyedMap;
 import org.chromium.chrome.browser.tab.TabArchiveSettings;
@@ -68,10 +69,10 @@ import org.chromium.components.tab_group_sync.SavedTabGroup;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
 import org.chromium.ui.base.WindowAndroid;
 
-import java.lang.ref.WeakReference;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 /**
@@ -93,16 +94,29 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator {
     }
 
     /** Reasons for acquiring a lease on {@link ArchivedTabModelOrchestrator}. */
-    public enum LeaseReason {
-        STARTUP_DECLUTTER_PASS,
-        RESCUE_ARCHIVED_TABS,
-        PERSISTENT_STORE_CLEANER,
-        ARCHIVED_TABS_DIALOG,
-        SEARCH_OVERLAY,
-        FOR_TESTING,
+    @IntDef({
+        LeaseReason.STARTUP_DECLUTTER_PASS,
+        LeaseReason.RECURRING_DECLUTTER_PASS,
+        LeaseReason.RESCUE_ARCHIVED_TABS,
+        LeaseReason.PERSISTENT_STORE_CLEANER,
+        LeaseReason.ARCHIVED_TABS_DIALOG,
+        LeaseReason.DRAG_TO_ARCHIVE,
+        LeaseReason.FOR_TESTING
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface LeaseReason {
+        int STARTUP_DECLUTTER_PASS = 0;
+        int RECURRING_DECLUTTER_PASS = 1;
+        int RESCUE_ARCHIVED_TABS = 2;
+        int PERSISTENT_STORE_CLEANER = 3;
+        int ARCHIVED_TABS_DIALOG = 4;
+        int DRAG_TO_ARCHIVE = 5;
+        int FOR_TESTING = 6;
     }
 
     private static final int GRACE_PERIOD_DELAY_MS = 5000;
+    private static final List<TabbedModeTabModelOrchestrator> sSavedActivityOrchestrators =
+            new ArrayList<>();
     private static @Nullable ProfileKeyedMap<ArchivedTabModelOrchestrator> sProfileMap;
     private static @Nullable ArchivedTabModelOrchestrator sInstanceForTesting;
 
@@ -122,8 +136,7 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator {
                     // In the case where CTA was destroyed in the background, skip rescuing
                     // archived tabs. It will be picked up when CTA is re-created, and the tab
                     // model orchestrator is re-registered.
-                    assertNativeReady();
-                    if (!mTabArchiveSettings.getArchiveEnabled()
+                    if (!getTabArchiveSettings().getArchiveEnabled()
                             && !mActivityTabModelOrchestrators.isEmpty()) {
                         rescueArchivedTabs(mActivityTabModelOrchestrators.get(0));
                     }
@@ -164,7 +177,6 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator {
 
     private @MonotonicNonNull WindowAndroid mWindow;
     private @MonotonicNonNull TabArchiver mTabArchiver;
-    private @MonotonicNonNull TabArchiveSettings mTabArchiveSettings;
     private @MonotonicNonNull TabCreator mArchivedTabCreator;
     private @MonotonicNonNull CipherFactory mCipherFactory;
     private boolean mInitCalled;
@@ -183,6 +195,12 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator {
     private @Nullable CallbackController mTeardownCallbackController;
     private boolean mIsDestroyed;
 
+    /** Returns whether the given profile is valid for accessing the orchestrator. */
+    @Contract("null -> false")
+    private static boolean isValidProfile(@Nullable Profile profile) {
+        return profile != null && profile.isNativeInitialized() && !profile.shutdownStarted();
+    }
+
     /**
      * Acquires a lease on the ArchivedTabModelOrchestrator for the given profile. If the
      * orchestrator is not currently instantiated, it will be created and initialized.
@@ -193,10 +211,16 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator {
      */
     @CheckResult
     public static @Nullable Destroyable acquireLease(
-            @Nullable Profile profile, LeaseReason reason) {
-        if (profile == null) return null;
+            @Nullable Profile profile, @LeaseReason int reason) {
+        ThreadUtils.assertOnUiThread();
+        if (sInstanceForTesting != null) {
+            return sInstanceForTesting.acquireLease(reason);
+        }
+        if (!isValidProfile(profile)) {
+            return null;
+        }
         ArchivedTabModelOrchestrator orchestrator = getForProfile(profile);
-        return orchestrator.acquireLeaseInternal(reason);
+        return orchestrator.acquireLease(reason);
     }
 
     /**
@@ -205,10 +229,32 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator {
      * @param profile The {@link Profile} to check.
      * @return Whether the orchestrator is instantiated for the given profile.
      */
-    public static boolean isInstantiatedForProfile(Profile profile) {
+    public static boolean isInstantiatedForProfile(@Nullable Profile profile) {
+        ThreadUtils.assertOnUiThread();
         if (sInstanceForTesting != null) return true;
+        if (!isValidProfile(profile)) {
+            return false;
+        }
         if (sProfileMap == null) return false;
         return sProfileMap.getForProfile(profile) != null;
+    }
+
+    /**
+     * Synchronously returns the orchestrator if resident in memory, or null otherwise.
+     *
+     * @param profile The {@link Profile} to check.
+     * @return The orchestrator instance if instantiated, or null.
+     */
+    public static @Nullable ArchivedTabModelOrchestrator getIfInstantiatedForProfile(
+            @Nullable Profile profile) {
+        ThreadUtils.assertOnUiThread();
+        if (sInstanceForTesting != null) {
+            return sInstanceForTesting;
+        }
+        if (!isValidProfile(profile) || sProfileMap == null) {
+            return null;
+        }
+        return sProfileMap.getForProfile(profile);
     }
 
     /**
@@ -219,12 +265,19 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator {
      * @return The corresponding {@link ArchivedTabModelOrchestrator}.
      */
     public static ArchivedTabModelOrchestrator getForProfile(Profile profile) {
+        ThreadUtils.assertOnUiThread();
         if (sInstanceForTesting != null) {
             return sInstanceForTesting;
         }
+        assert profile != null : "Profile cannot be null.";
+        assert profile.isNativeInitialized() : "Profile is not native initialized.";
+        assert !profile.shutdownStarted() : "Profile shutdown already started.";
+        if (!isValidProfile(profile)) {
+            throw new IllegalStateException(
+                    "Attempting to access ArchivedTabModelOrchestrator with invalid profile");
+        }
 
         if (sProfileMap == null) {
-            ThreadUtils.assertOnUiThread();
             sProfileMap =
                     new ProfileKeyedMap<>(
                             ProfileKeyedMap.ProfileSelection.REDIRECTED_TO_ORIGINAL,
@@ -237,6 +290,7 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator {
 
     /** Destroys the singleton profile keyed map. */
     public static void destroyProfileKeyedMap() {
+        sSavedActivityOrchestrators.clear();
         // This block can be called at times where sProfileMap may be null
         // (crbug.com/335684785). Probably not necessary now that the application
         // state listener is unregistered.
@@ -251,6 +305,7 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator {
     @VisibleForTesting
     ArchivedTabModelOrchestrator(Profile profile) {
         mProfile = profile;
+        mActivityTabModelOrchestrators.addAll(sSavedActivityOrchestrators);
         mArchivedTabCreatorManager =
                 (boolean incognito) -> {
                     assert !incognito : "Archived tab model does not support incognito.";
@@ -265,8 +320,10 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator {
         ArchivedTabModelSelectorHolder.setInstanceFn(
                 (profileQuery) -> {
                     ArchivedTabModelOrchestrator archivedTabModelOrchestrator =
-                            getForProfile(profileQuery);
-                    return archivedTabModelOrchestrator.mTabModelSelector;
+                            getIfInstantiatedForProfile(profileQuery);
+                    return archivedTabModelOrchestrator == null
+                            ? null
+                            : archivedTabModelOrchestrator.mTabModelSelector;
                 });
     }
 
@@ -275,6 +332,9 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator {
     public @TabDestroyStatus int destroy() {
         if (mIsDestroyed) return TabDestroyStatus.NO_SHUTDOWN;
         mIsDestroyed = true;
+
+        mArchivedModelObservers.clear();
+        mActivityTabModelOrchestrators.clear();
 
         if (mTeardownCallbackController != null) {
             mTeardownCallbackController.destroy();
@@ -292,10 +352,8 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator {
             mWindow = null;
         }
 
-        if (mTabArchiveSettings != null) {
-            mTabArchiveSettings.removeObserver(mTabArchiveSettingsObserver);
-            mTabArchiveSettings.destroy();
-            mTabArchiveSettings = null;
+        if (mNativeLibraryReadyCalled) {
+            getTabArchiveSettings().removeObserver(mTabArchiveSettingsObserver);
         }
 
         if (mTabArchiver != null) {
@@ -365,10 +423,12 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator {
         mTabStateInitializedSupplier.addSyncObserver(observer);
     }
 
+    /** Acquires a lease on this orchestrator instance. */
     @CheckResult
-    private Destroyable acquireLeaseInternal(LeaseReason reason) {
+    public Destroyable acquireLease(@LeaseReason int reason) {
         ThreadUtils.assertOnUiThread();
-        if (!ChromeFeatureList.sArchivedTabsTeardown.isEnabled()) {
+        assert !mIsDestroyed : "Cannot acquire lease on destroyed orchestrator.";
+        if (mIsDestroyed || !ChromeFeatureList.sArchivedTabsTeardown.isEnabled()) {
             return () -> {};
         }
 
@@ -389,7 +449,7 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator {
         };
     }
 
-    private void releaseLeaseInternal(LeaseReason reason) {
+    private void releaseLeaseInternal(@LeaseReason int reason) {
         ThreadUtils.assertOnUiThread();
         assert mLeaseCount > 0 : "Lease count underflow for reason: " + reason;
         mLeaseCount--;
@@ -429,6 +489,11 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator {
             saveState();
         }
 
+        sSavedActivityOrchestrators.clear();
+        sSavedActivityOrchestrators.addAll(mActivityTabModelOrchestrators);
+        mArchivedModelObservers.clear();
+        mActivityTabModelOrchestrators.clear();
+
         // Evict from ProfileKeyedMap so subsequent acquisitions create a fresh instance,
         // and destroy all child components.
         if (sProfileMap != null) {
@@ -437,6 +502,7 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator {
                 orchestrator.destroy();
             }
         }
+        destroy();
     }
 
     /** Adds an observer. */
@@ -455,18 +521,15 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator {
      * for weeks).
      */
     public void registerTabModelOrchestrator(TabbedModeTabModelOrchestrator orchestrator) {
-        mActivityTabModelOrchestrators.add(orchestrator);
+        if (!mActivityTabModelOrchestrators.contains(orchestrator)) {
+            mActivityTabModelOrchestrators.add(orchestrator);
+        }
+        if (!sSavedActivityOrchestrators.contains(orchestrator)) {
+            sSavedActivityOrchestrators.add(orchestrator);
+        }
         assertNativeReady();
-        if (mTabArchiveSettings.getArchiveEnabled()) {
-            // There is some delay while the local tab group sync databases synchronizes with the
-            // sync service on startup. Archiving is done on startup, although it's loaded as a
-            // deferred task which is only started after the regular tab model is already
-            // initialized. This is done to prevent any noticeable lag when archiving tabs. There
-            // is the chance that tab groups are archived while in the midst of being deleted. This
-            // is much more of an edge case than adding a set delay at startup, and is already
-            // handled by observer events in the relevant UI which mirror the behavior in the tab
-            // groups pane.
-            doDeclutterPassAndScheduleNext(new WeakReference<>(orchestrator));
+        if (getTabArchiveSettings().getArchiveEnabled()) {
+            doDeclutterPass(orchestrator);
         } else {
             rescueArchivedTabs(orchestrator);
         }
@@ -475,6 +538,11 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator {
     /** Unregisters an orchestrator when it's destroyed. */
     public void unregisterTabModelOrchestrator(TabbedModeTabModelOrchestrator orchestrator) {
         mActivityTabModelOrchestrators.remove(orchestrator);
+        sSavedActivityOrchestrators.remove(orchestrator);
+    }
+
+    public static boolean isOrchestratorRegistered(TabbedModeTabModelOrchestrator orchestrator) {
+        return sSavedActivityOrchestrators.contains(orchestrator);
     }
 
     /** Returns a supplier for the archive tab count. */
@@ -486,6 +554,16 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator {
         // If the tab model selector isn't ready yet, then return a placeholder supplier.
         if (getTabModelSelector() == null) return null;
         return getTabModelSelector().getModel(/* incognito= */ false);
+    }
+
+    /** Returns whether the orchestrator has been destroyed. */
+    public boolean isDestroyed() {
+        return mIsDestroyed;
+    }
+
+    /** Returns the {@link Profile} associated with this orchestrator. */
+    public Profile getProfile() {
+        return mProfile;
     }
 
     /** Returns whether the archived tab model has been initialized. */
@@ -536,19 +614,18 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator {
         "mTabPersistencePolicy",
         "mTabPersistentStore",
         "mWindow",
-        "mTabArchiveSettings",
         "mTabArchiver",
         "mTabGroupSyncService"
     })
     private void assertNativeReady() {
         assertCreated();
-        assert mTabArchiveSettings != null;
         assert mTabArchiver != null;
         assert mTabGroupSyncService != null;
     }
 
     private void maybeCreateAndInitTabModelsInternal(
             TabContentManager tabContentManager, CipherFactory cipherFactory) {
+        mInitCalled = true;
         ThreadUtils.assertOnUiThread();
         assert tabContentManager != null;
 
@@ -605,47 +682,30 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator {
                 /* onStandardActiveIndexRead= */ null);
         restoreTabs(/* setActiveTab= */ false);
 
-        mInitCalled = true;
+        TabModel model = mTabModelSelector.getModel(/* incognito= */ false);
         TabModelUtils.runOnTabStateInitialized(
                 mTabModelSelector,
-                (selector) -> {
-                    mTabStateInitializedSupplier.set(true);
-                });
+                mCallbackController.makeCancelable(
+                        (selector) -> {
+                            mTabStateInitializedSupplier.set(true);
+                            mArchivedTabCountTracker.setupInternalObservers(
+                                    model, mTabGroupSyncService);
+                            // Resolve TabArchiveSettings at call time rather than binding a
+                            // method reference; the singleton may be replaced (and the old
+                            // instance destroyed) while this orchestrator is still alive.
+                            mArchivedTabCountTracker
+                                    .getSupplier()
+                                    .addSyncObserverAndPostIfNonNull(
+                                            (count) ->
+                                                    getTabArchiveSettings()
+                                                            .setArchivedTabCount(count));
+                        }));
 
-        TabModel model = mTabModelSelector.getModel(/* incognito= */ false);
         for (Observer observer : mArchivedModelObservers) {
             observer.onTabModelCreated(model);
         }
 
-        mArchivedTabCountTracker.setupInternalObservers(model, mTabGroupSyncService);
-        mArchivedTabCountTracker
-                .getSupplier()
-                .addSyncObserverAndPostIfNonNull(
-                        (count) -> {
-                            if (mTabArchiveSettings != null) {
-                                mTabArchiveSettings.setArchivedTabCount(count);
-                            }
-                        });
-
-        TabModel regularTabModel = mTabModelSelector.getModel(/* incognito= */ false);
-        mHistoricalTabModelObserver = new HistoricalTabModelObserver(regularTabModel);
-    }
-
-    private void doDeclutterPassAndScheduleNext(
-            WeakReference<TabbedModeTabModelOrchestrator> orchestratorRef) {
-        // If the orcehstrator has been unregistered since the last scheduled declutter pass, return
-        // immediately.
-        TabbedModeTabModelOrchestrator orchestrator = orchestratorRef.get();
-        if (orchestrator == null || !mActivityTabModelOrchestrators.contains(orchestrator)) {
-            return;
-        }
-        doDeclutterPass(orchestrator);
-        assertNativeReady();
-        PostTask.postDelayedTask(
-                TaskTraits.UI_DEFAULT,
-                mCallbackController.makeCancelable(
-                        () -> doDeclutterPassAndScheduleNext(orchestratorRef)),
-                TimeUnit.HOURS.toMillis(mTabArchiveSettings.getDeclutterIntervalTimeDeltaHours()));
+        mHistoricalTabModelObserver = new HistoricalTabModelObserver(model);
     }
 
     /**
@@ -664,7 +724,10 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator {
 
     private void doDeclutterPassImpl(TabbedModeTabModelOrchestrator orchestrator) {
         assertNativeReady();
-        if (!mTabArchiveSettings.getArchiveEnabled()) return;
+        if (!getTabArchiveSettings().getArchiveEnabled()) {
+            orchestrator.onDeclutterPassCompleted();
+            return;
+        }
         pauseSaveTabList(orchestrator);
 
         mTabArchiver.addObserver(
@@ -690,8 +753,11 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator {
      */
     public void rescueArchivedTabs(TabbedModeTabModelOrchestrator orchestrator) {
         ThreadUtils.assertOnUiThread();
+        if (mRescueTabsCalled) {
+            orchestrator.onRescueArchivedTabsCompleted();
+            return;
+        }
         assertCreated();
-        if (mRescueTabsCalled) return;
         mRescueTabsCalled = true;
         TabModelUtils.runOnTabStateInitialized(
                 mCallbackController.makeCancelable(() -> rescueArchivedTabsImpl(orchestrator)),
@@ -769,8 +835,8 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator {
             markStoresInitialized();
         }
 
-        mTabArchiveSettings = getTabArchiveSettings();
-        mTabArchiveSettings.addObserver(mTabArchiveSettingsObserver);
+        TabArchiveSettings archiveSettings = getTabArchiveSettings();
+        archiveSettings.addObserver(mTabArchiveSettingsObserver);
         mTabGroupSyncService = assertNonNull(TabGroupSyncServiceFactory.getForProfile(mProfile));
         TabModel regularTabModel = mTabModelSelector.getModel(/* incognito= */ false);
 
@@ -778,7 +844,7 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator {
                 new TabArchiverImpl(
                         regularTabModel,
                         mArchivedTabCreator,
-                        mTabArchiveSettings,
+                        archiveSettings,
                         System::currentTimeMillis,
                         mTabGroupSyncService);
         mTabArchiver.addObserver(mTabArchiverObserver);
@@ -811,10 +877,7 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator {
     // Getter methods
 
     public TabArchiveSettings getTabArchiveSettings() {
-        if (mTabArchiveSettings == null) {
-            mTabArchiveSettings = new TabArchiveSettings(ChromeSharedPreferences.getInstance());
-        }
-        return mTabArchiveSettings;
+        return TabArchiveSettings.getInstance();
     }
 
     public TabArchiver getTabArchiver() {
@@ -855,6 +918,10 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator {
         mRescueTabsCalled = false;
     }
 
+    public void setRescueTabsCalledForTesting(boolean called) {
+        mRescueTabsCalled = called;
+    }
+
     public void resetRescueArchivedTabGroupsForTesting() {
         mRescueTabGroupsCalled = false;
     }
@@ -876,7 +943,7 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator {
         performTeardown();
     }
 
-    public static void setInstanceForTesting(ArchivedTabModelOrchestrator instance) {
+    public static void setInstanceForTesting(@Nullable ArchivedTabModelOrchestrator instance) {
         sInstanceForTesting = instance;
     }
 }

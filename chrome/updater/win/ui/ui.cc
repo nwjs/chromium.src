@@ -8,13 +8,14 @@
 
 #include <uxtheme.h>
 
-#include <cstdint>
-#include <string_view>
+#include <optional>
 #include <utility>
 
 #include "base/check_op.h"
 #include "base/logging.h"
 #include "base/sequence_checker.h"
+#include "base/win/current_module.h"
+#include "base/win/scoped_gdi_object.h"
 #include "chrome/updater/updater_scope.h"
 #include "chrome/updater/util/win_util.h"
 #include "chrome/updater/win/ui/ui_constants.h"
@@ -130,7 +131,7 @@ void OmahaWnd::InitializeDialog() {
                    GetInstallerDisplayName(bundle_name(), lang()).c_str());
 
   CenterWindow(hwnd(), nullptr);
-  UpdateWindowIcon(nullptr);
+  UpdateWindowIcon(nullptr, nullptr);
 
   // Disable the maximize system menu item.
   HMENU menu = ::GetSystemMenu(hwnd(), FALSE);
@@ -162,16 +163,21 @@ void OmahaWnd::InitializeDialog() {
 
 void OmahaWnd::ResetWindowIconCache() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  // Clears cached logo and DPI state to prevent false cache hits if Windows GDI
-  // reallocates a new bitmap at the same handle address. Note that
+  // Clears cached logo, DPI, and badge state to prevent false cache hits if
+  // Windows GDI reallocates a new bitmap at the same handle address. Note that
   // window_icons_ handles are intentionally not destroyed here so the window
   // never holds dangling icon references before UpdateWindowIcon() dispatches
   // new handles.
-  current_logo_ = nullptr;
+  current_logo_big_ = nullptr;
+  current_logo_small_ = nullptr;
   current_dpi_ = 0;
+  current_badge_resource_id_ = std::nullopt;
 }
 
-void OmahaWnd::UpdateWindowIcon(HBITMAP bitmap, UINT dpi) {
+void OmahaWnd::UpdateWindowIcon(HBITMAP big_bitmap,
+                                HBITMAP small_bitmap,
+                                UINT dpi,
+                                std::optional<int> badge_resource_id) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (!IsWindow()) {
     return;
@@ -180,32 +186,84 @@ void OmahaWnd::UpdateWindowIcon(HBITMAP bitmap, UINT dpi) {
   // as GetDpiForWindow() may not yet reflect the updated DPI before window
   // bounds adjustment completes.
   const UINT target_dpi = dpi ? dpi : ::GetDpiForWindow(hwnd());
-  if (bitmap == current_logo_ && target_dpi == current_dpi_ &&
+  if (big_bitmap == current_logo_big_ && small_bitmap == current_logo_small_ &&
+      target_dpi == current_dpi_ &&
+      badge_resource_id == current_badge_resource_id_ &&
       window_icons_.icon_big.is_valid() &&
       window_icons_.icon_small.is_valid()) {
     return;
   }
+
+  // In hybrid theme mode, `big_bitmap` and `small_bitmap` may differ (e.g.
+  // `big_bitmap` from `light_app_logo_bmp_` for a light taskbar via ICON_BIG,
+  // and `small_bitmap` from `dark_app_logo_bmp_` for a dark titlebar via
+  // ICON_SMALL). If either bitmap is null, fall back to the other available
+  // bitmap so both sizes are populated.
+  const HBITMAP effective_big_bitmap = big_bitmap ? big_bitmap : small_bitmap;
+  const HBITMAP effective_small_bitmap =
+      small_bitmap ? small_bitmap : big_bitmap;
+
   WindowIcons icons;
-  if (bitmap) {
+  bool badge_applied = false;
+  if (effective_big_bitmap) {
     const IconSizes sizes = GetIconSizesForDpi(target_dpi);
-    icons.icon_big = CreateIconFromHBitmap(bitmap, sizes.cx_big, sizes.cy_big);
-    icons.icon_small =
-        CreateIconFromHBitmap(bitmap, sizes.cx_small, sizes.cy_small);
+    base::win::ScopedGDIObject<HICON> badge_icon_big;
+
+    // Loading takes < 0.1 ms and happens very infrequently, therefore loading
+    // on demand is a simple and effective implementation.
+    // Overlay badges are applied only to `ICON_BIG` (taskbar and Alt-Tab).
+    // Small titlebar icons (e.g. 16x16) omit the badge overlay because an 8x8
+    // downscaled badge destroys logo legibility.
+    if (badge_resource_id.has_value()) {
+      const RECT badge_rect = GetBadgeRect(sizes.cx_big, sizes.cy_big);
+      const int badge_width = badge_rect.right - badge_rect.left;
+      const int badge_height = badge_rect.bottom - badge_rect.top;
+      badge_icon_big =
+          base::win::ScopedGDIObject<HICON>(reinterpret_cast<HICON>(
+              ::LoadImage(CURRENT_MODULE(),
+                          MAKEINTRESOURCE(*badge_resource_id), IMAGE_ICON,
+                          badge_width, badge_height, LR_DEFAULTCOLOR)));
+      if (!badge_icon_big.is_valid()) {
+        VLOG(1) << __func__ << ": Failed to load badge icon resource "
+                << *badge_resource_id << "; proceeding unbadged";
+      }
+    }
+
+    icons.icon_big = CreateIconFromHBitmap(
+        effective_big_bitmap, sizes.cx_big, sizes.cy_big, target_dpi,
+        /*transparent_color=*/std::nullopt, badge_icon_big.get(),
+        &badge_applied);
+    icons.icon_small = CreateIconFromHBitmap(
+        effective_small_bitmap, sizes.cx_small, sizes.cy_small, target_dpi,
+        /*transparent_color=*/std::nullopt, /*badge_icon=*/nullptr);
   }
-  // If custom icon creation fails for either size, reset both handles so
-  // that both big and small icons consistently fall back to the default
-  // application icon (IDI_APP) rather than leaving the window in a mixed
-  // state.
+
+  // Tradeoff (Clean Unbadged Fallback vs Pre-Download Badge Compositing):
+  // When `effective_big_bitmap` is null (prior to the application logo download
+  // completing), we do not attempt to composite the installer badge onto the
+  // fallback `IDI_APP` icon. Attempting to overlay a badge onto the generic app
+  // icon produces distorted, double-scaled icons before the brand logo arrives.
+  // Instead, both big and small window icons consistently fall back to the
+  // clean, unbadged default application icon (`IDI_APP`), preventing mixed or
+  // visually corrupted states during initial setup.
   if (!icons.icon_big.is_valid() || !icons.icon_small.is_valid()) {
     icons = LoadResourceIcons(IDI_APP, target_dpi);
-    // Fallback occurred: do not cache `bitmap` as active so future attempts
-    // can retry generating icons from it.
-    current_logo_ = nullptr;
+    // Fallback occurred: do not cache bitmaps as active so future attempts can
+    // retry generating icons once the brand logo arrives.
+    current_logo_big_ = nullptr;
+    current_logo_small_ = nullptr;
+    current_badge_resource_id_ = std::nullopt;
   } else {
-    current_logo_ = bitmap;
+    current_logo_big_ = big_bitmap;
+    current_logo_small_ = small_bitmap;
+    current_badge_resource_id_ =
+        badge_applied ? badge_resource_id : std::nullopt;
   }
   current_dpi_ = target_dpi;
 
+  // Dispatches WM_SETICON with the new icon handles and moves ownership into
+  // `window_icons_` via reference, safely replacing the old handles without
+  // dangling references.
   SetWindowIcons(hwnd(), std::move(icons), window_icons_);
 }
 
@@ -244,12 +302,7 @@ LRESULT OmahaWnd::OnNCDestroy(UINT, WPARAM, LPARAM) {
 }
 
 LRESULT OmahaWnd::OnDpiChanged(UINT, WPARAM wparam, LPARAM lparam) {
-  // Resize window to the OS-suggested rect.
-  const RECT* new_rect = reinterpret_cast<RECT*>(lparam);
-  ::SetWindowPos(hwnd(), nullptr, new_rect->left, new_rect->top,
-                 new_rect->right - new_rect->left,
-                 new_rect->bottom - new_rect->top,
-                 SWP_NOZORDER | SWP_NOACTIVATE);
+  ApplySuggestedWindowRect(hwnd(), lparam);
 
   // Re-render text/graphics for the new DPI.
   ApplyDpiScaling(/*new_dpi=*/LOWORD(wparam));
@@ -263,27 +316,40 @@ LRESULT OmahaWnd::OnDpiChanged(UINT, WPARAM wparam, LPARAM lparam) {
   return 0;
 }
 
-LRESULT OmahaWnd::OnSettingChange(UINT msg, WPARAM wparam, LPARAM lparam) {
-  SetMsgHandled(FALSE);
-  if (!lparam || std::wstring_view(reinterpret_cast<LPCWSTR>(lparam)) ==
-                     L"ImmersiveColorSet") {
-    UpdateThemeState();
+void OmahaWnd::RepaintForThemeChange(bool notify_descendants,
+                                     UINT msg,
+                                     WPARAM wparam,
+                                     LPARAM lparam) {
+  // Subclasses reload before anything paints, so `is_dark_mode()`-derived
+  // bitmaps are current when the parent and descendant layouts repaint.
+  OnThemeStateChanged();
+  if (notify_descendants) {
     SendMessageToDescendants(hwnd(), msg, wparam, lparam);
-    ::RedrawWindow(
-        hwnd(), nullptr, nullptr,
-        RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
   }
+  ::RedrawWindow(hwnd(), nullptr, nullptr,
+                 RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+}
+
+LRESULT OmahaWnd::OnSettingChange(UINT msg, WPARAM wparam, LPARAM) {
+  // Ignore setting changes that are not theme-related or produced no state
+  // change.
+  if (!CouldBeThemeSettingChange(wparam) || !UpdateThemeState()) {
+    return 0;
+  }
+
+  RepaintForThemeChange(/*notify_descendants=*/true, msg, wparam,
+                        /*lparam=*/0);
   return 0;
 }
 
 LRESULT OmahaWnd::OnThemeChanged(UINT msg, WPARAM wparam, LPARAM lparam) {
   SetMsgHandled(FALSE);
+  // Unconditionally reload theme resources on WM_THEMECHANGED /
+  // WM_SYSCOLORCHANGE.
   UpdateThemeState();
-  if (msg != WM_THEMECHANGED) {
-    SendMessageToDescendants(hwnd(), msg, wparam, lparam);
-  }
-  ::RedrawWindow(hwnd(), nullptr, nullptr,
-                 RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+  // Windows delivers WM_THEMECHANGED to every child itself.
+  RepaintForThemeChange(/*notify_descendants=*/msg != WM_THEMECHANGED, msg,
+                        wparam, lparam);
   return 0;
 }
 
@@ -366,7 +432,8 @@ void OmahaWnd::ApplyDpiScaling(UINT dpi) {
   SetItemFont(hwnd(), IDC_COMPLETE_TEXT, font_.get());
   SetItemFont(hwnd(), IDC_ERROR_TEXT, font_.get());
 
-  UpdateWindowIcon(current_logo_, effective_dpi);
+  UpdateWindowIcon(current_logo_big_, current_logo_small_, effective_dpi,
+                   current_badge_resource_id_);
 }
 
 bool OmahaWnd::OnComplete() {

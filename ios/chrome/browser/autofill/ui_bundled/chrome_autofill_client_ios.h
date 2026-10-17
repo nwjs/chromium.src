@@ -39,6 +39,7 @@
 #import "ios/chrome/browser/intelligence/proto_wrappers/page_context_wrapper.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 
+@protocol AtMemoryCommands;
 @protocol AutofillCommands;
 @class UIViewController;
 
@@ -102,6 +103,11 @@ class ChromeAutofillClientIOS : public AutofillClientIOS {
     commands_handler_ = commands_handler;
   }
   id<AutofillCommands> commands_handler() const { return commands_handler_; }
+
+  void set_at_memory_handler(id<AtMemoryCommands> at_memory_handler) {
+    at_memory_handler_ = at_memory_handler;
+  }
+  id<AtMemoryCommands> at_memory_handler() const { return at_memory_handler_; }
 
   // AutofillClient:
   base::WeakPtr<AutofillClient> GetWeakPtr() override;
@@ -167,12 +173,20 @@ class ChromeAutofillClientIOS : public AutofillClientIOS {
       const AutofillProfile* original_profile,
       AutofillClient::SaveAddressBubbleType save_address_bubble_type,
       AddressProfileSavePromptCallback callback) override;
-  SuggestionUiSessionId ShowAutofillSuggestions(
-      const PopupOpenArgs& open_args,
-      base::WeakPtr<AutofillSuggestionDelegate> delegate) override;
   void UpdateAutofillDataListValues(
       const LocalFrameToken& frame_token,
       base::span<const SelectOption> datalist) override;
+  std::optional<SuggestionUiSessionId>
+  GetSessionIdForCurrentAutofillSuggestions() const override;
+  base::span<const Suggestion> GetAutofillSuggestions() const override;
+  SuggestionUiSessionId ShowAutofillSuggestions(
+      const PopupOpenArgs& open_args,
+      base::WeakPtr<AutofillSuggestionDelegate> delegate) override;
+  void UpdateAutofillSuggestions(
+      const std::vector<Suggestion>& suggestions,
+      FillingProduct main_filling_product,
+      AutofillSuggestionTriggerSource trigger_source,
+      AutofillSuggestionsIgnoreFocusLoss ignore_focus_loss) override;
   void HideSuggestions(SuggestionHidingReason reason,
                        std::optional<FillingProduct> product) override;
   bool IsAutofillEnabled() const override;
@@ -184,6 +198,7 @@ class ChromeAutofillClientIOS : public AutofillClientIOS {
   bool IsAutocompleteEnabled() const override;
   bool IsPasswordManagerEnabled() const override;
   bool UsesPlatformAutofill() const override;
+  bool IsGlicEnabled() const override;
   bool IsContextSecure() const override;
   LogManager* GetCurrentLogManager() override;
   autofill_metrics::FormInteractionsUkmLogger& GetFormInteractionsUkmLogger()
@@ -204,6 +219,7 @@ class ChromeAutofillClientIOS : public AutofillClientIOS {
       EntityInstance new_entity,
       std::optional<EntityInstance> old_entity,
       bool save_is_synchronous,
+      LegalMessageLines public_passes_notice,
       EntityImportPromptResultCallback prompt_result_callback) override;
   void CloseEntityImportBubble() override;
   void ShowAutofillAiLocalSaveNotification() override;
@@ -275,9 +291,26 @@ class ChromeAutofillClientIOS : public AutofillClientIOS {
 
   __weak id<AutofillCommands> commands_handler_;
 
+  __weak id<AtMemoryCommands> at_memory_handler_;
+
   // Holds a weak reference to the delegate driving the active suggestions
   // popup.
   base::WeakPtr<AutofillSuggestionDelegate> active_suggestion_delegate_;
+
+  // Generates the IDs of suggestion UI sessions. The IDs only need to be
+  // unique within this client, as they are only compared against
+  // `current_session_id_`.
+  SuggestionUiSessionId::Generator session_id_generator_;
+
+  // Session ID and suggestions currently displayed.
+  std::optional<SuggestionUiSessionId> current_session_id_;
+  std::vector<Suggestion> current_suggestions_;
+
+  // The form and field the active popup was opened for. Retained because
+  // suggestion updates don't carry `PopupOpenArgs`, yet the bridge needs
+  // these IDs to route suggestion acceptance back to the triggering field.
+  FormGlobalId current_form_id_;
+  FieldGlobalId current_field_id_;
 
   // If this is true, we consider the form to be secure.
   // Only use this for testing purposes!

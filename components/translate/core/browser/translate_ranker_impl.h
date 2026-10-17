@@ -14,17 +14,13 @@
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
 #include "base/task/sequenced_task_runner.h"
-#include "components/assist_ranker/ranker_model_loader.h"
 #include "components/keyed_service/core/keyed_service.h"
+#include "components/translate/core/browser/ranker_model_loader.h"
 #include "components/translate/core/browser/translate_ranker.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "url/gurl.h"
 
 class GURL;
-
-namespace assist_ranker {
-class RankerModel;
-}  // namespace assist_ranker
 
 namespace base {
 class FilePath;
@@ -116,7 +112,7 @@ class TranslateRankerImpl : public TranslateRanker {
       ukm::SourceId ukm_source_id,
       metrics::TranslateEventProto* translate_event) override;
 
-  void OnModelAvailable(std::unique_ptr<assist_ranker::RankerModel> model);
+  void OnModelAvailable(std::unique_ptr<RankerModel> model);
 
   // Get the model decision on whether we should show the translate
   // UI or not given |translate_event|.
@@ -141,10 +137,10 @@ class TranslateRankerImpl : public TranslateRanker {
   SEQUENCE_CHECKER(sequence_checker_);
 
   // A helper to load the translate ranker model from disk cache or a URL.
-  std::unique_ptr<assist_ranker::RankerModelLoader> model_loader_;
+  std::unique_ptr<RankerModelLoader> model_loader_;
 
   // The translation ranker model.
-  std::unique_ptr<assist_ranker::RankerModel> model_;
+  std::unique_ptr<RankerModel> model_;
 
   // Tracks whether or not translate event logging is enabled.
   bool is_uma_logging_enabled_ = true;

@@ -2,7 +2,6 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="nl">
 <translation id="132297926492792130">mijn google-account beheren, google-account herstellen, google-account beheren, mijn google-account regelen</translation>
-<translation id="1455865776268085776">incognitomodus openen, nieuw incognitovenster, incognitotabblad openen</translation>
 <translation id="1545931455576308147">deze pagina delen, dit tabblad delen</translation>
 <translation id="1912698329644085067">chrome-instellingen wijzigen, instellingen beheren</translation>
 <translation id="1938436187879863297">google keep-notitie maken, google-notitie maken, nieuwe google keep-notitie maken, nieuwe google-notitie, google-notitie starten</translation>
@@ -14,6 +13,7 @@
 <translation id="3371457011763794419">chrome updaten, browser upgraden</translation>
 <translation id="3489247412199563299">chrome-toegankelijkheid aanpassen, toegankelijkheidsinstellingen beheren</translation>
 <translation id="3936847108123063274">google-site maken, google-website maken, nieuwe google-site, nieuwe google-site openen</translation>
+<translation id="3990892119003447387">incognitovenster sluiten, geïsoleerd venster sluiten, incognito beëindigen, geïsoleerd beëindigen</translation>
 <translation id="4165988127016746956">google-formulier maken, nieuw google-formulier maken, nieuw google-formulier, google-enquête starten</translation>
 <translation id="4341944745395709813">links altijd openen in chrome, open links altijd in chrome, koppelingen altijd openen in chrome, open koppelingen altijd in chrome, altijd chrome gebruiken, gebruik altijd chrome, chrome als standaard, maak chrome de standaard, chrome de standaard maken, standaardbrowser, standaard browser, hoe stel ik chrome in als de standaard browser, hoe maak ik van chrome de standaard browser, hoofdbrowser, chrome instellen als standaard, stel chrome in als standaard, maak chrome standaard, chrome standaard maken, maak chrome de standaard browser, chrome de standaard browser maken, maak chrome mijn standaard browser, chrome mijn standaard browser maken, links openen in chrome, open links in chrome, koppelingen openen in chrome, open koppelingen in chrome, chrome kiezen als standaard browser, kies chrome als standaard browser, primaire browser, voorkeursbrowser, zoeken in chrome</translation>
 <translation id="4367205929005172598">verloren telefoon vinden, mijn apparaat vinden</translation>
@@ -27,6 +27,7 @@
 <translation id="7081494400361697539">google-spreadsheet maken, workspace-spreadsheet maken, nieuwe google-spreadsheet, nieuwe google-spreadsheet starten</translation>
 <translation id="7153639895359139570">adres toevoegen, verzendadres wijzigen, adressen bewerken, adressen beheren</translation>
 <translation id="7242693601647412075">beveiligingsinstellingen beheren</translation>
+<translation id="7251254298552755571">incognitomodus openen, geïsoleerde modus openen, nieuw incognitovenster, nieuw geïsoleerd venster, incognitotabblad openen, geïsoleerd tabblad openen</translation>
 <translation id="7441773108452086364">gmail-wachtwoord wijzigen, mijn gmail-wachtwoord wijzigen, google-wachtwoord wijzigen, gmail-accountwachtwoord resetten</translation>
 <translation id="7469628627013714019">browsercache verwijderen, geschiedenis verwijderen, cookies verwijderen, browsegeschiedenis wissen</translation>
 <translation id="7660956169713698963">chrome os-toegankelijkheid aanpassen, toegankelijkheidsinstellingen beheren</translation>
@@ -36,7 +37,6 @@
 <translation id="7992725801741093524">google-privacyinstellingen wijzigen, google-privacy beheren</translation>
 <translation id="8189600756055704659">instellingen chrome-browsersynchronisatie wijzigen, chrome-synchronisatie wijzigen, synchronisatie bewerken, synchronisatie-instellingen bewerken, synchronisatie beheren</translation>
 <translation id="8307473667919507216">chrome-veiligheidscheck uitvoeren, veiligheidscheck uitvoeren</translation>
-<translation id="8319253638505741466">incognitovenster sluiten, incognito beëindigen</translation>
 <translation id="8350110529112037703">chrome-wachtwoorden beheren, wachtwoord bekijken in chrome</translation>
 <translation id="9015559449837241926">chrome-functies, google chrome-functies leren, nieuwe google chrome-functies, chrome-tips bekijken</translation>
 </translationbundle>

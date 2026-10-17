@@ -40,6 +40,7 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetTestSupport;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.test.util.RenderTestRule.Component;
+import org.chromium.ui.test.util.ViewUtils;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -136,6 +137,7 @@ public class SimpleNoticeSheetRenderTest {
         BottomSheetTestSupport.waitForOpen(mBottomSheetController);
 
         View bottomSheetView = mActivityTestRule.getActivity().findViewById(R.id.bottom_sheet);
+        ViewUtils.waitForStableView(bottomSheetView);
         mRenderTestRule.render(bottomSheetView, "simple_notice_bottom_sheet");
     }
 }

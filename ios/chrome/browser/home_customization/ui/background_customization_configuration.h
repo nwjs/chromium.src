@@ -57,6 +57,20 @@ class GURL;
 // The localized accessibility value associated with the configuration.
 @property(nonatomic, copy) NSString* accessibilityValue;
 
+// The file path of the animated background to display, if any.
+@property(readonly, nonatomic) NSString* animatedBackgroundPath;
+
+// The light mode color mapping for the animated background, if any.
+@property(readonly, nonatomic)
+    NSDictionary<NSString*, UIColor*>* lightModeColorProvider;
+
+// The dark mode color mapping for the animated background, if any.
+@property(readonly, nonatomic)
+    NSDictionary<NSString*, UIColor*>* darkModeColorProvider;
+
+// Whether the "New" badge should be shown on the background cell.
+@property(nonatomic, assign) BOOL showNewBadge;
+
 @end
 
 #endif  // IOS_CHROME_BROWSER_HOME_CUSTOMIZATION_UI_BACKGROUND_CUSTOMIZATION_CONFIGURATION_H_

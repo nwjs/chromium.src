@@ -1953,8 +1953,9 @@ class MetaBuildWrapper:
 
     vpython_exe = 'vpython3'
     extra_files = [
-      '../../.vpython3',
       '../../testing/test_env.py',
+      '../../vpython.toml',
+      '../../vpython.toml.uv.lock',
     ]
 
     if is_android and test_type != 'script':

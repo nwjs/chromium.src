@@ -44,7 +44,7 @@ std::u16string ConcatAncestorsTitles(
 
 AutocompleteMatch TitledUrlMatchToAutocompleteMatch(
     const TitledUrlMatch& titled_url_match,
-    AutocompleteMatchType::Type type,
+    omnibox::AutocompleteMatchType type,
     int relevance,
     int bookmark_count,
     AutocompleteProvider* provider,

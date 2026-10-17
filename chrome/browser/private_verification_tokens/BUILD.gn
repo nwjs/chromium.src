@@ -8,7 +8,9 @@ static_library("private_verification_tokens") {
     "//chrome/browser:*",
     "//chrome/browser/browsing_data:*",
     "//chrome/browser/component_updater:*",
+    "//chrome/browser/devtools:*",
     "//chrome/browser/profiles:profiles_extra_parts_impl",
+    "//chrome/test:*",
   ]
 
   sources = [
@@ -29,6 +31,7 @@ static_library("private_verification_tokens") {
     "//components/private_verification_tokens/common:privacy_pass_athm_batch_request",
     "//components/private_verification_tokens/common:private_verification_tokens_fetcher",
     "//components/private_verification_tokens/common:private_verification_tokens_issuer_config",
+    "//components/private_verification_tokens/common:private_verification_tokens_metrics",
     "//components/private_verification_tokens/common:private_verification_tokens_parameters",
     "//components/private_verification_tokens/common:private_verification_tokens_store",
     "//content/public/browser",
@@ -48,6 +51,7 @@ source_set("browser_tests") {
     "//base/test:test_support",
     "//chrome/browser/content_settings:content_settings_factory",
     "//chrome/test:test_support",
+    "//chrome/test/base:chrome_test_utils",
     "//components/content_settings/core/common",
     "//components/private_verification_tokens/common:private_verification_tokens_database",
     "//components/private_verification_tokens/common:private_verification_tokens_issuer_config",
@@ -73,8 +77,10 @@ source_set("unit_tests") {
     "//chrome/test:test_support",
     "//components/content_settings/core/browser",
     "//components/content_settings/core/common",
+    "//components/private_verification_tokens/common:privacy_pass_athm_batch_request",
     "//components/private_verification_tokens/common:private_verification_tokens_database",
     "//components/private_verification_tokens/common:private_verification_tokens_issuer_config",
+    "//components/private_verification_tokens/common:private_verification_tokens_metrics",
     "//components/private_verification_tokens/common:private_verification_tokens_parameters",
     "//components/private_verification_tokens/common:test_support",
     "//components/private_verification_tokens/common/athm_ffi:athm_ffi_bindings",

@@ -49,6 +49,7 @@ targets.tests.isolated_script_test(
         "always",
         "--test-type",
         "wdspec",
+        "--timeout-multiplier=4",
     ],
     binary = "chrome_public_wpt",
 )
@@ -1851,6 +1852,10 @@ targets.tests.gtest_test(
 )
 
 targets.tests.isolated_script_test(
+    name = "ondevice_api_scrape_tests",
+)
+
+targets.tests.isolated_script_test(
     name = "ondevice_stability_tests",
 )
 
@@ -1858,18 +1863,17 @@ targets.tests.isolated_script_test(
     name = "ondevice_stability_tests_light",
 )
 
-# TODO(b:484388901): Enable GPU backedn testing when the issue is fixed.
-# targets.tests.isolated_script_test(
-#     name = "litert_e2e_tests_gpu",
-#     mixins = [
-#         "has_native_resultdb_integration",
-#     ],
-#     args = [
-#         "--benchmark_binary_dir=./",
-#         "--backends=gpu",
-#     ],
-#     binary = "litert_e2e_tests",
-# )
+targets.tests.isolated_script_test(
+    name = "litert_e2e_tests_gpu",
+    mixins = [
+        "has_native_resultdb_integration",
+    ],
+    args = [
+        "--benchmark_binary_dir=./",
+        "--backends=gpu",
+    ],
+    binary = "litert_e2e_tests",
+)
 
 targets.tests.isolated_script_test(
     name = "litert_e2e_tests_cpu",
@@ -1895,18 +1899,17 @@ targets.tests.isolated_script_test(
     binary = "litert_lm_advanced_main_legacy_tests",
 )
 
-# TODO(b:484388901): Enable GPU backedn testing when the issue is fixed.
-# targets.tests.isolated_script_test(
-#     name = "litert_lm_advanced_main_legacy_tests_gpu",
-#     mixins = [
-#         "has_native_resultdb_integration",
-#     ],
-#     args = [
-#         "--benchmark_binary_dir=./",
-#         "--backends=gpu",
-#     ],
-#     binary = "litert_lm_advanced_main_legacy_tests",
-# )
+targets.tests.isolated_script_test(
+    name = "litert_lm_advanced_main_legacy_tests_gpu",
+    mixins = [
+        "has_native_resultdb_integration",
+    ],
+    args = [
+        "--benchmark_binary_dir=./",
+        "--backends=gpu_artisan",
+    ],
+    binary = "litert_lm_advanced_main_legacy_tests",
+)
 
 targets.tests.isolated_script_test(
     name = "chrome_ai_wpt_tests_manifest_gpu_high_tier",
@@ -2670,23 +2673,6 @@ targets.tests.gpu_telemetry_test(
         "skia_gold_test",
     ],
     module_scheme = "flat",
-)
-
-targets.tests.isolated_script_test(
-    name = "vulkan_swiftshader_blink_web_tests",
-    mixins = [
-        "has_native_resultdb_integration",
-        "blink_tests_write_run_histories",
-    ],
-    args = [
-        # layout test failures are retried 3 times when '--test-list' is not
-        # passed, but 0 times when '--test-list' is passed. We want to always
-        # retry 3 times, so we explicitly specify it.
-        "--num-retries=3",
-        "--skipped=always",
-        "--flag-specific=skia-vulkan-swiftshader",
-    ],
-    binary = "blink_web_tests",
 )
 
 targets.tests.gtest_test(

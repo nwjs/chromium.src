@@ -233,7 +233,8 @@ struct EligibleMatchesAndActions {
             ComputeDestinationUrlForLensQueryText(input.text(), turl_service);
         actions.push_back(
             base::MakeRefCounted<ContextualSearchFulfillmentAction>(
-                url, AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED, false));
+                url, omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
+                false));
       }
     }
 
@@ -329,7 +330,7 @@ AutocompleteMatch ContextualSearchProvider::CreateLensEntrypointMatch(
       omnibox::IsSearchResultsPage(input.current_page_classification())
           ? omnibox::kContextualActionZeroSuggestRelevanceLow
           : omnibox::kContextualActionZeroSuggestRelevance,
-      false, AutocompleteMatchType::PEDAL);
+      false, omnibox::AutocompleteMatchType::kPedal);
   match.transition = ui::PAGE_TRANSITION_GENERATED;
   match.suggest_type = omnibox::SuggestType::TYPE_NATIVE_CHROME;
   match.suggestion_group_id = omnibox::GroupId::GROUP_CONTEXTUAL_SEARCH_ACTION;
@@ -364,7 +365,8 @@ bool ContextualSearchProvider::LensEntrypointEligible(
 ContextualSearchProvider::ContextualSearchProvider(
     AutocompleteProviderClient* client,
     AutocompleteProviderListener* listener)
-    : BaseSearchProvider(AutocompleteProvider::TYPE_CONTEXTUAL_SEARCH, client) {
+    : BaseSearchProvider(AutocompleteProvider::Type::kContextualSearch,
+                         client) {
   AddListener(listener);
 }
 
@@ -523,7 +525,7 @@ void ContextualSearchProvider::AddDefaultVerbatimMatch(
   std::u16string text = base::CollapseWhitespace(input.text(), false);
 
   AutocompleteMatch match(this, kDefaultVerbatimMatchRelevance, false,
-                          AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED);
+                          omnibox::AutocompleteMatchType::kSearchWhatYouTyped);
   if (text.empty()) {
     // Inert/static keyword mode helper text match for empty input. This match
     // doesn't commit the omnibox when selected, it just stands in to inform the
@@ -545,7 +547,7 @@ void ContextualSearchProvider::AddDefaultVerbatimMatch(
     // to be fulfilled via ContextualSearchFulfillmentAction `takeover_action`.
     SearchSuggestionParser::SuggestResult verbatim(
         /*suggestion=*/text,
-        /*type=*/AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED,
+        /*type=*/omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
         /*suggest_type=*/omnibox::TYPE_NATIVE_CHROME,
         /*subtypes=*/{omnibox::SUBTYPE_CONTEXTUAL_SEARCH},
         /*from_keyword=*/true,
@@ -565,7 +567,7 @@ void ContextualSearchProvider::AddToolbeltMatch(
     const AutocompleteInput& input,
     std::vector<scoped_refptr<OmniboxAction>> actions) {
   AutocompleteMatch match(this, omnibox::kToolbeltRelevance, false,
-                          AutocompleteMatchType::NULL_RESULT_MESSAGE);
+                          omnibox::AutocompleteMatchType::kNullResultMessage);
   match.transition = ui::PAGE_TRANSITION_GENERATED;
   match.suggest_type = omnibox::SuggestType::TYPE_NATIVE_CHROME;
   match.suggestion_group_id = omnibox::GroupId::GROUP_SEARCH_TOOLBELT;

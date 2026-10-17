@@ -10,13 +10,14 @@
 
 #include "base/functional/callback.h"
 #include "base/run_loop.h"
+#include "base/test/bind.h"
 #include "base/test/gmock_callback_support.h"
 #include "base/test/gtest_util.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
-#include "components/origin_gating/core/actor_container_config.h"
-#include "components/origin_gating/core/actor_container_config_slot.h"
 #include "components/origin_gating/core/origin_gating_configuration.h"
+#include "components/origin_gating/core/task_policy_config.h"
+#include "components/origin_gating/core/task_policy_config_slot.h"
 #include "components/origin_gating/core/types.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -45,6 +46,14 @@ enum class OtherTestCustomPredicate {
   kOtherCustom2,
 };
 
+TaskPolicyConfig::Rule AllowlistedRule() {
+  return TaskPolicyConfig::Rule(
+      /*navigation_sources=*/{},
+      /*resources=*/{TaskPolicyConfig::Rule::Resource::kSession},
+      /*capabilities=*/
+      {TaskPolicyConfig::Rule::Capability::kAll});
+}
+
 }  // namespace
 
 template <>
@@ -65,9 +74,7 @@ class MockDelegate : public OriginGatingChecker::Delegate {
   MOCK_METHOD(void,
               DoesOriginRequireUserConfirmation,
               (GatingDecisionContext * context,
-               GateableEvent event,
-               const GURL& source,
-               const GURL& destination,
+               const GateableEvent& event,
                DoesOriginRequireUserConfirmationCallback callback),
               (const, override));
   MOCK_METHOD(void,
@@ -78,12 +85,17 @@ class MockDelegate : public OriginGatingChecker::Delegate {
   MOCK_METHOD(void,
               OnNoVerdict,
               (GatingDecisionContext * context,
-               GateableEvent event,
-               const GURL& source,
-               const GURL& destination,
+               const GateableEvent& event,
                bool requires_user_confirmation,
                base::OnceCallback<void(NoVerdictResult)> callback),
               (override));
+
+  base::WeakPtr<MockDelegate> GetWeakPtr() {
+    return weak_ptr_factory_.GetWeakPtr();
+  }
+
+ private:
+  base::WeakPtrFactory<MockDelegate> weak_ptr_factory_{this};
 };
 
 class OriginGatingCheckerTest : public ::testing::Test {
@@ -91,18 +103,15 @@ class OriginGatingCheckerTest : public ::testing::Test {
   base::test::TaskEnvironment task_environment_;
   NiceMock<MockDelegate> delegate_;
 
-  void SetUpDelegateExpectations(const GURL& source,
-                                 const GURL& destination,
+  void SetUpDelegateExpectations(const GateableEvent& event,
                                  bool requires_user_confirmation,
                                  bool is_allowed,
                                  bool did_prompt_user) {
-    EXPECT_CALL(delegate_,
-                DoesOriginRequireUserConfirmation(_, _, source, destination, _))
-        .WillOnce(base::test::RunOnceCallback<4>(requires_user_confirmation));
+    EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, event, _))
+        .WillOnce(base::test::RunOnceCallback<2>(requires_user_confirmation));
 
-    EXPECT_CALL(delegate_, OnNoVerdict(_, _, source, destination,
-                                       requires_user_confirmation, _))
-        .WillOnce(base::test::RunOnceCallback<5>(
+    EXPECT_CALL(delegate_, OnNoVerdict(_, event, requires_user_confirmation, _))
+        .WillOnce(base::test::RunOnceCallback<3>(
             OriginGatingChecker::Delegate::NoVerdictResult{
                 .is_allowed = is_allowed, .did_prompt_user = did_prompt_user}));
   }
@@ -110,14 +119,12 @@ class OriginGatingCheckerTest : public ::testing::Test {
   GatingDecision ComputeGatingDecisionAndVerifyAsynchrony(
       OriginGatingChecker& checker,
       std::unique_ptr<GatingDecisionContext> context,
-      const GURL& source,
-      const GURL& destination) {
+      GateableEvent event) {
     base::test::TestFuture<std::unique_ptr<GatingDecisionContext>,
                            GatingDecision>
         future;
-    checker.ComputeGatingDecision(std::move(context),
-                                  GateableEvent::kNavigationResponse, source,
-                                  destination, future.GetCallback());
+    checker.ComputeGatingDecision(std::move(context), std::move(event),
+                                  future.GetCallback());
 
     EXPECT_FALSE(future.IsReady());
     return future.Get<1>();
@@ -126,18 +133,22 @@ class OriginGatingCheckerTest : public ::testing::Test {
 
 TEST_F(OriginGatingCheckerTest, FallsBack_Allowed_NoPrompt) {
   OriginGatingChecker checker(
-      delegate_, OriginGatingConfiguration({}, /*use_site_keyed_cache=*/false));
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration({}, /*use_site_keyed_cache=*/false));
 
   GURL source("https://example.com");
   GURL destination("https://foo.com");
 
-  SetUpDelegateExpectations(source, destination,
+  SetUpDelegateExpectations(GateableEvent(NavigationResponseEvent{
+                                .source = source, .destination = destination}),
                             /*requires_user_confirmation=*/false,
                             /*is_allowed=*/true,
                             /*did_prompt_user=*/false);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kNoVerdict);
@@ -145,18 +156,22 @@ TEST_F(OriginGatingCheckerTest, FallsBack_Allowed_NoPrompt) {
 
 TEST_F(OriginGatingCheckerTest, FallsBack_Allowed_WithPrompt) {
   OriginGatingChecker checker(
-      delegate_, OriginGatingConfiguration({}, /*use_site_keyed_cache=*/false));
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration({}, /*use_site_keyed_cache=*/false));
 
   GURL source("https://example.com");
   GURL destination("https://foo.com");
 
-  SetUpDelegateExpectations(source, destination,
+  SetUpDelegateExpectations(GateableEvent(NavigationResponseEvent{
+                                .source = source, .destination = destination}),
                             /*requires_user_confirmation=*/false,
                             /*is_allowed=*/true,
                             /*did_prompt_user=*/true);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kNoVerdict);
@@ -164,18 +179,22 @@ TEST_F(OriginGatingCheckerTest, FallsBack_Allowed_WithPrompt) {
 
 TEST_F(OriginGatingCheckerTest, FallsBack_Blocked) {
   OriginGatingChecker checker(
-      delegate_, OriginGatingConfiguration({}, /*use_site_keyed_cache=*/false));
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration({}, /*use_site_keyed_cache=*/false));
 
   GURL source("https://example.com");
   GURL destination("https://foo.com");
 
-  SetUpDelegateExpectations(source, destination,
+  SetUpDelegateExpectations(GateableEvent(NavigationResponseEvent{
+                                .source = source, .destination = destination}),
                             /*requires_user_confirmation=*/false,
                             /*is_allowed=*/false,
                             /*did_prompt_user=*/false);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_FALSE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kNoVerdict);
@@ -183,18 +202,22 @@ TEST_F(OriginGatingCheckerTest, FallsBack_Blocked) {
 
 TEST_F(OriginGatingCheckerTest, FallsBack_Blocked_WithPrompt) {
   OriginGatingChecker checker(
-      delegate_, OriginGatingConfiguration({}, /*use_site_keyed_cache=*/false));
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration({}, /*use_site_keyed_cache=*/false));
 
   GURL source("https://example.com");
   GURL destination("https://foo.com");
 
-  SetUpDelegateExpectations(source, destination,
+  SetUpDelegateExpectations(GateableEvent(NavigationResponseEvent{
+                                .source = source, .destination = destination}),
                             /*requires_user_confirmation=*/true,
                             /*is_allowed=*/false,
                             /*did_prompt_user=*/true);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_FALSE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kNoVerdict);
@@ -209,7 +232,8 @@ class TestGatingContext : public GatingDecisionContext {
 
 TEST_F(OriginGatingCheckerTest, PlumbsContext) {
   OriginGatingChecker checker(
-      delegate_, OriginGatingConfiguration({}, /*use_site_keyed_cache=*/false));
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration({}, /*use_site_keyed_cache=*/false));
 
   GURL source("https://example.com");
   GURL destination("https://foo.com");
@@ -218,21 +242,28 @@ TEST_F(OriginGatingCheckerTest, PlumbsContext) {
   GatingDecisionContext* expected_context_ptr = context.get();
 
   EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(
-                             expected_context_ptr, _, source, destination, _))
-      .WillOnce(base::test::RunOnceCallback<4>(true));
+                             expected_context_ptr,
+                             GateableEvent(NavigationResponseEvent{
+                                 .source = source, .destination = destination}),
+                             _))
+      .WillOnce(base::test::RunOnceCallback<2>(true));
 
   EXPECT_CALL(delegate_,
-              OnNoVerdict(expected_context_ptr, _, source, destination,
+              OnNoVerdict(expected_context_ptr,
+                          GateableEvent(NavigationResponseEvent{
+                              .source = source, .destination = destination}),
                           /*requires_user_confirmation=*/true, _))
-      .WillOnce(base::test::RunOnceCallback<5>(
+      .WillOnce(base::test::RunOnceCallback<3>(
           OriginGatingChecker::Delegate::NoVerdictResult{
               .is_allowed = true, .did_prompt_user = false}));
 
   base::test::TestFuture<std::unique_ptr<GatingDecisionContext>, GatingDecision>
       future;
-  checker.ComputeGatingDecision(std::move(context),
-                                GateableEvent::kNavigationResponse, source,
-                                destination, future.GetCallback());
+  checker.ComputeGatingDecision(
+      std::move(context),
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}),
+      future.GetCallback());
 
   auto [returned_context, decision] = future.Take();
   EXPECT_THAT(returned_context, Pointer(expected_context_ptr));
@@ -242,19 +273,22 @@ TEST_F(OriginGatingCheckerTest, PlumbsContext) {
 TEST_F(OriginGatingCheckerTest,
        BuiltInPredicate_AllowSameOrigin_ShortCircuits) {
   OriginGatingChecker checker(
-      delegate_, OriginGatingConfiguration({{DecisionSource::kAllowSameOrigin,
-                                             GateableEventSet::All()}},
-                                           /*use_site_keyed_cache=*/false));
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration({{DecisionSource::kAllowSameOrigin,
+                                  {GateableEvent::kNavigationRequest,
+                                   GateableEvent::kNavigationResponse}}},
+                                /*use_site_keyed_cache=*/false));
 
   GURL source("https://example.com/page1");
   GURL destination("https://example.com/page2");
 
-  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _, _, _))
-      .Times(0);
-  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _, _, _)).Times(0);
+  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _)).Times(0);
+  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _)).Times(0);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kAllowSameOrigin);
@@ -263,20 +297,25 @@ TEST_F(OriginGatingCheckerTest,
 TEST_F(OriginGatingCheckerTest,
        BuiltInPredicate_AllowSameOrigin_NoDecision_FallsBack) {
   OriginGatingChecker checker(
-      delegate_, OriginGatingConfiguration({{DecisionSource::kAllowSameOrigin,
-                                             GateableEventSet::All()}},
-                                           /*use_site_keyed_cache=*/false));
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration({{DecisionSource::kAllowSameOrigin,
+                                  {GateableEvent::kNavigationRequest,
+                                   GateableEvent::kNavigationResponse}}},
+                                /*use_site_keyed_cache=*/false));
 
   GURL source("https://example.com");
   GURL destination("https://foo.com");
 
-  SetUpDelegateExpectations(source, destination,
+  SetUpDelegateExpectations(GateableEvent(NavigationResponseEvent{
+                                .source = source, .destination = destination}),
                             /*requires_user_confirmation=*/false,
                             /*is_allowed=*/true,
                             /*did_prompt_user=*/false);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kNoVerdict);
@@ -285,7 +324,7 @@ TEST_F(OriginGatingCheckerTest,
 TEST_F(OriginGatingCheckerTest,
        BuiltInPredicate_ForbidNonLocalhostIpAddress_Blocked) {
   OriginGatingChecker checker(
-      delegate_,
+      delegate_.GetWeakPtr(),
       OriginGatingConfiguration({{DecisionSource::kForbidNonLocalhostIpAddress,
                                   GateableEventSet::All()}},
                                 /*use_site_keyed_cache=*/false));
@@ -293,12 +332,13 @@ TEST_F(OriginGatingCheckerTest,
   GURL source("https://example.com");
   GURL destination("https://192.168.1.1/page");
 
-  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _, _, _))
-      .Times(0);
-  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _, _, _)).Times(0);
+  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _)).Times(0);
+  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _)).Times(0);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_FALSE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kForbidNonLocalhostIpAddress);
@@ -307,7 +347,7 @@ TEST_F(OriginGatingCheckerTest,
 TEST_F(OriginGatingCheckerTest,
        BuiltInPredicate_ForbidNonLocalhostIpAddress_Ipv4LocalhostFallsBack) {
   OriginGatingChecker checker(
-      delegate_,
+      delegate_.GetWeakPtr(),
       OriginGatingConfiguration({{DecisionSource::kForbidNonLocalhostIpAddress,
                                   GateableEventSet::All()}},
                                 /*use_site_keyed_cache=*/false));
@@ -315,13 +355,16 @@ TEST_F(OriginGatingCheckerTest,
   GURL source("https://example.com");
   GURL destination("https://127.0.0.1/page");
 
-  SetUpDelegateExpectations(source, destination,
+  SetUpDelegateExpectations(GateableEvent(NavigationResponseEvent{
+                                .source = source, .destination = destination}),
                             /*requires_user_confirmation=*/false,
                             /*is_allowed=*/true,
                             /*did_prompt_user=*/false);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kNoVerdict);
@@ -330,7 +373,7 @@ TEST_F(OriginGatingCheckerTest,
 TEST_F(OriginGatingCheckerTest,
        BuiltInPredicate_ForbidNonLocalhostIpAddress_Ipv6LocalhostFallsBack) {
   OriginGatingChecker checker(
-      delegate_,
+      delegate_.GetWeakPtr(),
       OriginGatingConfiguration({{DecisionSource::kForbidNonLocalhostIpAddress,
                                   GateableEventSet::All()}},
                                 /*use_site_keyed_cache=*/false));
@@ -338,13 +381,16 @@ TEST_F(OriginGatingCheckerTest,
   GURL source("https://example.com");
   GURL destination("https://[::1]/page");
 
-  SetUpDelegateExpectations(source, destination,
+  SetUpDelegateExpectations(GateableEvent(NavigationResponseEvent{
+                                .source = source, .destination = destination}),
                             /*requires_user_confirmation=*/false,
                             /*is_allowed=*/true,
                             /*did_prompt_user=*/false);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kNoVerdict);
@@ -353,7 +399,7 @@ TEST_F(OriginGatingCheckerTest,
 TEST_F(OriginGatingCheckerTest,
        BuiltInPredicate_ForbidNonLocalhostIpAddress_NoDecision_FallsBack) {
   OriginGatingChecker checker(
-      delegate_,
+      delegate_.GetWeakPtr(),
       OriginGatingConfiguration({{DecisionSource::kForbidNonLocalhostIpAddress,
                                   GateableEventSet::All()}},
                                 /*use_site_keyed_cache=*/false));
@@ -361,13 +407,16 @@ TEST_F(OriginGatingCheckerTest,
   GURL source("https://example.com");
   GURL destination("https://foo.com");
 
-  SetUpDelegateExpectations(source, destination,
+  SetUpDelegateExpectations(GateableEvent(NavigationResponseEvent{
+                                .source = source, .destination = destination}),
                             /*requires_user_confirmation=*/false,
                             /*is_allowed=*/true,
                             /*did_prompt_user=*/false);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kNoVerdict);
@@ -376,7 +425,7 @@ TEST_F(OriginGatingCheckerTest,
 TEST_F(OriginGatingCheckerTest,
        BuiltInPredicate_RequireHttpsOrLocalhost_HttpsFallsBack) {
   OriginGatingChecker checker(
-      delegate_,
+      delegate_.GetWeakPtr(),
       OriginGatingConfiguration(
           {{DecisionSource::kRequireHttpsOrLocalhost, GateableEventSet::All()}},
           /*use_site_keyed_cache=*/false));
@@ -384,13 +433,16 @@ TEST_F(OriginGatingCheckerTest,
   GURL source("https://example.com");
   GURL destination("https://foo.com");
 
-  SetUpDelegateExpectations(source, destination,
+  SetUpDelegateExpectations(GateableEvent(NavigationResponseEvent{
+                                .source = source, .destination = destination}),
                             /*requires_user_confirmation=*/false,
                             /*is_allowed=*/true,
                             /*did_prompt_user=*/false);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kNoVerdict);
@@ -399,7 +451,7 @@ TEST_F(OriginGatingCheckerTest,
 TEST_F(OriginGatingCheckerTest,
        BuiltInPredicate_RequireHttpsOrLocalhost_HttpBlocked) {
   OriginGatingChecker checker(
-      delegate_,
+      delegate_.GetWeakPtr(),
       OriginGatingConfiguration(
           {{DecisionSource::kRequireHttpsOrLocalhost, GateableEventSet::All()}},
           /*use_site_keyed_cache=*/false));
@@ -407,12 +459,13 @@ TEST_F(OriginGatingCheckerTest,
   GURL source("https://example.com");
   GURL destination("http://foo.com");
 
-  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _, _, _))
-      .Times(0);
-  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _, _, _)).Times(0);
+  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _)).Times(0);
+  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _)).Times(0);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_FALSE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kRequireHttpsOrLocalhost);
@@ -421,7 +474,7 @@ TEST_F(OriginGatingCheckerTest,
 TEST_F(OriginGatingCheckerTest,
        BuiltInPredicate_RequireHttpsOrLocalhost_DomainLocalhostFallsBack) {
   OriginGatingChecker checker(
-      delegate_,
+      delegate_.GetWeakPtr(),
       OriginGatingConfiguration(
           {{DecisionSource::kRequireHttpsOrLocalhost, GateableEventSet::All()}},
           /*use_site_keyed_cache=*/false));
@@ -429,13 +482,16 @@ TEST_F(OriginGatingCheckerTest,
   GURL source("https://example.com");
   GURL destination("http://localhost/page");
 
-  SetUpDelegateExpectations(source, destination,
+  SetUpDelegateExpectations(GateableEvent(NavigationResponseEvent{
+                                .source = source, .destination = destination}),
                             /*requires_user_confirmation=*/false,
                             /*is_allowed=*/true,
                             /*did_prompt_user=*/false);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kNoVerdict);
@@ -444,7 +500,7 @@ TEST_F(OriginGatingCheckerTest,
 TEST_F(OriginGatingCheckerTest,
        BuiltInPredicate_RequireHttpsOrLocalhost_Ipv4LocalhostFallsBack) {
   OriginGatingChecker checker(
-      delegate_,
+      delegate_.GetWeakPtr(),
       OriginGatingConfiguration(
           {{DecisionSource::kRequireHttpsOrLocalhost, GateableEventSet::All()}},
           /*use_site_keyed_cache=*/false));
@@ -452,13 +508,16 @@ TEST_F(OriginGatingCheckerTest,
   GURL source("https://example.com");
   GURL destination("http://127.0.0.1/page");
 
-  SetUpDelegateExpectations(source, destination,
+  SetUpDelegateExpectations(GateableEvent(NavigationResponseEvent{
+                                .source = source, .destination = destination}),
                             /*requires_user_confirmation=*/false,
                             /*is_allowed=*/true,
                             /*did_prompt_user=*/false);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kNoVerdict);
@@ -467,7 +526,7 @@ TEST_F(OriginGatingCheckerTest,
 TEST_F(OriginGatingCheckerTest,
        BuiltInPredicate_RequireHttpsOrLocalhost_Ipv6LocalhostFallsBack) {
   OriginGatingChecker checker(
-      delegate_,
+      delegate_.GetWeakPtr(),
       OriginGatingConfiguration(
           {{DecisionSource::kRequireHttpsOrLocalhost, GateableEventSet::All()}},
           /*use_site_keyed_cache=*/false));
@@ -475,13 +534,16 @@ TEST_F(OriginGatingCheckerTest,
   GURL source("https://example.com");
   GURL destination("http://[::1]/page");
 
-  SetUpDelegateExpectations(source, destination,
+  SetUpDelegateExpectations(GateableEvent(NavigationResponseEvent{
+                                .source = source, .destination = destination}),
                             /*requires_user_confirmation=*/false,
                             /*is_allowed=*/true,
                             /*did_prompt_user=*/false);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kNoVerdict);
@@ -490,7 +552,7 @@ TEST_F(OriginGatingCheckerTest,
 TEST_F(OriginGatingCheckerTest,
        BuiltInPredicate_RequireHttpsOrLocalhost_NonHttpLocalhostBlocked) {
   OriginGatingChecker checker(
-      delegate_,
+      delegate_.GetWeakPtr(),
       OriginGatingConfiguration(
           {{DecisionSource::kRequireHttpsOrLocalhost, GateableEventSet::All()}},
           /*use_site_keyed_cache=*/false));
@@ -499,7 +561,9 @@ TEST_F(OriginGatingCheckerTest,
   GURL destination("file://localhost/tmp");
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_FALSE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kRequireHttpsOrLocalhost);
@@ -508,7 +572,7 @@ TEST_F(OriginGatingCheckerTest,
 TEST_F(OriginGatingCheckerTest,
        BuiltInPredicate_RequireHttpsOrHttp_HttpsFallsBack) {
   OriginGatingChecker checker(
-      delegate_,
+      delegate_.GetWeakPtr(),
       OriginGatingConfiguration(
           {{DecisionSource::kRequireHttpsOrHttp, GateableEventSet::All()}},
           /*use_site_keyed_cache=*/false));
@@ -516,13 +580,16 @@ TEST_F(OriginGatingCheckerTest,
   GURL source("https://example.com");
   GURL destination("https://foo.com");
 
-  SetUpDelegateExpectations(source, destination,
+  SetUpDelegateExpectations(GateableEvent(NavigationResponseEvent{
+                                .source = source, .destination = destination}),
                             /*requires_user_confirmation=*/false,
                             /*is_allowed=*/true,
                             /*did_prompt_user=*/false);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kNoVerdict);
@@ -531,7 +598,7 @@ TEST_F(OriginGatingCheckerTest,
 TEST_F(OriginGatingCheckerTest,
        BuiltInPredicate_RequireHttpsOrHttp_HttpFallsBack) {
   OriginGatingChecker checker(
-      delegate_,
+      delegate_.GetWeakPtr(),
       OriginGatingConfiguration(
           {{DecisionSource::kRequireHttpsOrHttp, GateableEventSet::All()}},
           /*use_site_keyed_cache=*/false));
@@ -539,13 +606,16 @@ TEST_F(OriginGatingCheckerTest,
   GURL source("https://example.com");
   GURL destination("http://foo.com");
 
-  SetUpDelegateExpectations(source, destination,
+  SetUpDelegateExpectations(GateableEvent(NavigationResponseEvent{
+                                .source = source, .destination = destination}),
                             /*requires_user_confirmation=*/false,
                             /*is_allowed=*/true,
                             /*did_prompt_user=*/false);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kNoVerdict);
@@ -554,7 +624,7 @@ TEST_F(OriginGatingCheckerTest,
 TEST_F(OriginGatingCheckerTest,
        BuiltInPredicate_RequireHttpsOrHttp_NonWebSchemeBlocked) {
   OriginGatingChecker checker(
-      delegate_,
+      delegate_.GetWeakPtr(),
       OriginGatingConfiguration(
           {{DecisionSource::kRequireHttpsOrHttp, GateableEventSet::All()}},
           /*use_site_keyed_cache=*/false));
@@ -562,12 +632,13 @@ TEST_F(OriginGatingCheckerTest,
   GURL source("https://example.com");
   GURL destination("file:///tmp/file");
 
-  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _, _, _))
-      .Times(0);
-  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _, _, _)).Times(0);
+  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _)).Times(0);
+  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _)).Times(0);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_FALSE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kRequireHttpsOrHttp);
@@ -576,7 +647,7 @@ TEST_F(OriginGatingCheckerTest,
 TEST_F(OriginGatingCheckerTest,
        BuiltInPredicate_AllowHttpLocalhost_HttpLocalhostAllowed) {
   OriginGatingChecker checker(
-      delegate_,
+      delegate_.GetWeakPtr(),
       OriginGatingConfiguration(
           {{DecisionSource::kAllowHttpLocalhost, GateableEventSet::All()}},
           /*use_site_keyed_cache=*/false));
@@ -584,12 +655,13 @@ TEST_F(OriginGatingCheckerTest,
   GURL source("https://example.com");
   GURL destination("http://localhost/path");
 
-  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _, _, _))
-      .Times(0);
-  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _, _, _)).Times(0);
+  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _)).Times(0);
+  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _)).Times(0);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kAllowHttpLocalhost);
@@ -598,7 +670,7 @@ TEST_F(OriginGatingCheckerTest,
 TEST_F(OriginGatingCheckerTest,
        BuiltInPredicate_AllowHttpLocalhost_NonHttpSchemeFallsBack) {
   OriginGatingChecker checker(
-      delegate_,
+      delegate_.GetWeakPtr(),
       OriginGatingConfiguration(
           {{DecisionSource::kAllowHttpLocalhost, GateableEventSet::All()}},
           /*use_site_keyed_cache=*/false));
@@ -606,13 +678,16 @@ TEST_F(OriginGatingCheckerTest,
   GURL source("https://example.com");
   GURL destination("ws://localhost/path");
 
-  SetUpDelegateExpectations(source, destination,
+  SetUpDelegateExpectations(GateableEvent(NavigationResponseEvent{
+                                .source = source, .destination = destination}),
                             /*requires_user_confirmation=*/false,
                             /*is_allowed=*/true,
                             /*did_prompt_user=*/false);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kNoVerdict);
@@ -621,7 +696,7 @@ TEST_F(OriginGatingCheckerTest,
 TEST_F(OriginGatingCheckerTest,
        BuiltInPredicate_AllowHttpLocalhost_NonLocalhostFallsBack) {
   OriginGatingChecker checker(
-      delegate_,
+      delegate_.GetWeakPtr(),
       OriginGatingConfiguration(
           {{DecisionSource::kAllowHttpLocalhost, GateableEventSet::All()}},
           /*use_site_keyed_cache=*/false));
@@ -629,13 +704,16 @@ TEST_F(OriginGatingCheckerTest,
   GURL source("https://example.com");
   GURL destination("http://foo.com/path");
 
-  SetUpDelegateExpectations(source, destination,
+  SetUpDelegateExpectations(GateableEvent(NavigationResponseEvent{
+                                .source = source, .destination = destination}),
                             /*requires_user_confirmation=*/false,
                             /*is_allowed=*/true,
                             /*did_prompt_user=*/false);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kNoVerdict);
@@ -644,19 +722,21 @@ TEST_F(OriginGatingCheckerTest,
 TEST_F(OriginGatingCheckerTest,
        BuiltInPredicate_AllowAboutBlank_AboutBlankAllowed) {
   OriginGatingChecker checker(
-      delegate_, OriginGatingConfiguration({{DecisionSource::kAllowAboutBlank,
-                                             GateableEventSet::All()}},
-                                           /*use_site_keyed_cache=*/false));
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration(
+          {{DecisionSource::kAllowAboutBlank, GateableEventSet::All()}},
+          /*use_site_keyed_cache=*/false));
 
   GURL source("https://example.com");
   GURL destination("about:blank");
 
-  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _, _, _))
-      .Times(0);
-  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _, _, _)).Times(0);
+  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _)).Times(0);
+  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _)).Times(0);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kAllowAboutBlank);
@@ -665,63 +745,70 @@ TEST_F(OriginGatingCheckerTest,
 TEST_F(OriginGatingCheckerTest,
        BuiltInPredicate_AllowAboutBlank_NonBlankFallsBack) {
   OriginGatingChecker checker(
-      delegate_, OriginGatingConfiguration({{DecisionSource::kAllowAboutBlank,
-                                             GateableEventSet::All()}},
-                                           /*use_site_keyed_cache=*/false));
-
-  GURL source("https://example.com");
-  GURL destination("https://foo.com");
-
-  SetUpDelegateExpectations(source, destination,
-                            /*requires_user_confirmation=*/false,
-                            /*is_allowed=*/true,
-                            /*did_prompt_user=*/false);
-
-  GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
-
-  EXPECT_TRUE(decision.is_allowed);
-  EXPECT_EQ(decision.attribution, DecisionSource::kNoVerdict);
-}
-
-TEST_F(OriginGatingCheckerTest,
-       BuiltInPredicate_ActorContainerConfig_NoConfigFallsBack) {
-  OriginGatingChecker checker(
-      delegate_,
+      delegate_.GetWeakPtr(),
       OriginGatingConfiguration(
-          {{DecisionSource::kActorContainerConfig, GateableEventSet::All()}},
+          {{DecisionSource::kAllowAboutBlank, GateableEventSet::All()}},
           /*use_site_keyed_cache=*/false));
 
   GURL source("https://example.com");
   GURL destination("https://foo.com");
 
-  SetUpDelegateExpectations(source, destination,
+  SetUpDelegateExpectations(GateableEvent(NavigationResponseEvent{
+                                .source = source, .destination = destination}),
                             /*requires_user_confirmation=*/false,
                             /*is_allowed=*/true,
                             /*did_prompt_user=*/false);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kNoVerdict);
 }
 
 TEST_F(OriginGatingCheckerTest,
-       BuiltInPredicate_ActorContainerConfig_NavigationAllowed) {
+       BuiltInPredicate_TaskPolicyConfig_NoConfigFallsBack) {
   OriginGatingChecker checker(
-      delegate_,
+      delegate_.GetWeakPtr(),
       OriginGatingConfiguration(
-          {{DecisionSource::kActorContainerConfig, GateableEventSet::All()}},
+          {{DecisionSource::kBlockByTaskPolicyConfig, GateableEventSet::All()}},
+          /*use_site_keyed_cache=*/false));
+
+  GURL source("https://example.com");
+  GURL destination("https://foo.com");
+
+  SetUpDelegateExpectations(GateableEvent(NavigationResponseEvent{
+                                .source = source, .destination = destination}),
+                            /*requires_user_confirmation=*/false,
+                            /*is_allowed=*/true,
+                            /*did_prompt_user=*/false);
+
+  GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
+
+  EXPECT_TRUE(decision.is_allowed);
+  EXPECT_EQ(decision.attribution, DecisionSource::kNoVerdict);
+}
+
+TEST_F(OriginGatingCheckerTest,
+       BuiltInPredicate_TaskPolicyConfig_NavigationAllowed) {
+  OriginGatingChecker checker(
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration(
+          {{DecisionSource::kAllowByTaskPolicyConfig, GateableEventSet::All()}},
           /*use_site_keyed_cache=*/false));
 
   // Configure the slot on the checker.
-  checker.actor_container_config_slot().Assign(ActorContainerConfig({{
-      {ActorContainerConfig::Location(ActorContainerConfig::Wildcard()),
-       ActorContainerConfig::Rule(
+  checker.task_policy_config_slot().Assign(TaskPolicyConfig({{
+      {TaskPolicyConfig::Location(TaskPolicyConfig::Wildcard()),
+       TaskPolicyConfig::Rule(
            /*navigation_sources=*/{},
-           /*resources=*/{ActorContainerConfig::Rule::Resource::kSession},
-           /*capabilities=*/{ActorContainerConfig::Rule::Capability::kAll})},
+           /*resources=*/{TaskPolicyConfig::Rule::Resource::kSession},
+           /*capabilities=*/{TaskPolicyConfig::Rule::Capability::kAll})},
   }}));
 
   GURL source("https://example.com");
@@ -729,110 +816,215 @@ TEST_F(OriginGatingCheckerTest,
 
   // Since it is explicitly allowed, we don't query the delegate for user
   // confirmation or no-verdict (it does not fall back).
-  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _, _, _))
-      .Times(0);
-  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _, _, _)).Times(0);
+  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _)).Times(0);
+  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _)).Times(0);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_TRUE(decision.is_allowed);
-  EXPECT_EQ(decision.attribution, DecisionSource::kActorContainerConfig);
+  EXPECT_EQ(decision.attribution, DecisionSource::kAllowByTaskPolicyConfig);
 }
 
 TEST_F(OriginGatingCheckerTest,
-       BuiltInPredicate_ActorContainerConfig_NavigationBlocked) {
+       BuiltInPredicate_TaskPolicyConfig_NavigationBlocked) {
   OriginGatingChecker checker(
-      delegate_,
+      delegate_.GetWeakPtr(),
       OriginGatingConfiguration(
-          {{DecisionSource::kActorContainerConfig, GateableEventSet::All()}},
+          {{DecisionSource::kBlockByTaskPolicyConfig, GateableEventSet::All()}},
           /*use_site_keyed_cache=*/false));
 
   // Set an empty config which blocks all navigations.
-  checker.actor_container_config_slot().Assign(ActorContainerConfig());
+  checker.task_policy_config_slot().Assign(TaskPolicyConfig());
 
   GURL source("https://example.com");
   GURL destination("https://foo.com");
 
-  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _, _, _))
-      .Times(0);
-  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _, _, _)).Times(0);
+  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _)).Times(0);
+  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _)).Times(0);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_FALSE(decision.is_allowed);
-  EXPECT_EQ(decision.attribution, DecisionSource::kActorContainerConfig);
+  EXPECT_EQ(decision.attribution, DecisionSource::kBlockByTaskPolicyConfig);
 }
 
 TEST_F(OriginGatingCheckerTest,
-       BuiltInPredicate_ActorContainerConfig_PageActionAllowed) {
+       BuiltInPredicate_TaskPolicyConfig_PageActionAllowed) {
   OriginGatingChecker checker(
-      delegate_,
+      delegate_.GetWeakPtr(),
       OriginGatingConfiguration(
-          {{DecisionSource::kActorContainerConfig, GateableEventSet::All()}},
+          {{DecisionSource::kAllowByTaskPolicyConfig, GateableEventSet::All()}},
           /*use_site_keyed_cache=*/false));
 
   // Configure the slot to allow actuation.
-  checker.actor_container_config_slot().Assign(ActorContainerConfig({{
-      {ActorContainerConfig::Location(ActorContainerConfig::Wildcard()),
-       ActorContainerConfig::Rule(
+  checker.task_policy_config_slot().Assign(TaskPolicyConfig({{
+      {TaskPolicyConfig::Location(TaskPolicyConfig::Wildcard()),
+       TaskPolicyConfig::Rule(
            /*navigation_sources=*/{},
-           /*resources=*/{ActorContainerConfig::Rule::Resource::kSession},
-           /*capabilities=*/{ActorContainerConfig::Rule::Capability::kAll})},
+           /*resources=*/{TaskPolicyConfig::Rule::Resource::kSession},
+           /*capabilities=*/{TaskPolicyConfig::Rule::Capability::kAll})},
   }}));
 
-  GURL source("https://example.com");
   GURL destination("https://foo.com");
 
-  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _, _, _))
-      .Times(0);
-  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _, _, _)).Times(0);
+  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _)).Times(0);
+  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _)).Times(0);
 
   // Use page action event.
   base::test::TestFuture<std::unique_ptr<GatingDecisionContext>, GatingDecision>
       future;
-  checker.ComputeGatingDecision(nullptr, GateableEvent::kPageAction, source,
-                                destination, future.GetCallback());
+  checker.ComputeGatingDecision(
+      nullptr, GateableEvent(PageActionEvent{.destination = destination}),
+      future.GetCallback());
 
   GatingDecision decision = future.Get<1>();
   EXPECT_TRUE(decision.is_allowed);
-  EXPECT_EQ(decision.attribution, DecisionSource::kActorContainerConfig);
+  EXPECT_EQ(decision.attribution, DecisionSource::kAllowByTaskPolicyConfig);
 }
 
 TEST_F(OriginGatingCheckerTest,
-       BuiltInPredicate_ActorContainerConfig_PageActionBlocked) {
+       BuiltInPredicate_TaskPolicyConfig_PageActionBlocked) {
   OriginGatingChecker checker(
-      delegate_,
+      delegate_.GetWeakPtr(),
       OriginGatingConfiguration(
-          {{DecisionSource::kActorContainerConfig, GateableEventSet::All()}},
+          {{DecisionSource::kBlockByTaskPolicyConfig, GateableEventSet::All()}},
           /*use_site_keyed_cache=*/false));
 
   // Set an empty config which blocks all actuations.
-  checker.actor_container_config_slot().Assign(ActorContainerConfig());
+  checker.task_policy_config_slot().Assign(TaskPolicyConfig());
 
-  GURL source("https://example.com");
   GURL destination("https://foo.com");
 
-  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _, _, _))
-      .Times(0);
-  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _, _, _)).Times(0);
+  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _)).Times(0);
+  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _)).Times(0);
 
   base::test::TestFuture<std::unique_ptr<GatingDecisionContext>, GatingDecision>
       future;
-  checker.ComputeGatingDecision(nullptr, GateableEvent::kPageAction, source,
-                                destination, future.GetCallback());
+  checker.ComputeGatingDecision(
+      nullptr, GateableEvent(PageActionEvent{.destination = destination}),
+      future.GetCallback());
 
   GatingDecision decision = future.Get<1>();
   EXPECT_FALSE(decision.is_allowed);
-  EXPECT_EQ(decision.attribution, DecisionSource::kActorContainerConfig);
+  EXPECT_EQ(decision.attribution, DecisionSource::kBlockByTaskPolicyConfig);
+}
+
+// ActorContainerConfig usage doesn't necessarily preclude blockage by other
+// predicates, even if the actor container config predicate is listed first in
+// the predicate order.
+TEST_F(OriginGatingCheckerTest,
+       BuiltInPredicate_ActorContainerConfig_InterleavedPredicates) {
+  const GURL kAllowedByConfigAndListSite("https://allowedbyboth.com");
+  const GURL kBlockedByConfigAndListSite("https://blockedbyboth.com");
+  const GURL kAllowedByConfigIgnoredByListSite("https://allowedbyconfig.com");
+  const GURL kBlockedByConfigSite("https://blockedbyconfig.com");
+  const GURL kBlockedByListSite("https://blockedbylist.com");
+
+  CustomPredicate custom(
+      base::BindLambdaForTesting(
+          [&](GatingDecisionContext*, const GateableEvent& event) -> Decision {
+            const GURL& destination = event.destination();
+            if (destination == kAllowedByConfigAndListSite) {
+              return Decision::kAllowed;
+            }
+            if (destination == kBlockedByConfigSite ||
+                destination == kAllowedByConfigIgnoredByListSite) {
+              return Decision::kNoDecision;
+            }
+            if (destination == kBlockedByConfigAndListSite ||
+                destination == kBlockedByListSite) {
+              return Decision::kBlocked;
+            }
+            NOTREACHED();
+          }),
+      TestCustomPredicate::kCustom1);
+
+  OriginGatingChecker checker(delegate_.GetWeakPtr(),
+                              OriginGatingConfiguration(
+                                  {
+                                      {DecisionSource::kBlockByTaskPolicyConfig,
+                                       GateableEventSet::All()},
+                                      {custom, GateableEventSet::All()},
+                                      {DecisionSource::kAllowByTaskPolicyConfig,
+                                       GateableEventSet::All()},
+                                  },
+                                  /*use_site_keyed_cache=*/false));
+
+  checker.task_policy_config_slot().Assign(TaskPolicyConfig(/*location_rules=*/{
+      // Allowed on the below sites, blocked elsewhere.
+      {TaskPolicyConfig::Location(
+           net::SchemefulSite(kAllowedByConfigAndListSite)),
+       AllowlistedRule()},
+      {TaskPolicyConfig::Location(
+           net::SchemefulSite(kAllowedByConfigIgnoredByListSite)),
+       AllowlistedRule()},
+      {TaskPolicyConfig::Location(net::SchemefulSite(kBlockedByListSite)),
+       AllowlistedRule()},
+  }));
+
+  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _)).Times(0);
+  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _)).Times(0);
+
+  {
+    GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
+        checker, nullptr,
+        GateableEvent(NavigationResponseEvent{
+            .source = kBlockedByListSite, .destination = kBlockedByListSite}));
+    EXPECT_FALSE(decision.is_allowed);
+    EXPECT_EQ(decision.attribution, TestCustomPredicate::kCustom1);
+  }
+  {
+    GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
+        checker, nullptr,
+        GateableEvent(
+            NavigationResponseEvent{.source = kBlockedByConfigSite,
+                                    .destination = kBlockedByConfigSite}));
+    EXPECT_FALSE(decision.is_allowed);
+    EXPECT_EQ(decision.attribution, DecisionSource::kBlockByTaskPolicyConfig);
+  }
+  {
+    GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
+        checker, nullptr,
+        GateableEvent(NavigationResponseEvent{
+            .source = kAllowedByConfigIgnoredByListSite,
+            .destination = kAllowedByConfigIgnoredByListSite}));
+    EXPECT_TRUE(decision.is_allowed);
+    EXPECT_EQ(decision.attribution, DecisionSource::kAllowByTaskPolicyConfig);
+  }
+  {
+    GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
+        checker, nullptr,
+        GateableEvent(NavigationResponseEvent{
+            .source = kAllowedByConfigAndListSite,
+            .destination = kAllowedByConfigAndListSite}));
+    EXPECT_TRUE(decision.is_allowed);
+    EXPECT_EQ(decision.attribution, TestCustomPredicate::kCustom1);
+  }
+  {
+    GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
+        checker, nullptr,
+        GateableEvent(NavigationResponseEvent{
+            .source = kBlockedByConfigAndListSite,
+            .destination = kBlockedByConfigAndListSite}));
+    EXPECT_FALSE(decision.is_allowed);
+    EXPECT_EQ(decision.attribution, DecisionSource::kBlockByTaskPolicyConfig);
+  }
 }
 
 TEST_F(OriginGatingCheckerTest, BuiltInPredicate_EnterprisePolicy_Allowed) {
   OriginGatingChecker checker(
-      delegate_, OriginGatingConfiguration({{DecisionSource::kEnterprisePolicy,
-                                             GateableEventSet::All()}},
-                                           /*use_site_keyed_cache=*/false));
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration(
+          {{DecisionSource::kEnterprisePolicy, GateableEventSet::All()},
+           {DecisionSource::kCacheWithoutUserConfirmation,
+            GateableEventSet::All()}},
+          /*use_site_keyed_cache=*/false));
 
   GURL source("https://example.com");
   GURL destination("https://foo.com");
@@ -842,12 +1034,13 @@ TEST_F(OriginGatingCheckerTest, BuiltInPredicate_EnterprisePolicy_Allowed) {
   EXPECT_CALL(delegate_, EvaluateEnterprisePolicy(destination, _))
       .WillOnce(base::test::RunOnceCallback<1>(DecisionWithMetadata{
           .decision = Decision::kAllowed, .bypass_cache = true}));
-  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _, _, _))
-      .Times(0);
-  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _, _, _)).Times(0);
+  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _)).Times(0);
+  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _)).Times(0);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kEnterprisePolicy);
@@ -859,9 +1052,12 @@ TEST_F(OriginGatingCheckerTest, BuiltInPredicate_EnterprisePolicy_Allowed) {
 TEST_F(OriginGatingCheckerTest,
        BuiltInPredicate_EnterprisePolicy_Allowed_PersistsCache) {
   OriginGatingChecker checker(
-      delegate_, OriginGatingConfiguration({{DecisionSource::kEnterprisePolicy,
-                                             GateableEventSet::All()}},
-                                           /*use_site_keyed_cache=*/false));
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration(
+          {{DecisionSource::kEnterprisePolicy, GateableEventSet::All()},
+           {DecisionSource::kCacheWithoutUserConfirmation,
+            GateableEventSet::All()}},
+          /*use_site_keyed_cache=*/false));
 
   GURL source("https://example.com");
   GURL destination("https://foo.com");
@@ -873,7 +1069,9 @@ TEST_F(OriginGatingCheckerTest,
           .decision = Decision::kAllowed, .bypass_cache = false}));
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kEnterprisePolicy);
@@ -882,11 +1080,43 @@ TEST_F(OriginGatingCheckerTest,
       checker.cache().IsNavigationAllowed(source_origin, destination_origin));
 }
 
+TEST_F(
+    OriginGatingCheckerTest,
+    BuiltInPredicate_EnterprisePolicy_Allowed_DoesNotPersistCacheWithoutCachePredicate) {
+  OriginGatingChecker checker(
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration(
+          {{DecisionSource::kEnterprisePolicy, GateableEventSet::All()}},
+          /*use_site_keyed_cache=*/false));
+
+  GURL source("https://example.com");
+  GURL destination("https://foo.com");
+  url::Origin source_origin = url::Origin::Create(source);
+  url::Origin destination_origin = url::Origin::Create(destination);
+
+  EXPECT_CALL(delegate_, EvaluateEnterprisePolicy(destination, _))
+      .WillOnce(base::test::RunOnceCallback<1>(DecisionWithMetadata{
+          .decision = Decision::kAllowed, .bypass_cache = false}));
+
+  GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
+
+  EXPECT_TRUE(decision.is_allowed);
+  EXPECT_EQ(decision.attribution, DecisionSource::kEnterprisePolicy);
+  // Without a cache predicate in the configuration, the allow decision must not
+  // be persisted to the cache even when bypass_cache is false.
+  EXPECT_FALSE(
+      checker.cache().IsNavigationAllowed(source_origin, destination_origin));
+}
+
 TEST_F(OriginGatingCheckerTest, BuiltInPredicate_EnterprisePolicy_Blocked) {
   OriginGatingChecker checker(
-      delegate_, OriginGatingConfiguration({{DecisionSource::kEnterprisePolicy,
-                                             GateableEventSet::All()}},
-                                           /*use_site_keyed_cache=*/false));
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration(
+          {{DecisionSource::kEnterprisePolicy, GateableEventSet::All()}},
+          /*use_site_keyed_cache=*/false));
 
   GURL source("https://example.com");
   GURL destination("https://foo.com");
@@ -894,12 +1124,13 @@ TEST_F(OriginGatingCheckerTest, BuiltInPredicate_EnterprisePolicy_Blocked) {
   EXPECT_CALL(delegate_, EvaluateEnterprisePolicy(destination, _))
       .WillOnce(base::test::RunOnceCallback<1>(
           DecisionWithMetadata{.decision = Decision::kBlocked}));
-  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _, _, _))
-      .Times(0);
-  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _, _, _)).Times(0);
+  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _)).Times(0);
+  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _)).Times(0);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_FALSE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kEnterprisePolicy);
@@ -908,9 +1139,10 @@ TEST_F(OriginGatingCheckerTest, BuiltInPredicate_EnterprisePolicy_Blocked) {
 TEST_F(OriginGatingCheckerTest,
        BuiltInPredicate_EnterprisePolicy_NoDecision_FallsBack) {
   OriginGatingChecker checker(
-      delegate_, OriginGatingConfiguration({{DecisionSource::kEnterprisePolicy,
-                                             GateableEventSet::All()}},
-                                           /*use_site_keyed_cache=*/false));
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration(
+          {{DecisionSource::kEnterprisePolicy, GateableEventSet::All()}},
+          /*use_site_keyed_cache=*/false));
 
   GURL source("https://example.com");
   GURL destination("https://foo.com");
@@ -918,13 +1150,16 @@ TEST_F(OriginGatingCheckerTest,
   EXPECT_CALL(delegate_, EvaluateEnterprisePolicy(destination, _))
       .WillOnce(base::test::RunOnceCallback<1>(
           DecisionWithMetadata{.decision = Decision::kNoDecision}));
-  SetUpDelegateExpectations(source, destination,
+  SetUpDelegateExpectations(GateableEvent(NavigationResponseEvent{
+                                .source = source, .destination = destination}),
                             /*requires_user_confirmation=*/false,
                             /*is_allowed=*/true,
                             /*did_prompt_user=*/false);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kNoVerdict);
@@ -932,28 +1167,30 @@ TEST_F(OriginGatingCheckerTest,
 
 TEST_F(OriginGatingCheckerTest, AsyncCustomPredicate_Allowed_ShortCircuits) {
   CustomPredicate custom(
-      base::BindRepeating([](GatingDecisionContext*, const GURL& source,
-                             const GURL& destination,
+      base::BindRepeating([](GatingDecisionContext*, const GateableEvent& event,
                              base::OnceCallback<void(Decision)> callback) {
-        EXPECT_EQ(source, GURL("https://example.com"));
-        EXPECT_EQ(destination, GURL("https://foo.com"));
+        EXPECT_THAT(event.source(),
+                    testing::Pointee(GURL("https://example.com")));
+        EXPECT_EQ(event.destination(), GURL("https://foo.com"));
         std::move(callback).Run(Decision::kAllowed);
       }),
       TestCustomPredicate::kCustom1);
 
   OriginGatingChecker checker(
-      delegate_, OriginGatingConfiguration({{custom, GateableEventSet::All()}},
-                                           /*use_site_keyed_cache=*/false));
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration({{custom, GateableEventSet::All()}},
+                                /*use_site_keyed_cache=*/false));
 
-  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _, _, _))
-      .Times(0);
-  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _, _, _)).Times(0);
+  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _)).Times(0);
+  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _)).Times(0);
 
   GURL source("https://example.com");
   GURL destination("https://foo.com");
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, TestCustomPredicate::kCustom1);
@@ -962,17 +1199,21 @@ TEST_F(OriginGatingCheckerTest, AsyncCustomPredicate_Allowed_ShortCircuits) {
 TEST_F(OriginGatingCheckerTest,
        CustomPredicate_AttributionDoesNotMatchDifferentEnumTypeWithSameValue) {
   CustomPredicate custom(
-      base::BindRepeating([](GatingDecisionContext*, const GURL&, const GURL&) {
+      base::BindRepeating([](GatingDecisionContext*, const GateableEvent&) {
         return Decision::kAllowed;
       }),
       TestCustomPredicate::kCustom1);
 
   OriginGatingChecker checker(
-      delegate_, OriginGatingConfiguration({{custom, GateableEventSet::All()}},
-                                           /*use_site_keyed_cache=*/false));
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration({{custom, GateableEventSet::All()}},
+                                /*use_site_keyed_cache=*/false));
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, GURL("https://example.com"), GURL("https://foo.com"));
+      checker, nullptr,
+      GateableEvent(
+          NavigationResponseEvent{.source = GURL("https://example.com"),
+                                  .destination = GURL("https://foo.com")}));
 
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, TestCustomPredicate::kCustom1);
@@ -987,27 +1228,30 @@ TEST_F(OriginGatingCheckerTest,
 TEST_F(OriginGatingCheckerTest,
        AsyncCustomPredicate_NoDecision_FallsBackToDelegate) {
   CustomPredicate custom(
-      base::BindRepeating([](GatingDecisionContext*, const GURL& source,
-                             const GURL& destination,
+      base::BindRepeating([](GatingDecisionContext*, const GateableEvent&,
                              base::OnceCallback<void(Decision)> callback) {
         std::move(callback).Run(Decision::kNoDecision);
       }),
       TestCustomPredicate::kCustom1);
 
   OriginGatingChecker checker(
-      delegate_, OriginGatingConfiguration({{custom, GateableEventSet::All()}},
-                                           /*use_site_keyed_cache=*/false));
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration({{custom, GateableEventSet::All()}},
+                                /*use_site_keyed_cache=*/false));
 
   GURL source("https://example.com");
   GURL destination("https://foo.com");
 
-  SetUpDelegateExpectations(source, destination,
+  SetUpDelegateExpectations(GateableEvent(NavigationResponseEvent{
+                                .source = source, .destination = destination}),
                             /*requires_user_confirmation=*/false,
                             /*is_allowed=*/true,
                             /*did_prompt_user=*/false);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kNoVerdict);
@@ -1015,27 +1259,30 @@ TEST_F(OriginGatingCheckerTest,
 
 TEST_F(OriginGatingCheckerTest, SyncCustomPredicate_Allowed_ShortCircuits) {
   CustomPredicate custom(
-      base::BindRepeating([](GatingDecisionContext*, const GURL& source,
-                             const GURL& destination) {
-        EXPECT_EQ(source, GURL("https://example.com"));
-        EXPECT_EQ(destination, GURL("https://foo.com"));
-        return Decision::kAllowed;
-      }),
+      base::BindRepeating(
+          [](GatingDecisionContext*, const GateableEvent& event) {
+            EXPECT_THAT(event.source(),
+                        testing::Pointee(GURL("https://example.com")));
+            EXPECT_EQ(event.destination(), GURL("https://foo.com"));
+            return Decision::kAllowed;
+          }),
       TestCustomPredicate::kCustom2);
 
   OriginGatingChecker checker(
-      delegate_, OriginGatingConfiguration({{custom, GateableEventSet::All()}},
-                                           /*use_site_keyed_cache=*/false));
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration({{custom, GateableEventSet::All()}},
+                                /*use_site_keyed_cache=*/false));
 
-  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _, _, _))
-      .Times(0);
-  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _, _, _)).Times(0);
+  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _)).Times(0);
+  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _)).Times(0);
 
   GURL source("https://example.com");
   GURL destination("https://foo.com");
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, TestCustomPredicate::kCustom2);
@@ -1044,25 +1291,29 @@ TEST_F(OriginGatingCheckerTest, SyncCustomPredicate_Allowed_ShortCircuits) {
 TEST_F(OriginGatingCheckerTest,
        SyncCustomPredicate_NoDecision_FallsBackToDelegate) {
   CustomPredicate custom(
-      base::BindRepeating([](GatingDecisionContext*, const GURL&, const GURL&) {
+      base::BindRepeating([](GatingDecisionContext*, const GateableEvent&) {
         return Decision::kNoDecision;
       }),
       TestCustomPredicate::kCustom2);
 
   OriginGatingChecker checker(
-      delegate_, OriginGatingConfiguration({{custom, GateableEventSet::All()}},
-                                           /*use_site_keyed_cache=*/false));
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration({{custom, GateableEventSet::All()}},
+                                /*use_site_keyed_cache=*/false));
 
   GURL source("https://example.com");
   GURL destination("https://foo.com");
 
-  SetUpDelegateExpectations(source, destination,
+  SetUpDelegateExpectations(GateableEvent(NavigationResponseEvent{
+                                .source = source, .destination = destination}),
                             /*requires_user_confirmation=*/false,
                             /*is_allowed=*/true,
                             /*did_prompt_user=*/false);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kNoVerdict);
@@ -1071,12 +1322,13 @@ TEST_F(OriginGatingCheckerTest,
 TEST_F(OriginGatingCheckerTest,
        CacheHit_UserConfirmedOrigin_ShortCircuitsImmediately) {
   OriginGatingChecker checker(
-      delegate_, OriginGatingConfiguration(
-                     {
-                         {DecisionSource::kCacheWithUserConfirmation,
-                          GateableEventSet::All()},
-                     },
-                     /*use_site_keyed_cache=*/false));
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration(
+          {
+              {DecisionSource::kCacheWithUserConfirmation,
+               GateableEventSet::All()},
+          },
+          /*use_site_keyed_cache=*/false));
 
   GURL source("https://example.com");
   GURL destination("https://foo.com");
@@ -1084,12 +1336,13 @@ TEST_F(OriginGatingCheckerTest,
 
   checker.AllowNavigationTo(destination_origin, /*is_user_confirmed=*/true);
 
-  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _, _, _))
-      .Times(0);
-  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _, _, _)).Times(0);
+  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _)).Times(0);
+  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _)).Times(0);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kCacheWithUserConfirmation);
 }
@@ -1097,12 +1350,13 @@ TEST_F(OriginGatingCheckerTest,
 TEST_F(OriginGatingCheckerTest,
        CacheMiss_NonConfirmedOrigin_SensitiveDestination_QueriesDelegate) {
   OriginGatingChecker checker(
-      delegate_, OriginGatingConfiguration(
-                     {
-                         {DecisionSource::kCacheWithUserConfirmation,
-                          GateableEventSet::All()},
-                     },
-                     /*use_site_keyed_cache=*/false));
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration(
+          {
+              {DecisionSource::kCacheWithUserConfirmation,
+               GateableEventSet::All()},
+          },
+          /*use_site_keyed_cache=*/false));
 
   GURL source("https://example.com");
   GURL destination("https://foo.com");
@@ -1110,19 +1364,27 @@ TEST_F(OriginGatingCheckerTest,
 
   checker.AllowNavigationTo(destination_origin, /*is_user_confirmed=*/false);
 
-  EXPECT_CALL(delegate_,
-              DoesOriginRequireUserConfirmation(_, _, source, destination, _))
+  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(
+                             _,
+                             GateableEvent(NavigationResponseEvent{
+                                 .source = source, .destination = destination}),
+                             _))
       .WillOnce(
-          base::test::RunOnceCallback<4>(/*requires_user_confirmation=*/true));
+          base::test::RunOnceCallback<2>(/*requires_user_confirmation=*/true));
 
-  EXPECT_CALL(delegate_, OnNoVerdict(_, _, source, destination,
-                                     /*requires_user_confirmation=*/true, _))
-      .WillOnce(base::test::RunOnceCallback<5>(
+  EXPECT_CALL(delegate_,
+              OnNoVerdict(_,
+                          GateableEvent(NavigationResponseEvent{
+                              .source = source, .destination = destination}),
+                          /*requires_user_confirmation=*/true, _))
+      .WillOnce(base::test::RunOnceCallback<3>(
           OriginGatingChecker::Delegate::NoVerdictResult{
               .is_allowed = true, .did_prompt_user = true}));
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kNoVerdict);
 }
@@ -1130,14 +1392,15 @@ TEST_F(OriginGatingCheckerTest,
 TEST_F(OriginGatingCheckerTest,
        CacheHit_NonConfirmedOrigin_NonSensitiveDestination_ShortCircuits) {
   OriginGatingChecker checker(
-      delegate_, OriginGatingConfiguration(
-                     {
-                         {DecisionSource::kCacheWithUserConfirmation,
-                          GateableEventSet::All()},
-                         {DecisionSource::kCacheWithoutUserConfirmation,
-                          GateableEventSet::All()},
-                     },
-                     /*use_site_keyed_cache=*/false));
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration(
+          {
+              {DecisionSource::kCacheWithUserConfirmation,
+               GateableEventSet::All()},
+              {DecisionSource::kCacheWithoutUserConfirmation,
+               GateableEventSet::All()},
+          },
+          /*use_site_keyed_cache=*/false));
 
   GURL source("https://example.com");
   GURL destination("https://foo.com");
@@ -1145,14 +1408,54 @@ TEST_F(OriginGatingCheckerTest,
 
   checker.AllowNavigationTo(destination_origin, /*is_user_confirmed=*/false);
 
-  EXPECT_CALL(delegate_,
-              DoesOriginRequireUserConfirmation(_, _, source, destination, _))
+  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(
+                             _,
+                             GateableEvent(NavigationResponseEvent{
+                                 .source = source, .destination = destination}),
+                             _))
       .WillOnce(
-          base::test::RunOnceCallback<4>(/*requires_user_confirmation=*/false));
-  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _, _, _)).Times(0);
+          base::test::RunOnceCallback<2>(/*requires_user_confirmation=*/false));
+  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _)).Times(0);
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
+  EXPECT_TRUE(decision.is_allowed);
+  EXPECT_EQ(decision.attribution,
+            DecisionSource::kCacheWithoutUserConfirmation);
+}
+
+TEST_F(OriginGatingCheckerTest,
+       CacheWithoutUserConfirmation_PageAction_ShortCircuits) {
+  OriginGatingChecker checker(
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration(
+          {
+              {DecisionSource::kCacheWithoutUserConfirmation,
+               GateableEventSet::All()},
+          },
+          /*use_site_keyed_cache=*/false));
+
+  GURL destination("https://foo.com");
+  url::Origin destination_origin = url::Origin::Create(destination);
+
+  checker.AllowNavigationTo(destination_origin, /*is_user_confirmed=*/false);
+
+  EXPECT_CALL(
+      delegate_,
+      DoesOriginRequireUserConfirmation(
+          _, GateableEvent(PageActionEvent{.destination = destination}), _))
+      .WillOnce(
+          base::test::RunOnceCallback<2>(/*requires_user_confirmation=*/false));
+  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _)).Times(0);
+
+  base::test::TestFuture<std::unique_ptr<GatingDecisionContext>, GatingDecision>
+      future;
+  checker.ComputeGatingDecision(
+      nullptr, GateableEvent(PageActionEvent{.destination = destination}),
+      future.GetCallback());
+  GatingDecision decision = future.Get<1>();
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution,
             DecisionSource::kCacheWithoutUserConfirmation);
@@ -1161,37 +1464,47 @@ TEST_F(OriginGatingCheckerTest,
 TEST_F(OriginGatingCheckerTest, PredicateSkipped_WhenEventNotApplicable) {
   // A custom predicate that would allow, but is restricted to kPageAction only.
   CustomPredicate page_action_only(
-      base::BindRepeating([](GatingDecisionContext*, const GURL& source,
-                             const GURL& destination,
+      base::BindRepeating([](GatingDecisionContext*, const GateableEvent&,
                              base::OnceCallback<void(Decision)> callback) {
         std::move(callback).Run(Decision::kAllowed);
       }),
       TestCustomPredicate::kCustom2);
 
   OriginGatingChecker checker(
-      delegate_, OriginGatingConfiguration(
-                     {
-                         {page_action_only, {GateableEvent::kPageAction}},
-                     },
-                     /*use_site_keyed_cache=*/false));
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration(
+          {
+              {page_action_only, {GateableEvent::kPageAction}},
+          },
+          /*use_site_keyed_cache=*/false));
 
   GURL source("https://example.com");
   GURL destination("https://foo.com");
 
   // For a navigation-request event the predicate is skipped, so the checker
   // falls back to the delegate.
+  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(
+                             _,
+                             GateableEvent(NavigationRequestEvent{
+                                 .source = source, .destination = destination}),
+                             _))
+      .WillOnce(base::test::RunOnceCallback<2>(false));
   EXPECT_CALL(delegate_,
-              DoesOriginRequireUserConfirmation(_, _, source, destination, _))
-      .WillOnce(base::test::RunOnceCallback<4>(false));
-  EXPECT_CALL(delegate_, OnNoVerdict(_, _, source, destination, false, _))
-      .WillOnce(base::test::RunOnceCallback<5>(
+              OnNoVerdict(_,
+                          GateableEvent(NavigationRequestEvent{
+                              .source = source, .destination = destination}),
+                          false, _))
+      .WillOnce(base::test::RunOnceCallback<3>(
           OriginGatingChecker::Delegate::NoVerdictResult{
               .is_allowed = false, .did_prompt_user = false}));
 
   base::test::TestFuture<std::unique_ptr<GatingDecisionContext>, GatingDecision>
       future;
-  checker.ComputeGatingDecision(nullptr, GateableEvent::kNavigationRequest,
-                                source, destination, future.GetCallback());
+  checker.ComputeGatingDecision(
+      nullptr,
+      GateableEvent(
+          NavigationRequestEvent{.source = source, .destination = destination}),
+      future.GetCallback());
   GatingDecision decision = future.Get<1>();
   EXPECT_FALSE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kNoVerdict);
@@ -1199,31 +1512,30 @@ TEST_F(OriginGatingCheckerTest, PredicateSkipped_WhenEventNotApplicable) {
 
 TEST_F(OriginGatingCheckerTest, PredicateRuns_WhenEventApplicable) {
   CustomPredicate page_action_only(
-      base::BindRepeating([](GatingDecisionContext*, const GURL& source,
-                             const GURL& destination,
+      base::BindRepeating([](GatingDecisionContext*, const GateableEvent&,
                              base::OnceCallback<void(Decision)> callback) {
         std::move(callback).Run(Decision::kAllowed);
       }),
       TestCustomPredicate::kCustom2);
 
   OriginGatingChecker checker(
-      delegate_, OriginGatingConfiguration(
-                     {
-                         {page_action_only, {GateableEvent::kPageAction}},
-                     },
-                     /*use_site_keyed_cache=*/false));
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration(
+          {
+              {page_action_only, {GateableEvent::kPageAction}},
+          },
+          /*use_site_keyed_cache=*/false));
 
-  GURL source("https://example.com");
   GURL destination("https://foo.com");
 
-  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _, _, _))
-      .Times(0);
-  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _, _, _)).Times(0);
+  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(_, _, _)).Times(0);
+  EXPECT_CALL(delegate_, OnNoVerdict(_, _, _, _)).Times(0);
 
   base::test::TestFuture<std::unique_ptr<GatingDecisionContext>, GatingDecision>
       future;
-  checker.ComputeGatingDecision(nullptr, GateableEvent::kPageAction, source,
-                                destination, future.GetCallback());
+  checker.ComputeGatingDecision(
+      nullptr, GateableEvent(PageActionEvent{.destination = destination}),
+      future.GetCallback());
   GatingDecision decision = future.Get<1>();
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, TestCustomPredicate::kCustom2);
@@ -1233,35 +1545,38 @@ TEST_F(OriginGatingCheckerTest, EventReachesPredicateAndDelegate) {
   // The custom predicate returns kNoDecision so evaluation reaches the
   // delegate, allowing us to assert the event is threaded through both hops.
   CustomPredicate observing_predicate(
-      base::BindRepeating([](GatingDecisionContext*, const GURL& source,
-                             const GURL& destination,
+      base::BindRepeating([](GatingDecisionContext*, const GateableEvent&,
                              base::OnceCallback<void(Decision)> callback) {
         std::move(callback).Run(Decision::kNoDecision);
       }),
       TestCustomPredicate::kCustom2);
 
   OriginGatingChecker checker(
-      delegate_, OriginGatingConfiguration(
-                     {{observing_predicate, GateableEventSet::All()}},
-                     /*use_site_keyed_cache=*/false));
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration(
+          {{observing_predicate, GateableEventSet::All()}},
+          /*use_site_keyed_cache=*/false));
 
-  GURL source("https://example.com");
   GURL destination("https://foo.com");
 
-  EXPECT_CALL(delegate_,
-              DoesOriginRequireUserConfirmation(_, GateableEvent::kPageAction,
-                                                source, destination, _))
-      .WillOnce(base::test::RunOnceCallback<4>(false));
-  EXPECT_CALL(delegate_, OnNoVerdict(_, GateableEvent::kPageAction, source,
-                                     destination, false, _))
-      .WillOnce(base::test::RunOnceCallback<5>(
+  EXPECT_CALL(
+      delegate_,
+      DoesOriginRequireUserConfirmation(
+          _, GateableEvent(PageActionEvent{.destination = destination}), _))
+      .WillOnce(base::test::RunOnceCallback<2>(false));
+  EXPECT_CALL(
+      delegate_,
+      OnNoVerdict(_, GateableEvent(PageActionEvent{.destination = destination}),
+                  false, _))
+      .WillOnce(base::test::RunOnceCallback<3>(
           OriginGatingChecker::Delegate::NoVerdictResult{
               .is_allowed = true, .did_prompt_user = false}));
 
   base::test::TestFuture<std::unique_ptr<GatingDecisionContext>, GatingDecision>
       future;
-  checker.ComputeGatingDecision(nullptr, GateableEvent::kPageAction, source,
-                                destination, future.GetCallback());
+  checker.ComputeGatingDecision(
+      nullptr, GateableEvent(PageActionEvent{.destination = destination}),
+      future.GetCallback());
   GatingDecision decision = future.Get<1>();
   EXPECT_TRUE(decision.is_allowed);
   EXPECT_EQ(decision.attribution, DecisionSource::kNoVerdict);
@@ -1269,25 +1584,37 @@ TEST_F(OriginGatingCheckerTest, EventReachesPredicateAndDelegate) {
 
 TEST_F(OriginGatingCheckerTest, BypassCache_SuppressesCacheWrite) {
   OriginGatingChecker checker(
-      delegate_, OriginGatingConfiguration({}, /*use_site_keyed_cache=*/false));
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration({{DecisionSource::kCacheWithoutUserConfirmation,
+                                  GateableEventSet::All()}},
+                                /*use_site_keyed_cache=*/false));
 
   GURL source("https://example.com");
   GURL destination("https://foo.com");
   url::Origin source_origin = url::Origin::Create(source);
   url::Origin destination_origin = url::Origin::Create(destination);
 
+  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(
+                             _,
+                             GateableEvent(NavigationResponseEvent{
+                                 .source = source, .destination = destination}),
+                             _))
+      .WillOnce(base::test::RunOnceCallback<2>(false));
   EXPECT_CALL(delegate_,
-              DoesOriginRequireUserConfirmation(_, _, source, destination, _))
-      .WillOnce(base::test::RunOnceCallback<4>(false));
-  EXPECT_CALL(delegate_, OnNoVerdict(_, _, source, destination, false, _))
-      .WillOnce(base::test::RunOnceCallback<5>(
+              OnNoVerdict(_,
+                          GateableEvent(NavigationResponseEvent{
+                              .source = source, .destination = destination}),
+                          false, _))
+      .WillOnce(base::test::RunOnceCallback<3>(
           OriginGatingChecker::Delegate::NoVerdictResult{
               .is_allowed = true,
               .did_prompt_user = false,
               .bypass_cache = true}));
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_TRUE(decision.is_allowed);
   // The allow decision must not have been persisted.
@@ -1297,25 +1624,37 @@ TEST_F(OriginGatingCheckerTest, BypassCache_SuppressesCacheWrite) {
 
 TEST_F(OriginGatingCheckerTest, NoBypassCache_PersistsCacheWrite) {
   OriginGatingChecker checker(
-      delegate_, OriginGatingConfiguration({}, /*use_site_keyed_cache=*/false));
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration({{DecisionSource::kCacheWithoutUserConfirmation,
+                                  GateableEventSet::All()}},
+                                /*use_site_keyed_cache=*/false));
 
   GURL source("https://example.com");
   GURL destination("https://foo.com");
   url::Origin source_origin = url::Origin::Create(source);
   url::Origin destination_origin = url::Origin::Create(destination);
 
+  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(
+                             _,
+                             GateableEvent(NavigationResponseEvent{
+                                 .source = source, .destination = destination}),
+                             _))
+      .WillOnce(base::test::RunOnceCallback<2>(false));
   EXPECT_CALL(delegate_,
-              DoesOriginRequireUserConfirmation(_, _, source, destination, _))
-      .WillOnce(base::test::RunOnceCallback<4>(false));
-  EXPECT_CALL(delegate_, OnNoVerdict(_, _, source, destination, false, _))
-      .WillOnce(base::test::RunOnceCallback<5>(
+              OnNoVerdict(_,
+                          GateableEvent(NavigationResponseEvent{
+                              .source = source, .destination = destination}),
+                          false, _))
+      .WillOnce(base::test::RunOnceCallback<3>(
           OriginGatingChecker::Delegate::NoVerdictResult{
               .is_allowed = true,
               .did_prompt_user = false,
               .bypass_cache = false}));
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_TRUE(decision.is_allowed);
   // The allow decision must have been persisted.
@@ -1323,32 +1662,127 @@ TEST_F(OriginGatingCheckerTest, NoBypassCache_PersistsCacheWrite) {
       checker.cache().IsNavigationAllowed(source_origin, destination_origin));
 }
 
-TEST_F(OriginGatingCheckerTest, BypassCache_IgnoredWhenBlocked) {
+TEST_F(OriginGatingCheckerTest,
+       NoVerdict_Allowed_DoesNotPersistCacheWithoutCachePredicate) {
   OriginGatingChecker checker(
-      delegate_, OriginGatingConfiguration({}, /*use_site_keyed_cache=*/false));
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration({}, /*use_site_keyed_cache=*/false));
 
   GURL source("https://example.com");
   GURL destination("https://foo.com");
   url::Origin source_origin = url::Origin::Create(source);
   url::Origin destination_origin = url::Origin::Create(destination);
 
+  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(
+                             _,
+                             GateableEvent(NavigationResponseEvent{
+                                 .source = source, .destination = destination}),
+                             _))
+      .WillOnce(base::test::RunOnceCallback<2>(false));
   EXPECT_CALL(delegate_,
-              DoesOriginRequireUserConfirmation(_, _, source, destination, _))
-      .WillOnce(base::test::RunOnceCallback<4>(false));
-  EXPECT_CALL(delegate_, OnNoVerdict(_, _, source, destination, false, _))
-      .WillOnce(base::test::RunOnceCallback<5>(
+              OnNoVerdict(_,
+                          GateableEvent(NavigationResponseEvent{
+                              .source = source, .destination = destination}),
+                          false, _))
+      .WillOnce(base::test::RunOnceCallback<3>(
+          OriginGatingChecker::Delegate::NoVerdictResult{
+              .is_allowed = true,
+              .did_prompt_user = false,
+              .bypass_cache = false}));
+
+  GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
+
+  EXPECT_TRUE(decision.is_allowed);
+  // Without a cache predicate in the configuration, the allow decision must not
+  // be persisted to the cache even when bypass_cache is false.
+  EXPECT_FALSE(
+      checker.cache().IsNavigationAllowed(source_origin, destination_origin));
+}
+
+TEST_F(OriginGatingCheckerTest,
+       AllowNavigationTo_DoesNotPersistCacheWithoutCachePredicate) {
+  OriginGatingChecker checker(
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration({}, /*use_site_keyed_cache=*/false));
+
+  url::Origin source_origin = url::Origin::Create(GURL("https://example.com"));
+  url::Origin destination_origin = url::Origin::Create(GURL("https://foo.com"));
+
+  checker.AllowNavigationTo(destination_origin, /*is_user_confirmed=*/true);
+  EXPECT_FALSE(
+      checker.cache().IsNavigationAllowed(source_origin, destination_origin));
+  EXPECT_FALSE(checker.cache().IsNavigationConfirmedByUser(destination_origin));
+
+  checker.AllowNavigationTo({destination_origin});
+  EXPECT_FALSE(
+      checker.cache().IsNavigationAllowed(source_origin, destination_origin));
+}
+
+TEST_F(OriginGatingCheckerTest, BypassCache_IgnoredWhenBlocked) {
+  OriginGatingChecker checker(
+      delegate_.GetWeakPtr(),
+      OriginGatingConfiguration({{DecisionSource::kCacheWithoutUserConfirmation,
+                                  GateableEventSet::All()}},
+                                /*use_site_keyed_cache=*/false));
+
+  GURL source("https://example.com");
+  GURL destination("https://foo.com");
+  url::Origin source_origin = url::Origin::Create(source);
+  url::Origin destination_origin = url::Origin::Create(destination);
+
+  EXPECT_CALL(delegate_, DoesOriginRequireUserConfirmation(
+                             _,
+                             GateableEvent(NavigationResponseEvent{
+                                 .source = source, .destination = destination}),
+                             _))
+      .WillOnce(base::test::RunOnceCallback<2>(false));
+  EXPECT_CALL(delegate_,
+              OnNoVerdict(_,
+                          GateableEvent(NavigationResponseEvent{
+                              .source = source, .destination = destination}),
+                          false, _))
+      .WillOnce(base::test::RunOnceCallback<3>(
           OriginGatingChecker::Delegate::NoVerdictResult{
               .is_allowed = false,
               .did_prompt_user = false,
               .bypass_cache = false}));
 
   GatingDecision decision = ComputeGatingDecisionAndVerifyAsynchrony(
-      checker, nullptr, source, destination);
+      checker, nullptr,
+      GateableEvent(NavigationResponseEvent{.source = source,
+                                            .destination = destination}));
 
   EXPECT_FALSE(decision.is_allowed);
   // A blocked decision is never persisted regardless of bypass_cache.
   EXPECT_FALSE(
       checker.cache().IsNavigationAllowed(source_origin, destination_origin));
+}
+
+TEST_F(OriginGatingCheckerTest, DelegateDestroyedBeforeEvaluation) {
+  auto delegate = std::make_unique<NiceMock<MockDelegate>>();
+  OriginGatingChecker checker(
+      delegate->GetWeakPtr(),
+      OriginGatingConfiguration({{DecisionSource::kCacheWithoutUserConfirmation,
+                                  GateableEventSet::All()}},
+                                /*use_site_keyed_cache=*/false));
+
+  // Destroy the delegate before computing decision.
+  delegate.reset();
+
+  base::test::TestFuture<std::unique_ptr<GatingDecisionContext>, GatingDecision>
+      future;
+  checker.ComputeGatingDecision(
+      nullptr,
+      GateableEvent(NavigationResponseEvent{
+          .source = GURL("https://example.com"),
+          .destination = GURL("https://destination.com")}),
+      future.GetCallback());
+
+  // If the delegate was destroyed, the callback is not executed.
+  EXPECT_FALSE(future.IsReady());
 }
 
 }  // namespace

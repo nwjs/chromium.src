@@ -14,6 +14,7 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.autofill.PersonalDataManagerFactory;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
+import org.chromium.components.autofill.autofill_ai.DetailsForUpsertPass;
 import org.chromium.components.autofill.autofill_ai.EntityInstance;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
@@ -35,7 +36,16 @@ public class EntityEditorCoordinator {
          *     used.
          * @param acceptButtonStringId the resource ID of the string used as the accept button for
          *     the consent.
+         * @param contextToken the context token certifying disclosure notice acceptance, or null.
          */
+        default void onDone(
+                EntityInstance entityInstance,
+                int descriptionStringId,
+                int acceptButtonStringId,
+                @Nullable String contextToken) {
+            onDone(entityInstance, descriptionStringId, acceptButtonStringId);
+        }
+
         default void onDone(
                 EntityInstance entityInstance, int descriptionStringId, int acceptButtonStringId) {}
 
@@ -61,12 +71,14 @@ public class EntityEditorCoordinator {
      * @param delegate The delegate to be notified of editor events.
      * @param profile The user's profile.
      * @param entityInstance The entity instance to be edited.
+     * @param detailsForUpsertPass The details response containing legal message lines or null.
      */
     public EntityEditorCoordinator(
             FragmentActivity activity,
             Delegate delegate,
             Profile profile,
-            EntityInstance entityInstance) {
+            EntityInstance entityInstance,
+            @Nullable DetailsForUpsertPass detailsForUpsertPass) {
         mMediator =
                 new EntityEditorMediator(
                         activity,
@@ -74,7 +86,13 @@ public class EntityEditorCoordinator {
                         profile,
                         assumeNonNull(IdentityServicesProvider.get().getIdentityManager(profile)),
                         PersonalDataManagerFactory.getForProfile(profile),
-                        entityInstance);
+                        entityInstance,
+                        detailsForUpsertPass != null
+                                ? detailsForUpsertPass.getLegalMessageLines()
+                                : null,
+                        detailsForUpsertPass != null
+                                ? detailsForUpsertPass.getContextToken()
+                                : null);
         mEditorView = new EntityEditorView(activity);
     }
 

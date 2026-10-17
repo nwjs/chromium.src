@@ -2,14 +2,38 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import '//resources/cr_elements/cr_action_menu/cr_action_menu.js';
+import '//resources/cr_elements/cr_button/cr_button.js';
+import '//resources/cr_elements/cr_checkbox/cr_checkbox.js';
+import '//resources/cr_elements/cr_icon/cr_icon.js';
+import '//resources/cr_elements/cr_search_field/cr_search_field.js';
+import '//resources/cr_elements/cr_toast/cr_toast.js';
+import '//resources/cr_elements/cr_toolbar/cr_toolbar.js';
+import '//resources/cr_elements/icons.html.js';
+
+import {AnchorAlignment} from '//resources/cr_elements/cr_action_menu/cr_action_menu.js';
+import type {CrActionMenuElement} from '//resources/cr_elements/cr_action_menu/cr_action_menu.js';
+import type {CrButtonElement} from '//resources/cr_elements/cr_button/cr_button.js';
+import type {CrCheckboxElement} from '//resources/cr_elements/cr_checkbox/cr_checkbox.js';
+import type {CrToastElement} from '//resources/cr_elements/cr_toast/cr_toast.js';
 import {assert} from 'chrome://resources/js/assert.js';
 import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 
 import {getCss} from './app.css.js';
 import {getHtml} from './app.html.js';
 import {browserProxyFactory} from './infobar_internals.mojom-webui.js';
-import type {InfoBarType} from './infobar_internals.mojom-webui.js';
+import type {InfoBarAction, InfoBarEntry, InfoBarType} from './infobar_internals.mojom-webui.js';
 
+// Persists the dropdown selection across reloads.
+const SELECTION_STORAGE_KEY = 'infobar-internals-selected';
+
+export interface InfobarInternalsAppElement {
+  $: {
+    dropdownButton: CrButtonElement,
+    menu: CrActionMenuElement,
+    toast: CrToastElement,
+  };
+}
 
 export class InfobarInternalsAppElement extends CrLitElement {
   static get is() {
@@ -27,19 +51,139 @@ export class InfobarInternalsAppElement extends CrLitElement {
   static override get properties() {
     return {
       infobars: {type: Array},
+      searchQuery: {type: String},
+      selectedTypes: {type: Array},
+      toastMessage: {type: String},
     };
   }
 
-  protected accessor infobars:
-      Array<{type: InfoBarType, name: string, description: string}> = [];
+  protected accessor infobars: InfoBarEntry[] = [];
+  protected accessor searchQuery: string = '';
+  protected accessor selectedTypes: InfoBarType[] = [];
+  protected accessor toastMessage: string = '';
 
   override connectedCallback() {
     super.connectedCallback();
     browserProxyFactory.getInstance().handler.getInfoBars().then(
-        ({infobars}) => this.infobars = infobars);
+        ({infobars}) => {
+          this.infobars = infobars;
+          this.restoreSelection();
+        });
   }
 
-  protected onTriggerClick(e: Event) {
+  protected onDropdownClick() {
+    this.$.menu.showAt(this.$.dropdownButton, {
+      anchorAlignmentX: AnchorAlignment.AFTER_START,
+      anchorAlignmentY: AnchorAlignment.AFTER_END,
+      noOffset: true,
+    });
+  }
+
+  protected onSearchChanged(e: CustomEvent<string>) {
+    this.searchQuery = e.detail;
+  }
+
+  protected onSelectionChange(e: Event) {
+    const checkbox = e.currentTarget as CrCheckboxElement;
+    const typeStr = checkbox.dataset['type'];
+    assert(typeStr);
+
+    const typeNum = Number(typeStr);
+    assert(!Number.isNaN(typeNum));
+
+    const type = typeNum as InfoBarType;
+    this.selectedTypes = checkbox.checked ?
+        [...this.selectedTypes, type] :
+        this.selectedTypes.filter(selected => selected !== type);
+    this.saveSelection();
+  }
+
+  protected onClearSelectionClick() {
+    this.selectedTypes = [];
+    this.saveSelection();
+  }
+
+  protected isSelected(type: InfoBarType): boolean {
+    return this.selectedTypes.includes(type);
+  }
+
+  protected areAllFilteredSelected(): boolean {
+    const filtered = this.getFilteredInfobars();
+    if (filtered.length === 0) {
+      return false;
+    }
+    return filtered.every(infobar => this.isSelected(infobar.type));
+  }
+
+  protected onSelectAllClick() {
+    const filtered = this.getFilteredInfobars();
+    if (filtered.length === 0) {
+      return;
+    }
+    if (this.areAllFilteredSelected()) {
+      const filteredTypes = new Set(filtered.map(i => i.type));
+      this.selectedTypes =
+          this.selectedTypes.filter(type => !filteredTypes.has(type));
+    } else {
+      const newTypes = new Set(this.selectedTypes);
+      for (const infobar of filtered) {
+        newTypes.add(infobar.type);
+      }
+      this.selectedTypes = Array.from(newTypes);
+    }
+    this.saveSelection();
+  }
+
+  protected getFilteredInfobars(): InfoBarEntry[] {
+    const query = this.searchQuery.trim().toLowerCase();
+    if (!query) {
+      return this.infobars;
+    }
+    return this.infobars.filter(
+        infobar => infobar.name.toLowerCase().includes(query));
+  }
+
+  protected getSelectedInfobars(): InfoBarEntry[] {
+    return this.infobars.filter(infobar => this.isSelected(infobar.type));
+  }
+
+  protected getDropdownLabel(): string {
+    const count = this.selectedTypes.length;
+    if (count === 0) {
+      return 'Select infobars';
+    }
+    return `${count} ${count === 1 ? 'infobar' : 'infobars'} selected`;
+  }
+
+  private saveSelection() {
+    const names = this.getSelectedInfobars().map(infobar => infobar.name);
+    window.localStorage.setItem(SELECTION_STORAGE_KEY, JSON.stringify(names));
+  }
+
+  private restoreSelection() {
+    const stored = window.localStorage.getItem(SELECTION_STORAGE_KEY);
+    if (!stored) {
+      return;
+    }
+
+    let names: string[];
+    try {
+      names = JSON.parse(stored);
+    } catch {
+      return;
+    }
+    if (!Array.isArray(names)) {
+      return;
+    }
+
+    // Drop anything no longer offered.
+    const saved = new Set(names);
+    this.selectedTypes =
+        this.infobars.filter(infobar => saved.has(infobar.name))
+            .map(infobar => infobar.type);
+  }
+
+  protected async onActionClick(e: Event) {
     const target = e.currentTarget as HTMLElement;
     const typeStr = target.dataset['type'];
     assert(typeStr);
@@ -47,16 +191,30 @@ export class InfobarInternalsAppElement extends CrLitElement {
     const typeNum = Number(typeStr);
     assert(!Number.isNaN(typeNum));
 
-    const type = typeNum as InfoBarType;
-    this.trigger(type);
+    const actionStr = target.dataset['action'];
+    assert(actionStr);
+
+    const actionNum = Number(actionStr);
+    assert(!Number.isNaN(actionNum));
+
+    const name = target.dataset['name'] || 'Infobar';
+
+    await this.performAction(
+        typeNum as InfoBarType, actionNum as InfoBarAction, name);
   }
 
-  private async trigger(id: InfoBarType) {
+  private async performAction(
+      id: InfoBarType, action: InfoBarAction, name: string) {
     const {success} =
-        await browserProxyFactory.getInstance().handler.triggerInfoBar(id);
-    if (!success) {
-      console.warn('Failed to trigger infobar', id);
+        await browserProxyFactory.getInstance().handler.performInfoBarAction(
+            id, action);
+    if (success) {
+      this.toastMessage = `Triggered "${name}"`;
+    } else {
+      this.toastMessage = `Failed to trigger "${name}"`;
+      console.warn('Failed to perform infobar action', id, action);
     }
+    this.$.toast.show();
   }
 }
 

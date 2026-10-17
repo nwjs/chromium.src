@@ -34,8 +34,6 @@ import org.chromium.chrome.browser.ui.signin.SigninAndHistorySyncCoordinator;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.device_lock.DeviceLockActivityLauncher;
 import org.chromium.components.browser_ui.widget.impression.ImpressionTracker;
-import org.chromium.components.signin.SigninFeatureMap;
-import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.components.sync.SyncService;
@@ -55,49 +53,15 @@ public class SigninPromoCoordinator
     private final Context mContext;
     private final SigninPromoDelegate mDelegate;
     private final SigninPromoMediator mMediator;
+
+    protected BottomSheetSigninAndHistorySyncCoordinator mSigninCoordinator;
     private @Nullable ImpressionTracker mImpressionTracker;
     private @Nullable PropertyModelChangeProcessor mPropertyModelChangeProcessor;
-
-    // TODO(https://crbug.com/469778109): Remove nullability after launching Seamless sign-in.
-    protected @Nullable BottomSheetSigninAndHistorySyncCoordinator mSigninCoordinator;
 
     /** Disables promo in tests. */
     public static void disablePromoForTesting() {
         sPromoDisabledForTesting = true;
         ResettersForTesting.register(() -> sPromoDisabledForTesting = false);
-    }
-
-    /**
-     * Creates an instance of the {@link SigninPromoCoordinator}.
-     *
-     * @param context The Android {@link Context}.
-     * @param profile A {@link Profile} object to access identity services. This must be the
-     *     original profile, not the incognito one.
-     * @param delegate A {@link SigninPromoDelegate} to customize the view.
-     */
-    // TODO(https://crbug.com/448227402): Remove the constructor below.
-    @Deprecated
-    public SigninPromoCoordinator(Context context, Profile profile, SigninPromoDelegate delegate) {
-        mContext = context;
-        mDelegate = delegate;
-        IdentityManager identityManager =
-                IdentityServicesProvider.get().getIdentityManager(profile);
-        ProfileDataCache profileDataCache =
-                ProfileDataCache.createWithDefaultImageSizeAndNoBadge(
-                        mContext, assertNonNull(identityManager));
-        SyncService syncService = SyncServiceFactory.getForProfile(profile);
-        SigninManager signinManager = IdentityServicesProvider.get().getSigninManager(profile);
-        AccountPreviewDataService accountPreviewDataService =
-                IdentityServicesProvider.get().getAccountPreviewDataService(profile);
-        mMediator =
-                new SigninPromoMediator(
-                        identityManager,
-                        assertNonNull(signinManager),
-                        accountPreviewDataService,
-                        syncService,
-                        profileDataCache,
-                        delegate,
-                        this);
     }
 
     /**
@@ -126,11 +90,26 @@ public class SigninPromoCoordinator
             SnackbarManager snackbarManager,
             DeviceLockActivityLauncher deviceLockActivityLauncher,
             SigninPromoDelegate delegate) {
-        this(activity, profile, delegate);
-
-        if (!SigninFeatureMap.isEnabled(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)) {
-            return;
-        }
+        mContext = activity;
+        mDelegate = delegate;
+        IdentityManager identityManager =
+                IdentityServicesProvider.get().getIdentityManager(profile);
+        ProfileDataCache profileDataCache =
+                ProfileDataCache.createWithDefaultImageSizeAndNoBadge(
+                        mContext, assertNonNull(identityManager));
+        SyncService syncService = SyncServiceFactory.getForProfile(profile);
+        SigninManager signinManager = IdentityServicesProvider.get().getSigninManager(profile);
+        AccountPreviewDataService accountPreviewDataService =
+                IdentityServicesProvider.get().getAccountPreviewDataService(profile);
+        mMediator =
+                new SigninPromoMediator(
+                        identityManager,
+                        assertNonNull(signinManager),
+                        accountPreviewDataService,
+                        syncService,
+                        profileDataCache,
+                        delegate,
+                        this);
 
         OneshotSupplierImpl<Profile> profileSupplier = new OneshotSupplierImpl<>();
         profileSupplier.set(profile);
@@ -149,9 +128,7 @@ public class SigninPromoCoordinator
     }
 
     public void destroy() {
-        if (mSigninCoordinator != null) {
-            mSigninCoordinator.destroy();
-        }
+        mSigninCoordinator.destroy();
         mMediator.destroy();
         destroyPropertyModelChangeProcessor();
     }
@@ -198,15 +175,12 @@ public class SigninPromoCoordinator
     /** Implements {@link BottomSheetSigninAndHistorySyncCoordinator.Delegate} */
     @Override
     public void onSigninUndone() {
-        assert SigninFeatureMap.isEnabled(SigninFeatures.ENABLE_SEAMLESS_SIGNIN);
         mMediator.onSigninUndone();
     }
 
     /** Implements {@link SigninPromoMediator.Delegate} */
     @Override
     public void startSigninFlow(BottomSheetSigninAndHistorySyncConfig config) {
-        assert (SigninFeatureMap.isEnabled(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
-                && mSigninCoordinator != null);
         mMediator.onFlowStarted();
         mSigninCoordinator.startSigninFlow(config);
     }

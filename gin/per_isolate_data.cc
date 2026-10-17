@@ -17,10 +17,8 @@
 
 using v8::ArrayBuffer;
 using v8::Eternal;
-using v8::FunctionTemplate;
 using v8::Isolate;
 using v8::Local;
-using v8::Object;
 using v8::ObjectTemplate;
 
 namespace {
@@ -75,9 +73,8 @@ PerIsolateData* PerIsolateData::From(Isolate* isolate) {
   return static_cast<PerIsolateData*>(isolate->GetData(kEmbedderNativeGin));
 }
 
-void PerIsolateData::SetObjectTemplate(
-    const WrapperInfo* info,
-    Local<ObjectTemplate> templ) {
+void PerIsolateData::SetObjectTemplate(const WrapperInfo* info,
+                                       Local<ObjectTemplate> templ) {
   object_templates_[info] = Eternal<ObjectTemplate>(isolate_, templ);
 }
 

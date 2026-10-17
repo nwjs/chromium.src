@@ -9,25 +9,17 @@
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "components/search_engines/search_engine_choice/search_engine_choice_service.h"
+#include "components/search_engines/search_engine_settings_data_provider.h"
 #include "components/search_engines/template_url_service.h"
 #include "components/search_engines/template_url_service_observer.h"
+#include "url/gurl.h"
 
 // Android wrapper of the TemplateUrlService which provides access from the Java
 // layer. Note that on Android, there's only a single profile, and therefore
 // a single instance of this wrapper.
 class TemplateUrlServiceAndroid : public TemplateURLServiceObserver {
  public:
-  // Defines the category of template URLs to be displayed in different UI
-  // sections. The values are shared with
-  // org.chromium.components.search_engines.TemplateUrlService.
-  //
-  // GENERATED_JAVA_ENUM_PACKAGE: org.chromium.components.search_engines
-  enum class TemplateUrlCategory {
-    kDefault = 0,
-    kActiveSiteSearch = 1,
-    kInactiveSiteSearch = 2,
-    kExtension = 3,
-  };
+  using TemplateUrlCategory = search_engines::TemplateUrlCategory;
 
   explicit TemplateUrlServiceAndroid(TemplateURLService* template_url_service);
 
@@ -64,6 +56,8 @@ class TemplateUrlServiceAndroid : public TemplateURLServiceObserver {
   base::android::ScopedJavaLocalRef<jobject> GetComposeplateUrl(
       JNIEnv* env,
       const base::android::JavaRef<jobject>& obj);
+  GURL ExpandUrlTemplate(const std::string& url_template,
+                         const std::u16string& query);
   base::android::ScopedJavaLocalRef<jobject> GetUrlForContextualSearchQuery(
       JNIEnv* env,
       const base::android::JavaRef<jstring>& jquery,
@@ -169,17 +163,9 @@ class TemplateUrlServiceAndroid : public TemplateURLServiceObserver {
       JNIEnv* env,
       const base::android::JavaRef<jobject>& template_url_list_obj);
 
-  // Get the available search engines separated into two vectors from
-  // `TemplateURLService::GetPrepopulatedAndRecentlyVisitedTemplateURLs()`.
-  base::android::ScopedJavaLocalRef<jobject>
-  GetPrepopulatedAndRecentlyVisitedTemplateURLs(JNIEnv* env);
-
-  // Get the available search engines filtered by |category|.
-  // For site search sections, the returned vector will be sorted by
-  // {@link OrderTemplateUrlsByManagedAndAlphabetically}.
-  std::vector<const TemplateURL*> GetTemplateUrlsByCategory(
-      JNIEnv* env,
-      TemplateUrlCategory category);
+  // Creates a SearchEngineSettingsDataProvider and returns a raw pointer to it
+  // as an int64_t. The Java caller owns the instance and must close/destroy it.
+  int64_t CreateSettingsDataProvider(JNIEnv* env);
 
   // Get current default search engine.
   base::android::ScopedJavaLocalRef<jobject> GetDefaultSearchEngine(
@@ -200,10 +186,6 @@ class TemplateUrlServiceAndroid : public TemplateURLServiceObserver {
  private:
   FRIEND_TEST_ALL_PREFIXES(TemplateUrlServiceAndroidUnitTest,
                            FilterUserSelectableTemplateUrls);
-  FRIEND_TEST_ALL_PREFIXES(TemplateUrlServiceAndroidUnitTest,
-                           FilterTemplateUrlsByCategory);
-  FRIEND_TEST_ALL_PREFIXES(TemplateUrlServiceAndroidUnitTest,
-                           GetDisabledStarterPackIds);
 
   bool IsDefaultSearchEngineGoogle();
 
@@ -216,13 +198,6 @@ class TemplateUrlServiceAndroid : public TemplateURLServiceObserver {
   // that should be selectable by the user as their primary Search Engine.
   static std::vector<raw_ptr<TemplateURL>> FilterUserSelectableTemplateUrls(
       std::vector<raw_ptr<TemplateURL, VectorExperimental>> template_urls);
-
-  std::vector<const TemplateURL*> FilterTemplateUrlsByCategory(
-      const std::vector<raw_ptr<TemplateURL, VectorExperimental>>&
-          template_urls,
-      TemplateUrlCategory category);
-
-  template_url_starter_pack_data::StarterPackIdSet GetDisabledStarterPackIds();
 
   base::android::ScopedJavaGlobalRef<jobject> java_ref_;
 

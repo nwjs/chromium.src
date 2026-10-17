@@ -80,9 +80,13 @@ def _GetCrateAlias(target_label: str) -> str:
 
 
 def _GetQualifiedName(
-  ty: mojom.Kind, current_module: mojom.Module, source_to_target_map: dict
+  ty: mojom.Kind,
+  current_module: mojom.Module,
+  source_to_target_map: dict,
+  local_name: str = None,
 ) -> str:
-  local_name = _GetLocalName(ty)
+  if local_name is None:
+    local_name = _GetLocalName(ty)
 
   # If the type was defined in this file, we can use its name unqualified
   if ty.module.path == current_module.path:
@@ -111,9 +115,6 @@ def _MojomTypeToRustType(
   typemap: dict,
 ) -> str:
   '''Return the name of the input type in rust syntax'''
-  if hasattr(ty, 'qualified_name') and ty.qualified_name in typemap:
-    return typemap[ty.qualified_name]['typename']
-
   if mojom.IsNullableKind(ty):
     unnullable = ty.MakeUnnullableKind()
     inner_ty = _MojomTypeToRustType(
@@ -122,6 +123,14 @@ def _MojomTypeToRustType(
     if mojom.IsStructKind(unnullable) or mojom.IsUnionKind(unnullable):
       return f"Option<Box<{inner_ty}>>"
     return f"Option<{inner_ty}>"
+
+  if hasattr(ty, 'qualified_name') and ty.qualified_name in typemap:
+    return _GetQualifiedName(
+      ty,
+      current_module,
+      source_to_target_map,
+      local_name=typemap[ty.qualified_name]['typename'],
+    )
 
   if mojom.IsStructKind(ty) or mojom.IsEnumKind(ty) or mojom.IsUnionKind(ty):
     return _GetQualifiedName(ty, current_module, source_to_target_map)
@@ -184,10 +193,14 @@ def _GetParseAsType(
   current_module: mojom.Module,
   source_to_target_map: dict,
   typemap: dict,
-) -> str:
-  '''Return the regular generated type name if ty is typemapped, else None'''
-  if hasattr(ty, 'qualified_name') and ty.qualified_name in typemap:
-    return _MojomTypeToRustType(ty, current_module, source_to_target_map, {})
+) -> str | None:
+  '''Return the generated type name if ty is or contains a typemapped type, else None'''
+  raw_type = _MojomTypeToRustType(ty, current_module, source_to_target_map, {})
+  mapped_type = _MojomTypeToRustType(
+    ty, current_module, source_to_target_map, typemap
+  )
+  if raw_type != mapped_type:
+    return raw_type
   return None
 
 
@@ -378,6 +391,7 @@ class Generator(generator.Generator):
     )
 
     typemaps_to_include = []
+    typemapped_types = []
     seen_files = set()
 
     source_root_abs = os.path.abspath(os.path.join(os.getcwd(), "../../"))
@@ -389,6 +403,12 @@ class Generator(generator.Generator):
       if (
         hasattr(kind, 'qualified_name') and kind.qualified_name in self.typemap
       ):
+        typemapped_types.append(
+          {
+            'mojom_name': _GetLocalName(kind),
+            'rust_name': self.typemap[kind.qualified_name]['typename'],
+          }
+        )
         traits_file = self.typemap[kind.qualified_name].get('traits_file')
         if traits_file and traits_file not in seen_files:
           traits_file_abs = os.path.abspath(
@@ -407,6 +427,7 @@ class Generator(generator.Generator):
       "module": self.module,
       "imports": imports,
       "typemaps_to_include": typemaps_to_include,
+      "typemapped_types": typemapped_types,
       "typemap": self.typemap,
     }
 
@@ -432,5 +453,11 @@ class Generator(generator.Generator):
             target_name = target['target_name']
             for source in target['mojom_sources']:
               self.source_to_target_map[source] = target_name
+            for typemap in target.get('typemaps', []):
+              for type_entry in typemap.get('types', []):
+                self.typemap[type_entry['mojom']] = {
+                  'typename': type_entry['rust'],
+                  'traits_file': typemap.get('traits_file'),
+                }
 
     self.WriteWithComment(self._GenerateModule(), f"{self.module.path}.rs")

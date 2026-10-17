@@ -31,13 +31,6 @@
 #include "chrome/browser/ssl/https_upgrades_util.h"
 #include "chrome/browser/ssl/stateful_ssl_host_state_delegate_factory.h"
 #include "chrome/browser/subresource_filter/subresource_filter_profile_context_factory.h"
-#include "ui/base/page_transition_types.h"
-#include "ui/base/window_open_disposition.h"
-#if BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/safe_browsing/android/suspicious_site_controller_android.h"
-#else
-#include "chrome/browser/safe_browsing/suspicious_site_warnings/suspicious_site_controller_desktop.h"
-#endif
 #include "chrome/browser/ui/url_identity.h"
 #include "chrome/browser/usb/usb_chooser_context.h"
 #include "chrome/browser/usb/usb_chooser_context_factory.h"
@@ -53,8 +46,8 @@
 #include "components/permissions/object_permission_context_base.h"
 #include "components/permissions/permission_manager.h"
 #include "components/prefs/pref_service.h"
+#include "components/safe_browsing/buildflags.h"
 #include "components/safe_browsing/content/browser/ui_manager.h"
-#include "components/safe_browsing/core/browser/suspicious_site_warning_allowlist.h"
 #include "components/security_interstitials/content/stateful_ssl_host_state_delegate.h"
 #include "components/subresource_filter/content/browser/subresource_filter_content_settings_manager.h"
 #include "components/subresource_filter/content/browser/subresource_filter_profile_context.h"
@@ -69,10 +62,21 @@
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "services/network/public/cpp/features.h"
 #include "third_party/blink/public/common/features.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/base/window_open_disposition_utils.h"
 #include "ui/events/event.h"
 #include "url/origin.h"
 #include "url/url_constants.h"
+
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+#if BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/safe_browsing/android/suspicious_site_controller_android.h"  // nogncheck
+#else
+#include "chrome/browser/safe_browsing/suspicious_site_warnings/suspicious_site_controller_desktop.h"  // nogncheck
+#endif
+#include "components/safe_browsing/core/browser/suspicious_site_warning_allowlist.h"  // nogncheck
+#endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/grit/branded_strings.h"
@@ -462,6 +466,7 @@ void ChromePageInfoDelegate::OpenSafeBrowsingHelpCenterPage(
 }
 
 void ChromePageInfoDelegate::OnSuspiciousSiteBackToSafety() {
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 #if BUILDFLAG(IS_ANDROID)
   if (auto* ssc =
           safe_browsing::SuspiciousSiteControllerAndroid::FromWebContents(
@@ -502,9 +507,11 @@ void ChromePageInfoDelegate::OnSuspiciousSiteBackToSafety() {
   // Page.
   controller.LoadURLWithParams(content::NavigationController::LoadURLParams(
       GURL(chrome::kChromeUINewTabURL)));
+#endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 }
 
 void ChromePageInfoDelegate::OnSuspiciousSiteMarkAsSafe() {
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 #if BUILDFLAG(IS_ANDROID)
   if (auto* ssc =
           safe_browsing::SuspiciousSiteControllerAndroid::FromWebContents(
@@ -537,6 +544,7 @@ void ChromePageInfoDelegate::OnSuspiciousSiteMarkAsSafe() {
     }
   }
   web_contents_->DidChangeVisibleSecurityState();
+#endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 }
 
 std::u16string ChromePageInfoDelegate::GetSubjectName(const GURL& url) {

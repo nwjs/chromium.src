@@ -8,17 +8,27 @@
 #import <optional>
 #import <string>
 
+#import "base/feature_list.h"
 #import "base/functional/callback.h"
+#import "base/memory/raw_ptr.h"
 #import "base/memory/weak_ptr.h"
 #import "components/optimization_guide/proto/features/actions_data.pb.h"
+#import "components/origin_gating/core/checker_id.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/actor_tool.h"
 
+class GURL;
 class UrlLoadingBrowserAgent;
 struct UrlLoadParams;
 
 namespace web {
 class WebState;
 }  // namespace web
+
+namespace origin_gating {
+class GatingDecisionContext;
+class OriginGatingService;
+struct GatingDecision;
+}  // namespace origin_gating
 
 namespace actor {
 
@@ -28,7 +38,9 @@ class NavigateTool : public ActorTool {
   static std::unique_ptr<NavigateTool> Create(
       base::WeakPtr<web::WebState> web_state,
       const optimization_guide::proto::NavigateAction& action,
-      base::WeakPtr<UrlLoadingBrowserAgent> url_loader);
+      base::WeakPtr<UrlLoadingBrowserAgent> url_loader,
+      origin_gating::OriginGatingService* gating_service,
+      origin_gating::CheckerId gating_checker_id);
 
   ~NavigateTool() override;
 
@@ -41,11 +53,24 @@ class NavigateTool : public ActorTool {
  private:
   NavigateTool(base::WeakPtr<web::WebState> web_state,
                std::optional<std::string> url,
-               base::WeakPtr<UrlLoadingBrowserAgent> url_loader);
+               base::WeakPtr<UrlLoadingBrowserAgent> url_loader,
+               origin_gating::OriginGatingService* gating_service,
+               origin_gating::CheckerId gating_checker_id);
+
+  void OnGatingDecisionComputed(
+      const GURL& destination_url,
+      ToolExecutionCallback callback,
+      std::unique_ptr<origin_gating::GatingDecisionContext> context,
+      origin_gating::GatingDecision decision);
+  void LoadUrl(const GURL& destination_url, ToolExecutionCallback callback);
 
   std::optional<std::string> url_;
   base::WeakPtr<web::WebState> web_state_;
   base::WeakPtr<UrlLoadingBrowserAgent> url_loader_;
+  raw_ptr<origin_gating::OriginGatingService> gating_service_ = nullptr;
+  origin_gating::CheckerId gating_checker_id_;
+
+  base::WeakPtrFactory<NavigateTool> weak_ptr_factory_{this};
 };
 
 }  // namespace actor

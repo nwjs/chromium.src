@@ -22,6 +22,8 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.components.contextual_search.ContextUploadErrorType;
 import org.chromium.components.contextual_search.ContextUploadStatus;
 import org.chromium.components.contextual_search.InputState;
+import org.chromium.components.omnibox.AimModelsProtoIntDef.ModelMode;
+import org.chromium.components.omnibox.ToolModeProtoIntDef.ToolMode;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.url.GURL;
 
@@ -207,14 +209,14 @@ public class ComposeboxQueryControllerBridge {
     /**
      * @param toolMode The active tool to set.
      */
-    public void setActiveTool(int toolMode) {
+    public void setActiveTool(@ToolMode int toolMode) {
         ComposeboxQueryControllerBridgeJni.get().setActiveTool(mNativeInstance, toolMode);
     }
 
     /**
      * @param modelMode The active model to set.
      */
-    public void setActiveModel(int modelMode) {
+    public void setActiveModel(@ModelMode int modelMode) {
         ComposeboxQueryControllerBridgeJni.get().setActiveModel(mNativeInstance, modelMode);
     }
 
@@ -307,10 +309,10 @@ public class ComposeboxQueryControllerBridge {
 
         void setActiveTool(
                 long nativeComposeboxQueryControllerBridge,
-                @JniType("omnibox::ToolMode") int toolMode);
+                @ToolMode @JniType("omnibox::ToolMode") int toolMode);
 
         void setActiveModel(
                 long nativeComposeboxQueryControllerBridge,
-                @JniType("omnibox::ModelMode") int modelMode);
+                @ModelMode @JniType("omnibox::ModelMode") int modelMode);
     }
 }

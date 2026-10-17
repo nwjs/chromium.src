@@ -4,8 +4,11 @@
 
 package org.chromium.chrome.browser.history;
 
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -26,7 +29,9 @@ import org.chromium.components.browsing_data.DeleteBrowsingDataAction;
 import org.chromium.url.GURL;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 /** Unit tests for BrowsingHistoryBridge. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -74,13 +79,136 @@ public class BrowsingHistoryBridgeTest {
         mBrowsingHistoryBridge.setObserver(adapter);
 
         List<HistoryItem> items = new ArrayList<>();
-        long[] timestamps = new long[0];
+        List<GURL> urls = List.of(GURL.emptyGURL());
+        List<long[]> timestampsList = List.of(new long[0]);
         String appId = "org.chromium.dino.Trex";
         BrowsingHistoryBridge.createHistoryItemAndAddToList(
-                items, GURL.emptyGURL(), "domain.com", "title", appId, 0, timestamps, false, false);
+                items,
+                GURL.emptyGURL(),
+                "domain.com",
+                "title",
+                appId,
+                0,
+                urls,
+                timestampsList,
+                false,
+                false);
         mBrowsingHistoryBridge.onQueryHistoryComplete(items, false);
 
         adapter.markItemForRemoval(items.get(0));
         verify(mNativeMocks).markItemForRemoval(anyLong(), any(), eq(appId), any());
+    }
+
+    @Test
+    public void testMarkItemForRemoval_PassesTimestampsMap() {
+        GURL url1 = new GURL("https://example.com/1");
+        GURL url2 = new GURL("https://example.com/2");
+        long[] timestamps1 = new long[] {100L, 200L};
+        long[] timestamps2 = new long[] {300L};
+        Map<GURL, long[]> allTimestamps = Map.of(url1, timestamps1, url2, timestamps2);
+
+        HistoryItem item =
+                new HistoryItem(
+                        url1, "example.com", "Title", "appId", 300L, allTimestamps, false, false);
+
+        mBrowsingHistoryBridge.markItemForRemoval(item);
+
+        verify(mNativeMocks)
+                .markItemForRemoval(
+                        anyLong(),
+                        eq(url1),
+                        eq("appId"),
+                        argThat(
+                                map ->
+                                        map != null
+                                                && map.size() == 2
+                                                && Arrays.equals(timestamps1, map.get(url1))
+                                                && Arrays.equals(timestamps2, map.get(url2))));
+    }
+
+    @Test
+    public void testCreateHistoryItemAndAddToList_SingleUrl() {
+        List<HistoryItem> items = new ArrayList<>();
+        GURL url = new GURL("https://example.com");
+        long[] timestamps = new long[] {1000L, 2000L};
+        List<GURL> urls = List.of(url);
+        List<long[]> timestampsList = List.of(timestamps);
+
+        BrowsingHistoryBridge.createHistoryItemAndAddToList(
+                items,
+                url,
+                "example.com",
+                "Example Title",
+                /* appId= */ null,
+                /* mostRecentJavaTimestamp= */ 2000L,
+                urls,
+                timestampsList,
+                /* blockedVisit= */ false,
+                /* isActorVisit= */ false);
+
+        assertEquals(1, items.size());
+        HistoryItem item = items.get(0);
+        assertEquals(url, item.getUrl());
+        assertArrayEquals(timestamps, item.getNativeTimestamps());
+
+        Map<GURL, long[]> allTimestamps = item.getAllTimestamps();
+        assertEquals(1, allTimestamps.size());
+        assertArrayEquals(timestamps, allTimestamps.get(url));
+    }
+
+    @Test
+    public void testCreateHistoryItemAndAddToList_MultipleUrlsGrouped() {
+        List<HistoryItem> items = new ArrayList<>();
+        GURL primaryUrl = new GURL("https://example.com/page1");
+        GURL secondaryUrl = new GURL("https://example.com/page2");
+
+        long[] primaryTimestamps = new long[] {100L, 200L};
+        long[] secondaryTimestamps = new long[] {300L};
+
+        List<GURL> urls = List.of(primaryUrl, secondaryUrl);
+        List<long[]> timestampsList = List.of(primaryTimestamps, secondaryTimestamps);
+
+        BrowsingHistoryBridge.createHistoryItemAndAddToList(
+                items,
+                primaryUrl,
+                "example.com",
+                "Example Grouped Title",
+                /* appId= */ null,
+                /* mostRecentJavaTimestamp= */ 300L,
+                urls,
+                timestampsList,
+                /* blockedVisit= */ false,
+                /* isActorVisit= */ false);
+
+        assertEquals(1, items.size());
+        HistoryItem item = items.get(0);
+        assertEquals(primaryUrl, item.getUrl());
+        assertArrayEquals(primaryTimestamps, item.getNativeTimestamps());
+
+        Map<GURL, long[]> allTimestamps = item.getAllTimestamps();
+        assertEquals(2, allTimestamps.size());
+        assertArrayEquals(primaryTimestamps, allTimestamps.get(primaryUrl));
+        assertArrayEquals(secondaryTimestamps, allTimestamps.get(secondaryUrl));
+    }
+
+    @Test
+    public void testQueryHistoryWithOptions() {
+        QueryOptions options = new QueryOptions("org.chromium.app", "example.com", "client_123");
+        mBrowsingHistoryBridge.queryHistory("search query", options);
+
+        verify(mNativeMocks)
+                .queryHistory(
+                        anyLong(),
+                        any(),
+                        eq("search query"),
+                        eq("org.chromium.app"),
+                        eq("example.com"),
+                        eq("client_123"));
+    }
+
+    @Test
+    public void testQueryClients() {
+        mBrowsingHistoryBridge.queryClients();
+        verify(mNativeMocks).getAllClients(anyLong());
     }
 }

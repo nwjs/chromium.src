@@ -146,6 +146,7 @@
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/gfx/geometry/quad_f.h"
 
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 #include "chrome/browser/safe_browsing/advanced_protection_status_manager.h"
@@ -237,6 +238,29 @@ namespace {
 constexpr char kPasswordBreachEntryTrigger[] = "PASSWORD_ENTRY";
 #endif
 
+// Transforms `rect` from the `rfh`'s local root's coordinate system to the
+// main frame's coordinate system.
+gfx::RectF TransformToRootCoordinates(content::RenderFrameHost& rfh,
+                                      gfx::RectF rect) {
+  content::RenderWidgetHostView* view = rfh.GetView();
+  if (!view) {
+    return rect;
+  }
+
+  // Intersect the coordinates with the view's bounds. This is to make it hard
+  // for a malicious frame to position an Password Manager popup over a field
+  // from different frame (provided the attacker's and the victim's frames do
+  // not share the same local root).
+  rect.InclusiveIntersect(gfx::RectF(view->GetViewBounds().size()));
+
+  // Transform all corners to handle CSS `transform: scale(...)` correctly
+  // (crbug.com/562177779).
+  return gfx::QuadF(view->TransformPointToRootCoordSpaceF(rect.origin()),
+                    view->TransformPointToRootCoordSpaceF(rect.top_right()),
+                    view->TransformPointToRootCoordSpaceF(rect.bottom_right()),
+                    view->TransformPointToRootCoordSpaceF(rect.bottom_left()))
+      .BoundingBox();
+}
 
 }  // namespace
 
@@ -1399,10 +1423,9 @@ void ChromePasswordManagerClient::NavigateToManagePasswordsPage(
 }
 
 void ChromePasswordManagerClient::OnPasswordFilled(
-    password_manager::PasswordManagerDriver* driver,
-    const GURL& url) {
+    password_manager::PasswordManagerDriver* driver) {
   if (critical_action_logger_) {
-    critical_action_logger_->MaybeLogCriticalAction(driver, url);
+    critical_action_logger_->MaybeLogCriticalAction(driver);
   }
 }
 
@@ -1587,9 +1610,9 @@ void ChromePasswordManagerClient::AutomaticGenerationAvailable(
     return;
   }
 
-  autofill::FieldGlobalId field_id = autofill::FieldGlobalId(
-      autofill::LocalFrameToken(*driver->render_frame_host()->GetFrameToken()),
-      ui_data.generation_element_id);
+  autofill::FieldGlobalId field_id =
+      autofill::FieldGlobalId(autofill::LocalFrameToken(*rfh.GetFrameToken()),
+                              ui_data.generation_element_id);
 
 #if BUILDFLAG(IS_ANDROID)
   if (!ShouldAcceptFocusEvent(web_contents(), driver,
@@ -1601,7 +1624,7 @@ void ChromePasswordManagerClient::AutomaticGenerationAvailable(
       PasswordGenerationController::GetOrCreate(web_contents());
 
   gfx::RectF element_bounds_in_screen_space =
-      TransformToRootCoordinates(&rfh, ui_data.bounds);
+      TransformToRootCoordinates(rfh, ui_data.bounds);
 
   auto has_saved_credentials =
       !credential_cache_.GetCredentialStore(rfh.GetLastCommittedOrigin())
@@ -1615,9 +1638,13 @@ void ChromePasswordManagerClient::AutomaticGenerationAvailable(
   driver->GetPasswordAutofillManager()->MaybeShowPasswordSuggestions(
       field_id, element_bounds_in_screen_space, ui_data.text_direction);
 #else
+  if (web_contents()->GetFocusedFrame() != &rfh) {
+    return;
+  }
+
   // Attempt to show the autofill dropdown UI first.
   gfx::RectF element_bounds_in_top_frame_space =
-      TransformToRootCoordinates(driver->render_frame_host(), ui_data.bounds);
+      TransformToRootCoordinates(rfh, ui_data.bounds);
   if (driver->GetPasswordAutofillManager()
           ->MaybeShowPasswordSuggestionsWithGeneration(
               field_id, element_bounds_in_top_frame_space,
@@ -1722,6 +1749,10 @@ void ChromePasswordManagerClient::ShowPasswordEditingPopup(
                                                              password_value)) {
     return;
   }
+  if (web_contents()->GetFocusedFrame() != &rfh) {
+    return;
+  }
+
   auto* driver =
       password_manager::ContentPasswordManagerDriver::GetForRenderFrameHost(
           &rfh);
@@ -1730,7 +1761,7 @@ void ChromePasswordManagerClient::ShowPasswordEditingPopup(
   CHECK(driver);
 
   gfx::RectF element_bounds_in_screen_space =
-      GetBoundsInScreenSpace(TransformToRootCoordinates(&rfh, bounds));
+      GetBoundsInScreenSpace(TransformToRootCoordinates(rfh, bounds));
   autofill::password_generation::PasswordGenerationUIData ui_data(
       bounds, /*max_length=*/0, /*generation_element=*/std::u16string(),
       field_renderer_id,
@@ -2233,7 +2264,7 @@ void ChromePasswordManagerClient::ShowPasswordGenerationPopup(
     password_manager::ContentPasswordManagerDriver* driver,
     const autofill::password_generation::PasswordGenerationUIData& ui_data) {
   gfx::RectF element_bounds_in_top_frame_space =
-      TransformToRootCoordinates(driver->render_frame_host(), ui_data.bounds);
+      TransformToRootCoordinates(*driver->render_frame_host(), ui_data.bounds);
 
   gfx::RectF element_bounds_in_screen_space =
       GetBoundsInScreenSpace(element_bounds_in_top_frame_space);
@@ -2289,18 +2320,6 @@ void ChromePasswordManagerClient::MaybeShowSavePasswordPrimingPromo(
 }
 
 #endif  // !BUILDFLAG(IS_ANDROID)
-
-gfx::RectF ChromePasswordManagerClient::TransformToRootCoordinates(
-    content::RenderFrameHost* frame_host,
-    const gfx::RectF& bounds_in_frame_coordinates) {
-  content::RenderWidgetHostView* rwhv = frame_host->GetView();
-  if (!rwhv) {
-    return bounds_in_frame_coordinates;
-  }
-  return gfx::RectF(rwhv->TransformPointToRootCoordSpaceF(
-                        bounds_in_frame_coordinates.origin()),
-                    bounds_in_frame_coordinates.size());
-}
 
 #if BUILDFLAG(IS_ANDROID)
 void ChromePasswordManagerClient::ResetErrorMessageDelegate() {

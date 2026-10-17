@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "base/containers/flat_set.h"
 #include "base/memory/raw_ptr.h"
 #include "base/test/bind.h"
 #include "cc/layers/deadline_policy.h"
@@ -14,6 +15,7 @@
 #include "components/viz/common/features.h"
 #include "components/viz/common/surfaces/local_surface_id.h"
 #include "content/browser/renderer_host/frame_tree.h"
+#include "content/browser/renderer_host/input/touch_selection_controller_client_manager_android.h"
 #include "content/browser/renderer_host/mock_render_widget_host.h"
 #include "content/browser/renderer_host/mojo_render_input_router_delegate_impl.h"
 #include "content/browser/site_instance_group.h"
@@ -35,6 +37,8 @@
 #include "ui/events/android/motion_event_android_factory.h"
 #include "ui/events/android/motion_event_android_java.h"
 #include "ui/events/base_event_utils.h"
+#include "ui/events/keycodes/dom/dom_code.h"
+#include "ui/events/keycodes/dom/keycode_converter.h"
 #include "ui/events/motionevent_jni_headers/MotionEvent_jni.h"
 
 namespace content {
@@ -184,6 +188,8 @@ class RenderWidgetHostViewAndroidTest : public RenderViewHostImplTestHarness {
   cc::slim::Layer* GetParentLayer();
 
  protected:
+  void ResetViewForTesting() { render_widget_host_view_android_ = nullptr; }
+
   virtual RenderWidgetHostViewAndroid* CreateRenderWidgetHostViewAndroid(
       RenderWidgetHostImpl* widget_host);
 
@@ -293,7 +299,9 @@ void RenderWidgetHostViewAndroidTest::SetUp() {
 }
 
 void RenderWidgetHostViewAndroidTest::TearDown() {
-  render_widget_host_view_android_->DestroyOrDefer();
+  if (render_widget_host_view_android_) {
+    render_widget_host_view_android_->DestroyOrDefer();
+  }
   render_view_host_.reset();
 
   delegate_.reset();
@@ -1967,6 +1975,73 @@ TEST_F(RenderWidgetHostViewAndroidTest, UpdateVisibilityWhileDetached) {
   // Explicitly notify visibility change to false since it's a hidden window.
   window3->get()->OnVisibilityChanged(nullptr, false);
   EXPECT_TRUE(rwhva->host()->IsHidden());
+}
+
+TEST_F(RenderWidgetHostViewAndroidTest, DeferredTeardownSafety) {
+  RenderWidgetHostViewAndroid* rwhva = render_widget_host_view_android();
+  // `rwhva` is deleted when `pin` goes out of scope below. Drop the
+  // harness' reference now so an early return from a failed ASSERT cannot
+  // leave TearDown() holding a dangling pointer.
+  ResetViewForTesting();
+  {
+    input::ScopedInputDispatchPin pin(rwhva);
+    rwhva->DestroyOrDefer();
+    EXPECT_TRUE(rwhva->destroy_pending());
+    EXPECT_EQ(rwhva->host(), nullptr);
+
+    // Verify methods that previously crashed with NPD or CHECK failures during
+    // the deferred destruction window now safely no-op.
+    rwhva->SetNeedsAnimate();
+    rwhva->GotFocus();
+    rwhva->LostFocus();
+    EXPECT_FALSE(rwhva->CanSynchronizeVisualProperties());
+    rwhva->OnPhysicalBackingSizeChanged(std::nullopt);
+    rwhva->ShowTouchSelectionContextMenu(gfx::Point());
+    gfx::PointF pt;
+    rwhva->TransformPointToRootSurface(&pt);
+
+    auto* manager = static_cast<TouchSelectionControllerClientManagerAndroid*>(
+        rwhva->GetTouchSelectionControllerClientManager());
+    ASSERT_NE(manager, nullptr);
+    manager->ShowContextMenu(gfx::Point());
+    manager->SetNeedsAnimate();
+    manager->OnSelectionEvent(ui::SELECTION_HANDLES_SHOWN);
+  }
+}
+
+// OS-level keyboard capture on Android also captures system shortcuts such as
+// Alt+Tab, so it should only be requested when all keys or a modifier key is
+// locked.
+TEST(RenderWidgetHostViewAndroidKeyboardLockTest, ShouldCaptureSystemKeys) {
+  using Codes = base::flat_set<ui::DomCode>;
+
+  // Locking all keys requires capture.
+  EXPECT_TRUE(
+      RenderWidgetHostViewAndroid::ShouldCaptureSystemKeys(std::nullopt));
+
+  // Non-modifier keys are handled in-browser and don't require capture.
+  EXPECT_FALSE(RenderWidgetHostViewAndroid::ShouldCaptureSystemKeys(Codes()));
+  EXPECT_FALSE(RenderWidgetHostViewAndroid::ShouldCaptureSystemKeys(
+      Codes({ui::DomCode::ESCAPE})));
+  EXPECT_FALSE(RenderWidgetHostViewAndroid::ShouldCaptureSystemKeys(
+      Codes({ui::DomCode::TAB})));
+  // Similar to the set of keys locked by GeForce NOW.
+  EXPECT_FALSE(RenderWidgetHostViewAndroid::ShouldCaptureSystemKeys(
+      Codes({ui::DomCode::ESCAPE, ui::DomCode::F11, ui::DomCode::US_W,
+             ui::DomCode::SPACE, ui::DomCode::ARROW_LEFT,
+             ui::DomCode::PRINT_SCREEN, ui::DomCode::DIGIT1})));
+
+  // Any modifier key requires capture, alone or mixed with other keys.
+  for (ui::DomCode modifier :
+       {ui::DomCode::ALT_LEFT, ui::DomCode::ALT_RIGHT,
+        ui::DomCode::CONTROL_LEFT, ui::DomCode::CONTROL_RIGHT,
+        ui::DomCode::META_LEFT, ui::DomCode::META_RIGHT}) {
+    SCOPED_TRACE(ui::KeycodeConverter::DomCodeToCodeString(modifier));
+    EXPECT_TRUE(RenderWidgetHostViewAndroid::ShouldCaptureSystemKeys(
+        Codes({modifier})));
+    EXPECT_TRUE(RenderWidgetHostViewAndroid::ShouldCaptureSystemKeys(
+        Codes({ui::DomCode::ESCAPE, modifier})));
+  }
 }
 
 }  // namespace content

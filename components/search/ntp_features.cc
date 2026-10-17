@@ -41,7 +41,7 @@ BASE_FEATURE(kCustomizeChromeWallpaperSearchInspirationCard,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, the EnergyEffect for Realbox will be shown.
-BASE_FEATURE(kEnergyEffect, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kEnergyEffect, base::FEATURE_ENABLED_BY_DEFAULT);
 
 const base::FeatureParam<EnergyEffectVariant>::Option
     kEnergyEffectVariantOptions[] = {
@@ -55,7 +55,7 @@ const base::FeatureParam<EnergyEffectVariant>::Option
 
 const base::FeatureParam<EnergyEffectVariant> kEnergyEffectVariantParam{
     &kEnergyEffect, "EnergyEffectVariantParam",
-    EnergyEffectVariant::kEnergyEffectOriginal, &kEnergyEffectVariantOptions};
+    EnergyEffectVariant::kEnergyEffectFusebox, &kEnergyEffectVariantOptions};
 
 // If enabled, the EnergyEffect animation for Realbox will be shown.
 BASE_FEATURE(kEnergyEffectAnimation, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -303,10 +303,6 @@ BASE_FEATURE(kNtpFeatureOptimizationShortcutsRemoval,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
-// If enabled, the dismiss module buttons will be removed from the NTP modules.
-BASE_FEATURE(kNtpFeatureOptimizationDismissModulesRemoval,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // If enabled, will support animated Doodles on the NTP.
 BASE_FEATURE(kNtpAnimatedDoodles, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -324,7 +320,7 @@ BASE_FEATURE(kNtpShortcutsRedesign, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If enabled, the bookmark bar may be auto-removed on the NTP and new
 // visibility settings are added.
-BASE_FEATURE(kNtpSimplificationBookmarkBar, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kNtpSimplificationBookmarkBar, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, the bookmark bar time interval and number of times it's shown on
 // the NTP before auto-hiding is decreased for testing.
@@ -333,6 +329,12 @@ BASE_FEATURE(kBookmarkBarUpdatesForTesting, base::FEATURE_DISABLED_BY_DEFAULT);
 // If enabled, the Threads Rail will be shown on the left hand side of the NTP
 // when the Composebox dialog is open.
 BASE_FEATURE(kNtpThreadsRail, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If enabled, will enable Instant API for Android devices.
+BASE_FEATURE(kNtpEnableInstantApiAndroid, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If enabled, shortcuts will have a reorder entrypoint.
+BASE_FEATURE(kNtpShortcutsReorder, base::FEATURE_DISABLED_BY_DEFAULT);
 
 const char kNtpModuleIgnoredCriteriaThreshold[] =
     "NtpModuleIgnoredCriteriaThreshold";

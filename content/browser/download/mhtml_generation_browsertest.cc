@@ -189,8 +189,8 @@ class FindTrackingDelegate : public WebContentsDelegate {
     options->run_synchronously_for_testing = true;
     options->match_case = false;
 
-    web_contents->Find(global_request_id++, base::UTF8ToUTF16(search_),
-                       std::move(options), /*skip_delay=*/false);
+    web_contents->Find(base::UTF8ToUTF16(search_), std::move(options),
+                       /*skip_delay=*/false, [](int request_id) {});
     run_loop_.Run();
 
     web_contents->SetDelegate(old_delegate);
@@ -210,16 +210,11 @@ class FindTrackingDelegate : public WebContentsDelegate {
     }
   }
 
-  static int global_request_id;
-
  private:
   std::string search_;
   int matches_ = -1;
   base::RunLoop run_loop_;
 };
-
-// static
-int FindTrackingDelegate::global_request_id = 0;
 
 const std::string_view kTestData =
     "Sample Text to write on a generated MHTML "
@@ -833,6 +828,54 @@ IN_PROC_BROWSER_TEST_F(MHTMLGenerationSitePerProcessTest, GenerateMHTML) {
                              EndsWith("/title1.html")}));
 }
 
+IN_PROC_BROWSER_TEST_F(MHTMLGenerationSitePerProcessTest,
+                       GenerateMHTMLWithFrameFilter) {
+  base::FilePath path =
+      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("test.mht"));
+
+  GURL url(embedded_test_server()->GetURL(
+      "a.com", "/frame_tree/page_with_one_frame.html"));
+  MHTMLGenerationParams params(path);
+  params.frame_filter =
+      base::BindRepeating([](RenderFrameHost* rfh) { return false; });
+
+  MHTMLFileInfo info = GenerateMHTML(params, url);
+
+  // Make sure the main frame is present, but the filtered subframe is omitted.
+  EXPECT_THAT(info.content(), HasSubstr("This page has one cross-site iframe"));
+  EXPECT_THAT(info.content(), Not(HasSubstr("This page has no title")));
+
+  EXPECT_THAT(
+      info.ContentLocations(),
+      testing::ElementsAre(EndsWith("/frame_tree/page_with_one_frame.html")));
+}
+
+IN_PROC_BROWSER_TEST_F(MHTMLGenerationSitePerProcessTest,
+                       GenerateMHTMLWithFrameFilterSubtree) {
+  base::FilePath path =
+      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("test.mht"));
+
+  GURL url(embedded_test_server()->GetURL(
+      "a.com", "/cross_site_iframe_factory.html?a(b(c),d(e))"));
+  MHTMLGenerationParams params(path);
+  // Filter out b.com, allowing only other frames. Because c.com is a child
+  // of b.com, it should also be excluded from the generated archive, while
+  // sibling branch d(e) should be preserved.
+  params.frame_filter = base::BindRepeating([](RenderFrameHost* rfh) {
+    return rfh->GetLastCommittedOrigin().host() != "b.com";
+  });
+
+  MHTMLFileInfo info = GenerateMHTML(params, url);
+
+  EXPECT_THAT(
+      info.ContentLocations(),
+      Contains(EndsWith("/cross_site_iframe_factory.html?a(b(c),d(e))")));
+  EXPECT_THAT(info.ContentLocations(), Not(Contains(HasSubstr("b.com"))));
+  EXPECT_THAT(info.ContentLocations(), Not(Contains(HasSubstr("c.com"))));
+  EXPECT_THAT(info.ContentLocations(), Contains(HasSubstr("d.com")));
+  EXPECT_THAT(info.ContentLocations(), Contains(HasSubstr("e.com")));
+}
+
 IN_PROC_BROWSER_TEST_F(MHTMLGenerationTest, RemovePopupOverlay) {
   base::FilePath path(temp_dir_.GetPath());
   path = path.Append(FILE_PATH_LITERAL("test.mht"));
@@ -877,7 +920,6 @@ IN_PROC_BROWSER_TEST_F(MHTMLGenerationTest, GenerateMHTMLWithExtraData) {
   MHTMLFileInfo info = GenerateMHTML(path, url);
 
   EXPECT_TRUE(has_mhtml_callback_run());
-
 
   // Make sure that both extra data parts made it into the mhtml.
   EXPECT_THAT(info.content(), HasSubstr(kFakeSignalData1));

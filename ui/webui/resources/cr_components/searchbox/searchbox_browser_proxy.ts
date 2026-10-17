@@ -25,7 +25,6 @@ export function createAutocompleteMatch(
     allowedToBeDefaultMatch: false,
     isSearchType: false,
     isEnterpriseSearchAggregatorPeopleType: false,
-    swapContentsAndDescription: false,
     showContextualDescription: false,
     supportsDeletion: false,
     suggestionGroupId: -1,
@@ -41,7 +40,6 @@ export function createAutocompleteMatch(
     imageDominantColor: '',
     imageUrl: '',
     isContextualSuggestion: false,
-    isNoncannedAimSuggestion: false,
     removeButtonA11yLabel: '',
     type: '',
     isTwoRowSuggestion: false,
@@ -62,6 +60,7 @@ export function createAutocompleteResultForTesting(
     matches: [],
     suggestionGroupsMap: {},
     smartComposeInlineHint: null,
+    showAimActivityLink: false,
     sequenceId: 0,
   };
 

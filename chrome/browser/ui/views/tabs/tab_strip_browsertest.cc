@@ -51,6 +51,7 @@
 #include "ui/events/event_constants.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/test/ax_event_counter.h"
+#include "ui/views/test/mock_activation_controller.h"
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -70,8 +71,22 @@ class TabStripBrowsertest : public InProcessBrowserTest {
   TabStripBrowsertest() {
     // The TabStrip is not used in Vertical Tabs. Ensure this suite is not run
     // which would end up testing behavior that is not part of the browser.
-    feature_list_.InitWithFeatures(
-        {}, {tabs::kTabStripUnification, features::kTabGroupHoverCards});
+    feature_list_.InitWithFeatures({}, {tabs::kTabStripUnification});
+  }
+
+  void SetUp() override {
+#if defined(USE_MOCK_ACTIVATION_CONTROLLER)
+    activation_controller_ =
+        std::make_unique<views::test::MockActivationController>();
+#endif
+    InProcessBrowserTest::SetUp();
+  }
+
+  void TearDownOnMainThread() override {
+#if defined(USE_MOCK_ACTIVATION_CONTROLLER)
+    activation_controller_.reset();
+#endif
+    InProcessBrowserTest::TearDownOnMainThread();
   }
 
   TabStripModel* tab_strip_model() { return browser()->GetTabStripModel(); }
@@ -127,6 +142,11 @@ class TabStripBrowsertest : public InProcessBrowserTest {
 
  private:
   base::test::ScopedFeatureList feature_list_;
+#if defined(USE_MOCK_ACTIVATION_CONTROLLER)
+  // Emulates widget activation in-process via RAII so parallel browser_tests
+  // shards cannot steal OS window activation and clobber FocusManager focus.
+  std::unique_ptr<views::test::MockActivationController> activation_controller_;
+#endif
 };
 
 // Regression test for crbug.com/40636026.
@@ -1114,193 +1134,6 @@ IN_PROC_BROWSER_TEST_F(TabStripBrowsertest, AccessibleNameUpdatesOnTabFocus) {
   EXPECT_NE(std::u16string::npos, updated_name.find(expected_memory_string));
 }
 
-IN_PROC_BROWSER_TEST_F(TabStripBrowsertest,
-                       DISABLED_TabGroupHeaderAccessibleProperties) {
-  BrowserUiController::From(browser())->set_update_ui_immediately_for_testing();
-  AppendTab();
-  AppendTab();
-  AppendTab();
-
-  tab_groups::TabGroupId group = AddTabToNewGroup(1);
-  tab_strip()->tab_at(1)->SetGroup(group);
-  tab_strip_model()->ChangeTabGroupVisuals(
-      group, tab_groups::TabGroupVisualData(
-                 u"Test title", tab_groups::TabGroupColorId::kBlue));
-
-  auto* group_header = tab_strip()->group_header(group);
-  std::u16string group_title = tab_strip_model()
-                                   ->group_model()
-                                   ->GetTabGroup(group)
-                                   ->visual_data()
-                                   ->title();
-
-  EXPECT_FALSE(tab_strip()->IsGroupCollapsed(group));
-  std::u16string collapsed_state = GetCollapsedState(group);
-  EXPECT_FALSE(group_title.empty());
-  ui::AXNodeData data;
-  group_header->GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
-            l10n_util::GetStringFUTF16(IDS_GROUP_AX_LABEL_NAMED_GROUP_FORMAT,
-                                       u"Test title", u"\"New Tab\"",
-                                       collapsed_state));
-
-  // Validating tab_group name update & collapsed state change should update the
-  // accessible name.
-  tab_strip_model()->ChangeTabGroupVisuals(
-      group,
-      tab_groups::TabGroupVisualData(u"", tab_groups::TabGroupColorId::kBlue));
-  group_title = tab_strip_model()
-                    ->group_model()
-                    ->GetTabGroup(group)
-                    ->visual_data()
-                    ->title();
-  EXPECT_TRUE(group_title.empty());
-  tab_strip()->ToggleTabGroupCollapsedState(group);
-  EXPECT_TRUE(tab_strip()->IsGroupCollapsed(group));
-  collapsed_state = GetCollapsedState(group);
-  data = ui::AXNodeData();
-  group_header->GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
-            l10n_util::GetStringFUTF16(IDS_GROUP_AX_LABEL_UNNAMED_GROUP_FORMAT,
-                                       u"\"New Tab\"", collapsed_state));
-
-  tab_strip_model()->ChangeTabGroupVisuals(
-      group, tab_groups::TabGroupVisualData(
-                 u"New test title", tab_groups::TabGroupColorId::kBlue));
-  collapsed_state = GetCollapsedState(group);
-  EXPECT_FALSE(tab_strip()->IsGroupCollapsed(group));
-  group_title = tab_strip_model()
-                    ->group_model()
-                    ->GetTabGroup(group)
-                    ->visual_data()
-                    ->title();
-  EXPECT_FALSE(group_title.empty());
-  data = ui::AXNodeData();
-  group_header->GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
-            l10n_util::GetStringFUTF16(IDS_GROUP_AX_LABEL_NAMED_GROUP_FORMAT,
-                                       u"New test title", u"\"New Tab\"",
-                                       collapsed_state));
-
-  // Validating tab's title update in a tab_group should update accessible name.
-  AppendTab();
-  AppendTab();
-  AppendTab();
-  group = AddTabToNewGroup(3);
-  AddTabToExistingGroup(4, group);
-  AddTabToExistingGroup(5, group);
-  base::RunLoop run_loop;
-  run_loop.RunUntilIdle();
-  auto* tab_group = tab_strip_model()->group_model()->GetTabGroup(group);
-
-  gfx::Range tabs_in_group = tab_group->ListTabs();
-  auto* web_contents =
-      tab_strip_model()->GetWebContentsAt(tabs_in_group.start());
-  content::NavigationEntry* entry =
-      web_contents->GetController().GetVisibleEntry();
-  std::u16string new_title = u"New Tab Title For Test";
-  web_contents->UpdateTitleForEntry(entry, new_title);
-  run_loop.RunUntilIdle();
-  EXPECT_EQ(web_contents->GetTitle(), new_title);
-
-  collapsed_state = GetCollapsedState(group);
-  group_header = tab_strip()->group_header(group);
-  data = ui::AXNodeData();
-  group_header->GetViewAccessibility().GetAccessibleNodeData(&data);
-  std::u16string group_header_contents = base::ReplaceStringPlaceholders(
-      l10n_util::GetPluralStringFUTF16(IDS_TAB_CXMENU_PLACEHOLDER_GROUP_TITLE,
-                                       2),
-      std::vector<std::u16string>{u"New Tab Title For Test"}, nullptr);
-  EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
-            l10n_util::GetStringFUTF16(IDS_GROUP_AX_LABEL_UNNAMED_GROUP_FORMAT,
-                                       group_header_contents, collapsed_state));
-
-  // Other than first tab in a group, if any tab's title is updated, it should
-  // not update the accessible name.
-  web_contents = tab_strip_model()->GetWebContentsAt(tabs_in_group.start() + 1);
-  entry = web_contents->GetController().GetVisibleEntry();
-  new_title = u"New Tab Title For Test 2";
-  web_contents->UpdateTitleForEntry(entry, new_title);
-  run_loop.RunUntilIdle();
-  EXPECT_EQ(web_contents->GetTitle(), new_title);
-  data = ui::AXNodeData();
-  group_header->GetViewAccessibility().GetAccessibleNodeData(&data);
-  group_header_contents = base::ReplaceStringPlaceholders(
-      l10n_util::GetPluralStringFUTF16(IDS_TAB_CXMENU_PLACEHOLDER_GROUP_TITLE,
-                                       2),
-      std::vector<std::u16string>{u"New Tab Title For Test"}, nullptr);
-  EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
-            l10n_util::GetStringFUTF16(IDS_GROUP_AX_LABEL_UNNAMED_GROUP_FORMAT,
-                                       group_header_contents, collapsed_state));
-
-  // Validate accessible name update with tab move.
-  gfx::Range initial_tabs_in_group(3, 6);
-  EXPECT_EQ(initial_tabs_in_group, tab_group->ListTabs());
-  tab_strip()->MoveTabFirst(tab_strip()->tab_at(3));
-  gfx::Range updated_tabs_in_group(4, 6);
-  EXPECT_EQ(updated_tabs_in_group, tab_group->ListTabs());
-  EXPECT_EQ(new_title, tab_strip_model()->GetWebContentsAt(4)->GetTitle());
-
-  data = ui::AXNodeData();
-  group_header->GetViewAccessibility().GetAccessibleNodeData(&data);
-  group_header_contents = base::ReplaceStringPlaceholders(
-      l10n_util::GetPluralStringFUTF16(IDS_TAB_CXMENU_PLACEHOLDER_GROUP_TITLE,
-                                       1),
-      std::vector<std::u16string>{u"New Tab Title For Test 2"}, nullptr);
-
-  EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
-            l10n_util::GetStringFUTF16(IDS_GROUP_AX_LABEL_UNNAMED_GROUP_FORMAT,
-                                       group_header_contents, collapsed_state));
-
-  // Rearrange tabs in a group should update the accessible name.
-  initial_tabs_in_group = gfx::Range(4, 6);
-  EXPECT_EQ(initial_tabs_in_group, tab_group->ListTabs());
-
-  tabs_in_group = tab_group->ListTabs();
-  web_contents = tab_strip_model()->GetWebContentsAt(tabs_in_group.start() + 1);
-  entry = web_contents->GetController().GetVisibleEntry();
-  new_title = u"Middle Tab Title";
-  web_contents->UpdateTitleForEntry(entry, new_title);
-  run_loop.RunUntilIdle();
-  EXPECT_EQ(web_contents->GetTitle(), new_title);
-
-  // tab_strip_model()->MoveTabToIndexImpl(6, 4, group, false, false);
-  tab_strip()->SelectTab(tab_strip()->tab_at(5), GetDummyEvent());
-  tab_strip_model()->MoveTabPrevious();
-  updated_tabs_in_group = gfx::Range(4, 6);
-  EXPECT_EQ(updated_tabs_in_group, tab_group->ListTabs());
-  EXPECT_EQ(new_title, tab_strip_model()->GetWebContentsAt(4)->GetTitle());
-
-  data = ui::AXNodeData();
-  group_header->GetViewAccessibility().GetAccessibleNodeData(&data);
-  group_header_contents = base::ReplaceStringPlaceholders(
-      l10n_util::GetPluralStringFUTF16(IDS_TAB_CXMENU_PLACEHOLDER_GROUP_TITLE,
-                                       1),
-      std::vector<std::u16string>{new_title}, nullptr);
-
-  EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
-            l10n_util::GetStringFUTF16(IDS_GROUP_AX_LABEL_UNNAMED_GROUP_FORMAT,
-                                       group_header_contents, collapsed_state));
-
-  // Moving out all tabs in a tab group to another group
-  tab_strip()->SelectTab(tab_strip()->tab_at(4), GetDummyEvent());
-  tab_strip()->ExtendSelectionTo(tab_strip()->tab_at(6));
-  tab_groups::TabGroupId new_group = tab_strip_model()->AddToNewGroup({0});
-  tab_strip_model()->MoveSelectedTabsTo(0, new_group);
-  collapsed_state = GetCollapsedState(new_group);
-  group_header = tab_strip()->group_header(new_group);
-  data = ui::AXNodeData();
-  group_header->GetViewAccessibility().GetAccessibleNodeData(&data);
-  group_header_contents = base::ReplaceStringPlaceholders(
-      l10n_util::GetPluralStringFUTF16(IDS_TAB_CXMENU_PLACEHOLDER_GROUP_TITLE,
-                                       3),
-      std::vector<std::u16string>{new_title}, nullptr);
-
-  EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
-            l10n_util::GetStringFUTF16(IDS_GROUP_AX_LABEL_UNNAMED_GROUP_FORMAT,
-                                       group_header_contents, collapsed_state));
-}
-
 IN_PROC_BROWSER_TEST_F(
     TabStripBrowsertest,
     CollapseGroup_WithActiveTabOutsideGroup_DoesNotChangeActiveTab) {
@@ -1316,81 +1149,6 @@ IN_PROC_BROWSER_TEST_F(
 
   EXPECT_TRUE(tab_strip()->IsGroupCollapsed(group));
   EXPECT_EQ(1, tab_strip()->GetActiveIndex());
-}
-
-IN_PROC_BROWSER_TEST_F(TabStripBrowsertest, TabGroupHeaderTooltipText) {
-  BrowserUiController::From(browser())->set_update_ui_immediately_for_testing();
-  AppendTab();
-  AppendTab();
-  AppendTab();
-
-  tab_groups::TabGroupId group = AddTabToNewGroup(1);
-  tab_strip()->tab_at(1)->SetGroup(group);
-  tab_strip_model()->ChangeTabGroupVisuals(
-      group, tab_groups::TabGroupVisualData(
-                 u"Non empty title text", tab_groups::TabGroupColorId::kBlue));
-
-  auto* group_header = tab_strip()->group_header(group);
-  std::u16string group_title = tab_strip_model()
-                                   ->group_model()
-                                   ->GetTabGroup(group)
-                                   ->visual_data()
-                                   ->title();
-
-  EXPECT_EQ(group_title, group_header->GetTitleTextForTesting());
-  EXPECT_EQ(
-      group_header->GetRenderedTooltipText(gfx::Point()),
-      l10n_util::GetStringFUTF16(
-          IDS_TAB_GROUPS_NAMED_GROUP_TOOLTIP,
-          std::u16string(group_header->GetTitleTextForTesting()),
-          tab_strip()->GetGroupContentString(group_header->group().value())));
-
-  tab_strip_model()->ChangeTabGroupVisuals(
-      group, tab_groups::TabGroupVisualData(
-                 std::u16string(), tab_groups::TabGroupColorId::kBlue));
-
-  EXPECT_EQ(group_header->GetRenderedTooltipText(gfx::Point()),
-            l10n_util::GetStringFUTF16(IDS_TAB_GROUPS_UNNAMED_GROUP_TOOLTIP,
-                                       tab_strip()->GetGroupContentString(
-                                           group_header->group().value())));
-}
-
-IN_PROC_BROWSER_TEST_F(TabStripBrowsertest,
-                       TabGroupHeaderTooltipTextAccessibility) {
-  BrowserUiController::From(browser())->set_update_ui_immediately_for_testing();
-  AppendTab();
-  AppendTab();
-  AppendTab();
-
-  tab_groups::TabGroupId group = AddTabToNewGroup(1);
-  tab_strip()->tab_at(1)->SetGroup(group);
-  tab_strip_model()->ChangeTabGroupVisuals(
-      group, tab_groups::TabGroupVisualData(
-                 u"Non empty title text", tab_groups::TabGroupColorId::kBlue));
-
-  auto* group_header = tab_strip()->group_header(group);
-  std::u16string group_title = tab_strip_model()
-                                   ->group_model()
-                                   ->GetTabGroup(group)
-                                   ->visual_data()
-                                   ->title();
-
-  EXPECT_EQ(group_title, group_header->GetTitleTextForTesting());
-
-  EXPECT_EQ(
-      group_header->GetRenderedTooltipText(gfx::Point()),
-      l10n_util::GetStringFUTF16(
-          IDS_TAB_GROUPS_NAMED_GROUP_TOOLTIP,
-          std::u16string(group_header->GetTitleTextForTesting()),
-          tab_strip()->GetGroupContentString(group_header->group().value())));
-
-  ui::AXNodeData data;
-
-  group_header->GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_NE(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
-            group_header->GetRenderedTooltipText(gfx::Point()));
-  EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kDescription),
-            group_header->GetRenderedTooltipText(gfx::Point()));
 }
 
 IN_PROC_BROWSER_TEST_F(TabStripBrowsertest, CollapseGroup_CreatesNewTab) {
@@ -1584,6 +1342,161 @@ IN_PROC_BROWSER_TEST_F(TabStripBrowsertest, AddSelectionFromAnchorTo) {
   EXPECT_TRUE(tab_strip()->IsTabSelected(tab_strip()->tab_at(2)));
   EXPECT_EQ(1, user_action_tester.GetActionCount(
                    "TabMultiSelect_AddSelectionFromAnchorTo"));
+}
+
+IN_PROC_BROWSER_TEST_F(TabStripBrowsertest, KeyboardExtendTabSelection_Right) {
+  base::UserActionTester user_action_tester;
+  AppendTab();
+  AppendTab();
+  AppendTab();
+  AppendTab();
+  tab_strip()->SelectTab(tab_strip()->tab_at(1), GetDummyEvent());
+  tab_strip()->GetFocusManager()->SetFocusedView(tab_strip()->tab_at(1));
+
+  // Shift + Right should extend selection to tab 2 and advance focus.
+  ui::KeyEvent shift_right(ui::EventType::kKeyPressed, ui::VKEY_RIGHT,
+                           ui::EF_SHIFT_DOWN);
+  EXPECT_TRUE(tab_strip()->tab_at(1)->OnKeyPressed(shift_right));
+  EXPECT_FALSE(tab_strip()->IsTabSelected(tab_strip()->tab_at(0)));
+  EXPECT_TRUE(tab_strip()->IsTabSelected(tab_strip()->tab_at(1)));
+  EXPECT_TRUE(tab_strip()->IsTabSelected(tab_strip()->tab_at(2)));
+  EXPECT_FALSE(tab_strip()->IsTabSelected(tab_strip()->tab_at(3)));
+  EXPECT_TRUE(tab_strip()->tab_at(2)->HasFocus());
+  EXPECT_EQ(
+      1, user_action_tester.GetActionCount("TabMultiSelect_ExtendSelectionTo"));
+
+  // Sequential Shift + Right from newly focused tab 2 should extend to tab 3.
+  EXPECT_TRUE(tab_strip()->tab_at(2)->OnKeyPressed(shift_right));
+  EXPECT_TRUE(tab_strip()->IsTabSelected(tab_strip()->tab_at(1)));
+  EXPECT_TRUE(tab_strip()->IsTabSelected(tab_strip()->tab_at(2)));
+  EXPECT_TRUE(tab_strip()->IsTabSelected(tab_strip()->tab_at(3)));
+  EXPECT_TRUE(tab_strip()->tab_at(3)->HasFocus());
+  EXPECT_EQ(
+      2, user_action_tester.GetActionCount("TabMultiSelect_ExtendSelectionTo"));
+}
+
+IN_PROC_BROWSER_TEST_F(TabStripBrowsertest, KeyboardContractTabSelection_Left) {
+  base::UserActionTester user_action_tester;
+  AppendTab();
+  AppendTab();
+  AppendTab();
+  AppendTab();
+  // Anchor at tab 1 and extend right to tab 2.
+  tab_strip()->SelectTab(tab_strip()->tab_at(1), GetDummyEvent());
+  tab_strip()->GetFocusManager()->SetFocusedView(tab_strip()->tab_at(1));
+  ui::KeyEvent shift_right(ui::EventType::kKeyPressed, ui::VKEY_RIGHT,
+                           ui::EF_SHIFT_DOWN);
+  EXPECT_TRUE(tab_strip()->tab_at(1)->OnKeyPressed(shift_right));
+  EXPECT_TRUE(tab_strip()->IsTabSelected(tab_strip()->tab_at(1)));
+  EXPECT_TRUE(tab_strip()->IsTabSelected(tab_strip()->tab_at(2)));
+  EXPECT_TRUE(tab_strip()->tab_at(2)->HasFocus());
+  EXPECT_EQ(
+      1, user_action_tester.GetActionCount("TabMultiSelect_ExtendSelectionTo"));
+
+  // Contracting: Shift + Left from tab 2 back towards anchor tab 1 contracts
+  // the selection.
+  ui::KeyEvent shift_left(ui::EventType::kKeyPressed, ui::VKEY_LEFT,
+                          ui::EF_SHIFT_DOWN);
+  EXPECT_TRUE(tab_strip()->tab_at(2)->OnKeyPressed(shift_left));
+  EXPECT_TRUE(tab_strip()->IsTabSelected(tab_strip()->tab_at(1)));
+  EXPECT_FALSE(tab_strip()->IsTabSelected(tab_strip()->tab_at(2)));
+  EXPECT_TRUE(tab_strip()->tab_at(1)->HasFocus());
+  EXPECT_EQ(
+      2, user_action_tester.GetActionCount("TabMultiSelect_ExtendSelectionTo"));
+}
+
+IN_PROC_BROWSER_TEST_F(TabStripBrowsertest,
+                       KeyboardExtendTabSelection_Boundary) {
+  AppendTab();
+  AppendTab();
+  tab_strip()->SelectTab(tab_strip()->tab_at(0), GetDummyEvent());
+  tab_strip()->GetFocusManager()->SetFocusedView(tab_strip()->tab_at(0));
+
+  // Pressing Shift + Left at index 0 should be consumed without crash, out of
+  // bounds, or wrapping around to the last tab.
+  ui::KeyEvent shift_left(ui::EventType::kKeyPressed, ui::VKEY_LEFT,
+                          ui::EF_SHIFT_DOWN);
+  EXPECT_TRUE(tab_strip()->tab_at(0)->OnKeyPressed(shift_left));
+  EXPECT_TRUE(tab_strip()->IsTabSelected(tab_strip()->tab_at(0)));
+  EXPECT_FALSE(tab_strip()->IsTabSelected(tab_strip()->tab_at(1)));
+  EXPECT_FALSE(tab_strip()->IsTabSelected(tab_strip()->tab_at(2)));
+  EXPECT_TRUE(tab_strip()->tab_at(0)->HasFocus());
+
+  // Pressing Shift + Right at the last tab should also be consumed without
+  // wrapping around to index 0.
+  tab_strip()->SelectTab(tab_strip()->tab_at(2), GetDummyEvent());
+  tab_strip()->GetFocusManager()->SetFocusedView(tab_strip()->tab_at(2));
+  ui::KeyEvent shift_right(ui::EventType::kKeyPressed, ui::VKEY_RIGHT,
+                           ui::EF_SHIFT_DOWN);
+  EXPECT_TRUE(tab_strip()->tab_at(2)->OnKeyPressed(shift_right));
+  EXPECT_FALSE(tab_strip()->IsTabSelected(tab_strip()->tab_at(0)));
+  EXPECT_FALSE(tab_strip()->IsTabSelected(tab_strip()->tab_at(1)));
+  EXPECT_TRUE(tab_strip()->IsTabSelected(tab_strip()->tab_at(2)));
+  EXPECT_TRUE(tab_strip()->tab_at(2)->HasFocus());
+}
+
+IN_PROC_BROWSER_TEST_F(TabStripBrowsertest,
+                       KeyboardExtendTabSelection_AfterFocusTraversal) {
+  AppendTab();
+  AppendTab();
+  AppendTab();
+  AppendTab();
+  // Select and anchor at tab 0.
+  tab_strip()->SelectTab(tab_strip()->tab_at(0), GetDummyEvent());
+  ASSERT_TRUE(tab_strip()->IsTabSelected(tab_strip()->tab_at(0)));
+  ASSERT_FALSE(tab_strip()->IsTabSelected(tab_strip()->tab_at(2)));
+
+  // Simulate plain arrow-key focus traversal to tab 2 without updating
+  // selection.
+  tab_strip()->GetFocusManager()->SetFocusedView(tab_strip()->tab_at(2));
+  ASSERT_TRUE(tab_strip()->tab_at(2)->HasFocus());
+  ASSERT_TRUE(tab_strip()->IsTabSelected(tab_strip()->tab_at(0)));
+  ASSERT_FALSE(tab_strip()->IsTabSelected(tab_strip()->tab_at(2)));
+
+  // Pressing Shift + Right on unfocused tab 2 should re-anchor at tab 2 and
+  // select tabs 2 and 3 rather than extending from the old anchor (tab 0).
+  ui::KeyEvent shift_right(ui::EventType::kKeyPressed, ui::VKEY_RIGHT,
+                           ui::EF_SHIFT_DOWN);
+  EXPECT_TRUE(tab_strip()->tab_at(2)->OnKeyPressed(shift_right));
+  EXPECT_FALSE(tab_strip()->IsTabSelected(tab_strip()->tab_at(0)));
+  EXPECT_FALSE(tab_strip()->IsTabSelected(tab_strip()->tab_at(1)));
+  EXPECT_TRUE(tab_strip()->IsTabSelected(tab_strip()->tab_at(2)));
+  EXPECT_TRUE(tab_strip()->IsTabSelected(tab_strip()->tab_at(3)));
+  EXPECT_FALSE(tab_strip()->IsTabSelected(tab_strip()->tab_at(4)));
+  EXPECT_TRUE(tab_strip()->tab_at(3)->HasFocus());
+}
+
+IN_PROC_BROWSER_TEST_F(TabStripBrowsertest,
+                       KeyboardExtendTabSelection_CollapsedGroupAndPinned) {
+  AppendTab();
+  AppendTab();
+  AppendTab();
+  // Tab 0 is pinned; Tab 1 is unpinned; Tabs 2 and 3 are in a collapsed group.
+  tab_strip_model()->SetTabPinned(0, true);
+  tab_groups::TabGroupId group = tab_strip_model()->AddToNewGroup({2, 3});
+  tab_strip()->ToggleTabGroupCollapsedState(group);
+  ASSERT_TRUE(tab_strip()->IsGroupCollapsed(group));
+
+  // Select and focus pinned tab 0, then extend right across the pinned/unpinned
+  // boundary to tab 1.
+  tab_strip()->SelectTab(tab_strip()->tab_at(0), GetDummyEvent());
+  tab_strip()->GetFocusManager()->SetFocusedView(tab_strip()->tab_at(0));
+  ui::KeyEvent shift_right(ui::EventType::kKeyPressed, ui::VKEY_RIGHT,
+                           ui::EF_SHIFT_DOWN);
+  EXPECT_TRUE(tab_strip()->tab_at(0)->OnKeyPressed(shift_right));
+  EXPECT_TRUE(tab_strip()->IsTabSelected(tab_strip()->tab_at(0)));
+  EXPECT_TRUE(tab_strip()->IsTabSelected(tab_strip()->tab_at(1)));
+  EXPECT_TRUE(tab_strip()->tab_at(1)->HasFocus());
+
+  // Extend right from tab 1 into tab 2 (inside the collapsed group). The group
+  // should auto-expand so focus lands on a visible tab view.
+  EXPECT_TRUE(tab_strip()->tab_at(1)->OnKeyPressed(shift_right));
+  EXPECT_FALSE(tab_strip()->IsGroupCollapsed(group));
+  EXPECT_TRUE(tab_strip()->IsTabSelected(tab_strip()->tab_at(0)));
+  EXPECT_TRUE(tab_strip()->IsTabSelected(tab_strip()->tab_at(1)));
+  EXPECT_TRUE(tab_strip()->IsTabSelected(tab_strip()->tab_at(2)));
+  EXPECT_TRUE(tab_strip()->tab_at(2)->GetVisible());
+  EXPECT_TRUE(tab_strip()->tab_at(2)->HasFocus());
 }
 
 IN_PROC_BROWSER_TEST_F(TabStripBrowsertest, CreateSplitUKMLogged) {

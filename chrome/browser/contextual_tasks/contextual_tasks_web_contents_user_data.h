@@ -6,8 +6,10 @@
 #define CHROME_BROWSER_CONTEXTUAL_TASKS_CONTEXTUAL_TASKS_WEB_CONTENTS_USER_DATA_H_
 
 #include <optional>
+#include <vector>
 
 #include "base/containers/flat_map.h"
+#include "base/memory/raw_ptr.h"
 #include "base/unguessable_token.h"
 #include "base/uuid.h"
 #include "components/contextual_search/input_state_model.h"
@@ -18,6 +20,11 @@ namespace contextual_tasks {
 class ContextualTasksWebContentsUserData
     : public content::WebContentsUserData<ContextualTasksWebContentsUserData> {
  public:
+  struct ExtensionFrameInfo {
+    raw_ptr<const void> handler_id = nullptr;
+    bool is_page_bound = false;
+  };
+
   ~ContextualTasksWebContentsUserData() override;
 
   base::WeakPtr<contextual_search::InputStateModel> input_state_model() {
@@ -40,6 +47,17 @@ class ContextualTasksWebContentsUserData
     pending_task_id_ = pending_task_id;
   }
 
+  void RegisterExtensionFrame(const void* handler_id);
+  void UpdateExtensionFrameBound(const void* handler_id, bool is_page_bound);
+  void UnregisterExtensionFrame(const void* handler_id);
+  bool IsPrimarySearchMessageSender(const void* handler_id) const;
+
+  void RecordTabIdMapping(int32_t tab_handle_id, int32_t session_tab_id);
+  std::optional<int32_t> GetSessionTabIdForTabHandle(
+      int32_t tab_handle_id) const;
+  std::optional<int32_t> GetTabHandleForSessionTabId(
+      int32_t session_tab_id) const;
+
  private:
   explicit ContextualTasksWebContentsUserData(content::WebContents* contents);
   friend class content::WebContentsUserData<ContextualTasksWebContentsUserData>;
@@ -51,6 +69,12 @@ class ContextualTasksWebContentsUserData
 
   // A pending task associated with this web contents.
   std::optional<base::Uuid> pending_task_id_;
+
+  std::vector<ExtensionFrameInfo> extension_frames_;
+
+  // Maps TabHandle raw values to SessionID values so closed tabs can still be
+  // resolved when deleting tab context or removing underlines.
+  base::flat_map<int32_t, int32_t> tab_handle_to_session_id_;
 
   WEB_CONTENTS_USER_DATA_KEY_DECL();
 };

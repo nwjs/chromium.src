@@ -35,7 +35,6 @@ import "services/network/public/mojom/device_bound_sessions.mojom";
 import "services/network/public/mojom/devtools_observer.mojom";
 import "services/network/public/mojom/document_isolation_policy.mojom";
 import "services/network/public/mojom/fetch_api.mojom";
-import "services/network/public/mojom/first_party_sets_access_delegate.mojom";
 import "services/network/public/mojom/hash_value.mojom";
 import "services/network/public/mojom/host_resolver.mojom";
 import "services/network/public/mojom/http_cache_backend_file_operations.mojom";
@@ -98,6 +97,9 @@ import "services/network/public/mojom/p2p.mojom";
 
 [EnableIf=is_p2p_enabled]
 import "services/network/public/mojom/p2p_trusted.mojom";
+
+[EnableIf=enable_disk_cache_sql_backend]
+import "services/network/public/mojom/shared_http_cache_client.mojom";
 
 const uint32 kWebSocketOptionNone = 0;
 
@@ -596,14 +598,6 @@ struct NetworkContextParams {
   // Ignored if `shared_dictionary_enabled` is false.
   mojo_base.mojom.ByteSize? shared_dictionary_cache_max_size;
 
-  // Parameters for constructing the FirstPartySetsAccessDelegate.
-  // |first_party_sets_access_delegate_params| is the initial configuration to
-  // use. If nullptr, uses the default configuration. Updated configurations
-  // can be passed in via |first_party_sets_access_delegate_receiver|.
-  FirstPartySetsAccessDelegateParams? first_party_sets_access_delegate_params;
-  pending_receiver<FirstPartySetsAccessDelegate>?
-      first_party_sets_access_delegate_receiver;
-
   // TODO(crbug.com/40777535): This flag is intended to be temporary and to be
   // removed (always enabled) in the future.
   bool acam_preflight_spec_conformant = true;
@@ -1025,6 +1019,19 @@ struct IdAndAllowlistedPatterns {
   ConnectionAllowlists allowlists;
 };
 
+// Configuration for a wildcard QUIC hint that matches hostnames by suffix.
+// Wildcard hints only match subdomains (e.g. "mail.google.com"), not apex
+// domains ("google.com"). For apex or exact domains, AddQuicHints should be
+// used instead.
+struct WildcardQuicHint {
+  // Suffix of hostnames that should match. Must start with "*." (e.g.
+  // "*.google.com") or leading "." (e.g. ".google.com"). Bare domains without
+  // a wildcard prefix are rejected.
+  string host_suffix;
+  // Port to match and use for QUIC attempts.
+  uint16 port = 443;
+};
+
 // Represents a distinct context for making network requests, with its own
 // storage (e.g. cookies and cache).
 //
@@ -1316,6 +1323,29 @@ interface NetworkContext {
   // with session-only cookie policy.
   ClearSharedDictionarySessionOnlyData() => ();
 
+  // Registers a `SharedHttpCacheClientFactory` remote for `key` to enable the
+  // Renderer-Accessible HTTP Cache. Transient `NetworkIsolationKey`s are
+  // ignored.
+  //
+  // Once the isolated SQLite shared cache database files for `key` are ready,
+  // the network service calls `SharedHttpCacheClientFactory::CreateClient` on
+  // `shared_http_cache_client` to provide read-only database file handles and
+  // bind a `SharedHttpCacheClient` receiver for subsequent URL hash
+  // notifications (`OnResourcesAdded`).
+  //
+  // Each call registers an independent client instance and receives its own set
+  // of database file descriptors.
+  //
+  // The registration lifetime is bound to `shared_http_cache_client` until
+  // `CreateClient` is invoked, after which it transfers to the resulting
+  // `SharedHttpCacheClient` connection. If the network service restarts or the
+  // Mojo pipe disconnects, `SharedHttpCacheClient` treats subsequent lookups as
+  // cache misses and transparently falls back to normal `URLLoader` requests.
+  [EnableIf=enable_disk_cache_sql_backend]
+  RegisterHttpCacheClient(
+    NetworkIsolationKey key,
+    pending_remote<SharedHttpCacheClientFactory> shared_http_cache_client);
+
   // Configures per-resource reporting endpoints set with the
   // Reporting-Endpoints header.
   // |reporting_source| is a token which identifies the document or worker with
@@ -1598,7 +1628,8 @@ interface NetworkContext {
       pending_remote<TrustedHeaderClient>? header_client,
       mojo_base.mojom.UnguessableToken? throttling_profile_id,
       mojo_base.mojom.UnguessableToken network_restrictions_id,
-      IPAddressSpace target_address_space);
+      IPAddressSpace target_address_space,
+      int64? target_network);
 
   // Creates a WebTransport connection to |url|. |origin| is used for the
   // client indication - see
@@ -1935,6 +1966,19 @@ interface NetworkContext {
   // origins.
   AddQuicHints(array<url.mojom.SchemeHostPort> origins,
                NetworkAnonymizationKey network_anonymization_key);
+
+  // Requests that the network service prioritizes QUIC connections to hostnames
+  // matching the given wildcard suffixes (e.g. ".google.com"). Unlike
+  // AddQuicHints which is scoped to a specific NetworkAnonymizationKey,
+  // wildcard hints apply globally across all network partitions within this
+  // NetworkContext (though brokenness is tracked per partition).
+  AddWildcardQuicHints(array<WildcardQuicHint> hints);
+
+  // Configures whether to try QUIC by default for all HTTPS origins when no
+  // specific alternative service or known QUIC hint is found. Applies globally
+  // across all network partitions within this NetworkContext (though brokenness
+  // is tracked per partition).
+  SetTryQuicByDefault(bool enable);
 
   // Updates the variations headers to be used for requests.
   SetVariationsHeaders(variations.mojom.VariationsHeaders? variations_headers);

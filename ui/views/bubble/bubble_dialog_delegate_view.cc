@@ -462,7 +462,7 @@ BubbleDialogDelegate::BubbleDialogDelegate(BubbleAnchor anchor,
                                            BubbleBorder::Shadow shadow,
                                            bool autosize)
     : arrow_(arrow),
-      shadow_(shadow),
+      shadow_config_({.shadow_type = shadow}),
       autosize_(autosize),
       close_on_deactivate_pins_(std::make_unique<CloseOnDeactivatePin::Pins>()),
       bubble_created_time_(base::TimeTicks::Now()) {
@@ -631,7 +631,11 @@ std::unique_ptr<FrameView> BubbleDialogDelegate::CreateFrameView(
 
   std::unique_ptr<BubbleBorder> border =
       std::make_unique<BubbleBorder>(arrow(), GetShadow());
-  border->SetColor(background_color());
+  border->set_background_color(background_color());
+  if (shadow_config_.elevation.has_value()) {
+    border->set_md_shadow_elevation(shadow_config_.elevation.value());
+  }
+  border->set_avoid_shadow_overlap(shadow_config_.avoid_overlap_shadow);
 
   if (GetParams().round_corners) {
     border->set_rounded_corners(gfx::RoundedCornersF(GetCornerRadius()));
@@ -695,6 +699,7 @@ void BubbleDialogDelegate::OnBubbleWidgetClosing() {
 }
 
 void BubbleDialogDelegate::OnAnchorWidgetDestroying() {
+  anchor_tracked_element_ = nullptr;
   SetAnchorView(nullptr);
 }
 
@@ -724,7 +729,7 @@ BubbleBorder::Shadow BubbleDialogDelegate::GetShadow() const {
   if (!Widget::IsWindowCompositingSupported()) {
     return BubbleBorder::Shadow::NO_SHADOW;
   }
-  return shadow_;
+  return shadow_config_.shadow_type;
 }
 
 View* BubbleDialogDelegate::GetAnchorView() const {
@@ -830,7 +835,7 @@ gfx::Rect BubbleDialogDelegate::GetAnchorRect() const {
   if (anchor_view) {
     anchor_rect_ = anchor_view->GetAnchorBoundsInScreen();
   } else if (anchor_tracked_element_) {
-    anchor_rect_ = anchor_tracked_element_->GetScreenBounds();
+    anchor_rect_ = anchor_tracked_element_.get()->GetScreenBounds();
   } else {
     return anchor_rect_.value_or(gfx::Rect());
   }
@@ -1044,9 +1049,14 @@ gfx::Rect BubbleDialogDelegate::GetBubbleBounds() {
   }
 #endif
 
-  return GetBubbleFrameView()->GetUpdatedWindowBounds(
+  gfx::Rect bounds = GetBubbleFrameView()->GetUpdatedWindowBounds(
       anchor_rect, arrow(), GetWidget()->client_view()->GetPreferredSize({}),
       adjust_to_fix_available_bounds);
+  if (clamp_to_work_area_) {
+    bounds.AdjustToFit(
+        GetBubbleFrameView()->GetAvailableScreenBounds(anchor_rect));
+  }
+  return bounds;
 }
 
 ax::mojom::Role BubbleDialogDelegate::GetAccessibleWindowRole() {
@@ -1084,6 +1094,11 @@ gfx::Rect BubbleDialogDelegate::GetDesiredBubbleBounds() {
   bubble_bounds.set_size(actual_size);
 #endif
 
+  if (clamp_to_work_area_ && GetBubbleFrameView()) {
+    bubble_bounds.AdjustToFit(
+        GetBubbleFrameView()->GetAvailableScreenBounds(GetAnchorRect()));
+  }
+
   return bubble_bounds;
 }
 
@@ -1115,6 +1130,9 @@ void BubbleDialogDelegate::SetAnchorWidget(views::Widget* anchor_widget) {
 }
 
 void BubbleDialogDelegate::SetAnchorView(View* anchor_view) {
+  if (anchor_view) {
+    anchor_tracked_element_ = nullptr;
+  }
   if (anchor_view && anchor_view->GetWidget()) {
     anchor_widget_observer_ =
         std::make_unique<AnchorWidgetObserver>(this, anchor_view->GetWidget());
@@ -1196,7 +1214,7 @@ BubbleAnchor BubbleDialogDelegate::GetAnchor() const {
     return BubbleAnchor(GetAnchorView());
   }
   if (anchor_tracked_element_) {
-    return BubbleAnchor(anchor_tracked_element_);
+    return BubbleAnchor(anchor_tracked_element_.get());
   }
   return BubbleAnchor();
 }

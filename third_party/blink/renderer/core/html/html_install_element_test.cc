@@ -15,14 +15,19 @@
 #include "third_party/blink/public/mojom/web_install/web_install.mojom-blink.h"
 #include "third_party/blink/public/strings/grit/permission_element_strings.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_install_result.h"
+#include "third_party/blink/renderer/core/css/css_property_names.h"
 #include "third_party/blink/renderer/core/dom/document.h"
+#include "third_party/blink/renderer/core/dom/document_encoding_data.h"
 #include "third_party/blink/renderer/core/dom/document_init.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
+#include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/frame/frame_test_helpers.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
+#include "third_party/blink/renderer/core/geometry/dom_rect.h"
 #include "third_party/blink/renderer/core/html/html_permission_element_test_helper.h"
 #include "third_party/blink/renderer/core/html/install_result_event.h"
+#include "third_party/blink/renderer/core/html/shadow/shadow_element_names.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/testing/page_test_base.h"
 #include "third_party/blink/renderer/core/testing/sim/sim_request.h"
@@ -48,6 +53,9 @@ namespace {
 constexpr char kInstallString[] = "Install";
 constexpr char kLaunchString[] = "Launch";
 constexpr char kExampleSite[] = "https://site.example/app.manifest";
+constexpr double kInitialFontSizePx = 16;
+constexpr double kScaleFactor = 2;
+constexpr double kGeometryTolerance = 0.01;
 
 // Result strings for InstallResultEvent.
 constexpr char kResultSuccess[] = "success";
@@ -227,16 +235,6 @@ TEST_F(HTMLInstallElementTestBase, Type) {
   EXPECT_EQ(AtomicString("install"), element->GetType());
 }
 
-TEST_F(HTMLInstallElementTestBase, ManifestId) {
-  HTMLInstallElement* element =
-      MakeGarbageCollected<HTMLInstallElement>(GetDocument());
-  EXPECT_TRUE(element->ManifestId().empty());
-
-  constexpr char kManifestId[] = "https://site.example/manifest.json";
-  element->setAttribute(html_names::kManifestidAttr, AtomicString(kManifestId));
-  EXPECT_EQ(kManifestId, element->ManifestId());
-}
-
 TEST_F(HTMLInstallElementTestBase, RenderedText) {
   HTMLInstallElement* element =
       MakeGarbageCollected<HTMLInstallElement>(GetDocument());
@@ -246,11 +244,111 @@ TEST_F(HTMLInstallElementTestBase, RenderedText) {
   CheckInnerText(element, kInstallString);
 }
 
+TEST_F(HTMLInstallElementTestBase, InstallIconScalesWithFontSize) {
+  // Configure the element with an initial font size.
+  HTMLInstallElement* element =
+      MakeGarbageCollected<HTMLInstallElement>(GetDocument());
+  element->SetInlineStyleProperty(CSSPropertyID::kFontSize, kInitialFontSizePx,
+                                  CSSPrimitiveValue::UnitType::kPixels);
+  WaitForElementRegistration(element);
+
+  // Grab the shadow root and permission icon elements.
+  ShadowRoot* shadow_root = element->UserAgentShadowRoot();
+  ASSERT_TRUE(shadow_root);
+  Element* permission_icon =
+      shadow_root->getElementById(shadow_element_names::kIdPermissionIcon);
+  ASSERT_TRUE(permission_icon);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return permission_icon->firstElementChild(); }));
+  Element* svg = permission_icon->firstElementChild();
+
+  // Verify the initial dimensions.
+  GetDocument().View()->UpdateAllLifecyclePhasesForTest();
+  DOMRect* initial_icon_rect = permission_icon->GetBoundingClientRect();
+  DOMRect* initial_svg_rect = svg->GetBoundingClientRect();
+  EXPECT_GT(initial_svg_rect->width(), 0);
+  EXPECT_GT(initial_svg_rect->height(), 0);
+  EXPECT_NEAR(initial_icon_rect->width(), initial_svg_rect->width(),
+              kGeometryTolerance);
+  EXPECT_NEAR(initial_icon_rect->height(), initial_svg_rect->height(),
+              kGeometryTolerance);
+
+  // Scale the font size and verify that the icon scales accordingly.
+  element->SetInlineStyleProperty(CSSPropertyID::kFontSize,
+                                  kInitialFontSizePx * kScaleFactor,
+                                  CSSPrimitiveValue::UnitType::kPixels);
+  GetDocument().View()->UpdateAllLifecyclePhasesForTest();
+  DOMRect* scaled_icon_rect = permission_icon->GetBoundingClientRect();
+  DOMRect* scaled_svg_rect = svg->GetBoundingClientRect();
+  EXPECT_NEAR(scaled_icon_rect->width(), scaled_svg_rect->width(),
+              kGeometryTolerance);
+  EXPECT_NEAR(scaled_icon_rect->height(), scaled_svg_rect->height(),
+              kGeometryTolerance);
+  EXPECT_NEAR(initial_svg_rect->width() * kScaleFactor,
+              scaled_svg_rect->width(), kGeometryTolerance);
+  EXPECT_NEAR(initial_svg_rect->height() * kScaleFactor,
+              scaled_svg_rect->height(), kGeometryTolerance);
+}
+
+TEST_F(HTMLInstallElementTestBase, LaunchIconScalesWithFontSize) {
+  // Configure the element with an initial font size.
+  HTMLInstallElement* element =
+      MakeGarbageCollected<HTMLInstallElement>(GetDocument());
+  element->SetInlineStyleProperty(CSSPropertyID::kFontSize, kInitialFontSizePx,
+                                  CSSPrimitiveValue::UnitType::kPixels);
+  WaitForElementRegistration(element);
+
+  // Grab the shadow root and permission icon elements.
+  ShadowRoot* shadow_root = element->UserAgentShadowRoot();
+  ASSERT_TRUE(shadow_root);
+  Element* permission_icon =
+      shadow_root->getElementById(shadow_element_names::kIdPermissionIcon);
+  ASSERT_TRUE(permission_icon);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return permission_icon->firstElementChild(); }));
+  Element* install_svg = permission_icon->firstElementChild();
+
+  // Trigger the installed state and wait for the launch icon.
+  element->OnIsInstalledResult(true);
+  CheckInnerText(element, kLaunchString);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return permission_icon->firstElementChild() != install_svg; }));
+  ASSERT_TRUE(element->show_as_launch());
+
+  // Verify the initial dimensions of the launch icon.
+  Element* launch_svg = permission_icon->firstElementChild();
+  GetDocument().View()->UpdateAllLifecyclePhasesForTest();
+  DOMRect* initial_icon_rect = permission_icon->GetBoundingClientRect();
+  DOMRect* initial_svg_rect = launch_svg->GetBoundingClientRect();
+  EXPECT_GT(initial_svg_rect->width(), 0);
+  EXPECT_GT(initial_svg_rect->height(), 0);
+  EXPECT_NEAR(initial_icon_rect->width(), initial_svg_rect->width(),
+              kGeometryTolerance);
+  EXPECT_NEAR(initial_icon_rect->height(), initial_svg_rect->height(),
+              kGeometryTolerance);
+
+  // Scale the font size and verify that the launch icon scales accordingly.
+  element->SetInlineStyleProperty(CSSPropertyID::kFontSize,
+                                  kInitialFontSizePx * kScaleFactor,
+                                  CSSPrimitiveValue::UnitType::kPixels);
+  GetDocument().View()->UpdateAllLifecyclePhasesForTest();
+  DOMRect* scaled_icon_rect = permission_icon->GetBoundingClientRect();
+  DOMRect* scaled_svg_rect = launch_svg->GetBoundingClientRect();
+  EXPECT_NEAR(scaled_icon_rect->width(), scaled_svg_rect->width(),
+              kGeometryTolerance);
+  EXPECT_NEAR(scaled_icon_rect->height(), scaled_svg_rect->height(),
+              kGeometryTolerance);
+  EXPECT_NEAR(initial_svg_rect->width() * kScaleFactor,
+              scaled_svg_rect->width(), kGeometryTolerance);
+  EXPECT_NEAR(initial_svg_rect->height() * kScaleFactor,
+              scaled_svg_rect->height(), kGeometryTolerance);
+}
+
 TEST_F(HTMLInstallElementTestBase, InstalledStateHiddenInCanvasSubtree) {
   ScopedCanvasDrawElementForTest canvas_draw_element_enabled(true);
 
   auto* canvas = GetDocument().CreateRawElement(html_names::kCanvasTag);
-  canvas->setAttribute(html_names::kLayoutsubtreeAttr, g_empty_atom);
+  canvas->setAttribute(html_names::kContentAttr, AtomicString("drawable"));
   HTMLInstallElement* element =
       MakeGarbageCollected<HTMLInstallElement>(GetDocument());
   canvas->AppendChild(element);
@@ -285,7 +383,7 @@ TEST_F(HTMLInstallElementTestBase,
   ASSERT_TRUE(element->show_as_launch());
 
   auto* canvas = GetDocument().CreateRawElement(html_names::kCanvasTag);
-  canvas->setAttribute(html_names::kLayoutsubtreeAttr, g_empty_atom);
+  canvas->setAttribute(html_names::kContentAttr, AtomicString("drawable"));
   GetDocument().body()->AppendChild(canvas);
   canvas->AppendChild(element);
 
@@ -299,7 +397,7 @@ TEST_F(HTMLInstallElementTestBase, ActivationSuccess) {
       MakeGarbageCollected<HTMLInstallElement>(GetDocument());
   WaitForElementRegistration(element);
 
-  element->DispatchEvent(*Event::Create(event_type_names::kDOMActivate));
+  element->DispatchSimulatedClick(nullptr);
 
   // The manifest install method should be called.
   web_install_service_.WaitForCall();
@@ -319,7 +417,7 @@ TEST_F(HTMLInstallElementTestBase, ActivationAborted) {
       MakeGarbageCollected<HTMLInstallElement>(GetDocument());
   WaitForElementRegistration(element);
 
-  element->DispatchEvent(*Event::Create(event_type_names::kDOMActivate));
+  element->DispatchSimulatedClick(nullptr);
 
   // The manifest install method should be called.
   web_install_service_.WaitForCall();
@@ -345,7 +443,7 @@ TEST_F(HTMLInstallElementTestBase, InstallurlWithManifestReturnsInvalidData) {
                         AtomicString(kExampleSite));
   WaitForElementRegistration(element);
 
-  element->DispatchEvent(*Event::Create(event_type_names::kDOMActivate));
+  element->DispatchSimulatedClick(nullptr);
 
   InstallResultEvent* event = WaitForInstallResultEvent(element);
   ASSERT_TRUE(event);
@@ -424,7 +522,7 @@ TEST_F(HTMLInstallElementFiringSimTest, OnInstallResultContentAttributeFires) {
   GetDocument().View()->UpdateAllLifecyclePhasesForTest();
   WaitForPermissionElementRegistration(element);
 
-  element->DispatchEvent(*Event::Create(event_type_names::kDOMActivate));
+  element->DispatchSimulatedClick(nullptr);
   web_install_service_.WaitForCall();
   web_install_service_.RespondManifestWithSuccess();
 
@@ -433,22 +531,13 @@ TEST_F(HTMLInstallElementFiringSimTest, OnInstallResultContentAttributeFires) {
   EXPECT_TRUE(ConsoleMessages()[0].contains("installresult: success"));
 }
 
-TEST_F(HTMLInstallElementTestBase, ManifestAttribute) {
-  HTMLInstallElement* element =
-      MakeGarbageCollected<HTMLInstallElement>(GetDocument());
-  EXPECT_TRUE(element->Manifest().empty());
-
-  element->setAttribute(html_names::kManifestAttr, AtomicString(kExampleSite));
-  EXPECT_EQ(kExampleSite, element->Manifest());
-}
-
 TEST_F(HTMLInstallElementTestBase, ActivationWithManifestAttribute) {
   HTMLInstallElement* element =
       MakeGarbageCollected<HTMLInstallElement>(GetDocument());
   element->setAttribute(html_names::kManifestAttr, AtomicString(kExampleSite));
   WaitForElementRegistration(element);
 
-  element->DispatchEvent(*Event::Create(event_type_names::kDOMActivate));
+  element->DispatchSimulatedClick(nullptr);
 
   web_install_service_.WaitForCall();
 
@@ -474,7 +563,7 @@ TEST_F(HTMLInstallElementTestBase, ActivationWithManifestAndManifestId) {
   element->setAttribute(html_names::kManifestidAttr, AtomicString(kManifestId));
   WaitForElementRegistration(element);
 
-  element->DispatchEvent(*Event::Create(event_type_names::kDOMActivate));
+  element->DispatchSimulatedClick(nullptr);
 
   web_install_service_.WaitForCall();
 
@@ -499,7 +588,7 @@ TEST_F(HTMLInstallElementTestBase, ActivationWithRelativeManifest) {
                         AtomicString("manifest.json"));
   WaitForElementRegistration(element);
 
-  element->DispatchEvent(*Event::Create(event_type_names::kDOMActivate));
+  element->DispatchSimulatedClick(nullptr);
 
   web_install_service_.WaitForCall();
 
@@ -516,6 +605,62 @@ TEST_F(HTMLInstallElementTestBase, ActivationWithRelativeManifest) {
 }
 
 TEST_F(HTMLInstallElementTestBase,
+       ActivationWithManifestAndRelativeManifestId) {
+  GetDocument().SetURL(KURL("https://app.example/page/index.html"));
+  GetDocument().SetBaseURLOverride(KURL("https://app.example/catalog/"));
+  HTMLInstallElement* element =
+      MakeGarbageCollected<HTMLInstallElement>(GetDocument());
+  element->setAttribute(html_names::kManifestAttr,
+                        AtomicString("https://app.example/manifests/app.json"));
+  element->setAttribute(html_names::kManifestidAttr,
+                        AtomicString(" \t\n app-id \r\f "));
+  WaitForElementRegistration(element);
+
+  element->DispatchSimulatedClick(nullptr);
+
+  web_install_service_.WaitForCall();
+
+  ASSERT_FALSE(web_install_service_.manifest_options().is_null());
+  EXPECT_EQ(web_install_service_.manifest_options()->manifest_url,
+            KURL("https://app.example/manifests/app.json"));
+  EXPECT_EQ(web_install_service_.manifest_options()->manifest_id,
+            KURL("https://app.example/catalog/app-id"));
+
+  web_install_service_.RespondManifestWithSuccess();
+  InstallResultEvent* event = WaitForInstallResultEvent(element);
+  ASSERT_TRUE(event);
+  EXPECT_EQ(kResultSuccess, event->result().AsString());
+}
+
+TEST_F(HTMLInstallElementTestBase,
+       ActivationWithManifestIdUsesUtf8OnLegacyEncodedDocument) {
+  DocumentEncodingData encoding_data;
+  encoding_data.SetEncoding(TextEncoding("windows-1252"));
+  GetDocument().SetEncodingData(encoding_data);
+  HTMLInstallElement* element =
+      MakeGarbageCollected<HTMLInstallElement>(GetDocument());
+  element->setAttribute(html_names::kManifestAttr,
+                        AtomicString("https://app.example/manifest.json"));
+  element->setAttribute(
+      html_names::kManifestidAttr,
+      AtomicString(String(u"https://app.example/?id=\u00E9")));
+  WaitForElementRegistration(element);
+
+  element->DispatchSimulatedClick(nullptr);
+
+  web_install_service_.WaitForCall();
+
+  ASSERT_FALSE(web_install_service_.manifest_options().is_null());
+  EXPECT_EQ(web_install_service_.manifest_options()->manifest_id,
+            KURL("https://app.example/?id=%C3%A9"));
+
+  web_install_service_.RespondManifestWithSuccess();
+  InstallResultEvent* event = WaitForInstallResultEvent(element);
+  ASSERT_TRUE(event);
+  EXPECT_EQ(kResultSuccess, event->result().AsString());
+}
+
+TEST_F(HTMLInstallElementTestBase,
        ActivationWithManifestAttributeWithSurroundingWhitespace) {
   HTMLInstallElement* element =
       MakeGarbageCollected<HTMLInstallElement>(GetDocument());
@@ -523,7 +668,7 @@ TEST_F(HTMLInstallElementTestBase,
   element->setAttribute(html_names::kManifestAttr, AtomicString(manifest));
   WaitForElementRegistration(element);
 
-  element->DispatchEvent(*Event::Create(event_type_names::kDOMActivate));
+  element->DispatchSimulatedClick(nullptr);
 
   web_install_service_.WaitForCall();
 
@@ -543,7 +688,7 @@ TEST_F(HTMLInstallElementTestBase, ActivationWithManifestAbortError) {
   element->setAttribute(html_names::kManifestAttr, AtomicString(kExampleSite));
   WaitForElementRegistration(element);
 
-  element->DispatchEvent(*Event::Create(event_type_names::kDOMActivate));
+  element->DispatchSimulatedClick(nullptr);
 
   web_install_service_.WaitForCall();
 
@@ -560,7 +705,7 @@ TEST_F(HTMLInstallElementTestBase, ActivationWithManifestDataError) {
   element->setAttribute(html_names::kManifestAttr, AtomicString(kExampleSite));
   WaitForElementRegistration(element);
 
-  element->DispatchEvent(*Event::Create(event_type_names::kDOMActivate));
+  element->DispatchSimulatedClick(nullptr);
 
   web_install_service_.WaitForCall();
 
@@ -581,7 +726,7 @@ TEST_F(HTMLInstallElementTestBase, ManifestIdOnlyReturnsInvalidData) {
                         AtomicString("https://site.example/manifest.json"));
   WaitForElementRegistration(element);
 
-  element->DispatchEvent(*Event::Create(event_type_names::kDOMActivate));
+  element->DispatchSimulatedClick(nullptr);
 
   InstallResultEvent* event = WaitForInstallResultEvent(element);
   ASSERT_TRUE(event);
@@ -597,24 +742,7 @@ TEST_F(HTMLInstallElementTestBase, InvalidManifestUrlReturnsInvalidData) {
   element->setAttribute(html_names::kManifestAttr, AtomicString("https://["));
   WaitForElementRegistration(element);
 
-  element->DispatchEvent(*Event::Create(event_type_names::kDOMActivate));
-
-  InstallResultEvent* event = WaitForInstallResultEvent(element);
-  ASSERT_TRUE(event);
-  EXPECT_EQ(kResultInvalidData, event->result().AsString());
-  EXPECT_FALSE(web_install_service_.WasCalled());
-}
-
-// TODO(crbug.com/557288876): Define whitespace-only manifest attribute
-// behavior.
-TEST_F(HTMLInstallElementTestBase,
-       ActivationWithWhitespaceOnlyManifestReturnsInvalidData) {
-  HTMLInstallElement* element =
-      MakeGarbageCollected<HTMLInstallElement>(GetDocument());
-  element->setAttribute(html_names::kManifestAttr, AtomicString(" \t\n "));
-  WaitForElementRegistration(element);
-
-  element->DispatchEvent(*Event::Create(event_type_names::kDOMActivate));
+  element->DispatchSimulatedClick(nullptr);
 
   InstallResultEvent* event = WaitForInstallResultEvent(element);
   ASSERT_TRUE(event);
@@ -636,7 +764,7 @@ TEST_F(HTMLInstallElementTestBase, PrefixedElementActivationSuccess) {
       ASSERT_NO_EXCEPTION));
   WaitForElementRegistration(element);
 
-  element->DispatchEvent(*Event::Create(event_type_names::kDOMActivate));
+  element->DispatchSimulatedClick(nullptr);
   web_install_service_.WaitForCall();
   web_install_service_.RespondManifestWithSuccess();
 
@@ -645,6 +773,82 @@ TEST_F(HTMLInstallElementTestBase, PrefixedElementActivationSuccess) {
   if (event) {
     EXPECT_EQ(kResultSuccess, event->result().AsString());
   }
+}
+
+TEST_F(HTMLInstallElementTestBase,
+       ActivationWithEmptyManifestReturnsInvalidData) {
+  HTMLInstallElement* element =
+      MakeGarbageCollected<HTMLInstallElement>(GetDocument());
+  element->setAttribute(html_names::kManifestAttr, g_empty_atom);
+  WaitForElementRegistration(element);
+
+  element->DispatchSimulatedClick(nullptr);
+
+  InstallResultEvent* event = WaitForInstallResultEvent(element);
+  ASSERT_TRUE(event);
+  EXPECT_EQ(kResultInvalidData, event->result().AsString());
+  EXPECT_FALSE(web_install_service_.WasCalled());
+}
+
+TEST_F(HTMLInstallElementTestBase,
+       ActivationWithWhitespaceOnlyManifestReturnsInvalidData) {
+  HTMLInstallElement* element =
+      MakeGarbageCollected<HTMLInstallElement>(GetDocument());
+  element->setAttribute(html_names::kManifestAttr, AtomicString(" \t\n "));
+  WaitForElementRegistration(element);
+
+  element->DispatchSimulatedClick(nullptr);
+
+  InstallResultEvent* event = WaitForInstallResultEvent(element);
+  ASSERT_TRUE(event);
+  EXPECT_EQ(kResultInvalidData, event->result().AsString());
+  EXPECT_FALSE(web_install_service_.WasCalled());
+}
+
+TEST_F(HTMLInstallElementTestBase,
+       ActivationWithEmptyManifestIdReturnsInvalidData) {
+  HTMLInstallElement* element =
+      MakeGarbageCollected<HTMLInstallElement>(GetDocument());
+  element->setAttribute(html_names::kManifestAttr, AtomicString(kExampleSite));
+  element->setAttribute(html_names::kManifestidAttr, g_empty_atom);
+  WaitForElementRegistration(element);
+
+  element->DispatchSimulatedClick(nullptr);
+
+  InstallResultEvent* event = WaitForInstallResultEvent(element);
+  ASSERT_TRUE(event);
+  EXPECT_EQ(kResultInvalidData, event->result().AsString());
+  EXPECT_FALSE(web_install_service_.WasCalled());
+}
+
+TEST_F(HTMLInstallElementTestBase,
+       ActivationWithWhitespaceOnlyManifestIdReturnsInvalidData) {
+  HTMLInstallElement* element =
+      MakeGarbageCollected<HTMLInstallElement>(GetDocument());
+  element->setAttribute(html_names::kManifestAttr, AtomicString(kExampleSite));
+  element->setAttribute(html_names::kManifestidAttr,
+                        AtomicString(" \t\n \r\f "));
+  WaitForElementRegistration(element);
+
+  element->DispatchSimulatedClick(nullptr);
+
+  InstallResultEvent* event = WaitForInstallResultEvent(element);
+  ASSERT_TRUE(event);
+  EXPECT_EQ(kResultInvalidData, event->result().AsString());
+  EXPECT_FALSE(web_install_service_.WasCalled());
+}
+
+TEST_F(HTMLInstallElementTestBase, DisplayModeIconOnlyNotSupported) {
+  ScopedCapabilityElementIconOnlyModeForTest scoped_feature(true);
+  auto* element = MakeGarbageCollected<HTMLInstallElement>(GetDocument());
+  WaitForElementRegistration(element);
+  EXPECT_FALSE(element->IsIconOnly());
+  CheckInnerText(element, kInstallString);
+
+  element->setAttribute(html_names::kDisplaymodeAttr,
+                        AtomicString("icon-only"));
+  EXPECT_FALSE(element->IsIconOnly());
+  CheckInnerText(element, kInstallString);
 }
 
 }  // namespace blink

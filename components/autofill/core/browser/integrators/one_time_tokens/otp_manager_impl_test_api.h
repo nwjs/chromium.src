@@ -5,18 +5,31 @@
 #ifndef COMPONENTS_AUTOFILL_CORE_BROWSER_INTEGRATORS_ONE_TIME_TOKENS_OTP_MANAGER_IMPL_TEST_API_H_
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_INTEGRATORS_ONE_TIME_TOKENS_OTP_MANAGER_IMPL_TEST_API_H_
 
+#include <optional>
+
+#include "base/compiler_specific.h"
 #include "base/memory/raw_ref.h"
 #include "components/autofill/core/browser/integrators/one_time_tokens/otp_manager_impl.h"
 
 namespace autofill {
 
+class AutofillField;
+
 // Test API for `OtpManagerImpl`.
 class OtpManagerImplTestApi {
  public:
+  static constexpr base::TimeDelta kSmsOtpSubscriptionDuration =
+      OtpManagerImpl::kSmsOtpSubscriptionDuration;
+
+  static constexpr base::TimeDelta kGmailOtpTickleSubscriptionDuration =
+      OtpManagerImpl::kGmailOtpTickleSubscriptionDuration;
+
   explicit OtpManagerImplTestApi(OtpManagerImpl& manager) : manager_(manager) {}
 
-  void SetReceivedOtps(std::vector<one_time_tokens::OneTimeToken> otps) {
-    manager_->received_otps_ = std::move(otps);
+  std::optional<one_time_tokens::OneTimeToken> SelectMostRecentToken(
+      std::optional<one_time_tokens::OneTimeTokenType> type =
+          std::nullopt) const {
+    return manager_->SelectMostRecentToken(type);
   }
 
   const one_time_tokens::ExpiringSubscription& gmail_otp_tickle_subscription()
@@ -32,6 +45,32 @@ class OtpManagerImplTestApi {
 
   bool UserOptedIntoGmailOtpFilling() const {
     return manager_->UserOptedIntoGmailOtpFilling();
+  }
+
+  bool has_log_subscription() const { return !!manager_->log_subscription_; }
+
+  std::optional<FormGlobalId> currently_focused_form_id() const {
+    return manager_->currently_focused_form_id_;
+  }
+
+  std::optional<FieldGlobalId> currently_focused_field_id() const {
+    return manager_->currently_focused_field_id_;
+  }
+
+  const AutofillField* GetFocusedOtpField() const {
+    return manager_->GetFocusedOtpField();
+  }
+
+  void OnOneTimeTokenReceived(
+      one_time_tokens::OneTimeTokenSource source,
+      base::expected<one_time_tokens::OneTimeToken,
+                     one_time_tokens::OneTimeTokenRetrievalError>
+          token_or_error) {
+    manager_->OnOneTimeTokenReceived(source, std::move(token_or_error));
+  }
+
+  void OnTickleReceived(one_time_tokens::OneTimeTokenSource source) {
+    manager_->OnTickleReceived(source);
   }
 
  private:

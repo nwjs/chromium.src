@@ -54,6 +54,7 @@
 #include "services/network/public/cpp/cross_origin_embedder_policy.h"
 #include "services/network/public/cpp/document_isolation_policy.h"
 #include "services/network/public/cpp/features.h"
+#include "services/network/public/cpp/sri_message_signatures.h"
 #include "services/network/public/cpp/timing_allow_origin_parser.h"
 #include "services/network/public/mojom/fetch_api.mojom.h"
 #include "services/network/public/mojom/service_worker_router_info.mojom.h"
@@ -743,8 +744,11 @@ void ServiceWorkerMainResourceLoader::CommitEmptyResponseAndComplete() {
   CommitCompleted(net::OK, "No body exists.");
 }
 
-void ServiceWorkerMainResourceLoader::CommitCompleted(int error_code,
-                                                      const char* reason) {
+void ServiceWorkerMainResourceLoader::CommitCompleted(
+    int error_code,
+    const char* reason,
+    std::optional<network::mojom::BlockedByResponseReason>
+        blocked_by_response_reason) {
   TRACE_EVENT("ServiceWorker",
               "ServiceWorkerMainResourceLoader::CommitCompleted",
               perfetto::Flow::FromPointer(this), "error_code",
@@ -773,8 +777,9 @@ void ServiceWorkerMainResourceLoader::CommitCompleted(int error_code,
   // |stream_waiter_| calls this when done.
   stream_waiter_.reset();
 
-  url_loader_client_->OnComplete(
-      network::URLLoaderCompletionStatus(error_code));
+  network::URLLoaderCompletionStatus status(error_code);
+  status.blocked_by_response_reason = blocked_by_response_reason;
+  url_loader_client_->OnComplete(status);
 }
 
 void ServiceWorkerMainResourceLoader::DidPrepareFetchEvent(
@@ -976,6 +981,10 @@ void ServiceWorkerMainResourceLoader::DidDispatchFetchEvent(
     network::DocumentIsolationPolicy document_isolation_policy;
     network::mojom::DocumentIsolationPolicyReporter*
         document_isolation_policy_reporter = nullptr;
+    // For main resource navigations, container_host() is not yet created
+    // prior to response commit. Policy container policies will default to
+    // empty, but IsValidStaticRouterResponse will still validate the response
+    // type (e.g. rejecting opaque responses for navigation mode).
     if (service_worker_client_ && service_worker_client_->container_host()) {
       ServiceWorkerContainerHostForClient* container_host =
           service_worker_client_->container_host();
@@ -1338,19 +1347,6 @@ void ServiceWorkerMainResourceLoader::StartResponse(
 
   blink::ServiceWorkerLoaderHelpers::SaveResponseInfo(*response,
                                                       response_head_.get());
-  // We need to explicitly copy `parsed_headers` here because
-  // `ServiceWorkerLoaderHelpers::SaveResponseInfo()` does not handle the
-  // restoration or copying of this Mojo field.
-  //
-  // For the Static Router 'cache' source path, the headers are already parsed
-  // in the browser process via a Network Service IPC. By cloning them here,
-  // we ensure they are available for immediate checks (like TAO) within this
-  // loader, and more importantly, we prevent the downstream navigation stack
-  // (e.g., `NavigationURLLoaderImpl`) from performing a redundant second IPC
-  // to re-parse the same headers.
-  if (response->parsed_headers) {
-    response_head_->parsed_headers = response->parsed_headers.Clone();
-  }
 
   response_head_->did_service_worker_navigation_preload =
       dispatched_preload_type() == DispatchedPreloadType::kNavigationPreload;
@@ -1365,10 +1361,12 @@ void ServiceWorkerMainResourceLoader::StartResponse(
 
   // Synthetic and same-origin responses are same-origin to the requesting
   // client if the request initiator is same-origin with the request URL, so
-  // the timing allow check trivially passes. Filtered responses wrap a
+  // the timing allow check passes unless the response was fetched via a
+  // redirect chain that failed the TAO check. Filtered responses wrap a
   // cross-origin response for which the timing allow check must not be
-  // assumed to have passed unless the Timing-Allow-Origin check passes.
-  if (resource_request_.request_initiator &&
+  // assumed to have passed unless the response passed the TAO check and the
+  // Timing-Allow-Origin check passes for the request initiator.
+  if (resource_request_.request_initiator && response->timing_allow_passed &&
       ((resource_request_.request_initiator->IsSameOriginWith(
             resource_request_.url) &&
         (response_head_->response_type ==
@@ -1413,6 +1411,16 @@ void ServiceWorkerMainResourceLoader::StartResponse(
                 perfetto::Flow::FromPointer(this), "result", "redirect",
                 "redirect url", redirect_info->new_url.spec());
     HandleRedirect(*redirect_info, response_head_);
+    return;
+  }
+
+  // SRI verification applies to the final response, not redirect hops.
+  if (std::optional<network::mojom::BlockedByResponseReason> blocked_reason =
+          network::MaybeBlockResponseForSRIMessageSignature(
+              resource_request_, *response_head_,
+              resource_request_.expected_public_keys)) {
+    CommitCompleted(net::ERR_BLOCKED_BY_RESPONSE,
+                    "SRI message signature mismatch", blocked_reason);
     return;
   }
 

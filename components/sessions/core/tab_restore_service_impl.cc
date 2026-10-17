@@ -690,7 +690,7 @@ class TabRestoreServiceImpl::PersistenceDelegate
   // invokes LoadState.
   void OnGotLastSessionCommands(
       std::vector<std::unique_ptr<SessionCommand>> commands,
-      bool read_error);
+      CommandStorageReadStatus status);
 
   // Populates |loaded_entries| with Entries from |commands|.
   void CreateEntriesFromCommands(
@@ -1243,7 +1243,7 @@ int TabRestoreServiceImpl::PersistenceDelegate::
 
 void TabRestoreServiceImpl::PersistenceDelegate::OnGotLastSessionCommands(
     std::vector<std::unique_ptr<SessionCommand>> commands,
-    bool read_error) {
+    CommandStorageReadStatus status) {
   std::vector<std::unique_ptr<tab_restore::Entry>> entries;
   CreateEntriesFromCommands(commands, &entries);
   // Closed tabs always go to the end.
@@ -1909,7 +1909,7 @@ void TabRestoreServiceImpl::RemoveLeastRecentlyUsedEntries(int num_to_remove) {
   helper_.RemoveLeastRecentlyUsedEntries(num_to_remove);
 }
 
-std::vector<LiveTab*> TabRestoreServiceImpl::RestoreEntryById(
+std::optional<std::vector<LiveTab*>> TabRestoreServiceImpl::RestoreEntryById(
     LiveTabContext* context,
     SessionID id,
     WindowOpenDisposition disposition) {

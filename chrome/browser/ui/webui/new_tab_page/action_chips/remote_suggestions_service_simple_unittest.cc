@@ -257,7 +257,7 @@ class ServiceTestContext {
 
 struct ExpectedSuggestion {
   std::u16string suggestion;
-  AutocompleteMatchType::Type type;
+  omnibox::AutocompleteMatchType type;
 };
 
 struct HappyPathTestCase {
@@ -313,9 +313,10 @@ INSTANTIATE_TEST_SUITE_P(
         HappyPathTestCase{
             kSampleSuggestionsResponse,
             {ExpectedSuggestion{u"suggestion 1",
-                                AutocompleteMatchType::SEARCH_SUGGEST},
-             ExpectedSuggestion{u"suggestion 2",
-                                AutocompleteMatchType::SEARCH_SUGGEST}}},
+                                omnibox::AutocompleteMatchType::kSearchSuggest},
+             ExpectedSuggestion{
+                 u"suggestion 2",
+                 omnibox::AutocompleteMatchType::kSearchSuggest}}},
         HappyPathTestCase{kEmptySuggestionsResponse, {}}));
 
 using GetActionChipSuggestionsHappyPathTest =
@@ -371,10 +372,11 @@ INSTANTIATE_TEST_SUITE_P(
         HappyPathTestCase{
             kSampleSuggestionsResponseWithEmptySuggestion,
             {ExpectedSuggestion{u"suggestion 1",
-                                AutocompleteMatchType::SEARCH_SUGGEST},
+                                omnibox::AutocompleteMatchType::kSearchSuggest},
              ExpectedSuggestion{u"suggestion 2",
-                                AutocompleteMatchType::SEARCH_SUGGEST},
-             ExpectedSuggestion{u"", AutocompleteMatchType::SEARCH_SUGGEST}}},
+                                omnibox::AutocompleteMatchType::kSearchSuggest},
+             ExpectedSuggestion{
+                 u"", omnibox::AutocompleteMatchType::kSearchSuggest}}},
         HappyPathTestCase{kEmptySuggestionsResponse, {}}));
 
 TEST(RemoteSuggestionsServiceSimpleTest,

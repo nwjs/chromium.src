@@ -34,7 +34,6 @@
 #include "mojo/public/cpp/system/data_pipe.h"
 #include "net/http/http_response_headers.h"
 #include "pdf/buildflags.h"
-#include "services/network/public/cpp/cors/cors.h"
 #include "services/network/public/mojom/content_security_policy.mojom.h"
 #include "services/network/public/mojom/url_loader.mojom.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
@@ -54,8 +53,9 @@ void ClearAllButFrameAncestors(network::mojom::URLResponseHead* response_head) {
   response_head->headers->RemoveHeader("Content-Security-Policy");
   response_head->headers->RemoveHeader("Content-Security-Policy-Report-Only");
 
-  if (!response_head->parsed_headers)
+  if (!response_head->parsed_headers) {
     return;
+  }
 
   std::vector<network::mojom::ContentSecurityPolicyPtr>& csp =
       response_head->parsed_headers->content_security_policy;
@@ -64,8 +64,9 @@ void ClearAllButFrameAncestors(network::mojom::URLResponseHead* response_head) {
   for (auto& policy : csp) {
     auto frame_ancestors = policy->directives.find(
         network::mojom::CSPDirectiveName::FrameAncestors);
-    if (frame_ancestors == policy->directives.end())
+    if (frame_ancestors == policy->directives.end()) {
       continue;
+    }
 
     auto cleared_policy = network::mojom::ContentSecurityPolicy::New();
     cleared_policy->self_origin = std::move(policy->self_origin);
@@ -97,25 +98,6 @@ void ClearAllButFrameAncestors(network::mojom::URLResponseHead* response_head) {
   }
 
   csp.swap(cleared);
-}
-
-// Restricts `headers` to the CORS-safelisted response header names, so a
-// generic (third-party) MIME handler extension only sees the response headers
-// that fetch() would expose to script cross-origin. Without this, a
-// zero-permission handler could read arbitrary cross-origin response headers
-// (auth tokens, and similar) off the stream it handles.
-// https://fetch.spec.whatwg.org/#cors-safelisted-response-header-name
-void FilterToCorsSafelistedResponseHeaders(net::HttpResponseHeaders* headers) {
-  std::vector<std::string> names_to_remove;
-  size_t iter = 0;
-  std::string name;
-  std::string value;
-  while (headers->EnumerateHeaderLines(&iter, &name, &value)) {
-    if (!network::cors::IsCorsSafelistedResponseHeaderName(name)) {
-      names_to_remove.emplace_back(name);
-    }
-  }
-  headers->RemoveHeaders(names_to_remove);
 }
 
 // A no-op `network::mojom::URLLoader` used on the cached-body fallback
@@ -155,12 +137,19 @@ class NoopURLLoader final : public network::mojom::URLLoader {
 PluginResponseInterceptorURLLoaderThrottle::
     PluginResponseInterceptorURLLoaderThrottle(
         network::mojom::RequestDestination request_destination,
-        content::FrameTreeNodeId frame_tree_node_id)
+        content::FrameTreeNodeId frame_tree_node_id,
+        int64_t navigation_id)
     : request_destination_(request_destination),
-      frame_tree_node_id_(frame_tree_node_id) {}
+      frame_tree_node_id_(frame_tree_node_id),
+      navigation_id_(navigation_id) {}
 
 PluginResponseInterceptorURLLoaderThrottle::
     ~PluginResponseInterceptorURLLoaderThrottle() = default;
+
+const char* PluginResponseInterceptorURLLoaderThrottle::
+    NameForLoggingWillProcessResponse() {
+  return "PluginResponseInterceptorURLLoaderThrottle";
+}
 
 void PluginResponseInterceptorURLLoaderThrottle::WillProcessResponse(
     const GURL& response_url,
@@ -175,16 +164,27 @@ void PluginResponseInterceptorURLLoaderThrottle::WillProcessResponse(
   }
 
 #if BUILDFLAG(ENABLE_PDF)
-  // text/pdf is an alias for application/pdf for the purpose of invoking the
-  // built-in PDF viewer (crbug.com/40774340). Canonicalize it here -- before
-  // the download decision below -- so the download pref, the PDF viewer
-  // machinery, and the committed WebContents contents MIME type uniformly
-  // observe application/pdf, preserving the invariant that a full-page PDF's
-  // contents MIME type is application/pdf.
   if (response_head->mime_type == "text/pdf") {
+    // text/pdf is an alias for application/pdf for the purpose of invoking the
+    // built-in PDF viewer (crbug.com/40774340). Canonicalize it here -- before
+    // the download decision below -- so the download pref, the PDF viewer
+    // machinery, and the committed WebContents contents MIME type uniformly
+    // observe application/pdf, preserving the invariant that a full-page PDF's
+    // contents MIME type is application/pdf.
     response_head->mime_type = pdf::kPDFMimeType;
+  } else if (response_head->mime_type == pdf::kPDFMimeType &&
+             response_url.SchemeIsHTTPOrHTTPS() && response_head->headers) {
+    // If net::SniffMimeType() sniffed an HTTP(S) "text/plain" response as
+    // "application/pdf", revert `response_head->mime_type` back to
+    // "text/plain". The PDF viewer rejects HTTP(S) responses with a
+    // "text/plain" Content-Type header, so do not intercept the response.
+    std::string original_header_mime_type;
+    if (response_head->headers->GetMimeType(&original_header_mime_type) &&
+        original_header_mime_type == "text/plain") {
+      response_head->mime_type = original_header_mime_type;
+    }
   }
-#endif
+#endif  // BUILDFLAG(ENABLE_PDF)
 
   if (content::download_utils::MustDownload(
           web_contents->GetBrowserContext(), response_url,
@@ -290,7 +290,7 @@ void PluginResponseInterceptorURLLoaderThrottle::WillProcessResponse(
     // Set the payload without creating a MimeHandlerView.
     payload = extensions::CreateTemplateMimeHandlerPage(
         response_url, response_head->mime_type, internal_id,
-        /*use_oopif=*/true, /*is_oopif_pdf=*/is_for_oopif_pdf);
+        /*use_oopif=*/true);
   } else {
     // The resource is handled by frame-based MimeHandlerView, so let the
     // MimeHandlerView code set the payload.
@@ -329,17 +329,6 @@ void PluginResponseInterceptorURLLoaderThrottle::WillProcessResponse(
     deep_copied_response->headers =
         base::MakeRefCounted<net::HttpResponseHeaders>(
             response_head->headers->raw_headers());
-  }
-
-  // These deep-copied headers are the extension-facing view of the response
-  // (read back via getStreamInfo). Restrict a generic (third-party) handler to
-  // the CORS-safelisted response header names so it cannot read cross-origin
-  // response headers it would never see through fetch(). Trusted handlers
-  // (allowlisted plugin extensions) are exempt: their rendering paths
-  // legitimately consume non-safelisted headers, and `response_head` itself is
-  // never filtered.
-  if (is_for_generic_mime_handler && deep_copied_response->headers) {
-    FilterToCorsSafelistedResponseHeaders(deep_copied_response->headers.get());
   }
 
   // Save the original MIME type before any overrides. This is passed to
@@ -440,8 +429,8 @@ void PluginResponseInterceptorURLLoaderThrottle::WillProcessResponse(
       base::BindOnce(
           &extensions::mime_handlers::SendExecuteMimeTypeHandlerEvent,
           extension_id, stream_id, embedded, frame_tree_node_id_,
-          std::move(transferrable_loader), response_url, internal_id,
-          original_mime_type, std::move(body_cache)));
+          navigation_id_, std::move(transferrable_loader), response_url,
+          internal_id, original_mime_type, std::move(body_cache)));
 
   if (use_oopif_path) {
     // Schedule `ResumeLoad()` for after the SendExecuteMimeTypeHandlerEvent()

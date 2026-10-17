@@ -78,8 +78,6 @@
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/location.h"
 #include "third_party/blink/renderer/core/frame/remote_frame.h"
-#include "third_party/blink/renderer/core/html/fenced_frame/document_fenced_frames.h"
-#include "third_party/blink/renderer/core/html/fenced_frame/html_fenced_frame_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_button_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_control_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
@@ -2091,28 +2089,13 @@ protocol::Response InspectorDOMAgent::getAnchorElement(
         "The box or the container of the box does not exist");
   }
 
-  const LayoutObject* target_object;
+  const LayoutObject* target_object = nullptr;
   if (anchor_specifier.has_value()) {
     target_object = box->FindTargetAnchor(*MakeGarbageCollected<ScopedCSSName>(
         AtomicString(anchor_specifier.value()),
         &querying_object->GetDocument()));
-  } else {
-    const DefaultAnchorData default_anchor_data =
-        box->StyleRef().GetDefaultAnchorData();
-    using Type = StylePositionAnchor::Type;
-    switch (default_anchor_data.GetType()) {
-      case Type::kNone:
-        target_object = nullptr;
-        break;
-      case Type::kAuto:
-        target_object = box->AcceptableImplicitAnchor();
-        break;
-      case Type::kName:
-        target_object = box->FindTargetAnchor(default_anchor_data.GetName());
-        break;
-      case Type::kNormal:
-        NOTREACHED();
-    }
+  } else if (box->IsOutOfFlowPositioned()) {
+    target_object = box->FindDefaultAnchor();
   }
 
   if (target_object) {
@@ -3497,18 +3480,6 @@ protocol::Response InspectorDOMAgent::getFrameOwner(
       break;
     }
 
-    if (IsA<LocalFrame>(frame)) {
-      if (auto* fenced_frames = DocumentFencedFrames::Get(
-              *To<LocalFrame>(frame)->GetDocument())) {
-        for (HTMLFencedFrameElement* ff : fenced_frames->GetFencedFrames()) {
-          Frame* ff_frame = ff->ContentFrame();
-          if (ff_frame && IdentifiersFactory::FrameId(ff_frame) == frame_id) {
-            found_frame = ff_frame;
-            break;
-          }
-        }
-      }
-    }
   }
 
   if (!found_frame) {

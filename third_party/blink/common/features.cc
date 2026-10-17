@@ -119,6 +119,9 @@ extern "C" {
 BASE_FEATURE(kBlockMidiByDefault, base::FEATURE_ENABLED_BY_DEFAULT);
 }
 
+BASE_FEATURE(kClipboardOnExtensionServiceWorker,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kComputePressureRateObfuscationMitigation,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -270,6 +273,34 @@ BASE_FEATURE_PARAM(std::string,
                    &kCacheStorageCodeCacheHintHeader,
                    "name",
                    "x-CacheStorageCodeCacheHint");
+
+// Flushes canvas if the recording limit has been exceeded. This is a heuristic
+// based on memory and GPU performance:
+// - High memory usage causes discarded resources in low-end devices.
+// - PaintOpBuffers that grow indefinitely. The OOPR-related jank is caused by
+// long-running RasterCHROMIUM calls that monopolize the main thread
+// of the GPU process. By flushing periodically, we allow the rasterization
+// of canvas contents to be interleaved with other compositing and UI work.
+//
+// The default values for these parameters were initially determined
+// empirically. They were selected to maximize the MotionMark score on
+// desktop computers. Field trials may be used to tune these parameters
+// further by using metrics data from the field.
+BASE_FEATURE(kCanvas2DAutoFlushParams, base::FEATURE_DISABLED_BY_DEFAULT);
+
+const base::FeatureParam<int> kMaxRecordedOpKB(&kCanvas2DAutoFlushParams,
+                                               "max_recorded_op_kb",
+                                               2 * 1024);
+
+const base::FeatureParam<int> kMaxPinnedImageKB(&kCanvas2DAutoFlushParams,
+                                                "max_pinned_image_kb",
+                                                32 * 1024);
+
+// Graphite can generally handle more ops, increase the size accordingly.
+const base::FeatureParam<int> kMaxRecordedOpGraphiteKB(
+    &kCanvas2DAutoFlushParams,
+    "max_recorded_op_graphite_kb",
+    6 * 1024);
 
 // Temporarily disabled due to issues:
 // - PDF blank previews
@@ -596,6 +627,10 @@ BASE_FEATURE(kEnableDevtoolsDeepLinkViaExtensibilityApi,
 BASE_FEATURE(kEnforceNoopenerOnBlobURLNavigation,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Killswitch for restrictions on blob URL creation in PDF processes, in case
+// regressions are encountered in the wild. See https://crbug.com/540051167.
+BASE_FEATURE(kEnforcePdfBlobRestrictions, base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kEventTimingIgnorePresentationTimeFromUnexpectedFrameSource,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -747,13 +782,6 @@ BASE_FEATURE(kFrameMetadataObserver, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kFreezeSharedWorker, base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables the frequency capping for detecting large sticky ads.
-// Large-sticky-ads are those ads that stick to the bottom of the page
-// regardless of a user’s efforts to scroll, and take up more than 30% of the
-// screen’s real estate.
-BASE_FEATURE(kFrequencyCappingForLargeStickyAdDetection,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables the frequency capping for detecting overlay popups. Overlay-popups
 // are the interstitials that pop up and block the main content of the page.
 BASE_FEATURE(kFrequencyCappingForOverlayPopupDetection,
@@ -782,6 +810,7 @@ BASE_FEATURE_PARAM(size_t,
                    "timeout_ms",
                    20);
 
+BASE_FEATURE(kHeapVectorPromptlyFree, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kImageLoadingPrioritizationFix, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -869,6 +898,9 @@ const char kIntensiveWakeUpThrottling_GracePeriodSeconds_Name[] =
     "grace_period_seconds";
 
 BASE_FEATURE(kInteractiveDetectorIgnoreFcp, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kIsolatedWorldEventSourceAndBeaconsSkipServiceWorker,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Allow process isolation of iframes with the 'sandbox' attribute set. Whether
 // or not such an iframe will be isolated may depend on options specified with
@@ -1733,11 +1765,6 @@ BASE_FEATURE_PARAM(bool,
 // out of process.  Has no effect when kCanvasOopRasterization is disabled.
 BASE_FEATURE(kPath2DPaintCache, base::FEATURE_DISABLED_BY_DEFAULT);
 
-// TODO(mcnee): Required for merge safety to M151. Default enabled in M152.
-// Remove in M153. See https://crbug.com/525856380
-BASE_FEATURE(kPopulateDOMNodeIdInFocusedNodeDetails,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kDedicatedWorkerAblationStudyEnabled,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -1806,12 +1833,6 @@ BASE_FEATURE_PARAM(base::TimeDelta,
                    &kPreloadingEagerViewportHeuristics,
                    "viewport_present_time",
                    base::Milliseconds(50));
-
-// When enabled, speculation-rules link-selection heuristics select and enact
-// non-immediate candidates on the renderer side (see the declaration in
-// features.h for details).
-BASE_FEATURE(kSpeculationRulesRendererSideHeuristics,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPreloadingHeuristicsMLModel, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE_PARAM(int,
@@ -1941,19 +1962,6 @@ BASE_FEATURE(kRemoveCommitRedirectUrlsArray, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kReuseNoStoreImageOnSameSrcReassignment,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kRenderBlockingFonts, base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE_PARAM(int,
-                   kMaxBlockingTimeMsForRenderBlockingFonts,
-                   &features::kRenderBlockingFonts,
-                   "max-blocking-time",
-                   1500);
-
-BASE_FEATURE_PARAM(int,
-                   kMaxFCPDelayMsForRenderBlockingFonts,
-                   &features::kRenderBlockingFonts,
-                   "max-fcp-delay",
-                   100);
 
 BASE_FEATURE(kRenderSizeInScoreAdBrowserSignals,
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1970,12 +1978,12 @@ BASE_FEATURE_PARAM(base::TimeDelta,
 BASE_FEATURE(kResampleScrollEventsForFling, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kRestrictLinkHeaderOnSubresource,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE_PARAM(bool,
                    kRestrictLinkHeaderOnSubresourceCompressionDictionary,
                    &kRestrictLinkHeaderOnSubresource,
                    "disable_compression_dictionary",
-                   false);
+                   true);
 BASE_FEATURE_PARAM(bool,
                    kRestrictLinkHeaderOnSubresourceCrossOrigin,
                    &kRestrictLinkHeaderOnSubresource,
@@ -1990,7 +1998,7 @@ BASE_FEATURE_PARAM(bool,
                    kRestrictLinkHeaderOnSubresourceResourceLoad,
                    &kRestrictLinkHeaderOnSubresource,
                    "disable_resource_load",
-                   false);
+                   true);
 
 BASE_FEATURE(kRustyIcoFeature, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -2403,7 +2411,7 @@ BASE_FEATURE(kWebRtcPqcForDtls, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kWebRtcSuppressDtlsStateChangeOnClose,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kWebRtcUseMediaThreadTypes, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kWebRtcUseMediaThreadTypes, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kRendererMainIsDefaultThreadTypeForWebRTC,
              "RendererMainIsNormalThreadTypeForWebRTC",
@@ -2465,6 +2473,13 @@ BASE_FEATURE(kWebRtcHideLocalIpsWithMdns, base::FEATURE_ENABLED_BY_DEFAULT);
 // BT709. http://crbug.com/1129243
 BASE_FEATURE(kWebRtcIgnoreUnspecifiedColorSpace,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// On macOS, configures WebRTC's hardware video encoder (RTCVideoEncoder) to
+// request native GPU input and pass SharedImage-backed VideoFrames without CPU
+// readback. Depends on media::kVTVideoEncodeAcceleratorOpaqueSharedImageEncode
+// (and media::kVTVideoEncodeAcceleratorOpaqueRgbSharedImageEncode for RGB
+// canvas/WebGL/WebGPU frames) on the VideoToolbox encoder side.
+BASE_FEATURE(kWebRtcMacSharedImageEncode, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Instructs WebRTC to honor the Min/Max Video Encode Accelerator dimensions.
 BASE_FEATURE(kWebRtcUseMinMaxVEADimensions,

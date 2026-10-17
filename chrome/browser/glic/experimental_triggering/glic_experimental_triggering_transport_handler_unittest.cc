@@ -8,6 +8,7 @@
 #include <string_view>
 
 #include "base/functional/bind.h"
+#include "base/strings/strcat.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/actor/actor_keyed_service_factory.h"
@@ -27,6 +28,7 @@
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
 #include "components/browser_actuator/public/common.h"
+#include "components/browser_actuator/public/payload_type_mapping.h"
 #include "components/browser_actuator/public/transport_session.h"
 #include "components/policy/core/common/management/management_service.h"
 #include "components/policy/core/common/management/scoped_management_service_override_for_testing.h"
@@ -40,7 +42,7 @@ namespace {
 
 using browser_actuator::FactoryId;
 using browser_actuator::PayloadType;
-using browser_actuator::SendMessageError;
+using browser_actuator::SendUpstreamMessageError;
 using browser_actuator::TransportSession;
 
 class MockTransportSession : public TransportSession {
@@ -49,8 +51,8 @@ class MockTransportSession : public TransportSession {
   ~MockTransportSession() override = default;
 
   MOCK_METHOD(std::string_view, GetSessionId, (), (const, override));
-  MOCK_METHOD((base::expected<void, SendMessageError>),
-              SendMessage,
+  MOCK_METHOD((base::expected<void, SendUpstreamMessageError>),
+              SendUpstreamMessage,
               (PayloadType payload_type,
                const google::protobuf::MessageLite& message),
               (override));
@@ -160,10 +162,10 @@ TEST_F(GlicExperimentalTriggeringTransportHandlerTest,
 
   base::HistogramTester histogram_tester;
 
-  EXPECT_CALL(*session_,
-              SendMessage(PayloadType::kExperimentalTriggering, testing::_))
+  EXPECT_CALL(*session_, SendUpstreamMessage(
+                             PayloadType::kExperimentalTriggering, testing::_))
       .WillOnce([&](PayloadType type, const google::protobuf::MessageLite& msg)
-                    -> base::expected<void, SendMessageError> {
+                    -> base::expected<void, SendUpstreamMessageError> {
         const auto& response = static_cast<
             const components_sharing_message::GlicExperimentalTriggering&>(msg);
         EXPECT_EQ("test_session_id", response.context_id());
@@ -180,7 +182,8 @@ TEST_F(GlicExperimentalTriggeringTransportHandlerTest,
         return {};
       });
 
-  handler.OnMessage(triggering);
+  handler.OnMessage(PayloadType::kExperimentalTriggering,
+                    triggering.SerializeAsString());
 
   histogram_tester.ExpectUniqueSample(
       "Glic.ExperimentalTriggering.IncomingMessageResult."
@@ -226,10 +229,10 @@ TEST_F(GlicExperimentalTriggeringTransportHandlerTest,
 
   base::HistogramTester histogram_tester;
 
-  EXPECT_CALL(*session_,
-              SendMessage(PayloadType::kExperimentalTriggering, testing::_))
+  EXPECT_CALL(*session_, SendUpstreamMessage(
+                             PayloadType::kExperimentalTriggering, testing::_))
       .WillOnce([&](PayloadType type, const google::protobuf::MessageLite& msg)
-                    -> base::expected<void, SendMessageError> {
+                    -> base::expected<void, SendUpstreamMessageError> {
         const auto& response = static_cast<
             const components_sharing_message::GlicExperimentalTriggering&>(msg);
         EXPECT_EQ("test_session_id", response.context_id());
@@ -241,7 +244,8 @@ TEST_F(GlicExperimentalTriggeringTransportHandlerTest,
         return {};
       });
 
-  handler.OnMessage(triggering);
+  handler.OnMessage(PayloadType::kExperimentalTriggering,
+                    triggering.SerializeAsString());
 
   histogram_tester.ExpectUniqueSample(
       "Glic.ExperimentalTriggering.IncomingMessageResult."
@@ -259,10 +263,10 @@ TEST_F(GlicExperimentalTriggeringTransportHandlerTest, HandlesMissingPayload) {
 
   base::HistogramTester histogram_tester;
 
-  EXPECT_CALL(*session_,
-              SendMessage(PayloadType::kExperimentalTriggering, testing::_))
+  EXPECT_CALL(*session_, SendUpstreamMessage(
+                             PayloadType::kExperimentalTriggering, testing::_))
       .WillOnce([&](PayloadType type, const google::protobuf::MessageLite& msg)
-                    -> base::expected<void, SendMessageError> {
+                    -> base::expected<void, SendUpstreamMessageError> {
         const auto& response = static_cast<
             const components_sharing_message::GlicExperimentalTriggering&>(msg);
         EXPECT_EQ("test_session_id", response.context_id());
@@ -274,7 +278,8 @@ TEST_F(GlicExperimentalTriggeringTransportHandlerTest, HandlesMissingPayload) {
         return {};
       });
 
-  handler.OnMessage(triggering);
+  handler.OnMessage(PayloadType::kExperimentalTriggering,
+                    triggering.SerializeAsString());
 
   histogram_tester.ExpectUniqueSample(
       "Glic.ExperimentalTriggering.IncomingMessageResult."
@@ -292,6 +297,15 @@ TEST_F(GlicExperimentalTriggeringTransportHandlerTest, FactoryMethods) {
 
   auto handler = factory.OnNewSession(session_.get());
   EXPECT_NE(nullptr, handler);
+}
+
+// Pins `ExpectedTypeUrl` to the generated proto; this layer may include it.
+TEST(GlicExperimentalTriggeringTypeUrlTest, MatchesProtoTypeName) {
+  EXPECT_EQ(
+      browser_actuator::ExpectedTypeUrl(PayloadType::kExperimentalTriggering),
+      base::StrCat({browser_actuator::kTypeUrlPrefix,
+                    components_sharing_message::GlicExperimentalTriggering()
+                        .GetTypeName()}));
 }
 
 }  // namespace

@@ -303,17 +303,6 @@ void ContentSettingsRegistry::Init() {
            ContentSettingsInfo::INHERIT_IN_INCOGNITO,
            PermissionSettingsInfo::EXCEPTIONS_ON_SECURE_AND_INSECURE_ORIGINS);
 
-  Register(ContentSettingsType::STORAGE_ACCESS_HEADER_ORIGIN_TRIAL,
-           "storage-access-header-origin-trial", CONTENT_SETTING_BLOCK,
-           WebsiteSettingsInfo::UNSYNCABLE,
-           /*allowlisted_primary_schemes=*/{},
-           /*valid_settings=*/{CONTENT_SETTING_ALLOW, CONTENT_SETTING_BLOCK},
-           WebsiteSettingsInfo::REQUESTING_ORIGIN_AND_TOP_SCHEMEFUL_SITE_SCOPE,
-           WebsiteSettingsRegistry::DESKTOP |
-               WebsiteSettingsRegistry::PLATFORM_ANDROID,
-           ContentSettingsInfo::DONT_INHERIT_IN_INCOGNITO,
-           PermissionSettingsInfo::EXCEPTIONS_ON_SECURE_ORIGINS_ONLY);
-
   // Content settings that aren't used to store any data. TODO(raymes): use a
   // different mechanism rather than content settings to represent these.
   // Since nothing is stored in them, there is no real point in them being a
@@ -767,19 +756,6 @@ void ContentSettingsRegistry::Init() {
            ContentSettingsInfo::INHERIT_IF_LESS_PERMISSIVE,
            PermissionSettingsInfo::EXCEPTIONS_ON_SECURE_ORIGINS_ONLY);
 
-  // TODO(crbug.com/368266657): Switch to CONTENT_SETTING_ASK once the prompt is
-  // implemented and replace INHERIT_IN_INCOGNITO -> INTERIT_IF_LESS_PERMISSIVE.
-  Register(ContentSettingsType::DIRECT_SOCKETS_PRIVATE_NETWORK_ACCESS,
-           "direct-sockets-private-network-access", CONTENT_SETTING_ALLOW,
-           WebsiteSettingsInfo::UNSYNCABLE,
-           /*allowlisted_primary_schemes=*/{},
-           /*valid_settings=*/
-           {CONTENT_SETTING_ALLOW, CONTENT_SETTING_BLOCK},
-           WebsiteSettingsInfo::TOP_ORIGIN_ONLY_SCOPE,
-           WebsiteSettingsRegistry::DESKTOP,
-           ContentSettingsInfo::INHERIT_IN_INCOGNITO,
-           PermissionSettingsInfo::EXCEPTIONS_ON_SECURE_ORIGINS_ONLY);
-
   Register(ContentSettingsType::CONTROLLED_FRAME, "controlled-frame",
            CONTENT_SETTING_ALLOW, WebsiteSettingsInfo::UNSYNCABLE,
            /*allowlisted_primary_schemes=*/{},
@@ -874,10 +850,9 @@ void ContentSettingsRegistry::Register(
   auto delegate = std::make_unique<ContentSettingsInfo::Delegate>();
   auto* delegate_ptr = delegate.get();
   auto* permission_setting_info = permission_settings_registry_->Register(
-      type, std::string(name), initial_default_value, sync_status,
-      std::vector<std::string>(allowlisted_primary_schemes.begin(),
-                               allowlisted_primary_schemes.end()),
-      scoping_type, platforms, origin_restriction, std::move(delegate));
+      type, name, initial_default_value, sync_status,
+      allowlisted_primary_schemes, scoping_type, platforms, origin_restriction,
+      std::move(delegate));
 
   // PermissionSettingsRegistry::Register() will return nullptr if content
   // setting type is not used on the current platform and doesn't need to be

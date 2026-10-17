@@ -485,7 +485,8 @@ EntityInstance GetEntityInstance(std::vector<AttributeInstance> attributes,
               case EntityInstance::RecordType::kLocal:
                 return EntityInstance::LocalRecordTypePayload{};
               case EntityInstance::RecordType::kServerWallet:
-                return EntityInstance::WalletRecordTypePayload{};
+                return EntityInstance::WalletRecordTypePayload{.management_url =
+                                                                   ""};
               case EntityInstance::RecordType::kPersonalContext:
                 return EntityInstance::PersonalContextRecordTypePayload{
                     .sources = {}};
@@ -505,6 +506,15 @@ EntityInstance GetEntityInstance(std::vector<AttributeInstance> attributes,
       base::Time::FromTimeT(options.use_date.ToTimeT()),
       std::move(record_type_data), options.are_attributes_read_only,
       std::string(options.frecency_override));
+}
+
+AttributeInstance GetAttributeInstance(AttributeTypeName type_name,
+                                       std::u16string_view value,
+                                       VerificationStatus status) {
+  AttributeInstance attribute((AttributeType(type_name)));
+  attribute.SetRawInfo(attribute.type().field_type(), std::u16string(value),
+                       status);
+  return attribute;
 }
 
 EntityInstance MaskEntityInstance(const EntityInstance& entity_instance) {

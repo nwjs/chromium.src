@@ -60,19 +60,20 @@ std::string StripMatchMarkers(const ACMatchClassifications& matches) {
 // Normally shortcuts have the same match type as the original match they were
 // created from, but for certain match types, we should modify the shortcut's
 // type slightly to reflect that the origin of the shortcut is historical.
-AutocompleteMatch::Type GetTypeForShortcut(AutocompleteMatch::Type type) {
+omnibox::AutocompleteMatchType GetTypeForShortcut(
+    omnibox::AutocompleteMatchType type) {
   switch (type) {
-    case AutocompleteMatchType::URL_WHAT_YOU_TYPED:
-    case AutocompleteMatchType::NAVSUGGEST:
-    case AutocompleteMatchType::NAVSUGGEST_PERSONALIZED:
-      return AutocompleteMatchType::HISTORY_URL;
+    case omnibox::AutocompleteMatchType::kUrlWhatYouTyped:
+    case omnibox::AutocompleteMatchType::kNavsuggest:
+    case omnibox::AutocompleteMatchType::kNavsuggestPersonalized:
+      return omnibox::AutocompleteMatchType::kHistoryUrl;
 
-    case AutocompleteMatchType::SEARCH_OTHER_ENGINE:
+    case omnibox::AutocompleteMatchType::kSearchOtherEngine:
       return type;
 
     default:
       return AutocompleteMatch::IsSearchType(type)
-                 ? AutocompleteMatchType::SEARCH_HISTORY
+                 ? omnibox::AutocompleteMatchType::kSearchHistory
                  : type;
   }
 }
@@ -337,15 +338,16 @@ void ShortcutsBackend::AddOrUpdateShortcut(const std::u16string& text,
   // contains the current page URL). Ignore these navigations as shortcut
   // suggestions are not provided in zero suggest.
   if (match.provider &&
-      match.provider->type() == AutocompleteProvider::TYPE_ZERO_SUGGEST) {
+      match.provider->type() == AutocompleteProvider::Type::kZeroSuggest) {
     return;
   }
 
   // Answers are visually loud and context specific (e.g. history embedding
   // answers are limited to the @history scope and question-like inputs).
   // Showing them in a different context would look bad.
-  if (match.type == AutocompleteMatchType::HISTORY_EMBEDDINGS_ANSWER)
+  if (match.type == omnibox::AutocompleteMatchType::kHistoryEmbeddingsAnswer) {
     return;
+  }
 
   // The shortcut DB doesn't store enough info to distinguish between search
   // suggestion types. Resurfacing a AI mode usage with a traditional search
@@ -420,7 +422,8 @@ ShortcutsDatabase::Shortcut::MatchCore ShortcutsBackend::MatchToMatchCore(
     const AutocompleteMatch& match,
     TemplateURLService* template_url_service,
     SearchTermsData* search_terms_data) {
-  const AutocompleteMatch::Type match_type = GetTypeForShortcut(match.type);
+  const omnibox::AutocompleteMatchType match_type =
+      GetTypeForShortcut(match.type);
 
   const AutocompleteMatch* normalized_match = &match;
   AutocompleteMatch temp;

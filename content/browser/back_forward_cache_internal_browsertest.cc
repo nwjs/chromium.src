@@ -35,7 +35,6 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/content_browser_test_utils.h"
-#include "content/public/test/fenced_frame_test_util.h"
 #include "content/public/test/mock_web_contents_observer.h"
 #include "content/public/test/scoped_accessibility_mode_override.h"
 #include "content/public/test/test_navigation_observer.h"
@@ -2833,6 +2832,98 @@ IN_PROC_BROWSER_TEST_F(
   ExpectRestored(FROM_HERE);
 }
 
+// Tests that detaching a subframe while its page is in the back/forward cache
+// is rejected. A frozen renderer should never request frame detach for a page
+// that has acknowledged entering the cache, and the request should not be
+// applied to the primary frame tree's navigation state.
+IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
+                       DetachSubframeInBackForwardCache) {
+  IsolateAllSitesForTesting(base::CommandLine::ForCurrentProcess());
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL url_a(embedded_test_server()->GetURL(
+      "a.com", "/cross_site_iframe_factory.html?a(b)"));
+  GURL url_c(embedded_test_server()->GetURL("c.com", "/title1.html"));
+
+  // 1) Navigate to A(B).
+  ASSERT_TRUE(NavigateToURL(shell(), url_a));
+  RenderFrameHostImplWrapper rfh_a(current_frame_host());
+  RenderFrameHostImplWrapper rfh_b(rfh_a->child_at(0)->current_frame_host());
+  PageLifecycleStateManagerTestDelegate delegate(
+      rfh_b->render_view_host()->GetPageLifecycleStateManager());
+
+  // 2) Navigate to C, A(B) enters the back/forward cache.
+  ASSERT_TRUE(NavigateToURL(shell(), url_c));
+  ASSERT_TRUE(delegate.WaitForInBackForwardCacheAck());
+  ASSERT_FALSE(rfh_b.IsDestroyed());
+  ASSERT_TRUE(rfh_b->IsInBackForwardCache());
+
+  // 3) Simulate B's renderer detaching the subframe while in the back/forward
+  // cache. The request should be rejected without transitioning B to pending
+  // deletion, and B's renderer should be terminated.
+  RenderProcessHostBadIpcMessageWaiter kill_waiter(rfh_b->GetProcess());
+  rfh_b->DetachForTesting();
+  ASSERT_FALSE(rfh_b.IsDestroyed());
+  ASSERT_EQ(RenderFrameHostImpl::LifecycleStateImpl::kInBackForwardCache,
+            rfh_b->lifecycle_state());
+  EXPECT_EQ(bad_message::RFH_DETACH_WHILE_BFCACHED, kill_waiter.Wait());
+
+  // 4) Verify that the foreground page's navigation entry was not deleted or
+  // corrupted by the subframe detach request.
+  EXPECT_EQ(url_c, shell()
+                       ->web_contents()
+                       ->GetController()
+                       .GetLastCommittedEntry()
+                       ->GetURL());
+}
+
+// Tests that detaching a remote subframe via RenderFrameProxyHost while its
+// page is in the back/forward cache is rejected. A frozen parent renderer
+// should never request proxy frame detach for a page that has acknowledged
+// entering the cache, and the caller's renderer process should be terminated.
+IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
+                       DetachRemoteSubframeInBackForwardCache) {
+  IsolateAllSitesForTesting(base::CommandLine::ForCurrentProcess());
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL url_a(embedded_test_server()->GetURL(
+      "a.com", "/cross_site_iframe_factory.html?a(b)"));
+  GURL url_c(embedded_test_server()->GetURL("c.com", "/title1.html"));
+  // 1) Navigate to A(B).
+  ASSERT_TRUE(NavigateToURL(shell(), url_a));
+  RenderFrameHostImplWrapper rfh_a(current_frame_host());
+  RenderFrameHostImplWrapper rfh_b(rfh_a->child_at(0)->current_frame_host());
+  PageLifecycleStateManagerTestDelegate delegate_a(
+      rfh_a->render_view_host()->GetPageLifecycleStateManager());
+  // Obtain the proxy for B in A's SiteInstance (the parent's proxy for the
+  // subframe).
+  RenderFrameProxyHost* proxy_b =
+      rfh_b->frame_tree_node()->render_manager()->GetProxyToParent();
+  ASSERT_TRUE(proxy_b);
+  EXPECT_EQ(rfh_a->GetProcess(), proxy_b->GetProcess());
+  // 2) Navigate to C, A(B) enters the back/forward cache.
+  ASSERT_TRUE(NavigateToURL(shell(), url_c));
+  ASSERT_TRUE(delegate_a.WaitForInBackForwardCacheAck());
+  ASSERT_FALSE(rfh_a.IsDestroyed());
+  ASSERT_FALSE(rfh_b.IsDestroyed());
+  ASSERT_TRUE(rfh_b->IsInBackForwardCache());
+  // 3) Simulate A's renderer detaching the subframe proxy while in the
+  // back/forward cache. The request should be rejected without transitioning
+  // B to pending deletion, and A's renderer (the proxy's process) should be
+  // terminated.
+  RenderProcessHostBadIpcMessageWaiter kill_waiter(proxy_b->GetProcess());
+  proxy_b->Detach();
+  ASSERT_FALSE(rfh_b.IsDestroyed());
+  ASSERT_EQ(RenderFrameHostImpl::LifecycleStateImpl::kInBackForwardCache,
+            rfh_b->lifecycle_state());
+  EXPECT_EQ(bad_message::RFH_DETACH_WHILE_BFCACHED, kill_waiter.Wait());
+  // 4) Verify that the foreground page's navigation entry was not deleted or
+  // corrupted by the proxy detach request.
+  EXPECT_EQ(url_c, shell()
+                       ->web_contents()
+                       ->GetController()
+                       .GetLastCommittedEntry()
+                       ->GetURL());
+}
+
 IN_PROC_BROWSER_TEST_F(
     HighCacheSizeBackForwardCacheBrowserTest,
     MessageReceivedOnAssociatedInterfaceForProcessWithMultipleCachedPages) {
@@ -4503,368 +4594,6 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
   histogram_tester.ExpectBucketCount(
       "BackForwardCache.HistoryNavigationOutcome.NotRestoredReason",
       NotRestoredReason::kForwardCacheDisabled, 2);
-}
-
-class BackForwardCacheBrowserTestWithFencedFrames
-    : public BackForwardCacheBrowserTest {
- public:
-  BackForwardCacheBrowserTestWithFencedFrames() = default;
-  ~BackForwardCacheBrowserTestWithFencedFrames() override = default;
-
-  test::FencedFrameTestHelper& fenced_frame_test_helper() {
-    return *fenced_frame_test_helper_;
-  }
-
- private:
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    EnableFeatureAndSetParams(blink::features::kFencedFrames, "", "");
-    EnableFeatureAndSetParams(features::kPrivacySandboxAdsAPIsOverride, "", "");
-    BackForwardCacheBrowserTest::SetUpCommandLine(command_line);
-
-    fenced_frame_test_helper_ = std::make_unique<test::FencedFrameTestHelper>();
-  }
-
-  std::unique_ptr<test::FencedFrameTestHelper> fenced_frame_test_helper_;
-};
-
-IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTestWithFencedFrames,
-                       CachesFencedFramesSimple) {
-  CreateHttpsServer();
-  ASSERT_TRUE(https_server()->Start());
-  GURL url_a(https_server()->GetURL("a.test", "/fenced_frames/title1.html"));
-  GURL url_b(https_server()->GetURL("b.test", "/title1.html"));
-
-  // 1) Navigate to A.
-  EXPECT_TRUE(NavigateToURL(shell(), url_a));
-  RenderFrameHostImplWrapper rfh_a(current_frame_host());
-
-  // 2) Create fenced frame and wait for it to load.
-  const GURL fenced_frame_url =
-      https_server()->GetURL("c.test", "/fenced_frames/title1.html");
-  RenderFrameHostImplWrapper fenced_frame(
-      fenced_frame_test_helper().CreateFencedFrame(
-          web_contents()->GetPrimaryMainFrame(), fenced_frame_url));
-  EXPECT_TRUE(WaitForDOMContentLoaded(fenced_frame.get()));
-
-  // 3) Navigate to B.
-  EXPECT_TRUE(NavigateToURL(shell(), url_b));
-  EXPECT_TRUE(rfh_a->IsInBackForwardCache());
-  EXPECT_TRUE(fenced_frame->IsInBackForwardCache());
-
-  // 4) Go back to A.
-  ASSERT_TRUE(HistoryGoBack(web_contents()));
-  ExpectRestored(FROM_HERE);
-  EXPECT_FALSE(fenced_frame->IsInBackForwardCache());
-}
-
-// Test that the back/forward cache can store documents containing a fenced
-// frame in their contents.
-IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTestWithFencedFrames,
-                       InnerFrameStorageSupport) {
-  CreateHttpsServer();
-  ASSERT_TRUE(https_server()->Start());
-  GURL url_a(https_server()->GetURL(
-      "a.test", "/fenced_frames/basic_fenced_frame_src.html"));
-  GURL url_b(https_server()->GetURL("b.test", "/title1.html"));
-
-  // 1. Navigate to A.
-  ASSERT_TRUE(NavigateToURL(shell(), url_a));
-  RenderFrameHostImplWrapper rfh_a(current_frame_host());
-  EXPECT_FALSE(rfh_a->IsInBackForwardCache());
-
-  // 2. Retrieve the rfh for the fenced frame
-  EXPECT_EQ(1u, rfh_a->frame_tree_node()->child_count());
-  RenderFrameHostImplWrapper first_delegate_frame(
-      rfh_a->frame_tree_node()->child_at(0)->current_frame_host());
-  RenderFrameHostImplWrapper first_fenced_frame(
-      FrameTreeNode::GloballyFindByID(
-          first_delegate_frame->inner_tree_main_frame_tree_node_id())
-          ->current_frame_host());
-  EXPECT_FALSE(first_delegate_frame->IsInBackForwardCache());
-  ASSERT_TRUE(first_fenced_frame);
-  EXPECT_FALSE(first_fenced_frame->IsInBackForwardCache());
-
-  // 3. Add a second fenced frame.
-  GURL title_fenced_frame(
-      https_server()->GetURL("a.test", "/fenced_frames/title1.html"));
-  RenderFrameHostImplWrapper second_fenced_frame(
-      fenced_frame_test_helper().CreateFencedFrame(rfh_a.get(),
-                                                   title_fenced_frame));
-  ASSERT_TRUE(second_fenced_frame);
-  EXPECT_EQ(2u, rfh_a->frame_tree_node()->child_count());
-  RenderFrameHostImplWrapper second_delegate_frame(
-      rfh_a->frame_tree_node()->child_at(1)->current_frame_host());
-  EXPECT_TRUE(WaitForDOMContentLoaded(second_fenced_frame.get()));
-
-  // 4. Add a nested fenced frame.
-  RenderFrameHostImplWrapper nested_fenced_frame(
-      fenced_frame_test_helper().CreateFencedFrame(second_fenced_frame.get(),
-                                                   title_fenced_frame));
-  ASSERT_TRUE(nested_fenced_frame);
-  EXPECT_EQ(1u, second_fenced_frame->frame_tree_node()->child_count());
-  RenderFrameHostImplWrapper nested_delegate_frame(
-      second_fenced_frame->frame_tree_node()
-          ->child_at(0)
-          ->current_frame_host());
-  EXPECT_TRUE(WaitForDOMContentLoaded(nested_fenced_frame.get()));
-
-  StartRecordingEvents(first_fenced_frame.get());
-  StartRecordingEvents(second_fenced_frame.get());
-  StartRecordingEvents(nested_fenced_frame.get());
-
-  // 5. Navigate to B.
-  ASSERT_TRUE(NavigateToURL(shell(), url_b));
-  RenderFrameHostImplWrapper rfh_b(current_frame_host());
-  EXPECT_FALSE(rfh_b->IsInBackForwardCache());
-
-  // 6. Confirm A and its inner frames are in BackForwardCache.
-  ASSERT_TRUE(rfh_a->IsInBackForwardCache());
-  EXPECT_TRUE(first_delegate_frame->IsInBackForwardCache());
-  EXPECT_TRUE(first_fenced_frame->IsInBackForwardCache());
-  EXPECT_TRUE(second_delegate_frame->IsInBackForwardCache());
-  EXPECT_TRUE(second_fenced_frame->IsInBackForwardCache());
-  EXPECT_TRUE(nested_delegate_frame->IsInBackForwardCache());
-  EXPECT_TRUE(nested_fenced_frame->IsInBackForwardCache());
-
-  // 7. Navigate back restoring A.
-  ASSERT_TRUE(HistoryGoBack(web_contents()));
-  EXPECT_EQ(current_frame_host(), rfh_a.get());
-  EXPECT_FALSE(rfh_a->IsInBackForwardCache());
-  EXPECT_FALSE(first_delegate_frame->IsInBackForwardCache());
-  EXPECT_FALSE(first_fenced_frame->IsInBackForwardCache());
-  EXPECT_FALSE(second_delegate_frame->IsInBackForwardCache());
-  EXPECT_FALSE(second_fenced_frame->IsInBackForwardCache());
-  EXPECT_FALSE(nested_delegate_frame->IsInBackForwardCache());
-  EXPECT_FALSE(nested_fenced_frame->IsInBackForwardCache());
-
-  // visibilitychange events are added twice per each because it is fired for
-  // both window and document.
-  base::Value matching_events =
-      ListValueOf("window.pagehide.persisted", "document.visibilitychange",
-                  "window.visibilitychange", "document.freeze",
-                  "document.resume", "document.visibilitychange",
-                  "window.visibilitychange", "window.pageshow.persisted");
-
-  MatchEventList(first_fenced_frame.get(), matching_events.Clone());
-  MatchEventList(second_fenced_frame.get(), matching_events.Clone());
-  MatchEventList(nested_fenced_frame.get(), matching_events.Clone());
-
-  // 8. Navigate forward to B, storing A again in BackForwardCache.
-  ASSERT_TRUE(HistoryGoForward(web_contents()));
-  EXPECT_TRUE(rfh_a->IsInBackForwardCache());
-  EXPECT_TRUE(first_delegate_frame->IsInBackForwardCache());
-  EXPECT_TRUE(first_fenced_frame->IsInBackForwardCache());
-  EXPECT_TRUE(second_delegate_frame->IsInBackForwardCache());
-  EXPECT_TRUE(second_fenced_frame->IsInBackForwardCache());
-  EXPECT_TRUE(nested_delegate_frame->IsInBackForwardCache());
-  EXPECT_TRUE(nested_fenced_frame->IsInBackForwardCache());
-
-  // 9. Navigate back restoring A one more time.
-  ASSERT_TRUE(HistoryGoBack(web_contents()));
-  EXPECT_EQ(current_frame_host(), rfh_a.get());
-  EXPECT_FALSE(rfh_a->IsInBackForwardCache());
-  EXPECT_FALSE(first_delegate_frame->IsInBackForwardCache());
-  EXPECT_FALSE(first_fenced_frame->IsInBackForwardCache());
-  EXPECT_FALSE(second_delegate_frame->IsInBackForwardCache());
-  EXPECT_FALSE(second_fenced_frame->IsInBackForwardCache());
-  EXPECT_FALSE(nested_delegate_frame->IsInBackForwardCache());
-  EXPECT_FALSE(nested_fenced_frame->IsInBackForwardCache());
-}
-
-// Test that documents are evicted correctly through the outermost main frame.
-IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTestWithFencedFrames,
-                       OuterDocumentTimeEviction) {
-  CreateHttpsServer();
-  ASSERT_TRUE(https_server()->Start());
-  // Inject mock time task runner to be used in the eviction timer, so we can,
-  // check for the functionality we are interested before and after the time to
-  // live. We don't replace SingleThreadTaskRunner::GetCurrentDefault to ensure
-  // that it doesn't affect other unrelated callsites.
-  scoped_refptr<base::TestMockTimeTaskRunner> task_runner =
-      base::MakeRefCounted<base::TestMockTimeTaskRunner>();
-
-  web_contents()->GetController().GetBackForwardCache().SetTaskRunnerForTesting(
-      task_runner);
-
-  base::TimeDelta time_to_live_in_back_forward_cache =
-      web_contents()
-          ->GetController()
-          .GetBackForwardCache()
-          .GetTimeToLiveInBackForwardCache(
-              BackForwardCacheImpl::kNotInCCNSContext);
-  // This should match the value we set in EnableFeatureAndSetParams.
-  EXPECT_EQ(time_to_live_in_back_forward_cache, base::Seconds(3600));
-
-  base::TimeDelta delta = base::Milliseconds(1);
-
-  GURL url_a(https_server()->GetURL("a.test", "/title1.html"));
-  GURL url_b(https_server()->GetURL("b.test", "/title1.html"));
-
-  // 1. Navigate to A.
-  ASSERT_TRUE(NavigateToURL(shell(), url_a));
-  RenderFrameHostImplWrapper rfh_a(current_frame_host());
-
-  // 2. Add a fenced frame to initial page A.
-  GURL fenced_frame_url(
-      https_server()->GetURL("a.test", "/fenced_frames/empty.html"));
-  RenderFrameHostImplWrapper fenced_frame_rfh(
-      fenced_frame_test_helper().CreateFencedFrame(rfh_a.get(),
-                                                   fenced_frame_url));
-  ASSERT_TRUE(fenced_frame_rfh);
-  EXPECT_TRUE(WaitForDOMContentLoaded(fenced_frame_rfh.get()));
-
-  // 3. Navigate to B.
-  ASSERT_TRUE(NavigateToURL(shell(), url_b));
-  RenderFrameHostImplWrapper rfh_b(current_frame_host());
-  EXPECT_FALSE(rfh_b->IsBackForwardCacheEvictionTimeRunningForTesting());
-
-  // 4. Fast forward to just before eviction is due.
-  task_runner->FastForwardBy(time_to_live_in_back_forward_cache - delta);
-
-  // 5. Confirm A is still in BackForwardCache.
-  ASSERT_TRUE(rfh_a);
-  EXPECT_TRUE(rfh_a->IsBackForwardCacheEvictionTimeRunningForTesting());
-  EXPECT_TRUE(rfh_a->IsInBackForwardCache());
-  EXPECT_FALSE(
-      fenced_frame_rfh->IsBackForwardCacheEvictionTimeRunningForTesting());
-  EXPECT_TRUE(fenced_frame_rfh->IsInBackForwardCache());
-
-  // 6. Fast forward to when eviction is due.
-  task_runner->FastForwardBy(delta);
-
-  // 7. Confirm A is evicted.
-  ASSERT_TRUE(fenced_frame_rfh.WaitUntilRenderFrameDeleted());
-  ASSERT_TRUE(rfh_a.WaitUntilRenderFrameDeleted());
-  EXPECT_EQ(current_frame_host(), rfh_b.get());
-
-  // 8. Go back to A.
-  ASSERT_TRUE(HistoryGoBack(web_contents()));
-  ExpectNotRestored({BackForwardCacheMetrics::NotRestoredReason::kTimeout}, {},
-                    {}, {}, {}, FROM_HERE);
-}
-
-// This test checks that the TreeResults generated are correct.
-IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTestWithFencedFrames,
-                       TreeResults) {
-  CreateHttpsServer();
-  ASSERT_TRUE(https_server()->Start());
-  GURL url_a(https_server()->GetURL("a.test", "/title1.html"));
-
-  // 1. Navigate to A.
-  ASSERT_TRUE(NavigateToURL(shell(), url_a));
-  RenderFrameHostImplWrapper rfh_a(current_frame_host());
-
-  // 2. Add fenced frames.
-  GURL fenced_frame_url_a(
-      https_server()->GetURL("a.test", "/fenced_frames/title1.html?value=a"));
-  GURL fenced_frame_url_b(
-      https_server()->GetURL("b.test", "/fenced_frames/title1.html?value=b"));
-  GURL fenced_frame_url_c(
-      https_server()->GetURL("c.test", "/fenced_frames/title1.html?value=c"));
-  RenderFrameHostImplWrapper fenced_frame_a(
-      fenced_frame_test_helper().CreateFencedFrame(rfh_a.get(),
-                                                   fenced_frame_url_a));
-  RenderFrameHostImplWrapper fenced_frame_b(
-      fenced_frame_test_helper().CreateFencedFrame(rfh_a.get(),
-                                                   fenced_frame_url_b));
-  RenderFrameHostImplWrapper fenced_frame_c(
-      fenced_frame_test_helper().CreateFencedFrame(fenced_frame_b.get(),
-                                                   fenced_frame_url_c));
-  EXPECT_TRUE(fenced_frame_a);
-  EXPECT_TRUE(fenced_frame_b);
-  EXPECT_TRUE(fenced_frame_c);
-  EXPECT_TRUE(WaitForDOMContentLoaded(fenced_frame_a.get()));
-  EXPECT_TRUE(WaitForDOMContentLoaded(fenced_frame_b.get()));
-  EXPECT_TRUE(WaitForDOMContentLoaded(fenced_frame_c.get()));
-  fenced_frame_c->UseDummyStickyBackForwardCacheDisablingFeatureForTesting();
-
-  // 3. Generate a tree.
-  BackForwardCacheCanStoreDocumentResultWithTree can_store_result =
-      web_contents()
-          ->GetController()
-          .GetBackForwardCache()
-          .GetCurrentBackForwardCacheEligibility(
-              rfh_a.get(), /*is_becoming_forward_entry=*/false);
-  ASSERT_TRUE(can_store_result.tree_reasons);
-
-  // 4. Check that tree results refers only to the fenced frames. We should
-  // not see the delegate frames in this list.
-  EXPECT_EQ(url_a, can_store_result.tree_reasons->GetUrl());
-  EXPECT_EQ(2u, can_store_result.tree_reasons->GetChildren().size());
-  EXPECT_THAT(
-      can_store_result.tree_reasons->GetDocumentResult(),
-      MatchesDocumentResult(NotRestoredReasons(), BlockListedFeatures()));
-
-  // 5. Ensure that each fenced frame is correct. Any frames inside a fenced
-  // frame should be always considered cross origin.
-  auto& child_a_results = can_store_result.tree_reasons->GetChildren().at(0);
-  EXPECT_EQ(fenced_frame_url_a, child_a_results->GetUrl());
-  EXPECT_FALSE(child_a_results->IsSameOrigin());
-  EXPECT_EQ(0u, child_a_results->GetChildren().size());
-
-  auto& child_b_results = can_store_result.tree_reasons->GetChildren().at(1);
-  EXPECT_EQ(fenced_frame_url_b, child_b_results->GetUrl());
-  EXPECT_FALSE(child_b_results->IsSameOrigin());
-  EXPECT_EQ(1u, child_b_results->GetChildren().size());
-
-  auto& child_c_results = child_b_results->GetChildren().at(0);
-  EXPECT_EQ(fenced_frame_url_c, child_c_results->GetUrl());
-  EXPECT_FALSE(child_c_results->IsSameOrigin());
-
-  // 6. Check the blocked reasons are set correctly on the fenced frame.
-  EXPECT_THAT(child_c_results->GetDocumentResult(),
-              MatchesDocumentResult(
-                  NotRestoredReasons({NotRestoredReason::kBlocklistedFeatures}),
-                  BlockListedFeatures(
-                      {blink::scheduler::WebSchedulerTrackedFeature::kDummy})));
-
-  // 7. Ensure that the web exposed reasons do not replicate any of
-  // fenced frame results.
-  blink::mojom::BackForwardCacheNotRestoredReasonsPtr web_reasons =
-      can_store_result.tree_reasons->GetWebExposedNotRestoredReasons();
-  EXPECT_TRUE(web_reasons->same_origin_details);
-  EXPECT_EQ(2u, web_reasons->same_origin_details->children.size());
-  EXPECT_FALSE(
-      web_reasons->same_origin_details->children.at(0)->same_origin_details);
-  EXPECT_FALSE(
-      web_reasons->same_origin_details->children.at(1)->same_origin_details);
-}
-
-IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTestWithFencedFrames,
-                       EvictionOnInnerFrameTree) {
-  DoNotFailForUnexpectedMessagesWhileCached();
-  CreateHttpsServer();
-  ASSERT_TRUE(https_server()->Start());
-  GURL url_a(https_server()->GetURL("a.test", "/fenced_frames/title1.html"));
-  GURL url_b(https_server()->GetURL("b.test", "/title1.html"));
-
-  // 1) Navigate to A.
-  EXPECT_TRUE(NavigateToURL(shell(), url_a));
-  RenderFrameHostImplWrapper rfh_a(current_frame_host());
-
-  // 2) Create fenced frame and wait for it to load.
-  const GURL fenced_frame_url =
-      https_server()->GetURL("c.test", "/fenced_frames/title1.html");
-  RenderFrameHostImpl* fenced_frame = static_cast<RenderFrameHostImpl*>(
-      fenced_frame_test_helper().CreateFencedFrame(
-          web_contents()->GetPrimaryMainFrame(), fenced_frame_url));
-  EXPECT_TRUE(WaitForDOMContentLoaded(fenced_frame));
-  RenderFrameDeletedObserver delete_observer_fenced_frame(fenced_frame);
-
-  // 3) Navigate to B.
-  EXPECT_TRUE(NavigateToURL(shell(), url_b));
-  EXPECT_TRUE(rfh_a->IsInBackForwardCache());
-
-  // 4) Execute JS inside inner fenced frame.
-  EvictByJavaScript(fenced_frame);
-
-  // FencedFrame is evicted from the BackForwardCache:
-  delete_observer_fenced_frame.WaitUntilDeleted();
-
-  // 4) Go back to A.
-  ASSERT_TRUE(HistoryGoBack(web_contents()));
-  ExpectNotRestored({NotRestoredReason::kJavaScriptExecution}, {}, {}, {}, {},
-                    FROM_HERE);
 }
 
 class BackForwardCacheBrowserTestReloadHiddenTabsWithCrashedSubframes

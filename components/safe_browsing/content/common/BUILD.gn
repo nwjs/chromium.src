@@ -6,12 +6,13 @@ import("//components/safe_browsing/buildflags.gni")
 import("//mojo/public/tools/bindings/mojom.gni")
 
 mojom("interfaces") {
+  generate_rust = true
   sources = [ "safe_browsing.mojom" ]
 
   public_deps = [
     "//components/safe_browsing/core/common:interfaces",
     "//mojo/public/mojom/base:protobuf_support",
-    "//services/network/public/mojom",
+    "//services/network/public/mojom:mojom_http_request_headers",
     "//third_party/blink/public/mojom/tokens",
     "//url/mojom:url_mojom_gurl",
   ]

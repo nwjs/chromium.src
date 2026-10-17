@@ -291,8 +291,8 @@ InformedRestoreContentsView::CreateSettingsButtonBuilder() {
                      weak_ptr_factory_.GetWeakPtr()),
                  kSettingsIcon, kSettingsIconSize))
       .CopyAddressTo(&settings_button_)
-      .SetBackground(views::CreateRoundedRectBackground(
-          cros_tokens::kCrosSysSystemOnBase, kSettingsIconSize))
+      .SetBackground(
+          views::CreatePillBackground(cros_tokens::kCrosSysSystemOnBase))
       .SetID(informed_restore::kSettingsButtonID)
       .SetTooltipText(l10n_util::GetStringUTF16(IDS_ASH_STATUS_TRAY_SETTINGS));
 }
@@ -423,6 +423,8 @@ void InformedRestoreContentsView::CreateChildViews() {
                     .SetImageSize(screenshot_size))
             .Build());
 
+    icon_row_container_->layer()->SetName(
+        "InformedRestoreContentsView:IconRowContainer");
     icon_row_container_->layer()->SetFillsBoundsOpaquely(false);
     icon_row_container_->layer()->SetRoundedCornerRadius(
         gfx::RoundedCornersF(informed_restore::kPreviewContainerRadius));

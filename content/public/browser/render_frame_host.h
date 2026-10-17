@@ -21,6 +21,7 @@
 #include "content/public/browser/back_forward_cache.h"
 #include "content/public/browser/editable_level.h"
 #include "content/public/browser/frame_tree_node_id.h"
+#include "content/public/browser/initiator_navigation_state.h"
 #include "content/public/browser/web_exposed_isolation_level.h"
 #include "content/public/common/bindings_policy.h"
 #include "content/public/common/extra_mojo_js_features.mojom.h"
@@ -1052,6 +1053,17 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener {
   // FrameTreeNode associated with this RenderFrameHost.
   virtual bool HasTransientUserActivation() = 0;
 
+  // Consumes the transient bit of the User Activation v2 state across the
+  // frame tree of the FrameTreeNode associated with this RenderFrameHost.
+  // Returns true if there was an active transient activation to consume.
+  //
+  // Prefer this over HasTransientUserActivation() when gating a privileged
+  // operation on a user gesture, so that a single gesture cannot be replayed
+  // into several such operations. Renderer code that also consumes the
+  // activation locally must pass UserActivationUpdateSource::kBrowser,
+  // otherwise the browser-side state is cleared before this is called.
+  [[nodiscard]] virtual bool ConsumeTransientUserActivation() = 0;
+
   // Notifies the renderer of a user activation event for the associated frame.
   // The |notification_type| parameter is used for histograms only.
   virtual void NotifyUserActivation(
@@ -1275,6 +1287,12 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener {
   CreateDownloadUrlParameters(
       const GURL& url,
       const net::NetworkTrafficAnnotationTag& traffic_annotation) const = 0;
+
+  // Returns a record of the current state of the document hosted in the
+  // RenderFrameHost. This should be passed to all navigations started by this
+  // RenderFrameHost.
+  virtual scoped_refptr<InitiatorNavigationState>
+  GetCurrentInitiatorNavigationState() const = 0;
 
  private:
   // This interface should only be implemented inside content.

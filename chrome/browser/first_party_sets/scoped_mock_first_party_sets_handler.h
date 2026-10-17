@@ -14,7 +14,6 @@
 #include "base/memory/raw_ptr.h"
 #include "base/types/optional_ref.h"
 #include "content/public/browser/first_party_sets_handler.h"
-#include "net/first_party_sets/first_party_sets_cache_filter.h"
 #include "net/first_party_sets/first_party_sets_context_config.h"
 #include "net/first_party_sets/global_first_party_sets.h"
 
@@ -23,10 +22,6 @@ class Version;
 class File;
 class Value;
 }  // namespace base
-
-namespace content {
-class BrowserContext;
-}  // namespace content
 
 namespace first_party_sets {
 
@@ -45,27 +40,17 @@ class ScopedMockFirstPartySetsHandler : public content::FirstPartySetsHandler {
   void SetPublicFirstPartySets(const base::Version& version,
                                base::File sets_file) override;
   std::optional<net::FirstPartySetEntry> FindEntry(
-      const net::SchemefulSite& site,
-      const net::FirstPartySetsContextConfig& config) const override;
-  void ClearSiteDataOnChangedSetsForContext(
-      base::RepeatingCallback<content::BrowserContext*()>
-          browser_context_getter,
-      const std::string& browser_context_id,
-      base::OnceCallback<void(net::FirstPartySetsCacheFilter)> callback)
-      override;
+      const net::SchemefulSite& site) const override;
+  bool WhenInitComplete(base::OnceClosure callback) override;
   void ComputeFirstPartySetMetadata(
       const net::SchemefulSite& site,
       base::optional_ref<const net::SchemefulSite> top_frame_site,
-      const net::FirstPartySetsContextConfig& config,
       base::OnceCallback<void(net::FirstPartySetMetadata)> callback) override;
   bool ForEachEffectiveSetEntry(
-      const net::FirstPartySetsContextConfig& config,
       base::FunctionRef<bool(const net::SchemefulSite&,
                              const net::FirstPartySetEntry&)> f) const override;
 
   // Helper functions for tests to set up context.
-
-  void SetCacheFilter(net::FirstPartySetsCacheFilter cache_filter);
 
   void SetGlobalSets(net::GlobalFirstPartySets global_sets);
 
@@ -76,8 +61,6 @@ class ScopedMockFirstPartySetsHandler : public content::FirstPartySetsHandler {
  private:
   raw_ptr<content::FirstPartySetsHandler> previous_;
   net::GlobalFirstPartySets global_sets_;
-
-  net::FirstPartySetsCacheFilter cache_filter_;
 
   bool invoke_callbacks_asynchronously_ = false;
 };

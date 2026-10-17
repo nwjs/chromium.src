@@ -4,8 +4,8 @@
 
 #include "chrome/browser/component_updater/widevine_cdm_component_installer.h"
 
-#include <cstddef>
-#include <cstdint>
+#include <stdint.h>
+
 #include <memory>
 #include <optional>
 #include <string>

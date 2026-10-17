@@ -41,27 +41,34 @@ ActorTaskAndroid* ActorTaskAndroid::GetForTask(ActorTask* task) {
 
 ActorTaskAndroid::ActorTaskAndroid(ActorTask* task) : task_(task) {
   JNIEnv* env = base::android::AttachCurrentThread();
-  std::optional<std::string> glic_conversation_id;
-  if (task_->source_info().type == actor::TaskSourceInfo::Client::kGlic &&
-      task_->source_info().id.has_value() &&
-      !task_->source_info().id->empty() &&
-      base::IsStringUTF8(*task_->source_info().id)) {
-    glic_conversation_id = task_->source_info().id;
-  }
   java_obj_.Reset(
       env, Java_ActorTask_Constructor(
                env, reinterpret_cast<int64_t>(this),
                task_->id().GetUnsafeValue(), task_->title(),
-               task_->GetProfile()->GetJavaObject(), glic_conversation_id));
+               task_->GetProfile()->GetJavaObject(), GetGlicConversationId()));
 }
 
 ActorTaskAndroid::~ActorTaskAndroid() {
   JNIEnv* env = base::android::AttachCurrentThread();
   Java_ActorTask_clearNativePtr(env, java_obj_);
+  task_ = nullptr;
 }
 
 ScopedJavaLocalRef<jobject> ActorTaskAndroid::GetJavaObject() {
   return ScopedJavaLocalRef<jobject>(java_obj_);
+}
+
+std::optional<std::string> ActorTaskAndroid::GetGlicConversationId() {
+  if (!task_) {
+    return std::nullopt;
+  }
+  if (task_->source_info().type == actor::TaskSourceInfo::Client::kGlic &&
+      task_->source_info().id.has_value() &&
+      !task_->source_info().id->empty() &&
+      base::IsStringUTF8(*task_->source_info().id)) {
+    return task_->source_info().id;
+  }
+  return std::nullopt;
 }
 
 std::string ActorTaskAndroid::GetCurrentActionName() {
@@ -116,6 +123,19 @@ int32_t ActorTaskAndroid::GetLastActuatedTabId() {
   return tab_android ? tab_android->GetAndroidId() : TabAndroid::kInvalidTabId;
 }
 
+bool ActorTaskAndroid::IsActingOnTab(int32_t tab_id) {
+  if (!task_->IsUnderActorControl()) {
+    return false;
+  }
+  for (const auto& handle : task_->GetTabs()) {
+    if (auto* tab_android = TabAndroid::FromTabHandle(handle)) {
+      if (tab_android->GetAndroidId() == tab_id) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
 }  // namespace actor
 
 DEFINE_JNI(ActorTask)

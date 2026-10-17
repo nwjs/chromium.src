@@ -11,6 +11,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/observer_list.h"
 #include "base/time/time.h"
+#include "components/policy/core/common/cloud/cloud_policy_client_proto_types.h"
 #include "components/policy/core/common/cloud/cloud_policy_constants.h"
 #include "components/policy/core/common/cloud/cloud_policy_util.h"
 #include "components/policy/core/common/cloud/dmserver_job_configurations.h"
@@ -246,8 +247,7 @@ void CloudPolicyService::OnStoreLoaded(CloudPolicyStore* store) {
   if (policy && policy->has_request_token() && policy->has_device_id() &&
       !client_->is_registered()) {
     DVLOG_POLICY(1, CBCM_ENROLLMENT)
-        << "Setting up registration with request token: "
-        << policy->request_token();
+        << "Setting up registration for device id: " << policy->device_id();
     std::vector<std::string> user_affiliation_ids(
         policy->user_affiliation_ids().begin(),
         policy->user_affiliation_ids().end());

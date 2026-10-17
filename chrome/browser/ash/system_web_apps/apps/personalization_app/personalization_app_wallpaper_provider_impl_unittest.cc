@@ -34,22 +34,23 @@
 #include "base/strings/string_view_util.h"
 #include "base/test/bind.h"
 #include "base/test/test_future.h"
+#include "chrome/browser/ash/login/users/profile_user_manager_controller.h"
 #include "chrome/browser/ash/login/users/scoped_account_id_annotator.h"
 #include "chrome/browser/ash/settings/cros_settings_holder.h"
 #include "chrome/browser/ash/settings/device_settings_service.h"
 #include "chrome/browser/ash/settings/scoped_cros_settings_test_helper.h"
 #include "chrome/browser/ash/settings/scoped_test_device_settings_service.h"
-#include "chrome/browser/ash/system_web_apps/apps/personalization_app/mock_personalization_app_manager.h"
-#include "chrome/browser/ash/system_web_apps/apps/personalization_app/personalization_app_manager_factory.h"
 #include "chrome/browser/ash/wallpaper_handlers/mock_google_photos_wallpaper_handlers.h"
 #include "chrome/browser/ash/wallpaper_handlers/mock_wallpaper_handlers.h"
 #include "chrome/browser/ash/wallpaper_handlers/test_wallpaper_fetcher_delegate.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/ash/wallpaper/test_wallpaper_controller.h"
 #include "chrome/browser/ui/ash/wallpaper/wallpaper_controller_client_impl.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
+#include "chromeos/ash/components/signin/fake_identity_manager_provider.h"
 #include "chromeos/strings/grit/chromeos_strings.h"
 #include "components/account_id/account_id.h"
 #include "components/account_id/account_id_literal.h"
@@ -96,11 +97,6 @@ gfx::ImageSkia CreateSolidImageSkia(int width, int height, SkColor color) {
   bitmap.allocN32Pixels(width, height);
   bitmap.eraseColor(color);
   return gfx::ImageSkia::CreateFrom1xBitmap(bitmap);
-}
-
-std::unique_ptr<KeyedService> MakeMockPersonalizationAppManager(
-    content::BrowserContext* context) {
-  return std::make_unique<::testing::NiceMock<MockPersonalizationAppManager>>();
 }
 
 class TestWallpaperObserver
@@ -192,6 +188,10 @@ class PersonalizationAppWallpaperProviderImplTest : public testing::Test {
     user_session_test_environment_ =
         std::make_unique<ash::test::UserSessionTestEnvironment>(
             TestingBrowserProcess::GetGlobal()->local_state());
+    profile_user_manager_controller_ =
+        std::make_unique<ash::ProfileUserManagerController>(
+            profile_manager_.profile_manager(),
+            user_manager::UserManager::Get());
 
     auto* user = user_session_test_environment_->AddRegularUser(kTestAccountId);
     ASSERT_TRUE(user);
@@ -210,14 +210,12 @@ class PersonalizationAppWallpaperProviderImplTest : public testing::Test {
                                             kTestAccountId);
     profile_ = profile_manager_.CreateTestingProfile(
         BrowserContextHelper::GetUserBrowserContextDirName(
-            user->username_hash()),
-        {TestingProfile::TestingFactory{
-            ash::personalization_app::PersonalizationAppManagerFactory::
-                GetInstance(),
-            base::BindRepeating(&MakeMockPersonalizationAppManager)}});
+            user->username_hash()));
 
-    user_manager::UserManager::Get()->OnUserProfileCreated(
-        kTestAccountId, profile_->GetPrefs());
+    // The Google Photos fetchers resolve their IdentityManager by AccountId
+    // through ash::IdentityManagerProvider.
+    identity_manager_provider_.SetIdentityManagerForAccount(
+        kTestAccountId, IdentityManagerFactory::GetForProfile(profile_));
 
     test_wallpaper_controller()->SetCurrentUser(kTestAccountId);
 
@@ -239,10 +237,13 @@ class PersonalizationAppWallpaperProviderImplTest : public testing::Test {
     web_contents_.reset();
     wallpaper_provider_.reset();
     wallpaper_controller_client_.reset();
-    user_manager::UserManager::Get()->OnUserProfileWillBeDestroyed(
-        kTestAccountId);
+    // Drop the IdentityManager pointer before the profile that owns it is
+    // destroyed, so the provider is never left holding a dangling raw_ptr.
+    identity_manager_provider_.SetIdentityManagerForAccount(kTestAccountId,
+                                                            nullptr);
     profile_ = nullptr;
     profile_manager_.DeleteAllTestingProfiles();
+    profile_user_manager_controller_.reset();
     user_session_test_environment_.reset();
     cros_settings_holder_.reset();
   }
@@ -290,14 +291,6 @@ class PersonalizationAppWallpaperProviderImplTest : public testing::Test {
 
   void ResetWallpaperProvider() { wallpaper_provider_.reset(); }
 
-  ::testing::NiceMock<MockPersonalizationAppManager>*
-  MockPersonalizationAppManager() {
-    return static_cast<::testing::NiceMock<
-        ::ash::personalization_app::MockPersonalizationAppManager>*>(
-        ::ash::personalization_app::PersonalizationAppManagerFactory::
-            GetForBrowserContext(profile_));
-  }
-
   void SetWallpaperObserver() {
     wallpaper_provider_remote_->SetWallpaperObserver(
         test_wallpaper_observer_.pending_remote());
@@ -330,8 +323,11 @@ class PersonalizationAppWallpaperProviderImplTest : public testing::Test {
   std::unique_ptr<ash::CrosSettingsHolder> cros_settings_holder_;
   std::unique_ptr<ash::test::UserSessionTestEnvironment>
       user_session_test_environment_;
+  std::unique_ptr<ash::ProfileUserManagerController>
+      profile_user_manager_controller_;
   TestingProfileManager profile_manager_;
   raw_ptr<TestingProfile> profile_ = nullptr;
+  ash::FakeIdentityManagerProvider identity_manager_provider_;
   SeaPenWallpaperManager sea_pen_wallpaper_manager_;
   TestWallpaperController test_wallpaper_controller_;
   // |wallpaper_controller_client_| must be destructed before
@@ -551,28 +547,6 @@ TEST_F(PersonalizationAppWallpaperProviderImplTest, SetCurrentWallpaperLayout) {
 
   EXPECT_EQ(ctrl->update_current_wallpaper_layout_count(), 1);
   EXPECT_EQ(ctrl->update_current_wallpaper_layout_layout(), layout);
-}
-
-TEST_F(PersonalizationAppWallpaperProviderImplTest,
-       CallsMaybeStartHatsTimerOnDestruction) {
-  // Insert a wallpaper image info to indicate that the user opened the
-  // wallpaper app and requested wallpapers.
-  AddWallpaperImage(GetDefaultImageInfo());
-
-  EXPECT_CALL(*MockPersonalizationAppManager(),
-              MaybeStartHatsTimer(HatsSurveyType::kWallpaper))
-      .Times(1);
-
-  ResetWallpaperProvider();
-}
-
-TEST_F(PersonalizationAppWallpaperProviderImplTest,
-       DoesNotCallMaybeStartHatsTimerIfNoWallpaperFetched) {
-  EXPECT_CALL(*MockPersonalizationAppManager(),
-              MaybeStartHatsTimer(HatsSurveyType::kWallpaper))
-      .Times(0);
-
-  ResetWallpaperProvider();
 }
 
 TEST_F(PersonalizationAppWallpaperProviderImplTest, GetWallpaperAsJpegBytes) {

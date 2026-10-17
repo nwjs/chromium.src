@@ -21,6 +21,7 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.AnchorSide;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.HeightType;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiSpecs;
+import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.UiUpdateRequest;
 import org.chromium.chrome.browser.ui.side_ui.SideUiObserver;
 import org.chromium.components.browser_ui.widget.animation.CancelAwareAnimatorListener;
 import org.chromium.ui.base.LocalizationUtils;
@@ -206,11 +207,17 @@ public class FindToolbarTablet extends FindToolbar implements SideUiObserver {
      * closing, or resizing any Side UI animates the Find in page popup smoothly.
      */
     @Override
-    public @Nullable Transition onPreSideUiSpecsChange(SideUiSpecs sideUiSpecs) {
+    public @Nullable Transition onPreSideUiSpecsChange(
+            SideUiSpecs sideUiSpecs, UiUpdateRequest request) {
         if (getVisibility() != View.VISIBLE) return null;
         ChangeBounds changeBounds = new ChangeBounds();
         changeBounds.addTarget(this);
         return changeBounds;
+    }
+
+    @Override
+    public void onSideUiSpecsChanged(SideUiSpecs sideUiSpecs, UiUpdateRequest request) {
+        updateEndMarginForSideUi(sideUiSpecs);
     }
 
     /**
@@ -219,11 +226,11 @@ public class FindToolbarTablet extends FindToolbar implements SideUiObserver {
      * does not shrink).
      */
     @Override
-    public void onSideUiSpecsChanged(SideUiSpecs sideUiSpecs) {
+    protected void updateEndMarginForSideUi(SideUiSpecs sideUiSpecs) {
         int anchorSide = LocalizationUtils.isLayoutRtl() ? AnchorSide.LEFT : AnchorSide.RIGHT;
         mCurrentSideUiMarginEnd =
                 sideUiSpecs.getHeightType(anchorSide) == HeightType.WEB_CONTENTS
-                        ? sideUiSpecs.getWidth(anchorSide)
+                        ? sideUiSpecs.getReservedWidth(anchorSide)
                         : 0;
         if (getLayoutParams() instanceof MarginLayoutParams lp) {
             lp.setMarginEnd(mBaseMarginEnd + mCurrentSideUiMarginEnd);

@@ -175,11 +175,6 @@ BASE_FEATURE(kClientSideDetectionNewObservers,
 constexpr base::FeatureParam<double> kCsdClassificationDelay{
     &kClientSideDetectionNewObservers, "ClassificationDelay", 0.0};
 
-#if BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kClientSideDetectionOnDeviceModelLazyDownloadAndroid,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
-
 BASE_FEATURE(kClientSideDetectionOnlyESBClassification,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -191,23 +186,28 @@ constexpr base::FeatureParam<int> kClientSideDetectionRetryLimitTime{
     &kClientSideDetectionRetryLimit, /*name=*/"RetryTimeMax",
     /*default_value=*/15};
 
-BASE_FEATURE(kClientSideDetectionScamScore, base::FEATURE_DISABLED_BY_DEFAULT);
-#if BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kClientSideDetectionServerModelForScamDetectionAndroid,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-constexpr base::FeatureParam<int> kClientSideDetectionServerModelMaxScansPerDay{
-    &kClientSideDetectionServerModelForScamDetectionAndroid,
-    "MaxIntelligentScansPerDay",
-    /*default_value=*/5};
-#endif
+BASE_FEATURE(kClientSideDetectionScamDetectionRequestWithUrl,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
-#if !BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kClientSideDetectionScamScore, base::FEATURE_DISABLED_BY_DEFAULT);
+
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 BASE_FEATURE(kClientSideDetectionServerModelForScamDetectionDesktop,
              base::FEATURE_DISABLED_BY_DEFAULT);
 constexpr base::FeatureParam<int>
     kClientSideDetectionServerModelMaxScansPerDayDesktop{
         &kClientSideDetectionServerModelForScamDetectionDesktop,
         "MaxIntelligentScansPerDayDesktop",
+        /*default_value=*/5};
+#endif
+
+#if BUILDFLAG(IS_IOS)
+BASE_FEATURE(kClientSideDetectionServerModelForScamDetectionIos,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+constexpr base::FeatureParam<int>
+    kClientSideDetectionServerModelMaxScansPerDayIos{
+        &kClientSideDetectionServerModelForScamDetectionIos,
+        "MaxIntelligentScansPerDayIos",
         /*default_value=*/5};
 #endif
 
@@ -220,12 +220,21 @@ constexpr base::FeatureParam<int>
         /*default_value=*/1000};
 #endif
 
-#if !BUILDFLAG(IS_ANDROID)
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 BASE_FEATURE(kClientSideDetectionServerModelRolloutDesktop,
              base::FEATURE_DISABLED_BY_DEFAULT);
 constexpr base::FeatureParam<int>
     kClientSideDetectionServerModelRolloutVersionDesktop{
         &kClientSideDetectionServerModelRolloutDesktop, "ModelVersion",
+        /*default_value=*/1000};
+#endif
+
+#if BUILDFLAG(IS_IOS)
+BASE_FEATURE(kClientSideDetectionServerModelRolloutIos,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+constexpr base::FeatureParam<int>
+    kClientSideDetectionServerModelRolloutVersionIos{
+        &kClientSideDetectionServerModelRolloutIos, "ModelVersion",
         /*default_value=*/1000};
 #endif
 
@@ -382,6 +391,10 @@ constexpr base::FeatureParam<int> kHashPrefixRealTimeLookupsSampleRate{
 
 BASE_FEATURE(kLocalListsUseSBv5,
              "SafeBrowsingLocalListsUseSBv5",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kLocalListsUseSBv5WebUI,
+             "SafeBrowsingLocalListsUseSBv5WebUI",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
@@ -569,6 +582,7 @@ base::ListValue GetFeatureStatusList() {
       &kExtensionBlocklistSkipNetworkQuery,
       &kHashPrefixRealTimeLookups,
       &kLocalListsUseSBv5,
+      &kLocalListsUseSBv5WebUI,
       &kMigrateEnhancedSbUserToEnhancedBundle,
       &kProactivePasswordProtection,
       &kReportNotificationContentDetectionData,

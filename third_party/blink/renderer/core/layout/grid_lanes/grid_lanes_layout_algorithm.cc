@@ -480,10 +480,9 @@ LayoutUnit AlignContentOffset(
       break;
   }
 
-  switch (content_alignment.GetPosition()) {
+  switch (content_alignment.GetUsedPosition()) {
     case ContentPosition::kLeft:
     case ContentPosition::kStart:
-    case ContentPosition::kFlexStart:
     case ContentPosition::kFlowStart:
     case ContentPosition::kNormal:
       adjusted_offset = LayoutUnit();
@@ -493,7 +492,6 @@ LayoutUnit AlignContentOffset(
       break;
     case ContentPosition::kRight:
     case ContentPosition::kEnd:
-    case ContentPosition::kFlexEnd:
     case ContentPosition::kFlowEnd:
       adjusted_offset = free_space;
       break;
@@ -501,6 +499,9 @@ LayoutUnit AlignContentOffset(
     case ContentPosition::kLastBaseline:
       adjusted_offset = baseline_offset;
       break;
+    case ContentPosition::kFlexStart:
+    case ContentPosition::kFlexEnd:
+      NOTREACHED();
   }
   return is_fill_reverse ? adjusted_offset - free_space : adjusted_offset;
 }
@@ -1181,7 +1182,7 @@ void GridLanesLayoutAlgorithm::ApplyStackingAxisAlignment(
         is_for_columns ? item_style.ResolvedAlignSelf(normal_value, &style)
                        : item_style.ResolvedJustifySelf(normal_value, &style);
 
-    if (stacking_alignment.GetPosition() == ItemPosition::kStretch) {
+    if (stacking_alignment.GetComputedPosition() == ItemPosition::kStretch) {
       // TODO(celestepan): Whether or not the explicit size overrides stretch
       // alignment is still in discussion with the CSSWG:
       // https://github.com/w3c/csswg-drafts/issues/13950.
@@ -2732,7 +2733,9 @@ GridSizingTree GridLanesLayoutAlgorithm::ComputeGridLanesSizingTree(
         });
   }
 
-  CompleteFinalBaselineAlignment(&sizing_tree);
+  if (sizing_tree.HasBaselines()) {
+    CompleteFinalBaselineAlignment(&sizing_tree);
+  }
 
   auto& sizing_collection =
       sizing_tree.LayoutData().SizingCollection(grid_axis_direction);
@@ -2964,7 +2967,7 @@ void GridLanesLayoutAlgorithm::CompleteTrackSizingAlgorithm(
   // Compute standalone-axis baselines for subgrids during track sizing, so
   // nested subgrid leaf baselines are available and deferred subgrid baselines
   // are flagged before the final alignment pass.
-  if (sizing_subtree.FirstChild()) {
+  if (sizing_tree->HasBaselines() && sizing_subtree.FirstChild()) {
     const GridLayoutTree* layout_tree = sizing_tree->FinalizeTree();
     for (auto track_direction : {kForColumns, kForRows}) {
       ComputeBaselineAlignmentForEachSubgrid(sizing_subtree, *this, layout_tree,

@@ -4,7 +4,6 @@
 
 // This file defined the mojo interface between Android and Chromium for video
 // encoding.
-
 module arc.mojom;
 
 import "chromeos/ash/experiences/arc/mojom/gfx.mojom";
@@ -21,12 +20,11 @@ struct VideoEncodeProfile {
   uint32 max_framerate_denominator;
 };
 
-
 // The input buffer storage type.
 [Extensible]
 enum VideoFrameStorageType {
-    SHMEM = 0,
-    DMABUF = 1,
+  SHMEM = 0,
+  DMABUF = 1,
 };
 
 // Constant bitrate type, used for constant bitrate encoding.
@@ -78,8 +76,12 @@ struct VideoEncodeAcceleratorConfig {
   bool has_initial_framerate_deprecated;
   uint8 h264_output_level;
   bool has_h264_output_level;
-  [MinVersion=1] VideoFrameStorageType storage_type;
-  [MinVersion=5] Bitrate? bitrate;
+
+  [MinVersion=1]
+  VideoFrameStorageType storage_type;
+
+  [MinVersion=5]
+  Bitrate? bitrate;
 };
 
 // Video encoder IPC interface.
@@ -133,7 +135,7 @@ interface VideoEncodeAccelerator {
   //  accelerator.
   [MinVersion=3]
   Encode@8(VideoPixelFormat format,
-           handle frame_fd,
+           handle<platform> frame_fd,
            array<VideoFramePlane> planes,
            int64 timestamp,
            bool force_keyframe) => ();
@@ -152,7 +154,8 @@ interface VideoEncodeAccelerator {
   //  |payload_size| is the byte size of the used portion of the buffer.
   //  |key_frame| is true if this delivered frame is a keyframe.
   //  |timestamp| is the same timestamp as the one passed to Encode().
-  UseBitstreamBuffer@3(handle shmem_fd, uint32 offset, uint32 size)
+  UseBitstreamBuffer@3(
+      handle<platform> shmem_fd, uint32 offset, uint32 size)
       => (uint32 payload_size, bool key_frame, int64 timestamp);
 
   // Requests a change to the encoding parameters. This is only a request,
@@ -169,8 +172,8 @@ interface VideoEncodeAccelerator {
   // Parameters:
   //  |bitrate| is the requested new bitrate, in bits per second.
   //  |framerate| is the requested new framerate, in frames per second.
-  RequestEncodingParametersChangeDeprecated@4(uint32 bitrate,
-                                              uint32 framerate);
+  RequestEncodingParametersChangeDeprecated@4(
+      uint32 bitrate, uint32 framerate);
 
   // Flushes the encoder: all pending inputs will be encoded and all bitstreams
   // handed back to the client. The client should not invoke Flush() or
@@ -200,9 +203,8 @@ interface VideoEncodeClient {
   //  case the input video frame to Encode() should be padded appropriately.
   //  |output_buffer_size| is the required size of output buffers for this
   //  encoder in bytes.
-  RequireBitstreamBuffers@0(uint32 input_count,
-                            Size input_coded_size,
-                            uint32 output_buffer_size);
+  RequireBitstreamBuffers@0(
+      uint32 input_count, Size input_coded_size, uint32 output_buffer_size);
 
   // Error notification callback. Note that errors in
   // VideoEncodeAccelerator::Initialize() will not be reported here, but will

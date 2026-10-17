@@ -33,6 +33,8 @@
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service_factory.h"
 #import "ios/chrome/browser/policy/model/policy_util.h"
+#import "ios/chrome/browser/shared/coordinator/scene/state/browser_layout_state.h"
+#import "ios/chrome/browser/shared/coordinator/scene/state/layout_state_test_passkey_factory.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
@@ -48,7 +50,6 @@
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
-#import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity_manager.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
@@ -100,8 +101,7 @@ class ToolbarMediatorTest : public PlatformTest,
                                 BuildIdentityManagerForTests));
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetFactoryWithDelegateForTesting(
-            std::make_unique<FakeAuthenticationServiceDelegate>()));
+        AuthenticationServiceFactory::GetDefaultFactory());
     builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
                               base::BindRepeating(&CreateTestSyncService));
     builder.AddTestingFactory(GeminiServiceFactory::GetInstance(),
@@ -497,37 +497,100 @@ TEST_P(ToolbarMediatorTest, TestMutatorStop) {
   EXPECT_TRUE(fake_web_state->was_stopped());
 }
 
-// Tests that the consumer is updated when the bottom omnibox pref changes.
-TEST_P(ToolbarMediatorTest, TestBottomOmniboxEnabled) {
-  if (!IsBottomOmniboxAvailable()) {
-    return;
-  }
+// Tests that changing BrowserLayoutState.toolbarPosition updates the consumer's
+// hasOmnibox state accordingly.
+TEST_P(ToolbarMediatorTest, TestBrowserLayoutStateUpdatesHasOmnibox) {
+  BrowserLayoutState* layout_state = browser_->GetBrowserLayoutState();
   BOOL top_position = GetParam();
 
   OCMExpect([consumer_ setHasOmnibox:top_position]);
-  TestingApplicationContext::GetGlobal()->GetLocalState()->SetBoolean(
-      omnibox::kIsOmniboxInBottomPosition, false);
+  mediator_.browserLayoutState = layout_state;
   EXPECT_OCMOCK_VERIFY(consumer_);
 
+  // Transition toolbar to bottom.
   OCMExpect([consumer_ setHasOmnibox:!top_position]);
-  TestingApplicationContext::GetGlobal()->GetLocalState()->SetBoolean(
-      omnibox::kIsOmniboxInBottomPosition, true);
+  [layout_state setToolbarPosition:ToolbarPosition::kBottom
+                           passKey:layout_state::LayoutStateTestPassKeyFactory::
+                                       CreateToolbarKey()];
+  EXPECT_OCMOCK_VERIFY(consumer_);
+
+  // Transition toolbar back to top.
+  OCMExpect([consumer_ setHasOmnibox:top_position]);
+  [layout_state setToolbarPosition:ToolbarPosition::kTop
+                           passKey:layout_state::LayoutStateTestPassKeyFactory::
+                                       CreateToolbarKey()];
   EXPECT_OCMOCK_VERIFY(consumer_);
 }
 
-// Tests that the consumer is not updated when the bottom omnibox pref changes
-// if the bottom toolbar is not available.
-TEST_P(ToolbarMediatorTest, TestBottomOmniboxNotEnabled) {
-  if (IsBottomOmniboxAvailable()) {
-    return;
+// Tests that consumer updates are skipped while a toolbar does not have the
+// omnibox, except for NTP visibility on the top toolbar.
+TEST_P(ToolbarMediatorTest, TestInactiveToolbarSkipsConsumerUpdates) {
+  BrowserLayoutState* layout_state = browser_->GetBrowserLayoutState();
+  BOOL top_position = GetParam();
+  ToolbarPosition inactive_position =
+      top_position ? ToolbarPosition::kBottom : ToolbarPosition::kTop;
+
+  [layout_state setToolbarPosition:inactive_position
+                           passKey:layout_state::LayoutStateTestPassKeyFactory::
+                                       CreateToolbarKey()];
+  OCMExpect([consumer_ setHasOmnibox:NO]);
+  mediator_.browserLayoutState = layout_state;
+  EXPECT_OCMOCK_VERIFY(consumer_);
+
+  // Insert and activate a WebState while this toolbar is inactive. Button and
+  // menu updates should be skipped, while the top toolbar still updates NTP
+  // visibility.
+  if (top_position) {
+    OCMExpect([consumer_ setNTPVisible:NO
+                        isStartSurface:NO
+                             isLoading:NO
+                       loadingProgress:0]);
+  } else {
+    OCMReject([consumer_ setNTPVisible:OCMOCK_ANY
+                        isStartSurface:OCMOCK_ANY
+                             isLoading:OCMOCK_ANY
+                       loadingProgress:0]);
   }
+  OCMReject([consumer_ setCanGoBack:OCMOCK_ANY]);
+  OCMReject([consumer_ setShareEnabled:OCMOCK_ANY]);
+  OCMReject([consumer_ setMenu:[OCMArg any]
+                 forButtonType:ToolbarButtonTypeTabGrid]);
+  browser_->GetWebStateList()->InsertWebState(
+      CreateWebState(), WebStateList::InsertionParams::AtIndex(0).Activate());
+  EXPECT_OCMOCK_VERIFY(consumer_);
+}
 
-  OCMReject([consumer_ setHasOmnibox:YES]).ignoringNonObjectArgs();
+// Tests that consumer state is synced immediately when the toolbar position
+// switches to make the toolbar active.
+TEST_P(ToolbarMediatorTest,
+       TestSwitchingToolbarPositionSyncsNewlyActiveConsumer) {
+  BrowserLayoutState* layout_state = browser_->GetBrowserLayoutState();
+  BOOL top_position = GetParam();
+  ToolbarPosition inactive_position =
+      top_position ? ToolbarPosition::kBottom : ToolbarPosition::kTop;
+  ToolbarPosition active_position =
+      top_position ? ToolbarPosition::kTop : ToolbarPosition::kBottom;
 
-  TestingApplicationContext::GetGlobal()->GetLocalState()->SetBoolean(
-      omnibox::kIsOmniboxInBottomPosition, false);
-  TestingApplicationContext::GetGlobal()->GetLocalState()->SetBoolean(
-      omnibox::kIsOmniboxInBottomPosition, true);
+  [layout_state setToolbarPosition:inactive_position
+                           passKey:layout_state::LayoutStateTestPassKeyFactory::
+                                       CreateToolbarKey()];
+  OCMExpect([consumer_ setHasOmnibox:NO]);
+  mediator_.browserLayoutState = layout_state;
+  EXPECT_OCMOCK_VERIFY(consumer_);
+
+  browser_->GetWebStateList()->InsertWebState(
+      CreateWebState(), WebStateList::InsertionParams::AtIndex(0).Activate());
+
+  // Switching the toolbar position to make this toolbar active should
+  // immediately sync the consumer state.
+  OCMExpect([consumer_ setHasOmnibox:YES]);
+  OCMExpect([consumer_ setCanGoBack:YES]);
+  OCMExpect([consumer_ setShareEnabled:YES]);
+  OCMExpect([consumer_ setMenu:[OCMArg any]
+                 forButtonType:ToolbarButtonTypeTabGrid]);
+  [layout_state setToolbarPosition:active_position
+                           passKey:layout_state::LayoutStateTestPassKeyFactory::
+                                       CreateToolbarKey()];
   EXPECT_OCMOCK_VERIFY(consumer_);
 }
 

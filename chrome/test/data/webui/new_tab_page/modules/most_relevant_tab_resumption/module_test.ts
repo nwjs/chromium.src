@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import type {DismissModuleElementEvent, DismissModuleInstanceEvent, MostRelevantTabResumptionModuleElement} from 'chrome://new-tab-page/lazy_load.js';
+import type {DismissModuleElementEvent, MostRelevantTabResumptionModuleElement} from 'chrome://new-tab-page/lazy_load.js';
 import {mostRelevantTabResumptionDescriptor, MostRelevantTabResumptionProxyImpl} from 'chrome://new-tab-page/lazy_load.js';
 import type {URLVisit} from 'chrome://new-tab-page/new_tab_page.js';
 import {$$, DecorationType, FormFactor, ScoredURLUserAction, TabResumptionPageHandlerRemote as PageHandlerRemote, VisitSource} from 'chrome://new-tab-page/new_tab_page.js';
@@ -54,7 +54,6 @@ suite('NewTabPageModulesMostRelevantTabResumptionModuleTest', () => {
   suiteSetup(() => {
     loadTimeData.overrideValues({
       modulesRedesignedEnabled: true,
-      hideDismissModules: false,
       modulesMostRelevantTabResumptionSeeMoreAcc: 'See more tabs',
     });
   });
@@ -106,8 +105,8 @@ suite('NewTabPageModulesMostRelevantTabResumptionModuleTest', () => {
 
       const actionMenuItems =
           [...actionMenu.querySelectorAll('button.dropdown-item')];
-      assertEquals(4, actionMenuItems.length);
-      ['dismiss', 'disable', 'info', 'customize-module'].forEach(
+      assertEquals(3, actionMenuItems.length);
+      ['disable', 'info', 'customize-module'].forEach(
           (action, index) => {
             assertEquals(
                 action, actionMenuItems[index]!.getAttribute('data-action'));
@@ -130,31 +129,6 @@ suite('NewTabPageModulesMostRelevantTabResumptionModuleTest', () => {
       assertTrue(!!$$(moduleElement, 'ntp-info-dialog'));
     });
 
-    test('Header dismiss button dispatches dismiss module event', async () => {
-      // Arrange.
-      const moduleElement = await initializeModule(createSampleURLVisits(1));
-
-      // Assert.
-      assertTrue(!!moduleElement);
-      const headerElement = $$(moduleElement, 'ntp-module-header');
-      assertTrue(!!headerElement);
-      const dismissButton = $$<HTMLElement>(headerElement, '#dismiss');
-      assertTrue(!!dismissButton);
-      const waitForDismissEvent =
-          eventToPromise('dismiss-module-instance', moduleElement);
-      dismissButton.click();
-      await microtasksFinished();
-
-      const dismissEvent: DismissModuleInstanceEvent =
-          await waitForDismissEvent;
-      assertEquals(`Tabs hidden`, dismissEvent.detail.message);
-
-      // Act.
-      const restoreCallback = dismissEvent.detail.restoreCallback!;
-      restoreCallback();
-      assertTrue(!!moduleElement);
-    });
-
     test('Tab dismiss button dispatches dismiss tab event', async () => {
       // Arrange.
       const moduleElement = await initializeModule(createSampleURLVisits(2));
@@ -169,17 +143,17 @@ suite('NewTabPageModulesMostRelevantTabResumptionModuleTest', () => {
       await microtasksFinished();
 
       const dismissEvent: DismissModuleElementEvent = await waitForDismissEvent;
-      assertEquals(`Tab hidden`, dismissEvent.detail.message);
+      assertEquals('Tab hidden', dismissEvent.detail.message);
       assertEquals(
-          1, metrics.count(`NewTabPage.TabResumption.VisitDismissIndex`, 0));
-      assertEquals(1, handler.getCallCount(`dismissURLVisit`));
+          1, metrics.count('NewTabPage.TabResumption.VisitDismissIndex', 0));
+      assertEquals(1, handler.getCallCount('dismissURLVisit'));
 
       // Act.
       const restoreCallback = dismissEvent.detail.restoreCallback!;
       restoreCallback();
       assertTrue(!!moduleElement);
       assertEquals(
-          1, metrics.count(`NewTabPage.TabResumption.VisitRestoreIndex`, 0));
+          1, metrics.count('NewTabPage.TabResumption.VisitRestoreIndex', 0));
     });
 
     test('Tab click fires usage event', async () => {
@@ -194,11 +168,11 @@ suite('NewTabPageModulesMostRelevantTabResumptionModuleTest', () => {
       urlVisitElement.removeAttribute('href');
       urlVisitElement.click();
       await microtasksFinished();
-      assertEquals(1, metrics.count(`NewTabPage.TabResumption.ClickIndex`));
+      assertEquals(1, metrics.count('NewTabPage.TabResumption.ClickIndex'));
       assertEquals(
           1,
           metrics.count(
-              `NewTabPage.TabResumption.Visit.ClickSource`, VisitSource.kTab));
+              'NewTabPage.TabResumption.Visit.ClickSource', VisitSource.kTab));
       assertEquals(
           ScoredURLUserAction.kSeen, handler.getArgs('recordAction')[0][0]);
       assertEquals(
@@ -223,7 +197,7 @@ suite('NewTabPageModulesMostRelevantTabResumptionModuleTest', () => {
       const waitForUsageEvent = eventToPromise('usage', moduleElement);
       seeMoreButtonElement.removeAttribute('href');
       seeMoreButtonElement.click();
-      assertEquals(1, metrics.count(`NewTabPage.TabResumption.SeeMoreClick`));
+      assertEquals(1, metrics.count('NewTabPage.TabResumption.SeeMoreClick'));
       await waitForUsageEvent;
     });
   });

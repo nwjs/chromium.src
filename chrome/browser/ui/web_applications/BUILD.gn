@@ -102,7 +102,10 @@ source_set("impl") {
   sources = []
   deps = [
     "//chrome/browser/banners",
+    "//chrome/browser/ui:browser_commands",
+    "//chrome/browser/ui:browser_window_header",
     "//chrome/browser/ui:browser_window_state",
+    "//chrome/browser/ui:unload_controller",
     "//chrome/browser/ui/browser_window:create_browser_window",
   ]
 
@@ -121,6 +124,7 @@ source_set("impl") {
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/tabs:tabs_public",
       "//chrome/browser/ui/user_education",
+      "//chrome/browser/ui/views/frame:browser_view_header",
       "//chrome/browser/ui/views/web_apps:progress_delay",
       "//chrome/browser/ui/views/web_apps:web_app_install_flow_dialog_delegate",
       "//chrome/browser/web_applications",
@@ -182,6 +186,7 @@ source_set("impl") {
       "//chrome/browser/policy:policy_util",
       "//chrome/browser/ui:browser_init_state",
       "//chrome/browser/ui:browser_window_theme_observer",
+      "//chrome/browser/ui:intent_picker_tab_helper",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/extensions",
       "//chrome/browser/ui/profiles",
@@ -301,18 +306,22 @@ source_set("browser_tests") {
     "//chrome/browser/preloading:test_support",
     "//chrome/browser/shortcuts",
     "//chrome/browser/themes",
+    "//chrome/browser/ui:browser_commands",
+    "//chrome/browser/ui:browser_window_header",
     "//chrome/browser/ui:tab_ui_helper",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/browser_ui_controller",
     "//chrome/browser/ui/browser_web_contents_delegate",
     "//chrome/browser/ui/page_info",
     "//chrome/browser/ui/startup",
+    "//chrome/browser/ui/views/picture_in_picture",
     "//chrome/browser/ui/web_applications/test:test_support_ui",
     "//chrome/browser/ui/window_metadata",
     "//chrome/browser/ui/window_sizer",
     "//chrome/browser/web_applications:prevent_close_test_support",
     "//chrome/browser/web_applications:web_applications_test_support",
     "//chrome/test:test_support_ui",
+    "//chrome/test/base:profile_lifecycle_test_utils",
     "//chrome/test/base:web_feature_histogram_tester",
     "//components/embedder_support",
     "//components/metrics/structured:structured_events",
@@ -357,6 +366,7 @@ source_set("browser_tests") {
   if (!is_android) {
     deps += [
       "//chrome/browser/ui:browser_init_state",
+      "//chrome/browser/ui/views/frame:browser_view_header",
       "//chrome/browser/ui/window_feature_controller",
     ]
   }
@@ -392,6 +402,8 @@ source_set("app_service_browser_tests") {
     "//chrome/browser/apps/link_capturing:test_support",
     "//chrome/browser/badging:test_support",
     "//chrome/browser/browsing_data:constants",
+    "//chrome/browser/ui:browser_commands",
+    "//chrome/browser/ui:browser_window_header",
     "//chrome/browser/ui/web_applications/diagnostics:app_service_browser_tests",
     "//chrome/browser/ui/web_applications/test:test_support_ui",
     "//chrome/browser/web_applications",
@@ -461,6 +473,8 @@ source_set("interactive_ui_tests") {
     "//base",
     "//base/test:test_support",
     "//chrome/browser/ui",
+    "//chrome/browser/ui:browser_commands",
+    "//chrome/browser/ui:browser_window_header",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/find_bar",
     "//chrome/browser/ui/tabs:tab_strip",

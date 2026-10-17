@@ -414,6 +414,8 @@ class CORE_EXPORT LocalDOMWindow final : public DOMWindow,
 
   DEFINE_ATTRIBUTE_EVENT_LISTENER(pagereveal, kPagereveal)
 
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(openerchange, kOpenerchange)
+
   void RegisterEventListenerObserver(EventListenerObserver*);
 
   void FrameDestroyed();
@@ -743,10 +745,6 @@ class CORE_EXPORT LocalDOMWindow final : public DOMWindow,
   // due to back-forward cache. This number gets reset when the frame gets out
   // of the back-forward cache.
   size_t total_bytes_buffered_while_in_back_forward_cache_ = 0;
-
-  // Collection of fenced frame APIs.
-  // https://github.com/shivanigithub/fenced-frame/issues/14
-  Member<Fence> fence_;
 
   Member<CrashReportContext> crash_report_storage_;
 

@@ -16,6 +16,7 @@
 #include "chrome/browser/ui/autofill/autofill_popup_controller.h"
 #include "chrome/browser/ui/autofill/autofill_popup_hide_helper.h"
 #include "chrome/browser/ui/autofill/autofill_popup_view.h"
+#include "chrome/browser/ui/autofill/key_press_handler_registration.h"
 #include "chrome/browser/ui/autofill/next_idle_barrier.h"
 #include "chrome/browser/ui/autofill/popup_controller_common.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
@@ -24,7 +25,6 @@
 #include "components/autofill/core/browser/ui/popup_open_enums.h"
 #include "components/autofill/core/browser/ui/tabbed_pane_enums.h"
 #include "components/autofill/core/common/aliases.h"
-#include "content/public/browser/render_widget_host.h"
 
 namespace content {
 class WebContents;
@@ -54,9 +54,9 @@ class AutofillPopupControllerImpl : public AutofillPopupController {
 
   // AutofillSuggestionController:
   void OnSuggestionsChanged() override;
-  void AcceptSuggestion(
-      int index,
-      AutofillMetrics::SuggestionAcceptedMethod accept_method) override;
+  void AcceptSuggestion(int index,
+                        AutofillMetrics::SuggestionAcceptedMethod accept_method,
+                        bool was_obscured) override;
   bool RemoveSuggestion(int list_index) override;
   int GetLineCount() const override;
   const std::vector<Suggestion>& GetSuggestions() const override;
@@ -74,10 +74,11 @@ class AutofillPopupControllerImpl : public AutofillPopupController {
   std::optional<UiSessionId> GetUiSessionId() const override;
   void SetKeepPopupOpenForTesting(bool keep_popup_open_for_testing) override;
   void UpdateDataListValues(base::span<const SelectOption> options) override;
-  const LocalFrameToken& GetFrameToken() const override;
+  const LocalFrameToken& GetAnchorFrameToken() const override;
   bool MayRecycle(
       base::WeakPtr<AutofillSuggestionDelegate> delegate,
       content::WebContents* web_contents,
+      const LocalFrameToken& anchor_frame_token,
       AutofillSuggestionTriggerSource trigger_source) const override;
   void Recycle(PopupControllerCommon controller_common,
                int32_t form_control_ax_id) override;
@@ -179,7 +180,8 @@ class AutofillPopupControllerImpl : public AutofillPopupController {
 
   // Returns metadata about the suggestion at `row_index` within this popup.
   AutofillSuggestionDelegate::SuggestionMetadata GetSuggestionMetadata(
-      size_t row_index) const;
+      size_t row_index,
+      bool was_obscured) const;
 
   // Notifies the view that the suggestions provided by the controller changed.
   // If `prefer_prev_arrow_side` is `true`, the view takes prev arrow side as
@@ -195,21 +197,9 @@ class AutofillPopupControllerImpl : public AutofillPopupController {
   base::WeakPtr<AutofillPopupView> view_;
   base::WeakPtr<AutofillSuggestionDelegate> delegate_;
 
-  // A helper class for capturing key press events associated with a
-  // `content::RenderFrameHost`.
-  class KeyPressObserver {
-   public:
-    explicit KeyPressObserver(AutofillPopupControllerImpl* observer);
-    ~KeyPressObserver();
-
-    void Observe(content::RenderFrameHost* rfh);
-    void Reset();
-
-   private:
-    const raw_ref<AutofillPopupControllerImpl> observer_;
-    content::GlobalRenderFrameHostId rfh_;
-    content::RenderWidgetHost::KeyPressEventCallback handler_;
-  } key_press_observer_{this};
+  // Keeps `HandleKeyPressEvent()` registered with the frame the popup is
+  // anchored to.
+  KeyPressHandlerRegistration key_press_registration_;
 
   // Whether a sufficient amount of time has passed since showing or updating
   // suggestions. It is used to safeguard against accepting suggestions too

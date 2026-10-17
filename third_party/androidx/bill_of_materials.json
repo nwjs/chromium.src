@@ -17,7 +17,7 @@
     {
         "name": "annotation",
         "group": "androidx.annotation",
-        "version": "1.11.0-SNAPSHOT"
+        "version": "1.11.0"
     },
     {
         "name": "annotation-experimental",
@@ -27,7 +27,7 @@
     {
         "name": "annotation-jvm",
         "group": "androidx.annotation",
-        "version": "1.11.0-SNAPSHOT"
+        "version": "1.11.0"
     },
     {
         "name": "appcompat",
@@ -507,12 +507,12 @@
     {
         "name": "emoji2",
         "group": "androidx.emoji2",
-        "version": "1.7.0-SNAPSHOT"
+        "version": "1.7.0"
     },
     {
         "name": "emoji2-views-helper",
         "group": "androidx.emoji2",
-        "version": "1.7.0-SNAPSHOT"
+        "version": "1.7.0"
     },
     {
         "name": "emoji",
@@ -1242,7 +1242,7 @@
     {
         "name": "webkit",
         "group": "androidx.webkit",
-        "version": "1.18.0-SNAPSHOT"
+        "version": "1.19.0-SNAPSHOT"
     },
     {
         "name": "sidecar",
@@ -1513,11 +1513,6 @@
         "name": "tagsoup",
         "group": "org.ccil.cowan.tagsoup",
         "version": "1.2.1"
-    },
-    {
-        "name": "checker-compat-qual",
-        "group": "org.checkerframework",
-        "version": "2.5.5"
     },
     {
         "name": "checker-qual",

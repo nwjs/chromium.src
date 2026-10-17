@@ -44,7 +44,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.RecyclerView.ViewHolder;
 import androidx.test.espresso.intent.matcher.IntentMatchers;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
-import androidx.test.filters.SmallTest;
 
 import org.hamcrest.Matcher;
 import org.junit.Assert;
@@ -72,7 +71,7 @@ import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.back_press.BackPressHelper;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.history.AppFilterCoordinator.AppInfo;
+import org.chromium.chrome.browser.history.FilterSheetCoordinator.FilterItem;
 import org.chromium.chrome.browser.history.HistoryManagerToolbar.InfoHeaderPref;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.preferences.Pref;
@@ -115,6 +114,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
+import java.util.List;
 import java.util.function.Supplier;
 
 /**
@@ -126,12 +126,10 @@ import java.util.function.Supplier;
 @RunWith(ParameterizedRobolectricTestRunner.class)
 @DisableFeatures({
     ChromeFeatureList.APP_SPECIFIC_HISTORY,
-    ChromeFeatureList.ANDROID_DESKTOP_HISTORY_LAYOUT
+    ChromeFeatureList.ANDROID_DESKTOP_HISTORY_LAYOUT,
+    ChromeFeatureList.BROWSING_HISTORY_FILTER_BY_DOMAIN
 })
-@EnableFeatures({
-    ChromeFeatureList.ENABLE_ESCAPE_HANDLING_FOR_SECONDARY_ACTIVITIES,
-    SigninFeatures.ENABLE_SEAMLESS_SIGNIN
-})
+@EnableFeatures(ChromeFeatureList.ENABLE_ESCAPE_HANDLING_FOR_SECONDARY_ACTIVITIES)
 public class HistoryUiTest {
     private static final int PAGE_INCREMENT = 2;
     private static final String HISTORY_SEARCH_QUERY = "some page";
@@ -182,7 +180,7 @@ public class HistoryUiTest {
     @Mock private PrefChangeRegistrar.Natives mPrefChangeRegistrarJni;
     @Mock private TemplateUrlService mTemplateUrlService;
     @Mock private PackageManager mPackageManager;
-    @Mock private AppFilterCoordinator mAppFilterSheet;
+    @Mock private FilterSheetCoordinator mAppFilterSheet;
     @Mock private ApplicationInfo mPackageAppInfo;
 
     public static Matcher<Intent> hasData(GURL uri) {
@@ -272,7 +270,6 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     public void testRemove_SingleItem() throws Exception {
         final HistoryItemView itemView = (HistoryItemView) getItemView(2);
 
@@ -288,7 +285,6 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     public void testSparkVisibility() {
         // Use a timestamp older than the ones in setUp() to ensure they appear after Item 1 and 2.
         long timestamp = mItem2.getTimestamp() - 1000;
@@ -348,7 +344,6 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     public void testRemove_AllItems() throws Exception {
         toggleItemSelection(2);
         toggleItemSelection(3);
@@ -366,14 +361,12 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     public void testPrivacyDisclaimers_SignedOut() {
         // The user is signed out by default.
         Assert.assertEquals(1, mAdapter.getFirstGroupForTests().size());
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(ChromeFeatureList.APP_SPECIFIC_HISTORY)
     @Config(sdk = VERSION_CODES.UPSIDE_DOWN_CAKE)
     public void testPrivacyDisclaimers_SignedOut_Ash() {
@@ -382,7 +375,6 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     public void testPrivacyDisclaimers_SignedIn() {
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
 
@@ -392,7 +384,6 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     public void testPrivacyDisclaimers_SignedInSynced() {
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
 
@@ -402,7 +393,6 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     public void testPrivacyDisclaimers_SignedInSyncedAndOtherForms() {
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
 
@@ -412,7 +402,6 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     public void testOpenItem() throws Exception {
         clickItem(2);
         assertThat(
@@ -421,7 +410,6 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     public void testOpenSelectedItems() throws Exception {
         toggleItemSelection(2);
         toggleItemSelection(3);
@@ -436,7 +424,6 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     public void testOpenItemIntent() {
         Intent intent =
                 mHistoryManager
@@ -466,7 +453,6 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     public void testOnHistoryDeleted() throws Exception {
         toggleItemSelection(2);
 
@@ -480,7 +466,6 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     public void testReload() {
         Assert.assertEquals(4, mAdapter.getItemCount());
 
@@ -494,7 +479,6 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     public void testSupervisedUser() {
         final HistoryManagerToolbar toolbar = mHistoryManager.getToolbarForTests();
         final HistoryItemView item = (HistoryItemView) getItemView(2);
@@ -543,7 +527,6 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     public void testToolbarShadow() throws Exception {
         View toolbarShadow = mHistoryManager.getSelectableListLayout().getToolbarShadowForTests();
         Assert.assertEquals(View.GONE, toolbarShadow.getVisibility());
@@ -558,7 +541,6 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     public void testSearchView() throws Exception {
         final HistoryManagerToolbar toolbar = mHistoryManager.getToolbarForTests();
         View toolbarShadow = mHistoryManager.getSelectableListLayout().getToolbarShadowForTests();
@@ -596,7 +578,6 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     public void testSetQuery() {
         HistoryManagerToolbar toolbar = mHistoryManager.getToolbarForTests();
         View toolbarSearchView = toolbar.getSearchViewForTests();
@@ -615,7 +596,6 @@ public class HistoryUiTest {
     @EnableFeatures(ChromeFeatureList.APP_SPECIFIC_HISTORY)
     @Config(sdk = VERSION_CODES.UPSIDE_DOWN_CAKE)
     @Test
-    @SmallTest
     public void testSearch_AppFilterChipVisible() {
         mAdapter.setClearBrowsingDataButtonVisibilityForTest(false);
         DateDividedAdapter.ItemGroup headerGroup = mAdapter.getFirstGroupForTests();
@@ -626,10 +606,43 @@ public class HistoryUiTest {
         Assert.assertEquals(1, headerGroup.size());
     }
 
+    @DisableFeatures(ChromeFeatureList.APP_SPECIFIC_HISTORY)
+    @EnableFeatures(ChromeFeatureList.BROWSING_HISTORY_FILTER_BY_DOMAIN)
+    @Test
+    public void testSearch_HostFilterChipVisibleWhenAppSpecificHistoryDisabled() {
+        mHistoryManager =
+                new HistoryManager(
+                        mProfile,
+                        mWindowAndroid,
+                        mActivity,
+                        true,
+                        mSnackbarManager,
+                        SupplierUtils.of(mBottomSheetController),
+                        /* modalDialogManagerSupplier= */ mModalDialogManagerSupplier,
+                        /* activityResultTracker= */ mActivityResultTracker,
+                        /* tabSupplier= */ null,
+                        mHistoryProvider,
+                        new HistoryUmaRecorder(),
+                        /* clientPackageName= */ null,
+                        /* shouldShowClearData= */ true,
+                        /* launchedForApp= */ false,
+                        /* showAppFilter= */ true,
+                        /* shouldClusterByDomain= */ false,
+                        /* openHistoryItemCallback= */ null,
+                        /* edgeToEdgePadAdjusterGenerator= */ null);
+        mContentManager = mHistoryManager.getContentManagerForTests();
+        mAdapter = mContentManager.getAdapter();
+        mAdapter.setClearBrowsingDataButtonVisibilityForTest(false);
+        performMenuAction(R.id.search_menu_id);
+        Assert.assertTrue(mAdapter.hasListHeader());
+        Assert.assertEquals(View.VISIBLE, mAdapter.getHostFilterButtonForTest().getVisibility());
+        Assert.assertTrue(mAdapter.getHostFilterButtonForTest().isEnabled());
+        Assert.assertEquals(View.GONE, mAdapter.getAppFilterButtonForTest().getVisibility());
+    }
+
     @EnableFeatures(ChromeFeatureList.APP_SPECIFIC_HISTORY)
     @Config(sdk = VERSION_CODES.UPSIDE_DOWN_CAKE)
     @Test
-    @SmallTest
     public void testSearch_AppFilterChipEnabledWithNonEmptyAppResult() throws Exception {
         Assert.assertTrue(mHistoryProvider.isQueryAppsTriggered());
         mAdapter.setClearBrowsingDataButtonVisibilityForTest(false);
@@ -658,13 +671,14 @@ public class HistoryUiTest {
     }
 
     private boolean isAppFilterButtonEnabled() {
-        return mAdapter.hasListHeader() && mAdapter.getAppFilterButtonForTest().isEnabled();
+        return mAdapter.hasListHeader()
+                && mAdapter.getAppFilterButtonForTest().getVisibility() == View.VISIBLE
+                && mAdapter.getAppFilterButtonForTest().isEnabled();
     }
 
     @EnableFeatures(ChromeFeatureList.APP_SPECIFIC_HISTORY)
     @Config(sdk = VERSION_CODES.UPSIDE_DOWN_CAKE)
     @Test
-    @SmallTest
     public void testSearch_AppFilterSheet() {
         mContentManager.setPackageManagerForTesting(mPackageManager);
         mContentManager.setAppFilterSheetForTesting(mAppFilterSheet);
@@ -682,14 +696,14 @@ public class HistoryUiTest {
         verify(mAppFilterSheet).openSheet(eq(null));
 
         // Verify ContentManager is updated with the selected app info.
-        AppInfo selected = new AppInfo("Ernie", null, appId1);
+        FilterItem selected = new FilterItem("Ernie", null, appId1);
         mContentManager.onAppUpdated(selected);
         Assert.assertEquals(
                 "The expected app 'Ernie' was not chosen",
                 mContentManager.getAppInfoForTesting(),
                 selected);
 
-        AppInfo selected2 = new AppInfo("Bert", null, appId2);
+        FilterItem selected2 = new FilterItem("Bert", null, appId2);
         mContentManager.onAppUpdated(selected2);
         Assert.assertEquals(
                 "The expected app 'Bert' was not chosen",
@@ -704,17 +718,153 @@ public class HistoryUiTest {
                 null);
     }
 
+    @EnableFeatures(ChromeFeatureList.BROWSING_HISTORY_FILTER_BY_DOMAIN)
+    @Config(sdk = VERSION_CODES.UPSIDE_DOWN_CAKE)
+    @Test
+    public void testSearch_HostFilterSheet() {
+        mContentManager.setHostFilterSheetForTesting(mAppFilterSheet);
+
+        performMenuAction(R.id.search_menu_id);
+
+        mContentManager.onHostFilterClicked();
+        verify(mAppFilterSheet).openSheet(eq(null));
+
+        FilterItem selectedHost = new FilterItem("www.google.com", null, "www.google.com");
+        mContentManager.onHostUpdated(selectedHost);
+        Assert.assertEquals(selectedHost, mContentManager.getHostInfoForTesting());
+        Assert.assertEquals("www.google.com", mAdapter.getHostNameForTest());
+
+        mContentManager.onHostUpdated(null);
+        Assert.assertNull(mContentManager.getHostInfoForTesting());
+        Assert.assertNull(mAdapter.getHostNameForTest());
+    }
+
+    @DisableFeatures(ChromeFeatureList.BROWSING_HISTORY_FILTER_BY_DOMAIN)
+    @Config(sdk = VERSION_CODES.UPSIDE_DOWN_CAKE)
+    @Test
+    public void testSearch_HostFilterDisabled() {
+        Assert.assertFalse(mContentManager.showHostFilter());
+    }
+
+    @EnableFeatures(ChromeFeatureList.BROWSING_HISTORY_FILTER_BY_DOMAIN)
+    @Test
+    public void testSearch_HostFilterList() {
+        long timestamp = new Date().getTime();
+        HistoryItem page1 =
+                new HistoryItem(
+                        new GURL("https://www.example.com/page1"),
+                        "www.example.com",
+                        "Page 1",
+                        null,
+                        timestamp,
+                        new long[] {timestamp},
+                        false,
+                        false);
+        HistoryItem page2 =
+                new HistoryItem(
+                        new GURL("https://www.example.com/page2"),
+                        "www.example.com",
+                        "Page 2",
+                        null,
+                        timestamp,
+                        new long[] {timestamp},
+                        false,
+                        false);
+        HistoryItem other =
+                new HistoryItem(
+                        new GURL("https://news.other.org/"),
+                        "news.other.org",
+                        "Other",
+                        null,
+                        timestamp,
+                        new long[] {timestamp},
+                        false,
+                        false);
+
+        mHistoryProvider = new StubbedHistoryProvider();
+        mHistoryProvider.addItem(page1);
+        mHistoryProvider.addItem(page2);
+        mHistoryProvider.addItem(other);
+
+        mHistoryManager =
+                new HistoryManager(
+                        mProfile,
+                        mWindowAndroid,
+                        mActivity,
+                        true,
+                        mSnackbarManager,
+                        SupplierUtils.of(mBottomSheetController),
+                        /* modalDialogManagerSupplier= */ mModalDialogManagerSupplier,
+                        /* activityResultTracker= */ mActivityResultTracker,
+                        /* tabSupplier= */ null,
+                        mHistoryProvider,
+                        new HistoryUmaRecorder(),
+                        /* clientPackageName= */ null,
+                        /* shouldShowClearData= */ true,
+                        /* launchedForApp= */ false,
+                        /* showAppFilter= */ true,
+                        /* shouldClusterByDomain= */ false,
+                        /* openHistoryItemCallback= */ null,
+                        /* edgeToEdgePadAdjusterGenerator= */ null);
+        mContentManager = mHistoryManager.getContentManagerForTests();
+
+        // Repeated queries should not overwrite the host filter list.
+        mContentManager.getAdapter().search("NonExistentQuery");
+
+        List<FilterItem> hosts = mContentManager.getHostInfoListForTests();
+        Assert.assertEquals(2, hosts.size());
+        Assert.assertEquals("www.example.com", hosts.get(0).id);
+        Assert.assertEquals("www.example.com", hosts.get(0).label.toString());
+        Assert.assertEquals("news.other.org", hosts.get(1).id);
+        Assert.assertEquals("news.other.org", hosts.get(1).label.toString());
+        Assert.assertTrue(mContentManager.hasHostFilterList());
+    }
+
+    @EnableFeatures(ChromeFeatureList.BROWSING_HISTORY_FILTER_BY_DOMAIN)
+    @Test
+    public void testSearch_HostFilterHiddenWithSingleHost() {
+        mHistoryProvider = new StubbedHistoryProvider();
+        mHistoryProvider.addItem(mItem1);
+
+        mHistoryManager =
+                new HistoryManager(
+                        mProfile,
+                        mWindowAndroid,
+                        mActivity,
+                        true,
+                        mSnackbarManager,
+                        SupplierUtils.of(mBottomSheetController),
+                        /* modalDialogManagerSupplier= */ mModalDialogManagerSupplier,
+                        /* activityResultTracker= */ mActivityResultTracker,
+                        /* tabSupplier= */ null,
+                        mHistoryProvider,
+                        new HistoryUmaRecorder(),
+                        /* clientPackageName= */ null,
+                        /* shouldShowClearData= */ true,
+                        /* launchedForApp= */ false,
+                        /* showAppFilter= */ false,
+                        /* shouldClusterByDomain= */ false,
+                        /* openHistoryItemCallback= */ null,
+                        /* edgeToEdgePadAdjusterGenerator= */ null);
+        mContentManager = mHistoryManager.getContentManagerForTests();
+        mAdapter = mContentManager.getAdapter();
+        mAdapter.setClearBrowsingDataButtonVisibilityForTest(false);
+        performMenuAction(R.id.search_menu_id);
+
+        Assert.assertFalse(mContentManager.hasHostFilterList());
+        Assert.assertFalse(mAdapter.hasListHeader());
+    }
+
     @EnableFeatures(ChromeFeatureList.APP_SPECIFIC_HISTORY)
     @Config(sdk = VERSION_CODES.UPSIDE_DOWN_CAKE)
     @Test
-    @SmallTest
     public void testAppInfoCache() throws Exception {
         var appInfoCache = mContentManager.getAppInfoCache();
         appInfoCache.setPackageManagerForTesting(mPackageManager);
         final String app1 = "org.chromium.chrome.AwesomeApp";
         when(mPackageManager.getApplicationInfo(eq(app1), anyInt())).thenReturn(mPackageAppInfo);
 
-        AppInfo appInfo1 = appInfoCache.get(app1);
+        FilterItem appInfo1 = appInfoCache.get(app1);
         verify(mPackageManager).getApplicationInfo(eq(app1), anyInt());
         clearInvocations(mPackageManager);
 
@@ -728,7 +878,7 @@ public class HistoryUiTest {
         final String app2 = "org.chromium.chrome.UninstalledApp";
         when(mPackageManager.getApplicationInfo(eq(app2), anyInt()))
                 .thenThrow(NameNotFoundException.class);
-        AppInfo appInfo2 = appInfoCache.get(app2);
+        FilterItem appInfo2 = appInfoCache.get(app2);
         assertFalse("Bad appId should return invalid AppInfo", appInfo2.isValid());
         clearInvocations(mPackageManager);
 
@@ -739,7 +889,6 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     public void testSearchViewDismissedByBackPress() {
         final HistoryManagerToolbar toolbar = mHistoryManager.getToolbarForTests();
         View toolbarShadow = mHistoryManager.getSelectableListLayout().getToolbarShadowForTests();
@@ -770,7 +919,6 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     public void testToggleInfoMenuItem() {
         final HistoryManagerToolbar toolbar = mHistoryManager.getToolbarForTests();
         final MenuItem infoMenuItem = toolbar.getItemById(R.id.info_menu_id);
@@ -809,7 +957,6 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     public void testInfoIcon_OtherFormsOfBrowsingData() {
         final HistoryManagerToolbar toolbar = mHistoryManager.getToolbarForTests();
         final MenuItem infoMenuItem = toolbar.getItemById(R.id.info_menu_id);
@@ -835,7 +982,6 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     public void testInfoHeaderInSearchMode() {
         final HistoryManagerToolbar toolbar = mHistoryManager.getToolbarForTests();
         final MenuItem infoMenuItem = toolbar.getItemById(R.id.info_menu_id);
@@ -865,7 +1011,6 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     @Config(qualifiers = "sw600dp")
     public void testInfoHeaderInSearchModeOnLFFDevice() {
         DeviceInput.setSupportsKeyboardForTesting(true);
@@ -907,7 +1052,6 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     public void testSearch_NotFound() {
         final HistoryManagerToolbar toolbar = mHistoryManager.getToolbarForTests();
 
@@ -925,7 +1069,6 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     public void testAppSpecificToolbar() throws Exception {
         final String appId = "org.chromium.app.AwesomeApp";
         when(mPackageManager.getApplicationInfo(eq(appId), anyInt())).thenReturn(mPackageAppInfo);
@@ -967,7 +1110,6 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     public void testAppSpecificToolbarHeaderStateNotPersisted() throws Exception {
         final String appId = "org.chromium.app.AwesomeApp";
         when(mPackageManager.getApplicationInfo(eq(appId), anyInt())).thenReturn(mPackageAppInfo);
@@ -1002,7 +1144,6 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     public void testInvisibleHeader() {
         Assert.assertTrue(mAdapter.hasListHeader());
 
@@ -1016,7 +1157,6 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     public void testCopyLink() {
         final ClipboardManager clipboardManager =
                 (ClipboardManager) mActivity.getSystemService(Context.CLIPBOARD_SERVICE);
@@ -1041,7 +1181,6 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     public void testScrollToLoadEnabled() {
         // Reduce the height available to the recycler view to less than it needs so that scrolling
         // has an effect.
@@ -1074,7 +1213,6 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     public void testScrollToLoadDisabled() throws Exception {
         mHistoryProvider.setPaging(PAGE_INCREMENT);
         HistoryContentManager.setScrollToLoadDisabledForTesting(true);
@@ -1119,7 +1257,6 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     public void testBackPress_clearsSelection() {
         BackPressHandler testHandler =
                 new BackPressHandler() {
@@ -1146,7 +1283,6 @@ public class HistoryUiTest {
     }
 
     @Test
-    @SmallTest
     @Config(qualifiers = "sw600dp") // Simulate a tablet screen width.
     public void testBackPress_onTabletInSearch_clearsText() {
         // Arrange 1: Re-initialize HistoryManager in a tablet-with-keyboard configuration.

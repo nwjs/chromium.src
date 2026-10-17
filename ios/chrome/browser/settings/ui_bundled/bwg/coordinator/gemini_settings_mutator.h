@@ -14,6 +14,9 @@ class GURL;
 // Handles tap on learn about your choices.
 - (void)openNewTabWithURL:(const GURL&)URL;
 
+// Handles opening sync settings.
+- (void)openSyncSettings;
+
 // Returns whether the Image Remix feature is available for the current account.
 - (BOOL)isImageRemixAvailable;
 
@@ -22,6 +25,9 @@ class GURL;
 
 // Sets the Camera Permission pref value.
 - (void)setCameraPermissionPref:(BOOL)value;
+
+// Sets the Gemini Suggestions pref value.
+- (void)setGeminiSuggestionsPref:(BOOL)value;
 
 // Sets the Closed Captioning pref value.
 - (void)setClosedCaptioningPref:(BOOL)value;

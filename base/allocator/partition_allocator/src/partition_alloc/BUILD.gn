@@ -289,6 +289,7 @@ component("raw_ptr") {
   configs -= partition_alloc_remove_configs
   configs += partition_alloc_add_configs
   configs += [ ":dependants_extra_warnings" ]
+  check_includes_strict = CHECK_INCLUDES_STRICT_PUBLIC_INCLUDES_PRIVATE
 }
 
 if (is_clang_or_gcc) {
@@ -421,6 +422,7 @@ if (is_clang_or_gcc) {
       "internal/partition_page_internal.h",
       "internal/partition_root_exports.h",
       "internal/partition_root_internal.h",
+      "internal/partition_root_internal_forward.h",
       "internal/partition_superpage_extent_entry_internal.h",
       "internal/reservation_offset_table_internal.h",
       "internal/thread_cache_internal.h",
@@ -460,6 +462,7 @@ if (is_clang_or_gcc) {
       "compressed_pointer.h",
       "dangling_raw_ptr_checks.cc",
       "dangling_raw_ptr_checks.h",
+      "debug_data_on_stack.h",
       "extent_in_bounds.h",
       "flags.h",
       "fnv1a_consteval.h",
@@ -494,6 +497,7 @@ if (is_clang_or_gcc) {
       "partition_alloc_forward.h",
       "partition_alloc_hooks.cc",
       "partition_alloc_hooks.h",
+      "partition_alloc_public_constants.h",
       "partition_bucket.cc",
       "partition_bucket.h",
       "partition_cookie.cc",
@@ -525,6 +529,7 @@ if (is_clang_or_gcc) {
       "scheduler_loop_quarantine.h",
       "scheduler_loop_quarantine_support.cc",
       "scheduler_loop_quarantine_support.h",
+      "simple_algorithms.h",
       "slot_address_and_size.cc",
       "slot_address_and_size.h",
       "slot_start.cc",

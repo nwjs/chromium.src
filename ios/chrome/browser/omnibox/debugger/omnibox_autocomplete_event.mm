@@ -54,7 +54,7 @@ NSArray<AutocompleteMatchFormatter*>* ExtractAutocompleteMatches(
     // be added with a way to filter the list of providers to avoid scrolling.
     for (const auto& provider : controller->providers()) {
       switch (provider->type()) {
-        case AutocompleteProvider::TYPE_SHORTCUTS:
+        case AutocompleteProvider::Type::kShortcuts:
           _shortcutsMatches = ExtractAutocompleteMatches(provider->matches());
           break;
         default:

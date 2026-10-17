@@ -8,7 +8,6 @@
 #include <optional>
 #include <vector>
 
-#include "base/containers/fixed_flat_map.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/span.h"
 #include "base/containers/transparent_hash.h"
@@ -17,6 +16,7 @@
 #include "crypto/sha2.h"
 #include "net/base/bssl_refcounted.h"
 #include "net/base/net_export.h"
+#include "net/cert/internal/chrome_root_store_data.h"
 #include "net/cert/root_store_proto_lite/signer_set.pb.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 #include "third_party/boringssl/src/pki/path_builder.h"
@@ -34,51 +34,6 @@ namespace net {
 
 class NetLogWithSource;
 
-// Represents a ConstraintSet for compiled-in version of the root store.
-// This is a separate struct from ChromeRootCertConstraints since the in-memory
-// representation parses the version constraints into a base::Version.
-// (base::Version can't be used in the compiled-in version since it isn't
-// constexpr.)
-struct StaticChromeRootCertConstraints {
-  std::optional<base::Time> sct_not_after;
-  std::optional<base::Time> sct_all_after;
-
-  std::optional<std::string_view> min_version;
-  std::optional<std::string_view> max_version_exclusive;
-
-  base::span<const std::string_view> permitted_dns_names;
-
-  std::optional<uint64_t> index_not_after;
-  std::optional<uint64_t> index_after;
-
-  std::optional<base::Time> validity_starts_not_after;
-  std::optional<base::Time> validity_starts_after;
-};
-
-struct ChromeRootCertInfo {
-  base::span<const uint8_t> root_cert_der;
-  base::span<const StaticChromeRootCertConstraints> constraints;
-  bool enforce_anchor_expiry;
-  // True if the certificate verifier should enforce X.509 constraints encoded
-  // in the certificate.
-  bool enforce_anchor_constraints;
-  // If non-empty, the binary representation of the Trust Anchor ID
-  // (https://tlswg.org/tls-trust-anchor-ids/draft-ietf-tls-trust-anchor-ids.html)
-  // associated with this anchor -- that is, a relative object identifier in
-  // binary representation. If empty, this anchor has no associated Trust Anchor
-  // ID.
-  base::span<const uint8_t> trust_anchor_id;
-  std::optional<int32_t> crs_root_id;
-};
-
-struct ChromeMtcAnchorInfo {
-  base::span<const uint8_t> log_id;
-  base::span<const StaticChromeRootCertConstraints> constraints;
-  std::optional<int32_t> crs_root_id;
-  // Does not contain `tls_trust_anchor`, as MtcAnchors without that set to
-  // true are simply ignored.
-};
-
 struct NET_EXPORT ChromeRootCertConstraints {
   ChromeRootCertConstraints();
   ChromeRootCertConstraints(std::optional<base::Time> sct_not_after,
@@ -86,8 +41,8 @@ struct NET_EXPORT ChromeRootCertConstraints {
                             std::optional<base::Version> min_version,
                             std::optional<base::Version> max_version_exclusive,
                             std::vector<std::string> permitted_dns_names,
-                            std::optional<uint64_t> index_not_after,
-                            std::optional<uint64_t> index_after,
+                            std::optional<uint64_t> serial_not_after,
+                            std::optional<uint64_t> serial_after,
                             std::optional<base::Time> validity_starts_not_after,
                             std::optional<base::Time> validity_starts_after);
   explicit ChromeRootCertConstraints(
@@ -106,8 +61,8 @@ struct NET_EXPORT ChromeRootCertConstraints {
 
   std::vector<std::string> permitted_dns_names;
 
-  std::optional<uint64_t> index_not_after;
-  std::optional<uint64_t> index_after;
+  std::optional<uint64_t> serial_not_after;
+  std::optional<uint64_t> serial_after;
 
   std::optional<base::Time> validity_starts_not_after;
   std::optional<base::Time> validity_starts_after;
@@ -405,7 +360,7 @@ class NET_EXPORT TrustStoreChrome : public bssl::TrustStore {
   //   `maxversionexclusive=${dotted_version_string}`
   //   `dns=${permitted_dns_name}` (can be specified multiple times)
   //
-  // TODO(crbug.com/452986180): support constraint overrides for MTC index
+  // TODO(crbug.com/452986180): support constraint overrides for MTC serial
   // constraints.
   //
   // If the same root hash is specified multiple times in separate constraint

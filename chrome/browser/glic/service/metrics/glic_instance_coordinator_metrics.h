@@ -9,10 +9,10 @@
 #include <string>
 #include <vector>
 
-#include "base/memory/memory_pressure_listener.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory_coordinator/memory_limit.h"
 #include "base/timer/timer.h"
-#include "chrome/browser/glic/host/glic.mojom.h"
+#include "chrome/browser/glic/host/glic.mojom-forward.h"
 
 namespace content {
 class WebContents;
@@ -75,8 +75,8 @@ class GlicInstanceCoordinatorMetrics {
   // Called when activating a tab with a conversation to record candidate count.
   void RecordActivateTabCandidateTabCount(size_t count);
 
-  // Called on memory pressure events to record memory footprint metrics.
-  void OnMemoryPressure(base::MemoryPressureLevel level);
+  // Called on memory release events to record memory footprint metrics.
+  void OnReleaseMemory(base::MemoryLimit memory_limit);
 
   // Called periodically to record memory footprint metrics using the averaging
   // and totals scheme.

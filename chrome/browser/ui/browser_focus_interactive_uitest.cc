@@ -778,9 +778,9 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, NavigateFromOmniboxIntoNewTab) {
   // Simulate an alt-enter.
   omnibox_client->OnAutocompleteAccept(
       url2, nullptr, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui::PAGE_TRANSITION_TYPED, AutocompleteMatchType::URL_WHAT_YOU_TYPED,
-      base::TimeTicks(), false, false, std::u16string(), AutocompleteMatch(),
-      AutocompleteMatch());
+      ui::PAGE_TRANSITION_TYPED,
+      omnibox::AutocompleteMatchType::kUrlWhatYouTyped, base::TimeTicks(),
+      false, false, std::u16string(), AutocompleteMatch(), AutocompleteMatch());
 
   // Make sure the second tab is selected.
   EXPECT_EQ(1, browser()->tab_strip_model()->active_index());

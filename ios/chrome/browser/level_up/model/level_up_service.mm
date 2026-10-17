@@ -42,8 +42,8 @@ const char* GetPrefNameForStatType(LevelUpTaskStatType stat_type) {
   switch (stat_type) {
     case LevelUpTaskStatType::kTabsDecluttered:
       return prefs::kLevelUpTabsDeclutteredStat;
-    case LevelUpTaskStatType::kTypingSaved:
-      return prefs::kLevelUpTypingSavedStat;
+    case LevelUpTaskStatType::kPasswordsAutofilled:
+      return prefs::kLevelUpPasswordsAutofilledStat;
     case LevelUpTaskStatType::kPasswordsVerified:
       return prefs::kLevelUpPasswordsVerifiedStat;
     case LevelUpTaskStatType::kPhotoSearchesPerformed:
@@ -285,14 +285,24 @@ int LevelUpService::GetCurrentLevel() const {
   return current_level_;
 }
 
-int LevelUpService::GetTasksRemainingForNextLevel() const {
+std::pair<int, int> LevelUpService::GetTasksRemainingForNextLevel() const {
   if (current_level_ >= kMaxLevel) {
-    return 0;
+    return {0, 0};
   }
   int next_level = current_level_ + 1;
-  int required = GetTotalTasksRequiredForLevel(next_level);
+  int total_required = GetTotalTasksRequiredForLevel(next_level);
   int completed = completed_tasks_.size();
-  return std::max(0, required - completed);
+  int required = std::max(0, total_required - completed);
+
+  int base_amount_for_next_level = GetTasksIncrementForLevel(next_level);
+  // If the user's level is incorrect due to changing requirements or tasks, the
+  // required amount can exceed the base amount for next level. In that case,
+  // raise amount for next level. For example, if the level requirements are
+  // currently 1 -> 2: 3 and 2 -> 3: 4, and the user is at level 2 with only 1
+  // task remaining, they need 6 tasks to reach 3, even though 2 -> 3 is only 4.
+  int amount_for_next_level =
+      required == 0 ? 0 : std::max(base_amount_for_next_level, required);
+  return {required, amount_for_next_level};
 }
 
 void LevelUpService::MarkTaskCompleted(TaskType task_type) {
@@ -317,12 +327,18 @@ void LevelUpService::MarkTaskCompleted(TaskType task_type) {
 }
 
 void LevelUpService::ResetAllTasksStatus() {
+  // Clear and reset UI state prefs.
+  pref_service_->ClearPref(prefs::kLevelUpUIEnabled);
+  is_ui_enabled_ = pref_service_->GetBoolean(prefs::kLevelUpUIEnabled);
+  pref_service_->ClearPref(prefs::kLevelUpNewTasksNotificationEnabled);
+
+  // Clear or override task prefs.
   completed_tasks_.clear();
   current_level_ = 1;
   pref_service_->ClearPref(prefs::kLevelUpCompletedTasks);
   pref_service_->SetInteger(prefs::kLevelUpHighestLevel, 1);
   pref_service_->SetInteger(prefs::kLevelUpTabsDeclutteredStat, 0);
-  pref_service_->SetInteger(prefs::kLevelUpTypingSavedStat, 0);
+  pref_service_->SetInteger(prefs::kLevelUpPasswordsAutofilledStat, 0);
   pref_service_->SetInteger(prefs::kLevelUpPasswordsVerifiedStat, 0);
   pref_service_->SetInteger(prefs::kLevelUpPhotoSearchesPerformedStat, 0);
   pref_service_->SetInteger(
@@ -474,7 +490,7 @@ void LevelUpService::PopulateTasks() {
   tasks_[TaskType::kPinTabs] = CreatePinTabsTaskInfo();
   tasks_[TaskType::kGemini] = CreateGeminiTaskInfo();
   tasks_[TaskType::kPaymentMethods] = CreatePaymentMethodsTaskInfo();
-  tasks_[TaskType::kQuickDelete] = CreateQuickDeleteTaskInfo();
+  tasks_[TaskType::kClearBrowsingData] = CreateClearBrowsingDataTaskInfo();
   tasks_[TaskType::kSafeBrowsing] = CreateSafeBrowsingTaskInfo();
   tasks_[TaskType::kIncognito] = CreateIncognitoTaskInfo();
   tasks_[TaskType::kPasswordCheckup] = CreatePasswordCheckupTaskInfo();
@@ -553,22 +569,26 @@ int LevelUpService::CalculateLevel(size_t completed_count) const {
 // static
 void LevelUpService::RegisterProfilePrefs(
     user_prefs::PrefRegistrySyncable* registry) {
+  registry->RegisterBooleanPref(
+      prefs::kLevelUpOptIn, false,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+  registry->RegisterBooleanPref(
+      prefs::kLevelUpUIEnabled, true,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+  registry->RegisterBooleanPref(
+      prefs::kLevelUpNewTasksNotificationEnabled, true,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+
   registry->RegisterListPref(prefs::kLevelUpCompletedTasks,
                              user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
   registry->RegisterIntegerPref(
       prefs::kLevelUpHighestLevel, 1,
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
-  registry->RegisterBooleanPref(
-      prefs::kLevelUpUIEnabled, false,
-      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
-  registry->RegisterBooleanPref(
-      prefs::kLevelUpOptIn, false,
-      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
   registry->RegisterIntegerPref(
       prefs::kLevelUpTabsDeclutteredStat, 0,
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
   registry->RegisterIntegerPref(
-      prefs::kLevelUpTypingSavedStat, 0,
+      prefs::kLevelUpPasswordsAutofilledStat, 0,
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
   registry->RegisterIntegerPref(
       prefs::kLevelUpPasswordsVerifiedStat, 0,

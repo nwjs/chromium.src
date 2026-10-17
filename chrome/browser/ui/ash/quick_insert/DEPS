@@ -8,7 +8,7 @@ include_rules = [
   "+chrome/browser/ui/ash/quick_insert",
 
   # Existing dependencies within //chrome. There is an active effort to
-  # refactor ash codes in //chrome to break these dependencies; see b/332804822.
+  # refactor Ash code in //chrome to break these dependencies; see b/332804822.
   # Whenever possible, avoid adding new //chrome dependencies to this list.
   "+chrome/browser/ash/accessibility",
   "+chrome/browser/ash/app_list/app_list_controller_delegate.h",
@@ -20,7 +20,6 @@ include_rules = [
   "+chrome/browser/ash/lobster",
   "+chrome/browser/ash/login/session",
   "+chrome/browser/bookmarks",
-  "+chrome/browser/history",
   "+chrome/browser/profiles",
   "+chrome/browser/ui/ash/thumbnail_loader",
   "+chrome/browser/ui/browser_window",
@@ -33,22 +32,31 @@ specific_include_rules = {
   "quick_insert_accessibility_browsertest\\.cc": [
     "+chrome/browser/browser_process.h",
   ],
+  "quick_insert_client_impl_browsertest\\.cc": [
+    "+chrome/browser/browser_process.h",
+    "+chrome/browser/history/history_service_factory.h",
+    "+chrome/browser/ui/tabs/tab_strip_model.h",
+  ],
 
-  # Tests construct the //chrome-side TemplateURLServiceProviderImpl directly so
-  # it registers as the process-wide TemplateURLServiceProvider::Get() singleton.
-  # Production code reaches that singleton through the
-  # //chromeos/ash/components/search_engines interface; the instance is owned by
-  # ChromeBrowserMainPartsAsh.
+  # Unlike production code, tests construct the //chrome-side
+  # TemplateURLServiceProviderImpl themselves so it registers as the
+  # process-wide TemplateURLServiceProvider::Get() singleton.
   ".*(unittest|browsertest)\\.cc": [
     "+chrome/browser/ash/browser_delegate/keyed_service_provider",
   ],
 
-  # The unittest additionally installs TemplateURLService through the
-  # //chrome-side Profile-keyed factory because ChromeAutocompleteProviderClient
-  # (constructed inside OmniboxProvider) calls
-  # TemplateURLServiceFactory::GetForProfile() unconditionally.
+  # Besides the provider above, this unittest also needs TemplateURLService
+  # itself installed through its //chrome-side Profile-keyed factory, because
+  # ChromeAutocompleteProviderClient (created inside OmniboxProvider)
+  # unconditionally calls TemplateURLServiceFactory::GetForProfile().
   ".*unittest\\.cc": [
     "+chrome/browser/search_engines",
+  ],
+
+  # Only the tests still create the HistoryService via chrome/browser/history's
+  # factory; production uses ash::HistoryServiceProvider.
+  ".*(unittest|uitest)\\.cc": [
+    "+chrome/browser/history",
   ],
 
   "quick_insert_client_impl_unittest\\.cc": [

@@ -7,9 +7,7 @@
 #include <algorithm>
 #include <string>
 
-#include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
-#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/memory/weak_ptr.h"
 #include "base/strings/string_util.h"
@@ -88,17 +86,11 @@ class SystemProxyLoginHandler : public content::LoginDelegate {
 };
 
 // If system-proxy is enabled via policy, it can be used by both Chrome OS
-// system services and the PlayStore. If enabled via flag, system-proxy can only
-// be used by system services which explicitly ask to use system-proxy for HTTP
-// proxy authentication. Otherwise, system-proxy is disabled.
+// system services and the PlayStore. Otherwise, system-proxy is disabled.
 SystemProxyManager::SystemProxyState DetermineSystemProxyState(
     bool policy_enabled) {
   if (policy_enabled) {
     return SystemProxyManager::SystemProxyState::kEnabledForAll;
-  }
-
-  if (base::FeatureList::IsEnabled(features::kSystemProxyForSystemServices)) {
-    return SystemProxyManager::SystemProxyState::kEnabledForSystemServices;
   }
   return SystemProxyManager::SystemProxyState::kDisabled;
 }
@@ -124,25 +116,18 @@ SystemProxyManager::SystemProxyManager(PrefService* local_state) {
       ash::prefs::kKerberosEnabled,
       base::BindRepeating(&SystemProxyManager::OnKerberosEnabledChanged,
                           weak_factory_.GetWeakPtr()));
-  DCHECK(NetworkHandler::IsInitialized());
+  CHECK(NetworkHandler::IsInitialized(), base::NotFatalUntil::M160);
   network_state_handler_observer_.Observe(
       NetworkHandler::Get()->network_state_handler());
 
   system_proxy_state_ = DetermineSystemProxyState(/*policy_enabled=*/false);
-
-  // Start the system-proxy worker that authenticates system services.
-  if (system_proxy_state_ == SystemProxyState::kEnabledForSystemServices) {
-    SendPolicyAuthenticationCredentials(/*username=*/"",
-                                        /*password=*/"",
-                                        /*force_send=*/true);
-  }
 }
 
 SystemProxyManager::~SystemProxyManager() {
   if (IsEnabled()) {
     SendShutDownRequest(system_proxy::TrafficOrigin::ALL);
   }
-  DCHECK(NetworkHandler::IsInitialized());
+  CHECK(NetworkHandler::IsInitialized(), base::NotFatalUntil::M160);
 }
 
 // static
@@ -170,9 +155,7 @@ std::string SystemProxyManager::SystemServicesProxyPacString(
     return std::string();
   }
 
-  if (system_proxy_state_ == SystemProxyState::kEnabledForAll ||
-      (system_proxy_state_ == SystemProxyState::kEnabledForSystemServices &&
-       system_proxy_override == chromeos::SystemProxyOverride::kOptIn)) {
+  if (system_proxy_state_ == SystemProxyState::kEnabledForAll) {
     return "PROXY " + system_services_address_;
   }
 
@@ -247,16 +230,6 @@ void SystemProxyManager::SetPolicySettings(
     CloseAuthenticationUI();
     SendShutDownRequest(system_proxy::TrafficOrigin::ALL);
     return;
-  }
-
-  if (system_proxy_state_ == SystemProxyState::kEnabledForSystemServices) {
-    // Start the system-proxy worker for system services and make sure the
-    // system-proxy worker for ARC is shut down.
-    SendPolicyAuthenticationCredentials(/*username=*/"",
-                                        /*password=*/"",
-                                        /*force_send=*/true);
-    SetUserTrafficProxyPref(std::string());
-    SendShutDownRequest(system_proxy::TrafficOrigin::USER);
   }
 
   if (IsManagedProxyConfigured() &&
@@ -455,7 +428,7 @@ SystemProxyManager::GetActiveAuthDialogForTest() {
 }
 
 void SystemProxyManager::CloseAuthDialogForTest() {
-  DCHECK(auth_widget_);
+  CHECK(auth_widget_, base::NotFatalUntil::M160);
   auth_widget_->CloseNow();
 }
 
@@ -540,7 +513,7 @@ void SystemProxyManager::OnProxyConfigChanged() {
 }
 
 bool SystemProxyManager::IsManagedProxyConfigured() {
-  DCHECK(NetworkHandler::IsInitialized());
+  CHECK(NetworkHandler::IsInitialized(), base::NotFatalUntil::M160);
   NetworkHandler* network_handler = NetworkHandler::Get();
   base::DictValue proxy_settings;
 

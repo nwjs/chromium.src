@@ -509,10 +509,23 @@ void RenderFrameProxyHost::Detach() {
   if (frame_tree_node_->IsMainFrame())
     return;
 
+  RenderFrameHostImpl* current_rfh = frame_tree_node_->current_frame_host();
+  if (current_rfh->IsInBackForwardCache()) {
+    if (render_view_host_ &&
+        render_view_host_->DidReceiveBackForwardCacheAck()) {
+      bad_message::ReceivedBadMessage(GetProcess(),
+                                      bad_message::RFH_DETACH_WHILE_BFCACHED);
+    } else {
+      current_rfh->IsInactiveAndDisallowActivation(
+          DisallowActivationReasonId::kDetach);
+    }
+    return;
+  }
+
   // Otherwise, a remote child frame has been removed from the frame tree.
   // Make sure that this action is mirrored to all the other renderers, so
   // the frame tree remains consistent.
-  frame_tree_node_->current_frame_host()->DetachFromProxy();
+  current_rfh->DetachFromProxy();
 }
 
 void RenderFrameProxyHost::CheckCompleted() {
@@ -952,8 +965,8 @@ void RenderFrameProxyHost::OpenURL(blink::mojom::OpenURLParamsPtr params) {
         GetProcess()->GetID(), params->initiator_frame_token.value());
     if (current_rfh->IsOutermostMainFrame()) {
       MaybeRecordAdClickMainFrameNavigationMetrics(
-          /*initiator_frame=*/initiator_frame, /*target_frame=*/current_rfh,
-          validated_url, params->user_gesture, params->started_by_ad);
+          /*initiator_frame=*/initiator_frame, params->user_gesture,
+          params->started_by_ad);
     }
   }
 
@@ -1032,6 +1045,30 @@ void RenderFrameProxyHost::OpenURL(blink::mojom::OpenURLParamsPtr params) {
   // the navigation start will be updated when the BeforeUnload ack is received.
   const auto navigation_start_time = base::TimeTicks::Now();
 
+  // Navigations from an isolated world (e.g., an extension content script) may
+  // ask to bypass the main world's CSP, just like they can for navigations of
+  // local frames (see FrameLoader::StartNavigation()). Since skipping this
+  // check waives the *parent* document's 'frame-src', only honor the request
+  // if it comes from the parent document's own SiteInstanceGroup; otherwise,
+  // an unrelated (possibly compromised) renderer could waive a CSP that
+  // doesn't belong to it.
+  network::mojom::CSPDisposition should_check_main_world_csp =
+      network::mojom::CSPDisposition::CHECK;
+  if (params->should_check_main_world_csp ==
+      network::mojom::CSPDisposition::DO_NOT_CHECK) {
+    // Note that when there is no parent, no 'frame-src' is enforced for this
+    // navigation, and the only policy that gets skipped is the initiator's own
+    // 'form-action'. The initiator is always in this proxy's SiteInstanceGroup
+    // (see the InitiatorNavigationState check above), so it is only waiving
+    // its own policy.
+    RenderFrameHostImpl* parent = frame_tree_node_->parent();
+    if (!parent ||
+        parent->GetSiteInstance()->group() == site_instance_group()) {
+      should_check_main_world_csp =
+          network::mojom::CSPDisposition::DO_NOT_CHECK;
+    }
+  }
+
   // TODO(lfg, lukasza): Remove |extra_headers| parameter from
   // RequestTransferURL method once both RenderFrameProxyHost and
   // RenderFrameHostImpl call RequestOpenURL from their OnOpenURL handlers.
@@ -1051,7 +1088,7 @@ void RenderFrameProxyHost::OpenURL(blink::mojom::OpenURLParamsPtr params) {
       /*is_embedder_initiated_fenced_frame_navigation=*/false,
       /*is_unfenced_top_navigation=*/false,
       /*force_new_browsing_instance=*/false, params->is_container_initiated,
-      params->has_rel_opener);
+      params->has_rel_opener, should_check_main_world_csp);
 }
 
 void RenderFrameProxyHost::UpdateViewportIntersection(

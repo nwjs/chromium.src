@@ -135,7 +135,7 @@ class WebUIPageActionControl::WebUIPageActionDelegate
 
   // Routes a suggestion chip visibility state change notification from WebUI to
   // the controller callback.
-  void NotifyChipShowingChanged();
+  void NotifyChipShowingChanged(bool is_showing);
 
   void SetSuppressionThresholdForTesting(base::TimeDelta threshold) {
     bubble_reopen_suppressor_.SetSuppressionThresholdForTesting(  // IN-TEST
@@ -171,6 +171,10 @@ class WebUIPageActionControl::WebUIPageActionDelegate
   void OnAnchoredMessageWidgetClose(views::Widget::ClosedReason closed_reason);
 
   void CloseWidgetDeferred(base::WeakPtr<views::Widget> widget_to_close);
+
+  // Clears cached icon handles and any active mojo state sent to WebUI,
+  // notifying the owner if the state changed.
+  void ResetCachedState();
 
   const actions::ActionId action_id_;
   // Safe because the ActionItem tree is owned by BrowserActions (via
@@ -221,6 +225,7 @@ class WebUIPageActionControl::WebUIPageActionDelegate
   WebUIBubbleReopenSuppressor bubble_reopen_suppressor_;
 
   toolbar_ui_api::IconHandle cached_icon_;
+  toolbar_ui_api::IconHandle cached_trailing_icon_;
 
   // The AnchoredMessageBubbleView is owned and destroyed by the
   // DialogClientView of `anchored_message_widget_`.
@@ -271,10 +276,16 @@ void WebUIPageActionControl::WebUIPageActionDelegate::SetController(
     anchored_message_expand_callback_ = base::DoNothing();
     anchored_message_collapse_callback_ = base::DoNothing();
     click_callback_ = base::DoNothing();
-    if (old_state_) {
-      old_state_ = nullptr;
-      owner_->NotifyPageActionStateChanged();
-    }
+    ResetCachedState();
+  }
+}
+
+void WebUIPageActionControl::WebUIPageActionDelegate::ResetCachedState() {
+  cached_icon_ = {};
+  cached_trailing_icon_ = {};
+  if (old_state_) {
+    old_state_ = nullptr;
+    owner_->NotifyPageActionStateChanged();
   }
 }
 
@@ -346,10 +357,7 @@ void WebUIPageActionControl::WebUIPageActionDelegate::
   was_chip_visible_ = false;
   was_showing_bubble_ = false;
   was_anchored_message_showing_ = false;
-  if (old_state_) {
-    old_state_ = nullptr;
-    owner_->NotifyPageActionStateChanged();
-  }
+  ResetCachedState();
 }
 
 toolbar_ui_api::mojom::PageActionStatePtr
@@ -435,9 +443,31 @@ WebUIPageActionControl::WebUIPageActionDelegate::GetState() {
       /*secondary_identifier=*/std::string());
   state->is_active = model->GetActionActive();
 
-  // Pass the current icon animation token to the WebUI so it can detect tab
-  // switches and suppress animations.
-  state->icon_animation_token = owner_->icon_animation_token_;
+  // Pass the current tab switch token to the WebUI so it can detect tab
+  // switches and suppress icon animations.
+  state->tab_switch_token = owner_->tab_switch_token_;
+
+  switch (model->GetAnimationStyle()) {
+    case page_actions::PageActionAnimationStyle::kStandard:
+      state->animation_style =
+          toolbar_ui_api::mojom::PageActionAnimationStyle::kStandard;
+      break;
+    case page_actions::PageActionAnimationStyle::kSlideAndCrossfade:
+      state->animation_style =
+          toolbar_ui_api::mojom::PageActionAnimationStyle::kSlideAndCrossfade;
+      break;
+  }
+
+  state->show_trailing_icon = model->GetShowTrailingIcon();
+
+  if (model->GetTrailingImage().has_value()) {
+    state->trailing_icon = cached_trailing_icon_ =
+        owner_->webui_delegate_->GetIconTable().RegisterImageModelTryReuse(
+            *model->GetTrailingImage(), cached_trailing_icon_);
+  } else {
+    state->trailing_icon = std::nullopt;
+    cached_trailing_icon_ = {};
+  }
   return state;
 }
 
@@ -477,11 +507,10 @@ void WebUIPageActionControl::WebUIPageActionDelegate::NotifyClick(
   action_item_->InvokeAction(std::move(builder).Build());
 }
 
-void WebUIPageActionControl::WebUIPageActionDelegate::
-    NotifyChipShowingChanged() {
+void WebUIPageActionControl::WebUIPageActionDelegate::NotifyChipShowingChanged(
+    bool is_showing) {
   if (observation_.IsObserving()) {
-    bool is_chip_showing = observation_.GetSource()->ShouldShowSuggestionChip();
-    is_chip_showing_changed_callback_.Run(is_chip_showing);
+    is_chip_showing_changed_callback_.Run(is_showing);
   }
 }
 
@@ -698,14 +727,12 @@ void WebUIPageActionControl::UpdateController(
                              base::Unretained(this)));
     }
 
-    if (features::IsToolbarGlowUpBookmarkEnabled()) {
-      // Increment the icon animation token to signal to the WebUI that the
-      // active tab has changed. This allows the WebUI to suppress transition
-      // icon animations on tab switches.
-      ++icon_animation_token_;
-      last_url_spec_ =
-          web_contents ? web_contents->GetLastCommittedURL().spec() : "";
-    }
+    // Increment the tab switch token to signal to the WebUI that the
+    // active tab has changed. This allows the WebUI to suppress transition
+    // icon animations and update chip states immediately on tab switches.
+    ++tab_switch_token_;
+    last_url_spec_ =
+        web_contents ? web_contents->GetLastCommittedURL().spec() : "";
 
     // Only re-initialize delegates if the tab (and controller) actually
     // changed.
@@ -715,17 +742,16 @@ void WebUIPageActionControl::UpdateController(
     return;
   }
 
-  // Same-tab navigation: only handle animation suppression when bookmark glow
-  // up is enabled.
-  if (features::IsToolbarGlowUpBookmarkEnabled() && web_contents) {
+  // Same-tab navigation: notify WebUI when URL changes.
+  if (web_contents) {
     const std::string current_url = web_contents->GetLastCommittedURL().spec();
     if (current_url != last_url_spec_) {
       last_url_spec_ = current_url;
-      // Increment the icon animation token and notify WebUI immediately on
-      // navigation so that page-load icon changes are suppressed while
+      // Increment the tab switch token and notify WebUI immediately on
+      // navigation so that page-load icon animations are suppressed while
       // subsequent in-page user interactions (e.g. starring/unstarring via
       // the bubble) can animate.
-      ++icon_animation_token_;
+      ++tab_switch_token_;
       for (auto& [action_id, delegate] : delegates_) {
         delegate->UpdateStateAndNotify();
       }
@@ -820,6 +846,7 @@ void WebUIPageActionControl::SetSuppressionThresholdForTesting(
 
 void WebUIPageActionControl::OnPageActionChipShowingChanged(
     toolbar_ui_api::mojom::PageActionId action_id,
+    bool is_showing,
     toolbar_ui_api::mojom::ToolbarUIService::
         OnPageActionChipShowingChangedCallback callback) {
   auto it =
@@ -830,7 +857,7 @@ void WebUIPageActionControl::OnPageActionChipShowingChanged(
     return;
   }
 
-  it->second->NotifyChipShowingChanged();
+  it->second->NotifyChipShowingChanged(is_showing);
   std::move(callback).Run(std::monostate());
 }
 

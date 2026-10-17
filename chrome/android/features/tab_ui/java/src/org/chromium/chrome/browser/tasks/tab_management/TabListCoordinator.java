@@ -64,6 +64,7 @@ import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.TabListL
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.TabActionState;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.UiType;
 import org.chromium.chrome.browser.tasks.tab_management.TabSwitcherMessageManager.MessageType;
+import org.chromium.chrome.browser.tasks.tab_management.labels.TabListHighlighter;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.undo_tab_close_snackbar.UndoBarExplicitTrigger;
 import org.chromium.chrome.tab_ui.R;
@@ -147,7 +148,7 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
     private @Nullable TabListEmptyCoordinator mTabListEmptyCoordinator;
     private boolean mIsEmptyViewInitialized;
     private @Nullable Runnable mAwaitingLayoutRunnable;
-    private int mAwaitingTabId = Tab.INVALID_TAB_ID;
+    private @Nullable PropertyModel mAwaitingModel;
     private @TabActionState int mTabActionState;
 
     /**
@@ -544,11 +545,10 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
      *     found).
      */
     Rect getTabThumbnailRect(int tabId) {
-        int index = getIndexForTabIdWithRelatedTabs(tabId);
+        int index = getIndexFromTabId(tabId);
         if (index == TabModel.INVALID_TAB_INDEX) return new Rect();
 
-        return mRecyclerView.getRectOfTabThumbnail(
-                index, mModelList.get(index).model.get(TabProperties.TAB_ID));
+        return mRecyclerView.getRectOfTabThumbnail(index);
     }
 
     Size getThumbnailSize() {
@@ -563,17 +563,17 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
         // where the runnable will not be serviced downstream, dropping the runnable altogether is
         // safe.
         if (mAwaitingLayoutRunnable != null) {
-            Log.d(TAG, "Dropping AwaitingLayoutRunnable for %d", mAwaitingTabId);
+            Log.d(TAG, "Dropping existing AwaitingLayoutRunnable for new tab %d", tabId);
             mAwaitingLayoutRunnable = null;
-            mAwaitingTabId = Tab.INVALID_TAB_ID;
+            mAwaitingModel = null;
         }
-        int index = getIndexForTabIdWithRelatedTabs(tabId);
+        int index = getIndexFromTabId(tabId);
         if (index == TabModel.INVALID_TAB_INDEX) {
             r.run();
             return;
         }
         mAwaitingLayoutRunnable = r;
-        mAwaitingTabId = mModelList.get(index).model.get(TabProperties.TAB_ID);
+        mAwaitingModel = mModelList.get(index).model;
         mRecyclerView.runOnNextLayout(this::checkAwaitingLayout);
     }
 
@@ -758,7 +758,7 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
         }
     }
 
-    private void destroyEmptyView() {
+    void destroyEmptyView() {
         if (mTabListEmptyCoordinator != null) {
             mTabListEmptyCoordinator.destroyEmptyView();
             mIsEmptyViewInitialized = false;
@@ -832,6 +832,8 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
             mTabSwitcherDragHandler.destroy();
         }
         mTabListFaviconProvider.destroy();
+        mAwaitingLayoutRunnable = null;
+        mAwaitingModel = null;
     }
 
     /**
@@ -892,7 +894,7 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
     // PriceWelcomeMessageService.PriceWelcomeMessageProvider implementation.
     @Override
     public int getTabIndexFromTabId(@TabId int tabId) {
-        return mModelList.indexFromTabId(tabId);
+        return mMediator.getIndexFromTabId(tabId);
     }
 
     @Override
@@ -948,22 +950,18 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
 
     private void checkAwaitingLayout() {
         if (mAwaitingLayoutRunnable != null) {
+            int index = mModelList.indexFromModel(mAwaitingModel);
+            if (index == TabModel.INVALID_TAB_INDEX) return;
             SimpleRecyclerViewAdapter.ViewHolder holder =
                     (SimpleRecyclerViewAdapter.ViewHolder)
-                            mRecyclerView.findViewHolderForAdapterPosition(
-                                    mModelList.indexFromTabId(mAwaitingTabId));
+                            mRecyclerView.findViewHolderForAdapterPosition(index);
             if (holder == null) return;
-            assert assumeNonNull(holder.model).get(TabProperties.TAB_ID) == mAwaitingTabId;
+            assert assumeNonNull(holder.model) == mAwaitingModel;
             Runnable r = mAwaitingLayoutRunnable;
-            mAwaitingTabId = Tab.INVALID_TAB_ID;
+            mAwaitingModel = null;
             mAwaitingLayoutRunnable = null;
             r.run();
         }
-    }
-
-    /** Returns the index for the tab with related tabs. */
-    int getIndexForTabIdWithRelatedTabs(int tabId) {
-        return mMediator.getIndexForTabIdWithRelatedTabs(tabId);
     }
 
     void showQuickDeleteAnimation(Runnable onAnimationEnd, List<Tab> tabs) {
@@ -1066,11 +1064,13 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
                 mRecyclerView, cardIndex, () -> mRecyclerView.setSmoothScrolling(false));
     }
 
-    /**
-     * Maps a tab ID to an index. For use with {@link #addSpecialListItem(int, int, PropertyModel)}.
-     */
+    /** Maps a tab ID to an index in the model list. */
+    // TODO(crbug.com/517544602): Clean up the legacy fallback when removing the feature flag.
     int getIndexFromTabId(@TabId int tabId) {
-        return mModelList.indexFromTabId(tabId);
+        if (TabUiFeatureUtilities.isAndroidTabUiRefactorEnabled()) {
+            return mMediator.getIndexFromTabId(tabId);
+        }
+        return mMediator.getIndexForTabIdWithRelatedTabs(tabId);
     }
 
     /**

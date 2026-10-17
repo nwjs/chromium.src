@@ -9,6 +9,8 @@ import '//resources/cr_elements/icons.html.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 
+import type {Topic, TopicContinuationQuery} from '../context_hub.mojom-webui.js';
+
 import {getCss} from './topic_card.css.js';
 import {getHtml} from './topic_card.html.js';
 
@@ -18,8 +20,27 @@ export interface TopicItem {
   description: string;
   longDescription?: string;
   icon?: string;
-  backgroundColor?: string;
-  badgeShape?: BadgeShape;
+  relatedUrls?: string[];
+  continuationQueries?: TopicContinuationQuery[];
+}
+
+// Adapts a Topic from the browser process to what the topics UI renders. The
+// backend already resolved every visit to a URL and a title, so this is a
+// pure field mapping.
+export function toTopicItem(topic: Topic): TopicItem {
+  return {
+    id: topic.id,
+    title: topic.title,
+    // The short summary is what the card has room for; fall back to the long
+    // one when the server only sent that.
+    description: topic.shortOverview || topic.overview || '',
+    longDescription: topic.overview || undefined,
+    // `topic-card` renders any icon string without a colon as literal text,
+    // which is what an emoji needs.
+    icon: topic.emoji || undefined,
+    relatedUrls: topic.visits.map(visit => visit.url),
+    continuationQueries: topic.continuationQueries,
+  };
 }
 
 export type BadgeShape = 'cloud' | 'flower' | 'circle' | 'diamond';
@@ -31,8 +52,16 @@ const BADGE_SHAPES: readonly BadgeShape[] = [
   'diamond',
 ];
 
-export const DEFAULT_BACKGROUND_COLOR =
-    'var(--topic-card-fallback-bg, var(--google-blue-100))';
+// Badge background colors. Deliberately a different count than BADGE_SHAPES,
+// and picked from different bits of the hash, so a given shape does not always
+// pair with the same color.
+export const BADGE_BACKGROUND_COLORS: readonly string[] = [
+  'var(--google-blue-100)',
+  'var(--google-green-200)',
+  'var(--google-yellow-100)',
+  'var(--google-red-100)',
+  'var(--google-purple-200)',
+];
 
 export const DEFAULT_ICON = 'cr:insert-drive-file';
 
@@ -57,9 +86,25 @@ export const DIAMOND_PATH =
     'M28 4C29.5 2.5 32.5 2.5 34 4L52 22C53.5 23.5 53.5 26.5 52 28L34 ' +
     '46C32.5 47.5 29.5 47.5 28 46L10 28C8.5 26.5 8.5 23.5 10 22Z';
 
-// Cycles through badge shapes by index rotation.
-function getBadgeShapeForIndex(index: number): BadgeShape {
-  return BADGE_SHAPES[index % BADGE_SHAPES.length]!;
+// 32-bit FNV-1a hash of `id`. The badge is derived from the topic id, rather
+// than from its position in the list, so that the topics list and the topic
+// details page (which only knows the id) always agree.
+function hashTopicId(id: string): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < id.length; i++) {
+    hash ^= id.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return hash >>> 0;
+}
+
+export function getBadgeShapeForTopic(id: string): BadgeShape {
+  return BADGE_SHAPES[hashTopicId(id) % BADGE_SHAPES.length]!;
+}
+
+export function getBackgroundColorForTopic(id: string): string {
+  const hash = Math.floor(hashTopicId(id) / BADGE_SHAPES.length);
+  return BADGE_BACKGROUND_COLORS[hash % BADGE_BACKGROUND_COLORS.length]!;
 }
 
 // TODO(crbug.com/558572977): Use internationalized strings once GRD
@@ -80,12 +125,10 @@ export class TopicCardElement extends CrLitElement {
   static override get properties() {
     return {
       topic: {type: Object},
-      index: {type: Number},
     };
   }
 
   accessor topic: TopicItem|null = null;
-  accessor index: number = 0;
 
   override willUpdate(changedProperties: PropertyValues<this>) {
     super.willUpdate(changedProperties);
@@ -102,11 +145,11 @@ export class TopicCardElement extends CrLitElement {
   }
 
   protected getBadgeShape_(): BadgeShape {
-    return getBadgeShapeForIndex(this.index);
+    return getBadgeShapeForTopic(this.topic?.id || '');
   }
 
   protected getBackgroundColor_(): string {
-    return this.topic?.backgroundColor || DEFAULT_BACKGROUND_COLOR;
+    return getBackgroundColorForTopic(this.topic?.id || '');
   }
 
   protected getFlowerPath_(): string {
@@ -137,11 +180,7 @@ export class TopicCardElement extends CrLitElement {
     if (!this.topic) {
       return;
     }
-    const topicWithShape: TopicItem = {
-      ...this.topic,
-      badgeShape: this.getBadgeShape_(),
-    };
-    this.fire('jump-back-in', {topic: topicWithShape});
+    this.fire('jump-back-in', {topic: this.topic});
   }
 }
 

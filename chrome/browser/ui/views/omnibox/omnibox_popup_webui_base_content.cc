@@ -26,6 +26,7 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/location_bar/omnibox_popup_file_selector.h"
+#include "chrome/browser/ui/views/omnibox/full_webui_omnibox_frame.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_context_menu.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_aim_presenter.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_presenter_base.h"
@@ -137,7 +138,12 @@ OmniboxPopupWebUIBaseContent::~OmniboxPopupWebUIBaseContent() {
 
 void OmniboxPopupWebUIBaseContent::AddedToWidget() {
   views::WebView::AddedToWidget();
-  holder()->SetNativeViewCornerRadii(GetRoundedCornerRadii());
+  // In shadow mode this view spans the shadow margin as well, so rounding it
+  // would round the margin box and clip the shadow's outer corners. The page
+  // draws the popup's corners itself.
+  holder()->SetNativeViewCornerRadii(ShouldDrawShadowInWebUI()
+                                         ? gfx::RoundedCornersF()
+                                         : GetRoundedCornerRadii());
 }
 
 gfx::RoundedCornersF OmniboxPopupWebUIBaseContent::GetRoundedCornerRadii()
@@ -164,10 +170,20 @@ void OmniboxPopupWebUIBaseContent::OnLocationBarBoundsChanged() {
 
   int width =
       location_bar_width +
-      RoundedOmniboxResultsFrame::GetLocationBarAlignmentInsets().width();
+      (is_full_webui_omnibox()
+           ? FullWebUIOmniboxFrame::GetLocationBarAlignmentInsets().width()
+           : RoundedOmniboxResultsFrame::GetLocationBarAlignmentInsets()
+                 .width());
 
   if (popup_presenter_) {
     width = std::max(width, popup_presenter_->get_minimum_size().width());
+    if (popup_presenter_->ShouldDrawShadowInWebUI()) {
+      // The WebView spans the whole widget, shadow margin included, and the
+      // page reserves that margin in its own layout. The renderer viewport
+      // must match the WebView or the content would be laid out narrower than
+      // the widget.
+      width += RoundedOmniboxResultsFrame::GetShadowInsets().width();
+    }
   }
 
   // Update the auto-resize limits for WebUI so that the WebUI updates
@@ -257,7 +273,7 @@ void OmniboxPopupWebUIBaseContent::ShowUI() {
   //
   // Pre-populating the height directly from `GetViewBounds()` immediately
   // restores the cached height to `views::WebView` and the presenter on show.
-  if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup)) {
+  if (is_full_webui_omnibox()) {
     if (auto* web_contents = GetWrappedWebContents()) {
       if (auto* rwhv = web_contents->GetRenderWidgetHostView()) {
         gfx::Size view_size = rwhv->GetViewBounds().size();
@@ -348,7 +364,7 @@ bool OmniboxPopupWebUIBaseContent::HandleKeyboardEvent(
     if (EscClosesUI()) {
       return controller_->edit_model()->OnEscapeKeyPressed();
     }
-    if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup)) {
+    if (is_full_webui_omnibox()) {
       return true;
     }
   }
@@ -358,8 +374,7 @@ bool OmniboxPopupWebUIBaseContent::HandleKeyboardEvent(
   // keyboard events (excluding Escape, which is handled above and must not
   // trigger `IDC_STOP`) directly to the parent `BrowserView` so browser-level
   // accelerators (e.g., Ctrl+N, Ctrl+T, Ctrl+W) are executed.
-  if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup) &&
-      popup_presenter_ &&
+  if (is_full_webui_omnibox() && popup_presenter_ &&
       (event.GetType() == input::NativeWebKeyboardEvent::Type::kRawKeyDown ||
        event.GetType() == input::NativeWebKeyboardEvent::Type::kKeyDown)) {
     views::Widget* location_bar_widget =
@@ -532,8 +547,8 @@ void OmniboxPopupWebUIBaseContent::Detach() {
   }
 
   // Avoid color mode flicking.
-  // When kOmniboxFullWebUIDestroyWidgetOnHide is enabled the widget is
-  // destroyed on hide, then the Webcontents will fall back to use system's
+  // When a widget destroy-on-hide flag is enabled the widget is destroyed on
+  // hide, then the Webcontents will fall back to use system's
   // color mode, which can be different from the browser's color mode.
   views::Widget* location_bar_widget =
       popup_presenter_->delegate().GetLocationBarWidget();
@@ -670,6 +685,15 @@ bool OmniboxPopupWebUIBaseContent::ShouldApplyHeightWorkarounds() const {
 bool OmniboxPopupWebUIBaseContent::ShouldSizeWebViewToPreferredHeight() const {
   return popup_presenter_ &&
          popup_presenter_->ShouldSizeWebViewToPreferredHeight();
+}
+
+bool OmniboxPopupWebUIBaseContent::ShouldDrawShadowInWebUI() const {
+  return popup_presenter_ && popup_presenter_->ShouldDrawShadowInWebUI();
+}
+
+bool OmniboxPopupWebUIBaseContent::is_full_webui_omnibox() const {
+  return popup_presenter_ &&
+         popup_presenter_->delegate().is_full_webui_omnibox();
 }
 
 BEGIN_METADATA(OmniboxPopupWebUIBaseContent)

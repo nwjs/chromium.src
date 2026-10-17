@@ -5,7 +5,9 @@
 #import "ios/chrome/browser/settings/ui_bundled/bwg/coordinator/gemini_settings_coordinator.h"
 
 #import "base/apple/foundation_util.h"
+#import "base/check_op.h"
 #import "ios/chrome/browser/settings/ui_bundled/bwg/coordinator/gemini_settings_mediator.h"
+#import "ios/chrome/browser/settings/ui_bundled/bwg/coordinator/gemini_suggestions_coordinator.h"
 #import "ios/chrome/browser/settings/ui_bundled/bwg/ui/gemini_settings_view_controller.h"
 #import "ios/chrome/browser/settings/ui_bundled/settings_navigation_controller.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
@@ -13,11 +15,13 @@
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_utils.h"
-#import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 
-@interface GeminiSettingsCoordinator () <GeminiSettingsDismissalDelegate>
+@interface GeminiSettingsCoordinator () <
+    GeminiSettingsDismissalDelegate,
+    GeminiSettingsViewControllerPresentationDelegate,
+    GeminiSuggestionsCoordinatorDelegate>
 @end
 
 @implementation GeminiSettingsCoordinator {
@@ -25,6 +29,8 @@
   GeminiSettingsViewController* _viewController;
   // Mediator used by this coordinator.
   GeminiSettingsMediator* _mediator;
+  // Coordinator for the Gemini Suggestions settings page.
+  GeminiSuggestionsCoordinator* _suggestionsCoordinator;
 }
 
 @synthesize baseNavigationController = _baseNavigationController;
@@ -40,6 +46,8 @@
   return self;
 }
 
+#pragma mark - ChromeCoordinator
+
 - (void)start {
   CommandDispatcher* commandDispatcher = self.browser->GetCommandDispatcher();
   _mediator = [[GeminiSettingsMediator alloc]
@@ -53,6 +61,7 @@
       initWithStyle:ChromeTableViewStyle()];
   _viewController.mutator = _mediator;
   _viewController.geminiSettingsDismissalDelegate = self;
+  _viewController.presentationDelegate = self;
   _mediator.consumer = _viewController;
 
   [self.baseNavigationController pushViewController:_viewController
@@ -60,9 +69,45 @@
 }
 
 - (void)stop {
+  [_suggestionsCoordinator stop];
+  _suggestionsCoordinator.delegate = nil;
+  _suggestionsCoordinator = nil;
+  _mediator.consumer = nil;
   [_mediator disconnect];
   _mediator = nil;
+  _viewController.mutator = nil;
+  _viewController.geminiSettingsDismissalDelegate = nil;
+  _viewController.presentationDelegate = nil;
   _viewController = nil;
+}
+
+#pragma mark - GeminiSettingsViewControllerPresentationDelegate
+
+- (void)geminiSettingsViewControllerWasRemoved:
+    (GeminiSettingsViewController*)controller {
+  CHECK_EQ(_viewController, controller);
+  [self.delegate geminiSettingsCoordinatorViewControllerWasRemoved:self];
+}
+
+- (void)geminiSettingsViewControllerDidSelectSuggestions:
+    (GeminiSettingsViewController*)controller {
+  CHECK_EQ(_viewController, controller);
+  [_suggestionsCoordinator stop];
+  _suggestionsCoordinator = [[GeminiSuggestionsCoordinator alloc]
+      initWithBaseNavigationController:self.baseNavigationController
+                               browser:self.browser];
+  _suggestionsCoordinator.delegate = self;
+  [_suggestionsCoordinator start];
+}
+
+#pragma mark - GeminiSuggestionsCoordinatorDelegate
+
+- (void)geminiSuggestionsCoordinatorViewControllerWasRemoved:
+    (GeminiSuggestionsCoordinator*)coordinator {
+  CHECK_EQ(_suggestionsCoordinator, coordinator);
+  [_suggestionsCoordinator stop];
+  _suggestionsCoordinator.delegate = nil;
+  _suggestionsCoordinator = nil;
 }
 
 #pragma mark - GeminiSettingsDismissalDelegate

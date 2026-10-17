@@ -8,16 +8,23 @@
 #import <vector>
 
 #import "base/functional/bind.h"
+#import "base/task/sequenced_task_runner.h"
 #import "base/test/metrics/histogram_tester.h"
 #import "base/test/run_until.h"
 #import "base/test/scoped_feature_list.h"
+#import "base/test/test_future.h"
 #import "components/contextual_cueing/contextual_cueing_enums.h"
 #import "components/feature_engagement/public/event_constants.h"
 #import "components/feature_engagement/public/feature_constants.h"
 #import "components/feature_engagement/test/mock_tracker.h"
+#import "components/infobars/core/infobar_manager.h"
 #import "components/optimization_guide/core/delivery/test_optimization_guide_model_provider.h"
+#import "components/optimization_guide/core/model_execution/remote_model_executor.h"
+#import "components/optimization_guide/core/model_quality/model_quality_log_entry.h"
+#import "components/optimization_guide/core/optimization_guide_proto_util.h"
 #import "components/optimization_guide/proto/features/contextual_cueing.pb.h"
 #import "components/page_content_annotations/core/page_content_annotation_type.h"
+#import "components/prefs/pref_service.h"
 #import "components/signin/public/identity_manager/account_capabilities_test_mutator.h"
 #import "components/signin/public/identity_manager/account_info.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
@@ -26,28 +33,42 @@
 #import "components/sync/service/sync_user_settings.h"
 #import "components/sync/test/test_sync_service.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
+#import "ios/chrome/browser/infobars/model/infobar_manager_impl.h"
 #import "ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h"
 #import "ios/chrome/browser/intelligence/bwg/model/fake_gemini_service.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service_factory.h"
+#import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
 #import "ios/chrome/browser/intelligence/contextual_cueing/contextual_cueing_cap_tracker_service_factory.h"
+#import "ios/chrome/browser/intelligence/contextual_cueing/features.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/intelligence/on_device_category_classifier/in_process_category_classification_service.h"
 #import "ios/chrome/browser/intelligence/on_device_category_classifier/in_process_category_classification_service_factory.h"
 #import "ios/chrome/browser/intelligence/on_device_category_classifier/on_device_page_classification_service.h"
 #import "ios/chrome/browser/intelligence/on_device_category_classifier/on_device_page_classification_service_factory.h"
+#import "ios/chrome/browser/intelligence/page_classification/features.h"
+#import "ios/chrome/browser/intelligence/page_classification/page_classification_service.h"
+#import "ios/chrome/browser/intelligence/page_classification/page_classification_service_factory.h"
+#import "ios/chrome/browser/location_bar/badge/model/badge_type.h"
+#import "ios/chrome/browser/location_bar/badge/model/location_bar_badge_configuration.h"
 #import "ios/chrome/browser/optimization_guide/model/fake_optimization_guide_service.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service_factory.h"
+#import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
+#import "ios/chrome/browser/shared/public/commands/location_bar_badge_commands.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/chrome/browser/signin/model/identity_test_environment_browser_state_adaptor.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/chrome/browser/sync/model/test_sync_service_utils.h"
 #import "ios/web/public/test/fakes/fake_navigation_context.h"
+#import "ios/web/public/test/fakes/fake_navigation_manager.h"
 #import "ios/web/public/test/fakes/fake_web_state.h"
 #import "ios/web/public/test/web_task_environment.h"
 #import "ios/web/public/web_state_id.h"
 #import "testing/gtest/include/gtest/gtest.h"
+#import "testing/gtest_mac.h"
 #import "testing/platform_test.h"
+#import "third_party/ocmock/OCMock/OCMock.h"
+#import "third_party/ocmock/gtest_support.h"
 #import "url/gurl.h"
 
 namespace contextual_cueing {
@@ -133,9 +154,87 @@ std::unique_ptr<KeyedService> BuildTestPageClassificationService(
       in_process_service);
 }
 
+class FakePageClassificationService : public PageClassificationService {
+ public:
+  FakePageClassificationService() = default;
+  ~FakePageClassificationService() override = default;
+
+  void ClassifyWebState(web::WebState* web_state,
+                        PageClassificationCallback callback) override {
+    last_classified_web_state_id_ =
+        web_state ? web_state->GetUniqueIdentifier() : web::WebStateID();
+    pending_callback_ = std::move(callback);
+    if (auto_respond_) {
+      RespondWithResult(canned_result_);
+    }
+  }
+
+  void CancelClassification(web::WebState* web_state) override {
+    if (web_state) {
+      cancelled_web_state_ids_.push_back(web_state->GetUniqueIdentifier());
+    }
+    pending_callback_.Reset();
+  }
+
+  void SetCannedResult(PageClassificationResult result) {
+    canned_result_ = std::move(result);
+  }
+
+  void RespondWithResult(const PageClassificationResult& result) {
+    if (pending_callback_) {
+      std::move(pending_callback_).Run(result);
+    }
+  }
+
+  void Shutdown() override {
+    last_classified_web_state_id_ = web::WebStateID();
+    cancelled_web_state_ids_.clear();
+    pending_callback_.Reset();
+    PageClassificationService::Shutdown();
+  }
+
+  void set_auto_respond(bool auto_respond) { auto_respond_ = auto_respond; }
+
+  web::WebStateID last_classified_web_state_id_;
+  std::vector<web::WebStateID> cancelled_web_state_ids_;
+  PageClassificationCallback pending_callback_;
+  bool auto_respond_ = true;
+  PageClassificationResult canned_result_;
+};
+
+std::unique_ptr<KeyedService> BuildFakePageClassificationService(
+    ProfileIOS* profile) {
+  return std::make_unique<FakePageClassificationService>();
+}
+
+class TestOptimizationGuideService : public FakeOptimizationGuideService {
+ public:
+  using FakeOptimizationGuideService::FakeOptimizationGuideService;
+
+  void ExecuteModel(
+      optimization_guide::ModelBasedCapabilityKey feature,
+      const google::protobuf::MessageLite& request_metadata,
+      const optimization_guide::ModelExecutionOptions& options,
+      optimization_guide::OptimizationGuideModelExecutionResultCallback
+          callback) override {
+    last_service_type_ = options.service_type;
+    FakeOptimizationGuideService::ExecuteModel(feature, request_metadata,
+                                               options, std::move(callback));
+  }
+
+  std::optional<optimization_guide::ModelExecutionServiceType>
+  last_service_type() const {
+    return last_service_type_;
+  }
+
+ private:
+  std::optional<optimization_guide::ModelExecutionServiceType>
+      last_service_type_;
+};
+
 std::unique_ptr<KeyedService> CreateFakeOptimizationGuideService(
     ProfileIOS* profile) {
-  return std::make_unique<FakeOptimizationGuideService>(
+  return std::make_unique<TestOptimizationGuideService>(
       profile->GetProtoDatabaseProvider(), profile->GetStatePath(),
       profile->IsOffTheRecord(), "en",
       base::WeakPtr<optimization_guide::OptimizationGuideStore>(),
@@ -199,11 +298,12 @@ class FakeContextualCueingDelegate
 
 optimization_guide::proto::ContextualCueingResponse CreateTestCueResponse(
     const std::string& anchored_message_text,
-    const std::string& action_text) {
+    const std::string& action_text,
+    const std::string& prompt = "Summarize this page") {
   optimization_guide::proto::ContextualCueingResponse response;
   optimization_guide::proto::ContextualCue* cue =
       response.add_contextual_cues();
-  cue->mutable_gemini_in_chrome_surface();
+  cue->mutable_gemini_in_chrome_surface()->set_prompt(prompt);
   cue->mutable_anchored_message_cue()->set_anchored_message_text(
       anchored_message_text);
   cue->mutable_anchored_message_cue()->set_action_text(action_text);
@@ -248,6 +348,9 @@ class ContextualCueingTabHelperTest : public PlatformTest {
         OnDevicePageClassificationServiceFactory::GetInstance(),
         base::BindRepeating(&BuildTestPageClassificationService));
     builder.AddTestingFactory(
+        PageClassificationServiceFactory::GetInstance(),
+        base::BindRepeating(&BuildFakePageClassificationService));
+    builder.AddTestingFactory(
         ContextualCueingCapTrackerServiceFactory::GetInstance(),
         ContextualCueingCapTrackerServiceFactory::GetDefaultFactory());
     builder.AddTestingFactory(
@@ -261,12 +364,15 @@ class ContextualCueingTabHelperTest : public PlatformTest {
                                 BuildIdentityManagerForTests));
     profile_ = std::move(builder).Build();
 
-    fake_opt_guide_service_ = static_cast<FakeOptimizationGuideService*>(
+    fake_opt_guide_service_ = static_cast<TestOptimizationGuideService*>(
         OptimizationGuideServiceFactory::GetForProfile(profile_.get()));
     fake_page_classification_service_ =
         static_cast<FakeOnDevicePageClassificationService*>(
             OnDevicePageClassificationServiceFactory::GetForProfile(
                 profile_.get()));
+    fake_page_classification_vertical_service_ =
+        static_cast<FakePageClassificationService*>(
+            PageClassificationServiceFactory::GetForProfile(profile_.get()));
     mock_tracker_ = static_cast<feature_engagement::test::MockTracker*>(
         feature_engagement::TrackerFactory::GetForProfile(profile_.get()));
 
@@ -284,6 +390,10 @@ class ContextualCueingTabHelperTest : public PlatformTest {
     mutator.set_can_use_gemini_in_chrome(true);
     signin::UpdateAccountInfoForAccount(identity_manager, account_info);
 
+    // The consented-users tier is the only one enabled by default, so the
+    // baseline test user must have accepted the Gemini consent.
+    profile_->GetPrefs()->SetBoolean(prefs::kIOSBwgConsent, true);
+
     web_state_ = std::make_unique<web::FakeWebState>();
     web_state_->SetBrowserState(profile_.get());
     web_state_->WasShown();
@@ -291,6 +401,7 @@ class ContextualCueingTabHelperTest : public PlatformTest {
 
   void TearDown() override {
     web_state_.reset();
+    fake_page_classification_vertical_service_ = nullptr;
     fake_page_classification_service_ = nullptr;
     fake_opt_guide_service_ = nullptr;
     mock_tracker_ = nullptr;
@@ -307,12 +418,60 @@ class ContextualCueingTabHelperTest : public PlatformTest {
                            web::PageLoadCompletionStatus::SUCCESS);
   }
 
+  void NotifyContextualCueReceived(
+      ContextualCueingTabHelper* tab_helper,
+      const std::optional<optimization_guide::proto::ContextualCue>& cue) {
+    tab_helper->NotifyContextualCueReceived(cue);
+  }
+
+  // Simulates the model execution request issued for `url` completing with
+  // `response`, bypassing the fake service so the test can interleave state
+  // changes between the request and its response.
+  void OnModelExecutionResponseReceived(
+      ContextualCueingTabHelper* tab_helper,
+      const GURL& url,
+      const optimization_guide::proto::ContextualCueingResponse& response) {
+    tab_helper->OnModelExecutionResponseReceived(
+        url,
+        optimization_guide::OptimizationGuideModelExecutionResult(
+            optimization_guide::AnyWrapProto(response),
+            /*execution_info=*/nullptr),
+        /*log_entry=*/nullptr);
+  }
+
+  // Returns a cue with all fields required to present the infobar banner.
+  optimization_guide::proto::ContextualCue CreatePresentableCue() {
+    optimization_guide::proto::ContextualCue cue;
+    cue.mutable_gemini_in_chrome_surface()->set_prompt("Summarize this page");
+    cue.mutable_anchored_message_cue()->set_anchored_message_text("Summarize?");
+    cue.mutable_anchored_message_cue()->set_action_text("Summarize");
+    return cue;
+  }
+
+  // Re-initializes `scoped_feature_list` with the fixture's default cueing
+  // params plus `extra_params`, so tests can override individual params (e.g.
+  // audience tiers) without losing the classifier and model execution setup.
+  void InitFeatureListWithExtraParams(
+      base::test::ScopedFeatureList& scoped_feature_list,
+      base::FieldTrialParams extra_params) {
+    extra_params[kGeminiContextualSuggestionsCuesOnDeviceClassifierParam] =
+        "true";
+    extra_params[kGeminiContextualSuggestionsCuesServerModelExecutionParam] =
+        "true";
+    scoped_feature_list.InitWithFeaturesAndParameters(
+        {{kGeminiContextualSuggestionsCues, extra_params},
+         {kPageActionMenu, {}}},
+        {});
+  }
+
   base::test::ScopedFeatureList scoped_feature_list_;
   web::WebTaskEnvironment task_environment_;
   std::unique_ptr<TestProfileIOS> profile_;
-  raw_ptr<FakeOptimizationGuideService> fake_opt_guide_service_ = nullptr;
+  raw_ptr<TestOptimizationGuideService> fake_opt_guide_service_ = nullptr;
   raw_ptr<FakeOnDevicePageClassificationService>
       fake_page_classification_service_ = nullptr;
+  raw_ptr<FakePageClassificationService>
+      fake_page_classification_vertical_service_ = nullptr;
   raw_ptr<feature_engagement::test::MockTracker> mock_tracker_ = nullptr;
   std::unique_ptr<web::FakeWebState> web_state_;
 };
@@ -389,6 +548,12 @@ TEST_F(ContextualCueingTabHelperTest, WasHiddenCancelsClassification) {
             1u);
   EXPECT_EQ(fake_page_classification_service_->cancelled_web_state_ids_[0],
             web_state_->GetUniqueIdentifier());
+  EXPECT_EQ(fake_page_classification_vertical_service_->cancelled_web_state_ids_
+                .size(),
+            1u);
+  EXPECT_EQ(
+      fake_page_classification_vertical_service_->cancelled_web_state_ids_[0],
+      web_state_->GetUniqueIdentifier());
 }
 
 // Tests successful model execution flow with a valid contextual cue response.
@@ -423,6 +588,39 @@ TEST_F(ContextualCueingTabHelperTest, ModelExecutionSuccessFlow) {
       tab_helper->GetContextualCue()->anchored_message_cue().action_text(),
       "Explore deals");
   EXPECT_EQ(observer.cue_call_count_, 1);
+
+  tab_helper->RemoveObserver(&observer);
+}
+
+// Tests that model execution response with an empty prompt does not present a
+// cue.
+TEST_F(ContextualCueingTabHelperTest,
+       ModelExecutionEmptyPromptDoesNotPresentCue) {
+  const GURL test_url("https://example.com/store/item123");
+  web_state_->SetCurrentURL(test_url);
+
+  auto response =
+      CreateTestCueResponse("Buy now", "Explore deals", /*prompt=*/"");
+  fake_opt_guide_service_->SetResponse(
+      optimization_guide::ModelBasedCapabilityKey::kContextualCueing, response,
+      "optimization_guide.proto.ContextualCueingResponse");
+
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+
+  TestCueingObserver observer;
+  tab_helper->AddObserver(&observer);
+
+  std::vector<page_content_annotations::Category> categories = {
+      {page_content_annotations::CategoryType::kShopping, 0.85f}};
+
+  OnPageClassified(tab_helper, test_url, categories);
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return observer.cue_call_count_ == 1; }));
+
+  EXPECT_FALSE(tab_helper->GetContextualCue().has_value());
+  EXPECT_EQ(observer.cue_call_count_, 1);
+  EXPECT_FALSE(observer.notified_cue_.has_value());
 
   tab_helper->RemoveObserver(&observer);
 }
@@ -841,9 +1039,9 @@ TEST_F(ContextualCueingTabHelperTest, IneligibleUserBlocksClassification) {
 
   EXPECT_FALSE(tab_helper->GetCategories().has_value());
   EXPECT_EQ(observer.call_count_, 0);
-  histogram_tester.ExpectBucketCount(
-      kContextualCueingDecisionHistogram,
-      ContextualCueingDecision::kTargetFeatureNotEligible, 1);
+  histogram_tester.ExpectBucketCount(kContextualCueingDecisionHistogram,
+                                     ContextualCueingDecision::kUserIneligible,
+                                     1);
 
   tab_helper->RemoveObserver(&observer);
 }
@@ -864,9 +1062,183 @@ TEST_F(ContextualCueingTabHelperTest, GeminiEligibilityAllowed) {
   tab_helper->PageLoaded(web_state_.get(),
                          web::PageLoadCompletionStatus::SUCCESS);
 
-  histogram_tester.ExpectBucketCount(
-      kContextualCueingDecisionHistogram,
-      ContextualCueingDecision::kTargetFeatureNotEligible, 0);
+  histogram_tester.ExpectBucketCount(kContextualCueingDecisionHistogram,
+                                     ContextualCueingDecision::kUserIneligible,
+                                     0);
+}
+
+// Tests that a signed-in user who has not accepted the Gemini consent is
+// ineligible by default, since only the consented-users tier is enabled.
+TEST_F(ContextualCueingTabHelperTest, UnconsentedUserBlockedByDefault) {
+  base::HistogramTester histogram_tester;
+  web_state_->SetCurrentURL(GURL("https://example.com/store/item123"));
+  profile_->GetPrefs()->SetBoolean(prefs::kIOSBwgConsent, false);
+
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+  tab_helper->PageLoaded(web_state_.get(),
+                         web::PageLoadCompletionStatus::SUCCESS);
+
+  EXPECT_FALSE(tab_helper->GetCategories().has_value());
+  EXPECT_FALSE(
+      fake_page_classification_service_->last_classified_web_state_id_.valid());
+  histogram_tester.ExpectBucketCount(kContextualCueingDecisionHistogram,
+                                     ContextualCueingDecision::kUserIneligible,
+                                     1);
+}
+
+// Tests that an unconsented signed-in user becomes eligible once the
+// signed-in users tier is enabled.
+TEST_F(ContextualCueingTabHelperTest, UnconsentedUserAllowedBySignedInTier) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  InitFeatureListWithExtraParams(scoped_feature_list,
+                                 {{kShowCuesToSignedInUsers.name, "true"}});
+  base::HistogramTester histogram_tester;
+  web_state_->SetCurrentURL(GURL("https://example.com/store/item123"));
+  profile_->GetPrefs()->SetBoolean(prefs::kIOSBwgConsent, false);
+
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+  tab_helper->PageLoaded(web_state_.get(),
+                         web::PageLoadCompletionStatus::SUCCESS);
+
+  EXPECT_EQ(fake_page_classification_service_->last_classified_web_state_id_,
+            web_state_->GetUniqueIdentifier());
+  histogram_tester.ExpectBucketCount(kContextualCueingDecisionHistogram,
+                                     ContextualCueingDecision::kUserIneligible,
+                                     0);
+}
+
+// Tests that signed-out users are ineligible by default.
+TEST_F(ContextualCueingTabHelperTest, SignedOutUserBlockedByDefault) {
+  base::HistogramTester histogram_tester;
+  web_state_->SetCurrentURL(GURL("https://example.com/store/item123"));
+  signin::ClearPrimaryAccount(
+      IdentityManagerFactory::GetForProfile(profile_.get()));
+
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+  tab_helper->PageLoaded(web_state_.get(),
+                         web::PageLoadCompletionStatus::SUCCESS);
+
+  EXPECT_FALSE(tab_helper->GetCategories().has_value());
+  EXPECT_FALSE(
+      fake_page_classification_service_->last_classified_web_state_id_.valid());
+  histogram_tester.ExpectBucketCount(kContextualCueingDecisionHistogram,
+                                     ContextualCueingDecision::kUserIneligible,
+                                     1);
+}
+
+// Tests that the all-users tier allows signed-out users and exempts them from
+// the history sync requirement, which they cannot satisfy.
+TEST_F(ContextualCueingTabHelperTest, SignedOutUserAllowedByAllUsersTier) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  InitFeatureListWithExtraParams(scoped_feature_list,
+                                 {{kShowCuesToAllUsers.name, "true"}});
+  base::HistogramTester histogram_tester;
+  web_state_->SetCurrentURL(GURL("https://example.com/store/item123"));
+  signin::ClearPrimaryAccount(
+      IdentityManagerFactory::GetForProfile(profile_.get()));
+  auto* sync_service = static_cast<syncer::TestSyncService*>(
+      SyncServiceFactory::GetForProfile(profile_.get()));
+  sync_service->GetUserSettings()->SetSelectedTypes(
+      /*sync_everything=*/false, syncer::UserSelectableTypeSet());
+
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+  tab_helper->PageLoaded(web_state_.get(),
+                         web::PageLoadCompletionStatus::SUCCESS);
+
+  EXPECT_EQ(fake_page_classification_service_->last_classified_web_state_id_,
+            web_state_->GetUniqueIdentifier());
+  histogram_tester.ExpectBucketCount(kContextualCueingDecisionHistogram,
+                                     ContextualCueingDecision::kUserIneligible,
+                                     0);
+  histogram_tester.ExpectBucketCount(kContextualCueingDecisionHistogram,
+                                     ContextualCueingDecision::kHistorySyncOff,
+                                     0);
+}
+
+// Tests that the all-users tier still honors the Gemini enterprise policy for
+// signed-out users.
+TEST_F(ContextualCueingTabHelperTest,
+       SignedOutUserBlockedByPolicyInAllUsersTier) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  InitFeatureListWithExtraParams(scoped_feature_list,
+                                 {{kShowCuesToAllUsers.name, "true"}});
+  base::HistogramTester histogram_tester;
+  web_state_->SetCurrentURL(GURL("https://example.com/store/item123"));
+  signin::ClearPrimaryAccount(
+      IdentityManagerFactory::GetForProfile(profile_.get()));
+  profile_->GetPrefs()->SetInteger(
+      prefs::kGeminiEnabledByPolicy,
+      static_cast<int>(gemini::SettingsPolicy::kNotAllowed));
+
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+  tab_helper->PageLoaded(web_state_.get(),
+                         web::PageLoadCompletionStatus::SUCCESS);
+
+  EXPECT_FALSE(
+      fake_page_classification_service_->last_classified_web_state_id_.valid());
+  histogram_tester.ExpectBucketCount(kContextualCueingDecisionHistogram,
+                                     ContextualCueingDecision::kUserIneligible,
+                                     1);
+}
+
+// Tests that clearing the Gemini consent (e.g. on sign-out) cancels in-flight
+// classification for a user who was only eligible through the consented tier.
+TEST_F(ContextualCueingTabHelperTest, ConsentClearedCancelsClassification) {
+  fake_page_classification_service_->set_auto_respond(false);
+  web_state_->SetCurrentURL(GURL("https://example.com/store/item123"));
+
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+  tab_helper->PageLoaded(web_state_.get(),
+                         web::PageLoadCompletionStatus::SUCCESS);
+  ASSERT_EQ(fake_page_classification_service_->last_classified_web_state_id_,
+            web_state_->GetUniqueIdentifier());
+  ASSERT_TRUE(
+      fake_page_classification_service_->cancelled_web_state_ids_.empty());
+
+  profile_->GetPrefs()->SetBoolean(prefs::kIOSBwgConsent, false);
+
+  EXPECT_FALSE(tab_helper->GetCategories().has_value());
+  ASSERT_EQ(fake_page_classification_service_->cancelled_web_state_ids_.size(),
+            1u);
+  EXPECT_EQ(fake_page_classification_service_->cancelled_web_state_ids_[0],
+            web_state_->GetUniqueIdentifier());
+}
+
+// Test that signing out cancels in-flight classification for an unconsented
+// user in the signed-in users tier, even when `prefs::kIOSBwgConsent` does not
+// change.
+TEST_F(ContextualCueingTabHelperTest,
+       SignOutCancelsClassificationInSignedInUsersTier) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  InitFeatureListWithExtraParams(scoped_feature_list,
+                                 {{kShowCuesToSignedInUsers.name, "true"}});
+  profile_->GetPrefs()->ClearPref(prefs::kIOSBwgConsent);
+  fake_page_classification_service_->set_auto_respond(false);
+  web_state_->SetCurrentURL(GURL("https://example.com/store/item123"));
+
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+  tab_helper->PageLoaded(web_state_.get(),
+                         web::PageLoadCompletionStatus::SUCCESS);
+  ASSERT_EQ(fake_page_classification_service_->last_classified_web_state_id_,
+            web_state_->GetUniqueIdentifier());
+  ASSERT_TRUE(
+      fake_page_classification_service_->cancelled_web_state_ids_.empty());
+
+  signin::ClearPrimaryAccount(
+      IdentityManagerFactory::GetForProfile(profile_.get()));
+
+  EXPECT_FALSE(tab_helper->GetCategories().has_value());
+  ASSERT_EQ(fake_page_classification_service_->cancelled_web_state_ids_.size(),
+            1u);
+  EXPECT_EQ(fake_page_classification_service_->cancelled_web_state_ids_[0],
+            web_state_->GetUniqueIdentifier());
 }
 
 // Tests that when model execution is disabled by feature flag, MES is not
@@ -1062,6 +1434,971 @@ TEST_F(ContextualCueingTabHelperTest, FETDismissedOnDestruction) {
                   feature_engagement::kIPHiOSGeminiContextualCueChip)))
       .Times(1);
   web_state_->RemoveUserData(ContextualCueingTabHelper::UserDataKey());
+}
+
+// Tests that PageClassificationService detecting an eligible education page
+// triggers Model Execution Service and delivers a contextual cue.
+TEST_F(ContextualCueingTabHelperTest,
+       TestPageClassificationService_EducationEligible) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeaturesAndParameters(
+      {{kPageClassification,
+        {{kPageClassificationModeParam, "verticals_only"}}},
+       {kGeminiContextualSuggestionsCues,
+        {{kGeminiContextualSuggestionsCuesServerModelExecutionParam, "true"}}},
+       {kPageActionMenu, {}}},
+      {});
+
+  const GURL test_url("https://example.edu/course");
+  web_state_->SetCurrentURL(test_url);
+
+  auto response = CreateTestCueResponse("Summarize lecture", "Explore notes");
+  fake_opt_guide_service_->SetResponse(
+      optimization_guide::ModelBasedCapabilityKey::kContextualCueing, response,
+      "optimization_guide.proto.ContextualCueingResponse");
+
+  PageClassificationResult result{
+      .category_results = {CategoryResult{
+          .category_type = page_content_annotations::CategoryType::kEducation,
+          .score = 0.90f,
+          .is_eligible = true,
+      }},
+  };
+  fake_page_classification_vertical_service_->SetCannedResult(result);
+
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+
+  TestCueingObserver observer;
+  tab_helper->AddObserver(&observer);
+
+  tab_helper->PageLoaded(web_state_.get(),
+                         web::PageLoadCompletionStatus::SUCCESS);
+
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return tab_helper->GetContextualCue().has_value(); }));
+
+  ASSERT_TRUE(tab_helper->GetPageClassificationResult().has_value());
+  EXPECT_TRUE(tab_helper->GetPageClassificationResult()->IsEligibleForCategory(
+      page_content_annotations::CategoryType::kEducation));
+  ASSERT_TRUE(tab_helper->GetCategories().has_value());
+  EXPECT_EQ(tab_helper->GetCategories()->size(), 1u);
+  EXPECT_EQ((*tab_helper->GetCategories())[0].category_type,
+            page_content_annotations::CategoryType::kEducation);
+
+  EXPECT_EQ(tab_helper->GetContextualCue()
+                ->anchored_message_cue()
+                .anchored_message_text(),
+            "Summarize lecture");
+  EXPECT_EQ(
+      tab_helper->GetContextualCue()->anchored_message_cue().action_text(),
+      "Explore notes");
+  EXPECT_EQ(observer.cue_call_count_, 1);
+
+  tab_helper->RemoveObserver(&observer);
+}
+
+// Tests that PageClassificationService detecting an eligible shopping page
+// triggers Model Execution Service and delivers a contextual cue.
+TEST_F(ContextualCueingTabHelperTest,
+       TestPageClassificationService_ShoppingEligible) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeaturesAndParameters(
+      {{kPageClassification,
+        {{kPageClassificationModeParam, "verticals_only"}}},
+       {kGeminiContextualSuggestionsCues,
+        {{kGeminiContextualSuggestionsCuesServerModelExecutionParam, "true"}}},
+       {kPageActionMenu, {}}},
+      {});
+
+  const GURL test_url("https://example.com/products/shoes");
+  web_state_->SetCurrentURL(test_url);
+
+  auto response = CreateTestCueResponse("Price drop alert", "View discounts");
+  fake_opt_guide_service_->SetResponse(
+      optimization_guide::ModelBasedCapabilityKey::kContextualCueing, response,
+      "optimization_guide.proto.ContextualCueingResponse");
+
+  PageClassificationResult result{
+      .category_results = {CategoryResult{
+          .category_type = page_content_annotations::CategoryType::kShopping,
+          .score = 0.85f,
+          .is_eligible = true,
+      }},
+  };
+  fake_page_classification_vertical_service_->SetCannedResult(result);
+
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+
+  TestCueingObserver observer;
+  tab_helper->AddObserver(&observer);
+
+  tab_helper->PageLoaded(web_state_.get(),
+                         web::PageLoadCompletionStatus::SUCCESS);
+
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return tab_helper->GetContextualCue().has_value(); }));
+
+  ASSERT_TRUE(tab_helper->GetPageClassificationResult().has_value());
+  EXPECT_TRUE(tab_helper->GetPageClassificationResult()->IsEligibleForCategory(
+      page_content_annotations::CategoryType::kShopping));
+  ASSERT_TRUE(tab_helper->GetCategories().has_value());
+  EXPECT_EQ(tab_helper->GetCategories()->size(), 1u);
+  EXPECT_EQ((*tab_helper->GetCategories())[0].category_type,
+            page_content_annotations::CategoryType::kShopping);
+
+  EXPECT_EQ(observer.cue_call_count_, 1);
+
+  tab_helper->RemoveObserver(&observer);
+}
+
+// Tests that cancelling classification notifies PageClassificationService.
+TEST_F(ContextualCueingTabHelperTest,
+       TestPageClassificationService_Cancellation) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeaturesAndParameters(
+      {{kPageClassification,
+        {{kPageClassificationModeParam, "verticals_only"}}},
+       {kPageActionMenu, {}}},
+      {});
+
+  fake_page_classification_vertical_service_->set_auto_respond(false);
+
+  const GURL test_url("https://example.com/course");
+  web_state_->SetCurrentURL(test_url);
+
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+
+  tab_helper->PageLoaded(web_state_.get(),
+                         web::PageLoadCompletionStatus::SUCCESS);
+
+  EXPECT_EQ(
+      fake_page_classification_vertical_service_->last_classified_web_state_id_,
+      web_state_->GetUniqueIdentifier());
+
+  tab_helper->WasHidden(web_state_.get());
+
+  EXPECT_EQ(fake_page_classification_vertical_service_->cancelled_web_state_ids_
+                .size(),
+            1u);
+  EXPECT_EQ(
+      fake_page_classification_vertical_service_->cancelled_web_state_ids_[0],
+      web_state_->GetUniqueIdentifier());
+}
+
+// Tests that when classification mode is kOnDeviceWithVerticalsFallback and the
+// on-device model returns std::nullopt (e.g. model unavailable/error), the tab
+// helper falls back sequentially to PageClassificationService.
+TEST_F(ContextualCueingTabHelperTest,
+       TestFallback_ModelUnavailable_FallsBackToVerticals) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeaturesAndParameters(
+      {{kGeminiContextualSuggestionsCues,
+        {{kGeminiContextualSuggestionsCuesServerModelExecutionParam, "true"}}},
+       {kPageClassification,
+        {{kPageClassificationModeParam, "on_device_with_fallback"}}},
+       {kPageActionMenu, {}}},
+      {});
+
+  const GURL test_url("https://example.com/course/math");
+  web_state_->SetCurrentURL(test_url);
+
+  // On-device classifier returns nullopt (unavailable / failure).
+  fake_page_classification_service_->SetCannedCategories(std::nullopt);
+
+  // Fallback service returns eligible Education result.
+  PageClassificationResult fallback_result{
+      .category_results = {CategoryResult{
+          .category_type = page_content_annotations::CategoryType::kEducation,
+          .score = 0.80f,
+          .is_eligible = true,
+      }},
+  };
+  fake_page_classification_vertical_service_->SetCannedResult(fallback_result);
+
+  auto response = CreateTestCueResponse("Study Guide", "Explore Concepts");
+  fake_opt_guide_service_->SetResponse(
+      optimization_guide::ModelBasedCapabilityKey::kContextualCueing, response,
+      "optimization_guide.proto.ContextualCueingResponse");
+
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+
+  TestCueingObserver observer;
+  tab_helper->AddObserver(&observer);
+
+  tab_helper->PageLoaded(web_state_.get(),
+                         web::PageLoadCompletionStatus::SUCCESS);
+
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return tab_helper->GetContextualCue().has_value(); }));
+
+  EXPECT_EQ(fake_page_classification_service_->last_classified_web_state_id_,
+            web_state_->GetUniqueIdentifier());
+  EXPECT_EQ(
+      fake_page_classification_vertical_service_->last_classified_web_state_id_,
+      web_state_->GetUniqueIdentifier());
+
+  ASSERT_TRUE(tab_helper->GetCategories().has_value());
+  EXPECT_EQ(tab_helper->GetCategories()->size(), 1u);
+  EXPECT_EQ((*tab_helper->GetCategories())[0].category_type,
+            page_content_annotations::CategoryType::kEducation);
+  EXPECT_EQ(observer.cue_call_count_, 1);
+
+  tab_helper->RemoveObserver(&observer);
+}
+
+// Tests that when classification mode is kVerticalsOnly, the on-device model is
+// skipped and PageClassificationService is used directly.
+TEST_F(ContextualCueingTabHelperTest, TestMode_VerticalsOnly) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeaturesAndParameters(
+      {{kGeminiContextualSuggestionsCues,
+        {{kGeminiContextualSuggestionsCuesServerModelExecutionParam, "true"}}},
+       {kPageClassification,
+        {{kPageClassificationModeParam, "verticals_only"}}},
+       {kPageActionMenu, {}}},
+      {});
+
+  const GURL test_url("https://example.com/course/physics");
+  web_state_->SetCurrentURL(test_url);
+
+  PageClassificationResult result{
+      .category_results = {CategoryResult{
+          .category_type = page_content_annotations::CategoryType::kEducation,
+          .score = 0.85f,
+          .is_eligible = true,
+      }},
+  };
+  fake_page_classification_vertical_service_->SetCannedResult(result);
+
+  auto response = CreateTestCueResponse("Physics Notes", "Review Formulas");
+  fake_opt_guide_service_->SetResponse(
+      optimization_guide::ModelBasedCapabilityKey::kContextualCueing, response,
+      "optimization_guide.proto.ContextualCueingResponse");
+
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+
+  TestCueingObserver observer;
+  tab_helper->AddObserver(&observer);
+
+  tab_helper->PageLoaded(web_state_.get(),
+                         web::PageLoadCompletionStatus::SUCCESS);
+
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return tab_helper->GetContextualCue().has_value(); }));
+
+  // On-device service was NOT called.
+  EXPECT_FALSE(
+      fake_page_classification_service_->last_classified_web_state_id_.valid());
+  // Fallback / vertical service was called.
+  EXPECT_EQ(
+      fake_page_classification_vertical_service_->last_classified_web_state_id_,
+      web_state_->GetUniqueIdentifier());
+
+  EXPECT_TRUE(tab_helper->GetContextualCue().has_value());
+  EXPECT_EQ(tab_helper->GetActiveCategoryType(),
+            page_content_annotations::CategoryType::kEducation);
+  EXPECT_EQ(tab_helper->GetContextualCueUiType(),
+            ContextualCueUiType::kMessage);
+  EXPECT_EQ(observer.cue_call_count_, 1);
+
+  // Dismissing the cue switches Education to Omnibox Chip UI permanently.
+  EXPECT_TRUE(tab_helper->RecordCueShown());
+  tab_helper->RecordCueDismissed();
+  EXPECT_EQ(
+      ContextualCueingCapTrackerServiceFactory::GetForProfile(profile_.get())
+          ->GetCueUiTypeForCategory(
+              page_content_annotations::CategoryType::kEducation),
+      ContextualCueUiType::kOmniboxChip);
+  // Shopping vertical remains on Message UI.
+  EXPECT_EQ(
+      ContextualCueingCapTrackerServiceFactory::GetForProfile(profile_.get())
+          ->GetCueUiTypeForCategory(
+              page_content_annotations::CategoryType::kShopping),
+      ContextualCueUiType::kMessage);
+
+  tab_helper->RemoveObserver(&observer);
+}
+
+// Tests that enabling kGeminiContextualSuggestionsCuesIgnoreThresholdsParam
+// forces on-device classification (even when kPageClassification is set to
+// verticals_only), bypasses FET and CapTracker limits, and always returns
+// Message UI.
+TEST_F(ContextualCueingTabHelperTest,
+       IgnoreContextualCueingThresholdsForcesOnDeviceAndMessageUi) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeaturesAndParameters(
+      {{kGeminiContextualSuggestionsCues,
+        {{kGeminiContextualSuggestionsCuesIgnoreThresholdsParam, "true"}}},
+       {kPageClassification,
+        {{kPageClassificationModeParam, "verticals_only"}}},
+       {kPageActionMenu, {}}},
+      {});
+
+  // Verify that core eligibility gates (Gemini eligibility and History Sync)
+  // are also bypassed when thresholds are ignored.
+  auto* gemini_service = static_cast<FakeGeminiService*>(
+      GeminiServiceFactory::GetForProfile(profile_.get()));
+  gemini_service->SetIsEligible(false);
+  auto* sync_service = static_cast<syncer::TestSyncService*>(
+      SyncServiceFactory::GetForProfile(profile_.get()));
+  sync_service->GetUserSettings()->SetSelectedTypes(
+      /*sync_everything=*/false, syncer::UserSelectableTypeSet());
+
+  // Verify that FET methods are completely bypassed and never invoked.
+  EXPECT_CALL(*mock_tracker_,
+              WouldTriggerHelpUI(testing::Ref(
+                  feature_engagement::kIPHiOSGeminiContextualCueChip)))
+      .Times(0);
+  EXPECT_CALL(*mock_tracker_,
+              ShouldTriggerHelpUI(testing::Ref(
+                  feature_engagement::kIPHiOSGeminiContextualCueChip)))
+      .Times(0);
+
+  const GURL test_url("https://example.com/shop/shoes");
+  web_state_->SetCurrentURL(test_url);
+
+  std::vector<page_content_annotations::Category> categories = {
+      {.category_type = page_content_annotations::CategoryType::kShopping,
+       .score = 0.55f},
+  };
+  fake_page_classification_service_->SetCannedCategories(categories);
+
+  auto response = CreateTestCueResponse("Compare Prices", "Find Deals");
+  fake_opt_guide_service_->SetResponse(
+      optimization_guide::ModelBasedCapabilityKey::kContextualCueing, response,
+      "optimization_guide.proto.ContextualCueingResponse");
+
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+
+  tab_helper->PageLoaded(web_state_.get(),
+                         web::PageLoadCompletionStatus::SUCCESS);
+
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return tab_helper->GetContextualCue().has_value(); }));
+
+  // On-device classification service WAS forced despite verticals_only config.
+  EXPECT_EQ(fake_page_classification_service_->last_classified_web_state_id_,
+            web_state_->GetUniqueIdentifier());
+
+  // Cue was received with Message UI and RecordCueShown succeeds despite FET
+  // returning false.
+  EXPECT_EQ(tab_helper->GetContextualCueUiType(),
+            ContextualCueUiType::kMessage);
+  EXPECT_TRUE(tab_helper->RecordCueShown());
+  tab_helper->RecordCueDismissed();
+
+  // After dismissal in default UI mode, the vertical transitions to
+  // Omnibox Chip UI.
+  EXPECT_EQ(
+      ContextualCueingCapTrackerServiceFactory::GetForProfile(profile_.get())
+          ->GetCueUiTypeForCategory(
+              page_content_annotations::CategoryType::kShopping),
+      ContextualCueUiType::kOmniboxChip);
+}
+
+// Test that model execution uses `ModelExecutionServiceType::kPrivateAi` by
+// default when `kUsePrivateAi` is not overridden.
+TEST_F(ContextualCueingTabHelperTest, ModelExecutionUsesPrivateAiByDefault) {
+  const GURL test_url("https://example.com/store/item123");
+  web_state_->SetCurrentURL(test_url);
+
+  auto response = CreateTestCueResponse("Buy now", "Explore deals");
+  fake_opt_guide_service_->SetResponse(
+      optimization_guide::ModelBasedCapabilityKey::kContextualCueing, response,
+      "optimization_guide.proto.ContextualCueingResponse");
+
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+
+  std::vector<page_content_annotations::Category> categories = {
+      {page_content_annotations::CategoryType::kShopping, 0.85f}};
+  OnPageClassified(tab_helper, test_url, categories);
+
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return tab_helper->GetContextualCue().has_value(); }));
+
+  ASSERT_TRUE(fake_opt_guide_service_->last_service_type().has_value());
+  EXPECT_EQ(fake_opt_guide_service_->last_service_type().value(),
+            optimization_guide::ModelExecutionServiceType::kPrivateAi);
+}
+
+// Test that model execution uses `ModelExecutionServiceType::kDefault` when
+// `kUsePrivateAi` is set to false.
+TEST_F(ContextualCueingTabHelperTest,
+       ModelExecutionUsesDefaultWhenPrivateAiDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeaturesAndParameters(
+      {{kGeminiContextualSuggestionsCues,
+        {{kGeminiContextualSuggestionsCuesOnDeviceClassifierParam, "true"},
+         {kGeminiContextualSuggestionsCuesServerModelExecutionParam, "true"},
+         {kUsePrivateAi.name, "false"}}},
+       {kPageActionMenu, {}}},
+      {});
+
+  const GURL test_url("https://example.com/store/item123");
+  web_state_->SetCurrentURL(test_url);
+
+  auto response = CreateTestCueResponse("Buy now", "Explore deals");
+  fake_opt_guide_service_->SetResponse(
+      optimization_guide::ModelBasedCapabilityKey::kContextualCueing, response,
+      "optimization_guide.proto.ContextualCueingResponse");
+
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+
+  std::vector<page_content_annotations::Category> categories = {
+      {page_content_annotations::CategoryType::kShopping, 0.85f}};
+  OnPageClassified(tab_helper, test_url, categories);
+
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return tab_helper->GetContextualCue().has_value(); }));
+
+  ASSERT_TRUE(fake_opt_guide_service_->last_service_type().has_value());
+  EXPECT_EQ(fake_opt_guide_service_->last_service_type().value(),
+            optimization_guide::ModelExecutionServiceType::kDefault);
+}
+
+// Tests that when Gemini suggestions setting is disabled, classification is
+// blocked, cap tracking does not record page navigation, and no decision
+// metric is logged.
+TEST_F(ContextualCueingTabHelperTest,
+       TestSuggestionsSettingDisabledBlocksClassification) {
+  base::HistogramTester histogram_tester;
+  const GURL test_url("https://example.com/store/item123");
+  web_state_->SetCurrentURL(test_url);
+
+  profile_->GetPrefs()->SetBoolean(prefs::kIOSGeminiSuggestionsSetting, false);
+
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+
+  TestCueingObserver observer;
+  tab_helper->AddObserver(&observer);
+
+  tab_helper->PageLoaded(web_state_.get(),
+                         web::PageLoadCompletionStatus::SUCCESS);
+
+  EXPECT_FALSE(tab_helper->GetCategories().has_value());
+  EXPECT_FALSE(
+      fake_page_classification_service_->last_classified_web_state_id_.valid());
+  EXPECT_EQ(observer.call_count_, 0);
+  histogram_tester.ExpectTotalCount(kContextualCueingDecisionHistogram, 0);
+
+  tab_helper->RemoveObserver(&observer);
+}
+
+// Tests that if the Gemini suggestions setting is disabled while
+// classification is in-flight, kUserOptedOut is recorded when results arrive.
+TEST_F(ContextualCueingTabHelperTest,
+       TestSuggestionsSettingDisabledDuringClassificationRecordsUserOptedOut) {
+  base::HistogramTester histogram_tester;
+  const GURL test_url("https://example.com/store/item123");
+  web_state_->SetCurrentURL(test_url);
+
+  fake_page_classification_service_->set_auto_respond(false);
+
+  // Disable feature flag during TabHelper creation so the pref observer is not
+  // registered, simulating an in-flight race where the callback arrives after
+  // the setting is disabled.
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures({}, {kGeminiContextualSuggestionsCues});
+
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+
+  tab_helper->PageLoaded(web_state_.get(),
+                         web::PageLoadCompletionStatus::SUCCESS);
+
+  // Steal pending callback to simulate an in-flight classification response.
+  auto callback =
+      std::move(fake_page_classification_service_->pending_callback_);
+
+  // User disables suggestions setting while classification was running.
+  profile_->GetPrefs()->SetBoolean(prefs::kIOSGeminiSuggestionsSetting, false);
+
+  std::vector<page_content_annotations::Category> categories = {
+      {page_content_annotations::CategoryType::kShopping, 0.85f}};
+  std::move(callback).Run(categories);
+
+  histogram_tester.ExpectBucketCount(kContextualCueingDecisionHistogram,
+                                     ContextualCueingDecision::kUserOptedOut,
+                                     1);
+}
+
+// Tests that if the user becomes ineligible for Gemini while classification
+// is in-flight, kUserIneligible is recorded when results arrive.
+TEST_F(ContextualCueingTabHelperTest,
+       TestUserIneligibleDuringClassificationRecordsUserIneligible) {
+  base::HistogramTester histogram_tester;
+  const GURL test_url("https://example.com/store/item123");
+  web_state_->SetCurrentURL(test_url);
+
+  fake_page_classification_service_->set_auto_respond(false);
+
+  auto* gemini_service = static_cast<FakeGeminiService*>(
+      GeminiServiceFactory::GetForProfile(profile_.get()));
+  gemini_service->SetIsEligible(true);
+
+  // Disable feature flag during TabHelper creation so the service observer is
+  // not registered, simulating an in-flight race where the callback arrives
+  // after eligibility is revoked.
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures({}, {kGeminiContextualSuggestionsCues});
+
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+
+  tab_helper->PageLoaded(web_state_.get(),
+                         web::PageLoadCompletionStatus::SUCCESS);
+
+  // Steal pending callback to simulate an in-flight classification response.
+  auto callback =
+      std::move(fake_page_classification_service_->pending_callback_);
+
+  // User becomes ineligible (e.g. enterprise policy change).
+  gemini_service->SetIsEligible(false);
+
+  std::vector<page_content_annotations::Category> categories = {
+      {page_content_annotations::CategoryType::kShopping, 0.85f}};
+  std::move(callback).Run(categories);
+
+  histogram_tester.ExpectBucketCount(kContextualCueingDecisionHistogram,
+                                     ContextualCueingDecision::kUserIneligible,
+                                     1);
+}
+
+// Tests that disabling the Gemini suggestions setting while a cue is active
+// invalidates the cue and notifies observers.
+TEST_F(ContextualCueingTabHelperTest,
+       TestSuggestionsSettingDisabledDismissesActiveCue) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeaturesAndParameters(
+      {{kGeminiContextualSuggestionsCues,
+        {{kGeminiContextualSuggestionsCuesServerModelExecutionParam, "true"}}},
+       {kPageActionMenu, {}}},
+      {});
+
+  const GURL test_url("https://example.com/store/item123");
+  web_state_->SetCurrentURL(test_url);
+
+  fake_page_classification_service_->SetCannedCategories(
+      std::vector<page_content_annotations::Category>{
+          {page_content_annotations::CategoryType::kShopping, 0.85f}});
+
+  auto response = CreateTestCueResponse("Buy Boots", "Shop Deals");
+  fake_opt_guide_service_->SetResponse(
+      optimization_guide::ModelBasedCapabilityKey::kContextualCueing, response,
+      "optimization_guide.proto.ContextualCueingResponse");
+
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+
+  TestCueingObserver observer;
+  tab_helper->AddObserver(&observer);
+
+  tab_helper->PageLoaded(web_state_.get(),
+                         web::PageLoadCompletionStatus::SUCCESS);
+
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return tab_helper->GetContextualCue().has_value(); }));
+  EXPECT_EQ(observer.cue_call_count_, 1);
+  EXPECT_EQ(observer.invalidated_call_count_, 0);
+
+  // Toggle suggestions setting to false.
+  profile_->GetPrefs()->SetBoolean(prefs::kIOSGeminiSuggestionsSetting, false);
+
+  EXPECT_FALSE(tab_helper->GetContextualCue().has_value());
+  EXPECT_FALSE(tab_helper->GetCategories().has_value());
+  EXPECT_EQ(observer.invalidated_call_count_, 1);
+
+  tab_helper->RemoveObserver(&observer);
+}
+
+// Tests that re-enabling Gemini suggestions setting does not restart
+// classification until the next navigation.
+TEST_F(ContextualCueingTabHelperTest,
+       TestSuggestionsSettingReEnabledWaitsForNextNavigation) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeaturesAndParameters(
+      {{kGeminiContextualSuggestionsCues,
+        {{kGeminiContextualSuggestionsCuesServerModelExecutionParam, "true"}}},
+       {kPageActionMenu, {}}},
+      {});
+
+  const GURL test_url("https://example.com/store/item123");
+  web_state_->SetCurrentURL(test_url);
+  web_state_->WasShown();
+
+  fake_page_classification_service_->SetCannedCategories(
+      std::vector<page_content_annotations::Category>{
+          {page_content_annotations::CategoryType::kShopping, 0.85f}});
+
+  auto response = CreateTestCueResponse("Buy Boots", "Shop Deals");
+  fake_opt_guide_service_->SetResponse(
+      optimization_guide::ModelBasedCapabilityKey::kContextualCueing, response,
+      "optimization_guide.proto.ContextualCueingResponse");
+
+  // Disable setting before creating tab helper and loading page.
+  profile_->GetPrefs()->SetBoolean(prefs::kIOSGeminiSuggestionsSetting, false);
+
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+
+  TestCueingObserver observer;
+  tab_helper->AddObserver(&observer);
+
+  tab_helper->PageLoaded(web_state_.get(),
+                         web::PageLoadCompletionStatus::SUCCESS);
+
+  EXPECT_FALSE(tab_helper->GetContextualCue().has_value());
+  EXPECT_EQ(observer.cue_call_count_, 0);
+
+  // Re-enable setting.
+  profile_->GetPrefs()->SetBoolean(prefs::kIOSGeminiSuggestionsSetting, true);
+
+  // Does not restart classification immediately.
+  EXPECT_FALSE(tab_helper->GetContextualCue().has_value());
+  EXPECT_EQ(observer.cue_call_count_, 0);
+
+  // Next navigation starts classification.
+  tab_helper->PageLoaded(web_state_.get(),
+                         web::PageLoadCompletionStatus::SUCCESS);
+
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return tab_helper->GetContextualCue().has_value(); }));
+  EXPECT_EQ(observer.cue_call_count_, 1);
+
+  tab_helper->RemoveObserver(&observer);
+}
+
+// Tests that changing Gemini eligibility dynamically (e.g. enterprise policy)
+// invalidates an active cue and re-enabling it allows classification on next
+// navigation.
+TEST_F(ContextualCueingTabHelperTest,
+       TestGeminiEligibilityDynamicChangeTogglesCue) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeaturesAndParameters(
+      {{kGeminiContextualSuggestionsCues,
+        {{kGeminiContextualSuggestionsCuesServerModelExecutionParam, "true"}}},
+       {kPageActionMenu, {}}},
+      {});
+
+  const GURL test_url("https://example.com/store/item123");
+  web_state_->SetCurrentURL(test_url);
+  web_state_->WasShown();
+
+  fake_page_classification_service_->SetCannedCategories(
+      std::vector<page_content_annotations::Category>{
+          {page_content_annotations::CategoryType::kShopping, 0.85f}});
+
+  auto response = CreateTestCueResponse("Buy Boots", "Shop Deals");
+  fake_opt_guide_service_->SetResponse(
+      optimization_guide::ModelBasedCapabilityKey::kContextualCueing, response,
+      "optimization_guide.proto.ContextualCueingResponse");
+
+  auto* gemini_service = static_cast<FakeGeminiService*>(
+      GeminiServiceFactory::GetForProfile(profile_.get()));
+  gemini_service->SetIsEligible(true);
+
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+
+  TestCueingObserver observer;
+  tab_helper->AddObserver(&observer);
+
+  tab_helper->PageLoaded(web_state_.get(),
+                         web::PageLoadCompletionStatus::SUCCESS);
+
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return tab_helper->GetContextualCue().has_value(); }));
+  EXPECT_EQ(observer.cue_call_count_, 1);
+  EXPECT_EQ(observer.invalidated_call_count_, 0);
+
+  // Dynamically disable eligibility (e.g., enterprise policy applied).
+  gemini_service->SetIsEligible(false);
+
+  EXPECT_FALSE(tab_helper->GetContextualCue().has_value());
+  EXPECT_FALSE(tab_helper->GetCategories().has_value());
+  EXPECT_EQ(observer.invalidated_call_count_, 1);
+
+  // Dynamically re-enable eligibility.
+  gemini_service->SetIsEligible(true);
+
+  // Does not restart classification immediately.
+  EXPECT_FALSE(tab_helper->GetContextualCue().has_value());
+  EXPECT_EQ(observer.cue_call_count_, 1);
+
+  // Next navigation starts classification.
+  tab_helper->PageLoaded(web_state_.get(),
+                         web::PageLoadCompletionStatus::SUCCESS);
+
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return tab_helper->GetContextualCue().has_value(); }));
+  EXPECT_EQ(observer.cue_call_count_, 2);
+
+  tab_helper->RemoveObserver(&observer);
+}
+
+// Tests that ShowContextualCueChip successfully configures and shows the badge
+// on LocationBarBadgeCommands.
+TEST_F(ContextualCueingTabHelperTest, TestShowContextualCueChip_Success) {
+  const GURL test_url("https://example.com/article");
+  web_state_->SetCurrentURL(test_url);
+
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+
+  optimization_guide::proto::ContextualCue cue;
+  cue.mutable_gemini_in_chrome_surface()->set_prompt("Summarize this article");
+  auto* message_cue = cue.mutable_anchored_message_cue();
+  message_cue->set_anchored_message_text("Anchored message");
+  message_cue->set_action_text("Summarize");
+
+  NotifyContextualCueReceived(tab_helper, cue);
+  ASSERT_TRUE(tab_helper->GetContextualCue().has_value());
+
+  id mock_badge_handler = OCMProtocolMock(@protocol(LocationBarBadgeCommands));
+  OCMExpect([mock_badge_handler
+      updateBadgeConfig:[OCMArg checkWithBlock:^BOOL(
+                                    LocationBarBadgeConfiguration* config) {
+        return config.badgeType ==
+                   LocationBarBadgeType::kGeminiContextualCueChip &&
+               [config.badgeText isEqualToString:@"Summarize"] &&
+               config.shouldHideBadgeAfterChipCollapse;
+      }]]);
+
+  EXPECT_TRUE(tab_helper->ShowContextualCueChip(mock_badge_handler));
+  EXPECT_NSEQ(tab_helper->GetContextualCuePrompt(), @"Summarize this article");
+  EXPECT_OCMOCK_VERIFY(mock_badge_handler);
+}
+
+// Tests that ShowContextualCueChip fails and does not show badge if no cue is
+// available.
+TEST_F(ContextualCueingTabHelperTest, TestShowContextualCueChip_NoCue) {
+  const GURL test_url("https://example.com/article");
+  web_state_->SetCurrentURL(test_url);
+
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+  ASSERT_FALSE(tab_helper->GetContextualCue().has_value());
+
+  id mock_badge_handler = OCMProtocolMock(@protocol(LocationBarBadgeCommands));
+  [[mock_badge_handler reject] updateBadgeConfig:[OCMArg any]];
+
+  EXPECT_FALSE(tab_helper->ShowContextualCueChip(mock_badge_handler));
+  EXPECT_EQ(tab_helper->GetContextualCuePrompt(), nil);
+  EXPECT_OCMOCK_VERIFY(mock_badge_handler);
+}
+
+// Tests that a model execution response arriving after Gemini (Helios) was
+// invoked is dropped rather than stored as a cue that can never be shown.
+TEST_F(ContextualCueingTabHelperTest,
+       TestModelExecutionResponseDroppedWhenGeminiInvoked) {
+  base::HistogramTester histogram_tester;
+  const GURL test_url("https://example.com/store/item123");
+  web_state_->SetCurrentURL(test_url);
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+  TestCueingObserver observer;
+  tab_helper->AddObserver(&observer);
+
+  // Gemini is invoked after the request was issued but before its response.
+  tab_helper->SetGeminiInvoked(true);
+  OnModelExecutionResponseReceived(
+      tab_helper, test_url, CreateTestCueResponse("Buy now", "Explore deals"));
+
+  EXPECT_FALSE(tab_helper->GetContextualCue().has_value());
+  EXPECT_EQ(observer.cue_call_count_, 1);
+  EXPECT_FALSE(observer.notified_cue_.has_value());
+  // The cue was never stored, so there was nothing to invalidate.
+  EXPECT_EQ(observer.invalidated_call_count_, 0);
+  histogram_tester.ExpectBucketCount(
+      kContextualCueingDecisionHistogram,
+      ContextualCueingDecision::kSidePanelShowing, 1);
+
+  tab_helper->RemoveObserver(&observer);
+}
+
+// Tests that a cue already stored is dropped at presentation time while Gemini
+// (Helios) is invoked in the window hosting the tab.
+TEST_F(ContextualCueingTabHelperTest, TestCueNotPresentedWhenGeminiInvoked) {
+  base::HistogramTester histogram_tester;
+  web_state_->SetCurrentURL(GURL("https://example.com/article"));
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+  tab_helper->SetGeminiInvoked(true);
+  TestCueingObserver observer;
+  tab_helper->AddObserver(&observer);
+
+  optimization_guide::proto::ContextualCue cue;
+  cue.mutable_gemini_in_chrome_surface()->set_prompt("Summarize this article");
+  NotifyContextualCueReceived(tab_helper, cue);
+
+  EXPECT_FALSE(tab_helper->GetContextualCue().has_value());
+  EXPECT_EQ(observer.invalidated_call_count_, 1);
+  histogram_tester.ExpectBucketCount(
+      kContextualCueingDecisionHistogram,
+      ContextualCueingDecision::kSidePanelShowing, 1);
+
+  tab_helper->RemoveObserver(&observer);
+}
+
+// Tests that no model execution request is issued while Gemini (Helios) is
+// invoked in the window hosting the tab.
+TEST_F(ContextualCueingTabHelperTest,
+       TestModelExecutionSkippedWhenGeminiInvoked) {
+  base::HistogramTester histogram_tester;
+  const GURL test_url("https://example.com/store/item123");
+  web_state_->SetCurrentURL(test_url);
+  fake_opt_guide_service_->SetResponse(
+      optimization_guide::ModelBasedCapabilityKey::kContextualCueing,
+      CreateTestCueResponse("Buy now", "Explore deals"),
+      "optimization_guide.proto.ContextualCueingResponse");
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+  tab_helper->SetGeminiInvoked(true);
+
+  std::vector<page_content_annotations::Category> categories = {
+      {page_content_annotations::CategoryType::kShopping, 0.85f}};
+  fake_page_classification_service_->SetCannedCategories(categories);
+  tab_helper->PageLoaded(web_state_.get(),
+                         web::PageLoadCompletionStatus::SUCCESS);
+  // `categories_` is set at the start of `ProcessClassificationResult()` and
+  // the Gemini gate runs synchronously within that same call.
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return tab_helper->GetCategories().has_value(); }));
+
+  EXPECT_FALSE(fake_opt_guide_service_->last_service_type().has_value());
+  EXPECT_FALSE(tab_helper->GetContextualCue().has_value());
+  histogram_tester.ExpectBucketCount(
+      kContextualCueingDecisionHistogram,
+      ContextualCueingDecision::kSidePanelShowing, 1);
+}
+
+// Tests that a cue is requested again once Gemini (Helios) has been dismissed
+// after having been invoked.
+TEST_F(ContextualCueingTabHelperTest,
+       TestModelExecutionProceedsAfterGeminiDismissed) {
+  base::HistogramTester histogram_tester;
+  const GURL test_url("https://example.com/store/item123");
+  web_state_->SetCurrentURL(test_url);
+  fake_opt_guide_service_->SetResponse(
+      optimization_guide::ModelBasedCapabilityKey::kContextualCueing,
+      CreateTestCueResponse("Buy now", "Explore deals"),
+      "optimization_guide.proto.ContextualCueingResponse");
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+  tab_helper->SetGeminiInvoked(true);
+  tab_helper->SetGeminiInvoked(false);
+  EXPECT_FALSE(tab_helper->is_gemini_invoked());
+
+  std::vector<page_content_annotations::Category> categories = {
+      {page_content_annotations::CategoryType::kShopping, 0.85f}};
+  fake_page_classification_service_->SetCannedCategories(categories);
+  tab_helper->PageLoaded(web_state_.get(),
+                         web::PageLoadCompletionStatus::SUCCESS);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return tab_helper->GetContextualCue().has_value(); }));
+
+  EXPECT_TRUE(fake_opt_guide_service_->last_service_type().has_value());
+  histogram_tester.ExpectBucketCount(
+      kContextualCueingDecisionHistogram,
+      ContextualCueingDecision::kSidePanelShowing, 0);
+}
+
+// Tests that a cue already on screen is dismissed once Gemini (Helios) is
+// invoked in the hosting window, and that the dismissal is deferred so the
+// invoking call stack (e.g. tapping the cue) completes first.
+TEST_F(ContextualCueingTabHelperTest,
+       TestPresentedCueDismissedWhenGeminiInvoked) {
+  web_state_->SetCurrentURL(GURL("https://example.com/article"));
+  web_state_->SetNavigationManager(
+      std::make_unique<web::FakeNavigationManager>());
+  InfoBarManagerImpl::CreateForWebState(web_state_.get());
+  infobars::InfoBarManager* infobar_manager =
+      InfoBarManagerImpl::FromWebState(web_state_.get());
+
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+  TestCueingObserver observer;
+  tab_helper->AddObserver(&observer);
+
+  NotifyContextualCueReceived(tab_helper, CreatePresentableCue());
+  ASSERT_EQ(infobar_manager->infobars().size(), 1u);
+
+  tab_helper->SetGeminiInvoked(true);
+  EXPECT_TRUE(tab_helper->is_gemini_invoked());
+  EXPECT_TRUE(tab_helper->GetContextualCue().has_value());
+  EXPECT_EQ(infobar_manager->infobars().size(), 1u);
+
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return observer.invalidated_call_count_ == 1; }));
+  EXPECT_FALSE(tab_helper->GetContextualCue().has_value());
+  EXPECT_EQ(infobar_manager->infobars().size(), 0u);
+
+  tab_helper->RemoveObserver(&observer);
+}
+
+// Tests that Gemini (Helios) being dismissed does not affect a cue on screen.
+TEST_F(ContextualCueingTabHelperTest, TestPresentedCueKeptWhenGeminiDismissed) {
+  web_state_->SetCurrentURL(GURL("https://example.com/article"));
+  web_state_->SetNavigationManager(
+      std::make_unique<web::FakeNavigationManager>());
+  InfoBarManagerImpl::CreateForWebState(web_state_.get());
+
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+  NotifyContextualCueReceived(tab_helper, CreatePresentableCue());
+  ASSERT_TRUE(tab_helper->GetContextualCue().has_value());
+
+  tab_helper->SetGeminiInvoked(false);
+  // Flush the task queue so any task the update might have posted would have
+  // run before asserting that nothing changed.
+  base::test::TestFuture<void> flushed;
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, flushed.GetCallback());
+  ASSERT_TRUE(flushed.Wait());
+
+  EXPECT_TRUE(tab_helper->GetContextualCue().has_value());
+  EXPECT_EQ(
+      InfoBarManagerImpl::FromWebState(web_state_.get())->infobars().size(),
+      1u);
+}
+
+// Tests that repeated `SetGeminiInvoked(true)` calls only dismiss the cue once
+// and do not re-notify observers.
+TEST_F(ContextualCueingTabHelperTest, TestSetGeminiInvokedIsIdempotent) {
+  web_state_->SetCurrentURL(GURL("https://example.com/article"));
+  web_state_->SetNavigationManager(
+      std::make_unique<web::FakeNavigationManager>());
+  InfoBarManagerImpl::CreateForWebState(web_state_.get());
+
+  ContextualCueingTabHelper::CreateForWebState(web_state_.get());
+  auto* tab_helper = ContextualCueingTabHelper::FromWebState(web_state_.get());
+  TestCueingObserver observer;
+  tab_helper->AddObserver(&observer);
+  NotifyContextualCueReceived(tab_helper, CreatePresentableCue());
+  ASSERT_TRUE(tab_helper->GetContextualCue().has_value());
+
+  tab_helper->SetGeminiInvoked(true);
+  tab_helper->SetGeminiInvoked(true);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return observer.invalidated_call_count_ >= 1; }));
+  base::test::TestFuture<void> flushed;
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, flushed.GetCallback());
+  ASSERT_TRUE(flushed.Wait());
+
+  EXPECT_EQ(observer.invalidated_call_count_, 1);
+  EXPECT_FALSE(tab_helper->GetContextualCue().has_value());
+
+  tab_helper->RemoveObserver(&observer);
 }
 
 }  // namespace contextual_cueing

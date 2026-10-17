@@ -35,6 +35,7 @@ import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
+import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
@@ -81,6 +82,7 @@ import org.chromium.components.sync.BookmarksLimitExceededHelpClickedSource;
 import org.chromium.components.sync.SyncService;
 import org.chromium.components.sync.UserActionableError;
 import org.chromium.components.sync.UserSelectableType;
+import org.chromium.components.trusted_vault.SecurityDomainId;
 import org.chromium.components.trusted_vault.TrustedVaultClient;
 import org.chromium.components.trusted_vault.TrustedVaultUserActionTriggerForUMA;
 import org.chromium.ui.modaldialog.DialogDismissalCause;
@@ -215,7 +217,24 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
     public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {
         Profile profile = getProfile();
         mSyncService = assumeNonNull(SyncServiceFactory.getForProfile(profile));
+        mPageTitle.set(getString(R.string.account_settings_title));
 
+        // Restoration by the FragmentManager and Intents both reach this page without going
+        // through SettingsFragmentRegistry, so it can still land here signed out. Inflate nothing;
+        // onStart() finishes the page.
+        if (isSignedOut()) {
+            return;
+        }
+
+        initializeSignedInPreferences(profile);
+    }
+
+    /**
+     * Inflates the page for the signed in user. Skipped when signed out, in which case onStart()
+     * finishes the page before anything reads the preferences set here.
+     */
+    @Initializer
+    private void initializeSignedInPreferences(Profile profile) {
         setHasOptionsMenu(true);
 
         setupAccountSettings(profile);
@@ -271,6 +290,12 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
     @Override
     public void onStart() {
         super.onStart();
+        // Nothing was inflated for a signed out user, and a sign out while the page was stopped
+        // leaves it describing an account that is gone. Either way there is no page to show.
+        if (isSignedOut()) {
+            finishCurrentSettings();
+            return;
+        }
         mSyncService.addSyncStateChangedListener(this);
         getIdentityManager().addObserver(this);
 
@@ -342,7 +367,6 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
     }
 
     private void setupAccountSettings(Profile profile) {
-        mPageTitle.set(getString(R.string.account_settings_title));
         SettingsUtils.addPreferencesFromResource(this, R.xml.unified_account_settings_preferences);
 
         setupCentralAccountCardPreference(profile);
@@ -855,14 +879,14 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
         // done even if the user cancelled the flow (i.e. resultCode != RESULT_OK) because it's
         // harmless to issue a redundant notifyKeysChanged().
         if (requestCode == REQUEST_CODE_TRUSTED_VAULT_KEY_RETRIEVAL) {
-            TrustedVaultClient.get()
+            TrustedVaultClient.get(SecurityDomainId.CHROME_SYNC)
                     .notifyKeysChanged(TrustedVaultUserActionTriggerForUMA.SETTINGS);
             if (resultCode == Activity.RESULT_OK) {
                 mShouldUpdatePrefs = true;
             }
         }
         if (requestCode == REQUEST_CODE_TRUSTED_VAULT_RECOVERABILITY_DEGRADED) {
-            TrustedVaultClient.get().notifyRecoverabilityChanged();
+            TrustedVaultClient.get(SecurityDomainId.CHROME_SYNC).notifyRecoverabilityChanged();
         }
     }
 
@@ -949,7 +973,8 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
      * <p>This method is idempotent, i.e. it does nothing if it was called before.
      */
     private void finishCurrentSettings() {
-        SettingsNavigationFactory.createSettingsNavigation().finishCurrentSettings(this);
+        SettingsNavigationFactory.createSettingsNavigation(requireActivity())
+                .finishCurrentSettings(this);
     }
 
     @Override
@@ -973,6 +998,11 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
 
     private IdentityManager getIdentityManager() {
         return assumeNonNull(IdentityServicesProvider.get().getIdentityManager(getProfile()));
+    }
+
+    /** Whether there is no primary account, leaving this page with nothing to describe. */
+    private boolean isSignedOut() {
+        return !getIdentityManager().hasPrimaryAccount();
     }
 
     private FragmentTransaction beginTransaction() {

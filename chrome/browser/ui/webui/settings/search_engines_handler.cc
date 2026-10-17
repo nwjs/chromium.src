@@ -21,10 +21,8 @@
 #include "build/branding_buildflags.h"
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
 #include "chrome/browser/extensions/extension_util.h"
-#include "chrome/browser/metrics/profile_metrics_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/regional_capabilities/regional_capabilities_service_factory.h"
-#include "chrome/browser/safe_browsing/extension_telemetry/search_hijacking_detector.h"
 #include "chrome/browser/search_engine_choice/search_engine_choice_service_factory.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/search_engines/ui_thread_search_terms_data.h"
@@ -33,15 +31,15 @@
 #include "chrome/common/url_constants.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
-#include "components/metrics/profile_metrics_service.h"
 #include "components/omnibox/browser/omnibox_field_trial.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/optimization_guide/core/feature_registry/feature_registration.h"
 #include "components/prefs/pref_service.h"
 #include "components/regional_capabilities/regional_capabilities_service.h"
+#include "components/safe_browsing/buildflags.h"
 #include "components/search_engines/search_engine_choice/search_engine_choice_service.h"
 #include "components/search_engines/search_engine_choice/search_engine_choice_utils.h"
-#include "components/search_engines/search_engine_split_metrics.h"
+#include "components/search_engines/search_engine_settings_data_provider.h"
 #include "components/search_engines/search_engines_switches.h"
 #include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_id.h"
@@ -55,6 +53,10 @@
 #include "extensions/browser/management_policy.h"
 #include "extensions/common/extension.h"
 #include "ui/base/l10n/l10n_util.h"
+
+#if BUILDFLAG(FULL_SAFE_BROWSING)
+#include "chrome/browser/safe_browsing/extension_telemetry/search_hijacking_detector.h"
+#endif
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "ash/public/cpp/new_window_delegate.h"
@@ -109,7 +111,10 @@ std::u16string GetDisplayName(std::u16string url_short_name, bool is_default) {
 namespace settings {
 
 SearchEnginesHandler::SearchEnginesHandler(Profile* profile)
-    : profile_(profile), list_controller_(profile) {}
+    : profile_(profile),
+      list_controller_(profile),
+      settings_data_provider_(TemplateURLServiceFactory::GetForProfile(profile)
+                                  ->CreateSearchEngineSettingsDataProvider()) {}
 
 SearchEnginesHandler::~SearchEnginesHandler() = default;
 
@@ -186,10 +191,6 @@ base::DictValue SearchEnginesHandler::GetCategorizedTemplateUrls() {
   Profile* profile = Profile::FromWebUI(web_ui());
   CHECK(profile);
 
-  TemplateURLService* template_url_service =
-      TemplateURLServiceFactory::GetForProfile(profile);
-  CHECK(template_url_service);
-
   bool ai_mode_enabled = OmniboxFieldTrial::IsAimStarterPackEnabled(
       AimEligibilityServiceFactory::GetForProfile(profile));
   bool gemini_enabled =
@@ -197,17 +198,15 @@ base::DictValue SearchEnginesHandler::GetCategorizedTemplateUrls() {
       profile->GetPrefs()->GetInteger(
           optimization_guide::prefs::kGeminiSettings) == 0;
 
-  TemplateURLService::CategorizedTemplateUrls data =
-      template_url_service->GetCategorizedTemplateURLs(
+  search_engines::CategorizedTemplateUrls data =
+      settings_data_provider_->GetCategorizedTemplateURLs(
           internal::GetDisabledStarterPackIds(ai_mode_enabled, gemini_enabled));
 
-  TemplateURL::TemplateURLVector displayed_engines;
   auto transform_urls =
       [&](const TemplateURL::TemplateURLVector& template_urls) {
         base::ListValue transformed_list;
         for (const auto& template_url : template_urls) {
           transformed_list.Append(CreateDictionaryForEngine(template_url));
-          displayed_engines.push_back(template_url);
         }
         return transformed_list;
       };
@@ -221,7 +220,7 @@ base::DictValue SearchEnginesHandler::GetCategorizedTemplateUrls() {
   search_engines_data.Set("inactiveFeatureShortcuts",
                           transform_urls(data.inactive_feature_shortcuts));
 
-  RecordSearchEngineSplitMetrics(displayed_engines);
+  settings_data_provider_->MaybeRecordSettingsPageLoadMetrics(data);
 
   return search_engines_data;
 }
@@ -284,7 +283,8 @@ base::DictValue SearchEnginesHandler::GetSearchEnginesList() {
     displayed_engines.push_back(turl);
   }
 
-  RecordSearchEngineSplitMetrics(displayed_engines);
+  settings_data_provider_->MaybeRecordSettingsPageLoadMetrics(
+      displayed_engines);
 
   base::DictValue search_engines_info;
   search_engines_info.Set("defaults", std::move(defaults));
@@ -405,6 +405,7 @@ void SearchEnginesHandler::RecordSearchHijackingHeuristicMetric() {
     return;
   }
 
+#if BUILDFLAG(FULL_SAFE_BROWSING)
   // Look for matches in the last 7 days, per the histograms.xml description.
   auto status =
       safe_browsing::SearchHijackingDetector::GetRecentHeuristicResult(
@@ -424,35 +425,9 @@ void SearchEnginesHandler::RecordSearchHijackingHeuristicMetric() {
         status ==
             safe_browsing::SearchHijackingDetector::HeuristicResult::kMatch);
   }
+#endif
 
   has_recorded_hijacking_metric_ = true;
-}
-
-void SearchEnginesHandler::RecordSearchEngineSplitMetrics(
-    TemplateURL::TemplateURLVectorSpan displayed_engines) {
-  if (has_recorded_search_engine_split_metrics_) {
-    return;
-  }
-  has_recorded_search_engine_split_metrics_ = true;
-
-  regional_capabilities::RegionalCapabilitiesService*
-      regional_capabilities_service = regional_capabilities::
-          RegionalCapabilitiesServiceFactory::GetForProfile(profile_);
-  CHECK(regional_capabilities_service);
-  if (!regional_capabilities_service->IsSearchEngineSplitRegion()) {
-    return;
-  }
-
-  TemplateURLService* template_url_service =
-      TemplateURLServiceFactory::GetForProfile(profile_);
-  CHECK(template_url_service);
-  metrics::ProfileMetricsService* profile_metrics_service =
-      ProfileMetricsServiceFactory::GetForProfile(profile_);
-  CHECK(profile_metrics_service);
-
-  search_engines::RecordSearchEngineSplitSettingsPageLoadMetrics(
-      displayed_engines, template_url_service->GetDefaultSearchProvider(),
-      template_url_service->search_terms_data(), *profile_metrics_service);
 }
 
 void SearchEnginesHandler::HandleGetCategorizedTemplateUrls(

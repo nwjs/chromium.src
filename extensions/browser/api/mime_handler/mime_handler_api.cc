@@ -13,6 +13,7 @@
 #include "base/types/expected.h"
 #include "content/public/browser/render_frame_host.h"
 #include "extensions/browser/mime_handler/mime_handler_registry.h"
+#include "extensions/browser/mime_handler/mime_handler_stream_delegate.h"
 #include "extensions/browser/mime_handler/mime_handler_stream_manager.h"
 #include "extensions/browser/mime_handler/stream_container.h"
 #include "extensions/common/api/mime_handler.h"
@@ -28,6 +29,9 @@ struct ResolvedStream {
   raw_ptr<content::RenderFrameHost> embedder_rfh;
   raw_ptr<mime_handler::MimeHandlerStreamManager> stream_manager;
   base::WeakPtr<StreamContainer> stream;
+  // Resolved together with the stream so callers cannot pair a stream with
+  // the filtering decision of a different frame.
+  bool should_filter_response_headers = true;
 };
 
 // Validates that `extension_rfh` is a child frame whose embedder owns a
@@ -57,7 +61,10 @@ base::expected<ResolvedStream, std::string> ResolveStreamForExtensionFrame(
   if (stream->extension_id() != expected_extension_id) {
     return base::unexpected("Stream does not belong to this extension.");
   }
-  return ResolvedStream{embedder_rfh, stream_manager, std::move(stream)};
+  const bool should_filter_response_headers =
+      stream_manager->ShouldFilterResponseHeadersForHandler(embedder_rfh);
+  return ResolvedStream{embedder_rfh, stream_manager, std::move(stream),
+                        should_filter_response_headers};
 }
 
 }  // namespace
@@ -87,6 +94,12 @@ ExtensionFunction::ResponseAction MimeHandlerGetStreamInfoFunction::Run() {
     while (
         stream.response_headers()->EnumerateHeaderLines(&iter, &name, &value)) {
       if (!base::IsStringASCII(name) || !base::IsStringASCII(value)) {
+        continue;
+      }
+      // Restrict a generic (third-party) MIME handler extension to explicitly
+      // allowed response headers.
+      if (resolved->should_filter_response_headers &&
+          !IsResponseHeaderAllowedForHandler(name)) {
         continue;
       }
       const std::string* existing =

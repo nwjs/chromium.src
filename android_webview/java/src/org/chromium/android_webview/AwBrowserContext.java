@@ -385,7 +385,9 @@ public class AwBrowserContext implements BrowserContextHandle {
         ContentViewStatics.setWebKitSharedTimersSuspended(true);
     }
 
-    /** @see android.webkit.WebView#resumeTimers() */
+    /**
+     * @see android.webkit.WebView#resumeTimers()
+     */
     public void resumeTimers() {
         ContentViewStatics.setWebKitSharedTimersSuspended(false);
     }
@@ -516,7 +518,7 @@ public class AwBrowserContext implements BrowserContextHandle {
 
     public void setCrossOriginIsolatedAllowList(@NonNull Set<String> originPatterns) {
         List<String> mismatched =
-                org.chromium.android_webview.AwBrowserContextJni.get()
+                AwBrowserContextJni.get()
                         .setCrossOriginIsolatedAllowList(mNativeAwBrowserContext, originPatterns);
         if (!mismatched.isEmpty()) {
             throw new IllegalArgumentException(
@@ -526,8 +528,7 @@ public class AwBrowserContext implements BrowserContextHandle {
 
     public @NonNull Set<String> getCrossOriginIsolatedAllowList() {
         return Set.copyOf(
-                org.chromium.android_webview.AwBrowserContextJni.get()
-                        .getCrossOriginIsolatedAllowList(mNativeAwBrowserContext));
+                AwBrowserContextJni.get().getCrossOriginIsolatedAllowList(mNativeAwBrowserContext));
     }
 
     @NativeMethods

@@ -6,22 +6,6 @@ import("//tools/grit/grit_rule.gni")
 
 assert(is_chromeos)
 
-static_library("extensions") {
-  sources = [
-    "chromeos_extensions_api_permissions.cc",
-    "chromeos_extensions_api_permissions.h",
-    "chromeos_extensions_api_provider.cc",
-    "chromeos_extensions_api_provider.h",
-  ]
-
-  deps = [
-    ":resources",
-    "//chromeos/ash/experiences/extensions/api",
-    "//chromeos/ash/experiences/extensions/api:extensions_features",
-    "//extensions/common",
-  ]
-}
-
 grit("resources") {
   source = "chromeos_extensions_resources.grd"
   output_dir = "$root_gen_dir/chromeos/ash/experiences/extensions"
@@ -30,4 +14,9 @@ grit("resources") {
     "grit/chromeos_extensions_resources.h",
     "chromeos_extensions_resources.pak",
   ]
+}
+
+group("unit_tests") {
+  testonly = true
+  deps = [ "//chromeos/ash/experiences/extensions/common:unit_tests" ]
 }

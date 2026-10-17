@@ -6,6 +6,7 @@
 
 #import <optional>
 
+#import "base/functional/callback_helpers.h"
 #import "base/notimplemented.h"
 #import "base/notreached.h"
 #import "base/strings/sys_string_conversions.h"
@@ -14,12 +15,15 @@
 #import "components/content_settings/core/common/content_settings.h"
 #import "components/enterprise/client_certificates/ios/certificate_provisioning_service_ios.h"
 #import "components/enterprise/client_certificates/ios/client_identity_ios.h"
+#import "ios/chrome/browser/app_launcher/model/app_launcher_tab_helper.h"
 #import "ios/chrome/browser/content_settings/model/host_content_settings_map_factory.h"
 #import "ios/chrome/browser/context_menu/ui_bundled/context_menu_configuration_provider.h"
 #import "ios/chrome/browser/dialogs/ui_bundled/nsurl_protection_space_util.h"
 #import "ios/chrome/browser/enterprise/client_certificates/client_certificates_service_ios.h"
 #import "ios/chrome/browser/enterprise/client_certificates/client_certificates_service_ios_factory.h"
 #import "ios/chrome/browser/enterprise/data_controls/model/data_controls_tab_helper.h"
+#import "ios/chrome/browser/enterprise/proxy/model/proxy_service_controller.h"
+#import "ios/chrome/browser/enterprise/proxy/model/proxy_service_controller_factory.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/overlays/model/public/overlay_callback_manager.h"
@@ -88,6 +92,18 @@ void OnInsecureFormWarningResponse(base::OnceCallback<void(bool)> callback,
     }
   }
   std::move(callback).Run(false);
+}
+
+// Returns whether window open or close requests should be dropped because a
+// system-prompted call launch (e.g. facetime:, tel:) is pending in
+// `active_web_state`.
+bool ShouldDropWindowRequests(web::WebState* active_web_state) {
+  if (!active_web_state) {
+    return false;
+  }
+  AppLauncherTabHelper* helper =
+      AppLauncherTabHelper::FromWebState(active_web_state);
+  return helper && helper->IsCallPromptLaunchPending();
 }
 
 // Returns true if a supervised user attempts to access the microphone or camera
@@ -252,6 +268,10 @@ web::WebState* WebStateDelegateBrowserAgent::CreateNewWebState(
     return nullptr;
   }
 
+  if (ShouldDropWindowRequests(web_state_list_->GetActiveWebState())) {
+    return nullptr;
+  }
+
   // Check if requested web state is a popup and block it if necessary.
   if (!initiated_by_user) {
     auto* helper = BlockedPopupTabHelper::FromWebState(source);
@@ -277,7 +297,8 @@ web::WebState* WebStateDelegateBrowserAgent::CreateNewWebState(
 
 void WebStateDelegateBrowserAgent::CloseWebState(web::WebState* source) {
   int index = web_state_list_->GetIndexOfWebState(source);
-  if (index != WebStateList::kInvalidIndex) {
+  if (index != WebStateList::kInvalidIndex &&
+      !ShouldDropWindowRequests(web_state_list_->GetActiveWebState())) {
     web_state_list_->CloseWebStateAt(index,
                                      WebStateList::ClosingReason::kUserAction);
   }
@@ -396,6 +417,32 @@ void WebStateDelegateBrowserAgent::HandlePermissionsDecisionRequest(
   }
 
   handler(web::PermissionDecisionDeny);
+}
+
+void WebStateDelegateBrowserAgent::OnProxyAuthChallenge(
+    web::WebState* source,
+    NSURLProtectionSpace* protection_space,
+    NSURLCredential* proposed_credential,
+    NSURLResponse* failure_response,
+    web::WebStateDelegate::ProxyAuthCallback callback) {
+  auto [proxy_callback, fallback_callback] =
+      base::SplitOnceCallback(std::move(callback));
+  ProfileIOS* profile = ProfileIOS::FromBrowserState(source->GetBrowserState());
+  ProxyServiceController* proxy_service_controller =
+      ProxyServiceControllerFactory::GetForProfile(profile);
+  if (proxy_service_controller &&
+      proxy_service_controller->MaybeHandleProxyAuthChallenge(
+          source, protection_space, proposed_credential, failure_response,
+          std::move(proxy_callback))) {
+    return;
+  }
+  // If enterprise proxy logic does not handle the challenge (e.g., for
+  // non-managed profiles or non-enterprise proxies), delegate to the base
+  // `WebStateDelegate::OnProxyAuthChallenge` implementation, which handles
+  // forwarding the challenge to `OnAuthRequired`.
+  web::WebStateDelegate::OnProxyAuthChallenge(
+      source, protection_space, proposed_credential, failure_response,
+      std::move(fallback_callback));
 }
 
 void WebStateDelegateBrowserAgent::OnAuthRequired(

@@ -15,7 +15,6 @@
 #include "base/android/scoped_java_ref.h"
 #include "base/containers/span.h"
 #include "base/containers/to_vector.h"
-#include "base/notimplemented.h"
 #include "base/strings/string_util.h"
 #include "chrome/browser/autofill/android/personal_data_manager_android.h"
 #include "chrome/browser/profiles/profile.h"
@@ -28,7 +27,6 @@
 #include "components/autofill/core/browser/payments/payments_util.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/ui/autofill_resource_util.h"
-#include "components/autofill/core/common/autofill_features.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/android/view_android.h"
 #include "ui/android/window_android.h"
@@ -56,8 +54,7 @@ ConvertBnplIssuerTosDetailToJavaObject(
           ConvertToBnplIssuerIdString(bnpl_issuer_tos_detail.issuer_id)),
       bnpl_issuer_tos_detail.is_linked_issuer,
       bnpl_issuer_tos_detail.issuer_name,
-      LegalMessageLineAndroid::ConvertToJavaLinkedList(
-          bnpl_issuer_tos_detail.legal_message_lines));
+      bnpl_issuer_tos_detail.legal_message_lines);
 }
 
 // TODO(crbug.com/449764859): Refactor BnplIssuerContext to use JNI type

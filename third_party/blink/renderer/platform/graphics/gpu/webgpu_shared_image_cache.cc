@@ -10,13 +10,10 @@
 #include "base/trace_event/process_memory_dump.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
-#include "cc/paint/display_item_list.h"
-#include "cc/paint/paint_recorder.h"
 #include "components/viz/common/resources/shared_image_format_utils.h"
 #include "gpu/command_buffer/client/raster_interface.h"
 #include "gpu/command_buffer/client/shared_image_interface.h"
 #include "gpu/command_buffer/common/capabilities.h"
-#include "third_party/blink/renderer/platform/graphics/canvas_image_provider.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
@@ -48,182 +45,9 @@ WebGpuSharedImageLease::~WebGpuSharedImageLease() {
   }
 }
 
-void WebGpuSharedImageLease::WaitSyncToken(const gpu::SyncToken& sync_token) {
-  if (sync_token.HasData()) {
-    resource_.sync_token_ = sync_token;
-    resource_.shared_image_->UpdateDestructionSyncToken(resource_.sync_token_);
-  }
-}
-
-scoped_refptr<gpu::ClientSharedImage> WebGpuSharedImageLease::GetSharedImage()
-    const {
-  if (IsGpuContextLost()) {
-    return nullptr;
-  }
-  return resource_.shared_image_;
-}
-
-gpu::SyncToken WebGpuSharedImageLease::GetSyncToken() const {
-  if (IsGpuContextLost()) {
-    return gpu::SyncToken();
-  }
-  return resource_.sync_token_;
-}
-
-gpu::raster::RasterInterface* WebGpuSharedImageLease::RasterInterface() const {
-  if (!resource_.context_provider_wrapper_) {
-    return nullptr;
-  }
-  return resource_.context_provider_wrapper_->ContextProvider()
-      .RasterInterface();
-}
-
-bool WebGpuSharedImageLease::IsGpuContextLost() const {
-  return ::blink::IsGpuContextLost(resource_.context_provider_wrapper_.get());
-}
-
-bool WebGpuSharedImageLease::UploadToBackingSharedImage(const SkPixmap& pixmap,
-                                                        uint32_t src_x,
-                                                        uint32_t src_y) {
-  const int dest_width = resource_.shared_image_->size().width();
-  const int dest_height = resource_.shared_image_->size().height();
-
-  SkPixmap subset;
-  if (!pixmap.extractSubset(
-          &subset,
-          SkIRect::MakeXYWH(static_cast<int>(src_x), static_cast<int>(src_y),
-                            dest_width, dest_height))) {
-    return false;
-  }
-
-  TRACE_EVENT0("blink",
-               "WebGpuSharedImageLease::"
-               "UploadToBackingSharedImage");
-  if (IsGpuContextLost()) {
-    return false;
-  }
-
-  resource_.sync_token_ = RasterInterface()->WritePixels(
-      resource_.shared_image_, resource_.sync_token_, /*dst_x_offset=*/0,
-      /*dst_y_offset=*/0, subset);
-
-  resource_.is_cleared_ = true;
-
-  return true;
-}
-
-void WebGpuSharedImageLease::DrawToBackingSharedImage(
-    base::FunctionRef<void(cc::PaintCanvas&)> draw_callback) {
-  if (IsGpuContextLost()) {
-    return;
-  }
-
-  cc::PaintRecorder recorder;
-  draw_callback(*recorder.beginRecording());
-  if (cc::PaintRecord last_recording = recorder.finishRecordingAsPicture();
-      last_recording.has_draw_ops()) {
-    auto access = resource_.shared_image_->BeginRasterAccess(
-        RasterInterface(), resource_.sync_token_, /*readonly=*/false);
-
-    const bool needs_clear = !resource_.is_cleared_;
-    resource_.is_cleared_ = true;
-
-    gpu::raster::RasterInterface* ri = RasterInterface();
-    SkColor4f background_color =
-        resource_.shared_image_->alpha_type() == kOpaque_SkAlphaType
-            ? SkColors::kBlack
-            : SkColors::kTransparent;
-
-    auto list = base::MakeRefCounted<cc::DisplayItemList>();
-    list->StartPaint();
-    list->push<cc::DrawRecordOp>(std::move(last_recording));
-    list->EndPaintOfUnpaired(gfx::Rect(resource_.shared_image_->size()));
-    list->Finalize();
-
-    gfx::Size size = resource_.shared_image_->size();
-    size_t max_op_size_hint =
-        gpu::raster::RasterInterface::kDefaultMaxOpSizeHint;
-    gfx::Rect full_raster_rect(resource_.shared_image_->size());
-    gfx::Rect playback_rect(resource_.shared_image_->size());
-    gfx::Vector2dF post_translate(0.f, 0.f);
-    gfx::Vector2dF post_scale(1.f, 1.f);
-
-    const bool can_use_lcd_text =
-        resource_.shared_image_->alpha_type() == kOpaque_SkAlphaType;
-    const auto& caps = resource_.context_provider_wrapper_->ContextProvider()
-                           .GetCapabilities();
-    bool use_msaa = !caps.msaa_is_slow && !caps.avoid_stencil_buffers;
-    ri->BeginRasterCHROMIUM(background_color, needs_clear,
-                            /*msaa_sample_count=*/use_msaa ? 1 : 0,
-                            use_msaa ? gpu::raster::MsaaMode::kDMSAA
-                                     : gpu::raster::MsaaMode::kNoMSAA,
-                            can_use_lcd_text, /*visible=*/true,
-                            resource_.shared_image_->color_space(),
-                            /*hdr_headroom=*/0.f,
-                            resource_.shared_image_->mailbox().name);
-
-    auto& context_provider =
-        resource_.context_provider_wrapper_->ContextProvider();
-    CanvasImageProvider image_provider(
-        context_provider.ImageDecodeCache(kN32_SkColorType),
-        resource_.shared_image_->format() == viz::SinglePlaneFormat::kRGBA_F16
-            ? context_provider.ImageDecodeCache(kRGBA_F16_SkColorType)
-            : nullptr,
-        resource_.shared_image_->color_space(),
-        resource_.shared_image_->format(),
-        cc::PlaybackImageProvider::RasterMode::kGpu,
-        resource_.context_provider_wrapper_);
-
-    ri->RasterCHROMIUM(
-        list.get(), &image_provider, size, full_raster_rect, playback_rect,
-        post_translate, post_scale, /*requires_clear=*/false,
-        /*raster_inducing_scroll_offsets=*/nullptr, &max_op_size_hint,
-        base::RepeatingCallback<void(SkCanvas*, uint32_t)>());
-
-    ri->EndRasterCHROMIUM();
-    auto sync_token = gpu::RasterScopedAccess::EndAccess(std::move(access));
-    resource_.sync_token_ = sync_token;
-    resource_.shared_image_->UpdateDestructionSyncToken(sync_token);
-
-    image_provider.ReleaseLockedImages();
-    image_provider.UnbindTextureBackedImages();
-  }
-}
-
-std::optional<gpu::SyncToken> WebGpuSharedImageLease::CopyToBackingSharedImage(
-    const scoped_refptr<gpu::ClientSharedImage>& shared_image,
-    uint32_t src_x,
-    uint32_t src_y,
-    const gpu::SyncToken& ready_sync_token) {
-  gpu::raster::RasterInterface* raster = RasterInterface();
-  if (!raster) {
-    return std::nullopt;
-  }
-
-  if (IsGpuContextLost()) {
-    return std::nullopt;
-  }
-
-  gfx::Rect copy_rect(src_x, src_y, resource_.shared_image_->size().width(),
-                      resource_.shared_image_->size().height());
-
-  auto dst_access = resource_.shared_image_->BeginRasterAccess(
-      raster, resource_.sync_token_, /*readonly=*/false);
-
-  std::unique_ptr<gpu::RasterScopedAccess> src_access =
-      shared_image->BeginRasterAccess(raster, ready_sync_token,
-                                      /*readonly=*/true);
-  raster->CopySharedImage(shared_image->mailbox(),
-                          resource_.shared_image_->mailbox(),
-                          /*xoffset=*/0, /*yoffset=*/0, copy_rect.x(),
-                          copy_rect.y(), copy_rect.width(), copy_rect.height());
-  gpu::SyncToken completion_sync_token =
-      gpu::RasterScopedAccess::EndAccess(std::move(src_access));
-  auto sync_token = gpu::RasterScopedAccess::EndAccess(std::move(dst_access));
+void WebGpuSharedImageLease::SetSyncToken(const gpu::SyncToken& sync_token) {
   resource_.sync_token_ = sync_token;
-  resource_.shared_image_->UpdateDestructionSyncToken(sync_token);
-  resource_.is_cleared_ = true;
-  return completion_sync_token;
+  resource_.shared_image_->UpdateDestructionSyncToken(resource_.sync_token_);
 }
 
 void WebGpuSharedImageLease::OnMemoryDump(
@@ -373,7 +197,8 @@ WebGpuSharedImageCache::LeaseSharedImage(viz::SharedImageFormat format,
 }
 
 void WebGpuSharedImageCache::ReturnResource(Resource resource) {
-  if (context_provider_) {
+  if (context_provider_ &&
+      !IsGpuContextLost(resource.context_provider_wrapper_.get())) {
     resource.timer_id_ = current_timer_id_;
     total_unused_resources_in_bytes_ += resource.resource_size_;
     unused_resources_.push_front(std::move(resource));
@@ -412,6 +237,13 @@ WebGpuSharedImageCache::AcquireCachedResource(
     const viz::SharedImageFormat& format,
     SkAlphaType alpha_type,
     const gfx::ColorSpace& color_space) {
+  if (!unused_resources_.empty() &&
+      IsGpuContextLost(
+          unused_resources_.front().context_provider_wrapper_.get())) {
+    unused_resources_.clear();
+    total_unused_resources_in_bytes_ = 0;
+  }
+
   // Loop from MRU to LRU
   DequeResource::iterator it;
   for (it = unused_resources_.begin(); it != unused_resources_.end(); ++it) {

@@ -1216,7 +1216,7 @@ policies:
   1215: ProvisionManagedClientCertificateForUser
   1216: LocalUserFilesAllowed
   1217: ''
-  1218: SubAppsAPIsAllowedWithoutGestureAndAuthorizationForOrigins
+  1218: ''
   1219: DefaultWebPrintingSetting
   1220: WebPrintingAllowedForUrls
   1221: WebPrintingBlockedForUrls
@@ -1301,9 +1301,9 @@ policies:
   1300: AutofillPredictionSettings
   1301: ArcOpenLinksInBrowserByDefault
   1302: EnterpriseProfileBadgeToolbarSettings
-  1303: DefaultDirectSocketsPrivateNetworkAccessSetting
-  1304: DirectSocketsPrivateNetworkAccessAllowedForUrls
-  1305: DirectSocketsPrivateNetworkAccessBlockedForUrls
+  1303: ''
+  1304: ''
+  1305: ''
   1306: SelectParserRelaxationEnabled
   1307: ClassManagementEnabled
   1308: EnterpriseSearchAggregatorSettings
@@ -1472,7 +1472,7 @@ policies:
   1471: UpdateOnZeroWindowEnabled
   1472: BackForwardCacheForWebSocketsAllowed
   1473: GeminiChromeFileUploadSettings
-  1474: FindAndFillWithGeminiSettings
+  1474: AutofillGenAiSettings
   1475: OnNetworkRequestEnterpriseConnector
   1476: EnterprisePublishedSkills
   1477: OnDataCopiedEnterpriseConnector
@@ -1484,6 +1484,10 @@ policies:
   1483: ExtensionReviewPromptsEnabled
   1484: BackgroundTabFreezingEnabled
   1485: ShowInputOptionsInShelfEnabled
+  1486: AdminInstalledChromeAppsForceAllowed
+  1487: DeviceMaxUserProfiles
+  1488: ""
+  1489: LaunchOnStartupEnabled
 
 atomic_groups:
   1: Homepage

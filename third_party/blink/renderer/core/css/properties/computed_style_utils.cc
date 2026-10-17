@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 #include "third_party/blink/renderer/core/css/properties/computed_style_utils.h"
 
+#include "base/containers/span.h"
 #include "base/memory/values_equivalent.h"
 #include "third_party/blink/renderer/core/css/basic_shape_functions.h"
 #include "third_party/blink/renderer/core/css/counter_style.h"
@@ -920,33 +921,37 @@ CSSValue* ComputedStyleUtils::ValueForPositionOffset(
 
 CSSValue* ComputedStyleUtils::ValueForItemPositionWithOverflowAlignment(
     const StyleSelfAlignmentData& data) {
+  const ItemPosition item_position =
+      RuntimeEnabledFeatures::CSSFlowStartAndEndSerializationEnabled()
+          ? data.GetUsedPosition()
+          : data.GetComputedPosition();
   if (data.PositionType() == ItemPositionType::kLegacy) {
     // Legacy is only for justify-items and may only be created with the
     // positions "left", "right", or "center". See
     // JustifyItems::ParseSingleValue.
-    DCHECK(data.GetPosition() == ItemPosition::kLeft ||
-           data.GetPosition() == ItemPosition::kRight ||
-           data.GetPosition() == ItemPosition::kCenter)
-        << "Unexpected position: " << static_cast<unsigned>(data.GetPosition());
+    DCHECK(item_position == ItemPosition::kLeft ||
+           item_position == ItemPosition::kRight ||
+           item_position == ItemPosition::kCenter)
+        << "Unexpected position: " << static_cast<unsigned>(item_position);
     DCHECK_EQ(data.Overflow(), OverflowAlignment::kDefault);
     return MakeGarbageCollected<CSSValuePair>(
         CSSIdentifierValue::Create(CSSValueID::kLegacy),
-        CSSIdentifierValue::Create(data.GetPosition()),
+        CSSIdentifierValue::Create(item_position),
         CSSValuePair::kDropIdenticalValues);
   }
 
-  if (data.GetPosition() == ItemPosition::kBaseline) {
+  if (item_position == ItemPosition::kBaseline) {
     return CSSIdentifierValue::Create(CSSValueID::kBaseline);
-  } else if (data.GetPosition() == ItemPosition::kLastBaseline) {
+  } else if (item_position == ItemPosition::kLastBaseline) {
     return MakeGarbageCollected<CSSValuePair>(
         CSSIdentifierValue::Create(CSSValueID::kLast),
         CSSIdentifierValue::Create(CSSValueID::kBaseline),
         CSSValuePair::kDropIdenticalValues);
   } else {
-    auto* position = data.GetPosition() == ItemPosition::kLegacy
+    auto* position = item_position == ItemPosition::kLegacy
                          ? CSSIdentifierValue::Create(CSSValueID::kNormal)
-                         : CSSIdentifierValue::Create(data.GetPosition());
-    if (data.GetPosition() >= ItemPosition::kCenter &&
+                         : CSSIdentifierValue::Create(item_position);
+    if (item_position >= ItemPosition::kCenter &&
         data.Overflow() != OverflowAlignment::kDefault) {
       return MakeGarbageCollected<CSSValuePair>(
           CSSIdentifierValue::Create(data.Overflow()), position,
@@ -962,6 +967,10 @@ ComputedStyleUtils::ValueForContentPositionAndDistributionWithOverflowAlignment(
   CSSValueID distribution = CSSValueID::kInvalid;
   CSSValueID position = CSSValueID::kInvalid;
   CSSValueID overflow = CSSValueID::kInvalid;
+  const ContentPosition content_position =
+      RuntimeEnabledFeatures::CSSFlowStartAndEndSerializationEnabled()
+          ? data.GetUsedPosition()
+          : data.GetComputedPosition();
 
   // Handle content-distribution values
   if (data.Distribution() != ContentDistributionType::kDefault) {
@@ -969,7 +978,7 @@ ComputedStyleUtils::ValueForContentPositionAndDistributionWithOverflowAlignment(
   }
 
   // Handle content-position values (either as fallback or actual value)
-  switch (data.GetPosition()) {
+  switch (content_position) {
     case ContentPosition::kNormal:
       // Handle 'normal' value, not valid as content-distribution fallback.
       if (data.Distribution() == ContentDistributionType::kDefault) {
@@ -981,12 +990,12 @@ ComputedStyleUtils::ValueForContentPositionAndDistributionWithOverflowAlignment(
       break;
     default:
       // Handle overflow-alignment (only allowed for content-position values)
-      if ((data.GetPosition() >= ContentPosition::kCenter ||
+      if ((content_position >= ContentPosition::kCenter ||
            data.Distribution() != ContentDistributionType::kDefault) &&
           data.Overflow() != OverflowAlignment::kDefault) {
         overflow = CSSIdentifierValue::Create(data.Overflow())->GetValueID();
       }
-      position = CSSIdentifierValue::Create(data.GetPosition())->GetValueID();
+      position = CSSIdentifierValue::Create(content_position)->GetValueID();
   }
 
   return MakeGarbageCollected<cssvalue::CSSContentDistributionValue>(
@@ -2555,12 +2564,12 @@ CSSValue* ComputedStyleUtils::ValueForWillChange(
 
 namespace {
 
-template <typename T, wtf_size_t C, typename Func, typename... Args>
-CSSValue* CreateAnimationValueList(const Vector<T, C>& values,
+template <typename Container, typename Func, typename... Args>
+CSSValue* CreateAnimationValueList(const Container& values,
                                    Func item_func,
                                    Args&&... args) {
   CSSValueList* list = CSSValueList::CreateCommaSeparated();
-  for (const T& value : values) {
+  for (const auto& value : values) {
     list->Append(*item_func(value, args...));
   }
   return list;
@@ -2886,11 +2895,13 @@ CSSValue* ComputedStyleUtils::ValueForAnimationTimeline(
 CSSValue* ComputedStyleUtils::ValueForAnimationTimelineList(
     const CSSAnimationData* animation_data,
     const ComputedStyle& style) {
-  return CreateAnimationValueList(
-      animation_data
-          ? animation_data->TimelineList()
-          : Vector<StyleTimeline>{CSSAnimationData::InitialTimeline()},
-      &ValueForAnimationTimeline, style);
+  if (animation_data) {
+    return CreateAnimationValueList(animation_data->TimelineList(),
+                                    &ValueForAnimationTimeline, style);
+  }
+  StyleTimeline initial_timeline = CSSAnimationData::InitialTimeline();
+  return CreateAnimationValueList(base::span_from_ref(initial_timeline),
+                                  &ValueForAnimationTimeline, style);
 }
 
 CSSValue* ComputedStyleUtils::ValueForTimelineInset(
@@ -2982,12 +2993,14 @@ CSSValue* ComputedStyleUtils::ValueForTimelineTriggerActiveRangeEndList(
 CSSValue* ComputedStyleUtils::ValueForTimelineTriggerTimelineList(
     const CSSAnimationData* animation_data,
     const ComputedStyle& style) {
-  return CreateAnimationValueList(
-      animation_data
-          ? animation_data->TimelineTriggerSourceList()
-          : Vector<StyleTimeline>{CSSAnimationData::
-                                      InitialTimelineTriggerSource()},
-      &ValueForAnimationTimeline, style);
+  if (animation_data) {
+    return CreateAnimationValueList(animation_data->TimelineTriggerSourceList(),
+                                    &ValueForAnimationTimeline, style);
+  }
+  StyleTimeline initial_timeline =
+      CSSAnimationData::InitialTimelineTriggerSource();
+  return CreateAnimationValueList(base::span_from_ref(initial_timeline),
+                                  &ValueForAnimationTimeline, style);
 }
 
 CSSValue* ComputedStyleUtils::ValueForAnimationName(const AtomicString& name) {

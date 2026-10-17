@@ -20,6 +20,7 @@
 #include "base/observer_list.h"
 #include "base/sequence_checker.h"
 #include "base/timer/timer.h"
+#include "base/types/expected.h"
 #include "base/types/optional_ref.h"
 #include "components/download/public/background_service/download_params.h"
 #include "components/optimization_guide/core/delivery/model_enums.h"
@@ -55,6 +56,7 @@ namespace optimization_guide {
 class OptimizationTargetModelObserver;
 class PredictionModelDownloadManager;
 class PredictionModelFetcher;
+enum class PredictionModelFetchError;
 class PredictionModelStore;
 class ProfileDownloadServiceTracker;
 
@@ -172,7 +174,8 @@ class PredictionManager : public PredictionModelDownloadObserver,
   // Service is updated, even when the response is empty.
   void OnModelsFetched(
       const std::vector<proto::ModelInfo> models_request_info,
-      std::unique_ptr<proto::GetModelsResponse> get_models_response_data);
+      base::expected<proto::GetModelsResponse, PredictionModelFetchError>
+          get_models_response_data);
 
   // Gets the model task runner to use for the target.
   scoped_refptr<base::SequencedTaskRunner> GetModelTaskRunner(
@@ -216,21 +219,6 @@ class PredictionManager : public PredictionModelDownloadObserver,
   // `model_info`.
   void StoreLoadedModelInfo(proto::OptimizationTarget optimization_target,
                             ModelInfo model_info);
-
-  // Return the time when a prediction model fetch was last attempted.
-  base::Time GetLastFetchAttemptTime() const;
-
-  // Set the last time when a prediction model fetch was last attempted to
-  // |last_attempt_time|.
-  void SetLastModelFetchAttemptTime(base::Time last_attempt_time);
-
-  // Return the time when a prediction model fetch was last successfully
-  // completed.
-  base::Time GetLastFetchSuccessTime() const;
-
-  // Set the last time when a fetch for prediction models last succeeded to
-  // |last_success_time|.
-  void SetLastModelFetchSuccessTime(base::Time last_success_time);
 
   // Schedule first fetch for models if enabled for this profile.
   void MaybeScheduleFirstModelFetch();
@@ -312,11 +300,6 @@ class PredictionManager : public PredictionModelDownloadObserver,
   base::flat_map<proto::OptimizationTarget,
                  scoped_refptr<base::SequencedTaskRunner>>
       optimization_target_model_task_runner_;
-
-  // Time the prediction manager got initialized.
-  // TODO(crbug.com/40861855): Remove this old model store once the new model
-  // store is launched.
-  base::TimeTicks init_time_;
 
   PredictionModelFetchTimer prediction_model_fetch_timer_
       GUARDED_BY_CONTEXT(sequence_checker_);

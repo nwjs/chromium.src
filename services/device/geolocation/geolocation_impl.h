@@ -36,10 +36,6 @@ class GeolocationImpl : public mojom::Geolocation {
   // Starts listening for updates.
   void StartListeningForUpdates();
 
-  // Pauses and resumes sending updates to the client of this instance.
-  void PauseUpdates();
-  void ResumeUpdates();
-
   // Enables and disables geolocation override.
   void SetOverride(const mojom::GeopositionResult& result);
   void ClearOverride();
@@ -89,8 +85,8 @@ class GeolocationImpl : public mojom::Geolocation {
   bool high_accuracy_hint_;
 
   // Caches the last effective high accuracy value sent to the provider. A new
-  // subscription is initiated only if this value changes. `std::optional`
-  // ensures a subscription is always created on the very first update request.
+  // subscription is initiated when there is no active subscription or when this
+  // value changes.
   std::optional<bool> effective_high_accuracy_;
 
   // True if requesting precise geolocation accuracy is permitted by the current

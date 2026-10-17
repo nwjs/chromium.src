@@ -48,6 +48,7 @@ Wichtige Hinweise:
 <translation id="1784567647421309104">Passwörter in Chrome speichern</translation>
 <translation id="1790080846677398234">Fügt die eingegebenen URLs zu deinen Lesezeichen in Chrome hinzu.</translation>
 <translation id="1799920918471566157">Chrome-Tipps</translation>
+<translation id="1802420021606590788">Chrome verarbeitet Seitentitel und URLs in einem vertraulichen Profil in der Cloud</translation>
 <translation id="1830634592642484976">Diese Adresse ist derzeit in Chrome gespeichert. Wenn du sie in allen Google-Produkten verwenden möchtest, speichere sie in deinem Google-Konto (<ph name="USER_EMAIL" />).</translation>
 <translation id="1891812034154776216">Offene Inkognitotabs beim Verlassen von Chrome ausblenden</translation>
 <translation id="1894434821386148799">Hier findest du Chrome-Einstellungen und mehr</translation>
@@ -140,6 +141,7 @@ Du kannst erst neue Lesezeichen in deinem Konto speichern, wenn du einige gelös
 <translation id="3984746313391923992">Deine Organisation verlangt, dass du aus Chrome abgemeldet bleibst.</translation>
 <translation id="3988789688219830639">Chrome hat keinen Zugriff auf deine Fotos und Videos. Aktiviere den Zugriff unter "iOS-Einstellungen &gt; Datenschutz &gt; Fotos".</translation>
 <translation id="4064699917955374540">Bestätige deine Identität, um Chrome-Daten in deinem Google-Konto zu verwenden und zu speichern.</translation>
+<translation id="4093789416346364876">Lege Chrome als Standardbrowser fest, um überall, wo du surfst, Informationen von Gemini zu erhalten</translation>
 <translation id="411154422556990518">Lass dich über Neuigkeiten zum Preis-Tracking und Chrome-Tipps informieren.</translation>
 <translation id="417201473131094001">Wird von Chrome Canary nicht unterstützt</translation>
 <translation id="424864128008805179">Von Chrome abmelden?</translation>
@@ -268,6 +270,7 @@ Weitere Einstellungen, bei denen Daten zur Verbesserung von Chrome verwendet wer
 <translation id="7061455974939528301">Halte das Chrome-Symbol gedrückt und klicke auf „Startbildschirm bearbeiten“</translation>
 <translation id="7095110968493193530">Im Google Passwortmanager für <ph name="EMAIL" /></translation>
 <translation id="7124339256045485976">Chrome auf dem neuesten Stand halten</translation>
+<translation id="7135936755418321901">Wenn du deinen Standort mit Websites teilen möchtest, tippe auf die Einstellungen und erlaube Chrome, deinen Standort zu verwenden.</translation>
 <translation id="7145599899567697473">Passwörter in Chrome speichern und automatisch einfügen</translation>
 <translation id="7161390184744336561">Google Chrome ist veraltet</translation>
 <translation id="7165736900384873061">Google Chrome QR-Scanner nutzen</translation>
@@ -282,6 +285,7 @@ Weitere Einstellungen, bei denen Daten zur Verbesserung von Chrome verwendet wer
 <translation id="7272930098487145294">Um Bilder zu speichern, gib Chrome unter „Einstellungen“ die Berechtigung zum Hinzufügen von Fotos</translation>
 <translation id="7275945473750112644">Dein Konto wird von <ph name="HOSTED_DOMAIN" /> verwaltet, deine Chrome-Daten werden von diesem Gerät gelöscht</translation>
 <translation id="7284245284340063465">Falls du deine Passphrase vergessen hast oder diese Einstellung ändern möchtest, <ph name="BEGIN_LINK" />lösche die Chrome-Daten in deinem Konto<ph name="END_LINK" />.</translation>
+<translation id="7287957555760192025">Wenn du einen Vorschlag auswählst oder ignorierst, passt sich Chrome an, damit du in Zukunft relevantere Vorschläge siehst.</translation>
 <translation id="7296102444587051536">Chrome für iOS</translation>
 <translation id="7299681342915173313">Du kannst jetzt Chrome jederzeit nutzen, wenn du in E‑Mails, Dokumenten und anderen Apps auf Links tippst.</translation>
 <translation id="7334364820047587268">Du hast bereits Passwörter für diese Konten im Google Passwortmanager. Wenn du eines der Passwörter unten importierst, wird das vorhandene ersetzt.</translation>
@@ -355,6 +359,7 @@ Deine Daten wurden am <ph name="TIME" /> mit deiner Passphrase verschlüsselt. G
 <translation id="8544583291890527417">Benachrichtigungen bei von Chrome erkannten Problemen mit dem Datenschutz und der Sicherheit.</translation>
 <translation id="855027533751209304">Chrome-Tipp: Suchen, was du siehst</translation>
 <translation id="8558480467877843976">Du kannst jetzt Chrome jederzeit nutzen, wenn du surfst oder auf Links in Nachrichten, Dokumenten und anderen Apps tippst.</translation>
+<translation id="8589791109349384456">Wenn du Vorschläge deaktivierst, hat das keine Auswirkungen auf die Verarbeitung von Seitentiteln und URLs für andere Funktionen durch Chrome. Du kannst den Zugriff auf diese Daten in deinen <ph name="BEGIN_LINK" />Synchronisierungseinstellungen<ph name="END_LINK" /> verwalten.</translation>
 <translation id="8603022514504485810">Der Google Passwortmanager konnte nicht alle Passwörter prüfen. Versuche es morgen noch einmal oder <ph name="BEGIN_LINK" />prüfe die Passwörter in deinem Google-Konto<ph name="END_LINK" />.</translation>
 <translation id="8610372330814566250">In Safari gespeicherte Passwörter, Verlauf, Lesezeichen und Kreditkarten in Chrome verwenden</translation>
 <translation id="8630122478628016441">Aktiviere die Option „Inkognitotabs sperren, wenn Chrome geschlossen wird“.</translation>

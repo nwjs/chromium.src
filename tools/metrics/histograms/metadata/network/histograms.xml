@@ -198,7 +198,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Network.Ash.Cellular.Apn.CreateCustomApn.AllowApnModification"
-    enum="BooleanEnabled" expires_after="2026-12-01">
+    enum="BooleanEnabled" expires_after="2027-03-14">
   <owner>nikhilcn@google.com</owner>
   <owner>cros-device-enablement@google.com</owner>
   <summary>
@@ -2153,7 +2153,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Network.GlobalPrivacyControlSource.Subsampled"
-    enum="GPCSignalSourceType" expires_after="2026-12-31">
+    enum="GPCSignalSourceType" expires_after="2027-03-31">
   <owner>arichiv@chromium.org</owner>
   <owner>zalmashni@google.com</owner>
   <summary>
@@ -2517,7 +2517,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Network.SharedDictionary.DocumentRequestCacheResult"
     enum="SharedDictionaryDocumentRequestCacheResult"
-    expires_after="2027-01-10">
+    expires_after="2027-03-14">
   <owner>pmeenan@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -4381,7 +4381,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Network.Shill.WiFi.Passpoint.ProvisioningResult"
-    enum="PasspointProvisioningResult" expires_after="2026-12-31">
+    enum="PasspointProvisioningResult" expires_after="2027-03-14">
   <owner>hugobenichi@google.com</owner>
   <owner>cros-networking@google.com</owner>
   <owner>cros-network-metrics@google.com</owner>
@@ -4639,7 +4639,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Network.Shill.WiFi.SessionTagState.{Event}"
-    enum="WiFiSessionTagState" expires_after="2026-12-31">
+    enum="WiFiSessionTagState" expires_after="2027-03-21">
   <owner>kglund@google.com</owner>
   <owner>druth@google.com</owner>
   <owner>cros-network-metrics@google.com</owner>
@@ -5137,6 +5137,25 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="NetworkService.ClearHttpCacheMode"
+    enum="NetworkServiceClearHttpCacheMode" expires_after="2027-05-26">
+  <owner>deepakr@chromium.org</owner>
+  <owner>net-dev@chromium.org</owner>
+  <summary>
+    Whether an HTTP cache clearing request asked for physical eviction (entries
+    are removed from the disk cache immediately) or logical invalidation (an
+    invalidation filter is registered and matching entries are doomed on
+    access).
+
+    Recorded once per call to NetworkContext::ClearHttpCache() or
+    NetworkContext::ClearHttpCacheLogically(). Note this is recorded before the
+    LogicalClearHttpCache feature state is consulted, so Logical is recorded
+    even when the feature is disabled and the request falls back to a physical
+    clear. This makes the Logical bucket a count of requests that opted in to
+    logical clearing, independent of experiment arm.
+  </summary>
+</histogram>
+
 <histogram name="NetworkService.ConnectionAllowlist.Type"
     enum="ConnectionAllowlistType" expires_after="2027-02-14">
   <owner>averge@chromium.org</owner>
@@ -5258,7 +5277,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.NetworkLoaderCompletionTime2.{Source}"
-    units="ms" expires_after="2027-01-10">
+    units="ms" expires_after="2027-03-14">
   <owner>bashi@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -5327,7 +5346,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="NetworkService.Scheduler.IOThread.NumberOfPendingTasks.{QueueName}Queue"
-    units="count" expires_after="2027-01-10">
+    units="count" expires_after="2027-03-14">
   <owner>bashi@chromium.org</owner>
   <owner>net-dev@chromium.org</owner>
   <summary>
@@ -5340,7 +5359,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="NetworkService.Scheduler.IOThread.QueuingTime.{QueueName}Queue"
-    units="ms" expires_after="2027-01-10">
+    units="ms" expires_after="2027-03-14">
   <owner>bashi@chromium.org</owner>
   <owner>net-dev@chromium.org</owner>
   <summary>

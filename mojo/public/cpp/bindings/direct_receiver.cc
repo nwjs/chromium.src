@@ -17,6 +17,7 @@
 #include "base/task/current_thread.h"
 #include "base/task/single_thread_task_runner.h"
 #include "build/build_config.h"
+#include "mojo/buildflags.h"
 #include "mojo/core/ipcz_api.h"
 #include "mojo/core/ipcz_driver/driver.h"
 #include "mojo/core/ipcz_driver/transport.h"
@@ -125,6 +126,7 @@ thread_local ThreadLocalNode* g_thread_local_node;
 }  // namespace
 
 ThreadLocalNode::ThreadLocalNode(base::PassKey<ThreadLocalNode>) {
+  CHECK(IsDirectReceiverSupported());
   CHECK(!g_thread_local_node);
   g_thread_local_node = this;
 
@@ -362,6 +364,16 @@ void ThreadLocalNode::OnTransferredPortalAvailable() {
 
 namespace mojo {
 
+bool IsDirectReceiverSupported() {
+#if BUILDFLAG(IS_APPLE) && !BUILDFLAG(MOJO_USE_APPLE_CHANNEL)
+  // Connecting a node hands over ipcz' node link memory as a Mach handle, but
+  // ChannelPosix can only carry file descriptors. Affects tvOS only.
+  return false;
+#else
+  return true;
+#endif
+}
+
 bool IsAsyncIOSupported() {
   if (!base::CurrentThread::IsSet()) {
     return false;
@@ -375,7 +387,9 @@ bool IsAsyncIOSupported() {
 void CreateDirectReceiverTransportBeforeSandbox() {
   CHECK(!internal::g_use_precreated_transport);
   internal::g_use_precreated_transport = true;
-  internal::TransportPairStorage::Get().CreateTransportPairBeforeSandbox();
+  if (IsDirectReceiverSupported()) {
+    internal::TransportPairStorage::Get().CreateTransportPairBeforeSandbox();
+  }
 }
 
 #endif  // BUILDFLAG(IS_WIN)

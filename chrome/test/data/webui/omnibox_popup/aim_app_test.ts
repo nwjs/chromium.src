@@ -31,6 +31,7 @@ suite('AimAppTest', function() {
       voiceSearchCoherenceCobrowsingComposeboxEnabled: false,
       contextButtonShapeIsOblong: false,
       webuiOmniboxSimplificationEnabled: false,
+      webuiOmniboxFullPopupEnabled: false,
       composeboxSmartTabSharingVisible: false,
       contextManagementInComposeboxEnabled: false,
       contextualMenuUsePecApi: false,
@@ -138,6 +139,36 @@ suite('AimAppTest', function() {
 
     // Clear popup should clear inputs because `preserveContextOnClose` was
     // reset to false.
+    page.clearPopup();
+    await microtasksFinished();
+    assertTrue(!app.$.composebox.input);
+  });
+
+  // Regression test for b/558982300: `AddContext` can be delivered while the
+  // popup document is hidden (e.g. still occluded by a file picker). It must
+  // not throw and must still reset `preserveContextOnClose`.
+  test('AddContextWhileHiddenResetsPreserveContext', async function() {
+    const app = document.createElement('omnibox-aim-app');
+    document.body.appendChild(app);
+
+    page.setPreserveContextOnClose(true);
+    await microtasksFinished();
+
+    Object.defineProperty(
+        document, 'visibilityState', {value: 'hidden', configurable: true});
+    try {
+      page.addContext({
+        input: 'test context',
+        attachments: [],
+        toolMode: 0,
+      });
+      await microtasksFinished();
+    } finally {
+      // Remove the own-property override to restore the prototype getter.
+      delete (document as {visibilityState?: DocumentVisibilityState})
+          .visibilityState;
+    }
+
     page.clearPopup();
     await microtasksFinished();
     assertTrue(!app.$.composebox.input);
@@ -422,6 +453,7 @@ suite('AimAppTest', function() {
           searchboxLayoutMode: 'TallBottomContext',
           contextButtonShapeIsOblong: true,
           webuiOmniboxSimplificationEnabled: true,
+          webuiOmniboxFullPopupEnabled: true,
           voiceSearchCoherenceComposeboxesEnabled: true,
         });
         const app = document.createElement('omnibox-aim-app');
@@ -440,12 +472,14 @@ suite('AimAppTest', function() {
         assertEquals('forward', composebox.submitButtonIconType);
         assertTrue(composebox.isOblongShape);
         assertTrue(composebox.webuiOmniboxSimplificationEnabled);
+        assertTrue(composebox.closeOnEscape);
         assertTrue(composebox.showVoiceSearch);
         assertFalse(composebox.disableVoiceSearchAnimation);
         assertFalse(composebox.showMenuOnClick);
         assertTrue(composebox.shouldShowGhostFiles);
         assertTrue(composebox.usePecApi);
         assertTrue(composebox.smartComposeEnabled);
+        assertTrue(composebox.composeboxNoFlickerSuggestionsFix);
       });
 
   test('ResetsSubmittingOnClose', async function() {
@@ -458,6 +492,23 @@ suite('AimAppTest', function() {
     await microtasksFinished();
 
     assertFalse(app.$.composebox.submitting);
+  });
+
+  test('PassesInputToRequestCloseOnCloseComposebox', async function() {
+    const app = document.createElement('omnibox-aim-app');
+    document.body.appendChild(app);
+    await microtasksFinished();
+
+    app.$.composebox.input = 'test draft text';
+    app.$.composebox.dispatchEvent(new CustomEvent('close-composebox', {
+      bubbles: true,
+      composed: true,
+      detail: {composeboxText: 'test draft text'},
+    }));
+    await microtasksFinished();
+
+    assertEquals(1, handler.getCallCount('requestClose'));
+    assertEquals('test draft text', handler.getArgs('requestClose')[0]);
   });
 });
 

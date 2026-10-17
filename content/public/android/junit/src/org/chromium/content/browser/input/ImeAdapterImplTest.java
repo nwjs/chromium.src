@@ -4,6 +4,8 @@
 
 package org.chromium.content.browser.input;
 
+import static android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE;
+
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.any;
@@ -13,7 +15,6 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNotNull;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
@@ -21,12 +22,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.graphics.Rect;
+import android.os.Build;
 import android.os.SystemClock;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.style.SuggestionSpan;
 import android.view.KeyEvent;
 import android.view.ViewGroup;
+import android.view.WindowInsetsController;
 import android.view.inputmethod.CorrectionInfo;
 import android.view.inputmethod.EditorInfo;
 
@@ -42,6 +45,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.mockito.stubbing.Answer;
+import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
@@ -53,12 +57,15 @@ import org.chromium.blink_public.web.WebInputEventModifier;
 import org.chromium.content.browser.RenderCoordinatesImpl;
 import org.chromium.content.browser.webcontents.WebContentsImpl;
 import org.chromium.content_public.browser.ContentFeatureList;
+import org.chromium.content_public.browser.GlobalRenderFrameHostId;
 import org.chromium.content_public.browser.ImeEventObserver;
 import org.chromium.content_public.browser.InputMethodManagerWrapper;
+import org.chromium.content_public.browser.RenderFrameHost;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.common.ContentFeatures;
 import org.chromium.ui.accessibility.AccessibilityFeatures;
 import org.chromium.ui.base.DeviceInput;
+import org.chromium.ui.base.EventForwarder;
 import org.chromium.ui.base.ime.TextInputType;
 import org.chromium.ui.mojom.ImeTextSpanType;
 import org.chromium.ui.test.util.TestViewAndroidDelegate;
@@ -83,6 +90,10 @@ public class ImeAdapterImplTest {
     @Mock private CorrectionInfo mCorrectionInfo;
     @Mock private AutocorrectManager mAutocorrectManager;
     @Mock private InputMethodManagerWrapper mInputMethodManagerWrapper;
+    @Mock private EventForwarder mEventForwarder;
+    @Mock private RenderFrameHost mRenderFrameHost;
+    @Mock private RenderCoordinatesImpl mRenderCoordinatesImpl;
+    @Mock private WindowInsetsController mWindowInsetsController;
 
     @Before
     public void setUp() {
@@ -102,6 +113,7 @@ public class ImeAdapterImplTest {
                 .thenReturn(ApplicationProvider.getApplicationContext().getResources());
         when(mWebContentsImpl.getViewAndroidDelegate())
                 .thenReturn(new TestViewAndroidDelegate(mContainerView));
+        when(mWebContentsImpl.getEventForwarder()).thenReturn(mEventForwarder);
     }
 
     @Test
@@ -139,6 +151,26 @@ public class ImeAdapterImplTest {
                 /* textInputMode= */ 0,
                 /* textInputAction= */ 0,
                 /* showIfNeeded= */ false,
+                /* alwaysHide= */ false,
+                /* text= */ "",
+                /* selectionStart= */ 0,
+                /* selectionEnd= */ 0,
+                /* compositionStart= */ 0,
+                /* compositionEnd= */ 0,
+                /* replyToRequest= */ false,
+                /* lastVkVisibilityRequest= */ 0,
+                /* vkPolicy= */ 0,
+                /* imeTextSpans= */ null);
+    }
+
+    private void updateTextInputTypeWithShow(
+            ImeAdapterImpl adapter, @TextInputType int textInputType) {
+        adapter.updateState(
+                /* textInputType= */ textInputType,
+                /* textInputFlags= */ 0,
+                /* textInputMode= */ 0,
+                /* textInputAction= */ 0,
+                /* showIfNeeded= */ true,
                 /* alwaysHide= */ false,
                 /* text= */ "",
                 /* selectionStart= */ 0,
@@ -464,8 +496,22 @@ public class ImeAdapterImplTest {
     }
 
     @Test
+    public void testGetFocusedFrameId() {
+        ImeAdapterImpl adapter = new ImeAdapterImpl(mWebContentsImpl);
+        Assert.assertNull(adapter.getFocusedFrameId());
+
+        GlobalRenderFrameHostId frameId = new GlobalRenderFrameHostId(1, 2);
+        when(mRenderFrameHost.getGlobalRenderFrameHostId()).thenReturn(frameId);
+        when(mWebContentsImpl.getFocusedFrame()).thenReturn(mRenderFrameHost);
+
+        Assert.assertEquals(frameId, adapter.getFocusedFrameId());
+    }
+
+    @Test
     public void testCommitContent() {
-        when(mImeAdapterImplJni.insertMediaFromBytes(anyLong(), any(), any())).thenReturn(true);
+        GlobalRenderFrameHostId frameId = new GlobalRenderFrameHostId(1, 2);
+        when(mImeAdapterImplJni.insertMediaFromBytes(anyLong(), eq(1), eq(2), any(), any()))
+                .thenReturn(true);
         HistogramWatcher watcher =
                 HistogramWatcher.newBuilder()
                         .expectIntRecord(
@@ -476,16 +522,39 @@ public class ImeAdapterImplTest {
         adapter.onConnectedToRenderProcess();
 
         Assert.assertTrue(
-                adapter.commitContent(/* bytes= */ new byte[] {1, 2, 3}, /* extension= */ "png"));
+                adapter.commitContent(
+                        frameId, /* bytes= */ new byte[] {1, 2, 3}, /* extension= */ "png"));
 
         verify(mImeAdapterImplJni)
-                .insertMediaFromBytes(anyLong(), eq(new byte[] {1, 2, 3}), eq("png"));
+                .insertMediaFromBytes(anyLong(), eq(1), eq(2), eq(new byte[] {1, 2, 3}), eq("png"));
+        watcher.assertExpected();
+    }
+
+    @Test
+    public void testCommitContent_NullTargetFrame() {
+        HistogramWatcher watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                "Input.CommitContent.Failure", ImeMetricsUtils.ExtensionFormat.PNG)
+                        .build();
+
+        ImeAdapterImpl adapter = new ImeAdapterImpl(mWebContentsImpl);
+        adapter.onConnectedToRenderProcess();
+
+        Assert.assertFalse(
+                adapter.commitContent(
+                        null, /* bytes= */ new byte[] {1, 2, 3}, /* extension= */ "png"));
+
+        verify(mImeAdapterImplJni, never())
+                .insertMediaFromBytes(anyLong(), anyInt(), anyInt(), any(), any());
         watcher.assertExpected();
     }
 
     @Test
     public void testCommitContent_Failure() {
-        when(mImeAdapterImplJni.insertMediaFromBytes(anyLong(), any(), any())).thenReturn(false);
+        GlobalRenderFrameHostId frameId = new GlobalRenderFrameHostId(1, 2);
+        when(mImeAdapterImplJni.insertMediaFromBytes(anyLong(), eq(1), eq(2), any(), any()))
+                .thenReturn(false);
         HistogramWatcher watcher =
                 HistogramWatcher.newBuilder()
                         .expectIntRecord(
@@ -496,7 +565,7 @@ public class ImeAdapterImplTest {
         ImeAdapterImpl adapter = new ImeAdapterImpl(mWebContentsImpl);
         adapter.onConnectedToRenderProcess();
 
-        Assert.assertFalse(adapter.commitContent(new byte[] {1, 2, 3}, "unknown_ext"));
+        Assert.assertFalse(adapter.commitContent(frameId, new byte[] {1, 2, 3}, "unknown_ext"));
         watcher.assertExpected();
     }
 
@@ -831,10 +900,9 @@ public class ImeAdapterImplTest {
     }
 
     private void doUpdateCursorAnchorInfoTest(boolean shouldExpectRequestRectangleOnScreen) {
-        RenderCoordinatesImpl renderCoordinates = mock(RenderCoordinatesImpl.class);
-        when(mWebContentsImpl.getRenderCoordinates()).thenReturn(renderCoordinates);
-        when(renderCoordinates.getDeviceScaleFactor()).thenReturn(1.0f);
-        when(renderCoordinates.getContentOffsetYPixInt()).thenReturn(0);
+        when(mWebContentsImpl.getRenderCoordinates()).thenReturn(mRenderCoordinatesImpl);
+        when(mRenderCoordinatesImpl.getDeviceScaleFactor()).thenReturn(1.0f);
+        when(mRenderCoordinatesImpl.getContentOffsetYPixInt()).thenReturn(0);
 
         when(mContainerView.getLocalVisibleRect(any(Rect.class)))
                 .thenAnswer(
@@ -887,5 +955,161 @@ public class ImeAdapterImplTest {
     public void testUpdateCursorAnchorInfo_MagnificationFollowsFocusDisabled_NoKeyboard() {
         DeviceInput.setSupportsKeyboardForTesting(false);
         doUpdateCursorAnchorInfoTest(/* shouldExpectRequestRectangleOnScreen= */ false);
+    }
+
+    @Test
+    @EnableFeatures(ContentFeatures.RESTRICT_INTERACTIONS_IN_SWIPE_REGION_ON_FULLSCREEN)
+    public void testRestrictInteractionsInSwipeRegion_fullscreen_touchInInsets_deferredUntilTap() {
+        ImeAdapterImpl adapter = new ImeAdapterImpl(mWebContentsImpl);
+        adapter.setInputMethodManagerWrapper(mInputMethodManagerWrapper);
+        adapter.onConnectedToRenderProcess();
+
+        when(mWebContentsImpl.isFullscreenForCurrentTab()).thenReturn(true);
+
+        // Simulate touch down inside gesture insets (rawX = 20 < 50)
+        when(mEventForwarder.hasTouchOriginatingInGestureInsets(mContainerView)).thenReturn(true);
+
+        updateTextInputTypeWithShow(adapter, TextInputType.TEXT);
+
+        // Verify IME show is suppressed while touch is down in gesture insets and observer added
+        verify(mEventForwarder).addTouchSequenceObserver(adapter);
+        verify(mInputMethodManagerWrapper, never()).showSoftInput(any(), anyInt(), any());
+
+        // Simulate touch release as a tap (not exceeding touch slop)
+        when(mEventForwarder.hasTouchOriginatingInGestureInsets(mContainerView)).thenReturn(false);
+        adapter.onTouchSequenceEnded(/* hasExceededTouchSlop= */ false);
+
+        // Verify deferred IME show executes upon tap release and observer is removed
+        verify(mEventForwarder).removeTouchSequenceObserver(adapter);
+        verify(mInputMethodManagerWrapper, times(1)).showSoftInput(any(), anyInt(), any());
+    }
+
+    @Test
+    @EnableFeatures(ContentFeatures.RESTRICT_INTERACTIONS_IN_SWIPE_REGION_ON_FULLSCREEN)
+    public void testRestrictInteractionsInSwipeRegion_fullscreen_touchInInsets_swipeDiscarded() {
+        ImeAdapterImpl adapter = new ImeAdapterImpl(mWebContentsImpl);
+        adapter.setInputMethodManagerWrapper(mInputMethodManagerWrapper);
+        adapter.onConnectedToRenderProcess();
+
+        when(mWebContentsImpl.isFullscreenForCurrentTab()).thenReturn(true);
+
+        // Simulate touch down inside gesture insets
+        when(mEventForwarder.hasTouchOriginatingInGestureInsets(mContainerView)).thenReturn(true);
+
+        updateTextInputTypeWithShow(adapter, TextInputType.TEXT);
+
+        // Verify IME show suppressed
+        verify(mInputMethodManagerWrapper, never()).showSoftInput(any(), anyInt(), any());
+
+        // Simulate swipe exceeding touch slop
+        adapter.onTouchSequenceEnded(/* hasExceededTouchSlop= */ true);
+
+        // Verify discarded (never shown)
+        verify(mInputMethodManagerWrapper, never()).showSoftInput(any(), anyInt(), any());
+    }
+
+    @Test
+    @EnableFeatures(ContentFeatures.RESTRICT_INTERACTIONS_IN_SWIPE_REGION_ON_FULLSCREEN)
+    public void testRestrictInteractionsInSwipeRegion_fullscreen_touchCenter_immediate() {
+        ImeAdapterImpl adapter = new ImeAdapterImpl(mWebContentsImpl);
+        adapter.setInputMethodManagerWrapper(mInputMethodManagerWrapper);
+        adapter.onConnectedToRenderProcess();
+
+        when(mWebContentsImpl.isFullscreenForCurrentTab()).thenReturn(true);
+
+        // Simulate touch down outside gesture insets
+        when(mEventForwarder.hasTouchOriginatingInGestureInsets(mContainerView)).thenReturn(false);
+
+        updateTextInputTypeWithShow(adapter, TextInputType.TEXT);
+
+        // Verify IME shows immediately
+        verify(mInputMethodManagerWrapper, times(1)).showSoftInput(any(), anyInt(), any());
+
+        // Touch release does not trigger another show
+        adapter.onTouchSequenceEnded(/* hasExceededTouchSlop= */ false);
+        verify(mInputMethodManagerWrapper, times(1)).showSoftInput(any(), anyInt(), any());
+    }
+
+    @Test
+    @EnableFeatures(ContentFeatures.RESTRICT_INTERACTIONS_IN_SWIPE_REGION_ON_FULLSCREEN)
+    public void testRestrictInteractionsInSwipeRegion_notFullscreen_immediate() {
+        ImeAdapterImpl adapter = new ImeAdapterImpl(mWebContentsImpl);
+        adapter.setInputMethodManagerWrapper(mInputMethodManagerWrapper);
+        adapter.onConnectedToRenderProcess();
+
+        when(mWebContentsImpl.isFullscreenForCurrentTab()).thenReturn(false);
+
+        // Simulate touch down in gesture insets (rawX = 20)
+        when(mEventForwarder.hasTouchOriginatingInGestureInsets(mContainerView)).thenReturn(true);
+
+        updateTextInputTypeWithShow(adapter, TextInputType.TEXT);
+
+        // Not in fullscreen -> immediately shown
+        verify(mInputMethodManagerWrapper, times(1)).showSoftInput(any(), anyInt(), any());
+    }
+
+    @Test
+    @Config(sdk = Build.VERSION_CODES.R)
+    @EnableFeatures(ContentFeatures.RESTRICT_INTERACTIONS_IN_SWIPE_REGION_ON_FULLSCREEN)
+    public void
+            testRestrictInteractionsInSwipeRegion_stickyImmersiveWithoutFullscreenTab_deferred() {
+        ImeAdapterImpl adapter = new ImeAdapterImpl(mWebContentsImpl);
+        adapter.setInputMethodManagerWrapper(mInputMethodManagerWrapper);
+        adapter.onConnectedToRenderProcess();
+
+        when(mWebContentsImpl.isFullscreenForCurrentTab()).thenReturn(false);
+        when(mWindowInsetsController.getSystemBarsBehavior())
+                .thenReturn(BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+        when(mContainerView.getWindowInsetsController()).thenReturn(mWindowInsetsController);
+
+        // Simulate touch down inside gesture insets
+        when(mEventForwarder.hasTouchOriginatingInGestureInsets(mContainerView)).thenReturn(true);
+
+        updateTextInputTypeWithShow(adapter, TextInputType.TEXT);
+
+        // Verify IME show is suppressed because sticky immersive mode is active on container view
+        verify(mInputMethodManagerWrapper, never()).showSoftInput(any(), anyInt(), any());
+
+        // Simulate touch release as tap
+        when(mEventForwarder.hasTouchOriginatingInGestureInsets(mContainerView)).thenReturn(false);
+        adapter.onTouchSequenceEnded(/* hasExceededTouchSlop= */ false);
+        verify(mInputMethodManagerWrapper, times(1)).showSoftInput(any(), anyInt(), any());
+    }
+
+    @Test
+    @EnableFeatures(ContentFeatures.RESTRICT_INTERACTIONS_IN_SWIPE_REGION_ON_FULLSCREEN)
+    public void testRestrictInteractionsInSwipeRegion_hideKeyboardCancelsPendingShow() {
+        ImeAdapterImpl adapter = new ImeAdapterImpl(mWebContentsImpl);
+        adapter.setInputMethodManagerWrapper(mInputMethodManagerWrapper);
+        adapter.onConnectedToRenderProcess();
+
+        when(mWebContentsImpl.isFullscreenForCurrentTab()).thenReturn(true);
+        when(mEventForwarder.hasTouchOriginatingInGestureInsets(mContainerView)).thenReturn(true);
+
+        updateTextInputTypeWithShow(adapter, TextInputType.TEXT);
+        verify(mInputMethodManagerWrapper, never()).showSoftInput(any(), anyInt(), any());
+
+        adapter.resetAndHideKeyboard();
+
+        when(mEventForwarder.hasTouchOriginatingInGestureInsets(mContainerView)).thenReturn(false);
+        adapter.onTouchSequenceEnded(/* hasExceededTouchSlop= */ false);
+        verify(mInputMethodManagerWrapper, never()).showSoftInput(any(), anyInt(), any());
+    }
+
+    @Test
+    @EnableFeatures(ContentFeatures.RESTRICT_INTERACTIONS_IN_SWIPE_REGION_ON_FULLSCREEN)
+    public void testDestroy_removesTouchSequenceObserver() {
+        ImeAdapterImpl adapter = new ImeAdapterImpl(mWebContentsImpl);
+        adapter.setInputMethodManagerWrapper(mInputMethodManagerWrapper);
+        adapter.onConnectedToRenderProcess();
+
+        when(mWebContentsImpl.isFullscreenForCurrentTab()).thenReturn(true);
+        when(mEventForwarder.hasTouchOriginatingInGestureInsets(mContainerView)).thenReturn(true);
+
+        updateTextInputTypeWithShow(adapter, TextInputType.TEXT);
+        verify(mEventForwarder).addTouchSequenceObserver(adapter);
+
+        adapter.destroyFromNative();
+        verify(mEventForwarder).removeTouchSequenceObserver(adapter);
     }
 }

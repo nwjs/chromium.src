@@ -71,14 +71,20 @@ _ANDROID_PGO_CACHE_SUFFIX = 'cache/pgo_profiles'
 # data_dep of //tools/pgo's script tests).
 _JDK_BIN_DIR = f'{_ROOT_DIR}/third_party/jdk/current/bin'
 
+# Enabled by testing/variations/fieldtrial_testing_config.json, so every
+# benchmark run has to turn them off explicitly. Stops the hang watcher from
+# generating dumps, see https://crbug.com/425223287.
+_HANG_WATCHER_FEATURES = (
+    'EnableHangWatcher',
+    'EnableHangWatcherOnGpuProcess',
+)
+
 # Telemetry sets these on every benchmark run, on top of the field trial config,
 # see GetFromBrowserOptions in //third_party/catapult/telemetry/telemetry/
 # internal/backends/chrome/chrome_startup_args.py. Keep them in sync so that
 # crossbench profiles the same browser configuration telemetry does.
 _TELEMETRY_STARTUP_BROWSER_ARGS = (
-    # Stops the hang watcher from generating dumps, see
-    # https://crbug.com/425223287.
-    '--disable-features=EnableHangWatcher,EnableHangWatcherOnGpuProcess',
+    f'--disable-features={",".join(_HANG_WATCHER_FEATURES)}',
 )
 
 # Benchmark files to serve from a local HTTP file server, since devices in
@@ -89,7 +95,7 @@ _TELEMETRY_STARTUP_BROWSER_ARGS = (
 # absent from this map keep crossbench's default (live) URL.
 _CROSSBENCH_LOCAL_BENCHMARK_DIRS = {
     'speedometer3': 'third_party/speedometer/v3.1',
-    'jetstream2': 'third_party/jetstream/v2.2',
+    'jetstream3': 'third_party/jetstream/v3.0',
 }
 
 # This is necessary to get proper logging on bots and locally. If this script is
@@ -112,6 +118,7 @@ class Benchmark:
     enable_features: List[str] = field(default_factory=list)
     disable_features: List[str] = field(default_factory=list)
     pageset_repeat: int = 1
+    weight: int = 1
 
     def is_crossbench(self) -> bool:
         return self.name.endswith('.crossbench')
@@ -275,15 +282,6 @@ def parse_args():
         help='Only run benchmarks that do not require any special access. See '
         'https://www.chromium.org/developers/telemetry/upload_to_cloud_storage/#request-access-for-google-partners '
         'for more information.',
-    )
-    # TODO(crbug.com/479547498): Remove this option and run
-    # jetstream3.crossbench by default after we finish testing.
-    parser.add_argument(
-        '--run-jetstream3',
-        '--run-js3',
-        action='store_true',
-        default=False,
-        help='Include JetStream 3 benchmark (using crossbench)',
     )
     parser.add_argument(
         '--temporal-trace-length',
@@ -474,6 +472,9 @@ def get_crossbench_driver_path(args: OptionsNamespace):
         if os.path.exists(path):
             return path
 
+    if args.dry_run:
+        return f'{args.builddir}/chromedriver{_EXE_EXT}'
+
     raise FileNotFoundError(f"chromedriver not found for {args.builddir}")
 
 
@@ -621,7 +622,7 @@ def get_crossbench_pgo_probe_args(args: OptionsNamespace):
 
 
 def run_benchmark(benchmark: Benchmark, args: OptionsNamespace):
-    '''Puts profdata in {profiledir}/{args[0]}.profdata'''
+    '''Puts profdata in {profiledir}/{benchmark.name}.profdata'''
     global _android_browser_installed
 
     is_crossbench = benchmark.is_crossbench()
@@ -633,16 +634,25 @@ def run_benchmark(benchmark: Benchmark, args: OptionsNamespace):
         'SpareRendererForSitePerProcess',
         'AndroidWarmUpSpareRendererWithTimeout',
     ]
+    if not args.android_browser:
+        # On Android these are added by
+        # get_crossbench_variations_browser_args() (crossbench) or by telemetry
+        # itself, see _HANG_WATCHER_FEATURES.
+        disabled_features.extend(_HANG_WATCHER_FEATURES)
+        if sys.platform == 'win32':
+            # Prevents flakiness on Windows 10 devices, see
+            # https://crbug.com/457520120 and https://crbug.com/461512702.
+            disabled_features.append('SessionRestoreInfobar')
 
-    # With crossbench, Android browser flags go into a crossbench browser
-    # config instead, see write_crossbench_browser_config().
-    uses_browser_config = is_crossbench and args.android_browser
     browser_args = benchmark.ProduceBrowserArgs(disabled_features)
-    if uses_browser_config:
-        browser_args = get_crossbench_variations_browser_args(browser_args)
-    benchmark_args = benchmark.ProduceBenchmarkArgs(
-        browser_args=[] if uses_browser_config else browser_args
-    )
+    if is_crossbench:
+        if args.android_browser:
+            browser_args = get_crossbench_variations_browser_args(browser_args)
+        benchmark_args = benchmark.args.copy()
+    else:
+        benchmark_args = benchmark.ProduceBenchmarkArgs(
+            browser_args=browser_args
+        )
 
     pageset_repeat_str = (
         f' with pageset_repeat={benchmark.pageset_repeat}'
@@ -653,12 +663,12 @@ def run_benchmark(benchmark: Benchmark, args: OptionsNamespace):
         f"Running benchmark: {' '.join(benchmark_args)}{pageset_repeat_str}"
     )
 
-    # Include the story since per-story benchmarks use [name, --story=s]. The
-    # remaining args are browser flags, which are far too long to name a
-    # directory after now that they carry the field trial config.
-    name = benchmark_args[0]
-    if len(benchmark_args) > 1 and IsStoryFlag(benchmark_args[1]):
-        name += f'_{benchmark_args[1]}'
+    # Include the story suffix since per-story benchmarks use
+    # [name, --story=s].
+    name = benchmark.name
+    if len(benchmark_args) > 1 and benchmark_args[1].startswith('--story='):
+        story_name = benchmark_args[1].split('=', 1)[1]
+        name += f'_{story_name}'
 
     # Clean up intermediate files from previous runs.
     profraw_path = f'{args.profiledir}/{name}/raw'
@@ -702,6 +712,9 @@ def run_benchmark(benchmark: Benchmark, args: OptionsNamespace):
                 '-r',
                 str(benchmark.pageset_repeat),
                 '--no-splash',
+                # Warn rather than prompting or failing on environment
+                # validation checks during automated/PGO runs.
+                '--env-validation=warn',
                 # Crossbench otherwise fills its output directory with symlinked
                 # views of the same results (per run/session/story). Those make
                 # the profraw glob below return each file hundreds of times
@@ -769,12 +782,31 @@ def run_benchmark(benchmark: Benchmark, args: OptionsNamespace):
         )
     else:
         if sys.platform == 'darwin':
-            exe_path = f'{args.builddir}/Chromium.app/Contents/MacOS/Chromium'
+            candidates = [
+                os.path.join(
+                    args.builddir,
+                    'Google Chrome.app/Contents/MacOS/Google Chrome',
+                ),
+                os.path.join(
+                    args.builddir,
+                    'Chromium.app/Contents/MacOS/Chromium',
+                ),
+            ]
+            exe_path = next((c for c in candidates if os.path.exists(c)), None)
+            if exe_path is None:
+                if args.dry_run:
+                    exe_path = candidates[0]
+                else:
+                    raise FileNotFoundError(
+                        f'No Chrome/Chromium app found in {args.builddir}'
+                    )
         else:
             exe_path = f'{args.builddir}/chrome' + _EXE_EXT
         if is_crossbench:
-            driver_path = f'{args.builddir}/chromedriver' + _EXE_EXT
+            driver_path = get_crossbench_driver_path(args)
             cmd += ['-b', exe_path, '--driver-path', driver_path]
+            cmd += ['--enable-field-trial-config=benchmarking']
+            cmd += ['--'] + browser_args
         else:
             cmd += [
                 '--browser=exact',
@@ -798,7 +830,7 @@ def run_benchmark(benchmark: Benchmark, args: OptionsNamespace):
     # or helpers) need time to exit cleanly so that LLVM profile handlers
     # write out all .profraw files before classification and merging begin.
     if not args.dry_run:
-        builddir_abs = os.path.abspath(args.builddir).lower()
+        builddir_abs = os.path.join(os.path.abspath(args.builddir).lower(), '')
         _LOGGER.info(
             f"Waiting for all child processes in {args.builddir} to exit..."
         )
@@ -833,7 +865,7 @@ def run_benchmark(benchmark: Benchmark, args: OptionsNamespace):
                 f"{max_wait_seconds}s: {running_processes}"
             )
 
-    if args.skip_profdata:
+    if args.skip_profdata or args.dry_run:
         _LOGGER.info("Skipping profdata merging")
 
         return
@@ -966,7 +998,7 @@ def run_benchmarks(benchmarks: List[Benchmark], args: OptionsNamespace):
         # a story, which drops the profiles collected by the preceding story. On
         # Android its benchmarks are therefore split into one run per story, so
         # that every story's profile is kept (see https://crrev.com/c/5718532).
-        # Crossbench benchmarks do not need this: speedometer3 and jetstream2
+        # Crossbench benchmarks do not need this: speedometer3 and jetstream
         # run all their substories within a single page load, and the
         # chromium_pgo probe collects the profiles per run, before the browser
         # is torn down.
@@ -989,11 +1021,36 @@ def merge_profdata(
     _LOGGER.info(f"Merging all profdata files into: {profile_output_path}")
     all_profdata = glob.glob(f'{args.profiledir}/*.profdata')
 
+    weights_by_name = (
+        {b.name: b.weight for b in benchmarks if b.weight != 1}
+        if benchmarks
+        else {}
+    )
+
+    def apply_weight(f: str) -> str:
+        basename = os.path.basename(f)
+        stem = (
+            basename[: -len('.profdata')]
+            if basename.endswith('.profdata')
+            else basename
+        )
+        weight = weights_by_name.get(stem)
+        if weight is None:
+            for b_name in sorted(weights_by_name, key=len, reverse=True):
+                if stem.startswith(b_name + '_'):
+                    weight = weights_by_name[b_name]
+                    break
+        if weight and weight != 1:
+            return f'--weighted-input={weight},{f}'
+        return f
+
     if not getattr(args, 'separate_renderer_pgo', False):
         _LOGGER.debug(f"Found {len(all_profdata)} profdata files")
         if not all_profdata:
             raise RuntimeError(f'No profdata files found in {args.profiledir}')
-        run_profdata_merge(profile_output_path, all_profdata, args)
+        run_profdata_merge(
+            profile_output_path, [apply_weight(f) for f in all_profdata], args
+        )
     else:
         benchmark_names = {b.name for b in benchmarks} if benchmarks else set()
         default_profdata = []
@@ -1027,14 +1084,19 @@ def merge_profdata(
             raise RuntimeError(
                 f'No browser profdata files found in {args.profiledir}'
             )
-        run_profdata_merge(profile_output_path, default_profdata, args)
+        run_profdata_merge(
+            profile_output_path,
+            [apply_weight(f) for f in default_profdata],
+            args,
+        )
 
+        base, ext = os.path.splitext(profile_output_path)
         for prefix, files in files_by_prefix.items():
             _LOGGER.debug(f"Found {len(files)} {prefix} profdata files")
-            target_output_path = profile_output_path.replace(
-                '.profdata', f'_{prefix}.profdata'
+            target_output_path = f'{base}_{prefix}{ext}'
+            run_profdata_merge(
+                target_output_path, [apply_weight(f) for f in files], args
             )
-            run_profdata_merge(target_output_path, files, args)
 
     if args.temporal_trace_length:
         _LOGGER.info("Generating orderfile for temporal PGO")
@@ -1050,7 +1112,38 @@ def merge_profdata(
         subprocess.run(orderfile_cmd, check=True)
 
 
+def write_isolated_script_test_output(
+    output_path: str, passed: bool, start_time: Optional[float] = None
+):
+    output_dir = os.path.dirname(output_path)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+    status = 'PASS' if passed else 'FAIL'
+    results = {
+        'version': 3,
+        'interrupted': False,
+        'path_delimiter': '/',
+        'seconds_since_epoch': (
+            start_time if start_time is not None else time.time()
+        ),
+        'tests': {
+            'generate_profile': {
+                'expected': 'PASS',
+                'actual': status,
+            }
+        },
+        'num_failures_by_type': {
+            status: 1,
+        },
+    }
+    if not passed:
+        results['tests']['generate_profile']['is_unexpected'] = True
+    with open(output_path, 'w') as f:
+        json.dump(results, f)
+
+
 def main():
+    start_time = time.time()
     args = parse_args()
 
     handler = logging.StreamHandler()
@@ -1086,27 +1179,58 @@ def main():
         shutil.rmtree(args.profiledir)
 
     # Run the shortest benchmarks first to fail early if anything is wrong.
+    # On Apple Silicon, Speedometer3 executes quickly enough that 3 repeats and
+    # a 5x merge weight (see https://crbug.com/363195532) are used to match the
+    # mac-arm-pgo builder configuration.
+    is_mac_arm = (
+        not args.android_browser
+        and sys.platform == 'darwin'
+        and args.target_arch == 'arm64'
+    )
     benchmarks: list[Benchmark] = [
-        Benchmark('speedometer3.crossbench', ['speedometer3']),
-        Benchmark('jetstream2.crossbench', ['jetstream2']),
+        Benchmark(
+            'speedometer3.crossbench',
+            ['speedometer3'],
+            pageset_repeat=3 if is_mac_arm else 1,
+            weight=5 if is_mac_arm else 1,
+        ),
     ]
 
-    if args.run_jetstream3:
-        benchmarks.append(Benchmark('jetstream3.crossbench', ['jetstream3']))
+    # JetStream is disabled on 32-bit Windows due to failures, see
+    # https://crbug.com/327040688.
+    if not (
+        not args.android_browser
+        and sys.platform == 'win32'
+        and args.target_arch == 'x86'
+    ):
+        jetstream_args = ['jetstream3']
+        if args.target_arch in ('arm', 'x86'):
+            # Skip memory-hungry stories on 32-bit platforms to avoid OOM and
+            # timeouts, see https://crbug.com/487336000 and
+            # https://crbug.com/565414952.
+            jetstream_args.append(
+                '--stories=default,-babylonjs-scene-es6,'
+                '-transformersjs-bert-wasm'
+            )
+        benchmarks.append(Benchmark('jetstream3.crossbench', jetstream_args))
 
     # These benchmarks require special access permissions:
     # https://www.chromium.org/developers/telemetry/upload_to_cloud_storage/#request-access-for-google-partners
     if not args.run_public_benchmarks_only:
         platform = 'mobile' if args.android_browser else 'desktop'
-        benchmarks.append(
-            Benchmark(
-                'system_health',
-                [
-                    f'system_health.common_{platform}',
-                    '--run-abridged-story-set',
-                ],
+        # GPU-dependent benchmarks (system_health, motionmark) are disabled on
+        # Linux desktop until the Swarming pool GPU driver issue is resolved,
+        # see https://crbug.com/444038165.
+        if args.android_browser or not sys.platform.startswith('linux'):
+            benchmarks.append(
+                Benchmark(
+                    'system_health',
+                    [
+                        f'system_health.common_{platform}',
+                        '--run-abridged-story-set',
+                    ],
+                )
             )
-        )
 
         motionmark_benchmark_args = [
             f'rendering.{platform}',
@@ -1150,25 +1274,55 @@ def main():
                     ],
                 )
             )
-        else:
+        elif platform == 'mobile':
             benchmarks.append(
                 Benchmark('motionmark', motionmark_benchmark_args)
             )
+        elif sys.platform == 'darwin':
+            # MotionMark is disabled on Linux (https://crbug.com/444038165) and
+            # Windows (https://crbug.com/327032629) desktop PGO builders.
+            benchmarks.append(
+                Benchmark('motionmark', motionmark_benchmark_args)
+            )
+            # Exercise the Skia Graphite path on macOS.
+            benchmarks.append(
+                Benchmark(
+                    'motionmark_graphite',
+                    motionmark_benchmark_args,
+                    enable_features=['SkiaGraphite'],
+                )
+            )
 
-    fail_count = run_benchmarks(benchmarks, args)
-    if fail_count:
-        _LOGGER.warning(
-            f'Of the {len(benchmarks)} benchmarks, there were '
-            f'{fail_count} failures that were resolved by repeat '
-            'runs.'
-        )
+    os.makedirs(args.outputdir, exist_ok=True)
+    try:
+        fail_count = run_benchmarks(benchmarks, args)
+        if fail_count:
+            # Retried failures were recovered.
+            _LOGGER.warning(
+                f'Of the {len(benchmarks)} benchmarks, there were '
+                f'{fail_count} failures that were resolved by repeat '
+                'runs.'
+            )
 
-    if not args.skip_profdata:
-        # Bots run a separate merge step (merge_results.py) that expects profraw
-        # files instead of profdata files.
-        suffix = ".profraw" if args.isolated_script_test_output else ".profdata"
-        profile_output_path = f'{args.outputdir}/profile{suffix}'
-        merge_profdata(profile_output_path, args, benchmarks)
+        if not args.skip_profdata and not args.dry_run:
+            # Bots run a separate merge step (merge_results.py) that expects
+            # profraw files instead of profdata files.
+            suffix = (
+                ".profraw" if args.isolated_script_test_output else ".profdata"
+            )
+            profile_output_path = f'{args.outputdir}/profile{suffix}'
+            merge_profdata(profile_output_path, args, benchmarks)
+
+        if args.isolated_script_test_output:
+            write_isolated_script_test_output(
+                args.isolated_script_test_output, True, start_time
+            )
+    except Exception:
+        if args.isolated_script_test_output:
+            write_isolated_script_test_output(
+                args.isolated_script_test_output, False, start_time
+            )
+        raise
 
     if not args.keep_temps:
         _LOGGER.info(

@@ -9,6 +9,7 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/metrics/user_action_tester.h"
 #include "base/test/scoped_feature_list.h"
+#include "build/branding_buildflags.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
@@ -50,6 +51,10 @@
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_features.h"
+
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING) && !BUILDFLAG(IS_CHROMEOS)
+#include "chrome/test/base/scoped_channel_override.h"
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING) && !BUILDFLAG(IS_CHROMEOS)
 
 namespace chrome {
 
@@ -941,6 +946,48 @@ IN_PROC_BROWSER_TEST_F(BrowserCommandsTest,
   EXPECT_EQ(incognito_tab->GetTabFeatures()->commerce_ui_tab_helper(), nullptr);
 }
 
+class NonGroupFocusMoveToWindowTest : public BrowserCommandsTest {
+ public:
+  NonGroupFocusMoveToWindowTest() {
+    focus_feature_list_.InitWithFeatures(
+        {features::kTabGroupsFocusing, features::kNonGroupFocus}, {});
+  }
+
+ private:
+  base::test::ScopedFeatureList focus_feature_list_;
+};
+
+// Selecting every tab of a group normally moves the group itself to the new
+// window. That must not happen for an ephemeral group, or the destination
+// window ends up showing a tab group the user never created.
+IN_PROC_BROWSER_TEST_F(NonGroupFocusMoveToWindowTest,
+                       MoveAllTabsOfEphemeralGroupToNewWindow) {
+  AddTabs(1);
+  TabStripModel* const model = browser()->GetTabStripModel();
+
+  // Focus tab 1 on its own, which wraps it in an ephemeral group.
+  model->ExecuteContextMenuCommand(1, TabStripModel::CommandToggleFocusGroup);
+  const std::optional<tab_groups::TabGroupId> ephemeral_group =
+      model->GetFocusedGroup();
+  ASSERT_TRUE(ephemeral_group.has_value());
+  ASSERT_TRUE(model->IsEphemeralTabGroup(ephemeral_group.value()));
+
+  ui_test_utils::BrowserCreatedObserver browser_created_observer;
+  chrome::MoveTabsToNewWindow(browser(), {1});
+  BrowserWindowInterface* const second_browser =
+      browser_created_observer.Wait();
+
+  // The tab arrives on its own, not wrapped in the ephemeral group.
+  TabStripModel* const second_model = second_browser->GetTabStripModel();
+  ASSERT_EQ(1, second_model->count());
+  EXPECT_EQ(std::nullopt, second_model->GetTabAtIndex(0)->GetGroup());
+  EXPECT_TRUE(second_model->group_model()->ListTabGroups().empty());
+
+  // The source window has left focus mode with no leftover group.
+  EXPECT_EQ(model->GetFocusedGroup(), std::nullopt);
+  EXPECT_FALSE(model->group_model()->ContainsTabGroup(ephemeral_group.value()));
+}
+
 class BrowserCommandsIsolatedModeTest : public InProcessBrowserTest {
  public:
   void SetUpCommandLine(base::CommandLine* command_line) override {
@@ -948,6 +995,12 @@ class BrowserCommandsIsolatedModeTest : public InProcessBrowserTest {
         enterprise_isolated_mode::switches::
             kForceEnterpriseIsolatedModeReplacesIncognito);
   }
+
+ private:
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING) && !BUILDFLAG(IS_CHROMEOS)
+  chrome::ScopedChannelOverride channel_override_{
+      chrome::ScopedChannelOverride::Channel::kDev};
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING) && !BUILDFLAG(IS_CHROMEOS)
 };
 
 IN_PROC_BROWSER_TEST_F(BrowserCommandsIsolatedModeTest,

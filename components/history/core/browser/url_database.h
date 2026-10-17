@@ -7,9 +7,12 @@
 
 #include <stddef.h>
 
+#include <memory>
 #include <string>
 #include <vector>
 
+#include "base/containers/flat_map.h"
+#include "base/containers/span.h"
 #include "base/time/time.h"
 #include "components/history/core/browser/history_types.h"
 #include "components/history/core/browser/keyword_id.h"
@@ -29,6 +32,7 @@ class Database;
 
 namespace history {
 
+class KeywordSearchTermRowEnumerator;
 class KeywordSearchTermVisitEnumerator;
 struct KeywordSearchTermRow;
 
@@ -66,6 +70,12 @@ class URLDatabase {
   // Looks up a url given an id. Fills info with the data. Returns true on
   // success and false otherwise.
   bool GetURLRow(URLID url_id, URLRow* info);
+
+  // Looks up multiple URLs given their IDs. Clears `url_rows` and populates
+  // it with the found rows, keyed by URLID. Returns true on success (even if
+  // some IDs were not found in the database).
+  bool GetURLRows(base::span<const URLID> url_ids,
+                  base::flat_map<URLID, URLRow>* url_rows);
 
   // Looks up the given URL and if it exists, fills the given pointers with the
   // associated info and returns the ID of that URL. If the info pointer is
@@ -165,6 +175,11 @@ class URLDatabase {
   // times in the order of the most significant ones first.
   bool InitURLEnumeratorForSignificant(URLEnumerator* enumerator);
 
+  // Initializes the given enumerator to enumerate all URLs in the database that
+  // were typed at least once or that have a keyword search term, i.e. the
+  // subset cached by InMemoryDatabase. Requires the keyword search terms table.
+  bool InitURLEnumeratorForTypedOrSearched(URLEnumerator* enumerator);
+
   // Autocomplete --------------------------------------------------------------
 
   // Fills the given array with URLs matching the given prefix.  They will be
@@ -255,6 +270,16 @@ class URLDatabase {
   // newest.
   std::unique_ptr<KeywordSearchTermVisitEnumerator>
   CreateKeywordSearchTermVisitEnumerator(KeywordID keyword_id);
+
+  // Returns an enumerator over every row of the keyword search terms table, or
+  // nullptr if the table cannot be read.
+  std::unique_ptr<KeywordSearchTermRowEnumerator>
+  CreateKeywordSearchTermRowEnumerator();
+
+  // Inserts `row` verbatim into the keyword search terms table, without
+  // normalizing the term or checking for an existing row. Used to copy rows
+  // between databases; see SetKeywordSearchTermsForURL() for regular updates.
+  bool InsertKeywordSearchTermRow(const KeywordSearchTermRow& row);
 
   // Deletes all searches matching `term`.
   bool DeleteKeywordSearchTerm(const std::u16string& term);

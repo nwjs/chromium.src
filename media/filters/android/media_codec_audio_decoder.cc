@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "base/android/android_info.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
@@ -19,6 +20,7 @@
 #include "media/base/android/media_codec_util.h"
 #include "media/base/audio_timestamp_helper.h"
 #include "media/base/media_serializers.h"
+#include "media/base/media_switches.h"
 #include "media/base/status.h"
 #include "media/base/timestamp_constants.h"
 #include "media/formats/ac3/ac3_util.h"
@@ -88,37 +90,55 @@ void MediaCodecAudioDecoder::Initialize(const AudioDecoderConfig& config,
   bool platform_codec_supported = false;
   is_passthrough_ = false;
   sample_format_ = config.target_output_sample_format();
+  const bool allow_clear_fallback =
+      !base::FeatureList::IsEnabled(kStrictMediaCodecAudioDecoderSupport);
+
   switch (config.codec()) {
+    case AudioCodec::kAAC:
+#if BUILDFLAG(USE_PROPRIETARY_CODECS)
+      // Chrome doesn't bundle an xHE-AAC decoder, so we must use MediaCodec.
+      platform_codec_supported =
+          allow_clear_fallback || config.is_encrypted() ||
+          config.profile() == AudioCodecProfile::kXHE_AAC;
+#else
+      // Chromium embedders may desire AAC support w/o it being built-in.
+      platform_codec_supported = true;
+#endif
+      break;
+
     case AudioCodec::kVorbis:
     case AudioCodec::kFLAC:
-    case AudioCodec::kAAC:
     case AudioCodec::kOpus:
-      platform_codec_supported = true;
+      // These codecs are only supported through MediaCodec when encrypted.
+      platform_codec_supported = allow_clear_fallback || config.is_encrypted();
       break;
-    case AudioCodec::kUnknown:
-    case AudioCodec::kMP3:
-    case AudioCodec::kPCM:
-    case AudioCodec::kAMR_NB:
-    case AudioCodec::kAMR_WB:
-    case AudioCodec::kPCM_MULAW:
-    case AudioCodec::kGSM_MS:
-    case AudioCodec::kPCM_S16BE:
-    case AudioCodec::kPCM_S24BE:
-    case AudioCodec::kPCM_ALAW:
-    case AudioCodec::kALAC:
-    case AudioCodec::kAC4:
-    case AudioCodec::kIAMF:
-      platform_codec_supported = false;
-      break;
+
     case AudioCodec::kAC3:
     case AudioCodec::kEAC3:
+      if (allow_clear_fallback || BUILDFLAG(ENABLE_PLATFORM_AC3_EAC3_AUDIO)) {
+        is_passthrough_ = sample_format_ != kUnknownSampleFormat;
+        platform_codec_supported = MediaCodecUtil::CanDecode(config.codec());
+      }
+      break;
+
     case AudioCodec::kDTS:
     case AudioCodec::kDTSXP2:
     case AudioCodec::kDTSE:
+      if (allow_clear_fallback || BUILDFLAG(ENABLE_PLATFORM_DTS_AUDIO)) {
+        is_passthrough_ = sample_format_ != kUnknownSampleFormat;
+        platform_codec_supported = MediaCodecUtil::CanDecode(config.codec());
+      }
+      break;
+
     case AudioCodec::kMpegHAudio:
-      is_passthrough_ = sample_format_ != kUnknownSampleFormat;
-      // Check if MediaCodec Library supports decoding of the sample format.
-      platform_codec_supported = MediaCodecUtil::CanDecode(config.codec());
+      if (allow_clear_fallback || BUILDFLAG(ENABLE_PLATFORM_MPEG_H_AUDIO)) {
+        is_passthrough_ = sample_format_ != kUnknownSampleFormat;
+        platform_codec_supported = MediaCodecUtil::CanDecode(config.codec());
+      }
+      break;
+
+    default:
+      platform_codec_supported = false;
       break;
   }
 
@@ -428,10 +448,9 @@ bool MediaCodecAudioDecoder::OnDecodedFrame(
         sample_format_, channel_layout_, channel_count_, sample_rate_,
         frame_count, out.size, pool_);
 
-    const auto channels = audio_buffer->channels();
-    CHECK(!channels.empty());
+    const base::span<uint8_t> bitstream_data = audio_buffer->bitstream_data();
     MediaCodecResult result = media_codec->CopyFromOutputBuffer(
-        out.index, out.offset, channels.front());
+        out.index, out.offset, bitstream_data);
 
     if (!result.is_ok()) {
       media_codec->ReleaseOutputBuffer(out.index, false);
@@ -439,13 +458,13 @@ bool MediaCodecAudioDecoder::OnDecodedFrame(
     }
 
     if (config_.codec() == AudioCodec::kAC3) {
-      frame_count = Ac3Util::ParseTotalAc3SampleCount(channels.front());
+      frame_count = Ac3Util::ParseTotalAc3SampleCount(bitstream_data);
     } else if (config_.codec() == AudioCodec::kEAC3) {
-      frame_count = Ac3Util::ParseTotalEac3SampleCount(channels.front());
+      frame_count = Ac3Util::ParseTotalEac3SampleCount(bitstream_data);
 #if BUILDFLAG(ENABLE_PLATFORM_DTS_AUDIO)
     } else if (config_.codec() == AudioCodec::kDTS) {
       frame_count =
-          media::dts::ParseTotalSampleCount(channels.front(), AudioCodec::kDTS);
+          media::dts::ParseTotalSampleCount(bitstream_data, AudioCodec::kDTS);
       DVLOG(2) << ": DTS Frame Count = " << frame_count;
 #endif  // BUILDFLAG(ENABLE_PLATFORM_DTS_AUDIO)
     } else {
@@ -470,10 +489,11 @@ bool MediaCodecAudioDecoder::OnDecodedFrame(
   // Copy data into AudioBuffer.
   CHECK_LE(out.size, audio_buffer->data_size());
 
-  const auto channels = audio_buffer->channels();
-  CHECK(!channels.empty());
-  MediaCodecResult result = media_codec->CopyFromOutputBuffer(
-      out.index, out.offset, channels.front());
+  const base::span<uint8_t> dest = is_passthrough_
+                                       ? audio_buffer->bitstream_data()
+                                       : audio_buffer->interleaved_data();
+  MediaCodecResult result =
+      media_codec->CopyFromOutputBuffer(out.index, out.offset, dest);
 
   // Release MediaCodec output buffer.
   media_codec->ReleaseOutputBuffer(out.index, false);

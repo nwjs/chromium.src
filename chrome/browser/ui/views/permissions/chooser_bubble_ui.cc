@@ -33,6 +33,7 @@
 #include "ui/views/controls/table/table_view_observer.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/widget/widget.h"
+#include "ui/views/window/dialog_delegate.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 #include "chrome/browser/ui/views/extensions/chooser_dialog_view.h"
@@ -86,8 +87,9 @@ class ChooserBubbleUiViewDelegate : public LocationBarBubbleDelegateView,
   std::u16string GetWindowTitle() const override;
 
   // views::DialogDelegate:
-  bool IsDialogButtonEnabled(ui::mojom::DialogButton button) const override;
   views::View* GetInitiallyFocusedView() override;
+  bool ShouldAllowKeyEventsDuringInputProtection() const override;
+  bool IsDialogButtonEnabled(ui::mojom::DialogButton button) const override;
 
   // views::TableViewObserver:
   void OnSelectionChanged() override;
@@ -170,6 +172,11 @@ std::u16string ChooserBubbleUiViewDelegate::GetWindowTitle() const {
 
 views::View* ChooserBubbleUiViewDelegate::GetInitiallyFocusedView() {
   return GetCancelButton();
+}
+
+bool ChooserBubbleUiViewDelegate::ShouldAllowKeyEventsDuringInputProtection()
+    const {
+  return false;
 }
 
 bool ChooserBubbleUiViewDelegate::IsDialogButtonEnabled(

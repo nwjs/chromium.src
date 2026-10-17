@@ -97,6 +97,24 @@ extern NSString* const kSettingsDoneButtonId;
     BWGControllerForBrowser:(Browser*)browser
                    delegate:(id<SettingsNavigationControllerDelegate>)delegate;
 
+// Creates a new `SettingsNavigationController` that displays the Gemini
+// contextual cue settings. `browser` is the browser where settings are being
+// displayed and should not be nil. `delegate` may be nil.
++ (instancetype)
+    BWGContextualCueControllerForBrowser:(Browser*)browser
+                                delegate:
+                                    (id<SettingsNavigationControllerDelegate>)
+                                        delegate;
+
+// Creates a new SettingsNavigationController that displays the Suggestions from
+// Gemini settings. `browser` is the browser where settings are being displayed
+// and should not be nil. `delegate` may be nil.
++ (instancetype)
+    geminiSuggestionsControllerForBrowser:(Browser*)browser
+                                 delegate:
+                                     (id<SettingsNavigationControllerDelegate>)
+                                         delegate;
+
 // Creates a new SettingsNavigationController that displays the Suggestions from
 // Gemini Help Improve settings.
 + (instancetype)
@@ -368,6 +386,9 @@ extern NSString* const kSettingsDoneButtonId;
 // `closeSettings` when it is pressed. Should only be called by view controllers
 // owned by SettingsNavigationController.
 - (UIBarButtonItem*)doneButton;
+
+// Shows the Suggestions from Gemini settings UI (no back button).
+- (void)showSuggestionsFromGemini;
 
 // Shows the Enhanced Autofill settings UI (no back button).
 - (void)showEnhancedAutofillSettings;

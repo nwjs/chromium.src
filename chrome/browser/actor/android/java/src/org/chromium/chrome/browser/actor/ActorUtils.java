@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.actor;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 
+import org.chromium.base.DeviceInfo;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.notifications.channels.ChromeChannelDefinitions;
@@ -80,23 +81,51 @@ public class ActorUtils {
                 && newTaskState == ActorTaskState.WAITING_ON_USER;
     }
 
-    /** Returns whether both app-level notifications and the Actor channel are enabled. */
-    public static boolean areActorNotificationsEnabled() {
+    /**
+     * Returns the current notification permission state for Actor notifications.
+     *
+     * @return The {@link ActorMetrics.ActorNotificationPermissionState}.
+     */
+    public static @ActorMetrics.ActorNotificationPermissionState int
+            getActorNotificationPermissionState() {
         if (!NotificationProxyUtils.areNotificationsEnabled()) {
-            return false;
+            return ActorMetrics.ActorNotificationPermissionState.OS_DISABLED;
         }
         NotificationChannel channel =
                 NotificationManagerProxyImpl.getInstance()
                         .getNotificationChannel(ChromeChannelDefinitions.ChannelId.ACTOR);
-        return channel == null || channel.getImportance() != NotificationManager.IMPORTANCE_NONE;
+        // IMPORTANCE_NONE indicates the user specifically disabled the Actor notification channel
+        // in Chrome/Android notification settings even though app-wide notifications are enabled.
+        if (channel != null && channel.getImportance() == NotificationManager.IMPORTANCE_NONE) {
+            return ActorMetrics.ActorNotificationPermissionState.CHANNEL_DISABLED;
+        }
+        return ActorMetrics.ActorNotificationPermissionState.ENABLED;
+    }
+
+    /** Returns whether both app-level notifications and the Actor channel are enabled. */
+    public static boolean areActorNotificationsEnabled() {
+        return getActorNotificationPermissionState()
+                == ActorMetrics.ActorNotificationPermissionState.ENABLED;
     }
 
     /**
-     * Returns whether background actuation is enabled and allowed (i.e. the base
-     * GlicBackgroundActuation feature flag is enabled, and either notifications are enabled or the
-     * feature param is configured not to require notifications).
+     * Returns whether Actor picture-in-picture is available on this device. Desktop keeps tasks
+     * running with offscreen rendering instead, so it never enters Actor picture-in-picture.
+     */
+    public static boolean isActorPipSupported() {
+        return !DeviceInfo.isDesktop();
+    }
+
+    /**
+     * Returns whether background actuation is enabled and allowed (i.e. the device is not a
+     * desktop, the base GlicBackgroundActuation feature flag is enabled, and either notifications
+     * are enabled or the feature param is configured not to require notifications).
      */
     public static boolean isBackgroundActuationEnabled() {
+        // Desktop keeps tasks running with offscreen rendering rather than background actuation.
+        if (DeviceInfo.isDesktop()) {
+            return false;
+        }
         if (!ChromeFeatureList.sGlicBackgroundActuation.isEnabled()) {
             return false;
         }

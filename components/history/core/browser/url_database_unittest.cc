@@ -5,9 +5,13 @@
 #include "components/history/core/browser/url_database.h"
 
 #include <limits>
+#include <memory>
+#include <vector>
 
+#include "base/containers/flat_map.h"
 #include "base/files/file_path.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_feature_list.h"
 #include "components/history/core/browser/features.h"
@@ -15,6 +19,7 @@
 #include "components/history/core/browser/keyword_search_term_util.h"
 #include "sql/database.h"
 #include "sql/test/test_helpers.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using base::Time;
@@ -32,6 +37,21 @@ bool IsURLRowEqual(const URLRow& a,
          a.typed_count() == b.typed_count() &&
          a.last_visit() - b.last_visit() <= base::Seconds(1) &&
          a.hidden() == b.hidden();
+}
+
+// Matches a KeywordSearchTermRow with the given field values.
+testing::Matcher<const KeywordSearchTermRow&> MatchesSearchTerm(
+    KeywordID keyword_id,
+    URLID url_id,
+    const std::u16string& term,
+    const std::u16string& normalized_term) {
+  return testing::AllOf(
+      testing::Field("keyword_id", &KeywordSearchTermRow::keyword_id,
+                     keyword_id),
+      testing::Field("url_id", &KeywordSearchTermRow::url_id, url_id),
+      testing::Field("term", &KeywordSearchTermRow::term, term),
+      testing::Field("normalized_term", &KeywordSearchTermRow::normalized_term,
+                     normalized_term));
 }
 
 }  // namespace
@@ -587,6 +607,80 @@ TEST_F(URLDatabaseTest, EnumeratorForSignificant) {
   EXPECT_EQ(6, row_count);
 }
 
+TEST_F(URLDatabaseTest, EnumeratorForTypedOrSearched) {
+  URLRow typed(GURL("http://www.typed.com/"));
+  typed.set_typed_count(1);
+  const URLID typed_id = AddURL(typed);
+  ASSERT_NE(0, typed_id);
+
+  URLRow hidden_typed(GURL("http://www.hidden-typed.com/"));
+  hidden_typed.set_typed_count(1);
+  hidden_typed.set_hidden(true);
+  const URLID hidden_typed_id = AddURL(hidden_typed);
+  ASSERT_NE(0, hidden_typed_id);
+
+  const URLID searched_id =
+      AddURL(URLRow(GURL("https://www.google.com/search?q=foo")));
+  ASSERT_NE(0, searched_id);
+  ASSERT_TRUE(
+      SetKeywordSearchTermsForURL(searched_id, /*keyword_id=*/1, u"foo"));
+
+  URLRow visited(GURL("http://www.visited.com/"));
+  visited.set_visit_count(10);
+  ASSERT_NE(0, AddURL(visited));
+
+  URLDatabase::URLEnumerator enumerator;
+  ASSERT_TRUE(InitURLEnumeratorForTypedOrSearched(&enumerator));
+  std::vector<URLID> ids;
+  for (URLRow row; enumerator.GetNextURL(&row);) {
+    ids.push_back(row.id());
+  }
+  EXPECT_THAT(ids, testing::UnorderedElementsAre(typed_id, hidden_typed_id,
+                                                 searched_id));
+}
+
+TEST_F(URLDatabaseTest, KeywordSearchTermRowEnumerator) {
+  const URLID foo_id =
+      AddURL(URLRow(GURL("https://www.google.com/search?q=Foo")));
+  ASSERT_NE(0, foo_id);
+  ASSERT_TRUE(SetKeywordSearchTermsForURL(foo_id, /*keyword_id=*/1, u"Foo"));
+  const URLID bar_id =
+      AddURL(URLRow(GURL("https://www.bing.com/search?q=Bar+Baz")));
+  ASSERT_NE(0, bar_id);
+  ASSERT_TRUE(
+      SetKeywordSearchTermsForURL(bar_id, /*keyword_id=*/2, u"Bar  Baz"));
+
+  std::unique_ptr<KeywordSearchTermRowEnumerator> enumerator =
+      CreateKeywordSearchTermRowEnumerator();
+  ASSERT_TRUE(enumerator);
+  std::vector<KeywordSearchTermRow> rows;
+  while (std::unique_ptr<KeywordSearchTermRow> row = enumerator->GetNextRow()) {
+    rows.push_back(std::move(*row));
+  }
+  EXPECT_THAT(rows, testing::UnorderedElementsAre(
+                        MatchesSearchTerm(1, foo_id, u"Foo", u"foo"),
+                        MatchesSearchTerm(2, bar_id, u"Bar  Baz", u"bar baz")));
+}
+
+TEST_F(URLDatabaseTest, InsertKeywordSearchTermRow) {
+  const URLID url_id =
+      AddURL(URLRow(GURL("https://www.google.com/search?q=Foo")));
+  ASSERT_NE(0, url_id);
+
+  // The row is stored as given, without normalizing the term.
+  KeywordSearchTermRow row;
+  row.keyword_id = 1;
+  row.url_id = url_id;
+  row.term = u"Foo  Bar";
+  row.normalized_term = u"not normalized";
+  ASSERT_TRUE(InsertKeywordSearchTermRow(row));
+
+  KeywordSearchTermRow stored;
+  ASSERT_TRUE(GetKeywordSearchTermRow(url_id, &stored));
+  EXPECT_THAT(stored,
+              MatchesSearchTerm(1, url_id, u"Foo  Bar", u"not normalized"));
+}
+
 // Test GetKeywordSearchTermRows and DeleteSearchTerm
 TEST_F(URLDatabaseTest, GetAndDeleteKeywordSearchTermByTerm) {
   URLRow url_info1(GURL("http://www.google.com/"));
@@ -838,6 +932,94 @@ TEST_F(URLDatabaseTest, GetURLCountAndLastVisitForPrefix) {
       row);
 
   EXPECT_FALSE(GetURLCountAndLastVisitForPrefix("", &row));
+}
+
+TEST_F(URLDatabaseTest, GetURLRows_EmptyInput) {
+  base::flat_map<URLID, URLRow> url_rows;
+  // Pre-populate to verify that GetURLRows clears the output container.
+  url_rows[42] = URLRow(GURL("http://example.com/"));
+  EXPECT_TRUE(GetURLRows({}, &url_rows));
+  EXPECT_TRUE(url_rows.empty());
+}
+
+TEST_F(URLDatabaseTest, GetURLRows_NonExistentAndCorrupt) {
+  URLRow url_info1(GURL("http://www.google.com/"));
+  url_info1.set_title(u"Google");
+  URLID id1 = AddURL(url_info1);
+  ASSERT_TRUE(id1);
+
+  // Directly insert a corrupted row with an invalid URL string into the
+  // database. FillURLRow will return false for this row, which should cause
+  // GetURLRows to safely skip it without adding it to url_rows.
+  constexpr URLID kCorruptId = 54321;
+  ASSERT_TRUE(GetDB().Execute(
+      "INSERT INTO urls (id, url, title, visit_count, typed_count, "
+      "last_visit_time, hidden) VALUES (54321, 'not a valid url', 'Bad', 1, 0, "
+      "0, 0)"));
+
+  // Query with existing id1, corrupt id, and non-existent IDs (e.g. 99999, -1).
+  base::flat_map<URLID, URLRow> url_rows;
+  std::vector<URLID> query_ids = {id1, kCorruptId, 99999, -1};
+  EXPECT_TRUE(GetURLRows(query_ids, &url_rows));
+  EXPECT_EQ(1u, url_rows.size());
+  ASSERT_TRUE(url_rows.contains(id1));
+  EXPECT_EQ(url_info1.url(), url_rows[id1].url());
+  EXPECT_EQ(url_info1.title(), url_rows[id1].title());
+}
+
+TEST_F(URLDatabaseTest, GetURLRows_DuplicateIDs) {
+  URLRow url_info1(GURL("http://www.google.com/"));
+  url_info1.set_title(u"Google");
+  URLID id1 = AddURL(url_info1);
+  ASSERT_TRUE(id1);
+
+  URLRow url_info2(GURL("http://mail.google.com/"));
+  url_info2.set_title(u"Google Mail");
+  URLID id2 = AddURL(url_info2);
+  ASSERT_TRUE(id2);
+
+  // Passing duplicate IDs in the query vector should not error or duplicate map
+  // entries.
+  base::flat_map<URLID, URLRow> url_rows;
+  std::vector<URLID> query_ids = {id1, id2, id1, id2, id1};
+  EXPECT_TRUE(GetURLRows(query_ids, &url_rows));
+  EXPECT_EQ(2u, url_rows.size());
+  EXPECT_TRUE(url_rows.contains(id1));
+  EXPECT_TRUE(url_rows.contains(id2));
+}
+
+TEST_F(URLDatabaseTest, GetURLRows_BatchChunking) {
+  // Insert 251 URLs to verify both the exact kBatchSize (250) boundary
+  // and the second chunk boundary (kBatchSize + 1).
+  constexpr size_t kNumUrls = 251;
+  std::vector<URLID> expected_ids;
+  expected_ids.reserve(kNumUrls);
+  for (size_t i = 0; i < kNumUrls; ++i) {
+    URLRow row(GURL(base::StringPrintf("http://example.com/%zu", i)));
+    row.set_title(base::UTF8ToUTF16(base::StringPrintf("Title %zu", i)));
+    URLID id = AddURL(row);
+    ASSERT_TRUE(id);
+    expected_ids.push_back(id);
+  }
+
+  // Verify exact boundary of kBatchSize (250).
+  base::flat_map<URLID, URLRow> url_rows_250;
+  EXPECT_TRUE(GetURLRows(base::span(expected_ids).first(250u), &url_rows_250));
+  EXPECT_EQ(250u, url_rows_250.size());
+
+  // Verify boundary of kBatchSize + 1 (251).
+  base::flat_map<URLID, URLRow> url_rows_251;
+  EXPECT_TRUE(GetURLRows(expected_ids, &url_rows_251));
+  EXPECT_EQ(251u, url_rows_251.size());
+
+  for (size_t i = 0; i < expected_ids.size(); ++i) {
+    URLID id = expected_ids[i];
+    ASSERT_TRUE(url_rows_251.contains(id));
+    EXPECT_EQ(GURL(base::StringPrintf("http://example.com/%zu", i)),
+              url_rows_251[id].url());
+    EXPECT_EQ(base::UTF8ToUTF16(base::StringPrintf("Title %zu", i)),
+              url_rows_251[id].title());
+  }
 }
 
 }  // namespace history

@@ -213,7 +213,6 @@
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/page/page_animator.h"
 #include "third_party/blink/renderer/core/page/plugin_data.h"
-#include "third_party/blink/renderer/core/page/plugin_script_forbidden_scope.h"
 #include "third_party/blink/renderer/core/page/pointer_lock_controller.h"
 #include "third_party/blink/renderer/core/page/scrolling/scrolling_coordinator.h"
 #include "third_party/blink/renderer/core/paint/object_painter.h"
@@ -743,7 +742,6 @@ bool LocalFrame::DetachImpl(FrameDetachType type) {
     provisional_owner->SetProvisionalFrame(nullptr);
   }
 
-  PluginScriptForbiddenScope forbid_plugin_destructor_scripting;
   // In a kSwap detach, if we have a navigation going, its moved to the frame
   // being swapped in, so we don't need to notify the client about the
   // navigation stopping here. That will be up to the provisional frame being
@@ -963,6 +961,10 @@ void LocalFrame::SetClipPathPaintImageGeneratorForTesting(
 
 LCPCriticalPathPredictor* LocalFrame::GetLCPP() {
   if (!LcppEnabled()) {
+    return nullptr;
+  }
+
+  if (!IsAttached()) {
     return nullptr;
   }
 
@@ -4341,6 +4343,10 @@ void LocalFrame::WriteIntoTrace(perfetto::TracedValue ctx) const {
 
 mojo::PendingRemote<mojom::blink::BlobURLStore>
 LocalFrame::GetBlobUrlStorePendingRemote() {
+  if (base::FeatureList::IsEnabled(features::kEnforcePdfBlobRestrictions) &&
+      Client()->IsDomStorageDisabled()) {
+    return mojo::NullRemote();
+  }
   mojo::PendingRemote<mojom::blink::BlobURLStore> pending_remote;
   GetBrowserInterfaceBroker().GetInterface(
       pending_remote.InitWithNewPipeAndPassReceiver());

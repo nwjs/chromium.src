@@ -3,13 +3,39 @@
  * found in the LICENSE file. */
 
 body {
-  margin: 24px;
-  color: #202124;
+  font-family: $i18nRaw{fontfamily};
+  font-size: $i18n{fontsize};
+}
+
+button {
+  font-family: $i18nRaw{fontfamily};
+}
+
+.enterprise-proxy-error button {
+  background: var(--primary-button-fill-color);
+}
+
+.enterprise-proxy-error .icon,
+.category-other .icon {
+  background-image: image-set(
+      url(images/1x/sad_tab.png) 1x,
+      url(images/2x/sad_tab.png) 2x);
+}
+
+.category-authorization .icon {
+  background-image: image-set(
+      url(images/1x/warning.png) 1x,
+      url(images/2x/warning.png) 2x);
+}
+
+.category-authentication .icon {
+  background-image: image-set(
+      url(images/1x/domain.png) 1x,
+      url(images/2x/domain.png) 2x);
 }
 
 @media (prefers-color-scheme: dark) {
-  body {
-    background-color: #202124;
-    color: #e8eaed;
+  .category-authentication .icon {
+    filter: invert(1) grayscale(1);
   }
 }

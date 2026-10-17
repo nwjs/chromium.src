@@ -34,6 +34,14 @@ buildflag_header("background_mode_buildflags") {
   ]
 }
 
+buildflag_header("custom_scheme_buildflags") {
+  header = "custom_scheme_buildflags.h"
+  flags = [
+    "SECURE_CUSTOM_SCHEME=\"$url_secure_scheme\"",
+    "INSECURE_CUSTOM_SCHEME=\"$url_unsecure_scheme\"",
+  ]
+}
+
 buildflag_header("ios_force_build_chrome_framework_buildflags") {
   header = "ios_force_build_chrome_framework_buildflags.h"
   flags =
@@ -103,13 +111,19 @@ source_set("tasks_handling") {
   public_deps = [ ":tasks_handling_header" ]
 
   deps = [
+    ":change_profile_commands",
+    ":change_profile_continuation",
+    ":custom_scheme_buildflags",
     ":mode",
     "//base",
     "//components/crash/core/common",
     "//components/handoff",
     "//components/prefs",
     "//components/search_engines",
+    "//components/signin/public/identity_manager",
+    "//google_apis",
     "//ios/chrome/app:unexpected_mode_toast_util",
+    "//ios/chrome/app/application_delegate:app_init_stage",
     "//ios/chrome/app/application_delegate:app_state",
     "//ios/chrome/app/application_delegate:startup_information",
     "//ios/chrome/app/application_delegate:tab_opening",
@@ -119,6 +133,7 @@ source_set("tasks_handling") {
     "//ios/chrome/app/spotlight",
     "//ios/chrome/app/startup:startup_basic",
     "//ios/chrome/app/strings",
+    "//ios/chrome/browser/authentication/ui_bundled/change_profile",
     "//ios/chrome/browser/credential_exchange/model:credential_import_manager_swift",
     "//ios/chrome/browser/credential_provider/model:features",
     "//ios/chrome/browser/default_browser/model",
@@ -134,13 +149,16 @@ source_set("tasks_handling") {
     "//ios/chrome/browser/reading_list/model",
     "//ios/chrome/browser/search_engines/model",
     "//ios/chrome/browser/shared/coordinator/scene:scene_state_header",
+    "//ios/chrome/browser/shared/coordinator/scene:url_context",
     "//ios/chrome/browser/shared/model/application_context",
     "//ios/chrome/browser/shared/model/prefs:pref_names",
     "//ios/chrome/browser/shared/model/profile",
     "//ios/chrome/browser/shared/model/url",
     "//ios/chrome/browser/shared/model/url:constants",
+    "//ios/chrome/browser/shared/public/commands",
     "//ios/chrome/browser/shared/public/features",
     "//ios/chrome/browser/shared/public/snackbar",
+    "//ios/chrome/browser/signin/model",
     "//ios/chrome/browser/signin/model:system_identity_manager",
     "//ios/chrome/browser/start_surface/ui_bundled",
     "//ios/chrome/browser/url_loading/model",
@@ -191,6 +209,7 @@ source_set("unit_tests") {
     "change_profile_animator_unittest.mm",
     "deferred_initialization_runner_unittest.mm",
     "legacy_scene_identifier_map_unittest.mm",
+    "main_controller_unittest.mm",
     "safe_mode_app_state_agent_unittest.mm",
     "scene_identifier_map_impl_unittest.mm",
     "tab_opener_unittest.mm",
@@ -205,6 +224,9 @@ source_set("unit_tests") {
     ":app_internal",
     ":app_metrics_app_state_agent",
     ":change_profile_animator",
+    ":change_profile_commands",
+    ":change_profile_continuation",
+    ":custom_scheme_buildflags",
     ":mode",
     ":safe_mode_app_state_agent",
     ":scene_identifier_map",
@@ -226,6 +248,7 @@ source_set("unit_tests") {
     "//components/variations/service",
     "//ios/chrome/app:enterprise_app_agent",
     "//ios/chrome/app/application_delegate",
+    "//ios/chrome/app/application_delegate:app_init_stage",
     "//ios/chrome/app/application_delegate:app_state",
     "//ios/chrome/app/application_delegate:metrics_mediator",
     "//ios/chrome/app/application_delegate:startup_information",
@@ -271,8 +294,16 @@ source_set("unit_tests") {
     "//ios/chrome/browser/shared/model/profile",
     "//ios/chrome/browser/shared/model/profile/test",
     "//ios/chrome/browser/shared/model/url:constants",
+    "//ios/chrome/browser/shared/public/commands",
     "//ios/chrome/browser/shared/public/features",
+    "//ios/chrome/browser/signin/model",
+    "//ios/chrome/browser/signin/model:authentication_service",
+    "//ios/chrome/browser/signin/model:authentication_service_factory",
+    "//ios/chrome/browser/signin/model:fake_system_identity",
+    "//ios/chrome/browser/signin/model:fake_system_identity_manager",
     "//ios/chrome/browser/signin/model:test_support",
+    "//ios/chrome/browser/sync/model",
+    "//ios/chrome/browser/sync/model:test_support",
     "//ios/chrome/browser/tabs/model",
     "//ios/chrome/browser/url_loading/model:url_loading_params_header",
     "//ios/chrome/browser/variations/model:fetcher",
@@ -587,6 +618,8 @@ source_set("app_internal") {
     "//ios/chrome/app/application_delegate:url_opener",
     "//ios/chrome/app/application_delegate:url_opener_params",
     "//ios/chrome/app/background_refresh",
+    "//ios/chrome/app/background_task",
+    "//ios/chrome/app/background_task:features",
     "//ios/chrome/app/profile",
     "//ios/chrome/app/profile:profile_controller",
     "//ios/chrome/app/startup",
@@ -702,10 +735,6 @@ source_set("app_internal") {
 
   if (ios_enable_credential_provider_extension) {
     deps += [ "//ios/chrome/browser/credential_provider/model" ]
-  }
-
-  if (ios_enable_background_continued_processing) {
-    deps += [ "//ios/chrome/app/background_task" ]
   }
 
   if (enable_rlz) {

@@ -40,6 +40,7 @@
 #include "crypto/sign.h"
 #include "crypto/unexportable_key.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 
 namespace unexportable_keys {
 
@@ -179,7 +180,7 @@ std::string GetSpareKeyPoolHistogramName(std::string_view suffix) {
        suffix},
       ".");
 }
-// LINT.ThenChange(//tools/metrics/histograms/metadata/net/histograms.xml:UnexportableKeysSpareKeyPoolType)
+// LINT.ThenChange(//tools/metrics/histograms/metadata/crypto/histograms.xml:UnexportableKeysSpareKeyPoolType)
 
 // Wraps the original key generation callback with latency metrics tracking.
 // This records the duration from when the request was initiated until it is

@@ -364,7 +364,9 @@ using autofill::autofill_metrics::MandatoryReauthOptInOrOutSource;
   footer.text =
       l10n_util::GetNSString(IDS_AUTOFILL_SETTINGS_GOOGLE_WALLET_LEGAL_NOTICE);
   footer.urls = @[ [[CrURL alloc]
-      initWithGURL:GURL("https://wallet.google.com/wallet/settings")] ];
+      initWithGURL:GURL("https://wallet.google.com/"
+                        "wallet?p=settings&utm_source=chrome&utm_medium="
+                        "settings&utm_campaign=settings")] ];
   return footer;
 }
 
@@ -372,8 +374,10 @@ using autofill::autofill_metrics::MandatoryReauthOptInOrOutSource;
 - (TableViewItem*)itemForCreditCard:(const autofill::CreditCard&)creditCard {
   std::string guid(creditCard.guid());
   NSString* creditCardName = autofill::GetCreditCardName(
-      creditCard,
-      GetApplicationContext()->GetApplicationLocaleStorage()->Get());
+      creditCard, std::string(GetApplicationContext()
+                                  ->GetApplicationLocaleStorage()
+                                  ->GetTag()
+                                  .tag_string()));
 
   AutofillCardItem* item = [[AutofillCardItem alloc] initWithType:ItemTypeCard];
   item.text = creditCardName;

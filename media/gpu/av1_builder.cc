@@ -4,6 +4,7 @@
 
 #include "media/gpu/av1_builder.h"
 
+#include <algorithm>
 #include <iterator>
 
 #include "base/check_op.h"
@@ -15,6 +16,162 @@ namespace media {
 
 namespace {
 constexpr int kPrimaryReferenceNone = 7;
+// Spec 6.10.2 REFS_PER_FRAME, and NUM_REF_FRAMES for the DPB.
+constexpr int kRefsPerFrame = 7;
+constexpr int kNumRefFrames = 8;
+constexpr uint8_t kAllFrames = 0xFF;
+
+// Spec 5.9.2, `FrameIsIntra` deduction in the uncompressed header syntax.
+bool IsIntraFrame(libgav1::FrameType frame_type) {
+  return frame_type == libgav1::FrameType::kFrameKey ||
+         frame_type == libgav1::FrameType::kFrameIntraOnly;
+}
+
+// OrderHintBits. Spec 5.5.1. order_hint_bits_minus_1 is coded as f(3), mask so
+// the decoder can only ever see the low three bits.
+int OrderHintBits(const AV1BitstreamBuilder::SequenceHeader& seq_hdr) {
+  return (seq_hdr.order_hint_bits_minus_1 & 0x7) + 1;
+}
+
+// get_relative_dist(). Spec 5.9.3.
+int GetRelativeDist(uint32_t a,
+                    uint32_t b,
+                    const AV1BitstreamBuilder::SequenceHeader& seq_hdr) {
+  if (!seq_hdr.enable_order_hint) {
+    return 0;
+  }
+
+  const int order_hint_bits = OrderHintBits(seq_hdr);
+  int diff = static_cast<int>(a) - static_cast<int>(b);
+  const int m = 1 << (order_hint_bits - 1);
+  diff = (diff & (m - 1)) - (diff & m);
+  return diff;
+}
+
+// Spec 5.9.22. ref_frame_idx is coded as f(3), so the mask only keeps the
+// caller-supplied value in range.
+uint32_t RefOrderHint(const AV1BitstreamBuilder::FrameHeader& pic_hdr, int i) {
+  return pic_hdr.ref_order_hint[pic_hdr.ref_frame_idx[i] & (kNumRefFrames - 1)];
+}
+
+// skipModeAllowed. Spec 5.9.22. The encoder never turns skip mode on, but
+// whether the *bit* is present is decided by the reference structure, so this
+// has to be evaluated or every syntax element after it shifts by one.
+bool IsSkipModeAllowed(const AV1BitstreamBuilder::SequenceHeader& seq_hdr,
+                       const AV1BitstreamBuilder::FrameHeader& pic_hdr) {
+  if (IsIntraFrame(pic_hdr.frame_type) || !pic_hdr.reference_select ||
+      !seq_hdr.enable_order_hint) {
+    return false;
+  }
+
+  int forward_idx = -1;
+  int backward_idx = -1;
+  uint32_t forward_hint = 0;
+  uint32_t backward_hint = 0;
+  for (int i = 0; i < kRefsPerFrame; ++i) {
+    const uint32_t ref_hint = RefOrderHint(pic_hdr, i);
+    if (GetRelativeDist(ref_hint, pic_hdr.order_hint, seq_hdr) < 0) {
+      if (forward_idx < 0 ||
+          GetRelativeDist(ref_hint, forward_hint, seq_hdr) > 0) {
+        forward_idx = i;
+        forward_hint = ref_hint;
+      }
+    } else if (GetRelativeDist(ref_hint, pic_hdr.order_hint, seq_hdr) > 0) {
+      if (backward_idx < 0 ||
+          GetRelativeDist(ref_hint, backward_hint, seq_hdr) < 0) {
+        backward_idx = i;
+        backward_hint = ref_hint;
+      }
+    }
+  }
+
+  if (forward_idx < 0) {
+    return false;
+  }
+  if (backward_idx >= 0) {
+    return true;
+  }
+  // No backward reference, so look for a second, further out forward one.
+  int second_forward_idx = -1;
+  uint32_t second_forward_hint = 0;
+  for (int i = 0; i < kRefsPerFrame; ++i) {
+    const uint32_t ref_hint = RefOrderHint(pic_hdr, i);
+    if (GetRelativeDist(ref_hint, forward_hint, seq_hdr) < 0) {
+      if (second_forward_idx < 0 ||
+          GetRelativeDist(ref_hint, second_forward_hint, seq_hdr) > 0) {
+        second_forward_idx = i;
+        second_forward_hint = ref_hint;
+      }
+    }
+  }
+  return second_forward_idx >= 0;
+}
+
+// CodedLossless. Spec 5.9.2, using get_qindex() with ignoreDeltaQ = 1 from
+// spec 7.12.2.
+//
+// Limitation: when segmentation_update_data is 0 the decoder inherits the
+// feature data from the primary reference frame rather than reading it here,
+// and the builder has no view of that. Callers that enable segmentation
+// without updating the data must keep FrameHeader::feature_* in sync with what
+// the reference carries.
+bool IsCodedLossless(const AV1BitstreamBuilder::SequenceHeader& seq_hdr,
+                     const AV1BitstreamBuilder::FrameHeader& pic_hdr) {
+  // The V component's delta Q values is read from driver post encode. As a
+  // result, when separate_uv_delta_q is 0, we should use the U component's
+  // delta Q values instead, to protect against drivers that return a random
+  // delta Q for V.
+  const int8_t delta_q_v_dc =
+      seq_hdr.separate_uv_delta_q ? pic_hdr.delta_q_v_dc : pic_hdr.delta_q_u_dc;
+  const int8_t delta_q_v_ac =
+      seq_hdr.separate_uv_delta_q ? pic_hdr.delta_q_v_ac : pic_hdr.delta_q_u_ac;
+  if (pic_hdr.delta_q_y_dc || pic_hdr.delta_q_u_dc || pic_hdr.delta_q_u_ac ||
+      delta_q_v_dc || delta_q_v_ac) {
+    return false;
+  }
+  // base_qindex is written as f(8); compare what the decoder will see.
+  const int base_qindex = static_cast<int>(pic_hdr.base_qindex & 0xFF);
+  for (size_t segment_id = 0; segment_id < libgav1::kMaxSegments;
+       ++segment_id) {
+    const auto& enabled = pic_hdr.feature_enabled[segment_id];
+    const auto& data = pic_hdr.feature_data[segment_id];
+    int qindex = base_qindex;
+    if (pic_hdr.segmentation_enabled &&
+        enabled[libgav1::kSegmentFeatureQuantizer]) {
+      qindex =
+          std::clamp(qindex + data[libgav1::kSegmentFeatureQuantizer], 0, 255);
+    }
+    if (qindex != 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Spec 5.9.13, the reverse process of read_delta_q().
+void WriteDeltaQ(AV1BitstreamBuilder& builder, int8_t delta_q) {
+  if (delta_q) {
+    builder.WriteBool(true);
+    builder.WriteSU(delta_q, 7);
+  } else {
+    builder.WriteBool(false);
+  }
+}
+
+// frame_size() followed by render_size(). Spec 5.9.5, 5.9.6 and 5.9.8.
+void WriteFrameAndRenderSize(AV1BitstreamBuilder& builder,
+                             const AV1BitstreamBuilder::SequenceHeader& seq_hdr,
+                             bool frame_size_override_flag) {
+  if (frame_size_override_flag) {
+    builder.Write(seq_hdr.width - 1, seq_hdr.frame_width_bits_minus_1 + 1);
+    builder.Write(seq_hdr.height - 1, seq_hdr.frame_height_bits_minus_1 + 1);
+  }
+  if (seq_hdr.enable_superres) {
+    builder.WriteBool(false);  // use_superres.
+  }
+  builder.WriteBool(false);  // render_and_frame_size_different.
+}
+
 }  // namespace
 
 AV1BitstreamBuilder::SequenceHeader::SequenceHeader() = default;
@@ -129,7 +286,7 @@ AV1BitstreamBuilder AV1BitstreamBuilder::BuildSequenceHeaderOBU(
     ret.Write(seq_hdr.chroma_sample_position, 2);
   }
 
-  ret.WriteBool(true);   // Separate uv delta q.
+  ret.WriteBool(seq_hdr.separate_uv_delta_q);
   ret.WriteBool(false);  // No film grain parameters present.
 
   ret.PutTrailingBits();
@@ -140,40 +297,88 @@ AV1BitstreamBuilder AV1BitstreamBuilder::BuildFrameHeaderOBU(
     const SequenceHeader& seq_hdr,
     const FrameHeader& pic_hdr) {
   AV1BitstreamBuilder ret;
+
+  const bool frame_is_intra = IsIntraFrame(pic_hdr.frame_type);
+  // show_frame is always written as 1 below, so for key and switch frames both
+  // error_resilient_mode and refresh_frame_flags are implied rather than
+  // coded. See spec 5.9.2.
+  const bool implied_by_frame_type =
+      pic_hdr.frame_type == libgav1::FrameType::kFrameSwitch ||
+      pic_hdr.frame_type == libgav1::FrameType::kFrameKey;
+  const bool error_resilient_mode =
+      implied_by_frame_type || pic_hdr.error_resilient_mode;
+  const uint8_t refresh_frame_flags =
+      implied_by_frame_type ? kAllFrames : pic_hdr.refresh_frame_flags;
+  // delta_q_present is only coded when base_q_idx is non-zero, so it is
+  // inferred to 0 otherwise no matter what the caller asked for. Spec 5.9.17.
+  const bool delta_q_present =
+      pic_hdr.base_qindex > 0 && pic_hdr.delta_q_present;
+  // Inferred to 1 for switch frames, coded as 0 for everything else, so
+  // frame_size_with_refs() is never reached. Spec 5.9.2 and 5.9.5.
+  const bool frame_size_override_flag =
+      pic_hdr.frame_type == libgav1::FrameType::kFrameSwitch;
+  const bool coded_lossless = IsCodedLossless(seq_hdr, pic_hdr);
+  // AllLossless = CodedLossless && FrameWidth == UpscaledWidth. use_superres is
+  // always written as 0, so UpscaledWidth == FrameWidth and the two are the
+  // same. Spec 5.9.2.
+  const bool all_lossless = coded_lossless;
+
   ret.WriteBool(false);  // For a frame OBU, the show_existing_frame flag is
                          // always set to 0.
   ret.Write(pic_hdr.frame_type, 2);
   ret.WriteBool(true);  // If this frame needs to be immediately output once
                         // decoded, show_frame flag should be true.
-  if (pic_hdr.frame_type != libgav1::FrameType::kFrameKey) {
+  if (!implied_by_frame_type) {
     ret.WriteBool(pic_hdr.error_resilient_mode);
   }
   ret.WriteBool(pic_hdr.disable_cdf_update);
   ret.WriteBool(pic_hdr.allow_screen_content_tools);
-  ret.WriteBool(false);  // Disable frame size override flag.
+  // force_integer_mv is not coded: the sequence header writes
+  // seq_choose_integer_mv = 0 and seq_force_integer_mv = 0, so it is never
+  // SELECT_INTEGER_MV. Spec 5.9.2.
+  if (!frame_size_override_flag) {
+    ret.WriteBool(false);  // frame_size_override_flag.
+  }
   if (seq_hdr.enable_order_hint) {
-    ret.Write(pic_hdr.order_hint, seq_hdr.order_hint_bits_minus_1 + 1);
+    ret.Write(pic_hdr.order_hint, OrderHintBits(seq_hdr));
   }
 
-  if (pic_hdr.frame_type != libgav1::FrameType::kFrameKey) {
-    if (!pic_hdr.error_resilient_mode) {
-      ret.Write(pic_hdr.primary_ref_frame, 3);
+  if (!frame_is_intra && !error_resilient_mode) {
+    ret.Write(pic_hdr.primary_ref_frame, 3);
+  }
+  if (!implied_by_frame_type) {
+    ret.Write(refresh_frame_flags, 8);
+  }
+  if ((!frame_is_intra || refresh_frame_flags != kAllFrames) &&
+      error_resilient_mode && seq_hdr.enable_order_hint) {
+    // Set order hint for each reference frame.
+    for (uint32_t order_hint : pic_hdr.ref_order_hint) {
+      ret.Write(order_hint, OrderHintBits(seq_hdr));
     }
-    ret.Write(pic_hdr.refresh_frame_flags, 8);
+  }
 
-    if (pic_hdr.error_resilient_mode && seq_hdr.enable_order_hint) {
-      // Set order hint for each reference frame.
-      for (uint32_t order_hint : pic_hdr.ref_order_hint) {
-        ret.Write(order_hint, seq_hdr.order_hint_bits_minus_1 + 1);
-      }
+  if (frame_is_intra) {
+    // Spec 5.9.2 requires an intra only frame not to refresh every slot;
+    // doing so would make the stream non-conformant.
+    DCHECK(pic_hdr.frame_type != libgav1::FrameType::kFrameIntraOnly ||
+           refresh_frame_flags != kAllFrames);
+    WriteFrameAndRenderSize(ret, seq_hdr, frame_size_override_flag);
+    // UpscaledWidth == FrameWidth because superres is never signalled, so the
+    // second half of the spec condition is always true.
+    if (pic_hdr.allow_screen_content_tools) {
+      ret.WriteBool(pic_hdr.allow_intrabc);
     }
+  } else {
     if (seq_hdr.enable_order_hint) {
       ret.WriteBool(false);  // Disable frame reference short signaling.
     }
     for (uint8_t ref_idx : pic_hdr.ref_frame_idx) {
       ret.Write(ref_idx, 3);
     }
-    ret.WriteBool(false);  // Render and frame size are the same.
+    // frame_size_with_refs() is unreachable: it needs frame_size_override_flag
+    // with error_resilient_mode clear, and the only frame type that sets the
+    // former infers the latter to 1. Spec 5.9.2.
+    WriteFrameAndRenderSize(ret, seq_hdr, frame_size_override_flag);
     ret.WriteBool(false);  // No allow high precision MV.
     bool is_switchable_interp =
         pic_hdr.interpolation_filter ==
@@ -183,13 +388,8 @@ AV1BitstreamBuilder AV1BitstreamBuilder::BuildFrameHeaderOBU(
       ret.Write(pic_hdr.interpolation_filter, 2);
     }
     ret.WriteBool(false);  // Motion not switchable.
-    if (seq_hdr.enable_ref_frame_mvs) {
+    if (!error_resilient_mode && seq_hdr.enable_ref_frame_mvs) {
       ret.WriteBool(false);  // Do not use ref frame MVs.
-    }
-  } else {
-    ret.WriteBool(false);  // Render and frame size are the same.
-    if (pic_hdr.allow_screen_content_tools) {
-      ret.WriteBool(pic_hdr.allow_intrabc);
     }
   }
   if (!pic_hdr.disable_cdf_update) {
@@ -202,43 +402,27 @@ AV1BitstreamBuilder AV1BitstreamBuilder::BuildFrameHeaderOBU(
 
   // Pack quantization params. Refer to AV1 spec section 5.9.12.
   ret.Write(pic_hdr.base_qindex, 8);
-  if (pic_hdr.delta_q_y_dc) {
-    ret.WriteBool(true);
-    ret.WriteSU(pic_hdr.delta_q_y_dc, 7);
-  } else {
-    ret.WriteBool(false);
-  }
-  if (pic_hdr.separate_uv_delta_q) {
-    bool diff_uv_delta = false;
-    if (pic_hdr.delta_q_u_dc != pic_hdr.delta_q_v_dc ||
-        pic_hdr.delta_q_u_ac != pic_hdr.delta_q_v_ac) {
-      diff_uv_delta = true;
-    }
+  WriteDeltaQ(ret, pic_hdr.delta_q_y_dc);
+  // NumPlanes is always 3: mono_chrome is never signalled. Only diff_uv_delta
+  // is gated on separate_uv_delta_q - the U deltas are read whenever there is
+  // chroma. Spec 5.9.12.
+  bool diff_uv_delta = false;
+  if (seq_hdr.separate_uv_delta_q) {
+    diff_uv_delta = pic_hdr.delta_q_u_dc != pic_hdr.delta_q_v_dc ||
+                    pic_hdr.delta_q_u_ac != pic_hdr.delta_q_v_ac;
     ret.WriteBool(diff_uv_delta);
-    for (const auto& delta_q : {pic_hdr.delta_q_u_dc, pic_hdr.delta_q_u_ac}) {
-      if (delta_q) {
-        ret.WriteBool(true);
-        ret.WriteSU(delta_q, 7);
-      } else {
-        ret.WriteBool(false);
-      }
-    }
-    if (diff_uv_delta) {
-      for (const auto& delta_q : {pic_hdr.delta_q_v_dc, pic_hdr.delta_q_v_ac}) {
-        if (delta_q) {
-          ret.WriteBool(true);
-          ret.WriteSU(delta_q, 7);
-        } else {
-          ret.WriteBool(false);
-        }
-      }
-    }
+  }
+  WriteDeltaQ(ret, pic_hdr.delta_q_u_dc);
+  WriteDeltaQ(ret, pic_hdr.delta_q_u_ac);
+  if (diff_uv_delta) {
+    WriteDeltaQ(ret, pic_hdr.delta_q_v_dc);
+    WriteDeltaQ(ret, pic_hdr.delta_q_v_ac);
   }
   ret.WriteBool(pic_hdr.using_qmatrix);
   if (pic_hdr.using_qmatrix) {
     ret.Write(pic_hdr.qm_y, 4);
     ret.Write(pic_hdr.qm_u, 4);
-    if (pic_hdr.separate_uv_delta_q) {
+    if (seq_hdr.separate_uv_delta_q) {
       ret.Write(pic_hdr.qm_v, 4);
     }
   }
@@ -282,14 +466,14 @@ AV1BitstreamBuilder AV1BitstreamBuilder::BuildFrameHeaderOBU(
 
   // Pack quantization index delta params. Refer to AV1 spec section 5.9.17.
   if (pic_hdr.base_qindex > 0) {
-    ret.WriteBool(pic_hdr.delta_q_present);
-    if (pic_hdr.delta_q_present) {
+    ret.WriteBool(delta_q_present);
+    if (delta_q_present) {
       ret.Write(pic_hdr.delta_q_res, 2);
     }
   }
 
   // Pack loop filter delta params. Refer to AV1 spec section 5.9.18.
-  if (pic_hdr.delta_q_present && !pic_hdr.allow_intrabc) {
+  if (delta_q_present && !pic_hdr.allow_intrabc) {
     ret.WriteBool(pic_hdr.delta_lf_present);
     if (pic_hdr.delta_lf_present) {
       ret.Write(pic_hdr.delta_lf_res, 2);
@@ -297,7 +481,10 @@ AV1BitstreamBuilder AV1BitstreamBuilder::BuildFrameHeaderOBU(
     }
   }
 
-  if (!pic_hdr.allow_intrabc) {
+  // When the frame is coded losslessly the loop filter, CDEF and tx mode
+  // syntax are all absent - the decoder infers them. Loop restoration keys
+  // off AllLossless instead. Spec 5.9.11, 5.9.19, 5.9.20 and 5.9.21.
+  if (!coded_lossless && !pic_hdr.allow_intrabc) {
     // Pack loop filter parameters. Refer to AV1 spec section 5.9.11.
     ret.Write(pic_hdr.filter_level[0], 6);
     ret.Write(pic_hdr.filter_level[1], 6);
@@ -341,9 +528,10 @@ AV1BitstreamBuilder AV1BitstreamBuilder::BuildFrameHeaderOBU(
         ret.Write(pic_hdr.cdef_uv_sec_strength[i], 2);
       }
     }
+  }
 
-    // Pack loop restoration filter parameters. Refer to AV1 spec
-    // section 5.9.20.
+  // Pack loop restoration filter parameters. Refer to AV1 spec section 5.9.20.
+  if (!all_lossless && !pic_hdr.allow_intrabc) {
     if (seq_hdr.enable_restoration) {
       constexpr int kNumPlanes = 3;
       bool use_lr = false;
@@ -376,20 +564,35 @@ AV1BitstreamBuilder AV1BitstreamBuilder::BuildFrameHeaderOBU(
     }
   }
 
-  // TX mode syntax. Refer to AV1 spec section 5.9.21
-  ret.WriteBool(pic_hdr.tx_mode == libgav1::TxMode::kTxModeSelect);
-
-  // Skip mode parameters are not present, as the encoder will only enable
-  // single prediction. Refer to AV1 spec section 5.9.22.
+  // TX mode syntax. Refer to AV1 spec section 5.9.21. TxMode is inferred to be
+  // ONLY_4X4 when the frame is coded losslessly, so no bit is written.
+  if (!coded_lossless) {
+    ret.WriteBool(pic_hdr.tx_mode == libgav1::TxMode::kTxModeSelect);
+  }
 
   // Frame reference mode. Refer to AV1 spec section 5.9.23.
-  if (pic_hdr.frame_type != libgav1::FrameType::kFrameKey) {
+  if (!frame_is_intra) {
     ret.WriteBool(pic_hdr.reference_select);
   }
+
+  // Skip mode parameters. Refer to AV1 spec section 5.9.22. The encoder never
+  // turns skip mode on, but whether the bit exists at all is decided by the
+  // reference structure, so it has to be written whenever skipModeAllowed.
+  if (IsSkipModeAllowed(seq_hdr, pic_hdr)) {
+    ret.WriteBool(false);  // skip_mode_present.
+  }
+
+  // Refer to AV1 spec section 5.9.2. The encoder does not use warped motion,
+  // but the bit is present whenever the sequence enables it on an inter frame.
+  if (!frame_is_intra && !error_resilient_mode &&
+      seq_hdr.enable_warped_motion) {
+    ret.WriteBool(false);  // allow_warped_motion.
+  }
+
   ret.WriteBool(pic_hdr.reduced_tx_set);
 
   // Global motion parameters. Refer to AV1 spec section 5.9.24.
-  if (pic_hdr.frame_type != libgav1::FrameType::kFrameKey) {
+  if (!frame_is_intra) {
     for (int i = 1 /*LAST_FRAME*/; i <= 7 /*ALTREF_FRAME*/; i++) {
       ret.WriteBool(false);  // Set is_global to all zeros.
     }
@@ -513,17 +716,28 @@ void AV1BitstreamBuilder::WriteOBUHeader(libgav1::ObuType type,
 // See section 4.10.5 of the AV1 specification.
 void AV1BitstreamBuilder::WriteValueInLeb128(uint32_t value,
                                              std::optional<int> fixed_size) {
-  for (int i = 0; i < fixed_size.value_or(5); i++) {
+  const int num_bytes = fixed_size.value_or(5);
+  DCHECK_GT(num_bytes, 0);
+  // Spec 4.10.5 reads at most 8 bytes, and requires the eighth to terminate,
+  // so anything longer cannot be parsed back.
+  DCHECK_LE(num_bytes, 8);
+  for (int i = 0; i < num_bytes; i++) {
     uint8_t curr_byte = value & 0x7F;
     value >>= 7;
-    if (value || fixed_size) {
+    // The parse loop in spec 4.10.5 stops at the first byte whose most
+    // significant bit is clear, so only the bytes *before* the last one may
+    // set it. Padding a short value out to a fixed size is explicitly allowed
+    // by that section, but the padding still has to terminate.
+    const bool more_bytes = fixed_size ? i < num_bytes - 1 : value != 0;
+    if (more_bytes) {
       curr_byte |= 0x80;
-      Write(curr_byte, 8);
-    } else {
-      Write(curr_byte, 8);
+    }
+    Write(curr_byte, 8);
+    if (!more_bytes) {
       break;
     }
   }
+  DCHECK_EQ(value, 0u) << "value does not fit in " << num_bytes << " bytes";
 }
 
 void AV1BitstreamBuilder::WriteSU(int16_t value, size_t num_bits) {

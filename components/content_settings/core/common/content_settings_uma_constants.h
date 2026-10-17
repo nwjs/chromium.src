@@ -146,10 +146,12 @@ inline constexpr auto kContentSettingsTypeToHistogramValue =
         // Removed TOP_LEVEL_TPCD_ORIGIN_TRIAL in M143.
         {ContentSettingsType::DISPLAY_MEDIA_SYSTEM_AUDIO, 125},
         {ContentSettingsType::JAVASCRIPT_OPTIMIZER, 126},
-        {ContentSettingsType::STORAGE_ACCESS_HEADER_ORIGIN_TRIAL, 127},
+        // Removed STORAGE_ACCESS_HEADER_ORIGIN_TRIAL in M156.
         {ContentSettingsType::HAND_TRACKING, 128},
         {ContentSettingsType::WEB_APP_INSTALLATION, 129},
-        {ContentSettingsType::DIRECT_SOCKETS_PRIVATE_NETWORK_ACCESS, 130},
+        // DIRECT_SOCKETS_PRIVATE_NETWORK_ACCESS deprecated in M151.
+        {ContentSettingsType::DEPRECATED_DIRECT_SOCKETS_PRIVATE_NETWORK_ACCESS,
+         130},
         {ContentSettingsType::LEGACY_COOKIE_SCOPE, 131},
         {ContentSettingsType::ARE_SUSPICIOUS_NOTIFICATIONS_ALLOWLISTED_BY_USER,
          132},

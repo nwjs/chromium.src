@@ -630,11 +630,6 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
   self.hintLabelLeadingConstraint = [self.searchHintLabel.leadingAnchor
       constraintEqualToAnchor:self.fakeLocationBar.leadingAnchor
                      constant:self.hintLabelFakeboxLeadingSpace];
-  if (IsNTPHeaderTransformsForAnimationsEnabled()) {
-    // Keep constraints fixed at progress = 0 values.
-    self.hintLabelLeadingConstraint.constant =
-        self.hintLabelFakeboxLeadingSpace;
-  }
   [NSLayoutConstraint activateConstraints:@[
     self.hintLabelLeadingConstraint,
     [self.searchHintLabel.heightAnchor
@@ -849,15 +844,8 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
     return;
   }
 
-  if (IsNTPHeaderTransformsForAnimationsEnabled()) {
-    self.leadingViewConstraint.constant = [self fakeboxLeadingSpace];
-    CGFloat translationX =
-        ([self omniboxLeadingSpace] - [self fakeboxLeadingSpace]) * progress;
-    _logoView.transform = CGAffineTransformMakeTranslation(translationX, 0);
-  } else {
-    self.leadingViewConstraint.constant = Interpolate(
-        [self fakeboxLeadingSpace], [self omniboxLeadingSpace], progress);
-  }
+  self.leadingViewConstraint.constant = Interpolate(
+      [self fakeboxLeadingSpace], [self omniboxLeadingSpace], progress);
 }
 
 // Updates the background color and opacity of the fakebox based on progress.
@@ -890,36 +878,19 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
       (_currentHintLabelScale - 1) *
       self.searchHintLabel.intrinsicContentSize.width * 0.5;
 
-  if (IsNTPHeaderTransformsForAnimationsEnabled()) {
-    self.hintLabelTrailingConstraint.constant = -kHintLabelFakeboxTrailingSpace;
-    CGFloat tx = 0;
-    if (CanShowTabStrip(self) || !IsSplitToolbarMode(self)) {
-      tx = hintLabelScalingExtraOffset;
-    } else {
-      tx = hintLabelScalingExtraOffset + (self.hintLabelOmniboxLeadingSpace -
-                                          self.hintLabelFakeboxLeadingSpace) *
-                                             progress;
-    }
+  // If MIA animation view is shown then add an aditional spacing to avoid any
+  // overlap with the label.
+  self.hintLabelTrailingConstraint.constant =
+      -hintLabelScalingExtraOffset - kHintLabelFakeboxTrailingSpace;
 
-    // Combine scale (already set in scaleHintLabelForPercent:) and translation.
-    self.searchHintLabel.transform =
-        CGAffineTransformScale(CGAffineTransformMakeTranslation(tx, 0),
-                               _currentHintLabelScale, _currentHintLabelScale);
+  if (CanShowTabStrip(self) || !IsSplitToolbarMode(self)) {
+    self.hintLabelLeadingConstraint.constant =
+        self.hintLabelFakeboxLeadingSpace + hintLabelScalingExtraOffset;
   } else {
-    // If MIA animation view is shown then add an aditional spacing to avoid any
-    // overlap with the label.
-    self.hintLabelTrailingConstraint.constant =
-        -hintLabelScalingExtraOffset - kHintLabelFakeboxTrailingSpace;
-
-    if (CanShowTabStrip(self) || !IsSplitToolbarMode(self)) {
-      self.hintLabelLeadingConstraint.constant =
-          self.hintLabelFakeboxLeadingSpace + hintLabelScalingExtraOffset;
-    } else {
-      self.hintLabelLeadingConstraint.constant =
-          hintLabelScalingExtraOffset +
-          Interpolate(self.hintLabelFakeboxLeadingSpace,
-                      self.hintLabelOmniboxLeadingSpace, progress);
-    }
+    self.hintLabelLeadingConstraint.constant =
+        hintLabelScalingExtraOffset +
+        Interpolate(self.hintLabelFakeboxLeadingSpace,
+                    self.hintLabelOmniboxLeadingSpace, progress);
   }
 }
 
@@ -1244,6 +1215,12 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
   _toolsMenuButton = toolsMenuButton;
   _toolsMenuButton.blueDot = _hasToolsMenuBlueDot;
 
+  if (IsOverflowMenuHomeCustomizationEntrypointEnabled() &&
+      IsNTPEphemeralThemeEnabled()) {
+    [self.layoutGuideCenter referenceView:toolsMenuButton
+                                underName:kFeedIPHNamedGuide];
+  }
+
   [self applyBackgroundTheme];
 }
 
@@ -1372,6 +1349,7 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
   }
   _isAIMAllowed = allowed;
   [self refreshFakeboxContent];
+  [self updateFakeboxDisplay];
 }
 
 - (void)setFuseboxEligible:(BOOL)eligible {
@@ -2219,8 +2197,8 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
 }
 
 - (CGFloat)headerHeight {
-  return content_suggestions::HeightForLogoHeader(self.searchEngineLogoState,
-                                                  self.traitCollection);
+  return content_suggestions::HeightForLogoHeader(
+      self.searchEngineLogoState, self.traitCollection, _isAIMAllowed);
 }
 
 #pragma mark - Private (Fakebox & Logo Layout Helpers)
@@ -2242,7 +2220,7 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
 
 - (void)updateFakeboxDisplay {
   self.doodleTopMarginConstraint.constant = content_suggestions::LogoTopPadding(
-      self.searchEngineLogoState, self.traitCollection);
+      self.searchEngineLogoState, self.traitCollection, _isAIMAllowed);
   [self.doodleHeightConstraint
       setConstant:content_suggestions::DoodleHeight(self.searchEngineLogoState,
                                                     self.traitCollection)];
@@ -2250,8 +2228,8 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
       CanShowTabStrip(self) &&
       (self.searchEngineLogoState == SearchEngineLogoState::kNone);
   self.headerViewHeightConstraint.constant =
-      content_suggestions::HeightForLogoHeader(self.searchEngineLogoState,
-                                               self.traitCollection);
+      content_suggestions::HeightForLogoHeader(
+          self.searchEngineLogoState, self.traitCollection, _isAIMAllowed);
   [self layoutIfNeeded];
 }
 
@@ -2262,7 +2240,7 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
       constraintEqualToAnchor:headerView.topAnchor
                      constant:content_suggestions::LogoTopPadding(
                                   self.searchEngineLogoState,
-                                  self.traitCollection)];
+                                  self.traitCollection, _isAIMAllowed)];
   self.doodleHeightConstraint = [logoView.heightAnchor
       constraintEqualToConstant:content_suggestions::DoodleHeight(
                                     self.searchEngineLogoState,

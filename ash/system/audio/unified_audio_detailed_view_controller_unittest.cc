@@ -58,19 +58,19 @@ constexpr uint64_t kInternalMicStyleTransferId = 10004;
 constexpr uint64_t kFrontMicId = 10012;
 constexpr uint64_t kRearMicId = 10013;
 constexpr uint64_t kNbsMicId = 10020;
-const uint64_t kInternalSpeakerId = 10001;
-const uint64_t kHeadphoneId = 10002;
+constexpr uint64_t kInternalSpeakerId = 10001;
+constexpr uint64_t kHeadphoneId = 10002;
 constexpr uint64_t kDualInternalMicId = 0;
-const int kFrontMicGainPercent = 50;
-const int kRearMicGainPercent = 100;
+constexpr int kFrontMicGainPercent = 50;
+constexpr int kRearMicGainPercent = 100;
 
-const std::u16string kInitialLiveCaptionViewSubtitleText = u"This is a test";
-const std::u16string kSodaDownloaded = u"Speech files downloaded";
-const std::u16string kSodaInProgress25 =
+constexpr char16_t kInitialLiveCaptionViewSubtitleText[] = u"This is a test";
+constexpr char16_t kSodaDownloaded[] = u"Speech files downloaded";
+constexpr char16_t kSodaInProgress25[] =
     u"Downloading speech recognition files… 25%";
-const std::u16string kSodaInProgress50 =
+constexpr char16_t kSodaInProgress50[] =
     u"Downloading speech recognition files… 50%";
-const std::u16string kSodaFailed =
+constexpr char16_t kSodaFailed[] =
     u"Can't download speech files. Try again later.";
 
 speech::LanguageCode en_us() {
@@ -431,7 +431,19 @@ TEST_F(UnifiedAudioDetailedViewControllerTest, OneOutputSlider) {
       output_sliders_map_.find(kInternalSpeakerId)->second->GetVisible());
 }
 
-TEST_F(UnifiedAudioDetailedViewControllerTest, DualInternalMicSlider) {
+// TODO(crbug.com/559797899): Segfaults during TearDown on ASan when the 500ms
+// AudioSelectionNotificationHandler debounce timer fires after MessageCenter
+// destruction.
+#if defined(ADDRESS_SANITIZER)
+#define MAYBE_DualInternalMicSlider DISABLED_DualInternalMicSlider
+#define MAYBE_DualInternalMicSliderActiveState \
+  DISABLED_DualInternalMicSliderActiveState
+#else
+#define MAYBE_DualInternalMicSlider DualInternalMicSlider
+#define MAYBE_DualInternalMicSliderActiveState DualInternalMicSliderActiveState
+#endif
+
+TEST_F(UnifiedAudioDetailedViewControllerTest, MAYBE_DualInternalMicSlider) {
   fake_cras_audio_client()->SetAudioNodesAndNotifyObserversForTesting(
       GenerateAudioNodeList({kFrontMic, kRearMic}));
 
@@ -449,7 +461,7 @@ TEST_F(UnifiedAudioDetailedViewControllerTest, DualInternalMicSlider) {
 }
 
 TEST_F(UnifiedAudioDetailedViewControllerTest,
-       DualInternalMicSliderActiveState) {
+       MAYBE_DualInternalMicSliderActiveState) {
   fake_cras_audio_client()->SetAudioNodesAndNotifyObserversForTesting(
       GenerateAudioNodeList({kFrontMic, kRearMic}));
 

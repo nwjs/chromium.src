@@ -34,6 +34,7 @@
 #include "base/unguessable_token.h"
 #include "build/build_config.h"
 #include "components/viz/common/features.h"
+#include "content/browser/agent_cluster_key.h"
 #include "content/browser/back_forward_cache/back_forward_cache_metrics.h"
 #include "content/browser/devtools/render_frame_devtools_agent_host.h"
 #include "content/browser/preloading/prefetch/prefetch_features.h"
@@ -96,6 +97,7 @@
 #include "third_party/blink/public/mojom/frame/fullscreen.mojom.h"
 #include "third_party/blink/public/mojom/frame/user_activation_update_types.mojom.h"
 #include "third_party/blink/public/mojom/security_context/insecure_request_policy.mojom.h"
+#include "ui/base/ui_base_features.h"
 #include "url/gurl_debug.h"
 
 #if BUILDFLAG(IS_MAC)
@@ -682,6 +684,7 @@ void RecordWastedSpeculativeRFHCase(bool from_ad_click,
 
 void RecordWastedAndReplacementRFHDiff(
     bool from_ad_click,
+    bool is_ad_tagged_by_host_filter,
     scoped_refptr<SiteInstanceImpl> wasted_rfh_site_instance,
     scoped_refptr<SiteInstanceImpl> new_site_instance) {
   std::string initiator_types[] = {"All",
@@ -715,6 +718,25 @@ void RecordWastedAndReplacementRFHDiff(
         base::StrCat({"Navigation.", initiator_type,
                       ".WastedSpeculativeRFH.ReplacementRFHCreatedNewProcess"}),
         (!new_rph || new_rph->GetRenderFrameHostCount() == 0));
+
+    const SiteInfo& wasted_site_info = wasted_rfh_site_instance->GetSiteInfo();
+    const SiteInfo& new_site_info = new_site_instance->GetSiteInfo();
+    bool wasted_rfh_was_origin_keyed_by_default =
+        wasted_site_info.agent_cluster_key().oac_status() ==
+        AgentClusterKey::OACStatus::kOriginKeyedByDefault;
+    bool replacement_rfh_is_site_keyed_by_default =
+        new_site_info.agent_cluster_key().oac_status() ==
+        AgentClusterKey::OACStatus::kSiteKeyedByDefault;
+
+    bool is_ad_excluded_from_origin_isolation =
+        is_ad_tagged_by_host_filter && wasted_rfh_was_origin_keyed_by_default &&
+        replacement_rfh_is_site_keyed_by_default &&
+        wasted_site_info.GetNonOriginKeyedEquivalentForMetrics(
+            wasted_rfh_site_instance->GetIsolationContext()) == new_site_info;
+    base::UmaHistogramBoolean(
+        base::StrCat({"Navigation.", initiator_type,
+                      ".WastedSpeculativeRFH.ExcludedAdsFromOriginIsolation"}),
+        is_ad_excluded_from_origin_isolation);
   }
 }
 
@@ -2112,7 +2134,8 @@ RenderFrameHostManager::GetFrameHostForNavigation(
         // TODO(crbug.com/401175298): Figure out how the speculative RFH can be
         // gone at this point.
         RecordWastedAndReplacementRFHDiff(
-            from_ad_click, speculative_render_frame_host_->GetSiteInstance(),
+            from_ad_click, request->IsAdTaggedByHostFilter(),
+            speculative_render_frame_host_->GetSiteInstance(),
             render_frame_host_->GetSiteInstance());
       }
     } else if (!speculative_render_frame_host_ ||
@@ -2133,7 +2156,8 @@ RenderFrameHostManager::GetFrameHostForNavigation(
         // TODO(crbug.com/401175298): Figure out how the speculative RFH can be
         // gone at this point.
         RecordWastedAndReplacementRFHDiff(
-            from_ad_click, speculative_render_frame_host_->GetSiteInstance(),
+            from_ad_click, request->IsAdTaggedByHostFilter(),
+            speculative_render_frame_host_->GetSiteInstance(),
             dest_site_instance);
       }
     } else {
@@ -5187,19 +5211,25 @@ bool RenderFrameHostManager::ReinitializeMainRenderFrame(
 
   CHECK(render_frame_host->IsRenderFrameLive());
 
-  // The RenderWidgetHostView goes away with the render process. Initializing a
-  // RenderFrame means we'll be creating (or reusing, https://crbug.com/419087)
-  // a RenderWidgetHostView. The new RenderWidgetHostView should take its
-  // visibility from the RenderWidgetHostImpl, but this call exists to handle
-  // cases where it did not during a same-process navigation.
-  // TODO(danakj): We now hide the widget unconditionally (treating main frame
-  // and child frames alike) and show in DidFinishNavigation() always, so this
-  // should be able to go away. Try to remove this.
-  // TODO(https://crbug.com/521200679): Removing this breaks keyboard tab
-  // switching while a new tab is loading, despite the tab appearing to become
-  // visible at the correct time.
-  if (render_frame_host == render_frame_host_.get()) {
-    EnsureRenderFrameHostVisibilityConsistent();
+  if (!base::FeatureList::IsEnabled(
+          features::kRemoveEnsureRFHVisibilityConsistent)) {
+    // The RenderWidgetHostView goes away with the render process. Initializing
+    // a RenderFrame means we'll be creating (or reusing,
+    // https://crbug.com/419087) a RenderWidgetHostView. The new
+    // RenderWidgetHostView should take its visibility from the
+    // RenderWidgetHostImpl, but this call exists to handle cases where it did
+    // not during a same-process navigation.
+    // TODO(danakj): We now hide the widget unconditionally (treating main frame
+    // and child frames alike) and show in DidFinishNavigation() always, so this
+    // should be able to go away. Try to remove this.
+    // TODO(https://crbug.com/521200679): Removing this breaks keyboard tab
+    // switching while a new tab is loading because aura::Window visibility
+    // tracks RFH visibility, not whether the window is visible to the user.
+    // kRemoveEnsureRFHVisibilityConsistent fixes this by making the RFH visible
+    // when it's focused, not just when it commits.
+    if (render_frame_host == render_frame_host_.get()) {
+      EnsureRenderFrameHostVisibilityConsistent();
+    }
   }
 
   return true;
@@ -5296,6 +5326,14 @@ void RenderFrameHostManager::CommitPending(
   // https://crbug.com/331669
   gfx::ScopedCocoaDisableScreenUpdates disabler;
 #endif  // BUILDFLAG(IS_MAC)
+
+  // Notify that we're about to swap RenderFrameHosts. For example, this is
+  // used by WebContents to avoid changing RenderWidgetHostView visibility
+  // mid-commit as the timing of visibility changes when swapping RFHs is very
+  // sensitive. This can happen when we update focus on the new view, which
+  // may trigger focus updates on the WebContents, which in turn may update
+  // view visibility.
+  delegate_->PrepareToSwapRenderFrameHosts();
 
   RenderWidgetHostView* old_view = render_frame_host_->GetView();
   bool is_main_frame = frame_tree_node_->IsMainFrame();

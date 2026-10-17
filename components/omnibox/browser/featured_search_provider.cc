@@ -190,7 +190,7 @@ bool IsEnterpriseSearchAggregatorTemplateURLEnabled(const TemplateURL& turl,
 FeaturedSearchProvider::FeaturedSearchProvider(
     AutocompleteProviderClient* client,
     bool show_iph_matches)
-    : AutocompleteProvider(AutocompleteProvider::TYPE_FEATURED_SEARCH),
+    : AutocompleteProvider(AutocompleteProvider::Type::kFeaturedSearch),
       client_(client),
       template_url_service_(client->GetTemplateURLService()),
       show_iph_matches_(show_iph_matches) {}
@@ -242,7 +242,7 @@ void FeaturedSearchProvider::Start(const AutocompleteInput& input,
 void FeaturedSearchProvider::DeleteMatch(const AutocompleteMatch& match) {
   // Only `NULL_RESULT_MESSAGE` types from this provider are deletable.
   CHECK(match.deletable);
-  CHECK_EQ(match.type, AutocompleteMatchType::NULL_RESULT_MESSAGE);
+  CHECK_EQ(match.type, omnibox::AutocompleteMatchType::kNullResultMessage);
 
   // Set the pref so this provider doesn't continue to offer the suggestion.
   PrefService* prefs = client_->GetPrefs();
@@ -352,7 +352,7 @@ void FeaturedSearchProvider::AddStarterPackMatch(
       StarterPackRelevance(
           static_cast<template_url_starter_pack_data::StarterPackId>(
               template_url.starter_pack_id())),
-      false, AutocompleteMatchType::STARTER_PACK);
+      false, omnibox::AutocompleteMatchType::kStarterPack);
 
   const std::u16string destination_url =
       template_url_starter_pack_data::GetDestinationUrlForStarterPackId(
@@ -385,7 +385,7 @@ void FeaturedSearchProvider::AddIPHMatch(IphType iph_type,
                                          bool deletable) {
   CHECK(show_iph_matches_);
   AutocompleteMatch match(this, relevance, deletable,
-                          AutocompleteMatchType::NULL_RESULT_MESSAGE);
+                          omnibox::AutocompleteMatchType::kNullResultMessage);
 
   // Use this suggestion's contents field to display a message to the user that
   // cannot be acted upon.
@@ -414,8 +414,9 @@ void FeaturedSearchProvider::AddIPHMatch(IphType iph_type,
 void FeaturedSearchProvider::AddFeaturedEnterpriseSearchMatch(
     const TemplateURL& template_url,
     const AutocompleteInput& input) {
-  AutocompleteMatch match(this, kFeaturedEnterpriseSearchRelevance, false,
-                          AutocompleteMatchType::FEATURED_ENTERPRISE_SEARCH);
+  AutocompleteMatch match(
+      this, kFeaturedEnterpriseSearchRelevance, false,
+      omnibox::AutocompleteMatchType::kFeaturedEnterpriseSearch);
 
   match.fill_into_edit = template_url.keyword();
   match.inline_autocompletion =

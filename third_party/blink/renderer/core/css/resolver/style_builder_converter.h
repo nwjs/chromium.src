@@ -81,10 +81,12 @@ class ComputedGridTrackList;
 class CSSToLengthConversionData;
 class Font;
 class FontBuilder;
+class LinkParameterList;
 class OffsetPathOperation;
 class RotateTransformOperation;
 class ScaleTransformOperation;
 class ScopedCSSName;
+class ScopedCSSNameList;
 class StyleAutoColor;
 class StyleCaretColor;
 class StylePath;
@@ -257,6 +259,8 @@ class StyleBuilderConverter {
   static Length ConvertLengthMaxSizing(StyleResolverState&, const CSSValue&);
   static TabSize ConvertLengthOrTabSpaces(StyleResolverState&, const CSSValue&);
   static Length ConvertLineHeight(StyleResolverState&, const CSSValue&);
+  static LinkParameterList* ConvertLinkParameters(StyleResolverState&,
+                                                  const CSSValue&);
   static float ConvertNumberOrPercentage(StyleResolverState&, const CSSValue&);
   static Length ConvertPathLength(StyleResolverState&, const CSSValue&);
   static int ConvertInteger(StyleResolverState&, const CSSValue&);
@@ -458,8 +462,10 @@ class StyleBuilderConverter {
                                                       const CSSValue&);
   static Vector<TimelineInset> ConvertViewTimelineInset(StyleResolverState&,
                                                         const CSSValue&);
-  static Vector<AtomicString> ConvertViewTimelineName(StyleResolverState&,
+  static ScopedCSSNameList* ConvertScrollTimelineName(StyleResolverState&,
                                                       const CSSValue&);
+  static ScopedCSSNameList* ConvertViewTimelineName(StyleResolverState&,
+                                                    const CSSValue&);
   static StyleTimelineScope ConvertTimelineScope(StyleResolverState&,
                                                  const CSSValue&);
 

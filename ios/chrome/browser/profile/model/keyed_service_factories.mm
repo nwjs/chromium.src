@@ -6,6 +6,7 @@
 
 #import "ios/chrome/browser/account_settings/model/ios_account_setting_service_factory.h"
 #import "ios/chrome/browser/affiliations/model/ios_chrome_affiliation_service_factory.h"
+#import "ios/chrome/browser/ai_prototyping/ttc/model/ttc_keyed_service_factory.h"
 #import "ios/chrome/browser/aim/model/ios_chrome_aim_eligibility_service_factory.h"
 #import "ios/chrome/browser/app_store_bundle/model/app_store_bundle_service_factory.h"
 #import "ios/chrome/browser/autocomplete/model/autocomplete_classifier_factory.h"
@@ -129,6 +130,7 @@
 #import "ios/chrome/browser/mini_map/model/mini_map_service_factory.h"
 #import "ios/chrome/browser/omnibox/model/placeholder_service/placeholder_service_factory.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service_factory.h"
+#import "ios/chrome/browser/origin_gating/model/origin_gating_service_factory.h"
 #import "ios/chrome/browser/page_content_annotations/model/page_content_annotations_service_factory.h"
 #import "ios/chrome/browser/page_image/model/page_image_service_factory.h"
 #import "ios/chrome/browser/page_info/model/about_this_site_service_factory.h"
@@ -163,6 +165,7 @@
 #import "ios/chrome/browser/regional_capabilities/model/regional_capabilities_service_factory.h"
 #import "ios/chrome/browser/safe_browsing/model/chrome_enterprise_url_lookup_service_factory.h"
 #import "ios/chrome/browser/safe_browsing/model/chrome_password_protection_service_factory.h"
+#import "ios/chrome/browser/safe_browsing/model/client_side_detection/client_side_detection_intelligent_scan_delegate_factory.h"
 #import "ios/chrome/browser/safe_browsing/model/client_side_detection/client_side_detection_service_factory.h"
 #import "ios/chrome/browser/safe_browsing/model/hash_realtime_service_factory.h"
 #import "ios/chrome/browser/safe_browsing/model/ohttp_key_service_factory.h"
@@ -232,6 +235,7 @@
 #import "ios/chrome/browser/visited_url_ranking/model/visited_url_ranking_service_factory.h"
 #import "ios/chrome/browser/voice/ui_bundled/text_to_speech_playback_controller_factory.h"
 #import "ios/chrome/browser/web/model/java_script_console/java_script_console_feature_factory.h"
+#import "ios/chrome/browser/web_extension/model/extension_service_factory.h"
 #import "ios/chrome/browser/webauthn/model/ios_device_authorization_service_factory.h"
 #import "ios/chrome/browser/webauthn/model/ios_passkey_model_factory.h"
 #import "ios/chrome/browser/webdata_services/model/web_data_service_factory.h"
@@ -309,6 +313,7 @@ void EnsureProfileKeyedServiceFactoriesBuilt() {
   ios::WebDataServiceFactory::GetInstance();
   ios::WebHistoryServiceFactory::GetInstance();
   ios::ZeroSuggestCacheServiceFactory::GetInstance();
+  origin_gating::OriginGatingServiceFactory::GetInstance();
   policy::UserPolicySigninServiceFactory::GetInstance();
   safe_browsing::ChromeEnterpriseRealTimeUrlLookupServiceFactory::GetInstance();
   segmentation_platform::SegmentationPlatformServiceFactory::GetInstance();
@@ -334,6 +339,7 @@ void EnsureProfileKeyedServiceFactoriesBuilt() {
   ChildAccountServiceFactory::GetInstance();
   ChromeAccountManagerServiceFactory::GetInstance();
   ChromePasswordProtectionServiceFactory::GetInstance();
+  ClientSideDetectionIntelligentScanDelegateFactory::GetInstance();
   ClientSideDetectionServiceFactory::GetInstance();
   ConsentAuditorFactory::GetInstance();
   ContentNotificationServiceFactory::GetInstance();
@@ -356,6 +362,7 @@ void EnsureProfileKeyedServiceFactoriesBuilt() {
   EnterpriseNetworkAuthServiceFactoryIOS::GetInstance();
   EnterpriseProxyErrorServiceFactoryIOS::GetInstance();
   EnterpriseProxyServiceFactoryIOS::GetInstance();
+  ExtensionServiceFactory::GetInstance();
   ExternalFileRemoverFactory::GetInstance();
   GeminiCapabilitiesManagerFactory::GetInstance();
   GeminiServiceFactory::GetInstance();
@@ -466,6 +473,9 @@ void EnsureProfileKeyedServiceFactoriesBuilt() {
   TextToSpeechPlaybackControllerFactory::GetInstance();
   TipsManagerIOSFactory::GetInstance();
   LanguageDetectionModelServiceFactory::GetInstance();
+  if (IsTTCEnabled()) {
+    TTCKeyedServiceFactory::GetInstance();
+  }
   TrustedVaultClientBackendFactory::GetInstance();
   UnifiedConsentServiceFactory::GetInstance();
   UnitConversionServiceFactory::GetInstance();

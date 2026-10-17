@@ -461,35 +461,15 @@ void Preferences::RegisterProfilePrefs(
 
   registry->RegisterBooleanPref(ash::prefs::kHatsDeviceIsSelected, false);
 
-  registry->RegisterInt64Pref(ash::prefs::kHatsOnboardingSurveyCycleEndTs, 0);
-
-  registry->RegisterBooleanPref(ash::prefs::kHatsOnboardingDeviceIsSelected,
-                                false);
-
-  registry->RegisterInt64Pref(ash::prefs::kHatsArcGamesSurveyCycleEndTs, 0);
-
-  registry->RegisterBooleanPref(ash::prefs::kHatsArcGamesDeviceIsSelected,
-                                false);
-
   registry->RegisterInt64Pref(ash::prefs::kHatsAudioSurveyCycleEndTs, 0);
 
   registry->RegisterBooleanPref(ash::prefs::kHatsAudioDeviceIsSelected, false);
-
-  registry->RegisterInt64Pref(ash::prefs::kHatsAudioOutputProcSurveyCycleEndTs,
-                              0);
-
-  registry->RegisterBooleanPref(
-      ash::prefs::kHatsAudioOutputProcDeviceIsSelected, false);
 
   registry->RegisterInt64Pref(ash::prefs::kHatsBluetoothAudioSurveyCycleEndTs,
                               0);
 
   registry->RegisterBooleanPref(ash::prefs::kHatsBluetoothAudioDeviceIsSelected,
                                 false);
-
-  registry->RegisterInt64Pref(ash::prefs::kHatsEntSurveyCycleEndTs, 0);
-
-  registry->RegisterBooleanPref(ash::prefs::kHatsEntDeviceIsSelected, false);
 
   registry->RegisterInt64Pref(ash::prefs::kHatsStabilitySurveyCycleEndTs, 0);
 
@@ -671,19 +651,6 @@ void Preferences::RegisterProfilePrefs(
   registry->RegisterBooleanPref(
       ash::prefs::kHatsOsSettingsSearchSurveyIsSelected, false);
 
-  // Borealis HaTS survey prefs for game satisfaction.
-  registry->RegisterInt64Pref(ash::prefs::kHatsBorealisGamesSurveyCycleEndTs,
-                              0);
-  registry->RegisterBooleanPref(ash::prefs::kHatsBorealisGamesSurveyIsSelected,
-                                false);
-  registry->RegisterTimePref(
-      ash::prefs::kHatsBorealisGamesLastInteractionTimestamp, base::Time());
-
-  // Launcher HaTS survey prefs.
-  registry->RegisterInt64Pref(ash::prefs::kHatsLauncherAppsSurveyCycleEndTs, 0);
-  registry->RegisterBooleanPref(ash::prefs::kHatsLauncherAppsSurveyIsSelected,
-                                false);
-
   registry->RegisterBooleanPref(prefs::kShowDisplaySizeScreenEnabled, true);
 
   registry->RegisterDictionaryPref(ash::prefs::kTotalUniqueOsSettingsChanged);
@@ -816,8 +783,8 @@ void Preferences::InitUserPrefs(sync_preferences::PrefServiceSyncable* prefs) {
 }
 
 void Preferences::Init(Profile* profile, const user_manager::User* user) {
-  DCHECK(profile);
-  DCHECK(user);
+  CHECK(profile, base::NotFatalUntil::M160);
+  CHECK(user, base::NotFatalUntil::M160);
   sync_preferences::PrefServiceSyncable* prefs =
       PrefServiceSyncableFromProfile(profile);
   // This causes OnIsSyncingChanged to be called when the value of
@@ -833,7 +800,7 @@ void Preferences::Init(Profile* profile, const user_manager::User* user) {
   user_manager::UserManager::Get()->AddSessionStateObserver(this);
 
   UserSessionManager* session_manager = UserSessionManager::GetInstance();
-  DCHECK(session_manager);
+  CHECK(session_manager, base::NotFatalUntil::M160);
   ime_state_ = session_manager->GetDefaultIMEState(profile);
 
   if (user_is_primary_) {
@@ -946,7 +913,8 @@ void Preferences::ReportTimePrefApplication(
 
 void Preferences::ApplyPreferences(ApplyReason reason,
                                    const std::string& pref_name) {
-  DCHECK(reason != REASON_PREF_CHANGED || !pref_name.empty());
+  CHECK(reason != REASON_PREF_CHANGED || !pref_name.empty(),
+        base::NotFatalUntil::M160);
   const bool user_is_owner =
       user_manager::UserManager::Get()->GetOwnerAccountId() ==
       user_->GetAccountId();
@@ -1472,8 +1440,8 @@ void Preferences::UpdateAutoRepeatRate() {
       .repeat_interval =
           base::Milliseconds(xkb_auto_repeat_interval_pref_.GetValue()),
   };
-  DCHECK(rate.initial_delay.is_positive());
-  DCHECK(rate.repeat_interval.is_positive());
+  CHECK(rate.initial_delay.is_positive(), base::NotFatalUntil::M160);
+  CHECK(rate.repeat_interval.is_positive(), base::NotFatalUntil::M160);
   input_method::InputMethodManager::Get()->GetImeKeyboard()->SetAutoRepeatRate(
       rate);
 

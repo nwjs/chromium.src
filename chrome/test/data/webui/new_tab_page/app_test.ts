@@ -10,7 +10,7 @@ import type {ActionChipsPageRemote, CustomizeButtonsDocumentRemote, FuseboxActio
 import {$$, BackgroundManager, BrowserCommandProxy, CONTEXTUAL_ENTRYPOINT_ELEMENT_ID, CUSTOMIZE_CHROME_BUTTON_ELEMENT_ID, CustomizeButtonsDocumentCallbackRouter, CustomizeButtonsHandlerRemote, CustomizeButtonsProxy, CustomizeChromeSection, CustomizeDialogPage, GlifAnimationState, NewTabPageProxy, NtpCustomizeChromeEntryPoint, NtpElement, SearchboxBrowserProxy, SidePanelOpenTrigger, VoiceAction, WindowProxy} from 'chrome://new-tab-page/new_tab_page.js';
 import type {AppElement, CustomizeButtonsElement, NtpSearchboxElement, PageRemote} from 'chrome://new-tab-page/new_tab_page.js';
 import {NtpBackgroundImageSource, PageCallbackRouter, PageHandlerRemote} from 'chrome://new-tab-page/new_tab_page.js';
-import {ComposeboxFile, TabUploadOrigin} from 'chrome://resources/cr_components/composebox/common.js';
+import {ComposeboxFile} from 'chrome://resources/cr_components/composebox/common.js';
 import {PageHandlerRemote as ComposeboxPageHandlerRemote} from 'chrome://resources/cr_components/composebox/composebox.mojom-webui.js';
 import {ContextUploadStatus, ModelMode, ToolMode} from 'chrome://resources/cr_components/composebox/composebox_query.mojom-webui.js';
 import type {ComposeboxVoiceSearchElement} from 'chrome://resources/cr_components/composebox/composebox_voice_search.js';
@@ -23,7 +23,7 @@ import {isMac} from 'chrome://resources/js/platform.js';
 import {PromiseResolver} from 'chrome://resources/js/promise_resolver.js';
 import {getDeepActiveElement} from 'chrome://resources/js/util.js';
 import {SuggestInventory} from 'chrome://resources/mojo/components/omnibox/browser/fusebox_action.mojom-webui.js';
-import {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote, TabAttachmentSource} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertNotEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import type {MetricsTracker} from 'chrome://webui-test/metrics_test_support.js';
 import {fakeMetricsPrivate} from 'chrome://webui-test/metrics_test_support.js';
@@ -286,7 +286,7 @@ suite('NewTabPageAppTest', () => {
     });
   });
 
-  suite(`OgbThemingRemoveScrim`, () => {
+  suite('OgbThemingRemoveScrim', () => {
     test('Ogb updates on ntp load', async () => {
       // Act.
 
@@ -790,7 +790,7 @@ suite('NewTabPageAppTest', () => {
           });
         });
 
-    test(`clicking #customizeButton records click`, () => {
+    test('clicking #customizeButton records click', () => {
       // Act.
       getCustomizeButton().click();
 
@@ -852,7 +852,7 @@ suite('NewTabPageAppTest', () => {
       assertStyle(modules, 'display', 'none');
     });
 
-    test(`clicking records click`, () => {
+    test('clicking records click', () => {
       // Act.
       $$<HTMLElement>(app, 'ntp-modules')!.click();
 
@@ -1382,11 +1382,7 @@ suite('NewTabPageAppTest', () => {
       // Act: Close composebox.
       const composebox =
           app.shadowRoot.querySelector<NtpComposeboxElement>('#composebox')!;
-      composebox.dispatchEvent(new CustomEvent('close-composebox', {
-        detail: {composeboxText: ''},
-        bubbles: true,
-        composed: true,
-      }));
+      composebox.fire('close-composebox', {composeboxText: ''});
       await microtasksFinished();
 
       // Assert: Blocked elements do NOT have inert anymore.
@@ -1420,10 +1416,7 @@ suite('NewTabPageAppTest', () => {
           assertTrue(!!composebox);
 
           // Context menu opens in composebox.
-          composebox.dispatchEvent(new CustomEvent('context-menu-opened', {
-            bubbles: true,
-            composed: true,
-          }));
+          composebox.fire('context-menu-opened');
           await microtasksFinished();
 
           assertTrue(searchboxContextMenuClosed);
@@ -1507,16 +1500,8 @@ suite('NewTabPageAppTest', () => {
       };
 
       // Act: Dispatch two close requests back to back with different text.
-      composebox.dispatchEvent(new CustomEvent('close-composebox', {
-        detail: {composeboxText: 'kept'},
-        bubbles: true,
-        composed: true,
-      }));
-      composebox.dispatchEvent(new CustomEvent('close-composebox', {
-        detail: {composeboxText: 'clobber'},
-        bubbles: true,
-        composed: true,
-      }));
+      composebox.fire('close-composebox', {composeboxText: 'kept'});
+      composebox.fire('close-composebox', {composeboxText: 'clobber'});
       await microtasksFinished();
 
       // Assert: The composebox is closed, not re-opened, and only the first
@@ -1566,16 +1551,8 @@ suite('NewTabPageAppTest', () => {
               metrics.count('NewTabPage.Composebox.FromNTPLoadToSessionStart'));
 
           // Two back to back close requests do not record it either.
-          composebox.dispatchEvent(new CustomEvent('close-composebox', {
-            detail: {composeboxText: ''},
-            bubbles: true,
-            composed: true,
-          }));
-          composebox.dispatchEvent(new CustomEvent('close-composebox', {
-            detail: {composeboxText: ''},
-            bubbles: true,
-            composed: true,
-          }));
+          composebox.fire('close-composebox', {composeboxText: ''});
+          composebox.fire('close-composebox', {composeboxText: ''});
           await microtasksFinished();
           assertEquals(
               1,
@@ -1980,7 +1957,7 @@ suite('NewTabPageAppTest', () => {
           // Assert centers match exactly.
           assertDeepEquals(
               searchboxCenter, composeboxCenter,
-              `Center position mismatch. ` +
+              'Center position mismatch. ' +
                   `Searchbox: (${searchboxCenter.x}, ${searchboxCenter.y}), ` +
                   `Composebox: (${composeboxCenter.x}, ${composeboxCenter.y})`);
         });
@@ -2431,14 +2408,14 @@ suite('NewTabPageAppTest', () => {
         assertButtonAnimated();
       });
 
-      test(`clicking #customizeButton records click`, () => {
+      test('clicking #customizeButton records click', () => {
         getCustomizeButton().click();
         assertEquals(1, metrics.count('NewTabPage.Click'));
         assertEquals(
             1, metrics.count('NewTabPage.Click', NtpElement.CUSTOMIZE_BUTTON));
       });
 
-      test(`clicking #wallpaperSearchButton records click`, () => {
+      test('clicking #wallpaperSearchButton records click', () => {
         getWallpaperSearchButton().click();
         assertEquals(1, metrics.count('NewTabPage.Click'));
         assertEquals(
@@ -2778,11 +2755,8 @@ suite('NewTabPageAppTest', () => {
       assertTrue(!!modules);
 
       // Act.
-      modules.dispatchEvent(new CustomEvent('modules-auto-removed', {
-        detail: {message: 'Module removed', undo: () => {}},
-        bubbles: true,
-        composed: true,
-      }));
+      modules.fire(
+          'modules-auto-removed', {message: 'Module removed', undo: () => {}});
       await microtasksFinished();
 
       // Assert.
@@ -2798,19 +2772,14 @@ suite('NewTabPageAppTest', () => {
       assertTrue(!!mostVisited);
 
       // Act - dispatch the first toast.
-      modules.dispatchEvent(new CustomEvent('modules-auto-removed', {
-        detail: {message: 'Modules hidden', undo: () => {}},
-        bubbles: true,
-        composed: true,
-      }));
+      modules.fire(
+          'modules-auto-removed', {message: 'Modules hidden', undo: () => {}});
       await microtasksFinished();
 
       // Act - dispatch the second toast.
-      mostVisited.dispatchEvent(new CustomEvent('most-visited-auto-removed', {
-        detail: {message: 'Shortcuts hidden', undo: () => {}},
-        bubbles: true,
-        composed: true,
-      }));
+      mostVisited.fire(
+          'most-visited-auto-removed',
+          {message: 'Shortcuts hidden', undo: () => {}});
       await microtasksFinished();
 
       // Assert.
@@ -2846,19 +2815,14 @@ suite('NewTabPageAppTest', () => {
       assertTrue(!!mostVisited);
 
       // Act - dispatch the first toast with null callback.
-      modules.dispatchEvent(new CustomEvent('modules-auto-removed', {
-        detail: {message: 'Module removed', undo: null},
-        bubbles: true,
-        composed: true,
-      }));
+      modules.fire(
+          'modules-auto-removed', {message: 'Module removed', undo: null});
       await microtasksFinished();
 
       // Act - dispatch the second toast with non-null callback.
-      mostVisited.dispatchEvent(new CustomEvent('most-visited-auto-removed', {
-        detail: {message: 'Shortcuts hidden', undo: () => {}},
-        bubbles: true,
-        composed: true,
-      }));
+      mostVisited.fire(
+          'most-visited-auto-removed',
+          {message: 'Shortcuts hidden', undo: () => {}});
       await microtasksFinished();
 
       // Assert.
@@ -2925,7 +2889,6 @@ suite('NewTabPageAppTest', () => {
     suiteSetup(() => {
       loadTimeData.overrideValues({
         ntpRealboxNextEnabled: true,
-        composeboxCloseByClickOutside: true,
       });
     });
 
@@ -3010,11 +2973,7 @@ suite('NewTabPageAppTest', () => {
       // 5 & 6. Close composebox and clear modes (the 'x' button clicks).
       const composebox =
           app.shadowRoot.querySelector<NtpComposeboxElement>('#composebox')!;
-      composebox.dispatchEvent(new CustomEvent('close-composebox', {
-        detail: {composeboxText: ''},
-        bubbles: true,
-        composed: true,
-      }));
+      composebox.fire('close-composebox', {composeboxText: ''});
       await microtasksFinished();
       composeboxDialog = app.shadowRoot.querySelector('#composeboxDialog');
       assertFalse(!!composeboxDialog);
@@ -3199,7 +3158,7 @@ suite('NewTabPageAppTest', () => {
                 url: 'https://example.com/test',
                 title: 'Test Title',
                 delayUpload: true,
-                origin: TabUploadOrigin.ACTION_CHIP,
+                origin: TabAttachmentSource.kActionChip,
               }],
               fuseboxAction: action,
             };
@@ -3322,11 +3281,7 @@ suite('NewTabPageAppTest', () => {
               app.shadowRoot.querySelector<NtpComposeboxElement>('#composebox');
           assertTrue(!!realboxComposebox);
           assertEquals('realbox text', realboxComposebox.input);
-          realboxComposebox.dispatchEvent(new CustomEvent('close-composebox', {
-            detail: {composeboxText: ''},
-            bubbles: true,
-            composed: true,
-          }));
+          realboxComposebox.fire('close-composebox', {composeboxText: ''});
           await microtasksFinished();
           assertFalse(!!app.shadowRoot.querySelector<NtpComposeboxElement>(
               '#composebox'));
@@ -3556,7 +3511,7 @@ suite('NewTabPageAppTest', () => {
                   url: 'https://example.com/test',
                   title: 'Test Title',
                   delayUpload: true,
-                  origin: TabUploadOrigin.ACTION_CHIP,
+                  origin: TabAttachmentSource.kActionChip,
                 }],
                 fuseboxAction: action,
               },

@@ -246,6 +246,16 @@ enum class AccountsDialogAction {
   kAddAccount,
 };
 
+// Action on native app UI taken by TestDialogController.
+enum class NativeAppUiAction {
+  kNone,
+  kSuccess,
+  kError,
+  // Returns an error whose URL is cross-site with respect to the IdP.
+  kErrorWithCrossSiteUrl,
+  kLoginFinished,
+};
+
 // Action on IdP-sign-in-status-mismatch dialog taken by TestDialogController.
 // Does not indicate a test expectation.
 enum class IdpSigninStatusMismatchDialogAction {
@@ -289,6 +299,7 @@ struct MockConfiguration {
   std::optional<ErrorUrlType> error_url_type;
   blink::mojom::RpMode rp_mode{blink::mojom::RpMode::kPassive};
   bool suppressed_by_segmentation_platform{false};
+  NativeAppUiAction native_app_ui_action{NativeAppUiAction::kNone};
 };
 
 static const MockClientIdConfiguration kDefaultClientMetadata{
@@ -621,12 +632,17 @@ class TestDialogController
     std::optional<TokenError> token_error;
     // State related to ShowLoadingDialog().
     bool did_show_loading_dialog{false};
+    // State related to ShowNativeAppUi().
+    bool did_show_native_app_ui{false};
+    std::optional<NativeAppRequestOptions> native_app_request_options;
     // List of IDP strings for which a mismatch is shown in a test.
     std::vector<std::string> displayed_mismatch_idps;
   };
 
   explicit TestDialogController(MockConfiguration config)
       : accounts_dialog_action_(config.accounts_dialog_action),
+        native_app_ui_action_(config.native_app_ui_action),
+        token_(config.token ? config.token : ""),
         idp_signin_status_mismatch_dialog_action_(
             config.idp_signin_status_mismatch_dialog_action),
         error_dialog_action_(config.error_dialog_action),
@@ -639,10 +655,12 @@ class TestDialogController
 
   void UpdateConfiguration(MockConfiguration config) {
     accounts_dialog_action_ = config.accounts_dialog_action;
+    native_app_ui_action_ = config.native_app_ui_action;
     idp_signin_status_mismatch_dialog_action_ =
         config.idp_signin_status_mismatch_dialog_action;
     error_dialog_action_ = config.error_dialog_action;
     loading_dialog_action_ = config.loading_dialog_action;
+    token_ = config.token ? config.token : "";
     passive_dialog_volume_ =
         config.suppressed_by_segmentation_platform
             ? IdentityRequestDialogController::PassiveDialogVolume::kAmbient
@@ -855,11 +873,69 @@ class TestDialogController
     return true;
   }
 
+  bool ShowNativeAppUi(
+      const NativeAppRequestOptions& request_options,
+      DismissCallback dismiss_callback,
+      NativeAppResultCallback native_result_callback) override {
+    if (!state_) {
+      return false;
+    }
+
+    state_->did_show_native_app_ui = true;
+    state_->native_app_request_options = request_options;
+    switch (native_app_ui_action_) {
+      case NativeAppUiAction::kSuccess: {
+        IdentityRequestDialogController::NativeAppResult result;
+        result.type =
+            IdentityRequestDialogController::NativeAppResult::Type::kToken;
+        result.token = token_;
+        base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+            FROM_HERE, base::BindOnce(std::move(native_result_callback),
+                                      std::move(result)));
+        return true;
+      }
+      case NativeAppUiAction::kError: {
+        IdentityRequestDialogController::NativeAppResult result;
+        result.type =
+            IdentityRequestDialogController::NativeAppResult::Type::kError;
+        result.error = IdentityCredentialTokenError{"access_denied", GURL()};
+        base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+            FROM_HERE, base::BindOnce(std::move(native_result_callback),
+                                      std::move(result)));
+        return true;
+      }
+      case NativeAppUiAction::kErrorWithCrossSiteUrl: {
+        IdentityRequestDialogController::NativeAppResult result;
+        result.type =
+            IdentityRequestDialogController::NativeAppResult::Type::kError;
+        result.error = IdentityCredentialTokenError{
+            "access_denied", GURL("https://cross-site.example/error")};
+        base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+            FROM_HERE, base::BindOnce(std::move(native_result_callback),
+                                      std::move(result)));
+        return true;
+      }
+      case NativeAppUiAction::kLoginFinished: {
+        IdentityRequestDialogController::NativeAppResult result;
+        result.type = IdentityRequestDialogController::NativeAppResult::Type::
+            kLoginFinished;
+        base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+            FROM_HERE, base::BindOnce(std::move(native_result_callback),
+                                      std::move(result)));
+        return true;
+      }
+      case NativeAppUiAction::kNone:
+        return false;
+    }
+  }
+
   base::WeakPtr<TestDialogController> AsWeakPtr() {
     return weak_ptr_factory_.GetWeakPtr();
   }
 
   AccountsDialogAction accounts_dialog_action_{AccountsDialogAction::kNone};
+  NativeAppUiAction native_app_ui_action_{NativeAppUiAction::kNone};
+  std::string token_;
 
  protected:
   IdpSigninStatusMismatchDialogAction idp_signin_status_mismatch_dialog_action_{
@@ -1423,12 +1499,18 @@ class RequestTest : public RenderViewHostImplTestHarness {
       if (!base::FeatureList::IsEnabled(features::kFedCmLightweightMode)) {
         EXPECT_TRUE(DidFetch(FetchedEndpoint::ACCOUNTS));
       }
-      EXPECT_TRUE(DidFetch(FetchedEndpoint::TOKEN));
+      if (configuration.native_app_ui_action != NativeAppUiAction::kSuccess) {
+        EXPECT_TRUE(DidFetch(FetchedEndpoint::TOKEN));
+      }
       // FetchedEndpoint::CLIENT_METADATA is optional.
 
-      EXPECT_EQ(did_show_accounts_dialog(),
-                !expectation.is_auto_selected ||
-                    configuration.rp_mode != blink::mojom::RpMode::kActive);
+      if (configuration.native_app_ui_action != NativeAppUiAction::kNone) {
+        EXPECT_FALSE(did_show_accounts_dialog());
+      } else {
+        EXPECT_EQ(did_show_accounts_dialog(),
+                  !expectation.is_auto_selected ||
+                      configuration.rp_mode != blink::mojom::RpMode::kActive);
+      }
     }
 
     EXPECT_EQ(expectation.is_auto_selected, request_helper->is_auto_selected());
@@ -1928,12 +2010,6 @@ class RequestTest : public RenderViewHostImplTestHarness {
     CheckUKMSessionID(ukm_recorder()->GetEntriesByName(FedCmEntry::kEntryName));
     CheckUKMSessionID(
         ukm_recorder()->GetEntriesByName(FedCmIdpEntry::kEntryName));
-  }
-
-  std::vector<blink::mojom::IdentityProviderRequestOptionsPtr>
-  MaybeAddRegisteredProviders(
-      std::vector<blink::mojom::IdentityProviderRequestOptionsPtr>& providers) {
-    return request_->MaybeAddRegisteredProviders(providers);
   }
 
   void ExpectTwoUniqueSessionIDs() {
@@ -7618,138 +7694,6 @@ TEST_F(RequestTest, IdpSigninStatusClosePopupEmbargo) {
   EXPECT_TRUE(test_api_permission_delegate_->embargoed_origins_.empty());
 }
 
-// Test that no registered IdP is added without a registry requested.
-TEST_F(RequestTest, MaybeAddRegisteredProvidersEmptyList) {
-  std::vector<blink::mojom::IdentityProviderRequestOptionsPtr> providers;
-
-  std::vector<blink::mojom::IdentityProviderRequestOptionsPtr> result =
-      MaybeAddRegisteredProviders(providers);
-
-  EXPECT_TRUE(result.empty());
-}
-
-// Test that no registered IdP with only named providers requested.
-TEST_F(RequestTest, MaybeAddRegisteredProvidersNamed) {
-  std::vector<blink::mojom::IdentityProviderRequestOptionsPtr> providers;
-  providers.emplace_back(NewNamedIdP(GURL("https://idp.example"), kClientId,
-                                     /*is_registered=*/false));
-
-  std::vector<blink::mojom::IdentityProviderRequestOptionsPtr> result =
-      MaybeAddRegisteredProviders(providers);
-
-  // Expects the vector to be the same.
-  std::vector<blink::mojom::IdentityProviderRequestOptionsPtr> expected;
-  expected.emplace_back(NewNamedIdP(GURL("https://idp.example"), kClientId,
-                                    /*is_registered=*/false));
-
-  EXPECT_EQ(expected, result);
-}
-
-// Test that a registered provider is added.
-TEST_F(RequestTest, MaybeAddRegisteredProvidersAdded) {
-  std::vector<blink::mojom::IdentityProviderRequestOptionsPtr> providers;
-  providers.emplace_back(NewRegisteredIdP(kClientId));
-
-  std::vector<GURL> registry;
-  registry.emplace_back("https://idp.example");
-
-  EXPECT_CALL(*test_permission_delegate_, GetRegisteredIdPs())
-      .WillOnce(Return(registry));
-
-  std::vector<blink::mojom::IdentityProviderRequestOptionsPtr> result =
-      MaybeAddRegisteredProviders(providers);
-
-  // Expects that the registered IdP gets replaced by a named IdP.
-  std::vector<blink::mojom::IdentityProviderRequestOptionsPtr> expected;
-  expected.emplace_back(NewNamedIdP(GURL("https://idp.example"), kClientId,
-                                    /*is_registered=*/true));
-
-  EXPECT_EQ(expected, result);
-}
-
-// Test that all registered IdPs are expanded.
-TEST_F(RequestTest,
-       MaybeAddRegisteredProvidersAllRequestsForRegisteredIdPsAreExpanded) {
-  std::vector<blink::mojom::IdentityProviderRequestOptionsPtr> providers;
-  providers.emplace_back(NewRegisteredIdP(kClientId));
-  providers.emplace_back(NewRegisteredIdP(kClientId));
-
-  std::vector<GURL> registry;
-  registry.emplace_back("https://idp.example");
-
-  EXPECT_CALL(*test_permission_delegate_, GetRegisteredIdPs())
-      .WillOnce(Return(registry));
-
-  std::vector<blink::mojom::IdentityProviderRequestOptionsPtr> result =
-      MaybeAddRegisteredProviders(providers);
-
-  // Expects that the registered IdP gets replaced by a named IdP.
-  std::vector<blink::mojom::IdentityProviderRequestOptionsPtr> expected;
-  expected.emplace_back(NewNamedIdP(GURL("https://idp.example"), kClientId,
-                                    /*is_registered=*/true));
-  expected.emplace_back(NewNamedIdP(GURL("https://idp.example"), kClientId,
-                                    /*is_registered=*/true));
-
-  EXPECT_EQ(expected, result);
-}
-
-// Test that the registry can add two idps.
-TEST_F(RequestTest, MaybeAddRegisteredProvidersTwoRegisteredIdPs) {
-  std::vector<blink::mojom::IdentityProviderRequestOptionsPtr> providers;
-  providers.emplace_back(NewRegisteredIdP(kClientId));
-
-  std::vector<GURL> registry;
-  registry.emplace_back("https://idp1.example");
-  registry.emplace_back("https://idp2.example");
-
-  EXPECT_CALL(*test_permission_delegate_, GetRegisteredIdPs())
-      .WillOnce(Return(registry));
-
-  std::vector<blink::mojom::IdentityProviderRequestOptionsPtr> result =
-      MaybeAddRegisteredProviders(providers);
-
-  std::vector<blink::mojom::IdentityProviderRequestOptionsPtr> expected;
-  expected.emplace_back(NewNamedIdP(GURL("https://idp2.example"), kClientId,
-                                    /*is_registered=*/true));
-  expected.emplace_back(NewNamedIdP(GURL("https://idp1.example"), kClientId,
-                                    /*is_registered=*/true));
-
-  EXPECT_EQ(expected, result);
-}
-
-// Test that registered idps are inserted inline.
-TEST_F(RequestTest, MaybeAddRegisteredProvidersInsertedInline) {
-  std::vector<blink::mojom::IdentityProviderRequestOptionsPtr> providers;
-  providers.emplace_back(NewNamedIdP(GURL("https://idp1.example"), kClientId,
-                                     /*is_registered=*/false));
-  providers.emplace_back(NewRegisteredIdP(kClientId));
-  providers.emplace_back(NewNamedIdP(GURL("https://idp2.example"), kClientId,
-                                     /*is_registered=*/false));
-
-  std::vector<GURL> registry;
-  registry.emplace_back("https://idp-registered1.example");
-  registry.emplace_back("https://idp-registered2.example");
-
-  EXPECT_CALL(*test_permission_delegate_, GetRegisteredIdPs())
-      .WillOnce(Return(registry));
-
-  std::vector<blink::mojom::IdentityProviderRequestOptionsPtr> result =
-      MaybeAddRegisteredProviders(providers);
-
-  // Expects that the registered IdP gets replaced by a named IdP.
-  std::vector<blink::mojom::IdentityProviderRequestOptionsPtr> expected;
-  expected.emplace_back(NewNamedIdP(GURL("https://idp1.example"), kClientId,
-                                    /*is_registered=*/false));
-  expected.emplace_back(NewNamedIdP(GURL("https://idp-registered2.example"),
-                                    kClientId, /*is_registered=*/true));
-  expected.emplace_back(NewNamedIdP(GURL("https://idp-registered1.example"),
-                                    kClientId, /*is_registered=*/true));
-  expected.emplace_back(NewNamedIdP(GURL("https://idp2.example"), kClientId,
-                                    /*is_registered=*/false));
-
-  EXPECT_EQ(expected, result);
-}
-
 // Test that error dialog type metrics are recorded.
 TEST_F(RequestTest, ErrorDialogTypeMetrics) {
   MockConfiguration configuration = kConfigurationValid;
@@ -9600,45 +9544,6 @@ TEST_F(RequestTest, DisconnectFromOpaqueOrigin) {
   histogram_tester.ExpectTotalCount("Blink.FedCm.Status.Disconnect", 0);
 }
 
-TEST_F(RequestTest, DisconnectFromFencedFrame) {
-  base::HistogramTester histogram_tester;
-  ResetAndDeleteRequest();
-
-  RenderFrameHost* fenced_frame =
-      RenderFrameHostTester::For(main_test_rfh())->AppendFencedFrame();
-  ASSERT_TRUE(fenced_frame);
-
-  GURL fenced_frame_url = GURL("https://fencedframe.com");
-  std::unique_ptr<NavigationSimulator> navigation_simulator =
-      NavigationSimulator::CreateRendererInitiated(fenced_frame_url,
-                                                   fenced_frame);
-  navigation_simulator->Commit();
-  fenced_frame = navigation_simulator->GetFinalRenderFrameHost();
-  ASSERT_TRUE(fenced_frame);
-
-  mojo::Remote<FederatedRequestService> federated_request_service;
-  RequestService* service =
-      RequestService::GetOrCreateForCurrentDocument(fenced_frame);
-  service->BindFederatedRequestService(
-      federated_request_service.BindNewPipeAndPassReceiver());
-
-  auto options = blink::mojom::IdentityCredentialDisconnectOptions::New();
-  options->config = blink::mojom::IdentityProviderConfig::New();
-  options->config->config_url = GURL(kProviderUrlFull);
-  options->config->client_id = kClientId;
-  options->account_hint = "hint";
-
-  base::RunLoop run_loop;
-  federated_request_service->Disconnect(
-      std::move(options),
-      base::BindLambdaForTesting([&](blink::mojom::DisconnectStatus status) {
-        EXPECT_EQ(blink::mojom::DisconnectStatus::kError, status);
-        run_loop.Quit();
-      }));
-  run_loop.Run();
-  histogram_tester.ExpectTotalCount("Blink.FedCm.Status.Disconnect", 0);
-}
-
 TEST_F(RequestTest, DisconnectFromNonPrimaryPage) {
   base::HistogramTester histogram_tester;
   ResetAndDeleteRequest();
@@ -9963,6 +9868,165 @@ TEST_F(RequestTest, LoginToIdPRefocusesWhenPopupAlreadyOpen) {
   // without re-registering observer or resetting state.
   SimulateLoginToIdP();
   EXPECT_EQ(request_->GetDialogType(), Request::DialogType::kLoginToIdpPopup);
+}
+
+// Verifies that when an IdP in active mode indicates native UI delegation, the
+// native app UI is triggered and token resolution completes successfully.
+TEST_F(RequestTest, NativeAppUiSuccess) {
+  base::test::ScopedFeatureList list;
+  list.InitAndEnableFeature(features::kFedCmNativeIdPs);
+
+  MockConfiguration config = kConfigurationValid;
+  config.idp_info[kProviderUrlFull].accounts_response.parse_status =
+      ParseStatus::kUseNativeUiDelegation;
+  config.native_app_ui_action = NativeAppUiAction::kSuccess;
+
+  RequestParameters parameters = kDefaultRequestParameters;
+  parameters.rp_mode = blink::mojom::RpMode::kActive;
+
+  static_cast<TestRenderFrameHost*>(web_contents()->GetPrimaryMainFrame())
+      ->SimulateUserActivation();
+
+  RequestExpectations expectations = {
+      RequestTokenStatus::kSuccess, FederatedRequestResult::kSuccess,
+      /*standalone_console_message=*/std::nullopt,
+      /*selected_idp_config_url=*/kProviderUrlFull};
+
+  RunTest(parameters, expectations, config);
+  EXPECT_TRUE(dialog_controller_state_.did_show_native_app_ui);
+  ASSERT_TRUE(dialog_controller_state_.native_app_request_options.has_value());
+  const NativeAppRequestOptions& request_options =
+      *dialog_controller_state_.native_app_request_options;
+  EXPECT_EQ(GURL(kProviderUrlFull), request_options.config_url);
+  EXPECT_EQ(url::Origin::Create(GURL(kRpUrl)), request_options.rp_origin);
+
+  // The native application stands in for the id_assertion_endpoint, so it must
+  // receive the same parameters that endpoint would have been POSTed. In
+  // particular the requested fields are in here rather than being passed
+  // separately, so the two can never disagree.
+  EXPECT_THAT(request_options.assertion_params,
+              testing::HasSubstr("client_id=" + std::string(kClientId)));
+  EXPECT_THAT(request_options.assertion_params,
+              testing::HasSubstr("nonce=" + std::string(kNonce)));
+  EXPECT_THAT(request_options.assertion_params,
+              testing::HasSubstr("mode=active"));
+  EXPECT_THAT(request_options.assertion_params,
+              testing::HasSubstr("fields=name,email,picture"));
+
+  // Hints are consumed by the user agent rather than forwarded to the IdP, so
+  // they are passed separately instead of inside `assertion_params`.
+  EXPECT_THAT(request_options.assertion_params,
+              testing::Not(testing::HasSubstr("login_hint")));
+  EXPECT_THAT(request_options.assertion_params,
+              testing::Not(testing::HasSubstr("domain_hint")));
+}
+
+// Verifies that when the native app UI returns an IdP error, the request
+// completes with an IdTokenIdpErrorResponse error.
+TEST_F(RequestTest, NativeAppUiError) {
+  base::test::ScopedFeatureList list;
+  list.InitAndEnableFeature(features::kFedCmNativeIdPs);
+
+  MockConfiguration config = kConfigurationValid;
+  config.idp_info[kProviderUrlFull].accounts_response.parse_status =
+      ParseStatus::kUseNativeUiDelegation;
+  config.native_app_ui_action = NativeAppUiAction::kError;
+
+  RequestParameters parameters = kDefaultRequestParameters;
+  parameters.rp_mode = blink::mojom::RpMode::kActive;
+
+  static_cast<TestRenderFrameHost*>(web_contents()->GetPrimaryMainFrame())
+      ->SimulateUserActivation();
+
+  RequestExpectations expectations = {
+      RequestTokenStatus::kError,
+      FederatedRequestResult::kIdTokenIdpErrorResponse,
+      /*standalone_console_message=*/std::nullopt,
+      /*selected_idp_config_url=*/std::nullopt};
+
+  RunTest(parameters, expectations, config);
+  EXPECT_TRUE(dialog_controller_state_.did_show_native_app_ui);
+}
+
+// Verifies that when ShowNativeAppUi returns false (e.g. unsupported by the
+// embedder/platform), the request immediately completes with an error instead
+// of hanging.
+TEST_F(RequestTest, NativeAppUiUnsupportedCompletesWithError) {
+  base::test::ScopedFeatureList list;
+  list.InitAndEnableFeature(features::kFedCmNativeIdPs);
+
+  MockConfiguration config = kConfigurationValid;
+  config.idp_info[kProviderUrlFull].accounts_response.parse_status =
+      ParseStatus::kUseNativeUiDelegation;
+  config.native_app_ui_action = NativeAppUiAction::kNone;
+
+  RequestParameters parameters = kDefaultRequestParameters;
+  parameters.rp_mode = blink::mojom::RpMode::kActive;
+
+  static_cast<TestRenderFrameHost*>(web_contents()->GetPrimaryMainFrame())
+      ->SimulateUserActivation();
+
+  RequestExpectations expectations = {
+      RequestTokenStatus::kError, FederatedRequestResult::kError,
+      /*standalone_console_message=*/std::nullopt,
+      /*selected_idp_config_url=*/std::nullopt};
+
+  RunTest(parameters, expectations, config);
+  EXPECT_TRUE(dialog_controller_state_.did_show_native_app_ui);
+}
+
+// Verifies that receiving an unexpected result type (e.g. kLoginFinished) from
+// the dialog controller completes with an error instead of hanging.
+TEST_F(RequestTest, NativeAppUiUnexpectedLoginFinishedCompletesWithError) {
+  base::test::ScopedFeatureList list;
+  list.InitAndEnableFeature(features::kFedCmNativeIdPs);
+
+  MockConfiguration config = kConfigurationValid;
+  config.idp_info[kProviderUrlFull].accounts_response.parse_status =
+      ParseStatus::kUseNativeUiDelegation;
+  config.native_app_ui_action = NativeAppUiAction::kLoginFinished;
+
+  RequestParameters parameters = kDefaultRequestParameters;
+  parameters.rp_mode = blink::mojom::RpMode::kActive;
+
+  static_cast<TestRenderFrameHost*>(web_contents()->GetPrimaryMainFrame())
+      ->SimulateUserActivation();
+
+  RequestExpectations expectations = {
+      RequestTokenStatus::kError, FederatedRequestResult::kError,
+      /*standalone_console_message=*/std::nullopt,
+      /*selected_idp_config_url=*/std::nullopt};
+
+  RunTest(parameters, expectations, config);
+  EXPECT_TRUE(dialog_controller_state_.did_show_native_app_ui);
+}
+
+// Verifies that an error URL from a native application is held to the same
+// standard as one from the IdP's HTTP response: a cross-site URL is rejected
+// rather than being surfaced to the relying party.
+TEST_F(RequestTest, NativeAppUiCrossSiteErrorUrl) {
+  base::test::ScopedFeatureList list;
+  list.InitAndEnableFeature(features::kFedCmNativeIdPs);
+
+  MockConfiguration config = kConfigurationValid;
+  config.idp_info[kProviderUrlFull].accounts_response.parse_status =
+      ParseStatus::kUseNativeUiDelegation;
+  config.native_app_ui_action = NativeAppUiAction::kErrorWithCrossSiteUrl;
+
+  RequestParameters parameters = kDefaultRequestParameters;
+  parameters.rp_mode = blink::mojom::RpMode::kActive;
+
+  static_cast<TestRenderFrameHost*>(web_contents()->GetPrimaryMainFrame())
+      ->SimulateUserActivation();
+
+  RequestExpectations expectations = {
+      RequestTokenStatus::kError,
+      FederatedRequestResult::kIdTokenCrossSiteIdpErrorResponse,
+      /*standalone_console_message=*/std::nullopt,
+      /*selected_idp_config_url=*/std::nullopt};
+
+  RunTest(parameters, expectations, config);
+  EXPECT_TRUE(dialog_controller_state_.did_show_native_app_ui);
 }
 
 }  // namespace content::webid

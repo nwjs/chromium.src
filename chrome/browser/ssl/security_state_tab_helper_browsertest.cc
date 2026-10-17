@@ -32,7 +32,6 @@
 #include "chrome/browser/policy/policy_test_utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_window.h"
-#include "chrome/browser/safe_browsing/chrome_password_protection_service.h"
 #include "chrome/browser/ssl/cert_verifier_browser_test.h"
 #include "chrome/browser/ssl/chrome_security_state_util.h"
 #include "chrome/browser/ssl/https_upgrades_util.h"
@@ -46,13 +45,8 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
-#include "components/password_manager/core/browser/password_manager_metrics_util.h"
 #include "components/prefs/pref_service.h"
-#include "components/safe_browsing/content/browser/password_protection/password_protection_request_content.h"
-#include "components/safe_browsing/content/browser/password_protection/password_protection_test_util.h"
-#include "components/safe_browsing/core/browser/password_protection/metrics_util.h"
-#include "components/safe_browsing/core/common/features.h"
-#include "components/safe_browsing/core/common/proto/csd.pb.h"
+#include "components/safe_browsing/buildflags.h"
 #include "components/security_interstitials/content/security_interstitial_tab_helper.h"
 #include "components/security_interstitials/content/ssl_blocking_page.h"
 #include "components/security_interstitials/core/pref_names.h"
@@ -74,7 +68,6 @@
 #include "content/public/common/referrer.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
-#include "content/public/test/fenced_frame_test_util.h"
 #include "content/public/test/navigation_handle_observer.h"
 #include "content/public/test/prerender_test_util.h"
 #include "content/public/test/signed_exchange_browser_test_helper.h"
@@ -107,11 +100,19 @@
 #include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+#include "chrome/browser/safe_browsing/chrome_password_protection_service.h"
+#include "components/password_manager/core/browser/password_manager_metrics_util.h"
+#include "components/safe_browsing/content/browser/password_protection/password_protection_test_util.h"
+#include "components/safe_browsing/core/common/proto/csd.pb.h"
+#endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+
 namespace {
 
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 using password_manager::metrics_util::PasswordType;
 using safe_browsing::LoginReputationClientResponse;
-using safe_browsing::RequestOutcome;
+#endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 
 const char kCreateFilesystemUrlJavascript[] =
     "new Promise(resolve => {"
@@ -850,6 +851,7 @@ IN_PROC_BROWSER_TEST_F(SecurityStateTabHelperTest,
   EXPECT_EQ(content::SSLStatus::NORMAL_CONTENT, entry->GetSSL().content_status);
 }
 
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 // Tests the security level and malicious content status for sign-in password
 // reuse threat type.
 IN_PROC_BROWSER_TEST_F(
@@ -944,6 +946,7 @@ IN_PROC_BROWSER_TEST_F(
   // Since these are non-Gaia enterprise passwords, Gaia password change won't
   // have any impact here.
 }
+#endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 
 class PKPModelClientTest : public SecurityStateTabHelperTest {
  public:
@@ -1620,79 +1623,5 @@ IN_PROC_BROWSER_TEST_F(SecurityStateTabHelperPrerenderTest,
   // Shutdown server.
   ASSERT_TRUE(test_server->ShutdownAndWaitUntilComplete());
 }
-
-// For tests which use fenced frame.
-class SecurityStateTabHelperFencedFrameTest
-    : public SecurityStateTabHelperTest,
-      public testing::WithParamInterface<bool> {
- public:
-  SecurityStateTabHelperFencedFrameTest() {
-    // Enable or disable MixedContentAutoupgrade feature based on the test
-    // parameter.
-    scoped_feature_list_.InitWithFeatureState(
-        blink::features::kMixedContentAutoupgrade, GetParam());
-  }
-  ~SecurityStateTabHelperFencedFrameTest() override = default;
-  SecurityStateTabHelperFencedFrameTest(
-      const SecurityStateTabHelperFencedFrameTest&) = delete;
-
-  SecurityStateTabHelperFencedFrameTest& operator=(
-      const SecurityStateTabHelperFencedFrameTest&) = delete;
-
-  content::test::FencedFrameTestHelper& fenced_frame_test_helper() {
-    return fenced_frame_helper_;
-  }
-
-  content::WebContents* web_contents() {
-    return browser()->GetTabStripModel()->GetActiveWebContents();
-  }
-
-  bool IsAutoupgradeEnabled() { return GetParam(); }
-
- private:
-  content::test::FencedFrameTestHelper fenced_frame_helper_;
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-INSTANTIATE_TEST_SUITE_P(All,
-                         SecurityStateTabHelperFencedFrameTest,
-                         testing::Bool());
-
-IN_PROC_BROWSER_TEST_P(SecurityStateTabHelperFencedFrameTest,
-                       ChangeSecurityStateWhenLoadingInsecureContent) {
-  // Setup a mock certificate verifier.
-  SetUpMockCertVerifierForHttpsServer(0, net::OK);
-
-  // Load a valid HTTPS page.
-  auto primary_url = https_server_.GetURL("/empty.html");
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), primary_url));
-  CheckSecurityInfoForSecure(web_contents(), security_state::SECURE, false,
-                             false, false,
-                             false /* expect cert status error */);
-
-  // Create a fenced frame with a page that displays insecure content.
-  GURL fenced_frame_url =
-      https_server_.GetURL("/ssl/page_displays_insecure_content.html");
-  content::RenderFrameHost* fenced_frame_host =
-      fenced_frame_test_helper().CreateFencedFrame(
-          web_contents()->GetPrimaryMainFrame(), fenced_frame_url);
-  EXPECT_NE(nullptr, fenced_frame_host);
-
-  if (IsAutoupgradeEnabled()) {
-    // The security state of the web contents should not be changed because
-    // the MixedContentAutoupgrade feature changes the internal insecure url
-    // from http to https.
-    CheckSecurityInfoForSecure(web_contents(), security_state::SECURE, false,
-                               false, false,
-                               false /* expect cert status error */);
-  } else {
-    // The security state of the web contents should be changed to WARNING.
-    CheckSecurityInfoForSecure(web_contents(), security_state::WARNING, false,
-                               true, false,
-                               false /* expect cert status error */);
-  }
-}
-
-
 
 }  // namespace

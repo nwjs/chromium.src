@@ -189,17 +189,17 @@
   BOOL tileNavSuggestHandled = NO;
   for (size_t i = 0; i < autocompleteResult.size(); i++) {
     const AutocompleteMatch& match = autocompleteResult.match_at((NSUInteger)i);
-    if (match.type == AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED) {
+    if (match.type == omnibox::AutocompleteMatchType::kSearchWhatYouTyped) {
       if (shouldSkipVerbatim) {
         continue;
       }
     }
-    if (match.type == AutocompleteMatchType::TILE_NAVSUGGEST) {
+    if (match.type == omnibox::AutocompleteMatchType::kTileNavsuggest) {
       if (tileNavSuggestHandled) {
         continue;
       }
       tileNavSuggestHandled = YES;
-      DCHECK(match.type == AutocompleteMatchType::TILE_NAVSUGGEST);
+      DCHECK(match.type == omnibox::AutocompleteMatchType::kTileNavsuggest);
       for (const AutocompleteMatch::SuggestTile& tile : match.suggest_tiles) {
         AutocompleteMatch tileMatch = AutocompleteMatch(match);
         tileMatch.destination_url = tile.url;

@@ -4,9 +4,11 @@
 
 #include "components/autofill/core/browser/form_qualifiers.h"
 
+#include "base/test/scoped_feature_list.h"
 #include "components/autofill/core/browser/form_parsing/determine_regex_types.h"
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/form_structure_test_api.h"
+#include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_test_util.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/form_data_test_api.h"
@@ -19,31 +21,39 @@ namespace {
 
 class FormStructureShouldTest : public testing::Test {
  public:
-  static bool ShouldBeParsed(const FormStructure& form,
-                             ShouldBeParsedParams params = {}) {
-    const bool r = ShouldBeParsedForTest(form, params, nullptr);
-    CHECK_EQ(r, ShouldBeParsedForTest(form.ToFormData(), params, nullptr))
-        << "ShouldBeParsed(FormStructure) and ShouldBeParsed(FormData) must be "
-           "equivalent";
+  static DenseSet<FormParsingPermission> GetFormParsingPermissions(
+      const FormStructure& form,
+      bool ignore_small_forms = true,
+      FormParsingPermissionsParams params = {}) {
+    const DenseSet<FormParsingPermission> r = GetFormParsingPermissionsForTest(
+        form, ignore_small_forms, params, nullptr);
+    CHECK(r == GetFormParsingPermissionsForTest(
+                   form.ToFormData(), ignore_small_forms, params, nullptr))
+        << "GetFormParsingPermissions(FormStructure) and "
+           "GetFormParsingPermissions(FormData) must be equivalent";
     return r;
+  }
+
+  static bool ShouldBeParsed(const FormStructure& form,
+                             FormParsingPermissionsParams params = {}) {
+    return !GetFormParsingPermissions(form, /*ignore_small_forms=*/true, params)
+                .empty();
   }
 
   static bool ShouldRunHeuristics(const FormStructure& form,
                                   bool ignore_small_forms) {
-    const bool r = autofill::ShouldRunHeuristics(form, ignore_small_forms);
-    CHECK_EQ(
-        r, autofill::ShouldRunHeuristics(form.ToFormData(), ignore_small_forms))
-        << "ShouldRunHeuristics(FormStructure) and "
-           "ShouldRunHeuristics(FormData) must be equivalent";
-    return r;
+    return GetFormParsingPermissions(form, ignore_small_forms)
+        .contains(FormParsingPermission::kHeuristics);
   }
 
   static bool ShouldBeQueried(const FormStructure& form) {
-    const bool r = autofill::ShouldBeQueried(form);
-    CHECK_EQ(r, autofill::ShouldBeQueried(form.ToFormData()))
-        << "ShouldBeQueried(FormStructure) and "
-           "ShouldBeQueried(FormData) must be equivalent";
-    return r;
+    return GetFormParsingPermissions(form).contains(
+        FormParsingPermission::kServerQuery);
+  }
+
+  static bool ShouldBeUploaded(const FormStructure& form) {
+    return GetFormParsingPermissions(form).contains(
+        FormParsingPermission::kServerUpload);
   }
 
   static bool FormIsAutofillable(const FormData& form) {
@@ -58,6 +68,8 @@ class FormStructureShouldTest : public testing::Test {
   }
 
  private:
+  base::test::ScopedFeatureList feature_list_{
+      features::kAutofillOnlyConsiderSingleFieldFormsAsSearchForms};
   test::AutofillUnitTestEnvironment autofill_test_environment_;
 };
 
@@ -133,8 +145,8 @@ TEST_F(FormShouldBeParsedTest, FalseIfOnlySelectField) {
   EXPECT_TRUE(ShouldBeParsed(form_structure(), {.min_required_fields = 2}));
 }
 
-// Form whose action is a search URL should not be parsed.
-TEST_F(FormShouldBeParsedTest, FalseIfSearchURL) {
+// Single-field forms whose action is a search URL should not be parsed.
+TEST_F(FormShouldBeParsedTest, FalseIfSearchForm) {
   AddTextField();
   EXPECT_TRUE(ShouldBeParsed(form_structure()));
   EXPECT_TRUE(ShouldBeParsed(form_structure(), {.min_required_fields = 1}));
@@ -145,10 +157,16 @@ TEST_F(FormShouldBeParsedTest, FalseIfSearchURL) {
   EXPECT_FALSE(ShouldBeParsed(form_structure()));
   EXPECT_FALSE(ShouldBeParsed(form_structure(), {.min_required_fields = 1}));
 
-  // But search can be in the URL.
+  // Single-field forms where "search" is only in the host should be parsed.
   SetAction(GURL("http://search.com/?q=hello"));
   EXPECT_TRUE(ShouldBeParsed(form_structure()));
   EXPECT_TRUE(ShouldBeParsed(form_structure(), {.min_required_fields = 1}));
+
+  // Multi-field forms with a search URL in the action are not considered
+  // search forms and should be parsed.
+  SetAction(GURL("http://google.com/search?q=hello"));
+  AddTextField();
+  EXPECT_TRUE(ShouldBeParsed(form_structure()));
 }
 
 // Forms with two password fields and no other fields should be parsed.
@@ -361,14 +379,9 @@ TEST_F(FormStructureShouldTest, IsAutofillable) {
 
   EXPECT_TRUE(FormIsAutofillable(form));
 
-  // The target cannot include http(s)://*/search...
+  // Multi-field forms are not considered search forms even if the action URL
+  // matches `kUrlSearchActionRe`.
   form.set_action(GURL("http://google.com/search?q=hello"));
-
-  EXPECT_FALSE(FormIsAutofillable(form));
-
-  // But search can be in the URL.
-  form.set_action(GURL("http://search.com/?q=hello"));
-
   EXPECT_TRUE(FormIsAutofillable(form));
 }
 

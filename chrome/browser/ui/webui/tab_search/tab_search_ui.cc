@@ -22,10 +22,10 @@
 #include "chrome/browser/ui/webui/theme_source.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
+#include "chrome/grit/tab_group_shared_resources.h"
+#include "chrome/grit/tab_group_shared_resources_map.h"
 #include "chrome/grit/tab_search_resources.h"
 #include "chrome/grit/tab_search_resources_map.h"
-#include "chrome/grit/tab_search_shared_resources.h"
-#include "chrome/grit/tab_search_shared_resources_map.h"
 #include "components/favicon_base/favicon_url_parser.h"
 #include "components/prefs/pref_service.h"
 #include "components/strings/grit/components_strings.h"
@@ -72,10 +72,14 @@ TabSearchUI::TabSearchUI(content::WebUI* web_ui)
       {"a11yFoundTabFor", IDS_TAB_SEARCH_A11Y_FOUND_TAB_FOR},
       {"a11yFoundTabs", IDS_TAB_SEARCH_A11Y_FOUND_TABS},
       {"a11yFoundTabsFor", IDS_TAB_SEARCH_A11Y_FOUND_TABS_FOR},
+      {"a11yOpenSplitView", IDS_TAB_SEARCH_A11Y_OPEN_SPLIT_VIEW},
       {"a11yOpenTab", IDS_TAB_SEARCH_A11Y_OPEN_TAB},
+      {"a11yRecentlyClosedSplitView",
+       IDS_TAB_SEARCH_A11Y_RECENTLY_CLOSED_SPLIT_VIEW},
       {"a11yRecentlyClosedTab", IDS_TAB_SEARCH_A11Y_RECENTLY_CLOSED_TAB},
       {"a11yRecentlyClosedTabGroup",
        IDS_TAB_SEARCH_A11Y_RECENTLY_CLOSED_TAB_GROUP},
+      {"a11ySplitView", IDS_TAB_SEARCH_A11Y_SPLIT_VIEW},
       {"audioMuting", IDS_TAB_AX_LABEL_AUDIO_MUTING_FORMAT},
       {"audioPlaying", IDS_TAB_AX_LABEL_AUDIO_PLAYING_FORMAT},
       {"blobUrlSource", IDS_HOVER_CARD_BLOB_URL_SOURCE},
@@ -132,7 +136,7 @@ TabSearchUI::TabSearchUI(content::WebUI* web_ui)
 
   webui::SetupWebUIDataSource(source, kTabSearchResources,
                               IDR_TAB_SEARCH_TAB_SEARCH_HTML);
-  source->AddResourcePaths(kTabSearchSharedResources);
+  source->AddResourcePaths(kTabGroupSharedResources);
 
   content::URLDataSource::Add(
       profile, std::make_unique<FaviconSource>(

@@ -48,7 +48,6 @@
 #include "base/android/jni_android.h"
 #include "base/android/jni_array.h"
 #include "base/android/jni_string.h"
-#include "base/android/locale_utils.h"
 #include "base/android/scoped_java_ref.h"
 #include "base/command_line.h"
 #include "base/containers/span.h"
@@ -329,6 +328,17 @@ AwContents::AwContents(std::unique_ptr<WebContents> web_contents)
 
   if (base::FeatureList::IsEnabled(features::kWebViewRendererKeepAlive)) {
     UpdateAwRenderProcessAssociation();
+  }
+
+  if (base::FeatureList::IsEnabled(
+          features::kWebViewInitRendererDuringWebContentsCreation)) {
+    if (auto* rph = web_contents_->GetPrimaryMainFrame()->GetProcess()) {
+      // Ensure the renderer process initialization starts while creating a
+      // WebView instance. This is a performance optimization; the renderer
+      // initialization will be triggered anyway by url load. This is a no-op if
+      // the renderer is already initialized.
+      rph->Init();
+    }
   }
 }
 
@@ -880,6 +890,9 @@ bool AwContents::ShouldDownloadFavicon() {
     return false;
   }
   AwSettings* aw_settings = AwSettings::FromWebContents(web_contents_.get());
+  if (!aw_settings) {
+    return false;
+  }
   return aw_settings->ShouldDownloadFavicon();
 }
 

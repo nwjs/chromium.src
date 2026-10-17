@@ -108,13 +108,12 @@ const base::FeatureParam<IPHExtensionsZeroStatePromoVariant>::Option
          "custom-ui-chip-iph-v3"},
         {IPHExtensionsZeroStatePromoVariant::kCustomUIPlainLinkIph,
          "custom-ui-plain-link-iph"}};
-BASE_FEATURE_ENUM_PARAM(
-    IPHExtensionsZeroStatePromoVariant,
-    kIPHExtensionsZeroStatePromoVariantParam,
-    &feature_engagement::kIPHExtensionsZeroStatePromoFeature,
-    "x_iph-variant",
-    IPHExtensionsZeroStatePromoVariant::kCustomUiChipIphV2,
-    &kIPHExtensionsZeroStatePromoVariantOptions);
+BASE_FEATURE_ENUM_PARAM(IPHExtensionsZeroStatePromoVariant,
+                        kIPHExtensionsZeroStatePromoVariantParam,
+                        &kIPHExtensionsZeroStatePromoFeature,
+                        "x_iph-variant",
+                        IPHExtensionsZeroStatePromoVariant::kCustomUiChipIphV2,
+                        &kIPHExtensionsZeroStatePromoVariantOptions);
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 BASE_FEATURE(kIPHFocusHelpBubbleScreenReaderPromoFeature,
              "IPH_FocusHelpBubbleScreenReaderPromo",
@@ -147,22 +146,18 @@ BASE_FEATURE(kIPHLensOverlayFeature,
              "IPH_LensOverlay",
              base::FEATURE_DISABLED_BY_DEFAULT);
 const base::FeatureParam<std::string> kIPHLensOverlayUrlAllowFilters{
-    &feature_engagement::kIPHLensOverlayFeature, "x_url_allow_filters", "[]"};
+    &kIPHLensOverlayFeature, "x_url_allow_filters", "[]"};
 const base::FeatureParam<std::string> kIPHLensOverlayUrlBlockFilters{
-    &feature_engagement::kIPHLensOverlayFeature, "x_url_block_filters", "[]"};
+    &kIPHLensOverlayFeature, "x_url_block_filters", "[]"};
 const base::FeatureParam<std::string> kIPHLensOverlayUrlPathMatchAllowPatterns{
-    &feature_engagement::kIPHLensOverlayFeature,
-    "x_url_path_match_allow_patterns", "[]"};
+    &kIPHLensOverlayFeature, "x_url_path_match_allow_patterns", "[]"};
 const base::FeatureParam<std::string>
     kIPHLensOverlayUrlForceAllowedUrlMatchPatterns{
-        &feature_engagement::kIPHLensOverlayFeature,
-        "x_url_forced_allowed_match_patterns", "[]"};
+        &kIPHLensOverlayFeature, "x_url_forced_allowed_match_patterns", "[]"};
 const base::FeatureParam<std::string> kIPHLensOverlayUrlPathMatchBlockPatterns{
-    &feature_engagement::kIPHLensOverlayFeature,
-    "x_url_path_match_block_patterns", "[]"};
+    &kIPHLensOverlayFeature, "x_url_path_match_block_patterns", "[]"};
 const base::FeatureParam<base::TimeDelta> kIPHLensOverlayDelayTime{
-    &feature_engagement::kIPHLensOverlayFeature, "x_wait_time",
-    base::Seconds(7)};
+    &kIPHLensOverlayFeature, "x_wait_time", base::Seconds(7)};
 BASE_FEATURE(kIPHOmniboxEverywhereLensPromoFeature,
              "IPH_OmniboxEverywhereLensPromo",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -333,7 +328,7 @@ BASE_FEATURE(kIPHBackNavigationMenuFeature,
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHBookmarkBarSimplifiedFeature,
              "IPH_BookmarkBarSimplified",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
 
@@ -651,24 +646,6 @@ BASE_FEATURE(kIPHTouchToSearchCalloutFeature,
 BASE_FEATURE(kIPHTranslateMenuButtonFeature,
              "IPH_TranslateMenuButton",
              base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHVideoTutorialNTPChromeIntroFeature,
-             "IPH_VideoTutorial_NTP_ChromeIntro",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHVideoTutorialNTPDownloadFeature,
-             "IPH_VideoTutorial_NTP_Download",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHVideoTutorialNTPSearchFeature,
-             "IPH_VideoTutorial_NTP_Search",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHVideoTutorialNTPVoiceSearchFeature,
-             "IPH_VideoTutorial_NTP_VoiceSearch",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHVideoTutorialNTPSummaryFeature,
-             "IPH_VideoTutorial_NTP_Summary",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHVideoTutorialTryNowFeature,
-             "IPH_VideoTutorial_TryNow",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHExploreSitesTileFeature,
              "IPH_ExploreSitesTile",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -780,6 +757,10 @@ BASE_FEATURE(kIPHiOSPromoWhatsNewFeature,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHiOSPromoBackgroundCustomizationFeature,
              "IPH_iOSPromoBackgroundCustomization",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHiOSPromoLevelUpFeature, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHiOSPromoEphemeralThemeFeature,
+             "IPH_iOSPromoEphemeralTheme",
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHiOSPromoSigninFullscreenFeature,
              "IPH_iOSPromoSigninFullscreen",
@@ -950,6 +931,10 @@ BASE_FEATURE(kIPHiOSHomepageLensNewBadge,
 
 BASE_FEATURE(kIPHiOSHomepageCustomizationNewBadge,
              "IPH_iOSHomepageCustomizationNewBadge",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kIPHiOSBackgroundNewBadge,
+             "IPH_iOSBackgroundNewBadge",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kIPHiOSOneTimeDefaultBrowserNotificationFeature,

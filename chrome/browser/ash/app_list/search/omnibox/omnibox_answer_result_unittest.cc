@@ -41,7 +41,7 @@ MATCHER_P(TagEquals, tag, "") {
 
 TEST_F(OmniboxAnswerResultTest, CalculatorResult) {
   AutocompleteMatch match;
-  match.type = AutocompleteMatchType::CALCULATOR;
+  match.type = omnibox::AutocompleteMatchType::kCalculator;
   match.contents = u"2+2";
   match.description = u"4";
 
@@ -75,7 +75,7 @@ TEST_F(OmniboxAnswerResultTest, CalculatorResult) {
 
 TEST_F(OmniboxAnswerResultTest, CalculatorResultNoDescription) {
   AutocompleteMatch match;
-  match.type = AutocompleteMatchType::CALCULATOR;
+  match.type = omnibox::AutocompleteMatchType::kCalculator;
   match.contents = u"4";
 
   OmniboxAnswerResult result(

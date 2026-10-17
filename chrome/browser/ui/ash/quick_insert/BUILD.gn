@@ -34,7 +34,7 @@ static_library("quick_insert") {
     "//chrome/browser/ash/input_method",
     "//chrome/browser/ash/lobster",
     "//chrome/browser/ash/login/session",
-    "//chrome/browser/history",
+    "//chrome/browser/bookmarks",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui/ash/thumbnail_loader",
     "//chrome/common",
@@ -42,7 +42,9 @@ static_library("quick_insert") {
     "//chromeos/ash/components/drivefs/mojom",
     "//chromeos/ash/components/editor_menu/public/cpp",
     "//chromeos/ash/components/favicon:favicon_service_provider",
+    "//chromeos/ash/components/history:history_service_provider",
     "//chromeos/ash/components/search_engines",
+    "//chromeos/ash/experiences/extensions/common/api",
     "//chromeos/constants",
     "//components/favicon/core",
     "//components/optimization_guide/core",
@@ -69,7 +71,6 @@ source_set("unit_tests") {
     "//base",
     "//base/test:test_support",
     "//chrome/browser",
-    "//chrome/browser/ash/app_list/search/test:test_support",
     "//chrome/browser/ash/browser_delegate/keyed_service_provider",
     "//chrome/browser/ash/drive",
     "//chrome/browser/ash/drive:test_support",
@@ -82,10 +83,12 @@ source_set("unit_tests") {
     "//chrome/browser/ui/webui/ash/mako",
     "//chrome/common",
     "//chrome/test:test_support",
+    "//chrome/test/base:testing_browser_process",
     "//chromeos/ash/components/disks",
     "//chromeos/ash/components/disks:test_support",
     "//chromeos/ash/components/drivefs:test_support",
     "//chromeos/ash/components/search_engines",
+    "//chromeos/ash/experiences/extensions/common/api",
     "//chromeos/constants",
     "//components/bookmarks/browser",
     "//components/favicon/core/test:test_support",
@@ -108,7 +111,10 @@ source_set("browser_tests") {
 
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
 
-  sources = [ "quick_insert_accessibility_browsertest.cc" ]
+  sources = [
+    "quick_insert_accessibility_browsertest.cc",
+    "quick_insert_client_impl_browsertest.cc",
+  ]
 
   deps = [
     ":quick_insert",
@@ -116,15 +122,28 @@ source_set("browser_tests") {
     "//ash:test_support",
     "//ash/public/cpp",
     "//ash/strings",
+    "//base/test:test_support",
+    "//chrome/browser",
     "//chrome/browser/ash/accessibility",
     "//chrome/browser/ash/accessibility:test_support",
+    "//chrome/browser/ash/app_list/search/test:test_support",
+    "//chrome/browser/bookmarks",
+    "//chrome/browser/history",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/ui",
     "//chrome/test:test_support",
+    "//components/bookmarks/browser",
+    "//components/bookmarks/test",
+    "//components/history/core/browser",
+    "//components/history/core/test",
+    "//components/user_manager",
     "//content/test:test_support",
     "//extensions/browser",
     "//testing/gmock",
     "//testing/gtest",
     "//ui/base",
     "//ui/events:test_support",
+    "//url",
   ]
 }
 

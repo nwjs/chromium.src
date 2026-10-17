@@ -35,6 +35,7 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_tab_visit_tracker.h"
 #include "chrome/browser/profiles/profile.h"
 #include "components/optimization_guide/core/model_execution/feature_keys.h"
+#include "components/optimization_guide/core/model_execution/optimization_guide_model_execution_error.h"
 #include "components/optimization_guide/core/model_execution/remote_model_executor.h"
 #include "components/optimization_guide/core/model_quality/model_quality_log_entry.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
@@ -1221,6 +1222,7 @@ void ContextHubService::GenerateTabGroups(std::vector<TabData> tabs,
 void ContextHubService::ExecuteMemoryBankChat(
     base::span<const int64_t> entry_ids,
     const std::string& user_command,
+    bool save_to_history,
     MemoryBankChatCallback callback) {
   std::string_view trimmed_command =
       base::TrimWhitespaceASCII(user_command, base::TRIM_ALL);
@@ -1233,11 +1235,12 @@ void ContextHubService::ExecuteMemoryBankChat(
       entry_ids,
       base::BindOnce(&ContextHubService::OnMemoryBankEntriesFetched,
                      weak_factory_.GetWeakPtr(), std::string(trimmed_command),
-                     std::move(callback)));
+                     save_to_history, std::move(callback)));
 }
 
 void ContextHubService::OnMemoryBankEntriesFetched(
     const std::string& user_command,
+    bool save_to_history,
     MemoryBankChatCallback callback,
     std::vector<MemoryBankEntry> entries) {
   optimization_guide::proto::ContextHubRequest request;
@@ -1249,23 +1252,28 @@ void ContextHubService::OnMemoryBankEntriesFetched(
         ToMemoryBankEntryProto(entry);
   }
 
-  for (const auto& turn : GetMemoryBankChatHistory()) {
-    *request.add_chat_history() = turn;
+  if (save_to_history) {
+    for (const auto& turn : GetMemoryBankChatHistory()) {
+      *request.add_chat_history() = turn;
+    }
   }
 
   request.set_user_command(user_command);
-  AddMemoryBankChatHistoryTurn(
-      optimization_guide::proto::ChatHistoryTurn::ROLE_USER, user_command);
+  if (save_to_history) {
+    AddMemoryBankChatHistoryTurn(
+        optimization_guide::proto::ChatHistoryTurn::ROLE_USER, user_command);
+  }
 
   optimization_guide_remote_model_executor_->ExecuteModel(
       optimization_guide::ModelBasedCapabilityKey::kContextHub, request,
       optimization_guide::ModelExecutionOptions(),
       base::BindOnce(
           &ContextHubService::HandleMemoryBankChatModelExecutionResult,
-          weak_factory_.GetWeakPtr(), std::move(callback)));
+          weak_factory_.GetWeakPtr(), save_to_history, std::move(callback)));
 }
 
 void ContextHubService::HandleMemoryBankChatModelExecutionResult(
+    bool save_to_history,
     MemoryBankChatCallback callback,
     optimization_guide::OptimizationGuideModelExecutionResult result,
     std::unique_ptr<optimization_guide::ModelQualityLogEntry> log_entry) {
@@ -1281,7 +1289,7 @@ void ContextHubService::HandleMemoryBankChatModelExecutionResult(
 
   std::string text_response =
       response->memory_bank_chat_response().text_response();
-  if (!text_response.empty()) {
+  if (save_to_history && !text_response.empty()) {
     AddMemoryBankChatHistoryTurn(
         optimization_guide::proto::ChatHistoryTurn::ROLE_ASSISTANT,
         text_response);
@@ -1301,7 +1309,16 @@ void ContextHubService::HandleTabGroupModelExecutionResult(
         optimization_guide::proto::ContextHubResponse>(*result.response);
   }
   if (!response || !response->has_group_response()) {
-    std::move(callback).Run({}, std::move(tabs), /*text_response=*/"");
+    std::string error_message;
+    if (!result.response.has_value() &&
+        result.response.error().error() ==
+            optimization_guide::OptimizationGuideModelExecutionError::
+                ModelExecutionError::kRequestThrottled) {
+      error_message =
+          "Unable to group tabs due to high server load. Please try again "
+          "later.";
+    }
+    std::move(callback).Run({}, std::move(tabs), std::move(error_message));
     return;
   }
 

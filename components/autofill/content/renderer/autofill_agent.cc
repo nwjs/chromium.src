@@ -71,7 +71,7 @@
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/input/web_keyboard_event.h"
 #include "third_party/blink/public/common/renderer_preferences/renderer_preferences.h"
-#include "third_party/blink/public/common/webid/email_verification_state.h"
+#include "third_party/blink/public/mojom/scroll/scroll_enums.mojom-shared.h"
 #include "third_party/blink/public/platform/web_runtime_features_base.h"
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/web/web_autofill_state.h"
@@ -196,6 +196,8 @@ bool ShowPredictions(const WebDocument& document,
         form.alternative_signature,
         "\nstructural form signature: ",
         form.structural_form_signature,
+        "\nstructural form signature in host form: ",
+        field.host_form_structural_signature,
         "\nform name: ",
         base::UTF16ToUTF8(form.data.name_attribute()),
         "\nform id: ",
@@ -446,10 +448,11 @@ class AutofillAgent::DeferringAutofillDriver : public mojom::AutofillDriver {
   void DidDetectJavaScriptAutofill(
       const FormData& form,
       FieldRendererId trigger_field_id,
-      std::vector<mojom::JavaScriptFieldModificationPtr> field_modifications)
-      override {
+      std::vector<mojom::JavaScriptFieldModificationPtr> field_modifications,
+      base::TimeTicks detection_start_timestamp) override {
     DeferMsg(&mojom::AutofillDriver::DidDetectJavaScriptAutofill, form,
-             trigger_field_id, std::move(field_modifications));
+             trigger_field_id, std::move(field_modifications),
+             detection_start_timestamp);
   }
 
   const raw_ref<AutofillAgent> agent_;
@@ -589,7 +592,7 @@ void AutofillAgent::DidDispatchDOMContentLoadedEvent() {
   }
 }
 
-void AutofillAgent::DidChangeScrollOffset() {
+void AutofillAgent::DidChangeScrollOffset(blink::mojom::ScrollType) {
   if (config_.focus_requires_scroll) {
     HidePopup();
     return;
@@ -1759,36 +1762,6 @@ void AutofillAgent::SendEmailVerificationToken(FieldRendererId email_field_id,
                                                           token);
 }
 
-void AutofillAgent::UpdateEmailVerificationState(
-    FieldRendererId email_field_id,
-    mojom::EmailVerificationState state) {
-  blink::WebInputElement input_element =
-      form_util::GetFormControlByRendererId(email_field_id)
-          .DynamicTo<blink::WebInputElement>();
-  if (!input_element) {
-    return;
-  }
-  blink::EmailVerificationState blink_state;
-  switch (state) {
-    case mojom::EmailVerificationState::kNone:
-      blink_state = blink::EmailVerificationState::kNone;
-      break;
-    case mojom::EmailVerificationState::kLoading:
-      blink_state = blink::EmailVerificationState::kLoading;
-      break;
-    case mojom::EmailVerificationState::kVerified:
-      blink_state = blink::EmailVerificationState::kVerified;
-      break;
-    case mojom::EmailVerificationState::kLoggedOutOrUnsupported:
-      blink_state = blink::EmailVerificationState::kLoggedOutOrUnsupported;
-      break;
-    case mojom::EmailVerificationState::kFailed:
-      blink_state = blink::EmailVerificationState::kFailed;
-      break;
-  }
-  input_element.SetEmailVerificationState(blink_state);
-}
-
 void AutofillAgent::ObserveFieldVisibility(
     FieldRendererId field_id,
     mojo::PendingRemote<mojom::AutofillVisibilityObserver> observer) {
@@ -2393,7 +2366,8 @@ mojom::AutofillDriver* AutofillAgent::unsafe_autofill_driver() {
 
 void AutofillAgent::OnJavaScriptAutofillDetected(
     blink::WebFormControlElement trigger_field,
-    std::vector<mojom::JavaScriptFieldModificationPtr> field_modifications) {
+    std::vector<mojom::JavaScriptFieldModificationPtr> field_modifications,
+    base::TimeTicks detection_start_timestamp) {
   if (std::optional<form_util::FormAndField> form_and_field =
           form_util::FindFormAndFieldForFormControlElement(
               trigger_field, field_data_manager(),
@@ -2402,7 +2376,8 @@ void AutofillAgent::OnJavaScriptAutofillDetected(
     auto& [form, field] = *form_and_field;
     if (auto* autofill_driver = unsafe_autofill_driver()) {
       autofill_driver->DidDetectJavaScriptAutofill(
-          form, field.renderer_id(), std::move(field_modifications));
+          form, field.renderer_id(), std::move(field_modifications),
+          detection_start_timestamp);
     }
   }
 }

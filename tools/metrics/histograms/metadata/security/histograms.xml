@@ -22,6 +22,12 @@ chromium-metrics-reviews@google.com.
 
 <histograms>
 
+<variants name="RequestHeaderIntegrityResourceType">
+  <variant name="MainResource" summary="top-level frame / window navigation"/>
+  <variant name="Prefetch" summary="navigational prefetch"/>
+  <variant name="Subresource" summary="subresource / iframe request"/>
+</variants>
+
 <variants name="SafetyTip">
   <variant name=".SafetyTip_BadReputation" summary="Bad reputation Safety Tip"/>
   <variant name=".SafetyTip_BadReputationIgnored"
@@ -34,7 +40,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="OSCrypt.AppBoundEncryption.SupportLevel"
-    enum="AppBoundEncryptionSupportLevel" expires_after="2027-01-17">
+    enum="AppBoundEncryptionSupportLevel" expires_after="2027-03-21">
   <owner>wfh@chromium.org</owner>
   <owner>nparker@chromium.org</owner>
   <summary>
@@ -56,7 +62,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OSCrypt.AppBoundProvider.Decrypt.ResultLastError"
-    enum="WinGetLastError" expires_after="2027-01-17">
+    enum="WinGetLastError" expires_after="2027-03-21">
   <owner>wfh@chromium.org</owner>
   <owner>nparker@chromium.org</owner>
   <summary>
@@ -440,7 +446,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.HttpsFirstMode.SettingEnabledAtStartup2"
-    enum="HttpsFirstModeSetting" expires_after="2027-01-17">
+    enum="HttpsFirstModeSetting" expires_after="2027-03-21">
   <owner>cthomp@chromium.org</owner>
   <owner>trusty-transport@chromium.org</owner>
   <summary>
@@ -559,7 +565,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.NavigationRequestSecurityLevel"
-    enum="NavigationRequestSecurityLevel" expires_after="2027-01-17">
+    enum="NavigationRequestSecurityLevel" expires_after="2027-03-21">
   <owner>jdeblasio@chromium.org</owner>
   <owner>trusty-transport@chromium.org</owner>
   <summary>
@@ -585,7 +591,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.PageInfo.AboutThisSiteInteraction"
-    enum="AboutThisSiteInteraction" expires_after="2027-01-17">
+    enum="AboutThisSiteInteraction" expires_after="2027-03-21">
   <owner>dullweber@chromium.org</owner>
   <owner>olesiamarukhno@chromium.org</owner>
   <summary>
@@ -732,7 +738,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.PrivateNetworkAccess.CheckResult"
-    enum="LocalNetworkAccessCheckResult" expires_after="2027-01-17">
+    enum="LocalNetworkAccessCheckResult" expires_after="2027-03-21">
   <owner>hchao@chromium.org</owner>
   <owner>clamy@chromium.org</owner>
   <owner>cthomp@chromium.org</owner>
@@ -743,6 +749,116 @@ chromium-metrics-reviews@google.com.
     Result of the Local Network Access Check on a new connection. Recorded once
     per call to network::URLLoader::OnConnected(), which may be more than once
     per URL request.
+  </summary>
+</histogram>
+
+<histogram name="Security.PrivateVerificationTokens.EmptyCache" enum="Boolean"
+    expires_after="2027-04-01">
+  <owner>aykutb@chromium.org</owner>
+  <owner>private-verification-tokens-chrome-team@google.com</owner>
+  <summary>
+    Recorded when a request meets all redemption criteria for a registered PVT
+    redeemer origin. True value is recorded when Chrome has no tokens in cache
+    to attach, False value is recorded otherwise.
+  </summary>
+</histogram>
+
+<histogram name="Security.PrivateVerificationTokens.FeatureActive"
+    units="requests" expires_after="2027-04-01">
+  <owner>aykutb@chromium.org</owner>
+  <owner>private-verification-tokens-chrome-team@google.com</owner>
+  <summary>
+    Recorded when the Private Verification Tokens feature is active on an
+    eligible browser-initiated outermost main-frame request. Operates strictly
+    as an absolute volume numerator. For Origin Trial experimentation capacity
+    percentages, this should be explicitly divided by the global Chrome page
+    load denominator metric (Navigation.MainFrameProfileTypeDifferentPage2),
+    which tracks all cross-document outermost main frame navigations.
+  </summary>
+</histogram>
+
+<histogram name="Security.PrivateVerificationTokens.FetchSetupResult"
+    enum="PrivateVerificationTokensFetchSetupResult" expires_after="2027-04-01">
+  <owner>aykutb@chromium.org</owner>
+  <owner>private-verification-tokens-chrome-team@google.com</owner>
+  <summary>
+    Recorded when attempting to initialize the Private Verification Tokens fetch
+    process. Captures whether structural parameters and the fetcher object were
+    instantiated correctly prior to deriving the batch request.
+  </summary>
+</histogram>
+
+<histogram name="Security.PrivateVerificationTokens.RedemptionLimitHit"
+    enum="Boolean" expires_after="2027-04-01">
+  <owner>aykutb@chromium.org</owner>
+  <owner>private-verification-tokens-chrome-team@google.com</owner>
+  <summary>
+    True value is recorded when a registered page in an incognito session does
+    not get a PVT because the redemption limit is hit (at most 2 distinct
+    issuers per incognito session). False value is recorded when the limit is
+    not hit.
+  </summary>
+</histogram>
+
+<histogram name="Security.PrivateVerificationTokens.TokenAttachTime"
+    units="microseconds" expires_after="2027-04-01">
+  <owner>aykutb@chromium.org</owner>
+  <owner>private-verification-tokens-chrome-team@google.com</owner>
+  <summary>
+    Measures the blocking execution time in microseconds to evaluate redemption
+    and retrieve a token from the in-memory cache during WillStartRequest. Note:
+    This metric is reported only for clients with high-resolution clocks.
+  </summary>
+</histogram>
+
+<histogram name="Security.PrivateVerificationTokens.TokenFetchTime" units="ms"
+    expires_after="2027-04-01">
+  <owner>aykutb@chromium.org</owner>
+  <owner>private-verification-tokens-chrome-team@google.com</owner>
+  <summary>
+    Measures the total round-trip time in milliseconds to issue a token request,
+    download the response, and finalize the tokens. This histogram is emitted
+    only when TokenParsingResult is success.
+  </summary>
+</histogram>
+
+<histogram name="Security.PrivateVerificationTokens.TokenParsingResult"
+    enum="PrivateVerificationTokensTokenParsingResult"
+    expires_after="2027-04-01">
+  <owner>aykutb@chromium.org</owner>
+  <owner>private-verification-tokens-chrome-team@google.com</owner>
+  <summary>
+    Records the outcome of parsing and finalizing token responses received from
+    issuers. Helps detect issuer server misconfigurations or malformed
+    responses.
+  </summary>
+</histogram>
+
+<histogram
+    name="Security.RequestHeaderIntegrity.DynamicHeaderPresent.{ResourceType}"
+    enum="BooleanPresent" expires_after="2027-09-01">
+  <owner>deepakr@google.com</owner>
+  <owner>src/chrome/common/request_header_integrity/OWNERS</owner>
+  <summary>
+    Logged each time the request integrity headers are attached to a request for
+    a {ResourceType} to a Google-associated domain: when the request starts and
+    on every redirect to a Google-associated domain. Recorded in whichever
+    process attaches the headers. Indicates whether the dynamic request
+    integrity header was available in the in-memory cache and attached to the
+    outgoing request headers.
+  </summary>
+  <token key="ResourceType" variants="RequestHeaderIntegrityResourceType"/>
+</histogram>
+
+<histogram name="Security.RequestHeaderIntegrity.TokenAvailableDelay"
+    units="ms" expires_after="2027-09-01">
+  <owner>deepakr@google.com</owner>
+  <owner>src/chrome/common/request_header_integrity/OWNERS</owner>
+  <summary>
+    The latency in milliseconds from ChromeCompaneroHost creation in the browser
+    process until the first integrity token is successfully generated by the
+    background ThreadPool task and cached in ChromeCompaneroLoader. Recorded
+    once per browser session.
   </summary>
 </histogram>
 
@@ -1049,7 +1165,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SiteIsolation.DisabledReason.AndroidDesktop"
-    enum="SiteIsolationDisabledReason" expires_after="2026-09-26">
+    enum="SiteIsolationDisabledReason" expires_after="2027-09-26">
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
   <owner>wenz@chromium.org</owner>

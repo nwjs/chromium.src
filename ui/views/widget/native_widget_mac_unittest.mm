@@ -48,8 +48,10 @@
 #include "ui/events/test/event_generator.h"
 #import "ui/gfx/mac/coordinate_conversion.h"
 #include "ui/gfx/native_ui_types.h"
+#include "ui/native_theme/mock_os_settings_provider.h"
 #include "ui/native_theme/native_theme.h"
 #include "ui/native_theme/native_theme_observer.h"
+#include "ui/native_theme/os_settings_provider_mac.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/cocoa/native_widget_mac_event_monitor.h"
 #include "ui/views/cocoa/native_widget_mac_ns_window_host.h"
@@ -325,6 +327,118 @@ TEST_F(NativeWidgetMacTest, ScreenshotProtectionTracksWindowSize) {
   EXPECT_EQ(3u, calls.size());
 
   widget->CloseNow();
+}
+
+TEST_F(NativeWidgetMacTest, ExcludeOwnedWindowsFromCapture) {
+  struct CaptureExclusionCall {
+    NSRect frame;
+    bool allow;
+  };
+
+  NativeWidgetMacTestWindow* parent_window = nil;
+  Widget::InitParams parent_params =
+      CreateParams(Widget::InitParams::TYPE_WINDOW);
+  parent_params.bounds = gfx::Rect(100, 100, 400, 300);
+  Widget* parent_widget =
+      CreateWidgetWithTestWindow(std::move(parent_params), &parent_window);
+
+  std::vector<CaptureExclusionCall> parent_calls;
+  BridgedNativeWidgetTestApi(parent_widget).SetCaptureExclusionApplier(
+      base::BindRepeating(
+          [](std::vector<CaptureExclusionCall>* calls, NSWindow* window,
+             bool allow) { calls->push_back({window.frame, allow}); },
+          &parent_calls));
+
+  // Exclude parent from capture.
+  parent_widget->SetAllowScreenshots(false);
+  EXPECT_FALSE(parent_widget->AreScreenshotsAllowed());
+  ASSERT_EQ(1u, parent_calls.size());
+  EXPECT_FALSE(parent_calls.back().allow);
+
+  // Create a child widget and install a capture exclusion test applier.
+  NativeWidgetMacTestWindow* child_window = nil;
+  Widget::InitParams child_params =
+      CreateParams(Widget::InitParams::TYPE_WINDOW_FRAMELESS);
+  child_params.bounds = gfx::Rect(150, 150, 200, 150);
+  Widget* child_widget =
+      CreateWidgetWithTestWindow(std::move(child_params), &child_window);
+
+  std::vector<CaptureExclusionCall> child_calls;
+  BridgedNativeWidgetTestApi(child_widget).SetCaptureExclusionApplier(
+      base::BindRepeating(
+          [](std::vector<CaptureExclusionCall>* calls, NSWindow* window,
+             bool allow) { calls->push_back({window.frame, allow}); },
+          &child_calls));
+
+  NativeWidgetMacNSWindowHost* child_host =
+      NativeWidgetMacNSWindowHost::GetFromNativeWindow(
+          child_widget->GetNativeWindow());
+  NativeWidgetMacNSWindowHost* parent_host =
+      NativeWidgetMacNSWindowHost::GetFromNativeWindow(
+          parent_widget->GetNativeWindow());
+  ASSERT_TRUE(child_host);
+  ASSERT_TRUE(parent_host);
+
+  // When attached to the excluded parent, the child window should inherit
+  // screenshot exclusion at the bridge level.
+  child_host->SetParent(parent_host);
+  EXPECT_EQ(parent_host, child_host->parent());
+  ASSERT_EQ(1u, child_calls.size());
+  EXPECT_FALSE(child_calls.back().allow);
+  EXPECT_TRUE(NSEqualRects(child_window.frame, child_calls.back().frame));
+
+  // Resizing the child while exclusion is active updates the exclusion shape to
+  // the new frame.
+  const NSRect child_initial_frame = child_window.frame;
+  const NSRect child_expanded_frame =
+      NSMakeRect(child_initial_frame.origin.x, child_initial_frame.origin.y,
+                 child_initial_frame.size.width + 50,
+                 child_initial_frame.size.height + 50);
+  [child_window setFrame:child_expanded_frame display:NO];
+  ASSERT_EQ(2u, child_calls.size());
+  EXPECT_FALSE(child_calls.back().allow);
+  EXPECT_TRUE(NSEqualRects(child_window.frame, child_calls.back().frame));
+
+  // Setting parent to true propagates to child.
+  parent_widget->SetAllowScreenshots(true);
+  EXPECT_TRUE(parent_widget->AreScreenshotsAllowed());
+  ASSERT_EQ(2u, parent_calls.size());
+  EXPECT_TRUE(parent_calls.back().allow);
+  ASSERT_EQ(3u, child_calls.size());
+  EXPECT_TRUE(child_calls.back().allow);
+
+  // Reparenting when both parent and child allow screenshots does not trigger
+  // capture exclusion updates.
+  child_host->SetParent(nullptr);
+  child_host->SetParent(parent_host);
+  EXPECT_EQ(3u, child_calls.size());
+
+  // Setting parent to false sets child to false as well.
+  parent_widget->SetAllowScreenshots(false);
+  EXPECT_FALSE(parent_widget->AreScreenshotsAllowed());
+  ASSERT_EQ(3u, parent_calls.size());
+  EXPECT_FALSE(parent_calls.back().allow);
+  ASSERT_EQ(4u, child_calls.size());
+  EXPECT_FALSE(child_calls.back().allow);
+
+  // A child that is false still is false once removed from a true parent.
+  child_widget->SetAllowScreenshots(false);
+  EXPECT_FALSE(child_widget->AreScreenshotsAllowed());
+  ASSERT_EQ(5u, child_calls.size());
+  EXPECT_FALSE(child_calls.back().allow);
+
+  parent_widget->SetAllowScreenshots(true);
+  ASSERT_EQ(4u, parent_calls.size());
+  EXPECT_TRUE(parent_calls.back().allow);
+  ASSERT_EQ(6u, child_calls.size());
+  EXPECT_FALSE(child_calls.back().allow);
+
+  child_host->SetParent(nullptr);
+  ASSERT_EQ(7u, child_calls.size());
+  EXPECT_FALSE(child_calls.back().allow);
+
+  child_widget->CloseNow();
+  parent_widget->CloseNow();
 }
 
 class WidgetChangeObserver : public TestWidgetObserver {
@@ -916,6 +1030,112 @@ TEST_P(NativeWidgetMacCompositorVisibilityTest,
   EXPECT_FALSE(widget->IsMinimized());
   EXPECT_TRUE(widget->GetCompositor()->IsVisible());
   view->WaitForPaintCount(3);
+}
+
+// Tests that a video capture lock keeps the compositor visible and unsuspended
+// while the window is minimized, both when acquired before and while minimized,
+// and that the lock is reference counted.
+TEST_P(NativeWidgetMacCompositorVisibilityTest, VideoCaptureLock) {
+  const bool notify_enabled = NotifyCompositorOfVisibility();
+
+  auto widget = std::make_unique<Widget>();
+  Widget::InitParams init_params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_WINDOW);
+  widget->Init(std::move(init_params));
+
+  NativeWidgetMacNSWindowHost* host =
+      NativeWidgetMacNSWindowHost::GetFromNativeWindow(
+          widget->GetNativeWindow());
+  ASSERT_NE(nullptr, host);
+
+  widget->SetBounds(gfx::Rect(100, 100, 300, 300));
+  {
+    views::test::PropertyWaiter visibility_waiter(
+        base::BindRepeating(&Widget::IsVisible, base::Unretained(widget.get())),
+        true);
+    widget->Show();
+    EXPECT_TRUE(visibility_waiter.Wait());
+  }
+
+  ASSERT_NE(nullptr, widget->GetCompositor());
+  EXPECT_TRUE(widget->GetCompositor()->IsVisible());
+  EXPECT_FALSE(widget->GetCompositor()->IsLocked());
+
+  // Acquire a lock while the window is still visible. Note that this test
+  // deliberately performs a single minimize and never restores: a
+  // restore-then-minimize sequence races with the AppKit deminiaturize
+  // animation, which causes the subsequent miniaturize request to be dropped.
+  base::ScopedClosureRunner lock1 = host->CreateVideoCaptureLock();
+  EXPECT_TRUE(widget->GetCompositor()->IsVisible());
+  EXPECT_FALSE(widget->GetCompositor()->IsLocked());
+
+  // Minimizing while the lock is held keeps the compositor visible and
+  // unsuspended, even when the window visibility notification feature is
+  // enabled.
+  widget->Minimize();
+  WaitForMinimized(widget.get());
+  EXPECT_TRUE(widget->IsMinimized());
+  EXPECT_TRUE(widget->GetCompositor()->IsVisible());
+  EXPECT_FALSE(widget->GetCompositor()->IsLocked());
+
+  // Releasing the last lock while minimized suspends and hides the compositor.
+  lock1.RunAndReset();
+  EXPECT_EQ(widget->GetCompositor()->IsVisible(), !notify_enabled);
+  EXPECT_TRUE(widget->GetCompositor()->IsLocked());
+
+  // Acquiring a lock while already minimized unsuspends the compositor and
+  // makes it visible.
+  base::ScopedClosureRunner lock2 = host->CreateVideoCaptureLock();
+  EXPECT_TRUE(widget->GetCompositor()->IsVisible());
+  EXPECT_FALSE(widget->GetCompositor()->IsLocked());
+
+  // Locks are reference counted: a second lock, then releasing only one of
+  // them, keeps the compositor visible and unsuspended.
+  base::ScopedClosureRunner lock3 = host->CreateVideoCaptureLock();
+  EXPECT_TRUE(widget->GetCompositor()->IsVisible());
+  EXPECT_FALSE(widget->GetCompositor()->IsLocked());
+  lock2.RunAndReset();
+  EXPECT_TRUE(widget->GetCompositor()->IsVisible());
+  EXPECT_FALSE(widget->GetCompositor()->IsLocked());
+
+  // Releasing the final lock returns the compositor to its suspended state.
+  lock3.RunAndReset();
+  EXPECT_EQ(widget->GetCompositor()->IsVisible(), !notify_enabled);
+  EXPECT_TRUE(widget->GetCompositor()->IsLocked());
+}
+
+// Tests that destroying the Widget while a video capture lock is still held
+// does not crash, and that releasing the stale lock afterwards is a safe no-op.
+TEST_P(NativeWidgetMacCompositorVisibilityTest, WidgetDestroyedWhileLockHeld) {
+  auto widget = std::make_unique<Widget>();
+  Widget::InitParams init_params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_WINDOW);
+  widget->Init(std::move(init_params));
+
+  NativeWidgetMacNSWindowHost* host =
+      NativeWidgetMacNSWindowHost::GetFromNativeWindow(
+          widget->GetNativeWindow());
+  ASSERT_NE(nullptr, host);
+
+  widget->SetBounds(gfx::Rect(100, 100, 300, 300));
+  {
+    views::test::PropertyWaiter visibility_waiter(
+        base::BindRepeating(&Widget::IsVisible, base::Unretained(widget.get())),
+        true);
+    widget->Show();
+    EXPECT_TRUE(visibility_waiter.Wait());
+  }
+
+  // Hold a lock across the destruction of the widget and its window host.
+  base::ScopedClosureRunner lock = host->CreateVideoCaptureLock();
+  EXPECT_TRUE(lock);
+
+  widget->CloseNow();
+  widget.reset();
+
+  // The lock now refers to a destroyed NativeWidgetMacNSWindowHost. Running it
+  // must be a safe no-op thanks to the weak pointer bound into the closure.
+  lock.RunAndReset();
 }
 
 INSTANTIATE_TEST_SUITE_P(,
@@ -2351,7 +2571,8 @@ TEST_F(NativeWidgetMacTest, InvalidateShadow) {
   widget->CloseNow();
 }
 
-// Test that the contentView opacity corresponds to the window type.
+// Test that the contentView opacity corresponds to the window type and reflects
+// dynamic changes to the hosting window's opacity after creation.
 TEST_F(NativeWidgetMacTest, ContentOpacity) {
   NativeWidgetMacTestWindow* window;
   Widget::InitParams init_params =
@@ -2367,6 +2588,11 @@ TEST_F(NativeWidgetMacTest, ContentOpacity) {
   init_params.opacity = Widget::InitParams::WindowOpacity::kTranslucent;
   widget = CreateWidgetWithTestWindow(std::move(init_params), &window);
   EXPECT_FALSE([[window contentView] isOpaque]);
+
+  // Updating the NSWindow opaqueness directly should dynamically update the
+  // contentView's isOpaque reporting.
+  [window setOpaque:YES];
+  EXPECT_TRUE([[window contentView] isOpaque]);
   widget->CloseNow();
 
   // Test opaque explicitly.
@@ -3198,11 +3424,21 @@ class TestNativeThemeObserver : public ui::NativeThemeObserver {
 TEST_F(NativeWidgetMacTest, OnWindowNativeThemeChangedScopesToTargetWidget) {
   base::test::ScopedFeatureList feature_list(
       ::features::kThemeChangeOptimization);
+  ui::MockOsSettingsProvider os_settings_provider;
 
   Widget* widget1 = CreateTopLevelPlatformWidget();
   widget1->Show();
+  widget1->ThemeChanged();
   Widget* widget2 = CreateTopLevelPlatformWidget();
   widget2->Show();
+  widget2->ThemeChanged();
+
+  {
+    base::RunLoop run_loop;
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, run_loop.QuitClosure());
+    run_loop.Run();
+  }
 
   ThemeChangeCountingWidgetObserver observer1(widget1);
   ThemeChangeCountingWidgetObserver observer2(widget2);
@@ -3210,14 +3446,55 @@ TEST_F(NativeWidgetMacTest, OnWindowNativeThemeChangedScopesToTargetWidget) {
       ui::NativeTheme::GetInstanceForNativeUi());
 
   BridgedNativeWidgetTestApi(widget1).OnSystemColorsChanged();
+  {
+    base::RunLoop run_loop;
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, run_loop.QuitClosure());
+    run_loop.Run();
+  }
 
-  // Widget2 and process-wide NativeTheme should NOT have received
-  // notifications.
+  // Widget1 should have received a theme change, while Widget2 and process-wide
+  // NativeTheme should NOT have received notifications.
+  EXPECT_EQ(1, observer1.theme_changed_count());
   EXPECT_EQ(0, observer2.theme_changed_count());
   EXPECT_EQ(0, global_theme_observer.theme_updated_count());
 
+  // Subsequent OnSystemColorsChanged() should also trigger a theme change on
+  // widget1 even after last_color_provider_key_ is populated.
+  BridgedNativeWidgetTestApi(widget1).OnSystemColorsChanged();
+  {
+    base::RunLoop run_loop;
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, run_loop.QuitClosure());
+    run_loop.Run();
+  }
+  EXPECT_EQ(2, observer1.theme_changed_count());
+
   widget1->CloseNow();
   widget2->CloseNow();
+}
+
+TEST_F(NativeWidgetMacTest,
+       SystemColorsNotificationUpdatesGlobalThemeWhenEnabled) {
+  base::test::ScopedFeatureList feature_list(
+      ::features::kThemeChangeOptimization);
+  {
+    ui::OsSettingsProviderMac os_settings_provider(
+        ui::OsSettingsProvider::PriorityLevel::kTesting);
+
+    auto* const native_theme = ui::NativeTheme::GetInstanceForNativeUi();
+    TestNativeThemeObserver global_theme_observer(native_theme);
+    const size_t initial_version = native_theme->system_color_version();
+
+    [[NSNotificationCenter defaultCenter]
+        postNotificationName:NSSystemColorsDidChangeNotification
+                      object:nil];
+
+    EXPECT_GT(global_theme_observer.theme_updated_count(), 0);
+    EXPECT_GT(native_theme->system_color_version(), initial_version);
+  }
+  // Restore default test settings on NativeTheme for subsequent tests.
+  ui::MockOsSettingsProvider reset_settings_provider;
 }
 
 TEST_F(NativeWidgetMacTest,

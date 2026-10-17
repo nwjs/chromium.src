@@ -486,7 +486,7 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   LayoutBox* ContainingNGBox() const;
 
   // Return the nearest fragmentation context root, if any.
-  LayoutBlock* ContainingFragmentationContextRoot() const;
+  LayoutBox* ContainingFragmentationContextRoot() const;
 
 #if DCHECK_IS_ON()
   void SetHasAXObject(bool flag) {
@@ -1114,6 +1114,21 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
     may_contain_anchor_ = true;
   }
   virtual void MarkMayContainAnchor();
+
+  // True if `this` or a descendant may have app-region in its style, so that
+  // collecting the draggable regions can skip the subtrees without any. Like
+  // MayContainAnchor(), but LocalFrameView clears it again when a walk of the
+  // subtree finds none.
+  bool MayContainDraggableRegion() const {
+    NOT_DESTROYED();
+    return may_contain_draggable_region_;
+  }
+  void SetMayContainDraggableRegion(bool b) {
+    NOT_DESTROYED();
+    may_contain_draggable_region_ = b;
+  }
+  // Sets the bit on `this` and its ancestors.
+  void MarkMayContainDraggableRegion();
 
   void SetHasBrokenSpine() {
     NOT_DESTROYED();
@@ -2143,18 +2158,16 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
     NOT_DESTROYED();
     return whitespace_children_may_change_;
   }
-  void SetNeedsDevtoolsInfo(bool b) {
-    NOT_DESTROYED();
-    needs_devtools_info_ = b;
-  }
+  // Once this is set to true it is never set back to false. This is maybe okay,
+  // but could make devtools use too much memory after a lot of boxes have
+  // been inspected.
+  void SetNeedsDevtoolsInfo();
   bool NeedsDevtoolsInfo() const {
     NOT_DESTROYED();
     return needs_devtools_info_;
   }
 
   virtual void Paint(const PaintInfo&) const;
-
-  virtual RecalcScrollableOverflowResult RecalcScrollableOverflow();
 
   // Invalidate visual overflow, using a method that varies based
   // the object type and state of layout.
@@ -2290,7 +2303,7 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   //
   // See container() for the function that returns the containing block.
   // See layout_block.h for some extra explanations on containing blocks.
-  LayoutBlock* ContainingBlock(AncestorSkipInfo* = nullptr) const;
+  LayoutBox* ContainingBlock(AncestorSkipInfo* = nullptr) const;
 
   // Returns the containing block that owns the text-overflow style,
   // resolving anonymous blocks to their parent. Returns nullptr if the
@@ -2310,7 +2323,7 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   // or null if there is none.
   LayoutObject* NearestAncestorForElement() const;
 
-  LayoutBlock* InclusiveContainingBlock(AncestorSkipInfo* = nullptr);
+  LayoutBox* InclusiveContainingBlock(AncestorSkipInfo* = nullptr);
 
   // Returns the nearest ancestor scroll container in any axis.
   const LayoutBox* ContainingScrollContainer(
@@ -3656,12 +3669,11 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
 
   // Returns ContainerForAbsolutePosition() if it's a LayoutBlock, or the
   // containing LayoutBlock of it.
-  LayoutBlock* ContainingBlockForAbsolutePosition(
+  LayoutBox* ContainingBlockForAbsolutePosition(
       AncestorSkipInfo* = nullptr) const;
   // Returns ContainerForFixedPosition() if it's a LayoutBlock, or the
   // containing LayoutBlock of it.
-  LayoutBlock* ContainingBlockForFixedPosition(
-      AncestorSkipInfo* = nullptr) const;
+  LayoutBox* ContainingBlockForFixedPosition(AncestorSkipInfo* = nullptr) const;
 
   // Returns the first line style declared in CSS. The style may be declared on
   // an ancestor block (see LayoutBlock::FirstLineStyleParentBlock) that applies
@@ -3694,6 +3706,22 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   bool HasValidCachedGeometry() const {
     NOT_DESTROYED();
     return has_valid_cached_geometry_;
+  }
+
+  bool HavePhysicalFragmentsChanged() const {
+    NOT_DESTROYED();
+    DCHECK(IsBox());
+    return have_physical_fragments_changed_;
+  }
+  void SetHavePhysicalFragmentsChanged() {
+    NOT_DESTROYED();
+    DCHECK(IsBox());
+    have_physical_fragments_changed_ = true;
+  }
+  void ClearHavePhysicalFragmentsChanged() {
+    NOT_DESTROYED();
+    DCHECK(IsBox());
+    have_physical_fragments_changed_ = false;
   }
 
   // For LayoutBox. They are here to use the bit fields.
@@ -4052,6 +4080,9 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   // See comments for |MayContainAnchor()|.
   unsigned may_contain_anchor_ : 1 = false;
 
+  // See comments for |MayContainDraggableRegion()|.
+  unsigned may_contain_draggable_region_ : 1 = false;
+
   // Set if we stopped rebuilding the spine because this object was marked for
   // layout. We don't need to do anything if we actually end up re-laying out
   // the object, but if it turns out that we hit the cache, we need to update
@@ -4063,6 +4094,10 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   // physical fragments.
   // This is set to false when LayoutBox::layout_results_ is updated.
   unsigned has_valid_cached_geometry_ : 1 = false;
+
+  // For LayoutBox, true if the physical fragments might be different from
+  // previous_layout_results_. Cleared when previous fragments are saved.
+  unsigned have_physical_fragments_changed_ : 1 = false;
 
   // True if the size has changed since the associated PaintLayer updated
   // its scrollable area.

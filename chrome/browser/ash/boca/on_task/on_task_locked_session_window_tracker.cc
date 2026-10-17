@@ -197,7 +197,7 @@ void LockedSessionWindowTracker::ObserveWebContents(
 }
 
 void LockedSessionWindowTracker::OnPauseModeChanged(bool paused) {
-  DCHECK(browser_);
+  CHECK(browser_, base::NotFatalUntil::M160);
   if (on_task_pod_controller_) {
     on_task_pod_controller_->OnPauseModeChanged(paused);
   }
@@ -213,7 +213,7 @@ void LockedSessionWindowTracker::OnPauseModeChanged(bool paused) {
 
 void LockedSessionWindowTracker::set_can_start_navigation_throttle(
     bool is_ready) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
   can_start_navigation_throttle_ = is_ready;
 }
 
@@ -373,7 +373,8 @@ void LockedSessionWindowTracker::OnTabRemoved(ash::BrowserDelegate* browser,
 void LockedSessionWindowTracker::OnActiveWebContentsChanged(
     ash::BrowserDelegate* browser,
     content::WebContents* old_contents,
-    content::WebContents* new_contents) {
+    content::WebContents* new_contents,
+    bool selection_only) {
   if (browser != browser_) {
     return;
   }

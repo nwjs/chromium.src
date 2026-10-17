@@ -31,8 +31,8 @@
 #include "build/branding_buildflags.h"
 #include "components/safe_browsing/core/browser/db/database_manager.h"
 #include "components/safe_browsing/core/browser/db/sb_database.h"
+#include "components/safe_browsing/core/browser/db/sb_protocol_manager_util.h"
 #include "components/safe_browsing/core/browser/db/sb_store.h"
-#include "components/safe_browsing/core/browser/db/v4_protocol_manager_util.h"
 #include "components/safe_browsing/core/browser/db/v4_update_protocol_manager.h"
 #include "components/safe_browsing/core/browser/db/v5_get_hash_protocol_manager.h"
 #include "components/safe_browsing/core/browser/db/v5_update_protocol_manager.h"
@@ -42,7 +42,6 @@
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 
-// TODO(crbug.com/362791941): Handle v4 references
 namespace safe_browsing {
 
 namespace {
@@ -201,12 +200,12 @@ ListIdentifier GetUrlIdFromSBThreatType(SBThreatType sb_threat_type) {
     case SB_THREAT_TYPE_SUBRESOURCE_FILTER:
     case SB_THREAT_TYPE_CSD_ALLOWLIST:
     case DEPRECATED_SB_THREAT_TYPE_URL_PASSWORD_PROTECTION_PHISHING:
+    case DEPRECATED_SB_THREAT_TYPE_BLOCKED_AD_REDIRECT:
+    case DEPRECATED_SB_THREAT_TYPE_BLOCKED_AD_POPUP:
     case SB_THREAT_TYPE_SAVED_PASSWORD_REUSE:
     case SB_THREAT_TYPE_SIGNED_IN_SYNC_PASSWORD_REUSE:
     case SB_THREAT_TYPE_SIGNED_IN_NON_SYNC_PASSWORD_REUSE:
-    case SB_THREAT_TYPE_BLOCKED_AD_REDIRECT:
     case SB_THREAT_TYPE_AD_SAMPLE:
-    case SB_THREAT_TYPE_BLOCKED_AD_POPUP:
     case SB_THREAT_TYPE_ENTERPRISE_PASSWORD_REUSE:
     case SB_THREAT_TYPE_APK_DOWNLOAD:
     case SB_THREAT_TYPE_HIGH_CONFIDENCE_ALLOWLIST:
@@ -294,8 +293,10 @@ std::string_view GetThreatInfoSizeMetricSuffix(
       return ".SubresourceFilter";
     case CHECK_CSD_ALLOWLIST:
       return ".CsdAllowlist";
+    // Not used in local database manager.
+    case CHECK_NOTIFICATION_ABUSE:
+    // Synchronous checks never perform full-hash checks.
     case CHECK_OTHER:
-      // Synchronous checks never perform full-hash checks.
       NOTREACHED();
   }
 }
@@ -1260,7 +1261,6 @@ void SBLocalDatabaseManager::PerformFullHashCheck(
       return;
     }
 
-    // TODO(crbug.com/362791941): Can we eliminate copies?
     std::map<FullHashStr, std::vector<SBThreatType>> full_hash_to_threat_types;
     for (const auto& [full_hash, store_and_prefixes] :
          check->full_hash_to_store_and_hash_prefixes) {
@@ -1269,8 +1269,13 @@ void SBLocalDatabaseManager::PerformFullHashCheck(
             return GetSBThreatTypeForList(store_and_prefix.list_id);
           });
     }
+    std::optional<V5GetHashProtocolManager::CheckContext> check_context;
+    if (v5_get_hash_protocol_manager->HasWebUIListener()) {
+      check_context = V5GetHashProtocolManager::CheckContext{
+          check->urls, check->client_callback_type};
+    }
     v5_get_hash_protocol_manager->GetFullHashes(
-        full_hash_to_threat_types,
+        std::move(full_hash_to_threat_types),
         // Wrap with WrapCallbackWithDefaultInvokeIfNotRun to ensure
         // OnFullHashResponseV5 runs if V5GetHashProtocolManager is destroyed,
         // which ensure the caller gets a response and removes the check from
@@ -1279,7 +1284,8 @@ void SBLocalDatabaseManager::PerformFullHashCheck(
             base::BindOnce(&SBLocalDatabaseManager::OnFullHashResponseV5,
                            weak_factory_.GetWeakPtr(), std::move(check)),
             /*threat_type=*/SBThreatType::SB_THREAT_TYPE_SAFE,
-            /*metadata=*/ThreatMetadata()));
+            /*metadata=*/ThreatMetadata()),
+        std::move(check_context));
     return;
   }
 
@@ -1472,6 +1478,7 @@ void SBLocalDatabaseManager::RespondToClientWithoutPendingCheckCleanup(
       break;
     }
 
+    case ClientCallbackType::CHECK_NOTIFICATION_ABUSE:
     case ClientCallbackType::CHECK_OTHER:
       NOTREACHED() << "Unexpected client_callback_type encountered";
   }

@@ -219,10 +219,6 @@ public final class StatusMediatorUnitTest {
         return mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconRes();
     }
 
-    private void assertModelIconResId(int resId) {
-        assertEquals(resId, mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconRes());
-    }
-
     @Test
     public void testPermissionIconShown() {
         verify(mPermissionDialogController).addObserver(mPermissionObserverCaptor.capture());
@@ -386,6 +382,17 @@ public final class StatusMediatorUnitTest {
         assertNotEquals(
                 mMockFaviconDrawable,
                 mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getDrawable(mContext));
+    }
+
+    @Test
+    public void previewUrlCleared_displayStateDrafting_showsSearchEngineLogo() {
+        setDisplayState(DisplayState.DRAFTING);
+        mAutocompleteInput.setPreviewMatchUrl(JUnitTestGURLs.BLUE_1);
+        mMediator.onFaviconFetched(JUnitTestGURLs.BLUE_1, mMockFaviconDrawable);
+
+        mAutocompleteInput.setPreviewMatchUrl(null);
+
+        assertEquals(R.drawable.ic_logo_googleg_20dp, getModelIconID());
     }
 
     @Test
@@ -1418,59 +1425,6 @@ public final class StatusMediatorUnitTest {
 
         assertNull(mModel.get(StatusProperties.STATUS_CLICK_LISTENER));
         assertFalse(mModel.get(StatusProperties.STATUS_VIEW_HOVER_ENABLED));
-    }
-
-    @Test
-    public void statusIcon_blankWhenPendingHttpNavigation() {
-        mMediator.updateSecurityIcon(
-                R.drawable.ic_settings_tune_24dp, /* tintList= */ 0, /* desc= */ 0);
-
-        assertModelIconResId(R.drawable.ic_settings_tune_24dp);
-
-        doReturn(mNavigationEntry).when(mNavigationController).getPendingEntry();
-        doReturn(JUnitTestGURLs.BLUE_1).when(mNavigationEntry).getUrl();
-        mMediator.updateSecurityIcon(R.drawable.ic_info_24dp, /* tintList= */ 0, /* desc= */ 0);
-
-        assertNull(mModel.get(StatusProperties.STATUS_ICON_RESOURCE));
-
-        doReturn(null).when(mNavigationController).getPendingEntry();
-        mMediator.updateSecurityIcon(R.drawable.ic_info_24dp, /* tintList= */ 0, /* desc= */ 0);
-
-        assertModelIconResId(R.drawable.ic_info_24dp);
-    }
-
-    @Test
-    @DisableFeatures(OmniboxFeatureList.SUPPRESS_STATUS_ICON_DURING_HTTP_NAVIGATION)
-    public void statusIcon_notBlankWhenPendingHttpNavigation_killSwitch() {
-        mMediator.updateSecurityIcon(
-                R.drawable.ic_settings_tune_24dp, /* tintList= */ 0, /* desc= */ 0);
-
-        assertModelIconResId(R.drawable.ic_settings_tune_24dp);
-
-        doReturn(mNavigationEntry).when(mNavigationController).getPendingEntry();
-        doReturn(JUnitTestGURLs.BLUE_1).when(mNavigationEntry).getUrl();
-        mMediator.updateSecurityIcon(R.drawable.ic_info_24dp, /* tintList= */ 0, /* desc= */ 0);
-
-        assertModelIconResId(R.drawable.ic_info_24dp);
-    }
-
-    @Test
-    public void statusIcon_infoIconWhenPendingNonHttpNavigation() {
-        mMediator.updateSecurityIcon(
-                R.drawable.ic_settings_tune_24dp, /* tintList= */ 0, /* desc= */ 0);
-
-        assertModelIconResId(R.drawable.ic_settings_tune_24dp);
-
-        doReturn(mNavigationEntry).when(mNavigationController).getPendingEntry();
-        doReturn(JUnitTestGURLs.CHROME_ABOUT).when(mNavigationEntry).getUrl();
-        mMediator.updateSecurityIcon(R.drawable.ic_info_24dp, /* tintList= */ 0, /* desc= */ 0);
-
-        assertModelIconResId(R.drawable.ic_info_24dp);
-
-        doReturn(null).when(mNavigationController).getPendingEntry();
-        mMediator.updateSecurityIcon(R.drawable.ic_info_24dp, /* tintList= */ 0, /* desc= */ 0);
-
-        assertModelIconResId(R.drawable.ic_info_24dp);
     }
 
     @Test

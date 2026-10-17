@@ -4,6 +4,7 @@
 
 #include "ash/capture_mode/capture_mode_session.h"
 
+#include <array>
 #include <memory>
 #include <string>
 #include <tuple>
@@ -1462,7 +1463,8 @@ void CaptureModeSession::OnPerformCaptureForSearchStarting(
 }
 
 void CaptureModeSession::OnPerformCaptureForSearchEnded(
-    PerformCaptureType capture_type) {
+    PerformCaptureType capture_type,
+    bool capture_succeeded) {
   is_capturing_for_search_ = false;
   // Repaint the layer to reveal the capture region border and affordance
   // circles.
@@ -1472,6 +1474,11 @@ void CaptureModeSession::OnPerformCaptureForSearchEnded(
     return;
   }
   ShowAllWidgets();
+
+  if (!capture_succeeded) {
+    MaybeRemoveGlowAnimation();
+    return;
+  }
 
   if (active_behavior_->ShouldShowGlowWhileProcessingCaptureType(
           capture_type)) {
@@ -2816,15 +2823,15 @@ FineTunePosition CaptureModeSession::GetFineTunePosition(
 
   gfx::Rect capture_region_in_screen = controller_->user_capture_region();
   wm::ConvertRectToScreen(current_root_, &capture_region_in_screen);
-  // In the case of overlapping affordances, prioritize the bottomm right
+  // In the case of overlapping affordances, prioritize the bottom right
   // corner, then the rest of the corners, then the edges.
-  static const std::vector<FineTunePosition> drag_positions = {
+  static constexpr auto kDragPositions = std::to_array<FineTunePosition>({
       FineTunePosition::kBottomRightVertex, FineTunePosition::kBottomLeftVertex,
       FineTunePosition::kTopLeftVertex,     FineTunePosition::kTopRightVertex,
       FineTunePosition::kBottomEdge,        FineTunePosition::kLeftEdge,
-      FineTunePosition::kTopEdge,           FineTunePosition::kRightEdge};
+      FineTunePosition::kTopEdge,           FineTunePosition::kRightEdge});
 
-  for (FineTunePosition position : drag_positions) {
+  for (FineTunePosition position : kDragPositions) {
     if (GetHitTestRectForFineTunePosition(capture_region_in_screen, position,
                                           is_touch, active_behavior_)
             .Contains(location_in_screen)) {
@@ -3807,9 +3814,18 @@ void CaptureModeSession::RefreshGlowRegion() {
 }
 
 void CaptureModeSession::InvalidateImageSearch() {
+  const bool was_capturing_for_search = is_capturing_for_search_;
+  is_capturing_for_search_ = false;
   weak_token_factory_.InvalidateWeakPtrs();
   image_search_request_timer_.Stop();
   MaybeRemoveGlowAnimation();
+
+  // If capture was in-flight, restore the region border, affordance circles,
+  // and selection widgets that were hidden when capture started.
+  if (was_capturing_for_search && !is_shutting_down_) {
+    ShowAllWidgets();
+    RepaintRegion();
+  }
 }
 
 void CaptureModeSession::InitInternal() {

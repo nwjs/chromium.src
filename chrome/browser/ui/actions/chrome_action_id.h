@@ -93,6 +93,7 @@
   E(kActionCreateNewTabGroup, IDC_CREATE_NEW_TAB_GROUP) \
   E(kActionTabGroupOpenInBrowser) \
   E(kActionTabGroupOpenInNewWindow) \
+  E(kActionToggleTabGroupFocus) \
   E(kActionTabGroupPin) \
   E(kActionTabGroupDelete) \
   E(kActionFocusNextTabGroup, IDC_FOCUS_NEXT_TAB_GROUP) \
@@ -155,6 +156,7 @@
     IDC_BOOKMARK_BAR_SUBMENU_ONLY_ON_NTP) \
   E(kActionShowHistory, IDC_SHOW_HISTORY) \
   E(kActionShowBookmarkManager, IDC_SHOW_BOOKMARK_MANAGER) \
+  E(kActionShowDownloadsPage, IDC_SHOW_DOWNLOADS) \
   E(kActionImportSettings, IDC_IMPORT_SETTINGS) \
   E(kActionOptions, IDC_OPTIONS) \
   E(kActionEditSearchEngines, IDC_EDIT_SEARCH_ENGINES) \
@@ -171,6 +173,7 @@
     IDC_CHROME_ENTERPRISE_RELEASE_NOTES) \
   E(kActionDevToolsInspect, IDC_DEV_TOOLS_INSPECT) \
   E(kActionUpgradeDialog, IDC_UPGRADE_DIALOG) \
+  E(kActionGlobalError) \
   E(kActionSetBrowserAsDefault, IDC_SET_BROWSER_AS_DEFAULT) \
   E(kActionProfilingEnabled, IDC_PROFILING_ENABLED) \
   E(kActionExtensionErrors, IDC_EXTENSION_ERRORS) \
@@ -206,6 +209,8 @@
     IDC_EXTENSIONS_SUBMENU_MANAGE_EXTENSIONS) \
   E(kActionExtensionsSubmenuVisitChromeWebStore, \
     IDC_EXTENSIONS_SUBMENU_VISIT_CHROME_WEB_STORE) \
+  E(kActionManageSkills, IDC_MANAGE_SKILLS) \
+  E(kActionBrowseSkills, IDC_BROWSE_SKILLS) \
   E(kActionReadingListMenuAddTab, IDC_READING_LIST_MENU_ADD_TAB) \
   E(kActionRecentTabsLoginForDeviceTabs, \
     IDC_RECENT_TABS_LOGIN_FOR_DEVICE_TABS) \
@@ -220,6 +225,7 @@
   E(kActionSpellcheckMultiLingual, IDC_SPELLCHECK_MULTI_LINGUAL) \
   E(kActionSpellcheckRemoveFromDictionary, \
     IDC_SPELLCHECK_REMOVE_FROM_DICTIONARY) \
+  E(kActionShowTtcMenu, IDC_SHOW_TTC_MENU) \
   /* Writing direction */ \
   E(kActionWritingDirectionLtr, IDC_WRITING_DIRECTION_LTR) \
   E(kActionWritingDirectionRtl, IDC_WRITING_DIRECTION_RTL) \
@@ -307,6 +313,8 @@
     IDC_CONTENT_CONTEXT_RESTART_PACKAGED_APP) \
   E(kActionContentContextLensRegionSearch, \
     IDC_CONTENT_CONTEXT_LENS_REGION_SEARCH) \
+  E(kActionContentContextAskGoogleAboutThisPage, \
+    IDC_CONTENT_CONTEXT_ASK_GOOGLE_ABOUT_THIS_PAGE) \
   E(kActionAiMode) \
   E(kActionLensOverlayHomework) \
   E(kActionContentContextWebRegionSearch, \
@@ -522,7 +530,7 @@
   E(kActionShowPasswordManager, IDC_SHOW_PASSWORD_MANAGER) \
   E(kActionShowPaymentMethods, IDC_SHOW_PAYMENT_METHODS) \
   E(kActionShowAddressesBubbleOrPage) \
-  E(kActionShowDownloads, IDC_SHOW_DOWNLOADS) \
+  E(kActionShowDownloads) \
   E(kActionClearBrowsingData, IDC_CLEAR_BROWSING_DATA) \
   E(kActionPrint, IDC_PRINT) \
   E(kActionShowTranslate, IDC_SHOW_TRANSLATE) \
@@ -553,6 +561,7 @@
   E(kActionWebAuthnAmbientSignin) \
   E(kActionAutofillPayment) \
   E(kActionWalletReminderNotice) \
+  E(kActionTtcToolbar) \
 
 #define SUBMENU_ACTION_IDS                                                     \
   E(kActionAppMenuRoot)                                                        \
@@ -568,7 +577,8 @@
   E(kActionSavedTabGroupsSubmenu, IDC_SAVED_TAB_GROUPS_MENU)               \
   E(kActionRecentTabsSubmenu, IDC_RECENT_TABS_MENU)                       \
   E(kActionDeveloperSubmenu, IDC_DEVELOPER_MENU)                               \
-  E(kActionExtensionsSubmenu, IDC_EXTENSIONS_SUBMENU)
+  E(kActionExtensionsSubmenu, IDC_EXTENSIONS_SUBMENU)                          \
+  E(kActionSkillsSubmenu, IDC_SKILLS_MENU)
 
 #define CHROME_ACTION_IDS \
     CHROME_COMMON_ACTION_IDS \

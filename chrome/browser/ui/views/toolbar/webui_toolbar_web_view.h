@@ -21,6 +21,7 @@
 #include "chrome/browser/ui/views/toolbar/webui_avatar_toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/webui_back_forward_control.h"
 #include "chrome/browser/ui/views/toolbar/webui_battery_saver_control.h"
+#include "chrome/browser/ui/views/toolbar/webui_glic_control.h"
 #include "chrome/browser/ui/views/toolbar/webui_home_control.h"
 #include "chrome/browser/ui/views/toolbar/webui_media_toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/webui_overflow_button.h"
@@ -38,7 +39,6 @@
 #include "components/browser_apis/ui_controllers/toolbar/toolbar_ui_api.mojom.h"
 #include "components/browser_apis/ui_controllers/toolbar/toolbar_ui_api_data_model.mojom.h"
 #include "content/public/browser/scoped_accessibility_mode.h"
-#include "content/public/browser/web_contents_delegate.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/pointer/touch_ui_controller.h"
@@ -130,6 +130,8 @@ class WebUIToolbarControlDelegate {
       toolbar_ui_api::mojom::AvatarControlStatePtr state) = 0;
   virtual void OnMediaControlStateChanged(
       toolbar_ui_api::mojom::MediaControlStatePtr state) = 0;
+  virtual void OnGlicButtonStateChanged(
+      toolbar_ui_api::mojom::GlicButtonStatePtr state) = 0;
   virtual void OnFocusRequested(
       toolbar_ui_api::mojom::FocusRequestTarget target) = 0;
 
@@ -186,10 +188,14 @@ class WebUIToolbarWebView
   WebUISplitTabsControl& split_tabs_control_for_testing() {
     return split_tabs_control_;
   }
+  WebUIBatterySaverControl& battery_saver_control_for_testing() {
+    return battery_saver_control_;
+  }
 
   void SetIsMaximizedOrFullscreen(bool maximized_or_fullscreen);
   void SetBackForwardEnabled(int command_id, bool enabled);
   void SetForwardVisible(bool visible);
+  glic::ToolbarGlicButtonInterface* GetGlicControl() { return &glic_control_; }
 
   // Cleans up UI dependencies and destroys the hosted WebContents.
   // Called early during window teardown (forwarded via
@@ -230,8 +236,6 @@ class WebUIToolbarWebView
           callback) override;
   void OnContentSettingImagePointerDown(
       ::toolbar_ui_api::mojom::ContentSettingImageType type) override;
-  void OnContentSettingImageAnimationEnded(
-      ::toolbar_ui_api::mojom::ContentSettingImageType type) override;
   void OnPageActionPointerDown(
       ::toolbar_ui_api::mojom::PageActionId action_id) override;
   void OnPageActionClick(
@@ -241,6 +245,7 @@ class WebUIToolbarWebView
           callback) override;
   void OnPageActionChipShowingChanged(
       ::toolbar_ui_api::mojom::PageActionId action_id,
+      bool is_showing,
       ::toolbar_ui_api::mojom::ToolbarUIService::
           OnPageActionChipShowingChangedCallback callback) override;
   void OnPageInitialized() override;
@@ -261,7 +266,8 @@ class WebUIToolbarWebView
       toolbar_ui_api::mojom::LhsChipIdentifier identifier,
       bool is_middle_click) override;
   void OnLhsChipClicked(toolbar_ui_api::mojom::LhsChipIdentifier identifier,
-                        bool is_mouse_interaction) override;
+                        bool is_mouse_interaction,
+                        uint32_t state_token) override;
   void OnLhsChipPointerEntered(
       toolbar_ui_api::mojom::LhsChipIdentifier identifier) override;
   void OnLhsChipPointerExited(
@@ -274,10 +280,12 @@ class WebUIToolbarWebView
                      ui::mojom::DragEventSource source) override;
   void OnHomeButtonDropUrl(const GURL& url) override;
   void OnHomeButtonDropFile(const gfx::PointF& drop_position) override;
+  void OnHomeButtonDropText(const std::string& text) override;
   void OnToolbarDropFile(const gfx::PointF& drop_position) override;
   base::expected<std::monostate, mojo_base::mojom::ErrorPtr> OnOmniboxAction(
       toolbar_ui_api::mojom::OmniboxActionPtr action) override;
-  void ShowAvatarMenu() override;
+  void ShowAvatarMenu(bool is_pointer_interaction) override;
+  void OnAvatarButtonMousePressed() override;
   void SetAvatarButtonHovered(bool hovered) override;
   void SetAvatarButtonFocused(bool focused) override;
   void SetAvatarButtonIPHPromoShowing(bool showing) override;
@@ -296,6 +304,7 @@ class WebUIToolbarWebView
   void OnPerformanceInterventionButtonMousePressed() override;
   void OnMediaButtonClicked(bool is_mouse_interaction) override;
   void OnMediaButtonMousePressed() override;
+  void OnGlicButtonClicked() override;
 
   // BrowserControlsService::BrowserControlsServiceDelegate:
   void PermitLaunchUrl() override;
@@ -487,6 +496,8 @@ class WebUIToolbarWebView
       toolbar_ui_api::mojom::AvatarControlStatePtr state) override;
   void OnMediaControlStateChanged(
       toolbar_ui_api::mojom::MediaControlStatePtr state) override;
+  void OnGlicButtonStateChanged(
+      toolbar_ui_api::mojom::GlicButtonStatePtr state) override;
   void OnFocusRequested(
       toolbar_ui_api::mojom::FocusRequestTarget target) override;
   std::optional<GURL> ConsumeDroppedUrl(
@@ -638,6 +649,7 @@ class WebUIToolbarWebView
   WebUIBatterySaverControl battery_saver_control_;
   WebUIAvatarToolbarButton avatar_control_;
   WebUIMediaToolbarButton media_control_;
+  WebUIGlicControl glic_control_;
   // This is null if WebUILocationBar is off, or the window is in one of the
   // modes (e.g. popup) that don't use it yet.
   std::unique_ptr<WebUILocationBar> location_bar_;

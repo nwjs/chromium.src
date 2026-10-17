@@ -5,15 +5,17 @@
 #ifndef CHROME_BROWSER_GLIC_SERVICE_GLIC_INSTANCE_COORDINATOR_IMPL_H_
 #define CHROME_BROWSER_GLIC_SERVICE_GLIC_INSTANCE_COORDINATOR_IMPL_H_
 
+#include <map>
 #include <optional>
+#include <string_view>
 #include <vector>
 
 #include "base/callback_list.h"
 #include "base/containers/flat_map.h"
 #include "base/functional/callback_forward.h"
-#include "base/memory/memory_pressure_listener.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/memory_coordinator/memory_consumer.h"
 #include "base/observer_list.h"
 #include "base/scoped_observation.h"
 #include "base/time/time.h"
@@ -30,6 +32,7 @@
 #include "chrome/browser/glic/public/glic_passkeys.h"
 #include "chrome/browser/glic/public/service/glic_instance_coordinator.h"
 #include "chrome/browser/glic/service/glic_instance_impl.h"
+#include "chrome/browser/glic/service/glic_instance_limit_calculator.h"
 #include "chrome/browser/glic/service/glic_invoke_handler.h"
 #include "chrome/browser/glic/service/glic_onboarding_tracker.h"
 #include "chrome/browser/glic/service/metrics/glic_instance_coordinator_metrics.h"
@@ -59,15 +62,16 @@ class GlicWebContentsManager;
 class GlicWebContentsWarmingPool;
 BASE_DECLARE_FEATURE(kGlicHibernateOnMemoryUsage);
 
-BASE_DECLARE_FEATURE(kGlicMaxAwakeInstances);
-
 class GlicInstanceCoordinatorImpl
     : public GlicInstanceCoordinator,
       public GlicInstanceImpl::InstanceCoordinatorDelegate,
-      public base::MemoryPressureListener,
+      public base::MemoryConsumer,
       public GlicInstanceCoordinatorMetrics::DataProvider,
       public signin::IdentityManager::Observer {
  public:
+  static constexpr std::string_view kMemoryConsumerName =
+      "GlicInstanceCoordinatorImpl";
+
   GlicInstanceCoordinatorImpl(const GlicInstanceCoordinatorImpl&) = delete;
   GlicInstanceCoordinatorImpl& operator=(const GlicInstanceCoordinatorImpl&) =
       delete;
@@ -185,6 +189,7 @@ class GlicInstanceCoordinatorImpl
   bool IsDetached() const override;
   bool IsPanelShowingForBrowser(
       const BrowserWindowInterface& bwi) const override;
+  bool WouldToggleClose(BrowserWindowInterface* browser) const override;
 
   base::CallbackListSubscription AddGlobalShowHideCallback(
       base::RepeatingClosure callback) override;
@@ -265,7 +270,9 @@ class GlicInstanceCoordinatorImpl
 
   void CloseFloaty(const CloseOptions& options = {});
 
-  void OnMemoryPressure(base::MemoryPressureLevel level) override;
+  // base::MemoryConsumer:
+  void OnUpdateMemoryLimit() override;
+  void OnReleaseMemory() override;
 
   // Enforces the maximum awake instances limit (`kGlicMaxAwakeInstances`).
   // If the current count of awake (non-hibernated) instances is at or above the
@@ -282,8 +289,15 @@ class GlicInstanceCoordinatorImpl
   // the limit may be temporarily exceeded.
   void TrimAwakeInstancesTo(size_t target_total_awake_count);
 
-  // Returns the current maximum number of awake instances allowed. When
-  // `base::kStatefulMemoryPressure` is enabled, this limit is dynamically
+  // Returns the current count of unhibernated (awake) Glic instances.
+  size_t GetAwakeInstancesCount() const;
+
+  // Computes the target maximum number of awake instances based on current
+  // memory pressure (`ScaleAwakeInstancesLimit`).
+  size_t ComputeTargetMaxAwakeInstancesLimit() const;
+
+  // Returns the currently enforced maximum number of awake instances allowed.
+  // When `base::kStatefulMemoryPressure` is enabled, this limit is dynamically
   // scaled down based on the current system memory pressure level.
   size_t GetCurrentMaxAwakeInstancesLimit() const;
 
@@ -302,12 +316,36 @@ class GlicInstanceCoordinatorImpl
   void OnInvokeHandlerComplete(GlicInstance* instance,
                                GlicInvokeHandler* handler);
 
+  // Returns the in-progress invocation for `instance` that requires a client
+  // invoke, or nullptr if there is none. At most one such invocation can be in
+  // progress for a given instance.
+  GlicInvokeHandler* FindClientInvokeHandler(GlicInstance* instance) const;
+
+  // Removes `handler` from `invoke_handlers_` and returns ownership of it, or
+  // nullptr if it isn't tracked.
+  std::unique_ptr<GlicInvokeHandler> RemoveInvokeHandler(
+      GlicInstance* instance,
+      GlicInvokeHandler* handler);
+
   GlicInstanceImpl* GetOrRestoreInstanceImpl(
       const GlicRestoredState::InstanceInfo& instance_info);
   void RestoreTab(content::WebContents* web_contents,
                   const GlicRestoredState& state);
 
   bool MaybeInvoke(BrowserWindowInterface* bwi, mojom::InvocationSource source);
+
+  // The panel that a toggle would close, along with the embedder to close it
+  // through.
+  struct ToggleCloseTarget {
+    raw_ptr<GlicInstanceImpl> instance;
+    EmbedderKey key;
+  };
+
+  // Returns the target that a toggle would close now, or nullopt if a toggle
+  // would open a panel instead.
+  std::optional<ToggleCloseTarget> FindCloseTargetForToggle(
+      BrowserWindowInterface* bwi) const;
+
   bool MaybeCloseForToggle(BrowserWindowInterface* bwi,
                            mojom::InvocationSource source);
 
@@ -323,7 +361,11 @@ class GlicInstanceCoordinatorImpl
   base::flat_map<InstanceId, base::CallbackListSubscription>
       actuating_changed_subscriptions_;
 
-  base::flat_map<GlicInstance*, std::unique_ptr<GlicInvokeHandler>>
+  // In-progress invocations, keyed by the instance they target. An instance
+  // may have several simultaneous invocations, but at most one of them
+  // requires a client invoke (see
+  // `GlicInvokeHandler::RequiresClientInvoke()`).
+  std::multimap<GlicInstance*, std::unique_ptr<GlicInvokeHandler>>
       invoke_handlers_;
 
   raw_ptr<GlicInstanceImpl> active_instance_ = nullptr;
@@ -332,8 +374,11 @@ class GlicInstanceCoordinatorImpl
       active_instance_changed_callback_list_;
   base::RepeatingClosureList global_show_hide_callback_list_;
 
-  base::MemoryPressureListenerRegistration
-      memory_pressure_listener_registration_;
+  base::MemoryConsumerRegistration memory_consumer_registration_;
+
+  // The effective awake limit applied during OnUpdateMemoryLimit() and
+  // OnReleaseMemory().
+  size_t current_max_awake_limit_ = 0;
 
   bool warming_enabled_ = true;
 

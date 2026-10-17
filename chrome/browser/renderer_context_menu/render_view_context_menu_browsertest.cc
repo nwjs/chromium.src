@@ -44,7 +44,6 @@
 #include "chrome/browser/context_hub/context_hub_service_factory.h"
 #include "chrome/browser/context_hub/features.h"
 #include "chrome/browser/context_hub/memory_bank/memory_bank.h"
-#include "chrome/browser/devtools/features.h"
 #include "chrome/browser/enterprise/data_controls/desktop_data_controls_dialog_test_helper.h"
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
@@ -110,6 +109,7 @@
 #include "chrome/test/supervised_user/embedded_test_server_setup_mixin.h"
 #include "chrome/test/supervised_user/supervision_mixin.h"
 #include "components/compose/buildflags.h"
+#include "components/contextual_tasks/public/features.h"
 #include "components/enterprise/data_controls/core/browser/features.h"
 #include "components/enterprise/data_controls/core/browser/rule.h"
 #include "components/enterprise/data_controls/core/browser/test_utils.h"
@@ -118,6 +118,7 @@
 #include "components/lens/buildflags.h"
 #include "components/lens/lens_features.h"
 #include "components/lens/lens_metadata.mojom.h"
+#include "components/lens/lens_overlay_permission_utils.h"
 #include "components/lens/lens_testing_utils.h"
 #include "components/pdf/browser/pdf_frame_util.h"
 #include "components/policy/core/browser/url_list/url_list_policy_pref_names.h"
@@ -857,6 +858,103 @@ IN_PROC_BROWSER_TEST_F(GlicContextMenuMetricsBrowserTest,
   histogram_tester.ExpectBucketCount("Glic.WebContentsContextMenu.Page", 0, 1);
 }
 
+// Regression tests for crbug.com/556213889: the context menu is not dismissed
+// when the underlying tab navigates, so ExecGlic() must not ship a selection
+// snapshotted from a document that is no longer the tab's primary page.
+class GlicContextMenuStaleDocumentBrowserTest
+    : public ContextMenuBrowserTestBase {
+ protected:
+  GlicContextMenuStaleDocumentBrowserTest() {
+    scoped_feature_list_.InitWithFeatures(
+        {
+            features::kGlic,
+            features::kGlicContextMenu,
+        },
+        {});
+  }
+
+  static constexpr char kTextSelectionHistogram[] =
+      "Glic.WebContentsContextMenu.TextSelection";
+
+  void SummonMenuNavigateAndActivateGlic(const std::u16string& selection_text,
+                                         const GURL& navigate_to) {
+    std::unique_ptr<TestRenderViewContextMenu> menu =
+        CreateContextMenuForTextInWebContents(selection_text);
+    menu->OnMenuWillShow(const_cast<ui::SimpleMenuModel*>(&menu->menu_model()));
+
+    if (!navigate_to.is_empty()) {
+      ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), navigate_to));
+    }
+
+    menu->ExecuteCommand(IDC_CONTENT_CONTEXT_GLIC, 0);
+    menu->MenuClosed(const_cast<ui::SimpleMenuModel*>(&menu->menu_model()));
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(GlicContextMenuStaleDocumentBrowserTest,
+                       SelectionNotSentAfterNavigationWithDocumentCached) {
+  glic::GlicEnabling::ScopedBypassEnablementChecksForTesting scoped_glic_bypass;
+  ASSERT_TRUE(embedded_test_server()->Start());
+  base::HistogramTester histogram_tester;
+
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), embedded_test_server()->GetURL("a.test", "/title1.html")));
+
+  ASSERT_NO_FATAL_FAILURE(SummonMenuNavigateAndActivateGlic(
+      u"secret selection from page A",
+      embedded_test_server()->GetURL("b.test", "/title2.html")));
+
+  histogram_tester.ExpectUniqueSample(kTextSelectionHistogram, 0, 1);
+}
+
+IN_PROC_BROWSER_TEST_F(GlicContextMenuStaleDocumentBrowserTest,
+                       SelectionNotSentAfterNavigationWithDocumentDestroyed) {
+  glic::GlicEnabling::ScopedBypassEnablementChecksForTesting scoped_glic_bypass;
+  ASSERT_TRUE(embedded_test_server()->Start());
+  base::HistogramTester histogram_tester;
+
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), embedded_test_server()->GetURL("a.test", "/title1.html")));
+
+  content::WebContents* web_contents =
+      browser()->GetTabStripModel()->GetActiveWebContents();
+  content::RenderFrameHostWrapper source_frame(
+      web_contents->GetPrimaryMainFrame());
+
+  std::unique_ptr<TestRenderViewContextMenu> menu =
+      CreateContextMenuForTextInWebContents(u"secret selection from page A");
+  menu->OnMenuWillShow(const_cast<ui::SimpleMenuModel*>(&menu->menu_model()));
+
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), embedded_test_server()->GetURL("b.test", "/title2.html")));
+
+  web_contents->GetController().GetBackForwardCache().Flush();
+  ASSERT_TRUE(source_frame.WaitUntilRenderFrameDeleted());
+
+  menu->ExecuteCommand(IDC_CONTENT_CONTEXT_GLIC, 0);
+  menu->MenuClosed(const_cast<ui::SimpleMenuModel*>(&menu->menu_model()));
+
+  histogram_tester.ExpectUniqueSample(kTextSelectionHistogram, 0, 1);
+}
+
+IN_PROC_BROWSER_TEST_F(GlicContextMenuStaleDocumentBrowserTest,
+                       SelectionSentWhenDocumentUnchanged) {
+  glic::GlicEnabling::ScopedBypassEnablementChecksForTesting scoped_glic_bypass;
+  ASSERT_TRUE(embedded_test_server()->Start());
+  base::HistogramTester histogram_tester;
+
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), embedded_test_server()->GetURL("a.test", "/title1.html")));
+
+  ASSERT_NO_FATAL_FAILURE(
+      SummonMenuNavigateAndActivateGlic(u"selection", GURL()));
+
+  histogram_tester.ExpectUniqueSample(kTextSelectionHistogram, 1, 1);
+}
+
 // TODO(crbug.com/455524503): De-flake and re-enable on ChromeOS.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_SaveLinkAsEntryIsDisabledForBlockedUrls \
@@ -985,7 +1083,8 @@ class ContextMenuForSupervisedUsersBrowserTest
     : public ContextMenuBrowserTestBase {
  protected:
   supervised_user::SupervisedUserService* GetSupervisedUserService() {
-    return supervised_user::SupervisedUserServiceFactory::GetForProfile(browser()->GetProfile());
+    return supervised_user::SupervisedUserServiceFactory::GetForProfile(
+        browser()->GetProfile());
   }
 
   supervised_user::KidsManagementApiServerMock& kids_management_api_mock() {
@@ -3396,24 +3495,17 @@ IN_PROC_BROWSER_TEST_F(OopifPdfExtensionContextMenuBrowserTest,
 
 class DevToolsPolicyContextMenuBrowserTest : public ContextMenuBrowserTestBase {
  public:
-  DevToolsPolicyContextMenuBrowserTest() {
-    scoped_feature_list_.InitAndEnableFeature(
-        features::kDevToolsShowPolicyDialog);
-  }
+  DevToolsPolicyContextMenuBrowserTest() = default;
 
   void SetDevToolsAvailability(
       policy::DeveloperToolsAvailability availability) {
     browser()->GetProfile()->GetPrefs()->SetInteger(
         prefs::kDevToolsAvailability, static_cast<int>(availability));
   }
-
- protected:
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(DevToolsPolicyContextMenuBrowserTest, DevToolsBlocked) {
-  SetDevToolsAvailability(
-      policy::DeveloperToolsAvailability::kDisallowed);
+  SetDevToolsAvailability(policy::DeveloperToolsAvailability::kDisallowed);
 
   ASSERT_TRUE(embedded_test_server()->Start());
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
@@ -3434,8 +3526,7 @@ IN_PROC_BROWSER_TEST_F(DevToolsPolicyContextMenuBrowserTest, DevToolsBlocked) {
 }
 
 IN_PROC_BROWSER_TEST_F(DevToolsPolicyContextMenuBrowserTest, DevToolsAllowed) {
-  SetDevToolsAvailability(
-      policy::DeveloperToolsAvailability::kAllowed);
+  SetDevToolsAvailability(policy::DeveloperToolsAvailability::kAllowed);
 
   ASSERT_TRUE(embedded_test_server()->Start());
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
@@ -4696,5 +4787,157 @@ IN_PROC_BROWSER_TEST_P(MemoryBanksContextMenuBrowserTest,
 INSTANTIATE_TEST_SUITE_P(All,
                          MemoryBanksContextMenuBrowserTest,
                          testing::Bool());
+
+class ContextualTasksContextMenuBrowserTest : public ContextMenuBrowserTest {
+ public:
+  ContextualTasksContextMenuBrowserTest() {
+    feature_list_.InitWithFeatures(
+        {lens::features::kLensOverlay, contextual_tasks::kContextualTasks,
+         contextual_tasks::kContextualTasksForceEntryPointEligibility,
+         lens::features::kLensSidePanelUnification},
+        {contextual_tasks::kContextualTasksUpdatedEntryPoints});
+  }
+
+ protected:
+  void SetUpOnMainThread() override {
+    ContextMenuBrowserTest::SetUpOnMainThread();
+    search_test_utils::WaitForTemplateURLServiceToLoad(
+        TemplateURLServiceFactory::GetForProfile(browser()->GetProfile()));
+    PrefService* prefs = browser()->GetProfile()->GetPrefs();
+    prefs->SetBoolean(lens::prefs::kLensSharingPageScreenshotEnabled, true);
+    prefs->SetBoolean(lens::prefs::kLensSharingPageContentEnabled, true);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksContextMenuBrowserTest,
+                       AskGoogleItemHiddenByDefault) {
+  GURL url("data:text/html,Hello%20World");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+
+  std::unique_ptr<TestRenderViewContextMenu> menu =
+      CreateContextMenuMediaTypeNone(GURL(), GURL());
+  EXPECT_FALSE(
+      menu->IsItemPresent(IDC_CONTENT_CONTEXT_ASK_GOOGLE_ABOUT_THIS_PAGE));
+}
+
+class ContextualTasksContextMenuAskGoogleBrowserTest
+    : public ContextMenuBrowserTest {
+ public:
+  ContextualTasksContextMenuAskGoogleBrowserTest() {
+    feature_list_.InitWithFeaturesAndParameters(
+        {{lens::features::kLensOverlay, {}},
+         {contextual_tasks::kContextualTasks, {}},
+         {contextual_tasks::kContextualTasksForceEntryPointEligibility, {}},
+         {lens::features::kLensSidePanelUnification, {}},
+         {contextual_tasks::kContextualTasksUpdatedEntryPoints,
+          {{"ContextualTasksContextMenuShowAskGoogle", "true"},
+           {"ContextualTasksContextMenuSubmenu", "false"},
+           {"ContextualTasksContextMenuRouteAskGoogleToOmnibox", "false"}}}},
+        {});
+  }
+
+ protected:
+  void SetUpOnMainThread() override {
+    ContextMenuBrowserTest::SetUpOnMainThread();
+    search_test_utils::WaitForTemplateURLServiceToLoad(
+        TemplateURLServiceFactory::GetForProfile(browser()->GetProfile()));
+    PrefService* prefs = browser()->GetProfile()->GetPrefs();
+    prefs->SetBoolean(lens::prefs::kLensSharingPageScreenshotEnabled, true);
+    prefs->SetBoolean(lens::prefs::kLensSharingPageContentEnabled, true);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksContextMenuAskGoogleBrowserTest,
+                       AskGoogleItemShownWhenFeatureEnabled) {
+  GURL url("data:text/html,Hello%20World");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+
+  std::unique_ptr<TestRenderViewContextMenu> menu =
+      CreateContextMenuMediaTypeNone(GURL(), GURL());
+  EXPECT_TRUE(
+      menu->IsItemPresent(IDC_CONTENT_CONTEXT_ASK_GOOGLE_ABOUT_THIS_PAGE));
+  EXPECT_TRUE(
+      menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_ASK_GOOGLE_ABOUT_THIS_PAGE));
+  EXPECT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_LENS_REGION_SEARCH));
+  EXPECT_FALSE(
+      menu->IsItemPresent(IDC_CONTENT_CONTEXT_CONTEXTUAL_TASKS_SUBMENU));
+}
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksContextMenuAskGoogleBrowserTest,
+                       HistogramRecordedOnAskGoogleClick) {
+  base::HistogramTester histogram_tester;
+
+  GURL url("data:text/html,Hello%20World");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+
+  std::unique_ptr<TestRenderViewContextMenu> menu =
+      CreateContextMenuMediaTypeNone(GURL(), GURL());
+  EXPECT_TRUE(
+      menu->IsItemPresent(IDC_CONTENT_CONTEXT_ASK_GOOGLE_ABOUT_THIS_PAGE));
+
+  menu->ExecuteCommand(IDC_CONTENT_CONTEXT_ASK_GOOGLE_ABOUT_THIS_PAGE, 0);
+
+  histogram_tester.ExpectBucketCount("RenderViewContextMenu.Used", 170, 1);
+  histogram_tester.ExpectBucketCount("ContextMenu.SelectedOptionDesktop.Other",
+                                     35, 1);
+}
+
+class ContextualTasksContextMenuSubmenuBrowserTest
+    : public ContextMenuBrowserTest {
+ public:
+  ContextualTasksContextMenuSubmenuBrowserTest() {
+    feature_list_.InitWithFeaturesAndParameters(
+        {{lens::features::kLensOverlay, {}},
+         {contextual_tasks::kContextualTasks, {}},
+         {contextual_tasks::kContextualTasksForceEntryPointEligibility, {}},
+         {lens::features::kLensSidePanelUnification, {}},
+         {contextual_tasks::kContextualTasksUpdatedEntryPoints,
+          {{"ContextualTasksContextMenuShowAskGoogle", "true"},
+           {"ContextualTasksContextMenuSubmenu", "true"},
+           {"ContextualTasksContextMenuRouteAskGoogleToOmnibox", "false"}}}},
+        {});
+  }
+
+ protected:
+  void SetUpOnMainThread() override {
+    ContextMenuBrowserTest::SetUpOnMainThread();
+    search_test_utils::WaitForTemplateURLServiceToLoad(
+        TemplateURLServiceFactory::GetForProfile(browser()->GetProfile()));
+    PrefService* prefs = browser()->GetProfile()->GetPrefs();
+    prefs->SetBoolean(lens::prefs::kLensSharingPageScreenshotEnabled, true);
+    prefs->SetBoolean(lens::prefs::kLensSharingPageContentEnabled, true);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksContextMenuSubmenuBrowserTest,
+                       SubmenuShownWhenSubmenuFeatureEnabled) {
+  GURL url("data:text/html,Hello%20World");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+
+  std::unique_ptr<TestRenderViewContextMenu> menu =
+      CreateContextMenuMediaTypeNone(GURL(), GURL());
+  EXPECT_TRUE(
+      menu->IsItemPresent(IDC_CONTENT_CONTEXT_CONTEXTUAL_TASKS_SUBMENU));
+  EXPECT_TRUE(
+      menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_CONTEXTUAL_TASKS_SUBMENU));
+  EXPECT_FALSE(
+      menu->IsItemPresent(IDC_CONTENT_CONTEXT_ASK_GOOGLE_ABOUT_THIS_PAGE));
+  EXPECT_FALSE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_LENS_REGION_SEARCH));
+  EXPECT_TRUE(menu->GetMenuModelAndItemIndex(
+                      IDC_CONTENT_CONTEXT_ASK_GOOGLE_ABOUT_THIS_PAGE)
+                  .has_value());
+  EXPECT_TRUE(
+      menu->GetMenuModelAndItemIndex(IDC_CONTENT_CONTEXT_LENS_REGION_SEARCH)
+          .has_value());
+}
 
 }  // namespace

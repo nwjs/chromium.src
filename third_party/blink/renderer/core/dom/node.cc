@@ -98,11 +98,13 @@
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_client.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
+#include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
 #include "third_party/blink/renderer/core/fullscreen/fullscreen.h"
 #include "third_party/blink/renderer/core/html/custom/custom_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_control_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_element.h"
+#include "third_party/blink/renderer/core/html/forms/html_select_element.h"
 #include "third_party/blink/renderer/core/html/html_body_element.h"
 #include "third_party/blink/renderer/core/html/html_dialog_element.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
@@ -868,69 +870,29 @@ static Node* FindViableNextSibling(
 
 static Node* NodeOrStringToNode(
     const V8UnionNodeOrStringOrTrustedScript* node_or_string,
-    Document& document,
-    bool needs_trusted_types_check,
-    const AtomicString& property_name,
-    ExceptionState& exception_state) {
-  if (!needs_trusted_types_check) {
-    // Without trusted type checks, we simply extract the string from whatever
-    // constituent type we find.
-    switch (node_or_string->GetContentType()) {
-      case V8UnionNodeOrStringOrTrustedScript::ContentType::kNode:
-        return node_or_string->GetAsNode();
-      case V8UnionNodeOrStringOrTrustedScript::ContentType::kString:
-        return Text::Create(document, node_or_string->GetAsString());
-      case V8UnionNodeOrStringOrTrustedScript::ContentType::kTrustedScript:
-        return Text::Create(document,
-                            node_or_string->GetAsTrustedScript()->toString());
-    }
-    NOTREACHED();
+    Document& document) {
+  // We simply extract the string from whatever constituent type we find.
+  switch (node_or_string->GetContentType()) {
+    case V8UnionNodeOrStringOrTrustedScript::ContentType::kNode:
+      return node_or_string->GetAsNode();
+    case V8UnionNodeOrStringOrTrustedScript::ContentType::kString:
+      return Text::Create(document, node_or_string->GetAsString());
+    case V8UnionNodeOrStringOrTrustedScript::ContentType::kTrustedScript:
+      return Text::Create(document,
+                          node_or_string->GetAsTrustedScript()->toString());
   }
-
-  // With trusted type checks, we can process trusted script or non-text nodes
-  // directly. Strings or text nodes need to be checked.
-  if (node_or_string->IsNode() && !node_or_string->GetAsNode()->IsTextNode())
-    return node_or_string->GetAsNode();
-
-  if (node_or_string->IsTrustedScript()) {
-    return Text::Create(document,
-                        node_or_string->GetAsTrustedScript()->toString());
-  }
-
-  String string_value = node_or_string->IsString()
-                            ? node_or_string->GetAsString()
-                            : node_or_string->GetAsNode()->textContent();
-
-  string_value = TrustedTypesCheckForScript(
-      string_value, document.GetExecutionContext(), trusted_types_names::kNode,
-      property_name, exception_state);
-  if (exception_state.HadException())
-    return nullptr;
-  return Text::Create(document, string_value);
 }
 
 // Converts |node_unions| from bindings into actual Nodes by converting strings
 // and script into text nodes via NodeOrStringToNode.
-// Returns nullptr if an exception was thrown.
 // static
 VectorOf<Node> Node::ConvertNodeUnionsIntoNodes(
-    const ContainerNode* parent,
     const HeapVector<Member<V8UnionNodeOrStringOrTrustedScript>>& node_unions,
     Document& document,
-    const AtomicString& property_name,
     ExceptionState& exception_state) {
-  bool needs_check = !RuntimeEnabledFeatures::TrustedTypesHTMLEnabled() &&
-                     IsA<HTMLScriptElement>(parent) &&
-                     document.GetExecutionContext() &&
-                     document.GetExecutionContext()->RequireTrustedTypes();
   VectorOf<Node> nodes;
   for (const auto& node_union : node_unions) {
-    Node* node = NodeOrStringToNode(node_union, document, needs_check,
-                                    property_name, exception_state);
-    if (exception_state.HadException()) {
-      nodes.clear();
-      return nodes;
-    }
+    Node* node = NodeOrStringToNode(node_union, document);
     if (node) {
       if (auto* fragment = DynamicTo<DocumentFragment>(node)) {
         NodeVector fragment_nodes;
@@ -1008,9 +970,8 @@ void Node::prepend(
     return;
   }
 
-  VectorOf<Node> node_vector = ConvertNodeUnionsIntoNodes(
-      this_node, nodes, GetDocument(), trusted_types_names::kPrepend,
-      exception_state);
+  VectorOf<Node> node_vector =
+      ConvertNodeUnionsIntoNodes(nodes, GetDocument(), exception_state);
   if (exception_state.HadException()) {
     return;
   }
@@ -1030,8 +991,7 @@ void Node::append(
   }
 
   VectorOf<Node> node_vector =
-      ConvertNodeUnionsIntoNodes(this_node, nodes, GetDocument(),
-                                 trusted_types_names::kAppend, exception_state);
+      ConvertNodeUnionsIntoNodes(nodes, GetDocument(), exception_state);
   if (exception_state.HadException()) {
     return;
   }
@@ -1046,8 +1006,7 @@ void Node::before(
     return;
   Node* viable_previous_sibling = FindViablePreviousSibling(*this, nodes);
   VectorOf<Node> node_vector =
-      ConvertNodeUnionsIntoNodes(parent, nodes, GetDocument(),
-                                 trusted_types_names::kBefore, exception_state);
+      ConvertNodeUnionsIntoNodes(nodes, GetDocument(), exception_state);
   if (exception_state.HadException()) {
     return;
   }
@@ -1066,8 +1025,7 @@ void Node::after(
     return;
   Node* viable_next_sibling = FindViableNextSibling(*this, nodes);
   VectorOf<Node> node_vector =
-      ConvertNodeUnionsIntoNodes(parent, nodes, GetDocument(),
-                                 trusted_types_names::kAfter, exception_state);
+      ConvertNodeUnionsIntoNodes(nodes, GetDocument(), exception_state);
   if (exception_state.HadException()) {
     return;
   }
@@ -1300,9 +1258,8 @@ void Node::replaceWith(
   if (!parent)
     return;
   Node* viable_next_sibling = FindViableNextSibling(*this, nodes);
-  VectorOf<Node> node_vector = ConvertNodeUnionsIntoNodes(
-      parent, nodes, GetDocument(), trusted_types_names::kReplaceWith,
-      exception_state);
+  VectorOf<Node> node_vector =
+      ConvertNodeUnionsIntoNodes(nodes, GetDocument(), exception_state);
   if (exception_state.HadException()) {
     return;
   }
@@ -1325,9 +1282,8 @@ void Node::replaceChildren(
     return;
   }
 
-  VectorOf<Node> nodes = ConvertNodeUnionsIntoNodes(
-      this_node, node_unions, GetDocument(), trusted_types_names::kReplace,
-      exception_state);
+  VectorOf<Node> nodes =
+      ConvertNodeUnionsIntoNodes(node_unions, GetDocument(), exception_state);
   if (exception_state.HadException()) {
     return;
   }
@@ -2634,8 +2590,6 @@ Node::InsertionNotificationRequest Node::InsertedInto(
     insertion_point.GetDocument().IncrementNodeCount();
 #endif
   }
-  if (ParentOrShadowHostNode()->IsInShadowTree())
-    SetFlag(kIsInShadowTreeFlag);
   if (auto* cache = GetDocument().ExistingAXObjectCache()) {
     cache->NodeIsConnected(this);
   }
@@ -2660,9 +2614,6 @@ void Node::RemovedFrom(ContainerNode& insertion_point) {
 #if DCHECK_IS_ON()
     insertion_point.GetDocument().DecrementNodeCount();
 #endif
-  }
-  if (IsInShadowTree() && !GetTreeScope().RootNode().IsShadowRoot()) {
-    ClearFlag(kIsInShadowTreeFlag);
   }
   if (auto* cache = GetDocument().ExistingAXObjectCache()) {
     cache->Remove(this);
@@ -3417,6 +3368,17 @@ void Node::DispatchSimulatedClick(const Event* underlying_event,
 }
 
 void Node::DefaultEventHandler(Event& event) {
+#if DCHECK_IS_ON()
+  if (RuntimeEnabledFeatures::CleanUpActivationBehaviorEnabled()) {
+    const bool is_click =
+        event.IsMouseEvent() && event.type() == event_type_names::kClick;
+    const bool is_android_select_mousedown_quirk =
+        event.IsMouseEvent() && event.type() == event_type_names::kMousedown &&
+        IsA<HTMLSelectElement>(*this) && GetDocument().GetSettings() &&
+        GetDocument().GetSettings()->GetWideViewportQuirkEnabled();
+    DCHECK(event.isTrusted() || is_click || is_android_select_mousedown_quirk);
+  }
+#endif
   if (event.RawTarget() != this) {
     return;
   }
@@ -3432,9 +3394,14 @@ void Node::DefaultEventHandler(Event& event) {
   } else if (event_type == event_type_names::kClick) {
     auto* ui_event = DynamicTo<UIEvent>(event);
     int detail = ui_event ? ui_event->detail() : 0;
+    // Canceling DOMActivate marks the click event as default-handled, which
+    // suppresses the rest of the click event's default handling, including
+    // `RunActivationBehavior()`.
+    // TODO(crbug.com/563000231): Consider dropping this cancellation behavior.
     if (DispatchDOMActivateEvent(detail, event) !=
-        DispatchEventResult::kNotCanceled)
+        DispatchEventResult::kNotCanceled) {
       event.SetDefaultHandled();
+    }
   } else if (event_type == event_type_names::kContextmenu &&
              IsA<MouseEvent>(event)) {
     if (Page* page = GetDocument().GetPage()) {

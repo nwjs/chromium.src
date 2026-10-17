@@ -11,6 +11,7 @@ import '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import type {CrIconButtonElement} from '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import {assertNotReachedCase} from '//resources/js/assert.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
+import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import {IconTable} from '/shared/icon_table.js';
 import type {OverflowMenuItem} from '/shared/toolbar_ui_api.mojom-webui.js';
 import {PinnedToolbarAction} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
@@ -19,11 +20,11 @@ import type {PinnedToolbarActionState} from '/shared/toolbar_ui_api_data_model.m
 import {BrowserProxyImpl} from './browser_proxy.js';
 import type {BrowserProxy} from './browser_proxy.js';
 import {ContextMenuType} from './browser_proxy.js';
-import type {OverflowableToolbarAction} from './overflowable_toolbar_action_container_mixin.js';
+import {OverflowableToolbarActionMixin} from './overflowable_toolbar_action_mixin.js';
 import {getHtml} from './pinned_toolbar_action.html.js';
 import {ToolbarActionMixin} from './toolbar_action_mixin.js';
 import {getCss} from './toolbar_button.css.js';
-import {getContextMenuPosition, getContextMenuSourceType} from './toolbar_button.js';
+import {getContextMenuPosition, getContextMenuSourceType, shouldSkipNextClick} from './toolbar_button.js';
 
 const initialState: PinnedToolbarActionState = {
   action: PinnedToolbarAction.kUnspecified,
@@ -36,8 +37,8 @@ const initialState: PinnedToolbarActionState = {
   icon: {handleId: 0n},
 };
 
-const PinnedToolbarActionElementBase =
-    ToolbarActionMixin(CrLitElement, initialState);
+const PinnedToolbarActionElementBase = OverflowableToolbarActionMixin(
+    ToolbarActionMixin(CrLitElement, initialState));
 
 export interface PinnedToolbarActionElement {
   $: {
@@ -45,8 +46,7 @@ export interface PinnedToolbarActionElement {
   };
 }
 
-export class PinnedToolbarActionElement extends PinnedToolbarActionElementBase
-    implements OverflowableToolbarAction {
+export class PinnedToolbarActionElement extends PinnedToolbarActionElementBase {
   static get is() {
     return 'pinned-toolbar-action';
   }
@@ -59,11 +59,7 @@ export class PinnedToolbarActionElement extends PinnedToolbarActionElementBase
     return getHtml.bind(this)();
   }
 
-  isDivider(): boolean {
-    return false;
-  }
-
-  getOverflowMenuItem(): OverflowMenuItem {
+  override getOverflowMenuItem(): OverflowMenuItem {
     return {
       id: {
         pinnedAction: this.state.action,
@@ -81,6 +77,16 @@ export class PinnedToolbarActionElement extends PinnedToolbarActionElementBase
   accessor poppedOut: boolean = false;
 
   private iconTable_: IconTable = IconTable.getInstance();
+  private skipNextClick_: boolean = false;
+
+  override willUpdate(changedProperties: PropertyValues<this>) {
+    super.willUpdate(changedProperties);
+
+    if (changedProperties.has('poppedOut')) {
+      // Popped-out actions may not be hidden due to overflow.
+      this.preventOverflow = this.poppedOut;
+    }
+  }
 
   private get browserProxy_(): BrowserProxy {
     return BrowserProxyImpl.getInstance();
@@ -108,12 +114,24 @@ export class PinnedToolbarActionElement extends PinnedToolbarActionElementBase
     return style.length > 0 ? style : undefined;
   }
 
-  protected onActionClick_() {
+  protected onPointerdown_(e: PointerEvent) {
+    this.skipNextClick_ =
+        // `trackedHighlighted` should accurately reflect if this element has an
+        // anchored bubble. Popped out actions can be highlighted via
+        // `state.highlighted` which does not indicate they are anchoring a
+        // bubble.
+        shouldSkipNextClick(
+            e, this.trackedHighlighted, this.lastUnhighlightedTime);
+  }
+
+  protected onActionClick_(e: PointerEvent) {
+    if (this.skipNextClick_ && e.pointerType !== '') {
+      this.skipNextClick_ = false;
+      return;
+    }
     this.browserProxy_.toolbarUIHandler.invokePinnedToolbarAction(
         this.state.action);
   }
-
-
 
   private getContextMenuType_(): ContextMenuType {
     switch (this.state.action) {

@@ -7,15 +7,13 @@ package org.chromium.chrome.browser.ui.vertical_tabs;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.Resources;
-import android.text.style.ForegroundColorSpan;
-import android.text.style.RelativeSizeSpan;
-import android.text.style.SuperscriptSpan;
 import android.util.TypedValue;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.StringRes;
 
 import org.chromium.base.DeviceInfo;
+import org.chromium.base.ResettersForTesting;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -26,11 +24,9 @@ import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator;
-import org.chromium.components.browser_ui.styles.SemanticColorUtils;
+import org.chromium.components.browser_ui.styles.NewLabelUtils;
 import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.ui.base.DeviceFormFactor;
-import org.chromium.ui.text.SpanApplier;
-import org.chromium.ui.text.SpanApplier.SpanInfo;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -40,6 +36,8 @@ import java.lang.annotation.Target;
 /** Helper utilities for Vertical Tabs eligibility and preferences. */
 @NullMarked
 public class VerticalTabUtils {
+    private static @Nullable Boolean sIsVerticalTabsEligibleForTesting;
+
     /** The width of the vertical tabs SideUiContainer in dp. */
     public static final int SIDE_UI_CONTAINER_WIDTH_DP = 240;
 
@@ -51,6 +49,9 @@ public class VerticalTabUtils {
      * state.
      */
     public static final int MIN_EXPANDED_WIDTH_DP = 92;
+
+    /** Maximum width in dp that the expanded vertical tabs rail can be manually resized to. */
+    public static final int MAX_EXPANDED_WIDTH_DP = 500;
 
     /** The ratio of window width that the vertical tabs rail can consume when expanded. */
     public static final float EXPANDED_WINDOW_WIDTH_RATIO = 0.33f;
@@ -153,6 +154,9 @@ public class VerticalTabUtils {
      * AndroidVerticalTabs feature flag to be enabled and the device to be a tablet form factor.
      */
     public static boolean isVerticalTabsEligible(@Nullable Context context) {
+        if (sIsVerticalTabsEligibleForTesting != null) {
+            return sIsVerticalTabsEligibleForTesting;
+        }
         return context != null
                 && ChromeFeatureList.sAndroidVerticalTabs.isEnabled()
                 && DeviceFormFactor.isNonMultiDisplayContextOnTablet(context);
@@ -194,6 +198,47 @@ public class VerticalTabUtils {
     public static void setRailCollapsedInSharedPref(boolean collapsed) {
         ChromeSharedPreferences.getInstance()
                 .writeBoolean(ChromePreferenceKeys.VERTICAL_TABS_COLLAPSED, collapsed);
+    }
+
+    /**
+     * Returns whether the vertical tabs rail can be manually resized by dragging its inner edge.
+     */
+    public static boolean isManualResizeEnabled() {
+        return ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
+                ChromeFeatureList.ANDROID_VERTICAL_TABS,
+                "manual_resize",
+                /* defaultValue= */ false);
+    }
+
+    /**
+     * Returns the expanded vertical tabs rail width in dp that the user last chose by dragging the
+     * rail's resize handle, or {@code 0} if the user has never resized the rail.
+     */
+    public static int getUserResizedWidthDp() {
+        return ChromeSharedPreferences.getInstance()
+                .readInt(
+                        ChromePreferenceKeys.VERTICAL_TABS_USER_RESIZED_WIDTH_DP,
+                        /* defaultValue= */ 0);
+    }
+
+    /**
+     * Stores the expanded vertical tabs rail width in dp that the user chose by dragging the rail's
+     * resize handle.
+     *
+     * <p>The width is stored as-is. Callers are responsible for clamping it to the rail's bounds
+     * and to the width actually available when applying it.
+     *
+     * @param widthDp The user-chosen width in dp. A non-positive value clears the preference, so
+     *     the rail width is determined automatically from the window size again.
+     */
+    public static void setUserResizedWidthDp(int widthDp) {
+        if (widthDp <= 0) {
+            ChromeSharedPreferences.getInstance()
+                    .removeKey(ChromePreferenceKeys.VERTICAL_TABS_USER_RESIZED_WIDTH_DP);
+            return;
+        }
+        ChromeSharedPreferences.getInstance()
+                .writeInt(ChromePreferenceKeys.VERTICAL_TABS_USER_RESIZED_WIDTH_DP, widthDp);
     }
 
     /**
@@ -280,26 +325,19 @@ public class VerticalTabUtils {
     /**
      * Returns a formatted title string containing the "New" badge for Vertical Tabs entry points.
      *
-     * <p>This helper applies visual spans to the string resource and is designed to be reusable
-     * across various Vertical Tabs entry points.
+     * <p>Shared by the various Vertical Tabs entry points so they all badge their titles the same
+     * way.
      *
      * @param context The active {@link Context}.
      * @param layoutTitleRes The string resource ID for the layout toggle title (e.g., {@code
      *     R.string.show_tabs_vertically}).
-     * @return A {@link CharSequence} with styled "New" badge spans attached.
+     * @return A {@link CharSequence} with the "New" badge attached.
      */
     public static CharSequence getTitleWithNewBadge(
             Context context, @StringRes int layoutTitleRes) {
         String rawTitle = context.getString(layoutTitleRes);
-        return SpanApplier.applySpans(
-                context.getString(R.string.prefs_new_label, rawTitle),
-                new SpanInfo(
-                        "<new>",
-                        "</new>",
-                        new SuperscriptSpan(),
-                        new RelativeSizeSpan(0.75f),
-                        new ForegroundColorSpan(
-                                SemanticColorUtils.getDefaultTextColorAccent1(context))));
+        return NewLabelUtils.withBadge(
+                context, context.getString(R.string.prefs_new_label, rawTitle));
     }
 
     private static @LayoutToggleSourceAndDirection int getLayoutToggleSourceAndDirection(
@@ -380,5 +418,13 @@ public class VerticalTabUtils {
         ChromeSharedPreferences.getInstance().removeKey(ChromePreferenceKeys.VERTICAL_TABS_ENABLED);
         ChromeSharedPreferences.getInstance()
                 .removeKey(ChromePreferenceKeys.VERTICAL_TABS_COLLAPSED);
+        ChromeSharedPreferences.getInstance()
+                .removeKey(ChromePreferenceKeys.VERTICAL_TABS_USER_RESIZED_WIDTH_DP);
+    }
+
+    /** Sets whether Vertical Tabs is eligible for testing. */
+    public static void setIsVerticalTabsEligibleForTesting(@Nullable Boolean eligible) {
+        sIsVerticalTabsEligibleForTesting = eligible;
+        ResettersForTesting.register(() -> sIsVerticalTabsEligibleForTesting = null);
     }
 }

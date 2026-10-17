@@ -188,7 +188,6 @@ test("components_unittests") {
     "//components/affiliations/core/browser/domain_matching:unit_tests",
     "//components/apdu:unit_tests",
     "//components/application_locale_storage:unit_tests",
-    "//components/assist_ranker:unit_tests",
     "//components/autofill/core/browser:unit_tests",
     "//components/autofill/core/browser/integrators/password_manager:unit_tests",
     "//components/autofill/core/common:unit_tests",
@@ -352,6 +351,7 @@ test("components_unittests") {
     "//components/site_token_provider:unit_tests",
     "//components/skills:unit_tests",
     "//components/speech:unit_tests",
+    "//components/sqlite_encrypted_vfs:unit_tests",
     "//components/sqlite_proto:unit_tests",
     "//components/sqlite_vfs:unit_tests",
     "//components/ssl_errors:unit_tests",
@@ -489,6 +489,7 @@ test("components_unittests") {
       "//components/drive:unit_tests",
       "//components/embedder_support:unit_tests",
       "//components/endpoint_fetcher:unit_tests",
+      "//components/facilitated_payments/content/renderer:unit_tests",
       "//components/favicon/content:unit_tests",
       "//components/feed/core/v2:core_unit_tests",
       "//components/feed/core/v2:ios_shared_unit_tests",
@@ -505,6 +506,7 @@ test("components_unittests") {
       "//components/js_injection/common:unit_tests",
       "//components/keyed_service/content:unit_tests",
       "//components/language/content/browser:unit_tests",
+      "//components/language_detection/content/browser:unit_tests",
       "//components/link_header_util:unit_tests",
       "//components/media_device_salt:unit_tests",
       "//components/media_effects:unit_tests",
@@ -675,6 +677,7 @@ test("components_unittests") {
     deps += [
       "//base:base_unittest_support_java",
       "//components/android_autofill/browser:unit_tests",
+      "//components/autofill/android:main_autofill_java",
       "//components/browser_ui/accessibility/android:unit_tests",
       "//components/browser_ui/site_settings/android:unit_tests",
       "//components/cdm/browser:unit_tests",
@@ -807,7 +810,6 @@ test("components_unittests") {
       "//components/desks_storage:unit_tests",
       "//components/guest_os:unit_tests",
       "//components/ownership:unit_tests",
-      "//components/peripherals/logging:unit_tests",
       "//components/reporting/health:unit_tests",
       "//components/user_manager:unit_tests",
     ]
@@ -1071,8 +1073,6 @@ if (is_android) {
     deps = [
       ":components_browsertests_resources",
       "//base:base_java",
-      "//base:base_java_test_support",
-      "//content/public/test/android:content_java_test_support",
       "//content/shell/android:content_shell_browsertests_java",
       "//testing/android/native_test:native_browser_test_java",
       "//ui/android:ui_full_java",
@@ -1157,7 +1157,6 @@ if (use_blink) {
       "//components/autofill/content/renderer:test_support",
       "//components/autofill/core/browser",
       "//components/browsing_data/content",
-      "//components/content_capture/browser:browser_tests",
       "//components/content_extraction/content/browser:browser_tests",
       "//components/content_settings/core/common",
       "//components/content_settings/renderer",
@@ -1233,6 +1232,7 @@ if (use_blink) {
         ":components_tests_distiller_bundle_data",
         ":components_tests_pak_bundle_data",
         "test:dom_distiller_test_bundle_data",
+        "test:surface_embed_test_bundle_data",
         "test:url_rewrite_test_bundle_data",
         "//content/test:content_test_bundle_data",
         "//testing/buildbot/filters:components_browsertests_use_blink_filters_bundle_data",
@@ -1430,9 +1430,9 @@ if (use_blink) {
     if (safe_browsing_mode == 1 || is_ios) {
       sources += [ "safe_browsing/core/browser/db/v4_store_perftest.cc" ]
       deps += [
+        "//components/safe_browsing/core/browser/db:sb_protocol_manager_util",
         "//components/safe_browsing/core/browser/db:sb_store",
         "//components/safe_browsing/core/browser/db:sb_test_util",
-        "//components/safe_browsing/core/browser/db:v4_protocol_manager_util",
         "//crypto",
       ]
     }
@@ -1460,6 +1460,7 @@ if (is_android) {
       "//components/browser_ui/media/android:junit",
       "//components/browser_ui/photo_picker/android:junit",
       "//components/browser_ui/settings/android:junit",
+      "//components/browser_ui/styles/android:junit",
       "//components/browser_ui/util/android:junit",
       "//components/browser_ui/webshare/android:junit",
       "//components/browser_ui/widget/android:junit",

@@ -163,7 +163,7 @@ class MultiContentsView
   void SetTargetContentBounds(
       std::optional<TargetContentBounds> target_content_bounds);
 
-  void SetIsAnimatingContent(bool is_animating);
+  void SetIsAnimatingContent(bool is_animating, bool is_origin_changing);
 
   // Returns accessible panes to be used in BrowserView to create the order of
   // pane traversal.
@@ -252,13 +252,13 @@ class MultiContentsView
   // available space after the layout.
   gfx::Rect CalculateDropTargetLayout(
       const gfx::Rect& available_space,
-      std::vector<views::ChildLayout>& child_layouts) const;
+      views::ProposedLayout::ChildLayoutList& child_layouts) const;
 
   // Adds separator layouts to the given list and returns the remaining
   // space after the layout.
   gfx::Rect CalculateSeparatorLayouts(
       const gfx::Rect& available_space,
-      std::vector<views::ChildLayout>& child_layouts) const;
+      views::ProposedLayout::ChildLayoutList& child_layouts) const;
 
   int GetInactiveIndex() const;
 

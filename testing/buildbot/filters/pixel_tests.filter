@@ -40,6 +40,7 @@ CookieClearOnExitMigrationNoticePixelTest.*
 CookieControlsBubbleViewPixelTest.*
 *CreatePopupRowViewTest.*
 *CreatePopupRowViewWithNoUserEducationRateLimitTest.*
+CrossDeviceSigninQrBubbleUIPixelTest.*
 CryptoModulePasswordDialogTest.*
 *DataControlsDialogUiTest.*
 DashboardKombuchaInteractiveUITest.*
@@ -73,6 +74,7 @@ FirstRunFinishOrContinuePixelTest.*
 FirstRunIntroPixelTest.*
 FirstRunSignInCelebrationPixelTest.*
 GlobalErrorBubbleTest.*
+*GmailOtpOptInBubbleViewBrowsertest.*
 HatsBubbleTest.*
 HistorySyncOptinUIDialogPixelTest.*
 HomeButtonUiTest.*
@@ -101,6 +103,7 @@ NtpPromoVisualUiTest.*
 NtpRealboxUiScreenshotTest.*
 OfferNotificationBubbleViewPixelBrowserTest.*
 OmniboxAimWebUiInteractiveTest.QueryWithTabContext*
+OrganizerPanelPixelTest.*
 OutdatedUpgradeBubbleTest.*
 PageActionPixelIconsHiddenTest.*
 PageActionPixelShowIconTest.*

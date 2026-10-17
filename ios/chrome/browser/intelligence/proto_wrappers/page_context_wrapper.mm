@@ -581,20 +581,6 @@ const NSUInteger kMaxPDFByteLimit = 64 * 1024 * 1024;
   [_pageContextMetrics executionStartedForTask:PageContextTask::kScreenshot];
 
   __weak PageContextWrapper* weakSelf = self;
-  auto callback = ^(UIImage* image) {
-    __strong __typeof(weakSelf) strongSelf = weakSelf;
-    if (!strongSelf) {
-      return;
-    }
-
-    if ([strongSelf shouldUpdateSnapshotWithImage:image]) {
-      [strongSelf updateSnapshotWithBarrier:barrier];
-      return;
-    }
-
-    [strongSelf stashRawScreenshotImage:image];
-    barrier.Run();
-  };
 
   // If the WebState is currently visible, update the snapshot in case the
   // user was scrolling, otherwise retrieve the latest version in cache or on
@@ -604,7 +590,14 @@ const NSUInteger kMaxPDFByteLimit = 64 * 1024 * 1024;
         base::BindOnce(^(std::optional<int> result_matches) {
           // TODO(crbug.com/401282824): Log the matches count to measure text
           // highlighting precision.
-          [weakSelf updateSnapshotWithCallback:callback];
+          [weakSelf updateSnapshotWithCallback:^(UIImage* image) {
+            __strong __typeof(weakSelf) strongSelf = weakSelf;
+            if (!strongSelf) {
+              return;
+            }
+            [strongSelf stashRawScreenshotImage:image];
+            barrier.Run();
+          }];
         });
 
     // If there is text to highlight, do it before capturing the screenshot.
@@ -624,13 +617,32 @@ const NSUInteger kMaxPDFByteLimit = 64 * 1024 * 1024;
       std::move(updateSnapshotCallback).Run(std::nullopt);
     }
   } else {
-    SnapshotTabHelper::FromWebState(_webState.get())
-        ->RetrieveColorSnapshot(callback);
+    auto retrieveSnapshotCallback = ^(UIImage* image) {
+      __strong __typeof(weakSelf) strongSelf = weakSelf;
+      if (!strongSelf) {
+        return;
+      }
+
+      if ([strongSelf shouldUpdateSnapshotWithImage:image]) {
+        [strongSelf updateSnapshotWithBarrier:barrier];
+        return;
+      }
+
+      [strongSelf stashRawScreenshotImage:image];
+      barrier.Run();
+    };
+
+    SnapshotTabHelper* snapshotTabHelper =
+        SnapshotTabHelper::FromWebState(_webState.get());
+    if (snapshotTabHelper) {
+      snapshotTabHelper->RetrieveColorSnapshot(retrieveSnapshotCallback);
+    } else {
+      retrieveSnapshotCallback(nil);
+    }
   }
 }
 
 // Helper to extract page context for a given frame.
-// TODO(crbug.com/495446456): Clean up once the JSON experiment is done.
 - (void)extractPageContextForFrame:(web::WebFrame*)frame
                        isMainFrame:(BOOL)isMainFrame
                              nonce:(const std::string&)nonce
@@ -647,80 +659,44 @@ const NSUInteger kMaxPDFByteLimit = 64 * 1024 * 1024;
   // empty results).
   base::TimeDelta jsTimeout = _timeoutTimer.GetCurrentDelay() * 2;
 
-  if (IsPageContextIPCOptimizationEnabled()) {
-    // Callback to aggregate values from the JS execution via JSON string
-    // parsing.
-    auto callbackJson = [](PageContextWrapper* weakWrapper,
-                           base::RepeatingClosure barrier, BOOL isMainFrame,
-                           const url::Origin& securityOrigin,
-                           std::optional<autofill::LocalFrameToken> frameId,
-                           std::optional<base::Value> value) {
-      // TODO(crbug.com/454261374): Remove `withError` from args once we
-      // cleanup the old code. Can't provide an error object since the
-      // javascript feature doesn't support that.
-      [weakWrapper aggregateJavaScriptValue:value ? &value.value() : nullptr
-                                  withError:nil
-                                isMainFrame:isMainFrame
-                             securityOrigin:securityOrigin
-                            localFrameToken:frameId];
-      barrier.Run();
+  // Callback to aggregate values from the JS execution via JSON string parsing.
+  auto callback = [](PageContextWrapper* weakWrapper,
+                     base::RepeatingClosure barrier, BOOL isMainFrame,
+                     const url::Origin& securityOrigin,
+                     std::optional<autofill::LocalFrameToken> frameId,
+                     std::optional<base::Value> value) {
+    // TODO(crbug.com/454261374): Remove `withError` from args once we
+    // cleanup the old code. Can't provide an error object since the
+    // javascript feature doesn't support that.
+    [weakWrapper aggregateJavaScriptValue:value ? &value.value() : nullptr
+                                withError:nil
+                              isMainFrame:isMainFrame
+                           securityOrigin:securityOrigin
+                          localFrameToken:frameId];
+    barrier.Run();
 
-      // Defer destruction of the base::DictValue to a background thread to
-      // prevent blocking the main thread. The object is self-contained and
-      // thread-safe.
-      if (value) {
-        base::ThreadPool::PostTask(
-            FROM_HERE, {base::TaskPriority::BEST_EFFORT},
-            base::BindOnce([](base::Value v) {}, std::move(*value)));
-      }
-    };
+    // Defer destruction of the base::DictValue to a background thread to
+    // prevent blocking the main thread. The object is self-contained and
+    // thread-safe.
+    if (value) {
+      base::ThreadPool::PostTask(
+          FROM_HERE, {base::TaskPriority::BEST_EFFORT},
+          base::BindOnce([](base::Value v) {}, std::move(*value)));
+    }
+  };
 
-    extractorFeature->ExtractPageContextJSON(
-        frame, _config->graft_cross_origin_frame_content(),
-        _config->use_rich_extraction(),
-        _config->use_rich_extraction_with_actionable(),
-        _config->extract_paid_content(),
-        _config->attempt_paid_content_json_fixing(),
-        _config->include_sensitive_payments_for_redaction(),
-        _config->extract_autofill_otp_redactions(),
-        _config->extract_password_screenshot_redactions(), nonce, jsTimeout,
-        base::BindOnce(
-            callbackJson, weakSelf, annotatedPageContentBarrier, isMainFrame,
-            frame->GetSecurityOrigin(),
-            DeserializeFrameIdAsLocalFrameToken(frame->GetFrameId())));
-  } else {
-    // Callback to aggregate values from the JS execution via the base value
-    // received directly from WebKit.
-    auto callback = [](PageContextWrapper* weakWrapper,
-                       base::RepeatingClosure barrier, BOOL isMainFrame,
-                       const url::Origin& securityOrigin,
-                       std::optional<autofill::LocalFrameToken> frameId,
-                       const base::Value* value) {
-      // TODO(crbug.com/454261374): Remove `withError` from args once we
-      // cleanup the old code. Can't provide an error object since the
-      // javascript feature doesn't support that.
-      [weakWrapper aggregateJavaScriptValue:value
-                                  withError:nil
-                                isMainFrame:isMainFrame
-                             securityOrigin:securityOrigin
-                            localFrameToken:frameId];
-      barrier.Run();
-    };
-
-    extractorFeature->ExtractPageContext(
-        frame, _config->graft_cross_origin_frame_content(),
-        _config->use_rich_extraction(),
-        _config->use_rich_extraction_with_actionable(),
-        _config->extract_paid_content(),
-        _config->attempt_paid_content_json_fixing(),
-        _config->include_sensitive_payments_for_redaction(),
-        _config->extract_autofill_otp_redactions(),
-        _config->extract_password_screenshot_redactions(), nonce, jsTimeout,
-        base::BindOnce(
-            callback, weakSelf, annotatedPageContentBarrier, isMainFrame,
-            frame->GetSecurityOrigin(),
-            DeserializeFrameIdAsLocalFrameToken(frame->GetFrameId())));
-  }
+  extractorFeature->ExtractPageContext(
+      frame, _config->graft_cross_origin_frame_content(),
+      _config->use_rich_extraction(),
+      _config->use_rich_extraction_with_actionable(),
+      _config->extract_paid_content(),
+      _config->attempt_paid_content_json_fixing(),
+      _config->include_sensitive_payments_for_redaction(),
+      _config->extract_autofill_otp_redactions(),
+      _config->extract_password_screenshot_redactions(), nonce, jsTimeout,
+      base::BindOnce(callback, weakSelf, annotatedPageContentBarrier,
+                     isMainFrame, frame->GetSecurityOrigin(),
+                     DeserializeFrameIdAsLocalFrameToken(frame->GetFrameId())));
 }
 
 // Get the WebState's AnnotatedPageContent filled with innerTexts. The
@@ -997,30 +973,86 @@ const NSUInteger kMaxPDFByteLimit = 64 * 1024 * 1024;
   return !image && _shouldForceUpdateMissingSnapshots;
 }
 
+// Returns the visible web viewport rect in GetView() coordinates, insetting
+// by adjustedContentInset so DOM (0, 0) matches the snapshot origin.
+- (CGRect)visibleWebViewportRect {
+  if (!_webState || !_webState->GetView()) {
+    return CGRectZero;
+  }
+  CGRect bounds = _webState->GetView().bounds;
+  id<CRWWebViewProxy> webViewProxy = _webState->GetWebViewProxy();
+  if (webViewProxy && webViewProxy.scrollViewProxy) {
+    UIEdgeInsets insets = webViewProxy.scrollViewProxy.adjustedContentInset;
+    CGRect insetRect = UIEdgeInsetsInsetRect(bounds, insets);
+    if (!CGRectIsEmpty(insetRect) && insetRect.size.width > 0 &&
+        insetRect.size.height > 0) {
+      return insetRect;
+    }
+  }
+  return bounds;
+}
+
+// Generates a fallback snapshot directly from the WebState view using UIKit
+// rendering when WebKit's out-of-process snapshot returns an empty image (e.g.
+// before layout passes complete in headless test environments or rapid
+// navigations).
+- (UIImage*)fallbackSnapshotFromView {
+  if (!_webState || !_webState->GetView()) {
+    return nil;
+  }
+  UIView* view = _webState->GetView();
+  CGRect bounds = [self visibleWebViewportRect];
+  if (bounds.size.width <= 0 || bounds.size.height <= 0) {
+    bounds = view.bounds;
+  }
+  if (bounds.size.width <= 0 || bounds.size.height <= 0) {
+    return nil;
+  }
+  UIGraphicsImageRendererFormat* format =
+      [UIGraphicsImageRendererFormat defaultFormat];
+  UIGraphicsImageRenderer* renderer =
+      [[UIGraphicsImageRenderer alloc] initWithSize:bounds.size format:format];
+  return [renderer imageWithActions:^(UIGraphicsImageRendererContext* context) {
+    [view drawViewHierarchyInRect:CGRectMake(-bounds.origin.x, -bounds.origin.y,
+                                             view.bounds.size.width,
+                                             view.bounds.size.height)
+               afterScreenUpdates:NO];
+  }];
+}
+
 // Updates the snapshot for the given WebState, and executes the `barrier`
 // callback when finished.
 - (void)updateSnapshotWithBarrier:(base::RepeatingClosure)barrier {
-  if (!_webState) {
-    barrier.Run();
-    return;
-  }
   __weak PageContextWrapper* weakSelf = self;
-  SnapshotTabHelper::FromWebState(_webState.get())
-      ->UpdateSnapshotWithCallback(^(UIImage* image) {
-        __strong __typeof(weakSelf) strongSelf = weakSelf;
-        if (!strongSelf) {
-          return;
-        }
-        [strongSelf stashRawScreenshotImage:image];
-        barrier.Run();
-      });
+  [self updateSnapshotWithCallback:^(UIImage* image) {
+    __strong __typeof(weakSelf) strongSelf = weakSelf;
+    if (!strongSelf) {
+      return;
+    }
+    [strongSelf stashRawScreenshotImage:image];
+    barrier.Run();
+  }];
 }
 
 // Updates the current WebState's snapshot with the given callback.
 - (void)updateSnapshotWithCallback:(void (^)(UIImage*))callback {
-  if (_webState) {
-    SnapshotTabHelper::FromWebState(_webState.get())
-        ->UpdateSnapshotWithCallback(callback);
+  if (!callback) {
+    return;
+  }
+  if (_webState && _webState->CanTakeSnapshot()) {
+    __weak PageContextWrapper* weakSelf = self;
+    _webState->TakeSnapshot(
+        [self visibleWebViewportRect], base::BindRepeating(^(UIImage* image) {
+          __strong __typeof(weakSelf) strongSelf = weakSelf;
+          if (!strongSelf) {
+            callback(nil);
+            return;
+          }
+          if (!image || image.size.width <= 0 || image.size.height <= 0) {
+            image = [strongSelf fallbackSnapshotFromView];
+          }
+          callback(image);
+        }));
   } else {
     callback(nil);
   }
@@ -1825,6 +1857,10 @@ const NSUInteger kMaxPDFByteLimit = 64 * 1024 * 1024;
 
 - (FrameGrafter&)grafterForTesting {
   return _grafter;
+}
+
+- (CGRect)visibleWebViewportRectForTesting {
+  return [self visibleWebViewportRect];
 }
 
 @end

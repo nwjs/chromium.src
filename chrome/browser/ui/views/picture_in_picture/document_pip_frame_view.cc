@@ -219,10 +219,16 @@ class DocumentPipFrameView::LocationBarModelDelegateImpl
   content::WebContents* GetActiveWebContents() const override {
     return host_->GetOpenerWebContents();
   }
+  bool ShouldTrimDisplayUrlAfterHostName() const override;
 
  private:
   const raw_ref<DocumentPipHost> host_;
 };
+
+bool DocumentPipFrameView::LocationBarModelDelegateImpl::
+    ShouldTrimDisplayUrlAfterHostName() const {
+  return true;
+}
 
 class DocumentPipFrameView::WindowEventObserver : public ui::EventObserver {
  public:
@@ -627,6 +633,11 @@ void DocumentPipFrameView::AddedToWidget() {
         FROM_HERE, base::BindOnce(&DocumentPipFrameView::ShowOverlayIfNeeded,
                                   weak_factory_.GetWeakPtr()));
   }
+
+  if (auto* tracker =
+          PictureInPictureWindowManager::GetInstance()->GetOcclusionTracker()) {
+    tracker->OnPictureInPictureWidgetOpened(GetWidget());
+  }
 }
 
 int DocumentPipFrameView::GetTopAreaHeight() const {
@@ -822,9 +833,10 @@ const ui::ColorProvider* DocumentPipFrameView::GetTopBarColorProvider() const {
 
 void DocumentPipFrameView::OnMouseEnteredOrExitedWindow(bool entered) {
   mouse_inside_window_ = entered;
-  animation_controller_->SetTopBarActiveStatus(
-      mouse_inside_window_ || (GetWidget() && GetWidget()->IsActive()) ||
-      IsOverlayViewVisible());
+  // Match the Browser-backed frame: mouse exit hides the controls even while
+  // the widget is active, unless the auto-PiP overlay needs them visible.
+  animation_controller_->SetTopBarActiveStatus(mouse_inside_window_ ||
+                                               IsOverlayViewVisible());
 }
 
 void DocumentPipFrameView::ShowOverlayIfNeeded() {

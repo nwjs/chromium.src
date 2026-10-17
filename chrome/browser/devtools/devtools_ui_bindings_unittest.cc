@@ -7,7 +7,6 @@
 #include "base/base64.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
-#include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_command_line.h"
@@ -599,7 +598,7 @@ class DevToolsUIBindingsDispatchHttpRequestTest : public testing::Test {
     bindings_ = std::make_unique<DevToolsUIBindings>(web_contents_);
 
     auto registry = std::make_unique<DevToolsHttpServiceRegistry>();
-    auto mock_handler = base::WrapUnique(new MockServiceHandler());
+    auto mock_handler = std::make_unique<MockServiceHandler>();
     mock_handler_ptr_ = mock_handler.get();
     registry->AddForTesting(DevToolsHttpServiceRegistry::Service(
         "mockService", {{"/getFoo", "GET"}, {"/postBar", "POST"}},
@@ -995,7 +994,7 @@ class DevToolsUIBindingsDispatchHttpRequestStreamingTest
     test_bindings_ = std::make_unique<TestDevToolsUIBindings>(web_contents_);
 
     auto registry = std::make_unique<DevToolsHttpServiceRegistry>();
-    auto mock_handler = base::WrapUnique(new MockServiceHandler());
+    auto mock_handler = std::make_unique<MockServiceHandler>();
     mock_handler_ptr_ = mock_handler.get();
     registry->AddForTesting(DevToolsHttpServiceRegistry::Service(
         "mockService", {{"/getFoo", "GET"}}, std::move(mock_handler)));
@@ -1154,13 +1153,19 @@ TEST_F(DevToolsUIBindingsHostConfigTest, GetHostConfigWithFeatures) {
   EXPECT_FALSE(
       initial_source_map_scopes->FindBool("enabled").value_or(true));
 
+  const base::DictValue* initial_nli =
+      initial_config.FindDict("devToolsAiNaturalLanguageInterface");
+  ASSERT_TRUE(initial_nli);
+  EXPECT_FALSE(initial_nli->FindBool("enabled").value_or(true));
+
   // Enable features.
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
       {::features::kDevToolsProtocolMonitor, ::features::kDevToolsFreestyler,
        ::features::kDevToolsAiV2Architecture,
        ::features::kDevToolsInstrumentationBreakpoints,
-       ::features::kDevToolsSourceMapScopesInSourcesPanel},
+       ::features::kDevToolsSourceMapScopesInSourcesPanel,
+       ::features::kDevToolsAiNaturalLanguageInterface},
       {});
 
   // Verify state of features after enabling them.
@@ -1192,6 +1197,11 @@ TEST_F(DevToolsUIBindingsHostConfigTest, GetHostConfigWithFeatures) {
       result.FindDict("devToolsSourceMapScopesInSourcesPanel");
   ASSERT_TRUE(source_map_scopes);
   EXPECT_TRUE(source_map_scopes->FindBool("enabled").value_or(false));
+
+  const base::DictValue* nli =
+      result.FindDict("devToolsAiNaturalLanguageInterface");
+  ASSERT_TRUE(nli);
+  EXPECT_TRUE(nli->FindBool("enabled").value_or(false));
 }
 
 TEST_F(DevToolsUIBindingsHostConfigTest, GetHostConfigGdpProfiles) {

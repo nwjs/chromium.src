@@ -33,6 +33,22 @@ export function getHtml(this: DummyTestElement) {
           </div>
         </div>
       </div>
+      <div class="description-text ${
+          this.someCondition ? 'elide-from-start' : ''}">
+        Some text
+      </div>
+      <div class="${this.someCondition ? 'first-class' : 'second-class'} trailing-static-class ${this.someValue}">
+        Some other text
+      </div>
+      <div class="some initial static classes ${this.someCondition ? 'first-class' : 'second-class'} trailing-static-class ${this.someMethodCall_(this.someProperty_, this.someOtherProperty_)}">
+        More Text!!!
+      </div>
+      <div .style="color: ${this.getColor_()};
+                   background-color: ${this.getBackgroundColor_()};
+                   margin: 0px;
+                   left: ${this.getLeftPosition_()};">
+        Styled Text
+      </div>
     </div>
   </div>
 </div>

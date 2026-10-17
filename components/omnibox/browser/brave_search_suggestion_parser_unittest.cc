@@ -63,7 +63,8 @@ TEST(BraveSearchSuggestionParserTest, ParseSuggestResults) {
   ASSERT_EQ(2u, results.suggest_results.size());
 
   const auto& entity = results.suggest_results[0];
-  EXPECT_EQ(AutocompleteMatchType::SEARCH_SUGGEST_ENTITY, entity.type());
+  EXPECT_EQ(omnibox::AutocompleteMatchType::kSearchSuggestEntity,
+            entity.type());
   EXPECT_EQ(omnibox::TYPE_ENTITY, entity.suggest_type());
   EXPECT_EQ(u"helldivers 2", entity.suggestion());
   EXPECT_EQ(u"2024 video game developed by Arrowhead Game Studios",
@@ -76,7 +77,7 @@ TEST(BraveSearchSuggestionParserTest, ParseSuggestResults) {
             entity.suggest_template_info()->secondary_text().text());
 
   const auto& query = results.suggest_results[1];
-  EXPECT_EQ(AutocompleteMatchType::SEARCH_SUGGEST, query.type());
+  EXPECT_EQ(omnibox::AutocompleteMatchType::kSearchSuggest, query.type());
   EXPECT_EQ(omnibox::TYPE_QUERY, query.suggest_type());
   EXPECT_EQ(u"hello fresh", query.suggestion());
   EXPECT_TRUE(query.annotation().empty());
@@ -105,7 +106,7 @@ TEST(BraveSearchSuggestionParserTest, PlainResponseUsesTheDefaultFormat) {
   ASSERT_TRUE(
       ParseSuggestions("hel", R"(["hello fresh", "helldivers 2"])", &results));
   ASSERT_EQ(2u, results.suggest_results.size());
-  EXPECT_EQ(AutocompleteMatchType::SEARCH_SUGGEST,
+  EXPECT_EQ(omnibox::AutocompleteMatchType::kSearchSuggest,
             results.suggest_results[0].type());
   EXPECT_EQ(u"hello fresh", results.suggest_results[0].suggestion());
   EXPECT_EQ(u"helldivers 2", results.suggest_results[1].suggestion());
@@ -187,7 +188,7 @@ TEST(BraveSearchSuggestionParserTest, EntityFlagWinsOverType) {
   ])",
                                &results));
   ASSERT_EQ(1u, results.suggest_results.size());
-  EXPECT_EQ(AutocompleteMatchType::SEARCH_SUGGEST_ENTITY,
+  EXPECT_EQ(omnibox::AutocompleteMatchType::kSearchSuggestEntity,
             results.suggest_results[0].type());
   EXPECT_EQ(omnibox::TYPE_ENTITY, results.suggest_results[0].suggest_type());
 }
@@ -200,7 +201,7 @@ TEST(BraveSearchSuggestionParserTest, UnknownVerticalIsAQuerySuggestion) {
       "weather", R"([{"type": "weather", "q": "weather in toronto"}])",
       &results));
   ASSERT_EQ(1u, results.suggest_results.size());
-  EXPECT_EQ(AutocompleteMatchType::SEARCH_SUGGEST,
+  EXPECT_EQ(omnibox::AutocompleteMatchType::kSearchSuggest,
             results.suggest_results[0].type());
   EXPECT_EQ(u"weather in toronto", results.suggest_results[0].suggestion());
 }
@@ -218,7 +219,7 @@ TEST(BraveSearchSuggestionParserTest, CalculatorVertical) {
   // The suggestion is the answer, so accepting the match searches the typed
   // text. Desktop additionally shows "<expression> = <answer>" as the contents.
   const auto& calculator = results.suggest_results[0];
-  EXPECT_EQ(AutocompleteMatchType::CALCULATOR, calculator.type());
+  EXPECT_EQ(omnibox::AutocompleteMatchType::kCalculator, calculator.type());
   EXPECT_EQ(omnibox::TYPE_CALCULATOR, calculator.suggest_type());
   EXPECT_EQ(u"3", calculator.suggestion());
   if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_DESKTOP) {
@@ -228,7 +229,7 @@ TEST(BraveSearchSuggestionParserTest, CalculatorVertical) {
   }
 
   const auto& query = results.suggest_results[1];
-  EXPECT_EQ(AutocompleteMatchType::SEARCH_SUGGEST, query.type());
+  EXPECT_EQ(omnibox::AutocompleteMatchType::kSearchSuggest, query.type());
   EXPECT_EQ(u"52 states of america list", query.suggestion());
 }
 
@@ -243,7 +244,7 @@ TEST(BraveSearchSuggestionParserTest, CalculatorWithStringAnswer) {
   ASSERT_EQ(1u, results.suggest_results.size());
 
   const auto& calculator = results.suggest_results[0];
-  EXPECT_EQ(AutocompleteMatchType::CALCULATOR, calculator.type());
+  EXPECT_EQ(omnibox::AutocompleteMatchType::kCalculator, calculator.type());
   EXPECT_EQ(u"5 km", calculator.suggestion());
   if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_DESKTOP) {
     EXPECT_EQ(u"5000 m in km = 5 km", calculator.match_contents());

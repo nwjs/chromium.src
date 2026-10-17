@@ -144,6 +144,27 @@ class AV1BuilderTest : public ::testing::Test {
     return pic_hdr;
   }
 
+  // Packs a bare frame OBU followed by a dummy tile group, for the second and
+  // later frames of a sequence where the sequence header is already known to
+  // the parser.
+  std::vector<uint8_t> PackFrameOBU(
+      const AV1BitstreamBuilder::SequenceHeader& seq_hdr,
+      const AV1BitstreamBuilder::FrameHeader& pic_hdr) {
+    static const uint8_t kTileGroupObu[] = {0x00, 0x80};
+    AV1BitstreamBuilder packed;
+    packed.WriteOBUHeader(libgav1::kObuFrame, /*has_size=*/true);
+    AV1BitstreamBuilder frame_obu =
+        AV1BitstreamBuilder::BuildFrameHeaderOBU(seq_hdr, pic_hdr);
+    EXPECT_EQ(frame_obu.OutstandingBits() % 8, 0ull);
+    packed.WriteValueInLeb128(frame_obu.OutstandingBits() / 8 +
+                              std::size(kTileGroupObu));
+    packed.AppendBitstreamBuffer(std::move(frame_obu));
+    for (const uint8_t byte : kTileGroupObu) {
+      packed.Write(byte, 8);
+    }
+    return std::move(packed).Flush();
+  }
+
   // Packs a temporal unit made of a temporal delimiter, a sequence header OBU,
   // `metadata_obus` and a frame OBU followed by a dummy tile group.
   std::vector<uint8_t> PackTemporalUnit(
@@ -269,17 +290,23 @@ TEST_F(AV1BuilderTest, BuildTemporalSequenceHeaderOBU) {
 }
 
 TEST_F(AV1BuilderTest, BuildFrameOBU) {
+  // MakeSequenceHeader() turns on superres and warped motion, so both frames
+  // carry a use_superres bit inside frame_size() (spec 5.9.8) and the inter
+  // frame additionally carries allow_warped_motion between skip_mode_params()
+  // and reduced_tx_set (spec 5.9.2). The key frame is therefore one bit longer
+  // than it used to be and the inter frame two, with the trailing align bits
+  // absorbing the difference.
   const std::vector<uint8_t> expected_packed_keyframe = {
-      0b00010000, 0b00000000, 0b01000110, 0b01000000, 0b00000000, 0b10000010,
-      0b00001000, 0b00100101, 0b01100000, 0b00000000, 0b00000000, 0b00000000,
+      0b00010000, 0b00000000, 0b00100011, 0b00100000, 0b00000000, 0b01000001,
+      0b00000100, 0b00010010, 0b10110000, 0b00000000, 0b00000000, 0b00000000,
       0b00000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000,
-      0b00000000, 0b00000000, 0b00000000, 0b01100000};
+      0b00000000, 0b00000000, 0b00000000, 0b00110000};
   const std::vector<uint8_t> expected_packed_interframe = {
       0b00110000, 0b00000001, 0b00000000, 0b00100000, 0b00000000, 0b00000000,
-      0b00000000, 0b01000110, 0b01000000, 0b00000000, 0b10000010, 0b00001000,
-      0b00100101, 0b01100000, 0b00000000, 0b00000000, 0b00000000, 0b00000000,
+      0b00000000, 0b00100011, 0b00100000, 0b00000000, 0b01000001, 0b00000100,
+      0b00010010, 0b10110000, 0b00000000, 0b00000000, 0b00000000, 0b00000000,
       0b00000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000,
-      0b00000000, 0b00000000, 0b01010000, 0b00000000};
+      0b00000000, 0b00000000, 0b00100100, 0b00000000};
   AV1BitstreamBuilder::SequenceHeader seq_hdr = MakeSequenceHeader();
   AV1BitstreamBuilder frame_obu_key =
       AV1BitstreamBuilder::BuildFrameHeaderOBU(seq_hdr, MakeFrameHeader(0));
@@ -938,6 +965,400 @@ TEST_F(AV1BuilderTest, BuildFrameOBUWithReferenceSelect) {
   EXPECT_EQ(status, libgav1::kStatusOk);
   auto frame_header_delta = delta_parser->frame_header();
   EXPECT_TRUE(frame_header_delta.reference_mode_select);
+}
+
+// Spec 5.9.22. skip_mode_present is coded whenever the reference structure
+// allows skip mode. This encoder never turns skip mode on, but the bit still
+// has to be written or every syntax element after it shifts by one, so the
+// check is on the values that follow it rather than on skip mode itself.
+//
+// Three frames are needed to get there: skipModeAllowed requires either a
+// backward reference or two forward references at different distances, and a
+// single delta frame off a key frame only ever sees one distinct order hint.
+TEST_F(AV1BuilderTest, BuildFrameOBUWritesSkipModePresentWhenAllowed) {
+  AV1BitstreamBuilder::SequenceHeader seq_hdr = MakeDefaultSequenceHeader();
+  seq_hdr.enable_restoration = false;
+  AV1BitstreamBuilder seq_header_obu =
+      AV1BitstreamBuilder::BuildSequenceHeaderOBU(seq_hdr);
+
+  // Fake tile_group_obu with only dummy data.
+  static const uint8_t tile_group_obu[] = {0x00, 0x80};
+  auto pack_frame = [&](const AV1BitstreamBuilder::FrameHeader& pic_hdr) {
+    AV1BitstreamBuilder packed;
+    packed.WriteOBUHeader(libgav1::kObuFrame, /*has_size=*/true);
+    AV1BitstreamBuilder frame_obu =
+        AV1BitstreamBuilder::BuildFrameHeaderOBU(seq_hdr, pic_hdr);
+    EXPECT_EQ(frame_obu.OutstandingBits() % 8, 0ull);
+    packed.WriteValueInLeb128(frame_obu.OutstandingBits() / 8 +
+                              std::size(tile_group_obu));
+    packed.AppendBitstreamBuffer(std::move(frame_obu));
+    for (const uint8_t byte : tile_group_obu) {
+      packed.Write(byte, 8);
+    }
+    return std::move(packed).Flush();
+  };
+
+  // Frame 0: key frame at order hint 0. refresh_frame_flags is inferred to be
+  // all frames, so every slot ends up holding order hint 0.
+  std::vector<uint8_t> chunk =
+      PackTemporalUnit(seq_hdr, MakeFrameHeader(0), /*metadata_obus=*/{});
+  auto parser = base::WrapUnique(new (std::nothrow) libgav1::ObuParser(
+      chunk.data(), chunk.size(), 0, buffer_pool_.get(),
+      av1_decoder_state_.get()));
+  libgav1::RefCountedBufferPtr key_frame;
+  ASSERT_EQ(parser->ParseOneFrame(&key_frame), libgav1::kStatusOk);
+  const auto sequence_header = parser->sequence_header();
+  av1_decoder_state_->UpdateReferenceFrames(
+      key_frame,
+      base::strict_cast<int>(parser->frame_header().refresh_frame_flags));
+
+  // Frame 1: inter frame at order hint 1, landing in slot 1. That gives the
+  // DPB two distinct order hints, 0 in slot 0 and 1 in slot 1.
+  AV1BitstreamBuilder::FrameHeader pic_hdr_1 = MakeFrameHeader(1);
+  pic_hdr_1.refresh_frame_flags = 0b00000010;
+  chunk = pack_frame(pic_hdr_1);
+  auto parser_1 = base::WrapUnique(new (std::nothrow) libgav1::ObuParser(
+      chunk.data(), chunk.size(), 0, buffer_pool_.get(),
+      av1_decoder_state_.get()));
+  parser_1->set_sequence_header(sequence_header);
+  libgav1::RefCountedBufferPtr frame_1;
+  ASSERT_EQ(parser_1->ParseOneFrame(&frame_1), libgav1::kStatusOk);
+  av1_decoder_state_->UpdateReferenceFrames(
+      frame_1,
+      base::strict_cast<int>(parser_1->frame_header().refresh_frame_flags));
+
+  // Frame 2: inter frame at order hint 2 referencing both slots, with compound
+  // prediction on. Both references are in the past at different distances, so
+  // the second-forward branch of skipModeAllowed fires and the bit is present.
+  //
+  // ref_order_hint here has to match what the decoder holds in its DPB, since
+  // the builder evaluates skipModeAllowed from the frame header while the
+  // decoder evaluates it from decoded reference state. A caller that fills
+  // ref_order_hint with placeholders would diverge, so any delegate setting
+  // reference_select must populate it from the real DPB.
+  AV1BitstreamBuilder::FrameHeader pic_hdr_2 = MakeFrameHeader(2);
+  pic_hdr_2.refresh_frame_flags = 0b00000100;
+  pic_hdr_2.reference_select = true;
+  pic_hdr_2.ref_frame_idx = {0, 1, 1, 1, 1, 1, 1};
+  pic_hdr_2.ref_order_hint = {0, 1, 0, 0, 0, 0, 0, 0};
+  chunk = pack_frame(pic_hdr_2);
+  auto parser_2 = base::WrapUnique(new (std::nothrow) libgav1::ObuParser(
+      chunk.data(), chunk.size(), 0, buffer_pool_.get(),
+      av1_decoder_state_.get()));
+  parser_2->set_sequence_header(sequence_header);
+  libgav1::RefCountedBufferPtr frame_2;
+  ASSERT_EQ(parser_2->ParseOneFrame(&frame_2), libgav1::kStatusOk);
+
+  const auto frame_header = parser_2->frame_header();
+  EXPECT_TRUE(frame_header.reference_mode_select);
+  EXPECT_FALSE(frame_header.skip_mode_present);
+  // The element written straight after skip_mode_present. If the bit were
+  // missing this would pick up allow_warped_motion's slot instead.
+  EXPECT_TRUE(frame_header.reduced_tx_set);
+}
+
+// The golden byte comparison in BuildFrameOBU pins the output but cannot say
+// whether it is correct. MakeSequenceHeader() enables superres and warped
+// motion, the two features whose syntax elements used to be missing entirely,
+// so round trip that same configuration through the decoder.
+TEST_F(AV1BuilderTest, BuildFrameOBUWithSuperresAndWarpedMotion) {
+  AV1BitstreamBuilder::SequenceHeader seq_hdr = MakeSequenceHeader();
+  ASSERT_TRUE(seq_hdr.enable_superres);
+  ASSERT_TRUE(seq_hdr.enable_warped_motion);
+
+  std::vector<uint8_t> chunk =
+      PackTemporalUnit(seq_hdr, MakeFrameHeader(0), /*metadata_obus=*/{});
+  auto parser = base::WrapUnique(new (std::nothrow) libgav1::ObuParser(
+      chunk.data(), chunk.size(), 0, buffer_pool_.get(),
+      av1_decoder_state_.get()));
+  libgav1::RefCountedBufferPtr key_frame;
+  ASSERT_EQ(parser->ParseOneFrame(&key_frame), libgav1::kStatusOk);
+  const auto sequence_header = parser->sequence_header();
+  const auto key_frame_header = parser->frame_header();
+  // use_superres is inside frame_size(), so a key frame exercises it too.
+  EXPECT_FALSE(key_frame_header.use_superres);
+  EXPECT_TRUE(key_frame_header.reduced_tx_set);
+  av1_decoder_state_->UpdateReferenceFrames(
+      key_frame, base::strict_cast<int>(key_frame_header.refresh_frame_flags));
+
+  // allow_warped_motion only exists on inter frames, so a delta frame is
+  // needed to cover it.
+  AV1BitstreamBuilder::FrameHeader pic_hdr = MakeFrameHeader(1);
+  pic_hdr.refresh_frame_flags = 0b00000010;
+  AV1BitstreamBuilder packed;
+  packed.WriteOBUHeader(libgav1::kObuFrame, /*has_size=*/true);
+  AV1BitstreamBuilder frame_obu =
+      AV1BitstreamBuilder::BuildFrameHeaderOBU(seq_hdr, pic_hdr);
+  EXPECT_EQ(frame_obu.OutstandingBits() % 8, 0ull);
+  static const uint8_t tile_group_obu[] = {0x00, 0x80};
+  packed.WriteValueInLeb128(frame_obu.OutstandingBits() / 8 +
+                            std::size(tile_group_obu));
+  packed.AppendBitstreamBuffer(std::move(frame_obu));
+  for (const uint8_t byte : tile_group_obu) {
+    packed.Write(byte, 8);
+  }
+  chunk = std::move(packed).Flush();
+  auto delta_parser = base::WrapUnique(new (std::nothrow) libgav1::ObuParser(
+      chunk.data(), chunk.size(), 0, buffer_pool_.get(),
+      av1_decoder_state_.get()));
+  delta_parser->set_sequence_header(sequence_header);
+  libgav1::RefCountedBufferPtr delta_frame;
+  ASSERT_EQ(delta_parser->ParseOneFrame(&delta_frame), libgav1::kStatusOk);
+
+  const auto frame_header = delta_parser->frame_header();
+  EXPECT_FALSE(frame_header.use_superres);
+  EXPECT_FALSE(frame_header.allow_warped_motion);
+  // Written straight after allow_warped_motion, so it only lands here if that
+  // bit was actually emitted.
+  EXPECT_TRUE(frame_header.reduced_tx_set);
+  EXPECT_EQ(frame_header.tx_mode, libgav1::kTxModeSelect);
+}
+
+// Spec 5.9.2. FrameIsIntra covers intra only frames as well as key frames, so
+// they take the intra branch: no primary_ref_frame, no reference list, no
+// frame_reference_mode and no global motion. refresh_frame_flags is still
+// coded though, because only key and switch frames infer it.
+TEST_F(AV1BuilderTest, BuildFrameOBUIntraOnly) {
+  AV1BitstreamBuilder::SequenceHeader seq_hdr = MakeDefaultSequenceHeader();
+
+  std::vector<uint8_t> chunk =
+      PackTemporalUnit(seq_hdr, MakeFrameHeader(0), /*metadata_obus=*/{});
+  auto parser = base::WrapUnique(new (std::nothrow) libgav1::ObuParser(
+      chunk.data(), chunk.size(), 0, buffer_pool_.get(),
+      av1_decoder_state_.get()));
+  libgav1::RefCountedBufferPtr key_frame;
+  ASSERT_EQ(parser->ParseOneFrame(&key_frame), libgav1::kStatusOk);
+  const auto sequence_header = parser->sequence_header();
+  av1_decoder_state_->UpdateReferenceFrames(
+      key_frame,
+      base::strict_cast<int>(parser->frame_header().refresh_frame_flags));
+
+  AV1BitstreamBuilder::FrameHeader pic_hdr = MakeFrameHeader(1);
+  pic_hdr.frame_type = libgav1::FrameType::kFrameIntraOnly;
+  // Conformance requires an intra only frame not to refresh every slot.
+  pic_hdr.refresh_frame_flags = 0b00000010;
+
+  AV1BitstreamBuilder packed;
+  packed.WriteOBUHeader(libgav1::kObuFrame, /*has_size=*/true);
+  AV1BitstreamBuilder frame_obu =
+      AV1BitstreamBuilder::BuildFrameHeaderOBU(seq_hdr, pic_hdr);
+  EXPECT_EQ(frame_obu.OutstandingBits() % 8, 0ull);
+  static const uint8_t tile_group_obu[] = {0x00, 0x80};
+  packed.WriteValueInLeb128(frame_obu.OutstandingBits() / 8 +
+                            std::size(tile_group_obu));
+  packed.AppendBitstreamBuffer(std::move(frame_obu));
+  for (const uint8_t byte : tile_group_obu) {
+    packed.Write(byte, 8);
+  }
+  chunk = std::move(packed).Flush();
+  auto intra_parser = base::WrapUnique(new (std::nothrow) libgav1::ObuParser(
+      chunk.data(), chunk.size(), 0, buffer_pool_.get(),
+      av1_decoder_state_.get()));
+  intra_parser->set_sequence_header(sequence_header);
+  libgav1::RefCountedBufferPtr intra_frame;
+  ASSERT_EQ(intra_parser->ParseOneFrame(&intra_frame), libgav1::kStatusOk);
+
+  const auto frame_header = intra_parser->frame_header();
+  EXPECT_EQ(frame_header.frame_type, libgav1::kFrameIntraOnly);
+  EXPECT_EQ(frame_header.refresh_frame_flags, 0b00000010u);
+  EXPECT_EQ(frame_header.primary_reference_frame, 7 /*PRIMARY_REF_NONE*/);
+  EXPECT_FALSE(frame_header.reference_mode_select);
+  EXPECT_TRUE(frame_header.reduced_tx_set);
+}
+
+TEST_F(AV1BuilderTest, BuildFrameOBUWithoutSeparateUvDeltaQ) {
+  AV1BitstreamBuilder::SequenceHeader seq_hdr = MakeDefaultSequenceHeader();
+  seq_hdr.separate_uv_delta_q = false;
+
+  AV1BitstreamBuilder::FrameHeader pic_hdr = MakeFrameHeader(0);
+  pic_hdr.delta_q_y_dc = -2;
+  pic_hdr.delta_q_u_dc = 5;
+  pic_hdr.delta_q_u_ac = -7;
+  // Never coded: the decoder infers DeltaQV* from DeltaQU*.
+  pic_hdr.delta_q_v_dc = 11;
+  pic_hdr.delta_q_v_ac = 13;
+  pic_hdr.using_qmatrix = true;
+  pic_hdr.qm_y = 2;
+  pic_hdr.qm_u = 3;
+  pic_hdr.qm_v = 4;  // Also not coded; inferred as qm_u.
+
+  std::vector<uint8_t> chunk =
+      PackTemporalUnit(seq_hdr, pic_hdr, /*metadata_obus=*/{});
+  auto parser = base::WrapUnique(new (std::nothrow) libgav1::ObuParser(
+      chunk.data(), chunk.size(), 0, buffer_pool_.get(),
+      av1_decoder_state_.get()));
+
+  libgav1::RefCountedBufferPtr current_frame;
+  ASSERT_EQ(parser->ParseOneFrame(&current_frame), libgav1::kStatusOk);
+  const auto frame_header = parser->frame_header();
+  EXPECT_EQ(frame_header.quantizer.delta_dc[0], pic_hdr.delta_q_y_dc);
+  EXPECT_EQ(frame_header.quantizer.delta_dc[1], pic_hdr.delta_q_u_dc);
+  EXPECT_EQ(frame_header.quantizer.delta_ac[1], pic_hdr.delta_q_u_ac);
+  EXPECT_EQ(frame_header.quantizer.delta_dc[2], pic_hdr.delta_q_u_dc);
+  EXPECT_EQ(frame_header.quantizer.delta_ac[2], pic_hdr.delta_q_u_ac);
+  EXPECT_TRUE(frame_header.quantizer.use_matrix);
+  EXPECT_EQ(frame_header.quantizer.matrix_level[0], pic_hdr.qm_y);
+  EXPECT_EQ(frame_header.quantizer.matrix_level[1], pic_hdr.qm_u);
+  EXPECT_EQ(frame_header.quantizer.matrix_level[2], pic_hdr.qm_u);
+  // Written after quantization_params(), so it only lands here if the U deltas
+  // and the omitted V deltas were sized correctly.
+  EXPECT_TRUE(frame_header.reduced_tx_set);
+}
+
+// Spec 5.9.11, 5.9.19, 5.9.20 and 5.9.21. A losslessly coded frame carries no
+// loop filter, CDEF, loop restoration or tx mode syntax at all.
+TEST_F(AV1BuilderTest, BuildFrameOBUCodedLossless) {
+  AV1BitstreamBuilder::SequenceHeader seq_hdr = MakeDefaultSequenceHeader();
+  AV1BitstreamBuilder::FrameHeader pic_hdr = MakeFrameHeader(0);
+  // A base qindex of 0 with no delta q is lossless. This is reachable from
+  // WebCodecs by asking for a quantizer of 0.
+  pic_hdr.base_qindex = 0;
+
+  std::vector<uint8_t> chunk =
+      PackTemporalUnit(seq_hdr, pic_hdr, /*metadata_obus=*/{});
+  auto parser = base::WrapUnique(new (std::nothrow) libgav1::ObuParser(
+      chunk.data(), chunk.size(), 0, buffer_pool_.get(),
+      av1_decoder_state_.get()));
+
+  libgav1::RefCountedBufferPtr current_frame;
+  ASSERT_EQ(parser->ParseOneFrame(&current_frame), libgav1::kStatusOk);
+  const auto frame_header = parser->frame_header();
+  EXPECT_TRUE(frame_header.coded_lossless);
+  EXPECT_EQ(frame_header.tx_mode, libgav1::kTxModeOnly4x4);
+  // Written after the omitted blocks, so it only lands here if they really
+  // were omitted.
+  EXPECT_TRUE(frame_header.reduced_tx_set);
+}
+
+// Spec 5.9.12. With separate_uv_delta_q == 0 the V deltas are never coded and
+// the decoder infers them from the U ones, so a caller's V values must not
+// influence CodedLossless. If they did, the encoder would decide the frame is
+// not lossless and emit loop filter, CDEF and tx mode syntax that the decoder
+// never reads.
+TEST_F(AV1BuilderTest, BuildFrameOBUCodedLosslessWithInferredVDeltaQ) {
+  AV1BitstreamBuilder::SequenceHeader seq_hdr = MakeDefaultSequenceHeader();
+  seq_hdr.separate_uv_delta_q = false;
+  AV1BitstreamBuilder::FrameHeader pic_hdr = MakeFrameHeader(0);
+  pic_hdr.base_qindex = 0;
+  // Never reaches the bitstream: the decoder infers DeltaQV* = DeltaQU* = 0
+  // and so sees a losslessly coded frame.
+  pic_hdr.delta_q_v_dc = 5;
+  pic_hdr.delta_q_v_ac = -3;
+
+  std::vector<uint8_t> chunk =
+      PackTemporalUnit(seq_hdr, pic_hdr, /*metadata_obus=*/{});
+  auto parser = base::WrapUnique(new (std::nothrow) libgav1::ObuParser(
+      chunk.data(), chunk.size(), 0, buffer_pool_.get(),
+      av1_decoder_state_.get()));
+
+  libgav1::RefCountedBufferPtr current_frame;
+  ASSERT_EQ(parser->ParseOneFrame(&current_frame), libgav1::kStatusOk);
+  const auto frame_header = parser->frame_header();
+  EXPECT_TRUE(frame_header.coded_lossless);
+  EXPECT_EQ(frame_header.tx_mode, libgav1::kTxModeOnly4x4);
+  EXPECT_TRUE(frame_header.reduced_tx_set);
+}
+
+// Spec 5.9.2 and 5.9.5. A switch frame infers frame_size_override_flag to 1
+// instead of coding it, which also means frame_size() repeats the dimensions
+// explicitly. error_resilient_mode and refresh_frame_flags are inferred too.
+TEST_F(AV1BuilderTest, BuildFrameOBUSwitchFrame) {
+  AV1BitstreamBuilder::SequenceHeader seq_hdr = MakeDefaultSequenceHeader();
+
+  std::vector<uint8_t> chunk =
+      PackTemporalUnit(seq_hdr, MakeFrameHeader(0), /*metadata_obus=*/{});
+  auto parser = base::WrapUnique(new (std::nothrow) libgav1::ObuParser(
+      chunk.data(), chunk.size(), 0, buffer_pool_.get(),
+      av1_decoder_state_.get()));
+  libgav1::RefCountedBufferPtr key_frame;
+  ASSERT_EQ(parser->ParseOneFrame(&key_frame), libgav1::kStatusOk);
+  const auto sequence_header = parser->sequence_header();
+  av1_decoder_state_->UpdateReferenceFrames(
+      key_frame,
+      base::strict_cast<int>(parser->frame_header().refresh_frame_flags));
+
+  AV1BitstreamBuilder::FrameHeader pic_hdr = MakeFrameHeader(1);
+  pic_hdr.frame_type = libgav1::FrameType::kFrameSwitch;
+  chunk = PackFrameOBU(seq_hdr, pic_hdr);
+  auto switch_parser = base::WrapUnique(new (std::nothrow) libgav1::ObuParser(
+      chunk.data(), chunk.size(), 0, buffer_pool_.get(),
+      av1_decoder_state_.get()));
+  switch_parser->set_sequence_header(sequence_header);
+  libgav1::RefCountedBufferPtr switch_frame;
+  ASSERT_EQ(switch_parser->ParseOneFrame(&switch_frame), libgav1::kStatusOk);
+
+  const auto frame_header = switch_parser->frame_header();
+  EXPECT_EQ(frame_header.frame_type, libgav1::kFrameSwitch);
+  EXPECT_TRUE(frame_header.error_resilient_mode);
+  EXPECT_EQ(frame_header.refresh_frame_flags, 0xFFu);
+  EXPECT_EQ(frame_header.width, seq_hdr.width);
+  EXPECT_EQ(frame_header.height, seq_hdr.height);
+  EXPECT_TRUE(frame_header.reduced_tx_set);
+}
+
+// Spec 5.9.2. use_ref_frame_mvs is only coded when error_resilient_mode is
+// clear, even if the sequence enables ref frame mvs. primary_ref_frame is
+// inferred to PRIMARY_REF_NONE for the same reason.
+TEST_F(AV1BuilderTest, BuildFrameOBUErrorResilientInterFrame) {
+  AV1BitstreamBuilder::SequenceHeader seq_hdr = MakeDefaultSequenceHeader();
+  seq_hdr.enable_ref_frame_mvs = true;
+
+  std::vector<uint8_t> chunk =
+      PackTemporalUnit(seq_hdr, MakeFrameHeader(0), /*metadata_obus=*/{});
+  auto parser = base::WrapUnique(new (std::nothrow) libgav1::ObuParser(
+      chunk.data(), chunk.size(), 0, buffer_pool_.get(),
+      av1_decoder_state_.get()));
+  libgav1::RefCountedBufferPtr key_frame;
+  ASSERT_EQ(parser->ParseOneFrame(&key_frame), libgav1::kStatusOk);
+  const auto sequence_header = parser->sequence_header();
+  av1_decoder_state_->UpdateReferenceFrames(
+      key_frame,
+      base::strict_cast<int>(parser->frame_header().refresh_frame_flags));
+
+  AV1BitstreamBuilder::FrameHeader pic_hdr = MakeFrameHeader(1);
+  pic_hdr.error_resilient_mode = true;
+  pic_hdr.refresh_frame_flags = 0b00000010;
+  chunk = PackFrameOBU(seq_hdr, pic_hdr);
+  auto delta_parser = base::WrapUnique(new (std::nothrow) libgav1::ObuParser(
+      chunk.data(), chunk.size(), 0, buffer_pool_.get(),
+      av1_decoder_state_.get()));
+  delta_parser->set_sequence_header(sequence_header);
+  libgav1::RefCountedBufferPtr delta_frame;
+  ASSERT_EQ(delta_parser->ParseOneFrame(&delta_frame), libgav1::kStatusOk);
+
+  const auto frame_header = delta_parser->frame_header();
+  EXPECT_TRUE(frame_header.error_resilient_mode);
+  EXPECT_EQ(frame_header.primary_reference_frame, 7 /*PRIMARY_REF_NONE*/);
+  EXPECT_FALSE(frame_header.use_ref_frame_mvs);
+  // Lands correctly only if use_ref_frame_mvs was omitted.
+  EXPECT_TRUE(frame_header.reduced_tx_set);
+}
+
+// Spec 4.10.5. Padding a leb128 out to a fixed size is allowed, but the parse
+// loop stops at the first byte with the continuation bit clear, so only the
+// bytes before the last one may set it.
+TEST_F(AV1BuilderTest, WriteValueInLeb128FixedSizeTerminates) {
+  AV1BitstreamBuilder builder;
+  builder.WriteValueInLeb128(3, /*fixed_size=*/4);
+  const std::vector<uint8_t> packed = std::move(builder).Flush();
+
+  ASSERT_EQ(packed.size(), 4u);
+  EXPECT_EQ(packed[0], 0x83);
+  EXPECT_EQ(packed[1], 0x80);
+  EXPECT_EQ(packed[2], 0x80);
+  EXPECT_EQ(packed[3], 0x00);
+
+  // And the value survives the round trip described by that section.
+  uint32_t value = 0;
+  size_t i = 0;
+  for (; i < packed.size(); i++) {
+    value |= static_cast<uint32_t>(packed[i] & 0x7F) << (i * 7);
+    if (!(packed[i] & 0x80)) {
+      break;
+    }
+  }
+  EXPECT_EQ(value, 3u);
+  EXPECT_EQ(i, 3u) << "parser must stop on the last padded byte";
 }
 
 }  // namespace media

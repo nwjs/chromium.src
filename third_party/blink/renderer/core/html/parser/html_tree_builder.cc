@@ -416,6 +416,10 @@ HTMLTreeBuilder::HTMLTreeBuilder(HTMLDocumentParser* parser,
     template_insertion_modes_.push_back(kTemplateContentsMode);
 
   ResetInsertionModeAppropriately();
+
+  // The first token is tokenized before ConstructTree(), so initialize the
+  // tokenizer flags from the context element now.
+  UpdateTokenizerFlags();
 }
 
 HTMLTreeBuilder::~HTMLTreeBuilder() = default;
@@ -477,18 +481,24 @@ void HTMLTreeBuilder::ConstructTree(AtomicHTMLToken* token) {
   if (parser_->IsDetached())
     return;
 
+  UpdateTokenizerFlags();
+}
+
+void HTMLTreeBuilder::UpdateTokenizerFlags() {
+  bool in_non_html_namespace = false;
   bool in_foreign_content = false;
   if (!tree_.IsEmpty()) {
     HTMLStackItem* adjusted_current_node = AdjustedCurrentStackItem();
+    in_non_html_namespace = !adjusted_current_node->IsInHTMLNamespace();
     in_foreign_content =
-        !adjusted_current_node->IsInHTMLNamespace() &&
+        in_non_html_namespace &&
         !HTMLElementStack::IsHTMLIntegrationPoint(adjusted_current_node) &&
         !HTMLElementStack::IsMathMLTextIntegrationPoint(adjusted_current_node);
   }
 
   parser_->tokenizer().SetForceNullCharacterReplacement(
       GetInsertionMode() == kTextMode || in_foreign_content);
-  parser_->tokenizer().SetShouldAllowCDATA(in_foreign_content);
+  parser_->tokenizer().SetShouldAllowCDATA(in_non_html_namespace);
 }
 
 void HTMLTreeBuilder::ProcessToken(AtomicHTMLToken* token) {
@@ -2021,11 +2031,12 @@ void HTMLTreeBuilder::ResetInsertionModeAppropriately() {
     const HTMLTag tag = item->GetHTMLTag();
     if (item->IsHTMLNamespace()) {
       switch (tag) {
-        case HTMLTag::kTemplate:
-          return SetInsertionMode(template_insertion_modes_.back());
         case HTMLTag::kTd:
         case HTMLTag::kTh:
-          return SetInsertionMode(kInCellMode);
+          if (!last) {
+            return SetInsertionMode(kInCellMode);
+          }
+          break;
         case HTMLTag::kTr:
           return SetInsertionMode(kInRowMode);
         case HTMLTag::kTbody:
@@ -2038,12 +2049,13 @@ void HTMLTreeBuilder::ResetInsertionModeAppropriately() {
           return SetInsertionMode(kInColumnGroupMode);
         case HTMLTag::kTable:
           return SetInsertionMode(kInTableMode);
+        case HTMLTag::kTemplate:
+          return SetInsertionMode(template_insertion_modes_.back());
         case HTMLTag::kHead:
-          if (!fragment_context_.FragmentTarget() ||
-              fragment_context_.ContextElement() != item->GetNode()) {
+          if (!last) {
             return SetInsertionMode(kInHeadMode);
           }
-          return SetInsertionMode(kInBodyMode);
+          break;
         case HTMLTag::kBody:
           return SetInsertionMode(kInBodyMode);
         case HTMLTag::kFrameset:
@@ -3210,9 +3222,7 @@ void HTMLTreeBuilder::Flush() {
   // O(n^2) string copies for text documents, because they generate a single
   // <pre> with a potentially very large amount of content.
   const bool defer_text_run =
-      insertion_mode_ == kTextMode ||
-      (is_text_document_ &&
-       !RuntimeEnabledFeatures::SplitLargeTextNodesEnabled());
+      (insertion_mode_ == kTextMode) || is_text_document_;
   if (defer_text_run && DeferTreeBuilderFlushEnabled()) {
     base::TimeTicks now = base::TimeTicks::Now();
 

@@ -47,22 +47,18 @@
 #include "chrome/browser/chromeos/drivefs/drivefs_native_message_host_origins.h"
 #include "chrome/browser/net/system_network_context_manager.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/ui/webui/ash/manage_mirrorsync/manage_mirrorsync_dialog.h"
-#include "chrome/common/extensions/api/file_manager_private.h"
-#include "chrome/common/extensions/api/file_manager_private_internal.h"
 #include "chromeos/ash/components/drivefs/drivefs_pinning_manager.h"
 #include "chromeos/ash/components/drivefs/drivefs_util.h"
 #include "chromeos/ash/components/drivefs/mojom/drivefs.mojom.h"
 #include "chromeos/ash/components/network/network_handler.h"
 #include "chromeos/ash/components/network/network_state_handler.h"
+#include "chromeos/ash/experiences/extensions/common/api/file_manager_private.h"
+#include "chromeos/ash/experiences/extensions/common/api/file_manager_private_internal.h"
 #include "components/drive/chromeos/search_metadata.h"
 #include "components/drive/drive_pref_names.h"
 #include "components/drive/event_logger.h"
 #include "components/drive/file_errors.h"
 #include "components/prefs/pref_service.h"
-#include "components/signin/public/base/consent_level.h"
-#include "components/signin/public/identity_manager/identity_manager.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/network_service_instance.h"
@@ -114,7 +110,7 @@ class SingleEntryPropertiesGetterForFileSystemProvider {
   static void Start(const storage::FileSystemURL file_system_url,
                     const std::set<EntryPropertyName>& names,
                     ResultCallback callback) {
-    DCHECK_CURRENTLY_ON(BrowserThread::UI);
+    CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
 
     SingleEntryPropertiesGetterForFileSystemProvider* instance =
         new SingleEntryPropertiesGetterForFileSystemProvider(
@@ -135,11 +131,11 @@ class SingleEntryPropertiesGetterForFileSystemProvider {
         file_system_url_(file_system_url),
         names_(names),
         properties_(new EntryProperties) {
-    DCHECK(!callback_.is_null());
+    CHECK(!callback_.is_null(), base::NotFatalUntil::M160);
   }
 
   void StartProcess() {
-    DCHECK_CURRENTLY_ON(BrowserThread::UI);
+    CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
 
     FileSystemURLParser parser(file_system_url_);
     if (!parser.Parse()) {
@@ -183,7 +179,7 @@ class SingleEntryPropertiesGetterForFileSystemProvider {
 
   void OnGetMetadataCompleted(std::unique_ptr<EntryMetadata> metadata,
                               base::File::Error result) {
-    DCHECK_CURRENTLY_ON(BrowserThread::UI);
+    CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
 
     if (result != base::File::FILE_OK) {
       CompleteGetEntryProperties(result);
@@ -220,8 +216,8 @@ class SingleEntryPropertiesGetterForFileSystemProvider {
   }
 
   void CompleteGetEntryProperties(base::File::Error result) {
-    DCHECK_CURRENTLY_ON(BrowserThread::UI);
-    DCHECK(!callback_.is_null());
+    CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
+    CHECK(!callback_.is_null(), base::NotFatalUntil::M160);
 
     std::move(callback_).Run(std::move(properties_), result);
     content::GetUIThreadTaskRunner({})->DeleteSoon(FROM_HERE, this);
@@ -249,7 +245,7 @@ class SingleEntryPropertiesGetterForDocumentsProvider {
   static void Start(const storage::FileSystemURL file_system_url,
                     Profile* const profile,
                     ResultCallback callback) {
-    DCHECK_CURRENTLY_ON(BrowserThread::UI);
+    CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
 
     SingleEntryPropertiesGetterForDocumentsProvider* instance =
         new SingleEntryPropertiesGetterForDocumentsProvider(
@@ -268,12 +264,12 @@ class SingleEntryPropertiesGetterForDocumentsProvider {
         file_system_url_(ResolveFuseBoxFSURL(profile, file_system_url)),
         profile_(profile),
         properties_(new EntryProperties) {
-    DCHECK_CURRENTLY_ON(BrowserThread::UI);
-    DCHECK(!callback_.is_null());
+    CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
+    CHECK(!callback_.is_null(), base::NotFatalUntil::M160);
   }
 
   void StartProcess() {
-    DCHECK_CURRENTLY_ON(BrowserThread::UI);
+    CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
 
     auto* root_map =
         arc::ArcDocumentsProviderRootMap::GetForBrowserContext(profile_);
@@ -310,7 +306,7 @@ class SingleEntryPropertiesGetterForDocumentsProvider {
   void OnGetExtraFileMetadata(
       base::File::Error error,
       const arc::ArcDocumentsProviderRoot::ExtraFileMetadata& metadata) {
-    DCHECK_CURRENTLY_ON(BrowserThread::UI);
+    CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
 
     if (error != base::File::FILE_OK) {
       CompleteGetEntryProperties(error);
@@ -328,8 +324,8 @@ class SingleEntryPropertiesGetterForDocumentsProvider {
   }
 
   void CompleteGetEntryProperties(base::File::Error error) {
-    DCHECK_CURRENTLY_ON(BrowserThread::UI);
-    DCHECK(callback_);
+    CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
+    CHECK(callback_, base::NotFatalUntil::M160);
 
     std::move(callback_).Run(std::move(properties_), error);
     content::GetUIThreadTaskRunner({})->DeleteSoon(FROM_HERE, this);
@@ -456,7 +452,7 @@ FileManagerPrivateInternalGetEntryPropertiesFunction::
 
 ExtensionFunction::ResponseAction
 FileManagerPrivateInternalGetEntryPropertiesFunction::Run() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
 
   using api::file_manager_private_internal::GetEntryProperties::Params;
   const std::optional<Params> params = Params::Create(args());
@@ -526,8 +522,9 @@ void FileManagerPrivateInternalGetEntryPropertiesFunction::
                                const storage::FileSystemURL& url,
                                std::unique_ptr<EntryProperties> properties,
                                base::File::Error error) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  DCHECK(0 <= processed_count_ && processed_count_ < properties_list_.size());
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
+  CHECK(0 <= processed_count_ && processed_count_ < properties_list_.size(),
+        base::NotFatalUntil::M160);
 
   if (error == base::File::FILE_OK) {
     properties->external_file_url =
@@ -553,7 +550,7 @@ FileManagerPrivateInternalPinDriveFileFunction::
 
 ExtensionFunction::ResponseAction
 FileManagerPrivateInternalPinDriveFileFunction::Run() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
 
   using extensions::api::file_manager_private_internal::PinDriveFile::Params;
   const std::optional<Params> params = Params::Create(args());
@@ -605,7 +602,7 @@ FileManagerPrivateInternalPinDriveFileFunction::RunAsyncForDriveFs(
 
 void FileManagerPrivateInternalPinDriveFileFunction::OnPinStateSet(
     drive::FileError error) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
 
   if (error == drive::FILE_ERROR_OK) {
     Respond(NoArguments());
@@ -937,10 +934,6 @@ FileManagerPrivateGetBulkPinProgressFunction::Run() {
 
 ExtensionFunction::ResponseAction
 FileManagerPrivateOpenManageSyncSettingsFunction::Run() {
-  if (ash::features::IsDriveFsMirroringEnabled()) {
-    ash::ManageMirrorSyncDialog::Show(
-        Profile::FromBrowserContext(browser_context()));
-  }
   return RespondNow(NoArguments());
 }
 

@@ -13,7 +13,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sharesheet/sharesheet_service.h"
 #include "chrome/browser/sharesheet/sharesheet_service_factory.h"
-#include "chrome/common/extensions/api/file_manager_private.h"
+#include "chromeos/ash/experiences/extensions/common/api/file_manager_private.h"
 #include "components/drive/drive_api_util.h"
 #include "components/services/app_service/public/cpp/intent_util.h"
 #include "content/public/browser/web_contents.h"
@@ -129,7 +129,7 @@ void FileManagerPrivateSharesheetHasTargetsFunction::OnDrivePropertyCollected(
     std::unique_ptr<std::vector<std::string>> mime_types,
     std::unique_ptr<api::file_manager_private::EntryProperties> properties,
     base::File::Error error) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
 
   if (error != base::File::FILE_OK) {
     LOG(ERROR) << "Error reading file properties in Drive: " << error;
@@ -258,7 +258,7 @@ void FileManagerPrivateInvokeSharesheetFunction::OnDrivePropertyCollected(
     std::unique_ptr<std::vector<std::string>> mime_types,
     std::unique_ptr<api::file_manager_private::EntryProperties> properties,
     base::File::Error error) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
 
   if (error != base::File::FILE_OK) {
     Respond(Error("Drive File Error"));

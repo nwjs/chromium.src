@@ -12,11 +12,8 @@
 #include "base/files/file_util.h"
 #include "base/files/scoped_file.h"
 #include "base/functional/bind.h"
-#include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/ref_counted_memory.h"
-#include "base/notreached.h"
-#include "base/numerics/safe_conversions.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "components/printing/browser/print_manager_utils.h"
@@ -34,11 +31,8 @@ namespace {
 uint32_t SaveDataToFd(base::ScopedFD fd,
                       uint32_t page_count,
                       scoped_refptr<base::RefCountedSharedMemoryMapping> data) {
-  bool did_write_successfully =
-      fd.is_valid() && base::IsValueInRangeForNumericType<int>(data->size());
-  if (did_write_successfully) {
-    did_write_successfully = base::WriteFileDescriptor(fd.get(), *data);
-  }
+  CHECK(fd.is_valid());
+  bool did_write_successfully = base::WriteFileDescriptor(fd.get(), *data);
   return did_write_successfully ? page_count : 0;
 }
 
@@ -68,11 +62,13 @@ void AwPrintManager::SetupScriptedPrintAndroid(
   // WebView does not support the print dialog triggered by window.print().
   // Run the callback immediately to unblock the renderer, maintaining the
   // previous behavior where window.print() was essentially a no-op.
+  //
+  // TODO(crbug.com/40342444): Add support for window.print().
   std::move(callback).Run();
 }
 
 void AwPrintManager::PdfWritingDone(int page_count) {
-  // The fd_ should have been reset when printing started.
+  // `fd_` should have been reset when printing started.
   CHECK(!fd_.is_valid());
   // Trigger the callback to notify the embedding application that printing is
   // done. A non-positive `page_count` value (<=0) will be presented as an error
@@ -112,6 +108,7 @@ void AwPrintManager::UpdateParam(
     PrintManager::PdfWritingDoneCallback callback) {
   DCHECK(settings);
   DCHECK(callback);
+  CHECK(file_descriptor.is_valid());
   settings_ = std::move(settings);
   fd_ = std::move(file_descriptor);
   set_pdf_writing_done_callback(std::move(callback));
@@ -123,17 +120,20 @@ void AwPrintManager::ScriptedPrint(
     ScriptedPrintCallback callback) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
-  content::RenderFrameHost& render_frame_host = CurrentTargetFrame();
-  if (!render_frame_host.IsActive()) {
-    // Only active RFHs should try to print.
+  // Prevents spurious requests from the renderer to print. This blocks
+  // window.print(), which is fine since window.print() is not supported, per
+  // comment in SetupScriptedPrintAndroid().
+  //
+  // TODO(crbug.com/40342444): Add support for window.print() and properly
+  // handle this to match applicable checks on other platforms.
+  if (!is_printing()) {
     std::move(callback).Run(nullptr);
     return;
   }
 
-  if (scripted_params->is_scripted &&
-      render_frame_host.IsNestedWithinFencedFrame()) {
-    DLOG(ERROR) << "Unexpected message received. Script Print is not allowed"
-                   " in a fenced frame.";
+  content::RenderFrameHost& render_frame_host = CurrentTargetFrame();
+  if (!render_frame_host.IsActive()) {
+    // Only active RFHs should try to print.
     std::move(callback).Run(nullptr);
     return;
   }
@@ -155,10 +155,11 @@ void AwPrintManager::ScriptedPrint(
 void AwPrintManager::DidPrintDocument(
     printing::mojom::DidPrintDocumentParamsPtr params,
     DidPrintDocumentCallback callback) {
-  // Extract the fd_ here to prevent it from being used more than once.
+  // Extract `fd_` here to prevent it from being used more than once.
   base::ScopedFD print_fd = std::move(fd_);
 
   if (!print_fd.is_valid()) {
+    // Can potentially happen if DidPrintDocument() gets called twice.
     PdfWritingDone(0);
     std::move(callback).Run(false);
     return;

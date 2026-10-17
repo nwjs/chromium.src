@@ -5,8 +5,10 @@
 #ifndef CHROME_UPDATER_TAG_H_
 #define CHROME_UPDATER_TAG_H_
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <array>
-#include <cstdint>
 #include <optional>
 #include <ostream>
 #include <string>

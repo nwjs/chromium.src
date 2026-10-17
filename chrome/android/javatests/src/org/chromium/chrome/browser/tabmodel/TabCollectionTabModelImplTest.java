@@ -17,7 +17,6 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -32,6 +31,9 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.Token;
@@ -87,9 +89,14 @@ public class TabCollectionTabModelImplTest {
     private static final String GROUP_1_TITLE = "Group 1 Title";
     private static final String GROUP_2_TITLE = "Group 2 Title";
 
+    @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
+
     @Rule
     public AutoResetCtaTransitTestRule mActivityTestRule =
             ChromeTransitTestRules.fastAutoResetCtaActivityRule();
+
+    @Mock private TabModelActionListener mActionListener;
+    @Mock private TabGroupCollectionData mTabGroupCollectionData;
 
     private String mTestUrl;
     private TabModelSelector mTabModelSelector;
@@ -1054,19 +1061,11 @@ public class TabCollectionTabModelImplTest {
         List<Tab> tabs = List.of(tab0, tab1);
         assertTabsInOrderAre(tabs);
 
-        CallbackHelper willMergeTabToGroupHelper = new CallbackHelper();
         CallbackHelper didMergeTabToGroupHelper = new CallbackHelper();
         CallbackHelper didCreateNewGroupHelper = new CallbackHelper();
 
         TabGroupObserver observer =
                 new TabGroupObserver() {
-                    @Override
-                    public void willMergeTabToGroup(Tab movedTab, int newRootId, Token tabGroupId) {
-                        assertEquals(tab0, movedTab);
-                        assertNotNull(tabGroupId);
-                        willMergeTabToGroupHelper.notifyCalled();
-                    }
-
                     @Override
                     public void didMergeTabToGroup(Tab movedTab, boolean isDestinationTab) {
                         assertEquals(tab0, movedTab);
@@ -1075,9 +1074,8 @@ public class TabCollectionTabModelImplTest {
                     }
 
                     @Override
-                    public void didCreateNewGroup(Tab destinationTab, TabModel tabModel) {
+                    public void didCreateNewGroup(Tab destinationTab) {
                         assertEquals(tab0, destinationTab);
-                        assertEquals(mCollectionModel, tabModel);
                         didCreateNewGroupHelper.notifyCalled();
                     }
                 };
@@ -1093,7 +1091,6 @@ public class TabCollectionTabModelImplTest {
                     mCollectionModel.removeTabGroupObserver(observer);
                 });
 
-        willMergeTabToGroupHelper.waitForOnly();
         didMergeTabToGroupHelper.waitForOnly();
         didCreateNewGroupHelper.waitForOnly();
 
@@ -1201,15 +1198,15 @@ public class TabCollectionTabModelImplTest {
                     }
 
                     @Override
-                    public void didMoveTabOutOfGroup(Tab movedTab, int prevFilterIndex) {
+                    public void didMoveTabOutOfGroup(Tab movedTab, Token oldTabGroupId) {
                         assertEquals(tab1, movedTab);
-                        assertEquals(1, prevFilterIndex);
+                        assertEquals(tab1GroupId, oldTabGroupId);
                         didMoveTabOutOfGroupHelper.notifyCalled();
                     }
 
                     @Override
                     public void didRemoveTabGroup(
-                            int tabId, Token tabGroupId, @DidRemoveTabGroupReason int reason) {
+                            Token tabGroupId, @DidRemoveTabGroupReason int reason) {
                         assertEquals(tab1GroupId, tabGroupId);
                         assertEquals(DidRemoveTabGroupReason.UNGROUP, reason);
                         didRemoveTabGroupHelper.notifyCalled();
@@ -1250,18 +1247,17 @@ public class TabCollectionTabModelImplTest {
         TabGroupObserver groupObserver =
                 new TabGroupObserver() {
                     @Override
-                    public void willMoveTabGroup(Token tabGroupId, int currentIndex) {
-                        assertEquals(1, currentIndex);
+                    public void willMoveTabGroup(Token tabGroupId) {
                         assertEquals(groupId, tabGroupId);
                         willMoveTabGroupHelper.notifyCalled();
                     }
 
                     @Override
-                    public void didMoveTabGroup(Tab movedTab, int oldIndex, int newIndex) {
-                        // movedTab is the last tab in the group.
-                        assertEquals(tab2, movedTab);
-                        assertEquals(2, oldIndex);
-                        assertEquals(3, newIndex);
+                    public void didMoveTabGroup(
+                            Token tabGroupId, int tabModelOldIndex, int tabModelNewIndex) {
+                        assertEquals(groupId, tabGroupId);
+                        assertEquals(1, tabModelOldIndex);
+                        assertEquals(2, tabModelNewIndex);
                         didMoveTabGroupHelper.notifyCalled();
                     }
                 };
@@ -1371,12 +1367,13 @@ public class TabCollectionTabModelImplTest {
         TabGroupObserver groupObserver =
                 new TabGroupObserver() {
                     @Override
-                    public void willMoveTabGroup(Token tabGroupId, int currentIndex) {
+                    public void willMoveTabGroup(Token tabGroupId) {
                         fail("willMoveTabGroup should not be called for individual tab.");
                     }
 
                     @Override
-                    public void didMoveTabGroup(Tab movedTab, int oldIndex, int newIndex) {
+                    public void didMoveTabGroup(
+                            Token tabGroupId, int tabModelOldIndex, int tabModelNewIndex) {
                         fail("didMoveTabGroup should not be called for individual tab.");
                     }
                 };
@@ -1487,15 +1484,15 @@ public class TabCollectionTabModelImplTest {
 
                                 @Override
                                 public void didMoveTabOutOfGroup(
-                                        Tab movedTab, int prevFilterIndex) {
+                                        Tab movedTab, Token oldTabGroupId) {
                                     assertEquals(tab0, movedTab);
-                                    assertEquals(1, prevFilterIndex);
+                                    assertEquals(groupId, oldTabGroupId);
                                     didMoveOutOfGroup.notifyCalled();
                                 }
 
                                 @Override
                                 public void didRemoveTabGroup(
-                                        int tabId, Token tabGroupId, int reason) {
+                                        Token tabGroupId, @DidRemoveTabGroupReason int reason) {
                                     fail("didRemoveTabGroup should not be called.");
                                 }
                             };
@@ -1539,15 +1536,15 @@ public class TabCollectionTabModelImplTest {
                     }
 
                     @Override
-                    public void didMoveTabOutOfGroup(Tab movedTab, int prevFilterIndex) {
+                    public void didMoveTabOutOfGroup(Tab movedTab, Token oldTabGroupId) {
                         assertEquals(tab1, movedTab);
-                        assertEquals(1, prevFilterIndex);
+                        assertEquals(groupId, oldTabGroupId);
                         didMoveOutOfGroup.notifyCalled();
                     }
 
                     @Override
                     public void didRemoveTabGroup(
-                            int tabId, Token tabGroupId, @DidRemoveTabGroupReason int reason) {
+                            Token tabGroupId, @DidRemoveTabGroupReason int reason) {
                         assertEquals(groupId, tabGroupId);
                         assertEquals(DidRemoveTabGroupReason.UNGROUP, reason);
                         didRemoveGroup.notifyCalled();
@@ -1579,18 +1576,17 @@ public class TabCollectionTabModelImplTest {
         assertNotNull(tab1.getTabGroupId());
         assertTabsInOrderAre(List.of(tab0, tab1));
 
-        TabModelActionListener listener = mock(TabModelActionListener.class);
-
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    mCollectionModel.pinTab(tab1.getId(), /* showUngroupDialog= */ true, listener);
+                    mCollectionModel.pinTab(
+                            tab1.getId(), /* showUngroupDialog= */ true, mActionListener);
                 });
 
         onViewWaiting(withText(R.string.delete_tab_group_action)).perform(click());
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    verify(listener)
+                    verify(mActionListener)
                             .onConfirmationDialogResult(
                                     eq(DialogType.SYNC),
                                     eq(ActionConfirmationResult.CONFIRMATION_POSITIVE));
@@ -1609,18 +1605,17 @@ public class TabCollectionTabModelImplTest {
         assertNotNull(tab1.getTabGroupId());
         assertTabsInOrderAre(List.of(tab0, tab1));
 
-        TabModelActionListener listener = mock(TabModelActionListener.class);
-
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    mCollectionModel.pinTab(tab1.getId(), /* showUngroupDialog= */ true, listener);
+                    mCollectionModel.pinTab(
+                            tab1.getId(), /* showUngroupDialog= */ true, mActionListener);
                 });
 
         onViewWaiting(withText(R.string.cancel)).perform(click());
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    verify(listener)
+                    verify(mActionListener)
                             .onConfirmationDialogResult(
                                     eq(DialogType.SYNC),
                                     eq(ActionConfirmationResult.CONFIRMATION_NEGATIVE));
@@ -1653,14 +1648,15 @@ public class TabCollectionTabModelImplTest {
                     }
 
                     @Override
-                    public void didMoveTabOutOfGroup(Tab movedTab, int prevFilterIndex) {
+                    public void didMoveTabOutOfGroup(Tab movedTab, Token oldTabGroupId) {
                         assertEquals(tab0, movedTab);
-                        assertEquals(0, prevFilterIndex);
+                        assertEquals(groupId, oldTabGroupId);
                         didMoveOutOfGroup.notifyCalled();
                     }
 
                     @Override
-                    public void didRemoveTabGroup(int tabId, Token tabGroupId, int reason) {
+                    public void didRemoveTabGroup(
+                            Token tabGroupId, @DidRemoveTabGroupReason int reason) {
                         fail("didRemoveTabGroup should not be called.");
                     }
                 };
@@ -1713,7 +1709,6 @@ public class TabCollectionTabModelImplTest {
                     mCollectionModel.addTabGroupObserver(titleObserver);
                     mCollectionModel.setTabGroupTitle(tabGroupId, testTitle);
                     assertEquals(testTitle, mCollectionModel.getTabGroupTitle(tabGroupId));
-                    assertEquals(testTitle, mCollectionModel.getTabGroupTitle(tab0));
                     mCollectionModel.removeTabGroupObserver(titleObserver);
                 });
         titleChangedHelper.waitForOnly("setTabGroupTitle failed");
@@ -1757,7 +1752,6 @@ public class TabCollectionTabModelImplTest {
                     assertEquals(testColor, mCollectionModel.getTabGroupColor(tabGroupId));
                     assertEquals(
                             testColor, mCollectionModel.getTabGroupColorWithFallback(tabGroupId));
-                    assertEquals(testColor, mCollectionModel.getTabGroupColorWithFallback(tab0));
                     mCollectionModel.removeTabGroupObserver(colorObserver);
                 });
         colorChangedHelper.waitForOnly("setTabGroupColor failed");
@@ -1973,19 +1967,19 @@ public class TabCollectionTabModelImplTest {
         mCollectionModel.setTabGroupTitle(tabGroupId, staleTitle);
 
         String freshTitle = "Fresh Title";
-        TabGroupCollectionData mockData = mock(TabGroupCollectionData.class);
-        when(mockData.getTabGroupId()).thenReturn(tabGroupId);
-        when(mockData.getTitle()).thenReturn(freshTitle);
-        when(mockData.getColor()).thenReturn(TabGroupColorId.GREY);
-        when(mockData.isCollapsed()).thenReturn(false);
+        when(mTabGroupCollectionData.getTabGroupId()).thenReturn(tabGroupId);
+        when(mTabGroupCollectionData.getTitle()).thenReturn(freshTitle);
+        when(mTabGroupCollectionData.getColor()).thenReturn(TabGroupColorId.GREY);
+        when(mTabGroupCollectionData.isCollapsed()).thenReturn(false);
 
-        TabGroupVisualDataStore.cacheGroups(new TabGroupCollectionData[] {mockData});
+        TabGroupVisualDataStore.cacheGroups(new TabGroupCollectionData[] {mTabGroupCollectionData});
 
         assertEquals(freshTitle, TabGroupVisualDataStore.getTabGroupTitle(tabGroupId));
 
         mCollectionModel.setTabGroupTitle(tabGroupId, freshTitle);
 
-        TabGroupVisualDataStore.removeCachedGroups(new TabGroupCollectionData[] {mockData});
+        TabGroupVisualDataStore.removeCachedGroups(
+                new TabGroupCollectionData[] {mTabGroupCollectionData});
 
         assertEquals(
                 "SharedPreferences should be updated to match the cache/input",
@@ -2065,13 +2059,12 @@ public class TabCollectionTabModelImplTest {
         mCollectionModel.setTabGroupTitle(tabGroupId, titleA);
         assertEquals(titleA, mCollectionModel.getTabGroupTitle(tabGroupId));
 
-        TabGroupCollectionData mockData = mock(TabGroupCollectionData.class);
-        when(mockData.getTabGroupId()).thenReturn(tabGroupId);
-        when(mockData.getTitle()).thenReturn(titleA);
-        when(mockData.getColor()).thenReturn(TabGroupColorId.GREY);
-        when(mockData.isCollapsed()).thenReturn(false);
+        when(mTabGroupCollectionData.getTabGroupId()).thenReturn(tabGroupId);
+        when(mTabGroupCollectionData.getTitle()).thenReturn(titleA);
+        when(mTabGroupCollectionData.getColor()).thenReturn(TabGroupColorId.GREY);
+        when(mTabGroupCollectionData.isCollapsed()).thenReturn(false);
 
-        TabGroupVisualDataStore.cacheGroups(new TabGroupCollectionData[] {mockData});
+        TabGroupVisualDataStore.cacheGroups(new TabGroupCollectionData[] {mTabGroupCollectionData});
 
         try {
             mCollectionModel.setTabGroupTitle(tabGroupId, titleB);
@@ -2089,7 +2082,8 @@ public class TabCollectionTabModelImplTest {
                     mCollectionModel.getTabGroupTitle(tabGroupId));
 
         } finally {
-            TabGroupVisualDataStore.removeCachedGroups(new TabGroupCollectionData[] {mockData});
+            TabGroupVisualDataStore.removeCachedGroups(
+                    new TabGroupCollectionData[] {mTabGroupCollectionData});
         }
     }
 
@@ -2197,13 +2191,12 @@ public class TabCollectionTabModelImplTest {
         final int color = TabGroupColorId.RED;
         final boolean collapsed = true;
 
-        TabGroupCollectionData mockData = mock(TabGroupCollectionData.class);
-        when(mockData.getTabGroupId()).thenReturn(tabGroupId);
-        when(mockData.getTitle()).thenReturn(title);
-        when(mockData.getColor()).thenReturn(color);
-        when(mockData.isCollapsed()).thenReturn(collapsed);
+        when(mTabGroupCollectionData.getTabGroupId()).thenReturn(tabGroupId);
+        when(mTabGroupCollectionData.getTitle()).thenReturn(title);
+        when(mTabGroupCollectionData.getColor()).thenReturn(color);
+        when(mTabGroupCollectionData.isCollapsed()).thenReturn(collapsed);
 
-        TabGroupVisualDataStore.cacheGroups(new TabGroupCollectionData[] {mockData});
+        TabGroupVisualDataStore.cacheGroups(new TabGroupCollectionData[] {mTabGroupCollectionData});
 
         try {
             mCollectionModel.setTabGroupVisualData(
@@ -2224,7 +2217,8 @@ public class TabCollectionTabModelImplTest {
                     collapsed,
                     TabGroupVisualDataStore.getTabGroupCollapsed(tabGroupId));
         } finally {
-            TabGroupVisualDataStore.removeCachedGroups(new TabGroupCollectionData[] {mockData});
+            TabGroupVisualDataStore.removeCachedGroups(
+                    new TabGroupCollectionData[] {mTabGroupCollectionData});
         }
     }
 
@@ -2243,7 +2237,7 @@ public class TabCollectionTabModelImplTest {
                 new TabGroupObserver() {
                     @Override
                     public void didRemoveTabGroup(
-                            int tabId, Token tabGroupId, @DidRemoveTabGroupReason int reason) {
+                            Token tabGroupId, @DidRemoveTabGroupReason int reason) {
                         assertEquals(groupId, tabGroupId);
                         assertEquals(DidRemoveTabGroupReason.CLOSE, reason);
                         didRemoveTabGroupHelper.notifyCalled();
@@ -2516,8 +2510,7 @@ public class TabCollectionTabModelImplTest {
                     TabGroupObserver observer =
                             new TabGroupObserver() {
                                 @Override
-                                public void didCreateNewGroup(
-                                        Tab destinationTab, TabModel tabModel) {
+                                public void didCreateNewGroup(Tab destinationTab) {
                                     assertEquals(tab0, destinationTab);
                                     didCreateNewGroupHelper.notifyCalled();
                                 }
@@ -2601,7 +2594,7 @@ public class TabCollectionTabModelImplTest {
                             new TabGroupObserver() {
                                 @Override
                                 public void didRemoveTabGroup(
-                                        int tabId, Token tabGroupId, int reason) {
+                                        Token tabGroupId, @DidRemoveTabGroupReason int reason) {
                                     assertEquals(groupId1, tabGroupId);
                                     assertEquals(DidRemoveTabGroupReason.MERGE, reason);
                                     didRemoveTabGroupHelper.notifyCalled();
@@ -2707,8 +2700,7 @@ public class TabCollectionTabModelImplTest {
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    mCollectionModel.mergeTabsToGroup(
-                            tab0.getId(), tab1.getId(), /* skipUpdateTabModel= */ false);
+                    mCollectionModel.mergeTabsToGroup(tab0.getId(), tab1.getId());
 
                     assertNotNull(tab1.getTabGroupId());
                     assertEquals(tab1.getTabGroupId(), tab0.getTabGroupId());
@@ -2732,8 +2724,7 @@ public class TabCollectionTabModelImplTest {
                     Token groupId = tab1.getTabGroupId();
                     assertNotNull(groupId);
 
-                    mCollectionModel.mergeTabsToGroup(
-                            tab0.getId(), tab1.getId(), /* skipUpdateTabModel= */ false);
+                    mCollectionModel.mergeTabsToGroup(tab0.getId(), tab1.getId());
 
                     assertEquals(groupId, tab0.getTabGroupId());
                     assertEquals(3, mCollectionModel.getTabsInGroup(groupId).size());
@@ -2756,8 +2747,7 @@ public class TabCollectionTabModelImplTest {
                     Token groupId = tab0.getTabGroupId();
                     assertNotNull(groupId);
 
-                    mCollectionModel.mergeTabsToGroup(
-                            tab0.getId(), tab2.getId(), /* skipUpdateTabModel= */ false);
+                    mCollectionModel.mergeTabsToGroup(tab0.getId(), tab2.getId());
 
                     assertEquals(groupId, tab2.getTabGroupId());
                     assertEquals(3, mCollectionModel.getTabsInGroup(groupId).size());
@@ -3619,17 +3609,10 @@ public class TabCollectionTabModelImplTest {
 
     private void verifyPinOrUnpin(Tab changedTab, boolean isPinned, boolean willMove)
             throws Exception {
-        CallbackHelper willChangePinStateHelper = new CallbackHelper();
         CallbackHelper didChangePinStateHelper = new CallbackHelper();
         CallbackHelper didMoveTabHelper = new CallbackHelper();
         TabModelObserver observer =
                 new TabModelObserver() {
-                    @Override
-                    public void willChangePinState(Tab tab) {
-                        assertEquals(changedTab, tab);
-                        willChangePinStateHelper.notifyCalled();
-                    }
-
                     @Override
                     public void didChangePinState(Tab tab) {
                         assertEquals(changedTab, tab);
@@ -3659,7 +3642,6 @@ public class TabCollectionTabModelImplTest {
                     assertEquals(isPinned, changedTab.getIsPinned());
                 });
 
-        willChangePinStateHelper.waitForOnly();
         didChangePinStateHelper.waitForOnly();
         if (willMove) {
             didMoveTabHelper.waitForOnly();
@@ -4363,9 +4345,7 @@ public class TabCollectionTabModelImplTest {
         assertTabsInOrderAre(List.of(tab0, tab1, tab2));
 
         CallbackHelper willCloseTabGroupHelper = new CallbackHelper();
-        CallbackHelper committedTabGroupClosureHelper = new CallbackHelper();
         AtomicBoolean hidingInWillClose = new AtomicBoolean();
-        AtomicBoolean hidingInCommitted = new AtomicBoolean();
 
         TabGroupObserver groupObserver =
                 new TabGroupObserver() {
@@ -4374,13 +4354,6 @@ public class TabCollectionTabModelImplTest {
                         assertEquals(tabGroupId, id);
                         hidingInWillClose.set(hiding);
                         willCloseTabGroupHelper.notifyCalled();
-                    }
-
-                    @Override
-                    public void committedTabGroupClosure(Token id, boolean hiding) {
-                        assertEquals(tabGroupId, id);
-                        hidingInCommitted.set(hiding);
-                        committedTabGroupClosureHelper.notifyCalled();
                     }
                 };
 
@@ -4409,7 +4382,6 @@ public class TabCollectionTabModelImplTest {
                     mCollectionModel.commitTabClosure(tab0.getId());
                     mCollectionModel.commitTabClosure(tab1.getId());
                 });
-        committedTabGroupClosureHelper.waitForOnly();
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -4439,9 +4411,7 @@ public class TabCollectionTabModelImplTest {
         assertTabsInOrderAre(List.of(tab0, tab1, tab2));
 
         CallbackHelper willCloseTabGroupHelper = new CallbackHelper();
-        CallbackHelper committedTabGroupClosureHelper = new CallbackHelper();
         AtomicBoolean hidingInWillClose = new AtomicBoolean();
-        AtomicBoolean hidingInCommitted = new AtomicBoolean();
 
         TabGroupObserver groupObserver =
                 new TabGroupObserver() {
@@ -4450,13 +4420,6 @@ public class TabCollectionTabModelImplTest {
                         assertEquals(tabGroupId, id);
                         hidingInWillClose.set(hiding);
                         willCloseTabGroupHelper.notifyCalled();
-                    }
-
-                    @Override
-                    public void committedTabGroupClosure(Token id, boolean hiding) {
-                        assertEquals(tabGroupId, id);
-                        hidingInCommitted.set(hiding);
-                        committedTabGroupClosureHelper.notifyCalled();
                     }
                 };
 
@@ -4471,12 +4434,10 @@ public class TabCollectionTabModelImplTest {
                 });
 
         willCloseTabGroupHelper.waitForOnly();
-        committedTabGroupClosureHelper.waitForOnly();
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     assertTrue(hidingInWillClose.get());
-                    assertTrue(hidingInCommitted.get());
                     assertFalse(mCollectionModel.isTabGroupHiding(tabGroupId));
                     assertFalse(mCollectionModel.detachedTabGroupExists(tabGroupId));
                     assertTrue(tab0.isDestroyed());
@@ -4505,11 +4466,6 @@ public class TabCollectionTabModelImplTest {
                     @Override
                     public void willCloseTabGroup(Token id, boolean hiding) {
                         fail("willCloseTabGroup should not be called for partial closure.");
-                    }
-
-                    @Override
-                    public void committedTabGroupClosure(Token id, boolean hiding) {
-                        fail("committedTabGroupClosure should not be called for partial closure.");
                     }
                 };
 

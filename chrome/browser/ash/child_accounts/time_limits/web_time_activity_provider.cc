@@ -53,8 +53,8 @@ WebTimeActivityProvider::WebTimeActivityProvider(
     AppTimeController* app_time_controller,
     AppServiceWrapper* app_service_wrapper)
     : app_time_controller_(app_time_controller) {
-  DCHECK(app_time_controller_);
-  DCHECK(app_service_wrapper);
+  CHECK(app_time_controller_, base::NotFatalUntil::M160);
+  CHECK(app_service_wrapper, base::NotFatalUntil::M160);
   browser_observation_.Observe(ash::BrowserController::GetInstance());
   browser_tab_observation_.Observe(ash::BrowserController::GetInstance());
   app_service_wrapper_observation_.Observe(app_service_wrapper);
@@ -126,7 +126,8 @@ void WebTimeActivityProvider::OnTabReplaced(
 void WebTimeActivityProvider::OnActiveWebContentsChanged(
     ash::BrowserDelegate* browser,
     content::WebContents* old_contents,
-    content::WebContents* new_contents) {
+    content::WebContents* new_contents,
+    bool selection_only) {
   if (active_browsers_.contains(browser)) {
     MaybeNotifyStateChange(base::Time::Now());
   }

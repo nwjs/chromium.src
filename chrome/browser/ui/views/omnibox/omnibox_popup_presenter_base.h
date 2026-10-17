@@ -140,6 +140,11 @@ class OmniboxPopupPresenterBase
   // height in RoundedOmniboxResultsFrame.
   virtual bool ShouldSizeWebViewToPreferredHeight() const = 0;
 
+  // Returns whether the popup's drop shadow is painted by the page rather than
+  // by the results frame. When true the frame paints nothing and the WebView
+  // is expanded to cover the shadow margin.
+  virtual bool ShouldDrawShadowInWebUI() const;
+
   virtual std::string_view GetPopupMetricPrefix() const = 0;
 
   OmniboxPopupPresenterDelegate& delegate() const {
@@ -207,8 +212,11 @@ class OmniboxPopupPresenterBase
   // Whether the widget should be torn down when the popup is hidden and rebuilt
   // when it is shown again, rather than simply hidden and re-shown. Guards
   // against the reshown native window presenting compositor content left over
-  // from the previous show.
-  bool ShouldDestroyWidgetOnHide() const;
+  // from the previous show. The base implementation applies
+  // `kOmniboxFullWebUIDestroyWidgetOnHide` to every popup when the full
+  // WebUI omnibox is enabled; subclasses may additionally enable it via a
+  // per-popup flag.
+  virtual bool ShouldDestroyWidgetOnHide() const;
 
   // True only while `Hide()` is deliberately destroying the widget so that the
   // next `Show()` rebuilds it. `WidgetDestroyed()` overrides must consult this

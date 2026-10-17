@@ -625,6 +625,17 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="WebRTC.Audio.EncodingTaskQueueLatencyMs" units="ms"
+    expires_after="2027-03-07">
+  <owner>hlundin@chromium.org</owner>
+  <owner>webrtc-audio-uma@google.com</owner>
+  <summary>
+    Measures the latency between when an audio frame is posted to the audio
+    encoder task queue and when the encoding task is executed. Recorded for each
+    encoded audio frame.
+  </summary>
+</histogram>
+
 <histogram name="WebRTC.Audio.ExpandRatePercent" units="%"
     expires_after="2026-05-10">
   <owner>hlundin@chromium.org</owner>
@@ -635,6 +646,51 @@ chromium-metrics-reviews@google.com.
     algorithms instead of being decoded from incoming media packets. The metric
     is calculated as the percent over a 10 second internval, and is logged at
     the end of each such interval.
+  </summary>
+</histogram>
+
+<histogram name="WebRTC.Audio.NeuralResidualEchoEstimator.InitDurationMs"
+    units="ms" expires_after="2027-09-01">
+  <owner>saza@chromium.org</owner>
+  <owner>devicentepena@webrtc.org</owner>
+  <owner>webrtc-audio-uma@google.com</owner>
+  <summary>
+    Logged when the neural residual echo estimator (ML-REE) successfully
+    finishes asynchronous model loading and tensor setup. Measures the
+    wall-clock time from task post to model bundle readiness. Logged strictly on
+    successful loads; failed or abandoned loads do not emit duration samples.
+  </summary>
+</histogram>
+
+<histogram name="WebRTC.Audio.NeuralResidualEchoEstimator.InitResult"
+    enum="WebRtcNeuralResidualEchoEstimatorInitResult"
+    expires_after="2027-09-01">
+  <owner>saza@chromium.org</owner>
+  <owner>devicentepena@webrtc.org</owner>
+  <owner>webrtc-audio-uma@google.com</owner>
+  <summary>
+    Tracks the initialization result of off-thread neural residual echo
+    estimator (ML-REE) model initialization (success, model load failure, or
+    destroyed before initialization resolved). Logged on resolution (immediately
+    after success or failure, or at end of estimator lifetime if never
+    resolved).
+  </summary>
+</histogram>
+
+<histogram
+    name="WebRTC.Audio.NeuralResidualEchoEstimator.LinearModeBlocksUntilInit"
+    units="Blocks" expires_after="2027-09-01">
+  <owner>saza@chromium.org</owner>
+  <owner>devicentepena@webrtc.org</owner>
+  <owner>webrtc-audio-uma@google.com</owner>
+  <summary>
+    Measures the number of 4 ms capture blocks processed in linear mode before
+    the neural residual echo estimator (ML-REE) is initialized. Reports 0 if it
+    was ready when first needed, a positive integer if linear mode had to run
+    while waiting for the estimator to initialize, or lands in the overflow
+    bucket if initialization was very late. Logged when first linear mode block
+    is processed; intentionally omitted if the stream closes before nonlinear
+    mode is exited, or if the estimator never initializes.
   </summary>
 </histogram>
 
@@ -663,7 +719,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebRTC.Audio.ReceiverJitterBufferDelayMs" units="ms"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>hlundin@chromium.org</owner>
   <owner>webrtc-audio-uma@google.com</owner>
   <summary>
@@ -1367,7 +1423,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebRTC.PeerConnection.DtlsVersion{Role}"
-    enum="WebRtcDtlsVersion" expires_after="2027-01-10">
+    enum="WebRtcDtlsVersion" expires_after="2027-03-14">
   <owner>guidou@chromium.org</owner>
   <owner>danilchap@chromium.org</owner>
   <owner>webrtc-dev@chromium.org</owner>
@@ -1382,7 +1438,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebRTC.PeerConnection.Dtls{Role}ConnectionTime"
-    units="microseconds" expires_after="2027-01-10">
+    units="microseconds" expires_after="2027-03-14">
   <owner>guidou@chromium.org</owner>
   <owner>danilchap@chromium.org</owner>
   <owner>webrtc-dev@chromium.org</owner>
@@ -1623,7 +1679,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebRTC.PeerConnection.SdpBandwidth" enum="SdpBandwidthValue"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>danilchap@chromium.org</owner>
   <owner>webrtc-dev@chromium.org</owner>
   <summary>
@@ -1663,7 +1719,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebRTC.PeerConnection.SdpMunging.{DescriptionType}.{Stage}"
-    enum="SdpMungingType" expires_after="2027-01-10">
+    enum="SdpMungingType" expires_after="2027-03-14">
   <owner>danilchap@chromium.org</owner>
   <owner>webrtc-dev@chromium.org</owner>
   <summary>

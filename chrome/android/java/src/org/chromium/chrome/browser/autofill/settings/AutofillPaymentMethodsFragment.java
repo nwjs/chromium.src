@@ -37,7 +37,6 @@ import org.chromium.chrome.browser.autofill.AutofillUiUtils;
 import org.chromium.chrome.browser.autofill.GoogleWalletLauncher;
 import org.chromium.chrome.browser.autofill.PersonalDataManager;
 import org.chromium.chrome.browser.autofill.PersonalDataManager.CreditCard;
-import org.chromium.chrome.browser.autofill.PersonalDataManager.Iban;
 import org.chromium.chrome.browser.autofill.PersonalDataManagerFactory;
 import org.chromium.chrome.browser.autofill.settings.options.AutofillOptionsFragment;
 import org.chromium.chrome.browser.autofill.settings.options.AutofillOptionsReferrer;
@@ -56,6 +55,7 @@ import org.chromium.components.autofill.IbanRecordType;
 import org.chromium.components.autofill.ImageSize;
 import org.chromium.components.autofill.MandatoryReauthAuthenticationFlowEvent;
 import org.chromium.components.autofill.VirtualCardEnrollmentState;
+import org.chromium.components.autofill.payments.Iban;
 import org.chromium.components.browser_ui.modaldialog.AppModalPresenter;
 import org.chromium.components.browser_ui.settings.CardWithButtonPreference;
 import org.chromium.components.browser_ui.settings.ChromeBasePreference;
@@ -402,9 +402,9 @@ public class AutofillPaymentMethodsFragment extends ChromeBaseSettingsFragment
                             .getString(R.string.autofill_create_first_credit_card_button_text));
             addFirstCardPref.setOnButtonClick(
                     () ->
-                            SettingsNavigationFactory.createSettingsNavigation()
+                            SettingsNavigationFactory.createSettingsNavigation(requireActivity())
                                     .startSettings(
-                                            getActivity(),
+                                            requireActivity(),
                                             AutofillLocalCardEditor.class,
                                             /* fragmentArgs= */ null,
                                             /* addToBackStack= */ true));
@@ -533,28 +533,11 @@ public class AutofillPaymentMethodsFragment extends ChromeBaseSettingsFragment
                                 CustomTabActivity.showInfoPage(
                                         getActivity(),
                                         AutofillPaymentMethodsConstants.WALLET_SETTINGS_URL));
-        ChromeClickableSpan paymentMethodsLink =
-                new ChromeClickableSpan(
-                        getContext(),
-                        view ->
-                                CustomTabActivity.showInfoPage(
-                                        getActivity(),
-                                        AutofillPaymentMethodsConstants
-                                                .WALLET_PAYMENT_METHODS_URL));
-        ChromeClickableSpan passesLink =
-                new ChromeClickableSpan(
-                        getContext(),
-                        view ->
-                                CustomTabActivity.showInfoPage(
-                                        getActivity(),
-                                        AutofillPaymentMethodsConstants.WALLET_PASSES_URL));
 
         SpannableString summary =
                 SpanApplier.applySpans(
                         getString(R.string.autofill_payment_methods_wallet_reminder_notice),
-                        new SpanApplier.SpanInfo("<link1>", "</link1>", dataAndPrivacyLink),
-                        new SpanApplier.SpanInfo("<link2>", "</link2>", paymentMethodsLink),
-                        new SpanApplier.SpanInfo("<link3>", "</link3>", passesLink));
+                        new SpanApplier.SpanInfo("<link>", "</link>", dataAndPrivacyLink));
         noticePref.setSummary(summary);
         noticePref.setKey(PREF_WALLET_REMINDER_NOTICE);
         noticePref.setDividerAllowedAbove(false);
@@ -686,9 +669,9 @@ public class AutofillPaymentMethodsFragment extends ChromeBaseSettingsFragment
      */
     private void showLocalCardEditPage(Preference preference) {
         SettingsNavigation settingsNavigation =
-                SettingsNavigationFactory.createSettingsNavigation();
+                SettingsNavigationFactory.createSettingsNavigation(requireActivity());
         settingsNavigation.startSettings(
-                getActivity(),
+                requireActivity(),
                 AutofillLocalCardEditor.class,
                 preference.getExtras(),
                 /* addToBackStack= */ true);
@@ -767,9 +750,9 @@ public class AutofillPaymentMethodsFragment extends ChromeBaseSettingsFragment
                 FinancialAccountsManagementFragment.TITLE_KEY,
                 String.valueOf(preference.getTitle()));
         SettingsNavigation settingsNavigation =
-                SettingsNavigationFactory.createSettingsNavigation();
+                SettingsNavigationFactory.createSettingsNavigation(requireActivity());
         settingsNavigation.startSettings(
-                getActivity(),
+                requireActivity(),
                 FinancialAccountsManagementFragment.class,
                 args,
                 /* addToBackStack= */ true);

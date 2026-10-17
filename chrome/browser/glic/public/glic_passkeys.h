@@ -6,7 +6,7 @@
 #define CHROME_BROWSER_GLIC_PUBLIC_GLIC_PASSKEYS_H_
 
 #include "base/types/pass_key.h"
-#include "chrome/browser/glic/host/glic.mojom.h"
+#include "chrome/browser/glic/host/glic.mojom-shared.h"
 #include "chrome/browser/glic/public/glic_context_menu_invocation_helper.h"
 
 namespace tabs {
@@ -16,7 +16,7 @@ class TabInterface;
 namespace extensions {
 class GlicPrivateInvokeFunction;
 class PdfViewerPrivateGlicSummarizeFunction;
-}
+}  // namespace extensions
 
 namespace indigo {
 class IndigoPageActionController;
@@ -37,6 +37,7 @@ namespace glic {
 
 class GlicExperimentalTriggeringCoordinator;
 class GlicInternalsPageHandler;
+class PromptSuggestion;
 class SelectionOverlayController;
 
 template <mojom::InvocationSource Source>
@@ -55,7 +56,8 @@ class InvokeWithAutoSubmitPasskeyProvider {
   // friend class SomeClassThatNeedsAutoSubmit;
   // friend void SomeClass::SomeFunctionThatNeedsAutoSubmit();
   friend void GlicContextMenuInvocationHelper::HandleContextualMenuClick(
-      tabs::TabInterface* tab, const std::u16string& selection_text,
+      tabs::TabInterface* tab,
+      const std::u16string& selection_text,
       content::GlobalRenderFrameHostId rfh_id);
   friend class extensions::GlicPrivateInvokeFunction;
   friend class extensions::PdfViewerPrivateGlicSummarizeFunction;
@@ -68,6 +70,7 @@ class InvokeWithAutoSubmitPasskeyProvider {
   friend class GlicExperimentalTriggeringCoordinator;
   friend class GlicCueTarget;
   friend class GlicSelectionObserver;
+  friend class PromptSuggestion;
   friend class SelectionOverlayController;
   friend class ::indigo::IndigoPageActionController;
   friend class ::ttc::AiOverlayTools;

@@ -10,11 +10,14 @@
 
 #include "base/functional/callback.h"
 #include "base/memory/weak_ptr.h"
+#include "base/scoped_observation.h"
 #include "base/time/time.h"
-#include "base/timer/timer.h"
+#include "base/timer/elapsed_timer.h"
+#include "base/timer/wall_clock_timer.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "net/device_bound_sessions/refresh_result.h"
 #include "net/device_bound_sessions/session_access.h"
+#include "services/network/public/cpp/network_connection_tracker.h"
 #include "services/network/public/mojom/device_bound_sessions.mojom.h"
 #include "url/gurl.h"
 
@@ -35,8 +38,14 @@
 // If `earliest_next_refresh_time` is in the past or shorter than the minimum
 // interval, it will schedule the next pre-warming at the minimum interval to
 // avoid infinite loops or excessive requests.
+//
+// Scheduling uses wall-clock time, so a pre-warm due during suspend runs on
+// resume. An unreachable pre-warm is retried as soon as connectivity returns
+// (including network switches), or right away if connectivity returned while
+// it was in flight.
 class DeviceBoundSessionPrewarmer
-    : public network::mojom::DeviceBoundSessionAccessObserver {
+    : public network::NetworkConnectionTracker::NetworkConnectionObserver,
+      public network::mojom::DeviceBoundSessionAccessObserver {
  public:
   // A callback to retrieve the DeviceBoundSessionManager pointer dynamically.
   // This handles the case where the network service crashes and restarts,
@@ -45,13 +54,19 @@ class DeviceBoundSessionPrewarmer
       base::RepeatingCallback<network::mojom::DeviceBoundSessionManager*()>;
 
   // `prewarm_url` must be a valid HTTPS URL.
-  explicit DeviceBoundSessionPrewarmer(
+  // `network_connection_tracker` must be non-null and must outlive `this`.
+  DeviceBoundSessionPrewarmer(
       GURL prewarm_url,
-      SessionManagerProvider session_manager_provider);
+      SessionManagerProvider session_manager_provider,
+      network::NetworkConnectionTracker* network_connection_tracker);
   DeviceBoundSessionPrewarmer(const DeviceBoundSessionPrewarmer&) = delete;
   DeviceBoundSessionPrewarmer& operator=(const DeviceBoundSessionPrewarmer&) =
       delete;
   ~DeviceBoundSessionPrewarmer() override;
+
+  // network::NetworkConnectionTracker::NetworkConnectionObserver:
+  void OnConnectionChanged(
+      net::NetworkChangeNotifier::ConnectionType type) override;
 
   // Starts the pre-warmer. The first execution will be immediate.
   // If the pre-warmer is already running, it will be stopped and restarted.
@@ -83,7 +98,9 @@ class DeviceBoundSessionPrewarmer
   void OnObserverDisconnected();
 
   // Callback from network service containing prewarming results.
+  // `prewarm_timer` was started when the pre-warm was issued.
   void OnPrewarmComplete(
+      base::ElapsedTimer prewarm_timer,
       const std::vector<net::device_bound_sessions::RefreshResult>& results,
       std::optional<base::Time> earliest_next_refresh_time);
 
@@ -93,14 +110,31 @@ class DeviceBoundSessionPrewarmer
 
   const GURL prewarm_url_;
   const SessionManagerProvider session_manager_provider_;
-  base::OneShotTimer timer_;
+  base::WallClockTimer timer_;
+
+  // The last pre-warm was unreachable; regaining connectivity retries it.
+  bool retry_on_reconnect_ = false;
+
+  // Set when connectivity returns. If the pre-warm in flight then comes back
+  // unreachable, it may have been sent on the old network, so it's retried
+  // immediately instead of after `kMinPrewarmInterval`.
+  bool retry_on_unreachable_ = false;
 
   // Whether the current pre-warming is the startup pre-warming (from Start())
   // or a subsequent scheduled pre-warming.
   bool is_startup_prewarm_ = true;
 
+  base::ScopedObservation<
+      network::NetworkConnectionTracker,
+      network::NetworkConnectionTracker::NetworkConnectionObserver>
+      network_connection_observer_{this};
+  // Seeded from `IsOffline()`, so also `true` while the connection type is
+  // unknown.
+  bool is_offline_ = true;
+
   mojo::Receiver<network::mojom::DeviceBoundSessionAccessObserver> receiver_{
       this};
+
   base::WeakPtrFactory<DeviceBoundSessionPrewarmer> weak_ptr_factory_{this};
 };
 

@@ -11,8 +11,8 @@
 #include "base/sequence_checker.h"
 #include "base/syslog_logging.h"
 #include "base/task/sequenced_task_runner.h"
-#include "chrome/browser/ash/policy/value_validation/onc_user_policy_value_validator.h"
 #include "chromeos/ash/components/dbus/session_manager/policy_descriptor.h"
+#include "chromeos/ash/components/policy/value_validation/onc_user_policy_value_validator.h"
 #include "components/ownership/owner_key_util.h"
 #include "components/policy/core/common/cloud/cloud_policy_util.h"
 #include "components/policy/core/common/cloud/device_management_service.h"
@@ -145,7 +145,7 @@ void DeviceLocalAccountPolicyStore::UpdatePolicy(
     return;
   }
 
-  DCHECK(!signature_validation_public_key.empty());
+  CHECK(!signature_validation_public_key.empty(), base::NotFatalUntil::M160);
   validation_result_ = validator->GetValidationResult();
 
   if (!validator->success()) {
@@ -227,8 +227,8 @@ void DeviceLocalAccountPolicyStore::Validate(
     ValidateCompletionCallback callback,
     bool validate_in_background,
     ash::DeviceSettingsService::OwnershipStatus ownership_status) {
-  DCHECK_NE(ash::DeviceSettingsService::OwnershipStatus::kOwnershipUnknown,
-            ownership_status);
+  CHECK_NE(ash::DeviceSettingsService::OwnershipStatus::kOwnershipUnknown,
+           ownership_status, base::NotFatalUntil::M160);
   const em::PolicyData* device_policy_data =
       device_settings_service_->policy_data();
   // Note that the key is obtained through the device settings service instead

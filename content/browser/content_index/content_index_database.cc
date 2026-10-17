@@ -14,6 +14,7 @@
 #include "base/time/time.h"
 #include "content/browser/background_fetch/storage/image_helpers.h"
 #include "content/browser/content_index/content_index.pb.h"
+#include "content/browser/service_worker/service_worker_context_wrapper.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -388,7 +389,7 @@ void ContentIndexDatabase::DidGetSerializedIcons(
     return;
   }
 
-  DCHECK_EQ(data.size(), 1u);
+  CHECK_EQ(data.size(), 1u, base::NotFatalUntil::M160);
   proto::SerializedIcons serialized_icons;
   if (!serialized_icons.ParseFromString(data.front())) {
     ClearServiceWorkerDataOnCorruption(service_worker_registration_id);
@@ -511,7 +512,7 @@ void ContentIndexDatabase::DidGetEntry(
     return;
   }
 
-  DCHECK_EQ(data.size(), 1u);
+  CHECK_EQ(data.size(), 1u, base::NotFatalUntil::M160);
   std::move(callback).Run(
       EntryFromSerializedProto(service_worker_registration_id, data.front()));
 }
@@ -564,7 +565,7 @@ void ContentIndexDatabase::StartActiveWorkerForDispatch(
     return;
 
   ServiceWorkerVersion* service_worker_version = registration->active_version();
-  DCHECK(service_worker_version);
+  CHECK(service_worker_version, base::NotFatalUntil::M160);
 
   service_worker_version->RunAfterStartWorker(
       ServiceWorkerMetrics::EventType::CONTENT_DELETE,

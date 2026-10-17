@@ -52,6 +52,7 @@ class NavigationHandle;
 namespace contextual_tasks {
 
 class ContextualTask;
+class ContextualTasksPermissionController;
 class ContextualTasksService;
 class ContextualTasksUiService;
 class ActiveTaskContextProvider;
@@ -73,9 +74,14 @@ class ContextualTasksSidePanelCoordinator
       public TabListInterfaceObserver,
       content::WebContentsObserver {
  public:
-  // A data structure to hold the cache and state of the panel per thread.
+  using PaintCallback = base::OnceCallback<void(content::WebContents*)>;
+
+  class SidePanelWebContentsObserver;
+
   struct WebContentsCacheItem {
-    WebContentsCacheItem(std::unique_ptr<content::WebContents> wc, bool open);
+    WebContentsCacheItem(std::unique_ptr<content::WebContents> wc,
+                         bool open,
+                         PaintCallback on_fcp_callback = base::NullCallback());
     ~WebContentsCacheItem();
     WebContentsCacheItem(const WebContentsCacheItem&) = delete;
     WebContentsCacheItem& operator=(const WebContentsCacheItem&) = delete;
@@ -95,6 +101,17 @@ class ContextualTasksSidePanelCoordinator
 
     // The time when this task's panel was opened.
     base::TimeTicks open_time_ticks;
+
+    // Whether the first contentful paint metric has been recorded for this
+    // open session.
+    bool first_contentful_paint_recorded = false;
+
+    // Whether the time to handshake complete metric has been recorded for this
+    // open session.
+    bool time_to_handshake_complete_recorded = false;
+
+    // Observer for the embedded WebContents in the side panel.
+    std::unique_ptr<SidePanelWebContentsObserver> web_contents_observer;
   };
 
   DECLARE_USER_DATA(ContextualTasksSidePanelCoordinator);
@@ -157,11 +174,21 @@ class ContextualTasksSidePanelCoordinator
   bool CanExpandToFullTab() const override;
   void ShowPageInfoBubble(bool is_pointer_interaction) override;
   void OnLogoPointerDown() override;
+  ContextualTasksPermissionController* permission_controller() {
+    return permission_controller_.get();
+  }
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE) && !BUILDFLAG(IS_ANDROID)
   ContextualTasksExtensionsContainer* GetExtensionsContainerForTesting() {
     return extensions_container_.get();
   }
 #endif
+  // Records the time to handshake complete metric for the given WebContents.
+  void RecordTimeToHandshakeComplete(
+      content::WebContents* web_contents) override;
+
+  // Records the time to first contentful paint (FCP) metric for the given
+  // WebContents.
+  void RecordTimeToFirstContentfulPaint(content::WebContents* web_contents);
 
   // ContextualTasksPanelHost::Observer:
   void OnSurfaceStateChanged(
@@ -207,7 +234,7 @@ class ContextualTasksSidePanelCoordinator
   void UpdatePanelVisibility();
 
   // Clean up unused WebContents.
-  void CleanUpUnusedWebContents();
+  void CleanUpUnusedWebContents() override;
 
   // Update the associated WebContents for active tab. Returns whether the web
   // contents was changed.
@@ -282,6 +309,9 @@ class ContextualTasksSidePanelCoordinator
 
   // Browser window of the current panel.
   const raw_ptr<BrowserWindowInterface> browser_window_ = nullptr;
+
+  // Single permission controller and location bar for the side panel.
+  std::unique_ptr<ContextualTasksPermissionController> permission_controller_;
 
   // WebContents cache for each task.
   // Must be declared before contextual_tasks_panel_host_ so that in automated

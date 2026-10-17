@@ -1042,6 +1042,7 @@ component("views") {
   if (use_ozone) {
     deps += [ "//ui/ozone" ]
   }
+  check_includes_strict = CHECK_INCLUDES_STRICT_PUBLIC_INCLUDES_PRIVATE
 }
 
 if (is_win || is_mac || is_linux || is_chromeos) {
@@ -1513,7 +1514,7 @@ test("views_unittests") {
       "//ui/linux:test_support",
     ]
     if (use_dbus) {
-      deps += [ "//ui/linux:dark_mode_manager_unittests" ]
+      deps += [ "//ui/linux:portal_settings_unittests" ]
     }
   }
 
@@ -1702,6 +1703,7 @@ source_set("views_interactive_ui_tests") {
     "//mojo/core/embedder",
     "//skia",
     "//testing/gtest",
+    "//ui/accessibility:test_support",
     "//ui/base:test_support",
     "//ui/base/ime",
     "//ui/compositor",

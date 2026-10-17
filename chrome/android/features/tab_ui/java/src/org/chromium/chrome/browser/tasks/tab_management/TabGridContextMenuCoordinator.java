@@ -15,11 +15,9 @@ import androidx.annotation.IdRes;
 import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
 
-import org.chromium.base.Token;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.app.tabwindow.TabWindowManagerSingleton;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.bookmarks.TabBookmarker;
 import org.chromium.chrome.browser.collaboration.CollaborationServiceFactory;
@@ -35,7 +33,6 @@ import org.chromium.chrome.browser.tabmodel.TabClosureParams;
 import org.chromium.chrome.browser.tabmodel.TabClosureParamsUtils;
 import org.chromium.chrome.browser.tabmodel.TabGroupUtils;
 import org.chromium.chrome.browser.tabmodel.TabModel;
-import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.browser_ui.widget.ListItemBuilder;
 import org.chromium.components.collaboration.CollaborationService;
@@ -45,7 +42,6 @@ import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.widget.AnchoredPopupWindow.HorizontalOrientation;
 import org.chromium.ui.widget.ViewRectProvider;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -194,9 +190,11 @@ public class TabGridContextMenuCoordinator extends TabOverflowMenuCoordinator<@T
                         .share(tab, /* shareDirectly= */ false, TAB_STRIP_CONTEXT_MENU);
                 recordUserActionWithPrefix("ShareTab");
             } else if (menuId == R.id.add_to_new_tab_group) {
-                tabModel.createSingleTabGroup(tab);
-                Token groupId = assumeNonNull(tab.getTabGroupId());
-                dialogManager.showDialog(groupId, tabModel);
+                TabGroupUtils.createNewGroupForTabs(
+                        List.of(tab),
+                        tabModel,
+                        /* tabMovedCallback= */ null,
+                        groupId -> dialogManager.showDialog(groupId, tabModel));
                 recordUserActionWithPrefix("AddToNewGroup");
             } else if (menuId == R.id.add_to_tab_group) {
                 coordinator.showBottomSheet(List.of(tab));
@@ -247,11 +245,9 @@ public class TabGridContextMenuCoordinator extends TabOverflowMenuCoordinator<@T
 
         boolean isIncognito = tab.isIncognitoBranded();
 
-        Collection<TabModelSelector> selectors =
-                TabGroupUiUtils.isCrossWindowTabGroupOperationsEnabled()
-                        ? TabWindowManagerSingleton.getInstance().getAllTabModelSelectors()
-                        : null;
-        boolean hasTabGroups = TabGroupUtils.hasTabGroups(mTabModel, selectors);
+        GroupWindowChecker windowChecker =
+                new GroupWindowChecker(mActivity, mTabGroupSyncService, mTabModel);
+        boolean hasTabGroups = windowChecker.hasOtherGroups(tab.getTabGroupId());
         if (!hasTabGroups) {
             itemList.add(
                     new ListItemBuilder()

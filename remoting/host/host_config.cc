@@ -11,27 +11,9 @@
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/values.h"
+#include "remoting/base/is_google_email.h"
 
 namespace remoting {
-
-// Current values.
-const char kHostOwnerConfigPath[] = "host_owner";
-const char kServiceAccountConfigPath[] = "service_account";
-const char kOAuthRefreshTokenConfigPath[] = "oauth_refresh_token";
-const char kHostIdConfigPath[] = "host_id";
-const char kHostNameConfigPath[] = "host_name";
-const char kHostSecretHashConfigPath[] = "host_secret_hash";
-const char kPrivateKeyConfigPath[] = "private_key";
-const char kUsageStatsConsentConfigPath[] = "usage_stats_consent";
-const char kRequireSessionAuthorizationPath[] = "require_session_authz";
-const char kHostTypeHintPath[] = "host_type_hint";
-const char kCorpHostTypeHint[] = "corp";
-const char kCloudHostTypeHint[] = "cloud";
-const char kMe2MeHostTypeHint[] = "me2me";
-
-// Deprecated values.
-const char kDeprecatedHostOwnerEmailConfigPath[] = "host_owner_email";
-const char kDeprecatedXmppLoginConfigPath[] = "xmpp_login";
 
 std::optional<base::DictValue> HostConfigFromJson(const std::string& json) {
   std::optional<base::DictValue> config =
@@ -89,6 +71,18 @@ bool HostConfigToJsonFile(const base::DictValue& host_config,
   std::string serialized = HostConfigToJson(host_config);
   return base::ImportantFileWriter::WriteFileAtomically(config_file,
                                                         serialized);
+}
+
+bool IsCorpHostConfig(const base::DictValue& host_config) {
+  const std::string* host_owner = host_config.FindString(kHostOwnerConfigPath);
+  // TODO: joedow - Remove the email check once all Corp hosts have a hint set.
+  bool has_google_email = host_owner && IsGoogleEmail(*host_owner);
+  const std::string* host_type_hint = host_config.FindString(kHostTypeHintPath);
+  bool is_cloud_host = host_type_hint && *host_type_hint == kCloudHostTypeHint;
+  // TODO: joedow - Remove the !is_cloud_host override here when all Corp hosts
+  // have a hint set. This is used to allow Googlers to test with Cloud hosts.
+  return (host_type_hint && *host_type_hint == kCorpHostTypeHint) ||
+         (has_google_email && !is_cloud_host);
 }
 
 }  // namespace remoting

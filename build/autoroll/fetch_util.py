@@ -210,8 +210,8 @@ def create_to_commit_zip(
     output_path: where to output the zipfile.
     package_root: path to gradle/cipd package.
     dirnames: list of subdirs under |package_root| to walk.
-    absolute_file_map: List of files to be stored under the absolute prefix
-      CHROMIUM_SRC/.
+    absolute_file_map: dict of file path relative to |package_root| -> path
+      in the repo; each is stored under the absolute prefix CHROMIUM_SRC/.
   """
   to_commit_paths = []
   for directory in dirnames:
@@ -219,6 +219,10 @@ def create_to_commit_zip(
       for filename in files:
         # Avoid committing actual artifacts.
         if filename.endswith(('.aar', '.jar')):
+          continue
+        # License texts stay in the cipd package only; README.chromium points
+        # at them there. See https://crbug.com/559659818.
+        if filename.startswith('LICENSE'):
           continue
         # TODO(mheikal): stop outputting these from gradle since they are not
         # useful.

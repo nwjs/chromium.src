@@ -44,6 +44,7 @@
 #include "components/prefs/scoped_user_pref_update.h"
 #include "components/search_engines/test_ai_mode_button_service.h"
 #include "content/public/browser/context_menu_params.h"
+#include "content/public/common/drop_data.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/context_menu_data/edit_flags.h"
 #include "third_party/skia/include/core/SkBitmap.h"
@@ -52,13 +53,18 @@
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "ui/display/screen.h"
 #include "ui/display/test/test_screen.h"
+#include "ui/events/test/event_generator.h"
+#include "ui/gfx/geometry/point.h"
+#include "ui/gfx/geometry/point_f.h"
 #include "ui/menus/simple_menu_model.h"
 #include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/controls/menu/menu_runner_handler.h"
 #include "ui/views/test/menu_runner_test_api.h"
+#include "ui/views/test/mock_activation_controller.h"
 #include "ui/views/test/widget_activation_waiter.h"
 #include "ui/views/test/widget_test.h"
 #include "ui/views/widget/widget.h"
+#include "ui/views/widget/widget_utils.h"
 #include "ui/views/window/dialog_delegate.h"
 #include "url/gurl.h"
 
@@ -111,6 +117,22 @@ class TestWebUIContentsWrapper : public WebUIContentsWrapper {
 
   base::WeakPtr<WebUIContentsWrapper> GetWeakPtr() override {
     return weak_ptr_factory_.GetWeakPtr();
+  }
+
+  // content::WebContentsDelegate:
+  void PreHandleDragUpdate(const content::DropData& /*drop_data*/,
+                           const gfx::PointF& /*client_pt*/) override {
+    if (auto* ui_manager =
+            static_cast<OmniboxEverywhereUIManager*>(GetHost().get())) {
+      ui_manager->OnDragEntered();
+    }
+  }
+
+  void PreHandleDragExit() override {
+    if (auto* ui_manager =
+            static_cast<OmniboxEverywhereUIManager*>(GetHost().get())) {
+      ui_manager->OnDragExited();
+    }
   }
 
  private:
@@ -244,6 +266,20 @@ class OmniboxEverywhereUIManagerTest : public ChromeViewsTestBase {
 #if BUILDFLAG(IS_WIN)
   base::ScopedTempDir temp_start_menu_dir_;
   std::optional<base::ScopedPathOverride> start_menu_override_;
+#endif
+};
+
+// Fixture for tests that drive OnWidgetActivationChanged() by hand and assert
+// on state that a real OS activation event would clobber (e.g. the deferred
+// dismissal timer, or the exact number of ActivateAndFocus() calls). Emulates
+// activation so that other test processes competing for foreground on the
+// bots cannot deliver spurious activation changes to the widget.
+class OmniboxEverywhereUIManagerEmulatedActivationTest
+    : public OmniboxEverywhereUIManagerTest {
+ private:
+#if defined(USE_MOCK_ACTIVATION_CONTROLLER)
+  // Must be created before SetUp() creates any widgets.
+  views::test::MockActivationController mock_activation_controller_;
 #endif
 };
 
@@ -446,6 +482,143 @@ TEST_F(OmniboxEverywhereUIManagerTest, SmallLoomniboxBounds) {
   ui_manager->Shutdown();
 }
 
+TEST_F(OmniboxEverywhereUIManagerTest, DynamicSizingBounds_PersistentMode) {
+  profile_.GetPrefs()->SetBoolean(omnibox_everywhere::prefs::kFreDismissed,
+                                  true);
+  if (g_browser_process && g_browser_process->local_state()) {
+    g_browser_process->local_state()->SetBoolean(
+        omnibox_everywhere::prefs::kOmniboxEverywhereEphemeralModel, false);
+  }
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeatureWithParameters(
+      omnibox::kOmniboxEverywhere, {{"DynamicSizing", "true"}});
+
+  EXPECT_EQ(
+      omnibox_everywhere::OmniboxEverywhereUIManager::GetPopupFixedWidth(),
+      omnibox_everywhere::OmniboxEverywhereUIManager::
+          kDynamicPopupSmallFixedWidth);
+
+  display::test::TestScreen test_screen(/*create_display=*/false,
+                                        /*register_screen=*/false);
+  ScopedScreenOverride screen_override(&test_screen);
+
+  display::Display display1(1, gfx::Rect(0, 0, 1920, 1080));
+  test_screen.display_list().AddDisplay(display1,
+                                        display::DisplayList::Type::PRIMARY);
+
+  auto ui_manager = CreateUIManager();
+  ui_manager->ShowForProfile(&profile_, GetContext());
+  views::Widget* widget = ui_manager->widget();
+  ASSERT_TRUE(widget);
+
+  const gfx::Rect initial_bounds = widget->GetWindowBoundsInScreen();
+  EXPECT_EQ(initial_bounds,
+            gfx::Rect(688, 464,
+                      omnibox_everywhere::OmniboxEverywhereUIManager::
+                          kDynamicPopupSmallFixedWidth,
+                      omnibox_everywhere::OmniboxEverywhereUIManager::
+                          kDefaultRestingHeight));
+
+  // Simulating auto-resize expansion to full width.
+  ui_manager->ResizeDueToAutoResize(
+      ui_manager->web_contents(),
+      gfx::Size(omnibox_everywhere::OmniboxEverywhereUIManager::
+                    kDynamicPopupLargeFixedWidth,
+                300));
+  EXPECT_EQ(widget->GetWindowBoundsInScreen().width(),
+            omnibox_everywhere::OmniboxEverywhereUIManager::
+                kDynamicPopupLargeFixedWidth);
+  EXPECT_EQ(widget->GetWindowBoundsInScreen().height(), 300);
+  EXPECT_EQ(widget->GetWindowBoundsInScreen().CenterPoint().x(),
+            initial_bounds.CenterPoint().x());
+  EXPECT_EQ(widget->GetWindowBoundsInScreen().y(), initial_bounds.y());
+
+  // Simulating auto-resize collapse back to resting width restores initial
+  // bounds.
+  ui_manager->ResizeDueToAutoResize(
+      ui_manager->web_contents(),
+      gfx::Size(omnibox_everywhere::OmniboxEverywhereUIManager::
+                    kDynamicPopupSmallFixedWidth,
+                omnibox_everywhere::OmniboxEverywhereUIManager::
+                    kDefaultRestingHeight));
+  EXPECT_EQ(widget->GetWindowBoundsInScreen(), initial_bounds);
+
+  ui_manager->Shutdown();
+}
+
+TEST_F(OmniboxEverywhereUIManagerTest, DynamicSizingBounds_EphemeralMode) {
+  profile_.GetPrefs()->SetBoolean(omnibox_everywhere::prefs::kFreDismissed,
+                                  true);
+  if (g_browser_process && g_browser_process->local_state()) {
+    g_browser_process->local_state()->SetBoolean(
+        omnibox_everywhere::prefs::kOmniboxEverywhereEphemeralModel, true);
+  }
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeatureWithParameters(
+      omnibox::kOmniboxEverywhere, {{"DynamicSizing", "true"}});
+
+  EXPECT_EQ(
+      omnibox_everywhere::OmniboxEverywhereUIManager::GetPopupFixedWidth(),
+      omnibox_everywhere::OmniboxEverywhereUIManager::
+          kDynamicPopupLargeFixedWidth);
+}
+
+TEST_F(OmniboxEverywhereUIManagerTest,
+       DynamicSizingBounds_PersistentModeMediumWidth600) {
+  profile_.GetPrefs()->SetBoolean(omnibox_everywhere::prefs::kFreDismissed,
+                                  true);
+  if (g_browser_process && g_browser_process->local_state()) {
+    g_browser_process->local_state()->SetBoolean(
+        omnibox_everywhere::prefs::kOmniboxEverywhereEphemeralModel, false);
+  }
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeatureWithParameters(
+      omnibox::kOmniboxEverywhere,
+      {{"DynamicSizing", "true"}, {"DynamicSizingWidth", "600"}});
+
+  EXPECT_EQ(
+      omnibox_everywhere::OmniboxEverywhereUIManager::GetPopupFixedWidth(),
+      omnibox_everywhere::OmniboxEverywhereUIManager::
+          kDynamicPopupSmallFixedWidth);
+  EXPECT_EQ(omnibox_everywhere::OmniboxEverywhereUIManager::
+                GetPopupExpandedFixedWidth(),
+            omnibox_everywhere::OmniboxEverywhereUIManager::
+                kDynamicPopupMediumFixedWidth);
+
+  display::test::TestScreen test_screen(/*create_display=*/false,
+                                        /*register_screen=*/false);
+  ScopedScreenOverride screen_override(&test_screen);
+
+  display::Display display1(1, gfx::Rect(0, 0, 1920, 1080));
+  test_screen.display_list().AddDisplay(display1,
+                                        display::DisplayList::Type::PRIMARY);
+
+  auto ui_manager = CreateUIManager();
+  ui_manager->ShowForProfile(&profile_, GetContext());
+  views::Widget* widget = ui_manager->widget();
+  ASSERT_TRUE(widget);
+
+  const gfx::Rect initial_bounds = widget->GetWindowBoundsInScreen();
+  EXPECT_EQ(initial_bounds.width(),
+            omnibox_everywhere::OmniboxEverywhereUIManager::
+                kDynamicPopupSmallFixedWidth);
+
+  // Simulating auto-resize expansion to 600px mode (664px window width).
+  ui_manager->ResizeDueToAutoResize(
+      ui_manager->web_contents(),
+      gfx::Size(omnibox_everywhere::OmniboxEverywhereUIManager::
+                    kDynamicPopupMediumFixedWidth,
+                300));
+  EXPECT_EQ(widget->GetWindowBoundsInScreen().width(),
+            omnibox_everywhere::OmniboxEverywhereUIManager::
+                kDynamicPopupMediumFixedWidth);
+  EXPECT_EQ(widget->GetWindowBoundsInScreen().height(), 300);
+  EXPECT_EQ(widget->GetWindowBoundsInScreen().CenterPoint().x(),
+            initial_bounds.CenterPoint().x());
+
+  ui_manager->Shutdown();
+}
+
 // Verifies that on displays with dimensions smaller than the fixed popup width,
 // widget bounds calculation clamps width and coordinates to remain fully within
 // the visible work area without overflowing or negative positioning.
@@ -526,6 +699,78 @@ TEST_F(OmniboxEverywhereUIManagerTest, DismissOnDeactivationInEphemeralMode) {
   ui_manager->OnWidgetActivationChanged(widget, /*active=*/false);
   EXPECT_TRUE(base::test::RunUntil([&]() { return !widget->IsVisible(); }));
   EXPECT_TRUE(ui_manager->widget());
+}
+
+// Deactivation caused by a mouse press in another window (e.g. the start of a
+// file drag from Finder) must not hide the widget until the button is released:
+// releasing during a drag over the WebContents re-focuses the widget, whereas
+// releasing elsewhere dismisses it.
+TEST_F(OmniboxEverywhereUIManagerEmulatedActivationTest,
+       DeactivationWhileMouseButtonDownDefersDismissal) {
+  if (g_browser_process && g_browser_process->local_state()) {
+    g_browser_process->local_state()->SetBoolean(
+        omnibox_everywhere::prefs::kOmniboxEverywhereEphemeralModel, true);
+  }
+  auto* test_service = static_cast<TestingOmniboxEverywhereService*>(
+      OmniboxEverywhereServiceFactory::GetInstance()->SetTestingFactoryAndUse(
+          &profile_, base::BindRepeating([](content::BrowserContext* context)
+                                             -> std::unique_ptr<KeyedService> {
+            return std::make_unique<TestingOmniboxEverywhereService>(
+                Profile::FromBrowserContext(context));
+          })));
+  ASSERT_TRUE(test_service);
+
+  auto ui_manager = CreateUIManager();
+  ui_manager->ShowForProfile(&profile_, GetContext());
+  views::Widget* widget = ui_manager->widget();
+  ASSERT_TRUE(widget);
+  ASSERT_TRUE(ui_manager->web_contents());
+  ASSERT_TRUE(ui_manager->web_contents()->GetDelegate());
+  EXPECT_EQ(1, test_service->maybe_show_lens_promo_count());
+  task_environment()->FastForwardBy(
+      omnibox_everywhere::OmniboxEverywhereUIManager::kActivationGracePeriod +
+      base::Milliseconds(1));
+
+  // Press in another window; the widget stays visible while the button is held.
+  ui::test::EventGenerator generator(views::GetRootWindow(widget),
+                                     widget->GetNativeWindow());
+  generator.MoveMouseTo(gfx::Point(10, 10));
+  generator.PressLeftButton();
+  ASSERT_TRUE(widget->IsMouseButtonDown());
+  ui_manager->OnWidgetActivationChanged(widget, /*active=*/false);
+  task_environment()->FastForwardBy(
+      omnibox_everywhere::OmniboxEverywhereUIManager::
+          kPendingDismissalPollInterval *
+      4);
+  EXPECT_TRUE(widget->IsVisible());
+
+  // Dropping onto the WebContents (PreHandleDragUpdate without a subsequent
+  // PreHandleDragExit) keeps the widget visible and re-focuses it.
+  ui_manager->web_contents()->GetDelegate()->PreHandleDragUpdate(
+      content::DropData(), gfx::PointF());
+  generator.ReleaseLeftButton();
+  ASSERT_FALSE(widget->IsMouseButtonDown());
+  task_environment()->FastForwardBy(
+      omnibox_everywhere::OmniboxEverywhereUIManager::
+          kPendingDismissalPollInterval);
+  EXPECT_TRUE(widget->IsVisible());
+  EXPECT_EQ(2, test_service->maybe_show_lens_promo_count());
+
+  // A subsequent press and release where the drag exits before mouse-up
+  // resolves to dismissal.
+  task_environment()->FastForwardBy(
+      omnibox_everywhere::OmniboxEverywhereUIManager::kActivationGracePeriod +
+      base::Milliseconds(1));
+  generator.PressLeftButton();
+  ui_manager->OnWidgetActivationChanged(widget, /*active=*/false);
+  ui_manager->web_contents()->GetDelegate()->PreHandleDragUpdate(
+      content::DropData(), gfx::PointF());
+  ui_manager->web_contents()->GetDelegate()->PreHandleDragExit();
+  generator.ReleaseLeftButton();
+  task_environment()->FastForwardBy(
+      omnibox_everywhere::OmniboxEverywhereUIManager::
+          kPendingDismissalPollInterval);
+  EXPECT_FALSE(widget->IsVisible());
 }
 
 TEST_F(OmniboxEverywhereUIManagerTest, DismissOnSpaceSwitchInEphemeralMode) {
@@ -1317,23 +1562,27 @@ TEST_F(OmniboxEverywhereUIManagerTest,
 
   ui_manager->DraggableRegionsChanged(regions, nullptr);
 
-  // Background point (draggable region) -> should NOT descend into child (claim
-  // for drag).
-  EXPECT_FALSE(
+  // Background point (draggable region).
+  EXPECT_TRUE(ui_manager->widget_delegate()->IsPointInDraggableRegion(
+      gfx::Point(10, 10)));
+  EXPECT_TRUE(ui_manager->widget_delegate()->IsPointInDraggableRegion(
+      gfx::Point(600, 40)));
+
+  // Points inside search input (non-draggable region).
+  EXPECT_FALSE(ui_manager->widget_delegate()->IsPointInDraggableRegion(
+      gfx::Point(200, 40)));
+  EXPECT_FALSE(ui_manager->widget_delegate()->IsPointInDraggableRegion(
+      gfx::Point(400, 50)));
+
+  // Event targeting should descend into child views for both draggable and
+  // non-draggable regions so WebUI receives :hover and click events while
+  // OmniboxEverywhereEventHandlerAura intercepts drags as a pre-target handler.
+  EXPECT_TRUE(
       ui_manager->widget_delegate()->ShouldDescendIntoChildForEventHandling(
           gfx::NativeView(), gfx::Point(10, 10)));
-  EXPECT_FALSE(
-      ui_manager->widget_delegate()->ShouldDescendIntoChildForEventHandling(
-          gfx::NativeView(), gfx::Point(600, 40)));
-
-  // Points inside search input (non-draggable region) -> SHOULD descend into
-  // child for button/input clicks.
   EXPECT_TRUE(
       ui_manager->widget_delegate()->ShouldDescendIntoChildForEventHandling(
           gfx::NativeView(), gfx::Point(200, 40)));
-  EXPECT_TRUE(
-      ui_manager->widget_delegate()->ShouldDescendIntoChildForEventHandling(
-          gfx::NativeView(), gfx::Point(400, 50)));
 }
 
 TEST_F(OmniboxEverywhereUIManagerTest,
@@ -1358,15 +1607,13 @@ TEST_F(OmniboxEverywhereUIManagerTest,
 
   ui_manager->DraggableRegionsChanged(regions, nullptr);
 
-  // Inner non-draggable area should remain non-draggable and receive clicks.
-  EXPECT_TRUE(
-      ui_manager->widget_delegate()->ShouldDescendIntoChildForEventHandling(
-          gfx::NativeView(), gfx::Point(150, 150)));
+  // Inner non-draggable area should remain non-draggable.
+  EXPECT_FALSE(ui_manager->widget_delegate()->IsPointInDraggableRegion(
+      gfx::Point(150, 150)));
 
   // Draggable background area outside should remain draggable.
-  EXPECT_FALSE(
-      ui_manager->widget_delegate()->ShouldDescendIntoChildForEventHandling(
-          gfx::NativeView(), gfx::Point(10, 10)));
+  EXPECT_TRUE(ui_manager->widget_delegate()->IsPointInDraggableRegion(
+      gfx::Point(10, 10)));
 }
 
 TEST_F(OmniboxEverywhereUIManagerTest, EarlyDraggableRegionsChangedPreserved) {
@@ -1386,9 +1633,8 @@ TEST_F(OmniboxEverywhereUIManagerTest, EarlyDraggableRegionsChangedPreserved) {
   ASSERT_TRUE(ui_manager->widget_delegate());
 
   // Cached region should be applied to widget_delegate_.
-  EXPECT_FALSE(
-      ui_manager->widget_delegate()->ShouldDescendIntoChildForEventHandling(
-          gfx::NativeView(), gfx::Point(10, 10)));
+  EXPECT_TRUE(ui_manager->widget_delegate()->IsPointInDraggableRegion(
+      gfx::Point(10, 10)));
 }
 
 TEST_F(OmniboxEverywhereUIManagerTest, DismissBypassedDuringContextMenu) {
@@ -2111,6 +2357,16 @@ TEST_F(OmniboxEverywhereUIManagerTest,
   // When drag ends, the pending AutoResize is applied.
   ui_manager->OnWidgetUserDragEnded(widget);
   EXPECT_EQ(widget->GetWindowBoundsInScreen().height(), 300);
+
+  // While the screenshare picker is open, AutoResize should also be deferred
+  // so the hidden window frame is not updated mid-picker.
+  ui_manager->OnScreensharePickerOpened();
+  ui_manager->ResizeDueToAutoResize(nullptr, gfx::Size(popup_width, 250));
+  EXPECT_EQ(widget->GetWindowBoundsInScreen().height(), 300);
+
+  // When the screenshare picker closes, the pending AutoResize is applied.
+  ui_manager->OnScreensharePickerClosed();
+  EXPECT_EQ(widget->GetWindowBoundsInScreen().height(), 250);
 
   ui_manager->Close();
 }

@@ -12,6 +12,9 @@
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
+#include "chrome/browser/autocomplete/chrome_autocomplete_provider_client.h"
+#include "chrome/browser/contextual_search/contextual_search_service_factory.h"
+#include "chrome/browser/contextual_search/contextual_search_web_contents_helper.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_cookie_synchronizer.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_eligibility_manager.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_panel_controller.h"
@@ -25,17 +28,25 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
+#include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/contextual_search/tab_contextualization_controller.h"
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
+#include "chrome/browser/ui/lens/lens_overlay_query_controller.h"
 #include "chrome/browser/ui/lens/lens_overlay_side_panel_coordinator.h"
 #include "chrome/browser/ui/lens/lens_overlay_wait_for_paint_utils.h"
 #include "chrome/browser/ui/lens/lens_search_contextualization_controller.h"
 #include "chrome/browser/ui/lens/lens_search_controller.h"
+#include "chrome/browser/ui/location_bar/location_bar.h"
+#include "chrome/browser/ui/omnibox/omnibox_controller.h"
+#include "chrome/browser/ui/omnibox/omnibox_popup_state_manager.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/contextual_search/contextual_search_service.h"
+#include "components/contextual_search/contextual_search_session_handle.h"
 #include "components/contextual_search/contextual_search_types.h"
 #include "components/contextual_search/internal/composebox_query_controller.h"
 #include "components/contextual_search/mock_contextual_search_session_handle.h"
@@ -46,6 +57,7 @@
 #include "components/lens/lens_overlay_invocation_source.h"
 #include "components/lens/lens_overlay_permission_utils.h"
 #include "components/omnibox/browser/mock_aim_eligibility_service.h"
+#include "components/omnibox/common/omnibox_features.h"
 #include "components/prefs/pref_service.h"
 #include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_service.h"
@@ -713,7 +725,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksLensInteractionBrowserTest,
   controller->IssueTextSearchRequest(
       lens::LensOverlayInvocationSource::kContextualTasksComposebox,
       "test query", /*additional_query_parameters=*/{},
-      AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       /*is_zero_prefix_suggestion=*/false,
       /*suppress_contextualization=*/false);
 
@@ -1018,6 +1030,27 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksRoutingEnabledTest,
   EXPECT_FALSE(controller->should_route_to_contextual_tasks());
 }
 
+IN_PROC_BROWSER_TEST_F(ContextualTasksRoutingEnabledTest,
+                       UpdatePageContextDoesNotCrashWhenQueryControllerIsOff) {
+  WaitForPaint();
+
+  auto* controller = GetLensSearchController();
+  ASSERT_TRUE(controller);
+
+  controller->OpenLensOverlay(
+      lens::LensOverlayInvocationSource::kContextualTasksComposebox);
+
+  WaitForOverlayToOpen(controller);
+
+  EXPECT_TRUE(controller->should_route_to_contextual_tasks());
+  EXPECT_TRUE(controller->lens_overlay_query_controller()->IsOff());
+
+  base::RunLoop run_loop;
+  controller->lens_search_contextualization_controller()
+      ->TryUpdatePageContextualization(run_loop.QuitClosure());
+  run_loop.Run();
+}
+
 class ContextualTasksRoutingIneligibleTest
     : public ContextualTasksLensInteractionBrowserTestBase {
  public:
@@ -1044,4 +1077,266 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksRoutingIneligibleTest,
       lens::LensOverlayInvocationSource::kContextualTasksComposebox);
 
   EXPECT_FALSE(controller->should_route_to_contextual_tasks());
+}
+
+class OmniboxContextualSuggestionPrivacyNoticeBypassBrowserTest
+    : public ContextualTasksLensInteractionBrowserTestBase {
+ public:
+  void SetUp() override {
+    ASSERT_TRUE(embedded_test_server()->InitializeAndListen());
+    feature_list_.InitWithFeaturesAndParameters(
+        /*enabled_features=*/{{contextual_tasks::kContextualTasks, {}},
+                              {contextual_tasks::kContextualTasksContext, {}},
+                              {contextual_tasks::
+                                   kContextualTasksForceEntryPointEligibility,
+                               {}},
+                              {lens::features::kLensOverlay, {}},
+                              {lens::features::kLensOverlayContextualSearchbox,
+                               {}},
+                              {omnibox::kWebUIOmniboxAskGAboutThisPage,
+                               {{"Omnibox_AskGBypassPrivacyNotice", "true"}}}},
+        /*disabled_features=*/{lens::features::kLensSidePanelUnification});
+    InProcessBrowserTest::SetUp();
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(
+    OmniboxContextualSuggestionPrivacyNoticeBypassBrowserTest,
+    IssueContextualSearchRequest_GrantsSessionPermission) {
+  // Ensure user has not permanently granted Lens permissions in prefs.
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
+      lens::prefs::kLensSharingPageScreenshotEnabled, false);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
+      lens::prefs::kLensSharingPageContentEnabled, false);
+
+  auto* controller = GetLensSearchController();
+  ASSERT_TRUE(controller);
+  ASSERT_TRUE(controller->IsOff());
+
+  // Issue a contextual search request via ChromeAutocompleteProviderClient.
+  ChromeAutocompleteProviderClient client(
+      browser()->GetProfile(),
+      base::BindRepeating(&TabStripModel::GetActiveWebContents,
+                          base::Unretained(browser()->tab_strip_model())));
+  client.IssueContextualSearchRequest(
+      GURL("https://www.google.com/search?q=Help+me+with+this+page"),
+      omnibox::AutocompleteMatchType::kSearchSuggest,
+      /*is_zero_prefix_suggestion=*/true);
+
+  EXPECT_FALSE(controller->IsOff());
+  ASSERT_TRUE(controller->lens_overlay_query_controller());
+  EXPECT_TRUE(
+      controller->lens_overlay_query_controller()->HasPermissionForSession());
+}
+
+IN_PROC_BROWSER_TEST_F(
+    OmniboxContextualSuggestionPrivacyNoticeBypassBrowserTest,
+    IssueContextualSearchRequest_WithoutBypass_DoesNotGrantSessionPermission) {
+  // Ensure user has not permanently granted Lens permissions in prefs.
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
+      lens::prefs::kLensSharingPageScreenshotEnabled, false);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
+      lens::prefs::kLensSharingPageContentEnabled, false);
+
+  auto* controller = GetLensSearchController();
+  ASSERT_TRUE(controller);
+  ASSERT_TRUE(controller->IsOff());
+
+  // Issue a contextual search request without session permissions.
+  controller->IssueContextualSearchRequest(
+      lens::LensOverlayInvocationSource::kOmniboxContextualSuggestion,
+      GURL("https://www.google.com/search?q=Help+me+with+this+page"),
+      omnibox::AutocompleteMatchType::kSearchSuggest,
+      /*is_zero_prefix_suggestion=*/true,
+      /*grant_session_permission=*/false);
+
+  EXPECT_FALSE(controller->IsOff());
+  ASSERT_TRUE(controller->lens_overlay_query_controller());
+  EXPECT_FALSE(
+      controller->lens_overlay_query_controller()->HasPermissionForSession());
+}
+
+class LensSearchControllerStartZeroStateSessionTest
+    : public InProcessBrowserTest {
+ public:
+  LensSearchControllerStartZeroStateSessionTest() {
+    feature_list_.InitWithFeatures(
+        /*enabled_features=*/{contextual_tasks::kContextualTasks,
+                              contextual_tasks::
+                                  kContextualTasksForceEntryPointEligibility,
+                              lens::features::kLensSidePanelUnification},
+        /*disabled_features=*/{});
+  }
+
+  bool IsContextualTasksSidePanelOpen() {
+    auto* controller = contextual_tasks::ContextualTasksPanelController::From(
+        browser()->GetActiveTabInterface()->GetBrowserWindowInterface());
+    return controller && controller->IsPanelOpenForContextualTask();
+  }
+
+  LensSearchController* GetLensSearchController() {
+    return LensSearchController::From(browser()->GetActiveTabInterface());
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(LensSearchControllerStartZeroStateSessionTest,
+                       CreatesSessionHandleWhenNoneExists) {
+  ASSERT_TRUE(browser()->tab_strip_model()->GetActiveWebContents());
+  auto* controller = GetLensSearchController();
+  ASSERT_TRUE(controller);
+
+  controller->StartZeroStateSessionInSidePanel(
+      omnibox::ChromeAimEntryPoint::DESKTOP_CHROME_COBROWSE_OMNIBOX_ACTION,
+      lens::LensOverlayInvocationSource::kOmniboxPageAction);
+
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsContextualTasksSidePanelOpen(); }));
+
+  auto* panel_controller =
+      contextual_tasks::ContextualTasksPanelController::From(browser());
+  ASSERT_TRUE(panel_controller);
+  auto* session_handle =
+      panel_controller->GetContextualSearchSessionHandleForPanel();
+  ASSERT_TRUE(session_handle);
+  EXPECT_EQ(session_handle->invocation_source(),
+            lens::LensOverlayInvocationSource::kOmniboxPageAction);
+  // ContextualSearchSessionHandle::CreateContextToken() contains a strict
+  // CHECK(policy_checked_). Verifying this call succeeds confirms policy was
+  // checked.
+  EXPECT_FALSE(session_handle->CreateContextToken().is_empty());
+
+  content::WebContents* side_panel_contents =
+      panel_controller->GetActiveWebContents();
+  ASSERT_TRUE(side_panel_contents);
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return side_panel_contents->ContainsOrIsFocusedWebContents(); }));
+}
+
+IN_PROC_BROWSER_TEST_F(LensSearchControllerStartZeroStateSessionTest,
+                       ReusesExistingSessionHandle) {
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  ASSERT_TRUE(web_contents);
+
+  auto* contextual_search_service =
+      ContextualSearchServiceFactory::GetForProfile(browser()->GetProfile());
+  ASSERT_TRUE(contextual_search_service);
+  auto existing_session = contextual_search_service->CreateSession(
+      contextual_tasks::CreateQueryControllerConfigParams(),
+      contextual_search::ContextualSearchSource::kLens,
+      lens::LensOverlayInvocationSource::kAppMenu);
+  auto* raw_existing_session = existing_session.get();
+
+  auto* tab_helper =
+      ContextualSearchWebContentsHelper::GetOrCreateForWebContents(
+          web_contents);
+  tab_helper->SetTaskSession(std::nullopt, std::move(existing_session),
+                             nullptr);
+
+  auto* controller = GetLensSearchController();
+  ASSERT_TRUE(controller);
+
+  controller->StartZeroStateSessionInSidePanel(
+      omnibox::ChromeAimEntryPoint::DESKTOP_CHROME_COBROWSE_OMNIBOX_ACTION,
+      lens::LensOverlayInvocationSource::kAppMenu);
+
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsContextualTasksSidePanelOpen(); }));
+
+  auto* panel_controller =
+      contextual_tasks::ContextualTasksPanelController::From(browser());
+  ASSERT_TRUE(panel_controller);
+  EXPECT_EQ(panel_controller->GetContextualSearchSessionHandleForPanel(),
+            raw_existing_session);
+}
+
+IN_PROC_BROWSER_TEST_F(LensSearchControllerStartZeroStateSessionTest,
+                       OpensLensOverlayWhenRequested) {
+  ASSERT_TRUE(browser()->tab_strip_model()->GetActiveWebContents());
+  auto* controller = GetLensSearchController();
+  ASSERT_TRUE(controller);
+  ASSERT_TRUE(controller->IsOff());
+
+  controller->StartZeroStateSessionInSidePanel(
+      omnibox::ChromeAimEntryPoint::DESKTOP_CHROME_COBROWSE_OMNIBOX_ACTION,
+      lens::LensOverlayInvocationSource::kOmniboxPageAction,
+      /*open_lens_overlay=*/true);
+
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsContextualTasksSidePanelOpen(); }));
+  EXPECT_FALSE(controller->IsOff());
+}
+
+IN_PROC_BROWSER_TEST_F(LensSearchControllerStartZeroStateSessionTest,
+                       ExecAskGoogleAboutThisPageOpensSidePanel) {
+  ASSERT_TRUE(browser()->tab_strip_model()->GetActiveWebContents());
+  chrome::ExecAskGoogleAboutThisPage(
+      browser()->GetActiveTabInterface()->GetBrowserWindowInterface());
+
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsContextualTasksSidePanelOpen(); }));
+
+  auto* panel_controller =
+      contextual_tasks::ContextualTasksPanelController::From(browser());
+  ASSERT_TRUE(panel_controller);
+  auto* session_handle =
+      panel_controller->GetContextualSearchSessionHandleForPanel();
+  ASSERT_TRUE(session_handle);
+  EXPECT_EQ(session_handle->invocation_source(),
+            lens::LensOverlayInvocationSource::kContentAreaContextMenuPage);
+}
+
+IN_PROC_BROWSER_TEST_F(LensSearchControllerStartZeroStateSessionTest,
+                       IssueContextualSearchRequestPermittedSources) {
+  ASSERT_TRUE(browser()->tab_strip_model()->GetActiveWebContents());
+  auto* controller = GetLensSearchController();
+  ASSERT_TRUE(controller);
+
+  // Verifies that calling IssueContextualSearchRequest with contextual /
+  // omnibox entry points succeeds.
+  controller->IssueContextualSearchRequest(
+      lens::LensOverlayInvocationSource::kContentAreaContextMenuPage,
+      GURL("https://www.google.com/search?q=test"),
+      omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
+      /*is_zero_prefix_suggestion=*/false);
+
+  controller->IssueContextualSearchRequest(
+      lens::LensOverlayInvocationSource::kOmniboxPageAction,
+      GURL("https://www.google.com/search?q=test2"),
+      omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
+      /*is_zero_prefix_suggestion=*/false);
+}
+
+class LensSearchControllerAskGoogleOmniboxRoutingTest
+    : public LensSearchControllerStartZeroStateSessionTest {
+ public:
+  LensSearchControllerAskGoogleOmniboxRoutingTest() {
+    feature_list_.InitAndEnableFeatureWithParameters(
+        contextual_tasks::kContextualTasksUpdatedEntryPoints,
+        {{"ContextualTasksContextMenuRouteAskGoogleToOmnibox", "true"}});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(LensSearchControllerAskGoogleOmniboxRoutingTest,
+                       ExecAskGoogleAboutThisPageOpensOmniboxComposebox) {
+  ASSERT_TRUE(browser()->tab_strip_model()->GetActiveWebContents());
+  chrome::ExecAskGoogleAboutThisPage(
+      browser()->GetActiveTabInterface()->GetBrowserWindowInterface());
+
+  LocationBar* location_bar =
+      BrowserWindow::FromBrowser(browser())->GetLocationBar();
+  ASSERT_TRUE(location_bar);
+  OmniboxController* omnibox_controller = location_bar->GetOmniboxController();
+  ASSERT_TRUE(omnibox_controller);
+  EXPECT_EQ(omnibox_controller->popup_state_manager()->popup_state(),
+            OmniboxPopupState::kAim);
 }

@@ -13,9 +13,11 @@ import androidx.annotation.ColorInt;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils.NtpBackgroundType;
+import org.chromium.chrome.browser.ntp_customization.R;
 import org.chromium.chrome.browser.ntp_customization.theme.upload_image.BackgroundImageInfo;
 
 import java.util.Objects;
@@ -37,6 +39,9 @@ public class NtpBackgroundDataUploadImage extends NtpBackgroundDataImageBase {
             @Nullable @ColorInt Integer primaryColor,
             @Nullable String fileIdHash) {
         super(platformType, backgroundImageInfo, bitmap, primaryColor, fileIdHash);
+        setContentDescription(
+                ContextUtils.getApplicationContext()
+                        .getString(R.string.accessibility_upload_image));
     }
 
     /** Returns the subdirectory name for saving the image file. */
@@ -55,7 +60,11 @@ public class NtpBackgroundDataUploadImage extends NtpBackgroundDataImageBase {
     @Override
     public boolean equals(@Nullable Object obj) {
         if (obj instanceof NtpBackgroundDataUploadImage other) {
+            // Unlike theme collections, uploaded images are never synced: their primary color is
+            // extracted from the local bitmap when the image is first applied and is never updated
+            // from sync. So comparing it in equals() is intentional.
             return super.equals(obj)
+                    && Objects.equals(getPrimaryColor(), other.getPrimaryColor())
                     && Objects.equals(getFileIdHash(), other.getFileIdHash())
                     && Objects.equals(getBackgroundImageInfo(), other.getBackgroundImageInfo());
         }
@@ -64,7 +73,8 @@ public class NtpBackgroundDataUploadImage extends NtpBackgroundDataImageBase {
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), getFileIdHash(), getBackgroundImageInfo());
+        return Objects.hash(
+                super.hashCode(), getPrimaryColor(), getFileIdHash(), getBackgroundImageInfo());
     }
 
     /** Returns the NtpBackgroundDataUploadImage object from the given JSON. */

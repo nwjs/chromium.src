@@ -20,9 +20,8 @@ class StyleAnimatedSourcesTest : public PageTestBase {
 TEST_F(StyleAnimatedSourcesTest, AvoidsCopyOnWriteWhenSettingIdenticalSources) {
   SetBodyInnerHTML("<div id=a></div>");
   Element* a = GetElementById("a");
-  const ComputedStyle* initial = ComputedStyle::GetInitialStyleSingleton();
 
-  ComputedStyleBuilder builder(*initial);
+  ComputedStyleBuilder builder(ComputedStyle::GetInitialStyleSingleton());
   builder.SetAnimatedSource(CSSPropertyID::kOpacity, *a);
   const ComputedStyle* style1 = builder.TakeStyle();
 
@@ -33,6 +32,32 @@ TEST_F(StyleAnimatedSourcesTest, AvoidsCopyOnWriteWhenSettingIdenticalSources) {
 
   EXPECT_EQ(&style1->NonInheritedAnimatedSources(),
             &style2->NonInheritedAnimatedSources());
+}
+
+TEST_F(StyleAnimatedSourcesTest, Iteration) {
+  SetBodyInnerHTML("<div id=a></div>");
+  Element* a = GetElementById("a");
+
+  StyleAnimatedSources sources;
+  EXPECT_TRUE(sources.begin() == sources.end());
+
+  sources.Set(
+      AnimatedSourceProperty::kTransform,
+      AnimatedSource::ForElement(a, /*has_untracked_dependencies=*/true));
+  sources.Set(AnimatedSourceProperty::kOpacity, AnimatedSource::ForElement(a));
+
+  // Entries come out in property order, with their untracked dependencies.
+  Vector<AnimatedSourceProperty> properties;
+  Vector<bool> untracked;
+  for (auto [property, source] : sources) {
+    EXPECT_TRUE(source.IsOwnedBy(*a));
+    properties.push_back(property);
+    untracked.push_back(source.has_untracked_dependencies);
+  }
+  EXPECT_EQ(properties, (Vector<AnimatedSourceProperty>{
+                            AnimatedSourceProperty::kOpacity,
+                            AnimatedSourceProperty::kTransform}));
+  EXPECT_EQ(untracked, (Vector<bool>{false, true}));
 }
 
 }  // namespace

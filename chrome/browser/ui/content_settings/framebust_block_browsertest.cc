@@ -17,7 +17,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/blocked_content/framebust_block_tab_helper.h"
 #include "chrome/browser/ui/browser_content_setting_bubble_model_delegate.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/content_settings/content_setting_bubble_model.h"
@@ -40,7 +40,6 @@
 #include "content/public/common/url_constants.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
-#include "content/public/test/fenced_frame_test_util.h"
 #include "content/public/test/prerender_test_util.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "net/dns/mock_host_resolver.h"
@@ -181,13 +180,18 @@ IN_PROC_BROWSER_TEST_F(FramebustBlockBrowserTest, ModelAllowsRedirection) {
   auto* helper = GetFramebustTabHelper();
   for (const GURL& url : blocked_urls) {
     helper->AddBlockedUrl(url, url::Origin::Create(url),
+                          GetWebContents()
+                              ->GetPrimaryMainFrame()
+                              ->GetCurrentInitiatorNavigationState(),
                           base::BindOnce(&FramebustBlockBrowserTest::OnClick,
                                          base::Unretained(this)));
   }
   EXPECT_TRUE(helper->HasBlockedUrls());
 
   LocationBarTesting* location_bar_testing =
-      browser()->GetFeatures().location_bar()->GetLocationBarForTesting();
+      BrowserWindow::FromBrowser(browser())
+          ->GetLocationBar()
+          ->GetLocationBarForTesting();
   ASSERT_TRUE(location_bar_testing);
 
   const size_t framebust_index =
@@ -282,6 +286,7 @@ IN_PROC_BROWSER_TEST_F(FramebustBlockBrowserTest, AllowRadioButtonSelected) {
   // Signal that a blocked redirection happened.
   auto* helper = GetFramebustTabHelper();
   helper->AddBlockedUrl(url, url::Origin::Create(url),
+                        /*initiator_navigation_state=*/nullptr,
                         base::BindOnce(&FramebustBlockBrowserTest::OnClick,
                                        base::Unretained(this)));
   EXPECT_TRUE(helper->HasBlockedUrls());
@@ -314,6 +319,7 @@ IN_PROC_BROWSER_TEST_F(FramebustBlockBrowserTest, DisallowRadioButtonSelected) {
   // Signal that a blocked redirection happened.
   auto* helper = GetFramebustTabHelper();
   helper->AddBlockedUrl(url, url::Origin::Create(url),
+                        /*initiator_navigation_state=*/nullptr,
                         base::BindOnce(&FramebustBlockBrowserTest::OnClick,
                                        base::Unretained(this)));
   EXPECT_TRUE(helper->HasBlockedUrls());
@@ -357,6 +363,7 @@ IN_PROC_BROWSER_TEST_F(FramebustBlockBrowserTest, MAYBE_ManageButtonClicked) {
   // Signal that a blocked redirection happened.
   auto* helper = GetFramebustTabHelper();
   helper->AddBlockedUrl(url, url::Origin::Create(url),
+                        /*initiator_navigation_state=*/nullptr,
                         base::BindOnce(&FramebustBlockBrowserTest::OnClick,
                                        base::Unretained(this)));
   EXPECT_TRUE(helper->HasBlockedUrls());
@@ -514,33 +521,4 @@ IN_PROC_BROWSER_TEST_F(FramebustBlockPrerenderTest,
   // Activate a prerendered page.
   prerender_helper_.NavigatePrimaryPage(prerender_url);
   EXPECT_FALSE(GetFramebustTabHelper()->HasBlockedUrls());
-}
-
-class FramebustBlockFencedFrameTest : public FramebustBlockBrowserTest {
- public:
-  FramebustBlockFencedFrameTest() = default;
-  ~FramebustBlockFencedFrameTest() override = default;
-
-  content::RenderFrameHost* primary_main_frame_host() {
-    return GetWebContents()->GetPrimaryMainFrame();
-  }
-
- protected:
-  content::test::FencedFrameTestHelper fenced_frame_helper_;
-};
-
-IN_PROC_BROWSER_TEST_F(FramebustBlockFencedFrameTest,
-                       FramebustBlocked_FencedFrameNavigation) {
-  EXPECT_TRUE(ExecuteAndCheckBlockedRedirection());
-
-  // Create a fenced frame in the primary main page and ensure that the
-  // framebust UI persists on fenced frame navigation.
-  const GURL fenced_frame_url =
-      embedded_test_server()->GetURL("/fenced_frames/title1.html");
-  content::RenderFrameHost* fenced_frame_rfh =
-      fenced_frame_helper_.CreateFencedFrame(primary_main_frame_host(),
-                                             fenced_frame_url);
-  ASSERT_NE(nullptr, fenced_frame_rfh);
-
-  EXPECT_TRUE(GetFramebustTabHelper()->HasBlockedUrls());
 }

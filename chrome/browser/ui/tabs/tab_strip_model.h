@@ -18,6 +18,7 @@
 
 #include "base/containers/span.h"
 #include "base/feature_list.h"
+#include "base/functional/function_ref.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
@@ -28,6 +29,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/tab_list/constants.h"
 #include "chrome/browser/tab_list/tab_removed_reason.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_selection_state.h"
@@ -679,7 +681,8 @@ class TabStripModel {
   // so they are contiguous and do not split an existing group in half. Returns
   // the new group. This may unsplit split tabs if they are only partially
   // contained in `indices`. `indices` must be sorted in ascending order.
-  tab_groups::TabGroupId AddToNewGroup(const std::vector<int> indices);
+  tab_groups::TabGroupId AddToNewGroup(const std::vector<int> indices,
+                                       bool is_ephemeral = false);
 
   // Add the set of tabs pointed to by `indices` to the given tab group `group`.
   // The tabs take on the pinnedness of the tabs already in the group. Tabs
@@ -711,12 +714,27 @@ class TabStripModel {
 
   bool SupportsTabGroups() const { return group_model_.get() != nullptr; }
 
+  // When tabs are in focus selection mode, they can present as non-grouped
+  // but be part of a group architecturally.
+  bool IsEphemeralTabGroup(const tab_groups::TabGroupId& group_id) const;
+
+  // Promotes an ephemeral tab group into a permanent tab group and notifies
+  // observers that the tab group was added.
+  void PromoteEphemeralTabGroup(const tab_groups::TabGroupId& group_id);
+
   // Returns the ID of the group that is focused. If no group is focused,
   // returns nullopt.
   std::optional<tab_groups::TabGroupId> GetFocusedGroup() const;
 
-  // Sets the group to be focused.
-  void SetFocusedGroup(std::optional<tab_groups::TabGroupId> group);
+  // Enters focus mode for `group`.
+  void EnterFocusMode(const tab_groups::TabGroupId& group);
+
+  // Exits focus mode, recording `reason` (if provided) in
+  // TabGroups.Focus.ExitReason. If an ephemeral (non-group focus) group was
+  // focused, it is removed, since such a group only exists to back focus mode
+  // and must never outlive it.
+  void ExitFocusMode(
+      std::optional<TabGroupFocusExitReason> reason = std::nullopt);
 
   // Rotates the focused tab group between the unfocused state and active tab
   // groups in the strip. Requires `features::kTabGroupsFocusing` to be enabled
@@ -835,27 +853,41 @@ class TabStripModel {
   // supplied to `ExecuteContextMenuCommand`.
   bool WillContextMenuGroup(int index);
 
+  // Returns the group ID if all tabs at `indices` belong to the same group,
+  // or std::nullopt if they belong to different groups or any are ungrouped.
+  std::optional<tab_groups::TabGroupId> GetCommonGroupForIndices(
+      const std::vector<int>& indices) const;
+
+  // Returns true if none of the tabs at `indices` belong to any tab group.
+  bool AreAllUngrouped(const std::vector<int>& indices) const;
+
   // Convert a ContextMenuCommand into a browser command. Returns true if a
   // corresponding browser command exists, false otherwise.
   static bool ContextMenuCommandToBrowserCommand(int cmd_id, int* browser_cmd);
 
   // Returns the index of the next tab spawned by the specified tabs in
-  // `block_tab_range`.
+  // `block_tab_range`. Indices rejected by `is_eligible` are skipped, and the
+  // scan continues.
   int GetIndexOfNextWebContentsOpenedBy(
-      const gfx::Range& block_tab_range) const;
+      const gfx::Range& block_tab_range,
+      base::FunctionRef<bool(int)> is_eligible) const;
 
   // Returns the index of the next tab spawned by the opener of the specified
-  // tabs in `block_tab_range`.
+  // tabs in `block_tab_range`. Indices rejected by `is_eligible` are skipped,
+  // and the scan continues.
   int GetIndexOfNextWebContentsOpenedByOpenerOf(
-      const gfx::Range& block_tab_range) const;
+      const gfx::Range& block_tab_range,
+      base::FunctionRef<bool(int)> is_eligible) const;
 
   // Finds the next available tab to switch to as the active tab starting at
   // a block of tabs. The methods will check the indices to
   // the right of the block before checking the indices to the left of the
-  // block. Index within the block cannot be returned. Returns std::nullopt if
+  // block. Index within the block cannot be returned. Indices rejected by
+  // `is_eligible` are skipped, and the scan continues. Returns std::nullopt if
   // there are no valid tabs.
   std::optional<int> GetNextExpandedActiveTab(
-      const gfx::Range& block_tab_range) const;
+      const gfx::Range& block_tab_range,
+      base::FunctionRef<bool(int)> is_eligible) const;
   std::optional<int> GetNextExpandedActiveTab(
       tab_groups::TabGroupId collapsing_group) const;
 
@@ -1163,8 +1195,7 @@ class TabStripModel {
   TabStripSelectionChange SetSelection(
       const tabs::TabStripModelSelectionState& new_model,
       TabStripModelObserver::ChangeReason reason,
-      bool triggered_by_other_operation,
-      bool notify_focus_change = true);
+      bool triggered_by_other_operation);
 
   // Close all tabs in the given `group` at once.
   void CloseAllTabsInGroupImpl(const tab_groups::TabGroupId& group);
@@ -1210,10 +1241,9 @@ class TabStripModel {
 
   // Adds tabs to newly-allocated group id `new_group`. This group must be new
   // and have no tabs in it.
-  void AddToNewGroupImpl(
-      const std::vector<int>& indices,
-      const tab_groups::TabGroupId& new_group,
-      std::optional<tab_groups::TabGroupVisualData> visual_data = std::nullopt);
+  void AddToNewGroupImpl(const std::vector<int>& indices,
+                         const tab_groups::TabGroupId& new_group,
+                         bool is_ephemeral = false);
 
   void MoveGroupToImpl(const tab_groups::TabGroupId& group, int to_index);
 
@@ -1222,6 +1252,10 @@ class TabStripModel {
   void AddToExistingGroupImpl(const std::vector<int>& indices,
                               const tab_groups::TabGroupId& group,
                               const bool add_to_end = false);
+
+  // Removes the tabs at `indices` from their groups, moving them out of group
+  // bounds if necessary.
+  void RemoveFromGroupImpl(const std::vector<int>& indices);
 
   // Adds all selected indices provided by `context_index` into a new tab group.
   void AddToNewGroupFromContextIndex(int context_index);

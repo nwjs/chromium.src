@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <optional>
+#include <string_view>
 #include <utility>
 
 #include "base/check.h"
@@ -31,31 +32,31 @@ GlicExperimentalTriggeringTransportHandler::
         Profile* profile,
         browser_actuator::TransportSession* session,
         std::unique_ptr<GlicExperimentalTriggeringCoordinator> coordinator)
-    : profile_(profile),
-      session_(session),
+    : TransportHandler(session),
+      profile_(profile),
       coordinator_(std::move(coordinator)) {
   CHECK(profile_);
-  CHECK(session_);
+  CHECK(session);
 }
 
 GlicExperimentalTriggeringTransportHandler::
     ~GlicExperimentalTriggeringTransportHandler() = default;
 
 void GlicExperimentalTriggeringTransportHandler::OnMessage(
-    const google::protobuf::MessageLite& message) {
-  if (message.GetTypeName() !=
-      GlicExperimentalTriggering::default_instance().GetTypeName()) {
+    browser_actuator::PayloadType payload_type,
+    std::string_view serialized_payload) {
+  GlicExperimentalTriggering triggering;
+  if (!triggering.ParseFromString(serialized_payload)) {
+    DLOG(WARNING) << "Failed to parse GlicExperimentalTriggering payload";
     return;
   }
-  const auto& triggering =
-      static_cast<const GlicExperimentalTriggering&>(message);
 
   ScopedIncomingMessageResultLogger result_logger(
       ScopedIncomingMessageResultLogger::Channel::kBrowserActuatorTransport);
 
   std::string context_id = triggering.context_id();
-  if (context_id.empty()) {
-    context_id = std::string(session_->GetSessionId());
+  if (context_id.empty() && session()) {
+    context_id = std::string(session()->GetSessionId());
   }
 
   if (!coordinator_) {
@@ -108,10 +109,10 @@ void GlicExperimentalTriggeringTransportHandler::SendResponse(
                                      "GlicExperimentalTriggering",
                                      response.context_id, triggering);
 
-  // `SendMessage` synchronously serializes the protobuf `triggering`
+  // `SendUpstreamMessage` synchronously serializes the protobuf `triggering`
   // reference, so passing the const reference is safe during this synchronous
   // call.
-  auto send_result = session_->SendMessage(
+  auto send_result = SendUpstreamMessage(
       browser_actuator::PayloadType::kExperimentalTriggering, triggering);
   if (!send_result.has_value()) {
     DLOG(ERROR) << "Failed to send experimental triggering response: "

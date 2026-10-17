@@ -30,6 +30,8 @@ def __step_config(ctx, step_config):
         # Reads .gclient_entries which is outside of the source tree.
         "build/private_code_test/list_gclient_deps.py",
         "build/private_code_test/ninja_parser.py",
+        # TODO(https://crrev.com/c/8376442): Remove once fixed.
+        "chrome/browser/resources/omnibox/aim_eligibility_extension/unpack_component_extension.py",
         "chrome/installer/linux/debian/build.py",
         "chrome/installer/linux/debian/calculate_package_deps.py",
         "chrome/installer/linux/debian/merge_package_versions.py",
@@ -44,6 +46,9 @@ def __step_config(ctx, step_config):
         # under components/policy/resources/templates/ directory.
         "components/policy/resources/policy_templates.py",
         "mojo/public/tools/bindings/minify_with_terser.py",
+        # Invokes dpkg-buildpackage which requires debhelper (dh) not present in
+        # the RBE worker container image.
+        "remoting/host/installer/linux/build_deb.py",
         "remoting/tools/build/remoting_copy_locales.py",
         "testing/libfuzzer/fuzzers/generate_v8_inspector_fuzzer_corpus.py",
         "testing/scripts/rust/generate_script.py",

@@ -607,6 +607,14 @@ bool BrowserAccessibilityAndroid::IsInterestingOnAndroid() const {
   // already skips over things like iframes and child frames that are
   // technically focusable but shouldn't be exposed as focusable on Android.
   if (IsFocusable()) {
+    // Focusable generic containers with `NameFrom::kNone` and no text of their
+    // own are not interesting when they are not leaves, as their descendants
+    // will be navigated directly.
+    if (GetRole() == ax::mojom::Role::kGenericContainer &&
+        GetNameFrom() == ax::mojom::NameFrom::kNone && !HasTextContent() &&
+        !IsLeaf()) {
+      return false;
+    }
     return true;
   }
 
@@ -1356,16 +1364,25 @@ std::u16string BrowserAccessibilityAndroid::GetAndroidSupplementalDescription()
 
 std::u16string BrowserAccessibilityAndroid::GetMultiselectableStateDescription()
     const {
-  // Count the number of children and selected children.
+  // Count the number of selectable children and selected children.
   int child_count = 0;
   int selected_count = 0;
   for (const auto& child : PlatformChildren()) {
-    child_count++;
     const BrowserAccessibilityAndroid& android_child =
         static_cast<const BrowserAccessibilityAndroid&>(child);
+    if (ui::IsSelectSupported(android_child.GetRole())) {
+      child_count++;
+    }
     if (android_child.IsSelected()) {
       selected_count++;
     }
+  }
+
+  // Prefer the set size when available, since it properly accounts for
+  // ordered sets and aria-setsize. Roles that do not compute a set size
+  // (e.g. role="grid") fall back to the count computed above.
+  if (std::optional<int> set_size = GetSetSize()) {
+    child_count = *set_size;
   }
 
   // If none are selected, return special case.
@@ -2230,14 +2247,14 @@ std::optional<int> BrowserAccessibilityAndroid::RowCount() const {
     return *GetSetSize();
   }
 
-  return node()->GetTableRowCount();
+  return node()->GetTableDomRowCount();
 }
 
 std::optional<int> BrowserAccessibilityAndroid::ColumnCount() const {
   if (!IsCollection()) {
     return std::nullopt;
   }
-  std::optional<int> ax_cols = node()->GetTableColCount();
+  std::optional<int> ax_cols = node()->GetTableDomColCount();
   if (GetRole() == ax::mojom::Role::kList ||
       GetRole() == ax::mojom::Role::kListBox ||
       GetRole() == ax::mojom::Role::kMenu ||
@@ -2258,11 +2275,11 @@ std::optional<int> BrowserAccessibilityAndroid::RowIndex() const {
   if (pos_in_set && pos_in_set > 0) {
     return *pos_in_set - 1;
   }
-  return node()->GetTableCellRowIndex();
+  return node()->GetTableCellDomRowIndex();
 }
 
 std::optional<int> BrowserAccessibilityAndroid::RowSpan() const {
-  std::optional<int> ax_row_span = node()->GetTableCellRowSpan();
+  std::optional<int> ax_row_span = node()->GetTableCellDomRowSpan();
   if (GetRole() == ax::mojom::Role::kListItem ||
       GetRole() == ax::mojom::Role::kListBoxOption) {
     // For <ol> and <ul> elements on Android (e.g. role kListItem), the AX
@@ -2274,11 +2291,11 @@ std::optional<int> BrowserAccessibilityAndroid::RowSpan() const {
 }
 
 std::optional<int> BrowserAccessibilityAndroid::ColumnIndex() const {
-  return node()->GetTableCellColIndex();
+  return node()->GetTableCellDomColIndex();
 }
 
 std::optional<int> BrowserAccessibilityAndroid::ColumnSpan() const {
-  std::optional<int> ax_col_span = node()->GetTableCellColSpan();
+  std::optional<int> ax_col_span = node()->GetTableCellDomColSpan();
   if (GetRole() == ax::mojom::Role::kListItem ||
       GetRole() == ax::mojom::Role::kListBoxOption) {
     // For <ol> and <ul> elements on Android (e.g. role kListItem), the AX

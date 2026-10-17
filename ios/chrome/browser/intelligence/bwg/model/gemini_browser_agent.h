@@ -12,6 +12,7 @@
 #import <utility>
 #import <vector>
 
+#import "base/functional/callback.h"
 #import "base/memory/raw_ptr.h"
 #import "base/observer_list.h"
 #import "base/time/time.h"
@@ -53,6 +54,7 @@ class ScopedFullscreenDisabler;
 @class GeminiCameraHandler;
 @class GeminiTabPickerHandler;
 @class GeminiConsentProviderHandler;
+@class GeminiSharedTabsDelegateBridge;
 @class GeminiPageContext;
 @class GeminiViewStateChangeHandler;
 @class GeminiScrollObserver;
@@ -200,6 +202,18 @@ class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
   // Returns the entry point that triggered the current Gemini flow.
   gemini::EntryPoint GetEntryPoint() const;
 
+  // Saves `active_page_context` to `shared_tabs_`.
+  void SaveActivePageContextToSharedTabs(
+      GeminiPageContext* active_page_context);
+
+  // Clears the set of all shared tabs if it doesn't include the active web
+  // state.
+  void UpdateSharedTabsForActiveWebState(web::WebState* active_web_state);
+
+  // Returns the array of page contexts for all currently attached
+  // inactive shared tabs.
+  NSArray<GeminiPageContext*>* GetInactiveSharedTabs() const;
+
  private:
   explicit GeminiBrowserAgent(Browser* browser);
   friend class BrowserUserData<GeminiBrowserAgent>;
@@ -207,29 +221,6 @@ class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
   friend class AppBarMediatorTest;
   friend class ToolbarMediatorTest;
   friend class LocationBarBadgeMediatorTest;
-
-  // Fetches the full context of the active page and feeds it to Gemini.
-  void RequestPageContextGeneration();
-
-  // Updates the active page context and passes it to the Gemini provider, along
-  // with any shared tabs.
-  void PropagatePageContext(GeminiPageContext* page_context);
-
-  // Updates `page_context`'s computation and attachment states based on
-  // active page eligibility and user preferences.
-  void UpdatePageContextState(GeminiPageContext* page_context);
-
-  // Saves `active_page_context` to `shared_tabs_`.
-  void SaveActivePageContextToSharedTabs(
-      GeminiPageContext* active_page_context);
-
-  // Updates the floaty with partial page context synchronously if the tab
-  // helper is available.
-  void UpdateFloatyWithPartialPageContext();
-
-  // Returns the array of page contexts for all currently attached
-  // inactive shared tabs.
-  NSArray<GeminiPageContext*>* GetInactiveSharedTabs() const;
 
   // Returns whether there is at least one inactive shared tab attached.
   bool HasInactiveSharedTabs() const;
@@ -243,10 +234,6 @@ class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
   // Starts the Gemini session (prepares context and shows overlay).
   void PresentFloaty(UIViewController* base_view_controller,
                      GeminiStartupState* startup_state);
-
-  // Adjusts the configuration around the Gemini page context based on user
-  // prefs.
-  void ApplyUserPrefsToPageContext(GeminiPageContext* gemini_page_context);
 
   // Records the page type when Gemini is invoked.
   void RecordInvocationPageType();
@@ -314,6 +301,26 @@ class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
   // Invokes the floaty.
   void InvokeFloaty(GeminiConfiguration* config);
 
+  // Invokes a new floaty for `startup_state`, configured with `page_context`
+  // (the partial page context of the active web state is used when nil).
+  // `start_time` is used to record the startup latency.
+  void InvokeNewFloaty(UIViewController* base_view_controller,
+                       GeminiStartupState* startup_state,
+                       base::TimeTicks start_time,
+                       GeminiPageContext* page_context);
+
+  // Runs the presentation deferred by `StartGeminiFlow()`, if any, with
+  // `page_context`. Called when the active page context generation completes.
+  void RunPendingPresentation(GeminiPageContext* page_context);
+
+  // Runs the pending presentation with the partial page context when the
+  // active page context generation did not complete in time.
+  void OnPendingPresentationTimeout();
+
+  // Cancels the presentation deferred by `StartGeminiFlow()`, if any. Page
+  // context generated for it afterwards is ignored.
+  void CancelPendingPresentation();
+
   // Forces the floaty to be shown if it is invoked. Can be used to set the
   // floaty opacity to 1.0 effectively re-showing the floaty. Useful to re-show
   // the floaty if a user is currently in fullscreen mode.
@@ -379,9 +386,6 @@ class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
   // Called when the application enters the foreground.
   void OnAppWillEnterForeground();
 
-  // Handles an generated page context by updating the floaty.
-  void OnPageContextGenerated(GeminiPageContext* gemini_page_context);
-
   // Called when a request for APC for a list of tabs has completed.
   void OnPersistTabContextLookupComplete(
       PersistTabContextBrowserAgent::PageContextMap contexts_map);
@@ -409,10 +413,6 @@ class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
 
   // Called when the microphone preference changes.
   void OnMicrophonePrefChanged();
-
-  // Clears the set of all shared tabs if it doesn't include the active web
-  // state.
-  void UpdateSharedTabsForActiveWebState(web::WebState* active_web_state);
 
   // Creates a partial page context synchronously for a web state.
   GeminiPageContext* CreatePartialPageContext(web::WebState* web_state);
@@ -488,6 +488,20 @@ class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
 
   // Whether the floaty is currently invoked.
   bool is_floaty_invoked_ = false;
+
+  // Presentation deferred until the active page context is generated, so that
+  // an auto-submitted prompt is sent with the full page context. Null when no
+  // presentation is pending.
+  base::OnceCallback<void(GeminiPageContext*)> pending_presentation_;
+
+  // Bounds how long `pending_presentation_` waits for page context generation,
+  // which may never complete (e.g. when cancelled by a navigation).
+  base::OneShotTimer pending_presentation_timer_;
+
+  // Whether to skip the page context generation requested on the next floaty
+  // expansion. Set when the floaty is invoked with an already generated page
+  // context, since the floaty reports its expansion as soon as it appears.
+  bool skip_page_context_generation_on_expansion_ = false;
 
   // Tracks the number of times the active tab was switched while the floaty
   // was invoked.
@@ -569,6 +583,16 @@ class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
 
   // Observers for GeminiBrowserAgent.
   base::ObserverList<Observer> observers_;
+
+  // Bridge for GeminiSharedTabsDelegate.
+  __strong GeminiSharedTabsDelegateBridge* shared_tabs_delegate_bridge_ = nil;
+
+  // Weak pointer factory for the page context generation callback of the
+  // presentation deferred by `StartGeminiFlow()`. Invalidated when that
+  // presentation is cancelled since the generation may still complete, e.g.
+  // for a tab that is no longer active, and must not run a later presentation.
+  base::WeakPtrFactory<GeminiBrowserAgent> pending_presentation_weak_factory_{
+      this};
 
   // Weak pointer factory.
   base::WeakPtrFactory<GeminiBrowserAgent> weak_factory_{this};

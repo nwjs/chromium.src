@@ -26,12 +26,54 @@ std::optional<std::string> GetAccountPreviewProfileMenuSubtitle(
     std::string_view email,
     const AccountPreviewDataService::AccountPreviewPreference& preference);
 
+// Returns a formatted subtitle string for the Settings signin promo based on
+// the account preview preference, or std::nullopt if preference contains no
+// preferred data types.
+std::optional<std::string> GetAccountPreviewSettingsPromoSubtitle(
+    const AccountPreviewDataService::AccountPreviewPreference& preference);
+
+// Returns a formatted subtitle string for the history page signin promo when
+// the user is signed in without history sync, based on the account preview
+// preference.
+std::string GetAccountPreviewHistorySignedInPromoSubtitle(
+    const AccountPreviewDataService::AccountPreviewPreference& preference);
+
+// Returns a formatted subtitle string for the history page signin promo based
+// on the account preview preference and user email, or std::nullopt if
+// preference contains no preferred data types.
+std::optional<std::string> GetAccountPreviewHistoryPromoSubtitle(
+    std::string_view email,
+    const AccountPreviewDataService::AccountPreviewPreference& preference);
+
+// Returns a formatted subtitle string for the recent tabs signin promo when
+// the user is signed in without history sync, based on the account preview
+// preference and user email.
+std::string GetAccountPreviewRecentTabsSignedInPromoSubtitle(
+    std::string_view email,
+    const AccountPreviewDataService::AccountPreviewPreference& preference);
+
+// Returns a formatted subtitle string for the recent tabs signin promo based
+// on the account preview preference, or std::nullopt if preference contains no
+// preferred data types.
+std::optional<std::string> GetAccountPreviewRecentTabsPromoSubtitle(
+    const AccountPreviewDataService::AccountPreviewPreference& preference);
+
 // Returns a formatted subtitle string for the profile separation (multi-user)
 // intercept bubble with account preview, or std::nullopt if preference contains
 // no preferred data types.
 std::optional<std::string> GetAccountPreviewProfileSeparationSubtitle(
     std::string_view existing_account_given_name,
     std::string_view new_account_email,
+    const AccountPreviewDataService::AccountPreviewPreference& preference);
+
+// Returns a formatted title string for the bookmark manager signin promo based
+// on the account preview preference.
+std::u16string GetAccountPreviewBookmarkManagerPromoTitle(
+    const AccountPreviewDataService::AccountPreviewPreference& preference);
+
+// Returns a formatted title string for the password manager signin promo card
+// based on the account preview preference.
+std::u16string GetAccountPreviewPasswordManagerPromoTitle(
     const AccountPreviewDataService::AccountPreviewPreference& preference);
 
 }  // namespace signin

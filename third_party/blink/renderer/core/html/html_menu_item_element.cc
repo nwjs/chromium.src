@@ -15,6 +15,7 @@
 #include "third_party/blink/renderer/core/events/command_event.h"
 #include "third_party/blink/renderer/core/events/keyboard_event.h"
 #include "third_party/blink/renderer/core/events/mouse_event.h"
+#include "third_party/blink/renderer/core/events/ui_event.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
@@ -26,7 +27,6 @@
 #include "third_party/blink/renderer/core/html/html_sub_menu_element.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
-#include "third_party/blink/renderer/core/input/keyboard_event_manager.h"
 #include "third_party/blink/renderer/core/keywords.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
@@ -84,7 +84,7 @@ void HTMLMenuItemElement::ParseAttribute(
     //
     // Keep this logic in sync with the logic at the bottom of `InsertedInto()`.
     if (!is_default_checkedness_overridden_) {
-      setChecked(!params.new_value.IsNull());
+      setChecked(!params.new_value.IsNull(), CheckedBehavior::kNoEvents);
       // Re-unset this flag, since `SetChecked()` set it to true by default.
       is_default_checkedness_overridden_ = false;
     }
@@ -138,7 +138,7 @@ bool HTMLMenuItemElement::IsKeyboardFocusableSlow(
     return true;
   }
 
-  if (owning_menu_element_->IsInDialogMode()) {
+  if (owning_menu_element_->IsInViolationMode()) {
     // Content model is violated, so we make everything tab-focusable.
     return true;
   }
@@ -196,7 +196,8 @@ bool HTMLMenuItemElement::IsValidInterestInvoker(Element& target) const {
   return !FastHasAttribute(html_names::kDisabledAttr);
 }
 
-bool HTMLMenuItemElement::setChecked(bool checked) {
+bool HTMLMenuItemElement::setChecked(bool checked,
+                                     CheckedBehavior event_behavior) {
   bool checkable = IsCheckable();
   is_checked_ = checked && checkable;
   PseudoStateChanged(CSSSelector::kPseudoChecked);
@@ -209,6 +210,11 @@ bool HTMLMenuItemElement::setChecked(bool checked) {
   DCHECK(!GetInvokedSubmenu());
 
   is_default_checkedness_overridden_ = true;
+
+  if (event_behavior == CheckedBehavior::kFireEvents) {
+    EnqueueEvent(*Event::Create(event_type_names::kChecked),
+                 TaskType::kUserInteraction);
+  }
 
   // Only update the exclusivity of all other menu items rooted under the same
   // fieldset *if* `this` is becoming checked under a fieldset that enforces
@@ -231,11 +237,17 @@ bool HTMLMenuItemElement::setChecked(bool checked) {
   }
 }
 
-void HTMLMenuItemElement::ActivateMenuItem() {
+void HTMLMenuItemElement::setCheckedForBinding(bool checked) {
+  setChecked(checked, CheckedBehavior::kNoEvents);
+}
+
+void HTMLMenuItemElement::ActivateMenuItem(
+    ActivationKeyboardEventType activation_type) {
   // A menu item's checkability and ability to invoke a command are
   // exclusive. If the item is checkable, that takes precedence, and the sub-
   // menu invoker will NOT be respected.
-  bool close_containing_menulist = setChecked(!checked());
+  bool close_containing_menulist =
+      setChecked(!checked(), CheckedBehavior::kFireEvents);
 
   // If this menu item isn't a submenu invoker, or it's a checkable menu item
   // that wants us to close after changing, then close the containing menu.
@@ -248,13 +260,13 @@ void HTMLMenuItemElement::ActivateMenuItem() {
 
     submenu->InvokePopover(*this, PopoverInvokedVia::kCommand);
 
-    bool handling_keyboard_event = false;
-    if (LocalFrame* frame = GetDocument().GetFrame()) {
-      handling_keyboard_event = frame->GetEventHandler().IsHandlingKeyEvent();
-    }
     if (submenu->popoverOpen()) {
-      if (handling_keyboard_event) {
-        submenu->FocusFirstItem();
+      if (activation_type != ActivationKeyboardEventType::kNotKeyboard) {
+        FocusTrigger trigger =
+            activation_type == ActivationKeyboardEventType::kTrustedKeyboard
+                ? FocusTrigger::kUserGesture
+                : FocusTrigger::kScript;
+        submenu->FocusFirstItem(trigger);
       } else {
         // If this is resulting from a click, this is happening *before* that
         // click has had a chance to focus this menuitem.  However, we should
@@ -311,7 +323,10 @@ void HTMLMenuItemElement::HandleMenuKeyboardEvents(Event& event) {
     return;
   }
 
-  FocusParams focus_params(FocusTrigger::kUserGesture);
+  CHECK(event.IsFullyTrusted())
+      << "FocusTrigger::kUserGesture depends on trusted events";
+  FocusTrigger key_focus_trigger = FocusTrigger::kUserGesture;
+  FocusParams focus_params(key_focus_trigger);
   const AtomicString key(keyboard_event->key());
 
   // Nothing else below does anything if we're not inside an owner menu that has
@@ -319,7 +334,7 @@ void HTMLMenuItemElement::HandleMenuKeyboardEvents(Event& event) {
   if (!owning_menu_element_) {
     return;
   }
-  if (owning_menu_element_->IsInDialogMode()) {
+  if (owning_menu_element_->IsInViolationMode()) {
     return;
   }
   MenuItemList menuitems = owning_menu_element_->ItemList();
@@ -437,6 +452,13 @@ void HTMLMenuItemElement::HandleMenuKeyboardEvents(Event& event) {
                         kFireEventsAndWaitForTransitions,
                     /*exception_state=*/nullptr);
                 next->Focus(focus_params);
+                if (auto* next_menuitem =
+                        DynamicTo<HTMLMenuItemElement>(next)) {
+                  if (auto* submenu = next_menuitem->GetInvokedSubmenu()) {
+                    submenu->InvokePopover(*next_menuitem,
+                                           PopoverInvokedVia::kCommand);
+                  }
+                }
                 event.SetDefaultHandled();
                 return;
               }
@@ -451,6 +473,7 @@ void HTMLMenuItemElement::HandleMenuKeyboardEvents(Event& event) {
       Element* invoker = owning_menu_element_->GetPopoverData()->invoker();
       if (auto* invoker_menuitem = DynamicTo<HTMLMenuItemElement>(invoker)) {
         Element* next_focus = nullptr;
+        bool open_new_submenu = false;
         if (auto* invoker_menubar = DynamicTo<HTMLMenuBarElement>(
                 invoker_menuitem->OwningMenuElement())) {
           MenuItemList invoker_menuitems = invoker_menubar->ItemList();
@@ -458,8 +481,9 @@ void HTMLMenuItemElement::HandleMenuKeyboardEvents(Event& event) {
                   *invoker_menuitem, /*inclusive=*/false, /*wrap=*/true);
               previous && previous != invoker_menuitem) {
             // This menulist was opened from a menuitem in a menubar, and that
-            // menubar has multiple items.  Focus the previous menulist.
+            // menubar has multiple items.  Focus the previous menuitem.
             next_focus = previous;
+            open_new_submenu = true;
           }
         } else if (IsA<HTMLMenuListElement>(
                        invoker_menuitem->OwningMenuElement())) {
@@ -468,17 +492,20 @@ void HTMLMenuItemElement::HandleMenuKeyboardEvents(Event& event) {
           next_focus = invoker;
         }
         if (next_focus) {
-          bool can_hide = owning_menu_element_->IsPopoverReady(
-              PopoverTriggerAction::kHide,
-              /*exception_state=*/nullptr,
-              /*include_event_handler_text=*/false, &GetDocument());
-          if (can_hide) {
-            owning_menu_element_->HidePopoverInternal(
-                invoker, HidePopoverFocusBehavior::kNone,
-                HidePopoverTransitionBehavior::kFireEventsAndWaitForTransitions,
-                /*exception_state=*/nullptr);
-          }
+          owning_menu_element_->HidePopoverInternal(
+              invoker, HidePopoverFocusBehavior::kNone,
+              HidePopoverTransitionBehavior::kFireEventsAndWaitForTransitions,
+              /*exception_state=*/nullptr);
           next_focus->Focus(focus_params);
+          if (open_new_submenu) {
+            if (auto* next_menuitem =
+                    DynamicTo<HTMLMenuItemElement>(next_focus)) {
+              if (auto* submenu = next_menuitem->GetInvokedSubmenu()) {
+                submenu->InvokePopover(*next_menuitem,
+                                       PopoverInvokedVia::kCommand);
+              }
+            }
+          }
           event.SetDefaultHandled();
           return;
         }
@@ -498,15 +525,48 @@ void HTMLMenuItemElement::HandleMenuKeyboardEvents(Event& event) {
     CHECK(IsA<HTMLMenuBarElement>(*owning_menu_element_));
     if (key == keywords::kArrowLeft) {
       if (auto* previous = menuitems.PreviousFocusableElement(
-              *this, /*inclusive=*/false, /*wrap=*/true)) {
+              *this, /*inclusive=*/false, /*wrap=*/true);
+          previous && previous != this) {
+        bool old_submenu_was_open = IsSubmenuOpen();
+        if (old_submenu_was_open) {
+          GetInvokedSubmenu()->HidePopoverInternal(
+              this, HidePopoverFocusBehavior::kNone,
+              HidePopoverTransitionBehavior::kFireEventsAndWaitForTransitions,
+              /*exception_state=*/nullptr);
+        }
         previous->Focus(focus_params);
+        if (old_submenu_was_open) {
+          if (auto* previous_menuitem =
+                  DynamicTo<HTMLMenuItemElement>(previous)) {
+            if (auto* submenu = previous_menuitem->GetInvokedSubmenu()) {
+              submenu->InvokePopover(*previous_menuitem,
+                                     PopoverInvokedVia::kCommand);
+            }
+          }
+        }
       }
       event.SetDefaultHandled();
       return;
     } else if (key == keywords::kArrowRight) {
       if (auto* next = menuitems.NextFocusableElement(
-              *this, /*inclusive=*/false, /*wrap=*/true)) {
+              *this, /*inclusive=*/false, /*wrap=*/true);
+          next && next != this) {
+        bool old_submenu_was_open = IsSubmenuOpen();
+        if (old_submenu_was_open) {
+          GetInvokedSubmenu()->HidePopoverInternal(
+              this, HidePopoverFocusBehavior::kNone,
+              HidePopoverTransitionBehavior::kFireEventsAndWaitForTransitions,
+              /*exception_state=*/nullptr);
+        }
         next->Focus(focus_params);
+        if (old_submenu_was_open) {
+          if (auto* next_menuitem = DynamicTo<HTMLMenuItemElement>(next)) {
+            if (auto* submenu = next_menuitem->GetInvokedSubmenu()) {
+              submenu->InvokePopover(*next_menuitem,
+                                     PopoverInvokedVia::kCommand);
+            }
+          }
+        }
       }
       event.SetDefaultHandled();
       return;
@@ -530,12 +590,12 @@ void HTMLMenuItemElement::HandleMenuKeyboardEvents(Event& event) {
       if (auto* invoked_menulist = GetInvokedSubmenu()) {
         invoked_menulist->InvokePopover(*this, PopoverInvokedVia::kCommand);
         if (key == keywords::kArrowDown) {
-          if (invoked_menulist->FocusFirstItem()) {
+          if (invoked_menulist->FocusFirstItem(key_focus_trigger)) {
             event.SetDefaultHandled();
             return;
           }
         } else if (key == keywords::kArrowUp) {
-          if (invoked_menulist->FocusLastItem()) {
+          if (invoked_menulist->FocusLastItem(key_focus_trigger)) {
             event.SetDefaultHandled();
             return;
           }
@@ -549,7 +609,7 @@ void HTMLMenuItemElement::HandleMenuPointerEvents(Event& event) {
   // This implements the special "mouse down, drag to menu item, mouse up"
   // behavior, which is mouse-only and does not apply to touchscreens. The
   // remainder of normal mouse/touch behavior is handled by the normal
-  // DOMActivate event system.
+  // activation behavior.
   const auto* mouse_event = DynamicTo<MouseEvent>(event);
   if (!mouse_event || mouse_event->FromTouch() ||
       mouse_event->button() !=
@@ -592,7 +652,7 @@ void HTMLMenuItemElement::HandleMenuPointerEvents(Event& event) {
     if (!activate_menu_item) {
       return;
     }
-    ActivateMenuItem();
+    ActivateMenuItem(ActivationKeyboardEventType::kNotKeyboard);
   } else {
     DCHECK_EQ(event.type(), event_type_names::kMousedown);
     GetDocument().SetPopoverPickerPointerdown(
@@ -600,16 +660,61 @@ void HTMLMenuItemElement::HandleMenuPointerEvents(Event& event) {
     if (GetInvokedSubmenu()) {
       // Activate sub-menus on mouse *down*, so that the user can drag and
       // release to choose a sub-menu item.
-      ActivateMenuItem();
+      ActivateMenuItem(ActivationKeyboardEventType::kNotKeyboard);
     }
   }
 }
 
+// static
+bool HTMLMenuItemElement::IsActivationFromKeyboard(
+    const Event* activate_event) {
+  // The activation event is either the click event, or (in the legacy code
+  // path) the DOMActivate event whose underlying event is that click event. In
+  // both cases, keyboard activation shows up as a keyboard event somewhere
+  // further down the chain of underlying events.
+  for (const Event* event = activate_event; event;
+       event = event->UnderlyingEvent()) {
+    if (event->IsKeyboardEvent()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// static
+HTMLMenuItemElement::ActivationKeyboardEventType
+HTMLMenuItemElement::GetActivationKeyboardEventType(
+    const Event& activation_event) {
+  if (!IsActivationFromKeyboard(&activation_event)) {
+    return ActivationKeyboardEventType::kNotKeyboard;
+  }
+  return activation_event.IsFullyTrusted()
+             ? ActivationKeyboardEventType::kTrustedKeyboard
+             : ActivationKeyboardEventType::kUntrustedKeyboard;
+}
+
+bool HTMLMenuItemElement::HasActivationBehavior() const {
+  return RuntimeEnabledFeatures::CleanUpActivationBehaviorEnabled();
+}
+
+void HTMLMenuItemElement::RunActivationBehavior(
+    Event& event,
+    EventDispatchHandlingState* handling_state) {
+  if (RuntimeEnabledFeatures::CleanUpActivationBehaviorEnabled()) {
+    if (event.defaultPrevented() || event.DefaultHandled()) {
+      return;
+    }
+    ActivateMenuItem(GetActivationKeyboardEventType(event));
+  }
+  HTMLElement::RunActivationBehavior(event, handling_state);
+}
+
 void HTMLMenuItemElement::DefaultEventHandler(Event& event) {
-  if (event.type() == event_type_names::kDOMActivate) {
+  if (!RuntimeEnabledFeatures::CleanUpActivationBehaviorEnabled() &&
+      event.type() == event_type_names::kDOMActivate) {
     // HTMLElement::DefaultEventHandler() will take care of command invokers,
     // so we can't early-return here.
-    ActivateMenuItem();
+    ActivateMenuItem(GetActivationKeyboardEventType(event));
   }
   if (HandleKeyboardActivation(event)) {
     return;
@@ -661,7 +766,7 @@ Node::InsertionNotificationRequest HTMLMenuItemElement::InsertedInto(
   if (!is_default_checkedness_overridden_) {
     const bool default_checked =
         FastHasAttribute(html_names::kDefaultcheckedAttr);
-    setChecked(default_checked);
+    setChecked(default_checked, CheckedBehavior::kNoEvents);
     // Re-unset this flag, since `SetChecked()` set it to true by default.
     is_default_checkedness_overridden_ = false;
   }

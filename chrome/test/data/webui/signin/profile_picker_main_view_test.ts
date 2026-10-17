@@ -194,13 +194,13 @@ suite('ProfilePickerMainViewTest', function() {
   test('EditLocalProfileNameDisabledForWorkProfile', async function() {
     await browserProxy.whenCalled('initializeMainView');
     const profiles = Array({
-      profilePath: `profilePath`,
-      localProfileName: `Work Profile`,
+      profilePath: 'profilePath',
+      localProfileName: 'Work Profile',
       isSyncing: true,
       needsSignin: false,
-      gaiaName: `User`,
-      userName: `User@example.com`,
-      avatarIcon: `AvatarUrl`,
+      gaiaName: 'User',
+      userName: 'User@example.com',
+      avatarIcon: 'AvatarUrl',
       avatarBadge: 'cr:domain',
       profileCardButtonLabel: '',
       hasEnterpriseLabel: true,
@@ -230,8 +230,7 @@ suite('ProfilePickerMainViewTest', function() {
 
     // Set to valid profile name.
     localProfileName.value = 'Alice';
-    localProfileName.dispatchEvent(
-        new CustomEvent('change', {bubbles: true, composed: true}));
+    localProfileName.fire('change');
     const args = await browserProxy.whenCalled('setProfileName');
     assertEquals(args[0], profiles[0]!.profilePath);
     assertEquals(args[1], 'Alice');

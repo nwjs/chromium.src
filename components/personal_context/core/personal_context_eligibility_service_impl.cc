@@ -119,13 +119,6 @@ SatisfiesAccountSettingRequirements(
     return std::pair{false, std::nullopt};
   }
 
-  if (!account_settings->GetBoolean(account_settings::kAccountSettingContext)
-           .value_or(false)) {
-    MaybeOutputReason(debug_message, "Account is opted out of context");
-    return std::pair{false,
-                     PersonalContextNonEligibilityReason::kNotOptedInToContext};
-  }
-
   if (!account_settings
            ->GetBoolean(account_settings::kAccountSettingContextWorkspace)
            .value_or(false) &&
@@ -182,11 +175,6 @@ SatisfiesPrefsRequirements(const PrefService* pref_service,
 SatisfiesMiscellaneousRequirements(GeoIpCountryCode country_code,
                                    std::string_view locale,
                                    std::string* debug_message = nullptr) {
-  if (base::FeatureList::IsEnabled(
-          features::debug::kAutofillAmbientAutofillSkipEligibilityChecks)) {
-    return std::pair{true, std::nullopt};
-  }
-
   if (country_code != GeoIpCountryCode("US")) {
     MaybeOutputReason(debug_message, "Unsupported GeoIp.");
     return std::pair{false, PersonalContextNonEligibilityReason::kNotGeoIpUS};
@@ -220,6 +208,12 @@ PersonalContextEligibilityServiceImpl::PersonalContextEligibilityServiceImpl(
     identity_manager_observer_.Observe(identity_manager);
   }
   if (pref_service_) {
+    if (pref_service_->GetInitializationStatus() ==
+        PrefService::INITIALIZATION_STATUS_WAITING) {
+      pref_service_->AddPrefInitObserver(base::BindOnce(
+          &PersonalContextEligibilityServiceImpl::OnPrefsInitialized,
+          weak_ptr_factory_.GetWeakPtr()));
+    }
     pref_registrar_.Init(pref_service_);
 #if !BUILDFLAG(IS_IOS)
     pref_registrar_.Add(
@@ -233,6 +227,14 @@ PersonalContextEligibilityServiceImpl::PersonalContextEligibilityServiceImpl(
         base::BindRepeating(
             &PersonalContextEligibilityServiceImpl::UpdateEligibilityState,
             base::Unretained(this)));
+    if (base::FeatureList::IsEnabled(
+            features::kPersonalContextRequireSettingsToggleForEncryption)) {
+      pref_registrar_.Add(
+          prefs::kPersonalContextInAutofillSettingsToggleStatus,
+          base::BindRepeating(
+              &PersonalContextEligibilityServiceImpl::UpdateEligibilityState,
+              base::Unretained(this)));
+    }
   }
   UpdateEligibilityState();
 }
@@ -250,14 +252,37 @@ void PersonalContextEligibilityServiceImpl::RemoveObserver(
   observers_.RemoveObserver(observer);
 }
 
+bool PersonalContextEligibilityServiceImpl::IsInitialized() const {
+  return is_initialized_;
+}
+
 PersonalContextEligibilityState
 PersonalContextEligibilityServiceImpl::GetEligibilityState() {
   return eligibility_state_;
 }
 
+bool PersonalContextEligibilityServiceImpl::IsEligibleForEncryption() const {
+  return is_eligible_for_encryption_;
+}
+
 std::optional<PersonalContextNonEligibilityReason>
 PersonalContextEligibilityServiceImpl::GetNonEligibilityReason() const {
   return last_non_eligibility_reason_;
+}
+
+bool PersonalContextEligibilityServiceImpl::AreDependentServicesInitialized()
+    const {
+  if (!pref_service_ || pref_service_->GetInitializationStatus() ==
+                            PrefService::INITIALIZATION_STATUS_WAITING) {
+    return false;
+  }
+  if (!identity_manager_ || !identity_manager_->AreRefreshTokensLoaded()) {
+    return false;
+  }
+  if (!account_settings_service_ || !account_settings_service_->IsLoaded()) {
+    return false;
+  }
+  return true;
 }
 
 std::pair<PersonalContextEligibilityState,
@@ -278,6 +303,11 @@ PersonalContextEligibilityServiceImpl::ComputeEligibilityState() {
       return std::pair{state.value(),
                        PersonalContextNonEligibilityReason::kEligible};
     }
+  }
+
+  if (base::FeatureList::IsEnabled(
+          features::debug::kAutofillAmbientAutofillSkipEligibilityChecks)) {
+    return std::pair{kEligible, PersonalContextNonEligibilityReason::kEligible};
   }
 
   if (auto [satisfied, reason] =
@@ -305,15 +335,34 @@ PersonalContextEligibilityServiceImpl::ComputeEligibilityState() {
   return std::pair{kEligible, PersonalContextNonEligibilityReason::kEligible};
 }
 
+bool PersonalContextEligibilityServiceImpl::ComputeEligibilityForEncryption()
+    const {
+  if (!is_initialized_ ||
+      eligibility_state_ != PersonalContextEligibilityState::kEligible) {
+    return false;
+  }
+
+  if (base::FeatureList::IsEnabled(
+          features::kPersonalContextRequireSettingsToggleForEncryption) &&
+      (!pref_service_ ||
+       !pref_service_->GetBoolean(
+           prefs::kPersonalContextInAutofillSettingsToggleStatus))) {
+    return false;
+  }
+
+  return account_settings_service_ &&
+         account_settings_service_
+             ->GetBoolean(account_settings::kAccountSettingContextPhotos)
+             .value_or(false);
+}
+
 void PersonalContextEligibilityServiceImpl::UpdateEligibilityState() {
   const auto [new_eligibility_state, non_eligibility_reason] =
       ComputeEligibilityState();
-  if (new_eligibility_state != eligibility_state_) {
-    eligibility_state_ = new_eligibility_state;
-    observers_.Notify(
-        &PersonalContextEligibilityService::Observer::OnEligibilityStateChanged,
-        eligibility_state_);
-  }
+  const bool eligibility_state_changed =
+      new_eligibility_state != eligibility_state_;
+  eligibility_state_ = new_eligibility_state;
+
   if (non_eligibility_reason != last_non_eligibility_reason_) {
     last_non_eligibility_reason_ = non_eligibility_reason;
     if (base::FeatureList::IsEnabled(
@@ -321,10 +370,40 @@ void PersonalContextEligibilityServiceImpl::UpdateEligibilityState() {
       MaybeLogPersonalContextNonEligibility(non_eligibility_reason);
     }
   }
+
+  const bool was_initialized = is_initialized_;
+  if (!is_initialized_) {
+    is_initialized_ = AreDependentServicesInitialized();
+  }
+
+  const bool new_eligible_for_encryption = ComputeEligibilityForEncryption();
+  const bool encryption_eligibility_changed =
+      new_eligible_for_encryption != is_eligible_for_encryption_;
+  is_eligible_for_encryption_ = new_eligible_for_encryption;
+
+  if (eligibility_state_changed) {
+    observers_.Notify(
+        &PersonalContextEligibilityService::Observer::OnEligibilityStateChanged,
+        eligibility_state_);
+  }
+
+  if (is_initialized_ && (!was_initialized || encryption_eligibility_changed)) {
+    observers_.Notify(&PersonalContextEligibilityService::Observer::
+                          OnEncryptionEligibilityChanged,
+                      is_eligible_for_encryption_);
+  }
+}
+
+void PersonalContextEligibilityServiceImpl::OnPrefsInitialized(bool success) {
+  UpdateEligibilityState();
 }
 
 void PersonalContextEligibilityServiceImpl::OnPrimaryAccountChanged(
     const signin::PrimaryAccountChangeEvent& event_details) {
+  UpdateEligibilityState();
+}
+
+void PersonalContextEligibilityServiceImpl::OnRefreshTokensLoaded() {
   UpdateEligibilityState();
 }
 

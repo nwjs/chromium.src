@@ -168,7 +168,7 @@ class BrowsingHistoryHandlerTest : public ChromeRenderViewHostTestHarness {
                 /*duplicate_policy=*/
                 history::QueryOptions::REMOVE_DUPLICATES_PER_DAY,
                 /*matching_algorithm=*/options.matching_algorithm,
-                /*host_only=*/options.host_only,
+                /*hostname_suffix=*/options.hostname_suffix,
                 /*visit_order=*/options.visit_order,
                 /*app_id=*/options.app_id,
                 /*include_actor_visits=*/true,
@@ -242,29 +242,29 @@ class BrowsingHistoryHandlerTest : public ChromeRenderViewHostTestHarness {
   std::unique_ptr<MockHistoryPage> mock_page_;
 };
 
-TEST_F(BrowsingHistoryHandlerTest, HostPrefixParameter) {
-  std::u16string query = u"www.chromium.org";
+TEST_F(BrowsingHistoryHandlerTest, HostnameSuffixParameter) {
+  std::u16string query = u"";
   QueryOptions options;
-  options.host_only = true;
+  options.hostname_suffix = "www.chromium.org";
   MockHistoryServiceCall(query, options);
 
-  RunQueryHistory("host:www.chromium.org");
+  auto results_mojom = RunQueryHistory("host:www.chromium.org");
+  EXPECT_EQ("www.chromium.org", results_mojom->info->term);
 }
 
-TEST_F(BrowsingHistoryHandlerTest, WithoutHostPrefixParameter) {
+TEST_F(BrowsingHistoryHandlerTest, WithoutHostnameSuffixParameter) {
   std::u16string query = u"www.chromium.org";
   QueryOptions options;
-  options.host_only = false;
   MockHistoryServiceCall(query, options);
 
-  RunQueryHistory("www.chromium.org");
+  auto results_mojom = RunQueryHistory("www.chromium.org");
+  EXPECT_EQ("www.chromium.org", results_mojom->info->term);
 }
 
-TEST_F(BrowsingHistoryHandlerTest, MisplacedHostPrefixParameter) {
+TEST_F(BrowsingHistoryHandlerTest, MisplacedHostnameSuffixParameter) {
   {
     std::u16string query = u"whost:ww.chromium.org";
     QueryOptions options;
-    options.host_only = false;
     MockHistoryServiceCall(query, options);
 
     RunQueryHistory("whost:ww.chromium.org");
@@ -273,10 +273,64 @@ TEST_F(BrowsingHistoryHandlerTest, MisplacedHostPrefixParameter) {
   {
     std::u16string query = u"www.chromium.orghost:";
     QueryOptions options;
-    options.host_only = false;
     MockHistoryServiceCall(query, options);
 
     RunQueryHistory("www.chromium.orghost:");
+  }
+}
+
+TEST_F(BrowsingHistoryHandlerTest, HostnameSuffixParameterAndTextQuery) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      history::kBrowsingHistoryImprovedHostnameSuffixMatching);
+
+  {
+    std::u16string query = u"some-text";
+    QueryOptions options;
+    options.hostname_suffix = "example.com";
+    MockHistoryServiceCall(query, options);
+
+    auto results_mojom = RunQueryHistory("host:example.com some-text");
+    EXPECT_EQ("some-text", results_mojom->info->term);
+  }
+
+  {
+    std::u16string query = u"some-text some-other-text";
+    QueryOptions options;
+    options.hostname_suffix = "example.com";
+    MockHistoryServiceCall(query, options);
+
+    auto results_mojom =
+        RunQueryHistory("some-text host:example.com some-other-text");
+    EXPECT_EQ("some-text some-other-text", results_mojom->info->term);
+  }
+}
+
+TEST_F(BrowsingHistoryHandlerTest,
+       HostnameSuffixParameterAndTextQueryImprovedMatchingDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      history::kBrowsingHistoryImprovedHostnameSuffixMatching);
+
+  {
+    // Legacy logic treats the entire rest of the string as the host.
+    std::u16string query = u"";
+    QueryOptions options;
+    options.hostname_suffix = "example.com some-text";
+    MockHistoryServiceCall(query, options);
+
+    auto results_mojom = RunQueryHistory("host:example.com some-text");
+    EXPECT_EQ("example.com some-text", results_mojom->info->term);
+  }
+
+  {
+    // If "host:" is not at index 0, legacy logic does not recognize it.
+    std::u16string query = u"some-text host:example.com";
+    QueryOptions options;
+    MockHistoryServiceCall(query, options);
+
+    auto results_mojom = RunQueryHistory("some-text host:example.com");
+    EXPECT_EQ("some-text host:example.com", results_mojom->info->term);
   }
 }
 
@@ -293,7 +347,6 @@ TEST_F(BrowsingHistoryHandlerTest, BeginTimestamp) {
   {
     std::u16string query = u"www.chromium.orghost:";
     QueryOptions options;
-    options.host_only = false;
     MockHistoryServiceCall(query, options);
     RunQueryHistory("www.chromium.orghost:");
   }
@@ -351,7 +404,8 @@ TEST_F(BrowsingHistoryHandlerTest, RequestAccountInfo) {
 TEST_F(BrowsingHistoryHandlerTest, TurnOnHistorySync) {
   // This test doesn't create a Browser instance, so FindBrowserWithTab
   // returns nullptr. TurnOnHistorySync should handle this without crashing.
-  handler()->TurnOnHistorySync();
+  handler()->TurnOnHistorySync(history::mojom::AccessPoint::kRecentTabs);
+  handler()->TurnOnHistorySync(history::mojom::AccessPoint::kHistoryPage);
 }
 
 TEST_F(BrowsingHistoryHandlerTest, ObservesIdentityManagerOnlyAfterRequest) {
@@ -610,7 +664,6 @@ class BrowsingHistoryHandlerCriticalActionsTest
     entry.timestamp = timestamp;
     entry.visit_id = visit_id;
     entry.action_type = type;
-    entry.url = GURL("http://actor-example.com");
     entry.conversation_id = std::string(conversation_id);
     entry.actor_task_id = std::string(actor_task_id);
     entry.metadata = std::string(metadata);
@@ -1033,7 +1086,6 @@ TEST_F(BrowsingHistoryHandlerTest,
   action.timestamp = base::Time::Now();
   action.visit_id = 1001;
   action.action_type = critical_actions::ActionType::kDownload;
-  action.url = GURL("http://example.com");
   critical_action_service->AddCriticalAction(action);
 
   base::HistogramTester histogram_tester;

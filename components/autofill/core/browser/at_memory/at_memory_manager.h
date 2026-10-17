@@ -172,6 +172,10 @@ class AtMemoryManager {
   // Cancels any pending search queries and resets searching states.
   void CancelPendingQueries();
 
+  // Invoked when `state_manager_` resets its state. Cancels pending search
+  // queries and hides the suggestion popup if showing.
+  void OnStateReset();
+
   // Sends the given suggestions to the UI.
   void SendSuggestions(std::vector<Suggestion> suggestions);
 
@@ -184,33 +188,38 @@ class AtMemoryManager {
 
   // Shows all the suggestions in the empty state.
   // These suggestions will be in order:
-  // * kPersonalContextNotice (optional)
   // * kTitle (optional)
   // * kAtMemorySearchResult (repeated)
+  // * kSeparator (optional)
+  // * kPersonalContextNotice (optional)
   void ShowEmptyQuerySuggestions();
 
   // Shows all the suggestions in the query typing state.
   // These suggestions will be in order:
   // * kAtMemorySearchAffordance | kAtMemoryNoConnection
+  // * kSeparator
   // * kAtMemoryAiDisclosure | kPersonalContextNotice
   void ShowQueryTypingSuggestions(const std::u16string& query);
 
   // Shows all the suggestions in the fetching state.
   // These suggestions will be in order:
   // * kAtMemoryFetching
+  // * kSeparator (optional)
   // * kPersonalContextNotice (optional)
   void ShowFetchingStateSuggestions();
 
   // Shows all the suggestions in the results retrieved state.
   // These suggestions will be in order:
-  // * kPersonalContextNotice (optional)
   // * kAtMemorySearchResult (repeated)
+  // * kSeparator (optional)
+  // * kPersonalContextNotice (optional)
   void ShowResultsRetrievedStateSuggestions(const MemorySearchResults& result);
 
   // Shows all the suggestions in the no results retrieved state.
   // These suggestions will be in order:
-  // * kPersonalContextNotice (optional)
   // * suggestion describing the error
+  // * kSeparator (optional)
+  // * kPersonalContextNotice (optional)
   void ShowNoResultsStateSuggestions(const std::u16string& query,
                                      const MemorySearchResults& result);
 
@@ -230,46 +239,13 @@ class AtMemoryManager {
                       const Suggestion& suggestion,
                       std::unique_ptr<AtMemoryMetricsRecorder> metrics);
 
-  // Triggers reauthentication and fetching of the unmasked Personal Context
-  // value, which fills the field upon completion. Returns `IsAsync(true)` if
-  // the operation involves reauthentication or server communication.
-  IsAsync FillSensitivePersonalContextData(
-      BrowserAutofillManager& bam,
-      const FormGlobalId& form_id,
-      const FieldGlobalId& field_id,
-      const Suggestion& suggestion,
-      std::unique_ptr<AtMemoryMetricsRecorder> metrics);
-
-  // Fills the field with the unmasked sensitive SPII Personal Context value if
-  // fetching succeeded, or records failure metrics if it failed.
-  void OnSensitivePersonalContextDataFetched(
-      base::WeakPtr<BrowserAutofillManager> bam,
-      const FormGlobalId& form_id,
-      const FieldGlobalId& field_id,
-      std::unique_ptr<AtMemoryMetricsRecorder> metrics,
-      AtMemoryQueryService::SpiiRetrievalResult result);
-
-  // Fills sensitive identity data by selecting the appropriate filling path
-  // depending on whether the data is sourced from Autofill AI or Personal
-  // Context. Returns `IsAsync(true)` if the operation involves reauthentication
-  // or server communication.
-  IsAsync FillSensitiveAutofillAiOrPersonalContextData(
-      BrowserAutofillManager& bam,
-      const FormGlobalId& form_id,
-      const FieldGlobalId& field_id,
-      const Suggestion& suggestion,
-      std::unique_ptr<AtMemoryMetricsRecorder> metrics);
-
-  // Fills the unmasked AutofillAI value after fetching it. Returns
-  // `IsAsync(true)` if the operation involves reauthentication or server
-  // communication.
+  // Fills sensitive Autofill AI identity data. Returns `IsAsync(true)` if the
+  // operation involves reauthentication or server communication.
   IsAsync FillSensitiveAutofillAiData(
       BrowserAutofillManager& bam,
-      const EntityInstance::EntityId& entity_id,
       const FormGlobalId& form_id,
       const FieldGlobalId& field_id,
       const Suggestion& suggestion,
-      AttributeType data_type,
       std::unique_ptr<AtMemoryMetricsRecorder> metrics);
 
   // Callback handler when the unmasked AutofillAI entity has been fetched.

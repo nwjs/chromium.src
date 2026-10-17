@@ -4,12 +4,69 @@
 
 // cc_file_path: chrome/browser/glic/host/glic_api_browsertest.cc
 
-import {CancelActionsResult, ClientCapabilities, ExperimentalTriggeringUpdateType, FileUploadPolicyState, FormFactor, HostCapability, InvocationSource, MetricUserInputReactionType, PanelStateKind, Platform, PromptType, ResponseStopCause, SbThreatType, ScreenshotEncryptionScheme, ScrollToErrorReason, WebClientMode, WebUseCounter} from '/glic/glic_api/glic_api.js';
-import type {AdditionalContext, CounterAbuseVerdict, ExperimentalTriggeringUpdate, FocusedTabData, GetPinCandidatesOptions, GlicBrowserHost, GlicWebClient, InvokeOptions, Observable, Observable2, OpenPanelInfo, PageMetadata, PanelOpeningData, PanelState, ScrollToError, TabContextResult, TabData, UserConfirmationDialogRequest, UserProfileInfo} from '/glic/glic_api/glic_api.js';
+import {                             //
+  CancelActionsResult,               //
+  ClientCapabilities,                //
+  ExperimentalTriggeringUpdateType,  //
+  FileUploadPolicyState,             //
+  FormFactor,                        //
+  HostCapability,                    //
+  InvocationSource,                  //
+  MetricUserInputReactionType,       //
+  PanelStateKind,                    //
+  Platform,                          //
+  PromptType,                        //
+  ResponseStopCause,                 //
+  SbThreatType,                      //
+  ScreenshotEncryptionScheme,        //
+  ScrollToErrorReason,               //
+  WebClientMode,                     //
+  WebUseCounter,                     //
+} from '/glic/glic_api/glic_api.js';
+import type {                               //
+             AdditionalContext,             //
+             CounterAbuseVerdict,           //
+             ExperimentalTriggeringUpdate,  //
+             FocusedTabData,                //
+             GetPinCandidatesOptions,       //
+             GlicBrowserHost,               //
+             GlicWebClient,                 //
+             InvokeOptions,                 //
+             Observable,                    //
+             Observable2,                   //
+             OpenPanelInfo,                 //
+             PageMetadata,                  //
+             PanelOpeningData,              //
+             PanelState,                    //
+             ScrollToError,                 //
+             TabContextResult,              //
+             TabData,                       //
+             UserConfirmationDialogRequest, //
+             UserProfileInfo,               //
+} from '/glic/glic_api/glic_api.js';
 import type {GlicBrowserHostImpl} from '/glic/glic_api_impl/client/glic_api_client.js';
 import {Subject} from '/glic/observable.js';
 
-import {ApiTestError, ApiTestFixtureBase, assertDefined, assertEquals, assertFalse, assertNotEquals, assertRejects, assertTrue, assertUndefined, checkDefined, mapObservable, observeSequence, readStream, runUntil, sleep, testMain, waitFor, WebClient} from './browser_test_base.js';
+import {               //
+  ApiTestError,        //
+  ApiTestFixtureBase,  //
+  assertDefined,       //
+  assertEquals,        //
+  assertFalse,         //
+  assertNotEquals,     //
+  assertRejects,       //
+  assertTrue,          //
+  assertUndefined,     //
+  checkDefined,        //
+  mapObservable,       //
+  observeSequence,     //
+  readStream,          //
+  runUntil,            //
+  sleep,               //
+  testMain,            //
+  waitFor,             //
+  WebClient,           //
+} from './browser_test_base.js';
 import type {SequencedSubscriber} from './browser_test_base.js';
 
 class ApiTests extends ApiTestFixtureBase {
@@ -494,22 +551,18 @@ class ApiTests extends ApiTestFixtureBase {
     });
   }
 
-  async testGetContextFromFocusedTabWithPdfFile() {
+  async testGetContextFromFocusedTabWithTopLevelPdf() {
     assertDefined(this.host.getContextFromFocusedTab);
     await this.host.setTabContextPermissionState(true);
 
-    // Pdf pages have two loads: one of the WebContents, and another of the
-    // element within an iframe that contains the actual pdf. We need to wait
-    // for both to be finished before running the test. The cpp side waits for
-    // the WebContents to be loaded, but we must still wait here.
-    const result: TabContextResult = await runUntil(async () => {
-      const result = await this.host.getContextFromFocusedTab!({pdfData: true});
-      if (!result || !result.pdfDocumentData ||
-          !result.pdfDocumentData.pdfData) {
-        return undefined;
-      }
-      return result;
-    });
+    // The C++ part of this browser test already ensures the PDF has been loaded
+    // by `pdf_extension_test_util::EnsurePDFHasLoaded`.
+    const result = await this.host.getContextFromFocusedTab({pdfData: true});
+    assertDefined(result);
+    assertDefined(result.pdfDocumentData);
+    assertDefined(result.pdfDocumentData.pdfData);
+    assertEquals(
+        result.pdfDocumentData.origin, new URL(result.tabData.url).origin);
 
     assertEquals(
         new URL(result.tabData.url).pathname, '/pdf/test.pdf',
@@ -525,6 +578,85 @@ class ApiTests extends ApiTestFixtureBase {
         `PDF data is too short. length=${pdfData.byteLength}`);
     assertEquals('%PDF', new TextDecoder().decode(pdfData.slice(0, 4)));
     assertFalse(result.pdfDocumentData!.pdfSizeLimitExceeded);
+  }
+
+  async testGetContextFromFocusedTabWithEmbeddedPdf() {
+    assertDefined(this.host.getContextFromFocusedTab);
+    assertDefined(this.host.getHostCapabilities);
+    await this.host.setTabContextPermissionState(true);
+
+    const embeddedPdfExtractionSupported = this.host.getHostCapabilities().has(
+        HostCapability.EMBEDDED_PDF_BYTES_EXTRACTION);
+    const result = await this.host.getContextFromFocusedTab(
+        {pdfData: embeddedPdfExtractionSupported});
+
+    if (embeddedPdfExtractionSupported) {
+      // Embedded PDF bytes extraction should only be requested if the host has
+      // the capability.
+      // The C++ part of this browser test already ensures the PDF has been
+      // loaded by `pdf_extension_test_util::EnsurePDFHasLoaded`.
+      assertDefined(result);
+      assertDefined(result.pdfDocumentData);
+      assertDefined(result.pdfDocumentData.pdfData);
+      assertEquals(
+          result.pdfDocumentData.origin, this.testParams.expectedPdfOrigin);
+
+      assertEquals(
+          new URL(result.tabData.url).pathname, '/iframe.html',
+          `Tab data has unexpected url ${result.tabData.url}`);
+
+      // Original PDF size is 7984 bytes, because Chrome reserializes the PDF,
+      // the size can change, but it shouldn't be too small.
+      const pdfData: Uint8Array =
+          await readStream(result.pdfDocumentData!.pdfData!);
+      assertTrue(
+          pdfData.byteLength > 5000,
+          `PDF data is too short. length=${pdfData.byteLength}`);
+      assertEquals('%PDF', new TextDecoder().decode(pdfData.slice(0, 4)));
+      assertFalse(result.pdfDocumentData!.pdfSizeLimitExceeded);
+    } else {
+      // The host does not support embedded PDF bytes extraction, the context
+      // request should not request PDF data.
+      assertDefined(result);
+      assertEquals(
+          new URL(result.tabData.url).pathname, '/iframe.html',
+          `Tab data has unexpected url ${result.tabData.url}`);
+      assertUndefined(result.pdfDocumentData);
+    }
+  }
+
+  async testGetContextFromFocusedTabWithEmbeddedPdfFeatureDisabled() {
+    assertDefined(this.host.getContextFromFocusedTab);
+    assertDefined(this.host.getHostCapabilities);
+    await this.host.setTabContextPermissionState(true);
+
+    const result = await this.host.getContextFromFocusedTab({pdfData: true});
+
+    // The host does not support embedded PDF bytes extraction, the context
+    // request should not request PDF data.
+    assertDefined(result);
+    assertEquals(
+        new URL(result.tabData.url).pathname, '/iframe.html',
+        `Tab data has unexpected url ${result.tabData.url}`);
+    assertUndefined(result.pdfDocumentData);
+  }
+
+  async testGetContextFromFocusedTabWithoutPdf() {
+    assertDefined(this.host.getContextFromFocusedTab);
+    assertDefined(this.host.getHostCapabilities);
+    await this.host.setTabContextPermissionState(true);
+
+    const embeddedPdfExtractionSupported = this.host.getHostCapabilities().has(
+        HostCapability.EMBEDDED_PDF_BYTES_EXTRACTION);
+
+    const result = await this.host.getContextFromFocusedTab({
+      pdfData: embeddedPdfExtractionSupported,
+    });
+    assertDefined(result);
+    assertEquals(
+        new URL(result.tabData.url).pathname, '/iframe.html',
+        `Tab data has unexpected url ${result.tabData.url}`);
+    assertUndefined(result.pdfDocumentData);
   }
 
   async testGetContextFromFocusedTabWithUnFocusablePage() {
@@ -1033,10 +1165,14 @@ class ApiTests extends ApiTestFixtureBase {
   }
 
   async testErrorShownOnMojoPipeError() {
-    // Calling getModelQualityClientId triggers a mojo pipe error because the
-    // runtime feature is disabled.
-    (this.host as GlicBrowserHostImpl)
-        .clientRemote.requestWithResponse('getModelQualityClientId', undefined);
+    if (this.testParams?.triggerError) {
+      // Calling getModelQualityClientId triggers a mojo pipe error because the
+      // runtime feature is disabled.
+      (this.host as GlicBrowserHostImpl)
+          .clientRemote
+          .requestWithResponse('getModelQualityClientId', undefined)
+          .catch(() => {});
+    }
   }
 
   async testPanelActiveWithMicrophone() {
@@ -2366,6 +2502,18 @@ class ApiTests extends ApiTestFixtureBase {
     await this.host.setAudioDucking(true);
   }
 
+  async testCaptureRegionError() {
+    assertDefined(this.host.captureRegion);
+    const observable = this.host.captureRegion({
+      tabId: '999999',
+      options: {},
+    });
+    assertDefined(observable);
+    const sequence = observeSequence(observable);
+    const err = await assertRejects(sequence.next());
+    assertDefined(err);
+  }
+
   async testGeminiEnterpriseSettings() {
     assertDefined(this.host.getGeminiEnterpriseSettings);
     const settingsObservable = this.host.getGeminiEnterpriseSettings();
@@ -2667,17 +2815,6 @@ class ApiTests extends ApiTestFixtureBase {
     assertDefined(metrics);
     assertDefined(metrics.onUserInputSubmitted);
     metrics.onUserInputSubmitted(WebClientMode.TEXT, PromptType.TYPED_TEXT);
-  }
-
-  // TODO(crbug.com/454083080): Fix this, it hangs.
-  async testCaptureScreenshot() {
-    assertDefined(this.host.captureScreenshot);
-    const screenshot = await this.host.captureScreenshot?.();
-    assertDefined(screenshot);
-    assertTrue(screenshot.widthPixels > 0);
-    assertTrue(screenshot.heightPixels > 0);
-    assertTrue(screenshot.data.byteLength > 0);
-    assertEquals(screenshot.mimeType, 'image/jpeg');
   }
 
   async fetchInactiveTabScreenshot(expectNoFocus: boolean = false) {
@@ -3313,6 +3450,34 @@ class ScreenshotTests extends ApiTestFixtureBase {
   }
 }
 
+class ConfirmationResponseTests extends ApiTestFixtureBase {
+  async testSubmitConfirmationResponse() {
+    const payload =
+        new Uint8Array(await this.client.waitForConfirmationResponse());
+    // Must match kTestConfirmationResponsePayload in the .cc file.
+    assertEquals(payload.length, 4);
+    assertEquals(payload[0], 0xde);
+    assertEquals(payload[1], 0xad);
+    assertEquals(payload[2], 0xbe);
+    assertEquals(payload[3], 0xef);
+  }
+}
+
+// Uses a client which receives confirmation responses but never reports a
+// result, so that the C++ side can verify the reply is still delivered when
+// the client goes away with a request in flight.
+class ConfirmationResponseDroppedTests extends ApiTestFixtureBase {
+  override createWebClient(): WebClient {
+    const client = new WebClient();
+    client.completeConfirmationResponses = false;
+    return client;
+  }
+
+  async testConfirmationResponseNotAppliedOnDisconnect() {
+    await this.client.waitForConfirmationResponse();
+  }
+}
+
 class WebClientThatOpensOnce extends WebClient {
   notifyPanelWillOpenCallCount = 0;
   override async notifyPanelWillOpen(panelOpeningData: PanelOpeningData):
@@ -3348,6 +3513,8 @@ const TEST_FIXTURES: Array<typeof ApiTestFixtureBase> = [
   ApiTestFailsToInitialize,
   TriggeringUpdatesTest,
   ScreenshotTests,
+  ConfirmationResponseTests,
+  ConfirmationResponseDroppedTests,
   NotifyPanelWillOpenTest,
 ];
 

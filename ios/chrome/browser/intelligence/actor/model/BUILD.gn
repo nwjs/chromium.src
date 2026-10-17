@@ -2,8 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//ios/build/chrome_build.gni")
-
 source_set("model") {
   sources = [
     "actor_browser_agent.h",
@@ -18,8 +16,8 @@ source_set("model") {
     "actor_service_factory.mm",
     "actor_task.h",
     "actor_task.mm",
-    "snackbar_actor_task_updates_observer.h",
-    "snackbar_actor_task_updates_observer.mm",
+    "actor_web_state_policy_decider.h",
+    "actor_web_state_policy_decider.mm",
   ]
   public_deps = [ "//components/sessions:session_id" ]
   deps = [
@@ -31,7 +29,12 @@ source_set("model") {
     "//components/keyed_service/core",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//components/origin_gating/core",
-    "//ios/chrome/app:background_mode_buildflags",
+
+    # TODO(crbug.com/496196467): Invert dependencies on //ios/chrome/app/.
+    "//ios/chrome/app/application_delegate:app_state",
+    "//ios/chrome/app/background_task",
+    "//ios/chrome/app/profile",
+    "//ios/chrome/browser/intelligence/actor/public:actor_control_state",
     "//ios/chrome/browser/intelligence/actor/public:actor_task_ui_protocols",
     "//ios/chrome/browser/intelligence/actor/public:actor_types",
     "//ios/chrome/browser/intelligence/actor/tools/model:actor_tool_factory",
@@ -43,31 +46,20 @@ source_set("model") {
     "//ios/chrome/browser/intelligence/actor/tools/utils:logging_util",
     "//ios/chrome/browser/intelligence/features",
     "//ios/chrome/browser/intelligence/proto_wrappers",
+    "//ios/chrome/browser/origin_gating/model",
+    "//ios/chrome/browser/shared/coordinator/scene:scene_state_header",
     "//ios/chrome/browser/shared/model/browser",
+    "//ios/chrome/browser/shared/model/browser:utils",
     "//ios/chrome/browser/shared/model/profile",
     "//ios/chrome/browser/shared/model/profile:profile_keyed_service_factory",
     "//ios/chrome/browser/shared/model/web_state_list",
     "//ios/chrome/browser/shared/model/web_state_list:utils",
+    "//ios/chrome/browser/shared/public/commands",
     "//ios/chrome/browser/tab_insertion/model",
     "//ios/web/public",
-
-    # TODO(crbug.com/512521102): Remove these deps once the snackbar prototype
-    # is removed.
-    "//ios/chrome/browser/intelligence/bwg/ui",
-    "//ios/chrome/browser/shared/model/browser:utils",
-    "//ios/chrome/browser/shared/public/commands",
-    "//ios/chrome/browser/shared/public/snackbar",
+    "//ios/web/public/js_messaging",
     "//url",
   ]
-
-  if (ios_enable_background_continued_processing) {
-    deps += [
-      "//ios/chrome/app/application_delegate:app_state",
-      "//ios/chrome/app/background_task",
-      "//ios/chrome/app/profile",
-      "//ios/chrome/browser/shared/coordinator/scene:scene_state_header",
-    ]
-  }
 }
 
 source_set("tab_helper") {
@@ -75,7 +67,10 @@ source_set("tab_helper") {
     "actor_tab_helper.h",
     "actor_tab_helper.mm",
     "actor_tab_helper_observer.h",
+    "actor_tab_helper_observer.mm",
   ]
+  public_deps =
+      [ "//ios/chrome/browser/intelligence/actor/public:actor_control_state" ]
   deps = [
     "//base",
     "//ios/web/public",
@@ -103,7 +98,7 @@ source_set("unit_tests") {
     "actor_service_unittest.mm",
     "actor_tab_helper_unittest.mm",
     "actor_task_unittest.mm",
-    "snackbar_actor_task_updates_observer_unittest.mm",
+    "actor_web_state_policy_decider_unittest.mm",
   ]
   deps = [
     ":model",
@@ -111,32 +106,43 @@ source_set("unit_tests") {
     "//base/test:test_support",
     "//components/actor/core",
     "//components/actor/core:journal",
+    "//components/actor/public/mojom:mojo_bindings",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//components/origin_gating/core",
-    "//ios/chrome/app:background_mode_buildflags",
+
+    # TODO(crbug.com/496196467): Invert dependencies on //ios/chrome/app/.
+    "//ios/chrome/app/application_delegate:app_state",
+    "//ios/chrome/app/background_task",
+    "//ios/chrome/app/background_task:features",
+    "//ios/chrome/app/profile",
+    "//ios/chrome/browser/intelligence/actor/public:actor_control_state",
     "//ios/chrome/browser/intelligence/actor/public:actor_task_ui_protocols",
     "//ios/chrome/browser/intelligence/actor/public:actor_types",
     "//ios/chrome/browser/intelligence/actor/tools/model:actor_tool_factory",
     "//ios/chrome/browser/intelligence/actor/tools/model:actor_tool_interface",
+    "//ios/chrome/browser/intelligence/actor/tools/model:navigate_tool",
     "//ios/chrome/browser/intelligence/actor/tools/model:tool_controller",
     "//ios/chrome/browser/intelligence/actor/tools/public",
     "//ios/chrome/browser/intelligence/actor/util:test_support",
     "//ios/chrome/browser/intelligence/features",
     "//ios/chrome/browser/intelligence/proto_wrappers",
     "//ios/chrome/browser/intelligence/proto_wrappers:page_context_extractor_feature",
+    "//ios/chrome/browser/origin_gating/model",
+    "//ios/chrome/browser/shared/coordinator/scene:scene_state_header",
     "//ios/chrome/browser/shared/model/browser",
     "//ios/chrome/browser/shared/model/browser/test:test_support",
     "//ios/chrome/browser/shared/model/profile/test",
     "//ios/chrome/browser/shared/model/web_state_list",
     "//ios/chrome/browser/shared/model/web_state_list/test:test_support",
     "//ios/chrome/browser/shared/public/commands",
-    "//ios/chrome/browser/shared/public/snackbar",
     "//ios/chrome/browser/snapshots/model",
     "//ios/chrome/browser/snapshots/model:snapshot_source",
     "//ios/chrome/browser/snapshots/model:test_utils",
     "//ios/chrome/browser/tab_insertion/model",
+    "//ios/chrome/browser/url_loading/model",
     "//ios/chrome/test:test_support",
     "//ios/web/find_in_page",
+    "//ios/web/public/js_messaging",
     "//ios/web/public/test",
     "//ios/web/public/test:util",
     "//ios/web/public/test/fakes",
@@ -145,14 +151,4 @@ source_set("unit_tests") {
     "//third_party/ocmock",
     "//url",
   ]
-
-  if (ios_enable_background_continued_processing) {
-    deps += [
-      "//ios/chrome/app/application_delegate:app_state",
-      "//ios/chrome/app/background_task",
-      "//ios/chrome/app/background_task:features",
-      "//ios/chrome/app/profile",
-      "//ios/chrome/browser/shared/coordinator/scene:scene_state_header",
-    ]
-  }
 }

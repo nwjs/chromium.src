@@ -39,10 +39,10 @@
 #include "third_party/blink/public/common/metrics/document_update_reason.h"
 #include "third_party/blink/public/mojom/frame/lifecycle.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/frame/viewport_intersection_state.mojom-blink.h"
+#include "third_party/blink/public/mojom/scroll/scroll_enums.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom-blink-forward.h"
 #include "third_party/blink/renderer/core/ad_tracker/overlay_interstitial_ad_detector.h"
-#include "third_party/blink/renderer/core/ad_tracker/sticky_ad_detector.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/dom/document_lifecycle.h"
 #include "third_party/blink/renderer/core/dom/document_resize_options.h"
@@ -172,6 +172,10 @@ class CORE_EXPORT LocalFrameView final
     // be clean but don't need to update state that is pushed further in the
     // rendering pipeline.
     virtual void DidFinishPostLifecycleSteps(const LocalFrameView&) {}
+
+    // Called when the LocalFrameView is being disposed (e.g. during
+    // Document::Shutdown).
+    virtual void WillDisposeView() {}
   };
 
   explicit LocalFrameView(LocalFrame&);
@@ -336,7 +340,7 @@ class CORE_EXPORT LocalFrameView final
   // Scale used to convert incoming input events.
   float InputEventsScaleFactor() const;
 
-  void DidChangeScrollOffset();
+  void DidChangeScrollOffset(mojom::blink::ScrollType);
 
   void ViewportSizeChanged();
   void InvalidateLayoutForViewportConstrainedObjects();
@@ -736,7 +740,7 @@ class CORE_EXPORT LocalFrameView final
   void DequeueScrollAnchoringAdjustment(ScrollableArea*);
   void PerformScrollAnchoringAdjustments();
 
-  void SetNeedsEnqueueScrollEvent(PaintLayerScrollableArea*);
+  void SetNeedsEnqueueDeferredScrollEvent(PaintLayerScrollableArea*);
 
   std::unique_ptr<JSONObject> CompositedLayersAsJSON(LayerTreeFlags);
 
@@ -907,7 +911,7 @@ class CORE_EXPORT LocalFrameView final
   void SelfVisibleChanged() override;
   void ParentVisibleChanged() override;
   void PropagateFrameRectsInternal() override;
-  void PropagateFrameRectsRecursively(bool force = false);
+  void PropagateFrameRectsRecursively();
   void NotifyFrameRectsChangedIfNeeded();
 
   // Updates viewport intersection state when LocalFrame's scroll positions,
@@ -920,7 +924,7 @@ class CORE_EXPORT LocalFrameView final
   }
   void VisibilityChanged(blink::mojom::FrameVisibility visibility) override;
 
-  void EnqueueScrollEvents();
+  void ProcessDeferredScrollEvents();
 
  private:
   friend class NaturalSizeLayoutScope;
@@ -1077,8 +1081,8 @@ class CORE_EXPORT LocalFrameView final
 
   void SetLayoutSizeInternal(const gfx::Size&, DocumentResizeOptions = {});
 
-  void CollectDraggableRegions(LayoutObject&,
-                               Vector<DraggableRegionValue>&) const;
+  static bool CollectDraggableRegions(LayoutObject&,
+                                      Vector<DraggableRegionValue>&);
 
   void ForAllChildViewsAndPlugins(
       base::FunctionRef<void(EmbeddedContentView&)>);
@@ -1145,9 +1149,6 @@ class CORE_EXPORT LocalFrameView final
   // Return the interstitial-ad detector for this frame, creating it if
   // necessary.
   OverlayInterstitialAdDetector& EnsureOverlayInterstitialAdDetector();
-
-  // Return the sticky-ad detector for this frame, creating it if necessary.
-  StickyAdDetector& EnsureStickyAdDetector();
 
   // Returns true if we should paint the color adjust background from the
   // StyleEngine instead of the base background color.
@@ -1257,7 +1258,8 @@ class CORE_EXPORT LocalFrameView final
       HeapLinkedHashSet<WeakMember<ScrollableArea>>;
   AnchoringAdjustmentQueue anchoring_adjustment_queue_;
 
-  HeapLinkedHashSet<WeakMember<PaintLayerScrollableArea>> scroll_event_queue_;
+  HeapLinkedHashSet<WeakMember<PaintLayerScrollableArea>>
+      deferred_scroll_event_queue_;
 
   bool suppress_adjust_view_size_;
 #if DCHECK_IS_ON()
@@ -1353,8 +1355,6 @@ class CORE_EXPORT LocalFrameView final
 
   std::unique_ptr<OverlayInterstitialAdDetector>
       overlay_interstitial_ad_detector_;
-
-  std::unique_ptr<StickyAdDetector> sticky_ad_detector_;
 
   // These tasks will be run at the beginning of the next lifecycle.
   Vector<base::OnceClosure> start_of_lifecycle_tasks_;

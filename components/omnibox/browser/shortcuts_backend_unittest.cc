@@ -71,7 +71,8 @@ class ShortcutsBackendTest : public testing::Test,
       const std::string& url,
       const std::string& contents_class = std::string(),
       const std::string& description_class = std::string(),
-      AutocompleteMatch::Type type = AutocompleteMatchType::URL_WHAT_YOU_TYPED);
+      omnibox::AutocompleteMatchType type =
+          omnibox::AutocompleteMatchType::kUrlWhatYouTyped);
   void SetSearchProvider();
 
   void SetUp() override;
@@ -131,7 +132,7 @@ ShortcutsDatabase::Shortcut::MatchCore
 ShortcutsBackendTest::MatchCoreForTesting(const std::string& url,
                                           const std::string& contents_class,
                                           const std::string& description_class,
-                                          AutocompleteMatch::Type type) {
+                                          omnibox::AutocompleteMatchType type) {
   AutocompleteMatch match(nullptr, 0, false, type);
   match.destination_url = GURL(url);
   match.contents = u"test";
@@ -228,32 +229,37 @@ TEST_F(ShortcutsBackendTest, SanitizeMatchCore) {
     std::u16string search_terms;
     std::string input_contents_class;
     std::string input_description_class;
-    AutocompleteMatch::Type input_type;
+    omnibox::AutocompleteMatchType input_type;
     std::string output_contents_class;
     std::string output_description_class;
-    AutocompleteMatch::Type output_type;
+    omnibox::AutocompleteMatchType output_type;
   };
   auto cases = std::to_array<Cases>({
-      {u"test", "0,1,4,0", "0,3,4,1", AutocompleteMatchType::URL_WHAT_YOU_TYPED,
-       "0,1,4,0", "0,1", AutocompleteMatchType::HISTORY_URL},
-      {u"test", "0,3,5,1", "0,2,5,0", AutocompleteMatchType::NAVSUGGEST, "0,1",
-       "0,0", AutocompleteMatchType::HISTORY_URL},
+      {u"test", "0,1,4,0", "0,3,4,1",
+       omnibox::AutocompleteMatchType::kUrlWhatYouTyped, "0,1,4,0", "0,1",
+       omnibox::AutocompleteMatchType::kHistoryUrl},
+      {u"test", "0,3,5,1", "0,2,5,0",
+       omnibox::AutocompleteMatchType::kNavsuggest, "0,1", "0,0",
+       omnibox::AutocompleteMatchType::kHistoryUrl},
       {u"test", "0,1", "0,0,11,2,15,0",
-       AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED, "", "",
-       AutocompleteMatchType::SEARCH_HISTORY},
-      {u"test", "0,1", "0,0", AutocompleteMatchType::SEARCH_SUGGEST, "", "",
-       AutocompleteMatchType::SEARCH_HISTORY},
-      {u"test", "0,1", "0,0", AutocompleteMatchType::SEARCH_SUGGEST_ENTITY, "",
-       "", AutocompleteMatchType::SEARCH_HISTORY},
-      {u"test", "0,1", "0,0", AutocompleteMatchType::SEARCH_SUGGEST_TAIL, "",
-       "", AutocompleteMatchType::SEARCH_HISTORY},
+       omnibox::AutocompleteMatchType::kSearchWhatYouTyped, "", "",
+       omnibox::AutocompleteMatchType::kSearchHistory},
+      {u"test", "0,1", "0,0", omnibox::AutocompleteMatchType::kSearchSuggest,
+       "", "", omnibox::AutocompleteMatchType::kSearchHistory},
       {u"test", "0,1", "0,0",
-       AutocompleteMatchType::SEARCH_SUGGEST_PERSONALIZED, "", "",
-       AutocompleteMatchType::SEARCH_HISTORY},
-      {u"test", "0,1", "0,0", AutocompleteMatchType::SEARCH_SUGGEST_PROFILE, "",
-       "", AutocompleteMatchType::SEARCH_HISTORY},
-      {u"", "0,1", "0,0", AutocompleteMatchType::CLIPBOARD_TEXT, "0,1", "0,0",
-       AutocompleteMatchType::SEARCH_HISTORY},
+       omnibox::AutocompleteMatchType::kSearchSuggestEntity, "", "",
+       omnibox::AutocompleteMatchType::kSearchHistory},
+      {u"test", "0,1", "0,0",
+       omnibox::AutocompleteMatchType::kSearchSuggestTail, "", "",
+       omnibox::AutocompleteMatchType::kSearchHistory},
+      {u"test", "0,1", "0,0",
+       omnibox::AutocompleteMatchType::kSearchSuggestPersonalized, "", "",
+       omnibox::AutocompleteMatchType::kSearchHistory},
+      {u"test", "0,1", "0,0",
+       omnibox::AutocompleteMatchType::kSearchSuggestProfile, "", "",
+       omnibox::AutocompleteMatchType::kSearchHistory},
+      {u"", "0,1", "0,0", omnibox::AutocompleteMatchType::kClipboardText, "0,1",
+       "0,0", omnibox::AutocompleteMatchType::kSearchHistory},
   });
 
   for (size_t i = 0; i < std::size(cases); ++i) {
@@ -271,11 +277,11 @@ TEST_F(ShortcutsBackendTest, SanitizeMatchCore) {
 
     ShortcutsDatabase::Shortcut::MatchCore match_core = MatchToMatchCore(match);
     EXPECT_EQ(match_core.contents_class, cases[i].output_contents_class)
-        << ":i:" << i << ":type:" << cases[i].input_type;
+        << ":i:" << i << ":type:" << static_cast<int>(cases[i].input_type);
     EXPECT_EQ(match_core.description_class, cases[i].output_description_class)
-        << ":i:" << i << ":type:" << cases[i].input_type;
+        << ":i:" << i << ":type:" << static_cast<int>(cases[i].input_type);
     EXPECT_EQ(match_core.type, cases[i].output_type)
-        << ":i:" << i << ":type:" << cases[i].input_type;
+        << ":i:" << i << ":type:" << static_cast<int>(cases[i].input_type);
   }
 }
 
@@ -284,38 +290,43 @@ TEST_F(ShortcutsBackendTest, SanitizeMatchCore_Keyword) {
   struct Cases {
     std::u16string search_terms;
     std::u16string input_fill_into_edit;
-    AutocompleteMatch::Type input_type;
+    omnibox::AutocompleteMatchType input_type;
     std::u16string input_keyword;
     ui::PageTransition input_page_transition;
     std::u16string output_fill_into_edit;
-    AutocompleteMatch::Type output_type;
+    omnibox::AutocompleteMatchType output_type;
     std::u16string output_keyword;
     ui::PageTransition output_page_transition;
   };
   auto cases = std::to_array<Cases>({
       {u"franklin d roosevelt",
        u"foo http://foo.com/search?bar=franklin+d+roosevelt",
-       AutocompleteMatchType::NAVSUGGEST, u"foo", ui::PAGE_TRANSITION_KEYWORD,
+       omnibox::AutocompleteMatchType::kNavsuggest, u"foo",
+       ui::PAGE_TRANSITION_KEYWORD,
        u"http://foo.com/search?bar=franklin+d+roosevelt",
-       AutocompleteMatchType::HISTORY_URL, u"", ui::PAGE_TRANSITION_GENERATED},
+       omnibox::AutocompleteMatchType::kHistoryUrl, u"",
+       ui::PAGE_TRANSITION_GENERATED},
       {u"franklin d roosevelt",
        u"http://foo.com/search?bar=franklin+d+roosevelt",
-       AutocompleteMatchType::NAVSUGGEST, u"foo", ui::PAGE_TRANSITION_GENERATED,
+       omnibox::AutocompleteMatchType::kNavsuggest, u"foo",
+       ui::PAGE_TRANSITION_GENERATED,
        u"http://foo.com/search?bar=franklin+d+roosevelt",
-       AutocompleteMatchType::HISTORY_URL, u"", ui::PAGE_TRANSITION_GENERATED},
+       omnibox::AutocompleteMatchType::kHistoryUrl, u"",
+       ui::PAGE_TRANSITION_GENERATED},
       {u"franklin d roosevelt", u"foo franklin d roosevelt",
-       AutocompleteMatchType::SEARCH_SUGGEST, u"foo",
+       omnibox::AutocompleteMatchType::kSearchSuggest, u"foo",
        ui::PAGE_TRANSITION_KEYWORD, u"franklin d roosevelt",
-       AutocompleteMatchType::SEARCH_HISTORY, u"foo",
+       omnibox::AutocompleteMatchType::kSearchHistory, u"foo",
        ui::PAGE_TRANSITION_GENERATED},
       {u"franklin d roosevelt", u"franklin d roosevelt",
-       AutocompleteMatchType::SEARCH_SUGGEST, u"foo",
+       omnibox::AutocompleteMatchType::kSearchSuggest, u"foo",
        ui::PAGE_TRANSITION_GENERATED, u"franklin d roosevelt",
-       AutocompleteMatchType::SEARCH_HISTORY, u"foo",
+       omnibox::AutocompleteMatchType::kSearchHistory, u"foo",
        ui::PAGE_TRANSITION_GENERATED},
-      {u"", u"franklin d roosevelt", AutocompleteMatchType::SEARCH_SUGGEST,
-       u"foo", ui::PAGE_TRANSITION_GENERATED, u"franklin d roosevelt",
-       AutocompleteMatchType::SEARCH_HISTORY, u"foo",
+      {u"", u"franklin d roosevelt",
+       omnibox::AutocompleteMatchType::kSearchSuggest, u"foo",
+       ui::PAGE_TRANSITION_GENERATED, u"franklin d roosevelt",
+       omnibox::AutocompleteMatchType::kSearchHistory, u"foo",
        ui::PAGE_TRANSITION_GENERATED},
   });
 
@@ -346,18 +357,18 @@ TEST_F(ShortcutsBackendTest, SanitizeMatchCore_Keyword) {
 TEST_F(ShortcutsBackendTest,
        MatchToMatchCore_SearchTypesWithoutSearchTermsArgs) {
   SetSearchProvider();
-  AutocompleteMatchType::Type search_types[] = {
-      AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED,
-      AutocompleteMatchType::SEARCH_HISTORY,
-      AutocompleteMatchType::SEARCH_SUGGEST,
-      AutocompleteMatchType::SEARCH_SUGGEST_ENTITY,
-      AutocompleteMatchType::SEARCH_SUGGEST_TAIL,
-      AutocompleteMatchType::SEARCH_SUGGEST_PERSONALIZED,
-      AutocompleteMatchType::SEARCH_SUGGEST_PROFILE,
-      AutocompleteMatchType::SEARCH_OTHER_ENGINE,
-      AutocompleteMatchType::CLIPBOARD_TEXT,
-      AutocompleteMatchType::CLIPBOARD_IMAGE,
-      AutocompleteMatchType::VOICE_SUGGEST,
+  omnibox::AutocompleteMatchType search_types[] = {
+      omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
+      omnibox::AutocompleteMatchType::kSearchHistory,
+      omnibox::AutocompleteMatchType::kSearchSuggest,
+      omnibox::AutocompleteMatchType::kSearchSuggestEntity,
+      omnibox::AutocompleteMatchType::kSearchSuggestTail,
+      omnibox::AutocompleteMatchType::kSearchSuggestPersonalized,
+      omnibox::AutocompleteMatchType::kSearchSuggestProfile,
+      omnibox::AutocompleteMatchType::kSearchOtherEngine,
+      omnibox::AutocompleteMatchType::kClipboardText,
+      omnibox::AutocompleteMatchType::kClipboardImage,
+      omnibox::AutocompleteMatchType::kVoiceSuggest,
   };
 
   for (auto type : search_types) {
@@ -371,11 +382,12 @@ TEST_F(ShortcutsBackendTest,
 
     // `GetTypeForShortcut()` is not public, so expect `SEARCH_HISTORY` for all
     // search types except `SEARCH_OTHER_ENGINE`.
-    AutocompleteMatchType::Type expected_type =
-        type == AutocompleteMatchType::SEARCH_OTHER_ENGINE
-            ? AutocompleteMatchType::SEARCH_OTHER_ENGINE
-            : AutocompleteMatchType::SEARCH_HISTORY;
-    EXPECT_EQ(match_core.type, expected_type) << "Failed for type: " << type;
+    omnibox::AutocompleteMatchType expected_type =
+        type == omnibox::AutocompleteMatchType::kSearchOtherEngine
+            ? omnibox::AutocompleteMatchType::kSearchOtherEngine
+            : omnibox::AutocompleteMatchType::kSearchHistory;
+    EXPECT_EQ(match_core.type, expected_type)
+        << "Failed for type: " << static_cast<int>(type);
   }
 }
 
@@ -384,7 +396,7 @@ TEST_F(ShortcutsBackendTest, SearchSuggestionTest) {
   {
     AutocompleteMatch match;
     match.fill_into_edit = u"franklin d roosevelt";
-    match.type = AutocompleteMatchType::SEARCH_SUGGEST;
+    match.type = omnibox::AutocompleteMatchType::kSearchSuggest;
     match.contents = u"franklin d roosevelt";
     match.contents_class =
         AutocompleteMatch::ClassificationsFromString("0,0,5,2");
@@ -409,7 +421,7 @@ TEST_F(ShortcutsBackendTest, SearchSuggestionTest) {
   {
     AutocompleteMatch match;
     match.fill_into_edit = u"foo franklin d roosevelt";
-    match.type = AutocompleteMatchType::SEARCH_SUGGEST;
+    match.type = omnibox::AutocompleteMatchType::kSearchSuggest;
     match.contents = u"franklin d roosevelt";
     match.contents_class =
         AutocompleteMatch::ClassificationsFromString("0,0,5,2");
@@ -434,7 +446,7 @@ TEST_F(ShortcutsBackendTest, SearchSuggestionTest) {
   {
     AutocompleteMatch match;
     match.fill_into_edit = u"franklin d roosevelt";
-    match.type = AutocompleteMatchType::SEARCH_SUGGEST_ENTITY;
+    match.type = omnibox::AutocompleteMatchType::kSearchSuggestEntity;
     match.contents = u"roosevelt";
     match.contents_class =
         AutocompleteMatch::ClassificationsFromString("0,0,5,2");
@@ -461,7 +473,7 @@ TEST_F(ShortcutsBackendTest, SearchSuggestionTest) {
   {
     AutocompleteMatch match;
     match.fill_into_edit = u"foo franklin d roosevelt";
-    match.type = AutocompleteMatchType::SEARCH_SUGGEST_ENTITY;
+    match.type = omnibox::AutocompleteMatchType::kSearchSuggestEntity;
     match.contents = u"roosevelt";
     match.contents_class =
         AutocompleteMatch::ClassificationsFromString("0,0,5,2");
@@ -492,7 +504,7 @@ TEST_F(ShortcutsBackendTest, MatchCoreDescriptionTest) {
   // match.description.
   {
     AutocompleteMatch match;
-    match.type = AutocompleteMatchType::NAVSUGGEST;
+    match.type = omnibox::AutocompleteMatchType::kNavsuggest;
     match.description = u"the cat";
     match.description_class =
         AutocompleteMatch::ClassificationsFromString("0,1");
@@ -508,7 +520,7 @@ TEST_F(ShortcutsBackendTest, MatchCoreDescriptionTest) {
   // instead of match.description.
   {
     AutocompleteMatch match;
-    match.type = AutocompleteMatchType::NAVSUGGEST;
+    match.type = omnibox::AutocompleteMatchType::kNavsuggest;
     match.description = u"the cat";
     match.description_class =
         AutocompleteMatch::ClassificationsFromString("0,1");
@@ -556,11 +568,10 @@ TEST_F(ShortcutsBackendTest, AddAndUpdateShortcut_ZeroSuggest) {
   EXPECT_FALSE(changed_notified());
 
   scoped_refptr<FakeAutocompleteProvider> zero_suggest_provider =
-      new FakeAutocompleteProvider(
-          AutocompleteProvider::Type::TYPE_ZERO_SUGGEST);
+      new FakeAutocompleteProvider(AutocompleteProvider::Type::kZeroSuggest);
   AutocompleteMatch zero_suggest_match(
       zero_suggest_provider.get(), 400, true,
-      AutocompleteMatchType::TILE_MOST_VISITED_SITE);
+      omnibox::AutocompleteMatchType::kTileMostVisitedSite);
 
   backend()->AddOrUpdateShortcut(u"some text", zero_suggest_match);
   EXPECT_FALSE(changed_notified());
@@ -753,7 +764,7 @@ TEST_F(ShortcutsBackendTest, AddOrUpdateShortcut_3CharShortening) {
   InitBackend();
 
   AutocompleteMatch match;
-  match.type = AutocompleteMatchType::NAVSUGGEST;
+  match.type = omnibox::AutocompleteMatchType::kNavsuggest;
   match.destination_url = GURL("https://www.google.com");
 
   // Should not have a shortcut initially.
@@ -807,7 +818,7 @@ TEST_F(ShortcutsBackendTest, AddOrUpdateShortcut_Expanding) {
   InitBackend();
 
   AutocompleteMatch match;
-  match.type = AutocompleteMatchType::NAVSUGGEST;
+  match.type = omnibox::AutocompleteMatchType::kNavsuggest;
   match.destination_url = GURL("https://www.host-sharedB.com/path");
   match.description = u"https://www.description.com";
   match.contents = u"a an app apple i it word ZaZaaZZ symbols(╯°□°）╯ sharedA";
@@ -924,7 +935,7 @@ TEST_F(ShortcutsBackendTest, AddOrUpdateShortcut_Expanding) {
 
   // Should not expand when match contents is empty.
   AutocompleteMatch match_without_contents;
-  match_without_contents.type = AutocompleteMatchType::NAVSUGGEST;
+  match_without_contents.type = omnibox::AutocompleteMatchType::kNavsuggest;
   match_without_contents.destination_url = GURL("https://www.host.com/google");
   match_without_contents.description = u"google";
   match_without_contents.description_class.emplace_back(0, 0);
@@ -935,7 +946,7 @@ TEST_F(ShortcutsBackendTest, AddOrUpdateShortcut_Expanding) {
   // Should expand with description when `swap_contents_and_description` is
   // true.
   AutocompleteMatch swapped_match;
-  swapped_match.type = AutocompleteMatchType::NAVSUGGEST;
+  swapped_match.type = omnibox::AutocompleteMatchType::kNavsuggest;
   swapped_match.swap_contents_and_description = true;
   swapped_match.destination_url = GURL("https://www.google.com");
   swapped_match.contents = u"https://www.googlecontents.com";
@@ -957,7 +968,7 @@ TEST_F(ShortcutsBackendTest, AddOrUpdateShortcut_Expanding_Prefix) {
                         const std::string& expected_expanded_text) {
     SCOPED_TRACE("Text: " + text + ", match_text: " + match_text);
     AutocompleteMatch match;
-    match.type = AutocompleteMatchType::NAVSUGGEST;
+    match.type = omnibox::AutocompleteMatchType::kNavsuggest;
     match.contents = base::UTF8ToUTF16(match_text);
     match.contents_class.emplace_back(0, 0);
 
@@ -1006,7 +1017,7 @@ TEST_F(ShortcutsBackendTest, AddOrUpdateShortcut_Expanding_Case) {
                         const std::string& expected_expanded_text) {
     SCOPED_TRACE("Text: " + text + ", match_text: " + match_text);
     AutocompleteMatch match;
-    match.type = AutocompleteMatchType::NAVSUGGEST;
+    match.type = omnibox::AutocompleteMatchType::kNavsuggest;
     match.contents = base::UTF8ToUTF16(match_text);
     match.contents_class.emplace_back(0, 0);
 
@@ -1045,7 +1056,7 @@ TEST_F(ShortcutsBackendTest, AddOrUpdateShortcut_Expanding_Case) {
                                const std::string& expected_expanded_text) {
     SCOPED_TRACE("Text: " + text + ", match_text: " + match_text);
     AutocompleteMatch match;
-    match.type = AutocompleteMatchType::NAVSUGGEST;
+    match.type = omnibox::AutocompleteMatchType::kNavsuggest;
     match.contents = base::UTF8ToUTF16(match_text);
     match.contents_class.emplace_back(0, 0);
     match.destination_url = GURL("http://www.url.com");

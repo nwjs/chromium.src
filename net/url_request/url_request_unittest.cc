@@ -114,7 +114,7 @@
 #include "net/http/http_util.h"
 #include "net/http/no_vary_search_cache_storage_file_operations.h"
 #include "net/http/transport_security_state.h"
-#include "net/http/transport_security_state_source.h"
+#include "net/http/transport_security_state_test_util.h"
 #include "net/log/file_net_log_observer.h"
 #include "net/log/net_log.h"
 #include "net/log/net_log_event_type.h"
@@ -208,13 +208,6 @@ using std::string;
 namespace net {
 
 namespace {
-
-namespace test_default {
-// TODO(crbug.com/497882860): Remove pins includes from this file?
-#include "net/http/transport_security_state_static_pins_unittest_default.h"
-// Must be included after the pins:
-#include "net/http/transport_security_state_static_unittest_default.h"
-}
 
 const std::u16string kSecret(u"secret");
 const std::u16string kUser(u"user");
@@ -658,8 +651,6 @@ class URLRequestTest : public PlatformTest, public WithTaskEnvironment {
   ~URLRequestTest() override {
     // URLRequestJobs may post clean-up tasks on destruction.
     base::RunLoop().RunUntilIdle();
-
-    SetTransportSecurityStateSourceForTesting(nullptr);
   }
 
   void SetUp() override {
@@ -6253,7 +6244,7 @@ TEST_F(URLRequestTestHTTP, PKPBypassRecorded) {
 
   std::string test_server_hostname = "www.example.org";
 
-  SetTransportSecurityStateSourceForTesting(&test_default::kHSTSSource);
+  ScopedTransportSecurityStateSource scoped_transport_security_state_source;
 
   auto context_builder = CreateTestURLRequestContextBuilder();
   context_builder->SetCertVerifier(std::move(cert_verifier));
@@ -9417,9 +9408,6 @@ class HTTPSRequestTest : public TestWithTaskEnvironment {
     AddScopedFeatureList().InitAndDisableFeature(
         features::kPermitTcpSocketPoolConnectBackupJobs);
   }
-  ~HTTPSRequestTest() override {
-    SetTransportSecurityStateSourceForTesting(nullptr);
-  }
 
   URLRequestContext& default_context() { return *default_context_; }
 
@@ -9572,7 +9560,7 @@ TEST_F(HTTPSRequestTest, SSLNetErrorReportedToDelegate) {
 // certificate error sets the |certificate_errors_are_fatal| flag correctly.
 // This flag will cause the interstitial to be fatal.
 TEST_F(HTTPSRequestTest, HTTPSPreloadedHSTSTest) {
-  SetTransportSecurityStateSourceForTesting(&test_default::kHSTSSource);
+  ScopedTransportSecurityStateSource scoped_transport_security_state_source;
 
   EmbeddedTestServer test_server(net::EmbeddedTestServer::TYPE_HTTPS);
   test_server.SetSSLConfig(net::EmbeddedTestServer::CERT_MISMATCHED_NAME);
@@ -9614,7 +9602,7 @@ TEST_F(HTTPSRequestTest, HTTPSPreloadedHSTSTest) {
 TEST_F(HTTPSRequestTest, HTTPSErrorsNoClobberTSSTest) {
   AddScopedFeatureList().InitAndEnableFeature(
       net::features::kStaticKeyPinningEnforcement);
-  SetTransportSecurityStateSourceForTesting(&test_default::kHSTSSource);
+  ScopedTransportSecurityStateSource scoped_transport_security_state_source;
 
   // The actual problem -- CERT_MISMATCHED_NAME in this case -- doesn't
   // matter. It just has to be any error.
@@ -11613,7 +11601,7 @@ TEST_F(HTTPSLocalCRLSetTest, InterceptionBlockedAllowOverrideOnHSTS) {
   TransportSecurityState& security_state = *context->transport_security_state();
   security_state.EnableStaticPinsForTesting();
   security_state.SetPinningListAlwaysTimelyForTesting(true);
-  SetTransportSecurityStateSourceForTesting(&test_default::kHSTSSource);
+  ScopedTransportSecurityStateSource scoped_transport_security_state_source;
 
   // Connect to the test server and see the certificate error flagged, but
   // not fatal.
@@ -12988,89 +12976,6 @@ TEST_F(URLRequestTest, CookiePartitionKey) {
               tc.expected_third_party);
   }
 }
-
-class URLRequestMaybeAsyncFirstPartySetsTest
-    : public URLRequestTest,
-      public testing::WithParamInterface<bool> {
- public:
-  URLRequestMaybeAsyncFirstPartySetsTest() { CHECK(test_server_.Start()); }
-
-  std::unique_ptr<CookieStore> CreateCookieStore() {
-    auto cookie_monster = std::make_unique<CookieMonster>(/*store=*/nullptr,
-                                                          /*net_log=*/nullptr);
-    auto cookie_access_delegate = std::make_unique<TestCookieAccessDelegate>();
-    cookie_access_delegate->set_invoke_callbacks_asynchronously(
-        invoke_callbacks_asynchronously());
-    cookie_monster->SetCookieAccessDelegate(std::move(cookie_access_delegate));
-    return cookie_monster;
-  }
-
-  bool invoke_callbacks_asynchronously() { return GetParam(); }
-
-  HttpTestServer& test_server() { return test_server_; }
-
- private:
-  HttpTestServer test_server_;
-};
-
-TEST_P(URLRequestMaybeAsyncFirstPartySetsTest, SimpleRequest) {
-  const std::string kHost = "example.test";
-  const url::Origin kOrigin =
-      url::Origin::Create(test_server().GetURL(kHost, "/"));
-  const SiteForCookies kSiteForCookies = SiteForCookies::FromOrigin(kOrigin);
-
-  auto context_builder = CreateTestURLRequestContextBuilder();
-  context_builder->SetCookieStore(CreateCookieStore());
-  auto context = context_builder->Build();
-
-  TestDelegate d;
-  std::unique_ptr<URLRequest> req(context->CreateRequest(
-      test_server().GetURL(kHost, "/echo"), DEFAULT_PRIORITY, &d,
-      TRAFFIC_ANNOTATION_FOR_TESTS, net::handles::kInvalidNetworkHandle));
-  req->set_isolation_info(
-      IsolationInfo::Create(IsolationInfo::RequestType::kMainFrame, kOrigin,
-                            kOrigin, kSiteForCookies));
-  req->Start();
-  d.RunUntilComplete();
-
-  EXPECT_EQ(d.data_received(), "Echo");
-  EXPECT_THAT(d.request_status(), IsOk());
-  EXPECT_EQ(req->GetResponseCode(), 200);
-}
-
-TEST_P(URLRequestMaybeAsyncFirstPartySetsTest, SingleRedirect) {
-  const std::string kHost = "example.test";
-  const url::Origin kOrigin =
-      url::Origin::Create(test_server().GetURL(kHost, "/"));
-  const SiteForCookies kSiteForCookies = SiteForCookies::FromOrigin(kOrigin);
-
-  auto context_builder = CreateTestURLRequestContextBuilder();
-  context_builder->SetCookieStore(CreateCookieStore());
-  auto context = context_builder->Build();
-
-  TestDelegate d;
-  std::unique_ptr<URLRequest> req(context->CreateRequest(
-      test_server().GetURL(kHost,
-                           base::StrCat({
-                               "/server-redirect?",
-                               test_server().GetURL(kHost, "/echo").spec(),
-                           })),
-      DEFAULT_PRIORITY, &d, TRAFFIC_ANNOTATION_FOR_TESTS,
-      net::handles::kInvalidNetworkHandle));
-  req->set_isolation_info(
-      IsolationInfo::Create(IsolationInfo::RequestType::kMainFrame, kOrigin,
-                            kOrigin, kSiteForCookies));
-  req->Start();
-  d.RunUntilComplete();
-
-  EXPECT_EQ(d.data_received(), "Echo");
-  EXPECT_THAT(d.request_status(), IsOk());
-  EXPECT_EQ(req->GetResponseCode(), 200);
-}
-
-INSTANTIATE_TEST_SUITE_P(,
-                         URLRequestMaybeAsyncFirstPartySetsTest,
-                         testing::Bool());
 
 class PartitionConnectionsByNetworkAnonymizationKey : public URLRequestTest {
  public:

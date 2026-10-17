@@ -5,6 +5,8 @@
 #include "content/browser/renderer_host/navigation_request.h"
 
 #include <memory>
+#include <optional>
+#include <string_view>
 
 #include "base/command_line.h"
 #include "base/files/scoped_temp_dir.h"
@@ -22,6 +24,7 @@
 #include "build/build_config.h"
 #include "content/browser/process_lock.h"
 #include "content/browser/renderer_host/debug_urls.h"
+#include "content/browser/renderer_host/frame_tree_node.h"
 #include "content/browser/renderer_host/navigation_controller_impl.h"
 #include "content/browser/renderer_host/navigation_throttle_runner.h"
 #include "content/browser/renderer_host/process_selection_deferring_condition_runner.h"
@@ -53,7 +56,6 @@
 #include "content/public/test/content_browser_test.h"
 #include "content/public/test/content_browser_test_content_browser_client.h"
 #include "content/public/test/content_browser_test_utils.h"
-#include "content/public/test/fenced_frame_test_util.h"
 #include "content/public/test/mock_web_contents_observer.h"
 #include "content/public/test/navigation_handle_observer.h"
 #include "content/public/test/prerender_test_util.h"
@@ -71,17 +73,21 @@
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/controllable_http_response.h"
 #include "net/test/embedded_test_server/default_handlers.h"
+#include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/embedded_test_server/expectation_handler.h"
 #include "net/test/url_request/url_request_failed_job.h"
 #include "services/network/public/cpp/loading_params.h"
 #include "testing/gmock/include/gmock/gmock.h"
+#include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/chrome_debug_urls.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/navigation/navigation_policy.h"
 #include "third_party/blink/public/common/runtime_feature_state/runtime_feature_state_context.h"
 #include "third_party/blink/public/common/runtime_feature_state/runtime_feature_state_read_context.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom.h"
 #include "third_party/blink/public/mojom/runtime_feature_state/runtime_feature.mojom.h"
 #include "ui/base/page_transition_types.h"
+#include "url/gurl.h"
 #include "url/origin.h"
 #include "url/scheme_host_port.h"
 #include "url/url_constants.h"
@@ -3110,7 +3116,10 @@ IN_PROC_BROWSER_TEST_F(NavigationRequestBrowserTest,
                             GURL(blink::kChromeUIKillURL),
                             GURL(blink::kChromeUIHangURL),
                             GURL(blink::kChromeUIShorthangURL),
-                            GURL(blink::kChromeUIMemoryExhaustURL)};
+                            GURL(blink::kChromeUIMemoryExhaustURL),
+                            GURL(blink::kChromeUIBlinkOOMURL),
+                            GURL(blink::kChromeUIBlinkWorkerOOMURL),
+                            GURL(blink::kChromeUIV8OOMURL)};
 
   for (const auto& test_url : kTestUrls) {
     SCOPED_TRACE(testing::Message() << "renderer_debug_url = " << test_url);
@@ -3880,12 +3889,12 @@ IN_PROC_BROWSER_TEST_F(NavigationRequestDownloadBrowserTest,
 
   // Simulate a compromised renderer that stripped the kOpenerCrossOrigin flag
   // from IPC.
-  request->common_params_->download_policy.observed_types.reset();
-  request->common_params_->download_policy.disallowed_types.reset();
+  request->download_policy_for_testing().observed_types.reset();
+  request->download_policy_for_testing().disallowed_types.reset();
 
-  EXPECT_FALSE(request->common_params_->download_policy.IsType(
+  EXPECT_FALSE(request->download_policy_for_testing().IsType(
       blink::NavigationDownloadType::kOpenerCrossOrigin));
-  EXPECT_TRUE(request->common_params_->download_policy.IsDownloadAllowed());
+  EXPECT_TRUE(request->download_policy_for_testing().IsDownloadAllowed());
 
   // Close the initiator popup to destroy the initiator RenderFrameHost. This
   // verifies that browser-side enforcement relies on cached state recorded at
@@ -3895,13 +3904,170 @@ IN_PROC_BROWSER_TEST_F(NavigationRequestDownloadBrowserTest,
   popup->Close();
 
   // Run browser recomputation:
-  request->ComputeDownloadPolicy();
+  request->ComputeDownloadPolicyForTesting();
 
   // Verify browser recomputation enforced kOpenerCrossOrigin even after
   // initiator RFH destruction:
-  EXPECT_TRUE(request->common_params_->download_policy.IsType(
+  EXPECT_TRUE(request->download_policy_for_testing().IsType(
       blink::NavigationDownloadType::kOpenerCrossOrigin));
-  EXPECT_FALSE(request->common_params_->download_policy.IsDownloadAllowed());
+  EXPECT_FALSE(request->download_policy_for_testing().IsDownloadAllowed());
+}
+
+class NavigationRequestDownloadPolicyNoGestureBrowserTest
+    : public NavigationRequestDownloadBrowserTest,
+      public ::testing::WithParamInterface<bool> {
+ protected:
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    NavigationRequestDownloadBrowserTest::SetUpCommandLine(command_line);
+    // Make sure child frames used in the FromFrameProxy tests are isolated.
+    IsolateAllSitesForTesting(command_line);
+  }
+
+  void TearDownOnMainThread() override {
+    if (navigation_manager_) {
+      ASSERT_TRUE(navigation_manager_->WaitForNavigationFinished());
+    }
+    NavigationRequestDownloadBrowserTest::TearDownOnMainThread();
+  }
+
+  // Navigates the main frame to `relative_url`, and sets up
+  // `navigation_manager_` and `download_url_` to watch for a navigation in that
+  // frame.
+  bool SetUpNavigationManager(std::string_view relative_url) {
+    if (!NavigateToURL(shell(),
+                       embedded_test_server()->GetURL("a.com", relative_url))) {
+      return false;
+    }
+    download_url_ =
+        embedded_test_server()->GetURL("a.com", "/download-test1.lib");
+    navigation_manager_.emplace(shell()->web_contents(), download_url_);
+    return true;
+  }
+
+  NavigationRequest* WaitForMainFrameNavigationRequest() {
+    if (!navigation_manager_) {
+      ADD_FAILURE() << "SetUpNavigationManager wasn't called.";
+      return nullptr;
+    }
+    if (!navigation_manager_->WaitForRequestStart()) {
+      ADD_FAILURE() << "Main frame navigation failed to start.";
+      return nullptr;
+    }
+    return static_cast<WebContentsImpl*>(shell()->web_contents())
+        ->GetPrimaryMainFrame()
+        ->frame_tree_node()
+        ->navigation_request();
+  }
+
+  bool with_user_gesture() const { return GetParam(); }
+
+  // Returns a URL that will trigger a download. Will return an empty URL until
+  // SetUpNavigationManager() is called.
+  GURL download_url() const { return download_url_; }
+
+ private:
+  GURL download_url_;
+  std::optional<TestNavigationManager> navigation_manager_;
+};
+
+INSTANTIATE_TEST_SUITE_P(WithUserGesture,
+                         NavigationRequestDownloadPolicyNoGestureBrowserTest,
+                         ::testing::Bool());
+
+IN_PROC_BROWSER_TEST_P(NavigationRequestDownloadPolicyNoGestureBrowserTest,
+                       RendererInitiated) {
+  ASSERT_TRUE(SetUpNavigationManager("/title1.html"));
+
+  EXPECT_TRUE(ExecJs(shell(), JsReplace("location.href = $1;", download_url()),
+                     with_user_gesture() ? EXECUTE_SCRIPT_DEFAULT_OPTIONS
+                                         : EXECUTE_SCRIPT_NO_USER_GESTURE));
+
+  NavigationRequest* request = WaitForMainFrameNavigationRequest();
+  ASSERT_TRUE(request);
+  EXPECT_EQ(request->HasUserGesture(), with_user_gesture());
+  EXPECT_EQ(request->StartedWithTransientActivation(), with_user_gesture());
+
+  // The initial computation includes policy from both browser and renderer.
+  EXPECT_NE(request->common_params().download_policy.IsType(
+                blink::NavigationDownloadType::kNoGesture),
+            with_user_gesture());
+
+  // Simulate a compromised renderer that didn't set the download policy.
+  request->download_policy_for_testing().observed_types.reset();
+  request->download_policy_for_testing().disallowed_types.reset();
+  EXPECT_FALSE(request->common_params().download_policy.IsType(
+      blink::NavigationDownloadType::kNoGesture));
+
+  // Recompute the download policy from browser information only.
+  request->ComputeDownloadPolicyForTesting();
+  EXPECT_NE(request->common_params().download_policy.IsType(
+                blink::NavigationDownloadType::kNoGesture),
+            with_user_gesture());
+}
+
+// Navigation from a remote iframe should set kNoGesture correctly, even though
+// HasUserGesture() is filtered during proxy navigations.
+IN_PROC_BROWSER_TEST_P(NavigationRequestDownloadPolicyNoGestureBrowserTest,
+                       FromFrameProxy) {
+  ASSERT_TRUE(SetUpNavigationManager("/cross_site_iframe_factory.html?a(b)"));
+
+  FrameTreeNode* root = static_cast<WebContentsImpl*>(shell()->web_contents())
+                            ->GetPrimaryFrameTree()
+                            .root();
+  FrameTreeNode* child = root->child_at(0);
+  ASSERT_TRUE(child);
+  ASSERT_TRUE(child->current_frame_host()->IsCrossProcessSubframe());
+  EXPECT_TRUE(ExecJs(child,
+                     JsReplace("parent.location.href = $1;", download_url()),
+                     with_user_gesture() ? EXECUTE_SCRIPT_DEFAULT_OPTIONS
+                                         : EXECUTE_SCRIPT_NO_USER_GESTURE));
+
+  NavigationRequest* request = WaitForMainFrameNavigationRequest();
+  ASSERT_TRUE(request);
+  EXPECT_FALSE(request->HasUserGesture())
+      << "HasUserGesture() should be filtered.";
+  EXPECT_EQ(request->StartedWithTransientActivation(), with_user_gesture());
+
+  // The initial computation includes policy from both browser and renderer.
+  EXPECT_NE(request->common_params().download_policy.IsType(
+                blink::NavigationDownloadType::kNoGesture),
+            with_user_gesture());
+
+  // Simulate a compromised renderer that didn't set the download policy.
+  request->download_policy_for_testing().observed_types.reset();
+  request->download_policy_for_testing().disallowed_types.reset();
+  EXPECT_FALSE(request->common_params().download_policy.IsType(
+      blink::NavigationDownloadType::kNoGesture));
+
+  // Recompute the download policy from browser information only.
+  request->ComputeDownloadPolicyForTesting();
+  EXPECT_NE(request->common_params().download_policy.IsType(
+                blink::NavigationDownloadType::kNoGesture),
+            with_user_gesture());
+}
+
+IN_PROC_BROWSER_TEST_P(NavigationRequestDownloadPolicyNoGestureBrowserTest,
+                       BrowserInitiated) {
+  ASSERT_TRUE(SetUpNavigationManager("/title1.html"));
+
+  NavigationController::LoadURLParams params(download_url());
+  // Same as Shell::LoadURL.
+  params.transition_type = ui::PageTransitionFromInt(
+      ui::PAGE_TRANSITION_TYPED | ui::PAGE_TRANSITION_FROM_ADDRESS_BAR);
+  params.has_user_gesture = with_user_gesture();
+  shell()->web_contents()->GetController().LoadURLWithParams(params);
+
+  NavigationRequest* request = WaitForMainFrameNavigationRequest();
+  ASSERT_TRUE(request);
+  EXPECT_EQ(request->HasUserGesture(), with_user_gesture());
+  EXPECT_FALSE(request->StartedWithTransientActivation())
+      << "StartedWithTransientActivation() should be false for "
+         "browser-initiated navigations.";
+
+  // The initial computation sets the policy from the browser only.
+  EXPECT_NE(request->common_params().download_policy.IsType(
+                blink::NavigationDownloadType::kNoGesture),
+            with_user_gesture());
 }
 
 class NavigationRequestBackForwardBrowserTest
@@ -4649,96 +4815,6 @@ IN_PROC_BROWSER_TEST_F(CSPEmbeddedEnforcementBrowserTest,
   }
 }
 
-class NavigationRequestFencedFrameBrowserTest
-    : public NavigationRequestBrowserTest {
- public:
-  NavigationRequestFencedFrameBrowserTest() = default;
-  ~NavigationRequestFencedFrameBrowserTest() override = default;
-  NavigationRequestFencedFrameBrowserTest(
-      const NavigationRequestFencedFrameBrowserTest&) = delete;
-
-  NavigationRequestFencedFrameBrowserTest& operator=(
-      const NavigationRequestFencedFrameBrowserTest&) = delete;
-
-  void SetUpOnMainThread() override {
-    https_server()->SetSSLConfig(net::EmbeddedTestServer::CERT_TEST_NAMES);
-    https_server()->ServeFilesFromSourceDirectory(GetTestDataFilePath());
-    net::test_server::RegisterDefaultHandlers(https_server());
-    ASSERT_TRUE(https_server()->Start());
-    NavigationRequestBrowserTest::SetUpOnMainThread();
-  }
-
-  test::FencedFrameTestHelper& fenced_frame_test_helper() {
-    return fenced_frame_helper_;
-  }
-
-  net::EmbeddedTestServer* https_server() { return &https_server_; }
-
- private:
-  test::FencedFrameTestHelper fenced_frame_helper_;
-  net::EmbeddedTestServer https_server_{net::EmbeddedTestServer::TYPE_HTTPS};
-};
-
-
-IN_PROC_BROWSER_TEST_F(
-    NavigationRequestFencedFrameBrowserTest,
-    RespectOutermostFrameCOEPParentOnInsecureContentAndChildOnSecureContent) {
-  // Navigate |untrustworthy_url| to test if a fenced frame sets the outermost
-  // main frame's COEP.
-  GURL untrustworthy_url =
-      embedded_test_server()->GetURL("a.test", "/title1.html");
-  EXPECT_TRUE(NavigateToURL(shell(), untrustworthy_url));
-
-  // Create a fenced frame on a secure content and its document should have the
-  // COEP of the outermost main frame.
-  GURL fenced_frame_url =
-      https_server()->GetURL("a.test",
-                             "/set-header?"
-                             "Supports-Loading-Mode: fenced-frame&"
-                             "Cross-Origin-Embedder-Policy: require-corp");
-  RenderFrameHostImpl* fenced_frame_host = static_cast<RenderFrameHostImpl*>(
-      fenced_frame_test_helper().CreateFencedFrame(
-          shell()->web_contents()->GetPrimaryMainFrame(), fenced_frame_url));
-  ASSERT_TRUE(fenced_frame_host);
-  EXPECT_EQ(network::mojom::CrossOriginEmbedderPolicyValue::kNone,
-            fenced_frame_host->cross_origin_embedder_policy().value);
-}
-
-// Ensure that fenced frames don't enable the view source mode since navigations
-// in fenced frames to view-sources URLs are blocked.
-IN_PROC_BROWSER_TEST_F(NavigationRequestFencedFrameBrowserTest,
-                       ViewSourceNavigation_FencedFrame) {
-  EXPECT_TRUE(
-      NavigateToURL(shell(), embedded_test_server()->GetURL("/title1.html")));
-
-  GURL fenced_frame_url =
-      embedded_test_server()->GetURL("/fenced_frames/title1.html");
-  RenderFrameHost* fenced_frame_host =
-      fenced_frame_test_helper().CreateFencedFrame(
-          shell()->web_contents()->GetPrimaryMainFrame(), fenced_frame_url);
-  EXPECT_NE(nullptr, fenced_frame_host);
-
-  GURL view_source_url(kViewSourceScheme + std::string(":") +
-                       fenced_frame_url.spec());
-  WebContentsConsoleObserver console_observer(shell()->web_contents());
-  console_observer.SetPattern("Not allowed to load local resource: " +
-                              view_source_url.spec());
-
-  // Attempt to navigate to a view source url in the fenced frame.
-  EXPECT_EQ(view_source_url.spec(),
-            EvalJs(fenced_frame_host,
-                   JsReplace(R"({location.href = $1;})", view_source_url)));
-  ASSERT_TRUE(console_observer.Wait());
-
-  // Original page shouldn't navigate away.
-  EXPECT_EQ(fenced_frame_url, fenced_frame_host->GetLastCommittedURL());
-  EXPECT_FALSE(shell()
-                   ->web_contents()
-                   ->GetController()
-                   .GetLastCommittedEntry()
-                   ->IsViewSourceMode());
-}
-
 class NavigationRequestPrerenderBrowserTest
     : public NavigationRequestBrowserTest {
  public:
@@ -4880,68 +4956,39 @@ IN_PROC_BROWSER_TEST_F(NavigationRequestPrerenderBrowserTest,
             primary_main_frame->cross_origin_embedder_policy().value);
 }
 
-enum class TestMPArchType {
-  kPrerender,
-  kFencedFrame,
-};
-
-class NavigationRequestMPArchBrowserTest
-    : public NavigationRequestBrowserTest,
-      public testing::WithParamInterface<TestMPArchType> {
+class NavigationRequestPrerenderMPArchBrowserTest
+    : public NavigationRequestBrowserTest {
  public:
-  NavigationRequestMPArchBrowserTest() {
-    switch (GetParam()) {
-      case TestMPArchType::kPrerender:
-        prerender_helper_ =
-            std::make_unique<test::PrerenderTestHelper>(base::BindRepeating(
-                &NavigationRequestMPArchBrowserTest::web_contents,
-                base::Unretained(this)));
-        break;
-
-      case TestMPArchType::kFencedFrame:
-        fenced_frame_helper_ = std::make_unique<test::FencedFrameTestHelper>();
-        break;
-    }
+  NavigationRequestPrerenderMPArchBrowserTest() {
+    prerender_helper_ =
+        std::make_unique<test::PrerenderTestHelper>(base::BindRepeating(
+            &NavigationRequestPrerenderMPArchBrowserTest::web_contents,
+            base::Unretained(this)));
   }
-  ~NavigationRequestMPArchBrowserTest() override = default;
-  NavigationRequestMPArchBrowserTest(
-      const NavigationRequestMPArchBrowserTest&) = delete;
+  ~NavigationRequestPrerenderMPArchBrowserTest() override = default;
+  NavigationRequestPrerenderMPArchBrowserTest(
+      const NavigationRequestPrerenderMPArchBrowserTest&) = delete;
 
-  NavigationRequestMPArchBrowserTest& operator=(
-      const NavigationRequestMPArchBrowserTest&) = delete;
+  NavigationRequestPrerenderMPArchBrowserTest& operator=(
+      const NavigationRequestPrerenderMPArchBrowserTest&) = delete;
 
  protected:
   test::PrerenderTestHelper& prerender_helper() { return *prerender_helper_; }
 
-  test::FencedFrameTestHelper& fenced_frame_test_helper() {
-    return *fenced_frame_helper_;
-  }
-
   WebContents* web_contents() { return shell()->web_contents(); }
 
  private:
-  base::test::ScopedFeatureList scoped_feature_list_;
   std::unique_ptr<test::PrerenderTestHelper> prerender_helper_;
-  std::unique_ptr<test::FencedFrameTestHelper> fenced_frame_helper_;
 };
 
-INSTANTIATE_TEST_SUITE_P(All,
-                         NavigationRequestMPArchBrowserTest,
-                         ::testing::Values(TestMPArchType::kPrerender,
-                                           TestMPArchType::kFencedFrame));
-
-IN_PROC_BROWSER_TEST_P(NavigationRequestMPArchBrowserTest,
+IN_PROC_BROWSER_TEST_F(NavigationRequestPrerenderMPArchBrowserTest,
                        ShouldNotUpdateHistory) {
   const auto get_observer = [&](WebContents* web_contents) {
     return DidFinishNavigationObserver(
         web_contents,
         base::BindLambdaForTesting([](NavigationHandle* navigation_handle) {
           DCHECK_EQ(navigation_handle->GetNavigatingFrameType(),
-                    GetParam() == TestMPArchType::kPrerender
-                        ? FrameType::kPrerenderMainFrame
-                    : GetParam() == TestMPArchType::kFencedFrame
-                        ? FrameType::kFencedFrameRoot
-                        : FrameType::kPrimaryMainFrame);
+                    FrameType::kPrerenderMainFrame);
           EXPECT_FALSE(navigation_handle->ShouldUpdateHistory());
         }));
   };
@@ -4960,24 +5007,10 @@ IN_PROC_BROWSER_TEST_P(NavigationRequestMPArchBrowserTest,
         NavigateToURL(shell(), embedded_test_server()->GetURL("/title1.html")));
   }
   {
-    switch (GetParam()) {
-      case TestMPArchType::kPrerender: {
-        const auto prerender_observer = get_observer(web_contents());
-        // Load a page in the prerender.
-        prerender_helper().AddPrerender(
-            embedded_test_server()->GetURL("/title1.html?prendering"));
-        break;
-      }
-
-      case TestMPArchType::kFencedFrame: {
-        const auto fenced_frame_observer = get_observer(web_contents());
-        // Create a fenced frame.
-        ASSERT_TRUE(fenced_frame_test_helper().CreateFencedFrame(
-            web_contents()->GetPrimaryMainFrame(),
-            embedded_test_server()->GetURL("/fenced_frames/title1.html")));
-        break;
-      }
-    }
+    const auto prerender_observer = get_observer(web_contents());
+    // Load a page in the prerender.
+    prerender_helper().AddPrerender(
+        embedded_test_server()->GetURL("/title1.html?prendering"));
   }
 }
 

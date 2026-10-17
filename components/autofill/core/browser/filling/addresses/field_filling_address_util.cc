@@ -17,6 +17,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/utf_string_conversions.h"
+#include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/country_type.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/data_model_util.h"
@@ -26,6 +27,7 @@
 #include "components/autofill/core/browser/field_type_util.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/filling/field_filling_util.h"
+#include "components/autofill/core/browser/geo/autofill_country.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "third_party/libaddressinput/src/cpp/include/libaddressinput/address_data.h"
@@ -157,35 +159,70 @@ std::optional<SelectOption> GetPhoneCountryCodeSelectControlValue(
   return {};
 }
 
+// Returns the phone number value for the given `field_max_length`. The
+// returned value might be `number`, or `city_and_number`, or could possibly
+// be a meaningful subset `number`, if that's appropriate for the field.
+std::u16string GetPhoneNumberValueForInput(
+    uint64_t field_max_length,
+    const std::u16string& number,
+    const std::u16string& city_and_number) {
+  // If the complete `number` fits into the field return it as is.
+  // `field_max_length == 0` means that there's no size limit.
+  if (field_max_length == 0 || field_max_length >= number.length()) {
+    return number;
+  }
+
+  // Try after removing the country code, if `number` exceeds the maximum size
+  // of the field.
+  if (city_and_number.length() <= field_max_length) {
+    return city_and_number;
+  }
+
+  // If `number` exceeds the maximum size of the field, cut the first part to
+  // provide a valid number for the field. For example, the number 15142365264
+  // with a field with a max length of 10 would return 5142365264, thus
+  // filling in the last `field_data.max_length` characters from the `number`.
+  return number.substr(number.length() - field_max_length, field_max_length);
+}
+
 // Returns the appropriate `profile` value based on `field_type` to fill
 // into the input `field`.
 std::u16string GetValueForProfileForInput(const AutofillProfile& profile,
                                           const std::string& app_locale,
-                                          const AutofillType& autofill_type,
-                                          const FormFieldData& field_data,
+                                          FieldType field_type,
+                                          const AutofillField& field,
                                           std::string* failure_to_fill) {
-  const std::u16string value = profile.GetInfo(autofill_type, app_locale);
+  if (field_type == ADDRESS_HOME_COUNTRY) {
+    const std::u16string country_code =
+        profile.GetRawInfo(ADDRESS_HOME_COUNTRY);
+    if (field.html_type() == HtmlFieldType::kCountryCode &&
+        !base::FeatureList::IsEnabled(
+            features::kAutofillDisallowCountryCodeFilling)) {
+      return country_code;
+    }
+    return AutofillCountry(country_code, app_locale).name();
+  }
+  const std::u16string value = profile.GetInfo(field_type, app_locale);
   if (value.empty()) {
     return {};
   }
-  const FieldType field_type = autofill_type.GetAddressType();
   if (GroupTypeOfFieldType(field_type) == FieldTypeGroup::kPhone) {
     return GetPhoneNumberValueForInput(
-        field_data.max_length(), value,
+        field.max_length(), value,
         profile.GetInfo(PHONE_HOME_CITY_AND_NUMBER, app_locale));
   }
   if (field_type == ADDRESS_HOME_STREET_ADDRESS) {
     return GetStreetAddressForInput(value, profile.language_code(),
-                                    field_data.form_control_type());
+                                    field.form_control_type());
   }
   if (field_type == ADDRESS_HOME_STATE) {
     return GetStateTextForInput(
         value, data_util::GetCountryCodeWithFallback(profile, app_locale),
-        field_data.max_length(), failure_to_fill);
+        field.max_length(), failure_to_fill);
   }
   if (IsAlternativeNameType(field_type)) {
     return GetAlternativeNameForInput(value, profile.GetAddressCountryCode(),
-                                      field_data);
+                                      field);
   }
   return value;
 }
@@ -222,26 +259,24 @@ std::optional<SelectOption> GetOptionForProfileSelectControl(
 FillingValueAndType GetFillingValueAndTypeForProfile(
     const AutofillProfile& profile,
     const std::string& app_locale,
-    const AutofillType& autofill_type,
-    const FormFieldData& field_data,
+    FieldType field_type,
+    const AutofillField& field,
     AddressNormalizer* address_normalizer,
     std::string* failure_to_fill) {
-  const FieldType field_type = autofill_type.GetAddressType();
   if (field_type == UNKNOWN_TYPE) {
     return {};
   }
 
   FillingValueAndType filling_value_and_type(
-      GetValueForProfileForInput(profile, app_locale, autofill_type, field_data,
+      GetValueForProfileForInput(profile, app_locale, field_type, field,
                                  failure_to_fill),
       field_type);
 
-  if (field_data.IsSelectElement() && !filling_value_and_type.value.empty()) {
+  if (field.IsSelectElement() && !filling_value_and_type.value.empty()) {
     std::optional<SelectOption> select_control_option =
-        GetOptionForProfileSelectControl(profile, filling_value_and_type.value,
-                                         app_locale, field_data.options(),
-                                         field_type, address_normalizer,
-                                         failure_to_fill);
+        GetOptionForProfileSelectControl(
+            profile, filling_value_and_type.value, app_locale, field.options(),
+            field_type, address_normalizer, failure_to_fill);
     filling_value_and_type.value =
         select_control_option ? std::move(select_control_option->value) : u"";
     filling_value_and_type.select_text =
@@ -251,29 +286,6 @@ FillingValueAndType GetFillingValueAndTypeForProfile(
   }
 
   return filling_value_and_type;
-}
-
-std::u16string GetPhoneNumberValueForInput(
-    uint64_t field_max_length,
-    const std::u16string& number,
-    const std::u16string& city_and_number) {
-  // If the complete `number` fits into the field return it as is.
-  // `field_max_length == 0` means that there's no size limit.
-  if (field_max_length == 0 || field_max_length >= number.length()) {
-    return number;
-  }
-
-  // Try after removing the country code, if `number` exceeds the maximum size
-  // of the field.
-  if (city_and_number.length() <= field_max_length) {
-    return city_and_number;
-  }
-
-  // If `number` exceeds the maximum size of the field, cut the first part to
-  // provide a valid number for the field. For example, the number 15142365264
-  // with a field with a max length of 10 would return 5142365264, thus
-  // filling in the last `field_data.max_length` characters from the `number`.
-  return number.substr(number.length() - field_max_length, field_max_length);
 }
 
 }  // namespace autofill

@@ -126,7 +126,8 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
                 SettingsMenuHelper.Delegate,
                 SettingsContainmentHelper.Delegate,
                 MultiColumnSettings.Observer,
-                SettingsActivityInterface {
+                SettingsActivityInterface,
+                SettingsHost {
     private static final String TAG = "SettingsActivity";
 
     // Key used to store activity start time in the Bundle to have it survive activity re-creation.
@@ -246,6 +247,7 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
         fragmentManager.registerFragmentLifecycleCallbacks(
                 new FragmentDependencyProvider(
                         this,
+                        /* shownInTab= */ false,
                         mProfile,
                         mWindowAndroidSupplier,
                         getActivityResultTracker(),
@@ -459,6 +461,7 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
                 new MultiColumnTitleUpdater(
                         savedInstanceState,
                         mMultiColumnSettings,
+                        /* shownInTab= */ false,
                         titleContainer,
                         this::setTitle,
                         this::onTitleTapped,
@@ -482,7 +485,8 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
                         mContainmentHelper.getItemDecorations(),
                         mProfile,
                         updateFirstVisibleTitle,
-                        getModalDialogManagerSupplier());
+                        getModalDialogManagerSupplier(),
+                        /* shownInTab= */ false);
         if (mMultiColumnSettings != null) {
             if (savedState != null) {
                 // Title text view gets temporarily hidden while restoring the
@@ -506,7 +510,7 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
         if (mSearchCoordinator != null) mSearchCoordinator.onTitleTapped(entryName);
     }
 
-    /** Returns true if the AndroidSettingsContainment feature is enabled. */
+    /** Returns true if the SettingsMultiColumn feature is enabled. */
     private static boolean isMultiColumnSettingEnabled() {
         return ChromeFeatureList.sSettingsMultiColumn.isEnabled();
     }
@@ -611,7 +615,18 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
      * @param args Arguments to pass to Fragment.instantiate(), or null.
      */
     public void startSettings(@Nullable String fragmentClass, @Nullable Bundle args) {
-        Intent intent = SettingsIntentUtil.createIntent(this, fragmentClass, args);
+        // Pass this host's isShownInTab() rather than letting SettingsIntentUtil consult the
+        // global SettingsInTab state. Settings hosted by this activity must keep navigating
+        // within the activity, even if the global state changed (e.g. the device was unfolded)
+        // after settings was opened. See crbug.com/562619494.
+        Intent intent =
+                SettingsIntentUtil.createIntent(
+                        this,
+                        fragmentClass,
+                        args,
+                        /* addToBackStack= */ false,
+                        /* tag= */ null,
+                        /* useSettingsInTab= */ isShownInTab());
         startActivity(intent);
     }
 
@@ -820,6 +835,12 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
         return this;
     }
 
+    @Override
+    public boolean isShownInTab() {
+        // This activity hosts settings itself, so settings is never shown in a browser tab here.
+        return false;
+    }
+
     /**
      * Returns the intent request tracker for the Settings Activity. If the tracker does not exist
      * yet create one and return that.
@@ -832,13 +853,13 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        SettingsMenuHelper.onCreateOptionsMenu(menu, this);
+        SettingsMenuHelper.onCreateOptionsMenu(menu, this, this);
         return super.onCreateOptionsMenu(menu);
     }
 
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
-        SettingsMenuHelper.onPrepareOptionsMenu(menu);
+        SettingsMenuHelper.onPrepareOptionsMenu(menu, this);
         return super.onPrepareOptionsMenu(menu);
     }
 

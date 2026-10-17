@@ -4,10 +4,14 @@
 
 package org.chromium.chrome.browser.actor;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.content.Intent;
 
 import org.junit.After;
@@ -22,9 +26,20 @@ import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowSystemClock;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
+import org.chromium.chrome.browser.actor.ActorMetrics.ActorFetchConversationIdStatus;
+import org.chromium.chrome.browser.actor.ActorMetrics.ActorNotificationPermissionState;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.glic.GlicIntentConstants;
 import org.chromium.chrome.browser.notifications.NotificationConstants;
+import org.chromium.chrome.browser.notifications.channels.ChromeChannelDefinitions;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.components.browser_ui.notifications.BaseNotificationManagerProxyFactory;
+import org.chromium.components.browser_ui.notifications.NotificationManagerProxy;
+import org.chromium.components.browser_ui.notifications.NotificationProxyUtils;
 
 import java.util.concurrent.TimeUnit;
 
@@ -34,16 +49,26 @@ import java.util.concurrent.TimeUnit;
 public class ActorMetricsTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
+    private static final int TAB_ID = 77;
+
+    @Mock private Tab mTab;
     @Mock private Profile mProfile;
     @Mock private Profile mOriginalProfile;
     @Mock private ActorKeyedService mActorService;
+    @Mock private NotificationManagerProxy mNotificationManagerProxy;
+    @Mock private ActorForegroundServiceController mServiceController;
 
     private ActorMetrics mActorMetrics;
 
     @Before
     public void setUp() {
+        when(mTab.getId()).thenReturn(TAB_ID);
+        when(mTab.getProfile()).thenReturn(mProfile);
         when(mProfile.getOriginalProfile()).thenReturn(mOriginalProfile);
         ActorKeyedServiceFactory.setForTesting(mActorService);
+        BaseNotificationManagerProxyFactory.setInstanceForTesting(mNotificationManagerProxy);
+        NotificationProxyUtils.setNotificationEnabledForTest(true);
+        ActorForegroundServiceController.setInstanceForTesting(mServiceController);
         ActorMetrics.resetForTesting();
         mActorMetrics = ActorMetrics.getInstance();
     }
@@ -51,6 +76,91 @@ public class ActorMetricsTest {
     @After
     public void tearDown() {
         ActorMetrics.resetForTesting();
+        NotificationProxyUtils.setNotificationEnabledForTest(null);
+    }
+
+    @Test
+    public void testRecordBackgroundActuationTrigger() {
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                "Actor.BackgroundActuation.Trigger",
+                                ActorMetrics.ActorBackgroundActuationTrigger.TASK_INIT_BY_CHROME)
+                        .expectIntRecord(
+                                "Actor.BackgroundActuation.Trigger",
+                                ActorMetrics.ActorBackgroundActuationTrigger.TASK_INIT_BY_FCM)
+                        .build();
+
+        ActorMetrics.recordBackgroundActuationTrigger(
+                ActorMetrics.ActorBackgroundActuationTrigger.TASK_INIT_BY_CHROME);
+        ActorMetrics.recordBackgroundActuationTrigger(
+                ActorMetrics.ActorBackgroundActuationTrigger.TASK_INIT_BY_FCM);
+
+        watcher.assertExpected();
+    }
+
+    @Test
+    public void testMaybeRecordBackgroundActuationTrigger_Deduplicates() {
+        var watcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Actor.BackgroundActuation.Trigger",
+                        ActorMetrics.ActorBackgroundActuationTrigger.TASK_INIT_BY_CHROME);
+
+        int taskId = 100;
+        ActorMetrics.maybeRecordBackgroundActuationTrigger(
+                taskId, ActorMetrics.ActorBackgroundActuationTrigger.TASK_INIT_BY_CHROME);
+        // Second call with same taskId should not record again.
+        ActorMetrics.maybeRecordBackgroundActuationTrigger(
+                taskId, ActorMetrics.ActorBackgroundActuationTrigger.TASK_INIT_BY_CHROME);
+
+        watcher.assertExpected();
+    }
+
+    @Test
+    public void testMaybeRecordBackgroundActuationTrigger_ResetOnTaskCompleted() {
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecords(
+                                "Actor.BackgroundActuation.Trigger",
+                                ActorMetrics.ActorBackgroundActuationTrigger.TASK_INIT_BY_CHROME,
+                                ActorMetrics.ActorBackgroundActuationTrigger.TASK_INIT_BY_CHROME)
+                        .build();
+
+        int taskId = 100;
+        ActorMetrics.maybeRecordBackgroundActuationTrigger(
+                taskId, ActorMetrics.ActorBackgroundActuationTrigger.TASK_INIT_BY_CHROME);
+
+        // Mark task completed so the recorded task ID is cleared.
+        mActorMetrics.onTaskStateChangedForTesting(taskId, ActorTaskState.FINISHED);
+
+        ActorMetrics.maybeRecordBackgroundActuationTrigger(
+                taskId, ActorMetrics.ActorBackgroundActuationTrigger.TASK_INIT_BY_CHROME);
+
+        watcher.assertExpected();
+    }
+
+    @Test
+    public void testMarkBackgroundActuationTriggerRecorded_PreventsRecording() {
+        int taskId = 100;
+        ActorMetrics.markBackgroundActuationTriggerRecorded(taskId);
+
+        var noRecordWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords("Actor.BackgroundActuation.Trigger")
+                        .build();
+        ActorMetrics.maybeRecordBackgroundActuationTrigger(
+                taskId, ActorMetrics.ActorBackgroundActuationTrigger.TASK_INIT_BY_CHROME);
+        noRecordWatcher.assertExpected();
+
+        // After task finishes, the taskId is cleared and can record again if reused.
+        mActorMetrics.onTaskStateChangedForTesting(taskId, ActorTaskState.FINISHED);
+        var recordWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Actor.BackgroundActuation.Trigger",
+                        ActorMetrics.ActorBackgroundActuationTrigger.TASK_INIT_BY_CHROME);
+        ActorMetrics.maybeRecordBackgroundActuationTrigger(
+                taskId, ActorMetrics.ActorBackgroundActuationTrigger.TASK_INIT_BY_CHROME);
+        recordWatcher.assertExpected();
     }
 
     @Test
@@ -74,8 +184,17 @@ public class ActorMetricsTest {
         ActorMetrics.maybeRecordMetricsFromIntent(intent, mProfile);
 
         watcher.assertExpected();
-        assertFalse(intent.hasExtra(NotificationConstants.EXTRA_ACTOR_TASK_ID));
-        assertFalse(intent.hasExtra(NotificationConstants.EXTRA_ACTOR_TASK_STATE));
+        // Extras must NOT be stripped, so downstream consumers can still read them.
+        assertTrue(intent.hasExtra(NotificationConstants.EXTRA_ACTOR_TASK_ID));
+        assertTrue(intent.hasExtra(NotificationConstants.EXTRA_ACTOR_TASK_STATE));
+
+        // Re-invoking with the same intent instance must be deduplicated and not record again.
+        var duplicateWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords("Actor.Notification.ClickTaskState")
+                        .build();
+        ActorMetrics.maybeRecordMetricsFromIntent(intent, mProfile);
+        duplicateWatcher.assertExpected();
     }
 
     @Test
@@ -221,6 +340,568 @@ public class ActorMetricsTest {
                         .build();
 
         mActorMetrics.onTaskStateChangedForTesting(taskId, ActorTaskState.FINISHED);
+        watcher.assertExpected();
+    }
+
+    @Test
+    public void testRecordOmniboxFocus_withActiveTaskOnTab() {
+        int taskId = 101;
+        ActorTask mockTask = mock(ActorTask.class);
+        when(mockTask.getState()).thenReturn(ActorTaskState.ACTING);
+        when(mActorService.getActiveTasksCount()).thenReturn(1);
+        when(mActorService.getActiveTaskIdOnTab(TAB_ID, /* includePaused= */ true))
+                .thenReturn(taskId);
+        when(mActorService.getTask(taskId)).thenReturn(mockTask);
+
+        var focusWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Actor.Ui.OmniboxClick.TaskState", ActorTaskState.ACTING);
+
+        ActorMetrics.recordOmniboxFocus(mTab);
+        focusWatcher.assertExpected();
+
+        assertEquals(1, mActorMetrics.getOmniboxClickCountForTesting(taskId));
+
+        // Focus a second time in REFLECTING state.
+        when(mockTask.getState()).thenReturn(ActorTaskState.REFLECTING);
+        var focusWatcher2 =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Actor.Ui.OmniboxClick.TaskState", ActorTaskState.REFLECTING);
+
+        ActorMetrics.recordOmniboxFocus(mTab);
+        focusWatcher2.assertExpected();
+        assertEquals(2, mActorMetrics.getOmniboxClickCountForTesting(taskId));
+
+        // Finish the task and assert OmniboxClickCount.Completed is emitted with 2.
+        var completionWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Actor.Task.OmniboxClickCount.Completed", 2);
+
+        mActorMetrics.onTaskStateChangedForTesting(taskId, ActorTaskState.FINISHED);
+        completionWatcher.assertExpected();
+        assertEquals(0, mActorMetrics.getOmniboxClickCountForTesting(taskId));
+    }
+
+    @Test
+    public void testRecordOmniboxFocus_taskBoundToOtherTabIgnored() {
+        when(mActorService.getActiveTasksCount()).thenReturn(1);
+        when(mActorService.getActiveTaskIdOnTab(TAB_ID, /* includePaused= */ true))
+                .thenReturn(null);
+
+        var focusWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords("Actor.Ui.OmniboxClick.TaskState")
+                        .build();
+
+        ActorMetrics.recordOmniboxFocus(mTab);
+        focusWatcher.assertExpected();
+    }
+
+    @Test
+    public void testRecordOmniboxFocus_noActiveTask() {
+        when(mActorService.getActiveTasksCount()).thenReturn(0);
+
+        var focusWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords("Actor.Ui.OmniboxClick.TaskState")
+                        .build();
+
+        ActorMetrics.recordOmniboxFocus(mTab);
+        focusWatcher.assertExpected();
+    }
+
+    @Test
+    public void testRecordOmniboxFocus_nullTab() {
+        var focusWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords("Actor.Ui.OmniboxClick.TaskState")
+                        .build();
+
+        ActorMetrics.recordOmniboxFocus(null);
+        focusWatcher.assertExpected();
+    }
+
+    @Test
+    public void testOnTaskStopped_stoppedReasonRecorded() {
+        int taskId = 202;
+        ActorTask mockTask = mock(ActorTask.class);
+        when(mockTask.getState()).thenReturn(ActorTaskState.ACTING);
+        when(mActorService.getActiveTasksCount()).thenReturn(1);
+        when(mActorService.getActiveTaskIdOnTab(TAB_ID, /* includePaused= */ true))
+                .thenReturn(taskId);
+        when(mActorService.getTask(taskId)).thenReturn(mockTask);
+
+        ActorMetrics.recordOmniboxFocus(mTab);
+        ActorMetrics.recordOmniboxFocus(mTab);
+        ActorMetrics.recordOmniboxFocus(mTab);
+        assertEquals(3, mActorMetrics.getOmniboxClickCountForTesting(taskId));
+
+        var timeoutWatcher =
+                HistogramWatcher.newSingleRecordWatcher("Actor.Task.OmniboxClickCount.Timeout", 3);
+
+        mActorMetrics.onTaskStoppedForTesting(taskId, StoppedReason.TIMEOUT);
+        timeoutWatcher.assertExpected();
+
+        // Ensure that subsequent completed state change does not double-record.
+        var cancelledWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords("Actor.Task.OmniboxClickCount.Cancelled")
+                        .build();
+        mActorMetrics.onTaskStateChangedForTesting(taskId, ActorTaskState.CANCELLED);
+        cancelledWatcher.assertExpected();
+    }
+
+    @Test
+    public void testOnTaskStopped_userNavigatedAway() {
+        int taskId = 404;
+        ActorTask mockTask = mock(ActorTask.class);
+        when(mockTask.getState()).thenReturn(ActorTaskState.ACTING);
+        when(mActorService.getActiveTasksCount()).thenReturn(1);
+        when(mActorService.getActiveTaskIdOnTab(TAB_ID, /* includePaused= */ true))
+                .thenReturn(taskId);
+        when(mActorService.getTask(taskId)).thenReturn(mockTask);
+
+        ActorMetrics.recordOmniboxFocus(mTab);
+
+        var watcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Actor.Task.OmniboxClickCount.UserNavigatedAway", 1);
+        mActorMetrics.onTaskStoppedForTesting(taskId, StoppedReason.USER_NAVIGATED_AWAY);
+        watcher.assertExpected();
+    }
+
+    @Test
+    public void testTaskCompletedWithZeroClicks() {
+        int taskId = 303;
+        var completionWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Actor.Task.OmniboxClickCount.Completed", 0);
+
+        mActorMetrics.onTaskStateChangedForTesting(taskId, ActorTaskState.FINISHED);
+        completionWatcher.assertExpected();
+    }
+
+    @Test
+    public void testOnTaskStateChangedFollowedByOnTaskStopped_noDuplicateRecord() {
+        int taskId = 505;
+        ActorTask mockTask = mock(ActorTask.class);
+        when(mockTask.getState()).thenReturn(ActorTaskState.ACTING);
+        when(mActorService.getActiveTasksCount()).thenReturn(1);
+        when(mActorService.getActiveTaskIdOnTab(TAB_ID, /* includePaused= */ true))
+                .thenReturn(taskId);
+        when(mActorService.getTask(taskId)).thenReturn(mockTask);
+
+        ActorMetrics.recordOmniboxFocus(mTab);
+        assertEquals(1, mActorMetrics.getOmniboxClickCountForTesting(taskId));
+
+        var cancelledWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Actor.Task.OmniboxClickCount.Cancelled", 1);
+        mActorMetrics.onTaskStateChangedForTesting(taskId, ActorTaskState.CANCELLED);
+        cancelledWatcher.assertExpected();
+
+        // Subsequent onTaskStopped (e.g. from JNI or observer dispatch) must not record again.
+        var duplicateWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords("Actor.Task.OmniboxClickCount.Cancelled")
+                        .expectNoRecords("Actor.Task.OmniboxClickCount.Timeout")
+                        .build();
+        mActorMetrics.onTaskStoppedForTesting(taskId, StoppedReason.TIMEOUT);
+        duplicateWatcher.assertExpected();
+    }
+
+    @Test
+    public void testRecordOmniboxFocus_tabDestroyedIgnored() {
+        Tab destroyedTab = mock(Tab.class);
+        when(destroyedTab.isDestroyed()).thenReturn(true);
+
+        var focusWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords("Actor.Ui.OmniboxClick.TaskState")
+                        .build();
+
+        ActorMetrics.recordOmniboxFocus(destroyedTab);
+        focusWatcher.assertExpected();
+    }
+
+    @Test
+    public void testRecordOmniboxFocus_offTheRecordIgnored() {
+        Profile otrProfile = mock(Profile.class);
+        when(otrProfile.isOffTheRecord()).thenReturn(true);
+        Tab otrTab = mock(Tab.class);
+        when(otrTab.isDestroyed()).thenReturn(false);
+        when(otrTab.getProfile()).thenReturn(otrProfile);
+
+        var focusWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords("Actor.Ui.OmniboxClick.TaskState")
+                        .build();
+
+        ActorMetrics.recordOmniboxFocus(otrTab);
+        focusWatcher.assertExpected();
+    }
+
+    @Test
+    public void testRecordNotificationPermissionState() {
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecords(
+                                "Actor.Notification.PermissionState",
+                                ActorNotificationPermissionState.ENABLED,
+                                ActorNotificationPermissionState.CHANNEL_DISABLED,
+                                ActorNotificationPermissionState.OS_DISABLED)
+                        .build();
+
+        ActorMetrics.recordNotificationPermissionState(ActorNotificationPermissionState.ENABLED);
+        ActorMetrics.recordNotificationPermissionState(
+                ActorNotificationPermissionState.CHANNEL_DISABLED);
+        ActorMetrics.recordNotificationPermissionState(
+                ActorNotificationPermissionState.OS_DISABLED);
+
+        watcher.assertExpected();
+    }
+
+    @Test
+    public void testOnTaskStarted_RecordsNotificationPermissionStateOnce_Enabled() {
+        NotificationProxyUtils.setNotificationEnabledForTest(true);
+        NotificationChannel enabledChannel =
+                new NotificationChannel(
+                        ChromeChannelDefinitions.ChannelId.ACTOR,
+                        "Actor",
+                        NotificationManager.IMPORTANCE_DEFAULT);
+        when(mNotificationManagerProxy.getNotificationChannel(
+                        ChromeChannelDefinitions.ChannelId.ACTOR))
+                .thenReturn(enabledChannel);
+
+        var watcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Actor.Notification.PermissionState",
+                        ActorNotificationPermissionState.ENABLED);
+
+        int taskId = 601;
+        mActorMetrics.onTaskStateChangedForTesting(taskId, ActorTaskState.CREATED);
+        mActorMetrics.onTaskStateChangedForTesting(taskId, ActorTaskState.ACTING);
+        mActorMetrics.onTaskStateChangedForTesting(taskId, ActorTaskState.REFLECTING);
+        mActorMetrics.onTaskStateChangedForTesting(taskId, ActorTaskState.FINISHED);
+
+        watcher.assertExpected();
+    }
+
+    @Test
+    public void testOnTaskStarted_RecordsNotificationPermissionStateOnce_OsDisabled() {
+        NotificationProxyUtils.setNotificationEnabledForTest(false);
+
+        var watcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Actor.Notification.PermissionState",
+                        ActorNotificationPermissionState.OS_DISABLED);
+
+        int taskId = 602;
+        mActorMetrics.onTaskStateChangedForTesting(taskId, ActorTaskState.CREATED);
+        mActorMetrics.onTaskStateChangedForTesting(taskId, ActorTaskState.ACTING);
+        mActorMetrics.onTaskStateChangedForTesting(taskId, ActorTaskState.FINISHED);
+
+        watcher.assertExpected();
+    }
+
+    @Test
+    public void testOnTaskStarted_RecordsNotificationPermissionStateOnce_ChannelDisabled() {
+        NotificationProxyUtils.setNotificationEnabledForTest(true);
+        NotificationChannel blockedChannel =
+                new NotificationChannel(
+                        ChromeChannelDefinitions.ChannelId.ACTOR,
+                        "Actor",
+                        NotificationManager.IMPORTANCE_NONE);
+        when(mNotificationManagerProxy.getNotificationChannel(
+                        ChromeChannelDefinitions.ChannelId.ACTOR))
+                .thenReturn(blockedChannel);
+
+        var watcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Actor.Notification.PermissionState",
+                        ActorNotificationPermissionState.CHANNEL_DISABLED);
+
+        int taskId = 603;
+        mActorMetrics.onTaskStateChangedForTesting(taskId, ActorTaskState.CREATED);
+        mActorMetrics.onTaskStateChangedForTesting(taskId, ActorTaskState.ACTING);
+        mActorMetrics.onTaskStateChangedForTesting(taskId, ActorTaskState.FINISHED);
+
+        watcher.assertExpected();
+    }
+
+    @Test
+    public void testGetActorNotificationPermissionState_OsDisabled() {
+        NotificationProxyUtils.setNotificationEnabledForTest(false);
+
+        assertEquals(
+                ActorNotificationPermissionState.OS_DISABLED,
+                ActorUtils.getActorNotificationPermissionState());
+        assertFalse(ActorUtils.areActorNotificationsEnabled());
+    }
+
+    @Test
+    public void testGetActorNotificationPermissionState_ChannelDisabled() {
+        NotificationProxyUtils.setNotificationEnabledForTest(true);
+        NotificationChannel blockedChannel =
+                new NotificationChannel(
+                        ChromeChannelDefinitions.ChannelId.ACTOR,
+                        "Actor",
+                        NotificationManager.IMPORTANCE_NONE);
+        when(mNotificationManagerProxy.getNotificationChannel(
+                        ChromeChannelDefinitions.ChannelId.ACTOR))
+                .thenReturn(blockedChannel);
+
+        assertEquals(
+                ActorNotificationPermissionState.CHANNEL_DISABLED,
+                ActorUtils.getActorNotificationPermissionState());
+        assertFalse(ActorUtils.areActorNotificationsEnabled());
+    }
+
+    @Test
+    public void testGetActorNotificationPermissionState_Enabled() {
+        NotificationProxyUtils.setNotificationEnabledForTest(true);
+        NotificationChannel enabledChannel =
+                new NotificationChannel(
+                        ChromeChannelDefinitions.ChannelId.ACTOR,
+                        "Actor",
+                        NotificationManager.IMPORTANCE_DEFAULT);
+        when(mNotificationManagerProxy.getNotificationChannel(
+                        ChromeChannelDefinitions.ChannelId.ACTOR))
+                .thenReturn(enabledChannel);
+
+        assertEquals(
+                ActorNotificationPermissionState.ENABLED,
+                ActorUtils.getActorNotificationPermissionState());
+        assertTrue(ActorUtils.areActorNotificationsEnabled());
+    }
+
+    @Test
+    public void testRecordTimeBetweenWorklogUpdates() {
+        var watcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        ActorMetrics.ACTOR_NOTIFICATION_TIME_BETWEEN_WORKLOG_UPDATES, 1500);
+
+        ActorMetrics.recordTimeBetweenWorklogUpdates(1500);
+
+        watcher.assertExpected();
+    }
+
+    @Test
+    public void testOnTaskStopped_StoppedReasonByMode_Foreground() {
+        int taskId = 601;
+        when(mServiceController.hasBackgroundSessionForTask(taskId)).thenReturn(false);
+
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                ActorMetrics.ACTOR_TASK_STOPPED_REASON_FOREGROUND,
+                                StoppedReason.TASK_COMPLETE)
+                        .expectNoRecords(ActorMetrics.ACTOR_TASK_STOPPED_REASON_PIP)
+                        .expectNoRecords(
+                                ActorMetrics.ACTOR_TASK_STOPPED_REASON_BACKGROUND_ACTUATION)
+                        .build();
+
+        mActorMetrics.onTaskStoppedForTesting(taskId, StoppedReason.TASK_COMPLETE);
+        watcher.assertExpected();
+    }
+
+    @Test
+    public void testOnTaskStopped_StoppedReasonByMode_Pip() {
+        int taskId = 602;
+        when(mServiceController.hasBackgroundSessionForTask(taskId)).thenReturn(false);
+        mActorMetrics.setIsInPip(true);
+
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                ActorMetrics.ACTOR_TASK_STOPPED_REASON_PIP,
+                                StoppedReason.STOPPED_BY_USER)
+                        .expectNoRecords(ActorMetrics.ACTOR_TASK_STOPPED_REASON_FOREGROUND)
+                        .expectNoRecords(
+                                ActorMetrics.ACTOR_TASK_STOPPED_REASON_BACKGROUND_ACTUATION)
+                        .build();
+
+        mActorMetrics.onTaskStoppedForTesting(taskId, StoppedReason.STOPPED_BY_USER);
+        watcher.assertExpected();
+    }
+
+    @Test
+    public void testOnTaskStopped_StoppedReasonByMode_BackgroundActuation() {
+        int taskId = 603;
+        when(mServiceController.hasBackgroundSessionForTask(taskId)).thenReturn(true);
+
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                ActorMetrics.ACTOR_TASK_STOPPED_REASON_BACKGROUND_ACTUATION,
+                                StoppedReason.TIMEOUT)
+                        .expectNoRecords(ActorMetrics.ACTOR_TASK_STOPPED_REASON_FOREGROUND)
+                        .expectNoRecords(ActorMetrics.ACTOR_TASK_STOPPED_REASON_PIP)
+                        .build();
+
+        mActorMetrics.onTaskStoppedForTesting(taskId, StoppedReason.TIMEOUT);
+        watcher.assertExpected();
+
+        // Duplicate call for the same task ID must not emit a second sample.
+        var duplicateWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords(
+                                ActorMetrics.ACTOR_TASK_STOPPED_REASON_BACKGROUND_ACTUATION)
+                        .expectNoRecords(ActorMetrics.ACTOR_TASK_STOPPED_REASON_FOREGROUND)
+                        .expectNoRecords(ActorMetrics.ACTOR_TASK_STOPPED_REASON_PIP)
+                        .build();
+        mActorMetrics.onTaskStoppedForTesting(taskId, StoppedReason.TIMEOUT);
+        duplicateWatcher.assertExpected();
+    }
+
+    @Test
+    public void testOnTaskStopped_StoppedReasonByMode_BackgroundActuationPrecedenceOverPip() {
+        int taskId = 604;
+        when(mServiceController.hasBackgroundSessionForTask(taskId)).thenReturn(true);
+        mActorMetrics.setIsInPip(true);
+
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                ActorMetrics.ACTOR_TASK_STOPPED_REASON_BACKGROUND_ACTUATION,
+                                StoppedReason.TASK_COMPLETE)
+                        .expectNoRecords(ActorMetrics.ACTOR_TASK_STOPPED_REASON_PIP)
+                        .expectNoRecords(ActorMetrics.ACTOR_TASK_STOPPED_REASON_FOREGROUND)
+                        .build();
+
+        mActorMetrics.onTaskStoppedForTesting(taskId, StoppedReason.TASK_COMPLETE);
+        watcher.assertExpected();
+    }
+
+    @Test
+    public void testRecordOnTabAddedLatency() {
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecords(
+                                ActorMetrics.ACTOR_BACKGROUND_ACTUATION_ON_TAB_ADDED_LATENCY,
+                                350,
+                                120)
+                        .expectIntRecord(
+                                ActorMetrics.ACTOR_BACKGROUND_ACTUATION_ON_TAB_ADDED_LATENCY_COLD,
+                                350)
+                        .expectIntRecord(
+                                ActorMetrics.ACTOR_BACKGROUND_ACTUATION_ON_TAB_ADDED_LATENCY_WARM,
+                                120)
+                        .build();
+
+        ActorMetrics.recordOnTabAddedLatency(350, /* isColdStart= */ true);
+        ActorMetrics.recordOnTabAddedLatency(120, /* isColdStart= */ false);
+
+        watcher.assertExpected();
+    }
+
+    @Test
+    public void testRecordNotificationFetchTabIdStatus() {
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecords(
+                                ActorMetrics.ACTOR_NOTIFICATION_FETCH_TAB_ID_STATUS,
+                                ActorMetrics.ActorFetchTabIdStatus.SUCCESS,
+                                ActorMetrics.ActorFetchTabIdStatus.TAB_NOT_FOUND,
+                                ActorMetrics.ActorFetchTabIdStatus.TAB_CLOSED,
+                                ActorMetrics.ActorFetchTabIdStatus.INVALID_ID,
+                                ActorMetrics.ActorFetchTabIdStatus.TIMEOUT)
+                        .build();
+
+        ActorMetrics.recordNotificationFetchTabIdStatus(ActorMetrics.ActorFetchTabIdStatus.SUCCESS);
+        ActorMetrics.recordNotificationFetchTabIdStatus(
+                ActorMetrics.ActorFetchTabIdStatus.TAB_NOT_FOUND);
+        ActorMetrics.recordNotificationFetchTabIdStatus(
+                ActorMetrics.ActorFetchTabIdStatus.TAB_CLOSED);
+        ActorMetrics.recordNotificationFetchTabIdStatus(
+                ActorMetrics.ActorFetchTabIdStatus.INVALID_ID);
+        ActorMetrics.recordNotificationFetchTabIdStatus(ActorMetrics.ActorFetchTabIdStatus.TIMEOUT);
+
+        watcher.assertExpected();
+    }
+
+    @Test
+    public void testRecordNotificationFetchConversationIdStatus() {
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecords(
+                                ActorMetrics.ACTOR_NOTIFICATION_FETCH_CONVERSATION_ID_STATUS,
+                                ActorFetchConversationIdStatus.SUCCESS,
+                                ActorFetchConversationIdStatus.NOT_FOUND)
+                        .build();
+
+        ActorMetrics.recordNotificationFetchConversationIdStatus(
+                ActorFetchConversationIdStatus.SUCCESS);
+        ActorMetrics.recordNotificationFetchConversationIdStatus(
+                ActorFetchConversationIdStatus.NOT_FOUND);
+
+        watcher.assertExpected();
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ACTOR_NOTIFICATION_INTENT_ROUTING)
+    public void testMaybeRecordMetricsFromIntent_FetchConversationId_Success() {
+        int taskId = 701;
+        Intent intent = new Intent();
+        intent.putExtra(NotificationConstants.EXTRA_ACTOR_TASK_ID, taskId);
+        intent.putExtra(NotificationConstants.EXTRA_ACTOR_TASK_STATE, ActorTaskState.ACTING);
+        intent.putExtra(GlicIntentConstants.EXTRA_CONVERSATION_ID, "conv_123");
+
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord("Actor.Notification.ClickTaskState", ActorTaskState.ACTING)
+                        .expectIntRecord(
+                                ActorMetrics.ACTOR_NOTIFICATION_FETCH_CONVERSATION_ID_STATUS,
+                                ActorFetchConversationIdStatus.SUCCESS)
+                        .build();
+
+        ActorMetrics.maybeRecordMetricsFromIntent(intent, mProfile);
+
+        watcher.assertExpected();
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ACTOR_NOTIFICATION_INTENT_ROUTING)
+    public void testMaybeRecordMetricsFromIntent_FetchConversationId_NotFound() {
+        int taskId = 703;
+        when(mActorService.getTask(taskId)).thenReturn(null);
+
+        Intent intent = new Intent();
+        intent.putExtra(NotificationConstants.EXTRA_ACTOR_TASK_ID, taskId);
+        intent.putExtra(NotificationConstants.EXTRA_ACTOR_TASK_STATE, ActorTaskState.FINISHED);
+
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                "Actor.Notification.ClickTaskState", ActorTaskState.FINISHED)
+                        .expectIntRecord(
+                                ActorMetrics.ACTOR_NOTIFICATION_FETCH_CONVERSATION_ID_STATUS,
+                                ActorFetchConversationIdStatus.NOT_FOUND)
+                        .build();
+
+        ActorMetrics.maybeRecordMetricsFromIntent(intent, mProfile);
+
+        watcher.assertExpected();
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.ACTOR_NOTIFICATION_INTENT_ROUTING)
+    public void testMaybeRecordMetricsFromIntent_FetchConversationId_RoutingDisabled() {
+        int taskId = 704;
+        Intent intent = new Intent();
+        intent.putExtra(NotificationConstants.EXTRA_ACTOR_TASK_ID, taskId);
+        intent.putExtra(NotificationConstants.EXTRA_ACTOR_TASK_STATE, ActorTaskState.ACTING);
+        intent.putExtra(GlicIntentConstants.EXTRA_CONVERSATION_ID, "conv_123");
+
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord("Actor.Notification.ClickTaskState", ActorTaskState.ACTING)
+                        .expectNoRecords(
+                                ActorMetrics.ACTOR_NOTIFICATION_FETCH_CONVERSATION_ID_STATUS)
+                        .build();
+
+        ActorMetrics.maybeRecordMetricsFromIntent(intent, mProfile);
+
         watcher.assertExpected();
     }
 }

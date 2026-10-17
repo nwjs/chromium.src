@@ -43,7 +43,7 @@ DEFINE_SAFE_CAST_TARGET(Background)
 // background in a solid color.
 class SolidBackground : public Background {
  public:
-  explicit SolidBackground(ui::ColorVariant color) { SetColor(color); }
+  explicit SolidBackground(ui::ColorVariant color) { set_color(color); }
 
   SolidBackground(const SolidBackground&) = delete;
   SolidBackground& operator=(const SolidBackground&) = delete;
@@ -68,7 +68,7 @@ class RoundedRectBackground : public Background {
                         const std::optional<gfx::RoundedCornersF>& radii,
                         const gfx::Insets& insets)
       : radii_(radii), insets_(insets) {
-    SetColor(color);
+    set_color(color);
   }
 
   RoundedRectBackground(const RoundedRectBackground&) = delete;
@@ -80,12 +80,7 @@ class RoundedRectBackground : public Background {
 
     const gfx::RoundedCornersF radii = radii_.value_or(
         gfx::RoundedCornersF(std::min(bounds.width(), bounds.height()) / 2.0f));
-    const SkVector sk_radii[4] = {{radii.upper_left(), radii.upper_left()},
-                                  {radii.upper_right(), radii.upper_right()},
-                                  {radii.lower_right(), radii.lower_right()},
-                                  {radii.lower_left(), radii.lower_left()}};
-    const SkPath path = SkPath::RRect(
-        SkRRect::MakeRectRadii(gfx::RectToSkRect(bounds), sk_radii));
+    const SkPath path = SkPath::RRect(gfx::RoundedRectToSkRRect(bounds, radii));
 
     cc::PaintFlags flags;
     flags.setAntiAlias(true);
@@ -116,7 +111,7 @@ class LayerBasedSolidBackground : public Background {
   LayerBasedSolidBackground(ui::ColorVariant color,
                             const std::optional<gfx::RoundedCornersF>& radii)
       : radii_(radii) {
-    SetColor(color);
+    set_color(color);
   }
 
   LayerBasedSolidBackground(const LayerBasedSolidBackground&) = delete;
@@ -202,11 +197,6 @@ class BackgroundPainter : public Background {
     Painter::PaintPainterAt(canvas, painter_.get(), view->GetLocalBounds());
   }
 
-  void SetColor(ui::ColorVariant color) override {
-    NOTREACHED() << "It does not make sense to `SetColor()` for a painter "
-                    "based background.";
-  }
-
  private:
   std::unique_ptr<Painter> painter_;
 };
@@ -215,7 +205,7 @@ Background::Background() = default;
 
 Background::~Background() = default;
 
-void Background::SetColor(ui::ColorVariant color) {
+void Background::set_color(ui::ColorVariant color) {
   color_ = color;
 }
 

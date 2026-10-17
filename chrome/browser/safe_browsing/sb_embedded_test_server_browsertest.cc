@@ -29,7 +29,6 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/test_utils.h"
 #include "net/cookies/canonical_cookie.h"
-#include "net/dns/mapped_host_resolver.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "services/network/public/mojom/network_context.mojom-forward.h"
@@ -89,7 +88,7 @@ class SBEmbeddedTestServerBrowserTest
     // We only need to mock a local database. The tests will use a true real
     // protocol manager.
     SBDatabase::RegisterStoreFactoryForTest(
-        std::make_unique<TestV4StoreFactory>());
+        std::make_unique<TestSBStoreFactory>());
 
     auto sb_db_factory = std::make_unique<TestSBDatabaseFactory>();
     sb_db_factory_ = sb_db_factory.get();

@@ -24,14 +24,13 @@
 #include "base/types/pass_key.h"
 #include "components/safe_browsing/core/browser/db/database_manager.h"
 #include "components/safe_browsing/core/browser/db/sb_database.h"
+#include "components/safe_browsing/core/browser/db/sb_protocol_manager_util.h"
 #include "components/safe_browsing/core/browser/db/sb_update_protocol_manager.h"
 #include "components/safe_browsing/core/browser/db/v4_get_hash_protocol_manager.h"
-#include "components/safe_browsing/core/browser/db/v4_protocol_manager_util.h"
 #include "components/safe_browsing/core/browser/db/v4_update_protocol_manager.h"
 #include "components/safe_browsing/core/common/proto/webui.pb.h"
 #include "url/gurl.h"
 
-// TODO(crbug.com/362791941): Handle v4 references
 namespace safe_browsing {
 
 namespace V5 {
@@ -74,32 +73,7 @@ class SBLocalDatabaseManager : public SafeBrowsingDatabaseManager {
     return current_local_database_manager_;
   }
 
-  enum class ClientCallbackType : int {
-    // This represents the case when we're trying to determine if a URL is
-    // unsafe from the following perspectives: Malware, Phishing, UwS.
-    CHECK_BROWSE_URL,
-
-    // This represents the case when we're trying to determine if any of the
-    // URLs in a vector of URLs is unsafe for downloading binaries.
-    CHECK_DOWNLOAD_URLS,
-
-    // This represents the case when we're trying to determine if a Chrome
-    // extension is unsafe.
-    CHECK_EXTENSION_IDS,
-
-    // This represents the case when we're trying to determine if a URL belongs
-    // to the list where subresource filter should be active.
-    CHECK_URL_FOR_SUBRESOURCE_FILTER,
-
-    // This represents the case when we're trying to determine if a URL is
-    // part of the CSD allowlist.
-    CHECK_CSD_ALLOWLIST,
-
-    // This represents the other cases when a check is being performed
-    // synchronously so a client callback isn't required. For instance, when
-    // trying to determine if an IP address is unsafe due to hosting Malware.
-    CHECK_OTHER,
-  };
+  using ClientCallbackType = safe_browsing::ClientCallbackType;
 
   //
   // SafeBrowsingDatabaseManager implementation

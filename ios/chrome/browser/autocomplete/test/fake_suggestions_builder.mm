@@ -22,7 +22,7 @@ constexpr int kShortcutMinChar = 3;
 /// Creates a search autocomplete match.
 AutocompleteMatch CreateSearchMatch(std::u16string search_terms) {
   AutocompleteMatch match;
-  match.type = AutocompleteMatchType::SEARCH_SUGGEST;
+  match.type = omnibox::AutocompleteMatchType::kSearchSuggest;
   match.fill_into_edit = search_terms;
   match.contents = search_terms;
   GURL url = GURL("https://www.google.com/search");
@@ -35,7 +35,7 @@ AutocompleteMatch CreateSearchMatch(std::u16string search_terms) {
 /// Creates a search verbatim match.
 AutocompleteMatch CreateVerbatimMatch(std::u16string search_terms) {
   AutocompleteMatch match = CreateSearchMatch(search_terms);
-  match.type = AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED;
+  match.type = omnibox::AutocompleteMatchType::kSearchWhatYouTyped;
   match.allowed_to_be_default_match = true;
   return match;
 }
@@ -44,7 +44,7 @@ AutocompleteMatch CreateVerbatimMatch(std::u16string search_terms) {
 AutocompleteMatch CreateHistoryURLMatch(std::u16string title,
                                         std::u16string destination_url) {
   AutocompleteMatch match;
-  match.type = AutocompleteMatchType::HISTORY_URL;
+  match.type = omnibox::AutocompleteMatchType::kHistoryUrl;
   match.destination_url = GURL(destination_url);
   match.fill_into_edit = destination_url;
   match.swap_contents_and_description = true;

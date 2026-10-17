@@ -174,13 +174,6 @@ void ToolbarUIService::OnContentSettingImagePointerDown(
   }
 }
 
-void ToolbarUIService::OnContentSettingImageAnimationEnded(
-    ::toolbar_ui_api::mojom::ContentSettingImageType type) {
-  if (delegate_) {
-    delegate_->OnContentSettingImageAnimationEnded(type);
-  }
-}
-
 void ToolbarUIService::OnPageActionPointerDown(
     ::toolbar_ui_api::mojom::PageActionId action_id) {
   if (delegate_) {
@@ -206,9 +199,11 @@ void ToolbarUIService::OnPageActionClick(
 
 void ToolbarUIService::OnPageActionChipShowingChanged(
     ::toolbar_ui_api::mojom::PageActionId action_id,
+    bool is_showing,
     OnPageActionChipShowingChangedCallback callback) {
   if (delegate_) {
-    delegate_->OnPageActionChipShowingChanged(action_id, std::move(callback));
+    delegate_->OnPageActionChipShowingChanged(action_id, is_showing,
+                                              std::move(callback));
   } else {
     std::move(callback).Run(base::unexpected(Error::New(
         Code::kFailedPrecondition,
@@ -271,9 +266,10 @@ void ToolbarUIService::OnLhsChipMousePressed(
 
 void ToolbarUIService::OnLhsChipClicked(
     toolbar_ui_api::mojom::LhsChipIdentifier identifier,
-    bool is_mouse_interaction) {
+    bool is_mouse_interaction,
+    uint32_t state_token) {
   if (delegate_) {
-    delegate_->OnLhsChipClicked(identifier, is_mouse_interaction);
+    delegate_->OnLhsChipClicked(identifier, is_mouse_interaction, state_token);
   }
 }
 
@@ -325,20 +321,33 @@ void ToolbarUIService::OnHomeButtonDropFile(const gfx::PointF& drop_position) {
   }
 }
 
+void ToolbarUIService::OnHomeButtonDropText(const std::string& text) {
+  if (delegate_) {
+    delegate_->OnHomeButtonDropText(text);
+  }
+}
+
 void ToolbarUIService::OnToolbarDropFile(const gfx::PointF& drop_position) {
   if (delegate_) {
     delegate_->OnToolbarDropFile(drop_position);
   }
 }
 
-void ToolbarUIService::ShowAvatarMenu(ShowAvatarMenuCallback callback) {
+void ToolbarUIService::ShowAvatarMenu(bool is_pointer_interaction,
+                                      ShowAvatarMenuCallback callback) {
   if (delegate_) {
-    delegate_->ShowAvatarMenu();
+    delegate_->ShowAvatarMenu(is_pointer_interaction);
     std::move(callback).Run({});
   } else {
     std::move(callback).Run(base::unexpected(Error::New(
         Code::kFailedPrecondition,
         "ToolbarUIService: cannot show avatar menu without delegate_")));
+  }
+}
+
+void ToolbarUIService::OnAvatarButtonMousePressed() {
+  if (delegate_) {
+    delegate_->OnAvatarButtonMousePressed();
   }
 }
 
@@ -446,6 +455,12 @@ void ToolbarUIService::OnMediaButtonClicked(bool is_mouse_interaction) {
 void ToolbarUIService::OnMediaButtonMousePressed() {
   if (delegate_) {
     delegate_->OnMediaButtonMousePressed();
+  }
+}
+
+void ToolbarUIService::OnGlicButtonClicked() {
+  if (delegate_) {
+    delegate_->OnGlicButtonClicked();
   }
 }
 }  // namespace toolbar_ui_api

@@ -45,7 +45,7 @@ class LensSearchboxClient {
 
   // Called when a suggestion is accepted. Should open the given URL.
   virtual void OnSuggestionAccepted(const GURL& destination_url,
-                                    AutocompleteMatchType::Type match_type,
+                                    omnibox::AutocompleteMatchType match_type,
                                     bool is_zero_prefix_suggestion) = 0;
 
   // Called when the user focuses or unfocuses the searchbox.

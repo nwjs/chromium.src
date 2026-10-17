@@ -665,16 +665,6 @@ void WebRtcRemoteEventLogManager::RemoveLogsForNotEnabledBrowserContext(
 void WebRtcRemoteEventLogManager::RenderProcessHostExitedDestroyed(
     int render_process_id) {
   DCHECK(task_runner_->RunsTasksInCurrentSequence());
-  StopLogging(render_process_id, StopLoggingAction::kStore,
-              /*diagnostic_uuid=*/std::nullopt, base::DoNothing());
-}
-
-void WebRtcRemoteEventLogManager::StopLogging(
-    int render_process_id,
-    StopLoggingAction action,
-    std::optional<std::string> diagnostic_uuid,
-    base::OnceClosure callback) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
 
   // Remove all of the peer connections associated with this render process.
   auto pc_it = active_peer_connections_.begin();
@@ -686,13 +676,24 @@ void WebRtcRemoteEventLogManager::StopLogging(
     }
   }
 
+  StopLogging(render_process_id, StopLoggingAction::kStore,
+              /*diagnostic_uuid=*/std::nullopt, base::DoNothing());
+}
+
+void WebRtcRemoteEventLogManager::StopLogging(
+    int render_process_id,
+    StopLoggingAction action,
+    std::optional<std::string> diagnostic_uuid,
+    base::OnceClosure callback) {
+  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+
   // Delete pending logs for this session if requested.
   if (action == StopLoggingAction::kDelete && diagnostic_uuid.has_value() &&
       !diagnostic_uuid->empty()) {
     const std::string& uuid = *diagnostic_uuid;
     for (auto it = pending_logs_.begin(); it != pending_logs_.end();) {
       const std::string filename = it->path.BaseName().MaybeAsASCII();
-      if (filename.find(uuid) != std::string::npos) {
+      if (filename.contains(uuid)) {
         if (!base::DeleteFile(it->path)) {
           DVLOG(1) << "Failed to delete " << it->path << ".";
         }
@@ -703,7 +704,7 @@ void WebRtcRemoteEventLogManager::StopLogging(
     }
     for (auto it = local_only_logs_.begin(); it != local_only_logs_.end();) {
       const std::string filename = it->path.BaseName().MaybeAsASCII();
-      if (filename.find(uuid) != std::string::npos) {
+      if (filename.contains(uuid)) {
         if (!base::DeleteFile(it->path)) {
           DVLOG(1) << "Failed to delete " << it->path << ".";
         }

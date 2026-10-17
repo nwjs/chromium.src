@@ -81,6 +81,7 @@ class GLES2_IMPL_EXPORT ImplementationBase
   void SignalSyncToken(const gpu::SyncToken& sync_token,
                        base::OnceClosure callback) override;
   bool IsSyncTokenSignaled(const gpu::SyncToken& sync_token) override;
+  SyncPointClientId GetSyncPointClientId() const override;
   void SignalQuery(uint32_t query, base::OnceClosure callback) override;
   void GetGpuFence(uint32_t gpu_fence_id,
                    base::OnceCallback<void(std::unique_ptr<gfx::GpuFence>)>
@@ -167,7 +168,8 @@ GLES2_IMPL_EXPORT void RelaxedAtomicWriteMemcpyImageRowsSkippingPadding(
     base::span<uint8_t> src,
     size_t row_bytes,
     size_t height,
-    size_t stride);
+    size_t dst_stride,
+    size_t src_stride);
 
 }  // namespace gpu
 

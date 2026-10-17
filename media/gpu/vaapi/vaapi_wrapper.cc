@@ -393,17 +393,13 @@ uint32_t SharedImageFormatToVAFourCC(viz::SharedImageFormat format) {
 
 media::VAImplementation VendorStringToImplementationType(
     const std::string& va_vendor_string) {
-  if (base::StartsWith(va_vendor_string, "Mesa Gallium driver",
-                       base::CompareCase::SENSITIVE)) {
+  if (va_vendor_string.starts_with("Mesa Gallium driver")) {
     return media::VAImplementation::kMesaGallium;
-  } else if (base::StartsWith(va_vendor_string, "Intel i965 driver",
-                              base::CompareCase::SENSITIVE)) {
+  } else if (va_vendor_string.starts_with("Intel i965 driver")) {
     return media::VAImplementation::kIntelI965;
-  } else if (base::StartsWith(va_vendor_string, "Intel iHD driver",
-                              base::CompareCase::SENSITIVE)) {
+  } else if (va_vendor_string.starts_with("Intel iHD driver")) {
     return media::VAImplementation::kIntelIHD;
-  } else if (base::StartsWith(va_vendor_string, "Chromium fake libva driver",
-                              base::CompareCase::SENSITIVE)) {
+  } else if (va_vendor_string.starts_with("Chromium fake libva driver")) {
     return media::VAImplementation::kChromiumFakeDriver;
   }
   return media::VAImplementation::kOther;
@@ -914,8 +910,7 @@ bool IsBlockedDriver(VaapiWrapper::CodecMode mode,
   if (mode == VaapiWrapper::CodecMode::kEncodeVariableBitrate) {
     // The rate controller on grunt is not good enough to support VBR encoding,
     // b/253988139.
-    const bool is_amd_stoney_ridge_driver =
-        va_vendor_string.find("stoney") != std::string::npos;
+    const bool is_amd_stoney_ridge_driver = va_vendor_string.contains("stoney");
     if (!base::FeatureList::IsEnabled(kChromeOSHWVBREncoding) ||
         is_amd_stoney_ridge_driver) {
       return true;

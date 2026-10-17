@@ -11,6 +11,7 @@
 
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <vector>
@@ -29,6 +30,7 @@
 #include "components/safe_browsing/core/browser/db/v5_search_hashes_util.h"
 #include "components/safe_browsing/core/common/proto/safebrowsingv5.pb.h"
 #include "net/base/backoff_entry.h"
+#include "url/gurl.h"
 
 namespace network {
 class SharedURLLoaderFactory;
@@ -68,6 +70,72 @@ class V5GetHashProtocolManager : public KeyedService {
     ThreatMetadata metadata;
   };
 
+  // Context of the check that triggered this GetFullHashes request. Used for
+  // displaying on chrome://safe-browsing debugging page.
+  struct CheckContext {
+    bool operator==(const CheckContext&) const = default;
+
+    // The URLs that are being checked. May be empty for non-URL checks (e.g.
+    // extension ID checks).
+    std::vector<GURL> urls;
+
+    // The type of check being performed.
+    ClientCallbackType check_type = ClientCallbackType::CHECK_OTHER;
+  };
+
+  // Information about a single completed V5 get-hash network check. Used for
+  // displaying on chrome://safe-browsing debugging page.
+  struct V5GetHashLookup {
+    V5GetHashLookup();
+    V5GetHashLookup(const V5GetHashLookup&);
+    V5GetHashLookup& operator=(const V5GetHashLookup&);
+    V5GetHashLookup(V5GetHashLookup&&);
+    V5GetHashLookup& operator=(V5GetHashLookup&&);
+    ~V5GetHashLookup();
+
+    // URLs associated with the check.
+    std::vector<GURL> urls;
+
+    // The type of check performed.
+    ClientCallbackType check_type = ClientCallbackType::CHECK_OTHER;
+
+    // Threat types matched in the local database that triggered this check.
+    std::vector<SBThreatType> local_threat_types;
+
+    // SearchHashesRequest sent over the network.
+    V5::SearchHashesRequest request_proto;
+
+    // HTTP status code of the response, or 0 on network error.
+    int response_code = 0;
+
+    // Network error code, or 0 if successful.
+    int net_error = 0;
+
+    // Response received from the server, if successfully parsed.
+    std::optional<V5::SearchHashesResponse> response_proto;
+
+    // Most severe threat type determined from the response and the existing
+    // cached entries.
+    SBThreatType severest_threat_type = SBThreatType::SB_THREAT_TYPE_SAFE;
+
+    // Metadata associated with the severest threat type.
+    ThreatMetadata metadata;
+  };
+
+  // Interface via which a client of this class can surface relevant events in
+  // WebUI. All methods must be called on the UI thread.
+  class WebUIDelegate {
+   public:
+    virtual ~WebUIDelegate() = default;
+
+    // Returns true if there is an active chrome://safe-browsing listener.
+    virtual bool HasListener() const = 0;
+
+    // Adds a completed V5 get-hash network check to WebUI.
+    //  - `lookup`: the details of the network check and its outcome.
+    virtual void AddToV5GetHashLookups(const V5GetHashLookup& lookup) = 0;
+  };
+
   // Callback when GetFullHashes completes.
   // Passes the most severe threat type and the associated threat metadata.
   using FullHashCallback =
@@ -79,10 +147,12 @@ class V5GetHashProtocolManager : public KeyedService {
   //  - `url_loader_factory`: The factory to use for creating URLLoaders.
   //  - `config`: The protocol configuration (used for client info).
   //  - `cache`: The cache to store and retrieve full hash results.
+  //  - `webui_delegate`: The delegate to surface events in WebUI.
   V5GetHashProtocolManager(
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
       const SBProtocolConfig& config,
-      V5SearchHashesCache* cache);
+      V5SearchHashesCache* cache,
+      WebUIDelegate* webui_delegate);
 
   V5GetHashProtocolManager(const V5GetHashProtocolManager&) = delete;
   V5GetHashProtocolManager& operator=(const V5GetHashProtocolManager&) = delete;
@@ -95,10 +165,16 @@ class V5GetHashProtocolManager : public KeyedService {
   // of threat types.
   // `callback` is the callback that will be run with the threat type and threat
   // metadata once the check completes.
-  virtual void GetFullHashes(
-      const std::map<FullHashStr, std::vector<SBThreatType>>&
-          full_hash_to_threat_types,
-      FullHashCallback callback);
+  // `check_context` provides optional context about the initiating check for
+  // WebUI logging. Only populated if there is a web UI listener.
+  virtual void GetFullHashes(std::map<FullHashStr, std::vector<SBThreatType>>
+                                 full_hash_to_threat_types,
+                             FullHashCallback callback,
+                             std::optional<CheckContext> check_context);
+
+  // Returns true if a WebUI delegate is attached and has an active listener on
+  // chrome://safe-browsing.
+  bool HasWebUIListener() const;
 
   // KeyedService:
   void Shutdown() override;
@@ -124,18 +200,24 @@ class V5GetHashProtocolManager : public KeyedService {
   //  - `url_loader`: The loader that completed.
   //  - `full_hash_to_threat_types`: The map of requested full hashes to threat
   //    types.
+  //  - `request`: The SearchHashesRequest sent over the network. Logged to
+  //    chrome://safe-browsing debugging page.
   //  - `requested_prefixes`: The list of prefixes that were requested.
   //  - `cached_full_hashes`: The full hashes that were already in the cache.
   //  - `callback`: The callback to invoke with the results.
   //  - `request_start_time`: The time when the network request was started.
+  //  - `check_context`: The optional context of the check initiating this
+  //    request. Only populated if there is a web UI listener.
   //  - `response_body`: The response body received from the server.
   void OnURLLoaderComplete(network::SimpleURLLoader* url_loader,
                            std::map<FullHashStr, std::vector<SBThreatType>>
                                full_hash_to_threat_types,
+                           V5::SearchHashesRequest request,
                            std::vector<std::string> requested_prefixes,
                            std::vector<V5::FullHash> cached_full_hashes,
                            FullHashCallback callback,
                            base::TimeTicks request_start_time,
+                           std::optional<CheckContext> check_context,
                            std::optional<std::string> response_body);
 
   // Logs the `outcome` to UMA and runs the `callback` with the provided
@@ -170,6 +252,31 @@ class V5GetHashProtocolManager : public KeyedService {
   // occurred.
   void HandleBackoffResult(bool succeeded);
 
+  // Logs a network lookup to WebUI if a delegate with an active listener is
+  // attached and `check_context` is present.
+  //  - `lookup_succeeded`: Whether the network lookup and parsing succeeded.
+  //  - `check_context`: The optional context of the check initiating this
+  //    request. If not present, logging is skipped.
+  //  - `full_hash_to_threat_types`: Map of candidate full hashes to threat
+  //    types.
+  //  - `request_proto`: The SearchHashesRequest sent over the network.
+  //  - `response_code`: The HTTP response code.
+  //  - `net_error`: The network error code from the URL loader.
+  //  - `response_proto`: The parsed response from the server if
+  //    `lookup_succeeded` is true, or std::nullopt otherwise.
+  //  - `result`: The severest threat type and metadata if `lookup_succeeded` is
+  //    true, or nullptr otherwise.
+  void MaybeLogLookupToWebUI(
+      bool lookup_succeeded,
+      std::optional<CheckContext> check_context,
+      const std::map<FullHashStr, std::vector<SBThreatType>>&
+          full_hash_to_threat_types,
+      V5::SearchHashesRequest request_proto,
+      int response_code,
+      int net_error,
+      std::optional<V5::SearchHashesResponse> response_proto,
+      const ThreatTypeAndMetadata* result);
+
   // In-flight loaders, owned by the protocol manager to ensure they are safely
   // aborted during teardown/Shutdown.
   std::set<std::unique_ptr<network::SimpleURLLoader>, base::UniquePtrComparator>
@@ -186,6 +293,9 @@ class V5GetHashProtocolManager : public KeyedService {
 
   // Enforces exponential backoff on requests.
   std::unique_ptr<net::BackoffEntry> backoff_entry_;
+
+  // The delegate to surface lookup events in chrome://safe-browsing.
+  raw_ptr<WebUIDelegate> webui_delegate_ = nullptr;
 
   // Number of GetHash attempts skipped due to backoff within the same backoff
   // time window.

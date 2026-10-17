@@ -64,7 +64,7 @@ import org.chromium.chrome.browser.theme.ThemeUtils;
 import org.chromium.chrome.browser.theme.TopUiThemeColorProvider;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiSpecs;
-import org.chromium.chrome.browser.ui.side_ui.SideUiObserver;
+import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.UiUpdateRequest;
 import org.chromium.chrome.browser.ui.side_ui.SideUiStateProvider;
 import org.chromium.chrome.browser.ui.side_ui.ViewMarginAdjusterForSideUi;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
@@ -100,7 +100,7 @@ public class BookmarkBarCoordinator
     private final BookmarkBarMediator mMediator;
     private final BookmarkBar mView;
     private final FrameLayout mContentContainer;
-    private final SideUiObserver mSideUiObserver;
+    private final BookmarkBarAdjusterForSideUi mSideUiObserver;
     private @Nullable SideUiStateProvider mSideUiStateProvider;
     private final TopControlsStacker mTopControlsStacker;
     private final TabObscuringHandler mTabObscuringHandler;
@@ -219,7 +219,7 @@ public class BookmarkBarCoordinator
 
                     // BookmarkBarCoordinator is created lazily, therefore may miss the latest
                     // SideUi changes. Update the bar UI with the current SideUiSpecs.
-                    mSideUiObserver.onSideUiSpecsChanged(
+                    mSideUiObserver.updateMarginsForSideUi(
                             sideUiStateProvider.getCurrentSideUiSpecs());
                 });
 
@@ -852,8 +852,9 @@ public class BookmarkBarCoordinator
         }
 
         @Override
-        public @Nullable Transition onPreSideUiSpecsChange(SideUiSpecs sideUiSpecs) {
-            Transition transition = super.onPreSideUiSpecsChange(sideUiSpecs);
+        public @Nullable Transition onPreSideUiSpecsChange(
+                SideUiSpecs sideUiSpecs, UiUpdateRequest request) {
+            Transition transition = super.onPreSideUiSpecsChange(sideUiSpecs, request);
             super.triggerSynchronousMeasureAndLayout();
             return transition;
         }

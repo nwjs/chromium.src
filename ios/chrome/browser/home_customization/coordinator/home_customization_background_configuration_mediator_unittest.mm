@@ -10,6 +10,9 @@
 #import "base/strings/stringprintf.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/test/metrics/histogram_tester.h"
+#import "base/test/scoped_feature_list.h"
+#import "components/feature_engagement/public/feature_constants.h"
+#import "components/feature_engagement/test/mock_tracker.h"
 #import "components/image_fetcher/core/image_fetcher.h"
 #import "components/image_fetcher/core/mock_image_fetcher.h"
 #import "components/image_fetcher/core/request_metadata.h"
@@ -36,9 +39,11 @@
 #import "ios/chrome/browser/home_customization/ui/home_customization_background_configuration_mutator.h"
 #import "ios/chrome/browser/home_customization/utils/home_customization_constants.h"
 #import "ios/chrome/browser/image_fetcher/model/image_fetcher_service_factory.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
 #import "ios/chrome/browser/ntp/ui_bundled/theme_utils.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
+#import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/web/public/test/web_task_environment.h"
 #import "testing/gtest/include/gtest/gtest.h"
 #import "testing/gtest_mac.h"
@@ -104,7 +109,6 @@ class HomeCustomizationBackgroundConfigurationMediatorTest
  public:
   void SetUp() override {
     TestProfileIOS::Builder test_profile_builder;
-    test_profile_builder.SetPrefService(CreatePrefService());
     test_profile_builder.AddTestingFactory(
         UserUploadedImageManagerFactory::GetInstance(),
         base::BindRepeating(&CreateUserUploadedImageManager));
@@ -127,25 +131,13 @@ class HomeCustomizationBackgroundConfigurationMediatorTest
         initWithBackgroundCustomizationService:background_service
                                   imageFetcher:mock_image_fetcher_.get()
                     homeBackgroundImageService:home_background_image_service
-                      userUploadedImageManager:user_image_manager];
+                      userUploadedImageManager:user_image_manager
+                                   prefService:profile_->GetPrefs()
+                      featureEngagementTracker:&mock_tracker_];
 
     consumer_ =
         [[FakeHomeCustomizationBackgroundConfigurationConsumer alloc] init];
     mediator_.consumer = consumer_;
-  }
-
-  std::unique_ptr<sync_preferences::PrefServiceSyncable> CreatePrefService() {
-    sync_preferences::PrefServiceMockFactory factory;
-    scoped_refptr<user_prefs::PrefRegistrySyncable> registry(
-        new user_prefs::PrefRegistrySyncable);
-    std::unique_ptr<sync_preferences::PrefServiceSyncable> prefs =
-        factory.CreateSyncable(registry.get());
-
-    registry->RegisterBooleanPref(prefs::kNTPCustomBackgroundEnabledByPolicy,
-                                  true);
-    registry->RegisterIntegerPref(themes::prefs::kPolicyThemeColor,
-                                  SK_ColorTRANSPARENT);
-    return prefs;
   }
 
   FakeHomeBackgroundImageService* FakeImageService() {
@@ -185,6 +177,8 @@ class HomeCustomizationBackgroundConfigurationMediatorTest
   std::unique_ptr<TestProfileIOS> profile_;
 
   std::unique_ptr<image_fetcher::MockImageFetcher> mock_image_fetcher_;
+
+  testing::NiceMock<feature_engagement::test::MockTracker> mock_tracker_;
 
   // Mediator being tested by these tests.
   HomeCustomizationBackgroundConfigurationMediator* mediator_;
@@ -747,4 +741,115 @@ TEST_F(HomeCustomizationBackgroundConfigurationMediatorTest,
   EXPECT_EQ(expected_image, actual_image);
   EXPECT_GT(actual_original_size.width, 0);
   EXPECT_GT(actual_original_size.height, 0);
+}
+
+// Tests loading and applying the ephemeral theme background without adding it
+// to the recently used backgrounds list.
+TEST_F(HomeCustomizationBackgroundConfigurationMediatorTest,
+       LoadAndApplyEphemeralBackground) {
+  base::test::ScopedFeatureList feature_list(kNewTabPageEphemeralTheme);
+
+  base::DictValue light_dict;
+  light_dict.Set("**.Background.Fill 1.Color", "#1A73E8");
+  base::DictValue dark_dict;
+  dark_dict.Set("**.Background.Fill 1.Color", "#8AB4F8");
+  base::DictValue color_mapping;
+  color_mapping.Set(kEphemeralThemeLightModeColorsKey, std::move(light_dict));
+  color_mapping.Set(kEphemeralThemeDarkModeColorsKey, std::move(dark_dict));
+
+  base::DictValue theme_data;
+  theme_data.Set(kEphemeralThemeSeedColorKey, "FF8000");
+  theme_data.Set(kEphemeralThemeAnimationPathKey, "/path/to/animation.json");
+  theme_data.Set(kEphemeralThemeAnimationColorMappingKey,
+                 std::move(color_mapping));
+  profile_->GetPrefs()->SetDict(prefs::kIosNtpEphemeralThemeData,
+                                std::move(theme_data));
+
+  size_t initial_recent_count =
+      CustomizationService()->GetRecentlyUsedBackgrounds().size();
+
+  EXPECT_CALL(mock_tracker_,
+              ShouldTriggerHelpUI(
+                  testing::Ref(feature_engagement::kIPHiOSBackgroundNewBadge)))
+      .WillOnce(testing::Return(true));
+  EXPECT_CALL(
+      mock_tracker_,
+      Dismissed(testing::Ref(feature_engagement::kIPHiOSBackgroundNewBadge)));
+
+  [mediator_ loadRecentlyUsedBackgroundConfigurations];
+
+  ASSERT_EQ(1u, consumer_.configurations.count);
+  BackgroundCollectionConfiguration* section = consumer_.configurations[0];
+  ASSERT_GE(section.configurationOrder.count, 2u);
+
+  NSString* default_id = section.configurationOrder[0];
+  NSString* ephemeral_id = section.configurationOrder[1];
+  id<BackgroundCustomizationConfiguration> ephemeral_item =
+      section.configurations[ephemeral_id];
+  ASSERT_TRUE(ephemeral_item);
+  EXPECT_EQ(HomeCustomizationBackgroundStyle::kEphemeral,
+            ephemeral_item.backgroundStyle);
+  EXPECT_TRUE(ephemeral_item.showNewBadge);
+  EXPECT_NE(nil, ephemeral_item.colorPalette);
+  EXPECT_NSEQ(@"/path/to/animation.json",
+              ephemeral_item.animatedBackgroundPath);
+  ASSERT_NE(nil, ephemeral_item.lightModeColorProvider);
+  EXPECT_NSEQ(
+      UIColorFromRGB(0x1A73E8),
+      ephemeral_item.lightModeColorProvider[@"**.Background.Fill 1.Color"]);
+  ASSERT_NE(nil, ephemeral_item.darkModeColorProvider);
+  EXPECT_NSEQ(
+      UIColorFromRGB(0x8AB4F8),
+      ephemeral_item.darkModeColorProvider[@"**.Background.Fill 1.Color"]);
+  EXPECT_NSEQ(default_id, consumer_.selectedBackgroundId);
+
+  // Apply and save the ephemeral theme.
+  [mediator_ applyBackgroundForConfiguration:ephemeral_item];
+  [mediator_ saveCurrentTheme];
+
+  EXPECT_TRUE(CustomizationService()->IsCurrentEphemeralTheme());
+  EXPECT_NSEQ(ephemeral_id, consumer_.selectedBackgroundId);
+  EXPECT_EQ(initial_recent_count,
+            CustomizationService()->GetRecentlyUsedBackgrounds().size());
+
+  // Verify that no color option (including default) is selected in the color
+  // palette when the ephemeral theme is active.
+  [mediator_ loadColorBackgroundConfigurations];
+  EXPECT_EQ(nil, consumer_.selectedBackgroundId);
+
+  [mediator_ disconnect];
+}
+
+// Test that the background does not show the "New" badge when the Feature
+// Engagement Tracker does not trigger.
+TEST_F(HomeCustomizationBackgroundConfigurationMediatorTest,
+       BackgroundNewBadgeNotShownWhenTrackerDoesNotTrigger) {
+  base::test::ScopedFeatureList feature_list(kNewTabPageEphemeralTheme);
+
+  base::DictValue theme_data;
+  theme_data.Set(kEphemeralThemeSeedColorKey, "FF8000");
+  theme_data.Set(kEphemeralThemeAnimationPathKey, "/path/to/animation.json");
+  profile_->GetPrefs()->SetDict(prefs::kIosNtpEphemeralThemeData,
+                                std::move(theme_data));
+
+  EXPECT_CALL(mock_tracker_,
+              ShouldTriggerHelpUI(
+                  testing::Ref(feature_engagement::kIPHiOSBackgroundNewBadge)))
+      .WillOnce(testing::Return(false));
+  EXPECT_CALL(
+      mock_tracker_,
+      Dismissed(testing::Ref(feature_engagement::kIPHiOSBackgroundNewBadge)))
+      .Times(0);
+
+  [mediator_ loadRecentlyUsedBackgroundConfigurations];
+
+  ASSERT_EQ(1u, consumer_.configurations.count);
+  BackgroundCollectionConfiguration* section = consumer_.configurations[0];
+  ASSERT_GE(section.configurationOrder.count, 2u);
+
+  NSString* ephemeral_id = section.configurationOrder[1];
+  id<BackgroundCustomizationConfiguration> ephemeral_item =
+      section.configurations[ephemeral_id];
+  ASSERT_TRUE(ephemeral_item);
+  EXPECT_FALSE(ephemeral_item.showNewBadge);
 }

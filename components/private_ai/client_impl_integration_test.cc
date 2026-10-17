@@ -51,8 +51,12 @@ class ClientImplIntegrationTest : public testing::Test {
     GURL url("wss://example.com?key=test-api-key");
 
     auto factory = std::make_unique<ConnectionFactoryImpl>(
-        url, &test_network_context_, &logger_, &oak_session_driver_,
-        &network_driver_, version_info::Channel::UNKNOWN);
+        url,
+        base::BindRepeating(
+            [](network::mojom::NetworkContext* context) { return context; },
+            base::Unretained(&test_network_context_)),
+        &logger_, &oak_session_driver_, &network_driver_,
+        version_info::Channel::UNKNOWN);
     factory_ptr_ = factory.get();
     factory->EnableTokenAttestation(&token_manager_);
     factory->SetSecureChannelFactoryForTesting(base::BindLambdaForTesting(
@@ -266,8 +270,9 @@ TEST_F(ClientImplIntegrationTest, DisconnectDuringAttestation) {
   auto result = future.Get();
   ASSERT_FALSE(result.has_value());
   // Our heuristic correctly rewrites this early error (before first successful
-  // response) into kClientAttestationFailed.
-  EXPECT_EQ(result.error(), StatusCode::kClientAttestationFailed);
+  // response) into kClientAttestationPresumedRejectedByServer.
+  EXPECT_EQ(result.error(),
+            StatusCode::kClientAttestationPresumedRejectedByServer);
 }
 
 TEST_F(ClientImplIntegrationTest, ClientDestroyedDuringAttestation) {

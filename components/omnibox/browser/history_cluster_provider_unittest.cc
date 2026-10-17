@@ -35,8 +35,8 @@ AutocompleteMatch CreateMatch(std::u16string contents,
                               int relevance = 100) {
   AutocompleteMatch match;
   match.contents = contents;
-  match.type = is_search ? AutocompleteMatchType::SEARCH_SUGGEST
-                         : AutocompleteMatchType::HISTORY_URL;
+  match.type = is_search ? omnibox::AutocompleteMatchType::kSearchSuggest
+                         : omnibox::AutocompleteMatchType::kHistoryUrl;
   match.relevance = relevance;
   return match;
 }
@@ -86,11 +86,11 @@ class HistoryClustersProviderTest : public testing::Test,
         history_clusters_service_.get());
 
     search_provider_ =
-        new FakeAutocompleteProvider(AutocompleteProvider::Type::TYPE_SEARCH);
-    history_url_provider_ = new FakeAutocompleteProvider(
-        AutocompleteProvider::Type::TYPE_HISTORY_URL);
-    history_quick_provider_ = new FakeAutocompleteProvider(
-        AutocompleteProvider::Type::TYPE_HISTORY_QUICK);
+        new FakeAutocompleteProvider(AutocompleteProvider::Type::kSearch);
+    history_url_provider_ =
+        new FakeAutocompleteProvider(AutocompleteProvider::Type::kHistoryUrl);
+    history_quick_provider_ =
+        new FakeAutocompleteProvider(AutocompleteProvider::Type::kHistoryQuick);
     provider_ = new HistoryClusterProvider(
         autocomplete_provider_client_.get(), this, search_provider_.get(),
         history_url_provider_.get(), history_quick_provider_.get());

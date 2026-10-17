@@ -37,7 +37,7 @@ import org.chromium.components.metrics.OmniboxEventProtosIntDef.PageClassificati
 import org.chromium.components.omnibox.AutocompleteInput;
 import org.chromium.components.omnibox.AutocompleteRequestType;
 import org.chromium.components.omnibox.OmniboxCapabilities;
-import org.chromium.components.omnibox.ToolModeProto.ToolMode;
+import org.chromium.components.omnibox.ToolModeProtoIntDef.ToolMode;
 import org.chromium.url.GURL;
 
 /** Unit tests for {@link FuseboxSessionState}. */
@@ -75,7 +75,7 @@ public class FuseboxSessionStateUnitTest {
                     AutocompleteInput input = session.getAutocompleteInput();
                     input.setRequestType(AutocompleteRequestType.IMAGE_GENERATION);
                     verify(mComposeboxQueryControllerBridge)
-                            .setActiveTool(ToolMode.TOOL_MODE_IMAGE_GEN_VALUE);
+                            .setActiveTool(ToolMode.TOOL_MODE_IMAGE_GEN);
 
                     clearInvocations(mComposeboxQueryControllerBridge);
                     input.setHasAttachments(true);
@@ -243,6 +243,25 @@ public class FuseboxSessionStateUnitTest {
     }
 
     @Test
+    public void testActivate_ifDesktop_hubPageClassification_initialInputIsEmpty() {
+        AutocompleteInput input = activateDesktopSession(PageClassification.ANDROID_HUB);
+
+        assertEquals("", input.getInitialUserText());
+        assertEquals("", input.getUserText());
+        assertNull(input.getPreviewMatchUrl());
+    }
+
+    @Test
+    public void testActivate_ifDesktop_tabSearchPageClassification_initialInputIsEmpty() {
+        AutocompleteInput input =
+                activateDesktopSession(PageClassification.ANDROID_TAB_SEARCH_OVERLAY);
+
+        assertEquals("", input.getInitialUserText());
+        assertEquals("", input.getUserText());
+        assertNull(input.getPreviewMatchUrl());
+    }
+
+    @Test
     public void testDeactivate_setsDisabledState() {
         FuseboxSessionState session = FuseboxSessionState.from(mLocationBarDataProvider);
         session.activate(ContextUtils.getApplicationContext(), null, mProfileSupplier, null);
@@ -265,6 +284,7 @@ public class FuseboxSessionStateUnitTest {
         session.activate(ContextUtils.getApplicationContext(), null, mProfileSupplier, null);
 
         assertEquals(SAMPLE_PAGE_URL, session.getAutocompleteInput().getPreviewMatchUrl());
+        assertEquals(SAMPLE_PAGE_URL, session.getAutocompleteInput().getInitialPreviewMatchUrl());
     }
 
     @Test
@@ -278,5 +298,18 @@ public class FuseboxSessionStateUnitTest {
 
         GURL previewMatchUrl = session.getAutocompleteInput().getPreviewMatchUrl();
         assertNull(previewMatchUrl);
+    }
+
+    private AutocompleteInput activateDesktopSession(@PageClassification int pageClassification) {
+        OmniboxCapabilities.setHasDesktopExperienceForTesting(true);
+        UrlBarData.setShouldShowUrlForTesting(true);
+        doReturn(SAMPLE_PAGE_URL).when(mLocationBarDataProvider).getCurrentGurl();
+        doReturn(pageClassification)
+                .when(mLocationBarDataProvider)
+                .getPageClassification(/* prefetch= */ false);
+
+        FuseboxSessionState session = FuseboxSessionState.from(mLocationBarDataProvider);
+        session.activate(ContextUtils.getApplicationContext(), null, mProfileSupplier, null);
+        return session.getAutocompleteInput();
     }
 }

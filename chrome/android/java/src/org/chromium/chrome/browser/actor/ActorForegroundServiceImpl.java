@@ -37,6 +37,7 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorSupplier;
 import org.chromium.components.browser_ui.notifications.ForegroundServiceUtils;
 import org.chromium.components.browser_ui.notifications.NotificationWrapper;
+import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.content_public.browser.LoadUrlParams;
 
 /** Implementation of ActorForegroundService. */
@@ -178,13 +179,12 @@ public class ActorForegroundServiceImpl extends SplitCompatService.Impl {
                     // TODO(b/547386277) :This flow is similar to desktop, see if we use merge this.
                     Log.d(
                             TAG,
-                            "Tabbed activity is visible, explicitly appending a background tab for"
+                            "Tabbed activity is visible, explicitly appending a tab for"
                                     + " actuation.");
                     if (actorService != null) {
                         Tab appendedTab = generateForegroundTabForTask();
                         if (appendedTab != null) {
-                            actorService.setPreparedBackgroundTab(
-                                    appendedTab, glicTriggerMessageId);
+                            actorService.setTabReady(appendedTab, glicTriggerMessageId);
                         } else {
                             actorService.notifyBackgroundSetupFailed(glicTriggerMessageId);
                         }
@@ -290,6 +290,12 @@ public class ActorForegroundServiceImpl extends SplitCompatService.Impl {
                     TabModelSelectorSupplier.getValueOrNullFrom(
                             ((AsyncInitializationActivity) activity).getWindowAndroid());
             if (selector != null) {
+                Tab lastActiveTab = selector.getCurrentTab();
+                if (lastActiveTab != null
+                        && !lastActiveTab.isIncognito()
+                        && UrlUtilities.isNtpUrl(lastActiveTab.getUrl())) {
+                    return lastActiveTab;
+                }
                 TabCreator tabCreator = selector.getModel(false).getTabCreator();
                 return tabCreator.createNewTab(
                         new LoadUrlParams("about:blank"),

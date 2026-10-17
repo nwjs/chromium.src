@@ -43,6 +43,7 @@
 #include "components/translate/core/browser/translate_error_details.h"
 #include "components/translate/core/browser/translate_prefs.h"
 #include "components/translate/core/common/language_detection_details.h"
+#include "components/translate/core/common/translate_constants.h"
 #include "components/translate/core/common/translate_features.h"
 #include "components/translate/core/common/translate_switches.h"
 #include "components/translate/core/common/translate_util.h"
@@ -56,6 +57,7 @@
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/http_request.h"
 #include "net/test/embedded_test_server/http_response.h"
+#include "pdf/buildflags.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/events/base_event_utils.h"
@@ -63,6 +65,15 @@
 #include "ui/views/controls/button/md_text_button.h"
 #include "ui/views/test/button_test_api.h"
 #include "url/gurl.h"
+
+#if BUILDFLAG(ENABLE_PDF)
+#include "base/scoped_observation.h"
+#include "base/test/test_future.h"
+#include "components/pdf/browser/pdf_document_helper.h"
+#include "components/translate/content/browser/pdf_translation_coordinator.h"
+#include "components/translate/core/browser/language_state.h"
+#include "components/translate/core/browser/translate_driver.h"
+#endif  // BUILDFLAG(ENABLE_PDF)
 
 namespace translate {
 namespace {
@@ -1553,7 +1564,172 @@ IN_PROC_BROWSER_TEST_F(TranslateManagerBrowserTest,
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return chrome_translate_client->IsReadingModeOpen(); }));
 }
+
+IN_PROC_BROWSER_TEST_F(
+    TranslateManagerBrowserTest,
+    RevertPdfTranslationClosesSidePanelIfOpenedByPdfTranslation) {
+  ChromeTranslateClient* chrome_translate_client = GetChromeTranslateClient();
+  EXPECT_FALSE(chrome_translate_client->IsReadingModeOpen());
+
+  chrome_translate_client->TriggerPdfTranslation();
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() -> bool { return chrome_translate_client->IsReadingModeOpen(); }));
+
+  chrome_translate_client->RevertPdfTranslation();
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() -> bool { return !chrome_translate_client->IsReadingModeOpen(); }));
+}
+
+IN_PROC_BROWSER_TEST_F(TranslateManagerBrowserTest,
+                       RevertPdfTranslationDoesNotCloseSidePanelIfAlreadyOpen) {
+  ChromeTranslateClient* chrome_translate_client = GetChromeTranslateClient();
+  EXPECT_FALSE(chrome_translate_client->IsReadingModeOpen());
+
+  // Open Reading Mode side panel prior to triggering PDF translation.
+  SidePanelUI* side_panel_ui = SidePanelUI::From(browser());
+  ASSERT_TRUE(side_panel_ui);
+  side_panel_ui->Show(SidePanelEntryId::kReadAnything);
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() -> bool { return chrome_translate_client->IsReadingModeOpen(); }));
+
+  // Trigger PDF translation (should leave side panel open).
+  chrome_translate_client->TriggerPdfTranslation();
+  EXPECT_TRUE(chrome_translate_client->IsReadingModeOpen());
+
+  // Revert PDF translation (should NOT close side panel since it was open before).
+  chrome_translate_client->RevertPdfTranslation();
+  EXPECT_TRUE(chrome_translate_client->IsReadingModeOpen());
+
+  // Clean up
+  side_panel_ui->Close();
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() -> bool { return !chrome_translate_client->IsReadingModeOpen(); }));
+}
+
+// TODO(https://crbug.com/467160838): Fix test failure on ChromeOS ASan, MSan
+// and Mac.
+#if (BUILDFLAG(IS_CHROMEOS) && defined(ADDRESS_SANITIZER)) || \
+    defined(MEMORY_SANITIZER) || BUILDFLAG(IS_MAC)
+#define MAYBE_RevertTranslationClosesSidePanelViaTranslateManager \
+  DISABLED_RevertTranslationClosesSidePanelViaTranslateManager
+#else
+#define MAYBE_RevertTranslationClosesSidePanelViaTranslateManager \
+  RevertTranslationClosesSidePanelViaTranslateManager
 #endif
+IN_PROC_BROWSER_TEST_F(
+    TranslateManagerBrowserTest,
+    MAYBE_RevertTranslationClosesSidePanelViaTranslateManager) {
+  ChromeTranslateClient* chrome_translate_client = GetChromeTranslateClient();
+  EXPECT_FALSE(chrome_translate_client->IsReadingModeOpen());
+
+  chrome_translate_client->TriggerPdfTranslation();
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() -> bool { return chrome_translate_client->IsReadingModeOpen(); }));
+
+  // Set language state to translated.
+  TranslateManager* manager = chrome_translate_client->GetTranslateManager();
+  ASSERT_TRUE(manager);
+  manager->GetLanguageState()->LanguageDetermined("fr", true);
+  manager->GetLanguageState()->SetCurrentLanguage("en");
+
+  // Revert translation via TranslateManager.
+  manager->RevertTranslation();
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() -> bool { return !chrome_translate_client->IsReadingModeOpen(); }));
+}
+#endif
+
+#if BUILDFLAG(ENABLE_PDF)
+class TranslateManagerPdfBrowserTest : public TranslateManagerBrowserTest {
+ protected:
+  void InitFeatures() override {
+    scoped_feature_list_.InitWithFeatures(
+        {kEnableTranslatePdf, features::kReadAnythingTranslateEntryPoint}, {});
+  }
+};
+
+// Test that loading a full-page PDF initiates language detection and executes
+// `PDFTranslationCoordinator` to determine PDF translatability.
+IN_PROC_BROWSER_TEST_F(TranslateManagerPdfBrowserTest,
+                       FullPagePdfTranslatabilityDetermined) {
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(),
+      embedded_test_server()->GetURL(
+          "/pdf/accessibility/paragraphs-and-heading-untagged.pdf")));
+
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  ASSERT_TRUE(web_contents);
+
+  ChromeTranslateClient* client = GetChromeTranslateClient();
+  ASSERT_TRUE(client);
+
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return client->GetLanguageState().pdf_translatability_status() !=
+           LanguageState::PdfTranslatabilityStatus::kNotChecked;
+  }));
+
+  EXPECT_EQ(client->GetLanguageState().pdf_translatability_status(),
+            LanguageState::PdfTranslatabilityStatus::kTranslatable);
+
+  auto* coordinator = PDFTranslationCoordinator::GetForCurrentDocument(
+      web_contents->GetPrimaryMainFrame());
+  ASSERT_TRUE(coordinator);
+  EXPECT_EQ(coordinator->status(),
+            PDFTranslationCoordinator::TranslatabilityStatus::kTranslatable);
+}
+
+// Test that loading an HTML page with an embedded PDF drops PDF translation
+// processing (it is not a full-page PDF), so PDF text is never sent to the main
+// frame for language detection and PDF translatability is never checked.
+IN_PROC_BROWSER_TEST_F(TranslateManagerPdfBrowserTest,
+                       EmbeddedPdfDroppedForTranslation) {
+  ChromeTranslateClient* client = GetChromeTranslateClient();
+  ASSERT_TRUE(client);
+
+  struct : TranslateDriver::LanguageDetectionObserver {
+    void OnLanguageDetermined(
+        const LanguageDetectionDetails& details) override {
+      last_contents = details.contents;
+    }
+    std::u16string last_contents;
+  } observer;
+  base::ScopedObservation<TranslateDriver,
+                          TranslateDriver::LanguageDetectionObserver>
+      observation(&observer);
+  observation.Observe(client->GetTranslateDriver());
+
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), embedded_test_server()->GetURL("/pdf/pdf_embed.html")));
+
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  ASSERT_TRUE(web_contents);
+
+  pdf::PDFDocumentHelper* pdf_helper = nullptr;
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    pdf_helper = pdf::PDFDocumentHelper::MaybeGetForWebContents(*web_contents);
+    return pdf_helper != nullptr;
+  }));
+
+  base::test::TestFuture<void> document_loaded;
+  pdf_helper->RegisterForDocumentLoadComplete(document_loaded.GetCallback());
+  ASSERT_TRUE(document_loaded.Wait());
+
+  // Flush the PDF and renderer Mojo pipes to ensure any PdfPageCaptured() IPC
+  // triggered by OnDocumentLoadComplete() would have completed.
+  base::test::TestFuture<const std::u16string&> page_text;
+  pdf_helper->GetPageText(0, page_text.GetCallback());
+  ASSERT_FALSE(page_text.Get().empty());
+  ASSERT_TRUE(content::ExecJs(web_contents->GetPrimaryMainFrame(), ""));
+
+  EXPECT_NE(observer.last_contents, page_text.Get());
+  EXPECT_EQ(client->GetLanguageState().pdf_translatability_status(),
+            LanguageState::PdfTranslatabilityStatus::kNotChecked);
+  EXPECT_FALSE(PDFTranslationCoordinator::GetForCurrentDocument(
+      web_contents->GetPrimaryMainFrame()));
+}
+#endif  // BUILDFLAG(ENABLE_PDF)
 
 }  // namespace
 }  // namespace translate

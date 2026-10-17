@@ -34,6 +34,7 @@
 #include "base/threading/platform_thread.h"
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
+#include "base/version.h"
 #include "base/win/registry.h"
 #include "base/win/scoped_handle.h"
 #include "base/win/shlwapi.h"
@@ -43,6 +44,7 @@
 #include "chrome/browser/active_use_util.h"
 #include "chrome/chrome_elf/chrome_elf_main.h"
 #include "chrome/common/buildflags.h"
+#include "chrome/common/child_module/child_module_helper.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_result_codes.h"
@@ -54,8 +56,6 @@
 #include "components/version_info/channel.h"
 #include "content/public/app/sandbox_helper_win.h"
 #include "content/public/common/content_switches.h"
-#include "sandbox/policy/mojom/sandbox.mojom.h"
-#include "sandbox/policy/sandbox_type.h"
 #include "sandbox/win/src/sandbox.h"
 
 namespace {
@@ -102,21 +102,38 @@ struct ModuleProperties {
   std::optional<ProfileProcessType> profile_type;
 };
 
+// Returns the path to the patched renderer DLL if a valid version string is
+// specified on the command line, or an empty FilePath otherwise. Does not
+// validate whether the binary exists or is readable on disk.
+base::FilePath GetPatchedRendererPath() {
+  return child_module::GetRendererBinaryPath(
+      base::Version(base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+          switches::kChildModuleVersion)));
+}
+
 // Returns the properties for the module to be loaded in `process_type`.
 const ModuleProperties& ModulePropertiesFromProcessType(
     std::string_view process_type) {
   // Most process types load chrome.dll and run `ChromeMain`.
   static constexpr ModuleProperties kOtherProperties = {
       installer::kChromeDll, "ChromeMain", std::nullopt};
-#if BUILDFLAG(ENABLE_SEPARATE_RENDERER_BINARY)
   // Renderers load chrome_renderer.dll and run `ChromeRendererMain`.
   static constexpr ModuleProperties kRendererProperties = {
       chrome::kRendererDll, "ChromeRendererMain",
       ProfileProcessType::kRenderer};
-  return process_type == "renderer" ? kRendererProperties : kOtherProperties;
+
+#if BUILDFLAG(ENABLE_SEPARATE_RENDERER_BINARY)
+  if (process_type == switches::kRendererProcess) {
+    return kRendererProperties;
+  }
 #else
-  return kOtherProperties;
+  if (process_type == switches::kRendererProcess &&
+      !GetPatchedRendererPath().empty()) {
+    return kRendererProperties;
+  }
 #endif
+
+  return kOtherProperties;
 }
 
 std::wstring GetMachineGuid() {
@@ -175,6 +192,13 @@ bool ModuleCanBeRead(const base::FilePath& file_path) {
 // |module_name| is in a versioned sub-directory of the current executable's
 // directory) are supported. The identified file is not guaranteed to exist.
 base::FilePath GetModulePath(std::wstring_view module_name) {
+  if (module_name == chrome::kRendererDll) {
+    base::FilePath patched_path = GetPatchedRendererPath();
+    if (!patched_path.empty()) {
+      return patched_path;
+    }
+  }
+
   base::FilePath exe_dir;
   const bool has_path = base::PathService::Get(base::DIR_EXE, &exe_dir);
   DCHECK(has_path);
@@ -268,22 +292,10 @@ int MainDllLoader::Launch(HINSTANCE instance,
 
   // Initialize the sandbox services.
   sandbox::SandboxInterfaceInfo sandbox_info = {nullptr};
-  const bool is_browser = process_type_.empty();
-  // IsUnsandboxedSandboxType() can't be used here because its result can be
-  // gated behind a feature flag, which are not yet initialized.
-  const bool is_sandboxed =
-      sandbox::policy::SandboxTypeFromCommandLine(cmd_line) !=
-      sandbox::mojom::Sandbox::kNoSandbox;
-
-  if (is_browser || is_sandboxed) {
-    // For child processes that are running as --no-sandbox, don't initialize
-    // the sandbox info, otherwise they'll be treated as brokers (as if they
-    // were the browser).
-    content::InitializeSandboxInfo(
-        &sandbox_info, IsExtensionPointDisableSet()
-                           ? sandbox::MITIGATION_EXTENSION_POINT_DISABLE
-                           : 0);
-  }
+  content::InitializeSandboxInfo(
+      &sandbox_info, IsExtensionPointDisableSet()
+                         ? sandbox::MITIGATION_EXTENSION_POINT_DISABLE
+                         : 0);
 
   base::TimeTicks preread_begin_ticks;
   base::TimeTicks preread_end_ticks;
@@ -296,6 +308,7 @@ int MainDllLoader::Launch(HINSTANCE instance,
     SetLLVMProfileProcessType(*module_properties.profile_type);
   }
 
+  const bool is_browser = process_type_.empty();
   base::FilePath file;
   dll_ = Load(&file, module_properties.module_name, cmd_line, is_browser,
               preread_begin_ticks, preread_end_ticks);

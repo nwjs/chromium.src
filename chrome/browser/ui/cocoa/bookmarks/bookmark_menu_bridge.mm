@@ -21,6 +21,7 @@
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/bookmarks/browser/bookmark_node.h"
 #include "components/bookmarks/managed/managed_bookmark_service.h"
+#import "ui/base/cocoa/macos27_sdk.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/image/image.h"
@@ -172,7 +173,11 @@ void BookmarkMenuBridge::BuildRootMenu(bool recurse) {
   is_menu_valid_ = true;
 }
 
-void BookmarkMenuBridge::BookmarkMergedSurfaceServiceBeingDeleted() {}
+void BookmarkMenuBridge::BookmarkMergedSurfaceServiceBeingDeleted() {
+  bookmark_service_observation_.Reset();
+  bookmark_service_ = nullptr;
+  bookmark_nodes_.clear();
+}
 
 void BookmarkMenuBridge::BookmarkNodeAdded(const BookmarkParentFolder& parent,
                                            size_t index) {
@@ -275,7 +280,10 @@ void BookmarkMenuBridge::AddSubmenu(NSMenu* menu,
   NSMenuItem* item = [[NSMenuItem alloc] initWithTitle:title
                                                 action:nil
                                          keyEquivalent:@""];
-  [item setImage:image];
+  item.image = image;
+  if (@available(macOS 27, *)) {
+    item.preferredImageVisibility = NSMenuItemImageVisibilityVisible;
+  }
   ConfigureMenuItem(node, item);
   bookmark_nodes_[node] = item;
 
@@ -364,7 +372,10 @@ void BookmarkMenuBridge::ConfigureMenuItem(const BookmarkNode* node,
     favicon = favicon::GetDefaultFavicon().ToNSImage();
     [favicon setTemplate:YES];
   }
-  [item setImage:favicon];
+  item.image = favicon;
+  if (@available(macOS 27, *)) {
+    item.preferredImageVisibility = NSMenuItemImageVisibilityVisible;
+  }
 }
 
 NSMenuItem* BookmarkMenuBridge::MenuItemForNode(const BookmarkNode* node) {

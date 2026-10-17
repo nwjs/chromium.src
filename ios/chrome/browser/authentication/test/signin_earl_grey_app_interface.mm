@@ -16,6 +16,7 @@
 #import "components/prefs/pref_service.h"
 #import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/base/signin_pref_names.h"
+#import "components/signin/public/identity_manager/account_capabilities.h"
 #import "components/signin/public/identity_manager/account_capabilities_test_mutator.h"
 #import "components/signin/public/identity_manager/account_info.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
@@ -36,7 +37,7 @@
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
-#import "ios/chrome/browser/shared/public/commands/scene_commands.h"
+#import "ios/chrome/browser/shared/public/commands/scene_sign_in_commands.h"
 #import "ios/chrome/browser/shared/public/commands/show_signin_command.h"
 #import "ios/chrome/browser/signin/model/account_profile_mapper.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
@@ -75,6 +76,37 @@
           GetApplicationContext()->GetSystemIdentityManager());
   systemIdentityManager->AddIdentityWithCapabilities(fakeIdentity,
                                                      capabilities);
+}
+
++ (void)setCapabilities:(NSDictionary<NSString*, NSNumber*>*)capabilities
+            forIdentity:(FakeSystemIdentity*)fakeIdentity {
+  AccountCapabilities updatedCapabilities;
+  AccountCapabilitiesTestMutator updatedCapabilitiesMutator(
+      &updatedCapabilities);
+  FakeSystemIdentityManager* systemIdentityManager =
+      FakeSystemIdentityManager::FromSystemIdentityManager(
+          GetApplicationContext()->GetSystemIdentityManager());
+  AccountCapabilitiesTestMutator* pendingCapabilitiesMutator =
+      systemIdentityManager->GetPendingCapabilitiesMutator(fakeIdentity);
+  for (NSString* name in capabilities) {
+    const std::string capabilityName = base::SysNSStringToUTF8(name);
+    const bool value = capabilities[name].boolValue;
+    // Update the identity on the device, so that later fetches are consistent.
+    pendingCapabilitiesMutator->SetCapability(capabilityName, value);
+    updatedCapabilitiesMutator.SetCapability(capabilityName, value);
+  }
+
+  // Capabilities of the identity on the device are only visible to the browser
+  // once fetched. Simulate the result of such a fetch, as the browser only
+  // refreshes capabilities periodically.
+  ProfileIOS* profile = chrome_test_util::GetOriginalProfile();
+  signin::IdentityManager* identityManager =
+      IdentityManagerFactory::GetForProfile(profile);
+  AccountInfo account = identityManager->FindExtendedAccountInfoByEmailAddress(
+      base::SysNSStringToUTF8(fakeIdentity.userEmail));
+  AccountInfo::Builder builder(account);
+  builder.UpdateAccountCapabilitiesWith(updatedCapabilities);
+  signin::UpdateAccountInfoForAccount(identityManager, builder.Build());
 }
 
 + (void)addFakeIdentityForSSOAuthAddAccountFlow:
@@ -227,21 +259,21 @@
             accessPoint:signin_metrics::AccessPoint::kResigninInfobar];
   UIViewController* baseViewController =
       chrome_test_util::GetActiveViewController();
-  id<SceneCommands> sceneHandler = HandlerForProtocol(
+  id<SceneSignInCommands> sceneSignInHandler = HandlerForProtocol(
       chrome_test_util::GetMainBrowser()->GetCommandDispatcher(),
-      SceneCommands);
-  [sceneHandler showSignin:command baseViewController:baseViewController];
+      SceneSignInCommands);
+  [sceneSignInHandler showSignin:command baseViewController:baseViewController];
 }
 
 + (void)triggerConsistencyPromoSigninDialogWithURL:(NSURL*)url {
   const GURL gURL = net::GURLWithNSURL(url);
   UIViewController* baseViewController =
       chrome_test_util::GetActiveViewController();
-  id<SceneCommands> sceneHandler = HandlerForProtocol(
+  id<SceneSignInCommands> sceneSignInHandler = HandlerForProtocol(
       chrome_test_util::GetMainBrowser()->GetCommandDispatcher(),
-      SceneCommands);
-  [sceneHandler showWebSigninPromoFromViewController:baseViewController
-                                                 URL:gURL];
+      SceneSignInCommands);
+  [sceneSignInHandler showWebSigninPromoFromViewController:baseViewController
+                                                       URL:gURL];
 }
 
 + (void)setSelectedType:(syncer::UserSelectableType)type enabled:(BOOL)enabled {

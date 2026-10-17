@@ -449,6 +449,11 @@ class IncognitoTabModelImpl implements IncognitoTabModelInternal {
     }
 
     @Override
+    public void notifyWillRemoveTabGroup(Token tabGroupId) {
+        mDelegateModel.notifyWillRemoveTabGroup(tabGroupId);
+    }
+
+    @Override
     public void broadcastSessionRestoreComplete() {}
 
     @Override
@@ -624,9 +629,8 @@ class IncognitoTabModelImpl implements IncognitoTabModelInternal {
     }
 
     @Override
-    public void mergeTabsToGroup(
-            int sourceTabId, int destinationTabId, boolean skipUpdateTabModel) {
-        mDelegateModel.mergeTabsToGroup(sourceTabId, destinationTabId, skipUpdateTabModel);
+    public void mergeTabsToGroup(int sourceTabId, int destinationTabId) {
+        mDelegateModel.mergeTabsToGroup(sourceTabId, destinationTabId);
     }
 
     @Override
@@ -702,11 +706,6 @@ class IncognitoTabModelImpl implements IncognitoTabModelInternal {
     }
 
     @Override
-    public String getTabGroupTitle(Tab groupedTab) {
-        return mDelegateModel.getTabGroupTitle(groupedTab);
-    }
-
-    @Override
     public void setTabGroupTitle(Token tabGroupId, String title) {
         mDelegateModel.setTabGroupTitle(tabGroupId, title);
     }
@@ -724,11 +723,6 @@ class IncognitoTabModelImpl implements IncognitoTabModelInternal {
     @Override
     public int getTabGroupColorWithFallback(Token tabGroupId) {
         return mDelegateModel.getTabGroupColorWithFallback(tabGroupId);
-    }
-
-    @Override
-    public int getTabGroupColorWithFallback(Tab groupedTab) {
-        return mDelegateModel.getTabGroupColorWithFallback(groupedTab);
     }
 
     @Override

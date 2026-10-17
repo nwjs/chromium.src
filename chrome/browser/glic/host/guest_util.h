@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_GLIC_HOST_GUEST_UTIL_H_
 
 #include "base/feature_list.h"
+#include "base/time/time.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "content/public/browser/storage_partition_config.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
@@ -52,13 +53,19 @@ GlicWebClientManager* GetWebClientManagerForWebContents(
     content::WebContents* web_contents);
 
 // Returns the URL/origin from where the guest web client will be loaded from.
-GURL GetGuestURL();
-url::Origin GetGuestOrigin();
+GURL GetGuestURL(content::BrowserContext* browser_context);
+url::Origin GetGuestOrigin(content::BrowserContext* browser_context);
 std::string GetGlicAllowedOrigins();
-bool IsOriginAllowedGlicApi(const url::Origin& origin);
-bool IsGuestOriginAllowed(const url::Origin& origin);
+bool IsOriginAllowedGlicApi(const url::Origin& origin,
+                            content::BrowserContext* browser_context);
+bool IsGuestOriginAllowed(const url::Origin& origin,
+                          content::BrowserContext* browser_context);
 bool IsAdminBlockedUrl(const GURL& url);
 bool IsFrameAllowedGlicApi(content::RenderFrameHost& frame_host);
+
+// Returns the maximum time to wait for the guest web client to load before
+// timing out.
+base::TimeDelta GetMaxLoadingTime();
 
 // Returns the StoragePartitionConfig for the Glic webview storage partition.
 content::StoragePartitionConfig GetGlicStoragePartitionConfig(
@@ -77,7 +84,14 @@ GURL GetLocalizedGuestURL(const GURL& guest_url);
 bool IsGlicWebUI(const content::WebContents* web_contents);
 
 // Returns true if `web_contents` is the Glic guest WebContents.
-bool IsGlicGuest(content::WebContents* web_contents);
+bool IsGlicGuest(const content::WebContents* web_contents);
+
+// Returns true if `web_contents` contains the Glic overlay WebUI.
+bool IsGlicOverlay(const content::WebContents* web_contents);
+
+// Returns true if `web_contents` is any Glic WebContents (guest, WebUI, or
+// overlay).
+bool IsAnyGlicWebContents(const content::WebContents* web_contents);
 
 // Binds WebClientHandler for guest frame.
 void BindGlicWebClientHandler(
@@ -87,9 +101,10 @@ void BindGlicWebClientHandler(
 // main WebUI.
 bool IsProcessHostForGlic(content::RenderProcessHost* process_host);
 
-// Returns the guest web contents if `webui_contents` is the glic host.
+// Returns the guest web contents if `web_contents` is the glic host or already
+// the glic guest.
 content::WebContents* GetGlicGuestWebContents(
-    content::WebContents* webui_contents);
+    content::WebContents* web_contents);
 
 // If `guest_contents` is the glic guest, do glic-specific setup and return
 // true, otherwise return false.
@@ -104,6 +119,9 @@ void MarkProcessAsGlic(content::RenderProcessHost* rph);
 
 // Instantiates Glic WebUI metadata on a WebContents.
 void CreateGlicWebUiData(content::WebContents* webui_contents);
+
+// Instantiates Glic overlay metadata on a WebContents.
+void CreateGlicOverlayData(content::WebContents* overlay_contents);
 
 // Returns Glic form factor mapping for the given device form factor.
 mojom::FormFactor GetGlicFormFactor(ui::DeviceFormFactor form_factor);

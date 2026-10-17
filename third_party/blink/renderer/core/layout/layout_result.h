@@ -20,6 +20,7 @@
 #include "third_party/blink/renderer/core/layout/floats_utils.h"
 #include "third_party/blink/renderer/core/layout/geometry/bfc_offset.h"
 #include "third_party/blink/renderer/core/layout/geometry/margin_strut.h"
+#include "third_party/blink/renderer/core/layout/geometry/physical_rect.h"
 #include "third_party/blink/renderer/core/layout/logical_fragment.h"
 #include "third_party/blink/renderer/core/layout/non_overflowing_scroll_range.h"
 #include "third_party/blink/renderer/core/layout/physical_fragment.h"
@@ -71,7 +72,8 @@ class CORE_EXPORT LayoutResult final : public GarbageCollected<LayoutResult> {
   // Same as Clone(), but uses the "post-layout" fragments to ensure
   // fragment-tree consistency.
   static const LayoutResult* CloneWithPostLayoutFragments(
-      const LayoutResult& other);
+      const LayoutResult& other,
+      const std::optional<PhysicalRect> new_scrollable_overflow = std::nullopt);
 
   // Create a copy of LayoutResult with |BfcBlockOffset| replaced by the given
   // parameter. Note, when |bfc_block_offset| is |nullopt|, |BfcBlockOffset| is
@@ -492,6 +494,15 @@ class CORE_EXPORT LayoutResult final : public GarbageCollected<LayoutResult> {
     return rare_data_->display_locks_affected_by_anchors;
   }
 
+  // Returns the inset-modified containing block relative to the container's
+  // border-box, in physical coordinates.
+  std::optional<PhysicalRect> InsetModifiedContainingBlock() const {
+    if (!rare_data_) {
+      return std::nullopt;
+    }
+    return rare_data_->inset_modified_containing_block_;
+  }
+
   // This exposes a mutable part of the layout result just for the
   // |OutOfFlowLayoutPart|.
   class MutableForOutOfFlow final {
@@ -551,6 +562,10 @@ class CORE_EXPORT LayoutResult final : public GarbageCollected<LayoutResult> {
 
     void SetDisplayLocksAffectedByAnchors(
         GCedHeapHashSet<Member<Element>>* display_locks);
+
+    void SetInsetModifiedContainingBlock(const PhysicalRect& rect) {
+      layout_result_->EnsureRareData()->inset_modified_containing_block_ = rect;
+    }
 
    private:
     friend class LayoutResult;
@@ -759,6 +774,7 @@ class CORE_EXPORT LayoutResult final : public GarbageCollected<LayoutResult> {
     LayoutUnit annotation_block_offset_adjustment_;
     LayoutUnit math_italic_correction_;
     wtf_size_t table_column_count_ = 0;
+    PhysicalRect inset_modified_containing_block_;
 
    private:
     // Only valid if line_box_bfc_block_offset_is_set

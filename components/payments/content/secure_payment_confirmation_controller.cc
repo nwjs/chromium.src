@@ -29,10 +29,10 @@
 namespace {
 
 constexpr char kTransactionOutcomeHistogramName[] =
-    "SecurePaymentRequest.Transaction.Outcome";
+    "PaymentRequest.SecurePaymentConfirmation.Transaction.Outcome";
 
 constexpr char kFallbackOutcomeHistogramName[] =
-    "SecurePaymentRequest.Fallback.Outcome";
+    "PaymentRequest.SecurePaymentConfirmation.Fallback.Outcome";
 
 }  // namespace
 
@@ -127,7 +127,7 @@ void SecurePaymentConfirmationController::OnInitialized(
 void SecurePaymentConfirmationController::OnConfirm() {
   if (is_error_dialog_) {
     base::UmaHistogramEnumeration(kFallbackOutcomeHistogramName,
-                                  SecurePaymentRequestOutcome::kAccept);
+                                  SecurePaymentRequestOutcome::kAnotherWay);
 
     is_dialog_showing_ = false;
     // CloseDialog() -> Widget::Close() can potentially synchronously trigger

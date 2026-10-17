@@ -53,6 +53,8 @@ Huwezi kuhifadhi alamisho mpya kwenye akaunti yako hadi ufute baadhi ya alamisho
 <translation id="1965068424387304464">Kidokezo cha Chromium: Hifadhi Manenosiri</translation>
 <translation id="1992653360331625459">Tayari una manenosiri ya akaunti hizi katika huduma yako ya Kidhibiti cha Manenosiri. Ukichagua kupakia mojawapo ya manenosiri yaliyo hapa chini, litatumika badala ya lililopo.</translation>
 <translation id="2006345422933397527">Chromium imeshindwa kukagua kama kuna masasisho. Jaribu kuangalia muunganisho wako wa Intaneti.</translation>
+<translation id="2025935492422922097">Chromium huchakata URL na majina ya kurasa katika sehemu ya faragha kwenye wingu</translation>
+<translation id="2027881372245801507">Kuzima mapendekezo hakudhibiti uchakataji wa Chromium wa URL na majina ya kurasa katika vipengele vingine. Unaweza kudhibiti ufikiaji wa data hii katika <ph name="BEGIN_LINK" />mipangilio yako ya usawazishaji<ph name="END_LINK" />.</translation>
 <translation id="2042889939382983733">Kuangalia Historia Yako ya Chromium</translation>
 <translation id="2052320862053429062">Chromium hukagua mara kwa mara manenosiri yako ikilinganisha na orodha ambazo zimechapishwa mtandaoni. Wakati inafanya hivyo, manenosiri na majina yako ya mtumiaji huwa yamesimbwa kwa njia fiche, kwa hivyo hayawezi kusomwa na mtu mwingine, ikiwemo Google.</translation>
 <translation id="2059365270911640413">Maliza kuweka mipangilio ya Chromium</translation>
@@ -105,6 +107,7 @@ Kwa mipangilio zaidi inayotumia data kuboresha hali yako ya utumiaji wa Chromium
 <translation id="3072591112723064972">Fanya Chromium iwe kivinjari chako chaguomsingi ili ufungue viungo hapa papo hapo.</translation>
 <translation id="3115956258722352278">Je ungependa kufanya Chromium iwe kivinjari chako chaguomsingi?</translation>
 <translation id="3180939591219927904">Washa "Funga Vichupo vya Faragha unapofunga Chromium"</translation>
+<translation id="3239426886813624481">Ili uruhusu tovuti zifikie data ya mahali ulipo, gusa Mipangilio ili uruhusu Chromium itumie data ya mahali ulipo.</translation>
 <translation id="327628223428512207">Weka kauli ya siri ili uhifadhi nenosiri hili na upate data ya Chromium kwenye vifaa vyako vyote</translation>
 <translation id="328933489847748230">{count,plural, =1{Sasa inaonyesha dirisha 1 la Chromium}other{Sasa inaonyesha madirisha {count} ya Chromium}}</translation>
 <translation id="3344204225393848305">Weka Chromium iwe Kivinjari Chaguomsingi</translation>
@@ -351,6 +354,8 @@ Mtu aliye na kauli yako ya siri pekee ndiye anaweza kusoma data yako iliyosimbwa
 <translation id="865600487977764604">Hulinda usalama wako kwenye Chromium na huenda ikatumiwa kuboresha usalama wako kwenye programu nyingine za Google unapokuwa umeingia katika akaunti.</translation>
 <translation id="8663480472502753423">Hakikisha Chromium imesasishwa kila wakati</translation>
 <translation id="8685813584220679697">Ingia katika akaunti kwenye tovuti hii na kwenye Chromium.</translation>
+<translation id="8697693743327341604">Ukichagua au kupuuza pendekezo, Chromium itajirekebisha ili ikusaidie kuona mapendekezo yanayofaa zaidi katika siku zijazo.</translation>
+<translation id="869832267508702259">Ifanye Chromium iwe kivinjari chako chaguomsingi ili upate maarifa ya Gemini popote unapovinjari</translation>
 <translation id="8698780336333802489">Pakia kwenye Chromium</translation>
 <translation id="8730503818204408000">Hufungua Mipangilio ya Chromium ili kuweka Chromium iwe Kivinjari Chaguomsingi.</translation>
 <translation id="8754966941001340678">Chromium inapendekeza ulinzi ulioboreshwa</translation>

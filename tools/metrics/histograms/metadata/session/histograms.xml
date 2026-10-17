@@ -55,7 +55,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="Session.Android.TabbedSessionContainedGoogleSearch"
-    enum="Boolean" expires_after="2027-01-17">
+    enum="Boolean" expires_after="2027-03-21">
   <owner>nafisabedin@google.com</owner>
   <owner>yfriedman@chromium.org</owner>
   <summary>
@@ -244,13 +244,33 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Session.IsActive" enum="BooleanActive"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>rogerm@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
-    Warning: This histogram is broken on Android, please use Session.IsActive2
-    there instead.
+    Deprecated: This is no longer reported on Android as of M155. It will stop
+    being recorded on other platforms in the future. Use Session.IsActive2
+    instead.
 
+    Was a browsing session active when the UMA record was captured? This metric
+    is recorded with every UMA log upload when the session tracker is running
+    (which, in principle, should always be the case). This metric is NOT
+    recorded in logs that reflect information from a previous session (i.e.,
+    &quot;stability logs&quot; or &quot;persistent UMA&quot; data related to the
+    previous session but not uploaded during the previous session).
+
+    Recorded on iOS, Windows, Mac, and Linux.
+
+    For information on what's considered &quot;active&quot;, see the histogram
+    description for Session.TotalDuration.
+  </summary>
+</histogram>
+
+<histogram name="Session.IsActive2" enum="BooleanActive"
+    expires_after="2027-03-21">
+  <owner>rogerm@chromium.org</owner>
+  <owner>src/base/metrics/OWNERS</owner>
+  <summary>
     Was a browsing session active when the UMA record was captured? This metric
     is recorded with every UMA log upload when the session tracker is running
     (which, in principle, should always be the case). This metric is NOT
@@ -262,28 +282,9 @@ chromium-metrics-reviews@google.com.
 
     For information on what's considered &quot;active&quot;, see the histogram
     description for Session.TotalDuration.
-  </summary>
-</histogram>
 
-<histogram name="Session.IsActive2" enum="BooleanActive"
-    expires_after="2027-01-17">
-  <owner>rogerm@chromium.org</owner>
-  <owner>src/base/metrics/OWNERS</owner>
-  <summary>
-    Fixes an issue with Session.IsActive where foreground Sessions were not
-    marked as active on Android.
-
-    Was a browsing session active when the UMA record was captured? This metric
-    is recorded with every UMA log upload when the session tracker is running
-    (which, in principle, should always be the case). This metric is NOT
-    recorded in logs that reflect information from a previous session (i.e.,
-    &quot;stability logs&quot; or &quot;persistent UMA&quot; data related to the
-    previous session but not uploaded during the previous session).
-
-    Recorded only on Android.
-
-    For information on what's considered &quot;active&quot;, see the histogram
-    description for Session.TotalDuration.
+    Note: This is a variant of Session.IsActive that fixes issues it had on
+    Android. It will be reported on other platforms starting at M155.
   </summary>
 </histogram>
 
@@ -332,7 +333,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Session.OpenedTabCounts" units="operations"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>rohitrao@chromium.org</owner>
   <owner>marq@chromium.org</owner>
   <summary>

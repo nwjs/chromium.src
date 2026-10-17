@@ -291,6 +291,10 @@ export class HistoryItemElement extends HistoryItemElementBase {
     return this.item?.criticalActions || [];
   }
 
+  protected hasLinkout_(action: CriticalAction): boolean {
+    return !!action.linkoutUrl;
+  }
+
   protected getCriticalActionAriaLabel_(action: CriticalAction): string {
     return loadTimeData.getStringF(
         'criticalActionLinkoutA11yLabel', action.tooltip);
@@ -424,7 +428,7 @@ export class HistoryItemElement extends HistoryItemElementBase {
 
   protected actorIconClass_(): string {
     // <if expr="_google_chrome">
-    return 'history-internal:arrow-selector-spark';
+    return 'history-internal:arrow-selector-spark-new';
     // </if>
     // <if expr="not _google_chrome">
     return loadTimeData.getBoolean('webuiRoundedIconsEnabled') ?

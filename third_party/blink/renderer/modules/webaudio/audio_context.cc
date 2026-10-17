@@ -159,10 +159,9 @@ bool IsAudible(const AudioBus* rendered_data) {
   // for the total energy.
   float energy = 0;
 
-  uint32_t data_size = rendered_data->length();
   for (uint32_t k = 0; k < rendered_data->NumberOfChannels(); ++k) {
     base::span<const float> data = rendered_data->Channel(k)->Span();
-    float channel_energy = vector_math::Vsvesq(data, data_size);
+    float channel_energy = vector_math::Vsvesq(data);
     energy += channel_energy;
   }
 
@@ -240,6 +239,7 @@ AudioContext::SetSinkIdResolver::SetSinkIdResolver(
       resolver_(MakeGarbageCollected<ScriptPromiseResolver<IDLUndefined>>(
           script_state)) {
   DCHECK(IsMainThread());
+  resolver_->SuppressDetachCheck();
 
   // Currently the only available AudioSinkOptions is a type of a silent sink,
   // which can be specified by an empty descriptor constructor.
@@ -325,6 +325,14 @@ void AudioContext::SetSinkIdResolver::Reject(v8::Local<v8::Value> value) {
   DCHECK(resolver_);
   resolver_->Reject(value);
   resolver_ = nullptr;
+}
+
+void AudioContext::SetSinkIdResolver::Detach() {
+  DCHECK(IsMainThread());
+  if (resolver_) {
+    resolver_->SuppressDetachCheck();
+    resolver_ = nullptr;
+  }
 }
 
 ScriptPromise<IDLUndefined> AudioContext::SetSinkIdResolver::GetPromise() {
@@ -688,7 +696,7 @@ AudioContext::AudioContext(LocalDOMWindow& window,
   permission_service_->HasPermission(
       CreatePermissionDescriptor(microphone_permission_name),
       blink::BindOnce(&AudioContext::DidInitialPermissionCheck,
-                      WrapPersistent(this),
+                      WrapWeakPersistent(this),
                       CreatePermissionDescriptor(microphone_permission_name)));
 
   // Initializes MediaDeviceService and `output_device_ids_` only for a valid
@@ -718,7 +726,6 @@ void AudioContext::Uninitialize() {
   StopRendering();
   DidClose();
   RecordAutoplayMetrics();
-  UninitializeMediaDeviceService();
   BaseAudioContext::Uninitialize();
   DCHECK_EQ(pending_resume_resolvers_.size(), 0u);
 }
@@ -855,6 +862,7 @@ ScriptPromise<IDLUndefined> AudioContext::resumeContext(
 
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver<IDLUndefined>>(
       script_state, exception_state.GetContext());
+  resolver->SuppressDetachCheck();
   auto promise = resolver->Promise();
 
   std::optional<ResumeError> error = ResumeInternal();
@@ -1033,6 +1041,10 @@ ScriptPromise<IDLUndefined> AudioContext::closeContext(
 }
 
 void AudioContext::DidClose() {
+  if (is_closed_) {
+    return;
+  }
+
   // Cancel any pending async transition to the "running" state.
   pending_initial_transition_to_running_ = false;
   // Clear the pending state transition to the "suspended" state.
@@ -1041,6 +1053,7 @@ void AudioContext::DidClose() {
   EnsureAudioContextManagerService();
   if (audio_context_manager_.is_bound()) {
     audio_context_manager_->AudioContextClosed(context_id_);
+    audio_context_manager_.reset();
   }
 
   SetContextState(V8AudioContextState::Enum::kClosed);
@@ -1071,8 +1084,20 @@ void AudioContext::DidClose() {
   }
   deferred_resume_resolvers_.clear();
 
+  RejectPendingResumeResolversWithException(
+      "AudioContext closed before a pending resume() could complete.");
+
   if (auto* frame = GetLocalFrame()) {
     frame->RemoveVisibilityObserver(this);
+  }
+
+  SetPage(nullptr);
+
+  permission_service_.reset();
+  permission_receiver_.reset();
+  UninitializeMediaDeviceService();
+  if (media_player_host_.is_bound()) {
+    OnMediaPlayerDisconnect();
   }
 
   is_closed_ = true;
@@ -1080,6 +1105,30 @@ void AudioContext::DidClose() {
 
 bool AudioContext::IsContextCleared() const {
   return close_resolver_ || BaseAudioContext::IsContextCleared();
+}
+
+void AudioContext::DetachPendingResolvers() {
+  DCHECK(IsMainThread());
+
+  for (auto& resolver : set_sink_id_resolvers_) {
+    resolver->Detach();
+  }
+  set_sink_id_resolvers_.clear();
+
+  for (auto& resolver : deferred_resume_resolvers_) {
+    resolver->SuppressDetachCheck();
+  }
+  deferred_resume_resolvers_.clear();
+
+  {
+    DeferredTaskHandler::GraphAutoLocker locker(GetDeferredTaskHandler());
+    for (auto& resolver : pending_resume_resolvers_) {
+      resolver->SuppressDetachCheck();
+    }
+    pending_resume_resolvers_.clear();
+  }
+
+  BaseAudioContext::DetachPendingResolvers();
 }
 
 void AudioContext::ScheduleInitialTransitionToRunning() {
@@ -1523,12 +1572,14 @@ void AudioContext::ContextDestroyed() {
 }
 
 bool AudioContext::HasPendingActivity() const {
-  // There's activity if the context is is not closed.  Suspended contexts count
-  // as having activity even though they are basically idle with nothing going
-  // on.  However, they can be resumed at any time, so we don't want contexts
-  // going away prematurely.
-  return ((ContextState() != V8AudioContextState::Enum::kClosed) &&
-          BaseAudioContext::HasPendingActivity()) ||
+  // There's no pending activity if the context is closed.
+  if (ContextState() == V8AudioContextState::Enum::kClosed) {
+    return false;
+  }
+  // Suspended contexts count as having activity even though they are basically
+  // idle with nothing going on. However, they can be resumed at any time, so we
+  // don't want contexts going away prematurely.
+  return BaseAudioContext::HasPendingActivity() ||
          permission_receiver_.is_bound();
 }
 
@@ -1738,7 +1789,8 @@ void AudioContext::NotifyAudibleAudioStopped(unsigned sequence_id,
 }
 
 void AudioContext::EnsureAudioContextManagerService() {
-  if (audio_context_manager_.is_bound() || !GetWindow()) {
+  if (audio_context_manager_.is_bound() || !GetWindow() ||
+      !GetWindow()->GetFrame()) {
     return;
   }
 
@@ -1794,6 +1846,10 @@ void AudioContext::OnPermissionStatusChange(
 void AudioContext::DidInitialPermissionCheck(
     mojom::blink::PermissionDescriptorPtr descriptor,
     mojom::blink::PermissionStatusWithDetailsPtr status_with_details) {
+  if (ContextState() == V8AudioContextState::Enum::kClosed) {
+    return;
+  }
+
   mojom::blink::PermissionStatus status = status_with_details->status;
   if (descriptor->name == mojom::blink::PermissionName::AUDIO_CAPTURE &&
       status == mojom::blink::PermissionStatus::GRANTED) {

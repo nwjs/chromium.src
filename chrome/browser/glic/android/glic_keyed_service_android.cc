@@ -25,7 +25,10 @@
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/android/browser_context_handle.h"
+#include "content/public/browser/render_frame_host.h"
 #include "third_party/jni_zero/jni_zero.h"
+#include "url/android/gurl_android.h"
+#include "url/gurl.h"
 
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "chrome/browser/glic/android/jni_headers/GlicKeyedServiceImpl_jni.h"
@@ -176,6 +179,27 @@ void GlicKeyedServiceAndroid::InvokeWithConversation(
   GlicInvokeOptions options(std::move(target),
                             static_cast<mojom::InvocationSource>(source));
   service_->Invoke(std::move(options));
+}
+
+void GlicKeyedServiceAndroid::ShowExperimentalOptInDialogForTesting(
+    JNIEnv* env,
+    TabAndroid* tab) {
+  if (!tab || !tab->GetContents()) {
+    return;
+  }
+  service_->ShowExperimentalOptInDialogForTesting(
+      tab->GetContents());  // IN-TEST
+}
+
+void GlicKeyedServiceAndroid::ShareContextImage(JNIEnv* env,
+                                                TabAndroid* tab,
+                                                content::RenderFrameHost* frame,
+                                                const GURL& src_url) {
+  if (!tab || !frame || !src_url.is_valid()) {
+    return;
+  }
+
+  service_->ShareContextImage(tab, frame, src_url);
 }
 
 bool GlicKeyedServiceAndroid::IsPanelShowingForBrowser(

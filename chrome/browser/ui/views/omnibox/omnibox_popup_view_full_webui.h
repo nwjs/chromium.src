@@ -10,6 +10,12 @@
 #include "base/functional/callback.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_view_webui.h"
+#include "content/public/browser/web_contents_observer.h"
+#include "ui/gfx/range/range.h"
+
+namespace content {
+class NavigationHandle;
+}
 
 class LocationBar;
 class OmniboxController;
@@ -17,7 +23,8 @@ class OmniboxView;
 class OmniboxPopupPresenterDelegate;
 class OmniboxPopupHandler;
 
-class OmniboxPopupViewFullWebUI : public OmniboxPopupViewWebUI {
+class OmniboxPopupViewFullWebUI : public OmniboxPopupViewWebUI,
+                                  public content::WebContentsObserver {
  public:
   OmniboxPopupViewFullWebUI(
       OmniboxView* omnibox_view,
@@ -47,6 +54,7 @@ class OmniboxPopupViewFullWebUI : public OmniboxPopupViewWebUI {
   // was already open, sends a dedicated `SetFocus(true)` Mojo IPC to ensure
   // DOM input focus in the WebUI is restored without resetting input state.
   void OnFocus(bool query_zps, bool select_all) override;
+  void FocusSearchWithDefaultSearchEngineKeywordMode() override;
   // Called when the native omnibox loses focus. Sends a dedicated
   // `SetFocus(false)` Mojo IPC to ensure DOM input focus in the WebUI is
   // cleared.
@@ -56,6 +64,10 @@ class OmniboxPopupViewFullWebUI : public OmniboxPopupViewWebUI {
   bool IsPopupHandlerReady() const override;
   bool IsReverting() const override;
   void SetIsReverting(bool reverting) override;
+
+  // content::WebContentsObserver:
+  void DidFinishNavigation(
+      content::NavigationHandle* navigation_handle) override;
 
   // True if this has focus, reckoned by OnFocus/OnBlur. This may be slightly
   // out-of-sync with the model's when doing auto-focus, since the timings of
@@ -76,13 +88,18 @@ class OmniboxPopupViewFullWebUI : public OmniboxPopupViewWebUI {
   std::optional<std::u16string> last_sent_text_;
   // Caches the last focus state sent to the WebUI to detect focus transitions.
   std::optional<bool> last_sent_focus_;
+  // Caches the native `omnibox_view_` selection range that was last handed off
+  // to the WebUI. A native highlight is only authoritative the first time it is
+  // observed: `OmniboxView::HasSelection()` stays true long after the handoff
+  // (and `WebUIReadOnlyOmnibox` always reports true, since an `<input>` always
+  // has a selection), so without this the stale native range would keep
+  // overriding selections the user subsequently made inside the WebUI popup.
+  // Null after a state reset (e.g., tab switch, popup reopen).
+  std::optional<gfx::Range> last_consumed_native_selection_;
+
   bool has_completed_first_tab_changed_ = false;
   bool is_reverting_ = false;
   bool focused_ = false;
-  // True once `OnPopupHandlerReady()` has been notified. This is tracked
-  // separately because `GetPopupHandler()` can be null during the
-  // `OmniboxPopupHandler` constructor before the unique_ptr is assigned.
-  bool is_popup_handler_ready_ = false;
   // Invoked when the WebUI Mojo handler connects to trigger one-time focus
   // handoff from `OmniboxViewViews` to `OmniboxPopupViewFullWebUI`.
   base::OnceClosure on_ready_callback_;

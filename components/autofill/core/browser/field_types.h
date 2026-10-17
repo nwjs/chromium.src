@@ -168,10 +168,11 @@ enum FieldType {
   ADDRESS_HOME_CITY = 33,
   ADDRESS_HOME_STATE = 34,
   ADDRESS_HOME_ZIP = 35,
-  // TODO(crbug.com/40264633): Autofill stores country codes. When
-  // ADDRESS_HOME_COUNTRY is accessed through `AutofillProfile::GetRawInfo()`, a
-  // country code is returned. When retrieved using
-  // `AutofillProfile::GetInfo()`, the country name is returned.
+  // Internally, Autofill uses ISO 3166-1 country codes.
+  // `AutofillProfile::GetRawInfo(ADDRESS_HOME_COUNTRY)` returns
+  // the profile's country code while
+  // `AutofillProfile::GetInfo(ADDRESS_HOME_COUNTRY)` returns the localized
+  // country name for filling.
   ADDRESS_HOME_COUNTRY = 36,
 
   // ADDRESS_BILLING values [37, 43] are deprecated.
@@ -598,23 +599,25 @@ enum FieldType {
 };
 // LINT.ThenChange(//chrome/common/extensions/api/autofill_private.idl)
 
+// This enum must stay in sync with the server. Existing enum values may not be
+// changed or reassigned.
 enum class FieldTypeGroup {
-  kNoGroup,
-  kName,
-  kEmail,
-  kCompany,
-  kAddress,
-  kPhone,
-  kCreditCard,
-  kPasswordField,
-  kTransaction,
-  kUsernameField,
-  kUnfillable,
-  kIban,
-  kStandaloneCvcField,
-  kAutofillAi,
-  kLoyaltyCard,
-  kOneTimePassword,
+  kNoGroup = 0,
+  kName = 1,
+  kEmail = 2,
+  kCompany = 3,
+  kAddress = 4,
+  kPhone = 5,
+  kCreditCard = 6,
+  kPasswordField = 7,
+  kTransaction = 8,
+  kUsernameField = 9,
+  kUnfillable = 10,
+  kIban = 11,
+  kStandaloneCvcField = 12,
+  kAutofillAi = 13,
+  kLoyaltyCard = 14,
+  kOneTimePassword = 15,
   kMaxValue = kOneTimePassword,
 };
 

@@ -9,11 +9,10 @@
 #include <memory>
 
 #include "base/callback_list.h"
-#include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "chrome/browser/background/glic/glic_launcher_configuration.h"
-#include "chrome/browser/glic/host/glic.mojom.h"
+#include "chrome/browser/glic/host/glic.mojom-shared.h"
 #include "chrome/browser/profiles/profile_manager_observer.h"
 #include "chrome/browser/profiles/profile_observer.h"
 
@@ -23,7 +22,6 @@
 
 class ScopedKeepAlive;
 class ScopedProfileKeepAlive;
-class StatusTray;
 
 namespace ui {
 class Accelerator;
@@ -39,6 +37,10 @@ class GlicBackgroundDelegate {
  public:
   virtual ~GlicBackgroundDelegate() = default;
   virtual void ToggleUI(bool prevent_close, mojom::InvocationSource source) = 0;
+
+  // Returns whether toggling would close a panel/window rather than open one.
+  // Used to label the status icon's tooltip and context menu item.
+  virtual bool WouldToggleClose() const = 0;
 };
 
 // These values are persisted to logs. Entries should not be renumbered and
@@ -60,11 +62,12 @@ class GlicBackgroundModeManager : public GlicLauncherConfiguration::Observer,
                                   public ProfileObserver,
                                   public GlicBackgroundDelegate {
  public:
-  explicit GlicBackgroundModeManager(StatusTray* status_tray);
+  GlicBackgroundModeManager();
   ~GlicBackgroundModeManager() override;
 
   // GlicBackgroundDelegate:
   void ToggleUI(bool prevent_close, mojom::InvocationSource source) override;
+  bool WouldToggleClose() const override;
 
   static GlicBackgroundModeManager* GetInstance();
 
@@ -105,6 +108,7 @@ class GlicBackgroundModeManager : public GlicLauncherConfiguration::Observer,
   void RegisterHotkeys(const std::vector<ui::Accelerator>& updated_hotkeys);
   void UnregisterHotkey();
   void UpdateState();
+  void RefreshStatusIconToggleLabel();
 
   bool ShouldRegisterGlobalHotkey() const;
   bool IsEnabledInAnyLoadedProfile();
@@ -117,9 +121,6 @@ class GlicBackgroundModeManager : public GlicLauncherConfiguration::Observer,
   std::unique_ptr<ScopedKeepAlive> keep_alive_;
   std::unique_ptr<ScopedProfileKeepAlive> profile_keep_alive_;
 
-  // TODO(https://crbug.com/378139555): Figure out how to not dangle this
-  // pointer (and other instances of StatusTray).
-  raw_ptr<StatusTray, DanglingUntriaged> status_tray_;
   // Class that represents the glic status icon. Only exists when the background
   // mode is enabled.
   std::unique_ptr<GlicStatusIcon> status_icon_;
@@ -153,6 +154,8 @@ class GlicBackgroundModeManager : public GlicLauncherConfiguration::Observer,
       profile_enabled_subscriptions_;
   std::map<Profile*, base::CallbackListSubscription>
       profile_consent_subscriptions_;
+  std::map<Profile*, base::CallbackListSubscription>
+      profile_show_hide_subscriptions_;
   using ScopedProfileObserver =
       base::ScopedObservation<Profile, ProfileObserver>;
   std::map<Profile*, ScopedProfileObserver> profile_observers_;

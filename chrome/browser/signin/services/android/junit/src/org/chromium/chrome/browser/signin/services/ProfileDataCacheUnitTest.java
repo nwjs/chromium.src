@@ -59,6 +59,7 @@ public class ProfileDataCacheUnitTest {
     }
 
     private static final int RING_THICKNESS = 3;
+    private static final int IMAGE_SIZE = 100;
 
     @Rule
     public final AccountManagerTestRule mAccountManagerTestRule =
@@ -94,7 +95,6 @@ public class ProfileDataCacheUnitTest {
 
         mProfileDataCache.addObserver(mObserverMock);
         mAccountManagerTestRule.addAccount(TestAccounts.TEST_ACCOUNT_NO_NAME);
-        RobolectricUtil.runAllBackgroundAndUi();
 
         Assert.assertTrue(mProfileDataCache.hasProfileDataForTesting(accountId));
         Assert.assertEquals(accountEmail, mProfileDataCache.getById(accountId).getAccountEmail());
@@ -105,7 +105,6 @@ public class ProfileDataCacheUnitTest {
                 new AccountInfo.Builder(TestAccounts.TEST_ACCOUNT_NO_NAME)
                         .fullName(fullName)
                         .build());
-        RobolectricUtil.runAllBackgroundAndUi();
 
         Assert.assertTrue(mProfileDataCache.hasProfileDataForTesting(accountId));
         Assert.assertEquals(1, mProfileDataCache.getAccounts().getResult().size());
@@ -125,7 +124,6 @@ public class ProfileDataCacheUnitTest {
 
         mProfileDataCache.addObserver(mObserverMock);
         mAccountManagerTestRule.addAccount(TestAccounts.TEST_ACCOUNT_NO_NAME);
-        RobolectricUtil.runAllBackgroundAndUi();
 
         Assert.assertTrue(mProfileDataCache.hasProfileDataForTesting(accountId));
         Assert.assertEquals(accountEmail, mProfileDataCache.getById(accountId).getAccountEmail());
@@ -136,7 +134,6 @@ public class ProfileDataCacheUnitTest {
                 new AccountInfo.Builder(TestAccounts.TEST_ACCOUNT_NO_NAME)
                         .givenName(givenName)
                         .build());
-        RobolectricUtil.runAllBackgroundAndUi();
 
         Assert.assertTrue(mProfileDataCache.hasProfileDataForTesting(accountId));
         Assert.assertEquals(1, mProfileDataCache.getAccounts().getResult().size());
@@ -160,7 +157,6 @@ public class ProfileDataCacheUnitTest {
         Assert.assertTrue(mProfileDataCache.getAccounts().getResult().isEmpty());
 
         mAccountManagerTestRule.addAccount(TestAccounts.TEST_ACCOUNT_NO_NAME);
-        RobolectricUtil.runAllBackgroundAndUi();
 
         Assert.assertTrue(
                 mProfileDataCache.hasProfileDataForTesting(
@@ -177,7 +173,6 @@ public class ProfileDataCacheUnitTest {
     @Test
     public void cacheShouldBePopulatedOnInitialization() {
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
-        RobolectricUtil.runAllBackgroundAndUi();
         var profileDataCache =
                 ProfileDataCache.createWithDefaultImageSizeAndNoBadge(
                         RuntimeEnvironment.application.getApplicationContext(),
@@ -194,7 +189,6 @@ public class ProfileDataCacheUnitTest {
         Assert.assertTrue(mProfileDataCache.getAccounts().getResult().isEmpty());
 
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
-        RobolectricUtil.runAllBackgroundAndUi();
 
         Assert.assertEquals(1, mProfileDataCache.getAccounts().getResult().size());
         Assert.assertEquals(
@@ -213,7 +207,6 @@ public class ProfileDataCacheUnitTest {
         Assert.assertTrue(mProfileDataCache.getAccounts().getResult().isEmpty());
 
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
-        RobolectricUtil.runAllBackgroundAndUi();
 
         Assert.assertEquals(1, mProfileDataCache.getAccounts().getResult().size());
         Assert.assertEquals(
@@ -240,7 +233,6 @@ public class ProfileDataCacheUnitTest {
         mProfileDataCache.addObserver(mObserverMock);
         Assert.assertTrue(mProfileDataCache.getAccounts().getResult().isEmpty());
         mAccountManagerTestRule.addAccount(TestAccounts.TEST_ACCOUNT_NO_NAME);
-        RobolectricUtil.runAllBackgroundAndUi();
         Assert.assertTrue(
                 mProfileDataCache.hasProfileDataForTesting(
                         TestAccounts.TEST_ACCOUNT_NO_NAME.getId()));
@@ -253,7 +245,6 @@ public class ProfileDataCacheUnitTest {
         mProfileDataCache.addObserver(mObserverMock);
         Assert.assertTrue(mProfileDataCache.getAccounts().getResult().isEmpty());
         mAccountManagerTestRule.addAccount(TestAccounts.TEST_ACCOUNT_NO_NAME);
-        RobolectricUtil.runAllBackgroundAndUi();
         Assert.assertTrue(
                 mProfileDataCache.hasProfileDataForTesting(
                         TestAccounts.TEST_ACCOUNT_NO_NAME.getId()));
@@ -271,7 +262,6 @@ public class ProfileDataCacheUnitTest {
         mProfileDataCache.addObserver(mObserverMock);
         Assert.assertTrue(mProfileDataCache.getAccounts().getResult().isEmpty());
         mAccountManagerTestRule.addAccount(TestAccounts.TEST_ACCOUNT_NO_NAME);
-        RobolectricUtil.runAllBackgroundAndUi();
         Assert.assertTrue(
                 mProfileDataCache.hasProfileDataForTesting(
                         TestAccounts.TEST_ACCOUNT_NO_NAME.getId()));
@@ -289,7 +279,6 @@ public class ProfileDataCacheUnitTest {
         mProfileDataCache.addObserver(mObserverMock);
         Assert.assertTrue(mProfileDataCache.getAccounts().getResult().isEmpty());
         mAccountManagerTestRule.addAccount(TestAccounts.TEST_ACCOUNT_NO_NAME);
-        RobolectricUtil.runAllBackgroundAndUi();
         Assert.assertTrue(
                 mProfileDataCache.hasProfileDataForTesting(
                         TestAccounts.TEST_ACCOUNT_NO_NAME.getId()));
@@ -301,7 +290,6 @@ public class ProfileDataCacheUnitTest {
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT2);
         mAccountManagerTestRule.addAccount(TestAccounts.CHILD_ACCOUNT);
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
-        RobolectricUtil.runAllBackgroundAndUi();
 
         var profileData = mProfileDataCache.getAccounts().getResult();
         Assert.assertEquals(3, profileData.size());
@@ -319,7 +307,6 @@ public class ProfileDataCacheUnitTest {
         mProfileDataCache.addObserver(mObserverMock);
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT2);
-        RobolectricUtil.runAllBackgroundAndUi();
 
         Assert.assertEquals(2, mProfileDataCache.getAccounts().getResult().size());
         Assert.assertEquals(
@@ -336,7 +323,6 @@ public class ProfileDataCacheUnitTest {
                 mProfileDataCache.getById(TestAccounts.ACCOUNT2.getId()).getAccountId());
 
         mAccountManagerTestRule.removeAccount(TestAccounts.ACCOUNT1.getId());
-        RobolectricUtil.runAllBackgroundAndUi();
 
         Assert.assertEquals(1, mProfileDataCache.getAccounts().getResult().size());
         Assert.assertEquals(
@@ -361,7 +347,6 @@ public class ProfileDataCacheUnitTest {
         var accountInfo = TestAccounts.ACCOUNT1;
         mProfileDataCache.addObserver(mObserverMock);
         mAccountManagerTestRule.addAccount(accountInfo);
-        RobolectricUtil.runAllBackgroundAndUi();
 
         var expectedIdentityManagerCalls = mIsIdentityManagerSourceOfAccounts ? 2 : 0;
         var expectedAccountManagerFacadeCalls = mIsIdentityManagerSourceOfAccounts ? 0 : 2;
@@ -391,19 +376,41 @@ public class ProfileDataCacheUnitTest {
     }
 
     @Test
-    public void givenUnknownAccountIdWhenTryGetByIdThenShouldReturnNull() {
-        Assert.assertNull(mProfileDataCache.tryGetById(TestAccounts.ACCOUNT1.getId()));
+    public void givenPrimaryAccountBeforeRefreshTokensLoadedWhenGetByIdThenShouldNotThrow() {
+        FakeIdentityManager identityManager = mAccountManagerTestRule.getIdentityManager();
+        identityManager.setAreRefreshTokensLoaded(false);
+        identityManager.setPrimaryAccount(TestAccounts.ACCOUNT1);
+
+        DisplayableProfileData profileData =
+                mProfileDataCache.getById(TestAccounts.ACCOUNT1.getId());
+        Assert.assertEquals(TestAccounts.ACCOUNT1.getEmail(), profileData.getAccountEmail());
     }
 
     @Test
-    public void givenCachedAccountWhenTryGetByIdThenReturnCachedAccount() {
+    public void givenAccountMissingFromCacheWhenGetByIdThenRefreshesAndReturnsIt() {
+        // There is no observer added, so the cache stays empty. In that case getById should
+        // trigger a refresh of the accounts list.
         var accountInfo = TestAccounts.ACCOUNT1;
         mAccountManagerTestRule.addAccount(accountInfo);
-        RobolectricUtil.runAllBackgroundAndUi();
+        Assert.assertFalse(mProfileDataCache.hasProfileDataForTesting(accountInfo.getId()));
 
-        DisplayableProfileData profileData = mProfileDataCache.tryGetById(accountInfo.getId());
-        Assert.assertNotNull(profileData);
+        DisplayableProfileData profileData = mProfileDataCache.getById(accountInfo.getId());
         Assert.assertEquals(accountInfo.getEmail(), profileData.getAccountEmail());
+    }
+
+    @Test
+    public void givenNonPrimaryAccountMissingFromCacheWhenGetByIdThenRefreshesFullAccountList() {
+        // There is no observer added, so the cache stays empty. In that case getById should
+        // trigger a refresh of the accounts list.
+        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
+        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT2);
+        mAccountManagerTestRule.getIdentityManager().setPrimaryAccount(TestAccounts.ACCOUNT1);
+        Assert.assertFalse(
+                mProfileDataCache.hasProfileDataForTesting(TestAccounts.ACCOUNT2.getId()));
+
+        DisplayableProfileData profileData =
+                mProfileDataCache.getById(TestAccounts.ACCOUNT2.getId());
+        Assert.assertEquals(TestAccounts.ACCOUNT2.getEmail(), profileData.getAccountEmail());
     }
 
     @Test
@@ -416,7 +423,6 @@ public class ProfileDataCacheUnitTest {
                         mAccountManagerTestRule.getIdentityManager());
         profileDataCache.addObserver(mObserverMock);
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
-        RobolectricUtil.runAllBackgroundAndUi();
         updateBlocker.close();
         RobolectricUtil.runAllBackgroundAndUi();
         verify(mObserverMock).onAccountsUpdated(any());
@@ -523,7 +529,6 @@ public class ProfileDataCacheUnitTest {
                                 TestAccounts.TEST_ACCOUNT_NO_NAME.getGaiaId())
                         .build();
         mAccountManagerTestRule.addAccount(accountWithoutDisplayableInfo);
-        RobolectricUtil.runAllBackgroundAndUi();
 
         var profileData = mProfileDataCache.getById(accountWithoutDisplayableInfo.getId());
         Assert.assertEquals(
@@ -551,7 +556,6 @@ public class ProfileDataCacheUnitTest {
                         .accountImage(TestAccounts.ACCOUNT1.getAccountImage())
                         .build();
         mAccountManagerTestRule.addAccount(accountWithDisplayableInfo);
-        RobolectricUtil.runAllBackgroundAndUi();
 
         var profileData = mProfileDataCache.getById(accountWithDisplayableInfo.getId());
         Assert.assertEquals(accountWithDisplayableInfo.getEmail(), profileData.getAccountEmail());
@@ -581,7 +585,6 @@ public class ProfileDataCacheUnitTest {
                         .withDefaultSizeChildAccountConfig()
                         .build(RuntimeEnvironment.application.getApplicationContext()));
         mAccountManagerTestRule.addAccount(accountWithDisplayableInfo);
-        RobolectricUtil.runAllBackgroundAndUi();
 
         var profileData = mProfileDataCache.getById(accountWithDisplayableInfo.getId());
         Assert.assertEquals(accountWithDisplayableInfo.getEmail(), profileData.getAccountEmail());
@@ -603,7 +606,6 @@ public class ProfileDataCacheUnitTest {
         mProfileDataCache.addObserver(mObserverMock);
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT2);
-        RobolectricUtil.runAllBackgroundAndUi();
 
         // Check getAccounts()
         var accounts = mProfileDataCache.getAccounts().getResult();
@@ -625,14 +627,13 @@ public class ProfileDataCacheUnitTest {
         when(mSubscriptionEligibilityServiceMock.getAiSubscriptionTier()).thenReturn(1);
         mAccountManagerTestRule.getIdentityManager().setPrimaryAccount(TestAccounts.ACCOUNT1);
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
-        RobolectricUtil.runAllBackgroundAndUi();
 
         mProfileDataCache =
                 ProfileDataCache.createWithAiTierRing(
                         RuntimeEnvironment.application.getApplicationContext(),
                         mAccountManagerTestRule.getIdentityManager(),
                         mSubscriptionEligibilityServiceMock,
-                        100,
+                        IMAGE_SIZE,
                         RING_THICKNESS);
 
         DisplayableProfileData profileData =
@@ -646,14 +647,13 @@ public class ProfileDataCacheUnitTest {
         mAccountManagerTestRule.getIdentityManager().setPrimaryAccount(TestAccounts.ACCOUNT1);
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT2);
-        RobolectricUtil.runAllBackgroundAndUi();
 
         mProfileDataCache =
                 ProfileDataCache.createWithAiTierRing(
                         RuntimeEnvironment.application.getApplicationContext(),
                         mAccountManagerTestRule.getIdentityManager(),
                         mSubscriptionEligibilityServiceMock,
-                        100,
+                        IMAGE_SIZE,
                         RING_THICKNESS);
 
         DisplayableProfileData primaryProfileData =
@@ -669,7 +669,6 @@ public class ProfileDataCacheUnitTest {
     public void testAiTierRingYieldsToBadgeConfig() {
         mAccountManagerTestRule.getIdentityManager().setPrimaryAccount(TestAccounts.ACCOUNT1);
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
-        RobolectricUtil.runAllBackgroundAndUi();
 
         BadgeConfig errorBadge =
                 BadgeConfig.create(R.drawable.ic_error)
@@ -681,7 +680,7 @@ public class ProfileDataCacheUnitTest {
                         RuntimeEnvironment.application.getApplicationContext(),
                         mAccountManagerTestRule.getIdentityManager(),
                         mSubscriptionEligibilityServiceMock,
-                        100,
+                        IMAGE_SIZE,
                         RING_THICKNESS);
         mProfileDataCache.setBadge(TestAccounts.ACCOUNT1.getId(), errorBadge);
 
@@ -695,14 +694,13 @@ public class ProfileDataCacheUnitTest {
         when(mSubscriptionEligibilityServiceMock.getAiSubscriptionTier()).thenReturn(1);
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT2);
-        RobolectricUtil.runAllBackgroundAndUi();
 
         mProfileDataCache =
                 ProfileDataCache.createWithAiTierRing(
                         RuntimeEnvironment.application.getApplicationContext(),
                         mAccountManagerTestRule.getIdentityManager(),
                         mSubscriptionEligibilityServiceMock,
-                        100,
+                        IMAGE_SIZE,
                         RING_THICKNESS);
 
         // Before sign-in, neither is primary, so no ring
@@ -713,7 +711,6 @@ public class ProfileDataCacheUnitTest {
         // Simulate sign in with ACCOUNT1
         mProfileDataCache.addObserver(mObserverMock);
         mAccountManagerTestRule.getIdentityManager().setPrimaryAccount(TestAccounts.ACCOUNT1);
-        RobolectricUtil.runAllBackgroundAndUi();
 
         // The cache should be updated and the ring should now be present on ACCOUNT1
         DisplayableProfileData newProfileData1 =
@@ -746,7 +743,7 @@ public class ProfileDataCacheUnitTest {
                         RuntimeEnvironment.application.getApplicationContext(),
                         mAccountManagerTestRule.getIdentityManager(),
                         mSubscriptionEligibilityServiceMock,
-                        100,
+                        IMAGE_SIZE,
                         RING_THICKNESS);
 
         mProfileDataCache.addObserver(mObserverMock);
@@ -754,5 +751,35 @@ public class ProfileDataCacheUnitTest {
 
         mProfileDataCache.removeObserver(mObserverMock);
         verify(mSubscriptionEligibilityServiceMock).removeObserver(mProfileDataCache);
+    }
+
+    @Test
+    public void testPlaceholderImageMatchesImageSize() {
+        mProfileDataCache =
+                ProfileDataCache.createWithoutBadge(
+                        RuntimeEnvironment.application.getApplicationContext(),
+                        mAccountManagerTestRule.getIdentityManager(),
+                        R.dimen.user_picture_size);
+
+        int expectedSize =
+                RuntimeEnvironment.application
+                        .getResources()
+                        .getDimensionPixelSize(R.dimen.user_picture_size);
+        Assert.assertEquals(
+                expectedSize, mProfileDataCache.getPlaceholderImage().getIntrinsicWidth());
+    }
+
+    @Test
+    public void testPlaceholderImageMatchesImageSizeWithAiTierRing() {
+        mProfileDataCache =
+                ProfileDataCache.createWithAiTierRing(
+                        RuntimeEnvironment.application.getApplicationContext(),
+                        mAccountManagerTestRule.getIdentityManager(),
+                        mSubscriptionEligibilityServiceMock,
+                        IMAGE_SIZE,
+                        RING_THICKNESS);
+
+        Assert.assertEquals(
+                IMAGE_SIZE, mProfileDataCache.getPlaceholderImage().getIntrinsicWidth());
     }
 }

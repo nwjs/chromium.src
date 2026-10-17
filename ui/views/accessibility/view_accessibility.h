@@ -45,21 +45,12 @@ class View;
 class ViewAccessibilityAXTreeSource;
 class Widget;
 
-using RoleCallbackList = base::RepeatingCallbackList<void(ax::mojom::Role)>;
-using IntAttributeCallbackList =
-    base::RepeatingCallbackList<void(ax::mojom::IntAttribute,
-                                     std::optional<int>)>;
-using StringAttributeCallbackList =
-    base::RepeatingCallbackList<void(ax::mojom::StringAttribute,
-                                     const std::optional<std::string>&)>;
-using BoolAttributeCallbackList =
-    base::RepeatingCallbackList<void(ax::mojom::BoolAttribute,
-                                     std::optional<bool>)>;
-using StateCallbackList =
-    base::RepeatingCallbackList<void(ax::mojom::State, bool)>;
-using IntListAttributeCallbackList = base::RepeatingCallbackList<void(
-    ax::mojom::IntListAttribute,
-    const std::optional<std::vector<int32_t>>&)>;
+using ui::BoolAttributeCallbackList;
+using ui::IntAttributeCallbackList;
+using ui::IntListAttributeCallbackList;
+using ui::RoleCallbackList;
+using ui::StateCallbackList;
+using ui::StringAttributeCallbackList;
 
 // An object that manages the accessibility interface for a View.
 //
@@ -771,6 +762,17 @@ class VIEWS_EXPORT ViewAccessibility : public WidgetObserver {
   virtual void UpdateIgnoredState();
 
   void SetState(ax::mojom::State state, bool is_enabled);
+
+  void SetIntAttribute(ax::mojom::IntAttribute attribute, int32_t value);
+  void RemoveIntAttribute(ax::mojom::IntAttribute attribute);
+  void SetStringAttribute(ax::mojom::StringAttribute attribute,
+                          const std::string& value);
+  void RemoveStringAttribute(ax::mojom::StringAttribute attribute);
+  void SetBoolAttribute(ax::mojom::BoolAttribute attribute, bool value);
+  void SetFloatAttribute(ax::mojom::FloatAttribute attribute, float value);
+  void SetIntListAttribute(ax::mojom::IntListAttribute attribute,
+                           const std::vector<int32_t>& value);
+  void RemoveIntListAttribute(ax::mojom::IntListAttribute attribute);
 
   // We don't want to fire accessibility events when the view is being
   // initialized and any setters are called from their respective constructors.

@@ -11,11 +11,13 @@
 #include "chrome/browser/ui/contextual_search/searchbox_context_data.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
-#include "chrome/browser/ui/omnibox/omnibox_next_features.h"
+#include "chrome/browser/ui/omnibox/omnibox_popup_view.h"
 #include "chrome/browser/ui/omnibox/omnibox_tab_helper.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_context_menu.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_presenter.h"
+#include "chrome/browser/ui/views/omnibox/omnibox_popup_presenter_base.h"
+#include "chrome/browser/ui/views/omnibox/omnibox_popup_presenter_delegate.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_webui_base_content.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
 #include "chrome/browser/ui/views/omnibox/rounded_omnibox_results_frame.h"
@@ -68,12 +70,17 @@ void OmniboxAimPopupWebUIContent::OnClearCallback(
   // Now that the WebUI has painted, it is safe to detach and cleanup.
   Detach();
 
+  const bool draft_already_applied = draft_applied_on_close_;
+  draft_applied_on_close_ = false;
+
   // Check if tabs have switched due to an async event.
   // Navigation to another tab is an async process which leads to a race
   // condition with the cleanup of the omnibox aim webui popup and which
   // web contents is referenced by the omnibox_edit_model.
   if (location_bar()->GetWebContents() == original_web_contents.get()) {
-    ApplyInputAndCleanup(input);
+    if (!draft_already_applied) {
+      ApplyInputAndCleanup(input);
+    }
   } else if (original_web_contents && !input.empty()) {
     SaveInputToBackgroundTab(original_web_contents.get(), input);
   }
@@ -88,9 +95,8 @@ void OmniboxAimPopupWebUIContent::SaveInputToBackgroundTab(
 
 void OmniboxAimPopupWebUIContent::ApplyInputAndCleanup(
     const std::string& input) {
-  // For the full WebUI, the WebUI omnibox will still be open when `CloseUI`
-  // is called from aim popup. The state needs to be reverted.
-  if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup)) {
+  const bool is_full_webui = is_full_webui_omnibox();
+  if (is_full_webui) {
     controller()->edit_model()->Revert();
   } else {
     location_bar()->GetOmniboxView()->RevertAll();
@@ -98,6 +104,25 @@ void OmniboxAimPopupWebUIContent::ApplyInputAndCleanup(
   if (!input.empty()) {
     location_bar()->GetOmniboxView()->SetUserText(base::UTF8ToUTF16(input),
                                                   /*update_popup=*/false);
+  }
+
+  // Only hand focus back to the omnibox popup during an explicit WebUI close
+  // (`CloseUI()`, where `draft_applied_on_close_` is true) or when the browser
+  // window widget itself is active (e.g. clicking the page content). If another
+  // widget (such as a sign-in promo bubble) has taken activation, do not steal
+  // activation back from it.
+  views::Widget* location_bar_widget =
+      popup_presenter() ? popup_presenter()->delegate().GetLocationBarWidget()
+                        : nullptr;
+  const bool should_restore_focus =
+      draft_applied_on_close_ ||
+      (location_bar_widget && location_bar_widget->IsActive());
+  if (is_full_webui && should_restore_focus) {
+    // Hand focus back to the omnibox. Don't select all so the caret continues
+    // the user's editing session.
+    if (auto* popup_view = location_bar()->GetOmniboxPopupView()) {
+      popup_view->OnFocus(/*query_zps=*/false, /*select_all=*/false);
+    }
   }
 }
 
@@ -112,6 +137,13 @@ std::string_view OmniboxAimPopupWebUIContent::GetMetricPrefix() const {
 }
 
 void OmniboxAimPopupWebUIContent::UpdateLocationBarFocusForScreenReader() {
+  if (is_full_webui_omnibox()) {
+    // During `RequestClose()` -> `CloseUI()`, `ApplyInputAndCleanup()` hands
+    // focus back to the omnibox after applying the draft text. Focusing early
+    // here would transition the popup state to `kFull` before the draft is set
+    // on the `OmniboxEditModel`.
+    return;
+  }
   if (GetWidget() &&
       GetWidget()->ShouldHandleNativeWidgetActivationChanged(false) &&
       GetWidget()->IsActive()) {
@@ -126,6 +158,12 @@ void OmniboxAimPopupWebUIContent::UpdateLocationBarFocusForScreenReader() {
   }
 }
 
+bool OmniboxAimPopupWebUIContent::EscClosesUI() const {
+  // The WebUI handles ESC so the close routes through `RequestClose()` and
+  // carries the draft text with it.
+  return !is_full_webui_omnibox();
+}
+
 void OmniboxAimPopupWebUIContent::CloseUI() {
   // If the popup state is not shown, don't take any action. Closing the UI
   // multiple times can result in incorrect state transitions from OnClose.
@@ -135,11 +173,22 @@ void OmniboxAimPopupWebUIContent::CloseUI() {
 
   set_is_shown(false);
 
-  // For the full WebUI, the WebUI omnibox draft state should still be open.
-  if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup)) {
+  if (is_full_webui_omnibox()) {
+    std::string draft;
+    if (auto* handler = popup_aim_handler()) {
+      draft = handler->cached_draft_text();
+      handler->clear_cached_draft_text();
+    }
+
+    // Must be set before `ApplyInputAndCleanup()`, which can synchronously
+    // re-enter `Clear()`.
+    draft_applied_on_close_ = true;
+    ApplyInputAndCleanup(draft);
     controller()->popup_state_manager()->SetPopupState(
         OmniboxPopupState::kFull);
   } else {
+    // The legacy popup applies the draft from the `ClearPopup()` reply in
+    // `OnClearCallback()`.
     controller()->popup_state_manager()->SetPopupState(
         OmniboxPopupState::kNone);
   }
@@ -163,6 +212,10 @@ bool OmniboxAimPopupWebUIContent::HandleContextMenu(
 void OmniboxAimPopupWebUIContent::ShowUI() {
   OmniboxPopupWebUIBaseContent::ShowUI();
 
+  // Start each session with a clean slate. `OnClearCallback()` normally clears
+  // this, but it never runs if the handler went away before `Clear()`.
+  draft_applied_on_close_ = false;
+
   // Capture the web contents when UI is first shown.
   active_web_contents_ = location_bar()->GetWebContents()
                              ? location_bar()->GetWebContents()->GetWeakPtr()
@@ -172,6 +225,8 @@ void OmniboxAimPopupWebUIContent::ShowUI() {
   if (!handler) {
     return;
   }
+  // Drop any draft left over from a close that didn't drain it.
+  handler->clear_cached_draft_text();
 
   auto* web_contents = contents_wrapper()->web_contents();
   auto* browser_window = webui::GetBrowserWindowInterface(web_contents);

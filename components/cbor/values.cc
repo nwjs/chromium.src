@@ -24,8 +24,6 @@ Value Value::InvalidUTF8StringValueForTesting(std::string_view in_string) {
   return Value(base::as_byte_span(in_string), Type::INVALID_UTF8);
 }
 
-Value::Value() noexcept : type_(Type::NONE) {}
-
 Value::Value(Value&& that) noexcept {
   InternalMoveConstructFrom(std::move(that));
 }
@@ -38,15 +36,21 @@ Value::Value(SimpleValue in_simple)
             std::to_underlying(SimpleValue::kMaxValue));
 }
 
-Value::Value(bool boolean_value)
+Value::Value(bool boolean_value) noexcept
     : type_(Type::SIMPLE_VALUE),
       simple_value_(boolean_value ? SimpleValue::TRUE_VALUE
                                   : SimpleValue::FALSE_VALUE) {}
 
+Value::Value(Null) noexcept
+    : type_(Type::SIMPLE_VALUE), simple_value_(SimpleValue::NULL_VALUE) {}
+
+Value::Value(Undefined) noexcept
+    : type_(Type::SIMPLE_VALUE), simple_value_(SimpleValue::UNDEFINED) {}
+
 Value::Value(int integer_value)
     : Value(base::checked_cast<int64_t>(integer_value)) {}
 
-Value::Value(int64_t integer_value)
+Value::Value(int64_t integer_value) noexcept
     : type_(integer_value >= 0 ? Type::UNSIGNED : Type::NEGATIVE),
       integer_value_(integer_value) {}
 
@@ -97,6 +101,16 @@ Value::Value(std::string_view in_string, Type type) : type_(type) {
   }
 }
 
+Value::Value(const char* in_string) : Value(std::string_view(in_string)) {}
+
+Value::Value(std::string&& in_string) noexcept : type_(Type::STRING) {
+  DCHECK(base::IsStringUTF8AllowingNoncharacters(in_string));
+  new (&string_value_) std::string();
+  string_value_ = std::move(in_string);
+}
+
+Value::Value(std::string_view in_string) : Value(std::string(in_string)) {}
+
 Value::Value(const ArrayValue& in_array)
     : type_(Type::ARRAY),
       array_value_(base::ToVector(in_array, &Value::Clone)) {}
@@ -115,6 +129,13 @@ Value::Value(MapValue&& in_map) noexcept
     : type_(Type::MAP), map_value_(std::move(in_map)) {}
 
 Value& Value::operator=(Value&& that) noexcept {
+  // Required for correctness: `InternalCleanup()` destroys the active union
+  // member, so without this guard self-assignment would leave
+  // `InternalMoveConstructFrom()` reading from a destroyed object.
+  if (this == &that) {
+    return *this;
+  }
+
   InternalCleanup();
   InternalMoveConstructFrom(std::move(that));
 
@@ -127,8 +148,6 @@ Value::~Value() {
 
 Value Value::Clone() const {
   switch (type_) {
-    case Type::NONE:
-      return Value();
     case Type::INVALID_UTF8:
       return Value(bytestring_value_, Type::INVALID_UTF8);
     case Type::UNSIGNED:
@@ -229,8 +248,6 @@ void Value::InternalMoveConstructFrom(Value&& that) {
     case Type::SIMPLE_VALUE:
       simple_value_ = that.simple_value_;
       return;
-    case Type::NONE:
-      return;
   }
   NOTREACHED();
 }
@@ -250,13 +267,11 @@ void Value::InternalCleanup() {
     case Type::MAP:
       map_value_.~MapValue();
       break;
-    case Type::NONE:
     case Type::UNSIGNED:
     case Type::NEGATIVE:
     case Type::SIMPLE_VALUE:
       break;
   }
-  type_ = Type::NONE;
 }
 
 }  // namespace cbor

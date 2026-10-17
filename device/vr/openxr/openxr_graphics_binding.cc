@@ -61,8 +61,10 @@ void OpenXrGraphicsBinding::OnSessionCreated(XrSpace local_space,
   layer_data->read_only_data->layout =
       kNumPrimaryViews > 1 ? mojom::XRLayerLayout::kStereoLeftRight
                            : mojom::XRLayerLayout::kMono;
+  layer_data->read_only_data->texture_type = mojom::XRTextureType::kTexture;
   layer_data->read_only_data->texture_width = 0;
   layer_data->read_only_data->texture_height = 0;
+  layer_data->read_only_data->is_static = false;
   layer_data->mutable_data = mojom::XRLayerMutableData::New();
   layer_data->mutable_data->layer_data =
       mojom::XRLayerSpecificData::NewProjection(
@@ -103,10 +105,10 @@ OpenXrGraphicsBinding::GetProjectionViews(
   DCHECK(view_config.Active());
   DCHECK(layer.type() == OpenXrCompositionLayer::Type::kProjection);
 
-  // The following code only works for "mono" and "stereo-left-right".
-  CHECK(layer.read_only_data().layout ==
-            mojom::XRLayerLayout::kStereoLeftRight ||
-        layer.read_only_data().layout == mojom::XRLayerLayout::kMono);
+  const mojom::XRLayerLayout layout = layer.read_only_data().layout;
+
+  // The following code doesn't work for "stereo-top-bottom".
+  CHECK(layout != mojom::XRLayerLayout::kStereoTopBottom);
 
   std::vector<XrCompositionLayerProjectionView> projection_views;
   projection_views.resize(view_config.Views().size());
@@ -126,17 +128,31 @@ OpenXrGraphicsBinding::GetProjectionViews(
     projection_view.fov.angleLeft = view.fov.angleLeft;
     projection_view.fov.angleRight = view.fov.angleRight;
     projection_view.subImage.swapchain = layer.color_swapchain();
-    // Since we're in double wide mode, the texture array only has one texture
-    // and is always index 0. If secondary views are enabled, those views are
-    // also in this same texture array.
-    projection_view.subImage.imageArrayIndex = 0;
-    projection_view.subImage.imageRect.extent.width = properties.Width();
-    projection_view.subImage.imageRect.extent.height = properties.Height();
-    projection_view.subImage.imageRect.offset.x = x_offset;
-    x_offset += properties.Width();
+    // If SwapchainUsesTextureArray() is true, each primary view maps to its
+    // corresponding layer index in the texture array.
+    projection_view.subImage.imageArrayIndex =
+        layer.SwapchainUsesTextureArray()
+            ? std::min(view_index, static_cast<uint32_t>(kNumPrimaryViews - 1))
+            : 0;
+    if (layer.SwapchainUsesTextureArray()) {
+      projection_view.subImage.imageRect.extent.width =
+          layer.GetSwapchainImageSize().width();
+      projection_view.subImage.imageRect.extent.height =
+          layer.GetSwapchainImageSize().height();
+      projection_view.subImage.imageRect.offset.x = 0;
+      projection_view.subImage.imageRect.offset.y = 0;
+    } else {
+      projection_view.subImage.imageRect.extent.width = properties.Width();
+      projection_view.subImage.imageRect.extent.height = properties.Height();
+      projection_view.subImage.imageRect.offset.x = x_offset;
 
-    projection_view.subImage.imageRect.offset.y =
-        layer.GetSwapchainImageSize().height() - properties.Height();
+      if (layout == mojom::XRLayerLayout::kStereoLeftRight) {
+        x_offset += properties.Width();
+      }
+
+      projection_view.subImage.imageRect.offset.y =
+          layer.GetSwapchainImageSize().height() - properties.Height();
+    }
     projection_view.fov.angleUp = view.fov.angleUp;
     projection_view.fov.angleDown = view.fov.angleDown;
 
@@ -521,11 +537,6 @@ bool OpenXrGraphicsBinding::CreateCompositionLayer(
   if (!SupportsLayers()) {
     return false;
   }
-
-  // We don't support "stereo" layout here. The blink side should wrap it into
-  // "stereo-left-right".
-  CHECK_NE(layer_data->read_only_data->layout,
-           device::mojom::XRLayerLayout::kStereo);
 
   auto layer_id = layer_data->read_only_data->layer_id;
   CHECK(!layers_.contains(layer_id));

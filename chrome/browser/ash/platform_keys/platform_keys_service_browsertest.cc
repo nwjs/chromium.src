@@ -47,11 +47,11 @@
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/test/browser_test.h"
+#include "crypto/keypair.h"
 #include "crypto/nss_key_util.h"
 #include "crypto/scoped_nss_types.h"
 #include "crypto/sha2.h"
 #include "crypto/sign.h"
-#include "crypto/signature_verifier.h"
 #include "net/cert/nss_cert_database.h"
 #include "net/cert/x509_certificate.h"
 #include "net/cert/x509_util_nss.h"
@@ -71,9 +71,6 @@ using ::chromeos::platform_keys::TokenId;
 
 constexpr char kTestUserEmail[] = "test@example.com";
 constexpr char kTestAffiliationId[] = "test_affiliation_id";
-const std::vector<uint8_t> kTestingData = {9, 8, 7, 6, 5, 0, 1, 2, 3};
-const std::vector<uint8_t> kSymId = {1, 2, 3, 0, 1, 2, 3};
-const std::vector<uint8_t> kSymId2 = {1, 0, 3, 0, 7, 0, 9};
 const int kDefaultSymKeySize = 32;
 const unsigned long kDefaultSymSignatureSize = 32;
 
@@ -438,6 +435,10 @@ class PlatformKeysServicePerTokenBrowserTest
 
  protected:
   ProfileToUse GetProfileToUse() override { return GetParam().profile_to_use; }
+
+  const std::vector<uint8_t> testing_data_ = {9, 8, 7, 6, 5, 0, 1, 2, 3};
+  const std::vector<uint8_t> sym_id_ = {1, 2, 3, 0, 1, 2, 3};
+  const std::vector<uint8_t> sym_id2_ = {1, 0, 3, 0, 7, 0, 9};
 };
 
 // Generates a Rsa key pair and tests signing using that key pair.
@@ -468,13 +469,12 @@ IN_PROC_BROWSER_TEST_P(PlatformKeysServicePerTokenBrowserTest,
   ASSERT_TRUE(sign_waiter.Wait());
   EXPECT_EQ(sign_waiter.Get<Status>(), Status::kSuccess);
 
-  crypto::SignatureVerifier signature_verifier;
-  ASSERT_TRUE(signature_verifier.VerifyInit(
-      kSignatureAlgorithm,
-      base::as_byte_span(sign_waiter.Get<std::vector<uint8_t>>()),
-      base::as_byte_span(public_key_spki_der)));
-  signature_verifier.VerifyUpdate(base::as_byte_span(kDataToSign));
-  EXPECT_TRUE(signature_verifier.VerifyFinal());
+  std::optional<crypto::keypair::PublicKey> public_key =
+      crypto::keypair::PublicKey::FromSubjectPublicKeyInfo(public_key_spki_der);
+  ASSERT_TRUE(public_key);
+  EXPECT_TRUE(crypto::sign::Verify(kSignatureAlgorithm, *public_key,
+                                   kDataToSign,
+                                   sign_waiter.Get<std::vector<uint8_t>>()));
 }
 
 class RunLoopQuiter {
@@ -548,13 +548,12 @@ IN_PROC_BROWSER_TEST_P(PlatformKeysServicePerTokenBrowserTest,
   ASSERT_TRUE(sign_waiter.Wait());
   EXPECT_EQ(sign_waiter.Get<Status>(), Status::kSuccess);
 
-  crypto::SignatureVerifier signature_verifier;
-  ASSERT_TRUE(signature_verifier.VerifyInit(
-      kSignatureAlgorithm,
-      base::as_byte_span(sign_waiter.Get<std::vector<uint8_t>>()),
-      base::as_byte_span(public_key_spki_der)));
-  signature_verifier.VerifyUpdate(kDataToSign);
-  EXPECT_TRUE(signature_verifier.VerifyFinal());
+  std::optional<crypto::keypair::PublicKey> public_key =
+      crypto::keypair::PublicKey::FromSubjectPublicKeyInfo(public_key_spki_der);
+  ASSERT_TRUE(public_key);
+  EXPECT_TRUE(crypto::sign::Verify(kSignatureAlgorithm, *public_key,
+                                   kDataToSign,
+                                   sign_waiter.Get<std::vector<uint8_t>>()));
 }
 
 // Generates a software-backed RSA key pair.
@@ -840,14 +839,14 @@ IN_PROC_BROWSER_TEST_P(PlatformKeysServicePerTokenBrowserTest, SymKeySign) {
   const TokenId token_id = GetParam().token_id;
   base::test::TestFuture<std::vector<uint8_t>, Status> generate_key_waiter;
   platform_keys_service()->GenerateSymKey(
-      token_id, kSymId, kDefaultSymKeySize,
+      token_id, sym_id_, kDefaultSymKeySize,
       chromeos::platform_keys::SymKeyType::kHmac,
       generate_key_waiter.GetCallback());
   EXPECT_EQ(generate_key_waiter.Get<Status>(), Status::kSuccess);
-  EXPECT_EQ(kSymId, generate_key_waiter.Get<std::vector<uint8_t>>());
+  EXPECT_EQ(sym_id_, generate_key_waiter.Get<std::vector<uint8_t>>());
 
   base::test::TestFuture<std::vector<uint8_t>, Status> sign_waiter;
-  platform_keys_service()->SignWithSymKey(token_id, kTestingData, kSymId,
+  platform_keys_service()->SignWithSymKey(token_id, testing_data_, sym_id_,
                                           sign_waiter.GetCallback());
   EXPECT_EQ(sign_waiter.Get<Status>(), Status::kSuccess);
   EXPECT_EQ(sign_waiter.Get<std::vector<uint8_t>>().size(),
@@ -861,22 +860,22 @@ IN_PROC_BROWSER_TEST_P(PlatformKeysServicePerTokenBrowserTest,
 
   // Should fail because the key doesn't exist.
   base::test::TestFuture<std::vector<uint8_t>, Status> sign_waiter;
-  platform_keys_service()->SignWithSymKey(token_id, kTestingData, kSymId,
+  platform_keys_service()->SignWithSymKey(token_id, testing_data_, sym_id_,
                                           sign_waiter.GetCallback());
   EXPECT_EQ(sign_waiter.Get<Status>(), Status::kErrorKeyNotFound);
   EXPECT_TRUE(sign_waiter.Get<std::vector<uint8_t>>().empty());
 
   base::test::TestFuture<std::vector<uint8_t>, Status> generate_key_waiter;
   platform_keys_service()->GenerateSymKey(
-      token_id, kSymId, kDefaultSymKeySize,
+      token_id, sym_id_, kDefaultSymKeySize,
       chromeos::platform_keys::SymKeyType::kAesCbc,
       generate_key_waiter.GetCallback());
   EXPECT_EQ(generate_key_waiter.Get<Status>(), Status::kSuccess);
-  EXPECT_EQ(kSymId, generate_key_waiter.Get<std::vector<uint8_t>>());
+  EXPECT_EQ(sym_id_, generate_key_waiter.Get<std::vector<uint8_t>>());
 
   // Should fail because the key is generated for purposes other than signing.
   base::test::TestFuture<std::vector<uint8_t>, Status> sign_waiter2;
-  platform_keys_service()->SignWithSymKey(token_id, kTestingData, kSymId,
+  platform_keys_service()->SignWithSymKey(token_id, testing_data_, sym_id_,
                                           sign_waiter2.GetCallback());
   EXPECT_EQ(sign_waiter2.Get<Status>(), Status::kErrorInternal);
   EXPECT_TRUE(sign_waiter2.Get<std::vector<uint8_t>>().empty());
@@ -888,24 +887,25 @@ IN_PROC_BROWSER_TEST_P(PlatformKeysServicePerTokenBrowserTest,
   const TokenId token_id = GetParam().token_id;
   base::test::TestFuture<std::vector<uint8_t>, Status> generate_key_waiter;
   platform_keys_service()->GenerateSymKey(
-      token_id, kSymId, kDefaultSymKeySize,
+      token_id, sym_id_, kDefaultSymKeySize,
       chromeos::platform_keys::SymKeyType::kAesCbc,
       generate_key_waiter.GetCallback());
   EXPECT_EQ(generate_key_waiter.Get<Status>(), Status::kSuccess);
-  EXPECT_EQ(kSymId, generate_key_waiter.Get<std::vector<uint8_t>>());
+  EXPECT_EQ(sym_id_, generate_key_waiter.Get<std::vector<uint8_t>>());
 
   // Initialization vector must have a length of 16.
   const std::vector<uint8_t> kInitVecIncorrect(/*count=*/7, /*value=*/0);
   base::test::TestFuture<std::vector<uint8_t>, Status> encrypt_waiter;
-  platform_keys_service()->EncryptAES(token_id, kTestingData, kSymId, "AES-CBC",
-                                      kInitVecIncorrect,
+  platform_keys_service()->EncryptAES(token_id, testing_data_, sym_id_,
+                                      "AES-CBC", kInitVecIncorrect,
                                       encrypt_waiter.GetCallback());
   EXPECT_EQ(encrypt_waiter.Get<Status>(), Status::kErrorAlgorithmNotSupported);
 
   const std::vector<uint8_t> kInitVec(/*count=*/16, /*value=*/0);
   base::test::TestFuture<std::vector<uint8_t>, Status> encrypt_waiter2;
-  platform_keys_service()->EncryptAES(token_id, kTestingData, kSymId, "AES-CBC",
-                                      kInitVec, encrypt_waiter2.GetCallback());
+  platform_keys_service()->EncryptAES(token_id, testing_data_, sym_id_,
+                                      "AES-CBC", kInitVec,
+                                      encrypt_waiter2.GetCallback());
   EXPECT_EQ(encrypt_waiter2.Get<Status>(), Status::kSuccess);
 
   std::vector<uint8_t> encrypted_data =
@@ -916,11 +916,11 @@ IN_PROC_BROWSER_TEST_P(PlatformKeysServicePerTokenBrowserTest,
   // Decrypting the resulting encrypted data to see if it matches the original
   // data.
   base::test::TestFuture<std::vector<uint8_t>, Status> decrypt_waiter;
-  platform_keys_service()->DecryptAES(token_id, encrypted_data, kSymId,
+  platform_keys_service()->DecryptAES(token_id, encrypted_data, sym_id_,
                                       "AES-CBC", kInitVec,
                                       decrypt_waiter.GetCallback());
   EXPECT_EQ(decrypt_waiter.Get<Status>(), Status::kSuccess);
-  EXPECT_EQ(kTestingData, decrypt_waiter.Get<std::vector<uint8_t>>());
+  EXPECT_EQ(testing_data_, decrypt_waiter.Get<std::vector<uint8_t>>());
 }
 
 // Cannot encrypt with invalid/absent key.
@@ -932,23 +932,25 @@ IN_PROC_BROWSER_TEST_P(PlatformKeysServicePerTokenBrowserTest,
 
   // Should fail because the key doesn't exist.
   base::test::TestFuture<std::vector<uint8_t>, Status> encrypt_waiter;
-  platform_keys_service()->EncryptAES(token_id, kTestingData, kSymId, "AES-CBC",
-                                      kInitVec, encrypt_waiter.GetCallback());
+  platform_keys_service()->EncryptAES(token_id, testing_data_, sym_id_,
+                                      "AES-CBC", kInitVec,
+                                      encrypt_waiter.GetCallback());
   EXPECT_EQ(encrypt_waiter.Get<Status>(), Status::kErrorKeyNotFound);
 
   base::test::TestFuture<std::vector<uint8_t>, Status> generate_key_waiter;
   platform_keys_service()->GenerateSymKey(
-      token_id, kSymId, kDefaultSymKeySize,
+      token_id, sym_id_, kDefaultSymKeySize,
       chromeos::platform_keys::SymKeyType::kHmac,
       generate_key_waiter.GetCallback());
   EXPECT_EQ(generate_key_waiter.Get<Status>(), Status::kSuccess);
-  EXPECT_EQ(kSymId, generate_key_waiter.Get<std::vector<uint8_t>>());
+  EXPECT_EQ(sym_id_, generate_key_waiter.Get<std::vector<uint8_t>>());
 
   // Should fail because the key is generated for purposes other than
   // encrypting/decrypting.
   base::test::TestFuture<std::vector<uint8_t>, Status> encrypt_waiter2;
-  platform_keys_service()->EncryptAES(token_id, kTestingData, kSymId, "AES-CBC",
-                                      kInitVec, encrypt_waiter2.GetCallback());
+  platform_keys_service()->EncryptAES(token_id, testing_data_, sym_id_,
+                                      "AES-CBC", kInitVec,
+                                      encrypt_waiter2.GetCallback());
   EXPECT_EQ(encrypt_waiter2.Get<Status>(), Status::kErrorInternal);
 }
 
@@ -961,23 +963,25 @@ IN_PROC_BROWSER_TEST_P(PlatformKeysServicePerTokenBrowserTest,
 
   // Should fail because the key doesn't exist.
   base::test::TestFuture<std::vector<uint8_t>, Status> decrypt_waiter;
-  platform_keys_service()->DecryptAES(token_id, kTestingData, kSymId, "AES-CBC",
-                                      kInitVec, decrypt_waiter.GetCallback());
+  platform_keys_service()->DecryptAES(token_id, testing_data_, sym_id_,
+                                      "AES-CBC", kInitVec,
+                                      decrypt_waiter.GetCallback());
   EXPECT_EQ(decrypt_waiter.Get<Status>(), Status::kErrorKeyNotFound);
 
   base::test::TestFuture<std::vector<uint8_t>, Status> generate_key_waiter;
   platform_keys_service()->GenerateSymKey(
-      token_id, kSymId, kDefaultSymKeySize,
+      token_id, sym_id_, kDefaultSymKeySize,
       chromeos::platform_keys::SymKeyType::kHmac,
       generate_key_waiter.GetCallback());
   EXPECT_EQ(generate_key_waiter.Get<Status>(), Status::kSuccess);
-  EXPECT_EQ(kSymId, generate_key_waiter.Get<std::vector<uint8_t>>());
+  EXPECT_EQ(sym_id_, generate_key_waiter.Get<std::vector<uint8_t>>());
 
   // Should fail because the key is generated for purposes other than
   // encrypting/decrypting.
   base::test::TestFuture<std::vector<uint8_t>, Status> decrypt_waiter2;
-  platform_keys_service()->DecryptAES(token_id, kTestingData, kSymId, "AES-CBC",
-                                      kInitVec, decrypt_waiter2.GetCallback());
+  platform_keys_service()->DecryptAES(token_id, testing_data_, sym_id_,
+                                      "AES-CBC", kInitVec,
+                                      decrypt_waiter2.GetCallback());
   EXPECT_EQ(decrypt_waiter2.Get<Status>(), Status::kErrorInternal);
 }
 
@@ -987,29 +991,29 @@ IN_PROC_BROWSER_TEST_P(PlatformKeysServicePerTokenBrowserTest, SymRemoveKey) {
 
   base::test::TestFuture<std::vector<uint8_t>, Status> generate_key_waiter;
   platform_keys_service()->GenerateSymKey(
-      token_id, kSymId, kDefaultSymKeySize,
+      token_id, sym_id_, kDefaultSymKeySize,
       chromeos::platform_keys::SymKeyType::kAesCbc,
       generate_key_waiter.GetCallback());
   EXPECT_EQ(generate_key_waiter.Get<Status>(), Status::kSuccess);
-  EXPECT_EQ(kSymId, generate_key_waiter.Get<std::vector<uint8_t>>());
+  EXPECT_EQ(sym_id_, generate_key_waiter.Get<std::vector<uint8_t>>());
 
   // Generating another key with the same key ID should fail.
   base::test::TestFuture<std::vector<uint8_t>, Status> generate_key_waiter2;
   platform_keys_service()->GenerateSymKey(
-      token_id, kSymId, kDefaultSymKeySize,
+      token_id, sym_id_, kDefaultSymKeySize,
       chromeos::platform_keys::SymKeyType::kHmac,
       generate_key_waiter2.GetCallback());
   EXPECT_EQ(generate_key_waiter2.Get<Status>(), Status::kErrorInternal);
   EXPECT_TRUE(generate_key_waiter2.Get<std::vector<uint8_t>>().empty());
 
   base::test::TestFuture<Status> remove_waiter;
-  platform_keys_service()->RemoveSymKey(token_id, kSymId,
+  platform_keys_service()->RemoveSymKey(token_id, sym_id_,
                                         remove_waiter.GetCallback());
   EXPECT_EQ(remove_waiter.Get<Status>(), Status::kSuccess);
 
   // Key is already removed, so this should fail.
   base::test::TestFuture<Status> remove_waiter2;
-  platform_keys_service()->RemoveSymKey(token_id, kSymId,
+  platform_keys_service()->RemoveSymKey(token_id, sym_id_,
                                         remove_waiter2.GetCallback());
   EXPECT_EQ(remove_waiter2.Get<Status>(), Status::kErrorKeyNotFound);
 }
@@ -1021,21 +1025,21 @@ IN_PROC_BROWSER_TEST_P(PlatformKeysServicePerTokenBrowserTest,
 
   base::test::TestFuture<std::vector<uint8_t>, Status> generate_key_waiter;
   platform_keys_service()->GenerateSymKey(
-      token_id, kSymId, kDefaultSymKeySize,
+      token_id, sym_id_, kDefaultSymKeySize,
       chromeos::platform_keys::SymKeyType::kSp800Kdf,
       generate_key_waiter.GetCallback());
   EXPECT_EQ(generate_key_waiter.Get<Status>(), Status::kSuccess);
-  EXPECT_EQ(kSymId, generate_key_waiter.Get<std::vector<uint8_t>>());
+  EXPECT_EQ(sym_id_, generate_key_waiter.Get<std::vector<uint8_t>>());
 
   base::test::TestFuture<std::vector<uint8_t>, Status> derive_waiter;
   platform_keys_service()->DeriveSymKey(
-      token_id, kSymId, kSymId2, kTestingData, kTestingData,
+      token_id, sym_id_, sym_id2_, testing_data_, testing_data_,
       chromeos::platform_keys::SymKeyType::kHmac, derive_waiter.GetCallback());
   EXPECT_EQ(derive_waiter.Get<Status>(), Status::kSuccess);
-  EXPECT_EQ(kSymId2, derive_waiter.Get<std::vector<uint8_t>>());
+  EXPECT_EQ(sym_id2_, derive_waiter.Get<std::vector<uint8_t>>());
 
   base::test::TestFuture<std::vector<uint8_t>, Status> sign_waiter;
-  platform_keys_service()->SignWithSymKey(token_id, kTestingData, kSymId2,
+  platform_keys_service()->SignWithSymKey(token_id, testing_data_, sym_id2_,
                                           sign_waiter.GetCallback());
   EXPECT_EQ(sign_waiter.Get<Status>(), Status::kSuccess);
   EXPECT_EQ(sign_waiter.Get<std::vector<uint8_t>>().size(),
@@ -1049,23 +1053,23 @@ IN_PROC_BROWSER_TEST_P(PlatformKeysServicePerTokenBrowserTest,
 
   base::test::TestFuture<std::vector<uint8_t>, Status> generate_key_waiter;
   platform_keys_service()->GenerateSymKey(
-      token_id, kSymId, kDefaultSymKeySize,
+      token_id, sym_id_, kDefaultSymKeySize,
       chromeos::platform_keys::SymKeyType::kSp800Kdf,
       generate_key_waiter.GetCallback());
   EXPECT_EQ(generate_key_waiter.Get<Status>(), Status::kSuccess);
-  EXPECT_EQ(kSymId, generate_key_waiter.Get<std::vector<uint8_t>>());
+  EXPECT_EQ(sym_id_, generate_key_waiter.Get<std::vector<uint8_t>>());
 
   base::test::TestFuture<std::vector<uint8_t>, Status> derive_waiter;
   platform_keys_service()->DeriveSymKey(
-      token_id, kSymId, kSymId2, kTestingData, kTestingData,
+      token_id, sym_id_, sym_id2_, testing_data_, testing_data_,
       chromeos::platform_keys::SymKeyType::kAesCbc,
       derive_waiter.GetCallback());
   EXPECT_EQ(derive_waiter.Get<Status>(), Status::kSuccess);
-  EXPECT_EQ(kSymId2, derive_waiter.Get<std::vector<uint8_t>>());
+  EXPECT_EQ(sym_id2_, derive_waiter.Get<std::vector<uint8_t>>());
 
   const std::vector<uint8_t> kInitVec(/*count=*/16, /*value=*/0);
   base::test::TestFuture<std::vector<uint8_t>, Status> encrypt_waiter;
-  platform_keys_service()->EncryptAES(token_id, kTestingData, kSymId2,
+  platform_keys_service()->EncryptAES(token_id, testing_data_, sym_id2_,
                                       "AES-CBC", kInitVec,
                                       encrypt_waiter.GetCallback());
   EXPECT_EQ(encrypt_waiter.Get<Status>(), Status::kSuccess);
@@ -1078,11 +1082,11 @@ IN_PROC_BROWSER_TEST_P(PlatformKeysServicePerTokenBrowserTest,
   // Decrypting the resulting encrypted data to see if it matches the original
   // data.
   base::test::TestFuture<std::vector<uint8_t>, Status> decrypt_waiter;
-  platform_keys_service()->DecryptAES(token_id, encrypted_data, kSymId2,
+  platform_keys_service()->DecryptAES(token_id, encrypted_data, sym_id2_,
                                       "AES-CBC", kInitVec,
                                       decrypt_waiter.GetCallback());
   EXPECT_EQ(decrypt_waiter.Get<Status>(), Status::kSuccess);
-  EXPECT_EQ(kTestingData, decrypt_waiter.Get<std::vector<uint8_t>>());
+  EXPECT_EQ(testing_data_, decrypt_waiter.Get<std::vector<uint8_t>>());
 }
 
 INSTANTIATE_TEST_SUITE_P(

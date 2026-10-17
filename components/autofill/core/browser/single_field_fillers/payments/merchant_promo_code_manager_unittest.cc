@@ -25,6 +25,7 @@
 #include "components/autofill/core/browser/foundations/test_autofill_client.h"
 #include "components/autofill/core/browser/foundations/test_autofill_driver.h"
 #include "components/autofill/core/browser/foundations/with_test_autofill_client_driver_manager.h"
+#include "components/autofill/core/browser/metrics/payments/promo_code_metrics.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/browser/test_utils/autofill_form_test_util.h"
 #include "components/autofill/core/browser/test_utils/autofill_test_util.h"
@@ -94,10 +95,11 @@ class MerchantPromoCodeManagerTest
 
   // Sets up the TestPaymentsDataManager with a promo code offer for the given
   // `origin`, and sets the offer details url of the offer to
-  // |offer_details_url`. Returns the promo code inserted in case the test wants
+  // `offer_details_url`. Returns the promo code inserted in case the test wants
   // to match it against returned suggestions.
-  std::string SetUpPromoCodeOffer(std::string origin,
-                                  const GURL& offer_details_url) {
+  std::string SetUpPromoCodeOffer(
+      std::string origin,
+      const GURL& offer_details_url = GURL("https://offer-details-url.com/")) {
     payments_data_manager().SetAutofillWalletImportEnabled(true);
     payments_data_manager().SetAutofillPaymentMethodsEnabled(true);
     AutofillOfferData test_promo_code_offer_data =
@@ -107,18 +109,6 @@ class MerchantPromoCodeManagerTest
         .AddOfferData(
             std::make_unique<AutofillOfferData>(test_promo_code_offer_data));
     return test_promo_code_offer_data.GetPromoCode();
-  }
-
-  // Sets up the TestPaymentsDataManager with a wallet direct offer for the
-  // given `origin`.
-  void SetUpWalletDirectOffer(std::string origin) {
-    // TODO(crbug.com/546252995): Create `test::GetWalletDirectOfferData()`
-    // once `WALLET_DIRECT_OFFER` type is added.
-    AutofillOfferData test_wallet_direct_offer =
-        test::GetPromoCodeOfferData(GURL(origin));
-    test_api(payments_data_manager())
-        .AddOfferData(
-            std::make_unique<AutofillOfferData>(test_wallet_direct_offer));
   }
 
   // Returns a mutable reference, which is valid until the next DoNothing()
@@ -142,6 +132,8 @@ class MerchantPromoCodeManagerTest
   }
 
  private:
+  base::test::ScopedFeatureList scoped_feature_list_{
+      features::kAutofillEnableWalletDirectOffers};
   base::test::TaskEnvironment task_environment_;
   test::AutofillUnitTestEnvironment autofill_test_environment_;
   std::unique_ptr<MerchantPromoCodeManager> merchant_promo_code_manager_;
@@ -152,24 +144,20 @@ class MerchantPromoCodeManagerTest
 };
 
 TEST_F(MerchantPromoCodeManagerTest, ShowsPromoCodeSuggestions) {
-  std::string promo_code = SetUpPromoCodeOffer(
-      kTestOriginUrl, GURL("https://offer-details-url.com/"));
-  Suggestion promo_code_suggestion = Suggestion(
-      base::ASCIIToUTF16(promo_code), SuggestionType::kMerchantPromoCodeEntry);
-  Suggestion footer_suggestion =
-      Suggestion(l10n_util::GetStringUTF16(
-                     IDS_AUTOFILL_PROMO_CODE_SUGGESTIONS_FOOTER_TEXT),
-                 SuggestionType::kSeePromoCodeDetails);
+  SetUpPromoCodeOffer(kTestOriginUrl, GURL("https://offer-details-url.com/"));
+  Suggestion promo_code_suggestion =
+      Suggestion(u"5% off on shoes.", SuggestionType::kMerchantPromoCodeEntry);
 
   // Setting up mock to verify that the handler is returned a list of
-  // promo-code-based suggestions and the promo code details line.
+  // promo-code-based suggestions, followed by a separator and the "Manage
+  // offers" footer.
   MockSuggestionsReturnedCallback mock_callback;
   EXPECT_CALL(
       mock_callback,
       Run(_, UnorderedElementsAre(
                  Field(&Suggestion::main_text, promo_code_suggestion.main_text),
                  Field(&Suggestion::type, SuggestionType::kSeparator),
-                 Field(&Suggestion::main_text, footer_suggestion.main_text))))
+                 Field(&Suggestion::type, SuggestionType::kManageOffers))))
       .Times(3);
 
   // Simulate request for suggestions.
@@ -291,21 +279,9 @@ TEST_F(MerchantPromoCodeManagerTest, PrefixMatched) {
       form(), field(), field(), client(), mock_callback.GetNewRef()));
 }
 
-class MerchantPromoCodeManagerWalletDirectOffersTest
-    : public MerchantPromoCodeManagerTest {
- protected:
-  MerchantPromoCodeManagerWalletDirectOffersTest() {
-    scoped_feature_list_.InitAndEnableFeature(
-        features::kAutofillEnableWalletDirectOffers);
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-TEST_F(MerchantPromoCodeManagerWalletDirectOffersTest,
+TEST_F(MerchantPromoCodeManagerTest,
        OnFieldTypesDetermined_VisiblePromoCodeField_ShowIphBubble) {
-  SetUpWalletDirectOffer(kTestOriginUrl);
+  SetUpPromoCodeOffer(kTestOriginUrl);
 
   FormData form_data = test::GetFormData(test::FormDescription{
       .fields = {{.role = MERCHANT_PROMO_CODE, .is_visible = true}},
@@ -317,9 +293,9 @@ TEST_F(MerchantPromoCodeManagerWalletDirectOffersTest,
   EXPECT_TRUE(client().IsShowingWalletDirectOffersIph());
 }
 
-TEST_F(MerchantPromoCodeManagerWalletDirectOffersTest,
+TEST_F(MerchantPromoCodeManagerTest,
        OnFieldTypesDetermined_NoVisiblePromoCodeField_DoesNotShowIphBubble) {
-  SetUpWalletDirectOffer(kTestOriginUrl);
+  SetUpPromoCodeOffer(kTestOriginUrl);
 
   FormData form_data = test::GetFormData(test::FormDescription{
       .fields = {{.role = MERCHANT_PROMO_CODE, .is_visible = false}},
@@ -331,7 +307,7 @@ TEST_F(MerchantPromoCodeManagerWalletDirectOffersTest,
   EXPECT_FALSE(client().IsShowingWalletDirectOffersIph());
 }
 
-TEST_F(MerchantPromoCodeManagerWalletDirectOffersTest,
+TEST_F(MerchantPromoCodeManagerTest,
        OnFieldTypesDetermined_NoOffersForOrigin_DoesNotShowIphBubble) {
   FormData form_data = test::GetFormData(test::FormDescription{
       .fields = {{.role = MERCHANT_PROMO_CODE, .is_visible = true}},
@@ -343,21 +319,13 @@ TEST_F(MerchantPromoCodeManagerWalletDirectOffersTest,
   EXPECT_FALSE(client().IsShowingWalletDirectOffersIph());
 }
 
-class MerchantPromoCodeManagerWalletDirectOffersDisabledTest
-    : public MerchantPromoCodeManagerTest {
- protected:
-  MerchantPromoCodeManagerWalletDirectOffersDisabledTest() {
-    scoped_feature_list_.InitAndDisableFeature(
-        features::kAutofillEnableWalletDirectOffers);
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-TEST_F(MerchantPromoCodeManagerWalletDirectOffersDisabledTest,
+TEST_F(MerchantPromoCodeManagerTest,
        OnFieldTypesDetermined_FeatureDisabled_DoesNotShowIphBubble) {
-  SetUpWalletDirectOffer(kTestOriginUrl);
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      features::kAutofillEnableWalletDirectOffers);
+
+  SetUpPromoCodeOffer(kTestOriginUrl);
 
   FormData form_data = test::GetFormData(test::FormDescription{
       .fields = {{.role = MERCHANT_PROMO_CODE, .is_visible = true}},
@@ -367,6 +335,80 @@ TEST_F(MerchantPromoCodeManagerWalletDirectOffersDisabledTest,
                                  AutofillManagerTestApi::pass_key());
 
   EXPECT_FALSE(client().IsShowingWalletDirectOffersIph());
+}
+
+TEST_F(MerchantPromoCodeManagerTest, DidShowSuggestions_LogsOncePerPageLoad) {
+  base::HistogramTester histogram_tester;
+
+  // Calling DidShowSuggestions logs the funnel event.
+  promo_manager().DidShowSuggestions();
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.FormEvents.PromoCode",
+      autofill_metrics::PromoCodeFormEvent::kPromoCodeSuggestionsShown, 1);
+
+  // Calling DidShowSuggestions again on the same page does not log again.
+  promo_manager().DidShowSuggestions();
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.FormEvents.PromoCode",
+      autofill_metrics::PromoCodeFormEvent::kPromoCodeSuggestionsShown, 1);
+}
+
+TEST_F(MerchantPromoCodeManagerTest,
+       DidShowSuggestions_Reset_AllowsSubsequentLogging) {
+  base::HistogramTester histogram_tester;
+
+  promo_manager().DidShowSuggestions();
+  histogram_tester.ExpectBucketCount(
+      "Autofill.FormEvents.PromoCode",
+      autofill_metrics::PromoCodeFormEvent::kPromoCodeSuggestionsShown, 1);
+
+  // Resetting page load metrics allows the event to be logged again on the next
+  // show.
+  promo_manager().Reset();
+  promo_manager().DidShowSuggestions();
+  histogram_tester.ExpectBucketCount(
+      "Autofill.FormEvents.PromoCode",
+      autofill_metrics::PromoCodeFormEvent::kPromoCodeSuggestionsShown, 2);
+}
+
+TEST_F(MerchantPromoCodeManagerTest,
+       OnSingleFieldSuggestionSelected_PromoSuggestion_LogsOncePerPageLoad) {
+  base::HistogramTester histogram_tester;
+
+  Suggestion promo_code_suggestion(SuggestionType::kMerchantPromoCodeEntry);
+
+  // Selecting a promo code suggestion logs the filled funnel event.
+  promo_manager().OnSingleFieldSuggestionSelected(promo_code_suggestion);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.FormEvents.PromoCode",
+      autofill_metrics::PromoCodeFormEvent::kPromoCodeSuggestionFilled, 1);
+
+  // Selecting a promo code suggestion again on the same page does not log
+  // again.
+  promo_manager().OnSingleFieldSuggestionSelected(promo_code_suggestion);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.FormEvents.PromoCode",
+      autofill_metrics::PromoCodeFormEvent::kPromoCodeSuggestionFilled, 1);
+}
+
+TEST_F(MerchantPromoCodeManagerTest,
+       OnSingleFieldSuggestionSelected_Reset_AllowsSubsequentLogging) {
+  base::HistogramTester histogram_tester;
+
+  Suggestion promo_code_suggestion(SuggestionType::kMerchantPromoCodeEntry);
+
+  promo_manager().OnSingleFieldSuggestionSelected(promo_code_suggestion);
+  histogram_tester.ExpectBucketCount(
+      "Autofill.FormEvents.PromoCode",
+      autofill_metrics::PromoCodeFormEvent::kPromoCodeSuggestionFilled, 1);
+
+  // Resetting page load metrics allows the event to be logged again on the next
+  // fill.
+  promo_manager().Reset();
+  promo_manager().OnSingleFieldSuggestionSelected(promo_code_suggestion);
+  histogram_tester.ExpectBucketCount(
+      "Autofill.FormEvents.PromoCode",
+      autofill_metrics::PromoCodeFormEvent::kPromoCodeSuggestionFilled, 2);
 }
 
 }  // namespace autofill

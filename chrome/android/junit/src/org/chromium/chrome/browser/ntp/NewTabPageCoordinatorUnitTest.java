@@ -23,9 +23,13 @@ import static org.mockito.Mockito.when;
 import android.app.Activity;
 import android.content.Context;
 import android.content.res.Resources;
+import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
+import android.widget.TextView;
 
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -48,8 +52,11 @@ import org.chromium.base.FeatureOverrides;
 import org.chromium.base.TriState;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplierImpl;
+import org.chromium.base.supplier.SettableNonNullObservableSupplier;
+import org.chromium.base.supplier.SettableNullableObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features;
+import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.cc.input.BrowserControlsState;
@@ -75,6 +82,7 @@ import org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinatorFactory;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils;
 import org.chromium.chrome.browser.omnibox.SearchEngineService;
+import org.chromium.chrome.browser.omnibox.status.StatusProperties.StatusIconResource;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.segmentation_platform.client_util.HomeModulesRankingHelper;
@@ -101,7 +109,10 @@ import org.chromium.components.browser_ui.widget.displaystyle.DisplayStyleObserv
 import org.chromium.components.browser_ui.widget.displaystyle.HorizontalDisplayStyle;
 import org.chromium.components.browser_ui.widget.displaystyle.UiConfig;
 import org.chromium.components.browser_ui.widget.displaystyle.VerticalDisplayStyle;
+import org.chromium.components.omnibox.AutocompleteRequestType;
 import org.chromium.components.omnibox.OmniboxCapabilities;
+import org.chromium.components.omnibox.OmniboxFeatureList;
+import org.chromium.components.search_engines.AiModeButtonUiConfig;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.identitymanager.IdentityManager;
@@ -121,11 +132,13 @@ import java.util.function.Supplier;
 @EnableFeatures({
     ChromeFeatureList.SEGMENTATION_PLATFORM_ANDROID_HOME_MODULE_RANKER_V2,
     ChromeFeatureList.FEED_CONTAINMENT,
-    SigninFeatures.ENABLE_SEAMLESS_SIGNIN,
     SigninFeatures.MAKE_IDENTITY_MANAGER_SOURCE_OF_ACCOUNTS,
     SigninFeatures.ENABLE_ACCOUNT_PREVIEW_PREFERRED_ACCOUNT
 })
 public class NewTabPageCoordinatorUnitTest {
+    private static final String THIRD_PARTY_AI_MODE_NAVIGATION_URL =
+            JUnitTestGURLs.EXAMPLE_URL.getSpec();
+
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
     @Rule public SuggestionsDependenciesRule mSuggestionsDeps = new SuggestionsDependenciesRule();
     @Rule public FakeTimeTestRule mFakeTimeTestRule = new FakeTimeTestRule();
@@ -151,7 +164,6 @@ public class NewTabPageCoordinatorUnitTest {
     @Mock private ModalDialogManager mModalDialogManager;
     @Mock private SnackbarManager mSnackbarManager;
     @Mock private Supplier<Integer> mTabStripHeightSupplier;
-    @Mock private Supplier<GURL> mComposeplateUrlSupplier;
     @Mock private SearchEngineService mSearchEngineService;
     @Mock private TemplateUrlService mTemplateUrlService;
     @Mock private IdentityManager mIdentityManager;
@@ -174,6 +186,11 @@ public class NewTabPageCoordinatorUnitTest {
     private BrowserStateBrowserControlsVisibilityDelegate mVisibilityDelegate;
     private final OneshotSupplierImpl<ModuleRegistry> mModuleRegistrySupplier =
             new OneshotSupplierImpl<>();
+    private final SettableNullableObservableSupplier<AiModeButtonUiConfig>
+            mAiModeButtonUiConfigSupplier = ObservableSuppliers.createNullable();
+    private final SettableNonNullObservableSupplier<StatusIconResource> mAiModeButtonIconSupplier =
+            ObservableSuppliers.createNonNull(
+                    new StatusIconResource(R.drawable.ic_search_spark_24dp, Resources.ID_NULL));
 
     @Before
     public void setUp() {
@@ -206,6 +223,12 @@ public class NewTabPageCoordinatorUnitTest {
 
         // Setup for search.
         SearchEngineService.setInstanceForTesting(mSearchEngineService);
+        // By default the search engine offers an AI Mode entry point.
+        mAiModeButtonUiConfigSupplier.set(createAiModeButtonUiConfig(/* isGoogle= */ true));
+        when(mSearchEngineService.getAiModeButtonUiConfigSupplier())
+                .thenReturn(mAiModeButtonUiConfigSupplier);
+        when(mSearchEngineService.getAiModeButtonIconSupplier())
+                .thenReturn(mAiModeButtonIconSupplier);
 
         when(mMostRecentTab.getUrl()).thenReturn(JUnitTestGURLs.URL_1);
         when(mTab.getProfile()).thenReturn(mProfile);
@@ -455,7 +478,8 @@ public class NewTabPageCoordinatorUnitTest {
                         mTabStripHeightSupplier,
                         new OneshotSupplierImpl<>(),
                         mHomeSurfaceTracker,
-                        mBackPressManager);
+                        mBackPressManager,
+                        mTemplateUrlService);
 
         mCoordinator.initialize(
                 mTileGroupDelegate,
@@ -464,8 +488,7 @@ public class NewTabPageCoordinatorUnitTest {
                 mScrollDelegate,
                 mTouchEnabledDelegate,
                 mUiConfig,
-                mLifecycleDispatcher,
-                mComposeplateUrlSupplier);
+                mLifecycleDispatcher);
     }
 
     private void verifyIsHomeSurface(boolean isHomeSurface) {
@@ -577,6 +600,7 @@ public class NewTabPageCoordinatorUnitTest {
     }
 
     @Test
+    @EnableFeatures({ChromeFeatureList.NTP_AURORA + ":padding_style/0"})
     public void testSetSearchProviderTopMargin_WithLogo() {
         setupMockSubCoordinators();
         mCoordinator.setSearchProviderInfo(/* hasLogo= */ true, /* isGoogle= */ true);
@@ -660,6 +684,7 @@ public class NewTabPageCoordinatorUnitTest {
     }
 
     @Test
+    @DisableFeatures(OmniboxFeatureList.AIM3P_ENTRYPOINT)
     public void testInitializeComposeplate() {
         mCoordinator.destroy();
 
@@ -681,6 +706,8 @@ public class NewTabPageCoordinatorUnitTest {
      * margin and hidden composeplate.
      */
     @Test
+    @EnableFeatures({ChromeFeatureList.NTP_AURORA + ":padding_style/0"})
+    @DisableFeatures(OmniboxFeatureList.AIM3P_ENTRYPOINT)
     public void testSetSearchProviderInfo_ThirdPartyNoLogo() {
         int searchBoxTopMarginNoLogo =
                 mActivity
@@ -698,6 +725,8 @@ public class NewTabPageCoordinatorUnitTest {
      * margin and hidden composeplate.
      */
     @Test
+    @EnableFeatures({ChromeFeatureList.NTP_AURORA + ":padding_style/0"})
+    @DisableFeatures(OmniboxFeatureList.AIM3P_ENTRYPOINT)
     public void testSetSearchProviderInfo_ThirdPartyWithLogo() {
         verifySetSearchProviderInfo(
                 /* targetHasLogo= */ true,
@@ -711,6 +740,8 @@ public class NewTabPageCoordinatorUnitTest {
      * visible composeplate button.
      */
     @Test
+    @EnableFeatures({ChromeFeatureList.NTP_AURORA + ":padding_style/0"})
+    @DisableFeatures(OmniboxFeatureList.AIM3P_ENTRYPOINT)
     public void testSetSearchProviderInfo_GoogleWithLogo() {
         verifySetSearchProviderInfo(
                 /* targetHasLogo= */ true,
@@ -720,6 +751,7 @@ public class NewTabPageCoordinatorUnitTest {
     }
 
     @Test
+    @DisableFeatures(OmniboxFeatureList.AIM3P_ENTRYPOINT)
     public void testSetSearchProviderInfo_InitializesComposeplate() {
         // Destroys the default coordinator created in setUp() since we need composeplate to start
         // disabled.
@@ -757,6 +789,108 @@ public class NewTabPageCoordinatorUnitTest {
         assertNotNull(mCoordinator.getComposeplateCoordinatorForTesting());
     }
 
+    /**
+     * Verifies that the AI Mode button is shown on the first NTP when the default search engine's
+     * {@link AiModeButtonUiConfig} is already available before the coordinator is initialized.
+     */
+    @Test
+    @EnableFeatures(OmniboxFeatureList.AIM3P_ENTRYPOINT)
+    public void testAiModeButtonUiConfig_AvailableBeforeInitialize() {
+        testAiModeButtonUiConfigImpl(
+                /* isGoogle= */ true, /* isConfigAvailableBeforeInitialize= */ true);
+    }
+
+    /**
+     * Verifies that a new NTP renders the AI Mode button from the config of a third party default
+     * search engine which is already available before the coordinator is initialized.
+     */
+    @Test
+    @EnableFeatures(OmniboxFeatureList.AIM3P_ENTRYPOINT)
+    public void testAiModeButtonUiConfig_ThirdPartyAvailableBeforeInitialize() {
+        testAiModeButtonUiConfigImpl(
+                /* isGoogle= */ false, /* isConfigAvailableBeforeInitialize= */ true);
+    }
+
+    /**
+     * Verifies that the AI Mode button is shown once the default search engine's {@link
+     * AiModeButtonUiConfig} becomes available after the coordinator has been initialized.
+     */
+    @Test
+    @EnableFeatures(OmniboxFeatureList.AIM3P_ENTRYPOINT)
+    public void testAiModeButtonUiConfig_AvailableAfterInitialize() {
+        testAiModeButtonUiConfigImpl(
+                /* isGoogle= */ true, /* isConfigAvailableBeforeInitialize= */ false);
+    }
+
+    @Test
+    @EnableFeatures(OmniboxFeatureList.AIM3P_ENTRYPOINT)
+    public void testDestroy_RemovesAiModeButtonUiConfigObserver() {
+        assertTrue(mAiModeButtonUiConfigSupplier.hasObservers());
+
+        mCoordinator.destroy();
+
+        assertFalse(mAiModeButtonUiConfigSupplier.hasObservers());
+
+        // Recreates the coordinator since #tearDown() destroys it.
+        createCoordinator();
+    }
+
+    /**
+     * Verifies that the AI Mode button stays visible when switching from Google to a third party
+     * search engine which offers an AI Mode entry point.
+     */
+    @Test
+    @EnableFeatures(OmniboxFeatureList.AIM3P_ENTRYPOINT)
+    public void testSwitchSearchEngine_GoogleToThirdPartyWithConfig() {
+        testSwitchSearchEngineImpl(
+                /* initialIsGoogle= */ true,
+                /* hasInitialConfig= */ true,
+                /* targetIsGoogle= */ false,
+                /* hasTargetConfig= */ true);
+    }
+
+    /**
+     * Verifies that the AI Mode button is hidden when switching from Google to a third party search
+     * engine which doesn't offer an AI Mode entry point.
+     */
+    @Test
+    @EnableFeatures(OmniboxFeatureList.AIM3P_ENTRYPOINT)
+    public void testSwitchSearchEngine_GoogleToThirdPartyWithoutConfig() {
+        testSwitchSearchEngineImpl(
+                /* initialIsGoogle= */ true,
+                /* hasInitialConfig= */ true,
+                /* targetIsGoogle= */ false,
+                /* hasTargetConfig= */ false);
+    }
+
+    /**
+     * Verifies that the AI Mode button becomes visible when switching from a third party search
+     * engine without an AI Mode entry point back to Google.
+     */
+    @Test
+    @EnableFeatures(OmniboxFeatureList.AIM3P_ENTRYPOINT)
+    public void testSwitchSearchEngine_ThirdPartyWithoutConfigToGoogle() {
+        testSwitchSearchEngineImpl(
+                /* initialIsGoogle= */ false,
+                /* hasInitialConfig= */ false,
+                /* targetIsGoogle= */ true,
+                /* hasTargetConfig= */ true);
+    }
+
+    /**
+     * Verifies that the AI Mode button stays visible when switching from a third party search
+     * engine which offers an AI Mode entry point back to Google.
+     */
+    @Test
+    @EnableFeatures(OmniboxFeatureList.AIM3P_ENTRYPOINT)
+    public void testSwitchSearchEngine_ThirdPartyWithConfigToGoogle() {
+        testSwitchSearchEngineImpl(
+                /* initialIsGoogle= */ false,
+                /* hasInitialConfig= */ true,
+                /* targetIsGoogle= */ true,
+                /* hasTargetConfig= */ true);
+    }
+
     @Test
     public void testUpdateActionButtonVisibility_ComposeplateHiddenWhenIncognitoDisabled() {
         setupMockSubCoordinators();
@@ -771,6 +905,185 @@ public class NewTabPageCoordinatorUnitTest {
         // Verifies that even when composeplate is enabled and Google is the search provider,
         // disabling incognito mode hides the composeplate button.
         verify(mMockComposeplate).setVisibility(eq(false), anyBoolean());
+    }
+
+    /** Verifies that a monochrome resource icon is tinted like the other composeplate icons. */
+    @Test
+    @EnableFeatures(OmniboxFeatureList.AIM3P_ENTRYPOINT)
+    public void testAiModeButtonIconChanged_ResourceIcon() {
+        testAiModeButtonIconChangedImpl(
+                new StatusIconResource(R.drawable.ic_search_24dp, Resources.ID_NULL),
+                /* expectedShouldTint= */ true);
+    }
+
+    /** Verifies that a full color favicon isn't tinted, which would render it as a silhouette. */
+    @Test
+    @EnableFeatures(OmniboxFeatureList.AIM3P_ENTRYPOINT)
+    public void testAiModeButtonIconChanged_BitmapIcon() {
+        testAiModeButtonIconChangedImpl(
+                createBitmapAiModeButtonIcon(), /* expectedShouldTint= */ false);
+    }
+
+    /**
+     * Verifies that the icon is still updated while the AI Mode button is hidden. Otherwise, as the
+     * supplier doesn't notify an unchanged icon, the button would show a stale icon once shown.
+     */
+    @Test
+    @EnableFeatures(OmniboxFeatureList.AIM3P_ENTRYPOINT)
+    public void testAiModeButtonIconChanged_WhileButtonHidden() {
+        setupMockSubCoordinators();
+        changeSearchEngine(/* isGoogle= */ false, /* hasAiModeButtonUiConfig= */ false);
+        assertEquals(TriState.FALSE, mCoordinator.getIsComposeplateEnabledForTesting());
+        clearInvocations(mMockComposeplate);
+
+        mAiModeButtonIconSupplier.set(createBitmapAiModeButtonIcon());
+
+        verify(mMockComposeplate).updateAiModeButtonIcon(any(), eq(false));
+    }
+
+    /**
+     * Verifies that a newly created composeplate shows the current icon, since the icon observer is
+     * notified before the composeplate exists.
+     */
+    @Test
+    @EnableFeatures(OmniboxFeatureList.AIM3P_ENTRYPOINT)
+    public void testAiModeButtonIcon_AppliedToNewComposeplate() {
+        mCoordinator.destroy();
+        Bitmap bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
+        mAiModeButtonIconSupplier.set(
+                new StatusIconResource(JUnitTestGURLs.RED_1.getSpec(), bitmap, Resources.ID_NULL));
+
+        createCoordinator();
+
+        assertNotNull(mCoordinator.getComposeplateCoordinatorForTesting());
+        ImageView iconView = mNewTabPageLayout.findViewById(R.id.composeplate_button_icon);
+        assertEquals(bitmap, ((BitmapDrawable) iconView.getDrawable()).getBitmap());
+        // A full color favicon isn't tinted, even after the composeplate background is applied.
+        assertNull(iconView.getImageTintList());
+    }
+
+    @Test
+    @EnableFeatures(OmniboxFeatureList.AIM3P_ENTRYPOINT)
+    public void testDestroy_RemovesAiModeButtonIconObserver() {
+        assertTrue(mAiModeButtonIconSupplier.hasObservers());
+
+        mCoordinator.destroy();
+
+        assertFalse(mAiModeButtonIconSupplier.hasObservers());
+
+        // Recreates the coordinator since #tearDown() destroys it.
+        createCoordinator();
+    }
+
+    private void testAiModeButtonIconChangedImpl(
+            StatusIconResource icon, boolean expectedShouldTint) {
+        setupMockSubCoordinators();
+        clearInvocations(mMockComposeplate);
+
+        mAiModeButtonIconSupplier.set(icon);
+
+        verify(mMockComposeplate).updateAiModeButtonIcon(any(), eq(expectedShouldTint));
+    }
+
+    /** Returns a full color icon, as fetched from a third party search engine's favicon URL. */
+    private static StatusIconResource createBitmapAiModeButtonIcon() {
+        return new StatusIconResource(
+                JUnitTestGURLs.RED_1.getSpec(),
+                Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888),
+                Resources.ID_NULL);
+    }
+
+    private void testAiModeButtonUiConfigImpl(
+            boolean isGoogle, boolean isConfigAvailableBeforeInitialize) {
+        // Destroys the coordinator created in setUp() since the config must be supplied before
+        // NewTabPageCoordinator#initialize() is called. This also detaches its observer, so the
+        // supplier can be reset below.
+        mCoordinator.destroy();
+        AiModeButtonUiConfig config =
+                isConfigAvailableBeforeInitialize ? createAiModeButtonUiConfig(isGoogle) : null;
+        mAiModeButtonUiConfigSupplier.set(config);
+
+        createCoordinator();
+
+        if (!isConfigAvailableBeforeInitialize) {
+            // Without a config, the AI Mode button isn't eligible to be shown yet.
+            assertEquals(TriState.FALSE, mCoordinator.getIsComposeplateEnabledForTesting());
+            assertNull(mCoordinator.getComposeplateCoordinatorForTesting());
+
+            config = changeSearchEngine(isGoogle, /* hasAiModeButtonUiConfig= */ true);
+        }
+
+        assertEquals(TriState.TRUE, mCoordinator.getIsComposeplateEnabledForTesting());
+        assertNotNull(mCoordinator.getComposeplateCoordinatorForTesting());
+        // The newly created composeplate must render the config, rather than the layout's default.
+        TextView buttonText = mNewTabPageLayout.findViewById(R.id.composeplate_button_text);
+        assertEquals(config.text, buttonText.getText().toString());
+    }
+
+    private void testSwitchSearchEngineImpl(
+            boolean initialIsGoogle,
+            boolean hasInitialConfig,
+            boolean targetIsGoogle,
+            boolean hasTargetConfig) {
+        setupMockSubCoordinators();
+
+        changeSearchEngine(initialIsGoogle, hasInitialConfig);
+        assertEquals(
+                hasInitialConfig ? TriState.TRUE : TriState.FALSE,
+                mCoordinator.getIsComposeplateEnabledForTesting());
+
+        clearInvocations(mMockComposeplate);
+
+        AiModeButtonUiConfig targetConfig = changeSearchEngine(targetIsGoogle, hasTargetConfig);
+
+        assertEquals(
+                hasTargetConfig ? TriState.TRUE : TriState.FALSE,
+                mCoordinator.getIsComposeplateEnabledForTesting());
+        if (hasTargetConfig) {
+            verify(mMockComposeplate).updateAiModeButtonUiConfig(eq(targetConfig));
+        } else {
+            verify(mMockComposeplate, never()).updateAiModeButtonUiConfig(any());
+        }
+        mCoordinator.updateActionButtonVisibility();
+        verify(mMockComposeplate, atLeastOnce()).setVisibility(eq(hasTargetConfig), anyBoolean());
+    }
+
+    /**
+     * Simulates a default search engine change: the search provider info is updated first, then
+     * native pushes the {@link AiModeButtonUiConfig} of the new default search engine.
+     *
+     * @param isGoogle Whether the new default search engine is Google.
+     * @param hasAiModeButtonUiConfig Whether the new default search engine offers an AI Mode entry
+     *     point.
+     * @return The config pushed to the supplier, or null if the engine doesn't offer an AI Mode
+     *     entry point.
+     */
+    private AiModeButtonUiConfig changeSearchEngine(
+            boolean isGoogle, boolean hasAiModeButtonUiConfig) {
+        mCoordinator.setSearchProviderInfo(/* hasLogo= */ isGoogle, isGoogle);
+        AiModeButtonUiConfig aiModeButtonUiConfig =
+                hasAiModeButtonUiConfig ? createAiModeButtonUiConfig(isGoogle) : null;
+        mAiModeButtonUiConfigSupplier.set(aiModeButtonUiConfig);
+        return aiModeButtonUiConfig;
+    }
+
+    /**
+     * Returns the {@link AiModeButtonUiConfig} of a search engine. Google's entry point is rendered
+     * from built-in assets, so its favicon and navigation URLs are empty, while a third party
+     * engine supplies both.
+     *
+     * @param isGoogle Whether the config belongs to Google.
+     */
+    private static AiModeButtonUiConfig createAiModeButtonUiConfig(boolean isGoogle) {
+        return new AiModeButtonUiConfig(
+                isGoogle ? "AI Mode" : "Red AI",
+                isGoogle ? "Ask AI Mode in Google Search" : "Ask AI Mode",
+                "AI Mode button",
+                "Always show AI Mode",
+                "Ask AI Mode",
+                /* faviconUrl= */ isGoogle ? GURL.emptyGURL() : JUnitTestGURLs.RED_1,
+                /* navigationUrl= */ isGoogle ? "" : THIRD_PARTY_AI_MODE_NAVIGATION_URL,
+                /* navigationUrlEmpty= */ isGoogle ? GURL.emptyGURL() : JUnitTestGURLs.URL_2);
     }
 
     private void setupMockSubCoordinators() {
@@ -793,10 +1106,20 @@ public class NewTabPageCoordinatorUnitTest {
 
         when(mManager.isVoiceSearchEnabled()).thenReturn(true);
         when(mMockSearchBox.isLensEnabled(anyInt())).thenReturn(false);
-        mCoordinator.setIsComposeplateEnabledForTesting(TriState.TRUE);
+
+        clearInvocations(mMockSearchBox);
+        clearInvocations(mMockLogo);
+        clearInvocations(mMockTiles);
+        clearInvocations(mMockComposeplate);
 
         mCoordinator.setSearchProviderInfo(targetHasLogo, targetIsGoogle);
-        mCoordinator.updateActionButtonVisibility();
+
+        assertEquals(
+                targetHasLogo,
+                mCoordinator.getSearchProviderInfoDelegateForTesting().getSearchProviderHasLogo());
+        assertEquals(
+                targetIsGoogle,
+                mCoordinator.getSearchProviderInfoDelegateForTesting().getSearchProviderIsGoogle());
 
         Resources resources = mActivity.getResources();
         int logoTopMargin = resources.getDimensionPixelSize(R.dimen.ntp_logo_margin_top);
@@ -1147,6 +1470,7 @@ public class NewTabPageCoordinatorUnitTest {
     }
 
     @Test
+    @EnableFeatures({ChromeFeatureList.NTP_AURORA + ":padding_style/0"})
     public void testOnDisplayStyleChanged_Phone_NonDefault() {
         FeatureOverrides.overrideParam(
                 ChromeFeatureList.NTP_AURORA, "padding_style", NewTabPageUtils.PaddingStyle.MEDIUM);
@@ -1163,6 +1487,7 @@ public class NewTabPageCoordinatorUnitTest {
     }
 
     @Test
+    @EnableFeatures({ChromeFeatureList.NTP_AURORA + ":padding_style/0"})
     public void testOnDisplayStyleChanged_Phone_Default() {
         FeatureOverrides.overrideParam(
                 ChromeFeatureList.NTP_AURORA,
@@ -1174,6 +1499,7 @@ public class NewTabPageCoordinatorUnitTest {
 
     @Test
     @Config(qualifiers = "land")
+    @EnableFeatures({ChromeFeatureList.NTP_AURORA + ":padding_style/0"})
     public void testOnDisplayStyleChanged_Phone_Landscape_NonDefault() {
         FeatureOverrides.overrideParam(
                 ChromeFeatureList.NTP_AURORA, "padding_style", NewTabPageUtils.PaddingStyle.LARGE);
@@ -1190,6 +1516,7 @@ public class NewTabPageCoordinatorUnitTest {
     }
 
     @Test
+    @EnableFeatures({ChromeFeatureList.NTP_AURORA + ":padding_style/0"})
     public void testOnDisplayStyleChanged_Tablet() {
         createCoordinator(/* isLff= */ true);
         verify(mUiConfig).addObserver(mDisplayStyleObserverCaptor.capture());
@@ -1199,5 +1526,22 @@ public class NewTabPageCoordinatorUnitTest {
         mDisplayStyleObserverCaptor.getValue().onDisplayStyleChanged(null);
 
         verify(mMockLogo).updateDoodleOnTablet(anyBoolean());
+    }
+
+    @Test
+    public void testSearchBoxTextWatcher_ForwardsTextAndClearsSearchBox() {
+        TextView searchBoxTextView = mNewTabPageLayout.findViewById(R.id.search_box_text);
+        assertNotNull(searchBoxTextView);
+
+        searchBoxTextView.setText("first paste");
+        verify(mManager)
+                .focusSearchBox(false, AutocompleteRequestType.SEARCH, false, "first paste");
+        assertEquals("", searchBoxTextView.getText().toString());
+
+        clearInvocations(mManager);
+        searchBoxTextView.setText("second paste");
+        verify(mManager)
+                .focusSearchBox(false, AutocompleteRequestType.SEARCH, false, "second paste");
+        assertEquals("", searchBoxTextView.getText().toString());
     }
 }

@@ -263,6 +263,9 @@ void PrepareDragData(RenderFrameHost& source_rfh,
                      const DropData& drop_data,
                      ui::OSExchangeDataProvider* provider) {
   provider->MarkRendererTaintedFromOrigin(source_rfh.GetLastCommittedOrigin());
+  if (drop_data.drag_id.has_value()) {
+    provider->SetChromeDragId(*drop_data.drag_id);
+  }
 #if BUILDFLAG(IS_WIN)
   // Put download before file contents to prefer the download of a image over
   // its thumbnail link.
@@ -724,6 +727,7 @@ void WebContentsViewAura::PrepareDropData(
   drop_data->did_originate_from_renderer = data.IsRendererTainted();
 #endif
   drop_data->is_from_privileged = data.IsFromPrivileged();
+  drop_data->drag_id = data.GetChromeDragId();
 
   if (std::optional<std::u16string> string = data.GetString();
       string.has_value() && !string->empty()) {
@@ -849,7 +853,8 @@ void WebContentsViewAura::EndDrag(
   // |client_loc| is in the root coordinate space, for non-root
   // RenderWidgetHosts it needs to be transformed.
   gfx::PointF transformed_point = client_loc;
-  if (source_rwh && web_contents_->GetRenderWidgetHostView()) {
+  if (source_rwh && web_contents_->GetRenderWidgetHostView() &&
+      source_rwh->GetView() != web_contents_->GetRenderWidgetHostView()) {
     static_cast<RenderWidgetHostViewBase*>(
         web_contents_->GetRenderWidgetHostView())
         ->TransformPointToCoordSpaceForView(
@@ -1286,14 +1291,14 @@ void WebContentsViewAura::StartDragging(
     // touch event would reach `::SendInput` via
     // DesktopWindowTreeHostWin::StartTouchDrag and could redirect the
     // synthesized click to an overlapping HWND (e.g. a permission bubble).
-    // Require an in-flight touch or mouse button, depending on the event
-    // source, and refuse the drag if requirement is not met.
+    // Require an in-flight touch or a left mouse button, depending on the
+    // event source, and refuse the drag if the requirement is not met.
     gfx::Point trusted_location = event_info.location;
     aura::Env* env = aura::Env::GetInstance();
     if ((event_info.source == ui::mojom::DragEventSource::kTouch &&
          !env->is_touch_down()) ||
         (event_info.source == ui::mojom::DragEventSource::kMouse &&
-         !env->IsMouseButtonDown())) {
+         !env->IsLeftMouseButtonDown())) {
       EndDrag(std::move(source_rwh_weak_ptr), result_op);
       return;
     }

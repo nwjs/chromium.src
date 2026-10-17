@@ -30,7 +30,6 @@
 #include "base/time/time.h"
 #include "base/types/optional_ref.h"
 #include "components/autofill/core/browser/autofill_format_string.h"
-#include "components/autofill/core/browser/autofill_type.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_normalization_util.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_component.h"
 #include "components/autofill/core/browser/data_model/addresses/name_info.h"
@@ -330,8 +329,8 @@ void AttributeInstance::SetInfo(
             if (!name.GetSupportedTypes().contains(field_type)) {
               return;
             }
-            name.SetInfoWithVerificationStatus(AutofillType(field_type), value,
-                                               app_locale, status);
+            name.SetInfoWithVerificationStatus(field_type, value, app_locale,
+                                               status);
           },
           [&](const StateInfo&) { SetRawInfo(field_type, value, status); },
           [&](std::u16string&) { SetRawInfo(field_type, value, status); }},
@@ -461,9 +460,6 @@ std::ostream& operator<<(
     const EntityInstance::PersonalContextRecordTypePayload::Source::Type& t) {
   using Type = EntityInstance::PersonalContextRecordTypePayload::Source::Type;
   switch (t) {
-    case Type::kUnspecified:
-      os << "kUnspecified";
-      break;
     case Type::kGmail:
       os << "kGmail";
       break;
@@ -477,7 +473,18 @@ std::ostream& operator<<(
 std::ostream& operator<<(
     std::ostream& os,
     const EntityInstance::PersonalContextRecordTypePayload::Source& s) {
-  os << "Source(type: " << s.type << ", url: \"" << s.url << "\")";
+  os << "Source(type: " << s.type() << ", url: \"" << s.url << "\"";
+  std::visit(absl::Overload{
+                 [&os](const EntityInstance::PersonalContextRecordTypePayload::
+                           GmailSourceMetadata& gmail) {
+                   os << ", title: \"" << gmail.title << "\"";
+                 },
+                 [&os](const EntityInstance::PersonalContextRecordTypePayload::
+                           PhotosSourceMetadata& photos) {
+                   os << ", timestamp: \"" << photos.timestamp << "\"";
+                 }},
+             s.metadata);
+  os << ")";
   return os;
 }
 
@@ -495,10 +502,16 @@ std::ostream& operator<<(std::ostream& os, const EntityInstance& e) {
 
   std::visit(
       absl::Overload{
-          [&](const EntityInstance::PersonalContextRecordTypePayload& p) {
+          [&os](const EntityInstance::PersonalContextRecordTypePayload& p) {
             for (const EntityInstance::PersonalContextRecordTypePayload::Source&
                      s : p.sources) {
               os << "- source " << s << std::endl;
+            }
+          },
+          [&os](const EntityInstance::WalletRecordTypePayload& p) {
+            if (!p.management_url.empty()) {
+              os << "- management url: \"" << p.management_url << '"'
+                 << std::endl;
             }
           },
           [](const auto&) {}},
@@ -762,12 +775,21 @@ EntityInstance EntityInstance::CopyWithNewEntityId(EntityId id) const {
 EntityInstance EntityInstance::CopyWithNewRecordType(
     RecordType record_type) const {
   EntityInstance new_entity = *this;
+  // Safeguard against the corner case of creating a copy with the same type.
+  if (this->record_type() == record_type) {
+    return new_entity;
+  }
+  // Adapt the record type specific payload.
   switch (record_type) {
     case RecordType::kLocal:
       new_entity.record_type_data_ = LocalRecordTypePayload();
       break;
     case RecordType::kServerWallet:
-      new_entity.record_type_data_ = WalletRecordTypePayload();
+      // When converting from a different record type (e.g. local)
+      // the management URL is empty because it needs to be provisioned
+      // by the Google Wallet servers.
+      new_entity.record_type_data_ =
+          WalletRecordTypePayload{.management_url = ""};
       break;
     case RecordType::kPersonalContext:
       // TODO(crbug.com/542083924): Converting to a pContext entity is currently

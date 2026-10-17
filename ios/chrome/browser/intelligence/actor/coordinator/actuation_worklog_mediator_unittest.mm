@@ -7,10 +7,12 @@
 #import "ios/chrome/browser/intelligence/actor/public/actor_types.h"
 #import "ios/chrome/browser/intelligence/actor/ui/actuation_worklog_consumer.h"
 #import "ios/chrome/browser/intelligence/actor/ui/actuation_worklog_view_data.h"
+#import "ios/chrome/grit/ios_strings.h"
 #import "ios/web/public/web_state_id.h"
 #import "testing/gtest/include/gtest/gtest.h"
 #import "testing/gtest_mac.h"
 #import "testing/platform_test.h"
+#import "ui/base/l10n/l10n_util.h"
 
 namespace {
 constexpr actor::ActorTaskId kTaskId = actor::ActorTaskId(1);
@@ -23,6 +25,7 @@ using enum actor::ToolType;
 @property(nonatomic, assign) BOOL actuationActive;
 @property(nonatomic, strong) NSMutableArray<ActuationWorklogItem*>* items;
 @property(nonatomic, strong) NSMutableArray<ActuationWorklogChip*>* chips;
+@property(nonatomic, strong) ActuationInterventionData* intervention;
 @end
 
 @implementation FakeActuationWorklogConsumer
@@ -46,10 +49,15 @@ using enum actor::ToolType;
   }
 }
 
+- (void)setIntervention:(ActuationInterventionData*)intervention {
+  _intervention = intervention;
+}
+
 - (void)reset {
   [_items removeAllObjects];
   [_chips removeAllObjects];
   _taskTitle = nil;
+  _intervention = nil;
 }
 
 @end
@@ -118,7 +126,8 @@ TEST_F(ActuationWorklogMediatorTest, TestRegisterObserverEmitsInitialStep) {
 
 // Tests that tool execution emits a chip and timeline item.
 TEST_F(ActuationWorklogMediatorTest, TestToolExecutionEmitsChipAndItem) {
-  ChangeState(kActing, kInit);
+  RegisterTask();
+  [fake_consumer_.items removeAllObjects];
 
   // Empty updates are ignored.
   ExecuteTool(kType, @"");
@@ -130,11 +139,33 @@ TEST_F(ActuationWorklogMediatorTest, TestToolExecutionEmitsChipAndItem) {
   EXPECT_NSEQ(fake_consumer_.items[0].title, @"Clicking button");
   ASSERT_EQ(fake_consumer_.chips.count, 1u);
   EXPECT_GT(fake_consumer_.chips[0].text.length, 0u);
+
+  ExecuteTool(kNavigate, @"Navigating to page");
+  ASSERT_EQ(fake_consumer_.items.count, 2u);
+  EXPECT_NSEQ(fake_consumer_.items[1].title, @"Navigating to page");
+  ASSERT_EQ(fake_consumer_.chips.count, 2u);
+  EXPECT_GT(fake_consumer_.chips[1].text.length, 0u);
+
+  // Unmapped tools emit the catch-all fallback chip.
+  ExecuteTool(kSelect, @"Selecting item");
+  ASSERT_EQ(fake_consumer_.items.count, 3u);
+  EXPECT_NSEQ(fake_consumer_.items[2].title, @"Selecting item");
+  ASSERT_EQ(fake_consumer_.chips.count, 3u);
+  EXPECT_NSEQ(fake_consumer_.chips[2].text,
+              l10n_util::GetNSString(IDS_IOS_ACTOR_WORKLOG_CHIP_DEFAULT));
+
+  // Tools without chips (e.g. kWaitZeroDuration) do not emit a chip.
+  ExecuteTool(kWaitZeroDuration, @"Stabilizing");
+  ASSERT_EQ(fake_consumer_.items.count, 4u);
+  EXPECT_NSEQ(fake_consumer_.items[3].title, @"Stabilizing");
+  EXPECT_EQ(fake_consumer_.chips.count, 3u);
 }
 
 // Tests that consecutive duplicate task updates are deduplicated.
 TEST_F(ActuationWorklogMediatorTest, TestConsecutiveDeduplication) {
-  ChangeState(kActing, kInit);
+  RegisterTask();
+  [fake_consumer_.items removeAllObjects];
+
   ExecuteTool(kClick, @"Action A");
   ExecuteTool(kScroll, @"Action A");
   ExecuteTool(kType, @"Action B");
@@ -173,4 +204,79 @@ TEST_F(ActuationWorklogMediatorTest, TestDisconnectResetsConsumer) {
   [mediator_ disconnect];
   EXPECT_EQ(fake_consumer_.items.count, 0u);
   EXPECT_EQ(fake_consumer_.taskTitle, nil);
+}
+
+// Tests the user intervention flow.
+TEST_F(ActuationWorklogMediatorTest, TestUserInterventionFlow) {
+  RegisterTask();
+  __block BOOL completion_called = NO;
+  [mediator_ actorTask:kTaskId
+      requestUserInterventionWithTitle:@"Intervention Title"
+                              subtitle:@"Intervention Subtitle"
+                            buttonText:@"Continue"
+                     completionHandler:^{
+                       completion_called = YES;
+                     }];
+
+  ASSERT_NE(fake_consumer_.intervention, nil);
+  EXPECT_NSEQ(fake_consumer_.intervention.title, @"Intervention Title");
+  EXPECT_NSEQ(fake_consumer_.intervention.subtitle, @"Intervention Subtitle");
+  EXPECT_NSEQ(fake_consumer_.intervention.primaryButtonText, @"Continue");
+  EXPECT_FALSE(completion_called);
+
+  [mediator_ didTapInterventionButton];
+  EXPECT_TRUE(completion_called);
+  EXPECT_EQ(fake_consumer_.intervention, nil);
+}
+
+// Tests that cancelling, replacing, or disconnecting an intervention discards
+// the pending completion without invoking it.
+TEST_F(ActuationWorklogMediatorTest, TestUserInterventionCancellation) {
+  RegisterTask();
+  __block BOOL first_completion_called = NO;
+  [mediator_ actorTask:kTaskId
+      requestUserInterventionWithTitle:@"First Title"
+                              subtitle:@"First Subtitle"
+                            buttonText:@"Action 1"
+                     completionHandler:^{
+                       first_completion_called = YES;
+                     }];
+
+  ASSERT_NE(fake_consumer_.intervention, nil);
+  EXPECT_FALSE(first_completion_called);
+
+  // A second intervention arrives before user acts on the first.
+  __block BOOL second_completion_called = NO;
+  [mediator_ actorTask:kTaskId
+      requestUserInterventionWithTitle:@"Second Title"
+                              subtitle:@"Second Subtitle"
+                            buttonText:@"Action 2"
+                     completionHandler:^{
+                       second_completion_called = YES;
+                     }];
+
+  // First completion must be discarded without invocation.
+  EXPECT_FALSE(first_completion_called);
+  EXPECT_FALSE(second_completion_called);
+  EXPECT_NSEQ(fake_consumer_.intervention.title, @"Second Title");
+
+  // Task stoppage discards pending completion and clears consumer.
+  EndActuation();
+  EXPECT_FALSE(second_completion_called);
+  EXPECT_EQ(fake_consumer_.intervention, nil);
+
+  // A third intervention followed by disconnect should also discard completion.
+  RegisterTask();
+  __block BOOL third_completion_called = NO;
+  [mediator_ actorTask:kTaskId
+      requestUserInterventionWithTitle:@"Third Title"
+                              subtitle:@"Third Subtitle"
+                            buttonText:@"Action 3"
+                     completionHandler:^{
+                       third_completion_called = YES;
+                     }];
+  ASSERT_NE(fake_consumer_.intervention, nil);
+  [mediator_ disconnect];
+  EXPECT_FALSE(third_completion_called);
+  EXPECT_EQ(fake_consumer_.intervention, nil);
 }

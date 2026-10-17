@@ -166,6 +166,14 @@ def GenerateBundleApks(
                     )
                 if mode != 'system_apks':
                     cmd_args += ['--mode=' + mode]
+                    if mode == 'system':
+                        # --mode=system ignores BundleConfig's
+                        # uncompressNativeLibraries; compression is controlled
+                        # solely by this flag. Compressed .so files are invalid
+                        # in system images.
+                        cmd_args += [
+                            '--system-apk-options=UNCOMPRESSED_NATIVE_LIBRARIES'
+                        ]
                 else:
                     # Specify --optimize-for to prevent language splits being created.
                     cmd_args += ['--optimize-for=device_tier']
@@ -209,7 +217,7 @@ def GenerateBundleApks(
 
         # Avoid rebuilding (saves ~20s) when the input files have not changed. This
         # is essential when calling the apk_operations.py script multiple times with
-        # the same bundle (e.g. out/Debug/bin/monochrome_public_bundle run).
+        # the same bundle (e.g. out/Debug/bin/chrome_public_bundle run).
         md5_check.CallAndRecordIfStale(
             rebuild,
             input_paths=input_paths,

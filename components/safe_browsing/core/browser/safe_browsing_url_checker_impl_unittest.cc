@@ -19,8 +19,8 @@
 #include "base/test/task_environment.h"
 #include "base/timer/mock_timer.h"
 #include "components/safe_browsing/core/browser/db/database_manager.h"
+#include "components/safe_browsing/core/browser/db/sb_protocol_manager_util.h"
 #include "components/safe_browsing/core/browser/db/test_database_manager.h"
-#include "components/safe_browsing/core/browser/db/v4_protocol_manager_util.h"
 #include "components/safe_browsing/core/browser/db/v5_get_hash_protocol_manager.h"
 #include "components/safe_browsing/core/browser/realtime/fake_url_lookup_service.h"
 #include "components/safe_browsing/core/browser/realtime/url_lookup_service.h"
@@ -261,7 +261,7 @@ class MockUrlCheckerDelegate : public UrlCheckerDelegate {
   MOCK_METHOD1(NotifySuspiciousSiteDetected,
                void(const base::RepeatingCallback<content::WebContents*()>&));
   MOCK_METHOD2(ShowSuspiciousSiteWarning,
-               void(int64_t,
+               void(const security_interstitials::UnsafeResource&,
                     const base::RepeatingCallback<content::WebContents*()>&));
   MOCK_METHOD0(GetUIManager, BaseUIManager*());
   MOCK_METHOD2(SendUrlRealTimeAndHashRealTimeDiscrepancyReport,
@@ -366,12 +366,12 @@ class FakeRealTimeUrlLookupService
       case SB_THREAT_TYPE_SUBRESOURCE_FILTER:
       case SB_THREAT_TYPE_CSD_ALLOWLIST:
       case DEPRECATED_SB_THREAT_TYPE_URL_PASSWORD_PROTECTION_PHISHING:
+      case DEPRECATED_SB_THREAT_TYPE_BLOCKED_AD_REDIRECT:
+      case DEPRECATED_SB_THREAT_TYPE_BLOCKED_AD_POPUP:
       case SB_THREAT_TYPE_SAVED_PASSWORD_REUSE:
       case SB_THREAT_TYPE_SIGNED_IN_SYNC_PASSWORD_REUSE:
       case SB_THREAT_TYPE_SIGNED_IN_NON_SYNC_PASSWORD_REUSE:
-      case SB_THREAT_TYPE_BLOCKED_AD_REDIRECT:
       case SB_THREAT_TYPE_AD_SAMPLE:
-      case SB_THREAT_TYPE_BLOCKED_AD_POPUP:
       case SB_THREAT_TYPE_ENTERPRISE_PASSWORD_REUSE:
       case SB_THREAT_TYPE_BILLING:
       case SB_THREAT_TYPE_APK_DOWNLOAD:
@@ -1195,7 +1195,19 @@ TEST_F(SafeBrowsingUrlCheckerTest,
           /*has_post_commit_interstitial_skipped=*/false,
           SafeBrowsingUrlCheckerImpl::PerformedCheck::kUrlRealTimeCheck))
       .Times(1);
-  EXPECT_CALL(*url_checker_delegate_, ShowSuspiciousSiteWarning(123, _))
+  EXPECT_CALL(
+      *url_checker_delegate_,
+      ShowSuspiciousSiteWarning(
+          ::testing::AllOf(
+              ::testing::Field(&security_interstitials::UnsafeResource::url,
+                               url),
+              ::testing::Field(
+                  &security_interstitials::UnsafeResource::threat_type,
+                  SB_THREAT_TYPE_WARNABLE_SUSPICIOUS_SITE),
+              ::testing::Field(
+                  &security_interstitials::UnsafeResource::navigation_id,
+                  std::optional<int64_t>(123))),
+          _))
       .Times(1);
   EXPECT_CALL(*url_checker_delegate_, NotifySuspiciousSiteDetected(_)).Times(0);
   EXPECT_CALL(*url_checker_delegate_,
@@ -2450,7 +2462,8 @@ TEST_F(SafeBrowsingUrlCheckerTest, GetV5GetHashProtocolManager) {
   V5GetHashProtocolManager v5_protocol_manager(
       /*url_loader_factory=*/nullptr,
       SBProtocolConfig("test", false, "key", "1.0"),
-      /*cache=*/nullptr);
+      /*cache=*/nullptr,
+      /*webui_delegate=*/nullptr);
 
   auto checker = CreateSafeBrowsingUrlChecker(
       /*url_real_time_lookup_enabled=*/false,

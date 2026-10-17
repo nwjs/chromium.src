@@ -15,7 +15,7 @@
 class ContextualSearchFulfillmentAction : public OmniboxAction {
  public:
   ContextualSearchFulfillmentAction(const GURL& url,
-                                    AutocompleteMatchType::Type match_type,
+                                    omnibox::AutocompleteMatchType match_type,
                                     bool is_zero_prefix_suggestion);
 
   // OmniboxAction:
@@ -35,7 +35,7 @@ class ContextualSearchFulfillmentAction : public OmniboxAction {
  protected:
   ~ContextualSearchFulfillmentAction() override;
 
-  AutocompleteMatchType::Type match_type_;
+  omnibox::AutocompleteMatchType match_type_;
   bool is_zero_prefix_suggestion_;
   // This URL includes all of the search_terms_args that its match had
   // associated with it.

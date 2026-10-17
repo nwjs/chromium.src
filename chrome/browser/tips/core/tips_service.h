@@ -30,8 +30,24 @@ using ResultStatus = segmentation_platform::DatabaseClient::ResultStatus;
 
 // Service to handle Tips notifications and orchestrate modular TipsFeature
 // implementations.
+//
+// TODO(crbug.com/559726350): If TipsNotificationsRanker is deprecated, a new
+// tips_config file will need to be created and registered in
+// segmentation_platform_config.cc so that UMA signals continue to be monitored
+// by the Segmentation Platform allowlist.
 class TipsService : public KeyedService, public base::SupportsUserData {
  public:
+  static constexpr char kGlobalTipsShownSignal[] =
+      "Notifications.Scheduler.NotificationLifeCycleEvent.Tips";
+  static constexpr int kGlobalCooldownDays = 7;
+
+  // Corresponds to `notifications::NotificationLifeCycleEvent::kShown` (value
+  // 3) in chrome/browser/notifications/scheduler/internal/stats.h and the
+  // `NotificationSchedulerNotificationLifeCycleEvent` histogram enum.
+  // Defined here because `notifications/scheduler/internal` is visibility-
+  // restricted and depends on `tips/core`, precluding a direct header include.
+  static constexpr int32_t kNotificationLifeCycleEventShown = 3;
+
   using OnBestTipChosen =
       base::OnceCallback<void(std::optional<TipsNotificationsFeatureType>)>;
 

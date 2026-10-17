@@ -27,7 +27,7 @@
 #include "media/base/video_frame_pool.h"
 #include "media/base/video_types.h"
 #include "media/base/video_util.h"
-#include "media/renderers/paint_canvas_video_renderer.h"
+#include "media/gfx/paint_canvas_video_renderer.h"
 #include "third_party/blink/public/mojom/frame/lifecycle.mojom-blink.h"
 #include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom-blink.h"
 #include "third_party/blink/public/platform/platform.h"
@@ -224,7 +224,6 @@ bool IsFormatEnabled(media::VideoPixelFormat fmt) {
     case media::PIXEL_FORMAT_YUV444P12:
     case media::PIXEL_FORMAT_I444A:
     case media::PIXEL_FORMAT_YUV444AP10:
-    case media::PIXEL_FORMAT_RGBAF16:
       return true;
     default:
       return false;
@@ -492,21 +491,39 @@ bool ParseCopyToOptions(const media::VideoFrame& frame,
                         gfx::Rect* src_rect_out = nullptr) {
   DCHECK(dest_layout_out);
 
-  auto frame_format = CopyToFormat(frame);
-  if (!frame_format.has_value()) {
+  const bool mappable =
+      frame.HasDirectCpuAccess() || frame.HasMappableSharedImage();
+  const bool texturable = frame.HasSharedImage();
+  if (!mappable && !texturable) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kNotSupportedError,
         "Operation is not supported when format is null.");
     return false;
   }
 
-  media::VideoPixelFormat copy_to_format = frame_format.value();
+  auto frame_format = CopyToFormat(frame);
+  media::VideoPixelFormat copy_to_format;
+
   if (options->hasFormat()) {
     copy_to_format = ToMediaPixelFormat(options->format().AsEnum());
     if (!IsFormatEnabled(copy_to_format)) {
       exception_state.ThrowTypeError("Unsupported format.");
       return false;
     }
+    if (!media::IsRGB(copy_to_format)) {
+      exception_state.ThrowDOMException(
+          DOMExceptionCode::kNotSupportedError,
+          "copyTo() doesn't support explicit copy to non-RGB formats. Remove "
+          "format parameter to use VideoFrame's pixel format.");
+      return false;
+    }
+  } else if (frame_format.has_value()) {
+    copy_to_format = frame_format.value();
+  } else {
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kNotSupportedError,
+        "Operation is not supported when format is null.");
+    return false;
   }
 
   if (options->hasColorSpace() &&
@@ -515,13 +532,6 @@ bool ParseCopyToOptions(const media::VideoFrame& frame,
     exception_state.ThrowDOMException(
         DOMExceptionCode::kNotSupportedError,
         "This pixel conversion to this color space is not supported.");
-    return false;
-  }
-
-  if (copy_to_format != frame.format() && !media::IsRGB(copy_to_format)) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kNotSupportedError,
-        "This pixel format conversion is not supported.");
     return false;
   }
 

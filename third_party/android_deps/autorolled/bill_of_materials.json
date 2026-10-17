@@ -2,7 +2,7 @@
     {
         "name": "activity",
         "group": "androidx.activity",
-        "version": "1.14.0-alpha02"
+        "version": "1.14.0-alpha03"
     },
     {
         "name": "activity-compose",
@@ -12,12 +12,12 @@
     {
         "name": "activity-ktx",
         "group": "androidx.activity",
-        "version": "1.14.0-alpha02"
+        "version": "1.14.0-alpha03"
     },
     {
         "name": "annotation",
         "group": "androidx.annotation",
-        "version": "1.11.0-rc01"
+        "version": "1.11.0"
     },
     {
         "name": "annotation-experimental",
@@ -27,7 +27,7 @@
     {
         "name": "annotation-jvm",
         "group": "androidx.annotation",
-        "version": "1.11.0-rc01"
+        "version": "1.11.0"
     },
     {
         "name": "appcompat",
@@ -127,17 +127,17 @@
     {
         "name": "collection",
         "group": "androidx.collection",
-        "version": "1.7.0-alpha01"
+        "version": "1.7.0-rc01"
     },
     {
         "name": "collection-jvm",
         "group": "androidx.collection",
-        "version": "1.7.0-alpha01"
+        "version": "1.7.0-rc01"
     },
     {
         "name": "collection-ktx",
         "group": "androidx.collection",
-        "version": "1.7.0-alpha01"
+        "version": "1.7.0-rc01"
     },
     {
         "name": "animation",
@@ -507,12 +507,12 @@
     {
         "name": "emoji2",
         "group": "androidx.emoji2",
-        "version": "1.7.0-rc01"
+        "version": "1.7.0"
     },
     {
         "name": "emoji2-views-helper",
         "group": "androidx.emoji2",
-        "version": "1.7.0-rc01"
+        "version": "1.7.0"
     },
     {
         "name": "emoji",
@@ -677,17 +677,17 @@
     {
         "name": "lifecycle-common",
         "group": "androidx.lifecycle",
-        "version": "2.12.0-alpha03"
+        "version": "2.12.0-alpha04"
     },
     {
         "name": "lifecycle-common-java8",
         "group": "androidx.lifecycle",
-        "version": "2.12.0-alpha03"
+        "version": "2.12.0-alpha04"
     },
     {
         "name": "lifecycle-common-jvm",
         "group": "androidx.lifecycle",
-        "version": "2.12.0-alpha03"
+        "version": "2.12.0-alpha04"
     },
     {
         "name": "lifecycle-livedata",
@@ -697,7 +697,7 @@
     {
         "name": "lifecycle-livedata-core",
         "group": "androidx.lifecycle",
-        "version": "2.12.0-alpha03"
+        "version": "2.12.0-alpha04"
     },
     {
         "name": "lifecycle-livedata-core-ktx",
@@ -712,17 +712,17 @@
     {
         "name": "lifecycle-process",
         "group": "androidx.lifecycle",
-        "version": "2.12.0-alpha03"
+        "version": "2.12.0-alpha04"
     },
     {
         "name": "lifecycle-runtime",
         "group": "androidx.lifecycle",
-        "version": "2.12.0-alpha03"
+        "version": "2.12.0-alpha04"
     },
     {
         "name": "lifecycle-runtime-android",
         "group": "androidx.lifecycle",
-        "version": "2.12.0-alpha03"
+        "version": "2.12.0-alpha04"
     },
     {
         "name": "lifecycle-runtime-compose",
@@ -737,12 +737,12 @@
     {
         "name": "lifecycle-runtime-ktx",
         "group": "androidx.lifecycle",
-        "version": "2.12.0-alpha03"
+        "version": "2.12.0-alpha04"
     },
     {
         "name": "lifecycle-runtime-ktx-android",
         "group": "androidx.lifecycle",
-        "version": "2.12.0-alpha03"
+        "version": "2.12.0-alpha04"
     },
     {
         "name": "lifecycle-service",
@@ -752,12 +752,12 @@
     {
         "name": "lifecycle-viewmodel",
         "group": "androidx.lifecycle",
-        "version": "2.12.0-alpha03"
+        "version": "2.12.0-alpha04"
     },
     {
         "name": "lifecycle-viewmodel-android",
         "group": "androidx.lifecycle",
-        "version": "2.12.0-alpha03"
+        "version": "2.12.0-alpha04"
     },
     {
         "name": "lifecycle-viewmodel-compose",
@@ -772,17 +772,17 @@
     {
         "name": "lifecycle-viewmodel-ktx",
         "group": "androidx.lifecycle",
-        "version": "2.12.0-alpha03"
+        "version": "2.12.0-alpha04"
     },
     {
         "name": "lifecycle-viewmodel-savedstate",
         "group": "androidx.lifecycle",
-        "version": "2.12.0-alpha03"
+        "version": "2.12.0-alpha04"
     },
     {
         "name": "lifecycle-viewmodel-savedstate-android",
         "group": "androidx.lifecycle",
-        "version": "2.12.0-alpha03"
+        "version": "2.12.0-alpha04"
     },
     {
         "name": "loader",
@@ -847,7 +847,7 @@
     {
         "name": "mediarouter",
         "group": "androidx.mediarouter",
-        "version": "1.9.0-alpha02"
+        "version": "1.9.0-beta01"
     },
     {
         "name": "multidex",
@@ -887,12 +887,12 @@
     {
         "name": "navigationevent",
         "group": "androidx.navigationevent",
-        "version": "1.2.0-alpha04"
+        "version": "1.2.0-rc01"
     },
     {
         "name": "navigationevent-android",
         "group": "androidx.navigationevent",
-        "version": "1.2.0-alpha04"
+        "version": "1.2.0-rc01"
     },
     {
         "name": "navigationevent-compose",
@@ -1022,12 +1022,12 @@
     {
         "name": "savedstate",
         "group": "androidx.savedstate",
-        "version": "1.6.0-alpha03"
+        "version": "1.6.0-alpha04"
     },
     {
         "name": "savedstate-android",
         "group": "androidx.savedstate",
-        "version": "1.6.0-alpha03"
+        "version": "1.6.0-alpha04"
     },
     {
         "name": "savedstate-compose",
@@ -1042,7 +1042,7 @@
     {
         "name": "savedstate-ktx",
         "group": "androidx.savedstate",
-        "version": "1.6.0-alpha03"
+        "version": "1.6.0-alpha04"
     },
     {
         "name": "slidingpanelayout",
@@ -1232,7 +1232,7 @@
     {
         "name": "webkit",
         "group": "androidx.webkit",
-        "version": "1.18.0-SNAPSHOT"
+        "version": "1.19.0-SNAPSHOT"
     },
     {
         "name": "sidecar",
@@ -1427,12 +1427,12 @@
     {
         "name": "play-services-base",
         "group": "com.google.android.gms",
-        "version": "18.10.1"
+        "version": "18.11.0"
     },
     {
         "name": "play-services-basement",
         "group": "com.google.android.gms",
-        "version": "18.11.0"
+        "version": "18.12.0"
     },
     {
         "name": "play-services-cast",
@@ -1522,7 +1522,7 @@
     {
         "name": "googleid",
         "group": "com.google.android.libraries.identity.googleid",
-        "version": "1.2.0"
+        "version": "1.2.1"
     },
     {
         "name": "material",
@@ -1602,7 +1602,7 @@
     {
         "name": "firebase-common",
         "group": "com.google.firebase",
-        "version": "22.2.1"
+        "version": "23.0.0"
     },
     {
         "name": "firebase-components",
@@ -1707,12 +1707,7 @@
     {
         "name": "protobuf-javalite",
         "group": "com.google.protobuf",
-        "version": "4.36.1"
-    },
-    {
-        "name": "protobuf-lite",
-        "group": "com.google.protobuf",
-        "version": "3.0.1"
+        "version": "4.36.2"
     },
     {
         "name": "compile-testing",
@@ -1955,11 +1950,6 @@
         "version": "1.2.1"
     },
     {
-        "name": "checker-compat-qual",
-        "group": "org.checkerframework",
-        "version": "2.5.5"
-    },
-    {
         "name": "checker-qual",
         "group": "org.checkerframework",
         "version": "4.2.3"
@@ -1972,7 +1962,7 @@
     {
         "name": "animal-sniffer-annotations",
         "group": "org.codehaus.mojo",
-        "version": "1.27"
+        "version": "1.28"
     },
     {
         "name": "conscrypt-openjdk-uber",
@@ -2018,11 +2008,6 @@
         "name": "kotlin-stdlib",
         "group": "org.jetbrains.kotlin",
         "version": "2.3.21"
-    },
-    {
-        "name": "kotlin-stdlib-common",
-        "group": "org.jetbrains.kotlin",
-        "version": "2.0.20"
     },
     {
         "name": "kotlin-stdlib-jdk7",
@@ -2072,7 +2057,7 @@
     {
         "name": "kotlinx-coroutines-play-services",
         "group": "org.jetbrains.kotlinx",
-        "version": "1.9.0"
+        "version": "1.10.2"
     },
     {
         "name": "kotlinx-coroutines-reactive",
@@ -2102,12 +2087,12 @@
     {
         "name": "kotlinx-serialization-core-jvm",
         "group": "org.jetbrains.kotlinx",
-        "version": "1.7.2"
+        "version": "1.7.3"
     },
     {
         "name": "kotlinx-serialization-json",
         "group": "org.jetbrains.kotlinx",
-        "version": "1.7.2"
+        "version": "1.7.3"
     },
     {
         "name": "kotlinx-serialization-json-jvm",

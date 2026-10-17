@@ -8,14 +8,15 @@
 #include <cstdint>
 #include <memory>
 
+#include "base/check_op.h"
 #include "base/memory/scoped_refptr.h"
-#include "base/threading/sequence_bound.h"
+#include "mojo/public/c/system/types.h"
 #include "mojo/public/cpp/bindings/associated_group_controller.h"
 #include "mojo/public/cpp/bindings/message.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
 #include "mojo/public/cpp/bindings/pending_associated_remote.h"
 #include "mojo/public/cpp/bindings/scoped_interface_endpoint_handle.h"
-#include "mojo/public/rust/bindings/multiplex_router/cpp_interop/mojo_responder_wrapper.h"
+#include "mojo/public/rust/system/scoped_handle_interop.h"
 #include "third_party/rust/cxx/v1/cxx.h"
 
 namespace mojo::rust::bindings {
@@ -23,6 +24,19 @@ namespace mojo::rust::bindings {
 // Defined in Rust, exposed in the cxx bridge
 struct EndpointInfo;
 class InterfaceEndpointClientAdapter;
+class RustAssociatedGroupController;
+
+// Constructs a fresh C++ `mojo::Message` with the given payload,
+// and attaches the provided handles to it.
+std::unique_ptr<mojo::Message> CreateOutgoingMessage(
+    ::rust::Slice<const uint8_t> payload,
+    ::rust::Vec<MojoHandle> handles);
+
+// Constructs a C++ `mojo::Message` from an existing incoming message handle,
+// from which we already extracted the attached handles.
+std::unique_ptr<mojo::Message> CreateIncomingMessage(
+    std::unique_ptr<mojo::rust::ScopedMessageHandleWrapper> raw_handle,
+    ::rust::Vec<MojoHandle> handles);
 
 // This file defines the C++ side of the interop layer that enables Rust to
 // attach Mojo associated interfaces to a C++ message pipe.
@@ -42,18 +56,23 @@ class InterfaceEndpointClientAdapter;
 // - Unbound: Unbound adapters may be moved across sequences before `Bind()` is
 // called.
 // - Bound: `Bind` permanently binds the adapter to a sequence. Outgoing calls
-//   (`SendMessage`, `Close`) will automatically run on the given sequence. All
-//   incoming IPC messages, disconnect callbacks, and destruction must be
-//   invoked only on the bound sequence.
+//   (e.g. `SendMessage`) will automatically run on the given sequence. All
+//   incoming IPC messages and disconnect callbacks are invoked only on the
+//   bound sequence. Destruction will be automatically posted to the sequence.
 class AssociatedEndpointRustAdapter {
  public:
   explicit AssociatedEndpointRustAdapter(
       mojo::ScopedInterfaceEndpointHandle handle);
+  AssociatedEndpointRustAdapter(mojo::AssociatedGroupController* controller,
+                                uint32_t interface_id);
   ~AssociatedEndpointRustAdapter();
 
   AssociatedEndpointRustAdapter(const AssociatedEndpointRustAdapter&) = delete;
   AssociatedEndpointRustAdapter& operator=(
       const AssociatedEndpointRustAdapter&) = delete;
+
+  // Returns true if this adapter holds an endpoint
+  bool is_valid() const;
 
   // Create a new adapter wrapped in a unique_ptr. This function mostly exists
   // to be called from Rust.
@@ -65,19 +84,14 @@ class AssociatedEndpointRustAdapter {
 
   // Binds the endpoint to `runner`. Incoming messages and disconnect events
   // are routed to the provided Rust callbacks.
-  void Bind(const base::SequencedTaskRunner& runner,
-            ::rust::Box<EndpointInfo> info);
+  void Bind(base::SequencedTaskRunner& runner, ::rust::Box<EndpointInfo> info);
 
   // Returns the interface ID assigned to this endpoint on the routing group.
   uint32_t GetInterfaceId() const;
 
-  // Closes the endpoint and sends a disconnect notification over the pipe.
-  void Close();
-
   // Forwards an outgoing IPC message from Rust to the bound C++ endpoint
   // client.
-  void SendMessage(std::unique_ptr<mojo::rust::ScopedMessageHandleWrapper>
-                       message_wrapper) const;
+  void SendMessage(std::unique_ptr<mojo::Message> message) const;
 
   // Allocates a new associated endpoint on the underlying pipe, and
   // returns a new adapter wrapping it. If |interface_id| is
@@ -115,6 +129,15 @@ void CreatePairPendingAssociation(
     std::unique_ptr<AssociatedEndpointRustAdapter>& self_out,
     std::unique_ptr<AssociatedEndpointRustAdapter>& peer_out);
 
+// Creates an AssociatedEndpointRustAdapter attached to the group controller of
+// a Rust primary router. This allows a C++ AssociatedReceiver or
+// AssociatedRemote to send and receive messages through the Rust router.
+// `interface_id` should already be registered with the router before this
+// function is called.
+std::unique_ptr<AssociatedEndpointRustAdapter> CreateWithRustController(
+    RustAssociatedGroupController& controller,
+    uint32_t interface_id);
+
 // ****************************************************************************
 // C++ Interop Helpers
 //
@@ -122,7 +145,7 @@ void CreatePairPendingAssociation(
 // (`mojo::PendingAssociatedReceiver` / `mojo::PendingAssociatedRemote`) and
 // `AssociatedEndpointRustAdapter`.
 //
-// You should use these functions if you need to send or a receive a pending
+// You should use these functions if you need to send or receive a pending
 // associated endpoint to/from Rust code. The Adapter can be used to create a
 // Rust associated endpoint once it's passed across the FFI boundary.
 // ****************************************************************************
@@ -138,11 +161,13 @@ mojo::PendingAssociatedReceiver<Interface> PassPendingAssociatedReceiver(
 
 template <typename Interface>
 mojo::PendingAssociatedRemote<Interface> PassPendingAssociatedRemote(
-    std::unique_ptr<AssociatedEndpointRustAdapter> adapter) {
+    std::unique_ptr<AssociatedEndpointRustAdapter> adapter,
+    uint32_t version = 0) {
   if (!adapter) {
     return {};
   }
-  return mojo::PendingAssociatedRemote<Interface>(adapter->PassHandle());
+  return mojo::PendingAssociatedRemote<Interface>(adapter->PassHandle(),
+                                                  version);
 }
 
 template <typename Interface>
@@ -156,6 +181,7 @@ template <typename Interface>
 std::unique_ptr<AssociatedEndpointRustAdapter>
 MakeAssociatedEndpointRustAdapter(
     mojo::PendingAssociatedRemote<Interface> remote) {
+  CHECK_EQ(remote.version(), 0u) << "Rust doesn't support versioning yet";
   return AssociatedEndpointRustAdapter::Create(remote.PassHandle());
 }
 

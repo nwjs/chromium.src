@@ -453,7 +453,7 @@ target(link_target_type, "gles2_sources") {
       "vulkan_in_process_context_provider.h",
     ]
 
-    if (is_linux || is_fuchsia || is_win) {
+    if (is_linux || is_fuchsia) {
       sources += [
         "external_semaphore.cc",
         "external_semaphore.h",
@@ -600,6 +600,12 @@ target(link_target_type, "gles2_sources") {
       "texture_owner.cc",
       "texture_owner.h",
     ]
+    if (skia_use_graphite_vulkan) {
+      sources += [
+        "shared_image/skia_graphite_vk_android_image_representation.cc",
+        "shared_image/skia_graphite_vk_android_image_representation.h",
+      ]
+    }
 
     # For AImageReader.
     libs = [ "mediandk" ]

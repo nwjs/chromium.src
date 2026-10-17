@@ -48,6 +48,7 @@
 <translation id="1784567647421309104">在 Chrome 中保存密码</translation>
 <translation id="1790080846677398234">将输入的网址添加到您在 Chrome 中保存的书签。</translation>
 <translation id="1799920918471566157">Chrome 提示</translation>
+<translation id="1802420021606590788">Chrome 会在云端的私密空间中处理网页标题和网址</translation>
 <translation id="1830634592642484976">此地址目前已保存到 Chrome。如需在所有 Google 产品中使用此地址，请将它保存到您的 Google 账号 <ph name="USER_EMAIL" /> 中。</translation>
 <translation id="1891812034154776216">退出 Chrome 时隐藏打开的无痕式标签页</translation>
 <translation id="1894434821386148799">您可以在此处找到 Chrome 设置和其他内容</translation>
@@ -140,6 +141,7 @@
 <translation id="3984746313391923992">贵组织要求您保持已退出 Chrome 的状态。</translation>
 <translation id="3988789688219830639">Google Chrome 无权访问您的照片或视频。请依次点按 iOS 中的“设置”&gt;“隐私”&gt;“照片”，授予其访问权限。</translation>
 <translation id="4064699917955374540">如要将 Chrome 数据保存在您的 Google 账号中并使用这些数据，请确认是您本人在操作。</translation>
+<translation id="4093789416346364876">将 Chrome 设为默认浏览器，即可在浏览任何内容时获取 Gemini 数据分析</translation>
 <translation id="411154422556990518">及时了解价格跟踪资讯和 Chrome 提示。</translation>
 <translation id="417201473131094001">在 Chrome Canary 版中不受支持</translation>
 <translation id="424864128008805179">要在 Chrome 中退出账号吗？</translation>
@@ -266,6 +268,7 @@
 <translation id="7061455974939528301">按住 Chrome 图标，然后点击“修改主屏幕”</translation>
 <translation id="7095110968493193530">保存到 <ph name="EMAIL" /> 的 Google 密码管理工具</translation>
 <translation id="7124339256045485976">确保使用最新版的 Chrome</translation>
+<translation id="7135936755418321901">如需与网站分享您的位置信息，请点按“设置”，并允许 Chrome 使用您的位置信息。</translation>
 <translation id="7145599899567697473">在 Chrome 中保存并自动填充密码</translation>
 <translation id="7161390184744336561">Google Chrome 版本太旧</translation>
 <translation id="7165736900384873061">开始使用 Google Chrome QR 码扫描器</translation>
@@ -280,6 +283,7 @@
 <translation id="7272930098487145294">若要保存图片，请点按“设置”并允许 Chrome 添加照片</translation>
 <translation id="7275945473750112644">您的账号是由 <ph name="HOSTED_DOMAIN" /> 管理，所以您在此设备上存储的 Chrome 数据将会被清除</translation>
 <translation id="7284245284340063465">如果您忘记了口令或想更改此设置，请<ph name="BEGIN_LINK" />删除您账号中的 Chrome 数据<ph name="END_LINK" />。</translation>
+<translation id="7287957555760192025">无论您是采纳还是忽略建议，Chrome 都会据此进行调整，以便日后为您提供更贴合需求的建议。</translation>
 <translation id="7296102444587051536">iOS 版 Chrome</translation>
 <translation id="7299681342915173313">现在，每当点按电子邮件、文档和其他应用中的链接时，您都可以使用 Chrome 打开链接。</translation>
 <translation id="7334364820047587268">您的 Google 密码管理工具中已有这些账号的密码。如果选择导入以下某个密码，则导入的密码会替换现有密码。</translation>
@@ -351,6 +355,7 @@
 <translation id="8544583291890527417">Chrome 检测到隐私或安全问题时会发出提醒。</translation>
 <translation id="855027533751209304">Chrome 提示：搜索所见内容</translation>
 <translation id="8558480467877843976">现在，每当浏览或点按消息、文档和其他应用中的链接时，您都可以使用 Chrome 打开链接。</translation>
+<translation id="8589791109349384456">关闭建议功能不会影响 Chrome 处理网页标题和网址以提供其他功能。您可以在<ph name="BEGIN_LINK" />同步设置<ph name="END_LINK" />中管理对此类数据的访问权限。</translation>
 <translation id="8603022514504485810">Google 密码管理工具无法检查所有密码。请明天再试，或者<ph name="BEGIN_LINK" />检查您的 Google 账号中的密码<ph name="END_LINK" />。</translation>
 <translation id="8610372330814566250">在 Chrome 中使用您的 Safari 密码、历史记录、书签和信用卡</translation>
 <translation id="8630122478628016441">开启“在您关闭 Chrome 时锁定无痕式标签页”。</translation>

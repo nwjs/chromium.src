@@ -4,6 +4,10 @@
 
 #include "chrome/browser/browser_actuator/browser_actuator_service_factory.h"
 
+#include <memory>
+#include <utility>
+#include <vector>
+
 #include "base/feature_list.h"
 #include "base/no_destructor.h"
 #include "chrome/browser/profiles/profile.h"
@@ -11,6 +15,7 @@
 #include "components/browser_actuator/internal/browser_actuator_service_impl.h"
 #include "components/browser_actuator/public/browser_actuator_service.h"
 #include "components/browser_actuator/public/features.h"
+#include "components/browser_actuator/public/transport_handler_factory.h"
 #include "content/public/browser/browser_context.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 
@@ -48,7 +53,9 @@ BrowserActuatorServiceFactory::BuildServiceInstanceForBrowserContext(
   Profile* profile = Profile::FromBrowserContext(context);
   return std::make_unique<BrowserActuatorServiceImpl>(
       context->GetURLLoaderFactory(),
-      IdentityManagerFactory::GetForProfile(profile));
+      IdentityManagerFactory::GetForProfile(profile),
+      /*extra_factories=*/
+      std::vector<std::unique_ptr<TransportHandlerFactory>>{});
 }
 
 }  // namespace browser_actuator

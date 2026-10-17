@@ -99,7 +99,7 @@ class AudioRendererImplTest : public ::testing::Test,
     if (!enter_pending_decoder_init_) {
       EXPECT_CALL(*decoder, Initialize_(_, _, _, _, _))
           .WillOnce(
-              DoAll(SaveArg<3>(&output_cb_),
+              DoAll(SaveArg<0>(&decoder_config_), SaveArg<3>(&output_cb_),
                     RunOnceCallback<2>(expected_init_result_
                                            ? DecoderStatus::Codes::kOk
                                            : DecoderStatus::Codes::kFailed)));
@@ -564,6 +564,10 @@ class AudioRendererImplTest : public ::testing::Test,
     return renderer_->algorithm_->channel_mask_for_testing();
   }
 
+  const AudioParameters& audio_parameters() const {
+    return renderer_->audio_parameters_;
+  }
+
   bool ended() const { return ended_; }
 
   void DecodeDecoder(scoped_refptr<DecoderBuffer> buffer,
@@ -635,6 +639,7 @@ class AudioRendererImplTest : public ::testing::Test,
 
   // Used for satisfying reads.
   AudioDecoder::OutputCB output_cb_;
+  AudioDecoderConfig decoder_config_;
   AudioDecoder::DecodeCB decode_cb_;
   base::OnceClosure reset_cb_;
   std::unique_ptr<AudioTimestampHelper> next_timestamp_;
@@ -1027,6 +1032,107 @@ TEST_F(AudioRendererImplTest, ChannelMask_DownmixDiscreteLayout) {
   ASSERT_EQ(mask.size(), static_cast<size_t>(audio_channels));
   for (int ch = 0; ch < audio_channels; ++ch)
     ASSERT_TRUE(mask[ch]);
+}
+
+// Characterizes the layout negotiation in OnDeviceInfoReceived(): a discrete
+// stream layout selects the hardware path even when the demuxer stream does not
+// support config changes. The hardware here is stereo, so the CHANNEL_LAYOUT_
+// DISCRETE squash is not exercised and the decoder target is simply the
+// hardware layout.
+TEST_F(AudioRendererImplTest, DiscreteStreamLayoutForcesHardwarePath) {
+  constexpr int kDiscreteChannels = 9;
+
+  AudioDecoderConfig audio_config(
+      AudioCodec::kOpus, kSampleFormat,
+      ChannelLayoutConfig(CHANNEL_LAYOUT_DISCRETE, kDiscreteChannels),
+      kInputSamplesPerSecond, EmptyExtraData(), EncryptionScheme::kUnencrypted);
+  demuxer_stream_.set_audio_decoder_config(audio_config);
+
+  ConfigureDemuxerStream(false);
+
+  Initialize();
+
+  EXPECT_EQ(CHANNEL_LAYOUT_DISCRETE, audio_parameters().channel_layout());
+  EXPECT_EQ(kDiscreteChannels, audio_parameters().channels());
+
+  EXPECT_EQ(kOutputSamplesPerSecond, audio_parameters().sample_rate());
+
+  EXPECT_EQ(CHANNEL_LAYOUT_STEREO,
+            decoder_config_.target_output_channel_layout().channel_layout());
+}
+
+// Verify that a discrete hardware layout is always passed through for IAMF,
+// regardless of channel count, rather than being permanently downmixed.
+TEST_F(AudioRendererImplTest, IamfKeepsDiscreteHardwareLayouts) {
+  // We start with 9, which is our first DISCRETE case, and go past 12, our last
+  // nonDISCRETE case. 16 was arbitrarily chosen as a value past 12.
+  for (int channels = 9; channels <= 16; ++channels) {
+    SCOPED_TRACE(base::StringPrintf("channels=%d", channels));
+
+    AudioParameters hardware_params(
+        AudioParameters::AUDIO_PCM_LOW_LATENCY,
+        ChannelLayoutConfig(CHANNEL_LAYOUT_DISCRETE, channels),
+        kOutputSamplesPerSecond, 512);
+    ConfigureConfigChangeRenderer(hardware_params, hardware_params);
+
+    AudioDecoderConfig stream_config(AudioCodec::kIAMF, kSampleFormat,
+                                     ChannelLayoutConfig::Stereo(),
+                                     kInputSamplesPerSecond, EmptyExtraData(),
+                                     EncryptionScheme::kUnencrypted);
+    demuxer_stream_.set_audio_decoder_config(stream_config);
+
+    Initialize();
+
+    EXPECT_EQ(ChannelLayoutConfig(CHANNEL_LAYOUT_DISCRETE, channels),
+              decoder_config_.target_output_channel_layout());
+    EXPECT_EQ(ChannelLayoutConfig(CHANNEL_LAYOUT_DISCRETE, channels),
+              audio_parameters().channel_layout_config());
+  }
+}
+
+// Codecs other than IAMF continue to downmix to stereo.
+TEST_F(AudioRendererImplTest, NonIamfDiscreteHardwareLayoutSquashedToStereo) {
+  constexpr int kDiscreteChannels = 12;
+
+  AudioParameters hardware_params(
+      AudioParameters::AUDIO_PCM_LOW_LATENCY,
+      ChannelLayoutConfig(CHANNEL_LAYOUT_DISCRETE, kDiscreteChannels),
+      kOutputSamplesPerSecond, 512);
+  ConfigureConfigChangeRenderer(hardware_params, hardware_params);
+
+  AudioDecoderConfig stream_config(
+      AudioCodec::kOpus, kSampleFormat, ChannelLayoutConfig::Stereo(),
+      kInputSamplesPerSecond, EmptyExtraData(), EncryptionScheme::kUnencrypted);
+  demuxer_stream_.set_audio_decoder_config(stream_config);
+
+  Initialize();
+
+  EXPECT_EQ(ChannelLayoutConfig::Stereo(),
+            decoder_config_.target_output_channel_layout());
+  EXPECT_EQ(ChannelLayoutConfig::Stereo(),
+            audio_parameters().channel_layout_config());
+}
+
+// Verify that a named hardware layout reaches the decoder unchanged. Only
+// discrete layouts are squashed.
+TEST_F(AudioRendererImplTest, IamfNamedHardwareLayoutIsNotSquashed) {
+  AudioParameters hardware_params(
+      AudioParameters::AUDIO_PCM_LOW_LATENCY,
+      ChannelLayoutConfig::FromLayout<CHANNEL_LAYOUT_7_1_4>(),
+      kOutputSamplesPerSecond, 512);
+  ConfigureConfigChangeRenderer(hardware_params, hardware_params);
+
+  AudioDecoderConfig stream_config(
+      AudioCodec::kIAMF, kSampleFormat, ChannelLayoutConfig::Stereo(),
+      kInputSamplesPerSecond, EmptyExtraData(), EncryptionScheme::kUnencrypted);
+  demuxer_stream_.set_audio_decoder_config(stream_config);
+
+  Initialize();
+
+  EXPECT_EQ(ChannelLayoutConfig::FromLayout<CHANNEL_LAYOUT_7_1_4>(),
+            decoder_config_.target_output_channel_layout());
+  EXPECT_EQ(ChannelLayoutConfig::FromLayout<CHANNEL_LAYOUT_7_1_4>(),
+            audio_parameters().channel_layout_config());
 }
 
 TEST_F(AudioRendererImplTest, Underflow_Flush) {

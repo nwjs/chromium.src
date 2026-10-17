@@ -19,16 +19,19 @@ include_rules = [
   "+chrome/browser/ash/policy/login",
   "+chrome/browser/ash/profiles",
   "+chrome/browser/ash/settings",
-  "+chrome/browser/browser_process.h",
   "+chrome/browser/net",
-  "+chrome/browser/policy",
   "+chrome/browser/profiles",
   "+chrome/common/chrome_paths.h",
   "+chrome/grit",
 ]
 
 specific_include_rules = {
+  ".*(unittest|browsertest)\\.cc": [
+    "+chrome/browser/browser_process.h",
+  ],
   ".*test(_.*)?\\.(cc|h)": [
+    "+chrome/browser/policy/networking",
+    "+chrome/browser/policy/profile_policy_connector_builder.h",
     "+chrome/browser/ash/policy/test_support",
     "+chrome/browser/ui/ash/login",
     "+chrome/browser/ui/ash/network",

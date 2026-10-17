@@ -322,6 +322,11 @@ struct AX_BASE_EXPORT AXNodeData final {
   bool IsClickable() const;
 
   // Helper to determine if the data belongs to a node that is part of an active
+  // ARIA live region regardless if it has a name. Used for detecting structural
+  // changes like reparenting nameless elements in a live region.
+  bool IsStructuralElementContainedInActiveLiveRegion() const;
+
+  // Helper to determine if the data belongs to a node that is part of an active
   // ARIA live region, and for which live announcements should be made.
   bool IsContainedInActiveLiveRegion() const;
 
@@ -396,6 +401,9 @@ struct AX_BASE_EXPORT AXNodeData final {
 
   bool HasChildTreeID() const;
   std::optional<AXTreeID> GetChildTreeID() const;
+
+  // Returns true if all node IDs are valid from an untrusted renderer.
+  bool HasValidAXNodeIDsFromRenderer() const;
 
   // Return a string representation of this data, for debugging.
   std::string ToString(bool verbose = true) const;

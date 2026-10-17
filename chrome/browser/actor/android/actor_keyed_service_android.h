@@ -35,11 +35,15 @@ class ActorKeyedServiceAndroid : public base::SupportsUserData::Data {
   std::vector<jni_zero::ScopedJavaLocalRef<jobject>> GetActiveTasks();
   int32_t GetActiveTasksCount();
   base::android::ScopedJavaLocalRef<jobject> GetTask(int32_t task_id);
+  int32_t GetActiveTaskIdOnTab(int32_t tab_id, bool include_paused);
   void StopTask(int32_t task_id, int32_t stop_reason);
 
+  int32_t GetPendingTasksCount();
+  void AddPendingTask(const std::string& context_id);
+  void RemovePendingTask(const std::string& context_id);
+
   // Called by JNI.
-  void SetPreparedBackgroundTab(TabAndroid* tab,
-                                const std::string& glic_trigger_message_id);
+  void SetTabReady(TabAndroid* tab, const std::string& glic_trigger_message_id);
 
   void NotifyBackgroundSetupFailed(const std::string& glic_trigger_message_id);
 
@@ -50,6 +54,7 @@ class ActorKeyedServiceAndroid : public base::SupportsUserData::Data {
   void EnsureForegroundServiceStarted(
       const std::string& glic_trigger_message_id);
   void OnMessageTriggerTaskStopped(const std::string& glic_trigger_message_id);
+  void OnPendingTaskCountChanged(size_t pending_count);
 
   base::android::ScopedJavaGlobalRef<jobject> java_obj_;
   raw_ptr<ActorKeyedService> service_;
@@ -57,6 +62,7 @@ class ActorKeyedServiceAndroid : public base::SupportsUserData::Data {
   base::CallbackListSubscription task_step_progress_subscription_;
   base::CallbackListSubscription ensure_fgs_started_subscription_;
   base::CallbackListSubscription message_trigger_task_stopped_subscription_;
+  base::CallbackListSubscription pending_task_count_subscription_;
 };
 
 void CreateBackgroundTabForTask(

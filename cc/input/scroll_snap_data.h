@@ -105,18 +105,21 @@ struct SnapAreaData {
                const gfx::RectF& rec,
                bool msnap,
                bool has_focus_within,
-               ElementId id)
+               ElementId id,
+               size_t parent_offset = 0)
       : scroll_snap_align(align),
         rect(rec),
         must_snap(msnap),
         has_focus_within(has_focus_within),
-        element_id(id) {}
+        element_id(id),
+        parent_snap_area_offset(parent_offset) {}
 
   bool operator==(const SnapAreaData& other) const {
     return (other.element_id == element_id) &&
            (other.scroll_snap_align == scroll_snap_align) &&
            (other.rect == rect) && (other.must_snap == must_snap) &&
-           (other.has_focus_within == has_focus_within);
+           (other.has_focus_within == has_focus_within) &&
+           (other.parent_snap_area_offset == parent_snap_area_offset);
   }
 
   bool operator!=(const SnapAreaData& other) const { return !(*this == other); }
@@ -138,6 +141,9 @@ struct SnapAreaData {
 
   // ElementId of the corresponding snap area.
   ElementId element_id;
+
+  // Distance to the closest ancestor in this snap container's snap-area list.
+  size_t parent_snap_area_offset = 0;
 };
 
 // This struct represents a snap area that is considered to be a viable
@@ -154,20 +160,12 @@ struct SnapSearchResultAlternative {
 
  public:
   SnapSearchResultAlternative(const struct SnapAreaData* area,
-                              gfx::RectF rect,
                               float area_cross_axis_snap_offset)
-      : area(area),
-        area_rect(rect),
-        cross_axis_snap_offset(area_cross_axis_snap_offset) {}
+      : area(area), cross_axis_snap_offset(area_cross_axis_snap_offset) {}
 
   // The snap area considered to be a viable alternative to
   // the snap area selected for the associated SnapSearchResult.
   const struct SnapAreaData* area = nullptr;
-
-  // The rect of the snap area considered to be a viable alternative to
-  // the snap area selected for the associated SnapSearchResult relative to
-  // its snap container.
-  gfx::RectF area_rect;
 
   // The offset in the cross axis of the associated SnapSearchResult at which
   // the snapport of the snap container is aligned with the snap area
@@ -243,10 +241,8 @@ class SnapSearchResult {
     return alternative_;
   }
   void set_alternative(const struct SnapAreaData* area,
-                       const gfx::RectF& rect,
                        float alt_cross_snap_offset) {
-    alternative_ =
-        SnapSearchResultAlternative(area, rect, alt_cross_snap_offset);
+    alternative_ = SnapSearchResultAlternative(area, alt_cross_snap_offset);
   }
 
  private:
@@ -350,11 +346,11 @@ class CC_EXPORT SnapContainerData {
                     const gfx::RectF& rect,
                     const gfx::PointF& max);
   SnapContainerData(const SnapContainerData& other);
-  SnapContainerData(SnapContainerData&& other);
+  SnapContainerData(SnapContainerData&& other) noexcept;
   ~SnapContainerData();
 
   SnapContainerData& operator=(const SnapContainerData& other);
-  SnapContainerData& operator=(SnapContainerData&& other);
+  SnapContainerData& operator=(SnapContainerData&& other) noexcept;
 
   bool operator==(const SnapContainerData& other) const {
     return (other.scroll_snap_type_ == scroll_snap_type_) &&
@@ -486,16 +482,17 @@ class CC_EXPORT SnapContainerData {
   bool IsSnappedToArea(const SnapAreaData& area,
                        const gfx::PointF& scroll_offset) const;
 
+  bool IsDescendantSnapArea(size_t descendant_index,
+                            const SnapAreaData& ancestor) const;
+
   gfx::RectF snapport() const;
 
-  // Updates the alternative of a SnapSearchResult, |current_result|, so that,
-  // if |candidate_area| is a closer snap point (in the cross axis) than the
-  // area currently represented by |current_result|'s alternative,
-  // |current_result|'s alternative is made to represent |candidate_area|
-  // instead.
+  // Updates |current_result|'s alternative when |candidate_area| is closer in
+  // the cross axis, or when it is tied and is a descendant of the current
+  // alternative.
   void UpdateSearchAlternative(SnapSearchResult& current_result,
-                               const SnapSearchResult& candidate_result,
                                const SnapAreaData& candidate_area,
+                               size_t candidate_index,
                                const SnapSelectionStrategy& strategy) const;
 
   // This evaluates whether the snap area represented by the alternative of a

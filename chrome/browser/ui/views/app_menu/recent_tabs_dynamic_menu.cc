@@ -10,6 +10,8 @@
 
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/metrics/user_metrics.h"
+#include "base/metrics/user_metrics_action.h"
 #include "chrome/browser/favicon/favicon_service_factory.h"
 #include "chrome/browser/favicon/history_ui_favicon_request_handler_factory.h"
 #include "chrome/browser/sessions/session_restore.h"
@@ -66,6 +68,8 @@ void RecentTabsDynamicMenu::ExecuteRecentTab(
     disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
   }
   if (recent_item.is_local()) {
+    base::RecordAction(
+        base::UserMetricsAction("WrenchMenu_OpenRecentTabFromLocal"));
     ExecuteRestoreEntry(recent_item.session_id(), disposition);
   } else {
     sync_sessions::SessionSyncService* session_sync_service =
@@ -79,6 +83,8 @@ void RecentTabsDynamicMenu::ExecuteRecentTab(
       if (open_tabs->GetForeignTab(recent_item.session_tag(),
                                    recent_item.session_id(), &session_tab) &&
           session_tab && !session_tab->navigations.empty()) {
+        base::RecordAction(
+            base::UserMetricsAction("WrenchMenu_OpenRecentTabFromDevice"));
         SessionRestore::RestoreForeignSessionTab(
             browser_window_interface_->GetActiveTabInterface()->GetContents(),
             *session_tab, disposition);
@@ -108,6 +114,20 @@ void RecentTabsDynamicMenu::ExecuteRecentSplit(
     const RecentTabItem& recent_item,
     actions::ActionItem* item,
     actions::ActionInvocationContext context) {
+  switch (recent_item.type()) {
+    case RecentTabItem::Type::kWindow:
+      base::RecordAction(
+          base::UserMetricsAction("WrenchMenu_OpenRecentWindow"));
+      break;
+    case RecentTabItem::Type::kGroup:
+      base::RecordAction(base::UserMetricsAction("WrenchMenu_OpenRecentGroup"));
+      break;
+    case RecentTabItem::Type::kSplit:
+      base::RecordAction(base::UserMetricsAction("WrenchMenu_OpenRecentSplit"));
+      break;
+    default:
+      break;
+  }
   WindowOpenDisposition disposition =
       context.GetProperty(chrome::kDispositionKey);
   if (disposition == WindowOpenDisposition::CURRENT_TAB ||
@@ -168,8 +188,8 @@ void RecentTabsDynamicMenu::CreateRecentTabsAction(
       if (recent_tab.action_id().has_value()) {
         action_item = AppMenuActionItem::CreateIndirect(
             recent_tab.action_id().value(),
-            BrowserActions::From(browser_window_interface_)->root_action_item(),
-            AppMenuActionItem::DisplayType::kRow);
+            BrowserActions::From(browser_window_interface_)
+                ->root_action_item());
 
         action_item.get()->GetActionItem()->SetText(recent_tab.title());
         action_item.get()->GetActionItem()->SetImage(recent_tab.icon());
@@ -192,6 +212,12 @@ void RecentTabsDynamicMenu::CreateRecentTabsAction(
         }
 
         action_item = std::move(builder).Build();
+      }
+
+      if (!recent_tab.minor_icon().IsEmpty()) {
+        action_item->SetProperty(
+            AppMenuActionItem::kMinorIconKey,
+            std::make_unique<ui::ImageModel>(recent_tab.minor_icon()));
       }
 
       if (recent_tab.type() == RecentTabItem::Type::kTab &&

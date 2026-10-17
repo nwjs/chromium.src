@@ -5,55 +5,50 @@
 #include "third_party/blink/renderer/core/frame/navigator_ua_data.h"
 
 #include "base/compiler_specific.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/task/single_thread_task_runner.h"
+#include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom-blink.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_ua_data_values.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/web_feature_forward.h"
-#include "third_party/blink/renderer/core/page/page.h"
 
 namespace blink {
 
-NavigatorUAData::NavigatorUAData(ExecutionContext* context)
-    : ExecutionContextClient(context) {
-  NavigatorUABrandVersion* dict = NavigatorUABrandVersion::Create();
-  dict->setBrand("");
-  dict->setVersion("");
-  empty_brand_set_.push_back(dict);
-}
+namespace {
 
-void NavigatorUAData::AddBrandVersion(const String& brand,
-                                      const String& version) {
-  NavigatorUABrandVersion* dict = NavigatorUABrandVersion::Create();
-  dict->setBrand(brand);
-  dict->setVersion(version);
-  brand_set_.push_back(dict);
-}
-
-void NavigatorUAData::AddBrandFullVersion(const String& brand,
+NavigatorUABrandVersion* MakeBrandVersion(const String& brand,
                                           const String& version) {
   NavigatorUABrandVersion* dict = NavigatorUABrandVersion::Create();
   dict->setBrand(brand);
   dict->setVersion(version);
-  full_version_list_.push_back(dict);
+  return dict;
 }
+
+void AppendBrandVersions(const UserAgentBrandList& source,
+                         HeapVector<Member<NavigatorUABrandVersion>>& target) {
+  target.reserve(target.size() + base::checked_cast<wtf_size_t>(source.size()));
+  for (const auto& brand_version : source) {
+    target.push_back(MakeBrandVersion(String::FromUtf8(brand_version.brand),
+                                      String::FromUtf8(brand_version.version)));
+  }
+}
+
+}  // namespace
+
+NavigatorUAData::NavigatorUAData(ExecutionContext* context)
+    : ExecutionContextClient(context) {}
 
 void NavigatorUAData::SetBrandVersionList(
     const UserAgentBrandList& brand_version_list) {
-  for (const auto& brand_version : brand_version_list) {
-    AddBrandVersion(String::FromUtf8(brand_version.brand),
-                    String::FromUtf8(brand_version.version));
-  }
+  AppendBrandVersions(brand_version_list, brand_set_);
 }
 
 void NavigatorUAData::SetFullVersionList(
     const UserAgentBrandList& full_version_list) {
-  for (const auto& brand_version : full_version_list) {
-    AddBrandFullVersion(String::FromUtf8(brand_version.brand),
-                        String::FromUtf8(brand_version.version));
-  }
+  AppendBrandVersions(full_version_list, full_version_list_);
 }
 
 void NavigatorUAData::SetMobile(bool mobile) {
@@ -101,7 +96,9 @@ const HeapVector<Member<NavigatorUABrandVersion>>& NavigatorUAData::brands()
   if (GetExecutionContext()) {
     return brand_set_;
   }
-
+  if (empty_brand_set_.empty()) {
+    empty_brand_set_.push_back(MakeBrandVersion("", ""));
+  }
   return empty_brand_set_;
 }
 

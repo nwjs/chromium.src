@@ -20,6 +20,7 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "components/os_crypt/async/common/encryptor.h"
+#include "components/sessions/core/command_storage_read_status.h"
 #include "components/sessions/core/sessions_export.h"
 
 namespace base {
@@ -39,12 +40,12 @@ class CommandStorageBackend;
 // and processed after a delay.
 class SESSIONS_EXPORT CommandStorageManager {
  public:
-  // The bool parameter indicates whether there was an error reading the file.
-  // If there was an error, the vector contains the set of commands up to the
-  // error.
+  // The status parameter describes how the read went. If it indicates an error
+  // (see IsCommandStorageReadError()), the vector contains the set of commands
+  // up to the error.
   using GetCommandsCallback =
       base::OnceCallback<void(std::vector<std::unique_ptr<SessionCommand>>,
-                              bool)>;
+                              CommandStorageReadStatus)>;
 
   // Identifies the type of session service this is. This is used by the
   // backend to determine the name of the files.
@@ -151,6 +152,14 @@ class SESSIONS_EXPORT CommandStorageManager {
   // os_crypt_async->GetInstance() was called.
   void OnEncryptorReady(base::TimeTicks start_time,
                         scoped_refptr<os_crypt_async::Encryptor> encryptor);
+
+  // Writes `commands` to `encrypted_backend_`, or queues the write if the
+  // encryptor is not ready yet. `truncate` resets the file before writing, and
+  // `error_callback` is run if the write fails.
+  void AppendCommandsToEncryptedBackend(
+      std::vector<std::unique_ptr<SessionCommand>> commands,
+      bool truncate,
+      base::OnceClosure error_callback);
 
   const base::FilePath file_path_;
   const SessionType session_type_;

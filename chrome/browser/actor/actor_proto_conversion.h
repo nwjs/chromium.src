@@ -17,16 +17,17 @@
 #include "components/actor/core/aggregated_journal.h"
 #include "components/actor/public/mojom/actor_types.mojom-forward.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
-#include "components/origin_gating/core/actor_container_config.h"
+#include "components/origin_gating/core/task_policy_config.h"
 #include "components/page_content_annotations/content/page_context_fetcher.h"
 #include "components/tabs/public/tab_interface.h"
-#include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 
 // Conversion function for turning optimization_guide::proto::* types into
 // ToolRequests usable by the actor framework.
 namespace content {
 class BrowserContext;
 }
+
+class Profile;
 
 namespace optimization_guide::proto {
 class Actions;
@@ -37,7 +38,7 @@ namespace actor {
 class ActorTask;
 class ToolRequest;
 
-origin_gating::ActorContainerConfig ConvertAgentContainerConfig(
+origin_gating::TaskPolicyConfig ConvertAgentContainerConfig(
     const optimization_guide::proto::AgentContainerConfig& config);
 
 // Input type used for ActorKeyedService acting APIs, created from
@@ -61,6 +62,23 @@ BuildToolRequestResult BuildToolRequest(
 // `actions` is empty.
 bool ValidateActionsAreScriptTools(
     const optimization_guide::proto::Actions& actions);
+
+// Resolves document identifiers to tab IDs for script tool actions in `actions`
+// that lack a tab ID, searching open tabs within `profile`.
+// `active_tab` is used solely as a fast-path cache for document identifier
+// resolution; actions do not fall back to `active_tab` if both `tab_id` and
+// `document_identifier` are missing.
+// Normally tab IDs should be pre-populated; this is primarily to support the
+// Glic experimental triggering path.
+// TODO(crbug.com/541366310): Remove or consolidate once callers populate tab
+// IDs directly.
+// Returns true if every script tool action has a valid tab ID or a document
+// identifier successfully resolved to an open tab in `profile`, false
+// otherwise.
+bool PopulateTabIdsForScriptToolActions(
+    Profile& profile,
+    optimization_guide::proto::Actions& actions,
+    tabs::TabInterface* active_tab = nullptr);
 
 // Builds the ActionsResult proto from the output of a call to the
 // ActorKeyedService::PerformActions API and fetches new observations for

@@ -42,6 +42,7 @@ import org.chromium.chrome.browser.feed.FeedFeatures;
 import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncher;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.glic.GlicEnabling;
+import org.chromium.chrome.browser.glic.GlicUtils;
 import org.chromium.chrome.browser.homepage.HomepageManager;
 import org.chromium.chrome.browser.hub.HubManager;
 import org.chromium.chrome.browser.hub.Pane;
@@ -76,8 +77,6 @@ import org.chromium.chrome.browser.ui.favicon.FaviconHelper;
 import org.chromium.chrome.browser.ui.favicon.FaviconUtils;
 import org.chromium.chrome.browser.ui.lens.LensOverlayTabHelper;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
-import org.chromium.chrome.browser.ui.native_page.NativePage;
-import org.chromium.chrome.browser.ui.side_panel.AndroidSidePanelEnabledFn;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiId;
 import org.chromium.chrome.browser.ui.side_ui.SideUiStateProvider;
 import org.chromium.components.browser_ui.accessibility.PageZoomManager;
@@ -781,7 +780,9 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
     private void populateOverviewModeMenu(MVCListAdapter.ModelList modelList) {
         Profile profile = getProfileFromTabModel();
         boolean isIncognitoForced = IncognitoUtils.isIncognitoModeForced(profile);
-        if (!IncognitoUtils.shouldOpenIncognitoAsWindow() || !isIncognitoShowing() || isIncognitoForced) {
+        if (!IncognitoUtils.shouldOpenIncognitoAsWindow()
+                || !isIncognitoShowing()
+                || isIncognitoForced) {
             modelList.add(buildNewTabItem(isIncognitoForced));
         }
         if (!IncognitoUtils.shouldOpenIncognitoAsWindow() || isIncognitoShowing()) {
@@ -1147,12 +1148,6 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
             return false;
         }
 
-        // Check if sharing (which includes printing) is generally enabled for this tab's content.
-        boolean canShareTab = ShareUtils.shouldEnableShare(currentTab);
-        if (!canShareTab) {
-            return false;
-        }
-
         // Check if printing is specifically enabled in user preferences for the current profile.
         Profile profile = currentTab.getProfile();
         boolean isPrintingEnabled = UserPrefs.get(profile).getBoolean(Pref.PRINTING_ENABLED);
@@ -1161,11 +1156,13 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
         }
 
         // The print functionality is enabled if:
-        // 1. The device is running Desktop Android, OR
-        // 2. The current tab is a PDF page.
-        NativePage nativePage = currentTab.getNativePage();
-        boolean isPdf = nativePage != null && nativePage.isPdf();
-        return DeviceInfo.isDesktop() || isPdf;
+        // 1. The current tab is a PDF page (mobile and desktop), OR
+        // 2. The device is running Desktop Android and the tab is a printable WebContents page
+        //    (non-PDF native pages like NTP, Bookmarks, and History cannot be printed).
+        boolean isPdf =
+                currentTab.isNativePage() && assumeNonNull(currentTab.getNativePage()).isPdf();
+        return isPdf
+                || (DeviceInfo.isDesktop() && shouldShowWebContentsDependentMenuItem(currentTab));
     }
 
     private ListItem buildPrintItem(Tab currentTab) {
@@ -1572,7 +1569,7 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
         }
         // Only enforce width constraints if side panel feature is enabled on the device.
         // TODO(crbug.com/519680563): Remove this side panel check once bottom sheet enabled on LFF.
-        if (AndroidSidePanelEnabledFn.isEnabled()) {
+        if (GlicUtils.isSidePanelFormFactor(mContext)) {
             SideUiStateProvider sideUiStateProvider = mSideUiStateProviderSupplier.get();
             assert sideUiStateProvider != null;
             if (!sideUiStateProvider.canShowSideUi(SideUiId.SIDE_PANEL)) {

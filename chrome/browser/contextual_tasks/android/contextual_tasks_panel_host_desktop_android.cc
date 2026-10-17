@@ -12,6 +12,7 @@
 #include "chrome/browser/context_sharing/tab_bottom_sheet/android/co_browse_views_bridge.h"
 #include "chrome/browser/context_sharing/tab_bottom_sheet/android/tab_bottom_sheet_client_type.h"
 #include "chrome/browser/contextual_tasks/android/contextual_tasks_toast.h"
+#include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
@@ -160,7 +161,8 @@ bool ContextualTasksPanelHostDesktopAndroid::MaybeCreateBridge() {
           context_sharing::TabBottomSheetClientType::kContextualTasks,
           context_sharing::CoBrowseContainerType::kSidePanel,
           /*bottom_sheet_content_provider=*/nullptr,
-          /*enable_pinch_to_zoom=*/true, kColorSidePanelContentBackground);
+          /*enable_pinch_to_zoom=*/true, kColorSidePanelContentBackground,
+          ui::kColorSysSurface1);
   return co_browse_views_bridge_ != nullptr;
 }
 
@@ -316,6 +318,16 @@ bool ContextualTasksPanelHostDesktopAndroid::HandleKeyboardEvent(
                                                                          event);
   }
   return false;
+}
+
+void ContextualTasksPanelHostDesktopAndroid::RequestMediaAccessPermission(
+    content::WebContents* web_contents,
+    const content::MediaStreamRequest& request,
+    content::MediaResponseCallback callback) {
+  // Handle the media access requests for voice search by routing them through
+  // `MediaCaptureDevicesDispatcher`.
+  MediaCaptureDevicesDispatcher::GetInstance()->ProcessMediaAccessRequest(
+      web_contents, request, std::move(callback), /*extension=*/nullptr);
 }
 
 }  // namespace contextual_tasks

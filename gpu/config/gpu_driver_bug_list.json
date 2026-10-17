@@ -3984,6 +3984,29 @@
       "features": [
         "disable_accelerated_av1_decode"
       ]
+    },
+    {
+      "id": 501,
+      "description": "Older PowerVR drivers mishandle large 3D NPOT sizes in texStorage3D",
+      "cr_bugs": [551673541],
+      "gl_vendor": "Imagination.*",
+      "gl_renderer": "PowerVR.*",
+      "features": [
+        "round_up_3d_texture_size_to_pot_for_limit"
+      ]
+    },
+    {
+      "id": 502,
+      "cr_bugs": [40275246],
+      "description": "Intel drivers ask for D3D12 encoder recon pictures with an internal layout larger than the coded picture for packed 4:2:2/4:4:4 YUV input formats.",
+      "os": {
+        "type": "win"
+      },
+      "vendor_id": "0x8086",
+      "multi_gpu_category": "active",
+      "features": [
+        "d3d12_encode_packed_format_dpb_sizing"
+      ]
     }
   ]
 }

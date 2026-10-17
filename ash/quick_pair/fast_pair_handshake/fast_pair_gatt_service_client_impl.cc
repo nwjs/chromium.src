@@ -20,27 +20,10 @@
 #include "device/bluetooth/bluetooth_remote_gatt_characteristic.h"
 #include "device/bluetooth/bluetooth_remote_gatt_service.h"
 #include "device/bluetooth/public/cpp/bluetooth_address.h"
+#include "device/bluetooth/public/cpp/bluetooth_uuid.h"
 #include "third_party/boringssl/src/include/openssl/rand.h"
 
 namespace {
-
-// We have two UUID possibilities for each characteristic because they changed
-// across different Fast Pair versions.
-const device::BluetoothUUID kModelIDCharacteristicUuidV1("1233");
-const device::BluetoothUUID kModelIDCharacteristicUuidV2(
-    "FE2C1233-8366-4814-8EB0-01DE32100BEA");
-const device::BluetoothUUID kKeyBasedCharacteristicUuidV1("1234");
-const device::BluetoothUUID kKeyBasedCharacteristicUuidV2(
-    "FE2C1234-8366-4814-8EB0-01DE32100BEA");
-const device::BluetoothUUID kPasskeyCharacteristicUuidV1("1235");
-const device::BluetoothUUID kPasskeyCharacteristicUuidV2(
-    "FE2C1235-8366-4814-8EB0-01DE32100BEA");
-const device::BluetoothUUID kAccountKeyCharacteristicUuidV1("1236");
-const device::BluetoothUUID kAccountKeyCharacteristicUuidV2(
-    "FE2C1236-8366-4814-8EB0-01DE32100BEA");
-const device::BluetoothUUID kAdditionalDataCharacteristicUuidV1("1237");
-const device::BluetoothUUID kAdditionalDataCharacteristicUuidV2(
-    "FE2C1237-8366-4814-8EB0-01DE32100BEA");
 
 constexpr uint8_t kProviderAddressStartIndex = 2;
 constexpr uint8_t kSeekerAddressStartIndex = 8;
@@ -69,6 +52,48 @@ constexpr int kMaxNumGattConnectionAttempts = 3;
 constexpr base::TimeDelta kCoolOffPeriodBeforeGattConnectionAfterDisconnect =
     base::Seconds(2);
 constexpr base::TimeDelta kDisconnectResponseTimeout = base::Seconds(5);
+
+// We have two UUID possibilities for each characteristic because they changed
+// across different Fast Pair versions.
+device::BluetoothUUID ModelIDCharacteristicUuidV1() {
+  return device::BluetoothUUID("1233");
+}
+
+device::BluetoothUUID ModelIDCharacteristicUuidV2() {
+  return device::BluetoothUUID("FE2C1233-8366-4814-8EB0-01DE32100BEA");
+}
+
+device::BluetoothUUID KeyBasedCharacteristicUuidV1() {
+  return device::BluetoothUUID("1234");
+}
+
+device::BluetoothUUID KeyBasedCharacteristicUuidV2() {
+  return device::BluetoothUUID("FE2C1234-8366-4814-8EB0-01DE32100BEA");
+}
+
+device::BluetoothUUID PasskeyCharacteristicUuidV1() {
+  return device::BluetoothUUID("1235");
+}
+
+device::BluetoothUUID PasskeyCharacteristicUuidV2() {
+  return device::BluetoothUUID("FE2C1235-8366-4814-8EB0-01DE32100BEA");
+}
+
+device::BluetoothUUID AccountKeyCharacteristicUuidV1() {
+  return device::BluetoothUUID("1236");
+}
+
+device::BluetoothUUID AccountKeyCharacteristicUuidV2() {
+  return device::BluetoothUUID("FE2C1236-8366-4814-8EB0-01DE32100BEA");
+}
+
+device::BluetoothUUID AdditionalDataCharacteristicUuidV1() {
+  return device::BluetoothUUID("1237");
+}
+
+device::BluetoothUUID AdditionalDataCharacteristicUuidV2() {
+  return device::BluetoothUUID("FE2C1237-8366-4814-8EB0-01DE32100BEA");
+}
 
 constexpr const char* ErrorCodeToString(
     device::BluetoothGattService::GattErrorCode error_code) {
@@ -396,7 +421,7 @@ void FastPairGattServiceClientImpl::CreateGattConnection() {
   device->CreateGattConnection(
       base::BindOnce(&FastPairGattServiceClientImpl::OnGattConnection,
                      weak_ptr_factory_.GetWeakPtr(), base::TimeTicks::Now()),
-      kFastPairBluetoothUuid);
+      device::BluetoothUUID(kFastPairBluetoothUuid));
 }
 
 void FastPairGattServiceClientImpl::OnGattServiceDiscoveryTimeout() {
@@ -517,7 +542,7 @@ void FastPairGattServiceClientImpl::GattDiscoveryCompleteForService(
     device::BluetoothAdapter* adapter,
     device::BluetoothRemoteGattService* service) {
   // Verify that the discovered service and device are the ones we care about.
-  if (service->GetUUID() == kFastPairBluetoothUuid &&
+  if (service->GetUUID() == device::BluetoothUUID(kFastPairBluetoothUuid) &&
       service->GetDevice()->GetAddress() == device_address_) {
     RecordGattServiceDiscoveryTime(base::TimeTicks::Now() -
                                    gatt_service_discovery_start_time_);
@@ -559,7 +584,7 @@ FastPairGattServiceClientImpl::GetCharacteristicsByUUIDs(
 std::optional<PairFailure>
 FastPairGattServiceClientImpl::SetGattCharacteristics() {
   auto key_based_characteristics = GetCharacteristicsByUUIDs(
-      kKeyBasedCharacteristicUuidV1, kKeyBasedCharacteristicUuidV2);
+      KeyBasedCharacteristicUuidV1(), KeyBasedCharacteristicUuidV2());
   if (key_based_characteristics.empty()) {
     return PairFailure::kKeyBasedPairingCharacteristicDiscovery;
   }
@@ -569,14 +594,14 @@ FastPairGattServiceClientImpl::SetGattCharacteristics() {
       FastPairGattConnectionSteps::kFoundKeybasedPairingCharacteristic);
 
   auto passkey_characteristics = GetCharacteristicsByUUIDs(
-      kPasskeyCharacteristicUuidV1, kPasskeyCharacteristicUuidV2);
+      PasskeyCharacteristicUuidV1(), PasskeyCharacteristicUuidV2());
   if (passkey_characteristics.empty()) {
     return PairFailure::kPasskeyCharacteristicDiscovery;
   }
   passkey_characteristic_ = passkey_characteristics[0];
 
   auto account_key_characteristics = GetCharacteristicsByUUIDs(
-      kAccountKeyCharacteristicUuidV1, kAccountKeyCharacteristicUuidV2);
+      AccountKeyCharacteristicUuidV1(), AccountKeyCharacteristicUuidV2());
   if (account_key_characteristics.empty()) {
     return PairFailure::kAccountKeyCharacteristicDiscovery;
   }
@@ -589,7 +614,7 @@ FastPairGattServiceClientImpl::SetGattCharacteristics() {
   // The model ID characteristic is required for retroactive pairing for BLE HID
   // devices
   auto model_id_characteristics = GetCharacteristicsByUUIDs(
-      kModelIDCharacteristicUuidV1, kModelIDCharacteristicUuidV2);
+      ModelIDCharacteristicUuidV1(), ModelIDCharacteristicUuidV2());
   if (model_id_characteristics.empty()) {
     CD_LOG(WARNING, Feature::FP)
         << __func__ << ": Failed to discover Model ID characteristic.";
@@ -597,8 +622,9 @@ FastPairGattServiceClientImpl::SetGattCharacteristics() {
     model_id_characteristic_ = model_id_characteristics[0];
   }
 
-  auto additional_data_characteristics = GetCharacteristicsByUUIDs(
-      kAdditionalDataCharacteristicUuidV1, kAdditionalDataCharacteristicUuidV2);
+  auto additional_data_characteristics =
+      GetCharacteristicsByUUIDs(AdditionalDataCharacteristicUuidV1(),
+                                AdditionalDataCharacteristicUuidV2());
 
   // Failure not returned on failure to discover Additional Data characteristic
   // because it shouldn't interrupt the pairing flow. This achieves parity with

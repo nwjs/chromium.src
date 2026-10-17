@@ -48,6 +48,7 @@
 <translation id="1784567647421309104">Enregistrer vos mots de passe dans Chrome</translation>
 <translation id="1790080846677398234">Ajoute les URL entrées à vos favoris dans Chrome.</translation>
 <translation id="1799920918471566157">Astuces de Chrome</translation>
+<translation id="1802420021606590788">Chrome traite les titres de pages et les URL dans un espace privé dans le nuage</translation>
 <translation id="1830634592642484976">Cette adresse est actuellement enregistrée dans Chrome. Pour l'utiliser dans tous les produits Google, enregistrez-le dans votre compte Google, <ph name="USER_EMAIL" />.</translation>
 <translation id="1891812034154776216">Masquer les onglets de navigation privée ouverts lorsque vous quittez Chrome</translation>
 <translation id="1894434821386148799">Vous trouverez les paramètres de Chrome et plus ici</translation>
@@ -140,6 +141,7 @@ Vous ne pourrez pas enregistrer de nouveaux favoris dans votre compte tant que v
 <translation id="3984746313391923992">Votre organisation vous demande de rester déconnecté de Chrome.</translation>
 <translation id="3988789688219830639">Google Chrome n'a pas accès à vos photos ou vidéos. Activez l'accès dans Réglages iOS &gt; Confidentialité &gt; Photos.</translation>
 <translation id="4064699917955374540">Pour utiliser et enregistrer des données Chrome dans votre compte Google, confirmez qu'il s'agit bien de vous.</translation>
+<translation id="4093789416346364876">Définissez Chrome comme navigateur par défaut pour obtenir des statistiques de Gemini partout où vous naviguez</translation>
 <translation id="411154422556990518">Soyez au courant des mises à jour de suivi des prix et des astuces Chrome.</translation>
 <translation id="417201473131094001">Application non prise en charge par Chrome Canary</translation>
 <translation id="424864128008805179">Se déconnecter de Chrome?</translation>
@@ -268,6 +270,7 @@ Afin d'accéder à plus de paramètres utilisant des données pour améliorer vo
 <translation id="7061455974939528301">Maintenir l'icône de Chrome enfoncée et cliquer sur « Modifier l'écran d'accueil »</translation>
 <translation id="7095110968493193530">Dans le gestionnaire de mots de passe de Google pour <ph name="EMAIL" /></translation>
 <translation id="7124339256045485976">Pour garder Chrome à jour</translation>
+<translation id="7135936755418321901">Pour partager votre position avec des sites Web, touchez Paramètres pour autoriser Chrome à utiliser votre position.</translation>
 <translation id="7145599899567697473">Enregistrez et remplissez automatiquement les mots de passe dans Chrome</translation>
 <translation id="7161390184744336561">Google Chrome n'est pas à jour</translation>
 <translation id="7165736900384873061">Commencer à utiliser le lecteur de code QR Google Chrome</translation>
@@ -282,6 +285,7 @@ Afin d'accéder à plus de paramètres utilisant des données pour améliorer vo
 <translation id="7272930098487145294">Pour enregistrer des images, touchez Paramètres et autorisez Chrome à les ajouter à vos photos</translation>
 <translation id="7275945473750112644">Votre compte est géré par <ph name="HOSTED_DOMAIN" />, donc vos données Chrome seront effacées de cet appareil</translation>
 <translation id="7284245284340063465">Si vous avez oublié votre phrase de passe ou si vous souhaitez modifier ce paramètre, <ph name="BEGIN_LINK" />supprimez les données Chrome de votre compte<ph name="END_LINK" />.</translation>
+<translation id="7287957555760192025">Si vous sélectionnez ou ignorez une suggestion, Chrome s'adaptera pour vous montrer des suggestions plus pertinentes à l'avenir.</translation>
 <translation id="7296102444587051536">Chrome pour iOS</translation>
 <translation id="7299681342915173313">Vous pouvez désormais utiliser Chrome lorsque vous touchez des liens dans des courriels, des documents et d'autres applis.</translation>
 <translation id="7334364820047587268">Vous avez déjà des mots de passe pour ces comptes dans votre gestionnaire de mots de passe Google. Si vous choisissez d'importer l'un des mots de passe ci-dessous, il remplacera l'ancien.</translation>
@@ -355,6 +359,7 @@ Vos données ont été chiffrées avec votre phrase de passe sur <ph name="TIME"
 <translation id="8544583291890527417">Alertes concernant tout problème de confidentialité ou de sécurité que Chrome détecte pour vous.</translation>
 <translation id="855027533751209304">Astuce Chrome : Recherchez ce que vous voyez</translation>
 <translation id="8558480467877843976">Vous pouvez désormais utiliser Chrome chaque fois que vous naviguez ou que vous touchez des liens dans des messages, des documents et d'autres applications.</translation>
+<translation id="8589791109349384456">La désactivation des suggestions ne contrôle pas le traitement par Chrome des titres de pages et des URL pour d'autres fonctionnalités. Vous pouvez gérer l'accès à ces données dans vos <ph name="BEGIN_LINK" />paramètres de synchronisation<ph name="END_LINK" />.</translation>
 <translation id="8603022514504485810">Le gestionnaire de mots de passe de Google n'a pas pu vérifier tous les mots de passe. Réessayez demain ou <ph name="BEGIN_LINK" />vérifiez les mots de passe dans votre compte Google.<ph name="END_LINK" /></translation>
 <translation id="8610372330814566250">Utilisez vos mots de passe, votre historique, vos favoris et vos cartes de crédit Safari dans Chrome</translation>
 <translation id="8630122478628016441">Activez « Verrouiller les onglets de navigation privée lorsque vous fermez Chrome ».</translation>

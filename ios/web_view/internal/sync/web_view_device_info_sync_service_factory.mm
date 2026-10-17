@@ -7,6 +7,7 @@
 #import <optional>
 #import <utility>
 
+#import "base/containers/flat_set.h"
 #import "base/feature_list.h"
 #import "base/features.h"
 #import "base/functional/bind.h"
@@ -111,9 +112,15 @@ class DeviceInfoSyncClient : public syncer::DeviceInfoSyncClient {
   }
 
   // syncer::DeviceInfoSyncClient:
-  std::optional<syncer::DeviceInfo::PersonalContextInfo>
+  base::flat_set<std::string> GetGlicExperimentalTriggeringCapabilities()
+      const override {
+    return {};
+  }
+
+  // syncer::DeviceInfoSyncClient:
+  syncer::DeviceInfo::PersonalContextInfo::StatusOrInfo
   GetLocalPersonalContextInfo() const override {
-    return std::nullopt;
+    return syncer::DeviceInfo::PersonalContextInfo::NotEligible();
   }
 
  private:

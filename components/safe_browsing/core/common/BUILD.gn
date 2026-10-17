@@ -117,7 +117,7 @@ source_set("common") {
     "//components/policy/core/browser",
     "//components/prefs",
     "//components/safe_browsing:buildflags",
-    "//components/safe_browsing/core/browser/db:v4_protocol_manager_util",
+    "//components/safe_browsing/core/browser/db:sb_protocol_manager_util",
     "//components/safe_browsing/core/common/proto:csd_proto",
     "//components/security_interstitials/core:unsafe_resource",
     "//components/variations",
@@ -151,6 +151,7 @@ source_set("features") {
 }
 
 mojom("interfaces") {
+  generate_rust = true
   sources = [ "safe_browsing_url_checker.mojom" ]
 
   public_deps = [ "//url/mojom:url_mojom_gurl" ]

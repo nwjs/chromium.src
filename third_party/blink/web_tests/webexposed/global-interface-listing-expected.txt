@@ -3922,6 +3922,7 @@ interface HTMLCameraElement : HTMLElement
     setter ontrack
 interface HTMLCanvasElement : HTMLElement
     attribute @@toStringTag
+    getter content
     getter height
     getter layoutSubtree
     getter onelementgeometryupdate
@@ -3939,6 +3940,7 @@ interface HTMLCanvasElement : HTMLElement
     method toDataURL
     method transferControlToOffscreen
     method updateElementGeometry
+    setter content
     setter height
     setter layoutSubtree
     setter onelementgeometryupdate
@@ -6819,11 +6821,15 @@ interface MimeTypeArray
     method namedItem
 interface ModelContext : EventTarget
     attribute @@toStringTag
+    getter ontoolactivated
+    getter ontoolcancel
     getter ontoolchange
     method constructor
     method executeTool
     method getTools
     method registerTool
+    setter ontoolactivated
+    setter ontoolcancel
     setter ontoolchange
 interface Mojo
     static method bindInterface
@@ -8320,7 +8326,10 @@ interface RTCIceTransport : EventTarget
     setter onselectedcandidatepairchange
     setter onstatechange
 interface RTCPeerConnection : EventTarget
+    static method cancelDiagnosticLogging
     static method generateCertificate
+    static method startDiagnosticLogging
+    static method stopDiagnosticLogging
     attribute @@toStringTag
     getter canTrickleIceCandidates
     getter connectionState
@@ -10769,6 +10778,14 @@ interface ToggleEvent : Event
     getter oldState
     getter source
     method constructor
+interface ToolActivatedEvent : Event
+    attribute @@toStringTag
+    getter toolName
+    method constructor
+interface ToolCancelEvent : Event
+    attribute @@toStringTag
+    getter toolName
+    method constructor
 interface Touch
     attribute @@toStringTag
     getter clientX
@@ -12706,10 +12723,6 @@ interface WebKitMutationObserver
     method disconnect
     method observe
     method takeRecords
-interface WebMCPEvent : Event
-    attribute @@toStringTag
-    getter toolName
-    method constructor
 interface WebSocket : EventTarget
     attribute @@toStringTag
     attribute CLOSED
@@ -13485,7 +13498,10 @@ interface webkitMediaStream : EventTarget
     setter oninactive
     setter onremovetrack
 interface webkitRTCPeerConnection : EventTarget
+    static method cancelDiagnosticLogging
     static method generateCertificate
+    static method startDiagnosticLogging
+    static method stopDiagnosticLogging
     attribute @@toStringTag
     getter canTrickleIceCandidates
     getter connectionState

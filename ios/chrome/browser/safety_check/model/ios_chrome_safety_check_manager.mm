@@ -12,6 +12,7 @@
 #import "base/metrics/histogram_functions.h"
 #import "base/time/time.h"
 #import "base/values.h"
+#import "base/version.h"
 #import "components/password_manager/core/browser/leak_detection/leak_detection_request_utils.h"
 #import "components/password_manager/core/browser/ui/credential_ui_entry.h"
 #import "components/prefs/pref_service.h"
@@ -577,7 +578,7 @@ void IOSChromeSafetyCheckManager::StartOmahaCheckInternal() {
 // For now, all Omaha data will be maintained in-memory and tied to the
 // lifecycle of the this class.
 void IOSChromeSafetyCheckManager::HandleOmahaResponse(
-    UpgradeRecommendedDetails details) {
+    const UpgradeRecommendedDetails& details) {
   UpdateChromeSafetyCheckState state = UpdateChromeSafetyCheckState::kDefault;
 
   if (details.is_up_to_date) {

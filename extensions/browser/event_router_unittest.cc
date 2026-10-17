@@ -6,6 +6,7 @@
 
 #include <array>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -40,6 +41,9 @@
 #include "extensions/common/features/simple_feature.h"
 #include "extensions/common/mojom/context_type.mojom.h"
 #include "extensions/common/mojom/event_dispatcher.mojom.h"
+#include "extensions/common/permissions/permissions_data.h"
+#include "extensions/common/url_pattern.h"
+#include "extensions/common/url_pattern_set.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_database.mojom-blink-forward.h"
 
@@ -480,16 +484,16 @@ TEST_F(EventRouterTest, WebUIEventsDoNotCrossIncognitoBoundaries) {
       incognito_context(), base::BindRepeating(&BuildProcessMap));
 
   // Create a SimpleFeature to allow this API call to be routed to our test URL.
-  FeatureProvider provider;
   static constexpr auto kMatches =
       std::to_array<std::string_view>({"chrome://settings/*"});
   static constexpr SimpleFeatureData kFeatureData = {
       .feature = {.name = kTestEventName},
       .config = {.match_patterns = StaticSpan(kMatches)},
   };
-  auto feature =
-      std::make_unique<SimpleFeature>(StaticFeatureData(kFeatureData));
-  provider.AddFeature(kTestEventName, std::move(feature));
+  SimpleFeature feature{StaticFeatureData(kFeatureData)};
+  std::array<Feature*, 1> features = {&feature};
+  FeatureProvider provider;
+  provider.AddStaticFeatures(features);
 
   ExtensionAPI api;
   api.RegisterDependencyProvider("api", &provider);
@@ -1063,14 +1067,16 @@ class EventRouterDispatchTest : public ExtensionsTest {
 
  protected:
   void RegisterTestApiFeature(StaticFeatureData<SimpleFeatureData> data) {
-    auto feature = std::make_unique<SimpleFeature>(data);
-    provider_.AddFeature(data->feature.name, std::move(feature));
+    test_api_feature_.emplace(data);
+    std::array<Feature*, 1> features = {&*test_api_feature_};
+    provider_.AddStaticFeatures(features);
     api_.RegisterDependencyProvider("api", &provider_);
     api_scope_ =
         std::make_unique<ExtensionAPI::OverrideSharedInstanceForTest>(&api_);
   }
 
  private:
+  std::optional<SimpleFeature> test_api_feature_;
   FeatureProvider provider_;
   ExtensionAPI api_;
   std::unique_ptr<ExtensionAPI::OverrideSharedInstanceForTest> api_scope_;
@@ -1811,6 +1817,43 @@ TEST_F(EventRouterDispatchTest, DispatchedEventPreservesFilterInfo) {
   EXPECT_EQ(42, dispatched_event->filter_info->instance_id);
   EXPECT_EQ(EventRouter::UserGestureState::kEnabled,
             dispatched_event->user_gesture);
+}
+
+// Tests that an event scoped to a URL isn't dispatched for hosts blocked by
+// enterprise policy, even if the extension has host permissions for them.
+// Regression test for https://crbug.com/517094892.
+TEST_F(EventRouterDispatchTest, EventURLRespectsPolicyBlockedHosts) {
+  const ExtensionId ext1 = "ext1";
+  RegisterTestApiFeature(StaticFeatureData(kTestEventFeatureData));
+
+  scoped_refptr<const Extension> extension =
+      ExtensionBuilder("test extension")
+          .SetID(ext1)
+          .AddHostPermission("<all_urls>")
+          .Build();
+  ExtensionRegistry::Get(browser_context())->AddEnabled(extension);
+
+  URLPatternSet policy_blocked_hosts;
+  policy_blocked_hosts.AddPattern(
+      URLPattern(URLPattern::SCHEME_ALL, "*://blocked.example/*"));
+  extension->permissions_data()->SetPolicyHostRestrictions(
+      policy_blocked_hosts, /*policy_allowed_hosts=*/URLPatternSet());
+
+  TestEventRouterObserver observer(event_router());
+  event_router()->AddEventListenerForTesting(kTestEventName, process(), ext1);
+
+  auto create_event = [&](const char* url) {
+    auto event = std::make_unique<Event>(events::FOR_TEST, kTestEventName,
+                                         base::ListValue(), browser_context());
+    event->event_url = GURL(url);
+    return event;
+  };
+
+  event_router()->BroadcastEvent(create_event("http://blocked.example/"));
+  EXPECT_EQ(0u, observer.dispatched_events().size());
+
+  event_router()->BroadcastEvent(create_event("http://allowed.example/"));
+  EXPECT_EQ(1u, observer.dispatched_events().size());
 }
 
 }  // namespace extensions

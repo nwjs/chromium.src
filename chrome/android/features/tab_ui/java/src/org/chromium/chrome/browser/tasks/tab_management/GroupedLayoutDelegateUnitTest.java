@@ -12,6 +12,7 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -20,6 +21,7 @@ import static org.mockito.Mockito.when;
 import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.CARD_TYPE;
 import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.ModelType.ARCHIVED_TAB_GROUP;
 import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.ModelType.TAB;
+import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.ModelType.TAB_GROUP;
 
 import android.util.Pair;
 import android.view.View;
@@ -38,13 +40,17 @@ import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.Token;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.UserActionTester;
 import org.chromium.chrome.browser.actor.ui.ActorUiTabController.UiTabState;
 import org.chromium.chrome.browser.actor.ui.TabIndicatorStatus;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab_ui.ThumbnailProvider;
+import org.chromium.chrome.browser.tabmodel.TabGroupObserver.DidRemoveTabGroupReason;
 import org.chromium.chrome.browser.tabmodel.TabList;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.TabGridAccessibilityHelper;
@@ -58,6 +64,7 @@ import java.util.List;
 
 /** Unit tests for {@link GroupedLayoutDelegate}. */
 @RunWith(BaseRobolectricTestRunner.class)
+@EnableFeatures(ChromeFeatureList.ANDROID_TAB_UI_REFACTOR)
 public class GroupedLayoutDelegateUnitTest {
     private static final Token TAB_GROUP_ID = new Token(1L, 2L);
 
@@ -117,56 +124,56 @@ public class GroupedLayoutDelegateUnitTest {
     }
 
     @Test
-    public void testGetAlertState_NotInGroup() {
-        when(mTab1.getId()).thenReturn(1);
+    public void testGetAlertStateForTab() {
         when(mTab1.getAlertState()).thenReturn(TabAlert.AUDIO_PLAYING);
-        when(mMediator.isTabInTabGroup(mTab1)).thenReturn(false);
 
-        PropertyModel model = new PropertyModel(TabProperties.ALL_KEYS_TAB_GRID);
-        @TabAlert int state = mDelegate.getAlertState(mTab1, model);
+        @TabAlert int state = mDelegate.getAlertStateForTab(mTab1);
         assertEquals(TabAlert.AUDIO_PLAYING, state);
     }
 
     @Test
-    public void testGetAlertState_InGroup() {
-        when(mTab1.getId()).thenReturn(1);
+    public void testGetAlertStateForGroupHeader() {
         when(mTab1.getAlertState()).thenReturn(TabAlert.AUDIO_PLAYING);
         when(mTab2.getAlertState()).thenReturn(TabAlert.MEDIA_RECORDING);
+        when(mTabModel.getTabsInGroup(TAB_GROUP_ID)).thenReturn(List.of(mTab1, mTab2));
 
-        when(mMediator.isTabInTabGroup(mTab1)).thenReturn(true);
-        when(mMediator.getRelatedTabsForId(1)).thenReturn(List.of(mTab1, mTab2));
-
-        PropertyModel model = new PropertyModel(TabProperties.ALL_KEYS_TAB_GRID);
-        @TabAlert int state = mDelegate.getAlertState(mTab1, model);
+        @TabAlert int state = mDelegate.getAlertStateForGroupHeader(TAB_GROUP_ID);
         assertEquals(TabAlert.MEDIA_RECORDING, state);
     }
 
     @Test
-    public void testGetAlertState_InGroup_RepTabHasMaxPriority() {
-        when(mTab1.getId()).thenReturn(1);
+    public void testGetAlertStateForGroupHeader_ShortCircuitsAtMaxPriority() {
         when(mTab1.getAlertState()).thenReturn(TabAlert.DESKTOP_CAPTURING);
-        when(mMediator.isTabInTabGroup(mTab1)).thenReturn(true);
+        when(mTabModel.getTabsInGroup(TAB_GROUP_ID)).thenReturn(List.of(mTab1, mTab2));
 
-        PropertyModel model = new PropertyModel(TabProperties.ALL_KEYS_TAB_GRID);
-        @TabAlert int state = mDelegate.getAlertState(mTab1, model);
+        @TabAlert int state = mDelegate.getAlertStateForGroupHeader(TAB_GROUP_ID);
         assertEquals(TabAlert.DESKTOP_CAPTURING, state);
-
-        // Fast exit should mean getRelatedTabsForId is never called.
-        verify(mMediator, never()).getRelatedTabsForId(1);
+        verify(mTab2, never()).getAlertState();
     }
 
     @Test
-    public void testGetAlertState_InGroup_RepTabHasHigherPriority() {
-        when(mTab1.getId()).thenReturn(1);
+    public void testGetAlertStateForGroupHeader_FirstTabHasHigherPriority() {
         when(mTab1.getAlertState()).thenReturn(TabAlert.MEDIA_RECORDING);
         when(mTab2.getAlertState()).thenReturn(TabAlert.AUDIO_PLAYING);
+        when(mTabModel.getTabsInGroup(TAB_GROUP_ID)).thenReturn(List.of(mTab1, mTab2));
 
-        when(mMediator.isTabInTabGroup(mTab1)).thenReturn(true);
-        when(mMediator.getRelatedTabsForId(1)).thenReturn(List.of(mTab1, mTab2));
-
-        PropertyModel model = new PropertyModel(TabProperties.ALL_KEYS_TAB_GRID);
-        @TabAlert int state = mDelegate.getAlertState(mTab1, model);
+        @TabAlert int state = mDelegate.getAlertStateForGroupHeader(TAB_GROUP_ID);
         assertEquals(TabAlert.MEDIA_RECORDING, state);
+    }
+
+    @Test
+    public void testGetAlertState_SuppressesGlicAlerts() {
+        when(mTab1.getAlertState()).thenReturn(TabAlert.GLIC_SHARING);
+        when(mTab2.getAlertState()).thenReturn(TabAlert.AUDIO_PLAYING);
+
+        when(mTabModel.getTabsInGroup(TAB_GROUP_ID)).thenReturn(List.of(mTab1, mTab2));
+
+        PropertyModel groupModel = createAndAddGroupCardModel(TAB_GROUP_ID, TAB1_ID);
+        assertEquals(TabAlert.AUDIO_PLAYING, mDelegate.getAlertState(mTab1, groupModel));
+
+        when(mTab1.getAlertState()).thenReturn(TabAlert.GLIC_ACCESSING);
+        PropertyModel tabModel = createAndAddPropertyModel(TAB1_ID);
+        assertEquals(TabAlert.NONE, mDelegate.getAlertState(mTab1, tabModel));
     }
 
     @Test
@@ -203,6 +210,8 @@ public class GroupedLayoutDelegateUnitTest {
 
         // Insertion index should be offset by 1 (due to archived card) and return 1.
         assertEquals(1, insertionIndex);
+        // Non-representative tab should return INVALID_TAB_INDEX even with an archived card.
+        assertEquals(TabModel.INVALID_TAB_INDEX, mDelegate.getInsertionIndexOfTab(mTab2));
     }
 
     @Test
@@ -268,12 +277,32 @@ public class GroupedLayoutDelegateUnitTest {
     }
 
     @Test
-    public void testDidAddTab_FromRestore_UpdatesGroupCard() {
+    @DisableFeatures(ChromeFeatureList.ANDROID_TAB_UI_REFACTOR)
+    public void testDidAddTab_FromRestore_UpdatesGroupCard_featureDisabled() {
         createAndAddPropertyModel(TAB1_ID);
         when(mTabModel.representativeIndexOf(mTab2)).thenReturn(0);
         when(mTabModel.getRepresentativeTabAt(0)).thenReturn(mTab1);
 
         mDelegate.didAddTab(mTab2, TabLaunchType.FROM_RESTORE);
+
+        verify(mMediator).updateTab(0, mTab1, false, false);
+    }
+
+    @Test
+    public void testDidAddTab_FromRestore_UpdatesGroupCard() {
+        GroupedLayoutDelegate delegate =
+                new GroupedLayoutDelegate(mMediator, mModelList, mThumbnailProvider);
+        PropertyModel groupCardModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(CARD_TYPE, TAB_GROUP)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, TAB_GROUP_ID)
+                        .with(TabProperties.TAB_ID, TAB1_ID)
+                        .build();
+        mModelList.add(new ListItem(TabProperties.UiType.TAB_GROUP, groupCardModel));
+        when(mTab2.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+        when(mTabModel.getTabsInGroup(TAB_GROUP_ID)).thenReturn(List.of(mTab1, mTab2));
+
+        delegate.didAddTab(mTab2, TabLaunchType.FROM_RESTORE);
 
         verify(mMediator).updateTab(0, mTab1, false, false);
     }
@@ -290,7 +319,8 @@ public class GroupedLayoutDelegateUnitTest {
     }
 
     @Test
-    public void testTabClosureUndone_InTabGroup_UpdatesGroupCard() {
+    @DisableFeatures(ChromeFeatureList.ANDROID_TAB_UI_REFACTOR)
+    public void testTabClosureUndone_InTabGroup_UpdatesGroupCard_featureDisabled() {
         createAndAddPropertyModel(TAB1_ID);
         when(mMediator.isTabInTabGroup(mTab2)).thenReturn(true);
         when(mTabModel.isTabInTabGroup(mTab2)).thenReturn(true);
@@ -303,6 +333,26 @@ public class GroupedLayoutDelegateUnitTest {
     }
 
     @Test
+    public void testTabClosureUndone_InTabGroup_UpdatesGroupCard() {
+        GroupedLayoutDelegate delegate =
+                new GroupedLayoutDelegate(mMediator, mModelList, mThumbnailProvider);
+        PropertyModel groupCardModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(CARD_TYPE, TAB_GROUP)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, TAB_GROUP_ID)
+                        .with(TabProperties.TAB_ID, TAB1_ID)
+                        .build();
+        mModelList.add(new ListItem(TabProperties.UiType.TAB_GROUP, groupCardModel));
+        when(mTab2.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+        when(mMediator.isTabInTabGroup(mTab2)).thenReturn(true);
+        when(mTabModel.getTabsInGroup(TAB_GROUP_ID)).thenReturn(List.of(mTab1, mTab2));
+
+        delegate.tabClosureUndone(mTab2);
+
+        verify(mMediator).updateTab(0, mTab1, false, false);
+    }
+
+    @Test
     public void testGetIndexAndTabForTabGroupId_NullGroupId() {
         assertNull(mDelegate.getIndexAndTabForTabGroupId(null));
     }
@@ -310,16 +360,15 @@ public class GroupedLayoutDelegateUnitTest {
     @Test
     public void testGetIndexAndTabForTabGroupId_InvalidIndex() {
         when(mTabModel.getGroupLastShownTabId(TAB_GROUP_ID)).thenReturn(TAB1_ID);
-        when(mMediator.getIndexForTabIdWithRelatedTabs(TAB1_ID))
-                .thenReturn(TabModel.INVALID_TAB_INDEX);
 
         assertNull(mDelegate.getIndexAndTabForTabGroupId(TAB_GROUP_ID));
     }
 
     @Test
-    public void testGetIndexAndTabForTabGroupId_Success() {
+    @DisableFeatures(ChromeFeatureList.ANDROID_TAB_UI_REFACTOR)
+    public void testGetIndexAndTabForTabGroupId_Success_featureDisabled() {
         when(mTabModel.getGroupLastShownTabId(TAB_GROUP_ID)).thenReturn(TAB1_ID);
-        when(mMediator.getIndexForTabIdWithRelatedTabs(TAB1_ID)).thenReturn(0);
+        createAndAddPropertyModel(TAB1_ID);
         when(mMediator.getTabForIndex(0)).thenReturn(mTab1);
         when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
         when(mTabModel.isTabInTabGroup(mTab1)).thenReturn(true);
@@ -331,23 +380,36 @@ public class GroupedLayoutDelegateUnitTest {
     }
 
     @Test
+    public void testGetIndexAndTabForTabGroupId_Success() {
+        GroupedLayoutDelegate delegate =
+                new GroupedLayoutDelegate(mMediator, mModelList, mThumbnailProvider);
+        createAndAddGroupCardModel(TAB_GROUP_ID, TAB1_ID);
+        when(mTabModel.getTabsInGroup(TAB_GROUP_ID)).thenReturn(List.of(mTab1));
+
+        Pair<Integer, Tab> result = delegate.getIndexAndTabForTabGroupId(TAB_GROUP_ID);
+        assertNotNull(result);
+        assertEquals(0, result.first.intValue());
+        assertEquals(mTab1, result.second);
+    }
+
+    @Test
     public void testOnFaviconUpdated_InTabGroup() {
-        when(mMediator.isTabInTabGroup(mTab1)).thenReturn(true);
-        when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
-        PropertyModel model = createAndAddPropertyModel(TAB1_ID);
-        setupGetIndexAndTabForTabGroupId(TAB_GROUP_ID, 0, mTab1);
+        when(mMediator.isTabInTabGroup(mTab2)).thenReturn(true);
+        when(mTabModel.getTabById(TAB2_ID)).thenReturn(mTab2);
+        when(mTab2.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+        PropertyModel groupModel = createAndAddGroupCardModel(TAB_GROUP_ID, TAB1_ID);
 
-        mDelegate.onFaviconUpdated(mTab1, null, null);
+        mDelegate.onFaviconUpdated(mTab2, null, null);
 
-        verify(mMediator).updateThumbnailFetcher(model, TAB1_ID);
-        verify(mMediator).updateFaviconForTab(model, mTab1, null, null);
+        verify(mMediator).updateThumbnailFetcher(groupModel, TAB2_ID);
+        verify(mMediator, never()).updateFaviconForTab(any(), any(), any(), any());
     }
 
     @Test
     public void testOnFaviconUpdated_InTabGroup_NotFound() {
         when(mMediator.isTabInTabGroup(mTab1)).thenReturn(true);
+        when(mTabModel.getTabById(TAB1_ID)).thenReturn(mTab1);
         when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
-        setupGetIndexAndTabForTabGroupIdNotFound(TAB_GROUP_ID);
 
         mDelegate.onFaviconUpdated(mTab1, null, null);
 
@@ -377,28 +439,25 @@ public class GroupedLayoutDelegateUnitTest {
 
     @Test
     public void testOnUrlUpdated_InTabGroup() {
-        when(mMediator.isTabInTabGroup(mTab1)).thenReturn(true);
-        when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
-        PropertyModel model = createAndAddPropertyModel(TAB1_ID);
-        setupGetIndexAndTabForTabGroupId(TAB_GROUP_ID, 0, mTab1);
-        when(mMediator.getDomainForTab(mTab1, model)).thenReturn("example.com");
+        when(mMediator.isTabInTabGroup(mTab2)).thenReturn(true);
+        when(mTabModel.getTabById(TAB2_ID)).thenReturn(mTab2);
+        when(mTab2.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+        PropertyModel groupModel = createAndAddGroupCardModel(TAB_GROUP_ID, TAB1_ID);
 
-        mDelegate.onUrlUpdated(mTab1);
+        mDelegate.onUrlUpdated(mTab2);
 
-        assertEquals("example.com", model.get(TabProperties.URL_DOMAIN));
-        verify(mMediator).updateThumbnailFetcher(model, TAB1_ID);
-        verify(mMediator).updateFaviconForTab(model, mTab1, null, null);
+        verify(mMediator).updateThumbnailFetcher(groupModel, TAB2_ID);
+        verify(mMediator, never()).updateFaviconForTab(any(), any(), any(), any());
     }
 
     @Test
     public void testOnUrlUpdated_InTabGroup_NotFound() {
         when(mMediator.isTabInTabGroup(mTab1)).thenReturn(true);
+        when(mTabModel.getTabById(TAB1_ID)).thenReturn(mTab1);
         when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
-        setupGetIndexAndTabForTabGroupIdNotFound(TAB_GROUP_ID);
 
         mDelegate.onUrlUpdated(mTab1);
 
-        verify(mMediator, never()).getDomainForTab(any(), any());
         verify(mMediator, never()).updateThumbnailFetcher(any(), anyInt());
         verify(mMediator, never()).updateFaviconForTab(any(), any(), any(), any());
     }
@@ -407,11 +466,9 @@ public class GroupedLayoutDelegateUnitTest {
     public void testOnUrlUpdated_NotInTabGroup() {
         when(mMediator.isTabInTabGroup(mTab1)).thenReturn(false);
         PropertyModel model = createAndAddPropertyModel(TAB1_ID);
-        when(mMediator.getDomainForTab(mTab1, model)).thenReturn("example.com");
 
         mDelegate.onUrlUpdated(mTab1);
 
-        assertEquals("example.com", model.get(TabProperties.URL_DOMAIN));
         verify(mMediator).updateThumbnailFetcher(model, TAB1_ID);
         verify(mMediator).updateFaviconForTab(model, mTab1, null, null);
     }
@@ -422,7 +479,6 @@ public class GroupedLayoutDelegateUnitTest {
 
         mDelegate.onUrlUpdated(mTab1);
 
-        verify(mMediator, never()).getDomainForTab(any(), any());
         verify(mMediator, never()).updateThumbnailFetcher(any(), anyInt());
         verify(mMediator, never()).updateFaviconForTab(any(), any(), any(), any());
     }
@@ -432,26 +488,26 @@ public class GroupedLayoutDelegateUnitTest {
         when(mTab1.getId()).thenReturn(TAB1_ID);
         when(mTab2.getId()).thenReturn(TAB2_ID);
         when(mMediator.isTabInTabGroup(mTab1)).thenReturn(true);
+        when(mTabModel.getTabById(TAB1_ID)).thenReturn(mTab1);
         when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
         when(mTab1.getAlertState()).thenReturn(TabAlert.AUDIO_PLAYING);
         when(mTab2.getAlertState()).thenReturn(TabAlert.MEDIA_RECORDING);
-        when(mMediator.getRelatedTabsForId(TAB1_ID)).thenReturn(List.of(mTab1, mTab2));
-        PropertyModel model = createAndAddPropertyModel(TAB1_ID);
-        setupGetIndexAndTabForTabGroupId(TAB_GROUP_ID, 0, mTab1);
+        when(mTabModel.getTabsInGroup(TAB_GROUP_ID)).thenReturn(List.of(mTab1, mTab2));
+        PropertyModel groupModel = createAndAddGroupCardModel(TAB_GROUP_ID, TAB1_ID);
 
         mDelegate.onAlertStateChanged(mTab1, TabAlert.AUDIO_PLAYING);
 
-        assertEquals(TabAlert.MEDIA_RECORDING, model.get(TabProperties.ALERT_STATE));
-        verify(mMediator).updateDescriptionString(model);
+        assertEquals(TabAlert.MEDIA_RECORDING, groupModel.get(TabProperties.ALERT_STATE));
+        verify(mMediator).updateDescriptionString(groupModel);
     }
 
     @Test
     public void testOnAlertStateChanged_InTabGroup_UseShrinkCloseAnimation() {
         when(mMediator.isTabInTabGroup(mTab1)).thenReturn(true);
+        when(mTabModel.getTabById(TAB1_ID)).thenReturn(mTab1);
         when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
-        PropertyModel model = createAndAddPropertyModel(TAB1_ID);
-        model.set(TabProperties.USE_SHRINK_CLOSE_ANIMATION, true);
-        setupGetIndexAndTabForTabGroupId(TAB_GROUP_ID, 0, mTab1);
+        PropertyModel groupModel = createAndAddGroupCardModel(TAB_GROUP_ID, TAB1_ID);
+        groupModel.set(TabProperties.USE_SHRINK_CLOSE_ANIMATION, true);
 
         mDelegate.onAlertStateChanged(mTab1, TabAlert.AUDIO_PLAYING);
 
@@ -461,8 +517,8 @@ public class GroupedLayoutDelegateUnitTest {
     @Test
     public void testOnAlertStateChanged_InTabGroup_NotFound() {
         when(mMediator.isTabInTabGroup(mTab1)).thenReturn(true);
+        when(mTabModel.getTabById(TAB1_ID)).thenReturn(mTab1);
         when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
-        setupGetIndexAndTabForTabGroupIdNotFound(TAB_GROUP_ID);
 
         mDelegate.onAlertStateChanged(mTab1, TabAlert.AUDIO_PLAYING);
 
@@ -493,35 +549,78 @@ public class GroupedLayoutDelegateUnitTest {
         verify(mMediator, never()).updateFaviconForTab(any(), any(), any(), any());
 
         mDelegate.onUrlUpdated(mTab1);
-        verify(mMediator, never()).getDomainForTab(any(), any());
+        verify(mMediator, never()).updateThumbnailFetcher(any(), anyInt());
 
         mDelegate.onAlertStateChanged(mTab1, TabAlert.AUDIO_PLAYING);
         verify(mMediator, never()).updateDescriptionString(any());
+
+        mDelegate.onContentChanged(mTab1);
+        verify(mMediator, never()).updateThumbnailFetcher(any(), anyInt());
+        verify(mMediator, never()).updateActorUiState(any(), any(Tab.class));
+    }
+
+    @Test
+    public void testOnContentChanged_InTabGroup() {
+        when(mMediator.isTabInTabGroup(mTab2)).thenReturn(true);
+        when(mTabModel.getTabById(TAB2_ID)).thenReturn(mTab2);
+        when(mTab2.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+        PropertyModel groupModel = createAndAddGroupCardModel(TAB_GROUP_ID, TAB1_ID);
+
+        mDelegate.onContentChanged(mTab2);
+        verify(mMediator).updateThumbnailFetcher(groupModel, TAB2_ID);
+        verify(mMediator, never()).updateActorUiState(any(), any(Tab.class));
+    }
+
+    @Test
+    public void testOnContentChanged_NotInTabGroup() {
+        when(mMediator.isTabInTabGroup(mTab1)).thenReturn(false);
+        PropertyModel tabModel = createAndAddPropertyModel(TAB1_ID);
+
+        mDelegate.onContentChanged(mTab1);
+        verify(mMediator).updateActorUiState(tabModel, mTab1);
+        verify(mMediator, never()).updateThumbnailFetcher(any(), anyInt());
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.ANDROID_TAB_UI_REFACTOR)
+    public void testOnUiTabStateChanged_InTabGroup_featureDisabled() {
+        when(mMediator.isTabInTabGroup(mTab2)).thenReturn(true);
+        PropertyModel groupModel = createAndAddPropertyModel(TAB1_ID);
+        when(mMediator.getIndexForTabIdWithRelatedTabs(TAB2_ID)).thenReturn(0);
+        UiTabState state = new UiTabState(TAB2_ID, null, null, TabIndicatorStatus.DYNAMIC, false);
+
+        mDelegate.onUiTabStateChanged(mTab2);
+        verify(mMediator).updateThumbnailFetcher(groupModel, TAB2_ID);
+        verify(mMediator, never()).updateActorUiState(any(), any());
     }
 
     @Test
     public void testOnUiTabStateChanged_InTabGroup() {
-        when(mMediator.isTabInTabGroup(mTab1)).thenReturn(true);
-        when(mMediator.getIndexForTabIdWithRelatedTabs(TAB1_ID)).thenReturn(0);
-        PropertyModel groupModel = createAndAddPropertyModel(TAB1_ID);
-        UiTabState state = new UiTabState(TAB1_ID, null, null, TabIndicatorStatus.DYNAMIC, false);
+        when(mMediator.isTabInTabGroup(mTab2)).thenReturn(true);
+        when(mTabModel.getTabById(TAB2_ID)).thenReturn(mTab2);
+        when(mTab2.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+        PropertyModel groupModel = createAndAddGroupCardModel(TAB_GROUP_ID, TAB1_ID);
+        UiTabState state = new UiTabState(TAB2_ID, null, null, TabIndicatorStatus.DYNAMIC, false);
 
-        mDelegate.onUiTabStateChanged(mTab1, state);
-        verify(mMediator).updateThumbnailFetcher(groupModel, TAB1_ID);
+        mDelegate.onUiTabStateChanged(mTab2);
+        verify(mMediator).updateThumbnailFetcher(groupModel, TAB2_ID);
+        verify(mMediator, never()).updateActorUiState(any(), any());
     }
 
     @Test
     public void testOnUiTabStateChanged_NotInTabGroup() {
         when(mMediator.isTabInTabGroup(mTab1)).thenReturn(false);
-        createAndAddPropertyModel(TAB1_ID);
+        PropertyModel tabModel = createAndAddPropertyModel(TAB1_ID);
         UiTabState state = new UiTabState(TAB1_ID, null, null, TabIndicatorStatus.DYNAMIC, false);
 
-        mDelegate.onUiTabStateChanged(mTab1, state);
+        mDelegate.onUiTabStateChanged(mTab1);
+        verify(mMediator).updateActorUiState(tabModel, mTab1);
         verify(mMediator, never()).updateThumbnailFetcher(any(), anyInt());
     }
 
     @Test
-    public void testOnTabClose_InGroup_NotClosing() {
+    @DisableFeatures(ChromeFeatureList.ANDROID_TAB_UI_REFACTOR)
+    public void testOnTabClose_InGroup_NotClosing_featureDisabled() {
         when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
         when(mTabModel.tabGroupExists(TAB_GROUP_ID)).thenReturn(true);
         when(mTabModel.representativeIndexOf(mTab1)).thenReturn(0);
@@ -536,7 +635,30 @@ public class GroupedLayoutDelegateUnitTest {
     }
 
     @Test
-    public void testOnTabClose_InGroup_Closing() {
+    public void testOnTabClose_InGroup_NotClosing() {
+        GroupedLayoutDelegate delegate =
+                new GroupedLayoutDelegate(mMediator, mModelList, mThumbnailProvider);
+        when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+        when(mTabModel.tabGroupExists(TAB_GROUP_ID)).thenReturn(true);
+        when(mTabModel.getTabsInGroup(TAB_GROUP_ID)).thenReturn(List.of(mTab2));
+
+        PropertyModel groupCardModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(CARD_TYPE, TAB_GROUP)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, TAB_GROUP_ID)
+                        .with(TabProperties.TAB_ID, TAB2_ID)
+                        .build();
+        mModelList.add(new ListItem(TabProperties.UiType.TAB_GROUP, groupCardModel));
+
+        delegate.onTabClose(mTab1);
+
+        verify(mMediator).updateTab(0, mTab2, true, false);
+        assertEquals(1, mModelList.size());
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.ANDROID_TAB_UI_REFACTOR)
+    public void testOnTabClose_InGroup_Closing_featureDisabled() {
         when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
         when(mTabModel.tabGroupExists(TAB_GROUP_ID)).thenReturn(true);
         when(mTabModel.representativeIndexOf(mTab1)).thenReturn(0);
@@ -548,6 +670,29 @@ public class GroupedLayoutDelegateUnitTest {
 
         verify(mMediator, never()).updateTab(anyInt(), any(), anyBoolean(), anyBoolean());
         assertEquals(0, mModelList.size());
+    }
+
+    @Test
+    public void testOnTabClose_InGroup_Closing() {
+        GroupedLayoutDelegate delegate =
+                new GroupedLayoutDelegate(mMediator, mModelList, mThumbnailProvider);
+        when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+        when(mTabModel.tabGroupExists(TAB_GROUP_ID)).thenReturn(true);
+        when(mTabModel.getTabsInGroup(TAB_GROUP_ID)).thenReturn(List.of());
+
+        PropertyModel groupCardModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(CARD_TYPE, TAB_GROUP)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, TAB_GROUP_ID)
+                        .with(TabProperties.TAB_ID, TAB1_ID)
+                        .build();
+        mModelList.add(new ListItem(TabProperties.UiType.TAB_GROUP, groupCardModel));
+
+        delegate.onTabClose(mTab1);
+
+        verify(mMediator, never()).updateTab(anyInt(), any(), anyBoolean(), anyBoolean());
+        // Card is keyed by token, so onTabClose never removes it. didRemoveTabGroup owns removal.
+        assertEquals(1, mModelList.size());
     }
 
     @Test
@@ -577,10 +722,10 @@ public class GroupedLayoutDelegateUnitTest {
 
     @Test
     public void testIsChildTabRepresentedByGroupCard() {
-        when(mTabModel.isTabInTabGroup(mTab1)).thenReturn(true);
+        when(mMediator.isTabInTabGroup(mTab1)).thenReturn(true);
         assertTrue(mDelegate.isChildTabRepresentedByGroupCard(mTab1));
 
-        when(mTabModel.isTabInTabGroup(mTab1)).thenReturn(false);
+        when(mMediator.isTabInTabGroup(mTab1)).thenReturn(false);
         assertFalse(mDelegate.isChildTabRepresentedByGroupCard(mTab1));
     }
 
@@ -650,8 +795,7 @@ public class GroupedLayoutDelegateUnitTest {
 
         mDelegate.didChangeTabGroupColor(TAB_GROUP_ID, TabGroupColorId.BLUE);
 
-        verify(mMediator).updateTabGroupProperties(mTab1, model, TabGroupColorId.BLUE);
-        verify(mMediator).updateFaviconForTab(model, mTab1, null, null);
+        verify(mMediator).updateTabGroupProperties(model, TAB_GROUP_ID, TabGroupColorId.BLUE);
         verify(mMediator).updateDescriptionString(model);
         verify(mMediator).updateActionButtonDescriptionString(mTab1, model);
         verify(mMediator).updateThumbnailFetcher(model, TAB1_ID);
@@ -674,10 +818,7 @@ public class GroupedLayoutDelegateUnitTest {
 
     @Test
     public void testDidMoveWithinGroup() {
-        int index = 0;
-        PropertyModel model = createAndAddPropertyModel(Tab.INVALID_TAB_ID);
-        when(mMediator.getIndexForTabIdWithRelatedTabs(TAB1_ID)).thenReturn(index);
-        setupRepresentativeTab(mTab1, mTab1, 1);
+        PropertyModel model = createAndAddPropertyModel(TAB1_ID);
 
         mDelegate.didMoveWithinGroup(mTab1, 0, 1);
 
@@ -686,21 +827,22 @@ public class GroupedLayoutDelegateUnitTest {
 
     @Test
     public void testDidMoveWithinGroup_NotFound() {
-        when(mMediator.getIndexForTabIdWithRelatedTabs(TAB1_ID))
-                .thenReturn(TabModel.INVALID_TAB_INDEX);
-
         mDelegate.didMoveWithinGroup(mTab1, 0, 1);
 
         verify(mMediator, never()).updateThumbnailFetcher(any(), anyInt());
     }
 
     @Test
-    public void testDidMoveTabOutOfGroup_NewCard() {
+    @DisableFeatures(ChromeFeatureList.ANDROID_TAB_UI_REFACTOR)
+    public void testDidMoveTabOutOfGroup_NewCard_featureDisabled() {
         when(mTabModel.getTabCountForGroup(null)).thenReturn(1);
+        when(mTabModel.getIndividualTabAndGroupCount()).thenReturn(3);
         setupRepresentativeTab(mTab1, mTab1, 2);
-        when(mTabModel.getRepresentativeTabAt(1)).thenReturn(mTab2);
+        when(mTabModel.getGroupLastShownTabId(TAB_GROUP_ID)).thenReturn(TAB2_ID);
+        when(mTabModel.getTabById(TAB2_ID)).thenReturn(mTab2);
+        when(mTabModel.representativeIndexOf(mTab2)).thenReturn(1);
 
-        mDelegate.didMoveTabOutOfGroup(mTab1, 1);
+        mDelegate.didMoveTabOutOfGroup(mTab1, TAB_GROUP_ID);
 
         // indexOfNthTabCard returns 0 for an empty list.
         verify(mMediator).addTabCardToModel(mTab1, 0);
@@ -708,30 +850,104 @@ public class GroupedLayoutDelegateUnitTest {
     }
 
     @Test
-    public void testDidMoveTabOutOfGroup_LastTab_RemovesCard() {
-        when(mTabModel.getRepresentativeTabAt(1)).thenReturn(mTab2);
+    public void testDidMoveTabOutOfGroup_NewCard() {
+        GroupedLayoutDelegate delegate =
+                new GroupedLayoutDelegate(mMediator, mModelList, mThumbnailProvider);
+        PropertyModel groupCardModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(CARD_TYPE, TAB_GROUP)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, TAB_GROUP_ID)
+                        .with(TabProperties.TAB_ID, TAB2_ID)
+                        .build();
+        mModelList.add(new ListItem(TabProperties.UiType.TAB_GROUP, groupCardModel));
+
+        when(mTabModel.getTabCountForGroup(null)).thenReturn(1);
+        when(mTabModel.getIndividualTabAndGroupCount()).thenReturn(2);
+        setupRepresentativeTab(mTab1, mTab1, 1);
+        when(mTabModel.getTabsInGroup(TAB_GROUP_ID)).thenReturn(List.of(mTab2));
+
+        delegate.didMoveTabOutOfGroup(mTab1, TAB_GROUP_ID);
+
+        verify(mMediator).addTabCardToModel(mTab1, 1);
+        verify(mMediator).updateTab(0, mTab2, true, false);
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.ANDROID_TAB_UI_REFACTOR)
+    public void testDidMoveTabOutOfGroup_LastTab_RemovesCard_featureDisabled() {
         when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
         when(mTabModel.getTabCountForGroup(TAB_GROUP_ID)).thenReturn(2);
-        when(mTab2.getTabGroupId()).thenReturn(TAB_GROUP_ID);
 
         createAndAddPropertyModel(TAB1_ID);
 
-        mDelegate.didMoveTabOutOfGroup(mTab1, 1);
+        mDelegate.didMoveTabOutOfGroup(mTab1, new Token(3L, 4L));
 
         assertEquals(0, mModelList.size());
         verify(mMediator, never()).updateTab(anyInt(), any(), anyBoolean(), anyBoolean());
     }
 
     @Test
-    public void testDidMoveTabOutOfGroup_Fallback() {
-        when(mTabModel.getRepresentativeTabAt(1)).thenReturn(mTab2);
+    public void testDidMoveTabOutOfGroup_LastTab_KeepsCard() {
+        Token oldGroupId = new Token(3L, 4L);
+        when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+        when(mTabModel.getTabCountForGroup(TAB_GROUP_ID)).thenReturn(2);
+
+        GroupedLayoutDelegate delegate =
+                new GroupedLayoutDelegate(mMediator, mModelList, mThumbnailProvider);
+        PropertyModel groupCardModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(CARD_TYPE, TAB_GROUP)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, TAB_GROUP_ID)
+                        .with(TabProperties.TAB_ID, TAB1_ID)
+                        .build();
+        mModelList.add(new ListItem(TabProperties.UiType.TAB_GROUP, groupCardModel));
+
+        delegate.didMoveTabOutOfGroup(mTab1, oldGroupId);
+
+        // The moved tab already carries the destination group's token, so removing a card here
+        // would remove the wrong one. didRemoveTabGroup owns the dissolved group's removal.
+        assertEquals(1, mModelList.size());
+        verify(mMediator, never()).updateTab(anyInt(), any(), anyBoolean(), anyBoolean());
+    }
+
+    @Test
+    public void testDidMoveTabOutOfGroup_UngroupTab_AddsCard() {
+        // When a tab is ungrouped, a new card must be added to the model because the TAB_GROUP
+        // card will be deleted by didRemoveTabGroup.
+        when(mTabModel.getIndividualTabAndGroupCount()).thenReturn(1);
+        setupRepresentativeTab(mTab1, mTab1, 0);
+        when(mTab1.getTabGroupId()).thenReturn(null);
+        when(mTabModel.getTabCountForGroup(null)).thenReturn(0);
+        when(mTabModel.getTabsInGroup(TAB_GROUP_ID)).thenReturn(List.of());
+
+        GroupedLayoutDelegate delegate =
+                new GroupedLayoutDelegate(mMediator, mModelList, mThumbnailProvider);
+        PropertyModel groupCardModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(CARD_TYPE, TAB_GROUP)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, TAB_GROUP_ID)
+                        .with(TabProperties.TAB_ID, TAB1_ID)
+                        .build();
+        mModelList.add(new ListItem(TabProperties.UiType.TAB_GROUP, groupCardModel));
+
+        delegate.didMoveTabOutOfGroup(mTab1, TAB_GROUP_ID);
+
+        verify(mMediator).addTabCardToModel(mTab1, 0);
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.ANDROID_TAB_UI_REFACTOR)
+    public void testDidMoveTabOutOfGroup_Fallback_featureDisabled() {
         when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
         when(mTabModel.getTabCountForGroup(TAB_GROUP_ID)).thenReturn(2);
 
         Token differentGroupId = new Token(3L, 4L);
+        when(mTabModel.getGroupLastShownTabId(differentGroupId)).thenReturn(TAB2_ID);
+        when(mTabModel.getTabById(TAB2_ID)).thenReturn(mTab2);
         when(mTab2.getTabGroupId()).thenReturn(differentGroupId);
+        when(mTabModel.representativeIndexOf(mTab2)).thenReturn(1);
 
-        mDelegate.didMoveTabOutOfGroup(mTab1, 1);
+        mDelegate.didMoveTabOutOfGroup(mTab1, differentGroupId);
 
         // indexOfNthTabCard returns 0 for an empty list.
         verify(mMediator).updateTab(0, mTab2, true, false);
@@ -739,10 +955,122 @@ public class GroupedLayoutDelegateUnitTest {
     }
 
     @Test
-    public void testDidMergeTabToGroup() {
+    public void testDidMoveTabOutOfGroup_Fallback() {
+        Token differentGroupId = new Token(3L, 4L);
+        GroupedLayoutDelegate delegate =
+                new GroupedLayoutDelegate(mMediator, mModelList, mThumbnailProvider);
+        PropertyModel groupCardModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(CARD_TYPE, TAB_GROUP)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, TAB_GROUP_ID)
+                        .with(TabProperties.TAB_ID, TAB2_ID)
+                        .build();
+        mModelList.add(new ListItem(TabProperties.UiType.TAB_GROUP, groupCardModel));
+
+        when(mTab1.getTabGroupId()).thenReturn(differentGroupId);
+        when(mTabModel.getTabsInGroup(TAB_GROUP_ID)).thenReturn(List.of(mTab2));
+        when(mTabModel.getTabCountForGroup(differentGroupId)).thenReturn(2);
+
+        delegate.didMoveTabOutOfGroup(mTab1, TAB_GROUP_ID);
+
+        verify(mMediator).updateTab(0, mTab2, true, false);
+        verify(mMediator, never()).addTabCardToModel(any(), anyInt());
+    }
+
+    @Test
+    public void testDidMoveTabOutOfGroup_SuppressedDuringUngroup() {
+        GroupedLayoutDelegate delegate =
+                new GroupedLayoutDelegate(mMediator, mModelList, mThumbnailProvider);
+        PropertyModel groupCardModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(CARD_TYPE, TAB_GROUP)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, TAB_GROUP_ID)
+                        .with(TabProperties.TAB_ID, TAB2_ID)
+                        .build();
+        mModelList.add(new ListItem(TabProperties.UiType.TAB_GROUP, groupCardModel));
+
+        when(mTabModel.getIndividualTabAndGroupCount()).thenReturn(2);
+        when(mTabModel.getRepresentativeTabAt(0)).thenReturn(mTab1);
+        when(mTabModel.getRepresentativeTabAt(1)).thenReturn(mTab2);
+        when(mTab1.getTabGroupId()).thenReturn(null);
+        when(mTab2.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+
+        // Before willRemoveTabGroup, didMoveTabOutOfGroup updates the card.
+        // With willRemoveTabGroup(TAB_GROUP_ID), updating the old group is suppressed,
+        // but adding the card for the newly ungrouped tab still occurs.
+        delegate.willRemoveTabGroup(TAB_GROUP_ID);
+        delegate.didMoveTabOutOfGroup(mTab1, TAB_GROUP_ID);
+
+        verify(mMediator, never()).updateTab(anyInt(), any(), anyBoolean(), anyBoolean());
+        verify(mMediator).addTabCardToModel(eq(mTab1), anyInt());
+
+        // Once didRemoveTabGroup is called, mRemovingTabGroupIds is cleared.
+        delegate.didRemoveTabGroup(TAB_GROUP_ID, DidRemoveTabGroupReason.UNGROUP);
+        assertEquals(0, mModelList.size());
+    }
+
+    @Test
+    public void testGetIndexesForMergeToGroup_withGroupCards() {
+        Token sourceGroupId = new Token(1L, 2L);
+        Token destGroupId = new Token(3L, 4L);
+        setupTabsInModel(mTab1, mTab2);
+        when(mTabModel.getTabById(TAB1_ID)).thenReturn(mTab1);
+        when(mTabModel.getTabById(TAB2_ID)).thenReturn(mTab2);
+        when(mTab1.getTabGroupId()).thenReturn(sourceGroupId);
+        when(mTab2.getTabGroupId()).thenReturn(destGroupId);
+
+        GroupedLayoutDelegate delegate =
+                new GroupedLayoutDelegate(mMediator, mModelList, mThumbnailProvider);
+        PropertyModel sourceGroupCard =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(CARD_TYPE, TAB_GROUP)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, sourceGroupId)
+                        .build();
+        PropertyModel destGroupCard =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(CARD_TYPE, TAB_GROUP)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, destGroupId)
+                        .build();
+        mModelList.add(new ListItem(TabProperties.UiType.TAB_GROUP, sourceGroupCard));
+        mModelList.add(new ListItem(TabProperties.UiType.TAB_GROUP, destGroupCard));
+
+        Pair<Integer, Integer> result =
+                delegate.getIndexesForMergeToGroup(
+                        mTabModel, mTab1, /* isDestinationTab= */ false, List.of(mTab1, mTab2));
+        assertEquals(new Pair<>(1, 0), result);
+    }
+
+    @Test
+    public void testGetIndexesForMergeToGroup_GroupIntoGroup() {
+        // Once a group merges into another group every tab carries the destination token, so both
+        // tabs resolve to the same card and there is no source card left to collapse.
+        when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+        when(mTab2.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+
+        GroupedLayoutDelegate delegate =
+                new GroupedLayoutDelegate(mMediator, mModelList, mThumbnailProvider);
+        PropertyModel groupCard =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(CARD_TYPE, TAB_GROUP)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, TAB_GROUP_ID)
+                        .with(TabProperties.TAB_ID, TAB1_ID)
+                        .build();
+        mModelList.add(new ListItem(TabProperties.UiType.TAB_GROUP, groupCard));
+
+        Pair<Integer, Integer> result =
+                delegate.getIndexesForMergeToGroup(
+                        mTabModel, mTab1, /* isDestinationTab= */ false, List.of(mTab1, mTab2));
+
+        assertEquals(new Pair<>(0, TabModel.INVALID_TAB_INDEX), result);
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.ANDROID_TAB_UI_REFACTOR)
+    public void testDidMergeTabToGroup_featureDisabled() {
         setupTabsInModel(mTab1, mTab2);
         setupRepresentativeTab(mTab1, mTab1, 0);
-        when(mMediator.getRelatedTabsForId(TAB1_ID)).thenReturn(List.of(mTab1, mTab2));
+        when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+        when(mTabModel.getTabsInGroup(TAB_GROUP_ID)).thenReturn(List.of(mTab1, mTab2));
 
         PropertyModel model1 = createAndAddPropertyModel(TAB1_ID);
         model1.set(TabProperties.TITLE, "Tab 1");
@@ -758,12 +1086,14 @@ public class GroupedLayoutDelegateUnitTest {
     }
 
     @Test
-    public void testDidMergeTabToGroup_UpdatesCards() {
+    @DisableFeatures(ChromeFeatureList.ANDROID_TAB_UI_REFACTOR)
+    public void testDidMergeTabToGroup_UpdatesCards_featureDisabled() {
         setupTabsInModel(mTab1, mTab2);
         setupRepresentativeTab(mTab2, mTab2, 0);
-        when(mMediator.getRelatedTabsForId(TAB2_ID)).thenReturn(List.of(mTab1, mTab2));
-        when(mTabModel.getTabById(TAB1_ID)).thenReturn(mTab1);
         when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+        when(mTab2.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+        when(mTabModel.getTabsInGroup(TAB_GROUP_ID)).thenReturn(List.of(mTab1, mTab2));
+        when(mTabModel.getTabById(TAB1_ID)).thenReturn(mTab1);
         when(mTabModel.getGroupLastShownTabId(TAB_GROUP_ID)).thenReturn(TAB2_ID);
         when(mTabModel.getTabById(TAB2_ID)).thenReturn(mTab2);
 
@@ -779,14 +1109,127 @@ public class GroupedLayoutDelegateUnitTest {
     }
 
     @Test
-    public void testDidMoveTabGroup() {
+    @DisableFeatures(ChromeFeatureList.ANDROID_TAB_UI_REFACTOR)
+    public void testGetIndexesForMergeToGroup_DestinationMovedTab_featureDisabled() {
+        setupTabsInModel(mTab1, mTab2);
+        createAndAddPropertyModel(TAB1_ID);
+        createAndAddPropertyModel(TAB2_ID);
+
+        Pair<Integer, Integer> result =
+                mDelegate.getIndexesForMergeToGroup(
+                        mTabModel, mTab1, /* isDestinationTab= */ true, List.of(mTab1, mTab2));
+        assertEquals(new Pair<>(0, 1), result);
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.ANDROID_TAB_UI_REFACTOR)
+    public void testGetIndexesForMergeToGroup_SourceMovedTab_featureDisabled() {
+        setupTabsInModel(mTab1, mTab2);
+        createAndAddPropertyModel(TAB1_ID);
+        createAndAddPropertyModel(TAB2_ID);
+
+        Pair<Integer, Integer> result =
+                mDelegate.getIndexesForMergeToGroup(
+                        mTabModel, mTab2, /* isDestinationTab= */ false, List.of(mTab1, mTab2));
+        assertEquals(new Pair<>(0, 1), result);
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.ANDROID_TAB_UI_REFACTOR)
+    public void testGetIndexesForMergeToGroup_MovedTabOnlyInModel_featureDisabled() {
+        setupTabsInModel(mTab1, mTab2);
+        createAndAddPropertyModel(TAB1_ID);
+
+        Pair<Integer, Integer> result =
+                mDelegate.getIndexesForMergeToGroup(
+                        mTabModel, mTab1, /* isDestinationTab= */ false, List.of(mTab1, mTab2));
+        assertEquals(new Pair<>(0, TabModel.INVALID_TAB_INDEX), result);
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.ANDROID_TAB_UI_REFACTOR)
+    public void testGetIndexesForMergeToGroup_NeitherInModel_featureDisabled() {
+        setupTabsInModel(mTab1, mTab2);
+
+        Pair<Integer, Integer> result =
+                mDelegate.getIndexesForMergeToGroup(
+                        mTabModel, mTab1, /* isDestinationTab= */ false, List.of(mTab1, mTab2));
+        assertEquals(new Pair<>(TabModel.INVALID_TAB_INDEX, TabModel.INVALID_TAB_INDEX), result);
+    }
+
+    @Test
+    public void testDidMergeTabToGroup() {
+        Token groupId1 = new Token(1L, 1L);
+        when(mTabModel.getTabById(TAB1_ID)).thenReturn(mTab1);
+        when(mTabModel.getTabById(TAB2_ID)).thenReturn(mTab2);
+        when(mTab1.getTabGroupId()).thenReturn(groupId1);
+        when(mTab2.getTabGroupId()).thenReturn(groupId1);
+        setupTabsInModel(mTab1, mTab2);
+        setupRepresentativeTab(mTab1, mTab1, 0);
+        when(mTabModel.getTabsInGroup(groupId1)).thenReturn(List.of(mTab1, mTab2));
+
+        GroupedLayoutDelegate delegate =
+                new GroupedLayoutDelegate(mMediator, mModelList, mThumbnailProvider);
+        PropertyModel groupCard1 =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(CARD_TYPE, TAB_GROUP)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, groupId1)
+                        .with(TabProperties.TAB_ID, TAB1_ID)
+                        .build();
+        PropertyModel sourceCard =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(CARD_TYPE, TAB)
+                        .with(TabProperties.TAB_ID, TAB2_ID)
+                        .build();
+        mModelList.add(new ListItem(TabProperties.UiType.TAB_GROUP, groupCard1));
+        mModelList.add(new ListItem(TabProperties.UiType.TAB, sourceCard));
+
+        delegate.didMergeTabToGroup(mTab1, true);
+
+        assertEquals(1, mModelList.size());
+        assertEquals(groupId1, mModelList.get(0).model.get(TabProperties.TAB_GROUP_HEADER_ID));
+
+        verify(mMediator).updateTab(0, mTab1, true, false);
+    }
+
+    @Test
+    public void testDidMergeTabToGroup_UpdatesCards() {
+        setupTabsInModel(mTab1, mTab2);
+        setupRepresentativeTab(mTab2, mTab2, 0);
+        when(mTabModel.getTabsInGroup(TAB_GROUP_ID)).thenReturn(List.of(mTab1, mTab2));
+        when(mTabModel.getTabById(TAB1_ID)).thenReturn(mTab1);
+        when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+        when(mTab2.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+        when(mTabModel.getTabById(TAB2_ID)).thenReturn(mTab2);
+
+        GroupedLayoutDelegate delegate =
+                new GroupedLayoutDelegate(mMediator, mModelList, mThumbnailProvider);
+        PropertyModel groupCard =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(CARD_TYPE, TAB_GROUP)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, TAB_GROUP_ID)
+                        .with(TabProperties.TAB_ID, TAB1_ID)
+                        .build();
+        mModelList.add(new ListItem(TabProperties.UiType.TAB_GROUP, groupCard));
+
+        delegate.didMergeTabToGroup(mTab2, false);
+
+        assertEquals(1, mModelList.size());
+        assertEquals(TAB_GROUP_ID, mModelList.get(0).model.get(TabProperties.TAB_GROUP_HEADER_ID));
+
+        verify(mMediator).updateTab(0, mTab2, true, false);
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.ANDROID_TAB_UI_REFACTOR)
+    public void testDidMoveTabGroup_featureDisabled() {
         // Setup mModelList: [TAB2_ID, TAB1_ID].
         createAndAddPropertyModel(TAB2_ID);
         createAndAddPropertyModel(TAB1_ID);
 
-        when(mMediator.getRelatedTabsForId(TAB1_ID)).thenReturn(List.of(mTab1));
-        when(mTabModel.getRelatedTabList(TAB1_ID)).thenReturn(List.of(mTab1));
-        when(mTabModel.getRelatedTabList(TAB2_ID)).thenReturn(List.of(mTab2));
+        when(mTabModel.getTabCountForGroup(TAB_GROUP_ID)).thenReturn(1);
+        when(mTabModel.getGroupLastShownTabId(TAB_GROUP_ID)).thenReturn(TAB1_ID);
+        when(mTabModel.getTabById(TAB1_ID)).thenReturn(mTab1);
 
         // After move, mTab1 is at 0, mTab2 is at 1. We mock the destination tab for calculating new
         // position.
@@ -795,54 +1238,77 @@ public class GroupedLayoutDelegateUnitTest {
         setupRepresentativeTab(mTab1, mTab1, 0);
         setupRepresentativeTab(mTab2, mTab2, 1);
 
-        mDelegate.didMoveTabGroup(mTab1, 1, 0);
+        mDelegate.didMoveTabGroup(
+                TAB_GROUP_ID, /* tabModelOldIndex= */ 1, /* tabModelNewIndex= */ 0);
 
         assertEquals(TAB1_ID, mModelList.get(0).model.get(TabProperties.TAB_ID));
         assertEquals(TAB2_ID, mModelList.get(1).model.get(TabProperties.TAB_ID));
     }
 
     @Test
-    public void testDidMoveTabGroup_NonExistentTab() {
-        when(mTab3.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+    public void testDidMoveTabGroup() {
+        Token groupId1 = new Token(1L, 1L);
+        Token groupId2 = new Token(2L, 2L);
 
-        when(mMediator.getRelatedTabsForId(TAB3_ID)).thenReturn(List.of(mTab3));
-        when(mTabModel.getRelatedTabList(TAB3_ID)).thenReturn(List.of(mTab3));
+        PropertyModel groupCard2 =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(CARD_TYPE, TAB_GROUP)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, groupId2)
+                        .with(TabProperties.TAB_ID, TAB3_ID)
+                        .build();
+        PropertyModel groupCard1 =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(CARD_TYPE, TAB_GROUP)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, groupId1)
+                        .with(TabProperties.TAB_ID, TAB1_ID)
+                        .build();
+
+        mModelList.add(new ListItem(TabProperties.UiType.TAB_GROUP, groupCard2));
+        mModelList.add(new ListItem(TabProperties.UiType.TAB_GROUP, groupCard1));
+
+        when(mTab3.getTabGroupId()).thenReturn(groupId2);
+        when(mTabModel.getTabCountForGroup(groupId1)).thenReturn(2);
         when(mTabModel.getTabAt(2)).thenReturn(mTab3);
 
-        setupRepresentativeTab(mTab3, mTab3, 1);
-        when(mTabModel.getRepresentativeTabAt(2)).thenReturn(mTab3);
-        when(mTabModel.representativeIndexOf(mTab3)).thenReturn(2);
+        mDelegate.didMoveTabGroup(groupId1, /* tabModelOldIndex= */ 1, /* tabModelNewIndex= */ 0);
 
-        // mModelList is empty at this point, so the tab is non-existent.
-        mDelegate.didMoveTabGroup(mTab3, 2, 1);
+        assertEquals(groupCard1, mModelList.get(0).model);
+        assertEquals(groupCard2, mModelList.get(1).model);
+    }
 
-        // Verify it doesn't crash and we don't try to update a tab.
+    @Test
+    public void testDidMoveTabGroup_Forward() {
+        Token groupId1 = new Token(1L, 1L);
+
+        PropertyModel groupCard1 =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(CARD_TYPE, TAB_GROUP)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, groupId1)
+                        .with(TabProperties.TAB_ID, TAB1_ID)
+                        .build();
+        createAndAddPropertyModel(TAB3_ID);
+
+        mModelList.add(0, new ListItem(TabProperties.UiType.TAB_GROUP, groupCard1));
+
+        when(mTabModel.getTabCountForGroup(groupId1)).thenReturn(2);
+        when(mTabModel.getTabAt(0)).thenReturn(mTab3);
+
+        mDelegate.didMoveTabGroup(groupId1, /* tabModelOldIndex= */ 0, /* tabModelNewIndex= */ 1);
+
+        assertEquals(TAB3_ID, mModelList.get(0).model.get(TabProperties.TAB_ID));
+        assertEquals(groupCard1, mModelList.get(1).model);
+    }
+
+    @Test
+    public void testDidMoveTabGroup_NonExistentGroup() {
+        when(mTabModel.getTabCountForGroup(TAB_GROUP_ID)).thenReturn(1);
+
+        // mModelList is empty at this point, so the group card is non-existent.
+        mDelegate.didMoveTabGroup(
+                TAB_GROUP_ID, /* tabModelOldIndex= */ 2, /* tabModelNewIndex= */ 1);
+
+        // Verify it doesn't crash and we don't try to update a card.
         verify(mMediator, never()).updateTab(anyInt(), any(), anyBoolean(), anyBoolean());
-    }
-
-    @Test
-    public void testDidCreateNewGroup() {
-        when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
-        setupRepresentativeTab(mTab1, mTab1, 1);
-        when(mTabModel.getTabGroupColorWithFallback(TAB_GROUP_ID)).thenReturn(TabGroupColorId.BLUE);
-
-        PropertyModel model1 = createAndAddPropertyModel(TAB1_ID);
-
-        mDelegate.didCreateNewGroup(mTab1, mTabModel);
-
-        verify(mMediator).updateTabGroupProperties(mTab1, model1, TabGroupColorId.BLUE);
-        verify(mMediator).updateFaviconForTab(model1, mTab1, null, null);
-    }
-
-    @Test
-    public void testDidCreateNewGroup_ModelNotFound() {
-        when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
-        setupRepresentativeTab(mTab1, mTab1, 1);
-
-        mDelegate.didCreateNewGroup(mTab1, mTabModel);
-
-        verify(mMediator, never()).updateTabGroupProperties(any(), any(), anyInt());
-        verify(mMediator, never()).updateFaviconForTab(any(), any(), any(), any());
     }
 
     @Test
@@ -857,7 +1323,8 @@ public class GroupedLayoutDelegateUnitTest {
     }
 
     @Test
-    public void testDidSelectTab_RelatedTabsLookup() {
+    @DisableFeatures(ChromeFeatureList.ANDROID_TAB_UI_REFACTOR)
+    public void testDidSelectTab_RelatedTabsLookup_featureDisabled() {
         createAndAddPropertyModel(TAB1_ID);
         when(mMediator.getIndexForTabIdWithRelatedTabs(TAB2_ID)).thenReturn(0);
 
@@ -868,7 +1335,29 @@ public class GroupedLayoutDelegateUnitTest {
     }
 
     @Test
-    public void testDidSelectTab_FromUndo_UpdatesGroupRepresentativeTab() {
+    public void testDidSelectTab_GroupTokenLookup() {
+        GroupedLayoutDelegate delegate =
+                new GroupedLayoutDelegate(mMediator, mModelList, mThumbnailProvider);
+        PropertyModel groupCardModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(CARD_TYPE, TAB_GROUP)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, TAB_GROUP_ID)
+                        .with(TabProperties.TAB_ID, TAB1_ID)
+                        .build();
+        mModelList.add(new ListItem(TabProperties.UiType.TAB_GROUP, groupCardModel));
+        when(mTabModel.getTabById(TAB2_ID)).thenReturn(mTab2);
+        when(mTab2.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+
+        delegate.didSelectTab(mTab2, TabSelectionType.FROM_USER, TAB3_ID);
+
+        verify(mMediator).setLastSelectedTabListModelIndex(TabModel.INVALID_TAB_INDEX);
+        verify(mMediator).selectTab(TabModel.INVALID_TAB_INDEX, 0);
+        verify(mMediator, never()).getIndexForTabIdWithRelatedTabs(anyInt());
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.ANDROID_TAB_UI_REFACTOR)
+    public void testDidSelectTab_FromUndo_UpdatesGroupRepresentativeTab_featureDisabled() {
         createAndAddPropertyModel(TAB1_ID);
         when(mMediator.getIndexForTabIdWithRelatedTabs(TAB2_ID)).thenReturn(0);
 
@@ -880,22 +1369,178 @@ public class GroupedLayoutDelegateUnitTest {
     }
 
     @Test
-    public void testGetUiIndexForTab_DirectMatch() {
-        createAndAddPropertyModel(TAB1_ID);
-        assertEquals(0, mDelegate.getUiIndexForTab(TAB1_ID));
+    public void testDidSelectTab_FromUndo_DoesNotUpdateTabId() {
+        GroupedLayoutDelegate delegate =
+                new GroupedLayoutDelegate(mMediator, mModelList, mThumbnailProvider);
+        PropertyModel groupCardModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(CARD_TYPE, TAB_GROUP)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, TAB_GROUP_ID)
+                        .with(TabProperties.TAB_ID, TAB1_ID)
+                        .build();
+        mModelList.add(new ListItem(TabProperties.UiType.TAB_GROUP, groupCardModel));
+        when(mTabModel.getTabById(TAB2_ID)).thenReturn(mTab2);
+        when(mTab2.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+
+        delegate.didSelectTab(mTab2, TabSelectionType.FROM_UNDO, TAB3_ID);
+
+        // Group card TAB_ID remains TAB1_ID because card identity is based on tab group token.
+        assertEquals(TAB1_ID, mModelList.get(0).model.get(TabProperties.TAB_ID));
+        verify(mMediator).setLastSelectedTabListModelIndex(TabModel.INVALID_TAB_INDEX);
+        verify(mMediator).selectTab(TabModel.INVALID_TAB_INDEX, 0);
     }
 
     @Test
-    public void testGetUiIndexForTab_Fallback() {
+    public void testGetIndexFromTabId_DirectMatch() {
+        createAndAddPropertyModel(TAB1_ID);
+        assertEquals(0, mDelegate.getIndexFromTabId(TAB1_ID));
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.ANDROID_TAB_UI_REFACTOR)
+    public void testGetUiIndexForTab_FallbackLegacyGts_featureDisabled() {
         createAndAddPropertyModel(TAB1_ID);
         when(mMediator.getIndexForTabIdWithRelatedTabs(TAB2_ID)).thenReturn(0);
+
+        // Legacy group cards are keyed by a representative tab ID, so only the fallback lookup can
+        // resolve a child tab.
         assertEquals(0, mDelegate.getUiIndexForTab(TAB2_ID));
+        assertEquals(TabModel.INVALID_TAB_INDEX, mDelegate.getIndexFromTabId(TAB2_ID));
+    }
+
+    @Test
+    public void testGetUiIndexForTab_GroupTokenLookup() {
+        createAndAddPropertyModel(TAB1_ID);
+        createAndAddGroupCardModel(TAB_GROUP_ID, TAB2_ID);
+
+        when(mTabModel.getTabById(TAB3_ID)).thenReturn(mTab3);
+        when(mTab3.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+
+        GroupedLayoutDelegate delegate =
+                new GroupedLayoutDelegate(mMediator, mModelList, mThumbnailProvider);
+
+        // Child tab in group resolves to group card directly via token lookup.
+        assertEquals(1, delegate.getUiIndexForTab(TAB3_ID));
+        assertEquals(1, delegate.getIndexFromTabId(TAB3_ID));
+        verify(mMediator, never()).getIndexForTabIdWithRelatedTabs(anyInt());
+    }
+
+    @Test
+    public void testGetIndexFromTabId_UngroupedTabResolvesToOwnCard() {
+        createAndAddPropertyModel(TAB1_ID);
+        createAndAddGroupCardModel(TAB_GROUP_ID, TAB2_ID);
+
+        when(mTabModel.getTabById(TAB1_ID)).thenReturn(mTab1);
+        when(mTab1.getTabGroupId()).thenReturn(null);
+
+        assertEquals(0, mDelegate.getIndexFromTabId(TAB1_ID));
+    }
+
+    @Test
+    public void testGetIndexFromTabId_GroupedTabResolvesToGroupCard() {
+        createAndAddPropertyModel(TAB1_ID);
+        createAndAddGroupCardModel(TAB_GROUP_ID, TAB2_ID);
+
+        when(mTabModel.getTabById(TAB2_ID)).thenReturn(mTab2);
+        when(mTab2.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+        when(mTabModel.getTabById(TAB3_ID)).thenReturn(mTab3);
+        when(mTab3.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+
+        GroupedLayoutDelegate delegate =
+                new GroupedLayoutDelegate(mMediator, mModelList, mThumbnailProvider);
+
+        // The tab whose ID is on the card resolves to the group card.
+        assertEquals(1, delegate.getIndexFromTabId(TAB2_ID));
+
+        // Another tab in the group also resolves to the group card via the group Token.
+        assertEquals(1, delegate.getIndexFromTabId(TAB3_ID));
+        assertEquals(TabModel.INVALID_TAB_INDEX, mModelList.indexFromTabId(TAB3_ID));
+    }
+
+    @Test
+    public void testGetIndexFromTabId_NoGroupCardFallsBackToTabId() {
+        // When the tab is grouped, but its card in the model is still a plain TAB card (flag OFF),
+        // the token lookup misses and the tab id lookup finds the card.
+        createAndAddPropertyModel(TAB1_ID);
+
+        when(mTabModel.getTabById(TAB1_ID)).thenReturn(mTab1);
+        when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+
+        assertEquals(0, mDelegate.getIndexFromTabId(TAB1_ID));
+    }
+
+    @Test
+    public void testGetIndexFromTabId_ClosedTabResolvesFromModelList() {
+        createAndAddPropertyModel(TAB1_ID);
+        // Simulate tab already removed from TabModel during closure.
+        when(mTabModel.getTabById(TAB1_ID)).thenReturn(null);
+
+        GroupedLayoutDelegate delegate =
+                new GroupedLayoutDelegate(mMediator, mModelList, mThumbnailProvider);
+
+        assertEquals(0, delegate.getIndexFromTabId(TAB1_ID));
+    }
+
+    @Test
+    public void testGetModelFromTabId() {
+        PropertyModel tabModel = createAndAddPropertyModel(TAB1_ID);
+        PropertyModel groupModel = createAndAddGroupCardModel(TAB_GROUP_ID, TAB2_ID);
+
+        when(mTabModel.getTabById(TAB1_ID)).thenReturn(mTab1);
+        when(mTab1.getTabGroupId()).thenReturn(null);
+        when(mTabModel.getTabById(TAB2_ID)).thenReturn(mTab2);
+        when(mTab2.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+
+        GroupedLayoutDelegate delegate =
+                new GroupedLayoutDelegate(mMediator, mModelList, mThumbnailProvider);
+
+        assertEquals(tabModel, delegate.getModelFromTabId(TAB1_ID));
+        assertEquals(groupModel, delegate.getModelFromTabId(TAB2_ID));
+        assertNull(delegate.getModelFromTabId(99999));
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.ANDROID_TAB_UI_REFACTOR)
+    public void testGetGroupCardTypeAndIsGroupCollapsed_featureDisabled() {
+        assertEquals(TAB, mDelegate.getGroupCardType());
+        assertTrue(mDelegate.isGroupCollapsed(TAB_GROUP_ID));
+    }
+
+    @Test
+    public void testDidRemoveTabGroup() {
+        createAndAddPropertyModel(TAB1_ID);
+        createAndAddGroupCardModel(TAB_GROUP_ID, TAB2_ID);
+        assertEquals(2, mModelList.size());
+
+        mDelegate.didRemoveTabGroup(TAB_GROUP_ID, DidRemoveTabGroupReason.CLOSE);
+        assertEquals(1, mModelList.size());
+        assertEquals(TAB1_ID, mModelList.get(0).model.get(TabProperties.TAB_ID));
     }
 
     @Test
     public void testGetGroupCardTypeAndIsGroupCollapsed() {
-        assertEquals(TAB, mDelegate.getGroupCardType());
-        assertTrue(mDelegate.isGroupCollapsed(TAB_GROUP_ID));
+        GroupedLayoutDelegate delegate =
+                new GroupedLayoutDelegate(mMediator, mModelList, mThumbnailProvider);
+        assertEquals(TAB_GROUP, delegate.getGroupCardType());
+        assertTrue(delegate.isGroupCollapsed(TAB_GROUP_ID));
+    }
+
+    @Test
+    public void testDidRemoveTabGroup_SingleCard() {
+        GroupedLayoutDelegate delegate =
+                new GroupedLayoutDelegate(mMediator, mModelList, mThumbnailProvider);
+        PropertyModel groupCardModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(CARD_TYPE, TAB_GROUP)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, TAB_GROUP_ID)
+                        .with(TabProperties.TAB_ID, TAB1_ID)
+                        .build();
+        mModelList.add(new ListItem(TabProperties.UiType.TAB_GROUP, groupCardModel));
+        assertEquals(1, mModelList.size());
+
+        delegate.didRemoveTabGroup(TAB_GROUP_ID, DidRemoveTabGroupReason.CLOSE);
+
+        assertEquals(0, mModelList.size());
     }
 
     @Test
@@ -921,22 +1566,50 @@ public class GroupedLayoutDelegateUnitTest {
     }
 
     @Test
-    public void testAreTabsInSameGroup() {
+    @DisableFeatures(ChromeFeatureList.ANDROID_TAB_UI_REFACTOR)
+    public void testAreTabsInSameGroup_featureDisabled() {
+        PropertyModel model = createAndAddPropertyModel(TAB1_ID);
         when(mTabModel.getTabById(TAB1_ID)).thenReturn(mTab1);
         when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
         when(mTab2.getTabGroupId()).thenReturn(TAB_GROUP_ID);
-        assertTrue(mDelegate.areTabsInSameGroup(TAB1_ID, mTab2));
+        assertTrue(mDelegate.areTabsInSameGroup(model, mTab2));
 
         Token otherGroupId = new Token(3L, 4L);
         when(mTab2.getTabGroupId()).thenReturn(otherGroupId);
-        assertFalse(mDelegate.areTabsInSameGroup(TAB1_ID, mTab2));
+        assertFalse(mDelegate.areTabsInSameGroup(model, mTab2));
 
         when(mTab1.getTabGroupId()).thenReturn(null);
         when(mTab2.getTabGroupId()).thenReturn(null);
-        assertFalse(mDelegate.areTabsInSameGroup(TAB1_ID, mTab2));
+        assertFalse(mDelegate.areTabsInSameGroup(model, mTab2));
 
         when(mTabModel.getTabById(TAB1_ID)).thenReturn(null);
-        assertFalse(mDelegate.areTabsInSameGroup(TAB1_ID, mTab2));
+        assertFalse(mDelegate.areTabsInSameGroup(model, mTab2));
+    }
+
+    @Test
+    public void testAreTabsInSameGroup() {
+        GroupedLayoutDelegate delegate =
+                new GroupedLayoutDelegate(mMediator, mModelList, mThumbnailProvider);
+        PropertyModel groupCardModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(CARD_TYPE, TAB_GROUP)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, TAB_GROUP_ID)
+                        .with(TabProperties.TAB_ID, TAB1_ID)
+                        .build();
+
+        when(mTab2.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+        assertTrue(delegate.areTabsInSameGroup(groupCardModel, mTab2));
+
+        Token otherGroupId = new Token(3L, 4L);
+        when(mTab2.getTabGroupId()).thenReturn(otherGroupId);
+        assertFalse(delegate.areTabsInSameGroup(groupCardModel, mTab2));
+
+        PropertyModel tabCardModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(CARD_TYPE, TAB)
+                        .with(TabProperties.TAB_ID, TAB1_ID)
+                        .build();
+        assertFalse(delegate.areTabsInSameGroup(tabCardModel, mTab2));
     }
 
     @Test
@@ -1048,6 +1721,19 @@ public class GroupedLayoutDelegateUnitTest {
         return model;
     }
 
+    private PropertyModel createAndAddGroupCardModel(Token tabGroupId, int tabId) {
+        PropertyModel model =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(CARD_TYPE, TAB_GROUP)
+                        .with(TabProperties.TAB_ID, tabId)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, tabGroupId)
+                        .with(TabProperties.TAB_GROUP_ID, null)
+                        .with(TabProperties.IS_COLLAPSED, true)
+                        .build();
+        mModelList.add(new ListItem(TabProperties.UiType.TAB, model));
+        return model;
+    }
+
     private void setupTabsInModel(Tab... tabs) {
         for (int i = 0; i < tabs.length; i++) {
             when(mTabModel.indexOf(tabs[i])).thenReturn(i);
@@ -1064,7 +1750,15 @@ public class GroupedLayoutDelegateUnitTest {
     private void setupGetIndexAndTabForTabGroupId(Token tabGroupId, int index, Tab tab) {
         int tabId = tab.getId();
         when(mTabModel.getGroupLastShownTabId(tabGroupId)).thenReturn(tabId);
+        when(mTabModel.getTabsInGroup(tabGroupId)).thenReturn(List.of(tab));
         when(mMediator.getIndexForTabIdWithRelatedTabs(tabId)).thenReturn(index);
+        while (mModelList.size() <= index) {
+            createAndAddPropertyModel(Tab.INVALID_TAB_ID);
+        }
+        PropertyModel model = mModelList.get(index).model;
+        model.set(TabProperties.TAB_ID, tabId);
+        model.set(CARD_TYPE, TAB_GROUP);
+        model.set(TabProperties.TAB_GROUP_HEADER_ID, tabGroupId);
         when(mMediator.getTabForIndex(index)).thenReturn(tab);
         when(tab.getTabGroupId()).thenReturn(tabGroupId);
         when(mTabModel.isTabInTabGroup(tab)).thenReturn(true);
@@ -1072,7 +1766,5 @@ public class GroupedLayoutDelegateUnitTest {
 
     private void setupGetIndexAndTabForTabGroupIdNotFound(Token tabGroupId) {
         when(mTabModel.getGroupLastShownTabId(tabGroupId)).thenReturn(Tab.INVALID_TAB_ID);
-        when(mMediator.getIndexForTabIdWithRelatedTabs(Tab.INVALID_TAB_ID))
-                .thenReturn(TabModel.INVALID_TAB_INDEX);
     }
 }

@@ -15,7 +15,6 @@
 #include "chrome/browser/actor/actor_script_tool_receiver.h"
 #include "chrome/browser/buildflags.h"
 #include "chrome/browser/dom_distiller/dom_distiller_service_factory.h"
-#include "chrome/browser/geic/geic_host.h"
 #include "chrome/browser/glic/host/glic_page_handler.h"
 #include "chrome/browser/glic/host/guest_util.h"
 #include "chrome/browser/glic/public/features.h"
@@ -62,6 +61,7 @@
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/url_constants.h"
 #include "mojo/public/cpp/bindings/binder_map.h"
@@ -81,6 +81,7 @@
 #include "third_party/blink/public/mojom/prerender/prerender.mojom.h"
 #include "third_party/blink/public/public_buildflags.h"
 #include "ui/accessibility/accessibility_features.h"
+#include "ui/accessibility/ax_mode.h"
 
 #if BUILDFLAG(ENABLE_UNHANDLED_TAP)
 #include "chrome/browser/android/contextualsearch/unhandled_tap_notifier_impl.h"  // nogncheck crbug.com/40147906
@@ -105,8 +106,6 @@
 #include "third_party/blink/public/mojom/installedapp/installed_app_provider.mojom.h"
 #else
 #include "chrome/browser/badging/badge_manager.h"
-#include "chrome/browser/geic/geic.mojom.h"
-#include "chrome/browser/geic/geic_pwc_manager.h"
 #include "chrome/browser/payments/payment_request_factory.h"
 #include "chrome/browser/prefs/persistent_renderer_prefs_manager.h"
 #include "chrome/browser/web_applications/web_install_service_impl.h"
@@ -196,6 +195,12 @@ void BindUnhandledTapWebContentsObserver(
 void BindImageAnnotator(
     content::RenderFrameHost* frame_host,
     mojo::PendingReceiver<image_annotation::mojom::Annotator> receiver) {
+  content::WebContents* web_contents =
+      content::WebContents::FromRenderFrameHost(frame_host);
+  if (!web_contents || !web_contents->GetAccessibilityMode().has_mode(
+                           ui::AXMode::kLabelImages)) {
+    return;
+  }
   AccessibilityLabelsServiceFactory::GetForProfile(
       Profile::FromBrowserContext(
           frame_host->GetProcess()->GetBrowserContext()))
@@ -454,7 +459,6 @@ void PopulateChromeFrameBinders(
   // remains the security boundary for frames that do get the binders.
   if (render_frame_host->GetProcess()->IsPrivileged()) {
     map->Add<pwc::mojom::PrivilegedBridge>(&pwc::BindPrivilegedBridge);
-    map->Add<geic::mojom::GeicApi>(&geic::BindGeicApi);
   }
   map->Add<image_annotation::mojom::Annotator>(&BindImageAnnotator);
 
@@ -518,7 +522,6 @@ void PopulateChromeFrameBinders(
 #endif  // BUILDFLAG(ENABLE_UNHANDLED_TAP)
 
 #else
-  map->Add<geic::mojom::GeicBrowserHost>(&geic::BindGeicBrowserHost);
   map->Add<blink::mojom::BadgeService>(
       &badging::BadgeManager::BindFrameReceiverIfAllowed);
   map->Add<blink::mojom::PersistentRendererPrefsService>(

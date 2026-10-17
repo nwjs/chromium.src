@@ -12,6 +12,7 @@
 #import "base/ios/block_types.h"
 #import "base/not_fatal_until.h"
 #import "base/notreached.h"
+#import "components/password_manager/core/common/browser_assisted_login_type.h"
 #import "components/webauthn/core/browser/passkey_model_utils.h"
 #import "components/webauthn/ios/passkey_types.h"
 #import "ios/chrome/common/app_group/app_group_metrics.h"
@@ -316,14 +317,6 @@ enum class PasskeyCreationEligibility {
 
 - (void)performPasskeyRegistrationWithoutUserInteractionIfPossible:
     (ASPasskeyCredentialRequest*)registrationRequest {
-  // TODO(crbug.com/515318495): Force disable registration to prevent the CPE
-  // startup crash in M149
-  [self exitWithErrorCode:ASExtensionErrorCodeFailed];
-  return;
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunreachable-code"
-
   PasskeyRequestDetails* passkeyRequestDetails =
       [self passkeyDetailsFromConditionalCreateRequest:registrationRequest];
   if (![passkeyRequestDetails
@@ -346,8 +339,6 @@ enum class PasskeyCreationEligibility {
 
   // Try to create a passkey while user interaction is disallowed.
   [self createPasskeyWithDetails:passkeyRequestDetails gaia:gaia];
-
-#pragma clang diagnostic pop
 }
 
 - (void)prepareInterfaceForPasskeyRegistration:
@@ -1012,6 +1003,11 @@ enum class PasskeyCreationEligibility {
 // -completeAssertionRequestWithSelectedPasskeyCredential:completionHandler:.
 - (void)completeAssertionRequestWithSelectedPasskeyCredential:
     (ASPasskeyAssertionCredential*)credential {
+  UpdateHistogramCount(
+      @"PasswordManager.BrowserAssistedLogin.Type",
+      static_cast<int>(
+          password_manager::metrics_util::BrowserAssistedLoginType::
+              kPasskeyStoredInGPMFacilitatedThroughIOSUI));
   [self.listCoordinator stop];
   self.listCoordinator = nil;
   [self.extensionContext

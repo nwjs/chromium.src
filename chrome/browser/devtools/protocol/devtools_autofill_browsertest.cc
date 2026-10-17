@@ -511,10 +511,9 @@ IN_PROC_BROWSER_TEST_F(DevToolsAutofillTest, AddressFormFilled) {
 
   // Assert the expected values used to build the address UI were sent to
   // devtools.
-  ASSERT_EQ(
-      field_types_added_to_address_ui,
-      GetExpectedFieldTypesToBuildAddressUiForCountryCode(base::UTF16ToUTF8(
-          profile.GetInfo(FieldType::ADDRESS_HOME_COUNTRY, "en-US"))));
+  ASSERT_EQ(field_types_added_to_address_ui,
+            GetExpectedFieldTypesToBuildAddressUiForCountryCode(
+                base::UTF16ToUTF8(profile.GetRawInfo(ADDRESS_HOME_COUNTRY))));
   // Assert that the filled fields sent to devtools match exactly the ones
   // filled by autofill.
   const base::ListValue* filled_fields =
@@ -537,7 +536,8 @@ IN_PROC_BROWSER_TEST_F(DevToolsAutofillTest, AddressFormFilled) {
         ff, FilledFieldHasAttributeWithValue(
                 "autofillType", base::JoinString(field_type_strings, ", ")));
     EXPECT_THAT(ff, FilledFieldHasAttributeWithValue16(
-                        "value", profile.GetInfo(af->Type(), "en-us")));
+                        "value",
+                        profile.GetInfo(af->Type().GetAddressType(), "en-us")));
     EXPECT_THAT(ff, FilledFieldHasAttributeWithValue16(
                         "frameId",
                         base::UTF8ToUTF16(
@@ -760,7 +760,11 @@ IN_PROC_BROWSER_TEST_F(DevToolsAutofillTest, TriggerAddressAutofill) {
     EXPECT_EQ("NY", state.ExtractString());
     content::EvalJsResult country = content::EvalJs(
         web_contents(), "document.getElementById('country').value");
-    EXPECT_EQ("US", country.ExtractString());
+    EXPECT_EQ(base::FeatureList::IsEnabled(
+                  autofill::features::kAutofillDisallowCountryCodeFilling)
+                  ? "United States"
+                  : "US",
+              country.ExtractString());
   }
 }
 

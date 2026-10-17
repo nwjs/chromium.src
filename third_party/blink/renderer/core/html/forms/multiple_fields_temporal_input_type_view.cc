@@ -54,7 +54,6 @@
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
-#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/text/date_components.h"
 #include "third_party/blink/renderer/platform/text/date_time_format.h"
 #include "third_party/blink/renderer/platform/text/platform_locale.h"
@@ -64,7 +63,7 @@ namespace blink {
 
 using mojom::blink::FormControlType;
 
-class DateTimeFormatValidator : public DateTimeFormat::TokenHandler {
+class DateTimeFormatValidator : public date_time_format::TokenHandler {
  public:
   DateTimeFormatValidator()
       : has_year_(false),
@@ -76,7 +75,7 @@ class DateTimeFormatValidator : public DateTimeFormat::TokenHandler {
         has_minute_(false),
         has_second_(false) {}
 
-  void VisitField(DateTimeFormat::FieldType, int) final;
+  void VisitField(date_time_format::FieldType, int) final;
   void VisitLiteral(const String&) final {}
 
   bool ValidateFormat(const String& format, const BaseTemporalInputType&);
@@ -92,40 +91,46 @@ class DateTimeFormatValidator : public DateTimeFormat::TokenHandler {
   bool has_second_;
 };
 
-void DateTimeFormatValidator::VisitField(DateTimeFormat::FieldType field_type,
+void DateTimeFormatValidator::VisitField(date_time_format::FieldType field_type,
                                          int) {
+  using date_time_format::FieldType;
   switch (field_type) {
-    case DateTimeFormat::kFieldTypeYear:
+    case FieldType::kFieldTypeYear:
       has_year_ = true;
       break;
-    case DateTimeFormat::kFieldTypeMonth:  // Fallthrough.
-    case DateTimeFormat::kFieldTypeMonthStandAlone:
+    case FieldType::kFieldTypeMonth:
+      [[fallthrough]];
+    case FieldType::kFieldTypeMonthStandAlone:
       has_month_ = true;
       break;
-    case DateTimeFormat::kFieldTypeWeekOfYear:
+    case FieldType::kFieldTypeWeekOfYear:
       has_week_ = true;
       break;
-    case DateTimeFormat::kFieldTypeDayOfMonth:
+    case FieldType::kFieldTypeDayOfMonth:
       has_day_ = true;
       break;
-    case DateTimeFormat::kFieldTypePeriod:
-    case DateTimeFormat::kFieldTypePeriodAmPmNoonMidnight:
-    case DateTimeFormat::kFieldTypePeriodFlexible:
+    case FieldType::kFieldTypePeriod:
+      [[fallthrough]];
+    case FieldType::kFieldTypePeriodAmPmNoonMidnight:
+      [[fallthrough]];
+    case FieldType::kFieldTypePeriodFlexible:
       has_ampm_ = true;
       break;
-    case DateTimeFormat::kFieldTypeHour11:  // Fallthrough.
-    case DateTimeFormat::kFieldTypeHour12:
+    case FieldType::kFieldTypeHour11:
+      [[fallthrough]];
+    case FieldType::kFieldTypeHour12:
       has_hour_ = true;
       break;
-    case DateTimeFormat::kFieldTypeHour23:  // Fallthrough.
-    case DateTimeFormat::kFieldTypeHour24:
+    case FieldType::kFieldTypeHour23:
+      [[fallthrough]];
+    case FieldType::kFieldTypeHour24:
       has_hour_ = true;
       has_ampm_ = true;
       break;
-    case DateTimeFormat::kFieldTypeMinute:
+    case FieldType::kFieldTypeMinute:
       has_minute_ = true;
       break;
-    case DateTimeFormat::kFieldTypeSecond:
+    case FieldType::kFieldTypeSecond:
       has_second_ = true;
       break;
     default:
@@ -136,8 +141,9 @@ void DateTimeFormatValidator::VisitField(DateTimeFormat::FieldType field_type,
 bool DateTimeFormatValidator::ValidateFormat(
     const String& format,
     const BaseTemporalInputType& input_type) {
-  if (!DateTimeFormat::Parse(format, *this))
+  if (!date_time_format::Parse(format, *this)) {
     return false;
+  }
   return input_type.IsValidFormat(has_year_, has_month_, has_week_, has_day_,
                                   has_ampm_, has_hour_, has_minute_,
                                   has_second_);
@@ -154,14 +160,6 @@ MultipleFieldsTemporalInputTypeView::GetDateTimeEditElement() const {
 DateTimeEditElement*
 MultipleFieldsTemporalInputTypeView::GetDateTimeEditElementIfCreated() const {
   return HasCreatedShadowSubtree() ? GetDateTimeEditElement() : nullptr;
-}
-
-ClearButtonElement* MultipleFieldsTemporalInputTypeView::GetClearButtonElement()
-    const {
-  auto* element = GetElement().EnsureShadowSubtree()->getElementById(
-      shadow_element_names::kIdClearButton);
-  CHECK(!element || IsA<ClearButtonElement>(element));
-  return To<ClearButtonElement>(element);
 }
 
 PickerIndicatorElement*
@@ -218,7 +216,6 @@ void MultipleFieldsTemporalInputTypeView::EditControlValueChanged() {
     GetElement().DispatchInputEvent();
   }
   GetElement().NotifyFormStateChanged();
-  GetElement().UpdateClearButtonVisibility();
 }
 
 String MultipleFieldsTemporalInputTypeView::FormatDateTimeFieldsState(
@@ -387,8 +384,6 @@ void MultipleFieldsTemporalInputTypeView::CreateShadowSubtree() {
 void MultipleFieldsTemporalInputTypeView::DestroyShadowSubtree() {
   DCHECK(!is_destroying_shadow_subtree_);
   is_destroying_shadow_subtree_ = true;
-  if (ClearButtonElement* element = GetClearButtonElement())
-    element->RemoveClearButtonOwner();
   if (DateTimeEditElement* element = GetDateTimeEditElement())
     element->RemoveEditControlOwner();
   if (PickerIndicatorElement* element = GetPickerIndicatorElement())
@@ -459,10 +454,6 @@ void MultipleFieldsTemporalInputTypeView::DisabledAttributeChanged(
     edit->DisabledStateChanged();
 }
 
-void MultipleFieldsTemporalInputTypeView::RequiredAttributeChanged() {
-  UpdateClearButtonVisibility();
-}
-
 void MultipleFieldsTemporalInputTypeView::HandleKeydownEvent(
     KeyboardEvent& event) {
   if (!GetElement().IsFocused())
@@ -519,7 +510,6 @@ void MultipleFieldsTemporalInputTypeView::RestoreFormControlState(
       DateTimeFieldsState::RestoreFormControlState(state);
   edit->SetValueAsDateTimeFieldsState(date_time_fields_state);
   GetElement().SetNonAttributeValue(input_type_->SanitizeValue(edit->Value()));
-  UpdateClearButtonVisibility();
 }
 
 FormControlState MultipleFieldsTemporalInputTypeView::SaveFormControlState()
@@ -583,7 +573,6 @@ void MultipleFieldsTemporalInputTypeView::UpdateView() {
     edit->SetValueAsDate(layout_parameters, date);
   else
     edit->SetEmptyValue(layout_parameters, date);
-  UpdateClearButtonVisibility();
 }
 
 AppearanceValue MultipleFieldsTemporalInputTypeView::AutoAppearance() const {
@@ -653,46 +642,6 @@ void MultipleFieldsTemporalInputTypeView::ShowPickerIndicator() {
   DCHECK(GetPickerIndicatorElement());
   GetPickerIndicatorElement()->RemoveInlineStyleProperty(
       CSSPropertyID::kDisplay);
-}
-
-void MultipleFieldsTemporalInputTypeView::FocusAndSelectClearButtonOwner() {
-  CHECK(
-      !RuntimeEnabledFeatures::HTMLInputElementDropWebkitClearButtonEnabled());
-  GetElement().Focus(FocusParams(FocusTrigger::kUserGesture));
-}
-
-bool MultipleFieldsTemporalInputTypeView::
-    ShouldClearButtonRespondToMouseEvents() {
-  CHECK(
-      !RuntimeEnabledFeatures::HTMLInputElementDropWebkitClearButtonEnabled());
-  return !GetElement().IsDisabledOrReadOnly() && !GetElement().IsRequired();
-}
-
-void MultipleFieldsTemporalInputTypeView::ClearValue() {
-  CHECK(
-      !RuntimeEnabledFeatures::HTMLInputElementDropWebkitClearButtonEnabled());
-  GetElement().SetValue("",
-                        TextFieldEventBehavior::kDispatchInputAndChangeEvent);
-  GetElement().UpdateClearButtonVisibility();
-}
-
-void MultipleFieldsTemporalInputTypeView::UpdateClearButtonVisibility() {
-  ClearButtonElement* clear_button = GetClearButtonElement();
-  if (!clear_button)
-    return;
-  CHECK(
-      !RuntimeEnabledFeatures::HTMLInputElementDropWebkitClearButtonEnabled());
-
-  if (GetElement().IsRequired() ||
-      !GetDateTimeEditElement()->AnyEditableFieldsHaveValues()) {
-    clear_button->SetInlineStyleProperty(CSSPropertyID::kOpacity, 0.0,
-                                         CSSPrimitiveValue::UnitType::kNumber);
-    clear_button->SetInlineStyleProperty(CSSPropertyID::kPointerEvents,
-                                         CSSValueID::kNone);
-  } else {
-    clear_button->RemoveInlineStyleProperty(CSSPropertyID::kOpacity);
-    clear_button->RemoveInlineStyleProperty(CSSPropertyID::kPointerEvents);
-  }
 }
 
 TextDirection MultipleFieldsTemporalInputTypeView::ComputedTextDirection() {

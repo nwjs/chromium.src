@@ -10,6 +10,9 @@ enum InfoBarType {
   // Alternate nav infobar.
   kAlternateNav,
 
+  // Automation infobar.
+  kAutomation,
+
   // Bad flags infobar.
   kBadFlags,
 
@@ -84,6 +87,31 @@ enum InfoBarType {
   // Theme installed infobar.
   [EnableIf=enable_extensions]
   kThemeInstalled,
+
+  // Web authentication flow infobar.
+  [EnableIf=enable_extensions]
+  kWebAuthFlow,
+};
+
+// An action that can be performed on an infobar from the internals page.
+enum InfoBarAction {
+  // Shows the infobar on the currently active tab.
+  kShowForCurrentTab,
+
+  // Shows the infobar across all browser windows.
+  kShowGlobally,
+
+  // Hides the infobar.
+  kHide,
+};
+
+// A single button shown on an infobar's card.
+struct InfoBarActionEntry {
+  // The action performed when the button is clicked.
+  InfoBarAction action;
+
+  // Human-readable label shown on the button.
+  string label;
 };
 
 // Metadata describing an individual infobar that can be triggered.
@@ -97,6 +125,10 @@ struct InfoBarEntry {
   // Human-readable description shown in the WebUI explaining how this infobar
   // works or is triggered.
   string description;
+
+  // Buttons shown on this infobar's card, in display order. Infobars that
+  // support a single action have exactly one entry.
+  array<InfoBarActionEntry> actions;
 };
 
 // Interface for browser-to-page events
@@ -110,8 +142,9 @@ interface PageHandler {
   // Returns the list of infobars registered for testing.
   GetInfoBars() => (array<InfoBarEntry> infobars);
 
-  // Invokes the C++ logic to trigger the infobar identified by `type`.
-  TriggerInfoBar(InfoBarType type) => (bool success);
+  // Performs `action` on the infobar identified by `type`.
+  PerformInfoBarAction(InfoBarType type, InfoBarAction action)
+      => (bool success);
 };
 
 // Used by the WebUI page to bootstrap bidirectional communication.

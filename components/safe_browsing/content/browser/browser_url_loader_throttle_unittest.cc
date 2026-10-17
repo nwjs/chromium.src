@@ -64,7 +64,7 @@ class MockUrlCheckerDelegate : public UrlCheckerDelegate {
   MOCK_METHOD1(NotifySuspiciousSiteDetected,
                void(const base::RepeatingCallback<content::WebContents*()>&));
   MOCK_METHOD2(ShowSuspiciousSiteWarning,
-               void(int64_t,
+               void(const security_interstitials::UnsafeResource&,
                     const base::RepeatingCallback<content::WebContents*()>&));
   MOCK_METHOD0(GetUIManager, BaseUIManager*());
   MOCK_METHOD0(GetThreatTypes, const SBThreatTypeSet&());
@@ -902,7 +902,8 @@ TEST_P(SBBrowserUrlLoaderThrottleTest, VerifyRedirectIpAddressRecorded) {
 
   SafeBrowsingNavigationObserver::MaybeCreateForWebContents(
       local_web_contents, settings_map.get(), &observer_manager, &pref_service,
-      /*has_safe_browsing_service=*/true);
+      /*has_safe_browsing_service=*/true,
+      /*is_referrer_chain_needed_for_enterprise=*/false);
 
   // Simulate starting request for the original URL.
   url_ = GURL("https://original.example.com/");

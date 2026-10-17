@@ -13,16 +13,54 @@
 #include "base/time/time.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/sync/device_info_sync_service_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "components/history/core/browser/browsing_history_service.h"
 #include "components/history/core/browser/features.h"
 #include "components/keyed_service/core/service_access_type.h"
+#include "components/sync_device_info/device_info.h"
+#include "components/sync_device_info/device_info_sync_service.h"
+#include "components/sync_device_info/device_info_tracker.h"
 #include "components/url_formatter/url_formatter.h"
 #include "third_party/jni_zero/default_conversions.h"
 #include "url/android/gurl_android.h"
 
+namespace jni_zero {
+template <>
+inline std::vector<int64_t> FromJniType<std::vector<int64_t>>(
+    JNIEnv* env,
+    const JavaRef<jobject>& j_object) {
+  return FromJniArray<std::vector<int64_t>>(env, j_object);
+}
+
+template <>
+inline ScopedJavaLocalRef<jobject> ToJniType<std::vector<int64_t>>(
+    JNIEnv* env,
+    const std::vector<int64_t>& vec) {
+  return ScopedJavaLocalRef<jobject>(ToJniArray(env, vec));
+}
+
+// Declared before `BrowsingHistoryBridge_jni.h`, which instantiates it, and
+// defined after it because the implementation calls
+// `Java_BrowsingHistoryBridge_createClientInfo` from that header.
+template <>
+ScopedJavaLocalRef<jobject> ToJniType<syncer::DeviceInfo>(
+    JNIEnv* env,
+    const syncer::DeviceInfo& device);
+}  // namespace jni_zero
+
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "chrome/android/chrome_jni_headers/BrowsingHistoryBridge_jni.h"
+
+namespace jni_zero {
+template <>
+ScopedJavaLocalRef<jobject> ToJniType<syncer::DeviceInfo>(
+    JNIEnv* env,
+    const syncer::DeviceInfo& device) {
+  return Java_BrowsingHistoryBridge_createClientInfo(
+      env, std::vector<std::string>{device.guid()}, device.client_name());
+}
+}  // namespace jni_zero
 
 using history::BrowsingHistoryService;
 
@@ -54,7 +92,8 @@ void BrowsingHistoryBridge::QueryHistory(
     const JavaRef<jobject>& j_result_obj,
     const std::u16string& query,
     const std::optional<std::string>& app_id,
-    bool j_host_only) {
+    const std::optional<std::string>& hostname_suffix,
+    const std::optional<std::string>& client_id) {
   j_query_result_obj_.Reset(env, j_result_obj);
   query_history_continuation_.Reset();
 
@@ -62,10 +101,15 @@ void BrowsingHistoryBridge::QueryHistory(
   options.max_count = kMaxQueryCount;
   options.policy_for_404_visits = history::VisitQuery404sPolicy::kExclude404s;
   options.duplicate_policy = history::QueryOptions::REMOVE_DUPLICATES_PER_DAY;
-  options.host_only = j_host_only;
   options.include_actor_visits =
       history::IsBrowsingHistoryActorIntegrationM3Enabled();
   options.app_id = app_id;
+  if (hostname_suffix.has_value()) {
+    options.hostname_suffix = *hostname_suffix;
+  }
+  if (client_id.has_value()) {
+    options.client_ids.push_back(*client_id);
+  }
   browsing_history_service_->QueryHistory(query, options);
 }
 
@@ -82,20 +126,26 @@ void BrowsingHistoryBridge::QueryHistoryContinuation(
   std::move(query_history_continuation_).Run();
 }
 
-void BrowsingHistoryBridge::GetAllAppIds(JNIEnv* env,
-                                         const JavaRef<jobject>& j_result_obj) {
-  j_app_ids_result_obj_.Reset(env, j_result_obj);
+void BrowsingHistoryBridge::GetAllAppIds() {
   browsing_history_service_->GetAllAppIds();
+}
+
+std::vector<const syncer::DeviceInfo*> BrowsingHistoryBridge::GetAllClients() {
+  syncer::DeviceInfoSyncService* device_info_sync_service =
+      DeviceInfoSyncServiceFactory::GetForProfile(profile_);
+  if (device_info_sync_service &&
+      device_info_sync_service->GetDeviceInfoTracker()) {
+    return device_info_sync_service->GetDeviceInfoTracker()
+        ->GetAllChromeDeviceInfo();
+  }
+  return {};
 }
 
 void BrowsingHistoryBridge::OnGetAllAppIds(
     const std::vector<std::string>& app_ids) {
   JNIEnv* env = base::android::AttachCurrentThread();
-  for (const std::string& id : app_ids) {
-    Java_BrowsingHistoryBridge_addAppIdToList(env, j_app_ids_result_obj_, id);
-  }
   Java_BrowsingHistoryBridge_onQueryAppsComplete(env, j_history_service_obj_,
-                                                 j_app_ids_result_obj_);
+                                                 app_ids);
 }
 
 void BrowsingHistoryBridge::GetLastVisitToHostBeforeRecentNavigations(
@@ -124,26 +174,47 @@ void BrowsingHistoryBridge::OnQueryComplete(
       domain = base::UTF8ToUTF16(entry.url.GetScheme() + ":");
     }
 
-    // This relies on the list of timestamps per url in |all_timestamps| being a
-    // sorted data structure.
-    // Since the similar visits grouping logic does not yet exist on Android,
-    // `all_timestamps` will only carry timestamps for the same url. See
-    // b/460405414 for more details.
-    // TODO(b/483287809): Enable similar visits grouping for Android.
-    auto url_and_timestamps = entry.all_timestamps.find(entry.url);
-    CHECK(url_and_timestamps != entry.all_timestamps.end());
-    const std::set<base::Time>& timestamps = url_and_timestamps->second;
-    int64_t most_recent_java_timestamp =
-        timestamps.rbegin()->InMillisecondsSinceUnixEpoch();
-    std::vector<int64_t> native_timestamps;
-    for (const base::Time& val : timestamps) {
-      native_timestamps.push_back(
-          val.ToDeltaSinceWindowsEpoch().InMicroseconds());
+    if (base::FeatureList::IsEnabled(
+            history::kBrowsingHistorySimilarVisitsGrouping)) {
+      std::vector<GURL> urls;
+      std::vector<std::vector<int64_t>> native_timestamps_list;
+      int64_t most_recent_java_timestamp = 0;
+
+      for (const auto& [url, timestamps] : entry.all_timestamps) {
+        urls.push_back(url);
+        std::vector<int64_t> native_timestamps;
+        for (const base::Time& val : timestamps) {
+          native_timestamps.push_back(
+              val.ToDeltaSinceWindowsEpoch().InMicroseconds());
+          most_recent_java_timestamp = std::max(
+              most_recent_java_timestamp, val.InMillisecondsSinceUnixEpoch());
+        }
+        native_timestamps_list.push_back(std::move(native_timestamps));
+      }
+
+      Java_BrowsingHistoryBridge_createHistoryItemAndAddToList(
+          env, j_query_result_obj_, entry.url, domain, entry.title,
+          entry.app_id, most_recent_java_timestamp, urls,
+          native_timestamps_list, entry.blocked_visit, entry.is_actor_visit);
+    } else {
+      // This relies on the list of timestamps per url in |all_timestamps| being
+      // a sorted data structure. When similar visits grouping is disabled,
+      // `all_timestamps` will only carry timestamps for the same url.
+      auto url_and_timestamps = entry.all_timestamps.find(entry.url);
+      CHECK(url_and_timestamps != entry.all_timestamps.end());
+      const std::set<base::Time>& timestamps = url_and_timestamps->second;
+      int64_t most_recent_java_timestamp =
+          timestamps.rbegin()->InMillisecondsSinceUnixEpoch();
+      std::vector<int64_t> native_timestamps;
+      for (const base::Time& val : timestamps) {
+        native_timestamps.push_back(
+            val.ToDeltaSinceWindowsEpoch().InMicroseconds());
+      }
+      Java_BrowsingHistoryBridge_createHistoryItemAndAddToList(
+          env, j_query_result_obj_, entry.url, domain, entry.title,
+          entry.app_id, most_recent_java_timestamp, {entry.url},
+          {native_timestamps}, entry.blocked_visit, entry.is_actor_visit);
     }
-    Java_BrowsingHistoryBridge_createHistoryItemAndAddToList(
-        env, j_query_result_obj_, entry.url, domain, entry.title, entry.app_id,
-        most_recent_java_timestamp, native_timestamps, entry.blocked_visit,
-        entry.is_actor_visit);
   }
 
   Java_BrowsingHistoryBridge_onQueryHistoryComplete(
@@ -154,17 +225,26 @@ void BrowsingHistoryBridge::OnQueryComplete(
 void BrowsingHistoryBridge::MarkItemForRemoval(
     const GURL& url,
     const std::optional<std::string>& app_id,
-    const std::vector<int64_t>& timestamps) {
+    const std::map<GURL, std::vector<int64_t>>& native_timestamps_map) {
   BrowsingHistoryService::HistoryEntry entry;
   entry.url = url;
   entry.app_id = app_id;
-  for (int64_t val : timestamps) {
-    // Since the similar visits grouping logic does not yet exist on Android,
-    // we'll only pass the timestamps for the same url. See b/460405414 for more
-    // details.
-    // TODO(b/483287809): Enable similar visits grouping for Android.
-    entry.all_timestamps[entry.url].insert(
-        base::Time::FromDeltaSinceWindowsEpoch(base::Microseconds(val)));
+  if (base::FeatureList::IsEnabled(
+          history::kBrowsingHistorySimilarVisitsGrouping)) {
+    for (const auto& [item_url, timestamps] : native_timestamps_map) {
+      for (int64_t val : timestamps) {
+        entry.all_timestamps[item_url].insert(
+            base::Time::FromDeltaSinceWindowsEpoch(base::Microseconds(val)));
+      }
+    }
+  } else {
+    auto url_and_timestamps = native_timestamps_map.find(entry.url);
+    if (url_and_timestamps != native_timestamps_map.end()) {
+      for (int64_t val : url_and_timestamps->second) {
+        entry.all_timestamps[entry.url].insert(
+            base::Time::FromDeltaSinceWindowsEpoch(base::Microseconds(val)));
+      }
+    }
   }
   items_to_remove_.push_back(entry);
 }

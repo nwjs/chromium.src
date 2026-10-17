@@ -53,6 +53,8 @@
 <translation id="1965068424387304464">Chromium 提示：儲存密碼</translation>
 <translation id="1992653360331625459">你的「密碼管理工具」中已有這些帳戶的密碼。如果選擇匯入以下其中一個密碼，將會取代現有密碼。</translation>
 <translation id="2006345422933397527">Chromium 無法檢查更新，請檢查互聯網連線。</translation>
+<translation id="2025935492422922097">Chromium 會在雲端私人空間處理網頁標題和網址</translation>
+<translation id="2027881372245801507">關閉建議不會影響 Chromium 處理網頁標題和網址以提供其他功能。你可以在<ph name="BEGIN_LINK" />同步設定<ph name="END_LINK" />中管理有關資料的存取權。</translation>
 <translation id="2042889939382983733">查看 Chromium 記錄</translation>
 <translation id="2052320862053429062">Chromium 會定期將您的密碼與網上發佈的清單互相核對。核對時，您的密碼和使用者名稱將會加密，任何人 (包括 Google) 均無法讀取。</translation>
 <translation id="2059365270911640413">完成 Chromium 設定</translation>
@@ -105,6 +107,7 @@
 <translation id="3072591112723064972">將 Chromium 設定為預設瀏覽器，即時在此開啟連結。</translation>
 <translation id="3115956258722352278">要將 Chromium 設定為預設瀏覽器嗎？</translation>
 <translation id="3180939591219927904">啟用「關閉 Chromium 時鎖定無痕式分頁」</translation>
+<translation id="3239426886813624481">如要與網站分享位置，請輕按 [設定] 以允許 Chromium 使用你的位置。</translation>
 <translation id="327628223428512207">請輸入密碼短語以儲存此密碼，並在所有裝置上存取 Chromium 資料</translation>
 <translation id="328933489847748230">{count,plural, =1{宜家顯示緊 1 個 Chromium 視窗}other{宜家顯示緊 {count} 個 Chromium 視窗}}</translation>
 <translation id="3344204225393848305">將 Chromium 設定為預設瀏覽器</translation>
@@ -351,6 +354,8 @@
 <translation id="865600487977764604">確保您登入使用 Chromium 的安全，並可提升您在其他 Google 應用程式的安全性。</translation>
 <translation id="8663480472502753423">取得 Chromium 最新更新</translation>
 <translation id="8685813584220679697">登入此網站和 Chromium。</translation>
+<translation id="8697693743327341604">如果你選取或忽略建議，Chromium 會作出調整，日後向你顯示更相關的建議。</translation>
+<translation id="869832267508702259">將 Chromium 設定為預設瀏覽器，即可在瀏覽任何網站時取得 Gemini 分析</translation>
 <translation id="8698780336333802489">匯入至 Chromium</translation>
 <translation id="8730503818204408000">開啟 Chromium 設定，將 Chromium 設定為預設瀏覽器。</translation>
 <translation id="8754966941001340678">Chromium 建議使用強化保護功能</translation>

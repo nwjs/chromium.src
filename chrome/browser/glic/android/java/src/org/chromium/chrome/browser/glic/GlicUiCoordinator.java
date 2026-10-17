@@ -9,9 +9,11 @@ import android.view.ViewStub;
 
 import org.chromium.base.lifetime.Destroyable;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
+import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.base.supplier.NullableObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.actor.ActorExternalTriggerSnackbarController;
 import org.chromium.chrome.browser.actor.ActorTaskHelper;
 import org.chromium.chrome.browser.actor.ui.ActorOverlayCoordinator;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsVisibilityManager;
@@ -28,7 +30,8 @@ import org.chromium.components.browser_ui.widget.gesture.BackPressHandlerRegistr
 
 /**
  * Coordinator for Glic UI. It owns and manages Glic-related UI components, currently including
- * ActorControlCoordinator, ActorOverlayCoordinator, and ActorTaskHelper.
+ * ActorControlCoordinator, ActorOverlayCoordinator, ActorTaskHelper, and
+ * ActorExternalTriggerSnackbarController.
  */
 @NullMarked
 public class GlicUiCoordinator implements Destroyable {
@@ -36,6 +39,7 @@ public class GlicUiCoordinator implements Destroyable {
     private final Activity mActivity;
     private final ActorOverlayCoordinator mActorOverlayCoordinator;
     private final ActorTaskHelper mActorTaskHelper;
+    private final ActorExternalTriggerSnackbarController mExternalTriggerSnackbarController;
 
     /**
      * Constructs a new {@link GlicUiCoordinator}.
@@ -52,6 +56,7 @@ public class GlicUiCoordinator implements Destroyable {
      * @param layoutManagerSupplier Supplier for the {@link LayoutManager}.
      * @param overlayStub The {@link ViewStub} to inflate the overlay into.
      * @param activityLifecycleDispatcher Dispatcher for activity lifecycle events.
+     * @param omniboxFocusStateSupplier Supplier for whether the omnibox currently has focus.
      * @param sideUiStateProvider The {@link SideUiStateProvider} providing state on the side UI.
      */
     public GlicUiCoordinator(
@@ -67,6 +72,7 @@ public class GlicUiCoordinator implements Destroyable {
             MonotonicObservableSupplier<LayoutManager> layoutManagerSupplier,
             ViewStub overlayStub,
             ActivityLifecycleDispatcher activityLifecycleDispatcher,
+            NonNullObservableSupplier<Boolean> omniboxFocusStateSupplier,
             @Nullable SideUiStateProvider sideUiStateProvider) {
         mActivity = activity;
 
@@ -80,6 +86,7 @@ public class GlicUiCoordinator implements Destroyable {
                         backPressHandlerRegistry,
                         layoutManagerSupplier,
                         profileSupplier,
+                        omniboxFocusStateSupplier,
                         sideUiStateProvider);
 
         mActorTaskHelper =
@@ -88,13 +95,23 @@ public class GlicUiCoordinator implements Destroyable {
                         profileSupplier,
                         tabModelSelectorSupplier,
                         activityLifecycleDispatcher);
+
+        mExternalTriggerSnackbarController =
+                new ActorExternalTriggerSnackbarController(
+                        mActivity, snackbarManager, profileSupplier, activityLifecycleDispatcher);
     }
 
     @Override
     public void destroy() {
+        mExternalTriggerSnackbarController.destroy();
         mActorOverlayCoordinator.destroy();
         mActorTaskHelper.onDestroy();
         mActorTaskHelper.destroy();
+    }
+
+    /** Notifies the snackbar controller that a pending actor task trigger was received. */
+    public void onPendingActorTaskTrigger() {
+        mExternalTriggerSnackbarController.onPendingActorTaskTrigger();
     }
 
     /** Exposes the {@link ActorOverlayCoordinator} for testing. */

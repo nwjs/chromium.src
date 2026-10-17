@@ -16,20 +16,17 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/engagement/site_engagement_service_factory.h"
 #include "chrome/browser/history/history_service_factory.h"
-#include "chrome/browser/safe_browsing/test_safe_browsing_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory_test_util.h"
 #include "chrome/browser/site_protection/site_familiarity_fetcher.h"
 #include "chrome/browser/site_protection/site_familiarity_process_selection_user_data.h"
 #include "chrome/browser/site_protection/site_familiarity_utils.h"
-#include "chrome/browser/ui/safety_hub/mock_safe_browsing_database_manager.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
-#include "chrome/test/base/testing_browser_process.h"
 #include "components/history/core/browser/history_database_params.h"
 #include "components/history/core/browser/history_service.h"
 #include "components/history/core/browser/history_types.h"
 #include "components/history/core/test/test_history_database.h"
 #include "components/keyed_service/core/keyed_service.h"
-#include "components/safe_browsing/core/browser/db/test_database_manager.h"
+#include "components/safe_browsing/buildflags.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_service.h"
@@ -43,6 +40,13 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+#include "chrome/browser/safe_browsing/test_safe_browsing_service.h"  // nogncheck
+#include "chrome/browser/ui/safety_hub/mock_safe_browsing_database_manager.h"  // nogncheck
+#include "chrome/test/base/testing_browser_process.h"
+#include "components/safe_browsing/core/browser/db/test_database_manager.h"  // nogncheck
+#endif
+
 namespace site_protection {
 namespace {
 
@@ -51,6 +55,7 @@ const int kMinSiteEngagementScoreForFamiliarity =
         kMigrateToBlockV8OptimizerOnUnfamiliarSitesMinSiteEngagementScore
             .default_value;
 
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 // MockSafeBrowsingDatabaseManager which enables adding URL to high confidence
 // allowlist.
 //
@@ -112,6 +117,7 @@ class TestSafeBrowsingDatabaseManager : public MockSafeBrowsingDatabaseManager {
   std::queue<base::OnceClosure> pending_callbacks_;
   int num_queries_ = 0;
 };
+#endif
 
 std::unique_ptr<KeyedService> BuildTestSiteEngagementService(
     content::BrowserContext* context) {
@@ -124,21 +130,7 @@ std::unique_ptr<KeyedService> BuildTestSiteEngagementService(
 class SiteFamiliarityProcessSelectionDeferringConditionTest
     : public ChromeRenderViewHostTestHarness {
  public:
-  void SetUp() override {
-    ChromeRenderViewHostTestHarness::SetUp();
-
-    safe_browsing_database_manager_ =
-        base::MakeRefCounted<TestSafeBrowsingDatabaseManager>();
-    safe_browsing_factory_ =
-        std::make_unique<safe_browsing::TestSafeBrowsingServiceFactory>();
-    safe_browsing_factory_->SetTestDatabaseManager(
-        safe_browsing_database_manager_.get());
-
-    browser_process_ = TestingBrowserProcess::GetGlobal();
-    browser_process_->SetSafeBrowsingService(
-        safe_browsing_factory_->CreateSafeBrowsingService());
-    browser_process_->safe_browsing_service()->Initialize();
-  }
+  void SetUp() override { ChromeRenderViewHostTestHarness::SetUp(); }
 
   TestingProfile::TestingFactories GetTestingFactories() const override {
     return {TestingProfile::TestingFactory{HistoryServiceFactory::GetInstance(),
@@ -150,9 +142,6 @@ class SiteFamiliarityProcessSelectionDeferringConditionTest
 
   void TearDown() override {
     site_protection::SiteFamiliarityFetcher::ResetFamiliarUrlsForTesting();
-    browser_process_->safe_browsing_service()->ShutDown();
-    browser_process_->SetSafeBrowsingService(nullptr);
-
     ChromeRenderViewHostTestHarness::TearDown();
   }
 
@@ -205,15 +194,42 @@ class SiteFamiliarityProcessSelectionDeferringConditionTest
     ASSERT_TRUE(user_data);
     EXPECT_FALSE(user_data->is_site_familiar());
   }
+};
+
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+class SiteFamiliarityProcessSelectionDeferringConditionSafeBrowsingTest
+    : public SiteFamiliarityProcessSelectionDeferringConditionTest {
+ public:
+  void SetUp() override {
+    SiteFamiliarityProcessSelectionDeferringConditionTest::SetUp();
+
+    safe_browsing_database_manager_ =
+        base::MakeRefCounted<TestSafeBrowsingDatabaseManager>();
+    safe_browsing_factory_ =
+        std::make_unique<safe_browsing::TestSafeBrowsingServiceFactory>();
+    safe_browsing_factory_->SetTestDatabaseManager(
+        safe_browsing_database_manager_.get());
+
+    browser_process_ = TestingBrowserProcess::GetGlobal();
+    browser_process_->SetSafeBrowsingService(
+        safe_browsing_factory_->CreateSafeBrowsingService());
+    browser_process_->safe_browsing_service()->Initialize();
+  }
+
+  void TearDown() override {
+    browser_process_->safe_browsing_service()->ShutDown();
+    browser_process_->SetSafeBrowsingService(nullptr);
+    SiteFamiliarityProcessSelectionDeferringConditionTest::TearDown();
+  }
 
  protected:
   raw_ptr<TestingBrowserProcess> browser_process_;
-
   scoped_refptr<TestSafeBrowsingDatabaseManager>
       safe_browsing_database_manager_;
   std::unique_ptr<safe_browsing::TestSafeBrowsingServiceFactory>
       safe_browsing_factory_;
 };
+#endif
 
 // Test that data URLs are considered unfamiliar.
 // Data URLs should stay in their initiator process regardless of the data://
@@ -255,7 +271,8 @@ TEST_F(SiteFamiliarityProcessSelectionDeferringConditionTest,
 
 // Test that standard https URLs explicitly marked as unfamiliar for testing are
 // considered familiar.
-TEST_F(SiteFamiliarityProcessSelectionDeferringConditionTest,
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+TEST_F(SiteFamiliarityProcessSelectionDeferringConditionSafeBrowsingTest,
        FamiliarityHeuristic_HttpsUrl_FamiliarForTesting) {
   // A standard URL that is unfamiliar.
   GURL kTestUrl("https://www.example.com");
@@ -274,6 +291,7 @@ TEST_F(SiteFamiliarityProcessSelectionDeferringConditionTest,
   // requirements.
   CheckSiteFamiliar(navigation_handle);
 }
+#endif
 
 // Test that web-safe non-http URLs (like blob:) explicitly marked as familiar
 // for testing are considered familiar.
@@ -340,7 +358,8 @@ TEST_F(SiteFamiliarityProcessSelectionDeferringConditionTest,
 
 // Test that URLs on the safe-browsing-high-confidence-allowlist are considered
 // familiar.
-TEST_F(SiteFamiliarityProcessSelectionDeferringConditionTest,
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+TEST_F(SiteFamiliarityProcessSelectionDeferringConditionSafeBrowsingTest,
        FamiliarityHeuristic_OnHighConfidenceAllowlist) {
   GURL kTestUrl("https://www.example.com");
   url::Origin kTestOrigin = url::Origin::Create(kTestUrl);
@@ -353,6 +372,7 @@ TEST_F(SiteFamiliarityProcessSelectionDeferringConditionTest,
   BuildAndWaitForConditionToRunCallback(navigation_handle);
   CheckSiteFamiliar(navigation_handle);
 }
+#endif
 
 // Test that if chrome://history has an entry for the origin older than a day
 // that the origin is considered familiar.
@@ -402,7 +422,8 @@ TEST_F(SiteFamiliarityProcessSelectionDeferringConditionTest,
 // safe-browsing-high-confidence-allowlist, chrome://history does not have an
 // entry for the origin older than a day, and the site's engagement score is
 // below the familiarity threshold.
-TEST_F(SiteFamiliarityProcessSelectionDeferringConditionTest,
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+TEST_F(SiteFamiliarityProcessSelectionDeferringConditionSafeBrowsingTest,
        FamiliarityHeuristic_Unfamiliar) {
   GURL kTestUrl("https://www.example.com");
   url::Origin kTestOrigin = url::Origin::Create(kTestUrl);
@@ -415,7 +436,7 @@ TEST_F(SiteFamiliarityProcessSelectionDeferringConditionTest,
 }
 
 // Similar to test above but test with an empty history service.
-TEST_F(SiteFamiliarityProcessSelectionDeferringConditionTest,
+TEST_F(SiteFamiliarityProcessSelectionDeferringConditionSafeBrowsingTest,
        FamiliarityHeuristic_Unfamiliar_EmptyHistoryService) {
   GURL kTestUrl("https://www.example.com");
   url::Origin kTestOrigin = url::Origin::Create(kTestUrl);
@@ -426,6 +447,7 @@ TEST_F(SiteFamiliarityProcessSelectionDeferringConditionTest,
   BuildAndWaitForConditionToRunCallback(navigation_handle);
   CheckSiteUnfamiliar(navigation_handle);
 }
+#endif
 
 TEST_F(SiteFamiliarityProcessSelectionDeferringConditionTest,
        FamiliarityHeuristic_ConfigurableEngagementScore) {
@@ -526,6 +548,7 @@ TEST_F(SiteFamiliarityProcessSelectionDeferringConditionTest,
 }
 
 namespace {
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 
 // Similar to base::MockOnceClosure but easier to repeatedly query whether the
 // callback was run.
@@ -613,7 +636,7 @@ std::unique_ptr<KeyedService> BuildManualCallbackEmptyHistoryService(
 //   ... resume/complete safe browsing ...
 //   safe_browsing_database_manager_->RunNextCallback();
 class SiteFamiliarityProcessSelectionDeferringConditionMockLookupTest
-    : public SiteFamiliarityProcessSelectionDeferringConditionTest {
+    : public SiteFamiliarityProcessSelectionDeferringConditionSafeBrowsingTest {
  public:
   BrowserContextKeyedServiceFactory::TestingFactory GetHistoryTestingFactory()
       const override {
@@ -621,8 +644,10 @@ class SiteFamiliarityProcessSelectionDeferringConditionMockLookupTest
   }
 };
 
+#endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 }  // anonymous namespace
 
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 TEST_F(SiteFamiliarityProcessSelectionDeferringConditionMockLookupTest,
        Defer_LowEngagement_PendingSB_PendingHistory) {
   GURL kTestUrl("https://www.example.com");
@@ -1014,6 +1039,7 @@ class SiteFamiliarityDefaultSearchEngineSkipFamiliarityCheckTest
  protected:
   base::test::ScopedFeatureList feature_list_;
 };
+}  // namespace
 
 // Test that a navigation to the DSE search page does not defer and is familiar.
 TEST_F(SiteFamiliarityDefaultSearchEngineSkipFamiliarityCheckTest, SearchUrl) {
@@ -1351,7 +1377,6 @@ TEST_F(SiteFamiliarityDefaultSearchEngineRunFamiliarityCheckTest,
   EXPECT_EQ(content::ProcessSelectionDeferringCondition::Result::kDefer,
             condition.OnWillSelectFinalProcess(callback.Get()));
 
-
   // Complete history fetch.
   raw_ptr<ManualCallbackEmptyHistoryService> mock_history_service =
       static_cast<ManualCallbackEmptyHistoryService*>(history_service());
@@ -1393,7 +1418,7 @@ TEST_F(SiteFamiliarityDefaultSearchEngineRunFamiliarityCheckTest,
 }
 
 // Test that top-frame navigations log TopFrame and overall histograms.
-TEST_F(SiteFamiliarityProcessSelectionDeferringConditionTest,
+TEST_F(SiteFamiliarityProcessSelectionDeferringConditionSafeBrowsingTest,
        VerdictLogging_TopFrame) {
   GURL kFamiliarUrl("https://familiar.test");
   GURL kUnfamiliarUrl("https://unfamiliar.test");
@@ -1435,7 +1460,7 @@ TEST_F(SiteFamiliarityProcessSelectionDeferringConditionTest,
 
 // Test that cross-site subframe navigations log Subframe and overall
 // histograms.
-TEST_F(SiteFamiliarityProcessSelectionDeferringConditionTest,
+TEST_F(SiteFamiliarityProcessSelectionDeferringConditionSafeBrowsingTest,
        VerdictLogging_CrossSiteSubframe) {
   GURL kTopFrameUrl("https://example.test");
   GURL kFamiliarSubframeUrl("https://familiar.test");
@@ -1492,6 +1517,7 @@ TEST_F(SiteFamiliarityProcessSelectionDeferringConditionTest,
         "SafeBrowsing.SiteFamiliarity.Verdict.TopFrame", 0);
   }
 }
+#endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 
 // Test that same-site subframe navigations do NOT log any familiarity
 // histograms.
@@ -1553,7 +1579,5 @@ TEST_F(SiteFamiliarityProcessSelectionDeferringConditionTest,
       "SafeBrowsing.SiteFamiliarity.Verdict.Subframe", 0);
   histogram_tester.ExpectTotalCount("SafeBrowsing.SiteFamiliarity.Verdict", 0);
 }
-
-}  // namespace
 
 }  // namespace site_protection

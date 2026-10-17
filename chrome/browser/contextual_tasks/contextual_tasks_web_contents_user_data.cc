@@ -4,6 +4,8 @@
 
 #include "chrome/browser/contextual_tasks/contextual_tasks_web_contents_user_data.h"
 
+#include <algorithm>
+
 #include "base/metrics/field_trial_params.h"
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
@@ -129,10 +131,87 @@ ContextualTasksWebContentsUserData::GetOrCreateInputStateModel(
       session_handle, config ? *config : omnibox::SearchboxConfig(), url,
       is_off_the_record, identity_state.is_signed_in,
       identity_state.browser_identity_matches_aim_identity);
+  if (profile) {
+    model->SetPrefService(profile->GetPrefs());
+  }
 
   last_active_model_ = model->AsWeakPtr();
   input_state_models_[session_handle.session_id()] = std::move(model);
   return last_active_model_;
+}
+
+void ContextualTasksWebContentsUserData::RegisterExtensionFrame(
+    const void* handler_id) {
+  for (auto& frame : extension_frames_) {
+    if (frame.handler_id == handler_id) {
+      return;
+    }
+  }
+  extension_frames_.push_back(ExtensionFrameInfo{
+      .handler_id = handler_id,
+      .is_page_bound = false,
+  });
+}
+
+void ContextualTasksWebContentsUserData::UpdateExtensionFrameBound(
+    const void* handler_id,
+    bool is_page_bound) {
+  for (auto& frame : extension_frames_) {
+    if (frame.handler_id == handler_id) {
+      frame.is_page_bound = is_page_bound;
+      return;
+    }
+  }
+}
+
+void ContextualTasksWebContentsUserData::UnregisterExtensionFrame(
+    const void* handler_id) {
+  std::erase_if(extension_frames_, [&](const ExtensionFrameInfo& frame) {
+    return frame.handler_id == handler_id;
+  });
+}
+
+bool ContextualTasksWebContentsUserData::IsPrimarySearchMessageSender(
+    const void* handler_id) const {
+  if (!handler_id) {
+    return false;
+  }
+
+  for (const auto& frame : extension_frames_) {
+    if (frame.is_page_bound) {
+      return frame.handler_id == handler_id;
+    }
+  }
+
+  return false;
+}
+
+void ContextualTasksWebContentsUserData::RecordTabIdMapping(
+    int32_t tab_handle_id,
+    int32_t session_tab_id) {
+  tab_handle_to_session_id_[tab_handle_id] = session_tab_id;
+}
+
+std::optional<int32_t>
+ContextualTasksWebContentsUserData::GetSessionTabIdForTabHandle(
+    int32_t tab_handle_id) const {
+  auto it = tab_handle_to_session_id_.find(tab_handle_id);
+  if (it != tab_handle_to_session_id_.end()) {
+    return it->second;
+  }
+  return std::nullopt;
+}
+
+std::optional<int32_t>
+ContextualTasksWebContentsUserData::GetTabHandleForSessionTabId(
+    int32_t session_tab_id) const {
+  for (const auto& [tab_handle_id, mapped_session_id] :
+       tab_handle_to_session_id_) {
+    if (mapped_session_id == session_tab_id) {
+      return tab_handle_id;
+    }
+  }
+  return std::nullopt;
 }
 
 }  // namespace contextual_tasks

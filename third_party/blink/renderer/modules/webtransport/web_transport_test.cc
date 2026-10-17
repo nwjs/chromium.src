@@ -91,6 +91,9 @@ using ::testing::StrictMock;
 using ::testing::Truly;
 using ::testing::Unused;
 
+constexpr char kInvalidStateMessage[] =
+    "The WebTransport connection is not open.";
+
 class WebTransportConnector final : public mojom::blink::WebTransportConnector {
  public:
   struct ConnectArgs {
@@ -276,6 +279,7 @@ class MockWebTransport : public network::mojom::blink::WebTransport {
            network::mojom::blink::WebTransportStreamPriorityPtr priority));
   MOCK_METHOD2(GetReceiveStreamStats,
                void(uint32_t, GetReceiveStreamStatsCallback));
+  MOCK_METHOD2(GetSendStreamStats, void(uint32_t, GetSendStreamStatsCallback));
   MOCK_METHOD0(Close, void());
   MOCK_METHOD2(Close, void(uint32_t, String));
 
@@ -2237,6 +2241,34 @@ TEST_F(WebTransportTest, ReceiveDatagramWithoutEnoughBuffer) {
                            "supplied view is not large enough."));
 }
 
+TEST_F(WebTransportTest, QueuedDatagramWithoutEnoughBuffer) {
+  ScopedWebTransportDatagramsReadableTypeForTest readable_type_enabled(true);
+  V8TestingScope scope;
+  auto* web_transport = CreateAndConnectSuccessfully(
+      scope, "https://example.com", ByteDatagramOptions());
+
+  client_remote_->OnDatagramReceived({'A', 'B', 'C'});
+  test::RunPendingTasks();
+
+  auto* script_state = scope.GetScriptState();
+  auto* reader =
+      web_transport->datagrams()->readable()->GetBYOBReaderForTesting(
+          script_state, ASSERT_NO_EXCEPTION);
+  auto* read_options =
+      MakeGarbageCollected<ReadableStreamBYOBReaderReadOptions>();
+
+  NotShared<DOMArrayBufferView> view =
+      NotShared<DOMUint8Array>(DOMUint8Array::Create(1));
+  ScriptPromiseTester tester(
+      script_state,
+      reader->read(script_state, view, read_options, ASSERT_NO_EXCEPTION));
+  tester.WaitUntilSettled();
+
+  EXPECT_TRUE(tester.IsRejected());
+  EXPECT_TRUE(IsRangeError(script_state, tester.Value(),
+                           "supplied view is not large enough."));
+}
+
 // The default and byte datagrams.readable implementations share DatagramQueue
 // and DatagramSource, so the lifecycle and queueing behavior exercised by the
 // helpers below has to hold for both. `kBytes` selects the byte stream, which
@@ -3598,18 +3630,39 @@ TEST_F(WebTransportTest, CreateSendGroup) {
   EXPECT_NE(group1->group_id(), group2->group_id());
 }
 
-TEST_F(WebTransportTest, CreateSendGroupBeforeConnection) {
+TEST_F(WebTransportTest, CreateSendGroupConnectingToClosed) {
+  ScopedWebTransportSendGroupForTest scoped_feature(true);
   V8TestingScope scope;
   AddBinder(scope);
   auto* web_transport = WebTransport::Create(
       scope.GetScriptState(), String("https://example.com/"), EmptyOptions(),
       ASSERT_NO_EXCEPTION);
+  ScriptPromiseTester ready_tester(
+      scope.GetScriptState(), web_transport->ready(scope.GetScriptState()));
+
+  test::RunPendingTasks();
+  auto args = connector_.TakeConnectArgs();
+  ASSERT_EQ(1u, args.size());
+  EXPECT_FALSE(ready_tester.IsFulfilled());
+  EXPECT_FALSE(ready_tester.IsRejected());
+  EXPECT_TRUE(web_transport->HasPendingActivity());
 
   // createSendGroup() should work even before the connection is established,
   // since group creation is purely client-side bookkeeping.
   auto* group = web_transport->createSendGroup(ASSERT_NO_EXCEPTION);
   ASSERT_TRUE(group);
   EXPECT_EQ(group->group_id(), 1u);
+
+  web_transport->close(nullptr);
+  test::RunPendingTasks();
+
+  // Closing while connecting clears the pending state without binding a
+  // transport, so createSendGroup() must reject.
+  DummyExceptionStateForTesting exception_state;
+  EXPECT_FALSE(web_transport->createSendGroup(exception_state));
+  EXPECT_EQ(exception_state.CodeAs<DOMExceptionCode>(),
+            DOMExceptionCode::kInvalidStateError);
+  EXPECT_EQ(exception_state.Message(), kInvalidStateMessage);
 }
 
 TEST_F(WebTransportTest, SendGroupGetStatsReturnsZeroedStats) {
@@ -3654,6 +3707,7 @@ TEST_F(WebTransportTest, SendGroupGetStatsReturnsZeroedStats) {
 }
 
 TEST_F(WebTransportTest, CreateSendGroupAfterClose) {
+  ScopedWebTransportSendGroupForTest scoped_feature(true);
   V8TestingScope scope;
   auto* web_transport =
       CreateAndConnectSuccessfully(scope, "https://example.com");
@@ -3662,11 +3716,31 @@ TEST_F(WebTransportTest, CreateSendGroupAfterClose) {
   web_transport->close(nullptr);
   test::RunPendingTasks();
 
-  // createSendGroup() should still succeed after close, since group creation
-  // is purely client-side bookkeeping with no network interaction.
-  auto* group = web_transport->createSendGroup(ASSERT_NO_EXCEPTION);
-  ASSERT_TRUE(group);
-  EXPECT_EQ(group->group_id(), 1u);
+  DummyExceptionStateForTesting exception_state;
+  EXPECT_FALSE(web_transport->createSendGroup(exception_state));
+  EXPECT_EQ(exception_state.CodeAs<DOMExceptionCode>(),
+            DOMExceptionCode::kInvalidStateError);
+  EXPECT_EQ(exception_state.Message(), kInvalidStateMessage);
+}
+
+TEST_F(WebTransportTest, CreateSendGroupAfterConnectionFailure) {
+  ScopedWebTransportSendGroupForTest scoped_feature(true);
+  V8TestingScope scope;
+  auto* web_transport = Create(scope, "https://example.com", EmptyOptions());
+
+  test::RunPendingTasks();
+  auto args = connector_.TakeConnectArgs();
+  ASSERT_EQ(1u, args.size());
+  mojo::Remote<network::mojom::blink::WebTransportHandshakeClient>
+      handshake_client(std::move(args[0].handshake_client));
+  handshake_client->OnHandshakeFailed(nullptr);
+  test::RunPendingTasks();
+
+  DummyExceptionStateForTesting exception_state;
+  EXPECT_FALSE(web_transport->createSendGroup(exception_state));
+  EXPECT_EQ(exception_state.CodeAs<DOMExceptionCode>(),
+            DOMExceptionCode::kInvalidStateError);
+  EXPECT_EQ(exception_state.Message(), kInvalidStateMessage);
 }
 
 TEST_F(WebTransportTest, CreateSendGroupOverflow) {

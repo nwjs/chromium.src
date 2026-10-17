@@ -7,13 +7,13 @@
 #include <algorithm>
 #include <complex>
 #include <limits>
+#include <numbers>
 
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
 #include "base/numerics/safe_conversions.h"
 #include "third_party/blink/renderer/platform/audio/audio_utilities.h"
 #include "third_party/blink/renderer/platform/audio/vector_math.h"
-#include "third_party/blink/renderer/platform/wtf/math_extras.h"
 #include "third_party/fdlibm/ieee754.h"
 
 namespace blink {
@@ -146,7 +146,7 @@ void IIRFilter::GetFrequencyResponse(base::span<const float> frequency,
       phase_response[k] = std::numeric_limits<float>::quiet_NaN();
     } else {
       // zRecip = 1/z = exp(-j*frequency)
-      double omega = -kPiDouble * frequency[k];
+      double omega = -std::numbers::pi * frequency[k];
       std::complex<double> z_recip =
           std::complex<double>(fdlibm::cos(omega), fdlibm::sin(omega));
 
@@ -209,7 +209,7 @@ double IIRFilter::TailTime(double sample_rate,
 
   // Process the first block and get the max magnitude of the output.
   Process(input.as_span(), output.as_span());
-  magnitudes[0] = vector_math::Vmaxmgv(output.as_span(), render_quantum_frames);
+  magnitudes[0] = vector_math::Vmaxmgv(output.as_span());
 
   // Process the rest of the signal, getting the max magnitude of the
   // output for each block.
@@ -217,8 +217,7 @@ double IIRFilter::TailTime(double sample_rate,
 
   for (int k = 1; k < number_of_blocks; ++k) {
     Process(input.as_span(), output.as_span());
-    magnitudes[k] =
-        vector_math::Vmaxmgv(output.as_span(), render_quantum_frames);
+    magnitudes[k] = vector_math::Vmaxmgv(output.as_span());
   }
 
   // Done computing the impulse response; reset the state so the actual node

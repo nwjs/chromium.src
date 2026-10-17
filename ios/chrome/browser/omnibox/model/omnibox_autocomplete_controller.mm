@@ -176,8 +176,9 @@ using base::UserMetricsAction;
 
 - (void)openCurrentSelectionWithDisposition:(WindowOpenDisposition)disposition
                                   timestamp:(base::TimeTicks)timestamp {
-  [self openSelection:OmniboxPopupSelection(OmniboxPopupSelection::kNoMatch,
-                                            OmniboxPopupSelection::NORMAL)
+  [self openSelection:OmniboxPopupSelection(
+                          OmniboxPopupSelection::kNoMatch,
+                          OmniboxPopupSelection::LineState::kNormal)
             timestamp:timestamp
           disposition:disposition];
 }
@@ -321,7 +322,7 @@ using base::UserMetricsAction;
   const auto matchSelectionTimestamp = base::TimeTicks();
   base::RecordAction(UserMetricsAction("MobileOmniboxUse"));
 
-  if (match.type == AutocompleteMatchType::CLIPBOARD_URL) {
+  if (match.type == omnibox::AutocompleteMatchType::kClipboardUrl) {
     base::RecordAction(UserMetricsAction("MobileOmniboxClipboardToURL"));
     base::UmaHistogramLongTimes100(
         "MobileOmnibox.PressedClipboardSuggestionAge",
@@ -691,7 +692,7 @@ using base::UserMetricsAction;
   }
 
   if (_omniboxTextModel->paste_state != OmniboxPasteState::kNone &&
-      match.type == AutocompleteMatchType::URL_WHAT_YOU_TYPED) {
+      match.type == omnibox::AutocompleteMatchType::kUrlWhatYouTyped) {
     // When the user pasted in a URL and hit enter, score it like a link click
     // rather than a normal typed URL, so it doesn't get inline autocompleted
     // as aggressively later.
@@ -734,7 +735,7 @@ using base::UserMetricsAction;
   // If the user is executing an action, this will be non-null and some match
   // opening and metrics behavior will be adjusted accordingly.
   OmniboxAction* action = nullptr;
-  if (selection.state == OmniboxPopupSelection::NORMAL &&
+  if (selection.state == OmniboxPopupSelection::LineState::kNormal &&
       match.takeover_action) {
     DCHECK(matchSelectionTimestamp != base::TimeTicks());
     action = match.takeover_action.get();
@@ -751,7 +752,7 @@ using base::UserMetricsAction;
 
   // NULL_RESULT_MESSAGE matches are informational only and cannot be acted
   // upon. Immediately return when attempting to open one.
-  if (match.type == AutocompleteMatchType::NULL_RESULT_MESSAGE) {
+  if (match.type == omnibox::AutocompleteMatchType::kNullResultMessage) {
     return;
   }
 
@@ -844,7 +845,7 @@ using base::UserMetricsAction;
           match.type, matchSelectionTimestamp,
           _omniboxTextModel->input.added_default_scheme_to_typed_url(),
           _omniboxTextModel->input.typed_url_had_http_scheme() &&
-              match.type == AutocompleteMatchType::URL_WHAT_YOU_TYPED,
+              match.type == omnibox::AutocompleteMatchType::kUrlWhatYouTyped,
           inputText, match,
           VerbatimMatchForInput(
               self.autocompleteController->history_url_provider(),
@@ -916,7 +917,7 @@ using base::UserMetricsAction;
   CHECK(clipboardRecentContent);
 
   switch (match.type) {
-    case AutocompleteMatchType::CLIPBOARD_URL: {
+    case omnibox::AutocompleteMatchType::kClipboardUrl: {
       clipboardRecentContent->GetRecentURLFromClipboard(base::BindOnce(
           [](OmniboxAutocompleteController* controller,
              WindowOpenDisposition disposition, base::TimeTicks timestamp,
@@ -928,7 +929,7 @@ using base::UserMetricsAction;
           weakSelf, disposition, timestamp));
       break;
     }
-    case AutocompleteMatchType::CLIPBOARD_TEXT: {
+    case omnibox::AutocompleteMatchType::kClipboardText: {
       clipboardRecentContent->GetRecentTextFromClipboard(base::BindOnce(
           [](OmniboxAutocompleteController* controller,
              WindowOpenDisposition disposition, base::TimeTicks timestamp,
@@ -940,7 +941,7 @@ using base::UserMetricsAction;
           weakSelf, disposition, timestamp));
       break;
     }
-    case AutocompleteMatchType::CLIPBOARD_IMAGE: {
+    case omnibox::AutocompleteMatchType::kClipboardImage: {
       if ([self.lensHander shouldUseLensForCopiedImage]) {
         [self.lensHander lensCopiedImage];
       } else {

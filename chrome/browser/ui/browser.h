@@ -43,7 +43,6 @@
 #include "content/public/browser/fullscreen_types.h"
 #include "content/public/browser/page_navigator.h"
 #include "content/public/browser/web_contents.h"
-#include "content/public/browser/web_contents_delegate.h"
 #include "extensions/buildflags/buildflags.h"
 #include "printing/buildflags/buildflags.h"
 #include "third_party/blink/public/mojom/page/draggable_region.mojom-forward.h"
@@ -63,7 +62,6 @@ class BrowserInitState;
 class BrowserWindow;
 struct BrowserWindowCreateParams;
 class BrowserWindowFeatures;
-class FindBarController;
 class Profile;
 class ScopedKeepAlive;
 class ScopedProfileKeepAlive;
@@ -308,15 +306,6 @@ class Browser : public TabStripModelObserver,
 
   // Shared code between Reload() and ReloadBypassingCache().
   void ReloadInternal(WindowOpenDisposition disposition, bool bypass_cache);
-
-  // Create `FindBarController` if it does not exist.
-  // TODO(crbug.com/423956131): Convert to `GetFindBarController` which returns
-  // existing `FindBarController`.
-  FindBarController* CreateOrGetFindBarController();
-
-  // Returns true if a `FindBarController` exists for this browser.
-  // TODO(crbug.com/423956131): Remove this function.
-  bool HasFindBarController();
 
   // Data members /////////////////////////////////////////////////////////////
 

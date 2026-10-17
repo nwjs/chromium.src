@@ -7,10 +7,12 @@
 #include "content/browser/permissions/permission_controller_impl.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/public/test/browser_test.h"
+#include "content/public/test/browser_test_utils.h"
 #include "content/public/test/content_browser_test.h"
 #include "content/public/test/content_browser_test_content_browser_client.h"
 #include "content/public/test/content_browser_test_utils.h"
 #include "content/shell/browser/shell.h"
+#include "content/test/content_browser_test_utils_internal.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/system/functions.h"
 #include "net/dns/mock_host_resolver.h"
@@ -257,6 +259,17 @@ IN_PROC_BROWSER_TEST_P(StorageAccessBrowserTest,
   ASSERT_TRUE(child->IsCredentialless());
 
   EXPECT_EQ(BindStorageAccessHandleInFrame(child),
+            expected_restricted_handle_result());
+}
+
+IN_PROC_BROWSER_TEST_P(StorageAccessBrowserTest,
+                       BindStorageAccessHandle_PdfRenderer) {
+  WebContentsImpl* tab = static_cast<WebContentsImpl*>(shell()->web_contents());
+  GURL url = embedded_https_test_server().GetURL("a.test", "/simple_page.html");
+
+  ASSERT_TRUE(NavigateToURLWithPdf(tab, url));
+
+  EXPECT_EQ(BindStorageAccessHandleInFrame(host()),
             expected_restricted_handle_result());
 }
 

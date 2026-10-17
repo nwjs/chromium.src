@@ -455,7 +455,7 @@ using base::UserMetricsAction;
 
 - (void)setDefaultLeftImage {
   UIImage* image = GetOmniboxSuggestionIconForAutocompleteMatchType(
-      AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED);
+      omnibox::AutocompleteMatchType::kSearchWhatYouTyped);
   [self.consumer updateAutocompleteIcon:image
             withAccessibilityIdentifier:
                 kOmniboxLeadingImageDefaultAccessibilityIdentifier];

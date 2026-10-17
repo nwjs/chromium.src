@@ -3,4 +3,6 @@ ci/Linux ASan LSan Tests (1)
 ci/Linux TSan Builder
 ci/Linux TSan Tests
 try/linux_chromium_asan_rel_ng
+try/linux_chromium_asan_rel_ng-compilator
 try/linux_chromium_tsan_rel_ng
+try/linux_chromium_tsan_rel_ng-compilator

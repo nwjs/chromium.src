@@ -8,7 +8,6 @@
 
 #include "base/check.h"
 #include "base/check_op.h"
-#include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/trace_event/trace_event.h"
 #include "components/viz/common/resources/shared_image_format_utils.h"
@@ -33,10 +32,6 @@
 #include "third_party/skia/include/private/chromium/GrPromiseImageTexture.h"
 
 namespace {
-
-// TODO(crbug.com/524822746): Killswitch for extra validation, remove after M152
-// stable.
-BASE_FEATURE(kValidatePromiseImageFormat, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
@@ -417,10 +412,9 @@ bool ImageContextImpl::BeginAccessIfNecessaryInternal(
       return false;
     }
 
-    if ((representation->format() != format() ||
-         representation->format().PrefersExternalSampler() !=
-             format().PrefersExternalSampler()) &&
-        base::FeatureList::IsEnabled(kValidatePromiseImageFormat)) {
+    if (representation->format() != format() ||
+        representation->format().PrefersExternalSampler() !=
+            format().PrefersExternalSampler()) {
       DLOG(ERROR) << "Failed to fulfill the promise texture - SharedImage "
                      "format does not match TransferableResource format: "
                   << representation->format().ToString() << " vs "
@@ -441,38 +435,18 @@ bool ImageContextImpl::BeginAccessIfNecessaryInternal(
     return false;
   }
 
+  graphite_ycbcr_info_mismatch_ = false;
+  if (!ValidateYCbCrInfo(context_state)) {
+    graphite_ycbcr_info_mismatch_ = true;
+    representation_scoped_read_access_.reset();
+    return false;
+  }
+
   // Only one promise texture for external sampler case.
   int num_planes =
       format().PrefersExternalSampler() ? 1 : format().NumberOfPlanes();
+
   if (context_state->graphite_shared_context()) {
-#if BUILDFLAG(IS_ANDROID) && BUILDFLAG(SKIA_USE_DAWN)
-    // In the case of video decoding, it is possible for there to be a mismatch
-    // between the YCbCr info passed to Viz at the time of creating the promise
-    // texture and that computed at the time of fulfilling the promise texture.
-    // Detect such mismatches and error out, as Skia/Dawn will raise errors.
-    graphite_ycbcr_info_mismatch_ = false;
-
-    skgpu::graphite::DawnTextureInfo fulfillment_texture_info;
-    CHECK(skgpu::graphite::TextureInfos::GetDawnTextureInfo(
-        representation_scoped_read_access_->graphite_texture(0).info(),
-        &fulfillment_texture_info));
-
-    wgpu::YCbCrVkDescriptor promise_texture_ycbcr_desc = {};
-    if (ycbcr_info()) {
-      promise_texture_ycbcr_desc =
-          gpu::ToDawnYCbCrVkDescriptor(ycbcr_info().value());
-    }
-    wgpu::YCbCrVkDescriptor fulfillment_texture_ycbcr_desc =
-        fulfillment_texture_info.fYcbcrVkDescriptor;
-
-    if (!DawnYCbCrVkDescriptorsAreCompatible(promise_texture_ycbcr_desc,
-                                             fulfillment_texture_ycbcr_desc)) {
-      graphite_ycbcr_info_mismatch_ = true;
-      representation_scoped_read_access_.reset();
-      return false;
-    }
-#endif
-
     for (int plane_index = 0; plane_index < num_planes; plane_index++) {
       graphite_textures_.push_back(
           representation_scoped_read_access_->graphite_texture(plane_index));
@@ -485,6 +459,45 @@ bool ImageContextImpl::BeginAccessIfNecessaryInternal(
               plane_index));
     }
   }
+
+  return true;
+}
+
+bool ImageContextImpl::ValidateYCbCrInfo(
+    gpu::SharedContextState* context_state) {
+#if BUILDFLAG(IS_ANDROID)
+  if (context_state->IsGraphiteDawn()) {
+#if BUILDFLAG(SKIA_USE_DAWN)
+    // In the case of video decoding, it is possible for there to be a
+    // mismatch between the YCbCr info passed to Viz at the time of creating
+    // the promise texture and that computed at the time of fulfilling the
+    // promise texture. Detect such mismatches and error out, as Skia/Dawn
+    // will raise errors.
+    skgpu::graphite::DawnTextureInfo fulfillment_texture_info;
+    CHECK(skgpu::graphite::TextureInfos::GetDawnTextureInfo(
+        representation_scoped_read_access_->graphite_texture(0).info(),
+        &fulfillment_texture_info));
+    wgpu::YCbCrVkDescriptor fulfillment_texture_ycbcr_desc =
+        fulfillment_texture_info.fYcbcrVkDescriptor;
+
+    wgpu::YCbCrVkDescriptor promise_texture_ycbcr_desc = {};
+    if (ycbcr_info()) {
+      promise_texture_ycbcr_desc =
+          gpu::ToDawnYCbCrVkDescriptor(ycbcr_info().value());
+    }
+
+    if (!DawnYCbCrVkDescriptorsAreCompatible(promise_texture_ycbcr_desc,
+                                             fulfillment_texture_ycbcr_desc)) {
+      return false;
+    }
+#endif  // BUILDFLAG(SKIA_USE_DAWN)
+  } else if (context_state->IsGraphiteVulkan()) {
+#if BUILDFLAG(SKIA_USE_GRAPHITE_VULKAN)
+    // TODO(crbug.com/55295190): Implement YCbCr compatibility check.
+    return true;
+#endif  // BUILDFLAG(SKIA_USE_GRAPHITE_VULKAN)
+  }
+#endif  // BUILDFLAG(IS_ANDROID)
 
   return true;
 }

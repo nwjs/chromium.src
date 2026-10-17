@@ -23,14 +23,11 @@ public class BottomSheetProperties {
     public static final WritableObjectPropertyKey<GlowSpec> GLOW_SPEC =
             new WritableObjectPropertyKey<>();
     public static final WritableIntPropertyKey BACKGROUND_COLOR = new WritableIntPropertyKey();
-    public static final WritableFloatPropertyKey CONTAINER_Z = new WritableFloatPropertyKey();
     public static final WritableBooleanPropertyKey CLOSE_BUTTON_VISIBILITY =
             new WritableBooleanPropertyKey();
     public static final WritableObjectPropertyKey<@Nullable OnClickListener>
             CLOSE_BUTTON_CLICK_LISTENER = new WritableObjectPropertyKey<>();
     public static final WritableBooleanPropertyKey CONTAINER_TOUCH_ENABLED =
-            new WritableBooleanPropertyKey();
-    public static final WritableBooleanPropertyKey FALLBACK_SHADOW_VISIBILITY =
             new WritableBooleanPropertyKey();
 
     public static final WritableObjectPropertyKey<@Nullable View> CONTENT_VIEW =
@@ -41,22 +38,40 @@ public class BottomSheetProperties {
             new WritableIntPropertyKey();
     public static final WritableIntPropertyKey CONTAINER_HEIGHT = new WritableIntPropertyKey();
     public static final WritableIntPropertyKey SHEET_WIDTH_PX = new WritableIntPropertyKey();
+    public static final WritableObjectPropertyKey<@Nullable CharSequence> ACCESSIBILITY_PANE_TITLE =
+            new WritableObjectPropertyKey<>();
+    public static final WritableFloatPropertyKey SHEET_TRANSLATION_Y =
+            new WritableFloatPropertyKey();
+    public static final WritableFloatPropertyKey SHEET_TRANSLATION_X =
+            new WritableFloatPropertyKey();
+    public static final WritableBooleanPropertyKey HANDLEBAR_VISIBLE =
+            new WritableBooleanPropertyKey();
+    public static final WritableIntPropertyKey CONTENT_TOP_MARGIN = new WritableIntPropertyKey();
+    public static final WritableIntPropertyKey VISIBLE_BACKGROUND_HEIGHT =
+            new WritableIntPropertyKey();
+    public static final WritableBooleanPropertyKey SHEET_FOCUSABLE =
+            new WritableBooleanPropertyKey();
 
     public static final PropertyKey[] ALL_KEYS =
             new PropertyKey[] {
                 SHEET_LAYOUT_MODE,
                 GLOW_SPEC,
                 BACKGROUND_COLOR,
-                CONTAINER_Z,
                 CLOSE_BUTTON_VISIBILITY,
                 CLOSE_BUTTON_CLICK_LISTENER,
                 CONTAINER_TOUCH_ENABLED,
-                FALLBACK_SHADOW_VISIBILITY,
                 CONTENT_VIEW,
                 TOOLBAR_VIEW,
                 KEYBOARD_CURTAIN_HEIGHT,
                 CONTAINER_HEIGHT,
-                SHEET_WIDTH_PX
+                SHEET_WIDTH_PX,
+                ACCESSIBILITY_PANE_TITLE,
+                SHEET_TRANSLATION_Y,
+                SHEET_TRANSLATION_X,
+                HANDLEBAR_VISIBLE,
+                CONTENT_TOP_MARGIN,
+                VISIBLE_BACKGROUND_HEIGHT,
+                SHEET_FOCUSABLE
             };
 
     private BottomSheetProperties() {}

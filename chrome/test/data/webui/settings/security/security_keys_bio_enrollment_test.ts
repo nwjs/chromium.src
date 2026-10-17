@@ -4,7 +4,6 @@
 
 import {webUIListenerCallback} from 'chrome://resources/js/cr.js';
 import {PromiseResolver} from 'chrome://resources/js/promise_resolver.js';
-import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import type {Enrollment, EnrollmentResponse, SecurityKeysBioEnrollProxy, SensorInfo, SettingsSecurityKeysBioEnrollDialogElement} from 'chrome://settings/lazy_load.js';
 import {BioEnrollDialogPage, Ctap2Status, SampleStatus, SecurityKeysBioEnrollProxyImpl} from 'chrome://settings/lazy_load.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
@@ -81,6 +80,16 @@ suite('SecurityKeysBioEnrollment', function() {
     dialog = document.createElement('settings-security-keys-bio-enroll-dialog');
     allDivs = Object.values(BioEnrollDialogPage);
   });
+
+  function assertEntries(expected: Enrollment[]) {
+    const entries = dialog.$.container.querySelectorAll('.list-item');
+    assertEquals(expected.length, entries.length);
+    for (let i = 0; i < expected.length; i++) {
+      assertEquals(
+          expected[i]!.name,
+          entries[i]!.querySelector('.name')!.textContent.trim());
+    }
+  }
 
   test('Initialization', async function() {
     document.body.appendChild(dialog);
@@ -166,7 +175,7 @@ suite('SecurityKeysBioEnrollment', function() {
     assertShown(allDivs, dialog, 'pinPrompt');
     assertEquals(currentMinPinLength, dialog.$.pin.minPinLength);
     dialog.$.pin.$.pin.value = '000000';
-    await dialog.$.pin.$.pin.updateComplete;
+    await microtasksFinished();
     dialog.$.confirmButton.click();
     const pin = await browserProxy.whenCalled('providePin');
     assertEquals(pin, '000000');
@@ -198,19 +207,18 @@ suite('SecurityKeysBioEnrollment', function() {
     enumerateResolver.resolve(enrollments);
     await uiReady;
     assertShown(allDivs, dialog, 'enrollments');
-    assertDeepEquals(dialog.$.enrollmentList.items, sortedEnrollments);
+    await microtasksFinished();
+    assertEntries(sortedEnrollments);
 
     // Delete the second enrollments and refresh the list.
-    flush();
-    dialog.$.enrollmentList.querySelectorAll('cr-icon-button')[1]!.click();
+    dialog.$.container.querySelectorAll('cr-icon-button')[1]!.click();
     const id = await browserProxy.whenCalled('deleteEnrollment');
     assertEquals(sortedEnrollments[1]!.id, id);
     sortedEnrollments.splice(1, 1);
     enrollments.splice(1, 1);
     deleteResolver.resolve(enrollments);
-    await uiReady;
-    assertShown(allDivs, dialog, 'enrollments');
-    assertDeepEquals(dialog.$.enrollmentList.items, sortedEnrollments);
+    await microtasksFinished();
+    assertEntries(sortedEnrollments);
   });
 
   test('AddEnrollment', async function() {
@@ -237,7 +245,7 @@ suite('SecurityKeysBioEnrollment', function() {
     assertShown(allDivs, dialog, 'pinPrompt');
     assertEquals(currentMinPinLength, dialog.$.pin.minPinLength);
     dialog.$.pin.$.pin.value = '000000';
-    await dialog.$.pin.$.pin.updateComplete;
+    await microtasksFinished();
     dialog.$.confirmButton.click();
     const pin = await browserProxy.whenCalled('providePin');
     assertEquals(pin, '000000');
@@ -254,7 +262,8 @@ suite('SecurityKeysBioEnrollment', function() {
     enumerateResolver.resolve([]);
     await uiReady;
     assertShown(allDivs, dialog, 'enrollments');
-    assertEquals(dialog.$.enrollmentList.items!.length, 0);
+    await microtasksFinished();
+    assertEntries([]);
 
     // Simulate add enrollment.
     assertFalse(dialog.$.addButton.hidden);
@@ -267,7 +276,7 @@ suite('SecurityKeysBioEnrollment', function() {
     webUIListenerCallback(
         'security-keys-bio-enroll-status',
         {status: SampleStatus.OK, remaining: 1});
-    flush();
+    await microtasksFinished();
     assertFalse(dialog.$.arc.isComplete());
     assertFalse(dialog.$.cancelButton.hidden);
     assertTrue(dialog.$.confirmButton.hidden);
@@ -297,11 +306,12 @@ suite('SecurityKeysBioEnrollment', function() {
     assertEquals(dialog.$.enrollmentName.value, enrollmentName);
     const invalidNewEnrollmentName = '21 bytes long string!';
     dialog.$.enrollmentName.value = invalidNewEnrollmentName;
-    await dialog.$.enrollmentName.updateComplete;
+    await microtasksFinished();
     assertFalse(dialog.$.confirmButton.hidden);
     assertFalse(dialog.$.confirmButton.disabled);
     assertFalse(dialog.$.enrollmentName.invalid);
     dialog.$.confirmButton.click();
+    await microtasksFinished();
     assertTrue(dialog.$.enrollmentName.invalid);
     assertEquals(browserProxy.getCallCount('renameEnrollment'), 0);
 
@@ -309,7 +319,7 @@ suite('SecurityKeysBioEnrollment', function() {
     assertShown(allDivs, dialog, 'chooseName');
     const newEnrollmentName = '20 bytes long string';
     dialog.$.enrollmentName.value = newEnrollmentName;
-    await dialog.$.enrollmentName.updateComplete;
+    await microtasksFinished();
     assertFalse(dialog.$.confirmButton.hidden);
     assertFalse(dialog.$.confirmButton.disabled);
 
@@ -319,6 +329,7 @@ suite('SecurityKeysBioEnrollment', function() {
     browserProxy.setResponseFor(
         'renameEnrollment', renameEnrollmentResolver.promise);
     dialog.$.confirmButton.click();
+    await microtasksFinished();
     assertFalse(dialog.$.enrollmentName.invalid);
 
     const renameArgs = await browserProxy.whenCalled('renameEnrollment');

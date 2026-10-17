@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_UI_AUTOFILL_AUTOFILL_SNACKBAR_CONTROLLER_H_
 #include <string>
 
+#include "chrome/browser/ui/autofill/autofill_snackbar_type.h"
 #include "content/public/browser/web_contents.h"
 
 namespace autofill {
@@ -20,6 +21,10 @@ class AutofillSnackbarController {
   // The snackbar was dismissed without any user interaction.
   virtual void OnDismissed() = 0;
 
+  // Dismisses the snackbar if it is showing. Calling Dismiss without calling
+  // Show is a no-op.
+  virtual void Dismiss() = 0;
+
   // Returns the text to be displayed in the message area of the snackbar.
   virtual std::u16string GetMessageText() const = 0;
   // Returns the text to be displayed in the action button of the snackbar.
@@ -27,6 +32,7 @@ class AutofillSnackbarController {
   // Return the duration for which the snackbar should be shown.
   virtual base::TimeDelta GetDuration() const = 0;
   virtual content::WebContents* GetWebContents() const = 0;
+  virtual AutofillSnackbarType GetSnackbarType() const = 0;
 };
 
 }  // namespace autofill

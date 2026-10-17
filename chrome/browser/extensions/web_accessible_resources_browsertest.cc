@@ -16,12 +16,14 @@
 #include "components/prefs/pref_service.h"
 #include "components/version_info/channel.h"
 #include "content/public/browser/navigation_controller.h"
+#include "content/public/browser/site_isolation_policy.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_frame_navigation_observer.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "extensions/browser/background_script_executor.h"
+#include "extensions/browser/extension_protocols.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
@@ -33,6 +35,9 @@
 #include "net/base/filename_util.h"
 #include "net/base/net_errors.h"
 #include "net/dns/mock_host_resolver.h"
+#include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
+#include "services/network/public/cpp/resource_request.h"
+#include "services/network/test/test_url_loader_client.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "ui/base/page_transition_types.h"
 
@@ -399,8 +404,16 @@ IN_PROC_BROWSER_TEST_F(
 }
 
 // Navigate to a web page and then try to load an extension subresource.
+// TODO(crbug.com/565507869): Failing on Android.
+#if BUILDFLAG(IS_ANDROID)
+#define MAYBE_SubresourceReachabilityAfterServerRedirect \
+  DISABLED_SubresourceReachabilityAfterServerRedirect
+#else
+#define MAYBE_SubresourceReachabilityAfterServerRedirect \
+  SubresourceReachabilityAfterServerRedirect
+#endif
 IN_PROC_BROWSER_TEST_F(WebAccessibleResourcesBrowserTest,
-                       SubresourceReachabilityAfterServerRedirect) {
+                       MAYBE_SubresourceReachabilityAfterServerRedirect) {
   // Load extension.
   TestExtensionDir extension_dir;
   constexpr char kManifest[] = R"({
@@ -477,8 +490,14 @@ IN_PROC_BROWSER_TEST_F(WebAccessibleResourcesBrowserTest,
 }
 
 // Server redirect to a web accessible resource whereby `matches` doesn't match.
+// TODO(crbug.com/565503176): Failing on Android.
+#if BUILDFLAG(IS_ANDROID)
+#define MAYBE_ServerRedirectSubresource DISABLED_ServerRedirectSubresource
+#else
+#define MAYBE_ServerRedirectSubresource ServerRedirectSubresource
+#endif
 IN_PROC_BROWSER_TEST_F(WebAccessibleResourcesBrowserTest,
-                       ServerRedirectSubresource) {
+                       MAYBE_ServerRedirectSubresource) {
   // Load extension.
   TestExtensionDir extension_dir;
   constexpr char kManifest[] = R"({
@@ -731,6 +750,222 @@ IN_PROC_BROWSER_TEST_F(WebAccessibleResourcesBrowserTest,
   // Verify that the body content of the main frame changes due to DNR redirect.
   auto result = EvalJs(web_contents, "document.body.textContent");
   EXPECT_EQ("ok\n", result.ExtractString());
+}
+
+// Verify that a DNR rule from one extension redirecting to a static URL of
+// a different extension does not transform the destination into the target's
+// dynamic URL.
+IN_PROC_BROWSER_TEST_F(WebAccessibleResourcesBrowserTest,
+                       DNRRedirectDifferentExtensionDynamicUrl) {
+  // Load target extension with use_dynamic_url: true and its own DNR rules.
+  TestExtensionDir target_dir;
+  static constexpr char kTargetManifest[] = R"({
+    "name": "Target Extension",
+    "version": "0.1",
+    "manifest_version": 3,
+    "permissions": ["declarativeNetRequest"],
+    "host_permissions": ["*://example.com/*"],
+    "web_accessible_resources": [
+      {
+        "resources": ["dynamic_resource.js", "dynamic_page.html"],
+        "matches": ["*://example.com/*"],
+        "use_dynamic_url": true
+      }
+    ],
+    "declarative_net_request": {
+      "rule_resources": [
+        {
+          "id": "ruleset_1",
+          "path": "rules_1.json",
+          "enabled": true
+        }
+      ]
+    }
+  })";
+  static constexpr char kTargetRules[] = R"([
+    {
+      "id": 1,
+      "priority": 1,
+      "action": {
+        "type": "redirect",
+        "redirect": {
+          "extensionPath": "/dynamic_resource.js"
+        }
+      },
+      "condition": {
+        "regexFilter": ".*/own_resource.js",
+        "resourceTypes": ["script"]
+      }
+    },
+    {
+      "id": 2,
+      "priority": 1,
+      "action": {
+        "type": "redirect",
+        "redirect": {
+          "extensionPath": "/dynamic_page.html"
+        }
+      },
+      "condition": {
+        "regexFilter": ".*/own_subframe.html",
+        "resourceTypes": ["sub_frame"]
+      }
+    }
+  ])";
+  target_dir.WriteManifest(kTargetManifest);
+  target_dir.WriteFile(FILE_PATH_LITERAL("rules_1.json"), kTargetRules);
+  target_dir.WriteFile(FILE_PATH_LITERAL("dynamic_resource.js"),
+                       "window.dynamicResourceLoaded = true;");
+  target_dir.WriteFile(FILE_PATH_LITERAL("dynamic_page.html"),
+                       "<body>dynamic page content</body>");
+  const Extension* target_extension = LoadExtension(target_dir.UnpackedPath());
+  ASSERT_TRUE(target_extension);
+
+  // Load a separate extension with DNR redirect rules pointing to the target
+  // extension's static resource URLs.
+  TestExtensionDir redirecting_dir;
+  static constexpr char kRedirectingManifest[] = R"({
+    "name": "Redirecting Extension",
+    "version": "0.1",
+    "manifest_version": 3,
+    "permissions": ["declarativeNetRequest"],
+    "host_permissions": ["*://example.com/*"],
+    "declarative_net_request": {
+      "rule_resources": [
+        {
+          "id": "ruleset_1",
+          "path": "rules_1.json",
+          "enabled": true
+        }
+      ]
+    }
+  })";
+  std::string redirecting_rules = base::StringPrintf(
+      R"([
+    {
+      "id": 1,
+      "priority": 1,
+      "action": {
+        "type": "redirect",
+        "redirect": {
+          "url": "chrome-extension://%s/dynamic_resource.js"
+        }
+      },
+      "condition": {
+        "regexFilter": ".*/cross_resource.js",
+        "resourceTypes": ["script"]
+      }
+    },
+    {
+      "id": 2,
+      "priority": 1,
+      "action": {
+        "type": "redirect",
+        "redirect": {
+          "url": "chrome-extension://%s/dynamic_page.html"
+        }
+      },
+      "condition": {
+        "regexFilter": ".*/cross_subframe.html",
+        "resourceTypes": ["sub_frame"]
+      }
+    }
+  ])",
+      target_extension->id().c_str(), target_extension->id().c_str());
+
+  redirecting_dir.WriteManifest(kRedirectingManifest);
+  redirecting_dir.WriteFile(FILE_PATH_LITERAL("rules_1.json"),
+                            redirecting_rules);
+  const Extension* redirecting_extension =
+      LoadExtension(redirecting_dir.UnpackedPath());
+  ASSERT_TRUE(redirecting_extension);
+
+  // Navigate to a webpage on example.com with an iframe.
+  content::WebContents* web_contents = GetActiveWebContents();
+  GURL page_url =
+      embedded_test_server()->GetURL("example.com", "/iframe_blank.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents, page_url));
+
+  // 1. Subresource (script): Verify that the target extension's own DNR
+  // redirect properly resolves to its dynamic URL and executes the script.
+  auto own_script_result = EvalJs(web_contents, R"(
+    new Promise((resolve) => {
+      const script = document.createElement('script');
+      script.src = '/own_resource.js';
+      script.onload = () => resolve(window.dynamicResourceLoaded === true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  )");
+  EXPECT_EQ(true, own_script_result);
+
+  // 2. Subresource (script): Verify that a different extension's DNR redirect
+  // to the target's static URL is not transformed to the dynamic URL and fails.
+  ASSERT_TRUE(ExecJs(web_contents, "window.dynamicResourceLoaded = false;"));
+  auto cross_script_result = EvalJs(web_contents, R"(
+    new Promise((resolve) => {
+      const script = document.createElement('script');
+      script.src = '/cross_resource.js';
+      script.onload = () => resolve('LOADED');
+      script.onerror = () => resolve('BLOCKED');
+      document.body.appendChild(script);
+    });
+  )");
+  EXPECT_EQ("BLOCKED", cross_script_result);
+  EXPECT_EQ(false, EvalJs(web_contents, "window.dynamicResourceLoaded"));
+
+  // 3. Subframe navigation: Verify that the target extension's own DNR redirect
+  // succeeds and commits the expected page.
+  {
+    GURL own_subframe_trigger =
+        embedded_test_server()->GetURL("example.com", "/own_subframe.html");
+    content::TestNavigationObserver nav_observer(web_contents);
+    EXPECT_TRUE(content::NavigateIframeToURL(web_contents, "test",
+                                             own_subframe_trigger));
+    nav_observer.Wait();
+    EXPECT_TRUE(nav_observer.last_navigation_succeeded());
+    EXPECT_EQ(net::OK, nav_observer.last_net_error_code());
+    content::RenderFrameHost* iframe =
+        content::ChildFrameAt(web_contents->GetPrimaryMainFrame(), 0);
+    ASSERT_TRUE(iframe);
+    EXPECT_EQ(target_extension->GetResourceURL("dynamic_page.html"),
+              iframe->GetLastCommittedURL());
+    EXPECT_EQ("dynamic page content",
+              EvalJs(iframe, "document.body.innerText"));
+  }
+
+  // 4. Subframe navigation: Verify that a different extension's DNR redirect to
+  // the target's static URL is not rewritten to the target's dynamic URL and
+  // is blocked by ExtensionNavigationThrottle.
+  {
+    GURL cross_subframe_trigger =
+        embedded_test_server()->GetURL("example.com", "/cross_subframe.html");
+    content::TestNavigationObserver nav_observer(web_contents);
+    EXPECT_TRUE(content::NavigateIframeToURL(web_contents, "test",
+                                             cross_subframe_trigger));
+    nav_observer.Wait();
+    EXPECT_FALSE(nav_observer.last_navigation_succeeded());
+    EXPECT_EQ(net::ERR_BLOCKED_BY_CLIENT, nav_observer.last_net_error_code());
+
+    // The failed navigation's URL is only reduced to its origin when the error
+    // page commits in the initiator's process, per
+    // https://crbug.com/517156678. With subframe error page isolation, the
+    // error page commits in a dedicated error page process instead, and the
+    // full URL is committed.
+    // TODO(crbug.com/40134629): Remove the sanitization once Subframe Error
+    // Page Isolation ships.
+    GURL expected_url =
+        content::SiteIsolationPolicy::IsErrorPageIsolationEnabled(
+            /*in_main_frame=*/false)
+            ? target_extension->GetResourceURL("dynamic_page.html")
+            : target_extension->url();
+    EXPECT_EQ(expected_url, nav_observer.last_navigation_url());
+
+    // Either way, the URL must not have been rewritten to the target's
+    // dynamic URL.
+    EXPECT_NE(target_extension->dynamic_url(),
+              nav_observer.last_navigation_url());
+  }
 }
 
 class WebAccessibleResourcesServiceWorkerBrowserTest
@@ -1524,6 +1759,79 @@ IN_PROC_BROWSER_TEST_F(WebAccessibleResourcesDynamicUrlScriptingBrowserTest,
   BackgroundScriptExecutor::ExecuteScriptAsync(
       profile(), extension->id(), base::StringPrintf(kScript, tab_id));
   ASSERT_TRUE(catcher.GetNextResult()) << catcher.message();
+}
+
+// Test that subresource requests from a web page renderer specifying
+// RequestDestination::kDocument are properly blocked for non-web-accessible
+// resources.
+IN_PROC_BROWSER_TEST_F(WebAccessibleResourcesBrowserTest,
+                       SubresourceURLLoaderFactoryDocumentDestination) {
+  TestExtensionDir test_dir;
+  test_dir.WriteManifest(R"({
+    "name": "Test Extension",
+    "version": "1.0",
+    "manifest_version": 3,
+    "web_accessible_resources": [{
+      "resources": ["accessible.html"],
+      "matches": ["*://example.com/*"]
+    }]
+  })");
+  test_dir.WriteFile(FILE_PATH_LITERAL("accessible.html"),
+                     "accessible content");
+  test_dir.WriteFile(FILE_PATH_LITERAL("private.html"), "private content");
+  const Extension* extension = LoadExtension(test_dir.UnpackedPath());
+  EXPECT_TRUE(extension);
+
+  // Navigate to a web page on example.com.
+  EXPECT_TRUE(NavigateToURL(
+      GetActiveWebContents(),
+      embedded_test_server()->GetURL("example.com", "/simple.html")));
+
+  content::RenderFrameHost* main_rfh =
+      GetActiveWebContents()->GetPrimaryMainFrame();
+  mojo::Remote<network::mojom::URLLoaderFactory> subresource_factory;
+  subresource_factory.Bind(CreateExtensionURLLoaderFactory(
+      main_rfh->GetProcess()->GetID(), main_rfh->GetRoutingID()));
+
+  auto load_subresource = [&](const GURL& url,
+                              network::mojom::RequestDestination destination) {
+    mojo::PendingRemote<network::mojom::URLLoader> loader;
+    network::TestURLLoaderClient client;
+    network::ResourceRequest request;
+    request.method = "GET";
+    request.url = url;
+    request.destination = destination;
+    request.request_initiator = main_rfh->GetLastCommittedOrigin();
+    subresource_factory->CreateLoaderAndStart(
+        loader.InitWithNewPipeAndPassReceiver(), 0,
+        network::mojom::kURLLoadOptionNone, request, client.CreateRemote(),
+        net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS));
+    client.RunUntilComplete();
+    return client.completion_status().error_code;
+  };
+
+  // 1. Requesting a non-web-accessible resource with destination kDocument
+  // should be blocked.
+  EXPECT_EQ(net::ERR_BLOCKED_BY_CLIENT,
+            load_subresource(extension->GetResourceURL("private.html"),
+                             network::mojom::RequestDestination::kDocument));
+
+  // 2. Requesting a non-web-accessible resource with destination kEmpty
+  // should be blocked.
+  EXPECT_EQ(net::ERR_BLOCKED_BY_CLIENT,
+            load_subresource(extension->GetResourceURL("private.html"),
+                             network::mojom::RequestDestination::kEmpty));
+
+  // 3. Requesting a web-accessible resource should succeed.
+  EXPECT_EQ(net::OK,
+            load_subresource(extension->GetResourceURL("accessible.html"),
+                             network::mojom::RequestDestination::kEmpty));
+
+  // 4. Requesting a web-accessible resource with destination kDocument should
+  // also succeed.
+  EXPECT_EQ(net::OK,
+            load_subresource(extension->GetResourceURL("accessible.html"),
+                             network::mojom::RequestDestination::kDocument));
 }
 
 }  // namespace

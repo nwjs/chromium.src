@@ -143,6 +143,7 @@ source_set("impl") {
       "//chrome/browser:shell_integration",
       "//chrome/browser/win",
       "//chrome/common:constants",
+      "//chrome/install_static:install_static_util",
     ]
   }
 }
@@ -179,14 +180,22 @@ if (is_mac || is_win) {
       "//chrome/browser/new_tab_page/prefs",
       "//chrome/browser/ui/omnibox",
       "//chrome/test:test_support",
+      "//chrome/test/base:testing_browser_process",
       "//chrome/test/views",
       "//components/ntp_tiles:pref_names",
       "//content/test:test_support",
       "//testing/gtest",
       "//ui/display:test_support",
+      "//ui/events:test_support",
       "//ui/views",
       "//ui/views:test_support",
     ]
+    if (is_win) {
+      deps += [
+        "//chrome/install_static:install_static_util",
+        "//chrome/install_static/test:test_support",
+      ]
+    }
   }
 
   source_set("interactive_ui_tests") {
@@ -201,6 +210,7 @@ if (is_mac || is_win) {
       "//chrome/browser/background/omnibox_everywhere",
       "//chrome/browser/prefs:util",
       "//chrome/browser/status_icons",
+      "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui:chrome_pages",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/webui/cr_components/searchbox",

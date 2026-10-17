@@ -55,13 +55,13 @@ static std::array<const uint8_t, 1> kDataB = {0x33};
 
 // Matchers for verifying common media log entry strings.
 MATCHER_P(ContainsTrackBufferExhaustionSkipLog, skip_milliseconds, "") {
-  return CONTAINS_STRING(arg,
-                         "Media append that overlapped current playback "
-                         "position may cause time gap in playing VIDEO stream "
-                         "because the next keyframe is " +
-                             base::NumberToString(skip_milliseconds) +
-                             "ms beyond last overlapped frame. Media may "
-                             "appear temporarily frozen.");
+  return arg.contains(
+      "Media append that overlapped current playback "
+      "position may cause time gap in playing VIDEO stream "
+      "because the next keyframe is " +
+      base::NumberToString(skip_milliseconds) +
+      "ms beyond last overlapped frame. Media may "
+      "appear temporarily frozen.");
 }
 
 #define EXPECT_STATUS_FOR_STREAM_OP(status_suffix, operation) \
@@ -355,18 +355,17 @@ class SourceBufferStreamTest : public testing::Test {
       }
 
       // Check duration if expected timestamp contains it.
-      if (timestamps[i].find('D') != std::string::npos) {
+      if (timestamps[i].contains('D')) {
         ss << "D" << buffer->duration().InMilliseconds();
       }
 
       // Check duration estimation if expected timestamp contains it.
-      if (timestamps[i].find('E') != std::string::npos &&
-          buffer->is_duration_estimated()) {
+      if (timestamps[i].contains('E') && buffer->is_duration_estimated()) {
         ss << "E";
       }
 
       // Handle preroll buffers.
-      if (base::EndsWith(timestamps[i], "P", base::CompareCase::SENSITIVE)) {
+      if (timestamps[i].ends_with("P")) {
         ASSERT_TRUE(buffer->is_key_frame());
         scoped_refptr<StreamParserBuffer> preroll_buffer;
         preroll_buffer.swap(buffer);
@@ -553,20 +552,20 @@ class SourceBufferStreamTest : public testing::Test {
       bool has_preroll = false;
       bool is_duration_estimated = false;
 
-      if (base::EndsWith(timestamps[i], "K", base::CompareCase::SENSITIVE)) {
+      if (timestamps[i].ends_with("K")) {
         is_keyframe = true;
         // Remove the "K" off of the token.
         timestamps[i] = timestamps[i].substr(0, timestamps[i].length() - 1);
       }
       // Handle preroll buffers.
-      if (base::EndsWith(timestamps[i], "P", base::CompareCase::SENSITIVE)) {
+      if (timestamps[i].ends_with("P")) {
         is_keyframe = true;
         has_preroll = true;
         // Remove the "P" off of the token.
         timestamps[i] = timestamps[i].substr(0, timestamps[i].length() - 1);
       }
 
-      if (base::EndsWith(timestamps[i], "E", base::CompareCase::SENSITIVE)) {
+      if (timestamps[i].ends_with("E")) {
         is_duration_estimated = true;
         // Remove the "E" off of the token.
         timestamps[i] = timestamps[i].substr(0, timestamps[i].length() - 1);
@@ -576,7 +575,7 @@ class SourceBufferStreamTest : public testing::Test {
       size_t duration_pos = timestamps[i].find('D');
       if (duration_pos != std::string::npos) {
         bool is_duration_us = false;  // Default to millisecond interpretation.
-        if (base::EndsWith(timestamps[i], "u", base::CompareCase::SENSITIVE)) {
+        if (timestamps[i].ends_with("u")) {
           is_duration_us = true;
           timestamps[i] = timestamps[i].substr(0, timestamps[i].length() - 1);
         }
@@ -602,8 +601,7 @@ class SourceBufferStreamTest : public testing::Test {
         int us = 0;
         bool is_us = false;  // Default to millisecond interpretation.
 
-        if (base::EndsWith(buffer_timestamp_strings[j], "u",
-                           base::CompareCase::SENSITIVE)) {
+        if (buffer_timestamp_strings[j].ends_with("u")) {
           is_us = true;
           buffer_timestamp_strings[j] = buffer_timestamp_strings[j].substr(
               0, buffer_timestamp_strings[j].length() - 1);

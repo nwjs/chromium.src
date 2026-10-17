@@ -219,9 +219,11 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT ClientSharedImage
   const Mailbox& mailbox() const { return mailbox_; }
   viz::SharedImageFormat format() const { return metadata_.format; }
   base::ByteSize EstimatedSizeInBytes() const {
-    return base::ByteSize(format().EstimatedSizeInBytes(size()));
+    return base::ByteSize(format().EstimatedSizeInBytes(size()) *
+                          metadata_.array_layers);
   }
   gfx::Size size() const { return metadata_.size; }
+  uint32_t array_layers() const { return metadata_.array_layers; }
   const gfx::ColorSpace& color_space() const { return metadata_.color_space; }
   GrSurfaceOrigin surface_origin() const { return metadata_.surface_origin; }
   SkAlphaType alpha_type() const { return metadata_.alpha_type; }
@@ -296,6 +298,7 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT ClientSharedImage
       std::vector<SyncToken> sync_tokens,
       base::OnceClosure callback,
       SharedImageInterface* sii,
+      ContextSupport* context_support,
       uint64_t pending_callback_id);
 
   static void SignalLatestSyncToken(
@@ -312,7 +315,13 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT ClientSharedImage
   bool IsSyncTokenSignaled(ContextSupport* context_support,
                            const SyncToken& resource_sync_token);
 
-  // Returns all tracked SyncTokens for this SharedImage.
+  // When the UseAutomaticSyncTokenManagement feature is enabled, this function
+  // returns all tracked SyncTokens for this SharedImage. When the feature is
+  // disabled, this function returns a 1-element vector containing the input
+  // SyncToken (if the input SyncToken is valid), or an empty vector (if the
+  // input SyncToken is empty). Note that all SyncTokens in the returned vector
+  // are non-empty, regardless of whether UseAutomaticSyncTokenManagement is
+  // enabled.
   std::vector<SyncToken> GetSyncTokensForDisplayCompositor(
       const SyncToken& sync_token);
 
@@ -497,6 +506,8 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT ClientSharedImage
       base::OnceCallback<void(bool)> callback);
 
   // Collect all SyncTokens stored in the internal map.
+  std::vector<SyncToken> CollectSyncTokensLocked()
+      EXCLUSIVE_LOCKS_REQUIRED(lock_);
   std::vector<SyncToken> CollectSyncTokens();
 
   void WaitSyncTokenInternal(InterfaceBase* ib, const SyncToken& sync_token);
@@ -535,6 +546,8 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT ClientSharedImage
   SyncToken creation_sync_token_;
   SyncToken destruction_sync_token_;
 
+  // Every SyncToken stored in this map is guaranteed to be non-empty, as
+  // enforced by StoreSyncTokenLocked().
   base::flat_map<SyncPointClientId, SyncToken> sync_token_map_;
 
   std::unique_ptr<MappableBuffer> mappable_buffer_;

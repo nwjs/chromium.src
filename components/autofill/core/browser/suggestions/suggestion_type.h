@@ -124,6 +124,7 @@ enum class SuggestionType {
 
   // Promotion suggestions.
   kMerchantPromoCodeEntry = 41,
+  // TODO(crbug.com/546252995): Deprecate `kSeePromoCodeDetails`.
   kSeePromoCodeDetails = 42,
 
   // Federated profiles suggestions.
@@ -144,7 +145,16 @@ enum class SuggestionType {
   kWebauthnPasskeyQrCode = 86,
 
   // One time password suggestions.
+  // Represents an SMS OTP suggestion.
   kOneTimePasswordEntry = 74,
+  // Represents a Gmail OTP suggestion. Having a separate suggestion type allows
+  // recording distinct acceptance/impression metrics in AutofillSuggestionType
+  // histograms and configuring differing UI styling (e.g. Gmail icon and sender
+  // email labels vs Android Messages icon) without risking regressions to SMS
+  // OTP flows.
+  kGmailOneTimePasswordEntry = 100,
+  // Suggestion action to open Gmail for OTPs when no OTP was detected.
+  kOpenGmailForOtps = 101,
 
   // Other suggestions.
   kTitle = 45,
@@ -246,9 +256,15 @@ enum class SuggestionType {
   // entity source info.
   kAutofillAiSourceAttribution = 99,
 
-  // Next ID: 100
+  // Suggestion to manage Wallet Direct Offers.
+  kManageOffers = 102,
 
-  kMaxValue = kAutofillAiSourceAttribution
+  // Suggestion to display the keyboard shortcut settings promo for AtMemory.
+  kAtMemoryShortcutSettingsPromo = 103,
+
+  // Next ID: 104
+
+  kMaxValue = kAtMemoryShortcutSettingsPromo
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/autofill/enums.xml:SuggestionType)
 

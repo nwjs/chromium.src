@@ -140,6 +140,8 @@ std::string_view LayoutConstantToCssVarName(LayoutConstant layout_constant) {
       return "--toolbar-element-padding";
     case kToolbarIconDefaultMargin:
       return "--toolbar-icon-default-margin";
+    case kToolbarButtonRefreshExpandedMargin:
+      return "--toolbar-button-refresh-expanded-margin";
     case kToolbarCornerRadius:
       return "--toolbar-corner-radius";
     case kSidePanelInset:
@@ -265,6 +267,9 @@ std::string WebUIToolbarLayoutCssHelper::GenerateLayoutConstantsCss() {
                    css_string);
   AddFontVariables("--toolbar-button", CONTEXT_TOOLBAR_BUTTON,
                    views::style::STYLE_PRIMARY, typography_provider,
+                   css_string);
+  AddFontVariables("--glic-button", views::style::CONTEXT_BUTTON_MD,
+                   views::style::STYLE_BODY_3_EMPHASIS, typography_provider,
                    css_string);
   AddFontVariables("--drag-template", views::style::CONTEXT_BUTTON,
                    views::style::STYLE_PRIMARY, typography_provider,

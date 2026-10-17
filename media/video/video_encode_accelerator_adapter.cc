@@ -187,10 +187,14 @@ VideoPixelFormat InputPixelFormat(VideoCodecProfile profile,
   }
   // AV1 profile 0 covers both 8 and 10 bit, so the requested bit depth is what
   // decides the input format, and the input format is in turn what tells the
-  // platform encoder which bit depth to code at. AV1 profile 1 is excluded: its
-  // 4:4:4 input format is 8 bit AYUV.
+  // platform encoder which bit depth to code at. AV1 profile 1 (high) is 4:4:4
+  // at the input's bit depth: 8 bit frames are converted to AYUV by the
+  // platform encoder, while 10 bit 4:4:4 frames arrive as P410LE.
   if (profile == AV1PROFILE_PROFILE_MAIN && opts.bit_depth.value_or(8) == 10) {
     return PIXEL_FORMAT_P010LE;
+  }
+  if (profile == AV1PROFILE_PROFILE_HIGH && opts.bit_depth.value_or(8) == 10) {
+    return PIXEL_FORMAT_P410LE;
   }
   return default_format;
 }
@@ -243,6 +247,13 @@ bool CanPassthroughGpuFrameFormat(
 }
 
 }  // namespace
+
+// static
+VideoPixelFormat VideoEncodeAcceleratorAdapter::GetInputPixelFormat(
+    VideoCodecProfile profile,
+    const Options& options) {
+  return InputPixelFormat(profile, options, kDefaultPixelFormat);
+}
 
 class VideoEncodeAcceleratorAdapter::MappableSharedImageVideoFramePool
     : public base::RefCountedThreadSafe<MappableSharedImageVideoFramePool> {
@@ -558,8 +569,7 @@ void VideoEncodeAcceleratorAdapter::InitializeOnAcceleratorThread(
   profile_ = profile;
   supported_rc_modes_ = supported_rc_modes;
   gpu_supported_pixel_formats_ = std::move(gpu_supported_pixel_formats);
-  input_pixel_format_ =
-      InputPixelFormat(profile_, options, kDefaultPixelFormat);
+  input_pixel_format_ = GetInputPixelFormat(profile_, options);
   // An empty list means no GPU formats were advertised, not that CPU conversion
   // is unsupported. Preserve the legacy fallback only when it matches
   // `input_pixel_format_`; otherwise it could bypass the required conversion.
@@ -679,7 +689,8 @@ void VideoEncodeAcceleratorAdapter::EncodeOnAcceleratorThread(
   if (input_buffer_preference_ == InputBufferKind::CpuMemBuf)
     use_gpu_buffer = false;
 
-  EncoderStatus::Or<scoped_refptr<VideoFrame>> result(nullptr);
+  EncoderStatus::Or<scoped_refptr<VideoFrame>> result(
+      scoped_refptr<VideoFrame>(nullptr));
   if (use_gpu_buffer)
     result = PrepareGpuFrame(frame);
   else

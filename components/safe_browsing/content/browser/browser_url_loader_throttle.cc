@@ -14,7 +14,6 @@
 #include "base/trace_event/trace_event.h"
 #include "components/safe_browsing/buildflags.h"
 #include "components/safe_browsing/content/browser/async_check_tracker.h"
-#include "components/safe_browsing/content/browser/safe_browsing_navigation_observer.h"
 #include "components/safe_browsing/core/browser/db/v5_get_hash_protocol_manager.h"
 #include "components/safe_browsing/core/browser/hashprefix_realtime/hash_realtime_service.h"
 #include "components/safe_browsing/core/browser/realtime/url_lookup_service_base.h"
@@ -34,6 +33,10 @@
 #include "services/network/public/mojom/fetch_api.mojom.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
+
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+#include "components/safe_browsing/content/browser/safe_browsing_navigation_observer.h"
+#endif
 
 namespace {
 
@@ -340,6 +343,7 @@ void BrowserURLLoaderThrottle::WillRedirectRequest(
     return;
   }
 
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
   // Make IP addresses from redirects available for later real-time URL checks.
   if (!response_head.remote_endpoint.address().empty()) {
     content::WebContents* web_contents = web_contents_getter_.Run();
@@ -353,6 +357,7 @@ void BrowserURLLoaderThrottle::WillRedirectRequest(
       }
     }
   }
+#endif
   current_url_ = redirect_info->new_url;
 
   pending_sync_checks_++;

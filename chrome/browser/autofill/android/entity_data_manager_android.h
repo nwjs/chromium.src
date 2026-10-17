@@ -120,11 +120,13 @@ class EntityDataManagerAndroid : public EntityDataManager::Observer {
                                  const jni_zero::JavaRef<jobject>& jEntity,
                                  int32_t description_string_id,
                                  int32_t accept_button_string_id,
+                                 std::optional<std::string> context_token,
                                  base::OnceClosure on_local_save_fallback);
 
   // Retrieves the details (legal message and context token) required to upsert
   // a pass from Wallet servers.
   void GetDetailsForUpsertPass(
+      int entity_type,
       WalletPassAccessManager::GetDetailsForUpsertPassCallback callback);
 
   // Gets information about all entities to be displayed in the management
@@ -171,6 +173,12 @@ class EntityDataManagerAndroid : public EntityDataManager::Observer {
   // Returns true if the user can store and read public passes on Google Wallet
   // servers. Used to display a notice in the management UI.
   bool IsWalletPublicPassStorageEnabled(JNIEnv* env);
+
+  // Returns true if an entity with `entity_type` and `record_type` is eligible
+  // for the Google Wallet public pass disclosure notice.
+  bool IsEligibleForWalletNotice(JNIEnv* env,
+                                 int entity_type,
+                                 int record_type) const;
 
   // Returns whether the personal context preference is visible.
   bool IsPersonalContextPreferenceVisible(JNIEnv* env);
@@ -233,6 +241,7 @@ class EntityDataManagerAndroid : public EntityDataManager::Observer {
       EntityInstance::RecordType targeted_record_type,
       int description_string_id,
       int accept_button_string_id,
+      std::optional<std::string> context_token,
       base::OnceClosure on_local_save_fallback);
 
   // Called after an attempt to save a private pass to Google Wallet.

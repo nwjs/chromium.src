@@ -186,9 +186,7 @@ void FileInputType::HandleDOMActivateEvent(Event& event) {
         mojom::ConsoleMessageLevel::kWarning, message));
     return;
   }
-  if (RuntimeEnabledFeatures::FileColorPickerConsumeActivationEnabled()) {
-    LocalFrame::ConsumeTransientUserActivation(document.GetFrame());
-  }
+  LocalFrame::ConsumeTransientUserActivation(document.GetFrame());
 
   OpenPopupView();
   event.SetDefaultHandled();
@@ -662,6 +660,14 @@ String FileInputType::FileStatusText() const {
 void FileInputType::UpdateView() {
   if (auto* span = FileStatusElement())
     span->setTextContent(FileStatusText());
+}
+
+bool FileInputType::SupportsBaseAppearance(
+    Element::BaseAppearanceValue value) const {
+  if (!RuntimeEnabledFeatures::AppearanceBaseEnabled()) {
+    return false;
+  }
+  return value == Element::BaseAppearanceValue::kBase;
 }
 
 }  // namespace blink

@@ -9,7 +9,6 @@
 #define COMPONENTS_OPTIMIZATION_GUIDE_CORE_OPTIMIZATION_GUIDE_SWITCHES_H_
 
 #include <optional>
-#include <string>
 
 #include "base/component_export.h"
 #include "base/files/file_path.h"
@@ -29,27 +28,6 @@ extern const char kGetFreeDiskSpaceWithUserVisiblePriorityTask[];
 // model eligibility check.
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 bool ShouldGetFreeDiskSpaceWithUserVisiblePriorityTask();
-
-
-// TODO(crbug.com/514743962): Move to components/optimization_guide/core/model_quality/model_quality_logs_uploader_service.h.
-COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
-extern const char kModelQualityServiceURL[];
-COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
-extern const char kModelQualityServiceAPIKey[];
-// The API key for the ModelQualityLoggingService.
-COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
-std::string GetModelQualityServiceAPIKey();
-
-// TODO(crbug.com/514743962): Move to components/optimization_guide/core/model_execution/model_execution_features_controller.h.
-COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
-extern const char kEnableModelQualityDogfoodLogging[];
-
-// TODO(crbug.com/514743962): Move to components/optimization_guide/core/optimization_guide_logger.h.
-COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
-extern const char kDebugLoggingEnabled[];
-// Returns true if debug logs are enabled for the optimization guide.
-COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
-bool IsDebugLogsEnabled();
 
 }  // namespace switches
 }  // namespace optimization_guide

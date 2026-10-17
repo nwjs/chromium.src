@@ -6,6 +6,7 @@ package org.chromium.support_lib_glue;
 
 import android.content.Context;
 import android.net.Uri;
+import android.system.ErrnoException;
 import android.webkit.ValueCallback;
 import android.webkit.WebView;
 
@@ -19,6 +20,7 @@ import com.android.webview.chromium.ProfileStore;
 import com.android.webview.chromium.SharedStatics;
 import com.android.webview.chromium.SharedTracingControllerAdapter;
 import com.android.webview.chromium.WebContent;
+import com.android.webview.chromium.WebSurface;
 import com.android.webview.chromium.WebViewChromiumAwInit;
 import com.android.webview.chromium.WebkitToSharedGlueConverter;
 
@@ -31,8 +33,10 @@ import org.chromium.android_webview.common.AwFeatures;
 import org.chromium.android_webview.common.WebViewCachedFlags;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.metrics.RecordHistogram;
+import org.chromium.content_public.browser.SharedArrayBuffer;
 import org.chromium.support_lib_boundary.StaticsBoundaryInterface;
 import org.chromium.support_lib_boundary.WebContentConfig;
+import org.chromium.support_lib_boundary.WebSurfaceEvent;
 import org.chromium.support_lib_boundary.WebViewProviderFactoryBoundaryInterface;
 import org.chromium.support_lib_boundary.WebViewStartUpCallbackBoundaryInterface;
 import org.chromium.support_lib_boundary.WebViewStartUpConfigBoundaryInterface;
@@ -153,6 +157,9 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
                 Features.NAVIGATION_GET_RESPONSE_HEADERS + Features.DEV_SUFFIX,
                 Features.WEB_CONTENT,
                 Features.WEBVIEW_NAVIGATE_DRAIN_PREFETCH,
+                Features.NAVIGATION_GET_NAVIGATION_START_UPTIME_MILLIS + Features.DEV_SUFFIX,
+                Features.WEB_MESSAGE_SHARED_ARRAY_BUFFER + Features.DEV_SUFFIX,
+                Features.WEB_SURFACE + Features.DEV_SUFFIX,
                 // Add new features above. New features must include `+ Features.DEV_SUFFIX`
                 // when they're initially added (this can be removed in a future CL). The one
                 // exception is when adding a new method to an interface that extends from
@@ -386,6 +393,10 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
         ApiCall.GET_CROSS_ORIGIN_ISOLATED_ALLOW_LIST,
         ApiCall.NAVIGATION_GET_RESPONSE_HEADERS,
         ApiCall.BUILD_WEB_CONTENT,
+        ApiCall.NAVIGATION_GET_NAVIGATION_START_UPTIME_MILLIS,
+        ApiCall.CREATE_SHARED_ARRAY_BUFFER,
+        ApiCall.WEB_MESSAGE_PAYLOAD_GET_AS_SHARED_ARRAY_BUFFER,
+        ApiCall.CREATE_WEB_SURFACE,
         // Add new constants above. The final constant should have a trailing comma for cleaner
         // diffs.
         ApiCall.COUNT, // Added to suppress WrongConstant in #recordApiCall
@@ -601,8 +612,12 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
         int GET_CROSS_ORIGIN_ISOLATED_ALLOW_LIST = 205;
         int NAVIGATION_GET_RESPONSE_HEADERS = 206;
         int BUILD_WEB_CONTENT = 207;
+        int NAVIGATION_GET_NAVIGATION_START_UPTIME_MILLIS = 208;
+        int CREATE_SHARED_ARRAY_BUFFER = 209;
+        int WEB_MESSAGE_PAYLOAD_GET_AS_SHARED_ARRAY_BUFFER = 210;
+        int CREATE_WEB_SURFACE = 211;
         // Remember to update AndroidXWebkitApiCall in enums.xml when adding new values here
-        int COUNT = 208;
+        int COUNT = 212;
     }
 
     // LINT.ThenChange(/tools/metrics/histograms/metadata/android/enums.xml:AndroidXWebkitApiCall)
@@ -657,6 +672,18 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
             buildConfig.accept(builder);
             WebContent webContent = builder.build();
             SupportLibWebContentAdapter adapter = new SupportLibWebContentAdapter(webContent);
+            return BoundaryInterfaceReflectionUtil.createInvocationHandlerFor(adapter);
+        }
+    }
+
+    @Override
+    public /* WebSurfaceBoundaryInterface */ InvocationHandler createWebSurface(
+            BiConsumer<@WebSurfaceEvent Integer, Object> eventListener) {
+        try (TraceEvent event = TraceEvent.scoped("WebView.APICall.AndroidX.CREATE_WEB_SURFACE")) {
+            recordApiCall(ApiCall.CREATE_WEB_SURFACE);
+            WebSurface webSurface =
+                    new WebSurface(() -> eventListener.accept(WebSurfaceEvent.INVALIDATE, null));
+            SupportLibWebSurfaceAdapter adapter = new SupportLibWebSurfaceAdapter(webSurface);
             return BoundaryInterfaceReflectionUtil.createInvocationHandlerFor(adapter);
         }
     }
@@ -756,6 +783,25 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
                     TraceEvent.scoped("WebView.APICall.AndroidX.SET_DEFAULT_TRAFFICSTATS_UID")) {
                 recordApiCall(ApiCall.SET_DEFAULT_TRAFFICSTATS_UID);
                 mSharedStatics.setDefaultTrafficStatsUid(uid);
+            }
+        }
+
+        @Override
+        public /* SharedArrayBufferBoundaryInterface */ InvocationHandler createSharedArrayBuffer(
+                @Nullable String name, long size) throws ErrnoException {
+            try (TraceEvent event =
+                    TraceEvent.scoped("WebView.APICall.AndroidX.CREATE_SHARED_ARRAY_BUFFER")) {
+                recordApiCall(ApiCall.CREATE_SHARED_ARRAY_BUFFER);
+                if (size <= 0 || size > Integer.MAX_VALUE) {
+                    throw new IllegalArgumentException(
+                            "SharedArrayBuffer size must be in the range [1, "
+                                    + Integer.MAX_VALUE
+                                    + "] bytes, but was "
+                                    + size
+                                    + ".");
+                }
+                SharedArrayBuffer sab = SharedArrayBuffer.allocate(name, (int) size);
+                return SupportLibSharedArrayBufferAdapter.getInvocationHandler(sab);
             }
         }
     }

@@ -5,7 +5,10 @@
 #import "ios/chrome/browser/app_bar/coordinator/app_bar_mediator.h"
 
 #import <memory>
+#import <string_view>
+#import <vector>
 
+#import "base/apple/foundation_util.h"
 #import "base/base64.h"
 #import "base/run_loop.h"
 #import "base/strings/sys_string_conversions.h"
@@ -13,6 +16,7 @@
 #import "base/test/metrics/user_action_tester.h"
 #import "base/test/scoped_feature_list.h"
 #import "components/application_locale_storage/application_locale_storage.h"
+#import "components/lens/lens_overlay_permission_utils.h"
 #import "components/omnibox/browser/mock_aim_eligibility_service.h"
 #import "components/omnibox/browser/omnibox_prefs.h"
 #import "components/open_from_clipboard/fake_clipboard_recent_content.h"
@@ -23,6 +27,7 @@
 #import "components/signin/public/identity_manager/account_capabilities_test_mutator.h"
 #import "components/signin/public/identity_manager/identity_test_utils.h"
 #import "components/signin/public/identity_manager/tribool.h"
+#import "components/strings/grit/components_strings.h"
 #import "components/sync_preferences/testing_pref_service_syncable.h"
 #import "components/tab_groups/tab_group_id.h"
 #import "components/tab_groups/tab_group_visual_data.h"
@@ -47,6 +52,7 @@
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service_factory.h"
 #import "ios/chrome/browser/policy/model/policy_util.h"
+#import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/incognito_lock_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/incognito_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/lens_overlay_state_notifier.h"
@@ -85,6 +91,7 @@
 #import "ios/chrome/browser/url_loading/model/fake_url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_notifier_browser_agent.h"
+#import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_variations_service.h"
 #import "ios/chrome/test/testing_application_context.h"
@@ -93,9 +100,11 @@
 #import "ios/web/public/test/fakes/fake_web_state.h"
 #import "ios/web/public/test/web_task_environment.h"
 #import "net/base/mock_network_change_notifier.h"
+#import "testing/gtest_mac.h"
 #import "testing/platform_test.h"
 #import "third_party/ocmock/OCMock/OCMock.h"
 #import "third_party/ocmock/gtest_support.h"
+#import "ui/base/l10n/l10n_util_mac.h"
 
 @protocol TestAppBarConsumer <AppBarConsumer,
                               FullscreenUIElement,
@@ -109,6 +118,72 @@
 namespace {
 
 MenuScenarioHistogram kTestMenuScenario = kMenuScenarioHistogramToolbarMenu;
+
+// Indexes of the entries of the assistant button menu when all of them are
+// available, as the unavailable entries are hidden.
+constexpr NSUInteger kAssistantButtonMenuAskGeminiIndex = 0;
+constexpr NSUInteger kAssistantButtonMenuLensIndex = 1;
+constexpr NSUInteger kAssistantButtonMenuAccountIndex = 2;
+// Number of entries of the assistant button menu when all of them are
+// available.
+constexpr NSUInteger kAssistantButtonMenuEntryCount = 3;
+
+// Value of the preferred assistant button state outside of the enum range.
+constexpr int kInvalidAssistantButtonState =
+    static_cast<int>(AppBarAssistantButtonPreferredState::kMaxValue) + 1;
+
+// User actions recorded when selecting the entries of the assistant button
+// menu.
+constexpr std::string_view kAssistantButtonMenuAskGeminiUserAction =
+    "MobileToolbarAssistantCustomizationAskGeminiSelected";
+constexpr std::string_view kAssistantButtonMenuLensUserAction =
+    "MobileToolbarAssistantCustomizationLensSelected";
+constexpr std::string_view kAssistantButtonMenuAccountUserAction =
+    "MobileToolbarAssistantCustomizationAccountSelected";
+
+// Expected entry of the assistant button menu.
+struct ExpectedAssistantButtonMenuEntry {
+  // ID of the title string of the entry.
+  int title_id;
+  // Whether the entry is checked.
+  bool checked;
+};
+
+// Expects `menu` to contain exactly `expected_entries`, in this order, all of
+// them being enabled.
+void ExpectAssistantButtonMenuEntries(
+    UIMenu* menu,
+    const std::vector<ExpectedAssistantButtonMenuEntry>& expected_entries) {
+  ASSERT_TRUE(menu);
+  ASSERT_EQ(expected_entries.size(), menu.children.count);
+  for (size_t index = 0; index < expected_entries.size(); ++index) {
+    const ExpectedAssistantButtonMenuEntry& expected = expected_entries[index];
+    NSString* title = l10n_util::GetNSString(expected.title_id);
+    SCOPED_TRACE(base::SysNSStringToUTF8(title));
+    UIAction* action =
+        base::apple::ObjCCastStrict<UIAction>(menu.children[index]);
+    EXPECT_NSEQ(title, action.title);
+    EXPECT_EQ(expected.checked ? UIMenuElementStateOn : UIMenuElementStateOff,
+              action.state);
+    EXPECT_FALSE(action.attributes & UIMenuElementAttributesDisabled);
+  }
+}
+
+// Expects `tester` to have recorded the user actions of the "Ask Gemini",
+// "Lens" and "Account" entries of the assistant button menu respectively
+// `ask_gemini_count`, `lens_count` and `account_count` times.
+void ExpectAssistantButtonMenuUserActionCounts(
+    const base::UserActionTester& tester,
+    int ask_gemini_count,
+    int lens_count,
+    int account_count) {
+  EXPECT_EQ(ask_gemini_count,
+            tester.GetActionCount(kAssistantButtonMenuAskGeminiUserAction));
+  EXPECT_EQ(lens_count,
+            tester.GetActionCount(kAssistantButtonMenuLensUserAction));
+  EXPECT_EQ(account_count,
+            tester.GetActionCount(kAssistantButtonMenuAccountUserAction));
+}
 
 }  // namespace
 
@@ -233,6 +308,13 @@ class AppBarMediatorTest : public PlatformTest {
         .WillByDefault(testing::Return(false));
     ON_CALL(*aim_eligibility_service_, IsServerEligibilityEnabled())
         .WillByDefault(testing::Return(false));
+
+    // Lens is eligible without any tab, so disable it by default to let tests
+    // control its availability with `overrideLensAvailabilityForTesting`.
+    regular_profile_->GetTestingPrefService()->SetInteger(
+        lens::prefs::kLensOverlaySettings,
+        static_cast<int>(
+            lens::prefs::LensOverlaySettingsPolicyValue::kDisabled));
 
     mediator_ = [[AppBarMediator alloc]
             initWithRegularWebStateList:regular_web_state_list_.get()
@@ -376,6 +458,49 @@ class AppBarMediatorTest : public PlatformTest {
   // Wrapper for `InvokeFloaty`.
   void InvokeFloaty(GeminiBrowserAgent* agent, GeminiConfiguration* config) {
     agent->InvokeFloaty(config);
+  }
+
+  // Sets whether AI Mode is eligible.
+  void SetAimEligible(bool eligible) {
+    ON_CALL(*aim_eligibility_service_, IsAimEligible())
+        .WillByDefault(testing::Return(eligible));
+  }
+
+  // Stores `state` as the assistant button state chosen by the user.
+  void SetPreferredAssistantButtonState(
+      AppBarAssistantButtonPreferredState state) {
+    regular_profile_->GetTestingPrefService()->SetInteger(
+        prefs::kAppBarAssistantButtonPreferredState, static_cast<int>(state));
+  }
+
+  // Updates the assistant button, verifies the expectations of the consumer and
+  // returns the menu set on the consumer for the assistant button.
+  UIMenu* UpdateAssistantButtonAndGetMenu() {
+    __block UIMenu* assistant_button_menu = nil;
+    OCMExpect([consumer_ setMenu:[OCMArg checkWithBlock:^BOOL(UIMenu* menu) {
+                           assistant_button_menu = menu;
+                           return YES;
+                         }]
+                   forButtonType:AppBarButtonTypeAssistant]);
+    [mediator_ updateAssistantButton];
+    EXPECT_OCMOCK_VERIFY(consumer_);
+    return assistant_button_menu;
+  }
+
+  // Selects the entry at `index` of the assistant button menu.
+  void SelectAssistantButtonMenuEntry(NSUInteger index) {
+    UIMenu* menu = UpdateAssistantButtonAndGetMenu();
+    ASSERT_EQ(kAssistantButtonMenuEntryCount, menu.children.count);
+    UIAction* action =
+        base::apple::ObjCCastStrict<UIAction>(menu.children[index]);
+    [action performWithSender:nil target:nil];
+  }
+
+  // Replaces `mediator_` with a new mediator, which records the on-load
+  // metrics when its consumer is set.
+  void RecreateMediator() {
+    [mediator_ disconnect];
+    mediator_ = CreateMediatorWithCustomGeminiService(fake_gemini_service_);
   }
 
   AppBarMediator* CreateMediatorWithCustomGeminiService(
@@ -1642,6 +1767,27 @@ TEST_F(AppBarMediatorTest, TestAssistantButtonTappedAccountSignedIn) {
                                        AppBarAssistantButtonState::kAccount, 1);
 }
 
+// Tests that tapping the assistant button in the kAccount state does nothing
+// when sign-in is disabled, even if there is a primary identity.
+TEST_F(AppBarMediatorTest, TestAssistantButtonTappedAccountSigninDisabled) {
+  SignInAndSetCapability(true);
+  GetApplicationContext()->GetLocalState()->SetBoolean(
+      prefs::kSigninAllowedOnDevice, false);
+
+  id mock_delegate = OCMProtocolMock(@protocol(AppBarMediatorDelegate));
+  mediator_.delegate = mock_delegate;
+
+  UIView* dummy_view = [[UIView alloc] init];
+  OCMReject([mock_delegate showSignin:[OCMArg any]]);
+  OCMReject([mock_delegate showAccountMenu:[OCMArg any]]);
+
+  [mediator_ assistantButtonTappedWithState:AppBarAssistantButtonState::kAccount
+                                   fromView:dummy_view];
+  EXPECT_OCMOCK_VERIFY(mock_delegate);
+  histogram_tester_.ExpectUniqueSample(kAppBarAssistantButtonTappedHistogram,
+                                       AppBarAssistantButtonState::kAccount, 1);
+}
+
 // Tests that the assistant button is in the kAccount state with an avatar when
 // signed in.
 TEST_F(AppBarMediatorTest, TestAssistantButtonStateAccountWithAvatar) {
@@ -2259,6 +2405,7 @@ TEST_F(AppBarMediatorTest, TestAssistantButtonStateOnLoadMetric_AIM) {
 // executes.
 TEST_F(AppBarMediatorTest,
        TestAssistantButtonStateOnLoadMetric_AIM_DeferredUntilCallback) {
+  base::test::ScopedFeatureList feature_list(kAppBarAssistantCustomization);
   // Disable Gemini via policy.
   regular_profile_->GetTestingPrefService()->SetInteger(
       prefs::kGeminiEnabledByPolicy,
@@ -2330,6 +2477,8 @@ TEST_F(AppBarMediatorTest,
   // On initial load, AIM check is pending, so 0 metrics are recorded.
   local_histogram_tester.ExpectTotalCount(
       kAppBarAssistantButtonStateOnLoadHistogram, 0);
+  local_histogram_tester.ExpectTotalCount(
+      kAppBarAssistantButtonPreferredStateOnLoadHistogram, 0);
 
   // Simulate response arriving with AIM eligible.
   omnibox::AimEligibilityResponse response;
@@ -2364,6 +2513,10 @@ TEST_F(AppBarMediatorTest,
   local_histogram_tester.ExpectUniqueSample(
       kAppBarAssistantButtonStateOnLoadHistogram,
       AppBarAssistantButtonState::kAIM, 1);
+  // The preferred state is logged once, along with the state.
+  local_histogram_tester.ExpectUniqueSample(
+      kAppBarAssistantButtonPreferredStateOnLoadHistogram,
+      AppBarAssistantButtonPreferredState::kDefault, 1);
 
   [local_mediator disconnect];
 }
@@ -2527,6 +2680,422 @@ TEST_F(AppBarMediatorTest, TestAssistantButtonStatePriority_LensOverAccount) {
   EXPECT_OCMOCK_VERIFY(consumer_);
 }
 
+// Tests that the assistant button shows Lens when the user chose it, even if
+// Gemini is eligible.
+TEST_F(AppBarMediatorTest, TestAssistantButtonCustomization_PreferredLens) {
+  base::test::ScopedFeatureList feature_list(kAppBarAssistantCustomization);
+  SetLocationEligible(true);
+  mediator_.overrideLensAvailabilityForTesting = YES;
+  SetPreferredAssistantButtonState(AppBarAssistantButtonPreferredState::kLens);
+
+  OCMExpect([consumer_ setAssistantButtonState:AppBarAssistantButtonState::kLens
+                                   highlighted:NO
+                                       enabled:YES
+                                        avatar:nil
+                                      signedIn:NO]);
+  [mediator_ updateAssistantButton];
+  EXPECT_OCMOCK_VERIFY(consumer_);
+}
+
+// Tests that the user choice is kept while it isn't eligible, so that the
+// assistant button shows it again once it becomes eligible.
+TEST_F(AppBarMediatorTest,
+       TestAssistantButtonCustomization_UnavailableChoiceIsKept) {
+  base::test::ScopedFeatureList feature_list(kAppBarAssistantCustomization);
+  SetLocationEligible(true);
+  mediator_.overrideLensAvailabilityForTesting = NO;
+  SetPreferredAssistantButtonState(AppBarAssistantButtonPreferredState::kLens);
+  OCMExpect([consumer_ setAssistantButtonState:AppBarAssistantButtonState::kAsk
+                                   highlighted:NO
+                                       enabled:YES
+                                        avatar:nil
+                                      signedIn:NO]);
+  [mediator_ updateAssistantButton];
+  EXPECT_OCMOCK_VERIFY(consumer_);
+  EXPECT_EQ(static_cast<int>(AppBarAssistantButtonPreferredState::kLens),
+            regular_profile_->GetTestingPrefService()->GetInteger(
+                prefs::kAppBarAssistantButtonPreferredState));
+
+  mediator_.overrideLensAvailabilityForTesting = YES;
+  OCMExpect([consumer_ setAssistantButtonState:AppBarAssistantButtonState::kLens
+                                   highlighted:NO
+                                       enabled:YES
+                                        avatar:nil
+                                      signedIn:NO]);
+  [mediator_ updateAssistantButton];
+  EXPECT_OCMOCK_VERIFY(consumer_);
+}
+
+// Tests that choosing "Ask Gemini" uses the default priority order, so that the
+// assistant button shows AI Mode when Gemini isn't eligible.
+TEST_F(AppBarMediatorTest,
+       TestAssistantButtonCustomization_PreferredAskShowsAimWhenNoGemini) {
+  base::test::ScopedFeatureList feature_list(kAppBarAssistantCustomization);
+  SetLocationEligible(false);
+  SetAimEligible(true);
+  mediator_.overrideLensAvailabilityForTesting = YES;
+  SetPreferredAssistantButtonState(AppBarAssistantButtonPreferredState::kAsk);
+
+  OCMExpect([consumer_ setAssistantButtonState:AppBarAssistantButtonState::kAIM
+                                   highlighted:NO
+                                       enabled:YES
+                                        avatar:nil
+                                      signedIn:NO]);
+  [mediator_ updateAssistantButton];
+  EXPECT_OCMOCK_VERIFY(consumer_);
+}
+
+// Tests that the user choice also applies in incognito, so that the assistant
+// button shows the same entry point as in regular mode, and that there is no
+// assistant button menu in incognito.
+TEST_F(AppBarMediatorTest, TestAssistantButtonCustomization_Incognito) {
+  base::test::ScopedFeatureList feature_list(kAppBarAssistantCustomization);
+  SetLocationEligible(true);
+  mediator_.overrideLensAvailabilityForTesting = YES;
+  SetPreferredAssistantButtonState(
+      AppBarAssistantButtonPreferredState::kAccount);
+  incognito_state_.incognitoContentVisible = YES;
+
+  // All the entry points but Gemini are disabled in incognito.
+  OCMExpect([consumer_
+      setAssistantButtonState:AppBarAssistantButtonState::kAccount
+                  highlighted:NO
+                      enabled:NO
+                       avatar:nil
+                     signedIn:NO]);
+  EXPECT_FALSE(UpdateAssistantButtonAndGetMenu());
+}
+
+// Tests that the assistant button keeps showing Lens, disabled, when the user
+// chose Lens and there is no tab, so that the entry point is the same in
+// regular and incognito mode.
+TEST_F(AppBarMediatorTest, TestAssistantButtonCustomization_LensWithoutTab) {
+  base::test::ScopedFeatureList feature_list(kAppBarAssistantCustomization);
+  SetLocationEligible(true);
+  mediator_.overrideLensAvailabilityForTesting = NO;
+  regular_profile_->GetTestingPrefService()->SetInteger(
+      lens::prefs::kLensOverlaySettings,
+      static_cast<int>(lens::prefs::LensOverlaySettingsPolicyValue::kEnabled));
+  SetPreferredAssistantButtonState(AppBarAssistantButtonPreferredState::kLens);
+  ASSERT_TRUE(regular_web_state_list_->empty());
+  ASSERT_TRUE(incognito_web_state_list_->empty());
+
+  OCMExpect([consumer_ setAssistantButtonState:AppBarAssistantButtonState::kLens
+                                   highlighted:NO
+                                       enabled:NO
+                                        avatar:nil
+                                      signedIn:NO]);
+  [mediator_ updateAssistantButton];
+  EXPECT_OCMOCK_VERIFY(consumer_);
+
+  incognito_state_.incognitoContentVisible = YES;
+  OCMExpect([consumer_ setAssistantButtonState:AppBarAssistantButtonState::kLens
+                                   highlighted:NO
+                                       enabled:NO
+                                        avatar:nil
+                                      signedIn:NO]);
+  [mediator_ updateAssistantButton];
+  EXPECT_OCMOCK_VERIFY(consumer_);
+}
+
+// Tests the content of the assistant button menu when all the entries are
+// available and the user didn't choose any. When Gemini is available, AI Mode
+// is not present in the menu even if it is eligible.
+TEST_F(AppBarMediatorTest, TestAssistantButtonCustomization_Menu) {
+  base::test::ScopedFeatureList feature_list(kAppBarAssistantCustomization);
+  SetLocationEligible(true);
+  SetAimEligible(true);
+  mediator_.overrideLensAvailabilityForTesting = YES;
+
+  UIMenu* menu = UpdateAssistantButtonAndGetMenu();
+  // "Ask Gemini" is checked as the assistant button shows Gemini.
+  ExpectAssistantButtonMenuEntries(
+      menu, {{IDS_IOS_APP_BAR_ASK_GEMINI, /*checked=*/true},
+             {IDS_IOS_LENS_PRODUCT_NAME, /*checked=*/false},
+             {IDS_IOS_APP_BAR_ACCOUNT, /*checked=*/false}});
+}
+
+// Tests that the assistant button menu hides the unavailable entries, and
+// checks "Lens" as the assistant button shows Lens when neither Gemini nor AI
+// Mode is available.
+TEST_F(AppBarMediatorTest,
+       TestAssistantButtonCustomization_MenuHidesUnavailableEntries) {
+  base::test::ScopedFeatureList feature_list(kAppBarAssistantCustomization);
+  SetLocationEligible(false);
+  SetAimEligible(false);
+  mediator_.overrideLensAvailabilityForTesting = YES;
+
+  ExpectAssistantButtonMenuEntries(
+      UpdateAssistantButtonAndGetMenu(),
+      {{IDS_IOS_LENS_PRODUCT_NAME, /*checked=*/true},
+       {IDS_IOS_APP_BAR_ACCOUNT, /*checked=*/false}});
+}
+
+// Tests that the assistant button menu shows and checks "AI Mode" when
+// Gemini isn't available but AI Mode is, matching what the assistant button
+// displays.
+TEST_F(AppBarMediatorTest,
+       TestAssistantButtonCustomization_MenuShowsAimWhenGeminiUnavailable) {
+  base::test::ScopedFeatureList feature_list(kAppBarAssistantCustomization);
+  SetLocationEligible(false);
+  SetAimEligible(true);
+  mediator_.overrideLensAvailabilityForTesting = YES;
+
+  OCMExpect([consumer_ setAssistantButtonState:AppBarAssistantButtonState::kAIM
+                                   highlighted:NO
+                                       enabled:YES
+                                        avatar:nil
+                                      signedIn:NO]);
+  ExpectAssistantButtonMenuEntries(
+      UpdateAssistantButtonAndGetMenu(),
+      {{IDS_OMNIBOX_AI_MODE_SCOPE_PLACEHOLDER_TEXT, /*checked=*/true},
+       {IDS_IOS_LENS_PRODUCT_NAME, /*checked=*/false},
+       {IDS_IOS_APP_BAR_ACCOUNT, /*checked=*/false}});
+}
+
+// Tests that there is an assistant button menu when only AI Mode and Account
+// are available, so that the user can switch between them.
+TEST_F(AppBarMediatorTest,
+       TestAssistantButtonCustomization_MenuWithAimAndAccountOnly) {
+  base::test::ScopedFeatureList feature_list(kAppBarAssistantCustomization);
+  SetLocationEligible(false);
+  SetAimEligible(true);
+  mediator_.overrideLensAvailabilityForTesting = NO;
+  SetPreferredAssistantButtonState(
+      AppBarAssistantButtonPreferredState::kAccount);
+
+  ExpectAssistantButtonMenuEntries(
+      UpdateAssistantButtonAndGetMenu(),
+      {{IDS_OMNIBOX_AI_MODE_SCOPE_PLACEHOLDER_TEXT, /*checked=*/false},
+       {IDS_IOS_APP_BAR_ACCOUNT, /*checked=*/true}});
+}
+
+// Tests that the assistant button menu checks the entry of the state shown by
+// the assistant button, and not the one chosen by the user, when the chosen one
+// isn't available.
+TEST_F(AppBarMediatorTest,
+       TestAssistantButtonCustomization_MenuChecksDisplayedEntry) {
+  base::test::ScopedFeatureList feature_list(kAppBarAssistantCustomization);
+  SetLocationEligible(true);
+  mediator_.overrideLensAvailabilityForTesting = NO;
+  SetPreferredAssistantButtonState(AppBarAssistantButtonPreferredState::kLens);
+
+  ExpectAssistantButtonMenuEntries(
+      UpdateAssistantButtonAndGetMenu(),
+      {{IDS_IOS_APP_BAR_ASK_GEMINI, /*checked=*/true},
+       {IDS_IOS_APP_BAR_ACCOUNT, /*checked=*/false}});
+}
+
+// Tests that there is no assistant button menu when neither Gemini, AI Mode nor
+// Lens is available, as Account would be the only choice.
+TEST_F(AppBarMediatorTest,
+       TestAssistantButtonCustomization_NoMenuWhenOnlyAccountAvailable) {
+  base::test::ScopedFeatureList feature_list(kAppBarAssistantCustomization);
+  SetLocationEligible(false);
+  SetAimEligible(false);
+  mediator_.overrideLensAvailabilityForTesting = NO;
+
+  EXPECT_FALSE(UpdateAssistantButtonAndGetMenu());
+}
+
+// Tests that the assistant button uses the default priority order when the user
+// chose Account while signed out and sign-in is disabled, and that the menu
+// hides the Account entry. Gemini is also unavailable to signed-out users when
+// sign-in is disabled, so the button shows AI Mode.
+TEST_F(AppBarMediatorTest,
+       TestAssistantButtonCustomization_PreferredAccountSigninDisabled) {
+  base::test::ScopedFeatureList feature_list(kAppBarAssistantCustomization);
+  SetLocationEligible(true);
+  SetAimEligible(true);
+  mediator_.overrideLensAvailabilityForTesting = YES;
+  SetPreferredAssistantButtonState(
+      AppBarAssistantButtonPreferredState::kAccount);
+  GetApplicationContext()->GetLocalState()->SetBoolean(
+      prefs::kSigninAllowedOnDevice, false);
+
+  OCMExpect([consumer_ setAssistantButtonState:AppBarAssistantButtonState::kAIM
+                                   highlighted:NO
+                                       enabled:YES
+                                        avatar:nil
+                                      signedIn:NO]);
+  ExpectAssistantButtonMenuEntries(
+      UpdateAssistantButtonAndGetMenu(),
+      {{IDS_OMNIBOX_AI_MODE_SCOPE_PLACEHOLDER_TEXT, /*checked=*/true},
+       {IDS_IOS_LENS_PRODUCT_NAME, /*checked=*/false}});
+  EXPECT_OCMOCK_VERIFY(consumer_);
+}
+
+// Tests that the Account entry stays available when sign-in is disabled but the
+// user is signed in, as the account menu can still be shown.
+TEST_F(
+    AppBarMediatorTest,
+    TestAssistantButtonCustomization_PreferredAccountSignedInSigninDisabled) {
+  base::test::ScopedFeatureList feature_list(kAppBarAssistantCustomization);
+  SignInAndSetCapability(true);
+  SetLocationEligible(false);
+  SetAimEligible(false);
+  mediator_.overrideLensAvailabilityForTesting = YES;
+  SetPreferredAssistantButtonState(
+      AppBarAssistantButtonPreferredState::kAccount);
+  GetApplicationContext()->GetLocalState()->SetBoolean(
+      prefs::kSigninAllowedOnDevice, false);
+
+  ExpectAssistantButtonMenuEntries(
+      UpdateAssistantButtonAndGetMenu(),
+      {{IDS_IOS_LENS_PRODUCT_NAME, /*checked=*/false},
+       {IDS_IOS_APP_BAR_ACCOUNT, /*checked=*/true}});
+}
+
+// Tests that selecting an entry of the assistant button menu stores the user
+// choice and updates the assistant button.
+TEST_F(AppBarMediatorTest, TestAssistantButtonCustomization_SelectMenuEntry) {
+  base::test::ScopedFeatureList feature_list(kAppBarAssistantCustomization);
+  SetLocationEligible(true);
+  mediator_.overrideLensAvailabilityForTesting = YES;
+  UIMenu* menu = UpdateAssistantButtonAndGetMenu();
+  ASSERT_EQ(kAssistantButtonMenuEntryCount, menu.children.count);
+  UIAction* lens_action = base::apple::ObjCCastStrict<UIAction>(
+      menu.children[kAssistantButtonMenuLensIndex]);
+
+  OCMExpect([consumer_ setAssistantButtonState:AppBarAssistantButtonState::kLens
+                                   highlighted:NO
+                                       enabled:YES
+                                        avatar:nil
+                                      signedIn:NO]);
+  [lens_action performWithSender:nil target:nil];
+  EXPECT_OCMOCK_VERIFY(consumer_);
+  EXPECT_EQ(static_cast<int>(AppBarAssistantButtonPreferredState::kLens),
+            regular_profile_->GetTestingPrefService()->GetInteger(
+                prefs::kAppBarAssistantButtonPreferredState));
+}
+
+// Tests that selecting each entry of the assistant button menu records its own
+// user action. "Ask Gemini" is selected first, while it is already checked as
+// the user didn't choose any entry, to verify that it is recorded anyway.
+TEST_F(AppBarMediatorTest,
+       TestAssistantButtonCustomization_SelectionRecordsUserActions) {
+  base::test::ScopedFeatureList feature_list(kAppBarAssistantCustomization);
+  SetLocationEligible(true);
+  mediator_.overrideLensAvailabilityForTesting = YES;
+  base::UserActionTester user_action_tester;
+
+  ASSERT_NO_FATAL_FAILURE(
+      SelectAssistantButtonMenuEntry(kAssistantButtonMenuAskGeminiIndex));
+  ExpectAssistantButtonMenuUserActionCounts(user_action_tester,
+                                            /*ask_gemini_count=*/1,
+                                            /*lens_count=*/0,
+                                            /*account_count=*/0);
+
+  ASSERT_NO_FATAL_FAILURE(
+      SelectAssistantButtonMenuEntry(kAssistantButtonMenuLensIndex));
+  ExpectAssistantButtonMenuUserActionCounts(user_action_tester,
+                                            /*ask_gemini_count=*/1,
+                                            /*lens_count=*/1,
+                                            /*account_count=*/0);
+
+  ASSERT_NO_FATAL_FAILURE(
+      SelectAssistantButtonMenuEntry(kAssistantButtonMenuAccountIndex));
+  ExpectAssistantButtonMenuUserActionCounts(user_action_tester,
+                                            /*ask_gemini_count=*/1,
+                                            /*lens_count=*/1,
+                                            /*account_count=*/1);
+}
+
+// Tests that the preferred state on-load metric records "Default" when the user
+// didn't choose any state.
+TEST_F(AppBarMediatorTest, TestAssistantButtonPreferredStateOnLoadMetric) {
+  base::test::ScopedFeatureList feature_list(kAppBarAssistantCustomization);
+  base::HistogramTester histogram_tester;
+
+  RecreateMediator();
+  histogram_tester.ExpectUniqueSample(
+      kAppBarAssistantButtonPreferredStateOnLoadHistogram,
+      AppBarAssistantButtonPreferredState::kDefault, 1);
+}
+
+// Tests that the preferred state on-load metric records "Ask Gemini" when the
+// user chose it, distinctly from the absence of choice.
+TEST_F(AppBarMediatorTest, TestAssistantButtonPreferredStateOnLoadMetric_Ask) {
+  base::test::ScopedFeatureList feature_list(kAppBarAssistantCustomization);
+  SetPreferredAssistantButtonState(AppBarAssistantButtonPreferredState::kAsk);
+  base::HistogramTester histogram_tester;
+
+  RecreateMediator();
+  histogram_tester.ExpectUniqueSample(
+      kAppBarAssistantButtonPreferredStateOnLoadHistogram,
+      AppBarAssistantButtonPreferredState::kAsk, 1);
+}
+
+// Tests that the preferred state on-load metric records "Default" when the
+// stored state is outside of the enum range, as it is treated as no choice.
+TEST_F(AppBarMediatorTest,
+       TestAssistantButtonPreferredStateOnLoadMetric_InvalidPreference) {
+  base::test::ScopedFeatureList feature_list(kAppBarAssistantCustomization);
+  regular_profile_->GetTestingPrefService()->SetInteger(
+      prefs::kAppBarAssistantButtonPreferredState,
+      kInvalidAssistantButtonState);
+  base::HistogramTester histogram_tester;
+
+  RecreateMediator();
+  histogram_tester.ExpectUniqueSample(
+      kAppBarAssistantButtonPreferredStateOnLoadHistogram,
+      AppBarAssistantButtonPreferredState::kDefault, 1);
+}
+
+// Tests that the default state on-load metric isn't recorded when the user
+// didn't choose any state.
+TEST_F(AppBarMediatorTest,
+       TestAssistantButtonDefaultStateOnLoadMetric_NoChoice) {
+  base::test::ScopedFeatureList feature_list(kAppBarAssistantCustomization);
+  base::HistogramTester histogram_tester;
+
+  RecreateMediator();
+  histogram_tester.ExpectTotalCount(kAppBarAssistantButtonStateOnLoadHistogram,
+                                    1);
+  histogram_tester.ExpectTotalCount(
+      kAppBarAssistantButtonDefaultStateOnLoadHistogram, 0);
+}
+
+// Tests that the default state on-load metric records Gemini, the highest
+// priority state, when the user chose Account and Gemini is eligible, while the
+// assistant button shows Account.
+TEST_F(AppBarMediatorTest,
+       TestAssistantButtonDefaultStateOnLoadMetric_ChosenAccount) {
+  base::test::ScopedFeatureList feature_list(kAppBarAssistantCustomization);
+  SetLocationEligible(true);
+  SetPreferredAssistantButtonState(
+      AppBarAssistantButtonPreferredState::kAccount);
+  base::HistogramTester histogram_tester;
+
+  RecreateMediator();
+  histogram_tester.ExpectUniqueSample(
+      kAppBarAssistantButtonStateOnLoadHistogram,
+      AppBarAssistantButtonState::kAccount, 1);
+  histogram_tester.ExpectUniqueSample(
+      kAppBarAssistantButtonDefaultStateOnLoadHistogram,
+      AppBarAssistantButtonState::kAsk, 1);
+}
+
+// Tests that the default state on-load metric uses the whole priority order: it
+// records AI Mode when the user chose Account and Gemini isn't eligible.
+TEST_F(AppBarMediatorTest,
+       TestAssistantButtonDefaultStateOnLoadMetric_PriorityOrder) {
+  base::test::ScopedFeatureList feature_list(kAppBarAssistantCustomization);
+  SetLocationEligible(false);
+  SetAimEligible(true);
+  SetPreferredAssistantButtonState(
+      AppBarAssistantButtonPreferredState::kAccount);
+  base::HistogramTester histogram_tester;
+
+  RecreateMediator();
+  histogram_tester.ExpectUniqueSample(
+      kAppBarAssistantButtonStateOnLoadHistogram,
+      AppBarAssistantButtonState::kAccount, 1);
+  histogram_tester.ExpectUniqueSample(
+      kAppBarAssistantButtonDefaultStateOnLoadHistogram,
+      AppBarAssistantButtonState::kAIM, 1);
+}
+
 // Tests that the assistant button is disabled when Lens Overlay is visible.
 TEST_F(AppBarMediatorTest, TestAssistantButtonDisabledWhenLensOverlayVisible) {
   SetLocationEligible(false);
@@ -2599,5 +3168,30 @@ TEST_F(AppBarMediatorTest, TestWebStateListBatchOperation) {
     }
   }
 
+  EXPECT_OCMOCK_VERIFY(consumer_);
+}
+
+// Tests that consumer updates are deferred while SceneState.UIEnabled is NO
+// and performed once SceneState.UIEnabled transitions to YES.
+TEST_F(AppBarMediatorTest, TestConsumerUpdatesDeferredUntilSceneUIEnabled) {
+  SceneState* scene_state = [[SceneState alloc] init];
+  ASSERT_FALSE(scene_state.UIEnabled);
+  mediator_.sceneState = scene_state;
+
+  // Use a strict mock to verify no consumer methods are invoked while
+  // UIEnabled is NO (including when setting consumer or inserting a WebState).
+  id deferred_consumer = OCMStrictProtocolMock(@protocol(TestAppBarConsumer));
+  mediator_.consumer = deferred_consumer;
+
+  auto web_state = std::make_unique<web::FakeWebState>();
+  regular_browser_->GetWebStateList()->InsertWebState(std::move(web_state));
+  [mediator_ updateAssistantButton];
+  EXPECT_OCMOCK_VERIFY(deferred_consumer);
+
+  // Switch back to consumer_ (still while UIEnabled is NO, so no update yet),
+  // then enable UI and verify updateConsumer synchronizes the state.
+  mediator_.consumer = consumer_;
+  OCMExpect([consumer_ updateTabCount:1]);
+  scene_state.UIEnabled = YES;
   EXPECT_OCMOCK_VERIFY(consumer_);
 }

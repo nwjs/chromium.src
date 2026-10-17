@@ -5,7 +5,6 @@
 package org.chromium.chrome.browser.compositor.overlays.strip;
 
 import static org.chromium.build.NullUtil.assumeNonNull;
-import static org.chromium.chrome.browser.multiwindow.MultiInstanceManager.PersistedInstanceType.ACTIVE;
 import static org.chromium.chrome.browser.share.ShareDelegate.ShareOrigin.TAB_STRIP_CONTEXT_MENU;
 import static org.chromium.chrome.browser.tabmodel.TabGroupUtils.createNewGroupForTabs;
 import static org.chromium.ui.listmenu.BasicListMenu.buildMenuDivider;
@@ -29,7 +28,6 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.build.annotations.RequiresNonNull;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.app.tabwindow.TabWindowManagerSingleton;
 import org.chromium.chrome.browser.bookmarks.TabBookmarker;
 import org.chromium.chrome.browser.collaboration.CollaborationServiceFactory;
 import org.chromium.chrome.browser.compositor.overlays.strip.TabContextMenuCoordinator.AnchorInfo;
@@ -62,9 +60,6 @@ import org.chromium.chrome.browser.tabmodel.TabGroupUtils.TabGroupCreationCallba
 import org.chromium.chrome.browser.tabmodel.TabList;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
-import org.chromium.chrome.browser.tabwindow.TabWindowManager;
-import org.chromium.chrome.browser.tabwindow.TabWindowManagerUtils;
-import org.chromium.chrome.browser.tabwindow.WindowId;
 import org.chromium.chrome.browser.tasks.tab_management.GroupWindowChecker;
 import org.chromium.chrome.browser.tasks.tab_management.GroupWindowInfo;
 import org.chromium.chrome.browser.tasks.tab_management.TabGroupListBottomSheetCoordinator;
@@ -87,8 +82,9 @@ import org.chromium.components.browser_ui.widget.list_view.ListViewTouchTracker;
 import org.chromium.components.collaboration.CollaborationService;
 import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
-import org.chromium.components.tab_groups.TabGroupColorId;
+import org.chromium.components.tab_group_sync.TabGroupUiActionHandler;
 import org.chromium.content_public.browser.LoadUrlParams;
+import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.base.ActivityResultTracker;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.listmenu.ListItemType;
@@ -105,7 +101,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
@@ -185,7 +180,10 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
     private final Activity mActivity;
     private final int mCircleSize;
     private final @TabStripLayoutType int mTabStripLayout;
+    private final @Nullable TabGroupUiActionHandler mTabGroupUiActionHandler;
     private final @Nullable BooleanSupplier mCanActivateTabLayoutToggleMenuSupplier;
+    private final @Nullable Runnable mOnMenuDismissedCallback;
+    private @Nullable ExtensionTabContextMenuBridge mExtensionTabContextMenuBridge;
 
     private TabContextMenuCoordinator(
             Supplier<TabModel> tabModelSupplier,
@@ -204,7 +202,9 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
             @Nullable ModalDialogManager modalDialogManager,
             @TabClosingSource int tabClosingSource,
             @Nullable BooleanSupplier canActivateTabLayoutToggleMenuSupplier,
-            @TabStripLayoutType int tabStripLayout) {
+            @TabStripLayoutType int tabStripLayout,
+            @Nullable TabGroupUiActionHandler tabGroupUiActionHandler,
+            @Nullable Runnable onMenuDismissedCallback) {
         super(
                 R.layout.tab_switcher_action_menu_layout,
                 R.layout.tab_switcher_action_menu_layout,
@@ -233,6 +233,8 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
         mActivity = activity;
         mCanActivateTabLayoutToggleMenuSupplier = canActivateTabLayoutToggleMenuSupplier;
         mTabStripLayout = tabStripLayout;
+        mTabGroupUiActionHandler = tabGroupUiActionHandler;
+        mOnMenuDismissedCallback = onMenuDismissedCallback;
 
         mCircleSize = getDimensionPixelSize(R.dimen.tab_group_nested_menu_color_icon_size);
     }
@@ -260,6 +262,8 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
      * @param canActivateTabLayoutToggleMenuSupplier Supplies whether tab layout toggle menu can be
      *     activated.
      * @param tabStripLayout The active {@link TabStripLayoutType}.
+     * @param tabGroupUiActionHandler Used to open hidden tab groups.
+     * @param onMenuDismissedCallback Callback invoked when the context menu is dismissed.
      */
     public static TabContextMenuCoordinator createContextMenuCoordinator(
             Supplier<TabModel> tabModelSupplier,
@@ -276,7 +280,9 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
             @Nullable ModalDialogManager modalDialogManager,
             @TabClosingSource int tabClosingSource,
             @Nullable BooleanSupplier canActivateTabLayoutToggleMenuSupplier,
-            @TabStripLayoutType int tabStripLayout) {
+            @TabStripLayoutType int tabStripLayout,
+            @Nullable TabGroupUiActionHandler tabGroupUiActionHandler,
+            @Nullable Runnable onMenuDismissedCallback) {
         Profile profile = assumeNonNull(tabModelSupplier.get().getProfile());
 
         @Nullable TabGroupSyncService tabGroupSyncService =
@@ -302,7 +308,9 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
                 modalDialogManager,
                 tabClosingSource,
                 canActivateTabLayoutToggleMenuSupplier,
-                tabStripLayout);
+                tabStripLayout,
+                tabGroupUiActionHandler,
+                onMenuDismissedCallback);
     }
 
     @VisibleForTesting
@@ -616,6 +624,23 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
      * @param anchorInfo The {@link AnchorInfo} for the context menu to be shown.
      */
     public void showMenu(RectProvider anchorViewRectProvider, AnchorInfo anchorInfo) {
+        showMenu(
+                anchorViewRectProvider, anchorInfo, /* shouldHighlightShowTabsVertically= */ false);
+    }
+
+    /**
+     * Show the context menu for the given tabs.
+     *
+     * @param anchorViewRectProvider The context menu's anchor view rect provider. These are screen
+     *     coordinates.
+     * @param anchorInfo The {@link AnchorInfo} for the context menu to be shown.
+     * @param shouldHighlightShowTabsVertically Whether the "Show tabs vertically" menu item should
+     *     be highlighted.
+     */
+    public void showMenu(
+            RectProvider anchorViewRectProvider,
+            AnchorInfo anchorInfo,
+            boolean shouldHighlightShowTabsVertically) {
         createAndShowMenu(
                 anchorViewRectProvider,
                 anchorInfo,
@@ -624,6 +649,9 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
                 /* animStyle= */ Resources.ID_NULL,
                 HorizontalOrientation.LAYOUT_DIRECTION,
                 assumeNonNull(mWindowAndroid.getActivity().get()));
+        if (shouldHighlightShowTabsVertically) {
+            highlightMenuItem(R.id.toggle_tab_layout_menu_id);
+        }
         TabStripMenuMetricsUtils.recordTabMenuUserAction(
                 TabMenuAction.SHOWN, anchorInfo.getAllTabIds().size() > 1, mTabStripLayout);
     }
@@ -714,6 +742,7 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
         }
         appendGlicItems(itemList, tabs, isIncognito);
         addVerticalTabsItems(itemList, isIncognito);
+        addExtensionItems(itemList, anchorInfo, isIncognito);
         itemList.add(createCloseItem(isIncognito));
         if (shouldShowCloseOtherTabsItem(anchorInfo)) {
             itemList.add(createCloseOtherTabsItem(isIncognito));
@@ -745,6 +774,7 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
         }
         appendGlicItems(itemList, tabs, isIncognito);
         addVerticalTabsItems(itemList, isIncognito);
+        addExtensionItems(itemList, anchorInfo, isIncognito);
         itemList.add(createCloseItem(isIncognito));
         if (shouldShowCloseOtherTabsItem(anchorInfo)) {
             itemList.add(createCloseOtherTabsItem(isIncognito));
@@ -1268,29 +1298,15 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
 
         List<ListItem> result = new ArrayList<>();
 
-        Set<Integer> activeInstanceIds = MultiWindowUtils.getUsableInstanceIds(ACTIVE);
         for (GroupWindowInfo tabGroup : sortedTabGroups) {
-            if (tabGroup.localId == null) continue;
-            if (Objects.equals(groupToNotBeIncluded, tabGroup.localId)) {
+            if (groupToNotBeIncluded != null
+                    && Objects.equals(groupToNotBeIncluded, tabGroup.localId)) {
                 continue;
             }
-            Token groupId = tabGroup.localId;
-
-            TabWindowManager tabWindowManager = TabWindowManagerSingleton.getInstance();
-            @WindowId int windowId = tabWindowManager.findWindowIdForTabGroup(groupId);
-            if (!activeInstanceIds.contains(windowId)) {
-                continue; // Skip groups w/o active window.
+            if (!TabGroupUiUtils.isValidDestination(
+                    tabGroup, mTabGroupSyncService, mTabGroupUiActionHandler)) {
+                continue;
             }
-
-            String label =
-                    TabWindowManagerUtils.getTabGroupTitleInAnyWindow(
-                            mActivity, tabWindowManager, groupId, isIncognito);
-            // If no title could be found nor could a default be generated, skip the group
-            if (label == null) continue;
-            @TabGroupColorId
-            int colorId =
-                    TabWindowManagerUtils.getTabGroupColorInAnyWindow(
-                            tabWindowManager, groupId, isIncognito);
             @IdRes
             int menuId =
                     isIncognito
@@ -1299,6 +1315,10 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
             OnClickListener clickListener =
                     (v) -> {
                         recordMenuAction(menuId, tabs.size() > 1, isIncognito, mTabStripLayout);
+                        if (!TabGroupUiUtils.isValidDestination(
+                                tabGroup, mTabGroupSyncService, mTabGroupUiActionHandler)) {
+                            return;
+                        }
                         moveAndCleanupSource(
                                 mMultiInstanceManager,
                                 () ->
@@ -1306,19 +1326,19 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
                                                 getTabModel(),
                                                 tabs,
                                                 tabGroup,
-                                                /* syncService= */ null,
-                                                /* uiActionHandler= */ null,
+                                                mTabGroupSyncService,
+                                                mTabGroupUiActionHandler,
                                                 /* tabMovedCallback= */ null,
                                                 /* bringToFront= */ true));
                     };
             result.add(
                     new ListItemBuilder()
-                            .withTitle(label)
+                            .withTitle(tabGroup.title)
                             .withClickListener(clickListener)
                             .withIsIncognito(isIncognito)
                             .withStartIconDrawable(
                                     TabGroupUtils.createColorDrawableForMenu(
-                                            mActivity, colorId, isIncognito, mCircleSize))
+                                            mActivity, tabGroup.color, isIncognito, mCircleSize))
                             .withStartIconWidth(mCircleSize)
                             .withShouldTintIcon(false)
                             .build());
@@ -1424,5 +1444,73 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
                 HorizontalOrientation.LAYOUT_DIRECTION,
                 mActivity,
                 isIncognito);
+    }
+
+    /**
+     * Appends extension context menu items and separating dividers to the menu for the anchor tab.
+     */
+    private void addExtensionItems(ModelList itemList, AnchorInfo anchorInfo, boolean isIncognito) {
+        // Clean up any previously created bridge from an earlier menu invocation before
+        // creating a new one for this menu. This isn't usually necessary, but can be in the cases
+        // of unit tests or async menu flows (since onMenuDismissed is invoked asynchronously).
+        if (mExtensionTabContextMenuBridge != null) {
+            mExtensionTabContextMenuBridge.destroy();
+            mExtensionTabContextMenuBridge = null;
+        }
+        Tab tab = getTabModel().getTabById(anchorInfo.getAnchorTabId());
+        if (tab == null) {
+            return;
+        }
+        WebContents webContents = tab.getWebContents();
+        if (webContents == null) {
+            return;
+        }
+        // Attempt to create the bridge to query extension items from C++. This returns
+        // null if extensions are not enabled in this build or if the tab has no
+        // matching items.
+        mExtensionTabContextMenuBridge = ExtensionTabContextMenuBridge.create(webContents);
+        if (mExtensionTabContextMenuBridge == null) {
+            return;
+        }
+        ModelList extensionItems = mExtensionTabContextMenuBridge.getModelList();
+        if (extensionItems.isEmpty()) {
+            mExtensionTabContextMenuBridge.destroy();
+            mExtensionTabContextMenuBridge = null;
+            return;
+        }
+        // Separate extension items from native actions with dividers, avoiding
+        // duplicate adjacent dividers.
+        // First: Add a divider between this and the previous (non-extension)
+        // items if the previous item was not already a divider.
+        if (!itemList.isEmpty() && itemList.get(itemList.size() - 1).type != ListItemType.DIVIDER) {
+            itemList.add(buildMenuDivider(isIncognito));
+        }
+        // Next: Go through the list, adding each item, unless it's a divider
+        // and the previous item was also a divider.
+        for (ListItem item : extensionItems) {
+            if (item.type == ListItemType.DIVIDER
+                    && (!itemList.isEmpty()
+                            && itemList.get(itemList.size() - 1).type == ListItemType.DIVIDER)) {
+                continue;
+            }
+            itemList.add(item);
+        }
+        // Finally: Add a trailing divider if necessary (if the final item
+        // wasn't a divider).
+        if (itemList.get(itemList.size() - 1).type != ListItemType.DIVIDER) {
+            itemList.add(buildMenuDivider(isIncognito));
+        }
+    }
+
+    @Override
+    protected void onMenuDismissed() {
+        super.onMenuDismissed();
+        if (mExtensionTabContextMenuBridge != null) {
+            mExtensionTabContextMenuBridge.destroy();
+            mExtensionTabContextMenuBridge = null;
+        }
+        if (mOnMenuDismissedCallback != null) {
+            mOnMenuDismissedCallback.run();
+        }
     }
 }

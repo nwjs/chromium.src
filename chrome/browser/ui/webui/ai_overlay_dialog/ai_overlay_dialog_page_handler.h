@@ -9,8 +9,10 @@
 #include <optional>
 #include <string>
 
+#include "base/containers/span.h"
 #include "base/memory/raw_ptr.h"
-#include "chrome/browser/ttc/ttc_mes_client.h"
+#include "base/memory/weak_ptr.h"
+#include "chrome/browser/ttc/app/ttc_mes_client.h"
 #include "chrome/browser/ui/ai_overlay_dialog/ai_overlay_dialog_controller.h"
 #include "chrome/browser/ui/webui/ai_overlay_dialog/ai_overlay_dialog.mojom.h"
 #include "mojo/public/cpp/base/big_buffer.h"
@@ -54,8 +56,6 @@ class AiOverlayDialogPageHandler : public ai_overlay_dialog::mojom::PageHandler,
   void SetRememberedNote(ai_overlay_dialog::mojom::RememberedNotePtr note,
                          SetRememberedNoteCallback callback) override;
   void GetRememberedNotes(GetRememberedNotesCallback callback) override;
-  void SaveDebugFile(ai_overlay_dialog::mojom::DebugFileType type,
-                     const std::string& content) override;
   void GetImageBytes(const blink::DOMNodeIdType& dom_node_id,
                      GetImageBytesCallback callback) override;
 
@@ -67,16 +67,18 @@ class AiOverlayDialogPageHandler : public ai_overlay_dialog::mojom::PageHandler,
   void StopStreamingSession() override;
 
   // TtcMesClient::Observer
-  void OnStreamingStateChanged(bool connected,
-                               const std::string& session_id,
-                               const std::string& error_message) override;
+  void OnApplicationInitialized() override;
+  void OnApplicationClosed() override;
+  void OnApplicationError(ErrorCode error) override;
   void OnTranscriptions(const std::string& input_transcription,
                         const std::string& output_transcription) override;
-  void OnAudioOutput(const std::vector<uint8_t>& audio_data,
+  void OnAudioOutput(base::span<const int16_t> audio_data,
                      int64_t sequence_number) override;
   void OnGenerationStateChanged(bool started,
                                 bool completed,
                                 bool interrupted) override;
+  void OnToolCall(const ToolRequest& tool_request,
+                  ToolResponseCallback response_callback) override;
 
   void DidChangePage(const GURL& url,
                      const std::optional<std::u16string>& title,
@@ -91,12 +93,16 @@ class AiOverlayDialogPageHandler : public ai_overlay_dialog::mojom::PageHandler,
   void OnUsePersonaChanged(bool use_persona) override;
 
  private:
+  void SendToolSetUpdate();
+
   mojo::Receiver<ai_overlay_dialog::mojom::PageHandler> receiver_;
   mojo::Remote<ai_overlay_dialog::mojom::Page> page_;
   raw_ptr<BrowserWindowInterface> browser_;
   raw_ptr<actions::ActionItem> overlay_action_item_ = nullptr;
   raw_ptr<AiOverlayDialogUntrustedUI> untrusted_ui_ = nullptr;
   std::unique_ptr<TtcMesClient> ttc_mes_client_;
+
+  base::WeakPtrFactory<AiOverlayDialogPageHandler> weak_factory_{this};
 };
 
 }  // namespace ttc

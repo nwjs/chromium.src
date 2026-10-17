@@ -17,6 +17,7 @@
 #include "net/base/upload_bytes_element_reader.h"
 #include "net/base/upload_data_stream.h"
 #include "net/base/upload_file_element_reader.h"
+#include "net/cookies/cookie_setting_override.h"
 #include "net/cookies/cookie_util.h"
 #include "net/device_bound_sessions/session_usage.h"
 #include "net/http/http_connection_info.h"
@@ -54,9 +55,8 @@ namespace {
 
 // TODO(https://crbug.com/375352611): add the check for enabling third-party
 // cookies.
-constexpr uint64_t kAllowedDevToolsCookieSettingOverrides =
-    1u << static_cast<int>(
-        net::CookieSettingOverride::kForceDisableThirdPartyCookies);
+constexpr net::CookieSettingOverrides kAllowedDevToolsCookieSettingOverrides = {
+    net::CookieSettingOverride::kForceDisableThirdPartyCookies};
 
 const char* GetDestinationTypePartString(
     network::mojom::RequestDestination destination) {
@@ -398,8 +398,7 @@ std::unique_ptr<net::UploadDataStream> CreateUploadDataStream(
 net::CookieSettingOverrides CalculateCookieSettingOverrides(
     net::CookieSettingOverrides factory_overrides,
     net::CookieSettingOverrides devtools_overrides,
-    const ResourceRequest& request,
-    bool emit_metrics) {
+    const ResourceRequest& request) {
   net::CookieSettingOverrides overrides(factory_overrides);
   if (request.is_outermost_main_frame &&
       network::cors::IsCorsEnabledRequestMode(request.mode)) {
@@ -410,9 +409,7 @@ net::CookieSettingOverrides CalculateCookieSettingOverrides(
   // Only apply the DevTools overrides if the request is from devtools enabled
   // context.
   if (request.devtools_request_id.has_value()) {
-    CHECK_EQ(devtools_overrides.ToEnumBitmask() &
-                 ~kAllowedDevToolsCookieSettingOverrides,
-             0u);
+    CHECK(kAllowedDevToolsCookieSettingOverrides.HasAll(devtools_overrides));
     overrides = base::Union(overrides, devtools_overrides);
   }
 
@@ -592,8 +589,7 @@ void ConfigureUrlRequest(const ResourceRequest& request,
   // `url_request.storage_access_status()`.
   url_request.cookie_setting_overrides() = CalculateCookieSettingOverrides(
       factory_params.cookie_setting_overrides,
-      factory_params.devtools_cookie_setting_overrides, request,
-      /*emit_metrics=*/true);
+      factory_params.devtools_cookie_setting_overrides, request);
   url_request.SetLoadFlags(request.load_flags);
   SetRequestCredentials(request.url, factory_params.client_security_state,
                         request.mode, request.credentials_mode,

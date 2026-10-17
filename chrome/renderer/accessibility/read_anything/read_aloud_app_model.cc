@@ -10,7 +10,6 @@
 #include <string>
 #include <vector>
 
-#include "base/containers/span.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/task_traits.h"
@@ -32,8 +31,12 @@ namespace {
 // sequenced task runner.
 base::SequenceBound<DependencyParserModel>& GetDependencyParserModel_() {
   static base::NoDestructor<base::SequenceBound<DependencyParserModel>>
-      instance(base::ThreadPool::CreateSequencedTaskRunner(
-          {base::MayBlock(), base::TaskPriority::BEST_EFFORT}));
+      instance;
+  if (instance->is_null()) {
+    *instance = base::SequenceBound<DependencyParserModel>(
+        base::ThreadPool::CreateSequencedTaskRunner(
+            {base::MayBlock(), base::TaskPriority::BEST_EFFORT}));
+  }
   return *instance;
 }
 

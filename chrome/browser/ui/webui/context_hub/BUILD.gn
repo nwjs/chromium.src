@@ -85,9 +85,12 @@ source_set("context_hub_page_handler") {
 
   deps = [
     "//chrome/browser/context_hub",
+    "//chrome/browser/history",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui/browser_window",
     "//chrome/common",
+    "//components/history/core/browser",
+    "//components/keyed_service/core",
     "//components/sessions",
   ]
 
@@ -97,12 +100,18 @@ source_set("context_hub_page_handler") {
       "context_hub_tab_provider_desktop.h",
     ]
     deps += [
+      "//chrome/browser/glic",
       "//chrome/browser/tab_group_sync:factories",
       "//chrome/browser/ui",
+      "//chrome/browser/ui:browser_commands",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/tabs/saved_tab_groups",
       "//components/saved_tab_groups/public",
+      "//components/tab_groups",
+      "//components/tabs:public",
+      "//net",
       "//ui/base",
+      "//url",
     ]
   }
 }
@@ -139,10 +148,13 @@ source_set("unit_tests") {
     ":context_hub_page_handler",
     "//base/test:test_support",
     "//chrome/browser/context_hub",
+    "//chrome/browser/history",
     "//chrome/browser/optimization_guide:test_support",
     "//chrome/browser/personal_context",
     "//chrome/browser/tab_group_sync:factories",
     "//chrome/test:test_support",
+    "//components/history/core/browser",
+    "//components/history/core/test",
     "//components/personal_context/core:test_support",
     "//components/personal_context/proto:personal_context_proto",
     "//components/saved_tab_groups/test_support",
@@ -155,8 +167,12 @@ source_set("unit_tests") {
   if (!is_android) {
     sources += [ "context_hub_tab_provider_desktop_unittest.cc" ]
     deps += [
+      "//chrome/browser/glic",
+      "//chrome/browser/glic/test_support",
+      "//chrome/browser/ui:browser_manager_service",
       "//chrome/browser/ui:test_support",
       "//chrome/browser/ui/tabs:test_support",
+      "//components/tabs:test_support",
       "//ui/base:test_support",
     ]
   }

@@ -337,16 +337,16 @@ void ManifestBrokerState::GetStateInfo(
 
 void ManifestBrokerState::SetUseCaseRequested(const std::string& use_case,
                                               bool requested) {
-  usage_tracker_.SetPriority(
-      use_case,
-      requested ? std::make_optional(UsageTracker::Priority::kUserBlocking)
-                : std::nullopt);
+  usage_tracker_.SetPriority(use_case,
+                             requested ? UsageTracker::Priority::kUserBlocking
+                                       : UsageTracker::Priority::kEvictable);
 }
 
 void ManifestBrokerState::UninstallModels() {
+  usage_tracker_.ClearAllUseCaseUsages();
   if (asset_manager_) {
-    asset_manager_->UninstallModels();
-    OnManifestUpdated();
+    asset_manager_->EnableEviction();
+    asset_manager_->RecomputeAssetPriorities();
   }
 }
 

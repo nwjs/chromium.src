@@ -82,6 +82,10 @@ bool ImplementationBase::IsSyncTokenSignaled(const SyncToken& sync_token) {
   return gpu_control_->IsFenceSyncReleased(sync_token.release_count());
 }
 
+SyncPointClientId ImplementationBase::GetSyncPointClientId() const {
+  return {gpu_control_->GetNamespaceID(), gpu_control_->GetCommandBufferID()};
+}
+
 void ImplementationBase::GenSyncToken(GLbyte* sync_token) {
   if (!sync_token) {
     SetGLError(GL_INVALID_VALUE, "glGenSyncTokenCHROMIUM", "empty sync_token");
@@ -431,18 +435,19 @@ void RelaxedAtomicWriteMemcpyImageRowsSkippingPadding(base::span<uint8_t> dst,
                                                       base::span<uint8_t> src,
                                                       size_t row_bytes,
                                                       size_t height,
-                                                      size_t stride) {
+                                                      size_t dst_stride,
+                                                      size_t src_stride) {
   // We need to use `RelaxedAtomicWriteMemcpy` because we might be writing into
   // memory observed by JS at the same time.
-  if (row_bytes == stride) {
+  if (row_bytes == dst_stride && row_bytes == src_stride) {
     base::subtle::RelaxedAtomicWriteMemcpy(dst, src);
   } else {
     // If there's padding between rows, copy each row separately to leave
     // padding untouched
     for (size_t y = 0; y < height; ++y) {
       base::subtle::RelaxedAtomicWriteMemcpy(
-          dst.subspan(y * stride, row_bytes),
-          src.subspan(y * stride, row_bytes));
+          dst.subspan(y * dst_stride, row_bytes),
+          src.subspan(y * src_stride, row_bytes));
     }
   }
 }

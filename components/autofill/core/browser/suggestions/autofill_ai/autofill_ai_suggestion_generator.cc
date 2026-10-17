@@ -210,11 +210,17 @@ Suggestion CreateManageShoppingSuggestion() {
 
 std::vector<Suggestion> GetFooterSuggestions(
     const AutofillField& trigger_field,
-    const DenseSet<AutofillAiUiSection>& ui_sections) {
+    const DenseSet<AutofillAiUiSection>& ui_sections,
+    bool should_show_personal_context_notice = false) {
   std::vector<Suggestion> suggestions;
-  suggestions.reserve(3);
+  suggestions.reserve(4);
 
   suggestions.emplace_back(SuggestionType::kSeparator);
+  if (should_show_personal_context_notice) {
+    Suggestion& suggestion =
+        suggestions.emplace_back(SuggestionType::kPersonalContextNotice);
+    suggestion.filtration_policy = Suggestion::FiltrationPolicy::kStatic;
+  }
   if (ShouldOfferUndoOnField(trigger_field)) {
     suggestions.emplace_back(CreateUndoSuggestion());
   }
@@ -523,8 +529,6 @@ std::u16string PayloadSourceToAppName(SourceType source_type) {
       return l10n_util::GetStringUTF16(IDS_AUTOFILL_AI_SOURCE_APP_PHOTOS);
     case SourceType::kGmail:
       return l10n_util::GetStringUTF16(IDS_AUTOFILL_AI_SOURCE_APP_GMAIL);
-    case SourceType::kUnspecified:
-      NOTREACHED();
   }
 }
 
@@ -535,9 +539,8 @@ base::flat_map<SourceType, std::vector<GURL>> GroupSourcesByApp(
     base::span<const EntityPayload::Source> payload_sources) {
   base::flat_map<SourceType, std::vector<GURL>> app_urls;
   for (const EntityPayload::Source& source : payload_sources) {
-    if (source.type != SourceType::kUnspecified &&
-        GURL(source.url).is_valid()) {
-      app_urls[source.type].emplace_back(source.url);
+    if (source.url.is_valid()) {
+      app_urls[source.type()].emplace_back(source.url);
     }
   }
   return app_urls;
@@ -661,7 +664,7 @@ std::vector<Suggestion> CreateAmbientAutofillSubMenu(
   }
 
   if (base::FeatureList::IsEnabled(
-          features::kAutofillAmbientAutofillSuppressionUI)) {
+          features::kAutofillAmbientAutofillSuppression)) {
     Suggestion remove_info(
         l10n_util::GetStringUTF16(IDS_AUTOFILL_AI_REMOVE_INFO),
         SuggestionType::kRemoveAutofillAi);
@@ -699,8 +702,6 @@ Suggestion GetSuggestionForEntity(
   suggestion.labels = {{Suggestion::Text(std::move(label))}};
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   if (entity.record_type() == EntityInstance::RecordType::kPersonalContext) {
-    suggestion.labels.push_back({Suggestion::Text(
-        l10n_util::GetStringUTF16(IDS_AUTOFILL_AI_SUGGESTED_BY_GEMINI))});
     suggestion.children = CreateAmbientAutofillSubMenu(entity);
   }
 #endif
@@ -931,6 +932,20 @@ constexpr bool IsPersonalContextNoticeSuggestionSupported() {
 #endif
 }
 
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+// Creates an unselectable section title suggestion for Personal Context
+// suggestions.
+Suggestion CreatePersonalContextSectionTitle() {
+  Suggestion suggestion(
+      l10n_util::GetStringUTF16(IDS_AUTOFILL_AI_SUGGESTED_BY_GEMINI),
+      SuggestionType::kTitle);
+  suggestion.filtration_policy = Suggestion::FiltrationPolicy::kStatic;
+  suggestion.acceptability =
+      Suggestion::Acceptability::kUnselectableAndUnacceptable;
+  return suggestion;
+}
+#endif
+
 // Returns a list of `Suggestion` generated for the given
 // `entities_to_suggest`.
 std::vector<Suggestion> CreateSuggestionsForEntities(
@@ -967,7 +982,11 @@ std::vector<Suggestion> CreateSuggestionsForEntities(
       client.GetAppLocale());
 
   std::vector<Suggestion> suggestions;
-  suggestions.reserve(entities_to_suggest.size());
+
+  // Extra is for the "Suggested by Gemini" label which may or may not be
+  // required.
+  suggestions.reserve(entities_to_suggest.size() + 1);
+
   CHECK_EQ(entities_to_suggest.size(), labels.size());
   for (auto [entity, label] : std::views::zip(entities_to_suggest, labels)) {
     base::span<const AutofillFieldWithAttributeType> fields_with_types =
@@ -979,6 +998,20 @@ std::vector<Suggestion> CreateSuggestionsForEntities(
         form, entity, fields_with_types, *trigger_field_with_type,
         std::move(label), client.GetAppLocale()));
   }
+
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+  auto it = std::ranges::find_if(
+      entities_to_suggest, [](const EntityInstance& entity) {
+        return entity.record_type() ==
+               EntityInstance::RecordType::kPersonalContext;
+      });
+  if (it != entities_to_suggest.end()) {
+    suggestions.insert(
+        suggestions.begin() + std::distance(entities_to_suggest.begin(), it),
+        CreatePersonalContextSectionTitle());
+  }
+#endif
+
   return suggestions;
 }
 
@@ -1274,17 +1307,13 @@ std::vector<Suggestion> CreateAutofillAiFillingSuggestions(
     return {};
   }
 
-  bool personal_context_notice_added = false;
+  bool should_show_personal_context_notice = false;
   if (IsPersonalContextNoticeSuggestionSupported() &&
       HasPersonalContextSuggestion(suggestions, all_entities)) {
     personal_context::PersonalContextFirstRunService* service =
         client.GetPersonalContextFirstRunService();
-    if (service && service->ShouldShowPersonalContextAmbientAutofillNotice()) {
-      Suggestion& suggestion =
-          suggestions.emplace_back(SuggestionType::kPersonalContextNotice);
-      suggestion.filtration_policy = Suggestion::FiltrationPolicy::kStatic;
-      personal_context_notice_added = true;
-    }
+    should_show_personal_context_notice =
+        service && service->ShouldShowPersonalContextAmbientAutofillNotice();
   }
 
   if (should_show_fetching_suggestions) {
@@ -1294,12 +1323,15 @@ std::vector<Suggestion> CreateAutofillAiFillingSuggestions(
     }
   }
 
-  if (should_show_private_inference_notice && !personal_context_notice_added) {
+  if (should_show_private_inference_notice &&
+      !should_show_personal_context_notice) {
     suggestions.emplace_back(SuggestionType::kAutofillAiPrivateInferenceNotice);
   }
 
   if (!ui_sections.empty()) {
-    base::Extend(suggestions, GetFooterSuggestions(trigger_field, ui_sections));
+    base::Extend(suggestions,
+                 GetFooterSuggestions(trigger_field, ui_sections,
+                                      should_show_personal_context_notice));
   }
   return suggestions;
 }

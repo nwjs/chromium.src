@@ -90,7 +90,7 @@ OscillatorNode* OscillatorNode::Create(BaseAudioContext& context,
                                                     oscillator_type,
                                                     wave_table);
   if (wave_table) {
-    node->GetOscillatorHandler().SetInitialPeriodicWave(wave_table->impl());
+    node->GetOscillatorHandler().SetInitialPeriodicWave(wave_table->handler());
   } else {
     if (!node->GetOscillatorHandler().SetInitialType(oscillator_type)) {
       exception_state.ThrowDOMException(
@@ -113,11 +113,9 @@ OscillatorNode* OscillatorNode::Create(BaseAudioContext* context,
     return nullptr;
   }
 
-  // TODO(crbug.com/1070871): Use periodicWaveOr(nullptr).
   OscillatorNode* node =
       Create(*context, options->type().AsString(),
-             options->hasPeriodicWave() ? options->periodicWave() : nullptr,
-             exception_state);
+             options->getPeriodicWaveOr(nullptr), exception_state);
 
   if (!node) {
     return nullptr;
@@ -159,7 +157,7 @@ AudioParam* OscillatorNode::detune() {
 }
 
 void OscillatorNode::setPeriodicWave(PeriodicWave* wave) {
-  GetOscillatorHandler().SetPeriodicWave(wave->impl());
+  GetOscillatorHandler().SetPeriodicWave(wave->handler());
 }
 
 void OscillatorNode::ReportDidCreate() {

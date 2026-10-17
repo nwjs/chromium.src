@@ -9,19 +9,18 @@
 #import <memory>
 #import <optional>
 #import <string>
+#import <string_view>
 #import <vector>
 
 #import "base/memory/raw_ptr.h"
 #import "base/memory/weak_ptr.h"
 #import "components/keyed_service/core/keyed_service.h"
 #import "components/optimization_guide/proto/features/actions_data.pb.h"
-#import "components/origin_gating/core/origin_gating_checker.h"
-#import "ios/chrome/app/background_mode_buildflags.h"
-#import "ios/chrome/browser/intelligence/actor/model/actor_origin_gating_checker_delegate_ios.h"
 #import "ios/chrome/browser/intelligence/actor/public/actor_types.h"
 #import "ios/web/public/web_state_id.h"
 
 @class PageContextWrapper;
+@protocol ActorTaskInterventionDelegate;
 @protocol ActorTaskUpdatesObserver;
 class ProfileIOS;
 
@@ -77,9 +76,16 @@ class ActorService : public KeyedService {
   // WebState to the user.
   void PauseTask(ActorTaskId task_id, bool from_actor);
 
+  // Sets the intervention delegate for UI interaction on the given task.
+  void SetTaskInterventionDelegate(ActorTaskId task_id,
+                                   id<ActorTaskInterventionDelegate> delegate);
+
   // Interrupts a task to wait for user input, suspending ongoing actions
-  // without cancelling them.
-  void InterruptTask(ActorTaskId task_id, ActorTaskInterruptReason reason);
+  // without cancelling them. Accepts an optional message to display to the
+  // user.
+  void InterruptTask(ActorTaskId task_id,
+                     ActorTaskInterruptReason reason,
+                     std::string_view message = "");
 
   // Stops a task.
   void StopTask(ActorTaskId task_id, ActorTaskStoppedReason reason);
@@ -115,9 +121,6 @@ class ActorService : public KeyedService {
   base::WeakPtr<ActorService> GetWeakPtr() {
     return weak_ptr_factory_.GetWeakPtr();
   }
-
-  // Returns the OriginGatingChecker instance for gating navigation actions.
-  origin_gating::OriginGatingChecker* GetOriginGatingChecker();
 
  private:
   friend class ActorServiceTest;
@@ -164,23 +167,14 @@ class ActorService : public KeyedService {
   web::WebState* GetWebState(web::WebStateID web_state_id,
                              bool allows_incognito);
 
-#if BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
   // Creates and registers a background continued processing task with the
   // system for `task`, and sets the context on `task` if available. Returns
   // whether registration was successful (does not guarantee the task will be
   // executed by the system).
   bool RegisterBackgroundTask(ActorTask* task);
-#endif  // BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
 
   // Generator for unique task IDs.
   ActorTaskId::Generator next_task_id_;
-
-  // Helper to build the configuration and custom predicates for the checker.
-  static origin_gating::OriginGatingConfiguration CreateOriginGatingConfig();
-
-  // Delegate and checker for origin gating.
-  ActorOriginGatingCheckerDelegateIOS origin_gating_delegate_;
-  std::unique_ptr<origin_gating::OriginGatingChecker> origin_gating_checker_;
 
   // Weak pointer factory.
   base::WeakPtrFactory<ActorService> weak_ptr_factory_{this};

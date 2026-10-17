@@ -4,9 +4,10 @@
 
 package org.chromium.chrome.browser.ui.enterprise_signals_disclaimer;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.when;
+import static androidx.test.espresso.matcher.ViewMatchers.withId;
+
+import static org.chromium.ui.test.util.ViewUtils.waitForStableView;
+import static org.chromium.ui.test.util.ViewUtils.waitForVisibleView;
 
 import android.app.Activity;
 import android.view.View;
@@ -19,11 +20,9 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
-import org.chromium.base.Callback;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.BaseActivityTestRule;
 import org.chromium.base.test.params.ParameterAnnotations;
@@ -36,7 +35,6 @@ import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
-import org.chromium.chrome.browser.signin.services.SigninManager;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
 import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.chrome.test.util.browser.signin.AccountManagerTestRule;
@@ -53,7 +51,6 @@ import org.chromium.ui.base.ImmutableWeakReference;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.insets.InsetObserver;
 import org.chromium.ui.test.util.BlankUiTestActivity;
-import org.chromium.ui.test.util.DeviceRestriction;
 import org.chromium.ui.test.util.NightModeTestUtils;
 import org.chromium.ui.test.util.RenderTestRule;
 
@@ -79,11 +76,10 @@ public class EnterpriseSignalsDisclaimerRenderTest {
     public final ChromeRenderTestRule mRenderTestRule =
             new ChromeRenderTestRule.Builder()
                     .setCorpus(ChromeRenderTestRule.Corpus.ANDROID_RENDER_TESTS_PUBLIC)
-                    .setRevision(2)
+                    .setRevision(4)
+                    .setDescription("Ligatures and contextual alternates disabled in UI text")
                     .setBugComponent(RenderTestRule.Component.ENTERPRISE)
                     .build();
-
-    @Mock private SigninManager mSigninManager;
 
     private @Nullable EnterpriseSignalsDisclaimerCoordinator mCoordinator;
     private @Nullable WindowAndroid mWindowAndroid;
@@ -122,16 +118,6 @@ public class EnterpriseSignalsDisclaimerRenderTest {
         mActivityTestRule.launchActivity(null);
         mAccountManagerTestRule.addAccount(mAccountInfo);
         mAccountManagerTestRule.getIdentityManager().setPrimaryAccount(mAccountInfo);
-
-        when(mSigninManager.getIdentityManager())
-                .thenReturn(mAccountManagerTestRule.getIdentityManager());
-        doAnswer(
-                        invocation -> {
-                            ((Callback<Boolean>) invocation.getArgument(1)).onResult(true);
-                            return null;
-                        })
-                .when(mSigninManager)
-                .isAccountManaged(any(), any());
     }
 
     @After
@@ -191,13 +177,20 @@ public class EnterpriseSignalsDisclaimerRenderTest {
                                             activity,
                                             controller,
                                             activity.getModalDialogManager(),
-                                            mSigninManager,
+                                            mAccountManagerTestRule.getIdentityManager(),
+                                            mAccountInfo,
                                             (url) -> {},
-                                            () -> {});
-                            mCoordinator.show();
+                                            () -> {},
+                                            new MetricsHelper(),
+                                            (dismissalCause) -> {});
+                            mCoordinator.show(MetricsHelper.ShownOn.STARTUP);
                             return controller;
                         });
         BottomSheetTestSupport.waitForOpen(bottomSheetController);
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> new BottomSheetTestSupport(bottomSheetController).endAllAnimations());
+        waitForVisibleView(withId(R.id.disclaimer_container));
+        waitForStableView(mContainer);
         ChromeRenderTestRule.sanitize(mContainer);
         mRenderTestRule.render(mContainer, "bottom_sheet");
     }
@@ -205,10 +198,7 @@ public class EnterpriseSignalsDisclaimerRenderTest {
     @Test
     @MediumTest
     @Feature({"RenderTest"})
-    @Restriction({
-        DeviceFormFactor.TABLET_OR_DESKTOP,
-        DeviceRestriction.RESTRICTION_TYPE_NON_FOLDABLE
-    })
+    @Restriction({DeviceFormFactor.TABLET_OR_DESKTOP})
     public void testModalDialogOnLargeFormFactor() throws IOException {
         BlankUiTestActivity activity = mActivityTestRule.getActivity();
         ThreadUtils.runOnUiThreadBlocking(
@@ -222,10 +212,13 @@ public class EnterpriseSignalsDisclaimerRenderTest {
                                     activity,
                                     createBottomSheetController(activity, mContainer),
                                     activity.getModalDialogManager(),
-                                    mSigninManager,
+                                    mAccountManagerTestRule.getIdentityManager(),
+                                    mAccountInfo,
                                     (url) -> {},
-                                    () -> {});
-                    mCoordinator.show();
+                                    () -> {},
+                                    new MetricsHelper(),
+                                    (dismissalCause) -> {});
+                    mCoordinator.show(MetricsHelper.ShownOn.STARTUP);
                 });
         CriteriaHelper.pollUiThread(() -> activity.getModalDialogManager().isShowing());
         View dialogDecorView =
@@ -237,6 +230,8 @@ public class EnterpriseSignalsDisclaimerRenderTest {
                                                     .getCurrentPresenterForTest();
                             return presenter.getDialogForTesting().getWindow().getDecorView();
                         });
+        waitForVisibleView(withId(R.id.disclaimer_container));
+        waitForStableView(dialogDecorView);
         ChromeRenderTestRule.sanitize(dialogDecorView);
         mRenderTestRule.render(dialogDecorView, "modal_dialog");
     }

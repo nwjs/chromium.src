@@ -60,8 +60,7 @@ FindsTabHelper::FindsTabHelper(content::WebContents* web_contents,
                                OptimizationGuideKeyedService* opt_guide_service,
                                TemplateURLService* template_url_service,
                                PrefService* pref_service)
-    : content::WebContentsObserver(web_contents),
-      content::WebContentsUserData<FindsTabHelper>(*web_contents) {
+    : content::WebContentsObserver(web_contents) {
   // FindsTabHelper should only be created when the FindsService is non-null.
   CHECK(finds_service);
   finds_service_ = finds_service;
@@ -204,8 +203,9 @@ void FindsTabHelper::OnURLOpenedFromOmnibox(OmniboxLog* log) {
   }
   const AutocompleteMatch& match = log->result->match_at(log->selection.line);
   // Identify recent search suggestions styled with the history clock icon.
-  if (match.type == AutocompleteMatchType::SEARCH_HISTORY ||
-      match.type == AutocompleteMatchType::SEARCH_SUGGEST_PERSONALIZED) {
+  if (match.type == omnibox::AutocompleteMatchType::kSearchHistory ||
+      match.type ==
+          omnibox::AutocompleteMatchType::kSearchSuggestPersonalized) {
     // Signal that a recent search suggestion navigation is pending.
     pending_omnibox_recent_search_suggestion_navigation_ = true;
   }
@@ -222,7 +222,5 @@ void FindsTabHelper::OnOptimizationGuideDecision(
     }
   }
 }
-
-WEB_CONTENTS_USER_DATA_KEY_IMPL(FindsTabHelper);
 
 }  // namespace finds

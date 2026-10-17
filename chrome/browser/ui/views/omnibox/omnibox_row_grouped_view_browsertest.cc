@@ -42,7 +42,8 @@ class OmniboxRowGroupedViewBrowserTest : public OmniboxPopupViewViewsTest {
     if (IsSkipped()) {
       return;
     }
-    provider_ = new FakeAutocompleteProvider(AutocompleteProvider::TYPE_SEARCH);
+    provider_ =
+        new FakeAutocompleteProvider(AutocompleteProvider::Type::kSearch);
     controller()->autocomplete_controller()->providers_.push_back(provider_);
   }
 
@@ -52,7 +53,7 @@ class OmniboxRowGroupedViewBrowserTest : public OmniboxPopupViewViewsTest {
                                 bool is_contextual_search_suggestion = false,
                                 int relevance = 100) {
     AutocompleteMatch match(nullptr, relevance, false,
-                            AutocompleteMatchType::SEARCH_SUGGEST);
+                            omnibox::AutocompleteMatchType::kSearchSuggest);
     match.contents = description;
     match.contents_class.push_back({0, ACMatchClassification::NONE});
     match.description = description;

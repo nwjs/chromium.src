@@ -143,17 +143,31 @@ bool IsOriginIsolatedSandboxedFrame(const UrlInfo& url_info) {
 }
 
 // Computes whether to disable v8-optimization for the
-// (browsing_instance_id, process_lock_origin) pair.
+// (browsing_instance_id, process_lock_origin) pair, where process_lock_origin
+// is the default site URL's origin for documents that can share the default
+// SiteInstanceGroup, and `process_lock_url`'s origin otherwise.
 bool CheckShouldDisableV8Optimization(
     BrowserContext* browser_context,
     const BrowsingInstanceId& browsing_instance_id,
     const std::optional<base::SafeRef<ProcessSelectionUserData>>&
         process_selection_user_data,
     const GURL& process_lock_url) {
+  // `process_lock_url` is empty for documents that will share the default
+  // SiteInstanceGroup: they all use the BrowsingInstance's default policy
+  // rather than a site-specific exception, so they share one cache entry,
+  // keyed by the default site URL. Note we can't key off the document's own
+  // origin here: a same-origin document that *does* get a dedicated process
+  // (e.g. via DocumentIsolationPolicy) computes its value from a different
+  // policy scope and must not share this entry. We also can't key off the
+  // empty URL, since that produces an opaque origin that never matches.
+  const url::Origin cache_origin = url::Origin::Create(
+      process_lock_url.is_empty() ? SiteInstanceImpl::GetDefaultSiteURL()
+                                  : process_lock_url);
+
   std::optional<bool> are_v8_optimizations_disabled_result =
       ChildProcessSecurityPolicyImpl::GetInstance()
-          ->LookupAreV8OptimizationsDisabled(
-              browsing_instance_id, url::Origin::Create(process_lock_url));
+          ->LookupAreV8OptimizationsDisabled(browsing_instance_id,
+                                             cache_origin);
   if (are_v8_optimizations_disabled_result.has_value()) {
     return are_v8_optimizations_disabled_result.value();
   }
@@ -209,7 +223,7 @@ SiteInfo SiteInfo::CreateForDefaultSiteInstance(
       browser_context, GURL());
   bool are_v8_optimizations_disabled = CheckShouldDisableV8Optimization(
       browser_context, isolation_context.browsing_instance_id(), std::nullopt,
-      GURL());
+      /*process_lock_url=*/GURL());
 
   WebExposedIsolationLevel web_exposed_isolation_level =
       SiteInfo::ComputeWebExposedIsolationLevelForEmptySite(
@@ -265,8 +279,9 @@ SiteInfo SiteInfo::CreateForGuest(
 SiteInfo SiteInfo::Create(const IsolationContext& isolation_context,
                           const UrlInfo& url_info) {
   CHECK_CURRENTLY_ON(BrowserThread::UI);
-  DCHECK(url_info.is_sandboxed ||
-         url_info.unique_sandbox_id == UrlInfo::kInvalidUniqueSandboxId);
+  CHECK(url_info.is_sandboxed ||
+            url_info.unique_sandbox_id == UrlInfo::kInvalidUniqueSandboxId,
+        base::NotFatalUntil::M160);
   AgentClusterKey agent_cluster_key =
       GetAgentClusterKeyForURL(isolation_context, url_info,
                                /*effective_url=*/std::nullopt);
@@ -319,13 +334,19 @@ SiteInfo SiteInfo::Create(const IsolationContext& isolation_context,
               !RequiresDedicatedProcessInternal(
                   site_url, isolation_context, browser_context,
                   url_info.requests_coop_isolation(),
-                  !url_info.oac_header_request.has_value(),
-                  url_info.is_sandboxed, url_info.embedder_isolation_info,
+                  agent_cluster_key.IsOriginKeyed(), url_info.is_sandboxed,
+                  url_info.embedder_isolation_info,
                   url_info.cross_origin_isolation_key.has_value() &&
                       url_info.cross_origin_isolation_key
                           ->cross_origin_isolated_through_dip)
           ? GURL()
           : agent_cluster_key.GetURL();
+  // TODO(crbug.com/559676326): JIT policy does not currently have a
+  // per-BrowsingInstance state cache in ChildProcessSecurityPolicyImpl like V8
+  // optimization does. If dynamic user settings are ever added for JIT,
+  // same-origin window.open popups could mismatch the opener process if the
+  // policy changes mid-session. Consider unifying JIT and V8 optimization
+  // state caching.
   is_jitless =
       is_jitless || GetContentClient()->browser()->IsJitDisabledForSite(
                         browser_context, agent_cluster_url_or_default);
@@ -337,7 +358,7 @@ SiteInfo SiteInfo::Create(const IsolationContext& isolation_context,
     storage_partition_config =
         GetStoragePartitionConfigForUrl(browser_context, site_url);
   }
-  DCHECK(storage_partition_config.has_value());
+  CHECK(storage_partition_config.has_value(), base::NotFatalUntil::M160);
 
   // Note: Well-formed UrlInfos can arrive here with null
   // WebExposedIsolationInfo. One example is, going through the process model
@@ -426,11 +447,12 @@ SiteInfo::SiteInfo(const AgentClusterKey& agent_cluster_key,
       is_fenced_(is_fenced),
       browser_context_id_(browser_context_id),
       embedder_isolation_info_(embedder_isolation_info) {
-  DCHECK(is_sandboxed_ ||
-         unique_sandbox_id_ == UrlInfo::kInvalidUniqueSandboxId);
-  DCHECK((oac_status() != AgentClusterKey::OACStatus::kOriginKeyedByHeader &&
-          oac_status() != AgentClusterKey::OACStatus::kOriginKeyedByDefault) ||
-         agent_cluster_key_.IsOriginKeyed());
+  CHECK(is_sandboxed_ || unique_sandbox_id_ == UrlInfo::kInvalidUniqueSandboxId,
+        base::NotFatalUntil::M160);
+  CHECK((oac_status() != AgentClusterKey::OACStatus::kOriginKeyedByHeader &&
+         oac_status() != AgentClusterKey::OACStatus::kOriginKeyedByDefault) ||
+            agent_cluster_key_.IsOriginKeyed(),
+        base::NotFatalUntil::M160);
 }
 SiteInfo::SiteInfo(const SiteInfo& rhs) = default;
 
@@ -497,7 +519,8 @@ SiteInfo SiteInfo::GetNonOriginKeyedEquivalentForMetrics(
        oac_status() == AgentClusterKey::OACStatus::kOriginKeyedByDefault) &&
       !agent_cluster_key_.GetCrossOriginIsolationKey().has_value()) {
     CHECK(agent_cluster_key_.IsOriginKeyed());
-    DCHECK(agent_cluster_key_.GetOrigin().scheme() == url::kHttpsScheme);
+    CHECK(agent_cluster_key_.GetOrigin().scheme() == url::kHttpsScheme,
+          base::NotFatalUntil::M160);
 
     // TODO(wjmaclean): It would probably be better if we just changed
     // SiteInstanceImpl::original_url_ to be SiteInfo::original_url_info_ and
@@ -591,7 +614,7 @@ bool SiteInfo::IsExactMatch(const SiteInfo& other) const {
     // If all the fields match, then the "same principal" subset must also
     // match. This is used to ensure these 2 methods stay in sync and all fields
     // used by IsSamePrincipalWith() are used by this function.
-    DCHECK(IsSamePrincipalWith(other));
+    CHECK(IsSamePrincipalWith(other), base::NotFatalUntil::M160);
   }
   return is_match;
 }
@@ -742,9 +765,9 @@ std::ostream& operator<<(std::ostream& out, const SiteInfo& site_info) {
 
 bool SiteInfo::RequiresDedicatedProcess(
     const IsolationContext& isolation_context) const {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
   BrowserContext* browser_context = isolation_context.browser_context();
-  DCHECK(browser_context);
+  CHECK(browser_context, base::NotFatalUntil::M160);
   return RequiresDedicatedProcessInternal(
       site_url_, isolation_context, browser_context,
       does_site_request_dedicated_process_for_coop_,
@@ -757,9 +780,9 @@ bool SiteInfo::RequiresDedicatedProcess(
 
 bool SiteInfo::ShouldLockProcessToSite(
     const IsolationContext& isolation_context) const {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
   BrowserContext* browser_context = isolation_context.browser_context();
-  DCHECK(browser_context);
+  CHECK(browser_context, base::NotFatalUntil::M160);
 
   // Don't lock to origin in --single-process mode, since this mode puts
   // cross-site pages into the same process.  Note that this also covers the
@@ -1071,7 +1094,7 @@ AgentClusterKey SiteInfo::GetAgentClusterKeyForURL(
   }
 
   // All other URLs use a site-keyed agent cluster based on their scheme.
-  DCHECK(!url.scheme().empty());
+  CHECK(!url.scheme().empty(), base::NotFatalUntil::M160);
   GURL site_url = GURL(base::StrCat({url.scheme(), ":"}));
   return AgentClusterKey::CreateSiteKeyed(site_url, oac_status);
 }
@@ -1191,7 +1214,7 @@ AgentClusterKey SiteInfo::GetAgentClusterKeyForSchemeOnlyOrigin(
 
   // TODO(crbug.com/433443082): Since all file URLs should have an origin of
   // "file:", consider returning an origin-keyed AgentClusterKey here.
-  DCHECK(!origin.scheme().empty());
+  CHECK(!origin.scheme().empty(), base::NotFatalUntil::M160);
   GURL site_url = GURL(origin.scheme() + ":");
   return AgentClusterKey::CreateSiteKeyed(site_url, oac_status);
 }

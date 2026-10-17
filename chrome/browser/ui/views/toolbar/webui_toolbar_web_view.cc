@@ -31,6 +31,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
+#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/desktop_browser_window_capabilities.h"
@@ -237,17 +238,20 @@ class WebUIToolbarInternalWebView : public views::WebView {
     if (!did_originate_from_renderer && !drop_data.filenames.empty()) {
       cached_dragged_file_path_ = drop_data.filenames.front().path;
       cached_dragged_file_position_ = client_pt;
-    } else if (did_originate_from_renderer) {
+    } else {
       ClearCachedDraggedFile();
     }
-    webui_toolbar::WebUIToolbarDragState::GetOrCreateForWebContents(
-        web_contents())
-        ->set_drag_originated_from_renderer(did_originate_from_renderer);
+    const bool has_javascript_url =
+        !drop_data.url_infos.empty() &&
+        drop_data.url_infos.front().url.SchemeIs(url::kJavaScriptScheme);
+    auto* drag_state =
+        webui_toolbar::WebUIToolbarDragState::GetOrCreateForWebContents(
+            web_contents());
+    drag_state->set_drag_originated_from_renderer(did_originate_from_renderer);
+    drag_state->set_drag_has_javascript_url(has_javascript_url);
   }
 
   void PreHandleDragExit() override { ClearCachedDraggedFile(); }
-
-  void HandleDragEnded() override { ClearCachedDraggedFile(); }
 
   bool CanDragEnter(content::WebContents* source,
                     const content::DropData& data,
@@ -373,6 +377,7 @@ WebUIToolbarWebView::WebUIToolbarWebView(
       battery_saver_control_(this),
       avatar_control_(this),
       media_control_(this),
+      glic_control_(this),
       location_bar_(std::move(location_bar)),
       extensions_container_(this),
       back_control_(this, BackForwardButton::Direction::kBack),
@@ -426,6 +431,8 @@ WebUIToolbarWebView::WebUIToolbarWebView(
       toolbar_ui_api::mojom::OverflowButtonControlState::New();
   last_queued_state_.media_control_state =
       toolbar_ui_api::mojom::MediaControlState::New();
+  last_queued_state_.glic_button_state =
+      toolbar_ui_api::mojom::GlicButtonState::New();
 
   if (auto* manager = InitialWebUIWindowMetricsManager::From(browser_)) {
     manager->OnReloadButtonCreated();
@@ -568,6 +575,9 @@ void WebUIToolbarWebView::AddedToWidget() {
     if (features::IsWebUIPinnedToolbarActionsEnabled()) {
       pinned_toolbar_actions_.Init();
     }
+    if (features::IsWebUIGlicButtonEnabled()) {
+      glic_control_.Init();
+    }
     if (features::IsWebUIExtensionsContainerEnabled()) {
       extensions_container_.Init(web_contents());
     }
@@ -707,6 +717,9 @@ void WebUIToolbarWebView::HandleContextMenu(
     case toolbar_ui_api::mojom::ContextMenuType::kAppMenu:
       app_menu_control_.HandleContextMenu(screen_rect, source);
       break;
+    case toolbar_ui_api::mojom::ContextMenuType::kGlic:
+      glic_control_.HandleContextMenu(screen_rect, source);
+      break;
     case toolbar_ui_api::mojom::ContextMenuType::kUnspecified:
       NOTREACHED() << "Unexpected ContextMenuType::kUnspecified.";
   }
@@ -748,14 +761,6 @@ void WebUIToolbarWebView::OnContentSettingImagePointerDown(
   }
 }
 
-void WebUIToolbarWebView::OnContentSettingImageAnimationEnded(
-    ::toolbar_ui_api::mojom::ContentSettingImageType type) {
-  if (location_bar_) {
-    location_bar_->content_setting_image_control()
-        .OnContentSettingImageAnimationEnded(type);
-  }
-}
-
 void WebUIToolbarWebView::OnPageActionPointerDown(
     ::toolbar_ui_api::mojom::PageActionId action_id) {
   if (location_bar_) {
@@ -783,11 +788,12 @@ void WebUIToolbarWebView::OnPageActionClick(
 
 void WebUIToolbarWebView::OnPageActionChipShowingChanged(
     ::toolbar_ui_api::mojom::PageActionId action_id,
+    bool is_showing,
     ::toolbar_ui_api::mojom::ToolbarUIService::
         OnPageActionChipShowingChangedCallback callback) {
   if (location_bar_) {
     location_bar_->page_action_control().OnPageActionChipShowingChanged(
-        action_id, std::move(callback));
+        action_id, is_showing, std::move(callback));
   } else {
     std::move(callback).Run(base::unexpected(Error::New(
         Code::kFailedPrecondition,
@@ -873,8 +879,12 @@ WebUIToolbarWebView::OnOmniboxAction(
   }
 }
 
-void WebUIToolbarWebView::ShowAvatarMenu() {
-  avatar_control_.ButtonPressed(/*is_source_accelerator=*/false);
+void WebUIToolbarWebView::ShowAvatarMenu(bool is_pointer_interaction) {
+  avatar_control_.OnClicked(is_pointer_interaction);
+}
+
+void WebUIToolbarWebView::OnAvatarButtonMousePressed() {
+  avatar_control_.OnMousePressed();
 }
 
 void WebUIToolbarWebView::SetAvatarButtonHovered(bool hovered) {
@@ -918,7 +928,8 @@ WebUIToolbarWebView::AdjustOmniboxTextForCopy(const std::u16string& text,
   GURL url;
   bool write_url = false;
 
-  LocationBar* location_bar = browser_->GetFeatures().location_bar();
+  LocationBar* location_bar =
+      BrowserWindow::FromBrowser(browser_)->GetLocationBar();
   if (location_bar) {
     OmniboxController* controller = location_bar->GetOmniboxController();
     if (controller && controller->edit_model()) {
@@ -965,6 +976,10 @@ void WebUIToolbarWebView::OnMediaButtonClicked(bool is_mouse_interaction) {
 
 void WebUIToolbarWebView::OnMediaButtonMousePressed() {
   media_control_.OnMousePressed();
+}
+
+void WebUIToolbarWebView::OnGlicButtonClicked() {
+  glic_control_.OnClicked();
 }
 
 ReloadControl* WebUIToolbarWebView::GetReloadControl() {
@@ -1268,8 +1283,11 @@ void WebUIToolbarWebView::OverflowButtonClicked(
     split_tabs_control_.HandleContextMenuOverflowClick();
     return;
   } else if (identifier == kToolbarBatterySaverButtonElementId) {
-    // TODO(crbug.com/491791965): Handle battery saver button click from
-    // overflow menu.
+    battery_saver_control_.ShowBubble();
+    return;
+  } else if (identifier == kToolbarAvatarButtonElementId ||
+             identifier == kToolbarMediaButtonElementId) {
+    // TODO(crbug.com/556290451): Make buttons work with overflow menu clicks.
     return;
   }
   NOTREACHED();
@@ -1466,6 +1484,15 @@ void WebUIToolbarWebView::OnHomeButtonDropFile(
   }
 }
 
+void WebUIToolbarWebView::OnHomeButtonDropText(const std::string& text) {
+  if (!home_control_.ShouldHandleDropText()) {
+    return;
+  }
+  if (browser_controls_adapter_) {
+    browser_controls_adapter_->NavigateText(text);
+  }
+}
+
 void WebUIToolbarWebView::OnToolbarDropFile(const gfx::PointF& drop_position) {
   if (std::optional<GURL> url = web_view_->ConsumeDroppedUrl(drop_position)) {
     browser_->OpenGURL(*url, WindowOpenDisposition::CURRENT_TAB);
@@ -1590,9 +1617,11 @@ void WebUIToolbarWebView::OnLhsChipMousePressed(
 
 void WebUIToolbarWebView::OnLhsChipClicked(
     toolbar_ui_api::mojom::LhsChipIdentifier identifier,
-    bool is_mouse_interaction) {
+    bool is_mouse_interaction,
+    uint32_t state_token) {
   if (location_bar_) {
-    location_bar_->OnLhsChipClicked(identifier, is_mouse_interaction);
+    location_bar_->OnLhsChipClicked(identifier, is_mouse_interaction,
+                                    state_token);
   }
 }
 
@@ -1684,6 +1713,13 @@ void WebUIToolbarWebView::OnMediaControlStateChanged(
   }
 }
 
+void WebUIToolbarWebView::OnGlicButtonStateChanged(
+    toolbar_ui_api::mojom::GlicButtonStatePtr state) {
+  if (!mojo::Equals(state, last_queued_state_.glic_button_state)) {
+    last_queued_state_.glic_button_state = std::move(state);
+    PostPushNavigationState();
+  }
+}
 void WebUIToolbarWebView::OnFocusRequested(
     toolbar_ui_api::mojom::FocusRequestTarget target) {
   // We need to focus the WebView as well, besides the JS focus.
@@ -1775,6 +1811,8 @@ gfx::Size WebUIToolbarWebView::ComputeLayout(
   button_count += features::IsWebUIPerformanceInterventionButtonEnabled() &&
                   performance_intervention_control_.IsButtonShowing();
   button_count += features::IsWebUIAppMenuButtonEnabled();
+  button_count +=
+      features::IsWebUIGlicButtonEnabled() && glic_control_.IsVisible();
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
   button_count +=
       features::IsWebUIMediaButtonEnabled() && media_control_.IsButtonShowing();

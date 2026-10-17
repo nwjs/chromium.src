@@ -23,6 +23,11 @@
 - (void)bottomSheetViewControllerDidEscape:
     (NewTabPageBottomSheetViewController*)bottomSheetViewController;
 
+// Called when the feed sign-in promo changes visibility in the viewport.
+- (void)bottomSheetViewController:
+            (NewTabPageBottomSheetViewController*)bottomSheetViewController
+    didChangeSigninPromoVisibility:(BOOL)visible;
+
 // Returns the preferred resting offset for the bottom sheet.
 - (CGFloat)restingOffsetForBottomSheetViewController:
     (NewTabPageBottomSheetViewController*)viewController;
@@ -38,6 +43,13 @@
 
 @end
 
+// Snapping states for the bottom sheet.
+enum class BottomSheetSnappingState {
+  kCollapsed,
+  kResting,
+  kExpanded,
+};
+
 // View controller managing the bottom sheet card, gestures, and subviews for
 // the NTP Redesign.
 @interface NewTabPageBottomSheetViewController
@@ -50,6 +62,9 @@
 // The feed view controller embedded under the "Read" tab.
 @property(nonatomic, strong) UIViewController* feedViewController;
 
+// The feed top section view controller containing promos (e.g. Sign-in promo).
+@property(nonatomic, strong) UIViewController* feedTopSectionViewController;
+
 // The magic stack view controller.
 @property(nonatomic, strong)
     MagicStackCollectionViewController* magicStackViewController;
@@ -59,6 +74,16 @@
 
 // Clears state and delegates.
 - (void)invalidate;
+
+// Handles layout and insets when the feed top section promo is closed.
+- (void)handleFeedTopSectionClosed;
+
+// Triggers re-layout and inset recalculation when feed content or promos
+// update.
+- (void)updateFeedLayout;
+
+// Returns the height of the feed top section promo.
+- (CGFloat)feedTopSectionHeight;
 
 // Updates whether the omnibox is in the bottom position.
 - (void)setOmniboxInBottomPosition:(BOOL)isBottomOmnibox;
@@ -84,6 +109,12 @@
 
 // Returns YES if the bottom sheet is scrolled to the top.
 - (BOOL)isScrolledToTop;
+
+// Collapses the bottom sheet back to its resting position.
+- (void)collapseToRestingAnimated:(BOOL)animated;
+
+// Updates the layout mode and constraints for the current trait collection.
+- (void)updateLayoutModeForCurrentTraitCollection;
 
 @end
 

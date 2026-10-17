@@ -159,11 +159,22 @@ CobaltController* WebClient::GetCobaltController(
   return nullptr;
 }
 
+ExtensionController* WebClient::GetExtensionController(
+    BrowserState* browser_state) const {
+  return nullptr;
+}
+
 bool WebClient::IsSmoothScrollingSupported() const {
   return false;
 }
 
-bool WebClient::IsUniversalOptOutEnabled(BrowserState* browser_state) const {
+UniversalOptOutState WebClient::GetUniversalOptOutState(
+    BrowserState* browser_state) const {
+  return UniversalOptOutState::kNotEligible;
+}
+
+bool WebClient::ShouldBlockUniversalLinksForURL(BrowserState* browser_state,
+                                                const GURL& url) const {
   return false;
 }
 

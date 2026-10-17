@@ -73,7 +73,8 @@ class ProxyLookupRequest : public network::mojom::ProxyLookupClient {
   void OnProxyLookupComplete(
       int32_t net_error,
       const std::optional<net::ProxyInfo>& proxy_info) override {
-    DCHECK_EQ(net_error == net::OK, proxy_info.has_value());
+    CHECK_EQ(net_error == net::OK, proxy_info.has_value(),
+             base::NotFatalUntil::M160);
 
     std::string error;
     std::string result;
@@ -105,8 +106,7 @@ class ProxyLookupRequest : public network::mojom::ProxyLookupClient {
   // local proxy connection fails. System-proxy itself does proxy resolution
   // trough the same Chrome proxy resolution service to connect to the
   // remote proxy server. The availability of this feature is controlled by the
-  // |SystemProxySettings| policy and the feature flag
-  // `features::kSystemProxyForSystemServices`.
+  // |SystemProxySettings| policy.
   void AppendSystemProxyIfActive(std::string* pac_proxy_list) {
     SystemProxyManager* system_proxy_manager = SystemProxyManager::Get();
     // |system_proxy_manager| may be missing in tests.
@@ -136,12 +136,12 @@ ProxyResolutionServiceProvider::ProxyResolutionServiceProvider()
           net::NetworkAnonymizationKey::CreateTransient()) {}
 
 ProxyResolutionServiceProvider::~ProxyResolutionServiceProvider() {
-  DCHECK(OnOriginThread());
+  CHECK(OnOriginThread(), base::NotFatalUntil::M160);
 }
 
 void ProxyResolutionServiceProvider::Start(
     scoped_refptr<dbus::ExportedObject> exported_object) {
-  DCHECK(OnOriginThread());
+  CHECK(OnOriginThread(), base::NotFatalUntil::M160);
   exported_object_ = exported_object;
   VLOG(1) << "ProxyResolutionServiceProvider started";
   exported_object_->ExportMethod(
@@ -170,7 +170,7 @@ void ProxyResolutionServiceProvider::OnExported(
 void ProxyResolutionServiceProvider::DbusResolveProxy(
     dbus::MethodCall* method_call,
     dbus::ExportedObject::ResponseSender response_sender) {
-  DCHECK(OnOriginThread());
+  CHECK(OnOriginThread(), base::NotFatalUntil::M160);
 
   VLOG(1) << "Handling method call: " << method_call->ToString();
   dbus::MessageReader reader(method_call);
@@ -238,7 +238,7 @@ void ProxyResolutionServiceProvider::NotifyProxyResolved(
     dbus::ExportedObject::ResponseSender response_sender,
     const std::string& error,
     const std::string& pac_string) {
-  DCHECK(OnOriginThread());
+  CHECK(OnOriginThread(), base::NotFatalUntil::M160);
 
   // Reply to the original D-Bus method call.
   dbus::MessageWriter writer(response.get());

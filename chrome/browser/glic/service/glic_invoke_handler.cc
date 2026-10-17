@@ -41,10 +41,20 @@ constexpr base::TimeDelta kDefaultTimeout = base::Minutes(1);
 ShowOptions CreateShowOptions(
     const GlicInvokeHandler::ResolvedTarget& resolved_target,
     const GlicInvokeOptions& options) {
+  // A floating panel can be asked to come up in text mode, e.g. to take a
+  // conversation out of live mode. The browser can only request it; leaving
+  // live mode is up to the web client.
+  const mojom::WebClientMode floating_initial_mode =
+      options.target.live_mode_behavior ==
+              LiveModeBehavior::kForceFloatingTextMode
+          ? mojom::WebClientMode::kText
+          : mojom::WebClientMode::kUnknown;
   ShowOptions show_options = std::visit(
       absl::Overload{[&](const GlicInvokeHandler::TabSurface& tab_surface) {
                        SidePanelShowOptions side_panel_options{
                            *tab_surface.tab};
+                       // TODO(b/562983414): Infer a more specific pin trigger
+                       // from the invocation source.
                        side_panel_options.pin_trigger =
                            GlicPinTrigger::kInstanceCreation;
                        side_panel_options.pin_on_bind = options.pin_on_bind;
@@ -52,7 +62,8 @@ ShowOptions CreateShowOptions(
                      },
                      [&](Floating) {
                        return ShowOptions::ForFloating(
-                           /*source_tab=*/tabs::TabHandle::Null());
+                           /*source_tab=*/tabs::TabHandle::Null(),
+                           floating_initial_mode);
                      }},
       resolved_target);
   show_options.invocation_source = options.GetInvocationSource();
@@ -186,6 +197,8 @@ GlicInvokeHandler::GlicInvokeHandler(
       auto_submit_passkey_(auto_submit_passkey),
       auto_submit_options_(std::move(auto_submit_options)),
       completion_callback_(std::move(completion_callback)),
+      requires_client_invoke_(
+          RequiresClientInvoke(options_, auto_submit_passkey.has_value())),
       metrics_(std::move(invoke_metrics)) {
   if (const auto* tab_surface = std::get_if<TabSurface>(&resolved_target_)) {
     CHECK(tab_surface->tab);
@@ -215,22 +228,28 @@ GlicInvokeHandler::GlicInvokeHandler(
 
 GlicInvokeHandler::~GlicInvokeHandler() = default;
 
-bool GlicInvokeHandler::RequiresClientInvoke(
-    const mojom::InvokeOptionsPtr& mojo_options,
-    bool has_auto_submit_passkey) {
-  return mojo_options->invocation_source ==
+// static
+bool GlicInvokeHandler::RequiresClientInvoke(const GlicInvokeOptions& options,
+                                             bool has_auto_submit_passkey) {
+  // Note: these conditions mirror the options populated by
+  // CreateMojoOptions(). `actuation_tab_id` is intentionally not checked, as
+  // it is only populated when `actuation_target` is `kTargetSurface`, which is
+  // already covered below.
+  const auto* payload =
+      std::get_if<mojom::InvocationPayloadPtr>(&options.source_or_payload);
+  return options.GetInvocationSource() ==
              mojom::InvocationSource::kCaptureRegionHotkey ||
-         has_auto_submit_passkey || !mojo_options->payload.is_null() ||
-         (mojo_options->prompts && !mojo_options->prompts->empty()) ||
-         !mojo_options->context.is_null() ||
-         mojo_options->feature_mode != mojom::FeatureMode::kUnspecified ||
-         (mojo_options->actuation_target != mojom::ActuationTarget::kUnknown &&
-          mojo_options->actuation_target !=
+         has_auto_submit_passkey || (payload && !payload->is_null()) ||
+         !options.prompts.empty() ||
+         (options.additional_context.has_value() &&
+          !options.additional_context->context.is_null()) ||
+         options.feature_mode.value_or(mojom::FeatureMode::kUnspecified) !=
+             mojom::FeatureMode::kUnspecified ||
+         (options.target.actuation_target != mojom::ActuationTarget::kUnknown &&
+          options.target.actuation_target !=
               mojom::ActuationTarget::kAgentDecides) ||
-         mojo_options->disable_zero_state_suggestions ||
-         mojo_options->skill_id.has_value() ||
-         !mojo_options->zss_config.is_null() ||
-         mojo_options->actuation_tab_id.has_value();
+         options.disable_zss || options.skill_id.has_value() ||
+         options.zss_config.has_value();
 }
 
 void GlicInvokeHandler::Invoke() {
@@ -306,8 +325,13 @@ void GlicInvokeHandler::Invoke() {
   }
   tasks.push_back(std::make_unique<MaybeInitializeHiddenClientTask>(
       &*instance_, options_.GetInvocationSource(), options_.fre_override));
-  tasks.push_back(
-      std::make_unique<WaitForClientConnectedTask>(instance_->host()));
+  // Waiting for the client to be ready subsumes waiting for it to connect:
+  // `client_load_state()` is `kReady` exactly while the client is connected and
+  // responsive. Unlike a bare connection wait, this fails the invocation if the
+  // client never loads instead of hanging until the invocation times out.
+  tasks.push_back(std::make_unique<WaitForClientReadyTask>(
+      instance_->host(), base::BindOnce(&GlicInvokeHandler::OnError,
+                                        weak_ptr_factory_.GetWeakPtr())));
   if (options_.on_client_connected) {
     tasks.push_back(std::make_unique<PostCallbackTask>(base::BindOnce(
         [](base::WeakPtr<GlicInstanceImpl> instance,
@@ -331,8 +355,7 @@ void GlicInvokeHandler::Invoke() {
   }
 
   if (options_.additional_context.has_value() &&
-      options_.additional_context->policy_check == PolicyCheck::kClipboard &&
-      IsTabTarget()) {
+      options_.additional_context->policy_check == PolicyCheck::kClipboard) {
     tasks.push_back(std::make_unique<PastePolicyTask>(
         &*instance_, options_,
         base::BindOnce(&GlicInvokeHandler::OnError,
@@ -340,17 +363,15 @@ void GlicInvokeHandler::Invoke() {
   }
 
   mojom::InvokeOptionsPtr mojo_options = CreateMojoOptions();
-  bool requires_client_invoke =
-      RequiresClientInvoke(mojo_options, auto_submit_passkey_.has_value());
 
   if (options_.fre_completion_wait_mode == FreCompletionWaitMode::kAlways ||
       (options_.fre_completion_wait_mode == FreCompletionWaitMode::kDefault &&
-       requires_client_invoke)) {
+       requires_client_invoke_)) {
     tasks.push_back(std::make_unique<WaitForFreCompletionTask>(
         instance_->profile(), options_.fre_override));
   }
 
-  if (requires_client_invoke) {
+  if (requires_client_invoke_) {
     tasks.push_back(std::make_unique<SendToClientTask>(
         &*instance_, std::move(mojo_options), auto_submit_passkey_));
   }

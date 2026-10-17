@@ -160,11 +160,11 @@ TEST_F(OmniboxFieldTrialTest, GetProviderMaxMatches) {
         {{OmniboxFieldTrial::kUIMaxAutocompleteMatchesByProviderParam,
           "1:50,2:0"}});
     ASSERT_EQ(50ul, OmniboxFieldTrial::GetProviderMaxMatches(
-                        AutocompleteProvider::Type::TYPE_BOOKMARK));
+                        AutocompleteProvider::Type::kBookmark));
     ASSERT_EQ(0ul, OmniboxFieldTrial::GetProviderMaxMatches(
-                       AutocompleteProvider::Type::TYPE_BUILTIN));
+                       AutocompleteProvider::Type::kBuiltin));
     ASSERT_EQ(3ul, OmniboxFieldTrial::GetProviderMaxMatches(
-                       AutocompleteProvider::Type::TYPE_HISTORY_QUICK));
+                       AutocompleteProvider::Type::kHistoryQuick));
   }
   {
     ResetAndEnableFeatureWithParameters(
@@ -172,20 +172,20 @@ TEST_F(OmniboxFieldTrialTest, GetProviderMaxMatches) {
         {{OmniboxFieldTrial::kUIMaxAutocompleteMatchesByProviderParam,
           "1:60,*:61,2:62"}});
     ASSERT_EQ(60ul, OmniboxFieldTrial::GetProviderMaxMatches(
-                        AutocompleteProvider::Type::TYPE_BOOKMARK));
+                        AutocompleteProvider::Type::kBookmark));
     ASSERT_EQ(62ul, OmniboxFieldTrial::GetProviderMaxMatches(
-                        AutocompleteProvider::Type::TYPE_BUILTIN));
+                        AutocompleteProvider::Type::kBuiltin));
     ASSERT_EQ(61ul, OmniboxFieldTrial::GetProviderMaxMatches(
-                        AutocompleteProvider::Type::TYPE_HISTORY_QUICK));
+                        AutocompleteProvider::Type::kHistoryQuick));
   }
   {
     ResetFieldTrialList();
     ASSERT_EQ(3ul, OmniboxFieldTrial::GetProviderMaxMatches(
-                       AutocompleteProvider::Type::TYPE_BOOKMARK));
+                       AutocompleteProvider::Type::kBookmark));
     ASSERT_EQ(3ul, OmniboxFieldTrial::GetProviderMaxMatches(
-                       AutocompleteProvider::Type::TYPE_BUILTIN));
+                       AutocompleteProvider::Type::kBuiltin));
     ASSERT_EQ(3ul, OmniboxFieldTrial::GetProviderMaxMatches(
-                       AutocompleteProvider::Type::TYPE_HISTORY_QUICK));
+                       AutocompleteProvider::Type::kHistoryQuick));
   }
   {
     scoped_ml_config.GetMLConfig().ml_url_scoring = true;
@@ -194,13 +194,13 @@ TEST_F(OmniboxFieldTrialTest, GetProviderMaxMatches) {
         "1:10,4:10,8:10,64:10,65536:10";
 
     ASSERT_EQ(10ul, OmniboxFieldTrial::GetProviderMaxMatches(
-                        AutocompleteProvider::Type::TYPE_BOOKMARK));
+                        AutocompleteProvider::Type::kBookmark));
     ASSERT_EQ(10ul, OmniboxFieldTrial::GetProviderMaxMatches(
-                        AutocompleteProvider::Type::TYPE_HISTORY_QUICK));
+                        AutocompleteProvider::Type::kHistoryQuick));
     ASSERT_EQ(10ul, OmniboxFieldTrial::GetProviderMaxMatches(
-                        AutocompleteProvider::Type::TYPE_HISTORY_URL));
+                        AutocompleteProvider::Type::kHistoryUrl));
     ASSERT_EQ(10ul, OmniboxFieldTrial::GetProviderMaxMatches(
-                        AutocompleteProvider::Type::TYPE_HISTORY_FUZZY));
+                        AutocompleteProvider::Type::kHistoryFuzzy));
   }
 }
 

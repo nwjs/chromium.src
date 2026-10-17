@@ -23,7 +23,6 @@ import android.content.Intent;
 import android.provider.Settings;
 
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.filters.SmallTest;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -188,7 +187,6 @@ public class SigninBridgeTest {
     }
 
     @Test
-    @SmallTest
     public void testAccountPickerSuppressedWhenNoWindow() {
         //  Reset default values configured in `setUp`.
         Mockito.reset(mTabMock);
@@ -218,7 +216,6 @@ public class SigninBridgeTest {
     }
 
     @Test
-    @SmallTest
     public void testAccountPickerSuppressedWhenTabNotInteractable() {
         //  Reset default values configured in `setUp`.
         Mockito.reset(mTabMock);
@@ -249,7 +246,6 @@ public class SigninBridgeTest {
     }
 
     @Test
-    @SmallTest
     public void testAccountPickerSuppressedWhenSigninNotAllowed() {
         when(mSigninManagerMock.isSigninAllowed()).thenReturn(false);
 
@@ -281,7 +277,6 @@ public class SigninBridgeTest {
     }
 
     @Test
-    @SmallTest
     public void testAccountPickerSuppressedWhenNoAccountsOnDevice() {
         when(mSigninManagerMock.isSigninAllowed()).thenReturn(true);
 
@@ -312,7 +307,6 @@ public class SigninBridgeTest {
     }
 
     @Test
-    @SmallTest
     public void testAccountPickerSuppressedIfDismissLimitReached() {
         Assume.assumeTrue(mIsWebSignin);
         when(mSigninManagerMock.isSigninAllowed()).thenReturn(true);
@@ -347,11 +341,7 @@ public class SigninBridgeTest {
     }
 
     @Test
-    @SmallTest
-    @DisableFeatures({
-        SigninFeatures.ENABLE_SEAMLESS_SIGNIN,
-        SigninFeatures.ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT
-    })
+    @DisableFeatures(SigninFeatures.ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT)
     public void testAccountPickerHasNoLimitIfAccountIsSpecified_legacy() {
         Assume.assumeTrue(mIsWebSignin);
         when(mSigninManagerMock.isSigninAllowed()).thenReturn(true);
@@ -390,11 +380,7 @@ public class SigninBridgeTest {
     }
 
     @Test
-    @SmallTest
-    @EnableFeatures({
-        SigninFeatures.ENABLE_SEAMLESS_SIGNIN,
-        SigninFeatures.ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT
-    })
+    @EnableFeatures(SigninFeatures.ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT)
     public void testAccountPickerHasNoLimitIfAccountIsSpecified() {
         Assume.assumeTrue(mIsWebSignin);
         when(mSigninManagerMock.isSigninAllowed()).thenReturn(true);
@@ -420,11 +406,7 @@ public class SigninBridgeTest {
     }
 
     @Test
-    @SmallTest
-    @DisableFeatures({
-        SigninFeatures.ENABLE_SEAMLESS_SIGNIN,
-        SigninFeatures.ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT
-    })
+    @DisableFeatures(SigninFeatures.ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT)
     public void testAccountPickerShown_legacy() {
         Assume.assumeTrue(mIsWebSignin);
         when(mSigninManagerMock.isSigninAllowed()).thenReturn(true);
@@ -454,11 +436,7 @@ public class SigninBridgeTest {
     }
 
     @Test
-    @SmallTest
-    @EnableFeatures({
-        SigninFeatures.ENABLE_SEAMLESS_SIGNIN,
-        SigninFeatures.ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT
-    })
+    @EnableFeatures(SigninFeatures.ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT)
     public void testAccountPickerShown() {
         when(mSigninManagerMock.isSigninAllowed()).thenReturn(true);
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
@@ -475,11 +453,7 @@ public class SigninBridgeTest {
     }
 
     @Test
-    @SmallTest
-    @DisableFeatures({
-        SigninFeatures.ENABLE_SEAMLESS_SIGNIN,
-        SigninFeatures.ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT
-    })
+    @DisableFeatures(SigninFeatures.ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT)
     public void testAccountPickerShownWithNoSelectedAccountId_legacy() {
         Assume.assumeTrue(mIsWebSignin);
         when(mSigninManagerMock.isSigninAllowed()).thenReturn(true);
@@ -505,11 +479,7 @@ public class SigninBridgeTest {
     }
 
     @Test
-    @SmallTest
-    @EnableFeatures({
-        SigninFeatures.ENABLE_SEAMLESS_SIGNIN,
-        SigninFeatures.ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT
-    })
+    @EnableFeatures(SigninFeatures.ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT)
     public void testAccountPickerShownWithNoSelectedAccountId() {
         when(mSigninManagerMock.isSigninAllowed()).thenReturn(true);
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
@@ -526,12 +496,8 @@ public class SigninBridgeTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(SigninFeatures.ENABLE_ADD_SESSION_REDIRECT)
-    @DisableFeatures({
-        SigninFeatures.ENABLE_SEAMLESS_SIGNIN,
-        SigninFeatures.ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT
-    })
+    @DisableFeatures(SigninFeatures.ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT)
     public void testBottomSheetInvokedAfterAddAccountFlow_legacy() {
         Assume.assumeTrue(mIsWebSignin);
         ArgumentCaptor<WindowAndroid.IntentCallback> intentCaptor =
@@ -572,10 +538,8 @@ public class SigninBridgeTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures({
         SigninFeatures.ENABLE_ADD_SESSION_REDIRECT,
-        SigninFeatures.ENABLE_SEAMLESS_SIGNIN,
         SigninFeatures.ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT
     })
     public void testBottomSheetInvokedAfterAddAccountFlow() {
@@ -600,7 +564,6 @@ public class SigninBridgeTest {
     }
 
     @Test
-    @SmallTest
     public void testSigninDeepLinkFlow_userSignedOut_targetAccountNotOnDevice() {
         Context context = Robolectric.buildActivity(Activity.class).get();
         lenient().when(mWindowAndroidMock.getContext()).thenReturn(new WeakReference<>(context));
@@ -644,7 +607,6 @@ public class SigninBridgeTest {
     }
 
     @Test
-    @SmallTest
     public void
             testSigninDeepLinkFlow_userSignedIn_toDifferentAccount_targetAccountNotOnTheDevice() {
         Context context = Robolectric.buildActivity(Activity.class).get();
@@ -699,7 +661,6 @@ public class SigninBridgeTest {
     }
 
     @Test
-    @SmallTest
     public void testSigninDeepLinkFlow_userSignedIn_withTheTargetAccount() {
         Context context = Robolectric.buildActivity(Activity.class).get();
         lenient().when(mWindowAndroidMock.getContext()).thenReturn(new WeakReference<>(context));
@@ -726,7 +687,6 @@ public class SigninBridgeTest {
     }
 
     @Test
-    @SmallTest
     public void testSigninDeepLinkFlow_launcherReturnsNull_recordsFlowForbidden() {
         Context context = Robolectric.buildActivity(Activity.class).get();
         lenient().when(mWindowAndroidMock.getContext()).thenReturn(new WeakReference<>(context));
@@ -770,7 +730,6 @@ public class SigninBridgeTest {
     }
 
     @Test
-    @SmallTest
     public void testSigninDeepLinkFlow_userSignedOut_targetAccountOnDevice() {
         Context context = Robolectric.buildActivity(Activity.class).get();
         lenient().when(mWindowAndroidMock.getContext()).thenReturn(new WeakReference<>(context));
@@ -816,7 +775,6 @@ public class SigninBridgeTest {
     }
 
     @Test
-    @SmallTest
     public void testSigninDeepLinkFlow_userSignedIn_toDifferentAccount_targetAccountOnTheDevice() {
         Context context = Robolectric.buildActivity(Activity.class).get();
         lenient().when(mWindowAndroidMock.getContext()).thenReturn(new WeakReference<>(context));
@@ -920,7 +878,6 @@ public class SigninBridgeTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(SigninFeatures.OPEN_SYSTEM_ACCOUNT_SETTINGS_DIRECTLY)
     public void testOpenAccountManagementScreen_desktop_flagEnabled() {
         DeviceInfo.setIsDesktopForTesting(true);
@@ -938,7 +895,6 @@ public class SigninBridgeTest {
     }
 
     @Test
-    @SmallTest
     @DisableFeatures(SigninFeatures.OPEN_SYSTEM_ACCOUNT_SETTINGS_DIRECTLY)
     public void testOpenAccountManagementScreen_desktop_flagDisabled() {
         DeviceInfo.setIsDesktopForTesting(true);
@@ -954,14 +910,13 @@ public class SigninBridgeTest {
         // When SettingsInTab is enabled on desktop, settings opens in a browser tab via
         // ChromeLauncherActivity (chrome://settings) instead of starting SettingsActivity.
         Assert.assertEquals(
-                SettingsInTab.isEnabled()
+                SettingsInTab.shouldOpenSettingsInTab()
                         ? ChromeLauncherActivity.class.getName()
                         : SettingsActivity.class.getName(),
                 intent.getComponent().getClassName());
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(SigninFeatures.OPEN_SYSTEM_ACCOUNT_SETTINGS_DIRECTLY)
     public void testOpenAccountManagementScreen_nonDesktop_flagEnabled() {
         DeviceInfo.setIsDesktopForTesting(false);

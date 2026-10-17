@@ -1145,7 +1145,7 @@ IN_PROC_BROWSER_TEST_F(LensComposeboxControllerBrowserTest,
   // Issue a text search request to open the side panel without the overlay.
   controller->IssueTextSearchRequest(
       lens::LensOverlayInvocationSource::kContentAreaContextMenuText, "query",
-      {}, AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      {}, omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       /*is_zero_prefix_suggestion=*/false,
       /*suppress_contextualization=*/true);
 
@@ -1217,7 +1217,7 @@ IN_PROC_BROWSER_TEST_F(LensComposeboxControllerBrowserTest,
   // Issue a text search request to open the side panel without the overlay.
   controller->IssueTextSearchRequest(
       lens::LensOverlayInvocationSource::kContentAreaContextMenuText, "query",
-      {}, AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      {}, omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       /*is_zero_prefix_suggestion=*/false,
       /*suppress_contextualization=*/true);
 
@@ -1287,7 +1287,7 @@ IN_PROC_BROWSER_TEST_F(LensComposeboxControllerBrowserTest,
   // Issue a text search request to open the side panel without the overlay.
   controller->IssueTextSearchRequest(
       lens::LensOverlayInvocationSource::kContentAreaContextMenuText, "query",
-      {}, AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      {}, omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       /*is_zero_prefix_suggestion=*/false,
       /*suppress_contextualization=*/true);
 
@@ -1411,7 +1411,7 @@ IN_PROC_BROWSER_TEST_F(LensComposeboxControllerBrowserTest,
   // Issue a text search request to open the side panel without the overlay.
   controller->IssueTextSearchRequest(
       lens::LensOverlayInvocationSource::kContentAreaContextMenuText, "query",
-      {}, AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      {}, omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       /*is_zero_prefix_suggestion=*/false,
       /*suppress_contextualization=*/true);
 
@@ -1455,7 +1455,7 @@ IN_PROC_BROWSER_TEST_F(LensComposeboxControllerBrowserTest,
   // Issue a text search request to open the side panel without the overlay.
   controller->IssueTextSearchRequest(
       lens::LensOverlayInvocationSource::kContentAreaContextMenuText, "query",
-      {}, AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      {}, omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       /*is_zero_prefix_suggestion=*/false,
       /*suppress_contextualization=*/true);
 
@@ -1513,7 +1513,7 @@ IN_PROC_BROWSER_TEST_F(LensComposeboxControllerBrowserTest,
   // Issue a text search request to open the side panel without the overlay.
   controller->IssueTextSearchRequest(
       lens::LensOverlayInvocationSource::kContentAreaContextMenuText, "query",
-      {}, AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      {}, omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       /*is_zero_prefix_suggestion=*/false,
       /*suppress_contextualization=*/true);
 
@@ -1555,7 +1555,7 @@ IN_PROC_BROWSER_TEST_F(LensComposeboxControllerBrowserTest,
   // Issue a text search request to open the side panel without the overlay.
   controller->IssueTextSearchRequest(
       lens::LensOverlayInvocationSource::kContentAreaContextMenuText, "query",
-      {}, AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      {}, omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       /*is_zero_prefix_suggestion=*/false,
       /*suppress_contextualization=*/true);
 

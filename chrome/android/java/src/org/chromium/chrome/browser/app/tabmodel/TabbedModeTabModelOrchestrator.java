@@ -13,9 +13,12 @@ import android.util.Pair;
 
 import androidx.annotation.VisibleForTesting;
 
+import org.chromium.base.CallbackController;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.lifetime.Destroyable;
 import org.chromium.base.supplier.OneshotSupplier;
+import org.chromium.base.task.PostTask;
+import org.chromium.base.task.TaskTraits;
 import org.chromium.build.annotations.EnsuresNonNull;
 import org.chromium.build.annotations.MonotonicNonNull;
 import org.chromium.build.annotations.NullMarked;
@@ -58,6 +61,7 @@ import org.chromium.chrome.browser.tabwindow.WindowId;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.widget.Toast;
 
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 /**
@@ -73,19 +77,22 @@ public class TabbedModeTabModelOrchestrator extends TabModelOrchestrator {
     private final boolean mIsFromRecreating;
     private final ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
     private final CipherFactory mCipherFactory;
+    private final TabArchiveSettings.Observer mTabArchiveSettingsObserver =
+            this::onTabArchiveSettingsChanged;
+    private final AccumulatingTabCreator mRegularShadowTabCreator = new AccumulatingTabCreator();
+    private final AccumulatingTabCreator mIncognitoShadowTabCreator = new AccumulatingTabCreator();
     // Effectively final after createTabModels().
 
     private @MonotonicNonNull OneshotSupplier<ProfileProvider> mProfileProviderSupplier;
+    private @MonotonicNonNull RecordingTabCreatorManager mRecordingTabCreatorManager;
 
     private @Nullable Supplier<TabModel> mArchivedHistoricalObserverSupplier;
     private @Nullable Destroyable mDeclutterLease;
+    private @Nullable TabContentManager mTabContentManager;
+    private @Nullable CallbackController mCallbackController = new CallbackController();
+    private boolean mDeclutterTimerScheduled;
     private boolean mIsDestroyed;
-
-    private @MonotonicNonNull RecordingTabCreatorManager mRecordingTabCreatorManager;
-
     private @WindowId int mWindowId;
-    private final AccumulatingTabCreator mRegularShadowTabCreator = new AccumulatingTabCreator();
-    private final AccumulatingTabCreator mIncognitoShadowTabCreator = new AccumulatingTabCreator();
 
     /**
      * Constructor.
@@ -115,12 +122,19 @@ public class TabbedModeTabModelOrchestrator extends TabModelOrchestrator {
         if (mIsDestroyed) return TabDestroyStatus.NO_SHUTDOWN;
         mIsDestroyed = true;
 
+        if (mCallbackController != null) {
+            mCallbackController.destroy();
+            mCallbackController = null;
+        }
+
+        TabArchiveSettings.getInstance().removeObserver(mTabArchiveSettingsObserver);
         releaseDeclutterLease();
+        mTabContentManager = null;
 
         Profile profile = getOriginalProfile();
-        if (profile != null && ArchivedTabModelOrchestrator.isInstantiatedForProfile(profile)) {
-            ArchivedTabModelOrchestrator archivedOrchestrator =
-                    ArchivedTabModelOrchestrator.getForProfile(profile);
+        ArchivedTabModelOrchestrator archivedOrchestrator =
+                ArchivedTabModelOrchestrator.getIfInstantiatedForProfile(profile);
+        if (archivedOrchestrator != null) {
             if (mArchivedHistoricalObserverSupplier != null) {
                 archivedOrchestrator.removeHistoricalTabModelObserver(
                         mArchivedHistoricalObserverSupplier);
@@ -323,6 +337,7 @@ public class TabbedModeTabModelOrchestrator extends TabModelOrchestrator {
 
         Profile profile = getOriginalProfile();
         assert profile != null;
+        mTabContentManager = tabContentManager;
 
         PersistentStoreCleanerFactory.getForProfile(profile)
                 .scheduleCleanUnusedData(tabContentManager);
@@ -332,6 +347,14 @@ public class TabbedModeTabModelOrchestrator extends TabModelOrchestrator {
                 (selector) -> createArchivedTabModelInDeferredTask(tabContentManager));
     }
 
+    // There is some delay while the local tab group sync databases synchronizes with the
+    // sync service on startup. Archiving is done on startup, although it's loaded as a
+    // deferred task which is only started after the regular tab model is already
+    // initialized. This is done to prevent any noticeable lag when archiving tabs. There
+    // is the chance that tab groups are archived while in the midst of being deleted. This
+    // is much more of an edge case than adding a set delay at startup, and is already
+    // handled by observer events in the relevant UI which mirror the behavior in the tab
+    // groups pane.
     private void createArchivedTabModelInDeferredTask(TabContentManager tabContentManager) {
         DeferredStartupHandler.getInstance()
                 .addDeferredTask(
@@ -344,13 +367,12 @@ public class TabbedModeTabModelOrchestrator extends TabModelOrchestrator {
         if (mIsDestroyed) return;
         super.saveState();
         Profile profile = getOriginalProfile();
-        if (profile != null && ArchivedTabModelOrchestrator.isInstantiatedForProfile(profile)) {
-            ArchivedTabModelOrchestrator archivedOrchestrator =
-                    ArchivedTabModelOrchestrator.getForProfile(profile);
-            if (archivedOrchestrator.areTabModelsInitialized()
-                    && archivedOrchestrator.isTabStateInitialized()) {
-                archivedOrchestrator.saveState();
-            }
+        ArchivedTabModelOrchestrator archivedOrchestrator =
+                ArchivedTabModelOrchestrator.getIfInstantiatedForProfile(profile);
+        if (archivedOrchestrator != null
+                && archivedOrchestrator.areTabModelsInitialized()
+                && archivedOrchestrator.isTabStateInitialized()) {
+            archivedOrchestrator.saveState();
         }
     }
 
@@ -365,10 +387,12 @@ public class TabbedModeTabModelOrchestrator extends TabModelOrchestrator {
         Profile profile = getOriginalProfile();
         assert profile != null;
 
+        TabArchiveSettings archiveSettings = TabArchiveSettings.getInstance();
+        archiveSettings.addObserver(mTabArchiveSettingsObserver);
+
         if (ChromeFeatureList.sArchivedTabsTeardown.isEnabled()) {
-            TabArchiveSettings archiveSettings =
-                    new TabArchiveSettings(ChromeSharedPreferences.getInstance());
-            LeaseReason leaseReason =
+            @LeaseReason
+            int leaseReason =
                     archiveSettings.getArchiveEnabled()
                             ? LeaseReason.STARTUP_DECLUTTER_PASS
                             : LeaseReason.RESCUE_ARCHIVED_TABS;
@@ -383,24 +407,120 @@ public class TabbedModeTabModelOrchestrator extends TabModelOrchestrator {
         archivedOrchestrator.initializeHistoricalTabModelObserver(
                 mArchivedHistoricalObserverSupplier);
 
-        // Registering will automatically do an archive pass, and schedule recurring passes for
-        // long-running instances of Chrome.
+        // Registering will automatically do an archive pass.
         archivedOrchestrator.registerTabModelOrchestrator(this);
     }
 
     /** Called when the declutter pass finishes executing. */
     public void onDeclutterPassCompleted() {
+        cleanUnusedData();
         releaseDeclutterLease();
+        scheduleNextDeclutterPass();
+    }
+
+    private void onTabArchiveSettingsChanged() {
+        if (mIsDestroyed || mActivityLifecycleDispatcher.isActivityFinishingOrDestroyed()) {
+            return;
+        }
+        TabArchiveSettings archiveSettings = TabArchiveSettings.getInstance();
+        if (archiveSettings.getArchiveEnabled()) {
+            scheduleNextDeclutterPass();
+            return;
+        }
+        Profile profile = getOriginalProfile();
+        if (profile == null || !profile.isNativeInitialized() || profile.shutdownStarted()) {
+            return;
+        }
+        boolean mayHaveArchivedTabs =
+                !archiveSettings.hasArchivedTabCountBeenSet()
+                        || archiveSettings.getArchivedTabCount() > 0
+                        || ArchivedTabModelOrchestrator.isInstantiatedForProfile(profile);
+        if (mayHaveArchivedTabs
+                && ArchivedTabModelOrchestrator.isOrchestratorRegistered(this)
+                && mTabContentManager != null) {
+            releaseDeclutterLease();
+            if (ChromeFeatureList.sArchivedTabsTeardown.isEnabled()) {
+                mDeclutterLease =
+                        ArchivedTabModelOrchestrator.acquireLease(
+                                profile, LeaseReason.RESCUE_ARCHIVED_TABS);
+            }
+            ArchivedTabModelOrchestrator archivedOrchestrator =
+                    ArchivedTabModelOrchestrator.getForProfile(profile);
+            if (!archivedOrchestrator.areTabModelsInitialized()) {
+                archivedOrchestrator.maybeCreateAndInitTabModels(
+                        mTabContentManager, mCipherFactory);
+                if (mArchivedHistoricalObserverSupplier != null) {
+                    archivedOrchestrator.initializeHistoricalTabModelObserver(
+                            mArchivedHistoricalObserverSupplier);
+                }
+            }
+            archivedOrchestrator.rescueArchivedTabs(this);
+        }
+    }
+
+    private void scheduleNextDeclutterPass() {
+        if (mIsDestroyed || mCallbackController == null || mDeclutterTimerScheduled) return;
+        TabArchiveSettings archiveSettings = TabArchiveSettings.getInstance();
+        if (!archiveSettings.getArchiveEnabled()) return;
+
+        mDeclutterTimerScheduled = true;
+        PostTask.postDelayedTask(
+                TaskTraits.UI_DEFAULT,
+                mCallbackController.makeCancelable(this::runRecurringDeclutterPass),
+                TimeUnit.HOURS.toMillis(archiveSettings.getDeclutterIntervalTimeDeltaHours()));
+    }
+
+    private void runRecurringDeclutterPass() {
+        mDeclutterTimerScheduled = false;
+        if (mIsDestroyed || mActivityLifecycleDispatcher.isActivityFinishingOrDestroyed()) {
+            return;
+        }
+        Profile profile = getOriginalProfile();
+        if (profile == null || !profile.isNativeInitialized() || profile.shutdownStarted()) {
+            return;
+        }
+
+        TabArchiveSettings archiveSettings = TabArchiveSettings.getInstance();
+        if (!archiveSettings.getArchiveEnabled() || mTabContentManager == null) return;
+
+        releaseDeclutterLease();
+        if (ChromeFeatureList.sArchivedTabsTeardown.isEnabled()) {
+            mDeclutterLease =
+                    ArchivedTabModelOrchestrator.acquireLease(
+                            profile, LeaseReason.RECURRING_DECLUTTER_PASS);
+        }
+
+        ArchivedTabModelOrchestrator archivedOrchestrator =
+                ArchivedTabModelOrchestrator.getForProfile(profile);
+        if (!archivedOrchestrator.areTabModelsInitialized()) {
+            archivedOrchestrator.maybeCreateAndInitTabModels(mTabContentManager, mCipherFactory);
+            if (mArchivedHistoricalObserverSupplier != null) {
+                archivedOrchestrator.initializeHistoricalTabModelObserver(
+                        mArchivedHistoricalObserverSupplier);
+            }
+        }
+        archivedOrchestrator.doDeclutterPass(this);
     }
 
     /** Called when the rescue pass finishes executing. */
     public void onRescueArchivedTabsCompleted() {
+        cleanUnusedData();
         releaseDeclutterLease();
     }
 
+    private void cleanUnusedData() {
+        @Nullable Profile profile = getOriginalProfile();
+        TabContentManager tabContentManager = mTabContentManager;
+        if (profile != null && tabContentManager != null) {
+            PersistentStoreCleanerFactory.getForProfile(profile)
+                    .scheduleCleanUnusedData(tabContentManager);
+        }
+    }
+
     private void releaseDeclutterLease() {
-        if (mDeclutterLease != null) {
-            mDeclutterLease.destroy();
+        Destroyable lease = mDeclutterLease;
+        if (lease != null) {
+            lease.destroy();
             mDeclutterLease = null;
         }
     }

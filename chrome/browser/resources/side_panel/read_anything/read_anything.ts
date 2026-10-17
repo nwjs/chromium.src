@@ -13,7 +13,7 @@ export {browserProxyFactory as userEducationProxyFactory} from '//resources/mojo
 export type {AppElement} from './app/app.js';
 export {AppStyleUpdater} from './app/app_style_updater.js';
 export type {ReadAnythingToolbarElement} from './app/read_anything_toolbar.js';
-export type {VisualBrowserProxy} from './app/visual_browser_proxy.js';
+export type {OriginalPageMetrics, VisualBrowserProxy} from './app/visual_browser_proxy.js';
 export {VisualBrowserProxyImpl} from './app/visual_browser_proxy.js';
 export type {AxSegment, ContentBrowserProxy, SkiaImageBitmap} from './content/content_browser_proxy.js';
 export {ContentBrowserProxyImpl} from './content/content_browser_proxy.js';
@@ -35,6 +35,7 @@ export type {AppearanceMenuElement} from './menus/appearance_menu.js';
 export type {AudioMenuElement} from './menus/audio_menu.js';
 export type {ColorMenuElement} from './menus/color_menu.js';
 export type {FontMenuElement} from './menus/font_menu.js';
+export type {FontSizeMenuElement} from './menus/font_size_menu.js';
 export type {GroupedActionMenuElement} from './menus/grouped_action_menu.js';
 export type {HighlightMenuElement} from './menus/highlight_menu.js';
 export type {LetterSpacingMenuElement} from './menus/letter_spacing_menu.js';

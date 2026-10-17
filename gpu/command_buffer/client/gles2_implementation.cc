@@ -442,10 +442,6 @@ void GLES2Implementation::OnGpuControlErrorMessage(const char* message,
   SendErrorMessage(message, id);
 }
 
-GLboolean GLES2Implementation::DidGpuSwitch(gl::GpuPreference* active_gpu) {
-  return GL_FALSE;
-}
-
 bool GLES2Implementation::CanCopySharedImageDirectlyToGLTexture(
     bool is_opaque,
     ClientSharedImage* shared_image,
@@ -4637,7 +4633,8 @@ GLboolean GLES2Implementation::ReadbackARGBImagePixelsINTERNAL(
       SkColorTypeBytesPerPixel(static_cast<SkColorType>(dst_sk_color_type));
   RelaxedAtomicWriteMemcpyImageRowsSkippingPadding(
       /*dst=*/dst, /*src=*/src, /*row_bytes=*/min_row_bytes,
-      /*height=*/dst_height, /*stride=*/dst_row_bytes);
+      /*height=*/dst_height, /*dst_stride=*/dst_row_bytes,
+      /*src_stride=*/dst_row_bytes);
   return GL_TRUE;
 }
 

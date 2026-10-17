@@ -5,6 +5,7 @@
 #include "components/history/core/browser/keyword_search_term.h"
 
 #include <cmath>
+#include <memory>
 
 namespace history {
 
@@ -25,8 +26,7 @@ std::unique_ptr<KeywordSearchTermVisit> KeywordSearchTermVisitFromStatement(
   search_term->term = statement.ColumnString16(0);
   search_term->normalized_term = statement.ColumnString16(1);
   search_term->visit_count = statement.ColumnInt(2);
-  search_term->last_visit_time =
-      base::Time::FromInternalValue(statement.ColumnInt64(3));
+  search_term->last_visit_time = statement.ColumnTime(3);
   return search_term;
 }
 
@@ -41,6 +41,21 @@ KeywordSearchTermVisitEnumerator::GetNextVisit() {
   }
   initialized_ = false;
   return nullptr;
+}
+
+// KeywordSearchTermRowEnumerator ----------------------------------------------
+
+std::unique_ptr<KeywordSearchTermRow>
+KeywordSearchTermRowEnumerator::GetNextRow() {
+  if (!statement_.Step()) {
+    return nullptr;
+  }
+  auto row = std::make_unique<KeywordSearchTermRow>();
+  row->keyword_id = statement_.ColumnInt64(0);
+  row->url_id = statement_.ColumnInt64(1);
+  row->term = statement_.ColumnString16(2);
+  row->normalized_term = statement_.ColumnString16(3);
+  return row;
 }
 
 }  // namespace history

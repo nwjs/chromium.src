@@ -32,14 +32,17 @@
 #include "mojo/public/cpp/system/functions.h"
 #include "net/base/features.h"
 #include "net/base/io_buffer.h"
+#include "net/base/load_flags.h"
 #include "net/disk_cache/sql/sql_shared_cache_isolated_database.h"
 #include "net/filter/filter_source_stream_test_util.h"
+#include "net/http/http_request_headers.h"
 #include "net/http/http_response_headers.h"
 #include "net/http/http_response_info.h"
 #include "net/test/test_with_task_environment.h"
 #include "services/network/public/cpp/basic_data_buffer_factory.h"
 #include "services/network/public/cpp/data_buffer_factory.h"
 #include "services/network/public/cpp/resource_request.h"
+#include "services/network/public/mojom/fetch_api.mojom-shared.h"
 #include "services/network/public/mojom/shared_http_cache_client.mojom.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -101,26 +104,49 @@ class SharedHttpCacheClientTest : public testing::Test,
   }
 
  protected:
-  sqlite_vfs::PendingFileSet PopulateDatabase(const GURL& url,
-                                              const std::string& header_data,
-                                              const std::string& body_data,
-                                              int32_t db_id = 1) {
+  struct ResourceEntry {
+    GURL url;
+    std::string header_data;
+    std::string body_data;
+  };
+
+  sqlite_vfs::PendingFileSet PopulateDatabase(
+      const std::vector<ResourceEntry>& entries,
+      int32_t db_id = 1) {
     disk_cache::SqlSharedCacheIsolatedDatabase db(
         "nik", temp_dir_.GetPath(), disk_cache::SqlSharedCacheDbId(db_id),
         database_task_runner_);
     EXPECT_TRUE(db.Init().has_value());
 
-    auto headers = base::MakeRefCounted<net::StringIOBuffer>(header_data);
-    // CacheEntryKey extracts the resource URL assuming the cache key format:
-    // credential_key/post_key/[isolation_key]url
-    disk_cache::CacheEntryKey key{base::StrCat({"0/0/", url.spec()})};
-    auto body = base::MakeRefCounted<net::StringIOBuffer>(body_data);
-    auto insert_result = db.Insert(key, headers, body_data.size(), body);
-    EXPECT_TRUE(insert_result.has_value());
+    for (const auto& entry : entries) {
+      auto headers =
+          base::MakeRefCounted<net::StringIOBuffer>(entry.header_data);
+      disk_cache::CacheEntryKey key{base::StrCat({"0/0/", entry.url.spec()})};
+      auto body = base::MakeRefCounted<net::StringIOBuffer>(entry.body_data);
+      auto insert_result =
+          db.Insert(key, headers, entry.body_data.size(), body);
+      EXPECT_TRUE(insert_result.has_value());
+    }
 
     auto pending_file_set = db.GetSharedReadOnlyConnection();
     EXPECT_TRUE(pending_file_set.has_value());
     return std::move(pending_file_set.value());
+  }
+
+  sqlite_vfs::PendingFileSet PopulateDatabase(const GURL& url,
+                                              const std::string& header_data,
+                                              const std::string& body_data,
+                                              int32_t db_id = 1) {
+    return PopulateDatabase({{url, header_data, body_data}}, db_id);
+  }
+
+  static ResourceRequest CreateRequest(const GURL& url,
+                                       mojom::RequestDestination destination =
+                                           mojom::RequestDestination::kScript) {
+    ResourceRequest request;
+    request.url = url;
+    request.destination = destination;
+    return request;
   }
 
   base::ScopedTempDir temp_dir_;
@@ -159,8 +185,8 @@ TEST_F(SharedHttpCacheClientTest, EarlyReturnWhenNotInitialized) {
       factory_remote.BindNewPipeAndPassReceiver(),
       base::SequencedTaskRunner::GetCurrentDefault(), database_task_runner_);
 
-  ResourceRequest request;
-  request.url = GURL("https://example.com/not_initialized.js");
+  ResourceRequest request =
+      CreateRequest(GURL("https://example.com/not_initialized.js"));
 
   base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>> future;
   client->Find(request, factory_, future.GetCallback(),
@@ -170,25 +196,123 @@ TEST_F(SharedHttpCacheClientTest, EarlyReturnWhenNotInitialized) {
   EXPECT_FALSE(result.has_value());
 }
 
-// TODO(crbug.com/473666511): Add tests for skipping other ineligible requests
-// (e.g. non-GET HTTP methods, LOAD_DISABLE_CACHE, non-HTTP schemes) once
-// implemented.
-TEST_F(SharedHttpCacheClientTest, EarlyReturnOnRevalidationRequest) {
+TEST_F(SharedHttpCacheClientTest, EarlyReturnOnIneligibleRequest) {
   mojo::Remote<mojom::SharedHttpCacheClientFactory> factory_remote;
+  base::test::TestFuture<void> db_init_future;
   auto client = SharedHttpCacheClient::CreateAndInit(
       factory_remote.BindNewPipeAndPassReceiver(),
-      base::SequencedTaskRunner::GetCurrentDefault(), database_task_runner_);
+      base::SequencedTaskRunner::GetCurrentDefault(), database_task_runner_,
+      base::BindPostTask(base::SequencedTaskRunner::GetCurrentDefault(),
+                         db_init_future.GetCallback()));
 
-  ResourceRequest request;
-  request.url = GURL("https://example.com/revalidate.js");
-  request.is_revalidating = true;
+  const GURL url("https://example.com/script.js");
+  std::string headers = SerializeResponseInfo(
+      "HTTP/1.1 200 OK\r\nContent-Type: application/javascript\r\n\r\n");
+  auto file_set = PopulateDatabase(url, headers, "content");
 
-  base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>> future;
-  client->Find(request, factory_, future.GetCallback(),
-               base::SequencedTaskRunner::GetCurrentDefault());
+  mojo::Remote<mojom::SharedHttpCacheClient> client_remote;
+  factory_remote->CreateClient(std::move(file_set),
+                               client_remote.BindNewPipeAndPassReceiver());
+  ASSERT_TRUE(db_init_future.Wait());
+  client_remote->OnResourcesAdded({base::PersistentHash(url.spec())});
+  client_remote.FlushForTesting();
 
-  auto result = future.Take();
-  EXPECT_FALSE(result.has_value());
+  // Ineligible destination (e.g. kDocument, kEmpty, kAudio).
+  {
+    auto request = CreateRequest(url, mojom::RequestDestination::kDocument);
+    base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>>
+        future;
+    client->Find(request, factory_, future.GetCallback(),
+                 base::SequencedTaskRunner::GetCurrentDefault());
+    EXPECT_TRUE(future.IsReady());
+    EXPECT_FALSE(future.Take().has_value());
+  }
+
+  // Ineligible method.
+  {
+    auto request = CreateRequest(url);
+    request.method = "POST";
+    base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>>
+        future;
+    client->Find(request, factory_, future.GetCallback(),
+                 base::SequencedTaskRunner::GetCurrentDefault());
+    EXPECT_TRUE(future.IsReady());
+    EXPECT_FALSE(future.Take().has_value());
+  }
+
+  // Ineligible scheme (e.g. file:, http:).
+  {
+    for (const char* ineligible_url :
+         {"file:///path/to/script.js", "http://example.com/script.js"}) {
+      auto request = CreateRequest(GURL(ineligible_url));
+      base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>>
+          future;
+      client->Find(request, factory_, future.GetCallback(),
+                   base::SequencedTaskRunner::GetCurrentDefault());
+      EXPECT_TRUE(future.IsReady());
+      EXPECT_FALSE(future.Take().has_value());
+    }
+  }
+
+  // Ineligible due to Range header.
+  {
+    auto request = CreateRequest(url);
+    request.headers.SetHeader(net::HttpRequestHeaders::kRange, "bytes=0-10");
+    base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>>
+        future;
+    client->Find(request, factory_, future.GetCallback(),
+                 base::SequencedTaskRunner::GetCurrentDefault());
+    EXPECT_TRUE(future.IsReady());
+    EXPECT_FALSE(future.Take().has_value());
+  }
+
+  // Ineligible due to LOAD_DISABLE_CACHE.
+  {
+    auto request = CreateRequest(url);
+    request.load_flags = net::LOAD_DISABLE_CACHE;
+    base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>>
+        future;
+    client->Find(request, factory_, future.GetCallback(),
+                 base::SequencedTaskRunner::GetCurrentDefault());
+    EXPECT_TRUE(future.IsReady());
+    EXPECT_FALSE(future.Take().has_value());
+  }
+
+  // Ineligible due to LOAD_BYPASS_CACHE.
+  {
+    auto request = CreateRequest(url);
+    request.load_flags = net::LOAD_BYPASS_CACHE;
+    base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>>
+        future;
+    client->Find(request, factory_, future.GetCallback(),
+                 base::SequencedTaskRunner::GetCurrentDefault());
+    EXPECT_TRUE(future.IsReady());
+    EXPECT_FALSE(future.Take().has_value());
+  }
+
+  // Ineligible due to LOAD_VALIDATE_CACHE.
+  {
+    auto request = CreateRequest(url);
+    request.load_flags = net::LOAD_VALIDATE_CACHE;
+    base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>>
+        future;
+    client->Find(request, factory_, future.GetCallback(),
+                 base::SequencedTaskRunner::GetCurrentDefault());
+    EXPECT_TRUE(future.IsReady());
+    EXPECT_FALSE(future.Take().has_value());
+  }
+
+  // Ineligible due to revalidation.
+  {
+    auto request = CreateRequest(url);
+    request.is_revalidating = true;
+    base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>>
+        future;
+    client->Find(request, factory_, future.GetCallback(),
+                 base::SequencedTaskRunner::GetCurrentDefault());
+    EXPECT_TRUE(future.IsReady());
+    EXPECT_FALSE(future.Take().has_value());
+  }
 }
 
 TEST_F(SharedHttpCacheClientTest, EarlyReturnOnInvalidUrl) {
@@ -197,8 +321,8 @@ TEST_F(SharedHttpCacheClientTest, EarlyReturnOnInvalidUrl) {
       factory_remote.BindNewPipeAndPassReceiver(),
       base::SequencedTaskRunner::GetCurrentDefault(), database_task_runner_);
 
-  ResourceRequest request;
-  request.url = GURL("invalid-url");
+  ResourceRequest request =
+      CreateRequest(GURL("https://example.com:999999/script.js"));
   ASSERT_FALSE(request.url.is_valid());
 
   base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>> future;
@@ -231,8 +355,8 @@ TEST_F(SharedHttpCacheClientTest, EarlyReturnWhenUrlNotInHashes) {
   client_remote.FlushForTesting();
 
   // Request a URL that is not in the hash set.
-  ResourceRequest request;
-  request.url = GURL("https://example.com/not_cached.js");
+  ResourceRequest request =
+      CreateRequest(GURL("https://example.com/not_cached.js"));
 
   base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>> future;
   client->Find(request, factory_, future.GetCallback(),
@@ -264,8 +388,8 @@ TEST_F(SharedHttpCacheClientTest, NoEarlyReturnWhenInitializedWithoutHashes) {
                                client_remote.BindNewPipeAndPassReceiver());
   ASSERT_TRUE(db_init_future.Wait());
 
-  ResourceRequest request;
-  request.url = GURL("https://example.com/no_hashes.js");
+  ResourceRequest request =
+      CreateRequest(GURL("https://example.com/no_hashes.js"));
 
   base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>> future;
   client->Find(request, factory_, future.GetCallback(),
@@ -277,6 +401,175 @@ TEST_F(SharedHttpCacheClientTest, NoEarlyReturnWhenInitializedWithoutHashes) {
 
   auto result = future.Take();
   EXPECT_FALSE(result.has_value());
+}
+
+// Verifies that ThreadSafeSet uses base::LRUCacheSet with the specified
+// maximum capacity, evicting the least-recently-used entry when new hashes
+// are added, and that querying an entry refreshes its recency in the LRU order.
+TEST_F(SharedHttpCacheClientTest, LruCacheSetEviction) {
+  mojo::Remote<mojom::SharedHttpCacheClientFactory> factory_remote;
+  base::test::TestFuture<void> db_init_future;
+  constexpr size_t kMaxHashes = 2;
+  auto client = SharedHttpCacheClient::CreateAndInit(
+      factory_remote.BindNewPipeAndPassReceiver(),
+      base::SequencedTaskRunner::GetCurrentDefault(), database_task_runner_,
+      base::BindPostTask(base::SequencedTaskRunner::GetCurrentDefault(),
+                         db_init_future.GetCallback()),
+      kMaxHashes);
+
+  const GURL url1("https://example.com/1.js");
+  const GURL url2("https://example.com/2.js");
+  const GURL url3("https://example.com/3.js");
+  std::string headers = SerializeResponseInfo(
+      "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n");
+
+  auto file_set = PopulateDatabase({
+      {url1, headers, "body1"},
+      {url2, headers, "body2"},
+      {url3, headers, "body3"},
+  });
+
+  mojo::Remote<mojom::SharedHttpCacheClient> client_remote;
+  factory_remote->CreateClient(std::move(file_set),
+                               client_remote.BindNewPipeAndPassReceiver());
+  ASSERT_TRUE(db_init_future.Wait());
+
+  // Add url1 and url2 to the cache filter.
+  client_remote->OnResourcesAdded(
+      {base::PersistentHash(url1.spec()), base::PersistentHash(url2.spec())});
+  client_remote.FlushForTesting();
+
+  // Query url1 to make it the most recently used in the LRU cache.
+  // The recency order is now: url1 (MRU), url2 (LRU).
+  {
+    ResourceRequest request = CreateRequest(url1);
+    base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>>
+        future;
+    client->Find(request, factory_, future.GetCallback(),
+                 base::SequencedTaskRunner::GetCurrentDefault());
+    auto result = future.Take();
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(GetStringFromBuffers(result->body), "body1");
+  }
+
+  // Add url3. Since kMaxHashes == 2, the least recently used entry (url2)
+  // should be evicted from the LRU cache set.
+  client_remote->OnResourcesAdded({base::PersistentHash(url3.spec())});
+  client_remote.FlushForTesting();
+
+  // url2 should now be evicted from the in-memory filter, causing Find() to
+  // early-return nullopt synchronously even though url2 exists in the database.
+  {
+    ResourceRequest request = CreateRequest(url2);
+    base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>>
+        future;
+    client->Find(request, factory_, future.GetCallback(),
+                 base::SequencedTaskRunner::GetCurrentDefault());
+    EXPECT_TRUE(future.IsReady());
+    auto result = future.Take();
+    EXPECT_FALSE(result.has_value());
+  }
+
+  // url1 should still be present because it was accessed and made MRU.
+  {
+    ResourceRequest request = CreateRequest(url1);
+    base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>>
+        future;
+    client->Find(request, factory_, future.GetCallback(),
+                 base::SequencedTaskRunner::GetCurrentDefault());
+    auto result = future.Take();
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(GetStringFromBuffers(result->body), "body1");
+  }
+
+  // url3 should also be present as the newest entry.
+  {
+    ResourceRequest request = CreateRequest(url3);
+    base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>>
+        future;
+    client->Find(request, factory_, future.GetCallback(),
+                 base::SequencedTaskRunner::GetCurrentDefault());
+    auto result = future.Take();
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(GetStringFromBuffers(result->body), "body3");
+  }
+}
+
+// Verifies that when entries in the LRU cache set are untouched, adding new
+// entries evicts the oldest entries in FIFO order.
+TEST_F(SharedHttpCacheClientTest, LruCacheSetFifoEvictionWhenUntouched) {
+  mojo::Remote<mojom::SharedHttpCacheClientFactory> factory_remote;
+  base::test::TestFuture<void> db_init_future;
+  constexpr size_t kMaxHashes = 2;
+  auto client = SharedHttpCacheClient::CreateAndInit(
+      factory_remote.BindNewPipeAndPassReceiver(),
+      base::SequencedTaskRunner::GetCurrentDefault(), database_task_runner_,
+      base::BindPostTask(base::SequencedTaskRunner::GetCurrentDefault(),
+                         db_init_future.GetCallback()),
+      kMaxHashes);
+
+  const GURL url1("https://example.com/1.js");
+  const GURL url2("https://example.com/2.js");
+  const GURL url3("https://example.com/3.js");
+  std::string headers = SerializeResponseInfo(
+      "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n");
+
+  auto file_set = PopulateDatabase({
+      {url1, headers, "body1"},
+      {url2, headers, "body2"},
+      {url3, headers, "body3"},
+  });
+
+  mojo::Remote<mojom::SharedHttpCacheClient> client_remote;
+  factory_remote->CreateClient(std::move(file_set),
+                               client_remote.BindNewPipeAndPassReceiver());
+  ASSERT_TRUE(db_init_future.Wait());
+
+  // Add url1 and url2. Neither is accessed.
+  client_remote->OnResourcesAdded(
+      {base::PersistentHash(url1.spec()), base::PersistentHash(url2.spec())});
+  client_remote.FlushForTesting();
+
+  // Add url3 without touching url1 or url2. Since url1 was added first and
+  // untouched, url1 should be evicted.
+  client_remote->OnResourcesAdded({base::PersistentHash(url3.spec())});
+  client_remote.FlushForTesting();
+
+  // url1 is evicted -> synchronous early return nullopt.
+  {
+    ResourceRequest request = CreateRequest(url1);
+    base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>>
+        future;
+    client->Find(request, factory_, future.GetCallback(),
+                 base::SequencedTaskRunner::GetCurrentDefault());
+    EXPECT_TRUE(future.IsReady());
+    auto result = future.Take();
+    EXPECT_FALSE(result.has_value());
+  }
+
+  // url2 was retained.
+  {
+    ResourceRequest request = CreateRequest(url2);
+    base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>>
+        future;
+    client->Find(request, factory_, future.GetCallback(),
+                 base::SequencedTaskRunner::GetCurrentDefault());
+    auto result = future.Take();
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(GetStringFromBuffers(result->body), "body2");
+  }
+
+  // url3 was retained.
+  {
+    ResourceRequest request = CreateRequest(url3);
+    base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>>
+        future;
+    client->Find(request, factory_, future.GetCallback(),
+                 base::SequencedTaskRunner::GetCurrentDefault());
+    auto result = future.Take();
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(GetStringFromBuffers(result->body), "body3");
+  }
 }
 
 TEST_F(SharedHttpCacheClientTest, FindSuccess) {
@@ -301,8 +594,7 @@ TEST_F(SharedHttpCacheClientTest, FindSuccess) {
   client_remote->OnResourcesAdded({base::PersistentHash(url.spec())});
   client_remote.FlushForTesting();
 
-  ResourceRequest request;
-  request.url = url;
+  ResourceRequest request = CreateRequest(url);
 
   base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>> future;
   client->Find(request, factory_, future.GetCallback(),
@@ -347,8 +639,7 @@ TEST_F(SharedHttpCacheClientTest, FindWithContentDecodingGzip) {
   client_remote->OnResourcesAdded({base::PersistentHash(url.spec())});
   client_remote.FlushForTesting();
 
-  ResourceRequest request;
-  request.url = url;
+  ResourceRequest request = CreateRequest(url);
 
   base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>> future;
   client->Find(request, factory_, future.GetCallback(),
@@ -392,8 +683,7 @@ TEST_F(SharedHttpCacheClientTest, FindWithContentDecodingMultiChunkGzip) {
   client_remote->OnResourcesAdded({base::PersistentHash(url.spec())});
   client_remote.FlushForTesting();
 
-  ResourceRequest request;
-  request.url = url;
+  ResourceRequest request = CreateRequest(url);
 
   base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>> future;
   client->Find(request, factory_, future.GetCallback(),
@@ -435,8 +725,7 @@ TEST_F(SharedHttpCacheClientTest, FindNotFoundInDb) {
       {base::PersistentHash(not_cached_url.spec())});
   client_remote.FlushForTesting();
 
-  ResourceRequest request;
-  request.url = not_cached_url;
+  ResourceRequest request = CreateRequest(not_cached_url);
 
   base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>> future;
   client->Find(request, factory_, future.GetCallback(),
@@ -472,6 +761,7 @@ TEST_F(SharedHttpCacheClientTest, MatchesUrlWithFragmentOrCredentials) {
   // should match the cached URL hash, so it should not early return.
   ResourceRequest request;
   request.url = GURL("https://user:pass@example.com/cached.js#version=1");
+  request.destination = mojom::RequestDestination::kScript;
 
   base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>> future;
   client->Find(request, factory_, future.GetCallback(),
@@ -517,8 +807,7 @@ TEST_F(SharedHttpCacheClientTest, FindResourceReadBodyFails) {
   };
   auto oversized_factory = base::MakeRefCounted<OversizedDataBufferFactory>();
 
-  ResourceRequest request;
-  request.url = url;
+  ResourceRequest request = CreateRequest(url);
 
   base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>> future;
   client->Find(request, oversized_factory, future.GetCallback(),
@@ -548,8 +837,7 @@ TEST_F(SharedHttpCacheClientTest, ParseAndDecodeInvalidHeaders) {
   client_remote->OnResourcesAdded({base::PersistentHash(url.spec())});
   client_remote.FlushForTesting();
 
-  ResourceRequest request;
-  request.url = url;
+  ResourceRequest request = CreateRequest(url);
 
   base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>> future;
   client->Find(request, factory_, future.GetCallback(),
@@ -582,8 +870,7 @@ TEST_F(SharedHttpCacheClientTest, ParseAndDecodeDecompressionFails) {
   client_remote->OnResourcesAdded({base::PersistentHash(url.spec())});
   client_remote.FlushForTesting();
 
-  ResourceRequest request;
-  request.url = url;
+  ResourceRequest request = CreateRequest(url);
 
   base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>> future;
   client->Find(request, factory_, future.GetCallback(),
@@ -615,8 +902,7 @@ TEST_F(SharedHttpCacheClientTest, FindEmptyBodyWithoutCompression) {
   client_remote->OnResourcesAdded({base::PersistentHash(url.spec())});
   client_remote.FlushForTesting();
 
-  ResourceRequest request;
-  request.url = url;
+  ResourceRequest request = CreateRequest(url);
 
   base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>> future;
   client->Find(request, factory_, future.GetCallback(),
@@ -653,8 +939,7 @@ TEST_F(SharedHttpCacheClientTest, ParseAndDecodeEmptyBodyWithCompression) {
   client_remote->OnResourcesAdded({base::PersistentHash(url.spec())});
   client_remote.FlushForTesting();
 
-  ResourceRequest request;
-  request.url = url;
+  ResourceRequest request = CreateRequest(url);
 
   base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>> future;
   client->Find(request, factory_, future.GetCallback(),
@@ -770,6 +1055,111 @@ TEST_F(SharedHttpCacheClientTest, DestructOnNonClientSequence) {
   // Deleting `cache_client_` on `client_task_runner_` closes the receiver and
   // triggers disconnection on `client_remote`.
   EXPECT_TRUE(disconnect_future.Wait());
+}
+
+TEST_F(SharedHttpCacheClientTest,
+       MojoPipeDisconnectedAfterInitializeTreatsLookupsAsCacheMiss) {
+  mojo::Remote<mojom::SharedHttpCacheClientFactory> factory_remote;
+  base::test::TestFuture<void> db_init_future;
+  auto client = SharedHttpCacheClient::CreateAndInit(
+      factory_remote.BindNewPipeAndPassReceiver(),
+      base::SequencedTaskRunner::GetCurrentDefault(), database_task_runner_,
+      base::BindPostTask(base::SequencedTaskRunner::GetCurrentDefault(),
+                         db_init_future.GetCallback()));
+
+  const GURL cached_url("https://example.com/cached.js");
+  std::string headers = SerializeResponseInfo(
+      "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n");
+  auto file_set = PopulateDatabase(cached_url, headers, "Hello World");
+
+  mojo::Remote<mojom::SharedHttpCacheClient> client_remote;
+  factory_remote->CreateClient(std::move(file_set),
+                               client_remote.BindNewPipeAndPassReceiver());
+  ASSERT_TRUE(db_init_future.Wait());
+  client_remote->OnResourcesAdded({base::PersistentHash(cached_url.spec())});
+  client_remote.FlushForTesting();
+
+  ResourceRequest request = CreateRequest(cached_url);
+
+  // Verify initial lookup succeeds.
+  {
+    base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>>
+        hit_future;
+    client->Find(request, factory_, hit_future.GetCallback(),
+                 base::SequencedTaskRunner::GetCurrentDefault());
+    auto result = hit_future.Take();
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(GetStringFromBuffers(result->body), "Hello World");
+  }
+
+  // Disconnect the client Mojo pipe (e.g. simulating network service crash or
+  // restart).
+  client_remote.reset();
+
+  // Wait until the disconnection is processed and subsequent lookups return
+  // cache misses (`std::nullopt`).
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>>
+        miss_future;
+    client->Find(request, factory_, miss_future.GetCallback(),
+                 base::SequencedTaskRunner::GetCurrentDefault());
+    return !miss_future.Take().has_value();
+  }));
+
+  // Flush `database_task_runner_` to ensure `DatabaseBackend::OnMojoDisconnect`
+  // has also executed and released `db_reader_`.
+  base::test::TestFuture<void> flush_future;
+  database_task_runner_->PostTask(FROM_HERE,
+                                  flush_future.GetSequenceBoundCallback());
+  ASSERT_TRUE(flush_future.Wait());
+
+  // Subsequent lookups continue to return `std::nullopt`.
+  base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>>
+      final_future;
+  client->Find(request, factory_, final_future.GetCallback(),
+               base::SequencedTaskRunner::GetCurrentDefault());
+  EXPECT_FALSE(final_future.Take().has_value());
+}
+
+TEST_F(SharedHttpCacheClientTest,
+       FactoryPipeDisconnectedAfterCreateClientDoesNotInvalidateClient) {
+  mojo::Remote<mojom::SharedHttpCacheClientFactory> factory_remote;
+  base::test::TestFuture<void> db_init_future;
+  auto client = SharedHttpCacheClient::CreateAndInit(
+      factory_remote.BindNewPipeAndPassReceiver(),
+      base::SequencedTaskRunner::GetCurrentDefault(), database_task_runner_,
+      base::BindPostTask(base::SequencedTaskRunner::GetCurrentDefault(),
+                         db_init_future.GetCallback()));
+
+  const GURL cached_url("https://example.com/cached.js");
+  std::string headers = SerializeResponseInfo(
+      "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n");
+  auto file_set = PopulateDatabase(cached_url, headers, "Hello World");
+
+  mojo::Remote<mojom::SharedHttpCacheClient> client_remote;
+  factory_remote->CreateClient(std::move(file_set),
+                               client_remote.BindNewPipeAndPassReceiver());
+  ASSERT_TRUE(db_init_future.Wait());
+  client_remote->OnResourcesAdded({base::PersistentHash(cached_url.spec())});
+  client_remote.FlushForTesting();
+
+  // Closing the single-use `factory_remote` after `CreateClient` should NOT
+  // invalidate `client` because registration lifetime transferred to
+  // `client_remote`.
+  factory_remote.reset();
+  base::test::TestFuture<void> flush_future;
+  database_task_runner_->PostTask(FROM_HERE,
+                                  flush_future.GetSequenceBoundCallback());
+  ASSERT_TRUE(flush_future.Wait());
+
+  ResourceRequest request = CreateRequest(cached_url);
+  base::test::TestFuture<std::optional<SharedHttpCacheClient::Response>>
+      hit_future;
+  client->Find(request, factory_, hit_future.GetCallback(),
+               base::SequencedTaskRunner::GetCurrentDefault());
+  auto result = hit_future.Take();
+  ASSERT_TRUE(result.has_value());
+  EXPECT_EQ(GetStringFromBuffers(result->body), "Hello World");
 }
 
 }  // namespace network

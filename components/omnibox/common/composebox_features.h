@@ -56,6 +56,10 @@ BASE_DECLARE_FEATURE(kComposeboxPersistentAimButtonOmnibox);
 // the persistent AIM button is also enabled for the surface.
 BASE_DECLARE_FEATURE(kComposeboxPersistentAimButtonWithX);
 
+// If enabled, clicking outside the Realbox Composebox closes the suggestions
+// dropdown and restores page interaction while keeping the Composebox open.
+BASE_DECLARE_FEATURE(kComposeboxRealboxOutsideClick);
+
 // If enabled, suggest requests for multifile inputs will include the cinpts CGI param.
 BASE_DECLARE_FEATURE(kSuggestRequestSendsMultifileCgiParam);
 
@@ -84,6 +88,16 @@ extern const base::FeatureParam<bool> kContextManagementInComposeboxTooltips;
 
 // Helper to check if context menu tooltips are enabled in the composebox.
 bool IsContextMenuTooltipsInComposeboxEnabled();
+
+// If enabled, favicon coins for tabs that are still loading show a skeleton
+// loader in the composebox.
+extern const base::FeatureParam<bool>
+    kContextManagementInComposeboxFaviconSkeletonLoader;
+
+// Helper to check if the favicon skeleton loader is enabled in the composebox,
+// which requires the parent feature kContextManagementInComposebox to be
+// enabled and the param to be true.
+bool IsFaviconSkeletonLoaderInComposeboxEnabled();
 
 }  // namespace omnibox
 

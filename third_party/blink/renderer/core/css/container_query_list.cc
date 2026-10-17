@@ -92,15 +92,10 @@ bool ContainerQueryList::ComputeMatches() {
 }
 
 void ContainerQueryList::InvalidateCacheIfStale() {
-  uint64_t cache_generation = 0;
-  if (LocalDOMWindow* window = element_->GetDocument().domWindow()) {
-    if (auto* controller =
-            ContainerQueryListController::FromIfExists(*window)) {
-      cache_generation = controller->SelectorCacheGeneration();
-    }
-  }
-  if (cache_generation == 0 || !selector_cache_generation_.has_value() ||
-      selector_cache_generation_ != cache_generation) {
+  uint64_t cache_generation =
+      ContainerQueryListController::From(element_->GetDocument())
+          ->SelectorCacheGeneration();
+  if (selector_cache_generation_ != cache_generation) {
     selector_cache_.clear();
   }
   selector_cache_generation_ = cache_generation;

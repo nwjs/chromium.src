@@ -168,7 +168,7 @@ using FileRequestData =
     FileSystemAccessPermissionRequestManager::FileRequestData;
 using RequestAccess = FileSystemAccessPermissionRequestManager::Access;
 using HandleType = content::FileSystemAccessPermissionContext::HandleType;
-using UserAction = content::FileSystemAccessPermissionContext::UserAction;
+using AccessTrigger = content::FileSystemAccessPermissionContext::AccessTrigger;
 using PersistedGrantStatus =
     ChromeFileSystemAccessPermissionContext::PersistedGrantStatus;
 using GrantType = ChromeFileSystemAccessPermissionContext::GrantType;
@@ -611,7 +611,7 @@ bool ShouldBlockAccessToPath(
     bool should_normalize_file_path,
     base::FilePath path,
     HandleType handle_type,
-    UserAction user_action,
+    AccessTrigger access_trigger,
     std::vector<ChromeFileSystemAccessPermissionContext::BlockPathRule>
         extra_rules,
     ChromeFileSystemAccessPermissionContext::BlockPathRules block_path_rules,
@@ -640,7 +640,8 @@ bool ShouldBlockAccessToPath(
   auto should_block_with_rule = [&](const base::FilePath& block_path,
                                     BlockType block_type) -> bool {
     if (block_type == BlockType::kBlockWrite &&
-        user_action != UserAction::kSave) {
+        access_trigger != AccessTrigger::kSave &&
+        access_trigger != AccessTrigger::kProgrammaticWrite) {
       return false;
     }
 
@@ -904,20 +905,20 @@ class ChromeFileSystemAccessPermissionContext::PermissionGrantImpl
       const content::PathInfo& path_info,
       HandleType handle_type,
       GrantType type,
-      UserAction user_action)
+      AccessTrigger access_trigger)
       : context_(std::move(context)),
         origin_(origin),
         handle_type_(handle_type),
         type_(type),
         path_info_(path_info),
-        user_action_(user_action) {}
+        access_trigger_(access_trigger) {}
 
   // FileSystemAccessPermissionGrant:
   PermissionStatus GetStatus() override {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     // TODO(crbug.com/40101962): Determine if this should return denied for
     // guard block, and how ancestor permission should be handled.
-    if (status_ == PermissionStatus::ASK &&
+    if (status_ == PermissionStatus::ASK && context_ &&
         context_->CanAutoGrantViaPersistentPermission(origin_, path_info_.path,
                                                       handle_type_, type_)) {
       return PermissionStatus::GRANTED;
@@ -945,6 +946,7 @@ class ChromeFileSystemAccessPermissionContext::PermissionGrantImpl
       UserActivationState user_activation_state,
       base::OnceCallback<void(PermissionRequestOutcome)> callback) override {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+    scoped_refptr<PermissionGrantImpl> self(this);
 
     // Check if a permission request has already been processed previously. This
     // check is done first because we don't want to reset the status of a
@@ -1119,14 +1121,35 @@ class ChromeFileSystemAccessPermissionContext::PermissionGrantImpl
     // Drop fullscreen mode so that the user sees the URL bar.
     auto blocker = web_contents->ForSecurityDropFullscreen(
         /*display_id=*/display::kInvalidDisplayId);
-    if (!blocker) {
+
+    // Exiting fullscreen can run nested message loops during which the
+    // permission context may be destroyed, or concurrent operations may have
+    // already resolved or changed the grant status away from `ASK` (e.g. user
+    // accepted/denied another prompt or permission was revoked/granted). Abort
+    // if the prompt is no longer needed or if the context is gone.
+    if (!blocker || !context_ ||
+        GetActivePermissionStatus() != PermissionStatus::ASK) {
       RunCallbackAndRecordPermissionRequestOutcome(
           std::move(callback), PermissionRequestOutcome::kRequestAborted);
       return;
     }
 
+    // Exiting fullscreen can run nested message loops during which the frame,
+    // WebContents, or permission manager could be destroyed or navigated.
+    // Re-resolve and validate before proceeding.
+    base::expected<FileSystemAccessPermissionRequestManager*,
+                   PermissionRequestOutcome>
+        request_manager_or_error =
+            RevalidateRequestManagerAfterFullscreenDrop(frame_id);
+    if (!request_manager_or_error.has_value()) {
+      RunCallbackAndRecordPermissionRequestOutcome(
+          std::move(callback), request_manager_or_error.error());
+      return;
+    }
+    request_manager = *request_manager_or_error;
+
     if (context_->IsEligibleToUpgradePermissionRequestToRestorePrompt(
-            origin_, path_info_.path, handle_type_, user_action_, type_)) {
+            origin_, path_info_.path, handle_type_, access_trigger_, type_)) {
       std::vector<FileRequestData> request_data_list =
           context_->GetFileRequestDataForRestorePermissionPrompt(origin_);
       request_manager->AddRequest(
@@ -1530,6 +1553,7 @@ class ChromeFileSystemAccessPermissionContext::PermissionGrantImpl
 
   void SetPath(const content::PathInfo& new_path) {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+    scoped_refptr<PermissionGrantImpl> self(this);
 
     if (path_info_ == new_path) {
       return;
@@ -1537,8 +1561,8 @@ class ChromeFileSystemAccessPermissionContext::PermissionGrantImpl
 
     path_info_ = new_path;
 
-    if (base::FeatureList::IsEnabled(
-            features::kFileSystemAccessPersistentPermissions)) {
+    if (context_ && base::FeatureList::IsEnabled(
+                        features::kFileSystemAccessPersistentPermissions)) {
       const std::unique_ptr<Object> object = context_->GetGrantedObject(
           origin_, PathAsPermissionKey(path_info_.path));
       if (object) {
@@ -1555,6 +1579,56 @@ class ChromeFileSystemAccessPermissionContext::PermissionGrantImpl
     NotifyPermissionStatusChanged();
   }
 
+ private:
+  // Re-validates the RenderFrameHost, WebContents, embedding origin, and
+  // permission request manager after exiting fullscreen mode.
+  //
+  // Exiting fullscreen mode can invoke nested modal message loops on some
+  // platforms. During these loops, events such as tab closure or navigation
+  // can asynchronously destroy the RenderFrameHost, WebContents, or the
+  // permission manager.
+  //
+  // Returns the active `FileSystemAccessPermissionRequestManager` on success,
+  // or a `PermissionRequestOutcome` error if the frame or context became
+  // invalid.
+  base::expected<FileSystemAccessPermissionRequestManager*,
+                 PermissionRequestOutcome>
+  RevalidateRequestManagerAfterFullscreenDrop(
+      content::GlobalRenderFrameHostId frame_id) const {
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+    content::RenderFrameHost* rfh = content::RenderFrameHost::FromID(frame_id);
+    if (!rfh ||
+        rfh->IsInactiveAndDisallowActivation(
+            content::DisallowActivationReasonId::
+                kFileSystemAccessPermissionRequest) ||
+        rfh->IsNestedWithinFencedFrame()) {
+      return base::unexpected(PermissionRequestOutcome::kInvalidFrame);
+    }
+
+    content::WebContents* web_contents =
+        content::WebContents::FromRenderFrameHost(rfh);
+    if (!web_contents) {
+      return base::unexpected(PermissionRequestOutcome::kInvalidFrame);
+    }
+
+    url::Origin embedding_origin = url::Origin::Create(
+        permissions::PermissionUtil::GetLastCommittedOriginAsURL(
+            rfh->GetMainFrame()));
+    if (embedding_origin != origin_ ||
+        rfh->GetStorageKey().IsThirdPartyContext()) {
+      return base::unexpected(PermissionRequestOutcome::kThirdPartyContext);
+    }
+
+    auto* request_manager =
+        FileSystemAccessPermissionRequestManager::FromWebContents(web_contents);
+    if (!request_manager) {
+      return base::unexpected(PermissionRequestOutcome::kRequestAborted);
+    }
+
+    return request_manager;
+  }
+
   SEQUENCE_CHECKER(sequence_checker_);
 
   base::WeakPtr<ChromeFileSystemAccessPermissionContext> const context_;
@@ -1563,7 +1637,7 @@ class ChromeFileSystemAccessPermissionContext::PermissionGrantImpl
   const GrantType type_;
   // `path_info_.path` can be updated if the entry is moved.
   content::PathInfo path_info_;
-  const UserAction user_action_;
+  const AccessTrigger access_trigger_;
 
   // This member should only be updated via SetStatus(), to make sure
   // observers are properly notified about any change in status.
@@ -1788,7 +1862,7 @@ ChromeFileSystemAccessPermissionContext::GetReadPermissionGrant(
     const url::Origin& origin,
     const content::PathInfo& path_info,
     HandleType handle_type,
-    UserAction user_action) {
+    AccessTrigger access_trigger) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // operator[] might insert a new OriginState in |active_permissions_map_|,
   // but that is exactly what we want.
@@ -1810,7 +1884,7 @@ ChromeFileSystemAccessPermissionContext::GetReadPermissionGrant(
   if (creating_new_grant) {
     grant = base::MakeRefCounted<PermissionGrantImpl>(
         weak_factory_.GetWeakPtr(), origin, path_info, handle_type,
-        GrantType::kRead, user_action);
+        GrantType::kRead, access_trigger);
     existing_grant = grant.get();
   } else {
     grant = existing_grant;
@@ -1834,22 +1908,23 @@ ChromeFileSystemAccessPermissionContext::GetReadPermissionGrant(
             PersistedPermissionOptions::kUpdatePersistedPermission);
         break;
       }
-      switch (user_action) {
-        case UserAction::kOpen:
-        case UserAction::kSave:
+      switch (access_trigger) {
+        case AccessTrigger::kOpen:
+        case AccessTrigger::kSave:
           // Open and Save dialog only grant read access for individual files.
           if (handle_type == HandleType::kDirectory) {
             break;
           }
           [[fallthrough]];
-        case UserAction::kDragAndDrop:
+        case AccessTrigger::kDragAndDrop:
           // Drag&drop grants read access for all handles.
           grant->SetStatus(
               PermissionStatus::GRANTED,
               PersistedPermissionOptions::kUpdatePersistedPermission);
           break;
-        case UserAction::kLoadFromStorage:
-        case UserAction::kNone:
+        case AccessTrigger::kLoadFromStorage:
+        case AccessTrigger::kProgrammaticRead:
+        case AccessTrigger::kProgrammaticWrite:
           break;
       }
       break;
@@ -1881,7 +1956,7 @@ ChromeFileSystemAccessPermissionContext::GetWritePermissionGrant(
     const url::Origin& origin,
     const content::PathInfo& path_info,
     HandleType handle_type,
-    UserAction user_action) {
+    AccessTrigger access_trigger) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // operator[] might insert a new OriginState in |active_permissions_map_|,
   // but that is exactly what we want.
@@ -1903,7 +1978,7 @@ ChromeFileSystemAccessPermissionContext::GetWritePermissionGrant(
   if (creating_new_grant) {
     grant = base::MakeRefCounted<PermissionGrantImpl>(
         weak_factory_.GetWeakPtr(), origin, path_info, handle_type,
-        GrantType::kWrite, user_action);
+        GrantType::kWrite, access_trigger);
     existing_grant = grant.get();
   } else {
     grant = existing_grant;
@@ -1928,17 +2003,18 @@ ChromeFileSystemAccessPermissionContext::GetWritePermissionGrant(
             PersistedPermissionOptions::kUpdatePersistedPermission);
         break;
       }
-      switch (user_action) {
-        case UserAction::kSave:
+      switch (access_trigger) {
+        case AccessTrigger::kSave:
           // Only automatically grant write access for save dialogs.
           grant->SetStatus(
               PermissionStatus::GRANTED,
               PersistedPermissionOptions::kUpdatePersistedPermission);
           break;
-        case UserAction::kOpen:
-        case UserAction::kDragAndDrop:
-        case UserAction::kLoadFromStorage:
-        case UserAction::kNone:
+        case AccessTrigger::kOpen:
+        case AccessTrigger::kDragAndDrop:
+        case AccessTrigger::kLoadFromStorage:
+        case AccessTrigger::kProgrammaticRead:
+        case AccessTrigger::kProgrammaticWrite:
           break;
       }
       break;
@@ -2179,7 +2255,7 @@ void ChromeFileSystemAccessPermissionContext::ConfirmSensitiveEntryAccess(
     const url::Origin& origin,
     const content::PathInfo& path_info,
     HandleType handle_type,
-    UserAction user_action,
+    AccessTrigger access_trigger,
     content::GlobalRenderFrameHostId frame_id,
     base::OnceCallback<void(SensitiveEntryResult)> callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -2188,9 +2264,9 @@ void ChromeFileSystemAccessPermissionContext::ConfirmSensitiveEntryAccess(
 
   auto after_blocklist_check_callback = base::BindOnce(
       &ChromeFileSystemAccessPermissionContext::DidCheckPathAgainstBlocklist,
-      GetWeakPtr(), origin, path_info, handle_type, user_action, frame_id,
+      GetWeakPtr(), origin, path_info, handle_type, access_trigger, frame_id,
       start_time, std::move(callback));
-  CheckPathAgainstBlocklist(origin, path_info, handle_type, user_action,
+  CheckPathAgainstBlocklist(origin, path_info, handle_type, access_trigger,
                             std::move(after_blocklist_check_callback));
 }
 
@@ -2301,14 +2377,14 @@ void ChromeFileSystemAccessPermissionContext::
     CheckShouldBlockAccessToPathAndReply(
         base::FilePath path,
         HandleType handle_type,
-        UserAction user_action,
+        AccessTrigger access_trigger,
         std::vector<BlockPathRule> extra_rules,
         base::OnceCallback<void(bool)> callback,
         BlockPathRules block_path_rules) {
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_VISIBLE},
       base::BindOnce(&ShouldBlockAccessToPath, should_normalize_file_path_,
-                     std::move(path), handle_type, user_action,
+                     std::move(path), handle_type, access_trigger,
                      std::move(extra_rules), std::move(block_path_rules),
                      profile_path_override_.value_or(profile_->GetPath())),
       std::move(callback));
@@ -2318,7 +2394,7 @@ void ChromeFileSystemAccessPermissionContext::CheckPathAgainstBlocklist(
     const url::Origin& origin,
     const content::PathInfo& path_info,
     HandleType handle_type,
-    UserAction user_action,
+    AccessTrigger access_trigger,
     base::OnceCallback<void(bool)> callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (path_info.type == content::PathType::kExternal) {
@@ -2359,7 +2435,7 @@ void ChromeFileSystemAccessPermissionContext::CheckPathAgainstBlocklist(
       // If the `block_path_rules_status_` is already initilizaed, we can just
       // post the task to a anonymous blocking traits.
       CheckShouldBlockAccessToPathAndReply(
-          path_info.path, handle_type, user_action, std::move(extra_rules),
+          path_info.path, handle_type, access_trigger, std::move(extra_rules),
           std::move(callback), *block_path_rules_.get());
       return;
 
@@ -2378,7 +2454,7 @@ void ChromeFileSystemAccessPermissionContext::CheckPathAgainstBlocklist(
               &ChromeFileSystemAccessPermissionContext::
                   CheckShouldBlockAccessToPathAndReply,
               weak_factory_.GetWeakPtr(), path_info.path, handle_type,
-              user_action, std::move(extra_rules), std::move(callback))));
+              access_trigger, std::move(extra_rules), std::move(callback))));
       break;
   }
 }
@@ -2450,8 +2526,8 @@ ChromeFileSystemAccessPermissionContext::CanShowFilePicker(
     content::WebContents* web_contents =
         content::WebContents::FromRenderFrameHost(rfh);
     if (glic::IsGlicGuest(web_contents) &&
-        glic::GetGuestOrigin().IsSameOriginWith(
-            rfh->GetLastCommittedOrigin())) {
+        glic::GetGuestOrigin(rfh->GetBrowserContext())
+            .IsSameOriginWith(rfh->GetLastCommittedOrigin())) {
       return base::ok();
     }
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -2473,7 +2549,7 @@ void ChromeFileSystemAccessPermissionContext::DidCheckPathAgainstBlocklist(
     const url::Origin& origin,
     const content::PathInfo& path_info,
     HandleType handle_type,
-    UserAction user_action,
+    AccessTrigger access_trigger,
     content::GlobalRenderFrameHostId frame_id,
     const base::TimeTicks start_time,
     base::OnceCallback<void(SensitiveEntryResult)> callback,
@@ -2484,7 +2560,8 @@ void ChromeFileSystemAccessPermissionContext::DidCheckPathAgainstBlocklist(
       "Storage.FileSystemAccess.ConfirmSensitiveEntryAccessDuration",
       base::TimeTicks::Now() - start_time);
 
-  if (user_action == UserAction::kNone) {
+  if (access_trigger == AccessTrigger::kProgrammaticRead ||
+      access_trigger == AccessTrigger::kProgrammaticWrite) {
     std::move(callback).Run(should_block ? SensitiveEntryResult::kAbort
                                          : SensitiveEntryResult::kAllowed);
     return;
@@ -2504,7 +2581,8 @@ void ChromeFileSystemAccessPermissionContext::DidCheckPathAgainstBlocklist(
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
   // If attempting to save a file with a dangerous extension, prompt the user
   // to make them confirm they actually want to save the file.
-  if (handle_type == HandleType::kFile && user_action == UserAction::kSave) {
+  if (handle_type == HandleType::kFile &&
+      access_trigger == AccessTrigger::kSave) {
     // See https://crbug.com/40059513#comment5 for justification for why we show
     // the prompt if `danger_level` is ALLOW_ON_USER_GESTURE as well as
     // DANGEROUS.
@@ -3470,7 +3548,7 @@ bool ChromeFileSystemAccessPermissionContext::
         const url::Origin& origin,
         const base::FilePath& file_path,
         HandleType handle_type,
-        UserAction user_action,
+        AccessTrigger access_trigger,
         GrantType grant_type) {
 #if BUILDFLAG(IS_ANDROID)
   // TODO(crbug.com/40101963): Enable when android persisted permissions are
@@ -3521,7 +3599,7 @@ bool ChromeFileSystemAccessPermissionContext::
   // which is previously granted (i.e. dormant grant exists for this file path).
   if (origin_state.persisted_grant_status ==
           PersistedGrantStatus::kBackgrounded ||
-      user_action == UserAction::kLoadFromStorage) {
+      access_trigger == AccessTrigger::kLoadFromStorage) {
     return HasPersistedGrantObject(origin, file_path, handle_type, grant_type);
   }
 
@@ -3596,8 +3674,8 @@ ChromeFileSystemAccessPermissionContext::
         const content::PathInfo& path_info,
         HandleType handle_type) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  auto grant =
-      GetReadPermissionGrant(origin, path_info, handle_type, UserAction::kOpen);
+  auto grant = GetReadPermissionGrant(origin, path_info, handle_type,
+                                      AccessTrigger::kOpen);
 
   static_cast<PermissionGrantImpl*>(grant.get())
       ->SetStatus(PermissionStatus::GRANTED,
@@ -3613,7 +3691,7 @@ ChromeFileSystemAccessPermissionContext::
         HandleType handle_type) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   auto grant = GetWritePermissionGrant(origin, path_info, handle_type,
-                                       UserAction::kSave);
+                                       AccessTrigger::kSave);
 
   static_cast<PermissionGrantImpl*>(grant.get())
       ->SetStatus(PermissionStatus::GRANTED,

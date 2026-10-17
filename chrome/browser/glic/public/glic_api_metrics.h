@@ -9,7 +9,7 @@
 
 #include <string_view>
 
-#include "chrome/browser/glic/host/glic.mojom.h"
+#include "chrome/browser/glic/host/glic.mojom-shared.h"
 
 namespace glic {
 
@@ -30,7 +30,6 @@ enum class GlicHostApiRequestId {
   kStopActorTask = 13,
   kPauseActorTask = 14,
   kResumeActorTask = 15,
-  kCaptureScreenshot = 16,
   kResizeWindow = 17,
   kEnableDragResize = 18,
   kSetMinimumWidgetSize = 20,

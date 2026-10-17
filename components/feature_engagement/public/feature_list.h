@@ -222,18 +222,6 @@ DEFINE_VARIATION_PARAM(kIPHTouchToSearchCalloutFeature,
                        "IPH_TouchToSearchCallout");
 DEFINE_VARIATION_PARAM(kIPHTranslateMenuButtonFeature,
                        "IPH_TranslateMenuButton");
-DEFINE_VARIATION_PARAM(kIPHVideoTutorialNTPChromeIntroFeature,
-                       "IPH_VideoTutorial_NTP_ChromeIntro");
-DEFINE_VARIATION_PARAM(kIPHVideoTutorialNTPDownloadFeature,
-                       "IPH_VideoTutorial_NTP_Download");
-DEFINE_VARIATION_PARAM(kIPHVideoTutorialNTPSearchFeature,
-                       "IPH_VideoTutorial_NTP_Search");
-DEFINE_VARIATION_PARAM(kIPHVideoTutorialNTPVoiceSearchFeature,
-                       "IPH_VideoTutorial_NTP_VoiceSearch");
-DEFINE_VARIATION_PARAM(kIPHVideoTutorialNTPSummaryFeature,
-                       "IPH_VideoTutorial_NTP_Summary");
-DEFINE_VARIATION_PARAM(kIPHVideoTutorialTryNowFeature,
-                       "IPH_VideoTutorial_TryNow");
 DEFINE_VARIATION_PARAM(kIPHExploreSitesTileFeature, "IPH_ExploreSitesTile");
 DEFINE_VARIATION_PARAM(kIPHFeedHeaderMenuFeature, "IPH_FeedHeaderMenu");
 DEFINE_VARIATION_PARAM(kIPHFeedSwipeRefresh, "IPH_FeedSwipeRefresh");
@@ -296,8 +284,11 @@ DEFINE_VARIATION_PARAM(kIPHiOSLensKeyboardFeature, "IPH_iOSLensKeyboard");
 DEFINE_VARIATION_PARAM(kIPHiOSPromoWhatsNewFeature, "IPH_iOSPromoWhatsNew");
 DEFINE_VARIATION_PARAM(kIPHiOSPromoBackgroundCustomizationFeature,
                        "IPH_iOSPromoBackgroundCustomization");
+DEFINE_VARIATION_PARAM(kIPHiOSPromoEphemeralThemeFeature,
+                       "IPH_iOSPromoEphemeralTheme");
 DEFINE_VARIATION_PARAM(kIPHiOSPromoContextualDefaultBrowserGeminiFeature,
                        "IPH_iOSPromoContextualDefaultBrowserGemini");
+DEFINE_VARIATION_PARAM(kIPHiOSPromoLevelUpFeature, "IPHiOSPromoLevelUpFeature");
 DEFINE_VARIATION_PARAM(kIPHiOSPromoSigninFullscreenFeature,
                        "IPH_iOSPromoSigninFullscreen");
 DEFINE_VARIATION_PARAM(kIPHiOSPromoPostRestoreFeature,
@@ -391,6 +382,7 @@ DEFINE_VARIATION_PARAM(kIPHiOSHomepageLensNewBadge,
                        "IPH_iOSHomepageLensNewBadge");
 DEFINE_VARIATION_PARAM(kIPHiOSHomepageCustomizationNewBadge,
                        "IPH_iOSHomepageCustomizationNewBadge");
+DEFINE_VARIATION_PARAM(kIPHiOSBackgroundNewBadge, "IPH_iOSBackgroundNewBadge");
 DEFINE_VARIATION_PARAM(kIPHiOSAIHubNewBadge, "IPH_iOSAIHubNewBadge");
 DEFINE_VARIATION_PARAM(kIPHiOSGeminiLiveNewBadgeFeature,
                        "IPH_iOSGeminiLiveNewBadgeFeature");
@@ -778,12 +770,6 @@ inline constexpr flags_ui::FeatureEntry::FeatureVariation
         VARIATION_ENTRY(kIPHThreeDotMenuBackButton),
         VARIATION_ENTRY(kIPHTouchToSearchCalloutFeature),
         VARIATION_ENTRY(kIPHTranslateMenuButtonFeature),
-        VARIATION_ENTRY(kIPHVideoTutorialNTPChromeIntroFeature),
-        VARIATION_ENTRY(kIPHVideoTutorialNTPDownloadFeature),
-        VARIATION_ENTRY(kIPHVideoTutorialNTPSearchFeature),
-        VARIATION_ENTRY(kIPHVideoTutorialNTPSummaryFeature),
-        VARIATION_ENTRY(kIPHVideoTutorialNTPVoiceSearchFeature),
-        VARIATION_ENTRY(kIPHVideoTutorialTryNowFeature),
 // keep-sorted end
 // VARIATION_ENTRY_ANDROID_END
 #else
@@ -813,6 +799,7 @@ inline constexpr flags_ui::FeatureEntry::FeatureVariation
         VARIATION_ENTRY(kIPHHomeCustomizationMenuFeature),
         VARIATION_ENTRY(kIPHiOSAIHubNewBadge),
         VARIATION_ENTRY(kIPHiOSBackendPromoFeature),
+        VARIATION_ENTRY(kIPHiOSBackgroundNewBadge),
         VARIATION_ENTRY(kIPHiOSContextualPanelPriceInsightsFeature),
         VARIATION_ENTRY(kIPHiOSContextualPanelSampleModelFeature),
         VARIATION_ENTRY(kIPHiOSDefaultBrowserBannerPromoFeature),
@@ -840,7 +827,9 @@ inline constexpr flags_ui::FeatureEntry::FeatureVariation
         VARIATION_ENTRY(kIPHiOSPromoBackgroundCustomizationFeature),
         VARIATION_ENTRY(kIPHiOSPromoContextualDefaultBrowserGeminiFeature),
         VARIATION_ENTRY(kIPHiOSPromoCredentialProviderExtensionFeature),
+        VARIATION_ENTRY(kIPHiOSPromoEphemeralThemeFeature),
         VARIATION_ENTRY(kIPHiOSPromoGenericDefaultBrowserFeature),
+        VARIATION_ENTRY(kIPHiOSPromoLevelUpFeature),
         VARIATION_ENTRY(kIPHiOSPromoMadeForIOSFeature),
         VARIATION_ENTRY(kIPHiOSPromoNonModalAppSwitcherDefaultBrowserFeature),
         VARIATION_ENTRY(kIPHiOSPromoNonModalShareDefaultBrowserFeature),

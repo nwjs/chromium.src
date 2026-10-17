@@ -81,6 +81,11 @@ class GmailOtpBackendImplTest : public testing::Test {
 // Tests a successful retrieval of an OTP from Gmail.
 TEST_F(GmailOtpBackendImplTest, SubscribeAndGetToken) {
   base::HistogramTester histogram_tester;
+  const std::string kOtp = "123456";
+  const std::string kSenderAddress = "noreply@example.com";
+  const base::Time kEmailReceivedTimestamp = base::Time::Now();
+  const base::TimeTicks kNotificationReceivedTicks = base::TimeTicks::Now();
+
   base::test::TestFuture<
       base::expected<OneTimeToken, OneTimeTokenRetrievalError>>
       future;
@@ -89,13 +94,19 @@ TEST_F(GmailOtpBackendImplTest, SubscribeAndGetToken) {
 
   backend_.OnIncomingOneTimeTokenBackendNotification(
       OneTimeTokenBackendNotification(
-          EncryptedMessageReference("encrypted_reference")));
+          EncryptedMessageReference("encrypted_reference"),
+          /*otp_created_timestamp=*/base::Time::Now(),
+          /*email_received_timestamp=*/kEmailReceivedTimestamp,
+          /*email_delivered_timestamp=*/base::Time(),
+          /*notification_sent_timestamp=*/base::Time::Now(),
+          /*notification_received_timestamp=*/base::Time::Now(),
+          /*notification_received_timeticks=*/kNotificationReceivedTicks));
   identity_test_env_.WaitForAccessTokenRequestIfNecessaryAndRespondWithToken(
       "access_token", base::Time::Now() + base::Hours(1));
 
   FetchEmailOneTimeTokenResponse response;
-  response.mutable_one_time_password()->set_one_time_password("123456");
-  response.set_sender_address("noreply@example.com");
+  response.mutable_one_time_password()->set_one_time_password(kOtp);
+  response.set_sender_address(kSenderAddress);
 
   task_environment_.FastForwardBy(base::Milliseconds(500));
 
@@ -110,8 +121,10 @@ TEST_F(GmailOtpBackendImplTest, SubscribeAndGetToken) {
 
   const OneTimeToken& token = result.value();
   EXPECT_EQ(token.type(), OneTimeTokenType::kGmail);
-  EXPECT_EQ(token.value(), "123456");
-  EXPECT_FALSE(token.on_device_arrival_time().is_null());
+  EXPECT_EQ(token.value(), kOtp);
+  EXPECT_EQ(token.sender_address(), kSenderAddress);
+  EXPECT_EQ(token.on_device_arrival_time(), kNotificationReceivedTicks);
+  EXPECT_EQ(token.email_received_timestamp(), kEmailReceivedTimestamp);
 
   histogram_tester.ExpectUniqueSample(
       "Autofill.OneTimeTokens.Backend.Gmail.Success", true, 1);
@@ -759,6 +772,146 @@ TEST_F(GmailOtpBackendImplTest,
   backend_.OnIncomingOneTimeTokenBackendNotification(notification);
 
   histogram_tester.ExpectTotalCount(kTickleTransmissionLatencyHistogram, 0);
+}
+
+// Tests that successfully retrieved tokens are stored in the token cache.
+TEST_F(GmailOtpBackendImplTest, TokenCachedOnArrival) {
+  const std::string kOtp = "123456";
+  const std::string kSenderAddress = "noreply@example.com";
+
+  base::test::TestFuture<
+      base::expected<OneTimeToken, OneTimeTokenRetrievalError>>
+      future;
+  ExpiringSubscription subscription = backend_.Subscribe(
+      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback());
+
+  backend_.OnIncomingOneTimeTokenBackendNotification(
+      OneTimeTokenBackendNotification(
+          EncryptedMessageReference("ref_cached"),
+          /*otp_created_timestamp=*/base::Time::Now(),
+          /*email_received_timestamp=*/base::Time::Now(),
+          /*email_delivered_timestamp=*/base::Time(),
+          /*notification_sent_timestamp=*/base::Time::Now(),
+          /*notification_received_timestamp=*/base::Time::Now(),
+          /*notification_received_timeticks=*/base::TimeTicks::Now()));
+  identity_test_env_.WaitForAccessTokenRequestIfNecessaryAndRespondWithToken(
+      "access_token", base::Time::Now() + base::Hours(1));
+
+  FetchEmailOneTimeTokenResponse response;
+  response.mutable_one_time_password()->set_one_time_password(kOtp);
+  response.set_sender_address(kSenderAddress);
+
+  test_url_loader_factory_.AddResponse(
+      GetExpectedUrl(/*unencoded_reference=*/"ref_cached"),
+      response.SerializeAsString());
+
+  ASSERT_TRUE(future.Get().has_value());
+
+  std::vector<OneTimeToken> cached = backend_.GetCachedOneTimeTokens();
+  ASSERT_EQ(cached.size(), 1u);
+  EXPECT_EQ(cached[0].value(), kOtp);
+  EXPECT_EQ(cached[0].sender_address(), kSenderAddress);
+
+  std::vector<OneTimeToken> purged =
+      backend_.PurgeExpiredAndGetCachedOneTimeTokens();
+  ASSERT_EQ(purged.size(), 1u);
+  EXPECT_EQ(purged[0].value(), kOtp);
+  EXPECT_EQ(purged[0].sender_address(), kSenderAddress);
+}
+
+// Tests that cached tokens expire after 1 minute (kGmailTokenCacheDuration).
+TEST_F(GmailOtpBackendImplTest, CachedTokenExpiresAfterOneMinute) {
+  const std::string kOtp = "123456";
+  const std::string kSenderAddress = "noreply@example.com";
+
+  base::test::TestFuture<
+      base::expected<OneTimeToken, OneTimeTokenRetrievalError>>
+      future;
+  ExpiringSubscription subscription = backend_.Subscribe(
+      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback());
+
+  backend_.OnIncomingOneTimeTokenBackendNotification(
+      OneTimeTokenBackendNotification(
+          EncryptedMessageReference("ref_exp"),
+          /*otp_created_timestamp=*/base::Time::Now(),
+          /*email_received_timestamp=*/base::Time::Now(),
+          /*email_delivered_timestamp=*/base::Time(),
+          /*notification_sent_timestamp=*/base::Time::Now(),
+          /*notification_received_timestamp=*/base::Time::Now(),
+          /*notification_received_timeticks=*/base::TimeTicks::Now()));
+  identity_test_env_.WaitForAccessTokenRequestIfNecessaryAndRespondWithToken(
+      "access_token", base::Time::Now() + base::Hours(1));
+
+  FetchEmailOneTimeTokenResponse response;
+  response.mutable_one_time_password()->set_one_time_password(kOtp);
+  response.set_sender_address(kSenderAddress);
+
+  test_url_loader_factory_.AddResponse(
+      GetExpectedUrl(/*unencoded_reference=*/"ref_exp"),
+      response.SerializeAsString());
+
+  ASSERT_TRUE(future.Get().has_value());
+
+  // Fast forward past the 1-minute cache duration.
+  task_environment_.FastForwardBy(kGmailTokenCacheDuration + base::Seconds(1));
+
+  EXPECT_TRUE(backend_.PurgeExpiredAndGetCachedOneTimeTokens().empty());
+}
+
+// Tests that duplicate tokens are deduplicated in the cache.
+TEST_F(GmailOtpBackendImplTest, TokenCacheDeduplication) {
+  const std::string kOtp = "123456";
+  const std::string kSenderAddress = "noreply@example.com";
+
+  base::test::TestFuture<
+      base::expected<OneTimeToken, OneTimeTokenRetrievalError>>
+      future;
+  ExpiringSubscription subscription = backend_.Subscribe(
+      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback());
+
+  backend_.OnIncomingOneTimeTokenBackendNotification(
+      OneTimeTokenBackendNotification(
+          EncryptedMessageReference("ref_dup1"),
+          /*otp_created_timestamp=*/base::Time::Now(),
+          /*email_received_timestamp=*/base::Time::Now(),
+          /*email_delivered_timestamp=*/base::Time(),
+          /*notification_sent_timestamp=*/base::Time::Now(),
+          /*notification_received_timestamp=*/base::Time::Now(),
+          /*notification_received_timeticks=*/base::TimeTicks::Now()));
+  identity_test_env_.WaitForAccessTokenRequestIfNecessaryAndRespondWithToken(
+      "access_token", base::Time::Now() + base::Hours(1));
+
+  FetchEmailOneTimeTokenResponse response;
+  response.mutable_one_time_password()->set_one_time_password(kOtp);
+  response.set_sender_address(kSenderAddress);
+
+  test_url_loader_factory_.AddResponse(
+      GetExpectedUrl(/*unencoded_reference=*/"ref_dup1"),
+      response.SerializeAsString());
+
+  ASSERT_TRUE(future.Take().has_value());
+
+  // Simulate a second arrival with the same OTP and sender address.
+  backend_.OnIncomingOneTimeTokenBackendNotification(
+      OneTimeTokenBackendNotification(
+          EncryptedMessageReference("ref_dup2"),
+          /*otp_created_timestamp=*/base::Time::Now(),
+          /*email_received_timestamp=*/base::Time::Now(),
+          /*email_delivered_timestamp=*/base::Time(),
+          /*notification_sent_timestamp=*/base::Time::Now(),
+          /*notification_received_timestamp=*/base::Time::Now(),
+          /*notification_received_timeticks=*/base::TimeTicks::Now()));
+  identity_test_env_.WaitForAccessTokenRequestIfNecessaryAndRespondWithToken(
+      "access_token", base::Time::Now() + base::Hours(1));
+
+  test_url_loader_factory_.AddResponse(
+      GetExpectedUrl(/*unencoded_reference=*/"ref_dup2"),
+      response.SerializeAsString());
+
+  ASSERT_TRUE(future.Take().has_value());
+
+  // The cache should only contain 1 token due to deduplication.
+  EXPECT_EQ(backend_.GetCachedOneTimeTokens().size(), 1u);
 }
 
 }  // namespace one_time_tokens

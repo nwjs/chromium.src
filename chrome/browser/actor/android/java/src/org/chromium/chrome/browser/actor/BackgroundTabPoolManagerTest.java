@@ -37,6 +37,7 @@ import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tab.TabState;
 import org.chromium.chrome.browser.tab.TabStateExtractor;
 import org.chromium.chrome.browser.tab.WebContentsState;
+import org.chromium.chrome.browser.tabmodel.TabModel;
 
 import java.nio.ByteBuffer;
 
@@ -143,7 +144,13 @@ public class BackgroundTabPoolManagerTest {
         TabState tabState = createMockTabState();
         TabStateExtractor.setTabStateForTesting(TAB_ID_1, tabState);
 
-        pool.addLiveTab(new LiveBackgroundTab(pool, tab, PLACEHOLDER_ID, /* taskId= */ null));
+        pool.addLiveTab(
+                new LiveBackgroundTab(
+                        pool,
+                        tab,
+                        PLACEHOLDER_ID,
+                        /* taskId= */ null,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX));
         assertFalse(pool.isEmpty());
 
         BackgroundTabPoolManager.release(pool);
@@ -159,7 +166,13 @@ public class BackgroundTabPoolManagerTest {
         TabState tabState = createMockTabState();
         TabStateExtractor.setTabStateForTesting(TAB_ID_1, tabState);
 
-        pool1.addLiveTab(new LiveBackgroundTab(pool1, tab, PLACEHOLDER_ID, /* taskId= */ null));
+        pool1.addLiveTab(
+                new LiveBackgroundTab(
+                        pool1,
+                        tab,
+                        PLACEHOLDER_ID,
+                        /* taskId= */ null,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX));
         // Destroy the pool directly so tab state remains persisted in cache
         pool1.destroy();
 
@@ -195,11 +208,17 @@ public class BackgroundTabPoolManagerTest {
         TabState tabState = createMockTabState();
         TabStateExtractor.setTabStateForTesting(TAB_ID_1, tabState);
 
-        pool.addLiveTab(new LiveBackgroundTab(pool, tab, PLACEHOLDER_ID, /* taskId= */ null));
+        pool.addLiveTab(
+                new LiveBackgroundTab(
+                        pool,
+                        tab,
+                        PLACEHOLDER_ID,
+                        /* taskId= */ null,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX));
         BackgroundTabPoolManager.release(pool);
         assertNotNull(BackgroundTabPoolManager.getPoolForTesting(mProfile));
 
-        pool.removeTab(PLACEHOLDER_ID);
+        pool.removeTabById(TAB_ID_1);
         assertTrue(pool.isEmpty());
         ShadowLooper.idleMainLooper();
         assertNull(BackgroundTabPoolManager.getPoolForTesting(mProfile));
@@ -264,11 +283,17 @@ public class BackgroundTabPoolManagerTest {
         TabState tabState = createMockTabState();
         TabStateExtractor.setTabStateForTesting(TAB_ID_1, tabState);
 
-        pool.addLiveTab(new LiveBackgroundTab(pool, tab, PLACEHOLDER_ID, /* taskId= */ null));
+        pool.addLiveTab(
+                new LiveBackgroundTab(
+                        pool,
+                        tab,
+                        PLACEHOLDER_ID,
+                        /* taskId= */ null,
+                        /* originalTabIndex= */ TabModel.INVALID_TAB_INDEX));
         BackgroundTabPoolManager.release(pool);
 
         // Removing the tab posts onEmptyCallback asynchronously to UI Looper
-        pool.removeTab(PLACEHOLDER_ID);
+        pool.removeTabById(TAB_ID_1);
         assertNotNull(BackgroundTabPoolManager.getPoolForTesting(mProfile));
 
         // Re-acquire before the posted task drains

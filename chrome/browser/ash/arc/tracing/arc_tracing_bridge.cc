@@ -24,7 +24,7 @@
 #include "chromeos/ash/experiences/arc/session/arc_service_manager.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
-#include "mojo/public/cpp/system/platform_handle.h"
+#include "mojo/public/cpp/platform/platform_handle.h"
 #include "services/tracing/public/cpp/perfetto/perfetto_data_source_names.h"
 #include "services/tracing/public/cpp/perfetto/perfetto_traced_process.h"
 #include "services/tracing/public/cpp/perfetto/system_trace_writer.h"
@@ -74,10 +74,11 @@ class ArcTracingDataSource
 
   // Called after constructing |bridge|.
   void RegisterBridgeOnUI(ArcTracingBridge* bridge) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-    DCHECK_EQ(ArcTracingBridge::State::kDisabled, bridge->state());
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
+    CHECK_EQ(ArcTracingBridge::State::kDisabled, bridge->state(),
+             base::NotFatalUntil::M160);
     bool success = bridges_.insert(bridge).second;
-    DCHECK(success);
+    CHECK(success, base::NotFatalUntil::M160);
 
     if (is_tracing_ && !stop_complete_callback_) {
       // We're currently tracing, so start the new bridge, too.
@@ -91,9 +92,9 @@ class ArcTracingDataSource
 
   // Called when destructing |bridge|.
   void UnregisterBridgeOnUI(ArcTracingBridge* bridge) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
     const size_t erase_count = bridges_.erase(bridge);
-    DCHECK_EQ(1u, erase_count);
+    CHECK_EQ(1u, erase_count, base::NotFatalUntil::M160);
 
     // Make sure we don't continue to wait for any of the bridge's callbacks.
     OnTracingStartedOnUI(false /*success*/);
@@ -144,8 +145,8 @@ class ArcTracingDataSource
 
   // Starts all registered bridges.
   void StartTracingOnUI(const perfetto::DataSourceConfig& data_source_config) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-    DCHECK(!is_tracing_);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
+    CHECK(!is_tracing_, base::NotFatalUntil::M160);
 
     is_tracing_ = true;
     data_source_config_ = data_source_config;
@@ -162,7 +163,7 @@ class ArcTracingDataSource
   // Stops all registered bridges. Calls |stop_complete_callback| when all
   // bridges have stopped.
   void StopTracingOnUI(base::OnceClosure stop_complete_callback) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
 
     // We may receive a StopTracing without StartTracing.
     if (!is_tracing_) {
@@ -174,7 +175,7 @@ class ArcTracingDataSource
     // We may still be in startup. In this case, store a callback to rerun
     // StopTracingOnUI() once startup is complete.
     if (IsAnyBridgeStarting()) {
-      DCHECK(!pending_stop_tracing_);
+      CHECK(!pending_stop_tracing_, base::NotFatalUntil::M160);
       pending_stop_tracing_ = base::BindOnce(
           &ArcTracingDataSource::StopTracingOnUI, base::Unretained(this),
           std::move(stop_complete_callback));
@@ -186,7 +187,8 @@ class ArcTracingDataSource
     for (ArcTracingBridge* bridge : bridges_) {
       // StopTracingOnUI should only be called once all bridges have completed
       // or abandoned startup.
-      DCHECK_NE(ArcTracingBridge::State::kStarting, bridge->state());
+      CHECK_NE(ArcTracingBridge::State::kStarting, bridge->state(),
+               base::NotFatalUntil::M160);
       if (bridge->state() != ArcTracingBridge::State::kEnabled) {
         continue;
       }
@@ -203,7 +205,7 @@ class ArcTracingDataSource
   // Called by each bridge when it has started tracing. Also called when a
   // bridge is unregistered.
   void OnTracingStartedOnUI(bool success) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
     if (!IsAnyBridgeStarting() && pending_stop_tracing_) {
       std::move(pending_stop_tracing_).Run();
     }
@@ -212,7 +214,7 @@ class ArcTracingDataSource
   // Called by each bridge when it has stopped tracing. Also called when a
   // bridge is unregistered.
   void OnTracingStoppedOnUI() {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
 
     // When a bridge unregisters, we may not actually be stopping.
     if (!stop_complete_callback_) {
@@ -281,20 +283,20 @@ ArcTracingBridge* ArcTracingBridge::GetForBrowserContext(
 // static
 ArcTracingBridge* ArcTracingBridge::GetForBrowserContextForTesting(
     content::BrowserContext* context) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
   return ArcTracingBridgeFactory::GetForBrowserContextForTesting(context);
 }
 
 ArcTracingBridge::ArcTracingBridge(content::BrowserContext* context,
                                    ArcBridgeService* bridge_service)
     : arc_bridge_service_(bridge_service) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
   arc_bridge_service_->tracing()->AddObserver(this);
   ArcTracingDataSource::GetInstance()->RegisterBridgeOnUI(this);
 }
 
 ArcTracingBridge::~ArcTracingBridge() {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
   ArcTracingDataSource::GetInstance()->UnregisterBridgeOnUI(this);
   arc_bridge_service_->tracing()->RemoveObserver(this);
 }
@@ -307,7 +309,7 @@ void ArcTracingBridge::GetCategories(std::set<std::string>* category_set) {
 }
 
 void ArcTracingBridge::OnConnectionReady() {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
   mojom::TracingInstance* tracing_instance = ARC_GET_INSTANCE_FOR_METHOD(
       arc_bridge_service_->tracing(), QueryAvailableCategories);
   if (!tracing_instance) {
@@ -319,7 +321,7 @@ void ArcTracingBridge::OnConnectionReady() {
 
 void ArcTracingBridge::OnCategoriesReady(
     const std::vector<std::string>& categories) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
 
   base::AutoLock lock(categories_lock_);
   // There is no API in TraceLog to remove a category from the UI. As an
@@ -333,7 +335,7 @@ void ArcTracingBridge::OnCategoriesReady(
 
 void ArcTracingBridge::StartTracing(const std::string& config,
                                     StartCallback callback) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
 
   if (state_ != State::kDisabled) {
     DLOG(WARNING) << "Cannot start tracing, it is already enabled.";
@@ -367,21 +369,21 @@ void ArcTracingBridge::StartTracing(const std::string& config,
   }
 
   tracing_instance->StartTracing(
-      selected_categories, mojo::ScopedHandle(),
+      selected_categories, mojo::PlatformHandle(),
       base::BindOnce(&ArcTracingBridge::OnArcTracingStarted,
                      weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
 }
 
 void ArcTracingBridge::OnArcTracingStarted(StartCallback callback,
                                            bool success) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  DCHECK_EQ(State::kStarting, state_);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
+  CHECK_EQ(State::kStarting, state_, base::NotFatalUntil::M160);
   state_ = success ? State::kEnabled : State::kDisabled;
   std::move(callback).Run(success);
 }
 
 void ArcTracingBridge::StopTracing(StopCallback callback) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
 
   if (state_ != State::kEnabled) {
     DLOG(WARNING) << "Cannot stop tracing, it is not enabled.";
@@ -403,8 +405,8 @@ void ArcTracingBridge::StopTracing(StopCallback callback) {
 
 void ArcTracingBridge::OnArcTracingStopped(StopCallback callback,
                                            bool success) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  DCHECK_EQ(State::kStopping, state_);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
+  CHECK_EQ(State::kStopping, state_, base::NotFatalUntil::M160);
   state_ = State::kDisabled;
   if (!success) {
     LOG(ERROR) << "Failed to stop tracing";

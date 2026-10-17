@@ -7,12 +7,11 @@
 
 #include <memory>
 
-#include "base/memory/raw_ptr.h"
+#include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "build/build_config.h"
 #include "components/browser_apis/ui_controllers/toolbar/toolbar_ui_api_data_model.mojom-forward.h"
 #include "components/permissions/permission_request_manager.h"
-#include "content/public/browser/web_contents_user_data.h"
 
 class BrowserWindowInterface;
 
@@ -25,19 +24,35 @@ namespace contextual_tasks {
 
 class ContextualTasksLocationBar;
 class ContextualTasksPermissionChip;
-class ContextualTasksPermissionDashboard;
 
 // Implements the toolbar mojom interface to control
-// the dashboard and permission chip for contextual tasks.
+// the dashboard and permission chip for the contextual tasks side panel.
+// Owned by `ContextualTasksSidePanelCoordinator` (one instance per side panel).
 class ContextualTasksPermissionController
-    : public content::WebContentsUserData<ContextualTasksPermissionController>,
-      public permissions::PermissionRequestManager::Observer {
+    : public permissions::PermissionRequestManager::Observer {
  public:
+  // `browser_window` may be null in unit tests, in which case no location bar
+  // is created.
+  explicit ContextualTasksPermissionController(
+      BrowserWindowInterface* browser_window);
   ContextualTasksPermissionController(
       const ContextualTasksPermissionController&) = delete;
   ~ContextualTasksPermissionController() override;
   ContextualTasksPermissionController& operator=(
       const ContextualTasksPermissionController&) = delete;
+
+  // Attaches `LocationBarOverrideData` to `web_contents` pointing to this
+  // controller's single `ContextualTasksLocationBar`.
+  void RegisterWebContents(content::WebContents* web_contents);
+
+  // Removes `LocationBarOverrideData` from `web_contents` when it is detached
+  // from the side panel (e.g. moved to a full browser tab).
+  void UnregisterWebContents(content::WebContents* web_contents);
+
+  // Updates the active task `WebContents` for the side panel's location bar,
+  // refreshes content setting models, and pushes the updated state to the
+  // toolbar WebUI. Passing `nullptr` clears the toolbar.
+  void Update(content::WebContents* web_contents);
 
   // permissions::PermissionRequestManager::Observer:
   void OnRequestsFinalized() override;
@@ -46,6 +61,14 @@ class ContextualTasksPermissionController
   void OnPermissionRequestManagerDestructed() override;
 
   virtual toolbar_ui_api::mojom::PermissionDashboardStatePtr GetState() const;
+
+  // Schedules a push of the current dashboard state to the toolbar WebUI.
+  //
+  // Coalesced: a single logical update (e.g. `PermissionDashboardController`
+  // setting an icon, message, theme and visibility in sequence) mutates the
+  // chips many times, and each mutation funnels through here. Batching them
+  // into one task collapses the burst into a single IPC carrying only the
+  // final state.
   void PushStateToWebUI();
 
   // Chip Interactions (called from Mojo via ContextualTasksUI):
@@ -64,31 +87,28 @@ class ContextualTasksPermissionController
 #endif
 
  protected:
-  // Use `CreateForWebContents()` (inherited from `WebContentsUserData`) to
-  // create instances. `browser_window` may be null, in which case no location
-  // bar is created. Protected rather than private so that tests can be a
-  // subclass to access.
-  ContextualTasksPermissionController(content::WebContents* web_contents,
-                                      BrowserWindowInterface* browser_window);
+  // Resolves the toolbar WebUI and hands it the current state. Does nothing if
+  // the side panel is gone.
+  virtual void PushStateToWebUINow();
 
  private:
-  friend class content::WebContentsUserData<
-      ContextualTasksPermissionController>;
-  WEB_CONTENTS_USER_DATA_KEY_DECL();
-
 #if !BUILDFLAG(IS_ANDROID)
   // Returns the chip `chip_identifier` refers to, or null if there is no
   // dashboard (i.e. no location bar).
   ContextualTasksPermissionChip* GetChip(
       toolbar_ui_api::mojom::LhsChipIdentifier chip_identifier);
-#endif
-#if !BUILDFLAG(IS_ANDROID)
+
   std::unique_ptr<ContextualTasksLocationBar> location_bar_;
 #endif
+
+  // Whether a `PushStateToWebUINow()` task is already queued.
+  bool state_push_pending_ = false;
 
   base::ScopedObservation<permissions::PermissionRequestManager,
                           permissions::PermissionRequestManager::Observer>
       prm_observation_{this};
+
+  base::WeakPtrFactory<ContextualTasksPermissionController> weak_factory_{this};
 };
 
 }  // namespace contextual_tasks

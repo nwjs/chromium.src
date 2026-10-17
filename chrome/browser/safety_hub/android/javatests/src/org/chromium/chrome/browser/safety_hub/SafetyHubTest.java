@@ -233,7 +233,7 @@ public final class SafetyHubTest {
             NotificationPermissions.create("http://example2.com", "*", 8);
 
     private static final String PREF_NOTIFICATIONS_REVIEW = "notifications_review";
-    private static final int RENDER_TEST_REVISION = 3;
+    private static final int RENDER_TEST_REVISION = 4;
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -254,6 +254,7 @@ public final class SafetyHubTest {
             ChromeRenderTestRule.Builder.withPublicCorpus()
                     .setBugComponent(RenderTestRule.Component.UI_SETTINGS_PRIVACY)
                     .setRevision(RENDER_TEST_REVISION)
+                    .setDescription("Ligatures and contextual alternates disabled in UI text")
                     .build();
 
     @Rule
@@ -2276,7 +2277,7 @@ public final class SafetyHubTest {
     @MediumTest
     public void testHelpCenterArticle() {
         // Settings in a tab doesn't have a help button or menu.
-        Assume.assumeTrue(!SettingsInTab.isEnabled());
+        Assume.assumeTrue(!SettingsInTab.shouldOpenSettingsInTab());
 
         mSafetyHubFragmentTestRule.startSettingsActivity();
         var histogramWatcher =

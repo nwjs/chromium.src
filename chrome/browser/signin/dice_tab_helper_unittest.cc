@@ -6,10 +6,12 @@
 
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/task/current_thread.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/metrics/user_action_tester.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
 #include "chrome/browser/metrics/profile_metrics_service_factory.h"
@@ -18,6 +20,7 @@
 #include "chrome/test/base/testing_profile.h"
 #include "components/metrics/profile_metrics_service.h"
 #include "components/signin/public/base/signin_metrics.h"
+#include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "content/public/common/content_features.h"
@@ -26,7 +29,11 @@
 #include "content/public/test/prerender_test_util.h"
 #include "content/public/test/test_renderer_host.h"
 #include "content/public/test/web_contents_tester.h"
+#include "device/bluetooth/bluetooth_adapter.h"
+#include "device/bluetooth/bluetooth_adapter_factory.h"
+#include "device/bluetooth/test/mock_bluetooth_adapter.h"
 #include "google_apis/gaia/gaia_urls.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
 
@@ -337,12 +344,12 @@ TEST_F(DiceTabHelperTest, SyncHeaderMetricsWhenLstHasArrived) {
   InitializeDiceTabHelper(dice_tab_helper,
                           signin_metrics::AccessPoint::kSettings,
                           signin_metrics::Reason::kSigninPrimaryAccount);
-  EXPECT_TRUE(dice_tab_helper->IsSyncSigninInProgress());
+  EXPECT_TRUE(dice_tab_helper->IsChromeSigninInProgress());
   dice_tab_helper->OnTokenExchangeSuccess(
       /*retry_interception_bubble_callback=*/base::DoNothing());
-  dice_tab_helper->OnSyncSigninFlowComplete();
+  dice_tab_helper->OnSigninFlowComplete();
 
-  EXPECT_FALSE(dice_tab_helper->IsSyncSigninInProgress());
+  EXPECT_FALSE(dice_tab_helper->IsChromeSigninInProgress());
   h_tester.ExpectTotalCount(
       kDiceUnexpectedSyncHeaderProcessingBeforeLstHistogramName, 0);
   h_tester.ExpectBucketCount(kDiceSyncHeaderTimeoutHistogramNameHistogramName,
@@ -365,7 +372,7 @@ TEST_F(DiceTabHelperTest, SyncHeaderMetricsOnTimeoutFromLst) {
   InitializeDiceTabHelper(dice_tab_helper,
                           signin_metrics::AccessPoint::kSettings,
                           signin_metrics::Reason::kSigninPrimaryAccount);
-  EXPECT_TRUE(dice_tab_helper->IsSyncSigninInProgress());
+  EXPECT_TRUE(dice_tab_helper->IsChromeSigninInProgress());
 
   base::test::TestFuture<void> future;
   dice_tab_helper->OnTokenExchangeSuccess(
@@ -376,9 +383,9 @@ TEST_F(DiceTabHelperTest, SyncHeaderMetricsOnTimeoutFromLst) {
                               true, 1);
   h_tester.ExpectTotalCount(kDiceSyncHeaderArrivalTimeWindowHistogramName, 0);
 
-  // Now complete the sync flow.
-  dice_tab_helper->OnSyncSigninFlowComplete();
-  EXPECT_FALSE(dice_tab_helper->IsSyncSigninInProgress());
+  // Now complete the sign in to chrome flow.
+  dice_tab_helper->OnSigninFlowComplete();
+  EXPECT_FALSE(dice_tab_helper->IsChromeSigninInProgress());
   h_tester.ExpectTotalCount(kDiceSyncHeaderTimeoutHistogramNameHistogramName,
                             1);
   h_tester.ExpectTotalCount(kDiceSyncHeaderArrivalTimeWindowHistogramName, 1);
@@ -397,35 +404,35 @@ TEST_F(DiceTabHelperTest,
   InitializeDiceTabHelper(dice_tab_helper,
                           signin_metrics::AccessPoint::kSettings,
                           signin_metrics::Reason::kSigninPrimaryAccount);
-  EXPECT_TRUE(dice_tab_helper->IsSyncSigninInProgress());
-  dice_tab_helper->OnSyncSigninFlowComplete();
+  EXPECT_TRUE(dice_tab_helper->IsChromeSigninInProgress());
+  dice_tab_helper->OnSigninFlowComplete();
 
-  EXPECT_FALSE(dice_tab_helper->IsSyncSigninInProgress());
+  EXPECT_FALSE(dice_tab_helper->IsChromeSigninInProgress());
   h_tester.ExpectUniqueSample(
       kDiceUnexpectedSyncHeaderProcessingBeforeLstHistogramName, true, 1);
   h_tester.ExpectBucketCount(kDiceSyncHeaderTimeoutHistogramNameHistogramName,
                              false, 1);
 }
 
-TEST_F(DiceTabHelperTest, IsSyncSigninInProgress) {
+TEST_F(DiceTabHelperTest, IsChromeSigninInProgress) {
   DiceTabHelper::CreateForWebContents(web_contents());
   DiceTabHelper* dice_tab_helper =
       DiceTabHelper::FromWebContents(web_contents());
-  EXPECT_FALSE(dice_tab_helper->IsSyncSigninInProgress());
+  EXPECT_FALSE(dice_tab_helper->IsChromeSigninInProgress());
 
-  // Non-sync signin.
+  // Non-browser signin.
   InitializeDiceTabHelper(dice_tab_helper,
                           signin_metrics::AccessPoint::kExtensions,
                           signin_metrics::Reason::kAddSecondaryAccount);
-  EXPECT_FALSE(dice_tab_helper->IsSyncSigninInProgress());
+  EXPECT_FALSE(dice_tab_helper->IsChromeSigninInProgress());
 
-  // Sync signin
+  // Browser signin flow.
   InitializeDiceTabHelper(dice_tab_helper,
                           signin_metrics::AccessPoint::kSettings,
                           signin_metrics::Reason::kSigninPrimaryAccount);
-  EXPECT_TRUE(dice_tab_helper->IsSyncSigninInProgress());
-  dice_tab_helper->OnSyncSigninFlowComplete();
-  EXPECT_FALSE(dice_tab_helper->IsSyncSigninInProgress());
+  EXPECT_TRUE(dice_tab_helper->IsChromeSigninInProgress());
+  dice_tab_helper->OnSigninFlowComplete();
+  EXPECT_FALSE(dice_tab_helper->IsChromeSigninInProgress());
 }
 
 TEST_F(DiceTabHelperTest, SigninPendingResolutionStarted) {
@@ -460,6 +467,68 @@ TEST_F(DiceTabHelperTest, SigninPendingResolutionStarted) {
   }
   h_tester.ExpectUniqueSample("Signin.SigninPending.ResolutionSourceStarted",
                               access_point, 1);
+}
+
+class DiceTabHelperBluetoothTest : public DiceTabHelperTest {
+ public:
+  void SetUp() override {
+    DiceTabHelperTest::SetUp();
+    bluetooth_override_values_ =
+        device::BluetoothAdapterFactory::Get()->InitGlobalOverrideValues();
+    bluetooth_override_values_->SetLESupported(true);
+    mock_adapter_ =
+        base::MakeRefCounted<testing::NiceMock<device::MockBluetoothAdapter>>();
+    ON_CALL(*mock_adapter_, IsPresent()).WillByDefault(testing::Return(true));
+    device::BluetoothAdapterFactory::SetAdapterForTesting(mock_adapter_);
+  }
+
+  void InitializeSigninTab() {
+    DiceTabHelper::CreateForWebContents(web_contents());
+    InitializeDiceTabHelper(DiceTabHelper::FromWebContents(web_contents()),
+                            signin_metrics::AccessPoint::kSettings,
+                            signin_metrics::Reason::kSigninPrimaryAccount);
+  }
+
+ protected:
+  std::unique_ptr<device::BluetoothAdapterFactory::GlobalOverrideValues>
+      bluetooth_override_values_;
+  scoped_refptr<testing::NiceMock<device::MockBluetoothAdapter>> mock_adapter_;
+};
+
+TEST_F(DiceTabHelperBluetoothTest, KeepsAdapterWhileOnSigninPage) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      switches::kMagiChromePasskeySignIn, {{"flow_type", "autofill"}});
+  EXPECT_CALL(*mock_adapter_, IsPowered());
+
+  InitializeSigninTab();
+  EXPECT_FALSE(mock_adapter_->HasOneRef());
+
+  // Navigating away from the signin page releases the adapter.
+  content::NavigationSimulator::NavigateAndCommitFromDocument(
+      signin_url_.Resolve("/foo"), main_rfh());
+  EXPECT_TRUE(mock_adapter_->HasOneRef());
+}
+
+TEST_F(DiceTabHelperBluetoothTest, NoPowerStateReadWithoutPermission) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      switches::kMagiChromePasskeySignIn, {{"flow_type", "autofill"}});
+  ON_CALL(*mock_adapter_, GetOsPermissionStatus())
+      .WillByDefault(testing::Return(
+          device::BluetoothAdapter::PermissionStatus::kUndetermined));
+  EXPECT_CALL(*mock_adapter_, IsPowered()).Times(0);
+
+  InitializeSigninTab();
+}
+
+TEST_F(DiceTabHelperBluetoothTest, NoAdapterWithoutMagiChromeAutofill) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(switches::kMagiChromePasskeySignIn);
+  EXPECT_CALL(*mock_adapter_, IsPowered()).Times(0);
+
+  InitializeSigninTab();
+  EXPECT_TRUE(mock_adapter_->HasOneRef());
 }
 
 class DiceTabHelperPrerenderTest : public DiceTabHelperTest {

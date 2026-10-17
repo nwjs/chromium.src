@@ -13,171 +13,231 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.tasks.tab_management.vertical_tabs.VerticalTabListProperties.RailCollapseState;
 import org.chromium.chrome.browser.ui.vertical_tabs.VerticalTabUtils;
+import org.chromium.chrome.browser.ui.vertical_tabs.VerticalTabUtils.WindowWidthBoundary;
 
-/** Controller for managing the vertical tab rail's expanded/collapsed state. */
+/**
+ * Controller for managing the vertical tab rail's expanded/collapsed state.
+ *
+ * <p>This is the single source of truth for the rail collapse state. It keeps three independent
+ * inputs:
+ *
+ * <ul>
+ *   <li>The user preference, {@link RailCollapseState#EXPANDED} or {@link
+ *       RailCollapseState#COLLAPSED}, changed by {@link #toggleCollapseState()} and persisted in
+ *       shared prefs.
+ *   <li>Whether the pointer is hovering the rail, from {@link #expandOrCollapseOnHover(int)}.
+ *   <li>The window width constraint, from {@link #setWindowWidthBoundary(int)}, supplied by {@link
+ *       VerticalTabsSideUiCoordinator}.
+ * </ul>
+ *
+ * <p>Everything else (the effective {@link #getEffectiveRailCollapseState()} and whether the
+ * collapse button is enabled) is derived from those inputs and pushed to the view layer by {@link
+ * #applyEffectiveState()}.
+ */
 @NullMarked
 class VerticalTabRailCollapseController {
-    /** Listener for changes to rail collapse state. */
-    interface RailCollapseListener {
+    /**
+     * Delegate that carries out a user-requested rail state change. At most one may be registered;
+     * when none is, the controller applies the change itself.
+     */
+    interface RailStateChangeDelegate {
         /**
-         * Called when the rail collapse state change is requested by user interaction.
-         *
-         * @param currentState The current {@link RailCollapseState}.
-         * @param targetState The target {@link RailCollapseState}.
+         * Called when the user requested a change that moves the effective rail state. The delegate
+         * is responsible for driving the resulting Side UI update, which ends up calling {@link
+         * #applyEffectiveState()}.
          */
-        void onRailCollapseStateChangeRequestedByUser(
-                @RailCollapseState int currentState, @RailCollapseState int targetState);
+        void handleUserRequestedStateChange();
     }
 
-    /** Returns whether the given state is an expanded state. */
-    static boolean isExpanded(@RailCollapseState int state) {
-        return state == RailCollapseState.EXPANDED
-                || state == RailCollapseState.EXPANDED_FOR_HOVERING;
-    }
-
-    private final @Nullable Callback<@RailCollapseState Integer> mSetRailCollapseStateCallback;
+    private final Callback<@RailCollapseState Integer> mSetRailCollapseStateCallback;
+    private final Callback<Boolean> mSetCollapseButtonEnabledCallback;
     private final SettableNonNullObservableSupplier<@RailCollapseState Integer>
             mRailCollapseStateSupplier;
+    private @Nullable RailStateChangeDelegate mRailStateChangeDelegate;
 
-    private @Nullable RailCollapseListener mRailCollapseListener;
-    private @RailCollapseState int mRailCollapseStateByUser;
-    private boolean mIsCollapseButtonEnabled = true;
+    // The user preference. Hovering and window width constraints never change it.
+    private boolean mIsCollapsedByUser;
 
+    // Whether the pointer is currently hovering the rail. Only expands the rail while the user
+    // preference is COLLAPSED and the window is wide enough.
+    private boolean mIsHoverExpanded;
+
+    // Whether the rail is forced to collapse due to narrow window constraints or insufficient
+    // available width. When true, the rail collapses and the collapse button is disabled,
+    // regardless of the other inputs.
+    private boolean mIsForcedCollapsed;
+
+    /**
+     * @param setRailCollapseStateCallback Applies the effective {@link RailCollapseState} to the
+     *     view layer.
+     * @param setCollapseButtonEnabledCallback Applies the derived collapse button enabled state to
+     *     the view layer.
+     */
     VerticalTabRailCollapseController(
-            @Nullable Callback<@RailCollapseState Integer> setRailCollapseStateCallback) {
+            Callback<@RailCollapseState Integer> setRailCollapseStateCallback,
+            Callback<Boolean> setCollapseButtonEnabledCallback) {
         mSetRailCollapseStateCallback = setRailCollapseStateCallback;
-        mRailCollapseStateByUser =
-                VerticalTabUtils.isRailCollapsedFromSharedPref()
-                        ? RailCollapseState.COLLAPSED
-                        : RailCollapseState.EXPANDED;
-        mRailCollapseStateSupplier = ObservableSuppliers.createNonNull(mRailCollapseStateByUser);
+        mSetCollapseButtonEnabledCallback = setCollapseButtonEnabledCallback;
+        mIsCollapsedByUser = VerticalTabUtils.isRailCollapsedFromSharedPref();
+        mRailCollapseStateSupplier =
+                ObservableSuppliers.createNonNull(getEffectiveRailCollapseState());
     }
 
-    /** Cleans up observers and listeners. */
+    /** Cleans up the registered delegate. */
     void destroy() {
-        mRailCollapseListener = null;
+        mRailStateChangeDelegate = null;
     }
 
-    /** Sets the listener for rail collapse state changes. */
-    void setRailCollapseListener(@Nullable RailCollapseListener listener) {
-        mRailCollapseListener = listener;
+    /** Sets the delegate that carries out user-requested rail state changes. */
+    void setRailStateChangeDelegate(@Nullable RailStateChangeDelegate delegate) {
+        mRailStateChangeDelegate = delegate;
     }
 
-    /** Toggles the rail collapse state between expanded and collapsed by user. */
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Inputs.
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    /** Toggles the user preference between expanded and collapsed. */
     void toggleCollapseState() {
-        if (!mIsCollapseButtonEnabled) return;
+        if (isForcedCollapsed()) return;
 
-        @RailCollapseState
-        int targetState =
-                mRailCollapseStateByUser == RailCollapseState.EXPANDED
-                        ? RailCollapseState.COLLAPSED
-                        : RailCollapseState.EXPANDED;
+        @RailCollapseState int previousState = getEffectiveRailCollapseState();
+
+        mIsCollapsedByUser = !mIsCollapsedByUser;
+        VerticalTabUtils.setRailCollapsedInSharedPref(mIsCollapsedByUser);
         RecordHistogram.recordBooleanHistogram(
-                "Android.VerticalTabs.RailCollapsed", targetState == RailCollapseState.COLLAPSED);
-        VerticalTabUtils.setRailCollapsedInSharedPref(targetState == RailCollapseState.COLLAPSED);
+                "Android.VerticalTabs.RailCollapsed", mIsCollapsedByUser);
 
-        requestRailCollapseStateChangeByUser(mRailCollapseStateByUser, targetState);
+        // An explicit toggle overrides the current hover; the rail expands on hover again only
+        // after the pointer leaves and re-enters.
+        mIsHoverExpanded = false;
+        requestEffectiveStateChangeByUser(previousState);
     }
 
     /**
-     * Expands or collapses the rail on hover by user.
+     * Records whether the pointer is hovering the rail. Hover is tracked even while the rail cannot
+     * expand (narrow window), so that a hover exit is never missed.
      *
-     * @param targetState The target {@link RailCollapseState}.
+     * @param targetState {@link RailCollapseState#EXPANDED_FOR_HOVERING} on hover enter, {@link
+     *     RailCollapseState#COLLAPSED} on hover exit.
      */
     void expandOrCollapseOnHover(@RailCollapseState int targetState) {
-        if (!mIsCollapseButtonEnabled) return;
-
-        if (mRailCollapseStateByUser != RailCollapseState.EXPANDED_FOR_HOVERING
-                && mRailCollapseStateByUser != RailCollapseState.COLLAPSED) {
-            return;
-        }
-
-        @RailCollapseState int currentState = mRailCollapseStateSupplier.get();
-        requestRailCollapseStateChangeByUser(currentState, targetState);
-    }
-
-    /** Sets the user-selected rail collapse state. */
-    void setRailCollapseStateByUser(@RailCollapseState int railCollapseState) {
-        mRailCollapseStateByUser = railCollapseState;
+        @RailCollapseState int previousState = getEffectiveRailCollapseState();
+        mIsHoverExpanded = targetState == RailCollapseState.EXPANDED_FOR_HOVERING;
+        requestEffectiveStateChangeByUser(previousState);
     }
 
     /**
-     * Returns the user-requested rail collapse state preference ({@link RailCollapseState#EXPANDED}
-     * or {@link RailCollapseState#COLLAPSED}).
+     * Updates the user collapse preference from a manual resize. Does not apply the new state, as
+     * the resize flow drives its own Side UI update.
      *
-     * <p>Note: This is the user's intent, not necessarily the final effective state, as window
-     * width constraints may temporarily force the rail to collapse when the window is narrow.
+     * @param isCollapsed Whether the rail should be collapsed.
      */
-    @RailCollapseState
-    int getRailCollapseStateByUser() {
-        return mRailCollapseStateByUser;
+    void setCollapsedByUserFromResize(boolean isCollapsed) {
+        if (mIsCollapsedByUser == isCollapsed) return;
+        mIsCollapsedByUser = isCollapsed;
+        VerticalTabUtils.setRailCollapsedInSharedPref(isCollapsed);
+        // A resize is an explicit request, so like a toggle it overrides the current hover.
+        mIsHoverExpanded = false;
     }
 
     /**
-     * Returns the final effective rail collapse state, applying window width constraints.
+     * Feeds the window width constraint. This is the only rail state input owned by {@link
+     * VerticalTabsSideUiCoordinator}; the narrow-window policy, the resulting effective state and
+     * the collapse button state are all derived here. Applies the new effective state if the
+     * constraint changed.
      *
-     * @param isNarrow True if the current window width is below the threshold for expanding.
-     * @return {@link RailCollapseState#COLLAPSED} if {@code isNarrow} is true; otherwise returns
-     *     the user preference from {@link #getRailCollapseStateByUser()}.
+     * @param boundary The {@link WindowWidthBoundary} for the current window/available width.
      */
+    void setWindowWidthBoundary(@WindowWidthBoundary int boundary) {
+        boolean isForcedCollapsed = boundary <= WindowWidthBoundary.FORCED_COLLAPSED;
+        if (mIsForcedCollapsed == isForcedCollapsed) return;
+        mIsForcedCollapsed = isForcedCollapsed;
+        applyEffectiveState();
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Derived state.
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    /** Returns the final effective rail collapse state derived from all three inputs. */
     @RailCollapseState
-    int getEffectiveRailCollapseState(boolean isNarrow) {
-        return isNarrow ? RailCollapseState.COLLAPSED : mRailCollapseStateByUser;
+    int getEffectiveRailCollapseState() {
+        if (mIsForcedCollapsed) return RailCollapseState.COLLAPSED;
+        if (!mIsCollapsedByUser) return RailCollapseState.EXPANDED;
+        return mIsHoverExpanded
+                ? RailCollapseState.EXPANDED_FOR_HOVERING
+                : RailCollapseState.COLLAPSED;
     }
 
-    /** Updates the rail collapse state supplier value. */
-    void setRailCollapseStateSupplierValue(@RailCollapseState int railCollapseState) {
-        mRailCollapseStateSupplier.set(railCollapseState);
+    /**
+     * Returns whether the rail is currently expanded only because the pointer is hovering it. The
+     * rail renders expanded over the web contents in this state, but keeps reserving its collapsed
+     * width, so the web contents are neither resized nor repositioned.
+     */
+    boolean isHoverExpanded() {
+        return getEffectiveRailCollapseState() == RailCollapseState.EXPANDED_FOR_HOVERING;
     }
 
-    /** Returns the supplier for the current rail collapse state. */
+    /**
+     * Returns whether the window is too narrow to host an expanded rail. While this is true the
+     * rail stays collapsed regardless of the other inputs, so the collapse button is disabled and
+     * the rail cannot be resized.
+     */
+    boolean isForcedCollapsed() {
+        return mIsForcedCollapsed;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Applying and publishing.
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Pushes the effective rail collapse state and the derived collapse button enabled state to the
+     * view layer, then publishes the applied state to {@link #getRailCollapseStateSupplier()}.
+     * Callers should invoke this whenever an input may have been applied out-of-band (e.g. after
+     * Side UI specs changed).
+     */
+    void applyEffectiveState() {
+        @RailCollapseState int effectiveState = getEffectiveRailCollapseState();
+        mSetRailCollapseStateCallback.onResult(effectiveState);
+        mSetCollapseButtonEnabledCallback.onResult(!isForcedCollapsed());
+        // Published after the view layer is updated so observers see a consistent state.
+        mRailCollapseStateSupplier.set(effectiveState);
+    }
+
+    /** Returns the supplier for the applied rail collapse state. */
     NonNullObservableSupplier<@RailCollapseState Integer> getRailCollapseStateSupplier() {
         return mRailCollapseStateSupplier;
     }
 
-    /** Sets whether the collapse button is enabled. */
-    void setCollapseButtonEnabled(boolean enabled) {
-        mIsCollapseButtonEnabled = enabled;
-    }
+    /**
+     * Propagates a user-driven input change, if it moved the effective state.
+     *
+     * @param previousState The effective {@link RailCollapseState} before the input changed.
+     */
+    private void requestEffectiveStateChangeByUser(@RailCollapseState int previousState) {
+        @RailCollapseState int targetState = getEffectiveRailCollapseState();
+        if (previousState == targetState) return;
 
-    /** Returns whether the collapse button is enabled. */
-    boolean isCollapseButtonEnabled() {
-        return mIsCollapseButtonEnabled;
-    }
-
-    /** Applies the rail collapse state by invoking the callback. */
-    void dispatchRailCollapseStateUpdate(@RailCollapseState int railCollapseState) {
-        if (mSetRailCollapseStateCallback != null) {
-            mSetRailCollapseStateCallback.onResult(railCollapseState);
+        // If a delegate is registered, hand the change over so it can trigger the Side UI
+        // transition, which ends up applying the effective state. Otherwise, fall back to applying
+        // the effective state directly.
+        if (mRailStateChangeDelegate != null) {
+            mRailStateChangeDelegate.handleUserRequestedStateChange();
+        } else {
+            applyEffectiveState();
         }
     }
 
     /**
-     * Requests a change in rail collapse state by user interaction.
+     * Returns whether the user asked for the rail to be collapsed.
      *
-     * @param currentState The current {@link RailCollapseState}.
-     * @param targetState The target {@link RailCollapseState}.
+     * <p>Note: This is the user's intent, not necessarily the final effective state, as hovering or
+     * window width constraints may temporarily override it. Use {@link
+     * #getEffectiveRailCollapseState()} for the state that should be rendered.
      */
-    void requestRailCollapseStateChangeByUser(
-            @RailCollapseState int currentState, @RailCollapseState int targetState) {
-        if (currentState == targetState) return;
-        // Call setRailCollapseStateByUser before notifying listeners so
-        // getEffectiveRailCollapseState() reflects the new state.
-        setRailCollapseStateByUser(targetState);
-
-        // If SideUiCoordinator is listening, delegate the state change request so it can update
-        // user state and trigger Side UI transitions. Otherwise, fall back to setting state
-        // directly.
-        if (mRailCollapseListener != null) {
-            mRailCollapseListener.onRailCollapseStateChangeRequestedByUser(
-                    currentState, targetState);
-        } else {
-            dispatchRailCollapseStateUpdate(targetState);
-        }
-    }
-
-    /** Returns the registered listener for testing. */
-    @Nullable RailCollapseListener getRailCollapseListenerForTesting() {
-        return mRailCollapseListener;
+    boolean isCollapsedByUserForTesting() {
+        return mIsCollapsedByUser;
     }
 }

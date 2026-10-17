@@ -17,7 +17,6 @@
 #import "components/collaboration/public/collaboration_service.h"
 #import "components/feature_engagement/public/event_constants.h"
 #import "components/feature_engagement/public/tracker.h"
-#import "components/password_manager/core/browser/ui/credential_ui_entry.h"
 #import "components/segmentation_platform/embedder/home_modules/tips_manager/constants.h"
 #import "components/send_tab_to_self/features.h"
 #import "components/supervised_user/core/common/features.h"
@@ -53,6 +52,8 @@
 #import "ios/chrome/browser/contextual_panel/model/contextual_panel_tab_helper.h"
 #import "ios/chrome/browser/contextual_panel/utils/contextual_panel_metrics.h"
 #import "ios/chrome/browser/default_browser/model/utils.h"
+#import "ios/chrome/browser/default_browser/promo/contextual/coordinator/contextual_default_browser_promo_coordinator.h"
+#import "ios/chrome/browser/default_browser/promo/contextual/public/contextual_default_browser_promo_metrics.h"
 #import "ios/chrome/browser/default_browser/promo/generic/coordinator/default_browser_generic_promo_coordinator.h"
 #import "ios/chrome/browser/default_browser/promo/generic/public/default_browser_generic_promo_commands.h"
 #import "ios/chrome/browser/docking_promo/coordinator/docking_promo_coordinator.h"
@@ -64,6 +65,7 @@
 #import "ios/chrome/browser/file_upload_panel/coordinator/file_upload_panel_coordinator.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller.h"
 #import "ios/chrome/browser/google_one/coordinator/google_one_coordinator.h"
+#import "ios/chrome/browser/home_customization/coordinator/home_customization_ephemeral_theme_promo_coordinator.h"
 #import "ios/chrome/browser/intelligence/actor/coordinator/actor_overlay_coordinator.h"
 #import "ios/chrome/browser/intelligence/enhanced_calendar/coordinator/enhanced_calendar_coordinator.h"
 #import "ios/chrome/browser/intelligence/enhanced_calendar/model/enhanced_calendar_configuration.h"
@@ -74,7 +76,6 @@
 #import "ios/chrome/browser/page_info/coordinator/page_info_coordinator.h"
 #import "ios/chrome/browser/passwords/bottom_sheet/coordinator/credential_suggestion_bottom_sheet_coordinator.h"
 #import "ios/chrome/browser/passwords/bottom_sheet/coordinator/passkey_creation_bottom_sheet_coordinator.h"
-#import "ios/chrome/browser/passwords/model/password_controller_delegate.h"
 #import "ios/chrome/browser/passwords/password_breach/coordinator/password_breach_coordinator.h"
 #import "ios/chrome/browser/passwords/password_breach/coordinator/password_protection_coordinator.h"
 #import "ios/chrome/browser/passwords/password_breach/coordinator/password_protection_coordinator_delegate.h"
@@ -114,6 +115,7 @@
 #import "ios/chrome/browser/shared/public/commands/cobalt_commands.h"
 #import "ios/chrome/browser/shared/public/commands/collaboration_group_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/contextual_default_browser_promo_commands.h"
 #import "ios/chrome/browser/shared/public/commands/contextual_panel_entrypoint_commands.h"
 #import "ios/chrome/browser/shared/public/commands/contextual_panel_entrypoint_iph_commands.h"
 #import "ios/chrome/browser/shared/public/commands/contextual_sheet_commands.h"
@@ -124,6 +126,7 @@
 #import "ios/chrome/browser/shared/public/commands/drive_file_picker_commands.h"
 #import "ios/chrome/browser/shared/public/commands/enhanced_calendar_commands.h"
 #import "ios/chrome/browser/shared/public/commands/enterprise_commands.h"
+#import "ios/chrome/browser/shared/public/commands/ephemeral_theme_promo_commands.h"
 #import "ios/chrome/browser/shared/public/commands/file_upload_panel_commands.h"
 #import "ios/chrome/browser/shared/public/commands/fullscreen_commands.h"
 #import "ios/chrome/browser/shared/public/commands/google_one_commands.h"
@@ -148,6 +151,7 @@
 #import "ios/chrome/browser/shared/public/commands/save_to_drive_commands.h"
 #import "ios/chrome/browser/shared/public/commands/save_to_photos_commands.h"
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
+#import "ios/chrome/browser/shared/public/commands/scene_sign_in_commands.h"
 #import "ios/chrome/browser/shared/public/commands/search_engine_choice_commands.h"
 #import "ios/chrome/browser/shared/public/commands/send_tab_to_self_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
@@ -209,6 +213,7 @@ const char kContextPanelDismissedHistogram[] =
                                 CollaborationGroupCommands,
                                 ContextualPanelEntrypointIPHCommands,
                                 ContextualSheetCommands,
+                                ContextualDefaultBrowserPromoCommands,
                                 DefaultBrowserGenericPromoCommands,
                                 CountryCodePickerCommands,
                                 DockingPromoCommands,
@@ -217,6 +222,7 @@ const char kContextPanelDismissedHistogram[] =
                                 EnhancedCalendarCommands,
                                 EnterpriseCommands,
                                 EnterprisePromptCoordinatorDelegate,
+                                EphemeralThemePromoCommands,
                                 FileUploadPanelCommands,
                                 GoogleOneCommands,
                                 IOSPasskeyClientCommands,
@@ -285,6 +291,8 @@ const char kContextPanelDismissedHistogram[] =
   ChromeCoordinator* _cobaltAlertCoordinator;
   ChromeCoordinator* _cobaltPopupCoordinator;
   ContextualSheetCoordinator* _contextualSheetCoordinator;
+  ContextualDefaultBrowserPromoCoordinator*
+      _contextualDefaultBrowserPromoCoordinator;
   CountryCodePickerCoordinator* _countryCodePickerCoordinator;
   CredentialSuggestionBottomSheetCoordinator*
       _credentialSuggestionBottomSheetCoordinator;
@@ -296,6 +304,8 @@ const char kContextPanelDismissedHistogram[] =
   EnhancedCalendarCoordinator* _enhancedCalendarCoordinator;
   EnterpriseDialogCoordinator* _enterpriseDialogCoordinator;
   EnterprisePromptCoordinator* _enterprisePromptCoordinator;
+  HomeCustomizationEphemeralThemePromoCoordinator*
+      _ephemeralThemePromoCoordinator;
   API_AVAILABLE(ios(18.4))
   FileUploadPanelCoordinator* _fileUploadPanelCoordinator;
   GoogleOneCoordinator* _googleOneCoordinator;
@@ -369,6 +379,7 @@ const char kContextPanelDismissedHistogram[] =
 - (void)clearPresentedState {
   [self hideActorOverlay];
   [self hideAddContacts];
+  [self hideContextualDefaultBrowserPromo];
   [self dismissSaveCardBottomSheet];
   [self dismissEditAddressBottomSheet];
   [self dismissAutofillErrorDialog];
@@ -398,6 +409,7 @@ const char kContextPanelDismissedHistogram[] =
   [self hideEnhancedCalendarBottomSheet];
   [self dismissEnterpriseWarningDialog];
   [self stopEnterprisePromptCoordinator];
+  [self hideEphemeralThemePromo];
   if (@available(iOS 18.4, *)) {
     [self hideFileUploadPanel];
   }
@@ -645,6 +657,7 @@ const char kContextPanelDismissedHistogram[] =
     @protocol(CollaborationGroupCommands),
     @protocol(ContextualPanelEntrypointIPHCommands),
     @protocol(ContextualSheetCommands),
+    @protocol(ContextualDefaultBrowserPromoCommands),
     @protocol(DefaultBrowserGenericPromoCommands),
     @protocol(CountryCodePickerCommands),
     @protocol(DockingPromoCommands),
@@ -652,6 +665,7 @@ const char kContextPanelDismissedHistogram[] =
     @protocol(DriveFilePickerCommands),
     @protocol(EnhancedCalendarCommands),
     @protocol(EnterpriseCommands),
+    @protocol(EphemeralThemePromoCommands),
     @protocol(FileUploadPanelCommands),
     @protocol(GoogleOneCommands),
     @protocol(IOSPasskeyClientCommands),
@@ -837,8 +851,7 @@ const char kContextPanelDismissedHistogram[] =
       [[CredentialSuggestionBottomSheetCoordinator alloc]
           initWithBaseViewController:_baseViewController
                              browser:_browser
-                              params:params
-                            delegate:self.passwordControllerDelegate];
+                              params:params];
   [_credentialSuggestionBottomSheetCoordinator start];
 }
 
@@ -1337,6 +1350,24 @@ const char kContextPanelDismissedHistogram[] =
   _countryCodePickerCoordinator = nil;
 }
 
+#pragma mark - ContextualDefaultBrowserPromoCommands
+
+- (void)showContextualDefaultBrowserPromoWithType:
+    (ContextualDefaultBrowserPromoType)promoType {
+  [_contextualDefaultBrowserPromoCoordinator stop];
+  _contextualDefaultBrowserPromoCoordinator =
+      [[ContextualDefaultBrowserPromoCoordinator alloc]
+          initWithBaseViewController:_baseViewController
+                             browser:_browser
+                           promoType:promoType];
+  [_contextualDefaultBrowserPromoCoordinator start];
+}
+
+- (void)hideContextualDefaultBrowserPromo {
+  [_contextualDefaultBrowserPromoCoordinator stop];
+  _contextualDefaultBrowserPromoCoordinator = nil;
+}
+
 #pragma mark - DefaultBrowserGenericPromoCommands
 
 - (void)hidePromo {
@@ -1499,6 +1530,25 @@ const char kContextPanelDismissedHistogram[] =
   _enterpriseDialogCoordinator = nil;
 }
 
+#pragma mark - EphemeralThemePromoCommands
+
+- (void)showEphemeralThemePromo {
+  if (_ephemeralThemePromoCoordinator) {
+    return;
+  }
+  _ephemeralThemePromoCoordinator =
+      [[HomeCustomizationEphemeralThemePromoCoordinator alloc]
+          initWithBaseViewController:_baseViewController
+                             browser:_browser];
+  _ephemeralThemePromoCoordinator.promosUIHandler = _promosManagerCoordinator;
+  [_ephemeralThemePromoCoordinator start];
+}
+
+- (void)hideEphemeralThemePromo {
+  [_ephemeralThemePromoCoordinator stop];
+  _ephemeralThemePromoCoordinator = nil;
+}
+
 #pragma mark - FileUploadPanelCommands
 
 - (void)showFileUploadPanel API_AVAILABLE(ios(18.4)) {
@@ -1574,8 +1624,7 @@ const char kContextPanelDismissedHistogram[] =
       [[CredentialSuggestionBottomSheetCoordinator alloc]
           initWithBaseViewController:_baseViewController
                              browser:_browser
-                         requestInfo:std::move(requestInfo)
-                            delegate:self.passwordControllerDelegate];
+                         requestInfo:std::move(requestInfo)];
   [_credentialSuggestionBottomSheetCoordinator start];
 }
 
@@ -1907,6 +1956,8 @@ const char kContextPanelDismissedHistogram[] =
 #pragma mark - PictureInPictureCommands
 
 - (void)showPictureInPictureWithConfig:(PictureInPictureConfiguration*)config {
+  CHECK(!_browser->GetProfile()->IsOffTheRecord());
+
   [_pictureInPictureCoordinator stop];
 
   UIViewController* baseViewController = [self activeBaseViewController];
@@ -2109,7 +2160,7 @@ const char kContextPanelDismissedHistogram[] =
 - (void)showFullscreenSigninPromo {
   __weak __typeof(_promosManagerCoordinator) weakPromosManagerCoordinator =
       _promosManagerCoordinator;
-  [HandlerForProtocol(self.dispatcher, SceneCommands)
+  [HandlerForProtocol(self.dispatcher, SceneSignInCommands)
       showFullscreenSigninPromoWithCompletion:^(SigninCoordinator* coordinator,
                                                 SigninCoordinatorResult result,
                                                 id<SystemIdentity>) {
@@ -2129,7 +2180,8 @@ const char kContextPanelDismissedHistogram[] =
   // call the command.
   [HandlerForProtocol(self.dispatcher, NewTabPageCommands)
       showHomeBackgroundCustomizationPromoWithUIHandler:
-          _promosManagerCoordinator];
+          _promosManagerCoordinator
+                              shouldAlertFETOfDismissal:YES];
 }
 
 - (void)showDockingPromo {
@@ -2216,11 +2268,14 @@ const char kContextPanelDismissedHistogram[] =
     // Properly shutdown all coordinators started either by this coordinator or
     // by the scene controller. This should include Quick Delete, History and
     // the Privacy Settings.
-    [HandlerForProtocol(weakDispatcher, BrowserCoordinatorCommands)
-        clearPresentedStateWithCompletion:nil
-                           dismissOmnibox:YES];
-    // The protocol might not have a valid target when the shutdown of Quick
+    // The protocols might not have a valid target when the shutdown of Quick
     // Delete is happening at the same time the UI is being shutdown.
+    if ([weakDispatcher
+            dispatchingForProtocol:@protocol(BrowserCoordinatorCommands)]) {
+      [HandlerForProtocol(weakDispatcher, BrowserCoordinatorCommands)
+          clearPresentedStateWithCompletion:nil
+                             dismissOmnibox:YES];
+    }
     if ([weakDispatcher dispatchingForProtocol:@protocol(SceneCommands)]) {
       id<SceneCommands> sceneHandler =
           HandlerForProtocol(weakDispatcher, SceneCommands);

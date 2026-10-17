@@ -37,7 +37,7 @@ namespace {
 
 SearchSuggestionParser::SuggestResult BuildSuggestion(
     const std::u16string& query,
-    AutocompleteMatchType::Type type,
+    omnibox::AutocompleteMatchType type,
     omnibox::SuggestType suggest_type,
     std::vector<int> subtypes,
     const std::string& additional_query_params,
@@ -111,7 +111,7 @@ class BaseSearchProviderTestFixture {
         search_engines_test_environment_.template_url_service());
 
     provider_ = new NiceMock<TestBaseSearchProvider>(
-        AutocompleteProvider::TYPE_SEARCH, client_.get());
+        AutocompleteProvider::Type::kSearch, client_.get());
   }
 
   base::test::TaskEnvironment task_environment_;
@@ -139,7 +139,8 @@ TEST_F(BaseSearchProviderTest, PreserveAnswersWhenDeduplicating) {
   omnibox::RichAnswerTemplate answer_template;
 
   SearchSuggestionParser::SuggestResult more_relevant(
-      query, AutocompleteMatchType::SEARCH_HISTORY, omnibox::TYPE_NATIVE_CHROME,
+      query, omnibox::AutocompleteMatchType::kSearchHistory,
+      omnibox::TYPE_NATIVE_CHROME,
       /*subtypes=*/{}, /*from_keyword=*/false,
       /*navigational_intent=*/omnibox::NAV_INTENT_NONE,
       /*relevance=*/1300, /*relevance_from_server=*/true,
@@ -150,7 +151,8 @@ TEST_F(BaseSearchProviderTest, PreserveAnswersWhenDeduplicating) {
       TemplateURLRef::NO_SUGGESTION_CHOSEN, false, false, &map);
 
   SearchSuggestionParser::SuggestResult less_relevant(
-      query, AutocompleteMatchType::SEARCH_SUGGEST, omnibox::TYPE_QUERY,
+      query, omnibox::AutocompleteMatchType::kSearchSuggest,
+      omnibox::TYPE_QUERY,
       /*subtypes=*/{}, /*from_keyword=*/false,
       /*navigational_intent=*/omnibox::NAV_INTENT_LOW,
       /*relevance=*/850, /*relevance_from_server=*/true,
@@ -169,7 +171,8 @@ TEST_F(BaseSearchProviderTest, PreserveAnswersWhenDeduplicating) {
   // Ensure answers are not copied over existing answers.
   map.clear();
   more_relevant = SearchSuggestionParser::SuggestResult(
-      query, AutocompleteMatchType::SEARCH_HISTORY, omnibox::TYPE_NATIVE_CHROME,
+      query, omnibox::AutocompleteMatchType::kSearchHistory,
+      omnibox::TYPE_NATIVE_CHROME,
       /*subtypes=*/{}, /*from_keyword=*/false,
       /*navigational_intent=*/omnibox::NAV_INTENT_NONE,
       /*relevance=*/1300,
@@ -189,10 +192,10 @@ TEST_F(BaseSearchProviderTest, PreserveAnswersWhenDeduplicating) {
   match = map.begin()->second;
   ASSERT_EQ(1U, match.duplicate_matches.size());
   duplicate = match.duplicate_matches[0];
-  EXPECT_EQ(AutocompleteMatchType::SEARCH_HISTORY, match.type);
+  EXPECT_EQ(omnibox::AutocompleteMatchType::kSearchHistory, match.type);
   EXPECT_EQ(omnibox::TYPE_NATIVE_CHROME, match.suggest_type);
   EXPECT_EQ(1300, match.relevance);
-  EXPECT_EQ(AutocompleteMatchType::SEARCH_SUGGEST, duplicate.type);
+  EXPECT_EQ(omnibox::AutocompleteMatchType::kSearchSuggest, duplicate.type);
   EXPECT_EQ(omnibox::TYPE_QUERY, duplicate.suggest_type);
   EXPECT_EQ(850, duplicate.relevance);
 }
@@ -208,7 +211,8 @@ TEST_F(BaseSearchProviderTest, PreserveImageWhenDeduplicating) {
   entity_info.mutable_image()->set_url("https://picsum.photos/200");
 
   SearchSuggestionParser::SuggestResult more_relevant(
-      query, AutocompleteMatchType::SEARCH_HISTORY, omnibox::TYPE_NATIVE_CHROME,
+      query, omnibox::AutocompleteMatchType::kSearchHistory,
+      omnibox::TYPE_NATIVE_CHROME,
       /*subtypes=*/{}, /*from_keyword=*/false,
       /*navigational_intent=*/omnibox::NAV_INTENT_NONE,
       /*relevance=*/1300, /*relevance_from_server=*/true,
@@ -219,7 +223,7 @@ TEST_F(BaseSearchProviderTest, PreserveImageWhenDeduplicating) {
       TemplateURLRef::NO_SUGGESTION_CHOSEN, false, false, &map);
 
   SearchSuggestionParser::SuggestResult less_relevant(
-      query, AutocompleteMatchType::SEARCH_SUGGEST_ENTITY,
+      query, omnibox::AutocompleteMatchType::kSearchSuggestEntity,
       omnibox::TYPE_CATEGORICAL_QUERY,
       /*subtypes=*/{}, /*from_keyword=*/false,
       /*navigational_intent=*/omnibox::NAV_INTENT_LOW,
@@ -235,14 +239,15 @@ TEST_F(BaseSearchProviderTest, PreserveImageWhenDeduplicating) {
 
   AutocompleteMatch match = map.begin()->second;
   EXPECT_EQ(entity_info.image().url(), match.image_url.spec());
-  EXPECT_EQ(AutocompleteMatchType::SEARCH_HISTORY, match.type);
+  EXPECT_EQ(omnibox::AutocompleteMatchType::kSearchHistory, match.type);
   EXPECT_EQ(omnibox::TYPE_NATIVE_CHROME, match.suggest_type);
   EXPECT_EQ(1300, match.relevance);
 
   ASSERT_EQ(1U, match.duplicate_matches.size());
   AutocompleteMatch duplicate = match.duplicate_matches[0];
   EXPECT_EQ(entity_info.image().url(), duplicate.image_url.spec());
-  EXPECT_EQ(AutocompleteMatchType::SEARCH_SUGGEST_ENTITY, duplicate.type);
+  EXPECT_EQ(omnibox::AutocompleteMatchType::kSearchSuggestEntity,
+            duplicate.type);
   EXPECT_EQ(omnibox::TYPE_CATEGORICAL_QUERY, duplicate.suggest_type);
   EXPECT_EQ(850, duplicate.relevance);
 
@@ -251,7 +256,7 @@ TEST_F(BaseSearchProviderTest, PreserveImageWhenDeduplicating) {
   omnibox::SuggestTemplateInfo entity_info2;
   entity_info2.mutable_image()->set_url("https://picsum.photos/300");
   more_relevant = SearchSuggestionParser::SuggestResult(
-      query, AutocompleteMatchType::SEARCH_SUGGEST_ENTITY,
+      query, omnibox::AutocompleteMatchType::kSearchSuggestEntity,
       omnibox::TYPE_CATEGORICAL_QUERY,
       /*subtypes=*/{}, /*from_keyword=*/false,
       /*navigational_intent=*/omnibox::NAV_INTENT_LOW,
@@ -271,14 +276,15 @@ TEST_F(BaseSearchProviderTest, PreserveImageWhenDeduplicating) {
 
   match = map.begin()->second;
   EXPECT_EQ(entity_info2.image().url(), match.image_url.spec());
-  EXPECT_EQ(AutocompleteMatchType::SEARCH_SUGGEST_ENTITY, match.type);
+  EXPECT_EQ(omnibox::AutocompleteMatchType::kSearchSuggestEntity, match.type);
   EXPECT_EQ(omnibox::TYPE_CATEGORICAL_QUERY, match.suggest_type);
   EXPECT_EQ(1300, match.relevance);
 
   ASSERT_EQ(1U, match.duplicate_matches.size());
   duplicate = match.duplicate_matches[0];
   EXPECT_EQ(entity_info.image().url(), duplicate.image_url.spec());
-  EXPECT_EQ(AutocompleteMatchType::SEARCH_SUGGEST_ENTITY, duplicate.type);
+  EXPECT_EQ(omnibox::AutocompleteMatchType::kSearchSuggestEntity,
+            duplicate.type);
   EXPECT_EQ(omnibox::TYPE_CATEGORICAL_QUERY, duplicate.suggest_type);
   EXPECT_EQ(850, duplicate.relevance);
 }
@@ -292,7 +298,8 @@ TEST_F(BaseSearchProviderTest, PreserveSubtypesWhenDeduplicating) {
   std::u16string query = u"wrist wa";
 
   SearchSuggestionParser::SuggestResult more_relevant(
-      query, AutocompleteMatchType::SEARCH_HISTORY, omnibox::TYPE_NATIVE_CHROME,
+      query, omnibox::AutocompleteMatchType::kSearchHistory,
+      omnibox::TYPE_NATIVE_CHROME,
       /*subtypes=*/{omnibox::SUBTYPE_PERSONAL}, /*from_keyword=*/false,
       /*navigational_intent=*/omnibox::NAV_INTENT_NONE,
       /*relevance=*/1300, /*relevance_from_server=*/true,
@@ -303,7 +310,7 @@ TEST_F(BaseSearchProviderTest, PreserveSubtypesWhenDeduplicating) {
       TemplateURLRef::NO_SUGGESTION_CHOSEN, false, false, &map);
 
   SearchSuggestionParser::SuggestResult less_relevant(
-      query, AutocompleteMatchType::SEARCH_SUGGEST_ENTITY,
+      query, omnibox::AutocompleteMatchType::kSearchSuggestEntity,
       omnibox::TYPE_CATEGORICAL_QUERY,
       /*subtypes=*/{omnibox::SUBTYPE_TRENDS}, /*from_keyword=*/false,
       /*navigational_intent=*/omnibox::NAV_INTENT_LOW,
@@ -317,7 +324,7 @@ TEST_F(BaseSearchProviderTest, PreserveSubtypesWhenDeduplicating) {
   ASSERT_EQ(1U, map.size());
 
   AutocompleteMatch match = map.begin()->second;
-  EXPECT_EQ(AutocompleteMatchType::SEARCH_HISTORY, match.type);
+  EXPECT_EQ(omnibox::AutocompleteMatchType::kSearchHistory, match.type);
   EXPECT_EQ(omnibox::TYPE_NATIVE_CHROME, match.suggest_type);
   ASSERT_EQ(2U, match.subtypes.size());
   EXPECT_TRUE(match.subtypes.contains(omnibox::SUBTYPE_PERSONAL));
@@ -326,7 +333,8 @@ TEST_F(BaseSearchProviderTest, PreserveSubtypesWhenDeduplicating) {
 
   ASSERT_EQ(1U, match.duplicate_matches.size());
   AutocompleteMatch duplicate = match.duplicate_matches[0];
-  EXPECT_EQ(AutocompleteMatchType::SEARCH_SUGGEST_ENTITY, duplicate.type);
+  EXPECT_EQ(omnibox::AutocompleteMatchType::kSearchSuggestEntity,
+            duplicate.type);
   EXPECT_EQ(omnibox::TYPE_CATEGORICAL_QUERY, duplicate.suggest_type);
   ASSERT_EQ(1U, duplicate.subtypes.size());
   EXPECT_TRUE(duplicate.subtypes.contains(omnibox::SUBTYPE_TRENDS));
@@ -344,7 +352,7 @@ TEST_F(BaseSearchProviderTest, PreserveAdditionalQueryParamsWhenDeduplicating) {
   // Ensure that a match with empty additional query params is added to the map
   // without a pre-computed `stripped_destination_url`.
   SearchSuggestionParser::SuggestResult plain_text =
-      BuildSuggestion(query, AutocompleteMatchType::SEARCH_HISTORY,
+      BuildSuggestion(query, omnibox::AutocompleteMatchType::kSearchHistory,
                       omnibox::TYPE_NATIVE_CHROME, {omnibox::SUBTYPE_PERSONAL},
                       /*additional_query_params=*/"",
                       /*relevance=*/1300, /*should_prerender=*/false);
@@ -365,7 +373,7 @@ TEST_F(BaseSearchProviderTest, PreserveAdditionalQueryParamsWhenDeduplicating) {
   // of the existing match in the map without a pre-computed
   // `stripped_destination_url`.
   SearchSuggestionParser::SuggestResult duplicate_plain_text =
-      BuildSuggestion(query, AutocompleteMatchType::SEARCH_HISTORY,
+      BuildSuggestion(query, omnibox::AutocompleteMatchType::kSearchHistory,
                       omnibox::TYPE_NATIVE_CHROME, {omnibox::SUBTYPE_PERSONAL},
                       /*additional_query_params=*/"",
                       /*relevance=*/1299, /*should_prerender=*/false);
@@ -386,7 +394,7 @@ TEST_F(BaseSearchProviderTest, PreserveAdditionalQueryParamsWhenDeduplicating) {
   // non-empty additional query params, is added to the map without a
   // pre-computed `stripped_destination_url`.
   SearchSuggestionParser::SuggestResult entity_1 =
-      BuildSuggestion(query, AutocompleteMatchType::SEARCH_HISTORY,
+      BuildSuggestion(query, omnibox::AutocompleteMatchType::kSearchHistory,
                       omnibox::TYPE_NATIVE_CHROME, {omnibox::SUBTYPE_PERSONAL},
                       /*additional_query_params=*/"gs_ssp=1",
                       /*relevance=*/1298, /*should_prerender=*/false);
@@ -406,7 +414,7 @@ TEST_F(BaseSearchProviderTest, PreserveAdditionalQueryParamsWhenDeduplicating) {
   // non-empty additional query params, is added to the map with a pre-computed
   // `stripped_destination_url`.
   SearchSuggestionParser::SuggestResult entity_2 =
-      BuildSuggestion(query, AutocompleteMatchType::SEARCH_HISTORY,
+      BuildSuggestion(query, omnibox::AutocompleteMatchType::kSearchHistory,
                       omnibox::TYPE_NATIVE_CHROME, {omnibox::SUBTYPE_PERSONAL},
                       /*additional_query_params=*/"gs_ssp=2",
                       /*relevance=*/1297, /*should_prerender=*/false);
@@ -426,7 +434,7 @@ TEST_F(BaseSearchProviderTest, PreserveAdditionalQueryParamsWhenDeduplicating) {
   // query params, and with a lower relevance is added as a duplicate of the
   // existing match in the map.
   SearchSuggestionParser::SuggestResult duplicate_1_entity_2 =
-      BuildSuggestion(query, AutocompleteMatchType::SEARCH_HISTORY,
+      BuildSuggestion(query, omnibox::AutocompleteMatchType::kSearchHistory,
                       omnibox::TYPE_NATIVE_CHROME, {omnibox::SUBTYPE_PERSONAL},
                       /*additional_query_params=*/"gs_ssp=2",
                       /*relevance=*/1296, /*should_prerender=*/false);
@@ -447,7 +455,7 @@ TEST_F(BaseSearchProviderTest, PreserveAdditionalQueryParamsWhenDeduplicating) {
   // query params, and with a higher relevance replaces the existing match in
   // the map with a pre-computed `stripped_destination_url`.
   SearchSuggestionParser::SuggestResult duplicate_2_entity_2 =
-      BuildSuggestion(query, AutocompleteMatchType::SEARCH_HISTORY,
+      BuildSuggestion(query, omnibox::AutocompleteMatchType::kSearchHistory,
                       omnibox::TYPE_NATIVE_CHROME, {omnibox::SUBTYPE_PERSONAL},
                       /*additional_query_params=*/"gs_ssp=2",
                       /*relevance=*/1301, /*should_prerender=*/false);
@@ -477,8 +485,9 @@ TEST_F(BaseSearchProviderTest, MatchTailSuggestionProperly) {
   std::u16string query = u"angeles now";
   std::u16string suggestion = u"weather los " + query;
   SearchSuggestionParser::SuggestResult suggest_result = BuildSuggestion(
-      suggestion, AutocompleteMatchType::SEARCH_SUGGEST_TAIL,
-      omnibox::TYPE_TAIL, /*subtypes=*/{}, /*additional_query_params=*/"",
+      suggestion, omnibox::AutocompleteMatchType::kSearchSuggestTail,
+      omnibox::TYPE_TAIL,
+      /*subtypes=*/{}, /*additional_query_params=*/"",
       /*relevance=*/1300, /*should_prerender=*/false);
 
   TestBaseSearchProvider::MatchMap map;
@@ -507,7 +516,7 @@ TEST_F(BaseSearchProviderTest, DeleteDuplicateMatch) {
   std::u16string query = u"site.com";
 
   SearchSuggestionParser::SuggestResult more_relevant(
-      query, AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED,
+      query, omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       omnibox::TYPE_NATIVE_CHROME,
       /*subtypes=*/{}, /*from_keyword=*/false,
       /*navigational_intent=*/omnibox::NAV_INTENT_NONE,
@@ -519,7 +528,8 @@ TEST_F(BaseSearchProviderTest, DeleteDuplicateMatch) {
       TemplateURLRef::NO_SUGGESTION_CHOSEN, false, false, &map);
 
   SearchSuggestionParser::SuggestResult less_relevant(
-      query, AutocompleteMatchType::SEARCH_HISTORY, omnibox::TYPE_NATIVE_CHROME,
+      query, omnibox::AutocompleteMatchType::kSearchHistory,
+      omnibox::TYPE_NATIVE_CHROME,
       /*subtypes=*/{}, /*from_keyword=*/false,
       /*navigational_intent=*/omnibox::NAV_INTENT_NONE,
       /*relevance=*/735, /*relevance_from_server=*/true,
@@ -551,7 +561,7 @@ TEST_F(BaseSearchProviderTest, PrerenderDefaultMatch) {
   std::u16string query = u"prerender";
 
   SearchSuggestionParser::SuggestResult default_suggestion(
-      query, AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED,
+      query, omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       omnibox::TYPE_NATIVE_CHROME, /*subtypes=*/{}, /*from_keyword=*/false,
       /*navigational_intent=*/omnibox::NAV_INTENT_NONE,
       /*relevance=*/850, /*relevance_from_server=*/true,
@@ -563,10 +573,11 @@ TEST_F(BaseSearchProviderTest, PrerenderDefaultMatch) {
       /*mark_as_deletable=*/false,
       /*in_keyword_mode=*/false, &map);
 
-  SearchSuggestionParser::SuggestResult prerender_suggestion = BuildSuggestion(
-      query, AutocompleteMatchType::SEARCH_SUGGEST, omnibox::TYPE_QUERY,
-      /*subtypes=*/{}, /*additional_query_params=*/"",
-      /*relevance=*/850, /*should_prerender=*/true);
+  SearchSuggestionParser::SuggestResult prerender_suggestion =
+      BuildSuggestion(query, omnibox::AutocompleteMatchType::kSearchSuggest,
+                      omnibox::TYPE_QUERY,
+                      /*subtypes=*/{}, /*additional_query_params=*/"",
+                      /*relevance=*/850, /*should_prerender=*/true);
   provider_->AddMatchToMap(
       prerender_suggestion, AutocompleteInput(), template_url.get(),
       client_->GetTemplateURLService()->search_terms_data(),
@@ -624,9 +635,10 @@ TEST_P(BaseSearchProviderOnDeviceSuggestionTest,
     ASSERT_EQ(match.contents, is_tail_suggestion
                                   ? expected_tail_match_contents[i]
                                   : suggestions[i]);
-    ASSERT_EQ(match.type, is_tail_suggestion
-                              ? AutocompleteMatchType::SEARCH_SUGGEST_TAIL
-                              : AutocompleteMatchType::SEARCH_SUGGEST);
+    ASSERT_EQ(match.type,
+              is_tail_suggestion
+                  ? omnibox::AutocompleteMatchType::kSearchSuggestTail
+                  : omnibox::AutocompleteMatchType::kSearchSuggest);
     ASSERT_EQ(match.suggest_type,
               is_tail_suggestion ? omnibox::TYPE_TAIL : omnibox::TYPE_QUERY);
   }
@@ -791,7 +803,8 @@ TEST_F(BaseSearchProviderTest, SuggestTemplateInfoPopulatesMatch) {
       "abc";
 
   SearchSuggestionParser::SuggestResult result(
-      query, AutocompleteMatchType::SEARCH_SUGGEST, omnibox::TYPE_NATIVE_CHROME,
+      query, omnibox::AutocompleteMatchType::kSearchSuggest,
+      omnibox::TYPE_NATIVE_CHROME,
       /*subtypes=*/{}, /*from_keyword=*/false,
       /*navigational_intent=*/omnibox::NAV_INTENT_NONE,
       /*relevance=*/1300, /*relevance_from_server=*/true,
@@ -838,7 +851,8 @@ TEST_F(BaseSearchProviderTest,
   sec_frag2->set_is_bolded(false);
 
   SearchSuggestionParser::SuggestResult result(
-      query, AutocompleteMatchType::SEARCH_SUGGEST, omnibox::TYPE_NATIVE_CHROME,
+      query, omnibox::AutocompleteMatchType::kSearchSuggest,
+      omnibox::TYPE_NATIVE_CHROME,
       /*subtypes=*/{}, query, /*match_contents_prefix=*/u"",
       /*annotation=*/u"MIA Basketball", /*deletion_url=*/"",
       /*from_keyword=*/false,
@@ -876,7 +890,8 @@ TEST_F(BaseSearchProviderTest, SuggestTemplateInfoRichImagePopulatesMatch) {
   suggest_template_info.mutable_image()->set_url("http://example.com/cat.png");
 
   SearchSuggestionParser::SuggestResult result(
-      query, AutocompleteMatchType::SEARCH_SUGGEST, omnibox::TYPE_NATIVE_CHROME,
+      query, omnibox::AutocompleteMatchType::kSearchSuggest,
+      omnibox::TYPE_NATIVE_CHROME,
       /*subtypes=*/{}, /*from_keyword=*/false,
       /*navigational_intent=*/omnibox::NAV_INTENT_NONE,
       /*relevance=*/1300, /*relevance_from_server=*/true,
@@ -904,7 +919,8 @@ TEST_F(BaseSearchProviderTest, AnswerAndImageOnlyPopulatedForGoogle) {
   entity_info.mutable_image()->set_dominant_color("#ffffff");
 
   SearchSuggestionParser::SuggestResult result(
-      query, AutocompleteMatchType::SEARCH_SUGGEST, omnibox::TYPE_QUERY,
+      query, omnibox::AutocompleteMatchType::kSearchSuggest,
+      omnibox::TYPE_QUERY,
       /*subtypes=*/{}, /*from_keyword=*/false,
       /*navigational_intent=*/omnibox::NAV_INTENT_NONE,
       /*relevance=*/1300, /*relevance_from_server=*/true,
@@ -983,7 +999,8 @@ TEST_F(BaseSearchProviderTest, EntityImageMustBeHostedBySearchEngine) {
 
     std::u16string query = u"weather";
     SearchSuggestionParser::SuggestResult result(
-        query, AutocompleteMatchType::SEARCH_SUGGEST, omnibox::TYPE_QUERY,
+        query, omnibox::AutocompleteMatchType::kSearchSuggest,
+        omnibox::TYPE_QUERY,
         /*subtypes=*/{}, /*from_keyword=*/false,
         /*navigational_intent=*/omnibox::NAV_INTENT_NONE,
         /*relevance=*/1300, /*relevance_from_server=*/true,

@@ -106,7 +106,24 @@
     [self.consumer setProgressUpdatesEnabled:updatesEnabled];
   }
 
+  if ([self.consumer
+          respondsToSelector:@selector(setNewTasksNotificationEnabled:)]) {
+    BOOL newTasksNotificationEnabled =
+        _prefService->GetBoolean(prefs::kLevelUpNewTasksNotificationEnabled);
+    [self.consumer setNewTasksNotificationEnabled:newTasksNotificationEnabled];
+  }
+
   int level = _levelUpService->GetCurrentLevel();
+
+  auto [remainingTasksForNextLevel, totalTasksForNextLevel] =
+      _levelUpService->GetTasksRemainingForNextLevel();
+  if ([self.consumer
+          respondsToSelector:@selector(setLevel:remainingTasksForNextLevel:
+                                       totalTasksForNextLevel:)]) {
+    [self.consumer setLevel:level
+        remainingTasksForNextLevel:remainingTasksForNextLevel
+            totalTasksForNextLevel:totalTasksForNextLevel];
+  }
 
   NSMutableArray<LevelUpTask*>* productivityTasks =
       [[NSMutableArray alloc] init];
@@ -144,8 +161,8 @@
                                               completed:completed]];
   }
 
-  if ([self.consumer respondsToSelector:@selector(setLevel:tasksForLevel:)]) {
-    [self.consumer setLevel:level tasksForLevel:recommendedTasks];
+  if ([self.consumer respondsToSelector:@selector(setRecommendedTasks:)]) {
+    [self.consumer setRecommendedTasks:recommendedTasks];
   }
 
   _categories = @[
@@ -201,66 +218,102 @@
 
 // Configures the task stat.
 - (void)configureTaskStat:(NSArray<LevelUpTask*>*)allTasks {
+  if (![self.consumer respondsToSelector:@selector(setStats:)]) {
+    return;
+  }
+
   NSMutableArray<LevelUpStat*>* stats = [[NSMutableArray alloc] init];
 
-  int tabsDecluttered =
-      _levelUpService->GetStatValue(LevelUpTaskStatType::kTabsDecluttered);
-  NSString* title1 = l10n_util::GetPluralNSStringF(
-      IDS_IOS_LEVEL_UP_STAT_TABS_DECLUTTERED, tabsDecluttered);
-  NSString* subtitle1 =
-      l10n_util::GetNSString(IDS_IOS_LEVEL_UP_STAT_SUBTITLE_TABS_DECLUTTERED);
-  LevelUpStat* stat1 =
-      [[LevelUpStat alloc] initWithTitle:title1
-                                subtitle:subtitle1
-                         imageLottieName:@"tabs_decluttered"
-                                    type:LevelUpTaskStatType::kTabsDecluttered];
-  [stats addObject:stat1];
-
-  int typingSaved =
-      _levelUpService->GetStatValue(LevelUpTaskStatType::kTypingSaved);
-  NSString* title2 = l10n_util::GetPluralNSStringF(
-      IDS_IOS_LEVEL_UP_STAT_TYPING_SAVED, typingSaved);
-  NSString* subtitle2 =
-      l10n_util::GetNSString(IDS_IOS_LEVEL_UP_STAT_SUBTITLE_TYPING_SAVED);
-  LevelUpStat* stat2 =
-      [[LevelUpStat alloc] initWithTitle:title2
-                                subtitle:subtitle2
-                         imageLottieName:@"typing_saved"
-                                    type:LevelUpTaskStatType::kTypingSaved];
-  [stats addObject:stat2];
-
-  int passwordsVerified =
-      _levelUpService->GetStatValue(LevelUpTaskStatType::kPasswordsVerified);
-  NSString* title3 = l10n_util::GetPluralNSStringF(
-      IDS_IOS_LEVEL_UP_STAT_PASSWORDS_VERIFIED, passwordsVerified);
-  NSString* subtitle3 =
-      l10n_util::GetNSString(IDS_IOS_LEVEL_UP_STAT_SUBTITLE_PASSWORDS_VERIFIED);
-  LevelUpStat* stat3 = [[LevelUpStat alloc]
-        initWithTitle:title3
-             subtitle:subtitle3
-      imageLottieName:@"passwords_verified"
-                 type:LevelUpTaskStatType::kPasswordsVerified];
-  [stats addObject:stat3];
-
-  int photoSearchesPerformed = _levelUpService->GetStatValue(
-      LevelUpTaskStatType::kPhotoSearchesPerformed);
-  NSString* title4 = l10n_util::GetPluralNSStringF(
-      IDS_IOS_LEVEL_UP_STAT_PHOTO_SEARCHES_PERFORMED, photoSearchesPerformed);
-  NSString* subtitle4 = l10n_util::GetNSString(
-      IDS_IOS_LEVEL_UP_STAT_SUBTITLE_PHOTO_SEARCHES_PERFORMED);
-  LevelUpStat* stat4 = [[LevelUpStat alloc]
-        initWithTitle:title4
-             subtitle:subtitle4
-      imageLottieName:@"photo_searches_performed"
-                 type:LevelUpTaskStatType::kPhotoSearchesPerformed];
-  [stats addObject:stat4];
-
-  if ([self.consumer respondsToSelector:@selector(setStats:)]) {
-    [self.consumer setStats:stats];
+  if (LevelUpStat* stat = [self tabsDeclutteredStat]) {
+    [stats addObject:stat];
   }
+
+  if (LevelUpStat* stat = [self passwordsAutofilledStat]) {
+    [stats addObject:stat];
+  }
+
+  if (LevelUpStat* stat = [self passwordsVerifiedStat]) {
+    [stats addObject:stat];
+  }
+
+  if (LevelUpStat* stat = [self photoSearchesPerformedStat]) {
+    [stats addObject:stat];
+  }
+
+  [self.consumer setStats:stats];
 }
 
-- (void)toggleProgressUpdates {
+- (LevelUpStat*)tabsDeclutteredStat {
+  int tabsDecluttered =
+      _levelUpService->GetStatValue(LevelUpTaskStatType::kTabsDecluttered);
+  if (tabsDecluttered <= 0) {
+    return nil;
+  }
+
+  NSString* title = l10n_util::GetPluralNSStringF(
+      IDS_IOS_LEVEL_UP_STAT_TABS_DECLUTTERED, tabsDecluttered);
+  NSString* subtitle =
+      l10n_util::GetNSString(IDS_IOS_LEVEL_UP_STAT_SUBTITLE_TABS_DECLUTTERED);
+  return
+      [[LevelUpStat alloc] initWithTitle:title
+                                subtitle:subtitle
+                         imageLottieName:@"tabs_decluttered"
+                                    type:LevelUpTaskStatType::kTabsDecluttered];
+}
+
+- (LevelUpStat*)passwordsAutofilledStat {
+  int passwordsAutofilled =
+      _levelUpService->GetStatValue(LevelUpTaskStatType::kPasswordsAutofilled);
+  if (passwordsAutofilled <= 0) {
+    return nil;
+  }
+  NSString* title = l10n_util::GetPluralNSStringF(
+      IDS_IOS_LEVEL_UP_STAT_PASSWORDS_AUTOFILLED, passwordsAutofilled);
+  NSString* subtitle = l10n_util::GetNSString(
+      IDS_IOS_LEVEL_UP_STAT_SUBTITLE_PASSWORDS_AUTOFILLED);
+  return [[LevelUpStat alloc]
+        initWithTitle:title
+             subtitle:subtitle
+      imageLottieName:@"typing_saved"
+                 type:LevelUpTaskStatType::kPasswordsAutofilled];
+}
+
+- (LevelUpStat*)passwordsVerifiedStat {
+  int passwordsVerified =
+      _levelUpService->GetStatValue(LevelUpTaskStatType::kPasswordsVerified);
+  if (passwordsVerified <= 0) {
+    return nil;
+  }
+  NSString* title = l10n_util::GetPluralNSStringF(
+      IDS_IOS_LEVEL_UP_STAT_PASSWORDS_VERIFIED, passwordsVerified);
+  NSString* subtitle =
+      l10n_util::GetNSString(IDS_IOS_LEVEL_UP_STAT_SUBTITLE_PASSWORDS_VERIFIED);
+  return [[LevelUpStat alloc]
+        initWithTitle:title
+             subtitle:subtitle
+      imageLottieName:@"passwords_verified"
+                 type:LevelUpTaskStatType::kPasswordsVerified];
+}
+
+- (LevelUpStat*)photoSearchesPerformedStat {
+  int photoSearchesPerformed = _levelUpService->GetStatValue(
+      LevelUpTaskStatType::kPhotoSearchesPerformed);
+  if (photoSearchesPerformed <= 0) {
+    return nil;
+  }
+  NSString* title = l10n_util::GetPluralNSStringF(
+      IDS_IOS_LEVEL_UP_STAT_PHOTO_SEARCHES_PERFORMED, photoSearchesPerformed);
+  NSString* subtitle = l10n_util::GetNSString(
+      IDS_IOS_LEVEL_UP_STAT_SUBTITLE_PHOTO_SEARCHES_PERFORMED);
+  return [[LevelUpStat alloc]
+        initWithTitle:title
+             subtitle:subtitle
+      imageLottieName:@"photo_searches_performed"
+                 type:LevelUpTaskStatType::kPhotoSearchesPerformed];
+}
+
+- (BOOL)toggleProgressUpdates {
+  CHECK(_prefService);
   BOOL oldValue = _prefService->GetBoolean(prefs::kLevelUpUIEnabled);
   BOOL newValue = !oldValue;
   _prefService->SetBoolean(prefs::kLevelUpUIEnabled, newValue);
@@ -268,6 +321,11 @@
           respondsToSelector:@selector(setProgressUpdatesEnabled:)]) {
     [self.consumer setProgressUpdatesEnabled:newValue];
   }
+  return newValue;
+}
+
+- (void)setNewTasksNotificationEnabled:(BOOL)enabled {
+  _prefService->SetBoolean(prefs::kLevelUpNewTasksNotificationEnabled, enabled);
 }
 
 - (void)turnOffLevelUp {

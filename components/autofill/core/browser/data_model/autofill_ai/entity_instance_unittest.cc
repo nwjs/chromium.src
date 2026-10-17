@@ -100,6 +100,31 @@ TEST_F(AutofillEntityInstanceTest, MaskedPersonalContextEntity) {
   EXPECT_FALSE(entity.IsUnmaskedEntity());
 }
 
+TEST_F(AutofillEntityInstanceTest, PersonalContextSource) {
+  using Source = EntityInstance::PersonalContextRecordTypePayload::Source;
+  using GmailSourceMetadata =
+      EntityInstance::PersonalContextRecordTypePayload::GmailSourceMetadata;
+  using PhotosSourceMetadata =
+      EntityInstance::PersonalContextRecordTypePayload::PhotosSourceMetadata;
+
+  base::Time kTestTime = base::Time::FromSecondsSinceUnixEpoch(1700000000);
+  Source gmail_source{
+      .url = GURL("https://mail.google.com"),
+      .metadata = GmailSourceMetadata{.title = "Flight confirmation"},
+  };
+  EXPECT_EQ(gmail_source.type(), Source::Type::kGmail);
+  EXPECT_EQ(std::get<GmailSourceMetadata>(gmail_source.metadata).title,
+            "Flight confirmation");
+
+  Source photos_source{
+      .url = GURL("https://photos.google.com"),
+      .metadata = PhotosSourceMetadata{.timestamp = kTestTime},
+  };
+  EXPECT_EQ(photos_source.type(), Source::Type::kPhotos);
+  EXPECT_EQ(std::get<PhotosSourceMetadata>(photos_source.metadata).timestamp,
+            kTestTime);
+}
+
 TEST_F(AutofillEntityInstanceTest, NeitherMaskedNorUnmaskedEntity) {
   AttributeInstance attribute((AttributeType(kPassportNumber)));
   ASSERT_TRUE(attribute.type().is_obfuscated());
@@ -128,6 +153,38 @@ TEST_F(AutofillEntityInstanceTest, ServerEntityWithUnmaskedAttributes) {
       {attribute}, {.record_type = EntityInstance::RecordType::kServerWallet});
   EXPECT_FALSE(entity.IsMaskedEntity());
   EXPECT_TRUE(entity.IsUnmaskedEntity());
+}
+
+TEST_F(AutofillEntityInstanceTest, CopyWithNewRecordTypeSetsWalletPayload) {
+  EntityInstance local_entity = test::GetPassportEntityInstance(
+      {.record_type = EntityInstance::RecordType::kLocal});
+
+  // Converting kLocal to kServerWallet initializes an empty
+  // WalletRecordTypePayload.
+  EntityInstance converted_wallet_entity = local_entity.CopyWithNewRecordType(
+      EntityInstance::RecordType::kServerWallet);
+  const EntityInstance::WalletRecordTypePayload* converted_payload =
+      std::get_if<EntityInstance::WalletRecordTypePayload>(
+          &converted_wallet_entity.record_type_data());
+  ASSERT_NE(converted_payload, nullptr);
+  EXPECT_EQ(converted_payload->management_url, "");
+}
+
+TEST_F(AutofillEntityInstanceTest,
+       CopyWithNewRecordTypeSameTypeCopiesThePayload) {
+  constexpr char kWalletUrl[] =
+      "https://wallet.google.com/synthetic_pass?id=fake123";
+  EntityInstance wallet_entity = test::GetPassportEntityInstance(
+      {.record_type = EntityInstance::WalletRecordTypePayload{.management_url =
+                                                                  kWalletUrl}});
+
+  EntityInstance converted_wallet_entity = wallet_entity.CopyWithNewRecordType(
+      EntityInstance::RecordType::kServerWallet);
+  const EntityInstance::WalletRecordTypePayload* converted_payload =
+      std::get_if<EntityInstance::WalletRecordTypePayload>(
+          &converted_wallet_entity.record_type_data());
+  ASSERT_NE(converted_payload, nullptr);
+  EXPECT_EQ(converted_payload->management_url, kWalletUrl);
 }
 
 TEST_F(AutofillEntityInstanceTest, Attributes) {

@@ -139,6 +139,46 @@ void RecordSelectionOverlayMetrics(
 #endif
 }
 
+#if BUILDFLAG(STRUCTURED_METRICS_ENABLED)
+// Translates the browser-side enum into the structured metrics enum generated
+// from structured.xml. Written as an exhaustive switch with no default so that
+// adding a ClientLoadErrorReason without adding the matching structured.xml
+// variant is a compile error rather than a silently mislabelled metric.
+metrics::structured::events::v2::glic::GlicClientLoadErrorReason
+ToStructuredReason(ClientLoadErrorReason reason) {
+  using Reason =
+      metrics::structured::events::v2::glic::GlicClientLoadErrorReason;
+  switch (reason) {
+    case ClientLoadErrorReason::kUnknown:
+      return Reason::UNKNOWN;
+    case ClientLoadErrorReason::kUnavailable:
+      return Reason::UNAVAILABLE;
+    case ClientLoadErrorReason::kIneligibleAccount:
+      return Reason::INELIGIBLE_ACCOUNT;
+    case ClientLoadErrorReason::kLocationMismatch:
+      return Reason::LOCATION_MISMATCH;
+    case ClientLoadErrorReason::kDisabledByAdmin:
+      return Reason::DISABLED_BY_ADMIN;
+    case ClientLoadErrorReason::kOffline:
+      return Reason::OFFLINE;
+    case ClientLoadErrorReason::kSignIn:
+      return Reason::SIGN_IN;
+    case ClientLoadErrorReason::kCookieSyncFailed:
+      return Reason::COOKIE_SYNC_FAILED;
+    case ClientLoadErrorReason::kGuestLoadFailed:
+      return Reason::GUEST_LOAD_FAILED;
+    case ClientLoadErrorReason::kGuestProcessGone:
+      return Reason::GUEST_PROCESS_GONE;
+    case ClientLoadErrorReason::kClientError:
+      return Reason::CLIENT_ERROR;
+    case ClientLoadErrorReason::kClientLoadTimeout:
+      return Reason::CLIENT_LOAD_TIMEOUT;
+    case ClientLoadErrorReason::kWarmedTimeout:
+      return Reason::WARMED_TIMEOUT;
+  }
+}
+#endif
+
 }  // namespace
 
 GlicInstanceMetrics::TurnInfo::TurnInfo() = default;
@@ -869,6 +909,26 @@ void GlicInstanceMetrics::UninterruptActorTask() {
   LogEvent(GlicInstanceEvent::kUninterruptActorTask);
 }
 
+void GlicInstanceMetrics::SetActiveInvocationId(
+    std::optional<uint64_t> invocation_id) {
+  active_invocation_id_ = invocation_id;
+  active_invocation_start_time_ =
+      invocation_id ? base::TimeTicks::Now() : base::TimeTicks();
+}
+
+void GlicInstanceMetrics::OnClientLoadError(ClientLoadErrorReason reason) {
+#if BUILDFLAG(STRUCTURED_METRICS_ENABLED)
+  metrics::structured::events::v2::glic::ClientLoadError event;
+  event.SetReason(ToStructuredReason(reason));
+  if (active_invocation_id_.has_value()) {
+    event.SetInvocationId(*active_invocation_id_);
+    event.SetElapsedMs((base::TimeTicks::Now() - active_invocation_start_time_)
+                           .InMilliseconds());
+  }
+  metrics::structured::StructuredMetricsClient::Record(std::move(event));
+#endif
+}
+
 void GlicInstanceMetrics::OnWebUiStateChanged(mojom::WebUiState state) {
 #if BUILDFLAG(STRUCTURED_METRICS_ENABLED)
   if (active_invocation_id_.has_value()) {
@@ -1115,8 +1175,13 @@ void GlicInstanceMetrics::OnUserInputSubmitted(mojom::WebClientMode mode,
   inputs_modes_used_.Put(mode);
 }
 
-void GlicInstanceMetrics::DidRequestContextFromTab(tabs::TabInterface& tab) {
-  LogEvent(GlicInstanceEvent::kContextRequested);
+void GlicInstanceMetrics::DidRequestContextFromFocusedTab() {
+  LogEvent(GlicInstanceEvent::kFocusedTabContextRequested);
+  DidRequestContextFromTab();
+}
+
+void GlicInstanceMetrics::DidRequestContextFromTab() {
+  LogEvent(GlicInstanceEvent::kTabContextRequested);
   turn_.did_request_context_ = true;
 }
 

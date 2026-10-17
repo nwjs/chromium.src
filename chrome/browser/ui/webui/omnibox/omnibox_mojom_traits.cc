@@ -107,7 +107,7 @@ StructTraits<mojom::AutocompleteMatchDataView,
 
 std::string StructTraits<mojom::AutocompleteMatchDataView,
                          ::AutocompleteMatchWrapper>::type(const CppType& in) {
-  return AutocompleteMatchType::ToString(in.wrapped_match().type);
+  return omnibox::AutocompleteMatchTypeToString(in.wrapped_match().type);
 }
 
 bool StructTraits<mojom::AutocompleteMatchDataView,

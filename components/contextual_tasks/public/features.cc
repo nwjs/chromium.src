@@ -47,6 +47,10 @@ BASE_FEATURE(kContextualTasksSidePanel, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kContextualTasksEphemeralBrandedEntryPoint,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables updated entry points for contextual tasks.
+BASE_FEATURE(kContextualTasksUpdatedEntryPoints,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables extra OAuth scopes for contextual tasks.
 BASE_FEATURE(kContextualTasksExtraOauthScopes,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -61,6 +65,11 @@ BASE_FEATURE(kEnableContextualTasksPinButtonInToolbar,
 // Keeps the ephemeral contextual tasks button visible even when the permanent
 // button is pinned in the toolbar.
 BASE_FEATURE(kEphemeralPinningVisibleWhenPermanentlyPinned,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables a context menu on the ephemeral contextual tasks toolbar button to
+// remove it from the toolbar.
+BASE_FEATURE(kContextualTasksEphemeralButtonContextMenu,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables relevant context determination for contextual tasks.
@@ -135,8 +144,6 @@ BASE_FEATURE(kContextualTasksEnableFileHint, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kContextualTasksComposeboxJumpFix,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kContextualTasksComposeboxFork, base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables the use of a rounded clip-path for the composebox.
 BASE_FEATURE(kContextualTasksRoundedClipPath, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -187,6 +194,15 @@ BASE_FEATURE(kContextualTasksWindowTracking, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kContextualTasksUploadChunking, base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kContextualTasksWebUiVoiceSearchDesktopAndroid,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kCopyTextJourneys, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsCopyTextJourneysEnabled() {
+  return base::FeatureList::IsEnabled(kCopyTextJourneys);
+}
+
 BASE_FEATURE(kContextualTasksEnableSpatialModelToolbarLayout,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -209,7 +225,7 @@ bool GetIsContextualTasksNonBlockingUrlNavigationEnabled() {
 }
 
 BASE_FEATURE(kAllowSignedOutUserInDesktopAndroid,
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsAllowSignedOutUserInDesktopAndroidEnabled() {
 #if BUILDFLAG(IS_ANDROID)
@@ -244,6 +260,11 @@ bool GetIsContextualTasksWindowTrackingEnabled() {
 
 bool GetIsContextualTasksUploadChunkingEnabled() {
   return base::FeatureList::IsEnabled(kContextualTasksUploadChunking);
+}
+
+bool GetIsContextualTasksWebUiVoiceSearchDesktopAndroidEnabled() {
+  return base::FeatureList::IsEnabled(
+      kContextualTasksWebUiVoiceSearchDesktopAndroid);
 }
 
 bool GetContextualTasksSpatialModelToolbarLayoutEnabled() {
@@ -586,6 +607,22 @@ const base::FeatureParam<bool> kContextualTasksEnableNativeZeroStateSuggestions(
     &kContextualTasks,
     "ContextualTasksEnableNativeZeroStateSuggestions",
     true);
+
+const base::FeatureParam<bool> kContextualTasksContextMenuShowAskGoogle(
+    &kContextualTasksUpdatedEntryPoints,
+    "ContextualTasksContextMenuShowAskGoogle",
+    false);
+
+const base::FeatureParam<bool>
+    kContextualTasksContextMenuRouteAskGoogleToOmnibox(
+        &kContextualTasksUpdatedEntryPoints,
+        "ContextualTasksContextMenuRouteAskGoogleToOmnibox",
+        false);
+
+const base::FeatureParam<bool> kContextualTasksContextMenuSubmenu(
+    &kContextualTasksUpdatedEntryPoints,
+    "ContextualTasksContextMenuSubmenu",
+    false);
 
 // The URL parameter name to check for NLM mode.
 const base::FeatureParam<std::string> kContextualTasksNlmUrlParam{
@@ -932,6 +969,11 @@ const char kContextualTasksContextName[] = "Contextual Tasks Context";
 const char kContextualTasksContextDescription[] =
     "Enables relevant context determination for contextual tasks.";
 
+const char kContextualTasksContextMultiTurnTabRelevanceName[] =
+    "Contextual Tasks Context Multi-Turn Tab Relevance";
+const char kContextualTasksContextMultiTurnTabRelevanceDescription[] =
+    "Enables multi-turn tab relevance model for contextual tasks.";
+
 const char kContextualTasksSearchQueryName[] = "Contextual Tasks Search Query";
 const char kContextualTasksSearchQueryDescription[] =
     "Enables forwarding the search query parameter 'q' in contextual tasks.";
@@ -993,6 +1035,10 @@ const char kContextualTasksEphemeralBrandedEntryPointName[] =
     "Contextual Tasks Ephemeral Branded Entry Point";
 const char kContextualTasksEphemeralBrandedEntryPointDescription[] =
     "Enables the ephemeral branded entry point for contextual tasks.";
+const char kContextualTasksUpdatedEntryPointsName[] =
+    "Contextual Tasks Updated Entry Points";
+const char kContextualTasksUpdatedEntryPointsDescription[] =
+    "Enables updated entry points for contextual tasks.";
 const char kContextualTasksSidePanelRearchitectureName[] =
     "Contextual Tasks Side Panel Rearchitecture";
 const char kContextualTasksSidePanelRearchitectureDescription[] =
@@ -1016,6 +1062,17 @@ const char kEphemeralPinningVisibleWhenPermanentlyPinnedName[] =
 const char kEphemeralPinningVisibleWhenPermanentlyPinnedDescription[] =
     "Keeps the ephemeral contextual tasks button visible even when the "
     "permanent button is pinned in the toolbar.";
+
+const char kContextualTasksEphemeralButtonContextMenuName[] =
+    "Contextual Tasks Ephemeral Button Context Menu";
+const char kContextualTasksEphemeralButtonContextMenuDescription[] =
+    "Enables a context menu on the ephemeral contextual tasks toolbar button "
+    "to remove it from the toolbar.";
+
+const char kCopyTextJourneysName[] = "Copy-Text Journeys";
+const char kCopyTextJourneysDescription[] =
+    "Enables offering to reopen a search answer in the Contextual Tasks side "
+    "panel.";
 
 }  // namespace flag_descriptions
 

@@ -1024,6 +1024,15 @@ targets.legacy_basic_suite(
 )
 
 targets.legacy_basic_suite(
+    # TODO(crbug.com/554055689): Remove this thin wrapper and directly use the
+    # underlying test once V8 is migrated to use Starlark test specs.
+    name = "legacy_webrtc_tests",
+    tests = {
+        "webrtc_tests": targets.legacy_test_config(),
+    },
+)
+
+targets.legacy_basic_suite(
     name = "gpu_metal_passthrough_graphite_telemetry_tests",
     tests = {
         "context_lost_metal_passthrough_graphite_tests": targets.legacy_test_config(),
@@ -1070,13 +1079,6 @@ targets.legacy_basic_suite(
     name = "gpu_webcodecs_metal_passthrough_graphite_telemetry_test",
     tests = {
         "webcodecs_metal_passthrough_graphite_tests": targets.legacy_test_config(),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "gpu_webrtc_telemetry_test",
-    tests = {
-        "webrtc_tests": targets.legacy_test_config(),
     },
 )
 
@@ -1356,6 +1358,36 @@ targets.legacy_basic_suite(
 )
 
 targets.legacy_basic_suite(
+    name = "ondevice_api_scrape_tests_suite",
+    tests = {
+        "ondevice_api_scrape_tests": targets.legacy_test_config(
+            mixins = [
+                "has_native_resultdb_integration",
+            ],
+            linux_args = [
+                "--chromedriver",
+                "chromedriver",
+                "--binary",
+                "chrome",
+                "--use-xvfb",
+            ],
+            mac_args = [
+                "--chromedriver",
+                "chromedriver",
+                "--binary",
+                "Google Chrome.app/Contents/MacOS/Google Chrome",
+            ],
+            win_args = [
+                "--chromedriver",
+                "chromedriver.exe",
+                "--binary",
+                "Chrome.exe",
+            ],
+        ),
+    },
+)
+
+targets.legacy_basic_suite(
     name = "ondevice_stability_tests_light_suite",
     tests = {
         "ondevice_stability_tests_light": targets.legacy_test_config(
@@ -1407,13 +1439,12 @@ targets.legacy_basic_suite(
     },
 )
 
-# TODO(b:484388901): Enable GPU backedn testing when the issue is fixed.
-# targets.legacy_basic_suite(
-#     name = "litert_e2e_tests_gpu_suite",
-#     tests = {
-#         "litert_e2e_tests_gpu": targets.legacy_test_config(),
-#     },
-# )
+targets.legacy_basic_suite(
+    name = "litert_e2e_tests_gpu_suite",
+    tests = {
+        "litert_e2e_tests_gpu": targets.legacy_test_config(),
+    },
+)
 
 targets.legacy_basic_suite(
     name = "litert_e2e_tests_cpu_suite",
@@ -1429,13 +1460,12 @@ targets.legacy_basic_suite(
     },
 )
 
-# TODO(b:484388901): Enable GPU backedn testing when the issue is fixed.
-# targets.legacy_basic_suite(
-#     name = "litert_lm_advanced_main_legacy_tests_gpu_suite",
-#     tests = {
-#         "litert_lm_advanced_main_legacy_tests_gpu": targets.legacy_test_config(),
-#     },
-# )
+targets.legacy_basic_suite(
+    name = "litert_lm_advanced_main_legacy_tests_gpu_suite",
+    tests = {
+        "litert_lm_advanced_main_legacy_tests_gpu": targets.legacy_test_config(),
+    },
+)
 
 _CHROME_AI_WPT_TEST_CONFIG = targets.legacy_test_config(
     mixins = [
@@ -1642,13 +1672,6 @@ targets.legacy_basic_suite(
                 "external/wpt/ai/translator",
             ],
         ),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "vulkan_swiftshader_isolated_scripts",
-    tests = {
-        "vulkan_swiftshader_blink_web_tests": targets.legacy_test_config(),
     },
 )
 

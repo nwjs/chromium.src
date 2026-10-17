@@ -22,7 +22,6 @@ include_rules = [
   "+chrome/browser/ash/login",
   "+chrome/browser/ash/notifications",
   "+chrome/browser/ash/ownership",
-  "+chrome/browser/ash/policy/dev_mode",
   "+chrome/browser/ash/policy/enrollment",
   "+chrome/browser/ash/policy/external_data",
   "+chrome/browser/ash/policy/handlers",
@@ -37,7 +36,6 @@ include_rules = [
   "+chrome/browser/ash/policy/skyvault",
   "+chrome/browser/ash/policy/status_collector",
   "+chrome/browser/ash/policy/uploading",
-  "+chrome/browser/ash/policy/value_validation",
   "+chrome/browser/ash/printing",
   "+chrome/browser/ash/profiles",
   "+chrome/browser/ash/settings",
@@ -58,15 +56,23 @@ include_rules = [
   "+chrome/browser/net",
   "+chrome/browser/policy",
   "+chrome/browser/profiles",
-  "+chrome/browser/signin",
   "+chrome/browser/unified_consent",
-  "+chrome/browser/web_applications/web_app_provider.h",
   "+chrome/common/chrome_constants.h",
   "+chrome/common/chrome_content_client.h",
   "+chrome/common/chrome_paths.h",
 ]
 
 specific_include_rules = {
+  # The keyed service factory is the //chrome seam: it resolves the
+  # signin::IdentityManager that the ash class takes by constructor.
+  "user_cloud_policy_token_forwarder_factory\\.cc": [
+    "+chrome/browser/signin/identity_manager_factory.h",
+  ],
+  ".*(unittest|browsertest)\\.cc": [
+    "+chrome/browser/signin/identity_manager_factory.h",
+    "+chrome/browser/signin/identity_test_environment_profile_adaptor.h",
+    "+chrome/browser/web_applications/web_app_provider.h",
+  ],
   ".*test(_.*)?\\.(cc|h)": [
     "+chrome/browser/ash/policy/test_support",
     "+chrome/browser/extensions/chrome_test_extension_loader.h",

@@ -10,12 +10,14 @@
 #include "base/functional/callback.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
+#include "base/synchronization/lock.h"
 #include "base/test/bind.h"
 #include "base/test/gmock_callback_support.h"
 #include "base/test/gmock_expected_support.h"
 #include "base/test/metrics/user_action_tester.h"
 #include "base/test/scoped_logging_settings.h"
 #include "base/test/test_future.h"
+#include "base/thread_annotations.h"
 #include "base/types/expected.h"
 #include "base/types/expected_macros.h"
 #include "base/values.h"
@@ -38,6 +40,7 @@
 #include "chrome/browser/glic/host/context/glic_tab_favicon_observer.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/host/glic_features.mojom-features.h"
+#include "chrome/browser/glic/host/glic_no_webview_contents_manager.h"
 #include "chrome/browser/glic/host/glic_web_client_manager.h"
 #include "chrome/browser/glic/host/glic_web_contents_manager.h"
 #include "chrome/browser/glic/host/glic_web_contents_warming_pool.h"
@@ -56,15 +59,12 @@
 #include "chrome/browser/glic/test_support/glic_browser_test.h"
 #include "chrome/browser/glic/test_support/glic_histogram_tester.h"
 #include "chrome/browser/interstitials/security_interstitial_page_test_utils.h"
-#include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
-#include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/permissions/system/mock_platform_handle.h"
 #include "chrome/browser/permissions/system/system_permission_settings.h"
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_test_util.h"
-#include "chrome/browser/pwc/pwc_features.mojom-features.h"
 #include "chrome/browser/signin/chrome_signin_client_factory.h"
 #include "chrome/browser/signin/chrome_signin_client_test_util.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
@@ -87,6 +87,8 @@
 #include "components/optimization_guide/content/browser/page_content_test_utils.h"
 #include "components/optimization_guide/proto/features/common_quality_data.pb.h"
 #include "components/optimization_guide/proto/hints.pb.h"
+#include "components/page_content_annotations/content/page_context_fetcher.h"
+#include "components/page_content_annotations/content/page_context_fetcher_metrics.h"
 #include "components/policy/core/common/management/scoped_management_service_override_for_testing.h"
 #include "components/policy/core/common/mock_configuration_policy_provider.h"
 #include "components/policy/core/common/policy_map.h"
@@ -97,6 +99,7 @@
 #include "components/signin/public/identity_manager/account_capabilities_test_mutator.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
+#include "components/skills/features.h"
 #include "components/subscription_eligibility/subscription_eligibility_prefs.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tabs/public/tab_interface.h"
@@ -111,10 +114,13 @@
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
+#include "content/public/test/memory_coordinator_browsertest_util.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "mojo/public/cpp/base/big_buffer.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
 #include "net/base/net_errors.h"
+#include "pdf/buildflags.h"
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "third_party/blink/public/common/features.h"
@@ -139,6 +145,10 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "ui/display/screen.h"
 #include "ui/views/widget/widget_delegate.h"
+#endif
+
+#if BUILDFLAG(ENABLE_PDF)
+#include "chrome/browser/pdf/pdf_extension_test_util.h"
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
@@ -205,6 +215,10 @@ std::string GlicTabId(tabs::TabHandle tab_handle) {
   return base::NumberToString(tab_handle.raw_value());
 }
 
+// Must match the payload expected by ConfirmationResponseTests in
+// glic_api_browsertest.ts.
+constexpr uint8_t kTestConfirmationResponsePayload[] = {0xde, 0xad, 0xbe, 0xef};
+
 }  // namespace
 
 // All tests in this file use the same test params here.
@@ -216,6 +230,8 @@ struct TestParams {
   bool auto_open_pdf = false;
   bool enable_no_web_ui_loader = false;
   bool no_webview = false;
+  bool skills_v2 = false;
+  bool enable_embedded_pdf_bytes_extraction = false;
 };
 
 class WithTestParams : public testing::WithParamInterface<TestParams> {
@@ -225,12 +241,10 @@ class WithTestParams : public testing::WithParamInterface<TestParams> {
     std::vector<base::test::FeatureRef> disabled_features;
     if (GetParam().no_webview) {
       enabled_features.push_back(features::kGlicNoWebview);
-      enabled_features.push_back(pwc::mojom::features::kPrivilegedWebContents);
+    } else {
+      disabled_features.push_back(features::kGlicNoWebview);
     }
-    if (!enabled_features.empty() || !disabled_features.empty()) {
-      test_param_features_.InitWithFeatures(enabled_features,
-                                            disabled_features);
-    }
+    test_param_features_.InitWithFeatures(enabled_features, disabled_features);
   }
 
   static std::string PrintTestVariant(
@@ -253,6 +267,12 @@ class WithTestParams : public testing::WithParamInterface<TestParams> {
     }
     if (info.param.no_webview) {
       result.push_back("NoWebview");
+    }
+    if (info.param.skills_v2) {
+      result.push_back("SkillsV2");
+    }
+    if (info.param.enable_embedded_pdf_bytes_extraction) {
+      result.push_back("EnableEmbeddedPdfBytesExtraction");
     }
     if (result.empty()) {
       return "Default";
@@ -1277,7 +1297,7 @@ IN_PROC_BROWSER_TEST_P(GlicApiTest, MAYBE_testThereCanOnlyBeOneFloaty) {
   // Verify that the first tab instance is detached before opening the second
   // tab.
   ASSERT_EQ(mojom::PanelStateKind::kDetached,
-            tab0_instance->GetPanelState().kind);
+            tab0_instance->GetPanelState()->kind);
 
   // Select the second tab, open Floaty, and execute the test on the second
   // instance.
@@ -1291,9 +1311,9 @@ IN_PROC_BROWSER_TEST_P(GlicApiTest, MAYBE_testThereCanOnlyBeOneFloaty) {
   ContinueJsTest({.instance = tab0_instance});
 
   ASSERT_EQ(mojom::PanelStateKind::kDetached,
-            tab1_instance->GetPanelState().kind);
+            tab1_instance->GetPanelState()->kind);
   ASSERT_EQ(mojom::PanelStateKind::kHidden,
-            tab0_instance->GetPanelState().kind);
+            tab0_instance->GetPanelState()->kind);
 }
 
 #if defined(NOT_VETTED_ON_ANDROID)
@@ -1621,23 +1641,26 @@ class GlicApiTestRuntimeFeatureOff : public GlicApiTest {
 // method.
 IN_PROC_BROWSER_TEST_P(GlicApiTestRuntimeFeatureOff,
                        testErrorShownOnMojoPipeError) {
-  if (GetParam().no_webview) {
-    GTEST_SKIP() << "Test doesn't yet work in kGlicNoWebview";
-  }
   ASSERT_OK_AND_ASSIGN(auto* instance, OpenGlicForActiveTab());
-  ExecuteJsTest();
+  ExecuteJsTest(
+      {.params = base::Value(base::DictValue().Set("triggerError", true))});
+
+  if (!features::IsGlicNoWebviewEnabled()) {
+    ASSERT_OK(WaitForWebUiState(mojom::WebUiState::kError));
+  } else {
+    ASSERT_OK(WaitForOverlayErrorPanel(mojom::ErrorPanelType::kError));
+  }
 
   auto* web_contents = instance->host().webui_contents();
   ASSERT_TRUE(web_contents);
 
-  ASSERT_OK(WaitForWebUiState(mojom::WebUiState::kError));
-
   // Verify the reload button works.
-  ASSERT_TRUE(content::ExecJs(web_contents,
-                              "document.querySelector('#reload').click();"));
+  content::ExecuteScriptAsync(web_contents,
+                              "document.querySelector('#reload').click();");
 
-  ASSERT_OK(WaitForWebUiState(mojom::WebUiState::kReady));
-  ExecuteJsTest();
+  ASSERT_OK(WaitUntilGuestIsShowing());
+  ExecuteJsTest(
+      {.params = base::Value(base::DictValue().Set("triggerError", false))});
 }
 
 IN_PROC_BROWSER_TEST_P(GlicApiTest,
@@ -1947,19 +1970,26 @@ IN_PROC_BROWSER_TEST_P(GlicApiTest,
       "Glic.Api.GetContextForActorFromTab.Error.Text", 1);
 }
 
-// Note: PDF support is a necessary precondition for this test.
+// Note: PDF support is a necessary precondition for these tests.
 #if BUILDFLAG(ENABLE_PDF)
-#define MAYBE_testGetContextFromFocusedTabWithPdfFile \
-  testGetContextFromFocusedTabWithPdfFile
-#else
-#define MAYBE_testGetContextFromFocusedTabWithPdfFile \
-  DISABLED_testGetContextFromFocusedTabWithPdfFile
-#endif
-IN_PROC_BROWSER_TEST_P(GlicApiTest,
-                       MAYBE_testGetContextFromFocusedTabWithPdfFile) {
+class GlicApiPdfTest : public GlicApiTest {
+ public:
+  GlicApiPdfTest() {
+    feature_list_.InitWithFeatureState(
+        page_content_annotations::kGlicEmbeddedPdfBytesExtraction,
+        GetParam().enable_embedded_pdf_bytes_extraction);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_P(GlicApiPdfTest,
+                       testGetContextFromFocusedTabWithTopLevelPdf) {
   tabs::TabInterface* tab0 = GetTabListInterface()->GetActiveTab();
   ASSERT_TRUE(tab0);
   NavigateTab(*tab0, embedded_test_server()->GetURL("/pdf/test.pdf"));
+  ASSERT_TRUE(pdf_extension_test_util::EnsurePDFHasLoaded(tab0->GetContents()));
   ASSERT_OK(OpenGlicForActiveTab());
   glic::GlicHistogramTester histogram_tester;
   ExecuteJsTest();
@@ -1968,7 +1998,132 @@ IN_PROC_BROWSER_TEST_P(GlicApiTest,
   EXPECT_THAT(histogram_tester.GetAllSamplesForPrefix(
                   "Glic.Api.GetContextFromFocusedTab.Error"),
               testing::IsEmpty());
+
+  // Top-level PDF always extracts PDF contents. The histogram records a sample
+  // that this is a top-level document PDF, and the `PageContextFetcher` finds
+  // the PDF.
+  histogram_tester.ExpectUniqueSample(
+      page_content_annotations::kPdfContentsRequestedHistogram,
+      page_content_annotations::PdfRequestStates::kPdfMainDoc_PdfFound, 1);
 }
+
+IN_PROC_BROWSER_TEST_P(GlicApiPdfTest,
+                       testGetContextFromFocusedTabWithEmbeddedPdf) {
+  tabs::TabInterface* tab0 = GetTabListInterface()->GetActiveTab();
+  ASSERT_TRUE(tab0);
+  NavigateTab(*tab0, embedded_test_server()->GetURL("/iframe.html"));
+
+  const GURL pdf_url = embedded_test_server()->GetURL("b.com", "/pdf/test.pdf");
+  // Embeds a cross-origin PDF. This is for verifying the result PDF document
+  // origin is actually the origin of the embedded PDF, instead of the top-level
+  // page origin.
+  ASSERT_TRUE(content::NavigateIframeToURL(tab0->GetContents(),
+                                           /*iframe_id=*/"test", pdf_url));
+
+  content::RenderFrameHost* pdf_frame =
+      content::ChildFrameAt(tab0->GetContents()->GetPrimaryMainFrame(), 0);
+  ASSERT_TRUE(pdf_frame);
+  ASSERT_TRUE(pdf_extension_test_util::EnsurePDFHasLoaded(pdf_frame));
+  ASSERT_OK(OpenGlicForActiveTab());
+  glic::GlicHistogramTester histogram_tester;
+  ExecuteJsTest(
+      {.params = base::Value(base::DictValue().Set(
+           "expectedPdfOrigin", url::Origin::Create(pdf_url).Serialize()))});
+
+  // No context error should have been recorded.
+  EXPECT_THAT(histogram_tester.GetAllSamplesForPrefix(
+                  "Glic.Api.GetContextFromFocusedTab.Error"),
+              testing::IsEmpty());
+
+  if (GetParam().enable_embedded_pdf_bytes_extraction) {
+    // When feature is enabled, `PageContextFetcher` searches and extracts
+    // embedded PDF in the page.
+    histogram_tester.ExpectUniqueSample(
+        page_content_annotations::kPdfContentsRequestedHistogram,
+        page_content_annotations::PdfRequestStates::kNonPdfMainDoc_PdfFound, 1);
+  } else {
+    // When feature is disabled, the page context request should not request PDF
+    // data. There is no sample in the histogram.
+    histogram_tester.ExpectTotalCount(
+        page_content_annotations::kPdfContentsRequestedHistogram, 0);
+  }
+}
+
+// Test that if Glic API requests tab context with `pdfData` being true while
+// the page is not a top-level PDF and the embedded PDF extraction support
+// feature is disabled, PageContextFetcher should not extract embedded PDF. This
+// scenario should not happen as the Glic API should only request embedded PDF
+// data if the host has the capability. However, PageContextFetcher should
+// handle this, if somehow it happens, gracefully.
+IN_PROC_BROWSER_TEST_P(
+    GlicApiPdfTest,
+    testGetContextFromFocusedTabWithEmbeddedPdfFeatureDisabled) {
+  if (GetParam().enable_embedded_pdf_bytes_extraction) {
+    // This test is only meaningful when feature is disabled.
+    return;
+  }
+  tabs::TabInterface* tab0 = GetTabListInterface()->GetActiveTab();
+  ASSERT_TRUE(tab0);
+  NavigateTab(*tab0, embedded_test_server()->GetURL("/iframe.html"));
+
+  const GURL pdf_url = embedded_test_server()->GetURL("b.com", "/pdf/test.pdf");
+  ASSERT_TRUE(content::NavigateIframeToURL(tab0->GetContents(),
+                                           /*iframe_id=*/"test", pdf_url));
+
+  content::RenderFrameHost* pdf_frame =
+      content::ChildFrameAt(tab0->GetContents()->GetPrimaryMainFrame(), 0);
+  ASSERT_TRUE(pdf_frame);
+  ASSERT_TRUE(pdf_extension_test_util::EnsurePDFHasLoaded(pdf_frame));
+  ASSERT_OK(OpenGlicForActiveTab());
+  glic::GlicHistogramTester histogram_tester;
+  ExecuteJsTest(
+      {.params = base::Value(base::DictValue().Set(
+           "expectedPdfOrigin", url::Origin::Create(pdf_url).Serialize()))});
+
+  // No context error should have been recorded.
+  EXPECT_THAT(histogram_tester.GetAllSamplesForPrefix(
+                  "Glic.Api.GetContextFromFocusedTab.Error"),
+              testing::IsEmpty());
+
+  // The Glic API requests PDF data. However, the host does not have embedded
+  // PDF extraction capability. There is no extraction taken place. The
+  // histogram records a sample that PageContextFetcher finds no PDF.
+  histogram_tester.ExpectUniqueSample(
+      page_content_annotations::kPdfContentsRequestedHistogram,
+      page_content_annotations::PdfRequestStates::kNonPdfMainDoc_PdfNotFound,
+      1);
+}
+
+IN_PROC_BROWSER_TEST_P(GlicApiPdfTest, testGetContextFromFocusedTabWithoutPdf) {
+  tabs::TabInterface* tab0 = GetTabListInterface()->GetActiveTab();
+  ASSERT_TRUE(tab0);
+
+  // This page does not have any PDF.
+  NavigateTab(*tab0, embedded_test_server()->GetURL("/iframe.html"));
+  ASSERT_OK(OpenGlicForActiveTab());
+  glic::GlicHistogramTester histogram_tester;
+  ExecuteJsTest();
+
+  // No context error should have been recorded.
+  EXPECT_THAT(histogram_tester.GetAllSamplesForPrefix(
+                  "Glic.Api.GetContextFromFocusedTab.Error"),
+              testing::IsEmpty());
+
+  if (GetParam().enable_embedded_pdf_bytes_extraction) {
+    // When feature is enabled, `PageContextFetcher` searches for an embedded
+    // PDF on the page and finds none.
+    histogram_tester.ExpectUniqueSample(
+        page_content_annotations::kPdfContentsRequestedHistogram,
+        page_content_annotations::PdfRequestStates::kNonPdfMainDoc_PdfNotFound,
+        1);
+  } else {
+    // When feature is disabled, the page context request should not request PDF
+    // data. There is no sample in the histogram.
+    histogram_tester.ExpectTotalCount(
+        page_content_annotations::kPdfContentsRequestedHistogram, 0);
+  }
+}
+#endif  // BUILDFLAG(ENABLE_PDF)
 
 IN_PROC_BROWSER_TEST_P(GlicApiTest,
                        testGetContextFromFocusedTabWithUnFocusablePage) {
@@ -2538,6 +2693,7 @@ IN_PROC_BROWSER_TEST_P(GlicApiTestWithNewTabDaisyChain,
       },
       1));
 }
+
 IN_PROC_BROWSER_TEST_P(GlicApiTestWithNewTabDaisyChain, testNewTabMetrics) {
   // 1. Open Glic in first tab.
   ASSERT_OK(OpenGlicForActiveTab());
@@ -2938,8 +3094,9 @@ IN_PROC_BROWSER_TEST_P(GlicApiTest, testInitializeFailsAfterReload) {
   ASSERT_OK(WaitForWebUiState(mojom::WebUiState::kError));
 }
 
-// TODO(https://crbug.com/516659596): Re-enable on Linux debug builds.
-#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || !defined(NDEBUG)
+// TODO(https://crbug.com/516659596): Re-enable on Linux builds.
+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) || \
+    !defined(NDEBUG)
 #define MAYBE_testNoClientCreated DISABLED_testNoClientCreated
 #else
 #define MAYBE_testNoClientCreated testNoClientCreated
@@ -2957,7 +3114,9 @@ IN_PROC_BROWSER_TEST_P(GlicApiTestWithFastTimeout, MAYBE_testNoClientCreated) {
 #endif
 }
 
-#if BUILDFLAG(IS_ANDROID) || defined(SLOW_BINARY) || BUILDFLAG(IS_LINUX)
+// TODO(crbug.com/565561978): Failing on ChromeOS, too.
+#if BUILDFLAG(IS_ANDROID) || defined(SLOW_BINARY) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_testNoBootstrap DISABLED_testNoBootstrap
 #else
 #define MAYBE_testNoBootstrap testNoBootstrap
@@ -3108,6 +3267,20 @@ class GlicGetHostCapabilityApiTest : public GlicApiBrowserTest,
            {{"AutoOpenGlicForPdfWithOnboarding", "true"}}});
     }
 
+    if (GetParam().skills_v2) {
+      enabled_features.push_back({features::kSkillsWebViewV2Enabled, {}});
+    } else {
+      disabled_features.push_back(features::kSkillsWebViewV2Enabled);
+    }
+
+    if (GetParam().enable_embedded_pdf_bytes_extraction) {
+      enabled_features.push_back(
+          {page_content_annotations::kGlicEmbeddedPdfBytesExtraction, {}});
+    } else {
+      disabled_features.push_back(
+          page_content_annotations::kGlicEmbeddedPdfBytesExtraction);
+    }
+
     features_.InitWithFeaturesAndParameters(enabled_features,
                                             disabled_features);
   }
@@ -3122,12 +3295,16 @@ IN_PROC_BROWSER_TEST_P(GlicGetHostCapabilityApiTest, testGetHostCapabilities) {
   NavigateTab(*tab0, GetTestUrl("page.html"));
 
   base::ListValue expected_capabilities;
-  if (GetParam().enable_scroll_to_pdf) {
 #if BUILDFLAG(ENABLE_PDF)
+  if (GetParam().enable_scroll_to_pdf) {
     expected_capabilities.Append(
         std::to_underlying(mojom::HostCapability::kScrollToPdf));
-#endif
   }
+  if (GetParam().enable_embedded_pdf_bytes_extraction) {
+    expected_capabilities.Append(
+        std::to_underlying(mojom::HostCapability::kEmbeddedPdfBytesExtraction));
+  }
+#endif
   if (GetParam().trust_first_onboarding_arm2) {
     expected_capabilities.Append(
         std::to_underlying(mojom::HostCapability::kTrustFirstOnboardingArm2));
@@ -3136,6 +3313,10 @@ IN_PROC_BROWSER_TEST_P(GlicGetHostCapabilityApiTest, testGetHostCapabilities) {
   if (GetParam().auto_open_pdf) {
     expected_capabilities.Append(
         std::to_underlying(mojom::HostCapability::kPdfZeroState));
+  }
+  if (GetParam().skills_v2) {
+    expected_capabilities.Append(
+        std::to_underlying(mojom::HostCapability::kSkillsV2));
   }
   expected_capabilities.Append(
       std::to_underlying(mojom::HostCapability::kInvoke));
@@ -3159,6 +3340,10 @@ IN_PROC_BROWSER_TEST_P(GlicGetHostCapabilityApiTest, testGetHostCapabilities) {
   if (base::FeatureList::IsEnabled(features::kGlicDynamicChromeTools)) {
     expected_capabilities.Append(
         std::to_underlying(mojom::HostCapability::kChromeTools));
+  }
+  if (features::IsGlicNoWebviewEnabled()) {
+    expected_capabilities.Append(
+        std::to_underlying(mojom::HostCapability::kNoWebview));
   }
 
   ASSERT_OK(OpenGlicForActiveTab());
@@ -3259,7 +3444,14 @@ IN_PROC_BROWSER_TEST_P(GlicApiTestUserStatusCheckTest,
   EXPECT_LE(user_status_fetch_count_, 4u);
 }
 
-IN_PROC_BROWSER_TEST_P(GlicApiTest, testInitializeFails) {
+// TODO(crbug.com/565863579): Flaky timeout on Android waiting for
+// GlicHostRegistry in ExecuteJsTest.
+#if BUILDFLAG(IS_ANDROID)
+#define MAYBE_testInitializeFails DISABLED_testInitializeFails
+#else
+#define MAYBE_testInitializeFails testInitializeFails
+#endif
+IN_PROC_BROWSER_TEST_P(GlicApiTest, MAYBE_testInitializeFails) {
   if (GetParam().no_webview) {
     GTEST_SKIP() << "Test doesn't yet work in kGlicNoWebview";
   }
@@ -3451,10 +3643,39 @@ IN_PROC_BROWSER_TEST_P(GlicApiTest, testGetUserProfileInfo) {
       "Glic.Api.RequestHostLatency.GetUserProfileInfo", 1);
 }
 
-IN_PROC_BROWSER_TEST_P(GlicApiTest, testRequestHeader) {
-  if (GetParam().no_webview) {
-    GTEST_SKIP() << "Test doesn't yet work in kGlicNoWebview";
+// Test fixture that monitors HTTP requests on the embedded HTTPS test server.
+// Only testRequestHeader requires request monitoring; keeping observation
+// scoped to this fixture avoids incurring monitoring overhead and cross-thread
+// data race risks in unrelated tests.
+class GlicApiTestWithRequestMonitor : public GlicApiTest {
+ public:
+  GlicApiTestWithRequestMonitor() {
+    // Register the request monitor before the server starts (required by
+    // EmbeddedTestServer). We only monitor the HTTPS test server since Glic
+    // WebClient tests run exclusively over HTTPS.
+    embedded_https_test_server().RegisterRequestMonitor(base::BindRepeating(
+        &GlicApiTestWithRequestMonitor::OnHttpRequest, base::Unretained(this)));
   }
+
+  // Returns a copy of observed requests. Requests are appended on the
+  // EmbeddedTestServer's IO thread and read on the test's main UI thread, so
+  // access is synchronized with a lock to prevent data races.
+  std::vector<net::test_server::HttpRequest> requests() const {
+    base::AutoLock auto_lock(lock_);
+    return requests_;
+  }
+
+ private:
+  void OnHttpRequest(const net::test_server::HttpRequest& request) {
+    base::AutoLock auto_lock(lock_);
+    requests_.push_back(request);
+  }
+
+  mutable base::Lock lock_;
+  std::vector<net::test_server::HttpRequest> requests_ GUARDED_BY(lock_);
+};
+
+IN_PROC_BROWSER_TEST_P(GlicApiTestWithRequestMonitor, testRequestHeader) {
   ASSERT_OK(OpenGlicForActiveTab());
   const GURL cross_origin_rpc_url =
       embedded_https_test_server().GetURL("b.com", "/fake-rpc/cors");
@@ -3473,13 +3694,15 @@ IN_PROC_BROWSER_TEST_P(GlicApiTest, testRequestHeader) {
           testing::Pair(testing::StrCaseEq("x-glic-chrome-version"),
                         version_info::GetVersionNumber())));
 
+  const std::vector<net::test_server::HttpRequest> captured_requests =
+      requests();
   auto find_request = [&](std::string_view path) {
-    const auto it = std::ranges::find_if(
-        embedded_test_server_requests_, [&](const auto& request) {
+    const auto it =
+        std::ranges::find_if(captured_requests, [&](const auto& request) {
           return request.GetURL().GetPath() == path &&
                  request.method == net::test_server::METHOD_GET;
         });
-    return it == embedded_test_server_requests_.end() ? nullptr : &(*it);
+    return it == captured_requests.end() ? nullptr : &(*it);
   };
 
   auto* main_request = find_request(GetGuestURL().GetPath());
@@ -3612,9 +3835,6 @@ IN_PROC_BROWSER_TEST_P(GlicApiTest, testRefreshSignInCookies) {
 }
 
 IN_PROC_BROWSER_TEST_P(GlicApiTest, testSignInPauseState) {
-  if (GetParam().no_webview) {
-    GTEST_SKIP() << "Test doesn't yet work in kGlicNoWebview";
-  }
   ASSERT_OK(OpenGlicForActiveTab());
   // Check that Glic web client is open and can retrieve the user's info.
   ExecuteJsTest();
@@ -3624,10 +3844,16 @@ IN_PROC_BROWSER_TEST_P(GlicApiTest, testSignInPauseState) {
       IdentityManagerFactory::GetForProfile(GetProfile());
   signin::SetInvalidRefreshTokenForPrimaryAccount(identity_manager);
 
-  // The guest frame should be destroyed, and the WebUI should show the sign-in
-  // panel.
-  ASSERT_OK(RunUntilNull([&]() { return FindGlicGuestMainFrame(); }));
-  ASSERT_OK(WaitForWebUiState(mojom::WebUiState::kSignIn));
+  if (GetParam().no_webview) {
+    // In NoWebview mode, invalidating account credentials transitions Glic to
+    // the kSignIn error panel on the overlay WebUI.
+    ASSERT_OK(WaitForErrorPanelType(mojom::ErrorPanelType::kSignIn));
+  } else {
+    // The guest frame should be destroyed, and the WebUI should show the
+    // sign-in panel.
+    ASSERT_OK(RunUntilNull([&]() { return FindGlicGuestMainFrame(); }));
+    ASSERT_OK(WaitForWebUiState(mojom::WebUiState::kSignIn));
+  }
 }
 
 IN_PROC_BROWSER_TEST_P(GlicApiTest, testInvoke) {
@@ -4529,6 +4755,56 @@ IN_PROC_BROWSER_TEST_P(
   EXPECT_EQ(result.error(), ScreenshotResult::Status::kErrorCapture);
 }
 
+IN_PROC_BROWSER_TEST_P(GlicApiTest, testSubmitConfirmationResponse) {
+  ASSERT_OK(OpenGlicForActiveTab());
+
+  ASSERT_TRUE(RunUntil(
+      [&]() { return GetOnlyGlicInstance()->host().IsWebClientConnected(); },
+      "waiting for web client connected"));
+
+  ASSERT_NE(GetOnlyGlicInstance()->GetExperimentalTriggeringManager(), nullptr);
+
+  base::test::TestFuture<bool> future;
+  GetOnlyGlicInstance()
+      ->GetExperimentalTriggeringManager()
+      ->SubmitConfirmationResponse(
+          base::ToVector(kTestConfirmationResponsePayload),
+          future.GetCallback());
+
+  // Verifies the opaque payload arrived at the web client intact.
+  ExecuteJsTest();
+
+  EXPECT_TRUE(future.Get());
+}
+
+IN_PROC_BROWSER_TEST_P(GlicApiTest,
+                       testConfirmationResponseNotAppliedOnDisconnect) {
+  ASSERT_OK(OpenGlicForActiveTab());
+
+  ASSERT_TRUE(RunUntil(
+      [&]() { return GetOnlyGlicInstance()->host().IsWebClientConnected(); },
+      "waiting for web client connected"));
+
+  GlicExperimentalTriggeringManager* manager =
+      GetOnlyGlicInstance()->GetExperimentalTriggeringManager();
+  ASSERT_NE(manager, nullptr);
+
+  base::test::TestFuture<bool> future;
+  manager->SubmitConfirmationResponse(
+      base::ToVector(kTestConfirmationResponsePayload), future.GetCallback());
+
+  // The web client used by this test receives the response but never calls
+  // onComplete(), so the reply is still in flight when the JS test returns.
+  ExecuteJsTest();
+  EXPECT_FALSE(future.IsReady());
+
+  // Simulate the web client going away with the response in flight. The reply
+  // callback must still run, reporting the response as not applied, rather
+  // than being dropped.
+  manager->Bind(mojo::NullRemote());
+  EXPECT_FALSE(future.Get());
+}
+
 class GlicApiUnresponsiveTest : public GlicApiTest {
  public:
   GlicApiUnresponsiveTest() {
@@ -4590,6 +4866,15 @@ IN_PROC_BROWSER_TEST_P(GlicApiTest, testSetContextAccessIndicator) {
 IN_PROC_BROWSER_TEST_P(GlicApiTest, testSetAudioDucking) {
   ASSERT_OK(OpenGlicForActiveTab());
   ExecuteJsTest();
+}
+
+IN_PROC_BROWSER_TEST_P(GlicApiTest, testCaptureRegionError) {
+  base::HistogramTester histogram_tester;
+  ASSERT_OK(OpenGlicForActiveTab());
+  ExecuteJsTest();
+  histogram_tester.ExpectBucketCount(
+      "Glic.Api.StatusCounts.Received",
+      glic::GlicHostApiRequestId::kSubscribeToCaptureRegion, 1);
 }
 
 IN_PROC_BROWSER_TEST_P(GlicApiTest, testGetDisplayMedia) {
@@ -4877,12 +5162,6 @@ IN_PROC_BROWSER_TEST_P(GlicApiTest, testUserInputSubmittedPromptType) {
       "Glic.Turn.PromptType", mojom::PromptType::kTypedText, 1));
 }
 
-// TODO(crbug.com/454083080): Fix this, it hangs.
-IN_PROC_BROWSER_TEST_P(GlicApiTest, DISABLED_testCaptureScreenshot) {
-  ASSERT_OK(OpenGlicForActiveTab());
-  ExecuteJsTest();
-}
-
 // TODO(crbug.com/441588906): Flaky on multiple platforms.
 IN_PROC_BROWSER_TEST_P(GlicApiTest, DISABLED_testFetchInactiveTabScreenshot) {
   tabs::TabInterface* tab0 = GetTabListInterface()->GetActiveTab();
@@ -4963,8 +5242,10 @@ IN_PROC_BROWSER_TEST_P(GlicApiTest, testHibernateAllOnMemoryPressure) {
                   .HasWarmedContainerForTesting());
 
   // Simulate memory pressure.
-  base::MemoryPressureListener::NotifyMemoryPressure(
-      base::MEMORY_PRESSURE_LEVEL_CRITICAL);
+  content::test::ScopedMemoryLimitOverride scoped_memory_limit_override(
+      GlicInstanceCoordinatorImpl::kMemoryConsumerName);
+  scoped_memory_limit_override.SetLimit(base::kCriticalMemoryPressureThreshold);
+  scoped_memory_limit_override.NotifyReleaseMemory();
 
   // Wait for the non-showing instances to hibernate.
   ASSERT_OK(WaitForGlicHibernated(instance2));
@@ -4993,6 +5274,11 @@ INSTANTIATE_TEST_SUITE_P(,
                          DefaultTestParamSet(),
                          &WithTestParams::PrintTestVariant);
 
+INSTANTIATE_TEST_SUITE_P(,
+                         GlicApiTestWithRequestMonitor,
+                         DefaultTestParamSet(),
+                         &WithTestParams::PrintTestVariant);
+
 INSTANTIATE_TEST_SUITE_P(
     ,
     GlicGetHostCapabilityApiTest,
@@ -5000,7 +5286,10 @@ INSTANTIATE_TEST_SUITE_P(
                     TestParams{.enable_scroll_to_pdf = true},
                     TestParams{.trust_first_onboarding_arm2 = true},
                     TestParams{.trust_first_onboarding_arm2 = true,
-                               .auto_open_pdf = true}),
+                               .auto_open_pdf = true},
+                    TestParams{.skills_v2 = true},
+                    TestParams{.enable_embedded_pdf_bytes_extraction = true},
+                    TestParams{.no_webview = true}),
     &WithTestParams::PrintTestVariant);
 
 INSTANTIATE_TEST_SUITE_P(,
@@ -5146,4 +5435,14 @@ INSTANTIATE_TEST_SUITE_P(,
                          DefaultTestParamSet(),
                          &WithTestParams::PrintTestVariant);
 #endif
+
+#if BUILDFLAG(ENABLE_PDF)
+INSTANTIATE_TEST_SUITE_P(
+    ,
+    GlicApiPdfTest,
+    testing::Values(TestParams{.enable_embedded_pdf_bytes_extraction = false},
+                    TestParams{.enable_embedded_pdf_bytes_extraction = true}),
+    &WithTestParams::PrintTestVariant);
+#endif
+
 }  // namespace glic

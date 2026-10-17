@@ -4,13 +4,11 @@
 
 #include "chrome/browser/ui/autofill/autofill_suggestion_controller_utils.h"
 
-#include <string>
-#include <variant>
+#include <algorithm>
 #include <vector>
 
 #include "base/notreached.h"
 #include "chrome/browser/feature_engagement/tracker_factory.h"
-#include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
@@ -19,7 +17,6 @@
 #include "components/compose/core/browser/compose_features.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/feature_engagement/public/tracker.h"
-#include "components/password_manager/content/browser/content_password_manager_driver.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
@@ -44,6 +41,7 @@ SuggestionSection GetSuggestionSection(SuggestionType type) {
     case SuggestionType::kAllLoyaltyCardsEntry:
     case SuggestionType::kAllSavedPasswordsEntry:
     case SuggestionType::kAtMemoryAiDisclosure:
+    case SuggestionType::kAtMemoryShortcutSettingsPromo:
     case SuggestionType::kAutocompleteAtMemoryButton:
     case SuggestionType::kBnplFootnote:
     case SuggestionType::kFreeformFooter:
@@ -56,7 +54,10 @@ SuggestionSection GetSuggestionSection(SuggestionType type) {
     case SuggestionType::kManageEnhancedAutofill:
     case SuggestionType::kManageIban:
     case SuggestionType::kManageLoyaltyCard:
+    case SuggestionType::kManageOffers:
+    case SuggestionType::kOpenGmailForOtps:
     case SuggestionType::kPendingStateSignin:
+    case SuggestionType::kPersonalContextNotice:
     case SuggestionType::kRemoveAutofillAi:
     case SuggestionType::kScanCreditCard:
     case SuggestionType::kSeePromoCodeDetails:
@@ -99,6 +100,7 @@ SuggestionSection GetSuggestionSection(SuggestionType type) {
     case SuggestionType::kFillAutofillAi:
     case SuggestionType::kFillPassword:
     case SuggestionType::kGeneratePasswordEntry:
+    case SuggestionType::kGmailOneTimePasswordEntry:
     case SuggestionType::kIbanEntry:
     case SuggestionType::kIdentityCredential:
     case SuggestionType::kInsecureContextPaymentDisabledMessage:
@@ -109,7 +111,6 @@ SuggestionSection GetSuggestionSection(SuggestionType type) {
     case SuggestionType::kOneTimePasswordEntry:
     case SuggestionType::kPasswordEntry:
     case SuggestionType::kPasswordFieldByFieldFilling:
-    case SuggestionType::kPersonalContextNotice:
     case SuggestionType::kSaveAndFillCreditCardEntry:
     case SuggestionType::kTroubleSigningInEntry:
     case SuggestionType::kVirtualCreditCardEntry:
@@ -188,6 +189,7 @@ bool ShouldApplyDeactivatedStyle(const Suggestion& suggestion) {
     case SuggestionType::kAtMemoryInactivityNudge:
     case SuggestionType::kAtMemoryOpenGemini:
     case SuggestionType::kAtMemorySearchAffordance:
+    case SuggestionType::kAtMemoryShortcutSettingsPromo:
     case SuggestionType::kAutocompleteAtMemoryButton:
     case SuggestionType::kAutocompleteEntry:
     case SuggestionType::kAutofillAiOtherOrders:
@@ -212,6 +214,7 @@ bool ShouldApplyDeactivatedStyle(const Suggestion& suggestion) {
     case SuggestionType::kFillPassword:
     case SuggestionType::kFreeformFooter:
     case SuggestionType::kGeneratePasswordEntry:
+    case SuggestionType::kGmailOneTimePasswordEntry:
     case SuggestionType::kIbanEntry:
     case SuggestionType::kIdentityCredential:
     case SuggestionType::kInsecureContextPaymentDisabledMessage:
@@ -226,9 +229,11 @@ bool ShouldApplyDeactivatedStyle(const Suggestion& suggestion) {
     case SuggestionType::kManageEnhancedAutofill:
     case SuggestionType::kManageIban:
     case SuggestionType::kManageLoyaltyCard:
+    case SuggestionType::kManageOffers:
     case SuggestionType::kMaximizeCreditCardBenefitsEntry:
     case SuggestionType::kMerchantPromoCodeEntry:
     case SuggestionType::kOneTimePasswordEntry:
+    case SuggestionType::kOpenGmailForOtps:
     case SuggestionType::kPasswordEntry:
     case SuggestionType::kPasswordFieldByFieldFilling:
     case SuggestionType::kPendingStateSignin:
@@ -275,32 +280,6 @@ bool ShouldResetIdleBarrier(AutofillSuggestionTriggerSource trigger_source) {
     case AutofillSuggestionTriggerSource::kGlic:
       return true;
   }
-}
-
-content::RenderFrameHost* GetRenderFrameHost_DoNotUse(
-    AutofillSuggestionDelegate& delegate) {
-  return std::visit(
-      absl::Overload{
-          [](AutofillDriver* driver) {
-            return static_cast<ContentAutofillDriver*>(driver)
-                ->render_frame_host();
-          },
-          [](password_manager::PasswordManagerDriver* driver) {
-            return static_cast<password_manager::ContentPasswordManagerDriver*>(
-                       driver)
-                ->render_frame_host();
-          }},
-      delegate.GetDriver_DoNotUse());
-}
-
-bool IsAncestorOf(content::RenderFrameHost* ancestor,
-                  content::RenderFrameHost* descendant) {
-  for (auto* rfh = descendant; rfh; rfh = rfh->GetParent()) {
-    if (rfh == ancestor) {
-      return true;
-    }
-  }
-  return false;
 }
 
 bool IsPointerLocked(content::WebContents* web_contents) {
@@ -395,6 +374,31 @@ std::vector<Suggestion> UpdateSuggestionsFromDataList(
     suggestions[i].labels = {{Suggestion::Text(options[i].text)}};
   }
   return suggestions;
+}
+
+void CleanUpRedundantSeparators(std::vector<Suggestion>& suggestions) {
+  // Collapse any consecutive duplicate separators into a single separator.
+  auto repeated = std::ranges::unique(
+      suggestions, [](const Suggestion& a, const Suggestion& b) {
+        return a.type == SuggestionType::kSeparator &&
+               b.type == SuggestionType::kSeparator;
+      });
+  suggestions.erase(repeated.begin(), repeated.end());
+
+  // A leading separator has no preceding items to separate, so remove it.
+  // Because duplicate separators were already collapsed above, at most one
+  // leading separator can exist.
+  if (!suggestions.empty() &&
+      suggestions.front().type == SuggestionType::kSeparator) {
+    suggestions.erase(suggestions.begin());
+  }
+
+  // A trailing separator has no subsequent items to separate, so remove it.
+  // Likewise, at most one trailing separator can exist after deduplication.
+  if (!suggestions.empty() &&
+      suggestions.back().type == SuggestionType::kSeparator) {
+    suggestions.pop_back();
+  }
 }
 
 }  // namespace autofill

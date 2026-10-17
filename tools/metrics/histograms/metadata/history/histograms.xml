@@ -129,7 +129,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.BrowsingHistoryResult.{LocalOrRemote}.{VisitAge}"
-    units="visits" expires_after="2027-01-10">
+    units="visits" expires_after="2027-03-14">
   <owner>treib@chromium.org</owner>
   <owner>src/components/sync/OWNERS</owner>
   <component>1456716</component>
@@ -1101,6 +1101,42 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
+<histogram name="History.Clusters.MaxClusterLabelDuplicates" units="clusters"
+    expires_after="2027-09-24">
+  <owner>fdoray@chromium.org</owner>
+  <owner>chrome-journeys@google.com</owner>
+  <component>1457319</component>
+  <summary>
+    Maximum number of clusters sharing the exact same label in the History DB.
+    Logged on initialization of the History DB when
+    HistoryReportClusterDatabaseMetrics is enabled.
+  </summary>
+</histogram>
+
+<histogram name="History.Clusters.NumClusters" units="clusters"
+    expires_after="2027-09-24">
+  <owner>fdoray@chromium.org</owner>
+  <owner>chrome-journeys@google.com</owner>
+  <component>1457319</component>
+  <summary>
+    Number of rows in the clusters table in the History DB. Logged on
+    initialization of the History DB when HistoryReportClusterDatabaseMetrics is
+    enabled.
+  </summary>
+</histogram>
+
+<histogram name="History.Clusters.NumOrphanClusters" units="clusters"
+    expires_after="2027-09-24">
+  <owner>fdoray@chromium.org</owner>
+  <owner>chrome-journeys@google.com</owner>
+  <component>1457319</component>
+  <summary>
+    Number of rows in the clusters table that have no corresponding rows in
+    clusters_and_visits. Logged on initialization of the History DB when
+    HistoryReportClusterDatabaseMetrics is enabled.
+  </summary>
+</histogram>
+
 <histogram name="History.Clusters.ProcessClustersDuration" units="ms"
     expires_after="2024-11-03">
   <owner>olivierli@chromium.org</owner>
@@ -1250,7 +1286,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.DatabaseSqliteError" enum="SqliteLoggedResultCode"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>sophiechang@chromium.org</owner>
   <owner>chrome-journeys@google.com</owner>
   <component>1456716</component>
@@ -1272,7 +1308,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.DatabaseVersion" enum="HistoryDatabaseVersion"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>jpgravel@chromium.org</owner>
   <owner>etienneb@chromium.org</owner>
   <component>1456716</component>
@@ -1284,7 +1320,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.DomainCount1Day_V3" units="domains"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>mpearson@chromium.org</owner>
   <owner>mjzhang@chromium.org</owner>
   <owner>chrome-analysis-team@google.com</owner>
@@ -1325,7 +1361,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.DomainCount1Day_V4" units="domains"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>mpearson@chromium.org</owner>
   <owner>mjzhang@chromium.org</owner>
   <owner>chrome-analysis-team@google.com</owner>
@@ -1690,7 +1726,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.Embeddings.Embedder.CpuUsage2" units="1/100 %"
-    expires_after="2027-01-10">
+    expires_after="2027-03-14">
   <owner>sophiechang@chromium.org</owner>
   <owner>zekunjiang@google.com</owner>
   <summary>
@@ -1804,7 +1840,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="History.Embeddings.Embedder.PassageEmbeddingsGenerationDuration"
-    units="ms" expires_after="2027-01-17">
+    units="ms" expires_after="2027-03-21">
   <owner>sophiechang@chromium.org</owner>
   <owner>zekunjiang@google.com</owner>
   <summary>
@@ -1815,7 +1851,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="History.Embeddings.Embedder.PassageEmbeddingsGenerationThreadDuration"
-    units="ms" expires_after="2027-01-17">
+    units="ms" expires_after="2027-03-21">
   <owner>sophiechang@chromium.org</owner>
   <owner>zekunjiang@google.com</owner>
   <summary>
@@ -2297,9 +2333,9 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="History.FaviconDatabaseSizeMB" units="MB" expires_after="M130">
-  <owner>rogerm@chromium.org</owner>
-  <owner>sky@chromium.org</owner>
+<histogram name="History.FaviconDatabaseSizeMB" units="MB" expires_after="M160">
+  <owner>pkotwicz@chromium.org</owner>
+  <owner>mastiz@chromium.org</owner>
   <component>1456716</component>
   <summary>
     Size of the Favicons database in MB. This is calculated as the number of
@@ -2309,7 +2345,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.ForeignVisitsLegacy" units="visits"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>treib@chromium.org</owner>
   <component>1456716</component>
   <summary>
@@ -2322,7 +2358,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.ForeignVisitsNotRemapped" units="visits"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>treib@chromium.org</owner>
   <component>1456716</component>
   <summary>
@@ -2335,7 +2371,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.ForeignVisitsRemappableFrom" units="visits"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>treib@chromium.org</owner>
   <component>1456716</component>
   <summary>
@@ -2348,7 +2384,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.ForeignVisitsRemappableOpener" units="visits"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>treib@chromium.org</owner>
   <component>1456716</component>
   <summary>
@@ -2395,20 +2431,6 @@ chromium-metrics-reviews@google.com.
     logged on database initialization failure.
     History.AttemptedToFixProfileError will tell how often initialization fails
     overall.
-  </summary>
-</histogram>
-
-<histogram name="History.InMemoryDBItemCount" units="typed URLs"
-    expires_after="2026-02-22">
-  <owner>sky@chromium.org</owner>
-  <owner>mpearson@chromium.org</owner>
-  <component>1456716</component>
-  <summary>
-    The number of typed URLs in the history database that are read into the
-    &quot;in memory&quot; history database. This in memory copy of the typed
-    URLs is used for synchronous inline autocomplete on the UI thread, while the
-    larger slower service is run off of disk on a background thread. Recorded on
-    profile open.
   </summary>
 </histogram>
 
@@ -2512,6 +2534,27 @@ chromium-metrics-reviews@google.com.
     The time in milliseconds the query takes to fetch the list of app IDs. The
     query is made to the local database only, not to the server side via
     network. This is called when history UI is opened. Only logged on Android.
+  </summary>
+</histogram>
+
+<histogram name="History.QueryHistoryBasic.Duration" units="ms"
+    expires_after="2027-09-01">
+  <owner>wylieb@chromium.org</owner>
+  <owner>chrome-collections@google.com</owner>
+  <summary>
+    Records the backend thread execution duration (in milliseconds) for
+    HistoryBackend::QueryHistoryBasic to scan visits, look up URL rows, and
+    attach visit content annotations.
+  </summary>
+</histogram>
+
+<histogram name="History.QueryHistoryBasic.ResultCount" units="results"
+    expires_after="2027-09-01">
+  <owner>wylieb@chromium.org</owner>
+  <owner>chrome-collections@google.com</owner>
+  <summary>
+    Records the number of URLResult items assembled and returned by
+    HistoryBackend::QueryHistoryBasic.
   </summary>
 </histogram>
 
@@ -2623,58 +2666,13 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="History.URLRowAddedAsHidden" enum="Boolean"
-    expires_after="2027-01-24">
-  <owner>svend@chromium.org</owner>
-  <owner>kyraseevers@chromium.org</owner>
-  <summary>
-    Whether a newly added URLRow is hidden. Emitted when a URLRow is added to
-    the History database. Intended to monitor how much the number of hidden rows
-    added increases when saving page visits with HTTP response code 404 to the
-    History database.
-  </summary>
-</histogram>
-
-<histogram name="History.URLTableCount" units="URLs" expires_after="2027-01-17">
+<histogram name="History.URLTableCount" units="URLs" expires_after="2027-03-21">
   <owner>mpearson@chromium.org</owner>
   <owner>sky@chromium.org</owner>
   <component>1456716</component>
   <summary>
     Number of rows in urls table in History DB. Metrics are logged on
     initialization of the History DB on 1% of starts.
-  </summary>
-</histogram>
-
-<histogram name="History.VisitAddedDueTo404" enum="Boolean"
-    expires_after="2027-01-31">
-  <owner>svend@chromium.org</owner>
-  <owner>kyraseevers@chromium.org</owner>
-  <summary>
-    Whether a page visit recorded in the History DB was added due to a
-    navigation with an HTTP response code of 404. Visits added due to a 404
-    includes a) 404 visits themselves and b) redirects in chains that end in a
-    404 visit. Recorded after a visit is successfully added to the History DB
-    (because this includes redirects, one user-initiated navigation can result
-    in multiple emissions). Intended to monitor what proportion of newly
-    recorded visits are 404s when saving page visits with HTTP response code 404
-    to the History database. See also
-    `History.VisitedLinks.AdditionCausedBy404`.
-  </summary>
-</histogram>
-
-<histogram name="History.VisitedLinks.AdditionCausedBy404" enum="Boolean"
-    expires_after="2027-01-24">
-  <owner>svend@chromium.org</owner>
-  <owner>kyraseevers@chromium.org</owner>
-  <summary>
-    When we attempt to add a VisitedLink to the in-memory partitioned hashtable,
-    records whether that record is added due to a visit with an HTTP response
-    code 404. Recorded on every attempt to write a VisitedLink entry, including
-    those for redirects (i.e., for a redirect chain ending in a 404, there will
-    be one emission per redirect, all emitted as true, since the 404 is what is
-    causing the redirects' addition to the hashtable). Intended to monitor the
-    proportion of VisitedLink entries that are for 404s, after allowing 404
-    visits to be saved to History. See also `History.VisitAddedDueTo404`.
   </summary>
 </histogram>
 
@@ -2837,7 +2835,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.WeeklyHostCount" units="hosts"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>mpearson@chromium.org</owner>
   <owner>sky@chromium.org</owner>
   <component>1456716</component>

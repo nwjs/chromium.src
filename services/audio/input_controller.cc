@@ -462,6 +462,7 @@ void InputController::MaybeSetUpAudioProcessing(
 std::unique_ptr<VoiceIsolationHandler>
 InputController::MaybeCreateVoiceIsolationHandler(
     raw_ptr<MlModelManager> ml_model_manager,
+    media::AudioDebugRecordingManager* debug_recording_manager,
     const media::AudioParameters& processing_output_params,
     DeliverProcessedAudioCallback deliver_processed_audio_callback) {
   if (!ml_model_manager) {
@@ -470,7 +471,10 @@ InputController::MaybeCreateVoiceIsolationHandler(
 
   return VoiceIsolationHandler::MaybeCreate(
       *ml_model_manager, processing_output_params,
-      std::move(deliver_processed_audio_callback));
+      std::move(deliver_processed_audio_callback),
+      base::BindRepeating(&EventHandler::OnLog,
+                          base::Unretained(event_handler_)),
+      debug_recording_manager);
 }
 
 #endif
@@ -738,7 +742,8 @@ void InputController::DoCreate(
   std::unique_ptr<VoiceIsolationHandler> voice_isolation_handler;
   if (processing_config && processing_config->settings.voice_isolation) {
     voice_isolation_handler = MaybeCreateVoiceIsolationHandler(
-        ml_model_manager, params, std::move(deliver_processed_audio_callback));
+        ml_model_manager, audio_manager->GetAudioDebugRecordingManager(),
+        params, std::move(deliver_processed_audio_callback));
     if (!voice_isolation_handler) {
       event_handler_->OnError(STREAM_CREATE_ERROR);
       LogCaptureStartupResult(ParamsToStreamType(params),
@@ -1018,6 +1023,8 @@ void InputController::DeliverProcessedAudio(
     const media::AudioBus& audio_bus,
     base::TimeTicks audio_capture_time,
     const media::AudioGlitchInfo& glitch_info) {
+  TRACE_EVENT("audio", "InputController::DeliverProcessedAudio", "frames",
+              audio_bus.frames(), "channels", audio_bus.channels());
   stats_reporter_->ReportDelayAndGlitches(audio_capture_time, glitch_info);
   // When processing is performed in the audio service, the consumer is not
   // expected to use the input volume and keypress information.

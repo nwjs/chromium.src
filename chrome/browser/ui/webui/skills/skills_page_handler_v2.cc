@@ -7,6 +7,7 @@
 #include <optional>
 
 #include "base/check_deref.h"
+#include "base/command_line.h"
 #include "base/supports_user_data.h"
 #include "chrome/browser/glic/host/glic_cookie_synchronizer.h"
 #include "chrome/browser/profiles/profile.h"
@@ -18,6 +19,7 @@
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/toasts/api/toast_id.h"
 #include "chrome/browser/ui/webui/skills/skills_dialog_delegate.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/common/webui_url_constants.h"
 #include "components/signin/public/base/signin_buildflags.h"
 #include "components/signin/public/base/signin_metrics.h"
@@ -154,6 +156,11 @@ void SkillsPageHandlerV2::OnSkillUpdated(
 }
 
 void SkillsPageHandlerV2::SyncCookies(SyncCookiesCallback callback) {
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kSkillsV2Origin)) {
+    std::move(callback).Run(true);
+    return;
+  }
   cookie_synchronizer_->CopyCookiesToWebviewStoragePartition(
       std::move(callback));
 }
@@ -243,7 +250,16 @@ void SkillsPageHandlerV2::SendPrompt(const std::string& prompt) {
   tabs::TabInterface* tab =
       tabs::TabInterface::MaybeGetFromContents(&web_contents_.get());
   if (!tab) {
-    return;
+    // In the dialog the WebUI is hosted by a views::WebView rather than a tab,
+    // so fall back to the tab the dialog was opened over.
+    BrowserWindowInterface* browser = GetBrowserWindow();
+    if (!browser) {
+      return;
+    }
+    tab = browser->GetActiveTabInterface();
+    if (!tab) {
+      return;
+    }
   }
   if (auto* tab_controller = SkillsUiTabControllerInterface::From(tab)) {
     tab_controller->SendPrompt(prompt);
@@ -252,19 +268,19 @@ void SkillsPageHandlerV2::SendPrompt(const std::string& prompt) {
 
 void SkillsPageHandlerV2::CloseDialog(
     skills::mojom::PendingEditorDataPtr data) {
-  if (!delegate_) {
-    return;
-  }
   // First store any data in user data, then proceed with dialog and handler
   // destruction.
   if (data) {
     PendingEditorDataHandler::GetOrCreateForProfile(&profile_.get())
         ->StoreData(std::move(data));
-    delegate_->GetBrowserWindowInterface()->OpenGURL(
-        GURL("chrome://skills/editor"),
-        WindowOpenDisposition::NEW_FOREGROUND_TAB);
+    if (BrowserWindowInterface* browser = GetBrowserWindow()) {
+      browser->OpenGURL(GURL("chrome://skills/editor"),
+                        WindowOpenDisposition::NEW_FOREGROUND_TAB);
+    }
   }
-  delegate_->CloseDialog();
+  if (delegate_) {
+    delegate_->CloseDialog();
+  }
 }
 
 void SkillsPageHandlerV2::GetPendingEditorData(

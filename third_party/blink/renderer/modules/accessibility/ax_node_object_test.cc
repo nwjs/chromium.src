@@ -5,9 +5,11 @@
 #include "third_party/blink/renderer/modules/accessibility/ax_node_object.h"
 
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_object-inl.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_object_cache_impl.h"
 #include "third_party/blink/renderer/modules/accessibility/testing/accessibility_test.h"
+#include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/graphics/color.h"
 #include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 #include "ui/accessibility/ax_mode.h"
@@ -300,6 +302,74 @@ TEST_F(AccessibilityTest, FocusgroupOwnerImpliedRoleGenericContainer) {
   // A generic container with focusgroup behavior should be promoted to the
   // minimum ARIA role for its behavior (toolbar).
   EXPECT_EQ(ax::mojom::Role::kToolbar, fg->RoleValue());
+}
+
+TEST_F(AccessibilityTest, FocusgroupOwnerImpliedRolePopover) {
+  SetBodyInnerHTML(R"HTML(
+      <div id="fg" focusgroup="menu" popover="manual">
+        <button id="child">Item</button>
+      </div>)HTML");
+  auto* popover = To<HTMLElement>(GetElementById("fg"));
+  popover->showPopover(ASSERT_NO_EXCEPTION);
+  GetAXObjectCache().UpdateAXForAllDocuments();
+
+  const AXObject* fg = GetAXObjectByElementId("fg");
+  ASSERT_NE(nullptr, fg);
+  EXPECT_EQ(ax::mojom::Role::kMenu, fg->RoleValue());
+
+  const AXObject* child = GetAXObjectByElementId("child");
+  ASSERT_NE(nullptr, child);
+  EXPECT_EQ(ax::mojom::Role::kMenuItem,
+            child->ComputeFinalRoleForSerialization());
+}
+
+TEST_F(AccessibilityTest, FocusgroupDisabledPopoverUsesGroupFallback) {
+  ScopedFocusgroupForTest focusgroup_disabled(/*enabled=*/false);
+  SetBodyInnerHTML(R"HTML(
+      <div id="fg" focusgroup="menu" popover="manual">
+        <button>Item</button>
+      </div>)HTML");
+  auto* popover = To<HTMLElement>(GetElementById("fg"));
+  popover->showPopover(ASSERT_NO_EXCEPTION);
+  GetAXObjectCache().UpdateAXForAllDocuments();
+
+  const AXObject* fg = GetAXObjectByElementId("fg");
+  ASSERT_NE(nullptr, fg);
+  EXPECT_EQ(ax::mojom::Role::kGroup, fg->RoleValue());
+}
+
+TEST_F(AccessibilityTest, FocusgroupListboxPopoverIsNotClickable) {
+  SetBodyInnerHTML(R"HTML(
+      <div id="fg" focusgroup="listbox" popover="manual">
+        <button>Item</button>
+      </div>)HTML");
+  auto* popover = To<HTMLElement>(GetElementById("fg"));
+  popover->showPopover(ASSERT_NO_EXCEPTION);
+  GetAXObjectCache().UpdateAXForAllDocuments();
+
+  const AXObject* fg = GetAXObjectByElementId("fg");
+  ASSERT_NE(nullptr, fg);
+  EXPECT_EQ(ax::mojom::Role::kListBox, fg->RoleValue());
+  EXPECT_FALSE(fg->IsClickable());
+}
+
+TEST_F(AccessibilityTest, FocusgroupPopoverPreservesNativeGroupRole) {
+  SetBodyInnerHTML(R"HTML(
+      <fieldset id="fg" focusgroup="menu" popover="manual">
+        <button id="child">Item</button>
+      </fieldset>)HTML");
+  auto* popover = To<HTMLElement>(GetElementById("fg"));
+  popover->showPopover(ASSERT_NO_EXCEPTION);
+  GetAXObjectCache().UpdateAXForAllDocuments();
+
+  const AXObject* fg = GetAXObjectByElementId("fg");
+  ASSERT_NE(nullptr, fg);
+  EXPECT_EQ(ax::mojom::Role::kGroup, fg->RoleValue());
+
+  const AXObject* child = GetAXObjectByElementId("child");
+  ASSERT_NE(nullptr, child);
+  EXPECT_EQ(ax::mojom::Role::kButton,
+            child->ComputeFinalRoleForSerialization());
 }
 
 TEST_F(AccessibilityTest, FocusgroupOwnerDoesNotOverrideExplicitRole) {
@@ -695,6 +765,51 @@ TEST_F(AccessibilityTest, ScrollButtonAndMarkerGroupParent) {
   EXPECT_EQ(marker_group_parent, wrapper->GetNode());
 }
 
+TEST_F(AccessibilityTest, ScrollMarkerGroupModeChangeUpdatesRoles) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+    #carousel {
+      scroll-marker-group: before tabs;
+      overflow: scroll;
+    }
+    #item::scroll-marker {
+      content: '';
+    }
+    </style>
+    <div id=carousel><div id=item>One</div></div>)HTML");
+
+  auto expect_roles = [&](ax::mojom::Role group_role,
+                          ax::mojom::Role marker_role,
+                          ax::mojom::Role item_role) {
+    UpdateAllLifecyclePhasesForTest();
+    const AXObject* group =
+        GetAXObjectByElementId("carousel", kPseudoIdScrollMarkerGroupBefore);
+    const AXObject* marker =
+        GetAXObjectByElementId("item", kPseudoIdScrollMarker);
+    const AXObject* item = GetAXObjectByElementId("item");
+    ASSERT_NE(nullptr, group);
+    ASSERT_NE(nullptr, marker);
+    ASSERT_NE(nullptr, item);
+    EXPECT_EQ(group_role, group->RoleValue());
+    EXPECT_EQ(marker_role, marker->RoleValue());
+    EXPECT_EQ(item_role, item->RoleValue());
+  };
+
+  Element* carousel = GetElementById("carousel");
+  expect_roles(ax::mojom::Role::kTabList, ax::mojom::Role::kTab,
+               ax::mojom::Role::kTabPanel);
+
+  carousel->SetInlineStyleProperty(CSSPropertyID::kScrollMarkerGroup,
+                                   "before links");
+  expect_roles(ax::mojom::Role::kNavigation, ax::mojom::Role::kLink,
+               ax::mojom::Role::kGenericContainer);
+
+  carousel->SetInlineStyleProperty(CSSPropertyID::kScrollMarkerGroup,
+                                   "before tabs");
+  expect_roles(ax::mojom::Role::kTabList, ax::mojom::Role::kTab,
+               ax::mojom::Role::kTabPanel);
+}
+
 TEST_F(AccessibilityTest,
        TreeItemWithAriaCheckedShouldNotHaveImplicitAriaSelected) {
   SetBodyInnerHTML(R"HTML(
@@ -841,6 +956,38 @@ TEST_F(AccessibilityTest, RadioButtonsInGroupInTableRows) {
   std::vector<int32_t> radio_group_ids = node_data.GetIntListAttribute(
       ax::mojom::IntListAttribute::kRadioGroupIds);
   EXPECT_EQ(6u, radio_group_ids.size());
+}
+
+// ARIA (role=radio/radiogroup) radio buttons need not be direct siblings of
+// one another: RadioButtonsInGroup() walks up to the nearest enclosing
+// radiogroup ancestor, then collects role=radio descendants without crossing
+// into a nested radiogroup's own boundary.
+TEST_F(AccessibilityTest, AriaRadioButtonsInGroupNotCrossingNestedRadiogroups) {
+  SetBodyInnerHTML(R"HTML(
+      <div id="outer" role="radiogroup">
+        <div role="radio" id="r1"></div>
+        <div id="wrapper">
+          <div role="radio" id="r2"></div>
+        </div>
+        <div role="radiogroup" id="inner">
+          <div role="radio" id="r3"></div>
+        </div>
+      </div>
+  )HTML");
+
+  const AXObject* r1 = GetAXObjectByElementId("r1");
+  ASSERT_NE(nullptr, r1);
+  ASSERT_EQ(ax::mojom::Role::kRadioButton, r1->RoleValue());
+  ScopedFreezeAXCache freeze(GetAXObjectCache());
+  AXObject::AXObjectVector outer_group =
+      To<AXNodeObject>(r1)->RadioButtonsInGroup();
+  EXPECT_EQ(2u, outer_group.size());
+
+  const AXObject* r3 = GetAXObjectByElementId("r3");
+  ASSERT_NE(nullptr, r3);
+  AXObject::AXObjectVector inner_group =
+      To<AXNodeObject>(r3)->RadioButtonsInGroup();
+  EXPECT_EQ(1u, inner_group.size());
 }
 
 // Regression test for crbug.com/501371770. Verifies that an aria-owned element

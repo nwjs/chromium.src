@@ -189,6 +189,7 @@ try_.builder(
     contact_team_email = "chromeos-chrome-build@google.com",
     cq_settings = try_.cq_settings(
         on_default_cq = True,
+        reuse_max_commit_distance = 800 if settings.is_main else None,
     ),
     experiments = {
         # crbug/940930
@@ -243,6 +244,7 @@ try_.compilator_builder(
     name = "linux-chromeos-rel-compilator",
     branch_selector = branches.selector.CROS_LTS_BRANCHES,
     cores = 32,
+    contact_team_email = "chromeos-chrome-build@google.com",
     main_list_view = "try",
 )
 
@@ -311,15 +313,6 @@ try_.builder(
     ],
     gn_args = "ci/linux-chromeos-treesinviz-disabled-rel",
     contact_team_email = "chrome-gpu-team@google.com",
-)
-
-try_.builder(
-    name = "linux-chromeos-tsgo-rel",
-    mirrors = [
-        "ci/linux-chromeos-tsgo-rel",
-    ],
-    gn_args = "ci/linux-chromeos-tsgo-rel",
-    contact_team_email = "chrome-webui@google.com",
 )
 
 try_.builder(

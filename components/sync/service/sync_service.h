@@ -11,6 +11,7 @@
 
 #include "base/containers/enum_set.h"
 #include "base/containers/flat_set.h"
+#include "base/files/file_path.h"
 #include "base/functional/callback.h"
 #include "base/location.h"
 #include "base/time/time.h"
@@ -246,7 +247,7 @@ class SyncService : public KeyedService {
     // The number of bookmarks has exceeded the limit.
     kBookmarksLimitExceeded = 11,
 
-#if BUILDFLAG(IS_IOS)
+#if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
     // Sync has encountered a Device Management error. The user should be
     // notified and depending on the type of error, may need to take action to
     // resolve it.
@@ -254,7 +255,7 @@ class SyncService : public KeyedService {
     kMaxValue = kDeviceManagementError,
 #else
     kMaxValue = kBookmarksLimitExceeded,
-#endif  // BUILDFLAG(IS_IOS)
+#endif  // BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
   };
   // LINT.ThenChange(/tools/metrics/histograms/metadata/sync/enums.xml:UserActionableError)
 
@@ -639,6 +640,8 @@ class SyncService : public KeyedService {
       const = 0;
 
   virtual const GURL& GetSyncServiceUrlForDebugging() const = 0;
+
+  virtual base::FilePath GetLocalSyncBackendFolderForDebugging() const = 0;
 
   virtual std::string GetUnrecoverableErrorMessageForDebugging() const = 0;
   virtual base::Location GetUnrecoverableErrorLocationForDebugging() const = 0;

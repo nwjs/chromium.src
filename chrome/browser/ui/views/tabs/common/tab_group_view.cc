@@ -261,19 +261,6 @@ void TabGroupView::OnAnimationEnded() {
   }
 }
 
-std::u16string TabGroupView::GetGroupContentString() const {
-  if (!collection_node_) {
-    return std::u16string();
-  }
-
-  const TabGroup* group = GetTabGroupFromNode(collection_node_);
-  if (group->tab_count() == 0) {
-    return std::u16string();
-  }
-
-  return tab_groups::GetGroupContentString(group);
-}
-
 bool TabGroupView::IsValid() const {
   return collection_node_;
 }
@@ -287,6 +274,9 @@ void TabGroupView::AttachChildView(std::unique_ptr<views::View> child_view,
   }
   layout_manager_->AnimateAndReparentView(std::move(child_view),
                                           previous_bounds_in_screen);
+  if (IsValid() && GetTabGroup().is_ephemeral()) {
+    group_header_->OnTabCountChanged();
+  }
 }
 
 std::unique_ptr<views::View> TabGroupView::DetachChildView(
@@ -296,7 +286,11 @@ std::unique_ptr<views::View> TabGroupView::DetachChildView(
     // are detached from the group while collapsed, reset its visibility.
     child_view->SetVisible(true);
   }
-  return RemoveChildViewT(child_view);
+  auto removed = RemoveChildViewT(child_view);
+  if (IsValid() && GetTabGroup().is_ephemeral()) {
+    group_header_->OnTabCountChanged();
+  }
+  return removed;
 }
 
 void TabGroupView::ResetCollectionNode() {

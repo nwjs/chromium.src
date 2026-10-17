@@ -32,9 +32,12 @@
 #include "components/actor/core/aggregated_journal.h"
 #include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/autofill/core/browser/integrators/actor/actor_form_filling_types.h"
-#include "components/origin_gating/core/actor_container_config_slot.h"
+#include "components/origin_gating/core/checker_id.h"
 #include "components/origin_gating/core/origin_gating_cache.h"
 #include "components/origin_gating/core/origin_gating_checker.h"
+#include "components/origin_gating/core/origin_gating_registration.h"
+#include "components/origin_gating/core/origin_gating_service.h"
+#include "components/origin_gating/core/task_policy_config_slot.h"
 #include "components/password_manager/core/browser/actor_login/actor_login_service.h"
 #include "components/password_manager/core/browser/actor_login/actor_login_types.h"
 #include "components/tabs/public/tab_interface.h"
@@ -59,6 +62,10 @@ class ScopedUmaHistogramTimer;
 
 namespace content {
 class NavigationHandle;
+}
+
+namespace origin_gating {
+class OriginGatingService;
 }
 
 namespace url {
@@ -308,16 +315,15 @@ class ExecutionEngine : public ToolDelegate,
 
   State state() const { return state_; }
 
-  const origin_gating::OriginGatingCache& origin_gating_cache() const {
-    return origin_gating_checker_.cache();
+  origin_gating::CheckerId checker_id() const {
+    return origin_gating_registration_ ? origin_gating_registration_->id()
+                                       : origin_gating::CheckerId();
   }
 
-  const origin_gating::OriginGatingChecker& origin_gating_checker() const {
-    return origin_gating_checker_;
-  }
-  origin_gating::OriginGatingChecker& origin_gating_checker() {
-    return origin_gating_checker_;
-  }
+  const origin_gating::OriginGatingCache& GetOriginGatingCache() const;
+
+  const origin_gating::OriginGatingChecker& GetOriginGatingChecker() const;
+  origin_gating::OriginGatingChecker& GetOriginGatingChecker();
 
   // Currently, navigations are generally forced to happen in the same tab (see
   // https://crbug.com/420669167 ). In some cases we need to drop this
@@ -327,17 +333,13 @@ class ExecutionEngine : public ToolDelegate,
   // origin_gating::OriginGatingChecker::Delegate
   void DoesOriginRequireUserConfirmation(
       origin_gating::GatingDecisionContext* context,
-      origin_gating::GateableEvent event,
-      const GURL& source,
-      const GURL& destination,
+      const origin_gating::GateableEvent& event,
       DoesOriginRequireUserConfirmationCallback callback) const override;
   void EvaluateEnterprisePolicy(
       const GURL& destination,
       EvaluateEnterprisePolicyCallback callback) const override;
   void OnNoVerdict(origin_gating::GatingDecisionContext* context,
-                   origin_gating::GateableEvent event,
-                   const GURL& source,
-                   const GURL& destination,
+                   const origin_gating::GateableEvent& event,
                    bool requires_user_confirmation,
                    base::OnceCallback<void(NoVerdictResult)> callback) override;
 
@@ -351,6 +353,9 @@ class ExecutionEngine : public ToolDelegate,
  private:
   class NewTabWebContentsObserver;
 
+  origin_gating::OriginGatingService& GetOriginGatingService() const;
+  origin_gating::OriginGatingChecker& GetOriginGatingCheckerInternal() const;
+
   void SetState(State state);
 
   // Starts the next action by calling SafetyChecksForNextAction(). Must only be
@@ -362,7 +367,7 @@ class ExecutionEngine : public ToolDelegate,
 
   // Performs synchronous safety checks for the next action. If everything
   // passes calls tool_controller_.Invoke().
-  void DidFinishAsyncSafetyChecks(const url::Origin& evaluated_origin,
+  void DidFinishAsyncSafetyChecks(const url::Origin& committed_origin,
                                   mojom::ActionResultCode result_code);
 
   // If a failure occurs before the next action starts, we associate the tab
@@ -415,7 +420,7 @@ class ExecutionEngine : public ToolDelegate,
       const url::Origin& destination_origin,
       State initial_state,
       std::optional<url::Origin> initiator,
-      origin_gating::GateableEvent event,
+      origin_gating::GateableEvent::Type event_type,
       std::unique_ptr<origin_gating::GatingDecisionContext> context,
       origin_gating::GatingDecision decision);
 
@@ -495,8 +500,11 @@ class ExecutionEngine : public ToolDelegate,
   // The results for actions so far.
   std::vector<ActionResultWithLatencyInfo> action_results_;
 
-  // The engine that will determine the origin gating behavior.
-  origin_gating::OriginGatingChecker origin_gating_checker_;
+  // Manages the registration lifetime of this engine's OriginGatingChecker with
+  // the OriginGatingService. Automatically unregisters the checker upon
+  // destruction.
+  std::unique_ptr<origin_gating::OriginGatingRegistration>
+      origin_gating_registration_;
 
   // This will allow us to store already-recorded origins to avoid duplication
   // of dark launch metrics.

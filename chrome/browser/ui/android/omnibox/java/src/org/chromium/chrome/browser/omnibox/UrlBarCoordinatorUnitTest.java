@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.omnibox;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -43,11 +45,14 @@ public class UrlBarCoordinatorUnitTest {
     @Rule
     public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
 
+    private static final long DEBOUNCE_DELAY_MS = UrlBarCoordinator.KEYBOARD_DEBOUNCE_DELAY_MS;
+
     private UrlBar mUrlBar;
     @Mock private UrlBarDelegate mDelegate;
     @Mock private KeyboardVisibilityDelegate mKeyboardVisibilityDelegate;
     @Mock private Callback<UrlBarFocusChangeInfo> mFocusChangeCallback;
     @Captor private ArgumentCaptor<Runnable> mRunnableCaptor;
+    @Captor private ArgumentCaptor<Callback<Boolean>> mTextWrappingCallbackCaptor;
 
     private Context mContext;
     private UrlBarCoordinator mCoordinator;
@@ -103,7 +108,7 @@ public class UrlBarCoordinatorUnitTest {
         mCoordinator.setKeyboardVisibility(
                 /* showKeyboard= */ true, /* shouldDelayHiding= */ false);
 
-        verify(mUrlBar).postDelayed(mRunnableCaptor.capture(), eq(150L));
+        verify(mUrlBar).postDelayed(mRunnableCaptor.capture(), eq(DEBOUNCE_DELAY_MS));
         verify(mKeyboardVisibilityDelegate, never()).showKeyboard(any());
 
         // When runnable fires, keyboard is shown
@@ -115,25 +120,25 @@ public class UrlBarCoordinatorUnitTest {
     public void setKeyboardVisibility_showWhenAlreadyShowingOrShown_noOp() {
         mCoordinator.setKeyboardVisibility(
                 /* showKeyboard= */ true, /* shouldDelayHiding= */ false);
-        verify(mUrlBar).postDelayed(any(), eq(150L));
+        verify(mUrlBar).postDelayed(any(), eq(DEBOUNCE_DELAY_MS));
 
         // Subsequent show requests while SHOWING are no-ops
         mCoordinator.setKeyboardVisibility(
                 /* showKeyboard= */ true, /* shouldDelayHiding= */ false);
-        verify(mUrlBar).postDelayed(any(), eq(150L));
+        verify(mUrlBar).postDelayed(any(), eq(DEBOUNCE_DELAY_MS));
 
         // When confirmed SHOWN, show requests are still no-ops
         mCoordinator.keyboardVisibilityChanged(/* isKeyboardShowing= */ true);
         mCoordinator.setKeyboardVisibility(
                 /* showKeyboard= */ true, /* shouldDelayHiding= */ false);
-        verify(mUrlBar).postDelayed(any(), eq(150L));
+        verify(mUrlBar).postDelayed(any(), eq(DEBOUNCE_DELAY_MS));
     }
 
     @Test
     public void setKeyboardVisibility_hideWhileShowing_cancelsDebounceWithoutCallingHide() {
         mCoordinator.setKeyboardVisibility(
                 /* showKeyboard= */ true, /* shouldDelayHiding= */ false);
-        verify(mUrlBar).postDelayed(mRunnableCaptor.capture(), eq(150L));
+        verify(mUrlBar).postDelayed(mRunnableCaptor.capture(), eq(DEBOUNCE_DELAY_MS));
 
         // Hide requested while show is still pending: cancels without scheduling hide
         clearInvocations(mUrlBar);
@@ -152,7 +157,7 @@ public class UrlBarCoordinatorUnitTest {
 
         mCoordinator.setKeyboardVisibility(
                 /* showKeyboard= */ false, /* shouldDelayHiding= */ false);
-        verify(mUrlBar).postDelayed(mRunnableCaptor.capture(), eq(150L));
+        verify(mUrlBar).postDelayed(mRunnableCaptor.capture(), eq(DEBOUNCE_DELAY_MS));
         verify(mKeyboardVisibilityDelegate, never()).hideKeyboard(any());
 
         // When runnable fires, keyboard is hidden
@@ -173,12 +178,12 @@ public class UrlBarCoordinatorUnitTest {
         // First hide schedules debounce
         mCoordinator.setKeyboardVisibility(
                 /* showKeyboard= */ false, /* shouldDelayHiding= */ false);
-        verify(mUrlBar).postDelayed(any(), eq(150L));
+        verify(mUrlBar).postDelayed(any(), eq(DEBOUNCE_DELAY_MS));
 
         // Second hide while HIDING is a no-op
         mCoordinator.setKeyboardVisibility(
                 /* showKeyboard= */ false, /* shouldDelayHiding= */ false);
-        verify(mUrlBar).postDelayed(any(), eq(150L));
+        verify(mUrlBar).postDelayed(any(), eq(DEBOUNCE_DELAY_MS));
     }
 
     @Test
@@ -187,7 +192,7 @@ public class UrlBarCoordinatorUnitTest {
         mCoordinator.setKeyboardVisibility(
                 /* showKeyboard= */ false, /* shouldDelayHiding= */ false);
 
-        verify(mUrlBar).postDelayed(mRunnableCaptor.capture(), eq(150L));
+        verify(mUrlBar).postDelayed(mRunnableCaptor.capture(), eq(DEBOUNCE_DELAY_MS));
         Runnable hideRunnable = mRunnableCaptor.getValue();
 
         clearInvocations(mUrlBar);
@@ -204,7 +209,7 @@ public class UrlBarCoordinatorUnitTest {
     public void keyboardVisibilityChanged_updatesCursorAndCancelsPending() {
         mCoordinator.setKeyboardVisibility(
                 /* showKeyboard= */ true, /* shouldDelayHiding= */ false);
-        verify(mUrlBar).postDelayed(mRunnableCaptor.capture(), eq(150L));
+        verify(mUrlBar).postDelayed(mRunnableCaptor.capture(), eq(DEBOUNCE_DELAY_MS));
 
         clearInvocations(mUrlBar);
         // OS notifies that keyboard showed
@@ -218,8 +223,46 @@ public class UrlBarCoordinatorUnitTest {
     }
 
     @Test
+    public void setKeyboardVisibility_hideAfterShowRunnableFiresBeforeOsCallback_schedulesHide() {
+        mCoordinator.setKeyboardVisibility(
+                /* showKeyboard= */ true, /* shouldDelayHiding= */ false);
+        verify(mUrlBar).postDelayed(mRunnableCaptor.capture(), eq(DEBOUNCE_DELAY_MS));
+        mRunnableCaptor.getValue().run();
+        verify(mKeyboardVisibilityDelegate).showKeyboard(mUrlBar);
+
+        clearInvocations(mUrlBar);
+        mCoordinator.setKeyboardVisibility(
+                /* showKeyboard= */ false, /* shouldDelayHiding= */ false);
+        verify(mUrlBar).postDelayed(mRunnableCaptor.capture(), eq(DEBOUNCE_DELAY_MS));
+
+        // Late OS show callback must not cancel the pending hide runnable.
+        mCoordinator.keyboardVisibilityChanged(/* isKeyboardShowing= */ true);
+        verify(mUrlBar, never()).removeCallbacks(mRunnableCaptor.getValue());
+
+        mRunnableCaptor.getValue().run();
+        verify(mKeyboardVisibilityDelegate).hideKeyboard(mUrlBar);
+    }
+
+    @Test
     public void testSelectAllText_delegates() {
         mCoordinator.selectAllText();
         verify(mUrlBar).selectAll();
+    }
+
+    @Test
+    public void testUrlTextWrappingSupplier() {
+        var supplier = mCoordinator.getUrlTextWrappingSupplier();
+        assertFalse(supplier.get());
+        assertFalse(mCoordinator.isTextWrapped());
+
+        verify(mUrlBar).setUrlTextWrappingChangeListener(mTextWrappingCallbackCaptor.capture());
+
+        mTextWrappingCallbackCaptor.getValue().onResult(true);
+        assertTrue(supplier.get());
+        assertTrue(mCoordinator.isTextWrapped());
+
+        mTextWrappingCallbackCaptor.getValue().onResult(false);
+        assertFalse(supplier.get());
+        assertFalse(mCoordinator.isTextWrapped());
     }
 }

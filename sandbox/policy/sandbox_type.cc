@@ -38,12 +38,18 @@ constexpr char kSpeechRecognitionSandbox[] = "speech_recognition";
     BUILDFLAG(IS_WIN)
 constexpr char kPrintBackendSandbox[] = "print_backend";
 constexpr char kScreenAISandbox[] = "screen_ai";
+constexpr char kPlatformRuntimeSandbox[] = "platform_runtime";
 #endif
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
+// The XR Device Service hosts the OpenXR runtime; it is sandboxed on Windows
+// and Linux.
+constexpr char kXrCompositingSandbox[] = "xr_compositing";
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
 
 #if BUILDFLAG(IS_WIN)
 constexpr char kNoneSandboxAndElevatedPrivileges[] = "none_and_elevated";
 constexpr char kPdfConversionSandbox[] = "pdf_conversion";
-constexpr char kXrCompositingSandbox[] = "xr_compositing";
 constexpr char kIconReaderSandbox[] = "icon_reader";
 constexpr char kMediaFoundationCdmSandbox[] = "mf_cdm";
 #endif  // BUILDFLAG(IS_WIN)
@@ -134,9 +140,11 @@ void SetCommandLineFlagsForSandboxType(base::CommandLine* command_line,
 #if BUILDFLAG(IS_FUCHSIA)
     case Sandbox::kVideoCapture:
 #endif
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
+    case Sandbox::kXrCompositing:
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
 #if BUILDFLAG(IS_WIN)
     case Sandbox::kNoSandboxAndElevatedPrivileges:
-    case Sandbox::kXrCompositing:
     case Sandbox::kPdfConversion:
     case Sandbox::kIconReader:
     case Sandbox::kMediaFoundationCdm:
@@ -166,6 +174,7 @@ void SetCommandLineFlagsForSandboxType(base::CommandLine* command_line,
     BUILDFLAG(IS_WIN)
     case Sandbox::kPrintBackend:
     case Sandbox::kScreenAI:
+    case Sandbox::kPlatformRuntime:
 #endif
     case Sandbox::kSpeechRecognition:
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS)
@@ -267,14 +276,18 @@ std::string StringFromUtilitySandboxType(Sandbox sandbox_type) {
       return kPrintBackendSandbox;
     case Sandbox::kScreenAI:
       return kScreenAISandbox;
+    case Sandbox::kPlatformRuntime:
+      return kPlatformRuntimeSandbox;
 #endif
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS)
     case Sandbox::kOnDeviceTranslation:
       return kOnDeviceTranslationSandbox;
 #endif
-#if BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
     case Sandbox::kXrCompositing:
       return kXrCompositingSandbox;
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(IS_WIN)
     case Sandbox::kPdfConversion:
       return kPdfConversionSandbox;
     case Sandbox::kIconReader:
@@ -360,10 +373,12 @@ sandbox::mojom::Sandbox UtilitySandboxTypeFromString(
   if (sandbox_string == kPrintCompositorSandbox) {
     return Sandbox::kPrintCompositor;
   }
-#if BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
   if (sandbox_string == kXrCompositingSandbox) {
     return Sandbox::kXrCompositing;
   }
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(IS_WIN)
   if (sandbox_string == kPdfConversionSandbox) {
     return Sandbox::kPdfConversion;
   }
@@ -400,6 +415,9 @@ sandbox::mojom::Sandbox UtilitySandboxTypeFromString(
   }
   if (sandbox_string == kScreenAISandbox) {
     return Sandbox::kScreenAI;
+  }
+  if (sandbox_string == kPlatformRuntimeSandbox) {
+    return Sandbox::kPlatformRuntime;
   }
 #endif
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS)

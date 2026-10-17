@@ -153,6 +153,9 @@ ActorOneTimeTokenFillingServiceRetrieveOtp MapError(
       return kGmailOtpBackendOtpAttributeNotFound;
     case OneTimeTokenRetrievalError::kGmailOtpBackendServerError:
       return kGmailOtpBackendServerError;
+    case OneTimeTokenRetrievalError::
+        kGmailOtpBackendMessageAuthenticationFailed:
+      return kGmailOtpBackendMessageAuthenticationFailed;
     case OneTimeTokenRetrievalError::kSubscriptionExpired:
       return kRetrievalTimeout;
   }
@@ -680,6 +683,18 @@ void ActorOneTimeTokenFillingServiceImpl::OnBackendLogMessage(
       GURL(), task_id_,
       "ActorOneTimeTokenFillingServiceImpl::OneTimeTokenServiceLog",
       ::actor::JournalDetailsBuilder().Add("message", message).Build());
+}
+
+void ActorOneTimeTokenFillingServiceImpl::FetchUserDataProcessingConsent(
+    FetchUserDataProcessingConsentCallback callback) {
+  one_time_tokens::OneTimeTokenService* service =
+      OneTimeTokenServiceFactory::GetForProfile(profile_);
+  if (!service) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(std::move(callback), std::nullopt));
+    return;
+  }
+  service->FetchUserDataProcessingConsent(std::move(callback));
 }
 
 base::WeakPtr<ActorOneTimeTokenFillingService>

@@ -20,6 +20,7 @@
 #include "chrome/browser/ui/autofill/autofill_popup_controller_impl.h"
 #include "chrome/browser/ui/autofill/autofill_popup_view.h"
 #include "chrome/browser/ui/autofill/autofill_suggestion_controller_test_base.h"
+#include "chrome/browser/ui/autofill/autofill_suggestion_controller_utils.h"
 #include "chrome/browser/ui/autofill/popup_controller_common.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/base/testing_profile.h"
@@ -35,11 +36,13 @@
 #include "components/autofill/core/browser/foundations/browser_autofill_manager_test_api.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/suggestions/suggestion_hiding_reason.h"
+#include "components/autofill/core/browser/suggestions/suggestion_test_helpers.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #include "components/autofill/core/browser/ui/autofill_external_delegate.h"
 #include "components/autofill/core/browser/ui/autofill_suggestion_delegate.h"
 #include "components/autofill/core/common/aliases.h"
+#include "components/autofill/core/common/autofill_test_util.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "components/input/native_web_keyboard_event.h"
 #include "components/prefs/pref_service.h"
@@ -71,6 +74,7 @@ using base::WeakPtr;
 using ::testing::_;
 using ::testing::AtLeast;
 using ::testing::Field;
+using ::testing::IsEmpty;
 using ::testing::Mock;
 using ::testing::Optional;
 using ::testing::Return;
@@ -264,11 +268,14 @@ TEST_F(AutofillSuggestionControllerTest, PopupsWithOnlyDataLists) {
 
 TEST_F(AutofillSuggestionControllerTest, GetOrCreate) {
   auto create_controller = [&](gfx::RectF bounds) {
+    LocalFrameToken frame_token(*main_frame()->GetFrameToken());
     return AutofillSuggestionController::GetOrCreate(
         client().suggestion_controller(manager()).GetWeakPtr(),
         manager().external_delegate().GetWeakPtrForTest(), web_contents(),
-        PopupControllerCommon(LocalFrameToken(*main_frame()->GetFrameToken()),
-                              std::move(bounds), base::i18n::UNKNOWN_DIRECTION),
+        PopupControllerCommon(
+            FormGlobalId(frame_token, test::MakeFormRendererId()),
+            FieldGlobalId(frame_token, test::MakeFieldRendererId()),
+            std::move(bounds), base::i18n::UNKNOWN_DIRECTION),
         /*form_control_ax_id=*/0,
         AutofillSuggestionTriggerSource::kUnspecified);
   };
@@ -333,12 +340,15 @@ TEST_F(AutofillSuggestionControllerTest, ProperlyResetController) {
                               SuggestionType::kAutocompleteEntry});
 
   // Now show a new popup with the same controller, but with fewer items.
+  LocalFrameToken frame_token(*main_frame()->GetFrameToken());
   base::WeakPtr<AutofillSuggestionController> controller =
       AutofillSuggestionController::GetOrCreate(
           client().suggestion_controller(manager()).GetWeakPtr(),
           manager().external_delegate().GetWeakPtrForTest(), web_contents(),
-          PopupControllerCommon(LocalFrameToken(*main_frame()->GetFrameToken()),
-                                gfx::RectF(), base::i18n::UNKNOWN_DIRECTION),
+          PopupControllerCommon(
+              FormGlobalId(frame_token, test::MakeFormRendererId()),
+              FieldGlobalId(frame_token, test::MakeFieldRendererId()),
+              gfx::RectF(), base::i18n::UNKNOWN_DIRECTION),
           /*form_control_ax_id=*/0,
           AutofillSuggestionTriggerSource::kUnspecified);
   EXPECT_EQ(0, controller->GetLineCount());
@@ -528,6 +538,64 @@ TEST_F(AutofillSuggestionControllerTestHidingLogic,
   SuggestionHidingReason reason = SuggestionHidingReason::kRendererEvent;
   EXPECT_CALL(client().suggestion_controller(sub_manager()), Hide(reason));
   NavigateAndCommitFrame(main_frame(), GURL("https://bar.com/"));
+}
+
+TEST(AutofillSuggestionControllerUtilsTest, CleanUpRedundantSeparators_Empty) {
+  std::vector<Suggestion> suggestions;
+  CleanUpRedundantSeparators(suggestions);
+  EXPECT_THAT(suggestions, IsEmpty());
+}
+
+TEST(AutofillSuggestionControllerUtilsTest,
+     CleanUpRedundantSeparators_OnlySeparators) {
+  std::vector<Suggestion> suggestions = {
+      Suggestion(SuggestionType::kSeparator),
+      Suggestion(SuggestionType::kSeparator),
+  };
+  CleanUpRedundantSeparators(suggestions);
+  EXPECT_THAT(suggestions, IsEmpty());
+}
+
+TEST(AutofillSuggestionControllerUtilsTest,
+     CleanUpRedundantSeparators_LeadingAndTrailing) {
+  std::vector<Suggestion> suggestions = {
+      Suggestion(SuggestionType::kSeparator),
+      Suggestion(SuggestionType::kAddressEntry),
+      Suggestion(SuggestionType::kSeparator),
+  };
+  CleanUpRedundantSeparators(suggestions);
+  EXPECT_THAT(suggestions,
+              SuggestionVectorIdsAre(SuggestionType::kAddressEntry));
+}
+
+TEST(AutofillSuggestionControllerUtilsTest,
+     CleanUpRedundantSeparators_ConsecutiveDuplicates) {
+  std::vector<Suggestion> suggestions = {
+      Suggestion(SuggestionType::kAddressEntry),
+      Suggestion(SuggestionType::kSeparator),
+      Suggestion(SuggestionType::kSeparator),
+      Suggestion(SuggestionType::kSeparator),
+      Suggestion(SuggestionType::kManageAddress),
+  };
+  CleanUpRedundantSeparators(suggestions);
+  EXPECT_THAT(suggestions,
+              SuggestionVectorIdsAre(SuggestionType::kAddressEntry,
+                                     SuggestionType::kSeparator,
+                                     SuggestionType::kManageAddress));
+}
+
+TEST(AutofillSuggestionControllerUtilsTest,
+     CleanUpRedundantSeparators_ValidSeparatorsUnchanged) {
+  std::vector<Suggestion> suggestions = {
+      Suggestion(SuggestionType::kAddressEntry),
+      Suggestion(SuggestionType::kSeparator),
+      Suggestion(SuggestionType::kManageAddress),
+  };
+  CleanUpRedundantSeparators(suggestions);
+  EXPECT_THAT(suggestions,
+              SuggestionVectorIdsAre(SuggestionType::kAddressEntry,
+                                     SuggestionType::kSeparator,
+                                     SuggestionType::kManageAddress));
 }
 
 }  // namespace

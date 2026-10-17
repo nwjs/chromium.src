@@ -221,37 +221,6 @@ public class VerticalTabListCoordinator {
                     public void run(
                             View view, int tabId, @Nullable MotionEventInfo triggeringMotion) {
                         toggleTabGroupExpansion(tabId);
-
-                        int headerIndex = mMediator.getGroupHeaderIndexForTabId(tabId);
-                        if (headerIndex == TabModel.INVALID_TAB_INDEX) {
-                            return;
-                        }
-                        PropertyModel headerModel = mModelList.get(headerIndex).model;
-                        if (headerModel.get(TabProperties.IS_COLLAPSED)) {
-                            return;
-                        }
-                        // Scroll the header to the top only if the last child is off-screen.
-                        // This brings child tabs into view while keeping the header anchored at the
-                        // top for context.
-                        Token groupId = headerModel.get(TabProperties.TAB_GROUP_HEADER_ID);
-                        int childCount =
-                                mTabModelSelector.getCurrentModel().getTabCountForGroup(groupId);
-                        if (childCount > 0) {
-                            int lastChildIndex = headerIndex + childCount;
-                            mRecyclerView.post(
-                                    () -> {
-                                        RecyclerView.LayoutManager layoutManager =
-                                                mRecyclerView.getLayoutManager();
-                                        if (layoutManager instanceof LinearLayoutManager lm) {
-                                            int lastVisible =
-                                                    lm.findLastCompletelyVisibleItemPosition();
-                                            if (lastChildIndex > lastVisible) {
-                                                lm.scrollToPositionWithOffset(
-                                                        headerIndex, /* offset= */ 0);
-                                            }
-                                        }
-                                    });
-                        }
                     }
 
                     @Override
@@ -385,7 +354,9 @@ public class VerticalTabListCoordinator {
         } else {
             mTabUnderlineManager = null;
         }
-        mCollapseController = new VerticalTabRailCollapseController(this::setRailCollapseState);
+        mCollapseController =
+                new VerticalTabRailCollapseController(
+                        this::setRailCollapseState, this::setCollapseButtonEnabled);
         mModelList = new TabListModel();
         SimpleRecyclerViewAdapter adapter =
                 new SimpleRecyclerViewAdapter(mModelList) {
@@ -406,7 +377,7 @@ public class VerticalTabListCoordinator {
         adapter.registerType(
                 UiType.TAB,
                 parent ->
-                        (ViewGroup)
+                        (VerticalTabItemLayout)
                                 LayoutInflater.from(activity)
                                         .inflate(
                                                 R.layout.vertical_tab_item,
@@ -425,7 +396,9 @@ public class VerticalTabListCoordinator {
                                                 R.layout.vertical_tab_pinned_item_hidden,
                                                 parent,
                                                 /* attachToRoot= */ false),
-                TabVerticalViewBinder::bindPinnedTab);
+                // The placeholder is never shown, so no property needs to be bound to it. It must
+                // stay GONE for the lifetime of the view.
+                (model, view, propertyKey) -> {});
 
         adapter.registerType(
                 UiType.TAB_GROUP,
@@ -469,6 +442,8 @@ public class VerticalTabListCoordinator {
                     public void onScrollStateChanged(RecyclerView recyclerView, int newState) {
                         if (newState != RecyclerView.SCROLL_STATE_IDLE) {
                             mTabHoverController.hideHoverCard();
+                        } else {
+                            mTabHoverController.resetHoverState();
                         }
                         if (newState == RecyclerView.SCROLL_STATE_DRAGGING) {
                             dismissActiveContextMenus();
@@ -617,10 +592,10 @@ public class VerticalTabListCoordinator {
                                 mCollapseController::expandOrCollapseOnHover)
                         .with(
                                 VerticalTabListProperties.IS_COLLAPSE_BUTTON_ENABLED,
-                                mCollapseController.isCollapseButtonEnabled())
+                                !mCollapseController.isForcedCollapsed())
                         .with(
                                 VerticalTabListProperties.COLLAPSE_STATE,
-                                mCollapseController.getRailCollapseStateByUser())
+                                mCollapseController.getEffectiveRailCollapseState())
                         .build();
         PropertyModelChangeProcessor.create(
                 mContainerModel, mContainerView, VerticalTabListViewBinder::bind);
@@ -677,13 +652,17 @@ public class VerticalTabListCoordinator {
 
         pinnedTabsAdapter.registerType(
                 UiType.PINNED_TAB,
-                parent ->
-                        (ViewGroup)
-                                LayoutInflater.from(activity)
-                                        .inflate(
-                                                R.layout.vertical_tab_pinned_item,
-                                                parent,
-                                                /* attachToRoot= */ false),
+                parent -> {
+                    VerticalTabItemLayout view =
+                            (VerticalTabItemLayout)
+                                    LayoutInflater.from(activity)
+                                            .inflate(
+                                                    R.layout.vertical_tab_item,
+                                                    parent,
+                                                    /* attachToRoot= */ false);
+                    view.configureAsPinnedTab();
+                    return view;
+                },
                 TabVerticalViewBinder::bindPinnedTab);
 
         pinnedTabsRecyclerView.setAdapter(pinnedTabsAdapter);
@@ -830,7 +809,7 @@ public class VerticalTabListCoordinator {
                         if (mIsActive && type != TabSelectionType.FROM_DRAG) {
                             scrollActiveTabIntoView();
                         }
-                        mTabHoverController.hideHoverCard();
+                        mTabHoverController.resetHoverState();
                     }
 
                     @Override
@@ -867,23 +846,23 @@ public class VerticalTabListCoordinator {
 
                     @Override
                     public void willCloseTab(Tab tab, boolean didCloseAlone) {
-                        mTabHoverController.hideHoverCard();
+                        mTabHoverController.resetHoverState();
                     }
 
                     @Override
                     public void willCloseTabs(
                             List<Tab> tabs, boolean isAllTabs, boolean allowUndo) {
-                        mTabHoverController.hideHoverCard();
+                        mTabHoverController.resetHoverState();
                     }
 
                     @Override
                     public void tabClosureCommitted(Tab tab) {
-                        mTabHoverController.hideHoverCard();
+                        mTabHoverController.resetHoverState();
                     }
 
                     @Override
                     public void willAddTab(Tab tab, @TabLaunchType int type) {
-                        mTabHoverController.hideHoverCard();
+                        mTabHoverController.resetHoverState();
                     }
                 };
 
@@ -1027,31 +1006,35 @@ public class VerticalTabListCoordinator {
     }
 
     /**
-     * Sets the collapsed state of the vertical tab rail.
+     * Applies the collapsed state of the vertical tab rail.
      *
      * <p>This updates the model properties and layouts for the rail container and all tab items to
      * transition between the expanded (icons + text) and collapsed (icons only) states.
+     *
+     * <p>Only invoked by {@link VerticalTabRailCollapseController}, which owns this state. Do not
+     * call directly; feed the controller inputs instead.
      *
      * @param railCollapseState The {@link RailCollapseState} to apply to the rail.
      */
     void setRailCollapseState(@RailCollapseState int railCollapseState) {
         if (mTabHoverController != null) {
-            mTabHoverController.hideHoverCard();
+            mTabHoverController.resetHoverState();
         }
         mContainerModel.set(VerticalTabListProperties.COLLAPSE_STATE, railCollapseState);
         updatePinnedLayoutSpanCount();
         updatePinnedTabsSeparatorVisibility();
-        mCollapseController.setRailCollapseStateSupplierValue(railCollapseState);
     }
 
     /**
-     * Sets whether the rail collapse button is enabled.
+     * Applies the collapse button enabled state to the model.
+     *
+     * <p>Only invoked by {@link VerticalTabRailCollapseController}, which owns this state. Do not
+     * call directly; feed the controller inputs instead.
      *
      * @param enabled True if the collapse button should be enabled, false otherwise.
      */
     void setCollapseButtonEnabled(boolean enabled) {
         mContainerModel.set(VerticalTabListProperties.IS_COLLAPSE_BUTTON_ENABLED, enabled);
-        mCollapseController.setCollapseButtonEnabled(enabled);
     }
 
     /**
@@ -1062,12 +1045,13 @@ public class VerticalTabListCoordinator {
     void setInTransition(boolean inTransition) {
         if (mIsInTransition == inTransition) return;
         mIsInTransition = inTransition;
-        // Request layout after transition ends to immediately recycle extra items back
-        // to viewport bounds (transition start is already laid out by the container width change).
-        if (!mIsInTransition) {
-            ViewUtils.requestLayout(
-                    mPinnedTabsRecyclerView, "VerticalTabListCoordinator.setInTransition");
-        }
+        // Transition start: SideUiCoordinator captures the transition start values before it
+        // changes the container width, so request a layout here. The synchronous measure/layout
+        // it runs before TransitionManager#beginDelayedTransition then attaches the offscreen
+        // pinned tabs, giving ChangeBounds start values for them.
+        // Transition end: request a layout to recycle extra items back to viewport bounds.
+        ViewUtils.requestLayout(
+                mPinnedTabsRecyclerView, "VerticalTabListCoordinator.setInTransition");
     }
 
     /**
@@ -1088,7 +1072,7 @@ public class VerticalTabListCoordinator {
     /**
      * Toggles the expanded/collapsed visual and layout state of a tab group.
      *
-     * @param tabId the ID of the representative tab representing the tab group.
+     * @param tabId The ID of a tab in the tab group.
      */
     @VisibleForTesting
     void toggleTabGroupExpansion(int tabId) {
@@ -1133,7 +1117,7 @@ public class VerticalTabListCoordinator {
         if (mIsActive) {
             scrollActiveTabIntoView();
         } else {
-            mTabHoverController.hideHoverCard();
+            mTabHoverController.resetHoverState();
         }
     }
 
@@ -1376,8 +1360,7 @@ public class VerticalTabListCoordinator {
 
                         // Do not allow dragging out the last tab in a group.
                         // (To be handled when dragging out tab groups is enabled).
-                        if (tabModel.isTabInTabGroup(tab)
-                                && tabModel.getRelatedTabList(tabId).size() == 1) {
+                        if (tabModel.getTabCountForGroup(tab.getTabGroupId()) == 1) {
                             return;
                         }
                     }
@@ -1610,7 +1593,7 @@ public class VerticalTabListCoordinator {
 
             @Override
             public boolean handleDragStart(float xPx, float yPx) {
-                mTabHoverController.hideHoverCard();
+                mTabHoverController.resetHoverState();
                 return true;
             }
 
@@ -1801,6 +1784,10 @@ public class VerticalTabListCoordinator {
         };
     }
 
+    /**
+     * Creates a {@link DragHandlerDelegate} to handle drag events when an external drag originates
+     * from this vertical tab list.
+     */
     private DragHandlerDelegate createDragHandlerDelegate(
             RecyclerView recyclerView,
             ItemTouchHelper2 itemTouchHelper,
@@ -1889,7 +1876,7 @@ public class VerticalTabListCoordinator {
 
             @Override
             public boolean handleDragStart(float xPx, float yPx) {
-                mTabHoverController.hideHoverCard();
+                mTabHoverController.resetHoverState();
                 itemTouchHelper.onExternalDragStart(xPx, yPx, /* hideItemWhileDragging= */ true);
                 deselectDraggedTabIfNeeded();
 
@@ -1982,20 +1969,6 @@ public class VerticalTabListCoordinator {
             public boolean handleDrop(View view, float xPx, float yPx) {
                 float[] coords = toRvCoordinates(view, xPx, yPx);
                 return handleDrop(coords[0], coords[1]);
-            }
-
-            @Override
-            public int handleInternalDragEnd() {
-                reselectDraggedTabIfNeeded();
-                updateSingleTabListMinHeight(model, /* useMinHeight= */ false);
-                itemTouchHelper.stopInternalDrag();
-                dragHandler.setDragHandlerDelegate(nonOriginatingDelegate);
-                return BackPressHandler.BackPressResult.SUCCESS;
-            }
-
-            @Override
-            public boolean isDragInProcess() {
-                return itemTouchHelper.isDragInProcess();
             }
         };
     }
@@ -2214,7 +2187,8 @@ public class VerticalTabListCoordinator {
                                             groupId,
                                             toPrevious),
                             TabClosingSource.VERTICAL_TAB_STRIP,
-                            TabStripLayoutType.VERTICAL);
+                            TabStripLayoutType.VERTICAL,
+                            mTabHoverController::resetHoverState);
         }
         mTabHoverController.hideHoverCard();
         mTabGroupContextMenuCoordinator.showMenu(rectProvider, tabGroupId);
@@ -2271,7 +2245,9 @@ public class VerticalTabListCoordinator {
                             /* modalDialogManager= */ mWindowAndroid.getModalDialogManager(),
                             TabClosingSource.VERTICAL_TAB_STRIP,
                             mCanActivateTabLayoutToggleMenuSupplier,
-                            TabStripLayoutType.VERTICAL);
+                            TabStripLayoutType.VERTICAL,
+                            mDataSharingTabManager.getTabGroupUiActionHandler(),
+                            mTabHoverController::resetHoverState);
         }
         mTabHoverController.hideHoverCard();
         mTabContextMenuCoordinator.showMenu(rectProvider, anchorInfo);
@@ -2288,7 +2264,8 @@ public class VerticalTabListCoordinator {
                             mSnackbarManager,
                             this::handleNewTabButtonClick,
                             mCanActivateTabLayoutToggleMenuSupplier,
-                            TabStripLayoutType.VERTICAL);
+                            TabStripLayoutType.VERTICAL,
+                            mTabHoverController::resetHoverState);
         }
 
         boolean isIncognito = mTabModelSelector.getCurrentModel().isIncognitoBranded();

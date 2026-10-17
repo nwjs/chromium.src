@@ -46,8 +46,8 @@ namespace {
 #if !BUILDFLAG(IS_ANDROID)
 // Return true if the given match uses a vector icon with a background.
 bool HasVectorIconBackground(const AutocompleteMatch& match) {
-  return match.type == AutocompleteMatchType::HISTORY_CLUSTER ||
-         match.type == AutocompleteMatchType::PEDAL;
+  return match.type == omnibox::AutocompleteMatchType::kHistoryCluster ||
+         match.type == omnibox::AutocompleteMatchType::kPedal;
 }
 #endif
 
@@ -139,7 +139,7 @@ ui::ImageModel OmniboxView::GetIcon(int dip_size,
                    : controller()->client()->GetFaviconForDefaultSearchProvider(
                          std::move(on_icon_fetched));
 
-  } else if (match.type != AutocompleteMatchType::HISTORY_CLUSTER) {
+  } else if (match.type != omnibox::AutocompleteMatchType::kHistoryCluster) {
     // The starter pack suggestions are a unique case. These suggestions
     // normally use a favicon image that cannot be styled further by client
     // code. In order to apply custom styling to the icon (e.g. colors), we
@@ -180,7 +180,8 @@ ui::ImageModel OmniboxView::GetIcon(int dip_size,
                                 .use_action_icons_in_location_bar) {
     OmniboxPopupSelection selection =
         controller()->edit_model()->GetPopupSelection();
-    if (selection.state == OmniboxPopupSelection::FOCUSED_BUTTON_ACTION &&
+    if (selection.state ==
+            OmniboxPopupSelection::LineState::kFocusedButtonAction &&
         selection.action_index < match.actions.size()) {
       action = match.actions[selection.action_index].get();
     }
@@ -188,10 +189,11 @@ ui::ImageModel OmniboxView::GetIcon(int dip_size,
   const gfx::VectorIcon& vector_icon =
       action ? action->GetVectorIcon()
              : match.GetVectorIcon(is_bookmarked, turl);
-  const auto& color = (match.type == AutocompleteMatchType::HISTORY_CLUSTER ||
-                       match.type == AutocompleteMatchType::STARTER_PACK)
-                          ? color_bright_vectors
-                          : color_vectors;
+  const auto& color =
+      (match.type == omnibox::AutocompleteMatchType::kHistoryCluster ||
+       match.type == omnibox::AutocompleteMatchType::kStarterPack)
+          ? color_bright_vectors
+          : color_vectors;
   return ui::ImageModel::FromVectorIcon(
       vector_icon,
       HasVectorIconBackground(match) ? color_vectors_with_background : color,
@@ -225,6 +227,10 @@ bool OmniboxView::IsImeShowingPopup() const {
 void OmniboxView::ShowVirtualKeyboardIfEnabled() {}
 
 void OmniboxView::HideImeIfNeeded() {}
+
+bool OmniboxView::IsFullWebUIOmnibox() const {
+  return false;
+}
 
 OmniboxView::State OmniboxView::GetState() const {
   State state;
@@ -359,6 +365,11 @@ void OmniboxView::UpdateTextStyle(
   }
 }
 
+bool OmniboxView::IsSuggestionNarrationOwnedByWebUIPopup() const {
+  return controller()->popup_state_manager()->popup_state() ==
+         OmniboxPopupState::kFull;
+}
+
 std::u16string OmniboxView::ComputeFriendlySuggestionTextForAccessibility(
     const std::u16string& display_text,
     const AutocompleteMatch& match,
@@ -367,7 +378,7 @@ std::u16string OmniboxView::ComputeFriendlySuggestionTextForAccessibility(
   suggestion_text_prefix_length = 0;
 
   if (controller()->edit_model()->GetPopupSelection().state ==
-      OmniboxPopupSelection::LineState::FOCUSED_BUTTON_AIM) {
+      OmniboxPopupSelection::LineState::kFocusedButtonAim) {
     friendly_suggestion_text =
         controller()->edit_model()->GetPopupAccessibilityLabelForAimButton();
   } else if (controller()->edit_model()->GetPopupSelection().line ==
@@ -375,7 +386,7 @@ std::u16string OmniboxView::ComputeFriendlySuggestionTextForAccessibility(
     // If nothing is selected in the popup, we are in the no-default-match edge
     // case, and |match| is a synthetically generated match. In that case,
     // bypass OmniboxPopupModel and get the label from our synthetic |match|.
-    friendly_suggestion_text = AutocompleteMatchType::ToAccessibilityLabel(
+    friendly_suggestion_text = omnibox::AutocompleteMatchToAccessibilityLabel(
         match, /*header_text=*/u"", display_text,
         OmniboxPopupSelection::kNoMatch,
         controller()->autocomplete_controller()->result().size(),

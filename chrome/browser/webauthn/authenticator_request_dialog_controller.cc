@@ -357,7 +357,7 @@ const gfx::VectorIcon& GetMechanismIcon(
             if (show_modal_provider_icons) {
               switch (credential.value().source) {
                 case AuthenticatorType::kICloudKeychain:
-                  return kIcloudKeychainColorCustomIcon;
+                  return kApplePasswordsColorCustomIcon;
                 case AuthenticatorType::kEnclave:
                   return GooglePasswordManagerVectorIcon();
                 case AuthenticatorType::kWinNative:
@@ -383,8 +383,8 @@ const gfx::VectorIcon& GetMechanismIcon(
             return GetTransportIcon(*effective_transport);
           },
           [](const Mechanism::ICloudKeychain&) -> const gfx::VectorIcon& {
-            // Always use the standard iCloud Keychain icon here.
-            return kIcloudKeychainCustomIcon;
+            // Always use the standard Apple Passwords icon here.
+            return kApplePasswordsCustomIcon;
           },
           [](const Mechanism::Hybrid&) -> const gfx::VectorIcon& {
             return kQrcodeGeneratorCustomIcon;
@@ -1289,7 +1289,7 @@ void AuthenticatorRequestDialogController::OnUserConsentDenied() {
   if (ephemeral_state_.dispatched_platform_authenticator_type_ ==
       AuthenticatorType::kICloudKeychain) {
     webauthn::user_actions::RecordICloudCancelled();
-    // If we dispatched automatically to iCloud Keychain and the
+    // If we dispatched automatically to Apple Passwords and the
     // user clicked cancel, give them the option to try something else.
     bool did_trigger_automatically =
         ephemeral_state_.did_invoke_platform_despite_no_priority_mechanism_;
@@ -1569,18 +1569,19 @@ void AuthenticatorRequestDialogController::set_should_create_in_icloud_keychain(
 
 #if BUILDFLAG(IS_MAC)
 
-// This enum is used in a histogram. Never change assigned values and only add
-// new entries at the end.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// LINT.IfChange(MacOsHistogramValues)
 enum class MacOsHistogramValues {
-  kStartedCreateForProfileAuthenticatorICloudDriveEnabled = 0,
-  kStartedCreateForProfileAuthenticatorICloudDriveDisabled = 1,
-  kStartedCreateForICloudKeychainICloudDriveEnabled = 2,
-  kStartedCreateForICloudKeychainICloudDriveDisabled = 3,
+  kStartedCreateForProfileAuthenticatorICloudKeychainAvailable = 0,
+  kStartedCreateForProfileAuthenticatorICloudKeychainUnavailable = 1,
+  kStartedCreateForICloudKeychainICloudKeychainAvailable = 2,
+  kStartedCreateForICloudKeychainICloudKeychainUnavailable = 3,
 
-  kSuccessfulCreateForProfileAuthenticatorICloudDriveEnabled = 4,
-  kSuccessfulCreateForProfileAuthenticatorICloudDriveDisabled = 5,
-  kSuccessfulCreateForICloudKeychainICloudDriveEnabled = 6,
-  kSuccessfulCreateForICloudKeychainICloudDriveDisabled = 7,
+  kSuccessfulCreateForProfileAuthenticatorICloudKeychainAvailable = 4,
+  kSuccessfulCreateForProfileAuthenticatorICloudKeychainUnavailable = 5,
+  kSuccessfulCreateForICloudKeychainICloudKeychainAvailable = 6,
+  kSuccessfulCreateForICloudKeychainICloudKeychainUnavailable = 7,
 
   kStartedGetOnlyProfileAuthenticatorRecognised = 8,
   kStartedGetOnlyICloudKeychainRecognised = 9,
@@ -1590,6 +1591,7 @@ enum class MacOsHistogramValues {
   kSuccessfulGetFromICloudKeychain = 12,
   kMaxValue = kSuccessfulGetFromICloudKeychain,
 };
+// LINT.ThenChange(//tools/metrics/histograms/metadata/webauthn/enums.xml:WebAuthenticationMacOSPlatformAuthenticatorActionV2)
 
 void AuthenticatorRequestDialogController::RecordMacOsStartedHistogram() {
   if (is_non_webauthn_request_ || model_->relying_party_id == "google.com") {
@@ -1603,17 +1605,17 @@ void AuthenticatorRequestDialogController::RecordMacOsStartedHistogram() {
       *transport_availability_.make_credential_attachment !=
           device::AuthenticatorAttachment::kCrossPlatform) {
     if (should_create_in_icloud_keychain_) {
-      v = has_icloud_drive_enabled_
+      v = is_icloud_keychain_configured_
               ? MacOsHistogramValues::
-                    kStartedCreateForICloudKeychainICloudDriveEnabled
+                    kStartedCreateForICloudKeychainICloudKeychainAvailable
               : MacOsHistogramValues::
-                    kStartedCreateForICloudKeychainICloudDriveDisabled;
+                    kStartedCreateForICloudKeychainICloudKeychainUnavailable;
     } else {
-      v = has_icloud_drive_enabled_
+      v = is_icloud_keychain_configured_
               ? MacOsHistogramValues::
-                    kStartedCreateForProfileAuthenticatorICloudDriveEnabled
+                    kStartedCreateForProfileAuthenticatorICloudKeychainAvailable
               : MacOsHistogramValues::
-                    kStartedCreateForProfileAuthenticatorICloudDriveDisabled;
+                    kStartedCreateForProfileAuthenticatorICloudKeychainUnavailable;
     }
   } else if (transport_availability_.request_type ==
                  device::FidoRequestType::kGetAssertion &&
@@ -1637,7 +1639,7 @@ void AuthenticatorRequestDialogController::RecordMacOsStartedHistogram() {
 
   if (v) {
     base::UmaHistogramEnumeration(
-        "WebAuthentication.MacOS.PlatformAuthenticatorAction", *v);
+        "WebAuthentication.MacOS.PlatformAuthenticatorActionV2", *v);
     did_record_macos_start_histogram_ = true;
   }
 }
@@ -1654,17 +1656,17 @@ void AuthenticatorRequestDialogController::RecordMacOsSuccessHistogram(
   if (transport_availability_.request_type ==
       FidoRequestType::kMakeCredential) {
     if (authenticator_type == AuthenticatorType::kTouchID) {
-      v = has_icloud_drive_enabled_
+      v = is_icloud_keychain_configured_
               ? MacOsHistogramValues::
-                    kSuccessfulCreateForProfileAuthenticatorICloudDriveEnabled
+                    kSuccessfulCreateForProfileAuthenticatorICloudKeychainAvailable
               : MacOsHistogramValues::
-                    kSuccessfulCreateForProfileAuthenticatorICloudDriveDisabled;
+                    kSuccessfulCreateForProfileAuthenticatorICloudKeychainUnavailable;
     } else if (authenticator_type == AuthenticatorType::kICloudKeychain) {
-      v = has_icloud_drive_enabled_
+      v = is_icloud_keychain_configured_
               ? MacOsHistogramValues::
-                    kSuccessfulCreateForICloudKeychainICloudDriveEnabled
+                    kSuccessfulCreateForICloudKeychainICloudKeychainAvailable
               : MacOsHistogramValues::
-                    kSuccessfulCreateForICloudKeychainICloudDriveDisabled;
+                    kSuccessfulCreateForICloudKeychainICloudKeychainUnavailable;
     }
   } else {
     if (authenticator_type == AuthenticatorType::kTouchID) {
@@ -1676,13 +1678,13 @@ void AuthenticatorRequestDialogController::RecordMacOsSuccessHistogram(
 
   if (v) {
     base::UmaHistogramEnumeration(
-        "WebAuthentication.MacOS.PlatformAuthenticatorAction", *v);
+        "WebAuthentication.MacOS.PlatformAuthenticatorActionV2", *v);
   }
 }
 
-void AuthenticatorRequestDialogController::set_has_icloud_drive_enabled(
-    bool is_enabled) {
-  has_icloud_drive_enabled_ = is_enabled;
+void AuthenticatorRequestDialogController::set_is_icloud_keychain_configured(
+    bool is_configured) {
+  is_icloud_keychain_configured_ = is_configured;
 }
 
 #endif
@@ -2046,7 +2048,7 @@ void AuthenticatorRequestDialogController::PopulateMechanisms() {
   }
 
   if (transport_availability_.has_icloud_keychain && allow_icloud_keychain_ &&
-      // The mechanism for iCloud Keychain only appears for create(), or if
+      // The mechanism for Apple Passwords only appears for create(), or if
       // Chrome doesn't have permission to enumerate credentials and thus the
       // user needs a generic mechanism to trigger it.
       (!is_get_assertion ||

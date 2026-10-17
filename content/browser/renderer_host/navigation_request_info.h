@@ -52,6 +52,7 @@ struct CONTENT_EXPORT NavigationRequestInfo {
       int64_t navigation_id,
       bool is_ad_tagged,
       bool force_no_https_upgrade,
+      bool is_visible,
       bool nw_trust = false);
   NavigationRequestInfo(const NavigationRequestInfo& other) = delete;
   ~NavigationRequestInfo();
@@ -146,6 +147,9 @@ struct CONTENT_EXPORT NavigationRequestInfo {
 
   // If true, the navigation will not be upgraded to HTTPS.
   bool force_no_https_upgrade;
+
+  // Whether the WebContents where the navigation is happening is visible.
+  const bool is_visible;
 
   bool nw_trusted;
 };

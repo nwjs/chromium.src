@@ -4,7 +4,10 @@
 
 package org.chromium.components.browser_ui.bottomsheet;
 
+import static org.junit.Assert.assertFalse;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockingDetails;
 import static org.mockito.Mockito.verify;
 
 import android.graphics.Color;
@@ -22,6 +25,7 @@ import org.mockito.junit.MockitoRule;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent.GlowSpec;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetView.SheetLayoutMode;
+import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 
@@ -59,12 +63,6 @@ public class BottomSheetViewBinderUnitTest {
     }
 
     @Test
-    public void testContainerZ() {
-        mModel.set(BottomSheetProperties.CONTAINER_Z, 12f);
-        verify(mView).setContainerZ(12f);
-    }
-
-    @Test
     public void testCloseButtonVisibility() {
         mModel.set(BottomSheetProperties.CLOSE_BUTTON_VISIBILITY, true);
         verify(mView).setCloseButtonVisible(true);
@@ -81,12 +79,6 @@ public class BottomSheetViewBinderUnitTest {
     public void testContainerTouchEnabled() {
         mModel.set(BottomSheetProperties.CONTAINER_TOUCH_ENABLED, false);
         verify(mView).setContainerTouchEnabled(false);
-    }
-
-    @Test
-    public void testFallbackShadowVisibility() {
-        mModel.set(BottomSheetProperties.FALLBACK_SHADOW_VISIBILITY, true);
-        verify(mView).setFallbackShadowVisible(true);
     }
 
     @Test
@@ -119,5 +111,60 @@ public class BottomSheetViewBinderUnitTest {
     public void testSheetWidth() {
         mModel.set(BottomSheetProperties.SHEET_WIDTH_PX, 500);
         verify(mView).setSheetWidth(500);
+    }
+
+    @Test
+    public void testAccessibilityPaneTitle() {
+        mModel.set(BottomSheetProperties.ACCESSIBILITY_PANE_TITLE, "Sheet Title");
+        verify(mView).setSheetAccessibilityPaneTitle("Sheet Title");
+    }
+
+    @Test
+    public void testSheetTranslationY() {
+        mModel.set(BottomSheetProperties.SHEET_TRANSLATION_Y, 150f);
+        verify(mView).setSheetTranslationY(150f);
+    }
+
+    @Test
+    public void testSheetTranslationX() {
+        mModel.set(BottomSheetProperties.SHEET_TRANSLATION_X, 75f);
+        verify(mView).setSheetTranslationX(75f);
+    }
+
+    @Test
+    public void testHandlebarVisible() {
+        mModel.set(BottomSheetProperties.HANDLEBAR_VISIBLE, true);
+        verify(mView).setHandlebarVisible(true);
+    }
+
+    @Test
+    public void testContentTopMargin() {
+        mModel.set(BottomSheetProperties.CONTENT_TOP_MARGIN, 32);
+        verify(mView).setContentTopMargin(32);
+    }
+
+    @Test
+    public void testVisibleBackgroundHeight() {
+        mModel.set(BottomSheetProperties.VISIBLE_BACKGROUND_HEIGHT, 500);
+        verify(mView).setVisibleBackgroundHeight(500);
+    }
+
+    @Test
+    public void testSheetFocusable() {
+        mModel.set(BottomSheetProperties.SHEET_FOCUSABLE, true);
+        verify(mView).setSheetFocusable(true);
+    }
+
+    @Test
+    public void testAllKeysAreBound() {
+        for (PropertyKey key : BottomSheetProperties.ALL_KEYS) {
+            clearInvocations(mView);
+            BottomSheetViewBinder.bind(mModel, mView, key);
+            assertFalse(
+                    "Every key in BottomSheetProperties.ALL_KEYS must be handled by"
+                            + " BottomSheetViewBinder: "
+                            + key,
+                    mockingDetails(mView).getInvocations().isEmpty());
+        }
     }
 }

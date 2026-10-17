@@ -60,7 +60,6 @@
 #include "chrome/browser/ash/arc/session/arc_play_store_enabled_preference_handler.h"
 #include "chrome/browser/ash/arc/session/arc_session_manager.h"
 #include "chrome/browser/ash/arc/sharesheet/arc_sharesheet_bridge.h"
-#include "chrome/browser/ash/arc/survey/arc_survey_service.h"
 #include "chrome/browser/ash/arc/tracing/arc_app_performance_tracing.h"
 #include "chrome/browser/ash/arc/tracing/arc_tracing_bridge.h"
 #include "chrome/browser/ash/arc/tts/arc_tts_service.h"
@@ -72,7 +71,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/ash/multi_user/multi_user_util.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
-#include "chromeos/ash/components/browser_context_helper/annotated_account_id.h"
 #include "chromeos/ash/components/channel/channel_info.h"
 #include "chromeos/ash/components/memory/swap_configuration.h"
 #include "chromeos/ash/experiences/arc/app/arc_app_launch_notifier.h"
@@ -189,7 +187,7 @@ ArcServiceLauncher::ArcServiceLauncher(
                                   ash::GetChannel(),
                                   scheduler_configuration_manager,
                                   arc_dlc_installer_.get())) {
-  DCHECK(g_arc_service_launcher == nullptr);
+  CHECK(g_arc_service_launcher == nullptr, base::NotFatalUntil::M160);
   g_arc_service_launcher = this;
 
   if (base::FeatureList::IsEnabled(kEnableVirtioBlkForData) ||
@@ -199,7 +197,7 @@ ArcServiceLauncher::ArcServiceLauncher(
 }
 
 ArcServiceLauncher::~ArcServiceLauncher() {
-  DCHECK_EQ(g_arc_service_launcher, this);
+  CHECK_EQ(g_arc_service_launcher, this, base::NotFatalUntil::M160);
   g_arc_service_launcher = nullptr;
 }
 
@@ -264,9 +262,11 @@ void ArcServiceLauncher::MaybeSetProfile(Profile* profile) {
       multi_user_util::GetAccountIdFromProfile(profile));
 }
 
-void ArcServiceLauncher::OnPrimaryUserProfilePrepared(Profile* profile) {
-  DCHECK(arc_service_manager_);
-  DCHECK(arc_session_manager_);
+void ArcServiceLauncher::OnPrimaryUserProfilePrepared(
+    Profile* profile,
+    consent_auditor::ConsentAuditor* consent_auditor) {
+  CHECK(arc_service_manager_, base::NotFatalUntil::M160);
+  CHECK(arc_session_manager_, base::NotFatalUntil::M160);
 
   // Initialize the locked fullscreen manager with the primary user profile.
   arc_locked_fullscreen_manager_ =
@@ -367,7 +367,6 @@ void ArcServiceLauncher::OnPrimaryUserProfilePrepared(Profile* profile) {
   ArcScreenCaptureBridge::GetForBrowserContext(profile);
   ArcSettingsService::GetForBrowserContext(profile);
   ArcSharesheetBridge::GetForBrowserContext(profile);
-  ArcSurveyService::GetForBrowserContext(profile);
   ArcSystemUIBridge::GetForBrowserContext(profile);
   if (base::FeatureList::IsEnabled(kArcTracingDataSource)) {
     ArcTracingBridge::GetForBrowserContext(profile);
@@ -411,10 +410,12 @@ void ArcServiceLauncher::OnPrimaryUserProfilePrepared(Profile* profile) {
     web_apk_manager_ = std::make_unique<apps::WebApkManager>(profile);
   }
 
-  arc_session_manager_->Initialize();
+  arc_session_manager_->Initialize(consent_auditor);
+  // Shutdown() resets this before the profiles -- and so their keyed services
+  // -- are destroyed, so holding the ConsentAuditor is safe.
   arc_play_store_enabled_preference_handler_ =
       std::make_unique<ArcPlayStoreEnabledPreferenceHandler>(
-          profile, arc_session_manager_.get());
+          profile, arc_session_manager_.get(), consent_auditor);
   arc_play_store_enabled_preference_handler_->Start();
 }
 
@@ -556,7 +557,6 @@ void ArcServiceLauncher::EnsureFactoriesBuilt() {
   ArcScreenCaptureBridge::EnsureFactoryBuilt();
   ArcSettingsService::EnsureFactoryBuilt();
   ArcSharesheetBridge::EnsureFactoryBuilt();
-  ArcSurveyService::EnsureFactoryBuilt();
   ArcSystemUIBridge::EnsureFactoryBuilt();
   ArcSystemStateBridge::EnsureFactoryBuilt();
   ArcTracingBridge::EnsureFactoryBuilt();

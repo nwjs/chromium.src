@@ -24,6 +24,7 @@
 #include "chrome/browser/contextual_search/contextual_search_web_contents_helper.h"
 #include "chrome/browser/contextual_tasks/active_task_context_provider.h"
 #include "chrome/browser/contextual_tasks/contextual_search_session_finder.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_auto_suggestion_manager.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_panel_controller.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_panel_host.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_permission_controller.h"
@@ -54,6 +55,7 @@
 #endif
 #include "ui/base/interaction/element_tracker.h"
 #include "ui/views/bubble/bubble_anchor.h"
+#include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/webui/tracked_element/tracked_element_handler.h"
 #include "ui/webui/tracked_element/tracked_element_handler_document_singleton.h"
 #endif
@@ -188,10 +190,14 @@ std::unique_ptr<content::WebContents> CreateWebContents(
 
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
-  // Attach the `ContextualTasksPermissionController` directly to the
-  // `WebContents`.
-  contextual_tasks::ContextualTasksPermissionController::CreateForWebContents(
-      web_contents.get(), browser_window);
+  // Register the task `WebContents` with the side panel's single location bar.
+  if (auto* coordinator =
+          contextual_tasks::ContextualTasksSidePanelCoordinator::Get(
+              browser_window->GetUnownedUserDataHost());
+      coordinator && coordinator->permission_controller()) {
+    coordinator->permission_controller()->RegisterWebContents(
+        web_contents.get());
+  }
 
   return web_contents;
 }
@@ -223,13 +229,40 @@ void RecordUserActionAndHistogram(const std::string& metric_name) {
 
 namespace contextual_tasks {
 
+class ContextualTasksSidePanelCoordinator::SidePanelWebContentsObserver
+    : public content::WebContentsObserver {
+ public:
+  SidePanelWebContentsObserver(content::WebContents* web_contents,
+                               PaintCallback on_fcp_callback)
+      : content::WebContentsObserver(web_contents),
+        on_fcp_callback_(std::move(on_fcp_callback)) {}
+  ~SidePanelWebContentsObserver() override = default;
+
+  // content::WebContentsObserver:
+  void DidFirstVisuallyNonEmptyPaint() override {
+    if (on_fcp_callback_ && web_contents()) {
+      std::move(on_fcp_callback_).Run(web_contents());
+    }
+  }
+
+ private:
+  PaintCallback on_fcp_callback_;
+};
+
 ContextualTasksSidePanelCoordinator::WebContentsCacheItem::WebContentsCacheItem(
     std::unique_ptr<content::WebContents> wc,
-    bool open)
+    bool open,
+    PaintCallback on_fcp_callback)
     : web_contents(std::move(wc)),
       is_open(open),
       last_active_time_ticks(base::TimeTicks::Now()),
-      open_time_ticks(base::TimeTicks::Now()) {}
+      open_time_ticks(base::TimeTicks::Now()),
+      web_contents_observer(
+          web_contents && on_fcp_callback
+              ? std::make_unique<SidePanelWebContentsObserver>(
+                    web_contents.get(),
+                    std::move(on_fcp_callback))
+              : nullptr) {}
 ContextualTasksSidePanelCoordinator::WebContentsCacheItem::
     ~WebContentsCacheItem() = default;
 
@@ -251,6 +284,9 @@ ContextualTasksSidePanelCoordinator::ContextualTasksSidePanelCoordinator(
     ActiveTaskContextProvider* active_task_context_provider,
     EntryPointEligibilityManager* eligibility_manager)
     : browser_window_(browser_window),
+      permission_controller_(
+          std::make_unique<ContextualTasksPermissionController>(
+              browser_window)),
       contextual_tasks_panel_host_(std::move(contextual_tasks_panel_host)),
       contextual_tasks_service_(ContextualTasksServiceFactory::GetForProfile(
           browser_window->GetProfile())),
@@ -295,6 +331,63 @@ ContextualTasksPanelController* ContextualTasksPanelController::From(
     BrowserWindowInterface* window) {
   return ContextualTasksSidePanelCoordinator::Get(
       window->GetUnownedUserDataHost());
+}
+
+// static
+bool ContextualTasksPanelController::IsWebContentsInPanel(
+    content::WebContents* web_contents) {
+  if (!web_contents) {
+    return false;
+  }
+  BrowserWindowInterface* browser =
+      webui::GetBrowserWindowInterface(web_contents);
+  if (!browser) {
+    return false;
+  }
+  auto* controller = From(browser);
+  if (!controller) {
+    return false;
+  }
+  for (auto* wc : controller->GetPanelWebContentsList()) {
+    if (wc == web_contents) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void ContextualTasksSidePanelCoordinator::RecordTimeToFirstContentfulPaint(
+    content::WebContents* web_contents) {
+  if (!web_contents) {
+    return;
+  }
+  WebContentsCacheItem* cache_item =
+      GetWebContentsCacheItemForWebContents(web_contents);
+  if (cache_item && !cache_item->first_contentful_paint_recorded &&
+      !cache_item->open_time_ticks.is_null()) {
+    base::TimeDelta elapsed =
+        base::TimeTicks::Now() - cache_item->open_time_ticks;
+    base::UmaHistogramMediumTimes(
+        "ContextualTasks.SidePanel.TimeToFirstContentfulPaint", elapsed);
+    cache_item->first_contentful_paint_recorded = true;
+  }
+}
+
+void ContextualTasksSidePanelCoordinator::RecordTimeToHandshakeComplete(
+    content::WebContents* web_contents) {
+  if (!web_contents) {
+    return;
+  }
+  WebContentsCacheItem* cache_item =
+      GetWebContentsCacheItemForWebContents(web_contents);
+  if (cache_item && !cache_item->time_to_handshake_complete_recorded &&
+      !cache_item->open_time_ticks.is_null()) {
+    base::TimeDelta elapsed =
+        base::TimeTicks::Now() - cache_item->open_time_ticks;
+    base::UmaHistogramMediumTimes(
+        "ContextualTasks.SidePanel.TimeToHandshakeComplete", elapsed);
+    cache_item->time_to_handshake_complete_recorded = true;
+  }
 }
 
 void ContextualTasksSidePanelCoordinator::Show(
@@ -368,6 +461,8 @@ void ContextualTasksSidePanelCoordinator::Show(
       it->second->entry_source = entry_source;
       it->second->open_time_ticks =
           open_time_ticks.value_or(base::TimeTicks::Now());
+      it->second->first_contentful_paint_recorded = false;
+      it->second->time_to_handshake_complete_recorded = false;
     }
   }
   UpdateWebContentsForActiveTab();
@@ -385,6 +480,11 @@ void ContextualTasksSidePanelCoordinator::Show(
 
   UpdateOpenState(/*is_open=*/true);
   UpdateContextualTaskUI();
+  if (content::WebContents* active_web_contents = GetActiveWebContents()) {
+    if (auto* web_ui_interface = GetWebUiInterface(active_web_contents)) {
+      web_ui_interface->FocusComposebox();
+    }
+  }
   ObserveWebContentsOnActiveTab();
   NotifyActiveTaskContextProvider();
 
@@ -529,18 +629,25 @@ void ContextualTasksSidePanelCoordinator::TransferWebContentsFromTab(
   // created here: this `WebContents` comes from a tab, so it already has one
   // attached via `TabHelpers::AttachTabHelpers()`.
 
-  // Attach the `ContextualTasksPermissionController` directly to the
-  // `WebContents`.
-  contextual_tasks::ContextualTasksPermissionController::CreateForWebContents(
-      web_contents.get(), browser_window_);
+  // Register the transferred `WebContents` with the side panel's single
+  // location bar.
+  if (permission_controller_) {
+    permission_controller_->RegisterWebContents(web_contents.get());
+  }
   auto it = task_id_to_web_contents_cache_.find(task_id);
+  // WebContents transferred from a tab has already completed its initial paint
+  // as a tab. Do not attach an FCP observer and mark FCP as already recorded
+  // to avoid skewing side panel opening latency metrics.
   if (it == task_id_to_web_contents_cache_.end()) {
-    task_id_to_web_contents_cache_[task_id] =
-        std::make_unique<WebContentsCacheItem>(std::move(web_contents),
-                                               /*is_open=*/true);
+    auto cache_item = std::make_unique<WebContentsCacheItem>(
+        std::move(web_contents), /*is_open=*/true);
+    cache_item->first_contentful_paint_recorded = true;
+    task_id_to_web_contents_cache_[task_id] = std::move(cache_item);
   } else {
     MaybeDetachWebContents(it->second->web_contents.get());
     it->second->web_contents = std::move(web_contents);
+    it->second->web_contents_observer.reset();
+    it->second->first_contentful_paint_recorded = true;
   }
   UpdateOpenState(/*is_open=*/true);
   UpdateWebContentsForActiveTab();
@@ -620,6 +727,9 @@ ContextualTasksSidePanelCoordinator::DetachWebContentsForTask(
     // soon be associated with a tab.
     webui::SetBrowserWindowInterface(web_contents.get(),
                                      /*browser_window_interface=*/nullptr);
+    if (permission_controller_) {
+      permission_controller_->UnregisterWebContents(web_contents.get());
+    }
     MaybeDetachWebContents(web_contents.get());
 #if BUILDFLAG(ENABLE_EXTENSIONS)
     // Set ViewType to kTabContents so `ChromeSpeechRecognitionManagerDelegate`
@@ -736,15 +846,14 @@ ContextualTasksSidePanelCoordinator::GetWebContentsCacheItemForWebContents(
 void ContextualTasksSidePanelCoordinator::OnTabAdded(TabListInterface& tab_list,
                                                      tabs::TabInterface* tab,
                                                      int index) {
-  content::WebContents* content = tab->GetContents();
-
-  // Background tabs opened via hotkey commands (e.g. Ctrl+Click, middle-click)
-  // or context menus should not inherit task association from the opener,
-  // unless clobbering is enabled.
-  if (!contextual_tasks::IsContextualTasksClobberActiveTabEnabled() &&
-      tab_list.GetActiveTab() != tab) {
+  // Do not inherit task association from the opener tab if the side panel is
+  // not open (e.g. when the panel was closed and only the ephemeral button
+  // remains, or when viewing a full-tab Contextual Tasks page).
+  if (!IsPanelOpenForContextualTask()) {
     return;
   }
+
+  content::WebContents* content = tab->GetContents();
 
   // If the new tab is already associated with a task, do nothing.
   if (contextual_tasks_service_->GetContextualTaskForTab(
@@ -932,12 +1041,20 @@ bool ContextualTasksSidePanelCoordinator::UpdateWebContentsForActiveTab() {
   }
 
   content::WebContents* web_contents = GetPanelWebContentsForActiveTab();
-  if (web_contents) {
-    contextual_tasks_panel_host_->SetWebContents(web_contents);
-  }
 
   bool contents_changed = prev_web_contents != web_contents;
   if (contents_changed) {
+    // The toolbar UI itself and location bar class are shared across tasks.
+    // Update the single location bar and permission controller to point to
+    // `web_contents` (OR clear the toolbar if `web_contents` is null) and push
+    // the updated state to the WebUI. This must run before `SetWebContents()`
+    // to have the correct web contents, as `SetWebContents()`
+    // synchronously marks `web_contents` visible and may trigger
+    // `PermissionRequestManager` to query `location_bar_->GetWebContents()`.
+    if (permission_controller_) {
+      permission_controller_->Update(web_contents);
+    }
+    contextual_tasks_panel_host_->SetWebContents(web_contents);
     NotifyExpandToFullTabStateChanged();
   }
 
@@ -1041,8 +1158,14 @@ void ContextualTasksSidePanelCoordinator::MaybeCreateCachedWebContents(
     ui_service->SetInitialEntryPointForTask(task_id, entry_point);
     GURL url;
     if (IsContextualTasksSidePanelRearchitectureEnabled()) {
-      url = ui_service->GetInitialUrlForTask(task_id).value_or(
-          GURL("about:blank"));
+      if (std::optional<GURL> initial_url =
+              ui_service->GetInitialUrlForTask(task_id)) {
+        url = *initial_url;
+      } else if (ui_service->IsTaskWaitingForUrl(task_id)) {
+        url = GURL("about:blank");
+      } else {
+        url = ui_service->GetDefaultAiPageUrlForTask(task_id);
+      }
     } else {
       url = ui_service->GetContextualTaskUrlForTask(task_id);
     }
@@ -1054,7 +1177,11 @@ void ContextualTasksSidePanelCoordinator::MaybeCreateCachedWebContents(
           contextual_tasks_service_, this, wc.get(), task_id);
     }
     task_id_to_web_contents_cache_[task_id] =
-        std::make_unique<WebContentsCacheItem>(std::move(wc), /*is_open=*/true);
+        std::make_unique<WebContentsCacheItem>(
+            std::move(wc), /*is_open=*/true,
+            base::BindOnce(&ContextualTasksSidePanelCoordinator::
+                               RecordTimeToFirstContentfulPaint,
+                           weak_ptr_factory_.GetWeakPtr()));
   }
 }
 
@@ -1069,7 +1196,10 @@ void ContextualTasksSidePanelCoordinator::CreateCachedWebContentsForTesting(
         std::make_unique<WebContentsCacheItem>(
             CreateWebContents(browser_window_,
                               ui_service->GetContextualTaskUrlForTask(task_id)),
-            is_open);
+            is_open,
+            base::BindOnce(&ContextualTasksSidePanelCoordinator::
+                               RecordTimeToFirstContentfulPaint,
+                           weak_ptr_factory_.GetWeakPtr()));
   }
 }
 
@@ -1131,6 +1261,9 @@ void ContextualTasksSidePanelCoordinator::MaybeDetachWebContents(
     content::WebContents* web_contents) {
   if (web_contents == GetActiveWebContents()) {
     contextual_tasks_panel_host_->SetWebContents(nullptr);
+    if (permission_controller_) {
+      permission_controller_->Update(nullptr);
+    }
   }
 }
 
@@ -1354,6 +1487,15 @@ ContextualTasksSidePanelCoordinator::GetAutoSuggestedTabHandle() {
     return std::nullopt;
   }
 
+  if (auto* manager = web_ui_interface->GetAutoSuggestionManager()) {
+    if (const auto* suggestion = manager->GetCurrentSuggestion()) {
+      tabs::TabHandle handle(suggestion->tab_id);
+      if (handle.Get()) {
+        return handle;
+      }
+    }
+  }
+
   tabs::TabInterface* active_tab_interface =
       TabListInterface::From(browser_window_)->GetActiveTab();
   return active_tab_interface
@@ -1394,7 +1536,9 @@ void ContextualTasksSidePanelCoordinator::OnEligibilityChange(
     if (auto* action_item = actions::ActionManager::Get().FindAction(
             kActionSidePanelShowContextualTasks,
             BrowserActions::From(browser_window_)->root_action_item())) {
-      action_item->SetVisible(is_eligible);
+      action_item->SetVisible(
+          EntryPointEligibilityManager::IsPinningEligible(
+              browser_window_->GetProfile()));
     }
   }
 #endif

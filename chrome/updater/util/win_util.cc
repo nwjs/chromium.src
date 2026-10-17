@@ -12,14 +12,15 @@
 #include <regstr.h>
 #include <shellapi.h>
 #include <shlobj.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdlib.h>
 #include <sysinfoapi.h>
 #include <winhttp.h>
 #include <wrl/client.h>
 #include <wtsapi32.h>
 
 #include <algorithm>
-#include <cstdint>
-#include <cstdlib>
 #include <memory>
 #include <optional>
 #include <string>
@@ -162,7 +163,7 @@ HRESULT GetProcessIntegrityLevel(DWORD process_id, MANDATORY_LEVEL* level) {
     return E_FAIL;
   }
   std::unique_ptr<TOKEN_MANDATORY_LABEL, base::FreeDeleter> label(
-      static_cast<TOKEN_MANDATORY_LABEL*>(std::malloc(label_size)));
+      static_cast<TOKEN_MANDATORY_LABEL*>(malloc(label_size)));
   if (!::GetTokenInformation(token_holder.get(), TokenIntegrityLevel,
                              label.get(), label_size, &label_size)) {
     return HRESULTFromLastError();
@@ -534,6 +535,42 @@ HResultOr<bool> IsCOMCallerAdmin() {
 
   return base::ok(
       token->IsMember(base::win::WellKnownSid::kBuiltinAdministrators));
+}
+
+std::wstring GetCOMCallerSid() {
+  ScopedClientImpersonation impersonate_client;
+  std::optional<base::win::AccessToken> token;
+  if (!impersonate_client.is_valid()) {
+    // RPC_E_CALL_COMPLETE indicates that the caller is in-proc.
+    if (impersonate_client.result() != RPC_E_CALL_COMPLETE) {
+      LOG(ERROR) << "Failed to impersonate caller: "
+                 << logging::SystemErrorCodeToString(
+                        impersonate_client.result());
+      return {};
+    }
+    token = base::win::AccessToken::FromCurrentProcess(/*impersonation=*/false,
+                                                       TOKEN_QUERY);
+    if (token && token->User() ==
+                     base::win::Sid(base::win::WellKnownSid::kLocalSystem)) {
+      LOG(ERROR) << "Cannot use LocalSystem process token for in-proc caller";
+      return {};
+    }
+  } else {
+    token = base::win::AccessToken::FromCurrentThread(
+        /*open_as_self=*/true, TOKEN_QUERY);
+  }
+
+  if (!token) {
+    PLOG(ERROR) << "Failed to get access token";
+    return {};
+  }
+
+  std::optional<std::wstring> sddl = token->User().ToSddlString();
+  if (!sddl) {
+    LOG(ERROR) << "Failed to convert user SID to SDDL";
+    return {};
+  }
+  return *std::move(sddl);
 }
 
 bool IsUACOn() {

@@ -21,9 +21,10 @@
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/accounts_in_cookie_jar_info.h"
 #include "components/trusted_vault/command_line_switches.h"
+#include "components/trusted_vault/legacy_standalone_trusted_vault_storage.h"
+#include "components/trusted_vault/legacy_standalone_trusted_vault_storage_adapter.h"
 #include "components/trusted_vault/proto/local_trusted_vault.pb.h"
 #include "components/trusted_vault/standalone_trusted_vault_backend.h"
-#include "components/trusted_vault/standalone_trusted_vault_storage.h"
 #include "components/trusted_vault/trusted_vault_access_token_fetcher_impl.h"
 #include "components/trusted_vault/trusted_vault_connection_impl.h"
 #include "components/trusted_vault/trusted_vault_server_constants.h"
@@ -37,14 +38,6 @@ namespace {
 constexpr base::TaskTraits kBackendTaskTraits = {
     base::MayBlock(), base::TaskPriority::USER_VISIBLE,
     base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN};
-
-void ReplyToIsDeviceRegisteredForTesting(  // IN-TEST
-    base::OnceCallback<void(bool)> is_device_registered_callback,
-    const trusted_vault_pb::LocalDeviceRegistrationInfo&
-        device_registration_info) {
-  std::move(is_device_registered_callback)
-      .Run(device_registration_info.device_registered());
-}
 
 class IdentityManagerObserver : public signin::IdentityManager::Observer {
  public:
@@ -265,8 +258,7 @@ StandaloneTrustedVaultClient::StandaloneTrustedVaultClient(
       ExtractTrustedVaultServiceURLFromCommandLine();
   if (trusted_vault_service_gurl.is_valid()) {
     connection = std::make_unique<TrustedVaultConnectionImpl>(
-        security_domain, trusted_vault_service_gurl,
-        url_loader_factory->Clone(),
+        trusted_vault_service_gurl, url_loader_factory->Clone(),
         std::make_unique<TrustedVaultAccessTokenFetcherImpl>(
             access_token_fetcher_frontend_.GetWeakPtr()));
   }
@@ -276,8 +268,9 @@ StandaloneTrustedVaultClient::StandaloneTrustedVaultClient(
       icloud_keychain_access_group_prefix,
 #endif
       security_domain,
-      std::make_unique<StandaloneTrustedVaultStorage>(base_dir,
-                                                      security_domain),
+      std::make_unique<LegacyStandaloneTrustedVaultStorageAdapter>(
+          std::make_unique<LegacyStandaloneTrustedVaultStorage>(
+              base_dir, security_domain)),
       std::make_unique<BackendDelegate>(base::BindPostTaskToCurrentDefault(
           base::BindRepeating(&StandaloneTrustedVaultClient::
                                   NotifyRecoverabilityDegradedChanged,
@@ -421,10 +414,9 @@ void StandaloneTrustedVaultClient::FetchIsDeviceRegisteredForTesting(
   backend_task_runner_->PostTaskAndReplyWithResult(
       FROM_HERE,
       base::BindOnce(
-          &StandaloneTrustedVaultBackend::GetDeviceRegistrationInfoForTesting,
+          &StandaloneTrustedVaultBackend::IsDeviceRegisteredForTesting,
           backend_, gaia_id),
-      base::BindOnce(&ReplyToIsDeviceRegisteredForTesting,
-                     std::move(callback)));
+      std::move(callback));
 }
 
 void StandaloneTrustedVaultClient::

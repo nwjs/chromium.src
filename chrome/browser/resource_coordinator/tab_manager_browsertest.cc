@@ -52,7 +52,6 @@
 #include "content/public/common/content_switches.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
-#include "content/public/test/fenced_frame_test_util.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "content/public/test/test_utils.h"
 #include "net/dns/mock_host_resolver.h"
@@ -386,15 +385,15 @@ IN_PROC_BROWSER_TEST_P(TabManagerTest, TabManagerBasics) {
   UrgentDiscardTabImmediately();
   EXPECT_TRUE(IsTabDiscarded(GetWebContentsAt(2)));
 
-  // Force creation of the FindBarController.
-  browser()->GetFeatures().GetFindBarController();
+  // Force creation of the FindBar.
+  FindBarController::From(browser())->find_bar();
 
   // Select the first tab.  It should reload.
   chrome::SelectNumberedTab(browser(), 0);
   content::WaitForLoadStop(
       browser()->GetTabStripModel()->GetActiveWebContents());
   // Make sure the FindBarController gets the right WebContents.
-  EXPECT_EQ(browser()->GetFeatures().GetFindBarController()->web_contents(),
+  EXPECT_EQ(FindBarController::From(browser())->web_contents(),
             tsm()->GetActiveWebContents());
   EXPECT_EQ(0, tsm()->active_index());
   EXPECT_FALSE(IsTabDiscarded(GetWebContentsAt(0)));

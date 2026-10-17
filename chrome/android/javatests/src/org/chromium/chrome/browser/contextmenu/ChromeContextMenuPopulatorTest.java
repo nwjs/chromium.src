@@ -66,7 +66,6 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.TriState;
 import org.chromium.base.UserDataHost;
 import org.chromium.base.supplier.SupplierUtils;
-import org.chromium.base.test.params.BaseJUnit4RunnerDelegate;
 import org.chromium.base.test.params.ParameterAnnotations.UseMethodParameter;
 import org.chromium.base.test.params.ParameterAnnotations.UseRunnerDelegate;
 import org.chromium.base.test.params.ParameterProvider;
@@ -76,6 +75,7 @@ import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
+import org.chromium.base.test.util.Restriction;
 import org.chromium.blink_public.common.ContextMenuDataMediaFlags;
 import org.chromium.blink_public.common.ContextMenuDataMediaType;
 import org.chromium.chrome.R;
@@ -87,6 +87,8 @@ import org.chromium.chrome.browser.ephemeraltab.EphemeralTabCoordinator;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.glic.GlicEnabling;
+import org.chromium.chrome.browser.glic.GlicKeyedService;
+import org.chromium.chrome.browser.glic.GlicKeyedServiceFactory;
 import org.chromium.chrome.browser.gsa.GSAUtils;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.lens.LensEntryPoint;
@@ -105,6 +107,7 @@ import org.chromium.chrome.browser.tab.TabContextMenuItemDelegate;
 import org.chromium.chrome.browser.translate.TranslateBridge;
 import org.chromium.chrome.browser.translate.TranslateBridgeJni;
 import org.chromium.chrome.browser.ui.signin.ForcedSigninStatusProvider;
+import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
 import org.chromium.chrome.test.OverrideContextWrapperTestRule;
 import org.chromium.components.embedder_support.contextmenu.ContextMenuImageFormat;
 import org.chromium.components.embedder_support.contextmenu.ContextMenuNativeDelegate;
@@ -117,6 +120,7 @@ import org.chromium.components.signin.test.util.TestAccounts;
 import org.chromium.content_public.browser.RenderFrameHost;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.test.NativeLibraryTestUtils;
+import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.listmenu.ListItemType;
 import org.chromium.ui.listmenu.ListMenuItemProperties;
 import org.chromium.ui.listmenu.MenuModelBridge;
@@ -133,7 +137,7 @@ import java.util.List;
 
 /** Unit tests for the context menu logic of Chrome. */
 @RunWith(ParameterizedRunner.class)
-@UseRunnerDelegate(BaseJUnit4RunnerDelegate.class)
+@UseRunnerDelegate(ChromeJUnit4RunnerDelegate.class)
 @Batch(Batch.UNIT_TESTS)
 @DisableFeatures({
     ChromeFeatureList.LENS_OVERLAY_ANDROID,
@@ -188,6 +192,7 @@ public class ChromeContextMenuPopulatorTest {
     @Mock private ChromeContextMenuPopulator.PendingIntentSender mMockPendingIntentSender;
     @Mock private ForcedSigninStatusProvider mMockForcedSigninStatusProvider;
     @Mock private TranslateBridge.Natives mTranslateBridgeMock;
+    @Mock private GlicKeyedService mGlicKeyedService;
 
     private ChromeContextMenuPopulator mPopulator;
 
@@ -264,6 +269,7 @@ public class ChromeContextMenuPopulatorTest {
     public void tearDown() {
         IdentityServicesProvider.setInstanceForTests(null);
         DataProtectionBridge.setInstanceForTesting(null);
+        GlicKeyedServiceFactory.setForTesting(null);
         DownloadUtils.setIsDownloadRestrictedByPolicyForTesting(TriState.NOT_SET);
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -2334,6 +2340,7 @@ public class ChromeContextMenuPopulatorTest {
 
     @Test
     @SmallTest
+    @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
     @UiThreadTest
     public void testOpenInIncognitoWindow() {
         setAllMandatoryFlowsComplete();
@@ -2342,7 +2349,6 @@ public class ChromeContextMenuPopulatorTest {
         when(mItemDelegate.isIncognito()).thenReturn(false);
         when(mItemDelegate.isIncognitoSupported()).thenReturn(true);
         initializePopulator(ChromeContextMenuPopulator.ContextMenuMode.NORMAL, params);
-        doReturn(true).when(mPopulator).isTabletScreen();
 
         List<Integer> expectedItems = new ArrayList<>();
         expectedItems.add(R.id.contextmenu_open_in_new_tab);
@@ -3548,7 +3554,7 @@ public class ChromeContextMenuPopulatorTest {
                         params.getUrl(),
                         params.getReferrer(),
                         /* navigateToTab= */ false,
-                        params.getAdditionalNavigationParams());
+                        params.takeAdditionalNavigationParams());
     }
 
     @Test
@@ -3561,7 +3567,7 @@ public class ChromeContextMenuPopulatorTest {
                 .onOpenInNewTabInGroup(
                         params.getUrl(),
                         params.getReferrer(),
-                        params.getAdditionalNavigationParams());
+                        params.takeAdditionalNavigationParams());
     }
 
     @Test
@@ -3595,7 +3601,7 @@ public class ChromeContextMenuPopulatorTest {
                         params.getReferrer(),
                         /* isIncognito= */ false,
                         /* preferNew= */ false,
-                        params.getAdditionalNavigationParams());
+                        params.takeAdditionalNavigationParams());
     }
 
     @Test
@@ -3611,7 +3617,7 @@ public class ChromeContextMenuPopulatorTest {
                         params.getReferrer(),
                         /* isIncognito= */ false,
                         /* preferNew= */ true,
-                        params.getAdditionalNavigationParams());
+                        params.takeAdditionalNavigationParams());
     }
 
     @Test
@@ -3624,7 +3630,7 @@ public class ChromeContextMenuPopulatorTest {
                 .onOpenInEphemeralTab(
                         params.getUrl(),
                         params.getLinkText(),
-                        params.getAdditionalNavigationParams());
+                        params.takeAdditionalNavigationParams());
     }
 
     @Test
@@ -3637,7 +3643,7 @@ public class ChromeContextMenuPopulatorTest {
                 .onOpenInEphemeralTab(
                         params.getSrcUrl(),
                         params.getTitleText(),
-                        params.getAdditionalNavigationParams());
+                        params.takeAdditionalNavigationParams());
     }
 
     @Test
@@ -3650,7 +3656,7 @@ public class ChromeContextMenuPopulatorTest {
                 .onOpenImageInNewTab(
                         params.getSrcUrl(),
                         params.getReferrer(),
-                        params.getAdditionalNavigationParams());
+                        params.takeAdditionalNavigationParams());
     }
 
     @Test
@@ -3663,7 +3669,7 @@ public class ChromeContextMenuPopulatorTest {
                 .onOpenImageUrl(
                         params.getSrcUrl(),
                         params.getReferrer(),
-                        params.getAdditionalNavigationParams());
+                        params.takeAdditionalNavigationParams());
     }
 
     @Test
@@ -4163,6 +4169,7 @@ public class ChromeContextMenuPopulatorTest {
     })
     public void testAskGeminiForLinkEligibleOnDesktopSidePanel() {
         // Side panel (desktop Android) presentation.
+        DeviceInfo.setIsDesktopForTesting(true);
         GlicEnabling.setEnabledForTesting(true);
         ContextMenuParams params = getHttpLinkParams();
         initializePopulator(ChromeContextMenuPopulator.ContextMenuMode.NORMAL, params);
@@ -4180,6 +4187,7 @@ public class ChromeContextMenuPopulatorTest {
     })
     public void testAskGeminiForPageEligibleOnDesktopSidePanel() {
         // Side panel (desktop Android) presentation with the page param on.
+        DeviceInfo.setIsDesktopForTesting(true);
         GlicEnabling.setEnabledForTesting(true);
         ContextMenuParams params = getPageParams();
         initializePopulator(ChromeContextMenuPopulator.ContextMenuMode.NORMAL, params);
@@ -4214,5 +4222,151 @@ public class ChromeContextMenuPopulatorTest {
         ContextMenuParams params = getPageParams();
         initializePopulator(ChromeContextMenuPopulator.ContextMenuMode.NORMAL, params);
         assertFalse(mPopulator.shouldShowAskGeminiForPage());
+    }
+
+    @Test
+    @SmallTest
+    @UiThreadTest
+    @EnableFeatures({
+        ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU + ":show_on_image_mobile/true",
+        ChromeFeatureList.GLIC_SHARE_IMAGE,
+        ChromeFeatureList.TAB_BOTTOM_SHEET
+    })
+    public void testAskGeminiForImageEligibleWhenFlagAndParamEnabled() {
+        GlicEnabling.setEnabledForTesting(true);
+        ContextMenuParams params = getImageParams();
+        initializePopulator(ChromeContextMenuPopulator.ContextMenuMode.NORMAL, params);
+        if (!DeviceInfo.isAutomotive()) {
+            assertTrue(mPopulator.shouldShowAskGeminiForImage());
+        }
+    }
+
+    @Test
+    @SmallTest
+    @UiThreadTest
+    @EnableFeatures({
+        ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU + ":show_on_image_mobile/true",
+        ChromeFeatureList.TAB_BOTTOM_SHEET
+    })
+    @DisableFeatures(ChromeFeatureList.GLIC_SHARE_IMAGE)
+    public void testAskGeminiForImageIneligibleWhenShareImageDisabled() {
+        GlicEnabling.setEnabledForTesting(true);
+        ContextMenuParams params = getImageParams();
+        initializePopulator(ChromeContextMenuPopulator.ContextMenuMode.NORMAL, params);
+        assertFalse(mPopulator.shouldShowAskGeminiForImage());
+    }
+
+    @Test
+    @SmallTest
+    @UiThreadTest
+    @EnableFeatures({
+        ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU,
+        ChromeFeatureList.GLIC_SHARE_IMAGE,
+        ChromeFeatureList.TAB_BOTTOM_SHEET
+    })
+    public void testAskGeminiForImageIneligibleWhenParamDisabled() {
+        // Feature on but show_on_image_mobile defaults to false.
+        GlicEnabling.setEnabledForTesting(true);
+        ContextMenuParams params = getImageParams();
+        initializePopulator(ChromeContextMenuPopulator.ContextMenuMode.NORMAL, params);
+        assertFalse(mPopulator.shouldShowAskGeminiForImage());
+    }
+
+    @Test
+    @SmallTest
+    @UiThreadTest
+    @EnableFeatures({
+        ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU + ":show_on_image_mobile/true",
+        ChromeFeatureList.GLIC_SHARE_IMAGE,
+        ChromeFeatureList.TAB_BOTTOM_SHEET
+    })
+    public void testAskGeminiForImageIneligibleWhenIncognito() {
+        GlicEnabling.setEnabledForTesting(true);
+        when(mItemDelegate.isIncognito()).thenReturn(true);
+        when(mProfile.isOffTheRecord()).thenReturn(true);
+        ContextMenuParams params = getImageParams();
+        initializePopulator(ChromeContextMenuPopulator.ContextMenuMode.NORMAL, params);
+        assertFalse(mPopulator.shouldShowAskGeminiForImage());
+    }
+
+    @Test
+    @SmallTest
+    @UiThreadTest
+    @EnableFeatures({
+        ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU + ":show_on_image_mobile/true",
+        ChromeFeatureList.GLIC_SHARE_IMAGE,
+        ChromeFeatureList.TAB_BOTTOM_SHEET
+    })
+    public void testAskGeminiForImageIneligibleOnAutomotive() {
+        mAutomotiveRule.setIsAutomotive(true);
+        GlicEnabling.setEnabledForTesting(true);
+        ContextMenuParams params = getImageParams();
+        initializePopulator(ChromeContextMenuPopulator.ContextMenuMode.NORMAL, params);
+        assertFalse(mPopulator.shouldShowAskGeminiForImage());
+    }
+
+    @Test
+    @SmallTest
+    @UiThreadTest
+    @EnableFeatures({
+        ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU + ":show_on_image_mobile/true",
+        ChromeFeatureList.GLIC_SHARE_IMAGE,
+        ChromeFeatureList.TAB_BOTTOM_SHEET
+    })
+    public void testBuildContextMenu_askGeminiImageIncludedWhenEnabled() {
+        setAllMandatoryFlowsComplete();
+        GlicEnabling.setEnabledForTesting(true);
+        ContextMenuParams params = getImageParams();
+        initializePopulator(ChromeContextMenuPopulator.ContextMenuMode.NORMAL, params);
+        List<ModelList> menuState = mPopulator.buildContextMenu();
+        if (!DeviceInfo.isAutomotive()) {
+            assertNotNull(findItemWithId(menuState, R.id.contextmenu_ask_gemini_image));
+        }
+    }
+
+    @Test
+    @SmallTest
+    @UiThreadTest
+    @EnableFeatures({
+        ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU + ":show_on_image_mobile/true",
+        ChromeFeatureList.TAB_BOTTOM_SHEET
+    })
+    @DisableFeatures(ChromeFeatureList.GLIC_SHARE_IMAGE)
+    public void testBuildContextMenu_askGeminiImageOmittedWhenDisabled() {
+        setAllMandatoryFlowsComplete();
+        GlicEnabling.setEnabledForTesting(true);
+        ContextMenuParams params = getImageParams();
+        initializePopulator(ChromeContextMenuPopulator.ContextMenuMode.NORMAL, params);
+        List<ModelList> menuState = mPopulator.buildContextMenu();
+        assertNull(findItemWithId(menuState, R.id.contextmenu_ask_gemini_image));
+    }
+
+    @Test
+    @SmallTest
+    @UiThreadTest
+    @EnableFeatures({
+        ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU + ":show_on_image_mobile/true",
+        ChromeFeatureList.GLIC_SHARE_IMAGE,
+        ChromeFeatureList.TAB_BOTTOM_SHEET
+    })
+    public void testOnItemSelected_askGemini_image() {
+        GlicKeyedServiceFactory.setForTesting(mGlicKeyedService);
+        GlicEnabling.setEnabledForTesting(true);
+        ContextMenuParams params = getImageParams();
+        initializePopulator(ChromeContextMenuPopulator.ContextMenuMode.NORMAL, params);
+        when(mNativeDelegate.getRenderFrameHost()).thenReturn(mRenderFrameHost);
+
+        HistogramWatcher watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                "ContextMenu.SelectedOptionAndroid.Image",
+                                ChromeContextMenuPopulator.ContextMenuUma.Action.ASK_GEMINI_IMAGE)
+                        .build();
+
+        mPopulator.onItemSelected(R.id.contextmenu_ask_gemini_image);
+
+        verify(mGlicKeyedService)
+                .shareContextImage(eq(mTab), eq(mRenderFrameHost), eq(params.getSrcUrl()));
+        watcher.assertExpected();
     }
 }

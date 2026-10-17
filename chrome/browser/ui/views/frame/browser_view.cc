@@ -79,8 +79,6 @@
 #include "chrome/browser/feature_engagement/tracker_factory.h"
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/headless/headless_mode_util.h"
-#include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
-#include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_attributes_entry.h"
@@ -121,8 +119,10 @@
 #include "chrome/browser/ui/browser_window_theme_observer.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/dialogs/browser_dialogs.h"
+#include "chrome/browser/ui/exclusive_access/exclusive_access_bubble_type.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_context.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
+#include "chrome/browser/ui/exclusive_access/fullscreen_tab_params.h"
 #include "chrome/browser/ui/find_bar/find_bar.h"
 #include "chrome/browser/ui/focus/browser_focus_controller.h"
 #include "chrome/browser/ui/fullscreen/browser_window_fullscreen_controller.h"
@@ -190,6 +190,7 @@
 #include "chrome/browser/ui/views/frame/browser_widget.h"
 #include "chrome/browser/ui/views/frame/contents_container_view.h"
 #include "chrome/browser/ui/views/frame/contents_separator.h"
+#include "chrome/browser/ui/views/frame/contents_web_view.h"
 #include "chrome/browser/ui/views/frame/custom_floating_corner.h"
 #include "chrome/browser/ui/views/frame/horizontal_tab_strip_region_view.h"
 #include "chrome/browser/ui/views/frame/layout/browser_view_layout.h"
@@ -215,6 +216,7 @@
 #include "chrome/browser/ui/views/hats/hats_next_web_dialog.h"
 #include "chrome/browser/ui/views/incognito_clear_browsing_data_dialog_coordinator.h"
 #include "chrome/browser/ui/views/infobars/infobar_container_view.h"
+#include "chrome/browser/ui/views/intent_picker_bubble_view.h"
 #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
 #include "chrome/browser/ui/views/interaction/browser_elements_views_impl.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
@@ -1086,7 +1088,7 @@ BrowserView::BrowserView(BrowserWindowInterface* browser)
   find_bar_host_view_ = AddChildView(std::make_unique<View>());
 
   window_scrim_view_ = AddChildView(std::make_unique<ScrimView>());
-  window_scrim_view_->layer()->SetName("WindowScrimView");
+  window_scrim_view_->layer()->SetName("BrowserView:WindowScrimView");
 
   side_panel_content_transition_scrim_view_ =
       AddChildView(std::make_unique<ScrimView>(kColorToolbar));
@@ -1140,6 +1142,11 @@ BrowserView::BrowserView(BrowserWindowInterface* browser)
 
   if (GetFocusManager()) {
     focus_manager_observation_.Observe(GetFocusManager());
+  }
+
+  if (auto* global_error_service =
+          GlobalErrorServiceFactory::GetForProfile(GetProfile())) {
+    global_error_observation_.Observe(global_error_service);
   }
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -1246,6 +1253,8 @@ BrowserView::~BrowserView() {
   SetLayoutManager(nullptr);
 
   tab_search_bubble_host_.reset();
+
+  global_error_observation_.Reset();
 
   // Destroy the top controls slide controller first as it depends on the
   // tabstrip model and the browser frame.
@@ -1463,6 +1472,10 @@ TabStripRegionView* BrowserView::tab_strip_view() const {
   }
 
   return horizontal_tab_strip_region_view_.get();
+}
+
+ContentsWebView* BrowserView::contents_web_view_for_testing() {
+  return static_cast<ContentsWebView*>(GetContentsView());
 }
 
 views::LabelButton* BrowserView::GetGlicButton() {
@@ -2057,12 +2070,7 @@ void BrowserView::UpdateLoadingAnimations(bool is_visible) {
     std::move(loading_animation_state_change_closure_).Run();
   }
 
-  const bool should_use_timer_driven_animation =
-      should_animate &&
-      (!base::FeatureList::IsEnabled(features::kCompositorLoadingThrobber) ||
-       ShouldShowWindowIcon());
-
-  if (should_use_timer_driven_animation) {
+  if (should_animate) {
     if (!loading_animation_timer_.IsRunning()) {
 #if BUILDFLAG(IS_CHROMEOS)
       loading_animation_tracker_.emplace(
@@ -2083,8 +2091,6 @@ void BrowserView::UpdateLoadingAnimations(bool is_visible) {
       loading_animation_tracker_->Stop();
 #endif
     }
-  }
-  if (!should_animate) {
     // Loads are now complete, update the state if a task was scheduled.
     loading_animation_start_ = base::TimeTicks();
     LoadingAnimationCallback(base::TimeTicks::Now());
@@ -2479,6 +2485,16 @@ LocationBar* BrowserView::GetLocationBar() const {
 
 ui::AcceleratorProvider* BrowserView::GetAcceleratorProvider() {
   return this;
+}
+
+PinnedToolbarActions* BrowserView::GetPinnedToolbarActions() {
+  if (browser_->GetType() != BrowserWindowInterface::Type::TYPE_NORMAL) {
+    return nullptr;
+  }
+  // The provider is registered by the toolbar, so it is absent for windows
+  // that have no toolbar and during window teardown.
+  ToolbarButtonProvider* const provider = toolbar_button_provider();
+  return provider ? provider->GetPinnedToolbarActions() : nullptr;
 }
 
 void BrowserView::SetFocusToLocationBar(bool is_user_initiated) {
@@ -3865,6 +3881,9 @@ std::u16string BrowserView::GetAccessibleWindowTitleForChannelAndProfile(
   } else if (profile->IsIncognitoProfile()) {
     title = l10n_util::GetStringFUTF16(
         IDS_ACCESSIBLE_INCOGNITO_WINDOW_TITLE_FORMAT, title);
+  } else if (profile->IsEnterpriseIsolatedModeProfile()) {
+    title = l10n_util::GetStringFUTF16(
+        IDS_ACCESSIBLE_ISOLATED_WINDOW_TITLE_FORMAT, title);
   } else if (!profile->IsOffTheRecord() &&
              profile_manager->GetNumberOfProfiles() > 1) {
     std::u16string profile_name =
@@ -4749,6 +4768,10 @@ bool BrowserView::ShouldDescendIntoChildForEventHandling(
       web_app::AppBrowserController::From(browser());
   if (AreDraggableRegionsEnabled() && controller &&
       controller->draggable_region().has_value()) {
+    gfx::Point point_in_browser_view_coords(location);
+    views::View::ConvertPointToTarget(GetWidget()->GetRootView(), this,
+                                      &point_in_browser_view_coords);
+
     // Draggable regions are defined relative to the web contents.
     gfx::Point point_in_contents_web_view_coords(location);
     views::View::ConvertPointToTarget(GetWidget()->GetRootView(),
@@ -4760,7 +4783,7 @@ bool BrowserView::ShouldDescendIntoChildForEventHandling(
     return !controller->draggable_region()->contains(
                point_in_contents_web_view_coords.x(),
                point_in_contents_web_view_coords.y()) ||
-           WidgetOwnedByAnchorContainsPoint(point_in_contents_web_view_coords);
+           WidgetOwnedByAnchorContainsPoint(point_in_browser_view_coords);
   }
 
 #if defined(USE_AURA)
@@ -4999,7 +5022,7 @@ int BrowserView::NonClientHitTest(const gfx::Point& point) {
       controller->draggable_region().has_value()) {
     // Draggable regions are defined relative to the web contents.
     gfx::Point point_in_contents_web_view_coords(point_in_browser_view_coords);
-    views::View::ConvertPointToTarget(this, contents_web_view(),
+    views::View::ConvertPointToTarget(this, GetContentsView(),
                                       &point_in_contents_web_view_coords);
 
     if (controller->draggable_region()->contains(
@@ -5132,8 +5155,8 @@ void BrowserView::Layout(PassKey) {
     // of being a separate popup widget), its layout depends on the position of
     // the `LocationBarView`. We must update its layout after the
     // `BrowserView` layout to ensure it aligns correctly with the location bar.
-    auto* popup_view = toolbar_->location_bar_view()->GetOmniboxPopupView();
-    SafeInvoke(popup_view)
+    SafeInvoke(toolbar_->location_bar())
+        .Then(&LocationBar::GetOmniboxPopupView)
         .Then(&OmniboxPopupView::AsOmniboxPopupViewBrowserView)
         .Then(&OmniboxPopupViewBrowserView::UpdateLayout);
   }
@@ -5271,8 +5294,8 @@ void BrowserView::AddedToWidget() {
     // of being a separate popup widget), the popup view needs a reference to
     // `BrowserView` to add the popup frame as a child view. We inject it here
     // after the toolbar (and location bar) have been initialized.
-    auto* popup_view = toolbar_->location_bar_view()->GetOmniboxPopupView();
-    SafeInvoke(popup_view)
+    SafeInvoke(toolbar_->location_bar())
+        .Then(&LocationBar::GetOmniboxPopupView)
         .Then(&OmniboxPopupView::AsOmniboxPopupViewBrowserView)
         .Then(&OmniboxPopupViewBrowserView::SetBrowserView, this);
   }
@@ -5540,8 +5563,7 @@ void BrowserView::LoadingAnimationCallback(base::TimeTicks timestamp) {
     return;
   }
 
-  if (GetSupportsTabStrip() &&
-      !base::FeatureList::IsEnabled(features::kCompositorLoadingThrobber)) {
+  if (GetSupportsTabStrip()) {
     // Loading animations are shown in the tab for tabbed windows. Update them
     // even if the tabstrip isn't currently visible so they're in the right
     // state when it returns.
@@ -5782,7 +5804,17 @@ void BrowserView::ProcessFullscreen(bool fullscreen, const int64_t display_id) {
   PrepareFullscreen(fullscreen);
 
   // TODO(b/40276379): Move this out from ProcessFullscreen.
+  // RequestFullscreen() executes lower-layer platform widget and window manager
+  // operations. On some platforms or window configurations, synchronous event
+  // processing during window resize or display transitions can result in window
+  // closure and the destruction of `this`. Capture a WeakPtr to verify that
+  // `this` remains valid before continuing with post-transition processing and
+  // layout updates.
+  base::WeakPtr<BrowserView> weak_this = GetAsWeakPtr();
   RequestFullscreen(fullscreen, display_id);
+  if (!weak_this) {
+    return;
+  }
 
 #if !BUILDFLAG(IS_MAC)
   // On Mac platforms, FullscreenStateChanged() is invoked from
@@ -6234,6 +6266,14 @@ bool BrowserView::FindCommandIdForAccelerator(
 // BrowserView, ExclusiveAccessContext implementation:
 Profile* BrowserView::GetProfile() const {
   return browser_->GetProfile();
+}
+
+void BrowserView::OnGlobalErrorsChanged() {
+  if (auto* provider = toolbar_button_provider()) {
+    if (auto* control = provider->GetAppMenuControl()) {
+      control->CloseMenu();
+    }
+  }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

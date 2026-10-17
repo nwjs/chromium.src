@@ -48,6 +48,7 @@
 
 namespace {
 
+#if !BUILDFLAG(IS_ANDROID)
 constexpr const char* UpdaterVersion() {
 #if BUILDFLAG(IS_CHROMEOS) && CHROMIUM_COMMIT_POSITION_IS_MAIN
   // Adds the revision number as a suffix to the version number if the chrome
@@ -57,6 +58,7 @@ constexpr const char* UpdaterVersion() {
   return PRODUCT_VERSION;
 #endif
 }
+#endif
 
 }  // namespace
 
@@ -154,10 +156,18 @@ void ChromeCrashReporterClient::GetProductInfo(ProductInfo* product_info) {
 #endif
 
   // nw: use the product version configured for this build, if any.
-  const char* product_version =
-      product_version_.empty() ? UpdaterVersion() : product_version_.c_str();
+#if BUILDFLAG(IS_ANDROID)
+  std::string_view version = product_version_.empty()
+                                  ? version_info::GetVersionNumber()
+                                  : product_version_;
+#else
+  std::string_view version = product_version_.empty()
+                                  ? std::string_view(UpdaterVersion())
+                                  : product_version_;
+#endif
+
   *product_info =
-      ProductInfo(product_name, product_version,
+      ProductInfo(product_name, version,
                   chrome::GetChannelName(chrome::WithExtendedStable(true)));
 }
 
@@ -240,19 +250,11 @@ std::vector<base::ReadOnlySharedMemoryRegion>
 ChromeCrashReporterClient::GetUserStreamSharedMemoryRegions() {
   std::vector<base::ReadOnlySharedMemoryRegion> streams;
 
-  // Early-initialize the singleton before Crashpad spawns.
-  // This guarantees the memory region exists for Crashpad to inherit.
-  metrics::SystemProfileUserStream& stream =
-      metrics::SystemProfileUserStream::Get();
-  stream.Initialize();
-
   base::ReadOnlySharedMemoryRegion region =
-      stream.DuplicateSharedMemoryRegion();
-  // An OOM or initial allocation failure inside Initialize() would have
-  // already triggered a CHECK and crashed the browser. However,
-  // DuplicateSharedMemoryRegion() can still fail if the OS exhausts its
+      metrics::SystemProfileUserStream::Get().DuplicateSharedMemoryRegion();
+  // `DuplicateSharedMemoryRegion()` can still fail if the OS exhausts its
   // file descriptors (or Mach ports on Mac). In that case, gracefully degrade
-  // by dropping the telemetry stream rather than causing an unnecessary crash.
+  // by dropping the user stream rather than causing an unnecessary crash.
   if (region.IsValid()) {
     streams.push_back(std::move(region));
   }

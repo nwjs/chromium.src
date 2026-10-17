@@ -328,7 +328,7 @@ static_library("common_lib") {
     }
     if (is_chromeos) {
       assert(enable_extensions)
-      deps += [ "//chromeos/ash/experiences/extensions" ]
+      deps += [ "//chromeos/ash/experiences/extensions/common" ]
     }
   }
 

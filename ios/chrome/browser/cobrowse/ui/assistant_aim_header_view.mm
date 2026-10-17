@@ -103,14 +103,27 @@ void ApplyHeaderElementShadow(UIView* targetView) {
 
   // The history button.
   UIButton* _historyButton;
+
+  // The stack view holding the trailing elements of the header, i.e. the header
+  // actions and the close button.
+  UIStackView* _trailingStackView;
+
+  // The current mode of the header view.
+  AssistantAIMState _mode;
+
+  // The last adjusted percentage.
+  CGFloat _percentage;
 }
 
 - (instancetype)init {
   self = [super init];
   if (self) {
+    _mode = AssistantAIMState::kThread;
+    _percentage = 1.0;
     [self setUpLogoView];
     [self setUpCloseButton];
     [self setUpHeaderActionsView];
+    [self setUpTrailingStackView];
     [self setUpTitleLabel];
     [self setUpBackButton];
   }
@@ -123,15 +136,22 @@ void ApplyHeaderElementShadow(UIView* targetView) {
 }
 
 - (void)adjustForPercentage:(CGFloat)percentage {
-  _titleLabel.alpha = 1 - percentage;
+  _percentage = percentage;
+  [self updateTitleAlpha];
   _headerActionsView.alpha = percentage;
+
+  // Collapse the actions out of `_trailingStackView` once they are fully
+  // transparent, so that the title can use the space they occupy.
+  BOOL actionsCollapsed = percentage == 0;
+  _headerActionsView.hidden = actionsCollapsed;
 }
 
 - (void)setMode:(AssistantAIMState)mode {
+  _mode = mode;
+  [self updateTitleAlpha];
   switch (mode) {
     case AssistantAIMState::kZeroState:
       _logoView.hidden = NO;
-      _headerActionsView.hidden = NO;
       _backButton.hidden = YES;
       _startNewThreadButton.hidden = YES;
       _historyButton.hidden = NO;
@@ -142,7 +162,6 @@ void ApplyHeaderElementShadow(UIView* targetView) {
       break;
     case AssistantAIMState::kThread:
       _logoView.hidden = NO;
-      _headerActionsView.hidden = NO;
       _backButton.hidden = YES;
       _startNewThreadButton.hidden = NO;
       _historyButton.hidden = NO;
@@ -153,7 +172,6 @@ void ApplyHeaderElementShadow(UIView* targetView) {
       break;
     case AssistantAIMState::kHistory:
       _logoView.hidden = YES;
-      _headerActionsView.hidden = NO;
       _startNewThreadButton.hidden = NO;
       _backButton.hidden = NO;
       _historyButton.hidden = YES;
@@ -166,6 +184,13 @@ void ApplyHeaderElementShadow(UIView* targetView) {
 
 #pragma mark - Private
 
+// Updates the alpha of the title label based on the current mode and
+// percentage.
+- (void)updateTitleAlpha {
+  _titleLabel.alpha =
+      (_mode == AssistantAIMState::kHistory) ? 1.0 : (1 - _percentage);
+}
+
 - (void)setUpTitleLabel {
   _titleLabel = [[UILabel alloc] init];
   _titleLabel.translatesAutoresizingMaskIntoConstraints = NO;
@@ -174,6 +199,7 @@ void ApplyHeaderElementShadow(UIView* targetView) {
   _titleLabel.font =
       PreferredFontForTextStyle(UIFontTextStyleHeadline, UIFontWeightSemibold);
   _titleLabel.isAccessibilityElement = YES;
+  [self updateTitleAlpha];
   [self addSubview:_titleLabel];
 
   [NSLayoutConstraint activateConstraints:@[
@@ -181,8 +207,30 @@ void ApplyHeaderElementShadow(UIView* targetView) {
     [_titleLabel.leadingAnchor constraintEqualToAnchor:_logoView.trailingAnchor
                                               constant:kTitleLeadingPadding],
     [_titleLabel.trailingAnchor
-        constraintLessThanOrEqualToAnchor:_headerActionsView.leadingAnchor
+        constraintLessThanOrEqualToAnchor:_trailingStackView.leadingAnchor
                                  constant:-kTitleLeadingTrailingPadding],
+  ]];
+}
+
+// Sets up the stack view holding the trailing elements of the header. Grouping
+// them allows the title to extend over the header actions when they are
+// collapsed in the minimized state.
+- (void)setUpTrailingStackView {
+  _trailingStackView = [[UIStackView alloc]
+      initWithArrangedSubviews:@[ _headerActionsView, _closeButton ]];
+  _trailingStackView.translatesAutoresizingMaskIntoConstraints = NO;
+  _trailingStackView.axis = UILayoutConstraintAxisHorizontal;
+  _trailingStackView.alignment = UIStackViewAlignmentCenter;
+  _trailingStackView.spacing = kHeaderInnerPadding;
+
+  [self addSubview:_trailingStackView];
+
+  [NSLayoutConstraint activateConstraints:@[
+    [_trailingStackView.centerYAnchor
+        constraintEqualToAnchor:self.centerYAnchor],
+    [_trailingStackView.trailingAnchor
+        constraintEqualToAnchor:self.trailingAnchor
+                       constant:-kHorizontalPadding.right],
   ]];
 }
 
@@ -205,14 +253,6 @@ void ApplyHeaderElementShadow(UIView* targetView) {
 
   // Shadow for button.
   ApplyHeaderElementShadow(_closeButton);
-  [self addSubview:_closeButton];
-
-  [NSLayoutConstraint activateConstraints:@[
-    [_closeButton.centerYAnchor constraintEqualToAnchor:self.centerYAnchor],
-    [_closeButton.trailingAnchor
-        constraintEqualToAnchor:self.trailingAnchor
-                       constant:-kHorizontalPadding.right],
-  ]];
 
   AddSizeConstraints(_closeButton, CGSizeMake(kButtonSize, kButtonSize));
 }
@@ -417,14 +457,7 @@ void ApplyHeaderElementShadow(UIView* targetView) {
 
   ApplyHeaderElementShadow(_headerActionsView);
 
-  [self addSubview:_headerActionsView];
-
   [NSLayoutConstraint activateConstraints:@[
-    [_headerActionsView.trailingAnchor
-        constraintEqualToAnchor:_closeButton.leadingAnchor
-                       constant:-kHeaderInnerPadding],
-    [_headerActionsView.centerYAnchor
-        constraintEqualToAnchor:_closeButton.centerYAnchor],
     [_headerActionsView.heightAnchor constraintEqualToConstant:kButtonSize],
   ]];
   AddSameConstraints(_headerActionsView, stackView);

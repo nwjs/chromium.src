@@ -30,6 +30,7 @@
 #include "ui/views/controls/menu/menu_scroll_view_container.h"
 #include "ui/views/controls/menu/submenu_view.h"
 #include "ui/views/view_shadow.h"
+#include "ui/views/widget/widget.h"
 
 namespace {
 // New main menu width.
@@ -46,7 +47,7 @@ OmniboxContextMenu::OmniboxContextMenu(views::Widget* parent_widget,
                                        OmniboxPopupFileSelector* file_selector,
                                        content::WebContents* web_contents,
                                        base::RepeatingClosure on_menu_closed)
-    : parent_widget_(parent_widget),
+    : parent_widget_(parent_widget ? parent_widget->GetWeakPtr() : nullptr),
       controller_(std::make_unique<OmniboxContextMenuController>(file_selector,
                                                                  web_contents)),
       on_menu_closed_(std::move(on_menu_closed)),
@@ -122,8 +123,13 @@ void OmniboxContextMenu::WillShowMenu(views::MenuItemView* menu) {
       }
 
       // Add elevation shadow based on variation option `kShadowOption`
-      // for both tabs submenu and context menu.
-      if (!view_shadows_.contains(scroll_container)) {
+      // for both tabs submenu and context menu on platforms that do not use a
+      // bubble border. When a bubble border is present (e.g. on Windows and
+      // Linux), `BubbleBorder` already renders the drop shadow within its
+      // outside border insets, and applying a `ViewShadow` to
+      // `scroll_container` erroneously casts an outer shadow around the insets.
+      if (!scroll_container->HasBubbleBorder() &&
+          !view_shadows_.contains(scroll_container)) {
         auto shadow = std::make_unique<views::ViewShadow>(scroll_container,
                                                           kShadowOption);
         int corner_radius = views::MenuConfig::instance().CornerRadiusForMenu(
@@ -171,7 +177,7 @@ void OmniboxContextMenu::RunMenuAt(const gfx::Point& point,
     }
   }
 
-  menu_runner_->RunMenuAt(parent_widget_, nullptr,
+  menu_runner_->RunMenuAt(parent_widget_.get(), nullptr,
                           gfx::Rect(point, gfx::Size()),
                           views::MenuAnchorPosition::kTopLeft, source_type);
 

@@ -136,6 +136,42 @@ source_set("net_features") {
   ]
 }
 
+# Separated from the net target to isolate the dependency on the generated
+# Pure header target containing data structures for Chrome Root Store and EV
+# Root CA metadata. Separated so that both component("net") and the generated
+# data source_set can depend on it without circular includes.
+source_set("chrome_root_store_types") {
+  visibility = [ ":*" ]
+  sources = [ "cert/internal/chrome_root_store_data.h" ]
+  public_deps = [ "//base" ]
+}
+
+# Encapsulates the generated chrome-root-store-inc.cc, signer-set-inc.cc, and
+# chrome-ev-roots-inc.cc files. Isolating these in a separate source_set
+# prevents component("net")'s 1,000+ source files from waiting on
+# root_store_tool and signer_set_tool generation actions (inputdeps), while
+# avoiding any circular includes (no allow_circular_includes_from required).
+source_set("chrome_root_store_data") {
+  visibility = [ ":*" ]
+  public = []
+  configs += [ ":net_internal_config" ]
+  sources = []
+  deps = [
+    ":chrome_root_store_types",
+    "//base",
+  ]
+  if (chrome_root_store_supported || is_fuchsia) {
+    deps += [ "//net/data/ssl/chrome_root_store:gen_root_store_inc" ]
+    if (!is_android) {
+      sources += [ "cert/ev_root_ca_metadata_data.cc" ]
+    }
+  }
+  if (chrome_root_store_supported) {
+    sources += [ "cert/internal/trust_store_chrome_data.cc" ]
+    deps += [ "//net/data/ssl/chrome_root_store:gen_signer_set_inc" ]
+  }
+}
+
 component("net") {
   sources = [
     "base/address_family.cc",
@@ -565,16 +601,12 @@ component("net") {
     "filter/source_stream.cc",
     "filter/source_stream.h",
     "filter/source_stream_type.h",
-    "first_party_sets/addition_overlaps_union_find.cc",
-    "first_party_sets/addition_overlaps_union_find.h",
     "first_party_sets/first_party_set_entry.cc",
     "first_party_sets/first_party_set_entry.h",
     "first_party_sets/first_party_set_entry_override.cc",
     "first_party_sets/first_party_set_entry_override.h",
     "first_party_sets/first_party_set_metadata.cc",
     "first_party_sets/first_party_set_metadata.h",
-    "first_party_sets/first_party_sets_cache_filter.cc",
-    "first_party_sets/first_party_sets_cache_filter.h",
     "first_party_sets/first_party_sets_context_config.cc",
     "first_party_sets/first_party_sets_context_config.h",
     "first_party_sets/first_party_sets_validator.cc",
@@ -744,6 +776,7 @@ component("net") {
     "http/transport_security_persister.cc",
     "http/transport_security_persister.h",
     "http/transport_security_state.h",
+    "http/transport_security_state_pins_source.h",
     "http/transport_security_state_source.h",
     "http/url_security_manager.cc",
     "http/url_security_manager.h",
@@ -948,6 +981,8 @@ component("net") {
     "quic/web_transport_client.h",
     "quic/web_transport_error.cc",
     "quic/web_transport_error.h",
+    "quic/web_transport_send_stats_tracker.cc",
+    "quic/web_transport_send_stats_tracker.h",
     "shared_dictionary/shared_dictionary.h",
     "shared_dictionary/shared_dictionary_constants.h",
     "shared_dictionary/shared_dictionary_getter.h",
@@ -1229,6 +1264,7 @@ component("net") {
   ]
 
   public_deps = [
+    ":chrome_root_store_types",
     ":disk_cache_buildflags",
     ":net_features",
     ":net_public_deps",
@@ -1631,8 +1667,6 @@ component("net") {
     deps += [
       "//base/version_info",
       "//net/cert:root_store_proto_lite",
-      "//net/data/ssl/chrome_root_store:gen_root_store_inc",
-      "//net/data/ssl/chrome_root_store:gen_signer_set_inc",
     ]
     if (is_win) {
       sources += [
@@ -1686,10 +1720,7 @@ component("net") {
   }
 
   if (is_fuchsia) {
-    deps += [
-      "//net/data/ssl/chrome_root_store:gen_root_store_inc",
-      "//third_party/fuchsia-sdk/sdk/pkg/async-loop-cpp",
-    ]
+    deps += [ "//third_party/fuchsia-sdk/sdk/pkg/async-loop-cpp" ]
     public_deps += [ "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.net.interfaces:fuchsia.net.interfaces_hlcpp" ]
     sources += [
       "base/fuchsia/network_interface_cache.cc",
@@ -1946,6 +1977,8 @@ component("net") {
       "//sql",
     ]
   }
+
+  deps += [ ":chrome_root_store_data" ]
 }
 
 # Private dependencies for the //net component and for any build targets (e.g.
@@ -2983,14 +3016,13 @@ target(_test_target_type, "net_unittests") {
     "disk_cache/simple/simple_version_upgrade_unittest.cc",
     "filter/filter_source_stream_unittest.cc",
     "filter/gzip_source_stream_unittest.cc",
-    "first_party_sets/addition_overlaps_union_find_unittest.cc",
     "first_party_sets/first_party_set_entry_override_unittest.cc",
-    "first_party_sets/first_party_sets_cache_filter_unittest.cc",
     "first_party_sets/first_party_sets_context_config_unittest.cc",
     "first_party_sets/first_party_sets_validator_unittest.cc",
     "first_party_sets/global_first_party_sets_unittest.cc",
     "first_party_sets/sets_mutation_unittest.cc",
     "http/alternative_service_unittest.cc",
+    "http/bidirectional_stream_multinetwork_unittest.cc",
     "http/bidirectional_stream_unittest.cc",
     "http/broken_alternative_services_unittest.cc",
     "http/http_auth_cache_unittest.cc",
@@ -3100,6 +3132,7 @@ target(_test_target_type, "net_unittests") {
     "quic/quic_end_to_end_unittest.cc",
     "quic/quic_http_stream_test.cc",
     "quic/quic_http_utils_test.cc",
+    "quic/quic_migration_attempt_context_unittest.cc",
     "quic/quic_network_connectivity_tracker_unittest.cc",
     "quic/quic_network_transaction_unittest.cc",
     "quic/quic_proxy_client_socket_test_base.cc",
@@ -3125,6 +3158,7 @@ target(_test_target_type, "net_unittests") {
     "quic/set_quic_flag_test.cc",
     "quic/test_quic_crypto_client_config_handle.cc",
     "quic/test_quic_crypto_client_config_handle.h",
+    "quic/web_transport_send_stats_tracker_unittest.cc",
     "shared_dictionary/shared_dictionary_header_checker_source_stream_unittest.cc",
     "shared_dictionary/shared_dictionary_isolation_key_unittest.cc",
     "shared_dictionary/shared_dictionary_network_transaction_factory_unittest.cc",

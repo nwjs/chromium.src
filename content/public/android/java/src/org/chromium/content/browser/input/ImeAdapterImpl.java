@@ -78,9 +78,11 @@ import org.chromium.content.browser.webcontents.WebContentsImpl;
 import org.chromium.content.common.ContentInternalFeatures;
 import org.chromium.content_public.browser.ContentFeatureList;
 import org.chromium.content_public.browser.ContentFeatureMap;
+import org.chromium.content_public.browser.GlobalRenderFrameHostId;
 import org.chromium.content_public.browser.ImeAdapter;
 import org.chromium.content_public.browser.ImeEventObserver;
 import org.chromium.content_public.browser.InputMethodManagerWrapper;
+import org.chromium.content_public.browser.RenderFrameHost;
 import org.chromium.content_public.browser.StylusWritingImeCallback;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContents.UserDataFactory;
@@ -88,6 +90,8 @@ import org.chromium.content_public.common.ContentFeatures;
 import org.chromium.mojo.system.MessagePipeHandle;
 import org.chromium.mojo.system.MojoException;
 import org.chromium.mojo.system.impl.CoreImpl;
+import org.chromium.ui.base.EventForwarder;
+import org.chromium.ui.base.EventForwarder.TouchSequenceObserver;
 import org.chromium.ui.base.ViewUtils;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.base.ime.TextInputAction;
@@ -130,7 +134,8 @@ public class ImeAdapterImpl
                 WindowEventObserver,
                 UserData,
                 InputMethodManagerWrapper.Delegate,
-                AutocorrectManager.Delegate {
+                AutocorrectManager.Delegate,
+                TouchSequenceObserver {
     private static final String TAG = "Ime";
     private static final boolean DEBUG_LOGS = false;
 
@@ -204,6 +209,8 @@ public class ImeAdapterImpl
     // system is active and stylus is used to edit input text. This is used to show the soft
     // keyboard from Direct writing toolbar.
     private boolean mForceShowKeyboardDuringStylusWriting;
+
+    private boolean mPendingShowKeyboardOnTouchUp;
 
     private final ImeKeyEventReplayer mImeKeyEventReplayer =
             new ImeKeyEventReplayer(this::sendReplayedKeyEvent);
@@ -696,6 +703,13 @@ public class ImeAdapterImpl
         return mSupportedMimeTypes;
     }
 
+    /** Retrieves the focused frame's GlobalRenderFrameHostId, or null if none is focused. */
+    public @Nullable GlobalRenderFrameHostId getFocusedFrameId() {
+        ImeUtils.checkOnUiThread();
+        RenderFrameHost rfh = mWebContents != null ? mWebContents.getFocusedFrame() : null;
+        return rfh != null ? rfh.getGlobalRenderFrameHostId() : null;
+    }
+
     /**
      * Updates internal representation of the text being edited and its selection and composition
      * properties.
@@ -899,9 +913,10 @@ public class ImeAdapterImpl
         }
         if (DEBUG_LOGS) Log.i(TAG, "showSoftKeyboard");
         View containerView = getContainerView();
+        EventForwarder forwarder = mWebContents.getEventForwarder();
 
         // Block showing soft keyboard during stylus handwriting.
-        int lastToolType = mWebContents.getEventForwarder().getLastToolType();
+        int lastToolType = forwarder.getLastToolType();
         if (mWebContents.getStylusWritingHandler() != null
                 && !mWebContents.getStylusWritingHandler().canShowSoftKeyboard()
                 && (lastToolType == MotionEvent.TOOL_TYPE_STYLUS
@@ -912,10 +927,57 @@ public class ImeAdapterImpl
             return;
         }
 
+        if (isRestrictInteractionsInSwipeRegionEnabled()
+                && isFullscreenOrImmersive(mWebContents, containerView)
+                && forwarder.hasTouchOriginatingInGestureInsets(containerView)) {
+            if (DEBUG_LOGS) {
+                Log.i(
+                        TAG,
+                        "showSoftKeyboard: deferred or suppressed due to touch in gesture insets");
+            }
+            if (!forwarder.hasCurrentTouchExceededTouchSlop()) {
+                setPendingShowKeyboardOnTouchUp(true);
+            }
+            return;
+        }
+
         mInputMethodManagerWrapper.showSoftInput(containerView, 0, getNewShowKeyboardReceiver());
         if (containerView.getResources().getConfiguration().keyboard
                 != Configuration.KEYBOARD_NOKEYS) {
             mWebContents.scrollFocusedEditableNodeIntoView();
+        }
+    }
+
+    @Override
+    public void onTouchSequenceEnded(boolean hasExceededTouchSlop) {
+        if (!mPendingShowKeyboardOnTouchUp) return;
+
+        setPendingShowKeyboardOnTouchUp(false);
+        if (!hasExceededTouchSlop && focusedNodeAllowsSoftKeyboard()) {
+            showSoftKeyboard();
+        }
+    }
+
+    /**
+     * Updates whether a soft keyboard show request is pending touch release, and manages {@link
+     * TouchSequenceObserver} registration accordingly.
+     *
+     * <p>The observer is registered lazily only while a deferred request is pending rather than in
+     * the constructor. {@link EventForwarder} instances are retained in the static {@code
+     * EventForwarder.sEventForwarders} map until native teardown, whereas {@link ImeAdapterImpl} is
+     * owned by {@code UserDataHost} (referenced weakly from {@code sNativeHelperMap}) and holds
+     * strong references back to {@code AwContents} via {@link ImeEventObserver}. Holding a
+     * permanent strong reference from {@link EventForwarder} to {@link ImeAdapterImpl} would bypass
+     * {@code AwContents}'s weak internals holder and prevent {@code AwContents} from being
+     * garbage-collected before native cleanup.
+     */
+    private void setPendingShowKeyboardOnTouchUp(boolean pending) {
+        if (mPendingShowKeyboardOnTouchUp == pending) return;
+        mPendingShowKeyboardOnTouchUp = pending;
+        if (pending) {
+            mWebContents.getEventForwarder().addTouchSequenceObserver(this);
+        } else {
+            mWebContents.getEventForwarder().removeTouchSequenceObserver(this);
         }
     }
 
@@ -969,6 +1031,7 @@ public class ImeAdapterImpl
 
     /** Hide soft keyboard. */
     private void hideKeyboard() {
+        setPendingShowKeyboardOnTouchUp(false);
         if (!isValid()) return;
         if (DEBUG_LOGS) Log.i(TAG, "hideKeyboard");
         View view = getContainerView();
@@ -1095,6 +1158,16 @@ public class ImeAdapterImpl
         return type != TextInputType.NONE && !InputDialogContainer.isDialogInputType(type);
     }
 
+    private static boolean isFullscreenOrImmersive(WebContents webContents, View containerView) {
+        return webContents.isFullscreenForCurrentTab()
+                || ViewUtils.isStickyImmersiveMode(containerView);
+    }
+
+    private static boolean isRestrictInteractionsInSwipeRegionEnabled() {
+        return ContentFeatureMap.isEnabled(
+                ContentFeatures.RESTRICT_INTERACTIONS_IN_SWIPE_REGION_ON_FULLSCREEN);
+    }
+
     /** See {@link View#dispatchKeyEvent(KeyEvent)} */
     public boolean dispatchKeyEvent(KeyEvent event) {
         if (DEBUG_LOGS) {
@@ -1109,9 +1182,11 @@ public class ImeAdapterImpl
     }
 
     @CalledByNative
-    private void destroyFromNative() {
+    @VisibleForTesting
+    void destroyFromNative() {
         if (mNativeImeAdapterAndroid == 0) return;
 
+        setPendingShowKeyboardOnTouchUp(false);
         resetAndHideKeyboard();
         mIsConnected = false;
         if (mCursorAnchorInfoController != null) {
@@ -1687,18 +1762,26 @@ public class ImeAdapterImpl
     }
 
     /**
-     * Sends rich content into the current focused text field
+     * Sends rich content into the target text field, if currently focused.
      *
-     * @param bytes binary data of therich content to be inserted
+     * @param targetFrameId the GlobalRenderFrameHostId targeted for media insertion
+     * @param bytes binary data of the rich content to be inserted
      * @param extension the file extension of the rich content to be inserted
      * @return whether the insertion is successful.
      */
-    boolean commitContent(byte[] bytes, String extension) {
+    boolean commitContent(
+            @Nullable GlobalRenderFrameHostId targetFrameId, byte[] bytes, String extension) {
         onImeEvent();
         boolean result =
                 isValid()
+                        && targetFrameId != null
                         && ImeAdapterImplJni.get()
-                                .insertMediaFromBytes(mNativeImeAdapterAndroid, bytes, extension);
+                                .insertMediaFromBytes(
+                                        mNativeImeAdapterAndroid,
+                                        targetFrameId.childId(),
+                                        targetFrameId.frameRoutingId(),
+                                        bytes,
+                                        extension);
         ImeMetricsUtils.recordCommitContentSuccess(extension, result);
         return result;
     }
@@ -2200,7 +2283,12 @@ public class ImeAdapterImpl
                 String textStr,
                 int newCursorPosition);
 
-        boolean insertMediaFromBytes(long nativeImeAdapterAndroid, byte[] bytes, String extension);
+        boolean insertMediaFromBytes(
+                long nativeImeAdapterAndroid,
+                int renderProcessId,
+                int renderFrameId,
+                byte[] bytes,
+                String extension);
 
         void finishComposingText(long nativeImeAdapterAndroid);
 

@@ -195,6 +195,7 @@ if (is_android) {
       "//chrome/browser/profiles:profile",
       "//chrome/browser/ui/android/tab_model",
       "//chrome/test:test_support",
+      "//chrome/test/base:chrome_test_utils",
       "//components/optimization_guide/proto:optimization_guide_proto",
       "//components/page_content_annotations/content",
       "//components/page_content_annotations/core",
@@ -249,12 +250,19 @@ if (is_android) {
       "//content/test:browsertest_support",
       "//content/test:test_support",
       "//net:test_support",
+      "//pdf:buildflags",
       "//skia",
       "//testing/gmock",
       "//testing/gtest",
       "//third_party/blink/public/common",
       "//ui/gfx/codec",
     ]
+    if (enable_pdf) {
+      deps += [
+        "//chrome/browser/pdf:pdf_extension_test_utils",
+        "//components/pdf/browser",
+      ]
+    }
   }
 }
 
@@ -271,6 +279,7 @@ source_set("unit_tests") {
     "//chrome/browser/search_engine_choice",
     "//chrome/browser/search_engines",
     "//chrome/test:test_support",
+    "//chrome/test/base:chrome_render_view_host_test_harness",
     "//components/google/core/common",
     "//components/history/core/browser",
     "//components/history/core/test",
@@ -301,6 +310,7 @@ source_set("test_support") {
     "//mojo/public/cpp/bindings",
   ]
   deps = [
+    "//chrome/test/base:chrome_test_utils",
     "//content/public/browser",
     "//content/test:test_support",
     "//net:test_support",

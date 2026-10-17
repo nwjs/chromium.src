@@ -5,18 +5,16 @@
 package org.chromium.chrome.browser.task_manager.ui;
 
 import android.graphics.Bitmap;
-import android.graphics.Typeface;
+import android.graphics.Color;
+import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.ColorDrawable;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
-import android.view.ContextMenu;
-import android.view.ContextMenu.ContextMenuInfo;
 import android.view.LayoutInflater;
-import android.view.Menu;
-import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
-import android.view.View.OnCreateContextMenuListener;
 import android.view.ViewStub;
 import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
@@ -27,28 +25,37 @@ import androidx.annotation.IdRes;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
-import androidx.appcompat.content.res.AppCompatResources;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.Category;
 import org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.SortDescriptor;
+import org.chromium.components.browser_ui.widget.BrowserUiListMenuUtils;
 import org.chromium.components.browser_ui.widget.chips.ChipView;
 import org.chromium.ui.KeyboardVisibilityDelegate;
+import org.chromium.ui.listmenu.BasicListMenu;
+import org.chromium.ui.listmenu.ListItemType;
+import org.chromium.ui.listmenu.ListMenuCheckItemProperties;
+import org.chromium.ui.listmenu.ListMenuItemProperties;
+import org.chromium.ui.modelutil.ListObservable;
+import org.chromium.ui.modelutil.ListObservable.ListObserver;
+import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 import org.chromium.ui.modelutil.SimpleRecyclerViewAdapter;
+import org.chromium.ui.widget.AnchoredPopupWindow;
 import org.chromium.ui.widget.ButtonCompat;
+import org.chromium.ui.widget.RectProvider;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
 /** Binds the model and the view of task manager. */
-class TaskManagerCoordinator implements OnCreateContextMenuListener {
+class TaskManagerCoordinator {
     private static final @Category int[] CATEGORIES = {
         Category.TABS_AND_EXTENSIONS, Category.BROWSER, Category.ALL_TASKS,
     };
@@ -57,9 +64,16 @@ class TaskManagerCoordinator implements OnCreateContextMenuListener {
 
     private final TaskManagerMediator mMediator;
 
+    private final LinearLayout mHeaderView;
+    private final RecyclerView mRecyclerView;
+    private final TextView mEmptyView;
+    private final ModelList mTasksModel;
+    private final ListObserver<Void> mTasksModelObserver;
     private final SimpleRecyclerViewAdapter mAdapter;
     private final List<PropertyModelChangeProcessor<PropertyModel, View, PropertyKey>>
             mModelChangeProcessors = new ArrayList<>();
+
+    private @Nullable AnchoredPopupWindow mContextMenuPopup;
 
     /** Sets up the UI in the activity, binding the activity and the model. */
     TaskManagerCoordinator(
@@ -70,16 +84,12 @@ class TaskManagerCoordinator implements OnCreateContextMenuListener {
         mHeaderModel = headerModel;
         mMediator = mediator;
 
-        LinearLayout headerView = taskManagerView.findViewById(R.id.header_linear_layout);
-        headerView.setBackground(null);
-        headerView.setDividerDrawable(
-                AppCompatResources.getDrawable(
-                        headerView.getContext(), R.drawable.task_header_divider));
-        headerView.setShowDividers(LinearLayout.SHOW_DIVIDER_MIDDLE);
+        mHeaderView = taskManagerView.findViewById(R.id.header_linear_layout);
+
         mModelChangeProcessors.add(
                 PropertyModelChangeProcessor.create(
                         headerModel,
-                        headerView,
+                        mHeaderView,
                         (model, view, key) -> {
                             for (PropertyKey columnKey : TaskManagerProperties.ALL_COLUMN_KEYS) {
                                 view.findViewById(getTaskItemViewId(columnKey))
@@ -89,13 +99,48 @@ class TaskManagerCoordinator implements OnCreateContextMenuListener {
                             bindHeader(model, view, key);
                         }));
 
-        RecyclerView recyclerView = taskManagerView.findViewById(R.id.tasks_view);
-        recyclerView.setLayoutManager(
+        mRecyclerView = taskManagerView.findViewById(R.id.tasks_view);
+        mRecyclerView.setLayoutManager(
                 new LinearLayoutManager(
-                        recyclerView.getContext(), LinearLayoutManager.VERTICAL, false));
+                        mRecyclerView.getContext(), LinearLayoutManager.VERTICAL, false));
+        mRecyclerView.addOnItemTouchListener(
+                new RecyclerView.SimpleOnItemTouchListener() {
+                    @Override
+                    public boolean onInterceptTouchEvent(RecyclerView rv, MotionEvent e) {
+                        if ((e.getButtonState() & MotionEvent.BUTTON_SECONDARY) == 0) return false;
+                        if (e.getActionMasked() != MotionEvent.ACTION_DOWN) return true;
+                        View child = rv.findChildViewUnder(e.getX(), e.getY());
+                        int[] location = getEventLocationInWindow(rv, e);
+                        showContextMenu(
+                                child,
+                                new RectProvider(
+                                        new Rect(
+                                                location[0],
+                                                location[1],
+                                                location[0],
+                                                location[1])));
+                        return true;
+                    }
+                });
 
+        mTasksModel = tasksModel;
         mAdapter = new SimpleRecyclerViewAdapter(tasksModel);
-        recyclerView.setAdapter(mAdapter);
+        mRecyclerView.setAdapter(mAdapter);
+        mEmptyView = taskManagerView.findViewById(R.id.empty_view);
+        mTasksModelObserver =
+                new ListObserver<Void>() {
+                    @Override
+                    public void onItemRangeInserted(ListObservable source, int index, int count) {
+                        updateEmptyView();
+                    }
+
+                    @Override
+                    public void onItemRangeRemoved(ListObservable source, int index, int count) {
+                        updateEmptyView();
+                    }
+                };
+        mTasksModel.addObserver(mTasksModelObserver);
+        updateEmptyView();
 
         mAdapter.registerType(
                 TaskManagerProperties.RowType.TASK,
@@ -120,8 +165,6 @@ class TaskManagerCoordinator implements OnCreateContextMenuListener {
         mMediator.onHasKillableSelectedTaskChanged(
                 (hasSelectedTask) -> killButton.setEnabled(hasSelectedTask));
 
-        taskManagerView.setOnCreateContextMenuListener(this);
-
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.TASK_MANAGER_TOOLBAR)) {
             initToolbar(taskManagerView, headerModel);
         }
@@ -129,37 +172,118 @@ class TaskManagerCoordinator implements OnCreateContextMenuListener {
         mMediator.startObserving();
     }
 
+    int[] getEventLocationInWindow(View view, MotionEvent e) {
+        int[] location = new int[2];
+        view.getLocationInWindow(location);
+        location[0] += Math.round(e.getX());
+        location[1] += Math.round(e.getY());
+        return location;
+    }
+
+    private void updateEmptyView() {
+        boolean isEmpty = mTasksModel.isEmpty();
+        mEmptyView.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+        mRecyclerView.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
+    }
+
     /** Revert the bindings made in the constructor. */
     void destroy() {
+        if (mContextMenuPopup != null) {
+            mContextMenuPopup.dismiss();
+            mContextMenuPopup = null;
+        }
+
+        mTasksModel.removeObserver(mTasksModelObserver);
         mMediator.stopObserving();
 
         mModelChangeProcessors.forEach(PropertyModelChangeProcessor::destroy);
         mAdapter.destroy();
     }
 
-    @Override
-    public void onCreateContextMenu(ContextMenu menu, View v, ContextMenuInfo menuInfo) {
-        onCreateContextMenuImpl(menu);
+    @VisibleForTesting
+    void showContextMenu(@Nullable View anchorView, RectProvider rectProvider) {
+        if (mContextMenuPopup != null && mContextMenuPopup.isShowing()) {
+            return;
+        }
+
+        View anchor =
+                (anchorView != null
+                                && anchorView != mHeaderView.getRootView()
+                                && anchorView != mHeaderView.getParent())
+                        ? anchorView
+                        : mHeaderView;
+
+        ModelList menuItems = buildContextMenuModelList();
+        BasicListMenu listMenu =
+                BrowserUiListMenuUtils.getBasicListMenu(
+                        anchor.getContext(),
+                        menuItems,
+                        (itemModel, view) -> {
+                            int resId = itemModel.get(ListMenuItemProperties.MENU_ITEM_ID);
+                            PropertyKey columnKey = getColumnKeyForResourceId(resId);
+                            if (columnKey != null && mMediator.toggleColumnFiltering(columnKey)) {
+                                boolean currentChecked =
+                                        itemModel.get(ListMenuCheckItemProperties.CHECKED);
+                                itemModel.set(ListMenuCheckItemProperties.CHECKED, !currentChecked);
+                            }
+                        });
+
+        View contentView = listMenu.getContentView();
+        final int lateralPadding = contentView.getPaddingLeft() + contentView.getPaddingRight();
+        int minWidth =
+                anchor.getResources()
+                        .getDimensionPixelSize(org.chromium.ui.R.dimen.list_menu_width);
+        int desiredWidth = Math.max(minWidth, listMenu.getMaxItemWidth() + lateralPadding);
+
+        mContextMenuPopup =
+                new AnchoredPopupWindow.Builder(
+                                anchor.getContext(),
+                                anchor,
+                                new ColorDrawable(Color.TRANSPARENT),
+                                () -> contentView,
+                                rectProvider)
+                        .setFocusable(true)
+                        .setOutsideTouchable(true)
+                        .setDismissOnScreenSizeChange(true)
+                        .setDesiredContentWidth(desiredWidth)
+                        .setAnimateFromAnchor(true)
+                        .addOnDismissListener(() -> mContextMenuPopup = null)
+                        .build();
+
+        mContextMenuPopup.show();
     }
 
     @VisibleForTesting
-    void onCreateContextMenuImpl(Menu menu) {
+    ModelList buildContextMenuModelList() {
         Set<PropertyKey> selectedColumns = Set.of(mHeaderModel.get(TaskManagerProperties.COLUMNS));
+        ModelList listItems = new ModelList();
 
         for (PropertyKey columnKey : TaskManagerProperties.ALL_COLUMN_KEYS) {
-            MenuItem item = menu.add(getColumnTextResourceId(columnKey));
-            item.setCheckable(true);
-            item.setChecked(selectedColumns.contains(columnKey));
+            boolean isChecked = selectedColumns.contains(columnKey);
+            PropertyModel itemModel =
+                    new PropertyModel.Builder(ListMenuCheckItemProperties.ALL_KEYS)
+                            .with(
+                                    ListMenuItemProperties.TITLE,
+                                    mHeaderView
+                                            .getContext()
+                                            .getString(getColumnTextResourceId(columnKey)))
+                            .with(ListMenuCheckItemProperties.CHECKED, isChecked)
+                            .with(ListMenuItemProperties.ENABLED, true)
+                            .with(
+                                    ListMenuItemProperties.MENU_ITEM_ID,
+                                    getColumnTextResourceId(columnKey))
+                            .build();
 
-            item.setOnMenuItemClickListener(
-                    _ -> {
-                        if (mMediator.toggleColumnFiltering(columnKey)) {
-                            // Handle the visual update as it is being dismissed.
-                            item.setChecked(!item.isChecked());
-                        }
-                        return true;
-                    });
+            listItems.add(new ListItem(ListItemType.MENU_ITEM_WITH_CHECKBOX, itemModel));
         }
+
+        return listItems;
+    }
+
+    @VisibleForTesting
+    @Nullable
+    AnchoredPopupWindow getContextMenuPopupForTesting() {
+        return mContextMenuPopup;
     }
 
     private static void bindHeader(PropertyModel model, View view, PropertyKey unused) {
@@ -177,15 +301,15 @@ class TaskManagerCoordinator implements OnCreateContextMenuListener {
             textView.setText(getColumnTextResourceId(columnKey));
 
             // TOOD(crbug.com/380158700): Descriptive message for a11y.
-            if (descriptor != null && descriptor.key == columnKey) {
+            boolean isSorted = descriptor != null && descriptor.key == columnKey;
+            if (isSorted) {
                 if (descriptor.ascending) {
                     textView.append(" ▲");
                 } else {
                     textView.append(" ▼");
                 }
             }
-
-            textView.setTypeface(null, Typeface.BOLD);
+            textView.setSelected(isSorted);
         }
     }
 
@@ -273,6 +397,16 @@ class TaskManagerCoordinator implements OnCreateContextMenuListener {
         } else {
             throw new IllegalArgumentException("column key " + columnKey + " not supported");
         }
+    }
+
+    /** Converts the given resource id of the text for the column to the column property key. */
+    private static @Nullable PropertyKey getColumnKeyForResourceId(@StringRes int resId) {
+        for (PropertyKey key : TaskManagerProperties.ALL_COLUMN_KEYS) {
+            if (getColumnTextResourceId(key) == resId) {
+                return key;
+            }
+        }
+        return null;
     }
 
     /**

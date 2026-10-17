@@ -174,6 +174,7 @@ std::u16string GetIconAccessibleName(Suggestion::Icon icon) {
     case Suggestion::Icon::kLocationSpark:
     case Suggestion::Icon::kLoyalty:
     case Suggestion::Icon::kMagic:
+    case Suggestion::Icon::kMailAsterisk:
     case Suggestion::Icon::kOfferTag:
     case Suggestion::Icon::kOpenInNew:
     case Suggestion::Icon::kOrder:
@@ -367,6 +368,7 @@ bool IsPaymentMethodSuggestion(const Suggestion& suggestion) {
     case SuggestionType::kAtMemoryOpenGemini:
     case SuggestionType::kAtMemorySearchAffordance:
     case SuggestionType::kAtMemorySearchResult:
+    case SuggestionType::kAtMemoryShortcutSettingsPromo:
     case SuggestionType::kAtMemorySourceAttribution:
     case SuggestionType::kAutocompleteAtMemoryButton:
     case SuggestionType::kAutocompleteEntry:
@@ -392,6 +394,7 @@ bool IsPaymentMethodSuggestion(const Suggestion& suggestion) {
     case SuggestionType::kFillPassword:
     case SuggestionType::kFreeformFooter:
     case SuggestionType::kGeneratePasswordEntry:
+    case SuggestionType::kGmailOneTimePasswordEntry:
     case SuggestionType::kIdentityCredential:
     case SuggestionType::kInsecureContextPaymentDisabledMessage:
     case SuggestionType::kLoadingThrobber:
@@ -404,9 +407,11 @@ bool IsPaymentMethodSuggestion(const Suggestion& suggestion) {
     case SuggestionType::kManageCreditCard:
     case SuggestionType::kManageIban:
     case SuggestionType::kManageLoyaltyCard:
+    case SuggestionType::kManageOffers:
     case SuggestionType::kManageEnhancedAutofill:
     case SuggestionType::kMerchantPromoCodeEntry:
     case SuggestionType::kOneTimePasswordEntry:
+    case SuggestionType::kOpenGmailForOtps:
     case SuggestionType::kPasswordEntry:
     case SuggestionType::kPasswordFieldByFieldFilling:
     case SuggestionType::kPendingStateSignin:
@@ -496,7 +501,7 @@ std::optional<ui::ImageModel> GetIconImageModelFromIcon(Suggestion::Icon icon) {
                                       kIconSize);
     case Suggestion::Icon::kGmail:
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-      return ImageModelFromVectorIcon(vector_icons::kGoogleGmailIcon,
+      return ImageModelFromVectorIcon(vector_icons::kGoogleGmailLogoIcon,
                                       kIconSize);
 #else
       return ImageModelFromVectorIcon(::features::IsRoundedIconsEnabled()
@@ -594,6 +599,9 @@ std::optional<ui::ImageModel> GetIconImageModelFromIcon(Suggestion::Icon icon) {
                                           ? vector_icons::kButtonMagicIcon
                                           : vector_icons::kMagicButtonOldIcon,
                                       kIconSize);
+    case Suggestion::Icon::kMailAsterisk:
+      return ImageModelFromVectorIcon(vector_icons::kMailAsteriskIcon,
+                                      kIconSize);
     case Suggestion::Icon::kOpenInNew:
       return ImageModelFromVectorIcon(vector_icons::kOpenInNewFlippableIcon,
                                       kIconSize);
@@ -686,8 +694,12 @@ std::optional<ui::ImageModel> GetIconImageModelFromIcon(Suggestion::Icon icon) {
 #else
       return std::nullopt;
 #endif
-    case Suggestion::Icon::kIban:
     case Suggestion::Icon::kOfferTag:
+      return ImageModelFromVectorIcon(::features::IsRoundedIconsEnabled()
+                                          ? vector_icons::kShoppingmodeIcon
+                                          : vector_icons::kShoppingmodeOldIcon,
+                                      kIconSize);
+    case Suggestion::Icon::kIban:
     case Suggestion::Icon::kScanCreditCard:
     case Suggestion::Icon::kCardGeneric:
     case Suggestion::Icon::kCardAmericanExpress:

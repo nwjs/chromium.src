@@ -49,7 +49,6 @@
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
-#import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity_manager.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
@@ -97,8 +96,7 @@ class AutofillProfileTableViewControllerTest
                                 BuildIdentityManagerForTests));
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetFactoryWithDelegateForTesting(
-            std::make_unique<FakeAuthenticationServiceDelegate>()));
+        AuthenticationServiceFactory::GetDefaultFactory());
     builder.AddTestingFactory(
         IOSPersonalContextEligibilityServiceFactory::GetInstance(),
         base::BindRepeating(&CreateMockPersonalContextEligibilityService));
@@ -569,14 +567,11 @@ TEST_F(AutofillProfileTableViewControllerTest,
 TEST_F(AutofillProfileTableViewControllerTest,
        TestSuggestionsFromGeminiSettingSectionVisible) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeaturesAndParameters(
-      /*enabled_features=*/
-      {{autofill::features::kAutofillAmbientAutofill,
-        {{"ambient_autofill_eligible_tiers", "1"}}},
-       {autofill::features::kAutofillAiAvailableByDefault, {}}},
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{autofill::features::kAutofillAmbientAutofill,
+                            autofill::features::kAutofillAiAvailableByDefault},
       /*disabled_features=*/{kYourSavedInfoSettingsPageIos});
   SignIn();
-  profile_->GetPrefs()->SetInteger("sync.ai_subscription_tier", 1);
 
   CreateController();
   CheckController();
@@ -608,14 +603,11 @@ TEST_F(AutofillProfileTableViewControllerTest,
 TEST_F(AutofillProfileTableViewControllerTest,
        TestSelectSuggestionsFromGeminiRowReportsUserAction) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeaturesAndParameters(
-      /*enabled_features=*/
-      {{autofill::features::kAutofillAmbientAutofill,
-        {{"ambient_autofill_eligible_tiers", "1"}}},
-       {autofill::features::kAutofillAiAvailableByDefault, {}}},
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{autofill::features::kAutofillAmbientAutofill,
+                            autofill::features::kAutofillAiAvailableByDefault},
       /*disabled_features=*/{kYourSavedInfoSettingsPageIos});
   SignIn();
-  profile_->GetPrefs()->SetInteger("sync.ai_subscription_tier", 1);
 
   CreateController();
   CheckController();

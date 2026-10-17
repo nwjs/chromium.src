@@ -1003,10 +1003,12 @@ class EnclaveAuthenticatorBrowserTest : public EnclaveAuthenticatorTestBase {
   void SetVaultConnectionToTimeout() {
     auto connection = std::make_unique<
         testing::NiceMock<MockTrustedVaultThrottlingConnection>>();
-    EXPECT_CALL(*connection, DownloadAuthenticationFactorsRegistrationState(
-                                 testing::_, testing::_, testing::_))
+    EXPECT_CALL(*connection,
+                DownloadAuthenticationFactorsRegistrationState(
+                    testing::_, trusted_vault::SecurityDomainId::kPasskeys,
+                    testing::_, testing::_))
         .WillOnce(
-            [](const CoreAccountInfo&,
+            [](const CoreAccountInfo&, trusted_vault::SecurityDomainId,
                base::OnceCallback<void(AuthenticationFactorsResult)> callback,
                base::RepeatingClosure _) mutable {
               return std::make_unique<
@@ -1023,10 +1025,12 @@ class EnclaveAuthenticatorBrowserTest : public EnclaveAuthenticatorTestBase {
   void CheckRegistrationStateNotRequested() {
     auto connection = std::make_unique<
         testing::NiceMock<MockTrustedVaultThrottlingConnection>>();
-    EXPECT_CALL(*connection, DownloadAuthenticationFactorsRegistrationState(
-                                 testing::_, testing::_, testing::_))
+    EXPECT_CALL(*connection,
+                DownloadAuthenticationFactorsRegistrationState(
+                    testing::_, trusted_vault::SecurityDomainId::kPasskeys,
+                    testing::_, testing::_))
         .WillRepeatedly(
-            [](const CoreAccountInfo&,
+            [](const CoreAccountInfo&, trusted_vault::SecurityDomainId,
                base::OnceCallback<void(AuthenticationFactorsResult)> callback,
                base::RepeatingClosure _)
                 -> std::unique_ptr<
@@ -4742,6 +4746,32 @@ IN_PROC_BROWSER_TEST_P(EnclaveAuthenticatorConditionalCreateBrowserTest,
   histogram_tester_.ExpectUniqueSample(
       "WebAuthentication.AutomaticPasskeyUpgrade.Result",
       /*sample=*/PasskeyUpgradeResult::kSecurityDomainStateStale,
+      /*expected_bucket_count=*/1);
+}
+
+IN_PROC_BROWSER_TEST_P(EnclaveAuthenticatorConditionalCreateBrowserTest,
+                       ConditionalCreate_Incognito) {
+  BootstrapEnclave();
+  InjectPassword(base::Time::Now());
+
+  BrowserWindowInterface* incognito_browser = CreateIncognitoBrowser();
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      incognito_browser,
+      https_server_.GetURL("www.example.com", "/title1.html")));
+
+  content::WebContents* web_contents =
+      incognito_browser->GetTabStripModel()->GetActiveWebContents();
+  content::DOMMessageQueue message_queue(web_contents);
+  content::ExecuteScriptAsync(web_contents, kMakeCredentialConditionalCreate);
+  delegate_observer()->WaitForUI();
+
+  std::string script_result;
+  ASSERT_TRUE(message_queue.WaitForMessage(&script_result));
+  EXPECT_THAT(script_result, testing::HasSubstr("NotAllowedError"));
+
+  histogram_tester_.ExpectUniqueSample(
+      "WebAuthentication.AutomaticPasskeyUpgrade.Result",
+      /*sample=*/PasskeyUpgradeResult::kOffTheRecord,
       /*expected_bucket_count=*/1);
 }
 

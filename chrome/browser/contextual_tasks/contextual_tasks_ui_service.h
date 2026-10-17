@@ -289,6 +289,11 @@ class ContextualTasksUiService : public KeyedService {
           session_handle,
       omnibox::ChromeAimEntryPoint entry_point);
 
+  // Cleans up a closed side panel for the active tab's task by disassociating
+  // all associated tabs and releasing cached resources.
+  virtual void DestroyClosedSidePanel(
+      BrowserWindowInterface* browser_window_interface);
+
   // Opens the contextual tasks side panel showing a ghost loader while waiting
   // for the initial thread URL to be provided for that task. This creates an
   // empty task. If the panel is already open for a task, this is a no-op.
@@ -400,6 +405,17 @@ class ContextualTasksUiService : public KeyedService {
   // credentials (aka, an OAuth token can be obtained).
   virtual bool IsSignedInToBrowserWithValidCredentials();
 
+  // Returns whether the user was signed in with valid credentials when the
+  // ContextualTasksUI for `web_contents` was initialized, falling back to
+  // `IsSignedInToBrowserWithValidCredentials()` if no ContextualTasksUI is
+  // attached.
+  virtual bool IsSignedInForWebContentsOnInit(
+      content::WebContents* web_contents);
+
+  // Shows the OAuth error dialog for the given `web_contents`.
+  virtual void ShowOauthErrorDialogForWebContents(
+      base::WeakPtr<content::WebContents> web_contents);
+
   // Return whether the cookie jar contains the primary account.
   virtual bool CookieJarContainsPrimaryAccount();
 
@@ -459,6 +475,11 @@ class ContextualTasksUiService : public KeyedService {
     OpenUrl(url_params, window_features, browser);
   }
 
+  bool ShouldShowOauthErrorDialogForTesting(
+      content::WebContents* web_contents) {
+    return ShouldShowOauthErrorDialog(web_contents);
+  }
+
   // Applies required side panel URL modifications (e.g. forced host override,
   // gsc=2, hl, cs, theme, country overrides) to the given URL for side panel
   // load.
@@ -467,6 +488,8 @@ class ContextualTasksUiService : public KeyedService {
       content::WebContents* source_contents);
 
  protected:
+  friend class ContextualTasksUiServiceTest;
+
   virtual void StartTaskUiInSidePanelImpl(
       BrowserWindowInterface* browser_window_interface,
       tabs::TabInterface* tab_interface,
@@ -533,6 +556,61 @@ class ContextualTasksUiService : public KeyedService {
   virtual bool AddRequiredSidePanelUrlChanges(
       content::OpenURLParams url_params,
       content::WebContents* source_contents);
+
+  // Returns whether the given WebContents is currently hosted within the side
+  // panel.
+  virtual bool IsWebContentsInSidePanel(content::WebContents* web_contents);
+
+  // Returns whether the URL is allowed to navigate and commit within the side
+  // panel (e.g. Google AI URL, valid Google Search results page, Google
+  // Captcha, or sign-in domain).
+  virtual bool IsAllowedSidePanelUrl(const GURL& url);
+
+  // Returns whether the given navigation should be treated as a citation link
+  // click from within the side panel.
+  virtual bool ShouldHandleCitationClick(const GURL& url,
+                                         content::WebContents* source_contents);
+
+  // Handles a citation link click originating in the side panel.
+  // Routes video and PDF citations to the active tab, activates and scrolls
+  // existing tabs matching the citation URL using text fragments, or clobbers
+  // the active tab / opens a new adjacent tab.
+  virtual bool HandleCitationClick(
+      content::OpenURLParams url_params,
+      content::WebContents* source_contents,
+      tabs::TabInterface* tab,
+      const blink::mojom::WindowFeatures& window_features);
+
+  // Returns whether the given navigation should be treated as a Chromnient or
+  // Lens search results navigation within the side panel.
+  virtual bool ShouldHandleLensNavigation(
+      const GURL& url,
+      content::WebContents* source_contents);
+
+  // Handles a Chromnient or Lens search results navigation originating in the
+  // side panel. Preserves valid search results query refinements within the
+  // side panel while dispatching external search results and unsupported search
+  // modes (e.g. shopping) to the main browser tab strip.
+  virtual bool HandleLensNavigation(
+      content::OpenURLParams url_params,
+      content::WebContents* source_contents,
+      tabs::TabInterface* tab,
+      const blink::mojom::WindowFeatures& window_features);
+
+  // Returns whether the given navigation should be treated as an external link
+  // clicked from within the side panel, routing to the browser tab strip.
+  virtual bool ShouldHandleSidePanelExternalNavigation(
+      const GURL& url,
+      content::WebContents* source_contents);
+
+  // Handles an external link navigation originating in the side panel by
+  // routing HTTP(S) links to the main browser tab strip via OpenUrl (converting
+  // CURRENT_TAB to NEW_FOREGROUND_TAB).
+  virtual bool HandleSidePanelExternalNavigation(
+      content::OpenURLParams url_params,
+      content::WebContents* source_contents,
+      tabs::TabInterface* tab,
+      const blink::mojom::WindowFeatures& window_features);
 
   // Helper to build the common search parameters map for Contextual Tasks,
   // matching what was previously provided to app.ts via GetCommonSearchParams.
@@ -614,9 +692,9 @@ class ContextualTasksUiService : public KeyedService {
   void OnOAuthTokenReceived(GoogleServiceAuthError error,
                             signin::AccessTokenInfo access_token_info);
 
-  // Shows the OAuth error dialog for the given `web_contents`.
-  void ShowOauthErrorDialogForWebContents(
-      base::WeakPtr<content::WebContents> web_contents);
+  // Returns whether an OAuth error dialog should be shown for the given
+  // `web_contents`.
+  bool ShouldShowOauthErrorDialog(content::WebContents* web_contents);
 
   // Runs all pending access token callbacks with the provided token.
   void RunPendingAccessTokenCallbacks(const std::string& token);

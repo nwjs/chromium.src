@@ -60,14 +60,15 @@ import org.chromium.chrome.browser.pdf.PdfPage;
 import org.chromium.chrome.browser.price_tracking.PriceDropNotificationManagerFactory;
 import org.chromium.chrome.browser.printing.PrintHelper;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.settings.SettingsInTab;
 import org.chromium.chrome.browser.settings.SettingsPage;
 import org.chromium.chrome.browser.settings.SettingsPageFragmentDelegateImpl;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.signin.SigninAndHistorySyncActivityLauncherImpl;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.tasks.HomeSurfaceTracker;
 import org.chromium.chrome.browser.toolbar.top.Toolbar;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
@@ -288,7 +289,12 @@ public class NativePageFactory {
                             mEdgeToEdgeControllerSupplier);
             if (tab.isIncognito()) {
                 return new IncognitoNewTabPage(
-                        mActivity, nativePageHost, tab.getProfile(), mEdgeToEdgeControllerSupplier);
+                        mActivity,
+                        nativePageHost,
+                        tab.getProfile(),
+                        mTabModelSelector,
+                        tab,
+                        mEdgeToEdgeControllerSupplier);
             }
 
             return new NewTabPage(
@@ -452,7 +458,6 @@ public class NativePageFactory {
         }
 
         protected NativePage buildSettingsPage(Tab tab, String url) {
-            assert SettingsInTab.isEnabled();
             // The fragment delegate acts both as a delegate and as a back press handler.
             var fragmentDelegate =
                     new SettingsPageFragmentDelegateImpl(
@@ -619,7 +624,10 @@ public class NativePageFactory {
             return null;
         }
         NativePage page;
-        if (candidatePage != null && url.equals(candidatePage.getUrl())) {
+        // A frozen page has no view, so it must never be reused. See crbug.com/568278676.
+        if (candidatePage != null
+                && !candidatePage.isFrozen()
+                && url.equals(candidatePage.getUrl())) {
             page = candidatePage;
         } else {
             page =
@@ -658,7 +666,8 @@ public class NativePageFactory {
     }
 
     /** Simple implementation of NativePageHost backed by a {@link Tab} */
-    private static class TabShim implements NativePageHost {
+    @VisibleForTesting
+    static class TabShim implements NativePageHost {
         private final Tab mTab;
         private final BrowserControlsStateProvider mBrowserControlsStateProvider;
         private final TabModelSelector mTabModelSelector;
@@ -735,6 +744,19 @@ public class NativePageFactory {
                 return;
             }
             DownloadController.downloadUrl(url, mTab);
+        }
+
+        @Override
+        public void selectTab() {
+            if (mTab.isDestroyed() || mTab.isClosing() || isVisible()) return;
+            TabModel model = mTabModelSelector.getModelForTabId(mTab.getId());
+            if (model != null) {
+                int index = TabModelUtils.getTabIndexById(model, mTab.getId());
+                if (index != TabModel.INVALID_TAB_INDEX) {
+                    mTabModelSelector.selectModel(model.isIncognito());
+                    TabModelUtils.setIndex(model, index);
+                }
+            }
         }
     }
 

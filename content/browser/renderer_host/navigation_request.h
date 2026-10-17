@@ -101,6 +101,10 @@
 #include "content/browser/android/navigation_handle_proxy.h"
 #endif
 
+namespace blink {
+struct NavigationDownloadPolicy;
+}  // namespace blink
+
 namespace network {
 struct IntegrityPolicy;
 class ResourceRequestBody;
@@ -448,6 +452,8 @@ class CONTENT_EXPORT NavigationRequest
   const blink::mojom::LCPCriticalPathPredictorNavigationTimeHintPtr&
   GetLCPPNavigationHint() override;
   const net::HttpResponseHeaders* GetResponseHeaders() override;
+  network::mojom::DeviceBoundSessionUsage GetDeviceBoundSessionUsage()
+      const override;
   const network::mojom::DeclarativePerformanceObserverPolicy*
   GetDeclarativePerformanceObserverPolicy() override;
   net::HttpConnectionInfo GetConnectionInfo() override;
@@ -1934,11 +1940,28 @@ class CONTENT_EXPORT NavigationRequest
   // origin is same-site to that ancestor ad frame.
   bool HasSameSiteAdAncestor();
 
+  // Allows tests to regenerate the download policy, which normally is computed
+  // in the constructor.
+  void ComputeDownloadPolicyForTesting();
+
+  // Allows tests to read and modify the download policy.
+  blink::NavigationDownloadPolicy& download_policy_for_testing() {
+    return download_policy();
+  }
+
+  // Returns the `StoragePartition` corresponding to the current navigation
+  // request.
+  //
+  // During navigation loading, this represents the partition where the active
+  // request is loaded (and where the document will commit, absent further
+  // redirects):
+  // - Initialized when the initial request starts in `StartNavigation()`
+  //   (`state_ >= WILL_START_REQUEST`). Must not be called before then.
+  // - Updated upon each server redirect.
+  StoragePartition* GetTargetStoragePartition() const;
+
  private:
   friend class NavigationRequestTest;
-  FRIEND_TEST_ALL_PREFIXES(
-      NavigationRequestDownloadBrowserTest,
-      OpenerCrossOrigin_BrowserOverridesCompromisedRenderer);
   FRIEND_TEST_ALL_PREFIXES(NavigationRequestTest, SanitizeRedirectsForCommit);
   FRIEND_TEST_ALL_PREFIXES(NavigationRequestTest,
                            SanitizeRedirectsForCommitRelativeLocation);
@@ -2711,7 +2734,10 @@ class CONTENT_EXPORT NavigationRequest
   bool ShouldAddDeviceBoundSessionObserver();
 
   // Returns the `StoragePartition` based on the config from the `site_info_`.
-  StoragePartition* GetStoragePartitionWithCurrentSiteInfo();
+  // TODO(crbug.com/565066826): Confirm the semantics of callers and migrate
+  // them to GetTargetStoragePartition() or appropriate StoragePartition
+  // getters.
+  StoragePartition* GetStoragePartitionWithCurrentSiteInfo() const;
 
   // Passes the response body contents to the original caller using the stored
   // callback once the body has been successfully read from its corresponding
@@ -2790,6 +2816,11 @@ class CONTENT_EXPORT NavigationRequest
   void AddResourceTimingEntryForFailedSubframeNavigation(
       base::TimeTicks completion_time,
       blink::mojom::SubframeResourceLengthsPtr resource_lengths);
+
+  // Equivalent to HasUserGesture(), but not filtered out by
+  // NavigateFromFrameProxy(). This should not be exposed to the committed
+  // document: use HasUserGesture() for that.
+  bool HasUnfilteredUserGesture();
 
   // Returns the impl version of the |initiator_navigation_state_| stored
   // in this NavigationRequest.
@@ -2946,6 +2977,9 @@ class CONTENT_EXPORT NavigationRequest
 
   // The SiteInfo of this navigation, as obtained from
   // SiteInstanceImpl::ComputeSiteInfo().
+  // This reflects the navigation target frame's `StoragePartition` only after
+  // `StartNavigation()` (`state_ >= WILL_START_REQUEST`), and is updated upon
+  // redirects on `WillRedirectRequest()` (`WILL_REDIRECT_REQUEST`).
   SiteInfo site_info_;
 
   base::OnceClosure on_start_checks_complete_closure_;
@@ -3828,6 +3862,13 @@ class CONTENT_EXPORT NavigationRequest
   // AsyncBeforeUnload mode, the `beforeunload_timeout_` timer is explicitly
   // stopped before this timer is started (see: https://crbug.com/475716933).
   base::OneShotTimer async_before_unload_timeout_;
+
+  // The extra headers initially provided for this navigation request,
+  // initialized from `begin_params_->headers` prior to merging UA or Client
+  // Hints headers (which are merged into `begin_params_->headers` later during
+  // navigation). Used to strip extra headers on cross-origin redirects even if
+  // the pending NavigationEntry is discarded.
+  std::string initial_extra_headers_;
 
   // If true, any extra headers provided will be removed on a cross-origin
   // redirect.

@@ -276,6 +276,9 @@ public class EmptyTabModel implements IncognitoTabModelInternal {
     public void notifyDidActiveStateChange(boolean active) {}
 
     @Override
+    public void notifyWillRemoveTabGroup(Token tabGroupId) {}
+
+    @Override
     public void broadcastSessionRestoreComplete() {}
 
     @Override
@@ -433,8 +436,7 @@ public class EmptyTabModel implements IncognitoTabModelInternal {
     public void createTabGroupForTabGroupSync(List<Tab> tabs, Token tabGroupId) {}
 
     @Override
-    public void mergeTabsToGroup(
-            int sourceTabId, int destinationTabId, boolean skipUpdateTabModel) {}
+    public void mergeTabsToGroup(int sourceTabId, int destinationTabId) {}
 
     @Override
     public void mergeListOfTabsToGroup(
@@ -483,11 +485,6 @@ public class EmptyTabModel implements IncognitoTabModelInternal {
     }
 
     @Override
-    public String getTabGroupTitle(Tab groupedTab) {
-        return UNSET_TAB_GROUP_TITLE;
-    }
-
-    @Override
     public void setTabGroupTitle(Token tabGroupId, @Nullable String title) {}
 
     @Override
@@ -500,11 +497,6 @@ public class EmptyTabModel implements IncognitoTabModelInternal {
 
     @Override
     public int getTabGroupColorWithFallback(Token tabGroupId) {
-        return TabGroupColorId.GREY;
-    }
-
-    @Override
-    public int getTabGroupColorWithFallback(Tab groupedTab) {
         return TabGroupColorId.GREY;
     }
 

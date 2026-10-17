@@ -10,11 +10,11 @@ import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
@@ -33,7 +33,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 
 import org.junit.After;
-import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -47,7 +46,6 @@ import org.chromium.base.DeviceInfo;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
-import org.chromium.build.BuildConfig;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -125,9 +123,20 @@ public class SettingsHostFragmentTest {
 
     @Test
     @DisableFeatures({ChromeFeatureList.SETTINGS_IN_TAB, ChromeFeatureList.SETTINGS_IN_TAB_DESKTOP})
-    public void testConstructor_SettingsInTabDisabled_ThrowsAssertionError() {
-        Assume.assumeTrue(BuildConfig.ENABLE_ASSERTS);
-        assertThrows(AssertionError.class, SettingsHostFragment::new);
+    public void testConstructor_SettingsInTabDisabled_Succeeds() {
+        // The framework re-instantiates this fragment when the activity is recreated, which can
+        // happen after a screen width change that makes SettingsInTab.shouldOpenSettingsInTab()
+        // return false. Construction must keep working so the open settings tab survives. See
+        // crbug.com/562619494.
+        SettingsHostFragment fragment = new SettingsHostFragment();
+        assertTrue(fragment.isShownInTab());
+    }
+
+    @Test
+    public void testIsShownInTab() {
+        attachHostFragment();
+        assertTrue(mSettingsHostFragment.isShownInTab());
+        assertTrue(SettingsHostUtil.isShownInTab(mSettingsHostFragment));
     }
 
     @Test
@@ -672,6 +681,37 @@ public class SettingsHostFragmentTest {
         assertNull(SettingsHostFragment.get((Fragment) null));
     }
 
+    /**
+     * Tests that SettingsHostFragment.containsFragment(Fragment) returns true for fragments hosted
+     * by this SettingsHostFragment and false otherwise.
+     */
+    @Test
+    public void testContainsFragment() {
+        mSettingsHostFragment = new TestMultiColumnSettingsHostFragment();
+        mActivity
+                .getSupportFragmentManager()
+                .beginTransaction()
+                .add(
+                        android.R.id.content,
+                        mSettingsHostFragment,
+                        SettingsHostFragment.SETTINGS_NATIVE_PAGE_TAG)
+                .commitNow();
+
+        MultiColumnSettings multiColumnSettings =
+                (MultiColumnSettings) mSettingsHostFragment.getActiveFragment();
+        assertNotNull(multiColumnSettings);
+
+        SecondFakeSettingsFragment detailFragment = new SecondFakeSettingsFragment();
+        multiColumnSettings.showDetailFragment(
+                detailFragment, /* addToBackStack= */ false, /* tag= */ null);
+        multiColumnSettings.getChildFragmentManager().executePendingTransactions();
+
+        assertTrue(mSettingsHostFragment.containsFragment(detailFragment));
+        assertTrue(mSettingsHostFragment.containsFragment(multiColumnSettings));
+        assertFalse(mSettingsHostFragment.containsFragment(new SecondFakeSettingsFragment()));
+        assertFalse(mSettingsHostFragment.containsFragment(null));
+    }
+
     @Test
     public void testSetDependencyProvider_whenNotAdded_defersRegistrationUntilAttached() {
         SettingsHostFragment fragment = new TestSettingsHostFragment();
@@ -873,6 +913,29 @@ public class SettingsHostFragmentTest {
                         mSettingsHostFragment.getContext(),
                         SecondFakeSettingsFragment.class,
                         extras);
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.SETTINGS_IN_TAB_URL_NAV)
+    public void testOnPreferenceStartFragment_SearchOpen_UsesFragmentBackStack() {
+        attachHostFragment();
+        SettingsNavigation mockNavigation = mock(SettingsNavigation.class);
+        mSettingsHostFragment.setSettingsNavigation(mockNavigation);
+        mSettingsHostFragment.setSearchOpenSupplier(() -> true);
+
+        Preference preference = mock(Preference.class);
+        when(preference.getFragment()).thenReturn(SecondFakeSettingsFragment.class.getName());
+        when(preference.getExtras()).thenReturn(new Bundle());
+
+        PreferenceFragmentCompat caller = mock(PreferenceFragmentCompat.class);
+        boolean handled = mSettingsHostFragment.onPreferenceStartFragment(caller, preference);
+
+        // The page belongs to the search rather than to the tab, so it goes on the back stack
+        // search is holding its own pages on, and the tab stays where it is.
+        assertTrue("Preference start fragment should be handled", handled);
+        verifyNoInteractions(mockNavigation);
+        mSettingsHostFragment.getChildFragmentManager().executePendingTransactions();
+        assertEquals(1, mSettingsHostFragment.getChildFragmentManager().getBackStackEntryCount());
     }
 
     @Test

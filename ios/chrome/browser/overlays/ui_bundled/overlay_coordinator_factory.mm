@@ -8,7 +8,9 @@
 
 #import "base/check.h"
 #import "base/memory/raw_ptr.h"
+#import "base/notimplemented.h"
 #import "base/notreached.h"
+#import "ios/chrome/browser/enterprise/data_protection/coordinator/watermark_overlay_coordinator.h"
 #import "ios/chrome/browser/infobars/model/infobar_ios.h"
 #import "ios/chrome/browser/infobars/model/infobar_type.h"
 #import "ios/chrome/browser/overlays/model/public/default/default_infobar_overlay_request_config.h"
@@ -22,6 +24,7 @@
 #import "ios/chrome/browser/overlays/ui_bundled/infobar_modal/translate/translate_infobar_modal_overlay_coordinator.h"
 #import "ios/chrome/browser/overlays/ui_bundled/overlay_request_coordinator.h"
 #import "ios/chrome/browser/overlays/ui_bundled/web_content_area/alerts/alert_overlay_coordinator.h"
+#import "ios/chrome/browser/overlays/ui_bundled/web_content_area/spinners/spinning_overlay_coordinator.h"
 
 @implementation OverlayRequestCoordinatorFactory {
   raw_ptr<Browser> _browser;
@@ -79,7 +82,13 @@
       // converted to no longer use enums.
       NOTREACHED() << "Received unsupported modality.";
     case OverlayModality::kWebContentArea:
+      if ([SpinningOverlayCoordinator requestSupport]->IsRequestSupported(
+              request)) {
+        return [SpinningOverlayCoordinator class];
+      }
       return [AlertOverlayCoordinator class];
+    case OverlayModality::kWatermark:
+      return [WatermarkOverlayCoordinator class];
     case OverlayModality::kInfobarBanner:
       if ([TranslateInfobarPlaceholderOverlayCoordinator requestSupport]
               ->IsRequestSupported(request)) {
@@ -107,6 +116,8 @@
       NOTREACHED() << "Received unsupported modality.";
     case OverlayModality::kWebContentArea:
       NOTREACHED() << "None implemented yet. Received unsupported modality.";
+    case OverlayModality::kWatermark:
+      NOTREACHED() << "Received unsupported modality.";
     case OverlayModality::kInfobarBanner:
       return [InfobarBannerOverlayCoordinator class];
     case OverlayModality::kInfobarModal:

@@ -78,7 +78,9 @@
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"         // nogncheck
 #include "chrome/common/extensions/api/side_panel.h"
 
-#if !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/ui/android/extensions/extension_site_settings_android.h"
+#else
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/extensions/extensions_container.h"
@@ -612,8 +614,9 @@ void ExtensionContextMenuModel::ExecuteCommand(int command_id,
     case VIEW_WEB_PERMISSIONS:
 #if BUILDFLAG(ENABLE_EXTENSIONS)
       chrome::ShowSiteSettings(browser_, extension->url());
+#elif BUILDFLAG(IS_ANDROID)
+      ShowExtensionSiteSettings(GetActiveWebContents(), extension->id());
 #else
-      // TODO(crbug.com/441744719): Show site settings page on Desktop Android.
       NOTIMPLEMENTED();
 #endif
       break;

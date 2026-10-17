@@ -35,6 +35,16 @@ public final class OnDemandBackgroundTabCaptureConfig {
         return isOptimizationEnabled();
     }
 
+    /**
+     * Returns whether an in-flight background tab load should be cancelled when the tab is
+     * deselected in the tab item picker or removed in Fusebox.
+     */
+    public static boolean isCancelLoadOnDeselectionEnabled() {
+        return isOptimizationEnabled()
+                && ChromeFeatureList.sOnDemandBackgroundTabContextCaptureCancelLoadOnDeselection
+                        .getValue();
+    }
+
     /** Returns whether early completion on first visually non-empty paint is enabled. */
     public static boolean isEarlyFirstPaintEnabled() {
         return isOptimizationEnabled()
@@ -56,6 +66,19 @@ public final class OnDemandBackgroundTabCaptureConfig {
         return isOptimizationEnabled()
                 && ChromeFeatureList.sOnDemandBackgroundTabContextCaptureLimitConcurrentLoadIfNeeded
                         .getValue();
+    }
+
+    /**
+     * Returns whether a loading tab should give up its concurrency slot once DOMContentLoaded
+     * fires, rather than holding it until the full page load completes.
+     *
+     * <p>Page context is extracted from the parsed DOM, so consumers are satisfied at
+     * DOMContentLoaded. Holding the slot until onload leaves queued tabs idle for seconds waiting
+     * on subresources nobody is reading.
+     */
+    public static boolean isReleaseSlotOnDomContentLoadedEnabled() {
+        return isOptimizationEnabled()
+                && ChromeFeatureList.sOnDemandBackgroundTabReleaseSlotOnDomContentLoaded.getValue();
     }
 
     /** Returns the minimum number of concurrent background tab loads allowed. */

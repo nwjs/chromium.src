@@ -752,6 +752,16 @@ BASE_FEATURE(kNavigationNetworkResponseQueue,
 #endif
 );
 
+// When PrioritizeMainFrameNavigationNetworkResponse is enabled, the browser
+// will schedule tasks related to primary main frame navigation network
+// responses in a kHighest priority queue.
+BASE_FEATURE(kPrioritizeMainFrameNavigationNetworkResponse,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<bool>
+    kPrioritizeMainFrameNavigationNetworkResponseEnableOnLowEndDevices{
+        &kPrioritizeMainFrameNavigationNetworkResponse,
+        "enable_on_low_end_devices", false};
+
 // If the network service is enabled, runs it in process.
 BASE_FEATURE(kNetworkServiceInProcess,
              "NetworkServiceInProcess2",
@@ -781,6 +791,11 @@ BASE_FEATURE(kOverscrollHistoryNavigation, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Whether web apps can run periodic tasks upon network connectivity.
 BASE_FEATURE(kPeriodicBackgroundSync, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If enabled, PreconnectManager bypasses UI-thread host preresolve and connects
+// sockets directly to the network context for single preconnect requests.
+BASE_FEATURE(kPreconnectManagerDirectFastPath,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If enabled, activation beacon is sent when a prefetched page is activated.
 // The activation beacon is a beacon that echoes back a server specified token
@@ -1397,15 +1412,9 @@ const base::FeatureParam<bool>
 const base::FeatureParam<bool> kAccessibilityDeprecateJavaNodeCacheDisableCache{
     &kAccessibilityDeprecateJavaNodeCache, "disable_cache", false};
 
-// When enabled, TYPE_ANNOUNCE events will no longer be sent for live regions in
-// the web contents.
-BASE_FEATURE(kAccessibilityDeprecateTypeAnnounce,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // When enabled, extended selections are sent to Android through setSelection
 // API.
-BASE_FEATURE(kAccessibilityExtendedSelection,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kAccessibilityExtendedSelection, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, syncs accessibility focus when WebView gains focus.
 BASE_FEATURE(kAccessibilitySyncFocusOnViewFocusGain,
@@ -1415,14 +1424,6 @@ BASE_FEATURE(kAccessibilitySyncFocusOnViewFocusGain,
 // formatted text from the TextInputState.
 BASE_FEATURE(kAccessibilityImeGetFormattedText,
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// When enabled, WINDOW_CONTENT_CHANGED events will be sent for each
-// LIVE_REGION_NODE_CHANGED rather than TYPE_ANNOUNCEMENT.
-// kAccessibilityDeprecateTypeAnnounce also encompasses ariaNotify, whereas this
-// flag does not. This flag focuses solely on the LIVE_REGION_NODE_CHANGED
-// generated events.
-BASE_FEATURE(kAccessibilityImproveLiveRegionAnnounce,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, allows Android to fire WINDOW_CONTENT_CHANGED events for value
 // changes made to slider controls.
@@ -1476,7 +1477,7 @@ BASE_FEATURE(kAccessibilitySequentialFocus, base::FEATURE_ENABLED_BY_DEFAULT);
 // When enabled, set selectable on all nodes with text, and support
 // ACTION_SET_SELECTION.
 BASE_FEATURE(kAccessibilitySetSelectableOnAllNodesWithText,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables posting registering, unregistering the broadcast receiver to the
 // background thread.
@@ -1507,6 +1508,11 @@ BASE_FEATURE(kGinJavaBridgeMojoSkipClearObjectsOnMainDocumentReady,
 // Reduce the priority of GPU process when in background so it is more likely
 // to be killed first if the OS needs more memory.
 BASE_FEATURE(kReduceGpuPriorityOnBackground, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Restricts interactions like soft keyboard (IME) in system gesture regions
+// during fullscreen mode to prevent user lock-in.
+BASE_FEATURE(kRestrictInteractionsInSwipeRegionOnFullscreen,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Screen Capture API support for Android.
 // This should not be enabled unless ENABLE_SCREEN_CAPTURE is on, otherwise

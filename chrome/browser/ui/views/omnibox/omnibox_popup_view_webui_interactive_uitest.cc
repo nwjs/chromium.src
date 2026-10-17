@@ -23,6 +23,7 @@
 #include "chrome/browser/ui/permission_bubble/permission_prompt.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/omnibox/full_webui_omnibox_frame.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_full_popup_webui_content.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_full_presenter.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_presenter.h"
@@ -40,10 +41,12 @@
 #include "components/omnibox/browser/autocomplete_result.h"
 #include "components/omnibox/browser/omnibox_popup_selection.h"
 #include "components/omnibox/browser/omnibox_triggered_feature_service.h"
+#include "components/permissions/embedded_permission_prompt_flow_model.h"
 #include "components/permissions/test/mock_permission_request.h"
 #if BUILDFLAG(IS_MAC)
 #include "components/viz/common/features.h"
 #endif
+#include "content/public/browser/visibility.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/test/browser_test.h"
@@ -267,7 +270,7 @@ class OmniboxPopupViewWebUIFullV2Test : public OmniboxPopupViewWebUITest {
     set_global_browser_set_up_function(nullptr);
     feature_list_full_v2_.InitWithFeatures(
         {omnibox::internal::kWebUIOmniboxPopup,
-         omnibox::kWebUIOmniboxFullPopup},
+         omnibox::internal::kWebUIOmniboxFullPopup},
         {});
   }
 
@@ -384,6 +387,62 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupViewWebUIFullV2Test,
   }));
 }
 
+// Verifies that the Full WebUI popup widget excludes the bottom shadow margin
+// when collapsed and includes it when expanded.
+IN_PROC_BROWSER_TEST_F(OmniboxPopupViewWebUIFullV2Test,
+                       CollapsedAndExpandedShadowMarginBounds) {
+  auto* popup_view = static_cast<OmniboxPopupViewWebUI*>(
+      location_bar()->GetOmniboxPopupView());
+  ASSERT_TRUE(popup_view);
+  auto* presenter = popup_view->presenter();
+  ASSERT_TRUE(presenter);
+
+  presenter->Show();
+  views::Widget* widget = presenter->get_widget_for_testing();
+  ASSERT_TRUE(widget);
+
+  const gfx::Rect location_bar_bounds = location_bar()->BoundsInScreen();
+  const gfx::Insets alignment_insets =
+      FullWebUIOmniboxFrame::GetLocationBarAlignmentInsets();
+  const gfx::Insets full_shadow_insets =
+      RoundedOmniboxResultsFrame::GetShadowInsets();
+  gfx::Insets collapsed_shadow_insets = full_shadow_insets;
+  collapsed_shadow_insets.set_bottom(0);
+
+  gfx::Rect expected_collapsed_bounds = location_bar_bounds;
+  expected_collapsed_bounds.Inset(-alignment_insets);
+  const int collapsed_content_height = expected_collapsed_bounds.height();
+  expected_collapsed_bounds.Inset(-collapsed_shadow_insets);
+
+  // When the page paints the shadow, the height it reports always includes its
+  // full vertical shadow padding.
+  const int reported_shadow_height =
+      presenter->ShouldDrawShadowInWebUI() ? full_shadow_insets.height() : 0;
+
+  // Collapsed state: widget bounds exclude the bottom shadow margin.
+  presenter->OnContentHeightChanged(collapsed_content_height +
+                                    reported_shadow_height);
+  EXPECT_EQ(widget->GetWindowBoundsInScreen(), expected_collapsed_bounds);
+
+  // Expanded state: widget bounds include the bottom shadow margin.
+  constexpr int kDropdownHeight = 200;
+  presenter->OnContentHeightChanged(collapsed_content_height + kDropdownHeight +
+                                    reported_shadow_height);
+  gfx::Rect expected_expanded_bounds = location_bar_bounds;
+  expected_expanded_bounds.Inset(-alignment_insets);
+  expected_expanded_bounds.set_height(collapsed_content_height +
+                                      kDropdownHeight);
+  expected_expanded_bounds.Inset(-full_shadow_insets);
+  EXPECT_EQ(widget->GetWindowBoundsInScreen(), expected_expanded_bounds);
+
+  // Collapsing again excludes the bottom shadow margin.
+  presenter->OnContentHeightChanged(collapsed_content_height +
+                                    reported_shadow_height);
+  EXPECT_EQ(widget->GetWindowBoundsInScreen(), expected_collapsed_bounds);
+
+  presenter->Hide();
+}
+
 class OmniboxPopupDimensionsTest : public OmniboxPopupViewWebUITest,
                                    public testing::WithParamInterface<bool> {
  public:
@@ -497,11 +556,14 @@ class TestPermissionPromptDelegate
     : public permissions::PermissionPrompt::Delegate {
  public:
   explicit TestPermissionPromptDelegate(content::WebContents* web_contents)
-      : web_contents_(web_contents) {
+      : web_contents_(web_contents),
+        embedded_prompt_flow_model_(web_contents, this) {
     request_list_.push_back(
         std::make_unique<permissions::MockPermissionRequest>(
             permissions::RequestType::kMicStream,
             permissions::PermissionRequestGestureType::GESTURE));
+    embedded_prompt_flow_model_.set_prompt_variant(
+        permissions::EmbeddedPermissionPromptFlowModel::Variant::kAsk);
   }
 
   const std::vector<std::unique_ptr<permissions::PermissionRequest>>& Requests()
@@ -549,6 +611,11 @@ class TestPermissionPromptDelegate
   const permissions::PermissionPrompt* GetCurrentPrompt() const override {
     return nullptr;
   }
+  permissions::EmbeddedPermissionPromptFlowModel* GetEmbeddedPromptFlowModel()
+      const override {
+    return const_cast<permissions::EmbeddedPermissionPromptFlowModel*>(
+        &embedded_prompt_flow_model_);
+  }
   base::WeakPtr<permissions::PermissionPrompt::Delegate> GetWeakPtr() override {
     return weak_factory_.GetWeakPtr();
   }
@@ -559,6 +626,7 @@ class TestPermissionPromptDelegate
  private:
   raw_ptr<content::WebContents> web_contents_;
   std::vector<std::unique_ptr<permissions::PermissionRequest>> request_list_;
+  permissions::EmbeddedPermissionPromptFlowModel embedded_prompt_flow_model_;
   base::WeakPtrFactory<TestPermissionPromptDelegate> weak_factory_{this};
 };
 
@@ -594,7 +662,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupViewWebUITest,
 
   // Directly call `PermissionPromptFactory::CreatePermissionPrompt`
   // synchronously.
-  CreatePermissionPrompt(web_contents, &test_delegate);
+  auto prompt = CreatePermissionPrompt(web_contents, &test_delegate);
 
   // Regular WebUI popup presenter MUST be locked synchronously by
   // `PermissionPromptFactory`.
@@ -652,6 +720,53 @@ IN_PROC_BROWSER_TEST_P(OmniboxPopupViewWebUIFrameCacheTest, FrameCacheUsage) {
   } else {
     EXPECT_EQ(0u, content::GetUnlockedCompositorFrameCount());
   }
+}
+
+// Occluding a window must not unlock the frame of its visible tab. Otherwise
+// the frame can be evicted, and the window shows up grey when it becomes
+// visible again.
+IN_PROC_BROWSER_TEST_P(OmniboxPopupViewWebUIFrameCacheTest,
+                       OccludedTabKeepsFrameLocked) {
+  content::WebContents* web_contents =
+      browser()->GetTabStripModel()->GetActiveWebContents();
+  // Ensure the tab has embedded a surface, so its frame is tracked by the
+  // FrameEvictionManager.
+  content::WaitForCopyableViewInWebContents(web_contents);
+
+  content::PurgeUnlockedCompositorFrames();
+  ASSERT_EQ(0u, content::GetUnlockedCompositorFrameCount());
+
+  web_contents->WasOccluded();
+  ASSERT_EQ(content::Visibility::OCCLUDED, web_contents->GetVisibility());
+  EXPECT_EQ(0u, content::GetUnlockedCompositorFrameCount());
+
+  web_contents->WasShown();
+}
+
+// A tab that is occluded and then hidden must still unlock its frame, even
+// though the occlusion already marked its RenderWidgetHost as hidden.
+IN_PROC_BROWSER_TEST_P(OmniboxPopupViewWebUIFrameCacheTest,
+                       OccludedThenHiddenTabUnlocksFrame) {
+  content::WebContents* web_contents =
+      browser()->GetTabStripModel()->GetActiveWebContents();
+  content::WaitForCopyableViewInWebContents(web_contents);
+
+  content::PurgeUnlockedCompositorFrames();
+  ASSERT_EQ(0u, content::GetUnlockedCompositorFrameCount());
+
+  web_contents->WasOccluded();
+  ASSERT_EQ(content::Visibility::OCCLUDED, web_contents->GetVisibility());
+  EXPECT_EQ(0u, content::GetUnlockedCompositorFrameCount());
+
+  web_contents->WasHidden();
+  ASSERT_EQ(content::Visibility::HIDDEN, web_contents->GetVisibility());
+  if (GetParam()) {
+    EXPECT_EQ(1u, content::GetUnlockedCompositorFrameCount());
+  } else {
+    EXPECT_EQ(0u, content::GetUnlockedCompositorFrameCount());
+  }
+
+  web_contents->WasShown();
 }
 #endif
 

@@ -18,11 +18,13 @@
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/global_media_controls/media_toolbar_button_controller.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
+#include "chrome/browser/ui/views/toolbar/webui_media_toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/webui_test_utils.h"
 #include "chrome/browser/ui/views/toolbar/webui_toolbar_web_view.h"
 #include "chrome/browser/ui/webui/webui_toolbar/webui_toolbar_ui.h"
@@ -61,21 +63,29 @@ void WebUIToolbarWebViewTestBase::SetUpOnMainThread() {
       ->SetBrowserColorScheme(ThemeService::BrowserColorScheme::kLight);
 }
 
-ToolbarView* WebUIToolbarWebViewTestBase::GetToolbarView() {
-  return BrowserView::GetBrowserViewForBrowser(browser())->toolbar();
+ToolbarView* WebUIToolbarWebViewTestBase::GetToolbarView(
+    BrowserWindowInterface* browser_instance) {
+  return BrowserView::GetBrowserViewForBrowser(
+             browser_instance ? browser_instance : browser())
+      ->toolbar();
 }
 
-WebUIToolbarWebView* WebUIToolbarWebViewTestBase::GetWebUIToolbar() {
-  return GetToolbarView()->GetWebUIToolbarViewForTesting();
+WebUIToolbarWebView* WebUIToolbarWebViewTestBase::GetWebUIToolbar(
+    BrowserWindowInterface* browser_instance) {
+  return GetToolbarView(browser_instance)->GetWebUIToolbarViewForTesting();
 }
 
-content::WebContents* WebUIToolbarWebViewTestBase::GetWebUIWebContents() {
-  return GetWebUIToolbar()->GetWebContents();
+content::WebContents* WebUIToolbarWebViewTestBase::GetWebUIWebContents(
+    BrowserWindowInterface* browser_instance) {
+  return GetWebUIToolbar(browser_instance)->GetWebContents();
 }
 
-content::EvalJsResult WebUIToolbarWebViewTestBase::SetSpacerWidth(int width) {
-  return content::EvalJs(GetWebUIWebContents(), content::JsReplace(
-                                                    R"((() => {
+content::EvalJsResult WebUIToolbarWebViewTestBase::SetSpacerWidth(
+    int width,
+    BrowserWindowInterface* browser_instance) {
+  return content::EvalJs(GetWebUIWebContents(browser_instance),
+                         content::JsReplace(
+                             R"((() => {
         const app = document.querySelector('toolbar-app');
         let spacer = app.shadowRoot.querySelector('#test-spacer');
         if (!spacer) {
@@ -85,28 +95,32 @@ content::EvalJsResult WebUIToolbarWebViewTestBase::SetSpacerWidth(int width) {
           app.shadowRoot.appendChild(spacer);
         }
         spacer.style.width = $1 + 'px';
+        app.layoutResponsiveControls();
         return true;
       })();)",
-                                                    width));
+                             width));
 }
 
 ui::TrackedElement* WebUIToolbarWebViewTestBase::GetTrackedElement(
-    ui::ElementIdentifier id) {
+    ui::ElementIdentifier id,
+    BrowserWindowInterface* browser_instance) {
   return ui::ElementTracker::GetElementTracker()->GetUniqueElement(
-      id, views::ElementTrackerViews::GetContextForView(GetToolbarView()));
+      id, views::ElementTrackerViews::GetContextForView(
+              GetToolbarView(browser_instance)));
 }
 
 bool WebUIToolbarWebViewTestBase::WaitForTrackedElements(
     const std::vector<ui::ElementIdentifier>& visible,
-    const std::vector<ui::ElementIdentifier>& hidden) {
+    const std::vector<ui::ElementIdentifier>& hidden,
+    BrowserWindowInterface* browser_instance) {
   return base::test::RunUntil([&]() -> bool {
     for (const auto& id : visible) {
-      if (!GetTrackedElement(id)) {
+      if (!GetTrackedElement(id, browser_instance)) {
         return false;
       }
     }
     for (const auto& id : hidden) {
-      if (GetTrackedElement(id)) {
+      if (GetTrackedElement(id, browser_instance)) {
         return false;
       }
     }
@@ -115,14 +129,16 @@ bool WebUIToolbarWebViewTestBase::WaitForTrackedElements(
 }
 
 ui::TrackedElement* WebUIToolbarWebViewTestBase::WaitForTrackedElementVisible(
-    ui::ElementIdentifier id) {
-  EXPECT_TRUE(WaitForTrackedElements({id}));
-  return GetTrackedElement(id);
+    ui::ElementIdentifier id,
+    BrowserWindowInterface* browser_instance) {
+  EXPECT_TRUE(WaitForTrackedElements({id}, {}, browser_instance));
+  return GetTrackedElement(id, browser_instance);
 }
 
 bool WebUIToolbarWebViewTestBase::WaitForTrackedElementHidden(
-    ui::ElementIdentifier id) {
-  return WaitForTrackedElements({}, {id});
+    ui::ElementIdentifier id,
+    BrowserWindowInterface* browser_instance) {
+  return WaitForTrackedElements({}, {id}, browser_instance);
 }
 
 void WebUIToolbarWebViewTestBase::EnableBatterySaverButton(
@@ -147,6 +163,48 @@ void WebUIToolbarWebViewTestBase::EnableBatterySaverButton(
     return ui::ElementTracker::GetElementTracker()->IsElementVisible(
         kToolbarBatterySaverButtonElementId,
         BrowserElements::From(browser())->GetContext());
+  }));
+}
+
+bool WebUIToolbarWebViewTestBase::IsMediaButtonSupported() {
+  return GetWebUIToolbarWebView(browser())->GetMediaToolbarButton() != nullptr;
+}
+
+void WebUIToolbarWebViewTestBase::ShowMediaButton() {
+  WebUIToolbarWebView* webui_toolbar_view = GetWebUIToolbarWebView(browser());
+  auto* media_button = static_cast<WebUIMediaToolbarButton*>(
+      webui_toolbar_view->GetMediaToolbarButton());
+  ASSERT_TRUE(media_button)
+      << "The media button is not supported on this platform.";
+  media_button->GetController()->ShowToolbarButton();
+
+  // Verify the button element becomes visible.
+  EXPECT_TRUE(WaitForButtonVisible(GetWebUIWebContents(), "#media"));
+  // Wait for the ElementTracker to be updated.
+  EXPECT_TRUE(WaitForTrackedElementVisible(kToolbarMediaButtonElementId));
+}
+
+void WebUIToolbarWebViewTestBase::DisableMediaButton() {
+  WebUIToolbarWebView* webui_toolbar_view = GetWebUIToolbarWebView(browser());
+  auto* media_button = static_cast<WebUIMediaToolbarButton*>(
+      webui_toolbar_view->GetMediaToolbarButton());
+  ASSERT_TRUE(media_button)
+      << "The media button is not supported on this platform.";
+  media_button->Disable();
+
+  const std::string check_media_button_disabled =
+      base::StringPrintf(R"(
+                         (() => {
+                             const button = %s?.shadowRoot?.querySelector(
+                                 'cr-icon-button');
+                             return !!button && button.disabled;
+                         })();)",
+                         GetButtonAppJS("#media").c_str());
+
+  content::WebContents* webui_web_contents = GetWebUIWebContents();
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return content::EvalJs(webui_web_contents, check_media_button_disabled)
+        .ExtractBool();
   }));
 }
 

@@ -14,21 +14,35 @@
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/rand_util.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/task/thread_pool.h"
 #include "base/trace_event/trace_event.h"
 #include "components/optimization_guide/core/model_execution/model_execution_util.h"
-#include "components/optimization_guide/core/model_execution/on_device_model_names.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_feature_adapter.h"
+#include "components/optimization_guide/core/model_execution/on_device_model_names.h"
 #include "components/optimization_guide/core/model_execution/performance_class.h"
 #include "components/optimization_guide/core/model_execution/usage_tracker.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
+#include "components/optimization_guide/core/optimization_guide_logger.h"
 #include "components/optimization_guide/proto/manifest.pb.h"
 #include "components/optimization_guide/proto/model_execution.pb.h"
 #include "services/on_device_model/public/cpp/features.h"
 #include "services/on_device_model/public/cpp/model_assets.h"
 
 namespace optimization_guide {
+
+// Feature and parameter controlling the idle timeout before loaded on-device
+// models (base models, adaptations, and safety models) disconnect and unload.
+// NOTE: This feature and parameter are actively used by automated benchmarks
+// and tests (e.g. Web-Workloads blink-ai, see crbug.com/562517320) via
+// `--enable-features=OnDeviceModelIdleTimeout:on_device_model_idle_timeout/10s`
+// to lower model offload latency between test runs. Do not remove as a dead
+// feature.
+BASE_FEATURE(kOnDeviceModelIdleTimeout, base::FEATURE_ENABLED_BY_DEFAULT);
+const base::FeatureParam<base::TimeDelta> kOnDeviceModelIdleTimeoutParam{
+    &kOnDeviceModelIdleTimeout, "on_device_model_idle_timeout",
+    base::Minutes(1)};
 
 namespace {
 
@@ -165,7 +179,9 @@ class ManifestSolutionFactory::Solution : public ModelBrokerImpl::Solution {
   Solution(base::WeakPtr<ManifestSolutionFactory> factory,
            const std::string use_case,
            const std::string solution_id)
-      : factory_(factory), solution_id_(std::move(solution_id)) {}
+      : factory_(factory),
+        use_case_(std::move(use_case)),
+        solution_id_(std::move(solution_id)) {}
 
   ~Solution() override = default;
 
@@ -178,15 +194,23 @@ class ManifestSolutionFactory::Solution : public ModelBrokerImpl::Solution {
   }
 
   bool IsValid() const override {
-    // Individual assets can't become unavailable, so the solution is valid
-    // as long as we continue to use the same manifest.
-    // If we support the broker changing to alternative solutions, then we will
-    // need to invalidate these solutions when the broker changes.
-    return !!factory_;
+    if (!factory_) {
+      // The factory was destroyed (e.g. when a new manifest was loaded).
+      return false;
+    }
+    for (const auto& asset :
+         *factory_->manifest_.GetRequiredAssets(use_case_)) {
+      if (!factory_->assets_.at(asset).has_value()) {
+        // A required asset was uninstalled.
+        return false;
+      }
+    }
+    // The solution config may have been unloaded if its asset was uninstalled.
+    return state().status_ == SolutionState::kReady;
   }
 
   mojom::ModelSolutionConfigPtr MakeConfig() const override {
-    if (!factory_) {
+    if (!IsValid()) {
       return nullptr;
     }
     auto config = mojom::ModelSolutionConfig::New();
@@ -217,7 +241,7 @@ class ManifestSolutionFactory::Solution : public ModelBrokerImpl::Solution {
   void CreateSession(
       mojo::PendingReceiver<on_device_model::mojom::Session> pending,
       on_device_model::mojom::SessionParamsPtr params) override {
-    if (!factory_) {
+    if (!IsValid()) {
       return;
     }
     factory_->GetOrLoadModel(recipe().model_recipe_id())
@@ -227,7 +251,7 @@ class ManifestSolutionFactory::Solution : public ModelBrokerImpl::Solution {
   void CreateTextSafetySession(
       mojo::PendingReceiver<on_device_model::mojom::TextSafetySession> pending)
       override {
-    if (!factory_) {
+    if (!IsValid()) {
       return;
     }
     factory_->GetOrLoadTextSafetyModel(recipe().safety_model_recipe_id())
@@ -237,6 +261,9 @@ class ManifestSolutionFactory::Solution : public ModelBrokerImpl::Solution {
   void ReportHealthyCompletion() override {
     TRACE_EVENT("optimization_guide",
                 "ManifestSolutionFactory::Solution::ReportHealthyCompletion");
+    if (!factory_) {
+      return;
+    }
     factory_->access_controller_->OnResponseCompleted();
   }
 
@@ -312,9 +339,9 @@ void ManifestSolutionFactory::UpdateAssetState(const std::string& asset_id,
   // We already know all possible assets from the manifest.
   CHECK(it != assets_.end());
 
-  // We shouldn't support an available asset being updated.
-  // TODO(holte): Stop uninstalling assets a factory might have been provided.
-  if (it->second.has_value()) {
+  const bool was_available = it->second.has_value();
+  if (was_available && new_state.has_value()) {
+    // Ignore duplicate notifications that an asset is available.
     return;
   }
 
@@ -336,8 +363,46 @@ void ManifestSolutionFactory::UpdateAssetState(const std::string& asset_id,
     CheckCachesExist(asset_id, barrier);
     LoadSolutionConfigsFrom(asset_id, barrier);
   } else {
+    if (was_available) {
+      UnloadAsset(asset_id);
+    }
     // No asset to load things from, so we're done.
     std::move(on_complete).Run();
+  }
+}
+
+void ManifestSolutionFactory::UnloadAsset(const std::string& asset_id) {
+  // Reset all objects that depend on the asset.
+  for (const auto& [model_id, recipe] : manifest_.GetRecipes().base_models()) {
+    if (recipe.weights_file().asset_id() == asset_id) {
+      base_models_.at(model_id).remote_.reset();
+      base_models_.at(model_id).has_caches = false;
+      for (const auto& [adaptation_id, adaptation_recipe] :
+           manifest_.GetRecipes().adaptations()) {
+        if (adaptation_recipe.base_model_recipe_id() == model_id) {
+          adaptations_.at(adaptation_id).remote_.reset();
+        }
+      }
+    }
+  }
+  for (const auto& [adaptation_id, recipe] :
+       manifest_.GetRecipes().adaptations()) {
+    if (recipe.weights_file().asset_id() == asset_id) {
+      adaptations_.at(adaptation_id).remote_.reset();
+    }
+  }
+  for (const auto& [safety_id, recipe] :
+       manifest_.GetRecipes().safety_models()) {
+    if (recipe.weights_file().asset_id() == asset_id ||
+        recipe.language_detection_model_file().asset_id() == asset_id) {
+      safety_models_.at(safety_id).remote_.reset();
+    }
+  }
+  for (const auto& [solution_id, recipe] : manifest_.GetRecipes().solutions()) {
+    if (recipe.config_file().asset_id() == asset_id) {
+      solutions_.at(solution_id).status_ = SolutionState::kNotLoaded;
+      solutions_.at(solution_id).config_.Clear();
+    }
   }
 }
 
@@ -399,7 +464,11 @@ void ManifestSolutionFactory::OnCachesExistChecked(
     bool caches_exist) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(base_models_.contains(model_id));
-  base_models_.at(model_id).has_caches = caches_exist;
+  const auto& recipe = manifest_.GetRecipes().base_models().at(model_id);
+  if (assets_.at(recipe.weights_file().asset_id()).has_value()) {
+    // Only update cache status if the model was not uninstalled while checking.
+    base_models_.at(model_id).has_caches = caches_exist;
+  }
   std::move(on_complete).Run();
 }
 
@@ -501,6 +570,7 @@ void ManifestSolutionFactory::LoadSolutionConfig(
   TRACE_EVENT("optimization_guide",
               "ManifestSolutionFactory::LoadSolutionConfig", "solution_id",
               solution_id);
+  solutions_.at(solution_id).status_ = SolutionState::kLoading;
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE, {base::MayBlock()},
       base::BindOnce(
@@ -527,6 +597,14 @@ void ManifestSolutionFactory::LoadSolutionConfig(
                         "ManifestSolutionFactory::OnSolutionConfigLoaded",
                         "solution_id", solution_id);
             if (!factory) {
+              return;
+            }
+            const auto& recipe =
+                factory->manifest_.GetRecipes().solutions().at(solution_id);
+            if (!factory->assets_.at(recipe.config_file().asset_id())
+                     .has_value()) {
+              // Handle the case where the model was uninstalled while loading
+              // the config.
               return;
             }
             auto& state = factory->solutions_.at(solution_id);
@@ -573,7 +651,8 @@ ManifestSolutionFactory::CreateSolutionForUseCase(
       manifest_.GetDeviceCategoryConfig().use_cases().at(use_case_name);
 
   if (has_unavailable_asset) {
-    if (!usage_tracker_->GetPriority(use_case_name)) {
+    if (usage_tracker_->GetPriority(use_case_name) <
+        UsageTracker::Priority::kBestEffort) {
       return base::unexpected(
           OnDeviceModelEligibilityReason::kNoOnDeviceFeatureUsed);
     }
@@ -613,6 +692,36 @@ ManifestSolutionFactory::CreateSolutionForUseCase(
   // Everything is available, create the solution.
   return std::make_unique<Solution>(weak_ptr_factory_.GetWeakPtr(),
                                     use_case_name, solution_id);
+}
+
+void ManifestSolutionFactory::LogBaseModelInitialization(
+    const std::string& model_id,
+    const proto::BaseModelRecipe& recipe,
+    const BaseModelState& state) const {
+  auto* logger = OptimizationGuideLogger::GetInstance();
+  if (!logger || !logger->ShouldEnableDebugLogs()) {
+    return;
+  }
+  OPTIMIZATION_GUIDE_LOGGER(
+      optimization_guide_common::mojom::LogSource::MODEL_EXECUTION, logger)
+      << "Loading model [" << model_id << "] on backend ["
+      << (recipe.backend_type() == proto::BaseModelRecipe::BACKEND_TYPE_CPU
+              ? "CPU"
+              : "GPU")
+      << "], max tokens [" << base::NumberToString(recipe.max_tokens())
+      << "]; model cache files ["
+      << (state.has_caches ? "exist" : "do not exist")
+      << "], GPU weight cache ["
+      << (base::FeatureList::IsEnabled(
+              on_device_model::features::kOnDeviceModelGpuWeightCache)
+              ? "enabled"
+              : "disabled")
+      << "], GPU program cache ["
+      << (base::FeatureList::IsEnabled(
+              on_device_model::features::kOnDeviceModelGpuProgramCache)
+              ? "enabled"
+              : "disabled")
+      << "]";
 }
 
 mojo::Remote<on_device_model::mojom::OnDeviceModel>&
@@ -673,6 +782,13 @@ ManifestSolutionFactory::GetOrLoadTextSafetyModel(const std::string& model_id) {
                 CloseAssetsInBackground(std::move(params));
                 return;
               }
+              if (!factory->safety_models_.at(model_id).remote_.is_bound()) {
+                // Handle the case where the model was uninstalled while loading
+                // params.
+                CloseAssetsInBackground(std::move(params));
+                factory->service_client_->RemovePendingUsage();
+                return;
+              }
               factory->service_client_->Get()->LoadTextSafetyModel(
                   std::move(params), std::move(model));
               factory->service_client_->RemovePendingUsage();
@@ -682,8 +798,7 @@ ManifestSolutionFactory::GetOrLoadTextSafetyModel(const std::string& model_id) {
     // Disconnects should only happen on a service crash, and we track those
     // elsewhere.
     state.remote_.reset_on_disconnect();
-    state.remote_.reset_on_idle_timeout(
-        features::GetOnDeviceModelIdleTimeout());
+    state.remote_.reset_on_idle_timeout(kOnDeviceModelIdleTimeoutParam.Get());
   }
   return state.remote_;
 }
@@ -694,6 +809,8 @@ void ManifestSolutionFactory::LoadBaseModel(const std::string& model_id,
               "model_id", model_id);
   const auto& recipe = manifest_.GetRecipes().base_models().at(model_id);
   on_device_model::ModelAssetPaths paths = GetModelAssetPaths(recipe);
+
+  LogBaseModelInitialization(model_id, recipe, state);
 
   service_client_->AddPendingUsage();
   base::ThreadPool::PostTaskAndReplyWithResult(
@@ -713,6 +830,15 @@ void ManifestSolutionFactory::LoadBaseModel(const std::string& model_id,
             }
             const auto& recipe =
                 factory->manifest_.GetRecipes().base_models().at(model_id);
+            if (!factory->assets_.at(recipe.weights_file().asset_id())
+                     .has_value() ||
+                !factory->base_models_.at(model_id).remote_.is_bound()) {
+              // Handle the case where the model was uninstalled while loading
+              // assets.
+              CloseAssetsInBackground(std::move(assets));
+              factory->service_client_->RemovePendingUsage();
+              return;
+            }
             auto params = on_device_model::mojom::LoadModelParams::New();
             params->max_tokens = recipe.max_tokens();
             if (params->max_tokens == 0) {
@@ -738,7 +864,7 @@ void ManifestSolutionFactory::LoadBaseModel(const std::string& model_id,
   state.remote_.set_disconnect_with_reason_handler(
       base::BindOnce(&ManifestSolutionFactory::OnBaseModelDisconnect,
                      base::Unretained(this), model_id));
-  state.remote_.reset_on_idle_timeout(features::GetOnDeviceModelIdleTimeout());
+  state.remote_.reset_on_idle_timeout(kOnDeviceModelIdleTimeoutParam.Get());
 }
 
 void ManifestSolutionFactory::LoadAdaptation(const std::string& model_id,
@@ -769,6 +895,14 @@ void ManifestSolutionFactory::LoadAdaptation(const std::string& model_id,
             }
             const auto& recipe =
                 factory->manifest_.GetRecipes().adaptations().at(model_id);
+            if (!factory->assets_.at(recipe.weights_file().asset_id())
+                     .has_value() ||
+                !factory->adaptations_.at(model_id).remote_.is_bound()) {
+              // Handle the case where the model was uninstalled while loading
+              // assets.
+              CloseAssetsInBackground(std::move(assets));
+              return;
+            }
             auto params = on_device_model::mojom::LoadAdaptationParams::New();
             params->assets = std::move(assets);
             factory->GetOrLoadModel(recipe.base_model_recipe_id())
@@ -779,7 +913,7 @@ void ManifestSolutionFactory::LoadAdaptation(const std::string& model_id,
           weak_ptr_factory_.GetWeakPtr(), model_id,
           state.remote_.BindNewPipeAndPassReceiver()));
   state.remote_.reset_on_disconnect();
-  state.remote_.reset_on_idle_timeout(features::GetOnDeviceModelIdleTimeout());
+  state.remote_.reset_on_idle_timeout(kOnDeviceModelIdleTimeoutParam.Get());
 }
 
 void ManifestSolutionFactory::OnBaseModelDisconnect(

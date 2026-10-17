@@ -1,3 +1,4 @@
+// Copyright 2026 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -50,17 +51,11 @@ class RasterInterface;
 }  // namespace raster
 }  // namespace gpu
 
-#include "base/metrics/field_trial_params.h"
-
 namespace blink {
 
-PLATFORM_EXPORT BASE_DECLARE_FEATURE(kCanvas2DAutoFlushParams);
 PLATFORM_EXPORT BASE_DECLARE_FEATURE(kCanvas2DReclaimUnusedResources);
 PLATFORM_EXPORT BASE_DECLARE_FEATURE(kAppendCpuUsages);
 PLATFORM_EXPORT BASE_DECLARE_FEATURE(kCanvasResourceIsWebGPUCompatible);
-
-PLATFORM_EXPORT extern const base::FeatureParam<int> kMaxRecordedOpKB;
-PLATFORM_EXPORT extern const base::FeatureParam<int> kMaxPinnedImageKB;
 
 class CanvasResource;
 class CanvasResourceSharedImage;
@@ -215,8 +210,6 @@ class PLATFORM_EXPORT Canvas2DResourceProvider
   SkAlphaType GetAlphaType() const { return alpha_type_; }
   gfx::Size Size() const { return size_; }
 
-  size_t max_recorded_op_bytes() const { return max_recorded_op_bytes_; }
-  size_t max_pinned_image_bytes() const { return max_pinned_image_bytes_; }
 
   int NumInflightResourcesForTesting() const { return num_inflight_resources_; }
   base::ByteSize EstimatedSizeInBytes() const;
@@ -317,7 +310,7 @@ class PLATFORM_EXPORT Canvas2DResourceProvider
       PaintImage::ContentId content_id = PaintImage::kInvalidContentId);
 
   CanvasImageProvider* GetOrCreateCanvasImageProvider();
-  std::unique_ptr<gpu::RasterScopedAccess> WillDrawInternal();
+  void EnsureResourceReadyForDraw();
 
   // Notifies before any unaccelerated drawing will be done on the resource used
   // by this provider.
@@ -385,8 +378,6 @@ class PLATFORM_EXPORT Canvas2DResourceProvider
   gfx::ColorSpace color_space_;
   gfx::HDRMetadata hdr_metadata_;
 
-  size_t max_recorded_op_bytes_;
-  size_t max_pinned_image_bytes_;
   raw_ptr<CanvasResourceProviderDelegate> delegate_ = nullptr;
   mutable sk_sp<SkSurface> surface_;
   std::unique_ptr<cc::SkiaPaintCanvas> skia_canvas_;

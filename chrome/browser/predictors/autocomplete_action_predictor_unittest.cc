@@ -205,16 +205,16 @@ class AutocompleteActionPredictorTest
   }
 
   void AddAllRows() {
-    for (size_t i = 0; i < std::size(TestUrlDb()); ++i)
+    for (size_t i = 0; i < std::size(TestUrlDb()); ++i) {
       AddRow(TestUrlDb()[i]);
+    }
   }
 
   std::string AddRow(const TestUrlInfo& test_row) {
     AutocompleteActionPredictorTable::Row row =
         CreateRowFromTestUrlInfo(test_row);
-    predictor_->AddAndUpdateRows(
-        AutocompleteActionPredictorTable::Rows(1, row),
-        AutocompleteActionPredictorTable::Rows());
+    predictor_->AddAndUpdateRows(AutocompleteActionPredictorTable::Rows(1, row),
+                                 AutocompleteActionPredictorTable::Rows());
 
     return row.id;
   }
@@ -222,7 +222,7 @@ class AutocompleteActionPredictorTest
   WebContents* web_contents() { return web_contents_.get(); }
 
   void UpdateRow(const AutocompleteActionPredictorTable::Row& row) {
-    AutocompleteActionPredictor::DBCacheKey key = { row.user_text, row.url };
+    AutocompleteActionPredictor::DBCacheKey key = {row.user_text, row.url};
     ASSERT_TRUE(db_cache()->find(key) != db_cache()->end());
     predictor_->AddAndUpdateRows(
         AutocompleteActionPredictorTable::Rows(),
@@ -250,13 +250,15 @@ class AutocompleteActionPredictorTest
         expect_deleted = true;
       }
 
-      if (i != 3 && i != 4)
+      if (i != 3 && i != 4) {
         ASSERT_TRUE(AddRowToHistory(TestUrlDb()[i]));
-      else if (!expired)
+      } else if (!expired) {
         expect_deleted = true;
+      }
 
-      if (!expect_deleted)
+      if (!expect_deleted) {
         expected.push_back(i);
+      }
     }
 
     history::HistoryService* history_service =
@@ -281,9 +283,7 @@ class AutocompleteActionPredictorTest
     }
   }
 
-  void DeleteAllRows() {
-    predictor_->DeleteAllRows();
-  }
+  void DeleteAllRows() { predictor_->DeleteAllRows(); }
 
   void DeleteRowsFromCaches(
       const history::URLRows& rows,
@@ -431,8 +431,9 @@ TEST_P(AutocompleteActionPredictorTest, DeleteRowsFromCaches) {
     std::string row_id = AddRow(TestUrlDb()[i]);
     all_ids.push_back(row_id);
 
-    if (i < 2)
+    if (i < 2) {
       rows.push_back(history::URLRow(TestUrlDb()[i].url));
+    }
   }
 
   EXPECT_EQ(std::size(TestUrlDb()), all_ids.size());
@@ -468,10 +469,11 @@ TEST_P(AutocompleteActionPredictorTest, DeleteOldIdsFromCaches) {
                          base::CompareCase::SENSITIVE) ||
         (TestUrlDb()[i].days_from_now > maximum_days_to_keep_entry());
 
-    if (exclude_url)
+    if (exclude_url) {
       expected.push_back(row_id);
-    else
+    } else {
       ASSERT_TRUE(AddRowToHistory(TestUrlDb()[i]));
+    }
   }
 
   std::vector<AutocompleteActionPredictorTable::Row::Id> id_list;
@@ -490,8 +492,9 @@ TEST_P(AutocompleteActionPredictorTest, DeleteOldIdsFromCaches) {
 TEST_P(AutocompleteActionPredictorTest,
        DeleteLowestConfidenceRowsFromCaches_OneByOne) {
   std::vector<AutocompleteActionPredictorTable::Row::Id> test_url_ids;
-  for (const auto& info : TestUrlConfidenceDb())
+  for (const auto& info : TestUrlConfidenceDb()) {
     test_url_ids.push_back(AddRow(info));
+  }
 
   std::vector<AutocompleteActionPredictorTable::Row::Id> id_list;
   std::vector<AutocompleteActionPredictorTable::Row::Id> expected;
@@ -511,8 +514,9 @@ TEST_P(AutocompleteActionPredictorTest,
 TEST_P(AutocompleteActionPredictorTest,
        DeleteLowestConfidenceRowsFromCaches_Bulk) {
   std::vector<AutocompleteActionPredictorTable::Row::Id> test_url_ids;
-  for (const auto& info : TestUrlConfidenceDb())
+  for (const auto& info : TestUrlConfidenceDb()) {
     test_url_ids.push_back(AddRow(info));
+  }
 
   std::vector<AutocompleteActionPredictorTable::Row::Id> id_list;
   std::vector<AutocompleteActionPredictorTable::Row::Id> expected;
@@ -520,8 +524,9 @@ TEST_P(AutocompleteActionPredictorTest,
   const size_t count_to_remove = 4;
   CHECK_LT(count_to_remove, std::size(TestUrlConfidenceDb()));
 
-  for (size_t i = 0; i < count_to_remove; ++i)
+  for (size_t i = 0; i < count_to_remove; ++i) {
     expected.push_back(test_url_ids[i]);
+  }
 
   DeleteLowestConfidenceRowsFromCaches(count_to_remove, &id_list);
   ASSERT_THAT(id_list, ::testing::UnorderedElementsAreArray(expected));
@@ -553,7 +558,7 @@ TEST_P(AutocompleteActionPredictorTest, RecommendActionURL) {
       ->InitializeRenderFrameIfNeeded();
 
   AutocompleteMatch match;
-  match.type = AutocompleteMatchType::HISTORY_URL;
+  match.type = omnibox::AutocompleteMatchType::kHistoryUrl;
 
   for (size_t i = 0; i < std::size(TestUrlDb()); ++i) {
     match.destination_url = GURL(TestUrlDb()[i].url);
@@ -597,7 +602,7 @@ TEST_P(AutocompleteActionPredictorTest, RecommendActionSearch) {
   ASSERT_NO_FATAL_FAILURE(AddAllRows());
 
   AutocompleteMatch match;
-  match.type = AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED;
+  match.type = omnibox::AutocompleteMatchType::kSearchWhatYouTyped;
 
   for (size_t i = 0; i < std::size(TestUrlDb()); ++i) {
     match.destination_url = GURL(TestUrlDb()[i].url);
@@ -616,7 +621,7 @@ TEST_P(AutocompleteActionPredictorTest, RecommendActionNonSearch) {
   ASSERT_NO_FATAL_FAILURE(AddAllRows());
 
   AutocompleteMatch match;
-  match.type = AutocompleteMatchType::URL_WHAT_YOU_TYPED;
+  match.type = omnibox::AutocompleteMatchType::kUrlWhatYouTyped;
 
   for (const auto& i : TestUrlDb()) {
     match.destination_url = GURL(i.url);
@@ -628,8 +633,9 @@ TEST_P(AutocompleteActionPredictorTest, RecommendActionNonSearch) {
 
 TEST_P(AutocompleteActionPredictorTest, PreconnectableTypes) {
   AutocompleteMatch match;
-  for (int i = 0; i < AutocompleteMatchType::NUM_TYPES; i++) {
-    EXPECT_TRUE(AutocompleteMatchType::FromInteger(i, &match.type));
+  for (int i = 0;
+       i <= static_cast<int>(omnibox::AutocompleteMatchType::kMaxValue); i++) {
+    EXPECT_TRUE(omnibox::AutocompleteMatchTypeFromInteger(i, &match.type));
     EXPECT_EQ(AutocompleteActionPredictor::IsPreconnectable(match),
               GetParam() ? AutocompleteMatch::IsPreconnectableType(match.type)
                          : AutocompleteMatch::IsSearchType(match.type));

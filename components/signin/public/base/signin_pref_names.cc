@@ -40,6 +40,11 @@ const char kAccountPreviewDataLastFetchAccounts[] =
 const char kAccountPreviewSelectionHeuristicScoresLastRecordedPref[] =
     "signin.account_preview.selection_heuristic_scores_last_recorded";
 
+// Time pref that tracks the last time account preview switching heuristic
+// metrics were recorded.
+const char kAccountPreviewSwitchingHeuristicLastRecordedPref[] =
+    "signin.account_preview.switching_heuristic_last_recorded";
+
 #if BUILDFLAG(IS_ANDROID)
 // Dictionary pref that contains the external app account GaiaId and timestamp.
 const char kAccountPreviewExternalAppAccount[] =
@@ -150,20 +155,6 @@ const char kHistorySyncLastDeclinedTimestamp[] =
 // pref to this one.
 const char kHistorySyncSuccessiveDeclineCount[] =
     "signin.history_sync.successive_decline_count";
-
-// A timestamp of the last time the history sync promo was dismissed.
-const char kHistoryPageHistorySyncPromoLastDismissedTimestamp[] =
-    "history_page.history_sync_promo_last_dismissed_timestamp";
-
-// A boolean preference to store whether the history sync promo was shown one
-// more time after the user dismissed it.
-const char kHistoryPageHistorySyncPromoShownAfterDismissal[] =
-    "history_page.history_sync_promo_shown_after_dismissal";
-
-// An integer preference to store the number of times the history sync promo
-// has been shown on the history page.
-const char kHistoryPageHistorySyncPromoShownCount[] =
-    "history.sync_promo_shown_count";
 
 #if BUILDFLAG(IS_IOS)
 // List of patterns to determine the account visibility, according to the

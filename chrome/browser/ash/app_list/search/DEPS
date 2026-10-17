@@ -24,14 +24,11 @@ include_rules = [
   "+chrome/browser/ash/system_web_apps",
   "+chrome/browser/autocomplete",
   "+chrome/browser/bitmap_fetcher",
-  "+chrome/browser/bookmarks",
   "+chrome/browser/extensions/extension_service.h",
   "+chrome/browser/favicon",
-  "+chrome/browser/history",
   "+chrome/browser/platform_util.h",
   "+chrome/browser/profiles",
   "+chrome/browser/screen_ai",
-  "+chrome/browser/signin",
   "+chrome/browser/trusted_vault",
   "+chrome/browser/ui/ash",
   "+chrome/browser/ui/webui/ash/settings/calculator",
@@ -40,15 +37,39 @@ include_rules = [
   "+chrome/browser/ui/webui/ash/settings/services/settings_manager",
   "+chrome/browser/ui/webui/ash/settings/test_support",
   "+chrome/browser/web_applications/test",
-  "+chrome/browser/web_applications/web_app_provider.h",
   "+chrome/common/channel_info.h",
   "+chrome/common/chrome_constants.h",
   "+chrome/common/chrome_paths.h",
   "+chrome/grit",
   "+chrome/test/base",
+
+  # Dependencies outside of //chrome:
+  "+ash/accelerators",
+  "+ash/strings/grit",
+  "+chromeos/ash/components/browser_context_helper",
+  "+chromeos/ash/components/history",
+  "+chromeos/ash/components/launcher_search",
+  "+chromeos/ash/components/system_info",
+  "+chromeos/ui/vector_icons",
+  "+third_party/omnibox_proto",
 ]
 
 specific_include_rules = {
+  # SearchControllerFactory resolves the bookmarks::BookmarkModel that
+  # OmniboxProvider takes by constructor.
+  "search_controller_factory\\.cc": [
+    "+chrome/browser/bookmarks/bookmark_model_factory.h",
+  ],
+  "omnibox_(result|provider)_unittest\\.cc": [
+    "+chrome/browser/bookmarks/bookmark_model_factory.h",
+  ],
+  ".*(unittest|browsertest)\\.cc": [
+    "+chrome/browser/web_applications/web_app_provider.h",
+    "+chrome/browser/signin/chrome_signin_client_factory.h",
+    "+chrome/browser/signin/chrome_signin_client_test_util.h",
+    "+chrome/browser/signin/identity_manager_factory.h",
+    "+chrome/browser/signin/identity_test_environment_profile_adaptor.h",
+  ],
   # AppDiscoveryMetricsManager reads the SyncService through
   # ash::SyncServiceProvider; its test still installs the TestSyncService via
   # the //chrome-side Profile-keyed factory.
@@ -74,6 +95,7 @@ specific_include_rules = {
   # inside OmniboxProvider) calls TemplateURLServiceFactory::GetForProfile()
   # unconditionally.
   ".*unittest\\.cc": [
+    "+chrome/browser/ash/browser_delegate/keyed_service_provider",
     "+chrome/browser/search_engines",
   ],
 }

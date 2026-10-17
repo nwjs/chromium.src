@@ -33,6 +33,7 @@ source_set("unit_tests") {
     ":android",
     "//base",
     "//chrome/test:test_support",
+    "//chrome/test/base:chrome_render_view_host_test_harness",
     "//components/facilitated_payments/core/browser",
     "//components/facilitated_payments/core/browser:test_support",
     "//components/facilitated_payments/core/utils",
@@ -64,6 +65,5 @@ android_library("public_java") {
     "//components/facilitated_payments/core/utils:facilitated_payments_enums_java",
     "//third_party/androidx:androidx_annotation_annotation_java",
     "//ui/android:ui_no_recycler_view_java",
-    "//url:url_java",
   ]
 }

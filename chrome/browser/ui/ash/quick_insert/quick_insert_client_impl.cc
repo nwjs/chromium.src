@@ -44,7 +44,7 @@
 #include "chrome/browser/ash/file_manager/fileapi_util.h"
 #include "chrome/browser/ash/input_method/editor_mediator_factory.h"
 #include "chrome/browser/ash/lobster/lobster_service_provider.h"
-#include "chrome/browser/history/history_service_factory.h"
+#include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/ash/quick_insert/quick_insert_file_suggester.h"
 #include "chrome/browser/ui/ash/quick_insert/quick_insert_thumbnail_loader.h"
@@ -55,6 +55,7 @@
 #include "chromeos/ash/components/editor_menu/public/cpp/editor_mode.h"
 #include "chromeos/ash/components/editor_menu/public/cpp/preset_text_query.h"
 #include "chromeos/ash/components/favicon/favicon_service_provider.h"
+#include "chromeos/ash/components/history/history_service_provider.h"
 #include "chromeos/ash/components/search_engines/template_url_service_provider.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "components/user_manager/user.h"
@@ -514,8 +515,8 @@ void QuickInsertClientImpl::ActiveUserChanged(user_manager::User* active_user) {
 }
 
 history::HistoryService* QuickInsertClientImpl::GetHistoryService() {
-  return HistoryServiceFactory::GetForProfile(
-      profile_, ServiceAccessType::EXPLICIT_ACCESS);
+  return ash::HistoryServiceProvider::Get().Find(CHECK_DEREF(
+      ash::AnnotatedAccountId::Get(profile_->GetOriginalProfile())));
 }
 
 favicon::FaviconService* QuickInsertClientImpl::GetFaviconService() {
@@ -564,6 +565,7 @@ QuickInsertClientImpl::CreateOmniboxProvider(bool bookmarks,
       profile_, GetEmptyAppListControllerDelegate(),
       ash::TemplateURLServiceProvider::Get().Find(CHECK_DEREF(
           ash::AnnotatedAccountId::Get(profile_->GetOriginalProfile()))),
+      BookmarkModelFactory::GetForBrowserContext(profile_),
       LauncherSearchProviderTypes(bookmarks, history, open_tabs));
 }
 
@@ -617,18 +619,20 @@ int QuickInsertClientImpl::LauncherSearchProviderTypes(bool bookmarks,
   int providers = 0;
 
   if (bookmarks) {
-    providers |= AutocompleteProvider::TYPE_BOOKMARK;
+    providers |= static_cast<int>(AutocompleteProvider::Type::kBookmark);
   }
 
   if (history) {
-    providers |= AutocompleteProvider::TYPE_HISTORY_QUICK |
-                 AutocompleteProvider::TYPE_HISTORY_URL |
-                 AutocompleteProvider::TYPE_HISTORY_FUZZY |
-                 AutocompleteProvider::TYPE_HISTORY_EMBEDDINGS;
+    // `AutocompleteProvider::Type` defines bitwise `operator|`.
+    providers |=
+        static_cast<int>(AutocompleteProvider::Type::kHistoryQuick |
+                         AutocompleteProvider::Type::kHistoryUrl |
+                         AutocompleteProvider::Type::kHistoryFuzzy |
+                         AutocompleteProvider::Type::kHistoryEmbeddings);
   }
 
   if (open_tabs) {
-    providers |= AutocompleteProvider::TYPE_OPEN_TAB;
+    providers |= static_cast<int>(AutocompleteProvider::Type::kOpenTab);
   }
 
   return providers;

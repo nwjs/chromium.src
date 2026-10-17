@@ -3,12 +3,14 @@ include_rules = [
   "+components/session_manager/core",
   "+components/sync_preferences/testing_pref_service_syncable.h",
   "+components/user_manager",
+  "+device/base/public/cpp",
   "+device/bluetooth",
   "+third_party/re2",
 ]
 
 specific_include_rules = {
   ".*test\\.cc": [
+    "+components/account_id",
     "+components/session_manager/test",
   ]
 }

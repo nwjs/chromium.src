@@ -30,7 +30,6 @@ import android.widget.FrameLayout;
 
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
-import androidx.test.filters.SmallTest;
 
 import org.junit.After;
 import org.junit.Before;
@@ -168,7 +167,6 @@ public class BookmarkBarMediatorTest {
 
     // Tests the behavior of mFolderIconBitmap.
     @Test
-    @SmallTest
     public void testFolderIconBitmap() throws Exception {
         // Create a new folder inside the bookmarks bar.
         BookmarkId desktopFolderId = mBookmarkModel.getDesktopFolderId();
@@ -188,7 +186,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     public void testBuildMenuModelListForFolder_createsCorrectStructure() {
         // Setup a nested folder structure: F1 -> (L1, F2 -> L2)
         BookmarkId f1 = mBookmarkModel.addFolder(mBookmarkModel.getDesktopFolderId(), 0, "F1");
@@ -231,7 +228,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @SuppressWarnings("DirectInvocationOnMock")
     public void testBuildMenuModelListFromIds_showsOnlyHiddenItems() {
         // Create 5 bookmarks in the desktop folder.
@@ -267,7 +263,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     public void testOnThemeChanged_UpdatesAllBookmarksButton() {
         // Stub the iterator on the mock mItemsModel to prevent a NullPointerException.
         // This test doesn't care about the model list, only the "All Bookmarks" button.
@@ -292,7 +287,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     public void testOnThemeChanged_ThemeChangedFirstAndThenAnItemIsAdded() {
         // Since we are adding an item after #onThemeChanged is called, the for-loop inside
         // #onThemeChanged will be skipped.
@@ -335,7 +329,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     public void testOnBookmarkItemClick_MiddleClick() {
         BookmarkId bookmarkId =
                 mBookmarkModel.addBookmark(
@@ -363,7 +356,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     public void testPopupMenuItemTouchListener_MiddleClickConsumed() {
         BookmarkId desktopFolderId = mBookmarkModel.getDesktopFolderId();
         BookmarkId bookmarkId =
@@ -393,7 +385,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     public void testPopupMenuItemGenericMotion_MiddleClick() {
         BookmarkId desktopFolderId = mBookmarkModel.getDesktopFolderId();
         BookmarkId bookmarkId =
@@ -421,7 +412,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     public void testPopupMenuItemClickListener_CtrlClick_Url() {
         BookmarkId desktopFolderId = mBookmarkModel.getDesktopFolderId();
         BookmarkId bookmarkId =
@@ -451,7 +441,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     public void testPopupMenuItemClickListener_CtrlClick_Folder() {
         BookmarkId desktopFolderId = mBookmarkModel.getDesktopFolderId();
         BookmarkId folderId = mBookmarkModel.addFolder(desktopFolderId, 0, "Test Folder");
@@ -480,7 +469,60 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
+    public void testPopupMenuItemClickListener_ShiftClick_Url() {
+        BookmarkId desktopFolderId = mBookmarkModel.getDesktopFolderId();
+        BookmarkId bookmarkId =
+                mBookmarkModel.addBookmark(
+                        desktopFolderId, 0, "Popup Bookmark", JUnitTestGURLs.URL_1);
+
+        ModelList modelList =
+                mMediator.buildMenuModelListForFolder(mBookmarkModel, desktopFolderId);
+        ListItem listItem = modelList.get(0);
+
+        // Simulate Shift Key active in Touch events to fake state
+        MotionEvent downEvent = mock(MotionEvent.class);
+        when(downEvent.getActionMasked()).thenReturn(MotionEvent.ACTION_DOWN);
+        when(downEvent.getMetaState()).thenReturn(KeyEvent.META_SHIFT_ON);
+        listItem.model
+                .get(ListMenuItemProperties.TOUCH_LISTENER)
+                .onTouch(new View(mActivity), downEvent);
+
+        View.OnClickListener listener = listItem.model.get(ListMenuItemProperties.CLICK_LISTENER);
+        listener.onClick(new View(mActivity));
+
+        verify(mBookmarkOpener).openBookmarksInNewWindow(eq(List.of(bookmarkId)), eq(false));
+        verify(mPopupCoordinator).dismiss();
+    }
+
+    @Test
+    public void testPopupMenuItemClickListener_ShiftClick_Folder() {
+        BookmarkId desktopFolderId = mBookmarkModel.getDesktopFolderId();
+        BookmarkId folderId = mBookmarkModel.addFolder(desktopFolderId, 0, "Test Folder");
+        mBookmarkModel.addBookmark(folderId, 0, "B1", JUnitTestGURLs.URL_1);
+
+        ModelList modelList =
+                mMediator.buildMenuModelListForFolder(mBookmarkModel, desktopFolderId);
+        ListItem listItem = modelList.get(0); // Should be the Test Folder
+
+        // Simulate Shift Key active
+        MotionEvent downEvent = mock(MotionEvent.class);
+        when(downEvent.getActionMasked()).thenReturn(MotionEvent.ACTION_DOWN);
+        when(downEvent.getMetaState()).thenReturn(KeyEvent.META_SHIFT_ON);
+        listItem.model
+                .get(ListMenuItemProperties.TOUCH_LISTENER)
+                .onTouch(new View(mActivity), downEvent);
+
+        View.OnClickListener listener = listItem.model.get(ListMenuItemProperties.CLICK_LISTENER);
+        listener.onClick(new View(mActivity));
+
+        // For folders, Shift click should just do regular click (no new window, no new tabs, no
+        // dismiss)
+        verify(mBookmarkOpener, never()).openBookmarksInNewWindow(any(), anyBoolean());
+        verify(mBookmarkOpener, never()).openFolderBookmarksInNewTabs(any(), anyBoolean(), any());
+        verify(mPopupCoordinator, never()).dismiss();
+    }
+
+    @Test
     public void testPopupMenuItemTouchListener_PrimaryClickNotConsumed() {
         BookmarkId desktopFolderId = mBookmarkModel.getDesktopFolderId();
         mBookmarkModel.addBookmark(desktopFolderId, 0, "Popup Bookmark", JUnitTestGURLs.URL_1);
@@ -503,7 +545,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testEmptySpaceRightClick_ContextMenuEnabled() {
         ArgumentCaptor<BookmarkBar.EmptySpaceContextMenuCallback> captor =
@@ -528,7 +569,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @DisableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testEmptySpaceRightClick_ContextMenuDisabled() {
         ArgumentCaptor<BookmarkBar.EmptySpaceContextMenuCallback> captor =
@@ -550,7 +590,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testEmptySpaceLongClick_ContextMenuEnabled() {
         ArgumentCaptor<BookmarkBar.EmptySpaceContextMenuCallback> captor =
@@ -575,7 +614,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @DisableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testEmptySpaceLongClick_ContextMenuDisabled() {
         ArgumentCaptor<BookmarkBar.EmptySpaceContextMenuCallback> captor =
@@ -597,7 +635,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testBookmarkItemRightClick_ContextMenuEnabled() {
         BookmarkId bookmarkId =
@@ -634,7 +671,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @DisableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testBookmarkItemRightClick_ContextMenuDisabled() {
         BookmarkId bookmarkId =
@@ -670,7 +706,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testBookmarkItemLongClick_ContextMenuEnabled() {
         BookmarkId bookmarkId =
@@ -712,7 +747,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @DisableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testBookmarkItemLongClick_ContextMenuDisabled() {
         BookmarkId bookmarkId =
@@ -748,7 +782,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testPopupMenuItemRightClickListener_ContextMenuEnabled() {
         BookmarkId desktopFolderId = mBookmarkModel.getDesktopFolderId();
@@ -783,7 +816,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @DisableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testPopupMenuItemRightClickListener_ContextMenuDisabled() {
         BookmarkId desktopFolderId = mBookmarkModel.getDesktopFolderId();
@@ -816,7 +848,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testPopupMenuItemLongClickListener_ContextMenuEnabled() {
         BookmarkId desktopFolderId = mBookmarkModel.getDesktopFolderId();
@@ -855,7 +886,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @DisableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testPopupMenuItemLongClickListener_ContextMenuDisabled() {
         BookmarkId desktopFolderId = mBookmarkModel.getDesktopFolderId();
@@ -883,7 +913,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testContextMenu_OpenInNewTab() {
         BookmarkId id = new BookmarkId(1, BookmarkType.NORMAL);
@@ -896,7 +925,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testContextMenu_OpenInNewWindow() {
         BookmarkId id = new BookmarkId(1, BookmarkType.NORMAL);
@@ -907,7 +935,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testContextMenu_OpenInIncognitoWindow() {
         BookmarkId id = new BookmarkId(1, BookmarkType.NORMAL);
@@ -918,7 +945,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testContextMenu_OpenBookmarksInNewTabs() {
         BookmarkId id1 = new BookmarkId(1, BookmarkType.NORMAL);
@@ -933,7 +959,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testContextMenu_OpenBookmarksInNewWindow() {
         BookmarkId id1 = new BookmarkId(1, BookmarkType.NORMAL);
@@ -946,7 +971,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testContextMenu_OpenBookmarksInIncognitoWindow() {
         BookmarkId id1 = new BookmarkId(1, BookmarkType.NORMAL);
@@ -959,7 +983,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testContextMenu_OpenBookmarksInNewTabGroup() {
         BookmarkId id1 = new BookmarkId(1, BookmarkType.NORMAL);
@@ -973,7 +996,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testContextMenu_OpenFolderInNewTabs() {
         BookmarkId folderId = new BookmarkId(1, BookmarkType.NORMAL);
@@ -986,7 +1008,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testContextMenu_OpenFolderInNewWindow() {
         BookmarkId folderId = new BookmarkId(1, BookmarkType.NORMAL);
@@ -997,7 +1018,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testContextMenu_OpenFolderInIncognitoWindow() {
         BookmarkId folderId = new BookmarkId(1, BookmarkType.NORMAL);
@@ -1008,7 +1028,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testContextMenu_OpenFolderInNewTabGroup() {
         BookmarkId folderId = new BookmarkId(1, BookmarkType.NORMAL);
@@ -1021,7 +1040,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testContextMenu_EditBookmark() {
         BookmarkId id = new BookmarkId(1, BookmarkType.NORMAL);
@@ -1032,7 +1050,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testContextMenu_MoveBookmark() {
         BookmarkId id = new BookmarkId(1, BookmarkType.NORMAL);
@@ -1044,7 +1061,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testContextMenu_DeleteBookmark() {
         BookmarkId bookmarkId =
@@ -1064,7 +1080,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testContextMenu_AddPage() {
         BookmarkId parentId = mBookmarkModel.getDesktopFolderId();
@@ -1086,7 +1101,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testContextMenu_AddFolder() {
         BookmarkId parentId = mBookmarkModel.getDesktopFolderId();
@@ -1098,7 +1112,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testContextMenu_OpenBookmarksManager() {
         BookmarkId folderId = mBookmarkModel.getDesktopFolderId();
@@ -1110,7 +1123,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testContextMenu_ToggleBookmarksBar() {
         ContextUtils.getAppSharedPreferences()
@@ -1126,7 +1138,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     public void testOnAllBookmarksButtonClick() {
         ArgumentCaptor<ClickWithMetaStateCallback> clickCallbackCaptor =
                 ArgumentCaptor.forClass(ClickWithMetaStateCallback.class);
@@ -1147,7 +1158,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT)
     public void testOnAllBookmarksButtonClick_desktopLayoutEnabled() {
         ArgumentCaptor<ClickWithMetaStateCallback> clickCallbackCaptor =
@@ -1169,7 +1179,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testOnAllBookmarksButtonClick_RightClickOrLongPress_NoContextMenu() {
         ArgumentCaptor<ClickWithMetaStateCallback> clickCallbackCaptor =
@@ -1194,7 +1203,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     public void testOnOverflowButtonClick() {
         ArgumentCaptor<Runnable> callbackCaptor = ArgumentCaptor.forClass(Runnable.class);
         verify(mPropertyModel)
@@ -1215,7 +1223,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     public void testOnProfileChange_ClearsState() {
         BookmarkId bookmarkId =
                 mBookmarkModel.addBookmark(
@@ -1237,7 +1244,6 @@ public class BookmarkBarMediatorTest {
     }
 
     @Test
-    @SmallTest
     @EnableFeatures(ChromeFeatureList.FLYOUT_IN_BOOKMARKS_BAR)
     public void testEmptyFolder_ShowsEmptyItem() {
         BookmarkId emptyFolderId =

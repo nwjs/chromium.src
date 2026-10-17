@@ -11,8 +11,6 @@ import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 
-import androidx.test.filters.SmallTest;
-
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -56,7 +54,6 @@ public class TabStateExtractorTest {
     }
 
     @Test
-    @SmallTest
     public void testGetWebContentsState_notPending() {
         doReturn(null).when(mTabMock).getWebContentsState();
         doReturn(null).when(mTabMock).getPendingLoadParams();
@@ -73,7 +70,6 @@ public class TabStateExtractorTest {
     }
 
     @Test
-    @SmallTest
     public void testGetWebContentsState_pending() {
         LoadUrlParams loadUrlParams = new LoadUrlParams(URL);
         loadUrlParams.setReferrer(new Referrer(REFERRER_URL, REFERRER_POLICY));
@@ -101,7 +97,6 @@ public class TabStateExtractorTest {
     }
 
     @Test
-    @SmallTest
     public void testGetWebContentsState_frozen() {
         WebContentsState webContentsState =
                 new WebContentsState(mByteBuffer, WebContentsState.CONTENTS_STATE_CURRENT_VERSION);
@@ -117,7 +112,6 @@ public class TabStateExtractorTest {
     }
 
     @Test
-    @SmallTest
     public void testGetWebContentsState_null() {
         doReturn(null).when(mTabMock).getWebContentsState();
         doReturn(null).when(mTabMock).getWebContents();
@@ -129,7 +123,6 @@ public class TabStateExtractorTest {
     }
 
     @Test
-    @SmallTest
     public void testGetWebContentsState_pendingWithWebContents() {
         ByteBuffer newByteBuffer = ByteBuffer.allocateDirect(2);
         doReturn(null).when(mTabMock).getWebContentsState();
@@ -163,5 +156,49 @@ public class TabStateExtractorTest {
         assertNotNull(result);
         assertEquals(WebContentsState.CONTENTS_STATE_CURRENT_VERSION, result.version());
         assertEquals(newByteBuffer, result.buffer());
+    }
+
+    @Test
+    public void testFrom_themeColorUsesWebContentsOverCachedTabColor() {
+        doReturn(true).when(mTabMock).isInitialized();
+        doReturn(true).when(mTabMock).isThemingAllowed();
+        doReturn(false).when(mTabMock).isNativePage();
+        doReturn(mWebContentsMock).when(mTabMock).getWebContents();
+        doReturn(0xFFFF0000).when(mTabMock).getThemeColor();
+        doReturn(TabState.UNSPECIFIED_THEME_COLOR).when(mWebContentsMock).getThemeColor();
+
+        TabState state = TabStateExtractor.from(mTabMock);
+        assertNotNull(state);
+        assertEquals(TabState.UNSPECIFIED_THEME_COLOR, state.themeColor);
+
+        doReturn(0xFF00FF00).when(mWebContentsMock).getThemeColor();
+        state = TabStateExtractor.from(mTabMock);
+        assertNotNull(state);
+        assertEquals(0xFF00FF00, state.themeColor);
+
+        doReturn(null).when(mTabMock).getWebContents();
+        state = TabStateExtractor.from(mTabMock);
+        assertNotNull(state);
+        assertEquals(0xFFFF0000, state.themeColor);
+    }
+
+    @Test
+    public void testFrom_themeColorUnspecifiedOnNativePageOrDisallowed() {
+        doReturn(true).when(mTabMock).isInitialized();
+        doReturn(mWebContentsMock).when(mTabMock).getWebContents();
+        doReturn(0xFFFF0000).when(mTabMock).getThemeColor();
+        doReturn(0xFFFF0000).when(mWebContentsMock).getThemeColor();
+
+        doReturn(true).when(mTabMock).isThemingAllowed();
+        doReturn(true).when(mTabMock).isNativePage();
+        TabState state = TabStateExtractor.from(mTabMock);
+        assertNotNull(state);
+        assertEquals(TabState.UNSPECIFIED_THEME_COLOR, state.themeColor);
+
+        doReturn(false).when(mTabMock).isThemingAllowed();
+        doReturn(false).when(mTabMock).isNativePage();
+        state = TabStateExtractor.from(mTabMock);
+        assertNotNull(state);
+        assertEquals(TabState.UNSPECIFIED_THEME_COLOR, state.themeColor);
     }
 }

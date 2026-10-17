@@ -166,16 +166,12 @@ std::string GetDummyFileName(const AccountId& account_id) {
 }
 
 constexpr char kUser1[] = "user1@test.com";
-const AccountId kAccountId1 =
-    AccountId::FromUserEmailGaiaId(kUser1, GaiaId("1111"));
-const std::string kWallpaperFilesId1 = GetDummyFileId(kAccountId1);
-const std::string kFileName1 = GetDummyFileName(kAccountId1);
+constexpr char kWallpaperFilesId1[] = "user1@test.com-hash";
+constexpr char kFileName1[] = "user1@test.com-file";
 
 constexpr char kUser2[] = "user2@test.com";
-const AccountId kAccountId2 =
-    AccountId::FromUserEmailGaiaId(kUser2, GaiaId("2222"));
-const std::string kWallpaperFilesId2 = GetDummyFileId(kAccountId2);
-const std::string kFileName2 = GetDummyFileName(kAccountId2);
+constexpr char kWallpaperFilesId2[] = "user2@test.com-hash";
+constexpr char kFileName2[] = "user2@test.com-file";
 
 constexpr char kChildEmail[] = "child@test.com";
 
@@ -184,15 +180,15 @@ constexpr char kDummyUrl2[] = "https://best_wallpaper/2";
 constexpr char kDummyUrl3[] = "https://best_wallpaper/3";
 constexpr char kDummyUrl4[] = "https://best_wallpaper/4";
 
-const uint64_t kAssetId = 1;
-const uint64_t kAssetId2 = 2;
-const uint64_t kAssetId3 = 3;
-const uint64_t kAssetId4 = 4;
-const uint64_t kUnitId = 1;
-const uint64_t kUnitId2 = 2;
+constexpr uint64_t kAssetId = 1;
+constexpr uint64_t kAssetId2 = 2;
+constexpr uint64_t kAssetId3 = 3;
+constexpr uint64_t kAssetId4 = 4;
+constexpr uint64_t kUnitId = 1;
+constexpr uint64_t kUnitId2 = 2;
 
-const std::string kFakeGooglePhotosAlbumId = "fake_album";
-const std::string kFakeGooglePhotosPhotoId = "fake_photo";
+constexpr char kFakeGooglePhotosAlbumId[] = "fake_album";
+constexpr char kFakeGooglePhotosPhotoId[] = "fake_photo";
 
 // For checking that the wallpaper changes at approximately the correct time
 // when the "auto" schedule is enabled. The sunrise/set times specified in
@@ -995,6 +991,10 @@ class WallpaperControllerTestBase : public NoSessionAshTestBase {
   syncer::TestSyncService test_sync_service2_;
   raw_ptr<TestWallpaperDriveFsDelegate> drivefs_delegate_;
 
+  const AccountId kAccountId1 =
+      AccountId::FromUserEmailGaiaId(kUser1, GaiaId("1111"));
+  const AccountId kAccountId2 =
+      AccountId::FromUserEmailGaiaId(kUser2, GaiaId("2222"));
   const AccountId kChildAccountId =
       AccountId::FromUserEmailGaiaId(kChildEmail, GaiaId("child_gaia_id"));
 
@@ -3916,7 +3916,6 @@ TEST_P(WallpaperControllerTest, ConfirmPreviewWallpaper) {
   EXPECT_TRUE(
       pref_manager_->GetUserWallpaperInfo(kAccountId1, &user_wallpaper_info));
   EXPECT_TRUE(user_wallpaper_info.MatchesSelection(default_wallpaper_info));
-  histogram_tester().ExpectTotalCount("Ash.Wallpaper.Preview.Show", 1);
 
   // Now confirm the preview wallpaper, verify that there's no wallpaper change
   // because the wallpaper is already shown.
@@ -5998,7 +5997,6 @@ TEST_P(WallpaperControllerTest, ConfirmGooglePhotosPreviewWallpaper) {
   EXPECT_TRUE(
       pref_manager_->GetUserWallpaperInfo(kAccountId1, &user_wallpaper_info));
   EXPECT_TRUE(user_wallpaper_info.MatchesSelection(default_wallpaper_info));
-  histogram_tester().ExpectTotalCount("Ash.Wallpaper.Preview.Show", 1);
 
   // Now confirm the preview wallpaper, verify that there's no wallpaper
   // change because the wallpaper is already shown.
@@ -6059,7 +6057,6 @@ TEST_P(WallpaperControllerTest, CancelGooglePhotosPreviewWallpaper) {
   EXPECT_TRUE(
       pref_manager_->GetUserWallpaperInfo(kAccountId1, &user_wallpaper_info));
   EXPECT_TRUE(user_wallpaper_info.MatchesSelection(default_wallpaper_info));
-  histogram_tester().ExpectTotalCount("Ash.Wallpaper.Preview.Show", 1);
 
   // Now cancel the preview. Verify the wallpaper changes back to the default
   // and the user wallpaper info remains unchanged.
@@ -6112,7 +6109,6 @@ TEST_P(WallpaperControllerTest, GooglePhotosWallpaperSyncedDuringPreview) {
   EXPECT_TRUE(
       pref_manager_->GetUserWallpaperInfo(kAccountId1, &user_wallpaper_info));
   EXPECT_TRUE(user_wallpaper_info.MatchesSelection(default_wallpaper_info));
-  histogram_tester().ExpectTotalCount("Ash.Wallpaper.Preview.Show", 1);
 
   // Now set a custom wallpaper for the user and disable preview (this happens
   // if a custom wallpaper set on another device is being synced). Verify

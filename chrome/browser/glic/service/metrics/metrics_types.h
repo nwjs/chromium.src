@@ -9,7 +9,7 @@
 #include <string_view>
 
 #include "chrome/browser/glic/glic_enums.h"
-#include "chrome/browser/glic/host/glic.mojom.h"
+#include "chrome/browser/glic/host/glic.mojom-shared.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 
 namespace tabs {
@@ -199,7 +199,11 @@ enum class ResponseSegmentation {
   kHistoryPageChatLinkoutAttachedAudio = 174,
   kHistoryPageChatLinkoutDetachedText = 175,
   kHistoryPageChatLinkoutDetachedAudio = 176,
-  kMaxValue = kHistoryPageChatLinkoutDetachedAudio,
+  kContextHubTopicsAttachedText = 177,
+  kContextHubTopicsAttachedAudio = 178,
+  kContextHubTopicsDetachedText = 179,
+  kContextHubTopicsDetachedAudio = 180,
+  kMaxValue = kContextHubTopicsDetachedAudio,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicResponseSegmentation)
 
@@ -320,7 +324,7 @@ enum class GlicInstanceEvent {
   kWebUiStateDisabledByAdmin = 39,
   kUnbindEmbedder = 40,
   kUserInputSubmitted = 41,
-  kContextRequested = 42,
+  kFocusedTabContextRequested = 42,
   kResponseStarted = 43,
   kResponseStopped = 44,
   kTurnCompleted = 45,
@@ -332,7 +336,10 @@ enum class GlicInstanceEvent {
   kWebUiStateLocationMismatch = 51,
   kWebUiStateIneligibleAccount = 52,
   kClientReady = 53,
-  kMaxValue = kClientReady,
+  // Logged for all tab context requests (including focused tab requests, which
+  // also log kFocusedTabContextRequested).
+  kTabContextRequested = 54,
+  kMaxValue = kTabContextRequested,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicInstanceEvent)
 

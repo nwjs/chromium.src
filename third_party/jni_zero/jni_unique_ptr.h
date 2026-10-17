@@ -55,8 +55,6 @@ class JniUniquePtr {
  public:
   JniUniquePtr() : ptr_(nullptr) {}
   JniUniquePtr(std::nullptr_t) : ptr_(nullptr) {}
-  explicit JniUniquePtr(std::unique_ptr<T> ptr) : ptr_(std::move(ptr)) {}
-  explicit JniUniquePtr(T* ptr) : ptr_(ptr) {}
 
   ~JniUniquePtr() = default;
 
@@ -76,6 +74,13 @@ class JniUniquePtr {
   T& operator*() const { return *ptr_; }
 
  private:
+  template <typename U>
+  friend JniUniquePtr<U> MakeUnique(std::unique_ptr<U> ptr);
+  template <typename U, typename... Args>
+  friend JniUniquePtr<U> MakeUnique(Args&&... args);
+
+  explicit JniUniquePtr(std::unique_ptr<T> ptr) : ptr_(std::move(ptr)) {}
+
   std::unique_ptr<T> ptr_;
 };
 
@@ -84,9 +89,9 @@ inline JniUniquePtr<T> MakeUnique(std::unique_ptr<T> ptr) {
   return JniUniquePtr<T>(std::move(ptr));
 }
 
-template <typename T>
-inline JniUniquePtr<T> MakeUnique(T* ptr) {
-  return JniUniquePtr<T>(ptr);
+template <typename T, typename... Args>
+inline JniUniquePtr<T> MakeUnique(Args&&... args) {
+  return JniUniquePtr<T>(std::make_unique<T>(std::forward<Args>(args)...));
 }
 
 }  // namespace jni_zero

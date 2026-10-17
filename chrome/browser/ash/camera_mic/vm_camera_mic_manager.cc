@@ -19,7 +19,6 @@
 #include "base/check_deref.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
-#include "base/memory/raw_ptr.h"
 #include "base/no_destructor.h"
 #include "base/notreached.h"
 #include "base/system/sys_info.h"
@@ -29,12 +28,9 @@
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/ash/borealis/borealis_util.h"
 #include "chrome/browser/ash/video_conference/video_conference_ash_feature_client.h"
-#include "chrome/browser/notifications/notification_display_service.h"
-#include "chrome/browser/notifications/notification_display_service_factory.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/grit/generated_resources.h"
-#include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/experiences/settings_ui/settings_app_manager.h"
+#include "components/user_manager/user_manager.h"
 #include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -42,7 +38,7 @@
 #include "media/capture/video/chromeos/public/cros_features.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/ui_base_features.h"
-#include "ui/message_center/public/cpp/message_center_constants.h"
+#include "ui/message_center/message_center.h"
 #include "ui/message_center/public/cpp/notification.h"
 #include "ui/message_center/public/cpp/notification_delegate.h"
 #include "ui/message_center/public/cpp/notification_types.h"
@@ -140,12 +136,10 @@ constexpr base::TimeDelta VmCameraMicManager::kDebounceTime;
 //              # Reach stable again.
 class VmCameraMicManager::VmInfo : public message_center::NotificationObserver {
  public:
-  VmInfo(Profile* profile,
-         VmType vm_type,
+  VmInfo(VmType vm_type,
          int name_id,
          base::RepeatingClosure on_notification_changed)
-      : profile_(profile),
-        vm_type_(vm_type),
+      : vm_type_(vm_type),
         name_id_(name_id),
         notification_changed_callback_(on_notification_changed),
         debounce_timer_(
@@ -235,7 +229,8 @@ class VmCameraMicManager::VmInfo : public message_center::NotificationObserver {
 
   void UpdateActiveNotificationAndIndicators(
       NotificationType new_notification) {
-    DCHECK_NE(notifications_.active, new_notification);
+    CHECK_NE(notifications_.active, new_notification,
+             base::NotFatalUntil::M160);
 
     auto app_name = l10n_util::GetStringUTF16(name_id_);
     auto delegate = base::MakeRefCounted<PrivacyIndicatorsNotificationDelegate>(
@@ -289,7 +284,8 @@ class VmCameraMicManager::VmInfo : public message_center::NotificationObserver {
     }
 
     // Only target notification is different.
-    DCHECK_NE(notifications_.active, notifications_.target);
+    CHECK_NE(notifications_.active, notifications_.target,
+             base::NotFatalUntil::M160);
     notifications_.stage = notifications_.target;
     UpdateActiveNotificationAndIndicators(notifications_.target);
     VLOG(1) << "sync from target. vm_type=" << static_cast<int>(vm_type_)
@@ -315,7 +311,7 @@ class VmCameraMicManager::VmInfo : public message_center::NotificationObserver {
         message_id = IDS_APP_USING_CAMERA_NOTIFICATION_MESSAGE;
       }
     } else {
-      DCHECK_EQ(type, kMicNotification);
+      CHECK_EQ(type, kMicNotification, base::NotFatalUntil::M160);
       source_icon = ::features::IsRoundedIconsEnabled()
                         ? &vector_icons::kMicFilledIcon
                         : &vector_icons::kMicOldIcon;
@@ -323,43 +319,38 @@ class VmCameraMicManager::VmInfo : public message_center::NotificationObserver {
     }
 
     message_center::RichNotificationData rich_notification_data;
-    rich_notification_data.vector_small_image = source_icon;
     rich_notification_data.pinned = true;
     rich_notification_data.buttons.emplace_back(
         l10n_util::GetStringUTF16(IDS_INTERNAL_APP_SETTINGS));
     rich_notification_data.fullscreen_visibility =
         message_center::FullscreenVisibility::OVER_USER;
 
-    message_center::Notification notification(
-        message_center::NOTIFICATION_TYPE_SIMPLE,
-        GetNotificationId(vm_type_, type),
-        /*title=*/
-        l10n_util::GetStringFUTF16(message_id,
-                                   l10n_util::GetStringUTF16(name_id_)),
-        /*message=*/std::u16string(),
-        /*icon=*/ui::ImageModel(),
-        /*display_source=*/
-        l10n_util::GetStringUTF16(IDS_CHROME_OS_NOTIFICATION_SOURCE),
-        /*origin_url=*/GURL(),
-        message_center::NotifierId(
-            message_center::NotifierType::SYSTEM_COMPONENT,
-            kVmCameraMicNotifierId, NotificationCatalogName::kVMCameraMic),
-        rich_notification_data,
-        base::MakeRefCounted<message_center::ThunkNotificationDelegate>(
-            weak_ptr_factory_.GetMutableWeakPtr()));
-
-    NotificationDisplayServiceFactory::GetForProfile(profile_)->Display(
-        NotificationHandler::Type::TRANSIENT, notification,
-        /*metadata=*/nullptr);
+    message_center::MessageCenter::Get()->AddNotification(
+        CreateSystemNotificationPtr(
+            message_center::NOTIFICATION_TYPE_SIMPLE,
+            GetNotificationId(vm_type_, type),
+            /*title=*/
+            l10n_util::GetStringFUTF16(message_id,
+                                       l10n_util::GetStringUTF16(name_id_)),
+            /*message=*/std::u16string(),
+            /*display_source=*/
+            l10n_util::GetStringUTF16(IDS_CHROME_OS_NOTIFICATION_SOURCE),
+            message_center::NotifierId(
+                message_center::NotifierType::SYSTEM_COMPONENT,
+                kVmCameraMicNotifierId, NotificationCatalogName::kVMCameraMic),
+            rich_notification_data,
+            base::MakeRefCounted<message_center::ThunkNotificationDelegate>(
+                weak_ptr_factory_.GetMutableWeakPtr()),
+            *source_icon,
+            message_center::SystemNotificationWarningLevel::NORMAL));
   }
 
   void CloseNotification(NotificationType type) const {
     CHECK(features::IsVideoConferenceEnabled());
     CHECK_NE(type, kNoNotification);
 
-    NotificationDisplayServiceFactory::GetForProfile(profile_)->Close(
-        NotificationHandler::Type::TRANSIENT,
-        GetNotificationId(vm_type_, type));
+    message_center::MessageCenter::Get()->RemoveNotification(
+        GetNotificationId(vm_type_, type), /*by_user=*/false);
   }
 
   // message_center::NotificationObserver:
@@ -388,16 +379,14 @@ class VmCameraMicManager::VmInfo : public message_center::NotificationObserver {
         return;
     }
 
-    const user_manager::User* user =
-        ash::BrowserContextHelper::Get()->GetUserByBrowserContext(
-            profile_.get());
+    // A notification can only exist after `OnPrimaryUserSessionStarted()`, so
+    // the primary user is guaranteed to be present here.
     ash::SettingsAppManager::Get()->Open(
-        CHECK_DEREF(user),
+        CHECK_DEREF(user_manager::UserManager::Get()->GetPrimaryUser()),
         ash::SettingsAppManager::OpenParams{.sub_page = sub_page,
                                             .entry_point = entry_point});
   }
 
-  const raw_ptr<Profile, LeakedDanglingUntriaged> profile_;
   const VmType vm_type_;
   const int name_id_;
   base::RepeatingClosure notification_changed_callback_;
@@ -426,16 +415,14 @@ VmCameraMicManager* VmCameraMicManager::Get() {
 
 VmCameraMicManager::VmCameraMicManager() = default;
 
-void VmCameraMicManager::OnPrimaryUserSessionStarted(Profile* primary_profile) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-
-  primary_profile_ = primary_profile;
+void VmCameraMicManager::OnPrimaryUserSessionStarted() {
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
 
   auto emplace_vm_info = [this](VmType vm, int name_id) {
     vm_info_map_.emplace(
         std::piecewise_construct, std::forward_as_tuple(vm),
         std::forward_as_tuple(
-            primary_profile_, vm, name_id,
+            vm, name_id,
             base::BindRepeating(&VmCameraMicManager::NotifyActiveChanged,
                                 base::Unretained(this))));
   };
@@ -467,7 +454,7 @@ VmCameraMicManager::~VmCameraMicManager() = default;
 
 void VmCameraMicManager::MaybeSubscribeToCameraService(
     bool should_use_cros_camera_service) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
 
   if (!should_use_cros_camera_service) {
     return;
@@ -560,7 +547,7 @@ void VmCameraMicManager::OnCameraHWPrivacySwitchStateChanged(
 }
 
 void VmCameraMicManager::SetCameraPrivacyIsOn(bool is_on) {
-  DCHECK(!vm_info_map_.empty());
+  CHECK(!vm_info_map_.empty(), base::NotFatalUntil::M160);
   for (auto& vm_and_info : vm_info_map_) {
     UpdateVmInfo(/*vm=*/vm_and_info.first, &VmInfo::SetCameraPrivacyIsOn,
                  is_on);
@@ -600,7 +587,7 @@ std::string VmCameraMicManager::GetNotificationId(VmType vm,
 }
 
 void VmCameraMicManager::OnNumberOfInputStreamsWithPermissionChanged() {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
 
   const auto& clients_and_numbers =
       CrasAudioHandler::Get()->GetNumberOfInputStreamsWithPermission();

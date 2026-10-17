@@ -24,10 +24,12 @@ export class TestToolbarUiHandler extends TestBrowserProxy implements
       'movePinnedToolbarAction',
       'movePinnedToolbarActionBy',
       'onAppMenuFocusChanged',
-      'onContentSettingImageAnimationEnded',
+      'onAvatarButtonMousePressed',
       'onContentSettingImagePointerDown',
       'onExtensionActionPointerDown',
+      'onGlicButtonClicked',
       'onHomeButtonDropFile',
+      'onHomeButtonDropText',
       'onHomeButtonDropUrl',
       'onLhsChipClicked',
       'onLhsChipCollapseAnimationEnded',
@@ -96,10 +98,6 @@ export class TestToolbarUiHandler extends TestBrowserProxy implements
     return Promise.resolve({result: {}});
   }
 
-  onContentSettingImageAnimationEnded(type: ContentSettingImageType) {
-    this.methodCalled('onContentSettingImageAnimationEnded', type);
-  }
-
   onPageActionPointerDown(actionId: PageActionId) {
     this.methodCalled('onPageActionPointerDown', actionId);
   }
@@ -109,8 +107,8 @@ export class TestToolbarUiHandler extends TestBrowserProxy implements
     return Promise.resolve({result: {}});
   }
 
-  onPageActionChipShowingChanged(actionId: PageActionId) {
-    this.methodCalled('onPageActionChipShowingChanged', actionId);
+  onPageActionChipShowingChanged(actionId: PageActionId, isShowing: boolean) {
+    this.methodCalled('onPageActionChipShowingChanged', [actionId, isShowing]);
     return Promise.resolve({result: {}});
   }
 
@@ -138,8 +136,11 @@ export class TestToolbarUiHandler extends TestBrowserProxy implements
     this.methodCalled('onLhsChipMousePressed', [identifier, isMiddleClick]);
   }
 
-  onLhsChipClicked(identifier: LhsChipIdentifier, isMouseInteraction: boolean) {
-    this.methodCalled('onLhsChipClicked', [identifier, isMouseInteraction]);
+  onLhsChipClicked(
+      identifier: LhsChipIdentifier, isMouseInteraction: boolean,
+      stateToken: number = 0) {
+    this.methodCalled(
+        'onLhsChipClicked', [identifier, isMouseInteraction, stateToken]);
   }
 
   onLhsChipPointerEntered(identifier: LhsChipIdentifier) {
@@ -170,12 +171,20 @@ export class TestToolbarUiHandler extends TestBrowserProxy implements
     this.methodCalled('onHomeButtonDropFile', dropPosition);
   }
 
+  onHomeButtonDropText(text: string) {
+    this.methodCalled('onHomeButtonDropText', text);
+  }
+
   onToolbarDropFile(dropPosition: PointF) {
     this.methodCalled('onToolbarDropFile', dropPosition);
   }
 
-  showAvatarMenu() {
-    this.methodCalled('showAvatarMenu');
+  onAvatarButtonMousePressed() {
+    this.methodCalled('onAvatarButtonMousePressed');
+  }
+
+  showAvatarMenu(isPointerInteraction: boolean) {
+    this.methodCalled('showAvatarMenu', isPointerInteraction);
     return Promise.resolve({result: {}});
   }
 
@@ -226,6 +235,10 @@ export class TestToolbarUiHandler extends TestBrowserProxy implements
 
   onMediaButtonMousePressed() {
     this.methodCalled('onMediaButtonMousePressed');
+  }
+
+  onGlicButtonClicked() {
+    this.methodCalled('onGlicButtonClicked');
   }
 
   onLocationBarFocusWithinChanged(focusInside: boolean) {
@@ -288,8 +301,9 @@ export class TestToolbarBrowserProxy extends TestBrowserProxy implements
   removeShowSplitTabsContextMenuListener(
       _handle: ShowSplitTabsContextMenuHandle) {}
 
-  onChipClicked(id: LhsChipIdentifier, isPointer: boolean) {
-    this.toolbarUIHandler.onLhsChipClicked(id, isPointer);
+  onChipClicked(
+      id: LhsChipIdentifier, isPointer: boolean, stateToken: number = 0) {
+    this.toolbarUIHandler.onLhsChipClicked(id, isPointer, stateToken);
   }
 
   onChipPointerEntered(id: LhsChipIdentifier) {

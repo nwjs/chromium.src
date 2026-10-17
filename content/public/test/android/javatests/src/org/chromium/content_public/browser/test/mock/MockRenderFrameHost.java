@@ -68,6 +68,11 @@ public class MockRenderFrameHost implements RenderFrameHost {
     public void notifyUserActivation() {}
 
     @Override
+    public boolean consumeTransientUserActivation() {
+        return false;
+    }
+
+    @Override
     public void notifyWebAuthnAssertionRequestSucceeded() {}
 
     @Override
@@ -149,4 +154,9 @@ public class MockRenderFrameHost implements RenderFrameHost {
 
     @Override
     public void viewSource() {}
+
+    @Override
+    public boolean isCrossOriginIsolated() {
+        return false;
+    }
 }

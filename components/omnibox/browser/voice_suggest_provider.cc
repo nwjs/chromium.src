@@ -31,7 +31,7 @@ constexpr int ConfidenceScoreToSuggestionScore(float confidence_score) {
 }  // namespace
 
 VoiceSuggestProvider::VoiceSuggestProvider(AutocompleteProviderClient* client)
-    : BaseSearchProvider(TYPE_VOICE_SUGGEST, client) {}
+    : BaseSearchProvider(AutocompleteProvider::Type::kVoiceSuggest, client) {}
 
 VoiceSuggestProvider::~VoiceSuggestProvider() = default;
 
@@ -47,7 +47,7 @@ void VoiceSuggestProvider::Start(const AutocompleteInput& input,
     AddMatchToMap(
         SearchSuggestionParser::SuggestResult(
             score_and_suggestion_pair.second,
-            AutocompleteMatchType::VOICE_SUGGEST,
+            omnibox::AutocompleteMatchType::kVoiceSuggest,
             /*suggest_type=*/omnibox::TYPE_NATIVE_CHROME, /*subtypes=*/{},
             false,
             /*navigational_intent=*/omnibox::NAV_INTENT_NONE,

@@ -4,9 +4,12 @@
 
 #include "chrome/browser/ash/policy/off_hours/off_hours_policy_applier.h"
 
+#include <array>
 #include <utility>
 
 #include "base/compiler_specific.h"
+#include "base/containers/span.h"
+#include "base/containers/to_vector.h"
 #include "chromeos/ash/components/policy/weekly_time/weekly_time.h"
 #include "chromeos/ash/components/policy/weekly_time/weekly_time_interval.h"
 #include "components/policy/proto/chrome_device_policy.pb.h"
@@ -18,7 +21,7 @@ namespace {
 
 namespace em = ::enterprise_management;
 
-constexpr em::WeeklyTimeProto_DayOfWeek kWeekdays[] = {
+constexpr auto kWeekdays = std::to_array<em::WeeklyTimeProto_DayOfWeek>({
     em::WeeklyTimeProto::DAY_OF_WEEK_UNSPECIFIED,
     em::WeeklyTimeProto::MONDAY,
     em::WeeklyTimeProto::TUESDAY,
@@ -26,15 +29,16 @@ constexpr em::WeeklyTimeProto_DayOfWeek kWeekdays[] = {
     em::WeeklyTimeProto::THURSDAY,
     em::WeeklyTimeProto::FRIDAY,
     em::WeeklyTimeProto::SATURDAY,
-    em::WeeklyTimeProto::SUNDAY};
+    em::WeeklyTimeProto::SUNDAY,
+});
 
 const char kUtcTimezone[] = "UTC";
 
-const int kDeviceAllowNewUsersTag = 3;
-const int kDeviceGuestModeEnabledTag = 8;
+constexpr int kDeviceAllowNewUsersTag = 3;
+constexpr int kDeviceGuestModeEnabledTag = 8;
 
-const std::vector<int> kDefaultIgnoredPolicies = {kDeviceAllowNewUsersTag,
-                                                  kDeviceGuestModeEnabledTag};
+constexpr int kDefaultIgnoredPolicies[] = {kDeviceAllowNewUsersTag,
+                                           kDeviceGuestModeEnabledTag};
 
 struct OffHoursPolicy {
   std::string timezone;
@@ -43,10 +47,10 @@ struct OffHoursPolicy {
 
   OffHoursPolicy(const std::string& timezone,
                  const std::vector<WeeklyTimeInterval>& intervals,
-                 const std::vector<int>& ignored_policy_proto_tags)
+                 base::span<const int> ignored_policy_proto_tags)
       : timezone(timezone),
         intervals(intervals),
-        ignored_policy_proto_tags(ignored_policy_proto_tags) {}
+        ignored_policy_proto_tags(base::ToVector(ignored_policy_proto_tags)) {}
 };
 
 em::WeeklyTimeIntervalProto ConvertWeeklyTimeIntervalToProto(
@@ -54,11 +58,9 @@ em::WeeklyTimeIntervalProto ConvertWeeklyTimeIntervalToProto(
   em::WeeklyTimeIntervalProto interval_proto;
   em::WeeklyTimeProto* start = interval_proto.mutable_start();
   em::WeeklyTimeProto* end = interval_proto.mutable_end();
-  start->set_day_of_week(
-      UNSAFE_TODO(kWeekdays[weekly_time_interval.start().day_of_week()]));
+  start->set_day_of_week(kWeekdays[weekly_time_interval.start().day_of_week()]);
   start->set_time(weekly_time_interval.start().milliseconds());
-  end->set_day_of_week(
-      UNSAFE_TODO(kWeekdays[weekly_time_interval.end().day_of_week()]));
+  end->set_day_of_week(kWeekdays[weekly_time_interval.end().day_of_week()]);
   end->set_time(weekly_time_interval.end().milliseconds());
   return interval_proto;
 }

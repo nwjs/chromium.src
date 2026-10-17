@@ -15,6 +15,7 @@
 #include "chrome/browser/contextual_tasks/active_task_context_provider.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_cookie_synchronizer.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_eligibility_manager.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_permission_controller.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service_factory.h"
@@ -295,6 +296,11 @@ class ContextualTasksSidePanelCoordinatorTest : public testing::Test {
     return it != coordinator_->task_id_to_web_contents_cache_.end()
                ? it->second->web_contents.get()
                : nullptr;
+  }
+
+  void SetPermissionControllerForTesting(
+      std::unique_ptr<ContextualTasksPermissionController> controller) {
+    coordinator_->permission_controller_ = std::move(controller);
   }
 
   std::unique_ptr<KeyedService> CreateMockContextController(
@@ -1299,6 +1305,46 @@ TEST_F(ContextualTasksSidePanelCoordinatorTest,
   EXPECT_EQ(cached_wc->GetVisibleURL(), expected_url);
 }
 
+TEST_F(ContextualTasksSidePanelCoordinatorTest,
+       OpenInZeroState_LoadsDefaultAiPageUrl_WithRearchitectureFlag) {
+  base::test::ScopedFeatureList local_feature_list;
+  local_feature_list.InitAndEnableFeature(
+      kContextualTasksSidePanelRearchitecture);
+
+  auto* mock_ui_service = static_cast<MockContextualTasksUiService*>(
+      ContextualTasksUiServiceFactory::GetForBrowserContext(profile_.get()));
+
+  ContextualTask new_task(base::Uuid::GenerateRandomV4());
+  EXPECT_CALL(*mock_controller_, GetContextualTaskForTab(_))
+      .WillOnce(Return(std::nullopt))
+      .WillOnce(Return(std::nullopt))
+      .WillRepeatedly(Return(new_task));
+  EXPECT_CALL(*mock_controller_, CreateTask()).WillOnce(Return(new_task));
+
+  GURL default_ai_url("https://www.google.com/search?udm=50&aep=46");
+  ON_CALL(*mock_ui_service, GetInitialUrlForTask(new_task.GetTaskId()))
+      .WillByDefault(Return(std::nullopt));
+  ON_CALL(*mock_ui_service, GetDefaultAiPageUrlForTask(new_task.GetTaskId()))
+      .WillByDefault(Return(default_ai_url));
+
+  EXPECT_CALL(
+      *mock_ui_service,
+      SetInitialEntryPointForTask(
+          new_task.GetTaskId(),
+          omnibox::ChromeAimEntryPoint::DESKTOP_CHROME_COBROWSE_TOOLBAR_BUTTON))
+      .Times(1);
+  EXPECT_CALL(*mock_panel_host_, Show(_)).Times(1);
+
+  coordinator_->OpenInZeroState();
+
+  content::WebContents* cached_wc =
+      GetWebContentsForTaskForTesting(new_task.GetTaskId());
+  ASSERT_TRUE(cached_wc);
+  GURL expected_url(
+      "https://www.google.com/search?udm=50&aep=46&cs=0&gsc=2&hl=en");
+  EXPECT_EQ(cached_wc->GetVisibleURL(), expected_url);
+}
+
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 // The extensions menu dereferences extensions::TabHelper::FromWebContents()
 // without a null check, so the side panel's WebContents must have one attached
@@ -1333,5 +1379,145 @@ TEST_F(ContextualTasksSidePanelCoordinatorTest,
 }
 #endif
 
-}  // namespace contextual_tasks
+TEST_F(ContextualTasksSidePanelCoordinatorTest,
+       TimeToFirstContentfulPaint_RecordedOncePerSession) {
+  base::HistogramTester histogram_tester;
 
+  ContextualTask task(base::Uuid::GenerateRandomV4());
+  ON_CALL(*mock_controller_, GetContextualTaskForTab(_))
+      .WillByDefault(Return(task));
+
+  coordinator_->Show(
+      /*transition_from_tab=*/false,
+      omnibox::ChromeAimEntryPoint::DESKTOP_CHROME_COBROWSE_TOOLBAR_BUTTON);
+
+  content::WebContents* cached_wc =
+      GetWebContentsForTaskForTesting(task.GetTaskId());
+  ASSERT_TRUE(cached_wc);
+
+  histogram_tester.ExpectTotalCount(
+      "ContextualTasks.SidePanel.TimeToFirstContentfulPaint", 0);
+
+  // Trigger RecordTimeToFirstContentfulPaint with unrelated WebContents (should
+  // be ignored).
+  auto other_wc = content::WebContentsTester::CreateTestWebContents(
+      profile_.get(), nullptr);
+  coordinator_->RecordTimeToFirstContentfulPaint(other_wc.get());
+  histogram_tester.ExpectTotalCount(
+      "ContextualTasks.SidePanel.TimeToFirstContentfulPaint", 0);
+
+  // Trigger RecordTimeToFirstContentfulPaint with the cached WebContents.
+  coordinator_->RecordTimeToFirstContentfulPaint(cached_wc);
+  histogram_tester.ExpectTotalCount(
+      "ContextualTasks.SidePanel.TimeToFirstContentfulPaint", 1);
+
+  // Duplicate paint event in the same session should NOT record again.
+  coordinator_->RecordTimeToFirstContentfulPaint(cached_wc);
+  histogram_tester.ExpectTotalCount(
+      "ContextualTasks.SidePanel.TimeToFirstContentfulPaint", 1);
+
+  // Calling Show() again starts a new session, resetting the recorded flag.
+  coordinator_->Show(
+      /*transition_from_tab=*/false,
+      omnibox::ChromeAimEntryPoint::DESKTOP_CHROME_COBROWSE_TOOLBAR_BUTTON);
+
+  coordinator_->RecordTimeToFirstContentfulPaint(cached_wc);
+  histogram_tester.ExpectTotalCount(
+      "ContextualTasks.SidePanel.TimeToFirstContentfulPaint", 2);
+}
+
+TEST_F(ContextualTasksSidePanelCoordinatorTest,
+       TimeToHandshakeComplete_RecordedOncePerSession) {
+  base::HistogramTester histogram_tester;
+
+  ContextualTask task(base::Uuid::GenerateRandomV4());
+  ON_CALL(*mock_controller_, GetContextualTaskForTab(_))
+      .WillByDefault(Return(task));
+
+  coordinator_->Show(
+      /*transition_from_tab=*/false,
+      omnibox::ChromeAimEntryPoint::DESKTOP_CHROME_COBROWSE_TOOLBAR_BUTTON);
+
+  content::WebContents* cached_wc =
+      GetWebContentsForTaskForTesting(task.GetTaskId());
+  ASSERT_TRUE(cached_wc);
+
+  histogram_tester.ExpectTotalCount(
+      "ContextualTasks.SidePanel.TimeToHandshakeComplete", 0);
+
+  // Trigger RecordTimeToHandshakeComplete with unrelated WebContents (should be
+  // ignored).
+  auto other_wc = content::WebContentsTester::CreateTestWebContents(
+      profile_.get(), nullptr);
+  coordinator_->RecordTimeToHandshakeComplete(other_wc.get());
+  histogram_tester.ExpectTotalCount(
+      "ContextualTasks.SidePanel.TimeToHandshakeComplete", 0);
+
+  // Trigger RecordTimeToHandshakeComplete with the cached WebContents.
+  coordinator_->RecordTimeToHandshakeComplete(cached_wc);
+  histogram_tester.ExpectTotalCount(
+      "ContextualTasks.SidePanel.TimeToHandshakeComplete", 1);
+
+  // Duplicate handshake complete event in the same session should NOT record
+  // again.
+  coordinator_->RecordTimeToHandshakeComplete(cached_wc);
+  histogram_tester.ExpectTotalCount(
+      "ContextualTasks.SidePanel.TimeToHandshakeComplete", 1);
+
+  // Calling Show() again starts a new session, resetting the recorded flag.
+  coordinator_->Show(
+      /*transition_from_tab=*/false,
+      omnibox::ChromeAimEntryPoint::DESKTOP_CHROME_COBROWSE_TOOLBAR_BUTTON);
+
+  coordinator_->RecordTimeToHandshakeComplete(cached_wc);
+  histogram_tester.ExpectTotalCount(
+      "ContextualTasks.SidePanel.TimeToHandshakeComplete", 2);
+}
+
+class MockContextualTasksPermissionController
+    : public ContextualTasksPermissionController {
+ public:
+  explicit MockContextualTasksPermissionController(
+      BrowserWindowInterface* browser_window)
+      : ContextualTasksPermissionController(browser_window) {}
+
+  ~MockContextualTasksPermissionController() override = default;
+
+  MOCK_METHOD(void, PushStateToWebUINow, (), (override));
+};
+
+TEST_F(ContextualTasksSidePanelCoordinatorTest,
+       OnActiveTabChanged_PushesPermissionState) {
+  auto permission_controller =
+      std::make_unique<MockContextualTasksPermissionController>(
+          browser_window_.get());
+  auto* permission_controller_ptr = permission_controller.get();
+  SetPermissionControllerForTesting(std::move(permission_controller));
+
+  tabs::TabInterface* tab1 = CreateMockTab();
+  ON_CALL(*tab_list_, GetActiveTab()).WillByDefault(Return(tab1));
+
+  base::Uuid task_id = base::Uuid::GenerateRandomV4();
+  ContextualTask task(task_id);
+  EXPECT_CALL(*mock_controller_, GetContextualTaskForTab(testing::_))
+      .WillRepeatedly(Return(task));
+  EXPECT_CALL(*mock_controller_, GetTabsAssociatedWithTask(task_id))
+      .WillRepeatedly(Return(std::vector<SessionID>{
+          sessions::SessionTabHelper::IdForTab(tab1->GetContents())}));
+
+  CreateCachedWebContentsForTesting(task_id, /*is_open=*/true);
+
+  content::WebContents* panel_contents =
+      GetWebContentsForTaskForTesting(task_id);
+  ASSERT_TRUE(panel_contents);
+
+  ON_CALL(*tab_list_, GetActiveTab()).WillByDefault(Return(tab1));
+
+  base::RunLoop run_loop;
+  EXPECT_CALL(*permission_controller_ptr, PushStateToWebUINow())
+      .WillOnce([&]() { run_loop.Quit(); });
+  coordinator_->OnActiveTabChanged(*tab_list_, tab1);
+  run_loop.Run();
+}
+
+}  // namespace contextual_tasks

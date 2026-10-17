@@ -23,10 +23,11 @@ import {ComposeboxContextAddedMethod, GlowAnimationState} from '//resources/cr_c
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
+import {TabAttachmentSource} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {AutocompleteResult, FileAttachment, PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote, SearchContext, TabAttachment, TabInfo} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {UnguessableToken} from '//resources/mojo/mojo/public/mojom/base/unguessable_token.mojom-webui.js';
 
-import {ComposeboxFile, GlifAnimationState, mapMojoSourceToOrigin, mapUploadErrorToProcessFilesError, ProcessFilesError, recordBoolean, recordContextAdditionMethod, recordUserAction, TabUploadOrigin} from './common.js';
+import {ComposeboxFile, GlifAnimationState, mapUploadErrorToProcessFilesError, ProcessFilesError, recordBoolean, recordContextAdditionMethod, recordUserAction} from './common.js';
 import type {TabUpload} from './common.js';
 import {getCss} from './composebox.css.js';
 import {getHtml} from './composebox.html.js';
@@ -584,7 +585,7 @@ export class ComposeboxElement extends ComposeboxEmbedderMixin
             title: tab.title,
             url: tab.url,
             delayUpload: !askGAndPageAction,
-            origin: TabUploadOrigin.AUTO_ACTIVE,
+            origin: TabAttachmentSource.kAutoActive,
           } as TabUpload,
           /*replaceAutoActiveTabToken=*/ true);
 
@@ -769,26 +770,7 @@ export class ComposeboxElement extends ComposeboxEmbedderMixin
       return;
     }
 
-    // TODO(crbug.com/460888279): This is a temporary, merge safe fix. Ideally,
-    // the ACController is not sending multiple responses for a single query,
-    // especially when the matches is empty. Remove this logic once a long term
-    // fix is found.
-    if (this.composeboxNoFlickerSuggestionsFix && this.showTypedSuggest &&
-        !this.haveReceivedSynchronousAutocompleteResponse) {
-      // The first autcomplete response for ZPS contains no matches, since
-      // composebox doesn't support ZPS from local providers (ex. history
-      // suggestion). Similarly, since composebox doesn't support local
-      // providers, typed suggest first response returns a single verbatim
-      // match, which doesn't show in the dropdown. To prevent closing the
-      // dropdown before the actual response from the suggest server is
-      // received, add the previous non-verbatim matches to this first response.
-      if (this.result && this.result.matches.length > 0 &&
-          result.matches.length <= 1) {
-        result.matches.push(...this.result.matches.filter(
-            match => match.type !== 'search-what-you-typed'));
-      }
-      this.haveReceivedSynchronousAutocompleteResponse = true;
-    }
+    this.maybeCarryOverPreviousMatches(result);
     this.result = result;
     /* Indicates when suggestion results have changed so that zero state
      * suggestion results in contextual tasks composebox can update accordingly.
@@ -892,7 +874,7 @@ export class ComposeboxElement extends ComposeboxEmbedderMixin
       title: tabAttachment.title,
       url: tabAttachment.url,
       delayUpload: /*delay_upload=*/ false,
-      origin: mapMojoSourceToOrigin(tabAttachment.source),
+      origin: tabAttachment.source,
     } as TabUpload);
   }
 

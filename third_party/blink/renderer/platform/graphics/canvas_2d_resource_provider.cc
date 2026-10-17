@@ -74,37 +74,6 @@
 
 namespace blink {
 
-BASE_FEATURE(kCanvas2DAutoFlushParams, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// The following parameters attempt to reach a compromise between not flushing
-// too often, and not accumulating an unreasonable backlog. Flushing too
-// often will hurt performance due to overhead costs. Accumulating large
-// backlogs, in the case of OOPR-Canvas, results in poor parallelism and
-// janky UI. With OOPR-Canvas disabled, it is still desirable to flush
-// periodically to guard against run-away memory consumption caused by
-// PaintOpBuffers that grow indefinitely. The OOPR-related jank is caused by
-// long-running RasterCHROMIUM calls that monopolize the main thread
-// of the GPU process. By flushing periodically, we allow the rasterization
-// of canvas contents to be interleaved with other compositing and UI work.
-//
-// The default values for these parameters were initially determined
-// empirically. They were selected to maximize the MotionMark score on
-// desktop computers. Field trials may be used to tune these parameters
-// further by using metrics data from the field.
-const base::FeatureParam<int> kMaxRecordedOpKB(&kCanvas2DAutoFlushParams,
-                                               "max_recorded_op_kb",
-                                               2 * 1024);
-
-const base::FeatureParam<int> kMaxPinnedImageKB(&kCanvas2DAutoFlushParams,
-                                                "max_pinned_image_kb",
-                                                32 * 1024);
-
-// Graphite can generally handle more ops, increase the size accordingly.
-const base::FeatureParam<int> kMaxRecordedOpGraphiteKB(
-    &kCanvas2DAutoFlushParams,
-    "max_recorded_op_graphite_kb",
-    6 * 1024);
-
 BASE_FEATURE(kAppendCpuUsages, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, unused resources (ready to be recycled) are reclaimed after a
@@ -226,8 +195,7 @@ bool Canvas2DResourceProvider::ShouldReplaceTargetBuffer(
   return !resource_->HasOneRef();
 }
 
-std::unique_ptr<gpu::RasterScopedAccess>
-Canvas2DResourceProvider::WillDrawInternal() {
+void Canvas2DResourceProvider::EnsureResourceReadyForDraw() {
   DCHECK(resource_);
 
   // Since the resource will be updated, the cached snapshot is no longer
@@ -242,7 +210,6 @@ Canvas2DResourceProvider::WillDrawInternal() {
   // if copy-on-write is required. Note that for unaccelerated resources, this
   // does not apply: writes to the SharedImage are deferred to
   // ProduceCanvasResource and hence copy-on-write is never needed here.
-  std::unique_ptr<gpu::RasterScopedAccess> dst_access;
   if (is_accelerated_ && ShouldReplaceTargetBuffer(cached_content_id_)) {
     cached_content_id_ = PaintImage::kInvalidContentId;
     DCHECK(!current_resource_has_write_access_)
@@ -253,14 +220,14 @@ Canvas2DResourceProvider::WillDrawInternal() {
         static_cast<CanvasResourceSharedImage*>(old_resource.get());
 
     resource_ = NewOrRecycledResource();
-    dst_access = resource_->BeginAccess(/*readonly=*/false);
     if (must_preserve_content_on_copy_on_write_) {
-      auto old_mailbox = old_resource_shared_image->GetSharedImage()->mailbox();
-      auto mailbox = resource()->GetSharedImage()->mailbox();
-      auto src_access = old_resource->BeginAccess(/*readonly=*/true);
-      RasterInterface()->CopySharedImage(old_mailbox, mailbox, 0, 0, 0, 0,
-                                         Size().width(), Size().height());
-      old_resource_shared_image->EndAccess(std::move(src_access));
+      auto [src_token, dst_token] = RasterInterface()->CopySharedImage(
+          old_resource_shared_image->GetSharedImage(),
+          old_resource_shared_image->acquire_sync_token(),
+          resource()->GetSharedImage(), resource()->acquire_sync_token(),
+          gfx::Rect(Size()), gfx::Point(0, 0));
+      old_resource_shared_image->SetReleaseSyncToken(src_token);
+      resource_->SetReleaseSyncToken(dst_token);
     } else {
       // If we're not copying over the previous contents, we need to ensure
       // that the image is cleared on the next BeginRasterCHROMIUM.
@@ -272,10 +239,7 @@ Canvas2DResourceProvider::WillDrawInternal() {
     // By default, the contents of the new resource must be preserved on a
     // subsequent CopyOnWrite.
     must_preserve_content_on_copy_on_write_ = true;
-  } else {
-    dst_access = resource_->BeginAccess(/*readonly=*/false);
   }
-  return dst_access;
 }
 
 void Canvas2DResourceProvider::WillDrawUnaccelerated() {
@@ -318,7 +282,7 @@ bool Canvas2DResourceProvider::WritePixels(const SkImageInfo& orig_info,
     return false;
   }
 
-  auto access = WillDrawInternal();
+  EnsureResourceReadyForDraw();
 
   // The below  write to the resource's SharedImage will need to be preserved in
   // the case of a subsequent CopyOnWrite.
@@ -328,11 +292,10 @@ bool Canvas2DResourceProvider::WritePixels(const SkImageInfo& orig_info,
   // Verify that this is the case and update the code here.
   must_preserve_content_on_copy_on_write_ = true;
 
-  auto client_si = resource()->GetSharedImage();
-  RasterInterface()->WritePixels(client_si->mailbox(), x, y,
-                                 client_si->GetTextureTarget(),
-                                 SkPixmap(orig_info, pixels, row_bytes));
-  resource()->EndAccess(std::move(access));
+  gpu::SyncToken sync_token = RasterInterface()->WritePixels(
+      resource()->GetSharedImage(), resource()->acquire_sync_token(), x, y,
+      SkPixmap(orig_info, pixels, row_bytes));
+  resource()->SetReleaseSyncToken(sync_token);
 
   // If the overdraw optimization kicked in, we need to indicate that the
   // pixels do not need to be cleared, otherwise the subsequent
@@ -372,15 +335,13 @@ Canvas2DResourceProvider::ProduceCanvasResource() {
 
   if (IsSoftware()) {
     DCHECK(GetSkSurface());
-    scoped_refptr<CanvasResource> output_resource = NewOrRecycledResource();
+    scoped_refptr<CanvasResourceSharedImage> output_resource =
+        NewOrRecycledResource();
     if (!output_resource) {
       return nullptr;
     }
 
-    // Note that the resource *must* be a CanvasResourceSharedImage as this
-    // class creates CanvasResourceSharedImage instances exclusively.
-    static_cast<CanvasResourceSharedImage*>(output_resource.get())
-        ->UploadSoftwareRenderingResults(GetSkSurface());
+    output_resource->UploadSoftwareRenderingResults(GetSkSurface());
 
     return output_resource;
   }
@@ -456,7 +417,7 @@ void Canvas2DResourceProvider::EndWriteAccess() {
     // CopyOnWrite.
     must_preserve_content_on_copy_on_write_ = true;
   } else {
-    if (ShouldReplaceTargetBuffer()) {
+    if (!resource() || resource()->IsLost() || !resource()->HasOneRef()) {
       resource_ = NewOrRecycledResource();
     }
     if (!resource() || !GetSkSurface()) {
@@ -488,8 +449,8 @@ scoped_refptr<StaticBitmapImage> Canvas2DResourceProvider::Snapshot(
     cached_snapshot_ = resource_->Bitmap();
 
     // We'll record its content_id to be used by the FlushForImageListener.
-    // This will be needed in WillDrawInternal, but we are doing it now, as we
-    // don't know if later on we will be in the same thread the
+    // This will be needed in EnsureResourceReadyForDraw(), but we are doing it
+    // now, as we don't know if later on we will be in the same thread the
     // cached_snapshot_ was created and we wouldn't be able to
     // PaintImageForCurrentFrame in AcceleratedStaticBitmapImage just to check
     // the content_id. ShouldReplaceTargetBuffer needs this ID in order to let
@@ -609,7 +570,7 @@ void Canvas2DResourceProvider::RasterRecord(cc::PaintRecord last_recording) {
     return;
   }
 
-  auto access = WillDrawInternal();
+  EnsureResourceReadyForDraw();
   EnsureWriteAccess();
 
   cc::PlaybackCallbacks::CustomDataRasterCallback custom_callback;
@@ -623,44 +584,13 @@ void Canvas2DResourceProvider::RasterRecord(cc::PaintRecord last_recording) {
 
   const bool needs_clear = !is_cleared_;
   is_cleared_ = true;
+  auto* image_provider = GetOrCreateCanvasImageProvider();
 
-  gpu::raster::RasterInterface* ri = RasterInterface();
-  SkColor4f background_color = GetAlphaType() == kOpaque_SkAlphaType
-                                   ? SkColors::kBlack
-                                   : SkColors::kTransparent;
-
-  auto list = base::MakeRefCounted<cc::DisplayItemList>();
-  list->StartPaint();
-  list->push<cc::DrawRecordOp>(std::move(last_recording));
-  list->EndPaintOfUnpaired(gfx::Rect(Size().width(), Size().height()));
-  list->Finalize();
-
-  gfx::Size size(Size().width(), Size().height());
-  size_t max_op_size_hint = gpu::raster::RasterInterface::kDefaultMaxOpSizeHint;
-  gfx::Rect full_raster_rect(Size().width(), Size().height());
-  gfx::Rect playback_rect(Size().width(), Size().height());
-  gfx::Vector2dF post_translate(0.f, 0.f);
-  gfx::Vector2dF post_scale(1.f, 1.f);
-
-  const bool can_use_lcd_text = GetAlphaType() == kOpaque_SkAlphaType;
-  const auto& caps =
-      context_provider_wrapper_->ContextProvider().GetCapabilities();
-  bool use_msaa = !caps.msaa_is_slow && !caps.avoid_stencil_buffers;
-  ri->BeginRasterCHROMIUM(
-      background_color, needs_clear,
-      /*msaa_sample_count=*/use_msaa ? 1 : 0,
-      use_msaa ? gpu::raster::MsaaMode::kDMSAA : gpu::raster::MsaaMode::kNoMSAA,
-      can_use_lcd_text, /*visible=*/true, GetColorSpace(),
-      /*hdr_headroom=*/0.f, resource()->GetSharedImage()->mailbox().name);
-
-  ri->RasterCHROMIUM(list.get(), GetOrCreateCanvasImageProvider(), size,
-                     full_raster_rect, playback_rect, post_translate,
-                     post_scale, /*requires_clear=*/false,
-                     /*raster_inducing_scroll_offsets=*/nullptr,
-                     &max_op_size_hint, custom_callback);
-
-  ri->EndRasterCHROMIUM();
-  resource()->EndAccess(std::move(access));
+  gpu::SyncToken sync_token = RasterInterface()->RasterSharedImage(
+      resource()->GetSharedImage(), resource()->acquire_sync_token(),
+      std::move(last_recording), image_provider, needs_clear,
+      std::move(custom_callback));
+  resource()->SetReleaseSyncToken(sync_token);
 }
 
 void Canvas2DResourceProvider::OnFlushForImage(
@@ -913,17 +843,10 @@ Canvas2DResourceProvider::Canvas2DResourceProvider(
       hdr_metadata_(hdr_metadata),
       delegate_(delegate),
       snapshot_paint_image_id_(cc::PaintImage::GetNextId()) {
-  max_recorded_op_bytes_ = static_cast<size_t>(kMaxRecordedOpKB.Get()) * 1024;
-  max_pinned_image_bytes_ = static_cast<size_t>(kMaxPinnedImageKB.Get()) * 1024;
   if (context_provider_wrapper_) {
     context_provider_wrapper_->AddObserver(this);
     raster_context_provider_ = base::WrapRefCounted(
         context_provider_wrapper_->ContextProvider().RasterContextProvider());
-    // Graphite can handle a large buffer size.
-    if (IsGraphite()) {
-      max_recorded_op_bytes_ =
-          static_cast<size_t>(kMaxRecordedOpGraphiteKB.Get()) * 1024;
-    }
   }
 
   if (raster_context_provider_) {
@@ -990,6 +913,9 @@ Canvas2DResourceProvider::Canvas2DResourceProvider(
     EnsureWriteAccess();
   }
   CanvasMemoryDumpProvider::Instance()->RegisterClient(this);
+
+  // Single buffered mode supported only for accelerated canvas.
+  CHECK(!IsSingleBuffered() || is_accelerated_);
 }
 
 void Canvas2DResourceProvider::RecordingCleared() {
@@ -1051,8 +977,6 @@ Canvas2DResourceProvider::Canvas2DResourceProvider(
       hdr_metadata_(hdr_metadata),
       delegate_(delegate),
       snapshot_paint_image_id_(cc::PaintImage::GetNextId()) {
-  max_recorded_op_bytes_ = static_cast<size_t>(kMaxRecordedOpKB.Get()) * 1024;
-  max_pinned_image_bytes_ = static_cast<size_t>(kMaxPinnedImageKB.Get()) * 1024;
   if (shared_image_interface_provider_) {
     shared_image_interface_provider_->AddGpuChannelLostObserver(this);
     if (auto* sii = shared_image_interface_provider_->SharedImageInterface()) {

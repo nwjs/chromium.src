@@ -37,13 +37,11 @@
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
-#include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/url_constants.h"
 #include "mojo/public/cpp/bindings/message.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
-#include "ui/gfx/geometry/rect_f.h"
 
 using autofill::mojom::FocusedFieldType;
 
@@ -56,6 +54,11 @@ void LogSiteIsolationMetricsForSubmittedForm(
   UMA_HISTOGRAM_BOOLEAN(
       "SiteIsolation.IsPasswordFormSubmittedInDedicatedProcess",
       render_frame_host->GetSiteInstance()->RequiresDedicatedProcess());
+}
+
+DriverId GenerateDriverId() {
+  static DriverId::Generator id_generator;
+  return id_generator.GenerateNextId();
 }
 
 }  // namespace
@@ -71,8 +74,7 @@ ContentPasswordManagerDriver::ContentPasswordManagerDriver(
           autofill::ContentAutofillClient::FromWebContents(
               content::WebContents::FromRenderFrameHost(render_frame_host)),
           client) {
-  static DriverId::Generator id_generator;
-  id_ = id_generator.GenerateNextId();
+  id_ = GenerateDriverId();
 
   render_frame_host_->GetRemoteAssociatedInterfaces()->GetInterface(
       &password_autofill_agent_);
@@ -121,6 +123,20 @@ void ContentPasswordManagerDriver::DidNavigate() {
   if (!IsRenderFrameHostSupported()) {
     password_manager_receiver_.reset();
   }
+}
+
+void ContentPasswordManagerDriver::ResetForNewDocument() {
+  // Objects created for the previous document (most importantly
+  // `PasswordFormManager`s in the `PasswordManager`'s form cache) identify
+  // this driver by its weak pointers and its ID. Invalidate both, so they
+  // treat this driver as a different one, as if a new RenderFrameHost, and
+  // hence a new driver, had been created for the new document. Otherwise, e.g.
+  // a form manager with credentials fetched for the previous document's origin
+  // could be matched with a form of the new document (see crbug.com/561039723).
+  weak_factory_.InvalidateWeakPtrs();
+  id_ = GenerateDriverId();
+  password_generation_helper_.DidNavigateFrame();
+  password_autofill_manager_.DidNavigateFrame();
 }
 
 bool ContentPasswordManagerDriver::HasValidURL(bool may_kill_renderer) {
@@ -182,17 +198,6 @@ DriverId ContentPasswordManagerDriver::GetId() const {
 int ContentPasswordManagerDriver::GetFrameId() const {
   // Use the associated FrameTreeNode ID as the Frame ID.
   return render_frame_host_->GetFrameTreeNodeId().value();
-}
-
-gfx::RectF ContentPasswordManagerDriver::TransformToRootCoordinates(
-    const gfx::RectF& bounds_in_frame_coordinates) {
-  content::RenderWidgetHostView* rwhv = render_frame_host_->GetView();
-  if (!rwhv) {
-    return bounds_in_frame_coordinates;
-  }
-  return gfx::RectF(rwhv->TransformPointToRootCoordSpaceF(
-                        bounds_in_frame_coordinates.origin()),
-                    bounds_in_frame_coordinates.size());
 }
 
 void ContentPasswordManagerDriver::PropagateFillDataOnParsingCompletion(

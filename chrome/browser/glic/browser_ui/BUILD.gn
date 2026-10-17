@@ -10,8 +10,6 @@ import("//chrome/common/features.gni")
 source_set("browser_ui") {
   sources = [
     "glic_actor_nudge_controller.h",
-    "glic_actor_task_icon_manager.h",
-    "glic_actor_task_icon_manager_factory.h",
     "glic_nudge_controller.h",
     "glic_split_button_controller.h",
     "glic_split_button_delegate.h",
@@ -21,9 +19,9 @@ source_set("browser_ui") {
   public_deps = [
     "//chrome/browser/actor",
     "//chrome/browser/actor/ui",
-    "//chrome/browser/actor/ui/task_list_bubble:delegate",
     "//chrome/browser/glic",
     "//chrome/browser/glic:mojo_bindings",
+    "//chrome/browser/glic/browser_ui/activity_list_bubble:delegate",
     "//chrome/browser/tab_list",
     "//components/keyed_service/core",
     "//components/skills/public",
@@ -55,8 +53,6 @@ source_set("browser_ui") {
 source_set("impl") {
   sources = [
     "glic_actor_nudge_controller.cc",
-    "glic_actor_task_icon_manager.cc",
-    "glic_actor_task_icon_manager_factory.cc",
     "glic_button_controller.cc",
     "glic_button_controller.h",
     "glic_nudge_controller.cc",
@@ -81,8 +77,8 @@ source_set("impl") {
 
   deps = [
     ":browser_ui",
-    "//chrome/browser/actor/ui/task_list_bubble:controller",
     "//chrome/browser/contextual_tasks",
+    "//chrome/browser/glic/browser_ui/activity_list_bubble:controller",
     "//chrome/browser/tab_list",
     "//chrome/browser/ui/call_to_action",
     "//components/contextual_tasks/public:feature_list",
@@ -102,6 +98,7 @@ source_set("impl") {
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/user_education",
       "//chrome/browser/ui/views/frame:contents_capture_border_view",
+      "//chrome/browser/ui/views/frame:contents_container_view",
       "//chrome/browser/ui/views/tabs/glic",
       "//chrome/browser/ui/views/toolbar",
       "//chrome/common:buildflags",
@@ -200,45 +197,48 @@ source_set("glow_impl") {
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/tabs:tab_strip",
+      "//chrome/browser/ui/views/frame:browser_view_header",
       "//chrome/browser/ui/views/frame:contents_capture_border_view",
+      "//chrome/browser/ui/views/frame:contents_container_view",
     ]
   }
 }
 
-if (!is_android) {
-  source_set("unit_tests") {
-    testonly = true
-    sources = [
-      "glic_actor_task_icon_manager_unittest.cc",
-      "glic_button_controller_unittest.cc",
-      "glic_selection_widget_unittest.cc",
-    ]
-    deps = [
-      ":browser_ui",
-      ":impl",
-      "//base/test:test_support",
-      "//chrome/browser:global_features",
-      "//chrome/browser/actor:test_support",
-      "//chrome/browser/glic",
-      "//chrome/browser/glic/test_support",
-      "//chrome/browser/profiles:profile",
-      "//chrome/browser/ui:ui_features",
-      "//chrome/common:chrome_features",
-      "//chrome/common:constants",
-      "//chrome/test:test_support",
-      "//components/prefs",
-      "//components/signin/public/identity_manager:test_support",
-      "//content/test:test_support",
-      "//testing/gmock",
-      "//testing/gtest",
-      "//ui/gfx",
-    ]
-
-    if (is_chromeos) {
-      deps += [ "//chrome/browser/ash/test:test_support" ]
-    }
+source_set("unit_tests") {
+  testonly = true
+  sources = [ "glic_button_controller_unittest.cc" ]
+  if (!is_android) {
+    sources += [ "glic_selection_widget_unittest.cc" ]
   }
+  deps = [
+    ":browser_ui",
+    ":impl",
+    "//base/test:test_support",
+    "//chrome/browser:global_features",
+    "//chrome/browser/actor:test_support",
+    "//chrome/browser/glic",
+    "//chrome/browser/glic/public:features",
+    "//chrome/browser/glic/test_support",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/ui:ui_features",
+    "//chrome/common:chrome_features",
+    "//chrome/common:constants",
+    "//chrome/test:test_support",
+    "//chrome/test/base:testing_browser_process",
+    "//components/prefs",
+    "//components/signin/public/identity_manager:test_support",
+    "//content/test:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//ui/gfx",
+  ]
 
+  if (is_chromeos) {
+    deps += [ "//chrome/browser/ash/test:test_support" ]
+  }
+}
+
+if (!is_android) {
   source_set("interactive_ui_tests") {
     testonly = true
     defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
@@ -259,9 +259,11 @@ if (!is_android) {
       "//chrome/browser/glic/actor:test_support",
       "//chrome/browser/glic/test_support",
       "//chrome/browser/ui",
+      "//chrome/browser/ui:browser_commands",
       "//chrome/browser/ui:browser_element_identifiers",
       "//chrome/browser/ui/tabs/alert:tab_alert",
       "//chrome/browser/ui/views/frame",
+      "//chrome/browser/ui/views/frame:browser_view_header",
       "//chrome/browser/ui/views/tabs:tab_strip",
       "//chrome/browser/ui/views/tabs/glic",
       "//chrome/browser/ui/views/tabs/tab",
@@ -300,6 +302,7 @@ if (!is_android) {
       "//chrome/browser/ui:browser_element_identifiers",
       "//chrome/browser/ui/tabs/alert:tab_alert",
       "//chrome/browser/ui/views/frame",
+      "//chrome/browser/ui/views/frame:browser_view_header",
       "//chrome/browser/ui/views/tabs/tab",
       "//chrome/common:chrome_features",
       "//chrome/common:non_code_constants",

@@ -16,6 +16,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -31,10 +32,12 @@ import android.app.Activity;
 import android.graphics.Color;
 import android.graphics.Paint.FontMetrics;
 import android.graphics.Rect;
+import android.os.Build;
 import android.text.Editable;
 import android.text.InputType;
 import android.text.Layout;
 import android.text.SpannableStringBuilder;
+import android.text.Spanned;
 import android.text.TextPaint;
 import android.text.TextUtils;
 import android.util.TypedValue;
@@ -132,6 +135,13 @@ public class UrlBarUnitTest {
             "www.a.com/"
                     + TextUtils.join("", Collections.nCopies(MAX_DISPLAYABLE_LENGTH + 100, "a"));
 
+    /** A supplementary-plane character, i.e. a surrogate pair rather than a single char. */
+    private static final String GRINNING_FACE_EMOJI = "\uD83D\uDE00";
+
+    // Fixture describing text presented over multiple wrapped lines.
+    private static final String WRAPPED_TEXT = "aaa bbb ccc";
+    private static final int WRAPPED_TEXT_LINE_COUNT = 3;
+
     @Rule
     public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
 
@@ -179,6 +189,7 @@ public class UrlBarUnitTest {
 
         mUrlBar.setDelegate(mUrlBarDelegate);
         mUrlBar.setTextContextMenuDelegate(mTextContextMenuDelegate);
+        mUrlBar.setSelected(true);
     }
 
     private void setupUrlBarSpy() {
@@ -217,6 +228,11 @@ public class UrlBarUnitTest {
                         anyFloat());
 
         lenient().doReturn(mFontMetrics).when(mPaint).getFontMetrics();
+        lenient().doReturn(14f).when(mPaint).getTextSize();
+        lenient()
+                .doAnswer(invocation -> (float) ((String) invocation.getArgument(0)).length() * 10f)
+                .when(mPaint)
+                .measureText(any(String.class));
     }
 
     @After
@@ -309,6 +325,14 @@ public class UrlBarUnitTest {
                 "Addition Text",
                 expectedAdditionalText,
                 mUrlBar.getAdditionalText() != null ? mUrlBar.getAdditionalText() : "");
+    }
+
+    private void setUpCursorVisible() {
+        doReturn(true).when(mUrlBar).isFocused();
+        doReturn(true).when(mUrlBar).hasWindowFocus();
+        mUrlBar.setSelected(true);
+        mUrlBar.setCursorVisible(true);
+        assertTrue(mUrlBar.isCursorVisible());
     }
 
     @Test
@@ -480,7 +504,7 @@ public class UrlBarUnitTest {
     }
 
     @Test
-    public void onTouchEvent_touchDownIsIgnored() {
+    public void onTouchEvent_touchDownEmitsOnUrlBarTouchDown() {
         mUrlBar.onFocusChanged(
                 /* focused= */ true,
                 /* direction= */ View.FOCUS_DOWN,
@@ -493,6 +517,7 @@ public class UrlBarUnitTest {
                         /* x= */ 0,
                         /* y= */ 0,
                         /* metaState= */ 0));
+        verify(mUrlBarDelegate).onUrlBarTouchDown();
         verify(mUrlBarDelegate, never()).onTouchAfterFocus();
     }
 
@@ -1203,6 +1228,182 @@ public class UrlBarUnitTest {
         }
     }
 
+    /**
+     * Configures the UrlBar with focused, wrapping-eligible input laid out over {@code lineCount}
+     * lines, with a key listener attached. Note: line-to-line cursor movement is performed by the
+     * EditText itself, emulated here by stubbing {@link UrlBar#super_onKeyDown}.
+     */
+    private void setUpWrappedMultilineInput(int lineCount) {
+        mUrlBar.setAllowMultilineInput(true);
+        mUrlBar.onFocusChanged(
+                /* focused= */ true, /* direction= */ 0, /* previouslyFocusedRect= */ null);
+        mUrlBar.setInputIsMultilineEligible(true);
+        mUrlBar.setText(WRAPPED_TEXT);
+        mUrlBar.setKeyDownListener(mViewOnKeyListener);
+
+        lenient().doReturn(mLayout).when(mUrlBar).getLayout();
+        lenient().doReturn(lineCount).when(mLayout).getLineCount();
+    }
+
+    @Test
+    public void dpadDown_walksWrappedLinesBeforeReachingKeyListener() {
+        setUpWrappedMultilineInput(WRAPPED_TEXT_LINE_COUNT);
+        var event = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_DOWN);
+        mUrlBar.setSelection(WRAPPED_TEXT.length() - 1);
+
+        // The EditText moves the cursor to the line below; the key listener is not involved.
+        doReturn(true).when(mUrlBar).super_onKeyDown(anyInt(), any());
+        assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_DOWN, event));
+        verify(mViewOnKeyListener, never()).onKey(any(), anyInt(), any());
+
+        // Bottom line reached: the cursor snaps to the end of the text.
+        doReturn(false).when(mUrlBar).super_onKeyDown(anyInt(), any());
+        assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_DOWN, event));
+        assertEquals(WRAPPED_TEXT.length(), mUrlBar.getSelectionStart());
+        verify(mViewOnKeyListener, never()).onKey(any(), anyInt(), any());
+
+        // The cursor rests at the end of the text: the event reaches the key listener.
+        doReturn(true).when(mViewOnKeyListener).onKey(any(), anyInt(), any());
+        assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_DOWN, event));
+        verify(mViewOnKeyListener).onKey(mUrlBar, KeyEvent.KEYCODE_DPAD_DOWN, event);
+    }
+
+    @Test
+    public void dpadUp_walksWrappedLinesBeforeReachingKeyListener() {
+        setUpWrappedMultilineInput(WRAPPED_TEXT_LINE_COUNT);
+        var event = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_UP);
+        mUrlBar.setSelection(1);
+
+        // The EditText moves the cursor to the line above; the key listener is not involved.
+        doReturn(true).when(mUrlBar).super_onKeyDown(anyInt(), any());
+        assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_UP, event));
+        verify(mViewOnKeyListener, never()).onKey(any(), anyInt(), any());
+
+        // Top line reached: the cursor snaps to the beginning of the text.
+        doReturn(false).when(mUrlBar).super_onKeyDown(anyInt(), any());
+        assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_UP, event));
+        assertEquals(0, mUrlBar.getSelectionStart());
+        verify(mViewOnKeyListener, never()).onKey(any(), anyInt(), any());
+
+        // The cursor rests at the beginning of the text: the event reaches the key listener.
+        doReturn(true).when(mViewOnKeyListener).onKey(any(), anyInt(), any());
+        assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_UP, event));
+        verify(mViewOnKeyListener).onKey(mUrlBar, KeyEvent.KEYCODE_DPAD_UP, event);
+    }
+
+    @Test
+    public void dpadDown_singleLineTextIsPassedToKeyListener() {
+        setUpWrappedMultilineInput(/* lineCount= */ 1);
+        var event = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_DOWN);
+        mUrlBar.setSelection(1);
+
+        doReturn(true).when(mViewOnKeyListener).onKey(any(), anyInt(), any());
+        assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_DOWN, event));
+        assertEquals(1, mUrlBar.getSelectionStart());
+        verify(mViewOnKeyListener).onKey(mUrlBar, KeyEvent.KEYCODE_DPAD_DOWN, event);
+        verify(mUrlBar, never()).super_onKeyDown(anyInt(), any());
+    }
+
+    @Test
+    public void dpadDown_withNonShiftModifiersIsPassedToKeyListener() {
+        setUpWrappedMultilineInput(WRAPPED_TEXT_LINE_COUNT);
+        // Alt+Down or Ctrl+Down should retain default listener handling.
+        var event =
+                new KeyEvent(
+                        /* downTime= */ 0,
+                        /* eventTime= */ 0,
+                        KeyEvent.ACTION_DOWN,
+                        KeyEvent.KEYCODE_DPAD_DOWN,
+                        /* repeat= */ 0,
+                        KeyEvent.META_ALT_ON);
+
+        doReturn(true).when(mViewOnKeyListener).onKey(any(), anyInt(), any());
+        assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_DOWN, event));
+        verify(mViewOnKeyListener).onKey(mUrlBar, KeyEvent.KEYCODE_DPAD_DOWN, event);
+        verify(mUrlBar, never()).super_onKeyDown(anyInt(), any());
+    }
+
+    @Test
+    public void dpadDown_withShiftSelectsText() {
+        setUpWrappedMultilineInput(WRAPPED_TEXT_LINE_COUNT);
+        var event =
+                new KeyEvent(
+                        /* downTime= */ 0,
+                        /* eventTime= */ 0,
+                        KeyEvent.ACTION_DOWN,
+                        KeyEvent.KEYCODE_DPAD_DOWN,
+                        /* repeat= */ 0,
+                        KeyEvent.META_SHIFT_ON);
+        mUrlBar.setSelection(2);
+
+        // While moving between lines, super_onKeyDown handles the selection extension.
+        doReturn(true).when(mUrlBar).super_onKeyDown(anyInt(), any());
+        assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_DOWN, event));
+        verify(mViewOnKeyListener, never()).onKey(any(), anyInt(), any());
+
+        // When bottom line is reached, selection extends to the end of the text.
+        doReturn(false).when(mUrlBar).super_onKeyDown(anyInt(), any());
+        assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_DOWN, event));
+        assertEquals(2, mUrlBar.getSelectionStart());
+        assertEquals(WRAPPED_TEXT.length(), mUrlBar.getSelectionEnd());
+        verify(mViewOnKeyListener, never()).onKey(any(), anyInt(), any());
+
+        // Once at the end, Shift+Down is consumed and never navigates suggestions.
+        assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_DOWN, event));
+        verify(mViewOnKeyListener, never()).onKey(any(), anyInt(), any());
+    }
+
+    @Test
+    public void dpadUp_withShiftSelectsText() {
+        setUpWrappedMultilineInput(WRAPPED_TEXT_LINE_COUNT);
+        var event =
+                new KeyEvent(
+                        /* downTime= */ 0,
+                        /* eventTime= */ 0,
+                        KeyEvent.ACTION_DOWN,
+                        KeyEvent.KEYCODE_DPAD_UP,
+                        /* repeat= */ 0,
+                        KeyEvent.META_SHIFT_ON);
+        mUrlBar.setSelection(2, 4);
+
+        // While moving between lines, super_onKeyDown handles the selection extension.
+        doReturn(true).when(mUrlBar).super_onKeyDown(anyInt(), any());
+        assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_UP, event));
+        verify(mViewOnKeyListener, never()).onKey(any(), anyInt(), any());
+
+        // When top line is reached, selection extends to the beginning of the text.
+        doReturn(false).when(mUrlBar).super_onKeyDown(anyInt(), any());
+        assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_UP, event));
+        assertEquals(2, mUrlBar.getSelectionStart());
+        assertEquals(0, mUrlBar.getSelectionEnd());
+        verify(mViewOnKeyListener, never()).onKey(any(), anyInt(), any());
+
+        // Once at the beginning, Shift+Up is consumed and never navigates suggestions.
+        assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_UP, event));
+        verify(mViewOnKeyListener, never()).onKey(any(), anyInt(), any());
+    }
+
+    @Test
+    public void numpadKeys_translatedToDpad() {
+        setUpWrappedMultilineInput(WRAPPED_TEXT_LINE_COUNT);
+        var numpadDownEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_NUMPAD_2);
+        var numpadUpEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_NUMPAD_8);
+
+        doReturn(true).when(mUrlBar).super_onKeyDown(anyInt(), any());
+
+        assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_NUMPAD_2, numpadDownEvent));
+        verify(mUrlBar)
+                .super_onKeyDown(
+                        eq(KeyEvent.KEYCODE_DPAD_DOWN),
+                        argThat(e -> e.getKeyCode() == KeyEvent.KEYCODE_DPAD_DOWN));
+
+        assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_NUMPAD_8, numpadUpEvent));
+        verify(mUrlBar)
+                .super_onKeyDown(
+                        eq(KeyEvent.KEYCODE_DPAD_UP),
+                        argThat(e -> e.getKeyCode() == KeyEvent.KEYCODE_DPAD_UP));
+    }
+
     /** Verifies that {@link UrlBar#dispatchKeyEvent} intercepts and handles the TAB key. */
     @Test
     public void dispatchKeyEvent_tabInterceptionByKeyDownListener() {
@@ -1575,7 +1776,12 @@ public class UrlBarUnitTest {
     @Test
     @DisableFeatures(OmniboxFeatureList.URL_BAR_WITHOUT_LIGATURES)
     public void testUrlBarWithoutLigaturesDisabled() {
-        assertNull(mUrlBar.getFontFeatureSettings());
+        // With the feature off the UrlBar does not set any font features of its own, but it still
+        // inherits the UI-wide defaults from the root TextAppearance style, which disables the
+        // "liga" and "calt" features for all Chrome Android UI text.
+        assertEquals(
+                mActivity.getString(R.string.default_font_feature_settings),
+                mUrlBar.getFontFeatureSettings());
     }
 
     @Test
@@ -1948,6 +2154,17 @@ public class UrlBarUnitTest {
     }
 
     @Test
+    public void testCursorVisibility_Selected() {
+        setUpCursorVisible();
+
+        mUrlBar.setSelected(false);
+        assertFalse(mUrlBar.isCursorVisible());
+
+        mUrlBar.setSelected(true);
+        assertTrue(mUrlBar.isCursorVisible());
+    }
+
+    @Test
     public void testAutocompleteUpdatedOnSelection() {
         mUrlBar.setIgnoreTextChangesForAutocomplete(false);
         mUrlBar.requestFocus();
@@ -2288,5 +2505,95 @@ public class UrlBarUnitTest {
 
         mUrlBar.bringPointIntoView(0);
         verify(mUrlBar).bringPointIntoView(0);
+    }
+
+    @Test
+    public void testTextWidth_withShortTextAndHintFallback() {
+        mUrlBar.setText("");
+        mUrlBar.setHint("Search or type URL");
+        int hintWidth = mUrlBar.getTextWidth();
+        assertTrue(hintWidth > 0);
+
+        mUrlBar.setText("https://google.com");
+        int textWidth = mUrlBar.getTextWidth();
+        assertTrue(textWidth > 0);
+    }
+
+    @Test
+    public void testTextWidth_ignoresBoundsEllipsisSpanToPreventLayoutLoop() {
+        String text = "https://example.com/a_fairly_long_url_that_exceeds_screen_width";
+        mUrlBar.setText(text);
+        int unspannedWidth = mUrlBar.getTextWidth();
+
+        SpannableStringBuilder spannable = new SpannableStringBuilder(text);
+        spannable.setSpan(
+                UrlBar.BoundsEllipsisSpan.INSTANCE,
+                10,
+                text.length(),
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        mUrlBar.setText(spannable);
+        int widthWithSpan = mUrlBar.getTextWidth();
+
+        assertEquals(unspannedWidth, widthWithSpan);
+    }
+
+    @Test
+    public void testTextWidth_shapesOnlyTheSampledPrefixOfLongText() {
+        mUrlBar.setText(SUPER_LONG_URL);
+
+        mUrlBar.getTextWidth();
+
+        verify(mPaint, never()).measureText(SUPER_LONG_URL);
+        verify(mPaint).measureText(sampledPrefixOfSuperLongUrl());
+    }
+
+    @Test
+    public void testTextWidth_extrapolatesSampledPrefixToFullLength() {
+        mUrlBar.setText(SUPER_LONG_URL);
+        String prefix = sampledPrefixOfSuperLongUrl();
+        double sampledWidth = mUrlBar.getPaint().measureText(prefix);
+
+        int expectedWidth =
+                (int) Math.ceil(sampledWidth * SUPER_LONG_URL.length() / prefix.length());
+        assertEquals(expectedWidth, mUrlBar.getTextWidth());
+    }
+
+    @Test
+    public void testTextWidth_cachingAndInvalidation() {
+        mUrlBar.setText("https://google.com");
+        int initialWidth = mUrlBar.getTextWidth();
+        assertEquals(initialWidth, mUrlBar.getTextWidth());
+        verify(mPaint).measureText("https://google.com");
+
+        mUrlBar.setText("https://chromium.org/subpath");
+        int newWidth = mUrlBar.getTextWidth();
+        assertTrue(newWidth > initialWidth);
+        verify(mPaint).measureText("https://chromium.org/subpath");
+    }
+
+    @Test
+    public void testTextWidth_doesNotSampleHalfOfASurrogatePair() {
+        String prefix = "a".repeat(UrlBar.MAX_URL_LENGTH_FOR_MEASUREMENT - 1);
+        // The emoji straddles the sampling boundary, so only the preceding text may be measured.
+        mUrlBar.setText(prefix + GRINNING_FACE_EMOJI + "trailing");
+
+        mUrlBar.getTextWidth();
+
+        verify(mPaint).measureText(prefix);
+    }
+
+    @Test
+    // Android 14+ truncates TextView content to a few thousand characters, which is far too short
+    // to extrapolate past the ceiling, so pin this to a platform version that keeps the full text.
+    @Config(sdk = Build.VERSION_CODES.Q)
+    public void testTextWidth_clampsExtrapolatedWidthOfEnormousText() {
+        // The stubbed paint reports 10px per character, so this extrapolates past the ceiling.
+        mUrlBar.setText("a".repeat(UrlBar.MAX_REPORTED_TEXT_WIDTH_PX / 5));
+
+        assertEquals(UrlBar.MAX_REPORTED_TEXT_WIDTH_PX, mUrlBar.getTextWidth());
+    }
+
+    private static String sampledPrefixOfSuperLongUrl() {
+        return SUPER_LONG_URL.substring(0, UrlBar.MAX_URL_LENGTH_FOR_MEASUREMENT);
     }
 }

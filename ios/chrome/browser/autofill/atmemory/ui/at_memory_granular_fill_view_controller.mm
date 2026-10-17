@@ -17,9 +17,13 @@
 #import "ios/chrome/browser/shared/ui/table_view/content_configuration/table_view_cell_content_configuration.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_utils.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
+#import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util.h"
 
 namespace {
+
+// Vertical spacing above the manage enhanced autofill section.
+constexpr CGFloat kManageSectionHeaderHeight = 16.0;
 
 // Section identifiers for the diffable data source.
 enum SectionIdentifier {
@@ -44,6 +48,9 @@ enum ItemIdentifier {
   UITableViewDiffableDataSource<NSNumber*, id>* _dataSource;
   // List of dynamic granular fill items to display.
   NSArray<AtMemoryGranularFillItem*>* _granularFillItems;
+  // Whether the "Suggested by Gemini" footer is shown for the granular fill
+  // section.
+  BOOL _showSuggestedByGeminiFooter;
 }
 
 #pragma mark - UIViewController
@@ -53,6 +60,11 @@ enum ItemIdentifier {
 
   self.tableView.allowsSelection = YES;
   self.tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
+  self.tableView.backgroundColor =
+      [UIColor colorNamed:kGroupedPrimaryBackgroundColor];
+  self.tableView.tableHeaderView =
+      [[UIView alloc] initWithFrame:CGRectMake(0, 0, 0, CGFLOAT_MIN)];
+  self.tableView.sectionHeaderTopPadding = 0;
 
   UIBarButtonItem* cancelButton = [[UIBarButtonItem alloc]
       initWithBarButtonSystemItem:UIBarButtonSystemItemCancel
@@ -60,6 +72,8 @@ enum ItemIdentifier {
                            action:@selector(handleCancelButton)];
   cancelButton.accessibilityIdentifier =
       kAtMemoryCloseButtonAccessibilityIdentifier;
+  cancelButton.accessibilityLabel = l10n_util::GetNSString(
+      IDS_IOS_AUTOFILL_AI_CLOSE_FIND_AND_FILL_ACCESSIBILITY_LABEL);
   self.navigationItem.rightBarButtonItem = cancelButton;
 
   [self loadModel];
@@ -104,13 +118,24 @@ enum ItemIdentifier {
   }
 }
 
+- (void)setShowSuggestedByGeminiFooter:(BOOL)show {
+  if (_showSuggestedByGeminiFooter == show) {
+    return;
+  }
+  _showSuggestedByGeminiFooter = show;
+  if (_dataSource) {
+    [self.tableView reloadData];
+  }
+}
+
 #pragma mark - UITableViewDelegate
 
 - (UIView*)tableView:(UITableView*)tableView
     viewForFooterInSection:(NSInteger)section {
   SectionIdentifier sectionIdentifier = static_cast<SectionIdentifier>(
       [_dataSource sectionIdentifierForIndex:section].unsignedIntegerValue);
-  if (sectionIdentifier == kGranularFillItemsSection) {
+  if (sectionIdentifier == kGranularFillItemsSection &&
+      _showSuggestedByGeminiFooter) {
     TableViewLinkHeaderFooterView* footer =
         DequeueTableViewHeaderFooter<TableViewLinkHeaderFooterView>(tableView);
     [footer setText:l10n_util::GetNSString(IDS_AUTOFILL_AI_SUGGESTED_BY_GEMINI)
@@ -124,14 +149,25 @@ enum ItemIdentifier {
     heightForFooterInSection:(NSInteger)section {
   SectionIdentifier sectionIdentifier = static_cast<SectionIdentifier>(
       [_dataSource sectionIdentifierForIndex:section].unsignedIntegerValue);
-  if (sectionIdentifier == kGranularFillItemsSection) {
+  if (sectionIdentifier == kGranularFillItemsSection &&
+      _showSuggestedByGeminiFooter) {
     return UITableViewAutomaticDimension;
   }
   return 0.0;
 }
 
+- (UIView*)tableView:(UITableView*)tableView
+    viewForHeaderInSection:(NSInteger)section {
+  return nil;
+}
+
 - (CGFloat)tableView:(UITableView*)tableView
     heightForHeaderInSection:(NSInteger)section {
+  SectionIdentifier sectionIdentifier = static_cast<SectionIdentifier>(
+      [_dataSource sectionIdentifierForIndex:section].unsignedIntegerValue);
+  if (sectionIdentifier == kManageSection) {
+    return kManageSectionHeaderHeight;
+  }
   return 0.0;
 }
 
@@ -166,29 +202,26 @@ enum ItemIdentifier {
 
   id itemIdentifier = [_dataSource itemIdentifierForIndexPath:indexPath];
   if ([itemIdentifier isEqual:@(kManageEnhancedAutofillItem)]) {
-    // TODO(crbug.com/522340351): Update after confirming with UX.
-    [self.atMemoryHandler openAutofillSettings];
+    [self.mutator didSelectManageEnhancedAutofillItem];
   }
 }
 
 #pragma mark - Private
 
 // Creates the diffable data source snapshot with the granular fill section
-// and manage enhanced autofill section.
+// and the manage enhanced autofill section.
 - (void)createNewSnapshot {
   NSDiffableDataSourceSnapshot<NSNumber*, id>* snapshot =
       [[NSDiffableDataSourceSnapshot alloc] init];
 
-  [snapshot appendSectionsWithIdentifiers:@[
-    @(kGranularFillItemsSection),
-    @(kManageSection),
-  ]];
+  [snapshot appendSectionsWithIdentifiers:@[ @(kGranularFillItemsSection) ]];
 
   if (_granularFillItems.count > 0) {
     [snapshot appendItemsWithIdentifiers:_granularFillItems
                intoSectionWithIdentifier:@(kGranularFillItemsSection)];
   }
 
+  [snapshot appendSectionsWithIdentifiers:@[ @(kManageSection) ]];
   [snapshot appendItemsWithIdentifiers:@[ @(kManageEnhancedAutofillItem) ]
              intoSectionWithIdentifier:@(kManageSection)];
 
@@ -224,6 +257,7 @@ enum ItemIdentifier {
   configuration.titleColor = [UIColor colorNamed:kBlueColor];
   cell.accessibilityIdentifier =
       kAtMemoryManageEnhancedAutofillItemAccessibilityIdentifier;
+  cell.accessibilityTraits |= UIAccessibilityTraitButton;
   cell.contentConfiguration = configuration;
   cell.accessoryType = UITableViewCellAccessoryNone;
   cell.selectionStyle = UITableViewCellSelectionStyleDefault;
@@ -245,8 +279,10 @@ enum ItemIdentifier {
     [weakSelf.mutator didSelectGranularFillItem:item];
   };
   cell.contentConfiguration = configuration;
+  cell.accessibilityTraits &= ~UIAccessibilityTraitButton;
   cell.accessibilityIdentifier =
       GetAtMemoryGranularFillCellAccessibilityIdentifier(item.attributeName);
+  cell.isAccessibilityElement = NO;
   cell.accessoryType = UITableViewCellAccessoryNone;
   cell.selectionStyle = UITableViewCellSelectionStyleNone;
   return cell;

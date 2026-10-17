@@ -12,6 +12,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/ash/login/users/profile_user_manager_controller.h"
+#include "chrome/browser/ash/login/users/scoped_account_id_annotator.h"
 #include "chrome/browser/ash/settings/scoped_testing_cros_settings.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
 #include "chrome/test/base/testing_browser_process.h"
@@ -19,6 +20,7 @@
 #include "chrome/test/base/testing_profile_manager.h"
 #include "chromeos/ash/components/install_attributes/stub_install_attributes.h"
 #include "chromeos/ash/components/settings/cros_settings.h"
+#include "chromeos/ash/components/signin/fake_identity_manager_provider.h"
 #include "components/prefs/pref_service.h"
 #include "components/session_manager/core/session.h"
 #include "components/session_manager/core/session_manager.h"
@@ -57,9 +59,16 @@ class AmbientClientImplTest : public testing::Test {
 
     image_downloader_ = std::make_unique<ash::TestImageDownloader>();
     ambient_client_ = std::make_unique<AmbientClientImpl>();
+
+    // Nothing else in this test registers an ash::IdentityManagerProvider.
+    // The map starts empty, so Find() returns nullptr until LogIn() registers
+    // the real IdentityManager for the account being logged in.
+    identity_manager_provider_ =
+        std::make_unique<ash::FakeIdentityManagerProvider>();
   }
 
   void TearDown() override {
+    identity_manager_provider_.reset();
     ambient_client_.reset();
     identity_test_env_adaptor_.reset();
     profile_ = nullptr;
@@ -82,6 +91,8 @@ class AmbientClientImplTest : public testing::Test {
     user_session_test_environment_->LogIn(account_id);
 
     CHECK(!profile_);
+    ash::ScopedAccountIdAnnotator annotator(profile_manager_->profile_manager(),
+                                            account_id);
     profile_ = profile_manager_->CreateTestingProfile(
         account_id.GetUserEmail(), /*prefs=*/{},
         base::UTF8ToUTF16(account_id.GetUserEmail()),
@@ -90,6 +101,8 @@ class AmbientClientImplTest : public testing::Test {
             GetIdentityTestEnvironmentFactories());
     identity_test_env_adaptor_ =
         std::make_unique<IdentityTestEnvironmentProfileAdaptor>(profile_);
+    identity_manager_provider_->SetIdentityManagerForAccount(
+        account_id, identity_test_env()->identity_manager());
 
     if (!identity_test_env()->identity_manager()->HasPrimaryAccount(
             signin::ConsentLevel::kSignin)) {
@@ -122,6 +135,7 @@ class AmbientClientImplTest : public testing::Test {
   raw_ptr<TestingProfile> profile_ = nullptr;
   std::unique_ptr<IdentityTestEnvironmentProfileAdaptor>
       identity_test_env_adaptor_;
+  std::unique_ptr<ash::FakeIdentityManagerProvider> identity_manager_provider_;
   std::unique_ptr<ash::TestImageDownloader> image_downloader_;
   std::unique_ptr<AmbientClientImpl> ambient_client_;
 };

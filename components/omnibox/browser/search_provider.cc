@@ -175,7 +175,7 @@ class SearchProvider::CompareScoredResults {
 
 SearchProvider::SearchProvider(AutocompleteProviderClient* client,
                                AutocompleteProviderListener* listener)
-    : BaseSearchProvider(AutocompleteProvider::TYPE_SEARCH, client),
+    : BaseSearchProvider(AutocompleteProvider::Type::kSearch, client),
       providers_(client->GetTemplateURLService()) {
   AddListener(listener);
 
@@ -214,7 +214,7 @@ void SearchProvider::UpdateOldResults(
   if (!minimal_changes) {
     for (auto sug_it = results->suggest_results.begin();
          sug_it != results->suggest_results.end();) {
-      if (sug_it->type() == AutocompleteMatchType::CALCULATOR) {
+      if (sug_it->type() == omnibox::AutocompleteMatchType::kCalculator) {
         sug_it = results->suggest_results.erase(sug_it);
       } else {
         sug_it->set_received_after_last_keystroke(false);
@@ -1010,7 +1010,7 @@ void SearchProvider::ConvertResultsToAutocompleteMatches() {
 
     SearchSuggestionParser::SuggestResult verbatim(
         /*suggestion=*/trimmed_verbatim,
-        AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED,
+        omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
         /*suggest_type=*/omnibox::TYPE_NATIVE_CHROME,
         /*subtypes=*/{}, /*from_keyword=*/false,
         /*navigational_intent=*/omnibox::NAV_INTENT_NONE, verbatim_relevance,
@@ -1051,7 +1051,7 @@ void SearchProvider::ConvertResultsToAutocompleteMatches() {
             base::CollapseWhitespace(keyword_input_.text(), false);
         SearchSuggestionParser::SuggestResult verbatim(
             /*suggestion=*/trimmed_verbatim,
-            AutocompleteMatchType::SEARCH_OTHER_ENGINE,
+            omnibox::AutocompleteMatchType::kSearchOtherEngine,
             /*suggest_type=*/omnibox::TYPE_NATIVE_CHROME,
             /*subtypes=*/{}, /*from_keyword=*/true,
             /*navigational_intent=*/omnibox::NAV_INTENT_NONE,
@@ -1128,8 +1128,8 @@ void SearchProvider::ConvertResultsToAutocompleteMatches() {
     // SEARCH_OTHER_ENGINE is only used in the SearchProvider for the keyword
     // verbatim result, so this condition basically means "if this match is a
     // suggestion of some sort".
-    if ((i->type != AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED) &&
-        (i->type != AutocompleteMatchType::SEARCH_OTHER_ENGINE)) {
+    if ((i->type != omnibox::AutocompleteMatchType::kSearchWhatYouTyped) &&
+        (i->type != omnibox::AutocompleteMatchType::kSearchOtherEngine)) {
       // If we've already hit the limit on non-server-scored suggestions, and
       // this isn't a server-scored suggestion we can add, skip it.
       // TODO (manukh): `GetAdditionalInfoForDebugging()` shouldn't be used for
@@ -1173,8 +1173,9 @@ bool SearchProvider::IsTopMatchSearchWithURLInput() const {
   return (input_.type() == metrics::OmniboxInputType::URL) &&
          (first_match != matches_.end()) &&
          (first_match->relevance > CalculateRelevanceForVerbatim()) &&
-         (first_match->type != AutocompleteMatchType::NAVSUGGEST) &&
-         (first_match->type != AutocompleteMatchType::NAVSUGGEST_PERSONALIZED);
+         (first_match->type != omnibox::AutocompleteMatchType::kNavsuggest) &&
+         (first_match->type !=
+          omnibox::AutocompleteMatchType::kNavsuggestPersonalized);
 }
 
 void SearchProvider::AddNavigationResultsToMatches(
@@ -1253,7 +1254,7 @@ SearchProvider::ScoreHistoryResultsHelper(
     }
     SearchSuggestionParser::SuggestResult history_suggestion(
         /*suggestion=*/trimmed_suggestion,
-        AutocompleteMatchType::SEARCH_HISTORY,
+        omnibox::AutocompleteMatchType::kSearchHistory,
         /*suggest_type=*/omnibox::TYPE_NATIVE_CHROME, /*subtypes=*/{},
         is_keyword, /*navigational_intent=*/omnibox::NAV_INTENT_NONE, relevance,
         /*relevance_from_server=*/false, /*input_text=*/trimmed_input);

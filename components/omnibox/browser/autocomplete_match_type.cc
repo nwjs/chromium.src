@@ -20,8 +20,9 @@
 #include "components/strings/grit/components_strings.h"
 #include "ui/base/l10n/l10n_util.h"
 
-// static
-std::string AutocompleteMatchType::ToString(AutocompleteMatchType::Type type) {
+namespace omnibox {
+
+std::string AutocompleteMatchTypeToString(AutocompleteMatchType type) {
   // clang-format off
   static constexpr auto strings = std::to_array<const char*>({
     "url-what-you-typed",
@@ -67,20 +68,21 @@ std::string AutocompleteMatchType::ToString(AutocompleteMatchType::Type type) {
     "cross-device-tab",
   });
   // clang-format on
-  static_assert(strings.size() == AutocompleteMatchType::NUM_TYPES,
-                "strings array must have NUM_TYPES elements");
-  return strings[type];
+  static_assert(strings.size() ==
+                    static_cast<size_t>(AutocompleteMatchType::kMaxValue) + 1,
+                "strings array must have all AutocompleteMatchType elements");
+  return strings[static_cast<size_t>(type)];
 }
 
-// static
-bool AutocompleteMatchType::FromInteger(int value, Type* result) {
+bool AutocompleteMatchTypeFromInteger(int value,
+                                      AutocompleteMatchType* result) {
   DCHECK(result);
 
-  if (value < Type::URL_WHAT_YOU_TYPED || value >= Type::NUM_TYPES) {
+  if (value < 0 || value > static_cast<int>(AutocompleteMatchType::kMaxValue)) {
     return false;
   }
 
-  *result = static_cast<Type>(value);
+  *result = static_cast<AutocompleteMatchType>(value);
   return true;
 }
 
@@ -163,26 +165,27 @@ std::u16string GetAccessibilityBaseLabel(const AutocompleteMatch& match,
       0,                                        // TAB_GROUP
       0,                                        // CROSS_DEVICE_TAB
   });
-  static_assert(std::size(message_ids) == AutocompleteMatchType::NUM_TYPES,
-                "message_ids must have NUM_TYPES elements");
+  static_assert(std::size(message_ids) ==
+                    static_cast<size_t>(AutocompleteMatchType::kMaxValue) + 1,
+                "message_ids must have all AutocompleteMatchType elements");
 
   // Document provider should use its full display text; description has
   // already been constructed via IDS_DRIVE_SUGGESTION_DESCRIPTION_TEMPLATE.
   // TODO(skare) http://crbug.com/951109: format as string in grd so this isn't
   // special-cased.
-  if (match.type == AutocompleteMatchType::DOCUMENT_SUGGESTION) {
+  if (match.type == AutocompleteMatchType::kDocumentSuggestion) {
     std::u16string doc_string =
         match.contents + u", " + match.description + u", " + match_text;
     return doc_string;
   }
 
   // Standalone action suggestions must use the associated accessibility hint.
-  if (match.type == AutocompleteMatchType::PEDAL) {
+  if (match.type == AutocompleteMatchType::kPedal) {
     DCHECK(match.takeover_action);
     return match.takeover_action->GetLabelStrings().accessibility_hint;
   }
 
-  int message = message_ids[match.type];
+  int message = message_ids[static_cast<size_t>(match.type)];
   if (!message || match.IsThreadsHistorySuggestion()) {
     return match_text;
   }
@@ -205,6 +208,7 @@ std::u16string GetAccessibilityBaseLabel(const AutocompleteMatch& match,
       }
       break;
     case IDS_ACC_AUTOCOMPLETE_HISTORY:
+    case IDS_ACC_AUTOCOMPLETE_HISTORY_EMBEDDINGS:
     case IDS_ACC_AUTOCOMPLETE_BOOKMARK:
       // History match.
       // May have descriptive text for the title of the page.
@@ -244,8 +248,7 @@ std::u16string GetAccessibilityBaseLabel(const AutocompleteMatch& match,
   return l10n_util::GetStringFUTF16(message, *description);
 }
 
-// static
-std::u16string AutocompleteMatchType::ToAccessibilityLabel(
+std::u16string AutocompleteMatchToAccessibilityLabel(
     const AutocompleteMatch& match,
     const std::u16string& header_text,
     const std::u16string& match_text,
@@ -282,3 +285,5 @@ std::u16string AutocompleteMatchType::ToAccessibilityLabel(
 
   return result;
 }
+
+}  // namespace omnibox

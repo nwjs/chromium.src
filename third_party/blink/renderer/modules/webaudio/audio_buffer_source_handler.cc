@@ -215,8 +215,7 @@ AudioBufferSourceHandler::ProcessFastPath(double virtual_delta_frames,
 
   while (frames_to_process > 0) {
     const int frames_to_end = end_frame - read_index;
-    int frames_this_time = std::min(frames_to_process, frames_to_end);
-    frames_this_time = std::max(0, frames_this_time);
+    int frames_this_time = std::clamp(frames_to_end, 0, frames_to_process);
     const size_t frames_this_time_size =
         base::checked_cast<size_t>(frames_this_time);
 
@@ -288,6 +287,12 @@ AudioBufferSourceHandler::ProcessInterpolatedPath(double virtual_start_frame,
   DCHECK_GT(buffer_length, 0u);
   const unsigned max_index = buffer_length - 1;
 
+  // Hoisted out of the per-frame loop below: these are loop-invariant.
+  const base::span<const base::raw_span<float>> destinations =
+      destination_channels_.as_span();
+  const base::span<const base::raw_span<const float>> sources =
+      source_channels_.as_span();
+
   for (int i = 0; i < frames_to_process; ++i) {
     const uint32_t frames_remaining = frames_to_process - i - 1;
     unsigned read_index = static_cast<unsigned>(virtual_read_index);
@@ -328,8 +333,10 @@ AudioBufferSourceHandler::ProcessInterpolatedPath(double virtual_start_frame,
 
     // Linear interpolation.
     for (unsigned channel = 0; channel < number_of_channels; ++channel) {
-      auto destination = destination_channels_[channel];
-      auto source = source_channels_[channel];
+      // Not `auto`: it would deduce and copy a `base::raw_span`, which is
+      // not free under BackupRefPtr.
+      base::span<float> destination = destinations[channel];
+      base::span<const float> source = sources[channel];
 
       // The source channel may have been transferred already, so don't try
       // to read from it if it was. Just set the destination to 0.

@@ -198,7 +198,6 @@
 <translation id="1525508553941733066">KETEPIKAN</translation>
 <translation id="152629053603783244">Mulakan semula Linux</translation>
 <translation id="1526448108126799339">Buka tab baharu dalam tetingkap baharu</translation>
-<translation id="1528259147807435347">Diedit dalam minggu lepas</translation>
 <translation id="1536604384701784949">Untuk menggunakan <ph name="USER_EMAIL_ADDRESS" />, anda perlu log keluar daripada semua akaun dahulu. Untuk log keluar, pilih Batal untuk kembali. Kemudian pilih masa untuk membuka ruang status dan pilih Log keluar. Kemudian log masuk ke <ph name="USER_EMAIL_ADDRESS_2" /> sekali lagi.</translation>
 <translation id="15373452373711364">Kursor tetikus besar</translation>
 <translation id="1545331255323159851">Lihat foto, media dan pemberitahuan terbaharu telefon anda</translation>
@@ -372,7 +371,6 @@
 <translation id="2075520525463668108">Togol <ph name="CAPTURE_MEDIUM" />. <ph name="CAPTURE_MEDIUM" /> kini <ph name="CAPTURE_STATE" /></translation>
 <translation id="2079545284768500474">Buat asal</translation>
 <translation id="2086334242442703436">Buka Pemilih Emoji</translation>
-<translation id="2088116547584365419">permainan</translation>
 <translation id="2089550919269323883">Memasang <ph name="VM_NAME" />, disekat oleh dasar perusahaan. Sila hubungi pentadbir sistem anda untuk mendapatkan sokongan. Kod ralat ialah <ph name="ERROR" />.</translation>
 <translation id="2093792000875799555">Berita Steam untuk Chromebook</translation>
 <translation id="209965399369889474">Tidak bersambung ke rangkaian</translation>
@@ -472,7 +470,6 @@
 <translation id="240789602312469910">Hantar data penggunaan dan diagnostik. Bantu kami meningkatkan pengalaman Android anak anda dengan menghantar data diagnostik dan penggunaan peranti serta apl kepada Google secara automatik. Data ini tidak akan digunakan untuk mengenal pasti anak anda dan akan membantu peningkatan kestabilan sistem dan apl serta pelbagai lagi. Sesetengah data agregat juga akan membantu apl dan rakan kongsi Google, seperti pembangun Android. <ph name="BEGIN_LINK1" />Tetapan<ph name="END_LINK1" /> ini dikuatkuasakan oleh pemilik. Pemilik mungkin memilih untuk menghantar data diagnostik dan penggunaan bagi peranti ini kepada Google. Jika tetapan Aktiviti Web &amp; Apl tambahan dihidupkan untuk anak anda, data ini mungkin disimpan pada Google Account miliknya. <ph name="BEGIN_LINK2" />Ketahui lebih lanjut tentang metrik<ph name="BEGIN_LINK2_END" />Ketahui Lebih Lanjut<ph name="END_LINK2" /></translation>
 <translation id="2408955596600435184">Masukkan PIN anda</translation>
 <translation id="2412593942846481727">Kemas kini tersedia</translation>
-<translation id="2416438829169535743">Keluar daripada paparan?</translation>
 <translation id="2417486498593892439">Log masuk ke rangkaian</translation>
 <translation id="2423619675829330672">Terlalu banyak percubaan PIN. Tunggu selama <ph name="TIME_LEFT" />, kemudian cuba sekali lagi.</translation>
 <translation id="2426051945783024481">Bingkai kamera dipusatkan secara automatik</translation>
@@ -480,7 +477,6 @@
 <translation id="2429753432712299108">Peranti Bluetooth "<ph name="DEVICE_NAME" />" ingin kebenaran untuk berpasangan. Sebelum menerimanya, sila sahkan bahawa kekunci laluan ini dipaparkan pada peranti tersebut: <ph name="PASSKEY" /></translation>
 <translation id="2435457462613246316">Paparkan kata laluan</translation>
 <translation id="2437771564543046790">Bateri lemah. Penjimat Bateri dihidupkan</translation>
-<translation id="243878895369688216">Dibuka semalam</translation>
 <translation id="2440978926514840421">Rakaman GIF diambil</translation>
 <translation id="2441427462554639370">Rakaman ditamatkan kerana ruang storan hampir habis</translation>
 <translation id="2445449901874883781">Gunakan ketumpatan tinggi</translation>
@@ -689,7 +685,6 @@ Jika tidak, pad sentuh terbina dalam akan didayakan semula selepas <ph name="TIM
 <translation id="3039491566278747710">Gagal memasang dasar luar talian pada peranti.</translation>
 <translation id="3039939407102840004">Paras cas bateri stilus <ph name="PERCENTAGE" /> peratus.</translation>
 <translation id="304097922505898963">Buka apl Pintasan Kekunci</translation>
-<translation id="3040982432432547149">Bantu kami meningkatkan Steam pada Chromebook</translation>
 <translation id="304417730895741346">Apl anda yang disematkan dan dibuka berada pada rak. Untuk menyematkan apl pada rak, klik kanan apl atau ketik pad sentuh menggunakan dua jari.</translation>
 <translation id="3045670165536837541">Pemegang bahagian atas sebelah kanan dipilih, gunakan kekunci anak panah untuk digerakkan</translation>
 <translation id="3046178388369461825">Ruang cakera Linux terlalu sedikit</translation>
@@ -873,7 +868,6 @@ Jika tidak, pad sentuh terbina dalam akan didayakan semula selepas <ph name="TIM
 <translation id="3563432852173030730">Aplikasi kios tidak dapat dimuat turun.</translation>
 <translation id="3563558822383875692">Mengkonfigurasikan DLC.</translation>
 <translation id="3563775809269155755">Dayakan tempat liputan</translation>
-<translation id="3566240529365775567">Dibuka sebentar tadi</translation>
 <translation id="3571734092741541777">Sediakan</translation>
 <translation id="3573179567135747900">Tukar kembali kepada "<ph name="FROM_LOCALE" />" (perlu dimulakan semula)</translation>
 <translation id="3576141592585647168">Tukar zon waktu</translation>
@@ -960,7 +954,6 @@ Sambungkan peranti anda kepada sumber kuasa.</translation>
 <translation id="3756485814916578707">Menghantar skrin</translation>
 <translation id="3765246971671567135">Tidak dapat membaca dasar mod tunjuk cara luar talian.</translation>
 <translation id="3765841382945324995">Pintasan <ph name="SIX_PACK_KEY_NAME" /> dikemaskinikan kepada <ph name="NEW_SHORTCUT" /> daripada <ph name="OLD_SHORTCUT" /></translation>
-<translation id="3765841986579723851">Diedit hari ini</translation>
 <translation id="3772109172035555611">Sesuaikan TrackPoint anda</translation>
 <translation id="3773700760453577392">Pentadbir tidak membenarkan log masuk berbilang untuk <ph name="USER_EMAIL" />.
 Semua pengguna mesti log keluar untuk meneruskan.</translation>
@@ -1001,7 +994,6 @@ Semua pengguna mesti log keluar untuk meneruskan.</translation>
 <translation id="3873915545594852654">Masalah berkaitan ARC++ telah berlaku.</translation>
 <translation id="3879748587602334249">Pengurus muat turun</translation>
 <translation id="3884007280698606545">Had USB dicapai</translation>
-<translation id="3886872229787704059">Dibuka hari ini</translation>
 <translation id="3892148308691398805">Salin teks</translation>
 <translation id="3893630138897523026">ChromeVox (maklum balas dituturkan)</translation>
 <translation id="3898464793473355515">Putar skrin 90 darjah mengikut arah jam</translation>
@@ -1019,7 +1011,6 @@ Semua pengguna mesti log keluar untuk meneruskan.</translation>
 <translation id="394485226368336402">Tetapan audio</translation>
 <translation id="3945319193631853098">Ketik untuk menyelesaikan persediaan</translation>
 <translation id="3945867833895287237">Menyambung kepada tempat liputan...</translation>
-<translation id="3950272133184491871">Log keluar sekarang?</translation>
 <translation id="3950820424414687140">Log masuk</translation>
 <translation id="3953130726459169782">Belum ada tugasan yang disiapkan.</translation>
 <translation id="3957844511978444971">Ketik “Terima” untuk mengesahkan pilihan tetapan perkhidmatan Google ini.</translation>
@@ -1088,7 +1079,6 @@ Semua pengguna mesti log keluar untuk meneruskan.</translation>
 <translation id="4147911968024186208">Sila cuba semula. Jika ralat ini dipaparkan sekali lagi, sila hubungi wakil sokongan anda.</translation>
 <translation id="4150201353443180367">Paparan</translation>
 <translation id="4151054805501931758">Kemasan potret</translation>
-<translation id="4151449637210235443">Beritahu kami tentang cara main anda baru-baru ini</translation>
 <translation id="4156293514828496577">Baki bateri <ph name="PERCENTAGE" />% (kira-kira <ph name="TIME_LEFT" />). Sesetengah ciri dihadkan untuk meningkatkan hayat bateri.</translation>
 <translation id="4158003972857765638">Susun dalam meja baharu</translation>
 <translation id="4160919062868802509">Berbilang sumber audio dikesan</translation>
@@ -1792,7 +1782,6 @@ Tiada peranti disambungkan.</translation>
 <translation id="6095008505822982596">Kadar pertuturan</translation>
 <translation id="6095425951508823973">Tambahkan sambungan dengan <ph name="PROVIDER" /></translation>
 <translation id="6095541101974653012">Anda telah dilog keluar.</translation>
-<translation id="6099678161144790572">Diedit dalam bulan lepas</translation>
 <translation id="6103838137565245112">sistem</translation>
 <translation id="6108952804512516814">Buat dengan AI</translation>
 <translation id="6114505516289286752">Fail pertuturan <ph name="LANGUAGE" /> dimuat turun</translation>
@@ -1949,7 +1938,6 @@ Tiada peranti disambungkan.</translation>
 <translation id="6555373427270923730">Taipkan alamat web dalam bar alamat, kemudian tekan <ph name="MODIFIER" /><ph name="KEY" /></translation>
 <translation id="655633303491376835"><ph name="APP_NAME" />
 Pemasangan baharu</translation>
-<translation id="6559158502366839560">Teroka apl dan permainan lagi</translation>
 <translation id="6560151649238390891">Cadangan disisipkan</translation>
 <translation id="6562447480759345110">Tamatkan Fokus</translation>
 <translation id="6565007273808762236">Sambungan eSIM tidak tersedia</translation>
@@ -2055,7 +2043,6 @@ Pemasangan baharu</translation>
 <translation id="6848716236260083778">Untuk menyediakan cap jari, minta anak anda menyentuh penderia cap jari. Data cap jari anak anda disimpan dengan selamat dan tidak sekali-kali dihantar keluar daripada <ph name="DEVICE_TYPE" /> ini.</translation>
 <translation id="6852052252232534364">Klik untuk aktifkan</translation>
 <translation id="6852628153543175788">Tambahkan 10 minit</translation>
-<translation id="6855029042976311970">Diedit sebentar tadi</translation>
 <translation id="6856708615407876657">Togol kategori hasil carian</translation>
 <translation id="6856756288284651804">Chromebook Dikemaskinikan</translation>
 <translation id="6857725247182211756"><ph name="SECONDS" /> saat</translation>
@@ -2150,7 +2137,6 @@ Pemasangan baharu</translation>
 <translation id="7118597077555700347">Buka <ph name="SEARCH_RESULT_TEXT" /></translation>
 <translation id="7119327711295338600">Pilih perkataan atau huruf seterusnya</translation>
 <translation id="7124556000457919678">Apabila dihidupkan, jeda dan sambung semula kekunci tetikus</translation>
-<translation id="7126996685418858413">Dibuka pada minggu lalu</translation>
 <translation id="7131634465328662194">Anda akan dilog keluar secara automatik.</translation>
 <translation id="7143207342074048698">Menyambung</translation>
 <translation id="7144878232160441200">Cuba semula</translation>
@@ -2181,7 +2167,6 @@ Pemasangan baharu</translation>
 <translation id="7256057185598509352">ExpressKey 2</translation>
 <translation id="7256634071279256947">Mikrofon belakang</translation>
 <translation id="7258225044283673131">Aplikasi tidak memberikan respons. Pilih "Paksa tutup" untuk menutup apl.</translation>
-<translation id="7258828758145722155">Diedit semalam</translation>
 <translation id="726276584504105859">Seret ke sini untuk menggunakan skrin pisah</translation>
 <translation id="7264788308526527464">Kurangkan <ph name="FOCUS_DURATION_DELTA" /></translation>
 <translation id="7267875682732693301">Angkat jari berulang kali untuk menambahkan beberapa bahagian cap jari anda</translation>
@@ -2254,7 +2239,6 @@ Pemasangan baharu</translation>
 <translation id="7491962110804786152">tab</translation>
 <translation id="7497767806359279797">Pilih bahasa dan papan kekunci</translation>
 <translation id="7507162824403726948">Pengesahan identiti anda selesai</translation>
-<translation id="7508690557411636492">Dibuka pada bulan lalu</translation>
 <translation id="7509246181739783082">Sahkan identiti anda</translation>
 <translation id="7512509370370076552">Pintasan klik kanan telah dikemaskinikan kepada kekunci <ph name="LAUNCHER_KEY_NAME" /> + klik daripada Alt + klik</translation>
 <translation id="7512726380443357693"><ph name="BUTTON_LABEL" />, tidak dipilih</translation>
@@ -2396,7 +2380,6 @@ Untuk mematikan peranti, tekan dan tahan butang kuasa pada peranti sekali lagi.<
 <translation id="7850320739366109486">Jangan Ganggu</translation>
 <translation id="7851039877802112575">Alihkan fokus kepada tetingkap timbul dan dialog</translation>
 <translation id="7851768487828137624">Canary</translation>
-<translation id="7862292329216937261">Untuk menggunakan peranti sebagai tetamu, anda perlu log keluar dan pilih Semak imbas sebagai Tetamu pada bahagian bawah skrin.</translation>
 <translation id="7866482334467279021">dihidupkan</translation>
 <translation id="7870790288828963061">Tiada apl Kiosk dengan versi lebih baharu dijumpai. Tiada apa-apa untuk dikemas kini. Sila alih keluar batang USB.</translation>
 <translation id="7872786842639831132">Mati</translation>
@@ -2709,7 +2692,6 @@ Untuk mematikan peranti, tekan dan tahan butang kuasa pada peranti sekali lagi.<
 <translation id="8753368202781196133">Bahasa ini tidak disokong pada masa ini.</translation>
 <translation id="8755498163081687682">Sahkan identiti anda: <ph name="ORIGIN_NAME" /> ingin mengesahkan orang itu ialah anda</translation>
 <translation id="875593634123171288">Tunjukkan tetapan VPN</translation>
-<translation id="8756799553341497810">Anda boleh mula menyesuaikan reka letak apl anda setelah anda keluar daripada paparan ini.</translation>
 <translation id="8759408218731716181">Tidak dapat menyediakan berbilang log masuk</translation>
 <translation id="8759753423332885148">Ketahui lebih lanjut.</translation>
 <translation id="8760172428247796445"><ph name="DEVICE_TYPE" /> anda akan dikunci sekarang.

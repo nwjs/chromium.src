@@ -130,7 +130,7 @@ bool ShouldRunProvider(AutocompleteProviderClient* client,
 }  // namespace
 
 OpenTabProvider::OpenTabProvider(AutocompleteProviderClient* client)
-    : AutocompleteProvider(AutocompleteProvider::TYPE_OPEN_TAB),
+    : AutocompleteProvider(AutocompleteProvider::Type::kOpenTab),
       client_(client) {}
 
 OpenTabProvider::~OpenTabProvider() = default;
@@ -189,7 +189,7 @@ AutocompleteMatch OpenTabProvider::CreateOpenTabMatch(
   DCHECK(url.is_valid());
 
   AutocompleteMatch match(this, score, /*deletable=*/false,
-                          AutocompleteMatchType::OPEN_TAB);
+                          omnibox::AutocompleteMatchType::kOpenTab);
 
   match.destination_url = url;
   match.fill_into_edit = base::UTF8ToUTF16(url.spec());
@@ -250,7 +250,7 @@ AutocompleteMatch OpenTabProvider::CreateNullResultMessageMatch(
   // no other suggestions were found. Use an arbitrary constant.
   constexpr int kRelevanceScore = 1000;
   AutocompleteMatch match(this, kRelevanceScore, /*deletable=*/false,
-                          AutocompleteMatchType::NULL_RESULT_MESSAGE);
+                          omnibox::AutocompleteMatchType::kNullResultMessage);
 
   // These fields are filled in to enable the Keyword UI when only this
   // suggestion is available.

@@ -228,6 +228,7 @@ import org.chromium.chrome.browser.ui.appmenu.MenuButtonDelegate;
 import org.chromium.chrome.browser.ui.bottombar.AiModeActionCoordinator;
 import org.chromium.chrome.browser.ui.bottombar.BottomBarConfigUtils;
 import org.chromium.chrome.browser.ui.bottombar.BottomBarHostManager;
+import org.chromium.chrome.browser.ui.bottombar.BottomBarUtils;
 import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTask;
 import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTaskFeatureKey;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
@@ -237,7 +238,7 @@ import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.AnchorSide;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.HeightType;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiSpecs;
-import org.chromium.chrome.browser.ui.side_ui.SideUiObserver;
+import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.UiUpdateRequest;
 import org.chromium.chrome.browser.ui.side_ui.SideUiStateProvider;
 import org.chromium.chrome.browser.ui.side_ui.ViewMarginAdjusterForSideUi;
 import org.chromium.chrome.browser.ui.system.StatusBarColorController;
@@ -477,8 +478,8 @@ public class ToolbarManager
     private @Nullable TabGroupUiOneshotSupplier mTabGroupUiOneshotSupplier;
 
     private @Nullable SideUiStateProvider mSideUiStateProvider;
-    private @Nullable SideUiObserver mControlContainerSideUiObserver;
-    private @Nullable SideUiObserver mProgressBarSideUiObserver;
+    private @Nullable ToolbarMarginAdjusterForSideUi mControlContainerSideUiObserver;
+    private @Nullable ViewMarginAdjusterForSideUi mProgressBarSideUiObserver;
     private boolean mIsVerticalTabsHiddenDueToNarrow;
     private boolean mIsXrFsm;
     private int mRestoredRightMargin;
@@ -1025,7 +1026,7 @@ public class ToolbarManager
         ThemeColorProvider overviewModeThemeColorProvider = mAppThemeColorProvider;
 
         Runnable requestFocusRunnable = compositorViewHolder::requestFocus;
-        ThemeColorProvider menuButtonThemeColorProvider =
+        ThemeColorProvider themeColorProvider =
                 mIsCustomTab
                         ? mCustomTabThemeColorProvider
                         : browsingModeThemeColorProviderWithAdjustableTint;
@@ -1051,7 +1052,7 @@ public class ToolbarManager
                         requestFocusRunnable,
                         canShowUpdateBadge,
                         isInOverviewModeSupplier,
-                        menuButtonThemeColorProvider,
+                        themeColorProvider,
                         mIncognitoStateProvider,
                         menuButtonStateSupplier,
                         onMenuButtonClicked,
@@ -1092,7 +1093,7 @@ public class ToolbarManager
                             mLayoutStateProviderSupplier,
                             mActivityTabProvider.asObservable(),
                             mTabModelSelectorSupplier,
-                            browsingModeThemeColorProviderWithAdjustableTint,
+                            themeColorProvider,
                             mIncognitoStateProvider);
         }
 
@@ -1156,7 +1157,7 @@ public class ToolbarManager
                             },
                             this::onHomeButtonMenuClick,
                             HomepagePolicyManager::isHomepageLocationManaged,
-                            browsingModeThemeColorProviderWithAdjustableTint,
+                            themeColorProvider,
                             mIncognitoStateProvider,
                             mActionRegistry);
         }
@@ -1261,7 +1262,7 @@ public class ToolbarManager
                 createTopToolbarCoordinator(
                         controlContainer,
                         buttonDataProviders,
-                        browsingModeThemeColorProviderWithAdjustableTint,
+                        themeColorProvider,
                         mIncognitoStateProvider,
                         initializeWithIncognitoColors,
                         mConstraintsSupplier,
@@ -1948,13 +1949,13 @@ public class ToolbarManager
 
         mControlContainerSideUiObserver =
                 new ToolbarMarginAdjusterForSideUi(mControlContainer, mToolbar);
-        mControlContainerSideUiObserver.onSideUiSpecsChanged(currentSideUiSpecs);
+        mControlContainerSideUiObserver.updateMarginsAndOffsetForSideUi(currentSideUiSpecs);
         mSideUiStateProvider.addObserver(mControlContainerSideUiObserver);
 
         mProgressBarSideUiObserver =
                 new ViewMarginAdjusterForSideUi(
                         mProgressBarContainer, /* forToolbarElement= */ false);
-        mProgressBarSideUiObserver.onSideUiSpecsChanged(currentSideUiSpecs);
+        mProgressBarSideUiObserver.updateMarginsForSideUi(currentSideUiSpecs);
         mSideUiStateProvider.addObserver(mProgressBarSideUiObserver);
     }
 
@@ -1976,18 +1977,29 @@ public class ToolbarManager
         }
 
         @Override
-        public @Nullable Transition onPreSideUiSpecsChange(SideUiSpecs sideUiSpecs) {
-            Transition transition = super.onPreSideUiSpecsChange(sideUiSpecs);
+        public @Nullable Transition onPreSideUiSpecsChange(
+                SideUiSpecs sideUiSpecs, UiUpdateRequest request) {
+            Transition transition = super.onPreSideUiSpecsChange(sideUiSpecs, request);
             super.triggerSynchronousMeasureAndLayout();
             return transition;
         }
 
         @Override
-        public void onSideUiSpecsChanged(SideUiSpecs sideUiSpecs) {
-            super.onSideUiSpecsChanged(sideUiSpecs);
+        public void onSideUiSpecsChanged(SideUiSpecs sideUiSpecs, UiUpdateRequest request) {
+            updateMarginsAndOffsetForSideUi(sideUiSpecs);
+        }
+
+        /**
+         * Adjusts the control container's margins and the toolbar's x-offset to account for the
+         * given {@link SideUiSpecs}.
+         *
+         * @param sideUiSpecs The {@link SideUiSpecs} to apply.
+         */
+        void updateMarginsAndOffsetForSideUi(SideUiSpecs sideUiSpecs) {
+            updateMarginsForSideUi(sideUiSpecs);
             int xOffset = 0;
             if (sideUiSpecs.getHeightType(AnchorSide.LEFT) == HeightType.TOOLBAR) {
-                xOffset = sideUiSpecs.getWidth(AnchorSide.LEFT);
+                xOffset = sideUiSpecs.getReservedWidth(AnchorSide.LEFT);
             }
             mToolbar.setXOffset(xOffset);
         }
@@ -2169,7 +2181,7 @@ public class ToolbarManager
     private TopToolbarCoordinator createTopToolbarCoordinator(
             ToolbarControlContainer controlContainer,
             List<ButtonDataProvider> buttonDataProviders,
-            ThemeColorProvider browsingModeThemeColorProvider,
+            ThemeColorProvider themeColorProvider,
             IncognitoStateProvider incognitoStateProvider,
             boolean initializeWithIncognitoColors,
             NullableObservableSupplier<@BrowserControlsState Integer> constraintsSupplier,
@@ -2192,7 +2204,7 @@ public class ToolbarManager
                         mUserEducationHelper,
                         buttonDataProviders,
                         mLayoutStateProviderSupplier,
-                        browsingModeThemeColorProvider,
+                        themeColorProvider,
                         incognitoStateProvider,
                         mMenuButtonCoordinator,
                         assertNonNull(mMenuButtonCoordinator.getMenuButtonHelperSupplier()),
@@ -2557,7 +2569,9 @@ public class ToolbarManager
                         mActivityTabProvider.asObservable(),
                         (ScrollingBottomViewResourceFrameLayout) tabGroupUiContainer,
                         LayerType.TABSTRIP_TOOLBAR,
-                        R.dimen.tab_group_ui_height,
+                        mActivity
+                                .getResources()
+                                .getDimensionPixelSize(R.dimen.tab_group_ui_height),
                         SupplierUtils.upcast(
                                 mTabGroupUiOneshotSupplier, BottomControlsContentDelegate.class),
                         mTabObscuringHandler,
@@ -2622,7 +2636,7 @@ public class ToolbarManager
                         mActivityTabProvider.asObservable(),
                         (ScrollingBottomViewResourceFrameLayout) bottomAppBarContainer,
                         LayerType.BOTTOM_APP_BAR,
-                        R.dimen.bottom_bar_height,
+                        BottomBarUtils.getBottomBarHeight(mActivity),
                         bottomBarContainerOneshotSupplier,
                         mTabObscuringHandler,
                         mLayoutManager.getOverlayPanelManager().getPanelStateSupplier(),
@@ -3414,24 +3428,13 @@ public class ToolbarManager
      * @return The extra Y offset for the toolbar in pixels.
      */
     private int getToolbarExtraYOffset() {
-        final int toolbarHairlineHeight = mToolbarHairline.getHeight();
-        final int controlContainerHeight = mControlContainer.getHeight();
-        final int bookmarkBarHeight =
-                mBookmarkBarHeightSupplier != null ? mBookmarkBarHeightSupplier.get() : 0;
-
-        // Offset can't be calculated if control container height isn't known yet.
-        if (controlContainerHeight == 0) {
+        if (mBrowserControlsSizer.getControlsPosition() == ControlsPosition.BOTTOM) {
             return 0;
         }
 
-        final int extraYOffset =
-                mBrowserControlsSizer.getTopControlsHeight()
-                        - (controlContainerHeight - toolbarHairlineHeight)
-                        - bookmarkBarHeight;
-
-        // There are cases where extraYOffset can be negative e.g. during tab strip transitioning
-        // from invisible -> visible.
-        return Math.max(0, extraYOffset);
+        // The control container's top edge is where the tab strip layer sits, so the margin is the
+        // total height of the layers stacked above it.
+        return mTopControlsStacker.getHeightFromLayerToTop(TopControlType.TABSTRIP);
     }
 
     /**
@@ -3714,7 +3717,6 @@ public class ToolbarManager
         }
 
         checkIfNtpShowingWithNoPendingLoad();
-
     }
 
     private void setBookmarkModel(

@@ -14,6 +14,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
 #include "chrome/browser/metrics/testing/metrics_consent_override.h"
+#include "chrome/browser/personal_context/personal_context_eligibility_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/sync/device_info_sync_service_factory.h"
 #include "chrome/browser/sync/test/integration/bookmarks_helper.h"
@@ -23,6 +24,7 @@
 #include "chrome/browser/sync/test/integration/sync_test.h"
 #include "components/browser_sync/browser_sync_switches.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
+#include "components/personal_context/core/mock_personal_context_eligibility_service.h"
 #include "components/personal_context/core/personal_context_features.h"
 #include "components/personal_context/core/personal_context_key_manager.h"
 #include "components/personal_context/core/personal_context_prefs.h"
@@ -39,6 +41,7 @@
 #include "components/sync/protocol/sync.pb.h"
 #include "components/sync/protocol/sync_entity.pb.h"
 #include "components/sync/protocol/sync_enums.pb.h"
+#include "components/sync/service/device_statistics_scheduler.h"
 #include "components/sync/service/device_statistics_tracker.h"
 #include "components/sync/test/fake_server.h"
 #include "components/sync_device_info/device_info.h"
@@ -198,17 +201,9 @@ class SingleClientDeviceInfoSyncTest
     : public SyncTest,
       public testing::WithParamInterface<SyncTest::SetupSyncMode> {
  public:
-  explicit SingleClientDeviceInfoSyncTest(
-      bool enable_device_statistics_metrics = false)
-      : SyncTest(SINGLE_CLIENT) {
+  SingleClientDeviceInfoSyncTest() : SyncTest(SINGLE_CLIENT) {
     std::vector<base::test::FeatureRefAndParams> enabled_features;
     std::vector<base::test::FeatureRef> disabled_features;
-    if (enable_device_statistics_metrics) {
-      enabled_features.emplace_back(
-          syncer::kSyncRecordDeviceStatisticsMetrics,
-          base::FieldTrialParams{
-              {syncer::kSyncRecordDeviceStatisticsMetricsDelay.name, "0"}});
-    }
     if (GetSetupSyncMode() == SetupSyncMode::kSyncTransportOnly) {
       enabled_features.emplace_back(syncer::kReplaceSyncPromosWithSignInPromos,
                                     base::FieldTrialParams{});
@@ -434,21 +429,49 @@ class SingleClientDeviceInfoSyncTestWithPersonalContext
     : public SingleClientDeviceInfoSyncTest {
  public:
   SingleClientDeviceInfoSyncTestWithPersonalContext() {
-    feature_list_.InitAndEnableFeature(
-        personal_context::features::kPersonalContextHandleEncryptedPayloads);
+    feature_list_.InitWithFeatures(
+        {personal_context::features::kPersonalContext,
+         personal_context::features::kPersonalContextHandleEncryptedPayloads},
+        {});
+  }
+
+  void SetUpInProcessBrowserTestFixture() override {
+    SingleClientDeviceInfoSyncTest::SetUpInProcessBrowserTestFixture();
+    create_services_subscription_ =
+        BrowserContextDependencyManager::GetInstance()
+            ->RegisterCreateServicesCallbackForTesting(base::BindRepeating(
+                &SingleClientDeviceInfoSyncTestWithPersonalContext::
+                    OnWillCreateBrowserContextServices,
+                base::Unretained(this)));
   }
 
  private:
+  void OnWillCreateBrowserContextServices(content::BrowserContext* context) {
+    PersonalContextEligibilityServiceFactory::GetInstance()->SetTestingFactory(
+        context, base::BindRepeating([](content::BrowserContext*)
+                                         -> std::unique_ptr<KeyedService> {
+          auto mock = std::make_unique<testing::NiceMock<
+              personal_context::MockPersonalContextEligibilityService>>();
+          ON_CALL(*mock, IsInitialized).WillByDefault(testing::Return(true));
+          ON_CALL(*mock, IsEligibleForEncryption)
+              .WillByDefault(testing::Return(true));
+          return mock;
+        }));
+  }
+
   base::test::ScopedFeatureList feature_list_;
+  base::CallbackListSubscription create_services_subscription_;
 };
 
 IN_PROC_BROWSER_TEST_P(SingleClientDeviceInfoSyncTestWithPersonalContext,
                        UploadLocalPersonalContextPublicKey) {
   ASSERT_TRUE(SetupSync());
 
-  std::vector<uint8_t> expected_public_key =
-      personal_context::PersonalContextKeyManager::
-          GetOrCreateLocalPublicKeyBytes(GetProfile(0)->GetPrefs());
+  std::vector<uint8_t> expected_public_key = personal_context::
+      PersonalContextKeyManager::GetOrCreateLocalPublicKeyBytes(
+          GetProfile(0)->GetPrefs(),
+          PersonalContextEligibilityServiceFactory::GetForProfile(
+              GetProfile(0)));
   ASSERT_FALSE(expected_public_key.empty());
 
   tink::Keyset keyset;
@@ -503,14 +526,17 @@ IN_PROC_BROWSER_TEST_P(SingleClientDeviceInfoSyncTestWithPersonalContext,
   GetProfile(0)->GetPrefs()->ClearPref(
       personal_context::prefs::kPersonalContextPrivateKey);
 
+  personal_context::PersonalContextEligibilityService* eligibility_service =
+      PersonalContextEligibilityServiceFactory::GetForProfile(GetProfile(0));
+
   // Trigger key generation via PersonalContextKeyManager with DeviceInfoSyncService.
   personal_context::PersonalContextKeyManager key_manager(
       GetProfile(0)->GetPrefs(),
-      DeviceInfoSyncServiceFactory::GetForProfile(GetProfile(0)));
-  key_manager.GetOrCreatePrivateKey();
-  std::vector<uint8_t> expected_public_key =
-      personal_context::PersonalContextKeyManager::
-          GetOrCreateLocalPublicKeyBytes(GetProfile(0)->GetPrefs());
+      DeviceInfoSyncServiceFactory::GetForProfile(GetProfile(0)),
+      eligibility_service);
+  std::vector<uint8_t> expected_public_key = personal_context::
+      PersonalContextKeyManager::GetOrCreateLocalPublicKeyBytes(
+          GetProfile(0)->GetPrefs(), eligibility_service);
 
   sync_pb::PersonalContextSpecificFields expected_personal_context_fields;
   expected_personal_context_fields.set_serialized_tink_keyset(
@@ -946,9 +972,14 @@ class SingleClientDeviceInfoWithDeviceStatisticsSyncTest
  public:
   explicit SingleClientDeviceInfoWithDeviceStatisticsSyncTest(
       bool metrics_consent_value = true)
-      : SingleClientDeviceInfoSyncTest(
-            /*enable_device_statistics_metrics=*/true),
-        metrics_consent_value_(metrics_consent_value) {}
+      : metrics_consent_value_(metrics_consent_value) {
+    syncer::DeviceStatisticsScheduler::SetStartupDelayForTesting(
+        base::Seconds(0));
+  }
+
+  ~SingleClientDeviceInfoWithDeviceStatisticsSyncTest() override {
+    syncer::DeviceStatisticsScheduler::ResetStartupDelayForTesting();
+  }
 
   void SetUpInProcessBrowserTestFixture() override {
     create_services_subscription_ =
@@ -1021,8 +1052,7 @@ IN_PROC_BROWSER_TEST_P(
   // Wait long enough so that the DeviceStatisticsTracker would've started, if
   // it were going to.
   const base::Time wait_start = base::Time::Now();
-  const base::TimeDelta wait_time = std::max(
-      base::Seconds(1), syncer::kSyncRecordDeviceStatisticsMetricsDelay.Get());
+  const base::TimeDelta wait_time = base::Seconds(1);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return base::Time::Now() - wait_start > wait_time; }));
 

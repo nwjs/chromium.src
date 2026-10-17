@@ -6,13 +6,12 @@ import './pinned_toolbar_action.js';
 import './toolbar_divider.js';
 
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
-import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import {PinnedToolbarAction} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 import type {PinnedToolbarActionState} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 
 import {BrowserProxyImpl} from './browser_proxy.js';
 import {OverflowableToolbarActionContainerMixin} from './overflowable_toolbar_action_container_mixin.js';
-import type {OverflowableToolbarAction} from './overflowable_toolbar_action_container_mixin.js';
+import type {OverflowableToolbarActionElement} from './overflowable_toolbar_action_mixin.js';
 import {getHtml} from './pinned_toolbar_actions.html.js';
 import {getCss} from './toolbar_action_container.css.js';
 import {ToolbarActionContainerMixin} from './toolbar_action_container_mixin.js';
@@ -42,19 +41,29 @@ export class PinnedToolbarActionsElement extends
     };
   }
 
+  /**
+   * The index of the divider within `keyedStates`, or -1 if there is no
+   * divider. Updated by onKeyedStatesChanged().
+   */
   accessor dividerIndex: number = -1;
 
-  override getActions(): Array<CrLitElement&OverflowableToolbarAction> {
-    return Array.from(this.shadowRoot.children) as
-        Array<CrLitElement&OverflowableToolbarAction>;
+  override onKeyedStatesChanged() {
+    super.onKeyedStatesChanged();
+    // `dividerIndex` has to be updated on keyed states changes, after the
+    // ToolbarActionContainerMixin has called reconcileKeys(), but before it has
+    // counted its draggable items, so it needs to be updated here, in its own
+    // callback in the middle of ToolbarActionContainerMixin.onWillUpdate(),
+    // rather that being updated here, rather than in this class's
+    // onWillUpdate() method. Moreover, since reconcileKeys() isn't the only
+    // method that updates keys, when animations are enabled, we can't override
+    // reconcileKeys() and do the update there.
+    this.dividerIndex = this.keyedStates.findIndex(
+        s => s.key === PinnedToolbarAction.kDivider.toString());
   }
 
-  override willUpdate(changedProperties: PropertyValues<this>) {
-    super.willUpdate(changedProperties);
-    if (changedProperties.has('keyedStates')) {
-      this.dividerIndex = this.keyedStates.findIndex(
-          s => s.key === PinnedToolbarAction.kDivider.toString());
-    }
+  override getActions(): OverflowableToolbarActionElement[] {
+    return Array.from(this.shadowRoot.children) as
+        OverflowableToolbarActionElement[];
   }
 
   // ToolbarActionContainerMixin override
@@ -95,7 +104,9 @@ export class PinnedToolbarActionsElement extends
 
   override isDraggable(state: PinnedToolbarActionState, index: number):
       boolean {
-    if (this.dividerIndex !== -1 && index >= this.dividerIndex) {
+    // Only pinned actions, which precede the divider, may be dragged. If there
+    // is no divider, all actions are popped out, so none are draggable.
+    if (index >= this.dividerIndex) {
       return false;
     }
     return state.enabled;

@@ -479,6 +479,67 @@ public class PdfUtils {
     }
 
     /**
+     * Parse the page number from the "#page=N" fragment in the url, e.g.
+     * "https://example.com/a.pdf#page=3". This is the de-facto way to link to a specific page of a
+     * PDF and is supported by Chrome on other platforms. Returns the 1-based page number, or 0 if
+     * the url has no valid "page" fragment.
+     *
+     * @param url The pdf url, which may be a wrapped pdf page url, a content/file uri, or an
+     *     http(s) url.
+     * @return The 1-based page number, or 0 if not specified.
+     */
+    public static int getPageNumberFromUrl(@Nullable String url) {
+        if (url == null) {
+            return 0;
+        }
+        // The fragment may live on the url directly, or on the original download url that is
+        // encoded inside a wrapped pdf page url. Check the url first, then the decoded
+        // download url.
+        int pageNumber = parsePageNumberFromFragment(url);
+        if (pageNumber == 0) {
+            String decodedUrl = decodePdfPageUrl(url);
+            if (decodedUrl != null) {
+                pageNumber = parsePageNumberFromFragment(decodedUrl);
+            }
+        }
+        return pageNumber;
+    }
+
+    private static int parsePageNumberFromFragment(String url) {
+        String encodedFragment;
+        try {
+            encodedFragment = Uri.parse(url).getEncodedFragment();
+        } catch (Exception e) {
+            return 0;
+        }
+        if (TextUtils.isEmpty(encodedFragment)) {
+            return 0;
+        }
+        // The fragment uses the same "key=value&..." syntax as a query string, e.g.
+        // "nameddest=chapter1&page=3&zoom=100", so reuse Uri's query parser instead of
+        // splitting it manually.
+        String page;
+        try {
+            page =
+                    new Uri.Builder()
+                            .encodedQuery(encodedFragment)
+                            .build()
+                            .getQueryParameter("page");
+        } catch (UnsupportedOperationException e) {
+            return 0;
+        }
+        if (page == null) {
+            return 0;
+        }
+        try {
+            int pageNumber = Integer.parseInt(page.trim());
+            return pageNumber > 0 ? pageNumber : 0;
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    /**
      * Extracts a valid HTTP(S) URL from a PDF page URL for re-downloading.
      *
      * <p>If the provided {@code originalUrl} is already a raw HTTP or HTTPS URL, it is returned
@@ -776,5 +837,37 @@ public class PdfUtils {
         // Fallback: block any other internal Chrome providers to prevent accidental exposure of
         // sensitive data (e.g. ChromeBrowserProvider).
         return false;
+    }
+
+    /**
+     * Deletes the transient PDF file if the PDF is from a downloadable web URL.
+     *
+     * <p>Content URIs (e.g. incognito PDFs wrapped by PdfContentProvider) cannot be deleted
+     * directly as files; their lifecycle is managed separately (see PdfPage#destroy()). We don't
+     * check for "file://" because: 1. Transient files we download always use raw file paths. 2.
+     * Local files (which may use "file://" or "content://") have a null redownloadUrl and are
+     * skipped below.
+     *
+     * @param filepath The filepath of the transient PDF file.
+     * @param url The native page URL or download URL of the PDF.
+     */
+    public static void maybeDeleteTransientFile(@Nullable String filepath, @Nullable String url) {
+        if (filepath != null && !filepath.startsWith(UrlConstants.CONTENT_URL_PREFIX)) {
+            String redownloadUrl = url != null ? getPdfReDownloadUrl(url) : null;
+            if (redownloadUrl != null) {
+                PostTask.postTask(
+                        TaskTraits.BEST_EFFORT_MAY_BLOCK,
+                        () -> {
+                            try {
+                                File file = new File(filepath);
+                                if (file.exists()) {
+                                    file.delete();
+                                }
+                            } catch (SecurityException ignored) {
+                                // Ignore exceptions if the transient file cannot be deleted.
+                            }
+                        });
+            }
+        }
     }
 }

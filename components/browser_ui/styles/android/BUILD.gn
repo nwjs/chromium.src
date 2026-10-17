@@ -9,6 +9,8 @@ android_library("java") {
   sources = [
     "java/src/org/chromium/components/browser_ui/styles/ChromeColors.java",
     "java/src/org/chromium/components/browser_ui/styles/IncognitoColors.java",
+    "java/src/org/chromium/components/browser_ui/styles/NewLabelSpan.java",
+    "java/src/org/chromium/components/browser_ui/styles/NewLabelUtils.java",
     "java/src/org/chromium/components/browser_ui/styles/SemanticColorUtils.java",
   ]
   deps = [
@@ -24,6 +26,30 @@ android_library("java") {
   resources_package = "org.chromium.components.browser_ui.styles"
 }
 
+robolectric_library("junit") {
+  testonly = true
+
+  sources = [
+    "junit/src/org/chromium/components/browser_ui/styles/NewLabelSpanUnitTest.java",
+    "junit/src/org/chromium/components/browser_ui/styles/NewLabelUtilsUnitTest.java",
+  ]
+
+  deps = [
+    ":java",
+    ":java_resources",
+    "//base:base_java",
+    "//base:base_junit_test_support",
+
+    # For R.style.Theme_BrowserUI_DayNight, which SemanticColorUtils needs a
+    # theme for.
+    "//components/browser_ui/theme/android:java_resources",
+    "//third_party/junit",
+    "//third_party/mockito:mockito_java",
+  ]
+
+  resources_package = "org.chromium.components.browser_ui.styles"
+}
+
 android_resources("java_resources") {
   sources = [
     "java/res/anim-v33/shared_x_axis_close_enter.xml",
@@ -34,6 +60,10 @@ android_resources("java_resources") {
     "java/res/anim/shared_x_axis_close_exit.xml",
     "java/res/anim/shared_x_axis_open_enter.xml",
     "java/res/anim/shared_x_axis_open_exit.xml",
+    "java/res/anim/slide_in_down.xml",
+    "java/res/anim/slide_in_left.xml",
+    "java/res/anim/slide_out_down.xml",
+    "java/res/anim/slide_out_left.xml",
     "java/res/animator/shared_x_axis_close_enter.xml",
     "java/res/animator/shared_x_axis_close_exit.xml",
     "java/res/animator/shared_x_axis_open_enter.xml",
@@ -59,7 +89,6 @@ android_resources("java_resources") {
     "java/res/color/color_primary_with_alpha_20.xml",
     "java/res/color/color_primary_with_alpha_5.xml",
     "java/res/color/color_primary_with_alpha_50.xml",
-    "java/res/color/color_primary_with_alpha_8.xml",
     "java/res/color/color_surface_container_incognito_tint_list.xml",
     "java/res/color/color_surface_container_tint_list.xml",
     "java/res/color/default_icon_color_accent1_tint_list.xml",
@@ -88,6 +117,8 @@ android_resources("java_resources") {
     "java/res/color/interactable_chip_bg_color.xml",
     "java/res/color/progress_bar_bg_color_list.xml",
     "java/res/color/selection_control_button_tint_list.xml",
+    "java/res/color/task_manager_category_chip_bg_color.xml",
+    "java/res/color/task_manager_category_chip_text_color.xml",
     "java/res/color/text_button_ripple_color_list.xml",
     "java/res/color/text_highlight_color.xml",
     "java/res/color/tonal_button_bg_list.xml",
@@ -186,6 +217,7 @@ android_resources("java_resources") {
     "java/res/drawable/ic_drive_file_24dp.xml",
     "java/res/drawable/ic_drive_image_24dp.xml",
     "java/res/drawable/ic_edit_24dp.xml",
+    "java/res/drawable/ic_error.xml",
     "java/res/drawable/ic_extension_24dp.xml",
     "java/res/drawable/ic_fast_forward_white_24dp.xml",
     "java/res/drawable/ic_fast_rewind_white_24dp.xml",

@@ -38,6 +38,7 @@
 #include "ui/views/controls/label.h"
 #include "ui/views/interaction/element_tracker_views.h"
 #include "ui/views/layout/box_layout.h"
+#include "ui/views/layout/box_layout_view.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/layout/layout_provider.h"
 #include "ui/views/metadata/view_factory.h"
@@ -164,7 +165,7 @@ std::unique_ptr<IOSPromoBubbleView> IOSPromoBubbleView::Create(
   auto* const anchor_element = params.anchor_element.get();
   return std::make_unique<IOSPromoBubbleView>(
       &browser_view, profile, promo_type, promo_bubble_type,
-      anchor_element->AsA<views::TrackedElementViews>()->view(),
+      views::BubbleAnchor(anchor_element),
       user_education::HelpBubbleViews::TranslateArrow(params.arrow));
 }
 
@@ -172,9 +173,9 @@ IOSPromoBubbleView::IOSPromoBubbleView(BrowserView* browser_view,
                                        Profile* profile,
                                        PromoType promo_type,
                                        BubbleType promo_bubble_type,
-                                       views::View* anchor_view,
+                                       views::BubbleAnchor anchor,
                                        views::BubbleBorder::Arrow arrow)
-    : views::BubbleDialogDelegateView(anchor_view, arrow),
+    : views::BubbleDialogDelegateView(anchor, arrow),
       browser_view_(browser_view),
       profile_(profile),
       promo_type_(promo_type),
@@ -296,13 +297,9 @@ bool IOSPromoBubbleView::Accept() {
         return true;
       }
 
-      if (views::View* anchor_view = GetAnchorView()) {
-        if (BrowserView* browser_view =
-                BrowserView::GetBrowserViewForNativeWindow(
-                    anchor_view->GetWidget()->GetNativeWindow())) {
-          browser_view->browser()->OpenURL(params,
-                                           /*navigation_handle_callback=*/{});
-        }
+      if (browser_view_) {
+        browser_view_->browser()->OpenURL(params,
+                                          /*navigation_handle_callback=*/{});
       }
       return true;
     }

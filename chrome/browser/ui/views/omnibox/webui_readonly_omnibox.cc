@@ -13,6 +13,7 @@
 #include "base/supports_user_data.h"
 #include "chrome/browser/external_protocol/external_protocol_handler.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/omnibox/ai_mode_page_action_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
@@ -23,6 +24,7 @@
 #include "chrome/browser/ui/views/location_bar/webui_location_bar.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_placeholder_util.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_closer.h"
+#include "chrome/browser/ui/views/omnibox/omnibox_popup_presenter_delegate.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
 #include "chrome/browser/ui/views/page_action/webui_page_action_control.h"
 #include "chrome/browser/ui/views/toolbar/webui_toolbar_web_view.h"
@@ -202,7 +204,7 @@ void WebUIReadOnlyOmnibox::ClearAccessibilityLabel() {
 }
 
 std::u16string WebUIReadOnlyOmnibox::GetText() const {
-  return text_;
+  return text_ + inline_autocompletion_;
 }
 
 void WebUIReadOnlyOmnibox::SetWindowTextAndCaretPos(const std::u16string& text,
@@ -212,6 +214,7 @@ void WebUIReadOnlyOmnibox::SetWindowTextAndCaretPos(const std::u16string& text,
   text_ = text;
   selection_ = gfx::Range(caret_pos);
   ResetFormatting();
+  ResetBrowserVersion();
 
   if (update_popup) {
     UpdatePopup();
@@ -240,7 +243,6 @@ void WebUIReadOnlyOmnibox::SetAdditionalText(
 void WebUIReadOnlyOmnibox::EnterKeywordModeForDefaultSearchProvider() {
   controller()->edit_model()->EnterKeywordModeForDefaultSearchProvider(
       metrics::OmniboxEventProto::KEYBOARD_SHORTCUT);
-  ResetBrowserVersion();
   RequestUpdateWebUI();
 }
 
@@ -281,7 +283,6 @@ void WebUIReadOnlyOmnibox::RevertAll() {
   if (auto* popup_closer = controller()->client()->GetOmniboxPopupCloser()) {
     popup_closer->CloseWithReason(omnibox::PopupCloseReason::kRevertAll);
   }
-  ResetBrowserVersion();
   RequestUpdateWebUI();
 }
 
@@ -311,6 +312,14 @@ void WebUIReadOnlyOmnibox::SetAccessibilityLabel(
     const std::u16string& display_text,
     const AutocompleteMatch& match,
     bool notify_text_changed) {
+  if (IsSuggestionNarrationOwnedByWebUIPopup()) {
+    // The full WebUI popup narrates selections itself; also narrating here
+    // interrupts it.
+    ClearAccessibilityLabel();
+    RequestUpdateWebUI();
+    return;
+  }
+
   // We can ignore the prefix length, since we set the suggestion separately.
   int ignored_suggestion_text_prefix_length;
 
@@ -332,7 +341,6 @@ void WebUIReadOnlyOmnibox::OnTemporaryTextMaybeChanged(
   SetAccessibilityLabel(display_text, match, false);
 
   // This will call RequestUpdateWebUI(), so we don't have to.
-  ResetBrowserVersion();
   SetWindowTextAndCaretPos(display_text, display_text.length(),
                            /*update_popup=*/false, notify_text_changed);
 }
@@ -451,6 +459,11 @@ void WebUIReadOnlyOmnibox::UpdateSchemeStyle(const gfx::Range& range) {
     text_colors_.ApplyValue(color, range);
     text_strike_through_.ApplyValue(true, range);
   }
+}
+
+bool WebUIReadOnlyOmnibox::IsFullWebUIOmnibox() const {
+  return location_bar_ && location_bar_->GetPresenterDelegate() &&
+         location_bar_->GetPresenterDelegate()->is_full_webui_omnibox();
 }
 
 void WebUIReadOnlyOmnibox::ExecuteCommand(int command_id, int event_flags) {
@@ -657,6 +670,7 @@ WebUIReadOnlyOmnibox::OnTextInput(
 
   ui_version_ = text_input.ui_version;
   if (text_input.unelision) {
+    uint32_t saved_browser_version = browser_version_;
     // Let the edit model unelide as well to match what we did on the
     // WebUI side.
     bool unelide_ok = controller()->edit_model()->Unelide();
@@ -664,13 +678,21 @@ WebUIReadOnlyOmnibox::OnTextInput(
     // It should produce the same text (the 'formatted full URL').
     DCHECK_EQ(text_, text_input.text);
 
-    // We want the WebUI-side selection, however, not Unelide()'s
-    // SelectAll();
+    // Unelide() calls SetWindowTextAndCaretPos() and SelectAll(), which reset
+    // browser_version_ and selection_. Since this unelision was initiated by
+    // WebUI, restore the WebUI-side versions and selection.
+    browser_version_ = saved_browser_version;
+    ui_version_ = text_input.ui_version;
     selection_ = text_input.selection;
     TextChanged();
     RequestUpdateWebUI();
   } else {
     OnBeforePossibleChange();
+    // Force a Paste operation to trigger the text_changed code in
+    // OnAfterPossibleChange(), even if identical contents are pasted.
+    if (text_input.paste) {
+      state_before_change_.text.clear();
+    }
     bool keep_additional_text =
         text_ + inline_autocompletion_ ==
         text_input.text + text_input.inline_autocompletion;
@@ -736,7 +758,7 @@ WebUIReadOnlyOmnibox::OnKey(
         // .com if needed.
         controller()->edit_model()->OpenSelection(
             OmniboxPopupSelection(OmniboxPopupSelection::kNoMatch,
-                                  OmniboxPopupSelection::LineState::NORMAL),
+                                  OmniboxPopupSelection::LineState::kNormal),
             base::TimeTicks::Now(), disposition, /*via_keyboard=*/true);
       }
       break;
@@ -755,13 +777,19 @@ WebUIReadOnlyOmnibox::OnKey(
       break;
 
     case ui::DomKey::ARROW_UP:
+      DCHECK(!control);
+      DCHECK(!alt);
       DCHECK(!shift);
+      DCHECK(!command);
       controller()->edit_model()->OnUpOrDownPressed(/*down=*/false,
                                                     /*page=*/false);
       break;
 
     case ui::DomKey::ARROW_DOWN:
+      DCHECK(!control);
+      DCHECK(!alt);
       DCHECK(!shift);
+      DCHECK(!command);
       controller()->edit_model()->OnUpOrDownPressed(/*down=*/true,
                                                     /*page=*/false);
       break;
@@ -792,7 +820,7 @@ WebUIReadOnlyOmnibox::OnKey(
           controller()->edit_model()->OpenSelection(
               OmniboxPopupSelection(
                   OmniboxPopupSelection::kNoMatch,
-                  OmniboxPopupSelection::LineState::FOCUSED_BUTTON_AIM),
+                  OmniboxPopupSelection::LineState::kFocusedButtonAim),
               base::TimeTicks::Now(), WindowOpenDisposition::CURRENT_TAB,
               /*via_keyboard=*/true);
         }
@@ -848,8 +876,8 @@ WebUIReadOnlyOmnibox::OnPointer(
     if (controller()->IsPopupOpen()) {
       OmniboxPopupSelection selection =
           controller()->edit_model()->GetPopupSelection();
-      if (selection.state != OmniboxPopupSelection::KEYWORD_MODE) {
-        selection.state = OmniboxPopupSelection::NORMAL;
+      if (selection.state != OmniboxPopupSelection::LineState::kKeywordMode) {
+        selection.state = OmniboxPopupSelection::LineState::kNormal;
         controller()->edit_model()->SetPopupSelection(selection);
       }
     }

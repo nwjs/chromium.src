@@ -11,7 +11,7 @@
 #include "base/memory/ref_counted.h"
 #include "base/types/optional_ref.h"
 #include "base/unguessable_token.h"
-#include "components/safe_browsing/core/browser/db/v4_protocol_manager_util.h"
+#include "components/safe_browsing/core/browser/db/sb_protocol_manager_util.h"
 #include "components/safe_browsing/core/common/proto/csd.pb.h"
 
 namespace content {
@@ -94,7 +94,7 @@ class UrlCheckerDelegate
   // Displays the suspicious site warning and lets the user decide to continue
   // or not.
   virtual void ShowSuspiciousSiteWarning(
-      int64_t navigation_id,
+      const security_interstitials::UnsafeResource& resource,
       const base::RepeatingCallback<content::WebContents*()>&
           web_contents_getter) = 0;
 

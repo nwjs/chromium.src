@@ -126,6 +126,7 @@ class ShellUtil {
       PROPERTIES_APP_ID = 1 << 4,
       PROPERTIES_SHORTCUT_NAME = 1 << 5,
       PROPERTIES_TOAST_ACTIVATOR_CLSID = 1 << 6,
+      PROPERTIES_ARGUMENTS_TO_MERGE = 1 << 7,
     };
 
     explicit ShortcutProperties(ShellChange level_in);
@@ -147,7 +148,20 @@ class ShellUtil {
       // http://msdn.microsoft.com/library/windows/desktop/bb774954.aspx.
       DCHECK(arguments_in.length() < MAX_PATH);
       arguments = arguments_in;
+      options &= ~PROPERTIES_ARGUMENTS_TO_MERGE;
       options |= PROPERTIES_ARGUMENTS;
+    }
+
+    // Sets the arguments to be merged with existing arguments when updating or
+    // replacing a shortcut (or set directly when creating a new shortcut). Any
+    // switches in |arguments_in| replace matching switches in the existing
+    // shortcut's arguments.
+    // The length of this string must be less than MAX_PATH.
+    void set_arguments_to_merge(const std::wstring& arguments_in) {
+      DCHECK(arguments_in.length() < MAX_PATH);
+      arguments = arguments_in;
+      options &= ~PROPERTIES_ARGUMENTS;
+      options |= PROPERTIES_ARGUMENTS_TO_MERGE;
     }
 
     // Sets the localized description of the shortcut.
@@ -198,6 +212,10 @@ class ShellUtil {
     bool has_target() const { return (options & PROPERTIES_TARGET) != 0; }
 
     bool has_arguments() const { return (options & PROPERTIES_ARGUMENTS) != 0; }
+
+    bool has_arguments_to_merge() const {
+      return (options & PROPERTIES_ARGUMENTS_TO_MERGE) != 0;
+    }
 
     bool has_description() const {
       return (options & PROPERTIES_DESCRIPTION) != 0;
@@ -304,7 +322,14 @@ class ShellUtil {
 
   // File extensions that Chrome registers itself as the default handler
   // for when the user makes Chrome the default browser.
-  static const wchar_t* kDefaultFileAssociations[];
+  static constexpr auto kDefaultFileAssociations =
+      std::to_array<std::wstring_view>({
+          L".htm",
+          L".html",
+          L".shtml",
+          L".xht",
+          L".xhtml",
+      });
 
   // File extensions that Chrome registers itself as being capable of
   // handling as a web browser.
@@ -314,10 +339,29 @@ class ShellUtil {
 
   // Protocols that Chrome registers itself as the default handler for
   // when the user makes Chrome the default browser.
-  static const wchar_t* kBrowserProtocolAssociations[];
+  static constexpr auto kBrowserProtocolAssociations =
+      std::to_array<std::wstring_view>({
+          L"http",
+          L"https",
+      });
 
   // Protocols that Chrome registers itself as being capable of handling.
-  static const wchar_t* kPotentialProtocolAssociations[];
+  static constexpr auto kPotentialProtocolAssociations =
+      std::to_array<std::wstring_view>({
+          L"http",
+          L"https",
+          L"irc",
+          L"mailto",
+          L"mms",
+          L"news",
+          L"nntp",
+          L"sms",
+          L"smsto",
+          L"snews",
+          L"tel",
+          L"urn",
+          L"webcal",
+      });
 
   // Registry value name that is needed for ChromeHTML ProgId
   static const wchar_t* kRegUrlProtocol;

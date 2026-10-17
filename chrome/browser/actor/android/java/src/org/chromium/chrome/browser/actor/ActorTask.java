@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.actor;
 
+import androidx.annotation.VisibleForTesting;
+
 import org.jni_zero.CalledByNative;
 import org.jni_zero.JNINamespace;
 import org.jni_zero.JniType;
@@ -26,13 +28,20 @@ public class ActorTask {
     public static final int INVALID_TASK_ID = -1;
 
     private long mNativeTask;
+    // Last state and tab IDs read from the native task. Kept so getState(),
+    // getLastActuatedTabId(), and getTargetTabId() can keep reporting the real terminal state
+    // (finished / failed / cancelled) and target tab after the native task has been destroyed.
+    private @ActorTaskState int mLastKnownState = ActorTaskState.CREATED;
+    private @TabId int mLastKnownActuatedTabId = Tab.INVALID_TAB_ID;
+    private @TabId int mLastKnownTargetTabId = Tab.INVALID_TAB_ID;
     private final int mId;
     private final String mTitle;
     private final WeakReference<Profile> mProfile;
-    private final @Nullable String mGlicConversationId;
+    private @Nullable String mGlicConversationId;
 
+    @VisibleForTesting
     @CalledByNative
-    private ActorTask(
+    ActorTask(
             long nativeTask,
             int id,
             @JniType("std::string") String title,
@@ -56,6 +65,9 @@ public class ActorTask {
      * @return The conversation ID associated with this task, if any.
      */
     public @Nullable String getGlicConversationId() {
+        if (mGlicConversationId == null && mNativeTask != 0) {
+            mGlicConversationId = ActorTaskJni.get().getGlicConversationId(mNativeTask);
+        }
         return mGlicConversationId;
     }
 
@@ -75,11 +87,16 @@ public class ActorTask {
     }
 
     /**
-     * @return Current ActorTask::State.
+     * @return Current ActorTask::State. Once the native task has been destroyed this reports the
+     *     last state seen while it was alive. Returning a fixed value here is not safe: CREATED is
+     *     treated as a running state by {@link ActorUtils#isRunningState}, so reporting it for a
+     *     finished task makes callers believe the task is still active.
      */
     public @ActorTaskState int getState() {
-        if (mNativeTask == 0) return ActorTaskState.CREATED;
-        return ActorTaskJni.get().getState(mNativeTask);
+        if (mNativeTask != 0) {
+            mLastKnownState = ActorTaskJni.get().getState(mNativeTask);
+        }
+        return mLastKnownState;
     }
 
     public boolean isCompleted() {
@@ -141,9 +158,11 @@ public class ActorTask {
      *     Unlike {@link #getTabs()} and {@link #getLastActedTabs()}, this ID is preserved after
      *     task completion as long as the underlying tab is still open.
      */
-    public int getLastActuatedTabId() {
-        if (mNativeTask == 0) return Tab.INVALID_TAB_ID;
-        return ActorTaskJni.get().getLastActuatedTabId(mNativeTask);
+    public @TabId int getLastActuatedTabId() {
+        if (mNativeTask != 0) {
+            mLastKnownActuatedTabId = ActorTaskJni.get().getLastActuatedTabId(mNativeTask);
+        }
+        return mLastKnownActuatedTabId;
     }
 
     /**
@@ -156,11 +175,12 @@ public class ActorTask {
         if (lastActuatedTabId != Tab.INVALID_TAB_ID) {
             return lastActuatedTabId;
         }
-        Set<Integer> tabs = getTabs();
-        if (!tabs.isEmpty()) {
-            return tabs.iterator().next();
+        if (mNativeTask != 0) {
+            int[] tabIds = ActorTaskJni.get().getTabs(mNativeTask);
+            mLastKnownTargetTabId =
+                    (tabIds == null || tabIds.length == 0) ? Tab.INVALID_TAB_ID : tabIds[0];
         }
-        return Tab.INVALID_TAB_ID;
+        return mLastKnownTargetTabId;
     }
 
     /**
@@ -168,9 +188,8 @@ public class ActorTask {
      * @return true if the task is acting on the given tab, false otherwise.
      */
     public boolean isActingOnTab(int tabId) {
-        // TODO(haileywang): This currently loops through all the tabs associated to the task. Look
-        // into having native update the latest tabId when the actuated tab changes.
-        return isUnderActorControl() && getTabs().contains(tabId);
+        if (mNativeTask == 0) return false;
+        return ActorTaskJni.get().isActingOnTab(mNativeTask, tabId);
     }
 
     /**
@@ -180,13 +199,25 @@ public class ActorTask {
         return mProfile.get();
     }
 
+    @VisibleForTesting
     @CalledByNative
-    private void clearNativePtr() {
+    void clearNativePtr() {
+        if (mNativeTask != 0) {
+            mLastKnownState = ActorTaskJni.get().getState(mNativeTask);
+            mLastKnownActuatedTabId = ActorTaskJni.get().getLastActuatedTabId(mNativeTask);
+            int[] tabIds = ActorTaskJni.get().getTabs(mNativeTask);
+            mLastKnownTargetTabId =
+                    (tabIds == null || tabIds.length == 0) ? Tab.INVALID_TAB_ID : tabIds[0];
+        }
         mNativeTask = 0;
     }
 
     @NativeMethods
     interface Natives {
+        @Nullable
+        @JniType("std::optional<std::string>")
+        String getGlicConversationId(long nativeActorTaskAndroid);
+
         @JniType("std::string")
         String getCurrentActionName(long nativeActorTaskAndroid);
 
@@ -207,5 +238,7 @@ public class ActorTask {
         int[] getLastActedTabs(long nativeActorTaskAndroid);
 
         int getLastActuatedTabId(long nativeActorTaskAndroid);
+
+        boolean isActingOnTab(long nativeActorTaskAndroid, int tabId);
     }
 }

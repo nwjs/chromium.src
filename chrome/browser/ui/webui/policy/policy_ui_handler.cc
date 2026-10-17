@@ -125,7 +125,8 @@ constexpr char kExtensionsKey[] = "extensions";
 
 }  // namespace
 
-PolicyUIHandler::PolicyUIHandler(Profile* profile) : profile_(*profile) {}
+PolicyUIHandler::PolicyUIHandler(Profile* profile)
+    : PolicyUIHandler(mojo::NullReceiver(), mojo::NullRemote(), profile) {}
 
 PolicyUIHandler::PolicyUIHandler(
     mojo::PendingReceiver<policy::mojom::PolicyPageHandler> receiver,
@@ -134,8 +135,17 @@ PolicyUIHandler::PolicyUIHandler(
     : receiver_(this, std::move(receiver)),
       client_(std::move(client)),
       profile_(*profile) {
+  auto update_callback(base::BindRepeating(&PolicyUIHandler::SendStatus,
+                                           base::Unretained(this)));
+  pref_change_registrar_ = std::make_unique<PrefChangeRegistrar>();
+  pref_change_registrar_->Init(g_browser_process->local_state());
+  pref_change_registrar_->Add(
+      enterprise_reporting::kLastUploadSucceededTimestamp, update_callback);
+
   policy_value_and_status_aggregator_ = policy::PolicyValueAndStatusAggregator::
       CreateDefaultPolicyValueAndStatusAggregator(&profile_.get());
+  policy_value_and_status_observation_.Observe(
+      policy_value_and_status_aggregator_.get());
 }
 
 PolicyUIHandler::~PolicyUIHandler() {
@@ -197,18 +207,6 @@ void PolicyUIHandler::AddCommonLocalizedStringsToSource(
 }
 
 void PolicyUIHandler::RegisterMessages() {
-  auto update_callback(base::BindRepeating(&PolicyUIHandler::SendStatus,
-                                           base::Unretained(this)));
-  pref_change_registrar_ = std::make_unique<PrefChangeRegistrar>();
-  pref_change_registrar_->Init(g_browser_process->local_state());
-  pref_change_registrar_->Add(
-      enterprise_reporting::kLastUploadSucceededTimestamp, update_callback);
-
-  policy_value_and_status_aggregator_ = policy::PolicyValueAndStatusAggregator::
-      CreateDefaultPolicyValueAndStatusAggregator(&profile_.get());
-  policy_value_and_status_observation_.Observe(
-      policy_value_and_status_aggregator_.get());
-
   const auto* policy_schema_registry_service =
       profile_->GetPolicySchemaRegistryService();
   // In case web_ui() represents an OffTheRecordProfileImpl object (like in a
@@ -301,6 +299,8 @@ void PolicyUIHandler::SendSchema() {
   FireWebUIListener("schema-updated", PolicyUI::GetSchema(&profile_.get()));
 }
 
+// TODO(crbug.com/40897784): Delete this function once schema, policies and
+// status are supported in the mojo version.
 void PolicyUIHandler::HandleListenPoliciesUpdates(const base::ListValue& args) {
   // Send initial policy values and status to UI page.
   AllowJavascript();
@@ -524,15 +524,21 @@ void PolicyUIHandler::HandleUploadReport(const base::ListValue& args) {
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
 void PolicyUIHandler::SendPolicies() {
-  if (!IsJavascriptAllowed()) {
-    return;
+  if (IsMojoMigrationEnabled()) {
+    client_->PoliciesUpdated(
+        policy_value_and_status_aggregator_->GetAggregatedPolicyNamesMojo(),
+        policy_value_and_status_aggregator_->GetAggregatedPolicyValuesMojo());
+  } else {
+    if (!IsJavascriptAllowed()) {
+      return;
+    }
+    FireWebUIListener(
+        "policies-updated",
+        base::Value(
+            policy_value_and_status_aggregator_->GetAggregatedPolicyNames()),
+        base::Value(
+            policy_value_and_status_aggregator_->GetAggregatedPolicyValues()));
   }
-  FireWebUIListener(
-      "policies-updated",
-      base::Value(
-          policy_value_and_status_aggregator_->GetAggregatedPolicyNames()),
-      base::Value(
-          policy_value_and_status_aggregator_->GetAggregatedPolicyValues()));
 }
 
 void PolicyUIHandler::SendStatus() {

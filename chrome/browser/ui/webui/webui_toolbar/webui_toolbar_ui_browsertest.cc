@@ -147,10 +147,6 @@ class MockToolbarUIDelegate
               (::toolbar_ui_api::mojom::ContentSettingImageType type),
               (override));
   MOCK_METHOD(void,
-              OnContentSettingImageAnimationEnded,
-              (::toolbar_ui_api::mojom::ContentSettingImageType),
-              (override));
-  MOCK_METHOD(void,
               OnPageActionPointerDown,
               (::toolbar_ui_api::mojom::PageActionId action_id),
               (override));
@@ -165,6 +161,7 @@ class MockToolbarUIDelegate
   MOCK_METHOD(void,
               OnPageActionChipShowingChanged,
               (::toolbar_ui_api::mojom::PageActionId action_id,
+               bool is_showing,
                ::toolbar_ui_api::mojom::ToolbarUIService::
                    OnPageActionChipShowingChangedCallback callback),
               (override));
@@ -197,7 +194,7 @@ class MockToolbarUIDelegate
               (override));
   MOCK_METHOD(void,
               OnLhsChipClicked,
-              (toolbar_ui_api::mojom::LhsChipIdentifier, bool),
+              (toolbar_ui_api::mojom::LhsChipIdentifier, bool, uint32_t),
               (override));
   MOCK_METHOD(void,
               OnLhsChipPointerEntered,
@@ -222,6 +219,7 @@ class MockToolbarUIDelegate
               (override));
   MOCK_METHOD(void, OnHomeButtonDropUrl, (const GURL&), (override));
   MOCK_METHOD(void, OnHomeButtonDropFile, (const gfx::PointF&), (override));
+  MOCK_METHOD(void, OnHomeButtonDropText, (const std::string&), (override));
   MOCK_METHOD(void, OnToolbarDropFile, (const gfx::PointF&), (override));
   MOCK_METHOD(void,
               OnPerformanceInterventionButtonClicked,
@@ -236,11 +234,13 @@ class MockToolbarUIDelegate
               (bool is_mouse_interaction),
               (override));
   MOCK_METHOD(void, OnMediaButtonMousePressed, (), (override));
+  MOCK_METHOD(void, OnGlicButtonClicked, (), (override));
   MOCK_METHOD((base::expected<std::monostate, mojo_base::mojom::ErrorPtr>),
               OnOmniboxAction,
               (toolbar_ui_api::mojom::OmniboxActionPtr action_ptr),
               (override));
-  MOCK_METHOD(void, ShowAvatarMenu, ());
+  MOCK_METHOD(void, ShowAvatarMenu, (bool));
+  MOCK_METHOD(void, OnAvatarButtonMousePressed, ());
   MOCK_METHOD(void, SetAvatarButtonHovered, (bool));
   MOCK_METHOD(void, SetAvatarButtonFocused, (bool));
   MOCK_METHOD(void, SetAvatarButtonIPHPromoShowing, (bool));

@@ -50,15 +50,7 @@ std::unique_ptr<Locale> Locale::Create(const String& locale) {
   return std::make_unique<LocaleIcu>(locale.Utf8());
 }
 
-LocaleIcu::LocaleIcu(const std::string& locale)
-    : locale_(locale),
-      number_format_(nullptr),
-      short_date_format_(nullptr),
-      did_create_decimal_format_(false),
-      did_create_short_date_format_(false),
-      medium_time_format_(nullptr),
-      short_time_format_(nullptr),
-      did_create_time_format_(false) {}
+LocaleIcu::LocaleIcu(const std::string& locale) : locale_(locale) {}
 
 LocaleIcu::~LocaleIcu() {
   unum_close(number_format_);
@@ -258,7 +250,7 @@ const Vector<String>& LocaleIcu::WeekDayShortLabels() {
   return week_day_short_labels_;
 }
 
-unsigned LocaleIcu::FirstDayOfWeek() {
+wtf_size_t LocaleIcu::FirstDayOfWeek() {
   if (!first_day_of_week_.has_value()) {
     first_day_of_week_ =
         InitializeShortDateFormat()

@@ -45,6 +45,9 @@ export function getHtml(this: GlicInternalsAppElement) {
               ` : ''}
               ${this.data_?.tieredRolloutInfo ? html`
                 <span class="badge badge-neutral">Tier: ${this.data_.tieredRolloutInfo.aiSubscriptionTier ?? 'N/A'}</span>
+                ${this.data_.tieredRolloutInfo.subscriptionBenefits.length > 0 ? html`
+                  <span class="badge badge-neutral">Benefits: ${this.data_.tieredRolloutInfo.subscriptionBenefits.join(', ')}</span>
+                ` : ''}
               ` : ''}
             </div>
           </div>
@@ -156,7 +159,7 @@ export function getHtml(this: GlicInternalsAppElement) {
       </div>
 
       <div class="card">
-        <div class="card-header">Tiered Rollout / User Tier</div>
+        <div class="card-header">Rollout / User Tier & Benefits</div>
         ${this.data_?.tieredRolloutInfo ? html`
           <table>
             <thead>
@@ -192,6 +195,14 @@ export function getHtml(this: GlicInternalsAppElement) {
               </tr>
               <tr>
                 <td class="status-cell-left">
+                  <span class="badge ${this.data_.tieredRolloutInfo.isEligibleForBenefitBasedRollout ? 'badge-success' : 'badge-error'}">
+                    ${this.data_.tieredRolloutInfo.isEligibleForBenefitBasedRollout ? 'Eligible' : 'Ineligible'}
+                  </span>
+                </td>
+                <td class="property-name">Is Eligible for Benefit-Based Rollout (C++)</td>
+              </tr>
+              <tr>
+                <td class="status-cell-left">
                   <span class="badge ${this.data_.tieredRolloutInfo.glicRolloutEligibilityPref ? 'badge-success' : 'badge-error'}">
                     ${this.data_.tieredRolloutInfo.glicRolloutEligibilityPref ? 'Enabled' : 'Disabled'}
                   </span>
@@ -217,6 +228,32 @@ export function getHtml(this: GlicInternalsAppElement) {
                   <code>${this.data_.tieredRolloutInfo.tieredRolloutV2EligibleTiers || 'None'}</code>
                 </td>
                 <td class="property-name">Eligible Tiers for V2 Rollout (Param)</td>
+              </tr>
+              <tr>
+                <td class="status-cell-left">
+                  <span class="badge ${this.data_.debugInfo?.glicSubscriptionBenefitsEligibilityFeatureEnabled ? 'badge-success' : 'badge-error'}">
+                    ${this.data_.debugInfo?.glicSubscriptionBenefitsEligibilityFeatureEnabled ? 'Enabled' : 'Disabled'}
+                  </span>
+                </td>
+                <td class="property-name">Subscription Benefits Eligibility Flag (kGlicSubscriptionBenefitsEligibility)</td>
+              </tr>
+              <tr>
+                <td class="status-cell-left">
+                  <code>${this.data_.tieredRolloutInfo.subscriptionBenefits.join(', ') || 'None'}</code>
+                </td>
+                <td class="property-name">Subscription Benefits (sync.subscription_benefits)</td>
+              </tr>
+              <tr>
+                <td class="status-cell-left">
+                  <code>${this.data_.tieredRolloutInfo.eligibleBenefits || 'None'}</code>
+                </td>
+                <td class="property-name">Eligible Benefits for Glic (Param)</td>
+              </tr>
+              <tr>
+                <td class="status-cell-left">
+                  <code>${this.data_.tieredRolloutInfo.actorEligibleBenefits || 'None'}</code>
+                </td>
+                <td class="property-name">Eligible Benefits for Autobrowse (Param)</td>
               </tr>
             </tbody>
           </table>` :
@@ -358,7 +395,10 @@ export function getHtml(this: GlicInternalsAppElement) {
               .value="${this.invokeInvocationSource_.toString()}"
               @change="${this.onInvokeInvocationSourceChange_}">
             ${this.getInvocationSourceOptions_().map(option => html`
-              <option value="${option.value}">${option.name}</option>
+              <option value="${option.value}"
+                  ?selected="${option.value === this.invokeInvocationSource_}">
+                ${option.name}
+              </option>
             `)}
           </select>
           ${this.invokeInvocationSource_ ===
@@ -395,7 +435,11 @@ export function getHtml(this: GlicInternalsAppElement) {
               .value="${this.invokeFreCompletionWaitMode_.toString()}"
               @change="${this.onInvokeFreCompletionWaitModeChange_}">
             ${this.freCompletionWaitModeEnumValues_.map(item => html`
-              <option value="${item.value}">${item.name}</option>
+              <option value="${item.value}"
+                  ?selected="${
+                      item.value === this.invokeFreCompletionWaitMode_}">
+                ${item.name}
+              </option>
             `)}
           </select>
           <label for="invokeFeatureModeSelect">Feature Mode</label>
@@ -403,7 +447,10 @@ export function getHtml(this: GlicInternalsAppElement) {
               .value="${this.invokeFeatureMode_.toString()}"
               @change="${this.onInvokeFeatureModeChange_}">
             ${this.featureModeEnumValues_.map(item => html`
-              <option value="${item.value}">${item.name}</option>
+              <option value="${item.value}"
+                  ?selected="${item.value === this.invokeFeatureMode_}">
+                ${item.name}
+              </option>
             `)}
           </select>
           <label for="invokeActuationTargetSelect">Actuation Target</label>
@@ -411,7 +458,10 @@ export function getHtml(this: GlicInternalsAppElement) {
               .value="${this.invokeActuationTarget_.toString()}"
               @change="${this.onInvokeActuationTargetChange_}">
             ${this.actuationTargetEnumValues_.map(item => html`
-              <option value="${item.value}">${item.name}</option>
+              <option value="${item.value}"
+                  ?selected="${item.value === this.invokeActuationTarget_}">
+                ${item.name}
+              </option>
             `)}
           </select>
 

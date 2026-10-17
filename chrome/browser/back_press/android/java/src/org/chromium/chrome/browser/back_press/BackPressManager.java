@@ -54,8 +54,8 @@ public class BackPressManager implements Destroyable, BackPressHandlerRegistry {
     private static final int sMetricsMaxValue;
 
     static {
-        // Max value is 30 - 1 obsolete value +1 for 0 indexing = 30 elements.
-        SparseIntArray map = new SparseIntArray(30);
+        // Values [0-30], including obsolete ones. 31 is the histogram boundary.
+        SparseIntArray map = new SparseIntArray(31);
         map.put(Type.TEXT_BUBBLE, 0);
         // map.put(Type.VR_DELEGATE, 1);
         // map.put(Type.AR_DELEGATE, 2);
@@ -85,9 +85,10 @@ public class BackPressManager implements Destroyable, BackPressHandlerRegistry {
         map.put(Type.FUSEBOX_POPUP, 27);
         map.put(Type.REALBOX, 28);
         map.put(Type.TAB_SEARCH_OVERLAY, 29);
+        map.put(Type.SEND_TAB_TO_SELF, 30);
 
         // Add new one here and update array size.
-        sMetricsMaxValue = 30;
+        sMetricsMaxValue = 31;
         sMetricsMap = map;
     }
 
@@ -225,7 +226,7 @@ public class BackPressManager implements Destroyable, BackPressHandlerRegistry {
     private Runnable mFallbackOnBackPressed;
     private int mLastCalledHandlerType = -1;
     private Supplier<Boolean> mIsGestureNavEnabledSupplier = SupplierUtils.alwaysFalse();
-    private @Nullable Supplier<Profile> mProfileSupplier;
+    private @Nullable Supplier<@Nullable Profile> mProfileSupplier;
     private final ObserverList<OnSystemNavigationObserver> mOnSystemNavigationObservers =
             new ObserverList<>();
 
@@ -390,7 +391,7 @@ public class BackPressManager implements Destroyable, BackPressHandlerRegistry {
     }
 
     /** Set a supplier to provide the current Profile. */
-    public void setProfileSupplier(Supplier<Profile> supplier) {
+    public void setProfileSupplier(Supplier<@Nullable Profile> supplier) {
         mProfileSupplier = supplier;
     }
 

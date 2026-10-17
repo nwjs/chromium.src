@@ -39,6 +39,8 @@ source_set("core") {
     "features.h",
     "network_request_service_settings.cc",
     "network_request_service_settings.h",
+    "provisioning_domain_refresh_helper.cc",
+    "provisioning_domain_refresh_helper.h",
     "realtime_reporting_client_base.cc",
     "realtime_reporting_client_base.h",
     "reporting_event_router.cc",
@@ -54,6 +56,7 @@ source_set("core") {
   public_deps = [
     ":constants",
     "//components/download/public/common:public",
+    "//components/enterprise/buildflags",
     "//components/enterprise/common/proto:connectors_proto",
   ]
 
@@ -62,12 +65,13 @@ source_set("core") {
     "//base:i18n",
     "//build:blink_buildflags",
     "//components/enterprise",
-    "//components/enterprise/buildflags",
     "//components/enterprise/common/proto:browser_events_proto",
     "//components/enterprise/common/proto:chrome_reporting_entity",
     "//components/enterprise/common/proto:upload_request_response",
     "//components/enterprise/connectors:mojom",
     "//components/enterprise/device_trust",
+    "//components/enterprise/device_trust/core",
+    "//components/enterprise/device_trust/core:device_trust_connector_service",
     "//components/enterprise/obfuscation/core:enterprise_obfuscation",
     "//components/keyed_service/core",
     "//components/policy/core/browser",
@@ -88,13 +92,6 @@ source_set("core") {
     "//ui/gfx/range",
   ]
 
-  if (!is_android) {
-    deps += [
-      "//components/enterprise/device_trust/core",
-      "//components/enterprise/device_trust/core:device_trust_connector_service",
-    ]
-  }
-
   if (use_blink) {
     deps += [ "//components/download/public/common:public" ]
   }
@@ -105,6 +102,10 @@ source_set("core") {
 
   if (enterprise_data_controls) {
     deps += [ "//components/enterprise/data_controls/core/browser" ]
+  }
+
+  if (enterprise_proxy) {
+    public_deps += [ "//components/enterprise/net/core" ]
   }
 }
 
@@ -138,11 +139,12 @@ if (enterprise_cloud_content_analysis || is_android) {
       "cloud_content_scanning/files_request_handler_base.h",
       "cloud_content_scanning/multipart_uploader.cc",
       "cloud_content_scanning/multipart_uploader.h",
+      "cloud_content_scanning/network_request_analysis_request.cc",
+      "cloud_content_scanning/network_request_analysis_request.h",
       "cloud_content_scanning/request_handler_base.cc",
       "cloud_content_scanning/request_handler_base.h",
+      "cloud_content_scanning/resumable_uploader.cc",
       "cloud_content_scanning/resumable_uploader.h",
-      "cloud_content_scanning/resumable_uploader_base.cc",
-      "cloud_content_scanning/resumable_uploader_base.h",
     ]
     deps = [
       "//base",
@@ -288,6 +290,7 @@ source_set("unit_tests") {
     "connectors_service_base_unittest.cc",
     "enterprise_connectors_policy_handler_unittest.cc",
     "network_request_service_settings_unittest.cc",
+    "provisioning_domain_refresh_helper_unittest.cc",
     "reporting_service_settings_unittest.cc",
     "reporting_utils_unittest.cc",
     "service_provider_config_unittest.cc",
@@ -299,9 +302,11 @@ source_set("unit_tests") {
     "//base",
     "//base/test:test_support",
     "//components/enterprise",
+    "//components/enterprise/buildflags",
     "//components/enterprise/common/proto:browser_events_proto",
     "//components/enterprise/connectors:mojom",
     "//components/enterprise/connectors/core:test_support",
+    "//components/enterprise/device_trust/core",
     "//components/enterprise/obfuscation/core:enterprise_obfuscation",
     "//components/policy/core/browser",
     "//components/policy/core/common",
@@ -314,8 +319,12 @@ source_set("unit_tests") {
     "//url",
   ]
 
-  if (!is_android) {
-    deps += [ "//components/enterprise/device_trust/core" ]
+  if (enterprise_proxy) {
+    deps += [
+      "//components/enterprise/net/core",
+      "//components/enterprise/net/core:test_support",
+      "//testing/gmock",
+    ]
   }
 }
 
@@ -331,7 +340,8 @@ if (enterprise_cloud_content_analysis || is_android) {
       "cloud_content_scanning/file_opening_job_unittest.cc",
       "cloud_content_scanning/files_request_handler_base_unittest.cc",
       "cloud_content_scanning/multipart_uploader_unittest.cc",
-      "cloud_content_scanning/resumable_uploader_base_unittest.cc",
+      "cloud_content_scanning/network_request_analysis_request_unittest.cc",
+      "cloud_content_scanning/resumable_uploader_unittest.cc",
     ]
 
     public_deps = [ ":cloud_content_scanning" ]

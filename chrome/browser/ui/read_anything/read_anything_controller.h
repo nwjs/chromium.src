@@ -8,6 +8,7 @@
 #include <optional>
 
 #include "base/callback_list.h"
+#include "base/functional/callback_forward.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
@@ -19,7 +20,6 @@
 #include "chrome/browser/ui/read_anything/read_anything_lifecycle_observer.h"
 #include "chrome/browser/ui/read_anything/read_anything_omnibox_controller.h"
 #include "chrome/browser/ui/read_anything/read_anything_side_panel_controller.h"
-#include "chrome/browser/ui/side_panel/side_panel_entry_key.h"
 #include "chrome/browser/ui/side_panel/side_panel_enums.h"
 #include "chrome/browser/ui/side_panel/side_panel_registry.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
@@ -31,8 +31,16 @@
 #include "content/public/browser/web_contents_user_data.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 
+namespace content {
+class NavigationHandle;
+struct OpenURLParams;
+}  // namespace content
+
+namespace input {
+struct NativeWebKeyboardEvent;
+}  // namespace input
+
 class ReadAnythingController;
-class ReadAnythingService;
 
 // A helper class to observe a specific WebContents, so the ReadAnything
 // Controller can observe multiple WebContents. Event callbacks are configured
@@ -157,6 +165,21 @@ class ReadAnythingController : public tabs::ContentsObservingTabFeature {
   PresentationState GetPresentationState() const;
 
   void SetPresentationState(PresentationState new_state);
+
+  // Handles OpenURL requests originating from Reading Mode WebUI instances
+  // (both side panel and immersive views). Enforces security policies
+  // (restricting schemes to web schemes, validating transient user activation,
+  // and demoting dangerous dispositions) before delegating to the main tab's
+  // WebContentsDelegate.
+  content::WebContents* OpenURLFromTab(
+      content::WebContents* source,
+      const content::OpenURLParams& params,
+      base::OnceCallback<void(content::NavigationHandle&)>
+          navigation_handle_callback);
+
+  // Handles Escape key press to exit fullscreen via ExclusiveAccessManager.
+  // Returns true if the event was handled.
+  bool HandleEscapeKey(const input::NativeWebKeyboardEvent& event);
 
   void OnDistillationStateChanged(DistillationState new_state);
 
@@ -298,8 +321,6 @@ class ReadAnythingController : public tabs::ContentsObservingTabFeature {
   // ReleaseMainContentsCapture() instead to ensure the handle is correctly
   // managed.
   base::ScopedClosureRunner main_contents_capturer_handle_;
-
-  raw_ptr<ReadAnythingService> active_service_ = nullptr;
 
   static bool freeze_distillation_for_testing_;
 

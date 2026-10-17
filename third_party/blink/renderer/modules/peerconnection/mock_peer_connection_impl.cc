@@ -7,17 +7,43 @@
 #include <stddef.h>
 
 #include <algorithm>
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <optional>
+#include <string>
 #include <utility>
 #include <vector>
 
+#include "base/check.h"
 #include "base/check_op.h"
 #include "base/memory/raw_ptr.h"
 #include "base/notimplemented.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "third_party/blink/renderer/modules/peerconnection/mock_data_channel_impl.h"
 #include "third_party/blink/renderer/modules/peerconnection/mock_peer_connection_dependency_factory.h"
-#include "third_party/blink/renderer/modules/peerconnection/mock_rtc_peer_connection_handler_platform.h"
 #include "third_party/blink/renderer/platform/allow_discouraged_type.h"
+#include "third_party/webrtc/api/data_channel_interface.h"
+#include "third_party/webrtc/api/dtls_transport_interface.h"
+#include "third_party/webrtc/api/dtmf_sender_interface.h"
+#include "third_party/webrtc/api/ice_transport_interface.h"
+#include "third_party/webrtc/api/jsep.h"
+#include "third_party/webrtc/api/legacy_stats_types.h"
+#include "third_party/webrtc/api/media_stream_interface.h"
+#include "third_party/webrtc/api/media_types.h"
+#include "third_party/webrtc/api/peer_connection_interface.h"
+#include "third_party/webrtc/api/rtc_error.h"
+#include "third_party/webrtc/api/rtp_parameters.h"
 #include "third_party/webrtc/api/rtp_receiver_interface.h"
+#include "third_party/webrtc/api/rtp_sender_interface.h"
+#include "third_party/webrtc/api/rtp_transceiver_direction.h"
+#include "third_party/webrtc/api/rtp_transceiver_interface.h"
+#include "third_party/webrtc/api/scoped_refptr.h"
+#include "third_party/webrtc/api/set_local_description_observer_interface.h"
+#include "third_party/webrtc/api/set_remote_description_observer_interface.h"
+#include "third_party/webrtc/api/stats/rtc_stats_collector_callback.h"
+#include "third_party/webrtc/api/stats/rtc_stats_report.h"
+#include "third_party/webrtc/api/transport/rtp/rtp_source.h"
 #include "third_party/webrtc/rtc_base/ref_counted_object.h"
 
 using testing::_;
@@ -333,13 +359,15 @@ const char MockPeerConnectionImpl::kDummyAnswer[] = "dummy answer";
 
 MockPeerConnectionImpl::MockPeerConnectionImpl(
     MockPeerConnectionDependencyFactory* factory,
-    webrtc::PeerConnectionObserver* observer)
+    webrtc::PeerConnectionObserver* observer,
+    std::unique_ptr<webrtc::PeerConnectionTracerInterface> tracer)
     : remote_streams_(new webrtc::RefCountedObject<MockStreamCollection>),
       hint_audio_(false),
       hint_video_(false),
       getstats_result_(true),
       sdp_mline_index_(-1),
-      observer_(observer) {
+      observer_(observer),
+      tracer_(std::move(tracer)) {
   // TODO(hbos): Remove once no longer mandatory to implement.
   ON_CALL(*this, SetLocalDescription(_, _))
       .WillByDefault(testing::Invoke(
@@ -534,6 +562,9 @@ void MockPeerConnectionImpl::CreateOffer(
     const RTCOfferAnswerOptions& options) {
   DCHECK(observer);
   created_session_description_ = true;
+  if (fail_session_description_synchronously_) {
+    observer->OnFailure(webrtc::RTCError(webrtc::RTCErrorType::INVALID_STATE));
+  }
 }
 
 void MockPeerConnectionImpl::CreateAnswer(
@@ -541,6 +572,9 @@ void MockPeerConnectionImpl::CreateAnswer(
     const RTCOfferAnswerOptions& options) {
   DCHECK(observer);
   created_session_description_ = true;
+  if (fail_session_description_synchronously_) {
+    observer->OnFailure(webrtc::RTCError(webrtc::RTCErrorType::INVALID_STATE));
+  }
 }
 
 void MockPeerConnectionImpl::SetLocalDescriptionWorker(

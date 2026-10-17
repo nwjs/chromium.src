@@ -10,10 +10,6 @@ java_group("delegate_java") {
   public_deps = [ ":java" ]
 }
 
-java_cpp_enum("template_url_category_enum") {
-  sources = [ "template_url_service_android.h" ]
-}
-
 android_resources("java_resources") {
   sources = [
     "java/res/drawable/ic_logo_googleg_20dp.xml",
@@ -41,16 +37,17 @@ android_library("java") {
 
   srcjar_deps = [
     ":jni_headers",
-    ":template_url_category_enum",
     "//components/search_engines:search_engine_enums_java",
   ]
   sources = [
+    "java/src/org/chromium/components/search_engines/AiModeButtonUiConfig.java",
     "java/src/org/chromium/components/search_engines/FakeSearchEngineCountryDelegate.java",
     "java/src/org/chromium/components/search_engines/NoOpSearchEngineCountryDelegate.java",
     "java/src/org/chromium/components/search_engines/PrepopulatedAndRecentlyVisitedTemplateURLs.java",
     "java/src/org/chromium/components/search_engines/SearchEngineAssets.java",
     "java/src/org/chromium/components/search_engines/SearchEngineChoiceService.java",
     "java/src/org/chromium/components/search_engines/SearchEngineCountryDelegate.java",
+    "java/src/org/chromium/components/search_engines/SearchEngineSettingsDataProvider.java",
     "java/src/org/chromium/components/search_engines/SearchEnginesFeatureUtils.java",
     "java/src/org/chromium/components/search_engines/TemplateUrl.java",
     "java/src/org/chromium/components/search_engines/TemplateUrlService.java",
@@ -59,7 +56,9 @@ android_library("java") {
 
 generate_jni("jni_headers") {
   sources = [
+    "java/src/org/chromium/components/search_engines/AiModeButtonUiConfig.java",
     "java/src/org/chromium/components/search_engines/PrepopulatedAndRecentlyVisitedTemplateURLs.java",
+    "java/src/org/chromium/components/search_engines/SearchEngineSettingsDataProvider.java",
     "java/src/org/chromium/components/search_engines/TemplateUrl.java",
     "java/src/org/chromium/components/search_engines/TemplateUrlService.java",
   ]
@@ -75,9 +74,6 @@ android_library("test_utils_java") {
     ":delegate_java",
     ":java",
     "//base:base_java",
-    "//base:base_java_test_support",
-    "//third_party/androidx:androidx_annotation_annotation_java",
-    "//third_party/jni_zero:jni_zero_java",
     "//third_party/mockito:mockito_java",
   ]
 }
@@ -91,6 +87,7 @@ android_library("junit") {
     "java/src/org/chromium/components/search_engines/PrepopulatedAndRecentlyVisitedTemplateURLsUnitTest.java",
     "java/src/org/chromium/components/search_engines/SearchEngineAssetsUnitTest.java",
     "java/src/org/chromium/components/search_engines/SearchEngineChoiceServiceUnitTest.java",
+    "java/src/org/chromium/components/search_engines/SearchEngineSettingsDataProviderUnitTest.java",
     "java/src/org/chromium/components/search_engines/SearchEnginesFeatureUtilsUnitTest.java",
   ]
   deps = [
@@ -104,10 +101,8 @@ android_library("junit") {
     "//base:promise_java",
     "//base:supplier_java",
     "//components/favicon/android:java",
-    "//components/search_engines/android:test_utils_java",
     "//content/public/android:content_java",
     "//third_party/android_deps:robolectric_all_java",
-    "//third_party/androidx:androidx_annotation_annotation_java",
     "//third_party/androidx:androidx_test_runner_java",
     "//third_party/hamcrest:hamcrest_core_java",
     "//third_party/junit",

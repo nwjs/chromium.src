@@ -8,6 +8,7 @@
 #import "components/breadcrumbs/core/breadcrumbs_status.h"
 #import "components/commerce/ios/browser/commerce_tab_helper.h"
 #import "components/data_sharing/public/features.h"
+#import "components/enterprise/browser/reporting/reporting_features.h"
 #import "components/favicon/core/favicon_service.h"
 #import "components/favicon/ios/web_favicon_driver.h"
 #import "components/history/core/browser/top_sites.h"
@@ -71,6 +72,7 @@
 #import "ios/chrome/browser/intelligence/actor/model/actor_tab_helper.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_tab_helper.h"
 #import "ios/chrome/browser/intelligence/contextual_cueing/contextual_cueing_tab_helper.h"
+#import "ios/chrome/browser/intelligence/contextual_cueing/features.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/itunes_urls/model/itunes_urls_handler_tab_helper.h"
 #import "ios/chrome/browser/lens/model/lens_tab_helper.h"
@@ -94,6 +96,8 @@
 #import "ios/chrome/browser/passwords/model/password_tab_helper.h"
 #import "ios/chrome/browser/passwords/model/well_known_change_password_tab_helper.h"
 #import "ios/chrome/browser/permissions/model/permissions_tab_helper.h"
+#import "ios/chrome/browser/policy/model/reporting/saas_usage/saas_usage_reporting_controller_factory_ios.h"
+#import "ios/chrome/browser/policy/model/reporting/saas_usage/saas_usage_tab_helper.h"
 #import "ios/chrome/browser/policy_url_blocking/model/policy_url_blocking_tab_helper.h"
 #import "ios/chrome/browser/reader_mode/model/features.h"
 #import "ios/chrome/browser/reader_mode/model/reader_mode_tab_helper.h"
@@ -165,6 +169,8 @@ void AttachTabHelpers(web::WebState* web_state, TabHelperFilter filter_flags) {
   // should be filtered out.
   // - kLensOverlay: Tab helpers that are required for Lens UI.
   // - kReaderMode: Tab helpers that are required for Reader Mode UI.
+  // - kGeminiWebModal: Tab helpers that are required for a web modal presented
+  // over the Gemini surface.
   //
   // When a web state is presented by the BVC, AttachTabHelpers is called to
   // attach all tab helpers. (the method is idempotent, so it is okay to call it
@@ -176,7 +182,7 @@ void AttachTabHelpers(web::WebState* web_state, TabHelperFilter filter_flags) {
   attacher.Create<FindTabHelper>();
 
   bool should_create_history_tab_helper =
-      !attacher.IsForReaderMode() &&
+      !attacher.IsForReaderMode() && !attacher.IsForGeminiWebModal() &&
       (!attacher.IsForLensOverlay() ||
        base::FeatureList::IsEnabled(kLensOverlayNavigationHistory));
   attacher.CreateWhen<HistoryTabHelper>(should_create_history_tab_helper);
@@ -203,7 +209,8 @@ void AttachTabHelpers(web::WebState* web_state, TabHelperFilter filter_flags) {
   attacher.CreateWhen<LensOverlayTabHelper>(attacher.IsNotInTabHelperFilter());
   attacher
       .CreateDeferredWhen<AppLauncherTabHelper>(!attacher.IsForLensOverlay() &&
-                                                !attacher.IsForPrerender())
+                                                !attacher.IsForPrerender() &&
+                                                !attacher.IsForGeminiWebModal())
       .With([&]() { return [[AppLauncherAbuseDetector alloc] init]; },
             [&]() { return attacher.IsOffTheRecord(); });
   attacher
@@ -270,14 +277,18 @@ void AttachTabHelpers(web::WebState* web_state, TabHelperFilter filter_flags) {
   // tab helpers for historical reasons. For the moment, AttachTabHelpers
   // allows to inhibit the creation of some of them.
   attacher.CreateWhen<SadTabTabHelper>(
-      !attacher.IsForLensOverlay() && !attacher.IsForPrerender(),
+      !attacher.IsForLensOverlay() && !attacher.IsForPrerender() &&
+          !attacher.IsForGeminiWebModal(),
       SadTabTabHelper::kDefaultRepeatFailureInterval);
   attacher.CreateWhen<SnapshotTabHelper>(!attacher.IsForLensOverlay() &&
-                                         !attacher.IsForPrerender());
+                                         !attacher.IsForPrerender() &&
+                                         !attacher.IsForGeminiWebModal());
   attacher.CreateWhen<SnapshotSourceTabHelper>(!attacher.IsForLensOverlay() &&
-                                               !attacher.IsForPrerender());
-  attacher.CreateWhen<PagePlaceholderTabHelper>(!attacher.IsForLensOverlay() &&
-                                                !attacher.IsForPrerender());
+                                               !attacher.IsForPrerender() &&
+                                               !attacher.IsForGeminiWebModal());
+  attacher.CreateWhen<PagePlaceholderTabHelper>(
+      !attacher.IsForLensOverlay() && !attacher.IsForPrerender() &&
+      !attacher.IsForGeminiWebModal());
 
   // Must be attached after `SnapshotTabHelper` because `SafeBrowsingTabHelper`
   // instantiates `ClientSideDetectionHostIOS` during construction, which
@@ -292,6 +303,12 @@ void AttachTabHelpers(web::WebState* web_state, TabHelperFilter filter_flags) {
   attacher.Create<TailoredSecurityTabHelper>(
       TailoredSecurityServiceFactory::GetForProfile(profile));
   attacher.Create<PolicyUrlBlockingTabHelper>();
+  if (base::FeatureList::IsEnabled(enterprise_reporting::kSaasUsageReporting)) {
+    if (auto* controller = enterprise_reporting::
+            SaasUsageReportingControllerFactoryIOS::GetForProfile(profile)) {
+      attacher.Create<enterprise_reporting::SaasUsageTabHelper>(controller);
+    }
+  }
 
   // Supervised user services are not supported for off-the-record.
   attacher.CreateWhen<SupervisedUserURLFilterTabHelper>(
@@ -404,8 +421,9 @@ void AttachTabHelpers(web::WebState* web_state, TabHelperFilter filter_flags) {
       ios::provider::AttachClassificationMetricsTabHelper(web_state);
     }
     attacher.CreateWhen<contextual_cueing::ContextualCueingTabHelper>(
-        IsGeminiContextualSuggestionsCuesEnabled() ||
-        IsGeminiContextualSuggestionsCuesOnDeviceClassifierEnabled());
+        contextual_cueing::IsGeminiContextualSuggestionsCuesEnabled() ||
+        contextual_cueing::
+            IsGeminiContextualSuggestionsCuesOnDeviceClassifierEnabled());
   }
 
   attacher.Create<data_controls::DataControlsTabHelper>();

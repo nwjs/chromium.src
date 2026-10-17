@@ -44,7 +44,7 @@ UniversalOptOutServiceFactory::~UniversalOptOutServiceFactory() = default;
 std::unique_ptr<KeyedService>
 UniversalOptOutServiceFactory::BuildServiceInstanceFor(
     ProfileIOS* profile) const {
-  if (!base::FeatureList::IsEnabled(features::kUniversalOptOut)) {
+  if (!features::IsUniversalOptOutEnabled()) {
     return nullptr;
   }
 
@@ -65,6 +65,10 @@ UniversalOptOutServiceFactory::BuildServiceInstanceFor(
                   base::FeatureList::IsEnabled(
                       features::kUniversalOptOutSettings);
               web::SetUniversalOptOutEnabled(profile, effective_enabled);
+              if (profile->HasOffTheRecordProfile()) {
+                web::SetUniversalOptOutEnabled(
+                    profile->GetOffTheRecordProfile(), effective_enabled);
+              }
             }
           },
           profile->AsWeakPtr()));

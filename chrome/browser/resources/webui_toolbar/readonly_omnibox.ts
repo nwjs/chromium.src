@@ -93,6 +93,13 @@ class MojoOmniboxInputDelegate implements OmniboxInputDelegate {
       return;
     }
 
+    // Let the IME handle keys during active text composition (e.g. Enter to
+    // commit raw Pinyin text, Space/arrows to pick candidates, Escape to
+    // cancel).
+    if (event.isComposing) {
+      return;
+    }
+
     // OmniboxEditModel keeps track of state of control key separately, and
     // needs to be notified of its releases. Everything else is handled on
     // keydown.
@@ -101,8 +108,9 @@ class MojoOmniboxInputDelegate implements OmniboxInputDelegate {
     }
 
     if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-      // Shift+Down/Up does selection, plain Down/Up navigates suggestions.
-      if (!event.shiftKey) {
+      // Arrow keys navigate suggestions unless modifiers are pressed.
+      if (!event.ctrlKey && !event.altKey && !event.shiftKey &&
+          !event.metaKey) {
         event.preventDefault();
       } else {
         return;
@@ -472,6 +480,19 @@ export class ReadonlyOmniboxElement extends CrLitElement {
       } else {
         this.maybeClearAccessibilityPseudoFocus_();
       }
+    } else if (
+        changedProperties.has('isComposing') && !this.isComposing &&
+        this.omniboxViewState.inlineAutocompletion.length > 0) {
+      this.$.textInput.setInput({
+        text: this.userText,
+        inline: this.omniboxViewState.inlineAutocompletion,
+        moveCursorToEnd: false,
+      });
+      this.setSelection(
+          this.userText.length,
+          this.userText.length +
+              this.omniboxViewState.inlineAutocompletion.length,
+          'forward');
     }
   }
 
@@ -549,7 +570,7 @@ export class ReadonlyOmniboxElement extends CrLitElement {
       }
       // It's important this is done after updating the selection since that
       // prevents inline completion, which isn't desired for these shortcuts.
-      this.sendInputToBrowser(unelision);
+      this.sendInputToBrowser(unelision, /*paste=*/ false);
 
       this.inputDelegate_.handleFocusChange(this, {
         browserVersion: this.omniboxViewState.browserVersion,
@@ -698,7 +719,7 @@ export class ReadonlyOmniboxElement extends CrLitElement {
     // Make sure we stop accepting incremental selection updates from browser
     // at this point.
     ++this.omniboxViewState.uiVersion;
-    this.sendInputToBrowser(unelision);
+    this.sendInputToBrowser(unelision, /*paste=*/ false);
 
     const zeroSuggest = isOnlyLeftButton(event) &&
         (this.selectAllOnMouseRelease_ || this.userText.length === 0);
@@ -797,7 +818,7 @@ export class ReadonlyOmniboxElement extends CrLitElement {
     }
 
     ++this.omniboxViewState.uiVersion;
-    this.sendInputToBrowser(/*unelision=*/ false);
+    this.sendInputToBrowser(/*unelision=*/ false, /*paste=*/ false);
 
     const zeroSuggest = willSelectAll || this.userText.length === 0;
     this.inputDelegate_.handlePointer(this, {
@@ -908,7 +929,7 @@ export class ReadonlyOmniboxElement extends CrLitElement {
           // Otherwise just set caret.
           this.setSelection(0, 0);
         }
-        this.sendInputToBrowser(/*unelision=*/ true);
+        this.sendInputToBrowser(/*unelision=*/ true, /*paste=*/ false);
         event.preventDefault();
       }
     }
@@ -935,7 +956,7 @@ export class ReadonlyOmniboxElement extends CrLitElement {
 
   protected onSearchboxInputTextUpdated_(): void {
     if (this.updateStateFromTextInput()) {
-      this.sendInputToBrowser(/*unelision=*/ false);
+      this.sendInputToBrowser(/*unelision=*/ false, /*paste=*/ false);
     }
   }
 
@@ -950,9 +971,10 @@ export class ReadonlyOmniboxElement extends CrLitElement {
     const currentSelection = this.getMojoSelection();
     if (currentSelection.start !== this.omniboxViewState.selection?.start ||
         currentSelection.end !== this.omniboxViewState.selection?.end) {
+      this.omniboxViewState.selection = currentSelection;
       const unelided = this.unelideAndUpdateSelection(UnelisionGesture.OTHER);
       ++this.omniboxViewState.uiVersion;  // may be taking control of selection.
-      this.sendInputToBrowser(unelided);
+      this.sendInputToBrowser(unelided, /*paste=*/ false);
     }
   }
 
@@ -1066,7 +1088,15 @@ export class ReadonlyOmniboxElement extends CrLitElement {
       e.preventDefault();
       const sanitizedText = sanitizeTextForPaste(rawText);
       document.execCommand('insertText', false, sanitizedText);
-      this.onSearchboxInputTextUpdated_();
+
+      let unelided = false;
+      if (!this.updateStateFromTextInput()) {
+        // In case paste changed only selection.
+        this.omniboxViewState.selection = this.getMojoSelection();
+        unelided = this.unelideAndUpdateSelection(UnelisionGesture.OTHER);
+        ++this.omniboxViewState.uiVersion;
+      }
+      this.sendInputToBrowser(unelided, /*paste=*/ true);
     }
   }
 
@@ -1101,6 +1131,12 @@ export class ReadonlyOmniboxElement extends CrLitElement {
     this.maybeClearAccessibilityPseudoFocus_();
     if (this.mouseButtonDown_ !== 0) {
       return;
+    }
+    if (this.hasFocus()) {
+      // Sync selection changes that happen without a keyup event (e.g., Edit >
+      // Select All menu action, mouse/touch gestures, key repeat, accessibility
+      // actions).
+      this.checkForSelectionChange_();
     }
     this.updateAdjustedCopyResult_();
   }
@@ -1333,7 +1369,7 @@ export class ReadonlyOmniboxElement extends CrLitElement {
     }
   }
 
-  private sendInputToBrowser(unelision: boolean): void {
+  private sendInputToBrowser(unelision: boolean, paste: boolean): void {
     this.inputDelegate_.handleTextInput(this, {
       uiVersion: this.omniboxViewState.uiVersion,
       browserVersion: this.omniboxViewState.browserVersion,
@@ -1341,6 +1377,7 @@ export class ReadonlyOmniboxElement extends CrLitElement {
       inlineAutocompletion: this.omniboxViewState.inlineAutocompletion,
       selection: this.getMojoSelection(),
       unelision,
+      paste,
     });
   }
 

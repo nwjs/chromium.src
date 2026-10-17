@@ -16,6 +16,7 @@
 #include "chrome/browser/glic/test_support/glic_histogram_tester.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
+#include "content/public/test/memory_coordinator_browsertest_util.h"
 
 namespace glic {
 namespace {
@@ -28,7 +29,7 @@ class GlicInstanceCoordinatorMetricsBrowserTest : public GlicBrowserTest {
                                {{features::kGlicActorPolicyControlExemption
                                      .name,
                                  "true"}}}},
-        /*disabled_features=*/{features::kGlicDefaultToLastActiveConversation});
+        /*disabled_features=*/{});
   }
 
  private:
@@ -106,8 +107,10 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorMetricsBrowserTest,
   ASSERT_OK(OpenGlicForActiveTab());
 
   // Simulate memory pressure.
-  base::MemoryPressureListener::NotifyMemoryPressure(
-      base::MEMORY_PRESSURE_LEVEL_CRITICAL);
+  content::test::ScopedMemoryLimitOverride scoped_memory_limit_override(
+      GlicInstanceCoordinatorImpl::kMemoryConsumerName);
+  scoped_memory_limit_override.SetLimit(base::kCriticalMemoryPressureThreshold);
+  scoped_memory_limit_override.NotifyReleaseMemory();
 
   // Verify that memory histograms are recorded.
   // We use ExpectTotalCount because the actual values depend on the
@@ -128,7 +131,7 @@ class GlicInstanceCoordinatorMetricsPeriodicTest : public GlicBrowserTest {
     feature_list_.InitWithFeaturesAndParameters(
         /*enabled_features=*/{{features::kGlicRecordMemoryFootprintMetrics,
                                {{"period", "1s"}}}},
-        /*disabled_features=*/{features::kGlicDefaultToLastActiveConversation});
+        /*disabled_features=*/{});
   }
 
  private:
@@ -191,7 +194,7 @@ class GlicInstanceCoordinatorMetricsWarmingTest : public GlicBrowserTest {
         /*enabled_features=*/{{features::kGlicWebContentsWarming,
                                {{features::kGlicWebContentsWarmingDelay.name,
                                  "0ms"}}}},
-        /*disabled_features=*/{features::kGlicDefaultToLastActiveConversation});
+        /*disabled_features=*/{});
   }
 
  private:
@@ -212,23 +215,33 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorMetricsWarmingTest,
                .GetWarmedContainerForTesting() != nullptr;
   }));
 
-  content::WebContents* web_contents =
-      coordinator()
-          .GetWebContentsWarmingPoolForTesting()
-          .GetWarmedWebContents();
-  ASSERT_TRUE(web_contents);
-  content::WaitForLoadStop(web_contents);
+  {
+    // Note: The container is in the warming pool (no active GlicInstance or
+    // Host has been attached yet), so WebClient does not connect while warming.
+    // Wait for the warmed WebContents to finish loading instead.
+    auto warmed_contents = coordinator()
+                               .GetWebContentsWarmingPoolForTesting()
+                               .GetWarmedWebContents();
+    ASSERT_TRUE(warmed_contents);
+    content::WaitForLoadStop(warmed_contents->guest_contents
+                                 ? warmed_contents->guest_contents.get()
+                                 : warmed_contents->webui_contents.get());
+  }
 
   // 2. Simulate memory pressure.
-  base::MemoryPressureListener::NotifyMemoryPressure(
-      base::MEMORY_PRESSURE_LEVEL_CRITICAL);
+  content::test::ScopedMemoryLimitOverride scoped_memory_limit_override(
+      GlicInstanceCoordinatorImpl::kMemoryConsumerName);
+  scoped_memory_limit_override.SetLimit(base::kCriticalMemoryPressureThreshold);
+  scoped_memory_limit_override.NotifyReleaseMemory();
 
   // 3. Verify that memory histograms are recorded and values are > 0 where
   // expected. Client memory might be 0 if the guest hasn't loaded yet for the
   // warmed instance.
 
-  histogram_tester.ExpectSampleValueGreaterThan(
-      "Glic.Instance.AvgWebUIPrivateMemoryFootprint.CriticalPressure", 0);
+  if (!features::IsGlicNoWebviewEnabled()) {
+    histogram_tester.ExpectSampleValueGreaterThan(
+        "Glic.Instance.AvgWebUIPrivateMemoryFootprint.CriticalPressure", 0);
+  }
 
   histogram_tester.ExpectTotalCount(
       "Glic.Instance.AvgClientPrivateMemoryFootprint.CriticalPressure", 1);

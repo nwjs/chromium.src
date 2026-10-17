@@ -5,6 +5,9 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_BINDINGS_STRING_RESOURCE_H_
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_BINDINGS_STRING_RESOURCE_H_
 
+#include <atomic>
+#include <type_traits>
+
 #include "base/compiler_specific.h"
 #include "base/dcheck_is_on.h"
 #include "third_party/blink/renderer/platform/bindings/parkable_string.h"
@@ -22,6 +25,10 @@ class StringResourceBase {
   USING_FAST_MALLOC(StringResourceBase);
 
  public:
+  static StringResourceBase* GetExternalizedString(
+      v8::Isolate* isolate,
+      v8::Local<v8::String> v8_string);
+
   explicit StringResourceBase(v8::Isolate* isolate, String string)
       : plain_string_(std::move(string)) {
     DCHECK(!plain_string_.IsNull());
@@ -90,7 +97,15 @@ class StringResourceBase {
     }
   }
 
-  virtual ~StringResourceBase() = default;
+  virtual ~StringResourceBase() {
+    // TODO(crbug.com/562847435): This is temporary hardening until an
+    // architectural fix for resource lifetimes is developed.
+    CHECK_EQ(disposal_lock_count_, 0);
+  }
+
+  void LockDisposal() const { disposal_lock_count_ += 1; }
+
+  void UnlockDisposal() const { disposal_lock_count_ -= 1; }
 
   String GetWTFString() {
     if (!parkable_string_.IsNull()) {
@@ -111,8 +126,12 @@ class StringResourceBase {
       atomic_string_ = AtomicString(plain_string_);
       DCHECK(!atomic_string_.IsNull());
       if (plain_string_.Impl() != atomic_string_.Impl()) {
+        // TODO(crbug.com/562847435): This is temporary hardening until an
+        // architectural fix for resource lifetimes is developed.
+        LockDisposal();
         memory_accounter_.Increase(isolate,
                                    atomic_string_.CharactersSizeInBytes());
+        UnlockDisposal();
       }
     }
     return atomic_string_;
@@ -156,6 +175,7 @@ class StringResourceBase {
   // members above are null.
   ParkableString parkable_string_;
 
+  mutable std::atomic_int disposal_lock_count_{0};
   NO_UNIQUE_ADDRESS V8ExternalMemoryAccounterBase memory_accounter_;
 };
 
@@ -192,6 +212,9 @@ class StringResource16Base : public StringResourceBase,
       SharedMemoryUsageRecorder* recorder) const override {
     return StringResourceBase::EstimateSharedMemoryUsage(recorder);
   }
+
+  void Lock() const override { StringResourceBase::LockDisposal(); }
+  void Unlock() const override { StringResourceBase::UnlockDisposal(); }
 };
 
 class StringResource16 final : public StringResource16Base {
@@ -223,9 +246,15 @@ class ParkableStringResource16 final : public StringResource16Base {
     return !GetParkableString().may_be_parked();
   }
 
-  void Lock() const override { GetParkableString().Lock(); }
+  void Lock() const override {
+    StringResource16Base::Lock();
+    GetParkableString().Lock();
+  }
 
-  void Unlock() const override { GetParkableString().Unlock(); }
+  void Unlock() const override {
+    GetParkableString().Unlock();
+    StringResource16Base::Unlock();
+  }
 
   size_t length() const override { return GetParkableString().length(); }
 
@@ -262,6 +291,9 @@ class StringResource8Base : public StringResourceBase,
       SharedMemoryUsageRecorder* recorder) const override {
     return StringResourceBase::EstimateSharedMemoryUsage(recorder);
   }
+
+  void Lock() const override { StringResourceBase::LockDisposal(); }
+  void Unlock() const override { StringResourceBase::UnlockDisposal(); }
 };
 
 class StringResource8 final : public StringResource8Base {
@@ -293,9 +325,15 @@ class ParkableStringResource8 final : public StringResource8Base {
     return !GetParkableString().may_be_parked();
   }
 
-  void Lock() const override { GetParkableString().Lock(); }
+  void Lock() const override {
+    StringResource8Base::Lock();
+    GetParkableString().Lock();
+  }
 
-  void Unlock() const override { GetParkableString().Unlock(); }
+  void Unlock() const override {
+    GetParkableString().Unlock();
+    StringResource8Base::Unlock();
+  }
 
   size_t length() const override { return GetParkableString().length(); }
 
@@ -303,6 +341,35 @@ class ParkableStringResource8 final : public StringResource8Base {
     return GetParkableString().SpanChar().data();
   }
 };
+
+ALWAYS_INLINE StringResourceBase* StringResourceBase::GetExternalizedString(
+    v8::Isolate* isolate,
+    v8::Local<v8::String> v8_string) {
+  v8::String::Encoding encoding;
+  v8::String::ExternalStringResourceBase* resource =
+      v8_string->GetExternalStringResourceBase(isolate, &encoding);
+  if (resource) [[likely]] {
+    static_assert(std::is_base_of<v8::String::ExternalOneByteStringResource,
+                                  StringResource8Base>::value,
+                  "");
+    static_assert(std::is_base_of<v8::String::ExternalStringResource,
+                                  StringResource16Base>::value,
+                  "");
+    static_assert(
+        std::is_base_of<StringResourceBase, StringResource8Base>::value, "");
+    static_assert(
+        std::is_base_of<StringResourceBase, StringResource16Base>::value, "");
+    // Then StringResource{8,16}Base allows to go from one ancestry path to
+    // the other one. Even though it's empty, removing it causes UB, see
+    // crbug.com/909796.
+    if (encoding == v8::String::ONE_BYTE_ENCODING) {
+      return static_cast<StringResource8Base*>(resource);
+    }
+    return static_cast<StringResource16Base*>(resource);
+  }
+
+  return nullptr;
+}
 
 }  // namespace blink
 

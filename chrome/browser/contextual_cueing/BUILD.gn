@@ -76,6 +76,7 @@ source_set("impl") {
     "//components/favicon/core",
     "//components/infobars/content",
     "//components/keyed_service/core",
+    "//components/metrics",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//components/pdf/common:constants",
     "//components/pref_registry",
@@ -95,6 +96,7 @@ source_set("impl") {
     deps += [
       "//chrome/browser/ui:browser_actions",
       "//chrome/browser/ui:chrome_pages",
+      "//chrome/browser/ui/hats",
       "//chrome/browser/ui/page_action",
       "//chrome/browser/ui/user_education",
     ]
@@ -119,7 +121,9 @@ if (!is_android) {
       "//chrome/browser/signin:signin_browser_test_base",
       "//chrome/browser/sync",
       "//chrome/browser/ui:browser_actions",
+      "//chrome/browser/ui:browser_commands",
       "//chrome/browser/ui/browser_window",
+      "//chrome/browser/ui/hats:test_support",
       "//chrome/browser/ui/page_action",
       "//chrome/browser/ui/side_panel",
       "//chrome/browser/ui/side_panel:side_panel_views_dependent",
@@ -148,6 +152,7 @@ source_set("unit_tests") {
     ":contextual_cueing",
     ":impl",
     "//base/test:test_support",
+    "//components/metrics",
     "//components/prefs:test_support",
     "//components/strings:components_strings",
     "//components/tabs:test_support",

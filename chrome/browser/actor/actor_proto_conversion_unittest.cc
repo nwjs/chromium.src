@@ -7,9 +7,15 @@
 #include <optional>
 #include <vector>
 
+#include "base/test/gmock_expected_support.h"
+#include "base/test/scoped_feature_list.h"
+#include "base/unguessable_token.h"
+#include "chrome/browser/actor/tools/script_tool_request.h"
+#include "components/actor/core/actor_features.h"
+#include "components/optimization_guide/proto/features/actions_data.pb.h"
 #include "components/optimization_guide/proto/features/common_quality_data.pb.h"
 #include "components/optimization_guide/proto/features/common_quality_data_fuzzable.pb.h"
-#include "components/origin_gating/core/actor_container_config.h"
+#include "components/origin_gating/core/task_policy_config.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/fuzztest/src/fuzztest/fuzztest.h"
@@ -23,11 +29,11 @@ namespace {
 using ::optimization_guide::proto::AgentContainerConfig;
 using ::optimization_guide::proto::Protocol;
 using ::optimization_guide::proto::RuleMetadata;
-using ::origin_gating::ActorContainerConfig;
+using ::origin_gating::TaskPolicyConfig;
 
-using Location = ActorContainerConfig::Location;
-using Rule = ActorContainerConfig::Rule;
-using Wildcard = ActorContainerConfig::Wildcard;
+using Location = TaskPolicyConfig::Location;
+using Rule = TaskPolicyConfig::Rule;
+using Wildcard = TaskPolicyConfig::Wildcard;
 
 Rule CreateExpectedRule(std::vector<Location> navigation_sources = {},
                         Rule::ResourceSet resources = {},
@@ -35,17 +41,40 @@ Rule CreateExpectedRule(std::vector<Location> navigation_sources = {},
   return Rule(std::move(navigation_sources), resources, capabilities);
 }
 
+optimization_guide::proto::Actions CreateActionsWithScriptTool(
+    std::optional<int32_t> tab_id,
+    std::optional<std::string> document_identifier) {
+  optimization_guide::proto::Actions actions;
+  optimization_guide::proto::ScriptToolAction* script_action =
+      actions.add_actions()->mutable_script_tool();
+  if (tab_id.has_value()) {
+    script_action->set_tab_id(*tab_id);
+  }
+  script_action->set_tool_name("echo");
+  script_action->set_input_arguments(R"({"text":"sample_input"})");
+  if (document_identifier.has_value()) {
+    script_action->mutable_document_identifier()->set_serialized_token(
+        *document_identifier);
+  }
+  return actions;
+}
+
 }  // namespace
 
 class ActorProtoConversionTest : public testing::Test {
  public:
-  ActorProtoConversionTest() = default;
+  ActorProtoConversionTest() {
+    feature_list_.InitAndEnableFeature(kGlicActorEnableScriptTools);
+  }
   ~ActorProtoConversionTest() override = default;
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
 };
 
 TEST_F(ActorProtoConversionTest, ConvertEmptyConfig) {
   AgentContainerConfig proto;
-  EXPECT_EQ(ConvertAgentContainerConfig(proto), ActorContainerConfig());
+  EXPECT_EQ(ConvertAgentContainerConfig(proto), TaskPolicyConfig());
 }
 
 TEST_F(ActorProtoConversionTest, ConvertWildcardRule) {
@@ -57,7 +86,7 @@ TEST_F(ActorProtoConversionTest, ConvertWildcardRule) {
       RuleMetadata::RESOURCE_SESSION);
 
   EXPECT_EQ(ConvertAgentContainerConfig(proto),
-            ActorContainerConfig({{
+            TaskPolicyConfig({{
                 {Location(Wildcard()),
                  CreateExpectedRule({}, {Rule::Resource::kSession},
                                     {Rule::Capability::kAll})},
@@ -75,7 +104,7 @@ TEST_F(ActorProtoConversionTest, ConvertSiteRule) {
       RuleMetadata::RESOURCE_SESSION);
 
   EXPECT_EQ(ConvertAgentContainerConfig(proto),
-            ActorContainerConfig({{
+            TaskPolicyConfig({{
                 {Location(net::SchemefulSite(GURL("https://example.com"))),
                  CreateExpectedRule({}, {Rule::Resource::kSession},
                                     {Rule::Capability::kAll})},
@@ -93,7 +122,7 @@ TEST_F(ActorProtoConversionTest, ConvertOriginRule) {
       RuleMetadata::RESOURCE_SESSION);
 
   EXPECT_EQ(ConvertAgentContainerConfig(proto),
-            ActorContainerConfig({{
+            TaskPolicyConfig({{
                 {Location(url::Origin::Create(GURL("https://a.example.com"))),
                  CreateExpectedRule({}, {Rule::Resource::kSession},
                                     {Rule::Capability::kAll})},
@@ -118,7 +147,7 @@ TEST_F(ActorProtoConversionTest, ConvertMultipleRules) {
   }
 
   EXPECT_EQ(ConvertAgentContainerConfig(proto),
-            ActorContainerConfig({{
+            TaskPolicyConfig({{
                 {Location(Wildcard()),
                  CreateExpectedRule({}, {Rule::Resource::kSession},
                                     {Rule::Capability::kAll})},
@@ -139,7 +168,7 @@ TEST_F(ActorProtoConversionTest, ConvertMixedResourcesAndCapabilities) {
       RuleMetadata::RESOURCE_UNKNOWN);
 
   EXPECT_EQ(ConvertAgentContainerConfig(proto),
-            ActorContainerConfig({{
+            TaskPolicyConfig({{
                 {Location(Wildcard()),
                  CreateExpectedRule({}, {Rule::Resource::kSession},
                                     {Rule::Capability::kAll})},
@@ -154,7 +183,7 @@ TEST_F(ActorProtoConversionTest, ConvertRuleWithNoCapabilities) {
       RuleMetadata::RESOURCE_SESSION);
 
   EXPECT_EQ(ConvertAgentContainerConfig(proto),
-            ActorContainerConfig({{
+            TaskPolicyConfig({{
                 {Location(Wildcard()),
                  CreateExpectedRule({}, {Rule::Resource::kSession}, {})},
             }}));
@@ -185,7 +214,7 @@ TEST_F(ActorProtoConversionTest, ConvertProtocols_Http_Ws_Wss) {
   }
 
   EXPECT_EQ(ConvertAgentContainerConfig(proto),
-            ActorContainerConfig({{
+            TaskPolicyConfig({{
                 {Location(net::SchemefulSite(GURL("http://http.com"))),
                  CreateExpectedRule({}, {}, {Rule::Capability::kAll})},
                 {Location(url::Origin::Create(GURL("ws://ws.com"))),
@@ -210,7 +239,7 @@ TEST_F(ActorProtoConversionTest, ConvertWithNavigationSources) {
 
   EXPECT_EQ(
       ConvertAgentContainerConfig(proto),
-      ActorContainerConfig({{
+      TaskPolicyConfig({{
           {Location(Wildcard()),
            CreateExpectedRule(
                {Location(url::Origin::Create(GURL("https://source.com")))},
@@ -235,7 +264,7 @@ TEST_F(ActorProtoConversionTest, FiltersOutMalformedRules_SiteUnknownProtocol) {
       RuleMetadata::CAPABILITY_ALL);
 
   EXPECT_EQ(ConvertAgentContainerConfig(proto),
-            ActorContainerConfig({{
+            TaskPolicyConfig({{
                 {Location(Wildcard()),
                  CreateExpectedRule({}, {}, {Rule::Capability::kAll})},
             }}));
@@ -259,7 +288,7 @@ TEST_F(ActorProtoConversionTest,
       RuleMetadata::CAPABILITY_ALL);
 
   EXPECT_EQ(ConvertAgentContainerConfig(proto),
-            ActorContainerConfig({{
+            TaskPolicyConfig({{
                 {Location(Wildcard()),
                  CreateExpectedRule({}, {}, {Rule::Capability::kAll})},
             }}));
@@ -281,7 +310,7 @@ TEST_F(ActorProtoConversionTest, FiltersOutMalformedRules_SiteNoDomain) {
       RuleMetadata::CAPABILITY_ALL);
 
   EXPECT_EQ(ConvertAgentContainerConfig(proto),
-            ActorContainerConfig({{
+            TaskPolicyConfig({{
                 {Location(Wildcard()),
                  CreateExpectedRule({}, {}, {Rule::Capability::kAll})},
             }}));
@@ -300,7 +329,7 @@ TEST_F(ActorProtoConversionTest, FiltersOutMalformedRules_EmptyLocationRule) {
       RuleMetadata::CAPABILITY_ALL);
 
   EXPECT_EQ(ConvertAgentContainerConfig(proto),
-            ActorContainerConfig({{
+            TaskPolicyConfig({{
                 {Location(Wildcard()),
                  CreateExpectedRule({}, {}, {Rule::Capability::kAll})},
             }}));
@@ -326,7 +355,7 @@ TEST_F(ActorProtoConversionTest,
       RuleMetadata::CAPABILITY_ALL);
 
   EXPECT_EQ(ConvertAgentContainerConfig(proto),
-            ActorContainerConfig({{
+            TaskPolicyConfig({{
                 {Location(Wildcard()),
                  CreateExpectedRule({}, {}, {Rule::Capability::kAll})},
             }}));
@@ -365,6 +394,60 @@ TEST_F(ActorProtoConversionTest, ValidateActionsAreScriptTools_MixedActions) {
   action2->mutable_click();
 
   EXPECT_FALSE(ValidateActionsAreScriptTools(actions));
+}
+
+TEST_F(
+    ActorProtoConversionTest,
+    BuildToolRequest_ScriptTool_ValidProto_CreatesRequestWithCorrectParameters) {
+  base::UnguessableToken token = base::UnguessableToken::Create();
+  optimization_guide::proto::Actions actions =
+      CreateActionsWithScriptTool(/*tab_id=*/100, token.ToString());
+
+  BuildToolRequestResult requests = BuildToolRequest(actions);
+  ASSERT_TRUE(requests.has_value());
+  ASSERT_EQ(requests.value().size(), 1u);
+
+  ToolRequest& created_request = *requests.value().front();
+  EXPECT_EQ(ScriptToolRequest::kName, created_request.Name());
+
+  const ScriptToolRequest& script_request =
+      static_cast<const ScriptToolRequest&>(created_request);
+  EXPECT_EQ(100, script_request.GetTabHandle().raw_value());
+  EXPECT_EQ(token, script_request.GetTargetDocumentIdForTesting());
+  EXPECT_EQ("echo", script_request.GetNameForTesting());
+  EXPECT_EQ(R"({"text":"sample_input"})",
+            script_request.GetInputArgumentsForTesting());
+}
+
+TEST_F(ActorProtoConversionTest,
+       BuildToolRequest_ScriptTool_MissingDocumentIdentifier_ReturnsError) {
+  optimization_guide::proto::Actions actions = CreateActionsWithScriptTool(
+      /*tab_id=*/100, /*document_identifier=*/std::nullopt);
+
+  EXPECT_THAT(BuildToolRequest(actions),
+              base::test::ErrorIs(testing::Pair(
+                  0u, mojom::ActionResultCode::kArgumentsInvalid)));
+}
+
+TEST_F(ActorProtoConversionTest,
+       BuildToolRequest_ScriptTool_InvalidDocumentIdentifier_ReturnsError) {
+  optimization_guide::proto::Actions actions =
+      CreateActionsWithScriptTool(/*tab_id=*/100, "invalid_token");
+
+  EXPECT_THAT(BuildToolRequest(actions),
+              base::test::ErrorIs(testing::Pair(
+                  0u, mojom::ActionResultCode::kArgumentsInvalid)));
+}
+
+TEST_F(ActorProtoConversionTest,
+       BuildToolRequest_ScriptTool_MissingTabId_ReturnsError) {
+  base::UnguessableToken token = base::UnguessableToken::Create();
+  optimization_guide::proto::Actions actions =
+      CreateActionsWithScriptTool(/*tab_id=*/std::nullopt, token.ToString());
+
+  EXPECT_THAT(BuildToolRequest(actions),
+              base::test::ErrorIs(testing::Pair(
+                  0u, mojom::ActionResultCode::kArgumentsInvalid)));
 }
 
 void CanConvertAnyProto(

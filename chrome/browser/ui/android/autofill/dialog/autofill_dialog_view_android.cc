@@ -9,12 +9,12 @@
 #include "base/android/jni_android.h"
 #include "base/android/jni_string.h"
 #include "base/check_deref.h"
-#include "chrome/android/chrome_jni_headers/AutofillDialogController_jni.h"
 #include "chrome/browser/ui/autofill/autofill_dialog_view.h"
 #include "ui/android/view_android.h"
 #include "ui/android/window_android.h"
 
-using base::android::ConvertUTF16ToJavaString;
+// Must come after headers that provide symbols used by @JniType.
+#include "chrome/android/chrome_jni_headers/AutofillDialogController_jni.h"
 
 namespace autofill {
 
@@ -36,7 +36,8 @@ void AutofillDialogViewAndroid::Show() {
     Java_AutofillDialogController_show(
         base::android::AttachCurrentThread(), java_object_,
         controller_->GetTitleText(), controller_->GetDescriptionText(),
-        controller_->GetButtonText());
+        controller_->GetPositiveButtonText(),
+        controller_->GetNegativeButtonText());
   }
 }
 
@@ -63,7 +64,7 @@ void AutofillDialogViewAndroid::InitJavaObject() {
   }
 
   java_object_.Reset(Java_AutofillDialogController_create(
-      env, reinterpret_cast<intptr_t>(this), window_android->GetJavaObject()));
+      env, reinterpret_cast<intptr_t>(this), window_android));
 }
 
 void AutofillDialogViewAndroid::Dismiss() {
@@ -73,11 +74,11 @@ void AutofillDialogViewAndroid::Dismiss() {
   }
 }
 
-void AutofillDialogViewAndroid::OnPositiveButtonClicked(JNIEnv* env) {
+void AutofillDialogViewAndroid::OnPositiveButtonClicked() {
   controller_->OnPositiveButtonClicked();
 }
 
-void AutofillDialogViewAndroid::OnDismissed(JNIEnv* env) {
+void AutofillDialogViewAndroid::OnDismissed() {
   controller_->OnDismissed();
 }
 

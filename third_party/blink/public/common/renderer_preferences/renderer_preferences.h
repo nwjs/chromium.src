@@ -101,7 +101,7 @@ struct BLINK_COMMON_EXPORT RendererPreferences {
 
   ui::KeyboardCode autofill_shortcut_key_code = ui::VKEY_UNKNOWN;
   int autofill_shortcut_modifiers = 0;
-  std::u16string autofill_trigger_string;
+  bool autofill_at_memory_double_ctrl_trigger_enabled = false;
 
   std::string nw_inject_js_doc_start;
   std::string nw_inject_js_doc_end;

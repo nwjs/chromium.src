@@ -27,6 +27,12 @@ class FullWebUIOmniboxFrame : public RoundedOmniboxResultsFrame {
 
   void SetElevation(int elevation);
 
+  // Updates the shadow margin reserved around the popup content. When the
+  // popup is collapsed, the bottom shadow margin is dropped so the widget does
+  // not extend over the browser UI directly below the location bar.
+  void SetShadowMargin(const gfx::Insets& shadow_margin);
+  const gfx::Insets& shadow_margin() const { return shadow_margin_; }
+
   // Updates whether mouse events should be forwarded to the underlying
   // location bar.
   void SetForwardMouseEvents(bool forward);
@@ -37,11 +43,19 @@ class FullWebUIOmniboxFrame : public RoundedOmniboxResultsFrame {
   void OnMouseEvent(ui::MouseEvent* event) override;
 #endif  // !USE_AURA
 
+  // The shadow margin, with the top expanded to also cover the location bar.
+  // Events inside these insets are forwarded to the browser window beneath.
+  gfx::Insets GetEventForwardingInsets() const;
+
+  // How the Full WebUI Widget is aligned relative to the location bar.
+  static gfx::Insets GetLocationBarAlignmentInsets();
+
  private:
-  gfx::Insets GetEventForwardingInsets();
 #if defined(USE_AURA)
   void UpdateWindowTargeter();
 #endif  // USE_AURA
+
+  gfx::Insets shadow_margin_ = GetShadowInsets();
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_OMNIBOX_FULL_WEBUI_OMNIBOX_FRAME_H_

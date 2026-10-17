@@ -26,12 +26,16 @@ if (!is_android) {
       "//chrome/browser/picture_in_picture",
       "//chrome/browser/preloading:prefs",
       "//chrome/browser/search",
+      "//chrome/browser/ui:browser_command_controller",
+      "//chrome/browser/ui:browser_commands",
+      "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui:tab_dialogs",
       "//chrome/browser/ui:tab_modal_confirm_dialog",
       "//chrome/browser/ui/browser_ui_controller",
       "//chrome/browser/ui/exclusive_access",
       "//chrome/browser/ui/location_bar",
       "//chrome/browser/ui/views:status_bubble",
+      "//chrome/browser/ui/views/frame:browser_view_header",
       "//chrome/browser/ui/views/frame:contents_web_view",
       "//chrome/browser/ui/web_applications",
       "//components/find_in_page",
@@ -44,6 +48,9 @@ if (!is_android) {
     ]
     if (use_aura) {
       deps += [ "//chrome/browser/ui:overscroll_pref_manager" ]
+    }
+    if (is_chromeos) {
+      deps += [ "//chrome/browser/ui:settings_window_manager_chromeos" ]
     }
   }
 }

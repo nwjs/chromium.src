@@ -16,6 +16,7 @@ import android.widget.FrameLayout;
 
 import org.chromium.base.Callback;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
+import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.actor.ActorKeyedService;
@@ -82,6 +83,7 @@ public class ActorOverlayCoordinator {
      * @param backPressHandlerRegistry The BackPressHandlerRegistry to handle back press.
      * @param layoutManagerSupplier The LayoutManager supplier to observe layout changes.
      * @param profileSupplier The Profile supplier to observe profile changes.
+     * @param omniboxFocusStateSupplier Supplier for whether the omnibox currently has focus.
      * @param sideUiStateProvider The {@link SideUiStateProvider} providing state on the side UI.
      */
     public ActorOverlayCoordinator(
@@ -93,6 +95,7 @@ public class ActorOverlayCoordinator {
             BackPressHandlerRegistry backPressHandlerRegistry,
             MonotonicObservableSupplier<LayoutManager> layoutManagerSupplier,
             MonotonicObservableSupplier<Profile> profileSupplier,
+            NonNullObservableSupplier<Boolean> omniboxFocusStateSupplier,
             @Nullable SideUiStateProvider sideUiStateProvider) {
         mViewStub = viewStub;
         mContext = viewStub.getContext();
@@ -143,6 +146,7 @@ public class ActorOverlayCoordinator {
                         browserControlsVisibilityManager,
                         tabObscuringHandler,
                         layoutManagerSupplier,
+                        omniboxFocusStateSupplier,
                         this::inflateView,
                         this::showInteractionLimitedSnackbar,
                         this::dismissInteractionLimitedSnackbar);
@@ -180,7 +184,8 @@ public class ActorOverlayCoordinator {
 
         @Override
         public @Nullable Transition onPreSideUiSpecsChange(
-                SideUiCoordinator.SideUiSpecs sideUiSpecs) {
+                SideUiCoordinator.SideUiSpecs sideUiSpecs,
+                SideUiCoordinator.UiUpdateRequest request) {
             if (mContainer == null || !mModel.get(ActorOverlayProperties.VISIBLE)) {
                 return null;
             }
@@ -198,9 +203,15 @@ public class ActorOverlayCoordinator {
         }
 
         @Override
-        public void onSideUiSpecsChanged(SideUiCoordinator.SideUiSpecs sideUiSpecs) {
-            mModel.set(ActorOverlayProperties.LEFT_MARGIN, sideUiSpecs.getWidth(AnchorSide.LEFT));
-            mModel.set(ActorOverlayProperties.RIGHT_MARGIN, sideUiSpecs.getWidth(AnchorSide.RIGHT));
+        public void onSideUiSpecsChanged(
+                SideUiCoordinator.SideUiSpecs sideUiSpecs,
+                SideUiCoordinator.UiUpdateRequest request) {
+            mModel.set(
+                    ActorOverlayProperties.LEFT_MARGIN,
+                    sideUiSpecs.getReservedWidth(AnchorSide.LEFT));
+            mModel.set(
+                    ActorOverlayProperties.RIGHT_MARGIN,
+                    sideUiSpecs.getReservedWidth(AnchorSide.RIGHT));
         }
     }
 

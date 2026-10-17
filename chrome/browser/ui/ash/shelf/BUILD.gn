@@ -245,6 +245,7 @@ source_set("unit_tests") {
     "//chrome/common",
     "//chrome/test:test_support",
     "//chrome/test:test_support_unit",
+    "//chrome/test/base:testing_browser_process",
     "//chromeos/ash/components/browser_context_helper",
     "//chromeos/ash/components/dbus/chunneld",
     "//chromeos/ash/components/dbus/concierge",
@@ -271,10 +272,6 @@ source_set("unit_tests") {
     "//extensions/common",
     "//testing/gtest",
   ]
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 source_set("browser_tests") {
@@ -319,15 +316,19 @@ source_set("browser_tests") {
     "//chrome/browser/ash/login/demo_mode",
     "//chrome/browser/ash/login/demo_mode:test_support",
     "//chrome/browser/ash/system_web_apps",
+    "//chrome/browser/consent_auditor",
     "//chrome/browser/extensions",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui",
     "//chrome/browser/ui:browser_init_state",
+    "//chrome/browser/ui:browser_window_header",
+    "//chrome/browser/ui:settings_window_manager_chromeos",
     "//chrome/browser/ui:test_support",
     "//chrome/browser/ui/ash/shelf/app_service",
     "//chrome/browser/ui/ash/system_web_apps",
     "//chrome/browser/ui/extensions",
     "//chrome/browser/ui/test:app_window",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/ui/web_applications",
     "//chrome/browser/ui/window_metadata",
     "//chrome/browser/web_applications",

@@ -43,6 +43,7 @@
 #include "components/sync/test/fake_server.h"
 #include "components/trusted_vault/test/mock_trusted_vault_throttling_connection.h"
 #include "components/trusted_vault/trusted_vault_connection.h"
+#include "components/trusted_vault/trusted_vault_server_constants.h"
 #include "components/webauthn/core/browser/passkey_model.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/test/browser_test_utils.h"
@@ -110,7 +111,8 @@ EnclaveAuthenticatorTestBase::EnclaveAuthenticatorTestBase()
   if (__builtin_available(macOS 13.5, *)) {
     fake_icloud_keychain_ = device::fido::icloud_keychain::NewFake();
   }
-  scoped_icloud_drive_override_ = OverrideICloudDriveEnabled(false);
+  scoped_icloud_keychain_override_ =
+      OverrideICloudKeychainConfiguredForPasskeys(false);
 #endif
   scoped_vmodule_.InitWithSwitches("device_event_log_impl=2");
 
@@ -317,11 +319,13 @@ void EnclaveAuthenticatorTestBase::SetMockVaultConnectionOnRequestDelegate(
     content::RenderFrameHost* rfh) {
   auto connection = std::make_unique<
       testing::NiceMock<trusted_vault::MockTrustedVaultThrottlingConnection>>();
-  EXPECT_CALL(*connection, DownloadAuthenticationFactorsRegistrationState(
-                               testing::_, testing::_, testing::_))
+  EXPECT_CALL(*connection,
+              DownloadAuthenticationFactorsRegistrationState(
+                  testing::_, trusted_vault::SecurityDomainId::kPasskeys,
+                  testing::_, testing::_))
       .WillOnce(
           [result = std::move(result)](
-              const CoreAccountInfo&,
+              const CoreAccountInfo&, trusted_vault::SecurityDomainId,
               base::OnceCallback<void(AuthenticationFactorsResult)> callback,
               base::RepeatingClosure _) mutable {
             std::move(callback).Run(std::move(result));
@@ -358,6 +362,7 @@ void EnclaveAuthenticatorTestBase::SetTrustedVaultRecoverable(
 
 void EnclaveAuthenticatorTestBase::SetTrustedVaultSlowAndCacheCallback() {
   auto connection_callback = [this](const CoreAccountInfo&,
+                                    trusted_vault::SecurityDomainId,
                                     base::OnceCallback<void(
                                         AuthenticationFactorsResult)> callback,
                                     base::RepeatingClosure) {
@@ -366,8 +371,10 @@ void EnclaveAuthenticatorTestBase::SetTrustedVaultSlowAndCacheCallback() {
   };
   auto connection = std::make_unique<
       testing::NiceMock<trusted_vault::MockTrustedVaultThrottlingConnection>>();
-  EXPECT_CALL(*connection, DownloadAuthenticationFactorsRegistrationState(
-                               testing::_, testing::_, testing::_))
+  EXPECT_CALL(*connection,
+              DownloadAuthenticationFactorsRegistrationState(
+                  testing::_, trusted_vault::SecurityDomainId::kPasskeys,
+                  testing::_, testing::_))
       .WillOnce(connection_callback);
   GpmTrustedVaultConnectionProvider::SetOverrideForFrame(
       browser()

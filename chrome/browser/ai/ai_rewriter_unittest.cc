@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "base/run_loop.h"
+#include "base/strings/string_util.h"
 #include "base/test/bind.h"
 #include "base/test/gmock_expected_support.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -20,11 +21,11 @@
 #include "chrome/browser/ai/ai_test_utils.h"
 #include "chrome/browser/ai/features.h"
 #include "chrome/browser/optimization_guide/mock_optimization_guide_keyed_service.h"
+#include "components/optimization_guide/core/model_execution/configs/substitution_builder.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/test/fake_manifest_broker.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/test/scenario_builder.h"
 #include "components/optimization_guide/core/model_execution/test/feature_config_builder.h"
 #include "components/optimization_guide/core/model_execution/test/mock_on_device_capability.h"
-#include "components/optimization_guide/core/model_execution/test/substitution_builder.h"
 #include "components/optimization_guide/core/optimization_guide_proto_util.h"
 #include "components/optimization_guide/core/optimization_guide_switches.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
@@ -58,6 +59,8 @@ using ::optimization_guide::proto::WritingAssistanceApiResponse;
 using ::testing::_;
 using ::testing::ElementsAre;
 using ::testing::ElementsAreArray;
+using ::testing::HasSubstr;
+using ::testing::Not;
 
 constexpr char kSharedContextString[] = "test shared context";
 constexpr char kContextString[] = "test context";
@@ -786,6 +789,39 @@ TEST_F(AIRewriterTest, CreateOnDeviceAiUserSettingDisabled) {
       /*monitor=*/mojo::NullRemote());
   EXPECT_EQ(observer.WaitForBadMessage(), "Policy or user setting disabled");
   SetOnDeviceAiUserSetting(true);
+}
+
+TEST_F(AIRewriterTest, VerifyPromptComposition) {
+  mojo::Remote<blink::mojom::AIRewriter> rewriter_remote =
+      GetAIRewriterRemote(GetDefaultOptions());
+
+  // First execution verifies that shared_context, per-call context, and input
+  // are all composed into the prompt.
+  {
+    AITestUtils::TestStreamingResponder responder;
+    rewriter_remote->Rewrite("First input", "First context",
+                             responder.BindRemote());
+    ASSERT_TRUE(responder.WaitForCompletion());
+    std::string prompt1 = base::JoinString(responder.responses(), "");
+    EXPECT_THAT(prompt1, HasSubstr(kSharedContextString));
+    EXPECT_THAT(prompt1, HasSubstr("First context"));
+    EXPECT_THAT(prompt1, HasSubstr("First input"));
+  }
+
+  // Second execution on the same session verifies that shared_context is
+  // retained while execution fields are updated without leaking previous
+  // inputs.
+  {
+    AITestUtils::TestStreamingResponder responder;
+    rewriter_remote->Rewrite("Second input", "Second context",
+                             responder.BindRemote());
+    ASSERT_TRUE(responder.WaitForCompletion());
+    std::string prompt2 = base::JoinString(responder.responses(), "");
+    EXPECT_THAT(prompt2, HasSubstr(kSharedContextString));
+    EXPECT_THAT(prompt2, HasSubstr("Second context"));
+    EXPECT_THAT(prompt2, HasSubstr("Second input"));
+    EXPECT_THAT(prompt2, Not(HasSubstr("First input")));
+  }
 }
 
 #if !BUILDFLAG(IS_ANDROID)

@@ -48,21 +48,21 @@ FakeAutocompleteController::FakeAutocompleteController(
           ->DeprecatedGetPrefRegistry()));
 
   providers_.push_back(base::MakeRefCounted<FakeAutocompleteProvider>(
-      AutocompleteProvider::Type::TYPE_BOOKMARK));
+      AutocompleteProvider::Type::kBookmark));
   providers_.push_back(base::MakeRefCounted<FakeAutocompleteProvider>(
-      AutocompleteProvider::Type::TYPE_BUILTIN));
+      AutocompleteProvider::Type::kBuiltin));
   providers_.push_back(base::MakeRefCounted<FakeAutocompleteProvider>(
-      AutocompleteProvider::Type::TYPE_HISTORY_QUICK));
+      AutocompleteProvider::Type::kHistoryQuick));
   providers_.push_back(base::MakeRefCounted<FakeAutocompleteProvider>(
-      AutocompleteProvider::Type::TYPE_KEYWORD));
+      AutocompleteProvider::Type::kKeyword));
   providers_.push_back(base::MakeRefCounted<FakeAutocompleteProvider>(
-      AutocompleteProvider::Type::TYPE_SEARCH));
+      AutocompleteProvider::Type::kSearch));
   providers_.push_back(base::MakeRefCounted<FakeAutocompleteProvider>(
-      AutocompleteProvider::Type::TYPE_HISTORY_URL));
+      AutocompleteProvider::Type::kHistoryUrl));
   providers_.push_back(base::MakeRefCounted<FakeAutocompleteProvider>(
-      AutocompleteProvider::Type::TYPE_DOCUMENT));
+      AutocompleteProvider::Type::kDocument));
   providers_.push_back(base::MakeRefCounted<FakeAutocompleteProvider>(
-      AutocompleteProvider::Type::TYPE_HISTORY_CLUSTER_PROVIDER));
+      AutocompleteProvider::Type::kHistoryClusterProvider));
 
   observer_ = std::make_unique<FakeAutocompleteControllerObserver>();
   AddObserver(observer_.get());

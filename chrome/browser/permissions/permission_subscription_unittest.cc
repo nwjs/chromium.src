@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/test/bind.h"
 #include "base/test/with_feature_override.h"
 #include "chrome/browser/permissions/permission_manager_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -13,6 +14,7 @@
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/content_settings/core/common/content_settings_utils.h"
 #include "components/content_settings/core/common/features.h"
+#include "components/permissions/permission_context_base.h"
 #include "components/permissions/permission_manager.h"
 #include "components/permissions/permission_util.h"
 #include "components/permissions/permissions_client.h"
@@ -669,6 +671,58 @@ TEST_P(PermissionSubscriptionGeolocationTest,
       ->UnsubscribeFromPermissionResultChange(subscription_id_2);
 }
 
+// A subscription callback is allowed to unsubscribe a different subscription,
+// which happens in production when an observer reacts to a permission being
+// revoked by tearing down unrelated state. `PermissionManager` collects the
+// callbacks of all matching subscriptions before running any of them, so by the
+// time the second callback runs its subscription may already be gone. It must
+// be skipped instead of being dispatched with a stale subscription id.
+TEST_F(PermissionSubscriptionTest, UnsubscribingPeerFromCallbackDoesNotCrash) {
+  content::PermissionController* controller = GetPermissionController();
+
+  content::PermissionController::SubscriptionId first_id;
+  content::PermissionController::SubscriptionId second_id;
+  int first_count = 0;
+  int second_count = 0;
+
+  // Both callbacks unsubscribe the other one. Whichever runs first therefore
+  // always removes the subscription whose callback is still queued, which makes
+  // the test independent of the unspecified subscription iteration order.
+  first_id = content::SubscribeToPermissionResultChange(
+      controller,
+      content::PermissionDescriptorUtil::
+          CreatePermissionDescriptorForPermissionType(
+              PermissionType::NOTIFICATIONS),
+      /*render_process_host=*/nullptr, main_rfh(), url(),
+      /*should_include_device_status=*/false,
+      base::BindLambdaForTesting([&](content::PermissionResult) {
+        ++first_count;
+        controller->UnsubscribeFromPermissionResultChange(second_id);
+      }));
+
+  second_id = content::SubscribeToPermissionResultChange(
+      controller,
+      content::PermissionDescriptorUtil::
+          CreatePermissionDescriptorForPermissionType(
+              PermissionType::NOTIFICATIONS),
+      /*render_process_host=*/nullptr, main_rfh(), url(),
+      /*should_include_device_status=*/false,
+      base::BindLambdaForTesting([&](content::PermissionResult) {
+        ++second_count;
+        controller->UnsubscribeFromPermissionResultChange(first_id);
+      }));
+
+  SetPermission(PermissionType::NOTIFICATIONS, PermissionStatus::GRANTED);
+
+  // Exactly one of the two callbacks runs; the other subscription is removed
+  // before its queued callback is dispatched.
+  EXPECT_EQ(1, first_count + second_count);
+
+  // Unsubscribing an already removed subscription is a no-op.
+  controller->UnsubscribeFromPermissionResultChange(first_id);
+  controller->UnsubscribeFromPermissionResultChange(second_id);
+}
+
 TEST_P(PermissionSubscriptionGeolocationTest,
        SubscribersAreNotifedOfEmbargoEvents) {
   NavigateAndCommit(url());
@@ -904,6 +958,43 @@ TEST_P(PermissionSubscriptionGeolocationTest,
                 PermissionType::GEOLOCATION, PermissionStatus::ASK);
   EXPECT_TRUE(callback_called());
   EXPECT_EQ(PermissionStatus::ASK, callback_result());
+
+  GetBrowserContext()
+      ->GetPermissionController()
+      ->UnsubscribeFromPermissionResultChange(subscription_id);
+}
+
+// Regression test for crbug.com/564314400: creating a subscription must not
+// synchronously deliver a permission change to that very subscription.
+TEST_F(PermissionSubscriptionTest,
+       SubscriptionIsNotNotifiedWhileBeingConstructed) {
+  permissions::PermissionContextBase* context =
+      GetPermissionManager()->GetPermissionContextForTesting(
+          ContentSettingsType::MEDIASTREAM_CAMERA);
+  ASSERT_TRUE(context);
+
+  // Prime the cached device-permission value so that the flip below is seen as
+  // a real change rather than as the initial observation.
+  context->set_has_device_permission_for_test(true);
+  GetPermissionStatusForCurrentDocument(PermissionType::VIDEO_CAPTURE,
+                                        main_rfh());
+
+  // Flip the OS-level permission. Nothing observes it until the cached value
+  // is refreshed, which happens while the subscription below is constructed.
+  context->set_has_device_permission_for_test(false);
+
+  content::PermissionController::SubscriptionId subscription_id =
+      content::SubscribeToPermissionResultChange(
+          GetPermissionController(),
+          content::PermissionDescriptorUtil::
+              CreatePermissionDescriptorForPermissionType(
+                  PermissionType::VIDEO_CAPTURE),
+          /*render_process_host=*/nullptr, main_rfh(), url(),
+          /*should_include_device_status=*/false,
+          base::BindRepeating(&PermissionSubscriptionTest::OnPermissionChange,
+                              base::Unretained(this)));
+
+  EXPECT_FALSE(callback_called());
 
   GetBrowserContext()
       ->GetPermissionController()

@@ -184,11 +184,10 @@ suite('DestinationSettingsTest', function() {
   function assertDropdownItems(expectedDestinations: string[]) {
     const options =
         destinationSettings.$.destinationSelect.getVisibleItemsForTest();
-    assertEquals(expectedDestinations.length + 1, options.length);
+    assertEquals(expectedDestinations.length, options.length);
     expectedDestinations.forEach((expectedValue, index) => {
       assertEquals(expectedValue, options[index]!.value);
     });
-    assertEquals('seeMore', options[expectedDestinations.length]!.value);
   }
 
   // Tests that the dropdown contains the appropriate destinations when there
@@ -522,41 +521,33 @@ suite('DestinationSettingsTest', function() {
             });
       });
 
-  // Tests that selecting the 'see more' option opens the dialog.
-  test('OpenDialog', function() {
+  // Tests that clicking the "See More" button opens the dialog.
+  test('SeeMoreButton', async () => {
     recentDestinations = destinations.slice(0, 5).map(
         destination => makeRecentDestination(destination));
+    const seeMoreButton = destinationSettings.$.seeMore;
+
+    // The button should be disabled before initialization.
+    assertTrue(seeMoreButton.disabled);
+
+    // The button should be enabled after loading destination store.
     const whenCapabilitiesDone =
         nativeLayer.whenCalled('getPrinterCapabilities');
     initialize();
-    const dropdown = destinationSettings.$.destinationSelect;
+    await whenCapabilitiesDone;
+    await waitBeforeNextRender(destinationSettings);
+    assertFalse(seeMoreButton.disabled);
 
-    return whenCapabilitiesDone
-        .then(() => {
-          return waitBeforeNextRender(destinationSettings);
-        })
-        .then(() => {
-          // This will result in the destination store setting the most recent
-          // destination.
-          assertEquals('ID1', destinationSettings.destination.id);
-          assertFalse(dropdown.disabled);
-          const dropdownItems = [
-            makeLocalDestinationKey('ID1'),
-            makeLocalDestinationKey('ID2'),
-            makeLocalDestinationKey('ID3'),
-            'Save as PDF/local/',
-            driveDestinationKey,
-          ];
-          assertDropdownItems(dropdownItems);
+    // The button should open the dialog after clicking.
+    seeMoreButton.click();
+    await waitBeforeNextRender(destinationSettings);
+    assertTrue(destinationSettings.$.destinationDialog.get().isOpen());
 
-          dropdown.dispatchEvent(new CustomEvent(
-              'selected-option-change',
-              {bubbles: true, composed: true, detail: 'seeMore'}));
-          return waitBeforeNextRender(destinationSettings);
-        })
-        .then(() => {
-          assertTrue(destinationSettings.$.destinationDialog.get().isOpen());
-        });
+    // The button should be disabled when destination settings is disabled.
+    destinationSettings.state = State.ERROR;
+    destinationSettings.disabled = true;
+    await waitBeforeNextRender(destinationSettings);
+    assertTrue(seeMoreButton.disabled);
   });
 
   /**
@@ -785,7 +776,7 @@ suite('DestinationSettingsTest', function() {
             .then(() => {
               const options = destinationSettings.$.destinationSelect
                                   .getVisibleItemsForTest();
-              assertEquals(2, options.length);
+              assertEquals(1, options.length);
               assertEquals('Save as PDF/local/', options[0]!.value);
             });
       });

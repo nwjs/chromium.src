@@ -32,6 +32,7 @@ import org.mockito.junit.MockitoRule;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -57,7 +58,6 @@ import org.chromium.chrome.test.transit.quick_delete.QuickDeleteDialogFacility;
 import org.chromium.chrome.test.transit.settings.SettingsStation;
 import org.chromium.chrome.test.transit.signin.SigninBottomSheetFacility;
 import org.chromium.chrome.test.util.ChromeRenderTestRule;
-import org.chromium.components.signin.SigninFeatures;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.test.util.DeviceRestriction;
 import org.chromium.ui.test.util.RenderTestRule.Component;
@@ -69,12 +69,8 @@ import java.util.List;
 // TODO(crbug.com/478907175): Remove casting when value returns the view type.
 /** Integration and render tests for the tips notifications feature promo. */
 @RunWith(ChromeJUnit4ClassRunner.class)
-@EnableFeatures({
-    ChromeFeatureList.ANDROID_TIPS_NOTIFICATIONS,
-    SigninFeatures.ENABLE_SEAMLESS_SIGNIN,
-})
+@EnableFeatures(ChromeFeatureList.ANDROID_TIPS_NOTIFICATIONS)
 @DisableFeatures({
-    ChromeFeatureList.BOTTOM_SHEET_ON_DESKTOP_WINDOWING, // crbug.com/561423545
     ChromeFeatureList.SETTINGS_IN_TAB, // crbug.com/521895796
     ChromeFeatureList.SETTINGS_IN_TAB_DESKTOP // crbug.com/556881398
 })
@@ -89,7 +85,8 @@ public class TipsNotificationsFeaturePromoTest {
     @Rule
     public ChromeRenderTestRule mRenderTestRule =
             ChromeRenderTestRule.Builder.withPublicCorpus()
-                    .setRevision(3)
+                    .setRevision(4)
+                    .setDescription("Ligatures and contextual alternates disabled in UI text")
                     .setBugComponent(Component.UI_NOTIFICATIONS)
                     .build();
 
@@ -504,6 +501,7 @@ public class TipsNotificationsFeaturePromoTest {
     @Test
     @MediumTest
     @Restriction(DeviceFormFactor.PHONE)
+    @DisabledTest(message = "crbug.com/567089662")
     public void testSigninBottomSheetMainPageAccept() {
         @TipsNotificationsFeatureType int featureType = TipsNotificationsFeatureType.SIGNIN;
 

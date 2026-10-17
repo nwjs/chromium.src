@@ -17,8 +17,9 @@
 #include "base/test/test_future.h"
 #include "base/trace_event/trace_event.h"
 #include "base/version.h"
+#include "components/optimization_guide/core/model_execution/configs/manifest_builder.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/test/fake_manifest_broker.h"
-#include "components/optimization_guide/core/model_execution/manifest_broker/test/manifest_builder.h"
+#include "components/optimization_guide/core/model_execution/manifest_broker/test/manifest_component_directory.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/test/scenario_builder.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/test/test_manifest_asset_manager_component_state.h"
 #include "components/optimization_guide/core/model_execution/model_broker_client.h"
@@ -229,9 +230,28 @@ TEST_F(ManifestBrokerStateTest, UninstallModels) {
   EXPECT_TRUE(fake_.component_state().WaitForRegistration(
       {"model_A_key", base::Version("1.0.0.0")}));
 
+  base::test::TestFuture<ModelBrokerClient::CreateSessionResult> session_future;
+  fake_.client().CreateSession(mojom::OnDeviceFeature::kTest,
+                               SessionConfigParams{},
+                               session_future.GetCallback());
+  EXPECT_TRUE(session_future.Take());
+
   fake_.state().UninstallModels();
 
   EXPECT_TRUE(fake_.component_state().WaitForUninstall("model_A_key"));
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return fake_.client().GetSubscriber("test").unavailable_reason() ==
+           mojom::ModelUnavailableReason::kPendingUsage;
+  }));
+
+  // Requesting assets again should re-install and restore availability.
+  fake_.client().RequestAssetsFor("test");
+  base::test::TestFuture<ModelBrokerClient::CreateSessionResult>
+      session_future2;
+  fake_.client().CreateSession(mojom::OnDeviceFeature::kTest,
+                               SessionConfigParams{},
+                               session_future2.GetCallback());
+  EXPECT_TRUE(session_future2.Take());
 }
 
 TEST_F(ManifestBrokerStateTest,

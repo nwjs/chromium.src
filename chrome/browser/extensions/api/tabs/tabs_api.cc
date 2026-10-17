@@ -43,6 +43,7 @@
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/extensions/window_controller.h"
 #include "chrome/browser/extensions/window_controller_list.h"
+#include "chrome/browser/picture_in_picture/picture_in_picture_window_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/resource_coordinator/lifecycle_unit_state.mojom-forward.h"
 #include "chrome/browser/resource_coordinator/utils.h"
@@ -556,7 +557,7 @@ int MoveTabToWindow(ExtensionFunction* function,
   TabListInterface* source_tab_list = TabListInterface::From(source_browser);
   ::tabs::TabInterface* tab = source_tab_list->GetTab(source_index);
   if (!tab) {
-    *error = ErrorUtils::FormatErrorMessage(ExtensionTabUtil::kTabNotFoundError,
+    *error = ErrorUtils::FormatErrorMessage(kTabNotFoundError,
                                             base::NumberToString(tab_id));
     return -1;
   }
@@ -799,8 +800,8 @@ bool GetTabById(int tab_id,
   }
 
   if (error_out) {
-    *error_out = ErrorUtils::FormatErrorMessage(
-        ExtensionTabUtil::kTabNotFoundError, base::NumberToString(tab_id));
+    *error_out = ErrorUtils::FormatErrorMessage(kTabNotFoundError,
+                                                base::NumberToString(tab_id));
   }
 
   return false;
@@ -1859,6 +1860,19 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
     return RespondNow(Error(tabs_constants::kInvalidWindowStateError));
   }
 
+  // Prevent Picture-in-Picture windows from being updated to fullscreen,
+  // maximized, or minimized states (https://crbug.com/514080341).
+  content::WebContents* active_contents = window_controller->GetActiveTab();
+  CHECK(active_contents);
+  if (PictureInPictureWindowManager::IsChildWebContents(active_contents)) {
+    if (show_state == ui::mojom::WindowShowState::kFullscreen ||
+        show_state == ui::mojom::WindowShowState::kMaximized ||
+        show_state == ui::mojom::WindowShowState::kMinimized) {
+      return RespondNow(
+          Error(tabs_constants::kNotAllowedForPictureInPictureError));
+    }
+  }
+
   if (params->update_info.focused) {
     bool focused = *params->update_info.focused;
     // A window cannot be focused and minimized, or not focused and maximized
@@ -2476,8 +2490,7 @@ ExtensionFunction::ResponseAction TabsCreateFunction::Run() {
                                       include_incognito_information(), nullptr,
                                       &opener, nullptr)) {
       return RespondNow(Error(ErrorUtils::FormatErrorMessage(
-          ExtensionTabUtil::kTabNotFoundError,
-          base::NumberToString(*opener_tab_id_))));
+          kTabNotFoundError, base::NumberToString(*opener_tab_id_))));
     }
   }
 
@@ -2516,8 +2529,7 @@ ExtensionFunction::ResponseAction TabsCreateFunction::Run() {
                                         &target_window_controller,
                                         &target_contents, &target_index)) {
         return RespondNow(Error(ErrorUtils::FormatErrorMessage(
-            ExtensionTabUtil::kTabNotFoundError,
-            base::NumberToString(*split_with_tab_id_))));
+            kTabNotFoundError, base::NumberToString(*split_with_tab_id_))));
       }
 
       // 2. Check that the split-with tab is not already in a split view.
@@ -2998,9 +3010,8 @@ ExtensionFunction::ResponseAction TabsUpdateFunction::Run() {
     if (!ExtensionTabUtil::GetTabById(opener_id, browser_context(),
                                       include_incognito_information(),
                                       &opener_contents)) {
-      return RespondNow(Error(
-          ErrorUtils::FormatErrorMessage(ExtensionTabUtil::kTabNotFoundError,
-                                         base::NumberToString(opener_id))));
+      return RespondNow(Error(ErrorUtils::FormatErrorMessage(
+          kTabNotFoundError, base::NumberToString(opener_id))));
     }
 
     ::tabs::TabInterface* opener_tab =

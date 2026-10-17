@@ -65,7 +65,10 @@ void DangerousDownloadDialogBridge::Show(download::DownloadItem* download_item,
       std::ranges::contains(download_items_, download_item)) {
     return;
   }
-  if (!window_android) {
+  // When kMaliciousApkDownloadCheck is enabled, a null `window_android` is
+  // forwarded to Java so the dialog is queued until a valid Activity resumes.
+  if (!window_android && !base::FeatureList::IsEnabled(
+                             safe_browsing::kMaliciousApkDownloadCheck)) {
     DownloadController::ScheduleRemoveDownloadItem(download_item);
     return;
   }
@@ -75,7 +78,8 @@ void DangerousDownloadDialogBridge::Show(download::DownloadItem* download_item,
   JNIEnv* env = base::android::AttachCurrentThread();
 
   Java_DangerousDownloadDialogBridge_showDialog(
-      env, java_object_, window_android->GetJavaObject(),
+      env, java_object_,
+      window_android ? window_android->GetJavaObject() : nullptr,
       download_item->GetGuid(),
       base::UTF8ToUTF16(download_item->GetFileNameToReportUser().value()),
       download_item->GetTotalBytes(), GetDownloadDomain(download_item),
@@ -83,12 +87,31 @@ void DangerousDownloadDialogBridge::Show(download::DownloadItem* download_item,
       download_item->IsDangerous());
 }
 
+void DangerousDownloadDialogBridge::OnDownloadUpdated(
+    download::DownloadItem* download_item) {
+  // Downloads awaiting user confirmation in this dialog remain IN_PROGRESS
+  // (even after all data is saved) until validated. `IsDone()` only becomes
+  // true if the download reaches a terminal state (e.g. cancelled,
+  // non-resumably interrupted, or completed elsewhere) without being destroyed.
+  if (download_item->IsDone()) {
+    DismissDialog(download_item);
+  }
+}
+
 void DangerousDownloadDialogBridge::OnDownloadDestroyed(
+    download::DownloadItem* download_item) {
+  DismissDialog(download_item);
+}
+
+void DangerousDownloadDialogBridge::DismissDialog(
     download::DownloadItem* download_item) {
   auto iter = std::ranges::find(download_items_, download_item);
   if (iter != download_items_.end()) {
     (*iter)->RemoveObserver(this);
     download_items_.erase(iter);
+    JNIEnv* env = base::android::AttachCurrentThread();
+    Java_DangerousDownloadDialogBridge_dismissDialog(env, java_object_,
+                                                     download_item->GetGuid());
   }
 }
 

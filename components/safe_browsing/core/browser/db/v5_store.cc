@@ -5,11 +5,9 @@
 #include "components/safe_browsing/core/browser/db/v5_store.h"
 
 #include <optional>
-#include <set>
 #include <utility>
 
 #include "base/containers/span.h"
-#include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
@@ -126,31 +124,6 @@ void RecordMigrationTime(base::TimeDelta elapsed,
 
 void RecordStoreWriteResult(V5StoreWriteResult result) {
   base::UmaHistogramEnumeration("SafeBrowsing.V5StoreWrite.Result", result);
-}
-
-// Cleans up files that are no longer needed after a successful write.
-// TODO(crbug.com/362791941): This implementation is copied over from the v4
-// implementation, but it has a bug where if there are mmap-ed files, they are
-// not able to be deleted on Windows until the subsequent update. This cleanup
-// should be moved to after the mmap-ed files are released.
-void CleanupExtraFiles(const base::FilePath& store_path,
-                       const V5StoreFileFormat& file_format) {
-  std::set<base::FilePath> paths_in_use{store_path};
-  if (file_format.list_details().has_hash_file()) {
-    paths_in_use.insert(HashPrefixContainer::GetPath(
-        store_path, file_format.list_details().hash_file().extension()));
-  }
-
-  // Iterate through all files that start with the store path name. All hash
-  // files will be the store path plus an extension.
-  base::FileEnumerator e(
-      store_path.DirName(), false, base::FileEnumerator::FILES,
-      store_path.BaseName().value() + FILE_PATH_LITERAL(".*"));
-  for (base::FilePath name = e.Next(); !name.empty(); name = e.Next()) {
-    if (paths_in_use.find(name) == paths_in_use.end()) {
-      base::DeleteFile(name);
-    }
-  }
 }
 
 // Used for displaying on debugging page.
@@ -695,6 +668,7 @@ base::expected<SBStorePtr, V5ApplyUpdateResult> V5Store::ApplyUpdateInternal(
   new_store->has_valid_data_ = true;
   new_store->last_apply_update_result_ = apply_update_result;
   new_store->last_apply_update_time_millis_ = base::Time::Now();
+  new_store->checks_attempted_ = checks_attempted_;
 
   return std::move(new_store);
 }
@@ -795,10 +769,6 @@ V5StoreWriteResult V5Store::WriteToDisk() {
             return file_format.list_details().has_hash_file()
                        ? file_format.list_details().hash_file().file_size()
                        : 0;
-          },
-          /*cleanup_extra_files=*/
-          [this, &file_format] {
-            CleanupExtraFiles(store_path_, file_format);
           });
 
   if (file_size_or_error.has_value()) {

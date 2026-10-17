@@ -20,6 +20,10 @@ constexpr DecisionSource kForbiddenPredicates[] = {
     DecisionSource::kNoVerdict,
 };
 
+constexpr DecisionSource kNavigationOnlyPredicates[] = {
+    DecisionSource::kAllowSameOrigin,
+};
+
 bool UsesAtMostOneCustomPredicateDomain(
     base::span<const PredicateConfiguration> predicates) {
   auto first_custom_it =
@@ -37,6 +41,14 @@ bool UsesAtMostOneCustomPredicateDomain(
         const auto* cp = std::get_if<CustomPredicate>(&pc.predicate());
         return !cp || cp->attribution().IsSameDomain(first_custom_attribution);
       });
+}
+
+bool UsesCache(base::span<const PredicateConfiguration> predicates) {
+  return std::ranges::any_of(predicates, [](const PredicateConfiguration& pc) {
+    const DecisionSource* source = std::get_if<DecisionSource>(&pc.predicate());
+    return source && (*source == DecisionSource::kCacheWithUserConfirmation ||
+                      *source == DecisionSource::kCacheWithoutUserConfirmation);
+  });
 }
 
 }  // namespace
@@ -64,8 +76,8 @@ PredicateConfiguration::PredicateConfiguration(
 
 PredicateConfiguration::~PredicateConfiguration() = default;
 
-bool PredicateConfiguration::AppliesTo(GateableEvent event) const {
-  return applicable_events_.Has(event);
+bool PredicateConfiguration::AppliesTo(GateableEvent::Type event_type) const {
+  return applicable_events_.Has(event_type);
 }
 
 PredicateConfiguration::PredicateConfiguration(const PredicateConfiguration&) =
@@ -77,11 +89,21 @@ PredicateConfiguration& PredicateConfiguration::operator=(
 OriginGatingConfiguration::OriginGatingConfiguration(
     std::initializer_list<PredicateConfiguration> predicates,
     bool use_site_keyed_cache)
-    : predicates_(predicates), use_site_keyed_cache_(use_site_keyed_cache) {
-  CHECK(std::ranges::none_of(predicates, [](const PredicateConfiguration& pc) {
+    : predicates_(predicates),
+      use_site_keyed_cache_(use_site_keyed_cache),
+      uses_cache_(UsesCache(predicates_)) {
+  for (const PredicateConfiguration& pc : predicates_) {
     const DecisionSource* source = std::get_if<DecisionSource>(&pc.predicate());
-    return source && std::ranges::contains(kForbiddenPredicates, *source);
-  }));
+    if (!source) {
+      continue;
+    }
+    CHECK(!std::ranges::contains(kForbiddenPredicates, *source))
+        << "Forbidden predicate: " << DecisionSourceToString(*source);
+    CHECK(!std::ranges::contains(kNavigationOnlyPredicates, *source) ||
+          !pc.AppliesTo(GateableEvent::kPageAction))
+        << "Navigation-only predicate configured for kPageAction: "
+        << DecisionSourceToString(*source);
+  }
   CHECK(UsesAtMostOneCustomPredicateDomain(predicates_));
 }
 

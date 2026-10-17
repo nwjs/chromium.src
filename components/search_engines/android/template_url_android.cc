@@ -5,6 +5,7 @@
 #include "components/search_engines/android/template_url_android.h"
 
 #include <cstdint>
+#include <string>
 
 #include "base/android/jni_android.h"
 #include "base/android/jni_array.h"
@@ -15,6 +16,7 @@
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/resource/resource_scale_factor.h"
 #include "url/android/gurl_android.h"
+#include "url/gurl.h"
 
 #if BUILDFLAG(ENABLE_BUILTIN_SEARCH_PROVIDER_ASSETS)
 #include "third_party/search_engines_data/search_engines_scaled_resources_map.h"
@@ -28,6 +30,16 @@ using base::android::ScopedJavaLocalRef;
 
 TemplateURL* ToTemplateURL(int64_t j_template_url) {
   return reinterpret_cast<TemplateURL*>(j_template_url);
+}
+
+TemplateURL* ToTemplateURL(
+    JNIEnv* env,
+    const base::android::JavaRef<jobject>& j_template_url) {
+  if (!j_template_url) {
+    return nullptr;
+  }
+  return reinterpret_cast<TemplateURL*>(
+      Java_TemplateUrl_getNativePtr(env, j_template_url));
 }
 
 static ScopedJavaLocalRef<jstring> JNI_TemplateUrl_GetShortName(

@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "base/files/file_path.h"
+#include "base/unguessable_token.h"
 #include "content/common/content_export.h"
 #include "ipc/constants.mojom-forward.h"
 #include "services/network/public/mojom/referrer_policy.mojom.h"
@@ -67,7 +68,7 @@ struct CONTENT_EXPORT DropData {
     LAST = BINARY
   };
 
-  struct Metadata {
+  struct CONTENT_EXPORT Metadata {
     static Metadata CreateForMimeType(Kind kind,
                                       const std::u16string& mime_type);
     static Metadata CreateForFilePath(
@@ -103,6 +104,11 @@ struct CONTENT_EXPORT DropData {
 
   // Whether this drag is from a privileged WebContents.
   bool is_from_privileged = false;
+
+  // Opaque browser-internal identifier for tracking the originating WebContents
+  // of a drag across OS drag-and-drop boundaries without exposing custom MIME
+  // types to web renderers via DataTransfer.
+  std::optional<base::UnguessableToken> drag_id;
 
   // Holds one or more URLs, such as those from dragging links or images.
   std::vector<ui::ClipboardUrlInfo> url_infos;

@@ -13,32 +13,66 @@
 #import "base/strings/string_number_conversions.h"
 #import "base/strings/string_split.h"
 #import "base/strings/string_util.h"
+#import "ios/web/public/web_client.h"
 
 namespace web {
+namespace {
 
-bool ExtractFaviconURL(const base::ListValue& favicons,
-                       const GURL& page_origin,
-                       std::vector<web::FaviconURL>* urls) {
+// Returns whether `href` is allowed for a favicon on `page_url`.
+bool IsAllowedFaviconURL(const GURL& href, const GURL& page_url) {
+  // It is valid for favicon to be served via http, https or data: schemes.
+  if (href.SchemeIsHTTPOrHTTPS() || href.SchemeIs(url::kDataScheme)) {
+    return true;
+  }
+
+  // Only allow app specific URLs if the page itself is from app specific URL.
+  if (WebClient* web_client = GetWebClient()) {
+    if (web_client->IsAppSpecificURL(href)) {
+      return web_client->IsAppSpecificURL(page_url);
+    }
+  }
+
+  // Otherwise, the url is not allowed.
+  return false;
+}
+
+}  // namespace
+
+std::vector<web::FaviconURL> ExtractFaviconURL(const base::ListValue& favicons,
+                                               const GURL& page_url) {
   BOOL has_favicon = NO;
+  std::vector<web::FaviconURL> favicon_urls;
   for (const base::Value& favicon : favicons) {
     if (!favicon.is_dict()) {
-      return false;
+      continue;
     }
 
     const base::DictValue& favicon_dict = favicon.GetDict();
     const std::string* href_value = favicon_dict.FindString("href");
     if (!href_value) {
-      DLOG(WARNING) << "JS message parameter not found: href";
-      return false;
+      continue;
     }
-    auto href = *href_value;
+
+    const GURL url(*href_value);
+    if (!url.is_valid() || !IsAllowedFaviconURL(url, page_url)) {
+      continue;
+    }
 
     const std::string* rel_value = favicon_dict.FindString("rel");
     if (!rel_value) {
-      DLOG(WARNING) << "JS message parameter not found: rel";
-      return false;
+      continue;
     }
     auto rel = *rel_value;
+
+    BOOL is_apple_touch = YES;
+    web::FaviconURL::IconType icon_type = web::FaviconURL::IconType::kFavicon;
+    if (rel == "apple-touch-icon") {
+      icon_type = web::FaviconURL::IconType::kTouchIcon;
+    } else if (rel == "apple-touch-icon-precomposed") {
+      icon_type = web::FaviconURL::IconType::kTouchPrecomposedIcon;
+    } else {
+      is_apple_touch = NO;
+    }
 
     std::vector<gfx::Size> sizes;
     if (const std::string* size_value = favicon_dict.FindString("sizes")) {
@@ -55,7 +89,6 @@ bool ExtractFaviconURL(const base::ListValue& favicons,
         int width = 0, height = 0;
         if (pieces.size() != 2 || !base::StringToInt(pieces[0], &width) ||
             !base::StringToInt(pieces[1], &height)) {
-          DLOG(WARNING) << "JS message parameter sizes incorrectly formatted.";
           continue;
         }
 
@@ -65,38 +98,26 @@ bool ExtractFaviconURL(const base::ListValue& favicons,
       }
     }
 
-    BOOL is_apple_touch = YES;
-    web::FaviconURL::IconType icon_type = web::FaviconURL::IconType::kFavicon;
-    if (rel == "apple-touch-icon") {
-      icon_type = web::FaviconURL::IconType::kTouchIcon;
-    } else if (rel == "apple-touch-icon-precomposed") {
-      icon_type = web::FaviconURL::IconType::kTouchPrecomposedIcon;
-    } else {
-      is_apple_touch = NO;
-    }
-    GURL url(href);
-    if (url.is_valid()) {
-      urls->push_back(web::FaviconURL(url, icon_type, sizes));
-      has_favicon = has_favicon || !is_apple_touch;
-    }
+    favicon_urls.push_back(web::FaviconURL(url, icon_type, sizes));
+    has_favicon = has_favicon || !is_apple_touch;
   }
 
   if (!has_favicon) {
     // If an HTTP(S)? webpage does not reference a "favicon" of a type different
     // from apple touch, then search for a file named "favicon.ico" at the root
     // of the website (legacy). http://en.wikipedia.org/wiki/Favicon
-    if (page_origin.is_valid() && page_origin.SchemeIsHTTPOrHTTPS()) {
+    if (page_url.is_valid() && page_url.SchemeIsHTTPOrHTTPS()) {
       GURL::Replacements replacements;
       replacements.SetPathStr("/favicon.ico");
       replacements.ClearQuery();
       replacements.ClearRef();
-      urls->push_back(web::FaviconURL(
-          page_origin.ReplaceComponents(replacements),
+      favicon_urls.push_back(web::FaviconURL(
+          page_url.ReplaceComponents(replacements),
           web::FaviconURL::IconType::kFavicon, std::vector<gfx::Size>()));
     }
   }
 
-  return true;
+  return favicon_urls;
 }
 
 }  // namespace web

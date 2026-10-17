@@ -52,7 +52,7 @@ bool IsAnswerDone(history_embeddings::ComputeAnswerStatus status) {
 HistoryEmbeddingsProvider::HistoryEmbeddingsProvider(
     AutocompleteProviderClient* client,
     AutocompleteProviderListener* listener)
-    : HistoryProvider(AutocompleteProvider::TYPE_HISTORY_EMBEDDINGS, client) {
+    : HistoryProvider(AutocompleteProvider::Type::kHistoryEmbeddings, client) {
   AddListener(listener);
 }
 
@@ -108,7 +108,8 @@ void HistoryEmbeddingsProvider::Stop(AutocompleteStopReason stop_reason) {
   // Erase the abandoned placeholder answer.
   if (!done_) {
     size_t erased_count = std::erase_if(matches_, [&](const auto& match) {
-      return match.type == AutocompleteMatchType::HISTORY_EMBEDDINGS_ANSWER;
+      return match.type ==
+             omnibox::AutocompleteMatchType::kHistoryEmbeddingsAnswer;
     });
     CHECK_LE(erased_count, 1u);
     if (erased_count)
@@ -164,7 +165,7 @@ AutocompleteMatch HistoryEmbeddingsProvider::CreateMatch(
   AutocompleteMatch match(
       this, std::min(scored_url_row.scored_url.score, 1.f) * kMaxRelevance,
       client()->AllowDeletingBrowserHistory(),
-      AutocompleteMatchType::HISTORY_EMBEDDINGS);
+      omnibox::AutocompleteMatchType::kHistoryEmbeddings);
   match.destination_url = scored_url_row.row.url();
 
   match.description =
@@ -249,8 +250,9 @@ AutocompleteMatch HistoryEmbeddingsProvider::CreateAnswerMatchHelper(
     int score,
     const std::u16string& history_embeddings_answer_header_text,
     const std::u16string& description) {
-  AutocompleteMatch match(this, score, /*deletable=*/false,
-                          AutocompleteMatchType::HISTORY_EMBEDDINGS_ANSWER);
+  AutocompleteMatch match(
+      this, score, /*deletable=*/false,
+      omnibox::AutocompleteMatchType::kHistoryEmbeddingsAnswer);
   match.history_embeddings_answer_header_text =
       history_embeddings_answer_header_text;
   match.description = description;

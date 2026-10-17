@@ -55,6 +55,45 @@
 
 namespace glic {
 
+namespace {
+
+// Translates the wire enum into the browser-side vocabulary. Exhaustive with
+// no default so that a new mojom value cannot be added without deciding what
+// it means.
+ClientLoadErrorReason ToClientLoadErrorReason(
+    mojom::ClientLoadErrorReason reason) {
+  switch (reason) {
+    case mojom::ClientLoadErrorReason::kUnknown:
+      return ClientLoadErrorReason::kUnknown;
+    case mojom::ClientLoadErrorReason::kUnavailable:
+      return ClientLoadErrorReason::kUnavailable;
+    case mojom::ClientLoadErrorReason::kIneligibleAccount:
+      return ClientLoadErrorReason::kIneligibleAccount;
+    case mojom::ClientLoadErrorReason::kLocationMismatch:
+      return ClientLoadErrorReason::kLocationMismatch;
+    case mojom::ClientLoadErrorReason::kDisabledByAdmin:
+      return ClientLoadErrorReason::kDisabledByAdmin;
+    case mojom::ClientLoadErrorReason::kOffline:
+      return ClientLoadErrorReason::kOffline;
+    case mojom::ClientLoadErrorReason::kSignIn:
+      return ClientLoadErrorReason::kSignIn;
+    case mojom::ClientLoadErrorReason::kCookieSyncFailed:
+      return ClientLoadErrorReason::kCookieSyncFailed;
+    case mojom::ClientLoadErrorReason::kGuestLoadFailed:
+      return ClientLoadErrorReason::kGuestLoadFailed;
+    case mojom::ClientLoadErrorReason::kGuestProcessGone:
+      return ClientLoadErrorReason::kGuestProcessGone;
+    case mojom::ClientLoadErrorReason::kClientError:
+      return ClientLoadErrorReason::kClientError;
+    case mojom::ClientLoadErrorReason::kClientLoadTimeout:
+      return ClientLoadErrorReason::kClientLoadTimeout;
+    case mojom::ClientLoadErrorReason::kWarmedTimeout:
+      return ClientLoadErrorReason::kWarmedTimeout;
+  }
+}
+
+}  // namespace
+
 GlicPageHandler::GlicPageHandler(
     content::WebContents* webui_contents,
     Host* host,
@@ -70,9 +109,10 @@ GlicPageHandler::GlicPageHandler(
   MarkProcessAsGlic(webui_contents->GetPrimaryMainFrame()->GetProcess());
   host_observation_.Observe(host_);
   host_->WebUIPageHandlerAdded(this);
-  host_->instance().AddStateObserver(this);
-
-  UpdatePageState(host_->instance().GetPanelState().kind);
+  subscriptions_.push_back(
+      host_->instance().GetPanelState().AddObserverAndNotify(
+          base::BindRepeating(&GlicPageHandler::PanelStateChanged,
+                              base::Unretained(this))));
   subscriptions_.push_back(
       GetGlicService()->enabling().RegisterProfileReadyStateChanged(
           base::BindRepeating(&GlicPageHandler::UpdateProfileReadyState,
@@ -82,7 +122,6 @@ GlicPageHandler::GlicPageHandler(
 
 GlicPageHandler::~GlicPageHandler() {
   VLOG(1) << "Glic [PageHandler] Destructor";
-  host_->instance().RemoveStateObserver(this);
   host_->WebUIPageHandlerRemoved(this);
 }
 
@@ -323,6 +362,15 @@ void GlicPageHandler::ResizeWidget(const gfx::Size& size,
 
 void GlicPageHandler::OnWebUiStateChanged(glic::mojom::WebUiState new_state) {
   host().WebUiStateChanged(this, new_state);
+}
+
+void GlicPageHandler::NotifyClientLoadError(
+    glic::mojom::ClientLoadErrorReason reason) {
+  host().ClientLoadErrorOccurred(ToClientLoadErrorReason(reason));
+}
+
+void GlicPageHandler::OnClientLoadFailed(bool failed) {
+  host().SetClientLoadFailed(this, failed);
 }
 
 void GlicPageHandler::ClientReadyToShow(const mojom::OpenPanelInfo& open_info) {

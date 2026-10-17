@@ -1489,13 +1489,34 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
       bool bypass_cache,
       ImageDownloadCallback callback) = 0;
 
-  // Finds text on a page. |search_text| should not be empty. |skip_delay|
-  // indicates that the find request should be sent to the renderer immediately
-  // instead of waiting for privacy/performance mitigations.
-  virtual void Find(int request_id,
-                    const std::u16string& search_text,
+  // Finds text on a page.
+  // `search_text` is the text to find and should not be empty.
+  // `options` configure the call, and may instruct to start a new search or
+  // continue the current one.
+  // `skip_delay` indicates that the find request should be sent to the renderer
+  // immediately instead of waiting for privacy/performance mitigations.
+  // `on_request_id` synchronously receives the request ID allocated during the
+  // call, and must store it to correlate future (and probably synchronous too)
+  // calls to `DidReceiveFindReply()` with this request.
+  //
+  // The method may call `DidReceiveFindReply()` synchronously before returning,
+  // which is why the request ID has to be delivered through `on_request_id`.
+  //
+  // The request ID identifies the find session that may be started by this
+  // call, and that session is maintained when finding next or previous matches
+  // (i.e., `options.new_session` is false). However, only one session is
+  // maintained, which may have side effects if find sessions are started by
+  // more than one client, e.g., the user finds text using the UI widget, and at
+  // the same time runs a parallel find session by executing a DevTools command.
+  // Each call to `Find()` with `options.new_session` set to true drops the
+  // previous session silently without notifying the client.
+  //
+  // TODO(crbug.com/492228028): Fix the above. Notify the client when its
+  // session is ended.
+  virtual void Find(const std::u16string& search_text,
                     blink::mojom::FindOptionsPtr options,
-                    bool skip_delay) = 0;
+                    bool skip_delay,
+                    base::FunctionRef<void(int request_id)> on_request_id) = 0;
 
   // Notifies the renderer that the user has closed the FindInPage window
   // (and what action to take regarding the selection).
@@ -1801,6 +1822,13 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
   //   not `PreloadingHoldbackStatus::kUnspecified`.
   // - `ttl`: TTL; `PrefetchService` holds prefetch in `ttl`. Uses default value
   // if `std::nullopt`.
+  // - `should_ignore_saver_modes` is used to ignore saver modes, e.g. data
+  //   saver, battery saver, in eligibility checks.
+  // - `is_ahead_of_actual_navigation` should be true iff this prefetch is
+  //   triggered by a signal that the actual navigation to `prefetch_url` is
+  //   (almost) certain to happen soon, e.g. mouse down on an omnibox
+  //   suggestion. Such a prefetch is matched more aggressively. See
+  //   `features::kPrefetchAheadOfActualNavigation`.
   // - Returns `PrefetchHandle` to control prefetch resources. This can be
   //   nullptr when this function can't add `PrefetchContainer` to
   //   `PrefetchService`.
@@ -1816,7 +1844,8 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
       base::WeakPtr<PreloadingAttempt> attempt,
       PreloadingHoldbackStatus holdback_status_override,
       std::optional<base::TimeDelta> ttl,
-      bool should_ignore_saver_modes) = 0;
+      bool should_ignore_saver_modes,
+      bool is_ahead_of_actual_navigation) = 0;
 
   // Starts an embedder triggered (browser-initiated) prerendering page and
   // returns the unique_ptr<PrerenderHandle>, which cancels prerendering on its

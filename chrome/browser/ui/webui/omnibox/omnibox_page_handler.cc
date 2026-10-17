@@ -259,7 +259,8 @@ std::unique_ptr<AutocompleteController> OmniboxPageHandler::CreateController(
   // the traditional-scoring controller used in the ML before/after comparisons
   // would break history embeddings for the other, more important controllers.
   if (ml_disabled) {
-    providers &= ~AutocompleteProvider::TYPE_HISTORY_EMBEDDINGS;
+    providers &=
+        ~static_cast<int>(AutocompleteProvider::Type::kHistoryEmbeddings);
   }
 
   auto controller = std::make_unique<AutocompleteController>(

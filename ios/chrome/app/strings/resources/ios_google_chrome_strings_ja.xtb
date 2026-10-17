@@ -48,6 +48,7 @@
 <translation id="1784567647421309104">パスワードを Chrome に保存</translation>
 <translation id="1790080846677398234">入力した URL を Chrome のブックマークに追加します。</translation>
 <translation id="1799920918471566157">Chrome のおすすめの使い方</translation>
+<translation id="1802420021606590788">Chrome は、クラウドのプライベート スペースでページのタイトルと URL を処理します</translation>
 <translation id="1830634592642484976">この住所は現在、Chrome に保存されています。Google サービス全体で使用するには、Google アカウント（<ph name="USER_EMAIL" />）に保存してください。</translation>
 <translation id="1891812034154776216">Chrome から離れるときに開いていたシークレット タブを非表示にする</translation>
 <translation id="1894434821386148799">Chrome の設定などをここで確認できます</translation>
@@ -140,6 +141,7 @@
 <translation id="3984746313391923992">組織が Chrome にログインしないように求めています。</translation>
 <translation id="3988789688219830639">Google Chrome で写真または動画にアクセスできません。iOS の [設定] &gt; [プライバシー] &gt; [写真] でアクセスを有効にしてください。</translation>
 <translation id="4064699917955374540">Google アカウントで Chrome のデータを使用して保存するには、本人確認を行ってください。</translation>
+<translation id="4093789416346364876">Chrome を既定のブラウザに設定すると、どこでブラウジングしていても Gemini の分析情報を利用できます</translation>
 <translation id="411154422556990518">価格トラッキングの更新や Chrome のヒントをチェックできます。</translation>
 <translation id="417201473131094001">Chrome Canary では対象外です。</translation>
 <translation id="424864128008805179">Chrome からログアウトしますか？</translation>
@@ -268,6 +270,7 @@ Chrome を使いやすくするためにデータを使用するその他の設�
 <translation id="7061455974939528301">Chrome アイコンを長押しして、[ホーム画面を編集] をクリックします</translation>
 <translation id="7095110968493193530"><ph name="EMAIL" /> の Google パスワード マネージャーに移動</translation>
 <translation id="7124339256045485976">Chrome を最新の状態に維持します</translation>
+<translation id="7135936755418321901">ウェブサイトと位置情報を共有するには、[設定] をタップして位置情報の使用を Chrome に許可してください。</translation>
 <translation id="7145599899567697473">Chrome でパスワードを保存して自動入力</translation>
 <translation id="7161390184744336561">Google Chrome は古いバージョンです</translation>
 <translation id="7165736900384873061">Google Chrome の QR スキャナの使用を開始する</translation>
@@ -282,6 +285,7 @@ Chrome を使いやすくするためにデータを使用するその他の設�
 <translation id="7272930098487145294">画像を保存するには、[設定] をタップして写真への追加を Chrome に許可してください</translation>
 <translation id="7275945473750112644">アカウントは <ph name="HOSTED_DOMAIN" /> で管理されているため、Chrome データはこのデバイスから削除されます</translation>
 <translation id="7284245284340063465">パスフレーズを忘れた場合や、この設定を変更する場合は、<ph name="BEGIN_LINK" />アカウントの Chrome データを削除<ph name="END_LINK" />してください。</translation>
+<translation id="7287957555760192025">提案を選択または無視すると、Chrome で今後より関連性の高い提案が表示されるように調整します。</translation>
 <translation id="7296102444587051536">Chrome for iOS</translation>
 <translation id="7299681342915173313">メール、ドキュメント、他のアプリのリンクをタップしたときに、常に Chrome が使えるようになります。</translation>
 <translation id="7334364820047587268">これらのアカウントのパスワードはすでに Google パスワード マネージャーに保存されています。下記のパスワードをインポートすると、既存のパスワードが置き換えられます。</translation>
@@ -355,6 +359,7 @@ Chrome を使いやすくするためにデータを使用するその他の設�
 <translation id="8544583291890527417">Chrome で検出されたプライバシーやセキュリティの問題についてのアラートです。</translation>
 <translation id="855027533751209304">Chrome のヒント: 見たものをそのまま検索</translation>
 <translation id="8558480467877843976">ブラウジングするときや、メッセージ、ドキュメント、他のアプリでリンクをタップしたときに、常に Chrome が使えるようになります。</translation>
+<translation id="8589791109349384456">提案をオフにしても、他の機能での Chrome によるページのタイトルと URL の処理は制御されません。このデータへのアクセスは、<ph name="BEGIN_LINK" />同期設定<ph name="END_LINK" />で管理できます。</translation>
 <translation id="8603022514504485810">Google パスワード マネージャーですべてのパスワードを確認できませんでした。明日もう一度お試しいただくか、<ph name="BEGIN_LINK" />Google アカウント内のパスワードをご確認ください<ph name="END_LINK" />。</translation>
 <translation id="8610372330814566250">Safari のパスワード、履歴、ブックマーク、クレジット カードを Chrome で使用できます</translation>
 <translation id="8630122478628016441">[Chrome を終了するときにシークレット タブをロックする] をオンにする。</translation>

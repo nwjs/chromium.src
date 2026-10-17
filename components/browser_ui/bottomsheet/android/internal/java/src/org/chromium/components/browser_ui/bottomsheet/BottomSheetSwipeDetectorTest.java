@@ -20,6 +20,7 @@ import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.MathUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetSwipeDetector.SwipeableBottomSheet;
 
 import java.util.ArrayList;
@@ -93,9 +94,12 @@ public final class BottomSheetSwipeDetectorTest {
         }
 
         @Override
-        public boolean isTouchEventInToolbar(MotionEvent event) {
+        public boolean shouldDragSheet(@Nullable MotionEvent event) {
+            if (event == null) {
+                return false;
+            }
             // This will be implementation specific in practice. This checks that the motion event
-            // occured above the bottom of the toolbar.
+            // occurred above the bottom of the toolbar.
             return event.getRawY() < (mMaxOffset - mCurrentSheetOffset) + mMinOffset;
         }
 
@@ -286,12 +290,15 @@ public final class BottomSheetSwipeDetectorTest {
 
     /**
      * Test that the sheet moves when scrolled down from max height while the content has been
-     * scrolled.
+     * scrolled away from top.
      */
     @Test
     public void testScrollToolbarDown_maxHeight_contentScrolled() {
         // Init the sheet to be full height.
         mSwipeableBottomSheet.setSheetOffset(SCREEN_HEIGHT, false);
+
+        // Content is scrolled away from top.
+        mSwipeableBottomSheet.isContentScrolledToTop = false;
 
         assertEquals(
                 "The sheet should be at the maximum state.",
@@ -310,6 +317,81 @@ public final class BottomSheetSwipeDetectorTest {
                 mSwipeableBottomSheet.getCurrentOffsetPx(),
                 MathUtils.EPSILON);
         assertTrue("The sheet should be set to animate.", mSwipeableBottomSheet.shouldBeAnimating);
+    }
+
+    /**
+     * Test that the sheet moves when the initial touch starts in the toolbar even if the current
+     * move event extends beyond the toolbar bounds while the content is scrolled.
+     */
+    @Test
+    public void testScrollToolbarDown_initialEventInToolbar_movingBeyondToolbar_movesSheet() {
+        // Init the sheet to be full height.
+        mSwipeableBottomSheet.setSheetOffset(SCREEN_HEIGHT, false);
+
+        // Content is scrolled away from top.
+        mSwipeableBottomSheet.isContentScrolledToTop = false;
+
+        // In MockSwipeableBottomSheet at full height, toolbar bounds are [0, MIN_SHEET_OFFSET].
+        // Start gesture at y=50 (inside toolbar) and drag down to y=800 (well outside toolbar).
+        performScroll(0, 50, 0, 800, mSwipeDetector, true);
+
+        // Verify the sheet moved down past the maximum position by 750px (1000 - 750 = 250).
+        assertEquals(
+                "The sheet is not at the correct height.",
+                250f,
+                mSwipeableBottomSheet.getCurrentOffsetPx(),
+                MathUtils.EPSILON);
+        assertTrue("The sheet should be set to animate.", mSwipeableBottomSheet.shouldBeAnimating);
+    }
+
+    /**
+     * Test that a gesture starting in the list does not hijack and move the sheet when the move
+     * event enters the toolbar area while content is scrolled.
+     */
+    @Test
+    public void testScrollList_initialEventInList_movingIntoToolbar_doesNotMoveSheet() {
+        // Init the sheet to be full height.
+        mSwipeableBottomSheet.setSheetOffset(SCREEN_HEIGHT, false);
+
+        // Content is scrolled away from top.
+        mSwipeableBottomSheet.isContentScrolledToTop = false;
+
+        // In MockSwipeableBottomSheet at full height, toolbar bounds are [0, MIN_SHEET_OFFSET] (0
+        // to 100).
+        // A gesture starting in the list (y=500) and moving upward into the toolbar (y=50), then
+        // slightly downward while in the toolbar (y=80) should not move the sheet.
+        ArrayList<MotionEvent> eventStream = new ArrayList<>();
+        eventStream.add(MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 500, 0));
+        eventStream.add(MotionEvent.obtain(0, 0, MotionEvent.ACTION_MOVE, 0, 50, 0));
+        // Downward move relative to previous event (50 -> 80), inside toolbar bounds.
+        eventStream.add(MotionEvent.obtain(0, 0, MotionEvent.ACTION_MOVE, 0, 80, 0));
+        eventStream.add(MotionEvent.obtain(0, 0, MotionEvent.ACTION_UP, 0, 80, 0));
+
+        applyGestureStream(eventStream, mSwipeDetector);
+
+        // The sheet should NOT have moved down because the initial touch was outside the toolbar.
+        assertEquals(
+                "The sheet should not have moved down from maximum height.",
+                SCREEN_HEIGHT,
+                mSwipeableBottomSheet.getCurrentOffsetPx(),
+                MathUtils.EPSILON);
+        assertFalse(
+                "The sheet should not be set to animate.", mSwipeableBottomSheet.shouldBeAnimating);
+    }
+
+    /**
+     * Test that passing a null initial down event to `onScroll` safely returns false without
+     * throwing a NullPointerException or moving the sheet.
+     */
+    @Test
+    public void testScrollToolbarDown_nullInitialEvent_returnsFalse() {
+        MotionEvent moveEvent = MotionEvent.obtain(0, 0, MotionEvent.ACTION_MOVE, 0, 100, 0);
+        assertFalse(mSwipeDetector.onScroll(null, moveEvent, 0, -100));
+        assertEquals(
+                "Sheet offset should not change when initial event is null.",
+                MIN_SHEET_OFFSET,
+                mSwipeableBottomSheet.getCurrentOffsetPx(),
+                MathUtils.EPSILON);
     }
 
     /** Test that the sheet does not move when a scroll is not sufficiently in the up direction. */
@@ -418,5 +500,92 @@ public final class BottomSheetSwipeDetectorTest {
                 MathUtils.EPSILON);
         assertFalse(
                 "The sheet should not be set to animate.", mSwipeableBottomSheet.shouldBeAnimating);
+    }
+
+    /**
+     * Creates a quick vertical swipe from {@code y1} to {@code y2}: a down event, ten move events
+     * spread over {@code durationMs}, and an up event at the end. Every event has its own time.
+     */
+    private static List<MotionEvent> createQuickSwipe(float y1, float y2, long durationMs) {
+        int moveEventCount = 10;
+        long downTime = 1000;
+        List<MotionEvent> events = new ArrayList<>();
+        events.add(MotionEvent.obtain(downTime, downTime, MotionEvent.ACTION_DOWN, 0, y1, 0));
+        for (int i = 1; i <= moveEventCount; i++) {
+            // The last move happens one step before the up event, so no two events share a time.
+            long eventTime = downTime + durationMs * i / (moveEventCount + 1);
+            float y = y1 + (y2 - y1) * i / moveEventCount;
+            events.add(MotionEvent.obtain(downTime, eventTime, MotionEvent.ACTION_MOVE, 0, y, 0));
+        }
+        events.add(
+                MotionEvent.obtain(
+                        downTime, downTime + durationMs, MotionEvent.ACTION_UP, 0, y2, 0));
+        return events;
+    }
+
+    /** Applies every event of {@code swipe} except the final up event. */
+    private static void dragWithoutReleasing(
+            List<MotionEvent> swipe, BottomSheetSwipeDetector detector) {
+        applyGestureStream(swipe.subList(0, swipe.size() - 1), detector);
+    }
+
+    /** Applies only the final up event of {@code swipe}. */
+    private static void release(List<MotionEvent> swipe, BottomSheetSwipeDetector detector) {
+        applyGestureStream(swipe.subList(swipe.size() - 1, swipe.size()), detector);
+    }
+
+    /**
+     * A quick flick carries the sheet past where the finger stopped, but never beyond the top or
+     * bottom limit.
+     */
+    @Test
+    public void testFastFling_UpAndDown_ClampedToScreenBounds() {
+        final float dragDistance = 300;
+        // Much smaller than the extra distance a quick flick adds.
+        final float gapLeftAfterDrag = dragDistance / 10;
+        final float fingerStartY = 800;
+        final long swipeDurationMs = 66;
+
+        // Upward: start low enough that the drag alone stops just short of the top.
+        mSwipeableBottomSheet.setSheetOffset(
+                SCREEN_HEIGHT - dragDistance - gapLeftAfterDrag, /* shouldAnimate= */ false);
+        List<MotionEvent> upSwipe =
+                createQuickSwipe(fingerStartY, fingerStartY - dragDistance, swipeDurationMs);
+        dragWithoutReleasing(upSwipe, mSwipeDetector);
+        assertEquals(
+                "Before release, the drag alone should leave the sheet short of the top",
+                SCREEN_HEIGHT - gapLeftAfterDrag,
+                mSwipeableBottomSheet.getCurrentOffsetPx(),
+                MathUtils.EPSILON);
+        release(upSwipe, mSwipeDetector);
+        assertEquals(
+                "The upward flick should carry the sheet to the top and stop there",
+                SCREEN_HEIGHT,
+                mSwipeableBottomSheet.getCurrentOffsetPx(),
+                MathUtils.EPSILON);
+        assertTrue(
+                "Sheet should be animating after upward fling.",
+                mSwipeableBottomSheet.shouldBeAnimating);
+
+        // Downward: start high enough that the drag alone stops just short of the bottom.
+        mSwipeableBottomSheet.setSheetOffset(
+                MIN_SHEET_OFFSET + dragDistance + gapLeftAfterDrag, /* shouldAnimate= */ false);
+        List<MotionEvent> downSwipe =
+                createQuickSwipe(fingerStartY, fingerStartY + dragDistance, swipeDurationMs);
+        dragWithoutReleasing(downSwipe, mSwipeDetector);
+        assertEquals(
+                "Before release, the drag alone should leave the sheet short of the bottom",
+                MIN_SHEET_OFFSET + gapLeftAfterDrag,
+                mSwipeableBottomSheet.getCurrentOffsetPx(),
+                MathUtils.EPSILON);
+        release(downSwipe, mSwipeDetector);
+        assertEquals(
+                "The downward flick should carry the sheet to the bottom and stop there",
+                MIN_SHEET_OFFSET,
+                mSwipeableBottomSheet.getCurrentOffsetPx(),
+                MathUtils.EPSILON);
+        assertTrue(
+                "Sheet should be animating after downward fling.",
+                mSwipeableBottomSheet.shouldBeAnimating);
     }
 }

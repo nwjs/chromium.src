@@ -235,38 +235,6 @@ TEST_F(SigninPrefsTest, ChromeSigninInterceptionRepromptCount) {
   EXPECT_EQ(signin_prefs().GetChromeSigninBubbleRepromptCount(gaia_id2), 0);
 }
 
-TEST_F(SigninPrefsTest, SyncPromoIdentityPillShownCount) {
-  const GaiaId gaia_id_1("gaia_id_1");
-  EXPECT_EQ(signin_prefs().GetSyncPromoIdentityPillShownCount(gaia_id_1), 0);
-  signin_prefs().IncrementSyncPromoIdentityPillShownCount(gaia_id_1);
-  EXPECT_EQ(signin_prefs().GetSyncPromoIdentityPillShownCount(gaia_id_1), 1);
-  signin_prefs().IncrementSyncPromoIdentityPillShownCount(gaia_id_1);
-  EXPECT_EQ(signin_prefs().GetSyncPromoIdentityPillShownCount(gaia_id_1), 2);
-
-  const GaiaId gaia_id_2("gaia_id_2");
-  EXPECT_EQ(signin_prefs().GetSyncPromoIdentityPillShownCount(gaia_id_2), 0);
-  signin_prefs().IncrementSyncPromoIdentityPillShownCount(gaia_id_2);
-  EXPECT_EQ(signin_prefs().GetSyncPromoIdentityPillShownCount(gaia_id_2), 1);
-  signin_prefs().IncrementSyncPromoIdentityPillShownCount(gaia_id_2);
-  EXPECT_EQ(signin_prefs().GetSyncPromoIdentityPillShownCount(gaia_id_2), 2);
-}
-
-TEST_F(SigninPrefsTest, SyncPromoIdentityPillUsedCount) {
-  const GaiaId gaia_id_1("gaia_id_1");
-  EXPECT_EQ(signin_prefs().GetSyncPromoIdentityPillUsedCount(gaia_id_1), 0);
-  signin_prefs().IncrementSyncPromoIdentityPillUsedCount(gaia_id_1);
-  EXPECT_EQ(signin_prefs().GetSyncPromoIdentityPillUsedCount(gaia_id_1), 1);
-  signin_prefs().IncrementSyncPromoIdentityPillUsedCount(gaia_id_1);
-  EXPECT_EQ(signin_prefs().GetSyncPromoIdentityPillUsedCount(gaia_id_1), 2);
-
-  const GaiaId gaia_id_2("gaia_id_2");
-  EXPECT_EQ(signin_prefs().GetSyncPromoIdentityPillUsedCount(gaia_id_2), 0);
-  signin_prefs().IncrementSyncPromoIdentityPillUsedCount(gaia_id_2);
-  EXPECT_EQ(signin_prefs().GetSyncPromoIdentityPillUsedCount(gaia_id_2), 1);
-  signin_prefs().IncrementSyncPromoIdentityPillUsedCount(gaia_id_2);
-  EXPECT_EQ(signin_prefs().GetSyncPromoIdentityPillUsedCount(gaia_id_2), 2);
-}
-
 TEST_F(SigninPrefsTest, BookmarkBatchUploadPromo) {
   const GaiaId gaia_id_1("gaia_id_1");
   auto initial_bookmark_batch_upload_info1 =
@@ -345,4 +313,30 @@ TEST_F(SigninPrefsTest, DeprecatingPrefsInAccountDict) {
   signin_prefs().MigrateObsoleteSigninPrefs();
   EXPECT_EQ(signin_prefs().GetChromeSigninBubbleRepromptCount(gaia_id), 1);
   EXPECT_FALSE(signin_prefs().GetDeprecatedPrefForTesting(gaia_id).has_value());
+}
+
+TEST_F(SigninPrefsTest, BookmarkManagerSigninPromoCounts) {
+  const GaiaId gaia_id_1("gaia_id_1");
+  const GaiaId gaia_id_2("gaia_id_2");
+
+  EXPECT_EQ(
+      signin_prefs().GetBookmarkManagerSigninPromoImpressionCount(gaia_id_1),
+      0);
+  EXPECT_EQ(signin_prefs().GetBookmarkManagerSigninPromoDismissCount(gaia_id_1),
+            0);
+
+  signin_prefs().IncrementBookmarkManagerSigninPromoImpressionCount(gaia_id_1);
+  signin_prefs().IncrementBookmarkManagerSigninPromoImpressionCount(gaia_id_1);
+  signin_prefs().IncrementBookmarkManagerSigninPromoDismissCount(gaia_id_1);
+
+  EXPECT_EQ(
+      signin_prefs().GetBookmarkManagerSigninPromoImpressionCount(gaia_id_1),
+      2);
+  EXPECT_EQ(signin_prefs().GetBookmarkManagerSigninPromoDismissCount(gaia_id_1),
+            1);
+  EXPECT_EQ(
+      signin_prefs().GetBookmarkManagerSigninPromoImpressionCount(gaia_id_2),
+      0);
+  EXPECT_EQ(signin_prefs().GetBookmarkManagerSigninPromoDismissCount(gaia_id_2),
+            0);
 }

@@ -15,24 +15,93 @@
 
 #include "mojo/public/rust/bindings/multiplex_router/cpp_interop/associated_endpoint_rust_adapter.h"
 
+#include <memory>
 #include <utility>
+#include <vector>
 
 #include "base/check.h"
-#include "mojo/public/cpp/bindings/interface_id.h"
+#include "base/compiler_specific.h"
+#include "base/containers/span.h"
+#include "mojo/public/cpp/bindings/associated_group_controller.h"
+#include "mojo/public/cpp/bindings/message.h"
+#include "mojo/public/rust/bindings/multiplex_router/cpp_interop/cxx.rs.h"
 #include "mojo/public/rust/bindings/multiplex_router/cpp_interop/interface_endpoint_client_adapter.h"
+#include "mojo/public/rust/bindings/multiplex_router/cpp_interop/rust_associated_group_controller.h"
 
 namespace mojo::rust::bindings {
+
+std::unique_ptr<mojo::Message> CreateOutgoingMessage(
+    ::rust::Slice<const uint8_t> payload,
+    ::rust::Vec<MojoHandle> handles) {
+  base::span<const uint8_t> payload_span =
+      // Safety: we're constructing the span from a valid rust slice
+      UNSAFE_BUFFERS(base::span<const uint8_t>(payload.data(), payload.size()));
+  std::vector<mojo::ScopedHandle> raw_handles;
+  raw_handles.reserve(handles.size());
+  for (const auto handle_val : handles) {
+    raw_handles.emplace_back(mojo::Handle(handle_val));
+  }
+  return std::make_unique<mojo::Message>(payload_span, base::span(raw_handles));
+}
+
+std::unique_ptr<mojo::Message> CreateIncomingMessage(
+    std::unique_ptr<mojo::rust::ScopedMessageHandleWrapper> raw_handle,
+    ::rust::Vec<MojoHandle> handles) {
+  std::vector<mojo::ScopedHandle> raw_handles;
+  raw_handles.reserve(handles.size());
+  for (const auto handle_val : handles) {
+    raw_handles.emplace_back(mojo::Handle(handle_val));
+  }
+  CHECK(raw_handle);
+  return std::make_unique<mojo::Message>(raw_handle->take_handle(),
+                                         std::move(raw_handles));
+}
 
 AssociatedEndpointRustAdapter::AssociatedEndpointRustAdapter(
     mojo::ScopedInterfaceEndpointHandle handle)
     : handle_(std::move(handle)) {}
 
+AssociatedEndpointRustAdapter::AssociatedEndpointRustAdapter(
+    mojo::AssociatedGroupController* controller,
+    uint32_t interface_id) {
+  if (!controller) {
+    return;
+  }
+  if (interface_id == mojo::kInvalidInterfaceId) {
+    mojo::ScopedInterfaceEndpointHandle remote_handle;
+    mojo::ScopedInterfaceEndpointHandle::CreatePairPendingAssociation(
+        &handle_, &remote_handle);
+    if (controller->AssociateInterface(std::move(remote_handle)) ==
+        mojo::kInvalidInterfaceId) {
+      handle_.reset();
+    }
+  } else if (!mojo::IsPrimaryInterfaceId(interface_id)) {
+    handle_ = controller->CreateLocalEndpointHandle(
+        static_cast<mojo::InterfaceId>(interface_id));
+  }
+}
+
 AssociatedEndpointRustAdapter::~AssociatedEndpointRustAdapter() = default;
+
+bool AssociatedEndpointRustAdapter::is_valid() const {
+  return handle_.is_valid() || client_adapter_;
+}
 
 std::unique_ptr<AssociatedEndpointRustAdapter>
 AssociatedEndpointRustAdapter::Create(
     mojo::ScopedInterfaceEndpointHandle handle) {
   return std::make_unique<AssociatedEndpointRustAdapter>(std::move(handle));
+}
+
+std::unique_ptr<AssociatedEndpointRustAdapter> CreateWithRustController(
+    RustAssociatedGroupController& controller,
+    uint32_t interface_id) {
+  mojo::ScopedInterfaceEndpointHandle handle =
+      controller.CreateScopedHandleForExistingEndpoint(interface_id);
+  if (!handle.is_valid()) {
+    return nullptr;
+  }
+  return AssociatedEndpointRustAdapter::Create(std::move(handle));
 }
 
 void CreatePairPendingAssociation(
@@ -56,14 +125,11 @@ AssociatedEndpointRustAdapter::PassHandle() {
 // an InterfaceEndpointClientAdapter. Incoming messages and disconnect events
 // will be routed to the provided Rust callbacks. Fills the role of
 // MultiplexRouterHandle::bind().
-void AssociatedEndpointRustAdapter::Bind(
-    const base::SequencedTaskRunner& runner,
-    ::rust::Box<EndpointInfo> info) {
+void AssociatedEndpointRustAdapter::Bind(base::SequencedTaskRunner& runner,
+                                         ::rust::Box<EndpointInfo> info) {
   CHECK(!client_adapter_);
   client_adapter_ = base::MakeRefCounted<InterfaceEndpointClientAdapter>(
-      std::move(handle_), std::move(info),
-      scoped_refptr<base::SequencedTaskRunner>(
-          const_cast<base::SequencedTaskRunner*>(&runner)));
+      std::move(handle_), std::move(info), base::WrapRefCounted(&runner));
 }
 
 // Returns the interface ID assigned to this endpoint on the routing group.
@@ -72,23 +138,12 @@ uint32_t AssociatedEndpointRustAdapter::GetInterfaceId() const {
   return client_adapter_ ? client_adapter_->id() : handle_.id();
 }
 
-// Closes the endpoint and sends the peer-endpoint-closed disconnect
-// notification over the IPC pipe immediately.
-void AssociatedEndpointRustAdapter::Close() {
-  if (client_adapter_) {
-    client_adapter_->Close();
-  } else {
-    handle_.reset();
-  }
-}
-
 // Forwards an outgoing IPC message from Rust to the bound C++ endpoint client.
 // Fills the role of MultiplexRouterHandle::send_message().
 void AssociatedEndpointRustAdapter::SendMessage(
-    std::unique_ptr<mojo::rust::ScopedMessageHandleWrapper> message_wrapper)
-    const {
+    std::unique_ptr<mojo::Message> message) const {
   CHECK(client_adapter_);
-  client_adapter_->SendMessage(std::move(message_wrapper));
+  client_adapter_->SendMessage(std::move(message));
 }
 
 // Allocates a new nested associated endpoint on this routing group and returns
@@ -99,28 +154,9 @@ void AssociatedEndpointRustAdapter::SendMessage(
 std::unique_ptr<AssociatedEndpointRustAdapter>
 AssociatedEndpointRustAdapter::RegisterNewEndpoint(
     uint32_t interface_id) const {
-  auto* controller = group_controller();
-  if (!controller) {
-    return nullptr;
-  }
-
-  mojo::ScopedInterfaceEndpointHandle new_handle;
-  if (interface_id == mojo::kInvalidInterfaceId) {
-    mojo::ScopedInterfaceEndpointHandle local_handle;
-    mojo::ScopedInterfaceEndpointHandle remote_handle;
-    mojo::ScopedInterfaceEndpointHandle::CreatePairPendingAssociation(
-        &local_handle, &remote_handle);
-    controller->AssociateInterface(std::move(remote_handle));
-    new_handle = std::move(local_handle);
-  } else {
-    new_handle =
-        controller->CreateLocalEndpointHandle(mojo::InterfaceId(interface_id));
-  }
-
-  if (!new_handle.is_valid()) {
-    return nullptr;
-  }
-  return std::make_unique<AssociatedEndpointRustAdapter>(std::move(new_handle));
+  auto adapter = std::make_unique<AssociatedEndpointRustAdapter>(
+      group_controller(), interface_id);
+  return adapter->is_valid() ? std::move(adapter) : nullptr;
 }
 
 // Returns the underlying group controller

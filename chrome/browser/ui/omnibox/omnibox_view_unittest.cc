@@ -203,7 +203,7 @@ TEST_F(OmniboxViewTest, GetIcon_NonGoogleKeywordSearch) {
   ASSERT_TRUE(turl);
 
   AutocompleteMatch match;
-  match.type = AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED;
+  match.type = omnibox::AutocompleteMatchType::kSearchWhatYouTyped;
   match.keyword = u"foo";
   model()->SetCurrentMatchForTest(match);
 
@@ -223,7 +223,7 @@ TEST_F(OmniboxViewTest, GetIcon_Favicon) {
       .WillOnce(DoAll(SaveArg<0>(&page_url), Return(gfx::Image())));
 
   AutocompleteMatch match;
-  match.type = AutocompleteMatchType::URL_WHAT_YOU_TYPED;
+  match.type = omnibox::AutocompleteMatchType::kUrlWhatYouTyped;
   match.destination_url = kUrl;
   model()->SetCurrentMatchForTest(match);
 
@@ -258,7 +258,7 @@ TEST_F(OmniboxViewPopupTest, GetIcon_SearchAggregatorKeywordSearch) {
   model()->SetIconBitmap(GURL("https://foo.com/icon.png"), bitmap);
 
   AutocompleteMatch match;
-  match.type = AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED;
+  match.type = omnibox::AutocompleteMatchType::kSearchWhatYouTyped;
   match.keyword = u"foo";
   model()->SetCurrentMatchForTest(match);
 
@@ -280,7 +280,7 @@ TEST_F(OmniboxViewPopupTest, GetIcon_IconUrl) {
   // Creates a set of matches.
   ACMatches matches;
   AutocompleteMatch match(nullptr, 1000, false,
-                          AutocompleteMatchType::NAVSUGGEST);
+                          omnibox::AutocompleteMatchType::kNavsuggest);
   match.icon_url = GURL("https://example.com/icon.png");
   matches.push_back(match);
   AutocompleteResult* result =

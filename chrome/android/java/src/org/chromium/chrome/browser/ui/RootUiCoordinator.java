@@ -169,6 +169,7 @@ import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabObscuringHandler;
 import org.chromium.chrome.browser.tab.TabObscuringHandlerSupplier;
 import org.chromium.chrome.browser.tab.TabObserver;
+import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab_ui.RecyclerViewPosition;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tab_ui.TabSwitcher;
@@ -251,7 +252,6 @@ import org.chromium.components.messages.MessageContainer;
 import org.chromium.components.messages.MessageDispatcherProvider;
 import org.chromium.components.messages.MessagesFactory;
 import org.chromium.components.signin.SigninFeatureMap;
-import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.components.ukm.UkmRecorder;
 import org.chromium.content_public.browser.BrowserContextHandle;
@@ -1390,9 +1390,7 @@ public class RootUiCoordinator
             initializeEdgeToEdgeController();
         }
 
-        if (!ChromeFeatureList.sAndroidStartupImprovements.isEnabled()) {
-            initEphemeralTabCoordinator();
-        }
+        initEphemeralTabCoordinator();
         ReadAloudController controller =
                 new ReadAloudController(
                         mActivity,
@@ -1540,7 +1538,6 @@ public class RootUiCoordinator
     }
 
     private void initEphemeralTabCoordinator() {
-        if (mEphemeralTabCoordinatorSupplier.get() != null) return;
         if (EphemeralTabCoordinator.isSupported()) {
             Supplier<TabCreator> tabCreator =
                     () ->
@@ -1808,21 +1805,19 @@ public class RootUiCoordinator
                                     mSnackbarManagerSupplier,
                                     SigninAccessPoint.WEB_SIGNIN));
         }
-        if (SigninFeatureMap.isEnabled(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)) {
-            mExtensionsSigninAndHistorySyncCoordinatorSupplier.set(
-                    SigninAndHistorySyncActivityLauncherImpl.get()
-                            .createBottomSheetSigninCoordinatorAndObserveAddAccountResult(
-                                    mWindowAndroid,
-                                    mActivity,
-                                    mActivityResultTracker,
-                                    new BottomSheetSigninAndHistorySyncCoordinator.Delegate() {},
-                                    assertNonNull(mDeviceLockActivityLauncherSupplier.get()),
-                                    profileSupplier,
-                                    getBottomSheetControllerSupplier().asNonNull(),
-                                    mModalDialogManagerSupplier,
-                                    mSnackbarManagerSupplier,
-                                    SigninAccessPoint.EXTENSIONS));
-        }
+        mExtensionsSigninAndHistorySyncCoordinatorSupplier.set(
+                SigninAndHistorySyncActivityLauncherImpl.get()
+                        .createBottomSheetSigninCoordinatorAndObserveAddAccountResult(
+                                mWindowAndroid,
+                                mActivity,
+                                mActivityResultTracker,
+                                new BottomSheetSigninAndHistorySyncCoordinator.Delegate() {},
+                                assertNonNull(mDeviceLockActivityLauncherSupplier.get()),
+                                profileSupplier,
+                                getBottomSheetControllerSupplier().asNonNull(),
+                                mModalDialogManagerSupplier,
+                                mSnackbarManagerSupplier,
+                                SigninAccessPoint.EXTENSIONS));
     }
 
     private void initIncognitoReauthController(Profile profile) {
@@ -1948,7 +1943,11 @@ public class RootUiCoordinator
                 }
             }
 
-            getOrCreateFindToolbarManager().showToolbar();
+            FindToolbarManager findToolbarManager = getOrCreateFindToolbarManager();
+            // Null only after destroy(). Report the action as handled anyway: there is nothing to
+            // show, and no other (equally torn down) handler should get a chance to act on it.
+            if (findToolbarManager == null) return true;
+            findToolbarManager.showToolbar();
 
             if (fromMenu) {
                 RecordUserAction.record("MobileMenuFindInPage");
@@ -2480,6 +2479,10 @@ public class RootUiCoordinator
     }
 
     private FindToolbarManager createFindToolbarManager() {
+        // This uses the activity, so it must not run after destroy(). The lazy supplier is
+        // triggered from onInflationComplete() (flag off, i.e. long before destroy()) and from
+        // getOrCreateFindToolbarManager(), which returns early once the activity is gone.
+        assert mActivity != null;
         int stubId = getFindToolbarStub();
         FindToolbarManager manager =
                 new FindToolbarManager(
@@ -2759,25 +2762,27 @@ public class RootUiCoordinator
      * @return Supplies the {@link EphemeralTabCoordinator}
      */
     public Supplier<@Nullable EphemeralTabCoordinator> getEphemeralTabCoordinatorSupplier() {
-        if (!ChromeFeatureList.sAndroidStartupImprovements.isEnabled()) {
-            return mEphemeralTabCoordinatorSupplier;
-        }
-        return () -> {
-            initEphemeralTabCoordinator();
-            return mEphemeralTabCoordinatorSupplier.get();
-        };
+        return mEphemeralTabCoordinatorSupplier;
     }
 
     /**
      * @return The {@link FindToolbarManager} controlling find toolbar.
      */
     public @Nullable FindToolbarManager getFindToolbarManager() {
+        if (mActivity == null) return null;
         return mFindToolbarManagerSupplier.hasValue() ? mFindToolbarManagerSupplier.get() : null;
     }
 
-    /** Returns the {@link FindToolbarManager} controlling find toolbar, creating it if needed. */
-    public FindToolbarManager getOrCreateFindToolbarManager() {
-        return assumeNonNull(mFindToolbarManagerSupplier.get());
+    /**
+     * Returns the {@link FindToolbarManager} controlling find toolbar, creating it if needed, or
+     * null if this coordinator has been destroyed.
+     */
+    public @Nullable FindToolbarManager getOrCreateFindToolbarManager() {
+        // Creating the manager requires the activity, so do not resurrect it after destroy().
+        // Any manager created earlier has already been destroyed by then (see destroy()), so it
+        // must not be handed out either.
+        if (mActivity == null) return null;
+        return mFindToolbarManagerSupplier.get();
     }
 
     /** Returns the country {@link OneshotSupplier} for testing. */
@@ -2952,7 +2957,7 @@ public class RootUiCoordinator
      *
      * @param savedInstanceState The {@link Bundle} that is used to restore the UI state.
      */
-    public void restoreUiState(Bundle savedInstanceState) {
+    public void restoreUiState(@Nullable Bundle savedInstanceState) {
         mActivityRecreationController.restoreUiState(savedInstanceState);
     }
 
@@ -3005,6 +3010,7 @@ public class RootUiCoordinator
                 mTabModelSelectorSupplier.get(),
                 tabWindowInfo,
                 url,
+                TabSelectionType.FROM_OMNIBOX,
                 /* onTabSwitched= */ null);
     }
 

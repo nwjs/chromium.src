@@ -361,7 +361,8 @@ void AutofillHandler::OnFillOrPreviewForm(
       std::string failure_to_fill;
       filled_value =
           autofill::GetFillingValueAndTypeForProfile(
-              *profile_used_to_fill_form, locale, field->Type(), *field,
+              *profile_used_to_fill_form, locale,
+              field->Type().GetAddressType(), *field,
               manager.client().GetAddressNormalizer(), &failure_to_fill)
               .value;
     }
@@ -390,8 +391,8 @@ void AutofillHandler::OnFillOrPreviewForm(
   // We use the same format we see in the settings page.
   std::vector<std::vector<autofill::AutofillAddressUIComponent>> components;
   autofill::GetAddressComponents(
-      base::UTF16ToUTF8(profile_used_to_fill_form->GetInfo(
-          autofill::FieldType::ADDRESS_HOME_COUNTRY, locale)),
+      base::UTF16ToUTF8(profile_used_to_fill_form->GetRawInfo(
+          autofill::ADDRESS_HOME_COUNTRY)),
       locale,
       /*include_literals=*/false, &components, nullptr);
 

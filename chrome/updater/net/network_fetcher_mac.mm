@@ -3,8 +3,9 @@
 // found in the LICENSE file.
 
 #import <Foundation/Foundation.h>
+#include <stddef.h>
+#include <stdint.h>
 
-#include <cstdint>
 #include <memory>
 #include <optional>
 #include <ranges>

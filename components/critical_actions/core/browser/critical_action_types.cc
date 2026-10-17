@@ -4,7 +4,10 @@
 
 #include "components/critical_actions/core/browser/critical_action_types.h"
 
+#include "base/json/json_reader.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/uuid.h"
+#include "base/values.h"
 #include "components/strings/grit/components_strings.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -44,6 +47,25 @@ std::string CriticalActionEntry::GetLabel() const {
     case ActionType::kSettingChange:
       return l10n_util::GetStringUTF8(
           IDS_HISTORY_CRITICAL_ACTION_SETTING_CHANGE);
+    case ActionType::kWebMcpTool: {
+      if (!metadata.empty()) {
+        std::optional<base::DictValue> parsed =
+            base::JSONReader::ReadDict(metadata, base::JSON_PARSE_RFC);
+        if (parsed) {
+          if (const std::string* title = parsed->FindString("tool_title");
+              title && !title->empty()) {
+            return *title;
+          }
+          if (const std::string* name = parsed->FindString("tool_name");
+              name && !name->empty()) {
+            return l10n_util::GetStringFUTF8(
+                IDS_HISTORY_CRITICAL_ACTION_WEBMCP_TOOL_WITH_NAME,
+                base::UTF8ToUTF16(*name));
+          }
+        }
+      }
+      return l10n_util::GetStringUTF8(IDS_HISTORY_CRITICAL_ACTION_WEBMCP_TOOL);
+    }
     case ActionType::kUnknown:
       return "";
   }
@@ -69,6 +91,9 @@ std::string CriticalActionEntry::GetTooltip() const {
     case ActionType::kSettingChange:
       return l10n_util::GetStringUTF8(
           IDS_HISTORY_CRITICAL_ACTION_SETTING_TOOLTIP);
+    case ActionType::kWebMcpTool:
+      return l10n_util::GetStringUTF8(
+          IDS_HISTORY_CRITICAL_ACTION_WEBMCP_TOOL_TOOLTIP);
     case ActionType::kUnknown:
       return "";
   }
@@ -127,12 +152,6 @@ CriticalActionEntry::Builder&& CriticalActionEntry::Builder::SetActionSource(
   return std::move(*this);
 }
 
-CriticalActionEntry::Builder&& CriticalActionEntry::Builder::SetUrl(
-    GURL url_val) && {
-  entry_.url = std::move(url_val);
-  return std::move(*this);
-}
-
 CriticalActionEntry::Builder&& CriticalActionEntry::Builder::SetConversationId(
     std::string conversation_id_val) && {
   entry_.conversation_id = std::move(conversation_id_val);
@@ -162,10 +181,6 @@ CriticalActionEntry CriticalActionEntry::Builder::Build() && {
   CHECK(!entry_.timestamp.is_null());
   CHECK(entry_.action_type != ActionType::kUnknown);
   CHECK(entry_.action_source != ActionSource::kUnknown);
-
-  if (!entry_.url.is_valid()) {
-    entry_.url = GURL();
-  }
 
   return std::move(entry_);
 }

@@ -25,6 +25,7 @@
 #include "base/json/json_reader.h"
 #include "base/location.h"
 #include "base/memory/ptr_util.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/one_shot_event.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
@@ -119,6 +120,7 @@
 #include "extensions/browser/external_install_info.h"
 #include "extensions/browser/external_provider_interface.h"
 #include "extensions/browser/fake_safe_browsing_database_manager.h"
+#include "extensions/browser/install/crx_install_error.h"
 #include "extensions/browser/install_flag.h"
 #include "extensions/browser/load_error_reporter.h"
 #include "extensions/browser/managed_installation_mode.h"
@@ -3791,8 +3793,8 @@ TEST_F(ExtensionServiceTest, NoUnsetBlocklistInPrefs) {
 #if defined(ENABLE_BLOCKLIST_TESTS)
 // Tests trying to install a blocklisted extension.
 TEST_F(ExtensionServiceTest, BlocklistedExtensionWillNotInstall) {
-  scoped_refptr<FakeSafeBrowsingDatabaseManager> blocklist_db(
-      new FakeSafeBrowsingDatabaseManager(true));
+  auto blocklist_db =
+      base::MakeRefCounted<FakeSafeBrowsingDatabaseManager>(true);
   ScopedDatabaseManagerForTest scoped_blocklist_db(blocklist_db);
 
   InitializeEmptyExtensionService();
@@ -4392,6 +4394,32 @@ TEST_F(ExtensionServiceTest, ManagementPolicyProhibitsInstall) {
   EXPECT_EQ(0u, registry()->enabled_extensions().size());
 }
 
+// Tests that a user-downloaded CRX installation without an install prompt
+// client fails and aborts the install (preventing silent installation).
+// Regression test for https://crbug.com/501875966.
+TEST_F(ExtensionServiceTest, UserDownloadWithoutPromptFails) {
+  InitializeEmptyExtensionService();
+
+  scoped_refptr<CrxInstaller> installer =
+      CrxInstaller::Create(profile(), /*client=*/nullptr);
+  installer->set_was_triggered_by_user_download();
+  installer->set_off_store_install_allow_reason(
+      CrxInstaller::OffStoreInstallAllowedInTest);
+
+  base::test::TestFuture<std::optional<CrxInstallError>> future;
+  installer->AddInstallerCallback(
+      future.GetCallback<const std::optional<CrxInstallError>&>());
+  installer->InstallCrx(data_dir().AppendASCII("good.crx"));
+
+  std::optional<CrxInstallError> install_error = future.Get();
+  EXPECT_TRUE(installer->did_handle_successfully());
+  ASSERT_TRUE(install_error.has_value());
+  EXPECT_EQ(CrxInstallErrorType::OTHER, install_error->type());
+  EXPECT_EQ(CrxInstallErrorDetail::USER_ABORTED, install_error->detail());
+
+  EXPECT_FALSE(registry()->GetInstalledExtension(kGoodCrx));
+}
+
 // Tests that extensions cannot be loaded from prefs if the policy provider
 // prohibits it. This functionality is implemented in InstalledLoader::Load().
 TEST_F(ExtensionServiceTest, ManagementPolicyProhibitsLoadFromPrefs) {
@@ -4957,6 +4985,8 @@ TEST_F(ExtensionServiceTest, ExternalExtensionRemainsDisabledIfIgnored) {
 TEST_F(ExtensionServiceTest, ExternalExtensionBecomesEnabledIfForceInstalled) {
   FeatureSwitch::ScopedOverride prompt_override(
       FeatureSwitch::prompt_for_external_extensions(), true);
+  // Mark as enterprise managed, so the off-store policy install isn't blocked.
+  policy::ScopedDomainEnterpriseManagement scoped_domain;
   InitializeEmptyExtensionServiceWithTestingPrefs();
 
   // Initially, the extension is installed externally and is disabled.
@@ -4972,8 +5002,7 @@ TEST_F(ExtensionServiceTest, ExternalExtensionBecomesEnabledIfForceInstalled) {
               testing::UnorderedElementsAre(
                   disable_reason::DISABLE_EXTERNAL_EXTENSION));
 
-  // Make the extension force-installed now. It should flip from disabled to
-  // enabled.
+  // Make the extension force-installed now.
   TestManagementPolicyProvider policy_provider(
       TestManagementPolicyProvider::MUST_REMAIN_ENABLED);
   GetManagementPolicy()->RegisterProvider(&policy_provider);
@@ -4983,6 +5012,19 @@ TEST_F(ExtensionServiceTest, ExternalExtensionBecomesEnabledIfForceInstalled) {
     pref.SetIndividualExtensionAutoInstalled(
         kGoodCrx, "http://example.com/update_url", true);
   }
+
+  // The policy external provider then reports the extension from its higher
+  // priority location. Checking for external updates runs that through
+  // ExternalProviderManager, which reloads the extension under the policy
+  // location and flips it from disabled to enabled.
+  MockExternalProvider* policy_external_provider =
+      AddMockExternalProvider(ManifestLocation::kExternalPolicyDownload);
+  policy_external_provider->UpdateOrAddExtension(
+      std::make_unique<ExternalInstallInfoUpdateUrl>(
+          kGoodCrx, std::string(), GURL("http://example.com/update_url"),
+          ManifestLocation::kExternalPolicyDownload, Extension::NO_FLAGS,
+          /*mark_acknowledged=*/false));
+  WaitForExternalExtensionInstalled(kGoodCrx);
 
   EXPECT_TRUE(registry()->enabled_extensions().Contains(kGoodCrx));
   EXPECT_TRUE(prefs()->IsExternalExtensionAcknowledged(kGoodCrx));
@@ -5173,8 +5215,8 @@ TEST_F(ExtensionServiceTest,
 
 TEST_F(ExtensionServiceTest,
        DisableAndReenableUnpackedExtensionBasedOnDeveloperMode) {
-  base::test::ScopedFeatureList feature_list(
-      extensions_features::kExtensionDisableUnsupportedDeveloper);
+  auto disable_allow_unpacked =
+      ExtensionManagement::AllowUnpackedWithoutDeveloperModeForTesting(false);
   InitializeEmptyExtensionService();
   // Turn developer mode ON.
   util::SetDeveloperModeForProfile(profile(), true);
@@ -5197,30 +5239,6 @@ TEST_F(ExtensionServiceTest,
 
   // Turn developer mode ON. The unpacked extension should now be enabled.
   util::SetDeveloperModeForProfile(profile(), true);
-  EXPECT_TRUE(registry()->enabled_extensions().Contains(unpacked_crx->id()));
-  EXPECT_FALSE(registry()->disabled_extensions().Contains(unpacked_crx->id()));
-}
-
-TEST_F(ExtensionServiceTest,
-       UnpackedExtensionStatusUnaffectedWhenFeatureIsOff) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(
-      extensions_features::kExtensionDisableUnsupportedDeveloper);
-  InitializeEmptyExtensionService();
-  // Turn developer mode ON.
-  util::SetDeveloperModeForProfile(profile(), true);
-
-  // Load an unpacked extension and verify enablement.
-  scoped_refptr<const Extension> unpacked_crx =
-      ChromeTestExtensionLoader(profile()).LoadExtension(
-          data_dir().AppendASCII("simple_with_file"));
-  EXPECT_EQ(ManifestLocation::kUnpacked, unpacked_crx->location());
-  EXPECT_TRUE(registry()->enabled_extensions().Contains(unpacked_crx->id()));
-  EXPECT_FALSE(registry()->disabled_extensions().Contains(unpacked_crx->id()));
-
-  // Turn developer mode OFF. Verify that the unpacked extension is still
-  // enabled.
-  util::SetDeveloperModeForProfile(profile(), false);
   EXPECT_TRUE(registry()->enabled_extensions().Contains(unpacked_crx->id()));
   EXPECT_FALSE(registry()->disabled_extensions().Contains(unpacked_crx->id()));
 }

@@ -32,9 +32,34 @@
 
 namespace safe_browsing {
 
+namespace {
+
+class FakeWebUIDelegate : public V5GetHashProtocolManager::WebUIDelegate {
+ public:
+  bool HasListener() const override { return has_listener_; }
+  void set_has_listener(bool has_listener) { has_listener_ = has_listener; }
+
+  void AddToV5GetHashLookups(
+      const V5GetHashProtocolManager::V5GetHashLookup& lookup) override {
+    logged_lookups_.push_back(lookup);
+  }
+
+  const std::vector<V5GetHashProtocolManager::V5GetHashLookup>& logged_lookups()
+      const {
+    return logged_lookups_;
+  }
+
+ private:
+  bool has_listener_ = true;
+  std::vector<V5GetHashProtocolManager::V5GetHashLookup> logged_lookups_;
+};
+
+}  // namespace
+
 class V5GetHashProtocolManagerTest : public ::testing::Test {
  protected:
   using OperationOutcome = V5GetHashProtocolManager::OperationOutcome;
+  using CheckContext = V5GetHashProtocolManager::CheckContext;
 
   V5GetHashProtocolManagerTest()
       : test_shared_loader_factory_(
@@ -46,8 +71,15 @@ class V5GetHashProtocolManagerTest : public ::testing::Test {
   }
 
   std::unique_ptr<V5GetHashProtocolManager> CreateProtocolManager() {
+    return CreateProtocolManagerWithWebUIDelegate(/*webui_delegate=*/nullptr);
+  }
+
+  std::unique_ptr<V5GetHashProtocolManager>
+  CreateProtocolManagerWithWebUIDelegate(
+      V5GetHashProtocolManager::WebUIDelegate* webui_delegate) {
     return std::make_unique<V5GetHashProtocolManager>(
-        test_shared_loader_factory_, GetTestSBProtocolConfig(), cache_.get());
+        test_shared_loader_factory_, GetTestSBProtocolConfig(), cache_.get(),
+        webui_delegate);
   }
 
   std::string GetExpectedRequestUrl(std::vector<std::string> prefixes) {
@@ -302,6 +334,85 @@ class V5GetHashProtocolManagerTest : public ::testing::Test {
     ResetMetrics();
   }
 
+  void RunWebUIDelegateTest(
+      bool has_webui_listener,
+      std::optional<V5GetHashProtocolManager::CheckContext> check_context,
+      int net_error,
+      V5::ThreatType server_threat_type,
+      bool expect_logged,
+      SBThreatType expected_threat_type,
+      ThreatMetadata expected_metadata) {
+    FakeWebUIDelegate webui_delegate;
+    webui_delegate.set_has_listener(has_webui_listener);
+    std::unique_ptr<V5GetHashProtocolManager> pm =
+        CreateProtocolManagerWithWebUIDelegate(&webui_delegate);
+
+    EXPECT_EQ(pm->HasWebUIListener(), has_webui_listener);
+
+    FullHashStr full_hash = "01234567890123456789012345678901";
+    FullHashStr collision_hash = "01234567890123456789012345678902";
+
+    std::map<FullHashStr, std::vector<SBThreatType>> full_hash_to_threat_types;
+    full_hash_to_threat_types[full_hash] = {expected_threat_type};
+
+    std::string expected_url =
+        GetExpectedRequestUrl(SBProtocolManagerUtil::GetHashPrefix(full_hash));
+
+    if (net_error == net::OK) {
+      std::vector<V5::FullHash> full_hashes = {
+          CreateFullHashProto(full_hash, {server_threat_type},
+                              /*threat_attributes=*/std::nullopt),
+          CreateFullHashProto(collision_hash, {server_threat_type},
+                              /*threat_attributes=*/std::nullopt)};
+      SetUpDefaultLookupResponse(expected_url, full_hashes);
+    } else {
+      test_url_loader_factory_.AddResponse(
+          GURL(expected_url), network::mojom::URLResponseHead::New(), "",
+          network::URLLoaderCompletionStatus(net_error));
+    }
+
+    base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
+    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                      check_context);
+
+    if (net_error == net::OK) {
+      EXPECT_EQ(future.Get<0>(), expected_threat_type);
+      EXPECT_EQ(future.Get<1>(), expected_metadata);
+    } else {
+      EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_SAFE);
+      EXPECT_EQ(future.Get<1>(), ThreatMetadata());
+    }
+
+    if (!expect_logged) {
+      EXPECT_TRUE(webui_delegate.logged_lookups().empty());
+      return;
+    }
+
+    ASSERT_EQ(webui_delegate.logged_lookups().size(), 1u);
+    const auto& lookup = webui_delegate.logged_lookups()[0];
+    ASSERT_TRUE(check_context.has_value());
+    EXPECT_EQ(lookup.urls, check_context->urls);
+    EXPECT_EQ(lookup.check_type, check_context->check_type);
+    EXPECT_EQ(lookup.local_threat_types,
+              std::vector<SBThreatType>{expected_threat_type});
+    ASSERT_EQ(lookup.request_proto.hash_prefixes_size(), 1);
+    EXPECT_EQ(lookup.request_proto.hash_prefixes(0),
+              SBProtocolManagerUtil::GetHashPrefix(full_hash));
+    EXPECT_EQ(lookup.net_error, net_error);
+
+    if (net_error == net::OK) {
+      EXPECT_EQ(lookup.response_code, 200);
+      EXPECT_TRUE(lookup.response_proto.has_value());
+      EXPECT_EQ(lookup.severest_threat_type, expected_threat_type);
+      EXPECT_EQ(lookup.metadata, expected_metadata);
+    } else {
+      EXPECT_EQ(lookup.response_code, 0);
+      EXPECT_FALSE(lookup.response_proto.has_value());
+      EXPECT_EQ(lookup.severest_threat_type, SBThreatType::SB_THREAT_TYPE_SAFE);
+      EXPECT_EQ(lookup.metadata, ThreatMetadata());
+    }
+  }
+
   base::test::TaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   network::TestURLLoaderFactory test_url_loader_factory_;
@@ -326,7 +437,8 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_OneHash_Safe) {
   SetUpDefaultLookupResponse(expected_url, /*full_hashes=*/{});
 
   base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-  pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+  pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                    /*check_context=*/std::nullopt);
 
   EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_SAFE);
   EXPECT_EQ(future.Get<1>(), ThreatMetadata());
@@ -355,7 +467,8 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_OneHash_Threat) {
   SetUpDefaultLookupResponse(expected_url, full_hashes);
 
   base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-  pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+  pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                    /*check_context=*/std::nullopt);
 
   EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_URL_PHISHING);
   EXPECT_EQ(future.Get<1>(), ThreatMetadata());
@@ -393,7 +506,8 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_MultipleHashes_MostSevere) {
   SetUpDefaultLookupResponse(expected_url, full_hashes);
 
   base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-  pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+  pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                    /*check_context=*/std::nullopt);
 
   // MALWARE is more severe than UNWANTED_SOFTWARE, so it should be returned.
   EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_URL_MALWARE);
@@ -433,7 +547,8 @@ TEST_F(V5GetHashProtocolManagerTest,
   SetUpDefaultLookupResponse(expected_url, full_hashes);
 
   base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-  pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+  pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                    /*check_context=*/std::nullopt);
 
   // MALWARE (severity 0) is more severe than UNWANTED_SOFTWARE (severity 1),
   // so it should be returned.
@@ -471,7 +586,8 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_Cached) {
   // 1. First request should hit network and cache the result.
   {
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_URL_PHISHING);
     EXPECT_EQ(future.Get<1>(), ThreatMetadata());
 
@@ -487,7 +603,8 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_Cached) {
   // 2. Second request should hit cache and NOT network.
   {
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_URL_PHISHING);
     EXPECT_EQ(future.Get<1>(), ThreatMetadata());
     EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
@@ -516,7 +633,8 @@ TEST_F(V5GetHashProtocolManagerTest,
     SetUpDefaultLookupResponse(expected_url, response);
 
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(cache_request, future.GetCallback());
+    pm->GetFullHashes(cache_request, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_URL_MALWARE);
     EXPECT_EQ(future.Get<1>(), ThreatMetadata());
 
@@ -547,7 +665,8 @@ TEST_F(V5GetHashProtocolManagerTest,
   SetUpDefaultLookupResponse(expected_url, network_response);
 
   base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-  pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+  pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                    /*check_context=*/std::nullopt);
 
   // MALWARE (cached, sev 0) is more severe than UNWANTED_SOFTWARE (network, sev
   // 1).
@@ -584,7 +703,8 @@ TEST_F(V5GetHashProtocolManagerTest,
     SetUpDefaultLookupResponse(expected_url, response);
 
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(cache_request, future.GetCallback());
+    pm->GetFullHashes(cache_request, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_URL_UNWANTED);
     EXPECT_EQ(future.Get<1>(), ThreatMetadata());
 
@@ -615,7 +735,8 @@ TEST_F(V5GetHashProtocolManagerTest,
   SetUpDefaultLookupResponse(expected_url, network_response);
 
   base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-  pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+  pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                    /*check_context=*/std::nullopt);
 
   // MALWARE (network, sev 0) is more severe than UNWANTED_SOFTWARE (cached, sev
   // 1).
@@ -651,7 +772,8 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_Backoff) {
       network::URLLoaderCompletionStatus(net::ERR_CONNECTION_RESET));
   {
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_SAFE);
     EXPECT_EQ(future.Get<1>(), ThreatMetadata());
 
@@ -666,7 +788,8 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_Backoff) {
   test_url_loader_factory_.ClearResponses();
   {
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_SAFE);
     EXPECT_EQ(future.Get<1>(), ThreatMetadata());
     EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
@@ -679,7 +802,8 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_Backoff) {
   task_environment_.FastForwardBy(base::Minutes(14));
   {
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_SAFE);
     EXPECT_EQ(future.Get<1>(), ThreatMetadata());
     EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
@@ -696,7 +820,8 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_Backoff) {
       network::URLLoaderCompletionStatus(net::ERR_CONNECTION_RESET));
   {
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_SAFE);
     EXPECT_EQ(future.Get<1>(), ThreatMetadata());
 
@@ -712,7 +837,8 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_Backoff) {
   task_environment_.FastForwardBy(base::Minutes(29));
   {
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_SAFE);
     EXPECT_EQ(future.Get<1>(), ThreatMetadata());
     EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
@@ -730,7 +856,8 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_Backoff) {
   SetUpDefaultLookupResponse(expected_url, full_hashes);
   {
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_URL_PHISHING);
     EXPECT_EQ(future.Get<1>(), ThreatMetadata());
 
@@ -757,7 +884,8 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_Backoff) {
   SetUpDefaultLookupResponse(expected_url2, full_hashes2);
   {
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(full_hash_to_threat_types2, future.GetCallback());
+    pm->GetFullHashes(full_hash_to_threat_types2, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_URL_PHISHING);
     EXPECT_EQ(future.Get<1>(), ThreatMetadata());
 
@@ -786,7 +914,8 @@ TEST_F(V5GetHashProtocolManagerTest,
       network::URLLoaderCompletionStatus(net::ERR_CONNECTION_RESET));
   {
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     std::ignore = future.Get();
   }
 
@@ -794,7 +923,8 @@ TEST_F(V5GetHashProtocolManagerTest,
   test_url_loader_factory_.ClearResponses();
   for (int i = 0; i < 2; i++) {
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     std::ignore = future.Get();
   }
 
@@ -812,7 +942,8 @@ TEST_F(V5GetHashProtocolManagerTest,
   SetUpDefaultLookupResponse(expected_url, full_hashes);
   {
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     std::ignore = future.Get();
   }
 
@@ -843,7 +974,8 @@ TEST_F(V5GetHashProtocolManagerTest,
       network::URLLoaderCompletionStatus(net::ERR_CONNECTION_RESET));
   {
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(full_hash_to_threat_types2, future.GetCallback());
+    pm->GetFullHashes(full_hash_to_threat_types2, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     std::ignore = future.Get();
   }
 
@@ -852,7 +984,8 @@ TEST_F(V5GetHashProtocolManagerTest,
   test_url_loader_factory_.ClearResponses();
   {
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(full_hash_to_threat_types2, future.GetCallback());
+    pm->GetFullHashes(full_hash_to_threat_types2, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     std::ignore = future.Get();
   }
 
@@ -864,7 +997,8 @@ TEST_F(V5GetHashProtocolManagerTest,
   SetUpDefaultLookupResponse(expected_url2, full_hashes2);
   {
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(full_hash_to_threat_types2, future.GetCallback());
+    pm->GetFullHashes(full_hash_to_threat_types2, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     std::ignore = future.Get();
   }
 
@@ -895,7 +1029,8 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_Backoff_RetriableErrors) {
       network::URLLoaderCompletionStatus(net::ERR_NETWORK_CHANGED));
   {
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(full_hash_to_threat_types1, future.GetCallback());
+    pm->GetFullHashes(full_hash_to_threat_types1, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_SAFE);
     EXPECT_EQ(future.Get<1>(), ThreatMetadata());
 
@@ -921,7 +1056,8 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_Backoff_RetriableErrors) {
   SetUpDefaultLookupResponse(expected_url2, full_hashes2);
   {
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(full_hash_to_threat_types2, future.GetCallback());
+    pm->GetFullHashes(full_hash_to_threat_types2, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_URL_PHISHING);
     EXPECT_EQ(future.Get<1>(), ThreatMetadata());
 
@@ -946,7 +1082,8 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_Backoff_RetriableErrors) {
       network::URLLoaderCompletionStatus(net::ERR_CONNECTION_RESET));
   {
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(full_hash_to_threat_types3, future.GetCallback());
+    pm->GetFullHashes(full_hash_to_threat_types3, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_SAFE);
     EXPECT_EQ(future.Get<1>(), ThreatMetadata());
 
@@ -965,7 +1102,8 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_Backoff_RetriableErrors) {
   test_url_loader_factory_.ClearResponses();
   {
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(full_hash_to_threat_types4, future.GetCallback());
+    pm->GetFullHashes(full_hash_to_threat_types4, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_SAFE);
     EXPECT_EQ(future.Get<1>(), ThreatMetadata());
     EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
@@ -990,7 +1128,8 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_Backoff_RetriableErrors) {
       network::URLLoaderCompletionStatus(net::ERR_NETWORK_CHANGED));
   {
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(full_hash_to_threat_types5, future.GetCallback());
+    pm->GetFullHashes(full_hash_to_threat_types5, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_SAFE);
     EXPECT_EQ(future.Get<1>(), ThreatMetadata());
 
@@ -1016,7 +1155,8 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_Backoff_RetriableErrors) {
   SetUpDefaultLookupResponse(expected_url6, full_hashes6);
   {
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(full_hash_to_threat_types6, future.GetCallback());
+    pm->GetFullHashes(full_hash_to_threat_types6, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_URL_PHISHING);
     EXPECT_EQ(future.Get<1>(), ThreatMetadata());
 
@@ -1045,7 +1185,8 @@ TEST_F(V5GetHashProtocolManagerTest,
   SetUpDefaultLookupResponse(expected_url, full_hashes);
 
   base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-  pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+  pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                    /*check_context=*/std::nullopt);
 
   EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_SUBRESOURCE_FILTER);
   const ThreatMetadata& metadata = future.Get<1>();
@@ -1082,7 +1223,8 @@ TEST_F(V5GetHashProtocolManagerTest,
   SetUpDefaultLookupResponse(expected_url, full_hashes);
 
   base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-  pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+  pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                    /*check_context=*/std::nullopt);
 
 #if BUILDFLAG(IS_IOS)
   EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_SAFE);
@@ -1134,7 +1276,8 @@ TEST_F(V5GetHashProtocolManagerTest,
   SetUpDefaultLookupResponse(expected_url, full_hashes);
 
   base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-  pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+  pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                    /*check_context=*/std::nullopt);
 
   EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_SUBRESOURCE_FILTER);
   const ThreatMetadata& metadata = future.Get<1>();
@@ -1197,7 +1340,8 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_AllThreatTypes) {
     SetUpDefaultLookupResponse(expected_url, full_hashes);
 
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
 
     EXPECT_EQ(future.Get<0>(), tc.sb_type);
     const ThreatMetadata& metadata = future.Get<1>();
@@ -1242,7 +1386,8 @@ TEST_F(V5GetHashProtocolManagerTest,
                                        net::HTTP_INTERNAL_SERVER_ERROR);
   {
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_SAFE);
     EXPECT_EQ(future.Get<1>(), ThreatMetadata());
 
@@ -1257,7 +1402,8 @@ TEST_F(V5GetHashProtocolManagerTest,
   test_url_loader_factory_.ClearResponses();
   {
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_SAFE);
     EXPECT_EQ(future.Get<1>(), ThreatMetadata());
     EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
@@ -1291,13 +1437,16 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_ParallelRequests) {
 
   // Start requests A, B, C. They should all hit the network.
   base::test::TestFuture<SBThreatType, const ThreatMetadata&> futureA;
-  pm->GetFullHashes(req1, futureA.GetCallback());
+  pm->GetFullHashes(req1, futureA.GetCallback(),
+                    /*check_context=*/std::nullopt);
 
   base::test::TestFuture<SBThreatType, const ThreatMetadata&> futureB;
-  pm->GetFullHashes(req2, futureB.GetCallback());
+  pm->GetFullHashes(req2, futureB.GetCallback(),
+                    /*check_context=*/std::nullopt);
 
   base::test::TestFuture<SBThreatType, const ThreatMetadata&> futureC;
-  pm->GetFullHashes(req3, futureC.GetCallback());
+  pm->GetFullHashes(req3, futureC.GetCallback(),
+                    /*check_context=*/std::nullopt);
 
   EXPECT_EQ(test_url_loader_factory_.NumPending(), 3);
 
@@ -1391,7 +1540,8 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_Backoff_CapsAt24Hours) {
         network::URLLoaderCompletionStatus(net::ERR_CONNECTION_RESET));
     {
       base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-      pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+      pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                        /*check_context=*/std::nullopt);
       EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_SAFE);
       EXPECT_EQ(future.Get<1>(), ThreatMetadata());
       EXPECT_EQ(test_url_loader_factory_.total_requests(), i + 1u);
@@ -1415,7 +1565,8 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_Backoff_CapsAt24Hours) {
       network::URLLoaderCompletionStatus(net::ERR_CONNECTION_RESET));
   {
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_SAFE);
     EXPECT_EQ(future.Get<1>(), ThreatMetadata());
 
@@ -1431,7 +1582,8 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_Backoff_CapsAt24Hours) {
   test_url_loader_factory_.ClearResponses();
   {
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_SAFE);
     EXPECT_EQ(future.Get<1>(), ThreatMetadata());
     EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
@@ -1448,7 +1600,8 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_Backoff_CapsAt24Hours) {
   SetUpDefaultLookupResponse(expected_url, full_hashes);
   {
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_URL_PHISHING);
     EXPECT_EQ(future.Get<1>(), ThreatMetadata());
 
@@ -1533,7 +1686,8 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_RelevanceFiltering) {
     SetUpDefaultLookupResponse(expected_url, full_hashes);
 
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
 
     EXPECT_EQ(future.Get<0>(), tc.expected_result);
     EXPECT_EQ(future.Get<1>(), ThreatMetadata());
@@ -1572,7 +1726,8 @@ TEST_F(V5GetHashProtocolManagerTest,
   SetUpDefaultLookupResponse(expected_url_cached, full_hashes_cached);
   {
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(req_cached, future.GetCallback());
+    pm->GetFullHashes(req_cached, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_URL_PHISHING);
     EXPECT_EQ(future.Get<1>(), ThreatMetadata());
 
@@ -1590,7 +1745,8 @@ TEST_F(V5GetHashProtocolManagerTest,
       network::URLLoaderCompletionStatus(net::ERR_CONNECTION_RESET));
   {
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(req_network, future.GetCallback());
+    pm->GetFullHashes(req_network, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_SAFE);
     EXPECT_EQ(future.Get<1>(), ThreatMetadata());
 
@@ -1606,7 +1762,8 @@ TEST_F(V5GetHashProtocolManagerTest,
   test_url_loader_factory_.ClearResponses();
   {
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(req_cached, future.GetCallback());
+    pm->GetFullHashes(req_cached, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
     EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_URL_PHISHING);
     EXPECT_EQ(future.Get<1>(), ThreatMetadata());
     EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
@@ -1637,7 +1794,8 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_PrefixCollision_Ignored) {
   SetUpDefaultLookupResponse(expected_url, full_hashes);
 
   base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-  pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+  pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                    /*check_context=*/std::nullopt);
 
   // Should return SAFE because the returned full hash didn't match the
   // requested one.
@@ -1682,7 +1840,8 @@ TEST_F(V5GetHashProtocolManagerTest,
     SetUpDefaultLookupResponse(expected_url, full_hashes);
 
     base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+    pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                      /*check_context=*/std::nullopt);
 
     EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_SAFE);
     EXPECT_EQ(future.Get<1>(), ThreatMetadata());
@@ -1714,7 +1873,8 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_UnmatchedPrefix_Ignored) {
   SetUpDefaultLookupResponse(expected_url, full_hashes);
 
   base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
-  pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback());
+  pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                    /*check_context=*/std::nullopt);
 
   EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_SAFE);
   EXPECT_EQ(future.Get<1>(), ThreatMetadata());
@@ -1724,6 +1884,118 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_UnmatchedPrefix_Ignored) {
                        /*expected_found_unmatched_full_hashes=*/true,
                        {SBThreatType::SB_THREAT_TYPE_URL_PHISHING},
                        {SBThreatType::SB_THREAT_TYPE_URL_PHISHING});
+}
+
+TEST_F(V5GetHashProtocolManagerTest, WebUIDelegateLogsGetHash) {
+  RunWebUIDelegateTest(
+      /*has_webui_listener=*/true,
+      /*check_context=*/
+      V5GetHashProtocolManager::CheckContext{
+          {GURL("https://example.com/test")},
+          ClientCallbackType::CHECK_BROWSE_URL},
+      /*net_error=*/net::OK,
+      /*server_threat_type=*/V5::ThreatType::SOCIAL_ENGINEERING,
+      /*expect_logged=*/true,
+      /*expected_threat_type=*/SBThreatType::SB_THREAT_TYPE_URL_PHISHING,
+      /*expected_metadata=*/ThreatMetadata());
+}
+
+TEST_F(V5GetHashProtocolManagerTest, WebUIDelegateLogsNetworkError) {
+  RunWebUIDelegateTest(
+      /*has_webui_listener=*/true,
+      /*check_context=*/
+      V5GetHashProtocolManager::CheckContext{
+          {GURL("https://example.com/failed")},
+          ClientCallbackType::CHECK_BROWSE_URL},
+      /*net_error=*/net::ERR_FAILED,
+      /*server_threat_type=*/V5::ThreatType::SOCIAL_ENGINEERING,
+      /*expect_logged=*/true,
+      /*expected_threat_type=*/SBThreatType::SB_THREAT_TYPE_URL_PHISHING,
+      /*expected_metadata=*/ThreatMetadata());
+}
+
+TEST_F(V5GetHashProtocolManagerTest, WebUIDelegateDoesNotLogWhenNoListener) {
+  RunWebUIDelegateTest(
+      /*has_webui_listener=*/false,
+      /*check_context=*/
+      V5GetHashProtocolManager::CheckContext{
+          {GURL("https://example.com/test")},
+          ClientCallbackType::CHECK_BROWSE_URL},
+      /*net_error=*/net::OK,
+      /*server_threat_type=*/V5::ThreatType::SOCIAL_ENGINEERING,
+      /*expect_logged=*/false,
+      /*expected_threat_type=*/SBThreatType::SB_THREAT_TYPE_URL_PHISHING,
+      /*expected_metadata=*/ThreatMetadata());
+}
+
+TEST_F(V5GetHashProtocolManagerTest,
+       WebUIDelegateDoesNotLogWhenNoCheckContext) {
+  RunWebUIDelegateTest(
+      /*has_webui_listener=*/true,
+      /*check_context=*/std::nullopt,
+      /*net_error=*/net::OK,
+      /*server_threat_type=*/V5::ThreatType::SOCIAL_ENGINEERING,
+      /*expect_logged=*/false,
+      /*expected_threat_type=*/SBThreatType::SB_THREAT_TYPE_URL_PHISHING,
+      /*expected_metadata=*/ThreatMetadata());
+}
+
+TEST_F(V5GetHashProtocolManagerTest, WebUIDelegateLogsMetadata) {
+  ThreatMetadata expected_metadata;
+  expected_metadata.subresource_filter_match[SubresourceFilterType::ABUSIVE] =
+      SubresourceFilterLevel::ENFORCE;
+  RunWebUIDelegateTest(
+      /*has_webui_listener=*/true,
+      /*check_context=*/
+      V5GetHashProtocolManager::CheckContext{
+          {GURL("https://example.com/srf")},
+          ClientCallbackType::CHECK_URL_FOR_SUBRESOURCE_FILTER},
+      /*net_error=*/net::OK,
+      /*server_threat_type=*/V5::ThreatType::ABUSIVE_EXPERIENCE_VIOLATION,
+      /*expect_logged=*/true,
+      /*expected_threat_type=*/SBThreatType::SB_THREAT_TYPE_SUBRESOURCE_FILTER,
+      /*expected_metadata=*/expected_metadata);
+}
+
+TEST_F(V5GetHashProtocolManagerTest,
+       WebUIDelegateLogsMultipleHashesAndDeduplicatesThreatTypes) {
+  FakeWebUIDelegate webui_delegate;
+  webui_delegate.set_has_listener(true);
+  std::unique_ptr<V5GetHashProtocolManager> pm =
+      CreateProtocolManagerWithWebUIDelegate(&webui_delegate);
+
+  FullHashStr hash1 = "01234567890123456789012345678901";
+  FullHashStr hash2 = "01234567890123456789012345678902";
+
+  std::map<FullHashStr, std::vector<SBThreatType>> full_hash_to_threat_types;
+  full_hash_to_threat_types[hash1] = {SBThreatType::SB_THREAT_TYPE_URL_PHISHING,
+                                      SBThreatType::SB_THREAT_TYPE_URL_MALWARE};
+  full_hash_to_threat_types[hash2] = {
+      SBThreatType::SB_THREAT_TYPE_URL_MALWARE,
+      SBThreatType::SB_THREAT_TYPE_URL_UNWANTED};
+
+  std::string expected_url =
+      GetExpectedRequestUrl(SBProtocolManagerUtil::GetHashPrefix(hash1));
+  std::vector<V5::FullHash> full_hashes = {
+      CreateFullHashProto(hash1, {V5::ThreatType::SOCIAL_ENGINEERING},
+                          /*threat_attributes=*/std::nullopt)};
+  SetUpDefaultLookupResponse(expected_url, full_hashes);
+
+  base::test::TestFuture<SBThreatType, const ThreatMetadata&> future;
+  pm->GetFullHashes(full_hash_to_threat_types, future.GetCallback(),
+                    V5GetHashProtocolManager::CheckContext{
+                        {GURL("https://example.com/multi")},
+                        ClientCallbackType::CHECK_BROWSE_URL});
+
+  EXPECT_EQ(future.Get<0>(), SBThreatType::SB_THREAT_TYPE_URL_PHISHING);
+
+  ASSERT_EQ(webui_delegate.logged_lookups().size(), 1u);
+  const auto& lookup = webui_delegate.logged_lookups()[0];
+  EXPECT_THAT(
+      lookup.local_threat_types,
+      testing::UnorderedElementsAre(SBThreatType::SB_THREAT_TYPE_URL_PHISHING,
+                                    SBThreatType::SB_THREAT_TYPE_URL_MALWARE,
+                                    SBThreatType::SB_THREAT_TYPE_URL_UNWANTED));
 }
 
 }  // namespace safe_browsing

@@ -49,6 +49,7 @@
 #include "partition_alloc/partition_alloc_config.h"
 #include "partition_alloc/partition_alloc_constants.h"
 #include "partition_alloc/partition_alloc_forward.h"
+#include "partition_alloc/partition_alloc_public_constants.h"
 #include "partition_alloc/partition_bucket.h"
 #include "partition_alloc/partition_lock.h"
 #include "partition_alloc/reservation_offset_table.h"
@@ -178,6 +179,8 @@ struct PartitionOptions {
   // without returning its slot to the freelist. Cannot be used with
   // thread_cache or backup_ref_ptr.
   EnableToggle intended_leak = kDisabled;
+
+  AllowToggle allow_giga_allocations = kDisallowed;
 };
 
 constexpr PartitionOptions::PartitionOptions() = default;
@@ -279,6 +282,7 @@ class alignas(internal::kPartitionCachelineSize)
 #endif
 
     bool use_tighter_aligned_alloc_bound = false;
+    bool allow_giga_allocations = false;
   };
 
   Settings settings_;
@@ -607,7 +611,7 @@ class alignas(internal::kPartitionCachelineSize)
   GetSlotUsableSize(const SlotSpanMetadata* slot_span) const;
   PA_ALWAYS_INLINE size_t
   GetSlotUsableSize(const internal::BucketSizeDetails& size_details,
-                    SlotSpanMetadata* slot_span) const;
+                    const SlotSpanMetadata* slot_span) const;
 
   // Note: this static method is the most friendly to external callers.
   // It always defaults to checking for Checked Span's "smuggled
@@ -674,11 +678,11 @@ class alignas(internal::kPartitionCachelineSize)
                                     BucketDistribution bucket_distribution);
 
   PA_ALWAYS_INLINE internal::BucketSizeDetails SlotSpanToBucketSizeDetails(
-      SlotSpanMetadata* slot_span) const;
+      const SlotSpanMetadata* slot_span) const;
 
   PA_ALWAYS_INLINE internal::BucketSizeDetails SizeToBucketSizeDetails(
       size_t requested_size,
-      SlotSpanMetadata* slot_span) const;
+      const SlotSpanMetadata* slot_span) const;
 
   PA_ALWAYS_INLINE void FreeInSlotSpan(UntaggedSlotStart slot_start,
                                        SlotSpanMetadata* slot_span)
@@ -721,6 +725,20 @@ class alignas(internal::kPartitionCachelineSize)
   size_t get_total_size_of_allocated_bytes() const;
 
   size_t get_max_size_of_allocated_bytes() const;
+
+  PA_ALWAYS_INLINE bool allow_giga_allocations() const {
+    return settings_.allow_giga_allocations;
+  }
+
+  template <AllocFlags flags>
+  PA_ALWAYS_INLINE size_t GetMaxAllocationSize() const {
+    if constexpr (ContainsFlags(flags, AllocFlags::kAllowGigaAllocations)) {
+      if (settings_.allow_giga_allocations) {
+        return MaxGigaAllocationSize();
+      }
+    }
+    return MaxAllocationSize();
+  }
 
   internal::pool_handle ChoosePool() const;
 #if PA_BUILDFLAG(HAS_64_BIT_POINTERS)
@@ -892,7 +910,7 @@ class alignas(internal::kPartitionCachelineSize)
   // We use this to make MEMORY_TOOL_REPLACES_ALLOCATOR behave the same for max
   // size as other alloc code.
   template <AllocFlags flags>
-  PA_ALWAYS_INLINE static bool AllocWithMemoryToolProlog(size_t size);
+  PA_ALWAYS_INLINE bool AllocWithMemoryToolProlog(size_t size);
 
   bool TryReallocInPlaceForNormalBuckets(void* object,
                                          SlotSpanMetadata* slot_span,

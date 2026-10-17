@@ -10,6 +10,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
 #include "base/thread_annotations.h"
+#include "base/types/expected.h"
 #include "content/browser/file_system_access/file_system_access_error.h"
 #include "content/browser/file_system_access/file_system_access_lock_manager.h"
 #include "content/browser/file_system_access/file_system_access_manager_impl.h"
@@ -47,6 +48,10 @@ class CONTENT_EXPORT FileSystemAccessHandleBase {
   using BindingContext = FileSystemAccessManagerImpl::BindingContext;
   using SharedHandleState = FileSystemAccessManagerImpl::SharedHandleState;
   using PermissionStatus = blink::mojom::PermissionStatus;
+  using SensitiveEntryResult =
+      FileSystemAccessPermissionContext::SensitiveEntryResult;
+  using HandleType = FileSystemAccessPermissionContext::HandleType;
+  using AccessTrigger = FileSystemAccessPermissionContext::AccessTrigger;
 
   FileSystemAccessHandleBase(FileSystemAccessManagerImpl* manager,
                              const BindingContext& context,
@@ -55,7 +60,7 @@ class CONTENT_EXPORT FileSystemAccessHandleBase {
   FileSystemAccessHandleBase(const FileSystemAccessHandleBase&) = delete;
   FileSystemAccessHandleBase& operator=(const FileSystemAccessHandleBase&) =
       delete;
-  ~FileSystemAccessHandleBase();
+  virtual ~FileSystemAccessHandleBase();
 
   const storage::FileSystemURL& url() const { return url_; }
   const SharedHandleState& handle_state() const { return handle_state_; }
@@ -75,6 +80,24 @@ class CONTENT_EXPORT FileSystemAccessHandleBase {
   // `GetWritePermissionStatus()` if appropriate. Returns the permission status
   // for reading and writing.
   PermissionStatus GetReadWritePermissionStatus();
+
+  // Checks whether the handle currently allows read operations. Returns
+  // base::ok() if read access is permitted, or an error status on failure.
+  //
+  // Distinction from `GetReadPermissionStatus()`:
+  // - `GetReadPermissionStatus()` queries only whether the underlying
+  //   permission grant is GRANTED, ASK, or DENIED.
+  // - `CheckReadAccess()` is the authorization check for actual read
+  //   operations (e.g. AsBlob, GetEntries). A GRANTED status from
+  //   `GetReadPermissionStatus()` is necessary but not always sufficient: read
+  //   operations may still be blocked by broader context or security
+  //   constraints even when the underlying grant is GRANTED. Callers
+  //   executing read operations should always call `CheckReadAccess()`.
+  // - Use `DoGetPermissionStatus()` to handle the renderer's
+  //   `queryPermission()` API call.
+  base::expected<void, blink::mojom::FileSystemAccessErrorPtr>
+  CheckReadAccess();
+
   storage::FileSystemURL GetParentURLForTesting() { return GetParentURL(); }
 
   // Implementation for the GetPermissionStatus method in the
@@ -162,6 +185,19 @@ class CONTENT_EXPORT FileSystemAccessHandleBase {
       const bool has_transient_user_activation,
       const storage::FileSystemURL destination_url);
 
+  // Invokes `callback` with `callback_arg` if sensitive entry access to `url`
+  // is allowed. If blocked, `blocked_callback` is invoked with `callback_arg`.
+  // The callbacks can be invoked synchronously.
+  template <typename CallbackArgType>
+  void RunWithSensitiveEntryAccess(
+      const storage::FileSystemURL& url,
+      const std::string& display_name,
+      HandleType handle_type,
+      AccessTrigger access_trigger,
+      base::OnceCallback<void(CallbackArgType)> callback,
+      base::OnceCallback<void(CallbackArgType)> blocked_callback,
+      CallbackArgType callback_arg);
+
   SEQUENCE_CHECKER(sequence_checker_);
 
  private:
@@ -190,14 +226,19 @@ class CONTENT_EXPORT FileSystemAccessHandleBase {
       base::OnceCallback<void(blink::mojom::FileSystemAccessErrorPtr)> callback,
       std::vector<scoped_refptr<FileSystemAccessLockManager::LockHandle>>
           locks);
+  template <typename CallbackArgType>
+  void DidVerifySensitiveEntryAccess(
+      base::OnceCallback<void(CallbackArgType)> callback,
+      base::OnceCallback<void(CallbackArgType)> blocked_callback,
+      CallbackArgType callback_arg,
+      SensitiveEntryResult result);
   void DidVerifySensitiveEntryAccessForMove(
       storage::FileSystemURL destination_url,
       bool has_overwrite_permission,
       bool has_transient_user_activation,
-      base::OnceCallback<void(blink::mojom::FileSystemAccessErrorPtr)> callback,
       std::vector<scoped_refptr<FileSystemAccessLockManager::LockHandle>> locks,
-      FileSystemAccessPermissionContext::SensitiveEntryResult
-          sensitive_entry_result);
+      base::OnceCallback<void(blink::mojom::FileSystemAccessErrorPtr)>
+          callback);
   // Only called if the move operation is not allowed to overwrite the target.
   void ConfirmMoveWillNotOverwriteDestination(
       const storage::FileSystemURL& destination_url,
@@ -288,6 +329,65 @@ void FileSystemAccessHandleBase::RunWithPermission(
           },
           std::move(callback), std::move(no_permission_callback),
           std::move(callback_arg)));
+}
+
+template <typename CallbackArgType>
+void FileSystemAccessHandleBase::RunWithSensitiveEntryAccess(
+    const storage::FileSystemURL& url,
+    const std::string& display_name,
+    HandleType handle_type,
+    AccessTrigger access_trigger,
+    base::OnceCallback<void(CallbackArgType)> callback,
+    base::OnceCallback<void(CallbackArgType)> blocked_callback,
+    CallbackArgType callback_arg) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  if (!manager()->permission_context() ||
+      url.type() == storage::FileSystemType::kFileSystemTypeTemporary) {
+    // Skipping ConfirmSensitiveEntryAccess() as either of the following holds:
+    // (1) no permission context. Possibly because manager() is being destroyed
+    // or in a test.
+    // (2) entry is in Bucket File System, i.e. not a real file or directory.
+    std::move(callback).Run(std::move(callback_arg));
+    return;
+  }
+
+  PathType path_type =
+      url.type() == storage::FileSystemType::kFileSystemTypeLocal
+          ? PathType::kLocal
+          : PathType::kExternal;
+  PathInfo path_info = display_name.empty()
+                           ? PathInfo(path_type, url.path())
+                           : PathInfo(path_type, url.path(), display_name);
+  manager()->permission_context()->ConfirmSensitiveEntryAccess(
+      context().storage_key.origin(), path_info, handle_type, access_trigger,
+      context().frame_id,
+      base::BindOnce(&FileSystemAccessHandleBase::DidVerifySensitiveEntryAccess<
+                         CallbackArgType>,
+                     AsWeakPtr(), std::move(callback),
+                     std::move(blocked_callback), std::move(callback_arg)));
+}
+
+template <typename CallbackArgType>
+void FileSystemAccessHandleBase::DidVerifySensitiveEntryAccess(
+    base::OnceCallback<void(CallbackArgType)> callback,
+    base::OnceCallback<void(CallbackArgType)> blocked_callback,
+    CallbackArgType callback_arg,
+    SensitiveEntryResult result) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  switch (result) {
+    case SensitiveEntryResult::kAllowed:
+      std::move(callback).Run(std::move(callback_arg));
+      break;
+    case SensitiveEntryResult::kAbort:
+      std::move(blocked_callback).Run(std::move(callback_arg));
+      break;
+    case SensitiveEntryResult::kTryAgain:
+      // `kTryAgain` indicates the user should pick a different entry in the
+      // file picker dialog. It is only applicable to picker flows (e.g.
+      // `ChooseEntries`) and should never occur for handle-based operations.
+      NOTREACHED();
+  }
 }
 
 }  // namespace content

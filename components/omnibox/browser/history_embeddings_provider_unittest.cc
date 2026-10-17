@@ -393,7 +393,7 @@ TEST_F(HistoryEmbeddingsProviderTest, Stop) {
 
 TEST_F(HistoryEmbeddingsProviderTest, DeleteMatch) {
   AutocompleteMatch match(history_embeddings_provider_.get(), 1000, true,
-                          AutocompleteMatchType::HISTORY_EMBEDDINGS);
+                          omnibox::AutocompleteMatchType::kHistoryEmbeddings);
   match.destination_url = GURL{"https://en.wikipedia.org/wiki/Matenadaran"};
   history_embeddings_provider_->matches_.push_back(match);
   history_embeddings_provider_->DeleteMatch(match);
@@ -418,7 +418,7 @@ TEST_F(HistoryEmbeddingsProviderTest,
   EXPECT_EQ(history_embeddings_provider_->matches_[0].relevance, 500);
   EXPECT_EQ(history_embeddings_provider_->matches_[0].deletable, true);
   EXPECT_EQ(history_embeddings_provider_->matches_[0].type,
-            AutocompleteMatchType::HISTORY_EMBEDDINGS);
+            omnibox::AutocompleteMatchType::kHistoryEmbeddings);
   EXPECT_EQ(history_embeddings_provider_->matches_[0].destination_url.spec(),
             "https://url.com/");
   EXPECT_EQ(history_embeddings_provider_->matches_[0].description, u"title");
@@ -453,7 +453,7 @@ TEST_F(HistoryEmbeddingsProviderTest,
   EXPECT_EQ(history_embeddings_provider_->matches_[0].relevance, 500);
   EXPECT_EQ(history_embeddings_provider_->matches_[0].deletable, true);
   EXPECT_EQ(history_embeddings_provider_->matches_[0].type,
-            AutocompleteMatchType::HISTORY_EMBEDDINGS);
+            omnibox::AutocompleteMatchType::kHistoryEmbeddings);
   EXPECT_EQ(history_embeddings_provider_->matches_[0].destination_url.spec(),
             "https://url.com/");
   EXPECT_EQ(history_embeddings_provider_->matches_[0].description, u"title");
@@ -506,18 +506,18 @@ TEST_F(HistoryEmbeddingsProviderTest,
   auto expected_match_1 =
       AllOf(Field(&AutocompleteMatch::relevance, 750),
             Field(&AutocompleteMatch::type,
-                  AutocompleteMatchType::HISTORY_EMBEDDINGS),
+                  omnibox::AutocompleteMatchType::kHistoryEmbeddings),
             Field(&AutocompleteMatch::destination_url, "https://url1.com/"));
   auto expected_match_2 =
       AllOf(Field(&AutocompleteMatch::relevance, 500),
             Field(&AutocompleteMatch::type,
-                  AutocompleteMatchType::HISTORY_EMBEDDINGS),
+                  omnibox::AutocompleteMatchType::kHistoryEmbeddings),
             Field(&AutocompleteMatch::destination_url,
                   "https://url2.com/path?key=value"));
   auto expected_match_3 =
       AllOf(Field(&AutocompleteMatch::relevance, 250),
             Field(&AutocompleteMatch::type,
-                  AutocompleteMatchType::HISTORY_EMBEDDINGS),
+                  omnibox::AutocompleteMatchType::kHistoryEmbeddings),
             Field(&AutocompleteMatch::destination_url, "https://url3.com/"));
 
   // Expect only non-answer matches.
@@ -542,7 +542,7 @@ TEST_F(HistoryEmbeddingsProviderTest,
           expected_match_1, expected_match_2, expected_match_3,
           AllOf(Field(&AutocompleteMatch::relevance, 749),
                 Field(&AutocompleteMatch::type,
-                      AutocompleteMatchType::HISTORY_EMBEDDINGS_ANSWER),
+                      omnibox::AutocompleteMatchType::kHistoryEmbeddingsAnswer),
                 Field(&AutocompleteMatch::destination_url, ""),
                 Field(&AutocompleteMatch::history_embeddings_answer_header_text,
                       u"Searching for a summary\x2026"),
@@ -567,7 +567,7 @@ TEST_F(HistoryEmbeddingsProviderTest,
           expected_match_1, expected_match_2, expected_match_3,
           AllOf(Field(&AutocompleteMatch::relevance, 499),
                 Field(&AutocompleteMatch::type,
-                      AutocompleteMatchType::HISTORY_EMBEDDINGS_ANSWER),
+                      omnibox::AutocompleteMatchType::kHistoryEmbeddingsAnswer),
                 Field(&AutocompleteMatch::destination_url,
                       "chrome://history/?q=query"),
                 Field(&AutocompleteMatch::history_embeddings_answer_header_text,
@@ -607,8 +607,9 @@ TEST_F(HistoryEmbeddingsProviderTest,
               expected_match_1, expected_match_2, expected_match_3,
               AllOf(
                   Field(&AutocompleteMatch::relevance, 749),
-                  Field(&AutocompleteMatch::type,
-                        AutocompleteMatchType::HISTORY_EMBEDDINGS_ANSWER),
+                  Field(
+                      &AutocompleteMatch::type,
+                      omnibox::AutocompleteMatchType::kHistoryEmbeddingsAnswer),
                   Field(&AutocompleteMatch::destination_url, ""),
                   Field(
                       &AutocompleteMatch::history_embeddings_answer_header_text,

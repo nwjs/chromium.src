@@ -44,7 +44,7 @@ struct TestShortcutData shortcut_test_db[] = {
      "chrome-extension://cedabbhfglmiikkmdgcpjdkocfcmbkee/?q=echo",
      AutocompleteMatch::DocumentType::NONE, "Run Echo command: echo", "0,0",
      "Echo echo", "0,4", ui::PAGE_TRANSITION_TYPED,
-     AutocompleteMatchType::EXTENSION_APP_DEPRECATED, "", 1, 1},
+     omnibox::AutocompleteMatchType::kExtensionAppDeprecated, "", 1, 1},
 };
 
 }  // namespace

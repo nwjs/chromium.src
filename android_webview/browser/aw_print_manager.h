@@ -35,12 +35,14 @@ class AwPrintManager : public printing::PrintManager,
       SetupScriptedPrintAndroidCallback callback) override;
   void PdfWritingDone(int page_count) override;
 
-  bool PrintNow();
-
   // Updates the parameters for printing.
+  // All arguments must be valid / non-null.
   void UpdateParam(std::unique_ptr<printing::PrintSettings> settings,
                    base::ScopedFD file_descriptor,
                    PdfWritingDoneCallback callback);
+
+  // Call to start printing after first setting up with UpdateParam().
+  bool PrintNow();
 
  private:
   friend class content::WebContentsUserData<AwPrintManager>;
@@ -58,6 +60,10 @@ class AwPrintManager : public printing::PrintManager,
   void OnDidPrintDocumentWritingDone(
       DidPrintDocumentCallback did_print_document_cb,
       uint32_t page_count);
+
+  // Indicates whether AwPrintManager is performing Browser-initiated printing
+  // or not. Intended to be called in ScriptedPrint().
+  bool is_printing() const { return fd_.is_valid(); }
 
   std::unique_ptr<printing::PrintSettings> settings_;
 

@@ -138,6 +138,7 @@ def clang_tot_linux_builder(short_name, category = "ToT Linux", **kwargs):
 
 ci.builder(
     name = "CFI Linux CF",
+    description_html = "Builds Linux release binaries with Control Flow Integrity (CFI) and uploads archives to ClusterFuzz.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(config = "chromium"),
         chromium_config = builder_config.chromium_config(
@@ -181,6 +182,7 @@ ci.builder(
 
 ci.builder(
     name = "CFI Linux ToT",
+    description_html = "Builds and tests Chromium with Tip-of-Tree Clang and Control Flow Integrity (CFI) on Linux x64.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -226,6 +228,7 @@ ci.builder(
 
 ci.builder(
     name = "CrWinAsan",
+    description_html = "Builds and tests Chromium with Tip-of-Tree Clang and AddressSanitizer on Windows x64.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -276,6 +279,7 @@ ci.builder(
 
 ci.builder(
     name = "CrWinAsan(dll)",
+    description_html = "Builds and tests Chromium component (DLL) build with Tip-of-Tree Clang and AddressSanitizer on Windows x64.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -326,6 +330,7 @@ ci.builder(
 
 ci.builder(
     name = "ToTAndroid",
+    description_html = "Builds and tests Chromium with Tip-of-Tree Clang on Android ARM release.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -388,6 +393,7 @@ ci.builder(
 
 ci.builder(
     name = "ToTAndroid (dbg)",
+    description_html = "Builds Chromium with Tip-of-Tree Clang on Android ARM debug.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -431,6 +437,7 @@ ci.builder(
 
 ci.builder(
     name = "ToTAndroid x64",
+    description_html = "Builds Chromium with Tip-of-Tree Clang on Android x64 release.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -486,6 +493,7 @@ ci.builder(
 
 ci.builder(
     name = "ToTAndroid x86",
+    description_html = "Builds Chromium with Tip-of-Tree Clang on Android x86 release.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -530,6 +538,7 @@ ci.builder(
 
 ci.builder(
     name = "ToTAndroidCoverage x86",
+    description_html = "Builds Chromium with Tip-of-Tree Clang and Clang code coverage enabled on Android x86 release.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -566,6 +575,7 @@ ci.builder(
             "all",
         ],
     ),
+    free_space = builders.free_space.high,
     console_view_entry = consoles.console_view_entry(
         category = "ToT Code Coverage",
         short_name = "and",
@@ -575,6 +585,7 @@ ci.builder(
 
 ci.builder(
     name = "ToTAndroid64",
+    description_html = "Builds Chromium with Tip-of-Tree Clang on Android ARM64 release.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -618,6 +629,7 @@ ci.builder(
 
 ci.builder(
     name = "ToTAndroidOfficial",
+    description_html = "Builds official Chromium release with Tip-of-Tree Clang on Android ARM64.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -663,6 +675,7 @@ ci.builder(
 
 ci.builder(
     name = "ToTChromeOS",
+    description_html = "Builds Ash Chrome with Tip-of-Tree Clang on Linux x64 release.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -703,6 +716,7 @@ ci.builder(
 
 ci.builder(
     name = "ToTChromeOS (dbg)",
+    description_html = "Builds Ash Chrome with Tip-of-Tree Clang on Linux x64 debug.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -743,6 +757,7 @@ ci.builder(
 
 ci.builder(
     name = "ToTFuchsia x64",
+    description_html = "Builds and tests Chromium with Tip-of-Tree Clang on Fuchsia x64 release.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -834,6 +849,7 @@ ci.builder(
 
 ci.builder(
     name = "ToTFuchsiaOfficial arm64",
+    description_html = "Builds and tests official Chromium release with Tip-of-Tree Clang on Fuchsia ARM64.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -893,6 +909,7 @@ ci.builder(
 
 clang_tot_linux_builder(
     name = "ToTLinux",
+    description_html = "Builds and tests Chromium with Tip-of-Tree Clang on Linux x64 release.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -936,6 +953,7 @@ clang_tot_linux_builder(
 
 clang_tot_linux_builder(
     name = "ToTLinux (dbg)",
+    description_html = "Builds Chromium with Tip-of-Tree Clang on Linux x64 debug.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -976,6 +994,7 @@ clang_tot_linux_builder(
 
 clang_tot_linux_builder(
     name = "ToTLinuxASan",
+    description_html = "Builds and tests Chromium with Tip-of-Tree Clang and AddressSanitizer/LeakSanitizer on Linux x64.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -1023,6 +1042,7 @@ clang_tot_linux_builder(
 
 clang_tot_linux_builder(
     name = "ToTLinuxASanLibfuzzer",
+    description_html = "Builds libFuzzer targets with Tip-of-Tree Clang and AddressSanitizer on Linux x64.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -1070,6 +1090,7 @@ clang_tot_linux_builder(
 
 clang_tot_linux_builder(
     name = "ToTLinuxCoverage",
+    description_html = "Builds and tests Chromium with Tip-of-Tree Clang and Clang code coverage enabled on Linux x64.",
     executable = "recipe:chromium_clang_coverage_tot",
     gn_args = gn_args.config(
         configs = [
@@ -1088,6 +1109,7 @@ clang_tot_linux_builder(
 
 clang_tot_linux_builder(
     name = "ToTLinuxMSan",
+    description_html = "Builds and tests Chromium with Tip-of-Tree Clang and MemorySanitizer on Linux x64.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -1133,6 +1155,7 @@ clang_tot_linux_builder(
 
 clang_tot_linux_builder(
     name = "ToTLinuxPGO",
+    description_html = "Builds and tests Chromium with Tip-of-Tree Clang and Profile-Guided Optimization (PGO) on Linux x64.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -1174,6 +1197,7 @@ clang_tot_linux_builder(
 
 clang_tot_linux_builder(
     name = "ToTLinuxTSan",
+    description_html = "Builds and tests Chromium with Tip-of-Tree Clang and ThreadSanitizer on Linux x64.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -1214,6 +1238,7 @@ clang_tot_linux_builder(
 
 clang_tot_linux_builder(
     name = "ToTLinuxUBSanVptr",
+    description_html = "Builds and tests Chromium with Tip-of-Tree Clang and UndefinedBehaviorSanitizer vptr checks on Linux x64.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -1254,6 +1279,7 @@ clang_tot_linux_builder(
 
 ci.builder(
     name = "ToTWin",
+    description_html = "Builds and tests Chromium with Tip-of-Tree Clang on Windows x86 release.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -1306,6 +1332,7 @@ ci.builder(
 
 ci.builder(
     name = "ToTWin(dbg)",
+    description_html = "Builds and tests Chromium with Tip-of-Tree Clang on Windows x86 debug.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -1354,6 +1381,7 @@ ci.builder(
 
 ci.builder(
     name = "ToTWin(dll)",
+    description_html = "Builds and tests Chromium component (DLL) build with Tip-of-Tree Clang on Windows x86 release.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -1403,6 +1431,7 @@ ci.builder(
 
 ci.builder(
     name = "ToTWin64",
+    description_html = "Builds and tests Chromium with Tip-of-Tree Clang on Windows x64 release.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -1451,6 +1480,7 @@ ci.builder(
 
 ci.builder(
     name = "ToTWin64(dbg)",
+    description_html = "Builds and tests Chromium with Tip-of-Tree Clang on Windows x64 debug.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -1499,6 +1529,7 @@ ci.builder(
 
 ci.builder(
     name = "ToTWin64(dll)",
+    description_html = "Builds and tests Chromium component (DLL) build with Tip-of-Tree Clang on Windows x64 release.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -1548,6 +1579,7 @@ ci.builder(
 
 ci.builder(
     name = "ToTWinASanLibfuzzer",
+    description_html = "Builds libFuzzer targets with Tip-of-Tree Clang and AddressSanitizer on Windows x64.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -1595,6 +1627,7 @@ ci.builder(
 
 ci.builder(
     name = "ToTWinArm64PGO",
+    description_html = "Builds Chromium with Tip-of-Tree Clang and Profile-Guided Optimization (PGO) on Windows ARM64.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -1646,6 +1679,7 @@ ci.builder(
 
 ci.builder(
     name = "ToTWindowsCoverage",
+    description_html = "Builds and tests Chromium with Tip-of-Tree Clang and Clang code coverage enabled on Windows x64.",
     executable = "recipe:chromium_clang_coverage_tot",
     gn_args = gn_args.config(
         configs = [
@@ -1670,6 +1704,7 @@ ci.builder(
 
 ci.builder(
     name = "ToTWin64PGO",
+    description_html = "Builds and tests Chromium with Tip-of-Tree Clang and Profile-Guided Optimization (PGO) on Windows x64.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -1771,6 +1806,7 @@ ci.builder(
 
 ci.builder(
     name = "ToTiOS",
+    description_html = "Builds and tests Chromium with Tip-of-Tree Clang on iOS ARM64 simulator.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "ios",
@@ -1830,6 +1866,7 @@ ci.builder(
 
 ci.builder(
     name = "ToTiOSDevice",
+    description_html = "Builds and tests Chromium with Tip-of-Tree Clang on iOS ARM64 devices.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "ios",

@@ -16,6 +16,8 @@
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/mock_callback.h"
+#include "base/test/run_until.h"
+#include "base/test/test_future.h"
 #include "base/test/values_test_util.h"
 #include "base/values.h"
 #include "chrome/browser/media/router/media_router_feature.h"
@@ -28,6 +30,7 @@
 #include "components/media_router/common/providers/cast/channel/cast_device_capability.h"
 #include "components/media_router/common/providers/cast/channel/cast_test_util.h"
 #include "components/mirroring/mojom/session_parameters.mojom.h"
+#include "content/public/browser/browser_thread.h"
 #include "media/cast/constants.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -99,13 +102,13 @@ constexpr char kHistogramVideoLateFramesPercentage[] =
 class MockMirroringServiceHostFactory
     : public mirroring::MirroringServiceHostFactory {
  public:
-  MOCK_METHOD(std::unique_ptr<mirroring::MirroringServiceHost>,
+  MOCK_METHOD(mirroring::MirroringServiceHost::UniquePtr,
               GetForTab,
               (content::FrameTreeNodeId frame_tree_node_id));
-  MOCK_METHOD(std::unique_ptr<mirroring::MirroringServiceHost>,
+  MOCK_METHOD(mirroring::MirroringServiceHost::UniquePtr,
               GetForDesktop,
               (const std::optional<std::string>& media_id));
-  MOCK_METHOD(std::unique_ptr<mirroring::MirroringServiceHost>,
+  MOCK_METHOD(mirroring::MirroringServiceHost::UniquePtr,
               GetForOffscreenTab,
               (const GURL& presentation_url,
                const std::string& presentation_id,
@@ -127,13 +130,16 @@ class MirroringActivityTest
     CastActivityTestBase::SetUp();
 
     auto make_mirroring_service =
-        [this]() -> std::unique_ptr<MockMirroringServiceHost> {
+        [this]() -> mirroring::MirroringServiceHost::UniquePtr {
       if (!mirroring_service_) {
         auto mirroring_service = std::make_unique<MockMirroringServiceHost>();
         mirroring_service_ = mirroring_service.get();
-        return mirroring_service;
+        return mirroring::MirroringServiceHost::UniquePtr(
+            mirroring_service.release(),
+            base::OnTaskRunnerDeleter(content::GetUIThreadTaskRunner({})));
       }
-      return nullptr;
+      return mirroring::MirroringServiceHost::UniquePtr(
+          nullptr, base::OnTaskRunnerDeleter(nullptr));
     };
 
     ON_CALL(mirroring_service_host_factory_, GetForTab)
@@ -476,9 +482,8 @@ TEST_F(MirroringActivityTest, GetScrubbedLogMessage) {
       base::JSONReader::Read(message, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
   EXPECT_TRUE(message_json);
   EXPECT_TRUE(message_json.value().is_dict());
-  EXPECT_THAT(scrubbed_message,
-              base::test::IsJson(MirroringActivity::GetScrubbedLogMessage(
-                  message_json.value().GetDict())));
+  EXPECT_THAT(scrubbed_message, base::test::IsJson(GetScrubbedLogMessage(
+                                    message_json.value().GetDict())));
 }
 
 // Site-initiated mirroring activities must be able to send messages to the
@@ -510,17 +515,21 @@ TEST_F(MirroringActivityTest, OnSourceChanged) {
   EXPECT_CALL(*mirroring_service_, GetTabSourceId())
       .WillOnce(testing::Return(new_tab_source));
 
-  EXPECT_EQ(activity_->frame_tree_node_id_, kFrameTreeNodeId);
+  EXPECT_EQ(activity_->frame_tree_node_id(), kFrameTreeNodeId);
   activity_->OnSourceChanged();
-  EXPECT_EQ(activity_->frame_tree_node_id_, new_tab_source);
-  RunUntilIdle();
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return activity_->frame_tree_node_id() == new_tab_source; }));
   testing::Mock::VerifyAndClearExpectations(mirroring_service_);
 
   // Nothing should happen as no value was returned for tab source.
-  EXPECT_CALL(*mirroring_service_, GetTabSourceId())
-      .WillOnce(testing::Return(std::nullopt));
+  bool get_tab_source_called = false;
+  EXPECT_CALL(*mirroring_service_, GetTabSourceId()).WillOnce([&] {
+    get_tab_source_called = true;
+    return std::nullopt;
+  });
   activity_->OnSourceChanged();
-  EXPECT_EQ(activity_->frame_tree_node_id_, new_tab_source);
+  EXPECT_TRUE(base::test::RunUntil([&]() { return get_tab_source_called; }));
+  EXPECT_EQ(activity_->frame_tree_node_id(), new_tab_source);
   testing::Mock::VerifyAndClearExpectations(mirroring_service_);
 }
 
@@ -553,12 +562,32 @@ TEST_F(MirroringActivityTest, OnSourceChangedNotifiesMediaStatusObserver) {
   testing::Mock::VerifyAndClearExpectations(&media_status_observer);
 }
 
+TEST_F(MirroringActivityTest, OnSourceChangedQueriesHostOnUIThread) {
+  MakeActivity();
+
+  const content::FrameTreeNodeId new_tab_source = content::FrameTreeNodeId(3);
+  EXPECT_CALL(on_source_changed_, Run(kFrameTreeNodeId, new_tab_source));
+  EXPECT_CALL(*mirroring_service_, GetTabSourceId()).WillOnce([&] {
+    EXPECT_TRUE(
+        content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
+    return std::make_optional(new_tab_source);
+  });
+
+  activity_->OnSourceChanged();
+  // The host must be queried via a task posted to the UI thread, so the
+  // source change is processed asynchronously.
+  EXPECT_EQ(activity_->frame_tree_node_id(), kFrameTreeNodeId);
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return activity_->frame_tree_node_id() == new_tab_source; }));
+}
+
 TEST_F(MirroringActivityTest, ReportsNotEnabledByDefault) {
   MediaSource source = MediaSource::ForDesktop(kDesktopMediaId, true);
   MakeActivity(source);
 
   activity_->DidStart();
-  EXPECT_FALSE(activity_->should_fetch_stats_on_start_);
+  EXPECT_CALL(*mirroring_service_, GetMirroringStats(_)).Times(0);
+  task_environment_.FastForwardBy(media::cast::kRtcpReportInterval);
 }
 
 TEST_F(MirroringActivityTest, EnableRtcpReports) {
@@ -566,7 +595,6 @@ TEST_F(MirroringActivityTest, EnableRtcpReports) {
   MakeActivity(source, kFrameTreeNodeId, CastDiscoveryType::kMdns, true);
 
   activity_->DidStart();
-  EXPECT_TRUE(activity_->should_fetch_stats_on_start_);
 
   ON_CALL(*mirroring_service_, GetMirroringStats(_))
       .WillByDefault([](base::OnceCallback<void(const base::Value)> callback) {
@@ -897,6 +925,146 @@ TEST_F(MirroringActivityTest, CastStreamingSenderUma) {
   EXPECT_EQ(uma_recorder.GetTotalSum(
                 kHistogramVideoExceededPlayoutDelayPacketsPercentage),
             20);
+}
+
+TEST_F(MirroringActivityTest, ActionsBeforeHostCreatedDoNotCrash) {
+  MediaRoute route(kRouteId, MediaSource::ForTab(kTabId), kSinkId, kDescription,
+                   route_is_local_);
+  CastSinkExtraData cast_data;
+  cast_data.cast_channel_id = kChannelId;
+  cast_data.capabilities = {cast_channel::CastDeviceCapability::kAudioOut,
+                            cast_channel::CastDeviceCapability::kVideoOut};
+  auto activity = std::make_unique<MirroringActivity>(
+      route, kAppId, &message_handler_, &session_tracker_, logger_, debugger_,
+      kFrameTreeNodeId, cast_data, on_stop_.Get(), on_source_changed_.Get());
+
+  // Calling Play/Pause/OnSourceChanged before CreateMirroringServiceHost should
+  // safely no-op without crashing or racing.
+  activity->Play();
+  activity->Pause();
+  activity->OnSourceChanged();
+  RunUntilIdle();
+
+  activity.reset();
+  RunUntilIdle();
+}
+
+TEST_F(MirroringActivityTest, StartSessionBeforeHostCreationFinishes) {
+  auto mirroring_service = std::make_unique<MockMirroringServiceHost>();
+  auto* mirroring_service_ptr = mirroring_service.get();
+  mirroring::MirroringServiceHost::UniquePtr wrapped_service(
+      mirroring_service.release(),
+      base::OnTaskRunnerDeleter(content::GetUIThreadTaskRunner({})));
+  EXPECT_CALL(mirroring_service_host_factory_, GetForTab(kFrameTreeNodeId))
+      .WillOnce(testing::Return(testing::ByMove(std::move(wrapped_service))));
+
+  EXPECT_CALL(*mirroring_service_ptr, Start)
+      .WillOnce(WithArgs<0, 3>(
+          [this](mirroring::mojom::SessionParametersPtr session_params,
+                 mojo::PendingReceiver<mirroring::mojom::CastMessageChannel>
+                     inbound_channel) {
+            ASSERT_FALSE(channel_to_service_);
+            auto channel = std::make_unique<MockCastMessageChannel>();
+            channel_to_service_ = channel.get();
+            mojo::MakeSelfOwnedReceiver(std::move(channel),
+                                        std::move(inbound_channel));
+            session_params_ = std::move(session_params);
+          }));
+
+  ON_CALL(mock_debugger_, ShouldFetchMirroringStats)
+      .WillByDefault([](base::OnceCallback<void(bool)> callback) {
+        std::move(callback).Run(false);
+      });
+
+  CastSinkExtraData cast_data;
+  cast_data.cast_channel_id = kChannelId;
+  cast_data.capabilities = {cast_channel::CastDeviceCapability::kAudioOut,
+                            cast_channel::CastDeviceCapability::kVideoOut};
+  cast_data.discovery_type = CastDiscoveryType::kMdns;
+  MediaRoute route(kRouteId, MediaSource::ForTab(kTabId), kSinkId, kDescription,
+                   route_is_local_);
+  route.set_presentation_id(kPresentationId);
+  activity_ = std::make_unique<MirroringActivity>(
+      route, kAppId, &message_handler_, &session_tracker_, logger_, debugger_,
+      kFrameTreeNodeId, cast_data, on_stop_.Get(), on_source_changed_.Get());
+
+  activity_->BindChannelToServiceReceiver();
+  activity_->CreateMirroringServiceHost(&mirroring_service_host_factory_);
+
+  // Start session immediately BEFORE RunUntilIdle(), so host_ is not yet
+  // created.
+  activity_->SetOrUpdateSession(*session_, sink_, kHashToken);
+  RunUntilIdle();
+  EXPECT_TRUE(session_params_);
+}
+
+namespace {
+
+// A MirroringServiceHost that reports which thread it was destroyed on.
+class ThreadRecordingMirroringServiceHost : public MockMirroringServiceHost {
+ public:
+  explicit ThreadRecordingMirroringServiceHost(
+      base::OnceCallback<void(bool destroyed_on_ui)> on_destroyed)
+      : on_destroyed_(std::move(on_destroyed)) {}
+  ~ThreadRecordingMirroringServiceHost() override {
+    std::move(on_destroyed_)
+        .Run(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
+  }
+
+ private:
+  base::OnceCallback<void(bool)> on_destroyed_;
+};
+
+}  // namespace
+
+// Uses a real IO thread so that BrowserThread::CurrentlyOn() distinguishes the
+// UI and IO threads, which the single-threaded CastActivityTestBase cannot.
+class MirroringActivityRealIOThreadTest : public testing::Test {
+ protected:
+  content::BrowserTaskEnvironment task_environment_{
+      content::BrowserTaskEnvironment::REAL_IO_THREAD};
+  NiceMock<MockMirroringServiceHostFactory> mirroring_service_host_factory_;
+  mojo::Remote<mojom::Logger> logger_;
+  mojo::Remote<mojom::Debugger> debugger_;
+};
+
+// Regression test for b/567673081. If the activity is destroyed on the IO
+// thread before the UI thread finishes creating the host, the reply carrying
+// the host is dropped on the IO thread. The host is UI-thread-affine and must
+// nevertheless be destroyed on the UI thread.
+TEST_F(MirroringActivityRealIOThreadTest,
+       ActivityDestroyedBeforeHostCreatedDeletesHostOnUIThread) {
+  base::test::TestFuture<bool> destroyed_on_ui;
+  EXPECT_CALL(mirroring_service_host_factory_, GetForTab(kFrameTreeNodeId))
+      .WillOnce([&destroyed_on_ui] {
+        EXPECT_TRUE(
+            content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
+        return mirroring::MirroringServiceHost::UniquePtr(
+            new ThreadRecordingMirroringServiceHost(
+                destroyed_on_ui.GetSequenceBoundCallback()),
+            base::OnTaskRunnerDeleter(content::GetUIThreadTaskRunner({})));
+      });
+
+  // `this` is safe to use unretained: the test blocks on `destroyed_on_ui`
+  // below, which cannot be satisfied until after this task has run.
+  content::GetIOThreadTaskRunner({})->PostTask(
+      FROM_HERE, base::BindLambdaForTesting([this] {
+        MediaRoute route("theRouteId", MediaSource::ForTab(kTabId), "theSinkId",
+                         kDescription, /*is_local=*/true);
+        CastSinkExtraData cast_data;
+        // Neither the message handler nor the session tracker are touched on
+        // this code path, so they are not needed.
+        auto activity = std::make_unique<MirroringActivity>(
+            route, "theAppId", /*message_handler=*/nullptr,
+            /*session_tracker=*/nullptr, logger_, debugger_, kFrameTreeNodeId,
+            cast_data, base::DoNothing(), base::DoNothing());
+        activity->CreateMirroringServiceHost(&mirroring_service_host_factory_);
+        // Destroy the activity before the UI thread has had a chance to create
+        // the host, invalidating the WeakPtr bound to the creation reply.
+        activity.reset();
+      }));
+
+  EXPECT_TRUE(destroyed_on_ui.Get());
 }
 
 }  // namespace media_router

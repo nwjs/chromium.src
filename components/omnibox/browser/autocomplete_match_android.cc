@@ -111,16 +111,20 @@ ScopedJavaLocalRef<jobject> AutocompleteMatch::GetOrCreateJavaObject(
   }
 
   int starter_pack_id = static_cast<int>(StarterPackId(template_url_service));
+  const TemplateURL* turl = GetTemplateURL(template_url_service);
+  bool is_extension_match =
+      turl && turl->type() == TemplateURL::OMNIBOX_API_EXTENSION;
 
   java_match_ = std::make_unique<ScopedJavaGlobalRef<jobject>>(
       Java_AutocompleteMatch_build(
-          env, reinterpret_cast<intptr_t>(this), type, temp_subtypes,
-          IsSearchType(type), static_cast<int>(GetOmniboxSuggestionKind()),
-          icon_type, transition, contents, contents_class_offsets,
-          contents_class_styles, description, description_class_offsets,
-          description_class_styles, j_answer_template, fill_into_edit,
-          destination_url, image_url, image_dominant_color, SupportsDeletion(),
-          starter_pack_id, post_content_type, j_post_data,
+          env, reinterpret_cast<intptr_t>(this), static_cast<int>(type),
+          temp_subtypes, IsSearchType(type),
+          static_cast<int>(GetOmniboxSuggestionKind()), icon_type, transition,
+          contents, contents_class_offsets, contents_class_styles, description,
+          description_class_offsets, description_class_styles,
+          j_answer_template, fill_into_edit, destination_url, image_url,
+          image_dominant_color, SupportsDeletion(), starter_pack_id,
+          post_content_type, j_post_data,
           suggestion_group_id.value_or(omnibox::GROUP_INVALID),
           swap_contents_and_description, j_clipboard_image_data,
           has_tab_match.value_or(false), android_tab_id, actions_list,
@@ -129,7 +133,8 @@ ScopedJavaLocalRef<jobject> AutocompleteMatch::GetOrCreateJavaObject(
           matching_tab_group_uuid
               ? std::make_optional(matching_tab_group_uuid->AsLowercaseString())
               : std::nullopt,
-          associated_keyword, j_suggest_template, document_type));
+          associated_keyword, j_suggest_template, document_type,
+          is_extension_match));
 
   return ScopedJavaLocalRef<jobject>(*java_match_);
 }
@@ -156,8 +161,8 @@ void AutocompleteMatch::UpdateWithClipboardContent(
     JNIEnv* env,
     const base::android::JavaRef<jobject>& j_callback) {
   DCHECK(provider) << "No provider available";
-  DCHECK(provider->type() == AutocompleteProvider::TYPE_CLIPBOARD)
-      << "Invalid provider type: " << provider->type();
+  DCHECK(provider->type() == AutocompleteProvider::Type::kClipboard)
+      << "Invalid provider type: " << static_cast<int>(provider->type());
 
   ClipboardProvider* clipboard_provider =
       static_cast<ClipboardProvider*>(provider);

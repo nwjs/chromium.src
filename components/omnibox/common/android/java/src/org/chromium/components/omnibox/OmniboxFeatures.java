@@ -165,6 +165,11 @@ public class OmniboxFeatures {
     private static final CachedFlag sOmniboxMultimodalInput =
             newFlag(OmniboxFeatureList.OMNIBOX_MULTIMODAL_INPUT, FeatureState.ENABLED_IN_PROD);
 
+    public static final CachedFlag sOmniboxFuseboxPopupVariations =
+            newFlag(
+                    OmniboxFeatureList.OMNIBOX_FUSEBOX_POPUP_VARIATIONS,
+                    FeatureState.ENABLED_IN_TEST);
+
     public static final BooleanCachedFeatureParam sMultiattachmentFusebox =
             newBooleanParam(sOmniboxMultimodalInput, "multi_context", true);
 
@@ -176,25 +181,53 @@ public class OmniboxFeatures {
             newBooleanParam(sOmniboxMultimodalInput, "allow_current_tab", true);
 
     /**
-     * Whether the bottom sheet popup should be shown. This is private to ensure that callers use
-     * {@link #shouldShowBottomSheetPopup()} which also checks if the platform is desktop.
+     * Whether the bottom sheet popup should be shown for multimodal input.
      */
-    private static final BooleanCachedFeatureParam sShowBottomSheetPopup =
+    private static final BooleanCachedFeatureParam sMultimodalShowBottomSheetPopup =
             newBooleanParam(sOmniboxMultimodalInput, "show_bottom_sheet_popup", false);
+
+    /**
+     * Whether the bottom sheet popup should be shown for fusebox popup variations.
+     *
+     * <p>Defaults to true: the bottom sheet is the pre-variations behavior on mobile, so it must
+     * remain in place both when {@link #sOmniboxFuseboxPopupVariations} is disabled and when an arm
+     * of that study leaves this param unset. Arms that want the anchored context menu must opt out
+     * explicitly. Desktop is unaffected, as {@link #shouldShowBottomSheetPopup()} returns early
+     * there and always shows the context menu.
+     */
+    private static final BooleanCachedFeatureParam sFuseboxPopupShowBottomSheet =
+            newBooleanParam(sOmniboxFuseboxPopupVariations, "show_bottom_sheet_popup", true);
 
     /**
      * Whether the popup should use a horizontal carousel for attachments. This is private to ensure
      * that callers use {@link #shouldUseCarousel()} which also checks if the platform is desktop.
+     *
+     * <p>Defaults to true: the carousel is the pre-variations behavior, so it must remain in place
+     * both when {@link #sOmniboxFuseboxPopupVariations} is disabled and when an arm of that study
+     * leaves this param unset. Arms that want the vertical list must opt out explicitly.
      */
-    private static final BooleanCachedFeatureParam sFuseboxPopupCarouselUi =
-            newBooleanParam(sOmniboxMultimodalInput, "fusebox_popup_carousel_ui", false);
+    private static final BooleanCachedFeatureParam sFuseboxPopupCarousel =
+            newBooleanParam(sOmniboxFuseboxPopupVariations, "fusebox_popup_carousel", true);
+
+    /**
+     * Whether the horizontal attachments carousel should be scrollable. This is private to ensure
+     * that callers use {@link #shouldUseScrollableCarousel()}.
+     */
+    private static final BooleanCachedFeatureParam sFuseboxPopupScrollableCarousel =
+            newBooleanParam(
+                    sOmniboxFuseboxPopupVariations, "fusebox_popup_scrollable_carousel", false);
 
     /**
      * Whether the popup should use an accordion for tools. This is private to ensure that callers
      * use {@link #hasAccordion()} which also checks if the platform is desktop.
      */
-    private static final BooleanCachedFeatureParam sFuseboxPopupAccordionUi =
-            newBooleanParam(sOmniboxMultimodalInput, "fusebox_popup_use_accordion_ui", false);
+    private static final BooleanCachedFeatureParam sFuseboxPopupAccordion =
+            newBooleanParam(sOmniboxFuseboxPopupVariations, "fusebox_popup_use_accordion", false);
+
+    /** Whether the "Ask about this page" item should be placed first, before attachments. */
+    private static final BooleanCachedFeatureParam sFuseboxPopupPutCurrentTabFirst =
+            newBooleanParam(
+                    sOmniboxFuseboxPopupVariations, "fusebox_popup_put_current_tab_first", false);
 
     public static final BooleanCachedFeatureParam sUseAskHintForNtp =
             newBooleanParam(sOmniboxMultimodalInput, "use_ask_hint_for_ntp", false);
@@ -207,6 +240,16 @@ public class OmniboxFeatures {
 
     public static final CachedFlag sAIMSuppressVerbatimMatch =
             newFlag(OmniboxFeatureList.AIM_SUPPRESS_VERBATIM_MATCH, FeatureState.ENABLED_IN_PROD);
+
+    /**
+     * Gates the AI Mode entrypoint for third party search engines. Disabled in prod on Android,
+     * mirroring the native default, until the Android entrypoint UI is implemented; enabled in
+     * tests so that UI can be exercised without per-test opt-in. Even when enabled, the entrypoint
+     * is additionally gated per search engine on whether that engine declares an {@code
+     * AiModeButtonUiConfig}.
+     */
+    public static final CachedFlag sAim3pEntrypoint =
+            newFlag(OmniboxFeatureList.AIM3P_ENTRYPOINT, FeatureState.ENABLED_IN_TEST);
 
     // Shows the preview match's favicon in the status view. Originally and incorrectly called exact
     // match. The feature string remains exact, but java code should be updated to the right name.
@@ -378,6 +421,15 @@ public class OmniboxFeatures {
         return sPrefetchSelectedSuggestionsOmtAndroid.isEnabled();
     }
 
+    /**
+     * Returns whether the AI Mode entrypoint is permitted for third party search engines. A true
+     * value does not imply the entrypoint is shown: the active search engine must also declare an
+     * {@code AiModeButtonUiConfig}.
+     */
+    public static boolean isAim3pEntrypointEnabled() {
+        return sAim3pEntrypoint.isEnabled();
+    }
+
     private static @Nullable Boolean sDebounceKeyboardVisibilityForTesting;
 
     /** Returns whether keyboard visibility transitions should be debounced. */
@@ -414,27 +466,48 @@ public class OmniboxFeatures {
 
     /** Modifies the output of {@link #shouldShowBottomSheetPopup()} for testing. */
     public static void setShowBottomSheetPopupForTesting(boolean value) {
-        sShowBottomSheetPopup.setForTesting(value);
+        sMultimodalShowBottomSheetPopup.setForTesting(value);
+        sFuseboxPopupShowBottomSheet.setForTesting(value);
     }
 
     /** Modifies the output of {@link #shouldUseCarousel()} for testing. */
     public static void setUseCarouselForTesting(boolean value) {
-        sFuseboxPopupCarouselUi.setForTesting(value);
+        sFuseboxPopupCarousel.setForTesting(value);
+    }
+
+    /** Modifies the output of {@link #shouldUseScrollableCarousel()} for testing. */
+    public static void setUseScrollableCarouselForTesting(boolean value) {
+        sFuseboxPopupScrollableCarousel.setForTesting(value);
     }
 
     /** Modifies the output of {@link #hasAccordion()} for testing. */
     public static void setUseAccordionForTesting(boolean value) {
-        sFuseboxPopupAccordionUi.setForTesting(value);
+        sFuseboxPopupAccordion.setForTesting(value);
+    }
+
+    /** Modifies the output of {@link #shouldPutCurrentTabFirst()} for testing. */
+    public static void setPutCurrentTabFirstForTesting(boolean value) {
+        sFuseboxPopupPutCurrentTabFirst.setForTesting(value);
     }
 
     /** Returns whether the bottom sheet popup should be shown. */
     public static boolean shouldShowBottomSheetPopup() {
-        return !OmniboxCapabilities.isDesktopPlatform() && sShowBottomSheetPopup.getValue();
+        if (OmniboxCapabilities.isDesktopPlatform()) {
+            return false;
+        }
+        return sOmniboxFuseboxPopupVariations.isEnabled()
+                ? sFuseboxPopupShowBottomSheet.getValue()
+                : sMultimodalShowBottomSheetPopup.getValue();
     }
 
     /** Returns whether the popup should use a horizontal carousel for attachments. */
     public static boolean shouldUseCarousel() {
-        return shouldShowBottomSheetPopup() && sFuseboxPopupCarouselUi.getValue();
+        return shouldShowBottomSheetPopup() && sFuseboxPopupCarousel.getValue();
+    }
+
+    /** Returns whether the popup should use a scrollable carousel for attachments. */
+    public static boolean shouldUseScrollableCarousel() {
+        return shouldUseCarousel() && sFuseboxPopupScrollableCarousel.getValue();
     }
 
     /** Returns whether the popup should use a collapsible accordion for tools. */
@@ -442,7 +515,12 @@ public class OmniboxFeatures {
         if (OmniboxCapabilities.isDesktopPlatform()) {
             return false;
         }
-        return sFuseboxPopupAccordionUi.getValue();
+        return sFuseboxPopupAccordion.getValue();
+    }
+
+    /** Returns whether "Ask about this page" should be placed first before attachments. */
+    public static boolean shouldPutCurrentTabFirst() {
+        return sFuseboxPopupPutCurrentTabFirst.getValue();
     }
 
     /**

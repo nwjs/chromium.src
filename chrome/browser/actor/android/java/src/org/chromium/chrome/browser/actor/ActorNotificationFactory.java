@@ -113,6 +113,10 @@ public class ActorNotificationFactory {
                 extras.putCharSequence(EXTRA_SHORT_CRITICAL_TEXT, chipText);
             }
             builder.addExtras(extras);
+        } else {
+            // A non-live notification replaces a notification that was already shown, so it must
+            // not alert again.
+            builder.setOnlyAlertOnce(true);
         }
 
         if (isWarning) {
@@ -139,6 +143,9 @@ public class ActorNotificationFactory {
      */
     public static boolean shouldUpdateNotification(
             @ActorTaskState int oldState, @ActorTaskState int newState) {
+        if (oldState == ActorTaskState.CREATED && newState != ActorTaskState.CREATED) {
+            return true;
+        }
         return getNotificationCategory(oldState) != getNotificationCategory(newState);
     }
 

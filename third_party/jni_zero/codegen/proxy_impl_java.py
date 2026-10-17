@@ -27,6 +27,9 @@ class _Context:
         java_types.JavaClass('org/jni_zero/internal/NullUnmarked'),
         java_types.JavaClass('org/jni_zero/internal/Nullable'),
     ]
+    if any(p.java_type.is_safe_pointer() for n in jni_obj.proxy_natives
+           for p in n.params):
+      imports.append(java_types.JNI_ZERO_INTERNAL_CLASS)
     if not is_per_file:
       imports.append(gen_jni_class)
     self.type_resolver.imports = imports
@@ -47,8 +50,11 @@ def _proxy_method(sb, ctx, native, method_fqn):
 public {return_type_str} {native.name}({sig_params})""")
   with sb.block():
     if native.first_param_cpp_type:
-      sb(f'assert {native.params[0].name} != 0;\n')
-    for p in native.params:
+      if native.params[0].java_type.is_safe_pointer():
+        sb(f'assert {native.params[0].name} != null;\n')
+      else:
+        sb(f'assert {native.params[0].name} != 0;\n')
+    for p in native.params[1:] if native.first_param_cpp_type else native.params:
       if not p.java_type.is_primitive() and not p.java_type.nullable:
         sb(f'assert {p.name} != null : "Parameter \\"{p.name}\\" was null. Add @Nullable to it?";\n')
     with sb.statement():
@@ -56,7 +62,11 @@ public {return_type_str} {native.name}({sig_params})""")
         sb(f'return ({return_type_str}) ')
       sb(method_fqn)
       with sb.param_list() as plist:
-        plist.extend(p.name for p in native.params)
+        for p in native.params:
+          if p.java_type.is_safe_pointer():
+            plist.append(f'JniZeroInternal.getNativePtr({p.name})')
+          else:
+            plist.append(p.name)
         if native.needs_implicit_array_element_class_param:
           plist.append(_implicit_array_class_param(native, ctx.type_resolver))
 

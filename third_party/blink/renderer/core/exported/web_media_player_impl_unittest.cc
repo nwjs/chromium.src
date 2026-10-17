@@ -133,13 +133,13 @@ constexpr base::TimeDelta kAudioOnlyTestFileDuration = base::Milliseconds(296);
 enum class BackgroundBehaviorType { Page, Frame };
 
 MATCHER(WmpiDestroyed, "") {
-  return CONTAINS_STRING(arg, "{\"event\":\"kWebMediaPlayerDestroyed\"}");
+  return arg.contains("{\"event\":\"kWebMediaPlayerDestroyed\"}");
 }
 
 MATCHER_P2(PlaybackRateChanged, old_rate_string, new_rate_string, "") {
-  return CONTAINS_STRING(arg, "Effective playback rate changed from " +
-                                  std::string(old_rate_string) + " to " +
-                                  std::string(new_rate_string));
+  return arg.contains("Effective playback rate changed from " +
+                      std::string(old_rate_string) + " to " +
+                      std::string(new_rate_string));
 }
 
 MATCHER(NonNullNonEmptySpan, "") {
@@ -3084,8 +3084,6 @@ TEST_F(WebMediaPlayerImplTest, NotifiesObserverWhenFrozen) {
 }
 
 TEST_F(WebMediaPlayerImplTest, OnFrozenSuspendsPlayback) {
-  base::test::ScopedFeatureList feature_list(
-      media::kSuspendMediaForFrozenFrames);
   InitializeWebMediaPlayerImpl();
   ASSERT_FALSE(IsSuspended());
   wmpi_->OnFrozen();

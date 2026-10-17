@@ -3,7 +3,6 @@
 # found in the LICENSE file.
 
 import("//extensions/buildflags/buildflags.gni")
-import("//pdf/features.gni")
 
 assert(enable_extensions && !is_android)
 
@@ -65,15 +64,10 @@ source_set("mime_handler_page") {
     "//content/public/browser",
     "//content/public/common",
     "//content/public/common:buildflags",
-    "//pdf:buildflags",
+    "//extensions:extensions_resources_grd",
     "//skia",
+    "//ui/base",
   ]
-  if (enable_pdf) {
-    deps += [
-      "//components/resources:components_resources_grit",
-      "//ui/base",
-    ]
-  }
 }
 
 source_set("unit_tests") {

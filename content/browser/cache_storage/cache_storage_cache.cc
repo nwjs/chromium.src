@@ -454,8 +454,9 @@ blink::mojom::FetchAPIResponsePtr CreateResponse(
     const proto::CacheHeaderMap header = metadata.response().headers(i);
     CHECK_EQ(std::string::npos, header.name().find('\0'),
              base::NotFatalUntil::M158);
-    CHECK_EQ(std::string::npos, header.value().find('\0'),
-             base::NotFatalUntil::M158);
+    // TODO(crbug.com/568108704): CHECK-exclusion: Convert to a CHECK once we
+    // are confident it won't be triggered.
+    DCHECK_EQ(std::string::npos, header.value().find('\0'));
     headers.insert(std::make_pair(header.name(), header.value()));
   }
 
@@ -487,6 +488,13 @@ blink::mojom::FetchAPIResponsePtr CreateResponse(
           ? metadata.response().request_include_credentials()
           : true;
 
+  // Default to true for existing cache entries stored before this field was
+  // introduced. Downstream loaders will still check Timing-Allow-Origin headers
+  // for cross-origin responses.
+  bool timing_allow_passed = metadata.response().has_timing_allow_passed()
+                                 ? metadata.response().timing_allow_passed()
+                                 : true;
+
   // While we block most partial responses from being stored, we can have
   // partial responses for bgfetch or opaque responses.
   bool has_range_requested = headers.contains(net::HttpRequestHeaders::kRange);
@@ -509,7 +517,7 @@ blink::mojom::FetchAPIResponsePtr CreateResponse(
           metadata.response().connection_info()),
       alpn_negotiated_protocol, metadata.response().was_fetched_via_spdy(),
       has_range_requested, /*auth_challenge_info=*/std::nullopt,
-      request_include_credentials);
+      request_include_credentials, timing_allow_passed);
 }
 
 int64_t CalculateSideDataPadding(
@@ -1944,6 +1952,8 @@ void CacheStorageCache::PutDidCreateEntry(
   response_metadata->set_side_data_padding(side_data_padding);
   response_metadata->set_request_include_credentials(
       put_context->response->request_include_credentials);
+  response_metadata->set_timing_allow_passed(
+      put_context->response->timing_allow_passed);
 
   // Get a temporary copy of the entry pointer before passing it in base::Bind.
   disk_cache::Entry* temp_entry_ptr = put_context->cache_entry.get();

@@ -262,6 +262,7 @@ letter-spacing: normal
 lighting-color: rgb(255, 255, 255)
 line-break: auto
 line-height: normal
+link-parameters: none
 list-style-image: none
 list-style-position: outside
 list-style-type: disc
@@ -347,7 +348,7 @@ position-anchor: normal
 position-area: none
 position-try-fallbacks: none
 position-try-order: normal
-position-visibility: anchors-visible
+position-visibility: anchor-visible
 print-color-adjust: economy
 quotes: auto
 r: 0px

@@ -68,8 +68,10 @@ UIColor* DimColorIncognito() {
   if (self) {
     _match = AutocompleteMatch(match);
     _isReverseColorLogic = std::ranges::contains(
-        kReverseColorLocales,
-        GetApplicationContext()->GetApplicationLocaleStorage()->Get());
+        kReverseColorLocales, GetApplicationContext()
+                                  ->GetApplicationLocaleStorage()
+                                  ->GetTag()
+                                  .tag_string());
   }
   return self;
 }
@@ -121,7 +123,8 @@ UIColor* DimColorIncognito() {
     NSString* detailText = nil;
     if (self.isURL) {
       detailText = base::SysUTF16ToNSString(_match.contents);
-    } else if (_match.type == AutocompleteMatchType::SEARCH_SUGGEST_ENTITY) {
+    } else if (_match.type ==
+               omnibox::AutocompleteMatchType::kSearchSuggestEntity) {
       detailText = base::SysUTF16ToNSString(_match.description);
     } else if (_match.suggest_template &&
                _match.suggest_template->has_secondary_text()) {
@@ -142,7 +145,8 @@ UIColor* DimColorIncognito() {
     if (_match.suggest_template &&
         _match.suggest_template->has_secondary_text()) {
       suggestionDetailTextColor = SuggestionDetailTextColor();
-    } else if (_match.type != AutocompleteMatchType::SEARCH_SUGGEST_ENTITY) {
+    } else if (_match.type !=
+               omnibox::AutocompleteMatchType::kSearchSuggestEntity) {
       suggestionDetailTextColor = SuggestionDetailTextColor();
     } else {
       suggestionDetailTextColor = SuggestionTextColor();
@@ -201,8 +205,8 @@ UIColor* DimColorIncognito() {
     // Clipboard suggestion "Text you copied" text is stored in description.
     // The content is empty as iOS doesn't access the clipboard when creating
     // the match.
-    if (_match.type == AutocompleteMatchType::CLIPBOARD_TEXT ||
-        _match.type == AutocompleteMatchType::CLIPBOARD_IMAGE) {
+    if (_match.type == omnibox::AutocompleteMatchType::kClipboardText ||
+        _match.type == omnibox::AutocompleteMatchType::kClipboardImage) {
       textString = _match.description;
     }
 
@@ -264,22 +268,25 @@ UIColor* DimColorIncognito() {
     return YES;
   }
 
-  return _match.type == AutocompleteMatchType::BOOKMARK_TITLE ||
-         _match.type == AutocompleteMatchType::CALCULATOR ||
-         _match.type == AutocompleteMatchType::HISTORY_BODY ||
-         _match.type == AutocompleteMatchType::HISTORY_CLUSTER ||
-         _match.type == AutocompleteMatchType::HISTORY_KEYWORD ||
-         _match.type == AutocompleteMatchType::HISTORY_TITLE ||
-         _match.type == AutocompleteMatchType::HISTORY_URL ||
-         _match.type == AutocompleteMatchType::NAVSUGGEST ||
-         _match.type == AutocompleteMatchType::NAVSUGGEST_PERSONALIZED ||
-         _match.type == AutocompleteMatchType::PHYSICAL_WEB_DEPRECATED ||
-         _match.type == AutocompleteMatchType::SEARCH_HISTORY ||
-         _match.type == AutocompleteMatchType::SEARCH_SUGGEST ||
-         _match.type == AutocompleteMatchType::SEARCH_SUGGEST_ENTITY ||
-         _match.type == AutocompleteMatchType::SEARCH_SUGGEST_PERSONALIZED ||
-         _match.type == AutocompleteMatchType::SEARCH_SUGGEST_TAIL ||
-         _match.type == AutocompleteMatchType::STARTER_PACK;
+  return _match.type == omnibox::AutocompleteMatchType::kBookmarkTitle ||
+         _match.type == omnibox::AutocompleteMatchType::kCalculator ||
+         _match.type == omnibox::AutocompleteMatchType::kHistoryBody ||
+         _match.type == omnibox::AutocompleteMatchType::kHistoryCluster ||
+         _match.type == omnibox::AutocompleteMatchType::kHistoryKeyword ||
+         _match.type == omnibox::AutocompleteMatchType::kHistoryTitle ||
+         _match.type == omnibox::AutocompleteMatchType::kHistoryUrl ||
+         _match.type == omnibox::AutocompleteMatchType::kNavsuggest ||
+         _match.type ==
+             omnibox::AutocompleteMatchType::kNavsuggestPersonalized ||
+         _match.type ==
+             omnibox::AutocompleteMatchType::kPhysicalWebDeprecated ||
+         _match.type == omnibox::AutocompleteMatchType::kSearchHistory ||
+         _match.type == omnibox::AutocompleteMatchType::kSearchSuggest ||
+         _match.type == omnibox::AutocompleteMatchType::kSearchSuggestEntity ||
+         _match.type ==
+             omnibox::AutocompleteMatchType::kSearchSuggestPersonalized ||
+         _match.type == omnibox::AutocompleteMatchType::kSearchSuggestTail ||
+         _match.type == omnibox::AutocompleteMatchType::kStarterPack;
 }
 
 - (BOOL)isTabMatch {
@@ -300,7 +307,8 @@ UIColor* DimColorIncognito() {
 }
 
 - (NSString*)matchTypeIconAccessibilityIdentifier {
-  return base::SysUTF8ToNSString(AutocompleteMatchType::ToString(_match.type));
+  return base::SysUTF8ToNSString(
+      omnibox::AutocompleteMatchTypeToString(_match.type));
 }
 
 - (BOOL)isMatchTypeSearch {
@@ -311,8 +319,9 @@ UIColor* DimColorIncognito() {
   // Don't allow wrapping on entities, unless it uses a template icon.
   BOOL hasTemplateIcon =
       _match.suggest_template && _match.suggest_template->has_type_icon();
-  BOOL isEntity = _match.type == AutocompleteMatchType::SEARCH_SUGGEST_ENTITY &&
-                  !hasTemplateIcon;
+  BOOL isEntity =
+      _match.type == omnibox::AutocompleteMatchType::kSearchSuggestEntity &&
+      !hasTemplateIcon;
   return self.isMatchTypeSearch && !self.hasAnswer && !isEntity;
 }
 
@@ -327,7 +336,7 @@ UIColor* DimColorIncognito() {
 #pragma mark tail suggest
 
 - (BOOL)isTailSuggestion {
-  return _match.type == AutocompleteMatchType::SEARCH_SUGGEST_TAIL;
+  return _match.type == omnibox::AutocompleteMatchType::kSearchSuggestTail;
 }
 
 - (NSString*)commonPrefix {

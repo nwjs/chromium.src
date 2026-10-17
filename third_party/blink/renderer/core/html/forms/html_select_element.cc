@@ -991,9 +991,7 @@ void HTMLSelectElement::OptionRemoved(HTMLOptionElement& option,
                                       Node* nearest_ancestor_select_child) {
   SetRecalcListItems();
 
-  if (option.Selected() &&
-      !descendant_selectedcontents_.IsEmpty() &&
-      RuntimeEnabledFeatures::SelectedcontentSpecEnabled()) {
+  if (option.Selected() && !descendant_selectedcontents_.IsEmpty()) {
     GetDocument().GetAgent().event_loop()->EnqueueMicrotask(
         BindOnce(&HTMLSelectElement::UpdateAllSelectedcontents,
                  WrapWeakPersistent(this)));
@@ -1009,7 +1007,11 @@ void HTMLSelectElement::OptionRemoved(HTMLOptionElement& option,
   if (last_on_change_option_ == &option)
     last_on_change_option_.Clear();
   select_type_->OptionRemoved(option);
-  if (suggested_option_ == &option)
+  // The autofill preview should be closed/ended and we should stop matching
+  // :autofill when any option is removed because only doing so when a specific
+  // option is removed could reveal to the page which option is being suggested
+  // to the user.
+  if (suggested_option_)
     SetSuggestedOption(nullptr);
   if (option.Selected())
     SetAutofillState(WebAutofillState::kNotFilled);
@@ -1072,8 +1074,7 @@ void HTMLSelectElement::SelectOption(HTMLOptionElement* element,
   if (flags & kDeselectOtherOptionsFlag)
     should_update_popup |= DeselectItemsWithoutValidation(element);
 
-  if (!RuntimeEnabledFeatures::SelectedcontentSpecEnabled() ||
-      !(flags & kDontUpdateSelectedcontentFlag)) {
+  if (!(flags & kDontUpdateSelectedcontentFlag)) {
     if (IsMultiple()) {
       UpdateAllSelectedcontentsMultiple();
     } else {
@@ -1828,7 +1829,7 @@ void HTMLSelectElement::showPicker(ExceptionState& exception_state) {
 
   if (!LocalFrame::HasTransientUserActivation(frame)) {
     exception_state.ThrowDOMException(DOMExceptionCode::kNotAllowedError,
-                                      "showPicker() requires a user gesture.");
+                                      "showPicker() requires user activation.");
     return;
   }
 
@@ -1841,9 +1842,13 @@ void HTMLSelectElement::showPicker(ExceptionState& exception_state) {
     return;
   }
 
-  LocalFrame::ConsumeTransientUserActivation(frame);
-
+  if (!RuntimeEnabledFeatures::PopupWidgetRequiresUserActivationEnabled()) {
+    LocalFrame::ConsumeTransientUserActivation(frame);
+  }
   select_type_->ShowPicker();
+  if (RuntimeEnabledFeatures::PopupWidgetRequiresUserActivationEnabled()) {
+    LocalFrame::ConsumeTransientUserActivation(frame);
+  }
 }
 
 bool HTMLSelectElement::IsValidBuiltinCommand(HTMLElement& invoker,
@@ -1856,10 +1861,11 @@ bool HTMLSelectElement::IsValidBuiltinCommand(HTMLElement& invoker,
 }
 
 bool HTMLSelectElement::HandleCommandInternal(HTMLElement& invoker,
-                                              CommandEventType command) {
+                                              CommandEventType command,
+                                              UIEvent* activate_event) {
   CHECK(IsValidBuiltinCommand(invoker, command));
 
-  if (HTMLElement::HandleCommandInternal(invoker, command)) {
+  if (HTMLElement::HandleCommandInternal(invoker, command, activate_event)) {
     return true;
   }
 
@@ -1959,36 +1965,13 @@ void HTMLSelectElement::SetIsAppearanceBasePickerForDisplayNone(bool value) {
 
 void HTMLSelectElement::SelectedContentElementInserted(
     HTMLSelectedContentElement* inserted_selectedcontent) {
-  CHECK(RuntimeEnabledFeatures::SelectedcontentSpecEnabled());
   DCHECK(!descendant_selectedcontents_.Contains(inserted_selectedcontent));
   descendant_selectedcontents_.Add(inserted_selectedcontent);
 }
 
-void HTMLSelectElement::SelectedContentElementInsertedLegacy(
-    HTMLSelectedContentElement* selectedcontent) {
-  CHECK(!RuntimeEnabledFeatures::SelectedcontentSpecEnabled());
-  descendant_selectedcontents_.Add(selectedcontent);
-  auto iter = descendant_selectedcontents_.begin();
-  if (*iter == selectedcontent) {
-    UpdateIndividualSelectedcontent(*selectedcontent);
-    if (++iter != descendant_selectedcontents_.end()) {
-      (*iter)->RemoveChildren();
-    }
-  }
-}
-
 void HTMLSelectElement::SelectedContentElementRemoved(
     HTMLSelectedContentElement* removed_selectedcontent) {
-  if (RuntimeEnabledFeatures::SelectedcontentSpecEnabled()) {
-    descendant_selectedcontents_.Remove(removed_selectedcontent);
-  } else {
-    bool was_first =
-        *descendant_selectedcontents_.begin() == removed_selectedcontent;
-    descendant_selectedcontents_.Remove(removed_selectedcontent);
-    if (was_first && !descendant_selectedcontents_.IsEmpty()) {
-      UpdateIndividualSelectedcontent(**descendant_selectedcontents_.begin());
-    }
-  }
+  descendant_selectedcontents_.Remove(removed_selectedcontent);
 }
 
 bool HTMLSelectElement::HasDescendantSelectedcontentElements() const {
@@ -2083,31 +2066,23 @@ void HTMLSelectElement::UpdateAllSelectedcontentsSingle(
   // we have a DCHECK() that they did so correctly.
   DCHECK_EQ(selected_option, SelectedOption());
 
-  if (RuntimeEnabledFeatures::SelectedcontentSpecEnabled()) {
-    // Selectedcontent elements should not be updated during insertion or
-    // removal steps for security reasons, and these script and event
-    // dispatching checks should correspond to those cases.
-    DCHECK(!ScriptForbiddenScope::IsScriptForbidden());
+  // Selectedcontent elements should not be updated during insertion or
+  // removal steps for security reasons, and these script and event
+  // dispatching checks should correspond to those cases.
+  DCHECK(!ScriptForbiddenScope::IsScriptForbidden());
 #if DCHECK_IS_ON()
-    DCHECK(!EventDispatchForbiddenScope::IsEventDispatchForbidden());
+  DCHECK(!EventDispatchForbiddenScope::IsEventDispatchForbidden());
 #endif
 
-    VectorOf<HTMLSelectedContentElement> enabled_selectedcontents;
-    for (HTMLSelectedContentElement* selectedcontent :
-         descendant_selectedcontents_) {
-      if (!selectedcontent->IsDisabled()) {
-        enabled_selectedcontents.push_back(selectedcontent);
-      }
+  VectorOf<HTMLSelectedContentElement> enabled_selectedcontents;
+  for (HTMLSelectedContentElement* selectedcontent :
+       descendant_selectedcontents_) {
+    if (!selectedcontent->IsDisabled()) {
+      enabled_selectedcontents.push_back(selectedcontent);
     }
-    for (HTMLSelectedContentElement* selectedcontent :
-         enabled_selectedcontents) {
-      selectedcontent->CloneContentsFromOptionElement(selected_option);
-    }
-  } else {
-    if (!descendant_selectedcontents_.IsEmpty()) {
-      (*descendant_selectedcontents_.begin())
-          ->CloneContentsFromOptionElement(selected_option);
-    }
+  }
+  for (HTMLSelectedContentElement* selectedcontent : enabled_selectedcontents) {
+    selectedcontent->CloneContentsFromOptionElement(selected_option);
   }
   if (RuntimeEnabledFeatures::SelectedcontentelementAttributeEnabled()) {
     if (auto* attr_selectedcontent = selectedContentElement()) {

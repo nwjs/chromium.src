@@ -8,7 +8,9 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.verify;
 
 import static org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.ALL_COLUMN_KEYS;
@@ -26,15 +28,14 @@ import static org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.
 
 import android.app.Activity;
 import android.graphics.drawable.ColorDrawable;
-import android.view.Menu;
-import android.view.MenuItem;
+import android.os.SystemClock;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.LinearLayout;
+import android.widget.ListView;
 import android.widget.TextView;
 
-import androidx.appcompat.widget.PopupMenu;
 import androidx.recyclerview.widget.RecyclerView;
-import androidx.test.filters.SmallTest;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -53,10 +54,14 @@ import org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.RowType
 import org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.SortDescriptor;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.browser_ui.widget.chips.ChipView;
+import org.chromium.ui.listmenu.ListItemType;
+import org.chromium.ui.listmenu.ListMenuCheckItemProperties;
+import org.chromium.ui.listmenu.ListMenuItemProperties;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.ui.widget.ViewRectProvider;
 
 import java.util.List;
 
@@ -72,6 +77,7 @@ public class TaskManagerCoordinatorTest {
 
     LinearLayout mHeaderView;
     RecyclerView mRecyclerView;
+    TextView mEmptyView;
 
     TaskManagerCoordinator mCoordinator;
 
@@ -93,9 +99,11 @@ public class TaskManagerCoordinatorTest {
 
         mHeaderView = mActivity.findViewById(R.id.header_linear_layout);
         mRecyclerView = mActivity.findViewById(R.id.tasks_view);
+        mEmptyView = mActivity.findViewById(R.id.empty_view);
 
         assertTrue(mHeaderView.isShown());
-        assertTrue(mRecyclerView.isShown());
+        assertTrue(mEmptyView.isShown());
+        assertFalse(mRecyclerView.isShown());
 
         PropertyKey[] columnKeys =
                 new PropertyKey[] {TASK_NAME, MEMORY_FOOTPRINT, CPU, NETWORK_USAGE, PROCESS_ID};
@@ -106,7 +114,6 @@ public class TaskManagerCoordinatorTest {
     }
 
     @Test
-    @SmallTest
     public void testTaskProperties() {
         PropertyModel task =
                 new PropertyModel.Builder(mTaskModelKeys)
@@ -146,7 +153,6 @@ public class TaskManagerCoordinatorTest {
     }
 
     @Test
-    @SmallTest
     public void testSelectedRowColor() {
         mTasksModel.add(
                 new ListItem(
@@ -176,14 +182,12 @@ public class TaskManagerCoordinatorTest {
     }
 
     @Test
-    @SmallTest
     public void testHeaderDividers() {
         assertEquals(LinearLayout.SHOW_DIVIDER_MIDDLE, mHeaderView.getShowDividers());
         assertNotNull(mHeaderView.getDividerDrawable());
     }
 
     @Test
-    @SmallTest
     public void testSortIndicator() {
         TextView taskNameHeader = mHeaderView.findViewById(R.id.task_name);
         String defaultText = taskNameHeader.getText().toString();
@@ -195,28 +199,45 @@ public class TaskManagerCoordinatorTest {
     }
 
     @Test
-    @SmallTest
-    public void testOnCreateContextMenu() {
+    public void testContextMenuModelList() {
         mHeaderModel.set(COLUMNS, new PropertyKey[] {TASK_NAME, CPU});
 
-        // Get a real Menu instance.
-        Menu menu = new PopupMenu(mActivity, null).getMenu();
+        ModelList menuItems = mCoordinator.buildContextMenuModelList();
 
-        mCoordinator.onCreateContextMenuImpl(menu);
+        assertEquals(ALL_COLUMN_KEYS.length, menuItems.size());
 
-        assertEquals(ALL_COLUMN_KEYS.length, menu.size());
+        ListItem taskNameItem = menuItems.get(List.of(ALL_COLUMN_KEYS).indexOf(TASK_NAME));
+        assertEquals(ListItemType.MENU_ITEM_WITH_CHECKBOX, taskNameItem.type);
+        assertNotEquals("", taskNameItem.model.get(ListMenuItemProperties.TITLE));
+        assertTrue(taskNameItem.model.get(ListMenuCheckItemProperties.CHECKED));
 
-        MenuItem taskNameItem = menu.getItem(List.of(ALL_COLUMN_KEYS).indexOf(TASK_NAME));
-        assertNotEquals("", taskNameItem.getTitle());
-        assertTrue(taskNameItem.isCheckable());
-        assertTrue(taskNameItem.isChecked());
-
-        MenuItem processIdItem = menu.getItem(List.of(ALL_COLUMN_KEYS).indexOf(PROCESS_ID));
-        assertFalse(processIdItem.isChecked());
+        ListItem processIdItem = menuItems.get(List.of(ALL_COLUMN_KEYS).indexOf(PROCESS_ID));
+        assertEquals(ListItemType.MENU_ITEM_WITH_CHECKBOX, processIdItem.type);
+        assertFalse(processIdItem.model.get(ListMenuCheckItemProperties.CHECKED));
     }
 
     @Test
-    @SmallTest
+    public void testShowContextMenu() {
+        assertNull(mCoordinator.getContextMenuPopupForTesting());
+
+        mCoordinator.showContextMenu(mHeaderView, new ViewRectProvider(mHeaderView));
+        assertNotNull(mCoordinator.getContextMenuPopupForTesting());
+        assertTrue(mCoordinator.getContextMenuPopupForTesting().isShowing());
+
+        View contentView = mCoordinator.getContextMenuPopupForTesting().getContentView();
+        ListView listView = contentView.findViewById(org.chromium.ui.R.id.menu_list);
+        assertNotNull(listView);
+
+        doReturn(true).when(mMediator).toggleColumnFiltering(TASK_NAME);
+        View firstItemView = listView.getAdapter().getView(0, null, listView);
+        firstItemView.performClick();
+        verify(mMediator).toggleColumnFiltering(TASK_NAME);
+
+        mCoordinator.getContextMenuPopupForTesting().dismiss();
+        assertNull(mCoordinator.getContextMenuPopupForTesting());
+    }
+
+    @Test
     public void testCategoryChips_click() {
         ChipView tabsChip = mActivity.findViewById(R.id.category_chip_tabs);
         ChipView browserChip = mActivity.findViewById(R.id.category_chip_browser);
@@ -237,7 +258,6 @@ public class TaskManagerCoordinatorTest {
     }
 
     @Test
-    @SmallTest
     public void testCategoryChips_selectionChange() {
         ChipView tabsChip = mActivity.findViewById(R.id.category_chip_tabs);
         ChipView browserChip = mActivity.findViewById(R.id.category_chip_browser);
@@ -257,5 +277,77 @@ public class TaskManagerCoordinatorTest {
         assertFalse(tabsChip.isSelected());
         assertFalse(browserChip.isSelected());
         assertTrue(allChip.isSelected());
+    }
+
+    @Test
+    public void testRightClickOnRecyclerViewShowsContextMenu() {
+        assertNull(mCoordinator.getContextMenuPopupForTesting());
+
+        PropertyModel task =
+                new PropertyModel.Builder(mTaskModelKeys)
+                        .with(TASK_ID, 1)
+                        .with(TASK_NAME, "foo")
+                        .build();
+        mTasksModel.add(new ListItem(RowType.TASK, task));
+
+        long now = SystemClock.uptimeMillis();
+        MotionEvent rightClickDown =
+                MotionEvent.obtain(
+                        now,
+                        now,
+                        MotionEvent.ACTION_DOWN,
+                        /* x= */ 10f,
+                        /* y= */ 10f,
+                        /* metaState= */ 0);
+        rightClickDown.setButtonState(MotionEvent.BUTTON_SECONDARY);
+
+        mRecyclerView.dispatchTouchEvent(rightClickDown);
+
+        assertNotNull(mCoordinator.getContextMenuPopupForTesting());
+        assertTrue(mCoordinator.getContextMenuPopupForTesting().isShowing());
+
+        mCoordinator.getContextMenuPopupForTesting().dismiss();
+    }
+
+    @Test
+    public void testRightClickOnEmptyViewShowsNoContextMenu() {
+        assertNull(mCoordinator.getContextMenuPopupForTesting());
+
+        long now = SystemClock.uptimeMillis();
+        MotionEvent rightClickDown =
+                MotionEvent.obtain(
+                        now,
+                        now,
+                        MotionEvent.ACTION_DOWN,
+                        /* x= */ 10f,
+                        /* y= */ 10f,
+                        /* metaState= */ 0);
+        rightClickDown.setButtonState(MotionEvent.BUTTON_SECONDARY);
+
+        mEmptyView.dispatchTouchEvent(rightClickDown);
+
+        assertNull(mCoordinator.getContextMenuPopupForTesting());
+    }
+
+    @Test
+    public void testEmptyView() {
+        assertTrue(mEmptyView.isShown());
+        assertFalse(mRecyclerView.isShown());
+        assertEquals("No tasks", mEmptyView.getText().toString());
+
+        PropertyModel task =
+                new PropertyModel.Builder(mTaskModelKeys)
+                        .with(TASK_ID, 1)
+                        .with(TASK_NAME, "foo")
+                        .build();
+        mTasksModel.add(new ListItem(RowType.TASK, task));
+
+        assertFalse(mEmptyView.isShown());
+        assertTrue(mRecyclerView.isShown());
+
+        mTasksModel.removeAt(0);
+
+        assertTrue(mEmptyView.isShown());
+        assertFalse(mRecyclerView.isShown());
     }
 }

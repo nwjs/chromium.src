@@ -70,12 +70,12 @@ std::optional<gfx::Rect> GetDebugWidgetBounds(
     return std::nullopt;
   }
   BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
-  if (!browser_view || !browser_view->contents_web_view()) {
+  if (!browser_view || !browser_view->GetContentsView()) {
     return std::nullopt;
   }
 
   gfx::Rect contents_bounds =
-      browser_view->contents_web_view()->GetBoundsInScreen();
+      browser_view->GetContentsView()->GetBoundsInScreen();
   int frame_width = contents_bounds.width() / 2;
   int frame_height = popup_results_height;
 
@@ -306,7 +306,8 @@ gfx::Image OmniboxPopupViewViews::GetMatchIcon(
 void OmniboxPopupViewViews::SetSelectedIndex(size_t index) {
   DCHECK(HasMatchAt(index));
   if (index != controller()->edit_model()->GetPopupSelection().line) {
-    OmniboxPopupSelection::LineState line_state = OmniboxPopupSelection::NORMAL;
+    OmniboxPopupSelection::LineState line_state =
+        OmniboxPopupSelection::LineState::kNormal;
     controller()->edit_model()->SetPopupSelection(
         OmniboxPopupSelection(index, line_state));
     OnPropertyChanged(controller()->edit_model(),
@@ -498,7 +499,7 @@ void OmniboxPopupViewViews::ProvideButtonFocusHint(size_t line) {
     // The accessible selection cannot be in both the button and the result
     // view. When the button gets selected and is active, remove the selected
     // state from the result view. This is so that if a subsequent action
-    // creates a OmniboxPopupSelection::NORMAL we fire the event.
+    // creates a OmniboxPopupSelection::LineState::kNormal we fire the event.
     result_view_at(line)->GetViewAccessibility().SetIsSelected(false);
     FireAXEventsForNewActiveDescendant(active_button);
   }
@@ -759,7 +760,7 @@ gfx::Rect OmniboxPopupViewViews::GetTargetBounds() const {
   content_rect.set_height(popup_height);
 
   if (omnibox::IsWebUIOmniboxPopupEnabled() &&
-      !omnibox::IsWebUIOmniboxFullPopupEnabled() &&
+      !location_bar_view_->is_full_webui_omnibox() &&
       !omnibox::IsAimPopupFeatureEnabled() &&
       base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxPopupDebug) &&
       omnibox::kWebUIOmniboxPopupDebugSxSParam.Get()) {

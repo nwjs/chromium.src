@@ -8,6 +8,7 @@
 
 #include "base/command_line.h"
 #include "base/feature_list.h"
+#include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
@@ -22,6 +23,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/glic/actor/glic_actor_policy_checker.h"
+#include "chrome/browser/glic/gemini_enterprise/geic_enabling.h"
 #include "chrome/browser/glic/glic_hotkey.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/host/glic_features.mojom.h"
@@ -70,6 +72,7 @@
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "net/base/url_util.h"
 #include "pdf/buildflags.h"
+#include "printing/buildflags/buildflags.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/page/page_zoom.h"
@@ -86,6 +89,10 @@
 #include "ui/gfx/geometry/skia_conversions.h"
 #include "url/gurl.h"
 
+#if BUILDFLAG(ENABLE_PRINTING)
+#include "chrome/browser/printing/printing_init.h"
+#endif
+
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/device_info.h"
 #endif
@@ -94,6 +101,10 @@
 #include "extensions/browser/guest_view/web_view/web_view_guest.h"
 #else
 #include "components/guest_view/browser/slim_web_view/slim_web_view_guest.h"  // nogncheck
+#endif
+
+#if BUILDFLAG(ENABLE_PDF)
+#include "components/page_content_annotations/content/page_context_fetcher.h"
 #endif
 
 namespace glic {
@@ -166,6 +177,20 @@ class GlicWebUiData : public content::WebContentsUserData<GlicWebUiData>,
 };
 
 WEB_CONTENTS_USER_DATA_KEY_IMPL(GlicWebUiData);
+
+// Attached to the overlay WebContents using WebContentsUserData.
+class GlicOverlayData : public content::WebContentsUserData<GlicOverlayData> {
+ public:
+  ~GlicOverlayData() override = default;
+
+ private:
+  explicit GlicOverlayData(content::WebContents* overlay_contents)
+      : content::WebContentsUserData<GlicOverlayData>(*overlay_contents) {}
+  friend class content::WebContentsUserData<GlicOverlayData>;
+  WEB_CONTENTS_USER_DATA_KEY_DECL();
+};
+
+WEB_CONTENTS_USER_DATA_KEY_IMPL(GlicOverlayData);
 
 // Attached to RenderProcessHost to identify Glic processes.
 class GlicProcessUserData : public base::SupportsUserData::Data {
@@ -241,6 +266,15 @@ void PrepareGlicGuestWebContents(content::WebContents& guest_contents,
   PrefsTabHelper::CreateForWebContents(&guest_contents);
   ConfigureGuestZoom(guest_contents);
 
+#if BUILDFLAG(ENABLE_PRINTING)
+  // In <webview> mode, WebViewGuest attaches printing helpers via
+  // ChromeExtensionsAPIClient::AttachWebContentsHelpers. In NoWebview mode,
+  // initialize printing explicitly on the guest WebContents.
+  if (features::IsGlicNoWebviewEnabled()) {
+    printing::InitializePrintingForWebContents(&guest_contents);
+  }
+#endif
+
 #if !BUILDFLAG(IS_ANDROID)
   guest_contents.SetSupportsDraggableRegions(true);
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -252,7 +286,7 @@ void SetHostForGuest(content::WebContents& guest_contents, Host* host) {
   }
 }
 
-bool IsGlicGuest(content::WebContents* web_contents) {
+bool IsGlicGuest(const content::WebContents* web_contents) {
   return web_contents &&
          GlicGuestObserver::FromWebContents(web_contents) != nullptr;
 }
@@ -263,6 +297,10 @@ void MarkProcessAsGlic(content::RenderProcessHost* rph) {
 
 void CreateGlicWebUiData(content::WebContents* webui_contents) {
   GlicWebUiData::CreateForWebContents(webui_contents);
+}
+
+void CreateGlicOverlayData(content::WebContents* overlay_contents) {
+  GlicOverlayData::CreateForWebContents(overlay_contents);
 }
 
 void SetContentsManagerForWebContents(
@@ -302,7 +340,16 @@ GlicWebClientManager* GetWebClientManagerForWebContents(
   return nullptr;
 }
 
-GURL GetGuestURL() {
+GURL GetGuestURL(content::BrowserContext* browser_context) {
+  if (geic::IsGeicEnabled(browser_context)) {
+    GURL url = geic::GetGeicGuestUrl(browser_context);
+    if (url.is_empty()) {
+      VLOG(1) << "GEiC is enabled but no guest URL was provided.";
+      return GURL();
+    }
+    return GetLocalizedGuestURL(url);
+  }
+
   auto* command_line = base::CommandLine::ForCurrentProcess();
   bool has_glic_guest_url = command_line->HasSwitch(::switches::kGlicGuestURL);
   GURL url =
@@ -321,8 +368,17 @@ GURL GetGuestURL() {
   return GetLocalizedGuestURL(url);
 }
 
-url::Origin GetGuestOrigin() {
-  return url::Origin::Create(GetGuestURL());
+base::TimeDelta GetMaxLoadingTime() {
+  int max_loading_time_ms = features::kGlicMaxLoadingTimeMs.Get();
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(::switches::kGlicDev)) {
+    // Bump up timeout value, as dev server may be slow.
+    max_loading_time_ms *= 100;
+  }
+  return base::Milliseconds(std::max(0, max_loading_time_ms));
+}
+
+url::Origin GetGuestOrigin(content::BrowserContext* browser_context) {
+  return url::Origin::Create(GetGuestURL(browser_context));
 }
 
 std::string GetGlicAllowedOrigins() {
@@ -338,14 +394,15 @@ std::string GetGlicAllowedOrigins() {
   return allowed_origins;
 }
 
-bool IsOriginAllowedGlicApi(const url::Origin& origin) {
+bool IsOriginAllowedGlicApi(const url::Origin& origin,
+                            content::BrowserContext* browser_context) {
   if (origin.opaque()) {
     return false;
   }
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(::switches::kGlicDev)) {
     return true;
   }
-  if (GetGuestOrigin().IsSameOriginWith(origin)) {
+  if (GetGuestOrigin(browser_context).IsSameOriginWith(origin)) {
     return true;
   }
   std::string api_allowed_origins = features::kGlicApiAllowedOrigins.Get();
@@ -357,11 +414,12 @@ bool IsOriginAllowedGlicApi(const url::Origin& origin) {
   return cached_matcher->Matches(api_allowed_origins, origin);
 }
 
-bool IsGuestOriginAllowed(const url::Origin& origin) {
+bool IsGuestOriginAllowed(const url::Origin& origin,
+                          content::BrowserContext* browser_context) {
   if (origin.opaque()) {
     return false;
   }
-  if (IsOriginAllowedGlicApi(origin)) {
+  if (IsOriginAllowedGlicApi(origin, browser_context)) {
     return true;
   }
 
@@ -430,7 +488,8 @@ bool IsFrameAllowedGlicApi(content::RenderFrameHost& frame_host) {
   if (!guest_contents || !IsGlicGuest(guest_contents)) {
     return false;
   }
-  return IsOriginAllowedGlicApi(frame_host.GetLastCommittedOrigin());
+  return IsOriginAllowedGlicApi(frame_host.GetLastCommittedOrigin(),
+                                frame_host.GetBrowserContext());
 }
 
 void BindGlicWebClientHandler(
@@ -515,18 +574,36 @@ bool IsGlicWebUI(const content::WebContents* web_contents) {
          GlicWebUiData::FromWebContents(web_contents) != nullptr;
 }
 
+bool IsGlicOverlay(const content::WebContents* web_contents) {
+  return web_contents &&
+         GlicOverlayData::FromWebContents(web_contents) != nullptr;
+}
+
+bool IsAnyGlicWebContents(const content::WebContents* web_contents) {
+  if (!web_contents) {
+    return false;
+  }
+  return IsGlicGuest(web_contents) || IsGlicWebUI(web_contents) ||
+         IsGlicOverlay(web_contents);
+}
+
 bool IsProcessHostForGlic(content::RenderProcessHost* process_host) {
   return process_host &&
          GlicProcessUserData::FromProcessHost(process_host) != nullptr;
 }
 
 content::WebContents* GetGlicGuestWebContents(
-    content::WebContents* webui_contents) {
-  if (!webui_contents) {
+    content::WebContents* web_contents) {
+  if (!web_contents) {
     return nullptr;
   }
-  auto* data = GlicWebUiData::FromWebContents(webui_contents);
-  return data ? data->guest_contents() : nullptr;
+  if (auto* data = GlicWebUiData::FromWebContents(web_contents)) {
+    return data->guest_contents();
+  }
+  if (IsGlicGuest(web_contents)) {
+    return web_contents;
+  }
+  return nullptr;
 }
 
 GlicUI* GetGlicUiForGuest(content::WebContents* guest_contents) {
@@ -689,11 +766,21 @@ void PopulateGlobalClientInitialState(mojom::WebClientInitialState* state,
   if (features::kGlicScrollToPDF.Get()) {
     state->host_capabilities.push_back(mojom::HostCapability::kScrollToPdf);
   }
+
+  if (base::FeatureList::IsEnabled(
+          page_content_annotations::kGlicEmbeddedPdfBytesExtraction)) {
+    state->host_capabilities.push_back(
+        mojom::HostCapability::kEmbeddedPdfBytesExtraction);
+  }
 #endif
   state->host_capabilities.push_back(mojom::HostCapability::kMultiInstance);
 
   if (base::FeatureList::IsEnabled(features::kGlicNoWebUiLoader)) {
     state->host_capabilities.push_back(mojom::HostCapability::kNoWebUiLoader);
+  }
+
+  if (features::IsGlicNoWebviewEnabled()) {
+    state->host_capabilities.push_back(mojom::HostCapability::kNoWebview);
   }
 
   if (base::FeatureList::IsEnabled(features::kGlicPasteEligibilityCheck)) {
@@ -735,6 +822,9 @@ void PopulateGlobalClientInitialState(mojom::WebClientInitialState* state,
   }
   if (base::FeatureList::IsEnabled(features::kGlicDynamicChromeTools)) {
     state->host_capabilities.push_back(mojom::HostCapability::kChromeTools);
+  }
+  if (base::FeatureList::IsEnabled(features::kSkillsWebViewV2Enabled)) {
+    state->host_capabilities.push_back(mojom::HostCapability::kSkillsV2);
   }
   state->enable_get_page_metadata =
       base::FeatureList::IsEnabled(blink::features::kFrameMetadataObserver);

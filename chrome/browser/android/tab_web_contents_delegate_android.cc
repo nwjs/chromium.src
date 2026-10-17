@@ -29,6 +29,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/content_settings/sound_content_setting_observer.h"
+#include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/file_select_helper.h"
 #include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/browser/history/history_tab_helper.h"
@@ -69,6 +70,7 @@
 #include "components/paint_preview/buildflags/buildflags.h"
 #include "components/safe_browsing/content/browser/safe_browsing_navigation_observer.h"
 #include "content/public/browser/file_select_listener.h"
+#include "content/public/browser/initiator_navigation_state.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_frame_host.h"
@@ -76,9 +78,13 @@
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/browser/web_contents_observer.h"
+#include "content/public/browser/web_contents_user_data.h"
 #include "content/public/common/content_features.h"
 #include "media/mojo/mojom/media_types.mojom.h"
+#include "net/base/filename_util.h"
 #include "services/network/public/mojom/web_sandbox_flags.mojom.h"
+#include "skia/ext/region_ops.h"
 #include "third_party/blink/public/common/features_generated.h"
 #include "third_party/blink/public/common/mediastream/media_stream_request.h"
 #include "third_party/blink/public/mojom/content_extraction/ai_page_content.mojom.h"
@@ -88,6 +94,7 @@
 #include "third_party/blink/public/mojom/picture_in_picture/picture_in_picture.mojom.h"
 #include "third_party/blink/public/mojom/window_features/window_features.mojom.h"
 #include "third_party/jni_zero/default_conversions.h"
+#include "third_party/skia/include/core/SkRect.h"
 #include "third_party/skia/include/core/SkRegion.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
@@ -140,9 +147,12 @@ JNI_TabWebContentsDelegateAndroidImpl_CreateJavaPictureInPictureWindowOptions(
           env, bounds, options.disallow_return_to_opener));
 }
 
-void ShowFramebustBlockMessageInternal(content::WebContents* web_contents,
-                                       const GURL& url,
-                                       const url::Origin& initiator_origin) {
+void ShowFramebustBlockMessageInternal(
+    content::WebContents* web_contents,
+    const GURL& url,
+    const url::Origin& initiator_origin,
+    scoped_refptr<content::InitiatorNavigationState>
+        initiator_navigation_state) {
   blocked_content::FramebustBlockedMessageDelegate::CreateForWebContents(
       web_contents);
   blocked_content::FramebustBlockedMessageDelegate*
@@ -150,7 +160,7 @@ void ShowFramebustBlockMessageInternal(content::WebContents* web_contents,
           blocked_content::FramebustBlockedMessageDelegate::FromWebContents(
               web_contents);
   framebust_blocked_message_delegate->ShowMessage(
-      url, initiator_origin,
+      url, initiator_origin, std::move(initiator_navigation_state),
       HostContentSettingsMapFactory::GetForProfile(
           web_contents->GetBrowserContext()),
       base::NullCallback());
@@ -160,6 +170,94 @@ void ShowFramebustBlockMessageInternal(content::WebContents* web_contents,
 // successfully escapes from one lock request.
 constexpr base::TimeDelta kEffectiveUserEscapeDuration =
     base::Milliseconds(1250);
+
+class OpenFileSelectListener : public content::FileSelectListener {
+ public:
+  explicit OpenFileSelectListener(content::WebContents* web_contents)
+      : web_contents_(web_contents->GetWeakPtr()) {}
+
+  void FileSelected(std::vector<blink::mojom::FileChooserFileInfoPtr> files,
+                    const base::FilePath& base_dir,
+                    blink::mojom::FileChooserParams::Mode mode) override {
+    // The Ctrl+O shortcut requests Mode::kOpen, which never enables
+    // multi-selection in the Android file picker, so only one file is expected.
+    DCHECK_LE(files.size(), 1u);
+
+    if (!web_contents_ || files.empty() || !files[0]->is_native_file()) {
+      return;
+    }
+
+    const base::FilePath& file_path = files[0]->get_native_file()->file_path;
+    GURL url(file_path.value());
+    if (!url.is_valid() || !url.has_scheme()) {
+      url = net::FilePathToFileURL(file_path);
+    }
+    if (url.is_valid()) {
+      web_contents_->GetController().LoadURL(
+          url, content::Referrer(), ui::PAGE_TRANSITION_TYPED, std::string());
+    }
+  }
+
+  void FileSelectionCanceled() override {}
+
+ protected:
+  ~OpenFileSelectListener() override = default;
+
+ private:
+  base::WeakPtr<content::WebContents> web_contents_;
+};
+
+// Marks a WebContents whose next `beforeunload` completion must not let Content
+// close the page automatically. Keyed on the WebContents, so the mark dies with
+// it and can never be observed by an unrelated later closure.
+//
+// A mark covers exactly one completion. A dispatch that completes consumes it
+// in BeforeUnloadFired(); one that can no longer complete drops it here, when
+// the primary page changes. TabAndroid drops it when the WebContents leaves
+// its tab.
+//
+// A gone renderer is deliberately not one of those signals. It does not stop
+// RenderFrameHostImpl's `beforeunload` timeout, so a completion still arrives
+// roughly half a second later and must find the mark still here; without it
+// Content would close a tab whose closure Java has already resolved. The
+// reload that follows a crash changes the primary page, which both stops that
+// timer and drops the mark.
+//
+// Compare ActorTabCloseSkipBeforeUnloadUserData, which tags a WebContents to
+// skip the `beforeunload` prompt altogether.
+class SuppressBeforeUnloadAutoCloseUserData
+    : public content::WebContentsUserData<
+          SuppressBeforeUnloadAutoCloseUserData>,
+      public content::WebContentsObserver {
+ public:
+  ~SuppressBeforeUnloadAutoCloseUserData() override = default;
+
+ private:
+  explicit SuppressBeforeUnloadAutoCloseUserData(
+      content::WebContents* web_contents)
+      : content::WebContentsUserData<SuppressBeforeUnloadAutoCloseUserData>(
+            *web_contents),
+        content::WebContentsObserver(web_contents) {}
+
+  // content::WebContentsObserver:
+  void PrimaryPageChanged(content::Page& page) override { DeleteSelf(); }
+
+  // Deletes `this`, so nothing may touch the object afterwards.
+  void DeleteSelf() { web_contents()->RemoveUserData(UserDataKey()); }
+
+  friend WebContentsUserData;
+  WEB_CONTENTS_USER_DATA_KEY_DECL();
+};
+
+WEB_CONTENTS_USER_DATA_KEY_IMPL(SuppressBeforeUnloadAutoCloseUserData);
+
+// Whether `web_contents` currently carries the mark. A null WebContents is
+// never marked.
+bool IsBeforeUnloadAutoCloseSuppressed(
+    const content::WebContents* web_contents) {
+  return web_contents &&
+         SuppressBeforeUnloadAutoCloseUserData::FromWebContents(web_contents);
+}
 
 }  // anonymous namespace
 
@@ -171,6 +269,68 @@ TabWebContentsDelegateAndroid::TabWebContentsDelegateAndroid(
     : WebContentsDelegateAndroid(env, obj) {}
 
 TabWebContentsDelegateAndroid::~TabWebContentsDelegateAndroid() = default;
+
+// static
+void TabWebContentsDelegateAndroid::SetSuppressBeforeUnloadAutoClose(
+    content::WebContents* web_contents,
+    bool suppress) {
+  if (!web_contents) {
+    return;
+  }
+  if (suppress) {
+    SuppressBeforeUnloadAutoCloseUserData::CreateForWebContents(web_contents);
+  } else {
+    web_contents->RemoveUserData(
+        SuppressBeforeUnloadAutoCloseUserData::UserDataKey());
+  }
+}
+
+// static
+bool TabWebContentsDelegateAndroid::
+    ShouldSuppressBeforeUnloadAutoCloseForTesting(
+        const content::WebContents* web_contents) {
+  return IsBeforeUnloadAutoCloseSuppressed(web_contents);
+}
+
+void TabWebContentsDelegateAndroid::BeforeUnloadFired(
+    content::WebContents* web_contents,
+    bool proceed,
+    bool* proceed_to_fire_unload) {
+  // `*proceed_to_fire_unload` decides whether Content goes on to call
+  // RenderFrameHostImpl::ClosePage(), which reaches CloseContents() and closes
+  // the tab in the TabModel. The caller initialises it to false, so this method
+  // must always answer; falling through without writing suppresses every
+  // auto-close on Android.
+
+  // A marked WebContents keeps its page open however `beforeunload` resolved,
+  // because Java's TabRemover owns the closure and completes it once every tab
+  // in the batch has answered. Desktop withholds the auto-close the same way
+  // while UnloadController sequences a batch. Consuming the mark here is what
+  // holds it to the single completion it was set for.
+  if (IsBeforeUnloadAutoCloseSuppressed(web_contents)) {
+    SetSuppressBeforeUnloadAutoClose(web_contents, /*suppress=*/false);
+    *proceed_to_fire_unload = false;
+  } else {
+    // Otherwise the page closes only if the user agreed to leave. Android keeps
+    // no state across the dispatch, so a false `proceed` needs no cleanup.
+    *proceed_to_fire_unload = proceed;
+  }
+
+  // Java hears about every completion, marked or not, so that
+  // TabObserver::onBeforeUnloadFired means what its name says. This is the
+  // last statement of the method so that `*proceed_to_fire_unload` is already
+  // written when Java runs. An observer must not destroy the Tab or its
+  // WebContents before returning: Content keeps using this frame after this
+  // method returns, in
+  // RenderFrameHostImpl::ProcessBeforeUnloadCompletedFromFrame and in
+  // RenderFrameHostManager::BeforeUnloadCompleted.
+  JNIEnv* env = base::android::AttachCurrentThread();
+  ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
+  if (obj.is_null()) {
+    return;
+  }
+  Java_TabWebContentsDelegateAndroidImpl_onBeforeUnloadFired(env, obj, proceed);
+}
 
 void TabWebContentsDelegateAndroid::RunFileChooser(
     content::RenderFrameHost* render_frame_host,
@@ -356,6 +516,14 @@ WebContents* TabWebContentsDelegateAndroid::OpenURLFromTab(
     const content::OpenURLParams& params,
     base::OnceCallback<void(content::NavigationHandle&)>
         navigation_handle_callback) {
+  // If `source` is a DevTools frontend (`AsDevToolsWindow` is non-null),
+  // let `DevToolsWindow` handle external navigations so they open in the
+  // inspected tab rather than navigating the DevTools frontend itself.
+  if (DevToolsWindow* window = DevToolsWindow::AsDevToolsWindow(source)) {
+    return window->OpenURLFromTab(source, params,
+                                  std::move(navigation_handle_callback));
+  }
+
   WindowOpenDisposition disposition = params.disposition;
   if (!source || (disposition != WindowOpenDisposition::CURRENT_TAB &&
                   disposition != WindowOpenDisposition::NEW_FOREGROUND_TAB &&
@@ -503,9 +671,10 @@ void TabWebContentsDelegateAndroid::OnDidBlockNavigation(
     const GURL& blocked_url,
     const GURL& initiator_url,
     const url::Origin& initiator_origin,
+    scoped_refptr<content::InitiatorNavigationState> initiator_navigation_state,
     blink::mojom::NavigationBlockedReason reason) {
-  ShowFramebustBlockMessageInternal(web_contents, blocked_url,
-                                    initiator_origin);
+  ShowFramebustBlockMessageInternal(web_contents, blocked_url, initiator_origin,
+                                    std::move(initiator_navigation_state));
 }
 
 void TabWebContentsDelegateAndroid::UpdateUserGestureCarryoverInfo(
@@ -797,17 +966,26 @@ void TabWebContentsDelegateAndroid::DraggableRegionsChanged(
   // need to provide a list of *undraggable* Rects.
   float dip_scale = contents->GetNativeView()->GetDipScale();
   const gfx::Rect& wco_rect = contents->GetWindowsControlsOverlayRect();
-  SkRegion sk_region(SkIRect::MakeLTRB(
-      wco_rect.x() * dip_scale, wco_rect.y() * dip_scale,
-      wco_rect.right() * dip_scale, wco_rect.bottom() * dip_scale));
+  // That is the overlay rect plus every rect the page reported, minus what
+  // the page left draggable.
+  auto to_pixels = [dip_scale](const gfx::Rect& rect) {
+    return SkIRect::MakeLTRB(static_cast<int>(rect.x() * dip_scale),
+                             static_cast<int>(rect.y() * dip_scale),
+                             static_cast<int>(rect.right() * dip_scale),
+                             static_cast<int>(rect.bottom() * dip_scale));
+  };
+  std::vector<SkIRect> covered_rects;
+  std::vector<skia::RegionRectOp> ops;
+  covered_rects.reserve(regions.size() + 1);
+  ops.reserve(regions.size());
+  covered_rects.push_back(to_pixels(wco_rect));
   for (const auto& region : regions) {
-    sk_region.op(
-        SkIRect::MakeLTRB(region->bounds.x() * dip_scale,
-                          region->bounds.y() * dip_scale,
-                          region->bounds.right() * dip_scale,
-                          region->bounds.bottom() * dip_scale),
-        region->draggable ? SkRegion::kDifference_Op : SkRegion::kUnion_Op);
+    covered_rects.push_back(to_pixels(region->bounds));
+    ops.push_back({covered_rects.back(), !region->draggable});
   }
+  SkRegion sk_region;
+  sk_region.setRects(covered_rects);
+  sk_region.op(skia::RegionFromRectOps(ops), SkRegion::kDifference_Op);
 
   std::vector<gfx::Rect> non_draggable_rects;
   for (SkRegion::Iterator i(sk_region); !i.done(); i.next()) {
@@ -839,6 +1017,35 @@ static void JNI_TabWebContentsDelegateAndroidImpl_OnRendererUnresponsive(
       base::RandDouble() < 0.01) {
     web_contents->GetPrimaryMainFrame()->GetProcess()->DumpProcessStack();
   }
+}
+
+static void JNI_TabWebContentsDelegateAndroidImpl_OpenFile(
+    JNIEnv* env,
+    content::WebContents* web_contents) {
+  if (!web_contents) {
+    return;
+  }
+
+  content::RenderFrameHost* rfh = web_contents->GetPrimaryMainFrame();
+  if (!rfh) {
+    return;
+  }
+
+  blink::mojom::FileChooserParams params;
+  params.mode = blink::mojom::FileChooserParams::Mode::kOpen;
+
+  auto listener = base::MakeRefCounted<OpenFileSelectListener>(web_contents);
+  if (auto* delegate = web_contents->GetDelegate()) {
+    delegate->RunFileChooser(rfh, std::move(listener), params);
+  }
+}
+
+static void
+JNI_TabWebContentsDelegateAndroidImpl_SetSuppressBeforeUnloadAutoClose(
+    content::WebContents* web_contents,
+    bool suppress) {
+  android::TabWebContentsDelegateAndroid::SetSuppressBeforeUnloadAutoClose(
+      web_contents, suppress);
 }
 
 DEFINE_JNI(TabWebContentsDelegateAndroidImpl)

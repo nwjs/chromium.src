@@ -109,7 +109,7 @@ class FakeAutocompleteProviderClient : public MockAutocompleteProviderClient {
       AutocompleteMatch* match,
       GURL* alternate_nav_url) override {
     // Populate enough of |match| to keep the ZeroSuggestProvider happy.
-    match->type = AutocompleteMatchType::URL_WHAT_YOU_TYPED;
+    match->type = omnibox::AutocompleteMatchType::kUrlWhatYouTyped;
     match->destination_url = GURL(text);
   }
 
@@ -786,7 +786,7 @@ TEST_F(ZeroSuggestProviderTest, FallbackMatchesOnEmptyResponse) {
   EXPECT_EQ(omnibox::kDefaultFallbackNumSuggestions,
             provider_->matches().size());
   for (const auto& match : provider_->matches()) {
-    EXPECT_EQ(AutocompleteMatchType::SEARCH_SUGGEST, match.type);
+    EXPECT_EQ(omnibox::AutocompleteMatchType::kSearchSuggest, match.type);
     EXPECT_EQ(omnibox::GROUP_AI_MODE_ZERO_SUGGEST_CANNED,
               match.suggestion_group_id);
   }
@@ -814,7 +814,7 @@ TEST_F(ZeroSuggestProviderTest, FallbackMatchesOnNetworkError) {
   EXPECT_EQ(omnibox::kDefaultFallbackNumSuggestions,
             provider_->matches().size());
   for (const auto& match : provider_->matches()) {
-    EXPECT_EQ(AutocompleteMatchType::SEARCH_SUGGEST, match.type);
+    EXPECT_EQ(omnibox::AutocompleteMatchType::kSearchSuggest, match.type);
     EXPECT_EQ(omnibox::GROUP_AI_MODE_ZERO_SUGGEST_CANNED,
               match.suggestion_group_id);
   }
@@ -843,7 +843,7 @@ TEST_F(ZeroSuggestProviderTest, FallbackMatchesOnParseFailure) {
   EXPECT_EQ(omnibox::kDefaultFallbackNumSuggestions,
             provider_->matches().size());
   for (const auto& match : provider_->matches()) {
-    EXPECT_EQ(AutocompleteMatchType::SEARCH_SUGGEST, match.type);
+    EXPECT_EQ(omnibox::AutocompleteMatchType::kSearchSuggest, match.type);
     EXPECT_EQ(omnibox::GROUP_AI_MODE_ZERO_SUGGEST_CANNED,
               match.suggestion_group_id);
   }
@@ -2575,7 +2575,7 @@ TEST_F(ZeroSuggestProviderTest,
   EXPECT_EQ(provider_->matches().size(),
             omnibox::kDefaultFallbackNumSuggestions);
   for (const auto& match : provider_->matches()) {
-    EXPECT_EQ(match.type, AutocompleteMatchType::SEARCH_SUGGEST);
+    EXPECT_EQ(match.type, omnibox::AutocompleteMatchType::kSearchSuggest);
     EXPECT_FALSE(match.contents.empty());
   }
 }

@@ -64,130 +64,139 @@ std::string GetGuid() {
 struct TestShortcutData shortcut_test_db[] = {
     {GetGuid(), "goog", "www.google.com", "http://www.google.com/",
      AutocompleteMatch::DocumentType::NONE, "Google", "0,1,4,0", "Google",
-     "0,3,4,1", ui::PAGE_TRANSITION_TYPED, AutocompleteMatchType::HISTORY_URL,
-     "", 1, 100},
+     "0,3,4,1", ui::PAGE_TRANSITION_TYPED,
+     omnibox::AutocompleteMatchType::kHistoryUrl, "", 1, 100},
     {GetGuid(), "slash", "slashdot.org", "http://slashdot.org/",
      AutocompleteMatch::DocumentType::NONE, "slashdot.org", "0,3,5,1",
      "Slashdot - News for nerds, stuff that matters", "0,2,5,0",
-     ui::PAGE_TRANSITION_TYPED, AutocompleteMatchType::HISTORY_URL, "", 0, 100},
+     ui::PAGE_TRANSITION_TYPED, omnibox::AutocompleteMatchType::kHistoryUrl, "",
+     0, 100},
     {GetGuid(), "news", "slashdot.org", "http://slashdot.org/",
      AutocompleteMatch::DocumentType::NONE, "slashdot.org", "0,1",
      "Slashdot - News for nerds, stuff that matters", "0,0,11,2,15,0",
-     ui::PAGE_TRANSITION_TYPED, AutocompleteMatchType::HISTORY_TITLE, "", 0, 5},
+     ui::PAGE_TRANSITION_TYPED, omnibox::AutocompleteMatchType::kHistoryTitle,
+     "", 0, 5},
     {GetGuid(), "news", "sports.yahoo.com", "http://sports.yahoo.com/",
      AutocompleteMatch::DocumentType::NONE, "sports.yahoo.com", "0,1",
      "Yahoo! Sports - Sports News, Scores, Rumors, Fantasy Games, and more",
      "0,0,23,2,27,0", ui::PAGE_TRANSITION_TYPED,
-     AutocompleteMatchType::HISTORY_TITLE, "", 2, 5},
+     omnibox::AutocompleteMatchType::kHistoryTitle, "", 2, 5},
     {GetGuid(), "news weather", "www.cnn.com/index.html",
      "http://www.cnn.com/index.html", AutocompleteMatch::DocumentType::NONE,
      "www.cnn.com/index.html", "0,1",
      "CNN.com - Breaking News, U.S., World, Weather, Entertainment & Video",
      "0,0,19,2,23,0,38,2,45,0", ui::PAGE_TRANSITION_TYPED,
-     AutocompleteMatchType::HISTORY_TITLE, "", 1, 10},
+     omnibox::AutocompleteMatchType::kHistoryTitle, "", 1, 10},
     {GetGuid(), "nhl scores", "sports.yahoo.com", "http://sports.yahoo.com/",
      AutocompleteMatch::DocumentType::NONE, "sports.yahoo.com", "0,1",
      "Yahoo! Sports - Sports News, Scores, Rumors, Fantasy Games, and more",
      "0,0,29,2,35,0", ui::PAGE_TRANSITION_TYPED,
-     AutocompleteMatchType::HISTORY_BODY, "", 1, 10},
+     omnibox::AutocompleteMatchType::kHistoryBody, "", 1, 10},
     {GetGuid(), "nhl scores", "www.nhl.com/scores/index.html",
      "http://www.nhl.com/scores/index.html",
      AutocompleteMatch::DocumentType::NONE, "www.nhl.com/scores/index.html",
      "0,1,4,3,7,1", "January 13, 2010 - NHL.com - Scores",
      "0,0,19,2,22,0,29,2,35,0", ui::PAGE_TRANSITION_TYPED,
-     AutocompleteMatchType::HISTORY_URL, "", 5, 1},
+     omnibox::AutocompleteMatchType::kHistoryUrl, "", 5, 1},
     {GetGuid(), "just", "www.testsite.com/a.html",
      "http://www.testsite.com/a.html", AutocompleteMatch::DocumentType::NONE,
      "www.testsite.com/a.html", "0,1", "Test - site - just a test",
      "0,0,14,2,18,0", ui::PAGE_TRANSITION_TYPED,
-     AutocompleteMatchType::HISTORY_TITLE, "", 5, 1},
+     omnibox::AutocompleteMatchType::kHistoryTitle, "", 5, 1},
     {GetGuid(), "just", "www.testsite.com/b.html",
      "http://www.testsite.com/b.html", AutocompleteMatch::DocumentType::NONE,
      "www.testsite.com/b.html", "0,1", "Test - site - just a test",
      "0,0,14,2,18,0", ui::PAGE_TRANSITION_TYPED,
-     AutocompleteMatchType::HISTORY_TITLE, "", 5, 2},
+     omnibox::AutocompleteMatchType::kHistoryTitle, "", 5, 2},
     {GetGuid(), "just", "www.testsite.com/c.html",
      "http://www.testsite.com/c.html", AutocompleteMatch::DocumentType::NONE,
      "www.testsite.com/c.html", "0,1", "Test - site - just a test",
      "0,0,14,2,18,0", ui::PAGE_TRANSITION_TYPED,
-     AutocompleteMatchType::HISTORY_TITLE, "", 8, 1},
+     omnibox::AutocompleteMatchType::kHistoryTitle, "", 8, 1},
     {GetGuid(), "just a", "www.testsite.com/d.html",
      "http://www.testsite.com/d.html", AutocompleteMatch::DocumentType::NONE,
      "www.testsite.com/d.html", "0,1", "Test - site - just a test",
      "0,0,14,2,18,0", ui::PAGE_TRANSITION_TYPED,
-     AutocompleteMatchType::HISTORY_TITLE, "", 12, 1},
+     omnibox::AutocompleteMatchType::kHistoryTitle, "", 12, 1},
     {GetGuid(), "just a t", "www.testsite.com/e.html",
      "http://www.testsite.com/e.html", AutocompleteMatch::DocumentType::NONE,
      "www.testsite.com/e.html", "0,1", "Test - site - just a test",
      "0,0,14,2,18,0", ui::PAGE_TRANSITION_TYPED,
-     AutocompleteMatchType::HISTORY_TITLE, "", 12, 1},
+     omnibox::AutocompleteMatchType::kHistoryTitle, "", 12, 1},
     {GetGuid(), "just a te", "www.testsite.com/f.html",
      "http://www.testsite.com/f.html", AutocompleteMatch::DocumentType::NONE,
      "www.testsite.com/f.html", "0,1", "Test - site - just a test",
      "0,0,14,2,18,0", ui::PAGE_TRANSITION_TYPED,
-     AutocompleteMatchType::HISTORY_TITLE, "", 12, 1},
+     omnibox::AutocompleteMatchType::kHistoryTitle, "", 12, 1},
     {GetGuid(), "ago", "www.daysagotest.com/a.html",
      "http://www.daysagotest.com/a.html", AutocompleteMatch::DocumentType::NONE,
      "www.daysagotest.com/a.html", "0,1,8,3,11,1", "Test - site", "0,0",
-     ui::PAGE_TRANSITION_TYPED, AutocompleteMatchType::HISTORY_URL, "", 1, 1},
+     ui::PAGE_TRANSITION_TYPED, omnibox::AutocompleteMatchType::kHistoryUrl, "",
+     1, 1},
     {GetGuid(), "ago", "www.daysagotest.com/b.html",
      "http://www.daysagotest.com/b.html", AutocompleteMatch::DocumentType::NONE,
      "www.daysagotest.com/b.html", "0,1,8,3,11,1", "Test - site", "0,0",
-     ui::PAGE_TRANSITION_TYPED, AutocompleteMatchType::HISTORY_URL, "", 2, 1},
+     ui::PAGE_TRANSITION_TYPED, omnibox::AutocompleteMatchType::kHistoryUrl, "",
+     2, 1},
     {GetGuid(), "ago", "www.daysagotest.com/c.html",
      "http://www.daysagotest.com/c.html", AutocompleteMatch::DocumentType::NONE,
      "www.daysagotest.com/c.html", "0,1,8,3,11,1", "Test - site", "0,0",
-     ui::PAGE_TRANSITION_TYPED, AutocompleteMatchType::HISTORY_URL, "", 3, 1},
+     ui::PAGE_TRANSITION_TYPED, omnibox::AutocompleteMatchType::kHistoryUrl, "",
+     3, 1},
     {GetGuid(), "ago", "www.daysagotest.com/d.html",
      "http://www.daysagotest.com/d.html", AutocompleteMatch::DocumentType::NONE,
      "www.daysagotest.com/d.html", "0,1,8,3,11,1", "Test - site", "0,0",
-     ui::PAGE_TRANSITION_TYPED, AutocompleteMatchType::HISTORY_URL, "", 4, 1},
+     ui::PAGE_TRANSITION_TYPED, omnibox::AutocompleteMatchType::kHistoryUrl, "",
+     4, 1},
     {GetGuid(), "abcdef.com", "http://abcdef.com", "http://abcdef.com/",
      AutocompleteMatch::DocumentType::NONE, "Abcdef", "0,1,4,0", "Abcdef",
-     "0,3,4,1", ui::PAGE_TRANSITION_TYPED, AutocompleteMatchType::HISTORY_URL,
-     "", 1, 100},
+     "0,3,4,1", ui::PAGE_TRANSITION_TYPED,
+     omnibox::AutocompleteMatchType::kHistoryUrl, "", 1, 100},
     {GetGuid(), "query", "query", "https://www.google.com/search?q=query",
      AutocompleteMatch::DocumentType::NONE, "query", "0,0", "Google Search",
      "0,4", ui::PAGE_TRANSITION_GENERATED,
-     AutocompleteMatchType::SEARCH_HISTORY, "google.com", 1, 100},
+     omnibox::AutocompleteMatchType::kSearchHistory, "google.com", 1, 100},
     {GetGuid(), "word", "www.word", "https://www.google.com/search?q=www.word",
      AutocompleteMatch::DocumentType::NONE, "www.word", "0,0", "Google Search",
      "0,4", ui::PAGE_TRANSITION_GENERATED,
-     AutocompleteMatchType::SEARCH_HISTORY, "google.com", 1, 100},
+     omnibox::AutocompleteMatchType::kSearchHistory, "google.com", 1, 100},
     {GetGuid(), "about:o", "chrome://omnibox", "chrome://omnibox/",
      AutocompleteMatch::DocumentType::NONE, "about:omnibox", "0,3,10,1", "", "",
-     ui::PAGE_TRANSITION_TYPED, AutocompleteMatchType::NAVSUGGEST, "", 1, 100},
+     ui::PAGE_TRANSITION_TYPED, omnibox::AutocompleteMatchType::kNavsuggest, "",
+     1, 100},
     {GetGuid(), "www/real sp", "http://www/real space/long-url-with-space.html",
      "http://www/real%20space/long-url-with-space.html",
      AutocompleteMatch::DocumentType::NONE,
      "www/real space/long-url-with-space.html", "0,3,11,1",
      "Page With Space; Input with Space", "0,0", ui::PAGE_TRANSITION_TYPED,
-     AutocompleteMatchType::HISTORY_URL, "", 1, 100},
+     omnibox::AutocompleteMatchType::kHistoryUrl, "", 1, 100},
     {GetGuid(), "duplicate", "http://duplicate.com", "http://duplicate.com/",
      AutocompleteMatch::DocumentType::NONE, "Duplicate", "0,1", "Duplicate",
-     "0,1", ui::PAGE_TRANSITION_TYPED, AutocompleteMatchType::HISTORY_URL, "",
-     1, 100},
+     "0,1", ui::PAGE_TRANSITION_TYPED,
+     omnibox::AutocompleteMatchType::kHistoryUrl, "", 1, 100},
     {GetGuid(), "dupl", "http://duplicate.com", "http://duplicate.com/",
      AutocompleteMatch::DocumentType::NONE, "Duplicate", "0,1", "Duplicate",
-     "0,1", ui::PAGE_TRANSITION_TYPED, AutocompleteMatchType::HISTORY_URL, "",
-     1, 100},
+     "0,1", ui::PAGE_TRANSITION_TYPED,
+     omnibox::AutocompleteMatchType::kHistoryUrl, "", 1, 100},
     {GetGuid(), "notrailing.com/", "http://notrailing.com",
      "http://notrailing.com/", AutocompleteMatch::DocumentType::NONE,
      "No Trailing Slash", "0,1", "No Trailing Slash on fill_into_edit", "0,1",
-     ui::PAGE_TRANSITION_TYPED, AutocompleteMatchType::HISTORY_URL, "", 1, 100},
+     ui::PAGE_TRANSITION_TYPED, omnibox::AutocompleteMatchType::kHistoryUrl, "",
+     1, 100},
     {GetGuid(), "http:///foo.com", "http://foo.com", "http://foo.com/",
      AutocompleteMatch::DocumentType::NONE, "Foo - Typo in Input", "0,1",
      "Foo - Typo in Input Corrected in fill_into_edit", "0,1",
-     ui::PAGE_TRANSITION_TYPED, AutocompleteMatchType::HISTORY_URL, "", 1, 100},
+     ui::PAGE_TRANSITION_TYPED, omnibox::AutocompleteMatchType::kHistoryUrl, "",
+     1, 100},
     {GetGuid(), "trailing1 ", "http://trailing1.com", "http://trailing1.com/",
      AutocompleteMatch::DocumentType::NONE, "Trailing1 - Space in Shortcut",
      "0,1", "Trailing1 - Space in Shortcut", "0,1", ui::PAGE_TRANSITION_TYPED,
-     AutocompleteMatchType::HISTORY_URL, "", 1, 100},
+     omnibox::AutocompleteMatchType::kHistoryUrl, "", 1, 100},
     {GetGuid(), "about:trailing2 ", "chrome://trailing2blah",
      "chrome://trailing2blah/", AutocompleteMatch::DocumentType::NONE,
      "Trailing2 - Space in Shortcut", "0,1", "Trailing2 - Space in Shortcut",
-     "0,1", ui::PAGE_TRANSITION_TYPED, AutocompleteMatchType::HISTORY_URL, "",
-     1, 100},
+     "0,1", ui::PAGE_TRANSITION_TYPED,
+     omnibox::AutocompleteMatchType::kHistoryUrl, "", 1, 100},
 };
 
 ShortcutsDatabase::Shortcut MakeShortcut(
@@ -199,7 +208,7 @@ ShortcutsDatabase::Shortcut MakeShortcut(
               u"www.test.com", GURL("http://www.test.com"),
               AutocompleteMatch::DocumentType::NONE, u"www.test.com",
               "0,1,4,3,8,1", u"A test", "0,0,2,2", ui::PAGE_TRANSITION_TYPED,
-              AutocompleteMatchType::HISTORY_URL, std::u16string()),
+              omnibox::AutocompleteMatchType::kHistoryUrl, std::u16string()),
           last_access_time, number_of_hits};
 }
 
@@ -208,9 +217,10 @@ TestShortcutData MakeShortcutData(std::string text,
                                   std::string destination_url = "",
                                   int days_from_now = 0,
                                   int number_of_hits = 0) {
-  if (destination_url.empty())
+  if (destination_url.empty()) {
     destination_url =
         "https://" + text + ".com/" + base::NumberToString(number_of_hits);
+  }
   return {GetGuid(),
           text,
           text,
@@ -221,7 +231,7 @@ TestShortcutData MakeShortcutData(std::string text,
           "",
           "",
           ui::PageTransition::PAGE_TRANSITION_TYPED,
-          AutocompleteMatchType::HISTORY_URL,
+          omnibox::AutocompleteMatchType::kHistoryUrl,
           "",
           days_from_now,
           number_of_hits};
@@ -517,8 +527,8 @@ TEST_F(ShortcutsProviderTest, SimpleSingleMatchKeyword) {
             "",
             "0,1",
             transition,
-            search ? AutocompleteMatchType::SEARCH_HISTORY
-                   : AutocompleteMatchType::HISTORY_URL,
+            search ? omnibox::AutocompleteMatchType::kSearchHistory
+                   : omnibox::AutocompleteMatchType::kHistoryUrl,
             keyword,
             1,
             10};
@@ -684,21 +694,23 @@ TEST_F(ShortcutsProviderTest, DeleteMatch) {
       {GetGuid(), "delete", "www.deletetest.com/1",
        "http://www.deletetest.com/1", AutocompleteMatch::DocumentType::NONE,
        "http://www.deletetest.com/1", "0,2", "Erase this shortcut!", "0,0",
-       ui::PAGE_TRANSITION_TYPED, AutocompleteMatchType::HISTORY_URL, "", 1, 1},
+       ui::PAGE_TRANSITION_TYPED, omnibox::AutocompleteMatchType::kHistoryUrl,
+       "", 1, 1},
       {GetGuid(), "erase", "www.deletetest.com/1",
        "http://www.deletetest.com/1", AutocompleteMatch::DocumentType::NONE,
        "http://www.deletetest.com/1", "0,2", "Erase this shortcut!", "0,0",
-       ui::PAGE_TRANSITION_TYPED, AutocompleteMatchType::HISTORY_TITLE, "", 1,
-       1},
+       ui::PAGE_TRANSITION_TYPED, omnibox::AutocompleteMatchType::kHistoryTitle,
+       "", 1, 1},
       {GetGuid(), "keep", "www.deletetest.com/1/2",
        "http://www.deletetest.com/1/2", AutocompleteMatch::DocumentType::NONE,
        "http://www.deletetest.com/1/2", "0,2", "Keep this shortcut!", "0,0",
-       ui::PAGE_TRANSITION_TYPED, AutocompleteMatchType::HISTORY_TITLE, "", 1,
-       1},
+       ui::PAGE_TRANSITION_TYPED, omnibox::AutocompleteMatchType::kHistoryTitle,
+       "", 1, 1},
       {GetGuid(), "delete", "www.deletetest.com/2",
        "http://www.deletetest.com/2", AutocompleteMatch::DocumentType::NONE,
        "http://www.deletetest.com/2", "0,2", "Erase this shortcut!", "0,0",
-       ui::PAGE_TRANSITION_TYPED, AutocompleteMatchType::HISTORY_URL, "", 1, 1},
+       ui::PAGE_TRANSITION_TYPED, omnibox::AutocompleteMatchType::kHistoryUrl,
+       "", 1, 1},
   };
 
   scoped_refptr<ShortcutsBackend> backend = client_->GetShortcutsBackend();
@@ -713,7 +725,7 @@ TEST_F(ShortcutsProviderTest, DeleteMatch) {
                backend->shortcuts_map().find(u"erase"));
 
   AutocompleteMatch match(provider_.get(), 1200, true,
-                          AutocompleteMatchType::HISTORY_TITLE);
+                          omnibox::AutocompleteMatchType::kHistoryTitle);
 
   match.destination_url = GURL(shortcuts_to_test_delete[0].destination_url);
   match.contents = ASCIIToUTF16(shortcuts_to_test_delete[0].contents);
@@ -991,8 +1003,8 @@ TEST_F(ShortcutsProviderTest, ScoreBoost) {
             "",
             "",
             ui::PageTransition::PAGE_TRANSITION_TYPED,
-            is_search ? AutocompleteMatchType::SEARCH_SUGGEST
-                      : AutocompleteMatchType::HISTORY_URL,
+            is_search ? omnibox::AutocompleteMatchType::kSearchSuggest
+                      : omnibox::AutocompleteMatchType::kHistoryUrl,
             is_search ? "google" : "",
             1,
             visit_count};
@@ -1126,8 +1138,8 @@ TEST_F(ShortcutsProviderTest, HistoryClusterSuggestions) {
             "http://www.destination_url.com/" + text,
             AutocompleteMatch::DocumentType::NONE, "contents", "0,0",
             "description", "0,0", ui::PAGE_TRANSITION_TYPED,
-            is_history_cluster ? AutocompleteMatchType::HISTORY_CLUSTER
-                               : AutocompleteMatchType::HISTORY_URL,
+            is_history_cluster ? omnibox::AutocompleteMatchType::kHistoryCluster
+                               : omnibox::AutocompleteMatchType::kHistoryUrl,
             /*keyword=*/"",
             /*days_from_now=*/1,
             /*number_of_hits=*/1};
@@ -1156,19 +1168,19 @@ TEST_F(ShortcutsProviderTest, HistoryClusterSuggestions) {
   // cluster matches. Expect only the non-cluster matches to be allowed to be
   // default.
   ASSERT_EQ(matches.size(), 7u);
-  EXPECT_EQ(matches[0].type, AutocompleteMatchType::HISTORY_URL);
+  EXPECT_EQ(matches[0].type, omnibox::AutocompleteMatchType::kHistoryUrl);
   EXPECT_EQ(matches[0].allowed_to_be_default_match, true);
-  EXPECT_EQ(matches[1].type, AutocompleteMatchType::HISTORY_URL);
+  EXPECT_EQ(matches[1].type, omnibox::AutocompleteMatchType::kHistoryUrl);
   EXPECT_EQ(matches[1].allowed_to_be_default_match, true);
-  EXPECT_EQ(matches[2].type, AutocompleteMatchType::HISTORY_URL);
+  EXPECT_EQ(matches[2].type, omnibox::AutocompleteMatchType::kHistoryUrl);
   EXPECT_EQ(matches[2].allowed_to_be_default_match, true);
-  EXPECT_EQ(matches[3].type, AutocompleteMatchType::HISTORY_CLUSTER);
+  EXPECT_EQ(matches[3].type, omnibox::AutocompleteMatchType::kHistoryCluster);
   EXPECT_EQ(matches[3].allowed_to_be_default_match, false);
-  EXPECT_EQ(matches[4].type, AutocompleteMatchType::HISTORY_CLUSTER);
+  EXPECT_EQ(matches[4].type, omnibox::AutocompleteMatchType::kHistoryCluster);
   EXPECT_EQ(matches[4].allowed_to_be_default_match, false);
-  EXPECT_EQ(matches[5].type, AutocompleteMatchType::HISTORY_CLUSTER);
+  EXPECT_EQ(matches[5].type, omnibox::AutocompleteMatchType::kHistoryCluster);
   EXPECT_EQ(matches[5].allowed_to_be_default_match, false);
-  EXPECT_EQ(matches[6].type, AutocompleteMatchType::HISTORY_CLUSTER);
+  EXPECT_EQ(matches[6].type, omnibox::AutocompleteMatchType::kHistoryCluster);
   EXPECT_EQ(matches[6].allowed_to_be_default_match, false);
 
   // Expect only non-cluster matches to have capped decrementing scores.

@@ -11,8 +11,6 @@ namespace syncer {
 BASE_FEATURE(kDeferredSyncStartupCustomDelay,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kSyncSharedTabGroupAccountData, base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kSyncSharedComment, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSyncAIThread, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -149,10 +147,6 @@ bool IsReadingListAccountStorageEnabled() {
 #if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
 #endif  // BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
 
-// Enabled by default, intended as a kill switch.
-BASE_FEATURE(kSyncReadingListBatchUploadSelectedItems,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kSeparateLocalAndAccountThemes,
 #if BUILDFLAG(IS_CHROMEOS)
              base::FEATURE_DISABLED_BY_DEFAULT
@@ -165,9 +159,6 @@ BASE_FEATURE(kSyncIncreaseNudgeDelayForSingleClient,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kSyncEnablePasswordsSyncErrorMessageAlternative,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kSyncTrustedVaultErrorMessageDuration,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -181,19 +172,6 @@ BASE_FEATURE(kSyncPreferencesUseSelectedTypes,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSyncEnableNewSyncDashboardUrl, base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kSyncRecordDeviceStatisticsMetrics,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE_PARAM(base::TimeDelta,
-                   kSyncRecordDeviceStatisticsMetricsDelay,
-                   &kSyncRecordDeviceStatisticsMetrics,
-                   "SyncRecordDeviceStatisticsMetricsDelay",
-                   base::Seconds(30));
-BASE_FEATURE_PARAM(int,
-                   kSyncRecordDeviceStatisticsMetricsPeriodDays,
-                   &kSyncRecordDeviceStatisticsMetrics,
-                   "SyncRecordDeviceStatisticsMetricsPeriodDays",
-                   1);
 
 BASE_FEATURE(kSyncValidateAccessToken, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -218,18 +196,21 @@ BASE_FEATURE(kEstimateNewSignInUsersWithFinchAvailablePopulation,
 BASE_FEATURE(kSyncFixWebSigninSessionDurationForShortLivedSessions,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kSyncSimplifyDeviceNaming, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kSyncSimplifyDeviceNaming, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSyncDisambiguateDeviceNamesWithChannel,
              "SyncDisambiguateDeviceNamesWithChannel",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSyncUseServerDeterminedDeviceName,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSyncCopyPreferencesToTransportModeOnServerForcedDisable,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSyncNigoriAuthenticateIV, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSyncMigrateFromImplicitPassphrase,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace syncer

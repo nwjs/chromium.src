@@ -97,6 +97,7 @@ source_set("reference_drivers") {
   if (is_fuchsia) {
     public_deps += [ "//third_party/fuchsia-sdk/sdk/pkg/zx" ]
   }
+  check_includes_strict = CHECK_INCLUDES_STRICT_PUBLIC_INCLUDES_PRIVATE
 }
 
 source_set("util") {
@@ -142,6 +143,7 @@ source_set("impl") {
     "ipcz/link_type.h",
     "ipcz/local_router_link.h",
     "ipcz/message.h",
+    "ipcz/metrics.h",
     "ipcz/node.h",
     "ipcz/node_connector.h",
     "ipcz/node_link.h",
@@ -183,6 +185,7 @@ source_set("impl") {
     "ipcz/link_type.cc",
     "ipcz/local_router_link.cc",
     "ipcz/message.cc",
+    "ipcz/metrics.cc",
     "ipcz/node.cc",
     "ipcz/node_connector.cc",
     "ipcz/node_link.cc",
@@ -212,6 +215,7 @@ source_set("impl") {
   ]
   public_configs = [ ":ipcz_include_dir" ]
   configs += [ ":ipcz_include_src_dir" ]
+  check_includes_strict = CHECK_INCLUDES_STRICT_PUBLIC_INCLUDES_PRIVATE
 }
 
 source_set("ipcz_sources") {

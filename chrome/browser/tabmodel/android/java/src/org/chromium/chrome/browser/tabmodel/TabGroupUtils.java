@@ -58,12 +58,28 @@ public class TabGroupUtils {
     /**
      * This method gets the selected tab of the group where {@code tab} is in.
      *
+     * <p>TODO(crbug.com/496272676): Remove once ANDROID_TAB_UI_REFACTOR is launched.
+     *
      * @param tabModel The tab model that owns the {@code tab}.
      * @param tab The {@link Tab}.
-     * @return The selected tab of the group which contains the {@code tab}
+     * @return The selected tab of the group which contains the {@code tab}.
      */
     public static Tab getSelectedTabInGroupForTab(TabModel tabModel, Tab tab) {
         return assumeNonNull(tabModel.getRepresentativeTabAt(tabModel.representativeIndexOf(tab)));
+    }
+
+    /**
+     * Returns the ID of the first tab in the tab group with {@code tabGroupId}, or {@link
+     * Tab#INVALID_TAB_ID} if the group does not exist or is empty.
+     *
+     * @param tabModel The {@link TabModel} that owns the tab group.
+     * @param tabGroupId The {@link Token} of the tab group.
+     * @return The ID of the first {@link Tab} in the group, or {@link Tab#INVALID_TAB_ID}.
+     */
+    public static @TabId int getFirstTabIdInGroup(TabModel tabModel, @Nullable Token tabGroupId) {
+        if (tabGroupId == null) return Tab.INVALID_TAB_ID;
+        List<Tab> tabsInGroup = tabModel.getTabsInGroup(tabGroupId);
+        return tabsInGroup.isEmpty() ? Tab.INVALID_TAB_ID : tabsInGroup.get(0).getId();
     }
 
     /**

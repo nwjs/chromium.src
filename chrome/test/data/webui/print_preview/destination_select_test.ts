@@ -59,7 +59,7 @@ suite('DestinationSelectTest', function() {
     compareIcon(selectEl, printIcon);
 
     // Select a destination with the enterprise printer icon.
-    await selectOption(destinationSelect, `ID4/local/`);
+    await selectOption(destinationSelect, 'ID4/local/');
     const enterpriseIcon = loadTimeData.getBoolean('webuiRoundedIconsEnabled') ?
         'domain' :
         'business-old';
@@ -93,5 +93,34 @@ suite('DestinationSelectTest', function() {
 
     assertEquals(newDestination.key, select.value);
     assertEquals(newDestination.key, destinationSelect.selectedValue);
+  });
+
+  test('UpdateDestinationSelectValue', async function() {
+    destinationSelect.loaded = true;
+    destinationSelect.destination = recentDestinationList[1]!;
+    destinationSelect.updateDestination();
+    await microtasksFinished();
+
+    const select = destinationSelect.$.select;
+    assertEquals(recentDestinationList[1]!.key, select.value);
+
+    // Select the first and second destinations from the dropdown.
+    await selectOption(destinationSelect, recentDestinationList[0]!.key);
+    assertEquals(recentDestinationList[0]!.key, select.value);
+    await selectOption(destinationSelect, recentDestinationList[1]!.key);
+    assertEquals(recentDestinationList[1]!.key, select.value);
+
+    // Pick a destination that is not in `recentDestinationList` and update
+    // `recentDestinationList` to reflect the new destination.
+    const newDestination =
+        new Destination('ID2', DestinationOrigin.LOCAL, 'Two');
+    destinationSelect.destination = newDestination;
+    destinationSelect.recentDestinationList = [
+      newDestination,
+      ...recentDestinationList,
+    ];
+    destinationSelect.updateDestination();
+    await microtasksFinished();
+    assertEquals(newDestination.key, select.value);
   });
 });

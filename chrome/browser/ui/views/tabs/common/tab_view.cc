@@ -545,6 +545,39 @@ void TabView::Layout(PassKey) {
 bool TabView::OnKeyPressed(const ui::KeyEvent& event) {
   CHECK(collection_node_);
 
+  const views::LayoutOrientation layout_orientation =
+      orientation_ == TabStripOrientation::kVertical
+          ? views::LayoutOrientation::kVertical
+          : views::LayoutOrientation::kHorizontal;
+  if (std::optional<event_utils::ExtendSelectionDirection> direction =
+          event_utils::GetExtendSelectionCommandForKeyboardEvent(
+              event, layout_orientation)) {
+    const bool leading =
+        *direction == event_utils::ExtendSelectionDirection::kPrevious;
+    const TabCollectionNode* adjacent_node =
+        collection_node_->GetController()->GetAdjacentTab(GetTabInterface(),
+                                                          leading);
+    if (adjacent_node) {
+      if (TabView* adjacent_tab_view =
+              views::AsViewClass<TabView>(adjacent_node->view())) {
+        if (!selected_) {
+          collection_node_->GetController()->SelectTab(GetTabInterface(),
+                                                       GetGestureDetail(event));
+        }
+        collection_node_->GetController()->ExtendSelectionTo(
+            adjacent_tab_view->GetTabInterface());
+        base::RecordAction(
+            base::UserMetricsAction("TabMultiSelect_ExtendSelectionTo"));
+        if (views::FocusManager* focus_manager = GetFocusManager()) {
+          focus_manager->SetFocusedViewWithReason(
+              adjacent_tab_view,
+              views::FocusManager::FocusChangeReason::kFocusTraversal);
+        }
+      }
+    }
+    return true;
+  }
+
   if (event.key_code() == ui::VKEY_RETURN && !selected_) {
     collection_node_->GetController()->SelectTab(GetTabInterface(),
                                                  GetGestureDetail(event));
@@ -552,8 +585,7 @@ bool TabView::OnKeyPressed(const ui::KeyEvent& event) {
   }
 
   std::optional<event_utils::ReorderDirection> reorder_direction =
-      event_utils::GetReorderCommandForKeyboardEvent(
-          event, views::LayoutOrientation::kVertical);
+      event_utils::GetReorderCommandForKeyboardEvent(event, layout_orientation);
   if (!reorder_direction) {
     return false;
   }
@@ -754,7 +786,9 @@ void TabView::OnGestureEvent(ui::GestureEvent* event) {
 
     case ui::EventType::kGestureLongTap: {
       // Show context menu on release after long press.
-      controller->ShowTabContextMenu(collection_node_, event->location(),
+      gfx::Point point_in_screen = event->location();
+      views::View::ConvertPointToScreen(this, &point_in_screen);
+      controller->ShowTabContextMenu(collection_node_, point_in_screen,
                                      ui::mojom::MenuSourceType::kTouch);
       event->SetHandled();
       break;
@@ -1333,7 +1367,9 @@ const tabs::TabInterface* TabView::GetTabInterface() const {
 
 void TabView::UpdateHoverCard(HoverCardAnchorTarget* target,
                               int hover_card_update_type) {
-  CHECK(collection_node_);
+  if (!collection_node_ || !collection_node_->GetController()) {
+    return;
+  }
 
   if (TabHoverCardController* hover_card_controller =
           collection_node_->GetController()->GetHoverCardController()) {

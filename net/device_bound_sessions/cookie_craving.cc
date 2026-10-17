@@ -385,7 +385,6 @@ CookieCravingDisplay CookieCraving::ToDisplay() const {
 
 bool CookieCraving::ShouldIncludeForRequest(
     DbscRequest& request,
-    const FirstPartySetMetadata& first_party_set_metadata,
     const CookieOptions& options,
     const CookieAccessParams& params) const {
   if (!IncludeForRequestURL(request.url(), options, params)
@@ -417,13 +416,11 @@ bool CookieCraving::ShouldIncludeForRequest(
   // whether to include cookies on the WebSocket handshake. That makes
   // it safe in this very limited context to expose the `URLRequest`.
   return request.network_delegate()->AnnotateAndMoveUserBlockedCookies(
-      *request.unnormalized_request(), first_party_set_metadata,
-      included_cravings, excluded_cravings);
+      *request.unnormalized_request(), included_cravings, excluded_cravings);
 }
 
 bool CookieCraving::CanSetBoundCookie(
     DbscRequest& request,
-    const FirstPartySetMetadata& first_party_set_metadata,
     CookieOptions* options) const {
   // TODO(crbug.com/438783631): Refactor this.
   // The below is all copied from
@@ -445,9 +442,9 @@ bool CookieCraving::CanSetBoundCookie(
   // cookie inclusion logic has to handle this already when deciding
   // whether to include cookies on the WebSocket handshake. That makes
   // it safe in this very limited context to expose the `URLRequest`.
-  if (!request.network_delegate()->CanSetCookie(
-          *request.unnormalized_request(), *canonical_cookie, options,
-          first_party_set_metadata, &status)) {
+  if (!request.network_delegate()->CanSetCookie(*request.unnormalized_request(),
+                                                *canonical_cookie, options,
+                                                &status)) {
     return false;
   }
 

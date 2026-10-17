@@ -49,8 +49,6 @@ class WindowController;
 // Provides various utility functions that help manipulate tabs.
 class ExtensionTabUtil {
  public:
-  static constexpr char kTabNotFoundError[] = "No tab with id: *.";
-
   static constexpr char kNoCrashBrowserError[] =
       "I'm sorry. I'm afraid I can't do that.";
   static constexpr char kCanOnlyMoveTabsWithinNormalWindowsError[] =
@@ -74,6 +72,8 @@ class ExtensionTabUtil {
       "You cannot create new tabs while in locked fullscreen mode.";
   static constexpr char kCannotNavigateToChromeUntrusted[] =
       "Cannot navigate to a chrome-untrusted:// page.";
+  static constexpr char kCannotNavigateToInternalPage[] =
+      "Cannot navigate to internal page.";
   static constexpr char kFileUrlsNotAllowedInExtensionNavigations[] =
       "Cannot navigate to a file URL without local file access.";
 

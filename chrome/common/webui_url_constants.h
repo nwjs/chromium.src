@@ -81,6 +81,7 @@ inline constexpr char kChromeUIConstrainedHTMLTestURL[] =
     "chrome://constrained-test/";
 inline constexpr char kChromeUIContactInfoPath[] = "/contactInfo";
 inline constexpr char kChromeUIContextHubHost[] = "context-hub";
+inline constexpr char kChromeUIContextHubURL[] = "chrome://context-hub/";
 #if !BUILDFLAG(IS_ANDROID)
 inline constexpr char kChromeUIContextualCueingInternalsHost[] =
     "contextual-cueing-internals";
@@ -596,6 +597,12 @@ inline constexpr char kSearchSubPage[] = "search";
 inline constexpr char kSecuritySubPage[] = "security";
 inline constexpr char kSignOutSubPage[] = "signOut";
 inline constexpr char kSiteDetailsSubpage[] = "content/siteDetails";
+#if BUILDFLAG(IS_ANDROID)
+// Android shows settings in a native page rather than the settings WebUI, and
+// does not nest the site details page under the content settings page. Keep in
+// sync with the route registered in SettingsFragmentRegistry.java.
+inline constexpr char kAndroidSiteDetailsSubpage[] = "siteDetails";
+#endif  // BUILDFLAG(IS_ANDROID)
 inline constexpr char kSuggestionsFromGeminiSubPage[] = "enhancedAutofill";
 inline constexpr char kSuggestionsSubPage[] = "ai/suggestions";
 inline constexpr char kSyncSetupSubPage[] = "syncSetup";

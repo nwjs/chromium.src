@@ -154,7 +154,6 @@ public class LocationBarCoordinator
     private StatusCoordinator mStatusCoordinator;
     private FuseboxCoordinator mFuseboxCoordinator;
     private final WindowAndroid mWindowAndroid;
-    private final Callback<Boolean> mTextWrappingListener;
     private final Callback<@FuseboxState Integer> mOnFuseboxStateChange =
             this::onFuseboxStateChange;
     private final Callback<@PopupState Integer> mOnPopupStateChange = this::onPopupStateChange;
@@ -381,6 +380,15 @@ public class LocationBarCoordinator
         }
         // TODO(crbug.com/40733049): Inject LocaleManager instance to LocationBarCoordinator instead
         // of using the singleton.
+        LocationBarNavigator locationBarNavigator =
+                new LocationBarNavigator(
+                        locationBarDataProvider,
+                        profileObservableSupplier,
+                        templateUrlServiceSupplier,
+                        tabModelSelectorSupplier,
+                        overrideUrlLoadingDelegate,
+                        LocaleManager.getInstance(),
+                        omniboxUma);
         mLocationBarMediator =
                 new LocationBarMediator(
                         context,
@@ -389,17 +397,14 @@ public class LocationBarCoordinator
                         mResourceProvider,
                         uiOverrides,
                         profileObservableSupplier,
-                        overrideUrlLoadingDelegate,
-                        LocaleManager.getInstance(),
+                        locationBarNavigator,
                         templateUrlServiceSupplier,
                         backKeyBehavior,
                         windowAndroid,
                         isTabletWindow() && isTabletLayout(),
                         LensController.getInstance(),
-                        omniboxUma,
                         isToolbarMicEnabledSupplier,
                         mOmniboxDropdownEmbedderImpl,
-                        tabModelSelectorSupplier,
                         browserControlsStateProvider,
                         modalDialogManagerSupplier,
                         mPageZoomIndicatorCoordinator,
@@ -431,9 +436,8 @@ public class LocationBarCoordinator
 
         initializeBoundsEllipsis(locationBarDataProvider);
 
-        // Set up text wrapping listener for FuseboxCoordinator
-        mTextWrappingListener = this::onTextWrappingChanged;
-        mUrlCoordinator.addTextWrappingChangeListener(mTextWrappingListener);
+        mFuseboxCoordinator.setUrlTextWrappingSupplier(
+                mUrlCoordinator.getUrlTextWrappingSupplier());
 
         mAutocompleteCoordinator =
                 new AutocompleteCoordinator(
@@ -456,7 +460,8 @@ public class LocationBarCoordinator
                         uiOverrides,
                         windowAndroid,
                         mDeferredIMEWindowInsetApplicationCallback,
-                        mFuseboxCoordinator);
+                        mFuseboxCoordinator,
+                        mUrlCoordinator.getUrlTextWrappingSupplier());
         StatusView statusView = mLocationBarLayout.findViewById(R.id.location_bar_status);
         mStatusCoordinator =
                 new StatusCoordinator(
@@ -636,7 +641,6 @@ public class LocationBarCoordinator
         }
 
         mLocationBarMediator.removeUrlFocusChangeListener(mUrlCoordinator);
-        mUrlCoordinator.removeTextWrappingChangeListener(mTextWrappingListener);
         mUrlCoordinator.destroy();
         mUrlCoordinator = null;
 
@@ -1006,14 +1010,6 @@ public class LocationBarCoordinator
      */
     public void setUrlBarFocusable(boolean focusable) {
         mUrlCoordinator.setAllowFocus(focusable);
-    }
-
-    /* package */ void onTextWrappingChanged(boolean isWrapping) {
-        if (mFuseboxCoordinator != null) {
-            mFuseboxCoordinator.onFuseboxTextWrappingChanged(isWrapping);
-        }
-        mLocationBarMediator.setIsTextWrapping(isWrapping);
-        mLocationBarMediator.updateButtonVisibility();
     }
 
     /* package */ void onFuseboxStateChange(@FuseboxState int newState) {
@@ -1527,7 +1523,7 @@ public class LocationBarCoordinator
         mLocationBarMediator.setLensControllerForTesting(lensController);
     }
 
-    /* package */ LocationBarMediator getMediatorForTesting() {
+    public LocationBarMediator getMediatorForTesting() {
         return mLocationBarMediator;
     }
 

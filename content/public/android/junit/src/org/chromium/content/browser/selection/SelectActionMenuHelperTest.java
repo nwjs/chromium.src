@@ -7,12 +7,10 @@ package org.chromium.content.browser.selection;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
@@ -51,6 +49,8 @@ public class SelectActionMenuHelperTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
     @Mock private SelectActionMenuHelper.TextSelectionCapabilitiesDelegate mDelegate;
     @Mock private Context mContext;
+    @Mock private TypedArray mTypedArray;
+    @Mock private PackageManager mPackageManager;
 
     private static class TestSelectionActionMenuDelegate implements SelectionActionMenuDelegate {
 
@@ -101,9 +101,8 @@ public class SelectActionMenuHelperTest {
     @Before
     public void setUp() {
         // Used to mock out getting menu item icons.
-        TypedArray a = mock(TypedArray.class);
-        when(mContext.obtainStyledAttributes(any(int[].class))).thenReturn(a);
-        when(a.getResourceId(anyInt(), anyInt())).thenReturn(0);
+        when(mContext.obtainStyledAttributes(any(int[].class))).thenReturn(mTypedArray);
+        when(mTypedArray.getResourceId(anyInt(), anyInt())).thenReturn(0);
 
         when(mDelegate.canCut()).thenReturn(true);
         when(mDelegate.canCopy()).thenReturn(true);
@@ -118,14 +117,14 @@ public class SelectActionMenuHelperTest {
     @Feature({"TextInput"})
     public void testDefaultMenuItemsOrder_floating() {
         PendingSelectionMenu pendingMenu = new PendingSelectionMenu(mContext);
-        pendingMenu.addAll(
-                SelectActionMenuHelper.getDefaultItems(
-                        mContext,
-                        mDelegate,
-                        MenuType.FLOATING,
-                        /* isSelectionReadOnly= */ true,
-                        "test",
-                        null));
+        SelectActionMenuHelper.addDefaultItems(
+                pendingMenu,
+                mContext,
+                mDelegate,
+                MenuType.FLOATING,
+                /* isSelectionReadOnly= */ true,
+                "test",
+                null);
         List<SelectionMenuItem> menuItems = pendingMenu.getMenuItemsForTesting();
         assertEquals(7, menuItems.size());
         assertEquals(R.id.select_action_menu_cut, menuItems.get(0).id);
@@ -144,14 +143,14 @@ public class SelectActionMenuHelperTest {
     @Feature({"TextInput"})
     public void testDefaultMenuItemsAreSpacedForInterposition_floating() {
         PendingSelectionMenu pendingMenu = new PendingSelectionMenu(mContext);
-        pendingMenu.addAll(
-                SelectActionMenuHelper.getDefaultItems(
-                        mContext,
-                        mDelegate,
-                        MenuType.FLOATING,
-                        /* isSelectionReadOnly= */ false,
-                        "test",
-                        null));
+        SelectActionMenuHelper.addDefaultItems(
+                pendingMenu,
+                mContext,
+                mDelegate,
+                MenuType.FLOATING,
+                /* isSelectionReadOnly= */ false,
+                "test",
+                null);
         List<SelectionMenuItem> menuItems = pendingMenu.getMenuItemsForTesting();
         assertEquals(7, menuItems.size());
         // Consecutive default items are spaced out (rather than assigned consecutive integers) so
@@ -167,14 +166,15 @@ public class SelectActionMenuHelperTest {
     @Feature({"TextInput"})
     public void testDefaultMenuItemsAreSpacedForInterposition_dropdown() {
         PendingSelectionMenu pendingMenu = new PendingSelectionMenu(mContext);
-        pendingMenu.addAll(
-                SelectActionMenuHelper.getDefaultItems(
-                        mContext,
-                        mDelegate,
-                        MenuType.DROPDOWN,
-                        /* isSelectionReadOnly= */ false,
-                        "test",
-                        null));
+
+        SelectActionMenuHelper.addDefaultItems(
+                pendingMenu,
+                mContext,
+                mDelegate,
+                MenuType.DROPDOWN,
+                /* isSelectionReadOnly= */ false,
+                "test",
+                null);
         List<SelectionMenuItem> menuItems = pendingMenu.getMenuItemsForTesting();
         assertEquals(7, menuItems.size());
 
@@ -211,14 +211,14 @@ public class SelectActionMenuHelperTest {
     @Feature({"TextInput"})
     public void testDefaultMenuItemsOrder_dropdown() {
         PendingSelectionMenu pendingMenu = new PendingSelectionMenu(mContext);
-        pendingMenu.addAll(
-                SelectActionMenuHelper.getDefaultItems(
-                        mContext,
-                        mDelegate,
-                        MenuType.DROPDOWN,
-                        /* isSelectionReadOnly= */ true,
-                        "test",
-                        null));
+        SelectActionMenuHelper.addDefaultItems(
+                pendingMenu,
+                mContext,
+                mDelegate,
+                MenuType.DROPDOWN,
+                /* isSelectionReadOnly= */ true,
+                "test",
+                null);
         List<SelectionMenuItem> menuItems = pendingMenu.getMenuItemsForTesting();
         assertEquals(3, menuItems.size());
         assertEquals(R.id.select_action_menu_copy, menuItems.get(0).id);
@@ -231,14 +231,15 @@ public class SelectActionMenuHelperTest {
     public void testDefaultMenuItemsOrder_editable_cannotSelectAll() {
         when(mDelegate.canSelectAll(MenuType.DROPDOWN)).thenReturn(false);
         PendingSelectionMenu pendingMenu = new PendingSelectionMenu(mContext);
-        pendingMenu.addAll(
-                SelectActionMenuHelper.getDefaultItems(
-                        mContext,
-                        mDelegate,
-                        MenuType.DROPDOWN,
-                        /* isSelectionReadOnly= */ false,
-                        "test",
-                        null));
+
+        SelectActionMenuHelper.addDefaultItems(
+                pendingMenu,
+                mContext,
+                mDelegate,
+                MenuType.DROPDOWN,
+                /* isSelectionReadOnly= */ false,
+                "test",
+                null);
         List<SelectionMenuItem> menuItems = pendingMenu.getMenuItemsForTesting();
         assertEquals(7, menuItems.size());
         assertEquals(R.id.select_action_menu_cut, menuItems.get(0).id);
@@ -257,14 +258,15 @@ public class SelectActionMenuHelperTest {
         SelectionActionMenuDelegate selectionActionMenuDelegate =
                 new TestSelectionActionMenuDelegate();
         PendingSelectionMenu pendingMenu = new PendingSelectionMenu(mContext);
-        pendingMenu.addAll(
-                SelectActionMenuHelper.getDefaultItems(
-                        mContext,
-                        mDelegate,
-                        MenuType.DROPDOWN,
-                        /* isSelectionReadOnly= */ true,
-                        "test",
-                        selectionActionMenuDelegate));
+
+        SelectActionMenuHelper.addDefaultItems(
+                pendingMenu,
+                mContext,
+                mDelegate,
+                MenuType.DROPDOWN,
+                /* isSelectionReadOnly= */ true,
+                "test",
+                selectionActionMenuDelegate);
         List<SelectionMenuItem> menuItems = pendingMenu.getMenuItemsForTesting();
         assertEquals(3, menuItems.size());
         assertEquals(R.id.select_action_menu_copy, menuItems.get(0).id);
@@ -278,14 +280,15 @@ public class SelectActionMenuHelperTest {
         SelectionActionMenuDelegate selectionActionMenuDelegate =
                 new TestSelectionActionMenuDelegate();
         PendingSelectionMenu pendingMenu = new PendingSelectionMenu(mContext);
-        pendingMenu.addAll(
-                SelectActionMenuHelper.getDefaultItems(
-                        mContext,
-                        mDelegate,
-                        MenuType.FLOATING,
-                        /* isSelectionReadOnly= */ true,
-                        "test",
-                        selectionActionMenuDelegate));
+
+        SelectActionMenuHelper.addDefaultItems(
+                pendingMenu,
+                mContext,
+                mDelegate,
+                MenuType.FLOATING,
+                /* isSelectionReadOnly= */ true,
+                "test",
+                selectionActionMenuDelegate);
         List<SelectionMenuItem> menuItems = pendingMenu.getMenuItemsForTesting();
         assertEquals(7, menuItems.size());
         assertEquals(R.id.select_action_menu_cut, menuItems.get(0).id);
@@ -301,14 +304,14 @@ public class SelectActionMenuHelperTest {
     @Feature({"TextInput"})
     public void testDefaultMenuItemsOrder_editable() {
         PendingSelectionMenu pendingMenu = new PendingSelectionMenu(mContext);
-        pendingMenu.addAll(
-                SelectActionMenuHelper.getDefaultItems(
-                        mContext,
-                        mDelegate,
-                        MenuType.DROPDOWN,
-                        /* isSelectionReadOnly= */ false,
-                        "test",
-                        null));
+        SelectActionMenuHelper.addDefaultItems(
+                pendingMenu,
+                mContext,
+                mDelegate,
+                MenuType.DROPDOWN,
+                /* isSelectionReadOnly= */ false,
+                "test",
+                null);
         List<SelectionMenuItem> menuItems = pendingMenu.getMenuItemsForTesting();
         assertEquals(7, menuItems.size());
         assertEquals(R.id.select_action_menu_cut, menuItems.get(0).id);
@@ -328,42 +331,44 @@ public class SelectActionMenuHelperTest {
 
     @Test
     @Feature({"TextInput"})
-    public void testGetTextProcessingItems() {
+    public void testAddTextProcessingItems() {
         ContextUtils.initApplicationContextForTests(mContext);
         List<ResolveInfo> list2 = new ArrayList<>();
         ResolveInfo resolveInfo2 = createResolveInfoWithActivityInfo("ProcessTextActivity2", true);
         list2.add(resolveInfo2);
-        PackageManager pm = mock(PackageManager.class);
-        doReturn(pm).when(mContext).getPackageManager();
-        when(pm.queryIntentActivities(any(Intent.class), anyInt())).thenReturn(list2);
+        doReturn(mPackageManager).when(mContext).getPackageManager();
+        when(mPackageManager.queryIntentActivities(any(Intent.class), anyInt())).thenReturn(list2);
         SelectionActionMenuDelegate selectionActionMenuDelegate =
                 new TestSelectionActionMenuDelegate();
-        List<SelectionMenuItem> textProcessingItems =
-                SelectActionMenuHelper.getTextProcessingItems(
-                        mContext, MenuType.FLOATING, false, true, "test", true, null);
-        assertNotNull(textProcessingItems);
-        assertEquals(1, textProcessingItems.size());
+        PendingSelectionMenu pendingMenu = new PendingSelectionMenu(mContext);
+        SelectActionMenuHelper.addTextProcessingItems(
+                pendingMenu, mContext, MenuType.FLOATING, false, true, "test", true, null);
+        List<SelectionMenuItem> menuItems = pendingMenu.getMenuItemsForTesting();
+        assertNotNull(menuItems);
+        assertEquals(1, menuItems.size());
 
-        textProcessingItems =
-                SelectActionMenuHelper.getTextProcessingItems(
-                        mContext,
-                        MenuType.FLOATING,
-                        false,
-                        true,
-                        "test",
-                        true,
-                        selectionActionMenuDelegate);
-        assertNotNull(textProcessingItems);
-        assertTrue(textProcessingItems.isEmpty());
+        pendingMenu = new PendingSelectionMenu(mContext);
+        SelectActionMenuHelper.addTextProcessingItems(
+                pendingMenu,
+                mContext,
+                MenuType.FLOATING,
+                false,
+                true,
+                "test",
+                true,
+                selectionActionMenuDelegate);
+        menuItems = pendingMenu.getMenuItemsForTesting();
+        assertNotNull(menuItems);
+        assertTrue(menuItems.isEmpty());
     }
 
     @Test
     @Feature({"TextInput"})
-    public void testGetTextProcessingItems_emptySelection() {
-        List<SelectionMenuItem> textProcessingItems =
-                SelectActionMenuHelper.getTextProcessingItems(
-                        mContext, MenuType.FLOATING, false, true, "", true, null);
-        assertNull(textProcessingItems);
+    public void testAddTextProcessingItems_emptySelection() {
+        PendingSelectionMenu pendingMenu = new PendingSelectionMenu(mContext);
+        SelectActionMenuHelper.addTextProcessingItems(
+                pendingMenu, mContext, MenuType.FLOATING, false, true, "", true, null);
+        assertTrue(pendingMenu.getMenuItemsForTesting().isEmpty());
     }
 
     @Test

@@ -9,10 +9,12 @@
 #include <string>
 
 #include "base/functional/callback.h"
+#include "base/types/expected.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/payments/legal_message_line.h"
 #include "components/consent_auditor/consent_auditor.h"
 #include "components/keyed_service/core/keyed_service.h"
+#include "components/wallet/core/browser/network/wallet_http_client.h"
 
 namespace autofill {
 
@@ -22,10 +24,16 @@ namespace autofill {
 // to issue UpsertPass and GetUnmaskedPass requests.
 class WalletPassAccessManager : public KeyedService {
  public:
+  using UserEligibility = wallet::WalletHttpClient::UserEligibility;
+
   // Information retrieved from a `GetDetailsForUpsertPass` request.
   struct GetDetailsForUpsertPassResponse {
     LegalMessageLines legal_message_lines;
     std::string context_token;
+    UserEligibility user_eligibility = UserEligibility::kUnspecified;
+
+    friend bool operator==(const GetDetailsForUpsertPassResponse&,
+                           const GetDetailsForUpsertPassResponse&) = default;
   };
 
   // Callback for save and update requests. On success, it returns
@@ -42,9 +50,11 @@ class WalletPassAccessManager : public KeyedService {
 
   // Callback for `GetDetailsForUpsertPass` requests. On success, it returns
   // the response containing the legal disclosure message lines and context
-  // token. Returns `std::nullopt` on failure.
-  using GetDetailsForUpsertPassCallback =
-      base::OnceCallback<void(std::optional<GetDetailsForUpsertPassResponse>)>;
+  // token. On failure, it returns a
+  // `wallet::WalletHttpClient::WalletRequestError`.
+  using GetDetailsForUpsertPassCallback = base::OnceCallback<void(
+      base::expected<GetDetailsForUpsertPassResponse,
+                     wallet::WalletHttpClient::WalletRequestError>)>;
 
   // Issues an save request to the Wallet backend for the given `entity`.
   // Notably, the returned entity will always have a new entity id.
@@ -67,10 +77,27 @@ class WalletPassAccessManager : public KeyedService {
       const EntityInstance::EntityId& entity_id,
       GetUnmaskedEntityInstanceCallback callback) = 0;
 
+  // Pre-fetches the legal disclosure messages and context token for
+  // `entity_type` in the background (typically called when entering an
+  // add settings flow) and populates an internal cache so that a subsequent
+  // call to `GetDetailsForUpsertPass` resolves immediately. If a request is
+  // already in flight or cached, this is a no-op.
+  virtual void PreloadDetailsForUpsertPass(EntityType entity_type) = 0;
+
   // Issues a `GetDetailsForUpsertPass` request to the Wallet backend to fetch
   // legal disclosure messages and a context token for audit logging prior to
-  // upserting a public non-readonly pass.
+  // upserting a public non-readonly pass of type `entity_type`.
+  //
+  // If cached details are available from a previous
+  // `PreloadDetailsForUpsertPass` call, the cached entry is consumed and
+  // `callback` is invoked immediately.
+  //
+  // If no cached details are present, a network request is dispatched to the
+  // Wallet backend, and the resulting token is handed directly to `callback`
+  // without being retained in the cache. If a background preload is already in
+  // flight, this request runs concurrently to obtain its own dedicated token.
   virtual void GetDetailsForUpsertPass(
+      EntityType entity_type,
       GetDetailsForUpsertPassCallback callback) = 0;
 };
 

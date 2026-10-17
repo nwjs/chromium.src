@@ -37,6 +37,7 @@
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
+#include "chrome/browser/devtools/devtools_contents_resizing_strategy.h"
 #include "chrome/browser/download/bubble/download_bubble_ui_controller.h"
 #include "chrome/browser/extensions/chrome_test_extension_loader.h"
 #include "chrome/browser/extensions/scoped_test_mv2_enabler.h"
@@ -59,11 +60,13 @@
 #include "chrome/browser/ui/views/frame/app_menu_button.h"
 #include "chrome/browser/ui/views/frame/browser_frame_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/frame/contents_container_view.h"
 #include "chrome/browser/ui/views/frame/layout/browser_view_layout.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
 #include "chrome/browser/ui/views/infobars/infobar_view.h"
-#include "chrome/browser/ui/views/page_action/test_support/page_action_test_support.h"
+#include "chrome/browser/ui/views/page_action/page_action_view.h"
+#include "chrome/browser/ui/views/page_action/test_support/page_action_test_accessor.h"
 #include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container.h"
 #include "chrome/browser/ui/views/web_apps/frame_toolbar/web_app_content_settings_container.h"
 #include "chrome/browser/ui/views/web_apps/frame_toolbar/web_app_frame_toolbar_test_helper.h"
@@ -119,7 +122,6 @@
 #include "content/public/common/page_zoom.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
-#include "content/public/test/fenced_frame_test_util.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "content/public/test/test_utils.h"
 #include "content/public/test/theme_change_waiter.h"
@@ -133,6 +135,7 @@
 #include "third_party/blink/public/common/input/web_keyboard_event.h"
 #include "third_party/blink/public/common/widget/constants.h"
 #include "third_party/blink/public/mojom/manifest/display_mode.mojom.h"
+#include "third_party/blink/public/mojom/page/draggable_region.mojom.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "third_party/skia/include/core/SkRegion.h"
 #include "ui/accessibility/ax_enums.mojom.h"
@@ -159,6 +162,7 @@
 #include "ui/views/view_observer.h"
 #include "ui/views/view_utils.h"
 #include "ui/views/widget/any_widget_observer.h"
+#include "ui/views/widget/unique_widget_ptr.h"
 #include "ui/views/window/frame_view.h"
 #include "url/gurl.h"
 #include "url/origin.h"
@@ -376,9 +380,9 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest, SpaceConstrained) {
   for (auto action_id :
        web_app::AppBrowserController::From(helper()->app_browser())
            ->GetTitleBarPageActions()) {
-    auto* provider = helper()->web_app_frame_toolbar();
-    auto* page_action_view = page_actions::GetIconLabelBubbleViewForTesting(
-        provider->GetPageActionViewInterface(action_id), action_id);
+    auto* page_action_view =
+        page_actions::PageActionTestAccessor(helper()->app_browser(), action_id)
+            .view();
     ASSERT_NE(nullptr, page_action_view);
     EXPECT_EQ(page_action_view->parent(),
               toolbar_right_container->page_action_container());
@@ -518,6 +522,10 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest,
                        NoPinnedActionsByDefault) {
   const GURL app_url("https://test.org");
   helper()->InstallAndLaunchWebApp(browser(), app_url);
+
+  EXPECT_EQ(BrowserWindow::FromBrowser(helper()->app_browser())
+                ->GetPinnedToolbarActions(),
+            nullptr);
 
   CHECK(!features::IsWebUIPinnedToolbarActionsEnabled())
       << "Test needs modification to support WebUIPinnedToolbarActions";
@@ -1455,9 +1463,6 @@ class WebAppFrameToolbarBrowserTest_WindowControlsOverlay
     return helper()->GetXYWidthHeightRect(web_contents, kRectValueList, "rect");
   }
 
- protected:
-  content::test::FencedFrameTestHelper fenced_frame_helper_;
-
  private:
   base::ScopedTempDir temp_dir_;
   base::test::ScopedFeatureList no_toggle_feature_list_;
@@ -1856,7 +1861,7 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
   auto widget_in_screen_bounds = widget->GetWindowBoundsInScreen();
   gfx::Point point_in_widget = widget_in_screen_bounds.CenterPoint();
   views::View::ConvertPointToTarget(
-      browser_view, browser_view->contents_web_view(), &point_in_widget);
+      browser_view, browser_view->GetContentsView(), &point_in_widget);
   EXPECT_TRUE(web_app::AppBrowserController::From(browser_view->browser())
                   ->draggable_region()
                   .has_value());
@@ -1874,6 +1879,100 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
   EXPECT_FALSE(browser_view->ShouldDescendIntoChildForEventHandling(
       browser_view->GetWidget()->GetNativeView(), point_below_widget));
   EXPECT_EQ(frame_view->NonClientHitTest(point_below_widget), HTCAPTION);
+}
+
+// Similar to DraggableRegionsIgnoredForOwnedWidgets above, but exercises the
+// case where the active contents view does not start at the BrowserView
+// origin (for example when left insets are created by side-docked DevTools,
+// or top insets are created by toolbars, infobars, or the find bar). The
+// owned-widget hit test in ShouldDescendIntoChildForEventHandling must use
+// BrowserView coordinates so that clicks on owned widgets are still routed into
+// them.
+IN_PROC_BROWSER_TEST_F(
+    WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
+    DraggableRegionsIgnoredForOwnedWidgetsWithContentsOffset) {
+  if (views::test::IsOzoneBubblesUsingPlatformWidgets()) {
+    GTEST_SKIP();
+  }
+  auto app_id = InstallAndLaunchFullyDraggableWebApp();
+  ToggleWindowControlsOverlayAndWait();
+  BrowserView* browser_view = helper()->browser_view();
+  auto* app_controller =
+      web_app::AppBrowserController::From(browser_view->browser());
+  ASSERT_TRUE(app_controller->draggable_region().has_value());
+
+  // Ensure the window is large enough to host both an offset contents view and
+  // an overlapping owned widget.
+  browser_view->GetWidget()->SetBounds(gfx::Rect(0, 0, 800, 600));
+  views::test::RunScheduledLayout(browser_view);
+
+  // Give the active contents view a non-zero origin (X and Y offset) within
+  // the BrowserView, matching what happens when DevTools is docked on the left
+  // and UI elements like toolbars or infobars create top insets.
+  constexpr int kContentsTopInset = 150;
+  constexpr int kContentsLeftInset = 100;
+  const gfx::Size container_size =
+      browser_view->GetActiveContentsContainerView()->size();
+  ASSERT_GT(container_size.height(), kContentsTopInset);
+  ASSERT_GT(container_size.width(), kContentsLeftInset);
+  browser_view->GetActiveContentsContainerView()->SetContentsResizingStrategy(
+      DevToolsContentsResizingStrategy(
+          devtools::DockSide::kLeft,
+          gfx::Rect(kContentsLeftInset, kContentsTopInset,
+                    container_size.width() - kContentsLeftInset,
+                    container_size.height() - kContentsTopInset)));
+  views::test::RunScheduledLayout(browser_view);
+  gfx::Point contents_origin_in_browser_view;
+  views::View::ConvertPointToTarget(browser_view->GetContentsView(),
+                                    browser_view,
+                                    &contents_origin_in_browser_view);
+  ASSERT_GT(contents_origin_in_browser_view.x(), 0);
+  ASSERT_GT(contents_origin_in_browser_view.y(), 0);
+
+  // Extend the renderer-supplied draggable region so it covers any point that
+  // can map into the (now offset) contents view, ensuring the owned-widget
+  // branch of ShouldDescendIntoChildForEventHandling is exercised below.
+  std::vector<blink::mojom::DraggableRegionPtr> regions;
+  regions.push_back(blink::mojom::DraggableRegion::New(
+      gfx::Rect(-5000, -5000, 10000, 10000), /*draggable=*/true));
+  app_controller->DraggableRegionsChanged(regions,
+                                          browser_view->GetActiveWebContents());
+
+  // Show a child widget owned by the browser widget, positioned just below the
+  // top of the BrowserView (above the offset contents view), standing in for a
+  // permission prompt or similar bubble.
+  views::Widget::InitParams params(
+      views::Widget::InitParams::CLIENT_OWNS_WIDGET,
+      views::Widget::InitParams::TYPE_POPUP);
+  params.parent = browser_view->GetWidgetForAnchoring()->GetNativeView();
+  gfx::Rect widget_in_screen_bounds(0, 5, 200, 100);
+  views::View::ConvertRectToScreen(browser_view, &widget_in_screen_bounds);
+  params.bounds = widget_in_screen_bounds;
+  views::UniqueWidgetPtr owned_widget =
+      std::make_unique<views::Widget>(std::move(params));
+  owned_widget->Show();
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return owned_widget->IsVisible(); }));
+  widget_in_screen_bounds = owned_widget->GetWindowBoundsInScreen();
+
+  // Pick a point near the top-left of the owned widget so that any incorrect
+  // vertical or horizontal offset applied during the owned-widget hit test
+  // would move the tested point outside the widget bounds.
+  const gfx::Point click_in_screen(widget_in_screen_bounds.x() + 5,
+                                   widget_in_screen_bounds.y() + 5);
+  ASSERT_TRUE(widget_in_screen_bounds.Contains(click_in_screen));
+  gfx::Point click_in_browser_view = click_in_screen;
+  views::View::ConvertPointFromScreen(browser_view, &click_in_browser_view);
+  ASSERT_TRUE(
+      browser_view->WidgetOwnedByAnchorContainsPoint(click_in_browser_view));
+
+  // ShouldDescendIntoChildForEventHandling receives the point in the widget
+  // root view's coordinate space.
+  gfx::Point click_in_root_view = click_in_screen;
+  views::View::ConvertPointFromScreen(browser_view->GetWidget()->GetRootView(),
+                                      &click_in_root_view);
+  EXPECT_TRUE(browser_view->ShouldDescendIntoChildForEventHandling(
+      browser_view->GetWidget()->GetNativeView(), click_in_root_view));
 }
 
 IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
@@ -2034,78 +2133,6 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
   EXPECT_TRUE(future.Wait());
   web_app::LaunchWebAppBrowserAndWait(browser()->GetProfile(), app_id);
   // If there's no crash, the test has passed.
-}
-
-IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
-                       DraggableRegionNotResetByFencedFrameNavigation) {
-  InstallAndLaunchWebApp();
-  ToggleWindowControlsOverlayAndWait();
-
-  BrowserView* browser_view = helper()->browser_view();
-  views::FrameView* frame_view =
-      browser_view->GetWidget()->non_client_view()->frame_view();
-
-  gfx::Point draggable_point(100, 100);
-  views::View::ConvertPointToTarget(browser_view->contents_web_view(),
-                                    frame_view, &draggable_point);
-
-  // Create a fenced frame and ensure that draggable region doesn't clear after
-  // the fenced frame navigation.
-  const GURL fenced_frame_url =
-      embedded_test_server()->GetURL("/fenced_frames/title1.html");
-  content::RenderFrameHost* fenced_frame_rfh =
-      fenced_frame_helper_.CreateFencedFrame(
-          browser_view->GetActiveWebContents()->GetPrimaryMainFrame(),
-          fenced_frame_url);
-  ASSERT_NE(nullptr, fenced_frame_rfh);
-  EXPECT_FALSE(browser_view->ShouldDescendIntoChildForEventHandling(
-      browser_view->GetWidget()->GetNativeView(), draggable_point));
-}
-
-// TODO(crbug.com/405233966): Re-enable this test
-#if BUILDFLAG(IS_MAC)
-#define MAYBE_FencedFrame DISABLED_FencedFrame
-#else
-#define MAYBE_FencedFrame FencedFrame
-#endif
-IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
-                       MAYBE_FencedFrame) {
-  InstallAndLaunchWebApp();
-  ToggleWindowControlsOverlayAndWait();
-
-  BrowserView* browser_view = helper()->browser_view();
-  gfx::Rect bounds = GetWindowControlOverlayBoundingClientRect();
-  EXPECT_TRUE(GetWindowControlOverlayVisibility());
-  EXPECT_FALSE(bounds.IsEmpty());
-  EXPECT_NE(0, bounds.width());
-  EXPECT_NE(0, bounds.height());
-
-  // Ensure window controls overlay values are not sent to a fenced frame.
-  const GURL fenced_frame_url =
-      embedded_test_server()->GetURL("/fenced_frames/title1.html");
-
-  content::RenderFrameHost* fenced_frame_rfh =
-      fenced_frame_helper_.CreateFencedFrame(
-          browser_view->GetActiveWebContents()->GetPrimaryMainFrame(),
-          fenced_frame_url);
-  ASSERT_NE(nullptr, fenced_frame_rfh);
-
-  EXPECT_EQ(false, EvalJs(fenced_frame_rfh,
-                          "window.navigator.windowControlsOverlay.visible"));
-  EXPECT_EQ(
-      0,
-      EvalJs(fenced_frame_rfh,
-             "window.navigator.windowControlsOverlay.getTitlebarAreaRect().x"));
-  EXPECT_EQ(
-      0,
-      EvalJs(fenced_frame_rfh,
-             "window.navigator.windowControlsOverlay.getTitlebarAreaRect().y"));
-  EXPECT_EQ(0, EvalJs(fenced_frame_rfh,
-                      "window.navigator.windowControlsOverlay."
-                      "getTitlebarAreaRect().width"));
-  EXPECT_EQ(0, EvalJs(fenced_frame_rfh,
-                      "window.navigator.windowControlsOverlay."
-                      "getTitlebarAreaRect().height"));
 }
 
 // Extensions in  ChromeOS are not in the titlebar.

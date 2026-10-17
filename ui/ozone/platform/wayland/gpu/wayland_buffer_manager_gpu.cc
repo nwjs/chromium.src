@@ -281,8 +281,8 @@ void WaylandBufferManagerGpu::CommitBuffer(gfx::AcceleratedWidget widget,
           gfx::OverlayPriorityHint::kNone,
           gfx::RRectF(gfx::RectF(bounds_rect), corners), gfx::ColorSpace(),
           std::nullopt),
-      nullptr, buffer_id, surface_scale_factor);
-  CommitOverlays(widget, frame_id, data, std::move(overlay_configs));
+      gfx::GpuFenceHandle(), buffer_id, surface_scale_factor);
+  CommitOverlays(widget, frame_id, std::move(data), std::move(overlay_configs));
 }
 
 void WaylandBufferManagerGpu::CommitOverlays(
@@ -296,13 +296,13 @@ void WaylandBufferManagerGpu::CommitOverlays(
     gpu_thread_runner_->PostTask(
         FROM_HERE, base::BindOnce(&WaylandBufferManagerGpu::CommitOverlays,
                                   base::Unretained(this), widget, frame_id,
-                                  data, std::move(overlays)));
+                                  std::move(data), std::move(overlays)));
     return;
   }
 
   base::OnceClosure task = base::BindOnce(
       &WaylandBufferManagerGpu::CommitOverlaysTask, base::Unretained(this),
-      widget, frame_id, data, std::move(overlays));
+      widget, frame_id, std::move(data), std::move(overlays));
   RunOrQueueTask(std::move(task));
 }
 

@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -29,6 +30,7 @@ class ActorTaskAndroid : public base::SupportsUserData::Data {
 
   base::android::ScopedJavaLocalRef<jobject> GetJavaObject();
 
+  std::optional<std::string> GetGlicConversationId();
   std::string GetCurrentActionName();
   int32_t GetState();
   bool IsCompleted();
@@ -38,6 +40,7 @@ class ActorTaskAndroid : public base::SupportsUserData::Data {
   std::vector<int32_t> GetTabs();
   std::vector<int32_t> GetLastActedTabs();
   int32_t GetLastActuatedTabId();
+  bool IsActingOnTab(int32_t tab_id);
 
  private:
   base::android::ScopedJavaGlobalRef<jobject> java_obj_;

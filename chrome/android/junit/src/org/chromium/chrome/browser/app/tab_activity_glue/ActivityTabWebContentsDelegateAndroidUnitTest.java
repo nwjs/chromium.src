@@ -39,7 +39,6 @@ import org.mockito.junit.MockitoRule;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
 
-import org.chromium.base.AconfigFlaggedApiDelegate;
 import org.chromium.base.Token;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
@@ -165,9 +164,9 @@ public class ActivityTabWebContentsDelegateAndroidUnitTest {
     @Mock TabCreator mTabCreator;
     @Mock TabModel mTabModel;
     @Mock ActivityManager mActivityManager;
-    @Mock AconfigFlaggedApiDelegate mFlaggedApiDelegate;
     @Mock DisplayAndroid mDisplayAndroid;
     @Mock DisplayAndroidManager mDisplayAndroidManager;
+    @Mock AndroidTaskUtils.MoveTaskDelegate mMoveTaskDelegate;
     @Mock AppTask mAppTask;
     @Mock PopupCreator mPopupCreator;
     @Mock MultiWindowUtils mMultiWindowUtils;
@@ -177,6 +176,7 @@ public class ActivityTabWebContentsDelegateAndroidUnitTest {
     @Mock private View mUrlBar;
     @Mock private View mMenuButton;
     @Mock private View mTabSwitcherButton;
+    @Mock private View mTabSharingToolbar;
 
     @Captor private ArgumentCaptor<CompletableFuture<Boolean>> mFutureCaptor;
 
@@ -203,7 +203,7 @@ public class ActivityTabWebContentsDelegateAndroidUnitTest {
                         mExclusiveAccessManager,
                         mFullscreenManager);
         DisplayAndroidManager.setInstanceForTesting(mDisplayAndroidManager);
-        AconfigFlaggedApiDelegate.setInstanceForTesting(mFlaggedApiDelegate);
+        AndroidTaskUtils.setMoveTaskDelegateForTesting(mMoveTaskDelegate);
         AndroidTaskUtils.setAppTaskForTesting(mAppTask);
 
         when(mTab.getWebContents()).thenReturn(mWebContents);
@@ -612,20 +612,11 @@ public class ActivityTabWebContentsDelegateAndroidUnitTest {
                 mWebContents, new Rect(-100, -100, 2000, 2000));
 
         ArgumentCaptor<Rect> captor = ArgumentCaptor.forClass(Rect.class);
-        verify(mFlaggedApiDelegate).moveTaskTo(any(), eq(TEST_DISPLAY_ID), captor.capture());
+        verify(mMoveTaskDelegate).moveTaskTo(any(), eq(TEST_DISPLAY_ID), captor.capture());
         final Rect passedBounds = captor.getValue();
         Assert.assertTrue(
                 "The bounds passed to moveTaskTo do not fit inside display",
                 TEST_LOCAL_BOUNDS.contains(passedBounds));
-    }
-
-    @Test
-    public void testSetContentsBoundsNoOpIfDelegateNull() {
-        mTabWebContentsDelegateAndroid.setIsPopup(true);
-        AconfigFlaggedApiDelegate.setInstanceForTesting(null);
-
-        mTabWebContentsDelegateAndroid.setContentsBounds(mWebContents, new Rect(0, 0, 400, 400));
-        // No assertions -- just verifying that there is no NPE thrown.
     }
 
     @Test
@@ -634,7 +625,7 @@ public class ActivityTabWebContentsDelegateAndroidUnitTest {
 
         mTabWebContentsDelegateAndroid.setContentsBounds(mWebContents, new Rect(0, 0, 400, 400));
 
-        verify(mFlaggedApiDelegate, never()).moveTaskTo(any(), anyInt(), any());
+        verify(mMoveTaskDelegate, never()).moveTaskTo(any(), anyInt(), any());
     }
 
     @Test
@@ -644,7 +635,7 @@ public class ActivityTabWebContentsDelegateAndroidUnitTest {
         mTabWebContentsDelegateAndroid.setIsPopup(true);
         mTabWebContentsDelegateAndroid.setContentsBounds(mWebContents, new Rect(0, 0, 400, 400));
 
-        verify(mFlaggedApiDelegate, never()).moveTaskTo(any(), anyInt(), any());
+        verify(mMoveTaskDelegate, never()).moveTaskTo(any(), anyInt(), any());
     }
 
     @Test
@@ -683,6 +674,51 @@ public class ActivityTabWebContentsDelegateAndroidUnitTest {
         when(mMenuButton.requestFocus(View.FOCUS_BACKWARD)).thenReturn(true);
 
         assertTrue(mTabWebContentsDelegateAndroid.takeFocus(/* reverse= */ true));
+        verify(mMenuButton).requestFocus(View.FOCUS_BACKWARD);
+    }
+
+    @Test
+    public void testTakeFocus_reverse_tabSharingToolbar() {
+        when(mActivity.findViewById(R.id.tab_sharing_toolbar_container))
+                .thenReturn(mTabSharingToolbar);
+        when(mTabSharingToolbar.isShown()).thenReturn(true);
+        when(mTabSharingToolbar.requestFocus(View.FOCUS_BACKWARD)).thenReturn(true);
+        when(mActivity.findViewById(R.id.menu_button)).thenReturn(mMenuButton);
+        when(mMenuButton.isShown()).thenReturn(true);
+
+        // The tab sharing toolbar sits below the browser toolbar, so it must take focus first.
+        assertTrue(mTabWebContentsDelegateAndroid.takeFocus(/* reverse= */ true));
+        verify(mTabSharingToolbar).requestFocus(View.FOCUS_BACKWARD);
+        verify(mMenuButton, never()).requestFocus(anyInt());
+    }
+
+    @Test
+    public void testTakeFocus_reverse_tabSharingToolbarHidden() {
+        when(mActivity.findViewById(R.id.tab_sharing_toolbar_container))
+                .thenReturn(mTabSharingToolbar);
+        when(mTabSharingToolbar.isShown()).thenReturn(false);
+        when(mActivity.findViewById(R.id.menu_button)).thenReturn(mMenuButton);
+        when(mMenuButton.isShown()).thenReturn(true);
+        when(mMenuButton.requestFocus(View.FOCUS_BACKWARD)).thenReturn(true);
+
+        assertTrue(mTabWebContentsDelegateAndroid.takeFocus(/* reverse= */ true));
+        verify(mTabSharingToolbar, never()).requestFocus(anyInt());
+        verify(mMenuButton).requestFocus(View.FOCUS_BACKWARD);
+    }
+
+    @Test
+    public void testTakeFocus_reverse_tabSharingToolbarNotFocusable() {
+        when(mActivity.findViewById(R.id.tab_sharing_toolbar_container))
+                .thenReturn(mTabSharingToolbar);
+        when(mTabSharingToolbar.isShown()).thenReturn(true);
+        when(mTabSharingToolbar.requestFocus(View.FOCUS_BACKWARD)).thenReturn(false);
+        when(mActivity.findViewById(R.id.menu_button)).thenReturn(mMenuButton);
+        when(mMenuButton.isShown()).thenReturn(true);
+        when(mMenuButton.requestFocus(View.FOCUS_BACKWARD)).thenReturn(true);
+
+        // If the toolbar has no focusable descendant, focus continues up to the browser toolbar.
+        assertTrue(mTabWebContentsDelegateAndroid.takeFocus(/* reverse= */ true));
+        verify(mTabSharingToolbar).requestFocus(View.FOCUS_BACKWARD);
         verify(mMenuButton).requestFocus(View.FOCUS_BACKWARD);
     }
 

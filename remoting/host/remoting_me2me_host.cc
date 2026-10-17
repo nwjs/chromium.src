@@ -259,12 +259,6 @@ const char kApplicationName[] = "chromoting";
 // from stdin.
 constexpr base::FilePath::CharType kStdinConfigPath[] = FILE_PATH_LITERAL("-");
 
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-// The command line switch used to pass name of the pipe to capture audio on
-// linux.
-const char kAudioPipeSwitchName[] = "audio-pipe-name";
-#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-
 #if BUILDFLAG(IS_POSIX)
 // The command line switch used to pass name of the unix domain socket used to
 // listen for security key requests.
@@ -624,6 +618,9 @@ class HostProcess : public ConfigWatcher::Delegate,
   base::RepeatingCallback<void(std::string_view)>
       set_required_username_callback_;
   bool enable_peer_connection_process_ = false;
+#if BUILDFLAG(IS_WIN)
+  std::optional<bool> use_peer_connection_process_override_;
+#endif
 #endif
 
   // End of multi-process-only members.
@@ -680,8 +677,8 @@ HostProcess::HostProcess(std::unique_ptr<ChromotingHostContext> context,
     std::string switch_value =
         base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
             kUsePeerConnectionProcessSwitch);
-    enable_peer_connection_process_ =
-        multi_process_ && (switch_value == "true" || switch_value == "1");
+    use_peer_connection_process_override_ =
+        (switch_value == "true" || switch_value == "1");
   }
 #endif
 #endif
@@ -1231,14 +1228,13 @@ void HostProcess::StartOnUiThread() {
       base::BindRepeating(&HostProcess::OnPolicyError, base::Unretained(this)));
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-  // If an audio pipe is specific on the command-line then initialize
-  // PulseAudioCapturer to capture from it.
-  base::FilePath audio_pipe_name =
-      base::CommandLine::ForCurrentProcess()->GetSwitchValuePath(
-          kAudioPipeSwitchName);
-  if (!audio_pipe_name.empty()) {
+  // For multi-process hosts, `PulseAudioCapturer` will be initialized by the
+  // desktop process.
+  if (!multi_process_) {
+    // Wayland sessions do not set `CHROME_REMOTE_DESKTOP_AUDIO_PIPE`, in which
+    // case this will fail and `PipewireAudioCapturer` will be used instead.
     remoting::PulseAudioCapturer::InitializePipeReader(
-        context_->file_task_runner(), audio_pipe_name);
+        context_->file_task_runner());
   }
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 
@@ -1304,7 +1300,7 @@ void HostProcess::ShutdownOnUiThread() {
   // thread will remain in-use and prevent the process from exiting.
   // TODO(wez): DesktopEnvironmentFactory should own the pipe reader.
   // See crbug.com/161373 and crbug.com/104544.
-  PulseAudioCapturer::InitializePipeReader(nullptr, base::FilePath());
+  PulseAudioCapturer::InitializePipeReader(nullptr);
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 
 #if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)) && defined(REMOTING_USE_X11)
@@ -1587,16 +1583,11 @@ bool HostProcess::ApplyConfig(const base::DictValue& config) {
                << kHostOwnerConfigPath << "`";
     return false;
   }
-  // TODO: joedow - Remove the email check once all Corp hosts have a hint set.
-  bool has_google_email = IsGoogleEmail(*host_owner);
   OnUpdateHostOwner(*host_owner);
 
   auto* host_type_hint = config.FindString(kHostTypeHintPath);
   is_cloud_host_ = (host_type_hint && *host_type_hint == kCloudHostTypeHint);
-  // TODO: joedow - Remove the !is_cloud_host override here when all Corp hosts
-  // have a hint set. This is used to allow Googlers to test with Cloud hosts.
-  is_corp_host_ = (host_type_hint && *host_type_hint == kCorpHostTypeHint) ||
-                  (has_google_email && !is_cloud_host_);
+  is_corp_host_ = IsCorpHostConfig(config);
 
   require_session_authorization_ =
       config.FindBool(kRequireSessionAuthorizationPath).value_or(false);
@@ -2147,6 +2138,25 @@ void HostProcess::StartHost() {
   // it is capturing before attempting to use it.
   desktop_environment_options_.desktop_capture_options()
       ->set_allow_directx_capturer(true);
+#endif
+
+#if BUILDFLAG(REMOTING_MULTI_PROCESS) && BUILDFLAG(IS_WIN)
+  CHECK(multi_process_);
+  if (use_peer_connection_process_override_.has_value()) {
+    enable_peer_connection_process_ = *use_peer_connection_process_override_;
+    if (enable_peer_connection_process_) {
+      HOST_LOG << "Enabling PeerConnection process (command-line/registry "
+                  "override).";
+    } else {
+      HOST_LOG << "Disabling PeerConnection process (command-line/registry "
+                  "override).";
+    }
+  } else {
+    enable_peer_connection_process_ = is_corp_host_;
+    if (enable_peer_connection_process_) {
+      HOST_LOG << "Enabling PeerConnection process (corp host default).";
+    }
+  }
 #endif
 
   std::unique_ptr<PeerSessionFactory> peer_session_factory;

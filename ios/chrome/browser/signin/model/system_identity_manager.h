@@ -123,7 +123,9 @@ class SystemIdentityManager {
   // Callback invoked when the `FetchTokenAuthURL()` operation completes.
   using AuthenticatedURLCallback = base::OnceCallback<void(NSURL*, NSError*)>;
 
-  // Callback invoked when the `FetchCapabilities()` operation completes.
+  // Callback invoked once all the requested capabilities have been fetched.
+  // Not used by this interface itself; implementations that fetch capabilities
+  // in a single batch can use it internally.
   using FetchCapabilitiesCallback =
       base::OnceCallback<void(std::map<std::string, CapabilityResult>)>;
 
@@ -133,8 +135,7 @@ class SystemIdentityManager {
   using FetchPartialCapabilitiesCallback =
       base::RepeatingCallback<void(std::map<std::string, CapabilityResult>)>;
 
-  // Callback invoked when the `FetchCapabilitiesWithPartial()` operation
-  // completes.
+  // Callback invoked when the `FetchCapabilities()` operation completes.
   using FetchCapabilitiesCompletion = base::OnceClosure;
 
   // Callback invoked when `HandleMDMNotification` completes. It is invoked
@@ -281,24 +282,16 @@ class SystemIdentityManager {
       id<SystemIdentity> identity) = 0;
 
   // Asynchronously returns the capabilities for `identity`.
-  // TODO(crbug.com/517899430): remove this method once it's replaced by
-  // FetchCapabilitiesWithPartial.
-  virtual void FetchCapabilities(id<SystemIdentity> identity,
-                                 const std::vector<std::string>& names,
-                                 FetchCapabilitiesCallback callback) = 0;
-
-  // Asynchronously returns the capabilities for `identity`.
   // * `partial_callback` is called multiple times as a subset of capabilities
   // in `names` are fetched.
   // * `completion` is called once after all capabilities in `names` are fetched
   // or the fetch has failed. No more calls to `partial_callback` are expected
   // after `completion` is called.
-  // TODO(crbug.com/517899430): Have `completion` as the last parameter.
-  virtual void FetchCapabilitiesWithPartial(
+  virtual void FetchCapabilities(
       id<SystemIdentity> identity,
       const std::vector<std::string>& names,
-      FetchCapabilitiesCompletion completion,
-      FetchPartialCapabilitiesCallback partial_callback) = 0;
+      FetchPartialCapabilitiesCallback partial_callback,
+      FetchCapabilitiesCompletion completion) = 0;
 
   // Registers the provider for building external privacy context.
   virtual void RegisterExternalPrivacyContextProvider(

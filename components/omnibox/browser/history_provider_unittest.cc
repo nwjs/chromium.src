@@ -18,7 +18,7 @@ namespace {
 class TestHistoryProvider : public HistoryProvider {
  public:
   explicit TestHistoryProvider(AutocompleteProviderClient* client)
-      : HistoryProvider(AutocompleteProvider::TYPE_HISTORY_QUICK, client) {}
+      : HistoryProvider(AutocompleteProvider::Type::kHistoryQuick, client) {}
   TestHistoryProvider(const TestHistoryProvider&) = delete;
   TestHistoryProvider& operator=(const TestHistoryProvider&) = delete;
 

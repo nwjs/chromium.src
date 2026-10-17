@@ -107,6 +107,7 @@ source_set("sync") {
     "//chrome/browser/metrics",
     "//chrome/browser/notebooks",
     "//chrome/browser/password_manager/factories",
+    "//chrome/browser/personal_context",
     "//chrome/browser/signin",
     "//chrome/browser/skills",
     "//chrome/browser/subscription_eligibility",
@@ -130,6 +131,7 @@ source_set("sync") {
     "//chrome/browser/search_engines",
     "//chrome/browser/tab_group_sync",
     "//chrome/browser/tab_group_sync:utils",
+    "//chrome/browser/themes",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/undo",
     "//chrome/common",
@@ -170,8 +172,8 @@ source_set("sync") {
     "//components/themes/cross_device",
     "//components/user_manager",
     "//components/variations/service",
-    "//components/webauthn/core/browser:passkey_model",
     "//components/webapps/browser",
+    "//components/webauthn/core/browser:passkey_model",
   ]
 
   allow_circular_includes_from = []
@@ -226,7 +228,7 @@ source_set("sync") {
     ]
     deps += [
       "//chrome/browser/accessibility/tree_fixing:prefs",
-      "//chrome/browser/themes",
+      "//chrome/browser/ui:singleton_tabs",
       "//chrome/browser/ui/read_anything:prefs",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/tabs/saved_tab_groups",
@@ -247,10 +249,7 @@ source_set("sync") {
     ]
   }
   if (enable_extensions) {
-    deps += [
-      "//chrome/browser/themes",
-      "//chrome/browser/web_applications",
-    ]
+    deps += [ "//chrome/browser/web_applications" ]
   }
   if (is_chromeos) {
     sources += [
@@ -331,6 +330,7 @@ source_set("unit_tests") {
     "//chrome/browser/webdata_services",
     "//chrome/common:constants",
     "//chrome/test:test_support",
+    "//chrome/test/base:chrome_render_view_host_test_harness",
     "//chrome/test/base:scoped_metrics_service",
     "//components/commerce/core:feature_list",
     "//components/metrics",

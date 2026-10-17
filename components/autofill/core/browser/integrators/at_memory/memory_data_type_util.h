@@ -5,6 +5,7 @@
 #ifndef COMPONENTS_AUTOFILL_CORE_BROWSER_INTEGRATORS_AT_MEMORY_MEMORY_DATA_TYPE_UTIL_H_
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_INTEGRATORS_AT_MEMORY_MEMORY_DATA_TYPE_UTIL_H_
 
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -21,7 +22,6 @@
 namespace personal_context::proto {
 class AtMemoryQueryResponse;
 class AtMemorySearchResult;
-class Entity;
 class TypedValue;
 enum MemoryDataType : int;
 }  // namespace personal_context::proto
@@ -54,6 +54,9 @@ std::optional<FieldType> ToFieldType(MemoryDataType type);
 // Translates a MemoryDataType to an AttributeType, if applicable.
 std::optional<AttributeType> ToAttributeType(MemoryDataType type);
 
+// Translates a MemoryDataType to an EntityType, if applicable.
+std::optional<EntityType> ToEntityType(MemoryDataType type);
+
 // Maps MemoryDataType to AutofillPolicyDataCategory directly.
 std::optional<AutofillClient::AutofillPolicyDataCategory>
 ToAutofillPolicyDataCategory(MemoryDataType type);
@@ -62,17 +65,10 @@ ToAutofillPolicyDataCategory(MemoryDataType type);
 // information.
 bool IsSpiiMemoryDataType(MemoryDataType type);
 
-// Converts a set of memory entry values into `personal_context::proto::Entity`.
-// `value` is the primary value of the memory entry corresponding to the
-// `memory_data_type` (for example, the actual passport number if the type is
-// `kPassportNumber`). `metadata_list` contains the associated attributes (e.g.,
-// expiration date, issuing country) for the memory entry. If `typed_value` is
-// provided, it is used directly instead of parsing `value`.
-personal_context::proto::Entity ToPersonalContextEntity(
-    std::u16string_view value,
-    const std::optional<personal_context::proto::TypedValue>& typed_value,
-    MemoryDataType memory_data_type,
-    base::span<const EntryMetadata> metadata_list);
+// Applies the same UI obfuscation format used by Autofill to an unmasked SPII
+// `value`.
+std::u16string ObfuscateSpiiValue(MemoryDataType type,
+                                  std::u16string_view value);
 
 // Translates Autofill attribute names to entry types.
 MemoryDataType AttributeTypeToMemoryDataType(AttributeType type);
@@ -88,12 +84,6 @@ std::string_view MemoryDataTypeToStringView(MemoryDataType type);
 std::vector<MemorySearchResult> ExtractRemoteResults(
     const personal_context::proto::AtMemoryQueryResponse& response,
     std::string_view app_locale);
-
-// Extracts the unmasked PII value from `entity` based on the requested
-// `data_type`.
-std::optional<std::u16string> GetUnmaskedPiiFromEntity(
-    const personal_context::proto::Entity& entity,
-    MemoryDataType data_type);
 
 // The following functions are exposed in the header for testing purposes only:
 
@@ -129,10 +119,6 @@ std::u16string FormatMemoryDataTypeLabelValue(
 
 // Returns the primary attribute type for a given entity type.
 AttributeType GetPrimaryAttributeType(EntityType entity_type);
-
-// Returns true if `data_type` represents a dynamic transaction type (e.g.
-// Shipment or Order).
-bool IsDynamicTransactionType(MemoryDataType data_type);
 
 // Returns a suggestion for managing the given `type`. Returns std::nullopt
 // if the type does not support management.

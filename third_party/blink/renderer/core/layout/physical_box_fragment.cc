@@ -117,7 +117,7 @@ void ApplyOverflowClip(OverflowClipAxes overflow_clip_axes,
 }
 
 int MaxGapDecorationsWidth(const GapDataList<int>& width_value) {
-  const auto widths = width_value.GetGapDataList();
+  const auto& widths = width_value.GetGapDataList();
   CHECK(!widths.empty());
 
   const auto& first_width = widths[0];
@@ -272,9 +272,12 @@ const PhysicalBoxFragment* PhysicalBoxFragment::Clone(
 
 // static
 const PhysicalBoxFragment* PhysicalBoxFragment::CloneWithPostLayoutFragments(
-    const PhysicalBoxFragment& other) {
-  PhysicalRect scrollable_overflow = other.ScrollableOverflow();
-  bool has_scrollable_overflow = other.HasScrollableOverflow();
+    const PhysicalBoxFragment& other,
+    const std::optional<PhysicalRect> new_scrollable_overflow) {
+  const PhysicalRect scrollable_overflow =
+      new_scrollable_overflow.value_or(other.ScrollableOverflow());
+  const bool has_scrollable_overflow =
+      scrollable_overflow != PhysicalRect({}, other.Size());
 
   // The size of the new fragment shouldn't differ from the old one.
   size_t byte_size = AdditionalByteSize(other.HasItems());
@@ -480,6 +483,12 @@ PhysicalBoxFragment::PhysicalBoxFragment(
     rare_data_ =
         MakeGarbageCollected<PhysicalFragmentRareData>(*other.rare_data_);
   }
+  if (has_scrollable_overflow) {
+    EnsureRareField(FieldId::kScrollableOverflow).scrollable_overflow =
+        scrollable_overflow;
+  } else if (GetRareField(FieldId::kScrollableOverflow)) {
+    rare_data_->RemoveField(FieldId::kScrollableOverflow);
+  }
 }
 
 PhysicalBoxFragment::~PhysicalBoxFragment() {
@@ -515,7 +524,8 @@ const LayoutBox* PhysicalBoxFragment::OwnerLayoutBox() const {
     }
   } else {
     // Check |this| and the |LayoutBox| that produced it are in sync.
-    DCHECK(owner_box->PhysicalFragments().Contains(*this));
+    DCHECK(std::ranges::contains(owner_box->PhysicalFragments(), this,
+                                 [](const auto& f) { return &f; }));
     DCHECK_EQ(IsFirstForNode(), this == owner_box->GetPhysicalFragment(0));
   }
 #endif
@@ -536,7 +546,8 @@ PhysicalOffset PhysicalBoxFragment::OffsetFromOwnerLayoutBox() const {
 
   const LayoutBox* owner_box = OwnerLayoutBox();
   DCHECK(owner_box);
-  DCHECK(owner_box->PhysicalFragments().Contains(*this));
+  DCHECK(std::ranges::contains(owner_box->PhysicalFragments(), this,
+                               [](const auto& f) { return &f; }));
   if (owner_box->PhysicalFragmentCount() <= 1)
     return PhysicalOffset();
 
@@ -1004,7 +1015,8 @@ void PhysicalBoxFragment::RecalcInkOverflow() {
   DCHECK_EQ(MutableOwnerLayoutBox(), GetMutableLayoutObject());
   LayoutBox* owner_box = To<LayoutBox>(GetMutableLayoutObject());
   DCHECK(owner_box);
-  DCHECK(owner_box->PhysicalFragments().Contains(*this));
+  DCHECK(std::ranges::contains(owner_box->PhysicalFragments(), this,
+                               [](const auto& f) { return &f; }));
   owner_box->CopyVisualOverflowFromFragments();
 }
 

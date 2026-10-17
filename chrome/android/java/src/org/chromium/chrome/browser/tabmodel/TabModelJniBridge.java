@@ -40,6 +40,7 @@ import org.chromium.components.tabs.TabStripCollection;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.common.ResourceRequestBody;
+import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.mojom.WindowOpenDisposition;
 import org.chromium.url.GURL;
 import org.chromium.url.Origin;
@@ -218,18 +219,17 @@ public abstract class TabModelJniBridge implements TabModelInternal {
         }
     }
 
-    protected void moveTabToWindowForTesting(
-            Tab tab, long nativeAndroidBrowserWindow, int newIndex) {
+    protected void moveTabToWindowForTesting(Tab tab, long nativeBrowserWindowPtr, int newIndex) {
         TabModelJniBridgeJni.get()
                 .moveTabToWindowForTesting( // IN-TEST
-                        mNativeTabModelJniBridge, tab, nativeAndroidBrowserWindow, newIndex);
+                        mNativeTabModelJniBridge, tab, nativeBrowserWindowPtr, newIndex);
     }
 
     protected boolean moveTabGroupToWindowForTesting(
-            Token tabGroupId, long nativeAndroidBrowserWindow, int newIndex) {
+            Token tabGroupId, long nativeBrowserWindowPtr, int newIndex) {
         return TabModelJniBridgeJni.get()
                 .moveTabGroupToWindowForTesting( // IN-TEST
-                        mNativeTabModelJniBridge, tabGroupId, nativeAndroidBrowserWindow, newIndex);
+                        mNativeTabModelJniBridge, tabGroupId, nativeBrowserWindowPtr, newIndex);
     }
 
     /**
@@ -592,8 +592,12 @@ public abstract class TabModelJniBridge implements TabModelInternal {
     @CalledByNative
     protected abstract @JniType("std::vector<TabAndroid*>") List<Tab> getAllTabs();
 
+    // TODO(crbug.com/517544602): Rename TabModel.tabGroupExists to containsTabGroup so this
+    // becomes the @Override method directly.
     @CalledByNative
-    protected abstract boolean containsTabGroup(@JniType("base::Token") Token tabGroupId);
+    protected boolean containsTabGroup(@JniType("base::Token") Token tabGroupId) {
+        return tabGroupExists(tabGroupId);
+    }
 
     /**
      * @return A list of tab groups in this tab model. Order is not guaranteed.
@@ -664,20 +668,27 @@ public abstract class TabModelJniBridge implements TabModelInternal {
 
     @CalledByNative
     private void moveTabToWindowInternal(
-            @JniType("TabAndroid*") Tab tab, @Nullable Activity activity, int newIndex) {
+            @JniType("TabAndroid*") Tab tab,
+            @JniType("ui::WindowAndroid*") WindowAndroid windowAndroid,
+            int newIndex) {
+        Activity activity = windowAndroid.getActivity().get();
         if (activity == null) return;
+
         moveTabToWindow(tab, activity, newIndex);
     }
 
     // TODO(https://crbug.com/495795228): add `bringToFront` parameter to indicate
     // if the destination activity should be activated. See MultiInstanceOrchestrator.
-    protected abstract void moveTabToWindow(
-            @JniType("TabAndroid*") Tab tab, Activity activity, int newIndex);
+    protected abstract void moveTabToWindow(Tab tab, Activity activity, int newIndex);
 
     @CalledByNative
     private boolean moveTabGroupToWindowInternal(
-            @JniType("base::Token") Token tabGroupId, @Nullable Activity activity, int newIndex) {
+            @JniType("base::Token") Token tabGroupId,
+            @JniType("ui::WindowAndroid*") WindowAndroid windowAndroid,
+            int newIndex) {
+        Activity activity = windowAndroid.getActivity().get();
         if (activity == null) return false;
+
         return moveTabGroupToWindow(tabGroupId, activity, newIndex);
     }
 
@@ -774,13 +785,13 @@ public abstract class TabModelJniBridge implements TabModelInternal {
         void moveTabToWindowForTesting( // IN-TEST
                 long nativeTabModelJniBridge,
                 @JniType("TabAndroid*") Tab tab,
-                long nativeAndroidBrowserWindow,
+                long nativeBrowserWindowPtr,
                 int newIndex);
 
         boolean moveTabGroupToWindowForTesting( // IN-TEST
                 long nativeTabModelJniBridge,
                 @JniType("base::Token") Token tabGroupId,
-                long nativeAndroidBrowserWindow,
+                long nativeBrowserWindowPtr,
                 int newIndex);
 
         int getSessionIdForTesting(long nativeTabModelJniBridge);

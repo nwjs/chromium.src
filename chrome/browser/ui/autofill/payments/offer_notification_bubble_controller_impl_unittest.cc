@@ -141,6 +141,10 @@ class OfferNotificationBubbleControllerImplTest
   }
 
  protected:
+  tabs::MockTabInterface& mock_tab() {
+    return static_cast<tabs::MockTabInterface&>(*tab_interface_);
+  }
+
   void ShowBubble(const AutofillOfferData& offer) {
     controller()->ShowOfferNotificationIfApplicable(
         offer, &card_, {.show_notification_automatically = true});
@@ -159,7 +163,7 @@ class OfferNotificationBubbleControllerImplTest
   AutofillOfferData CreateTestCardLinkedOffer(
       const std::vector<GURL>& merchant_origins,
       const std::vector<int64_t>& eligible_instrument_ids = {}) {
-    int64_t offer_id = 1357;
+    std::string offer_id = "1357";
     base::Time expiry = base::Time::Now() + base::Days(2);
     GURL offer_details_url("https://www.google.com/");
     std::string offer_reward_amount = "5%";
@@ -171,7 +175,7 @@ class OfferNotificationBubbleControllerImplTest
   AutofillOfferData CreateTestGPayPromoCodeOffer(
       const std::vector<GURL>& merchant_origins,
       const std::string& promo_code) {
-    int64_t offer_id = 2468;
+    std::string offer_id = "2468";
     base::Time expiry = base::Time::Now() + base::Days(2);
     DisplayStrings display_strings;
     display_strings.value_prop_text = "5% off on shoes. Up to $50.";
@@ -182,6 +186,20 @@ class OfferNotificationBubbleControllerImplTest
     return AutofillOfferData::GPayPromoCodeOffer(
         offer_id, expiry, merchant_origins, offer_details_url, display_strings,
         promo_code);
+  }
+
+  AutofillOfferData CreateTestWalletDirectOffer(
+      const std::vector<GURL>& merchant_origins,
+      const std::string& offer_reward_amount = "5% off") {
+    std::string offer_id = "3579";
+    base::Time expiry = base::Time::Now() + base::Days(2);
+    GURL offer_details_url = GURL("https://pay.google.com");
+    // TODO(crbug.com/546252995): Use `test::GetPromoCodeOfferData()` instead
+    // once it is converted to use the constructor, which takes the offer short
+    // title that the bubble uses as its title.
+    return AutofillOfferData(
+        offer_id, expiry, merchant_origins, offer_details_url, DisplayStrings(),
+        /*promo_code=*/"5PCTOFFSHOES", offer_reward_amount);
   }
 
  private:
@@ -250,6 +268,48 @@ TEST_F(OfferNotificationBubbleControllerImplTest, GPayPromoCode_BubbleShown) {
   EXPECT_EQ(controller()->GetWindowTitle(),
             l10n_util::GetStringUTF16(
                 IDS_AUTOFILL_GPAY_PROMO_CODE_OFFERS_REMINDER_TITLE));
+}
+
+// Tests that the offer notification bubble will be shown for a wallet direct
+// offer, and that the bubble title is the offer's short title.
+TEST_F(OfferNotificationBubbleControllerImplTest,
+       WalletDirectOffer_BubbleShown) {
+  AutofillOfferData offer = CreateTestWalletDirectOffer(
+      /*merchant_origins=*/{GURL("https://www.example.com")},
+      /*offer_reward_amount=*/"5% off");
+  ShowBubble(offer);
+
+  EXPECT_TRUE(controller()->GetOfferNotificationBubbleView());
+  EXPECT_EQ(controller()->GetWindowTitle(), u"5% off");
+}
+
+namespace {
+
+// Unlike `TestOfferNotificationBubbleControllerImpl`, keeps the real
+// `UpdatePageActionIcon()`.
+class OfferNotificationBubbleControllerImplWithPageActionIcon
+    : public OfferNotificationBubbleControllerImpl {
+ public:
+  explicit OfferNotificationBubbleControllerImplWithPageActionIcon(
+      content::WebContents* web_contents)
+      : OfferNotificationBubbleControllerImpl(web_contents) {}
+};
+
+}  // namespace
+
+// Tests that updating the page action icon does not crash while the tab has no
+// browser window, which is the case while it is being detached on close.
+TEST_F(OfferNotificationBubbleControllerImplTest,
+       UpdatePageActionIcon_NoBrowserWindow_DoesNotCrash) {
+  web_contents()->SetUserData(
+      OfferNotificationBubbleControllerImpl::UserDataKey(),
+      std::make_unique<OfferNotificationBubbleControllerImplWithPageActionIcon>(
+          web_contents()));
+  ON_CALL(mock_tab(), GetBrowserWindowInterface())
+      .WillByDefault(testing::Return(nullptr));
+
+  OfferNotificationBubbleControllerImpl::FromWebContents(web_contents())
+      ->DismissNotification();
 }
 
 }  // namespace autofill

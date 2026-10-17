@@ -7,9 +7,14 @@
 #include <memory>
 
 #include "chrome/browser/ui/animation/browser_animation_controller.h"
+#include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
 #include "chrome/browser/ui/extensions/extension_side_panel_utils.h"
+#include "chrome/browser/ui/tabs/mock_vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/views/animations/organizer_panel_animations.h"
+#include "chrome/browser/ui/views/tabs/organizer/layout_constants.h"
+#include "chrome/browser/ui/views/tabs/organizer/organizer_panel_test.h"
+#include "chrome/browser/ui/views/tabs/organizer/organizer_panel_utils.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/test/browser_task_environment.h"
 #include "extensions/buildflags/buildflags.h"
@@ -36,6 +41,12 @@ class OrganizerPanelControllerTest : public testing::Test {
     animation_controller_->AddAnimationProvider(
         std::make_unique<OrganizerPanelAnimations>());
 
+    vertical_tab_strip_controller_ =
+        std::make_unique<tabs::test::MockVerticalTabStripStateController>(
+            mock_browser_window_interface_);
+    EXPECT_CALL(*vertical_tab_strip_controller_, ShouldDisplayVerticalTabs)
+        .WillRepeatedly(testing::Return(false));
+
     // Action items like ToggleOrganizerPanel are tested in interactive ui
     // tests.
     controller_ = std::make_unique<OrganizerPanelController>(
@@ -44,6 +55,7 @@ class OrganizerPanelControllerTest : public testing::Test {
 
   void TearDown() override {
     controller_.reset();
+    vertical_tab_strip_controller_.reset();
     animation_controller_.reset();
     testing::Test::TearDown();
   }
@@ -54,6 +66,8 @@ class OrganizerPanelControllerTest : public testing::Test {
   content::BrowserTaskEnvironment task_environment_;
   TestingProfile profile_;
   std::unique_ptr<BrowserAnimationController> animation_controller_;
+  std::unique_ptr<tabs::test::MockVerticalTabStripStateController>
+      vertical_tab_strip_controller_;
   std::unique_ptr<OrganizerPanelController> controller_;
   ui::UnownedUserDataHost unowned_user_data_host_;
   MockBrowserWindowInterface mock_browser_window_interface_;
@@ -124,4 +138,161 @@ TEST_F(OrganizerPanelControllerTest, ExtensionOpenToggleClose) {
   EXPECT_FALSE(controller()->IsOrganizerPanelVisible());
   EXPECT_FALSE(controller()->active_extension_id().has_value());
 }
+
+TEST_F(OrganizerPanelControllerTest, IncognitoRejectsUnauthorizedExtension) {
+  Profile* const incognito_profile =
+      profile_.GetPrimaryOTRProfile(/*create_if_needed=*/true);
+  EXPECT_CALL(mock_browser_window_interface_, GetProfile())
+      .WillRepeatedly(testing::Return(incognito_profile));
+
+  const extensions::ExtensionId kExt = "abcdefghijklmnopabcdefghijklmnop";
+
+  // Opening for an unauthorized extension in incognito should do nothing.
+  controller()->OpenForExtension(kExt);
+  EXPECT_FALSE(controller()->IsOrganizerPanelVisible());
+  EXPECT_FALSE(controller()->active_extension_id().has_value());
+
+  // Toggling while closed also should do nothing.
+  controller()->ToggleForExtension(kExt);
+  EXPECT_FALSE(controller()->IsOrganizerPanelVisible());
+  EXPECT_FALSE(controller()->active_extension_id().has_value());
+}
 #endif
+
+// Test suite that ensures that the panel gets parented to the tray and the
+// vertical tab strip if the tab strip is enabled.
+class OrganizerPanelControllerMovePanelTest
+    : public organizer_panel::test::OrganizerPanelTestBase {
+ public:
+  OrganizerPanelControllerMovePanelTest() {
+    feature_list_.InitAndEnableFeature(organizer_panel::kOrganizerPanel);
+  }
+  ~OrganizerPanelControllerMovePanelTest() override = default;
+
+  virtual bool StartInVerticalTabStrip() const { return true; }
+
+  void BeforeSetPanel() override {
+    SetTabstripProperties(StartInVerticalTabStrip(), false, true,
+                          organizer_panel::kOrganizerPanelMinWidth);
+  }
+
+  auto ConfigureVerticalTabStrip(
+      bool enabled,
+      bool collapsed = false,
+      bool expand_on_hover = true,
+      int uncollapsed_width = organizer_panel::kOrganizerPanelMinWidth) {
+    return Do([=, this]() {
+             vertical_tab_strip_controller_->NotifyModeWillChange();
+             SetTabstripProperties(enabled, collapsed, expand_on_hover,
+                                   uncollapsed_width);
+             vertical_tab_strip_controller_->NotifyModeChanged();
+           })
+        .SetDescription("ConfigureVerticalTabstrip()");
+  }
+
+  auto ExpectPanel(bool in_tab_strip) {
+    auto steps = Steps(
+        WaitForShow(kOrganizerPanelElementId),
+        CheckView(
+            kOrganizerPanelElementId,
+            [this, in_tab_strip](views::View* view) {
+              return (in_tab_strip ? static_cast<views::View*>(tab_strip())
+                                   : tray_view())
+                  ->Contains(view);
+            },
+            true));
+    AddDescriptionPrefix(steps, "ExpectPanel");
+    return steps;
+  }
+
+  views::View* GetExpectedParent(bool expect_tab_strip) {
+    if (expect_tab_strip) {
+      return tab_strip();
+    }
+    return tray_view();
+  }
+
+ private:
+  void SetTabstripProperties(bool enabled,
+                             bool collapsed,
+                             bool expand_on_hover,
+                             int uncollapsed_width) {
+    EXPECT_CALL(*vertical_tab_strip_controller_, ShouldDisplayVerticalTabs)
+        .WillRepeatedly(testing::Return(enabled));
+    EXPECT_CALL(*vertical_tab_strip_controller_, IsCollapsed)
+        .WillRepeatedly(testing::Return(collapsed));
+    EXPECT_CALL(*vertical_tab_strip_controller_, IsExpandOnHoverEnabled)
+        .WillRepeatedly(testing::Return(expand_on_hover));
+    EXPECT_CALL(*vertical_tab_strip_controller_, GetUncollapsedWidth)
+        .WillRepeatedly(testing::Return(uncollapsed_width));
+  }
+
+  base::test::ScopedFeatureList feature_list_;
+};
+
+TEST_F(OrganizerPanelControllerMovePanelTest, HorizontalTabStrip) {
+  RunTestSequence(EnsureNotPresent(kOrganizerPanelElementId),
+                  ConfigureVerticalTabStrip(false), TogglePanel(),
+                  SetAnimationValue(1.0), ExpectPanel(false));
+}
+
+TEST_F(OrganizerPanelControllerMovePanelTest,
+       LargeUncollapsedVerticalTabStrip) {
+  RunTestSequence(EnsureNotPresent(kOrganizerPanelElementId),
+                  ConfigureVerticalTabStrip(true), TogglePanel(),
+                  SetAnimationValue(1.0), ExpectPanel(true));
+}
+
+TEST_F(OrganizerPanelControllerMovePanelTest,
+       SmallUncollapsedVerticalTabStrip) {
+  RunTestSequence(EnsureNotPresent(kOrganizerPanelElementId),
+                  ConfigureVerticalTabStrip(
+                      true, false, true,
+                      organizer_panel::kOrganizerPanelMinWidth -
+                          (organizer_panel::kOrganizerPanelMinOverlap + 10)),
+                  TogglePanel(), SetAnimationValue(1.0), ExpectPanel(false));
+}
+
+TEST_F(OrganizerPanelControllerMovePanelTest,
+       CollapsedVerticalTabStripWithExpandOnHover) {
+  RunTestSequence(EnsureNotPresent(kOrganizerPanelElementId),
+                  ConfigureVerticalTabStrip(true, true, true), TogglePanel(),
+                  SetAnimationValue(1.0), ExpectPanel(true));
+}
+
+TEST_F(OrganizerPanelControllerMovePanelTest,
+       CollapsedVerticalTabStripWithoutExpandOnHover) {
+  RunTestSequence(EnsureNotPresent(kOrganizerPanelElementId),
+                  ConfigureVerticalTabStrip(true, true, false), TogglePanel(),
+                  SetAnimationValue(1.0), ExpectPanel(false));
+}
+
+class OrganizerPanelControllerConfigurationTest
+    : public OrganizerPanelControllerMovePanelTest,
+      public testing::WithParamInterface<bool> {
+ public:
+  OrganizerPanelControllerConfigurationTest() = default;
+  ~OrganizerPanelControllerConfigurationTest() override = default;
+
+  bool StartInVerticalTabStrip() const override { return GetParam(); }
+};
+
+INSTANTIATE_TEST_SUITE_P(,
+                         OrganizerPanelControllerConfigurationTest,
+                         testing::Bool(),
+                         [](testing::TestParamInfo<bool> v) {
+                           return v.param ? "Vertical" : "Horizontal";
+                         });
+
+TEST_P(OrganizerPanelControllerConfigurationTest, PanelStartsInCorrectPlace) {
+  RunTestSequence(EnsureNotPresent(kOrganizerPanelElementId), TogglePanel(),
+                  SetAnimationValue(1.0),
+                  ExpectPanel(StartInVerticalTabStrip()));
+}
+
+TEST_P(OrganizerPanelControllerConfigurationTest, PanelMoved) {
+  RunTestSequence(EnsureNotPresent(kOrganizerPanelElementId),
+                  ConfigureVerticalTabStrip(!StartInVerticalTabStrip()),
+                  TogglePanel(), SetAnimationValue(1.0),
+                  ExpectPanel(!StartInVerticalTabStrip()));
+}

@@ -248,6 +248,7 @@ public class StripLayoutHelperTest {
     @Captor private ArgumentCaptor<Callback<TabClosureParams>> mTabRemoverCallbackCaptor;
     @Captor private ArgumentCaptor<List<Tab>> mTabListCaptor;
     @Captor private ArgumentCaptor<List<Animator>> mAnimationListCaptor;
+    @Captor private ArgumentCaptor<StripLayoutView> mStripLayoutViewCaptor;
 
     private Activity mActivity;
     private Context mContext;
@@ -298,7 +299,6 @@ public class StripLayoutHelperTest {
         when(mModel.isTabInTabGroup(any())).thenReturn(false);
         when(mModel.getTabUngrouper()).thenReturn(mTabUngrouper);
         when(mModel.getTabGroupTitle(any(Token.class))).thenReturn(UNSET_TAB_GROUP_TITLE);
-        when(mModel.getTabGroupTitle(any(Tab.class))).thenReturn(UNSET_TAB_GROUP_TITLE);
 
         mModel.setTabRemover(mTabRemover);
         mContext =
@@ -1055,8 +1055,7 @@ public class StripLayoutHelperTest {
         when(mModel.isTabInTabGroup(any())).thenReturn(false);
         mStripLayoutHelper
                 .getTabGroupObserverForTesting()
-                .didRemoveTabGroup(
-                        Tab.INVALID_TAB_ID, TAB_GROUP_ID_1, DidRemoveTabGroupReason.CLOSE);
+                .didRemoveTabGroup(TAB_GROUP_ID_1, DidRemoveTabGroupReason.CLOSE);
         int numClosingGroupTitles = mStripLayoutHelper.getClosingGroupTitlesForTesting().size();
         assertEquals("Should have one closing group title.", 1, numClosingGroupTitles);
 
@@ -1105,8 +1104,7 @@ public class StripLayoutHelperTest {
         when(mModel.isTabInTabGroup(any())).thenReturn(false);
         mStripLayoutHelper
                 .getTabGroupObserverForTesting()
-                .didRemoveTabGroup(
-                        Tab.INVALID_TAB_ID, TAB_GROUP_ID_1, DidRemoveTabGroupReason.CLOSE);
+                .didRemoveTabGroup(TAB_GROUP_ID_1, DidRemoveTabGroupReason.CLOSE);
         int numClosingGroupTitles = mStripLayoutHelper.getClosingGroupTitlesForTesting().size();
         assertEquals("Should have no closing group titles.", 0, numClosingGroupTitles);
 
@@ -2804,6 +2802,139 @@ public class StripLayoutHelperTest {
         verify(mockDelegate, never()).startReorderMode(any(), any(), any(), any(), any(), anyInt());
     }
 
+    /**
+     * Starts a within-strip reorder on the tab at {@code index} and returns the view that the
+     * {@link ReorderDelegate} was actually asked to reorder, which is not necessarily the tab that
+     * was dragged. {@code mockDelegate} must already be installed via {@code
+     * setReorderDelegateForTesting}.
+     */
+    private StripLayoutView startReorderAtIndexAndCaptureInteractingView(
+            int index, ReorderDelegate mockDelegate) {
+        mStripLayoutHelper.startReorderModeAtIndexForTesting(index);
+
+        verify(mockDelegate)
+                .startReorderMode(
+                        any(),
+                        any(),
+                        any(),
+                        mStripLayoutViewCaptor.capture(),
+                        any(),
+                        eq(ReorderType.DRAG_WITHIN_STRIP));
+        return mStripLayoutViewCaptor.getValue();
+    }
+
+    @Test
+    public void testStartReorder_LastTabInGroup_ReordersGroupInstead() {
+        initializeTest(false, false, 0, 5);
+        ReorderDelegate mockDelegate = mock(ReorderDelegate.class);
+        mStripLayoutHelper.setReorderDelegateForTesting(mockDelegate);
+        // Tab 0 is the sole member of its group, so dragging it out would dissolve the group.
+        groupTabs(0, 1, TAB_GROUP_ID_1);
+
+        StripLayoutView interactingView =
+                startReorderAtIndexAndCaptureInteractingView(/* index= */ 0, mockDelegate);
+
+        assertTrue(
+                "Dragging the last tab in a group should reorder the group, not the tab.",
+                interactingView instanceof StripLayoutGroupTitle);
+        assertEquals(
+                "Should reorder the group that the dragged tab belongs to.",
+                TAB_GROUP_ID_1,
+                ((StripLayoutGroupTitle) interactingView).getTabGroupId());
+    }
+
+    @Test
+    public void testStartReorder_LastTabInGroup_MultiSelected_ReordersTab() {
+        initializeTest(false, false, 0, 5);
+        ReorderDelegate mockDelegate = mock(ReorderDelegate.class);
+        mStripLayoutHelper.setReorderDelegateForTesting(mockDelegate);
+        // Tab 0 is the sole member of its group, so it would normally be reordered as a group.
+        groupTabs(0, 1, TAB_GROUP_ID_1);
+        StripLayoutTab[] tabs = mStripLayoutHelper.getStripLayoutTabsForTesting();
+        StripLayoutTab draggedTab = tabs[0];
+        // Multi-select the dragged tab alongside another tab.
+        mModel.setTabsMultiSelected(Set.of(tabs[0].getTabId(), tabs[1].getTabId()), true);
+
+        StripLayoutView interactingView =
+                startReorderAtIndexAndCaptureInteractingView(/* index= */ 0, mockDelegate);
+
+        assertEquals(
+                "A multi-selected tab should be reordered as a tab, even if it is the last tab in"
+                        + " its group.",
+                draggedTab,
+                interactingView);
+    }
+
+    @Test
+    public void testStartReorder_LastTabInGroup_OnlySelectedTab_ReordersGroupInstead() {
+        initializeTest(false, false, 0, 5);
+        ReorderDelegate mockDelegate = mock(ReorderDelegate.class);
+        mStripLayoutHelper.setReorderDelegateForTesting(mockDelegate);
+        // Tab 0 is the sole member of its group, so dragging it out would dissolve the group.
+        groupTabs(0, 1, TAB_GROUP_ID_1);
+        StripLayoutTab[] tabs = mStripLayoutHelper.getStripLayoutTabsForTesting();
+        // The dragged tab is the only selected tab. This is the boundary case for the
+        // multi-selection size check, and should not change the group reorder behavior.
+        mModel.setTabsMultiSelected(Set.of(tabs[0].getTabId()), true);
+
+        StripLayoutView interactingView =
+                startReorderAtIndexAndCaptureInteractingView(/* index= */ 0, mockDelegate);
+
+        assertTrue(
+                "A solely selected last tab in a group should still reorder the group.",
+                interactingView instanceof StripLayoutGroupTitle);
+        assertEquals(
+                "Should reorder the group that the dragged tab belongs to.",
+                TAB_GROUP_ID_1,
+                ((StripLayoutGroupTitle) interactingView).getTabGroupId());
+    }
+
+    @Test
+    public void testStartReorder_NotLastTabInGroup_ReordersTab() {
+        initializeTest(false, false, 0, 5);
+        ReorderDelegate mockDelegate = mock(ReorderDelegate.class);
+        mStripLayoutHelper.setReorderDelegateForTesting(mockDelegate);
+        // Tabs 0 and 1 share a group, so the group survives tab 0 being dragged out. This is the
+        // boundary case for the group size check.
+        groupTabs(0, 2, TAB_GROUP_ID_1);
+        StripLayoutTab draggedTab = mStripLayoutHelper.getStripLayoutTabsForTesting()[0];
+
+        StripLayoutView interactingView =
+                startReorderAtIndexAndCaptureInteractingView(/* index= */ 0, mockDelegate);
+
+        assertEquals(
+                "A grouped tab with siblings should still be reordered as a tab.",
+                draggedTab,
+                interactingView);
+    }
+
+    @Test
+    public void testStartReorder_UngroupedTab_ReordersTab() {
+        initializeTest(false, false, 0, 5);
+        ReorderDelegate mockDelegate = mock(ReorderDelegate.class);
+        mStripLayoutHelper.setReorderDelegateForTesting(mockDelegate);
+        StripLayoutTab draggedTab = mStripLayoutHelper.getStripLayoutTabsForTesting()[0];
+
+        StripLayoutView interactingView =
+                startReorderAtIndexAndCaptureInteractingView(/* index= */ 0, mockDelegate);
+
+        assertEquals("An ungrouped tab should be reordered as a tab.", draggedTab, interactingView);
+    }
+
+    @Test
+    public void testStartReorder_DyingTab_NoReorder() {
+        initializeTest(false, false, 0, 5);
+        ReorderDelegate mockDelegate = mock(ReorderDelegate.class);
+        mStripLayoutHelper.setReorderDelegateForTesting(mockDelegate);
+        StripLayoutTab[] tabs = getMockedStripLayoutTabs(150f);
+        when(tabs[0].isDying()).thenReturn(true);
+        mStripLayoutHelper.setStripLayoutTabsForTesting(tabs);
+
+        mStripLayoutHelper.startReorderModeAtIndexForTesting(/* index= */ 0);
+
+        verify(mockDelegate, never()).startReorderMode(any(), any(), any(), any(), any(), anyInt());
+    }
+
     @Test
     @Feature("Tab Context Menu")
     public void testOnLongPress_OnTab_FeaturesEnabled() {
@@ -2821,7 +2952,8 @@ public class StripLayoutHelperTest {
         verify(mTabContextMenuCoordinator)
                 .showMenu(
                         rectProviderArgumentCaptor.capture(),
-                        argThat(anchorInfo -> anchorInfo.getAllTabIds().equals(expectedTabIds)));
+                        argThat(anchorInfo -> anchorInfo.getAllTabIds().equals(expectedTabIds)),
+                        eq(false));
         // Verify anchorView coordinates.
         StripLayoutView view = mStripLayoutHelper.getViewAtPositionX(10f, true);
         assertThat(view, instanceOf(StripLayoutTab.class));
@@ -2855,7 +2987,8 @@ public class StripLayoutHelperTest {
         ArgumentCaptor<RectProvider> rectProviderArgumentCaptor =
                 ArgumentCaptor.forClass(RectProvider.class);
         // Verify tab context menu is showing.
-        verify(mTabContextMenuCoordinator).showMenu(rectProviderArgumentCaptor.capture(), any());
+        verify(mTabContextMenuCoordinator)
+                .showMenu(rectProviderArgumentCaptor.capture(), any(), eq(false));
         // Verify anchorView coordinates.
         StripLayoutView view = mStripLayoutHelper.getViewAtPositionX(10f, true);
         assertThat(view, instanceOf(StripLayoutTab.class));
@@ -2896,7 +3029,8 @@ public class StripLayoutHelperTest {
 
         ArgumentCaptor<RectProvider> rectProviderArgumentCaptor =
                 ArgumentCaptor.forClass(RectProvider.class);
-        verify(mTabContextMenuCoordinator).showMenu(rectProviderArgumentCaptor.capture(), any());
+        verify(mTabContextMenuCoordinator)
+                .showMenu(rectProviderArgumentCaptor.capture(), any(), eq(false));
 
         // Verify anchorView coordinates are offset by controlContainer's location.
         StripLayoutView view = mStripLayoutHelper.getViewAtPositionX(10f, true);
@@ -2910,6 +3044,39 @@ public class StripLayoutHelperTest {
                 "Anchor view for menu should be offset by controlContainer's location",
                 expectedRect,
                 actualRect);
+    }
+
+    @Test
+    @Feature("Tab Context Menu")
+    public void testShowTabContextMenu_VerticalTabsIphHighlight() {
+        var tabs = initializeTest_ForTab();
+        setupForIndividualTabContextMenu();
+
+        // 1. Secondary click (right-click) while Vertical Tabs IPH is showing should highlight.
+        when(mController.isVerticalTabsIphShowing()).thenReturn(true);
+        mStripLayoutHelper.setTabAtPositionForTesting(tabs[1]);
+        mStripLayoutHelper.click(TIMESTAMP, 10f, 0f, MotionEvent.BUTTON_SECONDARY, 0);
+        verify(mTabContextMenuCoordinator).showMenu(any(), any(), eq(true));
+
+        // 2. Long-press where IPH is showing onDown, then dismissed before onLongPress, should
+        // still highlight.
+        mStripLayoutHelper.onDown(LONG_PRESS_X, LONG_PRESS_Y, 0);
+        when(mController.isVerticalTabsIphShowing()).thenReturn(false);
+        onLongPress_OnTab(tabs);
+        verify(mTabContextMenuCoordinator, times(2)).showMenu(any(), any(), eq(true));
+
+        // 3. If gesture ends (onUpOrCancel) without opening the menu,
+        // mWasVerticalTabsIphShowingOnDown
+        // is reset so a subsequent context menu trigger does not highlight.
+        when(mController.isVerticalTabsIphShowing()).thenReturn(true);
+        // Saves mWasVerticalTabsIphShowingOnDown = true.
+        mStripLayoutHelper.onDown(LONG_PRESS_X, LONG_PRESS_Y, 0);
+        when(mController.isVerticalTabsIphShowing()).thenReturn(false);
+        // Sets mWasVerticalTabsIphShowingOnDown = false;
+        mStripLayoutHelper.onUpOrCancel();
+        // Does not call onDown.
+        mStripLayoutHelper.click(TIMESTAMP, 10f, 0f, MotionEvent.BUTTON_SECONDARY, 0);
+        verify(mTabContextMenuCoordinator).showMenu(any(), any(), eq(false));
     }
 
     @Test
@@ -2964,7 +3131,8 @@ public class StripLayoutHelperTest {
                         eq(mBottomSheetController),
                         eq(true),
                         eq(false),
-                        eq(mWindowAndroid));
+                        eq(mWindowAndroid),
+                        any());
     }
 
     /** Sets up tabModel and menu coordinator. */
@@ -3090,8 +3258,7 @@ public class StripLayoutHelperTest {
         mStripLayoutHelper.multipleTabsClosed(closingTabs);
         mStripLayoutHelper
                 .getTabGroupObserverForTesting()
-                .didRemoveTabGroup(
-                        Tab.INVALID_TAB_ID, TAB_GROUP_ID_1, DidRemoveTabGroupReason.CLOSE);
+                .didRemoveTabGroup(TAB_GROUP_ID_1, DidRemoveTabGroupReason.CLOSE);
 
         // Finish animations, as is done in the TabModelObserver.
         mStripLayoutHelper.finishAnimations();
@@ -3206,7 +3373,7 @@ public class StripLayoutHelperTest {
         assertFalse(
                 "Should not be in reorder mode after long press on tab close button.",
                 mStripLayoutHelper.getInReorderModeForTesting());
-        verify(mTabContextMenuCoordinator).showMenu(any(), any());
+        verify(mTabContextMenuCoordinator).showMenu(any(), any(), eq(false));
     }
 
     @Test
@@ -3581,122 +3748,20 @@ public class StripLayoutHelperTest {
     // tab strip. Tests for much of the internals and dialog flows themselves are in
     // StripTabModelActionListenerUnitTest, TabRemoverImplUnitTest, and TabUngrouperImplUnitTest.
     @Test
-    public void testTabGroupDeleteDialog_Reorder_Collaboration() {
-        // Set up resources for testing tab group delete dialog.
+    public void testTabGroupDeleteDialog_Reorder_LastTabInGroup_ReordersGroupInstead() {
+        // Dragging a lone tab within the strip used to pull it out of its group, deleting the
+        // group and prompting the user to confirm. The drag is now treated as a group reorder, so
+        // the group stays intact and no confirmation is needed.
         setupTabGroup(0, 1, TAB_GROUP_ID_1);
         setupDragDropState();
         StripLayoutTab[] tabs = mStripLayoutHelper.getStripLayoutTabsForTesting();
 
-        // Start dragging tab out of group.
         startDraggingTab(tabs, false, 0);
 
-        // Ungroup should start.
-        verify(mTabUngrouper)
-                .ungroupTabs(
-                        eq(List.of(mModel.getTabById(tabs[0].getTabId()))),
-                        /* trailing= */ eq(true),
-                        /* allowDialog= */ eq(true),
-                        mTabModelActionListenerCaptor.capture());
+        verify(mTabUngrouper, never()).ungroupTabs(any(), anyBoolean(), anyBoolean(), any());
 
-        mTabModelActionListenerCaptor
-                .getValue()
-                .willPerformActionOrShowDialog(
-                        DialogType.COLLABORATION, /* willSkipDialog= */ false);
-
-        // Verify group title is not temporarily disappeared from the tab strip since the operation
-        // is immediate. A real TabUngrouper would at this point perform the ungroup.
+        // The group is intact, so its title stays on the strip.
         StripLayoutView[] views = mStripLayoutHelper.getStripLayoutViewsForTesting();
-        assertTrue(EXPECTED_TITLE, views[0] instanceof StripLayoutGroupTitle);
-    }
-
-    @Test
-    public void testTabGroupDeleteDialog_Reorder_Sync_ImmediateContinue() {
-        // Set up resources for testing tab group delete dialog.
-        setupTabGroup(0, 1, TAB_GROUP_ID_1);
-        setupDragDropState();
-        StripLayoutTab[] tabs = mStripLayoutHelper.getStripLayoutTabsForTesting();
-
-        // Start dragging tab out of group.
-        startDraggingTab(tabs, false, 0);
-
-        // Ungroup should start.
-        verify(mTabUngrouper)
-                .ungroupTabs(
-                        eq(List.of(mModel.getTabById(tabs[0].getTabId()))),
-                        /* trailing= */ eq(true),
-                        /* allowDialog= */ eq(true),
-                        mTabModelActionListenerCaptor.capture());
-
-        mTabModelActionListenerCaptor
-                .getValue()
-                .willPerformActionOrShowDialog(DialogType.SYNC, /* willSkipDialog= */ true);
-
-        // Verify group title is not temporarily disappeared from the tab strip since the operation
-        // is immediate. A real TabUngrouper would at this point perform the ungroup.
-        StripLayoutView[] views = mStripLayoutHelper.getStripLayoutViewsForTesting();
-        assertTrue(EXPECTED_TITLE, views[0] instanceof StripLayoutGroupTitle);
-    }
-
-    @Test
-    public void testTabGroupDeleteDialog_Reorder_Sync_Positive() {
-        // Set up resources for testing tab group delete dialog.
-        setupTabGroup(0, 1, TAB_GROUP_ID_1);
-        setupDragDropState();
-        StripLayoutTab[] tabs = mStripLayoutHelper.getStripLayoutTabsForTesting();
-
-        // Start dragging tab out of group.
-        startDraggingTab(tabs, false, 0);
-
-        // Ungroup should start.
-        verify(mTabUngrouper)
-                .ungroupTabs(
-                        eq(List.of(mModel.getTabById(tabs[0].getTabId()))),
-                        /* trailing= */ eq(true),
-                        /* allowDialog= */ eq(true),
-                        mTabModelActionListenerCaptor.capture());
-
-        mTabModelActionListenerCaptor
-                .getValue()
-                .willPerformActionOrShowDialog(DialogType.SYNC, /* willSkipDialog= */ false);
-
-        // Verify group title is temporarily disappeared from the tab strip
-        StripLayoutView[] views = mStripLayoutHelper.getStripLayoutViewsForTesting();
-        assertFalse(EXPECTED_NON_TITLE, views[0] instanceof StripLayoutGroupTitle);
-    }
-
-    @Test
-    public void testTabGroupDeleteDialog_Reorder_Sync_Negative() {
-        // Set up resources for testing tab group delete dialog.
-        setupTabGroup(0, 1, TAB_GROUP_ID_1);
-        setupDragDropState();
-        StripLayoutTab[] tabs = mStripLayoutHelper.getStripLayoutTabsForTesting();
-
-        // Start dragging tab out of group.
-        startDraggingTab(tabs, false, 0);
-
-        // Ungroup should start.
-        verify(mTabUngrouper)
-                .ungroupTabs(
-                        eq(List.of(mModel.getTabById(tabs[0].getTabId()))),
-                        /* trailing= */ eq(true),
-                        /* allowDialog= */ eq(true),
-                        mTabModelActionListenerCaptor.capture());
-
-        mTabModelActionListenerCaptor
-                .getValue()
-                .willPerformActionOrShowDialog(DialogType.SYNC, /* willSkipDialog= */ false);
-
-        // Verify group title is temporarily disappeared from the tab strip
-        StripLayoutView[] views = mStripLayoutHelper.getStripLayoutViewsForTesting();
-        assertFalse(EXPECTED_NON_TITLE, views[0] instanceof StripLayoutGroupTitle);
-
-        mTabModelActionListenerCaptor
-                .getValue()
-                .onConfirmationDialogResult(
-                        DialogType.SYNC, ActionConfirmationResult.CONFIRMATION_NEGATIVE);
-
-        // View is restored.
-        views = mStripLayoutHelper.getStripLayoutViewsForTesting();
         assertTrue(EXPECTED_TITLE, views[0] instanceof StripLayoutGroupTitle);
     }
 
@@ -3717,146 +3782,25 @@ public class StripLayoutHelperTest {
     }
 
     @Test
-    public void testTabGroupDeleteDialog_DragOffStrip_DialogSkipped() {
-        when(mActionConfirmationManager.willSkipUngroupTabAttempt()).thenReturn(true);
-
-        // Set up resources for testing tab group delete dialog.
+    public void testTabGroupDeleteDialog_DragOffStrip_LastTabInGroup_DragsGroupInstead() {
+        // A lone tab used to be ungrouped when dragged off the strip, deleting its group and
+        // prompting the user to confirm. It is now dragged as a group, so the group travels with
+        // it and the ungroup is never attempted -- note there is no need to set up the sync or
+        // confirmation state that the dialog used to depend on. Sync/collaboration variants of the
+        // confirmation flow are still covered by the testTabGroupDeleteDialog_Close_* tests below.
         setupTabGroup(0, 1, TAB_GROUP_ID_1);
         setTabStripDragHandlerMock();
         setupDragDropState();
         StripLayoutTab[] tabs = mStripLayoutHelper.getStripLayoutTabsForTesting();
-        mStripLayoutHelper.startDragAndDropTabForTesting(tabs[0], DRAG_START_POINT);
+        assertNotNull(mModel.getTabAt(0).getTabGroupId());
 
-        // Start dragging tab out of group.
+        mStripLayoutHelper.startDragAndDropTabForTesting(tabs[0], DRAG_START_POINT);
         startDraggingTab(tabs, true, 0);
 
-        // No ungroup should start.
         verify(mTabUngrouper, never()).ungroupTabs(any(), anyBoolean(), anyBoolean(), any());
-    }
 
-    @Test
-    public void testTabGroupDeleteDialog_DragOffStrip_Collaboration() {
-        // Collaboration groups override the check for skipping.
-        when(mActionConfirmationManager.willSkipUngroupTabAttempt()).thenReturn(true);
-
-        // Set up resources for testing tab group delete dialog.
-        setupTabGroup(0, 1, TAB_GROUP_ID_1);
-        setTabStripDragHandlerMock();
-        setupDragDropState();
-        StripLayoutTab[] tabs = mStripLayoutHelper.getStripLayoutTabsForTesting();
-        mStripLayoutHelper.startDragAndDropTabForTesting(tabs[0], DRAG_START_POINT);
-        Tab tab = mModel.getTabAt(0);
-
-        assertNotNull(tab.getTabGroupId());
-        SavedTabGroup savedGroup = new SavedTabGroup();
-        savedGroup.collaborationId = COLLABORATION_ID1;
-        when(mTabGroupSyncService.getGroup(new LocalTabGroupId(tab.getTabGroupId())))
-                .thenReturn(savedGroup);
-
-        // Start dragging tab out of group.
-        startDraggingTab(tabs, true, 0);
-
-        // Ungroup should start.
-        verify(mTabUngrouper)
-                .ungroupTabs(
-                        eq(List.of(tab)),
-                        /* trailing= */ eq(false),
-                        /* allowDialog= */ eq(true),
-                        mTabModelActionListenerCaptor.capture());
-
-        mTabModelActionListenerCaptor
-                .getValue()
-                .willPerformActionOrShowDialog(
-                        DialogType.COLLABORATION, /* willSkipDialog= */ false);
-
-        // Verify group title is not temporarily disappeared from the tab strip since the operation
-        // is immediate. A real TabUngrouper would at this point perform the ungroup.
+        // The group is intact, so its title stays on the strip.
         StripLayoutView[] views = mStripLayoutHelper.getStripLayoutViewsForTesting();
-        assertTrue(EXPECTED_TITLE, views[0] instanceof StripLayoutGroupTitle);
-
-        // Outcome here doesn't matter as it is delegated to the collaboration/sync system to either
-        // close or keep the group.
-        mTabModelActionListenerCaptor
-                .getValue()
-                .onConfirmationDialogResult(
-                        DialogType.COLLABORATION, ActionConfirmationResult.CONFIRMATION_POSITIVE);
-    }
-
-    @Test
-    public void testTabGroupDeleteDialog_DragOffStrip_Sync_Positive() {
-        // Set up resources for testing tab group delete dialog.
-        setupTabGroup(0, 1, TAB_GROUP_ID_1);
-        setTabStripDragHandlerMock();
-        setupDragDropState();
-        StripLayoutTab[] tabs = mStripLayoutHelper.getStripLayoutTabsForTesting();
-        mStripLayoutHelper.startDragAndDropTabForTesting(tabs[0], DRAG_START_POINT);
-
-        // Start dragging tab out of group.
-        startDraggingTab(tabs, true, 0);
-
-        // Ungroup should start.
-        verify(mTabUngrouper)
-                .ungroupTabs(
-                        eq(List.of(mModel.getTabById(tabs[0].getTabId()))),
-                        /* trailing= */ eq(false),
-                        /* allowDialog= */ eq(true),
-                        mTabModelActionListenerCaptor.capture());
-
-        mTabModelActionListenerCaptor
-                .getValue()
-                .willPerformActionOrShowDialog(DialogType.SYNC, /* willSkipDialog= */ false);
-
-        // Verify group title is temporarily disappeared from the tab strip.
-        StripLayoutView[] views = mStripLayoutHelper.getStripLayoutViewsForTesting();
-        assertFalse(EXPECTED_NON_TITLE, views[0] instanceof StripLayoutGroupTitle);
-
-        // Assume the action is successful. A real TabUngrouper would take care of this for us.
-        mTabModelActionListenerCaptor
-                .getValue()
-                .onConfirmationDialogResult(
-                        DialogType.SYNC, ActionConfirmationResult.CONFIRMATION_POSITIVE);
-
-        // Group is still hidden as it was fully ungrouped.
-        views = mStripLayoutHelper.getStripLayoutViewsForTesting();
-        assertFalse(EXPECTED_NON_TITLE, views[0] instanceof StripLayoutGroupTitle);
-    }
-
-    @Test
-    public void testTabGroupDeleteDialog_DragOffStrip_Sync_Negative() {
-        // Set up resources for testing tab group delete dialog.
-        setupTabGroup(0, 1, TAB_GROUP_ID_1);
-        setTabStripDragHandlerMock();
-        setupDragDropState();
-        StripLayoutTab[] tabs = mStripLayoutHelper.getStripLayoutTabsForTesting();
-        mStripLayoutHelper.startDragAndDropTabForTesting(tabs[0], DRAG_START_POINT);
-
-        // Start dragging tab out of group.
-        startDraggingTab(tabs, true, 0);
-
-        // Ungroup should start.
-        verify(mTabUngrouper)
-                .ungroupTabs(
-                        eq(List.of(mModel.getTabById(tabs[0].getTabId()))),
-                        /* trailing= */ eq(false),
-                        /* allowDialog= */ eq(true),
-                        mTabModelActionListenerCaptor.capture());
-
-        mTabModelActionListenerCaptor
-                .getValue()
-                .willPerformActionOrShowDialog(DialogType.SYNC, /* willSkipDialog= */ false);
-
-        // Verify group title is temporarily disappeared from the tab strip
-        StripLayoutView[] views = mStripLayoutHelper.getStripLayoutViewsForTesting();
-        assertFalse(EXPECTED_NON_TITLE, views[0] instanceof StripLayoutGroupTitle);
-
-        // Assume the action is unsuccessful.
-        mTabModelActionListenerCaptor
-                .getValue()
-                .onConfirmationDialogResult(
-                        DialogType.SYNC, ActionConfirmationResult.CONFIRMATION_NEGATIVE);
-
-        // Group should be restored.
-        views = mStripLayoutHelper.getStripLayoutViewsForTesting();
         assertTrue(EXPECTED_TITLE, views[0] instanceof StripLayoutGroupTitle);
     }
 
@@ -5878,7 +5822,7 @@ public class StripLayoutHelperTest {
                                         - stripViews[1].getTouchTargetBounds().left)
                                 / 2;
         mStripLayoutHelper.click(TIMESTAMP, viewMidX, 0, MotionEvent.BUTTON_SECONDARY, 0);
-        verify(mTabContextMenuCoordinator).showMenu(any(), any());
+        verify(mTabContextMenuCoordinator).showMenu(any(), any(), eq(false));
 
         // Secondary click on tab close - show menu.
         // Mock tab's view.
@@ -5892,7 +5836,7 @@ public class StripLayoutHelperTest {
                                         - tabCloseButton.getTouchTargetBounds().left)
                                 / 2;
         mStripLayoutHelper.click(TIMESTAMP, viewMidX, 0, MotionEvent.BUTTON_SECONDARY, 0);
-        verify(mTabContextMenuCoordinator, times(2)).showMenu(any(), any());
+        verify(mTabContextMenuCoordinator, times(2)).showMenu(any(), any(), eq(false));
     }
 
     @Test
@@ -6702,7 +6646,7 @@ public class StripLayoutHelperTest {
         assertTrue(
                 "Expected openKeyboardFocusedContextMenu to return true if tab context menu opened",
                 mStripLayoutHelper.openKeyboardFocusedContextMenu());
-        verify(mTabContextMenuCoordinator, times(1)).showMenu(any(), any());
+        verify(mTabContextMenuCoordinator, times(1)).showMenu(any(), any(), eq(false));
     }
 
     @Test
@@ -7130,7 +7074,8 @@ public class StripLayoutHelperTest {
         verify(mTabContextMenuCoordinator)
                 .showMenu(
                         any(),
-                        argThat(anchorInfo -> anchorInfo.getAllTabIds().equals(expectedTabIds)));
+                        argThat(anchorInfo -> anchorInfo.getAllTabIds().equals(expectedTabIds)),
+                        eq(false));
     }
 
     @Test

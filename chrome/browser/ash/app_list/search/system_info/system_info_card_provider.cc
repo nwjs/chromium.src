@@ -82,7 +82,7 @@ SystemInfoCardProvider::SystemInfoCardProvider(Profile* profile)
       crostini_size_calculator_(profile),
       profile_(profile),
       keywords_(launcher_search::GetSystemInfoKeywordVector()) {
-  DCHECK(profile_);
+  CHECK(profile_, base::NotFatalUntil::M160);
   ash::cros_healthd::ServiceConnection::GetInstance()->BindProbeService(
       probe_service_.BindNewPipeAndPassReceiver());
   probe_service_.set_disconnect_handler(
@@ -223,7 +223,7 @@ void SystemInfoCardProvider::OnMemoryUsageUpdated(bool create_result,
     // The bar chart will turn red if there is less than 10% of memory free.
     answer_card_info.SetUpperLimitForBarChart(90);
     SearchProvider::Results new_results;
-    DCHECK(memory_timer_);
+    CHECK(memory_timer_, base::NotFatalUntil::M160);
     new_results.emplace_back(std::make_unique<MemoryAnswerResult>(
         profile_, last_query_, /*url_path=*/std::string(), diagnostics_icon_,
         relevance_,
@@ -315,7 +315,7 @@ void SystemInfoCardProvider::OnCpuUsageUpdated(bool create_result,
     AnswerCardInfo answer_card_info(
         ash::SystemInfoAnswerCardDisplayType::kTextCard);
     SearchProvider::Results new_results;
-    DCHECK(cpu_usage_timer_);
+    CHECK(cpu_usage_timer_, base::NotFatalUntil::M160);
     new_results.emplace_back(std::make_unique<CpuAnswerResult>(
         profile_, last_query_, /*url_path=*/std::string(), diagnostics_icon_,
         relevance_, title, description, accessibility_label_details,
@@ -495,8 +495,8 @@ void SystemInfoCardProvider::OnSizeCalculated(
   }
 
   // Store calculated item's size.
-  const int item_index = static_cast<int>(calculation_type);
-  UNSAFE_TODO(storage_items_total_bytes_[item_index]) = total_bytes;
+  const size_t item_index = static_cast<size_t>(calculation_type);
+  storage_items_total_bytes_[item_index] = total_bytes;
 
   // Mark item as calculated.
   calculation_state_.set(item_index);
@@ -510,10 +510,10 @@ void SystemInfoCardProvider::OnStorageInfoUpdated() {
     return;
   }
 
-  const int total_space_index =
-      static_cast<int>(SizeCalculator::CalculationType::kTotal);
-  const int free_disk_space_index =
-      static_cast<int>(SizeCalculator::CalculationType::kAvailable);
+  const size_t total_space_index =
+      static_cast<size_t>(SizeCalculator::CalculationType::kTotal);
+  const size_t free_disk_space_index =
+      static_cast<size_t>(SizeCalculator::CalculationType::kAvailable);
 
   int64_t total_bytes = storage_items_total_bytes_[total_space_index];
   int64_t available_bytes = storage_items_total_bytes_[free_disk_space_index];
@@ -527,10 +527,10 @@ void SystemInfoCardProvider::OnStorageInfoUpdated() {
 }
 
 void SystemInfoCardProvider::CreateStorageAnswerCard() {
-  const int total_space_index =
-      static_cast<int>(SizeCalculator::CalculationType::kTotal);
-  const int free_disk_space_index =
-      static_cast<int>(SizeCalculator::CalculationType::kAvailable);
+  const size_t total_space_index =
+      static_cast<size_t>(SizeCalculator::CalculationType::kTotal);
+  const size_t free_disk_space_index =
+      static_cast<size_t>(SizeCalculator::CalculationType::kAvailable);
   int64_t total_bytes = storage_items_total_bytes_[total_space_index];
   int64_t available_bytes = storage_items_total_bytes_[free_disk_space_index];
   int64_t in_use_bytes = total_bytes - available_bytes;

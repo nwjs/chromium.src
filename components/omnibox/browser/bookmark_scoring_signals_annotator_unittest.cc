@@ -99,15 +99,15 @@ void BookmarkScoringSignalsAnnotatorTest::FillBookmarkModelData() {
 void BookmarkScoringSignalsAnnotatorTest::CreateAutocompleteResult() {
   AutocompleteMatch url_match_c;
   url_match_c.destination_url = GURL("http://testc.com/");
-  url_match_c.type = AutocompleteMatchType::HISTORY_URL;
+  url_match_c.type = omnibox::AutocompleteMatchType::kHistoryUrl;
 
   AutocompleteMatch url_match_b;
   url_match_b.destination_url = GURL("http://testb.com/");
-  url_match_b.type = AutocompleteMatchType::HISTORY_URL;
+  url_match_b.type = omnibox::AutocompleteMatchType::kHistoryUrl;
 
   AutocompleteMatch url_match_a;
   url_match_a.destination_url = GURL("http://testa.com/");
-  url_match_a.type = AutocompleteMatchType::HISTORY_URL;
+  url_match_a.type = omnibox::AutocompleteMatchType::kHistoryUrl;
 
   std::vector<AutocompleteMatch> matches{url_match_c, url_match_b, url_match_a};
   result_ = std::make_unique<AutocompleteResult>();

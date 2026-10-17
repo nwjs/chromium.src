@@ -11,6 +11,7 @@
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
 #include "base/time/time.h"
+#include "chrome/browser/ui/views/tabs/organizer/organizer_panel_host.h"
 #include "extensions/buildflags/buildflags.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 
@@ -45,7 +46,9 @@ class OrganizerPanelController {
 
   bool IsOrganizerPanelVisible() const;
 
-  void SetOrganizerVisible(bool visible);
+  void SetOrganizerVisible(bool visible, bool immediate = false);
+
+  OrganizerPanelLocation GetCurrentOrganizerPanelLocation() const;
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   void OpenForExtension(const extensions::ExtensionId& extension_id);
@@ -89,7 +92,8 @@ class OrganizerPanelController {
   const raw_ptr<actions::ActionItem> root_action_item_;
 
   class PanelViewManager;
-  std::unique_ptr<PanelViewManager> panel_view_manager_;
+  const std::unique_ptr<PanelViewManager> panel_view_manager_;
+  base::CallbackListSubscription vertical_tab_strip_animation_subscription_;
 
   // Records the last time the panel was opened. Used for recording how long the
   // panel was open.

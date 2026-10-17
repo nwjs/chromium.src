@@ -92,6 +92,7 @@ source_set("searchbox") {
       "//chrome/browser/contextual_tasks",
       "//chrome/browser/resources/new_tab_page:resources",
       "//chrome/browser/resources/new_tab_page:resources_grit",
+      "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui:tab_ui_helper",
       "//chrome/browser/ui/bookmarks",
       "//chrome/browser/ui/search",
@@ -120,6 +121,7 @@ source_set("searchbox_test_utils") {
     "//chrome/browser/ui/omnibox:test_support",
     "//chrome/browser/ui/webui/cr_components/searchbox",
     "//chrome/test:test_support",
+    "//chrome/test/base:chrome_render_view_host_test_harness",
     "//components/contextual_search:public",
     "//components/contextual_search/internal:test_support",
     "//components/lens",
@@ -168,8 +170,10 @@ if (!is_android) {
       "//chrome/browser/profiles:profile",
       "//chrome/browser/search_engines",
       "//chrome/browser/ui",
+      "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui/contextual_search",
       "//chrome/browser/ui/omnibox",
+      "//chrome/browser/ui/views/frame:browser_view_header",
       "//chrome/browser/ui/webui/cr_components/searchbox",
       "//chrome/test:test_support",
       "//chrome/test:test_support_ui",
@@ -189,7 +193,10 @@ if (!is_android) {
       "//ui/gfx",
     ]
     if (enable_dice_support) {
-      deps += [ "//chrome/browser/ui/views/search_ai_mode" ]
+      deps += [
+        "//chrome/browser/ui/signin",
+        "//chrome/browser/ui/views/search_ai_mode",
+      ]
     }
   }
 }
@@ -212,6 +219,7 @@ source_set("unit_tests") {
     "//chrome/browser/ui/tabs/alert:tab_alert",
     "//chrome/browser/ui/webui:webui_util",
     "//chrome/browser/ui/webui/new_tab_page/composebox/variations",
+    "//chrome/test/base:chrome_render_view_host_test_harness",
     "//components/contextual_search:test_support",
     "//components/omnibox/browser",
     "//components/omnibox/browser:test_support",
@@ -309,6 +317,8 @@ if (enable_webui_ntp && !is_android) {
       "//chrome/browser/contextual_search",
       "//chrome/browser/signin",
       "//chrome/browser/ui",
+      "//chrome/browser/ui:browser_window_header",
+      "//chrome/browser/ui/views/frame:browser_view_header",
       "//chrome/browser/ui/views/frame:contents_web_view",
       "//chrome/browser/ui/views/page_action:test_support",
       "//chrome/browser/ui/webui/new_tab_page/composebox/variations",

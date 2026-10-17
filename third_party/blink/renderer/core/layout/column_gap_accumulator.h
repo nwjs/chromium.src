@@ -49,7 +49,8 @@ class CORE_EXPORT ColumnGapAccumulator {
 
   const GapGeometry* BuildGapGeometry(
       const BoxFragmentBuilder& container_builder,
-      LayoutUnit column_inline_size);
+      LayoutUnit column_inline_size,
+      std::optional<LayoutUnit> final_column_row_block_end);
 
  private:
   void FinalizeMainGapSegmentStateForCurrentRow(wtf_size_t cols_in_row);
@@ -64,7 +65,7 @@ class CORE_EXPORT ColumnGapAccumulator {
   GapGeometry* gap_geometry_ = nullptr;
   std::optional<LogicalOffset> first_column_offset_;
   wtf_size_t max_columns_in_row_ = 0;
-  std::optional<Vector<wtf_size_t>> columns_per_row_;
+  Vector<wtf_size_t> columns_per_row_;
 };
 
 }  // namespace blink

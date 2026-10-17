@@ -1604,15 +1604,23 @@ void RenderProcessHost::SetMaxRendererProcessCount(size_t count) {
 }
 
 // static
-int RenderProcessHost::GetCurrentRenderProcessCountForTesting() {
-  RenderProcessHost::iterator it = RenderProcessHost::AllHostsIterator();
+int RenderProcessHost::GetCurrentRenderProcessCountForTesting(
+    RenderProcessCountMode mode) {
   int count = 0;
-  while (!it.IsAtEnd()) {
+  for (RenderProcessHost::iterator it = RenderProcessHost::AllHostsIterator();
+       !it.IsAtEnd(); it.Advance()) {
     RenderProcessHost* host = it.GetCurrentValue();
-    if (host->IsInitializedAndNotDead() && !host->IsSpare()) {
-      count++;
+    if (!host->IsInitializedAndNotDead()) {
+      continue;
     }
-    it.Advance();
+    if (host->IsSpare()) {
+      continue;
+    }
+    if (mode == RenderProcessCountMode::kExcludePrerenderOnlyOrEmptyProcess &&
+        host->IsOnlyHostingPrerenderedFramesOrEmpty()) {
+      continue;
+    }
+    count++;
   }
   return count;
 }
@@ -1777,11 +1785,13 @@ RenderProcessHostImpl::RenderProcessHostImpl(
 
   InitializeChannelProxy();
 
-  const int id = GetDeprecatedID();
+  const content::ChildProcessId id = GetID();
   const uint64_t tracing_id =
-      ChildProcessHostImpl::ChildProcessUniqueIdToTracingProcessId(id);
+      ChildProcessHostImpl::ChildProcessIdToTracingProcessId(id);
+  // TODO(crbug.com/379869738): Remove GetUnsafeValue.
   gpu_client_ = std::make_unique<viz::GpuClient>(
-      std::make_unique<BrowserGpuClientDelegate>(), id, tracing_id,
+      std::make_unique<BrowserGpuClientDelegate>(), id.GetUnsafeValue(),
+      tracing_id,
       /*enable_extra_handles_validation=*/false, GetUIThreadTaskRunner({}));
 }
 
@@ -1887,6 +1897,10 @@ RenderProcessHostImpl::~RenderProcessHostImpl() {
                   ChromeTrackEvent::kRenderProcessHost, *this);
 
   ClearAllUserData();
+}
+
+bool RenderProcessHostImpl::IsMock() const {
+  return false;
 }
 
 bool RenderProcessHostImpl::Init() {
@@ -2185,7 +2199,7 @@ bool RenderProcessHostImpl::Init() {
 
     // In single process mode, browser-side tracing and memory will cover the
     // whole process including renderers.
-    BackgroundTracingManagerImpl::ActivateForProcess(GetDeprecatedID(),
+    BackgroundTracingManagerImpl::ActivateForProcess(GetID(),
                                                      child_process_.get());
 
     fast_shutdown_started_ = false;
@@ -2847,21 +2861,21 @@ void RenderProcessHostImpl::BindAecDumpManager(
 }
 
 void RenderProcessHostImpl::CreateOneShotSyncService(
-    const url::Origin& origin,
+    const blink::StorageKey& storage_key,
     mojo::PendingReceiver<blink::mojom::OneShotBackgroundSyncService>
         receiver) {
   CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M152);
   storage_partition_impl_->GetBackgroundSyncContext()->CreateOneShotSyncService(
-      origin, this, std::move(receiver));
+      storage_key, this, std::move(receiver));
 }
 
 void RenderProcessHostImpl::CreatePeriodicSyncService(
-    const url::Origin& origin,
+    const blink::StorageKey& storage_key,
     mojo::PendingReceiver<blink::mojom::PeriodicBackgroundSyncService>
         receiver) {
   CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M152);
   storage_partition_impl_->GetBackgroundSyncContext()
-      ->CreatePeriodicSyncService(origin, this, std::move(receiver));
+      ->CreatePeriodicSyncService(storage_key, this, std::move(receiver));
 }
 
 void RenderProcessHostImpl::BindPushMessaging(
@@ -3218,11 +3232,11 @@ bool RenderProcessHostImpl::MayReuseHost() {
 }
 
 bool RenderProcessHostImpl::IsUnused() {
-  return is_unused_;
+  return GetProcessLock().is_unused();
 }
 
 void RenderProcessHostImpl::SetIsUsed() {
-  is_unused_ = false;
+  ChildProcessSecurityPolicyImpl::GetInstance()->SetProcessIsUsed(GetID());
 }
 
 void RenderProcessHostImpl::AddRoute(int32_t routing_id,
@@ -3612,7 +3626,7 @@ void RenderProcessHostImpl::SetProcessLock(
   TRACE_EVENT_BEGIN("shutdown", "Lock process", tracing_track_,
                     ChromeTrackEvent::kRenderProcessHost, *this);
   ChildProcessSecurityPolicyImpl::GetInstance()->LockProcess(
-      isolation_context, GetID(), !IsUnused(), process_lock);
+      isolation_context, GetID(), process_lock);
 
   // Note that SetProcessLock is only called on ProcessLock state transitions.
   // (e.g. invalid -> allows_any_site and allows_any_site -> locked_to_site).
@@ -3994,6 +4008,7 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
       switches::kWebSettingsForTesting,
       // Please keep these in alphabetical order.
       blink::switches::kAllowPreCommitInput,
+      blink::switches::kAsyncTouchMoveThrottleTimeMs,
       blink::switches::kDisableBackForwardCacheForWebSockets,
       blink::switches::kBlinkSettings,
       blink::switches::kDarkModeSettings,
@@ -4829,11 +4844,6 @@ bool RenderProcessHostImpl::FastShutdownStarted() {
 }
 
 // static
-void RenderProcessHostImpl::RegisterHost(int host_id, RenderProcessHost* host) {
-  RenderProcessHostImpl::RegisterHost(ChildProcessId(host_id), host);
-}
-
-// static
 void RenderProcessHostImpl::RegisterHost(ChildProcessId host_id,
                                          RenderProcessHost* host) {
   TRACE_EVENT(
@@ -4855,11 +4865,6 @@ RenderProcessHostImpl* RenderProcessHostImpl::main_host() {
 }
 
 extern bool g_browser_main_loop_shutting_down;
-
-// static
-void RenderProcessHostImpl::UnregisterHost(int host_id) {
-  return UnregisterHost(ChildProcessId(host_id));
-}
 
 // static
 void RenderProcessHostImpl::UnregisterHost(ChildProcessId host_id) {
@@ -5672,8 +5677,9 @@ void RenderProcessHostImpl::CreateMetricsAllocator() {
   CHECK(shared_memory_config.has_value());
 
   // Create the shared memory region and allocator.
+  // TODO(crbug.com/379869738): Remove GetUnsafeValue.
   auto shared_memory = base::HistogramSharedMemory::Create(
-      GetDeprecatedID(), shared_memory_config.value());
+      GetID().GetUnsafeValue(), shared_memory_config.value());
   if (shared_memory.has_value()) {
     metrics_memory_region_ =
         MakeRefCounted<base::RefCountedData<base::UnsafeSharedMemoryRegion>>(

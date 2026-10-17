@@ -1955,11 +1955,6 @@ inline constexpr char kDeviceI18nShortcutsEnabled[] =
 // A boolean pref which is true if Fast Pair is enabled.
 inline constexpr char kFastPairEnabled[] = "ash.fast_pair.enabled";
 
-// Boolean pref indicating a user entered Bluetooth pairing flow from a fast
-// pair entry point.
-inline constexpr char kUserPairedWithFastPair[] =
-    "ash.user.paired_with_fast_pair";
-
 // A list pref that contains predefined automation configured by policy
 // administrators.
 inline constexpr char kAppLaunchAutomation[] = "ash.app_launch_automation";
@@ -2918,6 +2913,11 @@ inline constexpr char kUptimeLimit[] = "automatic_reboot.uptime_limit";
 // Kiosk related Prefs
 //-----------------------------------------------------------------------------
 
+// A boolean pref which determines whether admin-installed Chrome Apps are
+// allowed to run despite deprecation.
+inline constexpr char kAdminInstalledChromeAppsForceAllowed[] =
+    "admin_installed_chrome_apps_force_allowed";
+
 // A boolean pref to change the kiosk active WiFi credentials scope from in
 // session level to the device level.
 inline constexpr char kKioskActiveWiFiCredentialsScopeChangeEnabled[] =
@@ -3530,15 +3530,6 @@ inline constexpr char kReleaseNotesSuggestionChipTimesLeftToShow[] =
 //-----------------------------------------------------------------------------
 
 // An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the most recent ARC Games survey cycle.
-inline constexpr char kHatsArcGamesSurveyCycleEndTs[] =
-    "hats_arc_games_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the ARC Games survey
-inline constexpr char kHatsArcGamesDeviceIsSelected[] =
-    "hats_arc_games_device_is_selected";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
 // indicates the end of the most recent Audio survey cycle.
 inline constexpr char kHatsAudioSurveyCycleEndTs[] =
     "hats_audio_cycle_end_timestamp";
@@ -3546,16 +3537,6 @@ inline constexpr char kHatsAudioSurveyCycleEndTs[] =
 // A boolean pref. Indicates if the device is selected for the Audio survey
 inline constexpr char kHatsAudioDeviceIsSelected[] =
     "hats_audio_device_is_selected";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the most recent Audio Output Processing survey cycle.
-inline constexpr char kHatsAudioOutputProcSurveyCycleEndTs[] =
-    "hats_audio_output_proc_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the Audio Output
-// Processing survey
-inline constexpr char kHatsAudioOutputProcDeviceIsSelected[] =
-    "hats_audio_output_proc_device_is_selected";
 
 // An int64 pref. This is the timestamp, microseconds after epoch, that
 // indicates the end of the Battery life experience survey.
@@ -3588,21 +3569,6 @@ inline constexpr char kHatsBluetoothRevampIsSelected[] =
     "hats_bluetooth_revamp_is_selected";
 
 // An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicated the end of the most recent Borealis games survey cycle.
-inline constexpr char kHatsBorealisGamesSurveyCycleEndTs[] =
-    "hats_borealis_games_end_timestamp";
-
-// A boolean pref. Indicated if the device is selected for the Borealis games
-// survey.
-inline constexpr char kHatsBorealisGamesSurveyIsSelected[] =
-    "hats_borealis_games_is_selected";
-
-// An base::Time pref. This is the timestamp that indicates the end of the
-// most recent Borealis games survey interaction.
-inline constexpr char kHatsBorealisGamesLastInteractionTimestamp[] =
-    "hats_borealis_games_last_interaction_timestamp";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
 // indicates the end of the most recent Camera App survey cycle.
 inline constexpr char kHatsCameraAppSurveyCycleEndTs[] =
     "hats_camera_app_cycle_end_timestamp";
@@ -3615,16 +3581,6 @@ inline constexpr char kHatsCameraAppDeviceIsSelected[] =
 // A boolean pref. Indicates if the device is selected for HaTS in the current
 // survey cycle (general survey).
 inline constexpr char kHatsDeviceIsSelected[] = "hats_device_is_selected";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the ENT survey
-inline constexpr char kHatsEntSurveyCycleEndTs[] =
-    "hats_ent_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the HaTS ENT
-// survey
-inline constexpr char kHatsEntDeviceIsSelected[] =
-    "hats_ent_device_is_selected";
 
 // An int64 pref. This is the timestamp, microseconds after epoch, that
 // indicated the end of the most recent general camera survey cycle.
@@ -3657,16 +3613,6 @@ inline constexpr char kHatsLastInteractionTimestamp[] =
     "hats_last_interaction_timestamp";
 
 // An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the OS Launcher Apps satisfaction survey cycle.
-inline constexpr char kHatsLauncherAppsSurveyCycleEndTs[] =
-    "hats_launcher_apps_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the OS Launcher
-// Apps satisfaction survey.
-inline constexpr char kHatsLauncherAppsSurveyIsSelected[] =
-    "hats_launcher_apps_is_selected";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
 // indicates the end of the most recent Media App PDF survey cycle.
 inline constexpr char kHatsMediaAppPdfCycleEndTs[] =
     "hats_media_app_pdf_cycle_end_timestamp";
@@ -3684,16 +3630,6 @@ inline constexpr char kHatsOfficeSurveyIsSelected[] = "hats_office_is_selected";
 // indicated the end of the most recent Office integration survey cycle.
 inline constexpr char kHatsOfficeSurveyCycleEndTs[] =
     "hats_office_end_timestamp";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the Onboarding Experience survey
-inline constexpr char kHatsOnboardingSurveyCycleEndTs[] =
-    "hats_onboarding_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the HaTS Onboarding
-// Experience survey
-inline constexpr char kHatsOnboardingDeviceIsSelected[] =
-    "hats_onboarding_device_is_selected";
 
 // An int64 pref. This is the timestamp, microseconds after epoch, that
 // indicates the end of the most recent OS Settings Search survey cycle.

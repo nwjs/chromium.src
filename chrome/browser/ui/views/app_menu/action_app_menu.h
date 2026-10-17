@@ -7,10 +7,12 @@
 
 #include <memory>
 #include <optional>
+#include <utility>
 
 #include "base/containers/flat_map.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
+#include "chrome/browser/ui/views/app_menu/action_app_menu_metrics.h"
 #include "ui/actions/action_id.h"
 #include "ui/base/command_id_constants.h"
 #include "ui/views/actions/action_view_controller.h"
@@ -48,14 +50,16 @@ class ActionAppMenu : public views::MenuDelegate {
   void ExecuteCommand(int id, int mouse_event_flags) override;
   void OnMenuClosed(views::MenuItemView* menu) override;
   void WillShowMenu(views::MenuItemView* menu) override;
+  bool IsItemChecked(int id) const override;
   const gfx::FontList* GetLabelFontList(int id) const override;
   std::optional<SkColor> GetLabelColor(int id) const override;
+  int GetMaxWidthForMenu(views::MenuItemView* menu) override;
 
   views::MenuItemView* root_menu_item_for_testing() { return root_; }
   AppMenuSearchBarView* search_bar_for_testing() { return search_bar_; }
 
  private:
-  void CancelAndEvaluate(actions::ActionId action_id);
+  void CancelAndEvaluate(actions::ActionId action_id, int mouse_event_flags);
 
   // Recursively populates the menu item with the `base_action_item`'s
   // children.
@@ -78,7 +82,7 @@ class ActionAppMenu : public views::MenuDelegate {
   void PopulateSearchBar(views::MenuItemView* view_parent,
                          actions::ActionItem* search_action_item);
   void PopulateHeader(views::MenuItemView* view_parent,
-                      actions::ActionItem* header_action_item);
+                      actions::BaseAction* header_base_action);
   void PopulateFooter(views::MenuItemView* view_parent,
                       actions::ActionItem* footer_action_item);
   void PopulateBlockSection(views::MenuItemView* view_parent,
@@ -109,13 +113,23 @@ class ActionAppMenu : public views::MenuDelegate {
   // The search bar view in the menu, if kChroMenuSearch is enabled.
   raw_ptr<AppMenuSearchBarView> search_bar_ = nullptr;
 
-  size_t header_count_ = 0;
+  // The states associated with the populated app menu.
+  bool has_notification_header_ = false;
+  size_t section_header_count_ = 0;
 
-  // The action to execute when the menu is closed.
-  std::optional<actions::ActionId> action_to_execute_on_close_;
+  struct ActionExecutionParams {
+    actions::ActionId action_id;
+    actions::ActionInvocationContext context;
+  };
+
+  // The action and context to execute when the menu is closed.
+  std::optional<ActionExecutionParams> action_to_execute_on_close_;
 
   // Manages the ActionItem hierarchy and dynamic submenus.
   std::unique_ptr<ActionAppMenuManager> menu_manager_;
+
+  // Records UMA histograms and user actions for menu interactions.
+  ActionAppMenuMetrics metrics_;
 
   int next_id_ = COMMAND_ID_FIRST_UNBOUNDED;
 };

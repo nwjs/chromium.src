@@ -11,7 +11,7 @@
 #include "build/build_config.h"
 #include "components/safe_browsing/content/browser/base_ui_manager.h"
 #include "components/safe_browsing/content/browser/url_checker_holder.h"
-#include "components/safe_browsing/core/browser/db/v4_protocol_manager_util.h"
+#include "components/safe_browsing/core/browser/db/sb_protocol_manager_util.h"
 #include "components/safe_browsing/core/browser/safe_browsing_url_checker_impl.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "components/security_interstitials/core/unsafe_resource.h"
@@ -325,6 +325,32 @@ TEST_F(AsyncCheckTrackerTest, IsMainPageLoadPending_GlicThreatSource) {
       rfh_locator,
       /*navigation_id=*/std::nullopt, SBThreatType::SB_THREAT_TYPE_URL_PHISHING,
       safe_browsing::ThreatSource::GLIC_COUNTER_ABUSE));
+}
+
+TEST_F(AsyncCheckTrackerTest, IsMainPageLoadPending_BillingThreatType) {
+  auto rfh_locator = UnsafeResourceLocator::CreateForFrameTreeNodeId(
+      main_rfh()->GetFrameTreeNodeId().value());
+  // Billing verdicts from blocklist checks are performed during navigation, so
+  // the main page load is pending.
+  EXPECT_TRUE(AsyncCheckTracker::IsMainPageLoadPending(
+      rfh_locator, /*navigation_id=*/std::nullopt,
+      SBThreatType::SB_THREAT_TYPE_BILLING,
+      safe_browsing::ThreatSource::UNKNOWN));
+  EXPECT_TRUE(AsyncCheckTracker::IsMainPageLoadPending(
+      rfh_locator, /*navigation_id=*/std::nullopt,
+      SBThreatType::SB_THREAT_TYPE_BILLING,
+      safe_browsing::ThreatSource::LOCAL_PVER4));
+  EXPECT_TRUE(AsyncCheckTracker::IsMainPageLoadPending(
+      rfh_locator, /*navigation_id=*/std::nullopt,
+      SBThreatType::SB_THREAT_TYPE_BILLING,
+      safe_browsing::ThreatSource::URL_REAL_TIME_CHECK));
+
+  // Billing verdicts from client-side detection (CLAMS) happen after the page
+  // has finished loading, so the main page load is not pending.
+  EXPECT_FALSE(AsyncCheckTracker::IsMainPageLoadPending(
+      rfh_locator, /*navigation_id=*/std::nullopt,
+      SBThreatType::SB_THREAT_TYPE_BILLING,
+      safe_browsing::ThreatSource::CLIENT_SIDE_DETECTION));
 }
 
 TEST_F(AsyncCheckTrackerTest,

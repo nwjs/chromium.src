@@ -1767,6 +1767,23 @@ The proxy settings include a combination of auto-proxy (WPAD), proxy
 auto-configuration, or named proxy. The updater tries one of these mechanisms
 in the order described above.
 
+#### NTLM credential leakage (Windows)
+Consistent with Chrome's policy, the updater does not treat the leakage of NTLM
+credentials (for example, NTLMv2 challenge-responses sent to an
+attacker-controlled proxy or server) as a security vulnerability. This applies
+to any type of NTLM leakage, including the leakage of the machine account
+credentials when the updater runs as `SYSTEM` for system-scoped installs.
+
+NTLM is an operating-system-provided authentication mechanism that Microsoft
+has deprecated. Reducing or disabling NTLM, and migrating to Kerberos, is an
+operating system and network configuration matter. Accordingly, the updater
+does not add specific mitigations against these attacks, since doing so would
+legitimize them as a class of issue that is accepted as a security bug.
+
+See the Chrome Security FAQ entry
+[I can make Chrome perform potentially insecure NTLM requests to an attacker controlled server. Is this a security bug?](../security/faq.md#I-can-make-Chrome-perform-potentially-insecure-NTLM-requests-to-an-attacker-controlled-server_Is-this-a-security-bug)
+for more details.
+
 ## Services
 
 ### Crash Reporting
@@ -1835,6 +1852,7 @@ If "AutoRunOnOSUpgrade" is set to `1`, the corresponding command is invoked when
 the updater detects an OS upgrade. In this case, `command format` can optionally
 contain a single substitutible parameter `%1`, which is filled in with the OS
 versions in the format `{Previous OS Version}-{Current OS Version}`.
+`AutoRunOnOSUpgrade` commands do not support `%CALLER_SID%`.
 
 For example, if the `{command format}` for an `AutoRunOnOSUpgrade` command is:
 `c:\path-to\echo.exe %1 StaticParam`
@@ -1880,7 +1898,12 @@ cmd.execute();
 ```
 
 Parameters placeholders (`%1-%9`) are filled by the numbered substitutions in
-`IAppCommandWeb::execute`. Placeholders without corresponding substitutions
+`IAppCommandWeb::execute`. `%CALLER_SID%` (case-sensitive) is only supported for
+commands invoked via `IAppCommandWeb::execute` (and transitively
+`IProcessLauncher::LaunchCmdElevated`), where it is replaced with the SID (in
+SDDL format) of the invoking user. It is recommended that a command include at
+most one `%CALLER_SID%` placeholder. Placeholders without corresponding
+substitutions (or `%CALLER_SID%` when the caller's SID cannot be determined)
 cause the execution to fail.
 
 Clients may poll for the execution status of commands that they have invoked by
@@ -1888,12 +1911,18 @@ using the `status` method of `IAppCommandWeb`. When the status is
 `COMMAND_STATUS_COMPLETE`, the `exitCode` method can be used to get the process
 exit code.
 
+Commands are monitored for up to 15 minutes (`kWaitForAppInstaller`). If the
+command has not exited by then, the status becomes `COMMAND_STATUS_ERROR` and
+remains so, and `exitCode` returns `S_FALSE` without setting the exit code. The
+command process is not terminated and may continue to run.
+
 #### Command-Line Format
 * for system applications, the executable path has to be a child of
 `%ProgramFiles%` or `%ProgramFiles(x86)%` for security, since it runs elevated.
 * placeholders are not permitted in the executable path.
-* placeholders take the form of a percent character `%` followed by a digit.
-Literal `%` characters are escaped by doubling them.
+* placeholders take the form of a percent character `%` followed by a digit, or
+`%CALLER_SID%` (case-sensitive). Literal `%` characters are escaped by doubling
+them.
 
 For example, if substitutions to `IAppCommandWeb::execute` are `AA` and `BB`
 respectively, a command format of:

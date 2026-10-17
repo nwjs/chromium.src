@@ -29,6 +29,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
+#include "base/numerics/angle_conversions.h"
 #include "base/numerics/safe_conversions.h"
 #include "cc/paint/paint_canvas.h"
 #include "cc/paint/paint_flags.h"
@@ -1403,7 +1404,7 @@ void Canvas2DRecorderContext::rotate(double angle_in_radians) {
   }
 
   SetTransform(new_transform);
-  c->rotate(ClampTo<float>(angle_in_radians * (180.0 / kPiFloat)));
+  c->rotate(ClampTo<float>(base::RadToDeg(angle_in_radians)));
 
   if (IsTransformInvertible()) [[likely]] {
     GetModifiablePath().Transform(
@@ -1630,9 +1631,9 @@ void Canvas2DRecorderContext::DrawPathInternal(
         SkRect::MakeLTRB(arc.x - arc.radius, arc.y - arc.radius,
                          arc.x + arc.radius, arc.y + arc.radius);
     const float start_degrees =
-        ClampNonFiniteToZero(arc.start_angle_radians * 180 / kPiFloat);
+        ClampNonFiniteToZero(base::RadToDeg(arc.start_angle_radians));
     const float sweep_degrees =
-        ClampNonFiniteToZero(arc.sweep_angle_radians * 180 / kPiFloat);
+        ClampNonFiniteToZero(base::RadToDeg(arc.sweep_angle_radians));
     const bool closed = arc.closed;
     Draw<OverdrawOp::kNone>(
         /*draw_func=*/
@@ -2119,7 +2120,8 @@ void Canvas2DRecorderContext::DrawImageInternal(
     const gfx::RectF& src_rect,
     const gfx::RectF& dst_rect,
     const SkSamplingOptions& sampling,
-    const cc::PaintFlags* flags) {
+    const cc::PaintFlags* flags,
+    RespectImageOrientationEnum respect_orientation) {
   cc::RecordPaintCanvas::DisableFlushCheckScope disable_flush_check_scope(
       static_cast<cc::RecordPaintCanvas*>(c));
   int initial_save_count = c->getSaveCount();
@@ -2163,11 +2165,6 @@ void Canvas2DRecorderContext::DrawImageInternal(
   // the video into the canvas. The fast path is not always faster though (e.g.,
   // when scaling), so sometimes the `image` path may still be used by video.
   if (image) {
-    // We always use the image-orientation property on the canvas element
-    // because the alternative would result in complex rules depending on
-    // the source of the image.
-    RespectImageOrientationEnum respect_orientation =
-        RespectImageOrientationInternal(image_source);
     gfx::RectF corrected_src_rect = src_rect;
     if (respect_orientation == kRespectImageOrientation &&
         !image->HasDefaultOrientation()) {
@@ -2195,8 +2192,7 @@ void Canvas2DRecorderContext::DrawImageInternal(
     VideoFrame* frame = static_cast<VideoFrame*>(image_source);
     auto media_frame = frame->frame();
     bool ignore_transformation =
-        RespectImageOrientationInternal(image_source) ==
-        kDoNotRespectImageOrientation;
+        respect_orientation == kDoNotRespectImageOrientation;
     c->save();
     c->clipRect(gfx::RectFToSkRect(dst_rect));
     c->translate(dst_rect.x(), dst_rect.y());
@@ -2306,8 +2302,13 @@ void Canvas2DRecorderContext::drawImage(CanvasImageSource* image_source,
     return;
   }
 
-  gfx::SizeF image_size = image_source->ElementSize(
-      default_object_size, RespectImageOrientationInternal(image_source));
+  // We always use the image-orientation property on the canvas element because
+  // the alternative would result in complex rules depending on the source of
+  // the image.
+  const RespectImageOrientationEnum respect_orientation =
+      RespectImageOrientationInternal(image_source);
+  gfx::SizeF image_size =
+      image_source->ElementSize(default_object_size, respect_orientation);
 
   ClipRectsToImageRect(gfx::RectF(image_size), &src_rect, &dst_rect);
 
@@ -2325,14 +2326,14 @@ void Canvas2DRecorderContext::drawImage(CanvasImageSource* image_source,
 
   Draw<OverdrawOp::kDrawImage>(
       /*draw_func=*/
-      [this, image_source, image, src_rect, dst_rect](
+      [this, image_source, image, src_rect, dst_rect, respect_orientation](
           MemoryManagedPaintCanvas* c, const cc::PaintFlags* flags) {
         SkSamplingOptions sampling =
             cc::PaintFlags::FilterQualityToSkSamplingOptions(
                 flags ? flags->getFilterQuality()
                       : cc::PaintFlags::FilterQuality::kNone);
         DrawImageInternal(c, image_source, image.get(), src_rect, dst_rect,
-                          sampling, flags);
+                          sampling, flags, respect_orientation);
       },
       /*draw_covers_clip_bounds=*/
       [this, dst_rect](const SkIRect& clip_bounds) {
@@ -2423,7 +2424,7 @@ CanvasGradient* Canvas2DRecorderContext::createConicGradient(double startAngle,
 
   // convert |startAngle| from radians to degree and rotate 90 degree, so
   // |startAngle| at 0 starts from x-axis.
-  a = Rad2deg(a) + 90;
+  a = base::RadToDeg(a) + 90;
 
   return MakeGarbageCollected<CanvasGradient>(a, gfx::PointF(x, y));
 }
@@ -2456,6 +2457,9 @@ CanvasPattern* Canvas2DRecorderContext::createPattern(
     return nullptr;
   }
 
+  RespectImageOrientationEnum respect_orientation =
+      RespectImageOrientationInternal(image_source);
+
   SourceImageStatus status = kInvalidSourceImageStatus;
 
   gfx::SizeF default_object_size(Width(), Height());
@@ -2468,9 +2472,7 @@ CanvasPattern* Canvas2DRecorderContext::createPattern(
     case kZeroSizeCanvasSourceImageStatus:
       exception_state.ThrowDOMException(
           DOMExceptionCode::kInvalidStateError,
-          image_source
-                  ->ElementSize(default_object_size,
-                                RespectImageOrientationInternal(image_source))
+          image_source->ElementSize(default_object_size, respect_orientation)
                   .width()
               ? "The canvas height is 0."
               : "The canvas width is 0.");
@@ -2503,7 +2505,8 @@ CanvasPattern* Canvas2DRecorderContext::createPattern(
 
   bool origin_clean = !WouldTaintCanvasOrigin(image_source);
   return MakeGarbageCollected<CanvasPattern>(std::move(image_for_rendering),
-                                             repeat_mode, origin_clean);
+                                             repeat_mode, origin_clean,
+                                             respect_orientation);
 }
 
 namespace {

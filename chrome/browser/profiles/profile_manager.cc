@@ -580,7 +580,7 @@ Profile* ProfileManager::MaybeForceOffTheRecordMode(Profile* profile) {
   if (!profile)
     return nullptr;
   if (profile->IsGuestSession() || profile->IsSystemProfile() ||
-      IncognitoModePrefs::GetAvailability(profile->GetPrefs()) ==
+      IncognitoModePrefs::GetAvailability(profile) ==
           policy::IncognitoModeAvailability::kForced) {
     return profile->GetPrimaryOTRProfile(/*create_if_needed=*/true);
   }
@@ -1591,13 +1591,6 @@ void ProfileManager::DoFinalInitForServices(Profile* profile,
   }
 #endif
 
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
-
-  // Initialization needs to happen after extension system initialization (for
-  // extension::ManagementPolicy) and InitProfileUserPrefs (for setting the
-  // initializing the supervised flag if necessary).
-  ChildAccountServiceFactory::GetForProfile(profile)->Init();
-#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   // After the ManagementPolicy has been set, update it for the Supervised User
   // Extension Delegate, which has been created before the profile
   // initialization and needs to obtain the new policies.

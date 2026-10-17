@@ -83,6 +83,7 @@ TEST(UrlUtilTest, ValidateLaunchUrlWebSafe) {
   EXPECT_FALSE(ValidateLaunchUrlWebSafe(GURL(
       "chrome-native://pdf/link?url=https%3A%2F%2Fexample.com%2Fdoc.pdf")));
   EXPECT_FALSE(ValidateLaunchUrlWebSafe(GURL("chrome-native://newtab/")));
+
   // Schemes that ChildProcessSecurityPolicy::IsWebSafeScheme() considers
   // web-safe, but that are not valid launch targets. These are rejected by the
   // explicit http/https/about:blank allowlist.

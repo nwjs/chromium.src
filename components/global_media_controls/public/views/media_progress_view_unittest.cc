@@ -5,8 +5,8 @@
 #include "components/global_media_controls/public/views/media_progress_view.h"
 
 #include "base/functional/callback_helpers.h"
-#include "base/i18n/rtl.h"
-#include "base/test/icu_test_util.h"
+#include "base/i18n/language_tag.h"
+#include "base/i18n/test/scoped_icu_locale.h"
 #include "base/timer/mock_timer.h"
 #include "components/strings/grit/components_strings.h"
 #include "services/media_session/public/mojom/media_session.mojom.h"
@@ -97,7 +97,6 @@ class MediaProgressViewTest : public views::ViewsTestBase {
   MOCK_METHOD1(OnProgressUpdated, void(base::TimeDelta));
 
  private:
-  base::test::ScopedRestoreICUDefaultLocale restore_default_locale_;
   std::unique_ptr<views::Widget> widget_;
   raw_ptr<MediaProgressView> view_ = nullptr;
   raw_ptr<base::MockOneShotTimer> update_progress_timer_ = nullptr;
@@ -201,7 +200,8 @@ TEST_F(MediaProgressViewTest, MouseLongPressEventSeekTo) {
 }
 
 TEST_F(MediaProgressViewTest, MouseLongPressEventSeekToForRTL) {
-  base::i18n::SetICUDefaultLocale("he");
+  base::i18n::ScopedDefaultIcuLocale scoped_locale(
+      base::i18n::GetKnownLanguageTag("he"));
 
   media_session::MediaPosition media_position(
       /*playback_rate=*/1, /*duration=*/base::Seconds(600),
@@ -477,7 +477,7 @@ TEST_F(MediaProgressViewTest, UpdateProgressColorsForPlaybackRateChanges) {
   media_session::MediaPosition paused_media_position(
       /*playback_rate=*/0, /*duration=*/base::Seconds(600),
       /*position=*/base::Seconds(300), /*end_of_media=*/false);
-  EXPECT_CALL(*this, OnProgressUpdated(testing::_));
+  EXPECT_CALL(*this, OnProgressUpdated(testing::_)).Times(0);
   view()->UpdateProgress(paused_media_position);
   EXPECT_TRUE(switch_progress_colors_delay_timer()->IsRunning());
   EXPECT_FALSE(view()->use_paused_colors_for_testing());
@@ -597,9 +597,7 @@ TEST_F(MediaProgressViewTest,
       /*position=*/base::Seconds(100), /*end_of_media=*/false);
   view()->UpdateProgress(playing_media_position);
 
-  // Ensure `should_animate_waves` is true by setting animation to end state.
-  view()->slide_animation_for_testing().Reset(1.0);
-  int initial_phase = view()->phase_offset_for_testing();
+  float initial_phase = view()->phase_offset_for_testing();
 
   // Fire the timer and verify that the callback does not run.
   EXPECT_CALL(*this, OnProgressUpdated(testing::_)).Times(0);
@@ -618,12 +616,13 @@ TEST_F(MediaProgressViewTest, AnimationProgressedWhileHidden) {
   // Simulate squiggly path animation progress while hidden.
   view()->slide_animation_for_testing().Reset(0.5);
   view()->AnimationProgressed(&view()->slide_animation_for_testing());
-  EXPECT_EQ(view()->progress_amp_fraction_for_testing(), 0.5);
+  EXPECT_FLOAT_EQ(view()->progress_amp_fraction_for_testing(), 0.5f);
 
-  // Simulate thickness animation progress while hidden.
-  view()->thickness_animation_for_testing().Reset(0.5);
+  // Simulate thickness animation progress while hidden, verifying fractional
+  // subpixel stroke width interpolation.
+  view()->thickness_animation_for_testing().Reset(0.25);
   view()->AnimationProgressed(&view()->thickness_animation_for_testing());
-  EXPECT_EQ(view()->straight_progress_stroke_width_for_testing(), 3);
+  EXPECT_FLOAT_EQ(view()->straight_progress_stroke_width_for_testing(), 2.5f);
 }
 
 TEST_F(MediaProgressViewTest, UpdateProgressSchedulesPaintOnlyWhenDrawn) {
@@ -653,18 +652,71 @@ TEST_F(MediaProgressViewTest, UpdateIntervalsAreCorrectRelatively) {
   // update interval property.
   ui::ColorId id = ui::kUiColorsStart;
 
-  MediaProgressView squiggly_view(
-      /*use_squiggly_line=*/true, id, id, id, id, id, base::DoNothing(),
-      base::DoNothing(), base::DoNothing(), base::DoNothing());
+  auto straight_widget =
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
+  auto* straight_view =
+      straight_widget->SetContentsView(std::make_unique<MediaProgressView>(
+          /*use_squiggly_line=*/false, id, id, id, id, id, base::DoNothing(),
+          base::DoNothing(), base::DoNothing(), base::DoNothing()));
+  straight_widget->Show();
 
-  MediaProgressView straight_view(
-      /*use_squiggly_line=*/false, id, id, id, id, id, base::DoNothing(),
-      base::DoNothing(), base::DoNothing(), base::DoNothing());
+  // Verify that when drawn, the straight progress bar is updated less
+  // frequently than the squiggly wave animation.
+  ASSERT_TRUE(view()->IsDrawn());
+  ASSERT_TRUE(straight_view->IsDrawn());
+  EXPECT_EQ(view()->GetUpdateInterval(), base::Hertz(60));
+  EXPECT_GT(straight_view->GetUpdateInterval(), view()->GetUpdateInterval());
 
-  // Verify that the straight progress bar is updated less frequently than the
-  // squiggly wave animation.
-  EXPECT_GT(straight_view.GetUpdateInterval(),
-            squiggly_view.GetUpdateInterval());
+  // When hidden, the squiggly view should drop to the lower update frequency.
+  view()->SetVisible(false);
+  ASSERT_FALSE(view()->IsDrawn());
+  EXPECT_EQ(view()->GetUpdateInterval(), straight_view->GetUpdateInterval());
+}
+
+TEST_F(MediaProgressViewTest, SquigglyWavePhaseAdvancesSmoothly) {
+  media_session::MediaPosition playing_media_position(
+      /*playback_rate=*/1.0, /*duration=*/base::Seconds(600),
+      /*position=*/base::Seconds(100), /*end_of_media=*/false);
+
+  float initial_phase = view()->phase_offset_for_testing();
+  EXPECT_FLOAT_EQ(initial_phase, 0.0f);
+
+  EXPECT_CALL(*this, OnProgressUpdated(testing::_));
+  view()->UpdateProgress(playing_media_position);
+
+  // At 60Hz (~16.67ms) and 28 px/s speed, phase_offset_ advances by ~0.47 px
+  // per tick (subpixel precision, non-zero).
+  float phase_after_first_tick = view()->phase_offset_for_testing();
+  EXPECT_GT(phase_after_first_tick, 0.0f);
+  EXPECT_LT(phase_after_first_tick, 1.0f);
+}
+
+TEST_F(MediaProgressViewTest,
+       UpdateProgressCallbackAtZeroAndSubSecondPositions) {
+  // Initial update at 0s should invoke `OnProgressUpdated`.
+  media_session::MediaPosition zero_position(
+      /*playback_rate=*/1.0, /*duration=*/base::Seconds(600),
+      /*position=*/base::Seconds(0), /*end_of_media=*/false);
+  EXPECT_CALL(*this, OnProgressUpdated(testing::_)).Times(1);
+  view()->UpdateProgress(zero_position);
+  testing::Mock::VerifyAndClearExpectations(this);
+
+  // Sub-second update within the same whole second should not invoke
+  // `OnProgressUpdated` again.
+  media_session::MediaPosition sub_second_position(
+      /*playback_rate=*/1.0, /*duration=*/base::Seconds(600),
+      /*position=*/base::Milliseconds(500), /*end_of_media=*/false);
+  EXPECT_CALL(*this, OnProgressUpdated(testing::_)).Times(0);
+  view()->UpdateProgress(sub_second_position);
+  testing::Mock::VerifyAndClearExpectations(this);
+
+  // Advancing to the next whole second should invoke `OnProgressUpdated`.
+  media_session::MediaPosition one_second_position(
+      /*playback_rate=*/1.0, /*duration=*/base::Seconds(600),
+      /*position=*/base::Seconds(1), /*end_of_media=*/false);
+  EXPECT_CALL(*this, OnProgressUpdated(testing::_)).Times(1);
+  view()->UpdateProgress(one_second_position);
+  testing::Mock::VerifyAndClearExpectations(this);
 }
 
 }  // namespace global_media_controls

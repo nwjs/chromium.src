@@ -30,6 +30,7 @@
 
         <!-- Autofill Lottie resources -->
         <structure type="lottie" name="IDR_AUTOFILL_AT_MEMORY_PROMO_HEADER" file="resources/autofill/autofill_at_memory_promo_header.json" compress="brotli"/>
+        <structure type="lottie" name="IDR_AUTOFILL_GMAIL_OTP_OPT_IN_HEADER" file="resources/autofill/autofill_gmail_otp_opt_in_header.json" compress="brotli"/>
         <structure type="lottie" name="IDR_AUTOFILL_SAVE_PASSWORD_LOTTIE" file="resources/autofill/autofill_save_password.json" compress="brotli"/>
         <structure type="lottie" name="IDR_AUTOFILL_SAVE_ADDRESS_LOTTIE" file="resources/autofill/autofill_save_address.json" compress="brotli"/>
         <structure type="lottie" name="IDR_AUTOFILL_VIRTUAL_CARD_ENROLL_SUCCESS_LOTTIE" file="resources/autofill/autofill_virtual_card_enroll_confirmation.json" compress="brotli"/>
@@ -80,6 +81,7 @@
 
         <!-- Search AI Mode Lottie resources -->
         <structure type="lottie" name="IDR_SEARCH_AI_MODE_SIGNIN_PROMO_LOTTIE" file="resources/search_ai_mode/search_ai_mode_signin_promo.json" compress="brotli" />
+        <structure type="lottie" name="IDR_COMPOSEBOX_DRIVE_SIGNIN_PROMO_LOTTIE" file="resources/search_ai_mode/composebox_drive_signin_promo.json" compress="brotli" />
 
         <!-- Send Tab to Self Lottie resources -->
         <structure type="lottie" name="IDR_INSTANT_HANDOFF_ILLUSTRATION" file="resources/send_tab_to_self/instant_handoff_illustration.json" compress="brotli" />

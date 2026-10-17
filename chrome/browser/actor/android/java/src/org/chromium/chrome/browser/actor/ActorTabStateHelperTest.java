@@ -33,6 +33,8 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Shadows;
+import org.robolectric.annotation.Config;
+import org.robolectric.shadows.ShadowSystemClock;
 
 import org.chromium.base.Callback;
 import org.chromium.base.Token;
@@ -42,6 +44,8 @@ import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.base.test.util.HistogramWatcher;
+import org.chromium.chrome.browser.actor.ActorMetrics.ActorFetchTabIdStatus;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.glic.GlicKeyedService;
 import org.chromium.chrome.browser.glic.GlicKeyedServiceFactory;
@@ -75,10 +79,13 @@ import org.chromium.url.GURL;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /** Unit tests for {@link ActorTabStateHelper}. */
 @RunWith(BaseRobolectricTestRunner.class)
+@Config(shadows = {ShadowSystemClock.class})
 public class ActorTabStateHelperTest {
     private static final int TAB_ID = 100;
     private static final boolean IS_PINNED = false;
@@ -135,7 +142,14 @@ public class ActorTabStateHelperTest {
         setupModelSelectorAndProfile();
         when(mActorKeyedService.getActiveTasksCount()).thenReturn(1);
         when(mTabModel.iterator()).thenReturn(Collections.singletonList(mTab).iterator());
-        when(mActorKeyedService.getActiveTaskIdOnTab(TAB_ID, false)).thenReturn(500);
+
+        ActorTask mockTask = mock(ActorTask.class);
+        when(mockTask.getId()).thenReturn(500);
+        when(mockTask.isUnderActorControl()).thenReturn(true);
+        when(mockTask.getTabs()).thenReturn(Collections.singleton(TAB_ID));
+        when(mActorKeyedService.getActiveTasks()).thenReturn(Collections.singletonList(mockTask));
+        when(mTabModel.getTabById(TAB_ID)).thenReturn(mTab);
+
         when(mPlaceholderTab.getId()).thenReturn(101);
         when(mTabModel.getTabRemover()).thenReturn(mTabRemover);
         setupPlaceholderCreationMocks(IS_PINNED);
@@ -185,6 +199,100 @@ public class ActorTabStateHelperTest {
     }
 
     @Test
+    public void testDetachActiveBackgroundSessions_PausedTask_TransitionsTab() {
+        setupDetachmentMocks();
+
+        ActorTask mockTask = mock(ActorTask.class);
+        when(mockTask.getId()).thenReturn(500);
+        when(mockTask.isCompleted()).thenReturn(false);
+        when(mockTask.isUnderActorControl()).thenReturn(false);
+        when(mockTask.getState()).thenReturn(ActorTaskState.PAUSED_BY_USER);
+        when(mockTask.getTabs()).thenReturn(Collections.singleton(TAB_ID));
+        when(mActorKeyedService.getActiveTasks()).thenReturn(Collections.singletonList(mockTask));
+
+        TabState testTabState = new TabState();
+        TabStateExtractor.setTabStateForTesting(TAB_ID, testTabState);
+
+        List<BackgroundSession> sessions =
+                ActorTabStateHelper.detachActiveBackgroundSessions(
+                        mTabModelSelector, 42, mOnTabDetaching);
+
+        assertEquals(1, sessions.size());
+        assertEquals(mTab, sessions.get(0).getLastActiveTab());
+        assertEquals(Integer.valueOf(500), sessions.get(0).getTaskId());
+        assertEquals(1, sessions.get(0).getTabDataList().size());
+        assertEquals(
+                Integer.valueOf(101),
+                sessions.get(0).getTabDataList().get(0).getPlaceholderTabId());
+        assertEquals(0, sessions.get(0).getTabDataList().get(0).getOriginalTabIndex());
+        assertEquals(42, sessions.get(0).getTabDataList().get(0).getTabWindowId());
+
+        InOrder inOrder = inOrder(mOnTabDetaching, mTabRemover);
+        inOrder.verify(mOnTabDetaching).onResult(mTab);
+        inOrder.verify(mTabRemover).removeTab(mTab, false);
+
+        verify(mTabCreator).createFrozenTab(eq(testTabState), anyInt(), eq(1));
+        verify(mTabModel, never()).pinTab(anyInt(), anyBoolean());
+    }
+
+    @Test
+    public void testDetachActiveBackgroundSessions_WaitingOnUserTask_TransitionsTab() {
+        setupDetachmentMocks();
+
+        ActorTask mockTask = mock(ActorTask.class);
+        when(mockTask.getId()).thenReturn(500);
+        when(mockTask.isCompleted()).thenReturn(false);
+        when(mockTask.isUnderActorControl()).thenReturn(false);
+        when(mockTask.getState()).thenReturn(ActorTaskState.WAITING_ON_USER);
+        when(mockTask.getTabs()).thenReturn(Collections.singleton(TAB_ID));
+        when(mActorKeyedService.getActiveTasks()).thenReturn(Collections.singletonList(mockTask));
+
+        TabState testTabState = new TabState();
+        TabStateExtractor.setTabStateForTesting(TAB_ID, testTabState);
+
+        List<BackgroundSession> sessions =
+                ActorTabStateHelper.detachActiveBackgroundSessions(
+                        mTabModelSelector, 42, mOnTabDetaching);
+
+        assertEquals(1, sessions.size());
+        assertEquals(mTab, sessions.get(0).getLastActiveTab());
+        assertEquals(Integer.valueOf(500), sessions.get(0).getTaskId());
+        assertEquals(1, sessions.get(0).getTabDataList().size());
+        assertEquals(
+                Integer.valueOf(101),
+                sessions.get(0).getTabDataList().get(0).getPlaceholderTabId());
+        assertEquals(0, sessions.get(0).getTabDataList().get(0).getOriginalTabIndex());
+        assertEquals(42, sessions.get(0).getTabDataList().get(0).getTabWindowId());
+
+        InOrder inOrder = inOrder(mOnTabDetaching, mTabRemover);
+        inOrder.verify(mOnTabDetaching).onResult(mTab);
+        inOrder.verify(mTabRemover).removeTab(mTab, false);
+
+        verify(mTabCreator).createFrozenTab(eq(testTabState), anyInt(), eq(1));
+        verify(mTabModel, never()).pinTab(anyInt(), anyBoolean());
+    }
+
+    @Test
+    public void testDetachActiveBackgroundSessions_TasksNotRunning_NoTransition() {
+        setupModelSelectorAndProfile();
+        when(mActorKeyedService.getActiveTasksCount()).thenReturn(1);
+
+        ActorTask mockTask = mock(ActorTask.class);
+        when(mockTask.getId()).thenReturn(500);
+        when(mockTask.isCompleted()).thenReturn(true);
+        when(mockTask.getTabs()).thenReturn(Collections.singleton(TAB_ID));
+        when(mActorKeyedService.getActiveTasks()).thenReturn(Collections.singletonList(mockTask));
+
+        List<BackgroundSession> sessions =
+                ActorTabStateHelper.detachActiveBackgroundSessions(
+                        mTabModelSelector, 0, mOnTabDetaching);
+
+        assertTrue(sessions.isEmpty());
+        verify(mOnTabDetaching, never()).onResult(any());
+        verify(mTabRemover, never()).removeTab(any(), eq(false));
+    }
+
+    @Test
     public void testDetachActiveBackgroundSessions_MultipleTabsSameTask_GroupedInSession() {
         setupDetachmentMocks();
 
@@ -193,9 +301,15 @@ public class ActorTabStateHelperTest {
         when(tab2.getIsPinned()).thenReturn(false);
 
         when(mTabModel.iterator()).thenReturn(Arrays.asList(mTab, tab2).iterator());
-        when(mActorKeyedService.getActiveTaskIdOnTab(102, false)).thenReturn(500);
+        when(mTabModel.getTabById(102)).thenReturn(tab2);
         when(mTabModel.indexOf(tab2)).thenReturn(1);
         when(mTabCreator.createFrozenTab(any(), anyInt(), eq(2))).thenReturn(mPlaceholderTab);
+
+        ActorTask mockTask = mock(ActorTask.class);
+        when(mockTask.getId()).thenReturn(500);
+        when(mockTask.isUnderActorControl()).thenReturn(true);
+        when(mockTask.getTabs()).thenReturn(new LinkedHashSet<>(Arrays.asList(TAB_ID, 102)));
+        when(mActorKeyedService.getActiveTasks()).thenReturn(Collections.singletonList(mockTask));
 
         TabState testTabState = new TabState();
         TabStateExtractor.setTabStateForTesting(TAB_ID, testTabState);
@@ -368,8 +482,15 @@ public class ActorTabStateHelperTest {
         when(mTabModelSelector.getTabById(TAB_ID)).thenReturn(mTab);
         when(mTabModel.indexOf(mTab)).thenReturn(0);
 
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords(
+                                ActorMetrics.ACTOR_BACKGROUND_ACTUATION_ON_TAB_ADDED_LATENCY)
+                        .build();
+
         ActorTabStateHelper.listenAndSelectTabOnAdded(mTabModelSelector, mLayoutManager, TAB_ID);
 
+        watcher.assertExpected();
         verify(mTabModelSelector).selectModel(false);
         verify(mTabModel).setIndex(0, TabSelectionType.FROM_USER);
         verify(mTabModelSelector, never()).addObserver(any());
@@ -388,12 +509,63 @@ public class ActorTabStateHelperTest {
         verify(mTabModel).addObserver(mTabModelObserverCaptor.capture());
         TabModelObserver observer = mTabModelObserverCaptor.getValue();
 
+        ShadowSystemClock.advanceBy(250, TimeUnit.MILLISECONDS);
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                ActorMetrics.ACTOR_BACKGROUND_ACTUATION_ON_TAB_ADDED_LATENCY, 250)
+                        .expectIntRecord(
+                                ActorMetrics.ACTOR_BACKGROUND_ACTUATION_ON_TAB_ADDED_LATENCY_COLD,
+                                250)
+                        .expectNoRecords(
+                                ActorMetrics.ACTOR_BACKGROUND_ACTUATION_ON_TAB_ADDED_LATENCY_WARM)
+                        .build();
+
         observer.didAddTab(
                 mTab,
                 TabLaunchType.FROM_RESTORE,
                 TabCreationState.LIVE_IN_BACKGROUND,
                 /* markedForSelection= */ false);
 
+        watcher.assertExpected();
+        verify(mTabModelSelector).selectModel(false);
+        verify(mTabModel).setIndex(0, TabSelectionType.FROM_USER);
+        verify(mTabModel).removeObserver(observer);
+    }
+
+    @Test
+    public void testListenAndSelectTabOnAdded_alreadyInitialized_didAddTab_recordsWarmStart() {
+        when(mTabModelSelector.isTabStateInitialized()).thenReturn(true);
+        when(mTab.getId()).thenReturn(TAB_ID);
+        when(mTab.isIncognito()).thenReturn(false);
+        when(mTabModelSelector.getTabById(TAB_ID)).thenReturn(null);
+        when(mTabModel.indexOf(mTab)).thenReturn(0);
+
+        ActorTabStateHelper.listenAndSelectTabOnAdded(mTabModelSelector, mLayoutManager, TAB_ID);
+
+        verify(mTabModel).addObserver(mTabModelObserverCaptor.capture());
+        TabModelObserver observer = mTabModelObserverCaptor.getValue();
+
+        ShadowSystemClock.advanceBy(140, TimeUnit.MILLISECONDS);
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                ActorMetrics.ACTOR_BACKGROUND_ACTUATION_ON_TAB_ADDED_LATENCY, 140)
+                        .expectIntRecord(
+                                ActorMetrics.ACTOR_BACKGROUND_ACTUATION_ON_TAB_ADDED_LATENCY_WARM,
+                                140)
+                        .expectNoRecords(
+                                ActorMetrics.ACTOR_BACKGROUND_ACTUATION_ON_TAB_ADDED_LATENCY_COLD)
+                        .build();
+
+        when(mTabModelSelector.getTabById(TAB_ID)).thenReturn(mTab);
+        observer.didAddTab(
+                mTab,
+                TabLaunchType.FROM_RESTORE,
+                TabCreationState.LIVE_IN_BACKGROUND,
+                /* markedForSelection= */ false);
+
+        watcher.assertExpected();
         verify(mTabModelSelector).selectModel(false);
         verify(mTabModel).setIndex(0, TabSelectionType.FROM_USER);
         verify(mTabModel).removeObserver(observer);
@@ -403,6 +575,16 @@ public class ActorTabStateHelperTest {
     public void testListenAndSelectTabOnAdded_didAddTab_nonMatchingId_doesNotSelect() {
         Tab otherTab = mock(Tab.class);
         when(otherTab.getId()).thenReturn(999);
+
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords(
+                                ActorMetrics.ACTOR_BACKGROUND_ACTUATION_ON_TAB_ADDED_LATENCY)
+                        .expectNoRecords(
+                                ActorMetrics.ACTOR_BACKGROUND_ACTUATION_ON_TAB_ADDED_LATENCY_COLD)
+                        .expectNoRecords(
+                                ActorMetrics.ACTOR_BACKGROUND_ACTUATION_ON_TAB_ADDED_LATENCY_WARM)
+                        .build();
 
         ActorTabStateHelper.listenAndSelectTabOnAdded(mTabModelSelector, mLayoutManager, TAB_ID);
 
@@ -415,6 +597,7 @@ public class ActorTabStateHelperTest {
                 TabCreationState.LIVE_IN_BACKGROUND,
                 /* markedForSelection= */ false);
 
+        watcher.assertExpected();
         verify(mTabModelSelector, never()).selectModel(anyBoolean());
         verify(mTabModel, never()).setIndex(anyInt(), anyInt());
         verify(mTabModel, never()).removeObserver(any());
@@ -424,6 +607,16 @@ public class ActorTabStateHelperTest {
     public void testListenAndSelectTabOnAdded_tabStateInitialized_destroysObserver() {
         ArgumentCaptor<TabModelSelectorObserver> selectorObserverCaptor =
                 ArgumentCaptor.forClass(TabModelSelectorObserver.class);
+
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords(
+                                ActorMetrics.ACTOR_BACKGROUND_ACTUATION_ON_TAB_ADDED_LATENCY)
+                        .expectNoRecords(
+                                ActorMetrics.ACTOR_BACKGROUND_ACTUATION_ON_TAB_ADDED_LATENCY_COLD)
+                        .expectNoRecords(
+                                ActorMetrics.ACTOR_BACKGROUND_ACTUATION_ON_TAB_ADDED_LATENCY_WARM)
+                        .build();
 
         ActorTabStateHelper.listenAndSelectTabOnAdded(mTabModelSelector, mLayoutManager, TAB_ID);
 
@@ -436,6 +629,7 @@ public class ActorTabStateHelperTest {
         selectorObserver.onTabStateInitialized();
         Shadows.shadowOf(Looper.getMainLooper()).idle();
 
+        watcher.assertExpected();
         verify(mTabModel).removeObserver(tabModelObserver);
         verify(mTabModelSelector, never()).selectModel(anyBoolean());
     }
@@ -484,6 +678,18 @@ public class ActorTabStateHelperTest {
         verify(mTabModelSelector).addObserver(selectorObserverCaptor.capture());
         TabModelSelectorObserver selectorObserver = selectorObserverCaptor.getValue();
 
+        ShadowSystemClock.advanceBy(180, TimeUnit.MILLISECONDS);
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                ActorMetrics.ACTOR_BACKGROUND_ACTUATION_ON_TAB_ADDED_LATENCY, 180)
+                        .expectIntRecord(
+                                ActorMetrics.ACTOR_BACKGROUND_ACTUATION_ON_TAB_ADDED_LATENCY_COLD,
+                                180)
+                        .expectNoRecords(
+                                ActorMetrics.ACTOR_BACKGROUND_ACTUATION_ON_TAB_ADDED_LATENCY_WARM)
+                        .build();
+
         observer.didAddTab(
                 mTab,
                 TabLaunchType.FROM_RESTORE,
@@ -493,6 +699,7 @@ public class ActorTabStateHelperTest {
         selectorObserver.onTabStateInitialized();
         Shadows.shadowOf(Looper.getMainLooper()).idle();
 
+        watcher.assertExpected();
         verify(mOnTabSelected, times(1)).onResult(mTab);
         verify(mTabModelSelector).selectModel(false);
         verify(mTabModel).setIndex(0, TabSelectionType.FROM_USER);
@@ -516,9 +723,22 @@ public class ActorTabStateHelperTest {
         verify(mTabModelSelector).addObserver(selectorObserverCaptor.capture());
         TabModelSelectorObserver selectorObserver = selectorObserverCaptor.getValue();
 
+        ShadowSystemClock.advanceBy(420, TimeUnit.MILLISECONDS);
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                ActorMetrics.ACTOR_BACKGROUND_ACTUATION_ON_TAB_ADDED_LATENCY, 420)
+                        .expectIntRecord(
+                                ActorMetrics.ACTOR_BACKGROUND_ACTUATION_ON_TAB_ADDED_LATENCY_COLD,
+                                420)
+                        .expectNoRecords(
+                                ActorMetrics.ACTOR_BACKGROUND_ACTUATION_ON_TAB_ADDED_LATENCY_WARM)
+                        .build();
+
         selectorObserver.onTabStateInitialized();
         Shadows.shadowOf(Looper.getMainLooper()).idle();
 
+        watcher.assertExpected();
         verify(mOnTabSelected, times(1)).onResult(mTab);
         verify(mTabModelSelector).selectModel(false);
         verify(mTabModel).setIndex(0, TabSelectionType.FROM_USER);
@@ -759,5 +979,162 @@ public class ActorTabStateHelperTest {
 
         verify(mTabModel, never()).addTab(any(), anyInt(), anyInt(), anyInt());
         verify(mTabRemover, never()).removeTab(any(), anyBoolean());
+    }
+
+    @Test
+    public void testSelectTabAndShow_closingOrDestroyedTab_returnsNull() {
+        when(mTabModelSelector.getTabById(TAB_ID)).thenReturn(mTab);
+        when(mTab.isClosing()).thenReturn(true);
+        assertNull(ActorTabStateHelper.selectTabAndShow(mTabModelSelector, mLayoutManager, TAB_ID));
+
+        when(mTab.isClosing()).thenReturn(false);
+        when(mTab.isDestroyed()).thenReturn(true);
+        assertNull(ActorTabStateHelper.selectTabAndShow(mTabModelSelector, mLayoutManager, TAB_ID));
+    }
+
+    @Test
+    public void testListenAndSelectTabOnAdded_recordsInvalidId() {
+        var watcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        ActorMetrics.ACTOR_NOTIFICATION_FETCH_TAB_ID_STATUS,
+                        ActorFetchTabIdStatus.INVALID_ID);
+
+        ActorTabStateHelper.listenAndSelectTabOnAdded(
+                mTabModelSelector, mLayoutManager, Tab.INVALID_TAB_ID, mOnTabSelected);
+
+        watcher.assertExpected();
+        verify(mOnTabSelected).onResult(null);
+    }
+
+    @Test
+    public void testListenAndSelectTabOnAdded_recordsTabNotFound_nullSelector() {
+        var watcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        ActorMetrics.ACTOR_NOTIFICATION_FETCH_TAB_ID_STATUS,
+                        ActorFetchTabIdStatus.TAB_NOT_FOUND);
+
+        ActorTabStateHelper.listenAndSelectTabOnAdded(null, mLayoutManager, TAB_ID, mOnTabSelected);
+
+        watcher.assertExpected();
+        verify(mOnTabSelected).onResult(null);
+    }
+
+    @Test
+    public void testListenAndSelectTabOnAdded_recordsTabNotFound_alreadyInitialized() {
+        when(mTabModelSelector.isTabStateInitialized()).thenReturn(true);
+        when(mTabModelSelector.getTabById(TAB_ID)).thenReturn(null);
+
+        var watcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        ActorMetrics.ACTOR_NOTIFICATION_FETCH_TAB_ID_STATUS,
+                        ActorFetchTabIdStatus.TAB_NOT_FOUND);
+
+        ActorTabStateHelper.listenAndSelectTabOnAdded(
+                mTabModelSelector, mLayoutManager, TAB_ID, mOnTabSelected);
+        Shadows.shadowOf(Looper.getMainLooper()).idle();
+
+        watcher.assertExpected();
+        verify(mOnTabSelected).onResult(null);
+    }
+
+    @Test
+    public void testListenAndSelectTabOnAdded_recordsTabClosed_existingTabClosing() {
+        when(mTab.getId()).thenReturn(TAB_ID);
+        when(mTab.isClosing()).thenReturn(true);
+        when(mTabModelSelector.getTabById(TAB_ID)).thenReturn(mTab);
+
+        var watcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        ActorMetrics.ACTOR_NOTIFICATION_FETCH_TAB_ID_STATUS,
+                        ActorFetchTabIdStatus.TAB_CLOSED);
+
+        ActorTabStateHelper.listenAndSelectTabOnAdded(
+                mTabModelSelector, mLayoutManager, TAB_ID, mOnTabSelected);
+
+        watcher.assertExpected();
+        verify(mOnTabSelected).onResult(null);
+        verify(mTabModelSelector, never()).selectModel(anyBoolean());
+    }
+
+    @Test
+    public void testListenAndSelectTabOnAdded_recordsTabClosed_didAddClosingTab() {
+        when(mTab.getId()).thenReturn(TAB_ID);
+        when(mTab.isDestroyed()).thenReturn(true);
+        when(mTabModelSelector.getTabById(TAB_ID)).thenReturn(null);
+
+        var watcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        ActorMetrics.ACTOR_NOTIFICATION_FETCH_TAB_ID_STATUS,
+                        ActorFetchTabIdStatus.TAB_CLOSED);
+
+        ActorTabStateHelper.listenAndSelectTabOnAdded(
+                mTabModelSelector, mLayoutManager, TAB_ID, mOnTabSelected);
+
+        verify(mTabModel).addObserver(mTabModelObserverCaptor.capture());
+        TabModelObserver observer = mTabModelObserverCaptor.getValue();
+
+        observer.didAddTab(
+                mTab,
+                TabLaunchType.FROM_RESTORE,
+                TabCreationState.LIVE_IN_BACKGROUND,
+                /* markedForSelection= */ false);
+
+        watcher.assertExpected();
+        verify(mOnTabSelected).onResult(null);
+        verify(mTabModel).removeObserver(observer);
+    }
+
+    @Test
+    public void testListenAndSelectTabOnAdded_recordsSuccess_didAddTab() {
+        when(mTab.getId()).thenReturn(TAB_ID);
+        when(mTab.isIncognito()).thenReturn(false);
+        when(mTabModelSelector.getTabById(TAB_ID)).thenReturn(null).thenReturn(mTab);
+        when(mTabModel.indexOf(mTab)).thenReturn(0);
+
+        var watcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        ActorMetrics.ACTOR_NOTIFICATION_FETCH_TAB_ID_STATUS,
+                        ActorFetchTabIdStatus.SUCCESS);
+
+        ActorTabStateHelper.listenAndSelectTabOnAdded(
+                mTabModelSelector, mLayoutManager, TAB_ID, mOnTabSelected);
+
+        verify(mTabModel).addObserver(mTabModelObserverCaptor.capture());
+        TabModelObserver observer = mTabModelObserverCaptor.getValue();
+
+        observer.didAddTab(
+                mTab,
+                TabLaunchType.FROM_RESTORE,
+                TabCreationState.LIVE_IN_BACKGROUND,
+                /* markedForSelection= */ false);
+
+        watcher.assertExpected();
+        verify(mOnTabSelected).onResult(mTab);
+    }
+
+    @Test
+    public void testListenAndSelectTabOnAdded_recordsTimeout_whenTabStateInitializedWithoutTab() {
+        when(mTabModelSelector.isTabStateInitialized()).thenReturn(false);
+        when(mTabModelSelector.getTabById(TAB_ID)).thenReturn(null);
+
+        ArgumentCaptor<TabModelSelectorObserver> selectorObserverCaptor =
+                ArgumentCaptor.forClass(TabModelSelectorObserver.class);
+
+        var watcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        ActorMetrics.ACTOR_NOTIFICATION_FETCH_TAB_ID_STATUS,
+                        ActorFetchTabIdStatus.TIMEOUT);
+
+        ActorTabStateHelper.listenAndSelectTabOnAdded(
+                mTabModelSelector, mLayoutManager, TAB_ID, mOnTabSelected);
+
+        verify(mTabModelSelector).addObserver(selectorObserverCaptor.capture());
+        TabModelSelectorObserver selectorObserver = selectorObserverCaptor.getValue();
+
+        selectorObserver.onTabStateInitialized();
+        Shadows.shadowOf(Looper.getMainLooper()).idle();
+
+        watcher.assertExpected();
+        verify(mOnTabSelected).onResult(null);
     }
 }

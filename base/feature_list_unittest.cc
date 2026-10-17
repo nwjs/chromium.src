@@ -26,6 +26,7 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/metrics_hashes.h"
 #include "base/metrics/persistent_memory_allocator.h"
+#include "base/metrics/runtime_field_trial_overrides.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -111,6 +112,7 @@ BASE_FEATURE(kLateFeature, FEATURE_DISABLED_BY_DEFAULT);
 
 // Features for testing runtime mutable features.
 BASE_RUNTIME_MUTABLE_FEATURE(kRuntimeMutableFeature3Args,
+                             "RuntimeMutableFeature3ArgsCustomName",
                              FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_RUNTIME_MUTABLE_FEATURE(kRuntimeMutableFeature,
@@ -120,6 +122,12 @@ BASE_FEATURE_PARAM(int,
                    kRuntimeMutableFeatureParam,
                    &kRuntimeMutableFeature,
                    12345);
+
+BASE_FEATURE_ENUM_PARAM(TestEnum,
+                        kRuntimeMutableFeatureEnumParam,
+                        &kRuntimeMutableFeature,
+                        TestEnum::kFirst,
+                        &kTestEnumOptions);
 
 // For testing features with country restrictions.
 BASE_FEATURE_WITH_COUNTRY_RESTRICTIONS(kCountryEnabledEuropeFeature,
@@ -1374,7 +1382,8 @@ TEST_F(FeatureListTest, RuntimeMutableFeatureDefine) {
   EXPECT_TRUE(kRuntimeMutableFeature3Args.IsRuntimeMutable());
   EXPECT_FALSE(feature_list->IsRuntimeMutabilityEnabledForTesting(
       kRuntimeMutableFeature3Args));
-  EXPECT_STREQ("RuntimeMutableFeature3Args", kRuntimeMutableFeature3Args.name);
+  EXPECT_STREQ("RuntimeMutableFeature3ArgsCustomName",
+               kRuntimeMutableFeature3Args.name);
 }
 
 namespace {
@@ -1441,6 +1450,13 @@ TEST_F(FeatureListTest, EnableRuntimeMutability) {
 TEST_F(FeatureListTest, EnableRuntimeMutability_PostMutationOnly) {
   int post_callback_calls = 0;
   RuntimeMutabilityCallbackData post_callback_data;
+
+  // The destruction order is important here. FeatureList holds raw_ptr
+  // references to the RuntimeFieldTrialInfo object(s). Declaring these
+  // unique_ptrs before ScopedFeatureList ensures they are destructed *after*
+  // the FeatureList singleton is torn down, preventing DanglingPtr crash in
+  // unittests.
+  std::unique_ptr<base::RuntimeFieldTrialInfo> override_info;
   test::ScopedFeatureList scoped_feature_list;
   {
     auto feature_list = std::make_unique<FeatureList>();
@@ -1455,10 +1471,12 @@ TEST_F(FeatureListTest, EnableRuntimeMutability_PostMutationOnly) {
 
   EXPECT_TRUE(FeatureList::IsEnabled(kRuntimeMutableFeature));
 
+  override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
+      "TrialA", "GroupA", base::FieldTrialParams(), nullptr);
   auto update =
       FeatureList::GetInstance()->PrepareRuntimeMutableFeatureStateUpdate(
-          variations::VariationsService::CreatePassKeyForTesting(), "TrialA",
-          "GroupA", kRuntimeMutableFeature.name,
+          variations::VariationsService::CreatePassKeyForTesting(),
+          override_info.get(), kRuntimeMutableFeature.name,
           FeatureList::OVERRIDE_DISABLE_FEATURE);
   ASSERT_TRUE(update.has_value());
   update->RunPreMutationCallback();
@@ -1492,6 +1510,12 @@ TEST_F(FeatureListTest, RuntimeMutability_CommandLineOverridePrecedence) {
                           base::Unretained(&post_callback_calls),
                           base::Unretained(&post_callback_data)));
 
+  // The destruction order is important here. FeatureList holds raw_ptr
+  // references to the RuntimeFieldTrialInfo object(s). Declaring these
+  // unique_ptrs before ScopedFeatureList ensures they are destructed *after*
+  // the FeatureList singleton is torn down, preventing DanglingPtr crash in
+  // unittests.
+  std::unique_ptr<base::RuntimeFieldTrialInfo> override_info;
   test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatureList(std::move(feature_list));
 
@@ -1500,9 +1524,11 @@ TEST_F(FeatureListTest, RuntimeMutability_CommandLineOverridePrecedence) {
 
   // Updating the state dynamically should have no effect on command line
   // overridden features.
+  override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
+      "TrialX", "GroupX", base::FieldTrialParams(), nullptr);
   auto update = raw_list_ptr->PrepareRuntimeMutableFeatureStateUpdate(
-      variations::VariationsService::CreatePassKeyForTesting(), "TrialX",
-      "GroupX", kRuntimeMutableFeature.name,
+      variations::VariationsService::CreatePassKeyForTesting(),
+      override_info.get(), kRuntimeMutableFeature.name,
       FeatureList::OVERRIDE_DISABLE_FEATURE);
   EXPECT_FALSE(update.has_value());
 
@@ -1526,6 +1552,14 @@ TEST_F(FeatureListTest,
   RuntimeMutabilityCallbackData pre_callback_data;
   int post_callback_calls = 0;
   RuntimeMutabilityCallbackData post_callback_data;
+
+  // The destruction order is important here. FeatureList holds raw_ptr
+  // references to the RuntimeFieldTrialInfo object(s). Declaring these
+  // unique_ptrs before ScopedFeatureList ensures they are destructed *after*
+  // the FeatureList singleton is torn down, preventing DanglingPtr crash in
+  // unittests.
+  std::unique_ptr<base::RuntimeFieldTrialInfo> override_info;
+  std::unique_ptr<base::RuntimeFieldTrialInfo> reenable_override_info;
   test::ScopedFeatureList scoped_feature_list;
   {
     auto feature_list = std::make_unique<FeatureList>();
@@ -1544,10 +1578,12 @@ TEST_F(FeatureListTest,
   EXPECT_TRUE(FeatureList::IsEnabled(kRuntimeMutableFeature));
 
   // Now update the state to disabled (the only supported scenario for V0)
+  override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
+      "TrialA", "GroupA", base::FieldTrialParams(), nullptr);
   auto update =
       FeatureList::GetInstance()->PrepareRuntimeMutableFeatureStateUpdate(
-          variations::VariationsService::CreatePassKeyForTesting(), "TrialA",
-          "GroupA", kRuntimeMutableFeature.name,
+          variations::VariationsService::CreatePassKeyForTesting(),
+          override_info.get(), kRuntimeMutableFeature.name,
           FeatureList::OVERRIDE_DISABLE_FEATURE);
   ASSERT_TRUE(update.has_value());
 
@@ -1580,10 +1616,12 @@ TEST_F(FeatureListTest,
   EXPECT_FALSE(FeatureList::IsEnabled(kRuntimeMutableFeature));
 
   // Attempting to re-enable it should have no effect.
+  reenable_override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
+      "TrialB", "GroupB", base::FieldTrialParams(), nullptr);
   auto reenable_update =
       FeatureList::GetInstance()->PrepareRuntimeMutableFeatureStateUpdate(
-          variations::VariationsService::CreatePassKeyForTesting(), "TrialB",
-          "GroupB", kRuntimeMutableFeature.name,
+          variations::VariationsService::CreatePassKeyForTesting(),
+          reenable_override_info.get(), kRuntimeMutableFeature.name,
           FeatureList::OVERRIDE_ENABLE_FEATURE);
   EXPECT_FALSE(reenable_update.has_value());
 
@@ -1694,6 +1732,12 @@ TEST_F(FeatureListTest, RuntimeMutability_FeatureParamBypassCache) {
   constexpr char kTrialName[] = "TrialName";
   constexpr char kGroupName[] = "GroupName";
 
+  // The destruction order is important here. FeatureList holds raw_ptr
+  // references to the RuntimeFieldTrialInfo object(s). Declaring these
+  // unique_ptrs before ScopedFeatureList ensures they are destructed *after*
+  // the FeatureList singleton is torn down, preventing DanglingPtr crash in
+  // unittests.
+  std::unique_ptr<base::RuntimeFieldTrialInfo> override_info;
   test::ScopedFeatureList scoped_feature_list;
   int callback_calls = 0;
   RuntimeMutabilityCallbackData callback_data;
@@ -1712,7 +1756,10 @@ TEST_F(FeatureListTest, RuntimeMutability_FeatureParamBypassCache) {
     trial->SetForced();
     ASSERT_TRUE(base::AssociateFieldTrialParams(
         kTrialName, kGroupName,
-        FieldTrialParams{{kRuntimeMutableFeatureParam.name, "99999"}}));
+        FieldTrialParams{
+            {kRuntimeMutableFeatureParam.name, "99999"},
+            {kRuntimeMutableFeatureEnumParam.name, "second"},
+        }));
     feature_list->RegisterFieldTrialOverride(
         kRuntimeMutableFeature.name, FeatureList::OVERRIDE_ENABLE_FEATURE,
         trial.get());
@@ -1734,12 +1781,14 @@ TEST_F(FeatureListTest, RuntimeMutability_FeatureParamBypassCache) {
   // The overridden enabled state and overridden param should be reflected.
   EXPECT_TRUE(FeatureList::IsEnabled(kRuntimeMutableFeature));
   EXPECT_EQ(99999, kRuntimeMutableFeatureParam.Get());
-
+  EXPECT_EQ(TestEnum::kSecond, kRuntimeMutableFeatureEnumParam.Get());
   // Update parameters/configuration.
+  override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
+      kTrialName, kGroupName, base::FieldTrialParams(), nullptr);
   auto update =
       base::FeatureList::GetInstance()->PrepareRuntimeMutableFeatureStateUpdate(
-          variations::VariationsService::CreatePassKeyForTesting(), kTrialName,
-          kGroupName, kRuntimeMutableFeature.name,
+          variations::VariationsService::CreatePassKeyForTesting(),
+          override_info.get(), kRuntimeMutableFeature.name,
           FeatureList::OVERRIDE_DISABLE_FEATURE);
   ASSERT_TRUE(update.has_value());
   update->RunPreMutationCallback();
@@ -1750,6 +1799,7 @@ TEST_F(FeatureListTest, RuntimeMutability_FeatureParamBypassCache) {
   // reflected.
   EXPECT_FALSE(FeatureList::IsEnabled(kRuntimeMutableFeature));
   EXPECT_EQ(12345, kRuntimeMutableFeatureParam.Get());
+  EXPECT_EQ(TestEnum::kFirst, kRuntimeMutableFeatureEnumParam.Get());
 
   // The runtime mutability interactions should be logged.
   histogram_tester.ExpectUniqueSample(kRuntimeMutabilityResult,
@@ -1760,6 +1810,13 @@ TEST_F(FeatureListTest, RuntimeMutability_FeatureParamBypassCache) {
 TEST_F(FeatureListTest, RuntimeMutability_GetRuntimeMutableFeatureState) {
   int callback_calls = 0;
   RuntimeMutabilityCallbackData callback_data;
+
+  // The destruction order is important here. FeatureList holds raw_ptr
+  // references to the RuntimeFieldTrialInfo object(s). Declaring these
+  // unique_ptrs before ScopedFeatureList ensures they are destructed *after*
+  // the FeatureList singleton is torn down, preventing DanglingPtr crash in
+  // unittests.
+  std::unique_ptr<base::RuntimeFieldTrialInfo> override_info;
   test::ScopedFeatureList scoped_feature_list;
   {
     auto feature_list = std::make_unique<FeatureList>();
@@ -1783,13 +1840,14 @@ TEST_F(FeatureListTest, RuntimeMutability_GetRuntimeMutableFeatureState) {
   ASSERT_NE(it, states.end());
   EXPECT_EQ(&kRuntimeMutableFeature, &it->second.feature.get());
   EXPECT_EQ(FeatureList::OVERRIDE_USE_DEFAULT, it->second.override_state);
-  EXPECT_TRUE(it->second.field_trial_name.empty());
-
+  EXPECT_TRUE(it->second.override_info == nullptr);
   // Now update the state.
+  override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
+      "TrialA", "GroupA", base::FieldTrialParams(), nullptr);
   auto update =
       FeatureList::GetInstance()->PrepareRuntimeMutableFeatureStateUpdate(
-          variations::VariationsService::CreatePassKeyForTesting(), "TrialA",
-          "GroupA", kRuntimeMutableFeature.name,
+          variations::VariationsService::CreatePassKeyForTesting(),
+          override_info.get(), kRuntimeMutableFeature.name,
           FeatureList::OVERRIDE_DISABLE_FEATURE);
   ASSERT_TRUE(update.has_value());
   update->RunPreMutationCallback();
@@ -1802,7 +1860,7 @@ TEST_F(FeatureListTest, RuntimeMutability_GetRuntimeMutableFeatureState) {
   it = states2.find(kRuntimeMutableFeature.name);
   ASSERT_NE(it, states2.end());
   EXPECT_EQ(FeatureList::OVERRIDE_DISABLE_FEATURE, it->second.override_state);
-  EXPECT_EQ("TrialA", it->second.field_trial_name);
+  EXPECT_EQ("TrialA", it->second.override_info->trial_name);
 }
 
 TEST_F(FeatureListTest, RuntimeMutability_GetOverrideStateWithoutActivation) {
@@ -1848,6 +1906,14 @@ TEST_F(FeatureListTest,
        RuntimeMutability_GetControllingTrialInfoByFeatureName) {
   int callback_calls = 0;
   RuntimeMutabilityCallbackData callback_data;
+
+  // The destruction order is important here. FeatureList holds raw_ptr
+  // references to the RuntimeFieldTrialInfo object(s). Declaring these
+  // unique_ptrs before ScopedFeatureList ensures they are destructed *after*
+  // the FeatureList singleton is torn down, preventing DanglingPtr crash in
+  // unittests.
+  std::unique_ptr<base::RuntimeFieldTrialInfo> override_info1;
+  std::unique_ptr<base::RuntimeFieldTrialInfo> override_info2;
   test::ScopedFeatureList scoped_feature_list;
   {
     auto feature_list = std::make_unique<FeatureList>();
@@ -1916,20 +1982,23 @@ TEST_F(FeatureListTest,
   EXPECT_FALSE(info.is_runtime_override);
 
   // Apply runtime overrides to both features.
+  override_info1 = std::make_unique<base::RuntimeFieldTrialInfo>(
+      "RuntimeStudy1", "RuntimeGroup", base::FieldTrialParams(), nullptr);
   auto update1 =
       FeatureList::GetInstance()->PrepareRuntimeMutableFeatureStateUpdate(
           variations::VariationsService::CreatePassKeyForTesting(),
-          "RuntimeStudy1", "RuntimeGroup", kRuntimeMutableFeature.name,
+          override_info1.get(), kRuntimeMutableFeature.name,
           FeatureList::OVERRIDE_DISABLE_FEATURE);
   ASSERT_TRUE(update1.has_value());
   update1->RunPreMutationCallback();
   update1->UpdateState();
   update1->RunPostMutationCallback();
-
+  override_info2 = std::make_unique<base::RuntimeFieldTrialInfo>(
+      "RuntimeStudy2", "RuntimeGroup", base::FieldTrialParams(), nullptr);
   auto update2 =
       FeatureList::GetInstance()->PrepareRuntimeMutableFeatureStateUpdate(
           variations::VariationsService::CreatePassKeyForTesting(),
-          "RuntimeStudy2", "RuntimeGroup", kRuntimeMutableFeature3Args.name,
+          override_info2.get(), kRuntimeMutableFeature3Args.name,
           FeatureList::OVERRIDE_DISABLE_FEATURE);
   ASSERT_TRUE(update2.has_value());
   update2->RunPreMutationCallback();
@@ -1965,6 +2034,12 @@ TEST_F(FeatureListTest, GetFeaturesAssociatedWithTrial) {
                                         /*pre_mutation_callback=*/{},
                                         /*post_mutation_callback=*/{});
 
+  // The destruction order is important here. FeatureList holds raw_ptr
+  // references to the RuntimeFieldTrialInfo object(s). Declaring these
+  // unique_ptrs before ScopedFeatureList ensures they are destructed *after*
+  // the FeatureList singleton is torn down, preventing DanglingPtr crash in
+  // unittests.
+  std::unique_ptr<base::RuntimeFieldTrialInfo> override_info_b;
   test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatureList(std::move(feature_list));
 
@@ -1985,12 +2060,13 @@ TEST_F(FeatureListTest, GetFeaturesAssociatedWithTrial) {
           ->GetFeaturesAssociatedWithTrial(FeatureList::ControllingTrialInfo{
               .trial_name = "TrialA", .is_runtime_override = true})
           .empty());
-
   // Update runtime feature to trial 'TrialB'.
+  override_info_b = std::make_unique<base::RuntimeFieldTrialInfo>(
+      "TrialB", "GroupB", base::FieldTrialParams(), nullptr);
   auto update_b =
       FeatureList::GetInstance()->PrepareRuntimeMutableFeatureStateUpdate(
-          variations::VariationsService::CreatePassKeyForTesting(), "TrialB",
-          "GroupB", kRuntimeMutableFeature.name,
+          variations::VariationsService::CreatePassKeyForTesting(),
+          override_info_b.get(), kRuntimeMutableFeature.name,
           FeatureList::OVERRIDE_DISABLE_FEATURE);
   ASSERT_TRUE(update_b.has_value());
   update_b->RunPreMutationCallback();
@@ -2013,11 +2089,107 @@ TEST_F(FeatureListTest, GetFeaturesAssociatedWithTrial) {
           .empty());
 }
 
+TEST_F(FeatureListTest, GetFeaturesAssociatedWithTrial_MultipleTrials) {
+  auto feature_list = std::make_unique<FeatureList>();
+
+  FieldTrial* trial_a = FieldTrialList::CreateFieldTrial("TrialA", "GroupA");
+  FieldTrial* trial_b = FieldTrialList::CreateFieldTrial("TrialB", "GroupB");
+  feature_list->RegisterFieldTrialOverride(
+      "Feature1", FeatureList::OVERRIDE_ENABLE_FEATURE, trial_a);
+  feature_list->RegisterFieldTrialOverride(
+      "Feature2", FeatureList::OVERRIDE_DISABLE_FEATURE, trial_b);
+  feature_list->RegisterFieldTrialOverride(
+      "Feature3", FeatureList::OVERRIDE_ENABLE_FEATURE, trial_a);
+  // An override with no associated trial.
+  feature_list->InitFromCommandLine("Feature4", "");
+
+  test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatureList(std::move(feature_list));
+  const auto* active_feature_list = FeatureList::GetInstance();
+
+  EXPECT_EQ(base::flat_set<std::string>({"Feature1", "Feature3"}),
+            active_feature_list->GetFeaturesAssociatedWithTrial(
+                FeatureList::ControllingTrialInfo{.trial_name = "TrialA"}));
+  EXPECT_EQ(base::flat_set<std::string>({"Feature2"}),
+            active_feature_list->GetFeaturesAssociatedWithTrial(
+                FeatureList::ControllingTrialInfo{.trial_name = "TrialB"}));
+
+  // Repeated lookups return the same results.
+  EXPECT_EQ(base::flat_set<std::string>({"Feature1", "Feature3"}),
+            active_feature_list->GetFeaturesAssociatedWithTrial(
+                FeatureList::ControllingTrialInfo{.trial_name = "TrialA"}));
+
+  // Features without an associated trial are never returned, and unknown or
+  // empty trial names return nothing.
+  EXPECT_TRUE(
+      active_feature_list
+          ->GetFeaturesAssociatedWithTrial(
+              FeatureList::ControllingTrialInfo{.trial_name = "Unknown"})
+          .empty());
+  EXPECT_TRUE(active_feature_list
+                  ->GetFeaturesAssociatedWithTrial(
+                      FeatureList::ControllingTrialInfo{.trial_name = ""})
+                  .empty());
+}
+
+// Trials associated for reporting purposes are attached to an override entry
+// that already exists, so this verifies that the association is still picked
+// up by the index built at initialization time.
+TEST_F(FeatureListTest, GetFeaturesAssociatedWithTrial_ReportingFieldTrial) {
+  auto feature_list = std::make_unique<FeatureList>();
+  feature_list->InitFromCommandLine(kFeatureOffByDefaultName, "");
+
+  FieldTrial* trial =
+      FieldTrialList::CreateFieldTrial("ReportingTrial", "Group");
+  feature_list->AssociateReportingFieldTrial(
+      kFeatureOffByDefaultName, FeatureList::OVERRIDE_ENABLE_FEATURE, trial);
+
+  test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatureList(std::move(feature_list));
+
+  EXPECT_EQ(
+      base::flat_set<std::string>({kFeatureOffByDefaultName}),
+      FeatureList::GetInstance()->GetFeaturesAssociatedWithTrial(
+          FeatureList::ControllingTrialInfo{.trial_name = "ReportingTrial"}));
+}
+
+// Replacing an OVERRIDE_USE_DEFAULT entry rewrites its associated trial, so
+// this verifies that the index reflects the final association.
+TEST_F(FeatureListTest, GetFeaturesAssociatedWithTrial_ReplaceUseDefault) {
+  auto feature_list = std::make_unique<FeatureList>();
+
+  FieldTrial* trial1 = FieldTrialList::CreateFieldTrial("Trial1", "Group");
+  feature_list->RegisterFieldTrialOverride(
+      kFeatureOnByDefaultName, FeatureList::OVERRIDE_USE_DEFAULT, trial1);
+
+  std::vector<FeatureList::FeatureOverrideInfo> overrides;
+  overrides.emplace_back(std::cref(kFeatureOnByDefault),
+                         FeatureList::OverrideState::OVERRIDE_DISABLE_FEATURE);
+  feature_list->RegisterExtraFeatureOverrides(
+      std::move(overrides), /*replace_use_default_overrides=*/true);
+
+  test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatureList(std::move(feature_list));
+
+  // The replacement passed a null trial, so the existing trial is kept.
+  EXPECT_EQ(base::flat_set<std::string>({kFeatureOnByDefaultName}),
+            FeatureList::GetInstance()->GetFeaturesAssociatedWithTrial(
+                FeatureList::ControllingTrialInfo{.trial_name = "Trial1"}));
+}
+
 TEST_F(FeatureListTest, RuntimeMutableFeatureUpdate_MoveSemantics) {
   int pre_calls = 0;
   RuntimeMutabilityCallbackData pre_data;
   int post_calls = 0;
   RuntimeMutabilityCallbackData post_data;
+
+  // The destruction order is important here. FeatureList holds raw_ptr
+  // references to the RuntimeFieldTrialInfo object(s). Declaring these
+  // unique_ptrs before ScopedFeatureList ensures they are destructed *after*
+  // the FeatureList singleton is torn down, preventing DanglingPtr crash in
+  // unittests.
+  std::unique_ptr<base::RuntimeFieldTrialInfo> override_info;
+  std::unique_ptr<base::RuntimeFieldTrialInfo> dest_override_info;
   test::ScopedFeatureList scoped_feature_list;
   {
     auto feature_list = std::make_unique<FeatureList>();
@@ -2032,10 +2204,13 @@ TEST_F(FeatureListTest, RuntimeMutableFeatureUpdate_MoveSemantics) {
     scoped_feature_list.InitWithFeatureList(std::move(feature_list));
   }
 
+  // Prepare an initial update and leave it unexecuted.
+  override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
+      "TrialA", "GroupA", base::FieldTrialParams(), nullptr);
   auto update =
       FeatureList::GetInstance()->PrepareRuntimeMutableFeatureStateUpdate(
-          variations::VariationsService::CreatePassKeyForTesting(), "TrialA",
-          "GroupA", kRuntimeMutableFeature.name,
+          variations::VariationsService::CreatePassKeyForTesting(),
+          override_info.get(), kRuntimeMutableFeature.name,
           FeatureList::OVERRIDE_DISABLE_FEATURE);
   ASSERT_TRUE(update.has_value());
 
@@ -2044,10 +2219,12 @@ TEST_F(FeatureListTest, RuntimeMutableFeatureUpdate_MoveSemantics) {
 
   // Prepare a second update and execute it to completion so it is in a valid
   // state (kPostMutationRun) to be overwritten by move assignment.
+  dest_override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
+      "TrialB", "GroupB", base::FieldTrialParams(), nullptr);
   auto update_dest =
       FeatureList::GetInstance()->PrepareRuntimeMutableFeatureStateUpdate(
-          variations::VariationsService::CreatePassKeyForTesting(), "TrialB",
-          "GroupB", kRuntimeMutableFeature.name,
+          variations::VariationsService::CreatePassKeyForTesting(),
+          dest_override_info.get(), kRuntimeMutableFeature.name,
           FeatureList::OVERRIDE_DISABLE_FEATURE);
   ASSERT_TRUE(update_dest.has_value());
   update_dest->RunPreMutationCallback();
@@ -2071,6 +2248,12 @@ TEST_F(FeatureListTest, RuntimeMutableFeatureUpdate_MoveSemantics) {
 
 TEST_F(FeatureListTest,
        RuntimeMutableFeatureUpdate_DestructionInInitialState_Succeeds) {
+  // The destruction order is important here. FeatureList holds raw_ptr
+  // references to the RuntimeFieldTrialInfo object(s). Declaring these
+  // unique_ptrs before ScopedFeatureList ensures they are destructed *after*
+  // the FeatureList singleton is torn down, preventing DanglingPtr crash in
+  // unittests.
+  std::unique_ptr<base::RuntimeFieldTrialInfo> override_info;
   test::ScopedFeatureList scoped_feature_list;
   {
     auto feature_list = std::make_unique<FeatureList>();
@@ -2081,12 +2264,13 @@ TEST_F(FeatureListTest,
   }
 
   // Destroying the update object in initial state without running any phases
-  // is allowed (e.g. if the batch is aborted before callbacks start).
   {
+    override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
+        "TrialA", "GroupA", base::FieldTrialParams(), nullptr);
     auto update =
         FeatureList::GetInstance()->PrepareRuntimeMutableFeatureStateUpdate(
-            variations::VariationsService::CreatePassKeyForTesting(), "TrialA",
-            "GroupA", kRuntimeMutableFeature.name,
+            variations::VariationsService::CreatePassKeyForTesting(),
+            override_info.get(), kRuntimeMutableFeature.name,
             FeatureList::OVERRIDE_DISABLE_FEATURE);
     ASSERT_TRUE(update.has_value());
   }
@@ -2095,6 +2279,12 @@ TEST_F(FeatureListTest,
 #if defined(GTEST_HAS_DEATH_TEST)
 TEST_F(FeatureListTest,
        RuntimeMutableFeatureUpdate_UpdateStateBeforePreMutation_DeathTest) {
+  // The destruction order is important here. FeatureList holds raw_ptr
+  // references to the RuntimeFieldTrialInfo object(s). Declaring these
+  // unique_ptrs before ScopedFeatureList ensures they are destructed *after*
+  // the FeatureList singleton is torn down, preventing DanglingPtr crash in
+  // unittests.
+  std::unique_ptr<base::RuntimeFieldTrialInfo> override_info;
   test::ScopedFeatureList scoped_feature_list;
   {
     auto feature_list = std::make_unique<FeatureList>();
@@ -2105,12 +2295,14 @@ TEST_F(FeatureListTest,
   }
 
   // Calling UpdateState() without RunPreMutationCallback() should CHECK fail.
-  EXPECT_DEATH(
+  EXPECT_DEATH_IF_SUPPORTED(
       {
+        override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
+            "TrialA", "GroupA", base::FieldTrialParams(), nullptr);
         auto update =
             FeatureList::GetInstance()->PrepareRuntimeMutableFeatureStateUpdate(
                 variations::VariationsService::CreatePassKeyForTesting(),
-                "TrialA", "GroupA", kRuntimeMutableFeature.name,
+                override_info.get(), kRuntimeMutableFeature.name,
                 FeatureList::OVERRIDE_DISABLE_FEATURE);
         ASSERT_TRUE(update.has_value());
         update->UpdateState();
@@ -2122,6 +2314,12 @@ TEST_F(FeatureListTest,
 #if defined(GTEST_HAS_DEATH_TEST)
 TEST_F(FeatureListTest,
        RuntimeMutableFeatureUpdate_PostMutationBeforeUpdateState_DeathTest) {
+  // The destruction order is important here. FeatureList holds raw_ptr
+  // references to the RuntimeFieldTrialInfo object(s). Declaring these
+  // unique_ptrs before ScopedFeatureList ensures they are destructed *after*
+  // the FeatureList singleton is torn down, preventing DanglingPtr crash in
+  // unittests.
+  std::unique_ptr<base::RuntimeFieldTrialInfo> override_info;
   test::ScopedFeatureList scoped_feature_list;
   {
     auto feature_list = std::make_unique<FeatureList>();
@@ -2132,12 +2330,14 @@ TEST_F(FeatureListTest,
   }
 
   // Calling RunPostMutationCallback() without UpdateState() should CHECK fail.
-  EXPECT_DEATH(
+  EXPECT_DEATH_IF_SUPPORTED(
       {
+        override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
+            "TrialA", "GroupA", base::FieldTrialParams(), nullptr);
         auto update =
             FeatureList::GetInstance()->PrepareRuntimeMutableFeatureStateUpdate(
                 variations::VariationsService::CreatePassKeyForTesting(),
-                "TrialA", "GroupA", kRuntimeMutableFeature.name,
+                override_info.get(), kRuntimeMutableFeature.name,
                 FeatureList::OVERRIDE_DISABLE_FEATURE);
         ASSERT_TRUE(update.has_value());
         update->RunPreMutationCallback();
@@ -2150,6 +2350,12 @@ TEST_F(FeatureListTest,
 #if defined(GTEST_HAS_DEATH_TEST)
 TEST_F(FeatureListTest,
        RuntimeMutableFeatureUpdate_IncompleteExecution_DeathTest) {
+  // The destruction order is important here. FeatureList holds raw_ptr
+  // references to the RuntimeFieldTrialInfo object(s). Declaring these
+  // unique_ptrs before ScopedFeatureList ensures they are destructed *after*
+  // the FeatureList singleton is torn down, preventing DanglingPtr crash in
+  // unittests.
+  std::unique_ptr<base::RuntimeFieldTrialInfo> override_info;
   test::ScopedFeatureList scoped_feature_list;
   {
     auto feature_list = std::make_unique<FeatureList>();
@@ -2161,12 +2367,14 @@ TEST_F(FeatureListTest,
 
   // Destroying the update object after starting the sequence without completing
   // it should CHECK fail in the destructor.
-  EXPECT_DEATH(
+  EXPECT_DEATH_IF_SUPPORTED(
       {
+        override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
+            "TrialA", "GroupA", base::FieldTrialParams(), nullptr);
         auto update =
             FeatureList::GetInstance()->PrepareRuntimeMutableFeatureStateUpdate(
                 variations::VariationsService::CreatePassKeyForTesting(),
-                "TrialA", "GroupA", kRuntimeMutableFeature.name,
+                override_info.get(), kRuntimeMutableFeature.name,
                 FeatureList::OVERRIDE_DISABLE_FEATURE);
         ASSERT_TRUE(update.has_value());
         update->RunPreMutationCallback();

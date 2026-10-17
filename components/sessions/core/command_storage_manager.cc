@@ -88,9 +88,9 @@ void OnBackendReadFinished(
     CommandStorageBackend::ReadCommandsResult result) {
   if (saved_result) {
     saved_result->data.commands = DeepCopyCommands(result.commands);
-    saved_result->data.error_reading = result.error_reading;
+    saved_result->data.status = result.status;
   }
-  std::move(callback).Run(std::move(result.commands), result.error_reading);
+  std::move(callback).Run(std::move(result.commands), result.status);
 }
 
 // Called when the encrypted backend has finished reading commands, and it is
@@ -101,7 +101,8 @@ void CompareCleartextAndEncryptedReadResults(
     const CommandStorageBackend::ReadCommandsResult& encrypted_result) {
   SessionReadComparisonResult comparison_result =
       SessionReadComparisonResult::kMatch;
-  if (cleartext_result->data.error_reading != encrypted_result.error_reading) {
+  if (IsCommandStorageReadError(cleartext_result->data.status) !=
+      IsCommandStorageReadError(encrypted_result.status)) {
     comparison_result = SessionReadComparisonResult::kErrorMismatch;
   } else if (!CommandsEqual(cleartext_result->data.commands,
                             encrypted_result.commands)) {
@@ -131,8 +132,8 @@ void OnEncryptedBackendReadFinishedWithPreferEncrypted(
   if (cleartext_result) {
     CompareCleartextAndEncryptedReadResults(cleartext_result, result);
   }
-  if (!result.error_reading && !result.commands.empty()) {
-    std::move(callback).Run(std::move(result.commands), result.error_reading);
+  if (!IsCommandStorageReadError(result.status) && !result.commands.empty()) {
+    std::move(callback).Run(std::move(result.commands), result.status);
     if (GetEncryptSessionStorageStage() ==
         EncryptSessionStorageStage::kWriteEncryptedReadPreferEncrypted) {
       // Make a best effort to delete the old cleartext file (leftover from
@@ -146,11 +147,15 @@ void OnEncryptedBackendReadFinishedWithPreferEncrypted(
 
   // Fallback to the cleartext backend.
   if (cleartext_result) {
-    if (!cleartext_result->data.error_reading) {
+    if (!IsCommandStorageReadError(cleartext_result->data.status)) {
       std::move(callback).Run(std::move(cleartext_result->data.commands),
-                              cleartext_result->data.error_reading);
-    } else {  // Both backends had errors.
-      std::move(callback).Run(std::move(result.commands), result.error_reading);
+                              cleartext_result->data.status);
+    } else {
+      // The cleartext read failed and the encrypted read produced no usable
+      // commands. In prefer-encrypted mode the encrypted store is the primary
+      // target, so report its status. Note this can be a non-error status
+      // (e.g. kNoFile) even though the cleartext read failed.
+      std::move(callback).Run(std::move(result.commands), result.status);
     }
   } else {
     // Fallback to cleartext in stage kWriteEncryptedReadPreferEncrypted.
@@ -270,6 +275,34 @@ void CommandStorageManager::OnEncryptorReady(
   }
 }
 
+void CommandStorageManager::AppendCommandsToEncryptedBackend(
+    std::vector<std::unique_ptr<SessionCommand>> commands,
+    bool truncate,
+    base::OnceClosure error_callback) {
+  if (!encrypted_backend_) {
+    // This should be uncommon, but could occur if OnEncryptorReady is slow,
+    // which happens on platforms where obtaining the key requires talking to
+    // an OS service (e.g. the Freedesktop secret service on Linux).
+    //
+    // Queue the write rather than reporting an error. Waiting for the encryptor
+    // is not a write failure, and reporting one here would trigger a full
+    // session rebuild in the delegate. It would also leave `commands` unwritten
+    // and unaccounted for by `commands_since_reset_`, breaking the invariant
+    // that ClearPendingCommands() checks. See crbug.com/562992858.
+    LogEncryptedBackendUninitialized(
+        SessionEncryptedBackendUninitialized::kSave);
+    pending_encrypted_ops_.push_back(
+        base::BindOnce(&CommandStorageManager::AppendCommandsToEncryptedBackend,
+                       weak_factory_.GetWeakPtr(), std::move(commands),
+                       truncate, std::move(error_callback)));
+    return;
+  }
+  backend_task_runner_->PostNonNestableTask(
+      FROM_HERE,
+      base::BindOnce(&CommandStorageBackend::AppendCommands, encrypted_backend_,
+                     std::move(commands), truncate, std::move(error_callback)));
+}
+
 void CommandStorageManager::ScheduleCommand(
     std::unique_ptr<SessionCommand> command) {
   DCHECK(command);
@@ -369,17 +402,8 @@ void CommandStorageManager::Save() {
           FROM_HERE, base::BindOnce(&CommandStorageBackend::AppendCommands,
                                     backend_, std::move(pending_commands_),
                                     pending_reset_, std::move(error_callback)));
-      if (encrypted_backend_) {
-        backend_task_runner_->PostNonNestableTask(
-            FROM_HERE,
-            base::BindOnce(&CommandStorageBackend::AppendCommands,
-                           encrypted_backend_, std::move(pending_commands_copy),
-                           pending_reset_, base::DoNothing()));
-      } else {
-        // This should be uncommon, but could occur if OnEncryptorReady is slow.
-        LogEncryptedBackendUninitialized(
-            SessionEncryptedBackendUninitialized::kSave);
-      }
+      AppendCommandsToEncryptedBackend(std::move(pending_commands_copy),
+                                       pending_reset_, base::DoNothing());
       break;
     }
     case EncryptSessionStorageStage::kWriteBothReadPreferEncrypted: {
@@ -392,33 +416,15 @@ void CommandStorageManager::Save() {
           FROM_HERE, base::BindOnce(&CommandStorageBackend::AppendCommands,
                                     backend_, std::move(pending_commands_copy),
                                     pending_reset_, base::DoNothing()));
-      if (encrypted_backend_) {
-        backend_task_runner_->PostNonNestableTask(
-            FROM_HERE,
-            base::BindOnce(&CommandStorageBackend::AppendCommands,
-                           encrypted_backend_, std::move(pending_commands_),
-                           pending_reset_, std::move(error_callback)));
-      } else {
-        LogEncryptedBackendUninitialized(
-            SessionEncryptedBackendUninitialized::kSave);
-        base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-            FROM_HERE, base::BindOnce(std::move(error_callback)));
-      }
+      AppendCommandsToEncryptedBackend(std::move(pending_commands_),
+                                       pending_reset_,
+                                       std::move(error_callback));
       break;
     }
     case EncryptSessionStorageStage::kWriteEncryptedReadPreferEncrypted:
-      if (encrypted_backend_) {
-        backend_task_runner_->PostNonNestableTask(
-            FROM_HERE,
-            base::BindOnce(&CommandStorageBackend::AppendCommands,
-                           encrypted_backend_, std::move(pending_commands_),
-                           pending_reset_, std::move(error_callback)));
-      } else {
-        LogEncryptedBackendUninitialized(
-            SessionEncryptedBackendUninitialized::kSave);
-        base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-            FROM_HERE, base::BindOnce(std::move(error_callback)));
-      }
+      AppendCommandsToEncryptedBackend(std::move(pending_commands_),
+                                       pending_reset_,
+                                       std::move(error_callback));
       break;
   }
   if (pending_reset_) {

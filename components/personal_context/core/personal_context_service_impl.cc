@@ -11,11 +11,13 @@
 #include "base/check.h"
 #include "base/check_op.h"
 #include "base/containers/span.h"
+#include "base/feature_list.h"
 #include "base/functional/callback.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/string_util.h"
 #include "base/time/time.h"
 #include "components/personal_context/core/network/personal_context_manager.h"
+#include "components/personal_context/core/personal_context_features.h"
 #include "components/personal_context/core/personal_context_key_manager.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
@@ -41,39 +43,103 @@ void RecordDecryptionMetrics(PersonalContextDecryptionStatus status,
                                       latency);
 }
 
+std::optional<proto::DateTime> ToChromeDateTime(
+    const proto::Timestamp& timestamp) {
+  // See the description for `proto::Timestamp` on the numberic boundaries.
+  if (timestamp.seconds() < -62135596800 ||
+      timestamp.seconds() > 253402300799 || timestamp.nanos() < 0 ||
+      timestamp.nanos() > 999999999) {
+    return std::nullopt;
+  }
+  base::Time time = base::Time::FromSecondsSinceUnixEpoch(timestamp.seconds());
+  base::Time::Exploded exploded = {};
+  time.UTCExplode(&exploded);
+  if (!exploded.HasValidValues()) {
+    return std::nullopt;
+  }
+  proto::DateTime date_time;
+  date_time.set_year(exploded.year);
+  date_time.set_month(exploded.month);
+  date_time.set_day(exploded.day_of_month);
+  date_time.set_hours(exploded.hour);
+  date_time.set_minutes(exploded.minute);
+  date_time.set_seconds(exploded.second);
+  date_time.set_nanos(timestamp.nanos());
+  return date_time;
+}
+
 std::optional<proto::SourceReference> ToChromeSourceReference(
     const proto::DecryptedReference& decrypted_ref) {
+  // Local helper to safely extract and set the timestamp.
+  auto set_timestamp = [](const auto& source, auto* target_proto) {
+    if (source.has_timestamp()) {
+      if (std::optional<proto::DateTime> date_time =
+              ToChromeDateTime(source.timestamp())) {
+        *target_proto->mutable_timestamp() = std::move(*date_time);
+      }
+    }
+  };
+
   switch (decrypted_ref.reference_case()) {
     case proto::DecryptedReference::kGmailMessage: {
       const proto::DecryptedGmailMessage& gmail_msg =
           decrypted_ref.gmail_message();
-      if (!IsSpecified(gmail_msg.message_url())) {
+      const bool has_desktop_web_url =
+          IsSpecified(gmail_msg.message_urls().desktop_web_url());
+      const bool has_mobile_web_url =
+          IsSpecified(gmail_msg.message_urls().mobile_web_url());
+      if (!has_desktop_web_url && !has_mobile_web_url) {
         return std::nullopt;
       }
       proto::SourceReference source_ref;
       proto::GmailReference* gmail = source_ref.mutable_gmail();
-      gmail->set_message_url(gmail_msg.message_url());
+      if (has_desktop_web_url) {
+        gmail->mutable_message_urls()->set_desktop_web_url(
+            gmail_msg.message_urls().desktop_web_url());
+      }
+      if (has_mobile_web_url) {
+        gmail->mutable_message_urls()->set_mobile_web_url(
+            gmail_msg.message_urls().mobile_web_url());
+      }
+      if (gmail_msg.message_id() != 0) {
+        gmail->set_message_id(gmail_msg.message_id());
+      }
+      if (gmail_msg.thread_id() != 0) {
+        gmail->set_thread_id(gmail_msg.thread_id());
+      }
       if (IsSpecified(gmail_msg.subject())) {
         gmail->set_subject(gmail_msg.subject());
       }
+      set_timestamp(gmail_msg, gmail);
       return source_ref;
     }
     case proto::DecryptedReference::kPhoto: {
+      const proto::DecryptedPhotosPhoto& photo = decrypted_ref.photo();
       proto::SourceReference source_ref;
-      source_ref.mutable_photos()->set_photos_url(
-          decrypted_ref.photo().deeplink_url());
+      proto::PhotosReference* photos = source_ref.mutable_photos();
+      photos->set_photos_url(photo.deeplink_url());
+      set_timestamp(photo, photos);
       return source_ref;
     }
     case proto::DecryptedReference::kVideo: {
+      const proto::DecryptedPhotosVideo& video = decrypted_ref.video();
       proto::SourceReference source_ref;
-      source_ref.mutable_photos()->set_photos_url(
-          decrypted_ref.video().deeplink_url());
+      proto::PhotosReference* photos = source_ref.mutable_photos();
+      photos->set_photos_url(video.deeplink_url());
+      set_timestamp(video, photos);
       return source_ref;
     }
     case proto::DecryptedReference::kPhotosAlbum: {
+      const proto::DecryptedPhotosAlbum& album = decrypted_ref.photos_album();
       proto::SourceReference source_ref;
-      source_ref.mutable_photos()->set_photos_url(
-          decrypted_ref.photos_album().deeplink_url());
+      proto::PhotosReference* photos = source_ref.mutable_photos();
+      photos->set_photos_url(album.deeplink_url());
+      if (album.has_start_time()) {
+        if (std::optional<proto::DateTime> timestamp =
+                ToChromeDateTime(album.start_time())) {
+          *photos->mutable_timestamp() = std::move(*timestamp);
+        }
+      }
       return source_ref;
     }
     case proto::DecryptedReference::kDriveFile: {
@@ -193,18 +259,24 @@ PersonalContextServiceImpl::PersonalContextServiceImpl(
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
     signin::IdentityManager* identity_manager,
     PrefService* pref_service,
-    syncer::DeviceInfoSyncService* device_info_sync_service)
+    syncer::DeviceInfoSyncService* device_info_sync_service,
+    PersonalContextEligibilityService* eligibility_service)
     : personal_context_manager_(std::make_unique<PersonalContextManager>(
           std::move(url_loader_factory),
-          identity_manager)),
-      key_manager_(pref_service ? std::make_unique<PersonalContextKeyManager>(
-                                      pref_service,
-                                      device_info_sync_service)
-                                : nullptr) {}
+          identity_manager)) {
+  if (base::FeatureList::IsEnabled(
+          features::kPersonalContextHandleEncryptedPayloads)) {
+    key_manager_ = pref_service ? std::make_unique<PersonalContextKeyManager>(
+                                      pref_service, device_info_sync_service,
+                                      eligibility_service)
+                                : nullptr;
+  }
+}
 
 PersonalContextServiceImpl::~PersonalContextServiceImpl() = default;
 
 void PersonalContextServiceImpl::Shutdown() {
+  key_manager_.reset();
   personal_context_manager_->Shutdown();
 }
 

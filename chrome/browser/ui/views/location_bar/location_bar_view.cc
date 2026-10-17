@@ -149,6 +149,7 @@
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
 #include "ui/views/border.h"
+#include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/button_drag_utils.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/button/image_button_factory.h"
@@ -186,6 +187,19 @@ constexpr int kPageActionCapsuleVerticalPadding = 2;
 // Default margins for standard page actions when capsule is inactive.
 constexpr int kPageActionDefaultChipEdgePadding = 5;
 constexpr int kPageActionDefaultIconEdgePadding = 4;
+
+// Returns whether a location bar hosted by `browser` can show WebUI Omnibox
+// popups.
+bool CanHostWebUIOmnibox(BrowserWindowInterface* browser, bool is_popup_mode) {
+  if (is_popup_mode) {
+    return false;
+  }
+  if (!browser) {
+    return true;
+  }
+  return !web_app::AppBrowserController::IsWebApp(browser) &&
+         browser->GetType() != BrowserWindowInterface::Type::TYPE_DEVTOOLS;
+}
 }  // namespace
 
 using content::WebContents;
@@ -204,7 +218,10 @@ LocationBarView::LocationBarView(BrowserWindowInterface* browser,
       browser_(browser),
       profile_(profile),
       delegate_(delegate),
-      is_popup_mode_(is_popup_mode) {
+      is_popup_mode_(is_popup_mode),
+      is_full_webui_omnibox_(
+          CanHostWebUIOmnibox(browser, is_popup_mode) &&
+          omnibox::internal::IsWebUIOmniboxFullPopupEnabled()) {
   if (browser_) {
     pref_registrar_ = std::make_unique<PrefChangeRegistrar>();
     pref_registrar_->Init(browser_->GetProfile()->GetPrefs());
@@ -344,17 +361,7 @@ void LocationBarView::Init() {
   omnibox_view_ = AddChildView(std::move(omnibox_view));
   omnibox_view_->Init();
 
-  const bool is_web_app =
-      browser_ && web_app::AppBrowserController::IsWebApp(browser_);
-  const bool is_devtools =
-      browser_ &&
-      browser_->GetType() == BrowserWindowInterface::Type::TYPE_DEVTOOLS;
-
-  // Skip creating the WebUI presenters/views for web apps, devtools windows,
-  // and popup windows since they're not supported there and will result in
-  // extra Omnibox processes being created (note that the address bar is not
-  // shown in web apps, and is an uneditable address bar in popups).
-  if (!is_web_app && !is_devtools && !is_popup_mode_) {
+  if (CanHostWebUIOmnibox(browser_, is_popup_mode_)) {
     if (omnibox::IsAimPopupFeatureEnabled()) {
       omnibox_popup_aim_presenter_ = std::make_unique<OmniboxPopupAimPresenter>(
           /*location_bar=*/this, omnibox_controller_.get(),
@@ -362,8 +369,7 @@ void LocationBarView::Init() {
     }
 
     const bool web_ui_popup_dropdown_only =
-        omnibox::IsWebUIOmniboxPopupEnabled() &&
-        !omnibox::IsWebUIOmniboxFullPopupEnabled();
+        omnibox::IsWebUIOmniboxPopupEnabled() && !is_full_webui_omnibox_;
 
     if (web_ui_popup_dropdown_only &&
         !base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxPopupDebug)) {
@@ -374,7 +380,7 @@ void LocationBarView::Init() {
     } else if (omnibox::IsWebUIOmniboxInBrowserViewEnabled()) {
       omnibox_popup_view_ =
           std::make_unique<OmniboxPopupViewBrowserView>(this, browser_);
-    } else if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup)) {
+    } else if (is_full_webui_omnibox_) {
       omnibox_popup_view_ = std::make_unique<OmniboxPopupViewFullWebUI>(
           /*omnibox_view=*/omnibox_view_,
           /*controller=*/omnibox_controller_.get(), /*location_bar=*/this,
@@ -383,7 +389,7 @@ void LocationBarView::Init() {
                          weak_factory_.GetWeakPtr()));
     }
 
-    if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup)) {
+    if (is_full_webui_omnibox_) {
       // NOTE: In classic mode, `OmniboxViewViews` provides the accessible name.
       GetViewAccessibility().SetName(
           l10n_util::GetStringUTF16(IDS_ACCNAME_LOCATION));
@@ -591,7 +597,7 @@ void LocationBarView::SelectAll() {
 
 void LocationBarView::FocusLocation(bool is_user_initiated,
                                     bool clear_focus_if_failed) {
-  if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup)) {
+  if (is_full_webui_omnibox_) {
     if (IsFullWebUiOmniboxReady()) {
       // In Full WebUI mode, `LocationBarView` is the focusable Views proxy for
       // the WebUI omnibox and `omnibox_view_` has `FocusBehavior::NEVER`.
@@ -609,7 +615,7 @@ void LocationBarView::FocusLocation(bool is_user_initiated,
   }
   omnibox_view_->SetFocus(is_user_initiated);
   if (clear_focus_if_failed && !omnibox_view_->HasFocus() &&
-      !base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup)) {
+      !is_full_webui_omnibox_) {
     // If none of location bar got focus, then clear focus.
     views::FocusManager* focus_manager = GetFocusManager();
     DCHECK(focus_manager);
@@ -619,8 +625,13 @@ void LocationBarView::FocusLocation(bool is_user_initiated,
 
 void LocationBarView::Revert() {
   omnibox_view_->RevertAll();
-  if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup) &&
-      !in_popup_state_transition_) {
+  // `Revert()` is only reached from explicit browser commands that end the
+  // omnibox edit session (e.g. reload), so always dismiss the Full WebUI
+  // popup. Deliberately not gated on `in_popup_state_transition_`: that flag
+  // debounces popup show/hide races for 100ms, and honoring it here would
+  // strand the popup on screen whenever the command lands right after the
+  // popup opened.
+  if (is_full_webui_omnibox_) {
     GetOmniboxController()->popup_state_manager()->SetPopupState(
         OmniboxPopupState::kNone);
   }
@@ -1059,7 +1070,7 @@ void LocationBarView::Update(WebContents* contents) {
 
   if (contents) {
     omnibox_view_->OnTabChanged(contents);
-    if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup) &&
+    if (is_full_webui_omnibox_ &&
         !omnibox::IsWebUIOmniboxInBrowserViewEnabled()) {
       omnibox_popup_view_->OnTabChanged(contents);
     }
@@ -1090,7 +1101,7 @@ void LocationBarView::Update(WebContents* contents) {
 //   that we can call `OmniboxTabHelper::ClearOmniboxInputState(contents)` in
 //   all cases.
 void LocationBarView::ResetTabState(WebContents* contents) {
-  if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup)) {
+  if (is_full_webui_omnibox_) {
     OmniboxTabHelper::ClearOmniboxInputState(contents);
   } else {
     omnibox_view_->ResetTabState(contents);
@@ -1255,6 +1266,10 @@ views::View* LocationBarView::GetLocationBarFocusRestoreView() {
     return this;
   }
   return omnibox_view_.get();
+}
+
+bool LocationBarView::is_full_webui_omnibox() const {
+  return is_full_webui_omnibox_;
 }
 
 // If omnibox is open, notify Omnibox presenter that a permission prompt is
@@ -1456,17 +1471,11 @@ bool LocationBarView::RefreshContentSettingViews() {
   for (ContentSettingImageView* v : content_setting_views_) {
     const bool was_visible = v->GetVisible();
 
-    bool is_lhs_indicator = false;
-    if (!web_app::AppBrowserController::IsWebApp(browser_)) {
-      if (v->GetType() == ContentSettingImageModel::ImageType::kMediaStream) {
-        is_lhs_indicator = base::FeatureList::IsEnabled(
-            content_settings::features::kLeftHandSideActivityIndicators);
-      } else if (v->GetType() ==
-                 ContentSettingImageModel::ImageType::kSensors) {
-        is_lhs_indicator = base::FeatureList::IsEnabled(
-            content_settings::features::kLeftHandSideSensorActivityIndicators);
-      }
-    }
+    // Web app windows have no permission dashboard, so activity indicators
+    // stay on the right-hand side there.
+    const bool is_lhs_indicator =
+        !web_app::AppBrowserController::IsWebApp(browser_) &&
+        ContentSettingImageModel::IsLeftHandSideIndicatorEnabled(v->GetType());
 
     if (is_lhs_indicator) {
       // Prioritize Media Stream (kMediaStream) over Sensors (kSensors) by
@@ -1583,6 +1592,12 @@ void LocationBarView::OnPageInfoBubbleClosed(
 void LocationBarView::FocusSearch() {
   // This is called by keyboard accelerator, so it's user-initiated.
   FocusLocation(/*is_user_initiated=*/true, /*clear_focus_if_failed=*/false);
+  if (IsFullWebUiOmniboxReady()) {
+    if (auto* popup_view = GetOmniboxPopupView()) {
+      popup_view->FocusSearchWithDefaultSearchEngineKeywordMode();
+    }
+    return;
+  }
   omnibox_view_->EnterKeywordModeForDefaultSearchProvider();
 }
 
@@ -1590,7 +1605,7 @@ void LocationBarView::UpdateFocusBehavior(bool toolbar_visible) {
   const bool is_ready = IsFullWebUiOmniboxReady();
   is_toolbar_visible_ = toolbar_visible;
 
-  if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup)) {
+  if (is_full_webui_omnibox_) {
     // Route focus to `LocationBarView` (which forwards focus to WebUI) once
     // WebUI is ready. Native Omnibox is focusable until then.
     omnibox_view()->SetFocusBehavior(toolbar_visible && !is_ready
@@ -1615,7 +1630,7 @@ void LocationBarView::UpdateContentSettingsIcons() {
 }
 
 void LocationBarView::SaveStateToContents(WebContents* contents) {
-  if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup)) {
+  if (is_full_webui_omnibox_) {
     omnibox_popup_view_->SaveStateToTab(contents);
   } else {
     omnibox_view_->SaveStateToTab(contents);
@@ -1676,7 +1691,7 @@ void LocationBarView::OnVisibleBoundsChanged() {
 }
 
 void LocationBarView::OnFocus() {
-  if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup)) {
+  if (is_full_webui_omnibox_) {
     // In Full WebUI mode, `LocationBarView` is the focusable Views proxy for
     // the WebUI omnibox. FocusManager calls `OnFocus()` during tab traversal
     // and focus restoration. Pass `is_user_initiated = false` to match native
@@ -1789,6 +1804,13 @@ void LocationBarView::OnFullWebUiOmniboxReady() {
       had_focus && omnibox_view_->is_user_initiated_focus() &&
       !GetOmniboxController()->edit_model()->user_input_in_progress();
   if (had_focus) {
+    // Capture `omnibox_view_`'s selection before `SetFocusedView(this)` blurs
+    // it (`OmniboxViewViews::OnBlur()` collapses any active selection range to
+    // a caret), and restore it so `SyncNativeStateToWebUI()` can hand off the
+    // exact selection to WebUI.
+    const gfx::Range saved_selection = omnibox_view_
+                                           ? omnibox_view_->GetSelectionBounds()
+                                           : gfx::Range::InvalidRange();
     // Make `LocationBarView` focusable so `SetFocusedView()` satisfies
     // `IsFocusable()`.
     // NOTE: We don't call `UpdateFocusBehavior()` here because it
@@ -1799,6 +1821,12 @@ void LocationBarView::OnFullWebUiOmniboxReady() {
     // it.
     if (focus_manager) {
       focus_manager->SetFocusedView(this);
+    }
+    // Restore the pre-blur selection on `omnibox_view_` so that
+    // `popup_view->OnFocus()` (and `RequestInputState()`) can read and hand off
+    // the exact selection range via `SyncNativeStateToWebUI()`.
+    if (omnibox_view_ && saved_selection.IsValid()) {
+      omnibox_view_->SetSelectionBounds(saved_selection);
     }
     if (auto* popup_view = GetOmniboxPopupView()) {
       popup_view->OnFocus(query_zps);
@@ -1885,7 +1913,7 @@ void LocationBarView::OnPopupStateChanged(OmniboxPopupState old_state,
       }
       break;
     case OmniboxPopupState::kNone:
-      if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup)) {
+      if (is_full_webui_omnibox_) {
         // When the popup is closed, remove focus from the location bar if it
         // currently holds focus or stored focus.
         if (auto* focus_manager = GetFocusManager()) {
@@ -1931,8 +1959,7 @@ void LocationBarView::ValidatePopupState(OmniboxPopupState state) {
   // popup_state=kClassic but the popup widget is already destroyed.
   // Note: GetWidget() returns the BrowserView's widget, not the popup widget.
   if (views::Widget* widget = GetWidget();
-      !widget || !widget->IsVisible() ||
-      base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup)) {
+      !widget || !widget->IsVisible() || is_full_webui_omnibox_) {
     return;
   }
 
@@ -1975,9 +2002,7 @@ void LocationBarView::ClearInPopupStateTransition() {
   // Since there is a 100ms delay, the omnibox_view never gets repainted.
   // Ensure the omnibox view repaints to reflect potential placeholder text
   // visibility changes.
-  if (omnibox_view_ &&
-      base::FeatureList::IsEnabled(
-          omnibox::kOmniboxAimDeferShowUntilVisualStateReady)) {
+  if (omnibox_view_ && omnibox::ShouldDeferAimShowUntilVisualStateReady()) {
     omnibox_view_->SchedulePaint();
   }
 }
@@ -2048,8 +2073,7 @@ void LocationBarView::OnOmniboxFocused() {
 }
 
 void LocationBarView::OpenOmniboxPopup(bool query_zps) {
-  if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup) &&
-      !in_popup_state_transition_) {
+  if (is_full_webui_omnibox_ && !in_popup_state_transition_) {
     if (auto* popup_view = GetOmniboxPopupView()) {
       popup_view->OnFocus(query_zps);
     }
@@ -2070,8 +2094,8 @@ void LocationBarView::OnOmniboxBlurred() {
 }
 
 bool LocationBarView::IsFullWebUiOmniboxReady() const {
-  return base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup) &&
-         omnibox_popup_view_ && omnibox_popup_view_->IsPopupHandlerReady();
+  return is_full_webui_omnibox_ && omnibox_popup_view_ &&
+         omnibox_popup_view_->IsPopupHandlerReady();
 }
 
 void LocationBarView::OnOmniboxHovered(bool is_hovering) {
@@ -2121,7 +2145,7 @@ bool LocationBarView::IsMouseHovered() const {
 bool LocationBarView::IsFocusWithin() const {
   // In Full WebUI mode, focus resides inside the WebUI popup's `WebContents` /
   // `RenderWidgetHost` rather than a native child View of `LocationBarView`.
-  if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup)) {
+  if (is_full_webui_omnibox_) {
     const OmniboxController* const controller = GetOmniboxController();
     if (controller && controller->edit_model()->has_focus()) {
       return true;

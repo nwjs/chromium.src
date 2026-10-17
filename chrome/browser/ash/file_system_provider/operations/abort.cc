@@ -6,8 +6,8 @@
 
 #include <string>
 
-#include "chrome/common/extensions/api/file_system_provider.h"
-#include "chrome/common/extensions/api/file_system_provider_internal.h"
+#include "chromeos/ash/experiences/extensions/common/api/file_system_provider.h"
+#include "chromeos/ash/experiences/extensions/common/api/file_system_provider_internal.h"
 
 namespace ash::file_system_provider::operations {
 
@@ -38,14 +38,14 @@ bool Abort::Execute(int request_id) {
 void Abort::OnSuccess(/*request_id=*/int,
                       /*result=*/const RequestValue&,
                       bool has_more) {
-  DCHECK(callback_);
+  CHECK(callback_, base::NotFatalUntil::M160);
   std::move(callback_).Run(base::File::FILE_OK);
 }
 
 void Abort::OnError(/*request_id=*/int,
                     /*result=*/const RequestValue&,
                     base::File::Error error) {
-  DCHECK(callback_);
+  CHECK(callback_, base::NotFatalUntil::M160);
   std::move(callback_).Run(error);
 }
 

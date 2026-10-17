@@ -31,6 +31,7 @@ class PrefService;
 class ProfileIOS;
 @protocol SceneCommands;
 @class SceneLayoutState;
+@class SceneState;
 @protocol SettingsCommands;
 @protocol TabGridCommands;
 @class TabGridState;
@@ -42,6 +43,7 @@ class WebStateList;
 @protocol AppBarMediatorDelegate
 
 // Indicates to the delegate to show the account menu anchored to `anchorView`.
+// Assumes that sign-in is enabled and that there is a primary account.
 - (void)showAccountMenu:(UIView*)anchorView;
 
 // Indicates to the delegate to show the sign-in flow anchored to `anchorView`.
@@ -84,6 +86,9 @@ class WebStateList;
 
 // The layout state of the scene.
 @property(nonatomic, weak) SceneLayoutState* layoutState;
+
+// The scene state used to gate UI updates until the scene UI is enabled.
+@property(nonatomic, weak) SceneState* sceneState;
 
 // The regular FullscreenCommands handler.
 @property(nonatomic, weak) id<FullscreenCommands> regularFullscreenHandler;

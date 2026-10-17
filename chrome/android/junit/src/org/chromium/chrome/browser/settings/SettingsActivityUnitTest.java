@@ -13,6 +13,7 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.robolectric.Shadows.shadowOf;
 
 import android.content.Intent;
 import android.content.res.Configuration;
@@ -95,7 +96,7 @@ public class SettingsActivityUnitTest {
     @Test
     @Config(qualifiers = "w720dp-h1024dp")
     public void testApplyOverrides() {
-        startSettings(TestEmbeddableFragment.class.getName());
+        startSettingsActivity(TestEmbeddableFragment.class.getName());
         mActivityScenario.moveToState(State.CREATED);
         assertEquals(
                 "SmallestScreenWidthDp should be overridden.",
@@ -110,7 +111,7 @@ public class SettingsActivityUnitTest {
         DisplayUtil.setCarmaPhase1Version2ComplianceForTesting(true);
         DeviceInfo.setIsAutomotiveForTesting(true);
 
-        startSettings(TestEmbeddableFragment.class.getName());
+        startSettingsActivity(TestEmbeddableFragment.class.getName());
         mActivityScenario.moveToState(State.CREATED);
 
         View backButtonToolbar = mSettingsActivity.findViewById(R.id.back_button_toolbar);
@@ -124,7 +125,7 @@ public class SettingsActivityUnitTest {
     @Test
     @DisableFeatures({ChromeFeatureList.SETTINGS_SINGLE_ACTIVITY})
     public void testDefaultLaunchProcess() {
-        startSettings(TestEmbeddableFragment.class.getName());
+        startSettingsActivity(TestEmbeddableFragment.class.getName());
         mActivityScenario.moveToState(State.CREATED);
 
         assertTrue(
@@ -136,7 +137,7 @@ public class SettingsActivityUnitTest {
     @Test
     @EnableFeatures({ChromeFeatureList.SETTINGS_SINGLE_ACTIVITY})
     public void testDefaultLaunchProcessSingleActivity() {
-        startSettings(TestEmbeddableFragment.class.getName());
+        startSettingsActivity(TestEmbeddableFragment.class.getName());
         mActivityScenario.moveToState(State.CREATED);
 
         assertTrue(
@@ -148,7 +149,7 @@ public class SettingsActivityUnitTest {
     @Test
     @DisableFeatures({ChromeFeatureList.SETTINGS_SINGLE_ACTIVITY})
     public void testUpdateTitle() {
-        startSettings(TestEmbeddableFragment.class.getName());
+        startSettingsActivity(TestEmbeddableFragment.class.getName());
         mActivityScenario.moveToState(State.RESUMED);
 
         assertEquals("Activity title is not set.", "test title", mSettingsActivity.getTitle());
@@ -157,7 +158,7 @@ public class SettingsActivityUnitTest {
     @Test
     @EnableFeatures({ChromeFeatureList.SETTINGS_SINGLE_ACTIVITY})
     public void testUpdateTitleSingleActivity() {
-        startSettings(TestEmbeddableFragment.class.getName());
+        startSettingsActivity(TestEmbeddableFragment.class.getName());
         mActivityScenario.moveToState(State.RESUMED);
 
         // Simulate opening a new fragment.
@@ -181,7 +182,7 @@ public class SettingsActivityUnitTest {
     @Test
     @EnableFeatures({ChromeFeatureList.SETTINGS_SINGLE_ACTIVITY})
     public void testIntentFlags() {
-        startSettings(TestEmbeddableFragment.class.getName());
+        startSettingsActivity(TestEmbeddableFragment.class.getName());
         mActivityScenario.moveToState(State.RESUMED);
 
         Intent embeddableFragmentIntent =
@@ -203,7 +204,7 @@ public class SettingsActivityUnitTest {
 
     @Test
     public void testBackPress() throws TimeoutException {
-        startSettings(TestStandaloneFragment.class.getName());
+        startSettingsActivity(TestStandaloneFragment.class.getName());
         assertTrue(
                 "SettingsActivity is using a wrong fragment.",
                 mSettingsActivity.getMainFragment() instanceof TestStandaloneFragment);
@@ -227,7 +228,7 @@ public class SettingsActivityUnitTest {
 
     @Test
     public void testEscapeKey() throws TimeoutException {
-        startSettings(TestStandaloneFragment.class.getName());
+        startSettingsActivity(TestStandaloneFragment.class.getName());
         assertTrue(
                 "SettingsActivity is using a wrong fragment.",
                 mSettingsActivity.getMainFragment() instanceof TestStandaloneFragment);
@@ -245,7 +246,7 @@ public class SettingsActivityUnitTest {
     @Test
     @Config(qualifiers = "w720dp-h1024dp")
     public void addPaddingToContentOnWideDisplay() {
-        startSettings(TestEmbeddableFragment.class.getName());
+        startSettingsActivity(TestEmbeddableFragment.class.getName());
         mActivityScenario.moveToState(State.CREATED);
         mActivityScenario.moveToState(State.STARTED);
         mActivityScenario.moveToState(State.RESUMED);
@@ -264,7 +265,7 @@ public class SettingsActivityUnitTest {
     @Test
     @Config(qualifiers = "w320dp-h1024dp")
     public void addPaddingToContentOnNarrowDisplay() {
-        startSettings(TestEmbeddableFragment.class.getName());
+        startSettingsActivity(TestEmbeddableFragment.class.getName());
         mActivityScenario.moveToState(State.CREATED);
         mActivityScenario.moveToState(State.STARTED);
         mActivityScenario.moveToState(State.RESUMED);
@@ -282,7 +283,7 @@ public class SettingsActivityUnitTest {
     @Config(qualifiers = "w720dp-h1024dp")
     public void addPaddingToContentOnWideDisplay_NoDivider() {
         CustomDividerTestSettingsFragment.sHasDivider = false;
-        startSettings(CustomDividerTestSettingsFragment.class.getName());
+        startSettingsActivity(CustomDividerTestSettingsFragment.class.getName());
         mActivityScenario.moveToState(State.CREATED);
         mActivityScenario.moveToState(State.STARTED);
         mActivityScenario.moveToState(State.RESUMED);
@@ -306,7 +307,7 @@ public class SettingsActivityUnitTest {
     public void addPaddingToContentOnWideDisplay_HasCustomDivider() {
         CustomDividerTestSettingsFragment.sHasDivider = true;
 
-        startSettings(CustomDividerTestSettingsFragment.class.getName());
+        startSettingsActivity(CustomDividerTestSettingsFragment.class.getName());
         mActivityScenario.moveToState(State.CREATED);
         mActivityScenario.moveToState(State.STARTED);
         mActivityScenario.moveToState(State.RESUMED);
@@ -342,7 +343,7 @@ public class SettingsActivityUnitTest {
 
     @Test
     public void testEscapeKey_HandledByFragment() throws TimeoutException {
-        startSettings(TestStandaloneFragment.class.getName());
+        startSettingsActivity(TestStandaloneFragment.class.getName());
         TestStandaloneFragment mainFragment =
                 (TestStandaloneFragment) mSettingsActivity.getMainFragment();
         mainFragment.getHandleBackPressChangedSupplier().set(true);
@@ -366,7 +367,7 @@ public class SettingsActivityUnitTest {
 
     @Test
     public void testOnConfigurationChanged_updatesContainment() {
-        startSettings(TestEmbeddableFragment.class.getName());
+        startSettingsActivity(TestEmbeddableFragment.class.getName());
         mActivityScenario.moveToState(State.CREATED);
 
         SettingsContainmentHelper mockHelper = mock(SettingsContainmentHelper.class);
@@ -380,7 +381,7 @@ public class SettingsActivityUnitTest {
 
     @Test
     public void testOnHeaderLayoutUpdated_updatesContainment() {
-        startSettings(TestEmbeddableFragment.class.getName());
+        startSettingsActivity(TestEmbeddableFragment.class.getName());
         mActivityScenario.moveToState(State.CREATED);
 
         SettingsContainmentHelper mockHelper = mock(SettingsContainmentHelper.class);
@@ -391,7 +392,38 @@ public class SettingsActivityUnitTest {
         verify(mockHelper).updateContainmentForAttachedFragments(any());
     }
 
-    private void startSettings(String fragmentName) {
+    /**
+     * Settings hosted by this activity must keep navigating within the activity, even when the
+     * global SettingsInTab state changes to "open in a tab" after settings was opened (e.g. a
+     * foldable device was unfolded). See crbug.com/562619494.
+     */
+    @Test
+    public void testStartSettings_StaysInActivityWhenGlobalStateSaysTab() {
+        startSettingsActivity(TestEmbeddableFragment.class.getName());
+        mActivityScenario.moveToState(State.CREATED);
+
+        // Simulate the window becoming wide enough to open settings in a tab while this activity
+        // is already showing settings.
+        SettingsInTab.setShouldOpenSettingsInTabForTesting(true);
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () ->
+                        mSettingsActivity.startSettings(
+                                TestEmbeddableFragment.class.getName(), /* args= */ null));
+
+        // Robolectric records the Intent passed to startActivity() instead of launching it, so no
+        // second SettingsActivity is created here. Only the Intent target is checked. In
+        // production the Intent carries FLAG_ACTIVITY_SINGLE_TOP when SettingsSingleActivity is
+        // enabled, so it is delivered to this activity's onNewIntent().
+        Intent startedIntent = shadowOf(mSettingsActivity).getNextStartedActivity();
+        assertNotNull("startSettings() should have sent an Intent.", startedIntent);
+        assertEquals(
+                "Navigation from activity-hosted settings must target SettingsActivity, not a tab.",
+                SettingsActivity.class.getName(),
+                startedIntent.getComponent().getClassName());
+    }
+
+    private void startSettingsActivity(String fragmentName) {
         assertWithMessage("Should be called once per test.").that(mActivityScenario).isNull();
         Intent intent =
                 SettingsIntentUtil.createIntent(

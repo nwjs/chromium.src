@@ -10,6 +10,7 @@
 #include "base/callback_list.h"
 #include "chrome/browser/ui/side_panel/side_panel_registry.h"
 #include "chrome/common/buildflags.h"
+#include "components/safe_browsing/buildflags.h"
 #include "extensions/buildflags/buildflags.h"
 #include "ui/base/unowned_user_data/user_data_factory.h"
 #include "ui/webui/buildflags.h"
@@ -36,6 +37,10 @@ namespace content {
 class WebContents;
 }  // namespace content
 
+namespace download {
+class DownloadNavigationObserver;
+}  // namespace download
+
 namespace enterprise_data_protection {
 class DataProtectionNavigationController;
 }  // namespace enterprise_data_protection
@@ -47,6 +52,7 @@ class EnterpriseProxyTabHelper;
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 namespace extensions {
 class ExtensionSidePanelManager;
+class NavigationExtensionEnabler;
 }  // namespace extensions
 #endif
 
@@ -54,11 +60,20 @@ namespace enterprise_reporting {
 class SaasUsageNavigationObserver;
 }  // namespace enterprise_reporting
 
+namespace finds {
+class FindsTabHelper;
+}  // namespace finds
+
 namespace glic {
 class ContextualCueingHelper;
 class GlicInstanceHelper;
+class GlicMarketingPageTabHelper;
 class GlicSidePanelCoordinator;
 }  // namespace glic
+
+namespace offline_pages {
+class AutoFetchNavigationObserver;
+}  // namespace offline_pages
 
 namespace sync_sessions {
 class SyncSessionsRouterTabHelper;
@@ -72,9 +87,44 @@ namespace payments {
 class WebPaymentsObserver;
 }  // namespace payments
 
+namespace prerender {
+class NoStatePrefetchTabHelper;
+}  // namespace prerender
+
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+namespace safe_browsing {
+class TailoredSecurityUrlObserver;
+}  // namespace safe_browsing
+#endif
+
+namespace site_protection {
+class SiteProtectionMetricsObserver;
+}  // namespace site_protection
+
+namespace tasks {
+class TaskTabHelper;
+}  // namespace tasks
+
+namespace v8_compile_hints {
+class V8CompileHintsTabHelper;
+}  // namespace v8_compile_hints
+
+class AboutThisSiteTabHelper;
 class ConnectionHelpTabHelper;
+class ExternalProtocolObserver;
+class FromGWSNavigationAndKeepAliveRequestObserver;
+class HistoryEmbeddingsTabHelper;
 class HttpAuthCacheStatus;
+class NavigationMetricsRecorder;
+class NavigationPredictorPreconnectClient;
+class OomInterventionTabHelper;
+class PluginObserverAndroid;
+class PolicyAuditorBridge;
+class RevokedPermissionsTabHelper;
 class SecurityStateEventObserver;
+class SoundContentSettingObserver;
+class StorageAccessAPITabHelper;
+class TabContextDecryptionTokenTabHelper;
 
 #if BUILDFLAG(ENABLE_WEBUI_NTP)
 namespace customize_chrome {
@@ -126,6 +176,8 @@ class TabFeatures {
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   std::unique_ptr<extensions::ExtensionSidePanelManager>
       extension_side_panel_manager_;
+  std::unique_ptr<extensions::NavigationExtensionEnabler>
+      navigation_extension_enabler_;
 #endif
 
   std::unique_ptr<AskBeforeHttpDialogController>
@@ -162,11 +214,45 @@ class TabFeatures {
   std::unique_ptr<tabs::PageContextEligibilityHelper>
       page_context_eligibility_helper_;
   std::unique_ptr<glic::GlicInstanceHelper> glic_instance_helper_;
+  std::unique_ptr<glic::GlicMarketingPageTabHelper>
+      glic_marketing_page_tab_helper_;
   std::unique_ptr<glic::GlicSidePanelCoordinator> glic_side_panel_coordinator_;
   std::unique_ptr<actor::ui::ActorUiTabControllerInterface>
       actor_ui_tab_controller_;
 
   std::unique_ptr<payments::WebPaymentsObserver> web_payments_observer_;
+  std::unique_ptr<TabContextDecryptionTokenTabHelper>
+      tab_context_decryption_token_tab_helper_;
+  std::unique_ptr<v8_compile_hints::V8CompileHintsTabHelper>
+      v8_compile_hints_tab_helper_;
+  std::unique_ptr<StorageAccessAPITabHelper> storage_access_api_tab_helper_;
+  std::unique_ptr<RevokedPermissionsTabHelper> revoked_permissions_tab_helper_;
+  std::unique_ptr<ExternalProtocolObserver> external_protocol_observer_;
+  std::unique_ptr<prerender::NoStatePrefetchTabHelper>
+      no_state_prefetch_tab_helper_;
+  std::unique_ptr<NavigationPredictorPreconnectClient>
+      navigation_predictor_preconnect_client_;
+  std::unique_ptr<NavigationMetricsRecorder> navigation_metrics_recorder_;
+  std::unique_ptr<site_protection::SiteProtectionMetricsObserver>
+      site_protection_metrics_observer_;
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+  std::unique_ptr<safe_browsing::TailoredSecurityUrlObserver>
+      tailored_security_url_observer_;
+#endif
+  std::unique_ptr<OomInterventionTabHelper> oom_intervention_tab_helper_;
+  std::unique_ptr<PolicyAuditorBridge> policy_auditor_bridge_;
+  std::unique_ptr<finds::FindsTabHelper> finds_tab_helper_;
+  std::unique_ptr<FromGWSNavigationAndKeepAliveRequestObserver>
+      from_gws_navigation_and_keep_alive_request_observer_;
+  std::unique_ptr<offline_pages::AutoFetchNavigationObserver>
+      auto_fetch_navigation_observer_;
+  std::unique_ptr<PluginObserverAndroid> plugin_observer_android_;
+  std::unique_ptr<AboutThisSiteTabHelper> about_this_site_tab_helper_;
+  std::unique_ptr<SoundContentSettingObserver> sound_content_setting_observer_;
+  std::unique_ptr<tasks::TaskTabHelper> task_tab_helper_;
+  std::unique_ptr<HistoryEmbeddingsTabHelper> history_embeddings_tab_helper_;
+  std::unique_ptr<download::DownloadNavigationObserver>
+      download_navigation_observer_;
 
   // Holds the WebUI embedding context subscription.
   base::CallbackListSubscription tab_subscription_;

@@ -439,6 +439,7 @@ class InterceptionJob : public network::mojom::URLLoaderClient,
       std::unique_ptr<Modifications> modifications,
       std::unique_ptr<ContinueInterceptedRequestCallback> callback);
   void Detach();
+  void Shutdown();
 
   void OnAuthRequest(
       const net::AuthChallengeInfo& auth_info,
@@ -450,7 +451,14 @@ class InterceptionJob : public network::mojom::URLLoaderClient,
       std::move(pending_auth_callback_)
           .Run(/*use_fallback=*/true, std::nullopt);
     }
-    DevToolsURLLoaderInterceptor::UnregisterJob(this);
+    if (!IsCorsPreflight()) {
+      DevToolsURLLoaderInterceptor::UnregisterJob(this);
+    }
+  }
+
+  bool IsCorsPreflight() const {
+    return create_loader_params_->options &
+           network::mojom::kURLLoadOptionAsCorsPreflight;
   }
 
   Response InnerContinueRequest(std::unique_ptr<Modifications> modifications);
@@ -473,7 +481,6 @@ class InterceptionJob : public network::mojom::URLLoaderClient,
   void StartRequest();
   void CancelRequest();
   void CompleteRequest(const network::URLLoaderCompletionStatus& status);
-  void Shutdown();
 
   std::unique_ptr<InterceptedRequestInfo> BuildRequestInfo(
       const network::mojom::URLResponseHeadPtr& head);
@@ -811,24 +818,51 @@ void DevToolsURLLoaderFactoryProxy::CreateLoaderAndStart(
     return;
   }
 
-  // Each active request for a given process must have a unique request_id
-  // so that network service callbacks (e.g. OnLoaderCreated) can unambiguously
-  // route back to the matching InterceptionJob, and to prevent compromised
-  // renderers from colliding with and hijacking active requests (b/497350668).
   GlobalRequestID global_req_id(ToOriginatingProcessIdUnsafe(process_id_),
                                 request_id);
-  if (interceptor->FindJobByGlobalId(global_req_id)) {
-    if (process_id_ > 0) {
-      mojo::ReportBadMessage("DevTools: Duplicate request ID");
+  // CORS preflights reuse the request ID of the request they precede. On a
+  // redirect, the network service sends the preflight for the new URL while the
+  // original request is still in flight (crbug.com/570354835), so preflights
+  // are exempt from collision handling. This holds even if a renderer sets
+  // kURLLoadOptionAsCorsPreflight itself, which it can on non-network factories
+  // that have no CorsURLLoaderFactory in front: preflight jobs are never
+  // indexed by GlobalRequestID or registered for auth routing, so they cannot
+  // displace or impersonate another job.
+  const bool is_cors_preflight =
+      options & network::mojom::kURLLoadOptionAsCorsPreflight;
+  if (InterceptionJob* existing_job =
+          is_cors_preflight ? nullptr
+                            : interceptor->FindJobByGlobalId(global_req_id)) {
+    // Genuine child/renderer processes strictly have process IDs >= 1
+    // (content::ChildProcessId starts generating IDs at 1). Values <= 0
+    // represent browser-initiated contexts (0 for navigations, or -1 for
+    // invalid child IDs). Multiple concurrent browser requests may share these
+    // non-renderer IDs; shutting down the existing job would abort an active,
+    // independent load. Therefore, if a collision occurs on process_id_ <= 0,
+    // skip interception and forward directly to the target factory without
+    // touching the existing job (crbug.com/40276949).
+    if (process_id_ <= 0) {
+      target_factory_->CreateLoaderAndStart(std::move(loader), request_id,
+                                            options, request, std::move(client),
+                                            traffic_annotation);
       return;
     }
-    // Browser-initiated requests (e.g. navigations) may share process ID 0.
-    // If a collision occurs, skip interception and forward directly to the
-    // target factory to avoid crashing the browser (crbug.com/40276949).
-    target_factory_->CreateLoaderAndStart(std::move(loader), request_id,
-                                          options, request, std::move(client),
-                                          traffic_annotation);
-    return;
+
+    // A collision occurs in two scenarios:
+    // 1. Legitimate Blink restarts: An in-flight request is restarted (e.g.
+    //    Critical Client Hints, cross-scheme redirects, or Service Worker
+    //    fallback to network) while the previous loader's Mojo disconnection is
+    //    still in flight across IPC.
+    // 2. Attack vector (crbug.com/497350668): A compromised renderer attempts
+    // to reuse
+    //    an in-flight request ID (e.g. guessing the negative ID of a browser-
+    //    initiated worker script fetch) to hijack authentication challenges and
+    //    misdirect credentials to an attacker server.
+    // In both cases, shutting down the obsolete job safely handles the
+    // collision: for restarts, it allows the new loader to proceed cleanly; for
+    // attacks, it destroys the victim job, cancels its pending auth callbacks,
+    // and prevents credential theft.
+    existing_job->Shutdown();
   }
 
   if (request.url.SchemeIs(url::kDataScheme)) {
@@ -950,13 +984,13 @@ std::map<GlobalRequestID, JobStack>& GetInFlightJobStackMap() {
 
 // static
 void DevToolsURLLoaderInterceptor::RegisterJob(InterceptionJob* job) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
   GetInFlightJobStackMap()[job->global_req_id()].push_back(job);
 }
 
 // static
 void DevToolsURLLoaderInterceptor::UnregisterJob(InterceptionJob* job) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
   auto& map = GetInFlightJobStackMap();
   auto it = map.find(job->global_req_id());
   if (it == map.end()) {
@@ -973,7 +1007,7 @@ void DevToolsURLLoaderInterceptor::HandleAuthRequest(
     GlobalRequestID req_id,
     const net::AuthChallengeInfo& auth_info,
     HandleAuthRequestCallback callback) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
   auto& map = GetInFlightJobStackMap();
   auto it = map.find(req_id);
   if (it != map.end()) {
@@ -1138,7 +1172,11 @@ InterceptionJob::InterceptionJob(
   loader_receiver_.set_disconnect_handler(
       base::BindOnce(&InterceptionJob::Shutdown, base::Unretained(this)));
 
-  DevToolsURLLoaderInterceptor::RegisterJob(this);
+  // An auth challenge for the shared request ID belongs to the request the
+  // preflight precedes, so preflights are kept out of auth routing.
+  if (!IsCorsPreflight()) {
+    DevToolsURLLoaderInterceptor::RegisterJob(this);
+  }
 
   url_chain_.push_back(create_loader_params_->request.url);
 
@@ -1155,7 +1193,12 @@ bool InterceptionJob::StartJobAndMaybeNotify() {
 
   current_id_ =
       base::StringPrintf("interception-job-%d.%d", id_seq_, redirect_count_);
-  interceptor_->AddJob(global_req_id_, current_id_, this);
+  interceptor_->AddJob(current_id_, this);
+  // A preflight shares the request ID of the in-flight request it precedes, so
+  // indexing it would hide that request from collision handling.
+  if (!IsCorsPreflight()) {
+    interceptor_->IndexJobByGlobalId(global_req_id_, this);
+  }
 
   const network::ResourceRequest& request = create_loader_params_->request;
   stages_ = interceptor_->GetInterceptionStages(
@@ -1642,8 +1685,7 @@ void InterceptionJob::ProcessSetCookies(const net::HttpResponseHeaders& headers,
       GetContentClient()
           ->browser()
           ->ShouldIgnoreSameSiteCookieRestrictionsWhenTopLevel(
-              top_frame_origin,
-              create_loader_params_->request.url.SchemeIsCryptographic());
+              top_frame_origin, url_chain_.back());
   CHECK_EQ(create_loader_params_->request.url, url_chain_.back(),
            base::NotFatalUntil::M159);
   bool is_main_frame_navigation =
@@ -1817,8 +1859,8 @@ void InterceptionJob::FetchCookies(base::OnceClosure callback) {
   bool should_treat_as_first_party =
       GetContentClient()
           ->browser()
-          ->ShouldIgnoreSameSiteCookieRestrictionsWhenTopLevel(
-              top_frame_origin, request.url.SchemeIsCryptographic());
+          ->ShouldIgnoreSameSiteCookieRestrictionsWhenTopLevel(top_frame_origin,
+                                                               request.url);
   bool is_main_frame_navigation =
       request.trusted_params.has_value() &&
       request.trusted_params->isolation_info.request_type() ==
@@ -1918,8 +1960,12 @@ void InterceptionJob::CompleteRequest(
 }
 
 void InterceptionJob::Shutdown() {
+  if (waiting_for_resolution_ != ResolutionState::kNone) {
+    // Corresponds to the TRACE_EVENT_BEGIN in NotifyClient.
+    TRACE_EVENT_END("devtools", GetNamedTrack());
+  }
   if (interceptor_)
-    interceptor_->RemoveJob(global_req_id_, current_id_);
+    interceptor_->RemoveJob(global_req_id_, current_id_, this);
   delete this;
 }
 
@@ -1979,7 +2025,7 @@ void InterceptionJob::FollowRedirect(
     redirected_request_id_ = current_id_;
     // Pretend that each redirect hop is a new request -- this is for
     // compatibilty with URLRequestJob-based interception implementation.
-    interceptor_->RemoveJob(global_req_id_, current_id_);
+    interceptor_->RemoveJob(global_req_id_, current_id_, this);
     redirect_count_++;
     if (StartJobAndMaybeNotify())
       return;
@@ -2258,7 +2304,7 @@ void InterceptionJob::OnAuthRequest(
   CHECK(pending_auth_callback_.is_null(), base::NotFatalUntil::M159);
   CHECK_EQ(ResolutionState::kNone, waiting_for_resolution_,
            base::NotFatalUntil::M159);
-  DCHECK(CanHandleAuth());
+  CHECK(CanHandleAuth(), base::NotFatalUntil::M160);
 
   state_ = State::kAuthRequired;
   auto request_info = BuildRequestInfo(nullptr);

@@ -239,12 +239,8 @@ class CONTENT_EXPORT DedicatedWorkerHost final
 
   const network::CrossOriginEmbedderPolicy& cross_origin_embedder_policy()
       const {
-    DCHECK(worker_client_security_state_);
+    CHECK(worker_client_security_state_, base::NotFatalUntil::M160);
     return worker_client_security_state_->cross_origin_embedder_policy;
-  }
-
-  ServiceWorkerMainResourceHandle* service_worker_handle() {
-    return service_worker_handle_.get();
   }
 
   bool file_url_support() const { return file_url_support_; }

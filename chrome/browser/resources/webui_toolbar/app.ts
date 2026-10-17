@@ -12,6 +12,7 @@ import './performance_intervention_button.js';
 import './pinned_toolbar_actions.js';
 import './extensions.js';
 import './app_menu_button.js';
+import './glic_button.js';
 import './avatar_button.js';
 import './media_button.js';
 import './overflow_button.js';
@@ -53,6 +54,7 @@ import {
   LhsChipIdentifier,
   SecurityChipRole,
   OmniboxTextColor,
+  PageActionAnimationStyle,
   PageActionId,
   PageActionTrigger,
   PermissionAction,
@@ -62,7 +64,7 @@ import {
   SplitTabActiveLocation,
 } from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 import {IconType} from '/shared/icon_handle.mojom-webui.js';
-import type {OmniboxAction, LocationBarState, PageActionState, PermissionChipState, PermissionDashboardState} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
+import type {GlicButtonState, OmniboxAction, LocationBarState, PageActionState, PermissionChipState, PermissionDashboardState} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 import type {AdjustOmniboxTextForCopyResult, InitialState, OverflowMenuItem, ToolbarUIServiceInterface} from '/shared/toolbar_ui_api.mojom-webui.js';
 import {PermissionChipElement} from '/shared/permission_chip.js';
 import type {PermissionDashboardElement} from '/shared/permission_dashboard.js';
@@ -70,6 +72,7 @@ import type {PermissionDashboardElement} from '/shared/permission_dashboard.js';
 import {INVALID_FOCUS_REQUEST_HANDLE} from './browser_proxy.js';
 import {AppMenuButtonElement} from './app_menu_button.js';
 import {BatterySaverButtonElement} from './battery_saver_button.js';
+import {GlicButtonElement} from './glic_button.js';
 import {ContentSettingIconElement} from './content_setting_icon.js';
 import {ContentSettingsIconsElement} from './content_settings_icons.js';
 import type {ExtensionsElement} from './extensions.js';
@@ -90,8 +93,10 @@ import type {KeyedActionState, ToolbarActionContainerMixinInterface} from './too
 import {ToolbarActionMixin} from './toolbar_action_mixin.js';
 import type {ToolbarActionMixinInterface} from './toolbar_action_mixin.js';
 import {OverflowableToolbarActionContainerMixin} from './overflowable_toolbar_action_container_mixin.js';
-import type {OverflowableToolbarAction, OverflowableToolbarActionContainer} from './overflowable_toolbar_action_container_mixin.js';
-import {getClickSourceType, getContextMenuSourceType, PressHandler} from './toolbar_button.js';
+import type {OverflowableToolbarActionContainer} from './overflowable_toolbar_action_container_mixin.js';
+import {OverflowableToolbarActionMixin} from './overflowable_toolbar_action_mixin.js';
+import type {OverflowableToolbarActionElement, OverflowableToolbarActionMixinInterface} from './overflowable_toolbar_action_mixin.js';
+import {getClickSourceType, getContextMenuSourceType, PressHandler, shouldSkipNextClick} from './toolbar_button.js';
 import {ToolbarChipButtonElement} from './toolbar_chip_button.js';
 
 import {CrLazyIconset} from '/shared/cr_lazy_iconset.js';
@@ -114,6 +119,7 @@ export {
   CrLazyIconset,
   EventDispositionFlag,
   FocusRequestTarget,
+  GlicButtonElement,
   getClickSourceType,
   getContextMenuSourceType,
   getTrustedHTML,
@@ -130,6 +136,7 @@ export {
   LocationBarElement,
   LocationIconElement,
   OmniboxTextColor,
+  PageActionAnimationStyle,
   PageActionIconElement,
   PageActionIconsElement,
   PageActionId,
@@ -144,7 +151,9 @@ export {
   ReadonlyOmniboxElement,
   resetInitialStateForTesting,
   OverflowableToolbarActionContainerMixin,
+  OverflowableToolbarActionMixin,
   SecurityChipRole,
+  shouldSkipNextClick,
   ToolbarActionContainerMixin,
   ToolbarActionMixin,
   ToolbarChipButtonElement,
@@ -157,6 +166,7 @@ export type {
   ExtensionsElement,
   FocusRequestHandle,
   FocusRequestListener,
+  GlicButtonState,
   IconFromTableElement,
   InitialState,
   KeyedActionState,
@@ -164,8 +174,9 @@ export type {
   NavigationControlsStateListener,
   NavigationControlsStateListenerHandle,
   OmniboxAction,
-  OverflowableToolbarAction,
   OverflowableToolbarActionContainer,
+  OverflowableToolbarActionElement,
+  OverflowableToolbarActionMixinInterface,
   PageActionState,
   PermissionChipState,
   PermissionDashboardElement,
@@ -333,6 +344,7 @@ export class ToolbarAppElement extends AppElementBase {
       isBackForwardButtonEnabled_: {type: Boolean},
       isPinnedToolbarActionsEnabled_: {type: Boolean},
       isExtensionsContainerEnabled_: {type: Boolean},
+      isGlicButtonEnabled_: {type: Boolean},
       isAvatarButtonEnabled_: {type: Boolean},
       isPerformanceInterventionButtonEnabled_: {type: Boolean},
       isMediaButtonEnabled_: {type: Boolean},
@@ -361,6 +373,8 @@ export class ToolbarAppElement extends AppElementBase {
       loadTimeData.getBoolean('enablePinnedToolbarActions');
   protected accessor isExtensionsContainerEnabled_: boolean =
       loadTimeData.getBoolean('enableExtensionsContainer');
+  protected accessor isGlicButtonEnabled_: boolean =
+      loadTimeData.getBoolean('enableGlicButton');
   protected accessor isAvatarButtonEnabled_: boolean =
       loadTimeData.getBoolean('enableAvatarButton');
   protected accessor isPerformanceInterventionButtonEnabled_: boolean =
@@ -439,6 +453,7 @@ export class ToolbarAppElement extends AppElementBase {
     batterySaverControlState: {
       shouldBeShown:
           getTypedBoolean(ToolbarStateKey.BATTERY_SAVER_BUTTON_VISIBLE),
+      preventOverflow: false,
     },
     locationBarState: {
       omniboxViewState: {
@@ -501,6 +516,12 @@ export class ToolbarAppElement extends AppElementBase {
       shouldBeShown: false,
       isContextMenuVisible: false,
     },
+    glicButtonState: {
+      open: false,
+      shouldShow: false,
+      isContextMenuVisible: false,
+      nudgeLabel: null,
+    },
     layoutConstantsVersion:
         getTypedInteger(ToolbarStateKey.LAYOUT_CONSTANTS_VERSION),
     touchUi: getTypedBoolean(ToolbarStateKey.TOUCH_UI),
@@ -515,6 +536,7 @@ export class ToolbarAppElement extends AppElementBase {
   private iconTable_: IconTable;
   private isPageInitialized_: boolean = false;
   private hasReadState_ = false;
+  private hasReceivedNavigationState_ = false;
   private initializeSessionId_: number = 0;
   private resizeObserver_?: ResizeObserver;
 
@@ -642,6 +664,20 @@ export class ToolbarAppElement extends AppElementBase {
                     MARK_LOAD_TIME_DATA_READ);
               }
 
+              const isFirstNavigationState = !this.hasReceivedNavigationState_;
+              if (isFirstNavigationState) {
+                this.hasReceivedNavigationState_ = true;
+                this.updateComplete.then(() => {
+                  const avatar =
+                      this.shadowRoot.querySelector<HTMLElement>('#avatar');
+                  if (avatar) {
+                    requestAnimationFrame(() => {
+                      avatar.classList.remove('initial-load');
+                    });
+                  }
+                });
+              }
+
               // Defer notifying the browser that the page is ready until after
               // the first Mojo-populated update has completed its render cycle.
               if (!this.isInitialized_) {
@@ -702,6 +738,7 @@ export class ToolbarAppElement extends AppElementBase {
       '#pinnedToolbarActions',
       '#battery-saver',
       '#performance-intervention',
+      '#glic-button',
       '#avatar',
       '#media',
       '#overflow',
@@ -741,6 +778,7 @@ export class ToolbarAppElement extends AppElementBase {
     this.isInitialized_ =
         !getTypedBoolean(ToolbarStateKey.INITIAL_WEBUI_SURFACE_SYNC_ENABLED) ||
         hasInitialStateKey(ToolbarStateKey.IS_NAVIGATION_LOADING);
+    this.hasReceivedNavigationState_ = false;
     this.initializeSessionId_++;
 
     if (this.isPageInitialized_) {
@@ -1004,12 +1042,14 @@ export class ToolbarAppElement extends AppElementBase {
         this.shadowRoot.querySelector<LocationBarElement>('#location-bar')!;
 
     const buttons = [
+      this.shadowRoot.querySelector<ResponsiveControl&HTMLElement>('#avatar'),
       this.shadowRoot.querySelector<ResponsiveControl&HTMLElement>(
           '#split-tabs'),
       this.shadowRoot.querySelector<ResponsiveControl&HTMLElement>('#forward'),
       this.shadowRoot.querySelector<ResponsiveControl&HTMLElement>('#home'),
       this.shadowRoot.querySelector<ResponsiveControl&HTMLElement>(
           '#battery-saver'),
+      this.shadowRoot.querySelector<ResponsiveControl&HTMLElement>('#media'),
     ];
 
     const groupedControls =

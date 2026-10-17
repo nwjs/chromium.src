@@ -21,7 +21,6 @@
 #include "content/public/test/browser_test_utils.h"
 #include "extensions/browser/browsertest_util.h"
 #include "extensions/browser/extension_registry_test_helper.h"
-#include "third_party/blink/public/common/features.h"
 
 namespace dictation {
 
@@ -41,8 +40,7 @@ base::test::ScopedFeatureList CreateEnablingFeatureList() {
   feature_list.InitWithFeaturesAndParameters(
       {{kDictation,
         {{"use_component_extension", "false"},
-         {"auto_session_end_delay", "0ms"}}},
-       {blink::features::kPopulateDOMNodeIdInFocusedNodeDetails, {}}},
+         {"auto_session_end_delay", "0ms"}}}},
       {});
   return feature_list;
 }
@@ -55,8 +53,7 @@ base::test::ScopedFeatureList CreateEnablingFeatureList(
         {{"use_component_extension", "false"},
          {"session_ends_on_stream_end",
           session_ends_on_stream_end ? "true" : "false"},
-         {"auto_session_end_delay", "0ms"}}},
-       {blink::features::kPopulateDOMNodeIdInFocusedNodeDetails, {}}},
+         {"auto_session_end_delay", "0ms"}}}},
       {});
   return feature_list;
 }
@@ -349,7 +346,9 @@ std::unique_ptr<StreamProvider> MockDictationKeyedService::CreateStreamProvider(
 }
 std::unique_ptr<SessionUi> MockDictationKeyedService::CreateUi(
     SessionController& controller) const {
-  return std::make_unique<testing::NiceMock<MockSessionUi>>();
+  auto mock_ui = std::make_unique<testing::NiceMock<MockSessionUi>>();
+  mock_ui->set_show_reviewing_page_status(ConsumeShowReviewingPageStatus());
+  return mock_ui;
 }
 
 }  // namespace dictation

@@ -4,9 +4,9 @@
 
 module media.mojom;
 
-import "mojo/public/mojom/base/unguessable_token.mojom";
-import "mojo/public/mojom/base/file_path.mojom";
 import "media/mojo/mojom/media_types.mojom";
+import "mojo/public/mojom/base/file_path.mojom";
+import "mojo/public/mojom/base/unguessable_token.mojom";
 
 // Contains data linked to an origin that the CDM stores in the browser
 // process.
@@ -16,10 +16,6 @@ struct MediaFoundationCdmData {
   // is used in place of the origin when hiding the concrete origin is needed.
   // The origin ID is also user resettable by clearing the browsing data.
   mojo_base.mojom.UnguessableToken origin_id;
-
-  // The token is set by the CDM. The token is then saved in the Pref Service so
-  // that it can be reused by the CDM for that same origin in the future.
-  array<uint8>? client_token;
 
   // The path where the MediaFoundation CDM should store its data. The path is
   // specific to the current chrome user and the device's architecture.
@@ -45,32 +41,28 @@ interface CdmDocumentService {
   // - |signed_data_signature|: the signature of the signed data block.
   // - |platform_key_certificate|: the device specific certificate for the
   //                               requested service.
-  ChallengePlatform(string service_id, string challenge) =>
-      (bool success,
-       string signed_data,
-       string signed_data_signature,
-       string platform_key_certificate);
-
-  // Requests a particular version of the device's Storage Id (or latest
-  // available version if 0 is specified). This returns the requested
-  // |storage_id|, which may be empty if it is not supported by the platform.
-  GetStorageId(uint32 version) => (uint32 version, array<uint8> storage_id);
+  [EnableIf=is_chromeos]
+  ChallengePlatform(string service_id, string challenge)
+      => (bool success,
+          string signed_data,
+          string signed_data_signature,
+          string platform_key_certificate);
 
   // Returns true if Verified Access is enabled in settings, false otherwise.
   [EnableIf=is_chromeos]
   IsVerifiedAccessEnabled() => (bool enabled);
+
+  // Requests a particular version of the device's Storage Id (or latest
+  // available version if 0 is specified). This returns the requested
+  // |storage_id|, which may be empty if it is not supported by the platform.
+  [EnableIf=enable_cdm_storage_id]
+  GetStorageId(uint32 version) => (uint32 version, array<uint8> storage_id);
 
   // Gets the Media FoundationCDM data for the origin associated with the CDM.
   // - `media_foundation_cdm_data`: The CDM data for the origin associated with
   //                                the CDM.
   [EnableIf=is_win]
   GetMediaFoundationCdmData() => (MediaFoundationCdmData cdm_data);
-
-  // Sets the client token for the origin associated with the CDM. The token is
-  // set by the CDM. The token is then saved in the Pref Service so that it can
-  // be reused by the CDM for that same origin in the future.
-  [EnableIf=is_win]
-  SetCdmClientToken(array<uint8> client_token);
 
   // Reports a CDM event, which can facilitate metrics reporting or fallback
   // logic.  For error events, the `hresult` provides more details about the

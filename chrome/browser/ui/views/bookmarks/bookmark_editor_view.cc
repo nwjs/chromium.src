@@ -14,7 +14,6 @@
 #include "base/notreached.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
-#include "chrome/browser/bookmarks/bookmark_expanded_state_tracker_factory.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/bookmarks/bookmark_editor.h"
@@ -31,7 +30,6 @@
 #include "components/bookmarks/common/bookmark_metrics.h"
 #include "components/constrained_window/constrained_window_views.h"
 #include "components/history/core/browser/history_service.h"
-#include "components/signin/public/base/signin_switches.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/url_formatter/url_fixer.h"
 #include "components/user_prefs/user_prefs.h"
@@ -89,13 +87,10 @@ BookmarkEditorView::BookmarkEditorView(
     : profile_(profile),
       details_(details),
       bb_model_(BookmarkModelFactory::GetForBrowserContext(profile)),
-      expanded_state_tracker_(
-          BookmarkExpandedStateTrackerFactory::GetForProfile(profile)),
       show_tree_(configuration == SHOW_TREE),
       on_save_callback_(std::move(on_save_callback)) {
   DCHECK(profile);
   DCHECK(bb_model_);
-  DCHECK(expanded_state_tracker_);
   DCHECK(!bb_model_->client()->IsNodeManaged(details_.parent_node));
   SetCanResize(true);
   SetModalType(ui::mojom::ModalType::kWindow);
@@ -563,21 +558,6 @@ void BookmarkEditorView::AddLabels() {
 }
 
 void BookmarkEditorView::ExpandAndSelect() {
-  // Only expand tracked nodes if the feature flag is disabled. With the flag
-  // enabled, only the nodes leading up to the selected node's parent should be
-  // expanded.
-  if (!base::FeatureList::IsEnabled(switches::kBookmarksMigrateUiChanges)) {
-    BookmarkExpandedStateTracker::Nodes expanded_nodes =
-        expanded_state_tracker_->GetExpandedNodes();
-    for (const BookmarkNode* node : expanded_nodes) {
-      EditorNode* editor_node =
-          FindNodeWithID(tree_model_->GetRoot(), node->id());
-      if (editor_node) {
-        tree_view_->Expand(editor_node);
-      }
-    }
-  }
-
   const BookmarkNode* to_select = details_.parent_node;
   if (details_.type == EditDetails::EXISTING_NODE) {
     to_select = details_.existing_node->parent();
@@ -712,10 +692,6 @@ void BookmarkEditorView::ApplyEdits(EditorNode* parent) {
     BookmarkEditor::ApplyEdits(bb_model_, new_parent, details_, new_title,
                                new_url);
 
-    BookmarkExpandedStateTracker::Nodes expanded_nodes;
-    UpdateExpandedNodes(tree_model_->GetRoot(), &expanded_nodes);
-    expanded_state_tracker_->SetExpandedNodes(expanded_nodes);
-
     // Remove the folders that were removed. This has to be done after all the
     // other changes have been committed.
     bookmarks::DeleteBookmarkFolders(bb_model_, deletes_, FROM_HERE);
@@ -797,25 +773,6 @@ void BookmarkEditorView::ApplyNameChangesAndCreateNewFolders(
     ApplyNameChangesAndCreateNewFolders(child_target_node,
                                         child_source_node.get(),
                                         parent_source_node, parent_target_node);
-  }
-}
-
-void BookmarkEditorView::UpdateExpandedNodes(
-    EditorNode* editor_node,
-    BookmarkExpandedStateTracker::Nodes* expanded_nodes) {
-  if (!tree_view_->IsExpanded(editor_node)) {
-    return;
-  }
-
-  // Only insert tree nodes that correspond to a bookmark node. This excludes
-  // new folders that have not yet been added to the bookmark model.
-  if (editor_node->value.bookmark_node_id != 0) {
-    expanded_nodes->insert(bookmarks::GetBookmarkNodeByID(
-        bb_model_, editor_node->value.bookmark_node_id));
-  }
-
-  for (const auto& child : editor_node->children()) {
-    UpdateExpandedNodes(child.get(), expanded_nodes);
   }
 }
 

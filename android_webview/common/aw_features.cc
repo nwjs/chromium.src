@@ -163,6 +163,9 @@ BASE_FEATURE(kWebViewForceWebAuthn, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Gate text-size-adjust on whether the app called
 // setLayoutAlgorithm(TEXT_AUTOSIZING).
+// NOTE: When modifying behavior related to this flag, please e-mail
+// webview-font-settings@google.com as an FYI. Googlers, more info is
+// available at go/webview-font-settings.
 BASE_FEATURE(kWebViewGateTextSizeAdjustOnTextAutosizing,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -224,6 +227,12 @@ const base::FeatureParam<bool> kWebViewHttpCacheQuotaApiForceBackendInit{
 // This enables WebView's hyperlink context menu.
 BASE_FEATURE(kWebViewHyperlinkContextMenu, base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, <video> elements without an explicitly specified poster will
+// use Chromium's usual logic to pick a frame from the video, instead of calling
+// the app's WebChromeClient.getDefaultVideoPoster() implementation.
+BASE_FEATURE(kWebViewIgnoreDefaultVideoPoster,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Controls whether we ignore duplicate navigations or not, in favor of
 // preserving the already ongoing navigation.
 BASE_FEATURE(kWebViewIgnoreDuplicateNavs, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -235,6 +244,10 @@ const base::FeatureParam<base::TimeDelta> kWebViewDuplicateNavThreshold{
 // rather than waiting for the framework to call init().
 BASE_FEATURE(kWebViewInitInConstructor, base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables initialization of the renderer process during WebContents creation.
+BASE_FEATURE(kWebViewInitRendererDuringWebContentsCreation,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // If enabled zoom picker is invoked on every kGestureScrollUpdate consumed ack,
 // otherwise the zoom picker is persistently shown from scroll start to scroll
 // end plus the usual delay in hiding.
@@ -243,7 +256,7 @@ BASE_FEATURE(kWebViewInvokeZoomPickerOnGSU, base::FEATURE_DISABLED_BY_DEFAULT);
 // When enabled, cookie policy settings are captured at RestrictedCookieManager
 // creation time and used throughout its lifetime. This enables shared memory
 // cookie versioning to reduce IPC overhead.
-BASE_FEATURE(kWebViewLatchedCookiePolicy, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kWebViewLatchedCookiePolicy, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Install the profiling client with memory_system::Initializer. If this is
 // enabled the profiler MAY be started by
@@ -329,8 +342,7 @@ BASE_FEATURE(kWebViewPrefetchOffTheMainThread,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Prefetches the native WebView code to memory when renderer is reused.
-BASE_FEATURE(kWebViewPrefetchOnRendererReuse,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kWebViewPrefetchOnRendererReuse, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, stale `AwPrefetchHandleWrapper`s in `AwPrefetchManagerData` are
 // proactively pruned when new prefetch requests are added or reserved.

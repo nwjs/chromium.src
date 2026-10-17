@@ -8,9 +8,19 @@ import("//third_party/jni_zero/jni_zero.gni")
 
 assert(is_desktop_android)
 
+# Android C++ extension windowing internals.
+#
+# This target shouldn't be used by anything outside this directory, except
+# //c/b/ui, which is the C++ "glue" that links the implementation into
+# libchrome.so.
 source_set("internal") {
+  visibility = [
+    ":*",
+    "//chrome/browser/ui",
+  ]
   sources = [
     "extension_window_controller_bridge.cc",
+    "extension_window_controller_bridge.h",
 
     # Compiling test support code into production is unusual, but this is a
     # special case. Please see the class documentation of
@@ -51,6 +61,7 @@ android_library("java") {
 }
 
 generate_jni("jni") {
+  visibility = [ ":*" ]
   sources = [ "java/src/org/chromium/chrome/browser/ui/extensions/windowing/ExtensionWindowControllerBridgeImpl.java" ]
 }
 
@@ -72,6 +83,7 @@ source_set("unit_tests") {
     "//chrome/browser/ui/android/tab_model:test_support",
     "//chrome/browser/ui/browser_window",
     "//chrome/test:test_support",
+    "//chrome/test/base:testing_browser_process",
     "//components/sessions:session_id",
     "//testing/gmock",
     "//testing/gtest",
@@ -83,6 +95,7 @@ android_library("javatests") {
   sources = [ "java/src/org/chromium/chrome/browser/ui/extensions/windowing/ExtensionWindowControllerBridgeIntegrationTest.java" ]
   deps = [
     ":java",
+    "//base:base_java",
     "//base:base_java_test_support",
     "//chrome/android:chrome_java",
     "//chrome/android:chrome_test_java",
@@ -91,8 +104,10 @@ android_library("javatests") {
     "//chrome/browser/ui/android/extensions/windowing:java",
     "//chrome/browser/ui/browser_window/internal:java",
     "//chrome/browser/ui/browser_window/public/android:java",
+    "//chrome/browser/util:java",
     "//chrome/test/android:chrome_java_test_support_common",
     "//chrome/test/android:chrome_java_transit",
+    "//third_party/androidx:androidx_annotation_annotation_java",
     "//third_party/androidx:androidx_test_runner_java",
     "//third_party/junit",
     "//ui/android:ui_no_recycler_view_java",

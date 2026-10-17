@@ -91,6 +91,10 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrefetchMultipleActiveSetSizeLimitForBase);
 CONTENT_EXPORT extern const base::FeatureParam<size_t>
     kPrefetchMultipleActiveSetSizeLimitForBaseValue;
 
+// When enabled, calculates active set size limit for burst per
+// `PrefetchSchedulerPriority`.
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrefetchSchedulerBurstLimitPerPriority);
+
 // Controls the limit for Eager prefetches.
 CONTENT_EXPORT
 BASE_DECLARE_FEATURE(kPrefetchEagerLimit);
@@ -156,6 +160,33 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrefetchMatchResolverUnblockAsync);
 // - SXG is removed from the "Accept" request header value.
 // - "Accept" request header is added on non-UI thread.
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrefetchRevampAcceptHeader);
+
+// Controls the behavior of a prefetch ahead of an actual navigation, i.e. a
+// prefetch triggered by a signal that the navigation is (almost) certain to
+// happen soon. See `PrefetchRequest::is_ahead_of_actual_navigation()`.
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrefetchAheadOfActualNavigation);
+
+enum class PrefetchAheadOfActualNavigationForceWaitNVSHeaderPolicy {
+  // Don't force waiting for the No-Vary-Search header.
+  kNotUse,
+  // Force waiting for the No-Vary-Search header only if no No-Vary-Search hint
+  // is available.
+  kUseIfNoHint,
+  // Always force waiting for the No-Vary-Search header, ignoring the
+  // No-Vary-Search hint.
+  kAlwaysUse,
+};
+
+// Policy of forcing `PrefetchMatchResolver` to wait for the No-Vary-Search
+// header of a prefetch ahead of an actual navigation.
+CONTENT_EXPORT extern const base::FeatureParam<
+    PrefetchAheadOfActualNavigationForceWaitNVSHeaderPolicy>
+    kPrefetchAheadOfActualNavigationForceWaitNVSHeaderPolicy;
+
+// If true, `PrefetchMatchResolver` uses `BlockUntilHeadTimeout` also for a
+// prefetch ahead of an actual navigation.
+CONTENT_EXPORT extern const base::FeatureParam<bool>
+    kPrefetchAheadOfActualNavigationUseBlockUntilHeadTimeout;
 
 }  // namespace features
 

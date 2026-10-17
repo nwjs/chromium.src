@@ -580,6 +580,9 @@ public class NavigationHandle {
 
     /** Take a snapshot of the current state of NavigationHandle */
     private void takeNavigationStateSnapshot() {
+        PageState committedPageState =
+                mCommittedPage == null ? null : mCommittedPage.getMostRecentPageState();
+
         mMostRecentNavigationState =
                 new NavigationState(
                         mUrl,
@@ -592,11 +595,13 @@ public class NavigationHandle {
                         mIsForward,
                         mHasCommitted,
                         mIsErrorPage,
+                        mNavigationStartMs,
                         mHttpStatusCode,
                         mErrorCode,
                         mErrorDescription,
                         mResponseHeaders,
                         mStarted,
+                        committedPageState,
                         this);
     }
 }

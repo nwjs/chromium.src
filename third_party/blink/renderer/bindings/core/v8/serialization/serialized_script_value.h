@@ -73,7 +73,7 @@ class Transferables;
 class UnpackedSerializedScriptValue;
 class WebBlobInfo;
 
-typedef HashMap<String, scoped_refptr<BlobDataHandle>> BlobDataHandleMap;
+typedef Vector<scoped_refptr<BlobDataHandle>> BlobDataHandleArray;
 typedef Vector<mojo::ScopedHandle> MojoScopedHandleArray;
 typedef Vector<WebBlobInfo> WebBlobInfoArray;
 typedef HeapVector<Member<DOMSharedArrayBuffer>> SharedArrayBufferArray;
@@ -258,8 +258,6 @@ class CORE_EXPORT SerializedScriptValue
                                    Transferables&,
                                    ExceptionState&);
 
-  static ArrayBufferArray ExtractNonSharedArrayBuffers(Transferables&);
-
   // Helper function which pulls ArrayBufferContents out of an ArrayBufferArray
   // and neuters the ArrayBufferArray.  Returns nullptr if there is an
   // exception.
@@ -310,7 +308,7 @@ class CORE_EXPORT SerializedScriptValue
   decltype(std::declval<v8::ValueSerializer>()
                .ReleaseSharedImmutableBackingStores())
   ReleaseSharedImmutableBackingStores() const;
-  BlobDataHandleMap& BlobDataHandles() { return blob_data_handles_; }
+  BlobDataHandleArray& BlobDataHandles() { return blob_data_handles_; }
   FileSystemAccessTokensArray& FileSystemAccessTokens() {
     return file_system_access_tokens_;
   }
@@ -477,7 +475,7 @@ class CORE_EXPORT SerializedScriptValue
 
   // These do not have one-use transferred contents, like the above.
   TransferredWasmModulesArray wasm_modules_;
-  BlobDataHandleMap blob_data_handles_;
+  BlobDataHandleArray blob_data_handles_;
   MojoScopedHandleArray mojo_handles_;
   SharedArrayBufferContentsArray shared_array_buffers_contents_;
   SharedImmutableArrayBufferContentsArray

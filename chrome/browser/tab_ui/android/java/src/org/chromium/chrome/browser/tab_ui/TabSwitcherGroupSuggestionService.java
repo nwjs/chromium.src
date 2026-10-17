@@ -194,13 +194,12 @@ public class TabSwitcherGroupSuggestionService {
     private final TabGroupObserver mTabGroupObserver =
             new TabGroupObserver() {
                 @Override
-                public void willMergeTabToGroup(
-                        Tab movedTab, int newRootId, @Nullable Token tabGroupId) {
+                public void didMergeTabToGroup(Tab movedTab, boolean isDestinationTab) {
                     clearSuggestions();
                 }
 
                 @Override
-                public void willMoveTabGroup(Token tabGroupId, int currentIndex) {
+                public void willMoveTabGroup(Token tabGroupId) {
                     clearSuggestions();
                 }
 
@@ -211,15 +210,13 @@ public class TabSwitcherGroupSuggestionService {
                 }
 
                 @Override
-                public void didCreateNewGroup(Tab destinationTab, TabModel tabModel) {
+                public void didCreateNewGroup(Tab destinationTab) {
                     clearSuggestions();
                 }
 
                 @Override
                 public void didRemoveTabGroup(
-                        int oldRootId,
-                        @Nullable Token oldTabGroupId,
-                        @DidRemoveTabGroupReason int removalReason) {
+                        Token oldTabGroupId, @DidRemoveTabGroupReason int removalReason) {
                     clearSuggestions();
                 }
 

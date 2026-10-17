@@ -5,7 +5,7 @@
 import 'chrome://contextual-tasks/strings.m.js';
 import './test_composebox_mixin.js';
 
-import {ComposeboxFile, ComposeboxInputModel, ContextType, ContextualSearchInputStateDeletionType, isValidTabId, TabUploadOrigin} from 'chrome://resources/cr_components/composebox/common.js';
+import {ComposeboxFile, ComposeboxInputModel, ContextType, ContextualSearchInputStateDeletionType, isValidTabId} from 'chrome://resources/cr_components/composebox/common.js';
 import type {ComposeboxFuseboxActionRequest} from 'chrome://resources/cr_components/composebox/common.js';
 import {PageHandlerRemote} from 'chrome://resources/cr_components/composebox/composebox.mojom-webui.js';
 import type {ComposeboxEmbedderMixinInterface} from 'chrome://resources/cr_components/composebox/composebox_mixin.js';
@@ -17,9 +17,9 @@ import {createAutocompleteResultForTesting} from 'chrome://resources/cr_componen
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {InputSource, QueryActionOverride, SearchboxOverride, SuggestInventory} from 'chrome://resources/mojo/components/omnibox/browser/fusebox_action.mojom-webui.js';
 import type {FuseboxAction} from 'chrome://resources/mojo/components/omnibox/browser/fusebox_action.mojom-webui.js';
-import {DriveDisclaimerStatus, DriveUploadError, PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {DriveDisclaimerStatus, DriveUploadError, PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote, TabAttachmentSource} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {AutocompleteMatch, AutocompleteResult, PageRemote as SearchboxPageRemote, SelectedFileInfo} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
-import {ContextUploadStatus, InputType, ModelMode, ToolMode} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
+import {ContextUploadErrorType, ContextUploadStatus, InputType, ModelMode, ToolMode} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import type {InputState} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import type {UnguessableToken} from 'chrome://resources/mojo/mojo/public/mojom/base/unguessable_token.mojom-webui.js';
 import type {Url} from 'chrome://resources/mojo/url/mojom/url.mojom-webui.js';
@@ -139,6 +139,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'about:blank?1',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         };
         const tab2Restored = {
@@ -147,6 +148,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'about:blank?2',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         };
         const tab2Recent = {
@@ -155,6 +157,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'about:blank?2',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         };
         const tab3 = {
@@ -163,6 +166,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'about:blank?3',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         };
 
@@ -203,6 +207,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'about:blank?1',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         };
         const tab2Restored = {
@@ -211,6 +216,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'about:blank?2',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         };
         const tab2Recent = {
@@ -219,6 +225,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'about:blank?2',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         };
         const tab3 = {
@@ -227,6 +234,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'about:blank?3',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         };
 
@@ -274,6 +282,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'about:blank?1',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         };
         const tab2 = {
@@ -282,6 +291,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'about:blank?2',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         };
         const tab3 = {
@@ -290,6 +300,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'about:blank?3',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         };
         const tab4 = {
@@ -298,6 +309,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'about:blank?4',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         };
 
@@ -345,6 +357,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'about:blank?1',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         };
         const tab2Closed = {
@@ -353,6 +366,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'about:blank?2',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         };
 
@@ -388,6 +402,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'about:blank?1',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         };
         const historicalTab1 = {
@@ -396,6 +411,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'https://example.com/hist1',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         };
         const historicalTab2 = {
@@ -404,6 +420,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'https://example.com/hist2',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         };
 
@@ -444,6 +461,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'about:blank?hist',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         }];
 
@@ -463,6 +481,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'about:blank?1',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         };
         const tab1Navigated = {
@@ -471,6 +490,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'about:blank?1_new',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         };
 
@@ -515,6 +535,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'about:blank?navigated',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         };
         searchboxHandler.setResultFor(
@@ -578,6 +599,7 @@ suite('ComposeboxMixinTest', () => {
             url: 'about:blank?3',
             showInCurrentTabChip: false,
             showInPreviousTabChip: false,
+            isLoading: false,
             lastActive: {internalValue: 0n},
           },
         ];
@@ -605,6 +627,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'about:blank?1',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         };
 
@@ -818,15 +841,13 @@ suite('ComposeboxMixinTest', () => {
       assertDeepEquals(['open'], effects);
       assertEquals(originalInput, element.input);
       assertEquals(
-          initialQueryCount + 1,
+          initialQueryCount,
           searchboxHandler.getCallCount('queryAutocomplete'));
       assertFalse(element.submitting);
       assertEquals(-1, element.activeQueryId);
 
-      // Verify that subsequent async autocomplete responses for the reissued
-      // query do not overwrite the restored user input.
-      const actionQueryId =
-          searchboxHandler.getArgs('queryAutocomplete').at(-1)![0] as number;
+      // Verify that late async autocomplete responses do not overwrite the
+      // restored user input since activeQueryId is -1.
       searchboxCallbackRouterRemote.autocompleteResultChanged(
           createAutocompleteResultForTesting({
             input: originalInput,
@@ -834,13 +855,27 @@ suite('ComposeboxMixinTest', () => {
               allowedToBeDefaultMatch: true,
               fillIntoEdit: 'async replacement',
             })],
-            queryId: actionQueryId,
+            queryId: 1,
           }));
       await searchboxCallbackRouterRemote.$.flushForTesting();
       await microtasksFinished();
 
       assertEquals(originalInput, element.input);
       assertEquals(null, element.result);
+
+      // Autocomplete is queried once when tool mode update takes effect from
+      // the browser.
+      searchboxCallbackRouterRemote.onInputStateChanged(
+          new MockInputState({activeTool: ToolMode.kDeepSearch}));
+      await searchboxCallbackRouterRemote.$.flushForTesting();
+      await microtasksFinished();
+
+      assertEquals(
+          initialQueryCount + 1,
+          searchboxHandler.getCallCount('queryAutocomplete'));
+      assertEquals(
+          originalInput,
+          searchboxHandler.getArgs('queryAutocomplete').at(-1)![2]);
 
       // 5. Actions with kDefault queryActionOverride are submitted normally
       // rather than intercepted by handleFuseboxAction.
@@ -989,10 +1024,12 @@ suite('ComposeboxMixinTest', () => {
         const regularFile = ({
                               name: 'image.png',
                               type: 'image/png',
+                              status: ContextUploadStatus.kUploadSuccessful,
                             } as Partial<ComposeboxFile>) as ComposeboxFile;
         const tabFile = ({
                           name: 'Google',
                           url: 'http://google.com',
+                          status: ContextUploadStatus.kUploadSuccessful,
                         } as Partial<ComposeboxFile>) as ComposeboxFile;
         freshComposebox.attachedContext = new Map([
           ['uuid-1' as unknown as UnguessableToken, regularFile],
@@ -1019,10 +1056,12 @@ suite('ComposeboxMixinTest', () => {
     const regularFile = ({
                           name: 'image.png',
                           type: 'image/png',
+                          status: ContextUploadStatus.kUploadSuccessful,
                         } as Partial<ComposeboxFile>) as ComposeboxFile;
     const tabFile = ({
                       name: 'Google',
                       url: 'http://google.com',
+                      status: ContextUploadStatus.kUploadSuccessful,
                     } as Partial<ComposeboxFile>) as ComposeboxFile;
     freshComposebox.attachedContext = new Map([
       ['uuid-1' as unknown as UnguessableToken, regularFile],
@@ -1651,7 +1690,7 @@ suite('ComposeboxMixinTest', () => {
         title: 'Title',
         url: 'http://test.com',
         delayUpload: false,
-        origin: TabUploadOrigin.OTHER,
+        origin: TabAttachmentSource.kOther,
       },
     }));
     assertEquals(1, metrics.count(metricName, ContextType.TAB));
@@ -1724,6 +1763,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'about:blank?1',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         }];
         element.hasCachedSubmittedTabsThisTurn = true;
@@ -1810,7 +1850,7 @@ suite('ComposeboxMixinTest', () => {
             title: 'Test',
             url: 'about:blank',  // Mojo converts obj to str.
             delayUpload: false,
-            origin: TabUploadOrigin.CONTEXT_MENU,
+            origin: TabAttachmentSource.kContextMenu,
           },
         }));
         assertTrue(keepMenuOpenCalled);
@@ -1842,6 +1882,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'about:blank?1',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         }];
 
@@ -1869,6 +1910,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'about:blank?1',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         }];
 
@@ -1885,6 +1927,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'about:blank?1',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         }];
 
@@ -1918,6 +1961,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'about:blank?1',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         }];
 
@@ -1930,6 +1974,29 @@ suite('ComposeboxMixinTest', () => {
             /* shouldBlockAutoSuggestedTabs= */ false);
         await microtasksFinished();
         assertEquals(0, element.aimThreadRestoredTabs.length);
+      });
+
+  test(
+      'clearInputsForNewThread resets restored tabs even with' +
+          ' contextManagementInComposeboxEnabled',
+      async () => {
+        element.contextManagementInComposeboxEnabled = true;
+        element.aimThreadRestoredTabs = [{
+          tabId: 1,
+          title: 'Restored Tab',
+          url: 'about:blank?1',
+          showInCurrentTabChip: false,
+          showInPreviousTabChip: false,
+          isLoading: false,
+          lastActive: {internalValue: 0n},
+        }];
+        element.hasCachedSubmittedTabsThisTurn = true;
+
+        element.clearInputsForNewThread();
+        await microtasksFinished();
+
+        assertEquals(0, element.aimThreadRestoredTabs.length);
+        assertFalse(element.hasCachedSubmittedTabsThisTurn);
       });
 
   test(
@@ -2271,6 +2338,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'about:blank?10',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         };
         const tabFile = ComposeboxFile.createFromTab(
@@ -2308,6 +2376,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'about:blank?10',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         };
         const tabFile = ComposeboxFile.createFromTab(
@@ -2343,6 +2412,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'about:blank?10',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         };
 
@@ -2404,6 +2474,7 @@ suite('ComposeboxMixinTest', () => {
           url: 'about:blank?10',
           showInCurrentTabChip: false,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: 0n},
         };
 
@@ -2551,6 +2622,24 @@ suite('ComposeboxMixinTest', () => {
       });
 
   test(
+      'getSharedTabs marks a delayed tab loading until its snapshot is ready',
+      () => {
+        const pendingFile = ComposeboxFile.createFromTab(
+            'tab-uuid', 1, 'Tab 1', 'https://example.com',
+            {delayUpload: true, status: ContextUploadStatus.kUploadStarted});
+        element.attachedContext = new Map([[pendingFile.uuid, pendingFile]]);
+        assertFalse(element.getSharedTabs()[0]!.isLoading);
+
+        element.faviconSkeletonLoaderEnabled = true;
+        assertTrue(element.getSharedTabs()[0]!.isLoading);
+
+        const readyFile = ComposeboxFile.createFromTab(
+            'tab-uuid', 1, 'Tab 1', 'https://example.com', {delayUpload: true});
+        element.attachedContext = new Map([[readyFile.uuid, readyFile]]);
+        assertFalse(element.getSharedTabs()[0]!.isLoading);
+      });
+
+  test(
       'element inputModel reflects element state and delegates getters', () => {
         element.tabFaviconChipsToCoinsEnabled = true;
         element.smartTabSharingActive = false;
@@ -2584,5 +2673,50 @@ suite('ComposeboxMixinTest', () => {
         assertEquals(element.inputModel.hasFiles(), element.hasFiles());
         assertEquals(
             element.inputModel.canSubmit(), element.computeSubmitEnabled());
+      });
+
+  test('updateFileStatus does not return error for unattached token', () => {
+    const unattachedToken = 'unattached-token-123';
+    const result = element.updateFileStatus(
+        unattachedToken, ContextUploadStatus.kUploadExpired, null);
+    assertEquals(null, result.file);
+    assertEquals(null, result.errorMessage);
+
+    const validationResult = element.updateFileStatus(
+        unattachedToken, ContextUploadStatus.kValidationFailed,
+        ContextUploadErrorType.kBrowserProcessingFileTooLargeError);
+    assertEquals(null, validationResult.file);
+    assertEquals(null, validationResult.errorMessage);
+  });
+
+  test(
+      'onContextualInputStatusChanged does not set errorMessage for ' +
+          'unattached token',
+      () => {
+        const unattachedToken = 'unattached-token-123';
+        element.errorMessage = '';
+        element.onContextualInputStatusChanged(
+            unattachedToken, ContextUploadStatus.kUploadExpired, null);
+        assertEquals('', element.errorMessage);
+
+        element.onContextualInputStatusChanged(
+            unattachedToken, ContextUploadStatus.kValidationFailed,
+            ContextUploadErrorType.kBrowserProcessingFileTooLargeError);
+        assertEquals('', element.errorMessage);
+      });
+
+  test(
+      'onContextualInputStatusChanged sets errorMessage for attached token ' +
+          'on upload expired',
+      () => {
+        const attachedFile = ComposeboxFile.createFromFile(
+            'attached-token-123', {name: 'image.png', type: 'image/png'});
+        element.attachedContext = new Map([[attachedFile.uuid, attachedFile]]);
+
+        element.onContextualInputStatusChanged(
+            attachedFile.uuid, ContextUploadStatus.kUploadExpired, null);
+
+        assertTrue(element.errorMessage.length > 0);
+        assertFalse(element.attachedContext.has(attachedFile.uuid));
       });
 });

@@ -10,7 +10,9 @@
 #include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/test/run_until.h"
+#include "base/test/test_timeouts.h"
 #include "chrome/browser/headless/headless_command_processor.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
@@ -32,6 +34,7 @@
 #include "components/browser_apis/ui_controllers/toolbar/toolbar_ui_api_data_model.mojom.h"
 #include "components/metrics/content/subprocess_metrics_provider.h"
 #include "content/public/test/browser_test_utils.h"
+#include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/interaction/element_tracker.h"
@@ -193,8 +196,11 @@ void SetUpWebUI(const ui::ElementIdentifier& element_id,
 }
 
 WebUIToolbarWebView* GetWebUIToolbarWebView(BrowserWindowInterface* browser) {
-  return BrowserView::GetBrowserViewForBrowser(browser)
-      ->toolbar_button_provider()
+  auto* const browser_view = BrowserView::GetBrowserViewForBrowser(browser);
+  if (!browser_view || !browser_view->toolbar_button_provider()) {
+    return nullptr;
+  }
+  return browser_view->toolbar_button_provider()
       ->GetWebUIToolbarViewForTesting();
 }
 
@@ -430,7 +436,8 @@ AvatarToolbarButtonTestAccessor::GetButton() {
   if (!interface) {
     return static_cast<AvatarToolbarButton*>(nullptr);
   }
-  if (features::IsWebUIAvatarButtonEnabled()) {
+  if (features::IsWebUIAvatarButtonEnabled() &&
+      GetWebUIToolbarWebView(browser_)) {
     return static_cast<WebUIAvatarToolbarButton*>(interface);
   }
   return static_cast<AvatarToolbarButton*>(interface);
@@ -572,10 +579,10 @@ views::Widget* AvatarToolbarButtonTestAccessor::GetWidget() {
                           return button ? button->GetWidget() : nullptr;
                         },
                         [this](WebUIAvatarToolbarButton* button) {
-                          return BrowserView::GetBrowserViewForBrowser(browser_)
-                              ->toolbar_button_provider()
-                              ->GetWebUIToolbarViewForTesting()
-                              ->GetWidget();
+                          auto* const browser_view =
+                              BrowserView::GetBrowserViewForBrowser(browser_);
+                          return browser_view ? browser_view->GetWidget()
+                                              : nullptr;
                         },
                     },
                     GetButton());
@@ -789,6 +796,113 @@ std::u16string AvatarToolbarButtonTestAccessor::GetAccessibilityDescription() {
       GetButton());
 }
 
+AvatarLayoutAttributes AvatarToolbarButtonTestAccessor::GetLayoutAttributes() {
+  static constexpr char kGetLayoutAttributesScript[] = R"(
+    (async () => {
+      const app = document.querySelector('toolbar-app');
+      if (!app) return [];
+      await app.updateComplete;
+      const btn = app.shadowRoot?.querySelector('avatar-button');
+      if (!btn) return [];
+      await btn.updateComplete;
+      const chip = btn.shadowRoot?.querySelector('#button');
+      if (!chip) return [];
+      await chip.updateComplete;
+      const innerButton = chip.shadowRoot?.querySelector('#button');
+      const icon = btn.shadowRoot?.querySelector('#icon');
+      if (!icon) return [];
+      const textEl = btn.shadowRoot?.querySelector('#text');
+      const btnRect = (innerButton || chip).getBoundingClientRect();
+      const iconRect = icon.getBoundingClientRect();
+      const hasLabel = chip.hasAttribute('has-label') && textEl &&
+                       textEl.textContent.trim().length > 0;
+      const rightInset = hasLabel
+          ? Math.round(btnRect.right - textEl.getBoundingClientRect().right)
+          : Math.round(btnRect.right - iconRect.right);
+      return [
+        chip.hasAttribute('has-linear-gradient-ring'),
+        Math.round(iconRect.width),
+        Math.round(iconRect.height),
+        Math.round(iconRect.top - btnRect.top),
+        Math.round(iconRect.left - btnRect.left),
+        Math.round(btnRect.bottom - iconRect.bottom),
+        rightInset,
+      ];
+    })()
+  )";
+
+  return std::visit(
+      absl::Overload{
+          [](AvatarToolbarButton* button) -> AvatarLayoutAttributes {
+            AvatarLayoutAttributes attrs;
+            if (!button) {
+              return attrs;
+            }
+            std::optional<ui::ImageModel> icon =
+                button->GetImageModel(views::Button::ButtonState::STATE_NORMAL);
+            if (icon) {
+              attrs.icon_width = icon->Size().width();
+              attrs.icon_height = icon->Size().height();
+            }
+            attrs.insets = button->GetLayoutInsets().value_or(gfx::Insets());
+            StateProvider* provider =
+                button->state_manager_.GetActiveStateProvider();
+            attrs.has_linear_gradient_ring =
+                provider ? provider->ShouldShowGradientAvatarRing() : false;
+            return attrs;
+          },
+          [this](WebUIAvatarToolbarButton* button) -> AvatarLayoutAttributes {
+            AvatarLayoutAttributes attrs;
+            if (!button) {
+              return attrs;
+            }
+            if (ShouldUseCppFallback(button)) {
+              if (button->state_manager_) {
+                StateProvider* active_provider =
+                    button->state_manager_->GetActiveStateProvider();
+                if (active_provider) {
+                  attrs.has_linear_gradient_ring =
+                      active_provider->ShouldShowGradientAvatarRing();
+                  attrs.insets = active_provider->GetLayoutInsets(
+                      /*total_size=*/attrs.has_linear_gradient_ring ? 20 : 16,
+                      /*avatar_size=*/16,
+                      /*is_label_visible=*/!active_provider->GetText().empty());
+                  attrs.icon_width = attrs.has_linear_gradient_ring ? 20 : 16;
+                  attrs.icon_height = attrs.icon_width;
+                }
+              }
+              return attrs;
+            }
+            content::WebContents* contents = GetWebContents();
+            if (!contents) {
+              return attrs;
+            }
+            auto eval_result =
+                content::EvalJs(contents, kGetLayoutAttributesScript);
+            if (eval_result.is_list()) {
+              const base::ListValue& list = eval_result.ExtractList();
+              if (list.size() == 7) {
+                attrs.has_linear_gradient_ring = list[0].GetBool();
+                attrs.icon_width = list[1].GetInt();
+                attrs.icon_height = list[2].GetInt();
+                attrs.insets =
+                    gfx::Insets::TLBR(list[3].GetInt(), list[4].GetInt(),
+                                      list[5].GetInt(), list[6].GetInt());
+              }
+            }
+            return attrs;
+          },
+      },
+      GetButton());
+}
+
+bool AvatarToolbarButtonTestAccessor::WaitForLinearGradientRing(bool has_ring) {
+  return base::test::RunUntil([this, has_ring]() {
+    auto attrs = GetLayoutAttributes();
+    return attrs.icon_width > 0 && attrs.has_linear_gradient_ring == has_ring;
+  });
+}
+
 void LeftClickExtensionButton(content::WebContents* web_contents,
                               const std::string& id) {
   EXPECT_TRUE(content::ExecJs(
@@ -934,4 +1048,131 @@ std::string DispatchEventScript(const std::string& selector,
       GetButtonIconJS(selector).c_str(), kGetCoordinatesJS,
       AddMockPointerCaptureFunctions("target").c_str(), event_class.c_str(),
       type.c_str(), options.c_str());
+}
+
+std::string DispatchPointerDownAndUp(const std::string& selector,
+                                     const std::string& pointer_type,
+                                     const std::string& opts) {
+  return base::StringPrintf(
+      "(() => { const target = %s; "
+      "%s"
+      "%s"
+      "target.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true, "
+      "cancelable: true, view: window, pointerType: '%s', clientX: x, clientY: "
+      "y, "
+      "%s}));"
+      "target.dispatchEvent(new PointerEvent('pointerup', {bubbles: true, "
+      "cancelable: true, view: window, pointerType: '%s', clientX: x, clientY: "
+      "y, "
+      "%s})); })();",
+      GetButtonIconJS(selector).c_str(), kGetCoordinatesJS,
+      AddMockPointerCaptureFunctions("target").c_str(), pointer_type.c_str(),
+      opts.c_str(), pointer_type.c_str(), opts.c_str());
+}
+
+NavigationCounter::NavigationCounter(content::WebContents* web_contents)
+    : content::WebContentsObserver(web_contents) {}
+
+NavigationCounter::~NavigationCounter() = default;
+
+void NavigationCounter::DidStartNavigation(
+    content::NavigationHandle* navigation_handle) {
+  navigation_count_++;
+}
+
+void NavigationCounter::WaitForNoNavigations() {
+  base::RunLoop run_loop;
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+      FROM_HERE, run_loop.QuitClosure(), TestTimeouts::tiny_timeout());
+  run_loop.Run();
+  EXPECT_EQ(navigation_count_, 0u);
+}
+
+const char kFindDeepJS[] = R"(
+  function findDeep(root, selectorOrPredicate) {
+    if (!root) return null;
+    if (typeof selectorOrPredicate === 'string') {
+      if (root.matches?.(selectorOrPredicate)) return root;
+      const found = root.querySelector(selectorOrPredicate) ||
+                    root.shadowRoot?.querySelector(selectorOrPredicate);
+      if (found) return found;
+    } else if (selectorOrPredicate(root)) {
+      return root;
+    }
+    const children = [
+      ...(root.children || []),
+      ...(root.shadowRoot ? Array.from(root.shadowRoot.children) : []),
+    ];
+    for (const child of children) {
+      const found = findDeep(child, selectorOrPredicate);
+      if (found) return found;
+    }
+    return null;
+  }
+)";
+
+namespace {
+
+const char kGetAllAnimationsJS[] = R"(
+  function getAllAnimations(root) {
+    const anims = [];
+    function traverse(node) {
+      if (!node) return;
+      if (node.shadowRoot) {
+        anims.push(...node.shadowRoot.getAnimations());
+        for (const child of node.shadowRoot.children) {
+          traverse(child);
+        }
+      }
+      anims.push(...node.getAnimations());
+      for (const child of node.children || []) {
+        traverse(child);
+      }
+    }
+
+    anims.push(...document.getAnimations());
+    traverse(root);
+    return Array.from(new Set(anims));
+  }
+)";
+
+}  // namespace
+
+::testing::AssertionResult FinishWebUIAnimations(
+    content::WebContents* web_contents,
+    std::string_view custom_wait_js) {
+  if (!web_contents) {
+    return ::testing::AssertionFailure() << "web_contents is null";
+  }
+  const std::string script = base::StringPrintf(
+      R"((async () => {
+        %s
+        %s
+        %s
+        // Await an animation frame so that style and layout calculations run,
+        // ensuring any CSS transitions triggered by the preceding state changes
+        // or Lit renders are instantiated before we query animations.
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        const anims = getAllAnimations(document.body);
+        for (const anim of anims) {
+          try {
+            anim.finish();
+          } catch (e) {
+            // anim.finish() throws an
+            // InvalidStateError/InvalidModificationError if the animation has
+            // infinite iterations (e.g. infinite spin loaders) or an unresolved
+            // playback rate. In that case, attempt to fast-forward currentTime
+            // to the end of the duration as a fallback.
+            try {
+              anim.currentTime = anim.effect?.getTiming()?.duration || 0;
+            } catch (e2) {}
+          }
+        }
+        // Await a final animation frame so layout updates after fast-forwarding
+        // animations are committed and painted.
+        await new Promise(resolve => requestAnimationFrame(resolve));
+      })())",
+      kFindDeepJS, kGetAllAnimationsJS,
+      custom_wait_js.empty() ? "" : std::string(custom_wait_js).c_str());
+  return content::ExecJs(web_contents, script);
 }

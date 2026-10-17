@@ -24,6 +24,7 @@
 #import "components/safe_browsing/core/common/features.h"
 #import "ios/public/provider/web/cobalt_api.h"
 #import "ios/web/common/features.h"
+#import "ios/web/extension/extension_controller_impl.h"
 #import "ios/web/js_messaging/java_script_feature_manager.h"
 #import "ios/web/js_messaging/java_script_feature_util_impl.h"
 #import "ios/web/js_messaging/web_frames_manager_java_script_feature.h"
@@ -211,6 +212,18 @@ void WKWebViewConfigurationProvider::ResetWithWebViewConfiguration(
         configuration_, browser_state_->IsOffTheRecord(), controller);
   }
 
+  if (@available(iOS 18.4, *)) {
+    web::ExtensionController* extension_controller =
+        GetWebClient()->GetExtensionController(browser_state_);
+    if (extension_controller) {
+      auto* extension_controller_impl =
+          static_cast<web::ExtensionControllerImpl*>(extension_controller);
+      [configuration_
+          setWebExtensionController:extension_controller_impl
+                                        ->GetWKWebExtensionController()];
+    }
+  }
+
   if (!scheme_handler_) {
     scoped_refptr<network::SharedURLLoaderFactory> shared_loader_factory =
         browser_state_->GetSharedURLLoaderFactory();
@@ -230,7 +243,8 @@ void WKWebViewConfigurationProvider::ResetWithWebViewConfiguration(
 
   if (@available(iOS 27, *)) {
     bool is_universal_opt_out_enabled =
-        GetWebClient()->IsUniversalOptOutEnabled(browser_state_);
+        GetWebClient()->GetUniversalOptOutState(browser_state_) ==
+        UniversalOptOutState::kEnabled;
     // On early versions of iOS 27 betas,
     // `-[WKWebPagePreferences setGlobalPrivacyControlEnabled:]` was not defined
     // correctly, causing crashes. As a workaround, only set the preference if

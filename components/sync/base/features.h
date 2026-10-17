@@ -21,9 +21,6 @@ inline constexpr base::FeatureParam<int>
         &kDeferredSyncStartupCustomDelay,
         "DeferredSyncStartupCustomDelayInSeconds", 1};
 
-// Enables syncing account-local metadata for shared tab groups.
-BASE_DECLARE_FEATURE(kSyncSharedTabGroupAccountData);
-
 // Enables syncing comments for shared contexts.
 BASE_DECLARE_FEATURE(kSyncSharedComment);
 
@@ -150,19 +147,6 @@ constexpr bool IsReadingListAccountStorageEnabled() {
 // sync metadata isn't available (i.e. initial sync never completed).
 BASE_DECLARE_FEATURE(kSyncAlwaysForceImmediateStartIfTransportDataMissing);
 
-// If enabled, support displaying and uploading individual Reading List items in
-// the Batch Upload UI.
-//
-// Batch Upload of all items is supported regardless of this feature flag.
-//
-// On Windows/Mac/Linux: this flag only affects behavior if the
-// `syncer::kReadingListEnableSyncTransportModeUponSignIn` feature is also
-// enabled.
-//
-// On Android: this flag does not affect user-visiable behavior, but does enable
-// new code paths.
-BASE_DECLARE_FEATURE(kSyncReadingListBatchUploadSelectedItems);
-
 // If enabled, distinguishes between local and account themes.
 BASE_DECLARE_FEATURE(kSeparateLocalAndAccountThemes);
 
@@ -176,13 +160,6 @@ inline constexpr base::FeatureParam<double>
         "SyncIncreaseNudgeDelayForSingleClientFactor", 2.0};
 
 #if BUILDFLAG(IS_ANDROID)
-// Flag to test different alternatives for the passwords sync error message
-// content.
-BASE_DECLARE_FEATURE(kSyncEnablePasswordsSyncErrorMessageAlternative);
-inline constexpr base::FeatureParam<int>
-    kSyncEnablePasswordsSyncErrorMessageAlternativeVersion{
-        &kSyncEnablePasswordsSyncErrorMessageAlternative, "version", 3};
-
 // If enabled, the error message to unlock passwords is shown for longer.
 BASE_DECLARE_FEATURE(kSyncTrustedVaultErrorMessageDuration);
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -201,19 +178,6 @@ BASE_DECLARE_FEATURE(kSyncPreferencesUseSelectedTypes);
 // If enabled, the new sync dashboard URL will be opened when the user clicks
 // on the "Review your synced data" (or equivalent) entrypoint in settings.
 BASE_DECLARE_FEATURE(kSyncEnableNewSyncDashboardUrl);
-
-// If enabled, Sync will fetch device statistics for all accounts on the device,
-// and record summary metrics about them.
-BASE_DECLARE_FEATURE(kSyncRecordDeviceStatisticsMetrics);
-// Delay before downloading device statistics and recording related metrics. The
-// exact number is somewhat arbitrary, chosen to ensure that refresh tokens are
-// loaded, the local cache GUID is up to date, and to avoid interfering with
-// general (sync or browser) startup.
-BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
-                           kSyncRecordDeviceStatisticsMetricsDelay);
-// Controls how often device statistics are collected and recorded in metrics,
-// as the minimum number of days between recordings.
-BASE_DECLARE_FEATURE_PARAM(int, kSyncRecordDeviceStatisticsMetricsPeriodDays);
 
 // If enabled, validate the access token before sending the request to the
 // server.
@@ -274,6 +238,11 @@ BASE_DECLARE_FEATURE(kSyncCopyPreferencesToTransportModeOnServerForcedDisable);
 
 // Authenticate the Initialization Vector (IV) in Nigori encryption.
 BASE_DECLARE_FEATURE(kSyncNigoriAuthenticateIV);
+
+// If enabled, migrates users with deprecated IMPLICIT_PASSPHRASE to
+// KEYSTORE_PASSPHRASE (if encrypt_everything is false) or
+// CUSTOM_PASSPHRASE (if encrypt_everything is true).
+BASE_DECLARE_FEATURE(kSyncMigrateFromImplicitPassphrase);
 
 }  // namespace syncer
 

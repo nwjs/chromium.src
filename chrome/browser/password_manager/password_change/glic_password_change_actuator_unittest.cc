@@ -37,10 +37,11 @@
 #include "chrome/test/base/fake_profile_manager.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile_manager.h"
+#include "components/affiliations/core/browser/match_type.h"
 #include "components/autofill/content/browser/test_autofill_client_injector.h"
 #include "components/autofill/content/browser/test_content_autofill_client.h"
 #include "components/autofill/core/common/autofill_test_util.h"
-#include "components/origin_gating/core/actor_container_config.h"
+#include "components/origin_gating/core/task_policy_config.h"
 #include "components/origin_gating/core/types.h"
 #include "components/password_manager/core/browser/actor_login/password_change_from_checkup_actor_login_service.h"
 #include "components/password_manager/core/browser/fake_form_fetcher.h"
@@ -165,7 +166,7 @@ password_manager::StoredCredential CreateTestCredential() {
   form.username_value = kTestUsername;
   form.password_value = password_manager::PasswordString(kTestPassword);
   form.in_store = password_manager::PasswordForm::Store::kProfileStore;
-  form.match_type = password_manager::PasswordForm::MatchType::kExact;
+  form.match_type = affiliations::MatchType::kExact;
   return password_manager::FromPasswordForm(std::move(form));
 }
 
@@ -320,7 +321,7 @@ class GlicPasswordChangeActuatorTest : public ChromeRenderViewHostTestHarness {
     form.username_value = kTestUsername;
     form.password_value = password_manager::PasswordString(kTestPassword);
     form.in_store = password_manager::PasswordForm::Store::kProfileStore;
-    form.match_type = password_manager::PasswordForm::MatchType::kExact;
+    form.match_type = affiliations::MatchType::kExact;
     seed_credentials.push_back(form);
 
     form_fetcher_.SetBestMatches(seed_credentials);
@@ -335,7 +336,7 @@ class GlicPasswordChangeActuatorTest : public ChromeRenderViewHostTestHarness {
         .WillByDefault(Return(base::span(form_managers_)));
   }
 
-  const origin_gating::ActorContainerConfig& GetContainerConfig(
+  const origin_gating::TaskPolicyConfig& GetContainerConfig(
       const GURL& target_url = GURL(),
       const GURL& credential_url = GURL(kTestUrl)) {
     if (target_url.is_empty() && credential_url == GURL(kTestUrl)) {
@@ -347,7 +348,7 @@ class GlicPasswordChangeActuatorTest : public ChromeRenderViewHostTestHarness {
       form.username_value = kTestUsername;
       form.password_value = password_manager::PasswordString(kTestPassword);
       form.in_store = password_manager::PasswordForm::Store::kProfileStore;
-      form.match_type = password_manager::PasswordForm::MatchType::kExact;
+      form.match_type = affiliations::MatchType::kExact;
       custom_actuator_ = std::make_unique<GlicPasswordChangeActuator>(
           password_manager::FromPasswordForm(std::move(form)), web_contents(),
           profile(), target_url);
@@ -359,8 +360,8 @@ class GlicPasswordChangeActuatorTest : public ChromeRenderViewHostTestHarness {
     actor::AddTabToTask(mock_actuation_tab(), *task);
     actor_service()->NotifyTaskStateChanged(*task);
     const auto& slot = task->GetExecutionEngine()
-                           .origin_gating_checker()
-                           .actor_container_config_slot();
+                           .GetOriginGatingChecker()
+                           .task_policy_config_slot();
     CHECK(slot.has_value());
     return slot.value();
   }
@@ -605,10 +606,10 @@ TEST_F(GlicPasswordChangeActuatorTest,
                        glic::mojom::SubscriberObservationType::kUpdate);
 }
 
-// Verifies that ActorContainerConfig permits actuation on the target site and
+// Verifies that TaskPolicyConfig permits actuation on the target site and
 // its subdomains.
 TEST_F(GlicPasswordChangeActuatorTest,
-       ActorContainerConfigAllowsTargetSiteAndSubdomains) {
+       TaskPolicyConfigAllowsTargetSiteAndSubdomains) {
   const auto& config =
       GetContainerConfig(GURL("https://auth.target.org/change_password"),
                          GURL("https://credential.com/login"));
@@ -621,10 +622,10 @@ TEST_F(GlicPasswordChangeActuatorTest,
       url::Origin::Create(GURL("https://target.org"))));
 }
 
-// Verifies that ActorContainerConfig permits actuation on the credential site
+// Verifies that TaskPolicyConfig permits actuation on the credential site
 // and its subdomains.
 TEST_F(GlicPasswordChangeActuatorTest,
-       ActorContainerConfigAllowsCredentialSiteAndSubdomains) {
+       TaskPolicyConfigAllowsCredentialSiteAndSubdomains) {
   const auto& config =
       GetContainerConfig(GURL("https://auth.target.org/change_password"),
                          GURL("https://credential.com/login"));
@@ -635,10 +636,10 @@ TEST_F(GlicPasswordChangeActuatorTest,
       url::Origin::Create(GURL("https://accounts.credential.com"))));
 }
 
-// Verifies that ActorContainerConfig allows navigation between the target site
+// Verifies that TaskPolicyConfig allows navigation between the target site
 // and the credential site.
 TEST_F(GlicPasswordChangeActuatorTest,
-       ActorContainerConfigAllowsNavigationBetweenAllowedSites) {
+       TaskPolicyConfigAllowsNavigationBetweenAllowedSites) {
   const auto& config =
       GetContainerConfig(GURL("https://auth.target.org/change_password"),
                          GURL("https://credential.com/login"));
@@ -651,10 +652,10 @@ TEST_F(GlicPasswordChangeActuatorTest,
       url::Origin::Create(GURL("https://sub.auth.target.org"))));
 }
 
-// Verifies that ActorContainerConfig blocks actuation and navigation on
+// Verifies that TaskPolicyConfig blocks actuation and navigation on
 // unauthorized external sites.
 TEST_F(GlicPasswordChangeActuatorTest,
-       ActorContainerConfigBlocksUnauthorizedSites) {
+       TaskPolicyConfigBlocksUnauthorizedSites) {
   const auto& config =
       GetContainerConfig(GURL("https://auth.example.org/change_password"),
                          GURL("https://example.com/login"));
@@ -669,7 +670,7 @@ TEST_F(GlicPasswordChangeActuatorTest,
 // Verifies that when change_password_url is not provided, the container config
 // permits the credential site and subdomains, and blocks third-party sites.
 TEST_F(GlicPasswordChangeActuatorTest,
-       ActorContainerConfigDefaultsToCredentialSite) {
+       TaskPolicyConfigDefaultsToCredentialSite) {
   const auto& config = GetContainerConfig();
 
   EXPECT_TRUE(config.IsActuationAllowed(

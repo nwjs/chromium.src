@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/check_deref.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
@@ -12,12 +13,15 @@
 #include "chrome/browser/actor/actor_test_util.h"
 #include "chrome/browser/background/glic/glic_background_mode_manager.h"
 #include "chrome/browser/background/glic/glic_launcher_configuration.h"
+#include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_invoke_options.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/selection/selection_overlay_controller.h"
+#include "chrome/browser/glic/selection/static_selection_suggestion_tool.h"
 #include "chrome/browser/glic/test_support/interactive_glic_test.h"
 #include "chrome/browser/global_features.h"
+#include "chrome/browser/selection/suggestion_service.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
@@ -26,12 +30,14 @@
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/frame/contents_web_view.h"
 #include "chrome/browser/ui/views/frame/multi_contents_view.h"
 #include "chrome/browser/ui/views/test/split_view_interactive_test_mixin.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "components/actor/public/mojom/actor_types.mojom.h"
+#include "components/page_content_annotations/content/page_context_fetcher_options.h"
 #include "components/split_tabs/split_tab_visual_data.h"
 #include "components/vector_icons/vector_icons.h"
 #include "content/public/common/content_features.h"
@@ -42,6 +48,7 @@
 #include "ui/base/ozone_buildflags.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/gfx/geometry/point.h"
+#include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/controls/button/md_text_button.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/interaction/element_tracker_views.h"
@@ -183,7 +190,45 @@ class SelectionOverlayInteractiveTestWithPrompt
     : public SelectionOverlayInteractiveTest {
  public:
   SelectionOverlayInteractiveTestWithPrompt() {
-    feature_list_.InitAndEnableFeature(features::kGlicSelectionOverlayPrompt);
+    feature_list_.InitWithFeatures(
+        {features::kGlicSelectionOverlayPrompt,
+         features::kGlicSelectionOverlayPromptBox},
+        {});
+  }
+
+  void SetUpOnMainThread() override {
+    SelectionOverlayInteractiveTest::SetUpOnMainThread();
+    tabs::TabInterface* tab = browser()->tab_strip_model()->GetActiveTab();
+    static_tool_ =
+        std::make_unique<StaticSelectionSuggestionTool>(CHECK_DEREF(tab));
+    if (auto* service = ::selection::SuggestionService::From(tab)) {
+      service->RegisterTool(static_tool_.get());
+    }
+  }
+
+  void TearDownOnMainThread() override {
+    tabs::TabInterface* tab = browser()->tab_strip_model()->GetActiveTab();
+    if (tab && static_tool_) {
+      if (auto* service = ::selection::SuggestionService::From(tab)) {
+        service->UnregisterTool(static_tool_.get());
+      }
+    }
+    static_tool_.reset();
+    SelectionOverlayInteractiveTest::TearDownOnMainThread();
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+  std::unique_ptr<StaticSelectionSuggestionTool> static_tool_;
+};
+
+class SelectionOverlayInteractiveTestWithPromptWithoutBox
+    : public SelectionOverlayInteractiveTestWithPrompt {
+ public:
+  SelectionOverlayInteractiveTestWithPromptWithoutBox() {
+    feature_list_.InitWithFeatures(
+        /*enabled_features=*/{features::kGlicSelectionOverlayPrompt},
+        /*disabled_features=*/{features::kGlicSelectionOverlayPromptBox});
   }
 
  private:
@@ -1030,6 +1075,36 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithSplitView,
 }
 
 IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithSplitView,
+                       OverlayFocusActivatesItsTabInSplitView) {
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayWebContentsId);
+  DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(ui::test::PollingStateObserver<int>,
+                                      kActiveTabIndex);
+
+  RunTestSequence(
+      Do([this]() { chrome::AddTabAt(browser(), GetEmptyDocURL(), -1, true); }),
+      EnterSplitView(/*active_tab=*/0, /*other_tab=*/1), Do([this]() {
+        browser()->tab_strip_model()->ActivateTabAt(0);
+        TrackGlicInstanceWithTabIndex(0);
+      }),
+      OpenGlic(), ClickMockGlicElement({"#captureRegionBtn"}),
+      WaitForShow(OverlayBaseController::kOverlayId),
+      InstrumentNonTabWebView(kOverlayWebContentsId,
+                              OverlayBaseController::kOverlayId),
+      WaitForJsResultAt(kOverlayWebContentsId, {"selection-overlay-app"},
+                        "el => el.screenshot_ !== null"),
+      PollState(
+          kActiveTabIndex,
+          [this]() { return browser()->tab_strip_model()->active_index(); }),
+      FocusInactiveTabInSplit(), WaitForState(kActiveTabIndex, 1),
+      // The overlay covers tab 0, so focusing it must bring tab 0 back.
+      MoveMouseTo(base::BindLambdaForTesting([this]() {
+        return GetOverlayView(browser(), 0)->GetBoundsInScreen().CenterPoint();
+      })),
+      ClickMouse(), WaitForState(kActiveTabIndex, 0),
+      CheckResult(GetOverlayVisibilityAt(0), true));
+}
+
+IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithSplitView,
                        OverlaySticksToTabOnReverse) {
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayWebContentsId);
 
@@ -1272,6 +1347,10 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTest,
       WaitForJsResultAt(kOverlayWebContentsId, kOverlayApp,
                         "el => el.screenshot_ !== null"),
       WaitForElementVisible(kOverlayWebContentsId, kSelectionOverlay),
+      WaitForJsResultAt(
+          kOverlayWebContentsId, kSelectionOverlay,
+          "el => el.isScreenshotRendered && el.selectionOverlayRect.width > 0 "
+          "&& el.selectionOverlayRect.height > 0"),
       MoveMouseTo(OverlayBaseController::kOverlayId,
                   GetPointWithOffset(50, 50)),
       DragMouseTo(OverlayBaseController::kOverlayId,
@@ -1297,8 +1376,10 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithPrompt,
       WaitForJsResultAt(kOverlayWebContentsId, kOverlayApp,
                         "el => el.screenshot_ !== null"),
       WaitForElementVisible(kOverlayWebContentsId, kSelectionOverlay),
-      WaitForJsResultAt(kOverlayWebContentsId, kSelectionOverlay,
-                        "el => !el.showFloatingPrompt"),
+      WaitForJsResultAt(
+          kOverlayWebContentsId, kSelectionOverlay,
+          "el => el.isScreenshotRendered && el.selectionOverlayRect.width > 0 "
+          "&& el.selectionOverlayRect.height > 0 && !el.showFloatingPrompt"),
       MoveMouseTo(OverlayBaseController::kOverlayId,
                   GetPointWithOffset(50, 50)),
       DragMouseTo(OverlayBaseController::kOverlayId,
@@ -1321,11 +1402,63 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithPrompt,
           "el => {"
           "  const chips = "
           "Array.from(el.shadowRoot.querySelectorAll('.action-chip'));"
-          "  if (chips.length !== 3) return false;"
+          "  if (chips.length !== 1) return false;"
           "  const titles = chips.map(c => "
           "c.querySelector('.chip-label')?.textContent?.trim());"
-          "  return titles[0] === 'Explain' && titles[1] === 'Summarize' && "
-          "titles[2] === 'Create Image';"
+          "  return titles[0] === 'Ask Gemini';"
+          "}"),
+      WaitForJsResultAt(
+          kOverlayWebContentsId, kSelectionOverlay,
+          "el => {"
+          "  const container = "
+          "el.shadowRoot.querySelector('#floatingPromptContainer');"
+          "  const rect = container.getBoundingClientRect();"
+          "  return rect.height > 38 && rect.height <= 96;"
+          "}"));
+}
+
+IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithPromptWithoutBox,
+                       ChipsShownWithoutInputBoxWhenPromptBoxDisabled) {
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayWebContentsId);
+  const DeepQuery kOverlayApp = {"selection-overlay-app"};
+  const DeepQuery kSelectionOverlay = {"selection-overlay-app",
+                                       "glic-selection-overlay"};
+
+  RunTestSequence(
+      OpenGlic(), ClickMockGlicElement({"#captureRegionBtn"}),
+      WaitForShow(OverlayBaseController::kOverlayId),
+      InstrumentNonTabWebView(kOverlayWebContentsId,
+                              OverlayBaseController::kOverlayId),
+      WaitForJsResultAt(kOverlayWebContentsId, kOverlayApp,
+                        "el => el.screenshot_ !== null"),
+      WaitForElementVisible(kOverlayWebContentsId, kSelectionOverlay),
+      WaitForJsResultAt(
+          kOverlayWebContentsId, kSelectionOverlay,
+          "el => el.isScreenshotRendered && el.selectionOverlayRect.width > 0 "
+          "&& el.selectionOverlayRect.height > 0 && !el.showFloatingPrompt"),
+      MoveMouseTo(OverlayBaseController::kOverlayId,
+                  GetPointWithOffset(50, 50)),
+      DragMouseTo(OverlayBaseController::kOverlayId,
+                  GetPointWithOffset(150, 150)),
+      WaitForJsResultAt(
+          kOverlayWebContentsId, kSelectionOverlay,
+          "el => {"
+          "  const container = "
+          "el.shadowRoot.querySelector('#floatingPromptContainer');"
+          "  return container !== null && !container.hidden;"
+          "}"),
+      WaitForJsResultAt(
+          kOverlayWebContentsId, kSelectionOverlay,
+          "el => el.shadowRoot.querySelector('#promptInput') === null"),
+      WaitForJsResultAt(
+          kOverlayWebContentsId, kSelectionOverlay,
+          "el => {"
+          "  const chips = "
+          "Array.from(el.shadowRoot.querySelectorAll('.action-chip'));"
+          "  if (chips.length !== 1) return false;"
+          "  const titles = chips.map(c => "
+          "c.querySelector('.chip-label')?.textContent?.trim());"
+          "  return titles[0] === 'Ask Gemini';"
           "}"));
 }
 
@@ -1344,6 +1477,10 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithPrompt,
       WaitForJsResultAt(kOverlayWebContentsId, kOverlayApp,
                         "el => el.screenshot_ !== null"),
       WaitForElementVisible(kOverlayWebContentsId, kSelectionOverlay),
+      WaitForJsResultAt(
+          kOverlayWebContentsId, kSelectionOverlay,
+          "el => el.isScreenshotRendered && el.selectionOverlayRect.width > 0 "
+          "&& el.selectionOverlayRect.height > 0"),
       MoveMouseTo(OverlayBaseController::kOverlayId,
                   GetPointWithOffset(500, 200)),
       DragMouseTo(OverlayBaseController::kOverlayId,
@@ -1375,6 +1512,10 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithPrompt,
       WaitForJsResultAt(kOverlayWebContentsId, kOverlayApp,
                         "el => el.screenshot_ !== null"),
       WaitForElementVisible(kOverlayWebContentsId, kSelectionOverlay),
+      WaitForJsResultAt(
+          kOverlayWebContentsId, kSelectionOverlay,
+          "el => el.isScreenshotRendered && el.selectionOverlayRect.width > 0 "
+          "&& el.selectionOverlayRect.height > 0"),
       MoveMouseTo(OverlayBaseController::kOverlayId,
                   GetPointWithOffset(50, 50)),
       DragMouseTo(OverlayBaseController::kOverlayId,
@@ -1385,17 +1526,11 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithPrompt,
           "  const chips = "
           "Array.from(el.shadowRoot.querySelectorAll('.action-chip'));"
           "  const chip = chips.find(c => "
-          "c.querySelector('.chip-label')?.textContent === 'Explain');"
-          "  return chip !== null;"
-          "}"),
-      ExecuteJsAt(kOverlayWebContentsId, kSelectionOverlay,
-                  "el => {"
-                  "  const chips = "
-                  "Array.from(el.shadowRoot.querySelectorAll('.action-chip'));"
-                  "  const chip = chips.find(c => "
-                  "c.querySelector('.chip-label')?.textContent === 'Explain');"
-                  "  chip.click();"
-                  "}"));
+          "c.querySelector('.chip-label')?.textContent === 'Ask Gemini');"
+          "  if (!chip) return false;"
+          "  chip.click();"
+          "  return true;"
+          "}"));
 }
 
 IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithPrompt,
@@ -1413,6 +1548,10 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithPrompt,
       WaitForJsResultAt(kOverlayWebContentsId, kOverlayApp,
                         "el => el.screenshot_ !== null"),
       WaitForElementVisible(kOverlayWebContentsId, kSelectionOverlay),
+      WaitForJsResultAt(
+          kOverlayWebContentsId, kSelectionOverlay,
+          "el => el.isScreenshotRendered && el.selectionOverlayRect.width > 0 "
+          "&& el.selectionOverlayRect.height > 0"),
       MoveMouseTo(OverlayBaseController::kOverlayId,
                   GetPointWithOffset(50, 50)),
       DragMouseTo(OverlayBaseController::kOverlayId,
@@ -1429,5 +1568,65 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithPrompt,
           "bubbles: true}));"
           "}"));
 }
+
+namespace {
+
+class SelectionOverlayInteractiveScreenshotSizeCapTest
+    : public SelectionOverlayInteractiveTest,
+      public testing::WithParamInterface<bool> {
+ public:
+  SelectionOverlayInteractiveScreenshotSizeCapTest() {
+    if (!GetParam()) {
+      feature_list_.InitFromCommandLine(
+          /*enable_features=*/"",
+          /*disable_features=*/"GlicSelectionOverlayFullSizeScreenshot");
+    }
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+}  // namespace
+
+IN_PROC_BROWSER_TEST_P(SelectionOverlayInteractiveScreenshotSizeCapTest,
+                       ScreenshotSizeCap) {
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayWebContentsId);
+
+  const DeepQuery kOverlayApp = {"selection-overlay-app"};
+  bool feature_enabled = GetParam();
+
+  RunTestSequence(
+      OpenGlic(),
+      // Request a 10x10 capture, which is smaller than a test window on the
+      // bot.
+      Do([this]() {
+        auto* controller = SelectionOverlayController::FromTabWebContents(
+            browser()->tab_strip_model()->GetActiveWebContents());
+        ASSERT_TRUE(controller);
+        auto options = mojom::TabContextOptions::New();
+        options->viewport_screenshot = true;
+        options->annotated_page_content = true;
+        options->screenshot_collection_options.max_width = 10;
+        options->screenshot_collection_options.max_height = 10;
+        controller->Show(std::move(options));
+      }),
+      WaitForShow(OverlayBaseController::kOverlayId),
+      InstrumentNonTabWebView(kOverlayWebContentsId,
+                              OverlayBaseController::kOverlayId),
+      WaitForJsResultAt(kOverlayWebContentsId, kOverlayApp,
+                        "el => el.screenshot_ !== null"),
+      CheckJsResultAt(kOverlayWebContentsId, kOverlayApp,
+                      feature_enabled
+                          ? "el => el.screenshot_.imageInfo.width > 10 && "
+                            "el.screenshot_.imageInfo.height > 10"
+                          : "el => el.screenshot_.imageInfo.width <= 10 && "
+                            "el.screenshot_.imageInfo.height <= 10",
+                      true));
+}
+
+INSTANTIATE_TEST_SUITE_P(/*no prefix*/,
+                         SelectionOverlayInteractiveScreenshotSizeCapTest,
+                         testing::Bool());
 
 }  // namespace glic

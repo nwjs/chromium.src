@@ -213,17 +213,9 @@ AX_BASE_EXPORT BASE_DECLARE_FEATURE(
 AX_BASE_EXPORT bool
 IsExperimentalAccessibilityDictationContextCheckingEnabled();
 
-// Control mouse with keyboard.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityMouseKeys);
-AX_BASE_EXPORT bool IsAccessibilityMouseKeysEnabled();
-
 // Controls whether the shake cursor to locate feature is available.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityShakeToLocate);
 AX_BASE_EXPORT bool IsAccessibilityShakeToLocateEnabled();
-
-// Controls whether the inverted mouse cursor feature is available.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityInvertedMouseCursor);
-AX_BASE_EXPORT bool IsAccessibilityInvertedMouseCursorEnabled();
 
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityManifestV3ChromeVox);
 AX_BASE_EXPORT bool IsAccessibilityManifestV3EnabledForChromeVox();
@@ -350,13 +342,6 @@ AX_BASE_EXPORT bool IsReadAnythingLineFocusEnabled();
 // Enable HaTS survey for Reading Mode.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kHatsReadingModeSurvey);
 AX_BASE_EXPORT bool IsHatsReadingModeSurveyEnabled();
-
-AX_BASE_EXPORT bool IsReadAnythingDocsIntegrationEnabled();
-
-// Enable "load more" button to show at the end of Reading Mode panel.
-// Should be disabled by default.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingDocsLoadMoreButton);
-AX_BASE_EXPORT bool IsReadAnythingDocsLoadMoreButtonEnabled();
 
 // Enable ReadabilityJS as the distillation source for Reading Mode.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingWithReadability);

@@ -49,7 +49,8 @@ ProcessLock ProcessLock::CreateAllowAnySite(
 // static
 ProcessLock ProcessLock::Create(const IsolationContext& isolation_context,
                                 const UrlInfo& url_info) {
-  DCHECK(url_info.storage_partition_config.has_value());
+  CHECK(url_info.storage_partition_config.has_value(),
+        base::NotFatalUntil::M160);
   CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   return ProcessLock(SiteInfo::Create(isolation_context, url_info));
 }
@@ -103,7 +104,7 @@ GURL ProcessLock::GetProcessLockURL() const {
 }
 
 StoragePartitionConfig ProcessLock::GetStoragePartitionConfig() const {
-  DCHECK(site_info_.has_value());
+  CHECK(site_info_.has_value(), base::NotFatalUntil::M160);
   return site_info_->GetStoragePartitionConfig();
 }
 
@@ -136,7 +137,7 @@ bool ProcessLock::MatchesScheme(const std::string& scheme) const {
 }
 
 bool ProcessLock::HasOpaqueOrigin() const {
-  DCHECK(IsLockedToSite());
+  CHECK(IsLockedToSite(), base::NotFatalUntil::M160);
   if (agent_cluster_key().IsOriginKeyed()) {
     return agent_cluster_key().GetOrigin().opaque();
   }
@@ -207,6 +208,9 @@ bool ProcessLock::operator==(const ProcessLock& rhs) const {
   // At this point, both `this` and `rhs` are known to have valid SiteInfos.
   // Here we proceed with a comparison almost identical to
   // SiteInfo::MakeSecurityPrincipalKey(), except that `site_url_` is excluded.
+  // Note that `is_unused_` is intentionally excluded so that a used process's
+  // lock compares equal to expected locks freshly constructed from SiteInfo or
+  // UrlInfo.
   return site_info_->ProcessLockCompareTo(rhs.site_info_.value()) == 0;
 }
 
@@ -221,6 +225,7 @@ bool ProcessLock::operator<(const ProcessLock& rhs) const {
   // At this point, both `this` and `rhs` are known to have valid SiteInfos.
   // Here we proceed with a comparison almost identical to
   // SiteInfo::MakeSecurityPrincipalKey(), except that `site_url_` is excluded.
+  // `is_unused_` is also intentionally excluded (see operator==).
   return site_info_->ProcessLockCompareTo(rhs.site_info_.value()) < 0;
 }
 

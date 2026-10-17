@@ -159,9 +159,9 @@ TEST_F(AutocompleteMatchTest, MoreRelevant) {
   };
 
   AutocompleteMatch m1(nullptr, 0, false,
-                       AutocompleteMatchType::URL_WHAT_YOU_TYPED);
+                       omnibox::AutocompleteMatchType::kUrlWhatYouTyped);
   AutocompleteMatch m2(nullptr, 0, false,
-                       AutocompleteMatchType::URL_WHAT_YOU_TYPED);
+                       omnibox::AutocompleteMatchType::kUrlWhatYouTyped);
 
   for (const auto& caseI : cases) {
     m1.relevance = caseI.r1;
@@ -381,24 +381,24 @@ TEST_F(AutocompleteMatchTest, FormatUrlForSuggestionDisplay) {
 TEST_F(AutocompleteMatchTest, SupportsDeletion) {
   // A non-deletable match with no duplicates.
   AutocompleteMatch m(nullptr, 0, false,
-                      AutocompleteMatchType::URL_WHAT_YOU_TYPED);
+                      omnibox::AutocompleteMatchType::kUrlWhatYouTyped);
   EXPECT_FALSE(m.SupportsDeletion());
 
   // A deletable match with no duplicates.
   AutocompleteMatch m1(nullptr, 0, true,
-                       AutocompleteMatchType::URL_WHAT_YOU_TYPED);
+                       omnibox::AutocompleteMatchType::kUrlWhatYouTyped);
   EXPECT_TRUE(m1.SupportsDeletion());
 
   // A non-deletable match, with non-deletable duplicates.
   m.duplicate_matches.push_back(AutocompleteMatch(
-      nullptr, 0, false, AutocompleteMatchType::URL_WHAT_YOU_TYPED));
+      nullptr, 0, false, omnibox::AutocompleteMatchType::kUrlWhatYouTyped));
   m.duplicate_matches.push_back(AutocompleteMatch(
-      nullptr, 0, false, AutocompleteMatchType::URL_WHAT_YOU_TYPED));
+      nullptr, 0, false, omnibox::AutocompleteMatchType::kUrlWhatYouTyped));
   EXPECT_FALSE(m.SupportsDeletion());
 
   // A non-deletable match, with at least one deletable duplicate.
   m.duplicate_matches.push_back(AutocompleteMatch(
-      nullptr, 0, true, AutocompleteMatchType::URL_WHAT_YOU_TYPED));
+      nullptr, 0, true, omnibox::AutocompleteMatchType::kUrlWhatYouTyped));
   EXPECT_TRUE(m.SupportsDeletion());
 }
 
@@ -480,11 +480,11 @@ void CheckDuplicateCase(const DuplicateCase& duplicate_case) {
                           metrics::OmniboxEventProto::OTHER,
                           TestSchemeClassifier());
   AutocompleteMatch m1(nullptr, 100, false,
-                       AutocompleteMatchType::URL_WHAT_YOU_TYPED);
+                       omnibox::AutocompleteMatchType::kUrlWhatYouTyped);
   m1.destination_url = GURL(duplicate_case.url1);
   m1.ComputeStrippedDestinationURL(input, nullptr);
   AutocompleteMatch m2(nullptr, 100, false,
-                       AutocompleteMatchType::URL_WHAT_YOU_TYPED);
+                       omnibox::AutocompleteMatchType::kUrlWhatYouTyped);
   m2.destination_url = GURL(duplicate_case.url2);
   m2.ComputeStrippedDestinationURL(input, nullptr);
   EXPECT_EQ(duplicate_case.expected_duplicate,
@@ -560,48 +560,54 @@ TEST_F(AutocompleteMatchTest, DedupeDriveURLs) {
 
 TEST_F(AutocompleteMatchTest, UpgradeMatchWithPropertiesFrom) {
   scoped_refptr<FakeAutocompleteProvider> bookmark_provider =
-      new FakeAutocompleteProvider(AutocompleteProvider::Type::TYPE_BOOKMARK);
+      new FakeAutocompleteProvider(AutocompleteProvider::Type::kBookmark);
   scoped_refptr<FakeAutocompleteProvider> history_provider =
-      new FakeAutocompleteProvider(
-          AutocompleteProvider::Type::TYPE_HISTORY_QUICK);
+      new FakeAutocompleteProvider(AutocompleteProvider::Type::kHistoryQuick);
   scoped_refptr<FakeAutocompleteProvider> search_provider =
-      new FakeAutocompleteProvider(AutocompleteProvider::Type::TYPE_SEARCH);
+      new FakeAutocompleteProvider(AutocompleteProvider::Type::kSearch);
 
-  AutocompleteMatch search_history_match(search_provider.get(), 500, true,
-                                         AutocompleteMatchType::SEARCH_HISTORY);
+  AutocompleteMatch search_history_match(
+      search_provider.get(), 500, true,
+      omnibox::AutocompleteMatchType::kSearchHistory);
 
   // Entity match should get the increased score, but not change types.
-  AutocompleteMatch entity_match(search_provider.get(), 400, false,
-                                 AutocompleteMatchType::SEARCH_SUGGEST_ENTITY);
+  AutocompleteMatch entity_match(
+      search_provider.get(), 400, false,
+      omnibox::AutocompleteMatchType::kSearchSuggestEntity);
   entity_match.UpgradeMatchWithPropertiesFrom(search_history_match);
   EXPECT_EQ(entity_match.relevance, 500);
-  EXPECT_EQ(entity_match.type, AutocompleteMatchType::SEARCH_SUGGEST_ENTITY);
+  EXPECT_EQ(entity_match.type,
+            omnibox::AutocompleteMatchType::kSearchSuggestEntity);
 
   // Suggest and search-what-typed matches should get the search history type.
-  AutocompleteMatch suggest_match(search_provider.get(), 400, true,
-                                  AutocompleteMatchType::SEARCH_SUGGEST);
+  AutocompleteMatch suggest_match(
+      search_provider.get(), 400, true,
+      omnibox::AutocompleteMatchType::kSearchSuggest);
   AutocompleteMatch search_what_you_typed(
       search_provider.get(), 400, true,
-      AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED);
+      omnibox::AutocompleteMatchType::kSearchWhatYouTyped);
   suggest_match.UpgradeMatchWithPropertiesFrom(search_history_match);
   search_what_you_typed.UpgradeMatchWithPropertiesFrom(search_history_match);
   EXPECT_EQ(suggest_match.relevance, 500);
   EXPECT_EQ(search_what_you_typed.relevance, 500);
-  EXPECT_EQ(suggest_match.type, AutocompleteMatchType::SEARCH_HISTORY);
-  EXPECT_EQ(search_what_you_typed.type, AutocompleteMatchType::SEARCH_HISTORY);
+  EXPECT_EQ(suggest_match.type, omnibox::AutocompleteMatchType::kSearchHistory);
+  EXPECT_EQ(search_what_you_typed.type,
+            omnibox::AutocompleteMatchType::kSearchHistory);
 
   // Some providers should bestow their suggestion texts even if not the primary
   // duplicate.
-  AutocompleteMatch history_match(history_provider.get(), 800, true,
-                                  AutocompleteMatchType::HISTORY_TITLE);
-  AutocompleteMatch bookmark_match(bookmark_provider.get(), 400, true,
-                                   AutocompleteMatchType::BOOKMARK_TITLE);
+  AutocompleteMatch history_match(
+      history_provider.get(), 800, true,
+      omnibox::AutocompleteMatchType::kHistoryTitle);
+  AutocompleteMatch bookmark_match(
+      bookmark_provider.get(), 400, true,
+      omnibox::AutocompleteMatchType::kBookmarkTitle);
   history_match.contents = u"overwrite";
   history_match.inline_autocompletion = u"preserve";
   bookmark_match.contents = u"propagate";
   bookmark_match.inline_autocompletion = u"discard";
   history_match.UpgradeMatchWithPropertiesFrom(bookmark_match);
-  EXPECT_EQ(history_match.type, AutocompleteMatchType::HISTORY_TITLE);
+  EXPECT_EQ(history_match.type, omnibox::AutocompleteMatchType::kHistoryTitle);
   EXPECT_EQ(history_match.contents, u"propagate");
   EXPECT_EQ(history_match.inline_autocompletion, u"preserve");
 }
@@ -842,29 +848,27 @@ TEST_F(AutocompleteMatchTest, TryRichAutocompletion) {
 }
 
 TEST_F(AutocompleteMatchTest, BetterDuplicate) {
-  const auto create_match = [](scoped_refptr<FakeAutocompleteProvider> provider,
-                               int relevance,
-                               AutocompleteMatchType::Type match_type =
-                                   AutocompleteMatchType::URL_WHAT_YOU_TYPED) {
-    return AutocompleteMatch{provider.get(), relevance, false, match_type};
-  };
+  const auto create_match =
+      [](scoped_refptr<FakeAutocompleteProvider> provider, int relevance,
+         omnibox::AutocompleteMatchType match_type =
+             omnibox::AutocompleteMatchType::kUrlWhatYouTyped) {
+        return AutocompleteMatch{provider.get(), relevance, false, match_type};
+      };
 
   scoped_refptr<FakeAutocompleteProvider> document_provider =
-      new FakeAutocompleteProvider(AutocompleteProvider::Type::TYPE_DOCUMENT);
+      new FakeAutocompleteProvider(AutocompleteProvider::Type::kDocument);
 
   scoped_refptr<FakeAutocompleteProvider> bookmark_provider =
-      new FakeAutocompleteProvider(AutocompleteProvider::Type::TYPE_BOOKMARK);
+      new FakeAutocompleteProvider(AutocompleteProvider::Type::kBookmark);
 
   scoped_refptr<FakeAutocompleteProvider> history_provider =
-      new FakeAutocompleteProvider(
-          AutocompleteProvider::Type::TYPE_HISTORY_QUICK);
+      new FakeAutocompleteProvider(AutocompleteProvider::Type::kHistoryQuick);
 
   scoped_refptr<FakeAutocompleteProvider> shortcuts_provider =
-      new FakeAutocompleteProvider(AutocompleteProvider::Type::TYPE_SHORTCUTS);
+      new FakeAutocompleteProvider(AutocompleteProvider::Type::kShortcuts);
 
   scoped_refptr<FakeAutocompleteProvider> featured_search_provider =
-      new FakeAutocompleteProvider(
-          AutocompleteProvider::Type::TYPE_FEATURED_SEARCH);
+      new FakeAutocompleteProvider(AutocompleteProvider::Type::kFeaturedSearch);
 
   // Prefer document provider matches over other providers, even if scored
   // lower.
@@ -892,41 +896,42 @@ TEST_F(AutocompleteMatchTest, BetterDuplicate) {
   // Prefer featured enterprise search over other matches.
   EXPECT_TRUE(AutocompleteMatch::BetterDuplicate(
       create_match(featured_search_provider, 100,
-                   AutocompleteMatchType::FEATURED_ENTERPRISE_SEARCH),
+                   omnibox::AutocompleteMatchType::kFeaturedEnterpriseSearch),
       create_match(featured_search_provider, 500,
-                   AutocompleteMatchType::STARTER_PACK)));
+                   omnibox::AutocompleteMatchType::kStarterPack)));
 
   EXPECT_FALSE(AutocompleteMatch::BetterDuplicate(
       create_match(featured_search_provider, 500,
-                   AutocompleteMatchType::STARTER_PACK),
+                   omnibox::AutocompleteMatchType::kStarterPack),
       create_match(featured_search_provider, 100,
-                   AutocompleteMatchType::FEATURED_ENTERPRISE_SEARCH)));
+                   omnibox::AutocompleteMatchType::kFeaturedEnterpriseSearch)));
 
   EXPECT_TRUE(AutocompleteMatch::BetterDuplicate(
       create_match(featured_search_provider, 100,
-                   AutocompleteMatchType::FEATURED_ENTERPRISE_SEARCH),
+                   omnibox::AutocompleteMatchType::kFeaturedEnterpriseSearch),
       create_match(bookmark_provider, 500)));
 
   EXPECT_FALSE(AutocompleteMatch::BetterDuplicate(
       create_match(bookmark_provider, 500),
       create_match(featured_search_provider, 100,
-                   AutocompleteMatchType::FEATURED_ENTERPRISE_SEARCH)));
+                   omnibox::AutocompleteMatchType::kFeaturedEnterpriseSearch)));
 
   // Prefer stater pack matches over other matches.
   EXPECT_TRUE(AutocompleteMatch::BetterDuplicate(
       create_match(featured_search_provider, 100,
-                   AutocompleteMatchType::STARTER_PACK),
+                   omnibox::AutocompleteMatchType::kStarterPack),
       create_match(bookmark_provider, 500)));
 
   EXPECT_FALSE(AutocompleteMatch::BetterDuplicate(
       create_match(bookmark_provider, 500),
       create_match(featured_search_provider, 100,
-                   AutocompleteMatchType::STARTER_PACK)));
+                   omnibox::AutocompleteMatchType::kStarterPack)));
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
   // Prefer entity matches.
-  auto entity_match = create_match(
-      history_provider, 100, AutocompleteMatchType::SEARCH_SUGGEST_ENTITY);
+  auto entity_match =
+      create_match(history_provider, 100,
+                   omnibox::AutocompleteMatchType::kSearchSuggestEntity);
   auto high_relevance_match = create_match(history_provider, 1500);
   EXPECT_TRUE(
       AutocompleteMatch::BetterDuplicate(entity_match, high_relevance_match));
@@ -941,7 +946,7 @@ TEST_F(AutocompleteMatchTest, BetterDuplicate) {
 
 TEST_F(AutocompleteMatchTest, FilterOmniboxActions) {
   scoped_refptr<FakeAutocompleteProvider> provider =
-      new FakeAutocompleteProvider(AutocompleteProvider::Type::TYPE_SEARCH);
+      new FakeAutocompleteProvider(AutocompleteProvider::Type::kSearch);
   const OmniboxAction::LabelStrings dummy_labels(u"", u"", u"", u"");
 
   using OmniboxActionId::ACTION_IN_SUGGEST;
@@ -1012,8 +1017,9 @@ TEST_F(AutocompleteMatchTest, FilterOmniboxActions) {
        {}}};
 
   for (const auto& test_case : test_cases) {
-    AutocompleteMatch match(provider.get(), 1, false,
-                            AutocompleteMatchType::SEARCH_SUGGEST_ENTITY);
+    AutocompleteMatch match(
+        provider.get(), 1, false,
+        omnibox::AutocompleteMatchType::kSearchSuggestEntity);
 
     // Populate match with requested actions.
     for (auto& action_id : test_case.actions_attached_to_match) {
@@ -1035,7 +1041,7 @@ TEST_F(AutocompleteMatchTest, FilterOmniboxActions) {
 
 TEST_F(AutocompleteMatchTest, RearrangeActionsInSuggest) {
   scoped_refptr<FakeAutocompleteProvider> provider =
-      new FakeAutocompleteProvider(AutocompleteProvider::Type::TYPE_SEARCH);
+      new FakeAutocompleteProvider(AutocompleteProvider::Type::kSearch);
   const OmniboxAction::LabelStrings dummy_labels(u"", u"", u"", u"");
 
   using ActionType = omnibox::SuggestTemplateInfo::TemplateAction::ActionType;
@@ -1073,8 +1079,9 @@ TEST_F(AutocompleteMatchTest, RearrangeActionsInSuggest) {
   };
 
   for (const auto& test_case : test_cases) {
-    AutocompleteMatch match(provider.get(), 1, false,
-                            AutocompleteMatchType::SEARCH_SUGGEST_ENTITY);
+    AutocompleteMatch match(
+        provider.get(), 1, false,
+        omnibox::AutocompleteMatchType::kSearchSuggestEntity);
 
     // Populate match with requested actions.
     for (auto& action_type : test_case.types_to_add) {
@@ -1110,11 +1117,12 @@ TEST_F(AutocompleteMatchTest, ValidateGetVectorIcons) {
   // icon.
   EXPECT_FALSE(match.GetVectorIcon(/*is_bookmark=*/true).is_empty());
 
-  for (int type = AutocompleteMatchType::URL_WHAT_YOU_TYPED;
-       type != AutocompleteMatchType::NUM_TYPES; type++) {
-    match.type = static_cast<AutocompleteMatchType::Type>(type);
+  for (int type = 0;
+       type <= static_cast<int>(omnibox::AutocompleteMatchType::kMaxValue);
+       type++) {
+    match.type = static_cast<omnibox::AutocompleteMatchType>(type);
 
-    if (match.type == AutocompleteMatchType::STARTER_PACK) {
+    if (match.type == omnibox::AutocompleteMatchType::kStarterPack) {
       // All STARTER_PACK suggestions should have non-empty vector icons.
       for (int starter_pack_id = static_cast<int>(
                template_url_starter_pack_data::StarterPackId::kBookmarks);
@@ -1128,9 +1136,12 @@ TEST_F(AutocompleteMatchTest, ValidateGetVectorIcons) {
         EXPECT_FALSE(
             match.GetVectorIcon(/*is_bookmark=*/false, &turl).is_empty());
       }
-    } else if (match.type == AutocompleteMatchType::SEARCH_SUGGEST_TAIL ||
-               match.type == AutocompleteMatchType::HISTORY_EMBEDDINGS_ANSWER ||
-               (match.type == AutocompleteMatchType::NULL_RESULT_MESSAGE &&
+    } else if (match.type ==
+                   omnibox::AutocompleteMatchType::kSearchSuggestTail ||
+               match.type ==
+                   omnibox::AutocompleteMatchType::kHistoryEmbeddingsAnswer ||
+               (match.type ==
+                    omnibox::AutocompleteMatchType::kNullResultMessage &&
                 !match.IsIphSuggestion())) {
       // SEARCH_SUGGEST_TAIL and non-IPH NULL_RESULT_MESSAGE suggestions use an
       // empty vector icon.
@@ -1154,14 +1165,18 @@ TEST_F(AutocompleteMatchTest, ValidateGetVectorIcons) {
 #endif
 
 TEST_F(AutocompleteMatchTest, IsClipboardType) {
-  std::set<int> clipboard_types{AutocompleteMatchType::CLIPBOARD_TEXT,
-                                AutocompleteMatchType::CLIPBOARD_URL,
-                                AutocompleteMatchType::CLIPBOARD_IMAGE};
+  std::set<omnibox::AutocompleteMatchType> clipboard_types{
+      omnibox::AutocompleteMatchType::kClipboardText,
+      omnibox::AutocompleteMatchType::kClipboardUrl,
+      omnibox::AutocompleteMatchType::kClipboardImage};
 
-  for (int type = 0; type < AutocompleteMatchType::NUM_TYPES; type++) {
-    EXPECT_EQ(
-        AutocompleteMatch::IsClipboardType((AutocompleteMatchType::Type)type),
-        clipboard_types.contains(type));
+  for (int type = 0;
+       type < static_cast<int>(omnibox::AutocompleteMatchType::kMaxValue);
+       type++) {
+    EXPECT_EQ(AutocompleteMatch::IsClipboardType(
+                  (omnibox::AutocompleteMatchType)type),
+              clipboard_types.contains(
+                  static_cast<omnibox::AutocompleteMatchType>(type)));
   }
 }
 

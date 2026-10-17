@@ -18,7 +18,6 @@
 #include "ash/webui/common/trusted_types_util.h"
 #include "ash/webui/network_ui/network_diagnostics_resource_provider.h"
 #include "ash/webui/network_ui/network_health_resource_provider.h"
-#include "ash/webui/network_ui/traffic_counters_resource_provider.h"
 #include "base/check_deref.h"
 #include "base/functional/bind.h"
 #include "base/json/json_reader.h"
@@ -30,6 +29,7 @@
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/feedback/show_feedback_page.h"
 #include "chrome/browser/ui/ash/system/system_tray_client_impl.h"
+#include "chrome/browser/ui/select_file_policy/chrome_select_file_policy.h"
 #include "chrome/browser/ui/webui/ash/cellular_setup/cellular_setup_localized_strings_provider.h"
 #include "chrome/browser/ui/webui/ash/internet/internet_config_dialog.h"
 #include "chrome/browser/ui/webui/ash/internet/internet_detail_dialog.h"
@@ -44,6 +44,7 @@
 #include "chromeos/ash/components/network/cellular_esim_uninstall_handler.h"
 #include "chromeos/ash/components/network/cellular_utils.h"
 #include "chromeos/ash/components/network/device_state.h"
+#include "chromeos/ash/components/network/managed_cellular_pref_handler.h"
 #include "chromeos/ash/components/network/managed_network_configuration_handler.h"
 #include "chromeos/ash/components/network/network_configuration_handler.h"
 #include "chromeos/ash/components/network/network_device_handler.h"
@@ -143,8 +144,12 @@ bool IsGuestModeActive() {
 
 // Get the euicc path for reset euicc operation. Return std::nullopt if the
 // reset euicc is not allowed, i.e: the user is in guest mode, admin enables
-// restrict cellular network policy or a managed eSIM profile already installed.
+// restrict cellular network policy or a managed eSIM profile already installed
 std::optional<dbus::ObjectPath> GetEuiccResetPath() {
+  if (!NetworkHandler::IsInitialized()) {
+    return std::nullopt;
+  }
+
   if (IsGuestModeActive()) {
     NET_LOG(ERROR) << "Couldn't reset EUICC in guest mode.";
     return std::nullopt;
@@ -167,6 +172,7 @@ std::optional<dbus::ObjectPath> GetEuiccResetPath() {
         << "Couldn't reset EUICC if admin restricts cellular networks.";
     return std::nullopt;
   }
+
   NetworkStateHandler* network_state_handler =
       NetworkHandler::Get()->network_state_handler();
   if (!network_state_handler) {
@@ -178,13 +184,53 @@ std::optional<dbus::ObjectPath> GetEuiccResetPath() {
                                               /*visible_only=*/false,
                                               /*limit=*/0, &state_list);
 
+  HermesEuiccClient* client = HermesEuiccClient::Get();
   HermesEuiccClient::Properties* euicc_properties =
-      HermesEuiccClient::Get()->GetProperties(*euicc_path);
+      client ? client->GetProperties(*euicc_path) : nullptr;
+
+  if (!euicc_properties || euicc_properties->eid().value().empty()) {
+    NET_LOG(ERROR)
+        << "EUICC properties or EID not available. Blocking EUICC reset.";
+    return std::nullopt;
+  }
+
   const std::string& eid = euicc_properties->eid().value();
+
   for (const NetworkState* network : state_list) {
     if (network->eid() == eid && network->IsManagedByPolicy()) {
       NET_LOG(ERROR)
-          << "Couldn't reset EUICC if a managed eSIM profile is installed.";
+          << "Couldn't reset EUICC: A managed eSIM profile is installed.";
+      return std::nullopt;
+    }
+  }
+
+  CellularESimProfileHandler* esim_profile_handler =
+      NetworkHandler::Get()->cellular_esim_profile_handler();
+  ManagedCellularPrefHandler* managed_pref_handler =
+      NetworkHandler::Get()->managed_cellular_pref_handler();
+
+  // Fail-Closed: If handlers aren't ready yet (e.g. during initialization or
+  // modem reset) or profiles are not refreshed, we cannot verify management
+  // status. Block the reset.
+  if (!esim_profile_handler || !managed_pref_handler ||
+      !esim_profile_handler->HasRefreshedProfilesForEuicc(eid)) {
+    NET_LOG(ERROR) << "Cellular handlers not ready or profiles not refreshed. "
+                   << "Blocking EUICC reset.";
+    return std::nullopt;
+  }
+
+  // Get the list of all eSIM profiles known to the device.
+  std::vector<CellularESimProfile> esim_profiles =
+      esim_profile_handler->GetESimProfiles();
+
+  // Check the persistent preferences to see if any profiles on this eUICC
+  // are managed.
+  for (const auto& profile : esim_profiles) {
+    // Only check profiles that physically reside on the eUICC being reset.
+    if (profile.eid() == eid &&
+        managed_pref_handler->IsESimManaged(profile.iccid())) {
+      NET_LOG(ERROR)
+          << "Couldn't reset EUICC: A managed eSIM profile is installed.";
       return std::nullopt;
     }
   }
@@ -464,6 +510,12 @@ class NetworkConfigMessageHandler : public content::WebUIMessageHandler {
                                         /*visible_only=*/false,
                                         /*limit=*/0, &state_list);
 
+    ManagedCellularPrefHandler* managed_pref_handler =
+        NetworkHandler::Get()->managed_cellular_pref_handler();
+    if (!managed_pref_handler) {
+      return;
+    }
+
     // Use CellularESimProfileHandler (which wraps Hermes) as the source of
     // truth for active profiles, as Shill's connection state drops when the
     // network is not visible.
@@ -479,6 +531,11 @@ class NetworkConfigMessageHandler : public content::WebUIMessageHandler {
               << "Couldn't disable active eSIM profile; managed by policy.";
           return;
         }
+      }
+      if (managed_pref_handler->IsESimManaged(profile.iccid())) {
+        NET_LOG(ERROR)
+            << "Couldn't disable active eSIM profile; managed by policy.";
+        return;
       }
     }
 
@@ -1094,7 +1151,12 @@ NetworkUI::NetworkUI(PrefService* local_state, content::WebUI* web_ui)
     : ui::MojoWebUIController(web_ui, /*enable_chrome_send=*/true) {
   web_ui->AddMessageHandler(
       std::make_unique<network_ui::NetworkConfigMessageHandler>(local_state));
-  web_ui->AddMessageHandler(std::make_unique<OncImportMessageHandler>());
+  // TODO(b/558661978): Migrate to a dedicated ash select file policy.
+  web_ui->AddMessageHandler(std::make_unique<OncImportMessageHandler>(
+      base::BindRepeating([](content::WebContents* web_contents)
+                              -> std::unique_ptr<ui::SelectFilePolicy> {
+        return std::make_unique<ChromeSelectFilePolicy>(web_contents);
+      })));
   web_ui->AddMessageHandler(std::make_unique<NetworkLogsMessageHandler>());
   web_ui->AddMessageHandler(
       std::make_unique<NetworkDiagnosticsMessageHandler>());
@@ -1121,7 +1183,6 @@ NetworkUI::NetworkUI(PrefService* local_state, content::WebUI* web_ui)
   cellular_setup::AddNonStringLoadTimeData(html);
   ui::network_element::AddLocalizedStrings(html);
   ui::network_element::AddOncLocalizedStrings(html);
-  traffic_counters::AddResources(html);
 
   webui::SetupWebUIDataSource(html, kNetworkUiResources,
                               IDR_NETWORK_UI_NETWORK_HTML);

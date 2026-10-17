@@ -236,7 +236,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.Freestyler.QueryLength" units="count"
-    expires_after="2026-07-19">
+    expires_after="2027-10-01">
   <owner>ergunsh@google.com</owner>
   <owner>alexrudenko@google.com</owner>
   <component>1633102</component>
@@ -246,7 +246,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.FrontendLocation" enum="DevToolsFrontendLocation"
-    expires_after="2027-01-16">
+    expires_after="2027-03-21">
   <owner>dsv@chromium.org</owner>
   <owner>chrome-devtools@google.com</owner>
   <summary>
@@ -257,7 +257,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.Insights.LongTeaserGenerationTime" units="ms"
-    expires_after="2026-10-24">
+    expires_after="2027-06-30">
   <owner>wolfi@google.com</owner>
   <owner>alexrudenko@google.com</owner>
   <summary>
@@ -267,7 +267,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.Insights.ShortTeaserGenerationTime" units="ms"
-    expires_after="2026-10-24">
+    expires_after="2027-06-30">
   <owner>wolfi@google.com</owner>
   <owner>alexrudenko@google.com</owner>
   <summary>
@@ -277,7 +277,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.Insights.TeaserAfterFirstCharacterAbortionTime"
-    units="ms" expires_after="2026-10-24">
+    units="ms" expires_after="2027-06-30">
   <owner>wolfi@google.com</owner>
   <owner>alexrudenko@google.com</owner>
   <summary>
@@ -288,7 +288,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.Insights.TeaserBeforeFirstCharacterAbortionTime"
-    units="ms" expires_after="2026-10-24">
+    units="ms" expires_after="2027-06-30">
   <owner>wolfi@google.com</owner>
   <owner>alexrudenko@google.com</owner>
   <summary>
@@ -299,7 +299,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.Insights.TeaserChunkToEndMedium" units="ms"
-    expires_after="2027-01-26">
+    expires_after="2027-06-30">
   <owner>wolfi@google.com</owner>
   <owner>alexrudenko@google.com</owner>
   <summary>
@@ -309,7 +309,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.Insights.TeaserFirstChunkGenerationTime" units="ms"
-    expires_after="2026-11-10">
+    expires_after="2027-06-30">
   <owner>wolfi@google.com</owner>
   <owner>alexrudenko@google.com</owner>
   <summary>
@@ -319,7 +319,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.Insights.TeaserFirstChunkGenerationTimeMedium"
-    units="ms" expires_after="2027-01-26">
+    units="ms" expires_after="2027-06-30">
   <owner>wolfi@google.com</owner>
   <owner>alexrudenko@google.com</owner>
   <summary>
@@ -329,7 +329,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.Insights.TeaserGenerationTime" units="ms"
-    expires_after="2026-10-24">
+    expires_after="2027-06-30">
   <owner>wolfi@google.com</owner>
   <owner>alexrudenko@google.com</owner>
   <summary>
@@ -339,7 +339,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.Insights.TeaserGenerationTimeMedium" units="ms"
-    expires_after="2027-01-26">
+    expires_after="2027-06-30">
   <owner>wolfi@google.com</owner>
   <owner>alexrudenko@google.com</owner>
   <summary>
@@ -348,7 +348,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="DevTools.InspectElement" units="ms" expires_after="2026-10-25">
+<histogram name="DevTools.InspectElement" units="ms" expires_after="2027-10-25">
   <owner>yangguo@google.com</owner>
   <owner>bmeurer@google.com</owner>
   <summary>
@@ -605,7 +605,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="DevTools.TraceLoad2" units="ms" expires_after="2027-05-01">
+<histogram name="DevTools.TraceLoad2" units="ms" expires_after="2027-10-01">
   <owner>paulirish@google.com</owner>
   <owner>jacktfranklin@google.com</owner>
   <owner>victorporof@google.com</owner>

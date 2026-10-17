@@ -26,7 +26,7 @@ namespace ash {
 namespace {
 
 network::mojom::URLLoaderFactory* GetURLLoaderFactory() {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M160);
   return g_browser_process->system_network_context_manager()
       ->GetURLLoaderFactory();
 }
@@ -46,7 +46,7 @@ chromeos::PpdIndexChannel ToPpdIndexChannel(const std::string& channel) {
 
 }  // namespace
 
-scoped_refptr<chromeos::PpdProvider> CreatePpdProvider(Profile* profile) {
+std::unique_ptr<chromeos::PpdProvider> CreatePpdProvider(Profile* profile) {
   const chromeos::PpdIndexChannel channel = ToPpdIndexChannel(
       base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
           ash::switches::kPrintingPpdChannel));

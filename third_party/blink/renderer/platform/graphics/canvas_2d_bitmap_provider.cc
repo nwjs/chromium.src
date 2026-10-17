@@ -51,8 +51,6 @@ Canvas2DBitmapProvider::Canvas2DBitmapProvider(
       hdr_metadata_(hdr_metadata),
       delegate_(delegate),
       snapshot_paint_image_id_(cc::PaintImage::GetNextId()) {
-  max_recorded_op_bytes_ = static_cast<size_t>(kMaxRecordedOpKB.Get()) * 1024;
-  max_pinned_image_bytes_ = static_cast<size_t>(kMaxPinnedImageKB.Get()) * 1024;
   CanvasMemoryDumpProvider::Instance()->RegisterClient(this);
 }
 
@@ -135,12 +133,6 @@ Canvas2DBitmapProvider::GetOrCreateSWCanvasImageProvider() {
   return canvas_image_provider_.get();
 }
 
-void Canvas2DBitmapProvider::SetAnimatedImageFrameIndexes(
-    scoped_refptr<const cc::AnimatedImageFrameIndexMap> map) {
-  CHECK(canvas_image_provider_);
-  canvas_image_provider_->SetAnimatedImageFrameIndexes(map);
-}
-
 scoped_refptr<StaticBitmapImage> Canvas2DBitmapProvider::Snapshot(
     ImageOrientation orientation) {
   TRACE_EVENT0("blink", "Canvas2DBitmapProvider::Snapshot");
@@ -213,7 +205,9 @@ void Canvas2DBitmapProvider::ApplyAnimatedImageFrameIndexesForId(
     SkCanvas* canvas,
     uint32_t id) {
   CHECK(delegate_);
-  SetAnimatedImageFrameIndexes(delegate_->GetAnimatedImageFrameIndexes(id));
+  CHECK(canvas_image_provider_);
+  canvas_image_provider_->SetAnimatedImageFrameIndexes(
+      delegate_->GetAnimatedImageFrameIndexes(id));
 }
 
 void Canvas2DBitmapProvider::ClearAtCreation() {

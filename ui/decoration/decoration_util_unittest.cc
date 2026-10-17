@@ -19,6 +19,10 @@ TEST(ShadowUtilTest, ShadowDetailsKey) {
   details.emplace_back(ShadowDetails::Get(
       gfx::RoundedCornersF(2), ui::Shadow::MakeShadowValues(/*elevation=*/4)));
   EXPECT_EQ(1u, ShadowDetails::GetDetailsCacheSizeForTest());
+  EXPECT_EQ(details[0].aperture_insets,
+            ShadowGenerator::GetNineboxApertureInsets(details[0].spec,
+                                                      gfx::RoundedCornersF(2)));
+  EXPECT_EQ(details[0].margins, ShadowGenerator::GetMargins(details[0].spec));
 
   // Add second shadow details with a different elevation.
   details.emplace_back(ShadowDetails::Get(
@@ -46,7 +50,7 @@ TEST(ShadowUtilTest, ShadowDetailsKey) {
 
   // Add fifth shadow details with a different key shadow blur than the first
   // details.
-  const gfx::ShadowValues& values_1 = details[0].values;
+  const gfx::ShadowValues& values_1 = details[0].spec;
   gfx::ShadowValues new_blur_values = {
       gfx::ShadowValue(values_1[0].offset(), /*blur=*/20, values_1[0].color()),
       values_1[1]};
@@ -56,7 +60,7 @@ TEST(ShadowUtilTest, ShadowDetailsKey) {
 
   // Add sixth shadow details with a different ambient color than the second
   // details.
-  const gfx::ShadowValues& values_2 = details[1].values;
+  const gfx::ShadowValues& values_2 = details[1].spec;
   gfx::ShadowValues new_color_values = {
       gfx::ShadowValue(values_2[0].offset(), values_2[0].blur(), SK_ColorBLUE),
       values_2[1]};

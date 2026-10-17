@@ -81,7 +81,6 @@ source_set("component_updater") {
 
   if (is_chromeos) {
     public += [
-      "app_provisioning_component_installer.h",
       "chrome_apps_deprecation_allowlist_component_installer.h",
       "cros_component_installer_chromeos.h",
       "metadata_table_chromeos.h",
@@ -242,7 +241,6 @@ source_set("impl") {
 
   if (is_chromeos) {
     sources += [
-      "app_provisioning_component_installer.cc",
       "chrome_apps_deprecation_allowlist_component_installer.cc",
       "cros_component_installer_chromeos.cc",
       "metadata_table_chromeos.cc",
@@ -351,6 +349,7 @@ source_set("unit_tests") {
     "//base/test:test_support",
     "//chrome/browser/ai",
     "//chrome/test:test_support",
+    "//chrome/test/base:testing_browser_process",
     "//components/certificate_transparency",
     "//components/certificate_transparency:proto_gen",
     "//components/component_updater",
@@ -406,10 +405,12 @@ source_set("unit_tests") {
 
   if (is_win) {
     deps += [
+      "//chrome/browser/enterprise",
       "//chrome/browser/google",
       "//chrome/install_static/test:test_support",
       "//chrome/installer/util:with_no_strings",
       "//chrome/updater/app/server/win:updater_legacy_idl",
+      "//components/policy/core/common:test_support",
     ]
   }
 

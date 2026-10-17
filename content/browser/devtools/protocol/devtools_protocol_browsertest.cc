@@ -7,8 +7,10 @@
 #include <cstddef>
 #include <memory>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "base/base64.h"
 #include "base/command_line.h"
@@ -22,12 +24,15 @@
 #include "base/json/json_writer.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/raw_ref.h"
+#include "base/run_loop.h"
 #include "base/strings/safe_sprintf.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/system/sys_info.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/test/bind.h"
+#include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "base/test/values_test_util.h"
@@ -45,6 +50,8 @@
 #include "content/browser/devtools/render_frame_devtools_agent_host.h"
 #include "content/browser/download/download_manager_impl.h"
 #include "content/browser/host_zoom_map_impl.h"
+#include "content/browser/preloading/preloading_decider.h"
+#include "content/browser/preloading/prerender/prerender_features.h"
 #include "content/browser/preloading/prerender/prerender_final_status.h"
 #include "content/browser/renderer_host/navigator.h"
 #include "content/browser/renderer_host/render_process_host_impl.h"
@@ -84,6 +91,7 @@
 #include "content/shell/browser/shell_download_manager_delegate.h"
 #include "content/test/content_browser_test_utils_internal.h"
 #include "media/media_buildflags.h"
+#include "mojo/public/cpp/bindings/clone_traits.h"
 #include "net/base/features.h"
 #include "net/dns/dns_test_util.h"
 #include "net/dns/mock_host_resolver.h"
@@ -93,12 +101,14 @@
 #include "net/test/test_doh_server.h"
 #include "services/network/public/cpp/features.h"
 #include "services/tracing/public/cpp/perfetto/perfetto_config.h"
+#include "services/tracing/public/cpp/perfetto/perfetto_data_source_names.h"
 #include "services/tracing/public/cpp/perfetto/perfetto_traced_process.h"
 #include "services/tracing/public/cpp/tracing_features.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "third_party/blink/public/common/chrome_debug_urls.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/page/page_zoom.h"
+#include "third_party/blink/public/mojom/speculation_rules/speculation_rules.mojom.h"
 #include "third_party/boringssl/src/include/openssl/nid.h"
 #include "third_party/boringssl/src/include/openssl/ssl.h"
 #include "third_party/inspector_protocol/crdtp/cbor.h"
@@ -229,6 +239,48 @@ class SyntheticKeyEventTest : public DevToolsProtocolTest {
   }
 };
 
+class SpeculationCandidatesUpdateWaiter
+    : public PreloadingDeciderObserverForTesting {
+ public:
+  explicit SpeculationCandidatesUpdateWaiter(RenderFrameHost* rfh)
+      : preloading_decider_(
+            *PreloadingDecider::GetOrCreateForCurrentDocument(rfh)),
+        old_observer_(preloading_decider_->SetObserverForTesting(this)) {}
+
+  SpeculationCandidatesUpdateWaiter(const SpeculationCandidatesUpdateWaiter&) =
+      delete;
+  SpeculationCandidatesUpdateWaiter& operator=(
+      const SpeculationCandidatesUpdateWaiter&) = delete;
+
+  ~SpeculationCandidatesUpdateWaiter() override {
+    EXPECT_EQ(this, preloading_decider_->SetObserverForTesting(old_observer_));
+  }
+
+  void UpdateSpeculationCandidates(
+      const std::vector<blink::mojom::SpeculationCandidatePtr>& candidates)
+      override {
+    candidates_ = mojo::Clone(candidates);
+    update_received_.SetValue();
+  }
+
+  void OnPointerDown(const GURL& url) override {}
+
+  void OnPointerHover(
+      const GURL& url,
+      blink::mojom::SpeculationEagerness target_eagerness) override {}
+
+  const std::vector<blink::mojom::SpeculationCandidatePtr>& Wait() {
+    EXPECT_TRUE(update_received_.Wait());
+    return candidates_;
+  }
+
+ private:
+  raw_ref<PreloadingDecider> preloading_decider_;
+  raw_ptr<PreloadingDeciderObserverForTesting> old_observer_;
+  std::vector<blink::mojom::SpeculationCandidatePtr> candidates_;
+  base::test::TestFuture<void> update_received_;
+};
+
 class PrerenderDevToolsProtocolTest : public DevToolsProtocolTest {
  public:
   PrerenderDevToolsProtocolTest() {
@@ -248,6 +300,14 @@ class PrerenderDevToolsProtocolTest : public DevToolsProtocolTest {
 
   PrerenderHostId AddPrerender(const GURL& prerendering_url) {
     return prerender_helper_->AddPrerender(prerendering_url);
+  }
+
+  void AddPrerenderAsync(const GURL& prerendering_url) {
+    prerender_helper_->AddPrerenderAsync(prerendering_url);
+  }
+
+  void AddPrerenderUntilScriptAsync(const GURL& prerendering_url) {
+    prerender_helper_->AddPrerenderUntilScriptAsync(prerendering_url);
   }
 
   RenderFrameHostImpl* GetPrerenderedMainFrameHost(PrerenderHostId host_id) {
@@ -501,8 +561,10 @@ int ColorsSquareDiff(SkColor color1, SkColor color2) {
              b_diff * b_diff;
 }
 
-bool ColorsMatchWithinLimit(SkColor color1, SkColor color2, int max_collor_diff) {
-  return ColorsSquareDiff(color1, color2) <= max_collor_diff * max_collor_diff;
+bool ColorsMatchWithinLimit(SkColor color1,
+                            SkColor color2,
+                            int max_color_diff) {
+  return ColorsSquareDiff(color1, color2) <= max_color_diff * max_color_diff;
 }
 
 // Adapted from cc::ExactPixelComparator.
@@ -510,7 +572,7 @@ bool MatchesBitmap(const SkBitmap& expected_bmp,
                    const SkBitmap& actual_bmp,
                    const gfx::Rect& matching_mask,
                    float device_scale_factor,
-                   int max_collor_diff) {
+                   int max_color_diff) {
   // Number of pixels with an error
   int error_pixels_count = 0;
 
@@ -532,7 +594,8 @@ bool MatchesBitmap(const SkBitmap& expected_bmp,
       SkColor actual_color =
           actual_bmp.getColor(x * device_scale_factor, y * device_scale_factor);
       SkColor expected_color = expected_bmp.getColor(x, y);
-      if (!ColorsMatchWithinLimit(actual_color, expected_color, max_collor_diff)) {
+      if (!ColorsMatchWithinLimit(actual_color, expected_color,
+                                  max_color_diff)) {
         if (error_pixels_count < 10) {
           LOG(ERROR) << "Pixel (" << x << "," << y
                      << "). Expected: " << std::hex << expected_color
@@ -635,10 +698,10 @@ class CaptureScreenshotTest : public DevToolsProtocolTest {
     // Allow some error between actual and expected pixel values.
     // That assumes there is no shift in pixel positions, so it only works
     // reliably if all pixels have equal values.
-    int max_collor_diff = 20;
+    int max_color_diff = 20;
 
     EXPECT_TRUE(MatchesBitmap(expected_bitmap, result_bitmap, matching_mask,
-                              device_scale_factor, max_collor_diff));
+                              device_scale_factor, max_color_diff));
   }
 
   gfx::Size GetPageContentSize() {
@@ -969,6 +1032,121 @@ IN_PROC_BROWSER_TEST_F(NoGPUCaptureScreenshotTest, MAYBE_LargeScreenshot) {
 }
 
 #endif  // !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
+
+class HiDpiCaptureScreenshotTest : public CaptureScreenshotTest {
+ protected:
+  void SetUp() override {
+    EnablePixelOutput(/*force_device_scale_factor=*/2.0f);
+    DevToolsProtocolTest::SetUp();
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(HiDpiCaptureScreenshotTest,
+                       FractionalClipRoundsAfterScale) {
+  shell()->LoadURL(
+      GURL("data:text/html,"
+           "<!doctype html><style>html,body{margin:0;width:400px;height:300px}"
+           "body{background:%230000ff}.edge{position:absolute}"
+           ".left{left:0;top:0;width:4px;height:100px;background:%23ff0000}"
+           ".right{left:188px;top:0;width:20px;height:100px;"
+           "background:%2300ff00}.top{left:0;top:0;width:220px;height:4px;"
+           "background:%23ffff00}.bottom{left:0;top:18px;width:220px;"
+           "height:20px;background:%2300ffff}</style>"
+           "<div class='edge left'></div><div class='edge right'></div>"
+           "<div class='edge top'></div><div class='edge bottom'></div>"));
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+  Attach();
+
+  constexpr float kDeviceScaleFactor = 3;
+  SetDeviceMetricsOverride(/*width=*/400, /*height=*/300, kDeviceScaleFactor,
+                           /*mobile=*/false,
+                           /*fitWindow=*/std::nullopt);
+  ASSERT_FALSE(error());
+  ASSERT_FLOAT_EQ(2.0f, shell()
+                            ->web_contents()
+                            ->GetPrimaryMainFrame()
+                            ->GetRenderWidgetHost()
+                            ->GetDeviceScaleFactor());
+
+  auto capture_clip = [this](double width, double height) {
+    base::DictValue params;
+    params.Set("format", EncodingEnumToString(ScreenshotEncoding::PNG));
+    params.Set("fromSurface", true);
+    base::DictValue clip;
+    clip.Set("x", 0);
+    clip.Set("y", 0);
+    clip.Set("width", width);
+    clip.Set("height", height);
+    clip.Set("scale", 1);
+    params.Set("clip", std::move(clip));
+    const base::DictValue* result =
+        SendCommandSync("Page.captureScreenshot", std::move(params));
+    if (error() || !result) {
+      ADD_FAILURE() << "Page.captureScreenshot failed";
+      return SkBitmap();
+    }
+    const std::string* encoded_screenshot = result->FindString("data");
+    if (!encoded_screenshot) {
+      ADD_FAILURE() << "Page.captureScreenshot returned no data";
+      return SkBitmap();
+    }
+    return DecodePNG(*encoded_screenshot);
+  };
+
+  auto expect_edge_colors = [](const SkBitmap& screenshot) {
+    EXPECT_TRUE(ColorsMatchWithinLimit(
+        screenshot.getColor(0, screenshot.height() / 2),
+        SkColorSetRGB(0xff, 0x00, 0x00), /*max_color_diff=*/20));
+    EXPECT_TRUE(ColorsMatchWithinLimit(
+        screenshot.getColor(screenshot.width() - 1, screenshot.height() / 2),
+        SkColorSetRGB(0x00, 0xff, 0x00), /*max_color_diff=*/20));
+    EXPECT_TRUE(ColorsMatchWithinLimit(
+        screenshot.getColor(screenshot.width() / 2, 0),
+        SkColorSetRGB(0xff, 0xff, 0x00), /*max_color_diff=*/20));
+    EXPECT_TRUE(ColorsMatchWithinLimit(
+        screenshot.getColor(screenshot.width() / 2, screenshot.height() - 1),
+        SkColorSetRGB(0x00, 0xff, 0xff), /*max_color_diff=*/20));
+    EXPECT_TRUE(ColorsMatchWithinLimit(
+        screenshot.getColor(screenshot.width() / 2, screenshot.height() / 2),
+        SkColorSetRGB(0x00, 0x00, 0xff), /*max_color_diff=*/20));
+  };
+
+  SkBitmap bitmap = capture_clip(/*width=*/192.65625,
+                                 /*height=*/21.671875);
+  ASSERT_FALSE(bitmap.empty());
+  // The scaled dimensions are 577.96875 by 65.015625. This distinguishes
+  // nearest rounding from truncating before scale, floor, and ceiling. The
+  // asymmetric edges also catch wrapping if the captured source is too small.
+  EXPECT_EQ(gfx::Size(578, 65), gfx::Size(bitmap.width(), bitmap.height()));
+  expect_edge_colors(bitmap);
+
+  // This width rounds to 579 directly but 580 after narrowing to float, so it
+  // also protects the protocol's double precision through the conversion.
+  SkBitmap precision_bitmap = capture_clip(/*width=*/193.166666,
+                                           /*height=*/21.671875);
+  ASSERT_FALSE(precision_bitmap.empty());
+  EXPECT_EQ(gfx::Size(579, 65),
+            gfx::Size(precision_bitmap.width(), precision_bitmap.height()));
+
+  // An empty requested size is the no-crop sentinel, so a positive subpixel
+  // clip must still produce the minimum 1x1 physical bitmap.
+  SkBitmap subpixel_bitmap = capture_clip(/*width=*/0.1, /*height=*/0.1);
+  ASSERT_FALSE(subpixel_bitmap.empty());
+  EXPECT_EQ(gfx::Size(1, 1),
+            gfx::Size(subpixel_bitmap.width(), subpixel_bitmap.height()));
+
+  // Nearest rounding requests 579x65 physical pixels, while rounding the
+  // temporary view before applying its 2x native scale would provide only
+  // 578x64. Verify that the final column and row come from the right and
+  // bottom edges instead of wrapping around to the left and top edges.
+  SkBitmap containment_bitmap =
+      capture_clip(/*width=*/192.83333333333334, /*height=*/21.5);
+  ASSERT_FALSE(containment_bitmap.empty());
+  EXPECT_EQ(gfx::Size(579, 65),
+            gfx::Size(containment_bitmap.width(), containment_bitmap.height()));
+  expect_edge_colors(containment_bitmap);
+  SendCommandSync("Emulation.clearDeviceMetricsOverride");
+}
 
 // Setting frame size (through RWHV) is not supported on Android.
 // This test seems to be very flaky on all platforms: https://crbug.com/801173
@@ -1418,6 +1596,11 @@ IN_PROC_BROWSER_TEST_F(CaptureScreenshotTest, ScreencastSendsLastRepaint) {
   std::optional<int> session_id = frame.FindInt("sessionId");
   const std::string* data = frame.FindString("data");
   ASSERT_TRUE(session_id && data) << "Did not receive a screencast frame";
+  std::optional<double> timestamp =
+      frame.FindDoubleByDottedPath("metadata.timestamp");
+  ASSERT_TRUE(timestamp);
+  EXPECT_NEAR(*timestamp, base::Time::Now().InSecondsFSinceUnixEpoch(),
+              base::Minutes(1).InSecondsF());
   // Screencast frames go through video encoding, so the colors are not exact.
   constexpr int kMaxColorDiff = 20;
   SkBitmap bitmap = DecodePNG(*data);
@@ -1959,6 +2142,140 @@ IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest,
       testing::Optional(static_cast<int>(crdtp::DispatchCode::SERVER_ERROR)));
 }
 #endif
+
+IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest,
+                       GetNavigationHistoryRedactsFileUrlsWithoutFileAccess) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  const GURL file_url = GetTestUrl("devtools", "navigation.html");
+  const GURL http_url = embedded_test_server()->GetURL("/title1.html");
+  NavigateToURLBlockUntilNavigationsComplete(shell(), file_url, 1);
+  NavigateToURLBlockUntilNavigationsComplete(shell(), http_url, 1);
+
+  // With file access, the file:// entry is exposed.
+  Attach();
+  const base::ListValue* entries =
+      SendCommandSync("Page.getNavigationHistory")->FindList("entries");
+  ASSERT_TRUE(entries);
+  ASSERT_EQ(2u, entries->size());
+  EXPECT_EQ(file_url.spec(), *(*entries)[0].GetDict().FindString("url"));
+
+  Detach();
+  SetMayReadLocalFiles(false);
+  Attach();
+
+  // Without file access, the file:// entry is redacted, but it is still listed
+  // so that the remaining entries and `currentIndex` stay meaningful.
+  entries = SendCommandSync("Page.getNavigationHistory")->FindList("entries");
+  ASSERT_TRUE(entries);
+  ASSERT_EQ(2u, entries->size());
+  const base::DictValue& file_entry = (*entries)[0].GetDict();
+  EXPECT_EQ("", *file_entry.FindString("url"));
+  EXPECT_EQ("", *file_entry.FindString("userTypedURL"));
+  EXPECT_EQ("", *file_entry.FindString("title"));
+  EXPECT_EQ(http_url.spec(), *(*entries)[1].GetDict().FindString("url"));
+}
+
+IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest,
+                       FrameStartedNavigatingRedactsInaccessibleUrls) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  const GURL file_url = GetTestUrl("devtools", "navigation.html");
+  const GURL http_url = embedded_test_server()->GetURL("/title1.html");
+  const GURL allowed_url = embedded_test_server()->GetURL("/title2.html");
+  const GURL disallowed_url =
+      embedded_test_server()->GetURL("disallowed.test", "/title1.html");
+
+  NavigateToURLBlockUntilNavigationsComplete(shell(), http_url, 1);
+
+  set_agent_host_can_close();
+  SetMayReadLocalFiles(false);
+  SetNotAttachableHosts({"disallowed.test"});
+  Attach();
+  SendCommandSync("Page.enable");
+
+  // Accessible URLs are disclosed in Page.frameStartedNavigating.
+  NavigateToURLBlockUntilNavigationsComplete(shell(), allowed_url, 1);
+  base::DictValue notification =
+      WaitForNotification("Page.frameStartedNavigating", true);
+  EXPECT_EQ(allowed_url.spec(), *notification.FindString("url"));
+
+  // Navigating to a file:// URL without local file access still emits
+  // Page.frameStartedNavigating, but redacts the URL.
+  ClearNotifications();
+  NavigateToURLBlockUntilNavigationsComplete(shell(), file_url, 1);
+  notification = WaitForNotification("Page.frameStartedNavigating", true);
+  EXPECT_EQ("", *notification.FindString("url"));
+  EXPECT_FALSE(notification.FindString("loaderId")->empty());
+
+  // Calling Page.enable while a navigation to an inaccessible URL is already
+  // pending also redacts the URL in the catch-up FrameStartedNavigating event.
+  Detach();
+  NavigateToURLBlockUntilNavigationsComplete(shell(), http_url, 1);
+  TestNavigationManager pending_file_nav(shell()->web_contents(), file_url);
+  shell()->LoadURL(file_url);
+  ASSERT_TRUE(pending_file_nav.WaitForRequestStart());
+
+  Attach();
+  SendCommandAsync("Page.enable");
+  notification = WaitForNotification("Page.frameStartedNavigating", true);
+  EXPECT_EQ("", *notification.FindString("url"));
+  ASSERT_TRUE(pending_file_nav.WaitForNavigationFinished());
+
+  // Navigating to a host that fails MayAttachToURL() fires DidStartNavigating()
+  // before the session is force-detached; the URL must be redacted there too.
+  ClearNotifications();
+  shell()->LoadURL(disallowed_url);
+  notification = WaitForNotification("Page.frameStartedNavigating", true);
+  EXPECT_EQ("", *notification.FindString("url"));
+}
+
+IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest,
+                       NavigateToHistoryEntryWithFileUrlRequiresFileAccess) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  const GURL file_url = GetTestUrl("devtools", "navigation.html");
+  const GURL first_http_url = embedded_test_server()->GetURL("/title1.html");
+  const GURL second_http_url = embedded_test_server()->GetURL("/title2.html");
+  NavigateToURLBlockUntilNavigationsComplete(shell(), file_url, 1);
+  NavigateToURLBlockUntilNavigationsComplete(shell(), first_http_url, 1);
+  NavigateToURLBlockUntilNavigationsComplete(shell(), second_http_url, 1);
+
+  Attach();
+  const base::ListValue* entries =
+      SendCommandSync("Page.getNavigationHistory")->FindList("entries");
+  ASSERT_TRUE(entries);
+  ASSERT_EQ(3u, entries->size());
+  const std::optional<int> file_entry_id =
+      (*entries)[0].GetDict().FindInt("id");
+  ASSERT_TRUE(file_entry_id.has_value());
+  const std::optional<int> http_entry_id =
+      (*entries)[1].GetDict().FindInt("id");
+  ASSERT_TRUE(http_entry_id.has_value());
+
+  Detach();
+  SetMayReadLocalFiles(false);
+  Attach();
+
+  // Traversing to the file:// entry is rejected, just like navigating to it
+  // with Page.navigate would be.
+  base::DictValue params;
+  params.Set("entryId", *file_entry_id);
+  ASSERT_FALSE(
+      SendCommandSync("Page.navigateToHistoryEntry", std::move(params)));
+  EXPECT_THAT(
+      error()->FindInt("code"),
+      testing::Optional(static_cast<int>(crdtp::DispatchCode::SERVER_ERROR)));
+  EXPECT_EQ(*error()->FindString("message"),
+            "Navigating to local URL is not allowed");
+  EXPECT_EQ(second_http_url, shell()->web_contents()->GetLastCommittedURL());
+
+  // Traversing to an entry the client is allowed to access still works.
+  base::DictValue allowed_params;
+  allowed_params.Set("entryId", *http_entry_id);
+  TestNavigationObserver navigation_observer(shell()->web_contents());
+  ASSERT_TRUE(SendCommandSync("Page.navigateToHistoryEntry",
+                              std::move(allowed_params)));
+  navigation_observer.Wait();
+  EXPECT_EQ(first_http_url, shell()->web_contents()->GetLastCommittedURL());
+}
 
 IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest,
                        DOMGetFileInfoRequiresFileAccess) {
@@ -4392,6 +4709,189 @@ IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest, TracingWithPerfettoConfig) {
   WaitForNotification("Tracing.tracingComplete", true);
 }
 
+IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest,
+                       TracingMemoryDumpRequiresTrustedClient) {
+  NavigateToURLBlockUntilNavigationsComplete(shell(), GURL("about:blank"), 1);
+
+  SetIsTrusted(false);
+  Attach();
+
+  // Starting with a perfettoConfig containing only memory dump data sources
+  // should fail for an untrusted client because the disallowed data sources
+  // are stripped.
+  perfetto::TraceConfig memory_only_perfetto_config;
+  memory_only_perfetto_config.add_buffers()->set_size_kb(1024);
+  memory_only_perfetto_config.add_data_sources()->mutable_config()->set_name(
+      tracing::kMemoryInstrumentationDataSourceName);
+  memory_only_perfetto_config.add_data_sources()->mutable_config()->set_name(
+      tracing::kNativeHeapProfilerSourceName);
+  base::DictValue perfetto_start_params;
+  perfetto_start_params.Set(
+      "perfettoConfig",
+      base::Base64Encode(memory_only_perfetto_config.SerializeAsString()));
+  perfetto_start_params.Set("transferMode", "ReturnAsStream");
+  EXPECT_FALSE(
+      SendCommandSync("Tracing.start", std::move(perfetto_start_params)));
+  EXPECT_THAT(
+      error()->FindInt("code"),
+      testing::Optional(static_cast<int>(crdtp::DispatchCode::INVALID_PARAMS)));
+
+  base::DictValue trace_config;
+  base::ListValue categories;
+  categories.Append("disabled-by-default-memory-infra");
+  trace_config.Set("includedCategories", std::move(categories));
+  base::DictValue start_params;
+  start_params.Set("traceConfig", std::move(trace_config));
+  start_params.Set("transferMode", "ReturnAsStream");
+  EXPECT_TRUE(SendCommandSync("Tracing.start", start_params.Clone()));
+
+  ASSERT_FALSE(SendCommandSync("Tracing.requestMemoryDump"));
+  EXPECT_THAT(
+      error()->FindInt("code"),
+      testing::Optional(static_cast<int>(crdtp::DispatchCode::SERVER_ERROR)));
+  EXPECT_EQ(*error()->FindString("message"), "Not allowed");
+
+  EXPECT_TRUE(SendCommandSync("Tracing.end"));
+  WaitForNotification("Tracing.tracingComplete", true);
+
+  Detach();
+  SetIsTrusted(true);
+  Attach();
+
+  EXPECT_TRUE(SendCommandSync("Tracing.start", std::move(start_params)));
+  // Request a "background" dump rather than the default "detailed" dump,
+  // because "detailed" dumps require OSMetrics::GetProcessMemoryMaps(), which
+  // is not implemented on Fuchsia (https://crbug.com/40720107).
+  base::DictValue dump_params;
+  dump_params.Set("levelOfDetail", "background");
+  const base::DictValue* dump_result =
+      SendCommandSync("Tracing.requestMemoryDump", std::move(dump_params));
+  ASSERT_TRUE(dump_result);
+  EXPECT_THAT(dump_result->FindBool("success"), testing::Optional(true));
+  EXPECT_TRUE(SendCommandSync("Tracing.end"));
+  WaitForNotification("Tracing.tracingComplete", true);
+}
+
+IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest,
+                       TracingBrowserProcessRequiresTrustedClient) {
+  content::SetupCrossSiteRedirector(embedded_test_server());
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  GURL url_a = embedded_test_server()->GetURL("a.com", "/title1.html");
+  GURL url_b =
+      embedded_test_server()->GetURL("b.com", "/title1.html?secret_tab_b");
+
+  NavigateToURLBlockUntilNavigationsComplete(shell(), url_a, 1);
+
+  auto run_trace_and_read_json = [&](bool is_trusted, const GURL& url_b,
+                                     Shell** out_shell_b) -> std::string {
+    Detach();
+    SetIsTrusted(is_trusted);
+    Attach();
+
+    base::trace_event::TraceConfig chrome_config(
+        "navigation,blink.user_timing," TRACE_DISABLED_BY_DEFAULT(
+            "devtools.timeline"),
+        "");
+    perfetto::TraceConfig perfetto_config =
+        tracing::GetDefaultPerfettoConfig(chrome_config,
+                                          /*privacy_filtering_enabled=*/false,
+                                          /*convert_to_legacy_json=*/true);
+    // Attempt to explicitly request the browser process PID in
+    // producer_name_filter to verify that untrusted sessions cannot bypass
+    // the process filter.
+    std::string browser_producer =
+        base::StrCat({tracing::kPerfettoProducerNamePrefix,
+                      base::NumberToString(static_cast<uint32_t>(
+                          base::Process::Current().Pid()))});
+    for (auto& ds : *perfetto_config.mutable_data_sources()) {
+      *ds.add_producer_name_filter() = browser_producer;
+      ds.add_producer_name_regex_filter(".*");
+    }
+
+    base::DictValue params;
+    params.Set("perfettoConfig",
+               base::Base64Encode(perfetto_config.SerializeAsString()));
+    params.Set("transferMode", "ReturnAsStream");
+
+    EXPECT_TRUE(SendCommandSync("Tracing.start", std::move(params)));
+
+    // Create a new renderer mid-session to trigger AddProcessToFilter
+    Shell* shell_b = CreateBrowser();
+    if (out_shell_b) {
+      *out_shell_b = shell_b;
+    }
+
+    NavigateToURLBlockUntilNavigationsComplete(shell(), url_a, 1);
+    NavigateToURLBlockUntilNavigationsComplete(shell_b, url_b, 1);
+    EXPECT_TRUE(content::ExecJs(shell(), "performance.mark('mark_a');"));
+    EXPECT_TRUE(content::ExecJs(shell_b, "performance.mark('mark_b');"));
+
+    EXPECT_TRUE(SendCommandSync("Tracing.end"));
+
+    base::DictValue complete_notification =
+        WaitForNotification("Tracing.tracingComplete", true);
+    const std::string* stream_handle_ptr =
+        complete_notification.FindString("stream");
+    EXPECT_TRUE(stream_handle_ptr);
+    std::string stream_handle = stream_handle_ptr ? *stream_handle_ptr : "";
+
+    std::string trace_json;
+    bool eof = false;
+    while (!eof) {
+      base::DictValue read_params;
+      read_params.Set("handle", stream_handle);
+      const base::DictValue* response =
+          SendCommandSync("IO.read", std::move(read_params));
+      EXPECT_TRUE(response);
+      if (!response) {
+        break;
+      }
+      const std::string* data = response->FindString("data");
+      EXPECT_TRUE(data);
+      if (data) {
+        if (response->FindBool("base64Encoded").value_or(false)) {
+          std::string decoded;
+          EXPECT_TRUE(base::Base64Decode(*data, &decoded));
+          trace_json += decoded;
+        } else {
+          trace_json += *data;
+        }
+      }
+      eof = response->FindBool("eof").value_or(false);
+    }
+    return trace_json;
+  };
+
+  Shell* shell_b_untrusted = nullptr;
+  std::string untrusted_trace =
+      run_trace_and_read_json(/*is_trusted=*/false, url_b, &shell_b_untrusted);
+  EXPECT_THAT(untrusted_trace, testing::HasSubstr("mark_a"));
+  EXPECT_THAT(untrusted_trace, testing::Not(testing::HasSubstr("mark_b")));
+  EXPECT_THAT(untrusted_trace,
+              testing::Not(testing::HasSubstr("secret_tab_b")));
+  EXPECT_THAT(untrusted_trace,
+              testing::Not(testing::HasSubstr("TracingStartedInBrowser")));
+  EXPECT_THAT(untrusted_trace,
+              testing::Not(testing::HasSubstr("FrameCommittedInBrowser")));
+  if (shell_b_untrusted) {
+    shell_b_untrusted->Close();
+  }
+
+  GURL url_b2 =
+      embedded_test_server()->GetURL("b.com", "/title2.html?secret_tab_b2");
+  Shell* shell_b_trusted = nullptr;
+  std::string trusted_trace =
+      run_trace_and_read_json(/*is_trusted=*/true, url_b2, &shell_b_trusted);
+  EXPECT_THAT(trusted_trace, testing::HasSubstr("mark_a"));
+  EXPECT_THAT(trusted_trace, testing::HasSubstr("secret_tab_b2"));
+  EXPECT_THAT(trusted_trace, testing::HasSubstr("TracingStartedInBrowser"));
+  EXPECT_THAT(trusted_trace, testing::HasSubstr("FrameCommittedInBrowser"));
+  if (shell_b_trusted) {
+    shell_b_trusted->Close();
+  }
+}
+
 IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest, TracingPerfettoSiteIsolation) {
   content::SetupCrossSiteRedirector(embedded_test_server());
   ASSERT_TRUE(embedded_test_server()->Start());
@@ -4525,8 +5025,9 @@ IN_PROC_BROWSER_TEST_F(SystemTracingDevToolsProtocolTest,
             "System backend is not allowed for the current client");
 }
 
-IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest,
-                       TracingAutoBackendNonChromeSourceRequiresTrustedClient) {
+IN_PROC_BROWSER_TEST_F(
+    DevToolsProtocolTest,
+    TracingUntrustedClientCannotProvideNonAllowlistedDataSource) {
   perfetto::TraceConfig perfetto_config;
   perfetto_config.add_buffers()->set_size_kb(1024);
   perfetto_config.add_data_sources()->mutable_config()->set_name(
@@ -4546,9 +5047,10 @@ IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest,
   EXPECT_FALSE(SendCommandSync("Tracing.start", std::move(params)));
   EXPECT_THAT(
       error()->FindInt("code"),
-      testing::Optional(static_cast<int>(crdtp::DispatchCode::SERVER_ERROR)));
+      testing::Optional(static_cast<int>(crdtp::DispatchCode::INVALID_PARAMS)));
   EXPECT_EQ(*error()->FindString("message"),
-            "System backend is not allowed for the current client");
+            "Supplied perfettoConfig doesn't have any allowed data sources "
+            "specified");
 }
 
 #if BUILDFLAG(IS_POSIX)
@@ -5094,6 +5596,87 @@ IN_PROC_BROWSER_TEST_F(
     }
   }
   EXPECT_TRUE(result.Find("mismatchedHeaders"));
+}
+
+class PrerenderUntilScriptUpgradeDevToolsProtocolTest
+    : public PrerenderDevToolsProtocolTest {
+ public:
+  PrerenderUntilScriptUpgradeDevToolsProtocolTest() {
+    feature_list_.InitWithFeatures({blink::features::kPrerenderUntilScript,
+                                    features::kPrerenderUntilScriptUpgrade},
+                                   {});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(
+    PrerenderUntilScriptUpgradeDevToolsProtocolTest,
+    PrerenderStatusUpdatedReportsAndReplaysPrerenderUntilScriptUpgrade) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  const GURL initial_url = GetUrl("/empty.html");
+  const GURL prerendering_url = GetUrl("/empty.html?prerender");
+  ASSERT_TRUE(NavigateToURL(shell(), initial_url));
+
+  // Start a prerender-until-script attempt and remember its host so the test
+  // can verify that the upgrade retains it.
+  AddPrerenderUntilScriptAsync(prerendering_url);
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return HasHostForUrl(prerendering_url); }));
+  const PrerenderHostId host_id = test::PrerenderTestHelper::GetHostForUrl(
+      *web_contents(), prerendering_url);
+  ASSERT_TRUE(host_id);
+
+  Attach();
+  SendCommandSync("Preload.enable");
+
+  // Adding a regular prerender candidate upgrades the existing attempt while
+  // preserving its original prerender-until-script identity.
+  AddPrerenderAsync(prerendering_url);
+  base::DictValue result;
+  while (true) {
+    result = WaitForNotification("Preload.prerenderStatusUpdated", true);
+    const std::string* action = result.FindStringByDottedPath("key.action");
+    const std::string* effective_action = result.FindString("effectiveAction");
+    if (action && effective_action && *action == "PrerenderUntilScript" &&
+        *effective_action == "Prerender") {
+      break;
+    }
+  }
+
+  // Wait until the browser processes removal of the original candidate, then
+  // verify that only the regular prerender candidate remains.
+  {
+    SpeculationCandidatesUpdateWaiter candidates_update_waiter(
+        web_contents()->GetPrimaryMainFrame());
+    ASSERT_TRUE(ExecJs(web_contents(),
+                       "document.querySelector('script[type="
+                       "\"speculationrules\"]').remove()"));
+    const auto& candidates = candidates_update_waiter.Wait();
+    ASSERT_EQ(candidates.size(), 1u);
+    EXPECT_EQ(candidates[0]->url, prerendering_url);
+    EXPECT_EQ(candidates[0]->action,
+              blink::mojom::SpeculationAction::kPrerender);
+  }
+
+  // The matching candidate group should retain the upgraded runtime host.
+  EXPECT_EQ(test::PrerenderTestHelper::GetHostForUrl(*web_contents(),
+                                                     prerendering_url),
+            host_id);
+
+  // A fresh DevTools client must receive the upgraded attempt from storage,
+  // rather than from notifications queued for the original client.
+  Detach();
+  TestDevToolsProtocolClient late_client;
+  late_client.AttachToWebContents(web_contents());
+  late_client.SendCommandSync("Preload.enable");
+  result =
+      late_client.WaitForNotification("Preload.prerenderStatusUpdated", true);
+  EXPECT_THAT(result.FindStringByDottedPath("key.action"),
+              Pointee(Eq("PrerenderUntilScript")));
+  EXPECT_THAT(result.FindString("effectiveAction"), Pointee(Eq("Prerender")));
+  late_client.DetachProtocolClient();
 }
 
 IN_PROC_BROWSER_TEST_F(PrerenderDevToolsProtocolTest,
@@ -5773,6 +6356,40 @@ IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest, DetachWithCrashedHiddenTargets) {
   // Detaching the browser client closes the page session and hidden targets
   // synchronously; should not crash or trigger reentrancy UAF.
   Detach();
+}
+
+IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest, PageGetSubApps) {
+  NavigateToURLBlockUntilNavigationsComplete(shell(), GURL("about:blank"), 1);
+  Attach();
+
+  const base::DictValue* sub_apps_result =
+      SendCommandSync("Page.getSubApps", base::DictValue{});
+  ASSERT_TRUE(sub_apps_result);
+  const base::ListValue* sub_apps = sub_apps_result->FindList("subApps");
+  ASSERT_TRUE(sub_apps);
+  EXPECT_TRUE(sub_apps->empty());
+
+  const base::DictValue* siblings_result =
+      SendCommandSync("Page.getSiblingSubApps", base::DictValue{});
+  ASSERT_TRUE(siblings_result);
+  const base::ListValue* sibling_apps = siblings_result->FindList("subApps");
+  ASSERT_TRUE(sibling_apps);
+  EXPECT_TRUE(sibling_apps->empty());
+}
+
+IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest,
+                       SetDeviceMetricsOverrideWithoutView) {
+  ASSERT_FALSE(shell()->web_contents()->GetPrimaryMainFrame()->GetView());
+  Attach();
+  base::DictValue params;
+  params.Set("width", 400);
+  params.Set("height", 300);
+  params.Set("deviceScaleFactor", 1);
+  params.Set("mobile", false);
+  // Next two commands should not crash without a RenderWidgetHostView.
+  SendCommandAsync("Emulation.setDeviceMetricsOverride", std::move(params));
+  SendCommandAsync("Emulation.clearDeviceMetricsOverride");
+  SendCommandSync("Target.getTargets");
 }
 
 }  // namespace content

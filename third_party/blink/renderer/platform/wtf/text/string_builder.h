@@ -63,7 +63,7 @@ class WTF_EXPORT StringBuilder {
   USING_FAST_MALLOC(StringBuilder);
 
  public:
-  StringBuilder() : no_buffer_() {}
+  StringBuilder() = default;
   StringBuilder(const StringBuilder&) = delete;
   StringBuilder& operator=(const StringBuilder&) = delete;
   ~StringBuilder() { ClearBuffer(); }
@@ -179,6 +179,27 @@ class WTF_EXPORT StringBuilder {
     }
     Append(U16_LEAD(c));
     Append(U16_TRAIL(c));
+  }
+
+  // Inserts `c` at `position` (0 <= position <= length()), shifting the
+  // existing [position, length()) content right by one. Mirrors the
+  // EnsureBuffer8/16 materialize-then-mutate pattern already used by
+  // Append(LChar)/Append(UChar) above, so a shared string view (no owned
+  // buffer yet) is copied into an owned buffer first, same as on append.
+  void Insert(wtf_size_t position, UChar c) {
+    DCHECK_LE(position, length_);
+    if (position == length_) {
+      Append(c);
+      return;
+    }
+    if (is_8bit_ && c <= 0xFF) {
+      EnsureBuffer8(1);
+      buffer8_.insert(position, static_cast<LChar>(c));
+    } else {
+      EnsureBuffer16(1);
+      buffer16_.insert(position, c);
+    }
+    ++length_;
   }
 
   template <typename IntegerType>
@@ -338,8 +359,8 @@ class WTF_EXPORT StringBuilder {
   static const wtf_size_t kInlineBufferSize = 256;
   static wtf_size_t InitialBufferSize() { return kInlineBufferSize; }
 
-  typedef Vector<LChar, kInlineBufferSize / sizeof(LChar)> Buffer8;
-  typedef Vector<UChar, kInlineBufferSize / sizeof(UChar)> Buffer16;
+  using Buffer8 = Vector<LChar, kInlineBufferSize / sizeof(LChar)>;
+  using Buffer16 = Vector<UChar, kInlineBufferSize / sizeof(UChar)>;
 
   void EnsureBuffer8(wtf_size_t added_size) {
     DCHECK(is_8bit_);
@@ -398,7 +419,7 @@ class WTF_EXPORT StringBuilder {
 
   String string_;
   union {
-    char no_buffer_;
+    char no_buffer_ = 0;
     Buffer8 buffer8_;
     Buffer16 buffer16_;
   };

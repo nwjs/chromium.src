@@ -25,6 +25,7 @@
 namespace browser_actuator {
 
 class ActuatorDownstreamMessage;
+class ActuatorDownstreamTypedPayload;
 class TransportChannel;
 class TransportHandler;
 
@@ -50,7 +51,7 @@ class TransportSessionImpl : public TransportSession {
   // TransportSession implementation.
   std::string_view GetSessionId() const override;
 
-  base::expected<void, SendMessageError> SendMessage(
+  base::expected<void, SendUpstreamMessageError> SendUpstreamMessage(
       PayloadType payload_type,
       const google::protobuf::MessageLite& message) override;
 
@@ -67,12 +68,15 @@ class TransportSessionImpl : public TransportSession {
     return client_sequence_number_;
   }
 
-  // Routes a downstream message payload of a given `payload_type` to all active
-  // handlers registered to receive it. Handlers are lazily instantiated from
-  // the registry on the first message receipt for their payload_type.
+  // Routes the serialized bytes of a downstream payload of a given
+  // `payload_type` to all active handlers registered to receive it. Handlers
+  // are lazily instantiated from the registry on the first message receipt for
+  // their payload_type, and each parses `serialized_payload` into its own
+  // concrete message type. See TransportHandler for why parsing belongs to the
+  // handler rather than to this layer.
   base::expected<void, ProcessPayloadError> ProcessPayload(
       PayloadType payload_type,
-      const google::protobuf::MessageLite& message);
+      std::string_view serialized_payload);
 
   // Processes a downstream message from the server by checking sequence numbers
   // and routing payloads to registered handlers.
@@ -104,6 +108,10 @@ class TransportSessionImpl : public TransportSession {
   }
 
  private:
+  // Processes a single downstream typed payload.
+  // WARNING: may delete `this`, because a handler may destroy the session.
+  void ProcessTypedPayload(const ActuatorDownstreamTypedPayload& typed_payload);
+
   // Resolves and instantiates the handlers registered for a given
   // `payload_type`. If the factories for this payload type have not been
   // instantiated yet for this session, they are resolved from the registry,

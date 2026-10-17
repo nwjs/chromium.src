@@ -31,12 +31,6 @@ android_library("java") {
     "java/src/org/chromium/components/webapps/bottomsheet/PwaBottomSheetControllerProvider.java",
     "java/src/org/chromium/components/webapps/bottomsheet/PwaInstallBottomSheetContent.java",
     "java/src/org/chromium/components/webapps/bottomsheet/PwaInstallBottomSheetView.java",
-    "java/src/org/chromium/components/webapps/pwa_restore_ui/PwaRestoreBottomSheetContent.java",
-    "java/src/org/chromium/components/webapps/pwa_restore_ui/PwaRestoreBottomSheetCoordinator.java",
-    "java/src/org/chromium/components/webapps/pwa_restore_ui/PwaRestoreBottomSheetMediator.java",
-    "java/src/org/chromium/components/webapps/pwa_restore_ui/PwaRestoreBottomSheetView.java",
-    "java/src/org/chromium/components/webapps/pwa_restore_ui/PwaRestoreBottomSheetViewBinder.java",
-    "java/src/org/chromium/components/webapps/pwa_restore_ui/PwaRestoreProperties.java",
     "java/src/org/chromium/components/webapps/pwa_universal_install/PwaUniversalInstallBottomSheetContent.java",
     "java/src/org/chromium/components/webapps/pwa_universal_install/PwaUniversalInstallBottomSheetCoordinator.java",
     "java/src/org/chromium/components/webapps/pwa_universal_install/PwaUniversalInstallBottomSheetMediator.java",
@@ -46,10 +40,8 @@ android_library("java") {
   ]
   deps = [
     ":java_resources",
-    ":pwa_restore_bottom_sheet_mediator_jni_headers_java",
     ":webapps_jni_headers_java",
     "//base:base_java",
-    "//base:flagged_apis_java",
     "//base:tristate_java",
     "//build/android:build_java",
     "//components/browser_ui/bottomsheet/android:java",
@@ -87,10 +79,6 @@ generate_jni("webapps_jni_headers") {
   ]
 }
 
-generate_jni("pwa_restore_bottom_sheet_mediator_jni_headers") {
-  sources = [ "java/src/org/chromium/components/webapps/pwa_restore_ui/PwaRestoreBottomSheetMediator.java" ]
-}
-
 java_cpp_enum("webapps_java_enums_srcjar") {
   sources = [
     "//components/webapps/browser/android/ambient_badge_manager.h",
@@ -121,26 +109,17 @@ android_resources("java_resources") {
     "java/res/drawable-xxxhdpi/star_gray.png",
     "java/res/drawable-xxxhdpi/star_green.png",
     "java/res/drawable/pwa_restore_app_item_background_bottom.xml",
-    "java/res/drawable/pwa_restore_app_item_background_middle.xml",
-    "java/res/drawable/pwa_restore_app_item_background_single.xml",
     "java/res/drawable/pwa_restore_app_item_background_top.xml",
-    "java/res/drawable/pwa_restore_icon.xml",
     "java/res/drawable/rating_bar.xml",
     "java/res/layout/add_to_homescreen_dialog.xml",
     "java/res/layout/image_zoom_view.xml",
     "java/res/layout/pwa_install_bottom_sheet_content.xml",
-    "java/res/layout/pwa_restore_bottom_sheet_content.xml",
-    "java/res/layout/pwa_restore_bottom_sheet_dialog.xml",
-    "java/res/layout/pwa_restore_bottom_sheet_preview.xml",
-    "java/res/layout/pwa_restore_list_item_app.xml",
-    "java/res/layout/pwa_restore_list_item_label.xml",
     "java/res/layout/pwa_universal_install_bottom_sheet_content.xml",
     "java/res/mipmap-hdpi/shortcut_icon_shadow.png",
     "java/res/mipmap-mdpi/shortcut_icon_shadow.png",
     "java/res/mipmap-xhdpi/shortcut_icon_shadow.png",
     "java/res/mipmap-xxhdpi/shortcut_icon_shadow.png",
     "java/res/mipmap-xxxhdpi/shortcut_icon_shadow.png",
-    "java/res/values-night/colors.xml",
     "java/res/values/colors.xml",
     "java/res/values/dimens.xml",
     "java/res/values/styles.xml",
@@ -213,62 +192,30 @@ robolectric_library("junit") {
     "java/src/org/chromium/components/webapps/WebappsIconUtilsTest.java",
     "java/src/org/chromium/components/webapps/WebappsUtilsTest.java",
     "java/src/org/chromium/components/webapps/bottomsheet/PwaInstallBottomSheetContentTest.java",
-    "java/src/org/chromium/components/webapps/pwa_restore_ui/PwaRestoreBottomSheetContentTest.java",
-    "java/src/org/chromium/components/webapps/pwa_restore_ui/PwaRestoreBottomSheetCoordinatorTest.java",
     "java/src/org/chromium/components/webapps/pwa_universal_install/PwaUniversalInstallBottomSheetContentTest.java",
     "java/src/org/chromium/components/webapps/pwa_universal_install/PwaUniversalInstallBottomSheetCoordinatorTest.java",
   ]
   deps = [
     ":java",
     ":java_resources",
-    ":pwa_restore_bottom_sheet_mediator_jni_headers_java",
     ":webapps_jni_headers_java",
     "//base:base_java_test_support",
     "//base:base_junit_test_support",
     "//base:features_java",
     "//base:tasks_java",
-    "//base/test:test_support_java",
     "//chrome/browser/profiles/android:java",
     "//chrome/test/android:chrome_java_unit_test_support",
     "//components/browser_ui/bottomsheet/android:java",
     "//components/browser_ui/share/android:java",
-    "//components/feature_engagement/public:public_java",
     "//content/public/android:content_java",
     "//content/public/test/android:content_java_test_support",
     "//third_party/androidx:androidx_core_core_java",
     "//third_party/androidx:androidx_test_core_java",
-    "//third_party/androidx:androidx_test_runner_java",
     "//third_party/jni_zero:jni_zero_java",
     "//third_party/junit",
     "//third_party/mockito:mockito_java",
     "//ui/android:ui_java_test_support",
-    "//ui/android:ui_junit_test_support",
     "//ui/android:ui_no_recycler_view_java",
     "//url:url_java",
-  ]
-}
-
-android_library("unit_device_javatests") {
-  testonly = true
-  resources_package = "org.chromium.components.webapps"
-
-  sources = [ "java/src/org/chromium/components/webapps/pwa_restore_ui/PwaRestoreBottomSheetViewRenderTest.java" ]
-  deps = [
-    ":java",
-    ":pwa_restore_bottom_sheet_mediator_jni_headers_java",
-    "//base:base_java_test_support",
-    "//base:tasks_java",
-    "//chrome/android:chrome_java",
-    "//chrome/test/android:chrome_java_integration_test_support",
-    "//components/browser_ui/bottomsheet/android:java",
-    "//components/browser_ui/widget/android:unit_device_javatests",
-    "//content/public/test/android:content_java_test_support",
-    "//third_party/androidx:androidx_test_runner_java",
-    "//third_party/jni_zero:jni_zero_java",
-    "//third_party/junit",
-    "//third_party/mockito:mockito_java",
-    "//ui/android:ui_java",
-    "//ui/android:ui_java_resources",
-    "//ui/android:ui_java_test_support",
   ]
 }

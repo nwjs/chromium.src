@@ -8,8 +8,9 @@
 
 #import "base/no_destructor.h"
 #import "build/branding_buildflags.h"
-#import "components/safe_browsing/core/browser/db/v4_protocol_manager_util.h"
+#import "components/safe_browsing/core/browser/db/sb_protocol_manager_util.h"
 #import "components/safe_browsing/core/browser/db/v5_get_hash_protocol_manager.h"
+#import "components/safe_browsing/ios/browser/web_ui/web_ui_ios_info_singleton.h"
 #import "ios/chrome/browser/safe_browsing/model/v5_search_hashes_cache_factory.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
@@ -53,10 +54,10 @@ V5GetHashProtocolManagerFactory::BuildServiceInstanceFor(
   if (!safe_browsing_service) {
     return nullptr;
   }
-  // TODO(crbug.com/362791941): handle v4 references
   return std::make_unique<safe_browsing::V5GetHashProtocolManager>(
       safe_browsing_service->GetURLLoaderFactory(),
       safe_browsing::GetSBProtocolConfig(std::string(kClientName),
                                          /*disable_auto_update=*/false),
-      V5SearchHashesCacheFactory::GetForProfile(profile));
+      V5SearchHashesCacheFactory::GetForProfile(profile),
+      /*webui_delegate=*/safe_browsing::WebUIIOSInfoSingleton::GetInstance());
 }

@@ -150,18 +150,12 @@ void NtpAndroidCustomBackgroundService::SetCustomBackgroundInfo(
   pref_service_->ClearPref(prefs::kNtpAndroidChromeColorDict);
   if (!background_url.is_valid() && !collection_id.empty()) {
     // Daily refresh setup.
-    CustomBackground active;
-    active.daily_refresh_enabled = true;
-    active.collection_id = collection_id;
-    active.custom_background_url = GURL();
-    active_custom_background_ = active;
+    SetActiveCustomBackground(GURL(), collection_id,
+                              /*daily_refresh_enabled=*/true);
   } else if (background_url.is_valid()) {
     // Static image selection.
-    CustomBackground active;
-    active.daily_refresh_enabled = false;
-    active.collection_id = collection_id;
-    active.custom_background_url = background_url;
-    active_custom_background_ = active;
+    SetActiveCustomBackground(background_url, collection_id,
+                              /*daily_refresh_enabled=*/false);
   } else {
     // Reset.
     active_custom_background_ = std::nullopt;
@@ -169,11 +163,10 @@ void NtpAndroidCustomBackgroundService::SetCustomBackgroundInfo(
   NtpCustomBackgroundServiceBase::SetCustomBackgroundInfo(
       background_url, thumbnail_url, attribution_line_1, attribution_line_2,
       action_url, collection_id);
-  // TODO(crbug.com/488439751): For daily refresh setup, NotifySyncBridge pushes
-  // stale background data from PrefService because the first daily image fetch
-  // is asynchronous. Defer sync notification until the new daily image and its
-  // primary color are fetched and updated.
-  NotifySyncBridge();
+  // Note: We do not notify the sync bridge here. Outbound sync is deferred
+  // until the image bitmap and its primary color are calculated on the Java
+  // side, which then updates the color and notifies the sync bridge via
+  // UpdateThemeCollectionPrefsWithColor.
 }
 
 void NtpAndroidCustomBackgroundService::ResetCustomBackgroundInfo() {
@@ -259,6 +252,25 @@ void NtpAndroidCustomBackgroundService::NotifyAboutBackgrounds() {
   NtpCustomBackgroundServiceBase::NotifyAboutBackgrounds();
 }
 
+void NtpAndroidCustomBackgroundService::SetActiveCustomBackground(
+    const GURL& url,
+    const std::string& collection_id,
+    bool daily_refresh_enabled) {
+  CustomBackground active;
+  active.daily_refresh_enabled = daily_refresh_enabled;
+  active.collection_id = collection_id;
+  active.custom_background_url = url;
+  active_custom_background_ = active;
+}
+
+bool NtpAndroidCustomBackgroundService::IsActiveCustomBackground(
+    const GURL& image_url,
+    bool is_daily_refresh) const {
+  return active_custom_background_.has_value() &&
+         active_custom_background_->custom_background_url == image_url &&
+         active_custom_background_->daily_refresh_enabled == is_daily_refresh;
+}
+
 bool NtpAndroidCustomBackgroundService::IsNextThemeCollectionImage(
     const CustomBackground& new_info) {
   return active_custom_background_ &&
@@ -268,16 +280,54 @@ bool NtpAndroidCustomBackgroundService::IsNextThemeCollectionImage(
          active_custom_background_->collection_id == new_info.collection_id;
 }
 
-bool NtpAndroidCustomBackgroundService::UpdateCustomBackgroundPrefsWithColor(
+void NtpAndroidCustomBackgroundService::UpdateThemeCollectionPrefsWithColor(
     const GURL& image_url,
-    SkColor color) {
-  base::AutoReset<bool> auto_reset(&updating_color_pref_, true);
-  if (!NtpCustomBackgroundServiceBase::UpdateCustomBackgroundPrefsWithColor(
-          image_url, color)) {
-    return false;
+    const std::string& collection_id,
+    const std::string& attribution,
+    SkColor color,
+    bool is_daily_refresh) {
+  if (!image_url.is_valid()) {
+    return;
   }
+
+  processing_sync_update_ = false;
+  base::AutoReset<bool> auto_reset(&updating_color_pref_, true);
+
+  // Unconditionally ensure local-to-device and theme color ID are reset when
+  // updating a custom theme collection background.
+  pref_service_->ClearPref(prefs::kNtpAndroidChromeColorDict);
+  pref_service_->SetBoolean(prefs::kNtpAndroidCustomBackgroundLocalToDevice,
+                            false);
+
+  // If SetCustomBackgroundInfo() was already called for this background (online
+  // gallery picker flow), patch the color in-place so existing attributions and
+  // metadata are preserved; otherwise (e.g. local history re-selection),
+  // rebuild the preference dictionary from scratch.
+  if (!IsActiveCustomBackground(image_url, is_daily_refresh) ||
+      !NtpCustomBackgroundServiceBase::UpdateCustomBackgroundPrefsWithColor(
+          image_url, color)) {
+    SetActiveCustomBackground(image_url, collection_id, is_daily_refresh);
+
+    // TODO(crbug.com/393165243): Deal with daily update feature sync. The
+    // timestamp might need to be an actual time point instead of INT_MAX, and
+    // the real resume token should be plumbed through so that daily refresh
+    // continues from the right position.
+    // TODO(crbug.com/488439751): Plumb the two attribution lines separately
+    // from Java. `attribution` is a single string that already joins them, so
+    // the second line is lost here and platforms that render the two lines
+    // separately show them squashed into one.
+    base::DictValue new_background_info = GetBackgroundInfoAsDict(
+        image_url, attribution, /*attribution_line_2=*/std::string(),
+        /*action_url=*/GURL(), collection_id, /*resume_token=*/std::nullopt,
+        is_daily_refresh ? GetNextRefreshTimestamp().value_or(INT_MAX) : 0);
+    new_background_info.Set(kNtpCustomBackgroundMainColor,
+                            static_cast<int>(color));
+
+    pref_service_->SetDict(prefs::kNtpAndroidCustomBackgroundDict,
+                           std::move(new_background_info));
+  }
+
   NotifySyncBridge();
-  return true;
 }
 
 void NtpAndroidCustomBackgroundService::OnThemeChangedFromSync(
@@ -312,7 +362,8 @@ void NtpAndroidCustomBackgroundService::OnThemeChangedFromSync(
 }
 
 void NtpAndroidCustomBackgroundService::SetChromeColor(int color_id) {
-  CHECK_GT(color_id, 0);
+  CHECK_GT(color_id, 0) << "Invalid ids must be routed to "
+                           "ResetCustomBackgroundInfo() by the caller.";
 
   processing_sync_update_ = false;
   active_custom_background_ = std::nullopt;
@@ -355,8 +406,11 @@ void NtpAndroidCustomBackgroundService::NotifySyncBridge() {
       *specifics.mutable_ntp_background() =
           themes::GetProtoFromBackgroundDict(pref->GetDict());
 
-      if (std::optional<int> main_color =
-              pref->GetDict().FindInt(kNtpCustomBackgroundMainColor)) {
+      std::optional<int> main_color =
+          pref->GetDict().FindInt(kNtpCustomBackgroundMainColor);
+      if (main_color.value_or(0) == 0) {
+        specifics.mutable_ntp_background()->clear_main_color();
+      } else {
         sync_pb::UserColorTheme* user_color_theme =
             specifics.mutable_user_color_theme();
         user_color_theme->set_color(static_cast<uint32_t>(*main_color));

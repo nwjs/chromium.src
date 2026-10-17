@@ -4,6 +4,7 @@
 
 #include "content/browser/devtools/render_frame_devtools_agent_host.h"
 
+#include <algorithm>
 #include <set>
 #include <string>
 #include <tuple>
@@ -34,6 +35,7 @@
 #include "content/browser/devtools/protocol/emulation_handler.h"
 #include "content/browser/devtools/protocol/fedcm_handler.h"
 #include "content/browser/devtools/protocol/fetch_handler.h"
+#include "content/browser/devtools/protocol/find_in_page_handler.h"
 #include "content/browser/devtools/protocol/handler_helpers.h"
 #include "content/browser/devtools/protocol/input_handler.h"
 #include "content/browser/devtools/protocol/inspector_handler.h"
@@ -54,7 +56,6 @@
 #include "content/browser/devtools/protocol/tracing_handler.h"
 #include "content/browser/devtools/protocol/webmcp_handler.h"
 #include "content/browser/devtools/web_contents_devtools_agent_host.h"
-#include "content/browser/fenced_frame/fenced_frame.h"
 #include "content/browser/preloading/prerender/prerender_host_registry.h"
 #include "content/browser/renderer_host/navigation_request.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
@@ -479,6 +480,7 @@ bool RenderFrameDevToolsAgentHost::AttachSession(DevToolsSession* session) {
     CHECK(root_session);
     session->CreateAndAddHandler<protocol::TracingHandler>(
         this, GetIOContext(), root_session, session->GetClient()->IsTrusted());
+    session->CreateAndAddHandler<protocol::FindInPageHandler>();
   }
   session->CreateAndAddHandler<protocol::WebMCPHandler>();
   session->CreateAndAddHandler<protocol::LogHandler>();
@@ -586,7 +588,16 @@ void RenderFrameDevToolsAgentHost::DidFinishNavigation(
     // anything to update here. Eagerly updating the tracked RFH is harmful,
     // since the same-document navigation may interleave with cross-document
     // navigations, e.g. if triggered from an unload handler.
-    if (!request->IsSameDocument()) {
+    // Another navigation may still be waiting to commit in the selected RFH.
+    // Finishing this navigation must not switch away from that RFH.
+    const bool should_update_frame_host =
+        !request->IsSameDocument() &&
+        std::ranges::none_of(
+            navigation_requests_, [this](const auto& pending_request) {
+              return pending_request->IsWaitingToCommit() &&
+                     pending_request->GetRenderFrameHost() == frame_host_.get();
+            });
+    if (should_update_frame_host) {
       // UpdateFrameHost may destruct |this|.
       protect = this;
       UpdateFrameHost(frame_tree_node_->current_frame_host());
@@ -603,12 +614,6 @@ void RenderFrameDevToolsAgentHost::DidFinishNavigation(
 
 void RenderFrameDevToolsAgentHost::UpdateFrameHost(
     RenderFrameHostImpl* frame_host) {
-  if (frame_host == frame_host_) {
-    if (frame_host && !render_frame_alive_)
-      UpdateFrameAlive();
-    return;
-  }
-
   if (frame_host && !ShouldCreateDevToolsForHost(frame_host)) {
     DestroyOnRenderFrameGone();
     // |this| may be deleted at this point.
@@ -625,6 +630,12 @@ void RenderFrameDevToolsAgentHost::UpdateFrameHost(
   if (!restricted_sessions.empty()) {
     protect = this;
     ForceDetachRestrictedSessions(restricted_sessions);
+  }
+
+  if (frame_host == frame_host_) {
+    if (frame_host && !render_frame_alive_)
+      UpdateFrameAlive();
+    return;
   }
 
   RenderFrameHostImpl* old_host = frame_host_;
@@ -799,12 +810,6 @@ void RenderFrameDevToolsAgentHost::OnNavigationRequestWillBeSent(
   }
   if (!restricted_sessions.empty())
     ForceDetachRestrictedSessions(restricted_sessions);
-}
-
-void RenderFrameDevToolsAgentHost::DidCreateFencedFrame(
-    FencedFrame* fenced_frame) {
-  auto_attacher_->AutoAttachToPage(fenced_frame->GetInnerRoot()->frame_tree(),
-                                   true);
 }
 
 void RenderFrameDevToolsAgentHost::DisconnectWebContents() {

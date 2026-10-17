@@ -183,6 +183,8 @@ void Partitions::InitializeArrayBufferPartition() {
             partition_alloc::PartitionOptions::kAllowed;
         opts.memory_tagging = {
             .enabled = partition_alloc::PartitionOptions::kDisabled};
+        opts.allow_giga_allocations =
+            partition_alloc::PartitionOptions::kAllowed;
         return opts;
       }());
 
@@ -231,7 +233,7 @@ namespace {
 class LightPartitionStatsDumperImpl
     : public partition_alloc::PartitionStatsDumper {
  public:
-  LightPartitionStatsDumperImpl() : total_active_bytes_(0) {}
+  LightPartitionStatsDumperImpl() = default;
 
   void PartitionDumpTotals(
       const char* partition_name,
@@ -246,7 +248,7 @@ class LightPartitionStatsDumperImpl
   size_t TotalActiveBytes() const { return total_active_bytes_; }
 
  private:
-  size_t total_active_bytes_;
+  size_t total_active_bytes_ = 0;
 };
 
 }  // namespace

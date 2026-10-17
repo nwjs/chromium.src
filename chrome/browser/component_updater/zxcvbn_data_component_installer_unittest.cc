@@ -4,6 +4,8 @@
 
 #include "chrome/browser/component_updater/zxcvbn_data_component_installer.h"
 
+#include <stdint.h>
+
 #include <optional>
 #include <string_view>
 
@@ -67,6 +69,9 @@ class ZxcvbnDataComponentInstallerPolicyTest : public ::testing::Test {
 
     SetVersion(kTextfilesOnlyVersion);
   }
+
+  // The dictionary is process-global; drop it so later tests start empty.
+  void TearDown() override { zxcvbn::SetRankedDicts(zxcvbn::RankedDicts()); }
 
   ZxcvbnDataComponentInstallerPolicy& policy() { return policy_; }
 

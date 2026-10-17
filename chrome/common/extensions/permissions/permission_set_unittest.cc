@@ -868,14 +868,18 @@ TEST(PermissionsTest, PermissionMessages) {
   skip.insert(APIPermissionID::kEchoPrivate);
   skip.insert(APIPermissionID::kEnterprisePlatformKeysPrivate);
   skip.insert(APIPermissionID::kFeedbackPrivate);
+#if BUILDFLAG(IS_CHROMEOS)
   skip.insert(APIPermissionID::kFileManagerPrivate);
+#endif
 #if BUILDFLAG(ENABLE_PLATFORM_APPS)
   skip.insert(APIPermissionID::kFirstRunPrivate);
 #endif
   skip.insert(APIPermissionID::kGlicPrivate);
   skip.insert(APIPermissionID::kGlicPrivateInvoke);
   skip.insert(APIPermissionID::kImageLoaderPrivate);
+#if BUILDFLAG(IS_CHROMEOS)
   skip.insert(APIPermissionID::kInputMethodPrivate);
+#endif
   skip.insert(APIPermissionID::kLanguageSettingsPrivate);
   skip.insert(APIPermissionID::kLockWindowFullscreenPrivate);
   skip.insert(APIPermissionID::kMediaPlayerPrivate);
@@ -910,7 +914,9 @@ TEST(PermissionsTest, PermissionMessages) {
 #endif
   skip.insert(APIPermissionID::kHid);
   skip.insert(APIPermissionID::kFileSystem);
+#if BUILDFLAG(IS_CHROMEOS)
   skip.insert(APIPermissionID::kFileSystemProvider);
+#endif
   skip.insert(APIPermissionID::kFileSystemRequestFileSystem);
   skip.insert(APIPermissionID::kFileSystemRetainEntries);
   skip.insert(APIPermissionID::kFileSystemWrite);

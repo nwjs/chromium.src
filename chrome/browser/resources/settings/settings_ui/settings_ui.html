@@ -16,6 +16,17 @@
         --settings-menu-width: 250px;
       }
 
+      :host-context([settings-refresh-2026]) cr-toolbar::part(search-field) {
+        height: 28px;
+        padding: 4px 10px;
+      }
+
+      :host-context([settings-refresh-2026]) cr-toolbar::part(search-input) {
+        color: var(--color-toolbar-search-field-text-color);
+        font-weight: 400;
+        line-height: 167%;
+      }
+
       cr-toolbar {
         min-height: 56px;
         --cr-toolbar-center-basis: var(--settings-main-basis);
@@ -58,6 +69,10 @@
         width: var(--settings-menu-width);
       }
 
+      #left[collapsed] settings-menu {
+        width: 55px;
+      }
+
       #main {
         flex-basis: var(--settings-main-basis);
       }
@@ -87,7 +102,7 @@
         role="banner"
         narrow="{{narrow_}}"
         narrow-threshold="980"
-        show-menu="[[narrow_]]">
+        show-menu="[[getLeftMenuHidden_(narrow_, isSettingsRefresh2026_)]]">
     </cr-toolbar>
     <cr-drawer id="drawer" on-close="onMenuClose_" heading="$i18n{settings}"
         align="$i18n{textdirection}">
@@ -100,12 +115,20 @@
     </cr-drawer>
     <div id="container" class="no-outline cr-scrollable">
       <div id="scrollableShadow" class="cr-scrollable-top-shadow"></div>
-      <div id="left" hidden$="[[narrow_]]">
-        <settings-menu id="leftMenu" on-iron-activate="onIronActivate_">
+      <div id="left"
+          hidden$="[[getLeftMenuHidden_(narrow_, isSettingsRefresh2026_)]]"
+          collapsed$="[[getLeftMenuCollapsed_(
+              narrow_, isSettingsRefresh2026_)]]">
+        <settings-menu id="leftMenu"
+            collapsed="[[getLeftMenuCollapsed_(
+                narrow_, isSettingsRefresh2026_)]]"
+            on-iron-activate="onIronActivate_">
         </settings-menu>
       </div>
       <settings-main id="main" prefs="{{prefs}}"
-          toolbar-spinner-active="{{toolbarSpinnerActive_}}">
+          toolbar-spinner-active="{{toolbarSpinnerActive_}}"
+          on-search-finished="onSearchFinished_"
+          on-search-result-interaction="onSearchResultInteraction_">
       </settings-main>
       <!-- An additional child of the flex #container to take up space,
            aligned with the right-hand child of the flex toolbar. -->

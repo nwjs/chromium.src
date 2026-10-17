@@ -42,23 +42,29 @@ PairwisePrimitiveInterpolation*
 InvalidatableInterpolation::MaybeConvertPairwise(
     const CSSInterpolationEnvironment& environment,
     const UnderlyingValueOwner& underlying_value_owner) const {
+  const InterpolationValue null_underlying(nullptr);
   for (const InterpolationType* interpolation_type : *interpolation_types_) {
     if ((start_keyframe_->IsNeutral() || end_keyframe_->IsNeutral()) &&
         (!underlying_value_owner ||
          underlying_value_owner.GetType() != interpolation_type)) {
       continue;
     }
+    const InterpolationValue& underlying =
+        (underlying_value_owner &&
+         underlying_value_owner.GetType() == interpolation_type)
+            ? underlying_value_owner.Value()
+            : null_underlying;
     ConversionCheckers conversion_checkers;
     PairwiseInterpolationValue result =
         interpolation_type->MaybeConvertPairwise(
-            *start_keyframe_, *end_keyframe_, environment,
-            underlying_value_owner.Value(), conversion_checkers);
+            *start_keyframe_, *end_keyframe_, environment, underlying,
+            conversion_checkers);
     AddConversionCheckers(interpolation_type, conversion_checkers);
     if (result) {
       return MakeGarbageCollected<PairwisePrimitiveInterpolation>(
           interpolation_type, std::move(result.start_interpolable_value),
           std::move(result.end_interpolable_value),
-          std::move(result.non_interpolable_value));
+          std::move(result.non_interpolable_value), result.is_attr_tainted);
     }
   }
   return nullptr;
@@ -71,20 +77,24 @@ TypedInterpolationValue* InvalidatableInterpolation::ConvertSingleKeyframe(
   if (keyframe.IsNeutral() && !underlying_value_owner) {
     return nullptr;
   }
+  const InterpolationValue null_underlying(nullptr);
   for (const InterpolationType* interpolation_type : *interpolation_types_) {
     if (keyframe.IsNeutral() &&
         underlying_value_owner.GetType() != interpolation_type) {
       continue;
     }
+    const InterpolationValue& underlying =
+        (underlying_value_owner &&
+         underlying_value_owner.GetType() == interpolation_type)
+            ? underlying_value_owner.Value()
+            : null_underlying;
     ConversionCheckers conversion_checkers;
     InterpolationValue result = interpolation_type->MaybeConvertSingle(
-        keyframe, environment, underlying_value_owner.Value(),
-        conversion_checkers);
+        keyframe, environment, underlying, conversion_checkers);
     AddConversionCheckers(interpolation_type, conversion_checkers);
     if (result) {
-      return MakeGarbageCollected<TypedInterpolationValue>(
-          interpolation_type, std::move(result.interpolable_value),
-          std::move(result.non_interpolable_value));
+      return MakeGarbageCollected<TypedInterpolationValue>(interpolation_type,
+                                                           std::move(result));
     }
   }
   DCHECK(keyframe.IsNeutral());
@@ -107,9 +117,8 @@ InvalidatableInterpolation::MaybeConvertUnderlyingValue(
     InterpolationValue result =
         interpolation_type->MaybeConvertUnderlyingValue(environment);
     if (result) {
-      return MakeGarbageCollected<TypedInterpolationValue>(
-          interpolation_type, std::move(result.interpolable_value),
-          std::move(result.non_interpolable_value));
+      return MakeGarbageCollected<TypedInterpolationValue>(interpolation_type,
+                                                           std::move(result));
     }
   }
   return nullptr;
@@ -156,8 +165,14 @@ bool InvalidatableInterpolation::IsConversionCacheValid(
       return false;
     }
   }
+  const InterpolationValue null_underlying(nullptr);
   for (const auto& checker : conversion_checkers_) {
-    if (!checker->IsValid(environment, underlying_value_owner.Value())) {
+    const InterpolationValue& underlying =
+        (underlying_value_owner &&
+         underlying_value_owner.GetType() == checker->GetType())
+            ? underlying_value_owner.Value()
+            : null_underlying;
+    if (!checker->IsValid(environment, underlying)) {
       return false;
     }
   }
@@ -341,7 +356,8 @@ void InvalidatableInterpolation::ApplyStack(
         first_interpolation.SetFlagIfInheritUsed(environment);
         first_value->GetType()->Apply(first_value->GetInterpolableValue(),
                                       first_value->GetNonInterpolableValue(),
-                                      environment);
+                                      environment,
+                                      first_value->IsAttrTainted());
       }
       return;
     }
@@ -370,6 +386,9 @@ void InvalidatableInterpolation::ApplyStack(
         underlying_value_owner.GetType() != current_value->GetType()) {
       underlying_value_owner.Set(current_value);
     } else {
+      if (current_value->IsAttrTainted()) {
+        underlying_value_owner.MutableValue().is_attr_tainted = true;
+      }
       current_value->GetType()->Composite(
           underlying_value_owner, current_interpolation.UnderlyingFraction(),
           current_value->Value(), current_interpolation.current_fraction_);
@@ -380,7 +399,7 @@ void InvalidatableInterpolation::ApplyStack(
     underlying_value_owner.GetType()->Apply(
         *underlying_value_owner.Value().interpolable_value,
         underlying_value_owner.Value().non_interpolable_value.Get(),
-        environment);
+        environment, underlying_value_owner.Value().is_attr_tainted);
   }
 }
 

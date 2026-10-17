@@ -12,7 +12,6 @@
 
 #include "base/base64url.h"
 #include "base/check_deref.h"
-#include "base/compiler_specific.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/memory/raw_ptr_exclusion.h"
@@ -169,8 +168,10 @@
 #include "ui/events/base_event_utils.h"
 #include "ui/events/event_constants.h"
 #include "ui/events/test/test_event.h"
+#include "ui/gfx/skia_util.h"
 #include "ui/shell_dialogs/fake_select_file_dialog.h"
 #include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/controls/button/md_text_button.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/interaction/element_tracker_views.h"
@@ -178,6 +179,7 @@
 #include "ui/views/test/widget_test.h"
 #include "ui/views/view_utils.h"
 #include "ui/views/widget/any_widget_observer.h"
+#include "ui/views/window/dialog_delegate.h"
 #include "url/origin.h"
 
 namespace {
@@ -1517,10 +1519,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
       static_cast<lens::TestLensOverlayQueryController*>(
           GetLensOverlayQueryController());
   EXPECT_TRUE(fake_query_controller->last_queried_region_bytes());
-  UNSAFE_TODO(EXPECT_TRUE(
-      memcmp(fake_query_controller->last_queried_region_bytes()->getPixels(),
-             initial_bitmap.getPixels(),
-             initial_bitmap.computeByteSize()) == 0));
+  EXPECT_TRUE(gfx::BitmapsAreEqual(
+      *fake_query_controller->last_queried_region_bytes(), initial_bitmap));
   EXPECT_EQ(fake_query_controller->last_queried_region_bytes()->width(), 100);
   EXPECT_EQ(fake_query_controller->last_queried_region_bytes()->height(), 100);
   EXPECT_EQ(fake_query_controller->last_lens_selection_type(),
@@ -2444,7 +2444,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // Issue a text search request to open the side panel without the overlay.
   search_controller->IssueTextSearchRequest(
       LensOverlayInvocationSource::kContentAreaContextMenuText, "query", {},
-      AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       /*is_zero_prefix_suggestion=*/false,
       /*suppress_contextualization=*/false);
 
@@ -3282,7 +3282,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   EXPECT_TRUE(controller->GetOverlayViewForTesting()->GetVisible());
 
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "green", AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      kTestTime, "green", omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       /*is_zero_prefix_suggestion=*/false,
       std::map<std::string, std::string>());
 
@@ -3359,7 +3359,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   int tabs = browser()->GetTabStripModel()->count();
 
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "green", AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      kTestTime, "green", omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       /*is_zero_prefix_suggestion=*/false,
       std::map<std::string, std::string>());
 
@@ -3470,7 +3470,7 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_TRUE(controller->GetOverlayViewForTesting()->GetVisible());
 
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "green", AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      kTestTime, "green", omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       /*is_zero_prefix_suggestion=*/false,
       std::map<std::string, std::string>());
 
@@ -3568,7 +3568,7 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_TRUE(controller->GetOverlayViewForTesting()->GetVisible());
 
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "green", AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      kTestTime, "green", omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       /*is_zero_prefix_suggestion=*/false,
       std::map<std::string, std::string>());
 
@@ -3863,7 +3863,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest, CsbToHiddenState) {
             metrics::OmniboxEventProto::CONTEXTUAL_SEARCHBOX);
 
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "green", AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      kTestTime, "green", omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       /*is_zero_prefix_suggestion=*/false,
       std::map<std::string, std::string>());
 
@@ -3986,7 +3986,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
             metrics::OmniboxEventProto::CONTEXTUAL_SEARCHBOX);
 
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "hello", AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      kTestTime, "hello", omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       /*is_zero_prefix_suggestion=*/false,
       std::map<std::string, std::string>());
 
@@ -4031,7 +4031,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
 
   // Issue a regular searchbox request.
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "green", AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      kTestTime, "green", omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       /*is_zero_prefix_suggestion=*/false,
       std::map<std::string, std::string>());
 
@@ -4052,7 +4052,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   content::TestNavigationObserver second_searchbox_query_observer(
       controller->GetSidePanelWebContentsForTesting());
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "red", AutocompleteMatchType::Type::SEARCH_SUGGEST,
+      kTestTime, "red", omnibox::AutocompleteMatchType::kSearchSuggest,
       /*is_zero_prefix_suggestion=*/true, std::map<std::string, std::string>());
 
   // We can't use content::WaitForLoadStop here since the last navigation is
@@ -4071,7 +4071,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   content::TestNavigationObserver third_searchbox_query_observer(
       controller->GetSidePanelWebContentsForTesting());
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "blue", AutocompleteMatchType::Type::SEARCH_SUGGEST,
+      kTestTime, "blue", omnibox::AutocompleteMatchType::kSearchSuggest,
       /*is_zero_prefix_suggestion=*/false,
       std::map<std::string, std::string>());
 
@@ -4530,7 +4530,7 @@ IN_PROC_BROWSER_TEST_F(
   content::TestNavigationObserver first_searchbox_query_observer(
       controller->GetSidePanelWebContentsForTesting());
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "green", AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      kTestTime, "green", omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       /*is_zero_prefix_suggestion=*/false,
       std::map<std::string, std::string>());
   first_searchbox_query_observer.Wait();
@@ -4560,7 +4560,7 @@ IN_PROC_BROWSER_TEST_F(
   content::TestNavigationObserver second_searchbox_query_observer(
       controller->GetSidePanelWebContentsForTesting());
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "red", AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      kTestTime, "red", omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       /*is_zero_prefix_suggestion=*/true, std::map<std::string, std::string>());
   second_searchbox_query_observer.Wait();
 
@@ -4595,10 +4595,8 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_FALSE(controller->get_selected_text_for_region());
   EXPECT_EQ(fake_query_controller->last_queried_region(), kTestRegion);
   EXPECT_TRUE(fake_query_controller->last_queried_region_bytes());
-  UNSAFE_TODO(EXPECT_TRUE(
-      memcmp(fake_query_controller->last_queried_region_bytes()->getPixels(),
-             initial_bitmap.getPixels(),
-             initial_bitmap.computeByteSize()) == 0));
+  EXPECT_TRUE(gfx::BitmapsAreEqual(
+      *fake_query_controller->last_queried_region_bytes(), initial_bitmap));
   EXPECT_EQ(fake_query_controller->last_queried_region_bytes()->width(), 100);
   EXPECT_EQ(fake_query_controller->last_queried_region_bytes()->height(), 100);
   EXPECT_EQ(fake_query_controller->last_queried_text(), "green");
@@ -4616,10 +4614,8 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_FALSE(controller->get_selected_text_for_region());
   EXPECT_EQ(fake_query_controller->last_queried_region(), kTestRegion);
   EXPECT_TRUE(fake_query_controller->last_queried_region_bytes());
-  UNSAFE_TODO(EXPECT_TRUE(
-      memcmp(fake_query_controller->last_queried_region_bytes()->getPixels(),
-             initial_bitmap.getPixels(),
-             initial_bitmap.computeByteSize()) == 0));
+  EXPECT_TRUE(gfx::BitmapsAreEqual(
+      *fake_query_controller->last_queried_region_bytes(), initial_bitmap));
   EXPECT_EQ(fake_query_controller->last_queried_region_bytes()->width(), 100);
   EXPECT_EQ(fake_query_controller->last_queried_region_bytes()->height(), 100);
   EXPECT_TRUE(fake_query_controller->last_queried_text().empty());
@@ -5218,7 +5214,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
       [&]() { return controller->state() == State::kOverlay; }));
 
   // Open the find bar.
-  browser()->GetFeatures().GetFindBarController()->Show();
+  FindBarController::From(browser())->Show();
 
   // Verify the overlay turns off.
   ASSERT_TRUE(base::test::RunUntil(
@@ -6207,6 +6203,42 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFContextualizationTest,
 }
 
 IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFContextualizationTest,
+                       PdfBytesNotExtractedForEmbeddedPdfIframe) {
+  // Open an HTML page embedding a PDF in an iframe.
+  const GURL url = embedded_test_server()->GetURL("/pdf/test-iframe.html");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+
+  // State should start in off.
+  auto* controller = GetLensOverlayController();
+  ASSERT_TRUE(controller);
+  ASSERT_EQ(controller->state(), State::kOff);
+
+  // Open the overlay.
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
+  ASSERT_EQ(controller->state(), State::kScreenshot);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kOverlay; }));
+
+  auto* fake_query_controller =
+      static_cast<lens::TestLensOverlayQueryController*>(
+          GetLensOverlayQueryController());
+
+  // Wait until page content payload is sent.
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return fake_query_controller->last_sent_page_content_payload()
+               .content()
+               .content_data()
+               .size() >= 1;
+  }));
+  for (const auto& content_data :
+       fake_query_controller->last_sent_page_content_payload()
+           .content()
+           .content_data()) {
+    EXPECT_NE(content_data.content_type(), lens::ContentData::CONTENT_TYPE_PDF);
+  }
+}
+
+IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFContextualizationTest,
                        PartialPdfIncludedInRequest) {
   // Open the PDF document and wait for it to finish loading.
   const GURL url = embedded_test_server()->GetURL(kPdfDocument);
@@ -6309,7 +6341,7 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFContextualizationTest,
 
   // Make a searchbox query.
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "oranges", AutocompleteMatchType::SEARCH_SUGGEST,
+      kTestTime, "oranges", omnibox::AutocompleteMatchType::kSearchSuggest,
       /*is_zero_prefix_suggestion=*/false,
       /*additional_query_params=*/{});
 
@@ -6332,7 +6364,7 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFContextualizationTest,
 
   // Issue a new searchbox query.
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "oranges", AutocompleteMatchType::SEARCH_SUGGEST,
+      kTestTime, "oranges", omnibox::AutocompleteMatchType::kSearchSuggest,
       /*is_zero_prefix_suggestion=*/false,
       /*additional_query_params=*/{});
 
@@ -6468,7 +6500,7 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFContextualizationTest,
 
   // Issue a query.
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "red", AutocompleteMatchType::Type::SEARCH_SUGGEST,
+      kTestTime, "red", omnibox::AutocompleteMatchType::kSearchSuggest,
       /*is_zero_prefix_suggestion=*/true, std::map<std::string, std::string>());
 
   // Verify transitions to live page.
@@ -6522,7 +6554,7 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFContextualizationTest,
 
   // Simulate a zero suggest suggestion being chosen.
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "red", AutocompleteMatchType::Type::SEARCH_SUGGEST,
+      kTestTime, "red", omnibox::AutocompleteMatchType::kSearchSuggest,
       /*is_zero_prefix_suggestion=*/true, std::map<std::string, std::string>());
 
   // Issuing a search from the overlay state can only be done through the
@@ -6667,7 +6699,7 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFContextualizationTest,
 
   // Make a searchbox query.
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "oranges", AutocompleteMatchType::SEARCH_SUGGEST,
+      kTestTime, "oranges", omnibox::AutocompleteMatchType::kSearchSuggest,
       /*is_zero_prefix_suggestion=*/false,
       /*additional_query_params=*/{});
 
@@ -6689,7 +6721,7 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFContextualizationTest,
 
   // Issue a new searchbox query.
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "oranges", AutocompleteMatchType::SEARCH_SUGGEST,
+      kTestTime, "oranges", omnibox::AutocompleteMatchType::kSearchSuggest,
       /*is_zero_prefix_suggestion=*/false,
       /*additional_query_params=*/{});
 
@@ -6750,7 +6782,7 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFContextualizationTest,
   int tab_count = browser()->GetTabStripModel()->count();
 
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "green", AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      kTestTime, "green", omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       /*is_zero_prefix_suggestion=*/false,
       std::map<std::string, std::string>());
 
@@ -7162,7 +7194,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
 
   // Make a searchbox query.
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "oranges", AutocompleteMatchType::SEARCH_SUGGEST,
+      kTestTime, "oranges", omnibox::AutocompleteMatchType::kSearchSuggest,
       /*is_zero_prefix_suggestion=*/false,
       /*additional_query_params=*/{});
 
@@ -7450,7 +7482,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
 
   // Simulate a zero suggest suggestion being chosen.
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "red", AutocompleteMatchType::Type::SEARCH_SUGGEST,
+      kTestTime, "red", omnibox::AutocompleteMatchType::kSearchSuggest,
       /*is_zero_prefix_suggestion=*/true, std::map<std::string, std::string>());
 
   // Issuing a search from the overlay state can only be done through the
@@ -7595,7 +7627,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
 
   // Simulate a manual typed suggestion being entered.
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "red", AutocompleteMatchType::Type::SEARCH_SUGGEST,
+      kTestTime, "red", omnibox::AutocompleteMatchType::kSearchSuggest,
       /*is_zero_prefix_suggestion=*/false,
       std::map<std::string, std::string>());
 
@@ -7792,7 +7824,7 @@ IN_PROC_BROWSER_TEST_F(
   // Show ZPS and issue a query.
   controller->OnZeroSuggestShownForTesting();
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "red", AutocompleteMatchType::Type::SEARCH_SUGGEST,
+      kTestTime, "red", omnibox::AutocompleteMatchType::kSearchSuggest,
       /*is_zero_prefix_suggestion=*/false,
       std::map<std::string, std::string>());
   ASSERT_TRUE(base::test::RunUntil(
@@ -7833,7 +7865,7 @@ IN_PROC_BROWSER_TEST_F(
 
   // Issue a search query before ZPS is shown.
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "red", AutocompleteMatchType::Type::SEARCH_SUGGEST,
+      kTestTime, "red", omnibox::AutocompleteMatchType::kSearchSuggest,
       /*is_zero_prefix_suggestion=*/false,
       std::map<std::string, std::string>());
   ASSERT_TRUE(base::test::RunUntil(
@@ -7848,7 +7880,7 @@ IN_PROC_BROWSER_TEST_F(
 
   controller->OnZeroSuggestShownForTesting();
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "red", AutocompleteMatchType::Type::SEARCH_SUGGEST,
+      kTestTime, "red", omnibox::AutocompleteMatchType::kSearchSuggest,
       /*is_zero_prefix_suggestion=*/false,
       std::map<std::string, std::string>());
 
@@ -7895,7 +7927,7 @@ IN_PROC_BROWSER_TEST_F(
 
   // Issue a search query.
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "red", AutocompleteMatchType::Type::SEARCH_SUGGEST,
+      kTestTime, "red", omnibox::AutocompleteMatchType::kSearchSuggest,
       /*is_zero_prefix_suggestion=*/false,
       std::map<std::string, std::string>());
   ASSERT_TRUE(base::test::RunUntil(
@@ -7911,7 +7943,7 @@ IN_PROC_BROWSER_TEST_F(
   follow_up_query_issued_count =
       test_side_panel_coordinator->side_panel_loading_set_to_true_;
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "red", AutocompleteMatchType::Type::SEARCH_SUGGEST,
+      kTestTime, "red", omnibox::AutocompleteMatchType::kSearchSuggest,
       /*is_zero_prefix_suggestion=*/false,
       std::map<std::string, std::string>());
 
@@ -7954,7 +7986,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
 
   // Make a searchbox query.
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "oranges", AutocompleteMatchType::SEARCH_SUGGEST,
+      kTestTime, "oranges", omnibox::AutocompleteMatchType::kSearchSuggest,
       /*is_zero_prefix_suggestion=*/false,
       /*additional_query_params=*/{});
 
@@ -7972,7 +8004,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   content::TestNavigationObserver observer(
       controller->GetSidePanelWebContentsForTesting());
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "apples", AutocompleteMatchType::SEARCH_SUGGEST,
+      kTestTime, "apples", omnibox::AutocompleteMatchType::kSearchSuggest,
       /*is_zero_prefix_suggestion=*/false,
       /*additional_query_params=*/{});
 
@@ -8012,7 +8044,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   GetLensSearchController()->IssueTextSearchRequest(
       LensOverlayInvocationSource::kContentAreaContextMenuText, "test",
       /*additional_query_parameters=*/{},
-      AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       /*is_zero_prefix_suggestion=*/false,
       /*suppress_contextualization=*/false);
 
@@ -8030,7 +8062,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   content::TestNavigationObserver observer(
       controller->GetSidePanelWebContentsForTesting());
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "apples", AutocompleteMatchType::SEARCH_SUGGEST,
+      kTestTime, "apples", omnibox::AutocompleteMatchType::kSearchSuggest,
       /*is_zero_prefix_suggestion=*/false,
       /*additional_query_params=*/{});
 
@@ -8075,7 +8107,7 @@ IN_PROC_BROWSER_TEST_F(
   GetLensSearchController()->IssueTextSearchRequest(
       LensOverlayInvocationSource::kContentAreaContextMenuText, "test",
       /*additional_query_parameters=*/{},
-      AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       /*is_zero_prefix_suggestion=*/false,
       /*suppress_contextualization=*/true);
 
@@ -8093,7 +8125,7 @@ IN_PROC_BROWSER_TEST_F(
   content::TestNavigationObserver observer(
       controller->GetSidePanelWebContentsForTesting());
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "apples", AutocompleteMatchType::SEARCH_SUGGEST,
+      kTestTime, "apples", omnibox::AutocompleteMatchType::kSearchSuggest,
       /*is_zero_prefix_suggestion=*/false,
       /*additional_query_params=*/{});
 
@@ -8155,7 +8187,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
 
   // Make a searchbox query.
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "oranges", AutocompleteMatchType::SEARCH_SUGGEST,
+      kTestTime, "oranges", omnibox::AutocompleteMatchType::kSearchSuggest,
       /*is_zero_prefix_suggestion=*/false,
       /*additional_query_params=*/{});
 
@@ -8177,7 +8209,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
 
   // Issue a new searchbox query.
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "oranges", AutocompleteMatchType::SEARCH_SUGGEST,
+      kTestTime, "oranges", omnibox::AutocompleteMatchType::kSearchSuggest,
       /*is_zero_prefix_suggestion=*/false,
       /*additional_query_params=*/{});
 
@@ -8221,7 +8253,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
 
   // Issue a new searchbox query.
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "oranges", AutocompleteMatchType::SEARCH_SUGGEST,
+      kTestTime, "oranges", omnibox::AutocompleteMatchType::kSearchSuggest,
       /*is_zero_prefix_suggestion=*/false,
       /*additional_query_params=*/{});
 
@@ -8487,7 +8519,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
 
   // Make a searchbox query to open the live page and side panel.
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "oranges", AutocompleteMatchType::SEARCH_SUGGEST,
+      kTestTime, "oranges", omnibox::AutocompleteMatchType::kSearchSuggest,
       /*is_zero_prefix_suggestion=*/false,
       /*additional_query_params=*/{});
 
@@ -9095,7 +9127,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerOverlaySearchbox,
             metrics::OmniboxEventProto::CONTEXTUAL_SEARCHBOX);
 
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "hello", AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      kTestTime, "hello", omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       /*is_zero_prefix_suggestion=*/false,
       std::map<std::string, std::string>());
 
@@ -9137,7 +9169,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerOverlaySearchbox,
             metrics::OmniboxEventProto::CONTEXTUAL_SEARCHBOX);
 
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "hello", AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      kTestTime, "hello", omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       /*is_zero_prefix_suggestion=*/false,
       std::map<std::string, std::string>());
 
@@ -9574,7 +9606,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   content::TestNavigationObserver multimodal_observer(
       controller->GetSidePanelWebContentsForTesting());
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, test_text, AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      kTestTime, test_text, omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       /*is_zero_prefix_suggestion=*/false,
       std::map<std::string, std::string>());
   multimodal_observer.WaitForNavigationFinished();
@@ -9719,7 +9751,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest, ReshowOverlay) {
 
   // Make a searchbox query to open the side panel and hide the overlay.
   controller->IssueSearchBoxRequestForTesting(
-      kTestTime, "oranges", AutocompleteMatchType::SEARCH_SUGGEST,
+      kTestTime, "oranges", omnibox::AutocompleteMatchType::kSearchSuggest,
       /*is_zero_prefix_suggestion=*/false,
       /*additional_query_params=*/{});
 
@@ -9860,7 +9892,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerReinvocationBrowserTest,
   // Issue a text search request to open the side panel without the overlay.
   GetLensSearchController()->IssueTextSearchRequest(
       LensOverlayInvocationSource::kContentAreaContextMenuText, "query", {},
-      AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       /*is_zero_prefix_suggestion=*/false,
       /*suppress_contextualization=*/true);
 
@@ -9913,7 +9945,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerReinvocationBrowserTest,
   // navigation in the side panel finishes.
   controller->IssueSearchBoxRequestForTesting(
       base::Time::Now(), "first query",
-      AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       /*is_zero_prefix_suggestion=*/false, {{"vsqid", "fake_vsqid"}});
 
   // Wait for the side panel to open and load.
@@ -10031,7 +10063,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerReinvocationBrowserTest,
   // Issue a text search request to open the side panel without the overlay.
   GetLensSearchController()->IssueTextSearchRequest(
       LensOverlayInvocationSource::kContentAreaContextMenuText, "query", {},
-      AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       /*is_zero_prefix_suggestion=*/false,
       /*suppress_contextualization=*/true);
 
@@ -10128,7 +10160,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerReinvocationBrowserTest,
   // Issue a text search request to open the side panel without the overlay.
   search_controller->IssueTextSearchRequest(
       LensOverlayInvocationSource::kContentAreaContextMenuText, "query", {},
-      AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      omnibox::AutocompleteMatchType::kSearchWhatYouTyped,
       /*is_zero_prefix_suggestion=*/false,
       /*suppress_contextualization=*/true);
 
@@ -10663,6 +10695,68 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerNonBlockingPrivacyNoticeBrowserTest,
   histogram_tester.ExpectUniqueSample(
       "Lens.Overlay.NonBlockingPrivacyNotice.Accepted",
       lens::LensOverlayNonBlockingPrivacyNoticeUserAction::kDismissed, 1);
+}
+
+IN_PROC_BROWSER_TEST_F(LensOverlayControllerNonBlockingPrivacyNoticeBrowserTest,
+                       ContextualTasksComposebox_HidesPrivacyNotice) {
+  WaitForPaint();
+
+  base::HistogramTester histogram_tester;
+
+  auto* controller = GetLensOverlayController();
+  EXPECT_EQ(controller->state(), State::kOff);
+
+  auto* prefs = browser()->GetProfile()->GetPrefs();
+  EXPECT_FALSE(
+      prefs->GetBoolean(lens::prefs::kLensSharingPageScreenshotEnabled));
+  EXPECT_FALSE(prefs->GetBoolean(lens::prefs::kLensSharingPageContentEnabled));
+
+  // Open the overlay from the Contextual Tasks composebox Lens button.
+  OpenLensOverlay(LensOverlayInvocationSource::kContextualTasksComposebox);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kOverlay; }));
+
+  EXPECT_TRUE(controller->ShouldHideNonBlockingPrivacyNotice());
+
+  content::WebContents* overlay_web_contents = GetOverlayWebContents();
+  ASSERT_NE(overlay_web_contents, nullptr);
+  EXPECT_TRUE(content::WaitForLoadStop(overlay_web_contents));
+
+  // Verify the privacy notice is disabled in the WebUI and impression count is
+  // not incremented.
+  EXPECT_EQ(false, content::EvalJs(overlay_web_contents,
+                                   "document.querySelector('lens-overlay-app')."
+                                   "isPrivacyNoticeVisible"));
+  EXPECT_EQ(false, content::EvalJs(overlay_web_contents,
+                                   "document.querySelector('lens-overlay-app')."
+                                   "hasPermissionsForSession"));
+  EXPECT_EQ(true,
+            content::EvalJs(overlay_web_contents,
+                            "document.querySelector('lens-overlay-app')."
+                            "shadowRoot.querySelector('#privacyNotice') === "
+                            "null"));
+  EXPECT_EQ(0,
+            prefs->GetInteger(
+                lens::prefs::kLensOverlayNonBlockingPrivacyNoticeShownCount));
+  histogram_tester.ExpectTotalCount(
+      "Lens.Overlay.NonBlockingPrivacyNotice.ToBeShown", 0);
+
+  // Interacting with the overlay should still grant session permissions without
+  // recording privacy notice acceptance metrics.
+  controller->IssueLensRegionRequestForTesting(kTestRegion->Clone(),
+                                               /*is_click=*/false);
+  auto* fake_query_controller =
+      static_cast<lens::TestLensOverlayQueryController*>(
+          GetLensOverlayQueryController());
+  EXPECT_TRUE(fake_query_controller->HasPermissionForSession());
+  EXPECT_FALSE(
+      prefs->GetBoolean(lens::prefs::kLensSharingPageScreenshotEnabled));
+  EXPECT_FALSE(prefs->GetBoolean(lens::prefs::kLensSharingPageContentEnabled));
+
+  CloseOverlayAndWaitForOff(controller,
+                            LensOverlayDismissalSource::kOverlayCloseButton);
+  histogram_tester.ExpectTotalCount(
+      "Lens.Overlay.NonBlockingPrivacyNotice.Accepted", 0);
 }
 
 class LensOverlayControllerPrivacyNoticeFeatureDisabledBrowserTest

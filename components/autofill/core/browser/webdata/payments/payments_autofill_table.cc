@@ -153,10 +153,9 @@ constexpr std::string_view kValuePropText = "value_prop_text";
 constexpr std::string_view kSeeDetailsText = "see_details_text";
 constexpr std::string_view kUsageInstructionsText = "usage_instructions_text";
 
+// Removed in version 158. Only referenced by migration code.
 constexpr std::string_view kOfferEligibleInstrumentTable =
     "offer_eligible_instrument";
-// kOfferId = "offer_id"
-// kInstrumentId = "instrument_id"
 
 constexpr std::string_view kOfferMerchantDomainTable = "offer_merchant_domain";
 // kOfferId = "offer_id"
@@ -459,6 +458,46 @@ T CheckedToEnum(std::underlying_type_t<T> raw_int) {
   return IsKnownEnumValue(e) ? e : T::kMinValue;
 }
 
+bool RemoveAutofillOfferRows(sql::Database& db, std::string_view offer_id) {
+  return sql::DeleteWhereColumnEq(db, kOfferDataTable, kOfferId, offer_id) &&
+         sql::DeleteWhereColumnEq(db, kOfferMerchantDomainTable, kOfferId,
+                                  offer_id);
+}
+
+bool InsertOffer(sql::Database& db, const AutofillOfferData& offer) {
+  sql::Statement insert_offer;
+  sql::CachedInsertBuilder(
+      SQL_FROM_HERE, db, insert_offer, kOfferDataTable,
+      {kOfferId, kOfferRewardAmount, kExpiry, kOfferDetailsUrl, kPromoCode,
+       kValuePropText, kSeeDetailsText, kUsageInstructionsText});
+  insert_offer.BindString(0, offer.GetOfferId());
+  insert_offer.BindString(1, offer.GetOfferRewardAmount());
+  insert_offer.BindInt64(
+      2, offer.GetExpiry().ToDeltaSinceWindowsEpoch().InMilliseconds());
+  insert_offer.BindString(3, offer.GetOfferDetailsUrl().spec());
+  insert_offer.BindString(4, offer.GetPromoCode());
+  insert_offer.BindString(5, offer.GetDisplayStrings().value_prop_text);
+  insert_offer.BindString(6, offer.GetDisplayStrings().see_details_text);
+  insert_offer.BindString(7, offer.GetDisplayStrings().usage_instructions_text);
+  if (!insert_offer.Run()) {
+    return false;
+  }
+
+  sql::Statement insert_merchant_domain;
+  sql::CachedInsertBuilder(SQL_FROM_HERE, db, insert_merchant_domain,
+                           kOfferMerchantDomainTable,
+                           {kOfferId, kMerchantDomain});
+  for (const GURL& merchant_origin : offer.GetMerchantOrigins()) {
+    insert_merchant_domain.BindString(0, offer.GetOfferId());
+    insert_merchant_domain.BindString(1, merchant_origin.spec());
+    if (!insert_merchant_domain.Run()) {
+      return false;
+    }
+    insert_merchant_domain.Reset(/*clear_bound_vars=*/true);
+  }
+  return true;
+}
+
 }  // namespace
 
 PaymentsAutofillTable::PaymentsAutofillTable() = default;
@@ -479,9 +518,8 @@ bool PaymentsAutofillTable::CreateTablesIfNecessary() {
          InitMaskedCreditCardsTable() && InitServerCardMetadataTable() &&
          InitPaymentsCustomerDataTable() &&
          InitServerCreditCardCloudTokenDataTable() && InitOfferDataTable() &&
-         InitOfferEligibleInstrumentTable() && InitOfferMerchantDomainTable() &&
-         InitVirtualCardUsageDataTable() && InitStoredCvcTable() &&
-         InitMaskedBankAccountsTable() &&
+         InitOfferMerchantDomainTable() && InitVirtualCardUsageDataTable() &&
+         InitStoredCvcTable() && InitMaskedBankAccountsTable() &&
          InitMaskedBankAccountsMetadataTable() && InitMaskedIbansTable() &&
          InitMaskedIbansMetadataTable() &&
          InitMaskedCreditCardBenefitsTable() &&
@@ -592,6 +630,9 @@ bool PaymentsAutofillTable::MigrateToVersion(int version,
     case 156:
       *update_compatible_version = false;
       return MigrateToVersion156ClearLegacyOffers();
+    case 158:
+      *update_compatible_version = true;
+      return MigrateToVersion158OfferIdAsString();
   }
   return true;
 }
@@ -1378,57 +1419,41 @@ void PaymentsAutofillTable::SetAutofillOffers(
 
   // Delete all old values.
   sql::DeleteAllRows(*db(), kOfferDataTable);
-  sql::DeleteAllRows(*db(), kOfferEligibleInstrumentTable);
   sql::DeleteAllRows(*db(), kOfferMerchantDomainTable);
 
   // Insert new values.
-  sql::Statement insert_offers;
-  sql::CachedInsertBuilder(
-      SQL_FROM_HERE, *db(), insert_offers, kOfferDataTable,
-      {kOfferId, kOfferRewardAmount, kExpiry, kOfferDetailsUrl, kPromoCode,
-       kValuePropText, kSeeDetailsText, kUsageInstructionsText});
-
-  sql::Statement insert_offer_eligible_instruments;
-  sql::CachedInsertBuilder(
-      SQL_FROM_HERE, *db(), insert_offer_eligible_instruments,
-      kOfferEligibleInstrumentTable, {kOfferId, kInstrumentId});
-
-  sql::Statement insert_offer_merchant_domains;
-  sql::CachedInsertBuilder(SQL_FROM_HERE, *db(), insert_offer_merchant_domains,
-                           kOfferMerchantDomainTable,
-                           {kOfferId, kMerchantDomain});
-
   for (const AutofillOfferData& data : autofill_offer_data) {
-    insert_offers.BindInt64(0, data.GetOfferId());
-    insert_offers.BindString(1, data.GetOfferRewardAmount());
-    insert_offers.BindInt64(
-        2, data.GetExpiry().ToDeltaSinceWindowsEpoch().InMilliseconds());
-    insert_offers.BindString(3, data.GetOfferDetailsUrl().spec());
-    insert_offers.BindString(4, data.GetPromoCode());
-    insert_offers.BindString(5, data.GetDisplayStrings().value_prop_text);
-    insert_offers.BindString(6, data.GetDisplayStrings().see_details_text);
-    insert_offers.BindString(7,
-                             data.GetDisplayStrings().usage_instructions_text);
-    insert_offers.Run();
-    insert_offers.Reset(/*clear_bound_vars=*/true);
-
-    for (const int64_t instrument_id : data.GetEligibleInstrumentIds()) {
-      // Insert new offer_eligible_instrument values.
-      insert_offer_eligible_instruments.BindInt64(0, data.GetOfferId());
-      insert_offer_eligible_instruments.BindInt64(1, instrument_id);
-      insert_offer_eligible_instruments.Run();
-      insert_offer_eligible_instruments.Reset(/*clear_bound_vars=*/true);
-    }
-
-    for (const GURL& merchant_origin : data.GetMerchantOrigins()) {
-      // Insert new offer_merchant_domain values.
-      insert_offer_merchant_domains.BindInt64(0, data.GetOfferId());
-      insert_offer_merchant_domains.BindString(1, merchant_origin.spec());
-      insert_offer_merchant_domains.Run();
-      insert_offer_merchant_domains.Reset(/*clear_bound_vars=*/true);
+    if (!InsertOffer(*db(), data)) {
+      return;
     }
   }
   transaction.Commit();
+}
+
+bool PaymentsAutofillTable::AddOrUpdateAutofillOffer(
+    const AutofillOfferData& autofill_offer_data) {
+  sql::Transaction transaction(db());
+  // An offer already stored under the same id is removed before the new one is
+  // inserted.
+  return transaction.Begin() &&
+         RemoveAutofillOfferRows(*db(), autofill_offer_data.GetOfferId()) &&
+         InsertOffer(*db(), autofill_offer_data) && transaction.Commit();
+}
+
+bool PaymentsAutofillTable::RemoveAutofillOffer(std::string_view offer_id) {
+  sql::Transaction transaction(db());
+  return transaction.Begin() && RemoveAutofillOfferRows(*db(), offer_id) &&
+         transaction.Commit();
+}
+
+bool PaymentsAutofillTable::AutofillOfferExists(std::string_view offer_id) {
+  sql::Statement s;
+  sql::CachedSelectBuilder(
+      SQL_FROM_HERE, *db(), s, kOfferDataTable, {kOfferId},
+      /*modifiers=*/
+      base::StrCat({"WHERE ", kOfferId, " = ", sql::kPlaceholder}));
+  s.BindString(0, offer_id);
+  return s.Step();
 }
 
 bool PaymentsAutofillTable::GetAutofillOffers(
@@ -1441,12 +1466,6 @@ bool PaymentsAutofillTable::GetAutofillOffers(
       {kOfferId, kOfferRewardAmount, kExpiry, kOfferDetailsUrl, kPromoCode,
        kValuePropText, kSeeDetailsText, kUsageInstructionsText});
 
-  sql::Statement s_offer_eligible_instrument;
-  sql::CachedSelectBuilder(SQL_FROM_HERE, *db(), s_offer_eligible_instrument,
-                           kOfferEligibleInstrumentTable,
-                           {kOfferId, kInstrumentId},
-                           /*modifiers=*/"WHERE offer_id = ?");
-
   sql::Statement s_offer_merchant_domain;
   sql::CachedSelectBuilder(SQL_FROM_HERE, *db(), s_offer_merchant_domain,
                            kOfferMerchantDomainTable,
@@ -1455,7 +1474,7 @@ bool PaymentsAutofillTable::GetAutofillOffers(
 
   while (s.Step()) {
     int index = 0;
-    int64_t offer_id = s.ColumnInt64(index++);
+    std::string offer_id = s.ColumnString(index++);
     std::string offer_reward_amount = s.ColumnString(index++);
     base::Time expiry = base::Time::FromDeltaSinceWindowsEpoch(
         base::Milliseconds(s.ColumnInt64(index++)));
@@ -1466,19 +1485,9 @@ bool PaymentsAutofillTable::GetAutofillOffers(
     std::string usage_instructions_text = s.ColumnString(index++);
     DisplayStrings display_strings = {value_prop_text, see_details_text,
                                       usage_instructions_text};
-    std::vector<int64_t> eligible_instrument_id;
     std::vector<GURL> merchant_origins;
 
-    s_offer_eligible_instrument.BindInt64(0, offer_id);
-    while (s_offer_eligible_instrument.Step()) {
-      const int64_t instrument_id = s_offer_eligible_instrument.ColumnInt64(1);
-      if (instrument_id != 0) {
-        eligible_instrument_id.push_back(instrument_id);
-      }
-    }
-    s_offer_eligible_instrument.Reset(/*clear_bound_vars=*/true);
-
-    s_offer_merchant_domain.BindInt64(0, offer_id);
+    s_offer_merchant_domain.BindString(0, offer_id);
     while (s_offer_merchant_domain.Step()) {
       const std::string merchant_domain =
           s_offer_merchant_domain.ColumnString(1);
@@ -1488,19 +1497,10 @@ bool PaymentsAutofillTable::GetAutofillOffers(
     }
     s_offer_merchant_domain.Reset(/*clear_bound_vars=*/true);
 
-    if (promo_code.empty()) {
-      auto data = std::make_unique<AutofillOfferData>(
-          AutofillOfferData::GPayCardLinkedOffer(
-              offer_id, expiry, merchant_origins, offer_details_url,
-              display_strings, eligible_instrument_id, offer_reward_amount));
-      autofill_offer_data->emplace_back(std::move(data));
-    } else {
-      auto data = std::make_unique<AutofillOfferData>(
-          AutofillOfferData::GPayPromoCodeOffer(
-              offer_id, expiry, merchant_origins, offer_details_url,
-              display_strings, promo_code));
-      autofill_offer_data->emplace_back(std::move(data));
-    }
+    autofill_offer_data->emplace_back(std::make_unique<AutofillOfferData>(
+        std::move(offer_id), expiry, std::move(merchant_origins),
+        std::move(offer_details_url), std::move(display_strings),
+        std::move(promo_code), std::move(offer_reward_amount)));
   }
 
   return s.Succeeded();
@@ -1598,8 +1598,7 @@ bool PaymentsAutofillTable::ClearAllServerData() {
   for (std::string_view table_name :
        {kMaskedCreditCardsTable, kMaskedIbansTable, kServerCardMetadataTable,
         kPaymentsCustomerDataTable, kServerCardCloudTokenDataTable,
-        kOfferDataTable, kOfferEligibleInstrumentTable,
-        kOfferMerchantDomainTable, kVirtualCardUsageDataTable,
+        kOfferDataTable, kOfferMerchantDomainTable, kVirtualCardUsageDataTable,
         kMaskedCreditCardBenefitsTable, kBenefitMerchantDomainsTable,
         kMaskedBankAccountsTable, kMaskedBankAccountsMetadataTable,
         kGenericPaymentInstrumentsTable,
@@ -2249,6 +2248,43 @@ bool PaymentsAutofillTable::MigrateToVersion156ClearLegacyOffers() {
   return transaction.Commit();
 }
 
+bool PaymentsAutofillTable::MigrateToVersion158OfferIdAsString() {
+  // `offer_id` changed from an integer to an opaque string. The column type
+  // matters: a column declared `UNSIGNED LONG` has INTEGER affinity, so SQLite
+  // would silently coerce numeric-looking ids back into integers and the
+  // stored value would no longer round-trip. The tables are therefore dropped
+  // and recreated with the new schema.
+  //
+  // Offers are server-provided data that is fully repopulated by the next
+  // sync, so dropping the rows does not lose any user data.
+  //
+  // `offer_eligible_instrument` is dropped without being recreated. It was
+  // never written to nor read from, since card-linked offers are no longer
+  // synced.
+  //
+  // The schema is spelled out here rather than reusing the `Init*Table()`
+  // functions, so that later changes to those functions cannot retroactively
+  // alter what this migration does.
+  sql::Transaction transaction(db());
+  return transaction.Begin() && DropTableIfExists(db(), kOfferDataTable) &&
+         DropTableIfExists(db(), kOfferEligibleInstrumentTable) &&
+         DropTableIfExists(db(), kOfferMerchantDomainTable) &&
+         sql::CreateTable(*db(), kOfferDataTable,
+                          {{kOfferId, "VARCHAR"},
+                           {kOfferRewardAmount, "VARCHAR"},
+                           {kExpiry, "UNSIGNED LONG"},
+                           {kOfferDetailsUrl, "VARCHAR"},
+                           {kMerchantDomain, "VARCHAR"},
+                           {kPromoCode, "VARCHAR"},
+                           {kValuePropText, "VARCHAR"},
+                           {kSeeDetailsText, "VARCHAR"},
+                           {kUsageInstructionsText, "VARCHAR"}}) &&
+         sql::CreateTable(
+             *db(), kOfferMerchantDomainTable,
+             {{kOfferId, "VARCHAR"}, {kMerchantDomain, "VARCHAR"}}) &&
+         transaction.Commit();
+}
+
 void PaymentsAutofillTable::AddMaskedCreditCards(
     const std::vector<CreditCard>& credit_cards) {
   DCHECK(db()->HasActiveTransactions());
@@ -2423,7 +2459,7 @@ bool PaymentsAutofillTable::InitStoredCvcTable() {
 
 bool PaymentsAutofillTable::InitOfferDataTable() {
   return CreateTableIfNotExists(db(), kOfferDataTable,
-                                {{kOfferId, "UNSIGNED LONG"},
+                                {{kOfferId, "VARCHAR"},
                                  {kOfferRewardAmount, "VARCHAR"},
                                  {kExpiry, "UNSIGNED LONG"},
                                  {kOfferDetailsUrl, "VARCHAR"},
@@ -2434,16 +2470,10 @@ bool PaymentsAutofillTable::InitOfferDataTable() {
                                  {kUsageInstructionsText, "VARCHAR"}});
 }
 
-bool PaymentsAutofillTable::InitOfferEligibleInstrumentTable() {
-  return CreateTableIfNotExists(
-      db(), kOfferEligibleInstrumentTable,
-      {{kOfferId, "UNSIGNED LONG"}, {kInstrumentId, "UNSIGNED LONG"}});
-}
-
 bool PaymentsAutofillTable::InitOfferMerchantDomainTable() {
   return CreateTableIfNotExists(
       db(), kOfferMerchantDomainTable,
-      {{kOfferId, "UNSIGNED LONG"}, {kMerchantDomain, "VARCHAR"}});
+      {{kOfferId, "VARCHAR"}, {kMerchantDomain, "VARCHAR"}});
 }
 
 bool PaymentsAutofillTable::InitVirtualCardUsageDataTable() {

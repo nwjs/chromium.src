@@ -15,10 +15,14 @@
 #import "base/time/time.h"
 #import "base/values.h"
 #import "components/affiliations/core/browser/fake_affiliation_service.h"
+#import "components/autofill/core/browser/data_manager/autofill_ai/entity_suppression_manager.h"
 #import "components/autofill/core/browser/foundations/autofill_manager_test_api.h"
 #import "components/autofill/core/browser/foundations/browser_autofill_manager.h"
 #import "components/autofill/core/browser/foundations/test_autofill_manager_waiter.h"
 #import "components/autofill/core/browser/integrators/password_form_classification.h"
+#import "components/autofill/core/browser/suggestions/suggestion.h"
+#import "components/autofill/core/browser/suggestions/suggestion_type.h"
+#import "components/autofill/core/browser/ui/mock_autofill_suggestion_delegate.h"
 #import "components/autofill/core/common/autofill_debug_features.h"
 #import "components/autofill/core/common/autofill_features.h"
 #import "components/autofill/core/common/autofill_prefs.h"
@@ -28,16 +32,24 @@
 #import "components/autofill/ios/browser/autofill_agent.h"
 #import "components/autofill/ios/browser/autofill_driver_ios.h"
 #import "components/autofill/ios/browser/autofill_driver_ios_factory.h"
+#import "components/autofill/ios/browser/form_suggestion.h"
 #import "components/autofill/ios/browser/test_autofill_client_ios.h"
 #import "components/autofill/ios/browser/test_autofill_manager_injector.h"
 #import "components/infobars/core/infobar.h"
 #import "components/infobars/core/infobar_delegate.h"
 #import "components/infobars/core/infobar_manager.h"
+#import "components/personal_context/core/mock_personal_context_eligibility_service.h"
 #import "ios/chrome/browser/affiliations/model/ios_chrome_affiliation_service_factory.h"
+#import "ios/chrome/browser/autofill/atmemory/public/at_memory_commands.h"
 #import "ios/chrome/browser/autofill/model/autofill_agent_delegate.h"
 #import "ios/chrome/browser/autofill/model/autofill_policy_service_factory.h"
 #import "ios/chrome/browser/infobars/model/infobar_manager_impl.h"
 #import "ios/chrome/browser/intelligence/actor/model/actor_tab_helper.h"
+#import "ios/chrome/browser/intelligence/bwg/model/fake_gemini_service.h"
+#import "ios/chrome/browser/intelligence/bwg/model/gemini_service_factory.h"
+#import "ios/chrome/browser/intelligence/bwg/utils/gemini_prefs.h"
+#import "ios/chrome/browser/intelligence/features/features.h"
+#import "ios/chrome/browser/personal_context/model/ios_personal_context_eligibility_service_factory.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
@@ -57,6 +69,9 @@
 #import "testing/platform_test.h"
 #import "third_party/ocmock/OCMock/OCMock.h"
 #import "third_party/ocmock/gtest_support.h"
+
+using personal_context::MockPersonalContextEligibilityService;
+using personal_context::PersonalContextEligibilityState;
 
 namespace autofill {
 
@@ -94,6 +109,21 @@ class ChromeAutofillClientIOSTest : public PlatformTest {
         base::BindOnce([](ProfileIOS*) -> std::unique_ptr<KeyedService> {
           return std::make_unique<affiliations::FakeAffiliationService>();
         }));
+    builder.AddTestingFactory(
+        GeminiServiceFactory::GetInstance(),
+        base::BindRepeating([](ProfileIOS*) -> std::unique_ptr<KeyedService> {
+          return std::make_unique<FakeGeminiService>();
+        }));
+    builder.AddTestingFactory(
+        IOSPersonalContextEligibilityServiceFactory::GetInstance(),
+        base::BindRepeating([](ProfileIOS*) -> std::unique_ptr<KeyedService> {
+          auto service = std::make_unique<
+              testing::NiceMock<MockPersonalContextEligibilityService>>();
+          ON_CALL(*service, GetEligibilityState())
+              .WillByDefault(
+                  testing::Return(PersonalContextEligibilityState::kEligible));
+          return service;
+        }));
     profile_ = std::move(builder).Build();
 
     browser_ = std::make_unique<TestBrowser>(profile_.get(), scene_state_);
@@ -130,6 +160,7 @@ class ChromeAutofillClientIOSTest : public PlatformTest {
     autofill_manager_injector_ =
         std::make_unique<TestAutofillManagerInjector<TestAutofillManager>>(
             web_state_.get());
+    autofill_agent_ = autofill_agent;
   }
 
   void TearDown() override {
@@ -154,6 +185,25 @@ class ChromeAutofillClientIOSTest : public PlatformTest {
 
   web::WebState* web_state() { return web_state_.get(); }
 
+  // Returns the suggestions the agent last pushed to the keyboard accessory.
+  // `-retrieveSuggestionsForForm:webState:completionHandler:` runs its
+  // completion synchronously, so the result is available upon return.
+  NSArray<FormSuggestion*>* LastSuggestionsSentToKeyboard() {
+    __block BOOL completion_called = NO;
+    __block NSArray<FormSuggestion*>* suggestions = nil;
+    [autofill_agent_
+        retrieveSuggestionsForForm:nil
+                          webState:web_state()
+                 completionHandler:^(NSArray<FormSuggestion*>* form_suggestions,
+                                     id<FormSuggestionProvider> provider) {
+                   completion_called = YES;
+                   suggestions = form_suggestions;
+                 }];
+    // Guards against the completion becoming asynchronous.
+    EXPECT_TRUE(completion_called);
+    return suggestions;
+  }
+
   id autofill_agent_delegate_;
   id mock_snackbar_handler_;
 
@@ -168,6 +218,9 @@ class ChromeAutofillClientIOSTest : public PlatformTest {
   web::ScopedTestingWebClient web_client_;
   std::unique_ptr<TestProfileIOS> profile_;
   std::unique_ptr<web::WebState> web_state_;
+  // Declared after `web_state_` so that the agent, which holds a raw_ptr to the
+  // profile's `PrefService`, is released before the profile goes away.
+  AutofillAgent* autofill_agent_;
   std::unique_ptr<ChromeAutofillClientIOS> autofill_client_;
   std::unique_ptr<TestAutofillManagerInjector<TestAutofillManager>>
       autofill_manager_injector_;
@@ -551,7 +604,94 @@ TEST_F(ChromeAutofillClientIOSTest, OnActorTaskStateChange_ReparsesForms) {
 TEST_F(ChromeAutofillClientIOSTest, GetEntitySuppressionManager) {
   base::test::ScopedFeatureList feature_list(
       features::kAutofillAmbientAutofillSuppression);
-  EXPECT_NE(client().GetEntitySuppressionManager(), nullptr);
+  EntitySuppressionManager* manager = client().GetEntitySuppressionManager();
+  ASSERT_NE(manager, nullptr);
+  EXPECT_NE(manager->GetSyncControllerDelegate(), nullptr);
+}
+
+// Test that `HideSuggestions` dismisses AtMemory when product is `kAtMemory`,
+// but not when product is `std::nullopt` or other products.
+TEST_F(ChromeAutofillClientIOSTest, HideSuggestionsDismissesAtMemory) {
+  id mock_at_memory_handler =
+      OCMStrictProtocolMock(@protocol(AtMemoryCommands));
+  client().set_at_memory_handler(mock_at_memory_handler);
+
+  // When product is kAtMemory, dismissAtMemory should be called.
+  OCMExpect([mock_at_memory_handler dismissAtMemory]);
+  client().HideSuggestions(SuggestionHidingReason::kUserAborted,
+                           FillingProduct::kAtMemory);
+  EXPECT_OCMOCK_VERIFY(mock_at_memory_handler);
+
+  // When product is nullopt, dismissAtMemory should not be called.
+  [[mock_at_memory_handler reject] dismissAtMemory];
+  client().HideSuggestions(SuggestionHidingReason::kTabGone, std::nullopt);
+  EXPECT_OCMOCK_VERIFY(mock_at_memory_handler);
+
+  // When product is a different product, dismissAtMemory should not be called.
+  [[mock_at_memory_handler reject] dismissAtMemory];
+  client().HideSuggestions(SuggestionHidingReason::kUserAborted,
+                           FillingProduct::kAddress);
+  EXPECT_OCMOCK_VERIFY(mock_at_memory_handler);
+
+  client().set_at_memory_handler(nil);
+}
+
+// Test that suggestion updates are attributed to the form and field the popup
+// was opened for. `UpdateAutofillSuggestions()` carries no `PopupOpenArgs`, so
+// the client has to reuse the IDs captured by `ShowAutofillSuggestions()`.
+TEST_F(ChromeAutofillClientIOSTest, UpdateSuggestionsKeepsFormAndFieldId) {
+  const FormGlobalId form_id = test::MakeFormGlobalId();
+  const FieldGlobalId field_id = test::MakeFieldGlobalId();
+
+  AutofillClient::PopupOpenArgs open_args;
+  open_args.form_id = form_id;
+  open_args.field_id = field_id;
+  open_args.suggestions = {
+      Suggestion(u"", SuggestionType::kFetchingAmbientData)};
+
+  testing::NiceMock<MockAutofillSuggestionDelegate> delegate;
+  client().ShowAutofillSuggestions(open_args, delegate.GetWeakPtr());
+
+  client().UpdateAutofillSuggestions(
+      {Suggestion(u"John Doe", SuggestionType::kAddressEntry)},
+      FillingProduct::kAddress,
+      AutofillSuggestionTriggerSource::kFormControlElementClicked,
+      AutofillSuggestionsIgnoreFocusLoss(false));
+
+  NSArray<FormSuggestion*>* suggestions = LastSuggestionsSentToKeyboard();
+  ASSERT_EQ(1U, suggestions.count);
+  EXPECT_EQ(SuggestionType::kAddressEntry, suggestions[0].type);
+  EXPECT_EQ(form_id, suggestions[0].metadata.form_id);
+  EXPECT_EQ(field_id, suggestions[0].metadata.field_id);
+}
+
+// Test that `IsGlicEnabled` reflects Gemini eligibility for the profile.
+TEST_F(ChromeAutofillClientIOSTest, IsGlicEnabled) {
+  base::test::ScopedFeatureList feature_list(kPageActionMenu);
+  FakeGeminiService* fake_gemini_service = static_cast<FakeGeminiService*>(
+      GeminiServiceFactory::GetForProfile(profile()));
+  ASSERT_TRUE(fake_gemini_service);
+
+  fake_gemini_service->SetIsEligible(false);
+  EXPECT_FALSE(client().IsGlicEnabled());
+
+  fake_gemini_service->SetIsEligible(true);
+  EXPECT_TRUE(client().IsGlicEnabled());
+}
+
+// Test that `GetPersonalContextEligibilityState` requires Gemini consent.
+TEST_F(ChromeAutofillClientIOSTest,
+       GetPersonalContextEligibilityStateRequiresConsent) {
+  EXPECT_EQ(client().GetPersonalContextEligibilityState(),
+            PersonalContextEligibilityState::kDisabledNotEligible);
+
+  gemini::UpdateUserConsentPrefs(true, profile()->GetPrefs());
+  EXPECT_EQ(client().GetPersonalContextEligibilityState(),
+            PersonalContextEligibilityState::kEligible);
+
+  gemini::UpdateUserConsentPrefs(false, profile()->GetPrefs());
+  EXPECT_EQ(client().GetPersonalContextEligibilityState(),
+            PersonalContextEligibilityState::kDisabledNotEligible);
 }
 
 }  // namespace autofill

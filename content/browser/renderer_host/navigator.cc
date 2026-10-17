@@ -844,8 +844,9 @@ void Navigator::DidNavigate(
   delegate_->DidNavigateAnyFramePostCommit(render_frame_host, details);
 }
 
-void Navigator::Navigate(std::unique_ptr<NavigationRequest> request,
-                         ReloadType reload_type) {
+std::optional<NavigationNotStartedReason> Navigator::Navigate(
+    std::unique_ptr<NavigationRequest> request,
+    ReloadType reload_type) {
   TRACE_EVENT0("browser,navigation", "Navigator::Navigate");
   TRACE_EVENT_INSTANT_WITH_TIMESTAMP0(
       "navigation,rail", "NavigationTiming navigationStart",
@@ -861,7 +862,7 @@ void Navigator::Navigate(std::unique_ptr<NavigationRequest> request,
   if (controller_.GetBrowserContext()->ShutdownStarted()) {
     request->set_navigation_discard_reason(
         NavigationDiscardReason::kNeverStarted);
-    return;
+    return NavigationNotStartedReason::kContextShutdown;
   }
 
   // Ignore potentially duplicated navigations, where the new navigation has the
@@ -1003,7 +1004,7 @@ void Navigator::Navigate(std::unique_ptr<NavigationRequest> request,
                << request->common_params().url
                << " due to the short interval since the previous one.";
       ongoing_navigation_request->DidIgnoreDuplicateNavigation();
-      return;
+      return NavigationNotStartedReason::kDuplicateNavigationIgnored;
     } else {
       ongoing_navigation_request->set_navigation_discard_reason(
           NavigationDiscardReason::kNewDuplicateNavigation);
@@ -1070,6 +1071,8 @@ void Navigator::Navigate(std::unique_ptr<NavigationRequest> request,
   // Make sure no code called via RFH::Navigate clears the pending entry.
   if (is_pending_entry)
     CHECK_EQ(nav_entry_id, controller_.GetPendingEntry()->GetUniqueID());
+
+  return std::nullopt;
 }
 
 void Navigator::RequestOpenURL(
@@ -1126,9 +1129,10 @@ void Navigator::RequestOpenURL(
              RenderFrameHostLifecycleStateImpl::kPrerendering ||
          frame_tree_node_id);
 
-  OpenURLParams params(url, referrer, frame_tree_node_id, disposition,
-                       ui::PAGE_TRANSITION_LINK,
-                       true /* is_renderer_initiated */);
+  OpenURLParams params = OpenURLParams::CreateRendererInitiated(
+      url, disposition, ui::PAGE_TRANSITION_LINK, referrer,
+      initiator_navigation_state, /*started_from_context_menu=*/false,
+      frame_tree_node_id);
   params.post_data = post_body;
   params.extra_headers = extra_headers;
   if (redirect_chain.size() > 0)
@@ -1140,7 +1144,6 @@ void Navigator::RequestOpenURL(
   params.initiator_base_url = initiator_base_url;
   params.initiator_frame_token = base::OptionalFromPtr(initiator_frame_token);
   params.initiator_process_id = initiator_process_id;
-  params.initiator_navigation_state = initiator_navigation_state;
   params.started_by_ad = started_by_ad;
 
   // RequestOpenURL is used only for local frames, so we can get here only if
@@ -1201,7 +1204,8 @@ void Navigator::NavigateFromFrameProxy(
     bool is_unfenced_top_navigation,
     bool force_new_browsing_instance,
     bool is_container_initiated,
-    bool has_rel_opener) {
+    bool has_rel_opener,
+    network::mojom::CSPDisposition should_check_main_world_csp) {
   // |method != "POST"| should imply absence of |post_body|.
   if (method != "POST" && post_body) {
     NOTREACHED();
@@ -1215,22 +1219,26 @@ void Navigator::NavigateFromFrameProxy(
     return;
   }
 
-  // TODO(creis): Determine if this transfer started as a browser-initiated
-  // navigation.  See https://crbug.com/495161.
+  RenderFrameHostImpl* initiator_rfh =
+      initiator_frame_token ? RenderFrameHostImpl::FromFrameToken(
+                                  initiator_process_id, *initiator_frame_token)
+                            : nullptr;
   bool is_renderer_initiated = true;
   Referrer referrer_to_use(referrer);
-  if (WebUI* web_ui = render_frame_host->web_ui()) {
-    // Note that we hide the referrer for Web UI pages. We don't really want
-    // web sites to see a referrer of "chrome://blah" (and some chrome: URLs
-    // might have search terms or other stuff we don't want to send to the
-    // site), so we send no referrer.
-    referrer_to_use = Referrer();
+  if (initiator_rfh) {
+    if (WebUI* web_ui = initiator_rfh->web_ui()) {
+      // Note that we hide the referrer for Web UI pages. We don't really want
+      // web sites to see a referrer of "chrome://blah" (and some chrome: URLs
+      // might have search terms or other stuff we don't want to send to the
+      // site), so we send no referrer.
+      referrer_to_use = Referrer();
 
-    // Navigations in trusted Web UI pages count as browser-initiated
-    // navigations.
-    if (web_ui->GetController()->GetTrustPolicy() ==
-        WebUIController::TrustPolicy::kTrusted) {
-      is_renderer_initiated = false;
+      // Navigations in trusted Web UI pages count as browser-initiated
+      // navigations.
+      if (web_ui->GetController()->GetTrustPolicy() ==
+          WebUIController::TrustPolicy::kTrusted) {
+        is_renderer_initiated = false;
+      }
     }
   }
 
@@ -1262,7 +1270,8 @@ void Navigator::NavigateFromFrameProxy(
       std::move(blob_url_loader_factory), is_form_submission, has_user_gesture,
       started_by_ad, actual_navigation_start_time, navigation_start_time,
       is_embedder_initiated_fenced_frame_navigation, is_unfenced_top_navigation,
-      force_new_browsing_instance, is_container_initiated, has_rel_opener);
+      force_new_browsing_instance, is_container_initiated, has_rel_opener,
+      should_check_main_world_csp);
 }
 
 void Navigator::BeforeUnloadCompleted(FrameTreeNode* frame_tree_node,

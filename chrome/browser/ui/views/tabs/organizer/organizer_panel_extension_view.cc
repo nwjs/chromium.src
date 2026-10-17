@@ -17,6 +17,8 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/organizer/organizer_panel_controller.h"
 #include "chrome/browser/ui/views/tabs/organizer/organizer_panel_utils.h"
+#include "extensions/browser/extension_util.h"
+#include "ui/views/layout/fill_layout.h"
 #include "ui/views/view_class_properties.h"
 
 OrganizerPanelExtensionView::OrganizerPanelExtensionView(
@@ -28,7 +30,9 @@ OrganizerPanelExtensionView::OrganizerPanelExtensionView(
           OrganizerPanelController::From(&browser)->RegisterOnStateChanged(
               base::BindRepeating(
                   &OrganizerPanelExtensionView::OnOrganizerPanelStateChanged,
-                  base::Unretained(this)))) {}
+                  base::Unretained(this)))) {
+  SetLayoutManager(std::make_unique<views::FillLayout>());
+}
 
 OrganizerPanelExtensionView::~OrganizerPanelExtensionView() {
   ResetExtensionContent();
@@ -150,6 +154,12 @@ void OrganizerPanelExtensionView::UpdateDefaultExtensionContent() {
   }
 
   for (const auto& extension : registry->enabled_extensions()) {
+    if (browser_->GetProfile()->IsOffTheRecord() &&
+        !extensions::util::IsIncognitoEnabled(extension->id(),
+                                              browser_->GetProfile())) {
+      continue;
+    }
+
     auto options = service->GetOptions(*extension, std::nullopt);
     if (options.enabled.value_or(false) && options.path.has_value()) {
       UpdateExtensionContent(extension->id());

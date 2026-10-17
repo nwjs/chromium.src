@@ -93,6 +93,7 @@ source_set("extensions_menu_entry_view") {
     "//chrome/browser/ui/views/extensions:extensions_views_utils",
     "//ui/base/metadata",
     "//ui/views",
+    "//url",
   ]
   deps = [
     "//chrome/app:generated_resources",
@@ -101,6 +102,7 @@ source_set("extensions_menu_entry_view") {
     "//chrome/browser/ui/views:layout_provider",
     "//ui/base",
     "//ui/color",
+    "//ui/events",
     "//ui/gfx",
     "//ui/strings:ui_strings",
   ]
@@ -222,6 +224,7 @@ source_set("test_support") {
     "//chrome/browser/extensions:test_support",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui/test:dialog",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/ui/views/toolbar",
     "//chrome/test:test_support_ui",
     "//content/test:test_support",
@@ -284,7 +287,10 @@ source_set("browser_tests") {
   testonly = true
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
   sources = []
-  deps = []
+  deps = [
+    "//chrome/browser/ui:browser_window_header",
+    "//chrome/browser/ui/views/frame:browser_view_header",
+  ]
 
   if (!is_android) {
     sources += [
@@ -343,11 +349,13 @@ source_set("browser_tests") {
       "//extensions/browser:webstore_installer",
       "//extensions/common",
       "//extensions/common:extension_features",
+      "//net:test_support",
       "//testing/gmock",
       "//testing/gtest",
       "//ui/events:test_support",
       "//ui/views",
       "//ui/views:test_support",
+      "//url",
     ]
     if (use_aura && !is_chromeos) {
       deps += [ "//chrome/browser/ui/views:native_widget_factory" ]
@@ -418,6 +426,8 @@ source_set("interactive_ui_tests") {
     "//chrome/browser/metrics/critical_user_journeys",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui",
+    "//chrome/browser/ui:browser_commands",
+    "//chrome/browser/ui:browser_window_header",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/browser_ui_controller",
     "//chrome/browser/ui/extensions",
@@ -427,6 +437,7 @@ source_set("interactive_ui_tests") {
     "//chrome/browser/ui/tabs:tab_enums",
     "//chrome/browser/ui/toolbar",
     "//chrome/browser/ui/views/controls",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/ui/views/toolbar",
     "//chrome/common",
     "//chrome/test:test_support",
@@ -547,6 +558,7 @@ source_set("extension_view_utils_impl") {
     ":extensions_toolbar_desktop",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/toolbar",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/ui/views/frame:toolbar_button_provider",
     "//content/public/browser",
   ]
@@ -744,6 +756,7 @@ source_set("extension_install_dialog_view_impl") {
     "//chrome/app/theme:theme_resources",
     "//chrome/browser/picture_in_picture",
     "//chrome/browser/profiles:profile",
+    "//chrome/browser/ui:scoped_tabbed_browser_displayer",
     "//chrome/browser/ui/browser_web_contents_delegate",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/tabs:tab_strip",
@@ -875,10 +888,12 @@ source_set("extension_popup") {
   public = [ "extension_popup.h" ]
   public_deps = [
     ":extension_view_views",
+    ":security_dialog_tracker",
     "//base",
     "//chrome/browser/ui/extensions:extension_popup_types",
     "//chrome/browser/ui/tabs:tab_strip",
     "//chrome/browser/ui/tabs:tab_strip_model_observer",
+    "//components/performance_manager",
     "//content/public/browser",
     "//extensions/browser",
     "//ui/base/metadata",
@@ -893,11 +908,12 @@ source_set("extension_popup_impl") {
     "//chrome/browser:browser_public_dependencies",
   ]
   deps = [
-    ":security_dialog_tracker",
     "//base",
     "//chrome/browser/devtools",
     "//chrome/browser/extensions",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//components/javascript_dialogs",
+    "//components/performance_manager",
     "//components/web_modal",
     "//content/public/browser",
     "//ui/base",
@@ -940,6 +956,7 @@ source_set("extensions_toolbar_desktop") {
     ":extensions_views_utils",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/user_education",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/ui/views/frame:toolbar_button_provider",
     "//chrome/browser/ui/views/toolbar",
     "//chrome/browser/user_education",

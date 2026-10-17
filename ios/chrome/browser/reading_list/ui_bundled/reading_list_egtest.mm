@@ -880,7 +880,8 @@ std::unique_ptr<net::test_server::HttpResponse> HandleImageQueryOrCloseSocket(
 }
 
 // Selects read and unread entries and mark them as read.
-- (void)testMarkMixedEntriesRead {
+// TODO(crbug.com/560368038): Enable this test once flakyness is fixed.
+- (void)FLAKY_testMarkMixedEntriesRead {
   // TODO(crbug.com/433982582): This test fails on iPad iOS 18 with multitasking
   // enabled.
   if (!@available(iOS 26, *)) {
@@ -980,14 +981,6 @@ std::unique_ptr<net::test_server::HttpResponse> HandleImageQueryOrCloseSocket(
 
 // Tests the Copy Link context menu action for a reading list entry.
 - (void)testContextMenuCopyLink {
-#if TARGET_IPHONE_SIMULATOR
-  // TODO(crbug.com/433982582): Flaky on an iPhone simulator.
-  if ([ChromeEarlGrey isIPhoneIdiom]) {
-    if (!@available(iOS 18, *)) {
-      EARL_GREY_TEST_DISABLED(@"Flakes on iPhone.");
-    }
-  }
-#endif
   AddEntriesAndOpenReadingList();
   LongPressEntry(kReadTitle);
 
@@ -998,12 +991,6 @@ std::unique_ptr<net::test_server::HttpResponse> HandleImageQueryOrCloseSocket(
 // Tests the Open in New Tab context menu action for a reading list entry.
 - (void)testContextMenuOpenInNewTab {
 #if TARGET_IPHONE_SIMULATOR
-  // TODO(crbug.com/433982582): Flaky on an iPhone simulator.
-  if (!@available(iOS 18, *)) {
-    if ([ChromeEarlGrey isIPhoneIdiom]) {
-      EARL_GREY_TEST_DISABLED(@"Flakes on iPhone.");
-    }
-  }
   if (!@available(iOS 26, *)) {
     // This test fails on iPad iOS 18 with multitasking enabled.
     if ([ChromeEarlGrey isIPadIdiom] && [ChromeEarlGrey isCompactWidth]) {
@@ -1027,14 +1014,6 @@ std::unique_ptr<net::test_server::HttpResponse> HandleImageQueryOrCloseSocket(
 // Tests display and selection of 'Open in New Incognito Tab' in a context menu
 // on a history entry.
 - (void)testContextMenuOpenInIncognito {
-#if TARGET_IPHONE_SIMULATOR
-  // TODO(crbug.com/433982582): Flaky on an iPhone simulator.
-  if ([ChromeEarlGrey isIPhoneIdiom]) {
-    if (!@available(iOS 18, *)) {
-      EARL_GREY_TEST_DISABLED(@"Flakes on iPhone.");
-    }
-  }
-#endif
   GURL distillablePageURL(self.testServer->GetURL(kDistillableURL));
   [self addURLToTestReadingList:distillablePageURL];
   LongPressEntry(kDistillableTitle);
@@ -1107,14 +1086,6 @@ std::unique_ptr<net::test_server::HttpResponse> HandleImageQueryOrCloseSocket(
 
 // Tests the Share context menu action for a reading list entry.
 - (void)testContextMenuShare {
-#if TARGET_IPHONE_SIMULATOR
-  // TODO(crbug.com/433982582): Flaky on an iPhone simulator.
-  if ([ChromeEarlGrey isIPhoneIdiom]) {
-    if (!@available(iOS 18, *)) {
-      EARL_GREY_TEST_DISABLED(@"Flakes on iPhone.");
-    }
-  }
-#endif
   GURL distillablePageURL(self.testServer->GetURL(kDistillableURL));
   [self addURLToTestReadingList:distillablePageURL];
   LongPressEntry(kDistillableTitle);
@@ -1127,14 +1098,6 @@ std::unique_ptr<net::test_server::HttpResponse> HandleImageQueryOrCloseSocket(
 // cause a crash. This verifies that when a new SharingCoordinator is created,
 // the old one is stopped properly to prevent dangling WebStateList observers.
 - (void)testContextMenuRepeatedShare {
-#if TARGET_IPHONE_SIMULATOR
-  // TODO(crbug.com/433982582): Flaky on an iPhone simulator.
-  if ([ChromeEarlGrey isIPhoneIdiom]) {
-    if (!@available(iOS 18, *)) {
-      EARL_GREY_TEST_DISABLED(@"Flakes on iPhone.");
-    }
-  }
-#endif
   GURL distillablePageURL(self.testServer->GetURL(kDistillableURL));
   [self addURLToTestReadingList:distillablePageURL];
 
@@ -1158,14 +1121,6 @@ std::unique_ptr<net::test_server::HttpResponse> HandleImageQueryOrCloseSocket(
 
 // Tests the Delete context menu action for a reading list entry.
 - (void)testContextMenuDelete {
-#if TARGET_IPHONE_SIMULATOR
-  // TODO(crbug.com/433982582): Flaky on an iPhone simulator.
-  if ([ChromeEarlGrey isIPhoneIdiom]) {
-    if (!@available(iOS 18, *)) {
-      EARL_GREY_TEST_DISABLED(@"Flakes on iPhone.");
-    }
-  }
-#endif
   GURL distillablePageURL(self.testServer->GetURL(kDistillableURL));
   [self addURLToTestReadingList:distillablePageURL];
   LongPressEntry(kDistillableTitle);

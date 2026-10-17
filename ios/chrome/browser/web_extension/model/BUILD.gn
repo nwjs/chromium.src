@@ -1,0 +1,68 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+source_set("model") {
+  sources = [
+    "extension_service.h",
+    "extension_service_factory.h",
+    "extension_service_factory.mm",
+    "extension_service_impl.h",
+    "extension_service_impl.mm",
+  ]
+  deps = [
+    "//base",
+    "//components/keyed_service/core",
+    "//components/prefs",
+    "//components/universal_optout",
+    "//ios/chrome/app:tests_hook",
+    "//ios/chrome/browser/shared/model/profile",
+    "//ios/chrome/browser/shared/model/profile:profile_keyed_service_factory",
+    "//ios/chrome/browser/universal_optout/model",
+    "//ios/chrome/browser/universal_optout/model:eligibility_utils",
+    "//ios/web/public",
+    "//ios/web/public/extension",
+  ]
+}
+
+source_set("test_support") {
+  testonly = true
+  sources = [
+    "fake_extension_service.h",
+    "fake_extension_service.mm",
+  ]
+  deps = [
+    "//base",
+    "//components/keyed_service/core",
+    "//ios/web/public/extension",
+  ]
+  public_deps = [ ":model" ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [
+    "extension_service_factory_unittest.mm",
+    "extension_service_unittest.mm",
+  ]
+  deps = [
+    ":model",
+    "//base",
+    "//base/test:test_support",
+    "//components/metrics",
+    "//components/metrics:test_support",
+    "//components/prefs:test_support",
+    "//components/signin/public/identity_manager:test_support",
+    "//components/universal_optout",
+    "//components/variations:test_support",
+    "//ios/chrome/browser/shared/model/profile/test",
+    "//ios/chrome/browser/shared/public/features:system_flags",
+    "//ios/chrome/browser/universal_optout/model",
+    "//ios/chrome/test:test_support",
+    "//ios/web/public",
+    "//ios/web/public/extension",
+    "//ios/web/public/test",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+}

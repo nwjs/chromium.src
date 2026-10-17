@@ -828,6 +828,31 @@ void BindDevicePostureProvider(
       ->Bind(std::move(receiver));
 }
 
+void BindPictureInPictureService(
+    RenderFrameHost* host,
+    mojo::PendingReceiver<blink::mojom::PictureInPictureService> receiver) {
+  // Fenced frames are not allowed to use Picture-in-Picture.
+  if (host->IsNestedWithinFencedFrame()) {
+    bad_message::ReceivedBadMessage(
+        host->GetProcess(),
+        bad_message::BadMessageReason::
+            BIBI_BIND_PICTURE_IN_PICTURE_SERVICE_FOR_FENCED_FRAME);
+    return;
+  }
+
+  // Enforce Permissions Policy browser-side.
+  if (!host->IsFeatureEnabled(
+          network::mojom::PermissionsPolicyFeature::kPictureInPicture)) {
+    bad_message::ReceivedBadMessage(
+        host->GetProcess(),
+        bad_message::BadMessageReason::
+            BIBI_BIND_PICTURE_IN_PICTURE_SERVICE_BLOCKED_BY_PERMISSIONS_POLICY);
+    return;
+  }
+
+  PictureInPictureServiceImpl::Create(host, std::move(receiver));
+}
+
 template <auto Method, typename Interface>
 void BindRenderFrameHostImpl(RenderFrameHost* host,
                              mojo::PendingReceiver<Interface> receiver)
@@ -1062,6 +1087,10 @@ void PopulateBinderMapWithContext(
   map->Add<blink::mojom::PermissionService>(
       &BindRenderFrameHostImpl<&RenderFrameHostImpl::CreatePermissionService>);
 
+  map->Add<blink::mojom::PresentationReceiverService>(
+      &BindRenderFrameHostImpl<
+          &RenderFrameHostImpl::GetPresentationReceiverService>);
+
   map->Add<blink::mojom::PresentationService>(
       &BindRenderFrameHostImpl<&RenderFrameHostImpl::GetPresentationService>);
 
@@ -1246,16 +1275,16 @@ void PopulateBinderMapWithContext(
       [](RenderFrameHost* host,
          mojo::PendingReceiver<blink::mojom::OneShotBackgroundSyncService>
              receiver) {
-        host->GetProcess()->CreateOneShotSyncService(
-            host->GetStorageKey().origin(), std::move(receiver));
+        host->GetProcess()->CreateOneShotSyncService(host->GetStorageKey(),
+                                                     std::move(receiver));
       }));
 
   map->Add<blink::mojom::PeriodicBackgroundSyncService>(base::BindRepeating(
       [](RenderFrameHost* host,
          mojo::PendingReceiver<blink::mojom::PeriodicBackgroundSyncService>
              receiver) {
-        host->GetProcess()->CreatePeriodicSyncService(
-            host->GetStorageKey().origin(), std::move(receiver));
+        host->GetProcess()->CreatePeriodicSyncService(host->GetStorageKey(),
+                                                      std::move(receiver));
       }));
 
   map->Add<media::mojom::VideoDecodePerfHistory>(base::BindRepeating(
@@ -1392,8 +1421,7 @@ void PopulateBinderMapWithContext(
   map->Add<blink::mojom::KeyboardLockService>(
       &KeyboardLockServiceImpl::CreateMojoService);
   map->Add<blink::mojom::MediaSessionService>(&MediaSessionServiceImpl::Create);
-  map->Add<blink::mojom::PictureInPictureService>(
-      &PictureInPictureServiceImpl::Create);
+  map->Add<blink::mojom::PictureInPictureService>(&BindPictureInPictureService);
   map->Add<blink::mojom::WakeLockService>(&WakeLockServiceImpl::Create);
 #if BUILDFLAG(ENABLE_VR)
   map->Add<device::mojom::VRService>(&VRServiceImpl::Create);
@@ -1605,6 +1633,17 @@ void PopulateDedicatedWorkerBinders(DedicatedWorkerHost* host,
           &RenderProcessHostImpl::BindIndexedDB, host));
   map->Add<blink::mojom::QuotaManagerHost>(BindWorkerReceiverForStorageKey(
       &RenderProcessHostImpl::BindQuotaManagerHost, host));
+  if (base::FeatureList::IsEnabled(
+          blink::features::kServiceWorkerInDedicatedWorker) &&
+      base::FeatureList::IsEnabled(
+          blink::features::kServiceWorkerBackgroundSyncInDedicatedWorker)) {
+    map->Add<blink::mojom::OneShotBackgroundSyncService>(
+        BindWorkerReceiverForStorageKey(
+            &RenderProcessHostImpl::CreateOneShotSyncService, host));
+    map->Add<blink::mojom::PeriodicBackgroundSyncService>(
+        BindWorkerReceiverForStorageKey(
+            &RenderProcessHostImpl::CreatePeriodicSyncService, host));
+  }
   map->Add<blink::mojom::NotificationService>(BindNotificationService(
       host->GetAncestorRenderFrameHostId(),
       RenderProcessHost::NotificationServiceCreatorType::kDedicatedWorker,
@@ -1646,18 +1685,6 @@ void PopulateBinderMapWithContext(
       &RenderProcessHostImpl::CreatePermissionService, host));
   map->Add<blink::mojom::FileBackedBlobFactory>(BindWorkerReceiverForOrigin(
       &RenderProcessHostImpl::BindFileBackedBlobFactory, host));
-
-  if (base::FeatureList::IsEnabled(
-          blink::features::kServiceWorkerInDedicatedWorker) &&
-      base::FeatureList::IsEnabled(
-          blink::features::kServiceWorkerBackgroundSyncInDedicatedWorker)) {
-    map->Add<blink::mojom::OneShotBackgroundSyncService>(
-        BindWorkerReceiverForOrigin(
-            &RenderProcessHostImpl::CreateOneShotSyncService, host));
-    map->Add<blink::mojom::PeriodicBackgroundSyncService>(
-        BindWorkerReceiverForOrigin(
-            &RenderProcessHostImpl::CreatePeriodicSyncService, host));
-  }
 }
 
 void PopulateBinderMap(DedicatedWorkerHost* host, mojo::BinderMap* map) {
@@ -1904,6 +1931,8 @@ void PopulateServiceWorkerBinders(ServiceWorkerHost* host,
             }
           },
           base::Unretained(host)));
+  map->Add<blink::mojom::ClipboardHost>(base::BindRepeating(
+      &ServiceWorkerHost::BindClipboardHost, base::Unretained(host)));
 
   // RenderProcessHost binders
   map->Add<media::mojom::VideoDecodePerfHistory>(BindServiceWorkerReceiver(
@@ -1939,14 +1968,14 @@ void PopulateBinderMapWithContext(
       BindServiceWorkerReceiverForStorageKey(
           &RenderProcessHostImpl::BindRestrictedCookieManagerForServiceWorker,
           host));
-  map->Add<blink::mojom::OneShotBackgroundSyncService>(
-      BindServiceWorkerReceiverForOrigin(
-          &RenderProcessHostImpl::CreateOneShotSyncService, host));
-  map->Add<blink::mojom::PeriodicBackgroundSyncService>(
-      BindServiceWorkerReceiverForOrigin(
-          &RenderProcessHostImpl::CreatePeriodicSyncService, host));
 
   // RenderProcessHost binders taking a storage key
+  map->Add<blink::mojom::OneShotBackgroundSyncService>(
+      BindServiceWorkerReceiverForStorageKey(
+          &RenderProcessHostImpl::CreateOneShotSyncService, host));
+  map->Add<blink::mojom::PeriodicBackgroundSyncService>(
+      BindServiceWorkerReceiverForStorageKey(
+          &RenderProcessHostImpl::CreatePeriodicSyncService, host));
   map->Add<blink::mojom::IDBFactory>(
       BindServiceWorkerReceiverForStorageKeyAndBucketContext(
           &RenderProcessHostImpl::BindIndexedDB, host));

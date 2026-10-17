@@ -154,18 +154,16 @@ mojom::PrintDocumentRequestPtr PrintDocumentRequestFromJobSettings(
       GetPrintAttributes(job_settings));
 }
 
-// Uses the provided ScopedHandle to read a preview document from ARC into
+// Uses the provided PlatformHandle to read a preview document from ARC into
 // read-only shared memory.
 base::ReadOnlySharedMemoryRegion ReadPreviewDocument(
-    mojo::ScopedHandle preview_document,
+    mojo::PlatformHandle preview_document,
     size_t data_size) {
-  base::ScopedPlatformFile platform_file;
-  if (mojo::UnwrapPlatformFile(std::move(preview_document), &platform_file) !=
-      MOJO_RESULT_OK) {
+  if (!preview_document.is_valid_platform_file()) {
     return base::ReadOnlySharedMemoryRegion();
   }
 
-  base::File src_file(std::move(platform_file));
+  base::File src_file(preview_document.TakePlatformFile());
   if (!src_file.IsValid()) {
     DPLOG(ERROR) << "Source file is invalid.";
     return base::ReadOnlySharedMemoryRegion();
@@ -242,7 +240,7 @@ mojo::PendingRemote<mojom::PrintSessionHost> PrintSessionImpl::Create(
     aura::Window* arc_window,
     mojo::PendingRemote<mojom::PrintSessionInstance> instance,
     base::FilePath document_path) {
-  DCHECK(arc_window);
+  CHECK(arc_window, base::NotFatalUntil::M160);
   if (!instance)
     return mojo::NullRemote();
 
@@ -317,7 +315,7 @@ void PrintSessionImpl::CreatePreviewDocument(
 void PrintSessionImpl::OnPreviewDocumentCreated(
     int request_id,
     CreatePreviewDocumentCallback callback,
-    mojo::ScopedHandle preview_document,
+    mojo::PlatformHandle preview_document,
     int64_t data_size) {
   if (data_size < kMinimumPdfSize ||
       !base::IsValueInRangeForNumericType<size_t>(data_size)) {
@@ -359,7 +357,7 @@ void PrintSessionImpl::OnPreviewDocumentRead(
   }
 
   bool inserted = callbacks_.emplace(request_id, std::move(callback)).second;
-  DCHECK(inserted);
+  CHECK(inserted, base::NotFatalUntil::M160);
 
   pdf_flattener_->FlattenPdf(
       std::move(preview_document_region),

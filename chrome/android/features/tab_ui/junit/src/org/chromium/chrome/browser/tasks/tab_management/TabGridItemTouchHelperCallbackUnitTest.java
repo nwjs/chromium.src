@@ -41,6 +41,7 @@ import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.RecyclerView.OnItemTouchListener;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -58,6 +59,7 @@ import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.RobolectricUtil;
+import org.chromium.base.test.util.UserActionTester;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
@@ -71,7 +73,7 @@ import org.chromium.chrome.browser.tasks.tab_management.TabProperties.UiType;
 import org.chromium.chrome.browser.tasks.tab_management.TabSwitcherMessageManager.MessageType;
 import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.feature_engagement.Tracker;
-import org.chromium.ui.modelutil.MVCListAdapter;
+import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.SimpleRecyclerViewAdapter;
 import org.chromium.ui.modelutil.SimpleRecyclerViewAdapter.ViewHolder;
@@ -101,6 +103,7 @@ public class TabGridItemTouchHelperCallbackUnitTest {
     private static final int POSITION3 = 2;
     private static final int POSITION4 = 3;
     private static final int ARCHIVED_MSG_CARD_POSITION = 4;
+    private static final int GROUP_CARD_POSITION = 4;
     private static final float THRESHOLD = 2f;
     private static final float MERGE_AREA_THRESHOLD = 0.5f;
 
@@ -141,9 +144,11 @@ public class TabGridItemTouchHelperCallbackUnitTest {
     private View mArchivedMsgItemView;
     private TabGridItemTouchHelperCallback mItemTouchHelperCallback;
     private TabListModel mModel;
+    private UserActionTester mActionTester;
 
     @Before
     public void setUp() {
+        mActionTester = new UserActionTester();
         Handler handler = new Handler(Looper.getMainLooper());
 
         doCallback(
@@ -231,6 +236,11 @@ public class TabGridItemTouchHelperCallbackUnitTest {
         mItemTouchHelperCallback.setRecyclerView(mRecyclerView);
     }
 
+    @After
+    public void tearDown() {
+        mActionTester.tearDown();
+    }
+
     @Test
     public void onStartDraggingTab() {
         assertThat(
@@ -252,6 +262,36 @@ public class TabGridItemTouchHelperCallbackUnitTest {
         mItemTouchHelperCallback.onSwiped(mMockViewHolder1, POSITION1);
 
         verify(mTabClosedListener).run(mItemView1, TAB1_ID, /* triggeringMotion= */ null);
+    }
+
+    @Test
+    public void onSwipeTabGroupCard_UpdatesCardAlpha() {
+        // A tab group card is not addressable by tab ID, so re-resolving the card model from the
+        // view holder's tab ID would silently drop the alpha update for this card.
+        PropertyModel groupCardModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(TabProperties.TAB_ID, TAB1_ID)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, Token.createRandom())
+                        .with(CARD_ANIMATION_STATUS, AnimationStatus.CARD_RESTORE)
+                        .with(CARD_ALPHA, 1f)
+                        .with(CARD_TYPE, ModelType.TAB_GROUP)
+                        .build();
+        mModel.add(new ListItem(ModelType.TAB_GROUP, groupCardModel));
+        View groupCardItemView = prepareItemView(0, 10, 4, 14);
+        ViewHolder groupCardViewHolder =
+                prepareMockViewHolder(groupCardModel, groupCardItemView, GROUP_CARD_POSITION);
+
+        // Swipe by half the dismiss threshold, so alpha becomes 1f - 0.8f * (1f / 2f).
+        mItemTouchHelperCallback.onChildDraw(
+                mCanvas,
+                mRecyclerView,
+                groupCardViewHolder,
+                /* dX= */ 1f,
+                /* dY= */ 0f,
+                ItemTouchHelper.ACTION_STATE_SWIPE,
+                /* isCurrentlyActive= */ true);
+
+        assertEquals(0.6f, groupCardModel.get(CARD_ALPHA), /* delta= */ 0.001f);
     }
 
     @Test
@@ -304,6 +344,44 @@ public class TabGridItemTouchHelperCallbackUnitTest {
                 mModel.get(POSITION2).model.get(CardProperties.CARD_ANIMATION_STATUS),
                 equalTo(AnimationStatus.CARD_RESTORE));
         assertThat(mModel.get(POSITION2).model.get(CARD_ALPHA), equalTo(1f));
+    }
+
+    @Test
+    public void onReleaseTabGroupCard_MovedDuringDrag() {
+        // Add a TAB_GROUP card at index 2 (POSITION3).
+        PropertyModel groupCardModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(TabProperties.TAB_ID, TAB3_ID)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, Token.createRandom())
+                        .with(CARD_ANIMATION_STATUS, AnimationStatus.CARD_RESTORE)
+                        .with(CARD_ALPHA, 1f)
+                        .with(CARD_TYPE, ModelType.TAB_GROUP)
+                        .build();
+        mModel.add(new ListItem(ModelType.TAB_GROUP, groupCardModel));
+        View groupCardItemView = prepareItemView(0, 10, 4, 14);
+        ViewHolder groupCardViewHolder =
+                prepareMockViewHolder(groupCardModel, groupCardItemView, GROUP_CARD_POSITION);
+
+        // Start dragging group card at position 4.
+        mItemTouchHelperCallback.onSelectedChanged(
+                groupCardViewHolder, ItemTouchHelper.ACTION_STATE_DRAG);
+        assertThat(
+                groupCardModel.get(CardProperties.CARD_ANIMATION_STATUS),
+                equalTo(AnimationStatus.SELECTED_CARD_ZOOM_IN));
+        assertThat(groupCardModel.get(CARD_ALPHA), equalTo(0.8f));
+
+        // Simulate group card being moved to index 0 during drag.
+        mModel.move(GROUP_CARD_POSITION, POSITION1);
+
+        // Release drag.
+        mItemTouchHelperCallback.onSelectedChanged(
+                groupCardViewHolder, ItemTouchHelper.ACTION_STATE_IDLE);
+
+        // Group card (now at index 0) should be unzoomed/deselected via model lookup.
+        assertThat(
+                mModel.get(POSITION1).model.get(CardProperties.CARD_ANIMATION_STATUS),
+                equalTo(AnimationStatus.SELECTED_CARD_ZOOM_OUT));
+        assertThat(mModel.get(POSITION1).model.get(CARD_ALPHA), equalTo(1f));
     }
 
     @Test
@@ -1153,6 +1231,27 @@ public class TabGridItemTouchHelperCallbackUnitTest {
         verify(mTabModel).mergeTabsToGroup(TAB1_ID, TAB2_ID);
         verify(mTabGroupCreationDialogManager)
                 .showDialog(mTabModel.getTabById(TAB2_ID).getTabGroupId(), mTabModel);
+        assertEquals(1, mActionTester.getActionCount("TabGroup.Created.DropToMergeV2"));
+        assertEquals(0, mActionTester.getActionCount("TabGrid.Drag.DropToMergeV2"));
+    }
+
+    @Test
+    public void onTabMergeToGroup_mergeWithExistingGroup() {
+        doReturn(false).when(mTabModel).willMergingCreateNewGroup(any());
+
+        // Simulate the selection of card#1 in TabListModel.
+        mItemTouchHelperCallback.setSelectedTabIndexForTesting(POSITION1);
+
+        // Simulate hovering on card#2.
+        mItemTouchHelperCallback.setHoveredTabIndexForTesting(POSITION2);
+
+        mItemTouchHelperCallback.onSelectedChanged(
+                mMockViewHolder1, ItemTouchHelper.ACTION_STATE_IDLE);
+
+        verify(mTabModel).mergeTabsToGroup(TAB1_ID, TAB2_ID);
+        verify(mTabGroupCreationDialogManager, never()).showDialog(any(), any());
+        assertEquals(0, mActionTester.getActionCount("TabGroup.Created.DropToMergeV2"));
+        assertEquals(1, mActionTester.getActionCount("TabGrid.Drag.DropToMergeV2"));
     }
 
     @Test
@@ -1537,7 +1636,7 @@ public class TabGridItemTouchHelperCallbackUnitTest {
                         .with(CARD_ALPHA, 1f)
                         .with(CARD_TYPE, TAB)
                         .build();
-        mModel.add(new MVCListAdapter.ListItem(ModelType.TAB, tabInfo));
+        mModel.add(new ListItem(ModelType.TAB, tabInfo));
     }
 
     private void addArchivedMessageCard() {
@@ -1546,7 +1645,7 @@ public class TabGridItemTouchHelperCallbackUnitTest {
                         .with(MESSAGE_TYPE, MessageType.ARCHIVED_TABS_MESSAGE)
                         .with(CARD_TYPE, ModelType.MESSAGE)
                         .build();
-        mModel.add(new MVCListAdapter.ListItem(ModelType.MESSAGE, model));
+        mModel.add(new ListItem(ModelType.MESSAGE, model));
         mArchivedMsgItemView = prepareItemView(0, 10, 9, 12);
 
         doReturn(5).when(mRecyclerView).getChildCount();

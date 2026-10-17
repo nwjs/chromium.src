@@ -4,13 +4,12 @@
 
 #include "components/optimization_guide/core/optimization_guide_logger.h"
 
+#include "base/command_line.h"
 #include "base/logging.h"
 #include "base/no_destructor.h"
 #include "base/observer_list.h"
 #include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
-#include "components/optimization_guide/core/optimization_guide_switches.h"
-
 
 OptimizationGuideLogger::LogMessageBuilder::LogMessageBuilder(
     optimization_guide_common::mojom::LogSource log_source,
@@ -97,7 +96,8 @@ OptimizationGuideLogger* OptimizationGuideLogger::GetInstance() {
 
 OptimizationGuideLogger::OptimizationGuideLogger()
     : command_line_flag_enabled_(
-          optimization_guide::switches::IsDebugLogsEnabled()) {
+          base::CommandLine::ForCurrentProcess()->HasSwitch(
+              optimization_guide::kDebugLoggingEnabledSwitch)) {
   if (command_line_flag_enabled_) {
     recent_log_messages_.reserve(kMaxRecentLogMessages);
   }

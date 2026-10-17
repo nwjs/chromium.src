@@ -402,6 +402,7 @@ class AutofillManager
       const FormData& form,
       const FieldGlobalId& trigger_field_id,
       const std::vector<JavaScriptFieldModification>& field_modifications,
+      base::TimeTicks detection_start_timestamp,
       RendererEventPassKey pass_key);
 
   // Other events.
@@ -575,7 +576,8 @@ class AutofillManager
   virtual void OnDidDetectJavaScriptAutofillImpl(
       const FormData& form,
       const FieldGlobalId& trigger_field_id,
-      const std::vector<JavaScriptFieldModification>& field_modifications) = 0;
+      const std::vector<JavaScriptFieldModification>& field_modifications,
+      base::TimeTicks detection_start_timestamp) = 0;
   virtual void OnLoadedServerPredictionsImpl(
       base::span<const raw_ref<FormStructure>> forms) = 0;
 
@@ -622,8 +624,8 @@ class AutofillManager
   void RunMlModels(AsyncContext context,
                    base::OnceCallback<void(AsyncContext)> done_callback);
 
-  // Triggers the server predictions query for all `forms` that
-  // `ShouldBeQueried()`.
+  // Triggers the server predictions query for all `forms` that have
+  // `FormParsingPermission::kServerQuery`.
   void QueryServerPredictions(base::span<const FormData> forms,
                               base::TimeTicks form_seen_timestamp);
 

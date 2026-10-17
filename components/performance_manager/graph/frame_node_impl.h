@@ -66,10 +66,10 @@ class FrameNodeImpl
                 FrameNodeImpl* outer_document_for_inner_frame_root,
                 int render_frame_id,
                 const blink::LocalFrameToken& frame_token,
+                content::FrameTreeNodeId frame_tree_node_id,
                 const perfetto::Track& tracing_track,
                 content::BrowsingInstanceId browsing_instance_id,
                 content::SiteInstanceGroupId site_instance_group_id,
-                bool is_current,
                 bool is_active);
 
   FrameNodeImpl(const FrameNodeImpl&) = delete;
@@ -98,6 +98,7 @@ class FrameNodeImpl
 
   // Partial FrameNode implementation:
   const blink::LocalFrameToken& GetFrameToken() const override;
+  content::FrameTreeNodeId GetFrameTreeNodeId() const override;
   content::BrowsingInstanceId GetBrowsingInstanceId() const override;
   content::SiteInstanceGroupId GetSiteInstanceGroupId() const override;
   resource_attribution::FrameContext GetResourceContext() const override;
@@ -107,7 +108,6 @@ class FrameNodeImpl
   bool HasNonemptyBeforeUnload() const override;
   const GURL& GetURL() const override;
   const std::optional<url::Origin>& GetOrigin() const override;
-  bool IsCurrent() const override;
   bool IsActive() const override;
   const PriorityAndReason& GetPriorityAndReason() const override;
   bool GetNetworkAlmostIdle() const override;
@@ -149,11 +149,10 @@ class FrameNodeImpl
   NodeSetView<WorkerNodeImpl*> child_worker_nodes() const;
 
   // Setters are not thread safe.
-  // Updates the IsCurrent() property on both `previous_frame_node` and
-  // `current_frame_node` and sends a single notification to FrameNodeObservers.
-  static void UpdateCurrentFrame(FrameNodeImpl* previous_frame_node,
-                                 FrameNodeImpl* current_frame_node,
-                                 GraphImpl* graph);
+  // Updates the FrameTreeNodeId. This is only expected to change when a main
+  // frame updates to a new FrameTreeNodeId upon prerender activation.
+  void SetFrameTreeNodeId(content::FrameTreeNodeId frame_tree_node_id);
+
   void SetIsActive(bool is_active);
   void SetHadUserActivation();
   void SetIsHoldingWebLock(bool is_holding_weblock);
@@ -301,7 +300,7 @@ class FrameNodeImpl
   // This is not quite the same as GetMainFrame, because there can be multiple
   // main frames while the main frame is navigating. This explicitly walks up
   // the tree to find the main frame that corresponds to this frame tree node,
-  // even if it is not current.
+  // even if it is not active.
   FrameNodeImpl* GetFrameTreeRoot() const;
 
   void TraceEdges();
@@ -310,9 +309,6 @@ class FrameNodeImpl
   bool HasFrameNodeInDescendants(FrameNodeImpl* frame_node) const;
   bool HasFrameNodeInTree(FrameNodeImpl* frame_node) const;
 
-  // Sets the `is_current_` property. Returns true if its value changed as a
-  // result of this call.
-  bool SetIsCurrent(bool is_current);
 
   // Updates the inherited `IsIntersectingLargeArea()` property of this frame.
   void SetInheritedIsIntersectingLargeArea(bool is_intersecting_large_area);
@@ -332,6 +328,8 @@ class FrameNodeImpl
   // This is the unique token for this frame instance as per e.g.
   // RenderFrameHost::GetFrameToken().
   const blink::LocalFrameToken frame_token_;
+
+  content::FrameTreeNodeId frame_tree_node_id_;
 
   // The unique ID of the BrowsingInstance this frame belongs to. Frames in the
   // same BrowsingInstance are allowed to script each other at least
@@ -395,8 +393,9 @@ class FrameNodeImpl
       &FrameNodeObserver::OnFrameIsHoldingBlockingIndexedDBLockChanged>
       is_holding_blocking_indexeddb_lock_{false};
 
-  bool is_current_{false};
-  bool is_active_{false};
+  ObservedProperty::NotifiesOnlyOnChanges<bool,
+                                          &FrameNodeObserver::OnIsActiveChanged>
+      is_active_{false};
 
   // Properties associated with a Document, which are reset when a
   // different-document navigation is committed in the frame.

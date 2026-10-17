@@ -419,6 +419,20 @@ TEST_F(PaymentsDataManagerTest,
   EXPECT_TRUE(future.Wait());
 }
 
+// Verifies that a `syncer::AUTOFILL_VALUABLE` change triggers a `Refresh()`,
+// which reloads the offers written by the `ValuableSyncBridge`. The bridge
+// writes them into the profile database.
+TEST_F(PaymentsDataManagerTest, OnAutofillChangedBySync_AutofillValuable) {
+  ASSERT_TRUE(payments_data_manager().GetAutofillOffers().empty());
+  profile_autofill_table_->SetAutofillOffers(
+      {test::GetPromoCodeOfferData(GURL("https://www.example.com"))});
+
+  payments_data_manager().OnAutofillChangedBySync(syncer::AUTOFILL_VALUABLE);
+  WaitForOnPaymentsDataChanged();
+
+  EXPECT_EQ(payments_data_manager().GetAutofillOffers().size(), 1u);
+}
+
 // Test that a local IBAN is removed from suggestions when it has a matching
 // prefix and suffix (either equal or starting with) and the same length as a
 // server IBAN.
@@ -1046,10 +1060,27 @@ TEST_P(PaymentsDataManagerServerTest, GetAutofillOffers) {
   EXPECT_EQ(payments_data_manager().GetAutofillOffers().size(), 3U);
 }
 
+// Tests that offers are loaded from the profile database, which is where the
+// `ValuableSyncBridge` persists them. This must hold in sync transport mode
+// too, where the other server data lives in the ephemeral account database.
+TEST_P(PaymentsDataManagerServerTest, OffersAreLoadedFromProfileDatabase) {
+  ASSERT_TRUE(payments_data_manager().GetAutofillOffers().empty());
+  profile_autofill_table_->SetAutofillOffers(
+      {test::GetPromoCodeOfferData(GURL("https://www.example.com"))});
+
+  payments_data_manager().Refresh();
+  WaitForOnPaymentsDataChanged();
+
+  EXPECT_EQ(payments_data_manager().GetAutofillOffers().size(), 1U);
+}
+
 // Tests that GetActiveAutofillPromoCodeOffersForOrigin returns only active and
 // site-relevant promo code offers.
 TEST_P(PaymentsDataManagerServerTest,
        GetActiveAutofillPromoCodeOffersForOrigin) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      features::kAutofillEnableWalletDirectOffers);
+
   // Card-linked offers should not be returned.
   AddOfferDataForTest(test::GetCardLinkedOfferData1());
   // Expired promo code offers should not be returned.
@@ -1106,6 +1137,9 @@ TEST_P(PaymentsDataManagerServerTest,
 // promo code offers if |IsAutofillWalletImportEnabled()| returns |false|.
 TEST_P(PaymentsDataManagerServerTest,
        GetActiveAutofillPromoCodeOffersForOrigin_WalletImportDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      features::kAutofillEnableWalletDirectOffers);
+
   // Add an active promo code offer.
   AddOfferDataForTest(test::GetPromoCodeOfferData(
       /*origin=*/GURL("http://www.example.com")));
@@ -1131,6 +1165,9 @@ TEST_P(PaymentsDataManagerServerTest,
 // promo code offers if `IsAutofillPaymentMethodsEnabled()` returns `false`.
 TEST_P(PaymentsDataManagerServerTest,
        GetActiveAutofillPromoCodeOffersForOrigin_AutofillCreditCardDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      features::kAutofillEnableWalletDirectOffers);
+
   // Add an active promo code offer.
   AddOfferDataForTest(test::GetPromoCodeOfferData(
       /*origin=*/GURL("http://www.example.com")));
@@ -1138,11 +1175,81 @@ TEST_P(PaymentsDataManagerServerTest,
   prefs::SetAutofillPaymentMethodsEnabled(prefs_.get(), false);
 
   // Should not return the offer as the autofill credit card pref is disabled.
-  EXPECT_EQ(payments_data_manager()
-                .GetActiveAutofillPromoCodeOffersForOrigin(
-                    GURL("http://www.example.com"))
-                .size(),
-            0U);
+  EXPECT_TRUE(payments_data_manager()
+                  .GetActiveAutofillPromoCodeOffersForOrigin(
+                      GURL("http://www.example.com"))
+                  .empty());
+}
+
+// Tests that GetActiveAutofillPromoCodeOffersForOrigin returns only active
+// and site-relevant wallet direct offers.
+TEST_P(PaymentsDataManagerServerTest,
+       GetActiveAutofillPromoCodeOffersForOrigin_WalletDirectOffers) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kAutofillEnableWalletDirectOffers);
+
+  // Card-linked offers should not be returned.
+  AddOfferDataForTest(test::GetCardLinkedOfferData1());
+
+  DisplayStrings display_strings;
+  display_strings.value_prop_text = "5% off on shoes";
+
+  // Expired wallet direct offers should not be returned.
+  AddOfferDataForTest(AutofillOfferData::WalletDirectOffer(
+      /*offer_id=*/"111", AutofillClock::Now() - base::Days(1),
+      {GURL("http://www.example.com")}, GURL("https://pay.google.com"),
+      display_strings, "CODE111"));
+
+  // Active wallet direct offers for a different site should not be returned.
+  AddOfferDataForTest(AutofillOfferData::WalletDirectOffer(
+      /*offer_id=*/"222", AutofillClock::Now() + base::Days(35),
+      {GURL("http://www.some-other-merchant.com")},
+      GURL("https://pay.google.com"), display_strings, "CODE222"));
+
+  // Invalid wallet direct offers (empty value prop) should not be returned.
+  DisplayStrings empty_display_strings;
+  AddOfferDataForTest(AutofillOfferData::WalletDirectOffer(
+      /*offer_id=*/"333", AutofillClock::Now() + base::Days(35),
+      {GURL("http://www.example.com")}, GURL("https://pay.google.com"),
+      empty_display_strings, "CODE333"));
+
+  // Invalid wallet direct offers (empty promo code) should not be returned.
+  AddOfferDataForTest(AutofillOfferData::WalletDirectOffer(
+      /*offer_id=*/"444", AutofillClock::Now() + base::Days(35),
+      {GURL("http://www.example.com")}, GURL("https://pay.google.com"),
+      display_strings, ""));
+
+  // Active wallet direct offers for example.com should be returned.
+  AddOfferDataForTest(AutofillOfferData::WalletDirectOffer(
+      /*offer_id=*/"555", AutofillClock::Now() + base::Days(35),
+      {GURL("http://www.example.com")}, GURL("https://pay.google.com"),
+      display_strings, "CODE555"));
+
+  // Only the valid, active, matching offer for example.com should be returned.
+  auto offers =
+      payments_data_manager().GetActiveAutofillPromoCodeOffersForOrigin(
+          GURL("http://www.example.com"));
+  ASSERT_EQ(offers.size(), 1U);
+  EXPECT_EQ(offers[0]->GetOfferId(), "555");
+}
+
+// Tests that GetActiveAutofillPromoCodeOffersForOrigin does not return any
+// promo code offers if `kAutofillEnableWalletDirectOffers` is disabled.
+TEST_P(PaymentsDataManagerServerTest,
+       GetActiveAutofillPromoCodeOffersForOrigin_FeatureDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      features::kAutofillEnableWalletDirectOffers);
+
+  // Add an active promo code offer.
+  AddOfferDataForTest(test::GetPromoCodeOfferData(
+      /*origin=*/GURL("http://www.example.com")));
+
+  EXPECT_TRUE(payments_data_manager()
+                  .GetActiveAutofillPromoCodeOffersForOrigin(
+                      GURL("http://www.example.com"))
+                  .empty());
 }
 
 // Test that local credit cards are ordered as expected.
@@ -3988,6 +4095,7 @@ TEST_P(PaymentsDataManagerServerTest,
 
   sync_pb::EwalletCreationOption* ewallet_option =
       creation_option.mutable_ewallet_creation_option();
+  ewallet_option->set_issuer_id("shopeepay");
   ewallet_option->set_issuer_display_name("ShopeePay");
   ewallet_option->add_supported_payment_link_uris("shopeepay://.*");
 
@@ -4005,8 +4113,8 @@ TEST_P(PaymentsDataManagerServerTest,
   EXPECT_THAT(payments_data_manager().GetEwalletCreationOptions(),
               testing::UnorderedElementsAre(Ewallet(
                   /*instrument_id=*/0, /*nickname=*/u"",
-                  /*display_icon_url=*/GURL(), /*ewallet_name=*/u"ShopeePay",
-                  /*account_display_name=*/u"",
+                  /*display_icon_url=*/GURL(), /*ewallet_name=*/u"shopeepay",
+                  /*account_display_name=*/u"ShopeePay",
                   /*supported_payment_link_uris=*/{u"shopeepay://.*"},
                   /*is_fido_enrolled=*/false)));
 }
@@ -4074,6 +4182,7 @@ TEST_P(PaymentsDataManagerServerTest,
 
   sync_pb::EwalletCreationOption* ewallet_option =
       creation_option.mutable_ewallet_creation_option();
+  ewallet_option->set_issuer_id("shopeepay");
   ewallet_option->set_issuer_display_name("ShopeePay");
   ewallet_option->add_supported_payment_link_uris("shopeepay://.*");
 
@@ -4089,8 +4198,8 @@ TEST_P(PaymentsDataManagerServerTest,
   EXPECT_THAT(payments_data_manager().GetEwalletCreationOptions(),
               testing::UnorderedElementsAre(Ewallet(
                   /*instrument_id=*/0, /*nickname=*/u"",
-                  /*display_icon_url=*/GURL(), /*ewallet_name=*/u"ShopeePay",
-                  /*account_display_name=*/u"",
+                  /*display_icon_url=*/GURL(), /*ewallet_name=*/u"shopeepay",
+                  /*account_display_name=*/u"ShopeePay",
                   /*supported_payment_link_uris=*/{u"shopeepay://.*"},
                   /*is_fido_enrolled=*/false)));
 }

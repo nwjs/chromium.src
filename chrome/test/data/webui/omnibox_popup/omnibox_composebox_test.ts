@@ -7,7 +7,7 @@ import 'chrome://omnibox-popup.top-chrome/omnibox_popup.js';
 import {SearchboxBrowserProxy} from 'chrome://omnibox-popup.top-chrome/omnibox_popup.js';
 import type {OmniboxComposeboxElement} from 'chrome://omnibox-popup.top-chrome/omnibox_popup.js';
 import {ComposeboxProxyImpl} from 'chrome://omnibox-popup.top-chrome/omnibox_popup.js';
-import {ComposeboxFile, TabUploadOrigin} from 'chrome://resources/cr_components/composebox/common.js';
+import {ComposeboxFile} from 'chrome://resources/cr_components/composebox/common.js';
 import {PageHandlerRemote} from 'chrome://resources/cr_components/composebox/composebox.mojom-webui.js';
 import type {ComposeboxFaviconGroupElement} from 'chrome://resources/cr_components/composebox/composebox_favicon_group.js';
 import {ContextUploadErrorType, ContextUploadStatus, InputType, ToolMode} from 'chrome://resources/cr_components/composebox/composebox_query.mojom-webui.js';
@@ -358,7 +358,9 @@ suite('OmniboxComposeboxTest', () => {
     assertTrue(!!addedFile);
     assertEquals('Google Search', addedFile.name);
     assertEquals('tab', addedFile.type);
-    assertEquals(ContextUploadStatus.kUploadSuccessful, addedFile.status);
+    // The upload is still in flight at this point, so the tab reports
+    // `kUploadStarted` rather than optimistically claiming success.
+    assertEquals(ContextUploadStatus.kUploadStarted, addedFile.status);
     // Verify tab ID mapping.
     assertTrue(omniboxComposebox.addedTabsIds.has(42));
     assertEquals(mockToken, omniboxComposebox.addedTabsIds.get(42));
@@ -655,8 +657,7 @@ suite('OmniboxComposeboxTest', () => {
     assertTrue(composebox!.hasAttribute('inert'));
 
     // Dismiss error scrim.
-    scrim.dispatchEvent(new CustomEvent(
-        'dismiss-error-scrim', {bubbles: true, composed: true}));
+    scrim.fire('dismiss-error-scrim');
     await microtasksFinished();
 
     // Error cleared.
@@ -751,11 +752,7 @@ suite('OmniboxComposeboxTest', () => {
       return null;
     };
 
-    carousel.dispatchEvent(new CustomEvent('delete-file', {
-      detail: {uuid: mockToken, fromUserAction: true},
-      bubbles: true,
-      composed: true,
-    }));
+    carousel.fire('delete-file', {uuid: mockToken, fromUserAction: true});
 
     assertTrue(deleteFileCalled);
     omniboxComposebox.deleteFile = originalDeleteFile;
@@ -769,7 +766,7 @@ suite('OmniboxComposeboxTest', () => {
       title: 'Tab 101',
       url: 'https://tab101.com',
       delayUpload: false,
-      origin: TabUploadOrigin.OTHER,
+      origin: TabAttachmentSource.kOther,
     };
 
     await omniboxComposebox.addTabContextHandleCallback(tabUpload);
@@ -782,6 +779,61 @@ suite('OmniboxComposeboxTest', () => {
     assertEquals(101, addedFile.tabId);
   });
 
+  test(
+      'addTabContextHandleCallback attaches tab that uploaded early',
+      async () => {
+        // Must be a well-formed token: it is sent over a real Mojo pipe below.
+        const testToken = '12345678901234567890123456789102';
+        testProxy.handler.setPromiseResolveFor('addTabContext', testToken);
+        // The upload finishes before `addTabContext` resolves, so the status
+        // arrives while the token is still unknown to the composebox.
+        testProxy.page.onContextualInputStatusChanged(
+            testToken, ContextUploadStatus.kUploadSuccessful, null);
+        await testProxy.page.$.flushForTesting();
+
+        await omniboxComposebox.addTabContextHandleCallback({
+          tabId: 102,
+          title: 'Tab 102',
+          url: 'https://tab102.com',
+          delayUpload: false,
+          origin: TabAttachmentSource.kOther,
+        });
+        await omniboxComposebox.updateComplete;
+        await microtasksFinished();
+
+        const addedFile = omniboxComposebox.attachedContext.get(testToken);
+        assertTrue(!!addedFile);
+        assertEquals(ContextUploadStatus.kUploadSuccessful, addedFile.status);
+        // The buffered status is consumed, so nothing is left pending.
+        assertTrue(omniboxComposebox.fileUploadsComplete);
+      });
+
+  test(
+      'addTabContextHandleCallback drops tab whose upload already failed',
+      async () => {
+        const testToken = '12345678901234567890123456789103';
+        testProxy.handler.setPromiseResolveFor('addTabContext', testToken);
+        // The upload fails before `addTabContext` resolves.
+        testProxy.page.onContextualInputStatusChanged(
+            testToken, ContextUploadStatus.kUploadFailed, null);
+        await testProxy.page.$.flushForTesting();
+
+        const attachment = await omniboxComposebox.addTabContextHandleCallback({
+          tabId: 103,
+          title: 'Tab 103',
+          url: 'https://tab103.com',
+          delayUpload: false,
+          origin: TabAttachmentSource.kOther,
+        });
+        await omniboxComposebox.updateComplete;
+        await microtasksFinished();
+
+        // The failed upload must not be attached as if it had succeeded.
+        assertEquals(null, attachment);
+        assertEquals(0, omniboxComposebox.attachedContext.size);
+        assertFalse(omniboxComposebox.addedTabsIds.has(103));
+      });
+
   test('addTabContextHandleCallback failure sets errorMessage', async () => {
     testProxy.handler.setPromiseRejectFor(
         'addTabContext',
@@ -791,7 +843,7 @@ suite('OmniboxComposeboxTest', () => {
       title: 'Tab 101',
       url: 'https://tab101.com',
       delayUpload: false,
-      origin: TabUploadOrigin.OTHER,
+      origin: TabAttachmentSource.kOther,
     };
     // Mock i18n for the error key.
     omniboxComposebox.i18n = (key: string) => {
@@ -1442,15 +1494,12 @@ suite('OmniboxComposeboxTest', () => {
 
   test('suggestion activity link triggers navigation', async () => {
     // Mock results to show the link.
-    const matches = [
-      createSearchMatchForTesting({
-        isNoncannedAimSuggestion: true,
-      }),
-    ];
+    const matches = [createSearchMatchForTesting()];
     testProxy.page.autocompleteResultChanged(
         createAutocompleteResultForTesting({
           queryId: omniboxComposebox.activeQueryId,
           matches: matches,
+          showAimActivityLink: true,
         }));
     await testProxy.page.$.flushForTesting();
     await microtasksFinished();
@@ -1489,15 +1538,12 @@ suite('OmniboxComposeboxTest', () => {
   test(
       'suggestion activity link hidden when suggestions are non canned',
       async () => {
-        const matches = [
-          createSearchMatchForTesting({
-            isNoncannedAimSuggestion: false,
-          }),
-        ];
+        const matches = [createSearchMatchForTesting()];
         testProxy.page.autocompleteResultChanged(
             createAutocompleteResultForTesting({
               queryId: omniboxComposebox.activeQueryId,
               matches: matches,
+              showAimActivityLink: false,
             }));
         await testProxy.page.$.flushForTesting();
         await microtasksFinished();

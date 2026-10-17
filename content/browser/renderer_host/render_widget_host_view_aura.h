@@ -789,10 +789,17 @@ class CONTENT_EXPORT RenderWidgetHostViewAura
   bool in_bounds_changed_;
 
   // Our parent host view, if this is a popup.  NULL otherwise.
-  raw_ptr<RenderWidgetHostViewAura, DanglingUntriaged> popup_parent_host_view_;
+  //
+  // `popup_parent_host_view_` and `popup_child_host_view_` form a matched
+  // pair: if one side is set, the other side points back. Every path that
+  // breaks the link clears both directions before either view is freed, so
+  // neither can dangle. See `InitAsPopup()`, which unlinks any previous child
+  // before re-parenting, and ~RenderWidgetHostViewAura(), which unlinks
+  // whichever side is set and CHECKs that the pair agrees.
+  raw_ptr<RenderWidgetHostViewAura> popup_parent_host_view_;
 
   // Our child popup host. NULL if we do not have a child popup.
-  raw_ptr<RenderWidgetHostViewAura, DanglingUntriaged> popup_child_host_view_;
+  raw_ptr<RenderWidgetHostViewAura> popup_child_host_view_;
 
   class EventObserverForPopupExit;
   std::unique_ptr<EventObserverForPopupExit> event_observer_for_popup_exit_;
@@ -873,6 +880,9 @@ class CONTENT_EXPORT RenderWidgetHostViewAura
   // incorrect if the focus was not triggered by a user gesture.
   ui::EventPointerType last_pointer_type_before_focus_ =
       ui::EventPointerType::kUnknown;
+
+  // Tracks the last text input type notified to the InputMethod.
+  ui::TextInputType last_text_input_type_ = ui::TEXT_INPUT_TYPE_NONE;
 
   bool is_first_navigation_ = true;
   viz::LocalSurfaceId inset_surface_id_;

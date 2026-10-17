@@ -201,6 +201,10 @@ void HistorySyncOptinService::OnPrimaryAccountChanged(
       required_types = {syncer::UserSelectableType::kTabs};
       error_message_id = IDS_TABS_DISABLED_ERROR_DESCRIPTION;
       break;
+    case signin_metrics::AccessPoint::kHistoryPage:
+      required_types = {syncer::UserSelectableType::kHistory};
+      error_message_id = IDS_HISTORY_DISABLED_ERROR_DESCRIPTION;
+      break;
     case signin_metrics::AccessPoint::kCollaborationJoinTabGroup:
     case signin_metrics::AccessPoint::kCollaborationShareTabGroup:
       required_types = {syncer::UserSelectableType::kSavedTabGroups};
@@ -264,7 +268,6 @@ void HistorySyncOptinService::OnPrimaryAccountChanged(
     case signin_metrics::AccessPoint::kSkills:
     case signin_metrics::AccessPoint::kAccountMenuSignedOutState:
     case signin_metrics::AccessPoint::kIndigo:
-    case signin_metrics::AccessPoint::kHistoryPage:
     case signin_metrics::AccessPoint::kHistorySyncOptinExpansionPillOnStartup:
     case signin_metrics::AccessPoint::kWidget:
     case signin_metrics::AccessPoint::kCollaborationLeaveOrDeleteTabGroup:
@@ -296,6 +299,9 @@ void HistorySyncOptinService::OnPrimaryAccountChanged(
     case signin_metrics::AccessPoint::kLevelUp:
     case signin_metrics::AccessPoint::kSignoutUndoSnackbar:
     case signin_metrics::AccessPoint::kComposeboxDriveContextMenuOptionBubble:
+    case signin_metrics::AccessPoint::kAppSwitcherAISummarization:
+    case signin_metrics::AccessPoint::kGeminiExternalAppStoreEvent:
+    case signin_metrics::AccessPoint::kPasswordManagerCard:
       return;
   }
 

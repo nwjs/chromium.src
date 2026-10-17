@@ -142,26 +142,9 @@ void SharedWorkerGlobalScope::FetchAndRunClassicScript(
   auto context_type = mojom::blink::RequestContextType::SHARED_WORKER;
   network::mojom::RequestDestination destination =
       network::mojom::RequestDestination::kSharedWorker;
-
-  // Step 12.1. "Set request's reserved client to inside settings."
-  // The browesr process takes care of this.
-
-  // Step 12.2. "Fetch request, and asynchronously wait to run the remaining
-  // steps as part of fetch's process response for the response response."
-  WorkerClassicScriptLoader* classic_script_loader =
-      MakeGarbageCollected<WorkerClassicScriptLoader>();
-  classic_script_loader->LoadTopLevelScriptAsynchronously(
-      *this,
-      CreateOutsideSettingsFetcher(outside_settings_object,
-                                   outside_resource_timing_notifier),
-      script_url, std::move(worker_main_script_load_params), context_type,
-      destination, network::mojom::RequestMode::kSameOrigin,
-      network::mojom::CredentialsMode::kSameOrigin,
-      BindOnce(&SharedWorkerGlobalScope::DidReceiveResponseForClassicScript,
-               WrapWeakPersistent(this), WrapPersistent(classic_script_loader)),
-      BindOnce(&SharedWorkerGlobalScope::DidFetchClassicScript,
-               WrapWeakPersistent(this), WrapPersistent(classic_script_loader),
-               stack_id));
+  FetchClassicScript(script_url, std::move(worker_main_script_load_params),
+                     outside_settings_object, outside_resource_timing_notifier,
+                     context_type, destination, stack_id);
 }
 
 // https://html.spec.whatwg.org/C/#worker-processing-model
@@ -208,61 +191,6 @@ void SharedWorkerGlobalScope::Connect(MessagePortChannel channel) {
                            /*origin=*/nullptr, String(), port);
   event->initEvent(event_type_names::kConnect, false, false);
   DispatchEvent(*event);
-}
-
-void SharedWorkerGlobalScope::DidReceiveResponseForClassicScript(
-    WorkerClassicScriptLoader* classic_script_loader) {
-  DCHECK(IsContextThread());
-  probe::DidReceiveScriptResponse(this, classic_script_loader->Identifier());
-}
-
-// https://html.spec.whatwg.org/C/#worker-processing-model
-void SharedWorkerGlobalScope::DidFetchClassicScript(
-    WorkerClassicScriptLoader* classic_script_loader,
-    const v8_inspector::V8StackTraceId& stack_id) {
-  DCHECK(IsContextThread());
-
-  // Step 12. "If the algorithm asynchronously completes with null or with
-  // script whose error to rethrow is non-null, then:"
-  //
-  // The case |error to rethrow| is non-null indicates the parse error.
-  // Parsing the script should be done during fetching according to the spec
-  // but it is done in EvaluateClassicScript() for classic scripts.
-  // Therefore, we cannot catch parse error events here.
-  // TODO(https://crbug.com/1058259) Catch parse error events for classic
-  // shared workers.
-  if (classic_script_loader->Failed()) {
-    // Step 12.1. "Queue a task to fire an event named error at worker."
-    // Step 12.2. "Run the environment discarding steps for inside settings."
-    // Step 12.3. "Return."
-    ReportingProxy().DidFailToFetchClassicScript();
-    return;
-  }
-  ReportingProxy().DidFetchScript();
-  probe::ScriptImported(this, classic_script_loader->Identifier(),
-                        classic_script_loader->SourceText());
-
-  auto response_referrer_policy = network::mojom::ReferrerPolicy::kDefault;
-  if (!classic_script_loader->GetReferrerPolicy().IsNull()) {
-    SecurityPolicy::ReferrerPolicyFromHeaderValue(
-        classic_script_loader->GetReferrerPolicy(),
-        kDoNotSupportReferrerPolicyLegacyKeywords, &response_referrer_policy);
-  }
-
-  // Step 12.3-12.6 are implemented in Initialize().
-  Initialize(classic_script_loader->ResponseURL(), response_referrer_policy,
-             classic_script_loader->GetContentSecurityPolicy()
-                 ? mojo::Clone(classic_script_loader->GetContentSecurityPolicy()
-                                   ->GetParsedPolicies())
-                 : Vector<network::mojom::blink::ContentSecurityPolicyPtr>(),
-             classic_script_loader->GetDocumentPolicy(),
-             classic_script_loader->OriginTrialTokens());
-
-  // Step 12.7. "Asynchronously complete the perform the fetch steps with
-  // response."
-  EvaluateClassicScript(
-      classic_script_loader->ResponseURL(), classic_script_loader->SourceText(),
-      classic_script_loader->ReleaseCachedMetadata(), stack_id);
 }
 
 void SharedWorkerGlobalScope::ExceptionThrown(ErrorEvent* event) {

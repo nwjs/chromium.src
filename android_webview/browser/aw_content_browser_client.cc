@@ -54,7 +54,6 @@
 #include "android_webview/common/aw_paths.h"
 #include "android_webview/common/aw_switches.h"
 #include "android_webview/common/url_constants.h"
-#include "base/android/locale_utils.h"
 #include "base/android/yield_to_looper_checker.h"
 #include "base/base_paths_android.h"
 #include "base/base_switches.h"
@@ -65,6 +64,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
+#include "base/i18n/android_locale.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_macros.h"
@@ -215,8 +215,7 @@ std::string GetProduct() {
   return base::CommandLine::ForCurrentProcess()->HasSwitch(
              switches::kWebViewReduceUserAgentMinorVersion)
              ? version_info::GetProductNameAndVersionForReducedUserAgent()
-             : std::string(
-                   version_info::GetProductNameAndVersionForUserAgent());
+             : version_info::GetProductNameAndVersionForUserAgent();
 }
 
 std::string GetUserAgent() {
@@ -505,7 +504,7 @@ void AwContentBrowserClient::AppendExtraCommandLineSwitches(
 }
 
 std::string AwContentBrowserClient::GetApplicationLocale() {
-  return base::android::GetDefaultLocaleString();
+  return std::string(base::i18n::GetAndroidDefaultLocale().tag_string());
 }
 
 std::string AwContentBrowserClient::GetAcceptLangs(
@@ -1349,7 +1348,7 @@ std::string AwContentBrowserClient::GetProduct() {
   // policy. The call sites do not require user agent reduction and having the
   // unreduced version is necessary for performance tracing.
   if (base::FeatureList::IsEnabled(features::kWebViewUnreducedProductVersion)) {
-    return std::string(version_info::GetProductNameAndVersionForUserAgent());
+    return version_info::GetProductNameAndVersionForUserAgent();
   }
   return android_webview::GetProduct();
 }

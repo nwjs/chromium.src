@@ -60,6 +60,8 @@ enum ContextMenuType {
   kPinnedActionSidePanelShowComments,
   // App Menu Button
   kAppMenu,
+  // Glic Button
+  kGlic,
 };
 
 struct BackForwardButtonState {
@@ -132,6 +134,9 @@ struct OmniboxActionTextInput {
   // If true, this text change was an unelision (and thus should not be
   // viewed as actually changing the URL).
   bool unelision = false;
+
+  // If true, this change was a paste.
+  bool paste = false;
 
   gfx.mojom.Range selection;
 };
@@ -269,6 +274,34 @@ struct BatterySaverControlState {
   // Whether the button should be shown.
   // Corresponds to `OverflowableButtonState.shouldBeShown`.
   bool should_be_shown;
+
+  // Indicates whether the button should be subject to overflow logic, which
+  // hides the button and adds it to the overflow menu when there's insufficient
+  // space for it to fit.
+  //
+  // If `should_be_shown` is false, should not be set.
+  //
+  // Set while the browser is attempting to show the battery saver bubble, and
+  // while that bubble is open, since the bubble is anchored to the button and
+  // so needs it to remain visible.
+  //
+  // Corresponds to `OverflowableButtonState.preventOverflow`.
+  bool? prevent_overflow;
+};
+
+// State of the Glic button in the toolbar.
+struct GlicButtonState {
+  // Whether the Glic panel is currently open.
+  bool open = false;
+  // Whether the Glic button should be shown in the toolbar (i.e., when it is
+  // both pinned and eligible to be displayed in the toolbar).
+  bool should_show = false;
+  // Whether the context menu is currently visible.
+  bool is_context_menu_visible = false;
+  // Dynamic nudge label to display in the button when a nudge is active, if
+  // available. This string is for display only and must not be
+  // programmatically parsed.
+  string? nudge_label;
 };
 
 // The type of icon state for the app menu. These values drive the visual
@@ -404,12 +437,6 @@ struct ContentSettingImageState {
   // the blocked status.
   bool is_blocked;
 
-  // If true, the bubble is visible, so the icon should be highlighted.
-  //
-  // TODO: crbug.com/489109708 - Consider removing `is_bubble_visible` if we
-  // can use element tracking for highlighting instead.
-  bool is_bubble_visible;
-
   // Explanatory text that animates in if non empty.
   mojo_base.mojom.String16 explanatory_string;
 
@@ -475,6 +502,21 @@ enum PageActionTrigger {
   kGesture = 2,
 };
 
+// Dictates the animation style used when expanding, collapsing,
+// or transitioning a page action chip.
+enum PageActionAnimationStyle {
+  // Standard animation style used by most page actions (e.g. Translate, Lens,
+  // Bookmark, Memory Saver) where the label slides out horizontally beside the
+  // leading icon as the button expands or collapses.
+  kStandard = 0,
+
+  // Animation style used by chips such as AI Mode (AIM) where the leading icon
+  // fades out and collapses while a trailing icon (e.g. an arrow indicator)
+  // crossfades in as the label slides when user typing begins or ends in the
+  // omnibox.
+  kSlideAndCrossfade = 1,
+};
+
 // These fields correspond to PageActionModel accessors.
 struct PageActionState {
   // The specific page action icon button to display, described by this state.
@@ -519,8 +561,19 @@ struct PageActionState {
   bool is_active;
 
   // Token that changes when the active tab or URL navigation changes. Used to
-  // suppress tab-switching and navigation icon animations in the WebUI.
-  uint32 icon_animation_token;
+  // suppress tab-switching and navigation icon animations and synchronize state
+  // in the WebUI.
+  uint32 tab_switch_token;
+
+  // The animation style to use for this chip.
+  PageActionAnimationStyle animation_style;
+
+  // Optional trailing icon handle to display (e.g. arrow icon for
+  // slide-and-crossfade).
+  IconHandle? trailing_icon;
+
+  // Whether the trailing icon should currently be shown.
+  bool show_trailing_icon;
 };
 
 // Colors used by the omnibox.
@@ -746,6 +799,18 @@ struct PermissionChipState {
   PermissionPromptStyle prompt_style;
   bool is_fully_collapsed;
   mojo_base.mojom.String16 accessibility_name;
+
+  // A generation counter incremented on the browser side whenever the chip
+  // visibility changes or its animation state is reset (which occurs on tab
+  // switches, navigations, and prompt dismissal/destruction).
+  //
+  // When a click event is sent back from WebUI, this token is echoed back to
+  // ensure the click is dropped if the chip state has changed in the meantime
+  // (e.g., dropping stale clicks queued before a tab switch).
+  //
+  // Note that this is a best-effort staleness check within the browser process,
+  // not a security boundary against a compromised renderer.
+  uint32 state_token;
 };
 
 struct PermissionDashboardState {
@@ -829,6 +894,9 @@ struct NavigationControlsState {
 
   // This is true if we're in touch mode.
   bool touch_ui = false;
+
+  // State of the Glic button in the toolbar.
+  GlicButtonState glic_button_state;
 };
 
 enum FocusRequestTarget {

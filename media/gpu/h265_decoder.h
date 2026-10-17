@@ -257,9 +257,13 @@ class MEDIA_GPU_EXPORT H265Decoder final : public AcceleratedVideoDecoder {
   // All data for a frame received, process it and decode.
   H265Accelerator::Status FinishPrevFrameIfPresent();
 
-  // Called after we are done processing |pic|.
-  bool FinishPicture(scoped_refptr<H265Picture> pic,
-                     std::unique_ptr<H265SliceHeader> slice_hdr);
+  // Called after we are done processing |pic|. This runs the additional
+  // bumping of clause C.5.2.3 with the limits that StartNewFrame()
+  // snapshotted from |pic|'s SPS. The parser cannot stand in for that
+  // snapshot: an alpha-layer slice of the same access unit replaces
+  // |last_slice_hdr_|, and an alpha-layer SPS may reuse the base-layer
+  // SPS id.
+  bool FinishPicture(scoped_refptr<H265Picture> pic);
 
   // Commits all pending data for HW decoder and starts HW decoder.
   H265Accelerator::Status DecodePicture();
@@ -285,20 +289,41 @@ class MEDIA_GPU_EXPORT H265Decoder final : public AcceleratedVideoDecoder {
                       const H265PPS* pps,
                       const H265SliceHeader* slice_hdr);
 
-  // Builds the reference pictures lists for |curr_pic_| using |sps|, |pps|,
-  // |slice_hdr| and the member variables calculated in CalcRefPicPocs. Returns
-  // false if bitstream conformance is not maintained or needed reference
-  // pictures are missing, true otherwise. At the end of this,
-  // |ref_pic_list{0,1}| will be populated with the required reference pictures
-  // for submitting to the accelerator.
-  bool BuildRefPicLists(const H265SPS* sps,
-                        const H265PPS* pps,
-                        const H265SliceHeader* slice_hdr);
+  // Derives the reference picture sets of clause 8.3.2 for |curr_pic_| from
+  // |sps| and the POCs calculated in CalcRefPicPocs(), and marks the
+  // corresponding pictures in the DPB. This is invoked once per picture, and
+  // populates |ref_pic_set_{lt_curr,st_curr_after,st_curr_before}_| and
+  // |ref_pic_list_| for submitting to the accelerator. Returns false if
+  // bitstream conformance is not maintained, true otherwise.
+  bool MarkRefPicSets(const H265SPS* sps);
+
+  // Builds the reference picture lists of clause 8.3.4 for |slice_hdr| from the
+  // sets derived by MarkRefPicSets(). Independent P/B slices can override the
+  // active list sizes and the list modifications, so this is invoked for every
+  // slice of the picture. I slices produce empty lists. At the end of this,
+  // |ref_pic_list{0,1}_| will be populated with the required reference pictures
+  // for submitting to the accelerator. Returns false if bitstream conformance
+  // is not maintained, true otherwise.
+  bool BuildRefPicLists(const H265SliceHeader* slice_hdr);
+
+  // Returns true if the "bumping" process of clause C.5.2.4 needs to be
+  // invoked. |include_buffering| selects between the condition set of C.5.2.2,
+  // which includes the DPB fullness condition, and the one of C.5.2.3, which
+  // does not. The limits come from the current picture's SPS, snapshotted in
+  // StartNewFrame().
+  bool NeedsBumping(bool include_buffering);
+
+  // C.5.2.4 - "Bumping" process. Outputs the picture that is first for output
+  // among the ones marked as "needed for output" and removes it from the DPB if
+  // it is no longer used for reference. |*bumped| is set to false when nothing
+  // was left to output; callers must treat that as a stop condition so that a
+  // DPB holding nothing but reference pictures cannot spin forever. Returns
+  // false if outputting the picture failed.
+  bool BumpOne(bool* bumped);
 
   // Performs DPB management operations for |curr_pic_| by removing no longer
-  // needed entries from the DPB and outputting pictures from the DPB. |sps|
-  // should be the corresponding SPS for |curr_pic_|.
-  bool PerformDpbOperations(const H265SPS* sps);
+  // needed entries from the DPB and outputting pictures from the DPB.
+  bool PerformDpbOperations();
 
   // Decoder state.
   State state_;
@@ -371,6 +396,16 @@ class MEDIA_GPU_EXPORT H265Decoder final : public AcceleratedVideoDecoder {
   // Currently active SPS and PPS.
   int curr_sps_id_ = -1;
   int curr_pps_id_ = -1;
+
+  // C.5.2 bumping limits copied from the current picture's SPS. C.5.2.3 runs
+  // once the rest of the access unit has been parsed, by which point neither
+  // |last_slice_hdr_| nor |curr_sps_id_| still resolves to this SPS: an
+  // alpha-layer slice replaces the header, and an alpha-layer SPS may reuse
+  // the base-layer SPS id in the parser.
+  int max_num_reorder_pics_ = 0;
+  uint32_t max_latency_pictures_ = 0;
+  int max_dec_pic_buffering_minus1_ = 0;
+  uint32_t max_latency_increase_plus1_ = 0;
 
   // If this value larger than 0, then that means the current NALU contain alpha
   // layer.

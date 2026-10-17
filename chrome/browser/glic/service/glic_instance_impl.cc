@@ -27,6 +27,7 @@
 #include "chrome/browser/glic/glic_metrics.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/glic_zero_state_suggestions_manager.h"
+#include "chrome/browser/glic/host/auth_controller.h"
 #include "chrome/browser/glic/host/context/glic_active_pinned_focused_tab_manager.h"
 #include "chrome/browser/glic/host/context/glic_empty_focused_browser_manager.h"
 #include "chrome/browser/glic/host/context/glic_empty_focused_tab_manager.h"
@@ -88,15 +89,15 @@
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/actor/android/offscreen_rendering_manager_android.h"
 #include "chrome/browser/glic/host/context/glic_empty_pinned_tab_manager.h"
 #include "chrome/browser/glic/widget/conversions.h"
 #include "chrome/browser/glic/widget/glic_floating_ui_android.h"
 #include "chrome/browser/glic/widget/glic_inactive_side_panel_ui_android.h"
 #include "chrome/browser/glic/widget/glic_side_panel_ui_android.h"
 #else
-#include "chrome/browser/glic/browser_ui/glic_actor_task_icon_manager.h"
-#include "chrome/browser/glic/browser_ui/glic_actor_task_icon_manager_factory.h"
 #include "chrome/browser/glic/host/context/glic_focused_tab_manager.h"
+#include "chrome/browser/glic/public/service/glic_activity_manager.h"
 #include "chrome/browser/glic/widget/glic_floating_ui.h"
 #include "chrome/browser/glic/widget/glic_inactive_side_panel_ui.h"
 #include "chrome/browser/glic/widget/glic_side_panel_ui.h"
@@ -129,11 +130,6 @@ BASE_FEATURE(kGlicSuppressAnimationsOnDetach, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kGlicRemoveDaisyChainingWhenFreShowing,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-#if BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_DESKTOP_ANDROID)
-BASE_FEATURE(kGlicUnbindOnClose, base::FEATURE_ENABLED_BY_DEFAULT);
-#else
-BASE_FEATURE(kGlicUnbindOnClose, base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
 
 namespace {
 
@@ -293,7 +289,8 @@ GlicInstanceImpl::GlicInstanceImpl(
               this,
               contextual_cueing_service)),
       last_activation_timestamp_(base::Time::Now()),
-      last_deactivation_timestamp_(base::TimeTicks::Now()) {
+      last_deactivation_timestamp_(base::TimeTicks::Now()),
+      panel_state_(ComputePanelState()) {
   VLOG(1) << "Glic [InstanceImpl] Constructor, id=" << id_.value();
   base::trace_event::EmitNamedTrigger("glic-instance-created");
   TRACE_EVENT_INSTANT("glic", "GlicInstanceImpl::GlicInstanceImpl",
@@ -302,6 +299,10 @@ GlicInstanceImpl::GlicInstanceImpl(
     instance_metrics_.SetOptInShownCallback(base::BindRepeating(
         &InstanceCoordinatorDelegate::OnFreOptInShown, coordinator_delegate_));
   }
+  auto* auth_controller = service_->GetAuthController();
+  if (auth_controller) {
+    auth_controller->OnInstanceCreated();
+  }
   if (auto* actor_keyed_service =
           actor::ActorKeyedServiceFactory::GetActorKeyedService(profile_)) {
     actor_task_manager_ = std::make_unique<GlicActorTaskManager>(
@@ -309,7 +310,8 @@ GlicInstanceImpl::GlicInstanceImpl(
         &instance_metrics_, &GetSharingManagerInternal(), this);
     actuating_changed_subscription_ =
         actor_task_manager_->AddActuatingChangedCallback(
-            base::BindRepeating(&Host::OnActuatingChanged, host_.GetWeakPtr()));
+            base::BindRepeating(&GlicInstanceImpl::OnActuatingChanged,
+                                weak_ptr_factory_.GetWeakPtr()));
   }
   experimental_triggering_manager_ =
       std::make_unique<GlicExperimentalTriggeringManager>(
@@ -336,6 +338,7 @@ GlicInstanceImpl::~GlicInstanceImpl() {
   // the coordinator while this instance is being destroyed.
   coordinator_delegate_ = nullptr;
   tab_group_binding_.reset();
+  StopOffscreenRendering();
   // Destroying the web contents may result in calls back here, so do it first.
   host_.Hibernate();
 
@@ -396,7 +399,7 @@ bool GlicInstanceImpl::HasActiveEmbedder() const {
 }
 
 bool GlicInstanceImpl::IsDetached() {
-  return GetPanelState().kind == mojom::PanelStateKind::kDetached;
+  return GetPanelState()->kind == mojom::PanelStateKind::kDetached;
 }
 
 gfx::Size GlicInstanceImpl::GetPanelSize() {
@@ -469,6 +472,11 @@ void GlicInstanceImpl::Show(ShowOptions options) {
     return;
   }
 
+  if (is_in_show_) {
+    return;
+  }
+  base::AutoReset<bool> in_show_reset(&is_in_show_, true);
+
   if (const auto* side_panel_options =
           std::get_if<SidePanelShowOptions>(&options.embedder_options);
       side_panel_options) {
@@ -494,6 +502,7 @@ void GlicInstanceImpl::Show(ShowOptions options) {
     DeactivateCurrentEmbedder();
     // Ensure that there is a WebContents for the embedder to use.
     EnsureHostAwake();
+    StopOffscreenRendering();
     embedder_to_show = CreateActiveEmbedder(options);
     CHECK(embedder_to_show);
     host_.SetDelegate(embedder_to_show->GetHostEmbedderDelegate());
@@ -596,38 +605,6 @@ void GlicInstanceImpl::CloseInternal(EmbedderKey key,
   }
 }
 
-bool GlicInstanceImpl::ShouldUnbindOnClose(EmbedderKey key,
-                                           const EmbedderEntry& entry) {
-  // Determines whether the instance should be unbound from the embedder when
-  // closed. Unbinding occurs only when all of the following conditions are met:
-  // - Both `kGlicUnbindOnClose` and `kGlicDefaultToLastActiveConversation`
-  //   flags are enabled.
-  // - The user has not submitted input (ie. sent a prompt) while the tab was
-  //   bound.
-  // - The instance is scoped to a tab (not a floating panel or window).
-  // - The tab was pinned as a result of clicking an entrypoint (e.g., clicking
-  //   the entrypoint), rather than being pinned via one of the other mechanisms
-  //   (eg. actuation, daisy chaining, explicit pinning, etc.)
-  if (!base::FeatureList::IsEnabled(kGlicUnbindOnClose)) {
-    return false;
-  }
-  if (!base::FeatureList::IsEnabled(
-          features::kGlicDefaultToLastActiveConversation)) {
-    return false;
-  }
-  tabs::TabInterface* tab = GetTabFromEmbedderKey(key);
-  if (!tab) {
-    return false;
-  }
-  auto usage = GetSharingManagerInternal().GetPinnedTabUsage(tab->GetHandle());
-  // This is the pin trigger used for entrypoint clicks.
-  // TODO(b/501090068): Figure out how to separate this from invoke pin
-  // triggers.
-  return usage &&
-         (usage->pin_event.trigger == GlicPinTrigger::kInstanceCreation &&
-          !entry.user_input_submitted_while_bound);
-}
-
 GlicUiEmbedder* GlicInstanceImpl::GetEmbedderForTab(tabs::TabInterface* tab) {
   return GetEmbedderForKey(GetEmbedderKeyForTab(tab));
 }
@@ -690,6 +667,13 @@ void GlicInstanceImpl::RegisterConversation(
   conversation_info_ = std::move(info);
   NotifyInstanceChanged();
   conversation_info_changed_callback_list_.Notify(*conversation_info_);
+
+  // TODO(b/561944228): CriticalActionService needs conversation_id, this is a
+  // temporary solution while b/494212836 is in place; remove once fixed.
+  if (actor_task_manager_) {
+    actor_task_manager_->OnConversationRegistered(
+        conversation_info_->conversation_id);
+  }
 
   std::move(callback).Run(std::nullopt);
 }
@@ -764,9 +748,6 @@ void GlicInstanceImpl::CreateZeroStateSuggestionsHandler(
 
 void GlicInstanceImpl::CreateGeminiEnterpriseHandler(
     mojo::PendingReceiver<mojom::GeminiEnterpriseHandler> receiver) {
-  if (!GlicEnabling::GetGeminiEnterpriseSettings(profile_).has_value()) {
-    return;
-  }
   if (!gemini_enterprise_manager_) {
     gemini_enterprise_manager_ =
         std::make_unique<GlicGeminiEnterpriseManager>(profile_);
@@ -795,9 +776,6 @@ void GlicInstanceImpl::PrepareForOpen() {
 
 void GlicInstanceImpl::OnUserInputSubmitted(mojom::WebClientMode mode,
                                             mojom::PromptType /*prompt_type*/) {
-  for (auto& [key, entry] : embedders_) {
-    entry.user_input_submitted_while_bound = true;
-  }
   last_prompt_submission_time_ = base::TimeTicks::Now();
   if (coordinator_delegate_) {
     tabs::TabInterface* tab =
@@ -812,17 +790,9 @@ void GlicInstanceImpl::OnUserInputSubmitted(mojom::WebClientMode mode,
 
 void GlicInstanceImpl::OnInteractionModeChange(mojom::WebClientMode new_mode) {
   interaction_mode_ = new_mode;
-  sharing_manager_coordinator_.UpdateState(GetPanelState().kind,
+  sharing_manager_coordinator_.UpdateState(GetPanelState()->kind,
                                            interaction_mode_);
   ContextAccessIndicatorChanged(host().IsContextAccessIndicatorEnabled());
-}
-
-void GlicInstanceImpl::AddStateObserver(PanelStateObserver* observer) {
-  state_observers_.AddObserver(observer);
-}
-
-void GlicInstanceImpl::RemoveStateObserver(PanelStateObserver* observer) {
-  state_observers_.RemoveObserver(observer);
 }
 
 void GlicInstanceImpl::UnbindEmbedder(EmbedderKey key) {
@@ -960,6 +930,59 @@ void GlicInstanceImpl::UpdateSkillPreviews(
   skills_manager().UpdateSkillPreviews(updated_tab);
 }
 
+// TODO(b/572001459): Extract Android offscreen rendering management out of
+// GlicInstanceImpl into a dedicated helper class owned by this instance.
+void GlicInstanceImpl::SetHiddenInitializing(bool initializing) {
+  if (is_hidden_initializing_ == initializing) {
+    return;
+  }
+  is_hidden_initializing_ = initializing;
+  UpdateOffscreenRenderingState();
+}
+
+void GlicInstanceImpl::OnActuatingChanged(bool actuating) {
+  host_.OnActuatingChanged(actuating);
+  UpdateOffscreenRenderingState();
+}
+
+void GlicInstanceImpl::UpdateOffscreenRenderingState() {
+#if BUILDFLAG(IS_ANDROID)
+  if (!base::FeatureList::IsEnabled(features::kGlicAndroidOffscreenRendering)) {
+    return;
+  }
+
+  const bool should_render_offscreen =
+      !HasActiveEmbedder() &&
+      (is_hidden_initializing_ ||
+       (actor_task_manager_ && actor_task_manager_->IsActuating()));
+
+  if (should_render_offscreen == is_offscreen_rendering_active_) {
+    return;
+  }
+
+  if (should_render_offscreen) {
+    EnsureHostAwake();
+    if (content::WebContents* contents = host_.webui_contents()) {
+      actor::StartOffscreenRenderingForWebContents(contents);
+      is_offscreen_rendering_active_ = true;
+    }
+  } else {
+    StopOffscreenRendering();
+  }
+#endif
+}
+
+void GlicInstanceImpl::StopOffscreenRendering() {
+#if BUILDFLAG(IS_ANDROID)
+  if (is_offscreen_rendering_active_) {
+    if (content::WebContents* contents = host_.webui_contents()) {
+      actor::StopOffscreenRenderingForWebContents(contents);
+    }
+    is_offscreen_rendering_active_ = false;
+  }
+#endif
+}
+
 void GlicInstanceImpl::FetchZeroStateSuggestions(
     bool is_first_run,
     std::optional<std::vector<std::string>> supported_tools,
@@ -1069,6 +1092,9 @@ glic::mojom::ConversationInfoPtr GlicInstanceImpl::GetConversationInfo() const {
 // The floating UI is a more deliberate user choice, and we don't want a
 // tab switch to unexpectedly close the floating UI.
 bool GlicInstanceImpl::ShouldDoAutomaticActivation() const {
+  if (is_in_show_) {
+    return false;
+  }
   return !active_embedder_key_.has_value() ||
          !std::holds_alternative<FloatingEmbedderKey>(
              active_embedder_key_.value());
@@ -1203,10 +1229,10 @@ void GlicInstanceImpl::SetActiveEmbedderAndNotifyVisibilityChange(
   if (active_embedder_key_.has_value()) {
     UpdateLastActiveTime(active_embedder_key_.value());
   }
-  sharing_manager_coordinator_.UpdateState(GetPanelState().kind,
+  UpdatePanelState();
+  sharing_manager_coordinator_.UpdateState(GetPanelState()->kind,
                                            interaction_mode_);
   NotifyVisibilityChange();
-  NotifyPanelStateChanged();
 }
 
 void GlicInstanceImpl::UpdateLastActiveTime(EmbedderKey key) {
@@ -1219,8 +1245,8 @@ void GlicInstanceImpl::UpdateLastActiveTime(EmbedderKey key) {
 void GlicInstanceImpl::ClearActiveEmbedderAndNotifyVisibilityChange() {
   if (active_embedder_key_.has_value()) {
     active_embedder_key_.reset();
+    UpdatePanelState();
     NotifyVisibilityChange();
-    NotifyPanelStateChanged();
     host().PanelWasClosed();
 #if !BUILDFLAG(IS_ANDROID)
     MaybeShowShortcutSnoozePromo();
@@ -1585,13 +1611,6 @@ void GlicInstanceImpl::DidCloseFor(EmbedderKey key,
   MaybeDeactivateEmbedder(key);
 
   NotifyVisibilityChange();
-
-  auto* entry = GetEmbedderEntry(key);
-  if (reason == EmbedderCloseReason::kExplicitlyClosed && entry &&
-      ShouldUnbindOnClose(key, *entry)) {
-    // Unbind might delete 'this'
-    UnbindEmbedder(key);
-  }
 }
 
 void GlicInstanceImpl::ClientReadyToShow(
@@ -1607,6 +1626,12 @@ void GlicInstanceImpl::WebUiStateChanged(mojom::WebUiState state) {
   instance_metrics_.OnWebUiStateChanged(state);
 }
 
+void GlicInstanceImpl::ClientLoadErrorOccurred(ClientLoadErrorReason reason) {
+  TRACE_EVENT_INSTANT("glic", "GlicInstanceImpl::ClientLoadErrorOccurred",
+                      perfetto::Flow::FromPointer(this), "reason", reason);
+  instance_metrics_.OnClientLoadError(reason);
+}
+
 void GlicInstanceImpl::ContextAccessIndicatorChanged(bool enabled) {
   if (coordinator_delegate_) {
     coordinator_delegate_->ContextAccessIndicatorChanged(*this, enabled);
@@ -1617,12 +1642,16 @@ void GlicInstanceImpl::OnEmbedderWindowActivationChanged(bool has_focus) {
   NotifyInstanceActivationChanged(has_focus);
 }
 
-void GlicInstanceImpl::NotifyPanelStateChanged() {
-  state_observers_.Notify(&PanelStateObserver::PanelStateChanged,
-                          GetPanelState());
+void GlicInstanceImpl::UpdatePanelState() {
+  panel_state_.Set(ComputePanelState());
 }
 
-mojom::PanelState GlicInstanceImpl::GetPanelState() {
+ObservableValueView<mojom::PanelState>& GlicInstanceImpl::GetPanelState()
+    const {
+  return panel_state_.view();
+}
+
+mojom::PanelState GlicInstanceImpl::ComputePanelState() {
   auto* embedder = GetActiveEmbedder();
   if (embedder) {
     return embedder->GetPanelState();
@@ -1668,6 +1697,7 @@ void GlicInstanceImpl::OnAllEmbeddersInactive() {
 
   NotifyInstanceActivationChanged(false);
   host_.SetDebouncedVisibility(false);
+  UpdateOffscreenRenderingState();
   if (actor_task_manager_) {
     // Attempt to show toast on UI deactivated (and not replaced by anything
     // else).
@@ -1910,9 +1940,8 @@ void GlicInstanceImpl::OnTabAddedToTask(
   }
 
 #if !BUILDFLAG(IS_ANDROID)
-  if (auto* icon_manager =
-          glic::GlicActorTaskIconManagerFactory::GetForProfile(profile_)) {
-    icon_manager->OnTabAddedToTask(task_id);
+  if (auto* activity_manager = GlicActivityManager::Get(profile_)) {
+    activity_manager->OnTabAddedToTask(task_id);
   }
 #endif
 

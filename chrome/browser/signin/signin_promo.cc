@@ -7,7 +7,6 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
-#include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/string_number_conversions.h"
 #include "build/build_config.h"
@@ -113,42 +112,40 @@ GURL GetChromeSyncURLForDice(ChromeSyncUrlArgs args) {
     url = net::AppendQueryParameter(url, "theme", "mn");
   }
 
-  if (base::FeatureList::IsEnabled(
-          switches::kMagiChromeSignInExperimentsBatch1)) {
-    std::string exp_param = base::GetFieldTrialParamValueByFeature(
-        switches::kMagiChromeSignInExperimentsBatch1,
-        "magichrome_fre_exp_branch");
-    if (!exp_param.empty()) {
+  if (base::FeatureList::IsEnabled(switches::kMagiChromePasskeySignIn)) {
+    int exp_branch = switches::kMagiChromePasskeySignInGaiaExpBranch.Get();
+    if (exp_branch > 0) {
       url = net::AppendQueryParameter(url, "magichrome_fre_exp_branch",
-                                      exp_param);
+                                      base::NumberToString(exp_branch));
     }
   }
   static const char kMagiChromeHybridTransportSupportedHistogram[] =
       "Signin.MagiChrome.HybridTransportSupported";
   // Record hybrid transport signal histogram.
-  IsHybridTransportSupportedForQrCodeSignin(base::BindOnce([](bool can_start) {
-    base::UmaHistogramBoolean(kMagiChromeHybridTransportSupportedHistogram,
-                              can_start);
-  }));
+  IsHybridTransportSupportedForQrCodeSignin(base::BindOnce(
+      [](bool can_start, scoped_refptr<device::BluetoothAdapter>) {
+        base::UmaHistogramBoolean(kMagiChromeHybridTransportSupportedHistogram,
+                                  can_start);
+      }));
 
   return url;
 }
 
 void IsHybridTransportSupportedForQrCodeSignin(
-    base::OnceCallback<void(bool)> callback) {
+    HybridTransportSupportedCallback callback) {
   if (!device::BluetoothAdapterFactory::Get()->IsLowEnergySupported()) {
-    std::move(callback).Run(false);
+    std::move(callback).Run(false, nullptr);
     return;
   }
   device::BluetoothAdapterFactory::Get()->GetAdapter(base::BindOnce(
-      [](base::OnceCallback<void(bool)> callback,
+      [](HybridTransportSupportedCallback callback,
          scoped_refptr<device::BluetoothAdapter> adapter) {
         bool can_show =
             adapter && adapter->IsPresent() &&
             adapter->GetOsPermissionStatus() ==
                 device::BluetoothAdapter::PermissionStatus::kAllowed &&
             adapter->IsPowered();
-        std::move(callback).Run(can_show);
+        std::move(callback).Run(can_show, std::move(adapter));
       },
       std::move(callback)));
 }

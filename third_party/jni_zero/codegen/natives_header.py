@@ -6,9 +6,14 @@
 from codegen import convert_type
 from codegen import header_common
 import common
+import java_types
 
 
 def _return_type_cpp_non_mirror(java_type):
+  if java_type.is_safe_pointer():
+    # Marshalled to a Java wrapper object at the JNI boundary; see
+    # entry_point_method().
+    return java_type.to_backend_cpp_type()
   if converted_type := java_type.converted_type:
     return converted_type
   if java_type.is_primitive():
@@ -24,6 +29,8 @@ def _return_type_cpp_mirror(java_type):
 
 
 def _param_type_cpp_non_mirror(java_type, use_const=False):
+  if java_type.is_safe_pointer():
+    return java_type.to_backend_cpp_type()
   if converted_type := java_type.converted_type:
     # Drop & when the type is obviously a pointer to avoid "const char *&".
     if not java_type.is_primitive() and not converted_type.endswith('*'):
@@ -70,6 +77,16 @@ def _prep_param(sb, param, native):
   orig_name = param.cpp_name()
   java_type = param.java_type
 
+  if java_type.is_safe_pointer():
+    assert java_type.java_class == java_types.JNI_PTR_CLASS, (
+        f'Only JniPtr is supported as a parameter in proxy native methods; '
+        f'got {java_type.java_class}.')
+    cpp_type = java_type.to_backend_cpp_type()
+    ret = f'{param.name}_converted'
+    with sb.statement():
+      sb(f'{cpp_type} {ret} = reinterpret_cast<{cpp_type}>({orig_name})')
+    return ret
+
   if java_type.converted_type:
     ret = f'{param.name}_converted'
     with sb.statement():
@@ -98,6 +115,8 @@ def _prep_param(sb, param, native):
 
 def _param_type_for_assert_message(param):
   param_type = param.java_type
+  if param_type.is_safe_pointer():
+    return param_type.to_backend_cpp_type()
   if param_type.converted_type:
     return param_type.converted_type
   if param_type.is_primitive():
@@ -218,11 +237,32 @@ def entry_point_method(sb,
           sb(f'static_assert(false, "{msg}")')
 
     with sb.statement():
-      if not return_type.is_void():
+      if return_type.is_safe_pointer():
+        sb(f'{return_type.to_backend_cpp_type()} return_value = ')
+      elif not return_type.is_void():
         sb('auto return_value = ')
       sb('dependent_context(0)')
 
     if return_type.is_void():
+      return
+
+    if return_type.is_safe_pointer():
+      # Construct the Java wrapper object on the native side and return it as
+      # a local ref.
+      if return_type.java_class == java_types.JNI_UNIQUE_PTR_CLASS:
+        sb('auto _deleter = return_value.deleter_address();\n')
+        with sb.statement():
+          sb('return ::jni_zero::internal::CreateJavaJniUniquePtr(env, '
+             'reinterpret_cast<jlong>(return_value.release()), '
+             '_deleter).ReleaseLocal()')
+      elif return_type.java_class == java_types.JNI_RAW_PTR_CLASS:
+        with sb.statement():
+          sb('return ::jni_zero::internal::CreateJavaJniRawPtr(env, '
+             'reinterpret_cast<jlong>(return_value.get())).ReleaseLocal()')
+      else:
+        raise ValueError(
+            'JniPtr cannot be a @NativeMethods return type; this should have '
+            'been rejected during parsing.')
       return
 
     if not return_type.converted_type:

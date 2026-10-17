@@ -30,10 +30,12 @@ source_set("ai_overlay_dialog") {
   public_deps = [
     ":mojo_bindings",
     "//chrome/browser/optimization_guide",
-    "//chrome/browser/ttc",
+    "//chrome/browser/ttc/app",
+    "//chrome/browser/ttc/core",
     "//chrome/browser/ui/actions:actions_headers",
     "//chrome/browser/ui/ai_overlay_dialog",
     "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/webui/top_chrome",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//components/page_content_annotations/content",
     "//content/public/browser",
@@ -43,9 +45,6 @@ source_set("ai_overlay_dialog") {
     "//ui/webui",
     "//url",
   ]
-  if (!is_android) {
-    public_deps += [ "//chrome/browser/ui/webui/top_chrome" ]
-  }
 }
 
 source_set("impl") {
@@ -67,7 +66,8 @@ source_set("impl") {
     "//chrome/browser/profiles:profile",
     "//chrome/browser/search_engines",
     "//chrome/browser/translate",
-    "//chrome/browser/ttc",
+    "//chrome/browser/ttc/app:impl",
+    "//chrome/browser/ttc/core",
     "//chrome/browser/ttc/resources",
     "//chrome/browser/ui",
     "//chrome/browser/ui:ui_features",
@@ -96,6 +96,8 @@ source_set("impl") {
       # that registers this dialog), so :ui allows the circular include instead
       # of this target depending on the :ui monolith directly.
       "//chrome/browser/ui:browser_actions",
+      "//chrome/browser/ui:browser_commands",
+      "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui/tabs:tab_strip",
     ]
   }
@@ -111,6 +113,7 @@ source_set("unit_tests") {
     "//base/test:test_support",
     "//chrome/browser/ui/browser_window/test:test_support",
     "//chrome/test:test_support",
+    "//chrome/test/base:chrome_render_view_host_test_harness",
     "//content/test:test_support",
     "//testing/gmock",
     "//testing/gtest",

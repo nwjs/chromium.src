@@ -9,13 +9,11 @@
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/page_action/page_action_controller.h"
 #include "chrome/browser/ui/read_anything/read_anything_controller.h"
+#include "chrome/browser/ui/read_anything/read_anything_entry_point_controller.h"
 #include "chrome/browser/ui/read_anything/read_anything_enums.h"
-#include "chrome/browser/ui/read_anything/read_anything_side_panel_controller_utils.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
-#include "chrome/browser/ui/ui_features.h"
 #include "content/public/browser/page.h"
 #include "content/public/browser/web_contents.h"
-#include "read_anything_entry_point_controller.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
 #include "ui/accessibility/accessibility_features.h"
@@ -26,8 +24,11 @@ ReadAnythingOmniboxController::ReadAnythingOmniboxController(
       PageActionObserver(kActionSidePanelShowReadAnything),
       tab_(tab) {
   // This class should only be instantiated if the omnibox entrypoint is
-  // enabled.
+  // enabled and the tab has the required window and page action features.
   CHECK(features::IsReadAnythingOmniboxChipEnabled());
+  CHECK(tab_->GetBrowserWindowInterface());
+  CHECK(tab_->GetTabFeatures());
+  CHECK(tab_->GetTabFeatures()->page_action_controller());
 
   read_anything::ReadAnythingEntryPointController::
       RegisterForSuggestReadingMode(

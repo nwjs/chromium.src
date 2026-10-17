@@ -60,11 +60,11 @@ bool IsMatchDeletionEnabled() {
 void RecordCreatingClipboardSuggestionMetrics(
     size_t current_url_suggested_times,
     bool matches_is_empty,
-    AutocompleteMatchType::Type match_type,
+    omnibox::AutocompleteMatchType match_type,
     const base::TimeDelta clipboard_contents_age) {
-  DCHECK(match_type == AutocompleteMatchType::CLIPBOARD_URL ||
-         match_type == AutocompleteMatchType::CLIPBOARD_TEXT ||
-         match_type == AutocompleteMatchType::CLIPBOARD_IMAGE);
+  DCHECK(match_type == omnibox::AutocompleteMatchType::kClipboardUrl ||
+         match_type == omnibox::AutocompleteMatchType::kClipboardText ||
+         match_type == omnibox::AutocompleteMatchType::kClipboardImage);
 
   base::UmaHistogramSparse(
       "Omnibox.ClipboardSuggestionShownNumTimes",
@@ -74,7 +74,7 @@ void RecordCreatingClipboardSuggestionMetrics(
                         !matches_is_empty);
   UMA_HISTOGRAM_LONG_TIMES_100("Omnibox.ClipboardSuggestionShownAge",
                                clipboard_contents_age);
-  if (match_type == AutocompleteMatchType::CLIPBOARD_URL) {
+  if (match_type == omnibox::AutocompleteMatchType::kClipboardUrl) {
     base::UmaHistogramSparse(
         "Omnibox.ClipboardSuggestionShownNumTimes.URL",
         std::min(current_url_suggested_times,
@@ -83,7 +83,7 @@ void RecordCreatingClipboardSuggestionMetrics(
                           !matches_is_empty);
     UMA_HISTOGRAM_LONG_TIMES_100("Omnibox.ClipboardSuggestionShownAge.URL",
                                  clipboard_contents_age);
-  } else if (match_type == AutocompleteMatchType::CLIPBOARD_TEXT) {
+  } else if (match_type == omnibox::AutocompleteMatchType::kClipboardText) {
     base::UmaHistogramSparse(
         "Omnibox.ClipboardSuggestionShownNumTimes.TEXT",
         std::min(current_url_suggested_times,
@@ -92,7 +92,7 @@ void RecordCreatingClipboardSuggestionMetrics(
                           !matches_is_empty);
     UMA_HISTOGRAM_LONG_TIMES_100("Omnibox.ClipboardSuggestionShownAge.TEXT",
                                  clipboard_contents_age);
-  } else if (match_type == AutocompleteMatchType::CLIPBOARD_IMAGE) {
+  } else if (match_type == omnibox::AutocompleteMatchType::kClipboardImage) {
     base::UmaHistogramSparse(
         "Omnibox.ClipboardSuggestionShownNumTimes.IMAGE",
         std::min(current_url_suggested_times,
@@ -106,20 +106,20 @@ void RecordCreatingClipboardSuggestionMetrics(
 }
 
 void RecordDeletingClipboardSuggestionMetrics(
-    AutocompleteMatchType::Type match_type,
+    omnibox::AutocompleteMatchType match_type,
     const base::TimeDelta clipboard_contents_age) {
   base::RecordAction(
       base::UserMetricsAction("Omnibox.ClipboardSuggestionRemoved"));
 
   UMA_HISTOGRAM_LONG_TIMES_100("Omnibox.ClipboardSuggestionRemovedAge",
                                clipboard_contents_age);
-  if (match_type == AutocompleteMatchType::CLIPBOARD_URL) {
+  if (match_type == omnibox::AutocompleteMatchType::kClipboardUrl) {
     UMA_HISTOGRAM_LONG_TIMES_100("Omnibox.ClipboardSuggestionRemovedAge.URL",
                                  clipboard_contents_age);
-  } else if (match_type == AutocompleteMatchType::CLIPBOARD_TEXT) {
+  } else if (match_type == omnibox::AutocompleteMatchType::kClipboardText) {
     UMA_HISTOGRAM_LONG_TIMES_100("Omnibox.ClipboardSuggestionRemovedAge.TEXT",
                                  clipboard_contents_age);
-  } else if (match_type == AutocompleteMatchType::CLIPBOARD_IMAGE) {
+  } else if (match_type == omnibox::AutocompleteMatchType::kClipboardImage) {
     UMA_HISTOGRAM_LONG_TIMES_100("Omnibox.ClipboardSuggestionRemovedAge.IMAGE",
                                  clipboard_contents_age);
   }
@@ -129,7 +129,7 @@ void RecordDeletingClipboardSuggestionMetrics(
 ClipboardProvider::ClipboardProvider(AutocompleteProviderClient* client,
                                      AutocompleteProviderListener* listener,
                                      ClipboardRecentContent* clipboard_content)
-    : AutocompleteProvider(AutocompleteProvider::TYPE_CLIPBOARD),
+    : AutocompleteProvider(AutocompleteProvider::Type::kClipboard),
       client_(client),
       clipboard_content_(clipboard_content),
       current_url_suggested_times_(0) {
@@ -308,7 +308,7 @@ void ClipboardProvider::OnReceiveClipboardContent(
 AutocompleteMatch ClipboardProvider::NewBlankURLMatch() {
   AutocompleteMatch match(this, omnibox::kClipboardMatchZeroSuggestRelevance,
                           IsMatchDeletionEnabled(),
-                          AutocompleteMatchType::CLIPBOARD_URL);
+                          omnibox::AutocompleteMatchType::kClipboardUrl);
 
   match.description.assign(l10n_util::GetStringUTF16(IDS_LINK_FROM_CLIPBOARD));
   if (!match.description.empty())
@@ -327,7 +327,7 @@ AutocompleteMatch ClipboardProvider::NewClipboardURLMatch(const GURL& url) {
 AutocompleteMatch ClipboardProvider::NewBlankTextMatch() {
   AutocompleteMatch match(this, omnibox::kClipboardMatchZeroSuggestRelevance,
                           IsMatchDeletionEnabled(),
-                          AutocompleteMatchType::CLIPBOARD_TEXT);
+                          omnibox::AutocompleteMatchType::kClipboardText);
   // Any path leading here should first verify whether
   // TemplateUrlSupportsTextSearch().
   TemplateURLService* url_service = client_->GetTemplateURLService();
@@ -356,7 +356,7 @@ std::optional<AutocompleteMatch> ClipboardProvider::NewClipboardTextMatch(
 AutocompleteMatch ClipboardProvider::NewBlankImageMatch() {
   AutocompleteMatch match(this, omnibox::kClipboardMatchZeroSuggestRelevance,
                           IsMatchDeletionEnabled(),
-                          AutocompleteMatchType::CLIPBOARD_IMAGE);
+                          omnibox::AutocompleteMatchType::kClipboardImage);
   // Any path leading here should first verify whether
   // TemplateUrlSupportsImageSearch().
   TemplateURLService* url_service = client_->GetTemplateURLService();
@@ -402,19 +402,19 @@ void ClipboardProvider::UpdateClipboardMatchWithContent(
     base::WeakPtr<AutocompleteMatch> match,
     ClipboardMatchCallback callback) {
   DCHECK(match);
-  if (match->type == AutocompleteMatchType::CLIPBOARD_URL) {
+  if (match->type == omnibox::AutocompleteMatchType::kClipboardUrl) {
     clipboard_content_->GetRecentURLFromClipboard(
         base::BindOnce(&ClipboardProvider::OnReceiveURLForMatchWithContent,
                        callback_weak_ptr_factory_.GetWeakPtr(),
                        std::move(callback), std::move(match)));
     return;
-  } else if (match->type == AutocompleteMatchType::CLIPBOARD_TEXT) {
+  } else if (match->type == omnibox::AutocompleteMatchType::kClipboardText) {
     clipboard_content_->GetRecentTextFromClipboard(
         base::BindOnce(&ClipboardProvider::OnReceiveTextForMatchWithContent,
                        callback_weak_ptr_factory_.GetWeakPtr(),
                        std::move(callback), std::move(match)));
     return;
-  } else if (match->type == AutocompleteMatchType::CLIPBOARD_IMAGE) {
+  } else if (match->type == omnibox::AutocompleteMatchType::kClipboardImage) {
     clipboard_content_->GetRecentImageFromClipboard(
         base::BindOnce(&ClipboardProvider::OnReceiveImageForMatchWithContent,
                        callback_weak_ptr_factory_.GetWeakPtr(),
@@ -557,7 +557,7 @@ void ClipboardProvider::UpdateClipboardURLContent(const GURL& url,
 
   // Update the match type in the event the Clipboard metadata told us this is a
   // text, but we resolve it as a URL (e.g. "chrome://" URLs on Android).
-  match->type = AutocompleteMatchType::CLIPBOARD_URL;
+  match->type = omnibox::AutocompleteMatchType::kClipboardUrl;
 }
 
 bool ClipboardProvider::UpdateClipboardTextContent(
@@ -610,7 +610,7 @@ bool ClipboardProvider::UpdateClipboardTextContent(
   // Update the match type in the event the Clipboard metadata told us this is a
   // URL, but we couldn't open it as such (either bad metadata, or javascript
   // url).
-  match->type = AutocompleteMatchType::CLIPBOARD_TEXT;
+  match->type = omnibox::AutocompleteMatchType::kClipboardText;
 
   return true;
 }

@@ -76,6 +76,7 @@ source_set("impl") {
 
   if (!is_android) {
     deps += [
+      "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/read_anything",
       "//chrome/browser/ui/side_panel",
@@ -138,12 +139,14 @@ if (!is_android) {
       "//chrome/browser/language",
       "//chrome/browser/prefs:util",
       "//chrome/browser/search_engines",
+      "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui/toasts",
       "//chrome/browser/ui/toasts/api:toasts",
       "//chrome/browser/ui/translate",
       "//chrome/browser/ui/views/translate",
       "//chrome/common",
       "//chrome/test:test_support",
+      "//chrome/test/base:browser_test_waiters",
       "//components/language/core/browser",
       "//components/translate/content/browser",
       "//components/translate/core/browser",
@@ -180,6 +183,7 @@ source_set("unit_tests") {
     "//base",
     "//base/test:test_support",
     "//chrome/test:test_support",
+    "//chrome/test/base:chrome_render_view_host_test_harness",
     "//components/infobars/content",
     "//components/translate/content/browser",
     "//components/translate/core/browser",

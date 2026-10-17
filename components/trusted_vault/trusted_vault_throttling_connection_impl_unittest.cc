@@ -8,9 +8,10 @@
 
 #include "base/functional/callback_helpers.h"
 #include "base/test/simple_test_clock.h"
+#include "components/trusted_vault/legacy_standalone_trusted_vault_storage.h"
+#include "components/trusted_vault/legacy_standalone_trusted_vault_storage_adapter.h"
 #include "components/trusted_vault/local_recovery_factor.h"
-#include "components/trusted_vault/standalone_trusted_vault_storage.h"
-#include "components/trusted_vault/test/fake_file_access.h"
+#include "components/trusted_vault/test/legacy_fake_file_access.h"
 #include "components/trusted_vault/test/mock_trusted_vault_throttling_connection.h"
 #include "components/trusted_vault/trusted_vault_connection.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -33,32 +34,33 @@ class TrustedVaultThrottlingConnectionImplTest : public testing::Test {
 
   void ResetThrottlingConnection() {
     // Destroy `throttling_connection_`, otherwise it would hold a reference to
-    // `storage_` which is destroyed before `throttling_connection_` below.
+    // `adapter_` which is destroyed before `throttling_connection_` below.
     // Also, set `delegate_` to null, because it points to an object owned by
     // `throttling_connection_`.
     delegate_ = nullptr;
     throttling_connection_ = nullptr;
 
-    std::unique_ptr<FakeFileAccess> file_access =
-        std::make_unique<FakeFileAccess>();
+    auto file_access = std::make_unique<LegacyFakeFileAccess>();
     if (file_access_) {
       // Retain the stored state.
       file_access->SetStoredLocalTrustedVault(
           file_access_->GetStoredLocalTrustedVault());
     }
     file_access_ = file_access.get();
-    storage_ =
-        StandaloneTrustedVaultStorage::CreateForTesting(std::move(file_access));
-    storage_->ReadDataFromDisk();
-    storage_->MutateUserVault(account_info().gaia, [](UserVault&) {});
+    auto storage = LegacyStandaloneTrustedVaultStorage::CreateForTesting(
+        std::move(file_access));
+    storage->ReadDataFromDisk();
+    storage->MutateUserVault(account_info().gaia, [](UserVault&) {});
 
     std::unique_ptr<NiceMock<MockTrustedVaultThrottlingConnection>> delegate =
         std::make_unique<NiceMock<MockTrustedVaultThrottlingConnection>>();
     delegate_ = delegate.get();
 
+    adapter_ = std::make_unique<LegacyStandaloneTrustedVaultStorageAdapter>(
+        std::move(storage));
     throttling_connection_ =
         TrustedVaultThrottlingConnectionImpl::CreateForTesting(
-            std::move(delegate), storage_.get(), &clock_);
+            std::move(delegate), adapter_.get(), &clock_);
   }
 
   ~TrustedVaultThrottlingConnectionImplTest() override = default;
@@ -79,44 +81,58 @@ class TrustedVaultThrottlingConnectionImplTest : public testing::Test {
 
  private:
   base::SimpleTestClock clock_;
-  std::unique_ptr<StandaloneTrustedVaultStorage> storage_;
+  std::unique_ptr<LegacyStandaloneTrustedVaultStorageAdapter> adapter_;
   std::unique_ptr<TrustedVaultThrottlingConnectionImpl> throttling_connection_;
   raw_ptr<NiceMock<MockTrustedVaultThrottlingConnection>> delegate_ = nullptr;
-  raw_ptr<FakeFileAccess> file_access_ = nullptr;
+  raw_ptr<LegacyFakeFileAccess> file_access_ = nullptr;
 };
 
 TEST_F(TrustedVaultThrottlingConnectionImplTest, ShouldNotThrottleByDefault) {
-  EXPECT_FALSE(throttling_connection()->AreRequestsThrottled(account_info()));
+  EXPECT_FALSE(throttling_connection()->AreRequestsThrottled(
+      account_info(), SecurityDomainId::kChromeSync));
 }
 
 TEST_F(TrustedVaultThrottlingConnectionImplTest, FailedAttemptShouldThrottle) {
-  EXPECT_FALSE(throttling_connection()->AreRequestsThrottled(account_info()));
+  EXPECT_FALSE(throttling_connection()->AreRequestsThrottled(
+      account_info(), SecurityDomainId::kChromeSync));
 
-  throttling_connection()->RecordFailedRequestForThrottling(account_info());
+  throttling_connection()->RecordFailedRequestForThrottling(
+      account_info(), SecurityDomainId::kChromeSync);
 
-  EXPECT_TRUE(throttling_connection()->AreRequestsThrottled(account_info()));
+  EXPECT_TRUE(throttling_connection()->AreRequestsThrottled(
+      account_info(), SecurityDomainId::kChromeSync));
 }
+
+// TODO(crbug.com/542895033): Add a test along the lines of
+// DomainFailureShouldNotThrottleOtherDomain once storage supports other
+// security domains.
 
 TEST_F(TrustedVaultThrottlingConnectionImplTest, ShouldRemainThrottled) {
   // Record a failed attempt at time "now".
-  throttling_connection()->RecordFailedRequestForThrottling(account_info());
-  EXPECT_TRUE(throttling_connection()->AreRequestsThrottled(account_info()));
+  throttling_connection()->RecordFailedRequestForThrottling(
+      account_info(), SecurityDomainId::kChromeSync);
+  EXPECT_TRUE(throttling_connection()->AreRequestsThrottled(
+      account_info(), SecurityDomainId::kChromeSync));
 
   // Advance time to just before the throttling duration.
   clock()->Advance(TrustedVaultThrottlingConnectionImpl::kThrottlingDuration -
                    base::Seconds(1));
-  EXPECT_TRUE(throttling_connection()->AreRequestsThrottled(account_info()));
+  EXPECT_TRUE(throttling_connection()->AreRequestsThrottled(
+      account_info(), SecurityDomainId::kChromeSync));
 }
 
 TEST_F(TrustedVaultThrottlingConnectionImplTest,
        ShouldUnthrottleAfterThrottlingDuration) {
   // Record a failed attempt at time "now".
-  throttling_connection()->RecordFailedRequestForThrottling(account_info());
-  EXPECT_TRUE(throttling_connection()->AreRequestsThrottled(account_info()));
+  throttling_connection()->RecordFailedRequestForThrottling(
+      account_info(), SecurityDomainId::kChromeSync);
+  EXPECT_TRUE(throttling_connection()->AreRequestsThrottled(
+      account_info(), SecurityDomainId::kChromeSync));
 
   // Advance time to pass the throttling duration.
   clock()->Advance(TrustedVaultThrottlingConnectionImpl::kThrottlingDuration);
-  EXPECT_FALSE(throttling_connection()->AreRequestsThrottled(account_info()));
+  EXPECT_FALSE(throttling_connection()->AreRequestsThrottled(
+      account_info(), SecurityDomainId::kChromeSync));
 }
 
 // System time can be changed to the past and if this situation not handled,
@@ -124,23 +140,29 @@ TEST_F(TrustedVaultThrottlingConnectionImplTest,
 TEST_F(TrustedVaultThrottlingConnectionImplTest,
        ShouldUnthrottleWhenTimeSetToPast) {
   // Record a failed attempt at time "now".
-  throttling_connection()->RecordFailedRequestForThrottling(account_info());
-  EXPECT_TRUE(throttling_connection()->AreRequestsThrottled(account_info()));
+  throttling_connection()->RecordFailedRequestForThrottling(
+      account_info(), SecurityDomainId::kChromeSync);
+  EXPECT_TRUE(throttling_connection()->AreRequestsThrottled(
+      account_info(), SecurityDomainId::kChromeSync));
 
   // Mimic system set to the past, which should unthrottle automatically.
   clock()->Advance(base::Seconds(-1));
-  EXPECT_FALSE(throttling_connection()->AreRequestsThrottled(account_info()));
+  EXPECT_FALSE(throttling_connection()->AreRequestsThrottled(
+      account_info(), SecurityDomainId::kChromeSync));
 }
 
 TEST_F(TrustedVaultThrottlingConnectionImplTest, ShouldRestoreThrottlingState) {
   // Record a failed attempt at time "now".
-  throttling_connection()->RecordFailedRequestForThrottling(account_info());
-  EXPECT_TRUE(throttling_connection()->AreRequestsThrottled(account_info()));
+  throttling_connection()->RecordFailedRequestForThrottling(
+      account_info(), SecurityDomainId::kChromeSync);
+  EXPECT_TRUE(throttling_connection()->AreRequestsThrottled(
+      account_info(), SecurityDomainId::kChromeSync));
 
   // Reset the connection, which restores the previously stored state.
   ResetThrottlingConnection();
 
-  EXPECT_TRUE(throttling_connection()->AreRequestsThrottled(account_info()));
+  EXPECT_TRUE(throttling_connection()->AreRequestsThrottled(
+      account_info(), SecurityDomainId::kChromeSync));
 }
 
 TEST_F(TrustedVaultThrottlingConnectionImplTest,
@@ -151,7 +173,7 @@ TEST_F(TrustedVaultThrottlingConnectionImplTest,
       }));
   std::unique_ptr<TrustedVaultConnection::Request> request =
       throttling_connection()->RegisterAuthenticationFactor(
-          account_info(),
+          account_info(), SecurityDomainId::kChromeSync,
           GetTrustedVaultKeysWithVersions(std::vector<std::vector<uint8_t>>(),
                                           0),
           SecureBoxKeyPair::GenerateRandom()->public_key(),
@@ -167,8 +189,8 @@ TEST_F(TrustedVaultThrottlingConnectionImplTest,
       }));
   std::unique_ptr<TrustedVaultConnection::Request> request =
       throttling_connection()->RegisterLocalDeviceWithoutKeys(
-          account_info(), SecureBoxKeyPair::GenerateRandom()->public_key(),
-          base::DoNothing());
+          account_info(), SecurityDomainId::kChromeSync,
+          SecureBoxKeyPair::GenerateRandom()->public_key(), base::DoNothing());
   EXPECT_THAT(request, NotNull());
 }
 
@@ -178,7 +200,8 @@ TEST_F(TrustedVaultThrottlingConnectionImplTest, ShouldCallDownloadNewKeys) {
   }));
   std::unique_ptr<TrustedVaultConnection::Request> request =
       throttling_connection()->DownloadNewKeys(
-          account_info(), TrustedVaultKeyAndVersion(std::vector<uint8_t>(), 0),
+          account_info(), SecurityDomainId::kChromeSync,
+          TrustedVaultKeyAndVersion(std::vector<uint8_t>(), 0),
           SecureBoxKeyPair::GenerateRandom(), base::DoNothing());
   EXPECT_THAT(request, NotNull());
 }
@@ -191,25 +214,12 @@ TEST_F(TrustedVaultThrottlingConnectionImplTest,
       }));
   std::unique_ptr<TrustedVaultConnection::Request> request =
       throttling_connection()->DownloadIsRecoverabilityDegraded(
-          account_info(), base::DoNothing());
+          account_info(), SecurityDomainId::kChromeSync, base::DoNothing());
   EXPECT_THAT(request, NotNull());
 }
 
 TEST_F(TrustedVaultThrottlingConnectionImplTest,
        ShouldCallDownloadAuthenticationFactorsRegistrationState) {
-  EXPECT_CALL(*delegate(),
-              DownloadAuthenticationFactorsRegistrationState(_, _, _))
-      .WillOnce(InvokeWithoutArgs([]() {
-        return std::make_unique<TrustedVaultConnection::Request>();
-      }));
-  std::unique_ptr<TrustedVaultConnection::Request> request =
-      throttling_connection()->DownloadAuthenticationFactorsRegistrationState(
-          account_info(), base::DoNothing(), base::DoNothing());
-  EXPECT_THAT(request, NotNull());
-}
-
-TEST_F(TrustedVaultThrottlingConnectionImplTest,
-       ShouldCallDownloadAuthenticationFactorsRegistrationStateWithFilter) {
   EXPECT_CALL(*delegate(),
               DownloadAuthenticationFactorsRegistrationState(_, _, _, _))
       .WillOnce(InvokeWithoutArgs([]() {
@@ -217,7 +227,21 @@ TEST_F(TrustedVaultThrottlingConnectionImplTest,
       }));
   std::unique_ptr<TrustedVaultConnection::Request> request =
       throttling_connection()->DownloadAuthenticationFactorsRegistrationState(
-          account_info(),
+          account_info(), SecurityDomainId::kChromeSync, base::DoNothing(),
+          base::DoNothing());
+  EXPECT_THAT(request, NotNull());
+}
+
+TEST_F(TrustedVaultThrottlingConnectionImplTest,
+       ShouldCallDownloadAuthenticationFactorsRegistrationStateWithFilter) {
+  EXPECT_CALL(*delegate(),
+              DownloadAuthenticationFactorsRegistrationState(_, _, _, _, _))
+      .WillOnce(InvokeWithoutArgs([]() {
+        return std::make_unique<TrustedVaultConnection::Request>();
+      }));
+  std::unique_ptr<TrustedVaultConnection::Request> request =
+      throttling_connection()->DownloadAuthenticationFactorsRegistrationState(
+          account_info(), SecurityDomainId::kChromeSync,
           {trusted_vault_pb::SecurityDomainMember::MEMBER_TYPE_PHYSICAL_DEVICE},
           base::DoNothing(), base::DoNothing());
   EXPECT_THAT(request, NotNull());
@@ -230,8 +254,8 @@ TEST_F(TrustedVaultThrottlingConnectionImplTest,
         return std::make_unique<TrustedVaultConnection::Request>();
       }));
   std::unique_ptr<TrustedVaultConnection::Request> request =
-      throttling_connection()->DownloadGaiaPasswordPublicKey(account_info(),
-                                                             base::DoNothing());
+      throttling_connection()->DownloadGaiaPasswordPublicKey(
+          account_info(), SecurityDomainId::kChromeSync, base::DoNothing());
   EXPECT_THAT(request, NotNull());
 }
 
@@ -241,8 +265,8 @@ TEST_F(TrustedVaultThrottlingConnectionImplTest, ShouldCallRotateSharedKey) {
   }));
   std::unique_ptr<TrustedVaultConnection::Request> request =
       throttling_connection()->RotateSharedKey(
-          account_info(), trusted_vault_pb::RotateSharedKeyRequest(),
-          base::DoNothing());
+          account_info(), SecurityDomainId::kChromeSync,
+          trusted_vault_pb::RotateSharedKeyRequest(), base::DoNothing());
   EXPECT_THAT(request, NotNull());
 }
 

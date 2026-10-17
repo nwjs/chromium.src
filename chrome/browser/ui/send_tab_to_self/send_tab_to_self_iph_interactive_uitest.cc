@@ -12,6 +12,7 @@
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/mock_callback.h"
+#include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/send_tab_to_self_sync_service_factory.h"
@@ -186,7 +187,7 @@ class SendTabToSelfTutorialInteractiveUiTest : public InteractiveBrowserTest {
     return Do([this, id]() {
       auto* const browser_view =
           BrowserView::GetBrowserViewForBrowser(browser());
-      views::View* const view = browser_view->contents_web_view()->AddChildView(
+      views::View* const view = browser_view->GetContentsView()->AddChildView(
           std::make_unique<views::View>());
       view->SetProperty(views::kElementIdentifierKey, id);
     });
@@ -400,27 +401,46 @@ class SendTabToSelfIphInteractiveUiTest : public InteractiveFeaturePromoTest {
     });
   }
 
-  // Submenu items in Cocoa context menus on macOS (MenuControllerCocoa) do not
-  // assign tags to submenu items (TYPE_SUBMENU), causing Kombucha's
-  // SelectMenuItem to fail. Additionally, Cocoa menu hierarchies do not expose
-  // views::MenuItemView widgets and run a modal tracking loop. This helper
-  // triggers the send action directly on macOS and dismisses the open context
-  // menu to exit modal tracking, while performing the live submenu UI
-  // interaction on other platforms.
+#if BUILDFLAG(IS_MAC)
+  // Cocoa context menus (MenuControllerCocoa) run a modal tracking loop, do not
+  // assign tags to TYPE_SUBMENU items, and do not expose views::MenuItemView
+  // widgets, preventing Kombucha's SelectMenuItem from clicking submenu items.
+  // This helper triggers the send command directly on the active tab and
+  // dismisses the open context menu to exit modal tracking.
+  void SendTabAndCloseContextMenu() {
+    content::WebContents* const web_contents =
+        browser()->tab_strip_model()->GetActiveWebContents();
+    SendTabToSelfContextMenuDelegate(web_contents, ShareEntryPoint::kTabMenu)
+        .ExecuteCommand(IDC_CONTENT_CONTEXT_SEND_TAB_TO_SELF_DEVICE1, 0);
+
+    static_cast<BrowserTabStripController*>(
+        BrowserView::GetBrowserViewForBrowser(browser())
+            ->horizontal_tab_strip_for_testing()
+            ->controller())
+        ->CloseContextMenuForTesting();
+  }
+#endif
+
+  // Selects the target device from the Send Tab to Self submenu. On macOS, this
+  // delegates to SendTabAndCloseContextMenu() due to Cocoa menu tracking
+  // limitations; on other platforms, it drives the live submenu UI interaction.
   auto SelectSendTabToSelfDeviceItem() {
 #if BUILDFLAG(IS_MAC)
-    return Do([this]() {
-      content::WebContents* const web_contents =
-          browser()->tab_strip_model()->GetActiveWebContents();
-      SendTabToSelfContextMenuDelegate(web_contents, ShareEntryPoint::kTabMenu)
-          .ExecuteCommand(IDC_CONTENT_CONTEXT_SEND_TAB_TO_SELF_DEVICE1, 0);
-
-      static_cast<BrowserTabStripController*>(
-          BrowserView::GetBrowserViewForBrowser(browser())
-              ->horizontal_tab_strip_for_testing()
-              ->controller())
-          ->CloseContextMenuForTesting();
-    });
+    return Steps(
+        // Wait for Step 2's bubble to anchor to the context menu item.
+        InAnyContext(WaitForShow(
+            user_education::HelpBubbleView::kHelpBubbleElementIdForTesting)),
+        // Send the tab and dismiss the native menu without failing visibility
+        // checks when the menu closes before the async toast appears.
+        InAnyContext(WithElement(kTabSendTabToSelfMenuItem,
+                                 [this](ui::TrackedElement*) {
+                                   SendTabAndCloseContextMenu();
+                                 })
+                         .SetMustRemainVisible(false)),
+        // Ensure Step 2's bubble dismisses before awaiting Step 3's toast
+        // bubble.
+        InAnyContext(WaitForHide(
+            user_education::HelpBubbleView::kHelpBubbleElementIdForTesting)));
 #else
     return Steps(
         SelectMenuItem(kTabSendTabToSelfMenuItem),
@@ -453,13 +473,16 @@ IN_PROC_BROWSER_TEST_F(SendTabToSelfIphInteractiveUiTest,
       WaitForPromo(feature_engagement::kIPHSendTabToSelfTutorialFeature),
       PressDefaultPromoButton(),
       // Step 1: Bubble is shown on the active tab.
+      InAnyContext(WaitForShow(
+          user_education::HelpBubbleView::kHelpBubbleElementIdForTesting)),
       MoveMouseTo(kTabElementId), ClickMouse(ui_controls::RIGHT),
       // Step 2: Context menu open, bubble on Send Tab to Self menu item.
-      WaitForShow(kTabSendTabToSelfMenuItem), SelectSendTabToSelfDeviceItem(),
+      InAnyContext(WaitForShow(kTabSendTabToSelfMenuItem)),
+      SelectSendTabToSelfDeviceItem(),
       // Completion step: bubble anchored to the toast notification.
-      WaitForShow(toasts::ToastView::kToastViewId),
-      WaitForShow(
-          user_education::HelpBubbleView::kHelpBubbleElementIdForTesting));
+      InAnyContext(WaitForShow(toasts::ToastView::kToastViewId)),
+      InAnyContext(WaitForShow(
+          user_education::HelpBubbleView::kHelpBubbleElementIdForTesting)));
 }
 
 IN_PROC_BROWSER_TEST_F(SendTabToSelfIphInteractiveUiTest,
@@ -472,6 +495,8 @@ IN_PROC_BROWSER_TEST_F(SendTabToSelfIphInteractiveUiTest,
       WaitForPromo(feature_engagement::kIPHSendTabToSelfTutorialFeature),
       PressDefaultPromoButton(),
       // Step 1: Bubble is shown on the active tab (second tab at index 1).
+      WaitForShow(
+          user_education::HelpBubbleView::kHelpBubbleElementIdForTesting),
       NameDescendantViewByType<Tab>(kBrowserViewElementId, kSecondTabName, 1),
       MoveMouseTo(kSecondTabName), ClickMouse(ui_controls::RIGHT),
       // Step 2: Context menu open, bubble on Send Tab to Self menu item.

@@ -9,7 +9,6 @@ import '/strings.m.js';
 import {ColorChangeUpdater} from '//resources/cr_components/color_change_listener/colors_css_updater.js';
 import type {ComposeboxElement} from '//resources/cr_components/composebox/composebox.js';
 import type {VoicePermissionPromptState} from '//resources/cr_components/composebox/composebox_voice_search.js';
-import {assert} from '//resources/js/assert.js';
 import {EventTracker} from '//resources/js/event_tracker.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
@@ -61,7 +60,12 @@ export class OmniboxAimAppElement extends CrLitElement {
       contextManagementInComposeboxEnabled_: {type: Boolean},
       isOblongShape_: {type: Boolean},
       webuiOmniboxSimplificationEnabled_: {type: Boolean},
+      webuiOmniboxFullPopupEnabled_: {type: Boolean},
       smartComposeEnabled_: {type: Boolean},
+      webuiShadowEnabled_: {
+        type: Boolean,
+        reflect: true,
+      },
     };
   }
 
@@ -93,8 +97,14 @@ export class OmniboxAimAppElement extends CrLitElement {
       loadTimeData.getBoolean('contextButtonShapeIsOblong');
   protected accessor webuiOmniboxSimplificationEnabled_: boolean =
       loadTimeData.getBoolean('webuiOmniboxSimplificationEnabled');
+  protected accessor webuiOmniboxFullPopupEnabled_: boolean =
+      loadTimeData.getBoolean('webuiOmniboxFullPopupEnabled');
   protected accessor smartComposeEnabled_: boolean =
       loadTimeData.getBoolean('composeboxSmartComposeEnabled');
+  // When true, this page paints the popup's background, rounded corners and
+  // drop shadow instead of the Views frame.
+  protected accessor webuiShadowEnabled_: boolean =
+      loadTimeData.getBoolean('omniboxAimWebUIShadowEnabled');
 
   private eventTracker_ = new EventTracker();
   private browserProxy_: BrowserProxy;
@@ -207,12 +217,16 @@ export class OmniboxAimAppElement extends CrLitElement {
       }
     }
   }
-  protected onCloseComposebox_() {
-    this.browserProxy_.handler.requestClose();
+
+  /**
+   * Forwards close requests along with the active composebox input text so the
+   * browser can transfer any typed draft back to the Omnibox.
+   */
+  protected onCloseComposebox_(e: CustomEvent<{composeboxText: string}>) {
+    this.browserProxy_.handler.requestClose(e.detail.composeboxText);
   }
 
   protected setPreserveContextOnClose_(preserveContextOnClose: boolean) {
-    assert(document.visibilityState === 'visible');
     this.preserveContextOnClose_ = preserveContextOnClose;
   }
 

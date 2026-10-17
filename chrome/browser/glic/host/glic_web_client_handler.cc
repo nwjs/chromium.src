@@ -108,6 +108,7 @@
 #include "chrome/browser/glic/host/glic_tools_desktop.h"
 #include "chrome/browser/glic/selection/selection_overlay_controller.h"
 #include "chrome/browser/media/audio_ducker.h"
+#include "chrome/browser/ui/profiles/profile_view_utils.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "extensions/browser/guest_view/web_view/web_view_guest.h"
@@ -135,6 +136,10 @@ struct EqualsTraits<::SkBitmap> {
 namespace glic {
 
 namespace {
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC)
+BASE_FEATURE(kEnableGlicAiAvatarRing, base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC)
 
 mojom::GetContextResultPtr LogErrorAndUnwrapContextResult(
     base::OnceCallback<void(GlicGetContextFromTabError)> error_logger,
@@ -187,7 +192,7 @@ GlicUnpinTrigger FromMojomUnpinTrigger(mojom::UnpinTrigger trigger) {
 // Monitors the panel state and the browser widget state. Emits an event any
 // time the active state changes.
 // inactive = (panel hidden) || (panel attached) && (window not active)
-class ActiveStateCalculator : public PanelStateObserver {
+class ActiveStateCalculator {
  public:
   // Observes changes to active state.
   class Observer : public base::CheckedObserver {
@@ -196,15 +201,15 @@ class ActiveStateCalculator : public PanelStateObserver {
   };
 
   explicit ActiveStateCalculator(Host* host) : host_(host) {
-    host_->instance().AddStateObserver(this);
-    PanelStateChanged(host_->instance().GetPanelState());
+    panel_state_subscription_ =
+        host_->instance().GetPanelState().AddObserverAndNotify(
+            base::BindRepeating(&ActiveStateCalculator::PanelStateChanged,
+                                base::Unretained(this)));
     // Calculate state immediately to avoid having an outdated state before
     // calc_timer_ triggers recalculation and any observers are attached.
     RecalculateAndNotify();
   }
-  ~ActiveStateCalculator() override {
-    host_->instance().RemoveStateObserver(this);
-  }
+  ~ActiveStateCalculator() = default;
 
   bool IsActive() const { return is_active_; }
   void AddObserver(Observer* observer) { observers_.AddObserver(observer); }
@@ -212,8 +217,8 @@ class ActiveStateCalculator : public PanelStateObserver {
     observers_.RemoveObserver(observer);
   }
 
-  // GlicInstanceCoordinator::StateObserver implementation.
-  void PanelStateChanged(const glic::mojom::PanelState& panel_state) override {
+ private:
+  void PanelStateChanged(const glic::mojom::PanelState& panel_state) {
     panel_state_kind_ = panel_state.kind;
     if (panel_state_kind_ != glic::mojom::PanelStateKind::kHidden) {
       RecalculateAndNotify();
@@ -223,8 +228,6 @@ class ActiveStateCalculator : public PanelStateObserver {
       PostRecalcAndNotify();
     }
   }
-
- private:
   // Calls RecalculateAndNotify after a short delay. This is required to prevent
   // transient states from being emitted.
   void PostRecalcAndNotify() {
@@ -251,6 +254,7 @@ class ActiveStateCalculator : public PanelStateObserver {
   raw_ptr<Host> host_;
   base::ObserverList<Observer> observers_;
   glic::mojom::PanelStateKind panel_state_kind_;
+  base::CallbackListSubscription panel_state_subscription_;
   bool is_active_ = false;
 };
 
@@ -364,7 +368,6 @@ class DebouncerDeduper {
 // then many classes will break.
 class GlicWebClientHandler
     : public mojom::WebClientHandler,
-      public PanelStateObserver,
       public GlicWebClientAccess,
       public BrowserAttachObserver,
       public ActiveStateCalculator::Observer,
@@ -541,7 +544,9 @@ class GlicWebClientHandler
     consent_subscription_ =
         glic_service_->enabling().RegisterOnConsentChanged(base::BindRepeating(
             &GlicWebClientHandler::OnConsentChanged, base::Unretained(this)));
-    host().instance().AddStateObserver(this);
+    panel_state_subscription_ =
+        host().instance().GetPanelState().AddObserver(base::BindRepeating(
+            &GlicWebClientHandler::PanelStateChanged, base::Unretained(this)));
 
     if (base::FeatureList::IsEnabled(
             features::kGlicTabFocusDataDedupDebounce)) {
@@ -593,7 +598,7 @@ class GlicWebClientHandler
     auto state = glic::mojom::WebClientInitialState::New();
     PopulateGlobalClientInitialState(state.get(), profile_);
 
-    state->panel_state = host().instance().GetPanelState().Clone();
+    state->panel_state = host().instance().GetPanelState()->Clone();
 
     state->focused_tab_data =
         CreateFocusedTabData(GetSharingManagerInternal().GetFocusedTabData());
@@ -642,7 +647,7 @@ class GlicWebClientHandler
       mojom::PanelOpeningDataPtr panel_opening_data =
           mojom::PanelOpeningData::New();
       panel_opening_data->panel_state =
-          host().instance().GetPanelState().Clone();
+          host().instance().GetPanelState()->Clone();
       panel_opening_data->invocation_source =
           mojom::InvocationSource::kUnsupported;
       base::UmaHistogramBoolean("Glic.Host.OpenedInRegularTab", true);
@@ -840,9 +845,7 @@ class GlicWebClientHandler
 
     tabs::TabInterface* tab = ftd.focus();
     if (tab) {
-      host()
-          .instance_metrics_backwards_compatibility()
-          .DidRequestContextFromTab(*tab);
+      host().instance_metrics().DidRequestContextFromFocusedTab();
     }
     auto tab_handle = tab ? tab->GetHandle() : tabs::TabHandle::Null();
     GetSharingManagerInternal().GetContextFromTab(
@@ -858,6 +861,7 @@ class GlicWebClientHandler
                          glic::mojom::TabContextOptionsPtr options,
                          GetContextFromTabCallback callback) override {
     // Extra activation gating is done in this function.
+    host().instance_metrics().DidRequestContextFromTab();
     GetSharingManagerInternal().GetContextFromTab(
         tabs::TabHandle(tab_id), *options,
         base::BindOnce(
@@ -1020,9 +1024,6 @@ class GlicWebClientHandler
 
   void CreateGeminiEnterpriseHandler(
       mojo::PendingReceiver<mojom::GeminiEnterpriseHandler> receiver) override {
-    if (!GlicEnabling::GetGeminiEnterpriseSettings(profile_).has_value()) {
-      return;
-    }
     host().instance_delegate().CreateGeminiEnterpriseHandler(
         std::move(receiver));
   }
@@ -1041,12 +1042,9 @@ class GlicWebClientHandler
     contents->GetDelegate()->ActivateContents(contents);
   }
 
-  void CaptureScreenshot(CaptureScreenshotCallback callback) override {
-    host().CaptureScreenshot(std::move(callback));
-  }
-
   void CaptureRegion(mojo::PendingRemote<mojom::CaptureRegionObserver> observer,
                      mojom::CaptureRegionParamsPtr params) override {
+    LogApiRequest(GlicHostApiRequestId::kSubscribeToCaptureRegion);
 #if !BUILDFLAG(IS_ANDROID)  // NEEDS_ANDROID_IMPL: CaptureRegion (b/494315475)
     std::optional<int32_t> tab_id =
         params ? std::optional<int32_t>(params->tab_id) : std::nullopt;
@@ -1244,6 +1242,12 @@ class GlicWebClientHandler
 #else
     result->local_profile_name =
         base::UTF16ToUTF8(entry->GetLocalProfileName());
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC)
+    result->has_avatar_ring =
+        base::FeatureList::IsEnabled(kEnableGlicAiAvatarRing) &&
+        ShouldShowAvatarGradientRing(profile_);
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC)
+
     // TODO(crbug.com/382794680): Determine the correct size.
     gfx::Image icon = entry->GetAvatarIcon(512);
     if (!icon.IsEmpty()) {
@@ -1691,6 +1695,7 @@ class GlicWebClientHandler
   void SubscribeToTabFavicon(
       int32_t tab_id,
       ::mojo::PendingRemote<mojom::TabFaviconHandler> receiver) override {
+    LogApiRequest(GlicHostApiRequestId::kSubscribeToTabFavicon);
     glic_service_->tab_favicon_observer().SubscribeToTabFavicon(
         tab_id, std::move(receiver));
   }
@@ -1736,7 +1741,7 @@ class GlicWebClientHandler
     SetAudioDucking(false, base::DoNothing());
     pref_change_registrar_.Reset();
     local_state_pref_change_registrar_.Reset();
-    host().instance().RemoveStateObserver(this);
+    panel_state_subscription_ = {};
     focus_changed_subscription_ = {};
     pinned_tabs_changed_subscription_ = {};
     pinned_tab_data_changed_subscription_ = {};
@@ -1879,6 +1884,7 @@ class GlicWebClientHandler
   base::CallbackListSubscription act_on_web_capability_changed_subscription_;
   base::CallbackListSubscription web_actuation_pref_subscription_;
   base::CallbackListSubscription consent_subscription_;
+  base::CallbackListSubscription panel_state_subscription_;
   mojo::Receiver<mojom::WebClientHandler> receiver_;
   mojo::Remote<glic::mojom::WebClient> web_client_;
   base::OnceClosure disconnect_callback_;

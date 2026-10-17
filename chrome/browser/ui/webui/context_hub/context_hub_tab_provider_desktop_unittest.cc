@@ -16,6 +16,7 @@
 #include "chrome/browser/context_hub/context_hub_service.h"
 #include "chrome/browser/context_hub/context_hub_service_factory.h"
 #include "chrome/browser/context_hub/features.h"
+#include "chrome/browser/glic/host/context/glic_sharing_utils.h"
 #include "chrome/browser/optimization_guide/mock_optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/personal_context/personal_context_service_factory.h"
@@ -29,6 +30,7 @@
 #include "chrome/browser/ui/tabs/tab_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/test_tab_strip_model_delegate.h"
+#include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/personal_context/core/mock_personal_context_service.h"
 #include "components/saved_tab_groups/public/saved_tab_group.h"
@@ -44,6 +46,9 @@
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/test_renderer_host.h"
 #include "content/public/test/web_contents_tester.h"
+#include "mojo/public/cpp/test_support/fake_message_dispatch_context.h"
+#include "mojo/public/cpp/test_support/test_utils.h"
+#include "net/base/url_util.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/test/mock_base_window.h"
@@ -76,9 +81,11 @@ class TestBrowserInstance {
         .WillByDefault(testing::Return(&mock_window_));
     ON_CALL(mock_bwi_, GetFeatures())
         .WillByDefault(testing::ReturnRef(features_));
-    ON_CALL(mock_bwi_, RegisterDidBecomeActive(testing::_)).WillByDefault([] {
-      return base::CallbackListSubscription();
-    });
+    ON_CALL(mock_bwi_, RegisterDidBecomeActive(testing::_))
+        .WillByDefault(
+            [this](BrowserWindowInterface::DidBecomeActiveCallback cb) {
+              return active_callbacks_.Add(std::move(cb));
+            });
     ON_CALL(mock_bwi_, RegisterDidBecomeInactive(testing::_)).WillByDefault([] {
       return base::CallbackListSubscription();
     });
@@ -100,6 +107,10 @@ class TestBrowserInstance {
   TabStripModel* tab_strip_model() { return &tab_strip_model_; }
   BrowserWindowInterface* bwi() { return &mock_bwi_; }
 
+  // Simulates the window becoming active, which moves it to the front of the
+  // browser activation order.
+  void Activate() { active_callbacks_.Notify(&mock_bwi_); }
+
  private:
   raw_ptr<Profile> profile_;
   testing::NiceMock<ui::MockBaseWindow> mock_window_;
@@ -107,6 +118,7 @@ class TestBrowserInstance {
   TabStripModel tab_strip_model_;
   testing::NiceMock<MockBrowserWindowInterface> mock_bwi_;
   BrowserWindowFeatures features_;
+  base::RepeatingCallbackList<void(BrowserWindowInterface*)> active_callbacks_;
   base::RepeatingCallbackList<void(BrowserWindowInterface*)> close_callbacks_;
 };
 
@@ -177,8 +189,7 @@ class ContextHubTabProviderDesktopTest : public testing::Test {
   }
 
   int64_t GetTabId(TabStripModel* tab_strip_model, int index) {
-    content::WebContents* wc =
-        tab_strip_model->GetWebContentsAt(index);
+    content::WebContents* wc = tab_strip_model->GetWebContentsAt(index);
     return sessions::SessionTabHelper::IdForTab(wc).id();
   }
 
@@ -380,6 +391,37 @@ TEST_F(ContextHubTabProviderDesktopTest, ConfirmTabGroups_CrossWindow) {
 }
 
 TEST_F(ContextHubTabProviderDesktopTest,
+       ConfirmTabGroups_TieBreaksToMruWindow) {
+  // Both windows hold one tab each, so the group is consolidated into the most
+  // recently activated window.
+  AddTab(browser(), GURL("https://example.com/1"));
+  int64_t id1 = GetTabId(0);
+
+  auto second_browser = std::make_unique<TestBrowserInstance>(
+      profile(), BrowserWindowInterface::TYPE_NORMAL,
+      /*supports_tab_groups=*/true);
+  AddTab(second_browser.get(), GURL("https://example.com/2"));
+  int64_t id2 = GetTabId(second_browser->tab_strip_model(), 0);
+
+  second_browser->Activate();
+
+  TabGroupEntry group;
+  group.label = "Tied Group";
+  group.tab_ids = {id1, id2};
+
+  EXPECT_TRUE(provider_->ConfirmTabGroups({group}));
+
+  EXPECT_EQ(second_browser->tab_strip_model()->count(), 2);
+  std::optional<tab_groups::TabGroupId> group_id =
+      second_browser->tab_strip_model()->GetTabGroupForTab(0);
+  ASSERT_TRUE(group_id.has_value());
+  EXPECT_EQ(second_browser->tab_strip_model()->GetTabGroupForTab(1), group_id);
+
+  // Close tabs in second_browser before destroying.
+  second_browser->tab_strip_model()->CloseAllTabs();
+}
+
+TEST_F(ContextHubTabProviderDesktopTest,
        ConfirmTabGroups_ReassignsAlreadyGroupedTabs) {
   AddTab(browser(), GURL("https://example.com/1"));
   AddTab(browser(), GURL("https://example.com/2"));
@@ -400,8 +442,7 @@ TEST_F(ContextHubTabProviderDesktopTest,
   ASSERT_TRUE(initial_group_id.has_value());
   EXPECT_EQ(browser()->tab_strip_model()->GetTabGroupForTab(1),
             initial_group_id);
-  EXPECT_FALSE(
-      browser()->tab_strip_model()->GetTabGroupForTab(2).has_value());
+  EXPECT_FALSE(browser()->tab_strip_model()->GetTabGroupForTab(2).has_value());
 
   // Turn 2: Regroup tab 2 and tab 3 into a new group (reassigning tab 2).
   TabGroupEntry group2;
@@ -418,8 +459,7 @@ TEST_F(ContextHubTabProviderDesktopTest,
             initial_group_id);
 }
 
-TEST_F(ContextHubTabProviderDesktopTest,
-       ConfirmTabGroups_WithTabHandleIds) {
+TEST_F(ContextHubTabProviderDesktopTest, ConfirmTabGroups_WithTabHandleIds) {
   AddTab(browser(), GURL("https://example.com/1"));
   AddTab(browser(), GURL("https://example.com/2"));
   AddTab(browser(), GURL("https://example.com/3"));
@@ -439,8 +479,7 @@ TEST_F(ContextHubTabProviderDesktopTest,
       browser()->tab_strip_model()->GetTabGroupForTab(0);
   ASSERT_TRUE(group_id.has_value());
   EXPECT_EQ(browser()->tab_strip_model()->GetTabGroupForTab(1), group_id);
-  EXPECT_FALSE(
-      browser()->tab_strip_model()->GetTabGroupForTab(2).has_value());
+  EXPECT_FALSE(browser()->tab_strip_model()->GetTabGroupForTab(2).has_value());
 }
 
 TEST_F(ContextHubTabProviderDesktopTest,
@@ -451,9 +490,8 @@ TEST_F(ContextHubTabProviderDesktopTest,
   ASSERT_NE(session_id, SessionID::InvalidValue().id());
   ASSERT_NE(handle_id, -1);
 
-  EXPECT_EQ(
-      ContextHubTabProviderDesktop::GetSessionIdForTabHandle(handle_id),
-      session_id);
+  EXPECT_EQ(ContextHubTabProviderDesktop::GetSessionIdForTabHandle(handle_id),
+            session_id);
   EXPECT_EQ(ContextHubTabProviderDesktop::GetSessionIdForTabHandle(999999),
             SessionID::InvalidValue().id());
   EXPECT_EQ(ContextHubTabProviderDesktop::GetSessionIdForTabHandle(
@@ -548,9 +586,9 @@ TEST_F(ContextHubTabProviderDesktopMockSyncTest,
   ON_CALL(*mock_sync_service,
           GetGroup(testing::A<const tab_groups::LocalTabGroupID&>()))
       .WillByDefault([test_guid](const tab_groups::LocalTabGroupID& local_id) {
-        return tab_groups::SavedTabGroup(
-            u"Unpinned Group", tab_groups::TabGroupColorId::kBlue, {},
-            /*position=*/0, test_guid, local_id);
+        return tab_groups::SavedTabGroup(u"Unpinned Group",
+                                         tab_groups::TabGroupColorId::kBlue, {},
+                                         /*position=*/0, test_guid, local_id);
       });
 
   EXPECT_CALL(*mock_sync_service,
@@ -581,16 +619,16 @@ TEST_F(ContextHubTabProviderDesktopMockSyncTest,
   ON_CALL(*mock_sync_service,
           GetGroup(testing::A<const tab_groups::LocalTabGroupID&>()))
       .WillByDefault([test_guid](const tab_groups::LocalTabGroupID& local_id) {
-        return tab_groups::SavedTabGroup(
-            u"Existing Pinned Group", tab_groups::TabGroupColorId::kBlue, {},
-            /*position=*/0, test_guid, local_id);
+        return tab_groups::SavedTabGroup(u"Existing Pinned Group",
+                                         tab_groups::TabGroupColorId::kBlue, {},
+                                         /*position=*/0, test_guid, local_id);
       });
 
   // Since the existing group was pinned and the new group is created as pinned,
   // UpdateGroupPosition(..., false, ...) should NOT be called.
-  EXPECT_CALL(*mock_sync_service,
-              UpdateGroupPosition(testing::_, std::optional<bool>(false),
-                                  testing::_))
+  EXPECT_CALL(
+      *mock_sync_service,
+      UpdateGroupPosition(testing::_, std::optional<bool>(false), testing::_))
       .Times(0);
 
   TabGroupEntry group;
@@ -632,9 +670,9 @@ TEST_F(ContextHubTabProviderDesktopMockSyncTest,
               u"Existing Unpinned Group", tab_groups::TabGroupColorId::kBlue,
               {}, /*position=*/std::nullopt, existing_guid, local_id);
         }
-        return tab_groups::SavedTabGroup(
-            u"New Group", tab_groups::TabGroupColorId::kBlue, {},
-            /*position=*/0, new_guid, local_id);
+        return tab_groups::SavedTabGroup(u"New Group",
+                                         tab_groups::TabGroupColorId::kBlue, {},
+                                         /*position=*/0, new_guid, local_id);
       });
 
   // Because the existing group was not pinned, the newly created group should
@@ -649,6 +687,90 @@ TEST_F(ContextHubTabProviderDesktopMockSyncTest,
 
   bool result = provider_->ConfirmTabGroups({group});
   EXPECT_TRUE(result);
+}
+
+TEST_F(ContextHubTabProviderDesktopTest,
+       ContextHubTopicUrlsStayUpToDateWithGlicSharingUtils) {
+  // Ensures that all Context Hub topic URLs supported or generated by Context
+  // Hub are recognized by Glic sharing utils (glic::IsContextHubTopicUrl).
+  // This ensures that the topic URL list in glic_sharing_utils stays up to date
+  // whenever topic pages are added, modified, or reorganized in Context Hub.
+  const GURL kValidTopicUrls[] = {
+      // Topic details WebUI page (with and without query parameters).
+      GURL("chrome://context-hub/topic_details"),
+      GURL("chrome://context-hub/topic_details?id=123"),
+      GURL("chrome://context-hub/topic_details?id=123&shape=circle&title=Test"),
+      // Topic details html resource path.
+      GURL("chrome://context-hub/topic_details.html"),
+      GURL("chrome://context-hub/topic_details.html?id=123"),
+      // Topics list / route.
+      GURL("chrome://context-hub/topics"),
+      GURL("chrome://context-hub/topics?filter=all"),
+  };
+
+  for (const GURL& url : kValidTopicUrls) {
+    EXPECT_TRUE(glic::IsContextHubTopicUrl(url))
+        << "Expected Context Hub topic URL to be recognized: " << url.spec();
+  }
+
+  // Non-topic URLs within Context Hub or external URLs must NOT be treated
+  // as topic URLs.
+  const GURL kNonTopicUrls[] = {
+      GURL(chrome::kChromeUIContextHubURL),
+      GURL("chrome://context-hub"),
+      GURL("chrome://context-hub/"),
+      GURL("chrome://context-hub/save_to_memory_bank"),
+      GURL("chrome://context-hub/unrecognized_path"),
+      GURL("https://context-hub/topics"),
+      GURL("chrome://other-host/topics"),
+      GURL("https://example.com"),
+  };
+
+  for (const GURL& url : kNonTopicUrls) {
+    EXPECT_FALSE(glic::IsContextHubTopicUrl(url))
+        << "Expected non-topic URL to NOT be recognized: " << url.spec();
+  }
+}
+
+TEST_F(ContextHubTabProviderDesktopTest,
+       OpenTopic_TopicIdGeneratesValidGlicTopicUrl) {
+  // ContextHubTabProviderDesktop::OpenTopic generates a URL dynamically.
+  // Ensure this generated URL is recognized by glic::IsContextHubTopicUrl.
+  const std::string topic_id = "test-topic-id-12345";
+  const GURL resolved_url = net::AppendQueryParameter(
+      GURL(chrome::kChromeUIContextHubURL).Resolve("topic_details"), "id",
+      topic_id);
+  EXPECT_TRUE(resolved_url.is_valid());
+  EXPECT_TRUE(glic::IsContextHubTopicUrl(resolved_url));
+}
+
+TEST_F(ContextHubTabProviderDesktopTest,
+       OpenTopic_NullTopicIdOrUrlReportsBadMessage) {
+  mojo::FakeMessageDispatchContext fake_dispatch_context;
+  mojo::test::BadMessageObserver bad_message_observer;
+  provider_->OpenTopic(nullptr);
+  EXPECT_EQ("Missing topic_id_or_url",
+            bad_message_observer.WaitForBadMessage());
+}
+
+TEST_F(ContextHubTabProviderDesktopTest,
+       OpenTopic_InvalidTopicUrlReportsBadMessage) {
+  const GURL kInvalidUrls[] = {
+      GURL("chrome://context-hub"),
+      GURL("chrome://context-hub/save_to_memory_bank"),
+      GURL("https://example.com/topic_details"),
+      GURL("chrome://other/topic_details"),
+      GURL(),
+  };
+
+  for (const GURL& url : kInvalidUrls) {
+    mojo::FakeMessageDispatchContext fake_dispatch_context;
+    mojo::test::BadMessageObserver bad_message_observer;
+    provider_->OpenTopic(
+        browser::context_hub::mojom::TopicIdOrUrl::NewTopicUrl(url));
+    EXPECT_EQ("Invalid topic URL or host/path",
+              bad_message_observer.WaitForBadMessage());
+  }
 }
 
 }  // namespace

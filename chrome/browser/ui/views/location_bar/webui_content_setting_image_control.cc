@@ -14,6 +14,7 @@
 #include "chrome/browser/ui/content_settings/content_setting_image_view_delegate.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
 #include "chrome/browser/ui/views/content_setting_bubble_contents.h"
+#include "chrome/browser/ui/views/permissions/chip/permission_dashboard_controller.h"
 #include "chrome/browser/ui/views/toolbar/webui_toolbar_web_view.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/grit/generated_resources.h"
@@ -84,6 +85,40 @@ void WebUIContentSettingImageControl::InitForTesting(
   webui_delegate_ = webui_delegate;
 }
 
+bool WebUIContentSettingImageControl::UpdatePermissionDashboard(
+    PermissionDashboardController* permission_dashboard_controller) {
+  if (!permission_dashboard_controller) {
+    return false;
+  }
+
+  bool permission_dashboard_changed = false;
+  bool dashboard_updated = false;
+
+  // Prioritize Media Stream (kMediaStream) over Sensors (kSensors) by selecting
+  // the first visible model, matching `LocationBarView`.
+  if (ContentSettingImageModel::IsLeftHandSideIndicatorEnabled(
+          ImageType::kMediaStream)) {
+    if (ContentSettingImageModel* media_stream_model =
+            GetModel(ImageType::kMediaStream)) {
+      permission_dashboard_changed |=
+          permission_dashboard_controller->Update(media_stream_model);
+      dashboard_updated = media_stream_model->is_visible();
+    }
+  }
+
+  if (!dashboard_updated &&
+      ContentSettingImageModel::IsLeftHandSideIndicatorEnabled(
+          ImageType::kSensors)) {
+    if (ContentSettingImageModel* sensors_model =
+            GetModel(ImageType::kSensors)) {
+      permission_dashboard_changed |=
+          permission_dashboard_controller->Update(sensors_model);
+    }
+  }
+
+  return permission_dashboard_changed;
+}
+
 std::vector<toolbar_ui_api::mojom::ContentSettingImageStatePtr>
 WebUIContentSettingImageControl::ProcessContentSettingState(
     content::WebContents* web_contents) {
@@ -93,10 +128,13 @@ WebUIContentSettingImageControl::ProcessContentSettingState(
   }
 
   for (auto& model : models_) {
-    // The activity indicators (camera, mic) are drawn on the left side of the
-    // location bar, managed by the Permissions Dashboard, so we don't include
-    // them in the right hand side content setting images here.
-    if (model->image_type() == ImageType::kMediaStream) {
+    // Activity indicators (camera, mic and sensors) are drawn on the left side
+    // of the location bar by the Permissions Dashboard while the corresponding
+    // feature is enabled, so they must not also appear as right-hand-side
+    // content setting images. The model is still updated, because the dashboard
+    // reads it.
+    if (ContentSettingImageModel::IsLeftHandSideIndicatorEnabled(
+            model->image_type())) {
       model->Update(setting_view_delegate_->ShouldHideContentSettingImage()
                         ? nullptr
                         : web_contents);
@@ -132,6 +170,20 @@ WebUIContentSettingImageControl::ProcessContentSettingState(
           // it's animating in addition to standard accessibility announcements.
           webui_delegate_->AnnounceAlert(l10n_util::GetStringUTF16(string_id));
         }
+        // We set the animation as "ran" immediately upon generating the initial
+        // update payload for the WebUI, matching ContentSettingImageView. WebUI
+        // handles its own collapse timer locally, so C++ does not need to wait
+        // for a completion callback. Marking it here prevents the icon from
+        // reanimating when switching tabs (where the WebUI DOM element and its
+        // local state get destroyed and recreated) and prevents subsequent C++
+        // updates from triggering duplicate screen reader alerts.
+        //
+        // Note: Because WebUI renders visible icons via `repeat()`, switching
+        // to a tab without the icon destroys the DOM element and terminates the
+        // animation (upon switching back, only the static icon is shown). If
+        // switching to a tab that also has the same icon, the DOM element is
+        // reused and the animation continues on the new tab (same as Views).
+        model->SetAnimationHasRun(web_contents);
       }
 
       state.push_back(std::move(image_state));
@@ -139,19 +191,6 @@ WebUIContentSettingImageControl::ProcessContentSettingState(
   }
 
   return state;
-}
-
-void WebUIContentSettingImageControl::OnContentSettingImageAnimationEnded(
-    ImageType type) {
-  content::WebContents* web_contents =
-      setting_view_delegate_->GetContentSettingWebContents();
-  if (!web_contents) {
-    return;
-  }
-
-  if (ContentSettingImageModel* model = GetModel(type)) {
-    model->SetAnimationHasRun(web_contents);
-  }
 }
 
 ContentSettingImageModel* WebUIContentSettingImageControl::GetModel(
@@ -231,9 +270,17 @@ WebUIContentSettingImageControl::ShowContentSettingsBubbleImpl(ImageType type) {
       views::BubbleBorder::TOP_RIGHT);
   bubble_contents->SetHighlightedElement(model->GetElementIdentifier());
 
+  ContentSettingBubbleContents* bubble_contents_ptr = bubble_contents.get();
   views::Widget* bubble_widget =
       views::BubbleDialogDelegateView::CreateBubble(std::move(bubble_contents));
   if (bubble_widget) {
+    if (views::BubbleFrameView* const frame_view =
+            bubble_contents_ptr->GetBubbleFrameView()) {
+      if (views::Label* title_label = frame_view->default_title()) {
+        title_label->SetTextStyle(views::style::STYLE_HEADLINE_4);
+        title_label->SetEnabledColor(kColorActivityIndicatorForeground);
+      }
+    }
     bubble_reopen_suppressor_.Observe(bubble_widget);
     last_tracked_bubble_type_ = type;
     bubble_widget->Show();

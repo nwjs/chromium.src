@@ -59,6 +59,14 @@ BASE_DECLARE_FEATURE(kSendTabToSelfPostSendToast);
 // to the Omnibox context menu.
 BASE_DECLARE_FEATURE(kSendTabToSelfExtraEntryPoints);
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+// If this feature is enabled, a QR code promo is shown in the Send Tab to Self
+// bubble on desktop when no target devices are found. Guarded to Windows, Mac,
+// and Linux because it relies on `switches::kCrossDeviceSigninFromDesktopUrl`
+// in `components/signin/public/base/signin_switches.h`.
+BASE_DECLARE_FEATURE(kSendTabToSelfNoTargetDeviceQrCode);
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+
 // If this feature is enabled, desktop entry points get submenu treatment as
 // part of the enhanced desktop UI v2.
 BASE_DECLARE_FEATURE(kSendTabToSelfEnhancedDesktopUIv2);
@@ -80,6 +88,10 @@ BASE_DECLARE_FEATURE(kSendTabToSelfOpenNativeApp);
 // will be recorded as ShareActivatedEntryPoint::kMobileMessageBanner (instead
 // of ShareActivatedEntryPoint::kTabStrip) and drop the tab label immediately.
 BASE_DECLARE_FEATURE(kSendTabToSelfRecordSnackbarActivation);
+
+// If this feature is enabled, pressing back on an incoming tab opened via the
+// message banner switches back to the parent tab instead of minimizing Chrome.
+BASE_DECLARE_FEATURE(kSendTabToSelfSwitchToParentOnBack);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)

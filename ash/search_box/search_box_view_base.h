@@ -16,6 +16,7 @@
 #include "base/memory/raw_ptr.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/events/types/event_type.h"
+#include "ui/gfx/color_palette.h"
 #include "ui/gfx/font_list.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/views/background.h"
@@ -62,24 +63,14 @@ class SearchBoxViewBase : public views::View,
   views::ImageButton* CreateCloseButton(
       const base::RepeatingClosure& button_callback);
 
-  // Creates `end_button_container_`, a container view that hosts one or both of
-  // the `assistant_button_` and `sunfish_button_`.
+  // Creates `end_button_container_`, a container view that hosts end buttons
+  // such as `gemini_button_` and `sunfish_button_`.
   void CreateEndButtonContainer();
 
-  // Creates the sunfish launcher button at the right edge of the search box,
-  // next to the assistant button. Note that it will only be shown if the close
-  // button is hidden, as the buttons have the same expected position within the
-  // search box.
+  // Creates the sunfish launcher button at the right edge of the search box.
+  // Note that it will only be shown if the close button is hidden, as the
+  // buttons have the same expected position within the search box.
   views::ImageButton* CreateSunfishButton(
-      const base::RepeatingClosure& button_callback);
-
-  // Creates the search box assistant button at the right edge of the search
-  // box. Note that the assistant button will only be shown if close button is
-  // hidden, as the buttons have the same expected position within the search
-  // box.
-  // The assistant button will initially be hidden. The visibility will be
-  // updated appropriately when `UpdateButtonsVisibility()` gets called.
-  views::ImageButton* CreateAssistantButton(
       const base::RepeatingClosure& button_callback);
 
   // Creates the search box Gemini button at the right edge of the search box in
@@ -105,7 +96,6 @@ class SearchBoxViewBase : public views::View,
       const gfx::Rect& rect) const;
 
   views::ImageButton* sunfish_button();
-  views::ImageButton* assistant_button();
   views::ImageButton* gemini_button();
   views::View* edge_button_container();
   views::ImageButton* close_button();
@@ -196,7 +186,7 @@ class SearchBoxViewBase : public views::View,
 
   // TODO(http://b/362364735): Fix close button positioning when Sunfish is
   // enabled.
-  // Updates the visibility of the close and assistant buttons.
+  // Updates the visibility of the buttons.
   void UpdateButtonsVisibility();
 
   // When necessary, starts the fade in animation for the button container.
@@ -218,11 +208,8 @@ class SearchBoxViewBase : public views::View,
 
   views::BoxLayoutView* box_layout_view() { return content_container_; }
 
-  void SetSearchBoxBackgroundCornerRadius(int corner_radius);
-
   void SetSearchIconImage(gfx::ImageSkia image);
 
-  void SetShowAssistantButton(bool show);
   void SetShowGeminiButton(bool show);
   void SetShowSunfishButton(bool show);
 
@@ -230,8 +217,11 @@ class SearchBoxViewBase : public views::View,
   // background of the search box.
   virtual void HandleSearchBoxEvent(ui::LocatedEvent* located_event);
 
-  // Updates the search box's background color.
-  void UpdateBackgroundColor(SkColor color);
+  // Re-creates the search box background with the given corner radius and
+  // color, and propagates `color` to the buttons' ink drops. The background is
+  // only painted if the search box was created with one (see
+  // `InitParams::create_background`).
+  void UpdateSearchBoxBackground(int corner_radius, SkColor color);
 
   // Shows/hides the virtual keyboard if the search box is active.
   virtual void UpdateKeyboardVisibility() {}
@@ -259,7 +249,6 @@ class SearchBoxViewBase : public views::View,
   raw_ptr<views::BoxLayoutView> main_container_;
   raw_ptr<views::BoxLayoutView> content_container_;
   raw_ptr<SearchIconImageView> search_icon_ = nullptr;
-  raw_ptr<SearchBoxImageButton> assistant_button_ = nullptr;
   raw_ptr<SearchBoxImageButton> gemini_button_ = nullptr;
   raw_ptr<SearchBoxImageButton> sunfish_button_ = nullptr;
   raw_ptr<SearchBoxImageButton> close_button_ = nullptr;
@@ -281,10 +270,13 @@ class SearchBoxViewBase : public views::View,
 
   // Whether the search box is active.
   bool is_search_box_active_ = false;
+
+  // Whether the search box paints a background (see
+  // `InitParams::create_background`).
+  bool has_background_ = false;
+
   // Whether to show close button if the search box is active and empty.
   bool show_close_button_when_active_ = false;
-  // Whether to show assistant button.
-  bool show_assistant_button_ = false;
   // Whether to show Gemini button.
   bool show_gemini_button_ = false;
   // Whether to show sunfish button.

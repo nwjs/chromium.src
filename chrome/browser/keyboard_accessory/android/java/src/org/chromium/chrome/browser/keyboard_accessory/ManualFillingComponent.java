@@ -21,6 +21,7 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.components.autofill.AutofillDelegate;
 import org.chromium.components.autofill.AutofillSuggestion;
+import org.chromium.components.autofill.autofill_ai.AutofillAiSourceAttributionInfo;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.content_public.browser.WebContents;
@@ -271,7 +272,7 @@ public interface ManualFillingComponent extends BackPressHandler {
     boolean removeObserver(Observer observer);
 
     /**
-     * Show a deletion confimation dialog.
+     * Show a deletion confirmation dialog.
      *
      * @param title A title of the confirmation dialog.
      * @param body The body of the confirmation dialog, possibly containing &lt;link&gt; tags.
@@ -305,6 +306,7 @@ public interface ManualFillingComponent extends BackPressHandler {
             String body,
             String confirmButtonText,
             String primaryButtonText,
+            List<AutofillAiSourceAttributionInfo> sources,
             Runnable confirmedCallback,
             Runnable declinedCallback);
 

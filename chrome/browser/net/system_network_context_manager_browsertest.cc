@@ -57,6 +57,8 @@
 #include "net/cookies/cookie_constants.h"
 #include "net/cookies/cookie_inclusion_status.h"
 #include "net/dns/mock_host_resolver.h"
+#include "net/first_party_sets/first_party_set_metadata.h"
+#include "net/first_party_sets/first_party_sets_context_config.h"
 #include "net/net_buildflags.h"
 #include "sandbox/policy/features.h"
 #include "services/network/public/cpp/features.h"
@@ -766,7 +768,7 @@ class SystemNetworkContextManagerWithFirstPartySetComponentBrowserTest
     base::test::TestFuture<net::FirstPartySetMetadata> future;
     net::SchemefulSite site(GURL("https://a.test"));
     content::FirstPartySetsHandler::GetInstance()->ComputeFirstPartySetMetadata(
-        site, site, net::FirstPartySetsContextConfig(), future.GetCallback());
+        site, site, future.GetCallback());
     ASSERT_TRUE(future.Wait());
   }
 
@@ -881,13 +883,9 @@ IN_PROC_BROWSER_TEST_F(
 
   const GURL url_b_cross_site(https_server()->GetURL(
       kHostB, "/cross_site_iframe_factory.html?b.test(a.test)"));
-  // Since the sites are in the same Related Website Sets, we're expecting the
-  // EXCLUDE_THIRD_PARTY_BLOCKED_WITHIN_FIRST_PARTY_SET exclusion reason.
   const net::CookieInclusionStatus expected_third_party_inclusion_status =
       net::CookieInclusionStatus::MakeFromReasonsForTesting(
           {net::CookieInclusionStatus::ExclusionReason::
-               EXCLUDE_THIRD_PARTY_BLOCKED_WITHIN_FIRST_PARTY_SET,
-           net::CookieInclusionStatus::ExclusionReason::
                EXCLUDE_THIRD_PARTY_PHASEOUT},
           {net::CookieInclusionStatus::WarningReason::WARN_PORT_MISMATCH});
   const CookieAccess expected_third_party_access{

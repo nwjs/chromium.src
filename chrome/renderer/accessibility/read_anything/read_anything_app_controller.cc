@@ -5,18 +5,16 @@
 #include "chrome/renderer/accessibility/read_anything/read_anything_app_controller.h"
 
 #include <algorithm>
-#include <climits>
 #include <memory>
 #include <optional>
-#include <queue>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "base/check.h"
 #include "base/check_deref.h"
-#include "base/compiler_specific.h"
 #include "base/containers/fixed_flat_map.h"
+#include "base/functional/callback_helpers.h"
 #include "base/i18n/language_tag.h"
 #include "base/i18n/tag_converters.h"
 #include "base/json/string_escape.h"
@@ -39,7 +37,6 @@
 #include "chrome/renderer/accessibility/read_anything/read_anything_distiller_factory.h"
 #include "chrome/renderer/accessibility/read_anything/read_anything_node_utils.h"
 #include "components/language/core/common/locale_util.h"
-#include "components/translate/core/common/translate_constants.h"
 #include "content/public/renderer/chrome_object_extensions_utils.h"
 #include "content/public/renderer/render_frame.h"
 #include "content/public/renderer/render_thread.h"
@@ -51,18 +48,14 @@
 #include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/scheduler/web_agent_group_scheduler.h"
 #include "third_party/blink/public/web/web_local_frame.h"
-#include "third_party/blink/public/web/web_script_source.h"
-#include "third_party/re2/src/re2/re2.h"
-#include "third_party/skia/include/core/SkColorSpace.h"
 #include "third_party/skia/include/core/SkColorType.h"
-#include "third_party/skia/include/core/SkData.h"
 #include "third_party/skia/include/core/SkImageInfo.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/accessibility/ax_enums.mojom-shared.h"
+#include "ui/accessibility/ax_event.h"
 #include "ui/accessibility/ax_location_and_scroll_updates.h"
 #include "ui/accessibility/ax_node.h"
 #include "ui/accessibility/ax_node_id_forward.h"
-#include "ui/accessibility/ax_role_properties.h"
 #include "ui/accessibility/ax_selection.h"
 #include "ui/accessibility/ax_serializable_tree.h"
 #include "ui/accessibility/ax_text_utils.h"
@@ -70,9 +63,7 @@
 #include "ui/accessibility/ax_tree_id.h"
 #include "ui/accessibility/ax_tree_serializer.h"
 #include "ui/accessibility/ax_tree_update.h"
-#include "ui/accessibility/mojom/ax_event.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/gfx/geometry/size.h"
 #include "url/url_util.h"
 #include "v8/include/cppgc/allocation.h"
 #include "v8/include/v8-context.h"
@@ -177,7 +168,10 @@ ReadAnythingAppController::ReadAnythingAppController(
     distiller_factory_ = std::make_unique<ReadAnythingDistillerFactory>(
         render_frame,
         base::BindRepeating(&ReadAnythingAppModel::is_screen_ai_service_ready,
-                            base::Unretained(&model_)));
+                            base::Unretained(&model_)),
+        base::BindRepeating(
+            &ReadAnythingAppController::RequestReadabilityDistillation,
+            weak_ptr_factory_.GetWeakPtr()));
   } else {
     distiller_ = std::make_unique<AXTreeDistiller>(
         render_frame,
@@ -453,7 +447,14 @@ void ReadAnythingAppController::ProcessModelUpdates() {
       model_.set_requires_readability_distillation(false);
     } else {
       PrepareForNewContentDistillation();
-      page_handler_->RequestReadabilityDistillation();
+      if (features::IsReadAnythingDistillerRefactorEnabled()) {
+        ExecuteDistillation();
+      } else {
+        // In the legacy path, distillation results are sent via UpdateContent()
+        // rather than this callback, so the callback does not need to be
+        // handled.
+        page_handler_->RequestReadabilityDistillation(base::DoNothing());
+      }
     }
   }
 
@@ -483,49 +484,10 @@ void ReadAnythingAppController::ProcessModelUpdates() {
   }
 }
 
-void ReadAnythingAppController::AccessibilityLocationChangesReceived(
-    const ui::AXTreeID& tree_id,
-    const ui::AXLocationAndScrollUpdates& details) {
-  NOTREACHED() << "Non-const ref version of this method should be used as a "
-                  "performance optimization.";
-}
-
-void ReadAnythingAppController::AccessibilityLocationChangesReceived(
-    const ui::AXTreeID& tree_id,
-    ui::AXLocationAndScrollUpdates& details) {
-  // AccessibilityLocationChangesReceived causes some unexpected crashes and
-  // AXNode behavior. Therefore, flag-guard this behind the
-  // IsReadAnythingDocsIntegration flag, since these changes were initially
-  // added to support Google Docs. See crbug.com/411776559.
-  if (!features::IsReadAnythingDocsIntegrationEnabled()) {
-    return;
-  }
-  // If the AccessibilityLocationChangesReceived callback happens after
-  // the current active tree has been destroyed, do nothing.
-  DUMP_WILL_BE_CHECK(model_.active_tree_id() != ui::AXTreeIDUnknown());
-  DUMP_WILL_BE_CHECK(model_.ContainsTree(tree_id));
-  // TODO: crbug.com/411776559- Determine if a DUMP_WILL_BE_CHECK is needed
-  // here or if it's okay to just ignore AccessibilityLocationChangesReceived
-  // events if they're sent not on the active tree.
-  DUMP_WILL_BE_CHECK(model_.active_tree_id() == tree_id);
-  if (model_.active_tree_id() == ui::AXTreeIDUnknown() ||
-      !model_.ContainsTree(tree_id) || model_.active_tree_id() != tree_id) {
-    return;
-  }
-  // Listen to location change notifications to update locations of the nodes
-  // accordingly.
-  for (auto& change : details.location_changes) {
-    ui::AXNode* ax_node = model_.GetAXNode(change.id);
-    if (!ax_node) {
-      continue;
-    }
-    ax_node->SetLocation(change.new_location.offset_container_id,
-                         change.new_location.bounds,
-                         change.new_location.transform.get());
-  }
-}
-
 void ReadAnythingAppController::ExecuteJavaScript(const std::string& script) {
+  if (!render_frame()) {
+    return;
+  }
   // TODO(crbug.com/40802192): Use v8::Function rather than javascript. If
   // possible, replace this function call with firing an event.
   render_frame()->ExecuteJavaScript(base::ASCIIToUTF16(script));
@@ -573,6 +535,11 @@ void ReadAnythingAppController::OnActiveAXTreeIDChanged(
   // seen), log session metrics for the previous tree.
   if (model_.active_tree_id() != ui::AXTreeIDUnknown()) {
     RecordSessionMetricsIfShownOrRecentlyHidden();
+    // If Line Focus is still active, start a new session so subsequent
+    // interactions continue to be tracked.
+    if (IsLineFocusOn() && !model_.will_hide() && !IsHidden()) {
+      StartLineFocusSession();
+    }
   }
 
   PrepareForNewContentDistillation();
@@ -621,8 +588,7 @@ void ReadAnythingAppController::OnActiveAXTreeIDChanged(
     if (features::IsReadAnythingDistillerRefactorEnabled()) {
       SetDistillationState(read_anything::mojom::ReadAnythingDistillationState::
                                kDistillationInProgress);
-
-      page_handler_->RequestReadabilityDistillation();
+      ExecuteDistillation();
     }
     return;
   }
@@ -808,7 +774,7 @@ void ReadAnythingAppController::UpdateActiveDistiller() {
 }
 
 void ReadAnythingAppController::ExecuteDistillation(
-    const DistillationRequest& request) {
+    std::optional<DistillationRequest> request) {
   // Ensure the active distiller matches the model's next distillation method
   // before dispatching the request.
   UpdateActiveDistiller();
@@ -881,6 +847,12 @@ void ReadAnythingAppController::Distill() {
   }
 }
 
+void ReadAnythingAppController::RequestReadabilityDistillation(
+    read_anything::mojom::UntrustedPageHandler::
+        RequestReadabilityDistillationCallback callback) {
+  page_handler_->RequestReadabilityDistillation(std::move(callback));
+}
+
 void ReadAnythingAppController::OnDistillationComplete(
     const DistillationResult& result) {
   CHECK(features::IsReadAnythingDistillerRefactorEnabled());
@@ -889,7 +861,8 @@ void ReadAnythingAppController::OnDistillationComplete(
       OnAXTreeDistilled(result.tree_id, result.node_ids);
       break;
     case DistillationResult::Type::kHTML:
-      // TODO(b/543987370): Implement readability distiller.
+      // TODO(b/543987370): Rename once the mojo UpdateContent() is removed.
+      UpdateContent(result.title, result.html_content);
       break;
   }
 }
@@ -1417,8 +1390,8 @@ gin::ObjectTemplateBuilder ReadAnythingAppController::GetObjectTemplateBuilder(
       .SetMethod("getCurrentTextContent",
                  &ReadAnythingAppController::GetCurrentTextContent)
       .SetMethod("shouldShowUi", &ReadAnythingAppController::ShouldShowUI)
-      .SetMethod("maybeHasKeyPointsSection",
-                 &ReadAnythingAppController::MaybeHasKeyPointsSection)
+      .SetMethod("getOriginalPageMetrics",
+                 &ReadAnythingAppController::GetOriginalPageMetrics)
       .SetMethod("getKeyPointsRegex",
                  &ReadAnythingAppController::GetKeyPointsRegex)
       .SetMethod("onIsSpeechActiveChanged",
@@ -1463,10 +1436,6 @@ gin::ObjectTemplateBuilder ReadAnythingAppController::GetObjectTemplateBuilder(
                  &ReadAnythingAppController::GetHighlightForCurrentSegmentIndex)
       .SetMethod("getValidatedFontName",
                  &ReadAnythingAppController::GetValidatedFontName)
-      .SetMethod("onScrolledToBottom",
-                 &ReadAnythingAppController::OnScrolledToBottom)
-      .SetProperty("isDocsLoadMoreButtonVisible",
-                   &ReadAnythingAppController::IsDocsLoadMoreButtonVisible)
       .SetMethod("sendGetPresentationStateRequest",
                  &ReadAnythingAppController::SendGetPresentationStateRequest)
       .SetMethod("togglePresentation",
@@ -2302,8 +2271,16 @@ void ReadAnythingAppController::OnDistilled(int word_count) {
       kMaxWordsConsumed, kWordsConsumedBuckets);
 }
 
-bool ReadAnythingAppController::MaybeHasKeyPointsSection() const {
-  return model_.MaybeHasKeyPointsSection();
+v8::Local<v8::Value> ReadAnythingAppController::GetOriginalPageMetrics() {
+  v8::Isolate* isolate =
+      render_frame()->GetWebFrame()->GetAgentGroupScheduler()->Isolate();
+  v8::Local<v8::Object> obj = v8::Object::New(isolate);
+  gin::Dictionary dict(isolate, obj);
+
+  ReadAnythingAppModel::OriginalPageMetrics metrics =
+      model_.GetOriginalPageMetrics();
+  dict.Set("maybeHasKeyPoints", metrics.maybe_has_key_points);
+  return obj;
 }
 
 std::string ReadAnythingAppController::GetKeyPointsRegex() const {
@@ -2639,9 +2616,14 @@ void ReadAnythingAppController::OnReadingModeShown(
     read_anything::mojom::ReadAnythingOpenTrigger open_trigger) {
   model_.set_will_hide(false);
 
-  // TODO (crbug.com/494307454): Add test to verify that duplicate calls of
-  // OnReadingModeShown() won't affect Read Aloud's audio playback state (other
-  // than the playOnOpen state).
+  // The renderer process continues when reading mode is hidden, so the WebUI
+  // still considers its Line Focus session active and will not start a new one
+  // when Reading Mode is reopened. Since the previous session was logged and
+  // reset on hide, start a new session here if Line Focus is still on.
+  if (IsLineFocusOn() && !model_.line_focus_session_start_time().has_value()) {
+    StartLineFocusSession();
+  }
+
   if (open_trigger == read_anything::mojom::ReadAnythingOpenTrigger::
                           kListenToThisPageContextMenu) {
     ExecuteJavaScript("chrome.readingMode.setPlayOnOpen(true);");
@@ -2939,20 +2921,6 @@ void ReadAnythingAppController::OnUrlInformationSet() {
   read_aloud_model_.LogSpeechStop(
       model_.IsReload() ? ReadAloudAppModel::ReadAloudStopSource::kReloadPage
                         : ReadAloudAppModel::ReadAloudStopSource::kChangePage);
-}
-
-void ReadAnythingAppController::OnScrolledToBottom() {
-  if (IsGoogleDocs()) {
-    // Scroll to the last display node shown on the Reading Mode side panel
-    // TODO (b/356935604): Investigate optimal scroll position
-    page_handler_->ScrollToTargetNode(
-        model_.active_tree_id(), *model_.GetCurrentlyVisibleNodes()->rbegin());
-  }
-}
-
-bool ReadAnythingAppController::IsDocsLoadMoreButtonVisible() const {
-  return (features::IsReadAnythingDocsLoadMoreButtonEnabled() &&
-          IsGoogleDocs());
 }
 
 void ReadAnythingAppController::UpdateDependencyParserModel(

@@ -19,7 +19,6 @@
 #include "components/supervised_user/core/browser/family_link_url_filter.h"
 #include "components/supervised_user/core/browser/supervised_user_metrics_service.h"
 #include "components/supervised_user/core/browser/supervised_user_pref_store.h"
-#include "components/supervised_user/core/browser/supervised_user_synthetic_field_trial_service_delegate.h"
 #include "components/supervised_user/core/browser/supervised_user_url_filtering_service.h"
 #include "components/supervised_user/core/browser/supervised_user_utils.h"
 #include "components/supervised_user/core/common/supervised_user_constants.h"
@@ -244,14 +243,6 @@ PrefService* SupervisedUserPrefStoreTestEnvironment::pref_service() {
 }
 
 SupervisedUserTestEnvironment::SupervisedUserTestEnvironment(
-    InitialSupervisionState initial_state)
-    : SupervisedUserTestEnvironment(
-          std::make_unique<SynteticFieldTrialDelegateMock>(),
-          initial_state) {}
-
-SupervisedUserTestEnvironment::SupervisedUserTestEnvironment(
-    std::unique_ptr<SynteticFieldTrialDelegateMock>
-        synthetic_field_trial_delegate,
     InitialSupervisionState initial_state) {
 #if BUILDFLAG(IS_ANDROID)
   if (initial_state ==
@@ -269,7 +260,6 @@ SupervisedUserTestEnvironment::SupervisedUserTestEnvironment(
       identity_test_env_.identity_manager(),
       *pref_store_environment_.settings_service(),
       /*check_user_child_status_callback=*/base::DoNothing());
-  child_account_service_->Init();
   service_ = std::make_unique<SupervisedUserService>(
       identity_test_env_.identity_manager(),
       base::MakeRefCounted<network::WeakWrapperSharedURLLoaderFactory>(
@@ -292,8 +282,7 @@ SupervisedUserTestEnvironment::SupervisedUserTestEnvironment(
   metrics_service_ = std::make_unique<SupervisedUserMetricsService>(
       pref_store_environment_.pref_service(), *url_filtering_service_.get(),
       pref_store_environment_.device_parental_controls(),
-      std::make_unique<SupervisedUserMetricsServiceExtensionDelegateFake>(),
-      std::move(synthetic_field_trial_delegate));
+      std::make_unique<SupervisedUserMetricsServiceExtensionDelegateFake>());
 }
 
 SupervisedUserTestEnvironment::~SupervisedUserTestEnvironment() = default;
@@ -457,7 +446,4 @@ DeviceParentalControlsTestImpl&
 SupervisedUserTestEnvironment::device_parental_controls() {
   return pref_store_environment_.device_parental_controls();
 }
-
-SynteticFieldTrialDelegateMock::SynteticFieldTrialDelegateMock() = default;
-SynteticFieldTrialDelegateMock::~SynteticFieldTrialDelegateMock() = default;
 }  // namespace supervised_user

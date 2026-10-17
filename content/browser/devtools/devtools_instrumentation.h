@@ -77,7 +77,6 @@ class BackForwardCacheCanStoreTreeResult;
 class BrowserContext;
 class DedicatedWorkerHost;
 class DevToolsAgentHostImpl;
-class FencedFrame;
 class FrameTree;
 class FrameTreeNode;
 class NavigationRequest;
@@ -375,12 +374,12 @@ void OnPrefetchBodyDataReceived(FrameTreeNode* frame_tree_node,
 bool IsPrerenderAllowed(FrameTree& frame_tree);
 void WillInitiatePrerender(FrameTree& frame_tree);
 void DidActivatePrerender(const NavigationRequest& nav_request,
-                          const std::optional<base::UnguessableToken>&
-                              initiator_devtools_navigation_token);
+                          WebContents* initiator_web_contents);
 void DidUpdatePrerenderStatus(
     FrameTreeNodeId initiator_frame_tree_node_id,
     const base::UnguessableToken& initiator_devtools_navigation_token,
     blink::mojom::SpeculationAction action,
+    std::optional<blink::mojom::SpeculationAction> effective_action,
     const GURL& prerender_url,
     bool form_submission,
     std::optional<blink::mojom::SpeculationTargetHint> target_hint,
@@ -463,10 +462,6 @@ bool HandleCertificateError(WebContents* web_contents,
                             int cert_error,
                             const GURL& request_url,
                             CertErrorCallback callback);
-
-void FencedFrameCreated(
-    base::SafeRef<RenderFrameHostImpl> owner_render_frame_host,
-    FencedFrame* fenced_frame);
 
 void ReportCookieIssue(
     RenderFrameHostImpl* render_frame_host_impl,

@@ -48,6 +48,7 @@ Kaj je treba upoštevati:
 <translation id="1784567647421309104">Shranjevanje gesel v Chromu</translation>
 <translation id="1790080846677398234">Vnesene URL-je doda med zaznamke v Chromu.</translation>
 <translation id="1799920918471566157">Nasveti za Chrome</translation>
+<translation id="1802420021606590788">Chrome obdeluje naslove strani in URL-je v zasebnem prostoru v oblaku</translation>
 <translation id="1830634592642484976">Ta naslov je trenutno shranjen v Chromu. Če ga želite uporabiti v Googlovih izdelkih, ga shranite v računu Google (<ph name="USER_EMAIL" />).</translation>
 <translation id="1891812034154776216">Skrij odprte anonimne zavihke, ko zaprete Chrome</translation>
 <translation id="1894434821386148799">Tukaj so na voljo nastavitve za Chrome in drugo</translation>
@@ -140,6 +141,7 @@ Novih zaznamkov ni mogoče shraniti v račun, dokler nekaterih ne izbrišete. Č
 <translation id="3984746313391923992">Vaša organizacija zahteva, da niste prijavljeni v Chrome.</translation>
 <translation id="3988789688219830639">Google Chrome nima dostopa do fotografij ali videoposnetkov. Omogočite dostop v sistemu iOS: Settings &gt; Privacy &gt; Photos.</translation>
 <translation id="4064699917955374540">Če želite v računu Google uporabljati in shranjevati podatke iz Chroma, potrdite, da ste to vi.</translation>
+<translation id="4093789416346364876">Nastavite Chrome kot privzeti brskalnik, da boste pridobili vpoglede Geminija, kjer koli brskate</translation>
 <translation id="411154422556990518">Bodite na tekočem z obvestili o spremljanju cen in nasveti za Chrome.</translation>
 <translation id="417201473131094001">Ni podprto v Chromu Canary</translation>
 <translation id="424864128008805179">Se želite odjaviti iz Chroma?</translation>
@@ -268,6 +270,7 @@ Podatki so šifrirani z vašim geslom. Vnesite ga, če želite podatke iz Chroma
 <translation id="7061455974939528301">Pridržite ikono Chroma in kliknite »Uredi začetni zaslon«</translation>
 <translation id="7095110968493193530">V Googlov upravitelj gesel za <ph name="EMAIL" /></translation>
 <translation id="7124339256045485976">Posodobitev Chroma</translation>
+<translation id="7135936755418321901">Če želite lokacijo deliti s spletnimi mesti, se dotaknite aplikacije Nastavitve in dovolite, da Chrome uporablja vašo lokacijo.</translation>
 <translation id="7145599899567697473">Shranjevanje in samodejno izpolnjevanje gesel v Chromu</translation>
 <translation id="7161390184744336561">Google Chrome je zastarel</translation>
 <translation id="7165736900384873061">Začetek uporabe bralnika kod QR Google Chroma</translation>
@@ -282,6 +285,7 @@ Podatki so šifrirani z vašim geslom. Vnesite ga, če želite podatke iz Chroma
 <translation id="7272930098487145294">Če želite shraniti slike, se dotaknite aplikacije Settings in dovolite, da Chrome dodaja fotografijam</translation>
 <translation id="7275945473750112644">Vaš račun upravlja domena <ph name="HOSTED_DOMAIN" />, zato bodo podatki v Chromu izbrisani iz te naprave.</translation>
 <translation id="7284245284340063465">Če ste pozabili geslo ali želite to nastavitev spremeniti, <ph name="BEGIN_LINK" />izbrišite podatke iz Chroma v računu<ph name="END_LINK" />.</translation>
+<translation id="7287957555760192025">Če izberete ali prezrete predlog, se bo Chrome prilagodil, da vam bo v prihodnje prikazoval ustreznejše predloge.</translation>
 <translation id="7296102444587051536">Chrome za iOS</translation>
 <translation id="7299681342915173313">Zdaj lahko uporabljate Chrome, kadar koli se dotaknete povezav v e-poštnih sporočilih, dokumentih in drugih aplikacijah.</translation>
 <translation id="7334364820047587268">Gesla za te račune že imate v Googlovem upravitelju gesel. Če izberete uvoz enega od spodnjih gesel, bo nadomestilo obstoječe.</translation>
@@ -355,6 +359,7 @@ Podatki so bili z geslom šifrirani: <ph name="TIME" />. Vnesite ga, če želite
 <translation id="8544583291890527417">Opozorila o težavah z zasebnostjo ali varnostjo, ki jih Chrome zazna.</translation>
 <translation id="855027533751209304">Nasvet za Chrome: Iščite, kar vidite</translation>
 <translation id="8558480467877843976">Zdaj lahko uporabljate Chrome, kadar koli brskate po povezavah ali se jih dotaknete v sporočilih, dokumentih in drugih aplikacijah.</translation>
+<translation id="8589791109349384456">Če izklopite predloge, to ne vpliva na Chromovo obdelavo naslovov strani in URL-jev za druge funkcije. Dostop do teh podatkov lahko upravljate v <ph name="BEGIN_LINK" />nastavitvah sinhronizacije<ph name="END_LINK" />.</translation>
 <translation id="8603022514504485810">Googlovemu upravitelju gesel ni uspelo preveriti vseh gesel. Poskusite znova jutri ali <ph name="BEGIN_LINK" />preverite gesla v računu Google.<ph name="END_LINK" /></translation>
 <translation id="8610372330814566250">Uporabljajte gesla, zgodovino, zaznamke in kreditne kartice iz Safarija v Chromu</translation>
 <translation id="8630122478628016441">Vklopite »Zaklepanje anonimnih zavihkov po zaprtju Chroma«.</translation>

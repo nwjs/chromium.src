@@ -712,12 +712,8 @@ TEST_F(HintsManagerTest, ParseInvalidConfigVersions) {
 }
 
 TEST_F(HintsManagerTest, ComponentProcessingWhileShutdown) {
-  base::HistogramTester histogram_tester;
   InitializeWithDefaultConfig("10.0.0.0", /*should_wait=*/false);
   hints_manager()->Shutdown();
-
-  histogram_tester.ExpectUniqueSample(
-      "OptimizationGuide.ProcessingComponentAtShutdown", true, 1);
 
   EXPECT_TRUE(
       pref_service()->GetString(prefs::kPendingHintsProcessingVersion).empty());
@@ -2177,10 +2173,6 @@ TEST_F(HintsManagerFetchingTest, URLHintsNotFetchedAtNavigationTime) {
     histogram_tester.ExpectBucketCount(
         "OptimizationGuide.HintsManager.RaceNavigationFetchAttemptStatus",
         RaceNavigationFetchAttemptStatus::kRaceNavigationFetchURL, 1);
-    histogram_tester.ExpectUniqueSample(
-        "OptimizationGuide.HintsManager."
-        "PageNavigationHintsReturnedBeforeDataFlushed",
-        true, 1);
     RunUntilIdle();
   }
 
@@ -2200,10 +2192,6 @@ TEST_F(HintsManagerFetchingTest, URLHintsNotFetchedAtNavigationTime) {
     EXPECT_EQ(
         navigation_data->hints_fetch_attempt_status(),
         RaceNavigationFetchAttemptStatus::kRaceNavigationFetchNotAttempted);
-    histogram_tester.ExpectTotalCount(
-        "OptimizationGuide.HintsManager."
-        "PageNavigationHintsReturnedBeforeDataFlushed",
-        0);
   }
 }
 

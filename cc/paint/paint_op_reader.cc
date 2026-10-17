@@ -246,7 +246,14 @@ void PaintOpReader::Read(uint32_t* data) {
 }
 
 void PaintOpReader::Read(uint64_t* data) {
-  ReadSimple(data);
+  // uint64_t is serialized as two uint32_ts to meet the 4-byte minimum
+  // alignment requirement of the serialization format (see
+  // PaintOpWriter::Write(uint64_t)).
+  uint32_t lo = 0u;
+  uint32_t hi = 0u;
+  ReadSimple(&lo);
+  ReadSimple(&hi);
+  *data = static_cast<uint64_t>(hi) << 32 | lo;
 }
 
 void PaintOpReader::Read(int32_t* data) {
@@ -633,11 +640,10 @@ void PaintOpReader::Read(sk_sp<sktext::gpu::Slug>* slug) {
     return;
   }
 
-  auto span = remaining_.first(data_bytes);
-  *slug =
-      sktext::gpu::Slug::Deserialize(const_cast<const uint8_t*>(span.data()),
-                                     span.size(), options_.strike_client);
-  DidRead(span.size());
+  base::span<uint8_t> scratch = CopyScratchSpace(data_bytes);
+  *slug = sktext::gpu::Slug::Deserialize(scratch.data(), scratch.size(),
+                                         options_.strike_client);
+  DidRead(data_bytes);
 
   if (!*slug) {
     SetInvalid(DeserializationError::kSlugDeserializeFailure);
@@ -732,7 +738,7 @@ void PaintOpReader::Read(sk_sp<PaintShader>* shader) {
   Read(&ref.image_);
   bool has_record = false;
   Read(&has_record);
-  uint32_t shader_id = PaintShader::kInvalidRecordShaderId;
+  PaintShader::RecordShaderId shader_id = PaintShader::kInvalidRecordShaderId;
   size_t shader_size = 0;
   if (has_record) {
     if (shader_type != PaintShader::Type::kPaintRecord) {

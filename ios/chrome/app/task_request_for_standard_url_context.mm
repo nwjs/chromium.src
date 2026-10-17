@@ -11,6 +11,7 @@
 #import "base/metrics/histogram_macros.h"
 #import "base/metrics/user_metrics.h"
 #import "components/prefs/pref_service.h"
+#import "ios/chrome/app/custom_scheme_buildflags.h"
 #import "ios/chrome/app/profile/profile_state.h"
 #import "ios/chrome/app/startup/app_launch_metrics.h"
 #import "ios/chrome/app/task_request_url_context_private.h"
@@ -21,9 +22,16 @@
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
 #import "net/base/apple/url_conversions.h"
+#import "net/base/url_util.h"
 #import "url/gurl.h"
+#import "url/url_constants.h"
 
 namespace {
+
+constexpr std::string_view kSecureCustomScheme =
+    BUILDFLAG(SECURE_CUSTOM_SCHEME);
+constexpr std::string_view kInsecureCustomScheme =
+    BUILDFLAG(INSECURE_CUSTOM_SCHEME);
 
 NSString* const kExternalActionURLHost = @"ChromeExternalAction";
 NSString* const kExternalActionDefaultBrowserSettings =
@@ -163,9 +171,18 @@ void RecordExternalActionMetrics(NSURL* url) {
       ProfileIOS* profile = sceneState.profileState.profile;
       CHECK_DEREF(profile).GetPrefs()->SetBoolean(
           prefs::kAppStoreGeminiPromoTriggered, true);
-    } else if (IsAppSwitcherAISummarizationEnabled() &&
-               [path isEqualToString:kExternalActionAppSwitcherTesting]) {
-      // TODO(crbug.com/493816082): Add implementation.
+    } else if ([path isEqualToString:kExternalActionAppSwitcherTesting]) {
+      // TODO(crbug.com/527016607): Remove this entire testing path when the
+      // feature is enabled by default.
+      std::string queryUrlString;
+      net::GetValueForKeyInQuery(externalGURL, "url", &queryUrlString);
+      GURL queryUrl(queryUrlString);
+
+      externalGURL = queryUrl.SchemeIsHTTPOrHTTPS()
+                         ? queryUrl
+                         : GURL(kGeminiAppStorePromoURL);
+      postOpeningAction =
+          TabOpeningPostOpeningAction::START_GEMINI_AI_SUMMARIZATION;
     } else {
       // An unrecognized or invalid external action is discarded without opening
       // a tab.
@@ -183,8 +200,24 @@ void RecordExternalActionMetrics(NSURL* url) {
     }
     targetMode = ApplicationModeForTabOpening::NORMAL;
   } else {
-    // Other schemes.
-    // TODO(crbug.com/493816082): Add implementation.
+    if (!externalGURL.SchemeIsHTTPOrHTTPS()) {
+      if (externalGURL.SchemeIs(kSecureCustomScheme)) {
+        GURL::Replacements replaceScheme;
+        replaceScheme.SetSchemeStr(url::kHttpsScheme);
+        externalGURL = externalGURL.ReplaceComponents(replaceScheme);
+      } else if (externalGURL.SchemeIs(kInsecureCustomScheme)) {
+        GURL::Replacements replaceScheme;
+        replaceScheme.SetSchemeStr(url::kHttpScheme);
+        externalGURL = externalGURL.ReplaceComponents(replaceScheme);
+      } else {
+        return;
+      }
+    }
+    if (!externalGURL.is_valid()) {
+      return;
+    }
+    // TODO(crbug.com/493816082): Handle Google One deep links, Default Browser
+    // promo notifications, and App Switcher parameters.
   }
 
   [self openTabWithSceneState:sceneState

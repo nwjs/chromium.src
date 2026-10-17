@@ -13,11 +13,9 @@ import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 
 import {DEFAULT_SETTINGS, ToolbarEvent} from '../content/read_anything_types.js';
 import type {SettingsPrefs, ShowAtConfigPrefs} from '../content/read_anything_types.js';
-import type {AccentMenuElement} from '../read_aloud/accent_menu.js';
 import type {AudioBrowserProxy} from '../read_aloud/audio_browser_proxy.js';
 import {AudioBrowserProxyImpl} from '../read_aloud/audio_browser_proxy.js';
 import {getVoiceDisplayName, getVoiceTitleAndNatureNaming} from '../read_aloud/voice_menu_display.js';
-import type {VoiceSelectionDialogElement} from '../read_aloud/voice_selection_dialog.js';
 import {ReadAloudSettingsChange} from '../shared/metrics_browser_proxy.js';
 import {ReadAnythingLogger} from '../shared/read_anything_logger.js';
 
@@ -29,8 +27,6 @@ import type {MenuGroup, MenuStateItem, ToolbarMenu} from './menu_util.js';
 export interface AudioMenuElement {
   $: {
     menu: GroupedActionMenuElement,
-    accentMenu?: AccentMenuElement,
-    voiceSelectionDialog?: VoiceSelectionDialogElement,
   };
 }
 
@@ -117,6 +113,7 @@ export class AudioMenuElement extends AudioMenuElementBase implements
               data: 'open-voice-selection-dialog',
               itemType: SettingsItemType.ACTION,
               eventName: 'open-voice-selection-dialog',
+              opensDialog: true,
             },
             {
               title: loadTimeData.getString('accentMenuLabel'),
@@ -124,6 +121,7 @@ export class AudioMenuElement extends AudioMenuElementBase implements
               itemType: SettingsItemType.ACTION,
               data: 'open-accent-menu',
               eventName: 'open-accent-menu',
+              opensDialog: true,
             },
           ],
     },

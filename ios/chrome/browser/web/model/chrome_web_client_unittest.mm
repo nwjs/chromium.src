@@ -9,6 +9,7 @@
 #import <algorithm>
 #import <memory>
 
+#import "base/check_deref.h"
 #import "base/feature_list.h"
 #import "base/numerics/safe_conversions.h"
 #import "base/run_loop.h"
@@ -23,6 +24,9 @@
 #import "components/reading_list/core/reading_list_model.h"
 #import "components/safe_browsing/core/common/features.h"
 #import "components/safe_browsing/ios/browser/safe_browsing_url_allow_list.h"
+#import "components/search_engines/template_url.h"
+#import "components/search_engines/template_url_data.h"
+#import "components/search_engines/template_url_service.h"
 #import "components/security_interstitials/core/unsafe_resource.h"
 #import "components/strings/grit/components_strings.h"
 #import "components/universal_optout/features.h"
@@ -32,10 +36,15 @@
 #import "ios/chrome/browser/reading_list/model/reading_list_test_utils.h"
 #import "ios/chrome/browser/safe_browsing/model/client_side_detection/client_side_detection_java_script_feature.h"
 #import "ios/chrome/browser/safe_browsing/model/safe_browsing_blocking_page.h"
+#import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
+#import "ios/chrome/browser/shared/public/features/system_flags.h"
 #import "ios/chrome/browser/ssl/model/captive_portal_tab_helper.h"
 #import "ios/chrome/browser/web/model/error_page_util.h"
+#import "ios/chrome/browser/web_extension/model/extension_service.h"
+#import "ios/chrome/browser/web_extension/model/extension_service_factory.h"
+#import "ios/chrome/browser/web_extension/model/extension_service_impl.h"
 #import "ios/components/security_interstitials/https_only_mode/https_only_mode_container.h"
 #import "ios/components/security_interstitials/https_only_mode/https_only_mode_error.h"
 #import "ios/components/security_interstitials/ios_blocking_page_tab_helper.h"
@@ -46,6 +55,7 @@
 #import "ios/net/protocol_handler_util.h"
 #import "ios/web/common/features.h"
 #import "ios/web/common/web_view_creation_util.h"
+#import "ios/web/public/extension/extension_controller.h"
 #import "ios/web/public/test/error_test_util.h"
 #import "ios/web/public/test/fakes/fake_navigation_manager.h"
 #import "ios/web/public/test/fakes/fake_web_state.h"
@@ -71,6 +81,20 @@ using base::test::ios::WaitUntilConditionOrTimeout;
 
 namespace {
 const char kTestUrl[] = "http://chromium.test";
+const char kGoogleTemplateURL[] =
+    "https://www.google.com/search?q={searchTerms}";
+const char kGoogleSearchURL[] = "https://www.google.com/search?q=test";
+const char kGoogleRootURL[] = "https://www.google.com/";
+const char kGoogleMapsSubdomainURL[] = "https://maps.google.com/maps?q=paris";
+const char kGoogleMapsPathURL[] = "https://www.google.com/maps/place/Paris";
+const char kGoogleDriveURL[] = "https://drive.google.com/file/d/123";
+const char kGoogleDocsURL[] = "https://docs.google.com/document/d/123";
+const char kExampleSearchEngineTemplateURL[] =
+    "https://www.exampleSE.com/search?q={searchTerms}";
+const char kExampleSearchEngineSearchURL[] =
+    "https://www.exampleSE.com/search?q=test";
+const char kExampleSearcheEngineRootURL[] = "https://www.exampleSE.com/";
+const char kNonDSEURL[] = "https://www.example.com/";
 
 // Error used to test PrepareErrorPage method.
 NSError* CreateTestError() {
@@ -86,7 +110,13 @@ NSError* CreateTestError() {
 
 class ChromeWebClientTest : public PlatformTest {
  public:
-  ChromeWebClientTest() { profile_ = TestProfileIOS::Builder().Build(); }
+  ChromeWebClientTest() {
+    TestProfileIOS::Builder builder;
+    builder.AddTestingFactory(
+        ios::TemplateURLServiceFactory::GetInstance(),
+        ios::TemplateURLServiceFactory::GetDefaultFactory());
+    profile_ = std::move(builder).Build();
+  }
 
   ChromeWebClientTest(const ChromeWebClientTest&) = delete;
   ChromeWebClientTest& operator=(const ChromeWebClientTest&) = delete;
@@ -370,7 +400,6 @@ TEST_P(ChromeWebClientTest_V4V5, PrepareErrorPageForSafeBrowsingError) {
 // security error), so the Safe Browsing interstitial should NOT be bypassed and
 // must be displayed instead.
 
-
 // Tests PrepareErrorPage for a safe browsing enterprise block error, which
 // results in a committed enterprise interstitial.
 TEST_F(ChromeWebClientTest,
@@ -630,8 +659,6 @@ TEST_F(ChromeWebClientTest, IsPointingToSameDocumentOnline) {
       web_client.IsPointingToSameDocument(different_url1, different_url2));
 }
 
-
-
 // Tests if URLs with one empty is working as expected.
 TEST_F(ChromeWebClientTest, IsPointingToSameDocumentEmpty) {
   ChromeWebClient web_client;
@@ -662,22 +689,190 @@ TEST_F(ChromeWebClientTest, GetJavaScriptFeatures_ClientSideDetection) {
   }
 }
 
-// Tests that IsUniversalOptOutEnabled reflects the kUniversalOptOutEnabled
-// pref.
-TEST_F(ChromeWebClientTest, IsUniversalOptOutEnabled) {
+// Tests that GetUniversalOptOutState reflects the kUniversalOptOutEnabled
+// and kUniversalOptOutEligible prefs.
+TEST_F(ChromeWebClientTest, GetUniversalOptOutState) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
-      /*enabled_features=*/{universal_optout::features::kUniversalOptOut,
-                            universal_optout::features::
-                                kUniversalOptOutSettings},
+      /*enabled_features=*/
+      {universal_optout::features::kUniversalOptOut,
+       universal_optout::features::kUniversalOptOutExtension,
+       universal_optout::features::kUniversalOptOutSettings},
       /*disabled_features=*/{});
 
   ChromeWebClient web_client;
   profile()->GetPrefs()->SetBoolean(
+      universal_optout::prefs::kUniversalOptOutEligible, false);
+  profile()->GetPrefs()->SetBoolean(
       universal_optout::prefs::kUniversalOptOutEnabled, false);
-  EXPECT_FALSE(web_client.IsUniversalOptOutEnabled(profile()));
+  EXPECT_EQ(web::UniversalOptOutState::kNotEligible,
+            web_client.GetUniversalOptOutState(profile()));
+
+  profile()->GetPrefs()->SetBoolean(
+      universal_optout::prefs::kUniversalOptOutEligible, true);
+  EXPECT_EQ(web::UniversalOptOutState::kEligible,
+            web_client.GetUniversalOptOutState(profile()));
 
   profile()->GetPrefs()->SetBoolean(
       universal_optout::prefs::kUniversalOptOutEnabled, true);
-  EXPECT_TRUE(web_client.IsUniversalOptOutEnabled(profile()));
+  EXPECT_EQ(web::UniversalOptOutState::kEnabled,
+            web_client.GetUniversalOptOutState(profile()));
+
+  // Test experimental flag override: Forced Off overrides both eligible and
+  // enabled states to kNotEligible.
+  {
+    profile()->GetPrefs()->SetBoolean(
+        universal_optout::prefs::kUniversalOptOutEligible, true);
+    profile()->GetPrefs()->SetBoolean(
+        universal_optout::prefs::kUniversalOptOutEnabled, false);
+    [[NSUserDefaults standardUserDefaults]
+        setInteger:static_cast<NSInteger>(
+                       experimental_flags::UniversalOptOutEligibilityOverride::
+                           kForcedOff)
+            forKey:@"UniversalOptOutEligibilityOverride"];
+    EXPECT_EQ(web::UniversalOptOutState::kNotEligible,
+              web_client.GetUniversalOptOutState(profile()));
+
+    profile()->GetPrefs()->SetBoolean(
+        universal_optout::prefs::kUniversalOptOutEnabled, true);
+    EXPECT_EQ(web::UniversalOptOutState::kNotEligible,
+              web_client.GetUniversalOptOutState(profile()));
+  }
+
+  // Test experimental flag override: Forced On makes an ineligible profile
+  // eligible (or enabled if preference is set).
+  {
+    profile()->GetPrefs()->SetBoolean(
+        universal_optout::prefs::kUniversalOptOutEligible, false);
+    profile()->GetPrefs()->SetBoolean(
+        universal_optout::prefs::kUniversalOptOutEnabled, false);
+    [[NSUserDefaults standardUserDefaults]
+        setInteger:static_cast<NSInteger>(
+                       experimental_flags::UniversalOptOutEligibilityOverride::
+                           kForcedOn)
+            forKey:@"UniversalOptOutEligibilityOverride"];
+    EXPECT_EQ(web::UniversalOptOutState::kEligible,
+              web_client.GetUniversalOptOutState(profile()));
+
+    profile()->GetPrefs()->SetBoolean(
+        universal_optout::prefs::kUniversalOptOutEnabled, true);
+    EXPECT_EQ(web::UniversalOptOutState::kEnabled,
+              web_client.GetUniversalOptOutState(profile()));
+  }
+
+  [[NSUserDefaults standardUserDefaults]
+      removeObjectForKey:@"UniversalOptOutEligibilityOverride"];
+}
+
+// Tests that GetExtensionController returns nullptr when no ExtensionService is
+// registered, and returns the controller from ExtensionService when available.
+TEST_F(ChromeWebClientTest, GetExtensionController) API_AVAILABLE(ios(18.4)) {
+  ChromeWebClient web_client;
+  EXPECT_EQ(nullptr, web_client.GetExtensionController(nullptr));
+  EXPECT_EQ(nullptr, web_client.GetExtensionController(profile()));
+
+  TestProfileIOS::Builder builder;
+  builder.AddTestingFactory(
+      ExtensionServiceFactory::GetInstance(),
+      base::BindRepeating(
+          [](ProfileIOS* profile) -> std::unique_ptr<KeyedService> {
+            auto service = std::make_unique<ExtensionServiceImpl>(
+                CHECK_DEREF(profile->GetPrefs()),
+                web::ExtensionController::Create());
+            service->Initialize(web::UniversalOptOutState::kEnabled);
+            return service;
+          }));
+  auto profile_with_service = std::move(builder).Build();
+  ExtensionService* service =
+      ExtensionServiceFactory::GetForProfile(profile_with_service.get());
+  ASSERT_TRUE(service);
+  EXPECT_EQ(service->GetExtensionController(),
+            web_client.GetExtensionController(profile_with_service.get()));
+}
+
+// Test that `ShouldBlockUniversalLinksForURL` returns true for URLs matching
+// the Default Search Engine's domain or host and false otherwise.
+TEST_F(ChromeWebClientTest, ShouldBlockUniversalLinksForURL) {
+  ChromeWebClient web_client;
+
+  EXPECT_FALSE(web_client.ShouldBlockUniversalLinksForURL(
+      nullptr, GURL(kGoogleSearchURL)));
+  EXPECT_FALSE(web_client.ShouldBlockUniversalLinksForURL(profile(), GURL()));
+
+  TemplateURLService* template_url_service =
+      ios::TemplateURLServiceFactory::GetForProfile(profile());
+  ASSERT_TRUE(template_url_service);
+  template_url_service->Load();
+
+  TemplateURLData google_data;
+  google_data.SetShortName(u"Google");
+  google_data.SetKeyword(u"google.com");
+  google_data.SetURL(kGoogleTemplateURL);
+  TemplateURL* google_url =
+      template_url_service->Add(std::make_unique<TemplateURL>(google_data));
+  ASSERT_TRUE(google_url);
+  template_url_service->SetUserSelectedDefaultSearchProvider(google_url);
+
+  EXPECT_TRUE(web_client.ShouldBlockUniversalLinksForURL(
+      profile(), GURL(kGoogleSearchURL)));
+  EXPECT_TRUE(web_client.ShouldBlockUniversalLinksForURL(profile(),
+                                                         GURL(kGoogleRootURL)));
+  EXPECT_FALSE(web_client.ShouldBlockUniversalLinksForURL(
+      profile(), GURL(kGoogleMapsSubdomainURL)));
+  EXPECT_FALSE(web_client.ShouldBlockUniversalLinksForURL(
+      profile(), GURL(kGoogleMapsPathURL)));
+  EXPECT_FALSE(web_client.ShouldBlockUniversalLinksForURL(
+      profile(), GURL(kGoogleDriveURL)));
+  EXPECT_FALSE(web_client.ShouldBlockUniversalLinksForURL(
+      profile(), GURL(kGoogleDocsURL)));
+  EXPECT_FALSE(web_client.ShouldBlockUniversalLinksForURL(
+      profile(), GURL(kExampleSearchEngineSearchURL)));
+  EXPECT_FALSE(
+      web_client.ShouldBlockUniversalLinksForURL(profile(), GURL(kNonDSEURL)));
+
+  TemplateURLData example_search_engine_data;
+  example_search_engine_data.SetShortName(u"ExampleSearchEngine");
+  example_search_engine_data.SetKeyword(u"exampleSE.com");
+  example_search_engine_data.SetURL(kExampleSearchEngineTemplateURL);
+  TemplateURL* example_search_engine_url = template_url_service->Add(
+      std::make_unique<TemplateURL>(example_search_engine_data));
+  ASSERT_TRUE(example_search_engine_url);
+  template_url_service->SetUserSelectedDefaultSearchProvider(
+      example_search_engine_url);
+
+  EXPECT_TRUE(web_client.ShouldBlockUniversalLinksForURL(
+      profile(), GURL(kExampleSearchEngineSearchURL)));
+  EXPECT_TRUE(web_client.ShouldBlockUniversalLinksForURL(
+      profile(), GURL(kExampleSearcheEngineRootURL)));
+  EXPECT_FALSE(web_client.ShouldBlockUniversalLinksForURL(
+      profile(), GURL(kGoogleSearchURL)));
+}
+
+// Tests that GetExtensionController returns the controller from
+// ExtensionService when kUniversalOptOutExtensionSilent is enabled.
+TEST_F(ChromeWebClientTest, GetExtensionControllerSilentFlag)
+API_AVAILABLE(ios(18.4)) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      universal_optout::features::kUniversalOptOutExtensionSilent);
+
+  ChromeWebClient web_client;
+  TestProfileIOS::Builder builder;
+  builder.AddTestingFactory(
+      ExtensionServiceFactory::GetInstance(),
+      base::BindRepeating(
+          [](ProfileIOS* profile) -> std::unique_ptr<KeyedService> {
+            auto service = std::make_unique<ExtensionServiceImpl>(
+                CHECK_DEREF(profile->GetPrefs()),
+                web::ExtensionController::Create());
+            service->Initialize(web::UniversalOptOutState::kNotEligible);
+            return service;
+          }));
+  auto profile_with_service = std::move(builder).Build();
+  ExtensionService* service =
+      ExtensionServiceFactory::GetForProfile(profile_with_service.get());
+  ASSERT_TRUE(service);
+  EXPECT_NE(nullptr, service->GetExtensionController());
+  EXPECT_EQ(service->GetExtensionController(),
+            web_client.GetExtensionController(profile_with_service.get()));
 }

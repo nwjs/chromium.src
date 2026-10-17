@@ -52,23 +52,19 @@ std::unique_ptr<AudioBuffer::ExternalMemory> AllocateMemory(size_t size) {
   return std::make_unique<SelfOwnedMemory>(size);
 }
 
-
 template <typename SampleTypeTraits>
 void PlanarRead(AudioBus* dest,
-                const std::vector<base::raw_span<uint8_t>>& source,
+                const AudioBuffer& buffer,
                 size_t dest_offset,
                 size_t source_offset,
                 size_t frames) {
   using SourceValueType = typename SampleTypeTraits::ValueType;
 
-  CHECK_EQ(static_cast<size_t>(dest->channels()), source.size());
-  for (auto [dest_ch, source_ch] :
-       std::views::zip(dest->AllChannels(), source)) {
-    auto dest_data = dest_ch.subspan(dest_offset, frames);
-    // This code in `//media` is hot, so it's worth using
-    // `reinterpret_span` to keep performance up.
+  CHECK_EQ(dest->channels(), buffer.channel_count());
+  for (int ch = 0; ch < buffer.channel_count(); ++ch) {
+    auto dest_data = dest->channel(ch).subspan(dest_offset, frames);
     auto source_data =
-        base::subtle::reinterpret_span<SourceValueType>(source_ch).subspan(
+        buffer.planar_channel_cast<const SourceValueType>(ch).subspan(
             source_offset, frames);
 
     std::ranges::transform(source_data, dest_data.begin(),
@@ -236,13 +232,15 @@ AudioBuffer::AudioBuffer(base::PassKey<AudioBuffer>,
 
     // Copy each channel's data into the appropriate spot.
     for (int i = 0; i < channel_count_; ++i) {
-      auto [channel, rem] = remaining_channels.split_at(block_size_per_channel);
+      auto [channel, padding] =
+          remaining_channels.take_first(block_size_per_channel)
+              .split_at(data_size_per_channel);
       if (!data.empty()) {
         CHECK_EQ(data[i].size(), data_size_per_channel);
-        channel.first(data_size_per_channel).copy_from_nonoverlapping(data[i]);
+        channel.copy_from_nonoverlapping(data[i]);
       }
+      std::ranges::fill(padding, 0u);
       channel_spans_.push_back(channel);
-      remaining_channels = rem;
     }
 
     CHECK(remaining_channels.empty());
@@ -313,7 +311,7 @@ AudioBuffer::AudioBuffer(base::PassKey<AudioBuffer>,
   CHECK_GE(data_->span().size(), data_size_);
 
   if (IsInterleaved(sample_format)) {
-    channel_spans_.push_back(data_->span());
+    channel_spans_.push_back(data_->span().first(data_size_));
     return;
   }
 
@@ -499,7 +497,7 @@ std::unique_ptr<AudioBus> AudioBuffer::WrapOrCopyToAudioBus(
   bool audiobus_compatible = false;
   if (buffer->sample_format() == SampleFormat::kSampleFormatPlanarF32) {
     audiobus_compatible = std::ranges::all_of(
-        buffer->channel_spans_,
+        buffer->planar_data(),
         [](auto channel) { return AudioBus::IsAligned(channel.data()); });
   }
 
@@ -509,11 +507,8 @@ std::unique_ptr<AudioBus> AudioBuffer::WrapOrCopyToAudioBus(
     audio_bus->set_frames(frames);
 
     for (int ch = 0; ch < channels; ++ch) {
-      // This code in `//media` is hot, so it's worth using
-      // `reinterpret_span` to keep performance up.
       audio_bus->SetChannelData(
-          ch, base::subtle::reinterpret_span<float>(buffer->channel_spans_[ch])
-                  .first(frames));
+          ch, buffer->planar_channel_cast<float>(ch).first(frames));
     }
 
     // Keep `buffer` alive as long as `audio_bus`.
@@ -586,48 +581,49 @@ void AudioBuffer::ReadFrames(int frames_to_copy,
   // Note: The conversion steps below will clip values to [1.0, -1.0f].
 
   if (sample_format_ == kSampleFormatPlanarF32) {
-    PlanarRead<Float32SampleTypeTraits>(dest, channel_spans_, dest_offset,
-                                        source_offset, frames);
+    PlanarRead<Float32SampleTypeTraits>(dest, *this, dest_offset, source_offset,
+                                        frames);
     return;
   }
   if (sample_format_ == kSampleFormatPlanarU8) {
-    PlanarRead<UnsignedInt8SampleTypeTraits>(dest, channel_spans_, dest_offset,
+    PlanarRead<UnsignedInt8SampleTypeTraits>(dest, *this, dest_offset,
                                              source_offset, frames);
     return;
   }
   if (sample_format_ == kSampleFormatPlanarS16) {
-    PlanarRead<SignedInt16SampleTypeTraits>(dest, channel_spans_, dest_offset,
+    PlanarRead<SignedInt16SampleTypeTraits>(dest, *this, dest_offset,
                                             source_offset, frames);
     return;
   }
   if (sample_format_ == kSampleFormatPlanarS32) {
-    PlanarRead<SignedInt32SampleTypeTraits>(dest, channel_spans_, dest_offset,
+    PlanarRead<SignedInt32SampleTypeTraits>(dest, *this, dest_offset,
                                             source_offset, frames);
     return;
   }
 
-  const size_t bytes_per_channel =
-      SampleFormatToBytesPerChannel(sample_format_);
-  const size_t frame_size = channel_count_ * bytes_per_channel;
-  base::span<const uint8_t> source_data =
-      data_->span().subspan(source_offset * frame_size, frames * frame_size);
+  const size_t sample_offset = source_offset * channel_count_;
+  const size_t sample_count = frames * channel_count_;
 
-  // This code in `//media` is hot, so it's worth using
-  // `reinterpret_span` to keep performance up.
   if (sample_format_ == kSampleFormatF32) {
     dest->FromInterleavedPartial<Float32SampleTypeTraits>(
-        base::subtle::reinterpret_span<const float>(source_data), dest_offset);
+        interleaved_data_cast<const float>().subspan(sample_offset,
+                                                     sample_count),
+        dest_offset);
   } else if (sample_format_ == kSampleFormatU8) {
-    dest->FromInterleavedPartial<UnsignedInt8SampleTypeTraits>(source_data,
-                                                               dest_offset);
+    dest->FromInterleavedPartial<UnsignedInt8SampleTypeTraits>(
+        interleaved_data_cast<const uint8_t>().subspan(sample_offset,
+                                                       sample_count),
+        dest_offset);
   } else if (sample_format_ == kSampleFormatS16) {
     dest->FromInterleavedPartial<SignedInt16SampleTypeTraits>(
-        base::subtle::reinterpret_span<const int16_t>(source_data),
+        interleaved_data_cast<const int16_t>().subspan(sample_offset,
+                                                       sample_count),
         dest_offset);
   } else if (sample_format_ == kSampleFormatS24 ||
              sample_format_ == kSampleFormatS32) {
     dest->FromInterleavedPartial<SignedInt32SampleTypeTraits>(
-        base::subtle::reinterpret_span<const int32_t>(source_data),
+        interleaved_data_cast<const int32_t>().subspan(sample_offset,
+                                                       sample_count),
         dest_offset);
   } else {
     NOTREACHED() << "Unsupported audio sample type: " << sample_format_;
@@ -658,6 +654,25 @@ void AudioBuffer::TrimEnd(int frames_to_trim) {
   // Adjust the number of frames and duration for this buffer.
   adjusted_frame_count_ -= frames_to_trim;
   duration_ = CalculateDuration(adjusted_frame_count_, sample_rate_);
+
+  if (channel_spans_.empty()) {
+    return;
+  }
+
+  const size_t bytes_per_channel =
+      SampleFormatToBytesPerChannel(sample_format_);
+  if (IsPlanar(sample_format_)) {
+    const size_t new_size = adjusted_frame_count_ * bytes_per_channel;
+    for (auto& channel : channel_spans_) {
+      channel = channel.first(new_size);
+    }
+    return;
+  }
+
+  CHECK(IsInterleaved(sample_format_));
+  const size_t new_size =
+      adjusted_frame_count_ * channel_count_ * bytes_per_channel;
+  channel_spans_[0] = channel_spans_[0].first(new_size);
 }
 
 void AudioBuffer::TrimRange(int start, int end) {

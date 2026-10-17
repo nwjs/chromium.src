@@ -8,6 +8,7 @@
 #import <memory>
 #import <utility>
 
+#import "base/callback_list.h"
 #import "base/critical_closure.h"
 #import "base/files/file_path.h"
 #import "base/files/file_util.h"
@@ -64,6 +65,7 @@
 #import "ios/chrome/browser/external_files/model/external_file_remover_factory.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/first_run/public/features.h"
+#import "ios/chrome/browser/level_up/model/level_up_promo_profile_agent.h"
 #import "ios/chrome/browser/mailto_handler/model/mailto_handler_service_factory.h"
 #import "ios/chrome/browser/ntp/model/home_background_customization_promo_profile_agent.h"
 #import "ios/chrome/browser/profile_metrics/model/profile_activity_profile_agent.h"
@@ -90,6 +92,8 @@
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/snapshots/model/constants.h"
 #import "ios/chrome/browser/translate/model/chrome_ios_translate_client.h"
+#import "ios/chrome/browser/web_extension/model/extension_service.h"
+#import "ios/chrome/browser/web_extension/model/extension_service_factory.h"
 #import "ios/chrome/browser/web_state_list/model/web_usage_enabler/web_usage_enabler_browser_agent.h"
 #import "ios/chrome/browser/welcome_back/model/features.h"
 #import "ios/components/cookie_util/cookie_util.h"
@@ -100,7 +104,6 @@
 #import "net/url_request/url_request_context.h"
 #import "net/url_request/url_request_context_getter.h"
 #import "ui/base/device_form_factor.h"
-
 #if BUILDFLAG(IOS_CREDENTIAL_PROVIDER_ENABLED)
 #import "ios/chrome/browser/credential_provider/model/credential_provider_service_factory.h"  // nogncheck
 #import "ios/chrome/browser/credential_provider/model/credential_provider_util.h"  // nogncheck
@@ -221,6 +224,10 @@ void RemoveSessionsFromSessionsToDiscard(const SessionIds& session_ids,
 
   // Used to control whether the animations should be cancelled.
   base::OneShotTimer _cancelAnimationTimer;
+
+  // Subscription waiting for ExtensionService to be ready before continuing
+  // initialization.
+  base::CallbackListSubscription _extensionReadySubscription;
 }
 
 - (instancetype)initWithAppState:(AppState*)appState
@@ -276,6 +283,8 @@ void RemoveSessionsFromSessionsToDiscard(const SessionIds& session_ids,
 
   // Inform the AppState of the ProfileState destruction.
   [_state.appState profileStateDestroyed:_state];
+
+  _extensionReadySubscription = {};
 
   // Clear the -profile property of ProfileState before unloading the object.
   [_state setProfile:nullptr];
@@ -614,10 +623,25 @@ void RemoveSessionsFromSessionsToDiscard(const SessionIds& session_ids,
   }
 
   [_state addAgent:[[HomeBackgroundCustomizationPromoProfileAgent alloc] init]];
+
+  if (IsLevelUpEnabled()) {
+    [_state addAgent:[[LevelUpPromoProfileAgent alloc] init]];
+  }
 }
 
 - (void)maybeContinueForegroundInitialization {
   if (_state.initStage != ProfileInitStage::kPrepareUI) {
+    return;
+  }
+
+  ExtensionService* extensionService =
+      ExtensionServiceFactory::GetForProfile(_state.profile);
+  if (extensionService && !extensionService->IsReady()) {
+    __weak ProfileController* weakSelf = self;
+    _extensionReadySubscription =
+        extensionService->RunWhenReady(base::BindOnce(^{
+          [weakSelf maybeContinueForegroundInitialization];
+        }));
     return;
   }
 

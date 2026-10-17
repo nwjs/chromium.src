@@ -1,0 +1,70 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+import {html} from 'chrome://resources/lit/v3_0/lit.rollup.js';
+
+import {ContentSetting, ContentSettingsTypes} from '../site_settings/constants.js';
+
+import type {SettingsInlineCueMenuPageElement} from './inline_cue_menu_page.js';
+
+export function getHtml(this: SettingsInlineCueMenuPageElement) {
+  return html`<!--_html_template_start_-->
+<settings-subpage page-title="$i18n{siteSettingsInlineCueMenu}"
+    route-path="${this.routePath}">
+  <div class="preview-container">
+    <h2 class="preview-label">$i18n{siteSettingsInlineCueMenuPreview}</h2>
+    <div class="preview-box">
+      <div class="preview-text-block"
+          .innerHTML="${this.getPreviewText_()}">
+      </div>
+    </div>
+    <div class="preview-pill">
+      <div class="preview-spark-icon"></div>
+      <span class="preview-pill-text">
+        $i18n{siteSettingsInlineCueMenuPreviewPill}
+      </span>
+    </div>
+    <cr-icon class="preview-cursor" icon="settings20:text-select-cursor"
+        aria-hidden="true">
+    </cr-icon>
+  </div>
+  <settings-toggle-button id="mainToggle" .pref="${this.pref_}" no-set-pref
+      label="$i18n{siteSettingsInlineCueMenuToggleLabel}"
+      sub-label="$i18n{siteSettingsInlineCueMenuToggleSublabel}"
+      @settings-boolean-control-change="${
+          this.onMainToggleSettingsBooleanControlChange_}">
+  </settings-toggle-button>
+
+  <div class="cr-row exceptions-header-row">
+    <h2 class="flex cr-padded-text exceptions-header">
+      $i18n{siteSettingsInlineCueMenuBlockedExceptions}
+    </h2>
+    <cr-button id="addSite" @click="${this.onAddSiteClick_}">
+      $i18n{siteSettingsInlineCueMenuAddSite}
+    </cr-button>
+  </div>
+  <div class="list-frame" ?hidden="${this.hasSites_()}">
+    <div class="list-item secondary">$i18n{noSitesAdded}</div>
+  </div>
+  <div class="list-frame" ?hidden="${!this.hasSites_()}" role="list">
+    ${this.sites_.map((item, index) => html`
+      <div class="list-item" role="listitem">
+        <site-favicon .url="${item.origin}"></site-favicon>
+        <div class="flex cr-padded-text">${item.displayName}</div>
+        <cr-icon-button iron-icon="cr:delete" aria-label="$i18n{delete}"
+            data-index="${index}" @click="${this.onDeleteSiteClick_}">
+        </cr-icon-button>
+      </div>
+    `)}
+  </div>
+  ${this.showAddSiteDialog_ ? html`
+    <add-site-dialog .category="${ContentSettingsTypes.INLINE_CUE_MENU}"
+        .contentSetting="${ContentSetting.BLOCK}"
+        .hasIncognito="${false}"
+        @close="${this.onAddSiteDialogClose_}">
+    </add-site-dialog>
+  ` : ''}
+</settings-subpage>
+<!--_html_template_end_-->`;
+}

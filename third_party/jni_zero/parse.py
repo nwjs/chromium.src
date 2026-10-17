@@ -336,12 +336,17 @@ def _validate_safe_pointer(type_resolver, value, parsed_value, java_class,
     raise ParseError(
         f'Safe pointer inner type must be a JniTypeToken interface, not '
         f'"{inner.non_array_full_name_with_slashes}": {value}')
-  if not inner.converted_type:
-    raise ParseError(
-        f'Safe pointer inner type "{inner.non_array_full_name_with_slashes}" '
-        f'does not resolve to a C++ type. Annotate its JniTypeToken '
-        f'interface with @JniType("::your::CppType") (or provide it via '
-        f'the type catalog): {value}')
+
+
+def _resolve_token(type_resolver, java_type):
+  """Fills in a JniTypeToken's C++ type from the type catalog."""
+  if java_type.converted_type or not java_type.java_class:
+    return java_type
+  fqn = java_type.java_class.class_without_prefix.full_name_with_slashes
+  converted_type = type_resolver.type_catalog.get(fqn)
+  if not converted_type:
+    return java_type
+  return dataclasses.replace(java_type, converted_type=converted_type)
 
 
 def _parse_type(type_resolver, value):
@@ -384,15 +389,14 @@ def _parse_type(type_resolver, value):
 
     primitive_name = None
     if java_class.is_safe_pointer():
+      if generics and len(generics) == 1:
+        generics = (_resolve_token(type_resolver, generics[0]), )
       _validate_safe_pointer(type_resolver, value, parsed_value, java_class,
                              generics, array_dimensions)
     elif java_class == java_types.CLASS_CLASS:
       generics = None
 
   converted_type = annotations.get('JniType', None)
-  if not converted_type and java_class:
-    fqn = java_class.class_without_prefix.full_name_with_slashes
-    converted_type = type_resolver.type_catalog.get(fqn, None)
   if converted_type == 'std::vector':
     # Allow "std::vector" as shorthand for types that can be inferred:
     if array_dimensions == 1 and primitive_name:
@@ -518,13 +522,40 @@ def _parse_proxy_natives(type_resolver, contents):
             f'{p.java_type.java_class.name}, but @NativeMethods parameters '
             f'must use JniPtr<T>. (JniUniquePtr and JniRawPtr implement '
             f'JniPtr and can be passed as arguments).')
+    native_class_name = annotations.get('NativeClassQualifiedName')
+    if params:
+      first_param = params[0]
+      is_long_member = (first_param.java_type.is_primitive()
+                        and first_param.java_type.primitive_name == 'long'
+                        and first_param.name.startswith('native'))
+      is_safe_ptr_member = (first_param.java_type.is_safe_pointer()
+                            and first_param.name == 'self')
+      if (first_param.java_type.is_safe_pointer()
+          and first_param.name.startswith('native')):
+        raise ParseError(
+            f'Method "{name}" safe pointer first parameter '
+            f'"{first_param.name}" starts with "native". Use "self" to '
+            f'dispatch to a C++ member function, or another name for a free '
+            f'function.')
+      if is_long_member or is_safe_ptr_member:
+        first_param_annotations, _ = _parse_annotations(
+            _split_by_delimiter(params_part, ',')[0])
+        if 'Nullable' in first_param_annotations:
+          raise ParseError(
+              f'Method "{name}" first parameter "{first_param.name}" dispatches '
+              f'to a C++ member function and cannot be @Nullable.')
+        if is_safe_ptr_member and native_class_name:
+          raise ParseError(
+              f'Method "{name}" specifies both @NativeClassQualifiedName and a '
+              f'safe pointer first parameter "self". The C++ '
+              f'class is already defined by @JniType on '
+              f'{first_param.java_type.generics[0].java_class.name}.')
     signature = java_types.JavaSignature.from_params(return_type, params)
     ret.methods.append(
-        ParsedNative(
-            static=False,
-            name=name,
-            signature=signature,
-            native_class_name=annotations.get('NativeClassQualifiedName')))
+        ParsedNative(static=False,
+                     name=name,
+                     signature=signature,
+                     native_class_name=native_class_name))
   if not ret.methods:
     raise ParseError('Found no methods within @NativeMethod interface.')
   ret.methods.sort()
@@ -631,6 +662,13 @@ def _parse_called_by_natives_or_javap(contents,
                        name=name,
                        signature=signature))
     else:
+      if (return_type.is_safe_pointer()
+          and return_type.java_class != java_types.JNI_PTR_CLASS):
+        raise ParseError(
+            f'Method "{name}" has return type {return_type.java_class.name}, '
+            f'but @CalledByNative return types must use JniPtr<T>. '
+            f'(JniUniquePtr and JniRawPtr implement JniPtr and can be returned).'
+        )
       unchecked = not is_javap and 'Unchecked' in match.group('Unchecked')
       parsed_class.called_by_natives.append(
           ParsedCalledByNative(name=name,
@@ -781,6 +819,48 @@ def parse_java_file_data(filename,
     ret.proxy_methods = parsed_proxy_natives.methods
 
   return ret
+
+
+def _resolve_type(java_type, type_catalog):
+  if java_type.is_safe_pointer():
+    inner = java_type.generics[0]
+    if not inner.converted_type:
+      fqn = inner.java_class.class_without_prefix.full_name_with_slashes
+      converted_type = type_catalog.get(fqn)
+      if not converted_type:
+        raise ParseError(
+            f'Safe pointer inner type "{inner.non_array_full_name_with_slashes}" '
+            f'does not resolve to a C++ type. Annotate its JniTypeToken '
+            f'interface with @JniType("::your::CppType") (or provide it via '
+            f'the type catalog): {java_type.to_java(with_generics=True)}')
+      # Mutate frozen dataclass in place since JavaType is not used in
+      # sets or dicts at this phase.
+      object.__setattr__(inner, 'converted_type', converted_type)
+
+
+def _resolve_signature(signature, type_catalog):
+  for java_type in signature.iter_types():
+    _resolve_type(java_type, type_catalog)
+
+
+def resolve_safe_pointers(parsed_files, type_catalog):
+  """Resolves and validates safe pointer types across parsed files."""
+  for pf in parsed_files:
+    try:
+      for m in pf.proxy_methods:
+        _resolve_signature(m.signature, type_catalog)
+      for c in pf.classes_with_jni:
+        for cbn in c.called_by_natives:
+          _resolve_signature(cbn.signature, type_catalog)
+        for f in c.fields:
+          _resolve_type(f.java_type, type_catalog)
+        for m in c.non_proxy_methods:
+          _resolve_signature(m.signature, type_catalog)
+    except Exception as e:
+      # This runs after parse_java_file() has returned, so it must attach the
+      # filename itself.
+      common.add_note(e, f'when parsing {pf.filename}')
+      raise
 
 
 def parse_java_file(filename,

@@ -26,6 +26,7 @@
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/null_task_runner.h"
+#include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_timeouts.h"
 #include "base/test/with_feature_override.h"
@@ -36,6 +37,7 @@
 #include "components/input/mouse_wheel_event_queue.h"
 #include "components/input/native_web_keyboard_event.h"
 #include "components/input/render_widget_host_view_input.h"
+#include "components/input/render_widget_host_view_input_observer.h"
 #include "components/viz/common/features.h"
 #include "components/viz/common/frame_sinks/begin_frame_args.h"
 #include "components/viz/common/surfaces/child_local_surface_id_allocator.h"
@@ -98,6 +100,7 @@
 #include "ui/aura/window.h"
 #include "ui/aura/window_event_dispatcher.h"
 #include "ui/aura/window_observer.h"
+#include "ui/aura/window_tracker.h"
 #include "ui/aura/window_tree_host.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/clipboard/test/clipboard_test_util.h"
@@ -733,10 +736,8 @@ class RenderWidgetHostViewAuraTest : public testing::Test {
                                        ui::TextInputType type) {
     DCHECK_NE(ui::TEXT_INPUT_TYPE_NONE, type);
     // First mock-focus the widget if not already.
-    if (render_widget_host_delegate()->GetFocusedRenderWidgetHost(
-            widget_host_) != view->GetRenderWidgetHost()) {
-      render_widget_host_delegate()->set_focused_widget(view->host());
-    }
+    render_widget_host_delegate()->set_focused_widget(view ? view->host()
+                                                           : nullptr);
 
     TextInputManager* manager = GetTextInputManager(view);
     if (manager->GetActiveWidget()) {
@@ -3387,17 +3388,12 @@ TEST_F(RenderWidgetHostViewAuraTest, DiscardDelegatedFrames) {
   gfx::Size size2(200, 200);
   views[1]->SetSize(size2);
   // Show it, it should block until we give it a frame.
-  UNSAFE_TODO(views[1])->ShowWithVisibility(PageVisibilityState::kVisible);
-  ASSERT_TRUE(UNSAFE_TODO(views[1])
-                  ->window_->layer()
-                  ->AsSurface()
-                  ->GetOldestAcceptableFallback());
+  views[1]->ShowWithVisibility(PageVisibilityState::kVisible);
+  ASSERT_TRUE(
+      views[1]->window_->layer()->AsSurface()->GetOldestAcceptableFallback());
   EXPECT_EQ(
-      *UNSAFE_TODO(views[1])
-           ->window_->layer()
-           ->AsSurface()
-           ->GetOldestAcceptableFallback(),
-      *UNSAFE_TODO(views[1])->window_->layer()->AsSurface()->GetSurfaceId());
+      *views[1]->window_->layer()->AsSurface()->GetOldestAcceptableFallback(),
+      *views[1]->window_->layer()->AsSurface()->GetSurfaceId());
 
   for (size_t i = 0; i < renderer_count; ++i)
     views[i]->DestroyOrDefer();
@@ -6508,6 +6504,43 @@ TEST_F(InputMethodResultAuraTest, ChangeTextDirectionAndLayoutAlignment) {
   }
 }
 
+// Test that an unfocused view cannot become active in TextInputManager.
+TEST_F(InputMethodResultAuraTest, UnfocusedViewCannotBecomeActive) {
+  TextInputManager* manager = GetTextInputManager(tab_view());
+  EXPECT_TRUE(manager);
+
+  ActivateViewForTextInputManager(views_[0], ui::TEXT_INPUT_TYPE_TEXT);
+  EXPECT_EQ(views_[0], manager->active_view_for_testing());
+  EXPECT_EQ(widget_hosts_[0], manager->GetActiveWidget());
+  EXPECT_EQ(ui::TEXT_INPUT_TYPE_TEXT, tab_view()->GetTextInputType());
+
+  // Attempt to activate an unfocused view without granting focus.
+  ui::mojom::TextInputState child_state;
+  child_state.type = ui::TEXT_INPUT_TYPE_PASSWORD;
+  views_[1]->TextInputStateChanged(child_state);
+
+  // The active view, active widget, and text input type must remain unchanged.
+  EXPECT_EQ(views_[0], manager->active_view_for_testing());
+  EXPECT_EQ(widget_hosts_[0], manager->GetActiveWidget());
+  EXPECT_EQ(ui::TEXT_INPUT_TYPE_TEXT, tab_view()->GetTextInputType());
+
+  // Inserting text should route to the focused widget (index 0), not widget 1.
+  text_input_client()->InsertText(
+      u"sample_text",
+      ui::TextInputClient::InsertTextCursorBehavior::kMoveCursorAfterText);
+  std::string dispatched_messages;
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    dispatched_messages = GetMessageNames(
+        widget_hosts_[0]->input_handler()->GetAndResetDispatchedMessages());
+    return !dispatched_messages.empty();
+  }));
+  EXPECT_EQ("CommitText", dispatched_messages);
+  EXPECT_EQ(
+      "",
+      GetMessageNames(
+          widget_hosts_[1]->input_handler()->GetAndResetDispatchedMessages()));
+}
+
 // A class of tests which verify the correctness of some tracked IME related
 // state at the browser side. Each test verifies the correctness tracking for
 // one specific state. To do so, the views are activated in a predetermined
@@ -6592,6 +6625,34 @@ TEST_F(InputMethodStateAuraTest, EditContextBoundsClamped) {
 
   EXPECT_EQ(control_bounds.value(), expected_bounds);
   EXPECT_EQ(selection_bounds.value(), expected_bounds);
+  EXPECT_EQ(text_input_client()->GetCaretBounds(),
+            view->ConvertRectToScreen({100, 100}));
+
+  // Out-of-bounds composition character bounds should also be clamped.
+  view->ImeCompositionRangeChanged(gfx::Range(0, 1), {{{-50, -50, 40, 20}}});
+  gfx::Rect composition_bound;
+  EXPECT_TRUE(text_input_client()->GetCompositionCharacterBounds(
+      0, &composition_bound));
+  EXPECT_EQ(composition_bound, view->ConvertRectToScreen({40, 20}));
+
+  // Out-of-bounds SelectionBoundsChanged caret bounds should also be clamped.
+  state.edit_context_selection_bounds.reset();
+  manager->UpdateTextInputState(view, state);
+  view->SelectionBoundsChanged({-50, -50, 0, 20}, base::i18n::LEFT_TO_RIGHT,
+                               {-50, -50, 0, 20}, base::i18n::LEFT_TO_RIGHT,
+                               gfx::Rect(), true);
+  EXPECT_EQ(text_input_client()->GetCaretBounds(),
+            view->ConvertRectToScreen({0, 20}));
+
+#if BUILDFLAG(IS_CHROMEOS)
+  auto span_info = ui::mojom::ImeTextSpanInfo::New(
+      ui::ImeTextSpan(ui::ImeTextSpan::Type::kAutocorrect, 0, 3),
+      gfx::Rect{-50, -50, 40, 20});
+  state.ime_text_spans_info.push_back(std::move(span_info));
+  manager->UpdateTextInputState(view, state);
+  EXPECT_EQ(text_input_client()->GetAutocorrectCharacterBounds(),
+            view->ConvertRectToScreen({40, 20}));
+#endif
 }
 
 // This test is for composition character bounds.
@@ -6724,22 +6785,24 @@ TEST_F(InputMethodStateAuraTest, GetAutocorrectRangeFromActiveView) {
   ASSERT_TRUE(manager);
 
   // Send an autocorrect span from a child view, making it the active view.
+  ActivateViewForTextInputManager(views_[1], ui::TEXT_INPUT_TYPE_TEXT);
   ui::mojom::TextInputState child_state;
   child_state.type = ui::TEXT_INPUT_TYPE_TEXT;
   child_state.ime_text_spans_info.push_back(ui::mojom::ImeTextSpanInfo::New(
       ui::ImeTextSpan(ui::ImeTextSpan::Type::kAutocorrect, 0, 1000),
       gfx::Rect()));
   views_[1]->TextInputStateChanged(child_state);
-  ASSERT_EQ(views_[1], manager->active_view_for_testing());
+  EXPECT_EQ(views_[1], manager->active_view_for_testing());
   EXPECT_EQ(gfx::Range(0, 1000), manager->GetAutocorrectRange());
 
   // Activate the tab view with no autocorrect span. The child view's span is
   // still stored in the manager, but it must not be returned for the now
   // active tab view.
+  ActivateViewForTextInputManager(views_[0], ui::TEXT_INPUT_TYPE_TEXT);
   ui::mojom::TextInputState tab_state;
   tab_state.type = ui::TEXT_INPUT_TYPE_TEXT;
   views_[0]->TextInputStateChanged(tab_state);
-  ASSERT_EQ(views_[0], manager->active_view_for_testing());
+  EXPECT_EQ(views_[0], manager->active_view_for_testing());
   EXPECT_EQ(gfx::Range(), manager->GetAutocorrectRange());
 
   // Activate the tab view with its own autocorrect span and verify that the
@@ -8009,6 +8072,113 @@ TEST_F(RenderWidgetHostViewAuraTest, TouchDispatchSurvivesSynchronousDestroy) {
 
   EXPECT_TRUE(observer.fired());
   widget_host_->RemoveInputEventObserver(&observer);
+}
+
+TEST_F(RenderWidgetHostViewAuraTest,
+       MouseDispatchSurvivesSynchronousDestroyInForwardMouseEventToParent) {
+  InitViewForFrame(nullptr);
+
+  // A parent window delegate that destroys the child window during
+  // OnMouseEvent. This simulates the behavior of
+  // WebContentsViewAura::OnMouseEvent on Windows, where
+  // ForwardMouseEventToParent() calls ActivateContents() on the delegate, which
+  // can synchronously destroy the WebContents (and therefore the Aura window).
+  class DestroyingParentWindowDelegate : public aura::test::TestWindowDelegate {
+   public:
+    explicit DestroyingParentWindowDelegate(
+        RenderWidgetHostViewAura* child_view)
+        : child_view_(child_view) {}
+
+    void OnMouseEvent(ui::MouseEvent* event) override {
+      if (child_view_) {
+        fired_ = true;
+        aura::Window* window = child_view_->GetNativeView();
+        aura::Env::GetInstance()->gesture_recognizer()->CancelActiveTouches(
+            window);
+        aura::Env::GetInstance()->gesture_recognizer()->CleanupStateForConsumer(
+            window);
+        delete window;
+        child_view_ = nullptr;
+      }
+    }
+
+    bool fired() const { return fired_; }
+
+   private:
+    raw_ptr<RenderWidgetHostViewAura> child_view_ = nullptr;
+    bool fired_ = false;
+  };
+
+  aura::Window* root = parent_view_->GetNativeView()->GetRootWindow();
+  DestroyingParentWindowDelegate parent_delegate(view_.get());
+  std::unique_ptr<aura::Window> parent = std::make_unique<aura::Window>(&parent_delegate);
+  parent->Init(ui::LAYER_NOT_DRAWN);
+  parent->Show();
+  root->AddChild(parent.get());
+  parent->AddChild(view_->GetNativeView());
+
+  FakeRenderWidgetHostViewAura* target_view = view_.ExtractAsDangling();
+
+  ui::MouseEvent mouse_press(ui::EventType::kMousePressed, gfx::Point(10, 10),
+                             gfx::Point(10, 10), ui::EventTimeForNow(),
+                             ui::EF_LEFT_MOUSE_BUTTON,
+                             ui::EF_LEFT_MOUSE_BUTTON);
+  target_view->OnMouseEvent(&mouse_press);
+
+  EXPECT_TRUE(parent_delegate.fired());
+}
+
+// Regression test for crbug.com/567673405. An observer notified during
+// DestroyOrDefer() may synchronously dispatch input to the view, taking and
+// releasing a ScopedInputDispatchPin. Releasing that pin must not delete the
+// view while DestroyOrDefer() is still on the stack; otherwise the remainder
+// of teardown would use a freed object, and DestroyImpl() would run twice.
+TEST_F(RenderWidgetHostViewAuraTest,
+       PinReleasedDuringDestroyNotificationDoesNotDestroyEarly) {
+  InitViewForFrame(nullptr);
+  aura::client::ParentWindowWithContext(
+      view_->GetNativeView(), aura_test_helper_->GetContext(), gfx::Rect(),
+      display::kInvalidDisplayId);
+
+  class PinningObserver : public input::RenderWidgetHostViewInputObserver {
+   public:
+    explicit PinningObserver(aura::WindowTracker* tracker)
+        : tracker_(tracker) {}
+
+    void OnRenderWidgetHostViewInputDestroyed(
+        input::RenderWidgetHostViewInput* view) override {
+      view->RemoveObserver(this);
+      aura::Window* window =
+          static_cast<RenderWidgetHostViewAura*>(view)->GetNativeView();
+      // Simulate a synchronous input dispatch to |view| during teardown.
+      {
+        input::ScopedInputDispatchPin pin(view);
+      }
+      // DestroyImpl() deletes the native window; it must not have run yet.
+      notified_ = true;
+      window_survived_unpin_ = tracker_->Contains(window);
+    }
+
+    bool notified() const { return notified_; }
+    bool window_survived_unpin() const { return window_survived_unpin_; }
+
+   private:
+    raw_ptr<aura::WindowTracker> tracker_;
+    bool notified_ = false;
+    bool window_survived_unpin_ = false;
+  };
+
+  aura::Window* window = view_->GetNativeView();
+  aura::WindowTracker tracker({window});
+  PinningObserver observer(&tracker);
+  view_->AddObserver(&observer);
+
+  view_.ExtractAsDangling()->DestroyOrDefer();
+
+  EXPECT_TRUE(observer.notified());
+  EXPECT_TRUE(observer.window_survived_unpin());
+  // DestroyImpl() ran once DestroyOrDefer() finished, deleting the window.
+  EXPECT_FALSE(tracker.Contains(window));
 }
 
 }  // namespace content

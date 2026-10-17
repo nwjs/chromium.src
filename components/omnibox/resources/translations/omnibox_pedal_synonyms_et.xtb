@@ -2,7 +2,6 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="et">
 <translation id="132297926492792130">minu google'i konto haldamine, google'i konto parandamine, halda minu google'i kontot</translation>
-<translation id="1455865776268085776">inkognito režiimi sisenemine, uus inkognito aken, inkognito vahelehe avamine, ava inkognito vaheleht, sisene inkognito režiimi</translation>
 <translation id="1545931455576308147">lehe jagamine, vahelehe jagamine, jaga lehte, jaga vahelehte</translation>
 <translation id="1912698329644085067">chrome'i seadete muutmine, chrome seadete muutmine, chrome'i sätete muutmine, chrome sätete muutmine, seadete haldamine, sätete haldamine</translation>
 <translation id="1938436187879863297">google keepi märkme loomine, google'i märkme loomine, loo uus google keepi märge, uus google'i märge, alusta google'i märget</translation>
@@ -14,6 +13,7 @@
 <translation id="3371457011763794419">chrome'i värskendamine, brauseri versiooniuuendus, brauseri värskendamine</translation>
 <translation id="3489247412199563299">chrome'i juurdepääsetavuse kohandamine, chrome juurdepääsetavuse kohandamine, juurdepääsetavuse seadete haldamine, juurdepääsetavuse haldamine, juurdepääsetavuse kohandamine, juurdepääsetavuse seadistamine, juurdepääsetavuse seaded, juurdepääsu seaded, juurdepääsetavuse sätted, juurdepääsu sätted</translation>
 <translation id="3936847108123063274">google'i saidi loomine, google'i veebisaidi loomine, uus google'i sait, uue google'i saidi avamine</translation>
+<translation id="3990892119003447387">sule inkognito aken, sule isoleeritud aken, lõpeta inkognito, lõpeta isoleeritud</translation>
 <translation id="4165988127016746956">google'i vormi loomine, uue google'i vormi loomine, uus google'i vorm, alusta google'i küsitlust, google'i küsitluse loomine, loo google'i vorm</translation>
 <translation id="4341944745395709813">linkide alati chrome'is avamine, linkide alati chromeis avamine, ava lingid alati chrome'is, ava lingid alati chromeis, alati chrome'i kasutamine, alati chrome kasutamine, chrome vaikebrauserina, chrome vaikebrauser, chrome vaikevalik, vaikebrauser, kuidas chrome vaikebrauseriks muuta, põhibrauser, peamine brauser, chrome'i vaikebrauseriks muutmine, chrome vaikebrauseriks muutmine, chrome vaikeseade, linkide avamine chrome'is, linkide avamine chrome'iga, linkide avamine chrome, lingid chrome'is, lingid chrome, chrome'i lingid, chrome lingid, chrome'i vaikebrauseriks valimine, chrome vaikebrauseriks valimine, chrome'is otsimine, chromeis otsimine, chrome'i vaikebrauseriks seadmine, chrome vaikebrauseriks seadmine, chrome vaikebrauseriks, standardbrauser</translation>
 <translation id="4367205929005172598">kadunud telefoni leidmine, kadunud seadme leidmine, telefoni leidmine, seadme leidmine, leia mu seade</translation>
@@ -27,6 +27,7 @@
 <translation id="7081494400361697539">google'i arvutustabeli loomine, workspace'i arvutustabeli loomine, uus google'i arvutustabel, uue google'i arvutustabeli alustamine, loo google'i arvutustabel</translation>
 <translation id="7153639895359139570">lisa aadress, tarneaadressi muutmine, aadresside muutmine, aadresside haldamine, muuda aadressi</translation>
 <translation id="7242693601647412075">turvaseadete haldamine, halda turvaseadeid</translation>
+<translation id="7251254298552755571">sisene inkognito režiimi, sisene isoleeritud režiimi, uus inkognito aken, uus isoleeritud aken, ava inkognito vaheleht, ava isoleeritud vaheleht</translation>
 <translation id="7441773108452086364">gmaili parooli muutmine, muuda minu gmaili parooli, google'i parooli muutmine, lähtesta gmaili konto parool, gmaili parooli lähtestamine</translation>
 <translation id="7469628627013714019">brauseri vahemälu kustutamine, ajaloo kustutamine, küpsisefailide kustutamine, sirvimisajaloo kustutamine</translation>
 <translation id="7660956169713698963">chrome osi juurdepääsetavuse kohandamine, chrome os juurdepääsetavuse kohandamine, chrome osi juurdepääsetavus, chrome os juurdepääsetavus, juurdepääsetavuse seadete haldamine, juurdepääsetavuse sätete haldamine, juurdepääsetavuse haldamine, juurdepääsetavuse kohandamine, juurdepääsetavuse seadistamine, juurdepääsetavuse seaded, juurdepääsu seaded, juurdepääsetavuse sätted, juurdepääsu sätted</translation>
@@ -36,7 +37,6 @@
 <translation id="7992725801741093524">google'i privaatsusseadete muutmine, google privaatsusseadete muutmine, google'i privaatsussätete muutmine, google privaatsussätete muutmine, google'i privaatsuse haldamine, google privaatsuse haldamine, google'i privaatsuse seadete muutmine, google privaatsuse seadete muutmine</translation>
 <translation id="8189600756055704659">chrome'i brauseri sünkroonimisseadete muutmine, chrome'i sünkroonimise muutmine, muuda sünkroonimist, muuda sünkroonimisseadeid, halda sünkroonimist, halda sünkroonimisseadeid</translation>
 <translation id="8307473667919507216">chrome'i ohutuskontrolli käitamine, käita ohutuskontroll, chrome'i ohutuskontroll</translation>
-<translation id="8319253638505741466">inkognito akna sulgemine, inkognito sulgemine, inkognito lõpetamine, inkognitost väljumine</translation>
 <translation id="8350110529112037703">chrome'i paroolide haldamine, paroolide vaatamine chrome'is, paroolihaldus</translation>
 <translation id="9015559449837241926">chrome'i funktsioonid, teave google chrome'i funktsioonide kohta, uued google chrome'i funktsioonid, vaadake chrome'i nõuandeid, kuva chrome'i nõuanded</translation>
 </translationbundle>

@@ -108,12 +108,16 @@ bool LoopbackServerEntity::IsDeleted() const {
   return false;
 }
 
-bool LoopbackServerEntity::IsFolder() const {
+bool LoopbackServerEntity::IsPermanent() const {
   return false;
 }
 
-bool LoopbackServerEntity::IsPermanent() const {
-  return false;
+PersistentBookmarkEntity* LoopbackServerEntity::AsBookmarkEntity() {
+  return nullptr;
+}
+
+const PersistentBookmarkEntity* LoopbackServerEntity::AsBookmarkEntity() const {
+  return nullptr;
 }
 
 sync_pb::LoopbackServerEntity_Type
@@ -220,7 +224,6 @@ void LoopbackServerEntity::SerializeBaseProtoFields(
 
   // Data via accessors
   sync_entity->set_deleted(IsDeleted());
-  sync_entity->set_folder(IsFolder());
 
   if (RequiresParentId()) {
     sync_entity->set_parent_id_string(GetParentId());

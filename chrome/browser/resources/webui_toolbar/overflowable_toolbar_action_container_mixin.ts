@@ -7,32 +7,10 @@ import type {CrLitElement, PropertyValues} from '//resources/lit/v3_0/lit.rollup
 import type {OverflowMenuItem} from '/shared/toolbar_ui_api.mojom-webui.js';
 
 import type {ToolbarAppElement} from './app.js';
+import type {OverflowableToolbarActionElement} from './overflowable_toolbar_action_mixin.js';
 import type {ResponsiveControl} from './responsive_control.js';
 
 type Constructor<T> = new (...args: any[]) => T;
-
-/**
- * An interface for actions contained within an
- * OverflowableToolbarActionContainer. Actions are hidden if they cannot be
- * entirely fit on the toolbar.
- *
- * Each action must either be a divider or a button. Button actions will
- * appear on the overflow menu if they don't fit.
- */
-export interface OverflowableToolbarAction {
-  /**
-   * Whether or not the element is a divider.
-   */
-  isDivider(): boolean;
-
-  /**
-   * Returns the OverflowMenuItem corresponding to the action to display on the
-   * overflow menu when overflowed. Will not be invoked for dividers, which are
-   * assumed not to ever appear on the overflow menu, even if hidden due to
-   * overflow.
-   */
-  getOverflowMenuItem(): OverflowMenuItem;
-}
 
 // See OverflowableToolbarActionContainerMixin for details.
 export interface OverflowableToolbarActionContainer extends ResponsiveControl {
@@ -56,11 +34,11 @@ export interface OverflowableToolbarActionContainer extends ResponsiveControl {
    * compares the cached value to the new value, and if the number of actions
    * changes, or any action in the old list is not === to the action in the
    * same position in the new list, a new layout of all responsive controls is
-   * queued. This working assumes that an element is never converted from a
+   * queued. This assumes that an element is never converted from a
    * divider to a button, or vice versa, and button elements may have their
    * icons changed, but never have their size changed.
    */
-  getActions(): Array<CrLitElement&OverflowableToolbarAction>;
+  getActions(): OverflowableToolbarActionElement[];
 }
 
 /**
@@ -82,12 +60,11 @@ export const OverflowableToolbarActionContainerMixin =
         // Cached return value of getActions(). Cached primarily so we can
         // detect changes in updated() to trigger layout requests, though it's
         // also used to reduce calls to getActions().
-        private cachedActions_: Array<CrLitElement&OverflowableToolbarAction> =
-            [];
+        private cachedActions_: OverflowableToolbarActionElement[] = [];
 
         // See documentation in OverflowableToolbarActionContainer, above.
         // Subclasses need to override this.
-        getActions(): Array<CrLitElement&OverflowableToolbarAction> {
+        getActions(): OverflowableToolbarActionElement[] {
           assertNotReached();
         }
 
@@ -97,8 +74,13 @@ export const OverflowableToolbarActionContainerMixin =
         }
 
         setToMinWidth() {
-          // Sets all actions as overflowed.
-          this.setOverflowed_(this.cachedActions_, true);
+          // Sets actions as overflowed, except for actions where
+          // `preventOverflow` is true (and any divider associated with a
+          // prevent-overflow action).
+          for (const group of this.getActionGroups_()) {
+            const action = group[0]!;
+            this.setOverflowed_(group, !action.preventOverflow);
+          }
         }
 
         setToPreferredWidth() {
@@ -107,36 +89,28 @@ export const OverflowableToolbarActionContainerMixin =
         }
 
         expandUpToPreferredWidth() {
-          // Expects all actions to currently be overflowed due to an earlier
-          // setToMinWidth() call. Tries to set overflowed to false for each of
-          // them, back-to-front, checking if things fit before going on to the
-          // next. If a divider is expanded, it is treated as a unit with the
-          // next action (if there is one). If they don't fit, both are hidden
-          // again, and we immediately return, leaving all subsequent actions
-          // hidden as well.
-          const actions = this.cachedActions_;
+          // Expects actions to currently be overflowed due to an earlier
+          // setToMinWidth() call. Tries to set overflowed to false for each
+          // action group, from highest priority to lowest. If an action group
+          // is expanded and doesn't fit, it is hidden again, and we immediately
+          // return, leaving all lower priority action groups hidden as well.
           const shadowRoot = this.getRootNode() as ShadowRoot;
           const toolbarApp = shadowRoot?.host as ToolbarAppElement;
           assert(toolbarApp);
 
-          for (let i = actions.length - 1; i >= 0; i--) {
-            const currentActions = [actions[i]!];
-
-            // If current action is a divider, need to consider it and the
-            // next action together.
-            if (actions[i]!.isDivider() && i > 0) {
-              // Since we are grouping the two actions together, decrement i
-              // again for the next loop iteration.
-              i--;
-              currentActions.push(actions[i]!);
+          for (const group of this.getActionGroups_()) {
+            // Skip any prevent-overflow groups, since they should already be
+            // visible.
+            if (group[0]!.preventOverflow) {
+              continue;
             }
 
-            // Try showing all actions currently under consideration.
-            this.setOverflowed_(currentActions, false);
+            // Try showing all actions in the current group.
+            this.setOverflowed_(group, false);
 
             // If they don't fit, hide them again, and return.
             if (toolbarApp.getAvailableWidth() < 0) {
-              this.setOverflowed_(currentActions, true);
+              this.setOverflowed_(group, true);
               return;
             }
           }
@@ -159,6 +133,7 @@ export const OverflowableToolbarActionContainerMixin =
               }
             }
           }
+
           if (layoutNeeded) {
             this.fire('request-layout');
           }
@@ -171,7 +146,7 @@ export const OverflowableToolbarActionContainerMixin =
         controlsToAddToOverflowMenu(): OverflowMenuItem[] {
           const overflowItems: OverflowMenuItem[] = [];
           for (const action of this.cachedActions_) {
-            if (!action.isDivider() &&
+            if (!action.isDivider &&
                 action.classList.contains('overflow-display-none')) {
               overflowItems.push(action.getOverflowMenuItem());
             }
@@ -179,10 +154,31 @@ export const OverflowableToolbarActionContainerMixin =
           return overflowItems;
         }
 
+        // Groups actions and dividers from highest priority (rightmost) to
+        // lowest priority (leftmost). Dividers are grouped with the action to
+        // their left: [action, divider], so that consumers can examine group[0]
+        // to check the non-divider element.
+        private getActionGroups_(): OverflowableToolbarActionElement[][] {
+          const groups: OverflowableToolbarActionElement[][] = [];
+          const actions = this.cachedActions_;
+          for (let i = actions.length - 1; i >= 0; i--) {
+            if (actions[i]!.isDivider) {
+              // The leftmost element being a divider is currently not
+              // supported. If we ever do add that, we'll need to figure out
+              // visibility rules for that case.
+              assert(i > 0);
+              groups.push([actions[i - 1]!, actions[i]!]);
+              i--;
+            } else {
+              groups.push([actions[i]!]);
+            }
+          }
+          return groups;
+        }
+
         // Helper to hide/show actions due to overflow.
         private setOverflowed_(
-            actions: Array<CrLitElement&OverflowableToolbarAction>,
-            overflowed: boolean) {
+            actions: OverflowableToolbarActionElement[], overflowed: boolean) {
           for (const action of actions) {
             action.classList.toggle('overflow-display-none', overflowed);
           }

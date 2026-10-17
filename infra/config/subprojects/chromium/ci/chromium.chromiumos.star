@@ -67,6 +67,7 @@ consoles.console_view(
 
 ci.builder(
     name = "chromeos-amd64-generic-asan-rel",
+    description_html = "Compile-only builder for ChromeOS amd64-generic release with AddressSanitizer.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -117,6 +118,7 @@ ci.builder(
 
 ci.builder(
     name = "chromeos-amd64-generic-cfi-thin-lto-rel",
+    description_html = "Compile-only builder for ChromeOS amd64-generic release with CFI and ThinLTO.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -176,6 +178,7 @@ ci.builder(
 ci.builder(
     name = "chromeos-amd64-generic-dbg",
     branch_selector = branches.selector.CROS_BRANCHES,
+    description_html = "Compile-only builder for ChromeOS amd64-generic debug.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -333,6 +336,7 @@ ci.thin_tester(
 
 ci.builder(
     name = "chromeos-arm-generic-dbg",
+    description_html = "Compile-only builder for ChromeOS arm-generic debug.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -383,6 +387,7 @@ ci.builder(
 ci.builder(
     name = "chromeos-arm-generic-rel",
     branch_selector = branches.selector.CROS_LTS_BRANCHES,
+    description_html = "Compile-only builder for ChromeOS arm-generic release.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -427,6 +432,7 @@ ci.builder(
 ci.builder(
     name = "chromeos-arm64-generic-rel",
     branch_selector = branches.selector.CROS_LTS_BRANCHES,
+    description_html = "Builds and runs ChromeOS ARM64 generic release tests on VM.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -479,6 +485,7 @@ ci.builder(
 ci.builder(
     name = "linux-chromeos-dbg",
     branch_selector = branches.selector.CROS_BRANCHES,
+    description_html = "Builds and tests Ash Chrome debug builds on Linux x64.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -596,6 +603,7 @@ ci.builder(
 ci.builder(
     name = "linux-chromeos-rel",
     branch_selector = branches.selector.CROS_LTS_BRANCHES,
+    description_html = "Builds and tests Ash Chrome release builds on Linux x64.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -783,6 +791,7 @@ ci.thin_tester(
 # For Chromebox for meetings(CfM)
 ci.builder(
     name = "linux-cfm-rel",
+    description_html = "Builds and tests ChromeOS Chromebox for Meetings (CfM) release builds on Linux x64.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",

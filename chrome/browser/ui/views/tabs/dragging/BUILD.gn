@@ -60,6 +60,7 @@ source_set("impl") {
     ":dragging",
     "//base",
     "//chrome/browser/tab_group_sync:factories",
+    "//chrome/browser/ui:browser_commands",
     "//chrome/browser/ui:browser_element_identifiers",
     "//chrome/browser/ui:browser_init_state",
     "//chrome/browser/ui:layout_constants",
@@ -67,12 +68,15 @@ source_set("impl") {
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/browser_window:create_browser_window",
+    "//chrome/browser/ui/omnibox",
     "//chrome/browser/ui/tabs",
     "//chrome/browser/ui/tabs:tab_enums",
     "//chrome/browser/ui/tabs:tab_group",
     "//chrome/browser/ui/tabs:tab_model",
     "//chrome/browser/ui/tabs:tab_strip",
     "//chrome/browser/ui/tabs:tab_strip_model_observer",
+    "//chrome/browser/ui/views/frame:browser_view_header",
+    "//chrome/browser/ui/views/omnibox",
     "//chrome/browser/ui/views/tabs:tab",
     "//chrome/browser/ui/views/tabs:tab_strip",
     "//chrome/browser/ui/waap:window_metrics_manager",
@@ -155,6 +159,7 @@ source_set("browser_tests") {
     ":dragging",
     "//chrome/browser/ui",
     "//chrome/browser/ui/tabs:tab_strip",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/ui/views/tabs:tab_strip",
     "//chrome/test:test_support",
     "//components/tabs:public",
@@ -180,12 +185,17 @@ if (!is_chromeos_device) {
       "//base/test:test_support",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/ui",
+      "//chrome/browser/ui:browser_commands",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/browser_window:create_browser_window",
+      "//chrome/browser/ui/omnibox",
       "//chrome/browser/ui/tabs",
       "//chrome/browser/ui/tabs:features",
+      "//chrome/browser/ui/views/frame:browser_frame_view",
       "//chrome/browser/ui/views/frame:browser_native_widget_factory",
+      "//chrome/browser/ui/views/frame:browser_view_header",
       "//chrome/browser/ui/views/interaction",
+      "//chrome/browser/ui/views/omnibox",
       "//chrome/browser/ui/views/tabs:tab",
       "//chrome/browser/ui/views/tabs:tab_strip",
       "//chrome/browser/web_applications",
@@ -219,6 +229,7 @@ if (!is_chromeos_device) {
         "//ash:test_support",
         "//chrome/browser/ash/boca/on_task",
         "//chrome/browser/ash/system_web_apps/test_support",
+        "//chrome/browser/ui/views/frame:immersive_mode_controller_chromeos",
         "//chromeos/ui/base",
         "//chromeos/ui/frame:test_support",
         "//ui/display:test_support",
@@ -228,6 +239,7 @@ if (!is_chromeos_device) {
 
     if (is_linux) {
       deps += [
+        "//chrome/browser/ui/views/frame:browser_native_widget_aura_linux",
         "//chrome/common:non_code_constants",
         "//ui/base/dragdrop:types",
         "//ui/linux:linux_ui",
@@ -236,6 +248,9 @@ if (!is_chromeos_device) {
 
     if (use_aura) {
       deps += [ "//ui/aura" ]
+      if (!is_chromeos) {
+        deps += [ "//chrome/browser/ui/views/frame:browser_native_widget_aura" ]
+      }
     }
 
     if (use_ozone) {

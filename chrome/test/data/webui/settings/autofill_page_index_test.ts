@@ -8,18 +8,31 @@ import 'chrome://settings/lazy_load.js';
 import {AiEnterpriseFeaturePrefName} from 'chrome://settings/lazy_load.js';
 import {CrSettingsPrefs, ModelExecutionEnterprisePolicyValue} from 'chrome://settings/settings.js';
 import type {SettingsAutofillPageIndexElement, SettingsPrefsElement} from 'chrome://settings/settings.js';
-import {loadTimeData, resetRouterForTesting, Router, routes} from 'chrome://settings/settings.js';
+import {loadTimeData, PrefsBrowserProxy, PrefService, resetRouterForTesting, Router, routes} from 'chrome://settings/settings.js';
 import {assertEquals, assertFalse, assertGT, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
+
+import {getContactInfoPrefs} from './contact_info_page_test_utils.js';
+import {getPaymentsPrefs} from './payments_page_test_utils.js';
+import {TestPrefsBrowserProxy} from './test_prefs_browser_proxy.js';
 
 suite('AutofillPageIndex', function() {
   let index: SettingsAutofillPageIndexElement;
   let settingsPrefs: SettingsPrefsElement;
 
-  suiteSetup(function() {
+  suiteSetup(async function() {
     settingsPrefs = document.createElement('settings-prefs');
-    return CrSettingsPrefs.initialized;
+    const prefsBrowserProxy = new TestPrefsBrowserProxy([
+      ...getPaymentsPrefs(),
+      ...getContactInfoPrefs(),
+    ]);
+    PrefsBrowserProxy.setInstance(prefsBrowserProxy);
+    PrefService.resetInstanceForTesting();
+    await Promise.all([
+      CrSettingsPrefs.initialized,
+      PrefService.getInstance().whenInitialized(),
+    ]);
   });
 
   setup(function() {

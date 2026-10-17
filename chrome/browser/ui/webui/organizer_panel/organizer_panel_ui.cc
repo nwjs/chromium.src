@@ -7,8 +7,11 @@
 #include "base/check.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/tabs/features.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/webui/favicon_source.h"
 #include "chrome/browser/ui/webui/metrics_reporter/metrics_reporter_service.h"
+#include "chrome/browser/ui/webui/organizer_panel/organizer_panel_page_handler.h"
+#include "chrome/browser/ui/webui/organizer_panel/tab_groups_organizer_page_handler.h"
 #include "chrome/browser/ui/webui/tab_search/search_handler.h"
 #include "chrome/browser/ui/webui/tab_search/tab_search_page_handler.h"
 #include "chrome/browser/ui/webui/theme_source.h"
@@ -28,8 +31,8 @@
 #include "ui/webui/webui_util.h"
 
 #if !BUILDFLAG(OPTIMIZE_WEBUI)
-#include "chrome/grit/tab_search_shared_resources.h"
-#include "chrome/grit/tab_search_shared_resources_map.h"
+#include "chrome/grit/tab_group_shared_resources.h"
+#include "chrome/grit/tab_group_shared_resources_map.h"
 #endif  // !BUILDFLAG(OPTIMIZE_WEBUI)
 
 OrganizerPanelUIConfig::OrganizerPanelUIConfig()
@@ -45,11 +48,15 @@ OrganizerPanelUI::OrganizerPanelUI(content::WebUI* web_ui)
   static constexpr webui::LocalizedString kStrings[] = {
       {"clearSearch", IDS_CLEAR_SEARCH},
       {"closeTab", IDS_TAB_SEARCH_CLOSE_TAB},
+      {"noResults", IDS_ORGANIZER_PANEL_NO_RESULTS},
       {"openTabs", IDS_TAB_SEARCH_OPEN_TABS},
       {"oneTab", IDS_TAB_SEARCH_ONE_TAB},
       {"recentlyClosed", IDS_TAB_SEARCH_RECENTLY_CLOSED},
       {"searchTabs", IDS_TAB_SEARCH_SEARCH_TABS},
+      {"showLess", IDS_NTP_SHOW_LESS_BUTTON_LABEL},
+      {"showMore", IDS_NTP_SHOW_MORE_BUTTON_LABEL},
       {"tabCount", IDS_TAB_SEARCH_TAB_COUNT},
+      {"tabGroupMoreOptions", IDS_TAB_GROUP_MORE_OPTIONS},
       {"tabGroups", IDS_ORGANIZER_PANEL_TAB_GROUPS},
       {"title", IDS_ORGANIZER_PANEL},
   };
@@ -61,11 +68,13 @@ OrganizerPanelUI::OrganizerPanelUI(content::WebUI* web_ui)
   ui::Accelerator accelerator(ui::VKEY_A,
                               ui::EF_SHIFT_DOWN | ui::EF_PLATFORM_ACCELERATOR);
   source->AddString("shortcutText", accelerator.GetShortcutText());
+  source->AddBoolean("useTabGroupColorRefresh",
+                     features::IsTabGroupColorRefreshEnabled());
 
   webui::SetupWebUIDataSource(source, kOrganizerPanelResources,
                               IDR_ORGANIZER_PANEL_ORGANIZER_PANEL_HTML);
 #if !BUILDFLAG(OPTIMIZE_WEBUI)
-  source->AddResourcePaths(kTabSearchSharedResources);
+  source->AddResourcePaths(kTabGroupSharedResources);
 #endif
 
   content::URLDataSource::Add(
@@ -79,6 +88,13 @@ OrganizerPanelUI::~OrganizerPanelUI() = default;
 WEB_UI_CONTROLLER_TYPE_IMPL(OrganizerPanelUI)
 
 void OrganizerPanelUI::BindInterface(
+    mojo::PendingReceiver<organizer_panel::mojom::PageHandlerFactory>
+        receiver) {
+  organizer_panel_page_factory_receiver_.reset();
+  organizer_panel_page_factory_receiver_.Bind(std::move(receiver));
+}
+
+void OrganizerPanelUI::BindInterface(
     mojo::PendingReceiver<tab_search::mojom::PageHandlerFactory> receiver) {
   page_factory_receiver_.reset();
   page_factory_receiver_.Bind(std::move(receiver));
@@ -87,6 +103,34 @@ void OrganizerPanelUI::BindInterface(
 void OrganizerPanelUI::BindInterface(
     mojo::PendingReceiver<tab_search::mojom::SearchHandler> receiver) {
   search_handler_ = std::make_unique<SearchHandler>(std::move(receiver));
+}
+
+void OrganizerPanelUI::BindInterface(
+    mojo::PendingReceiver<
+        organizer_panel::mojom::TabGroupsOrganizerPageHandlerFactory>
+        receiver) {
+  tab_groups_page_factory_receiver_.reset();
+  tab_groups_page_factory_receiver_.Bind(std::move(receiver));
+}
+
+void OrganizerPanelUI::CreatePageHandler(
+    mojo::PendingReceiver<organizer_panel::mojom::PageHandler> receiver) {
+  organizer_panel_page_handler_ = std::make_unique<OrganizerPanelPageHandler>(
+      std::move(receiver), web_ui()->GetWebContents());
+}
+
+void OrganizerPanelUI::CreatePageHandler(
+    mojo::PendingRemote<organizer_panel::mojom::TabGroupsOrganizerPage> page,
+    mojo::PendingReceiver<organizer_panel::mojom::TabGroupsOrganizerPageHandler>
+        receiver) {
+  if (!page.is_valid() || !receiver.is_valid()) {
+    tab_groups_page_factory_receiver_.ReportBadMessage(
+        "Invalid page pending remote or receiver in CreatePageHandler");
+    return;
+  }
+  tab_groups_organizer_page_handler_ =
+      std::make_unique<TabGroupsOrganizerPageHandler>(
+          std::move(receiver), std::move(page), web_ui()->GetWebContents());
 }
 
 void OrganizerPanelUI::CreatePageHandler(

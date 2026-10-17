@@ -125,7 +125,7 @@ class AutocompleteProviderClientImpl : public AutocompleteProviderClient {
       bool show,
       lens::LensOverlayInvocationSource invocation_source) override {}
   void IssueContextualSearchRequest(const GURL& destination_url,
-                                    AutocompleteMatchType::Type match_type,
+                                    omnibox::AutocompleteMatchType match_type,
                                     bool is_zero_prefix_suggestion) override {}
   base::WeakPtr<AutocompleteProviderClient> GetWeakPtr() override;
 

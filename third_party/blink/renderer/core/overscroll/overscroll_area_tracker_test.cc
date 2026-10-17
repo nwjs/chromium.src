@@ -36,9 +36,12 @@
 namespace blink {
 
 class OverscrollAreaTrackerTest : public testing::Test,
+                                  ScopedCSSScrollSnapTypePairForTest,
                                   ScopedOverscrollGesturesForTest {
  public:
-  OverscrollAreaTrackerTest() : ScopedOverscrollGesturesForTest(true) {}
+  OverscrollAreaTrackerTest()
+      : ScopedCSSScrollSnapTypePairForTest(true),
+        ScopedOverscrollGesturesForTest(true) {}
 
   void SetUp() override {
     dummy_page_holder_ =
@@ -69,9 +72,12 @@ class OverscrollAreaTrackerTest : public testing::Test,
 
 class OverscrollAreaTrackerPageTest : public PageTestBase,
                                       public testing::WithParamInterface<int>,
+                                      ScopedCSSScrollSnapTypePairForTest,
                                       ScopedOverscrollGesturesForTest {
  public:
-  OverscrollAreaTrackerPageTest() : ScopedOverscrollGesturesForTest(true) {}
+  OverscrollAreaTrackerPageTest()
+      : ScopedCSSScrollSnapTypePairForTest(true),
+        ScopedOverscrollGesturesForTest(true) {}
 };
 
 TEST_F(OverscrollAreaTrackerTest, AddOverscrollAreaOneChild) {
@@ -1362,6 +1368,38 @@ TEST_F(OverscrollAreaTrackerPageTest, OverscrollContainerTypeNone) {
   EXPECT_FALSE(foo->GetPseudoElement(kPseudoIdOverscrollAreaParent));
   EXPECT_TRUE(
       container->GetOverscrollAreaTracker()->DOMSortedElements().empty());
+}
+
+TEST_F(OverscrollAreaTrackerPageTest, OverscrollContainerSubtreeTracking) {
+  GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(R"HTML(
+    <div id="outside">
+      <div id="container" overscrollcontainer>
+        <div id="child">
+          <div id="grandchild"></div>
+        </div>
+      </div>
+    </div>
+  )HTML");
+
+  UpdateAllLifecyclePhasesForTest();
+  Element* outside = GetElementById("outside");
+  Element* container = GetElementById("container");
+  Element* child = GetElementById("child");
+  Element* grandchild = GetElementById("grandchild");
+
+  EXPECT_FALSE(outside->GetComputedStyle()->IsInOverscrollContainer());
+  EXPECT_TRUE(container->GetComputedStyle()->IsInOverscrollContainer());
+  EXPECT_TRUE(child->GetComputedStyle()->IsInOverscrollContainer());
+  EXPECT_TRUE(grandchild->GetComputedStyle()->IsInOverscrollContainer());
+
+  container->SetInlineStyleProperty(CSSPropertyID::kOverscrollContainerType,
+                                    "none");
+  UpdateAllLifecyclePhasesForTest();
+
+  EXPECT_FALSE(outside->GetComputedStyle()->IsInOverscrollContainer());
+  EXPECT_FALSE(container->GetComputedStyle()->IsInOverscrollContainer());
+  EXPECT_FALSE(child->GetComputedStyle()->IsInOverscrollContainer());
+  EXPECT_FALSE(grandchild->GetComputedStyle()->IsInOverscrollContainer());
 }
 
 INSTANTIATE_TEST_SUITE_P(All,

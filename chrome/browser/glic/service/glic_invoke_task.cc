@@ -11,7 +11,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
-#include "chrome/browser/actor/ui/actor_ui_state_manager_interface.h"
+#include "chrome/browser/actor/ui/actor_ui_state_manager.h"
 #include "chrome/browser/enterprise/data_protection/data_protection_clipboard_utils.h"
 #include "chrome/browser/glic/public/glic_context_menu_invocation_helper.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
@@ -192,10 +192,8 @@ SetTabPendingActuationTask::SetTabPendingActuationTask(
 SetTabPendingActuationTask::~SetTabPendingActuationTask() = default;
 
 void SetTabPendingActuationTask::Start(base::OnceClosure done_callback) {
-  if (auto* actor_service = actor::ActorKeyedService::Get(profile_)) {
-    if (auto* ui_state_manager = actor_service->GetActorUiStateManager()) {
-      ui_state_manager->SetTabPendingActuation(tab_handle_);
-    }
+  if (auto* ui_state_manager = actor::ui::ActorUiStateManager::Get(profile_)) {
+    ui_state_manager->SetTabPendingActuation(tab_handle_);
   }
   std::move(done_callback).Run();
 }
@@ -204,10 +202,8 @@ void SetTabPendingActuationTask::OnSequenceCompleted(bool success) {
   if (success) {
     return;
   }
-  if (auto* actor_service = actor::ActorKeyedService::Get(profile_)) {
-    if (auto* ui_state_manager = actor_service->GetActorUiStateManager()) {
-      ui_state_manager->ClearTabPendingActuation(tab_handle_);
-    }
+  if (auto* ui_state_manager = actor::ui::ActorUiStateManager::Get(profile_)) {
+    ui_state_manager->ClearTabPendingActuation(tab_handle_);
   }
 }
 
@@ -255,6 +251,7 @@ void MaybeInitializeHiddenClientTask::Start(base::OnceClosure done_callback) {
     instance_->host().SetWebContentsVisibilityOverride(
         content::Visibility::VISIBLE);
     forced_shown_ = true;
+    instance_->SetHiddenInitializing(true);
   }
   std::move(done_callback).Run();
 }
@@ -262,6 +259,7 @@ void MaybeInitializeHiddenClientTask::Start(base::OnceClosure done_callback) {
 void MaybeInitializeHiddenClientTask::OnSequenceCompleted(bool success) {
   if (forced_shown_) {
     instance_->host().SetWebContentsVisibilityOverride(std::nullopt);
+    instance_->SetHiddenInitializing(false);
   }
 }
 
@@ -284,6 +282,47 @@ void WaitForClientConnectedTask::WebClientConnected() {
   observation_.Reset();
   if (done_callback_) {
     std::move(done_callback_).Run();
+  }
+}
+
+WaitForClientReadyTask::WaitForClientReadyTask(
+    Host& host,
+    base::OnceCallback<void(GlicInvokeError)> error_callback)
+    : host_(host), error_callback_(std::move(error_callback)) {}
+
+WaitForClientReadyTask::~WaitForClientReadyTask() = default;
+
+void WaitForClientReadyTask::Start(base::OnceClosure done_callback) {
+  done_callback_ = std::move(done_callback);
+  observation_.Observe(&*host_);
+  CheckState(host_->client_load_state());
+}
+
+void WaitForClientReadyTask::ClientLoadStateChanged(ClientLoadState state) {
+  CheckState(state);
+}
+
+void WaitForClientReadyTask::CheckState(ClientLoadState state) {
+  if (!done_callback_) {
+    return;
+  }
+
+  switch (state) {
+    case ClientLoadState::kReady:
+      observation_.Reset();
+      std::move(done_callback_).Run();
+      break;
+
+    case ClientLoadState::kError:
+      observation_.Reset();
+      if (error_callback_) {
+        std::move(error_callback_).Run(GlicInvokeError::kClientLoadError);
+      }
+      break;
+
+    case ClientLoadState::kLoading:
+      // Loading in progress, continue waiting.
+      break;
   }
 }
 
@@ -536,7 +575,7 @@ void CopyPolicyTask::Start(base::OnceClosure done_callback) {
     return;
   }
 
-  content::ClipboardEndpoint source(
+  content::ClipboardEndpoint source = content::ClipboardEndpoint::ForFrame(
       ui::DataTransferEndpoint(
           source_rfh->GetMainFrame()->GetLastCommittedURL(),
           {.off_the_record =
@@ -588,7 +627,7 @@ PastePolicyTask::PastePolicyTask(
     return;
   }
 
-  content::ClipboardEndpoint source(
+  content::ClipboardEndpoint source = content::ClipboardEndpoint::ForFrame(
       ui::DataTransferEndpoint(
           source_rfh->GetMainFrame()->GetLastCommittedURL(),
           {.off_the_record =
@@ -624,7 +663,7 @@ void PastePolicyTask::Start(base::OnceClosure done_callback) {
     return;
   }
 
-  content::ClipboardEndpoint destination(
+  content::ClipboardEndpoint destination = content::ClipboardEndpoint::ForFrame(
       ui::DataTransferEndpoint(
           glic_rfh->GetLastCommittedURL(),
           {.off_the_record = glic_rfh->GetBrowserContext()->IsOffTheRecord()}),
@@ -711,6 +750,10 @@ std::optional<GlicTaskType> CopyPolicyTask::GetType() const {
 
 std::optional<GlicTaskType> PastePolicyTask::GetType() const {
   return GlicTaskType::kPastePolicy;
+}
+
+std::optional<GlicTaskType> WaitForClientReadyTask::GetType() const {
+  return GlicTaskType::kWaitForClientReady;
 }
 
 }  // namespace glic

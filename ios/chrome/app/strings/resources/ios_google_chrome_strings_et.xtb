@@ -48,6 +48,7 @@ Tasub teada
 <translation id="1784567647421309104">Salvestage oma paroolid Chrome'i</translation>
 <translation id="1790080846677398234">Lisab sisestatud URL-id Chrome'is teie järjehoidjatesse.</translation>
 <translation id="1799920918471566157">Chrome’i nõuanded</translation>
+<translation id="1802420021606590788">Chrome töötleb lehtede pealkirju ja URL-e privaatses ruumis pilves.</translation>
 <translation id="1830634592642484976">See aadress on praegu salvestatud Chrome'i. Kui soovite seda Google'i teenustes kasutada, salvestage see oma Google'i kontole <ph name="USER_EMAIL" />.</translation>
 <translation id="1891812034154776216">Avatud inkognito vahelehtede peitmine Chrome'ist lahkumisel</translation>
 <translation id="1894434821386148799">Siit leiate Chrome’i seaded ja muu sisu</translation>
@@ -140,6 +141,7 @@ Uusi järjehoidjaid ei saa teie kontole salvestada, enne kui mõned kustutate. K
 <translation id="3984746313391923992">Teie organisatsioon nõuab, et jääksite Chrome'ist väljalogituks.</translation>
 <translation id="3988789688219830639">Google Chrome'il pole juurdepääsu fotodele ega videotele. Lubage iOS-is juurdep. valikutega Seaded &gt; Privaatsus &gt; Fotod.</translation>
 <translation id="4064699917955374540">Chrome’i andmete kasutamiseks ja salvestamiseks oma Google’i kontol kinnitage, et see olete teie.</translation>
+<translation id="4093789416346364876">Määrake Chrome vaikebrauseriks, et saada Gemini statistikat kõikjal, kus sirvite.</translation>
 <translation id="411154422556990518">Püsige kursis hinnajälgimise värskenduste ja Chrome'i nõuannetega.</translation>
 <translation id="417201473131094001">Ei toetata versioonis Chrome Canary</translation>
 <translation id="424864128008805179">Kas logida Chrome'ist välja?</translation>
@@ -268,6 +270,7 @@ Kui soovite näha veel seadeid, mis kasutavad andmeid, et parandada teie Chrome'
 <translation id="7061455974939528301">Hoidke Chrome'i ikooni all ja puudutage valikut „Edit home screen”</translation>
 <translation id="7095110968493193530">Konto <ph name="EMAIL" /> Google'i paroolihaldurile</translation>
 <translation id="7124339256045485976">Hoidke Chrome ajakohasena</translation>
+<translation id="7135936755418321901">Oma asukoha jagamiseks veebisaitidega puudutage valikut Seaded, et lubada Chrome'il teie asukohta kasutada.</translation>
 <translation id="7145599899567697473">Salvestage paroolid ja täitke need automaatselt Chrome'is</translation>
 <translation id="7161390184744336561">Google Chrome on aegunud</translation>
 <translation id="7165736900384873061">Google Chrome'i QR-skanneri kasutamise alustamine</translation>
@@ -282,6 +285,7 @@ Kui soovite näha veel seadeid, mis kasutavad andmeid, et parandada teie Chrome'
 <translation id="7272930098487145294">Piltide salvestamiseks puudutage valikut Seaded, et lubada Chrome'il fotode lisamine</translation>
 <translation id="7275945473750112644">Teie kontot haldab <ph name="HOSTED_DOMAIN" />, seega kustutatakse teie Chrome'i andmed sellest seadmest</translation>
 <translation id="7284245284340063465">Kui unustasite parooli või soovite seda seadet muuta, <ph name="BEGIN_LINK" />kustutage oma kontol Chrome’i andmed<ph name="END_LINK" />.</translation>
+<translation id="7287957555760192025">Kui valite soovituse või eirate seda, kohandub Chrome nii, et näeksite tulevikus asjakohasemaid soovitusi.</translation>
 <translation id="7296102444587051536">Chrome iOS-ile</translation>
 <translation id="7299681342915173313">Nüüd saate kasutada Chrome'i iga kord, kui puudutate linke meilides, dokumentides ja muudes rakendustes.</translation>
 <translation id="7334364820047587268">Teil on nende kontode jaoks paroolid Google'i paroolihalduris juba olemas. Kui otsustate importida ühe allolevatest paroolidest, asendab see olemasoleva parooli.</translation>
@@ -355,6 +359,7 @@ Teie andmed krüpteeriti teie parooliga kuupäeval <ph name="TIME" />. Chrome’
 <translation id="8544583291890527417">Hoiatab privaatsus- või turvaprobleemidest, mille Chrome teie eest tuvastab.</translation>
 <translation id="855027533751209304">Chrome'i nõuanne: otsige seda, mida näete</translation>
 <translation id="8558480467877843976">Nüüd saate kasutada Chrome'i iga kord, kui sirvite või puudutate linke sõnumites, dokumentides ja muudes rakendustes.</translation>
+<translation id="8589791109349384456">Soovituste väljalülitamine ei mõjuta seda, kuidas Chrome töötleb lehtede pealkirju ja URL-e muude funktsioonide puhul. Saate hallata juurdepääsu nendele andmetele oma <ph name="BEGIN_LINK" />sünkroonimisseadetes<ph name="END_LINK" />.</translation>
 <translation id="8603022514504485810">Google'i paroolihalduril ei õnnestunud kõiki paroole kontrollida. Proovige homme uuesti või <ph name="BEGIN_LINK" />kontrollige oma Google'i kontol paroole<ph name="END_LINK" />.</translation>
 <translation id="8610372330814566250">Kasutage Chrome'is oma Safari paroole, ajalugu, järjehoidjaid ja krediitkaarte</translation>
 <translation id="8630122478628016441">Lülitage sisse valik „Lukusta Chrome'i sulgemisel inkognito vahelehed“.</translation>

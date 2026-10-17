@@ -17,25 +17,25 @@ import org.chromium.base.Token;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.app.tabwindow.TabWindowManagerSingleton;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
 import org.chromium.chrome.browser.tabmodel.TabGroupMergeNotificationType;
 import org.chromium.chrome.browser.tabmodel.TabGroupObserver;
 import org.chromium.chrome.browser.tabmodel.TabGroupUtils;
 import org.chromium.chrome.browser.tabmodel.TabGroupUtils.TabGroupCreationCallback;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
-import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.TabListLayoutType;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.util.motion.MotionEventInfo;
 import org.chromium.components.browser_ui.widget.selectable_list.SelectionDelegate;
+import org.chromium.components.tab_group_sync.TabGroupSyncService;
+import org.chromium.components.tab_group_sync.TabGroupUiActionHandler;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -45,6 +45,7 @@ public class TabListEditorAddToGroupAction extends TabListEditorAction {
     private final Activity mActivity;
     private final TabGroupCreationDialogManager mTabGroupCreationDialogManager;
     private final TabGroupListBottomSheetCoordinatorFactory mFactory;
+    private final Supplier<@Nullable TabGroupUiActionHandler> mTabGroupUiActionHandlerSupplier;
     private final TabGroupObserver mFilterObserver =
             new TabGroupObserver() {
                 @Override
@@ -53,7 +54,7 @@ public class TabListEditorAddToGroupAction extends TabListEditorAction {
                 }
 
                 @Override
-                public void didCreateNewGroup(Tab destinationTab, TabModel tabModel) {
+                public void didCreateNewGroup(Tab destinationTab) {
                     updateText();
                 }
             };
@@ -78,13 +79,15 @@ public class TabListEditorAddToGroupAction extends TabListEditorAction {
      * @param showMode Whether to show an action view.
      * @param buttonType The type of the action view.
      * @param iconPosition The position of the icon in the action view.
+     * @param uiActionHandlerSupplier Supplier for the tab group UI action handler.
      */
     public static TabListEditorAction createAction(
             Activity activity,
             TabGroupCreationDialogManager tabGroupCreationDialogManager,
             @ShowMode int showMode,
             @ButtonType int buttonType,
-            @IconPosition int iconPosition) {
+            @IconPosition int iconPosition,
+            Supplier<@Nullable TabGroupUiActionHandler> uiActionHandlerSupplier) {
         Drawable drawable = AppCompatResources.getDrawable(activity, R.drawable.ic_widgets);
         return new TabListEditorAddToGroupAction(
                 activity,
@@ -93,7 +96,8 @@ public class TabListEditorAddToGroupAction extends TabListEditorAction {
                 buttonType,
                 iconPosition,
                 drawable,
-                TabGroupListBottomSheetCoordinator::new);
+                TabGroupListBottomSheetCoordinator::new,
+                uiActionHandlerSupplier);
     }
 
     @VisibleForTesting
@@ -104,7 +108,8 @@ public class TabListEditorAddToGroupAction extends TabListEditorAction {
             @ButtonType int buttonType,
             @IconPosition int iconPosition,
             Drawable drawable,
-            TabGroupListBottomSheetCoordinatorFactory factory) {
+            TabGroupListBottomSheetCoordinatorFactory factory,
+            Supplier<@Nullable TabGroupUiActionHandler> uiActionHandlerSupplier) {
         super(
                 R.id.tab_list_editor_add_tab_to_group_menu_item,
                 showMode,
@@ -116,6 +121,7 @@ public class TabListEditorAddToGroupAction extends TabListEditorAction {
         mActivity = activity;
         mTabGroupCreationDialogManager = tabGroupCreationDialogManager;
         mFactory = factory;
+        mTabGroupUiActionHandlerSupplier = uiActionHandlerSupplier;
         setDestroyable(this::destroy);
     }
 
@@ -134,6 +140,7 @@ public class TabListEditorAddToGroupAction extends TabListEditorAction {
 
         setEnabledAndItemCount(
                 !areAnyTabsPartOfSharedGroup(tabModel, tabs, null) && !itemIds.isEmpty(), numTabs);
+        updateText(tabs);
     }
 
     @Override
@@ -147,7 +154,7 @@ public class TabListEditorAddToGroupAction extends TabListEditorAction {
         TabModel tabModel = getTabModel();
 
         Tab destinationTab = tabs.get(0);
-        if (hasTabGroups()) {
+        if (hasTabGroups(tabs)) {
             showBottomSheet(tabs, tabModel, destinationTab.getProfile(), controller);
             RecordUserAction.record("TabGroupParity.TabListEditorMenuActions.GroupsExist");
         } else {
@@ -193,7 +200,8 @@ public class TabListEditorAddToGroupAction extends TabListEditorAction {
                         controller,
                         /* supportsShowNewGroup= */ true,
                         /* destroyOnHide= */ true,
-                        tabs.get(0).getWindowAndroid());
+                        tabs.get(0).getWindowAndroid(),
+                        mTabGroupUiActionHandlerSupplier.get());
         mTabGroupListBottomSheetCoordinator.showBottomSheet(tabs);
     }
 
@@ -216,16 +224,24 @@ public class TabListEditorAddToGroupAction extends TabListEditorAction {
         tabModel.removeObserver(mTabModelObserver);
     }
 
-    private boolean hasTabGroups() {
-        Collection<TabModelSelector> selectors =
-                TabGroupUiUtils.isCrossWindowTabGroupOperationsEnabled()
-                        ? TabWindowManagerSingleton.getInstance().getAllTabModelSelectors()
+    private boolean hasTabGroups(List<Tab> tabs) {
+        TabModel tabModel = getTabModel();
+        Profile profile = tabModel.getProfile();
+        TabGroupSyncService syncService =
+                profile != null && !profile.isOffTheRecord()
+                        ? TabGroupSyncServiceFactory.getForProfile(profile)
                         : null;
-        return TabGroupUtils.hasTabGroups(getTabModel(), selectors);
+        GroupWindowChecker checker = new GroupWindowChecker(mActivity, syncService, tabModel);
+        Token commonGroupId = TabGroupUtils.findSingleTabGroupIfPresent(tabs);
+        return checker.hasOtherGroups(commonGroupId);
     }
 
     private void updateText() {
-        if (hasTabGroups()) {
+        updateText(getTabsOrTabsAndRelatedTabsFromSelection());
+    }
+
+    private void updateText(List<Tab> tabs) {
+        if (hasTabGroups(tabs)) {
             setActionText(
                     R.plurals.add_tab_to_group_menu_item,
                     R.plurals.accessibility_add_tab_to_group_menu_item);

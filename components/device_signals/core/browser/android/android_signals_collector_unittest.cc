@@ -1,0 +1,305 @@
+// Copyright 2025 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "components/device_signals/core/browser/android/android_signals_collector.h"
+
+#include <array>
+#include <utility>
+
+#include "base/android/android_info.h"
+#include "base/android/device_info.h"
+#include "base/memory/raw_ptr.h"
+#include "base/run_loop.h"
+#include "base/system/sys_info.h"
+#include "base/test/metrics/histogram_tester.h"
+#include "base/values.h"
+#include "components/device_signals/core/browser/browser_utils.h"
+#include "components/device_signals/core/browser/os_signals_collector_test_base.h"
+#include "components/device_signals/core/browser/signals_types.h"
+#include "components/device_signals/core/browser/user_permission_service.h"
+#include "components/policy/core/common/cloud/cloud_policy_constants.h"
+#include "components/policy/core/common/cloud/cloud_policy_util.h"
+#include "components/policy/core/common/cloud/mock_cloud_policy_manager.h"
+#include "components/policy/core/common/cloud/mock_cloud_policy_store.h"
+#include "components/policy/proto/device_management_backend.pb.h"
+#include "components/safe_browsing/android/safe_browsing_api_handler_bridge.h"
+#include "components/safe_browsing/android/safe_browsing_api_handler_util.h"
+#include "components/version_info/version_info.h"
+#include "content/public/test/browser_task_environment.h"
+#include "testing/gmock/include/gmock/gmock.h"
+#include "testing/gtest/include/gtest/gtest.h"
+
+using testing::_;
+using testing::ContainerEq;
+using testing::Return;
+using testing::StrictMock;
+
+namespace {
+
+using safe_browsing::HasHarmfulAppsResultStatus;
+using safe_browsing::VerifyAppsEnabledResult;
+
+constexpr char kHarmfulAppsResultHistogramName[] =
+    "Enterprise.DeviceSignals.HarmfulApps.Result";
+constexpr char kHarmfulAppsCountHistogramName[] =
+    "Enterprise.DeviceSignals.HarmfulApps.Count";
+constexpr char kSafetyNetLatencyHistogramName[] =
+    "Enterprise.DeviceSignals.SafetyNet.Latency";
+
+constexpr int kSampleHarmfulAppsErrorCode = 123;
+
+}  // namespace
+
+namespace device_signals {
+
+class AndroidSignalsCollectorTest : public GenericOsSignalsCollectorTestBase {
+ protected:
+  void SetUp() override {
+    task_environment_ = std::make_unique<content::BrowserTaskEnvironment>();
+    GenericOsSignalsCollectorTestBase::SetUp();
+    signal_collector_ = std::make_unique<AndroidSignalsCollector>(
+        mock_browser_cloud_policy_manager_.get());
+
+    SetVerifyAppsResult(VerifyAppsEnabledResult::SUCCESS_NOT_ENABLED);
+    SetHarmfulAppsResult(HasHarmfulAppsResultStatus::SUCCESS, 2);
+  }
+
+  // Helper function to check a subset of signals that should or should not be
+  // collected based on permission.
+  void CheckOsSignalsCollected(OsSignalsResponse& response,
+                               bool can_collect_pii) {
+    CheckSignalsCollected(response, can_collect_pii,
+                          base::android::device_info::device_name());
+
+    EXPECT_EQ(response.os_version, base::SysInfo::OperatingSystemVersion());
+    EXPECT_EQ(response.device_model, base::android::android_info::model());
+    EXPECT_EQ(response.device_manufacturer,
+              base::android::android_info::manufacturer());
+    EXPECT_EQ(response.security_patch_ms,
+              device_signals::GetSecurityPatchLevelEpoch());
+  }
+
+  void CheckVerifyAppsSignalsCollected(VerifyAppsSignalsResponse& response) {
+    EXPECT_EQ(response.verified_apps_enabled, expected_verify_app_result_);
+    EXPECT_EQ(response.has_potentially_harmful_apps,
+              GetExpectedHarmfulAppsSignal());
+
+    CheckUmaHistograms();
+  }
+
+  void CheckUmaHistograms() {
+    histogram_tester_.ExpectUniqueSample(kHarmfulAppsResultHistogramName,
+                                         expected_harmful_app_result_, 1);
+
+    if (expected_harmful_app_result_ == HasHarmfulAppsResultStatus::SUCCESS) {
+      histogram_tester_.ExpectUniqueSample(kHarmfulAppsCountHistogramName,
+                                           expected_harmful_app_count_, 1);
+      histogram_tester_.ExpectTotalCount(kSafetyNetLatencyHistogramName, 1);
+    } else {
+      histogram_tester_.ExpectTotalCount(kHarmfulAppsCountHistogramName, 0);
+      histogram_tester_.ExpectTotalCount(kSafetyNetLatencyHistogramName, 0);
+    }
+  }
+
+  void SetVerifyAppsResult(VerifyAppsEnabledResult result) {
+    safe_browsing::SafeBrowsingApiHandlerBridge::GetInstance()
+        .SetVerifyAppsEnableResultForTesting(result);
+    expected_verify_app_result_ =
+        (result == VerifyAppsEnabledResult::SUCCESS_ENABLED ||
+         result == VerifyAppsEnabledResult::SUCCESS_ALREADY_ENABLED);
+  }
+
+  void SetHarmfulAppsResult(HasHarmfulAppsResultStatus result,
+                            int num_of_apps) {
+    safe_browsing::SafeBrowsingApiHandlerBridge::GetInstance()
+        .SetHarmfulAppsResultForTesting(
+            result, num_of_apps,
+            result == HasHarmfulAppsResultStatus::SUCCESS
+                ? 0
+                : kSampleHarmfulAppsErrorCode);
+    expected_harmful_app_result_ = result;
+    expected_harmful_app_count_ = num_of_apps;
+  }
+
+  bool GetExpectedHarmfulAppsSignal() {
+    return (expected_harmful_app_result_ ==
+                HasHarmfulAppsResultStatus::SUCCESS &&
+            expected_harmful_app_count_ != 0);
+  }
+
+  std::unique_ptr<AndroidSignalsCollector> signal_collector_;
+  bool expected_verify_app_result_;
+  HasHarmfulAppsResultStatus expected_harmful_app_result_;
+  int expected_harmful_app_count_;
+  base::HistogramTester histogram_tester_;
+};
+
+// Test that runs a sanity check on the set of signals supported by this
+// collector. Will need to be updated if new signals become supported.
+TEST_F(AndroidSignalsCollectorTest, SupportedSignalNames) {
+  const std::array<SignalName, 2> supported_signals{
+      {SignalName::kOsSignals, SignalName::kVerifyApps}};
+
+  const auto names_set = signal_collector_->GetSupportedSignalNames();
+
+  EXPECT_EQ(names_set.size(), supported_signals.size());
+  for (const auto& signal_name : supported_signals) {
+    EXPECT_TRUE(names_set.find(signal_name) != names_set.end());
+  }
+}
+
+// Happy path test case for OS signals collection with full permission.
+TEST_F(AndroidSignalsCollectorTest, GetOsSignals_Success) {
+  SetFakeBrowserPolicyData();
+
+  SignalsAggregationRequest empty_request;
+  SignalsAggregationResponse response;
+  base::RunLoop run_loop;
+  signal_collector_->GetSignal(SignalName::kOsSignals, UserPermission::kGranted,
+                               empty_request, response, run_loop.QuitClosure());
+  run_loop.Run();
+
+  ASSERT_FALSE(response.top_level_error.has_value());
+  ASSERT_TRUE(response.os_signals_response);
+  CheckOsSignalsCollected(response.os_signals_response.value(),
+                          /*can_collect_pii=*/true);
+}
+
+// Happy path test case for VerifyApps signals collection with full permission.
+TEST_F(AndroidSignalsCollectorTest, GetVerifyApps_Success) {
+  SetFakeBrowserPolicyData();
+  // Test when verify apps is enabled.
+  SetVerifyAppsResult(VerifyAppsEnabledResult::SUCCESS_ENABLED);
+  // Test when harmful apps detection fails.
+  SetHarmfulAppsResult(HasHarmfulAppsResultStatus::LOCAL_FAILURE, 0);
+
+  SignalsAggregationRequest empty_request;
+  SignalsAggregationResponse response;
+  base::RunLoop run_loop;
+  signal_collector_->GetSignal(SignalName::kVerifyApps,
+                               UserPermission::kGranted, empty_request,
+                               response, run_loop.QuitClosure());
+  run_loop.Run();
+
+  ASSERT_FALSE(response.top_level_error.has_value());
+  ASSERT_TRUE(response.verify_apps_signals_response);
+  CheckVerifyAppsSignalsCollected(
+      response.verify_apps_signals_response.value());
+}
+
+// Happy path test case for collecting both OS signals and VerifyApps signals.
+TEST_F(AndroidSignalsCollectorTest, GetAllSignals_Success) {
+  SetFakeBrowserPolicyData();
+  // Test when verify apps is enabled.
+  SetVerifyAppsResult(VerifyAppsEnabledResult::SUCCESS_ENABLED);
+  // Test when harmful apps detection fails.
+  SetHarmfulAppsResult(HasHarmfulAppsResultStatus::LOCAL_FAILURE, 0);
+
+  SignalsAggregationRequest empty_request;
+  SignalsAggregationResponse response;
+
+  base::RunLoop os_run_loop;
+  signal_collector_->GetSignal(SignalName::kOsSignals, UserPermission::kGranted,
+                               empty_request, response,
+                               os_run_loop.QuitClosure());
+  os_run_loop.Run();
+
+  base::RunLoop verify_apps_run_loop;
+  signal_collector_->GetSignal(SignalName::kVerifyApps,
+                               UserPermission::kGranted, empty_request,
+                               response, verify_apps_run_loop.QuitClosure());
+  verify_apps_run_loop.Run();
+
+  ASSERT_FALSE(response.top_level_error.has_value());
+
+  ASSERT_TRUE(response.os_signals_response);
+  CheckOsSignalsCollected(response.os_signals_response.value(),
+                          /*can_collect_pii=*/true);
+
+  ASSERT_TRUE(response.verify_apps_signals_response);
+  CheckVerifyAppsSignalsCollected(
+      response.verify_apps_signals_response.value());
+}
+
+// Tests that an unsupported signal is marked as unsupported.
+TEST_F(AndroidSignalsCollectorTest, GetOsSignal_Unsupported) {
+  SignalName signal_name = SignalName::kAntiVirus;
+  SignalsAggregationRequest empty_request;
+  SignalsAggregationResponse response;
+  base::RunLoop run_loop;
+  signal_collector_->GetSignal(signal_name, UserPermission::kGranted,
+                               empty_request, response, run_loop.QuitClosure());
+
+  run_loop.Run();
+
+  ASSERT_TRUE(response.top_level_error.has_value());
+  EXPECT_EQ(response.top_level_error.value(),
+            SignalCollectionError::kUnsupported);
+}
+
+// Tests that signal collection is still complete even when consent is missing.
+TEST_F(AndroidSignalsCollectorTest, GetOsSignals_MissingConsent) {
+  SetFakeBrowserPolicyData();
+
+  SignalsAggregationRequest empty_request;
+  SignalsAggregationResponse response;
+  base::RunLoop run_loop;
+  signal_collector_->GetSignal(SignalName::kOsSignals,
+                               UserPermission::kMissingConsent, empty_request,
+                               response, run_loop.QuitClosure());
+  run_loop.Run();
+
+  ASSERT_FALSE(response.top_level_error.has_value());
+  ASSERT_TRUE(response.os_signals_response);
+  CheckOsSignalsCollected(response.os_signals_response.value(),
+                          /*can_collect_pii=*/false);
+}
+
+// Tests that signal collection is still complete even when consent is missing.
+TEST_F(AndroidSignalsCollectorTest, GetVerifyApps_MissingConsent) {
+  SetFakeBrowserPolicyData();
+
+  SignalsAggregationRequest empty_request;
+  SignalsAggregationResponse response;
+  base::RunLoop run_loop;
+  signal_collector_->GetSignal(SignalName::kVerifyApps,
+                               UserPermission::kMissingConsent, empty_request,
+                               response, run_loop.QuitClosure());
+  run_loop.Run();
+
+  ASSERT_FALSE(response.top_level_error.has_value());
+  ASSERT_TRUE(response.verify_apps_signals_response);
+  CheckVerifyAppsSignalsCollected(
+      response.verify_apps_signals_response.value());
+}
+
+// Tests that signal collection is halted if permission is not sufficient.
+TEST_F(AndroidSignalsCollectorTest, GetOsSignals_MissingUser) {
+  SignalsAggregationRequest empty_request;
+  SignalsAggregationResponse response;
+  base::RunLoop run_loop;
+  signal_collector_->GetSignal(SignalName::kOsSignals,
+                               UserPermission::kMissingUser, empty_request,
+                               response, run_loop.QuitClosure());
+  run_loop.Run();
+
+  ASSERT_FALSE(response.top_level_error.has_value());
+  ASSERT_FALSE(response.os_signals_response);
+}
+
+// Tests that signal collection is halted if permission is not sufficient.
+TEST_F(AndroidSignalsCollectorTest, GetVerifyApps_MissingUser) {
+  SignalsAggregationRequest empty_request;
+  SignalsAggregationResponse response;
+  base::RunLoop run_loop;
+  signal_collector_->GetSignal(SignalName::kVerifyApps,
+                               UserPermission::kMissingUser, empty_request,
+                               response, run_loop.QuitClosure());
+  run_loop.Run();
+
+  ASSERT_FALSE(response.top_level_error.has_value());
+  ASSERT_FALSE(response.verify_apps_signals_response);
+}
+
+}  // namespace device_signals

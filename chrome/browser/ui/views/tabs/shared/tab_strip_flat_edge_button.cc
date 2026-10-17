@@ -11,7 +11,6 @@
 #include "third_party/skia/include/core/SkRRect.h"
 #include "ui/actions/actions.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
-#include "ui/base/ui_base_features.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/geometry/skia_conversions.h"
@@ -174,7 +173,7 @@ void TabStripFlatEdgeButton::NotifyWillInvokeAction() {
 }
 
 void TabStripFlatEdgeButton::OnPaintBackground(gfx::Canvas* canvas) {
-  if (paint_transparent_for_glass_ && features::IsGlassFrameEnabled()) {
+  if (paint_transparent_) {
     return;
   }
   const SkColor color = GetColorProvider()->GetColor(GetBackgroundColor());
@@ -235,12 +234,11 @@ void TabStripFlatEdgeButton::UpdateHighlightPathAndInkDrop() {
   SchedulePaint();
 }
 
-void TabStripFlatEdgeButton::SetPaintTransparentForGlass(
-    bool paint_transparent) {
-  if (paint_transparent_for_glass_ == paint_transparent) {
+void TabStripFlatEdgeButton::SetPaintTransparent(bool paint_transparent) {
+  if (paint_transparent_ == paint_transparent) {
     return;
   }
-  paint_transparent_for_glass_ = paint_transparent;
+  paint_transparent_ = paint_transparent;
   SchedulePaint();
 }
 
@@ -317,18 +315,7 @@ gfx::RoundedCornersF TabStripFlatEdgeButton::GetButtonCornerRadii() const {
 }
 
 SkRRect TabStripFlatEdgeButton::GetButtonShape() const {
-  const gfx::RoundedCornersF corners = GetButtonCornerRadii();
-  const SkRect rect = gfx::RectToSkRect(GetLocalBounds());
-
-  SkVector radii[4];
-  radii[0] = {corners.upper_left(), corners.upper_left()};
-  radii[1] = {corners.upper_right(), corners.upper_right()};
-  radii[2] = {corners.lower_right(), corners.lower_right()};
-  radii[3] = {corners.lower_left(), corners.lower_left()};
-
-  SkRRect rrect;
-  rrect.setRectRadii(rect, radii);
-  return rrect;
+  return gfx::RoundedRectToSkRRect(GetLocalBounds(), GetButtonCornerRadii());
 }
 
 void TabStripFlatEdgeButton::UpdateLabel(bool should_show) {

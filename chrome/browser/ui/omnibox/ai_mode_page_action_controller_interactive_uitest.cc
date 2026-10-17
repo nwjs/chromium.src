@@ -18,12 +18,13 @@
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
+#include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_presenter_base.h"
 #include "chrome/browser/ui/views/page_action/page_action_view.h"
 #include "chrome/browser/ui/views/page_action/test_support/page_action_interactive_test_mixin.h"
-#include "chrome/browser/ui/views/page_action/test_support/page_action_test_support.h"
+#include "chrome/browser/ui/views/page_action/test_support/page_action_test_accessor.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "chrome/test/interaction/interactive_browser_window_test.h"
@@ -351,17 +352,34 @@ IN_PROC_BROWSER_TEST_F(
           // location bar.
           return;
         }
-        auto* provider = BrowserView::GetBrowserViewForBrowser(browser())
-                             ->toolbar_button_provider();
-        auto* view = static_cast<page_actions::PageActionView*>(
-            page_actions::GetIconLabelBubbleViewForTesting(
-                provider->GetPageActionViewInterface(kActionAiMode),
-                kActionAiMode));
+        auto* view =
+            page_actions::PageActionTestAccessor(browser(), kActionAiMode)
+                .view();
         ASSERT_NE(view, nullptr);
         SkColor actual_bg_color = view->GetBackgroundColorForTesting();
         SkColor expected_bg_color = view->GetColorProvider()->GetColor(
-            kColorOmniboxResultsBackgroundHovered);
+            kColorOmniboxComposeboxContextEntrypointBackground);
         EXPECT_EQ(actual_bg_color, expected_bg_color);
+      }));
+}
+
+IN_PROC_BROWSER_TEST_F(
+    AiModePageActionControllerDynamicAiModeButtonInteractiveUiTest,
+    VerifyForegroundColorOverride) {
+  RunTestSequence(
+      OpenTabWithPageUrlAndFocusOmnibox(/*is_ntp=*/true),
+      CheckChipVisible(true), Do([this]() {
+        if (features::IsWebUILocationBarEnabled()) {
+          return;
+        }
+        auto* view =
+            page_actions::PageActionTestAccessor(browser(), kActionAiMode)
+                .view();
+        ASSERT_NE(view, nullptr);
+        SkColor actual_fg_color = view->GetForegroundColorForTesting();
+        SkColor expected_fg_color = view->GetColorProvider()->GetColor(
+            kColorOmniboxContextEntrypointText);
+        EXPECT_EQ(actual_fg_color, expected_fg_color);
       }));
 }
 
@@ -375,12 +393,9 @@ IN_PROC_BROWSER_TEST_F(
         if (features::IsWebUILocationBarEnabled()) {
           return;
         }
-        auto* provider = BrowserView::GetBrowserViewForBrowser(browser())
-                             ->toolbar_button_provider();
-        auto* view = static_cast<page_actions::PageActionView*>(
-            page_actions::GetIconLabelBubbleViewForTesting(
-                provider->GetPageActionViewInterface(kActionAiMode),
-                kActionAiMode));
+        auto* view =
+            page_actions::PageActionTestAccessor(browser(), kActionAiMode)
+                .view();
         ASSERT_NE(view, nullptr);
         EXPECT_EQ(view->slide_animation_for_testing().GetCurrentValue(), 0.0);
       }));

@@ -189,6 +189,10 @@ void H265Decoder::Reset() {
   last_slice_hdr_ = nullptr;
   curr_sps_id_ = -1;
   curr_pps_id_ = -1;
+  max_num_reorder_pics_ = 0;
+  max_latency_pictures_ = 0;
+  max_dec_pic_buffering_minus1_ = 0;
+  max_latency_increase_plus1_ = 0;
   aux_alpha_layer_id_ = 0;
 
   prev_tid0_pic_ = nullptr;
@@ -203,7 +207,6 @@ void H265Decoder::Reset() {
   parser_.Reset();
   accelerator_->Reset();
 
-  active_sps_.reset();
   decoder_buffer_.reset();
   secure_handle_ = 0;
 
@@ -291,9 +294,10 @@ H265Decoder::DecodeResult H265Decoder::Decode() {
                   *curr_nalu_, curr_slice_hdr_.get(), last_slice_hdr_.get());
               if (par_res == H265Parser::kMissingParameterSet) {
                 // As with the base layer, we could be trying to start decoding
-                // from a bad frame, and may be able to recover later.
+                // from a bad frame, and may be able to recover later. Only this
+                // slice is dropped; |last_slice_hdr_| is left alone because the
+                // base layer picture it belongs to is still decodable.
                 curr_slice_hdr_.reset();
-                last_slice_hdr_.reset();
                 break;
               }
               if (par_res != H265Parser::kOk) {
@@ -312,8 +316,12 @@ H265Decoder::DecodeResult H265Decoder::Decode() {
             curr_slice_hdr_.reset();
             break;
           }
+          // Per 7.4.2.4.4 an SPS or PPS starts a new access unit only when
+          // nuh_layer_id is 0, so these NALUs must not finish the base-layer
+          // picture of the current access unit. A stream may place the
+          // alpha-layer parameter sets between the base-layer slices and the
+          // alpha-layer slices of the same access unit.
           case H265NALU::SPS_NUT: {
-            CHECK_ACCELERATOR_RESULT(FinishPrevFrameIfPresent());
             int sps_id;
             par_res = parser_.ParseSPS(&sps_id);
             if (par_res != H265Parser::kOk) {
@@ -323,7 +331,6 @@ H265Decoder::DecodeResult H265Decoder::Decode() {
             break;
           }
           case H265NALU::PPS_NUT: {
-            CHECK_ACCELERATOR_RESULT(FinishPrevFrameIfPresent());
             int pps_id;
             par_res = parser_.ParsePPS(*curr_nalu_, &pps_id);
             if (par_res != H265Parser::kOk) {
@@ -734,6 +741,17 @@ H265Decoder::H265Accelerator::Status H265Decoder::ProcessCurrentSlice() {
   const H265PPS* pps = parser_.GetPPS(curr_pps_id_);
   DCHECK(pps);
 
+  // 8.3.4 is a slice-level process. Independent P/B slices can override the
+  // number of active reference indices and the list modifications, so the
+  // lists are rebuilt from this slice header. I slices produce empty lists.
+  // Dependent slice segments copy the independent slice's header, so they
+  // rebuild the same lists. Rebuilding is safe on a kTryAgain retry because
+  // it only depends on |slice_hdr| and on the sets that MarkRefPicSets()
+  // derived once for this picture.
+  if (!BuildRefPicLists(slice_hdr)) {
+    return H265Accelerator::Status::kFail;
+  }
+
   return accelerator_->SubmitSlice(
       sps, pps, slice_hdr, ref_pic_list0_, ref_pic_list1_, ref_pic_set_lt_curr_,
       ref_pic_set_st_curr_after_, ref_pic_set_st_curr_before_, curr_pic_.get(),
@@ -776,10 +794,18 @@ void H265Decoder::CalcPicOutputFlags(const H265SliceHeader* slice_hdr) {
 void H265Decoder::CalcPictureOrderCount(const H265PPS* pps,
                                         const H265SliceHeader* slice_hdr) {
   // 8.3.1 Decoding process for picture order count.
+  // prevTid0Pic is the previous picture in decoding order that has TemporalId
+  // equal to 0 and that is not a RASL, RADL or SLNR picture. Per 7.4.2.2 the
+  // SLNR pictures are the ones with an even nal_unit_type in the range of
+  // TRAIL_N to RSV_VCL_N14, which already covers RADL_N and RASL_N; RADL_R and
+  // RASL_R are the remaining RADL and RASL pictures.
+  const int nal_unit_type = slice_hdr->nal_unit_type;
+  const bool is_slnr =
+      nal_unit_type <= H265NALU::RSV_VCL_N14 && nal_unit_type % 2 == 0;
+  const bool is_radl_or_rasl =
+      nal_unit_type == H265NALU::RADL_R || nal_unit_type == H265NALU::RASL_R;
   curr_pic_->valid_for_prev_tid0_pic_ =
-      !slice_hdr->temporal_id &&
-      (slice_hdr->nal_unit_type < H265NALU::RADL_N ||
-       slice_hdr->nal_unit_type > H265NALU::RSV_VCL_N14);
+      !slice_hdr->temporal_id && !is_slnr && !is_radl_or_rasl;
   curr_pic_->slice_pic_order_cnt_lsb_ = slice_hdr->slice_pic_order_cnt_lsb;
 
   // Calculate POC for current picture.
@@ -898,9 +924,7 @@ bool H265Decoder::CalcRefPicPocs(const H265SPS* sps,
   return true;
 }
 
-bool H265Decoder::BuildRefPicLists(const H265SPS* sps,
-                                   const H265PPS* pps,
-                                   const H265SliceHeader* slice_hdr) {
+bool H265Decoder::MarkRefPicSets(const H265SPS* sps) {
   ref_pic_set_lt_curr_.clear();
   ref_pic_set_lt_curr_.resize(kMaxDpbSize);
   ref_pic_set_st_curr_after_.clear();
@@ -975,15 +999,33 @@ bool H265Decoder::BuildRefPicLists(const H265SPS* sps,
 
   ref_pic_list_.clear();
   dpb_.AppendReferencePics(&ref_pic_list_);
-  ref_pic_list0_.clear();
-  ref_pic_list1_.clear();
 
   // 8.3.3 Generation of unavailable reference pictures is something we do not
   // need to handle here. It's handled by the accelerator itself when we do not
   // specify a reference picture that it needs.
 
+  return true;
+}
+
+bool H265Decoder::BuildRefPicLists(const H265SliceHeader* slice_hdr) {
+  ref_pic_list0_.clear();
+  ref_pic_list1_.clear();
+
   if (slice_hdr->IsPSlice() || slice_hdr->IsBSlice()) {
-    // 8.3.4 Decoding process for reference picture lists construction
+    // 8.3.4 Decoding process for reference picture lists construction.
+    // Equations 8-8 and 8-10 fill the temporary lists by cycling through
+    // RefPicSetStCurrBefore, RefPicSetStCurrAfter and RefPicSetLtCurr, so the
+    // combined size of those sets has to be non-zero to make progress. The
+    // parser already guarantees this for a base-layer P or B slice, by
+    // requiring num_pic_total_curr to be non-zero and by rejecting a non-I
+    // slice on an IRAP picture. Checking it here keeps the loops below from
+    // depending on those invariants.
+    if (!num_poc_st_curr_before_ && !num_poc_st_curr_after_ &&
+        !num_poc_lt_curr_) {
+      DVLOG(1) << "No reference pictures available for a P or B slice";
+      return false;
+    }
+
     int num_rps_curr_temp_list0 =
         std::max(slice_hdr->num_ref_idx_l0_active_minus1 + 1,
                  slice_hdr->num_pic_total_curr);
@@ -1074,6 +1116,18 @@ H265Decoder::H265Accelerator::Status H265Decoder::StartNewFrame(
   // Slice header parsing already verified this should exist.
   DCHECK(sps);
 
+  // Snapshot the bumping limits of the current picture's SPS. C.5.2.2 uses
+  // them immediately. C.5.2.3 in FinishPicture() cannot re-resolve them: an
+  // alpha-layer slice replaces |last_slice_hdr_|, and an alpha-layer SPS
+  // may overwrite the parser entry for the same SPS id.
+  const int highest_tid = sps->sps_max_sub_layers_minus1;
+  max_num_reorder_pics_ = sps->sps_max_num_reorder_pics[highest_tid];
+  max_latency_pictures_ = sps->sps_max_latency_pictures[highest_tid];
+  max_dec_pic_buffering_minus1_ =
+      sps->sps_max_dec_pic_buffering_minus1[highest_tid];
+  max_latency_increase_plus1_ =
+      sps->sps_max_latency_increase_plus1[highest_tid];
+
   // If this is from a retry on SubmitFrameMetadata, we should not redo all of
   // these calculations.
   if (!curr_pic_->processed_) {
@@ -1094,11 +1148,11 @@ H265Decoder::H265Accelerator::Status H265Decoder::StartNewFrame(
       return H265Accelerator::Status::kFail;
     }
 
-    if (!BuildRefPicLists(sps, pps, slice_hdr)) {
+    if (!MarkRefPicSets(sps)) {
       return H265Accelerator::Status::kFail;
     }
 
-    if (!PerformDpbOperations(sps)) {
+    if (!PerformDpbOperations()) {
       return H265Accelerator::Status::kFail;
     }
 
@@ -1127,87 +1181,113 @@ H265Decoder::H265Accelerator::Status H265Decoder::FinishPrevFrameIfPresent() {
     return result;
   }
 
-  if (!FinishPicture(std::move(curr_pic_), std::move(last_slice_hdr_))) {
+  // The picture has been submitted, so its last slice header is no longer
+  // needed. Drop it here so that it cannot be mistaken for the header of the
+  // next picture, which FinishPrevFrameIfPresent() requires to be present.
+  last_slice_hdr_.reset();
+
+  if (!FinishPicture(std::move(curr_pic_))) {
     return H265Accelerator::Status::kFail;
   }
 
   return H265Accelerator::Status::kOk;
 }
 
-bool H265Decoder::PerformDpbOperations(const H265SPS* sps) {
-  // C.5.2.2 - Output and removal of pictures from the DPB
+bool H265Decoder::NeedsBumping(bool include_buffering) {
+  H265Picture::Vector not_outputted;
+  dpb_.AppendPendingOutputPics(&not_outputted);
+
+  // "The number of pictures in the DPB that are marked as "needed for output"
+  // is greater than sps_max_num_reorder_pics[ HighestTid ]."
+  if (static_cast<int>(not_outputted.size()) > max_num_reorder_pics_) {
+    return true;
+  }
+
+  // "sps_max_latency_increase_plus1[ HighestTid ] is not equal to 0 and there
+  // is at least one picture in the DPB that is marked as "needed for output"
+  // for which the associated variable PicLatencyCount is greater than or equal
+  // to SpsMaxLatencyPictures[ HighestTid ]."
+  //
+  // This is a condition, not a count of how many pictures to output: C.5.2.4
+  // outputs the picture that is first for output, which is not necessarily one
+  // of the pictures that exceeded the limit. So it has to be re-evaluated after
+  // every bump.
+  if (max_latency_increase_plus1_ != 0) {
+    for (const auto& pic : not_outputted) {
+      if (pic->pic_latency_count_ >= max_latency_pictures_) {
+        return true;
+      }
+    }
+  }
+
+  // C.5.2.2 only - "The number of pictures in the DPB is greater than or equal
+  // to sps_max_dec_pic_buffering_minus1[ HighestTid ] + 1 −
+  // TwoVersionsOfCurrDecPicFlag." TwoVersionsOfCurrDecPicFlag is always 0 here
+  // because the parser rejects the SCC extensions that can set it.
+  //
+  // This must not be expressed in terms of H265DPB::IsFull(), which is bounded
+  // by the level limit of Equation A-2 rather than by the SPS.
+  if (include_buffering &&
+      static_cast<int>(dpb_.size()) > max_dec_pic_buffering_minus1_) {
+    return true;
+  }
+
+  return false;
+}
+
+bool H265Decoder::BumpOne(bool* bumped) {
+  H265Picture::Vector not_outputted;
+  dpb_.AppendPendingOutputPics(&not_outputted);
+  auto first_for_output = std::min_element(
+      not_outputted.begin(), not_outputted.end(), POCAscCompare());
+  if (first_for_output == not_outputted.end()) {
+    *bumped = false;
+    return true;
+  }
+
+  *bumped = true;
+  if (!OutputPic(*first_for_output)) {
+    return false;
+  }
+
+  // The picture is removed from the DPB once it is neither needed for output
+  // nor used for reference.
+  dpb_.DeleteUnused();
+  return true;
+}
+
+bool H265Decoder::PerformDpbOperations() {
+  // C.5.2.2 - Output and removal of pictures from the DPB.
   if (curr_pic_->irap_pic_ && curr_pic_->no_rasl_output_flag_ &&
       !curr_pic_->first_picture_) {
-    if (!curr_pic_->no_output_of_prior_pics_flag_) {
-      OutputAllRemainingPics();
+    // NoOutputOfPriorPicsFlag=0 must output remaining pictures before Clear().
+    // A failed output is a Decode() error, matching Flush() and bumping.
+    if (!curr_pic_->no_output_of_prior_pics_flag_ &&
+        !OutputAllRemainingPics()) {
+      return false;
     }
     dpb_.Clear();
   } else {
-    int num_to_output;
-    do {
-      dpb_.DeleteUnused();
-      // Get all pictures that haven't been outputted yet.
-      H265Picture::Vector not_outputted;
-      dpb_.AppendPendingOutputPics(&not_outputted);
-      // Sort in output order.
-      std::sort(not_outputted.begin(), not_outputted.end(), POCAscCompare());
+    // C.5.2.2 - All pictures that are marked as "not needed for output" and
+    // "unused for reference" are removed from the DPB without output.
+    dpb_.DeleteUnused();
 
-      // Calculate how many pictures we need to output.
-      num_to_output = 0;
-      int highest_tid = sps->sps_max_sub_layers_minus1;
-
-      // C.5.2.2 - "The number of pictures in the DPB that are marked as "needed
-      // for output" is greater than sps_max_num_reorder_pics[ HighestTid ]."
-      num_to_output = std::max(num_to_output,
-                               static_cast<int>(not_outputted.size()) -
-                                   sps->sps_max_num_reorder_pics[highest_tid]);
-
-      // C.5.2.2 - "The number of pictures in the DPB is greater than or equal
-      // to sps_max_dec_pic_buffering_minus1[ HighestTid ] + 1 −
-      // TwoVersionsOfCurrDecPicFlag."
-      num_to_output =
-          std::max(num_to_output,
-                   static_cast<int>(dpb_.size()) -
-                       sps->sps_max_dec_pic_buffering_minus1[highest_tid]);
-
-      // C.5.2.2 - "sps_max_latency_increase_plus1[ HighestTid ] is not equal to
-      // 0 and there is at least one picture in the DPB that is marked as
-      // "needed for output" for which the associated variable PicLatencyCount
-      // is greater than or equal to SpsMaxLatencyPictures[ HighestTid ]."
-      int pic_latency_output_count = 0;
-      if (sps->sps_max_latency_increase_plus1[highest_tid] != 0) {
-        for (const auto& pic : not_outputted) {
-          if (pic->pic_latency_count_ >=
-              sps->sps_max_latency_pictures[highest_tid]) {
-            ++pic_latency_output_count;
-          }
-        }
+    // C.5.2.2 - The "bumping" process is invoked repeatedly until none of the
+    // conditions are true.
+    while (NeedsBumping(/*include_buffering=*/true)) {
+      bool bumped = false;
+      if (!BumpOne(&bumped)) {
+        return false;
       }
-      num_to_output = std::max(num_to_output, pic_latency_output_count);
-
-      num_to_output =
-          std::min(num_to_output, static_cast<int>(not_outputted.size()));
-
-      if (!num_to_output && dpb_.IsFull()) {
-        // This is wrong, we should try to output pictures until we can clear
-        // one from the DPB. This is better than failing, but we then may end up
-        // with something out of order.
-        DVLOG(1) << "Forcibly outputting pictures to make room in DPB.";
-        for (const auto& pic : not_outputted) {
-          num_to_output++;
-          if (pic->ref_ == H265Picture::kUnused)
-            break;
-        }
+      if (!bumped) {
+        // Every remaining picture has already been output but is still used for
+        // reference, so no amount of bumping can satisfy the conditions. Stop
+        // here and let the fullness check below reject the stream if the
+        // current picture does not fit.
+        DVLOG(1) << "Could not bump any picture out of the DPB";
+        break;
       }
-
-      not_outputted.resize(num_to_output);
-      for (auto& pic : not_outputted) {
-        if (!OutputPic(pic))
-          return false;
-      }
-
-      dpb_.DeleteUnused();
-    } while (dpb_.IsFull() && num_to_output);
+    }
   }
 
   if (dpb_.IsFull()) {
@@ -1229,21 +1309,10 @@ bool H265Decoder::PerformDpbOperations(const H265SPS* sps) {
   return true;
 }
 
-bool H265Decoder::FinishPicture(scoped_refptr<H265Picture> pic,
-                                std::unique_ptr<H265SliceHeader> slice_hdr) {
+bool H265Decoder::FinishPicture(scoped_refptr<H265Picture> pic) {
   // 8.3.1
   if (pic->valid_for_prev_tid0_pic_)
     prev_tid0_pic_ = pic;
-
-  int pps_id = slice_hdr->slice_pic_parameter_set_id;
-  const H265PPS* pps = parser_.GetPPS(pps_id);
-  // Slice header parsing already verified this should exist.
-  DCHECK(pps);
-
-  int sps_id = pps->pps_seq_parameter_set_id;
-  const H265SPS* sps = parser_.GetSPS(sps_id);
-  // Slice header parsing already verified this should exist.
-  DCHECK(sps);
 
   // C.5.2.3 - Additional bumping
   if (pic->pic_output_flag_) {
@@ -1265,50 +1334,19 @@ bool H265Decoder::FinishPicture(scoped_refptr<H265Picture> pic,
     pic->pic_latency_count_ = 0;
   }
 
-  // Get all pictures that haven't been outputted yet.
-  H265Picture::Vector not_outputted;
-  dpb_.AppendPendingOutputPics(&not_outputted);
-
-  // Sort in output order.
-  std::sort(not_outputted.begin(), not_outputted.end(), POCAscCompare());
-
   // C.5.2.3 - "When one or more of the following conditions are true, the
   // "bumping" process specified in clause C.5.2.4 is invoked repeatedly until
-  // none of the following conditions are true:
-
-  // C.5.2.3 - "The number of pictures in the DPB that are marked as "needed
-  // for output" is greater than sps_max_num_reorder_pics[ HighestTid ]."
-  int num_to_output = 0;
-  int highest_tid = sps->sps_max_sub_layers_minus1;
-  num_to_output =
-      std::max(num_to_output, static_cast<int>(not_outputted.size()) -
-                                  sps->sps_max_num_reorder_pics[highest_tid]);
-
-  // C.5.2.3 - "sps_max_latency_increase_plus1[ HighestTid ] is not equal to 0
-  // and there is at least one picture in the DPB that is marked as "needed for
-  // output" for which the associated variable PicLatencyCount that is greater
-  // than or equal to SpsMaxLatencyPictures[ HighestTid ]."
-  int pic_latency_output_count = 0;
-  if (sps->sps_max_latency_increase_plus1[highest_tid] != 0) {
-    for (auto& pending_output_pic : not_outputted) {
-      if (pending_output_pic->pic_latency_count_ >=
-          sps->sps_max_latency_pictures[highest_tid]) {
-        ++pic_latency_output_count;
-      }
-    }
-  }
-  num_to_output = std::max(num_to_output, pic_latency_output_count);
-
-  // C.5.2.4 - "Bumping" process
-  num_to_output =
-      std::min(num_to_output, static_cast<int>(not_outputted.size()));
-  not_outputted.resize(num_to_output);
-  for (auto& pending_output_pic : not_outputted) {
-    if (!OutputPic(pending_output_pic)) {
+  // none of the following conditions are true". Unlike C.5.2.2, the conditions
+  // here do not include the one on the number of pictures in the DPB.
+  while (NeedsBumping(/*include_buffering=*/false)) {
+    bool bumped = false;
+    if (!BumpOne(&bumped)) {
       return false;
     }
+    if (!bumped) {
+      break;
+    }
   }
-  dpb_.DeleteUnused();
 
   ref_pic_list_.clear();
   ref_pic_list0_.clear();

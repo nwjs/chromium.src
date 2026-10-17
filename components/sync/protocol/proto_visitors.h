@@ -13,7 +13,6 @@
 #include "components/sync/protocol/app_specifics.pb.h"
 #include "components/sync/protocol/arc_package_specifics.pb.h"
 #include "components/sync/protocol/autofill_entity_suppression_specifics.pb.h"
-#include "components/sync/protocol/autofill_offer_specifics.pb.h"
 #include "components/sync/protocol/autofill_specifics.pb.h"
 #include "components/sync/protocol/autofill_valuable_metadata_specifics.pb.h"
 #include "components/sync/protocol/autofill_valuable_specifics.pb.h"
@@ -196,48 +195,6 @@ VISIT_PROTO_FIELDS(const sync_pb::ArcPackageSpecifics& proto) {
   VISIT(package_version);
   VISIT(last_backup_android_id);
   VISIT(last_backup_time);
-}
-
-VISIT_PROTO_FIELDS(const sync_pb::AutofillOfferSpecifics& proto) {
-  VISIT(id);
-  VISIT(offer_details_url);
-  VISIT_REP(merchant_domain);
-  VISIT_REP(merchant_app_package);
-  VISIT(offer_expiry_date);
-  VISIT(card_linked_offer_data);
-  VISIT(promo_code_offer_data);
-  VISIT(display_strings);
-  VISIT(percentage_reward);
-  VISIT(fixed_amount_reward);
-}
-
-VISIT_PROTO_FIELDS(
-    const sync_pb::AutofillOfferSpecifics::CardLinkedOfferData& proto) {
-  VISIT_REP(instrument_id);
-}
-
-VISIT_PROTO_FIELDS(
-    const sync_pb::AutofillOfferSpecifics::PromoCodeOfferData& proto) {
-  VISIT(promo_code);
-}
-
-VISIT_PROTO_FIELDS(
-    const sync_pb::AutofillOfferSpecifics::DisplayStrings& proto) {
-  VISIT(value_prop_text);
-  VISIT(see_details_text_mobile);
-  VISIT(see_details_text_desktop);
-  VISIT(usage_instructions_text_mobile);
-  VISIT(usage_instructions_text_desktop);
-}
-
-VISIT_PROTO_FIELDS(
-    const sync_pb::AutofillOfferSpecifics::PercentageReward& proto) {
-  VISIT(percentage);
-}
-
-VISIT_PROTO_FIELDS(
-    const sync_pb::AutofillOfferSpecifics::FixedAmountReward& proto) {
-  VISIT(amount);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::AutofillProfileSpecifics& proto) {
@@ -700,6 +657,7 @@ VISIT_PROTO_FIELDS(const sync_pb::FeatureSpecificFields& proto) {
   VISIT_REP(desktop_to_ios_promo_receiving_types);
   VISIT_ENUM(glic_experimental_triggering_state);
   VISIT(glic_experimental_triggering_version);
+  VISIT_REP(glic_experimental_triggering_capabilities);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::SharingSpecificFields& proto) {
@@ -786,7 +744,7 @@ VISIT_PROTO_FIELDS(
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::EntitySpecifics& proto) {
-  static_assert(65 == GetNumDataTypes(),
+  static_assert(64 == GetNumDataTypes(),
                 "When adding a new protocol type, you will likely need to add "
                 "it here as well.");
   VISIT(encrypted);
@@ -797,7 +755,6 @@ VISIT_PROTO_FIELDS(const sync_pb::EntitySpecifics& proto) {
   VISIT(arc_package);
   VISIT(autofill);
   VISIT(autofill_entity_suppression);
-  VISIT(autofill_offer);
   VISIT(autofill_profile);
   VISIT(autofill_valuable);
   VISIT(autofill_valuable_metadata);
@@ -2325,6 +2282,7 @@ VISIT_PROTO_FIELDS(const sync_pb::Offer& proto) {
   VISIT(offer_title_image_url);
   VISIT_REP(issuer_domains);
   VISIT(description);
+  VISIT(issue_time_unix_epoch_micros);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::Order& proto) {

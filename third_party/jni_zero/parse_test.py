@@ -67,6 +67,14 @@ def _parse_java_file_data(filename, contents, enable_safe_pointers=False):
                                     enable_safe_pointers=enable_safe_pointers)
 
 
+def _parse_and_resolve(filename, contents):
+  parsed_file = _parse_java_file_data(filename,
+                                      contents,
+                                      enable_safe_pointers=True)
+  parse.resolve_safe_pointers([parsed_file], {})
+  return parsed_file
+
+
 class TestParse(unittest.TestCase):
 
   def _assert_golden(self, expected, actual):
@@ -467,9 +475,7 @@ public class MissingJniTypeTest {
 }
 """
     with self.assertRaises(parse.ParseError):
-      _parse_java_file_data('MissingJniTypeTest.java',
-                            contents,
-                            enable_safe_pointers=True)
+      _parse_and_resolve('MissingJniTypeTest.java', contents)
 
   def testParseMaliciousGenerics(self):
     contents = """
@@ -481,9 +487,7 @@ public class MaliciousGenericsTest {
 """
     with self.assertRaisesRegex(parse.ParseError,
                                 "does not resolve to a C\\+\\+ type"):
-      _parse_java_file_data('MaliciousGenericsTest.java',
-                            contents,
-                            enable_safe_pointers=True)
+      _parse_and_resolve('MaliciousGenericsTest.java', contents)
 
   def testParseSafePointerPrimitiveInnerError(self):
     contents = """
@@ -516,7 +520,7 @@ public class ProxyReturnTest {
                             contents,
                             enable_safe_pointers=True)
 
-  def testParseCalledByNativeSafePointerReturn(self):
+  def testParseCalledByNativeUniquePtrReturn(self):
     contents = """
 package org.jni_zero;
 public class ProxyReturnTest {
@@ -525,6 +529,40 @@ public class ProxyReturnTest {
 
   @CalledByNative
   public static JniUniquePtr<NativeFoo> get() { return null; }
+}
+"""
+    with self.assertRaisesRegex(
+        parse.ParseError, r'@CalledByNative return types must use JniPtr'):
+      _parse_java_file_data('ProxyReturnTest.java',
+                            contents,
+                            enable_safe_pointers=True)
+
+  def testParseCalledByNativeRawPtrReturn(self):
+    contents = """
+package org.jni_zero;
+public class ProxyReturnTest {
+  @JniType("::foo::Foo")
+  public interface NativeFoo extends JniTypeToken {}
+
+  @CalledByNative
+  public static JniRawPtr<NativeFoo> get() { return null; }
+}
+"""
+    with self.assertRaisesRegex(
+        parse.ParseError, r'@CalledByNative return types must use JniPtr'):
+      _parse_java_file_data('ProxyReturnTest.java',
+                            contents,
+                            enable_safe_pointers=True)
+
+  def testParseCalledByNativeJniPtrReturn(self):
+    contents = """
+package org.jni_zero;
+public class ProxyReturnTest {
+  @JniType("::foo::Foo")
+  public interface NativeFoo extends JniTypeToken {}
+
+  @CalledByNative
+  public static JniPtr<NativeFoo> get() { return null; }
 }
 """
     parsed_file = _parse_java_file_data('ProxyReturnTest.java',
@@ -665,6 +703,65 @@ public class ProxyParamTest {
     with self.assertRaisesRegex(
         parse.ParseError, r'@NativeMethods parameters must use JniPtr<T>'):
       _parse_java_file_data('ProxyParamTest.java',
+                            contents,
+                            enable_safe_pointers=True)
+
+  def testParseProxyNativeNullableMemberFirstParamError(self):
+    contents = """
+package org.jni_zero;
+import androidx.annotation.Nullable;
+public class NullableMemberTest {
+  @JniType("::foo::Foo")
+  public interface NativeFoo extends JniTypeToken {}
+
+  @NativeMethods
+  interface Natives {
+    void doSomething(@Nullable JniPtr<NativeFoo> self);
+  }
+}
+"""
+    with self.assertRaisesRegex(parse.ParseError, r'cannot be @Nullable'):
+      _parse_java_file_data('NullableMemberTest.java',
+                            contents,
+                            enable_safe_pointers=True)
+
+  def testParseProxyNativeConflictingClassNameError(self):
+    contents = """
+package org.jni_zero;
+public class ConflictClassTest {
+  @JniType("::foo::Foo")
+  public interface NativeFoo extends JniTypeToken {}
+
+  @NativeMethods
+  interface Natives {
+    @NativeClassQualifiedName("bar::Bar")
+    void doSomething(JniPtr<NativeFoo> self);
+  }
+}
+"""
+    with self.assertRaisesRegex(
+        parse.ParseError,
+        r'specifies both @NativeClassQualifiedName and a safe pointer'):
+      _parse_java_file_data('ConflictClassTest.java',
+                            contents,
+                            enable_safe_pointers=True)
+
+  def testParseProxyNativeSafePtrNativePrefixError(self):
+    contents = """
+package org.jni_zero;
+public class NativePrefixMemberTest {
+  @JniType("::foo::Foo")
+  public interface NativeFoo extends JniTypeToken {}
+
+  @NativeMethods
+  interface Natives {
+    void doSomething(JniPtr<NativeFoo> nativeFoo);
+  }
+}
+"""
+    with self.assertRaisesRegex(
+        parse.ParseError, r'Use "self" to dispatch to a C\+\+ member function'):
+      _parse_java_file_data('NativePrefixMemberTest.java',
                             contents,
                             enable_safe_pointers=True)
 

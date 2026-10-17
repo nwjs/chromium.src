@@ -72,17 +72,9 @@ class PLATFORM_EXPORT CanvasResource : public gpu::ClientImage {
     return GetSharedImage()->EstimatedSizeInBytes();
   }
 
-  // A CanvasResource is not thread-safe and does not allow concurrent usage
-  // from multiple threads. But it maybe used from any thread. It remains bound
-  // to the current thread until Transfer is called. Note that while the
-  // resource maybe used for reads on any thread, it can be written to only on
-  // the thread where it was created.
-  virtual void Transfer() {}
-
-  // Provides a TransferableResource representation of this resource to share it
+  // Returns a TransferableResource representation of this resource to share it
   // with the compositor.
-  bool PrepareTransferableResource(viz::TransferableResource*,
-                                   bool needs_verified_synctoken);
+  viz::TransferableResource PrepareTransferableResource();
 
   // Issues a wait for this sync token on the context used by this resource for
   // rendering.
@@ -110,6 +102,9 @@ class PLATFORM_EXPORT CanvasResource : public gpu::ClientImage {
 
   const gpu::SyncToken& sync_token() const { return GetSyncToken(); }
 
+  virtual base::WeakPtr<WebGraphicsContext3DProviderWrapper>
+  ContextProviderWrapper() const = 0;
+
  protected:
   explicit CanvasResource(scoped_refptr<gpu::ClientSharedImage> shared_image);
 
@@ -123,9 +118,6 @@ class PLATFORM_EXPORT CanvasResource : public gpu::ClientImage {
     return viz::TransferableResource::ResourceSource::kCanvas;
   }
 
-  virtual base::WeakPtr<WebGraphicsContext3DProviderWrapper>
-  ContextProviderWrapper() const = 0;
-
   const base::PlatformThreadRef owning_thread_ref_;
   const scoped_refptr<base::SingleThreadTaskRunner> owning_thread_task_runner_;
 
@@ -136,12 +128,6 @@ class PLATFORM_EXPORT CanvasResource : public gpu::ClientImage {
 
   // Returns true if the resource is rastered via the GPU.
   virtual bool UsesAcceleratedRaster() const = 0;
-
-  // Verify the sync token that indicates when all writes to the current
-  // resource are finished on the GPU thread. Note that in some subclasses the
-  // token is already verified by GetSyncToken() so this function is no-op for
-  // those classes.
-  virtual void VerifySyncToken() {}
 
   bool is_origin_clean_ = true;
 };
@@ -189,7 +175,6 @@ class PLATFORM_EXPORT CanvasResourceSharedImage final : public CanvasResource {
   void OnRefReturned(scoped_refptr<CanvasResource>&& resource) final;
   scoped_refptr<StaticBitmapImage> Bitmap() final;
   const gfx::HDRMetadata& GetHdrMetadata() const final { return hdr_metadata_; }
-  void Transfer() final;
 
   // Save (and wait on) this sync token on the context used by this resource for
   // rendering.
@@ -197,6 +182,9 @@ class PLATFORM_EXPORT CanvasResourceSharedImage final : public CanvasResource {
   // zero-parameter variant of WaitSyncToken().
   void WaitSyncToken(const gpu::SyncToken&) override;
 
+  const gpu::SyncToken& acquire_sync_token() const {
+    return acquire_sync_token_;
+  }
   std::unique_ptr<gpu::RasterScopedAccess> BeginAccess(bool readonly);
   void EndAccess(std::unique_ptr<gpu::RasterScopedAccess> access);
 
@@ -222,10 +210,10 @@ class PLATFORM_EXPORT CanvasResourceSharedImage final : public CanvasResource {
   // Should be called only if the resource is using software raster.
   void UploadSoftwareRenderingResults(SkSurface* sk_surface);
 
- private:
   base::WeakPtr<WebGraphicsContext3DProviderWrapper> ContextProviderWrapper()
       const override;
-  void VerifySyncToken() override;
+
+ private:
   bool UsesAcceleratedRaster() const final { return is_accelerated_; }
 
   ~CanvasResourceSharedImage() override;
@@ -282,7 +270,6 @@ class PLATFORM_EXPORT ExternalCanvasResource final : public CanvasResource {
   bool UsesAcceleratedRaster() const final { return true; }
   base::WeakPtr<WebGraphicsContext3DProviderWrapper> ContextProviderWrapper()
       const override;
-  void VerifySyncToken() override;
   gpu::InterfaceBase* InterfaceBase() const;
 
   ExternalCanvasResource(

@@ -25,6 +25,7 @@ source_set("webui_browser") {
     ":browser_mojo_bindings",
     ":headers",
     "//base",
+    "//chrome/browser/ui:unload_controller",
     "//chrome/browser/ui/bookmarks",
     "//chrome/browser/ui/exclusive_access",
     "//chrome/browser/ui/location_bar",
@@ -51,6 +52,8 @@ source_set("webui_browser") {
     "//ui/views",
     "//ui/webui",
   ]
+
+  deps = [ "//chrome/browser/ui:browser_window_header" ]
 }
 
 source_set("impl") {
@@ -95,7 +98,10 @@ source_set("impl") {
     "//chrome/browser/resources/webui_toolbar_shared:resources",
     "//chrome/browser/themes",
     "//chrome/browser/ui:accelerator_table",
+    "//chrome/browser/ui:browser_command_controller",
+    "//chrome/browser/ui:browser_commands",
     "//chrome/browser/ui:browser_init_state",
+    "//chrome/browser/ui:browser_window_header",
     "//chrome/browser/ui:browser_window_state",
     "//chrome/browser/ui:browser_window_theme_observer",
     "//chrome/browser/ui/bookmarks",
@@ -116,8 +122,10 @@ source_set("impl") {
     "//chrome/browser/ui/toolbar",
     "//chrome/browser/ui/views:bubble_anchor_util_views",
     "//chrome/browser/ui/views:find_bar_views",
+    "//chrome/browser/ui/views:tab_search_bubble_host",
     "//chrome/browser/ui/views/exclusive_access",
     "//chrome/browser/ui/views/page_info",
+    "//chrome/browser/ui/views/profiles:profile_menu_coordinator",
     "//chrome/browser/ui/views/toolbar",
     "//chrome/browser/ui/views/translate",
     "//chrome/browser/ui/views/zoom",
@@ -136,6 +144,7 @@ source_set("impl") {
     "//components/input",
     "//components/omnibox/browser:vector_icons",
     "//components/sharing_message",
+    "//components/surface_embed/browser",
     "//components/surface_embed/common",
     "//content/public/browser",
     "//services/network/public/mojom",
@@ -190,8 +199,10 @@ source_set("browser_tests") {
     ":impl",
     ":webui_browser",
     "//base/test:test_support",
+    "//build:branding_buildflags",
     "//chrome/browser/devtools",
     "//chrome/browser/ui",
+    "//chrome/browser/ui:browser_commands",
     "//chrome/browser/ui/side_panel",
     "//chrome/browser/ui/webui:webui_util",
     "//chrome/browser/ui/webui/searchbox",
@@ -213,10 +224,6 @@ source_set("interactive_ui_tests") {
 
   sources = []
 
-  if (!is_chromeos) {
-    sources += [ "webui_browser_interactive_uitest.cc" ]
-  }
-
   deps = [
     ":impl",
     ":webui_browser",
@@ -229,4 +236,9 @@ source_set("interactive_ui_tests") {
     "//ui/gfx/geometry",
     "//ui/views:test_support",
   ]
+
+  if (!is_chromeos) {
+    deps += [ "//chrome/browser/ui:browser_window_header" ]
+    sources += [ "webui_browser_interactive_uitest.cc" ]
+  }
 }

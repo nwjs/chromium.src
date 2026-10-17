@@ -4,6 +4,7 @@
 
 #include "components/safe_browsing/core/browser/db/v5_update_protocol_manager.h"
 
+#include <optional>
 #include <utility>
 
 #include "base/base64url.h"
@@ -31,6 +32,28 @@
 
 namespace {
 
+// Backoff policy for V5 update requests.
+// With initial_delay_ms = 30 minutes, multiply_factor = 2.0, and
+// jitter_factor = 0.5, the backoff delay increases exponentially with
+// subsequent failures and has random jitter in [0.5 * base, base]:
+//  - 1st failure: 15 min - 30 min
+//  - 2nd failure: 30 min to 1 hour
+//  - 3rd failure: 1 hour to 2 hours
+//  - 4th failure: 2 hours to 4 hours
+//  - Subsequent failures continue doubling up to the 24 hour maximum backoff
+//    cap.
+const net::BackoffEntry::Policy kV5UpdateBackoffPolicy = {
+    0,                    // num_errors_to_ignore
+    30 * 60 * 1000,       // initial_delay_ms (30 minutes)
+    2.0,                  // multiply_factor (exponentially increases delays
+                          // by 2x for each new failure)
+    0.5,                  // jitter_factor (randomly reduces the delay by up
+                          // to 50%)
+    24 * 60 * 60 * 1000,  // maximum_backoff_ms (24 hours)
+    -1,                   // entry_lifetime_ms (never discard)
+    false,                // always_use_initial_delay
+};
+
 void RecordSBUpdateResult(safe_browsing::V4OperationResult v4_result) {
   UMA_HISTOGRAM_ENUMERATION(
       "SafeBrowsing.SBUpdate.Result", v4_result,
@@ -48,7 +71,9 @@ V5UpdateProtocolManager::V5UpdateProtocolManager(
     const SBProtocolConfig& config,
     V5UpdateCallback update_callback)
     : SBUpdateProtocolManager(std::move(url_loader_factory), config),
-      update_callback_(update_callback) {
+      update_callback_(update_callback),
+      backoff_entry_(
+          std::make_unique<net::BackoffEntry>(&kV5UpdateBackoffPolicy)) {
   // Do not auto-schedule updates. Let the owner (SBLocalDatabaseManager) do it
   // when it is ready to process updates.
 }
@@ -337,16 +362,27 @@ V5UpdateProtocolManager::ParseUpdateResponse(
       return base::unexpected(V5ParseResult::kMismatchedNameError);
     }
 
-    PrefixSize expected_hash_prefix_lengths =
+    PrefixSize expected_hash_prefix_length =
         GetV5ListPrefixSize(list_identifier);
-    if ((hash_list.has_additions_four_bytes() &&
-         expected_hash_prefix_lengths != 4) ||
-        (hash_list.has_additions_eight_bytes() &&
-         expected_hash_prefix_lengths != 8) ||
-        (hash_list.has_additions_sixteen_bytes() &&
-         expected_hash_prefix_lengths != 16) ||
-        (hash_list.has_additions_thirty_two_bytes() &&
-         expected_hash_prefix_lengths != 32)) {
+    std::optional<PrefixSize> actual_hash_prefix_length;
+    switch (hash_list.compressed_additions_case()) {
+      case V5::HashList::kAdditionsFourBytes:
+        actual_hash_prefix_length = 4;
+        break;
+      case V5::HashList::kAdditionsEightBytes:
+        actual_hash_prefix_length = 8;
+        break;
+      case V5::HashList::kAdditionsSixteenBytes:
+        actual_hash_prefix_length = 16;
+        break;
+      case V5::HashList::kAdditionsThirtyTwoBytes:
+        actual_hash_prefix_length = 32;
+        break;
+      case V5::HashList::COMPRESSED_ADDITIONS_NOT_SET:
+        break;
+    }
+    if (actual_hash_prefix_length.has_value() &&
+        expected_hash_prefix_length != actual_hash_prefix_length.value()) {
       return base::unexpected(V5ParseResult::kMismatchedPrefixLengthError);
     }
 
@@ -428,6 +464,15 @@ V5UpdateProtocolManager::ParsedResponse::ParsedResponse(ParsedResponse&&) =
     default;
 V5UpdateProtocolManager::ParsedResponse&
 V5UpdateProtocolManager::ParsedResponse::operator=(ParsedResponse&&) = default;
+
+void V5UpdateProtocolManager::ResetUpdateErrors() {
+  backoff_entry_->Reset();
+}
+
+base::TimeDelta V5UpdateProtocolManager::GetNextBackOffInterval() {
+  backoff_entry_->InformOfRequest(/*succeeded=*/false);
+  return backoff_entry_->GetTimeUntilRelease();
+}
 
 void V5UpdateProtocolManager::RecordProtocolSpecificNextUpdateInterval(
     base::TimeDelta interval) {

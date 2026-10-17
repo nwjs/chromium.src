@@ -78,6 +78,10 @@ void FakeToolDelegate::InterruptFromTool() {}
 
 void FakeToolDelegate::UninterruptFromTool() {}
 
+origin_gating::CheckerId FakeToolDelegate::GetOriginGatingCheckerId() const {
+  return gating_checker_id_;
+}
+
 void FakeToolDelegate::SetWebStateListForWindowId(
     int32_t window_id,
     WebStateList* web_state_list) {

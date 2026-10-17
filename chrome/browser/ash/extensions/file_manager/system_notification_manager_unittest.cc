@@ -30,7 +30,6 @@
 #include "chrome/browser/notifications/notification_display_service_impl.h"
 #include "chrome/browser/notifications/notification_platform_bridge_delegator.h"
 #include "chrome/browser/ui/settings_window_manager_chromeos.h"
-#include "chrome/common/extensions/api/file_manager_private.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
@@ -38,6 +37,7 @@
 #include "chromeos/ash/components/disks/disk.h"
 #include "chromeos/ash/components/disks/fake_disk_mount_manager.h"
 #include "chromeos/ash/experiences/arc/arc_prefs.h"
+#include "chromeos/ash/experiences/extensions/common/api/file_manager_private.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/test/browser_task_environment.h"
 #include "storage/browser/file_system/file_system_url.h"
@@ -172,8 +172,11 @@ class DeviceEventRouterImpl : public DeviceEventRouter {
 };
 
 constexpr char kDevicePath[] = "/device/test";
+constexpr char kDeviceLabel[] = "MyUSB";
 constexpr char kMountPath[] = "/mnt/media/sda1";
-std::u16string kRemovableDeviceTitle = u"Removable device detected";
+constexpr char16_t kRemovableDeviceTitle[] = u"Removable device detected";
+constexpr char16_t kFormatTitle[] = u"Format MyUSB";
+constexpr char16_t kGoogleDrive[] = u"Google Drive";
 
 }  // namespace
 
@@ -328,9 +331,6 @@ TEST_F(SystemNotificationManagerTest, ExternalStorageDisabled) {
       kNotificationShowHistogramName,
       DeviceNotificationUmaType::DEVICE_EXTERNAL_STORAGE_DISABLED, 1);
 }
-
-constexpr char kDeviceLabel[] = "MyUSB";
-std::u16string kFormatTitle = u"Format MyUSB";
 
 TEST_F(SystemNotificationManagerTest, FormatStart) {
   base::HistogramTester histogram_tester;
@@ -1105,8 +1105,6 @@ TEST_F(SystemNotificationManagerTest, HandleIOTaskProgressPolicyScanning) {
   // Notification should disappear.
   ASSERT_EQ(0u, GetNotificationCount());
 }
-
-std::u16string kGoogleDrive = u"Google Drive";
 
 // Tests the bulk-pinning notifications.
 TEST_F(SystemNotificationManagerTest, BulkPinningNotification) {

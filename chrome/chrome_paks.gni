@@ -160,7 +160,13 @@ template("chrome_extra_paks") {
         "$root_gen_dir/chrome/new_tab_page_third_party_resources.pak",
         "$root_gen_dir/chrome/new_tab_page_untrusted_resources.pak",
         "$root_gen_dir/chrome/new_tab_shared_resources.pak",
+        "$root_gen_dir/chrome/side_panel_customize_chrome_resources.pak",
       ]
+    }
+
+    # side_panel/shared is not NTP-specific; see chrome/browser/resources.
+    if (!is_android || enable_webui_ntp) {
+      sources += [ "$root_gen_dir/chrome/side_panel_shared_resources.pak" ]
     }
 
     deps = [
@@ -226,9 +232,7 @@ template("chrome_extra_paks") {
         "$root_gen_dir/chrome/drive_picker_host_untrusted_resources.pak",
         "$root_gen_dir/chrome/feedback_resources.pak",
         "$root_gen_dir/chrome/gaia_auth_host_resources.pak",
-        "$root_gen_dir/chrome/geic_resources.pak",
         "$root_gen_dir/chrome/glic_untrusted_resources.pak",
-        "$root_gen_dir/chrome/history_resources.pak",
         "$root_gen_dir/chrome/indigo_resources.pak",
         "$root_gen_dir/chrome/inspect_resources.pak",
         "$root_gen_dir/chrome/iwa_dev_resources.pak",
@@ -246,18 +250,16 @@ template("chrome_extra_paks") {
         "$root_gen_dir/chrome/side_panel_bookmarks_resources.pak",
         "$root_gen_dir/chrome/side_panel_comments_resources.pak",
         "$root_gen_dir/chrome/side_panel_commerce_resources.pak",
-        "$root_gen_dir/chrome/side_panel_customize_chrome_resources.pak",
         "$root_gen_dir/chrome/side_panel_history_clusters_resources.pak",
         "$root_gen_dir/chrome/side_panel_history_resources.pak",
         "$root_gen_dir/chrome/side_panel_read_anything_resources.pak",
         "$root_gen_dir/chrome/side_panel_reading_list_resources.pak",
-        "$root_gen_dir/chrome/side_panel_shared_resources.pak",
         "$root_gen_dir/chrome/side_panel_tabs_from_other_devices_resources.pak",
         "$root_gen_dir/chrome/signin_resources.pak",
         "$root_gen_dir/chrome/support_tool_resources.pak",
         "$root_gen_dir/chrome/tab_group_home_resources.pak",
+        "$root_gen_dir/chrome/tab_group_shared_resources.pak",
         "$root_gen_dir/chrome/tab_search_resources.pak",
-        "$root_gen_dir/chrome/tab_search_shared_resources.pak",
         "$root_gen_dir/chrome/tab_strip_api_resources.pak",
         "$root_gen_dir/chrome/web_app_internals_resources.pak",
         "$root_gen_dir/chrome/webnn_internals_resources.pak",
@@ -274,7 +276,6 @@ template("chrome_extra_paks") {
         "//chrome/browser/actor/resources:browser_resources",
         "//chrome/browser/indigo/resources:browser_resources",
         "//chrome/browser/resources/contextual_cueing/internals:resources",
-        "//chrome/browser/resources/geic:resources",
         "//components/headless/command_handler",
         "//content/browser/tracing:resources",
       ]
@@ -372,7 +373,6 @@ template("chrome_extra_paks") {
         "$root_gen_dir/chrome/kerberos_resources.pak",
         "$root_gen_dir/chrome/launcher_internals_resources.pak",
         "$root_gen_dir/chrome/lock_screen_reauth_resources.pak",
-        "$root_gen_dir/chrome/manage_mirrorsync_resources.pak",
         "$root_gen_dir/chrome/multidevice_internals_resources.pak",
         "$root_gen_dir/chrome/multidevice_setup_resources.pak",
         "$root_gen_dir/chrome/nearby_internals_resources.pak",
@@ -558,6 +558,11 @@ template("chrome_extra_paks") {
     if (enable_webui_certificate_viewer) {
       sources += [ "$root_gen_dir/chrome/certificate_viewer_resources.pak" ]
       deps += [ "//chrome/browser/resources/certificate_viewer:resources" ]
+    }
+
+    if (enable_webui_history) {
+      sources += [ "$root_gen_dir/chrome/history_resources.pak" ]
+      deps += [ "//chrome/browser/resources/history:resources" ]
     }
 
     if (enable_compose) {

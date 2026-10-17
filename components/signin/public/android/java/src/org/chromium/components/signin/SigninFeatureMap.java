@@ -4,8 +4,6 @@
 
 package org.chromium.components.signin;
 
-import androidx.annotation.IntDef;
-
 import org.jni_zero.JNINamespace;
 import org.jni_zero.NativeMethods;
 
@@ -55,74 +53,14 @@ public final class SigninFeatureMap extends FeatureMap {
                     sSigninLevelUpButton,
                     sSupportForcedSigninPolicy);
 
-    /** Layout type for the sign-in promo. */
-    @IntDef({
-        SeamlessSigninPromoType.NON_SEAMLESS,
-        SeamlessSigninPromoType.COMPACT,
-        SeamlessSigninPromoType.TWO_BUTTONS
-    })
-    public @interface SeamlessSigninPromoType {
-        int NON_SEAMLESS = 0;
-        int COMPACT = 1;
-        int TWO_BUTTONS = 2;
-    }
-
-    /** Returns the currently enabled sign-in promo type. */
-    public @SeamlessSigninPromoType int getSeamlessSigninPromoType() {
-        if (!isEnabledInNative(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)) {
-            return SeamlessSigninPromoType.NON_SEAMLESS;
-        }
-        String promoType =
-                getFieldTrialParamByFeature(
-                        SigninFeatures.ENABLE_SEAMLESS_SIGNIN, "seamless-signin-promo-type");
-        switch (promoType) {
-            case "twoButtons":
-                return SeamlessSigninPromoType.TWO_BUTTONS;
-            case "compact":
-            default:
-                return SeamlessSigninPromoType.COMPACT;
-        }
-    }
-
-    /** Strings for the sign-in promo. */
-    @IntDef({
-        SeamlessSigninStringType.NON_SEAMLESS,
-        SeamlessSigninStringType.CONTINUE_BUTTON,
-        SeamlessSigninStringType.SIGNIN_BUTTON
-    })
-    public @interface SeamlessSigninStringType {
-        int NON_SEAMLESS = 0;
-        int CONTINUE_BUTTON = 1;
-        int SIGNIN_BUTTON = 2;
-    }
-
-    /** Returns the set of strings that is currently enabled for the seamless sign-in experiment. */
-    public @SeamlessSigninStringType int getSeamlessSigninStringType() {
-        if (!isEnabledInNative(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)) {
-            return SeamlessSigninStringType.NON_SEAMLESS;
-        }
-        String stringType =
-                getFieldTrialParamByFeature(
-                        SigninFeatures.ENABLE_SEAMLESS_SIGNIN, "seamless-signin-string-type");
-        switch (stringType) {
-            case "signinButton":
-                return SeamlessSigninStringType.SIGNIN_BUTTON;
-            case "continueButton":
-            default:
-                return SeamlessSigninStringType.CONTINUE_BUTTON;
-        }
-    }
-
     /**
      * Returns whether the activityless sign-in is enabled for all entry points.
      *
-     * <p>{@link SigninFeatures#ENABLE_SEAMLESS_SIGNIN} is for enabling the new activity-less
-     * sign-in flow. {@link SigninFeatures#ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT} is for
-     * migrating rest of the sign-in entry points.
+     * <p>{@link SigninFeatures#ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT} is for migrating rest of
+     * the sign-in entry points.
      */
     public boolean isActivitylessSigninAllEntryPointEnabled() {
-        return isEnabledInNative(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
-                && isEnabledInNative(SigninFeatures.ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT);
+        return isEnabledInNative(SigninFeatures.ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT);
     }
 
     /**

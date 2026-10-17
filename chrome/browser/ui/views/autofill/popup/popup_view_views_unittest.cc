@@ -231,10 +231,6 @@ class PopupViewViewsTest : public ChromeViewsTestBase {
         .WillByDefault(Return(autofill_popup_sub_controller_.GetWeakPtr()));
     ON_CALL(autofill_popup_controller_, GetMainFillingProduct)
         .WillByDefault([&controller = autofill_popup_controller_]() {
-          if (controller.GetAutofillSuggestionTriggerSource() ==
-              AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl) {
-            return FillingProduct::kAtMemory;
-          }
           return controller.GetLineCount() > 0
                      ? GetFillingProductFromSuggestionType(
                            controller.GetSuggestionAt(0).type)
@@ -971,7 +967,8 @@ TEST_F(PopupViewViewsTest, AcceptingOnTap) {
   // Tapping will accept the selection.
   EXPECT_CALL(
       controller(),
-      AcceptSuggestion(0, AutofillMetrics::SuggestionAcceptedMethod::kTap));
+      AcceptSuggestion(0, AutofillMetrics::SuggestionAcceptedMethod::kTap,
+                       /*was_obscured=*/false));
   generator().GestureTapAt(
       GetPopupRowViewAt(0).GetBoundsInScreen().CenterPoint());
 }
@@ -1484,18 +1481,20 @@ class PopupViewViewsTestKeyboard : public PopupViewViewsTest {
 // Tests that hitting enter on a suggestion autofills it.
 TEST_F(PopupViewViewsTestKeyboard, FillOnEnter) {
   SelectFirstSuggestion();
-  EXPECT_CALL(controller(),
-              AcceptSuggestion(
-                  0, AutofillMetrics::SuggestionAcceptedMethod::kKeyboard));
+  EXPECT_CALL(
+      controller(),
+      AcceptSuggestion(0, AutofillMetrics::SuggestionAcceptedMethod::kKeyboard,
+                       /*was_obscured=*/false));
   SimulateKeyPress(ui::VKEY_RETURN);
 }
 
 // Tests that hitting tab on a suggestion autofills it.
 TEST_F(PopupViewViewsTestKeyboard, FillOnTabPressed) {
   SelectFirstSuggestion();
-  EXPECT_CALL(controller(),
-              AcceptSuggestion(
-                  0, AutofillMetrics::SuggestionAcceptedMethod::kKeyboard));
+  EXPECT_CALL(
+      controller(),
+      AcceptSuggestion(0, AutofillMetrics::SuggestionAcceptedMethod::kKeyboard,
+                       /*was_obscured=*/false));
   SimulateKeyPress(ui::VKEY_TAB);
 }
 
@@ -1591,12 +1590,14 @@ TEST_F(PopupViewViewsInputDelayTest,
     EXPECT_CALL(check, Call("No time passed."));
     EXPECT_CALL(controller(),
                 AcceptSuggestion(
-                    0, AutofillMetrics::SuggestionAcceptedMethod::kKeyboard))
+                    0, AutofillMetrics::SuggestionAcceptedMethod::kKeyboard,
+                    /*was_obscured=*/false))
         .Times(0);
     EXPECT_CALL(check, Call("Insufficient time passed."));
     EXPECT_CALL(controller(),
                 AcceptSuggestion(
-                    0, AutofillMetrics::SuggestionAcceptedMethod::kKeyboard))
+                    0, AutofillMetrics::SuggestionAcceptedMethod::kKeyboard,
+                    /*was_obscured=*/false))
         .Times(0);
   }
 
@@ -3028,7 +3029,8 @@ TEST_P(PopupViewViewsTestWithAnySuggestionType, ShowClickTest) {
   CreateAndShowView({type()});
   EXPECT_CALL(
       controller(),
-      AcceptSuggestion(0, AutofillMetrics::SuggestionAcceptedMethod::kMouse))
+      AcceptSuggestion(0, AutofillMetrics::SuggestionAcceptedMethod::kMouse,
+                       /*was_obscured=*/false))
       .Times(IsClickable(type()));
   generator().MoveMouseTo(gfx::Point(1000, 1000));
   ASSERT_FALSE(view().IsMouseHovered());
@@ -3044,7 +3046,8 @@ TEST_P(PopupViewViewsTestWithClickableSuggestionType,
   CreateAndShowView({type()});
   EXPECT_CALL(
       controller(),
-      AcceptSuggestion(0, AutofillMetrics::SuggestionAcceptedMethod::kMouse));
+      AcceptSuggestion(0, AutofillMetrics::SuggestionAcceptedMethod::kMouse,
+                       /*was_obscured=*/false));
   generator().MoveMouseTo(gfx::Point(1000, 1000));
   ASSERT_FALSE(view().IsMouseHovered());
   Paint();
@@ -3059,7 +3062,8 @@ TEST_P(PopupViewViewsTestWithClickableSuggestionType,
   CreateAndShowView({type(), type()});
   EXPECT_CALL(
       controller(),
-      AcceptSuggestion(1, AutofillMetrics::SuggestionAcceptedMethod::kMouse));
+      AcceptSuggestion(1, AutofillMetrics::SuggestionAcceptedMethod::kMouse,
+                       /*was_obscured=*/false));
   generator().MoveMouseTo(GetCenterOfSuggestion(0));
   ASSERT_TRUE(view().IsMouseHovered());
   Paint();
@@ -3074,7 +3078,8 @@ TEST_P(PopupViewViewsTestWithClickableSuggestionType,
   CreateAndShowView({type(), type()});
   EXPECT_CALL(
       controller(),
-      AcceptSuggestion(0, AutofillMetrics::SuggestionAcceptedMethod::kMouse));
+      AcceptSuggestion(0, AutofillMetrics::SuggestionAcceptedMethod::kMouse,
+                       /*was_obscured=*/false));
   generator().MoveMouseTo(GetCenterOfSuggestion(0));
   ASSERT_TRUE(view().IsMouseHovered());
   Paint();
@@ -3091,7 +3096,8 @@ TEST_P(PopupViewViewsTestWithClickableSuggestionType,
   CreateAndShowView({type()});
   EXPECT_CALL(
       controller(),
-      AcceptSuggestion(0, AutofillMetrics::SuggestionAcceptedMethod::kMouse));
+      AcceptSuggestion(0, AutofillMetrics::SuggestionAcceptedMethod::kMouse,
+                       /*was_obscured=*/false));
   generator().MoveMouseTo(GetCenterOfSuggestion(0));
   ASSERT_TRUE(view().IsMouseHovered());
   Paint();
@@ -3539,9 +3545,8 @@ TEST_F(PopupViewViewsPayNowPayLaterTabsTest,
 }
 
 TEST_F(PopupViewViewsTest, SearchBar_RemainVisibleEvenWithNoSuggestions) {
-  ON_CALL(controller(), GetAutofillSuggestionTriggerSource)
-      .WillByDefault(
-          Return(AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl));
+  ON_CALL(controller(), GetMainFillingProduct)
+      .WillByDefault(Return(FillingProduct::kAtMemory));
   CreateAndShowView(
       /*ids=*/{}, CreateParamsForTestWidget(),
       AutofillPopupView::SearchBarConfig{.placeholder = u"Recall from memory",
@@ -3561,9 +3566,8 @@ TEST_F(PopupViewViewsTest, SearchBar_RemainVisibleEvenWithNoSuggestions) {
 }
 
 TEST_F(PopupViewViewsTest, AtMemory_KeyboardNavigation) {
-  ON_CALL(controller(), GetAutofillSuggestionTriggerSource)
-      .WillByDefault(
-          Return(AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl));
+  ON_CALL(controller(), GetMainFillingProduct)
+      .WillByDefault(Return(FillingProduct::kAtMemory));
   input::NativeWebKeyboardEvent event(
       blink::WebKeyboardEvent::Type::kRawKeyDown,
       blink::WebInputEvent::kNoModifiers, ui::EventTimeForNow());
@@ -3605,7 +3609,7 @@ TEST_F(PopupViewViewsTest, AtMemory_KeyboardNavigation) {
             std::make_optional<CellIndex>(0, CellType::kContent));
 
   // RETURN key accepts selected suggestion.
-  EXPECT_CALL(controller(), AcceptSuggestion(0, _));
+  EXPECT_CALL(controller(), AcceptSuggestion(0, _, /*was_obscured=*/false));
   event.windows_key_code = ui::VKEY_RETURN;
   EXPECT_TRUE(test_api(view()).HandleKeyPressEvent(event));
 
@@ -3618,9 +3622,8 @@ TEST_F(PopupViewViewsTest, AtMemory_KeyboardNavigation) {
 // Tests that arrow keys can be used to navigate between parent and sub-popup
 // back and forth.
 TEST_F(PopupViewViewsTest, AtMemory_KeyboardArrowsNavigationBetweenPopups) {
-  ON_CALL(controller(), GetAutofillSuggestionTriggerSource)
-      .WillByDefault(
-          Return(AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl));
+  ON_CALL(controller(), GetMainFillingProduct)
+      .WillByDefault(Return(FillingProduct::kAtMemory));
 
   controller().set_suggestions({
       CreateSuggestionWithChildren(

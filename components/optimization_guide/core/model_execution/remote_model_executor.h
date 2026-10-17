@@ -15,13 +15,22 @@
 #include "base/types/expected.h"
 #include "components/optimization_guide/core/model_execution/feature_keys.h"
 #include "components/optimization_guide/core/model_execution/optimization_guide_model_execution_error.h"
-#include "components/optimization_guide/core/model_quality/model_quality_log_entry.h"
 #include "components/optimization_guide/proto/model_execution.pb.h"
+#include "components/optimization_guide/proto/model_quality_metadata.pb.h"
 #include "components/optimization_guide/public/mojom/model_broker.mojom-shared.h"
+#include "services/network/public/cpp/network_context_getter.h"
 #include "services/on_device_model/public/cpp/capabilities.h"
 #include "services/on_device_model/public/mojom/on_device_model.mojom.h"
 
+class OptimizationGuideLogger;
+
+namespace signin {
+class IdentityManager;
+}  // namespace signin
+
 namespace optimization_guide {
+
+class ModelQualityLogEntry;
 
 // The model execution service.
 enum class ModelExecutionServiceType {
@@ -114,6 +123,14 @@ class RemoteModelExecutionSession {
     // Called when the connection state changes.
     virtual void OnConnectionStateChanged(ConnectionState state) = 0;
   };
+
+  static std::unique_ptr<RemoteModelExecutionSession> Create(
+      ModelBasedCapabilityKey feature,
+      const StreamingModelExecutionOptions& options,
+      OptimizationGuideModelExecutionStreamingCallback callback,
+      network::NetworkContextGetter network_context_getter,
+      signin::IdentityManager* identity_manager,
+      OptimizationGuideLogger* logger = nullptr);
 
   virtual ~RemoteModelExecutionSession() = default;
 

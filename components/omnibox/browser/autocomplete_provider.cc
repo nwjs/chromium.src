@@ -39,65 +39,65 @@ const char* AutocompleteProvider::TypeToString(Type type) {
   // the run-time metrics associated with the relevant provider can be properly
   // analyzed.
   switch (type) {
-    case TYPE_BOOKMARK:
+    case AutocompleteProvider::Type::kBookmark:
       return "Bookmark";
-    case TYPE_BUILTIN:
+    case AutocompleteProvider::Type::kBuiltin:
       return "Builtin";
-    case TYPE_CLIPBOARD:
+    case AutocompleteProvider::Type::kClipboard:
       return "Clipboard";
-    case TYPE_DOCUMENT:
+    case AutocompleteProvider::Type::kDocument:
       return "Document";
-    case TYPE_HISTORY_QUICK:
+    case AutocompleteProvider::Type::kHistoryQuick:
       return "HistoryQuick";
-    case TYPE_HISTORY_URL:
+    case AutocompleteProvider::Type::kHistoryUrl:
       return "HistoryURL";
-    case TYPE_KEYWORD:
+    case AutocompleteProvider::Type::kKeyword:
       return "Keyword";
-    case TYPE_ON_DEVICE_HEAD:
+    case AutocompleteProvider::Type::kOnDeviceHead:
       return "OnDeviceHead";
-    case TYPE_SEARCH:
+    case AutocompleteProvider::Type::kSearch:
       return "Search";
-    case TYPE_SHORTCUTS:
+    case AutocompleteProvider::Type::kShortcuts:
       return "Shortcuts";
-    case TYPE_ZERO_SUGGEST:
+    case AutocompleteProvider::Type::kZeroSuggest:
       return "ZeroSuggest";
-    case TYPE_ZERO_SUGGEST_LOCAL_HISTORY:
+    case AutocompleteProvider::Type::kZeroSuggestLocalHistory:
       return "LocalHistoryZeroSuggest";
-    case TYPE_QUERY_TILE:
+    case AutocompleteProvider::Type::kQueryTile:
       return "QueryTile";
-    case TYPE_MOST_VISITED_SITES:
+    case AutocompleteProvider::Type::kMostVisitedSites:
       return "MostVisitedSites";
-    case TYPE_VERBATIM_MATCH:
+    case AutocompleteProvider::Type::kVerbatimMatch:
       return "VerbatimMatch";
-    case TYPE_VOICE_SUGGEST:
+    case AutocompleteProvider::Type::kVoiceSuggest:
       return "VoiceSuggest";
-    case TYPE_HISTORY_FUZZY:
+    case AutocompleteProvider::Type::kHistoryFuzzy:
       return "HistoryFuzzy";
-    case TYPE_OPEN_TAB:
+    case AutocompleteProvider::Type::kOpenTab:
       return "OpenTab";
-    case TYPE_HISTORY_CLUSTER_PROVIDER:
+    case AutocompleteProvider::Type::kHistoryClusterProvider:
       return "HistoryCluster";
-    case TYPE_CALCULATOR:
+    case AutocompleteProvider::Type::kCalculator:
       return "Calculator";
-    case TYPE_FEATURED_SEARCH:
+    case AutocompleteProvider::Type::kFeaturedSearch:
       return "FeaturedSearch";
-    case TYPE_HISTORY_EMBEDDINGS:
+    case AutocompleteProvider::Type::kHistoryEmbeddings:
       return "HistoryEmbeddings";
-    case TYPE_ENTERPRISE_SEARCH_AGGREGATOR:
+    case AutocompleteProvider::Type::kEnterpriseSearchAggregator:
       return "EnterpriseSearchAggregator";
-    case TYPE_UNSCOPED_EXTENSION:
+    case AutocompleteProvider::Type::kUnscopedExtension:
       return "UnscopedExtension";
-    case TYPE_RECENTLY_CLOSED_TABS:
+    case AutocompleteProvider::Type::kRecentlyClosedTabs:
       return "RecentlyClosedTabs";
-    case TYPE_CONTEXTUAL_SEARCH:
+    case AutocompleteProvider::Type::kContextualSearch:
       return "ContextualSearch";
-    case TYPE_TAB_GROUP:
+    case AutocompleteProvider::Type::kTabGroup:
       return "TabGroup";
-    case TYPE_CROSS_DEVICE_TAB:
+    case AutocompleteProvider::Type::kCrossDeviceTab:
       return "CrossDeviceTab";
     default:
       DUMP_WILL_BE_NOTREACHED()
-          << "Unhandled AutocompleteProvider::Type " << type;
+          << "Unhandled AutocompleteProvider::Type " << static_cast<int>(type);
       return "Unknown";
   }
 }
@@ -157,61 +157,61 @@ const char* AutocompleteProvider::GetName() const {
 metrics::OmniboxEventProto_ProviderType
 AutocompleteProvider::AsOmniboxEventProviderType() const {
   switch (type_) {
-    case TYPE_BOOKMARK:
+    case AutocompleteProvider::Type::kBookmark:
       return metrics::OmniboxEventProto::BOOKMARK;
-    case TYPE_BUILTIN:
+    case AutocompleteProvider::Type::kBuiltin:
       return metrics::OmniboxEventProto::BUILTIN;
-    case TYPE_CLIPBOARD:
+    case AutocompleteProvider::Type::kClipboard:
       return metrics::OmniboxEventProto::CLIPBOARD;
-    case TYPE_DOCUMENT:
+    case AutocompleteProvider::Type::kDocument:
       return metrics::OmniboxEventProto::DOCUMENT;
-    case TYPE_HISTORY_QUICK:
+    case AutocompleteProvider::Type::kHistoryQuick:
       return metrics::OmniboxEventProto::HISTORY_QUICK;
-    case TYPE_HISTORY_URL:
+    case AutocompleteProvider::Type::kHistoryUrl:
       return metrics::OmniboxEventProto::HISTORY_URL;
-    case TYPE_KEYWORD:
+    case AutocompleteProvider::Type::kKeyword:
       return metrics::OmniboxEventProto::KEYWORD;
-    case TYPE_ON_DEVICE_HEAD:
+    case AutocompleteProvider::Type::kOnDeviceHead:
       return metrics::OmniboxEventProto::ON_DEVICE_HEAD;
-    case TYPE_SEARCH:
+    case AutocompleteProvider::Type::kSearch:
       return metrics::OmniboxEventProto::SEARCH;
-    case TYPE_SHORTCUTS:
+    case AutocompleteProvider::Type::kShortcuts:
       return metrics::OmniboxEventProto::SHORTCUTS;
-    case TYPE_ZERO_SUGGEST:
+    case AutocompleteProvider::Type::kZeroSuggest:
       return metrics::OmniboxEventProto::ZERO_SUGGEST;
-    case TYPE_ZERO_SUGGEST_LOCAL_HISTORY:
+    case AutocompleteProvider::Type::kZeroSuggestLocalHistory:
       return metrics::OmniboxEventProto::ZERO_SUGGEST_LOCAL_HISTORY;
-    case TYPE_QUERY_TILE:
+    case AutocompleteProvider::Type::kQueryTile:
       return metrics::OmniboxEventProto::QUERY_TILE;
-    case TYPE_MOST_VISITED_SITES:
+    case AutocompleteProvider::Type::kMostVisitedSites:
       return metrics::OmniboxEventProto::MOST_VISITED_SITES;
-    case TYPE_VERBATIM_MATCH:
+    case AutocompleteProvider::Type::kVerbatimMatch:
       return metrics::OmniboxEventProto::VERBATIM_MATCH;
-    case TYPE_VOICE_SUGGEST:
+    case AutocompleteProvider::Type::kVoiceSuggest:
       return metrics::OmniboxEventProto::SEARCH;
-    case TYPE_HISTORY_FUZZY:
+    case AutocompleteProvider::Type::kHistoryFuzzy:
       return metrics::OmniboxEventProto::HISTORY_FUZZY;
-    case TYPE_OPEN_TAB:
+    case AutocompleteProvider::Type::kOpenTab:
       return metrics::OmniboxEventProto::OPEN_TAB;
-    case TYPE_HISTORY_CLUSTER_PROVIDER:
+    case AutocompleteProvider::Type::kHistoryClusterProvider:
       return metrics::OmniboxEventProto::HISTORY_CLUSTER;
-    case TYPE_CALCULATOR:
+    case AutocompleteProvider::Type::kCalculator:
       return metrics::OmniboxEventProto::CALCULATOR;
-    case TYPE_FEATURED_SEARCH:
+    case AutocompleteProvider::Type::kFeaturedSearch:
       return metrics::OmniboxEventProto::FEATURED_SEARCH;
-    case TYPE_HISTORY_EMBEDDINGS:
+    case AutocompleteProvider::Type::kHistoryEmbeddings:
       return metrics::OmniboxEventProto::HISTORY_EMBEDDINGS;
-    case TYPE_ENTERPRISE_SEARCH_AGGREGATOR:
+    case AutocompleteProvider::Type::kEnterpriseSearchAggregator:
       return metrics::OmniboxEventProto::ENTERPRISE_SEARCH_AGGREGATOR;
-    case TYPE_UNSCOPED_EXTENSION:
+    case AutocompleteProvider::Type::kUnscopedExtension:
       return metrics::OmniboxEventProto::UNSCOPED_EXTENSION;
-    case TYPE_RECENTLY_CLOSED_TABS:
+    case AutocompleteProvider::Type::kRecentlyClosedTabs:
       return metrics::OmniboxEventProto::RECENTLY_CLOSED_TABS;
-    case TYPE_CONTEXTUAL_SEARCH:
+    case AutocompleteProvider::Type::kContextualSearch:
       return metrics::OmniboxEventProto::CONTEXTUAL_SEARCH_PROVIDER;
-    case TYPE_TAB_GROUP:
+    case AutocompleteProvider::Type::kTabGroup:
       return metrics::OmniboxEventProto::TAB_GROUP_PROVIDER;
-    case TYPE_CROSS_DEVICE_TAB:
+    case AutocompleteProvider::Type::kCrossDeviceTab:
       return metrics::OmniboxEventProto::CROSS_DEVICE_TAB;
     default:
       // TODO(crbug.com/40940012) This was a NOTREACHED that we converted to
@@ -220,7 +220,8 @@ AutocompleteProvider::AsOmniboxEventProviderType() const {
       //   NOTREACHED if their logs eventually begin being logged to
       //   crash reports.
       DUMP_WILL_BE_NOTREACHED()
-          << "[NOTREACHED] Unhandled AutocompleteProvider::Type " << type_;
+          << "[NOTREACHED] Unhandled AutocompleteProvider::Type "
+          << static_cast<int>(type_);
       return metrics::OmniboxEventProto::UNKNOWN_PROVIDER;
   }
 }

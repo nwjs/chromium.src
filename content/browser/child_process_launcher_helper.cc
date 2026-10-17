@@ -52,7 +52,7 @@ namespace internal {
 namespace {
 
 void RecordHistogramsOnLauncherThread(base::TimeDelta launch_time) {
-  DCHECK(CurrentlyOnProcessLauncherTaskRunner());
+  CHECK(CurrentlyOnProcessLauncherTaskRunner(), base::NotFatalUntil::M160);
   // Log the launch time, separating out the first one (which will likely be
   // slower due to the rest of the browser initializing at the same time).
   static bool done_first_launch = false;
@@ -261,7 +261,8 @@ ChildProcessLauncherHelper::~ChildProcessLauncherHelper() {
 }
 
 void ChildProcessLauncherHelper::StartLaunchOnClientThread() {
-  DCHECK(client_task_runner_->RunsTasksInCurrentSequence());
+  CHECK(client_task_runner_->RunsTasksInCurrentSequence(),
+        base::NotFatalUntil::M160);
 
   BeforeLaunchOnClientThread();
 
@@ -272,7 +273,7 @@ void ChildProcessLauncherHelper::StartLaunchOnClientThread() {
 }
 
 void ChildProcessLauncherHelper::LaunchOnLauncherThread() {
-  DCHECK(CurrentlyOnProcessLauncherTaskRunner());
+  CHECK(CurrentlyOnProcessLauncherTaskRunner(), base::NotFatalUntil::M160);
 
   // Record the delay in getting to the launcher thread.
   UMA_HISTOGRAM_TIMES("MPArch.ChildProcessLauncher.PreLaunchDelay",
@@ -420,7 +421,7 @@ void ChildProcessLauncherHelper::PostLaunchOnLauncherThread(
   if (process.process.IsValid()) {
 #if !BUILDFLAG(IS_FUCHSIA)
     if (mojo_named_channel_) {
-      DCHECK(!mojo_channel_);
+      CHECK(!mojo_channel_, base::NotFatalUntil::M160);
       mojo::OutgoingInvitation::Send(
           std::move(invitation), base::kNullProcessHandle,
           mojo_named_channel_->TakeServerEndpoint(), process_error_callback_);
@@ -428,12 +429,20 @@ void ChildProcessLauncherHelper::PostLaunchOnLauncherThread(
 #endif
     // Set up Mojo IPC to the new process.
     {
-      DCHECK(mojo_channel_);
-      DCHECK(mojo_channel_->local_endpoint().is_valid());
+      CHECK(mojo_channel_, base::NotFatalUntil::M160);
+      CHECK(mojo_channel_->local_endpoint().is_valid(),
+            base::NotFatalUntil::M160);
       mojo::OutgoingInvitation::Send(
           std::move(invitation), process.process.Handle(),
           mojo_channel_->TakeLocalEndpoint(), process_error_callback_);
     }
+
+    // Keep a launcher thread copy of the handle so that later operations on
+    // the child don't have to duplicate it on the client thread. See
+    // `child_process_`. If this fails the copy is left invalid and those
+    // operations are skipped, which at worst means the child keeps its launch
+    // priority; nothing here depends on the copy for correctness.
+    child_process_ = process.process.Duplicate();
   }
 
   client_task_runner_->PostTask(
@@ -470,6 +479,22 @@ void ChildProcessLauncherHelper::PostLaunchOnClientThread(
 
 std::string ChildProcessLauncherHelper::GetProcessType() {
   return command_line()->GetSwitchValueASCII(switches::kProcessType);
+}
+
+#if !BUILDFLAG(IS_ANDROID)
+void ChildProcessLauncherHelper::SetProcessPriorityOnLauncherThread(
+    base::Process::Priority priority) {
+  CHECK(CurrentlyOnProcessLauncherTaskRunner(), base::NotFatalUntil::M160);
+  if (!child_process_.IsValid()) {
+    return;
+  }
+  ApplyProcessPriorityOnLauncherThread(child_process_, priority);
+}
+#endif  // !BUILDFLAG(IS_ANDROID)
+
+void ChildProcessLauncherHelper::CloseProcessOnLauncherThread() {
+  CHECK(CurrentlyOnProcessLauncherTaskRunner(), base::NotFatalUntil::M160);
+  child_process_.Close();
 }
 
 // static

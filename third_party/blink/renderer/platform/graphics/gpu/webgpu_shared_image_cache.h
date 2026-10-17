@@ -7,7 +7,6 @@
 
 #include <optional>
 
-#include "base/functional/function_ref.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/threading/thread_checker.h"
@@ -21,18 +20,6 @@
 #include "third_party/skia/include/core/SkImageInfo.h"
 #include "ui/gfx/color_space.h"
 #include "ui/gfx/geometry/size.h"
-
-class SkPixmap;
-
-namespace cc {
-class PaintCanvas;
-}  // namespace cc
-
-namespace gpu {
-namespace raster {
-class RasterInterface;
-}  // namespace raster
-}  // namespace gpu
 
 namespace blink {
 
@@ -157,33 +144,20 @@ class PLATFORM_EXPORT WebGpuSharedImageLease final
 
   ~WebGpuSharedImageLease();
 
-  scoped_refptr<gpu::ClientSharedImage> GetSharedImage() const;
-  gpu::SyncToken GetSyncToken() const;
+  const scoped_refptr<gpu::ClientSharedImage>& shared_image() const {
+    return resource_.shared_image_;
+  }
+  const gpu::SyncToken& sync_token() const { return resource_.sync_token_; }
 
-  bool UploadToBackingSharedImage(const SkPixmap& pixmap,
-                                  uint32_t src_x,
-                                  uint32_t src_y);
-
-  void DrawToBackingSharedImage(
-      base::FunctionRef<void(cc::PaintCanvas&)> draw_callback);
-
-
-  std::optional<gpu::SyncToken> CopyToBackingSharedImage(
-      const scoped_refptr<gpu::ClientSharedImage>& shared_image,
-      uint32_t src_x,
-      uint32_t src_y,
-      const gpu::SyncToken& ready_sync_token);
-
-  void WaitSyncToken(const gpu::SyncToken& sync_token);
+  void SetSyncToken(const gpu::SyncToken& sync_token);
+  bool is_cleared() const { return resource_.is_cleared_; }
+  void SetCleared() { resource_.is_cleared_ = true; }
 
   // CanvasMemoryDumpClient implementation.
   void OnMemoryDump(base::trace_event::ProcessMemoryDump* pmd) override;
   size_t GetSize() const override;
 
  private:
-  gpu::raster::RasterInterface* RasterInterface() const;
-  bool IsGpuContextLost() const;
-
   Resource resource_;
   base::WeakPtr<WebGpuSharedImageCache> cache_;
 };

@@ -4,7 +4,10 @@
 
 #include "chrome/updater/test/unit_test_util.h"
 
-#include <cstdint>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdlib.h>
+
 #include <memory>
 #include <optional>
 #include <sstream>
@@ -254,7 +257,7 @@ bool DeleteFileAndEmptyParentDirectories(
 }
 
 base::FilePath GetLogDestinationDir() {
-  const char* var = std::getenv("ISOLATED_OUTDIR");
+  const char* var = getenv("ISOLATED_OUTDIR");
   return var ? base::FilePath::FromUTF8Unsafe(var) : base::FilePath();
 }
 

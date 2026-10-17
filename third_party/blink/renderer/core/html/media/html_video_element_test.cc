@@ -7,7 +7,7 @@
 #include "base/memory/raw_ptr.h"
 #include "cc/layers/layer.h"
 #include "media/base/video_frame.h"
-#include "media/renderers/paint_canvas_video_renderer.h"
+#include "media/gfx/paint_canvas_video_renderer.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/frame/frame_ad_evidence.h"
@@ -76,6 +76,9 @@ class StubPictureInPictureController : public PictureInPictureController {
     return nullptr;
   }
   bool PictureInPictureEnabled() const override { return true; }
+  bool IsPictureInPictureRequestTokenActive() const override { return false; }
+  void ActivatePictureInPictureRequestToken() override {}
+  bool ConsumePictureInPictureRequestToken() override { return false; }
 
   bool enter_immersive_called() const { return enter_immersive_called_; }
   void reset_enter_immersive_called() { enter_immersive_called_ = false; }
@@ -805,7 +808,7 @@ TEST_P(HTMLVideoElementTest, CanvasSubtreeChangeTriggersEvents) {
   EXPECT_CALL((*MockMediaPlayer()), RequestVideoFrameCallback()).Times(0);
 
   SetBodyInnerHTML(R"HTML(
-    <canvas id='canvas' layoutsubtree>
+    <canvas id='canvas' content=drawable>
     </canvas>
     <video id='video_elmt' src='http://example.com/foo.mp4'></video>
     )HTML");

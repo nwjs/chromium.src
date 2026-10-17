@@ -65,6 +65,7 @@ namespace blink {
 class CanvasContextCreationAttributesCore;
 class CanvasDrawListener;
 class CanvasHighDynamicRangeOptions;
+class CanvasPaintEventInit;
 class CanvasRenderingContextFactory;
 class DOMMatrix;
 class Element;
@@ -121,11 +122,15 @@ class CORE_EXPORT HTMLCanvasElement final
   void setWidth(unsigned, ExceptionState&);
   void setHeight(unsigned, ExceptionState&);
 
+  bool IsContentDrawable() const { return is_content_drawable_; }
+  // TODO(crbug.com/561849343): Remove support for layoutsubtree.
   void setLayoutSubtree(bool);
+  // TODO(crbug.com/561849343): Remove support for layoutsubtree.
   bool layoutSubtree() const;
   DEFINE_ATTRIBUTE_EVENT_LISTENER(paint, kPaint)
   DEFINE_ATTRIBUTE_EVENT_LISTENER(elementgeometryupdate, kElementgeometryupdate)
   void requestPaint();
+  void DispatchPaintEvent(CanvasPaintEventInit* init);
 
   void SetSize(gfx::Size new_size);
 
@@ -219,6 +224,7 @@ class CORE_EXPORT HTMLCanvasElement final
   InsertionNotificationRequest InsertedInto(ContainerNode&) override;
 
   bool IsDirty() { return !dirty_rect_.IsEmpty(); }
+  bool IsDispatchingPaintEvent() const { return is_dispatching_paint_event_; }
 
   // Pushes dirty rects onto the backing cc::TextureLayer for a composited
   // canvas. Returns `true` if any invalidations were actually applied,
@@ -262,12 +268,13 @@ class CORE_EXPORT HTMLCanvasElement final
   bool LowLatencyEnabled() const override;
   UkmParameters GetUkmParameters() override;
   void SetNeedsCompositingUpdate() override;
-  // Also implements/overrides OffscreenCanvasPlaceholder
   void UpdateDrawnElementGeometry(Element&,
                                   const gfx::Transform*,
+                                  const FloatClipRect*,
                                   bool update_hit_test_order) override;
   void UpdateDrawnElementGeometry(ElementImage&,
                                   const gfx::Transform*,
+                                  const FloatClipRect*,
                                   bool update_hit_test_order) override;
   void ClearDrawnElementGeometry(Element&) override;
   void ClearDrawnElementGeometry(ElementImage&) override;
@@ -473,6 +480,7 @@ class CORE_EXPORT HTMLCanvasElement final
 
   bool disposing_ = false;
   bool canvas_is_clear_ = true;
+  bool is_dispatching_paint_event_ = false;
 
   bool within_set_size_ = false;
   gfx::Rect dirty_rect_;
@@ -487,6 +495,7 @@ class CORE_EXPORT HTMLCanvasElement final
   bool origin_clean_;
   bool needs_unbuffered_input_ = false;
   bool style_is_visible_ = false;
+  bool is_content_drawable_ = false;
 
   Member<HTMLCanvasAccessibilityManager> accessibility_manager_;
 

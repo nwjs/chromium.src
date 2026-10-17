@@ -19,6 +19,7 @@
 #include "base/feature_list.h"
 #include "base/json/json_writer.h"
 #include "base/memory/raw_ptr.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -66,6 +67,7 @@ using ::autofill::test::FormDataEq;
 using ::testing::AllOf;
 using ::testing::Each;
 using ::testing::ElementsAre;
+using ::testing::HasSubstr;
 using ::testing::IsEmpty;
 using ::testing::Not;
 using ::testing::Pointee;
@@ -531,10 +533,13 @@ TEST_F(FormStructureTestImpl,
   field.set_renderer_id(test::MakeFieldRendererId());
   test_api(form).Append(field);
 
-  EXPECT_FALSE(
-      ShouldRunHeuristics(FormStructure(form), /*ignore_small_forms=*/true));
+  EXPECT_FALSE(GetFormParsingPermissions(FormStructure(form),
+                                         /*ignore_small_forms=*/true)
+                   .contains(FormParsingPermission::kHeuristics));
 
-  EXPECT_TRUE(ShouldBeQueried(FormStructure(form)));
+  EXPECT_TRUE(GetFormParsingPermissions(FormStructure(form),
+                                        /*ignore_small_forms=*/true)
+                  .contains(FormParsingPermission::kServerQuery));
 
   // Default configuration.
   {
@@ -562,9 +567,12 @@ TEST_F(FormStructureTestImpl,
   FormData form = test::GetFormData(
       {.fields = {{.role = NAME_FULL}, {.role = EMAIL_ADDRESS}}});
 
-  EXPECT_TRUE(
-      ShouldRunHeuristics(FormStructure(form), /*ignore_small_forms=*/false));
-  EXPECT_TRUE(ShouldBeQueried(FormStructure(form)));
+  EXPECT_TRUE(GetFormParsingPermissions(FormStructure(form),
+                                        /*ignore_small_forms=*/false)
+                  .contains(FormParsingPermission::kHeuristics));
+  EXPECT_TRUE(GetFormParsingPermissions(FormStructure(form),
+                                        /*ignore_small_forms=*/false)
+                  .contains(FormParsingPermission::kServerQuery));
 
   FormStructure form_structure(form);
   const RegexPredictions regex_predictions = DetermineRegexTypes(
@@ -595,9 +603,12 @@ TEST_F(FormStructureTestImpl,
                            FormControlType::kInputText, "given-name"),
        CreateTestFormField("Last Name", "lastname", "",
                            FormControlType::kInputText, "")});
-  EXPECT_FALSE(
-      ShouldRunHeuristics(FormStructure(form), /*ignore_small_forms=*/true));
-  EXPECT_TRUE(ShouldBeQueried(FormStructure(form)));
+  EXPECT_FALSE(GetFormParsingPermissions(FormStructure(form),
+                                         /*ignore_small_forms=*/true)
+                   .contains(FormParsingPermission::kHeuristics));
+  EXPECT_TRUE(GetFormParsingPermissions(FormStructure(form),
+                                        /*ignore_small_forms=*/true)
+                  .contains(FormParsingPermission::kServerQuery));
 
   // As a side effect of parsing small forms, if any of the heuristics, query,
   // or upload minimums are disabled, we'll autofill fields with an
@@ -636,8 +647,11 @@ TEST_F(FormStructureTestImpl, PromoCodeHeuristics_SmallForm) {
   field.set_renderer_id(test::MakeFieldRendererId());
   test_api(form).Append(field);
 
-  EXPECT_TRUE(ShouldRunHeuristicsForSingleFields(FormStructure(form)));
-  EXPECT_TRUE(ShouldRunHeuristicsForSingleFields(form));
+  EXPECT_TRUE(GetFormParsingPermissions(FormStructure(form),
+                                        /*ignore_small_forms=*/true)
+                  .contains(FormParsingPermission::kSingleFieldHeuristics));
+  EXPECT_TRUE(GetFormParsingPermissions(form, /*ignore_small_forms=*/true)
+                  .contains(FormParsingPermission::kSingleFieldHeuristics));
 
   // Default configuration.
   {
@@ -656,10 +670,10 @@ TEST_F(FormStructureTestImpl, PromoCodeHeuristics_SmallForm) {
   }
 }
 
-// Even with an 'autocomplete' attribute set, ShouldBeQueried() should
-// return true if the structure contains a password field, since there are
-// no local heuristics to depend upon in this case. Fields will still not be
-// considered autofillable though.
+// Even with an 'autocomplete' attribute set, kServerQuery should be present if
+// the structure contains a password field, since there are no local heuristics
+// to depend upon in this case. Fields will still not be considered autofillable
+// though.
 TEST_F(FormStructureTestImpl, PasswordFormShouldBeQueried) {
   FormData form;
   form.set_url(GURL("http://www.foo.com/"));
@@ -682,8 +696,12 @@ TEST_F(FormStructureTestImpl, PasswordFormShouldBeQueried) {
       std::ranges::any_of(form_structure.fields(), [](const auto& field) {
         return field->form_control_type() == FormControlType::kInputPassword;
       }));
-  EXPECT_TRUE(ShouldBeQueried(form_structure));
-  EXPECT_TRUE(ShouldBeUploaded(form_structure));
+  EXPECT_TRUE(GetFormParsingPermissions(form_structure,
+                                        /*ignore_small_forms=*/true)
+                  .contains(FormParsingPermission::kServerQuery));
+  EXPECT_TRUE(GetFormParsingPermissions(form_structure,
+                                        /*ignore_small_forms=*/true)
+                  .contains(FormParsingPermission::kServerUpload));
 }
 
 // Verify that we can correctly process a degenerate section listed in the
@@ -1966,7 +1984,9 @@ TEST_F(FormStructureTestImpl, OneFieldPasswordFormShouldNotBeUpload) {
   field.set_renderer_id(test::MakeFieldRendererId());
   test_api(form).Append(field);
 
-  EXPECT_FALSE(ShouldBeUploaded(FormStructure(form)));
+  EXPECT_FALSE(GetFormParsingPermissions(FormStructure(form),
+                                         /*ignore_small_forms=*/true)
+                   .contains(FormParsingPermission::kServerUpload));
 }
 
 
@@ -2171,17 +2191,22 @@ TEST_F(FormStructureTestImpl, GetFormTypes_AutocompleteUnrecognized) {
 }
 
 // The test ensures that single field email forms are correctly parsed via
-// `ShouldRunHeuristicsForSingleFields()`.
+// `FormParsingPermission::kSingleFieldHeuristics`.
 TEST_F(FormStructureTestImpl, SingleFieldEmailHeuristicsBehavior) {
   FormData form = test::GetFormData({.fields = {{.role = EMAIL_ADDRESS}}});
 
   // The form has too few fields; it should not run heuristics, falling back to
   // the single field parsing.
-  EXPECT_FALSE(
-      ShouldRunHeuristics(FormStructure(form), /*ignore_small_forms=*/true));
-  EXPECT_FALSE(ShouldRunHeuristics(form, /*ignore_small_forms=*/true));
-  EXPECT_TRUE(ShouldRunHeuristicsForSingleFields(FormStructure(form)));
-  EXPECT_TRUE(ShouldRunHeuristicsForSingleFields(form));
+  EXPECT_FALSE(GetFormParsingPermissions(FormStructure(form),
+                                         /*ignore_small_forms=*/true)
+                   .contains(FormParsingPermission::kHeuristics));
+  EXPECT_FALSE(GetFormParsingPermissions(form, /*ignore_small_forms=*/true)
+                   .contains(FormParsingPermission::kHeuristics));
+  EXPECT_TRUE(GetFormParsingPermissions(FormStructure(form),
+                                        /*ignore_small_forms=*/true)
+                  .contains(FormParsingPermission::kSingleFieldHeuristics));
+  EXPECT_TRUE(GetFormParsingPermissions(form, /*ignore_small_forms=*/true)
+                  .contains(FormParsingPermission::kSingleFieldHeuristics));
 
   {
     FormStructure form_structure(form);
@@ -2199,18 +2224,24 @@ TEST_F(FormStructureTestImpl, SingleFieldEmailHeuristicsBehavior) {
 }
 
 // The test ensures that email fields are correctly parsed (via
-// `ShouldRunHeuristicsForSingleFields()`) on small forms with two fields.
+// `FormParsingPermission::kSingleFieldHeuristics`) on small forms with two
+// fields.
 TEST_F(FormStructureTestImpl, TwoFieldFormEmailHeuristicsBehavior) {
   FormData form = test::GetFormData(
       {.fields = {{.role = NAME_FULL}, {.role = EMAIL_ADDRESS}}});
 
   // The form has too few fields; it should not run heuristics, falling back to
   // the single field parsing.
-  EXPECT_FALSE(
-      ShouldRunHeuristics(FormStructure(form), /*ignore_small_forms=*/true));
-  EXPECT_FALSE(ShouldRunHeuristics(form, /*ignore_small_forms=*/true));
-  EXPECT_TRUE(ShouldRunHeuristicsForSingleFields(FormStructure(form)));
-  EXPECT_TRUE(ShouldRunHeuristicsForSingleFields(form));
+  EXPECT_FALSE(GetFormParsingPermissions(FormStructure(form),
+                                         /*ignore_small_forms=*/true)
+                   .contains(FormParsingPermission::kHeuristics));
+  EXPECT_FALSE(GetFormParsingPermissions(form, /*ignore_small_forms=*/true)
+                   .contains(FormParsingPermission::kHeuristics));
+  EXPECT_TRUE(GetFormParsingPermissions(FormStructure(form),
+                                        /*ignore_small_forms=*/true)
+                  .contains(FormParsingPermission::kSingleFieldHeuristics));
+  EXPECT_TRUE(GetFormParsingPermissions(form, /*ignore_small_forms=*/true)
+                  .contains(FormParsingPermission::kSingleFieldHeuristics));
 
   {
     FormStructure form_structure(form);
@@ -2237,11 +2268,16 @@ TEST_F(FormStructureTestImpl,
 
   // The form has too few fields; it should not run heuristics, falling back to
   // the single field parsing.
-  EXPECT_FALSE(
-      ShouldRunHeuristics(FormStructure(form), /*ignore_small_forms=*/true));
-  EXPECT_FALSE(ShouldRunHeuristics(form, /*ignore_small_forms=*/true));
-  EXPECT_TRUE(ShouldRunHeuristicsForSingleFields(FormStructure(form)));
-  EXPECT_TRUE(ShouldRunHeuristicsForSingleFields(form));
+  EXPECT_FALSE(GetFormParsingPermissions(FormStructure(form),
+                                         /*ignore_small_forms=*/true)
+                   .contains(FormParsingPermission::kHeuristics));
+  EXPECT_FALSE(GetFormParsingPermissions(form, /*ignore_small_forms=*/true)
+                   .contains(FormParsingPermission::kHeuristics));
+  EXPECT_TRUE(GetFormParsingPermissions(FormStructure(form),
+                                        /*ignore_small_forms=*/true)
+                  .contains(FormParsingPermission::kSingleFieldHeuristics));
+  EXPECT_TRUE(GetFormParsingPermissions(form, /*ignore_small_forms=*/true)
+                  .contains(FormParsingPermission::kSingleFieldHeuristics));
 
   {
     FormStructure form_structure(form);
@@ -2268,11 +2304,16 @@ TEST_F(FormStructureTestImpl,
 
   // The form has too few fields; it should not run heuristics, falling back to
   // the single field parsing.
-  EXPECT_FALSE(
-      ShouldRunHeuristics(FormStructure(form), /*ignore_small_forms=*/true));
-  EXPECT_FALSE(ShouldRunHeuristics(form, /*ignore_small_forms=*/true));
-  EXPECT_TRUE(ShouldRunHeuristicsForSingleFields(FormStructure(form)));
-  EXPECT_TRUE(ShouldRunHeuristicsForSingleFields(form));
+  EXPECT_FALSE(GetFormParsingPermissions(FormStructure(form),
+                                         /*ignore_small_forms=*/true)
+                   .contains(FormParsingPermission::kHeuristics));
+  EXPECT_FALSE(GetFormParsingPermissions(form, /*ignore_small_forms=*/true)
+                   .contains(FormParsingPermission::kHeuristics));
+  EXPECT_TRUE(GetFormParsingPermissions(FormStructure(form),
+                                        /*ignore_small_forms=*/true)
+                  .contains(FormParsingPermission::kSingleFieldHeuristics));
+  EXPECT_TRUE(GetFormParsingPermissions(form, /*ignore_small_forms=*/true)
+                  .contains(FormParsingPermission::kSingleFieldHeuristics));
   {
     FormStructure form_structure(form);
     const RegexPredictions regex_predictions = DetermineRegexTypes(
@@ -2439,6 +2480,40 @@ TEST_F(FormStructureTestImpl, LogBuffer_FormSignatures) {
   EXPECT_THAT(json.value(), testing::HasSubstr("Form signature:"));
   EXPECT_THAT(json.value(), testing::HasSubstr("Form alternative signature:"));
   EXPECT_THAT(json.value(), testing::HasSubstr("Form structural signature:"));
+}
+
+// Tests that `FormStructure`'s `LogBuffer` operator (used for
+// chrome://autofill-internals/) includes field signatures, including host form
+// signature and host form structural signature.
+TEST_F(FormStructureTestImpl, LogBuffer_FieldSignatures) {
+  FormData form;
+  form.set_url(GURL("http://foo.com"));
+  FormFieldData field;
+  field.set_name(u"field1");
+  field.set_form_control_type(FormControlType::kInputText);
+  field.set_renderer_id(test::MakeFieldRendererId());
+  field.set_host_form_signature(FormSignature(123));
+  field.set_host_form_structural_signature(FormSignature(456));
+  test_api(form).Append(field);
+
+  FormStructure form_structure(form);
+  LogBuffer buffer;
+  buffer << form_structure;
+
+  std::optional<std::string> json = base::WriteJson(*buffer.RetrieveResult());
+  ASSERT_TRUE(json.has_value());
+  EXPECT_THAT(json.value(), HasSubstr("Host form signature:"));
+  EXPECT_THAT(
+      json.value(),
+      HasSubstr(base::StrCat(
+          {base::NumberToString(123), " - ",
+           base::NumberToString(HashFormSignature(FormSignature(123)))})));
+  EXPECT_THAT(json.value(), HasSubstr("Host form structural signature:"));
+  EXPECT_THAT(
+      json.value(),
+      HasSubstr(base::StrCat(
+          {base::NumberToString(456), " - ",
+           base::NumberToString(HashFormSignature(FormSignature(456)))})));
 }
 
 // The test below validates that the `MatchInfo` structure of `AutofillField` is

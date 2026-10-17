@@ -6,6 +6,7 @@ package org.chromium.components.browser_ui.bottomsheet;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import android.app.Activity;
@@ -13,7 +14,6 @@ import android.content.Context;
 
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-import androidx.test.filters.SmallTest;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -58,7 +58,6 @@ public class BottomSheetRecyclerScrollListenerTest {
 
     /** Tests that listener starts in scrolled-to-top state. */
     @Test
-    @SmallTest
     public void testInitialState() {
         assertTrue(mScrollListener.isScrolledToTop());
     }
@@ -67,7 +66,6 @@ public class BottomSheetRecyclerScrollListenerTest {
      * Tests that {@link BottomSheetRecyclerScrollListener#reset} returns to scrolled-to-top state.
      */
     @Test
-    @SmallTest
     public void testReset() {
         RecyclerView recyclerView = createRecyclerViewWithOffset(100);
 
@@ -82,7 +80,6 @@ public class BottomSheetRecyclerScrollListenerTest {
      * Tests that scroll listener correctly identifies conditions that trigger layout suppression.
      */
     @Test
-    @SmallTest
     public void testSuppressLayoutConditionsMet() {
         RecyclerView recyclerView = createRecyclerViewWithOffset(0);
 
@@ -95,7 +92,6 @@ public class BottomSheetRecyclerScrollListenerTest {
 
     /** Tests that layout suppression is not triggered when RecyclerView is not at top position. */
     @Test
-    @SmallTest
     public void testNoSuppressLayoutWhenNotAtTop() {
         RecyclerView recyclerView = createRecyclerViewWithOffset(100);
 
@@ -108,7 +104,6 @@ public class BottomSheetRecyclerScrollListenerTest {
 
     /** Tests that layout suppression is not triggered when bottom sheet is not in half state. */
     @Test
-    @SmallTest
     public void testNoSuppressLayoutWhenSheetNotHalf() {
         RecyclerView recyclerView = createRecyclerViewWithOffset(0);
 
@@ -122,7 +117,6 @@ public class BottomSheetRecyclerScrollListenerTest {
 
     /** Tests that layout suppression is applied in standard mode at half state and top position. */
     @Test
-    @SmallTest
     public void testSuppressLayout_StandardMode() {
         RecyclerView recyclerView = createRecyclerViewWithOffset(0);
 
@@ -137,7 +131,6 @@ public class BottomSheetRecyclerScrollListenerTest {
 
     /** Tests that layout suppression is NOT applied on desktop. */
     @Test
-    @SmallTest
     public void testNoSuppressLayout_Desktop() {
         RecyclerView recyclerView = createRecyclerViewWithOffset(0);
 
@@ -147,6 +140,22 @@ public class BottomSheetRecyclerScrollListenerTest {
         mScrollListener.onScrolled(recyclerView, 0, 0);
 
         assertTrue(mScrollListener.isScrolledToTop());
+        assertFalse(recyclerView.isLayoutSuppressed());
+    }
+
+    @Test
+    public void testNoSuppressLayout_Desktop_WithExplicitSheetContent() {
+        BottomSheetContent mockContent = mock(BottomSheetContent.class);
+        BottomSheetRecyclerScrollListener listener =
+                new BottomSheetRecyclerScrollListener(mMockBottomSheetController, mockContent);
+        RecyclerView recyclerView = createRecyclerViewWithOffset(0);
+
+        when(mMockBottomSheetController.getSheetState()).thenReturn(SheetState.HALF);
+        when(mMockBottomSheetController.isLargeFormFactorUiEnabled(mockContent)).thenReturn(true);
+
+        listener.onScrolled(recyclerView, 0, 0);
+
+        assertTrue(listener.isScrolledToTop());
         assertFalse(recyclerView.isLayoutSuppressed());
     }
 }

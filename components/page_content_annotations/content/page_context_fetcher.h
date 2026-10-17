@@ -38,6 +38,10 @@
 
 #if BUILDFLAG(ENABLE_PDF)
 #include "pdf/mojom/pdf.mojom.h"
+
+namespace pdf {
+class PDFDocumentHelper;
+}
 #endif  // BUILDFLAG(ENABLE_PDF)
 
 namespace content {
@@ -145,6 +149,16 @@ BASE_DECLARE_FEATURE(kGlicScreenshotPasswordRedaction);
 // Controls whether sensitive payment fields are redacted from screenshots.
 BASE_DECLARE_FEATURE(kGlicScreenshotSensitivePaymentRedaction);
 
+// Controls whether embedded PDF bytes are extracted. Supports only PDFs
+// rendered in the Chrome PDF viewer.
+BASE_DECLARE_FEATURE(kGlicEmbeddedPdfBytesExtraction);
+
+// Controls PDF extraction parameters such as the timeout limit. It is not a
+// kill switch for the PDF extraction support.
+BASE_DECLARE_FEATURE(kPageContextFetcherPdfExtraction);
+
+extern const base::FeatureParam<base::TimeDelta> kPdfExtractionTimeout;
+
 extern const base::FeatureParam<int> kMaxScreenshotWidthParam;
 
 extern const base::FeatureParam<int> kMaxScreenshotHeightParam;
@@ -205,6 +219,14 @@ class PageContextFetcher : public content::WebContentsObserver {
                            AddIframeInfoNoUrlOrigin);
   FRIEND_TEST_ALL_PREFIXES(PageContextFetcherIframeInfoTest,
                            NoIframeInfoWhenFeatureDisabled);
+  FRIEND_TEST_ALL_PREFIXES(PdfMultiSourcePageContextFetcherBrowserTest,
+                           FetchesEmbeddedPdfBytesMultipleCandidates);
+#if BUILDFLAG(ENABLE_PDF)
+  friend class PageContextFetcherPdfTest;
+  friend class PageContextFetcherPdfBytesExtractionTest;
+  friend class PageContextFetcherPdfTextExtractionTest;
+  friend class PageContextFetcherHangingPdfTest;
+#endif  // BUILDFLAG(ENABLE_PDF)
 
   // Redacts a screenshot by painting over sensitive regions with
   // `redaction_color`.
@@ -214,8 +236,24 @@ class PageContextFetcher : public content::WebContentsObserver {
       SkColor4f redaction_color);
 
 #if BUILDFLAG(ENABLE_PDF)
+  // Finds the `PDFDocumentHelper` of the PDF extraction candidate in
+  // `WebContents`.
+  static pdf::PDFDocumentHelper* GetPDFExtractionCandidate(
+      content::WebContents& contents);
+
   void FetchPdfContent(const PdfOptions& options);
+
+  void SchedulePdfExtractionTimeout();
+
+  // Drop handler for the PDF extraction Mojo callback.
+  void OnPdfPipeDisconnected();
+
+  // Invoked to abort PDF extraction (e.g. on IPC pipe disconnect or timeout),
+  // completing the fetch with a null result (if not already completed).
+  void AbortPdfExtraction();
+
   void ReceivedPdfBytes(url::Origin pdf_origin,
+                        bool is_top_level_pdf,
                         uint32_t pdf_size_limit,
                         pdf::mojom::PdfListener::GetPdfBytesStatus status,
                         const std::vector<uint8_t>& pdf_bytes,

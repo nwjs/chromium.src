@@ -11,6 +11,7 @@
 
 #include "base/check.h"
 #include "base/compiler_specific.h"
+#include "base/containers/to_vector.h"
 #include "base/files/file_path.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -23,6 +24,7 @@
 #include "pdf/test/test_client.h"
 #include "pdf/test/test_helpers.h"
 #include "pdf/ui/thumbnail.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/pdfium/public/fpdf_formfill.h"
 #include "third_party/skia/include/core/SkImage.h"
@@ -36,6 +38,10 @@
 #include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/gfx/geometry/test/geometry_util.h"
 #include "ui/gfx/range/range.h"
+
+#if BUILDFLAG(IS_WIN)
+#include "base/win/windows_version.h"
+#endif
 
 namespace chrome_pdf {
 
@@ -560,6 +566,65 @@ TEST_P(PDFiumPageLinkTest, GetUTF8LinkTarget) {
 }
 
 INSTANTIATE_TEST_SUITE_P(All, PDFiumPageLinkTest, testing::Bool());
+
+// PDFiumTestBase's parameter selects the renderer, which makes no difference
+// to link generation. Reuse it to toggle
+// kPdfAccessibilityHeuristicEnhancements instead.
+class PDFiumPageHeuristicEnhancementsTest : public PDFiumTestBase {
+ public:
+  PDFiumPageHeuristicEnhancementsTest() {
+    scoped_feature_list_.InitWithFeatureState(
+        ::features::kPdfAccessibilityHeuristicEnhancements,
+        HeuristicEnhancementsEnabled());
+  }
+
+ protected:
+  bool HeuristicEnhancementsEnabled() const { return GetParam(); }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+// Some PDFs both print a URL as visible text and wrap that text in a /Link
+// annotation. PDFium's text scanner and its annotation pass then each produce
+// a link for the same span, so the URL would show up twice.
+TEST_P(PDFiumPageHeuristicEnhancementsTest, AnnotLinkReplacesDuplicateWebLink) {
+  // `weblink_with_annot.pdf` prints one URL per line:
+  //   http://example.com/a  covered by an annotation with the same URI
+  //   http://example.com/b  not covered by any annotation
+  //   http://example.com/c  covered by an annotation with a different URI
+  //   http://example.com    covered by an annotation with URI
+  //                         "http://example.com/", which is the same URL
+  //                         spelled differently
+  // Only the first and last lines are genuine duplicates.
+  TestClient client(/*use_skia_renderer=*/false);
+  std::unique_ptr<PDFiumEngine> engine =
+      InitializeEngine(&client, FILE_PATH_LITERAL("weblink_with_annot.pdf"));
+  ASSERT_TRUE(engine);
+
+  // The web links on the second and third lines always survive: no annotation
+  // covers the second, and the annotation covering the third points somewhere
+  // else, so the two are not interchangeable.
+  std::vector<std::string> expected_urls = {
+      "http://example.com/a", "http://example.com/b", "http://example.com/c",
+      "http://example.com/", "http://other.test/"};
+  if (!HeuristicEnhancementsEnabled()) {
+    // Without deduplication, each pass reports the duplicated links.
+    expected_urls.push_back("http://example.com/a");
+    expected_urls.push_back("http://example.com");
+  }
+
+  PDFiumPage& page = GetPDFiumPage(*engine, 0);
+  page.CalculateLinks();
+  const std::vector<std::string> actual_urls = base::ToVector(
+      page.links_,
+      [](const PDFiumPage::Link& link) { return link.target.url; });
+  EXPECT_THAT(actual_urls, testing::UnorderedElementsAreArray(expected_urls));
+}
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         PDFiumPageHeuristicEnhancementsTest,
+                         testing::Bool());
 
 using PDFiumPageImageTest = PDFiumTestBase;
 
@@ -1150,6 +1215,13 @@ TEST_P(PDFiumPageThumbnailTest, GenerateThumbnailWithTransparency) {
 }
 
 TEST_P(PDFiumPageThumbnailTest, GenerateThumbnailWithOverlapCropBox) {
+#if BUILDFLAG(IS_WIN)
+  // TODO(crbug.com/566174935): Re-enable once the Skia expectation matches
+  // Win11 rendering after PDFium roll.
+  if (GetParam() && base::win::GetVersion() >= base::win::Version::WIN11) {
+    GTEST_SKIP() << "Skia rendering mismatch on Windows 11.";
+  }
+#endif
   TestClient client(/*use_skia_renderer=*/GetParam());
   std::unique_ptr<PDFiumEngine> engine =
       InitializeEngine(&client, FILE_PATH_LITERAL("hello_world_cropped.pdf"));

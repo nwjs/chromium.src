@@ -37,29 +37,35 @@ public class AutofillSnackbarController implements SnackbarManager.SnackbarContr
         this.mSnackbarManager = snackbarManager;
     }
 
+    private long takeNativePtr() {
+        long nativeView = mNativeAutofillSnackbarView;
+        mNativeAutofillSnackbarView = 0;
+        return nativeView;
+    }
+
     @Override
     public void onAction(@Nullable Object actionData) {
-        if (mNativeAutofillSnackbarView == 0) {
+        long nativeView = takeNativePtr();
+        if (nativeView == 0) {
             return;
         }
-        // Notify the backend that the user clicked on the action button.
-        AutofillSnackbarControllerJni.get().onActionClicked(mNativeAutofillSnackbarView);
-        // Since the snackbar gets dismissed when the action is clicked, notify the backend about
-        // the dismissal as well.
-        AutofillSnackbarControllerJni.get().onDismissed(mNativeAutofillSnackbarView);
+        // Native OnActionClicked runs both the action callback and the dismiss callback.
+        AutofillSnackbarControllerJni.get().onActionClicked(nativeView);
     }
 
     @Override
     public void onDismissNoAction(@Nullable Object actionData) {
-        if (mNativeAutofillSnackbarView == 0) {
+        long nativeView = takeNativePtr();
+        if (nativeView == 0) {
             return;
         }
-        AutofillSnackbarControllerJni.get().onDismissed(mNativeAutofillSnackbarView);
+        AutofillSnackbarControllerJni.get().onDismissed(nativeView);
     }
 
     @CalledByNative
     static AutofillSnackbarController create(
-            long nativeAutofillSnackbarView, WindowAndroid windowAndroid) {
+            long nativeAutofillSnackbarView,
+            @JniType("ui::WindowAndroid*") WindowAndroid windowAndroid) {
         SnackbarManager snackbarManager = SnackbarManagerProvider.from(windowAndroid);
         assumeNonNull(snackbarManager);
         return new AutofillSnackbarController(nativeAutofillSnackbarView, snackbarManager);
@@ -71,18 +77,17 @@ public class AutofillSnackbarController implements SnackbarManager.SnackbarContr
      * @param message Message to be shown in the snackbar.
      * @param action Label for the action button in the snackbar.
      * @param duration The duration (in ms) for which the snackbar should be shown.
+     * @param snackbarType The type of the snackbar to be shown.
      */
     @CalledByNative
     void show(
             @JniType("std::u16string") String message,
             @JniType("std::u16string") String action,
-            int duration) {
+            int duration,
+            @JniType("autofill::AutofillSnackbarType") @AutofillSnackbarType int snackbarType) {
+        int identifier = getSnackbarIdentifier(snackbarType);
         Snackbar snackBar =
-                Snackbar.make(
-                                message,
-                                this,
-                                Snackbar.TYPE_ACTION,
-                                Snackbar.UMA_AUTOFILL_VIRTUAL_CARD_FILLED)
+                Snackbar.make(message, this, Snackbar.TYPE_ACTION, identifier)
                         .setAction(action, /* actionData= */ null);
         // Wrap the message text if it doesn't fit on a single line. The action text will not wrap
         // though.
@@ -91,15 +96,29 @@ public class AutofillSnackbarController implements SnackbarManager.SnackbarContr
         mSnackbarManager.showSnackbar(snackBar);
     }
 
+    private static int getSnackbarIdentifier(@AutofillSnackbarType int snackbarType) {
+        switch (snackbarType) {
+            case AutofillSnackbarType.AUTOFILL_AI_SUPPRESSION_UNDO:
+                return Snackbar.UMA_AUTOFILL_AI_SUPPRESSION_UNDO;
+            case AutofillSnackbarType.VIRTUAL_CARD:
+            default:
+                // Other snackbar types intentionally share UMA_AUTOFILL_VIRTUAL_CARD_FILLED
+                // until dedicated UMA constants are introduced.
+                return Snackbar.UMA_AUTOFILL_VIRTUAL_CARD_FILLED;
+        }
+    }
+
     /** Dismiss the autofill snackbar if it's showing. No-op if it's not showing. */
     @CalledByNative
     void dismiss() {
+        if (takeNativePtr() == 0) {
+            return;
+        }
         mSnackbarManager.dismissSnackbars(this);
-        mNativeAutofillSnackbarView = 0;
     }
 
     @NativeMethods
-    public interface Natives {
+    interface Natives {
         void onActionClicked(long nativeAutofillSnackbarViewAndroid);
 
         void onDismissed(long nativeAutofillSnackbarViewAndroid);

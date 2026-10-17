@@ -432,7 +432,8 @@ class CONTENT_EXPORT WebContentsAccessibilityAndroid
   void HandlePageLoaded(int32_t unique_id);
   // If |set_subtree_changed| is true, the TYPE_WINDOW_CONTENT_CHANGED event
   // will signal that this change is affecting its underlying subtree.
-  void HandleContentChanged(int32_t unique_id, bool set_subtree_changed);
+  virtual void HandleContentChanged(int32_t unique_id,
+                                    bool set_subtree_changed);
   void HandleFocusChanged(int32_t unique_id, bool is_root_or_frame_root);
   void HandleCheckStateChanged(int32_t unique_id);
   void HandleClicked(int32_t unique_id);
@@ -448,7 +449,6 @@ class CONTENT_EXPORT WebContentsAccessibilityAndroid
   // Dispatches LIVE_REGION_NODE_CHANGED AxGeneratedEvents over the JNI Bridge.
   void HandleLiveRegionNodeChanged(int32_t unique_id);
   void HandleDefaultActionVerbChanged(int32_t unique_id);
-  void AnnounceLiveRegionText(const std::u16string& text);
   void HandleActiveDescendantChanged(int32_t unique_id);
   void HandleTextSelectionChanged(int32_t unique_id);
   void HandleEditableTextChanged(int32_t unique_id, int32_t subType);
@@ -461,7 +461,7 @@ class CONTENT_EXPORT WebContentsAccessibilityAndroid
   void HandleSpinButtonStepIntent(int32_t unique_id);
   bool OnHoverEvent(const ui::MotionEventAndroid& event);
   void HandleHover(int32_t unique_id);
-  void HandleNavigate(int32_t root_id);
+  virtual void HandleNavigate(int32_t root_id);
   void HandleInitialLoadComplete(int32_t root_id);
   void UpdateMaxNodesInCache();
   void ClearNodeInfoCacheForGivenId(int32_t unique_id);

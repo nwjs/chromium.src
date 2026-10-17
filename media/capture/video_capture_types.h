@@ -112,7 +112,7 @@ enum class VideoCaptureError {
   kCrosHalV3BufferManagerFailedToMapGpuMemoryBuffer = 47,
   kCrosHalV3BufferManagerUnsupportedVideoPixelFormat = 48,
   kCrosHalV3BufferManagerFailedToDupFd = 49,
-  kCrosHalV3BufferManagerFailedToWrapGpuMemoryHandle = 50,
+  // kCrosHalV3BufferManagerFailedToWrapGpuMemoryHandle = 50,  // Removed.
   kCrosHalV3BufferManagerFailedToRegisterBuffer = 51,
   kCrosHalV3BufferManagerProcessCaptureRequestFailed = 52,
   kCrosHalV3BufferManagerInvalidPendingResultId = 53,
@@ -124,7 +124,7 @@ enum class VideoCaptureError {
   kCrosHalV3BufferManagerReceivedInvalidShutterTime = 59,
   kCrosHalV3BufferManagerFatalDeviceError = 60,
   kCrosHalV3BufferManagerReceivedFrameIsOutOfOrder = 61,
-  kCrosHalV3BufferManagerFailedToUnwrapReleaseFenceFd = 62,
+  // kCrosHalV3BufferManagerFailedToUnwrapReleaseFenceFd = 62,  // Removed.
   kCrosHalV3BufferManagerSyncWaitOnReleaseFenceTimedOut = 63,
   kCrosHalV3BufferManagerInvalidJpegBlob = 64,
   kAndroidFailedToAllocate = 65,
@@ -377,6 +377,13 @@ struct CAPTURE_EXPORT VideoCaptureParams {
 
   // The request type of the capture source.
   CaptureSourceRequestType request_type = CaptureSourceRequestType::kUnknown;
+
+  // Whether this video capture is secure.
+  // A capture is considered secure if the captured content is not easily
+  // accessible to JavaScript or users, and cannot be trivially shared or
+  // streamed out of the device. Used for capture prevention, e.g. for protected
+  // content or by enterprise policy.
+  bool is_secure = false;
 };
 
 CAPTURE_EXPORT std::ostream& operator<<(

@@ -6,11 +6,12 @@
 
 #include <algorithm>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "base/check.h"
-#include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
+#include "base/memory/raw_ptr.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/context_hub/context_hub_service.h"
@@ -18,8 +19,12 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/browser_window/public/browser_collection.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
+#include "chrome/browser/ui/navigator/browser_navigator.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
@@ -28,16 +33,21 @@
 #include "components/saved_tab_groups/public/types.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/sessions/core/session_id.h"
+#include "components/tab_groups/tab_group_color.h"
 #include "components/tab_groups/tab_group_id.h"
+#include "components/tab_groups/tab_group_visual_data.h"
 #include "components/tabs/public/tab_handle_factory.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/base_window.h"
+#include "ui/base/window_open_disposition.h"
+#include "url/gurl.h"
 
 namespace context_hub {
 namespace {
 
-using WindowTabIndicesMap =
-    base::flat_map<BrowserWindowInterface*, std::vector<int>>;
+// Windows and their matching tab indices, most-recently-activated first.
+using WindowTabIndicesList =
+    std::vector<std::pair<BrowserWindowInterface*, std::vector<int>>>;
 
 // Finds tab indices in a TabStripModel matching a set of session tab IDs.
 std::vector<int> GetMatchingTabIndices(
@@ -62,10 +72,10 @@ std::vector<int> GetMatchingTabIndices(
 }
 
 // Maps browser windows to their tab indices matching the group's tab IDs.
-WindowTabIndicesMap FindTabsForGroup(
+WindowTabIndicesList FindTabsForGroup(
     Profile* profile,
     const base::flat_set<int64_t>& group_tab_ids) {
-  WindowTabIndicesMap window_indices;
+  WindowTabIndicesList window_indices;
   ProfileBrowserCollection* collection =
       ProfileBrowserCollection::GetForProfile(profile);
   if (!collection) {
@@ -76,17 +86,19 @@ WindowTabIndicesMap FindTabsForGroup(
         std::vector<int> indices =
             GetMatchingTabIndices(b->GetTabStripModel(), group_tab_ids);
         if (!indices.empty()) {
-          window_indices[b] = std::move(indices);
+          window_indices.emplace_back(b, std::move(indices));
         }
         return true;
-      });
+      },
+      BrowserCollection::Order::kActivation);
   return window_indices;
 }
 
 // Returns the browser window containing the most tabs for the target group.
-// TODO(crbug.com/542259689): Add tiebreaker using MRU window.
+// `window_indices` is most-recently-activated first and max_element() returns
+// the first of equal elements, so ties go to the most recently used window.
 BrowserWindowInterface* GetMajorityBrowser(
-    const WindowTabIndicesMap& window_indices) {
+    const WindowTabIndicesList& window_indices) {
   auto it = std::ranges::max_element(window_indices, {}, [](const auto& entry) {
     return entry.second.size();
   });
@@ -95,7 +107,7 @@ BrowserWindowInterface* GetMajorityBrowser(
 
 // Moves tabs from other browser windows into the target browser window.
 void MoveTabsToBrowser(BrowserWindowInterface* target_browser,
-                       const WindowTabIndicesMap& window_indices) {
+                       const WindowTabIndicesList& window_indices) {
   for (const auto& [source_browser, indices] : window_indices) {
     if (source_browser != target_browser) {
       chrome::MoveTabsToExistingWindow(source_browser, target_browser, indices);
@@ -105,9 +117,8 @@ void MoveTabsToBrowser(BrowserWindowInterface* target_browser,
 
 // Returns true if any of the target tabs currently belong to a tab group
 // that is pinned to the bookmarks bar.
-bool WereAnyTabsInPinnedGroup(
-    Profile* profile,
-    const WindowTabIndicesMap& window_indices) {
+bool WereAnyTabsInPinnedGroup(Profile* profile,
+                              const WindowTabIndicesList& window_indices) {
   tab_groups::TabGroupSyncService* sync_service =
       tab_groups::TabGroupSyncServiceFactory::GetForProfile(profile);
   if (!sync_service) {
@@ -187,8 +198,7 @@ bool ConfirmSingleTabGroup(Profile* profile, const TabGroupEntry& group) {
         session_id != SessionID::InvalidValue().id() ? session_id : id);
   }
   base::flat_set<int64_t> tab_ids(std::move(resolved_ids));
-  WindowTabIndicesMap window_indices =
-      FindTabsForGroup(profile, tab_ids);
+  WindowTabIndicesList window_indices = FindTabsForGroup(profile, tab_ids);
   if (window_indices.empty()) {
     return false;
   }
@@ -418,6 +428,77 @@ void ContextHubTabProviderDesktop::UngroupGroupFromTabstripIfOpen(
     }
     return true;
   });
+}
+
+bool ContextHubTabProviderDesktop::OpenUrlsInTabGroup(
+    const std::string& group_label,
+    base::span<const GURL> urls) {
+  if (urls.empty()) {
+    return false;
+  }
+  ProfileBrowserCollection* collection =
+      ProfileBrowserCollection::GetForProfile(profile_);
+  if (!collection) {
+    return false;
+  }
+  BrowserWindowInterface* target_browser = collection->FindTabbedBrowser();
+  if (!target_browser) {
+    return false;
+  }
+
+  TabStripModel* tab_strip = target_browser->GetTabStripModel();
+  if (!tab_strip || !tab_strip->SupportsTabGroups()) {
+    return false;
+  }
+
+  std::vector<int> tab_indices;
+  for (const GURL& url : urls) {
+    if (!url.is_valid()) {
+      continue;
+    }
+    content::WebContents* contents = chrome::AddAndReturnTabAt(
+        target_browser, url, /*index=*/-1, /*foreground=*/false);
+    if (contents) {
+      int index = tab_strip->GetIndexOfWebContents(contents);
+      if (index != TabStripModel::kNoTab) {
+        tab_indices.push_back(index);
+      }
+    }
+  }
+
+  if (tab_indices.empty()) {
+    return false;
+  }
+
+  tab_groups::TabGroupId group_id = tab_strip->AddToNewGroup(tab_indices);
+  // TODO(crbug.com/546250053): In the future, consider deriving the tab group
+  // color from the topic's visual identity (e.g., backgroundColor).
+  tab_groups::TabGroupVisualData visual_data(base::UTF8ToUTF16(group_label),
+                                             tab_groups::TabGroupColorId::kBlue,
+                                             /*is_collapsed=*/false);
+  tab_strip->ChangeTabGroupVisuals(group_id, visual_data);
+  tab_strip->ActivateTabAt(tab_indices.front());
+  if (target_browser->GetWindow()) {
+    target_browser->GetWindow()->Show();
+  }
+  return true;
+}
+
+// Note that this only navigates. The topic page opens the Glic side panel
+// itself (via PageHandler::OpenGlicPanel) once it has loaded, so that it can
+// provide topic-specific suggestions.
+void ContextHubTabProviderDesktop::OpenTopic(
+    browser::context_hub::mojom::TopicIdOrUrlPtr topic_id_or_url) {
+  GURL url = ResolveTopicUrl(topic_id_or_url);
+  if (!url.is_valid()) {
+    return;
+  }
+
+  // Navigate() resolves the target window itself: for a new foreground tab it
+  // reuses a tabbed browser for this profile, or creates one if none is open.
+  NavigateParams navigate_params(profile_, url, ui::PAGE_TRANSITION_LINK);
+  navigate_params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+  Navigate(&navigate_params);
 }
 
 }  // namespace context_hub

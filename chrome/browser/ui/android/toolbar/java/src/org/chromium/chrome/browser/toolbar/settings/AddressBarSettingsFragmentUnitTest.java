@@ -17,9 +17,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.app.Activity;
-import android.content.pm.PackageManager;
 import android.graphics.drawable.ColorDrawable;
-import android.os.Build;
 import android.os.Bundle;
 import android.widget.ImageView;
 
@@ -27,7 +25,6 @@ import androidx.fragment.app.FragmentManager;
 import androidx.lifecycle.Lifecycle.State;
 import androidx.preference.Preference;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
-import androidx.test.filters.SmallTest;
 
 import org.junit.After;
 import org.junit.Before;
@@ -37,11 +34,8 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.Shadows;
-import org.robolectric.annotation.Config;
-import org.robolectric.shadows.ShadowPackageManager;
 
-import org.chromium.base.ContextUtils;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.RobolectricUtil;
@@ -115,7 +109,6 @@ public class AddressBarSettingsFragmentUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testBottomButtonHighlight() {
         launchFragmentWithArgs(
                 AddressBarSettingsFragment.createArguments(HighlightedOption.BOTTOM_TOOLBAR));
@@ -166,7 +159,6 @@ public class AddressBarSettingsFragmentUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testTopAndThenSelectBottom() {
         mSharedPreferencesManager.writeInt(
                 ChromePreferenceKeys.TOOLBAR_TOP_ANCHORED, ToolbarPositionAndSource.TOP_SETTINGS);
@@ -198,7 +190,6 @@ public class AddressBarSettingsFragmentUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testBottomAndThenSelectTop() {
         mSharedPreferencesManager.writeInt(
                 ChromePreferenceKeys.TOOLBAR_TOP_ANCHORED,
@@ -223,7 +214,6 @@ public class AddressBarSettingsFragmentUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testBottomAndThenSelectTop_localPrefNotInitialized() {
         LocalStatePrefs.setNativePrefsLoadedForTesting(false);
         mSharedPreferencesManager.writeInt(
@@ -248,7 +238,6 @@ public class AddressBarSettingsFragmentUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testComputeToolbarPositionAndSource_prefsDontAgree() {
         // ChromeSharedPref says TOP
         mSharedPreferencesManager.writeInt(
@@ -273,12 +262,8 @@ public class AddressBarSettingsFragmentUnitTest {
     }
 
     @Test
-    @SmallTest
-    @Config(sdk = Build.VERSION_CODES.R)
     public void testFoldable() {
-        ShadowPackageManager shadowPackageManager =
-                Shadows.shadowOf(ContextUtils.getApplicationContext().getPackageManager());
-        shadowPackageManager.setSystemFeature(PackageManager.FEATURE_SENSOR_HINGE_ANGLE, true);
+        DeviceInfo.setIsFoldableForTesting(true);
         mSharedPreferencesManager.writeBoolean(ChromePreferenceKeys.TOOLBAR_TOP_ANCHORED, true);
 
         launchFragmentWithArgs(null);

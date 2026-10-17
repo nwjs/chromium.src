@@ -405,7 +405,7 @@ bool PermissionsData::HasHostPermission(const GURL& url) const {
   if (allow_all_override_)
     return true;
   return active_permissions_unsafe_->HasExplicitAccessToOrigin(url) &&
-         !IsPolicyBlockedHostUnsafe(url);
+         !IsPolicyBlockedHostUnsafe(url) && !IsUrlBlockedByUser(url);
 }
 
 PermissionMessages PermissionsData::GetPermissionMessages() const {
@@ -487,6 +487,11 @@ bool PermissionsData::CanCaptureVisiblePage(
   // does not.)
   url::Origin origin = url::Origin::Create(document_url);
   const GURL origin_url = origin.GetURL();
+
+  if (!ExtensionsClient::Get()->IsCapturableURL(origin_url, error)) {
+    return false;
+  }
+
   {
     base::AutoLock auto_lock(runtime_lock_);
     // Disallow capturing policy-blocked hosts. No exceptions.

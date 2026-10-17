@@ -31,6 +31,8 @@ component("language_tag_no_icu") {
 component("language_tag") {
   output_name = "language_tag"
   sources = [
+    "chinese_helpers.cc",
+    "chinese_helpers.h",
     "language_tag_matcher.cc",
     "language_tag_matcher.h",
     "legacy_language_tag_helpers.h",
@@ -84,10 +86,12 @@ source_set("time_formatting_types") {
 source_set("test_support") {
   testonly = true
   public = [
+    "test/locales_for_test.h",
     "test/scoped_icu_locale.h",
     "test/scoped_rtl_for_testing.h",
   ]
   sources = [
+    "test/locales_for_test.cc",
     "test/scoped_icu_locale.cc",
     "test/scoped_rtl_for_testing.cc",
   ]
@@ -98,6 +102,7 @@ source_set("unittests") {
   testonly = true
   sources = [
     "bcp47_extensions_unittest.cc",
+    "chinese_helpers_unittest.cc",
     "language_tag_matcher_unittest.cc",
     "language_tag_unittest.cc",
     "locale_holder_unittest.cc",
@@ -110,6 +115,10 @@ source_set("unittests") {
     "//testing/gmock",
     "//testing/gtest",
   ]
+
+  if (is_android) {
+    sources += [ "android_locale_unittest.cc" ]
+  }
 }
 
 if (is_win) {

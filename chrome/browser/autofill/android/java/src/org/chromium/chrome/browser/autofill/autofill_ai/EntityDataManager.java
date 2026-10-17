@@ -23,6 +23,7 @@ import org.chromium.components.autofill.autofill_ai.EntityInstance;
 import org.chromium.components.autofill.autofill_ai.EntityInstanceWithLabels;
 import org.chromium.components.autofill.autofill_ai.EntityType;
 import org.chromium.components.autofill.autofill_ai.EntityTypeName;
+import org.chromium.components.autofill.autofill_ai.RecordType;
 
 import java.text.Collator;
 import java.util.ArrayList;
@@ -96,11 +97,12 @@ public class EntityDataManager implements Destroyable {
         return EntityDataManagerJni.get().getEntityInstance(mNativeEntityDataManagerAndroid, guid);
     }
 
-    /** Saves or update an entity. */
+    /** Saves or update an entity with an optional context token. */
     public void addOrUpdateEntityInstance(
             EntityInstance entity,
             int descriptionStringId,
             int acceptButtonStringId,
+            @Nullable String contextToken,
             Runnable onLocalSaveFallback) {
         ThreadUtils.assertOnUiThread();
         EntityDataManagerJni.get()
@@ -109,19 +111,22 @@ public class EntityDataManager implements Destroyable {
                         entity,
                         descriptionStringId,
                         acceptButtonStringId,
+                        contextToken,
                         onLocalSaveFallback);
     }
 
     /**
      * Retrieves the details (legal message and context token) required to upsert a pass.
      *
+     * @param entityType The type of the entity to upsert.
      * @param callback Callback to receive the response, or null if the request failed or was not
      *     possible.
      */
-    public void getDetailsForUpsertPass(Callback<@Nullable DetailsForUpsertPass> callback) {
+    public void getDetailsForUpsertPass(
+            @EntityTypeName int entityType, Callback<@Nullable DetailsForUpsertPass> callback) {
         ThreadUtils.assertOnUiThread();
         EntityDataManagerJni.get()
-                .getDetailsForUpsertPass(mNativeEntityDataManagerAndroid, callback);
+                .getDetailsForUpsertPass(mNativeEntityDataManagerAndroid, entityType, callback);
     }
 
     /**
@@ -294,6 +299,24 @@ public class EntityDataManager implements Destroyable {
                 .isWalletPublicPassStorageEnabled(mNativeEntityDataManagerAndroid);
     }
 
+    /**
+     * Checks if an entity with `entityType` and `recordType` is eligible for the Google Wallet
+     * notice.
+     *
+     * @param entityType The entity type.
+     * @param recordType The record type.
+     * @return True if eligible for disclosure notice, false otherwise.
+     */
+    public boolean isEligibleForWalletNotice(
+            @EntityTypeName int entityType, @RecordType int recordType) {
+        ThreadUtils.assertOnUiThread();
+        if (mNativeEntityDataManagerAndroid == 0) {
+            return false;
+        }
+        return EntityDataManagerJni.get()
+                .isEligibleForWalletNotice(mNativeEntityDataManagerAndroid, entityType, recordType);
+    }
+
     public boolean isPersonalContextPreferenceVisible() {
         ThreadUtils.assertOnUiThread();
         return EntityDataManagerJni.get()
@@ -358,6 +381,11 @@ public class EntityDataManager implements Destroyable {
 
         boolean isWalletPublicPassStorageEnabled(long nativeEntityDataManagerAndroid);
 
+        boolean isEligibleForWalletNotice(
+                long nativeEntityDataManagerAndroid,
+                @EntityTypeName int entityType,
+                @RecordType int recordType);
+
         boolean isPersonalContextPreferenceVisible(long nativeEntityDataManagerAndroid);
 
         boolean isPersonalContextEnabled(long nativeEntityDataManagerAndroid);
@@ -368,7 +396,6 @@ public class EntityDataManager implements Destroyable {
 
         @JniType("std::string")
         String getPersonalContextManageConnectedAppsUrl();
-
 
         void removeEntityInstance(
                 long nativeEntityDataManagerAndroid, @JniType("std::string") String guid);
@@ -383,10 +410,12 @@ public class EntityDataManager implements Destroyable {
                 EntityInstance entity,
                 int descriptionStringId,
                 int acceptButtonStringId,
+                @Nullable @JniType("std::optional<std::string>") String contextToken,
                 @JniType("base::OnceClosure") Runnable onLocalSaveFallback);
 
         void getDetailsForUpsertPass(
                 long nativeEntityDataManagerAndroid,
+                @EntityTypeName int entityType,
                 @JniType("autofill::WalletPassAccessManager::GetDetailsForUpsertPassCallback")
                         Callback<@Nullable DetailsForUpsertPass> callback);
 

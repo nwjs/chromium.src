@@ -153,7 +153,7 @@ EntityInstance GetKnownTravelerNumberInstanceWithRandomGuid(
 template <typename = void>
 struct RedressNumberOptionsT {
   const char16_t* name = u"Name";
-  const char16_t* number = u"987654321";
+  const char16_t* number = u"7654321";
   std::string_view guid = "00000000-0000-4000-8000-500000000000";
   std::string_view nickname = "RedressNumber";
   std::string_view app_locale = "en-US";
@@ -269,6 +269,12 @@ using EntityOptions = EntityOptionsT<>;
 
 EntityInstance GetEntityInstance(std::vector<AttributeInstance> attributes,
                                  EntityOptions options = {});
+
+// Creates an AttributeInstance of `type_name` with raw `value` and `status`.
+AttributeInstance GetAttributeInstance(
+    AttributeTypeName type_name,
+    std::u16string_view value,
+    VerificationStatus status = VerificationStatus::kNoStatus);
 
 // Returns a copy of `entity_instance` with all obfuscated attributes masked.
 // Note that the masking is a toy version of what the server might do - it

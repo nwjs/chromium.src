@@ -7,7 +7,6 @@
 data/http_server_files/OWNERS
 data/http_server_files/actor/OWNERS
 data/http_server_files/actor/attempt_form_filling_tool_test.html
-data/http_server_files/actor/click_tool_test.html
 data/http_server_files/actor/page_stability.html
 data/http_server_files/actor/scroll_tool_test.html
 data/http_server_files/actor/select_tool_test.html
@@ -37,9 +36,11 @@ data/http_server_files/history.html
 data/http_server_files/history.js
 data/http_server_files/history_go.html
 data/http_server_files/history_go.js
+data/http_server_files/iframe_drag_link.html
 data/http_server_files/iframe_form.html
 data/http_server_files/iframe_host.html
 data/http_server_files/insecure_form.html
+data/http_server_files/javascript_link.html
 data/http_server_files/link.html
 data/http_server_files/links.html
 data/http_server_files/memory_usage.html

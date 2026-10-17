@@ -53,6 +53,12 @@ public class UiAndroidFeatureList {
                     /* defaultValue= */ false,
                     /* defaultValueInTests= */ true);
 
+    public static final CachedFlag sConnectedDisplayDensityDebugLogs =
+            newCachedFlag(
+                    UiAndroidFeatures.CONNECTED_DISPLAY_DENSITY_DEBUG_LOGS,
+                    /* defaultValue= */ false,
+                    /* defaultValueInTests= */ false);
+
     public static final CachedFlag sAndroidWindowOcclusion =
             newCachedFlag(
                     UiAndroidFeatures.ANDROID_WINDOW_OCCLUSION,
@@ -140,6 +146,7 @@ public class UiAndroidFeatureList {
             List.of(
                     sAndroidUseDisplayTopology,
                     sAndroidWindowOcclusion,
+                    sConnectedDisplayDensityDebugLogs,
                     sRefactorMinWidthContextOverride,
                     sUpdatePaddingForDisplayCalculation,
                     sMaximumWindowForGestureNavDetection);

@@ -413,6 +413,12 @@ void WaylandInputMethodContext::UpdateFocus(
     TextInputClient::FocusReason reason) {
   attributes_ = new_client_attributes;
 
+  // Cached surrounding text and cursor rect belong to the previously focused
+  // text input client, so they must not be sent when re-enabling.
+  if (text_input_v3_) {
+    text_input_v3_->ClearCachedState();
+  }
+
   // This prevents unnecessarily hiding/showing the virtual keyboard.
   TextInputType new_type = new_client_attributes.input_type;
   bool skip_vk_update =
@@ -442,6 +448,15 @@ void WaylandInputMethodContext::SetCursorLocation(const gfx::Rect& rect) {
       text_input_v3_
           ? connection_->window_manager()->GetCurrentTextInputFocusedWindow()
           : connection_->window_manager()->GetCurrentKeyboardFocusedWindow();
+  if (!focused_window && text_input_v3_ && focused_ && window_) {
+    // The text input client may be focused before the compositor sends
+    // zwp_text_input_v3.enter (e.g. when the window regains focus). The cursor
+    // rect is still needed so that it can be sent along with the enable
+    // request, which resets all state on the compositor side. Compute it
+    // relative to the root window of this context, which is the surface that
+    // will receive text input focus.
+    focused_window = window_->GetRootParentWindow();
+  }
   if (!focused_window) {
     return;
   }

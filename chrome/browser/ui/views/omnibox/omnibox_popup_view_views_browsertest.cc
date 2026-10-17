@@ -464,7 +464,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupViewViewsTest,
   CreatePopupForTestQuery();
   ACMatches matches;
   AutocompleteMatch match(nullptr, 500, false,
-                          AutocompleteMatchType::HISTORY_TITLE);
+                          omnibox::AutocompleteMatchType::kHistoryTitle);
   match.destination_url = GURL("https://foobar.com");
   match.contents = u"https://foobar.com";
   match.description = u"FooBarCom";
@@ -553,7 +553,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupViewViewsTest,
   CreatePopupForTestQuery();
   ACMatches matches;
   AutocompleteMatch match(nullptr, 500, false,
-                          AutocompleteMatchType::HISTORY_TITLE);
+                          omnibox::AutocompleteMatchType::kHistoryTitle);
   match.destination_url = GURL("https://foobar.com");
   match.contents = u"https://foobar.com";
   match.description = u"FooBarCom";
@@ -618,7 +618,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupViewViewsTest,
   CreatePopupForTestQuery();
   ACMatches matches;
   AutocompleteMatch match(nullptr, 500, false,
-                          AutocompleteMatchType::HISTORY_TITLE);
+                          omnibox::AutocompleteMatchType::kHistoryTitle);
   match.contents = u"https://foobar.com";
   match.description = u"The Foo Of All Bars";
   match.has_tab_match = true;
@@ -648,8 +648,8 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupViewViewsTest,
   EXPECT_TRUE(contains(ax_name, "press Tab then Enter"));
   EXPECT_FALSE(contains(ax_name, "2 of 2"));
 
-  edit_model()->SetPopupSelection(
-      OmniboxPopupSelection(1, OmniboxPopupSelection::FOCUSED_BUTTON_ACTION));
+  edit_model()->SetPopupSelection(OmniboxPopupSelection(
+      1, OmniboxPopupSelection::LineState::kFocusedButtonAction));
   EXPECT_TRUE(contains(observer.omnibox_value(), "Tab switch button"));
   EXPECT_EQ(observer.selected_children_changed_count(), 6);
   EXPECT_EQ(observer.selection_changed_count(), 5);
@@ -666,7 +666,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupViewViewsTest,
   EXPECT_FALSE(contains(ax_name, "2 of 2"));
 
   edit_model()->SetPopupSelection(
-      OmniboxPopupSelection(1, OmniboxPopupSelection::NORMAL));
+      OmniboxPopupSelection(1, OmniboxPopupSelection::LineState::kNormal));
   EXPECT_TRUE(contains(observer.omnibox_value(), "The Foo Of All Bars"));
   EXPECT_EQ(observer.selected_children_changed_count(), 8);
   EXPECT_EQ(observer.selection_changed_count(), 7);
@@ -700,7 +700,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupViewViewsTest,
   // Create a match to populate the autocomplete.
   std::u16string match_url = u"https://foobar.com";
   AutocompleteMatch match(nullptr, 500, false,
-                          AutocompleteMatchType::HISTORY_TITLE);
+                          omnibox::AutocompleteMatchType::kHistoryTitle);
   match.contents = match_url;
   match.contents_class.emplace_back(0, ACMatchClassification::URL);
   match.destination_url = GURL(match_url);
@@ -801,7 +801,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupViewViewsTest, AccessibleResultName) {
   CreatePopupForTestQuery();
   ACMatches matches;
   AutocompleteMatch match(nullptr, 500, false,
-                          AutocompleteMatchType::HISTORY_TITLE);
+                          omnibox::AutocompleteMatchType::kHistoryTitle);
   match.destination_url = GURL("https://foobar.com");
   match.contents = u"https://foobar.com";
   match.description = u"FooBarCom";
@@ -827,14 +827,14 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupViewViewsTest, AccessibleResultName) {
 
 IN_PROC_BROWSER_TEST_F(OmniboxPopupViewViewsTest, DeleteSuggestion) {
   scoped_refptr<FakeAutocompleteProvider> provider =
-      new FakeAutocompleteProvider(AutocompleteProvider::TYPE_SEARCH);
+      new FakeAutocompleteProvider(AutocompleteProvider::Type::kSearch);
   controller()->autocomplete_controller()->providers_.push_back(provider);
 
   ACMatches matches;
   {
     std::u16string match_url = u"https://example.com/";
     AutocompleteMatch match(nullptr, 500, /*deletable=*/true,
-                            AutocompleteMatchType::HISTORY_TITLE);
+                            omnibox::AutocompleteMatchType::kHistoryTitle);
     match.contents = match_url;
     match.contents_class.emplace_back(0, ACMatchClassification::URL);
     match.destination_url = GURL(match_url);
@@ -847,7 +847,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupViewViewsTest, DeleteSuggestion) {
   {
     std::u16string match_url = u"https://google.com/";
     AutocompleteMatch match(nullptr, 500, false,
-                            AutocompleteMatchType::HISTORY_TITLE);
+                            omnibox::AutocompleteMatchType::kHistoryTitle);
     match.contents = match_url;
     match.contents_class.emplace_back(0, ACMatchClassification::URL);
     match.destination_url = GURL(match_url);
@@ -964,7 +964,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupViewViewsTest,
   CreatePopupForTestQuery();
   ACMatches matches;
   AutocompleteMatch match(nullptr, 500, false,
-                          AutocompleteMatchType::HISTORY_TITLE);
+                          omnibox::AutocompleteMatchType::kHistoryTitle);
   match.destination_url = GURL("https://foobar.com");
   match.contents = u"https://foobar.com";
   match.description = u"FooBarCom";
@@ -1067,7 +1067,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupViewViewsTest,
 IN_PROC_BROWSER_TEST_F(OmniboxPopupSuggestionGroupHeadersTest,
                        ShowSuggestionGroupHeadersByPageContext) {
   scoped_refptr<FakeAutocompleteProvider> provider =
-      new FakeAutocompleteProvider(AutocompleteProvider::TYPE_SEARCH);
+      new FakeAutocompleteProvider(AutocompleteProvider::Type::kSearch);
   controller()->autocomplete_controller()->providers_.push_back(provider);
 
   const auto group1 = omnibox::GroupId::GROUP_VISITED_DOC_RELATED;
@@ -1078,7 +1078,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupSuggestionGroupHeadersTest,
   {
     std::u16string match_url = u"https://google.com/search?q=foo1";
     AutocompleteMatch match(nullptr, 500, false,
-                            AutocompleteMatchType::SEARCH_SUGGEST);
+                            omnibox::AutocompleteMatchType::kSearchSuggest);
     match.contents = u"foo1";
     match.contents_class.emplace_back(0, ACMatchClassification::URL);
     match.destination_url = GURL(match_url);
@@ -1094,7 +1094,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupSuggestionGroupHeadersTest,
   {
     std::u16string match_url = u"https://google.com/search?q=foo2";
     AutocompleteMatch match(nullptr, 450, false,
-                            AutocompleteMatchType::SEARCH_SUGGEST);
+                            omnibox::AutocompleteMatchType::kSearchSuggest);
     match.contents = u"foo2";
     match.contents_class.emplace_back(0, ACMatchClassification::URL);
     match.destination_url = GURL(match_url);
@@ -1277,16 +1277,15 @@ class OmniboxPopupPermissionBrowserTest : public InProcessBrowserTest {
 
   views::Widget* GetPopupWidget() {
     auto* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
-    auto* location_bar_view = browser_view->toolbar()->location_bar_view();
+    auto* location_bar = browser_view->toolbar()->location_bar();
     auto* popup_view = static_cast<OmniboxPopupViewWebUI*>(
-        location_bar_view->GetOmniboxPopupView());
+        location_bar->GetOmniboxPopupView());
     if (!popup_view || !popup_view->presenter()) {
       return nullptr;
     }
     popup_view->presenter()->Show();
-    location_bar_view->GetOmniboxController()
-        ->popup_state_manager()
-        ->SetPopupState(OmniboxPopupState::kClassic);
+    location_bar->GetOmniboxController()->popup_state_manager()->SetPopupState(
+        OmniboxPopupState::kClassic);
     return popup_view->presenter()->get_widget_for_testing();
   }
 
@@ -1303,9 +1302,9 @@ class OmniboxPopupPermissionBrowserTest : public InProcessBrowserTest {
   void SimulateFrontendMojoMessage(bool is_showing,
                                    const gfx::Size& prompt_size) {
     auto* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
-    auto* location_bar_view = browser_view->toolbar()->location_bar_view();
+    auto* location_bar = browser_view->toolbar()->location_bar();
     auto* popup_view = static_cast<OmniboxPopupViewWebUI*>(
-        location_bar_view->GetOmniboxPopupView());
+        location_bar->GetOmniboxPopupView());
     if (popup_view && popup_view->presenter()) {
       views::Widget* popup_widget =
           popup_view->presenter()->get_widget_for_testing();

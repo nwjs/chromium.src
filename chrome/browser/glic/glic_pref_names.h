@@ -9,7 +9,7 @@
 
 #include "base/time/time.h"
 #include "build/build_config.h"
-#include "chrome/browser/glic/host/glic.mojom.h"
+#include "chrome/browser/glic/host/glic.mojom-forward.h"
 #include "components/glic/glic_pref_names.h"
 #include "components/prefs/pref_registry_simple.h"
 
@@ -41,8 +41,9 @@ inline constexpr char kGlicHotkeyGlobalScopeEnabled[] =
     "glic.hotkey_global_scope_enabled";
 
 // Boolean pref that tracks if the hotkey scope has been migrated.
-inline constexpr char kGlicHotkeyGlobalScopeMigrated[] =
-    "glic.hotkey_global_scope_migrated";
+// TODO(b/563018760): Deprecate and remove after 6-12 months.
+inline constexpr char kGlicHotkeyGlobalScopeMigratedV2[] =
+    "glic.hotkey_global_scope_migrated_v2";
 
 // String pref that keeps track of the non-localized version of the registered
 // selection hotkey for Glic.
@@ -172,7 +173,13 @@ inline constexpr char kGlicActuationOnWebAllowedForURLs[] =
 inline constexpr char kGlicActuationOnWebBlockedForURLs[] =
     "glic.actuation_on_web_blocked_for_urls";
 
-// Dict pref storing details for Gemini Enterprise.
+// Dict pref populated by the `GeminiEnterpriseSettings` enterprise policy.
+// Stores a `"url"` string key pointing to the enterprise's Gemini Enterprise
+// web application URL (e.g. `https://business.gemini.google/home/cid/<id>`).
+// When `features::kGeic` is enabled, a valid `"url"` here configures the GEiC
+// guest URL and enables GEiC for the profile (unless overridden by
+// `--geic-guest-url` or supplemented by `features::kGeicGuestURL`). In
+// consumer Glic, it is also parsed to configure Gemini Enterprise tools.
 inline constexpr char kGlicGeminiEnterpriseSettings[] =
     "glic.gemini_enterprise_settings";
 
@@ -193,6 +200,11 @@ inline constexpr char kGlicPreviouslyNotAllowed[] =
 // auto-opened.
 inline constexpr char kGlicMarketingAutoOpenCount[] =
     "glic.marketing_auto_open_count";
+
+// String pref that records the acquisition cohort for Glic promotion page
+// visits.
+inline constexpr char kGlicPromotionSourceCohort[] =
+    "glic.promotion_source_cohort";
 
 #if BUILDFLAG(IS_MAC)
 inline constexpr char kGlicUseAltOSIcon[] = "glic.use_alt_os_icon";

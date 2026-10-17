@@ -48,25 +48,17 @@ class OrganizerTrayView : public views::FlexLayoutView,
   void SetTargetWidth(int target_width);
   int target_width() const { return target_width_; }
 
+  // Updates the organizer panel clip if present.
+  void UpdatePanelClip();
+
   // Used to enable dragging.
   bool IsPositionInWindowCaption(const gfx::Point& point);
 
-  // ----------------
-  // To be removed.
-
-  // Set whether the panel should appear elevated with rounded borders.
-  void SetIsElevated(bool elevated);
-
-  // Whether the panel appears elevated with rounded borders.
-  bool is_elevated() { return elevated_; }
-
-  // ----------------
-
  protected:
   // OrganizerPanelHost:
-  void SetPanelView(std::unique_ptr<views::View> panel_view) override;
-  std::unique_ptr<views::View> TakePanelView() override;
-  bool HasPanelView() const override;
+  void SetOrganizerPanelView(std::unique_ptr<views::View> panel_view) override;
+  std::unique_ptr<views::View> TakeOrganizerPanelView() override;
+  bool HasOrganizerPanelView() const override;
 
   // views::View:
   bool AcceleratorPressed(const ui::Accelerator& accelerator) override;
@@ -94,13 +86,6 @@ class OrganizerTrayView : public views::FlexLayoutView,
   gfx::Size top_leading_exclusion_;
   int target_width_ = organizer_panel::kOrganizerPanelMinWidth;
   raw_ptr<views::View> panel_view_ = nullptr;
-
-  // ----------------
-  // To be removed.
-
-  bool elevated_ = true;
-
-  // ----------------
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_TABS_ORGANIZER_ORGANIZER_TRAY_VIEW_H_

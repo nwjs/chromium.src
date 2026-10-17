@@ -2,6 +2,7 @@
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file. */
 
+import '/strings.m.js';
 import 'chrome://resources/cr_elements/cr_tab_box/cr_tab_box.js';
 // <if expr="is_ios">
 // TODO(crbug.com/41173939): Remove this once injected by web. -->
@@ -11,6 +12,7 @@ import 'chrome://resources/js/ios/web_ui.js';
 
 import {assert} from 'chrome://resources/js/assert.js';
 import {addWebUiListener, sendWithPromise} from 'chrome://resources/js/cr.js';
+import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {$} from 'chrome://resources/js/util.js';
 
 // Type definitions for custom types used through the file.
@@ -29,6 +31,16 @@ interface RealtimeReportingResult {
   profile: boolean;
   device: boolean;
   success: boolean;
+}
+interface KeyValuePair {
+  key: string;
+  value: string;
+}
+interface V5GetHashLookupResult {
+  requestKeyValues: KeyValuePair[];
+  requestSearchHashesJson: string;
+  responseKeyValues: KeyValuePair[];
+  responseSearchHashesJson?: string;
 }
 interface DeepScanResult {
   request: string;
@@ -54,6 +66,8 @@ const deepScanData: Map<string, DeepScanResult> = new Map();
  * addPreferences() (below).
  */
 function initialize() {
+  updateDatabaseManagerGetHashTabs();
+
   sendWithPromise<string[]>('getExperiments', [])
       .then((experiments: string[]) => addExperiments(experiments));
   sendWithPromise<string[]>('getPrefs', [])
@@ -66,10 +80,20 @@ function initialize() {
       .then((passwords: Array<string|boolean>) => addSavedPasswords(passwords));
   sendWithPromise<Array<string|number|string[]>>('getDatabaseManagerInfo', [])
       .then(function(databaseState: Array<string|number|string[]>) {
-        const fullHashCacheState = databaseState.splice(-1, 1) as string[];
+        if (!loadTimeData.getBoolean('isV5Enabled')) {
+          const fullHashCacheState = databaseState.splice(-1, 1) as string[];
+          addFullHashCacheInfo(fullHashCacheState);
+        }
         addDatabaseManagerInfo(databaseState);
-        addFullHashCacheInfo(fullHashCacheState);
       });
+
+  if (loadTimeData.getBoolean('isV5Enabled')) {
+    sendWithPromise<V5GetHashLookupResult[]>('getV5GetHashLookups', [])
+        .then((lookups: V5GetHashLookupResult[]) => {
+          lookups.forEach(addV5GetHashLookup);
+        });
+    addWebUiListener('v5-get-hash-lookup-update', addV5GetHashLookup);
+  }
 
   sendWithPromise<string[]>('getDownloadUrlsChecked', [])
       .then((urlsChecked: string[]) => {
@@ -300,6 +324,20 @@ function addExperiments(experiments: string[]) {
   addContentHelper(experiments, 'result-template', 'experiments-list', 'span');
 }
 
+// Shows either the Hash Cache tab (for V4) or the Database Manager
+// SearchHashes Lookups tab (for V5) depending on whether the
+// SafeBrowsingLocalListsUseSBv5 feature is enabled.
+function updateDatabaseManagerGetHashTabs() {
+  const isV5Enabled = loadTimeData.getBoolean('isV5Enabled');
+  if (isV5Enabled) {
+    $('hash-cache')?.remove();
+    $('hash-cache-panel')?.remove();
+  } else {
+    $('db-manager-search-hashes-lookups')?.remove();
+    $('db-manager-search-hashes-lookups-panel')?.remove();
+  }
+}
+
 // Adds a list of preferences and their statuses to the DOM. `prefs` is
 // an array of strings where the even-indexed elements contain the
 // pref's name and the odd-indexed elements are the pref's status.
@@ -434,6 +472,54 @@ function addFullHashCacheInfo(result: string[]) {
   const cacheInfo = $('full-hash-cache-info');
   assert(cacheInfo);
   cacheInfo.textContent = result.toString();
+}
+
+// Populates a table cell with key/value details and an optional formatted JSON
+// block preceded by a header.
+function populateV5GetHashLookupCell(
+    cell: HTMLTableCellElement, keyValues: KeyValuePair[], jsonHeader: string,
+    json?: string) {
+  for (const pair of keyValues) {
+    const keySpan = document.createElement('span');
+    keySpan.className = 'bold-span';
+    keySpan.textContent = `${pair.key}: `;
+    cell.appendChild(keySpan);
+    cell.appendChild(document.createTextNode(`${pair.value}\n`));
+  }
+  if (json) {
+    cell.appendChild(document.createTextNode('\n'));
+    const headerSpan = document.createElement('span');
+    headerSpan.className = 'bold-span';
+    headerSpan.textContent = `${jsonHeader}:\n`;
+    cell.appendChild(headerSpan);
+    cell.appendChild(document.createTextNode(json));
+  }
+}
+
+// Adds a V5 get-hash lookup entry to the table in the Database Manager
+// SearchHashes Lookups tab. `lookup` contains the details of the lookup event.
+function addV5GetHashLookup(lookup: V5GetHashLookupResult) {
+  const emptyText = $('db-manager-search-hashes-lookups-empty-text');
+  assert(emptyText);
+  emptyText.hidden = true;
+
+  const table = $<HTMLTableElement>('db-manager-search-hashes-lookups-table');
+  assert(table);
+  table.hidden = false;
+
+  const row = table.insertRow();
+  row.className = 'content';
+  const requestCell = row.insertCell();
+  requestCell.className = 'content';
+  populateV5GetHashLookupCell(
+      requestCell, lookup.requestKeyValues, 'SearchHashesRequest',
+      lookup.requestSearchHashesJson);
+
+  const responseCell = row.insertCell();
+  responseCell.className = 'content';
+  populateV5GetHashLookupCell(
+      responseCell, lookup.responseKeyValues, 'SearchHashesResponse',
+      lookup.responseSearchHashesJson);
 }
 
 function addDownloadUrlChecked(urlAndResult: string) {
@@ -575,12 +661,16 @@ function addDeepScan(result: DeepScanResult) {
 // Exports the data currently displayed in the Deep Scan tab as a JSON file.
 function exportDeepScanData(): void {
   const exportData = Array.from(deepScanData.values()).map(entry => {
+    const response = JSON.parse(entry.response);
+    if (entry.response_status && entry.response_status !== 'SUCCESS') {
+      response['status'] = entry.response_status;
+    }
     return {
       'request_time': new Date(entry.request_time).toLocaleString(),
       'http_headers': entry.http_headers,
       'request': JSON.parse(entry.request),
       'response_time': new Date(entry.response_time).toLocaleString(),
-      'response': JSON.parse(entry.response),
+      'response': response,
     };
   });
 

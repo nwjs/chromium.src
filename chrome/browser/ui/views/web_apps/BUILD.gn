@@ -114,8 +114,12 @@ source_set("browser_tests") {
     "//chrome/browser/picture_in_picture:test_support_ui",
     "//chrome/browser/shortcuts",
     "//chrome/browser/ui",
+    "//chrome/browser/ui:browser_commands",
+    "//chrome/browser/ui:browser_window_header",
+    "//chrome/browser/ui:intent_picker_tab_helper",
     "//chrome/browser/ui:test_support",
     "//chrome/browser/ui:view_ids",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/ui/views/infobars",
     "//chrome/browser/ui/views/web_apps/sub_apps",
     "//chrome/browser/ui/web_applications",
@@ -129,6 +133,25 @@ source_set("browser_tests") {
     "//ui/events:test_support",
     "//ui/views:test_support",
   ]
+
+  if (is_chromeos) {
+    sources += [
+      # Chrome OS can run interactive UI tests in the browser tests suite
+      # because each test runs in an isolated emulator with its own focus,
+      # events, etc.
+      "protocol_handler_picker_interactve_uitest.cc",
+      "web_app_ash_interactive_ui_test.cc",
+      "web_app_integration_browsertest_cros.cc",
+    ]
+    deps += [
+      ":protocol_handler_picker_dialog",
+      "//chrome/browser/ui/views/frame:immersive_mode_controller_chromeos",
+      "//chrome/browser/ui/views/frame:top_container_view",
+      "//chrome/browser/ui/views/web_apps/frame_toolbar:web_app_frame_toolbar_view",
+      "//chrome/browser/ui/views/web_apps/frame_toolbar:web_app_toolbar_button_container",
+      "//chromeos/ui/frame:test_support",
+    ]
+  }
 }
 
 source_set("launch_dialogs") {
@@ -271,6 +294,7 @@ source_set("web_app_modal_dialog_delegate_impl") {
     "//chrome/browser/ui/actions:actions_headers",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/views/extensions:security_dialog_tracker",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/ui/views/frame:toolbar_button_provider",
     "//chrome/browser/ui/views/page_action",
     "//components/tabs:public",
@@ -306,6 +330,7 @@ source_set("web_app_install_dialog_delegate_impl") {
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/page_action:icon_type",
     "//chrome/browser/ui/tabs:tabs_public",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/ui/views/frame:toolbar_button_provider",
     "//chrome/browser/ui/views/page_action",
     "//chrome/browser/web_applications",
@@ -405,6 +430,7 @@ source_set("web_app_install_flow_dialog_delegate_impl") {
     "//chrome/browser/apps/app_service/app_icon",
     "//chrome/browser/feature_engagement",
     "//chrome/browser/profiles:profile",
+    "//chrome/browser/ui:intent_picker_tab_helper",
     "//chrome/browser/ui:url_identity",
     "//chrome/browser/ui/actions:actions_headers",
     "//chrome/browser/ui/browser_window",
@@ -412,6 +438,7 @@ source_set("web_app_install_flow_dialog_delegate_impl") {
     "//chrome/browser/ui/tabs:tabs_public",
     "//chrome/browser/ui/views:layout_provider",
     "//chrome/browser/ui/views/controls",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/ui/views/frame:toolbar_button_provider",
     "//chrome/browser/ui/views/location_bar:icon_label_bubble",
     "//chrome/browser/ui/views/page_action",
@@ -553,6 +580,7 @@ source_set("web_app_uninstall_dialog_view_impl") {
     "//chrome/app:generated_resources",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui/views:layout_provider",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/ui/views/web_apps/isolated_web_apps:installer_base",
     "//chrome/browser/ui/views/web_apps/isolated_web_apps:isolated_web_app_identity_view",
     "//chrome/browser/ui/web_applications",
@@ -599,6 +627,7 @@ source_set("web_app_simple_install_dialog") {
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/page_action:icon_type",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/ui/views/frame:toolbar_button_provider",
     "//chrome/browser/ui/web_applications",
     "//chrome/browser/web_applications",
@@ -695,6 +724,7 @@ source_set("web_app_launch_dialog") {
     "//chrome/app:generated_resources",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/ui/web_applications",
     "//chrome/browser/web_applications",
     "//components/constrained_window",
@@ -720,9 +750,11 @@ source_set("web_app_update_review_dialog_impl") {
     "//chrome/app:generated_resources",
     "//chrome/browser/picture_in_picture",
     "//chrome/browser/profiles:profile",
+    "//chrome/browser/ui:browser_window_header",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/views:layout_provider",
     "//chrome/browser/ui/views/extensions:security_dialog_tracker",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/web_applications",
     "//components/constrained_window",
     "//components/vector_icons",

@@ -10,6 +10,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -49,6 +50,7 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabList;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.tabmodel.TabModelType;
 import org.chromium.chrome.browser.tabwindow.TabWindowManager;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuHandler;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuItemProperties;
@@ -69,6 +71,7 @@ import org.chromium.url.GURL;
 import org.chromium.url.JUnitTestGURLs;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -91,6 +94,11 @@ public class TabGroupItemBuilderUnitTest {
     @Mock private TabGroupSyncService mTabGroupSyncService;
     @Mock private TabWindowManager mTabWindowManager;
     @Mock private TabList mTabList;
+    @Mock private Tab mClosingTab;
+    @Mock private TabList mComprehensiveTabList;
+    @Mock private TabModelSelector mSelectorWindow2;
+    @Mock private TabModel mModelWindow2;
+    @Mock private TabList mComprehensiveModelWindow2;
 
     private TabGroupItemBuilder mTabGroupItemBuilder;
     @Mock private TabModel mTabModel;
@@ -205,10 +213,12 @@ public class TabGroupItemBuilderUnitTest {
         assertEquals(AppMenuHandler.AppMenuItemType.TAB, tabItem1.type);
         assertEquals(AppMenuHandler.AppMenuItemType.MENU_ITEM_WITH_SUBMENU, groupItem.type);
         assertEquals(101, tabItem1.model.get(AppMenuTabItemProperties.TAB_ID));
+        assertEquals(JUnitTestGURLs.URL_1, tabItem1.model.get(AppMenuTabItemProperties.TAB_URL));
 
         ListItem tabItem2 = tabsSubmenuItems.get(1);
         assertEquals(AppMenuHandler.AppMenuItemType.TAB, tabItem2.type);
         assertEquals(102, tabItem2.model.get(AppMenuTabItemProperties.TAB_ID));
+        assertEquals(JUnitTestGURLs.URL_2, tabItem2.model.get(AppMenuTabItemProperties.TAB_URL));
     }
 
     @Test
@@ -627,8 +637,13 @@ public class TabGroupItemBuilderUnitTest {
 
         // TabWindowManager has group2 in window 2.
         TabWindowManagerSingleton.setTabWindowManagerForTesting(mTabWindowManager);
-        when(mTabWindowManager.findWindowIdForTabGroup(token2)).thenReturn(2);
+        when(mTabWindowManager.findWindowIdForTabGroup(eq(token2), anyBoolean())).thenReturn(2);
         when(mTabWindowManager.getGroupedTabsByWindow(2, token2, false)).thenReturn(List.of(tab2));
+        when(mTabWindowManager.getTabModelSelectorById(2)).thenReturn(mSelectorWindow2);
+        when(mSelectorWindow2.getModel(false)).thenReturn(mModelWindow2);
+        when(mModelWindow2.getTabModelType()).thenReturn(TabModelType.STANDARD);
+        when(mModelWindow2.tabGroupExists(token2)).thenReturn(true);
+        when(mModelWindow2.getTabsInGroup(token2)).thenReturn(List.of(tab2));
 
         when(mTab.getUrl()).thenReturn(JUnitTestGURLs.EXAMPLE_URL);
 
@@ -658,6 +673,9 @@ public class TabGroupItemBuilderUnitTest {
                 groupItem2.model.get(AppMenuItemWithSubmenuProperties.SUBMENU_PROVIDER).get();
         assertEquals(1, tabsSubmenuItems.size());
         assertEquals(102, tabsSubmenuItems.get(0).model.get(AppMenuTabItemProperties.TAB_ID));
+        assertEquals(
+                JUnitTestGURLs.URL_2,
+                tabsSubmenuItems.get(0).model.get(AppMenuTabItemProperties.TAB_URL));
     }
 
     @Test
@@ -790,6 +808,9 @@ public class TabGroupItemBuilderUnitTest {
         assertEquals(
                 Tab.INVALID_TAB_ID,
                 tabsSubmenuItems.get(0).model.get(AppMenuTabItemProperties.TAB_ID));
+        assertEquals(
+                JUnitTestGURLs.URL_1,
+                tabsSubmenuItems.get(0).model.get(AppMenuTabItemProperties.TAB_URL));
     }
 
     @Test
@@ -955,5 +976,249 @@ public class TabGroupItemBuilderUnitTest {
         assertEquals("Local Group", groupItem.model.get(AppMenuItemProperties.TITLE));
         assertEquals(token1, groupItem.model.get(AppMenuTabGroupItemProperties.TAB_GROUP_ID));
         assertNull(groupItem.model.get(AppMenuTabGroupItemProperties.SYNC_GROUP_ID));
+    }
+
+    @Test
+    @EnableFeatures(
+            ChromeFeatureList.CROSS_WINDOW_TAB_GROUP_OPERATIONS + ":remote_group_operations/true")
+    public void testBuildTabGroupsParentItem_withGroupWindowChecker_closingGroup() {
+        Token token1 = Token.createRandom();
+
+        SavedTabGroup closingGroup = new SavedTabGroup();
+        closingGroup.syncId = "closing_id";
+        closingGroup.localId = new LocalTabGroupId(token1);
+        closingGroup.title = "Saved Title";
+        closingGroup.color = TabGroupColorId.BLUE;
+        closingGroup.updateTimeMs = 100L;
+        closingGroup.savedTabs = List.of(new SavedTabGroupTab());
+
+        when(mTabGroupSyncService.getAllGroupIds()).thenReturn(new String[] {"closing_id"});
+        when(mTabGroupSyncService.getGroup("closing_id")).thenReturn(closingGroup);
+        when(mTabModel.getTabGroupTitle(token1)).thenReturn("Live Closing Group");
+        when(mTabModel.getTabGroupColorWithFallback(token1)).thenReturn(TabGroupColorId.RED);
+
+        when(mClosingTab.getTabGroupId()).thenReturn(token1);
+        when(mClosingTab.getId()).thenReturn(101);
+        when(mClosingTab.getTitle()).thenReturn("Closing Tab");
+        when(mClosingTab.getUrl()).thenReturn(JUnitTestGURLs.URL_1);
+        when(mClosingTab.isClosing()).thenReturn(true);
+
+        // Non-closing model returns empty list for closing group.
+        when(mTabModel.getTabsInGroup(token1)).thenReturn(List.of());
+
+        List<Tab> tabs = List.of(mClosingTab);
+        when(mComprehensiveTabList.getCount()).thenReturn(1);
+        when(mComprehensiveTabList.getTabAt(0)).thenReturn(mClosingTab);
+        when(mComprehensiveTabList.iterator()).thenAnswer(invocation -> tabs.iterator());
+        when(mTabModel.getComprehensiveModel()).thenReturn(mComprehensiveTabList);
+
+        when(mTab.getUrl()).thenReturn(JUnitTestGURLs.EXAMPLE_URL);
+
+        TabGroupItemBuilder builder =
+                new TabGroupItemBuilder(
+                        mContext,
+                        mAppMenuItemTheme,
+                        mTabModelSelector,
+                        /* isMenuIconAtStart= */ false,
+                        /* shouldShowIconBeforeItem= */ true,
+                        mRoundedIconGenerator,
+                        mDefaultFaviconHelper,
+                        () -> mFaviconHelper,
+                        () -> mTabGroupSyncService);
+
+        ListItem tabGroupsParent = builder.buildTabGroupsParentItem(mTab);
+        assertNotNull(tabGroupsParent);
+
+        List<ListItem> tabGroupsSubmenuItems =
+                tabGroupsParent.model.get(AppMenuItemWithSubmenuProperties.SUBMENU_PROVIDER).get();
+
+        ListItem groupItem = findItemById(tabGroupsSubmenuItems, R.id.tab_group_menu_item_id);
+        assertNotNull(groupItem);
+        assertEquals("Live Closing Group", groupItem.model.get(AppMenuItemProperties.TITLE));
+
+        List<ListItem> tabsSubmenuItems =
+                groupItem.model.get(AppMenuItemWithSubmenuProperties.SUBMENU_PROVIDER).get();
+        assertEquals(1, tabsSubmenuItems.size());
+        assertEquals("Closing Tab", tabsSubmenuItems.get(0).model.get(AppMenuItemProperties.TITLE));
+        assertEquals(101, tabsSubmenuItems.get(0).model.get(AppMenuTabItemProperties.TAB_ID));
+        assertEquals(
+                JUnitTestGURLs.URL_1,
+                tabsSubmenuItems.get(0).model.get(AppMenuTabItemProperties.TAB_URL));
+    }
+
+    @Test
+    @EnableFeatures(
+            ChromeFeatureList.CROSS_WINDOW_TAB_GROUP_OPERATIONS + ":remote_group_operations/true")
+    public void testBuildTabGroupsParentItem_closingGroupInAnotherWindow() {
+        Token token1 = Token.createRandom();
+
+        SavedTabGroup closingGroup = new SavedTabGroup();
+        closingGroup.syncId = "closing_cross_window_id";
+        closingGroup.localId = new LocalTabGroupId(token1);
+        closingGroup.title = "Saved Title";
+        closingGroup.color = TabGroupColorId.BLUE;
+        closingGroup.updateTimeMs = 100L;
+        closingGroup.savedTabs = List.of(new SavedTabGroupTab());
+
+        when(mTabGroupSyncService.getAllGroupIds())
+                .thenReturn(new String[] {"closing_cross_window_id"});
+        when(mTabGroupSyncService.getGroup("closing_cross_window_id")).thenReturn(closingGroup);
+
+        when(mTabModel.getTabsInGroup(token1)).thenReturn(List.of());
+        when(mComprehensiveTabList.iterator()).thenAnswer(invocation -> List.<Tab>of().iterator());
+        when(mTabModel.getComprehensiveModel()).thenReturn(mComprehensiveTabList);
+        when(mTabModel.isIncognito()).thenReturn(false);
+
+        TabWindowManagerSingleton.setTabWindowManagerForTesting(mTabWindowManager);
+        when(mTabWindowManager.findWindowIdForTabGroup(eq(token1), anyBoolean())).thenReturn(2);
+
+        when(mModelWindow2.getTabModelType()).thenReturn(TabModelType.STANDARD);
+        when(mModelWindow2.isIncognito()).thenReturn(false);
+        when(mSelectorWindow2.getModel(false)).thenReturn(mModelWindow2);
+        when(mTabWindowManager.getTabModelSelectorById(2)).thenReturn(mSelectorWindow2);
+
+        when(mClosingTab.getTabGroupId()).thenReturn(token1);
+        when(mClosingTab.getId()).thenReturn(202);
+        when(mClosingTab.getTitle()).thenReturn("Cross Window Closing Tab");
+        when(mClosingTab.getUrl()).thenReturn(JUnitTestGURLs.URL_2);
+        when(mClosingTab.isClosing()).thenReturn(true);
+
+        when(mComprehensiveModelWindow2.iterator())
+                .thenAnswer(invocation -> List.of(mClosingTab).iterator());
+        when(mModelWindow2.getComprehensiveModel()).thenReturn(mComprehensiveModelWindow2);
+        when(mModelWindow2.getTabsInGroup(token1)).thenReturn(List.of());
+        when(mModelWindow2.getTabGroupTitle(token1)).thenReturn("Live Window 2 Closing Group");
+        when(mModelWindow2.getTabGroupColorWithFallback(token1)).thenReturn(TabGroupColorId.BLUE);
+
+        when(mTab.getUrl()).thenReturn(JUnitTestGURLs.EXAMPLE_URL);
+
+        TabGroupItemBuilder builder =
+                new TabGroupItemBuilder(
+                        mContext,
+                        mAppMenuItemTheme,
+                        mTabModelSelector,
+                        /* isMenuIconAtStart= */ false,
+                        /* shouldShowIconBeforeItem= */ true,
+                        mRoundedIconGenerator,
+                        mDefaultFaviconHelper,
+                        () -> mFaviconHelper,
+                        () -> mTabGroupSyncService);
+
+        ListItem tabGroupsParent = builder.buildTabGroupsParentItem(mTab);
+        assertNotNull(tabGroupsParent);
+
+        List<ListItem> tabGroupsSubmenuItems =
+                tabGroupsParent.model.get(AppMenuItemWithSubmenuProperties.SUBMENU_PROVIDER).get();
+
+        ListItem groupItem = findItemById(tabGroupsSubmenuItems, R.id.tab_group_menu_item_id);
+        assertNotNull(groupItem);
+        assertEquals(
+                "Live Window 2 Closing Group", groupItem.model.get(AppMenuItemProperties.TITLE));
+
+        List<ListItem> tabsSubmenuItems =
+                groupItem.model.get(AppMenuItemWithSubmenuProperties.SUBMENU_PROVIDER).get();
+        assertEquals(1, tabsSubmenuItems.size());
+        assertEquals(
+                "Cross Window Closing Tab",
+                tabsSubmenuItems.get(0).model.get(AppMenuItemProperties.TITLE));
+        assertEquals(202, tabsSubmenuItems.get(0).model.get(AppMenuTabItemProperties.TAB_ID));
+        assertEquals(
+                JUnitTestGURLs.URL_2,
+                tabsSubmenuItems.get(0).model.get(AppMenuTabItemProperties.TAB_URL));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.CROSS_WINDOW_TAB_GROUP_OPERATIONS)
+    @DisableFeatures(
+            ChromeFeatureList.CROSS_WINDOW_TAB_GROUP_OPERATIONS + ":remote_group_operations")
+    public void testBuildAddToGroupItem_remoteOperationsDisabled_excludesHiddenAndDetachedGroups() {
+        Token token1 = Token.createRandom();
+        SavedTabGroup hiddenGroup = new SavedTabGroup();
+        hiddenGroup.syncId = "hidden_id";
+        hiddenGroup.localId = new LocalTabGroupId(token1);
+        hiddenGroup.title = "Hidden Group";
+        hiddenGroup.color = TabGroupColorId.BLUE;
+        hiddenGroup.savedTabs = List.of(new SavedTabGroupTab());
+
+        when(mTabGroupSyncService.getAllGroupIds()).thenReturn(new String[] {"hidden_id"});
+        when(mTabGroupSyncService.getGroup("hidden_id")).thenReturn(hiddenGroup);
+        when(mTabModel.getTabsInGroup(token1)).thenReturn(List.of());
+        when(mComprehensiveTabList.iterator())
+                .thenAnswer(invocation -> Collections.emptyIterator());
+        when(mTabModel.getComprehensiveModel()).thenReturn(mComprehensiveTabList);
+
+        TabWindowManagerSingleton.setTabWindowManagerForTesting(mTabWindowManager);
+        when(mTabWindowManager.findWindowIdForTabGroup(eq(token1), anyBoolean())).thenReturn(2);
+        when(mTabWindowManager.getTabModelSelectorById(2)).thenReturn(mSelectorWindow2);
+        when(mSelectorWindow2.getModel(false)).thenReturn(mModelWindow2);
+        when(mModelWindow2.getTabModelType()).thenReturn(TabModelType.HEADLESS);
+
+        when(mTab.getUrl()).thenReturn(JUnitTestGURLs.EXAMPLE_URL);
+
+        TabGroupItemBuilder builder =
+                new TabGroupItemBuilder(
+                        mContext,
+                        mAppMenuItemTheme,
+                        mTabModelSelector,
+                        /* isMenuIconAtStart= */ false,
+                        /* shouldShowIconBeforeItem= */ true,
+                        mRoundedIconGenerator,
+                        mDefaultFaviconHelper,
+                        () -> mFaviconHelper,
+                        () -> mTabGroupSyncService);
+
+        assertFalse(builder.shouldShowAddToGroup(mTab));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.CROSS_WINDOW_TAB_GROUP_OPERATIONS)
+    @DisableFeatures(
+            ChromeFeatureList.CROSS_WINDOW_TAB_GROUP_OPERATIONS + ":remote_group_operations")
+    public void
+            testBuildTabGroupsParentItem_remoteOperationsDisabled_excludesHiddenAndDetachedGroups() {
+        Token token1 = Token.createRandom();
+        SavedTabGroup hiddenGroup = new SavedTabGroup();
+        hiddenGroup.syncId = "hidden_id";
+        hiddenGroup.localId = new LocalTabGroupId(token1);
+        hiddenGroup.title = "Hidden Group";
+        hiddenGroup.color = TabGroupColorId.BLUE;
+        hiddenGroup.savedTabs = List.of(new SavedTabGroupTab());
+
+        when(mTabGroupSyncService.getAllGroupIds()).thenReturn(new String[] {"hidden_id"});
+        when(mTabGroupSyncService.getGroup("hidden_id")).thenReturn(hiddenGroup);
+        when(mTabModel.getTabsInGroup(token1)).thenReturn(List.of());
+        when(mComprehensiveTabList.iterator())
+                .thenAnswer(invocation -> Collections.emptyIterator());
+        when(mTabModel.getComprehensiveModel()).thenReturn(mComprehensiveTabList);
+
+        TabWindowManagerSingleton.setTabWindowManagerForTesting(mTabWindowManager);
+        when(mTabWindowManager.findWindowIdForTabGroup(eq(token1), anyBoolean())).thenReturn(2);
+        when(mTabWindowManager.getTabModelSelectorById(2)).thenReturn(mSelectorWindow2);
+        when(mSelectorWindow2.getModel(false)).thenReturn(mModelWindow2);
+        when(mModelWindow2.getTabModelType()).thenReturn(TabModelType.HEADLESS);
+
+        when(mTab.getUrl()).thenReturn(JUnitTestGURLs.EXAMPLE_URL);
+
+        TabGroupItemBuilder builder =
+                new TabGroupItemBuilder(
+                        mContext,
+                        mAppMenuItemTheme,
+                        mTabModelSelector,
+                        /* isMenuIconAtStart= */ false,
+                        /* shouldShowIconBeforeItem= */ true,
+                        mRoundedIconGenerator,
+                        mDefaultFaviconHelper,
+                        () -> mFaviconHelper,
+                        () -> mTabGroupSyncService);
+
+        ListItem tabGroupsParent = builder.buildTabGroupsParentItem(mTab);
+        assertNotNull(tabGroupsParent);
+
+        List<ListItem> tabGroupsSubmenuItems =
+                tabGroupsParent.model.get(AppMenuItemWithSubmenuProperties.SUBMENU_PROVIDER).get();
+        ListItem groupItem = findItemById(tabGroupsSubmenuItems, R.id.tab_group_menu_item_id);
+        assertNull(groupItem);
+        ListItem headerItem = findItemById(tabGroupsSubmenuItems, R.id.tab_groups_header_menu_id);
+        assertNull(headerItem);
     }
 }

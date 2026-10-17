@@ -18,10 +18,10 @@
 #import "components/prefs/testing_pref_service.h"
 #import "components/safe_browsing/core/browser/db/database_manager.h"
 #import "components/safe_browsing/core/browser/db/sb_database.h"
+#import "components/safe_browsing/core/browser/db/sb_protocol_manager_util.h"
 #import "components/safe_browsing/core/browser/db/sb_test_util.h"
 #import "components/safe_browsing/core/browser/db/util.h"
 #import "components/safe_browsing/core/browser/db/v4_get_hash_protocol_manager.h"
-#import "components/safe_browsing/core/browser/db/v4_protocol_manager_util.h"
 #import "components/safe_browsing/core/browser/db/v5_get_hash_protocol_manager.h"
 #import "components/safe_browsing/core/browser/db/v5_search_hashes_cache.h"
 #import "components/safe_browsing/core/browser/hashprefix_realtime/hash_realtime_service.h"
@@ -257,8 +257,7 @@ class SafeBrowsingServiceTest : public PlatformTest,
     }
     scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
 
-    // TODO(crbug.com/362791941): Handle v4 references.
-    store_factory_ = new safe_browsing::TestV4StoreFactory();
+    store_factory_ = new safe_browsing::TestSBStoreFactory();
     safe_browsing::SBDatabase::RegisterStoreFactoryForTest(
         base::WrapUnique(store_factory_.get()));
 
@@ -302,7 +301,8 @@ class SafeBrowsingServiceTest : public PlatformTest,
     v5_get_hash_protocol_manager_ =
         std::make_unique<safe_browsing::V5GetHashProtocolManager>(
             safe_browsing_service_->GetURLLoaderFactory(),
-            safe_browsing::GetTestSBProtocolConfig(), v5_cache_.get());
+            safe_browsing::GetTestSBProtocolConfig(), v5_cache_.get(),
+            /*webui_delegate=*/nullptr);
     safe_browsing_client_->set_v5_get_hash_protocol_manager(
         v5_get_hash_protocol_manager_.get());
 
@@ -451,7 +451,7 @@ class SafeBrowsingServiceTest : public PlatformTest,
   raw_ptr<safe_browsing::TestV4GetHashProtocolManagerFactory, DanglingUntriaged>
       v4_get_hash_factory_;
   // Owned by SBDatabase.
-  raw_ptr<safe_browsing::TestV4StoreFactory, DanglingUntriaged> store_factory_;
+  raw_ptr<safe_browsing::TestSBStoreFactory, DanglingUntriaged> store_factory_;
   scoped_refptr<HostContentSettingsMap> host_content_settings_map_;
   std::unique_ptr<safe_browsing::VerdictCacheManager> verdict_cache_manager_;
 };

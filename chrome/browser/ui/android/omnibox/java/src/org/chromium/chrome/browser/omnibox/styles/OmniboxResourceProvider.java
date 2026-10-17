@@ -751,6 +751,20 @@ public class OmniboxResourceProvider implements ComponentCallbacks2 {
     }
 
     /**
+     * Resolves the text appearance for the attachments header in the popup.
+     *
+     * @param useLarge Whether to use large headline text (carousel) or medium header text.
+     */
+    public @StyleRes int getPopupAttachmentsHeaderTextRes(boolean useLarge) {
+        boolean isIncognito =
+                convertBrandedColorSchemeToIncognitoOrDayNightAdaptive(getBrandedColorScheme());
+        if (!useLarge) {
+            return IncognitoColors.getTextMediumThickSecondary(isIncognito);
+        }
+        return IncognitoColors.getHeadlinePrimary(isIncognito);
+    }
+
+    /**
      * Get search box icon background.
      *
      * @see #getSearchBoxIconBackground(Context, ...)
@@ -1162,7 +1176,7 @@ public class OmniboxResourceProvider implements ComponentCallbacks2 {
      * top of the screen in NTP.
      */
     public static @Px int getToolbarSidePaddingForNtp(Context context) {
-        if (ChromeFeatureList.sNtpAurora.isEnabled()) {
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.NTP_AURORA)) {
             return getToolbarSidePadding(context);
         }
         return context.getResources().getDimensionPixelSize(R.dimen.toolbar_edge_padding_ntp);

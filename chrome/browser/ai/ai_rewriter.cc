@@ -6,6 +6,8 @@
 
 #include "base/containers/fixed_flat_set.h"
 #include "base/functional/bind.h"
+#include "base/i18n/language_tag.h"
+#include "base/i18n/tag_converters.h"
 #include "base/notimplemented.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -103,11 +105,38 @@ AIRewriter::ToProtoOptions(
   proto_options->set_output_length(ToProtoLength(options->length));
   if (options->output_language && !options->output_language->code.empty()) {
     // Writer expects the language's display name to use within English prose.
-    std::u16string name = l10n_util::GetDisplayNameForLocaleWithoutCountry(
-        options->output_language->code, "en", /*is_for_ui=*/false);
-    proto_options->set_output_language(base::UTF16ToUTF8(name));
+    if (std::optional<base::i18n::LanguageTag> locale_tag =
+            base::i18n::GetLanguageTagFromString(
+                options->output_language->code)) {
+      std::u16string name = l10n_util::GetDisplayNameForLocale(
+          locale_tag->WithLanguageSubtagOnly(),
+          base::i18n::GetKnownLanguageTag("en"),
+          /*is_for_ui=*/false);
+      proto_options->set_output_language(base::UTF16ToUTF8(name));
+    }
   }
   return proto_options;
+}
+
+// static
+optimization_guide::MultimodalMessage AIRewriter::ToInitialRequest(
+    const blink::mojom::AIRewriterCreateOptionsPtr& options) {
+  optimization_guide::proto::WritingAssistanceApiRequest request;
+  request.set_allocated_options(AIRewriter::ToProtoOptions(options).release());
+  if (options->shared_context.has_value() &&
+      !options->shared_context.value().empty()) {
+    request.set_shared_context(options->shared_context.value());
+  }
+  auto initial_request = optimization_guide::MultimodalMessage(request);
+  // Mark dynamic execution fields as pending so the template stops before them
+  // during SetInput() and avoids pre-populating with empty execution strings.
+  initial_request.edit().MarkPending(
+      optimization_guide::proto::WritingAssistanceApiRequest::
+          kRewriteTextFieldNumber);
+  initial_request.edit().MarkPending(
+      optimization_guide::proto::WritingAssistanceApiRequest::
+          kContextFieldNumber);
+  return initial_request;
 }
 
 // static
@@ -254,7 +283,6 @@ optimization_guide::proto::WritingAssistanceApiRequest AIRewriter::BuildRequest(
   request.set_context(context);
   request.set_allocated_options(ToProtoOptions(options_).release());
   request.set_rewrite_text(input);
-  // TODO(crbug.com/390006887): Pass shared context with session creation.
   request.set_shared_context(options_->shared_context.value_or(std::string()));
   return request;
 }

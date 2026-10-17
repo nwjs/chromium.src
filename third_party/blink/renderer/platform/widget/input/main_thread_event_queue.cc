@@ -8,13 +8,16 @@
 #include <optional>
 #include <utility>
 
+#include "base/command_line.h"
 #include "base/containers/circular_deque.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
+#include "build/build_config.h"
 #include "cc/base/features.h"
 #include "cc/metrics/event_metrics.h"
 #include "third_party/blink/public/common/features.h"
@@ -22,8 +25,17 @@
 #include "third_party/blink/public/common/input/web_gesture_event.h"
 #include "third_party/blink/public/common/input/web_input_event_attribution.h"
 #include "third_party/blink/public/common/input/web_mouse_wheel_event.h"
+#include "third_party/blink/public/common/switches.h"
 
 namespace blink {
+
+BASE_FEATURE(kNoUrgentMainFrameForMouseMove,
+#if BUILDFLAG(IS_ANDROID)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 
 namespace {
 
@@ -48,9 +60,22 @@ class QueuedClosure : public MainThreadEventQueueTask {
   base::OnceClosure closure_;
 };
 
-// Time interval at which touchmove events during scroll will be skipped
-// during rAF signal.
-constexpr base::TimeDelta kAsyncTouchMoveInterval = base::Milliseconds(200);
+// Default minimum time interval at which touchmove events during scroll will be
+// skipped during rAF signal.
+constexpr base::TimeDelta kDefaultAsyncTouchMoveInterval =
+    base::Milliseconds(200);
+
+base::TimeDelta GetAsyncTouchMoveInterval() {
+  int throttle_time_ms = 0;
+  if (base::StringToInt(
+          base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+              switches::kAsyncTouchMoveThrottleTimeMs),
+          &throttle_time_ms) &&
+      throttle_time_ms >= 0) {
+    return base::Milliseconds(throttle_time_ms);
+  }
+  return kDefaultAsyncTouchMoveInterval;
+}
 
 bool IsGestureScroll(WebInputEvent::Type type) {
   switch (type) {
@@ -350,6 +375,7 @@ MainThreadEventQueue::MainThreadEventQueue(
     bool allow_raf_aligned_input)
     : client_(client),
       allow_raf_aligned_input_(allow_raf_aligned_input),
+      async_touch_move_interval_(GetAsyncTouchMoveInterval()),
       main_task_runner_(std::move(main_task_runner)),
       widget_scheduler_(std::move(widget_scheduler)) {
   DCHECK(widget_scheduler_);
@@ -739,7 +765,7 @@ void MainThreadEventQueue::DispatchRafAlignedInput(base::TimeTicks frame_time) {
             ShouldThrottleAsyncTouchMoves()) {
           if (shared_state_.events_.size() == 1 &&
               frame_time < shared_state_.last_async_touch_move_timestamp_ +
-                               kAsyncTouchMoveInterval) {
+                               async_touch_move_interval_) {
             break;
           }
           shared_state_.last_async_touch_move_timestamp_ = frame_time;
@@ -833,6 +859,10 @@ void MainThreadEventQueue::QueueEvent(
     bool urgent =
         ::features::IsEligibleForThrottleMainFrameTo60Hz() &&
         base::FeatureList::IsEnabled(blink::features::kUrgentMainFrameForInput);
+    if (urgent &&
+        base::FeatureList::IsEnabled(kNoUrgentMainFrameForMouseMove)) {
+      urgent = input_event_type != WebInputEvent::Type::kMouseMove;
+    }
     SetNeedsMainFrame(cc::BeginMainFrameReason::kInput, urgent);
   }
 

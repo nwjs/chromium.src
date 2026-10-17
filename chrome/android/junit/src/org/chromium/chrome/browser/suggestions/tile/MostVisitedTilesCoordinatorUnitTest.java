@@ -32,6 +32,7 @@ import org.robolectric.Robolectric;
 
 import org.chromium.base.FeatureOverrides;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
@@ -43,6 +44,7 @@ import org.chromium.components.browser_ui.widget.displaystyle.VerticalDisplaySty
 
 /** Unit tests for {@link MostVisitedTilesCoordinator}. */
 @RunWith(BaseRobolectricTestRunner.class)
+@EnableFeatures({ChromeFeatureList.NTP_AURORA + ":padding_style/0"})
 public class MostVisitedTilesCoordinatorUnitTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 

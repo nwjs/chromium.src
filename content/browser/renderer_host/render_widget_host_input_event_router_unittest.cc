@@ -429,6 +429,9 @@ class RenderWidgetHostInputEventRouterTest : public testing::Test {
   input::RenderWidgetHostViewInput* wheel_target() {
     return rwhier()->wheel_target_;
   }
+  input::RenderWidgetHostViewInput* last_fling_start_target() {
+    return rwhier()->last_fling_start_target_;
+  }
 
   void TestSendNewGestureWhileBubbling(
       TestRenderWidgetHostViewChildFrame* bubbling_origin,
@@ -706,6 +709,68 @@ TEST_F(RenderWidgetHostInputEventRouterTest, EnsureDroppedTouchEventsAreAcked) {
   rwhier()->RouteTouchEvent(view_root_.get(), &touch_cancel_event,
                             ui::LatencyInfo());
   EXPECT_EQ(view_root_->last_id_for_touch_ack(), 2lu);
+}
+
+// Regression test for crbug.com/515367462. A platform gesture can turn the
+// ACTION_POINTER_DOWN of a third finger into an ACTION_CANCEL that carries all
+// three pointers, so the TouchCancel reports more cancelled points than were
+// routed as pressed. The cancel must still end the sequence, and the next
+// sequence must keep its target until its TouchEnd.
+TEST_F(RenderWidgetHostInputEventRouterTest,
+       TouchCancelWithUnroutedPointsEndsSequence) {
+  view_root_->SetHittestResult(view_root_.get(), false);
+
+  blink::WebTouchEvent touch_event(
+      blink::WebInputEvent::Type::kTouchStart,
+      blink::WebInputEvent::kNoModifiers,
+      blink::WebInputEvent::GetStaticTimeStampForTests());
+  touch_event.touches_length = 1;
+  touch_event.touches[0].state = blink::WebTouchPoint::State::kStatePressed;
+  touch_event.unique_touch_event_id = 1;
+  rwhier()->RouteTouchEvent(view_root_.get(), &touch_event, ui::LatencyInfo());
+  EXPECT_EQ(view_root_.get(), touch_target());
+
+  // Second finger down.
+  touch_event.touches_length = 2;
+  touch_event.touches[0].state = blink::WebTouchPoint::State::kStateStationary;
+  touch_event.touches[1].state = blink::WebTouchPoint::State::kStatePressed;
+  touch_event.unique_touch_event_id = 2;
+  rwhier()->RouteTouchEvent(view_root_.get(), &touch_event, ui::LatencyInfo());
+  EXPECT_EQ(view_root_.get(), touch_target());
+
+  // The third finger arrives as a cancel of all three pointers.
+  blink::WebTouchEvent touch_cancel_event(
+      blink::WebInputEvent::Type::kTouchCancel,
+      blink::WebInputEvent::kNoModifiers,
+      blink::WebInputEvent::GetStaticTimeStampForTests());
+  touch_cancel_event.touches_length = 3;
+  for (unsigned i = 0; i < touch_cancel_event.touches_length; ++i) {
+    touch_cancel_event.touches[i].state =
+        blink::WebTouchPoint::State::kStateCancelled;
+  }
+  touch_cancel_event.unique_touch_event_id = 3;
+  rwhier()->RouteTouchEvent(view_root_.get(), &touch_cancel_event,
+                            ui::LatencyInfo());
+  EXPECT_EQ(nullptr, touch_target());
+
+  // A new single-finger sequence keeps its target until the TouchEnd.
+  touch_event.touches_length = 1;
+  touch_event.touches[0].state = blink::WebTouchPoint::State::kStatePressed;
+  touch_event.unique_touch_event_id = 4;
+  rwhier()->RouteTouchEvent(view_root_.get(), &touch_event, ui::LatencyInfo());
+  EXPECT_EQ(view_root_.get(), touch_target());
+
+  touch_event.SetType(blink::WebInputEvent::Type::kTouchMove);
+  touch_event.touches[0].state = blink::WebTouchPoint::State::kStateMoved;
+  touch_event.unique_touch_event_id = 5;
+  rwhier()->RouteTouchEvent(view_root_.get(), &touch_event, ui::LatencyInfo());
+  EXPECT_EQ(view_root_.get(), touch_target());
+
+  touch_event.SetType(blink::WebInputEvent::Type::kTouchEnd);
+  touch_event.touches[0].state = blink::WebTouchPoint::State::kStateReleased;
+  touch_event.unique_touch_event_id = 6;
+  rwhier()->RouteTouchEvent(view_root_.get(), &touch_event, ui::LatencyInfo());
+  EXPECT_EQ(nullptr, touch_target());
 }
 
 // Tests that FindViewFromFrameSinkId correctly verifies the descendant
@@ -1797,6 +1862,254 @@ TEST_F(RenderWidgetHostInputEventRouterTest,
   rwhier()->ProcessAckedTouchEvent(
       input::TouchEventWithLatencyInfo(touch_start_event),
       blink::mojom::InputEventResultState::kConsumed, view_root_.get());
+}
+
+// Regression test for crbug.com/567673405. When a view that is the current
+// |wheel_target_| is destroyed with an unacked touch event in the queue,
+// flushing the queue can generate a GestureScrollBegin, which synchronously
+// dispatches a pending synthetic wheel-end event. That event must not be
+// routed to, and pin, the view being destroyed.
+TEST_F(RenderWidgetHostInputEventRouterTest, WheelEndAfterTargetDestroyed) {
+  ChildViewState child = MakeChildView(view_root_.get());
+  view_root_->SetHittestResult(child.view.get(), false);
+
+  blink::WebMouseWheelEvent wheel_begin(
+      blink::WebInputEvent::Type::kMouseWheel,
+      blink::WebInputEvent::kNoModifiers,
+      blink::WebInputEvent::GetStaticTimeStampForTests());
+  wheel_begin.SetPositionInWidget(gfx::PointF(20, 21));
+  wheel_begin.delta_y = 10;
+  wheel_begin.phase = blink::WebMouseWheelEvent::kPhaseBegan;
+  rwhier()->RouteMouseWheelEvent(view_root_.get(), &wheel_begin,
+                                 ui::LatencyInfo());
+  EXPECT_EQ(child.view.get(), wheel_target());
+
+  blink::WebTouchEvent touch_event(
+      blink::WebInputEvent::Type::kTouchStart,
+      blink::WebInputEvent::kNoModifiers,
+      blink::WebInputEvent::GetStaticTimeStampForTests());
+  touch_event.touches_length = 1;
+  touch_event.touches[0].state = blink::WebTouchPoint::State::kStatePressed;
+  touch_event.unique_touch_event_id = 1;
+  rwhier()->RouteTouchEvent(view_root_.get(), &touch_event, ui::LatencyInfo());
+  EXPECT_EQ(child.view.get(), touch_target());
+
+  bool ack_callback_ran = false;
+  view_root_->set_on_process_acked_touch_event_callback(
+      base::BindLambdaForTesting([&]() {
+        ack_callback_ran = true;
+        EXPECT_EQ(nullptr, wheel_target());
+        // Simulate MouseWheelPhaseHandler::DispatchPendingWheelEndEvent().
+        blink::WebMouseWheelEvent wheel_end(
+            blink::WebInputEvent::Type::kMouseWheel,
+            blink::WebInputEvent::kNoModifiers,
+            blink::WebInputEvent::GetStaticTimeStampForTests());
+        wheel_end.SetPositionInWidget(gfx::PointF(20, 21));
+        wheel_end.phase = blink::WebMouseWheelEvent::kPhaseEnded;
+        rwhier()->RouteMouseWheelEvent(view_root_.get(), &wheel_end,
+                                       ui::LatencyInfo());
+      }));
+
+  rwhier()->OnRenderWidgetHostViewInputDestroyed(child.view.get());
+  EXPECT_TRUE(ack_callback_ran);
+  EXPECT_EQ(nullptr, wheel_target());
+}
+
+// Regression test for crbug.com/567673405. When a view that is the current
+// scroll bubbling target is destroyed with an unacked touch event in the
+// queue, events generated while flushing the queue must not cancel scroll
+// bubbling by sending a GestureScrollEnd to the view being destroyed.
+TEST_F(RenderWidgetHostInputEventRouterTest,
+       WheelEndAfterBubblingTargetDestroyed) {
+  // Bubbling a touchpad scroll to a view with an active touch sequence relies
+  // on this feature.
+  if (!base::FeatureList::IsEnabled(
+          input::features::kIgnoreBubblingCollisionIfSourceDevicesMismatch)) {
+    return;
+  }
+
+  ChildViewState outer = MakeChildView(view_root_.get());
+  ChildViewState inner = MakeChildView(outer.view.get());
+
+  view_root_->SetHittestResult(outer.view.get(), false);
+  blink::WebTouchEvent touch_event(
+      blink::WebInputEvent::Type::kTouchStart,
+      blink::WebInputEvent::kNoModifiers,
+      blink::WebInputEvent::GetStaticTimeStampForTests());
+  touch_event.touches_length = 1;
+  touch_event.touches[0].state = blink::WebTouchPoint::State::kStatePressed;
+  touch_event.unique_touch_event_id = 1;
+  rwhier()->RouteTouchEvent(view_root_.get(), &touch_event, ui::LatencyInfo());
+  ASSERT_EQ(outer.view.get(), touch_target());
+
+  // Start bubbling after the touch sequence starts, since a touch start on
+  // the bubbling target would otherwise cancel bubbling.
+  ASSERT_TRUE(rwhier()->BubbleScrollEvent(
+      outer.view.get(), inner.view.get(),
+      blink::SyntheticWebGestureEventBuilder::BuildScrollBegin(
+          0.f, 10.f, blink::WebGestureDevice::kTouchpad)));
+  ASSERT_EQ(outer.view.get(), bubbling_gesture_scroll_target());
+
+  view_root_->SetHittestResult(view_root_.get(), false);
+  outer.view->Reset();
+
+  bool ack_callback_ran = false;
+  view_root_->set_on_process_acked_touch_event_callback(
+      base::BindLambdaForTesting([&]() {
+        ack_callback_ran = true;
+        EXPECT_EQ(nullptr, bubbling_gesture_scroll_target());
+        EXPECT_EQ(nullptr, bubbling_gesture_scroll_origin());
+        // With no |wheel_target_|, a wheel-end cancels any ongoing scroll
+        // bubbling, which sends a GestureScrollEnd to the bubbling target.
+        blink::WebMouseWheelEvent wheel_end(
+            blink::WebInputEvent::Type::kMouseWheel,
+            blink::WebInputEvent::kNoModifiers,
+            blink::WebInputEvent::GetStaticTimeStampForTests());
+        wheel_end.SetPositionInWidget(gfx::PointF(20, 21));
+        wheel_end.phase = blink::WebMouseWheelEvent::kPhaseEnded;
+        rwhier()->RouteMouseWheelEvent(view_root_.get(), &wheel_end,
+                                       ui::LatencyInfo());
+      }));
+
+  rwhier()->OnRenderWidgetHostViewInputDestroyed(outer.view.get());
+  EXPECT_TRUE(ack_callback_ran);
+  EXPECT_EQ(nullptr, bubbling_gesture_scroll_target());
+  EXPECT_EQ(blink::WebInputEvent::Type::kUndefined,
+            outer.view->last_gesture_seen());
+}
+
+// Regression test for crbug.com/567673405. While middle click autoscroll is in
+// progress, the targeter routes every event to the view that received the
+// middle click. When that view is destroyed with an unacked touch event in the
+// queue, events generated while flushing the queue must not be targeted at the
+// view being destroyed.
+TEST_F(RenderWidgetHostInputEventRouterTest,
+       WheelEndDuringAutoscrollAfterTargetDestroyed) {
+  ChildViewState child = MakeChildView(view_root_.get());
+  view_root_->SetHittestResult(child.view.get(), false);
+
+  blink::WebTouchEvent touch_event(
+      blink::WebInputEvent::Type::kTouchStart,
+      blink::WebInputEvent::kNoModifiers,
+      blink::WebInputEvent::GetStaticTimeStampForTests());
+  touch_event.touches_length = 1;
+  touch_event.touches[0].state = blink::WebTouchPoint::State::kStatePressed;
+  touch_event.unique_touch_event_id = 1;
+  rwhier()->RouteTouchEvent(view_root_.get(), &touch_event, ui::LatencyInfo());
+  ASSERT_EQ(child.view.get(), touch_target());
+
+  blink::WebMouseEvent middle_down_event(
+      blink::WebInputEvent::Type::kMouseDown,
+      blink::WebInputEvent::kNoModifiers,
+      blink::WebInputEvent::GetStaticTimeStampForTests());
+  middle_down_event.button = blink::WebPointerProperties::Button::kMiddle;
+  middle_down_event.SetPositionInWidget(50, 50);
+  rwhier()->RouteMouseEvent(view_root_.get(), &middle_down_event,
+                            ui::LatencyInfo());
+  rwhier()->SetAutoScrollInProgress(child.view.get(), true);
+  input::RenderWidgetTargeter* targeter =
+      rwhier()->GetRenderWidgetTargeterForTests();
+  ASSERT_TRUE(targeter->is_auto_scroll_in_progress());
+
+  view_root_->SetHittestResult(view_root_.get(), false);
+
+  bool ack_callback_ran = false;
+  view_root_->set_on_process_acked_touch_event_callback(
+      base::BindLambdaForTesting([&]() {
+        ack_callback_ran = true;
+        // The targeter must have already dropped the view being destroyed as
+        // the autoscroll target, so the wheel event below is hit tested
+        // rather than sent to, and pinning, that view.
+        EXPECT_FALSE(targeter->is_auto_scroll_in_progress());
+        blink::WebMouseWheelEvent wheel_end(
+            blink::WebInputEvent::Type::kMouseWheel,
+            blink::WebInputEvent::kNoModifiers,
+            blink::WebInputEvent::GetStaticTimeStampForTests());
+        wheel_end.SetPositionInWidget(gfx::PointF(20, 21));
+        wheel_end.phase = blink::WebMouseWheelEvent::kPhaseEnded;
+        rwhier()->RouteMouseWheelEvent(view_root_.get(), &wheel_end,
+                                       ui::LatencyInfo());
+      }));
+
+  rwhier()->OnRenderWidgetHostViewInputDestroyed(child.view.get());
+  EXPECT_TRUE(ack_callback_ran);
+  EXPECT_FALSE(targeter->is_auto_scroll_in_progress());
+}
+
+// Verifies that when a view receives a GestureFlingStart and is subsequently
+// destroyed, a subsequent GestureFlingCancel does not crash on a dangling
+// ScopedInputDispatchPin.
+TEST_F(RenderWidgetHostInputEventRouterTest, FlingCancelAfterTargetDestroyed) {
+  ChildViewState child = MakeChildView(view_root_.get());
+  view_root_->SetHittestResult(child.view.get(), false);
+
+  blink::WebTouchEvent touch_event(
+      blink::WebInputEvent::Type::kTouchStart,
+      blink::WebInputEvent::kNoModifiers,
+      blink::WebInputEvent::GetStaticTimeStampForTests());
+  touch_event.touches_length = 1;
+  touch_event.touches[0].state = blink::WebTouchPoint::State::kStatePressed;
+  touch_event.unique_touch_event_id = 1;
+
+  rwhier()->RouteTouchEvent(view_root_.get(), &touch_event, ui::LatencyInfo());
+  EXPECT_EQ(child.view.get(), touch_target());
+
+  blink::WebGestureEvent tap_down(
+      blink::WebInputEvent::Type::kGestureTapDown,
+      blink::WebInputEvent::kNoModifiers,
+      blink::WebInputEvent::GetStaticTimeStampForTests(),
+      blink::WebGestureDevice::kTouchscreen);
+  tap_down.unique_touch_event_id = 1;
+  rwhier()->RouteGestureEvent(view_root_.get(), &tap_down, ui::LatencyInfo());
+  EXPECT_EQ(child.view.get(), touchscreen_gesture_target());
+
+  blink::WebGestureEvent fling_start(
+      blink::WebInputEvent::Type::kGestureFlingStart,
+      blink::WebInputEvent::kNoModifiers,
+      blink::WebInputEvent::GetStaticTimeStampForTests(),
+      blink::WebGestureDevice::kTouchscreen);
+  fling_start.unique_touch_event_id = 1;
+
+  rwhier()->RouteGestureEvent(view_root_.get(), &fling_start,
+                              ui::LatencyInfo());
+  EXPECT_EQ(child.view.get(), last_fling_start_target());
+
+  // When the child view is destroyed with an unacked touch event in the queue,
+  // UpdateQueueAfterTargetDestroyed() synchronously calls
+  // root_view->ProcessAckedTouchEvent(), which can synthesize and route a
+  // GestureFlingCancel. Verify that |last_fling_start_target_| has already been
+  // cleared before that synchronous callback runs.
+  bool ack_callback_ran = false;
+  child.view->Reset();
+  view_root_->set_on_process_acked_touch_event_callback(
+      base::BindLambdaForTesting([&]() {
+        ack_callback_ran = true;
+        EXPECT_EQ(nullptr, last_fling_start_target());
+        blink::WebGestureEvent sync_fling_cancel(
+            blink::WebInputEvent::Type::kGestureFlingCancel,
+            blink::WebInputEvent::kNoModifiers,
+            blink::WebInputEvent::GetStaticTimeStampForTests(),
+            blink::WebGestureDevice::kTouchscreen);
+        rwhier()->RouteGestureEvent(view_root_.get(), &sync_fling_cancel,
+                                    ui::LatencyInfo());
+      }));
+
+  // Destroy the child view.
+  rwhier()->OnRenderWidgetHostViewInputDestroyed(child.view.get());
+  EXPECT_TRUE(ack_callback_ran);
+  EXPECT_EQ(nullptr, last_fling_start_target());
+  EXPECT_EQ(blink::WebInputEvent::Type::kUndefined,
+            child.view->last_gesture_seen());
+
+  // Route a subsequent GestureFlingCancel; this must not crash or pin a
+  // dangling pointer.
+  blink::WebGestureEvent fling_cancel(
+      blink::WebInputEvent::Type::kGestureFlingCancel,
+      blink::WebInputEvent::kNoModifiers,
+      blink::WebInputEvent::GetStaticTimeStampForTests(),
+      blink::WebGestureDevice::kTouchscreen);
+  rwhier()->RouteGestureEvent(view_root_.get(), &fling_cancel,
+                              ui::LatencyInfo());
 }
 
 #if defined(USE_AURA)

@@ -8,6 +8,7 @@
 #include <stddef.h>
 
 #include <algorithm>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -22,6 +23,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
+#include "chrome/browser/ui/autofill/autofill_suggestion_controller_utils.h"
 #include "chrome/browser/ui/passwords/password_generation_popup_controller.h"
 #include "chrome/browser/ui/passwords/password_generation_popup_observer.h"
 #include "chrome/browser/ui/passwords/password_generation_popup_view.h"
@@ -32,6 +34,7 @@
 #include "components/autofill/core/common/password_generation_util.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "components/input/native_web_keyboard_event.h"
+#include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/password_bubble_experiment.h"
 #include "components/password_manager/core/browser/password_generation_frame_helper.h"
 #include "components/password_manager/core/browser/password_manager.h"
@@ -46,6 +49,7 @@
 #include "content/public/browser/web_contents.h"
 #include "ui/accessibility/platform/ax_platform.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/display/types/display_constants.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/text_utils.h"
@@ -139,7 +143,10 @@ PasswordGenerationPopupControllerImpl::PasswordGenerationPopupControllerImpl(
           autofill::FormControlType::kInputPassword)),
       generation_element_id_(ui_data.generation_element_id),
       max_length_(ui_data.max_length),
-      controller_common_(autofill::LocalFrameToken(*frame->GetFrameToken()),
+      controller_common_(ui_data.form_data.global_id(),
+                         autofill::FieldGlobalId(
+                             autofill::LocalFrameToken(*frame->GetFrameToken()),
+                             ui_data.generation_element_id),
                          bounds,
                          ui_data.text_direction),
       state_(kOfferGeneration),
@@ -224,6 +231,15 @@ void PasswordGenerationPopupControllerImpl::PasswordAccepted() {
     return;
   }
 
+  // Hide the popup if the pointer is locked to prevent untrusted interactions.
+  if (base::FeatureList::IsEnabled(
+          password_manager::features::
+              kPasswordGenerationDropFullscreenAndCheckPointerLock) &&
+      autofill::IsPointerLocked(GetWebContents())) {
+    HideImpl();
+    return;
+  }
+
   base::WeakPtr<PasswordGenerationPopupControllerImpl> weak_this = GetWeakPtr();
   if (driver_) {
     // See https://crbug.com/40053471 for when `driver_` might be null due to a
@@ -234,7 +250,11 @@ void PasswordGenerationPopupControllerImpl::PasswordAccepted() {
   // |this| can be destroyed here because GeneratedPasswordAccepted pops up
   // another UI and generates some event to close the dropdown.
   if (weak_this) {
-    driver_->FocusNextFieldAfterPasswords();
+    // `driver_` can also be null if it was invalidated since the popup was
+    // shown, e.g. because the frame was deleted.
+    if (driver_) {
+      driver_->FocusNextFieldAfterPasswords();
+    }
     weak_this->HideImpl();
   }
 }
@@ -262,6 +282,33 @@ void PasswordGenerationPopupControllerImpl::GeneratePasswordValue(
 void PasswordGenerationPopupControllerImpl::Show(GenerationUIState state) {
   CHECK(!current_generated_password_.empty());
   state_ = state;
+
+  if (base::FeatureList::IsEnabled(
+          password_manager::features::
+              kPasswordGenerationDropFullscreenAndCheckPointerLock)) {
+    content::WebContents* web_contents = GetWebContents();
+    if (!web_contents || autofill::IsPointerLocked(web_contents)) {
+      HideImpl();
+      return;
+    }
+
+    // Block tab fullscreen to prevent UI spoofing. The block will be released
+    // when `this` is destroyed.
+    if (!fullscreen_blocker_) {
+      base::WeakPtr<PasswordGenerationPopupControllerImpl> weak_this =
+          GetWeakPtr();
+      std::optional<base::ScopedClosureRunner> fullscreen_blocker =
+          web_contents->ForSecurityDropFullscreen(display::kInvalidDisplayId);
+      if (!weak_this) {
+        return;
+      }
+      if (!fullscreen_blocker) {
+        HideImpl();
+        return;
+      }
+      fullscreen_blocker_ = std::move(*fullscreen_blocker);
+    }
+  }
 
   if (!view_) {
     view_ = PasswordGenerationPopupView::Create(GetWeakPtr());
@@ -398,9 +445,10 @@ PasswordGenerationPopupControllerImpl::GetElementTextDirection() const {
 }
 
 void PasswordGenerationPopupControllerImpl::HideImpl() {
-  // Detach if the frame is still alive.
+  // Detach if the frame is still alive. `KeyPressRegistrator` checks this
+  // itself, so this doesn't depend on `driver_`.
+  key_press_handler_manager_->RemoveKeyPressHandler();
   if (driver_) {
-    key_press_handler_manager_->RemoveKeyPressHandler();
     // The preview might have not been cleared (e.g. popup closed with ESC).
     driver_->ClearPreviewedForm();
   }

@@ -33,9 +33,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
-#include "chrome/browser/ttc/tool_controller.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
-#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/webui/ai_overlay_dialog/tools/generated_tool_definitions.h"
 #include "chrome/common/actor.mojom.h"
 #include "chrome/common/chrome_render_frame.mojom.h"
@@ -132,11 +130,7 @@ AiOverlayTools::AiOverlayTools(
     PageContextMonitor* page_context_monitor)
     : receiver_(this, std::move(receiver)),
       browser_(browser),
-      page_context_monitor_(page_context_monitor) {
-  if (features::kAiOverlayDialogUsesActor.Get()) {
-    tool_controller_ = std::make_unique<ToolController>(browser_->GetProfile());
-  }
-}
+      page_context_monitor_(page_context_monitor) {}
 
 AiOverlayTools::~AiOverlayTools() = default;
 
@@ -150,14 +144,8 @@ void AiOverlayTools::OpenUrl(const std::string& url_string,
                              bool new_tab,
                              OpenUrlCallback callback) {
   RecordToolCallInvoked("OpenUrl");
-  if (tool_controller_) {
-    tool_controller_->OpenUrl(browser_, url_string, new_tab,
-                              std::move(callback));
-    return;
-  }
-
   GURL url(url_string);
-  if (!url.is_valid()) {
+  if (!url.is_valid() || !url.SchemeIsHTTPOrHTTPS()) {
     std::move(callback).Run(base::unexpected("Invalid URL"));
     return;
   }
@@ -220,6 +208,9 @@ void AiOverlayTools::SwitchTab(const std::string& query,
   TabStripModel* tab_strip_model = browser_->GetTabStripModel();
   for (int i = 0; i < tab_strip_model->count(); ++i) {
     content::WebContents* contents = tab_strip_model->GetWebContentsAt(i);
+    if (!contents || !contents->GetLastCommittedURL().SchemeIsHTTPOrHTTPS()) {
+      continue;
+    }
     std::string title =
         base::ToLowerASCII(base::UTF16ToUTF8(contents->GetTitle()));
     std::string url = base::ToLowerASCII(contents->GetURL().spec());
@@ -331,6 +322,11 @@ void AiOverlayTools::FindAndHighlight(const std::string& query,
   content::WebContents* contents = GetActiveWebContentsFromBrowser(browser_);
   if (!contents) {
     std::move(callback).Run(base::unexpected("No active tab"));
+    return;
+  }
+  if (!contents->GetLastCommittedURL().SchemeIsHTTPOrHTTPS()) {
+    std::move(callback).Run(base::unexpected(
+        "FindAndHighlight is only supported on HTTP/HTTPS pages"));
     return;
   }
 
@@ -769,7 +765,9 @@ void AiOverlayTools::OpenPage(const std::string& query,
   base::ListValue open_tabs_list;
   for (int i = 0; i < tab_strip->count(); ++i) {
     content::WebContents* contents = tab_strip->GetWebContentsAt(i);
-    if (!contents) continue;
+    if (!contents || !contents->GetLastCommittedURL().SchemeIsHTTPOrHTTPS()) {
+      continue;
+    }
 
     std::string title = base::UTF16ToUTF8(contents->GetTitle());
     std::string url_str = contents->GetVisibleURL().spec();
@@ -797,6 +795,9 @@ void AiOverlayTools::OpenPage(const std::string& query,
         bookmarks::GetBookmarksMatchingProperties(bookmark_model, query_fields, 10);
 
     for (const auto* node : matches) {
+      if (!node->url().SchemeIsHTTPOrHTTPS()) {
+        continue;
+      }
       base::DictValue bm_dict;
       bm_dict.Set("target_id", target_id_counter++);
       bm_dict.Set("title", node->GetTitle());
@@ -837,7 +838,8 @@ void AiOverlayTools::OpenPage(const std::string& query,
             int current_target_id = start_target_id;
 
             for (const history::URLResult& result : results) {
-              if (HasOpenTabWithUrl(*tab_strip, result.url())) {
+              if (!result.url().SchemeIsHTTPOrHTTPS() ||
+                  HasOpenTabWithUrl(*tab_strip, result.url())) {
                 continue;
               }
 

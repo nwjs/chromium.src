@@ -335,7 +335,7 @@ public class ChromeSiteSettingsDelegate implements SiteSettingsDelegate {
     }
 
     @Override
-    public String getRelatedWebsiteSetOwner(String memberOrigin) {
+    public @Nullable String getRelatedWebsiteSetOwner(String memberOrigin) {
         return mPrivacySandboxBridge.getRelatedWebsiteSetOwner(memberOrigin);
     }
 
@@ -388,11 +388,6 @@ public class ChromeSiteSettingsDelegate implements SiteSettingsDelegate {
     @Override
     public boolean isRelatedWebsiteSetsUiEnabled() {
         return ChromeFeatureList.isEnabled(ChromeFeatureList.RELATED_WEBSITE_SETS_UI);
-    }
-
-    @Override
-    public boolean isSettingsContainmentEnabled() {
-        return ChromeFeatureList.sAndroidSettingsContainment.isEnabled();
     }
 
     @Override

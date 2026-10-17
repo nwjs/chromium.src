@@ -1193,6 +1193,9 @@ void ComposeboxQueryController::StartFileUploadFlow(
       std::make_unique<base::ios::ScopedCriticalAction>("ComposeboxFileUpload");
 #endif
   file_info->file_token = file_token;
+  if (file_info->selection_time.is_null()) {
+    file_info->selection_time = base::Time::Now();
+  }
   if (contextual_input_data->primary_content_type.has_value()) {
     file_info->mime_type = contextual_input_data->primary_content_type.value();
   } else {
@@ -2695,9 +2698,16 @@ void ComposeboxQueryController::HandleUploadResponse(
     return;
   }
 
+  std::string response_string = response->response;
+  if (lens::features::UseIdentityDelegationForLensComposeboxRequests()) {
+    std::string decoded_response;
+    if (base::Base64Decode(response_string, &decoded_response)) {
+      response_string = decoded_response;
+    }
+  }
+
   if (file_info->upload_chunker &&
-      file_info->upload_chunker->HandlePageContentResponse(
-          response->response)) {
+      file_info->upload_chunker->HandlePageContentResponse(response_string)) {
     // The chunker is handling missing chunk errors. Exit early. This handler
     // will be called again after the retry has finished.
     file_info->num_outstanding_network_requests_--;
@@ -2720,6 +2730,15 @@ void ComposeboxQueryController::HandleUploadResponse(
   upload_request->response_time = base::TimeTicks::Now();
   upload_request->response_code = response->http_status_code;
   upload_request->endpoint_fetcher_.reset();
+
+  if (response->http_status_code > 0) {
+    base::UmaHistogramSparse("ContextualTasks.FileUpload.HttpStatus",
+                             response->http_status_code);
+  }
+  if (response->net_error_code.has_value()) {
+    base::UmaHistogramSparse("ContextualTasks.FileUpload.NetError",
+                             std::abs(response->net_error_code.value()));
+  }
 
   base::TimeDelta elapsed =
       upload_request->response_time - upload_request->start_time;
@@ -2746,7 +2765,7 @@ void ComposeboxQueryController::HandleUploadResponse(
   }
 
   // Store the response body for later processing.
-  file_info->response_bodies.push_back(response->response);
+  file_info->response_bodies.push_back(response_string);
 
   // If the file was still uploading and there are no more outstanding network
   // requests, update the file upload status to successful. The upload status
@@ -2867,6 +2886,23 @@ void ComposeboxQueryController::SetAuthUserIndex(size_t auth_user_index) {
 base::WeakPtr<contextual_search::ContextualSearchContextController>
 ComposeboxQueryController::AsWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();
+}
+
+std::string ComposeboxQueryController::search_session_id() const {
+  return cluster_info_.has_value() ? cluster_info_->search_session_id() : "";
+}
+
+std::optional<lens::LensOverlayVisualSearchInteractionData>
+ComposeboxQueryController::GetVisualSearchInteractionData(
+    const base::UnguessableToken& file_token,
+    const std::optional<std::string>& query_text) {
+  const FileInfo* file_info = GetMutableFileInfo(file_token);
+  if (!file_info) {
+    return std::nullopt;
+  }
+  return ConstructVisualSearchInteractionData(
+      file_info, query_text, std::nullopt,
+      /*force_include_latest_interaction_request_data=*/true);
 }
 
 void ComposeboxQueryController::BeforeCreateSearchUrl(

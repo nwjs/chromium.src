@@ -4,6 +4,7 @@
 
 package org.chromium.base.test;
 
+import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 
@@ -13,6 +14,7 @@ import org.jni_zero.JniTestInstancesSnapshot;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
+import org.robolectric.Shadows;
 import org.robolectric.android.util.concurrent.PausedExecutorService;
 import org.robolectric.shadows.ShadowLog;
 
@@ -32,6 +34,7 @@ import org.chromium.base.task.AsyncTask;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.test.BaseRobolectricTestRunner.HelperTestRunner;
 import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.base.version_info.VersionConstants;
 import org.chromium.build.NativeLibraries;
 import org.chromium.build.annotations.Nullable;
 
@@ -52,6 +55,8 @@ public class BaseRobolectricTestRule implements TestRule {
     private static final TimeZone ORIG_TIMEZONE = TimeZone.getDefault();
     private static final String TAG = "BaseRobolectric";
     static @Nullable PausedExecutorService sPausedExecutor;
+    private static @Nullable Method sSetDefaultNightModeMethod;
+    private static boolean sSetDefaultNightModeLookupDone;
 
     // Removes the API Level suffix. E.g. "testSomething[28]" -> "testSomething".
     private static String stripBrackets(String methodName) {
@@ -102,6 +107,19 @@ public class BaseRobolectricTestRule implements TestRule {
         LibraryLoader.getInstance().setLibraryProcessType(LibraryProcessType.PROCESS_BROWSER);
         ApplicationStatus.initialize(ApplicationProvider.getApplicationContext());
 
+        // We don't pass --version-name when building resources for Robolectric binaries, so without
+        // this ApkInfo.getPackageVersionName() (and therefore VersionInfo.getProductVersion())
+        // returns "", which is not a parseable version and silently breaks version comparisons.
+        // Real APKs always have a versionName in their manifest, so give Robolectric one too.
+        Context appContext = ApplicationProvider.getApplicationContext();
+        Shadows.shadowOf(appContext.getPackageManager())
+                        .getInternalMutablePackageInfo(appContext.getPackageName())
+                        .versionName =
+                VersionConstants.PRODUCT_MAJOR_VERSION
+                        + ".0."
+                        + VersionConstants.PRODUCT_BUILD_VERSION
+                        + ".0";
+
         Class<?> testClass = method.getDeclaringClass();
         CommandLineFlags.reset(testClass.getAnnotations(), method.getAnnotations());
 
@@ -149,6 +167,7 @@ public class BaseRobolectricTestRule implements TestRule {
             Locale.setDefault(ORIG_LOCALE);
             TimeZone.setDefault(ORIG_TIMEZONE);
             ResettersForTesting.afterHooksDidExecute();
+            resetDefaultNightMode();
             ShadowLog.stream = null;
             // Run assertions only when the test has not already failed so as to not mask
             // failures. https://crbug.com/1466313
@@ -156,6 +175,30 @@ public class BaseRobolectricTestRule implements TestRule {
                 LifetimeAssert.resetForTesting();
             } else {
                 LifetimeAssert.assertAllInstancesDestroyedForTesting();
+            }
+        }
+    }
+
+    // Use reflection because //base does not depend on androidx.appcompat, and adding
+    // appcompat_java to base_junit_test_support would pull it into non-Chrome suites (e.g. Cronet).
+    private static void resetDefaultNightMode() {
+        if (!sSetDefaultNightModeLookupDone) {
+            sSetDefaultNightModeLookupDone = true;
+            try {
+                Class<?> appCompatDelegateClass =
+                        Class.forName("androidx.appcompat.app.AppCompatDelegate");
+                sSetDefaultNightModeMethod =
+                        appCompatDelegateClass.getMethod("setDefaultNightMode", int.class);
+            } catch (ReflectiveOperationException ignored) {
+                // AppCompatDelegate is not on the classpath for this test suite.
+            }
+        }
+        if (sSetDefaultNightModeMethod != null) {
+            try {
+                // AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM = -1
+                sSetDefaultNightModeMethod.invoke(null, -1);
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
             }
         }
     }

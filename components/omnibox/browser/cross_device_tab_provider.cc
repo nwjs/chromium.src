@@ -74,7 +74,7 @@ AutocompleteMatch CreateCrossDeviceTabMatch(
 
   AutocompleteMatch match(provider, omnibox::kDefaultRemoteZeroSuggestRelevance,
                           /*deletable=*/false,
-                          AutocompleteMatchType::CROSS_DEVICE_TAB);
+                          omnibox::AutocompleteMatchType::kCrossDeviceTab);
   match.destination_url = navigation.virtual_url();
   match.description = navigation.title();
   match.description_class = ClassifyTermMatches(
@@ -90,6 +90,7 @@ AutocompleteMatch CreateCrossDeviceTabMatch(
       match.destination_url, format_types, base::UnescapeRule::SPACES,
       /*new_parsed=*/nullptr, /*prefix_end=*/nullptr,
       /*offset_for_adjustment=*/nullptr);
+  match.fill_into_edit = match.contents;
   match.contents_class = ClassifyTermMatches(
       /*matches=*/{}, match.contents.length(), ACMatchClassification::NONE,
       ACMatchClassification::URL);
@@ -127,7 +128,7 @@ void LogShowAge(base::TimeDelta age) {
 
 CrossDeviceTabProvider::CrossDeviceTabProvider(
     AutocompleteProviderClient* client)
-    : AutocompleteProvider(AutocompleteProvider::TYPE_CROSS_DEVICE_TAB),
+    : AutocompleteProvider(AutocompleteProvider::Type::kCrossDeviceTab),
       client_(client) {}
 
 CrossDeviceTabProvider::~CrossDeviceTabProvider() = default;
@@ -244,7 +245,7 @@ void CrossDeviceTabProvider::RecordInteractionMetrics(const OmniboxLog& log) {
   size_t cross_device_tab_position = 0;
   for (size_t i = 0; i < log.result->size(); ++i) {
     if (log.result->match_at(i).type ==
-        AutocompleteMatchType::CROSS_DEVICE_TAB) {
+        omnibox::AutocompleteMatchType::kCrossDeviceTab) {
       cross_device_tab_shown = true;
       cross_device_tab_position = i;
       break;
@@ -259,7 +260,7 @@ void CrossDeviceTabProvider::RecordInteractionMetrics(const OmniboxLog& log) {
 
   const bool cross_device_row_clicked =
       log.result->match_at(log.selection.line).type ==
-      AutocompleteMatchType::CROSS_DEVICE_TAB;
+      omnibox::AutocompleteMatchType::kCrossDeviceTab;
 
   // Log actual age when shown (impression) on navigation.
   const AutocompleteMatch& match = log.result->match_at(position);

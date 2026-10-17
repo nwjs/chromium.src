@@ -66,7 +66,6 @@
 #include "chrome/browser/ui/views/profiles/avatar_badge_view.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/webui/signin/signin_ui_error.h"
-#include "chrome/browser/ui/webui/signin/signin_utils_desktop.h"
 #include "chrome/browser/user_education/user_education_service.h"
 #include "chrome/browser/user_education/user_education_service_factory.h"
 #include "chrome/browser/webauthn/passkey_unlock_manager.h"
@@ -87,7 +86,6 @@
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/primary_account_mutator.h"
 #include "components/subscription_eligibility/subscription_eligibility_service.h"
-#include "components/sync/base/features.h"
 #include "components/sync/service/sync_service.h"
 #include "components/user_education/common/new_badge/new_badge_controller.h"
 #include "components/vector_icons/vector_icons.h"
@@ -758,18 +756,9 @@ ProfileMenuView::GetIdentitySectionParams(const ProfileAttributesEntry& entry) {
   switch (signin_util::GetSignedInState(identity_manager)) {
     case signin_util::SignedInState::kSignedOut:
     case signin_util::SignedInState::kWebOnlySignedIn: {
-      signin::AccountPreviewDataService* account_preview_data_service =
-          AccountPreviewDataServiceFactory::GetForProfile(&profile());
-      AccountInfo account_info_for_promos =
-          signin_ui_util::GetSingleAccountForPromos(
-              identity_manager, account_preview_data_service);
-      if (!CanOfferSignin(&profile(), account_info_for_promos.GetGaiaId(),
-                          std::string(account_info_for_promos.GetEmail()),
-                          /*allow_account_from_other_profile=*/true)
-               .IsOk()) {
+      if (!signin::CanOfferSignInForPromos(profile())) {
         break;
       }
-
       access_point =
           signin_metrics::AccessPoint::kAvatarBubbleSignInWithSyncPromo;
       if (from_avatar_promo_) {
@@ -779,6 +768,11 @@ ProfileMenuView::GetIdentitySectionParams(const ProfileAttributesEntry& entry) {
         access_point = access_point =
             signin_metrics::AccessPoint::kAvatarPillExpandPromo;
       }
+      signin::AccountPreviewDataService* account_preview_data_service =
+          AccountPreviewDataServiceFactory::GetForProfile(&profile());
+      AccountInfo account_info_for_promos =
+          signin_ui_util::GetSingleAccountForPromos(
+              identity_manager, account_preview_data_service);
       signin_metrics::LogSignInOffered(
           access_point,
           account_info_for_promos.IsEmpty()
@@ -790,9 +784,7 @@ ProfileMenuView::GetIdentitySectionParams(const ProfileAttributesEntry& entry) {
         // Non-personalized signin button.
         button_type = ActionableItem::kSigninButton;
         params.subtitle = l10n_util::GetStringUTF16(
-            syncer::IsReplaceSyncPromosWithSignInPromosEnabled()
-                ? IDS_PROFILE_MENU_SIGNIN_PROMO_DESCRIPTION_WITH_BOOKMARKS
-                : IDS_PROFILE_MENU_SIGNIN_PROMO_DESCRIPTION);
+            IDS_PROFILE_MENU_SIGNIN_PROMO_DESCRIPTION_WITH_BOOKMARKS);
         params.button_text =
             l10n_util::GetStringUTF16(IDS_PROFILE_MENU_SIGNIN_PROMO_BUTTON);
         break;
@@ -817,9 +809,7 @@ ProfileMenuView::GetIdentitySectionParams(const ProfileAttributesEntry& entry) {
       }
       if (params.subtitle.empty()) {
         params.subtitle = l10n_util::GetStringFUTF16(
-            syncer::IsReplaceSyncPromosWithSignInPromosEnabled()
-                ? IDS_SETTINGS_PEOPLE_ACCOUNT_AWARE_SIGNIN_ACCOUNT_ROW_SUBTITLE_WITH_EMAIL_WITH_BOOKMARKS
-                : IDS_SETTINGS_PEOPLE_ACCOUNT_AWARE_SIGNIN_ACCOUNT_ROW_SUBTITLE_WITH_EMAIL,
+            IDS_SETTINGS_PEOPLE_ACCOUNT_AWARE_SIGNIN_ACCOUNT_ROW_SUBTITLE_WITH_EMAIL_WITH_BOOKMARKS,
             base::UTF8ToUTF16(account_info_for_promos.GetEmail()));
       }
       params.button_text = l10n_util::GetStringFUTF16(
@@ -908,27 +898,12 @@ ProfileMenuView::GetIdentitySectionParams(const ProfileAttributesEntry& entry) {
                 ActionableItem::
                     kBatchUploadWindows10DepreciationAsPrimaryButton);
             break;
-          case signin::ProfileMenuAvatarButtonPromoInfo::Type::kSyncPromo:
-            CHECK(switches::IsAvatarSyncPromoFeatureEnabled());
-            params.subtitle = l10n_util::GetStringUTF16(
-                IDS_PROFILE_MENU_DESCRIPTION_WITH_SYNC_PROMO);
-            params.button_text = l10n_util::GetStringUTF16(
-                IDS_PROFILE_MENU_BUTTON_LABEL_WITH_SYNC_PROMO);
-            break;
           case signin::ProfileMenuAvatarButtonPromoInfo::Type::kSigninPromo:
             NOTREACHED() << "This promo type is not possible when signed in.";
         }
       } else {
-        if (syncer::IsReplaceSyncPromosWithSignInPromosEnabled()) {
-          // No button.
-          params.email_subtitle = base::UTF8ToUTF16(primary_account_info.email);
-        } else {
-          params.subtitle =
-              l10n_util::GetStringUTF16(IDS_PROFILES_DICE_SYNC_PROMO);
-          params.button_text =
-              l10n_util::GetStringUTF16(IDS_PROFILES_DICE_SIGNIN_BUTTON);
-          signin_metrics::LogSyncOptInOffered(access_point);
-        }
+        // No button.
+        params.email_subtitle = base::UTF8ToUTF16(primary_account_info.email);
       }
       break;
     case signin_util::SignedInState::kSyncing:
@@ -986,10 +961,6 @@ void ProfileMenuView::BuildIdentityWithCallToAction() {
 }
 
 void ProfileMenuView::MaybeBuildBatchUploadButton() {
-  if (!syncer::IsReplaceSyncPromosWithSignInPromosEnabled()) {
-    return;
-  }
-
   if (promo_info_.local_data_count == 0) {
     return;
   }
@@ -1252,14 +1223,11 @@ void ProfileMenuView::BuildFeatureButtons() {
   BuildAutofillSettingsButton();
   MaybeBuildManageGoogleAccountButton();
   BuildCustomizeProfileButton();
-  (syncer::IsReplaceSyncPromosWithSignInPromosEnabled() &&
-   (!identity_manager ||
-    !identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSync)))
+  (!identity_manager ||
+   !identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSync))
       ? MaybeBuildChromeAccountSettingsButton()
       : MaybeBuildChromeAccountSettingsButtonWithSync();
-  if (syncer::IsReplaceSyncPromosWithSignInPromosEnabled()) {
-    MaybeBuildGoogleServicesSettingsButton();
-  }
+  MaybeBuildGoogleServicesSettingsButton();
   MaybeBuildCloseBrowsersButton();
   MaybeBuildSignoutButton();
 }
@@ -1268,11 +1236,10 @@ void ProfileMenuView::BuildFeatureButtons() {
 void ProfileMenuView::MaybeBuildCrossDeviceSigninButton() {
   if (ShouldShowCrossDeviceSigninPromo(
           CrossDeviceSigninPromoEntryPoint::kProfileMenu, &profile())) {
-    bool is_new = false;
-    if (switches::kCrossDeviceSigninFromDesktopNewBadge.Get() &&
-        UserEducationService::MaybeShowNewBadge(
-            &profile(), switches::kCrossDeviceSigninFromDesktop)) {
-      is_new = true;
+    user_education::DisplayNewBadge display_new_badge;
+    if (switches::kCrossDeviceSigninFromDesktopNewBadge.Get()) {
+      display_new_badge = UserEducationService::MaybeShowNewBadge(
+          &profile(), switches::kCrossDeviceSigninFromDesktop);
     }
 
     AddFeatureButton(
@@ -1281,7 +1248,7 @@ void ProfileMenuView::MaybeBuildCrossDeviceSigninButton() {
         base::BindRepeating(&ProfileMenuView::OnCrossDeviceSigninButtonClicked,
                             base::Unretained(this)),
         kMobileIcon,
-        /*icon_to_image_ratio=*/1.0f, is_new);
+        /*icon_to_image_ratio=*/1.0f, display_new_badge);
   }
 }
 

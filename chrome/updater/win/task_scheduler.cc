@@ -8,10 +8,12 @@
 #include <oleauto.h>
 #include <security.h>
 #include <shlobj.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <taskschd.h>
+#include <wchar.h>
 #include <wrl/client.h>
 
-#include <cstdint>
 #include <memory>
 #include <optional>
 #include <ostream>

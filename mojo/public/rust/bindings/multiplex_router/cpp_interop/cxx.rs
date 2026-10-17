@@ -3,15 +3,28 @@
 // found in the LICENSE file.
 
 chromium::import! {
+  "//base:scoped_refptr";
   "//base:sequenced_task_runner";
   "//mojo/public/rust/system";
 }
 
-use super::cpp_router_handle::{cxx_disconnect_handler, cxx_incoming_handler};
+use scoped_refptr::{CxxRefCounted, CxxRefCountedThreadSafe};
+
+use super::cpp_router_handle::{run_rust_disconnect_handler, run_rust_incoming_handler};
+use super::cxx_shim::{
+    allocate_interface_id, attach_cpp_endpoint, register_interface_id, send_message_from_cpp,
+};
+use crate::multiplex_router::multiplex_router::MultiplexRouter;
 use crate::multiplex_router::EndpointInfo;
 
 #[cxx::bridge(namespace = "mojo::rust::bindings")]
 pub mod ffi {
+    #[namespace = "mojo"]
+    unsafe extern "C++" {
+        include!("mojo/public/cpp/bindings/message.h");
+        type Message;
+    }
+
     #[namespace = "mojo::rust"]
     unsafe extern "C++" {
         include!("mojo/public/rust/system/scoped_handle_interop.h");
@@ -27,21 +40,109 @@ pub mod ffi {
 
     extern "Rust" {
         type EndpointInfo;
+        type MultiplexRouter;
 
-        /// Called by C++ to invoke the user-provided Rust message handler
-        fn cxx_incoming_handler(
+        /// Notifies the Rust MultiplexRouter that an endpoint has been dropped.
+        fn notify_dropped(self: &MultiplexRouter, interface_id: u32);
+
+        /// Notifies the Rust MultiplexRouter that the peer of an endpoint was
+        /// closed.
+        fn notify_peer_closed(self: &MultiplexRouter, interface_id: u32);
+
+        /// Allocates a new interface ID on the Rust router.
+        fn allocate_interface_id(router: &MultiplexRouter) -> u32;
+
+        /// Registers a received interface ID on the Rust router before it is
+        /// bound. Returns true on success, or false if the ID was already
+        /// registered.
+        fn register_interface_id(router: &MultiplexRouter, interface_id: u32) -> bool;
+
+        /// Sends an outgoing message through the Rust router. Returns true if
+        /// the message was successfully written to the pipe, or false if the
+        /// interface is closed or writing failed.
+        fn send_message_from_cpp(
+            router: &MultiplexRouter,
+            interface_id: u32,
+            message_wrapper: UniquePtr<ScopedMessageHandleWrapper>,
+        ) -> bool;
+
+        /// Attaches a C++ endpoint client to the Rust router.
+        fn attach_cpp_endpoint(
+            router: &MultiplexRouter,
+            interface_id: u32,
+            client: UniquePtr<RustAssociatedEndpointClient>,
+            runner: &SequencedTaskRunner,
+        );
+
+        /// Called by C++ when an incoming message arrives for a Rust-bound
+        /// associated endpoint. Returns true if the message was successfully
+        /// dispatched to the Rust handler, or false on deserialization failure.
+        ///
+        /// # Safety
+        /// `handles` must contain only live, unowned raw handle values.
+        /// Ownership of those handles is transferred to Rust.
+        /// Its type really should be Vec<UntypedHandle>, but cxx won't have it
+        unsafe fn run_rust_incoming_handler(
             info: &EndpointInfo,
-            wrapper: UniquePtr<ScopedMessageHandleWrapper>,
+            payload: &[u8],
+            handles: Vec<usize>,
+            raw_message_handle: UniquePtr<ScopedMessageHandleWrapper>,
             responder: UniquePtr<MojoResponderWrapper>,
         ) -> bool;
 
         /// Called by C++ to invoke the user-provided Rust disconnect handler
-        fn cxx_disconnect_handler(info: Box<EndpointInfo>);
+        fn run_rust_disconnect_handler(info: Box<EndpointInfo>);
     }
 
     unsafe extern "C++" {
         include!("mojo/public/rust/bindings/multiplex_router/cpp_interop/associated_endpoint_rust_adapter.h");
+        include!("mojo/public/rust/bindings/multiplex_router/cpp_interop/rust_associated_group_controller.h");
         type AssociatedEndpointRustAdapter;
+        type RustAssociatedEndpointClient;
+        type RustAssociatedGroupController;
+
+        /// Creates the C++ group controller for a Rust router, which will be
+        /// destroyed on `runner`'s sequence. The returned pointer owns one
+        /// ref-count.
+        fn CreateGroupControllerForRustRouter(
+            router: Box<MultiplexRouter>,
+            runner: Pin<&mut SequencedTaskRunner>,
+        ) -> *mut RustAssociatedGroupController;
+
+        /// Increments the group controller's ref-count.
+        fn AddRef(self: &RustAssociatedGroupController);
+
+        // TODO(crbug.com/472552387): Tweak `cxx` to make this `allow` obsolete.
+        #[allow(clippy::missing_safety_doc)]
+        /// Decrements the group controller's ref-count, possibly destroying it.
+        ///
+        /// # Safety
+        /// The caller must own a ref-count of this controller, and must not
+        /// dereference it afterwards unless it owns another one.
+        unsafe fn Release(self: &RustAssociatedGroupController);
+
+        /// Constructs a fresh C++ `mojo::Message` with the given payload,
+        /// and attaches the handles to it.
+        ///
+        /// # Safety
+        /// `handles` must contain only live, unowned raw handle values.
+        /// Ownership of those handles is transferred to C++.
+        /// Its type really should be Vec<UntypedHandle>, but cxx won't have it
+        #[allow(clippy::missing_safety_doc)]
+        unsafe fn CreateOutgoingMessage(payload: &[u8], handles: Vec<usize>) -> UniquePtr<Message>;
+
+        /// Constructs a C++ `mojo::Message` from an existing incoming message,
+        /// from which we already extracted the attached handles.
+        ///
+        /// # Safety
+        /// `handles` must contain only live, unowned raw handle values.
+        /// Ownership of those handles is transferred to C++.
+        /// Its type really should be Vec<UntypedHandle>, but cxx won't have it
+        #[allow(clippy::missing_safety_doc)]
+        unsafe fn CreateIncomingMessage(
+            raw_handle: UniquePtr<ScopedMessageHandleWrapper>,
+            handles: Vec<usize>,
+        ) -> UniquePtr<Message>;
 
         /// Creates a pair of entangled C++ pending associated endpoints.
         fn CreatePairPendingAssociation(
@@ -49,25 +150,25 @@ pub mod ffi {
             peer_out: &mut UniquePtr<AssociatedEndpointRustAdapter>,
         );
 
+        /// Creates a C++ adapter attached to a Rust router's group controller.
+        fn CreateWithRustController(
+            controller: Pin<&mut RustAssociatedGroupController>,
+            interface_id: u32,
+        ) -> UniquePtr<AssociatedEndpointRustAdapter>;
+
         /// Binds the endpoint to a sequence and starts routing incoming
         /// messages to Rust.
         fn Bind(
             self: Pin<&mut AssociatedEndpointRustAdapter>,
-            runner: &SequencedTaskRunner,
+            runner: Pin<&mut SequencedTaskRunner>,
             info: Box<EndpointInfo>,
         );
 
         /// Returns the associated interface ID assigned to this endpoint.
         fn GetInterfaceId(self: &AssociatedEndpointRustAdapter) -> u32;
 
-        /// Closes `self` and notifies its peer that the interface is closed
-        fn Close(self: Pin<&mut AssociatedEndpointRustAdapter>);
-
         /// Sends an outgoing Mojom IPC message through the C++ endpoint.
-        fn SendMessage(
-            self: &AssociatedEndpointRustAdapter,
-            message_wrapper: UniquePtr<ScopedMessageHandleWrapper>,
-        );
+        fn SendMessage(self: &AssociatedEndpointRustAdapter, message: UniquePtr<Message>);
 
         /// Registers a nested associated interface endpoint with the C++ group
         /// controller.
@@ -75,6 +176,19 @@ pub mod ffi {
             self: &AssociatedEndpointRustAdapter,
             interface_id: u32,
         ) -> UniquePtr<AssociatedEndpointRustAdapter>;
+
+        /// Called by Rust when an incoming message arrives for a C++ associated
+        /// endpoint. Returns true if the message passed validation and was
+        /// accepted by C++, or false if validation failed (indicating a bad
+        /// message).
+        fn run_cpp_incoming_handler(
+            client: &RustAssociatedEndpointClient,
+            message: UniquePtr<Message>,
+        ) -> bool;
+
+        /// Notifies the C++ associated endpoint that the remote peer has
+        /// disconnected.
+        fn run_cpp_disconnect_handler(client: &RustAssociatedEndpointClient);
     }
 
     unsafe extern "C++" {
@@ -82,15 +196,9 @@ pub mod ffi {
         type MojoResponderWrapper;
 
         /// Sends a reply message through the C++ responder object.
+        /// May only be called once.
         /// The name is counterintuitive, but that's the C++ naming scheme.
-        fn Accept(
-            self: &MojoResponderWrapper,
-            message_wrapper: UniquePtr<ScopedMessageHandleWrapper>,
-        ) -> bool;
-
-        /// Creates a copy of the responder that cannot send messages, but can
-        /// still register new associated endpoints.
-        fn CloneAsRegistrar(self: &MojoResponderWrapper) -> UniquePtr<MojoResponderWrapper>;
+        fn Accept(self: &MojoResponderWrapper, message: UniquePtr<Message>);
 
         /// Returns true if this responder can send messages.
         fn CanSendResponse(self: &MojoResponderWrapper) -> bool;
@@ -107,14 +215,48 @@ pub mod ffi {
 // SAFETY: Neither of the fields of `AssociatedEndpointRustAdapter` care about
 // which thread they're on.
 unsafe impl Send for ffi::AssociatedEndpointRustAdapter {}
-// SAFETY: All `&self` methods on `AssociatedEndpointRustAdapter`
-// (`SendMessage`, `Close`, `RegisterNewEndpoint`) are thread-safe or
-// sequence-bound. The only danger is that `Bind` must not be called
-// concurrently with anything else, which is enforced by taking &mut.
+// SAFETY: All `&self` methods on `AssociatedEndpointRustAdapter` are
+// thread-safe. `SendMessage()` automatically bounces to the bound sequence if
+// called off-sequence. `Bind()` mutates the adapter and is safely protected by
+// taking `&mut self`.
 unsafe impl Sync for ffi::AssociatedEndpointRustAdapter {}
 
-// SAFETY: `MojoResponderWrapper` wraps a C++ `base::SequenceBound`, so
-// all its methods are thread-safe by design.
-unsafe impl Send for ffi::MojoResponderWrapper {}
+// SAFETY: `RustAssociatedEndpointClient` has four fields:
+// 1. `controller_` is a `Box<MultiplexRouter>` (`Send` + `Sync)` wrapped by a
+//    `scoped_refptr<RustAssociatedGroupController>`, which is
+//    `RefCountedThreadSafe`.
+// 2. `id_` is just an int
+// 3. `client_` is sequence-bound, but the class CHECKs that we're on an
+//    appropriate sequence before using it.
+// 4. `runner_` is a sequenced task runner which is designed to be thread-safe
+unsafe impl Send for ffi::RustAssociatedEndpointClient {}
 // SAFETY: As Above
-unsafe impl Sync for ffi::MojoResponderWrapper {}
+unsafe impl Sync for ffi::RustAssociatedEndpointClient {}
+
+// SAFETY: `MojoResponderWrapper` wraps a C++ `base::SequenceBound`, so
+// it can be safely transferred across threads.
+unsafe impl Send for ffi::MojoResponderWrapper {}
+
+// SAFETY: `RustAssociatedGroupController` is an `AssociatedGroupController`,
+// so ref-counting is the only mechanism managing its lifetime.
+unsafe impl CxxRefCounted for ffi::RustAssociatedGroupController {
+    fn add_ref(&self) {
+        self.AddRef();
+    }
+
+    // SAFETY: The trait imposes the same requirements as `Release`.
+    unsafe fn release(&self) {
+        // SAFETY: Same requirements as the function.
+        unsafe { self.Release() };
+    }
+}
+
+// SAFETY: `AssociatedGroupController` uses an atomic ref-count, and its
+// `Release` always posts to the sequence it's bound to.
+unsafe impl CxxRefCountedThreadSafe for ffi::RustAssociatedGroupController {}
+// SAFETY: The controller's only field is a `Box<MultiplexRouter>`, which is
+// thread-safe, and the `AssociatedGroupController` methods it inherits only
+// touch the ref-count.
+unsafe impl Send for ffi::RustAssociatedGroupController {}
+// SAFETY: As above.
+unsafe impl Sync for ffi::RustAssociatedGroupController {}

@@ -13,10 +13,12 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.StyleRes;
+import androidx.core.view.ViewCompat;
 
 import org.jni_zero.internal.Nullable;
 
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.components.search_engines.AiModeButtonUiConfig;
 
 @NullMarked
 /** View for the composeplate layout which is shown below the fake search box on NTP. */
@@ -24,6 +26,13 @@ public class ComposeplateView extends LinearLayout {
 
     private @Nullable View mComposeplateButton;
     private @Nullable View mIncognitoButton;
+    private @Nullable ImageView mComposeplateButtonIcon;
+
+    /** The tint of the icons, initially the one declared in the layout. */
+    private @Nullable ColorStateList mIconTint;
+
+    /** Whether the AI Mode button icon should be tinted, see {@link #setAiModeButtonIcon}. */
+    private boolean mShouldTintAiModeButtonIcon = true;
 
     public ComposeplateView(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -35,6 +44,10 @@ public class ComposeplateView extends LinearLayout {
 
         mComposeplateButton = findViewById(R.id.composeplate_button);
         mIncognitoButton = findViewById(R.id.incognito_button);
+        mComposeplateButtonIcon = findViewById(R.id.composeplate_button_icon);
+        if (mComposeplateButtonIcon != null) {
+            mIconTint = mComposeplateButtonIcon.getImageTintList();
+        }
     }
 
     /**
@@ -57,10 +70,10 @@ public class ComposeplateView extends LinearLayout {
     void setColorStateList(@Nullable ColorStateList colorStateList) {
         if (colorStateList == null) return;
 
-        if (mComposeplateButton != null) {
-            setColorStateList(
-                    mComposeplateButton.findViewById(R.id.composeplate_button_icon),
-                    colorStateList);
+        mIconTint = colorStateList;
+        // A full color AI Mode button icon keeps its own colors.
+        if (mShouldTintAiModeButtonIcon) {
+            setColorStateList(mComposeplateButtonIcon, colorStateList);
         }
 
         if (mIncognitoButton != null) {
@@ -84,6 +97,36 @@ public class ComposeplateView extends LinearLayout {
         if (mIncognitoButton != null) {
             setTextStyle(mIncognitoButton.findViewById(R.id.incognito_button_text), textStyleResId);
         }
+    }
+
+    /**
+     * Updates the AI Mode button with the strings provided by the default search engine.
+     *
+     * @param aiModeButtonUiConfig The {@link AiModeButtonUiConfig} of the default search engine.
+     */
+    void setAiModeButtonUiConfig(AiModeButtonUiConfig aiModeButtonUiConfig) {
+        if (mComposeplateButton == null) return;
+
+        TextView textView = mComposeplateButton.findViewById(R.id.composeplate_button_text);
+        if (textView != null) {
+            textView.setText(aiModeButtonUiConfig.text);
+        }
+
+        ViewCompat.setTooltipText(mComposeplateButton, aiModeButtonUiConfig.tooltip);
+        mComposeplateButton.setContentDescription(aiModeButtonUiConfig.a11yLabel);
+    }
+
+    /**
+     * Updates the icon of the AI Mode button.
+     *
+     * @param aiModeButtonIcon The icon to show on the AI Mode button, and whether to tint it.
+     */
+    void setAiModeButtonIcon(ComposeplateProperties.AiModeButtonIcon aiModeButtonIcon) {
+        if (mComposeplateButtonIcon == null) return;
+
+        mShouldTintAiModeButtonIcon = aiModeButtonIcon.shouldTint;
+        mComposeplateButtonIcon.setImageDrawable(aiModeButtonIcon.drawable);
+        mComposeplateButtonIcon.setImageTintList(mShouldTintAiModeButtonIcon ? mIconTint : null);
     }
 
     private void setColorStateList(@Nullable ImageView view, ColorStateList colorStateList) {

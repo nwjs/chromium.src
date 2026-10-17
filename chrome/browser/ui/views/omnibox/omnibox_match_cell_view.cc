@@ -212,10 +212,10 @@ bool OmniboxMatchCellView::ShouldDisplayImage(const AutocompleteMatch& match) {
   // Extension suggestions in unscoped mode can have an `image_url` specified,
   // but they should be displayed as icon view instead of an image view (i.e.
   // following the default icon view size instead the larger image view size).
-  return match.type == AutocompleteMatchType::CALCULATOR ||
+  return match.type == omnibox::AutocompleteMatchType::kCalculator ||
          (!match.image_url.is_empty() &&
           match.provider->type() !=
-              AutocompleteProvider::TYPE_UNSCOPED_EXTENSION) ||
+              AutocompleteProvider::Type::kUnscopedExtension) ||
          (match.HasTakeoverAction(
               OmniboxActionId::CONTEXTUAL_SEARCH_OPEN_LENS) &&
           omnibox_feature_configs::ContextualSearch::Get()
@@ -234,7 +234,7 @@ void OmniboxMatchCellView::OnMatchUpdate(const OmniboxResultView* result_view,
   } else if (match.IsIphSuggestion()) {
     layout_style_ = LayoutStyle::IPH_SUGGESTION;
   } else if (match.type ==
-             AutocompleteMatchType::Type::HISTORY_EMBEDDINGS_ANSWER) {
+             omnibox::AutocompleteMatchType::kHistoryEmbeddingsAnswer) {
     layout_style_ = LayoutStyle::HISTORY_EMBEDDING_ANSWER;
   } else {
     layout_style_ = LayoutStyle::DEFAULT_NON_SEARCH_SUGGESTION;
@@ -278,7 +278,7 @@ void OmniboxMatchCellView::OnMatchUpdate(const OmniboxResultView* result_view,
             color_provider->GetColor(kColorOmniboxAnswerIconGM3Background),
             icon)));
   };
-  if (match.type == AutocompleteMatchType::CALCULATOR) {
+  if (match.type == omnibox::AutocompleteMatchType::kCalculator) {
     apply_vector_icon(features::IsRoundedIconsEnabled()
                           ? omnibox::kEqualIcon
                           : omnibox::kAnswerCalculatorOldIcon);
@@ -303,7 +303,7 @@ void OmniboxMatchCellView::OnMatchUpdate(const OmniboxResultView* result_view,
                                                                       color)));
   }
   SetTailSuggestCommonPrefixWidth(
-      (match.type == AutocompleteMatchType::SEARCH_SUGGEST_TAIL)
+      (match.type == omnibox::AutocompleteMatchType::kSearchSuggestTail)
           ? match.tail_suggest_common_prefix  // Used for indent calculation.
           : std::u16string());
 
@@ -326,9 +326,9 @@ void OmniboxMatchCellView::OnSecondaryTextVisibilityChanged() {
 void OmniboxMatchCellView::SetIcon(const gfx::ImageSkia& image,
                                    const AutocompleteMatch& match) {
   const bool is_pedal_suggestion_row =
-      match.type == AutocompleteMatchType::PEDAL;
+      match.type == omnibox::AutocompleteMatchType::kPedal;
   const bool is_journeys_suggestion_row =
-      match.type == AutocompleteMatchType::HISTORY_CLUSTER;
+      match.type == omnibox::AutocompleteMatchType::kHistoryCluster;
   const bool is_instant_keyword_row =
       AutocompleteMatch::IsFeaturedSearchType(match.type);
   bool should_draw_icon_background = is_pedal_suggestion_row ||

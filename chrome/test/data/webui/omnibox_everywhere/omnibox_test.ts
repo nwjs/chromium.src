@@ -93,13 +93,9 @@ suite('OmniboxEverywhereOmniboxTest', () => {
             '#context')!;
     assertTrue(!!entrypoint);
 
-    entrypoint.dispatchEvent(new CustomEvent('context-menu-entrypoint-click', {
-      detail: {
-        anchorRect: {x: 10, y: 20, width: 30, height: 40},
-      },
-      bubbles: true,
-      composed: true,
-    }));
+    entrypoint.fire('context-menu-entrypoint-click', {
+      anchorRect: {x: 10, y: 20, width: 30, height: 40},
+    });
 
     const args =
         await testEverywhereProxy.handler.whenCalled('showContextActionMenu');
@@ -1159,14 +1155,9 @@ suite('OmniboxEverywhereComposeboxTest', () => {
                     '#contextEntrypoint')!;
         assertTrue(!!entrypoint);
 
-        entrypoint.dispatchEvent(
-            new CustomEvent('context-menu-entrypoint-click', {
-              detail: {
-                anchorRect: {x: 15, y: 25, width: 35, height: 45},
-              },
-              bubbles: true,
-              composed: true,
-            }));
+        entrypoint.fire('context-menu-entrypoint-click', {
+          anchorRect: {x: 15, y: 25, width: 35, height: 45},
+        });
 
         const args = await testEverywhereProxy.handler.whenCalled(
             'showContextActionMenu');
@@ -1596,6 +1587,9 @@ suite('OmniboxEverywhereAppTest', () => {
       profileEmail: 'test@example.com',
       omniboxEverywhereProfilePickerEnabled: false,
       smallLoomnibox: true,
+      dynamicSizing: false,
+      dynamicSizingWidth: 680,
+      smallFont: false,
       isPersistentMode: true,
       omniboxEverywhereMostVisitedHideTitle: true,
       initialFreStage: 0,
@@ -1629,8 +1623,7 @@ suite('OmniboxEverywhereAppTest', () => {
   test('open-voice-search opens voice search dialog overlay', async () => {
     const searchbox =
         app.shadowRoot.querySelector('omnibox-everywhere-omnibox')!;
-    searchbox.dispatchEvent(
-        new CustomEvent('open-voice-search', {bubbles: true, composed: true}));
+    searchbox.fire('open-voice-search');
     await microtasksFinished();
 
     const dialog =
@@ -1708,16 +1701,12 @@ suite('OmniboxEverywhereAppTest', () => {
       async () => {
         const searchbox =
             app.shadowRoot.querySelector('omnibox-everywhere-omnibox')!;
-        searchbox.dispatchEvent(new CustomEvent('open-composebox', {
-          detail: {
-            text: '',
-            files: [],
-            mode: 0,
-            model: 0,
-          },
-          bubbles: true,
-          composed: true,
-        }));
+        searchbox.fire('open-composebox', {
+          text: '',
+          files: [],
+          mode: 0,
+          model: 0,
+        });
         await microtasksFinished();
 
         const composebox =
@@ -1784,8 +1773,7 @@ suite('OmniboxEverywhereAppTest', () => {
       'voice search final result submits query and closes dialog', async () => {
         const searchbox =
             app.shadowRoot.querySelector('omnibox-everywhere-omnibox')!;
-        searchbox.dispatchEvent(new CustomEvent(
-            'open-voice-search', {bubbles: true, composed: true}));
+        searchbox.fire('open-voice-search');
         await microtasksFinished();
 
         const voiceSearch = app.shadowRoot.querySelector('#voiceSearch')!;
@@ -1819,21 +1807,16 @@ suite('OmniboxEverywhereAppTest', () => {
     const searchbox =
         app.shadowRoot.querySelector('omnibox-everywhere-omnibox')!;
     searchbox.setInputText('searchbox text');
-    searchbox.dispatchEvent(new CustomEvent('open-composebox', {
-      detail: {text: 'searchbox text', files: [], mode: 0, model: 0},
-      bubbles: true,
-      composed: true,
-    }));
+    searchbox.fire(
+        'open-composebox',
+        {text: 'searchbox text', files: [], mode: 0, model: 0});
     await microtasksFinished();
 
     const composebox =
         app.shadowRoot.querySelector('omnibox-everywhere-composebox')!;
     assertTrue(!!composebox);
 
-    composebox.dispatchEvent(new CustomEvent('composebox-submit', {
-      bubbles: true,
-      composed: true,
-    }));
+    composebox.fire('composebox-submit');
     await microtasksFinished();
 
     assertFalse(
@@ -1849,11 +1832,9 @@ suite('OmniboxEverywhereAppTest', () => {
       async () => {
         const searchbox =
             app.shadowRoot.querySelector('omnibox-everywhere-omnibox')!;
-        searchbox.dispatchEvent(new CustomEvent('open-composebox', {
-          detail: {text: 'draft text', files: [], mode: 0, model: 0},
-          bubbles: true,
-          composed: true,
-        }));
+        searchbox.fire(
+            'open-composebox',
+            {text: 'draft text', files: [], mode: 0, model: 0});
         await microtasksFinished();
 
         const composebox =
@@ -1875,11 +1856,8 @@ suite('OmniboxEverywhereAppTest', () => {
       async () => {
         const searchbox =
             app.shadowRoot.querySelector('omnibox-everywhere-omnibox')!;
-        searchbox.dispatchEvent(new CustomEvent('open-composebox', {
-          detail: {text: '', files: [], mode: 0, model: 0},
-          bubbles: true,
-          composed: true,
-        }));
+        searchbox.fire(
+            'open-composebox', {text: '', files: [], mode: 0, model: 0});
         await microtasksFinished();
 
         let isComposebox =
@@ -1891,10 +1869,7 @@ suite('OmniboxEverywhereAppTest', () => {
             app.shadowRoot.querySelector('omnibox-everywhere-composebox')!;
         assertTrue(!!composebox);
 
-        composebox.dispatchEvent(new CustomEvent('close-composebox', {
-          bubbles: true,
-          composed: true,
-        }));
+        composebox.fire('close-composebox');
         await microtasksFinished();
 
         isComposebox =
@@ -1904,11 +1879,8 @@ suite('OmniboxEverywhereAppTest', () => {
 
         // Reopen composebox and verify query submission cleans up UI without
         // calling setIsComposebox across Mojo.
-        searchbox.dispatchEvent(new CustomEvent('open-composebox', {
-          detail: {text: 'query', files: [], mode: 0, model: 0},
-          bubbles: true,
-          composed: true,
-        }));
+        searchbox.fire(
+            'open-composebox', {text: 'query', files: [], mode: 0, model: 0});
         await microtasksFinished();
         isComposebox =
             await testEverywhereProxy.handler.whenCalled('setIsComposebox');
@@ -1918,10 +1890,7 @@ suite('OmniboxEverywhereAppTest', () => {
         const activeComposebox =
             app.shadowRoot.querySelector('omnibox-everywhere-composebox')!;
         assertTrue(!!activeComposebox);
-        activeComposebox.dispatchEvent(new CustomEvent('composebox-submit', {
-          bubbles: true,
-          composed: true,
-        }));
+        activeComposebox.fire('composebox-submit');
         await microtasksFinished();
 
         assertEquals(
@@ -1936,19 +1905,15 @@ suite('OmniboxEverywhereAppTest', () => {
       async () => {
         const searchbox =
             app.shadowRoot.querySelector('omnibox-everywhere-omnibox')!;
-        searchbox.dispatchEvent(new CustomEvent('open-composebox', {
-          detail: {text: '', files: [], mode: 0, model: 0},
-          bubbles: true,
-          composed: true,
-        }));
+        searchbox.fire(
+            'open-composebox', {text: '', files: [], mode: 0, model: 0});
         await microtasksFinished();
 
         const composebox =
             app.shadowRoot.querySelector('omnibox-everywhere-composebox')!;
         assertTrue(!!composebox);
 
-        composebox.dispatchEvent(new CustomEvent(
-            'open-voice-search', {bubbles: true, composed: true}));
+        composebox.fire('open-voice-search');
         await microtasksFinished();
 
         const voiceSearch = app.shadowRoot.querySelector('#voiceSearch')!;
@@ -1975,8 +1940,7 @@ suite('OmniboxEverywhereAppTest', () => {
       async () => {
         const searchbox =
             app.shadowRoot.querySelector('omnibox-everywhere-omnibox')!;
-        searchbox.dispatchEvent(new CustomEvent(
-            'open-voice-search', {bubbles: true, composed: true}));
+        searchbox.fire('open-voice-search');
         await microtasksFinished();
 
         const voiceSearch = app.shadowRoot.querySelector('#voiceSearch')!;
@@ -2003,19 +1967,15 @@ suite('OmniboxEverywhereAppTest', () => {
       async () => {
         const searchbox =
             app.shadowRoot.querySelector('omnibox-everywhere-omnibox')!;
-        searchbox.dispatchEvent(new CustomEvent('open-composebox', {
-          detail: {text: '', files: [], mode: 0, model: 0},
-          bubbles: true,
-          composed: true,
-        }));
+        searchbox.fire(
+            'open-composebox', {text: '', files: [], mode: 0, model: 0});
         await microtasksFinished();
 
         const composebox =
             app.shadowRoot.querySelector('omnibox-everywhere-composebox')!;
         assertTrue(!!composebox);
 
-        composebox.dispatchEvent(new CustomEvent(
-            'open-voice-search', {bubbles: true, composed: true}));
+        composebox.fire('open-voice-search');
         await microtasksFinished();
 
         const voiceSearch = app.shadowRoot.querySelector('#voiceSearch')!;
@@ -2040,8 +2000,7 @@ suite('OmniboxEverywhereAppTest', () => {
   test('voice search cancel closes dialog overlay', async () => {
     const searchbox =
         app.shadowRoot.querySelector('omnibox-everywhere-omnibox')!;
-    searchbox.dispatchEvent(
-        new CustomEvent('open-voice-search', {bubbles: true, composed: true}));
+    searchbox.fire('open-voice-search');
     await microtasksFinished();
 
     const voiceSearch = app.shadowRoot.querySelector('#voiceSearch')!;
@@ -2061,8 +2020,7 @@ suite('OmniboxEverywhereAppTest', () => {
       'voice permission changed updates CSS class and dimensions', async () => {
         const searchbox =
             app.shadowRoot.querySelector('omnibox-everywhere-omnibox')!;
-        searchbox.dispatchEvent(new CustomEvent(
-            'open-voice-search', {bubbles: true, composed: true}));
+        searchbox.fire('open-voice-search');
         await microtasksFinished();
 
         const voiceSearch = app.shadowRoot.querySelector('#voiceSearch')!;
@@ -2173,8 +2131,7 @@ suite('OmniboxEverywhereAppTest', () => {
         assertTrue(!!content);
         assertFalse(appWithMv.hasAttribute('show-voice-search-overlay_'));
 
-        searchbox.dispatchEvent(new CustomEvent(
-            'open-voice-search', {bubbles: true, composed: true}));
+        searchbox.fire('open-voice-search');
         await microtasksFinished();
 
         assertTrue(appWithMv.hasAttribute('show-voice-search-overlay_'));
@@ -2435,6 +2392,89 @@ suite('OmniboxEverywhereAppTest', () => {
   });
 
   test(
+      'dynamicSizing in persistent mode updates max-tiles based on state',
+      async () => {
+        document.body.innerHTML = window.trustedTypes!.emptyHTML;
+        loadTimeData.overrideValues({
+          omniboxEverywhereMostVisitedEnabled: true,
+          dynamicSizing: true,
+          isPersistentMode: true,
+          initialFreStage: 0,
+        });
+        const dynamicApp = document.createElement('omnibox-everywhere-app');
+        document.body.appendChild(dynamicApp);
+        await microtasksFinished();
+
+        const mv = dynamicApp.shadowRoot.querySelector('cr-most-visited')!;
+        assertTrue(!!mv);
+
+        // Deactivate window to enter resting state in persistent mode.
+        window.dispatchEvent(new Event('blur'));
+        await microtasksFinished();
+        assertEquals('5', mv.getAttribute('max-tiles'));
+
+        // Focus window (active state) expands to 7 tiles.
+        window.dispatchEvent(new Event('focus'));
+        await microtasksFinished();
+        assertEquals('7', mv.getAttribute('max-tiles'));
+
+        // Blur window again.
+        window.dispatchEvent(new Event('blur'));
+        await microtasksFinished();
+        assertEquals('5', mv.getAttribute('max-tiles'));
+      });
+
+  test(
+      'dynamicSizing in ephemeral mode always uses expanded max-tiles',
+      async () => {
+        document.body.innerHTML = window.trustedTypes!.emptyHTML;
+        loadTimeData.overrideValues({
+          omniboxEverywhereMostVisitedEnabled: true,
+          dynamicSizing: true,
+          dynamicSizingWidth: 680,
+          isPersistentMode: false,
+          initialFreStage: 0,
+        });
+        const ephemeralApp = document.createElement('omnibox-everywhere-app');
+        document.body.appendChild(ephemeralApp);
+        await microtasksFinished();
+
+        const mv = ephemeralApp.shadowRoot.querySelector('cr-most-visited')!;
+        assertTrue(!!mv);
+        assertEquals('7', mv.getAttribute('max-tiles'));
+      });
+
+  test(
+      'dynamicSizing with 600px width updates max-tiles between 5 and 6',
+      async () => {
+        document.body.innerHTML = window.trustedTypes!.emptyHTML;
+        loadTimeData.overrideValues({
+          omniboxEverywhereMostVisitedEnabled: true,
+          dynamicSizing: true,
+          dynamicSizingWidth: 600,
+          isPersistentMode: true,
+          initialFreStage: 0,
+        });
+        const dynamicApp600 = document.createElement('omnibox-everywhere-app');
+        document.body.appendChild(dynamicApp600);
+        await microtasksFinished();
+
+        assertEquals('600', dynamicApp600.getAttribute('dynamic-sizing-width'));
+        const mv = dynamicApp600.shadowRoot.querySelector('cr-most-visited')!;
+        assertTrue(!!mv);
+
+        // Resting state uses 5 tiles.
+        window.dispatchEvent(new Event('blur'));
+        await microtasksFinished();
+        assertEquals('5', mv.getAttribute('max-tiles'));
+
+        // Active state in 600px variant expands to 6 tiles.
+        window.dispatchEvent(new Event('focus'));
+        await microtasksFinished();
+        assertEquals('6', mv.getAttribute('max-tiles'));
+      });
+
+  test(
       'most visited tiles hide-title reflects hideTitle_ property',
       async () => {
         document.body.innerHTML = window.trustedTypes!.emptyHTML;
@@ -2479,11 +2519,8 @@ suite('OmniboxEverywhereAppTest', () => {
             app.shadowRoot.querySelector('omnibox-everywhere-omnibox')!;
         assertTrue(!!searchbox);
 
-        searchbox.dispatchEvent(new CustomEvent('open-composebox', {
-          detail: {text: '', files: [], mode: 0, model: 0},
-          bubbles: true,
-          composed: true,
-        }));
+        searchbox.fire(
+            'open-composebox', {text: '', files: [], mode: 0, model: 0});
         await microtasksFinished();
 
         const composebox =
@@ -2492,10 +2529,7 @@ suite('OmniboxEverywhereAppTest', () => {
         assertFalse(
             !!app.shadowRoot.querySelector('omnibox-everywhere-omnibox'));
 
-        composebox.dispatchEvent(new CustomEvent('close-composebox', {
-          bubbles: true,
-          composed: true,
-        }));
+        composebox.fire('close-composebox');
         await microtasksFinished();
 
         assertFalse(
@@ -2510,11 +2544,8 @@ suite('OmniboxEverywhereAppTest', () => {
       async () => {
         const searchbox =
             app.shadowRoot.querySelector('omnibox-everywhere-omnibox')!;
-        searchbox.dispatchEvent(new CustomEvent('open-composebox', {
-          detail: {text: '', files: [], mode: 0, model: 0},
-          bubbles: true,
-          composed: true,
-        }));
+        searchbox.fire(
+            'open-composebox', {text: '', files: [], mode: 0, model: 0});
         await microtasksFinished();
 
         const composebox =
@@ -2542,11 +2573,8 @@ suite('OmniboxEverywhereAppTest', () => {
         const searchbox =
             app.shadowRoot.querySelector('omnibox-everywhere-omnibox');
         assertTrue(!!searchbox);
-        searchbox.dispatchEvent(new CustomEvent('open-composebox', {
-          detail: {text: '', files: [], mode: 0, model: 0},
-          bubbles: true,
-          composed: true,
-        }));
+        searchbox.fire(
+            'open-composebox', {text: '', files: [], mode: 0, model: 0});
         await microtasksFinished();
 
         const composebox =
@@ -2554,8 +2582,7 @@ suite('OmniboxEverywhereAppTest', () => {
         assertTrue(!!composebox);
         assertFalse(app.hasAttribute('show-voice-search-overlay_'));
 
-        composebox.dispatchEvent(new CustomEvent(
-            'open-voice-search', {bubbles: true, composed: true}));
+        composebox.fire('open-voice-search');
         await microtasksFinished();
 
         assertTrue(app.hasAttribute('show-voice-search-overlay_'));
@@ -2598,11 +2625,8 @@ suite('OmniboxEverywhereAppTest', () => {
       async () => {
         const searchbox =
             app.shadowRoot.querySelector('omnibox-everywhere-omnibox')!;
-        searchbox.dispatchEvent(new CustomEvent('open-composebox', {
-          detail: {text: '', files: [], mode: 0, model: 0},
-          bubbles: true,
-          composed: true,
-        }));
+        searchbox.fire(
+            'open-composebox', {text: '', files: [], mode: 0, model: 0});
         await microtasksFinished();
 
         const composebox =
@@ -2626,8 +2650,7 @@ suite('OmniboxEverywhereAppTest', () => {
       async () => {
         const searchbox =
             app.shadowRoot.querySelector('omnibox-everywhere-omnibox')!;
-        searchbox.dispatchEvent(new CustomEvent(
-            'open-voice-search', {bubbles: true, composed: true}));
+        searchbox.fire('open-voice-search');
         await microtasksFinished();
 
         let focusCalled = false;
@@ -2691,11 +2714,8 @@ suite('OmniboxEverywhereAppTest', () => {
       async () => {
         const searchbox =
             app.shadowRoot.querySelector('omnibox-everywhere-omnibox')!;
-        searchbox.dispatchEvent(new CustomEvent('open-composebox', {
-          detail: {text: '', files: [], mode: 0, model: 0},
-          bubbles: true,
-          composed: true,
-        }));
+        searchbox.fire(
+            'open-composebox', {text: '', files: [], mode: 0, model: 0});
         await microtasksFinished();
 
         window.dispatchEvent(new Event('focus'));
@@ -2793,8 +2813,7 @@ suite('OmniboxEverywhereAppTest', () => {
       async () => {
         const searchbox =
             app.shadowRoot.querySelector('omnibox-everywhere-omnibox')!;
-        searchbox.dispatchEvent(new CustomEvent(
-            'open-voice-search', {bubbles: true, composed: true}));
+        searchbox.fire('open-voice-search');
         await microtasksFinished();
 
         window.dispatchEvent(new Event('focus'));
@@ -2865,17 +2884,13 @@ suite('OmniboxEverywhereAppTest', () => {
         app.shadowRoot.querySelector('omnibox-everywhere-omnibox')!;
     const mockToken: UnguessableToken = '1234567890ABCDEF1234567890ABCDEF';
 
-    omniboxElement.dispatchEvent(new CustomEvent('open-composebox', {
-      detail: {
-        text: '',
-        mode: 0,
-        model: 0,
-        smartTabSharingActive: false,
-        files: [],
-      },
-      bubbles: true,
-      composed: true,
-    }));
+    omniboxElement.fire('open-composebox', {
+      text: '',
+      mode: 0,
+      model: 0,
+      smartTabSharingActive: false,
+      files: [],
+    });
     await microtasksFinished();
 
     const composeboxElement =
@@ -2950,11 +2965,9 @@ suite('OmniboxEverywhereAppTest', () => {
       async () => {
         const searchbox =
             app.shadowRoot.querySelector('omnibox-everywhere-omnibox')!;
-        searchbox.dispatchEvent(new CustomEvent('open-composebox', {
-          detail: {text: 'hello world', files: [], mode: 0, model: 0},
-          bubbles: true,
-          composed: true,
-        }));
+        searchbox.fire(
+            'open-composebox',
+            {text: 'hello world', files: [], mode: 0, model: 0});
         await microtasksFinished();
 
         const composebox =
@@ -2977,11 +2990,8 @@ suite('OmniboxEverywhereAppTest', () => {
       async () => {
         const searchbox =
             app.shadowRoot.querySelector('omnibox-everywhere-omnibox')!;
-        searchbox.dispatchEvent(new CustomEvent('open-composebox', {
-          detail: {text: '', files: [], mode: 0, model: 0},
-          bubbles: true,
-          composed: true,
-        }));
+        searchbox.fire(
+            'open-composebox', {text: '', files: [], mode: 0, model: 0});
         await microtasksFinished();
 
         const composebox =
@@ -3243,6 +3253,9 @@ suite('OmniboxEverywhereContextMenuTest', () => {
       profileEmail: 'test@example.com',
       omniboxEverywhereProfilePickerEnabled: false,
       searchboxLayoutMode: 'TallBottomContext',
+      dynamicSizing: false,
+      dynamicSizingWidth: 680,
+      smallFont: false,
       isPersistentMode: true,
     });
     testProxy = new TestSearchboxBrowserProxy();
@@ -3267,13 +3280,9 @@ suite('OmniboxEverywhereContextMenuTest', () => {
             '#context')!;
     assertTrue(!!entrypoint);
 
-    entrypoint.dispatchEvent(new CustomEvent('context-menu-entrypoint-click', {
-      detail: {
-        anchorRect: {x: 10, y: 20, width: 30, height: 40},
-      },
-      bubbles: true,
-      composed: true,
-    }));
+    entrypoint.fire('context-menu-entrypoint-click', {
+      anchorRect: {x: 10, y: 20, width: 30, height: 40},
+    });
 
     const args =
         await testEverywhereProxy.handler.whenCalled('showContextActionMenu');
@@ -3319,6 +3328,7 @@ suite('OmniboxEverywhereContextMenuTest', () => {
             url: 'https://example.com',
             showInCurrentTabChip: false,
             showInPreviousTabChip: false,
+            isLoading: false,
             lastActive: {internalValue: 0n},
           },
           fileToken: null,
@@ -3396,10 +3406,7 @@ suite('OmniboxEverywhereContextMenuTest', () => {
             composebox.shadowRoot.querySelector('ntp-error-scrim');
         assertTrue(!!errorScrim);
 
-        errorScrim.dispatchEvent(new CustomEvent('dismiss-error-scrim', {
-          bubbles: true,
-          composed: true,
-        }));
+        errorScrim.fire('dismiss-error-scrim');
         await microtasksFinished();
 
         assertFalse(!!composebox.shadowRoot.querySelector('ntp-error-scrim'));

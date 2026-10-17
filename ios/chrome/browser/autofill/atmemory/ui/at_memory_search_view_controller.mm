@@ -8,10 +8,12 @@
 #import "base/check.h"
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
+#import "base/strings/sys_string_conversions.h"
 #import "build/buildflag.h"
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/autofill/atmemory/public/at_memory_commands.h"
 #import "ios/chrome/browser/autofill/atmemory/public/at_memory_constants.h"
+#import "ios/chrome/browser/autofill/atmemory/ui/at_memory_empty_view.h"
 #import "ios/chrome/browser/autofill/atmemory/ui/at_memory_inline_notice_view.h"
 #import "ios/chrome/browser/autofill/atmemory/ui/at_memory_search_consumer.h"
 #import "ios/chrome/browser/autofill/atmemory/ui/at_memory_search_item.h"
@@ -23,7 +25,6 @@
 #import "ios/chrome/browser/shared/ui/buildflags.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_link_header_footer_item.h"
-#import "ios/chrome/browser/shared/ui/table_view/cells/table_view_text_header_footer_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/content_configuration/activity_indicator_content_configuration.h"
 #import "ios/chrome/browser/shared/ui/table_view/content_configuration/colorful_symbol_content_configuration.h"
 #import "ios/chrome/browser/shared/ui/table_view/content_configuration/table_view_cell_content_configuration.h"
@@ -38,6 +39,13 @@ namespace {
 // URL for the AI disclosure footer link.
 constexpr char kAIDisclosureURL[] = "settings://ai_disclosure";
 
+// Vertical spacing between the notice section and adjacent sections.
+constexpr CGFloat kNoticeSectionSpacing = 16.0;
+
+// Footer height for the Autofill search results section to provide spacing
+// before the subsequent section.
+constexpr CGFloat kAutofillSearchResultsSectionFooterHeight = 8.0;
+
 // Section identifiers in the "AtMemory" page table view.
 enum class SectionIdentifier {
   kSearchSection,
@@ -48,7 +56,8 @@ enum class SectionIdentifier {
   kUnsupportedQuerySection,
   kNoticeSection,
   kRecentFillsSection,
-  kSearchResultsSection,
+  kAutofillSearchResultsSection,
+  kPersonalContextSearchResultsSection,
 };
 
 // Item identifiers in the "AtMemory" page table view.
@@ -71,6 +80,9 @@ enum class ItemIdentifier {
 @end
 
 @implementation AtMemorySearchViewController {
+  // Custom zero-state empty view.
+  AtMemoryEmptyView* _zeroStateEmptyView;
+
   // The table view for this view controller.
   UITableViewDiffableDataSource<NSNumber*, id>* _dataSource;
   // Search controller for users to type a query for performing an AtMemory
@@ -103,6 +115,7 @@ enum class ItemIdentifier {
       [[UISearchController alloc] initWithSearchResultsController:nil];
   _searchController.obscuresBackgroundDuringPresentation = NO;
   _searchController.hidesNavigationBarDuringPresentation = NO;
+  _searchController.automaticallyShowsCancelButton = NO;
   _searchController.searchResultsUpdater = self;
   _searchController.searchBar.delegate = self;
   _searchController.searchBar.accessibilityIdentifier =
@@ -118,12 +131,15 @@ enum class ItemIdentifier {
                            action:@selector(handleCancelButton)];
   cancelButton.accessibilityIdentifier =
       kAtMemoryCloseButtonAccessibilityIdentifier;
+  cancelButton.accessibilityLabel = l10n_util::GetNSString(
+      IDS_IOS_AUTOFILL_AI_CLOSE_FIND_AND_FILL_ACCESSIBILITY_LABEL);
   self.navigationItem.rightBarButtonItem = cancelButton;
 
   self.title = l10n_util::GetNSString(IDS_IOS_AUTOFILL_AI_FIND_AND_FILL_TITLE);
 
   RegisterTableViewHeaderFooter<TableViewLinkHeaderFooterView>(self.tableView);
-  RegisterTableViewHeaderFooter<TableViewTextHeaderFooterView>(self.tableView);
+  // Remove extra spacing on top of sections.
+  self.tableView.sectionHeaderTopPadding = 0;
   self.tableView.backgroundColor =
       [UIColor colorNamed:kGroupedPrimaryBackgroundColor];
   [self loadModel];
@@ -235,15 +251,45 @@ enum class ItemIdentifier {
   SectionIdentifier sectionIdentifier = static_cast<SectionIdentifier>(
       [_dataSource sectionIdentifierForIndex:section].integerValue);
 
-  if (sectionIdentifier == SectionIdentifier::kRecentFillsSection) {
-    TableViewTextHeaderFooterView* header =
-        DequeueTableViewHeaderFooter<TableViewTextHeaderFooterView>(tableView);
-    [header setTitle:l10n_util::GetNSString(
-                         IDS_AUTOFILL_AT_MEMORY_PREVIOUSLY_FILLED)];
-    return header;
+  switch (sectionIdentifier) {
+    case SectionIdentifier::kRecentFillsSection: {
+      TableViewLinkHeaderFooterView* header =
+          DequeueTableViewHeaderFooter<TableViewLinkHeaderFooterView>(
+              tableView);
+      [header setText:l10n_util::GetNSString(
+                          IDS_AUTOFILL_AT_MEMORY_PREVIOUSLY_FILLED)
+            withColor:[UIColor colorNamed:kTextSecondaryColor]];
+      return header;
+    }
+    case SectionIdentifier::kAutofillSearchResultsSection: {
+      TableViewLinkHeaderFooterView* header =
+          DequeueTableViewHeaderFooter<TableViewLinkHeaderFooterView>(
+              tableView);
+      [header setText:l10n_util::GetNSString(
+                          IDS_AUTOFILL_AT_MEMORY_YOUR_SAVED_AUTOFILL_INFO)
+            withColor:[UIColor colorNamed:kTextSecondaryColor]];
+      return header;
+    }
+    case SectionIdentifier::kPersonalContextSearchResultsSection: {
+      TableViewLinkHeaderFooterView* header =
+          DequeueTableViewHeaderFooter<TableViewLinkHeaderFooterView>(
+              tableView);
+      [header
+            setText:
+                l10n_util::GetNSString(
+                    IDS_AUTOFILL_AT_MEMORY_SOURCE_ATTRIBUTION_PERSONAL_INTELLIGENCE)
+          withColor:[UIColor colorNamed:kTextSecondaryColor]];
+      return header;
+    }
+    case SectionIdentifier::kSearchSection:
+    case SectionIdentifier::kSearchFooterSection:
+    case SectionIdentifier::kFetchingSection:
+    case SectionIdentifier::kNoDataSection:
+    case SectionIdentifier::kNoConnectionSection:
+    case SectionIdentifier::kUnsupportedQuerySection:
+    case SectionIdentifier::kNoticeSection:
+      return nil;
   }
-
-  return nil;
 }
 
 - (CGFloat)tableView:(UITableView*)tableView
@@ -251,8 +297,15 @@ enum class ItemIdentifier {
   SectionIdentifier sectionIdentifier = static_cast<SectionIdentifier>(
       [_dataSource sectionIdentifierForIndex:section].integerValue);
 
-  if (sectionIdentifier == SectionIdentifier::kRecentFillsSection) {
+  if (sectionIdentifier == SectionIdentifier::kRecentFillsSection ||
+      sectionIdentifier == SectionIdentifier::kAutofillSearchResultsSection ||
+      sectionIdentifier ==
+          SectionIdentifier::kPersonalContextSearchResultsSection) {
     return UITableViewAutomaticDimension;
+  }
+
+  if (sectionIdentifier == SectionIdentifier::kNoticeSection && section > 0) {
+    return kNoticeSectionSpacing;
   }
 
   return 0;
@@ -285,6 +338,19 @@ enum class ItemIdentifier {
     return UITableViewAutomaticDimension;
   }
 
+  if (sectionIdentifier == SectionIdentifier::kNoticeSection) {
+    return kNoticeSectionSpacing;
+  }
+
+  if (sectionIdentifier == SectionIdentifier::kAutofillSearchResultsSection) {
+    BOOL hasPersonalContextSection = [[_dataSource snapshot].sectionIdentifiers
+        containsObject:
+            @(static_cast<int>(
+                SectionIdentifier::kPersonalContextSearchResultsSection))];
+    return hasPersonalContextSection ? kAutofillSearchResultsSectionFooterHeight
+                                     : 0;
+  }
+
   return 0;
 }
 
@@ -292,7 +358,7 @@ enum class ItemIdentifier {
 
 - (void)view:(TableViewLinkHeaderFooterView*)view didTapLinkURL:(CrURL*)URL {
   if (URL.gurl == GURL(kAIDisclosureURL)) {
-    [self.atMemoryHandler openManageEnhancedAutofillDetails];
+    [self.mutator didTapAIDisclosureLink];
   }
 }
 
@@ -377,6 +443,22 @@ enum class ItemIdentifier {
 }
 
 #pragma mark - Private
+
+// Posts a VoiceOver announcement with the number of available search results.
+- (void)announceSearchResultsForAccessibility {
+  if (!UIAccessibilityIsVoiceOverRunning() || !self.view.window) {
+    return;
+  }
+
+  NSAttributedString* announcement = [[NSAttributedString alloc]
+      initWithString:
+          l10n_util::GetPluralNSStringF(
+              IDS_IOS_AUTOFILL_AT_MEMORY_SEARCH_RESULTS_AVAILABLE_ACCESSIBILITY_ANNOUNCEMENT,
+              static_cast<int>(_searchResults.count))
+          attributes:@{UIAccessibilitySpeechAttributeQueueAnnouncement : @YES}];
+  UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification,
+                                  announcement);
+}
 
 // Initiates the Gemini entry flow for an unsupported query and dismisses the
 // AtMemory UI upon success.
@@ -497,14 +579,44 @@ enum class ItemIdentifier {
       [[NSDiffableDataSourceSnapshot alloc] init];
 
   [self appendNoticeSectionToSnapshot:snapshot];
-  [snapshot appendSectionsWithIdentifiers:@[
-    @(static_cast<int>(SectionIdentifier::kSearchResultsSection))
-  ]];
-  [snapshot appendItemsWithIdentifiers:_searchResults
-             intoSectionWithIdentifier:
-                 @(static_cast<int>(SectionIdentifier::kSearchResultsSection))];
+
+  NSMutableArray<AtMemorySearchItem*>* autofillResults =
+      [[NSMutableArray alloc] init];
+  NSMutableArray<AtMemorySearchItem*>* personalContextResults =
+      [[NSMutableArray alloc] init];
+  for (AtMemorySearchItem* item in _searchResults) {
+    if (item.isPersonalContextSourced) {
+      [personalContextResults addObject:item];
+    } else {
+      [autofillResults addObject:item];
+    }
+  }
+
+  if (autofillResults.count > 0) {
+    [snapshot appendSectionsWithIdentifiers:@[
+      @(static_cast<int>(SectionIdentifier::kAutofillSearchResultsSection))
+    ]];
+    [snapshot appendItemsWithIdentifiers:autofillResults
+               intoSectionWithIdentifier:
+                   @(static_cast<int>(
+                       SectionIdentifier::kAutofillSearchResultsSection))];
+  }
+
+  if (personalContextResults.count > 0) {
+    [snapshot appendSectionsWithIdentifiers:@[
+      @(static_cast<int>(
+          SectionIdentifier::kPersonalContextSearchResultsSection))
+    ]];
+    [snapshot
+        appendItemsWithIdentifiers:personalContextResults
+         intoSectionWithIdentifier:
+             @(static_cast<int>(
+                 SectionIdentifier::kPersonalContextSearchResultsSection))];
+  }
 
   [_dataSource applySnapshot:snapshot animatingDifferences:YES];
+  [self announceSearchResultsForAccessibility];
+
   [self updateTableViewBackgroundStyle];
 }
 
@@ -532,15 +644,23 @@ enum class ItemIdentifier {
     [self setEmptyTableViewBackground];
     return;
   }
+  _zeroStateEmptyView = nil;
   self.tableView.backgroundView = nil;
 }
 
 // Sets the table view background to the empty state.
 - (void)setEmptyTableViewBackground {
+  if (_zeroStateEmptyView &&
+      self.tableView.backgroundView == _zeroStateEmptyView) {
+    return;
+  }
   UIImage* image = [UIImage imageNamed:@"at_memory_empty"];
-  [self addEmptyTableViewWithMessage:
-            l10n_util::GetNSString(IDS_AUTOFILL_AT_MEMORY_ZERO_STATE_SUBTITLE)
-                               image:image];
+  _zeroStateEmptyView = [[AtMemoryEmptyView alloc]
+      initWithFrame:self.tableView.bounds
+              image:image
+            message:l10n_util::GetNSString(
+                        IDS_AUTOFILL_AT_MEMORY_ZERO_STATE_SUBTITLE)];
+  self.tableView.backgroundView = _zeroStateEmptyView;
 }
 
 // Reloads the snapshot for the cell with the given `itemIdentifier`.
@@ -602,23 +722,30 @@ enum class ItemIdentifier {
   configuration.subtitleNumberOfLines = 1;
   configuration.subtitleLineBreakMode = NSLineBreakByTruncatingTail;
 
-  if (itemIdentifier.icon) {
-    ColorfulSymbolContentConfiguration* symbolConfiguration =
-        [[ColorfulSymbolContentConfiguration alloc] init];
-    symbolConfiguration.symbolImage = itemIdentifier.icon;
-    symbolConfiguration.symbolTintColor =
-        [UIColor colorNamed:kTextSecondaryColor];
-    configuration.leadingConfiguration = symbolConfiguration;
-  }
+  ColorfulSymbolContentConfiguration* symbolConfiguration =
+      [[ColorfulSymbolContentConfiguration alloc] init];
+  symbolConfiguration.symbolImage = itemIdentifier.icon;
+  symbolConfiguration.symbolTintColor = [UIColor colorNamed:kTextPrimaryColor];
+  configuration.leadingConfiguration = symbolConfiguration;
 
   UITableViewCell* cell =
       [TableViewCellContentConfiguration dequeueTableViewCell:tableView];
   cell.contentConfiguration = configuration;
   cell.selectionStyle = UITableViewCellSelectionStyleNone;
+  cell.accessibilityTraits |= UIAccessibilityTraitButton;
   cell.accessibilityIdentifier =
       GetAtMemorySearchResultCellAccessibilityIdentifier(itemIdentifier.title);
 
-  cell.accessoryView = [self infoButtonForSearchItem:itemIdentifier];
+  UIButton* infoButton = [self infoButtonForSearchItem:itemIdentifier];
+  cell.accessoryView = infoButton;
+
+  // Make the cell a container so both the suggestion row and the info button
+  // are accessible to VoiceOver.
+  cell.isAccessibilityElement = NO;
+  cell.contentView.isAccessibilityElement = YES;
+  cell.contentView.accessibilityLabel = configuration.accessibilityLabel;
+  cell.contentView.accessibilityTraits = UIAccessibilityTraitButton;
+  cell.accessibilityElements = @[ cell.contentView, infoButton ];
 
   return cell;
 }
@@ -630,8 +757,12 @@ enum class ItemIdentifier {
               forState:UIControlStateNormal];
   infoButton.tintColor = [UIColor colorNamed:kBlueColor];
   infoButton.tag = item.index;
+  infoButton.accessibilityTraits |= UIAccessibilityTraitButton;
   infoButton.accessibilityIdentifier =
       GetAtMemorySearchResultInfoButtonAccessibilityIdentifier(item.title);
+  infoButton.accessibilityLabel = l10n_util::GetNSStringF(
+      IDS_IOS_MANUAL_FALLBACK_THREE_DOT_MENU_BUTTON_ACCESSIBILITY_LABEL,
+      base::SysNSStringToUTF16(item.title));
   [infoButton addTarget:self
                  action:@selector(handleInfoButtonTap:)
        forControlEvents:UIControlEventTouchUpInside];
@@ -662,6 +793,7 @@ enum class ItemIdentifier {
   UITableViewCell* cell =
       [TableViewCellContentConfiguration dequeueTableViewCell:tableView];
   cell.contentConfiguration = configuration;
+  cell.accessibilityTraits |= UIAccessibilityTraitButton;
   cell.accessibilityIdentifier = kAtMemorySearchCellAccessibilityIdentifier;
 
   return cell;
@@ -688,6 +820,7 @@ enum class ItemIdentifier {
   cell.selectionStyle = UITableViewCellSelectionStyleNone;
   cell.contentView.alpha = kDefaultCellAlpha;
   cell.userInteractionEnabled = NO;
+  cell.accessibilityTraits &= ~UIAccessibilityTraitButton;
   cell.accessibilityIdentifier = kAtMemoryNoDataCellAccessibilityIdentifier;
 
   return cell;
@@ -716,6 +849,7 @@ enum class ItemIdentifier {
   cell.selectionStyle = UITableViewCellSelectionStyleNone;
   cell.contentView.alpha = kDisabledCellAlpha;
   cell.userInteractionEnabled = NO;
+  cell.accessibilityTraits &= ~UIAccessibilityTraitButton;
   cell.accessibilityIdentifier =
       kAtMemoryNoConnectionCellAccessibilityIdentifier;
 
@@ -749,6 +883,7 @@ enum class ItemIdentifier {
   cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
   cell.contentView.alpha = kDefaultCellAlpha;
   cell.userInteractionEnabled = YES;
+  cell.accessibilityTraits |= UIAccessibilityTraitButton;
   cell.accessibilityIdentifier =
       kAtMemoryUnsupportedQueryCellAccessibilityIdentifier;
 
@@ -775,6 +910,7 @@ enum class ItemIdentifier {
   cell.contentConfiguration = configuration;
   cell.selectionStyle = UITableViewCellSelectionStyleNone;
   cell.userInteractionEnabled = NO;
+  cell.accessibilityTraits &= ~UIAccessibilityTraitButton;
   cell.accessibilityIdentifier = kAtMemoryFetchingCellAccessibilityIdentifier;
 
   return cell;

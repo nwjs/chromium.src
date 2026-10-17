@@ -10,7 +10,6 @@
 #include "chrome/android/chrome_jni_headers/TouchToFillAutofillViewBridge_jni.h"
 #include "chrome/browser/touch_to_fill/autofill/android/touch_to_fill_autofill_controller.h"
 #include "content/public/browser/web_contents.h"
-#include "ui/android/view_android.h"
 #include "ui/android/window_android.h"
 
 namespace autofill {
@@ -42,7 +41,8 @@ bool TouchToFillAutofillViewImpl::ShowPersonalContextNotice(
       return false;
     }
   }
-  Java_TouchToFillAutofillViewBridge_show(env, java_object_);
+  Java_TouchToFillAutofillViewBridge_showPersonalContextNotice(env,
+                                                               java_object_);
   return true;
 }
 

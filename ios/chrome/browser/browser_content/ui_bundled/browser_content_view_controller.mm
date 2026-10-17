@@ -92,7 +92,6 @@
   if (contentViewController) {
     [contentViewController willMoveToParentViewController:self];
     [self addChildViewController:contentViewController];
-    [self.view insertSubview:contentViewController.view atIndex:0];
     if (_contentView) {
       [self.view insertSubview:contentViewController.view
                   aboveSubview:self.contentView];
@@ -117,6 +116,10 @@
 
   if (contentView) {
     [self.view insertSubview:contentView atIndex:0];
+    if (IsFullscreenRefactoringEnabled() && IsChromeNextIaEnabled()) {
+      contentView.translatesAutoresizingMaskIntoConstraints = NO;
+      AddSameConstraints(self.view, contentView);
+    }
   }
 }
 

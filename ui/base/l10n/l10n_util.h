@@ -18,12 +18,15 @@
 #include "base/component_export.h"
 #include "base/containers/flat_set.h"
 #include "base/containers/span.h"
-#include "base/i18n/language_tag.h"
 #include "build/build_config.h"
 
 #if BUILDFLAG(IS_APPLE)
 #include "ui/base/l10n/l10n_util_mac.h"
 #endif  // BUILDFLAG(IS_APPLE)
+
+namespace base::i18n {
+class LanguageTag;
+}  // namespace base::i18n
 
 namespace l10n_util {
 
@@ -67,21 +70,6 @@ std::string GetApplicationLocale(std::string_view pref_locale,
 COMPONENT_EXPORT(UI_BASE)
 bool IsLocaleNameTranslated(std::string_view locale,
                             std::string_view display_locale);
-
-// This method returns the display name of the `locale` code in `display_locale`
-// without the country. For example, for `locale` = "en-US" and `display_locale`
-// = "en", it returns "English" in English, per "en". Chrome has different
-// strings for some languages depending on the locale. To get the display name
-// of `locale` in the UI language of Chrome, `display_locale` can be set to the
-// return value of g_browser_process->GetApplicationLocale() in the UI thread.
-// If `is_for_ui` is true, U+200F is appended so that it can be rendered
-// properly in a RTL Chrome.
-COMPONENT_EXPORT(UI_BASE)
-std::u16string GetDisplayNameForLocaleWithoutCountry(
-    std::string_view locale,
-    std::string_view display_locale,
-    bool is_for_ui,
-    bool disallow_default = false);
 
 // This method returns the display name of the locale code in |display_locale|.
 // For example, for |locale| = "en-US" and |display_locale| = "en",

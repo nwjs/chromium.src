@@ -74,6 +74,11 @@ class ElementStyleResources {
   SVGResource* GetSVGResourceFromValue(CSSPropertyID,
                                        const cssvalue::CSSURIValue&);
 
+  bool HasPendingResources() const {
+    return !pending_image_properties_.empty() ||
+           !pending_svg_resource_properties_.empty();
+  }
+
   void LoadPendingResources(ComputedStyleBuilder&, const CSSLengthResolver&);
 
   void UpdateLengthConversionData(const CSSToLengthConversionData*);
@@ -91,6 +96,10 @@ class ElementStyleResources {
   HashSet<CSSPropertyID> pending_image_properties_;
   HashSet<CSSPropertyID> pending_svg_resource_properties_;
   float device_scale_factor_;
+  // Set once per element style resolve, alongside
+  // `pre_cached_container_sizes_`. Used to resolve the units of values that
+  // generated images resolve lazily rather than during style resolution.
+  const CSSToLengthConversionData* conversion_data_ = nullptr;
   PreCachedContainerSizes pre_cached_container_sizes_;
 };
 

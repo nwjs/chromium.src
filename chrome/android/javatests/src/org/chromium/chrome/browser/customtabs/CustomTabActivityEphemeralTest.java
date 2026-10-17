@@ -28,6 +28,7 @@ import android.graphics.Color;
 import android.net.Uri;
 
 import androidx.browser.customtabs.CustomTabsIntent;
+import androidx.browser.customtabs.CustomTabsSessionToken;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.MediumTest;
 
@@ -45,6 +46,7 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.base.supplier.OneshotSupplier;
+import org.chromium.base.test.util.ApplicationTestUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
@@ -54,8 +56,10 @@ import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.IntentHandler;
+import org.chromium.chrome.browser.app.tab_activity_glue.PopupCreatorImpl;
 import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider;
 import org.chromium.chrome.browser.browserservices.intents.SessionHolder;
+import org.chromium.chrome.browser.content.WebContentsFactory;
 import org.chromium.chrome.browser.customtabs.features.toolbar.CustomTabToolbar;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -77,6 +81,8 @@ import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.page_info.PageInfoController;
 import org.chromium.components.user_prefs.UserPrefs;
+import org.chromium.content_public.browser.WebContents;
+import org.chromium.content_public.browser.test.util.DOMUtils;
 import org.chromium.net.test.EmbeddedTestServerRule;
 
 import java.util.concurrent.TimeoutException;
@@ -145,7 +151,7 @@ public class CustomTabActivityEphemeralTest {
                 });
     }
 
-    private void setCanUseHiddenTabForSession(SessionHolder<?> token, boolean useHiddenTab) {
+    private void setCanUseHiddenTabForSession(SessionHolder token, boolean useHiddenTab) {
         // Save the connection. In case the hidden tab is not consumed by the test, ensure that it
         // is properly cleaned up after the test.
         CustomTabsConnection.getInstance().mClientManager.setHideDomainForSession(token, true);
@@ -259,8 +265,9 @@ public class CustomTabActivityEphemeralTest {
         // allowed in OTR profiles. (crbug.com/40706528)
         Intent intent = createEphemeralCustomTabIntent();
         final CustomTabsConnection connection = CustomTabsTestUtils.warmUpAndWait();
-        final var sessionHolder = SessionHolder.getSessionHolderFromIntent(intent);
-        final var token = sessionHolder.getSessionAsCustomTab();
+        final var sessionHolder =
+                SessionHolder.of(CustomTabsSessionToken.getSessionTokenFromIntent(intent));
+        final var token = sessionHolder.getToken();
         Assert.assertTrue(connection.newSession(token));
         // Passes the launch intent to the connection.
         setCanUseHiddenTabForSession(sessionHolder, true);
@@ -393,5 +400,64 @@ public class CustomTabActivityEphemeralTest {
                         BrowserServicesIntentDataProvider.IncognitoCctCallerId.EPHEMERAL_TAB);
         launchEphemeralCustomTabActivity();
         histogramWatcher.assertExpected();
+    }
+
+    @Test
+    @MediumTest
+    public void testPopupCreationBlockedAndDoesNotCrashOnClose() throws Exception {
+        PopupCreatorImpl.setSetMovableTaskRequiredForPopupsForTesting(false);
+        String popupPageUrl =
+                mEmbeddedTestServerRule
+                        .getServer()
+                        .getURL("/chrome/test/data/android/popup_on_click.html");
+        Intent intent =
+                createMinimalCustomTabIntent(
+                                ApplicationProvider.getApplicationContext(), popupPageUrl)
+                        .putExtra(EXTRA_ENABLE_EPHEMERAL_BROWSING, true);
+        mCustomTabActivityTestRule.startCustomTabActivityWithIntent(intent);
+        CustomTabActivity activity = mCustomTabActivityTestRule.getActivity();
+        Profile ephemeralProfile =
+                ThreadUtils.runOnUiThreadBlocking(() -> activity.getActivityTab().getProfile());
+        assertTrue(ephemeralProfile.isOffTheRecord());
+        assertFalse(ephemeralProfile.isPrimaryOtrProfile());
+
+        HistogramWatcher popupHistogram =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.MultiWindowMode.PopupOpensInNewWindow", false);
+
+        DOMUtils.clickNode(activity.getActivityTab().getWebContents(), "link_with_bounds");
+
+        CriteriaHelper.pollUiThread(
+                () -> {
+                    Criteria.checkThat(
+                            activity.getTabModelSelector().getCurrentModel().getCount(),
+                            Matchers.is(2));
+                });
+        popupHistogram.assertExpected();
+
+        Profile newTabProfile =
+                ThreadUtils.runOnUiThreadBlocking(() -> activity.getActivityTab().getProfile());
+        assertEquals(ephemeralProfile, newTabProfile);
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    WebContents webContents =
+                            WebContentsFactory.createWebContents(
+                                    ephemeralProfile,
+                                    /* initiallyHidden= */ false,
+                                    /* initializeRenderer= */ true);
+                    assertFalse(
+                            new PopupCreatorImpl()
+                                    .createNewPopupFromWebContents(
+                                            activity,
+                                            ephemeralProfile,
+                                            webContents,
+                                            null,
+                                            null,
+                                            null));
+                    assertTrue(webContents.isDestroyed());
+                });
+
+        ApplicationTestUtils.finishActivity(activity);
     }
 }

@@ -445,6 +445,56 @@ TEST_F(HTMLCapabilityElementBaseTest, SetTypeAfterInsertedInto) {
   }
 }
 
+TEST_F(HTMLCapabilityElementBaseTest, DisplayModeIconOnly) {
+  ScopedCapabilityElementIconOnlyModeForTest scoped_feature(true);
+  for (const char* type : {"camera", "microphone", "geolocation"}) {
+    auto* permission_element = CreatePermissionElement(type);
+    WaitForPermissionElementRegistration(permission_element);
+    EXPECT_FALSE(permission_element->IsIconOnly());
+    EXPECT_FALSE(permission_element->permission_text_span_for_testing()
+                     ->innerText()
+                     .empty());
+
+    permission_element->setAttribute(html_names::kDisplaymodeAttr,
+                                     AtomicString("icon-only"));
+    EXPECT_TRUE(permission_element->IsIconOnly());
+    CheckInnerText(permission_element, g_empty_string);
+
+    permission_element->removeAttribute(html_names::kDisplaymodeAttr);
+    EXPECT_FALSE(permission_element->IsIconOnly());
+    EXPECT_FALSE(permission_element->permission_text_span_for_testing()
+                     ->innerText()
+                     .empty());
+  }
+}
+
+TEST_F(HTMLCapabilityElementBaseTest, DisplayModeIconOnlyCaseInsensitive) {
+  ScopedCapabilityElementIconOnlyModeForTest scoped_feature(true);
+  auto* permission_element = CreatePermissionElement("camera");
+  WaitForPermissionElementRegistration(permission_element);
+  permission_element->setAttribute(html_names::kDisplaymodeAttr,
+                                   AtomicString("iCoN-oNlY"));
+  EXPECT_TRUE(permission_element->IsIconOnly());
+  CheckInnerText(permission_element, g_empty_string);
+}
+
+TEST_F(HTMLCapabilityElementBaseTest, DisplayModeIconOnlyDisabled) {
+  ScopedCapabilityElementIconOnlyModeForTest scoped_feature(false);
+  auto* permission_element = CreatePermissionElement("camera");
+  WaitForPermissionElementRegistration(permission_element);
+  EXPECT_FALSE(permission_element->IsIconOnly());
+  EXPECT_FALSE(permission_element->permission_text_span_for_testing()
+                   ->innerText()
+                   .empty());
+
+  permission_element->setAttribute(html_names::kDisplaymodeAttr,
+                                   AtomicString("icon-only"));
+  EXPECT_FALSE(permission_element->IsIconOnly());
+  EXPECT_FALSE(permission_element->permission_text_span_for_testing()
+                   ->innerText()
+                   .empty());
+}
+
 TEST_F(HTMLCapabilityElementBaseTest,
        SetInnerTextAfterRegistrationSingleElement) {
   const struct {
@@ -1394,42 +1444,6 @@ TEST_F(HTMLCapabilityElementBaseDispatchValidationEventTest,
             "intersection_out_of_viewport_or_clipped");
   checker.CheckConsoleMessageAtIndex(3u, kValidationStatusChangeEvent);
   EXPECT_TRUE(permission_element->isValid());
-}
-
-class HTMLCapabilityElementBaseFencedFrameTest
-    : public HTMLCapabilityElementBaseSimTest {
- public:
-  HTMLCapabilityElementBaseFencedFrameTest() {
-    scoped_feature_list_.InitAndEnableFeatureWithParameters(
-        blink::features::kFencedFrames, {{"implementation_type", "mparch"}});
-  }
-
-  ~HTMLCapabilityElementBaseFencedFrameTest() override = default;
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-TEST_F(HTMLCapabilityElementBaseFencedFrameTest, NotAllowedInFencedFrame) {
-  InitializeFencedFrameRoot(
-      blink::FencedFrame::DeprecatedFencedFrameMode::kDefault);
-  SimRequest resource("https://example.test", "text/html");
-  LoadURL("https://example.test");
-  resource.Complete(R"(
-    <body>
-    </body>
-  )");
-
-  for (const char* permission : {"camera", "microphone", "geolocation"}) {
-    auto* permission_element = CreatePermissionElement(
-        *MainFrame().GetFrame()->GetDocument(), permission);
-    // We need this call to establish binding to the remote permission
-    // service, otherwise the next testing binder will fail.
-    permission_element->GetPermissionService();
-    permission_service()->set_pepc_registered_callback(
-        BindOnce(&NotReachedForPEPCRegistered));
-    base::RunLoop().RunUntilIdle();
-  }
 }
 
 class HTMLInstallElementSimTest : public HTMLCapabilityElementBaseSimTest {

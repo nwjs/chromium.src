@@ -159,6 +159,7 @@
                        incognitoState:sceneState.incognitoState
              lensOverlayStateNotifier:sceneState.lensOverlayStateNotifier];
   _mediator.layoutState = sceneState.layoutState;
+  _mediator.sceneState = sceneState;
   _mediator.sceneHandler = sceneHandler;
   _mediator.lensOverlayHandler =
       HandlerForProtocol(regularDispatcher, LensOverlayCommands);
@@ -362,15 +363,11 @@
 #pragma mark - GuidedTourCommands
 
 - (void)highlightViewInStep:(GuidedTourStep)step {
-  if (step == GuidedTourStep::kNTP) {
-    [_viewController toggleSpotlightView:YES];
-  }
+  // No op?
 }
 
 - (void)stepCompleted:(GuidedTourStep)step {
-  if (step == GuidedTourStep::kNTP) {
-    [_viewController toggleSpotlightView:NO];
-  }
+  // No op?
 }
 
 #pragma mark - AccountMenuCoordinatorDelegate

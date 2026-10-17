@@ -18,8 +18,11 @@
 #include "chrome/browser/ui/animation/browser_animation_types.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/views/animations/organizer_panel_animations.h"
+#include "chrome/browser/ui/views/animations/tab_strip_animations.h"
 #include "chrome/browser/ui/views/tabs/organizer/organizer_panel_host.h"
+#include "chrome/browser/ui/views/tabs/organizer/organizer_panel_utils.h"
 #include "chrome/grit/generated_resources.h"
 #include "extensions/buildflags/buildflags.h"
 #include "ui/actions/actions.h"
@@ -27,6 +30,31 @@
 #include "ui/views/view.h"
 #include "ui/views/view_tracker.h"
 #include "ui/views/view_utils.h"
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+#include "chrome/browser/profiles/profile.h"
+#include "extensions/browser/extension_util.h"
+#endif
+
+namespace {
+
+// Respond to vertical tab strip collapse by hiding the panel.
+void OnVerticalTabStripAnimation(
+    OrganizerPanelController* panel_controller,
+    const BrowserAnimationController* animation_controller,
+    BrowserAnimationUpdate update) {
+  if (update != BrowserAnimationUpdate::kStarted) {
+    return;
+  }
+  const auto motion = animation_controller->GetCurrentMotion(
+      TabStripAnimations::kVerticalTabStrip);
+  if (motion == TabStripAnimations::kCollapseOnHover ||
+      motion == TabStripAnimations::kCollapse) {
+    panel_controller->SetOrganizerVisible(false);
+  }
+}
+
+}  // namespace
 
 DEFINE_USER_DATA(OrganizerPanelController);
 
@@ -37,7 +65,30 @@ class OrganizerPanelController::PanelViewManager {
  public:
   PanelViewManager(OrganizerPanelController& controller,
                    BrowserWindowInterface& browser)
-      : controller_(controller), browser_(browser) {}
+      : controller_(controller), browser_(browser) {
+    if (auto* const state_controller =
+            tabs::VerticalTabStripStateController::From(&*browser_)) {
+      auto callback =
+          base::BindRepeating(&PanelViewManager::OnVerticalTabStripModeChanged,
+                              base::Unretained(this));
+      tab_strip_subscriptions_.emplace_back(
+          state_controller->RegisterOnModeChanged(
+              base::IgnoreArgs<tabs::VerticalTabStripStateController*>(
+                  callback)));
+      tab_strip_subscriptions_.emplace_back(
+          state_controller->RegisterOnCollapseChanged(
+              base::IgnoreArgs<tabs::VerticalTabStripCollapseState>(callback)));
+      tab_strip_subscriptions_.emplace_back(
+          state_controller->RegisterOnExpandOnHoverEnabledChanged(
+              base::IgnoreArgs<bool>(callback)));
+    }
+  }
+
+  void OnVerticalTabStripModeChanged() {
+    if (UpdatePanelViewHost()) {
+      controller_->SetOrganizerVisible(false, /*immediate=*/true);
+    }
+  }
 
   std::unique_ptr<views::View> SetPanelView(
       std::unique_ptr<views::View> panel_view) {
@@ -48,32 +99,79 @@ class OrganizerPanelController::PanelViewManager {
     return old_panel;
   }
 
+  // Maybe moves the panel between hosts if the desired host has changed.
+  // Returns true if changed, false otherwise.
+  bool UpdatePanelViewHost() {
+    if (!panel_view_) {
+      return false;
+    }
+
+    // Determine where the panel should go.
+    const auto new_location =
+        OrganizerPanelHost::GetPreferredLocation(*browser_);
+    CHECK_NE(OrganizerPanelLocation::kNone, new_location)
+        << "No new host to move panel to.";
+    if (current_location_ == new_location) {
+      return false;
+    }
+
+    // Determine where the panel currently is.
+    auto* const current_host = OrganizerPanelHost::FromView(panel_view_.view());
+    CHECK(current_host) << "No current host to move panel from.";
+    DCHECK_EQ(
+        OrganizerPanelHost::GetHostForLocation(*browser_, current_location_),
+        current_host)
+        << "Sanity check failed: Current host is not expected host.";
+
+    // Find the new host.
+    auto* const desired_host =
+        OrganizerPanelHost::GetHostForLocation(*browser_, new_location);
+    CHECK(desired_host) << "Browser has no panel host.";
+    CHECK_NE(desired_host, current_host)
+        << "Location changed but host remained the same.";
+
+    // Move the panel.
+    current_location_ = new_location;
+    desired_host->SetOrganizerPanelView(current_host->TakeOrganizerPanelView());
+    return true;
+  }
+
+  OrganizerPanelLocation current_location() const { return current_location_; }
+
  private:
   // Removes the panel view from its current host.
   std::unique_ptr<views::View> RemovePanelView() {
     auto* const panel_view = panel_view_.view();
+    panel_view_.SetView(nullptr);
+    current_location_ = OrganizerPanelLocation::kNone;
     if (!panel_view) {
       return nullptr;
     }
-    auto* const parent = panel_view->parent();
-    auto* const old_host = OrganizerPanelHost::FromView(parent);
-    CHECK(old_host) << "View is not a pane host or in a panel host: "
-                    << parent->GetClassName();
-    return old_host->TakePanelView();
+    auto* const old_host = OrganizerPanelHost::FromView(panel_view);
+    CHECK(old_host) << "Panel was present but not in a host.";
+    return old_host->TakeOrganizerPanelView();
   }
 
   // Adds the panel view to the correct host for the current browser state.
   void AddPanelView(std::unique_ptr<views::View> panel_view) {
+    CHECK(panel_view);
     CHECK(!panel_view_);
-    auto* const host = OrganizerPanelHost::GetPreferredHost(*browser_);
-    CHECK(host) << "Browser has no panel host.";
+    CHECK_EQ(OrganizerPanelLocation::kNone, current_location_);
+    current_location_ = OrganizerPanelHost::GetPreferredLocation(*browser_);
+    CHECK_NE(OrganizerPanelLocation::kNone, current_location_)
+        << "Browser has no panel host";
     panel_view_.SetView(panel_view.get());
-    host->SetPanelView(std::move(panel_view));
+    auto* const host =
+        OrganizerPanelHost::GetHostForLocation(*browser_, current_location_);
+    CHECK(host) << "Panel host is missing.";
+    host->SetOrganizerPanelView(std::move(panel_view));
   }
 
   const raw_ref<OrganizerPanelController> controller_;
   const raw_ref<BrowserWindowInterface> browser_;
+  std::vector<base::CallbackListSubscription> tab_strip_subscriptions_;
   views::ViewTracker panel_view_;
+  OrganizerPanelLocation current_location_ = OrganizerPanelLocation::kNone;
 };
 
 OrganizerPanelController::OrganizerPanelController(
@@ -86,6 +184,12 @@ OrganizerPanelController::OrganizerPanelController(
       scoped_unowned_user_data_(browser_window.GetUnownedUserDataHost(),
                                 *this) {
   UpdateOrganizerActionItem();
+
+  vertical_tab_strip_animation_subscription_ =
+      BrowserAnimationController::From(&browser_window)
+          ->Subscribe(TabStripAnimations::kVerticalTabStrip,
+                      base::BindRepeating(&OnVerticalTabStripAnimation,
+                                          base::Unretained(this)));
 }
 
 OrganizerPanelController::~OrganizerPanelController() = default;
@@ -100,7 +204,8 @@ bool OrganizerPanelController::IsOrganizerPanelVisible() const {
   return is_visible_;
 }
 
-void OrganizerPanelController::SetOrganizerVisible(bool visible) {
+void OrganizerPanelController::SetOrganizerVisible(bool visible,
+                                                   bool immediate) {
   if (is_visible_ == visible) {
     return;
   }
@@ -111,10 +216,17 @@ void OrganizerPanelController::SetOrganizerVisible(bool visible) {
     active_extension_id_.reset();
   }
 #endif
-  BrowserAnimationController::From(&*browser_window_)
-      ->Start(OrganizerPanelAnimations::kOrganizerPanel,
-              is_visible_ ? OrganizerPanelAnimations::kShow
-                          : OrganizerPanelAnimations::kHide);
+  if (immediate) {
+    BrowserAnimationController::From(&*browser_window_)
+        ->Reset(OrganizerPanelAnimations::kOrganizerPanel,
+                is_visible_ ? OrganizerPanelAnimations::kShow
+                            : OrganizerPanelAnimations::kHide);
+  } else {
+    BrowserAnimationController::From(&*browser_window_)
+        ->Start(OrganizerPanelAnimations::kOrganizerPanel,
+                is_visible_ ? OrganizerPanelAnimations::kShow
+                            : OrganizerPanelAnimations::kHide);
+  }
 
   if (is_visible_) {
     last_opened_time_ = base::TimeTicks::Now();
@@ -128,9 +240,20 @@ void OrganizerPanelController::SetOrganizerVisible(bool visible) {
   NotifyStateChanged();
 }
 
+OrganizerPanelLocation
+OrganizerPanelController::GetCurrentOrganizerPanelLocation() const {
+  return panel_view_manager_->current_location();
+}
+
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 void OrganizerPanelController::OpenForExtension(
     const extensions::ExtensionId& extension_id) {
+  Profile* const profile = browser_window_->GetProfile();
+  if (profile->IsOffTheRecord() &&
+      !extensions::util::IsIncognitoEnabled(extension_id, profile)) {
+    return;
+  }
+
   if (is_visible_ && active_extension_id_ == extension_id) {
     return;
   }

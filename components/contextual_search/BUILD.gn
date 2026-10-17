@@ -14,7 +14,10 @@ if (is_android) {
 
   java_cpp_enum("java_enum_srcjar") {
     visibility = [ ":*" ]
-    sources = [ "contextual_search_types.h" ]
+    sources = [
+      "contextual_search_types.h",
+      "footprints/public/drive_disclaimer_controller.h",
+    ]
   }
 
   android_library("components_contextual_search_java") {
@@ -25,11 +28,20 @@ if (is_android) {
     # this dependency.
     deps = [
       "//base:log_java",
-      "//components/cached_flags:java",
-      "//components/omnibox/common:features_java",
       "//third_party/android_deps:protobuf_lite_runtime_java",
       "//third_party/androidx:androidx_annotation_annotation_java",
       "//third_party/jni_zero:jni_zero_java",
+      "//third_party/omnibox_proto:omnibox_proto_java",
+    ]
+  }
+
+  android_library("test_support_java") {
+    testonly = true
+    sources = [ "android/java/src/org/chromium/components/contextual_search/InputStateBuilder.java" ]
+    deps = [
+      ":components_contextual_search_java",
+      "//build/android:build_java",
+      "//third_party/android_deps:protobuf_lite_runtime_java",
       "//third_party/omnibox_proto:omnibox_proto_java",
     ]
   }
@@ -38,11 +50,10 @@ if (is_android) {
     sources = [ "android/java/src/org/chromium/components/contextual_search/InputStateTest.java" ]
     deps = [
       ":components_contextual_search_java",
+      ":test_support_java",
       "//base:base_java",
       "//base:base_java_test_support",
       "//base:base_junit_test_support",
-      "//components/cached_flags:java",
-      "//components/omnibox/common:features_java",
       "//third_party/android_deps:protobuf_lite_runtime_java",
       "//third_party/junit",
       "//third_party/omnibox_proto:omnibox_proto_java",
@@ -158,6 +169,7 @@ source_set("test_support") {
 source_set("unit_tests") {
   testonly = true
   sources = [
+    "consent_kit/consent_kit_result_parser_unittest.cc",
     "consent_kit/consent_kit_url_builder_unittest.cc",
     "contextual_search_metrics_recorder_unittest.cc",
     "contextual_search_service_unittest.cc",

@@ -28,15 +28,17 @@
 #include "chrome/browser/infobars/browser_infobar_manager.h"
 #include "chrome/browser/infobars/confirm_infobar_creator.h"
 #include "chrome/browser/infobars/infobar_features.h"
+#include "chrome/browser/infobars/infobar_spec.h"
 #include "chrome/browser/infobars/simple_alert_infobar_creator.h"
+#include "chrome/browser/omnibox/chrome_omnibox_navigation_observer_base.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ssl/known_interception_disclosure_infobar_delegate.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/collected_cookies_infobar_delegate.h"
-#include "chrome/browser/ui/omnibox/alternate_nav_infobar_delegate.h"
 #include "chrome/browser/ui/page_info/page_info_infobar_delegate.h"
+#include "chrome/browser/ui/startup/automation_infobar_delegate.h"
 #include "chrome/browser/ui/startup/bad_flags_prompt.h"
 #include "chrome/browser/ui/startup/google_api_keys_infobar_delegate.h"
 #include "chrome/browser/ui/startup/obsolete_system_infobar_delegate.h"
@@ -68,6 +70,7 @@
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "chrome/browser/extensions/api/debugger/extension_dev_tools_infobar_delegate.h"
+#include "chrome/browser/extensions/api/identity/web_auth_flow_info_bar_delegate.h"
 #include "chrome/browser/extensions/api/messaging/incognito_connectability.h"
 #include "chrome/browser/extensions/api/messaging/incognito_connectability_infobar_delegate.h"
 #include "chrome/browser/extensions/theme_installed_infobar_delegate.h"
@@ -76,6 +79,7 @@
 #include "chrome/browser/ui/extensions/installation_error_infobar_delegate.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/install/crx_install_error.h"
+#include "extensions/browser/ui_util.h"
 #include "extensions/common/extension.h"
 #include "extensions/strings/grit/extensions_strings.h"
 #endif
@@ -109,6 +113,9 @@
 using InfoBarType = infobar_internals::mojom::InfoBarType;
 using InfoBarEntry = infobar_internals::mojom::InfoBarEntry;
 using InfoBarEntryPtr = infobar_internals::mojom::InfoBarEntryPtr;
+using InfoBarAction = infobar_internals::mojom::InfoBarAction;
+using InfoBarActionEntry = infobar_internals::mojom::InfoBarActionEntry;
+using InfoBarActionEntryPtr = infobar_internals::mojom::InfoBarActionEntryPtr;
 
 namespace {
 
@@ -122,6 +129,7 @@ struct TriggerRequirements {
 TriggerRequirements RequirementsFor(InfoBarType type) {
   switch (type) {
     case InfoBarType::kAlternateNav:
+    case InfoBarType::kAutomation:
     case InfoBarType::kBadFlags:
     case InfoBarType::kCollectedCookies:
     case InfoBarType::kDevTools:
@@ -137,6 +145,7 @@ TriggerRequirements RequirementsFor(InfoBarType type) {
 #if BUILDFLAG(ENABLE_EXTENSIONS)
     case InfoBarType::kIncognitoConnectability:
     case InfoBarType::kInstallationError:
+    case InfoBarType::kWebAuthFlow:
       return {.profile = true, .web_contents = true};
 #endif
     case InfoBarType::kExtensionDevTools:
@@ -174,30 +183,62 @@ InfoBarInternalsHandler::InfoBarInternalsHandler(
 
 InfoBarInternalsHandler::~InfoBarInternalsHandler() = default;
 
-void InfoBarInternalsHandler::TriggerInfoBar(InfoBarType type,
-                                             TriggerInfoBarCallback callback) {
-  std::move(callback).Run(TriggerInfoBarInternal(type));
+void InfoBarInternalsHandler::PerformInfoBarAction(
+    InfoBarType type,
+    InfoBarAction action,
+    PerformInfoBarActionCallback callback) {
+  std::move(callback).Run(PerformInfoBarActionInternal(type, action));
 }
 
 void InfoBarInternalsHandler::GetInfoBars(GetInfoBarsCallback callback) {
   // Please keep the entries in alphabetical order, based on the type.
   std::vector<InfoBarEntryPtr> infobar_list;
-  auto add_entry = [&infobar_list](InfoBarType type, const std::string& name,
-                                   const std::string& description) {
-    infobar_list.emplace_back(InfoBarEntry::New(type, name, description));
+  // Adds an infobar exposing multiple buttons.
+  auto add_entry_with_actions =
+      [&infobar_list](
+          InfoBarType type, const std::string& name,
+          const std::string& description,
+          std::vector<std::pair<InfoBarAction, std::string>> actions) {
+        std::vector<InfoBarActionEntryPtr> action_entries;
+        for (auto& [action, label] : actions) {
+          action_entries.emplace_back(
+              InfoBarActionEntry::New(action, std::move(label)));
+        }
+        infobar_list.emplace_back(InfoBarEntry::New(type, name, description,
+                                                    std::move(action_entries)));
+      };
+  // Adds an infobar exposing a single button. `action` defaults to showing the
+  // infobar on the active tab (suitable for tab-scoped infobar);
+  // pass kShowGlobally for infobars shown in global scope.
+  // `action` describes what PerformInfoBarActionInternal() does for
+  // this type - keep the two in sync.
+  auto add_entry = [&add_entry_with_actions](
+                       InfoBarType type, const std::string& name,
+                       const std::string& description,
+                       InfoBarAction action = InfoBarAction::kShowForCurrentTab,
+                       const std::string& label = "Trigger") {
+    add_entry_with_actions(type, name, description, {{action, label}});
   };
   if (base::FeatureList::IsEnabled(features::kInfoBarInlineLinks)) {
     add_entry(InfoBarType::kAlternateNav, "Alternate Nav",
               "The Alternate Nav infobar is shown when a user searches for a "
               "term they may have meant to navigate to.");
   }
+  add_entry_with_actions(
+      InfoBarType::kAutomation, "Automation",
+      "The Automation infobar warns users when Chrome is controlled by "
+      "automated test software. This infobar can be shown globally "
+      "or on the active tab depending on the use case.",
+      {{InfoBarAction::kShowGlobally, "Trigger Globally"},
+       {InfoBarAction::kShowForCurrentTab, "Trigger Tab-scoped"}});
   add_entry(InfoBarType::kBadFlags, "Bad Flags",
             "The Bad Flags infobar warns users that they are running Chrome "
             "with an unsupported command-line flag.");
 #if BUILDFLAG(CHROME_FOR_TESTING)
   add_entry(InfoBarType::kChromeForTesting, "Chrome for Testing",
             "The Chrome for Testing infobar warns users that this version is "
-            "only for automated testing.");
+            "only for automated testing.",
+            InfoBarAction::kShowGlobally);
 #endif
   add_entry(InfoBarType::kCollectedCookies, "Collected Cookies",
             "The Collected Cookies infobar is shown after the user has changed "
@@ -231,7 +272,8 @@ void InfoBarInternalsHandler::GetInfoBars(GetInfoBarsCallback callback) {
   add_entry(InfoBarType::kExtensionDevTools, "Extension DevTools",
             "The Extension DevTools infobar is used to globally warn users "
             "that an extension is debugging the browser. This trigger shows "
-            "the infobar.");
+            "the infobar.",
+            InfoBarAction::kShowGlobally);
 
   add_entry(InfoBarType::kGoogleApiKeys, "Google API Keys",
             "The Google API Keys infobar warns users when Google API keys are "
@@ -258,7 +300,8 @@ void InfoBarInternalsHandler::GetInfoBars(GetInfoBarsCallback callback) {
             "The Keystone infobar asks the user to promote the updater to "
             "system scope. This trigger resets any browser state that prevents "
             "the infobar from being shown, then shows the infobar. This can "
-            "only be triggered on Mac.");
+            "only be triggered on Mac.",
+            InfoBarAction::kShowGlobally);
 #endif
 
   add_entry(InfoBarType::kKnownInterception, "Known Interception Disclosure",
@@ -269,7 +312,8 @@ void InfoBarInternalsHandler::GetInfoBars(GetInfoBarsCallback callback) {
   add_entry(InfoBarType::kLocalTestPoliciesApplied,
             "Local Test Policies Applied",
             "The Local Test Policies Applied infobar warns the user that local "
-            "test policies are active.");
+            "test policies are active.",
+            InfoBarAction::kShowGlobally);
 
   add_entry(InfoBarType::kObsoleteSystem, "Obsolete System",
             "The Obsolete System infobar warns users when their operating "
@@ -305,12 +349,22 @@ void InfoBarInternalsHandler::GetInfoBars(GetInfoBarsCallback callback) {
             "The Theme Installed infobar is shown when a user installs a "
             "theme. This trigger shows the infobar for the current theme, "
             "allowing you to 'undo' to the state before this trigger.");
+  add_entry(InfoBarType::kWebAuthFlow, "Web Authentication Flow",
+            "The Web Authentication Flow infobar is shown when an extension "
+            "starts an interactive web authentication flow.");
 #endif
 
   std::move(callback).Run(std::move(infobar_list));
 }
 
-bool InfoBarInternalsHandler::TriggerInfoBarInternal(InfoBarType type) {
+bool InfoBarInternalsHandler::PerformInfoBarActionInternal(
+    InfoBarType type,
+    InfoBarAction action) {
+  // Single-action infobars execute their default trigger in the switch below.
+  // When an infobar supports multiple actions (e.g. ShowGlobally vs
+  // ShowForCurrentTab, or Hide), its case must branch on `action`, and
+  // RequirementsFor() must cover all prerequisites needed across those paths.
+
   BrowserWindowInterface* const bwi =
       GetLastActiveBrowserWindowInterfaceWithAnyProfile();
   Profile* const profile = bwi ? bwi->GetProfile() : nullptr;
@@ -331,9 +385,46 @@ bool InfoBarInternalsHandler::TriggerInfoBarInternal(InfoBarType type) {
       AutocompleteMatch match;
       match.destination_url = GURL("https://google.com/");
 
-      AlternateNavInfoBarDelegate::CreateForOmniboxNavigation(
+      ChromeOmniboxNavigationObserverBase::ShowAlternativeNavInfoBar(
           web_contents, u"test", match, GURL("https://youtube.com/"));
       return true;
+    }
+    case InfoBarType::kAutomation: {
+      if (action == InfoBarAction::kShowForCurrentTab) {
+        if (infobars::IsInfoBarMigrated(
+                infobars::InfoBarDelegate::AUTOMATION_INFOBAR_DELEGATE)) {
+          if (!browser_infobar_manager || !active_tab) {
+            return false;
+          }
+          infobars::InfoBarShowParams params;
+          params.scope = infobars::InfoBarScope::kTab;
+          return browser_infobar_manager->Show(
+                     active_tab,
+                     infobars::InfoBarDelegate::AUTOMATION_INFOBAR_DELEGATE,
+                     std::move(params)) != nullptr;
+        } else {
+          auto* infobar_manager =
+              infobars::ContentInfoBarManager::FromWebContents(web_contents);
+          if (!infobar_manager) {
+            return false;
+          }
+          AutomationInfoBarDelegate::Create(infobar_manager);
+          return true;
+        }
+      } else if (action == InfoBarAction::kShowGlobally) {
+        if (infobars::IsInfoBarMigrated(
+                infobars::InfoBarDelegate::AUTOMATION_INFOBAR_DELEGATE)) {
+          if (!browser_infobar_manager) {
+            return false;
+          }
+          return browser_infobar_manager->ShowGlobally(
+              infobars::InfoBarDelegate::AUTOMATION_INFOBAR_DELEGATE);
+        } else {
+          AutomationInfoBarDelegate::Create();
+          return true;
+        }
+      }
+      return false;
     }
     case InfoBarType::kBadFlags: {
       ShowBadFlagsInfoBar(web_contents, IDS_BAD_FLAGS_WARNING_MESSAGE,
@@ -760,6 +851,39 @@ bool InfoBarInternalsHandler::TriggerInfoBarInternal(InfoBarType type) {
             theme_service->BuildReinstallerForCurrentTheme());
       }
       return true;
+    }
+    case InfoBarType::kWebAuthFlow: {
+      extensions::ExtensionRegistry* registry =
+          extensions::ExtensionRegistry::Get(profile);
+      const extensions::ExtensionSet& extensions =
+          registry->enabled_extensions();
+
+      std::string extension_name = "Dummy Extension";
+      if (!extensions.empty()) {
+        const extensions::Extension* extension = extensions.begin()->get();
+        extension_name = extension->name();
+      }
+
+      if (infobars::IsInfoBarMigrated(
+              infobars::InfoBarDelegate::
+                  EXTENSIONS_WEB_AUTH_FLOW_INFOBAR_DELEGATE)) {
+        if (!browser_infobar_manager) {
+          return false;
+        }
+        infobars::InfoBarShowParams params;
+        params.substitutions = {MessageSubstitution(
+            extensions::ui_util::GetFixupExtensionNameForUIDisplay(
+                extension_name),
+            /*is_link=*/false, /*accessible_name=*/std::nullopt)};
+        return browser_infobar_manager->Show(
+                   active_tab,
+                   infobars::InfoBarDelegate::
+                       EXTENSIONS_WEB_AUTH_FLOW_INFOBAR_DELEGATE,
+                   std::move(params)) != nullptr;
+      } else {
+        return extensions::WebAuthFlowInfoBarDelegate::Create(
+                   web_contents, extension_name) != nullptr;
+      }
     }
 #endif
   }

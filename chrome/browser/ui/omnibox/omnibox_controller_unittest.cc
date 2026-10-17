@@ -40,7 +40,7 @@ TEST_F(OmniboxControllerTest, CheckDefaultAutocompleteProviders) {
   for (const auto& provider :
        omnibox_controller_->autocomplete_controller()->providers()) {
     // Ensure this is a provider we wanted.
-    int type = provider->type();
+    int type = static_cast<int>(provider->type());
     ASSERT_TRUE(expected_providers & type);
     // Remove it from expectations so we fail if it's there twice.
     expected_providers &= ~type;

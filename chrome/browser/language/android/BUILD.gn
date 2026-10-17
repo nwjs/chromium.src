@@ -60,6 +60,7 @@ android_library("java") {
     "//chrome/browser/preferences:pref_service_java",
     "//chrome/browser/profiles/android:java",
     "//chrome/browser/settings:java",
+    "//chrome/browser/settings:settings_in_tab_java",
     "//chrome/browser/tab:java",
     "//chrome/browser/ui/messages/android:java",
     "//chrome/browser/util:java",
@@ -183,6 +184,7 @@ robolectric_library("junit") {
     "java/src/org/chromium/chrome/browser/language/LanguageBridgeTest.java",
     "java/src/org/chromium/chrome/browser/language/LanguageTestUtils.java",
     "java/src/org/chromium/chrome/browser/language/settings/LanguagesManagerTest.java",
+    "java/src/org/chromium/chrome/browser/language/settings/SelectLanguageFragmentTest.java",
     "java/src/org/chromium/chrome/browser/translate/FakeTranslateBridgeJni.java",
   ]
 
@@ -200,7 +202,7 @@ robolectric_library("junit") {
     "//chrome/test/android:chrome_java_unit_test_support",
     "//content/public/android:content_java",
     "//content/public/test/android:content_java_test_support",
-    "//third_party/androidx:androidx_test_runner_java",
+    "//third_party/androidx:androidx_fragment_fragment_java",
     "//third_party/jni_zero:jni_zero_java",
     "//third_party/junit",
     "//third_party/mockito:mockito_java",

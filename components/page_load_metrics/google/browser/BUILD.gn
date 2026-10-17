@@ -20,6 +20,7 @@ source_set("browser") {
     "histogram_suffixes.h",
     "search_preload_process_data.cc",
     "search_preload_process_data.h",
+    "search_prewarm_coverage_status.h",
   ]
   configs += [
     "//build/config/compiler:wexit_time_destructors",
@@ -38,6 +39,7 @@ source_set("browser") {
     "//components/user_prefs",
     "//content/public/browser",
     "//services/metrics/public/cpp:ukm_builders",
+    "//services/network/public/mojom",
   ]
 }
 

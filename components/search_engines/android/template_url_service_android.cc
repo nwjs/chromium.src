@@ -329,6 +329,12 @@ TemplateUrlServiceAndroid::GetComposeplateUrl(JNIEnv* env,
                    /*additional_params=*/{}));
 }
 
+GURL TemplateUrlServiceAndroid::ExpandUrlTemplate(
+    const std::string& url_template,
+    const std::u16string& query) {
+  return template_url_service_->ExpandUrlTemplate(url_template, query);
+}
+
 base::android::ScopedJavaLocalRef<jobject>
 TemplateUrlServiceAndroid::GetUrlForContextualSearchQuery(
     JNIEnv* env,
@@ -653,109 +659,10 @@ void TemplateUrlServiceAndroid::GetTemplateUrls(
   }
 }
 
-base::android::ScopedJavaLocalRef<jobject>
-TemplateUrlServiceAndroid::GetPrepopulatedAndRecentlyVisitedTemplateURLs(
-    JNIEnv* env) {
-  CHECK(base::FeatureList::IsEnabled(switches::kSearchSettingsUpdateV2));
-
-  auto result =
-      template_url_service_->GetPrepopulatedAndRecentlyVisitedTemplateURLs();
-
-  std::vector<const TemplateURL*> prepopulated_urls;
-  for (const auto& turl : result.prepopulated_urls) {
-    prepopulated_urls.push_back(turl.get());
-  }
-
-  std::vector<const TemplateURL*> recently_visited_urls;
-  for (const auto& turl : result.recently_visited_urls) {
-    recently_visited_urls.push_back(turl.get());
-  }
-
-  return Java_PrepopulatedAndRecentlyVisitedTemplateURLs_create(
-      env, prepopulated_urls, recently_visited_urls);
-}
-
-std::vector<const TemplateURL*>
-TemplateUrlServiceAndroid::FilterTemplateUrlsByCategory(
-    const std::vector<raw_ptr<TemplateURL, VectorExperimental>>& template_urls,
-    TemplateUrlServiceAndroid::TemplateUrlCategory category) {
-  std::vector<const TemplateURL*> result;
-  template_url_starter_pack_data::StarterPackIdSet disabled_starter_pack_ids =
-      GetDisabledStarterPackIds();
-
-  for (TemplateURL* turl : template_urls) {
-    if (disabled_starter_pack_ids.Has(turl->starter_pack_id())) {
-      continue;
-    }
-
-    bool is_default = template_url_service_->ShowInDefaultList(turl);
-    bool is_extension = turl->type() == TemplateURL::OMNIBOX_API_EXTENSION;
-    bool is_active = template_url_service_->ShowInActivesList(turl);
-    bool is_hidden = template_url_service_->HiddenFromLists(turl);
-
-    switch (category) {
-      case TemplateUrlCategory::kDefault:
-        if (is_default) {
-          result.push_back(turl);
-        }
-        break;
-      case TemplateUrlCategory::kActiveSiteSearch:
-        if (!is_default && !is_hidden && !is_extension && is_active) {
-          result.push_back(turl);
-        }
-        break;
-      case TemplateUrlCategory::kInactiveSiteSearch:
-        if (!is_default && !is_hidden && !is_extension && !is_active) {
-          result.push_back(turl);
-        }
-        break;
-      case TemplateUrlCategory::kExtension:
-        if (!is_default && !is_hidden && is_extension) {
-          result.push_back(turl);
-        }
-        break;
-      default:
-        NOTREACHED();
-    }
-  }
-  return result;
-}
-
-template_url_starter_pack_data::StarterPackIdSet
-TemplateUrlServiceAndroid::GetDisabledStarterPackIds() {
-  // TODO(crbug.com/512766345): Add profile check for aimode and gemini
-  template_url_starter_pack_data::StarterPackIdSet disabled_ids;
-  // Skip @page if feature disabled.
-  if (!omnibox_feature_configs::ContextualSearch::Get().starter_pack_page) {
-    disabled_ids.Put(template_url_starter_pack_data::StarterPackId::kPage);
-  }
-
-  // Skip @gemini if feature disabled.
-  if (!base::FeatureList::IsEnabled(omnibox::kStarterPackExpansion)) {
-    disabled_ids.Put(template_url_starter_pack_data::StarterPackId::kGemini);
-  }
-
-  // Skip @bookmarks.
-  disabled_ids.Put(template_url_starter_pack_data::StarterPackId::kBookmarks);
-
-  return disabled_ids;
-}
-
-std::vector<const TemplateURL*>
-TemplateUrlServiceAndroid::GetTemplateUrlsByCategory(
-    JNIEnv* env,
-    TemplateUrlCategory category) {
-  auto template_urls = FilterTemplateUrlsByCategory(
-      template_url_service_->GetTemplateURLs(), category);
-
-  // Sort the list for site search sections only. Search engines will preserve
-  // the original order returned by {@link GetTemplateURLs}.
-  if (category == TemplateUrlCategory::kActiveSiteSearch ||
-      category == TemplateUrlCategory::kInactiveSiteSearch) {
-    std::ranges::sort(template_urls,
-                      internal::OrderTemplateUrlsByManagedAndAlphabetically());
-  }
-  return template_urls;
+int64_t TemplateUrlServiceAndroid::CreateSettingsDataProvider(JNIEnv* env) {
+  return reinterpret_cast<int64_t>(
+      template_url_service_->CreateSearchEngineSettingsDataProvider()
+          .release());
 }
 
 base::android::ScopedJavaLocalRef<jobject>

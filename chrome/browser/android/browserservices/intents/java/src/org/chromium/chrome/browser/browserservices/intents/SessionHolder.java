@@ -15,82 +15,122 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 
 /**
- * Class that holds either a {@link CustomTabsSessionToken} or {@link AuthTabSessionToken}.
+ * Holds either a {@link CustomTabsSessionToken} or an {@link AuthTabSessionToken}.
  *
- * @param <T> The type of the session; either {@link CustomTabsSessionToken} or {@link
- *     AuthTabSessionToken}.
+ * <p>The hierarchy is sealed, so a session is always exactly one of {@link CustomTab} or {@link
+ * AuthTab}. To reach the underlying token, use a {@code switch} with a case for each: the compiler
+ * rejects the switch if either case is missing.
+ *
+ * <pre>{@code
+ * var callback = switch (sessionHolder) {
+ *     case SessionHolder.CustomTab customTab -> customTab.getToken().getCallback();
+ *     case SessionHolder.AuthTab authTab -> authTab.getToken().getCallback();
+ * };
+ * }</pre>
  */
 @NullMarked
-public class SessionHolder<T> {
-    private final T mSession;
-
-    public SessionHolder(T session) {
-        mSession = session;
-        assert isCustomTab() || isAuthTab();
+public sealed interface SessionHolder permits SessionHolder.CustomTab, SessionHolder.AuthTab {
+    /** Returns a holder for the given Custom Tab session. */
+    static CustomTab of(CustomTabsSessionToken token) {
+        return new CustomTab(token);
     }
 
-    public static @Nullable SessionHolder<?> getSessionHolderFromIntent(Intent intent) {
+    /** Returns a holder for the given Auth Tab session. */
+    static AuthTab of(AuthTabSessionToken token) {
+        return new AuthTab(token);
+    }
+
+    /**
+     * Returns a holder for the session the given intent belongs to, or null if the intent does not
+     * have a session.
+     */
+    static @Nullable SessionHolder getSessionHolderFromIntent(Intent intent) {
         boolean isAuthTab =
                 IntentUtils.safeGetBooleanExtra(intent, AuthTabIntent.EXTRA_LAUNCH_AUTH_TAB, false);
         if (isAuthTab) {
             AuthTabSessionToken token = AuthTabSessionToken.createSessionTokenFromIntent(intent);
-            if (token != null) {
-                return new SessionHolder<>(token);
-            }
-        } else {
-            CustomTabsSessionToken token = CustomTabsSessionToken.getSessionTokenFromIntent(intent);
-            if (token != null) {
-                return new SessionHolder<>(token);
-            }
+            return token != null ? of(token) : null;
         }
-        return null;
-    }
-
-    /** Returns the session held by this object. */
-    public T getSession() {
-        return mSession;
-    }
-
-    /** Returns the session as a {@link CustomTabsSessionToken}. */
-    public CustomTabsSessionToken getSessionAsCustomTab() {
-        return (CustomTabsSessionToken) mSession;
-    }
-
-    /** Returns the session as an {@link AuthTabSessionToken}. */
-    public AuthTabSessionToken getSessionAsAuthTab() {
-        return (AuthTabSessionToken) mSession;
+        CustomTabsSessionToken token = CustomTabsSessionToken.getSessionTokenFromIntent(intent);
+        return token != null ? of(token) : null;
     }
 
     /** Whether the session has an id. */
-    public boolean hasId() {
-        if (mSession instanceof AuthTabSessionToken session) {
-            return session.hasId();
-        } else if (mSession instanceof CustomTabsSessionToken session) {
-            return session.hasId();
+    boolean hasId();
+
+    /**
+     * Returns whether the session is a {@link CustomTabsSessionToken}. Prefer {@code instanceof
+     * SessionHolder.CustomTab customTab} when the token itself is needed, since the pattern binds
+     * it without a cast.
+     */
+    default boolean isCustomTab() {
+        return this instanceof CustomTab;
+    }
+
+    /**
+     * Returns whether the session is an {@link AuthTabSessionToken}. Prefer {@code instanceof
+     * SessionHolder.AuthTab authTab} when the token itself is needed, since the pattern binds it
+     * without a cast.
+     */
+    default boolean isAuthTab() {
+        return this instanceof AuthTab;
+    }
+
+    /** Holds the session of a Custom Tab. */
+    final class CustomTab implements SessionHolder {
+        private final CustomTabsSessionToken mToken;
+
+        private CustomTab(CustomTabsSessionToken token) {
+            mToken = token;
         }
-        return false;
-    }
 
-    @Override
-    public int hashCode() {
-        return mSession.hashCode();
-    }
-
-    @Override
-    public boolean equals(@Nullable Object obj) {
-        if (obj instanceof SessionHolder<?> holder) {
-            return mSession.equals(holder.mSession);
+        /** Returns the token identifying the Custom Tab session. */
+        public CustomTabsSessionToken getToken() {
+            return mToken;
         }
-        return false;
+
+        @Override
+        public boolean hasId() {
+            return mToken.hasId();
+        }
+
+        @Override
+        public boolean equals(@Nullable Object obj) {
+            return obj instanceof CustomTab other && mToken.equals(other.mToken);
+        }
+
+        @Override
+        public int hashCode() {
+            return mToken.hashCode();
+        }
     }
 
-    /** Returns whether the session is a {@link CustomTabsSessionToken}. */
-    public boolean isCustomTab() {
-        return mSession instanceof CustomTabsSessionToken;
-    }
+    /** Holds the session of an Auth Tab. */
+    final class AuthTab implements SessionHolder {
+        private final AuthTabSessionToken mToken;
 
-    /** Returns whether the session is an {@link AuthTabSessionToken}. */
-    public boolean isAuthTab() {
-        return mSession instanceof AuthTabSessionToken;
+        private AuthTab(AuthTabSessionToken token) {
+            mToken = token;
+        }
+
+        /** Returns the token identifying the Auth Tab session. */
+        public AuthTabSessionToken getToken() {
+            return mToken;
+        }
+
+        @Override
+        public boolean hasId() {
+            return mToken.hasId();
+        }
+
+        @Override
+        public boolean equals(@Nullable Object obj) {
+            return obj instanceof AuthTab other && mToken.equals(other.mToken);
+        }
+
+        @Override
+        public int hashCode() {
+            return mToken.hashCode();
+        }
     }
 }

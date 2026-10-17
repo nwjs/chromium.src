@@ -122,8 +122,6 @@
 #include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
 #include "third_party/blink/renderer/core/html/anchor_element_viewport_position_tracker.h"
 #include "third_party/blink/renderer/core/html/canvas/html_canvas_element.h"
-#include "third_party/blink/renderer/core/html/fenced_frame/document_fenced_frames.h"
-#include "third_party/blink/renderer/core/html/fenced_frame/html_fenced_frame_element.h"
 #include "third_party/blink/renderer/core/html/forms/text_control_element.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/html/html_frame_owner_element.h"
@@ -131,6 +129,7 @@
 #include "third_party/blink/renderer/core/html/plugin_document.h"
 #include "third_party/blink/renderer/core/input/context_menu_allowed_scope.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
+#include "third_party/blink/renderer/core/input/event_handling_util.h"
 #include "third_party/blink/renderer/core/input/touch_action_util.h"
 #include "third_party/blink/renderer/core/layout/hit_test_location.h"
 #include "third_party/blink/renderer/core/layout/hit_test_request.h"
@@ -289,18 +288,6 @@ void ForEachRemoteFrameChildrenControlledByWidget(
       // controlled by another widget.
       if (!local_frame->IsLocalRoot()) {
         ForEachRemoteFrameChildrenControlledByWidget(local_frame, callback);
-      }
-    }
-  }
-
-  if (auto* local_frame = DynamicTo<LocalFrame>(frame)) {
-    if (Document* document = local_frame->GetDocument()) {
-      // Iterate on any fenced frames owned by a local frame.
-      if (auto* fenced_frames = DocumentFencedFrames::Get(*document)) {
-        for (HTMLFencedFrameElement* fenced_frame :
-             fenced_frames->GetFencedFrames()) {
-          callback(To<RemoteFrame>(fenced_frame->ContentFrame()));
-        }
       }
     }
   }
@@ -700,7 +687,7 @@ void WebFrameWidgetImpl::DragTargetDragLeave(
                      screen_point, operations_allowed_,
                      /*force_default_action=*/false);
 
-  GetPage()->GetDragController().DragExited(&drag_data,
+  GetPage()->GetDragController().DragExited(drag_data,
                                             *local_root_->GetFrame());
 
   // FIXME: why is the drag scroll timer not stopped here?
@@ -743,7 +730,7 @@ void WebFrameWidgetImpl::DragTargetDrop(const WebDragData& web_drag_data,
                      ViewportToRootFrame(point_in_viewport), screen_point,
                      operations_allowed_, web_drag_data.ForceDefaultAction());
   GetPage()->GetDragController().PerformDrop(
-      &drag_data, *local_root_->GetFrame(), drag_operation_);
+      drag_data, *local_root_->GetFrame(), drag_operation_);
   // Drops that initiated in the browser get reported via `DragSourceEndedAt`.
   if (!GetPage()->GetDragController().did_initiate_drag()) {
     local_root_->GetFrame()->GetEventHandler().ReportDragEnd();
@@ -1515,7 +1502,7 @@ void WebFrameWidgetImpl::DragTargetDragEnterOrOver(
                      /*force_default_action=*/false);
 
   drag_operation_ = GetPage()->GetDragController().DragEnteredOrUpdated(
-      &drag_data, *local_root_->GetFrame());
+      drag_data, *local_root_->GetFrame());
 
   // Mask the drag operation against the drag source's allowed
   // operations.
@@ -1593,6 +1580,7 @@ void WebFrameWidgetImpl::NotifyLatchedScrollMarkerGroup(
 void WebFrameWidgetImpl::UpdateCompositorScrollState(
     const cc::CompositorCommitData& commit_data) {
   is_scroll_gesture_active_ = commit_data.is_scroll_active;
+  scroll_latched_element_id_ = commit_data.scroll_latched_element_id;
   if (WebDevToolsAgentImpl* devtools =
           LocalRootImpl()->DevToolsAgentImpl(/*create_if_necessary=*/false)) {
     devtools->SetPageIsScrolling(is_scroll_gesture_active_);
@@ -1637,6 +1625,10 @@ void WebFrameWidgetImpl::UpdateAnimatedImageState(
 
 bool WebFrameWidgetImpl::IsScrollGestureActive() const {
   return is_scroll_gesture_active_;
+}
+
+cc::ElementId WebFrameWidgetImpl::ScrollLatchedElementId() const {
+  return scroll_latched_element_id_;
 }
 
 void WebFrameWidgetImpl::RequestViewportScreenshot(
@@ -1998,11 +1990,21 @@ void WebFrameWidgetImpl::UpdateVisualProperties(
     // This needs to run before ApplyVisualPropertiesSizing below,
     // which updates the current set of screen_infos from visual properties.
     if (DidChangeFullscreenState(visual_properties)) {
+      const bool was_fullscreen_granted = is_fullscreen_granted_;
       is_fullscreen_granted_ = visual_properties.is_fullscreen_granted;
-      if (is_fullscreen_granted_)
+      fullscreen_grant_count_ = visual_properties.fullscreen_grant_count;
+      if (is_fullscreen_granted_) {
         View()->DidEnterFullscreen();
-      else
-        View()->DidExitFullscreen();
+      } else {
+        if (!was_fullscreen_granted) {
+          // If a `false -> true -> false` transition was coalesced while
+          // waiting for an ack, fullscreen was not granted, so reject any
+          // pending request.
+          View()->DidFailToEnterFullscreen();
+        } else {
+          View()->DidExitFullscreen();
+        }
+      }
     }
   }
 
@@ -2187,8 +2189,10 @@ void WebFrameWidgetImpl::ApplyVisualPropertiesSizing(
 
 bool WebFrameWidgetImpl::DidChangeFullscreenState(
     const VisualProperties& visual_properties) const {
-  if (visual_properties.is_fullscreen_granted != is_fullscreen_granted_)
+  if (visual_properties.is_fullscreen_granted != is_fullscreen_granted_ ||
+      visual_properties.fullscreen_grant_count > fullscreen_grant_count_) {
     return true;
+  }
   // If changing fullscreen from one display to another, the fullscreen
   // granted state will not change, but we still need to resolve promises
   // by considering this a change.
@@ -5666,6 +5670,11 @@ Element* WebFrameWidgetImpl::FocusedElement() const {
 
 HitTestResult WebFrameWidgetImpl::HitTestResultForRootFramePos(
     const gfx::PointF& pos_in_root_frame) {
+  if (auto unbounded_result =
+          event_handling_util::SubframeForActiveUnboundedElement(
+              LocalRootImpl()->GetFrame(), pos_in_root_frame)) {
+    return unbounded_result->result;
+  }
   gfx::PointF doc_point =
       LocalRootImpl()->GetFrame()->View()->ConvertFromRootFrame(
           pos_in_root_frame);

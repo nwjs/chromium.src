@@ -13,8 +13,10 @@ import android.os.Bundle;
 import android.os.PowerManager;
 
 import org.chromium.base.ApiCompatibilityUtils;
+import org.chromium.base.ApplicationStatus;
 import org.chromium.base.IntentUtils;
 import org.chromium.base.Log;
+import org.chromium.base.SysUtils;
 import org.chromium.base.TimeUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.NullMarked;
@@ -58,19 +60,27 @@ class CustomTabActivityTimeoutHandler {
     private boolean mOutcomeRecorded;
 
     @Nullable private final PendingIntent mEmbedderClosingIntent;
+    @Nullable private final PowerManager mPowerManager;
 
     // Timestamp of when the user left the activity, used for timeout logic.
     private long mLeaveTimestamp = -1;
     // Whether the activity is launching an external activity.
     private boolean mIsLaunchingExternalActivity;
 
-    CustomTabActivityTimeoutHandler(Runnable finishActivityRunnable, Intent intent) {
+    CustomTabActivityTimeoutHandler(
+            Context context, Runnable finishActivityRunnable, Intent intent) {
         mIsTimeoutEnabled = isTimeoutEnabled(intent);
 
         // Always set after mIsTimeoutEnabled
         mTimeoutMinutes = getTimeoutMinutes(intent);
         mEmbedderClosingIntent = getEmbedderClosingIntent(intent);
         mFinishActivityRunnable = finishActivityRunnable;
+
+        if (mIsTimeoutEnabled && ChromeFeatureList.sCctEarlyInitPowerManager.isEnabled()) {
+            mPowerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+        } else {
+            mPowerManager = null;
+        }
     }
 
     /** To be called from {@link Activity#onStart()}. */
@@ -89,8 +99,13 @@ class CustomTabActivityTimeoutHandler {
         // can be recorded when the user returns or the activity is destroyed.
         mOutcomeRecorded = false;
 
-        PowerManager powerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
-        boolean isLockingScreenAction = !powerManager.isInteractive();
+        PowerManager powerManager;
+        if (ChromeFeatureList.sCctEarlyInitPowerManager.isEnabled()) {
+            powerManager = mPowerManager;
+        } else {
+            powerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+        }
+        boolean isLockingScreenAction = powerManager != null && !powerManager.isInteractive();
 
         if (isLockingScreenAction) {
             mLeaveTimestamp = -1;
@@ -104,6 +119,12 @@ class CustomTabActivityTimeoutHandler {
             return;
         }
 
+        if (isActivityChangingConfigurations(context)) {
+            mLeaveTimestamp = -1;
+            Log.d(TAG, "onStop: Changing configurations, not starting timeout.");
+            return;
+        }
+
         if (mLeaveTimestamp == -1) {
             mLeaveTimestamp = TimeUtils.elapsedRealtimeMillis();
             Log.d(TAG, "onStop: User leaving task, timeout timer started.");
@@ -114,7 +135,12 @@ class CustomTabActivityTimeoutHandler {
     void onResume(Context context) {
         if (!mIsTimeoutEnabled) return;
 
-        Log.d(TAG, "onResume: timeoutMinutes: %d", mTimeoutMinutes);
+        if (isApplicationInBackground()) {
+            Log.d(TAG, "onResume: Application is in background, skipping timeout.");
+            return;
+        }
+
+        Log.d(TAG, "onResume: Triggering timeout check, timeoutMinutes: %d", mTimeoutMinutes);
         handleTimeout(context);
     }
 
@@ -242,5 +268,23 @@ class CustomTabActivityTimeoutHandler {
             return pendingIntent;
         }
         return null;
+    }
+
+    private static boolean isSkipConfigurationChangesEnabled() {
+        return ChromeFeatureList.sCctResetTimeoutSkipConfigurationChanges.isEnabled();
+    }
+
+    private static boolean isActivityChangingConfigurations(Context context) {
+        if (!isSkipConfigurationChangesEnabled()) {
+            return false;
+        }
+        return context instanceof Activity activity && activity.isChangingConfigurations();
+    }
+
+    private static boolean isApplicationInBackground() {
+        if (!isSkipConfigurationChangesEnabled()) {
+            return false;
+        }
+        return !ApplicationStatus.hasVisibleActivities() || SysUtils.isProcessInBackground();
     }
 }

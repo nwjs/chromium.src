@@ -785,6 +785,11 @@ class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
   std::vector<journeys::Journey> GetAllJourneysWithVisits() override;
   bool DeleteAllJourneys() override;
 
+  // Returns the journey identified by `journey_id` with its visits resolved,
+  // or `std::nullopt` if it doesn't exist or can't be fully resolved.
+  std::optional<journeys::Journey> GetJourneyWithVisits(
+      const std::string& journey_id);
+
   // Deleting ------------------------------------------------------------------
 
   void DeleteURLs(const std::vector<GURL>& urls);
@@ -969,13 +974,18 @@ class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
   // search for results which match the given text query.
   // Both functions assume QueryHistory already checked the DB for validity.
   void QueryHistoryBasic(const QueryOptions& options, QueryResults* result);
+  std::vector<URLResult> QueryHistoryBasicBatched(
+      const VisitVector& visits,
+      const VisitSourceMap& sources);
+  std::vector<URLResult> QueryHistoryBasicLegacy(const VisitVector& visits,
+                                                 const VisitSourceMap& sources);
   void QueryHistoryText(const std::u16string& text_query,
                         const QueryOptions& options,
                         QueryResults* result);
 
   // Performs a brute force search over the database to find any host names that
-  // match the `host_name` string. Returns any matches.
-  URLRows GetMatchesForHost(const std::u16string& host_name);
+  // match the `hostname_suffix` string. Returns any matches.
+  URLRows GetMatchesForHost(const std::string& hostname_suffix);
 
   // Committing ----------------------------------------------------------------
 

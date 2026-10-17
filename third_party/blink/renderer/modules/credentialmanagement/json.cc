@@ -1,3 +1,7 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
 #include "third_party/blink/renderer/modules/credentialmanagement/json.h"
 
 #include "base/containers/span.h"
@@ -202,6 +206,9 @@ AuthenticationExtensionsClientInputsFromJSON(
   if (json.hasRemoteDesktopClientOverride()) {
     result->setRemoteDesktopClientOverride(json.remoteDesktopClientOverride());
   }
+  if (json.hasRemoteClientDataJSON()) {
+    result->setRemoteClientDataJSON(json.remoteClientDataJSON());
+  }
   if (json.hasPrf()) {
     auto* prf = AuthenticationExtensionsPRFInputs::Create();
     if (json.prf()->hasEval()) {
@@ -311,6 +318,9 @@ AuthenticationExtensionsClientOutputsToJSON(
     cmtg_key_json->setSignature(
         WebAuthnBase64UrlEncode(in.cmtgKey()->signature()));
     json->setCmtgKey(cmtg_key_json);
+  }
+  if (in.hasRemoteClientDataJSON()) {
+    json->setRemoteClientDataJSON(in.remoteClientDataJSON());
   }
   return json;
 }

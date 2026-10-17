@@ -42,6 +42,7 @@ import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.glic.GlicEnabling;
 import org.chromium.chrome.browser.glic.GlicPrefNames;
+import org.chromium.chrome.browser.glic.GlicUtils;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.multiwindow.UiUtils.NameWindowDialogSource;
@@ -136,7 +137,8 @@ public class TabStripContextMenuCoordinatorUnitTest {
                         mSnackbarManager,
                         mOnNewTabClick,
                         /* canActivateTabLayoutToggleMenuSupplier= */ null,
-                        layout);
+                        layout,
+                        /* onMenuDismissedCallback= */ null);
     }
 
     @After
@@ -208,7 +210,8 @@ public class TabStripContextMenuCoordinatorUnitTest {
                         mSnackbarManager,
                         mOnNewTabClick,
                         () -> false,
-                        TabStripLayoutType.HORIZONTAL);
+                        TabStripLayoutType.HORIZONTAL,
+                        /* onMenuDismissedCallback= */ null);
         MultiWindowUtils.setMultiInstanceApi31EnabledForTesting(true);
 
         mCoordinator.showMenu(mRectProvider, false, mActivity);
@@ -505,6 +508,7 @@ public class TabStripContextMenuCoordinatorUnitTest {
     public void showMenu_verifyPinGlicOption() {
         // Arrange.
         MultiWindowUtils.setMultiInstanceApi31EnabledForTesting(true);
+        GlicUtils.setIsSidePanelFormFactorForTesting(true);
         when(mPrefService.getBoolean(GlicPrefNames.GLIC_PINNED_TO_TABSTRIP)).thenReturn(false);
         mCoordinator.showMenu(mRectProvider, false, mActivity);
         verifyMenuState(/* expectedNumItems= */ 6);
@@ -526,6 +530,7 @@ public class TabStripContextMenuCoordinatorUnitTest {
     public void showMenu_verifyUnpinGlicOption() {
         // Arrange.
         MultiWindowUtils.setMultiInstanceApi31EnabledForTesting(true);
+        GlicUtils.setIsSidePanelFormFactorForTesting(true);
         when(mPrefService.getBoolean(GlicPrefNames.GLIC_PINNED_TO_TABSTRIP)).thenReturn(true);
         mCoordinator.showMenu(mRectProvider, false, mActivity);
         verifyMenuState(/* expectedNumItems= */ 6);

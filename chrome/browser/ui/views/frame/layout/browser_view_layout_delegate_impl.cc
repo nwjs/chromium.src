@@ -22,6 +22,7 @@
 #include "chrome/browser/ui/views/frame/browser_widget.h"
 #include "chrome/browser/ui/views/frame/glass_frame_service.h"
 #include "chrome/browser/ui/views/infobars/infobar_container_view.h"
+#include "chrome/browser/ui/views/tabs/organizer/organizer_panel_host.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/ui/views/web_apps/frame_toolbar/web_app_frame_toolbar_view.h"
 #include "chrome/common/buildflags.h"
@@ -211,6 +212,11 @@ BrowserViewLayoutDelegateImpl::GetExclusiveAccessBubble() const {
   return browser_view_->GetExclusiveAccessBubble();
 }
 
+OrganizerPanelLocation
+BrowserViewLayoutDelegateImpl::GetOrganizerPanelLocation() const {
+  return OrganizerPanelHost::GetPreferredLocation(*browser_view_->browser());
+}
+
 bool BrowserViewLayoutDelegateImpl::IsTopControlsSlideBehaviorEnabled() const {
   return browser_view_->GetTopControlsSlideBehaviorEnabled();
 }
@@ -225,12 +231,12 @@ gfx::NativeView BrowserViewLayoutDelegateImpl::GetHostViewForAnchoring() const {
 }
 
 bool BrowserViewLayoutDelegateImpl::HasFindBarController() const {
-  return browser_view_->browser()->GetFeatures().HasFindBarController();
+  auto* const controller = FindBarController::From(browser_view_->browser());
+  return controller && controller->HasFindBar();
 }
 
 void BrowserViewLayoutDelegateImpl::MoveWindowForFindBarIfNecessary() const {
-  auto* const controller =
-      browser_view_->browser()->GetFeatures().GetFindBarController();
+  auto* const controller = FindBarController::From(browser_view_->browser());
   return controller->find_bar()->MoveWindowIfNecessary();
 }
 

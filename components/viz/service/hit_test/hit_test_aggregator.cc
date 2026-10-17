@@ -5,7 +5,6 @@
 #include "components/viz/service/hit_test/hit_test_aggregator.h"
 
 #include "base/feature.h"
-#include "base/feature_list.h"
 #include "base/trace_event/trace_event.h"
 #include "base/types/expected.h"
 #include "components/viz/common/hit_test/hit_test_region_list.h"
@@ -16,10 +15,6 @@
 #include "ui/gfx/geometry/rrect_f.h"
 
 namespace viz {
-namespace {
-// TODO (crbug.com/495852034): Remove once M150 hits Stable.
-BASE_FEATURE(kRejectInvalidChildRegions, base::FEATURE_ENABLED_BY_DEFAULT);
-}  // namespace
 
 HitTestAggregator::HitTestAggregator(
     const HitTestManager* hit_test_manager,
@@ -162,8 +157,7 @@ HitTestAggregator::AppendRegion(size_t region_index,
     }
 
     // Verify that the child is actually a child of the submitting frame sink.
-    if (base::FeatureList::IsEnabled(kRejectInvalidChildRegions) &&
-        !delegate_->IsChildOf(submitting_frame_sink_id, region.frame_sink_id)) {
+    if (!delegate_->IsChildOf(submitting_frame_sink_id, region.frame_sink_id)) {
       return base::unexpected(AggregationError::INVALID_CHILD_REGION);
     }
 
@@ -185,11 +179,12 @@ HitTestAggregator::AppendRegion(size_t region_index,
       reasons |= AsyncHitTestReasons::kRegionNotActive;
     } else {
       // Rather than add a node in the tree for this hit_test_region_list
-      // element we can simplify the tree by merging the flags and transform
-      // into the kHitTestChildSurface element.
-      if (!hit_test_region_list->transform.IsIdentity())
-        transform.PreConcat(hit_test_region_list->transform);
-
+      // element we can simplify the tree by merging the flags into the
+      // kHitTestChildSurface element. The list-level transform is not
+      // merged: the mapping from the embedder's space into the embedded
+      // surface is defined by the embedder-submitted `region`, and a
+      // list-level transform is only applied for the surface that
+      // aggregation starts from (see AppendRoot()).
       flags |= hit_test_region_list->flags;
       reasons |= hit_test_region_list->async_hit_test_reasons;
 

@@ -3487,6 +3487,351 @@ TEST_F(HttpServerPropertiesTest, RequiresHTTP11) {
   }
 }
 
+TEST_F(HttpServerPropertiesTest, TryQuicByDefault) {
+  const url::SchemeHostPort kHttpsServer1("https", "foo.test", 443);
+  const url::SchemeHostPort kHttpsServer2("https", "bar.test", 8443);
+  const url::SchemeHostPort kHttpServer("http", "foo.test", 80);
+
+  EXPECT_FALSE(impl_.try_quic_by_default_for_testing());
+  EXPECT_TRUE(impl_
+                  .GetAlternativeServiceInfos(kHttpsServer1,
+                                              network_anonymization_key1_)
+                  .empty());
+
+  impl_.SetTryQuicByDefault(true);
+  EXPECT_TRUE(impl_.try_quic_by_default_for_testing());
+
+  // HTTPS servers should now return a QUIC alternative service.
+  AlternativeServiceInfoVector alt_svc1 = impl_.GetAlternativeServiceInfos(
+      kHttpsServer1, network_anonymization_key1_);
+  ASSERT_EQ(1u, alt_svc1.size());
+  EXPECT_EQ(NextProto::kProtoQUIC, alt_svc1[0].protocol());
+  EXPECT_EQ("foo.test", alt_svc1[0].alternative_service().host);
+  EXPECT_EQ(443, alt_svc1[0].alternative_service().port);
+  EXPECT_EQ(base::Time::Max(), alt_svc1[0].expiration());
+  EXPECT_EQ(DefaultSupportedQuicVersions(), alt_svc1[0].advertised_versions());
+
+  AlternativeServiceInfoVector alt_svc2 = impl_.GetAlternativeServiceInfos(
+      kHttpsServer2, network_anonymization_key1_);
+  ASSERT_EQ(1u, alt_svc2.size());
+  EXPECT_EQ(NextProto::kProtoQUIC, alt_svc2[0].protocol());
+  EXPECT_EQ("bar.test", alt_svc2[0].alternative_service().host);
+  EXPECT_EQ(8443, alt_svc2[0].alternative_service().port);
+
+  // HTTP servers should not return a QUIC alternative service.
+  EXPECT_TRUE(
+      impl_.GetAlternativeServiceInfos(kHttpServer, network_anonymization_key1_)
+          .empty());
+
+  // Mark kHttpsServer1's alternative service as broken.
+  impl_.MarkAlternativeServiceBroken(alt_svc1[0].alternative_service(),
+                                     network_anonymization_key1_);
+
+  // kHttpsServer1 should now return empty (falls back to TCP).
+  EXPECT_TRUE(impl_
+                  .GetAlternativeServiceInfos(kHttpsServer1,
+                                              network_anonymization_key1_)
+                  .empty());
+
+  // Other servers should remain unaffected.
+  EXPECT_EQ(1u, impl_
+                    .GetAlternativeServiceInfos(kHttpsServer2,
+                                                network_anonymization_key1_)
+                    .size());
+
+  // Advancing time by 5 minutes expires the brokenness.
+  FastForwardBy(base::Minutes(5));
+  EXPECT_EQ(1u, impl_
+                    .GetAlternativeServiceInfos(kHttpsServer1,
+                                                network_anonymization_key1_)
+                    .size());
+
+  // Mark broken until default network changes.
+  impl_.MarkAlternativeServiceBrokenUntilDefaultNetworkChanges(
+      alt_svc1[0].alternative_service(), network_anonymization_key1_);
+  EXPECT_TRUE(impl_
+                  .GetAlternativeServiceInfos(kHttpsServer1,
+                                              network_anonymization_key1_)
+                  .empty());
+  impl_.OnDefaultNetworkChanged();
+  EXPECT_EQ(1u, impl_
+                    .GetAlternativeServiceInfos(kHttpsServer1,
+                                                network_anonymization_key1_)
+                    .size());
+
+  // Disabling try_quic_by_default returns empty again.
+  impl_.SetTryQuicByDefault(false);
+  EXPECT_FALSE(impl_.try_quic_by_default_for_testing());
+  EXPECT_TRUE(impl_
+                  .GetAlternativeServiceInfos(kHttpsServer1,
+                                              network_anonymization_key1_)
+                  .empty());
+}
+
+TEST_F(HttpServerPropertiesTest, TryQuicByDefaultWithNetworkIsolationKey) {
+  AddScopedFeatureList().InitAndEnableFeature(
+      features::kPartitionConnectionsByNetworkIsolationKey);
+  // Since HttpServerProperties caches the feature value, create a new instance.
+  HttpServerProperties properties(/*pref_delegate=*/nullptr,
+                                  /*net_log=*/nullptr, test_tick_clock_,
+                                  &test_clock_);
+  properties.SetTryQuicByDefault(true);
+
+  const url::SchemeHostPort kHttpsServer("https", "foo.test", 443);
+  AlternativeServiceInfoVector alt_svc = properties.GetAlternativeServiceInfos(
+      kHttpsServer, network_anonymization_key1_);
+  ASSERT_EQ(1u, alt_svc.size());
+
+  // Mark kHttpsServer broken under network_anonymization_key1_.
+  properties.MarkAlternativeServiceBroken(alt_svc[0].alternative_service(),
+                                          network_anonymization_key1_);
+
+  // Under network_anonymization_key1_, it is broken and falls back to TCP.
+  EXPECT_TRUE(
+      properties
+          .GetAlternativeServiceInfos(kHttpsServer, network_anonymization_key1_)
+          .empty());
+
+  // Under network_anonymization_key2_, it remains unbroken (cross-NAK
+  // isolation).
+  EXPECT_EQ(1u, properties
+                    .GetAlternativeServiceInfos(kHttpsServer,
+                                                network_anonymization_key2_)
+                    .size());
+}
+
+TEST_F(HttpServerPropertiesTest, DynamicWildcardQuicHints) {
+  const url::SchemeHostPort kSubdomain1("https", "mail.example.test", 443);
+  const url::SchemeHostPort kSubdomain2("https", "docs.example.test", 443);
+  const url::SchemeHostPort kOtherDomain("https", "notexample.test", 443);
+
+  EXPECT_TRUE(
+      impl_.GetAlternativeServiceInfos(kSubdomain1, network_anonymization_key1_)
+          .empty());
+
+  // Add a wildcard suffix hint for ".example.test".
+  impl_.SetKnownQuicAlternativeService(".example.test", 443, 443,
+                                       /*is_suffix=*/true);
+
+  AlternativeServiceInfoVector alt_svc1 = impl_.GetAlternativeServiceInfos(
+      kSubdomain1, network_anonymization_key1_);
+  ASSERT_EQ(1u, alt_svc1.size());
+  EXPECT_EQ(NextProto::kProtoQUIC, alt_svc1[0].protocol());
+  EXPECT_EQ("mail.example.test", alt_svc1[0].alternative_service().host);
+  EXPECT_EQ(443, alt_svc1[0].alternative_service().port);
+
+  AlternativeServiceInfoVector alt_svc2 = impl_.GetAlternativeServiceInfos(
+      kSubdomain2, network_anonymization_key1_);
+  ASSERT_EQ(1u, alt_svc2.size());
+  EXPECT_EQ(NextProto::kProtoQUIC, alt_svc2[0].protocol());
+  EXPECT_EQ("docs.example.test", alt_svc2[0].alternative_service().host);
+
+  // An unrelated domain should not match.
+  EXPECT_TRUE(
+      impl_
+          .GetAlternativeServiceInfos(kOtherDomain, network_anonymization_key1_)
+          .empty());
+
+  // Breaking one subdomain should not affect other subdomains under the
+  // wildcard.
+  impl_.MarkAlternativeServiceBroken(alt_svc1[0].alternative_service(),
+                                     network_anonymization_key1_);
+  EXPECT_TRUE(
+      impl_.GetAlternativeServiceInfos(kSubdomain1, network_anonymization_key1_)
+          .empty());
+  EXPECT_EQ(
+      1u,
+      impl_.GetAlternativeServiceInfos(kSubdomain2, network_anonymization_key1_)
+          .size());
+}
+
+TEST_F(HttpServerPropertiesTest, NestedWildcardQuicHints) {
+  // Register general and more specific nested wildcard hints with different
+  // alternate ports.
+  impl_.SetKnownQuicAlternativeService(".google.com", 443, 443,
+                                       /*is_suffix=*/true);
+  impl_.SetKnownQuicAlternativeService(".subdomaina.google.com", 443, 8443,
+                                       /*is_suffix=*/true);
+  impl_.SetKnownQuicAlternativeService(".subdomainb.google.com", 443, 9443,
+                                       /*is_suffix=*/true);
+
+  // 1. More specific wildcard wins over general wildcard.
+  const url::SchemeHostPort kSpecificServerA("https",
+                                             "test.subdomaina.google.com", 443);
+  auto specific_infos_a = impl_.GetAlternativeServiceInfos(
+      kSpecificServerA, network_anonymization_key1_);
+  ASSERT_EQ(1u, specific_infos_a.size());
+  EXPECT_EQ(8443, specific_infos_a[0].alternative_service().port);
+
+  const url::SchemeHostPort kSpecificServerB("https",
+                                             "test.subdomainb.google.com", 443);
+  auto specific_infos_b = impl_.GetAlternativeServiceInfos(
+      kSpecificServerB, network_anonymization_key1_);
+  ASSERT_EQ(1u, specific_infos_b.size());
+  EXPECT_EQ(9443, specific_infos_b[0].alternative_service().port);
+
+  // 2. Sibling subdomains under parent wildcard that sort alphabetically
+  // before, between, or after the specific subdomains (e.g. "api", "mail",
+  // "video", "zoo") all match the parent "*.google.com".
+  const url::SchemeHostPort kGeneralServer1("https", "api.google.com", 443);
+  auto general_infos1 = impl_.GetAlternativeServiceInfos(
+      kGeneralServer1, network_anonymization_key1_);
+  ASSERT_EQ(1u, general_infos1.size());
+  EXPECT_EQ(443, general_infos1[0].alternative_service().port);
+
+  const url::SchemeHostPort kGeneralServer2("https", "mail.google.com", 443);
+  auto general_infos2 = impl_.GetAlternativeServiceInfos(
+      kGeneralServer2, network_anonymization_key1_);
+  ASSERT_EQ(1u, general_infos2.size());
+  EXPECT_EQ(443, general_infos2[0].alternative_service().port);
+
+  const url::SchemeHostPort kGeneralServer3("https", "video.google.com", 443);
+  auto general_infos3 = impl_.GetAlternativeServiceInfos(
+      kGeneralServer3, network_anonymization_key1_);
+  ASSERT_EQ(1u, general_infos3.size());
+  EXPECT_EQ(443, general_infos3[0].alternative_service().port);
+
+  const url::SchemeHostPort kGeneralServer4("https", "zoo.google.com", 443);
+  auto general_infos4 = impl_.GetAlternativeServiceInfos(
+      kGeneralServer4, network_anonymization_key1_);
+  ASSERT_EQ(1u, general_infos4.size());
+  EXPECT_EQ(443, general_infos4[0].alternative_service().port);
+
+  // 3. The intermediate subdomain apex ("subdomaina.google.com") matches the
+  // parent wildcard "*.google.com" (since it is a subdomain of google.com).
+  const url::SchemeHostPort kSubdomainApex("https", "subdomaina.google.com",
+                                           443);
+  auto apex_infos = impl_.GetAlternativeServiceInfos(
+      kSubdomainApex, network_anonymization_key1_);
+  ASSERT_EQ(1u, apex_infos.size());
+  EXPECT_EQ(443, apex_infos[0].alternative_service().port);
+
+  // 4. Apex of google.com does NOT match the wildcard hint.
+  const url::SchemeHostPort kApexServer("https", "google.com", 443);
+  EXPECT_TRUE(
+      impl_.GetAlternativeServiceInfos(kApexServer, network_anonymization_key1_)
+          .empty());
+}
+
+TEST_F(HttpServerPropertiesTest, TryQuicByDefaultPrecedence) {
+  const url::SchemeHostPort kExactServer("https", "exact.test", 443);
+  const url::SchemeHostPort kWildcardSubdomain("https", "sub.wildcard.test",
+                                               443);
+  const url::SchemeHostPort kFallbackServer("https", "fallback.test", 443);
+
+  impl_.SetTryQuicByDefault(true);
+
+  // Set a known exact QUIC hint with alternative port 8443.
+  impl_.SetKnownQuicAlternativeService("exact.test", 443, 8443,
+                                       /*is_suffix=*/false);
+
+  // Set a known wildcard QUIC hint with alternative port 9443.
+  impl_.SetKnownQuicAlternativeService(".wildcard.test", 443, 9443,
+                                       /*is_suffix=*/true);
+
+  // 1. Exact known hint takes precedence over fallback.
+  AlternativeServiceInfoVector exact_infos = impl_.GetAlternativeServiceInfos(
+      kExactServer, network_anonymization_key1_);
+  ASSERT_EQ(1u, exact_infos.size());
+  EXPECT_EQ(8443, exact_infos[0].alternative_service().port);
+
+  // 2. Wildcard known hint takes precedence over fallback.
+  AlternativeServiceInfoVector wildcard_infos =
+      impl_.GetAlternativeServiceInfos(kWildcardSubdomain,
+                                       network_anonymization_key1_);
+  ASSERT_EQ(1u, wildcard_infos.size());
+  EXPECT_EQ(9443, wildcard_infos[0].alternative_service().port);
+
+  // 3. Unmatched server falls back to destination port 443.
+  AlternativeServiceInfoVector fallback_infos =
+      impl_.GetAlternativeServiceInfos(kFallbackServer,
+                                       network_anonymization_key1_);
+  ASSERT_EQ(1u, fallback_infos.size());
+  EXPECT_EQ(443, fallback_infos[0].alternative_service().port);
+
+  // 4. Marking the known hint's alternative port (8443) as broken returns empty
+  // and does not fall back to port 443 QUIC.
+  impl_.MarkAlternativeServiceBroken(exact_infos[0].alternative_service(),
+                                     network_anonymization_key1_);
+  EXPECT_TRUE(
+      impl_
+          .GetAlternativeServiceInfos(kExactServer, network_anonymization_key1_)
+          .empty());
+
+  // 5. Canonical alt-svc brokenness precedence:
+  const AlternativeService canonical_alt_svc(NextProto::kProtoQUIC,
+                                             "canonical.test", 443);
+  AlternativeServiceInfoVector canonical_infos;
+  canonical_infos.push_back(
+      AlternativeServiceInfo::CreateQuicAlternativeServiceInfo(
+          canonical_alt_svc, test_clock_.Now() + base::Days(1),
+          DefaultSupportedQuicVersions()));
+  const url::SchemeHostPort kCanonicalServer("https", "bar.c.youtube.com", 443);
+  impl_.SetAlternativeServices(kCanonicalServer, network_anonymization_key1_,
+                               canonical_infos);
+
+  // A different host matching the same canonical suffix uses the canonical
+  // alt-svc.
+  const url::SchemeHostPort kCanonicalMatchServer("https", "foo.c.youtube.com",
+                                                  443);
+  AlternativeServiceInfoVector match_infos = impl_.GetAlternativeServiceInfos(
+      kCanonicalMatchServer, network_anonymization_key1_);
+  ASSERT_EQ(1u, match_infos.size());
+  EXPECT_EQ(canonical_alt_svc, match_infos[0].alternative_service());
+
+  // Mark the canonical alternative service as broken.
+  impl_.MarkAlternativeServiceBroken(canonical_alt_svc,
+                                     network_anonymization_key1_);
+
+  // Querying the canonical match server now returns empty and does not fall
+  // back to destination port 443.
+  EXPECT_TRUE(impl_
+                  .GetAlternativeServiceInfos(kCanonicalMatchServer,
+                                              network_anonymization_key1_)
+                  .empty());
+
+  // Advance time so the canonical alt-svc expires. Once expired and purged,
+  // it falls through to try_quic_by_default_ on destination port 443.
+  test_clock_.Advance(base::Days(2));
+  AlternativeServiceInfoVector canonical_expired =
+      impl_.GetAlternativeServiceInfos(kCanonicalMatchServer,
+                                       network_anonymization_key1_);
+  ASSERT_EQ(1u, canonical_expired.size());
+  EXPECT_EQ(443, canonical_expired[0].alternative_service().port);
+
+  // 6. Expired dynamic alt-svc falls through to try_quic_by_default_.
+  const url::SchemeHostPort kDynamicServer("https", "dynamic.test", 443);
+  AlternativeServiceInfoVector dynamic_infos;
+  dynamic_infos.push_back(
+      AlternativeServiceInfo::CreateQuicAlternativeServiceInfo(
+          AlternativeService(NextProto::kProtoQUIC, "dynamic.test", 8443),
+          test_clock_.Now() + base::Hours(1), DefaultSupportedQuicVersions()));
+  impl_.SetAlternativeServices(kDynamicServer, network_anonymization_key1_,
+                               dynamic_infos);
+
+  // Before expiration, returns the dynamic alt-svc on port 8443.
+  AlternativeServiceInfoVector pre_expire = impl_.GetAlternativeServiceInfos(
+      kDynamicServer, network_anonymization_key1_);
+  ASSERT_EQ(1u, pre_expire.size());
+  EXPECT_EQ(8443, pre_expire[0].alternative_service().port);
+
+  // Advance time past expiration.
+  test_clock_.Advance(base::Hours(2));
+
+  // Request N detects expiry, purges the entry, and falls through to
+  // try_quic_by_default_ (port 443) without state flapping.
+  AlternativeServiceInfoVector post_expire_1 = impl_.GetAlternativeServiceInfos(
+      kDynamicServer, network_anonymization_key1_);
+  ASSERT_EQ(1u, post_expire_1.size());
+  EXPECT_EQ(443, post_expire_1[0].alternative_service().port);
+
+  // Request N+1 also returns try_quic_by_default_ (port 443).
+  AlternativeServiceInfoVector post_expire_2 = impl_.GetAlternativeServiceInfos(
+      kDynamicServer, network_anonymization_key1_);
+  ASSERT_EQ(1u, post_expire_2.size());
+  EXPECT_EQ(443, post_expire_2[0].alternative_service().port);
+}
+
 }  // namespace
 
 }  // namespace net

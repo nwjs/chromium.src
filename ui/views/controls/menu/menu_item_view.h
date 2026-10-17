@@ -298,6 +298,14 @@ class VIEWS_EXPORT MenuItemView : public View, public LayoutDelegate {
   MenuItemView* GetParentMenuItem() { return parent_menu_item_; }
   const MenuItemView* GetParentMenuItem() const { return parent_menu_item_; }
 
+  // Associates this MenuItemView with a child View inside a container
+  // MenuItemView (e.g., a footer button) so MenuController can anchor this
+  // item's submenu to `anchor_view` and route keyboard/mouse submenu
+  // interactions through it.
+  void SetAnchorView(View* anchor_view);
+  View* GetAnchorView() { return anchor_view_; }
+  const View* GetAnchorView() const { return anchor_view_; }
+
   // Sets/Gets the title.
   void SetTitle(const std::u16string& title);
   const std::u16string& title() const { return title_; }
@@ -315,6 +323,9 @@ class VIEWS_EXPORT MenuItemView : public View, public LayoutDelegate {
 
   // Sets the minor icon.
   void SetMinorIcon(const ui::ImageModel& minor_icon);
+
+  // Returns the icon that should be displayed to the left of the minor text.
+  ui::ImageModel GetMinorIcon() const;
 
   // Returns the type of this menu.
   const Type& GetType() const { return type_; }
@@ -397,6 +408,9 @@ class VIEWS_EXPORT MenuItemView : public View, public LayoutDelegate {
 
   // Returns the earliest horizontal position where content may appear.
   int GetContentStart() const;
+
+  // Returns the trailing horizontal padding after content.
+  int GetTrailingPadding() const;
 
   void set_controller(MenuController* controller) {
     if (controller) {
@@ -579,9 +593,6 @@ class VIEWS_EXPORT MenuItemView : public View, public LayoutDelegate {
 
   // Returns true if the minor text should be rendered as a URL.
   bool GetMinorTextIsUrl() const;
-
-  // Returns the icon that should be displayed to the left of the minor text.
-  ui::ImageModel GetMinorIcon() const;
 
   // Returns the text color for the current state.  |minor| specifies if the
   // minor text or the normal text is desired.
@@ -807,7 +818,16 @@ class VIEWS_EXPORT MenuItemView : public View, public LayoutDelegate {
 
   base::CallbackListSubscription visible_changed_callback_;
   base::CallbackListSubscription enabled_changed_callback_;
+
+  // Optional child view in a container MenuItemView that anchors this item's
+  // submenu.
+  raw_ptr<View> anchor_view_ = nullptr;
 };
+
+// Property set on a child views::Button inside a container MenuItemView to
+// reference the MenuItemView that owns its submenu.
+VIEWS_EXPORT extern const ui::ClassProperty<MenuItemView*>* const
+    kSubmenuItemKey;
 
 class VIEWS_EXPORT MenuItemActionViewInterface
     : public BaseActionViewInterface {
@@ -834,5 +854,7 @@ class VIEWS_EXPORT EmptyMenuMenuItem : public MenuItemView {
 };
 
 }  // namespace views
+
+DECLARE_EXPORTED_UI_CLASS_PROPERTY_TYPE(VIEWS_EXPORT, views::MenuItemView*)
 
 #endif  // UI_VIEWS_CONTROLS_MENU_MENU_ITEM_VIEW_H_

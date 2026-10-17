@@ -23,7 +23,7 @@
 const int BuiltinProvider::kRelevance = 860;
 
 BuiltinProvider::BuiltinProvider(AutocompleteProviderClient* client)
-    : AutocompleteProvider(AutocompleteProvider::TYPE_BUILTIN),
+    : AutocompleteProvider(AutocompleteProvider::Type::kBuiltin),
       client_(client) {
   builtins_ = client_->GetBuiltinURLs();
   template_url_service_ = client->GetTemplateURLService();
@@ -160,7 +160,7 @@ void BuiltinProvider::AddBuiltinMatch(const std::u16string& match_string,
                                       const std::u16string& inline_completion,
                                       const ACMatchClassifications& styles) {
   AutocompleteMatch match(this, kRelevance, false,
-                          AutocompleteMatchType::NAVSUGGEST);
+                          omnibox::AutocompleteMatchType::kNavsuggest);
   match.suggest_type = omnibox::TYPE_NAVIGATION;
   match.fill_into_edit = match_string;
   match.inline_autocompletion = inline_completion;

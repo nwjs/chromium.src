@@ -435,7 +435,8 @@ TEST_F(DataProtectionClipboardUtilsTypesTest,
 TEST_F(DataProtectionClipboardUtilsTypesTest, CacheBasicPasteSource_Endpoints) {
   // 1. Endpoint without DataTransferEndpoint / BrowserContext / WebContents.
   {
-    content::ClipboardEndpoint empty_endpoint(std::nullopt);
+    content::ClipboardEndpoint empty_endpoint =
+        content::ClipboardEndpoint::ForOutsideChrome(std::nullopt);
     BasicPasteSource cached = CacheBasicPasteSource(empty_endpoint);
     EXPECT_FALSE(cached.data_transfer_endpoint.has_value());
     EXPECT_EQ(cached.browser_context.get(), nullptr);
@@ -447,8 +448,9 @@ TEST_F(DataProtectionClipboardUtilsTypesTest, CacheBasicPasteSource_Endpoints) {
 
   // 2. Endpoint with only DataTransferEndpoint.
   {
-    content::ClipboardEndpoint dte_endpoint(
-        ui::DataTransferEndpoint(GURL("https://source.example.com")));
+    content::ClipboardEndpoint dte_endpoint =
+        content::ClipboardEndpoint::ForOutsideChrome(
+            ui::DataTransferEndpoint(GURL("https://source.example.com")));
     BasicPasteSource cached = CacheBasicPasteSource(dte_endpoint);
     EXPECT_TRUE(cached.data_transfer_endpoint.has_value());
     EXPECT_EQ(cached.url(), GURL("https://source.example.com"));
@@ -460,10 +462,11 @@ TEST_F(DataProtectionClipboardUtilsTypesTest, CacheBasicPasteSource_Endpoints) {
 
   // 3. Endpoint with DataTransferEndpoint and BrowserContext.
   {
-    content::ClipboardEndpoint bc_endpoint(
-        ui::DataTransferEndpoint(GURL("https://source.example.com")),
-        base::BindLambdaForTesting(
-            [this]() -> content::BrowserContext* { return profile1_; }));
+    content::ClipboardEndpoint bc_endpoint =
+        content::ClipboardEndpoint::ForUnloadedTab(
+            ui::DataTransferEndpoint(GURL("https://source.example.com")),
+            base::BindLambdaForTesting(
+                [this]() -> content::BrowserContext* { return profile1_; }));
     BasicPasteSource cached = CacheBasicPasteSource(bc_endpoint);
     EXPECT_TRUE(cached.data_transfer_endpoint.has_value());
     EXPECT_EQ(cached.url(), GURL("https://source.example.com"));
@@ -480,11 +483,12 @@ TEST_F(DataProtectionClipboardUtilsTypesTest, CacheBasicPasteSource_Endpoints) {
     content::WebContentsTester::For(web_contents())
         ->SetTitle(u"Document Title");
 
-    content::ClipboardEndpoint wc_endpoint(
-        ui::DataTransferEndpoint(GURL("https://source.example.com/doc")),
-        base::BindLambdaForTesting(
-            [this]() -> content::BrowserContext* { return profile1_; }),
-        *web_contents()->GetPrimaryMainFrame());
+    content::ClipboardEndpoint wc_endpoint =
+        content::ClipboardEndpoint::ForFrame(
+            ui::DataTransferEndpoint(GURL("https://source.example.com/doc")),
+            base::BindLambdaForTesting(
+                [this]() -> content::BrowserContext* { return profile1_; }),
+            *web_contents()->GetPrimaryMainFrame());
     BasicPasteSource cached = CacheBasicPasteSource(wc_endpoint);
     EXPECT_EQ(cached.url(), GURL("https://source.example.com/doc"));
     EXPECT_EQ(cached.browser_context.get(), profile1_);
@@ -502,7 +506,8 @@ TEST_F(DataProtectionClipboardUtilsTypesTest, CacheBasicPasteSource_Endpoints) {
 TEST_F(DataProtectionClipboardUtilsTypesTest, CacheFullPasteSource_Endpoints) {
   // Empty endpoint.
   {
-    content::ClipboardEndpoint empty_endpoint(std::nullopt);
+    content::ClipboardEndpoint empty_endpoint =
+        content::ClipboardEndpoint::ForOutsideChrome(std::nullopt);
     FullPasteSource cached = CacheFullPasteSource(empty_endpoint);
     EXPECT_EQ(static_cast<const BasicPasteSource&>(cached),
               CacheBasicPasteSource(empty_endpoint));
@@ -512,11 +517,12 @@ TEST_F(DataProtectionClipboardUtilsTypesTest, CacheFullPasteSource_Endpoints) {
   {
     content::WebContentsTester::For(web_contents())
         ->NavigateAndCommit(GURL("https://source.example.com/doc"));
-    content::ClipboardEndpoint wc_endpoint(
-        ui::DataTransferEndpoint(GURL("https://source.example.com/doc")),
-        base::BindLambdaForTesting(
-            [this]() -> content::BrowserContext* { return profile1_; }),
-        *web_contents()->GetPrimaryMainFrame());
+    content::ClipboardEndpoint wc_endpoint =
+        content::ClipboardEndpoint::ForFrame(
+            ui::DataTransferEndpoint(GURL("https://source.example.com/doc")),
+            base::BindLambdaForTesting(
+                [this]() -> content::BrowserContext* { return profile1_; }),
+            *web_contents()->GetPrimaryMainFrame());
     FullPasteSource cached = CacheFullPasteSource(wc_endpoint);
     EXPECT_EQ(static_cast<const BasicPasteSource&>(cached),
               CacheBasicPasteSource(wc_endpoint));
@@ -526,7 +532,8 @@ TEST_F(DataProtectionClipboardUtilsTypesTest, CacheFullPasteSource_Endpoints) {
 TEST_F(DataProtectionClipboardUtilsTypesTest, CacheFullCopySource_Endpoints) {
   // Empty endpoint.
   {
-    content::ClipboardEndpoint empty_endpoint(std::nullopt);
+    content::ClipboardEndpoint empty_endpoint =
+        content::ClipboardEndpoint::ForOutsideChrome(std::nullopt);
     FullCopySource cached = CacheFullCopySource(empty_endpoint);
     EXPECT_EQ(static_cast<const FullPasteSource&>(cached),
               CacheFullPasteSource(empty_endpoint));
@@ -537,11 +544,12 @@ TEST_F(DataProtectionClipboardUtilsTypesTest, CacheFullCopySource_Endpoints) {
   {
     content::WebContentsTester::For(web_contents())
         ->NavigateAndCommit(GURL("https://source.example.com/doc"));
-    content::ClipboardEndpoint wc_endpoint(
-        ui::DataTransferEndpoint(GURL("https://source.example.com/doc")),
-        base::BindLambdaForTesting(
-            [this]() -> content::BrowserContext* { return profile1_; }),
-        *web_contents()->GetPrimaryMainFrame());
+    content::ClipboardEndpoint wc_endpoint =
+        content::ClipboardEndpoint::ForFrame(
+            ui::DataTransferEndpoint(GURL("https://source.example.com/doc")),
+            base::BindLambdaForTesting(
+                [this]() -> content::BrowserContext* { return profile1_; }),
+            *web_contents()->GetPrimaryMainFrame());
     FullCopySource cached = CacheFullCopySource(wc_endpoint);
     EXPECT_EQ(static_cast<const FullPasteSource&>(cached),
               CacheFullPasteSource(wc_endpoint));

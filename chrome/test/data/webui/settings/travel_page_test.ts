@@ -42,10 +42,18 @@ suite('TravelPage', function() {
     CrSettingsPrefs.resetForTesting();
   });
 
+  test('triggers prefetch on connect', async function() {
+    assertEquals(
+        0, entityDataManager.getCallCount('preloadDetailsForUpsertPass'));
+    await setupPage();
+    assertEquals(
+        1, entityDataManager.getCallCount('preloadDetailsForUpsertPass'));
+  });
+
   [{travelOptIn: true},
    {travelOptIn: false},
   ].forEach(({travelOptIn}) => {
-    test(`Toggle should show current opt-in status`, async function() {
+    test('Toggle should show current opt-in status', async function() {
       loadTimeData.overrideValues({
         canEnableOrDisableAutofillAi: true,
       });
@@ -63,7 +71,7 @@ suite('TravelPage', function() {
     });
   });
 
-  test(`Toggle should switch opt-in status in prefs`, async function() {
+  test('Toggle should switch opt-in status in prefs', async function() {
     loadTimeData.overrideValues({canEnableOrDisableAutofillAi: true});
 
     entityDataManager.setGetOptInStatusResponse(true);
@@ -135,7 +143,7 @@ suite('TravelPage', function() {
    },
   ].forEach(({experimentEnabled, addressAutofillStatus, toggleDisabled}) => {
     test(
-        `Toggle takes into account address opt in status ` +
+        'Toggle takes into account address opt in status ' +
             `experimentEnabled(${experimentEnabled}) ` +
             `addressAutofillStatus(${addressAutofillStatus})`,
         async function() {

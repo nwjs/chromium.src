@@ -23,7 +23,6 @@ import android.os.Bundle;
 import android.os.PersistableBundle;
 
 import androidx.annotation.Nullable;
-import androidx.test.filters.SmallTest;
 
 import org.junit.After;
 import org.junit.Before;
@@ -36,12 +35,12 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.ApkInfo;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.RobolectricUtil;
 import org.chromium.base.test.util.CommandLineFlags;
-import org.chromium.build.BuildConfig;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.crypto.CipherFactory;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
@@ -133,7 +132,7 @@ public class IncognitoRestoreAppLaunchDrawBlockerUnitTest {
         mTabModelSelectorObserver = mTabModelSelectorObserverArgumentCaptor.getValue();
         assertNotNull("Didn't add any observer.", mTabModelSelectorObserver);
 
-        doReturn(BuildConfig.VERSION_CODE - 1)
+        doReturn(ApkInfo.getPackageVersionCodeAsLong() - 1)
                 .when(mPersistentStateMock)
                 .getLong(eq(PREVIOUS_VERSION_CODE), anyLong());
     }
@@ -155,7 +154,6 @@ public class IncognitoRestoreAppLaunchDrawBlockerUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testShouldNotBlockDraw_WhenReauthFeatureNotAvailable() {
         IncognitoReauthManager.setIsIncognitoReauthFeatureAvailableForTesting(
                 /* isAvailable= */ false);
@@ -164,7 +162,6 @@ public class IncognitoRestoreAppLaunchDrawBlockerUnitTest {
     }
 
     @Test
-    @SmallTest
     @CommandLineFlags.Add({ChromeSwitches.NO_RESTORE_STATE})
     public void testShouldNotBlockDraw_WhenNoRestoreStateSwitchIsPresent() {
         // Premise conditions.
@@ -177,7 +174,6 @@ public class IncognitoRestoreAppLaunchDrawBlockerUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testShouldNotBlockDraw_WhenNoCipherDataIsFound() {
         // Premise conditions.
         IncognitoReauthManager.setIsIncognitoReauthFeatureAvailableForTesting(
@@ -197,7 +193,6 @@ public class IncognitoRestoreAppLaunchDrawBlockerUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testShouldNotBlockDraw_WhenReauthIsNotPending() {
         // Premise conditions.
         IncognitoReauthManager.setIsIncognitoReauthFeatureAvailableForTesting(
@@ -227,7 +222,6 @@ public class IncognitoRestoreAppLaunchDrawBlockerUnitTest {
     }
 
     @Test
-    @SmallTest
     public void
             testShouldNotBlockDraw_WhenIntentingToRegularTab_AndLastTabModelWasNotIncognito_ForSavedPendingReauth() {
         // Premise conditions
@@ -268,7 +262,6 @@ public class IncognitoRestoreAppLaunchDrawBlockerUnitTest {
     }
 
     @Test
-    @SmallTest
     public void
             testShouldNotBlockDraw_WhenIntentingToRegularTab_AndLastTabModelWasNotIncognito_ForPersistentPendingReauth() {
         // Premise conditions
@@ -309,7 +302,6 @@ public class IncognitoRestoreAppLaunchDrawBlockerUnitTest {
     }
 
     @Test
-    @SmallTest
     public void
             testShouldNotBlockDraw_WhenBothTabStateIsInitialized_And_NativeIsInitialized_ForSavedPendingReauth() {
         // Premise conditions
@@ -360,7 +352,6 @@ public class IncognitoRestoreAppLaunchDrawBlockerUnitTest {
     }
 
     @Test
-    @SmallTest
     public void
             testShouldNotBlockDraw_WhenBothTabStateIsInitialized_And_NativeIsInitialized_ForPersistentPendingReauth() {
         // Premise conditions
@@ -413,7 +404,6 @@ public class IncognitoRestoreAppLaunchDrawBlockerUnitTest {
     }
 
     @Test
-    @SmallTest
     public void
             testShouldBlockDraw_WhenTabStateIsNotInitialized_And_NativeIsInitialized_ForSavedPendingReauth() {
         // Premise conditions
@@ -459,7 +449,6 @@ public class IncognitoRestoreAppLaunchDrawBlockerUnitTest {
     }
 
     @Test
-    @SmallTest
     public void
             testShouldBlockDraw_WhenTabStateIsNotInitialized_And_NativeIsInitialized_ForPersistedPendingReauth() {
         // Premise conditions
@@ -505,7 +494,6 @@ public class IncognitoRestoreAppLaunchDrawBlockerUnitTest {
     }
 
     @Test
-    @SmallTest
     public void
             testShouldBlockDraw_WhenTabStateIsInitialized_And_WhenNativeIsNotInitialized_ForSavedPendingReauth() {
         // Premise conditions
@@ -551,7 +539,6 @@ public class IncognitoRestoreAppLaunchDrawBlockerUnitTest {
     }
 
     @Test
-    @SmallTest
     public void
             testShouldBlockDraw_WhenTabStateIsInitialized_And_WhenNativeIsNotInitialized_ForPersistentPendingReauth() {
         // Premise conditions
@@ -599,7 +586,6 @@ public class IncognitoRestoreAppLaunchDrawBlockerUnitTest {
     }
 
     @Test
-    @SmallTest
     public void
             testShouldBlockDraw_WhenTabStateIsInitialized_And_WhenNativeIsNotInitialized_NullPersistentState() {
         // Premise conditions
@@ -639,7 +625,6 @@ public class IncognitoRestoreAppLaunchDrawBlockerUnitTest {
     }
 
     @Test
-    @SmallTest
     public void
             testShouldBlockDraw_WhenTabStateIsInitialized_And_WhenNativeIsNotInitialized_NullSavedState() {
         // Premise conditions
@@ -673,7 +658,7 @@ public class IncognitoRestoreAppLaunchDrawBlockerUnitTest {
         verify(mPersistentStateMock, times(1))
                 .getBoolean(IncognitoRestoreAppLaunchDrawBlocker.IS_INCOGNITO_SELECTED, false);
         verify(mPersistentStateMock, times(1))
-                .getLong(PREVIOUS_VERSION_CODE, BuildConfig.VERSION_CODE);
+                .getLong(PREVIOUS_VERSION_CODE, ApkInfo.getPackageVersionCodeAsLong());
 
         verify(mIntentMock, times(1))
                 .getBooleanExtra(IntentHandler.EXTRA_INVOKED_FROM_LAUNCH_NEW_INCOGNITO_TAB, false);
@@ -681,7 +666,6 @@ public class IncognitoRestoreAppLaunchDrawBlockerUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testShouldNotBlockDraw_WhenNotUpdatingApp_ForPersistedPendingReauth() {
         // Premise conditions
         IncognitoReauthManager.setIsIncognitoReauthFeatureAvailableForTesting(
@@ -694,7 +678,7 @@ public class IncognitoRestoreAppLaunchDrawBlockerUnitTest {
                 .when(mSavedInstanceStateMock)
                 .getBoolean(IncognitoRestoreAppLaunchDrawBlocker.IS_INCOGNITO_SELECTED, false);
 
-        doReturn(BuildConfig.VERSION_CODE)
+        doReturn(ApkInfo.getPackageVersionCodeAsLong())
                 .when(mPersistentStateMock)
                 .getLong(eq(PREVIOUS_VERSION_CODE), anyLong());
 
@@ -725,7 +709,6 @@ public class IncognitoRestoreAppLaunchDrawBlockerUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testUnblockDrawRunnableNotInvoked_WhenTabStateNotInitialized() {
         doReturn(false).when(mTabModelSelectorMock).isTabStateInitialized();
         mNativeInitObserver.onFinishNativeInitialization();
@@ -735,7 +718,6 @@ public class IncognitoRestoreAppLaunchDrawBlockerUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testUnblockDrawRunnableNotInvoked_WhenNativeNotInitialized() {
         doReturn(true).when(mTabModelSelectorMock).isTabStateInitialized();
         mTabModelSelectorObserver.onTabStateInitialized();
@@ -746,7 +728,6 @@ public class IncognitoRestoreAppLaunchDrawBlockerUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testUnblockDrawRunnableInvoked_WhenTabStateAndNativeIsInitialized() {
         // We need to reset the boolean so that we can verify mUnblockDrawRunnable is invoked.
         mIncognitoRestoreAppLaunchDrawBlocker.resetIsUnblockDrawRunnableInvokedForTesting();

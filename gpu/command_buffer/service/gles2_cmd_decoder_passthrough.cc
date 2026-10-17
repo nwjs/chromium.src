@@ -10,8 +10,11 @@
 #include <string_view>
 #include <utility>
 
+#include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
+#include "base/debug/crash_logging.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
@@ -27,12 +30,14 @@
 #include "gpu/command_buffer/service/gl_utils.h"
 #include "gpu/command_buffer/service/gpu_fence_manager.h"
 #include "gpu/command_buffer/service/gpu_tracer.h"
+#include "gpu/command_buffer/service/gpu_switches.h"
 #include "gpu/command_buffer/service/multi_draw_manager.h"
 #include "gpu/command_buffer/service/passthrough_program_cache.h"
 #include "gpu/command_buffer/service/program_cache.h"
 #include "gpu/command_buffer/service/service_utils.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_manager.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_representation.h"
+#include "gpu/config/gpu_crash_keys.h"
 #include "gpu/config/gpu_finch_features.h"
 #include "gpu/config/gpu_switches.h"
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
@@ -55,6 +60,8 @@ GLenum GetterForTextureTarget(GLenum target) {
   switch (target) {
     case GL_TEXTURE_2D:
       return GL_TEXTURE_BINDING_2D;
+    case GL_TEXTURE_2D_ARRAY:
+      return GL_TEXTURE_BINDING_2D_ARRAY;
     case GL_TEXTURE_EXTERNAL_OES:
       return GL_TEXTURE_BINDING_EXTERNAL_OES;
     case GL_TEXTURE_RECTANGLE_ANGLE:
@@ -100,8 +107,8 @@ class ScopedFramebufferBindingReset {
 
 class ScopedTextureBindingReset {
  public:
-  // |texture_target| only supports GL_TEXTURE_2D, GL_TEXTURE_EXTERNAL_OES, and
-  // GL_TEXTURE_RECTANGLE_ANGLE.
+  // |texture_target| only supports GL_TEXTURE_2D, GL_TEXTURE_2D_ARRAY,
+  // GL_TEXTURE_EXTERNAL_OES, and GL_TEXTURE_RECTANGLE_ANGLE.
   ScopedTextureBindingReset(gl::GLApi* api, GLenum texture_target)
       : api_(api), texture_target_(texture_target), texture_(0) {
     api_->glGetIntegervFn(GetterForTextureTarget(texture_target_), &texture_);
@@ -247,6 +254,8 @@ constexpr const char* kRequiredFunctionalityExtensions[] = {
     "GL_EXT_semaphore_fd",
     "GL_KHR_debug",
     "GL_NV_fence",
+    "GL_EXT_EGL_image_array",
+    "GL_EXT_EGL_image_storage",
     "GL_OES_EGL_image",
     "GL_OES_EGL_image_external",
     "GL_OES_EGL_image_external_essl3",
@@ -396,6 +405,28 @@ void GL_APIENTRY PassthroughGLDebugMessageCallback(GLenum source,
   command_decoder->OnDebugMessage(source, type, id, severity, length, message);
   LogGLDebugMessage(source, type, id, severity, length, message,
                     command_decoder->GetLogger());
+
+  if (source == GL_DEBUG_SOURCE_OTHER && type == GL_DEBUG_TYPE_PORTABILITY &&
+      (id == 0xBADDEF || id == 0xBADBA5E)) {
+    // Note: log_message cannot contain any user data. The error strings
+    // generated from ANGLE are all static strings and do not contain user
+    // information such as shader source code. Be careful if updating the
+    // contents of this string.
+    std::string log_message = base::NumberToString(id);
+    if (message && length > 0) {
+      log_message += ": " + std::string(message, length);
+    }
+    LOG(ERROR) << log_message;
+    crash_keys::gpu_gl_error_message.Set(log_message);
+    // Limit to 1 report per GPU process
+    static uint32_t reports_left = 1;
+    static bool no_dump = base::CommandLine::ForCurrentProcess()->HasSwitch(
+        switches::kDisableDumpWithoutCrashingOnAnglePortabilityMessages);
+    if (reports_left > 0 && !no_dump) {
+      base::debug::DumpWithoutCrashing();
+      --reports_left;
+    }
+  }
 }
 
 GLsizeiptr GL_APIENTRY
@@ -650,9 +681,7 @@ void PassthroughResources::SharedImageData::EnsureClear(
     api->glGenFramebuffersEXTFn(1, &fbo);
     api->glBindFramebufferEXTFn(GL_FRAMEBUFFER, fbo);
     api->glBindTextureFn(texture->target(), texture->service_id());
-    api->glFramebufferTexture2DEXTFn(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                                     texture->target(), texture->service_id(),
-                                     0);
+
     // Clear the bound framebuffer.
     api->glClearColorFn(0, 0, 0, 0);
     if (use_oes_draw_buffers_indexed)
@@ -663,17 +692,40 @@ void PassthroughResources::SharedImageData::EnsureClear(
     if (has_rasterizer_discard) {
       api->glDisableFn(GL_RASTERIZER_DISCARD);
     }
-    api->glClearFn(GL_COLOR_BUFFER_BIT);
 
-    if (api->glCheckFramebufferStatusEXTFn(GL_FRAMEBUFFER) ==
-        GL_FRAMEBUFFER_COMPLETE) {
+    bool all_layers_cleared = true;
+    if (texture->target() == GL_TEXTURE_2D_ARRAY) {
+      const uint32_t layers = representation_->array_layers();
+      for (uint32_t layer = 0; layer < layers; ++layer) {
+        api->glFramebufferTextureLayerFn(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                         texture->service_id(), 0, layer);
+        api->glClearFn(GL_COLOR_BUFFER_BIT);
+        if (api->glCheckFramebufferStatusEXTFn(GL_FRAMEBUFFER) !=
+            GL_FRAMEBUFFER_COMPLETE) {
+          all_layers_cleared = false;
+        }
+      }
+      api->glFramebufferTextureLayerFn(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, 0,
+                                       0, 0);
+    } else {
+      api->glFramebufferTexture2DEXTFn(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                       texture->target(), texture->service_id(),
+                                       0);
+      api->glClearFn(GL_COLOR_BUFFER_BIT);
+      if (api->glCheckFramebufferStatusEXTFn(GL_FRAMEBUFFER) !=
+          GL_FRAMEBUFFER_COMPLETE) {
+        all_layers_cleared = false;
+      }
+      api->glFramebufferTexture2DEXTFn(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                       texture->target(), 0, 0);
+    }
+
+    if (all_layers_cleared) {
       // Mark the shared image as cleared.
       representation_->SetCleared();
     }
 
     // Delete the generated framebuffer.
-    api->glFramebufferTexture2DEXTFn(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                                     texture->target(), 0, 0);
     api->glDeleteFramebuffersEXTFn(1, &fbo);
   }
 }
@@ -912,8 +964,8 @@ GLES2Decoder::Error GLES2DecoderPassthroughImpl::DoCommandsImpl(
 
     const unsigned int arg_count = size - 1;
     unsigned int command_index = command - kFirstGLES2Command;
-    if (command_index < std::size(command_info)) {
-      const CommandInfo& info = UNSAFE_TODO(command_info[command_index]);
+    if (command_index < command_info.size()) {
+      const CommandInfo& info = command_info[command_index];
       unsigned int info_arg_count = static_cast<unsigned int>(info.arg_count);
       if ((info.arg_flags == cmd::kFixed && arg_count == info_arg_count) ||
           (info.arg_flags == cmd::kAtLeastN && arg_count >= info_arg_count)) {
@@ -1439,8 +1491,6 @@ gpu::Capabilities GLES2DecoderPassthroughImpl::GetCapabilities() {
   caps.avoid_stencil_buffers =
       feature_info_->workarounds().avoid_stencil_buffers;
 
-  caps.supports_rgb_to_yuv_conversion =
-      !feature_info_->workarounds().disable_rgb_to_yuv_conversion;
   // Technically, YUV readback is handled on the client side, but enable it
   // here so that clients can use this to detect support.
   caps.supports_yuv_readback = true;
@@ -2834,9 +2884,10 @@ bool GLES2DecoderPassthroughImpl::CheckErrorCallbackState() {
       sizeof(cmds::name) / sizeof(CommandBufferEntry) - 1, \
   }, /* NOLINT */
 
-constexpr GLES2DecoderPassthroughImpl::CommandInfo
-    GLES2DecoderPassthroughImpl::command_info[] = {
-        GLES2_COMMAND_LIST(GLES2_CMD_OP)};
+constexpr std::array<GLES2DecoderPassthroughImpl::CommandInfo,
+                     kNumCommands - kFirstGLES2Command>
+    GLES2DecoderPassthroughImpl::command_info = {
+        {GLES2_COMMAND_LIST(GLES2_CMD_OP)}};
 
 #undef GLES2_CMD_OP
 

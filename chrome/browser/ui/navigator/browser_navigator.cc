@@ -186,7 +186,7 @@ BrowserWindowInterface* GetOrCreateBrowser(Profile* profile,
 }
 
 bool IncognitoModeForced(const Profile* profile) {
-  return IncognitoModePrefs::GetAvailability(profile->GetPrefs()) ==
+  return IncognitoModePrefs::GetAvailability(profile) ==
          policy::IncognitoModeAvailability::kForced;
 }
 
@@ -450,7 +450,8 @@ void NormalizeDisposition(NavigateParams* params) {
   if (params->browser->GetTabStripModel()->empty() &&
       (params->disposition == WindowOpenDisposition::NEW_BACKGROUND_TAB ||
        params->disposition == WindowOpenDisposition::CURRENT_TAB ||
-       params->disposition == WindowOpenDisposition::SINGLETON_TAB)) {
+       params->disposition == WindowOpenDisposition::SINGLETON_TAB ||
+       params->disposition == WindowOpenDisposition::NEW_SPLIT_VIEW)) {
     params->disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
   }
   if (params->browser->GetProfile()->IsOffTheRecord() &&
@@ -1075,15 +1076,19 @@ base::WeakPtr<content::NavigationHandle> NavigateImpl(
           tabs::TabInterface::MaybeGetFromContents(
               contents_to_navigate_or_insert);
       const int new_tab_index = tab_strip_model->GetIndexOfTab(new_tab);
+      tabs::TabInterface* const active_tab = tab_strip_model->GetActiveTab();
       tabs::TabInterface* const source_tab =
           params->source_contents ? tabs::TabInterface::MaybeGetFromContents(
                                         params->source_contents)
-                                  : nullptr;
-      if (new_tab_index != TabStripModel::kNoTab &&
+                                  : active_tab;
+      if (new_tab_index != TabStripModel::kNoTab && active_tab &&
+          active_tab != new_tab && !active_tab->IsSplit() &&
           (!source_tab || !source_tab->IsSplit())) {
         tab_strip_model->AddToNewSplit(
             {new_tab_index}, split_tabs::SplitTabVisualData(),
             split_tabs::SplitTabCreatedSource::kLinkClick);
+      }
+      if (new_tab) {
         // AddToNewSplit() makes the split contiguous and gives the new tab the
         // active tab's pinned state and group, moving the new tab next to the
         // active tab if it is not already there. In particular, when the

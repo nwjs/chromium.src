@@ -5,19 +5,23 @@
 #include "ash/wm/window_mirror_view.h"
 
 #include <algorithm>
+#include <tuple>
 
 #include "ash/wm/desks/desks_util.h"
 #include "ash/wm/window_state.h"
 #include "ash/wm/window_util.h"
+#include "base/memory/raw_ptr.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/env.h"
 #include "ui/aura/window.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_tree_owner.h"
+#include "ui/decoration/shadow.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/transform.h"
 #include "ui/views/widget/widget.h"
+#include "ui/wm/core/shadow_controller.h"
 #include "ui/wm/core/window_util.h"
 
 namespace ash {
@@ -32,16 +36,51 @@ void EnsureAllChildrenAreVisible(ui::Layer* layer) {
   layer->SetOpacity(1);
 }
 
+void DeleteNode(ui::Layer* node) {
+  while (node->children().size()) {
+    auto child = node->children().back();
+    CHECK_EQ(child->parent(), node);
+    node->Remove(child);
+    DeleteNode(child);
+  }
+  delete node;
+}
+
+// Excludes the shadow container layer from the mirrored window layer hierarchy.
+// The shadow container (named "Shadow Parent Container" or matching the source
+// window's shadow layer) holds all shadow sublayers (nine-patch, fading
+// shadows). Removing it from the root's direct children automatically discards
+// the entire shadow.
+// TODO(oshima): Avoid relying on layer names or bounds heuristics by either
+// matching the child index from the source window's layer or supporting a
+// layer filter callback in wm::MirrorLayers to skip mirroring the shadow.
+void ExcludeShadowContainer(ui::Layer* root, ui::Layer* shadow_layer) {
+  std::vector<ui::Layer*> to_remove;
+  for (ui::Layer* child : root->children()) {
+    if (child->name() == "Shadow Parent Container" ||
+        (shadow_layer && child->bounds() == shadow_layer->bounds() &&
+         (child->bounds().x() < 0 || child->bounds().y() < 0))) {
+      to_remove.push_back(child);
+    }
+  }
+
+  for (ui::Layer* child : to_remove) {
+    DeleteNode(child);
+  }
+}
+
 }  // namespace
 
 WindowMirrorView::WindowMirrorView(aura::Window* source,
                                    bool show_non_client_view,
-                                   bool sync_bounds)
+                                   bool sync_bounds,
+                                   bool exclude_shadow)
     : source_(source),
       show_non_client_view_(show_non_client_view),
-      sync_bounds_(sync_bounds) {
+      sync_bounds_(sync_bounds),
+      exclude_shadow_(exclude_shadow) {
+  CHECK(source_);
   source_->AddObserver(this);
-  DCHECK(source);
 }
 
 WindowMirrorView::~WindowMirrorView() {
@@ -59,12 +98,25 @@ void WindowMirrorView::RecreateMirrorLayers() {
   InitLayerOwner();
 }
 
-void WindowMirrorView::OnWindowDestroying(aura::Window* window) {
-  DCHECK_EQ(source_, window);
-  if (source_ == window) {
-    source_->RemoveObserver(this);
-    source_ = nullptr;
+std::unique_ptr<ui::Layer> WindowMirrorView::RecreateLayer() {
+  // Move the mirror layer to the recreated layer for close animation,
+  // so that deleting the source_ will not delete the mirror layer.
+  std::unique_ptr<ui::Layer> old_layer = views::View::RecreateLayer();
+  if (layer_owner_) {
+    ui::Layer* old_mirror_layer = layer_owner_->release();
+    CHECK(old_mirror_layer);
+    old_layer->Add(old_mirror_layer);
   }
+  if (source_) {
+    InitLayerOwner();
+  }
+  return old_layer;
+}
+
+void WindowMirrorView::OnWindowDestroying(aura::Window* window) {
+  CHECK_EQ(source_, window);
+  source_->RemoveObserver(this);
+  source_ = nullptr;
 }
 
 gfx::Size WindowMirrorView::CalculatePreferredSize(
@@ -131,12 +183,21 @@ void WindowMirrorView::RemovedFromWidget() {
 }
 
 ui::Layer* WindowMirrorView::GetMirrorLayerForTesting() {
+  if (!layer_owner_) {
+    InitLayerOwner();
+  }
   return GetMirrorLayer();
 }
 
 void WindowMirrorView::InitLayerOwner() {
   layer_owner_ = wm::MirrorLayers(source_, sync_bounds_);
   layer_owner_->root()->SetOpacity(1.f);
+
+  if (exclude_shadow_) {
+    ui::Shadow* shadow = ::wm::ShadowController::GetShadowForWindow(source_);
+    ExcludeShadowContainer(layer_owner_->root(),
+                           shadow ? shadow->layer() : nullptr);
+  }
 
   SetPaintToLayer();
 
@@ -154,7 +215,7 @@ void WindowMirrorView::InitLayerOwner() {
 }
 
 ui::Layer* WindowMirrorView::GetMirrorLayer() {
-  return layer_owner_->root();
+  return layer_owner_ ? layer_owner_->root() : nullptr;
 }
 
 gfx::Rect WindowMirrorView::GetClientAreaBounds() const {

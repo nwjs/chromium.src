@@ -38,8 +38,10 @@ source_set("impl") {
   if (!is_android) {
     sources += [ "file_system_access_scroll_panel.cc" ]
     deps += [
+      "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui/color:color_headers",
       "//chrome/browser/ui/file_system_access",
+      "//chrome/browser/ui/views/frame:browser_view_header",
       "//components/vector_icons",
       "//content/public/browser",
       "//ui/base:features",
@@ -83,9 +85,12 @@ if (!is_android) {
       "//chrome/browser/profiles:profile",
       "//chrome/browser/ui",
       "//chrome/browser/ui:browser_actions",
+      "//chrome/browser/ui:browser_commands",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/tabs",
+      "//chrome/browser/ui/views/frame:browser_view_header",
       "//chrome/browser/ui/views/frame:contents_container_outline",
+      "//chrome/browser/ui/views/frame:contents_container_view",
       "//chrome/test:test_support_ui",
       "//content/test:test_support",
       "//net:test_support",
@@ -119,6 +124,7 @@ if (!is_android) {
         "//chrome/browser/ui/actions:actions_headers",
         "//chrome/browser/ui/page_action:icon_type",
         "//chrome/browser/ui/test:dialog",
+        "//chrome/browser/ui/views/frame:browser_view_header",
         "//chrome/test:test_support_ui",
         "//content/test:test_support",
         "//ui/views:test_support",

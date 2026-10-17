@@ -8,7 +8,15 @@ import {getRequiredElement} from 'chrome://resources/js/util.js';
 
 import type {BrowserProxyImpl} from './browser_proxy.js';
 import {PanelStateKind} from './glic_enums.mojom-webui.js';
-import {GuestPageType, HelpCenterTopic, PrepareForClientResult, ProfileReadyState, WebClientState, WebUiState} from './glic_webui.mojom-webui.js';
+import {                   //
+  ClientLoadErrorReason,   //
+  GuestPageType,           //
+  HelpCenterTopic,         //
+  PrepareForClientResult,  //
+  ProfileReadyState,       //
+  WebClientState,          //
+  WebUiState,              //
+} from './glic_webui.mojom-webui.js';
 import type {ZoomAction} from './glic_webui.mojom-webui.js';
 import type {WebviewDelegate} from './webview.js';
 import {WebviewController, WebviewPersistentState} from './webview.js';
@@ -20,10 +28,6 @@ const kMinHoldLoadingTimeMs = loadTimeData.getInteger('minLoadingTimeMs');
 
 // Maximum time to wait for load before showing error panel.
 const kMaxWaitTimeMs = loadTimeData.getInteger('maxLoadingTimeMs');
-
-// Whether to enable the debug button on the error panel. Can be enabled with
-// the --enable-features=GlicDebugWebview command-line flag.
-const kEnableDebug = loadTimeData.getBoolean('enableDebug');
 
 const kShowErrorAllowed = loadTimeData.getBoolean('showErrorAllowed');
 
@@ -65,6 +69,11 @@ interface StateDescriptor {
   onExit?: () => void;
   // Whether to try to reload the webview on open while in this state.
   reloadOnOpen?: boolean;
+  // If this state is a failure the user can see, why the client is not
+  // usable. Reported to the browser on entering the state. Absent for states
+  // that are not failures, and for kError, whose cause is not recoverable
+  // from the state and is passed to setState() instead.
+  clientLoadErrorReason?: ClientLoadErrorReason;
 }
 
 // Web client unresponsiveness state tracking values for metrics reporting.
@@ -97,8 +106,8 @@ export enum WebUiErrorReason {
   TIMEOUT_LOADING_CLIENT = 4,
   TIMEOUT_WARMED = 5,
   CLIENT_ERROR = 6,
-  CLOSE_DEBUG_VIEW = 7,
-  MAX_VALUE = CLOSE_DEBUG_VIEW,
+  DEPRECATED_CLOSE_DEBUG_VIEW = 7,
+  MAX_VALUE = DEPRECATED_CLOSE_DEBUG_VIEW,
 }
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:PanelWebUiStateErrorReason)
 
@@ -126,7 +135,14 @@ export class GlicAppController implements WebviewDelegate {
 
   private panelStateKind: PanelStateKind = PanelStateKind.kHidden;
 
+  // Why the client is currently unusable, or undefined if it is not in a
+  // failure state. Held rather than reported immediately; see
+  // `maybeReportClientLoadError()`.
+  private clientLoadErrorReason: ClientLoadErrorReason|undefined;
+  private clientLoadErrorReported = false;
+
   state: WebUiState|undefined;
+  private clientLoadFailed: boolean|undefined;
 
   // When entering loading state, this represents the earliest timestamp at
   // which the UI can transition to the ready state. This ensures that the
@@ -222,17 +238,14 @@ export class GlicAppController implements WebviewDelegate {
       }
     });
 
-    if (kEnableDebug) {
-      window.addEventListener('load', () => {
-        this.installDebugButton();
-      });
-    }
     this.initializeIcons_();
   }
 
   webviewError(reason: string): void {
     console.warn(`webview exit. reason: ${reason}`);
-    this.setErrorState(WebUiErrorReason.WEBVIEW_ERROR);
+    this.setErrorState(
+        WebUiErrorReason.WEBVIEW_ERROR,
+        ClientLoadErrorReason.kGuestProcessGone);
   }
 
   onGuestNavigationStarted(): void {
@@ -267,7 +280,9 @@ export class GlicAppController implements WebviewDelegate {
         }
         break;
       case GuestPageType.kLoadError:
-        this.setErrorState(WebUiErrorReason.LOAD_ERROR);
+        this.setErrorState(
+            WebUiErrorReason.LOAD_ERROR,
+            ClientLoadErrorReason.kGuestLoadFailed);
         break;
       case GuestPageType.kDisabledByAdmin:
         this.webviewDeniedByAdmin();
@@ -283,7 +298,12 @@ export class GlicAppController implements WebviewDelegate {
     this.setState(WebUiState.kDisabledByAdmin);
   }
 
-  private setState(newState: WebUiState): void {
+  // `clientLoadErrorReason` is for states whose cause is not recoverable from
+  // the state itself (kError); other failure states declare their cause on
+  // their StateDescriptor. Pass null to report nothing at all.
+  private setState(
+      newState: WebUiState,
+      clientLoadErrorReason?: ClientLoadErrorReason|null): void {
     if (this.state === newState) {
       return;
     }
@@ -291,11 +311,83 @@ export class GlicAppController implements WebviewDelegate {
       this.states.get(this.state)!.onExit?.call(this);
     }
     this.state = newState;
-    this.states.get(this.state)!.onEnter?.call(this);
+    const descriptor = this.states.get(this.state)!;
+    descriptor.onEnter?.call(this);
     this.browserProxy.pageHandler.onWebUiStateChanged(this.state);
+    if (clientLoadErrorReason === undefined) {
+      this.clientLoadErrorReason = descriptor.clientLoadErrorReason;
+    } else {
+      // An explicit null means this transition has nothing to report, and must
+      // not fall back to the descriptor.
+      this.clientLoadErrorReason =
+          clientLoadErrorReason === null ? undefined : clientLoadErrorReason;
+    }
+    this.clientLoadErrorReported = false;
+    this.maybeReportClientLoadError();
+    const failed = this.hasClientLoadFailed(this.state);
+    if (this.clientLoadFailed !== failed) {
+      this.clientLoadFailed = failed;
+      this.browserProxy.pageHandler.onClientLoadFailed(failed);
+    }
   }
 
-  private setErrorState(reason: WebUiErrorReason): void {
+  // Whether `state` is one the client cannot leave without being reloaded.
+  // Readiness is deliberately not reported: the browser decides that from the
+  // web client connection, so the only states distinguished here are "still
+  // on its way" and "gave up".
+  private hasClientLoadFailed(state: WebUiState): boolean {
+    switch (state) {
+      case WebUiState.kUninitialized:
+      case WebUiState.kBeginLoad:
+      case WebUiState.kShowLoading:
+      case WebUiState.kHoldLoading:
+      case WebUiState.kFinishLoading:
+      case WebUiState.kReady:
+      case WebUiState.kWarmed:
+      // An unresponsive client is left again by `webClientStateChanged()` on
+      // the next kResponsive, without a reload, and the browser tracks
+      // responsiveness itself through `WebClientState`.
+      case WebUiState.kUnresponsive:
+        return false;
+      case WebUiState.kError:
+      case WebUiState.kOffline:
+      case WebUiState.kUnavailable:
+      case WebUiState.kSignIn:
+      case WebUiState.kGuestError:
+      case WebUiState.kDisabledByAdmin:
+      case WebUiState.kLocationMismatch:
+      case WebUiState.kIneligibleAccount:
+        return true;
+      default:
+        assertNotReachedCase(state);
+    }
+  }
+
+  // Reports the current failure cause to the browser, which is the single
+  // place client load errors are recorded.
+  //
+  // Only failures the user can actually see are reported. A failure reached
+  // while the panel is hidden (for example during warming) is retried when the
+  // panel is next opened, see `intentToShow()`; if that retry succeeds the user
+  // never saw an error, and the retry leaves the failure state, clearing
+  // `clientLoadErrorReason` before the panel is shown. What survives to here is
+  // a failure that is still on screen once the panel opens.
+  private maybeReportClientLoadError(): void {
+    if (this.clientLoadErrorReason === undefined ||
+        this.clientLoadErrorReported ||
+        this.panelStateKind === PanelStateKind.kHidden) {
+      return;
+    }
+    this.clientLoadErrorReported = true;
+    this.browserProxy.pageHandler.notifyClientLoadError(
+        this.clientLoadErrorReason);
+  }
+
+  // `clientLoadErrorReason` is null for the rare transition into kError that
+  // is not a client load failure, and so is not worth recording.
+  private setErrorState(
+      reason: WebUiErrorReason,
+      clientLoadErrorReason: ClientLoadErrorReason|null): void {
     // Only record the histogram if not already in the error state.
     if (this.state === WebUiState.kError) {
       return;
@@ -312,7 +404,7 @@ export class GlicAppController implements WebviewDelegate {
           WebUiErrorReason.MAX_VALUE + 1,
       );
     }
-    this.setState(WebUiState.kError);
+    this.setState(WebUiState.kError, clientLoadErrorReason);
   }
 
   private stateDescriptor(): StateDescriptor|undefined {
@@ -342,8 +434,7 @@ export class GlicAppController implements WebviewDelegate {
         reloadOnOpen: true,
         onEnter:
             () => {
-              // Keep the webview alive for debugging purposes.
-              this.setWebviewDormant();
+              this.destroyWebview();
               this.showPanel('errorPanel');
             },
       },
@@ -351,15 +442,18 @@ export class GlicAppController implements WebviewDelegate {
     [
       WebUiState.kOffline,
       {
-        onEnter: () => {
-          this.destroyWebview();
-          this.showPanel('offlinePanel');
-        },
+        clientLoadErrorReason: ClientLoadErrorReason.kOffline,
+        onEnter:
+            () => {
+              this.destroyWebview();
+              this.showPanel('offlinePanel');
+            },
       },
     ],
     [
       WebUiState.kUnavailable,
       {
+        clientLoadErrorReason: ClientLoadErrorReason.kUnavailable,
         reloadOnOpen: true,
         onEnter:
             () => {
@@ -371,6 +465,7 @@ export class GlicAppController implements WebviewDelegate {
     [
       WebUiState.kIneligibleAccount,
       {
+        clientLoadErrorReason: ClientLoadErrorReason.kIneligibleAccount,
         reloadOnOpen: true,
         onEnter:
             () => {
@@ -382,6 +477,7 @@ export class GlicAppController implements WebviewDelegate {
     [
       WebUiState.kDisabledByAdmin,
       {
+        clientLoadErrorReason: ClientLoadErrorReason.kDisabledByAdmin,
         reloadOnOpen: true,
         onEnter:
             () => {
@@ -393,6 +489,7 @@ export class GlicAppController implements WebviewDelegate {
     [
       WebUiState.kLocationMismatch,
       {
+        clientLoadErrorReason: ClientLoadErrorReason.kLocationMismatch,
         reloadOnOpen: true,
         onEnter:
             () => {
@@ -437,6 +534,7 @@ export class GlicAppController implements WebviewDelegate {
     [
       WebUiState.kSignIn,
       {
+        clientLoadErrorReason: ClientLoadErrorReason.kSignIn,
         reloadOnOpen: true,
         onEnter:
             () => {
@@ -549,7 +647,9 @@ export class GlicAppController implements WebviewDelegate {
         break;
       case PrepareForClientResult.kErrorResyncingCookies:
         console.warn('prepareForClient in beginLoad() failed.');
-        this.setErrorState(WebUiErrorReason.COOKIE_SYNC_ERROR);
+        this.setErrorState(
+            WebUiErrorReason.COOKIE_SYNC_ERROR,
+            ClientLoadErrorReason.kCookieSyncFailed);
 
         return;
       case PrepareForClientResult.kRequiresSignIn:
@@ -626,7 +726,9 @@ export class GlicAppController implements WebviewDelegate {
     // by `webClientReady`.
     this.loadingTimer = setTimeout(() => {
       console.warn('Exceeded timeout waiting for client to load');
-      this.setErrorState(WebUiErrorReason.TIMEOUT_LOADING_CLIENT);
+      this.setErrorState(
+          WebUiErrorReason.TIMEOUT_LOADING_CLIENT,
+          ClientLoadErrorReason.kClientLoadTimeout);
 
       if (this.state !== WebUiState.kReady) {
         chrome.histograms.recordEnumerationValue(
@@ -667,15 +769,6 @@ export class GlicAppController implements WebviewDelegate {
     this.webview = undefined;
   }
 
-  private setWebviewDormant(): void {
-    // Never allow dormant state when the panel is hidden.
-    if (this.panelStateKind === PanelStateKind.kHidden) {
-      this.destroyWebview();
-      return;
-    }
-    this.webview?.setDormant();
-  }
-
   private online(): void {
     if (this.simulateNoConnection) {
       return;
@@ -697,17 +790,6 @@ export class GlicAppController implements WebviewDelegate {
     }
   }
 
-  private installDebugButton(): void {
-    const button = document.createElement('cr-icon-button');
-    button.id = 'debug';
-    button.classList.add('tonal-button');
-    button.setAttribute('iron-icon', 'cr:search');
-    document.querySelector('#errorPanel .notice')!.appendChild(button);
-    button.addEventListener('click', () => {
-      this.showDebug();
-    });
-  }
-
   private startWarmedTimeout(): void {
     this.cancelTimeout();
     if (this.panelStateKind === PanelStateKind.kHidden) {
@@ -715,7 +797,9 @@ export class GlicAppController implements WebviewDelegate {
     }
     this.loadingTimer = setTimeout(() => {
       if (this.state === WebUiState.kWarmed) {
-        this.setErrorState(WebUiErrorReason.TIMEOUT_WARMED);
+        this.setErrorState(
+            WebUiErrorReason.TIMEOUT_WARMED,
+            ClientLoadErrorReason.kWarmedTimeout);
       }
     }, kMaxWaitTimeMs);
   }
@@ -743,7 +827,8 @@ export class GlicAppController implements WebviewDelegate {
       case WebClientState.kUnresponsive:
         break;
       case WebClientState.kError:
-        this.setErrorState(WebUiErrorReason.CLIENT_ERROR);
+        this.setErrorState(
+            WebUiErrorReason.CLIENT_ERROR, ClientLoadErrorReason.kClientError);
         break;
       default:
         assertNotReachedCase(state);
@@ -752,21 +837,8 @@ export class GlicAppController implements WebviewDelegate {
 
   // External entry points.
 
-  showDebug(): void {
-    this.setState(WebUiState.kReady);
-    $.guestPanel.classList.toggle('show-header', true);
-    $.guestPanel.classList.toggle('debug', true);
-  }
-
   close(): void {
-    // If we're in the debug view, switch back to error. Otherwise close the
-    // window.
-    if (this.state === WebUiState.kReady &&
-        $.guestPanel.classList.contains('debug')) {
-      $.guestPanel.classList.toggle('debug', false);
-      this.setErrorState(WebUiErrorReason.CLOSE_DEBUG_VIEW);
-
-    } else if (this.state === WebUiState.kReady) {
+    if (this.state === WebUiState.kReady) {
       this.browserProxy.pageHandler.closePanel();
     } else {
       // Reload in the background if user closes window while web client is not
@@ -816,6 +888,7 @@ export class GlicAppController implements WebviewDelegate {
       return;
     }
     this.panelStateKind = panelStateKind;
+    this.maybeReportClientLoadError();
 
     if (this.panelStateKind !== PanelStateKind.kHidden &&
         this.state === WebUiState.kWarmed) {

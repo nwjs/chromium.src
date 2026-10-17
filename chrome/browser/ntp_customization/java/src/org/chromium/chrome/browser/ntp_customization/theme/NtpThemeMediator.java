@@ -40,7 +40,6 @@ import org.chromium.chrome.browser.ntp_customization.NtpCustomizationMetricsUtil
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils.NtpBackgroundType;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils.OnImageLoadedCallback;
-import org.chromium.chrome.browser.ntp_customization.theme.chrome_colors.NtpThemeColorInfo.NtpThemeColorId;
 import org.chromium.chrome.browser.ntp_customization.theme.theme_collections.BackgroundCollection;
 import org.chromium.chrome.browser.ntp_customization.theme.theme_collections.NtpThemeCollectionManager;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -176,7 +175,7 @@ public class NtpThemeMediator {
             // When a new image is selected, store it and reset any existing crop settings from a
             // previous image.
             NtpCustomizationUtils.getBitmapFromUriAsync(mContext, uri, mOnImageSelectedCallback);
-            mNtpThemeCollectionManager.selectLocalBackgroundImage();
+            mNtpThemeCollectionManager.cancelPendingSelection();
         }
 
         NtpCustomizationMetricsUtils.recordBottomSheetShown(BottomSheetType.UPLOAD_IMAGE);
@@ -197,7 +196,7 @@ public class NtpThemeMediator {
     @VisibleForTesting
     void resetCustomizedTheme() {
         updateTrailingIconVisibilityForSectionType(DEFAULT);
-        mNtpThemeCollectionManager.resetCustomBackgroundInfo();
+        mNtpThemeCollectionManager.cancelPendingSelection();
 
         @NtpBackgroundType
         int currentBackgroundType = mNtpCustomizationConfigManager.getBackgroundType();
@@ -247,17 +246,11 @@ public class NtpThemeMediator {
         updateTrailingIconVisibilityForSectionType(imageType);
     }
 
-    /**
-     * Updates trailing icon visibility and sets the Chrome color on the theme collection manager
-     * when the user selects a Chrome color.
-     *
-     * @param colorId The {@link NtpThemeColorId} of the selected Chrome color.
-     */
+    /** Updates trailing icon visibility when the user selects a Chrome color. */
     @VisibleForTesting
-    void onChromeColorSelected(@NtpThemeColorId int colorId) {
+    void onChromeColorSelected() {
         updateTrailingIconVisibilityForSectionType(CHROME_COLOR);
-        assert colorId > NtpThemeColorId.DEFAULT && colorId < NtpThemeColorId.NUM_ENTRIES;
-        mNtpThemeCollectionManager.setChromeColor(colorId);
+        mNtpThemeCollectionManager.cancelPendingSelection();
     }
 
     /**

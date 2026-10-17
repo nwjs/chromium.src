@@ -160,7 +160,7 @@ class MockAudioOutputStream : public AudioOutputStream,
   }
 
   void Start(AudioOutputStream::AudioSourceCallback* cb) override {
-    EXPECT_EQ(nullptr, callback_.get());
+    EXPECT_EQ(nullptr, callback_);
     callback_ = cb;
     if (impl_) {
       impl_->Start(this);
@@ -565,8 +565,6 @@ TEST_F(OutputControllerTest, ProcessDeviceChangeTimeHistogram) {
   histogram_tester.ExpectTotalCount(
       "Media.AudioOutputController.ProcessDeviceChangeTime2", 1);
   histogram_tester.ExpectTotalCount(
-      "Media.AudioOutputController.ProcessDeviceChangeTime.Suspended", 0);
-  histogram_tester.ExpectTotalCount(
       "Media.AudioOutputController.ProcessDeviceChangeTime", 0);
 
   // Simulate a device change while the system is suspended.
@@ -574,20 +572,15 @@ TEST_F(OutputControllerTest, ProcessDeviceChangeTimeHistogram) {
   power_monitor_source.Suspend();
 
   ChangeDevice();
-  // Expect no additional samples recorded to Time2 while suspended, but
-  // recorded to Suspended instead.
+  // Expect no additional samples recorded to Time2 while suspended.
   histogram_tester.ExpectTotalCount(
       "Media.AudioOutputController.ProcessDeviceChangeTime2", 1);
-  histogram_tester.ExpectTotalCount(
-      "Media.AudioOutputController.ProcessDeviceChangeTime.Suspended", 1);
 
   power_monitor_source.Resume();
   ChangeDevice();
   // Expect a new sample recorded to Time2 after resuming.
   histogram_tester.ExpectTotalCount(
       "Media.AudioOutputController.ProcessDeviceChangeTime2", 2);
-  histogram_tester.ExpectTotalCount(
-      "Media.AudioOutputController.ProcessDeviceChangeTime.Suspended", 1);
 
   Close();
 }

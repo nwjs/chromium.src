@@ -150,7 +150,7 @@ void OmniboxAction::OpenURL(OmniboxAction::ExecutionContext& context,
   // destination URLs don't need a fallback so it's fine to pass false here.
   std::move(context.open_url_callback_)
       .Run(url, nullptr, context.disposition_, ui::PAGE_TRANSITION_GENERATED,
-           /*match_type=*/AutocompleteMatchType::URL_WHAT_YOU_TYPED,
+           /*match_type=*/omnibox::AutocompleteMatchType::kUrlWhatYouTyped,
            context.match_selection_timestamp_,
            /*destination_url_entered_without_scheme=*/false,
            /*destination_url_entered_with_http_scheme=*/false, u"",

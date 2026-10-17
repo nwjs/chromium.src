@@ -31,10 +31,12 @@ import {assert} from 'chrome://resources/js/assert.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import type {SettingsRadioGroupElement} from '../controls/settings_radio_group.js';
+import type {SettingsToggleButtonElement} from '../controls/settings_toggle_button.js';
 import {loadTimeData} from '../i18n_setup.js';
 import type {MetricsBrowserProxy} from '../metrics_browser_proxy.js';
 import {MetricsBrowserProxyImpl, PrivacyElementInteractions} from '../metrics_browser_proxy.js';
 import {routes} from '../route.js';
+import type {Route} from '../router.js';
 import {Router} from '../router.js';
 import {SettingsViewMixin} from '../settings_page/settings_view_mixin.js';
 import {ContentSetting, ContentSettingsTypes} from '../site_settings/constants.js';
@@ -85,11 +87,6 @@ export class SettingsCookiesPageElement extends SettingsCookiesPageElementBase {
         value: () => loadTimeData.getBoolean('showUniversalOptOutSettings'),
       },
 
-      isRelatedWebsiteSetsUiEnabled_: {
-        type: Boolean,
-        value: () => loadTimeData.getBoolean('isRelatedWebsiteSetsUiEnabled'),
-      },
-
       pageTitle_: {
         type: String,
         computed: 'computePageTitle_(showUniversalOptOutSettings_)',
@@ -106,7 +103,6 @@ export class SettingsCookiesPageElement extends SettingsCookiesPageElementBase {
   declare private pageTitle_: string;
   declare private cookiesContentSettingType_: ContentSettingsTypes;
   declare private showUniversalOptOutSettings_: boolean;
-  declare private isRelatedWebsiteSetsUiEnabled_: boolean;
   declare private isSettingsRefresh2026_: boolean;
 
   private metricsBrowserProxy_: MetricsBrowserProxy =
@@ -125,21 +121,24 @@ export class SettingsCookiesPageElement extends SettingsCookiesPageElementBase {
       this.metricsBrowserProxy_.recordSettingsPageHistogram(
           PrivacyElementInteractions.THIRD_PARTY_COOKIES_BLOCK_IN_INCOGNITO);
       this.metricsBrowserProxy_.recordAction(
-            'Settings.ThirdPartyCookies.Allow');
+          'Settings.ThirdPartyCookies.Allow');
     } else {
       assert(selection === ThirdPartyCookieBlockingSetting.BLOCK_THIRD_PARTY);
       this.metricsBrowserProxy_.recordSettingsPageHistogram(
           PrivacyElementInteractions.THIRD_PARTY_COOKIES_BLOCK);
       this.metricsBrowserProxy_.recordAction(
-            'Settings.ThirdPartyCookies.Block');
+          'Settings.ThirdPartyCookies.Block');
     }
 
     thirdPartyCookieBlockingSettingGroup.sendPrefChange();
   }
 
-  private relatedWebsiteSetsToggleDisabled_() {
-    return this.getPref('generated.third_party_cookie_blocking_setting')
-               .value !== ThirdPartyCookieBlockingSetting.BLOCK_THIRD_PARTY;
+  private onUniversalOptOutToggleChange_(event: Event) {
+    const toggle = event.target as SettingsToggleButtonElement;
+
+    this.metricsBrowserProxy_.recordAction(
+        toggle.checked ? 'Privacy.UniversalOptOut.SettingsToggleOn' :
+                         'Privacy.UniversalOptOut.SettingsToggleOff');
   }
 
   private computePageTitle_(): string {
@@ -147,6 +146,14 @@ export class SettingsCookiesPageElement extends SettingsCookiesPageElementBase {
         this.showUniversalOptOutSettings_ ?
             'thirdPartyCookiesAndSiteDataPageTitle' :
             'thirdPartyCookiesPageTitle');
+  }
+
+  override currentRouteChanged(currentRoute: Route) {
+    if (currentRoute === routes.COOKIES) {
+      this.metricsBrowserProxy_.recordBooleanHistogram(
+          'Privacy.UniversalOptOut.SettingsVisibility',
+          this.showUniversalOptOutSettings_);
+    }
   }
 
   // SettingsViewMixin implementation.

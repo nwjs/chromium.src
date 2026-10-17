@@ -81,7 +81,7 @@ ShortcutsDatabase::Shortcut::MatchCore::MatchCore(
     const std::u16string& description,
     const std::string& description_class,
     ui::PageTransition transition,
-    AutocompleteMatchType::Type type,
+    omnibox::AutocompleteMatchType type,
     const std::u16string& keyword)
     : fill_into_edit(fill_into_edit),
       destination_url(destination_url),
@@ -123,7 +123,7 @@ ShortcutsDatabase::Shortcut::Shortcut()
                  // AutocompleteMatchType doesn't have a sentinel or null value,
                  // so we just use the value equal to 0. This constructor is
                  // only used by STL anyways, so this is harmless.
-                 AutocompleteMatchType::Type::URL_WHAT_YOU_TYPED,
+                 omnibox::AutocompleteMatchType::kUrlWhatYouTyped,
                  std::u16string()),
       last_access_time(base::Time::Now()),
       number_of_hits(0) {}
@@ -245,9 +245,10 @@ void ShortcutsDatabase::LoadShortcuts(GuidToShortcutMap* shortcuts) {
       continue;
     }
 
-    AutocompleteMatchType::Type type;
-    if (!AutocompleteMatchType::FromInteger(s.ColumnInt(10), &type))
+    omnibox::AutocompleteMatchType type;
+    if (!omnibox::AutocompleteMatchTypeFromInteger(s.ColumnInt(10), &type)) {
       continue;
+    }
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
@@ -255,7 +256,7 @@ void ShortcutsDatabase::LoadShortcuts(GuidToShortcutMap* shortcuts) {
     // because a) they're redundant with the keyword provider, and b) we haven't
     // wired in deleting the keyword to delete the shortcut entry. Purge any old
     // `HISTORY_KEYWORD` entries already recorded to the DB.
-    if (type == AutocompleteMatchType::HISTORY_KEYWORD) {
+    if (type == omnibox::AutocompleteMatchType::kHistoryKeyword) {
       invalid_shortcuts.push_back(s.ColumnString(0));
       continue;
     }
@@ -284,7 +285,7 @@ void ShortcutsDatabase::LoadShortcuts(GuidToShortcutMap* shortcuts) {
     debug_stream << "Contents: " << match_core.contents;
     debug_stream << ", Description: " << match_core.description;
     debug_stream << ", Type: "
-                 << AutocompleteMatchType::ToString(match_core.type);
+                 << omnibox::AutocompleteMatchTypeToString(match_core.type);
     debug_stream << ", Provider: Shortcuts";
     DCHECK(match_core.destination_url.is_valid()) << debug_stream.str();
     if (!match_core.destination_url.is_valid()) {
@@ -364,8 +365,8 @@ bool ShortcutsDatabase::DoMigration(int version) {
              transaction.Commit();
     case 0:
       static_assert(static_cast<int>(ui::PAGE_TRANSITION_TYPED) == 1);
-      static_assert(static_cast<int>(AutocompleteMatchType::HISTORY_TITLE) ==
-                    2);
+      static_assert(
+          static_cast<int>(omnibox::AutocompleteMatchType::kHistoryTitle) == 2);
 
       // Version pre-0 of the shortcuts table lacked the fill_into_edit,
       // transition type, and keyword columns.

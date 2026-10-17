@@ -1,259 +1,200 @@
-// Copyright 2025 The Chromium Authors
+// Copyright 2026 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef COMPONENTS_TRUSTED_VAULT_STANDALONE_TRUSTED_VAULT_STORAGE_H_
 #define COMPONENTS_TRUSTED_VAULT_STANDALONE_TRUSTED_VAULT_STORAGE_H_
 
+#include <cstdint>
 #include <memory>
+#include <optional>
 #include <vector>
 
-#include "base/files/file_path.h"
+#include "base/containers/flat_set.h"
 #include "base/functional/function_ref.h"
+#include "components/trusted_vault/proto/local_domains_data.pb.h"
 #include "components/trusted_vault/proto/local_trusted_vault.pb.h"
 #include "google_apis/gaia/gaia_id.h"
 
 namespace trusted_vault {
 
+enum class LocalRecoveryFactorType;
 enum class SecurityDomainId;
 
-using UserVault = trusted_vault_pb::LocalTrustedVaultPerUser;
-using LocalDeviceRegistrationInfo =
-    trusted_vault_pb::LocalDeviceRegistrationInfo;
-using ICloudKeychainRegistrationInfo =
-    trusted_vault_pb::ICloudKeychainRegistrationInfo;
+using PhysicalDeviceRecoveryFactorData =
+    trusted_vault_pb::PhysicalDeviceRecoveryFactorData;
 
-// Storage interface for PhysicalDeviceRecoveryFactor.
+// Storage interface for local recovery factor registration state.
+class RecoveryFactorRegistrationStorage {
+ public:
+  virtual ~RecoveryFactorRegistrationStorage() = default;
+
+  // Returns whether `factor_type` is registered for `gaia_id` in `domain`.
+  // Returns `false` if the user vault or domain data does not exist.
+  virtual bool IsRecoveryFactorRegistered(
+      const GaiaId& gaia_id,
+      SecurityDomainId domain,
+      LocalRecoveryFactorType factor_type) const = 0;
+
+  // Sets whether `factor_type` is registered for `gaia_id` in `domain`.
+  // Creates the user vault if it does not exist, and commits changes to disk.
+  virtual void SetRecoveryFactorRegistered(const GaiaId& gaia_id,
+                                           SecurityDomainId domain,
+                                           LocalRecoveryFactorType factor_type,
+                                           bool registered) = 0;
+
+  // Returns whether last registration returned local data obsolete for
+  // `gaia_id` in `domain`.
+  // Returns `false` if the user vault or domain data does not exist.
+  virtual bool GetLastRegistrationReturnedLocalDataObsolete(
+      const GaiaId& gaia_id,
+      SecurityDomainId domain) const = 0;
+
+  // Sets whether last registration returned local data obsolete for `gaia_id`
+  // in `domain`.
+  // Creates the user vault if it does not exist, and commits changes to disk.
+  virtual void SetLastRegistrationReturnedLocalDataObsolete(
+      const GaiaId& gaia_id,
+      SecurityDomainId domain,
+      bool obsolete) = 0;
+};
+
+// Storage interface for physical device key material.
+// Note: Physical device private keys are domain-independent and shared across
+// domains.
 class PhysicalDeviceStorage {
  public:
   virtual ~PhysicalDeviceStorage() = default;
 
-  // Finds and returns a reference to the local device registration info for
-  // `gaia_id`. Triggers a CHECK failure if the vault does not exist. The
-  // lifetime of the returned reference is bound to the lifetime of `this`, but
-  // it becomes invalid when ReadDataFromDisk() is called.
-  virtual const LocalDeviceRegistrationInfo& GetLocalDeviceRegistrationInfo(
+  // Finds and returns the physical device recovery factor data for `gaia_id`.
+  // Returns a default instance if the user vault does not exist.
+  virtual PhysicalDeviceRecoveryFactorData GetPhysicalDeviceRecoveryFactorData(
       const GaiaId& gaia_id) const = 0;
 
-  // Executes `mutator` on the local device registration info for `gaia_id`,
-  // creating the user vault if it does not exist, and commits changes to disk
-  // once upon completion.
-  virtual void MutateLocalDeviceRegistrationInfo(
+  // Mutates the physical device recovery factor data for `gaia_id` and commits
+  // the changes to disk.
+  // Creates the user vault if it does not exist.
+  virtual void MutatePhysicalDeviceRecoveryFactorData(
       const GaiaId& gaia_id,
-      base::FunctionRef<void(LocalDeviceRegistrationInfo&)> mutator) = 0;
-
-  // Returns whether last registration returned local data obsolete for
-  // `gaia_id`. Returns false if user vault does not exist.
-  virtual bool GetLastRegistrationReturnedLocalDataObsolete(
-      const GaiaId& gaia_id) const = 0;
-
-  // Sets whether last registration returned local data obsolete for `gaia_id`.
-  // Creates the user vault if it does not exist, and commits changes to disk.
-  virtual void SetLastRegistrationReturnedLocalDataObsolete(
-      const GaiaId& gaia_id,
-      bool obsolete) = 0;
+      base::FunctionRef<void(PhysicalDeviceRecoveryFactorData&)> mutator) = 0;
 };
 
-// Storage interface for ICloudKeychainRecoveryFactor.
-class ICloudKeychainStorage {
- public:
-  virtual ~ICloudKeychainStorage() = default;
-
-  // Finds and returns a reference to the iCloud Keychain registration info for
-  // `gaia_id`. Triggers a CHECK failure if the vault does not exist. The
-  // lifetime of the returned reference is bound to the lifetime of `this`, but
-  // it becomes invalid when ReadDataFromDisk() is called.
-  virtual const ICloudKeychainRegistrationInfo&
-  GetICloudKeychainRegistrationInfo(const GaiaId& gaia_id) const = 0;
-
-  // Executes `mutator` on the iCloud Keychain registration info for `gaia_id`,
-  // creating the user vault if it does not exist, and commits changes to disk
-  // once upon completion.
-  virtual void MutateICloudKeychainRegistrationInfo(
-      const GaiaId& gaia_id,
-      base::FunctionRef<void(ICloudKeychainRegistrationInfo&)> mutator) = 0;
-
-  // Returns whether last registration returned local data obsolete for
-  // `gaia_id`. Returns false if user vault does not exist.
-  virtual bool GetLastRegistrationReturnedLocalDataObsolete(
-      const GaiaId& gaia_id) const = 0;
-
-  // Sets whether last registration returned local data obsolete for `gaia_id`.
-  // Creates the user vault if it does not exist, and commits changes to disk.
-  virtual void SetLastRegistrationReturnedLocalDataObsolete(
-      const GaiaId& gaia_id,
-      bool obsolete) = 0;
-};
-
-// Storage interface for vault key access and updates.
+// Storage interface for managing vault keys across security domains.
 class KeyStorage {
  public:
   virtual ~KeyStorage() = default;
 
-  // Finds and returns all vault keys for `gaia_id`. Returns an empty vector if
-  // the user vault does not exist.
+  // Finds and returns all vault keys for `gaia_id` in `domain`.
+  // Returns an empty vector if the user vault or domain data does not exist.
   virtual std::vector<std::vector<uint8_t>> GetVaultKeys(
-      const GaiaId& gaia_id) const = 0;
+      const GaiaId& gaia_id,
+      SecurityDomainId domain) const = 0;
 
-  // Returns the version corresponding to the last vault key for `gaia_id`.
-  // Returns 0 if the user vault does not exist.
-  virtual int GetLastKeyVersion(const GaiaId& gaia_id) const = 0;
+  // Returns the version corresponding to the last vault key for `gaia_id` in
+  // `domain`.
+  // Returns 0 if the user vault or domain data does not exist.
+  virtual int GetLastKeyVersion(const GaiaId& gaia_id,
+                                SecurityDomainId domain) const = 0;
 
-  // Replaces all vault keys and updates last vault key version for `gaia_id`.
-  // Resets keys_marked_as_stale_by_consumer to false, creates the user vault
-  // if it does not exist, and commits changes to disk.
+  // Replaces all vault keys and updates last vault key version for `gaia_id` in
+  // `domain`.
+  // Resets keys_marked_as_stale_by_consumer to false, creates the user vault if
+  // it does not exist, and commits changes to disk.
   virtual void SetVaultKeys(const GaiaId& gaia_id,
+                            SecurityDomainId domain,
                             const std::vector<std::vector<uint8_t>>& keys,
                             int last_key_version) = 0;
 
-  // Returns whether keys for `gaia_id` are marked as stale by consumer.
-  // Returns false if user vault does not exist.
-  virtual bool GetKeysMarkedAsStaleByConsumer(const GaiaId& gaia_id) const = 0;
+  // Returns whether keys for `gaia_id` in `domain` are marked as stale by
+  // consumer.
+  // Returns false if user vault or domain data does not exist.
+  virtual bool GetKeysMarkedAsStaleByConsumer(
+      const GaiaId& gaia_id,
+      SecurityDomainId domain) const = 0;
 
-  // Sets whether keys for `gaia_id` are marked as stale by consumer.
+  // Sets whether keys for `gaia_id` in `domain` are marked as stale by
+  // consumer.
   // Creates the user vault if it does not exist, and commits changes to disk.
   virtual void SetKeysMarkedAsStaleByConsumer(const GaiaId& gaia_id,
-                                              bool stale) = 0;
+                                              SecurityDomainId domain,
+                                              bool keys_marked_as_stale) = 0;
 
-  // Checks whether there is any non-constant key for `gaia_id`.
+  // Checks whether there is any non-constant key for `gaia_id` in `domain`.
   // This indicates that the corresponding security domain is not in the
   // pre-enrollment state, but contains usable key material.
   // Returns false if the user vault does not exist or only contains constant
   // keys.
-  virtual bool HasNonConstantKey(const GaiaId& gaia_id) const = 0;
+  virtual bool HasNonConstantKey(const GaiaId& gaia_id,
+                                 SecurityDomainId domain) const = 0;
 };
 
-// Storage interface for connection request throttling state.
+// Storage interface for request throttling state.
 class ConnectionThrottlingStorage {
  public:
   virtual ~ConnectionThrottlingStorage() = default;
 
-  // Returns the time (in milliseconds since UNIX epoch) at which last failed
-  // request was sent for `gaia_id`. Returns 0 if no failed requests were
-  // recorded or if the user vault does not exist.
-  virtual int64_t GetLastFailedRequestMillis(const GaiaId& gaia_id) const = 0;
+  // Returns the security domain-scoped time (in milliseconds since UNIX epoch)
+  // at which last failed request was sent for `gaia_id` in `domain`.
+  // Returns 0 if no failed requests were recorded or if the user vault does not
+  // exist.
+  virtual int64_t GetLastFailedRequestMillis(const GaiaId& gaia_id,
+                                             SecurityDomainId domain) const = 0;
 
-  // Sets the time (in milliseconds since UNIX epoch) at which last failed
-  // request was sent for `gaia_id`. Creates the user vault if it does not
-  // exist, and commits changes to disk.
+  // Sets the security domain-scoped time (in milliseconds since UNIX epoch) at
+  // which last failed request was sent for `gaia_id` in `domain`.
+  // Creates the user vault if it does not exist, and commits changes to disk.
   virtual void SetLastFailedRequestMillis(
       const GaiaId& gaia_id,
+      SecurityDomainId domain,
       int64_t last_failed_request_millis) = 0;
 };
 
-// Storage helper for StandaloneTrustedVaultBackend handling file operations.
-class StandaloneTrustedVaultStorage : public PhysicalDeviceStorage,
-                                      public ICloudKeychainStorage,
-                                      public KeyStorage,
-                                      public ConnectionThrottlingStorage {
+// Storage interface for degraded recoverability state.
+class DegradedRecoverabilityStorage {
  public:
-  // Interface for actual file access. Can be swapped with a fake for tests.
-  class FileAccess {
-   public:
-    FileAccess() = default;
-    FileAccess(const FileAccess&) = delete;
-    FileAccess& operator=(const FileAccess&) = delete;
-    virtual ~FileAccess() = default;
+  virtual ~DegradedRecoverabilityStorage() = default;
 
-    virtual trusted_vault_pb::LocalTrustedVault ReadFromDisk() = 0;
-    virtual void WriteToDisk(
-        const trusted_vault_pb::LocalTrustedVault& data) = 0;
-  };
+  // Returns the degraded recoverability state for `gaia_id` in `domain`.
+  // Returns a default instance if the user vault or domain data does not exist.
+  virtual trusted_vault_pb::LocalTrustedVaultDegradedRecoverabilityState
+  GetDegradedRecoverabilityState(const GaiaId& gaia_id,
+                                 SecurityDomainId domain) const = 0;
 
-  // Create with non-default FileAccess. Only used for testing.
-  static std::unique_ptr<StandaloneTrustedVaultStorage> CreateForTesting(
-      std::unique_ptr<FileAccess> file_access);
-
-  StandaloneTrustedVaultStorage(const base::FilePath& base_dir,
-                                SecurityDomainId security_domain_id);
-  StandaloneTrustedVaultStorage(const StandaloneTrustedVaultStorage& other) =
-      delete;
-  StandaloneTrustedVaultStorage& operator=(
-      const StandaloneTrustedVaultStorage& other) = delete;
-  ~StandaloneTrustedVaultStorage() override;
-
-  // Restores state saved in storage, should be called before using the object.
-  void ReadDataFromDisk();
-
-  // Adds a new per-user vault in for `gaia_id`.
-  // There must be no existing per-user vault for `gaia_id`. The lifetime of
-  // the returned pointer is bound to the lifetime of `this`, but it becomes
-  // invalid when ReadDataFromDisk() is called.
-  // This never returns null.
-  const UserVault* AddUserVault(const GaiaId& gaia_id);
-
-  // Finds the per-user vault for `gaia_id`. Returns null if not found. The
-  // lifetime of the returned pointer is bound to the lifetime of `this`, but it
-  // becomes invalid when ReadDataFromDisk() is called.
-  const UserVault* FindUserVault(const GaiaId& gaia_id) const;
-
-  // Finds and returns a reference to the per-user vault for `gaia_id`.
-  // Triggers a CHECK failure if the vault does not exist. The lifetime of
-  // the returned reference is bound to the lifetime of `this`, but it becomes
-  // invalid when ReadDataFromDisk() is called.
-  const UserVault& GetUserVault(const GaiaId& gaia_id) const;
-
-  // Executes `mutator` on the per-user vault for `gaia_id`, creating the
-  // user vault if it does not exist, and commits changes to disk once upon
-  // completion. Returns a const reference to the mutated per-user vault.
-  const UserVault& MutateUserVault(const GaiaId& gaia_id,
-                                   base::FunctionRef<void(UserVault&)> mutator);
-
-  // Removes the per-user vaults that match `predicate`.
-  void RemoveUserVaults(base::FunctionRef<bool(const UserVault&)> predicate);
-
-  // PhysicalDeviceStorage implementation:
-  const LocalDeviceRegistrationInfo& GetLocalDeviceRegistrationInfo(
-      const GaiaId& gaia_id) const override;
-  void MutateLocalDeviceRegistrationInfo(
+  // Sets the degraded recoverability state for `gaia_id` in `domain`.
+  // Creates the user vault if it does not exist, and commits changes to disk.
+  virtual void SetDegradedRecoverabilityState(
       const GaiaId& gaia_id,
-      base::FunctionRef<void(LocalDeviceRegistrationInfo&)> mutator) override;
+      SecurityDomainId domain,
+      const trusted_vault_pb::LocalTrustedVaultDegradedRecoverabilityState&
+          state) = 0;
+};
 
-  // ICloudKeychainStorage implementation:
-  const ICloudKeychainRegistrationInfo& GetICloudKeychainRegistrationInfo(
-      const GaiaId& gaia_id) const override;
-  void MutateICloudKeychainRegistrationInfo(
-      const GaiaId& gaia_id,
-      base::FunctionRef<void(ICloudKeychainRegistrationInfo&)> mutator)
-      override;
+// Abstract interface for trusted vault local storage.
+class StandaloneTrustedVaultStorage : public RecoveryFactorRegistrationStorage,
+                                      public PhysicalDeviceStorage,
+                                      public KeyStorage,
+                                      public ConnectionThrottlingStorage,
+                                      public DegradedRecoverabilityStorage {
+ public:
+  ~StandaloneTrustedVaultStorage() override = default;
 
-  // Shared PhysicalDeviceStorage / ICloudKeychainStorage implementation:
-  bool GetLastRegistrationReturnedLocalDataObsolete(
-      const GaiaId& gaia_id) const override;
-  void SetLastRegistrationReturnedLocalDataObsolete(const GaiaId& gaia_id,
-                                                    bool obsolete) override;
+  // Reads persisted state from disk.
+  virtual void ReadDataFromDisk() = 0;
 
-  // KeyStorage implementation:
-  std::vector<std::vector<uint8_t>> GetVaultKeys(
-      const GaiaId& gaia_id) const override;
-  int GetLastKeyVersion(const GaiaId& gaia_id) const override;
-  void SetVaultKeys(const GaiaId& gaia_id,
-                    const std::vector<std::vector<uint8_t>>& keys,
-                    int last_key_version) override;
-  bool GetKeysMarkedAsStaleByConsumer(const GaiaId& gaia_id) const override;
-  void SetKeysMarkedAsStaleByConsumer(const GaiaId& gaia_id,
-                                      bool stale) override;
-  bool HasNonConstantKey(const GaiaId& gaia_id) const override;
+  // Clears all state associated with `gaia_id`.
+  virtual void ClearDataForUser(const GaiaId& gaia_id) = 0;
 
-  // ConnectionThrottlingStorage implementation:
-  int64_t GetLastFailedRequestMillis(const GaiaId& gaia_id) const override;
-  void SetLastFailedRequestMillis(const GaiaId& gaia_id,
-                                  int64_t last_failed_request_millis) override;
+  // Clears state for users not in `known_gaia_ids` (except
+  // `primary_account_gaia_id`).
+  // Preserves state for `primary_account_gaia_id` if it's not in
+  // `known_gaia_ids` but marks it for deletion.
+  virtual void ClearDataForUnknownUsersOrMarkForDeletion(
+      const base::flat_set<GaiaId>& known_gaia_ids,
+      const std::optional<GaiaId>& primary_account_gaia_id) = 0;
 
-  // Helper method to get all keys in `per_user_vault`.
-  static std::vector<std::vector<uint8_t>> GetAllVaultKeys(
-      const UserVault& per_user_vault);
-
- private:
-  explicit StandaloneTrustedVaultStorage(
-      std::unique_ptr<FileAccess> file_access);
-
-  UserVault* AddUserVaultImpl(const GaiaId& gaia_id);
-  UserVault* FindUserVaultImpl(const GaiaId& gaia_id);
-  const UserVault* FindUserVaultImpl(const GaiaId& gaia_id) const;
-
-  std::unique_ptr<FileAccess> file_access_;
-  trusted_vault_pb::LocalTrustedVault data_;
+  // Removes users marked for deletion who are not the primary account.
+  virtual void ClearDataForUsersMarkedForDeletion(
+      const std::optional<GaiaId>& primary_account_gaia_id) = 0;
 };
 
 }  // namespace trusted_vault

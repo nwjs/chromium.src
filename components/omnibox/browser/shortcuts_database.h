@@ -52,7 +52,7 @@ class ShortcutsDatabase : public base::RefCountedThreadSafe<ShortcutsDatabase> {
                 const std::u16string& description,
                 const std::string& description_class,
                 ui::PageTransition transition,
-                AutocompleteMatchType::Type type,
+                omnibox::AutocompleteMatchType type,
                 const std::u16string& keyword);
       MatchCore(const MatchCore& other);
       ~MatchCore();
@@ -68,7 +68,7 @@ class ShortcutsDatabase : public base::RefCountedThreadSafe<ShortcutsDatabase> {
       std::u16string description;
       std::string description_class;
       ui::PageTransition transition;
-      AutocompleteMatchType::Type type;
+      omnibox::AutocompleteMatchType type;
       std::u16string keyword;
     };
 

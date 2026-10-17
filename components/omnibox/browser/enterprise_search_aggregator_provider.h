@@ -200,7 +200,7 @@ class EnterpriseSearchAggregatorProvider : public AutocompleteProvider {
   //      }]
   //     }.
   // `matches` would contain one `match` with the following properties:
-  //  - `match.type` = `AutocompleteMatchType::SEARCH_SUGGEST`,
+  //  - `match.type` = `omnibox::AutocompleteMatchType::kSearchSuggest`,
   //  - `match.contents` = "hello",
   //  - `match.description` = "",
   //  - `match.destination_url` = `template_url->url()`,

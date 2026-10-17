@@ -58,7 +58,7 @@ MemoryCoordinatorTestImpl::TestMemoryConsumer::TestMemoryConsumer(
 MemoryCoordinatorTestImpl::TestMemoryConsumer::~TestMemoryConsumer() = default;
 
 void MemoryCoordinatorTestImpl::TestMemoryConsumer::OnUpdateMemoryLimit() {
-  client_->OnUpdateMemoryLimit(base::MemoryConsumer::memory_limit());
+  client_->OnUpdateMemoryLimit(memory_limit());
 }
 
 void MemoryCoordinatorTestImpl::TestMemoryConsumer::OnReleaseMemory() {

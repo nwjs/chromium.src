@@ -252,7 +252,7 @@ public class HistoryManager
         }
 
         mIsLargeFormFactorDevice = DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity);
-        if (mContentManager.showAppFilter() || mIsLargeFormFactorDevice) {
+        if (mContentManager.showFilterChips() || mIsLargeFormFactorDevice) {
             // Now the search mode can have a header. Let the layout ignore it to
             // return the right item count.
             mSelectableListLayout.ignoreItemTypeForEmptyState(ItemViewType.STANDARD_HEADER);
@@ -428,7 +428,7 @@ public class HistoryManager
         assumeNonNull(mToolbar);
         assumeNonNull(mSelectableListLayout);
 
-        mContentManager.maybeResetAppFilterChip();
+        mContentManager.maybeResetFilterChips();
         mContentManager.getAdapter().onSearchStart();
         mToolbar.showSearchView(showKeyboard);
         String searchEmptyString = getSearchEmptyString();

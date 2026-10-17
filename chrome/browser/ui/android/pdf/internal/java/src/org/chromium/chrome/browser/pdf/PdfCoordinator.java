@@ -32,6 +32,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
 import androidx.appcompat.app.AlertDialog;
@@ -156,7 +157,13 @@ public class PdfCoordinator
 
     private final String mTabId;
     private String mTitle;
-    private final String mUrl;
+
+    /** The URL the user is currently visiting (updates instantly on navigation). */
+    private String mUrl;
+
+    /** The URL of the currently loaded document (updates after download). */
+    private @Nullable String mLoadedUrl;
+
     private final boolean mIsIncognito;
     private @TriState int mIsFitToPageActive;
     private float mLastFitZoom = -1f;
@@ -300,6 +307,7 @@ public class PdfCoordinator
         if (mChromePdfViewerFragment == null) {
             mChromePdfViewerFragment = new ChromePdfViewerFragment(this);
             mChromePdfViewerFragment.setViewTag(mTabId);
+            mChromePdfViewerFragment.setInitialPageNumber(PdfUtils.getPageNumberFromUrl(url));
             // Start pdf library initialization. This prepares pdf resources ahead of time, so that
             // pdf could be loaded faster when documentUri is set.
             mPdfSandboxHandle = SandboxedPdfLoader.startInitialization(activity);
@@ -321,6 +329,9 @@ public class PdfCoordinator
             mChromePdfViewerFragment.setDelegate(this);
         }
         mTab.getUserDataHost().setUserData(BeforeUnloadCallback.class, mBeforeUnloadCallback);
+        if (filepath != null) {
+            mLoadedUrl = url;
+        }
     }
 
     private void relocateMisplacedFragmentViews() {
@@ -350,6 +361,8 @@ public class PdfCoordinator
         static final String KEY_RESTORE_POSITION_PENDING = "restore_position_pending";
         private static final String KEY_FILE_PATH = "file_path";
         private static final String KEY_FILE_NAME = "file_name";
+        static final String KEY_INITIAL_PAGE_NUMBER = "initial_page_number";
+        static final String KEY_HAS_SCROLLED_TO_INITIAL_PAGE = "has_scrolled_to_initial_page";
         private @Nullable PdfActionsDelegate mDelegate;
         @VisibleForTesting @Nullable PdfView mPdfView;
         @VisibleForTesting boolean mIsPdfViewSetup;
@@ -367,6 +380,19 @@ public class PdfCoordinator
         private boolean mTwoPagesPerRowEnabled;
         @Nullable private String mFilePath;
         @Nullable private String mFileName;
+
+        /** The 1-based page number to open initially, or 0 if none. */
+        private int mInitialPageNumber;
+
+        /** Whether the initial page navigation has already been applied. */
+        private boolean mHasScrolledToInitialPage;
+
+        /** Listener used to defer the initial page navigation until content is ready. */
+        private PdfView.@Nullable OnFirstContentLoadListener mFirstContentLoadListener;
+
+        void setInitialPageNumber(int pageNumber) {
+            mInitialPageNumber = pageNumber;
+        }
 
         public void setPdfViewForTesting(PdfView pdfView) {
             this.mPdfView = pdfView;
@@ -454,6 +480,13 @@ public class PdfCoordinator
         }
 
         private void maybeRestorePosition() {
+            // An initial #page=N navigation that has not been applied yet takes precedence over
+            // restoring a previously saved scroll position. Drop the pending restore so a later
+            // viewport change does not override the initial navigation once it runs.
+            if (mInitialPageNumber > 0 && !mHasScrolledToInitialPage) {
+                mRestorePositionPending = false;
+                return;
+            }
             if (mRestorePositionPending && mPdfView != null) {
                 mRestorePositionPending = false;
                 final float zoom = mSavedZoom;
@@ -576,6 +609,10 @@ public class PdfCoordinator
                 mSavedPageIndex = state.getInt(KEY_SAVED_PAGE_INDEX, -1);
                 mSavedZoom = state.getFloat(KEY_SAVED_ZOOM, -1f);
                 mRestorePositionPending = state.getBoolean(KEY_RESTORE_POSITION_PENDING, false);
+                mInitialPageNumber = state.getInt(KEY_INITIAL_PAGE_NUMBER, mInitialPageNumber);
+                mHasScrolledToInitialPage =
+                        state.getBoolean(
+                                KEY_HAS_SCROLLED_TO_INITIAL_PAGE, mHasScrolledToInitialPage);
             }
             super.onViewCreated(view, savedInstanceState);
             if (getView() != null && mViewTag != null) {
@@ -592,6 +629,10 @@ public class PdfCoordinator
         public void onDestroyView() {
             super.onDestroyView();
             mIsPdfViewSetup = false;
+            if (mFirstContentLoadListener != null && mPdfView != null) {
+                mPdfView.removeOnFirstContentLoadListener(mFirstContentLoadListener);
+            }
+            mFirstContentLoadListener = null;
             mPdfView = null;
         }
 
@@ -973,6 +1014,8 @@ public class PdfCoordinator
             outState.putBoolean(KEY_RESTORE_POSITION_PENDING, mRestorePositionPending);
             outState.putString(KEY_FILE_PATH, mFilePath);
             outState.putString(KEY_FILE_NAME, mFileName);
+            outState.putInt(KEY_INITIAL_PAGE_NUMBER, mInitialPageNumber);
+            outState.putBoolean(KEY_HAS_SCROLLED_TO_INITIAL_PAGE, mHasScrolledToInitialPage);
         }
 
         @Override
@@ -988,6 +1031,7 @@ public class PdfCoordinator
         @Override
         public void onLoadDocumentSuccess(PdfDocument pdfDocument) {
             super.onLoadDocumentSuccess(pdfDocument);
+            scheduleInitialPageScroll();
             if (!PdfUtils.isInlinePdfV2Enabled()) {
                 maybeHideToolBoxForUnsupportedEdit();
             } else if (!PdfUtils.isInlinePdfV2EditEnabled()) {
@@ -1009,6 +1053,45 @@ public class PdfCoordinator
                 PdfUtils.recordPdfLoadResultDetail(PdfLoadResult.SUCCESS);
             }
             mIsLoadDocumentSuccess = true;
+        }
+
+        private void scheduleInitialPageScroll() {
+            if (mHasScrolledToInitialPage || mInitialPageNumber <= 0) {
+                return;
+            }
+            final PdfView pdfView = mPdfView;
+            if (pdfView == null) {
+                return;
+            }
+            // A navigation may already be scheduled and waiting for first content; avoid
+            // registering a second listener.
+            if (mFirstContentLoadListener != null) {
+                return;
+            }
+            // scrollToPage() is 0-based and clamps out-of-range pages; mInitialPageNumber is
+            // 1-based.
+            final int pageIndex = mInitialPageNumber - 1;
+            // The document is attached to the PdfView only after this callback returns, so
+            // scrolling now would throw "Can't scrollToPage without PdfDocument". Defer the
+            // navigation until the first content has loaded.
+            mFirstContentLoadListener =
+                    () -> {
+                        scrollToPage(pageIndex);
+                        // Mark the navigation as consumed only after it has actually been
+                        // applied, so a config change before this point re-runs it instead of
+                        // silently dropping it.
+                        mHasScrolledToInitialPage = true;
+                        // The listener is invoked while PdfView iterates its listener list, so
+                        // remove it asynchronously to avoid a ConcurrentModificationException.
+                        PdfView.OnFirstContentLoadListener listener = mFirstContentLoadListener;
+                        if (listener != null) {
+                            pdfView.post(() -> pdfView.removeOnFirstContentLoadListener(listener));
+                        }
+                        // Clear the field so the lambda and its captured references (this,
+                        // pdfView) are eligible for garbage collection once it has run.
+                        mFirstContentLoadListener = null;
+                    };
+            pdfView.addOnFirstContentLoadListener(mFirstContentLoadListener);
         }
 
         private void maybeHideToolBoxForUnsupportedEdit() {
@@ -1360,15 +1443,28 @@ public class PdfCoordinator
     @Override
     public void onDownloadComplete(String pdfFilePath, String pdfFileName) {
         mTitle = pdfFileName;
-        // `mIsPdfLoaded` is true when the PDF is reloaded. In this case, a new download is
-        // triggered while the current PDF is still loaded. Since the `PdfCoordinator` is reused,
-        // `mIsPdfLoaded` remains true. We then reload the fragment with the new file path.
-        // This reload flow is only used when fragment reuse is disabled.
+        String oldFilePath = mPdfFilePath;
+        String oldLoadedUrl = mLoadedUrl;
+        Uri oldUri = mUri;
+        if (oldFilePath != null && !oldFilePath.equals(pdfFilePath)) {
+            if (mIsIncognito && oldUri != null) {
+                PdfContentProvider.removeContentUri(oldUri.toString());
+            }
+            PdfUtils.maybeDeleteTransientFile(oldFilePath, oldLoadedUrl);
+        }
+        mLoadedUrl = mUrl;
+        // mIsPdfLoaded is true if a PDF document is already loaded (e.g. on reload or redownload).
+        // When fragment reuse is enabled, reset the load state and load the document into the
+        // existing fragment. Otherwise, reload the fragment with the new file path.
         if (mIsPdfLoaded) {
-            assert !PdfUtils.isReuseFragmentEnabled();
-            mPdfFilePath = pdfFilePath;
-            mUri = PdfUtils.getContentUri(mPdfFilePath, mTitle, mTabId, mIsIncognito);
-            reload();
+            if (PdfUtils.isReuseFragmentEnabled()) {
+                resetLoadState();
+                loadPdfFile(pdfFilePath);
+            } else {
+                mPdfFilePath = pdfFilePath;
+                mUri = PdfUtils.getContentUri(mPdfFilePath, mTitle, mTabId, mIsIncognito);
+                reload();
+            }
         } else {
             loadPdfFile(pdfFilePath);
         }
@@ -1383,6 +1479,10 @@ public class PdfCoordinator
 
     /**
      * Updates the PDF file path and URI after changes are saved.
+     *
+     * <p>Note: {@link #mLoadedUrl} is intentionally retained to preserve the download origin URL so
+     * that transient file cleanup continues to operate correctly if a subsequent redownload/reload
+     * occurs.
      *
      * @param tempFile The temporary file containing the saved PDF content (non-Incognito).
      * @param pfd The ParcelFileDescriptor containing the saved PDF content in memory (Incognito).
@@ -1426,7 +1526,9 @@ public class PdfCoordinator
                                 /* ignore */
                             }
                             if (newUri != null) {
-                                PdfContentProvider.removeContentUri(mPdfFilePath);
+                                if (mUri != null) {
+                                    PdfContentProvider.removeContentUri(mUri.toString());
+                                }
                                 mPdfFilePath = newUri.toString();
                                 mUri = newUri;
                                 if (mChromePdfViewerFragment != null) {
@@ -1488,6 +1590,8 @@ public class PdfCoordinator
                         if (finalUpdatedFilePath != null) {
                             mPdfFilePath = finalUpdatedFilePath;
                             mUri = PdfUtils.getUriFromFilePath(mPdfFilePath);
+                            // mLoadedUrl is intentionally retained to preserve download origin
+                            // for transient file cleanup on reload.
                         }
                         onDone.run();
                     });
@@ -1540,11 +1644,10 @@ public class PdfCoordinator
         mIsFragmentRestored = false;
         mIsFitToPageActive = TriState.NOT_SET;
         mLastFitZoom = -1f;
-        mHasMadeAnyChanges = false;
         if (mChromePdfViewerFragment != null) {
             if (mChromePdfViewerFragment.isAdded()) {
-                mChromePdfViewerFragment.setDocumentUri(null);
                 mChromePdfViewerFragment.setEditModeEnabled(false);
+                mChromePdfViewerFragment.setDocumentUri(null);
             }
             mChromePdfViewerFragment.setPagesPerRow(false);
         }
@@ -1554,6 +1657,27 @@ public class PdfCoordinator
         if (mToolbarCoordinator != null) {
             mToolbarCoordinator.resetTwoPagesPerRow();
             mToolbarCoordinator.setEditModeActive(false);
+        }
+        mHasMadeAnyChanges = false;
+        mIsEditModeActive = false;
+    }
+
+    @Override
+    public void discardChanges() {
+        if (mChromePdfViewerFragment != null && mChromePdfViewerFragment.isAdded()) {
+            mChromePdfViewerFragment.setEditModeEnabled(false);
+        }
+        if (mToolbarCoordinator != null) {
+            mToolbarCoordinator.setEditModeActive(false);
+        }
+
+        // Override any synchronous side-effects from setEditModeEnabled(false).
+        mHasMadeAnyChanges = false;
+        mIsEditModeActive = false;
+
+        for (Observer observer : mObservers) {
+            // Observers will now correctly read hasChanges() as false.
+            observer.onHasChangesChanged();
         }
     }
 
@@ -1615,6 +1739,7 @@ public class PdfCoordinator
         Runnable onConfirmWithMetric =
                 () -> {
                     PdfUtils.recordDiscardAnnotations();
+                    discardChanges();
                     if (onConfirm != null) {
                         onConfirm.run();
                     }
@@ -1798,8 +1923,22 @@ public class PdfCoordinator
         return mUri;
     }
 
-    boolean getIsPdfLoadedForTesting() {
+    @Override
+    public boolean isPdfLoaded() {
         return mIsPdfLoaded;
+    }
+
+    @Override
+    public void onUrlChanged(@NonNull String url) {
+        mUrl = url;
+    }
+
+    String getUrlForTesting() {
+        return mUrl;
+    }
+
+    @Nullable String getLoadedUrlForTesting() {
+        return mLoadedUrl;
     }
 
     static void skipLoadPdfForTesting(boolean skipLoadPdfForTesting) {
@@ -2428,6 +2567,7 @@ public class PdfCoordinator
             onProceed.run();
             return;
         }
+        mNativePageHost.selectTab();
         ModalDialogManager modalDialogManager = null;
         if (mActivity instanceof ModalDialogManagerHolder) {
             modalDialogManager = ((ModalDialogManagerHolder) mActivity).getModalDialogManager();
@@ -2449,6 +2589,8 @@ public class PdfCoordinator
         Runnable onProceedWithMetric =
                 () -> {
                     PdfUtils.recordDiscardAnnotations();
+                    discardChanges();
+                    resetLoadState();
                     if (onProceed != null) {
                         onProceed.run();
                     }

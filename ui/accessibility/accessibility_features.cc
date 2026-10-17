@@ -59,7 +59,7 @@ bool IsAccessibilityTextFormattingEnabled() {
 }
 
 BASE_FEATURE(kAccessibilityHandleOccludingViews,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 bool IsAccessibilityHandleOccludingViewsEnabled() {
   return base::FeatureList::IsEnabled(
       ::features::kAccessibilityHandleOccludingViews);
@@ -244,25 +244,13 @@ bool IsExperimentalAccessibilityDictationContextCheckingEnabled() {
       ::features::kExperimentalAccessibilityDictationContextChecking);
 }
 
-BASE_FEATURE(kAccessibilityMouseKeys, base::FEATURE_ENABLED_BY_DEFAULT);
-bool IsAccessibilityMouseKeysEnabled() {
-  return base::FeatureList::IsEnabled(::features::kAccessibilityMouseKeys);
-}
-
-BASE_FEATURE(kAccessibilityInvertedMouseCursor,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-bool IsAccessibilityInvertedMouseCursorEnabled() {
-  return base::FeatureList::IsEnabled(
-      ::features::kAccessibilityInvertedMouseCursor);
-}
-
 BASE_FEATURE(kAccessibilityShakeToLocate, base::FEATURE_DISABLED_BY_DEFAULT);
 bool IsAccessibilityShakeToLocateEnabled() {
   return base::FeatureList::IsEnabled(::features::kAccessibilityShakeToLocate);
 }
 
 BASE_FEATURE(kAccessibilityManifestV3ChromeVox,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 bool IsAccessibilityManifestV3EnabledForChromeVox() {
   return base::FeatureList::IsEnabled(
       ::features::kAccessibilityManifestV3ChromeVox);
@@ -422,7 +410,7 @@ bool IsReadAnythingTranslateEntryPointEnabled() {
       ::features::kReadAnythingTranslateEntryPoint);
 }
 
-BASE_FEATURE(kReadAnythingLineFocus, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kReadAnythingLineFocus, base::FEATURE_ENABLED_BY_DEFAULT);
 bool IsReadAnythingLineFocusEnabled() {
   return base::FeatureList::IsEnabled(::features::kReadAnythingLineFocus);
 }
@@ -430,18 +418,6 @@ bool IsReadAnythingLineFocusEnabled() {
 BASE_FEATURE(kHatsReadingModeSurvey, base::FEATURE_DISABLED_BY_DEFAULT);
 bool IsHatsReadingModeSurveyEnabled() {
   return base::FeatureList::IsEnabled(::features::kHatsReadingModeSurvey);
-}
-
-bool IsReadAnythingDocsIntegrationEnabled() {
-  return base::FeatureList::IsEnabled(
-      ax::mojom::features::kReadAnythingDocsIntegration);
-}
-
-BASE_FEATURE(kReadAnythingDocsLoadMoreButton,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-bool IsReadAnythingDocsLoadMoreButtonEnabled() {
-  return base::FeatureList::IsEnabled(
-      ::features::kReadAnythingDocsLoadMoreButton);
 }
 
 BASE_FEATURE(kReadAnythingWithReadability, base::FEATURE_ENABLED_BY_DEFAULT);

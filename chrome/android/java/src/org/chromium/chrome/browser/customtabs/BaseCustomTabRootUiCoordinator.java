@@ -443,10 +443,7 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
                 shouldEnableOmnibox
                         ? new CustomTabToolbar.OmniboxParams(
                                 mCustomTabSearchClient,
-                                mIntentDataProvider.get().getClientPackageName(),
-                                connection.getAlternateOmniboxTapHandler(mIntentDataProvider.get()),
-                                connection.getAlternateOmniboxTapHandlerWithVerification(
-                                        mIntentDataProvider.get()))
+                                mIntentDataProvider.get().getClientPackageName())
                         : null;
 
         Supplier<@Nullable AppMenuHandler> appMenuHandler =
@@ -515,8 +512,7 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
                 mActivityTabProvider,
                 mIntentDataProvider.get(),
                 AppCompatResources.getDrawable(mActivity, R.drawable.ic_open_in_new_white_24dp),
-                mOpenInBrowserRunnable,
-                () -> addVoiceSearchAdaptiveButton(trackerSupplier));
+                mOpenInBrowserRunnable);
     }
 
     @Override

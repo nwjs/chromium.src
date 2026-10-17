@@ -29,6 +29,8 @@ class PrefRegistrySyncable;
 
 namespace ntp_tiles {
 
+class CustomLinksManagerImplTest;
+
 // Non-test implementation of the CustomLinksManager interface.
 class CustomLinksManagerImpl : public CustomLinksManager,
                                public history::HistoryServiceObserver {
@@ -38,6 +40,12 @@ class CustomLinksManagerImpl : public CustomLinksManager,
     // Can be nullptr in unittests.
     raw_ptr<history::HistoryService> history_service = nullptr;
     size_t max_links = ntp_tiles::kMaxNumCustomLinks;
+    bool enable_ai_mode_tile = false;
+    // Selects the pref keys the links are persisted to and synced under.
+    // Embedders must set this to match the surface they serve; the default
+    // only exists so that tests and desktop-only callers do not have to spell
+    // it out.
+    CustomLinksScope scope = CustomLinksScope::kDesktop;
   };
 
   // Restores the previous state of |current_links_| from prefs.
@@ -75,7 +83,17 @@ class CustomLinksManagerImpl : public CustomLinksManager,
       user_prefs::PrefRegistrySyncable* user_prefs);
 
  private:
+  friend class CustomLinksManagerImplTest;
+
   void ClearLinks();
+
+  // Inserts the virtual AI Mode link into `links` if enabled and not deleted.
+  void InsertAiModeLinkIfNeeded(std::vector<Link>& links);
+
+  // Returns the index of the virtual AI Mode link, or -1 if unpinned/deleted.
+  int GetAiModeTileIndex() const;
+  // Sets the index of the virtual AI Mode link. Use -1 to indicate deleted.
+  void SetAiModeTileIndex(int index);
 
   // Stores the current list to the profile's preferences. Does not notify
   // |OnPreferenceChanged|.
@@ -98,8 +116,10 @@ class CustomLinksManagerImpl : public CustomLinksManager,
   // and notifies |closure_list_|.
   void OnPreferenceChanged();
 
+  const char* const custom_links_initialized_pref_;
   const raw_ptr<PrefService> prefs_;
   const size_t max_links_;
+  const bool enable_ai_mode_tile_;
   CustomLinksStore store_;
   std::vector<Link> current_links_;
   // The state of the current list of links before the last action was
@@ -115,8 +135,7 @@ class CustomLinksManagerImpl : public CustomLinksManager,
                           history::HistoryServiceObserver>
       history_service_observation_{this};
 
-  // Observer for Chrome sync changes to |prefs::kCustomLinksList| and
-  // |prefs::kCustomLinksInitialized|.
+  // Observer for Chrome sync changes to custom links prefs.
   PrefChangeRegistrar pref_change_registrar_;
   // Used to ignore notifications from |pref_change_registrar_| that we trigger
   // ourselves when updating the preferences.

@@ -3870,7 +3870,9 @@ bool IndexCursorImpl::LoadCurrentRow(Status* s) {
   }
 
   current_key_ = index_data_key.DecodeUserKey();
-  CHECK(current_key_.IsValid(), base::NotFatalUntil::M158);
+  // TODO(crbug.com/567850654): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
+  DCHECK(current_key_.IsValid());
 
   slice = std::string_view(iterator_->Value());
   int64_t index_data_version;
@@ -4185,7 +4187,9 @@ Status BackingStore::MigrateToV5(LevelDBWriteBatch* write_batch) {
 
 Status BackingStore::Transaction::HandleBlobPreTransaction() {
   CHECK(backing_store_, base::NotFatalUntil::M159);
-  CHECK(blobs_to_write_.empty(), base::NotFatalUntil::M159);
+  // TODO(crbug.com/569883940): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
+  DCHECK(blobs_to_write_.empty());
 
   if (backing_store_->in_memory()) {
     return Status::OK();
@@ -4625,7 +4629,7 @@ bool BackingStore::Transaction::WriteNewBlobs(BlobWriteCallback callback) {
                             storage::mojom::WriteBlobToFileResult::kSuccess);
                       },
                       weak_ptr_factory_.GetWeakPtr(),
-                      base::Unretained(&entry),
+                      base::UnsafeDanglingUntriaged(&entry),
                       write_result_callback));
           break;
         }

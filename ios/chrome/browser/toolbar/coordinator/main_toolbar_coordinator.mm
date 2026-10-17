@@ -324,7 +324,6 @@ inline LayoutStateToolbarPassKey PassKey() {
                                          locationBar:_topLocationBarCoordinator
                                  textOnlyLocationBar:
                                      _topTextOnlyLocationBarCoordinator
-                                         .locationBarViewController
                                          topPosition:YES];
     _tabGroupIndicatorCoordinator = [[TabGroupIndicatorCoordinator alloc]
         initWithBaseViewController:self.baseViewController
@@ -363,7 +362,6 @@ inline LayoutStateToolbarPassKey PassKey() {
                                    locationBar:_bottomLocationBarCoordinator
                            textOnlyLocationBar:
                                _bottomTextOnlyLocationBarCoordinator
-                                   .locationBarViewController
                                    topPosition:NO];
     if (!IsFullscreenRefactoringEnabled()) {
       _bottomToolbarFullscreenUIUpdater = std::make_unique<FullscreenUIUpdater>(
@@ -1118,6 +1116,11 @@ inline LayoutStateToolbarPassKey PassKey() {
   [_bottomLocationBarCoordinator updateColorForIPH];
 }
 
+- (void)hideBadgeForType:(LocationBarBadgeType)type {
+  [_topLocationBarCoordinator hideBadgeForType:type];
+  [_bottomLocationBarCoordinator hideBadgeForType:type];
+}
+
 - (void)markDisplayedBadgeAsUnread:(BOOL)read {
   CHECK(IsChromeNextIaEnabled());
   [_topLocationBarCoordinator markDisplayedBadgeAsUnread:read];
@@ -1276,15 +1279,27 @@ inline LayoutStateToolbarPassKey PassKey() {
   CGFloat topMax = [self expandedPrimaryToolbarHeight];
   CGFloat topInset = topMin + (topMax - topMin) * agent->top_progress();
   agent->AddObscuredInset(UIRectEdgeTop, topInset);
-  [_topToolbarViewController updateForFullscreenProgress:agent->top_progress()];
+  if (!agent->is_animating()) {
+    [_topToolbarViewController
+        updateForFullscreenProgress:agent->top_progress()];
+  }
 
   CGFloat bottomMin = [self collapsedSecondaryToolbarHeight];
   CGFloat bottomMax = [self expandedSecondaryToolbarHeight];
   CGFloat bottomInset =
       bottomMin + (bottomMax - bottomMin) * agent->bottom_progress();
   agent->AddObscuredInset(UIRectEdgeBottom, bottomInset);
+  if (!agent->is_animating()) {
+    [_bottomToolbarViewController
+        updateForFullscreenProgress:agent->bottom_progress()];
+  }
+}
+
+- (void)fullscreenDidUpdateInterpolatedProgress:(FullscreenBrowserAgent*)agent {
+  [_topToolbarViewController
+      updateForFullscreenProgress:agent->interpolated_progress()];
   [_bottomToolbarViewController
-      updateForFullscreenProgress:agent->bottom_progress()];
+      updateForFullscreenProgress:agent->interpolated_progress()];
 }
 
 #pragma mark - BrowserLayoutStateObserver
@@ -1394,7 +1409,7 @@ inline LayoutStateToolbarPassKey PassKey() {
     createToolbarViewControllerForMediator:(ToolbarMediator*)mediator
                                locationBar:(LocationBarCoordinator*)locationBar
                        textOnlyLocationBar:
-                           (UIViewController*)textOnlyLocationBar
+                           (LocationBarCoordinator*)textOnlyLocationBar
                                topPosition:(BOOL)topPosition {
   CHECK(IsChromeNextIaEnabled());
 
@@ -1429,7 +1444,11 @@ inline LayoutStateToolbarPassKey PassKey() {
       setLocationBarViewController:locationBar.locationBarViewController
           andSteadyViewLayoutGuide:locationBar.steadyViewLayoutGuide];
   [toolbarViewController
-      setTextOnlyLocationBarViewController:textOnlyLocationBar];
+      setTextOnlyLocationBarViewController:textOnlyLocationBar
+                                               .locationBarViewController];
+  // The toolbar measures the text-only location bar to size the collapsed
+  // glass pill, so it must be told when that content changes.
+  textOnlyLocationBar.contentSizeDelegate = toolbarViewController;
   toolbarViewController.bannerPromoDelegate = mediator;
 
   if (incognito) {
@@ -1508,6 +1527,7 @@ inline LayoutStateToolbarPassKey PassKey() {
   toolbarMediator.sceneHandler =
       HandlerForProtocol(browser->GetCommandDispatcher(), SceneCommands);
   toolbarMediator.delegate = self;
+  toolbarMediator.browserLayoutState = _browserLayoutState;
 
   return toolbarMediator;
 }
@@ -1549,7 +1569,11 @@ inline LayoutStateToolbarPassKey PassKey() {
 
   if (IsChromeNextIaEnabled()) {
     [_topLocationBarCoordinator setLocationBarActive:!isToolbarAtBottom];
+    [_topTextOnlyLocationBarCoordinator
+        setLocationBarActive:!isToolbarAtBottom];
     [_bottomLocationBarCoordinator setLocationBarActive:isToolbarAtBottom];
+    [_bottomTextOnlyLocationBarCoordinator
+        setLocationBarActive:isToolbarAtBottom];
   } else {
     if (isToolbarAtBottom) {
       [self.secondaryToolbarCoordinator
@@ -1568,13 +1592,16 @@ inline LayoutStateToolbarPassKey PassKey() {
 }
 
 // Helper for public methods returning the toolbar height. Returns whether the
-// toolbar is hidden. This check requires the active WebState to be the NTP to
-// ensure that during NTP-to-webpage transitions, the full toolbar height is
-// returned immediately when the navigation starts. Otherwise, checking only
-// `toolbarView.isHidden` would return a height of 0.0 to the caller during the
-// loading phase, causing the webpage to layout with incorrect content insets.
+// toolbar is hidden. The toolbar is only hidden on the NTP when idle. During
+// transitions or navigations, the toolbar view may still have `isHidden == YES`
+// before the layout pass finishes, but the full toolbar height is returned
+// immediately so the webpage lays out with correct content insets.
 - (BOOL)isToolbarHidden:(UIView*)toolbarView {
   CHECK(IsChromeNextIaEnabled());
+  if (!toolbarView) {
+    return YES;
+  }
+
   if (!toolbarView.isHidden) {
     return NO;
   }
@@ -1586,21 +1613,12 @@ inline LayoutStateToolbarPassKey PassKey() {
     return YES;
   }
 
-  // If the active page is the NTP, the toolbar is legitimately hidden.
-  if (IsVisibleURLNewTabPage(webState)) {
+  // The toolbar is only legitimately hidden on the NTP when not loading.
+  if (IsVisibleURLNewTabPage(webState) && !webState->IsLoading()) {
     return YES;
   }
 
-  // If the toolbar is hidden, but in the middle of transitioning from the NTP
-  // to a non-NTP page, treat it as NOT hidden so the full height is returned
-  // immediately.
-  BOOL transitioningFromNTP =
-      webState->IsLoading() && IsUrlNtp(webState->GetLastCommittedURL());
-  if (transitioningFromNTP) {
-    return NO;
-  }
-
-  return YES;
+  return NO;
 }
 
 @end

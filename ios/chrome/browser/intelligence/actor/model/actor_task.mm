@@ -7,6 +7,7 @@
 #import <algorithm>
 
 #import "base/functional/bind.h"
+#import "base/functional/callback_helpers.h"
 #import "base/ios/crb_protocol_observers.h"
 #import "base/strings/string_number_conversions.h"
 #import "base/strings/sys_string_conversions.h"
@@ -14,23 +15,27 @@
 #import "base/timer/timer.h"
 #import "components/actor/core/aggregated_journal.h"
 #import "components/sessions/core/session_id.h"
-#import "ios/chrome/app/background_mode_buildflags.h"
+#import "ios/chrome/app/background_task/background_continued_processing_task_context.h"
 #import "ios/chrome/browser/intelligence/actor/model/actor_browser_agent.h"
 #import "ios/chrome/browser/intelligence/actor/model/actor_engine.h"
 #import "ios/chrome/browser/intelligence/actor/model/actor_tab_helper.h"
+#import "ios/chrome/browser/intelligence/actor/model/actor_web_state_policy_decider.h"
+#import "ios/chrome/browser/intelligence/actor/public/actor_control_state.h"
+#import "ios/chrome/browser/intelligence/actor/public/actor_task_intervention_delegate.h"
 #import "ios/chrome/browser/intelligence/actor/public/actor_task_updates_observer.h"
+#import "ios/chrome/browser/intelligence/actor/public/actor_types.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/actor_tool_factory.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/actor_tool_request.h"
 #import "ios/chrome/browser/intelligence/actor/tools/utils/logging_util.h"
+#import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/tab_insertion/model/tab_insertion_browser_agent.h"
+#import "ios/web/public/js_messaging/content_world.h"
+#import "ios/web/public/js_messaging/web_frame.h"
+#import "ios/web/public/js_messaging/web_frames_manager.h"
 #import "ios/web/public/web_state.h"
-
-#if BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
-#import "ios/chrome/app/background_task/background_continued_processing_task_context.h"  // nogncheck
-#endif
 
 namespace actor {
 
@@ -38,6 +43,18 @@ namespace {
 
 // Safety timeout duration to wait for pages to finish loading.
 constexpr base::TimeDelta kPageLoadTimeout = base::Seconds(7);
+
+// Default button text for confirmation intervention prompts.
+// TODO(crbug.com/556739755): Localize default button text string.
+NSString* const kDefaultConfirmationButtonText = @"Continue";
+
+// Interval between JavaScript heartbeat pings. Found to be the sweetspot for
+// keeping renderer processes alive & accepting IPC messages (otherwise they
+// drop their keep-alive assertions after about 1 second of inactivity.)
+constexpr base::TimeDelta kHeartbeatInterval = base::Milliseconds(400);
+
+// Minimal zero side effects script executed to generate IPC activity.
+constexpr char16_t kHeartbeatScript[] = u";";
 
 // Returns the string representation of the ActorTaskState.
 std::string ActorTaskStateToString(ActorTaskState state) {
@@ -63,17 +80,18 @@ std::string ActorTaskStateToString(ActorTaskState state) {
   }
 }
 
-// Returns true if the task state corresponds to an actuating state.
-bool IsActuatingState(ActorTaskState state) {
-  switch (state) {
+// Returns the control state corresponding to `task_state`.
+ActorControlState ControlStateForTaskState(ActorTaskState task_state) {
+  switch (task_state) {
     case ActorTaskState::kActing:
     case ActorTaskState::kReflecting:
-      return true;
+    case ActorTaskState::kWaitingOnUser:
+      return ActorControlState::kActorControlled;
     case ActorTaskState::kInit:
-      return false;
+      return ActorControlState::kInactive;
     // TODO(crbug.com/496164697): Add all states and remove the default case.
     default:
-      return false;
+      return ActorControlState::kInactive;
   }
 }
 
@@ -104,13 +122,12 @@ ActorTask::ActorTask(ActorTaskId task_id,
 }
 
 ActorTask::~ActorTask() {
-  SetActuatingOnWebStates(false);
+  SetControlStateOnWebStates(ActorControlState::kInactive);
   SetKeepRenderProcessAliveOnControlledWebStates(/*keep_alive=*/false);
   load_timeout_timer_.Stop();
 
-#if BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
+  StopHeartbeatTimer();
   FinalizeBackgroundTask(/*success=*/false);
-#endif  // BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
 
   observers_ = nil;
 }
@@ -159,11 +176,12 @@ void ActorTask::Act(std::vector<std::unique_ptr<ActorToolRequest>> actions,
                     ActCallback callback) {
   // TODO(crbug.com/503054406): Check for invalid states.
   SetState(ActorTaskState::kActing);
-  last_task_update_ = task_update;
+  if (!task_update.empty()) {
+    last_task_update_ = task_update;
+  }
 
-#if BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
   UpdateBackgroundTaskSubtitle(task_update);
-#endif  // BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
+  StartHeartbeatTimer();
 
   engine_->Act(
       std::move(actions),
@@ -186,27 +204,49 @@ void ActorTask::AddControlledWebState(web::WebState* web_state) {
     if (!IsTerminalState(state_)) {
       web_state->SetKeepRenderProcessAlive(/*keep_alive=*/true);
     }
-    if (ActorTabHelper* tab_helper = ActorTabHelper::FromWebState(web_state)) {
-      const bool is_actuating = IsActuatingState(state_);
-      tab_helper->SetActuating(is_actuating);
+
+    // Attach a policy decider to intercept and gate implicit navigations
+    // (e.g., link clicks, redirects) against origin policies.
+    if (engine_) {
+      policy_deciders_[web_state->GetUniqueIdentifier()] =
+          std::make_unique<ActorWebStatePolicyDecider>(
+              web_state,
+              tool_factory_->profile_context_resolver()
+                  .GetOriginGatingService(),
+              engine_->GetOriginGatingCheckerId(), task_id_,
+              base::BindRepeating(&ActorTask::OnNavigationBlocked,
+                                  weak_ptr_factory_.GetWeakPtr()));
     }
+
+    if (ActorTabHelper* tab_helper = ActorTabHelper::FromWebState(web_state)) {
+      tab_helper->SetControlState(ControlStateForTaskState(state_));
+    }
+
+    StartHeartbeatTimer();
+
     [observers_ actorTaskWithID:task_id_
                  didAddWebState:web_state->GetUniqueIdentifier()];
   }
 }
 
 void ActorTask::Stop(ActorTaskStoppedReason stop_reason) {
-  [observers_ actorTaskDidStopWithID:task_id_ finalState:state_];
-  SetActuatingOnWebStates(false);
+  if (IsTerminalState(state_)) {
+    return;
+  }
+  // TODO(crbug.com/532978481): Map `stop_reason` to the corresponding terminal
+  // `ActorTaskState` (`kFinished`, `kFailed`, `kCancelled`) instead of
+  // hardcoding `kCancelled`.
+  // `SetState` also transitions the web states to `kInactive` control state.
+  SetState(ActorTaskState::kCancelled);
   SetKeepRenderProcessAliveOnControlledWebStates(/*keep_alive=*/false);
 
-#if BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
+  StopHeartbeatTimer();
   const bool success = stop_reason == ActorTaskStoppedReason::kTaskComplete ||
                        stop_reason == ActorTaskStoppedReason::kStoppedByUser;
   FinalizeBackgroundTask(success);
-#endif  // BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
 
   // TODO(crbug.com/496164697): Implement and test.
+  [observers_ actorTaskDidStopWithID:task_id_ finalState:state_];
 }
 
 void ActorTask::Pause(bool from_actor) {
@@ -214,27 +254,81 @@ void ActorTask::Pause(bool from_actor) {
 }
 
 void ActorTask::Resume() {
+  StartHeartbeatTimer();
+
   // TODO(crbug.com/496164697): Implement and test.
 }
 
-void ActorTask::Interrupt(bool retain_user_control,
-                          ActorTaskInterruptReason interrupt_reason) {
-  // TODO(crbug.com/548051839): Implement and test.
-  if (state_ != ActorTaskState::kReflecting &&
+void ActorTask::SetInterventionDelegate(
+    id<ActorTaskInterventionDelegate> delegate) {
+  intervention_delegate_ = delegate;
+}
+
+void ActorTask::Interrupt(ActorTaskInterruptReason interrupt_reason,
+                          std::string_view message) {
+  if (state_ != ActorTaskState::kInit &&
+      state_ != ActorTaskState::kReflecting &&
       state_ != ActorTaskState::kActing) {
+    // TODO(crbug.com/548051839): Enforce valid state transitions with a CHECK
+    // or log a signal when an unexpected interrupt occurs.
     return;
   }
-  Pause(/*from_actor=*/true);
+
+  engine_->PauseOngoingActions();
   SetState(ActorTaskState::kWaitingOnUser);
+
+  switch (interrupt_reason) {
+    case ActorTaskInterruptReason::kWaitingUserConfirmation:
+      RequestInterruptConfirmation(message);
+      break;
+    case ActorTaskInterruptReason::kWaitingUserClarification:
+    case ActorTaskInterruptReason::kWaitingUserTakeover:
+    case ActorTaskInterruptReason::kWaitingIrrelevantUserInput:
+      // TODO(crbug.com/548051839): Support additional interrupt reasons.
+      // TODO(crbug.com/532978481): Route task-initiated stops through
+      // `ActorService::StopTask`.
+      Stop(ActorTaskStoppedReason::kBrowserFailure);
+      break;
+    case ActorTaskInterruptReason::kUnknownReason:
+      // Internal or tool-level interrupts do not request user confirmation.
+      break;
+  }
+}
+
+void ActorTask::RequestInterruptConfirmation(std::string_view message) {
+  if (!intervention_delegate_ || message.empty()) {
+    // TODO(crbug.com/532978481): Route task-initiated stops through
+    // `ActorService::StopTask`.
+    Stop(ActorTaskStoppedReason::kBrowserFailure);
+    return;
+  }
+  void (^completion)(void) = base::CallbackToBlock(
+      base::BindOnce(&ActorTask::OnInterruptConfirmationResolved,
+                     weak_ptr_factory_.GetWeakPtr()));
+
+  [intervention_delegate_ actorTask:task_id_
+      requestUserInterventionWithTitle:base::SysUTF8ToNSString(message)
+                              subtitle:nil
+                            buttonText:kDefaultConfirmationButtonText
+                     completionHandler:completion];
+}
+
+void ActorTask::OnInterruptConfirmationResolved() {
+  if (state_ != ActorTaskState::kWaitingOnUser) {
+    // TODO(crbug.com/548051839): Enforce valid state transitions once task
+    // state transitions and async intervention cancellation are fully audited.
+    return;
+  }
+  Uninterrupt(ActorTaskState::kReflecting);
+  [observers_ actorTaskDidResolveConfirmationInterruptWithID:task_id_];
 }
 
 void ActorTask::Uninterrupt(ActorTaskState resumed_state) {
-  // TODO(crbug.com/548051839): Implement and test.
   if (state_ != ActorTaskState::kWaitingOnUser) {
     return;
   }
-  Resume();
   SetState(resumed_state);
+  engine_->DidUninterruptTask();
 }
 
 bool ActorTask::IsControllingWebState(web::WebState* web_state) const {
@@ -320,12 +414,14 @@ bool ActorTask::allow_incognito_web_states() const {
   return allow_incognito_web_states_;
 }
 
-#if BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
 void ActorTask::SetBackgroundTaskContext(
     BackgroundContinuedProcessingTaskContext* background_task_context) {
+  if (!IsGeminiActorBackgroundingEnabled()) {
+    return;
+  }
   background_task_context_ = background_task_context;
+  UpdateBackgroundTaskSubtitle(last_task_update_);
 }
-#endif  // BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
 
 #pragma mark - web::WebStateObserver
 
@@ -334,17 +430,21 @@ void ActorTask::DidStopLoading(web::WebState* web_state) {
 }
 
 void ActorTask::WebStateDestroyed(web::WebState* web_state) {
+  policy_deciders_.erase(web_state->GetUniqueIdentifier());
   OnWebStateFinishedLoading(web_state);
-  std::erase_if(
-      controlled_web_states_,
-      [web_state](const base::WeakPtr<web::WebState>& weak_web_state) {
-        return !weak_web_state || weak_web_state.get() == web_state;
-      });
+  if (ActorTabHelper* tab_helper = ActorTabHelper::FromWebState(web_state)) {
+    tab_helper->SetControlState(ActorControlState::kInactive);
+  }
+  PruneDestroyedWebStates(web_state);
+
+  if (controlled_web_states_.empty()) {
+    StopHeartbeatTimer();
+  }
 }
 
 #pragma mark - Private
 
-void ActorTask::SetActuatingOnWebStates(bool actuating) {
+void ActorTask::SetControlStateOnWebStates(ActorControlState control_state) {
   for (const base::WeakPtr<web::WebState>& web_state_weak :
        controlled_web_states_) {
     web::WebState* web_state = web_state_weak.get();
@@ -355,7 +455,7 @@ void ActorTask::SetActuatingOnWebStates(bool actuating) {
     if (!tab_helper) {
       continue;
     }
-    tab_helper->SetActuating(actuating);
+    tab_helper->SetControlState(control_state);
   }
 }
 
@@ -376,10 +476,14 @@ void ActorTask::SetState(ActorTaskState new_state) {
   ActorTaskState old_state = state_;
   state_ = new_state;
 
-  bool old_is_actuating = IsActuatingState(old_state);
-  bool new_is_actuating = IsActuatingState(new_state);
-  if (old_is_actuating != new_is_actuating) {
-    SetActuatingOnWebStates(new_is_actuating);
+  ActorControlState old_control_state = ControlStateForTaskState(old_state);
+  ActorControlState new_control_state = ControlStateForTaskState(new_state);
+  if (old_control_state != new_control_state) {
+    SetControlStateOnWebStates(new_control_state);
+  }
+
+  if (IsTerminalState(new_state)) {
+    StopHeartbeatTimer();
   }
 
   [observers_ actorTaskWithID:task_id_
@@ -422,6 +526,9 @@ void ActorTask::DeferActCompletion(ActCallback callback,
 }
 
 void ActorTask::OnWebStateFinishedLoading(web::WebState* web_state) {
+  if (!scoped_web_state_observations_.IsObservingSource(web_state)) {
+    return;
+  }
   scoped_web_state_observations_.RemoveObservation(web_state);
 
   if (scoped_web_state_observations_.IsObservingAnySource()) {
@@ -448,9 +555,7 @@ void ActorTask::OnPageLoadedTimeout() {
 
 void ActorTask::OnWillExecuteTool(ToolType tool_type,
                                   web::WebStateID web_state_id) {
-#if BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
   UpdateBackgroundTaskProgress();
-#endif  // BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
 
   [observers_ actorTaskWithID:task_id_
               willExecuteTool:tool_type
@@ -473,11 +578,30 @@ Browser* ActorTask::GetBrowserForWindowId(int32_t window_id) const {
   return nullptr;
 }
 
-#if BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
-void ActorTask::UpdateBackgroundTaskSubtitle(const std::string& task_update) {
-  if (background_task_context_) {
-    background_task_context_.subtitle = base::SysUTF8ToNSString(task_update);
+void ActorTask::PruneDestroyedWebStates(web::WebState* destroying_web_state) {
+  std::erase_if(controlled_web_states_,
+                [destroying_web_state](
+                    const base::WeakPtr<web::WebState>& weak_web_state) {
+                  return !weak_web_state ||
+                         weak_web_state.get() == destroying_web_state;
+                });
+}
+
+void ActorTask::OnNavigationBlocked(mojom::ActionResultCode code) {
+  if (engine_) {
+    engine_->FailCurrentTool(code);
   }
+}
+
+void ActorTask::UpdateBackgroundTaskSubtitle(const std::string& task_update) {
+  if (!background_task_context_ || task_update.empty()) {
+    return;
+  }
+  NSString* subtitle = base::SysUTF8ToNSString(task_update);
+  if ([background_task_context_.subtitle isEqualToString:subtitle]) {
+    return;
+  }
+  background_task_context_.subtitle = subtitle;
 }
 
 void ActorTask::UpdateBackgroundTaskProgress() {
@@ -496,6 +620,76 @@ void ActorTask::FinalizeBackgroundTask(bool success) {
   }
   background_task_context_ = nil;
 }
-#endif  // BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
+
+void ActorTask::StartHeartbeatTimer() {
+  if (!IsGeminiActorBackgroundingEnabled()) {
+    return;
+  }
+
+  if (IsTerminalState(state_)) {
+    return;
+  }
+
+  if (heartbeat_timer_.IsRunning()) {
+    return;
+  }
+
+  PruneDestroyedWebStates();
+  if (controlled_web_states_.empty()) {
+    return;
+  }
+
+  heartbeat_timer_.Start(FROM_HERE, kHeartbeatInterval,
+                         base::BindRepeating(&ActorTask::SendHeartbeatPing,
+                                             weak_ptr_factory_.GetWeakPtr()));
+}
+
+void ActorTask::StopHeartbeatTimer() {
+  heartbeat_timer_.Stop();
+}
+
+void ActorTask::SendHeartbeatPing() {
+  PruneDestroyedWebStates();
+  if (controlled_web_states_.empty()) {
+    StopHeartbeatTimer();
+    return;
+  }
+
+  for (const base::WeakPtr<web::WebState>& web_state_weak :
+       controlled_web_states_) {
+    web::WebState* web_state = web_state_weak.get();
+    if (!web_state) {
+      continue;
+    }
+
+    web::WebFramesManager* frames_manager =
+        web_state->GetWebFramesManager(web::ContentWorld::kIsolatedWorld);
+    if (!frames_manager) {
+      continue;
+    }
+
+    web::WebFrame* main_frame = frames_manager->GetMainWebFrame();
+    if (!main_frame) {
+      continue;
+    }
+
+    main_frame->ExecuteJavaScript(
+        kHeartbeatScript, base::BindOnce(&ActorTask::OnHeartbeatPingResponse,
+                                         weak_ptr_factory_.GetWeakPtr(),
+                                         web_state->GetUniqueIdentifier()));
+  }
+}
+
+void ActorTask::OnHeartbeatPingResponse(web::WebStateID web_state_id,
+                                        const base::Value* /*result*/,
+                                        NSError* error) {
+  if (error) {
+    LogJournalEvent(
+        *journal_, GURL(), task_id_, "ActorTask::HeartbeatPingFailed",
+        {{"web_state_id", base::NumberToString(web_state_id.identifier())},
+         {"error_domain", base::SysNSStringToUTF8(error.domain)},
+         {"error_code", base::NumberToString(error.code)}});
+  }
+}
 
 }  // namespace actor

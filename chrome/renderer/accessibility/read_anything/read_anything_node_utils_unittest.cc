@@ -4,18 +4,16 @@
 
 #include "chrome/renderer/accessibility/read_anything/read_anything_node_utils.h"
 
-#include <cinttypes>
 #include <string>
 
 #include "base/test/scoped_feature_list.h"
-#include "read_anything_node_utils.h"
-#include "read_anything_test_utils.h"
+#include "chrome/renderer/accessibility/read_anything/read_anything_test_utils.h"
+#include "services/strings/grit/services_strings.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/accessibility/ax_node.h"
 #include "ui/accessibility/ax_node_data.h"
-#include "ui/accessibility/ax_node_position.h"
 #include "ui/accessibility/ax_tree.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -352,6 +350,77 @@ TEST_F(ReadAnythingNodeUtilsTest, IsIgnored_ControlElementsIgnored) {
   // Select field nodes are ignored
   node.SetData(std::move(select_data));
   EXPECT_TRUE(a11y::IsIgnored(&node, false));
+}
+
+TEST_F(ReadAnythingNodeUtilsTest, IsIgnored_SectionHeaderAndFooterIgnored) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kPdfAccessibilityHeuristicEnhancements);
+
+  static constexpr ui::AXNodeID kRootId = 1;
+  static constexpr ui::AXNodeID kHeaderId = 2;
+  static constexpr ui::AXNodeID kHeaderTextId = 3;
+  static constexpr ui::AXNodeID kFooterId = 4;
+  static constexpr ui::AXNodeID kFooterTextId = 5;
+  static constexpr ui::AXNodeID kParagraphId = 6;
+  static constexpr ui::AXNodeID kParagraphTextId = 7;
+
+  ui::AXNodeData root_data;
+  root_data.id = kRootId;
+  root_data.role = ax::mojom::Role::kRootWebArea;
+  root_data.child_ids = {kHeaderId, kFooterId, kParagraphId};
+
+  ui::AXNodeData header_data;
+  header_data.id = kHeaderId;
+  header_data.role = ax::mojom::Role::kSectionHeader;
+  header_data.child_ids = {kHeaderTextId};
+
+  ui::AXNodeData header_text = test::TextNode(kHeaderTextId, u"Header text");
+
+  ui::AXNodeData footer_data;
+  footer_data.id = kFooterId;
+  footer_data.role = ax::mojom::Role::kSectionFooter;
+  footer_data.child_ids = {kFooterTextId};
+
+  ui::AXNodeData footer_text = test::TextNode(kFooterTextId, u"Footer text");
+
+  ui::AXNodeData paragraph_data;
+  paragraph_data.id = kParagraphId;
+  paragraph_data.role = ax::mojom::Role::kParagraph;
+  paragraph_data.child_ids = {kParagraphTextId};
+
+  ui::AXNodeData paragraph_text =
+      test::TextNode(kParagraphTextId, u"Paragraph text");
+
+  ui::AXTree tree;
+  ui::AXTreeUpdate update;
+  update.root_id = kRootId;
+  update.nodes = {root_data,   header_data,    header_text,   footer_data,
+                  footer_text, paragraph_data, paragraph_text};
+  tree.Unserialize(update);
+
+  // Section header and its children are ignored for PDFs when heuristic
+  // enhancements are enabled.
+  EXPECT_TRUE(a11y::IsIgnored(tree.GetFromId(kHeaderId), /*is_pdf=*/true));
+  EXPECT_TRUE(a11y::IsIgnored(tree.GetFromId(kHeaderTextId), /*is_pdf=*/true));
+  EXPECT_TRUE(a11y::IsIgnored(tree.GetFromId(kFooterId), /*is_pdf=*/true));
+  EXPECT_TRUE(a11y::IsIgnored(tree.GetFromId(kFooterTextId), /*is_pdf=*/true));
+
+  // Non-PDF documents do not ignore these roles via the PDF heuristic check.
+  EXPECT_FALSE(a11y::IsIgnored(tree.GetFromId(kHeaderId), /*is_pdf=*/false));
+  EXPECT_FALSE(
+      a11y::IsIgnored(tree.GetFromId(kHeaderTextId), /*is_pdf=*/false));
+  EXPECT_FALSE(a11y::IsIgnored(tree.GetFromId(kFooterId), /*is_pdf=*/false));
+  EXPECT_FALSE(
+      a11y::IsIgnored(tree.GetFromId(kFooterTextId), /*is_pdf=*/false));
+
+  // Regular paragraph and its text are not ignored.
+  EXPECT_FALSE(a11y::IsIgnored(tree.GetFromId(kParagraphId), /*is_pdf=*/false));
+  EXPECT_FALSE(a11y::IsIgnored(tree.GetFromId(kParagraphId), /*is_pdf=*/true));
+  EXPECT_FALSE(
+      a11y::IsIgnored(tree.GetFromId(kParagraphTextId), /*is_pdf=*/false));
+  EXPECT_FALSE(
+      a11y::IsIgnored(tree.GetFromId(kParagraphTextId), /*is_pdf=*/true));
 }
 
 TEST_F(ReadAnythingNodeUtilsTest, IsSuperscript) {

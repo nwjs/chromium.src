@@ -12,6 +12,14 @@ namespace prefs {
 inline constexpr char kAddressBarSettingsNewBadgeShownCount[] =
     "ios.address_bar_settings_new_badge_shown_count";
 
+// Integer storing the `AppBarAssistantButtonPreferredState` chosen by the user
+// in the AppBar assistant button menu. The assistant button only shows this
+// state when its entry point is available. `kDefault`, or any value outside of
+// the enum range, means that the user didn't make any choice. Per-profile and
+// not synced.
+inline constexpr char kAppBarAssistantButtonPreferredState[] =
+    "ios.app_bar.assistant_button_preferred_state";
+
 // The application locale.
 inline constexpr char kApplicationLocale[] = "intl.app_locale";
 
@@ -456,6 +464,12 @@ inline constexpr char kIosNtpThemeMigrationComplete[] =
 // background, updated by both local changes and remote sync updates.
 inline constexpr char kIosNtpThemeSpecifics[] = "ios.ntp.theme_specifics";
 
+// Dictionary preference storing the downloaded ephemeral theme metadata
+// (animation URLs, local file paths, color mapping dictionaries, Google logo
+// URLs, and seed color).
+inline constexpr char kIosNtpEphemeralThemeData[] =
+    "ios.ntp.ephemeral_theme_data";
+
 // Preference that hold a boolean indicating if the user has already dismissed
 // the sign-in promo in the reading list.
 inline constexpr char kIosReadingListPromoAlreadySeen[] =
@@ -508,10 +522,15 @@ inline constexpr char kLevelUpUIEnabled[] = "level_up.ui_enabled";
 // Whether the user opted in to the Level Up feature.
 inline constexpr char kLevelUpOptIn[] = "level_up.opt_in";
 
+// Whether the user wants to be notified when new Level Up tasks arrive.
+inline constexpr char kLevelUpNewTasksNotificationEnabled[] =
+    "level_up.new_tasks_notification_enabled";
+
 // Stats tracked in the Level Up feature.
 inline constexpr char kLevelUpTabsDeclutteredStat[] =
     "level_up.tabs_decluttered_stat";
-inline constexpr char kLevelUpTypingSavedStat[] = "level_up.typing_saved_stat";
+inline constexpr char kLevelUpPasswordsAutofilledStat[] =
+    "level_up.passwords_autofilled_stat";
 inline constexpr char kLevelUpPasswordsVerifiedStat[] =
     "level_up.passwords_verified_stat";
 inline constexpr char kLevelUpPhotoSearchesPerformedStat[] =
@@ -628,11 +647,6 @@ inline constexpr char kShowMemoryDebuggingTools[] =
 inline constexpr char kSigninShouldPromptForSigninAgain[] =
     "ios.signin.should_prompt_for_signin_again";
 
-// Per-account pref. True if the user has accepted the management dialog during
-// signin.
-inline constexpr char kSigninHasAcceptedManagementDialog[] =
-    "ios.signin.has_accepted_management_dialog";
-
 // Number of times the user dismissed the web sign-in dialog. This value is
 // reset to zero when the user signs in (using the web sign-in dialog).
 inline constexpr char kSigninWebSignDismissalCount[] =
@@ -747,22 +761,9 @@ inline constexpr char kUserAgentWasChanged[] = "UserAgentWasChanged";
 inline constexpr char kLastApplicationStorageMetricsLogTime[] =
     "LastApplicationStorageMetricsLogTime";
 
-// Prefs indicating whether Home surface modules are enabled.
-inline constexpr char kHomeCustomizationMostVisitedEnabled[] =
-    "ios.home_customization.most_visited.enabled";
-inline constexpr char kHomeCustomizationMagicStackEnabled[] =
-    "ios.home_customization.magic_stack.enabled";
-
 // Prefs indicating whether Magic Stack cards are enabled.
 inline constexpr char kHomeCustomizationMagicStackSafetyCheckEnabled[] =
     "ios.home_customization.magic_stack.safety_check.enabled";
-inline constexpr char kHomeCustomizationMagicStackTabResumptionEnabled[] =
-    "ios.home_customization.magic_stack.tab_resumption.enabled";
-inline constexpr char kHomeCustomizationMagicStackTipsEnabled[] =
-    "ios.home_customization.magic_stack.tips.enabled";
-inline constexpr char
-    kHomeCustomizationMagicStackShopCardPriceTrackingEnabled[] =
-        "ios.home_customization.magic_stack.shop_card_price_tracking.enabled";
 inline constexpr char kHomeCustomizationMagicStackShopCardReviewsEnabled[] =
     "ios.home_customization.magic_stack.shop_card_price_reviews.enabled";
 
@@ -839,6 +840,16 @@ inline constexpr char kIOSGeminiLiveIntroPlayed[] =
 
 // A boolean specifying whether the Gemini camera permission setting is enabled.
 inline constexpr char kIOSGeminiCameraSetting[] = "ios.gemini.camera.setting";
+
+// A boolean specifying whether the Gemini suggestions setting is enabled.
+inline constexpr char kIOSGeminiSuggestionsSetting[] =
+    "ios.gemini.suggestions.setting";
+
+// A dictionary storing per-vertical UI state (consecutive Message ignores,
+// whether a Message was accepted, and whether the vertical permanently switched
+// from Message UI to Omnibox Chip UI) for contextual cueing.
+inline constexpr char kIOSContextualCueingVerticalUiState[] =
+    "ios.contextual_cueing.vertical_ui_state";
 
 // A boolean specifying whether the Gemini Live closed captioning setting is
 // enabled.

@@ -35,16 +35,31 @@ TEST(AutocompleteMatchTypeTest, AccessibilityLabelHistory) {
 
   // Test plain url.
   AutocompleteMatch match;
-  match.type = AutocompleteMatchType::URL_WHAT_YOU_TYPED;
+  match.type = omnibox::AutocompleteMatchType::kUrlWhatYouTyped;
   match.description = kTestTitle;
-  EXPECT_EQ(kTestUrl + u", 2 of 9", AutocompleteMatchType::ToAccessibilityLabel(
-                                        match, u"", kTestUrl, 1, 9));
+  EXPECT_EQ(kTestUrl + u", 2 of 9",
+            omnibox::AutocompleteMatchToAccessibilityLabel(match, u"", kTestUrl,
+                                                           1, 9));
 
   // Decorated with title and match type.
-  match.type = AutocompleteMatchType::HISTORY_URL;
-  EXPECT_EQ(
-      kTestTitle + u" " + kTestUrl + u" location from history, 2 of 3",
-      AutocompleteMatchType::ToAccessibilityLabel(match, u"", kTestUrl, 1, 3));
+  match.type = omnibox::AutocompleteMatchType::kHistoryUrl;
+  EXPECT_EQ(kTestTitle + u" " + kTestUrl + u" location from history, 2 of 3",
+            omnibox::AutocompleteMatchToAccessibilityLabel(match, u"", kTestUrl,
+                                                           1, 3));
+}
+
+TEST(AutocompleteMatchTypeTest, AccessibilityLabelHistoryEmbeddings) {
+  const std::u16string& kTestUrl = u"https://www.chromium.org";
+  const std::u16string& kTestTitle = u"The Chromium Projects";
+
+  AutocompleteMatch match;
+  match.type = omnibox::AutocompleteMatchType::kHistoryEmbeddings;
+  match.description = kTestTitle;
+
+  EXPECT_EQ(kTestTitle + u" " + kTestUrl +
+                u", AI best match, location from history, 2 of 3",
+            omnibox::AutocompleteMatchToAccessibilityLabel(match, u"", kTestUrl,
+                                                           1, 3));
 }
 
 TEST(AutocompleteMatchTypeTest, AccessibilityLabelSearch) {
@@ -53,16 +68,16 @@ TEST(AutocompleteMatchTypeTest, AccessibilityLabelSearch) {
   const std::u16string& kSearchDesc = u"Google Search";
 
   AutocompleteMatch match;
-  match.type = AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED;
+  match.type = omnibox::AutocompleteMatchType::kSearchWhatYouTyped;
   match.description = kSearchDesc;
   EXPECT_EQ(kSearch + u" search, " + kTrendingSearchesHeader + u", 6 of 8",
-            AutocompleteMatchType::ToAccessibilityLabel(
+            omnibox::AutocompleteMatchToAccessibilityLabel(
                 match, kTrendingSearchesHeader, kSearch, 5, 8));
 
   // Make sure there's no suffix if |total_matches| is 0, regardless of the
   // |match_index| value.
   EXPECT_EQ(kSearch + u" search, " + kTrendingSearchesHeader,
-            AutocompleteMatchType::ToAccessibilityLabel(
+            omnibox::AutocompleteMatchToAccessibilityLabel(
                 match, kTrendingSearchesHeader, kSearch, 5, 0));
 }
 
@@ -72,7 +87,7 @@ TEST(AutocompleteMatchTypeTest, AccessibilityLabelPedal) {
       u"Clear your chrome browsing history, cookies, and cache";
 
   AutocompleteMatch match;
-  match.type = AutocompleteMatchType::PEDAL;
+  match.type = omnibox::AutocompleteMatchType::kPedal;
   const OmniboxAction::LabelStrings label_strings(
       /*hint=*/u"", /*suggestion_contents=*/u"", /*accessibility_suffix=*/u"",
       /*accessibility_hint=*/kAccessibilityHint);
@@ -83,7 +98,7 @@ TEST(AutocompleteMatchTypeTest, AccessibilityLabelPedal) {
   // suggestions.
   EXPECT_EQ(
       kAccessibilityHint + u", 2 of 5",
-      AutocompleteMatchType::ToAccessibilityLabel(match, u"", kPedal, 1, 5));
+      omnibox::AutocompleteMatchToAccessibilityLabel(match, u"", kPedal, 1, 5));
 }
 
 namespace {
@@ -92,12 +107,12 @@ namespace {
 
 TEST(AutocompleteMatchTypeTest, AccessibilityLabelThreadsHistory) {
   AutocompleteMatch match;
-  match.type = AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED;
+  match.type = omnibox::AutocompleteMatchType::kSearchWhatYouTyped;
   match.subtypes.insert(
       omnibox::SuggestSubtype::SUBTYPE_AI_MODE_MORE_THREADS_ENTRYPOINT);
 
   std::u16string label_with_header =
-      AutocompleteMatchType::ToAccessibilityLabel(
+      omnibox::AutocompleteMatchToAccessibilityLabel(
           match,
           /*header_text=*/u"menu item",
           /*match_text=*/u"View your AI Mode history",

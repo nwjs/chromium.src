@@ -26,6 +26,7 @@
 #include "base/memory/ref_counted.h"
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/gtest_util.h"
@@ -2675,6 +2676,164 @@ TEST_F(HistoryBackendTest, MixedContentAnnotationsRequestTypes) {
                               /*id=*/"entity2", /*weight=*/1)));
 }
 
+class HistoryBackendQueryHistoryBasicTest
+    : public HistoryBackendTest,
+      public ::testing::WithParamInterface<bool> {
+ public:
+  HistoryBackendQueryHistoryBasicTest() {
+    feature_list_.InitWithFeatureState(kHistoryQueryBatchedLookups,
+                                       IsBatchedLookupsEnabled());
+  }
+
+  bool IsBatchedLookupsEnabled() const { return GetParam(); }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+TEST_P(HistoryBackendQueryHistoryBasicTest, QueryHistoryBasic_BatchedLookups) {
+  ASSERT_TRUE(backend_.get());
+
+  base::Time now = base::Time::Now();
+  GURL url1("http://www.example.com/1");
+  GURL url2("http://www.example.com/2");
+
+  HistoryAddPageArgs request1(
+      url1, now - base::Minutes(2), /*context_id=*/1, /*nav_entry_id=*/1,
+      /*local_navigation_id=*/std::nullopt, GURL(), RedirectList(),
+      ui::PAGE_TRANSITION_TYPED, false, SOURCE_BROWSED,
+      VisitResponseCodeCategory::kNot404, false, true);
+  backend_->AddPage(request1);
+
+  HistoryAddPageArgs request2(
+      url2, now - base::Minutes(1), /*context_id=*/1, /*nav_entry_id=*/2,
+      /*local_navigation_id=*/std::nullopt, GURL(), RedirectList(),
+      ui::PAGE_TRANSITION_TYPED, false, SOURCE_BROWSED,
+      VisitResponseCodeCategory::kNot404, false, true);
+  backend_->AddPage(request2);
+
+  // Add a 2nd visit to url1 to verify URL deduplication across visits.
+  HistoryAddPageArgs request3(url1, now, /*context_id=*/1, /*nav_entry_id=*/3,
+                              /*local_navigation_id=*/std::nullopt, GURL(),
+                              RedirectList(), ui::PAGE_TRANSITION_TYPED, false,
+                              SOURCE_BROWSED,
+                              VisitResponseCodeCategory::kNot404, false, true);
+  backend_->AddPage(request3);
+
+  // Retrieve visit IDs.
+  URLRow row1;
+  URLID id1 = backend_->db()->GetRowForURL(url1, &row1);
+  VisitVector visits1;
+  ASSERT_TRUE(backend_->db()->GetVisitsForURL(id1, &visits1));
+  ASSERT_EQ(2u, visits1.size());
+
+  URLRow row2;
+  URLID id2 = backend_->db()->GetRowForURL(url2, &row2);
+  VisitVector visits2;
+  ASSERT_TRUE(backend_->db()->GetVisitsForURL(id2, &visits2));
+  ASSERT_EQ(1u, visits2.size());
+
+  // Attach content annotations to visit 1 of url1 and visit of url2, leaving
+  // visit 2 of url1 empty.
+  VisitContentAnnotations annot1;
+  annot1.alternative_title = "Title for URL 1 Visit 1";
+  annot1.search_terms = u"search terms 1";
+  backend_->db()->AddContentAnnotationsForVisit(visits1[0].visit_id, annot1);
+
+  VisitContentAnnotations annot2;
+  annot2.alternative_title = "Title for URL 2";
+  annot2.related_searches = {"related 1", "related 2"};
+  backend_->db()->AddContentAnnotationsForVisit(visits2[0].visit_id, annot2);
+
+  QueryOptions options;
+  options.duplicate_policy = QueryOptions::KEEP_ALL_DUPLICATES;
+
+  base::HistogramTester histogram_tester;
+
+  QueryResults results = backend_->QueryHistory(/*text_query=*/{}, options);
+
+  ASSERT_EQ(3u, results.size());
+
+  // Visits are returned in reverse-chronological order: visits1[1] (now),
+  // visits2[0] (now - 1 min), visits1[0] (now - 2 min).
+  EXPECT_EQ(url1, results[0].url());
+  EXPECT_EQ(visits1[1].visit_id, results[0].visit_id());
+  EXPECT_TRUE(results[0].content_annotations().alternative_title.empty());
+
+  EXPECT_EQ(url2, results[1].url());
+  EXPECT_EQ(visits2[0].visit_id, results[1].visit_id());
+  EXPECT_EQ("Title for URL 2",
+            results[1].content_annotations().alternative_title);
+  EXPECT_THAT(results[1].content_annotations().related_searches,
+              ElementsAre("related 1", "related 2"));
+
+  EXPECT_EQ(url1, results[2].url());
+  EXPECT_EQ(visits1[0].visit_id, results[2].visit_id());
+  EXPECT_EQ("Title for URL 1 Visit 1",
+            results[2].content_annotations().alternative_title);
+  EXPECT_EQ(u"search terms 1", results[2].content_annotations().search_terms);
+
+  histogram_tester.ExpectTotalCount("History.QueryHistoryBasic.Duration", 1);
+  histogram_tester.ExpectUniqueSample("History.QueryHistoryBasic.ResultCount",
+                                      3, 1);
+}
+
+TEST_P(HistoryBackendQueryHistoryBasicTest,
+       QueryHistoryBasic_ExceedsBatchSize) {
+  ASSERT_TRUE(backend_.get());
+
+  base::Time now = base::Time::Now();
+  constexpr size_t kNumVisits = 260;
+
+  for (size_t i = 0; i < kNumVisits; ++i) {
+    GURL url(base::StringPrintf("http://www.batched%zu.com", i));
+    HistoryAddPageArgs request(
+        url, now - base::Seconds(kNumVisits - i), /*context_id=*/1,
+        /*nav_entry_id=*/static_cast<int>(i + 1),
+        /*local_navigation_id=*/std::nullopt, GURL(), RedirectList(),
+        ui::PAGE_TRANSITION_TYPED, false, SOURCE_BROWSED,
+        VisitResponseCodeCategory::kNot404, false, true);
+    backend_->AddPage(request);
+
+    URLRow row;
+    URLID id = backend_->db()->GetRowForURL(url, &row);
+    VisitVector visits;
+    ASSERT_TRUE(backend_->db()->GetVisitsForURL(id, &visits));
+    ASSERT_FALSE(visits.empty());
+
+    VisitContentAnnotations annot;
+    annot.alternative_title = base::StringPrintf("Title %zu", i);
+    backend_->db()->AddContentAnnotationsForVisit(visits[0].visit_id, annot);
+  }
+
+  QueryOptions options;
+  options.duplicate_policy = QueryOptions::KEEP_ALL_DUPLICATES;
+  options.max_count = 300;
+
+  base::HistogramTester histogram_tester;
+
+  QueryResults results = backend_->QueryHistory(/*text_query=*/{}, options);
+
+  ASSERT_EQ(kNumVisits, results.size());
+  for (size_t i = 0; i < kNumVisits; ++i) {
+    // Reverse chronological order: index 0 has i = 259, etc.
+    size_t original_index = kNumVisits - 1 - i;
+    EXPECT_EQ(
+        GURL(base::StringPrintf("http://www.batched%zu.com", original_index)),
+        results[i].url());
+    EXPECT_EQ(base::StringPrintf("Title %zu", original_index),
+              results[i].content_annotations().alternative_title);
+  }
+
+  histogram_tester.ExpectTotalCount("History.QueryHistoryBasic.Duration", 1);
+  histogram_tester.ExpectUniqueSample("History.QueryHistoryBasic.ResultCount",
+                                      kNumVisits, 1);
+}
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         HistoryBackendQueryHistoryBasicTest,
+                         ::testing::Bool());
+
 TEST_F(HistoryBackendTest, GetMostRecentVisits) {
   ASSERT_TRUE(backend_.get());
 
@@ -3861,6 +4020,51 @@ TEST_F(HistoryBackendTest, ClientRedirectScoring) {
   EXPECT_EQ(0, url_row.typed_count());
 }
 
+// The in-memory backend of a freshly initialized HistoryBackend must contain
+// what earlier sessions wrote to disk: the URLs that were typed or searched
+// for, with their keyword search terms, but not URLs that were only followed.
+TEST_P(InMemoryHistoryBackendTest, PopulatedFromDiskOnInit) {
+  const GURL typed_url("http://typed.com/");
+  const GURL link_url("http://link.com/");
+  const GURL search_url("http://search.com/?q=term");
+  const base::Time visit_time = base::Time::Now();
+  backend_->AddPage(HistoryAddPageArgs(
+      typed_url, visit_time, 0, 0, std::nullopt, GURL(), RedirectList(),
+      ui::PAGE_TRANSITION_TYPED, false, SOURCE_BROWSED,
+      VisitResponseCodeCategory::kNot404, false, true));
+  backend_->AddPage(HistoryAddPageArgs(
+      link_url, visit_time, 0, 0, std::nullopt, GURL(), RedirectList(),
+      ui::PAGE_TRANSITION_LINK, false, SOURCE_BROWSED,
+      VisitResponseCodeCategory::kNot404, false, true));
+  backend_->AddPage(HistoryAddPageArgs(
+      search_url, visit_time, 0, 0, std::nullopt, GURL(), RedirectList(),
+      ui::PAGE_TRANSITION_LINK, false, SOURCE_BROWSED,
+      VisitResponseCodeCategory::kNot404, false, true));
+  backend_->SetKeywordSearchTermsForURL(search_url, kTestKeywordId, u"term");
+
+  // Simulate a restart: shut the backend down and initialize a new one on the
+  // same directory.
+  backend_->Closing();
+  backend_ = nullptr;
+  mem_backend_.reset();
+  backend_ = base::MakeRefCounted<TestHistoryBackend>(
+      std::make_unique<HistoryBackendTestDelegate>(this),
+      history_client_.CreateBackendClient(),
+      base::SingleThreadTaskRunner::GetCurrentDefault());
+  backend_->Init(false, TestHistoryDatabaseParamsForPath(test_dir()));
+  ASSERT_TRUE(mem_backend_);
+
+  URLRow row;
+  ASSERT_NE(0, mem_backend_->db()->GetRowForURL(typed_url, &row));
+  EXPECT_EQ(1, row.typed_count());
+  EXPECT_EQ(0, mem_backend_->db()->GetRowForURL(link_url, nullptr));
+  ASSERT_NE(0, mem_backend_->db()->GetRowForURL(search_url, &row));
+  KeywordSearchTermRow term;
+  ASSERT_TRUE(mem_backend_->db()->GetKeywordSearchTermRow(row.id(), &term));
+  EXPECT_EQ(kTestKeywordId, term.keyword_id);
+  EXPECT_EQ(u"term", term.term);
+}
+
 // Common implementation for the two tests below, given that the only difference
 // between them is the type of the notification sent out.
 void InMemoryHistoryBackendTest::TestAddingAndChangingURLRows(
@@ -4408,65 +4612,6 @@ TEST_F(HistoryBackendTest, AddPageWithContextAnnotations) {
 
   EXPECT_EQ(context_annotations,
             annotated_visits[0].context_annotations.on_visit);
-}
-
-TEST_F(HistoryBackendTest, AddPageVisitAddedDueTo404) {
-  base::HistogramTester histogram_tester;
-
-  // Test a redirect chain ending in a 404.
-  {
-    // Create a redirect chain of length 2 (the last entry in the chain is the
-    // ultimate destination of the chain).
-    RedirectList redirects;
-    redirects.emplace_back("http://example.com/a");
-    redirects.emplace_back("http://example.com/b");
-
-    HistoryAddPageArgs add_page_args(
-        redirects.back(), base::Time::Now(), /*context_id=*/1,
-        /*nav_entry_id=*/1,
-        /*local_navigation_id=*/std::nullopt, GURL(), redirects,
-        ui::PageTransitionFromInt(ui::PAGE_TRANSITION_SERVER_REDIRECT |
-                                  ui::PAGE_TRANSITION_CHAIN_END),
-        /*hidden=*/true, SOURCE_BROWSED, VisitResponseCodeCategory::k404,
-        /*did_replace_entry=*/false,
-        /*consider_for_ntp_most_visited=*/false);
-    add_page_args.context_annotations = {.response_code = 404};
-    backend_->AddPage(add_page_args);
-
-    // The redirect visit and the actual 404 are added due to a 404, so both
-    // should go in the `true` bucket and none in the `false` bucket.
-    histogram_tester.ExpectBucketCount("History.VisitAddedDueTo404", true, 2);
-    histogram_tester.ExpectBucketCount("History.VisitAddedDueTo404", false, 0);
-  }
-
-  // Test a redirect chain ending in a non-404.
-  {
-    // Create a redirect chain of length 3 (the last entry in the chain is the
-    // ultimate destination of the chain).
-    RedirectList redirects;
-    redirects.emplace_back("http://example.com/c");
-    redirects.emplace_back("http://example.com/d");
-    redirects.emplace_back("http://example.com/e");
-
-    HistoryAddPageArgs add_page_args(
-        redirects.back(), base::Time::Now(), /*context_id=*/2,
-        /*nav_entry_id=*/2,
-        /*local_navigation_id=*/std::nullopt, GURL(), redirects,
-        ui::PageTransitionFromInt(ui::PAGE_TRANSITION_SERVER_REDIRECT |
-                                  ui::PAGE_TRANSITION_CHAIN_END),
-        /*hidden=*/false, SOURCE_BROWSED, VisitResponseCodeCategory::kNot404,
-        /*did_replace_entry=*/false,
-        /*consider_for_ntp_most_visited=*/true);
-    add_page_args.context_annotations = {.response_code = 401};
-    backend_->AddPage(add_page_args);
-
-    // Neither the redirect visits nor the ultimate destination are added due to
-    // a 404, so all three should go in the `false` bucket.
-    histogram_tester.ExpectBucketCount("History.VisitAddedDueTo404", false, 3);
-    // None should go in the `true` bucket, so the count should be the same as
-    // before.
-    histogram_tester.ExpectBucketCount("History.VisitAddedDueTo404", true, 2);
-  }
 }
 
 TEST_F(HistoryBackendTest, GetAnnotatedVisits) {

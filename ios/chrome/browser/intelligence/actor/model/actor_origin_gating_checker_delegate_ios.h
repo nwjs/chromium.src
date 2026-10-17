@@ -27,20 +27,18 @@ class ActorOriginGatingCheckerDelegateIOS
   ActorOriginGatingCheckerDelegateIOS& operator=(
       const ActorOriginGatingCheckerDelegateIOS&) = delete;
 
+  base::WeakPtr<ActorOriginGatingCheckerDelegateIOS> GetWeakPtr();
+
   // OriginGatingChecker::Delegate overrides:
   void DoesOriginRequireUserConfirmation(
       origin_gating::GatingDecisionContext* context,
-      origin_gating::GateableEvent event,
-      const GURL& source,
-      const GURL& destination,
+      const origin_gating::GateableEvent& event,
       DoesOriginRequireUserConfirmationCallback callback) const override;
   void EvaluateEnterprisePolicy(
       const GURL& destination,
       EvaluateEnterprisePolicyCallback callback) const override;
   void OnNoVerdict(origin_gating::GatingDecisionContext* context,
-                   origin_gating::GateableEvent event,
-                   const GURL& source,
-                   const GURL& destination,
+                   const origin_gating::GateableEvent& event,
                    bool requires_user_confirmation,
                    base::OnceCallback<void(NoVerdictResult)> callback) override;
 

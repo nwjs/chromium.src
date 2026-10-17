@@ -16,6 +16,9 @@ source_set("enterprise") {
     "connectors/analysis/analysis_service_settings.h",
     "connectors/connectors_manager.h",
     "connectors/connectors_service.h",
+    "connectors/device_trust/device_trust_connector_service_factory.h",
+    "connectors/device_trust/device_trust_service_factory.h",
+    "connectors/device_trust/signals/signals_service_factory.h",
     "connectors/interstitials/delayed_interstitial_reporter.h",
     "connectors/interstitials/enterprise_block_controller_client.h",
     "connectors/interstitials/enterprise_block_page.h",
@@ -24,6 +27,7 @@ source_set("enterprise") {
     "connectors/referrer_cache_utils.h",
     "core/dependency_factory_impl.h",
     "data_protection/data_protection_features.h",
+    "data_protection/data_protection_utils.h",
     "data_protection/view_source_navigation_throttle.h",
     "encryption/cache_encryption_provider_impl.h",
     "identifiers/profile_id_delegate_impl.h",
@@ -39,7 +43,6 @@ source_set("enterprise") {
     "reporting/legacy_tech/legacy_tech_report_generator.h",
     "reporting/legacy_tech/legacy_tech_report_policy_handler.h",
     "reporting/legacy_tech/legacy_tech_service.h",
-    "reporting/prefs.h",
     "reporting/profile_report_generator_delegate_base.h",
     "reporting/real_time_report_controller_delegate.h",
     "reporting/real_time_report_generator_delegate.h",
@@ -129,7 +132,6 @@ source_set("enterprise") {
     ]
   } else {
     public_deps += [
-      "//chrome/browser/enterprise/connectors/device_trust/signals",
       "//chrome/browser/enterprise/connectors/device_trust/signals/decorators/common",
       "//chrome/browser/ui:idle_bubble",
       "//chrome/browser/ui:idle_dialog",
@@ -147,11 +149,8 @@ source_set("enterprise") {
       "//ui/views",
     ]
     public += [
-      "connectors/device_trust/device_trust_connector_service_factory.h",
-      "connectors/device_trust/device_trust_service_factory.h",
       "connectors/device_trust/navigation_throttle.h",
       "connectors/device_trust/signals/decorators/common/context_signals_decorator.h",
-      "connectors/device_trust/signals/signals_service_factory.h",
       "data_protection/data_protection_ui_controller.h",
       "reporting/browser_report_generator_desktop.h",
       "reporting/report_generator_desktop.h",
@@ -164,6 +163,8 @@ source_set("enterprise") {
   }
 
   if (is_chromeos) {
+    public_deps += [ "//components/enterprise/device_trust/core/signals" ]
+
     public += [
       "connectors/analysis/file_transfer_analysis_delegate.h",
       "connectors/analysis/source_destination_matcher_ash.h",
@@ -339,6 +340,7 @@ source_set("enterprise") {
       "connectors/analysis/content_analysis_views.h",
       "connectors/analysis/copy_warning_delegate_tracker.h",
       "connectors/analysis/files_request_handler.h",
+      "connectors/analysis/network_request_content_analysis_info.h",
       "connectors/analysis/page_print_analysis_request.h",
       "connectors/analysis/page_print_request_handler.h",
     ]
@@ -396,10 +398,12 @@ static_library("browser_launch_reporting") {
       "//chrome/browser:browser_process",
       "//chrome/browser/enterprise/connectors/reporting",
       "//chrome/browser/profiles:profile",
+      "//chrome/common:non_code_constants",
       "//components/enterprise",
       "//components/enterprise/common/proto:browser_events_proto",
       "//components/enterprise/connectors/core",
       "//components/policy/core/common",
+      "//components/webui/flags:switches",
     ]
   }
 }
@@ -413,6 +417,8 @@ source_set("impl") {
     "connectors/analysis/analysis_service_settings.cc",
     "connectors/connectors_manager.cc",
     "connectors/connectors_service.cc",
+    "connectors/device_trust/device_trust_connector_service_factory.cc",
+    "connectors/device_trust/device_trust_service_factory.cc",
     "connectors/interstitials/delayed_interstitial_reporter.cc",
     "connectors/interstitials/enterprise_block_controller_client.cc",
     "connectors/interstitials/enterprise_block_page.cc",
@@ -425,6 +431,7 @@ source_set("impl") {
     "data_protection/data_protection_navigation_observer.cc",
     "data_protection/data_protection_page_user_data.cc",
     "data_protection/data_protection_url_lookup_service_factory.cc",
+    "data_protection/data_protection_utils.cc",
     "data_protection/view_source_navigation_throttle.cc",
     "encryption/cache_encryption_provider_impl.cc",
     "identifiers/profile_id_delegate_impl.cc",
@@ -441,7 +448,6 @@ source_set("impl") {
     "reporting/legacy_tech/legacy_tech_report_generator.cc",
     "reporting/legacy_tech/legacy_tech_report_policy_handler.cc",
     "reporting/legacy_tech/legacy_tech_service.cc",
-    "reporting/prefs.cc",
     "reporting/profile_report_generator_delegate_base.cc",
     "reporting/real_time_report_controller_delegate.cc",
     "reporting/real_time_report_generator_delegate.cc",
@@ -508,7 +514,12 @@ source_set("impl") {
     "//components/enterprise/content",
     "//components/enterprise/core",
     "//components/enterprise/data_protection",
+    "//components/enterprise/device_trust",
+    "//components/enterprise/device_trust/core:device_trust_connector_service",
     "//components/enterprise/device_trust/core:metrics",
+    "//components/enterprise/device_trust/core/attestation",
+    "//components/enterprise/device_trust/core/attestation:types",
+    "//components/enterprise/device_trust/core/signals",
     "//components/enterprise/encryption/cache",
     "//components/enterprise/net",
     "//components/guest_view/browser",
@@ -533,6 +544,7 @@ source_set("impl") {
 
   if (is_android) {
     sources += [
+      "connectors/device_trust/signals/android/signals_service_factory_android.cc",
       "platform_auth/entra_provider_android.cc",
       "reporting/browser_report_generator_android.cc",
       "reporting/report_scheduler_android.cc",
@@ -551,8 +563,6 @@ source_set("impl") {
     ]
   } else {
     sources += [
-      "connectors/device_trust/device_trust_connector_service_factory.cc",
-      "connectors/device_trust/device_trust_service_factory.cc",
       "connectors/device_trust/navigation_throttle.cc",
       "connectors/device_trust/signals/decorators/common/context_signals_decorator.cc",
       "connectors/device_trust/signals/signals_service_factory.cc",
@@ -568,28 +578,24 @@ source_set("impl") {
     deps += [
       "//chrome/browser/enterprise/connectors/device_trust:features",
       "//chrome/browser/enterprise/connectors/device_trust/key_management/core/persistence",
-      "//chrome/browser/enterprise/connectors/device_trust/signals",
       "//chrome/browser/enterprise/connectors/device_trust/signals/decorators/common",
       "//chrome/browser/lifetime",
       "//chrome/browser/search_engine_choice",
       "//chrome/browser/sync",
       "//chrome/browser/themes",
+      "//chrome/browser/ui:browser_manager_service",
       "//chrome/browser/ui/signin",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/tabs:tabs_public",
       "//chrome/browser/ui/views/device_signals_consent",
+      "//chrome/browser/ui/views/frame:browser_view_header",
       "//chrome/browser/ui/webui/signin:signin_utils",
       "//chrome/browser/ui/window_feature_controller",
       "//chrome/common/themes:autogenerated_theme_util",
       "//components/constrained_window",
       "//components/device_signals/core/browser",
       "//components/device_signals/core/common",
-      "//components/enterprise/device_trust",
-      "//components/enterprise/device_trust/core:device_trust_connector_service",
       "//components/enterprise/device_trust/core:device_trust_service",
-      "//components/enterprise/device_trust/core:metrics",
-      "//components/enterprise/device_trust/core/attestation",
-      "//components/enterprise/device_trust/core/attestation:types",
       "//components/web_modal",
     ]
   }
@@ -749,6 +755,7 @@ source_set("impl") {
       "connectors/analysis/content_analysis_views.cc",
       "connectors/analysis/copy_warning_delegate_tracker.cc",
       "connectors/analysis/files_request_handler.cc",
+      "connectors/analysis/network_request_content_analysis_info.cc",
       "connectors/analysis/page_print_analysis_request.cc",
       "connectors/analysis/page_print_request_handler.cc",
     ]
@@ -819,6 +826,9 @@ source_set("impl") {
     deps += [
       "//chrome/browser/enterprise/connectors/device_trust/key_management/browser",
       "//chrome/browser/enterprise/connectors/device_trust/key_management/core",
+      "//chrome/browser/ui:browser_command_controller",
+      "//chrome/browser/ui:browser_window_header",
+      "//chrome/browser/ui:singleton_tabs",
       "//chrome/browser/ui/browser_window:create_browser_window",
       "//chrome/services/system_signals/public/cpp/browser",
     ]
@@ -866,6 +876,8 @@ source_set("unit_tests") {
     "//base",
     "//chrome/browser/content_settings:content_settings_factory",
     "//chrome/test:test_support",
+    "//chrome/test/base:chrome_render_view_host_test_harness",
+    "//chrome/test/base:testing_browser_process",
     "//testing/gtest",
   ]
 

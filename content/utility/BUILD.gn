@@ -47,6 +47,7 @@ source_set("utility") {
     "//content/public/common:content_descriptor_keys",
     "//content/public/utility:utility_sources",
     "//content/services/devtools_media_encoding_service",
+    "//content/services/resource_broker",
     "//content/utility/on_device_model:on_device_model_sandbox_init",
     "//content/utility/webnn:webnn_sandbox_init",
     "//device/vr/buildflags",
@@ -114,6 +115,13 @@ source_set("utility") {
     if (enable_oop_printing) {
       deps += [ "//printing:printing_sandbox_hook" ]
     }
+  }
+
+  if (is_linux && enable_vr) {
+    # Pre-sandbox hook for the XR Device Service (kXrCompositing). Loads the
+    # OpenXR runtime and grants broker file access before the sandbox seals.
+    # enable_vr: this file's :lib target needs //device/vr:vr_base.
+    deps += [ "//content/services/isolated_xr_device:xr_sandbox_hook" ]
   }
 
   if (is_win || ((is_chromeos || is_linux) && is_chrome_branded)) {

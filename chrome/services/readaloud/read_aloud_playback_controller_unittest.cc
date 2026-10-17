@@ -19,7 +19,9 @@
 #include "base/sync_socket.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
+#include "base/test/test_future.h"
 #include "chrome/common/readaloud/read_aloud.mojom.h"
+#include "chrome/services/readaloud/audio_renderer/read_aloud_audio_renderer.h"
 #include "components/optimization_guide/proto/features/read_aloud_synthesize.pb.h"
 #include "media/base/audio_parameters.h"
 #include "mojo/public/cpp/base/big_buffer.h"
@@ -50,9 +52,21 @@ class MockReadAloudPlaybackControllerClient
 
   void ResetReceiver() { receiver_.reset(); }
 
+  void FlushForTesting() { receiver_.FlushForTesting(); }
+
+  using StateCallback =
+      base::RepeatingCallback<void(read_aloud::mojom::PlaybackState)>;
+
+  void set_state_callback(StateCallback callback) {
+    state_callback_ = std::move(callback);
+  }
+
   // read_aloud::mojom::ReadAloudPlaybackControllerClient:
   void OnPlaybackStateChanged(read_aloud::mojom::PlaybackState state) override {
     last_state_ = state;
+    if (state_callback_) {
+      state_callback_.Run(state);
+    }
     if (state_changed_closure_ &&
         (!expected_state_to_wait_for_.has_value() ||
          state == expected_state_to_wait_for_.value())) {
@@ -70,8 +84,11 @@ class MockReadAloudPlaybackControllerClient
     // No-op for testing.
   }
 
-  using SpeechSynthesisHandler = base::RepeatingCallback<void(
-      const std::u16string&, uint64_t, RequestSpeechSynthesisCallback)>;
+  using SpeechSynthesisHandler =
+      base::RepeatingCallback<void(const std::u16string&,
+                                   read_aloud::mojom::Speaker,
+                                   uint64_t,
+                                   RequestSpeechSynthesisCallback)>;
 
   void set_synthesis_handler(SpeechSynthesisHandler handler) {
     synthesis_handler_ = std::move(handler);
@@ -79,10 +96,13 @@ class MockReadAloudPlaybackControllerClient
 
   void RequestSpeechSynthesis(
       const std::u16string& text_chunk,
+      read_aloud::mojom::Speaker speaker,
       uint64_t sequence_id,
       RequestSpeechSynthesisCallback callback) override {
+    synthesis_request_count_++;
     if (synthesis_handler_) {
-      synthesis_handler_.Run(text_chunk, sequence_id, std::move(callback));
+      synthesis_handler_.Run(text_chunk, speaker, sequence_id,
+                             std::move(callback));
       return;
     }
     std::move(callback).Run(mojo_base::BigBuffer(), true);
@@ -132,6 +152,8 @@ class MockReadAloudPlaybackControllerClient
     return last_state_;
   }
 
+  uint32_t synthesis_request_count() const { return synthesis_request_count_; }
+
   const std::optional<std::vector<std::u16string>>& last_chunks() const {
     return last_chunks_;
   }
@@ -142,9 +164,11 @@ class MockReadAloudPlaybackControllerClient
   std::optional<read_aloud::mojom::PlaybackState> last_state_;
   std::optional<read_aloud::mojom::PlaybackState> expected_state_to_wait_for_;
   base::OnceClosure state_changed_closure_;
+  StateCallback state_callback_;
   std::optional<std::vector<std::u16string>> last_chunks_;
   base::OnceClosure chunks_closure_;
   SpeechSynthesisHandler synthesis_handler_;
+  uint32_t synthesis_request_count_ = 0;
 };
 
 }  // namespace
@@ -191,7 +215,8 @@ class ReadAloudPlaybackControllerTest : public testing::Test {
 
   void SetMockSynthesisResponse(const std::string& response_bytes) {
     mock_client_->set_synthesis_handler(base::BindRepeating(
-        [](const std::string& bytes, const std::u16string&, uint64_t,
+        [](const std::string& bytes, const std::u16string&,
+           read_aloud::mojom::Speaker, uint64_t,
            read_aloud::mojom::ReadAloudPlaybackControllerClient::
                RequestSpeechSynthesisCallback callback) {
           std::move(callback).Run(
@@ -230,15 +255,46 @@ class ReadAloudPlaybackControllerTest : public testing::Test {
         mojo::PlatformHandle(foreign_socket.Take()));
   }
 
+  void InitializeAudioForTesting() {
+    mojo::PendingRemote<media::mojom::AudioOutputStream> stream;
+    stream_receiver_ = stream.InitWithNewPipeAndPassReceiver();
+    const media::AudioParameters params(
+        media::AudioParameters::AUDIO_PCM_LOW_LATENCY,
+        media::ChannelLayoutConfig::Mono(), /*sample_rate=*/48000,
+        /*frames_per_buffer=*/480);
+    local_socket_ = std::make_unique<base::CancelableSyncSocket>();
+    media::mojom::ReadWriteAudioDataPipePtr data_pipe =
+        CreateValidDataPipe(params, local_socket_.get());
+    ASSERT_TRUE(data_pipe);
+    controller_remote_->InitializeAudio(std::move(stream), std::move(data_pipe),
+                                        params);
+    controller_remote_.FlushForTesting();
+  }
+
+  void FlushAll() {
+    controller_remote_.FlushForTesting();
+    if (mock_client_) {
+      mock_client_->FlushForTesting();
+    }
+  }
+
+  void FastForwardAndFlush(base::TimeDelta delta) {
+    task_environment_.FastForwardBy(delta);
+    FlushAll();
+  }
+
  protected:
   base::test::ScopedFeatureList scoped_feature_list_;
-  base::test::TaskEnvironment task_environment_;
+  base::test::TaskEnvironment task_environment_{
+      base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   mojo::Remote<read_aloud::mojom::ReadAloudPlaybackControllerFactory>
       factory_remote_;
   mojo::Remote<read_aloud::mojom::ReadAloudPlaybackController>
       controller_remote_;
   std::unique_ptr<MockReadAloudPlaybackControllerClient> mock_client_;
   std::unique_ptr<ReadAloudPlaybackController> controller_impl_;
+  mojo::PendingReceiver<media::mojom::AudioOutputStream> stream_receiver_;
+  std::unique_ptr<base::CancelableSyncSocket> local_socket_;
 };
 
 TEST_F(ReadAloudPlaybackControllerTest, CreateControllerSuccessfulBinding) {
@@ -930,6 +986,207 @@ TEST_F(ReadAloudPlaybackControllerTest, SetTextContentEmptySegmentsValidateSeque
 
   EXPECT_EQ(bad_message_observer.WaitForBadMessage(),
             "ReadAloudPlaybackController: segment_index must be monotonically increasing in SetTextContent");
+}
+
+TEST_F(ReadAloudPlaybackControllerTest, PlayCalledBeforeSetTextContentDefersUntilTextSet) {
+  CreateSession();
+  InitializeAudioForTesting();
+
+  // Call Play() BEFORE SetTextContent() has been called.
+  // play_on_ready_ should be set to true, deferring playback.
+  controller_remote_->Play();
+  controller_remote_.FlushForTesting();
+
+  EXPECT_TRUE(controller_remote_.is_connected());
+
+  // Now supply text content via SetTextContent().
+  // MaybePlayOnReady() should be triggered, fulfilling play intent.
+  std::vector<read_aloud::mojom::TextSegmentPtr> segments;
+  auto seg = read_aloud::mojom::TextSegment::New();
+  seg->segment_index = 0;
+  seg->text = u"Sentence to play on ready.";
+  segments.push_back(std::move(seg));
+
+  controller_remote_->SetTextContent(std::move(segments));
+  controller_remote_.FlushForTesting();
+  mock_client_->FlushForTesting();
+
+  EXPECT_TRUE(controller_remote_.is_connected());
+  // Verify playback intent was fulfilled (SetTextContent did NOT default state to kPaused).
+  EXPECT_NE(mock_client_->last_state(), read_aloud::mojom::PlaybackState::kPaused);
+}
+
+TEST_F(ReadAloudPlaybackControllerTest, PauseClearsPlayOnReady) {
+  CreateSession();
+
+  // Call Play() BEFORE SetTextContent() has been called (sets play_on_ready_ = true).
+  controller_remote_->Play();
+  controller_remote_.FlushForTesting();
+
+  EXPECT_TRUE(controller_remote_.is_connected());
+
+  // Call Pause() before text arrives (must reset play_on_ready_ = false).
+  controller_remote_->Pause();
+  controller_remote_.FlushForTesting();
+
+  // Now supply text content via SetTextContent().
+  // Playback should NOT start automatically because Pause() cleared play_on_ready_.
+  std::vector<read_aloud::mojom::TextSegmentPtr> segments;
+  auto seg = read_aloud::mojom::TextSegment::New();
+  seg->segment_index = 0;
+  seg->text = u"Text provided after explicit pause.";
+  segments.push_back(std::move(seg));
+
+  controller_remote_->SetTextContent(std::move(segments));
+  controller_remote_.FlushForTesting();
+
+  EXPECT_TRUE(controller_remote_.is_connected());
+  EXPECT_EQ(mock_client_->last_state(), read_aloud::mojom::PlaybackState::kPaused);
+}
+
+TEST_F(ReadAloudPlaybackControllerTest, PlayCalledBeforeInitializeAudioDefersUntilAudioInitialized) {
+  CreateSession();
+
+  // Load text content first.
+  std::vector<read_aloud::mojom::TextSegmentPtr> segments;
+  auto seg = read_aloud::mojom::TextSegment::New();
+  seg->segment_index = 0;
+  seg->text = u"Text loaded before audio initialization.";
+  segments.push_back(std::move(seg));
+  controller_remote_->SetTextContent(std::move(segments));
+  controller_remote_.FlushForTesting();
+
+  // Call Play() BEFORE InitializeAudio(). IsAudioInitialized() is false.
+  controller_remote_->Play();
+  controller_remote_.FlushForTesting();
+
+  EXPECT_TRUE(controller_remote_.is_connected());
+
+  // Now initialize audio via InitializeAudioForTesting().
+  InitializeAudioForTesting();
+
+  EXPECT_TRUE(controller_remote_.is_connected());
+}
+
+TEST_F(ReadAloudPlaybackControllerTest, PlayOnReadyTimeoutResetsPendingPlayState) {
+  CreateSession();
+
+  base::test::TestFuture<read_aloud::mojom::PlaybackState> state_future;
+  mock_client_->set_state_callback(state_future.GetRepeatingCallback());
+
+  // Call Play() without setting text content (play_on_ready_ = true, timer started).
+  controller_remote_->Play();
+
+  EXPECT_TRUE(controller_remote_.is_connected());
+
+  // Fast forward time by 5 seconds (under 10s threshold).
+  task_environment_.FastForwardBy(base::Seconds(5));
+  EXPECT_FALSE(state_future.IsReady());
+
+  // Fast forward remaining 5 seconds (reaching 10s timeout threshold).
+  task_environment_.FastForwardBy(base::Seconds(5));
+
+  EXPECT_TRUE(controller_remote_.is_connected());
+  EXPECT_EQ(state_future.Take(), read_aloud::mojom::PlaybackState::kPaused);
+
+  // Verify play_on_ready_ was reset: now supply text content and initialize audio.
+  // Playback MUST NOT auto-start because the pending play intent was cleared by timeout.
+  std::vector<read_aloud::mojom::TextSegmentPtr> segments;
+  auto seg = read_aloud::mojom::TextSegment::New();
+  seg->segment_index = 0;
+  seg->text = u"Late arriving text after timeout.";
+  segments.push_back(std::move(seg));
+  controller_remote_->SetTextContent(std::move(segments));
+  InitializeAudioForTesting();
+
+  EXPECT_TRUE(controller_remote_.is_connected());
+  EXPECT_EQ(mock_client_->last_state(), read_aloud::mojom::PlaybackState::kPaused);
+}
+
+TEST_F(ReadAloudPlaybackControllerTest, PlayCalledRepeatedlyResetsWatchdogTimer) {
+  CreateSession();
+
+  base::test::TestFuture<read_aloud::mojom::PlaybackState> state_future;
+  mock_client_->set_state_callback(state_future.GetRepeatingCallback());
+
+  // Initial Play() call at t=0s.
+  controller_remote_->Play();
+
+  // Fast forward by 7 seconds (timer at 7s, hasn't timed out).
+  task_environment_.FastForwardBy(base::Seconds(7));
+  EXPECT_FALSE(state_future.IsReady());
+
+  // Consecutive Play() call at t=7s. This MUST reset the 10s watchdog timer
+  // (granting a fresh 10s window until t=17s).
+  controller_remote_->Play();
+
+  // Fast forward by 5 seconds (t=12s total). Original timer would have fired at 10s,
+  // but new timer is only at 5s, so state is NOT timed out yet.
+  task_environment_.FastForwardBy(base::Seconds(5));
+  EXPECT_FALSE(state_future.IsReady());
+
+  // Fast forward remaining 5 seconds (t=17s total). The reset timer now expires.
+  task_environment_.FastForwardBy(base::Seconds(5));
+
+  EXPECT_EQ(state_future.Take(), read_aloud::mojom::PlaybackState::kPaused);
+}
+
+class MockReadAloudAudioRenderer : public ReadAloudAudioRenderer {
+ public:
+  MockReadAloudAudioRenderer() = default;
+  ~MockReadAloudAudioRenderer() override = default;
+
+  MOCK_METHOD(void, Flush, (), (override));
+};
+
+TEST_F(ReadAloudPlaybackControllerTest,
+       FlushBuffersFlushesInjectedAudioRenderer) {
+  raw_ptr<MockReadAloudAudioRenderer> mock_renderer = nullptr;
+
+  mojo::Remote<read_aloud::mojom::ReadAloudPlaybackControllerFactory> factory;
+  mojo::Remote<read_aloud::mojom::ReadAloudPlaybackController> controller;
+  auto mock_client = std::make_unique<MockReadAloudPlaybackControllerClient>();
+
+  auto controller_impl = std::make_unique<ReadAloudPlaybackController>(
+      factory.BindNewPipeAndPassReceiver(),
+      base::BindRepeating(
+          [](raw_ptr<MockReadAloudAudioRenderer>* out_mock)
+              -> std::unique_ptr<ReadAloudAudioRenderer> {
+            auto mock = std::make_unique<MockReadAloudAudioRenderer>();
+            *out_mock = mock.get();
+            return mock;
+          },
+          &mock_renderer));
+
+  factory->CreateController(controller.BindNewPipeAndPassReceiver(),
+                            mock_client->BindAndGetRemote());
+  factory.FlushForTesting();
+
+  mojo::PendingRemote<media::mojom::AudioOutputStream> stream;
+  auto stream_receiver = stream.InitWithNewPipeAndPassReceiver();
+  const media::AudioParameters params(
+      media::AudioParameters::AUDIO_PCM_LOW_LATENCY,
+      media::ChannelLayoutConfig::Mono(), 48000, 480);
+  base::CancelableSyncSocket local_socket;
+  media::mojom::ReadWriteAudioDataPipePtr data_pipe =
+      CreateValidDataPipe(params, &local_socket);
+  ASSERT_TRUE(data_pipe);
+  controller->InitializeAudio(std::move(stream), std::move(data_pipe), params);
+  controller.FlushForTesting();
+
+  ASSERT_TRUE(mock_renderer);
+  EXPECT_CALL(*mock_renderer, Flush()).Times(1);
+
+  std::vector<read_aloud::mojom::TextSegmentPtr> segments;
+  auto seg = read_aloud::mojom::TextSegment::New();
+  seg->segment_index = 0;
+  seg->text = u"Sample document text.";
+  segments.push_back(std::move(seg));
+
+  controller->SetTextContent(std::move(segments));
+  controller.FlushForTesting();
+
+  mock_renderer = nullptr;
 }
 
 }  // namespace readaloud

@@ -31,7 +31,27 @@ NSString* const kNTPFeedHeaderIdentityDiscBadge =
 NSString* const kNTPFakeOmniboxAccessibilityButton =
     @"kNTPFakeOmniboxAccessibilityButton";
 
+NSString* const kNTPFakeOmniboxAccessibilityIdentifier =
+    @"kNTPFakeOmniboxAccessibilityIdentifier";
+
+NSString* const kNTPPlusButtonAccessibilityIdentifier =
+    @"kNTPPlusButtonAccessibilityIdentifier";
+
+NSString* const kNTPVoiceSearchButtonAccessibilityIdentifier = @"Voice Search";
+
+NSString* const kNTPLensButtonAccessibilityIdentifier = @"Lens";
+
+NSString* const kNTPBackdropBlurIdentifier = @"NTPBackdropBlurIdentifier";
+
 NSString* const kNTPMIAIdentifier = @"kNTPMIAIdentifier";
+
+NSString* const kNTPAIMQuickActionIdentifier = @"kNTPAIMQuickActionIdentifier";
+
+NSString* const kNTPAIMImageGenerationQuickActionIdentifier =
+    @"kNTPAIMImageGenerationQuickActionIdentifier";
+
+NSString* const kNTPAIMAttachImageQuickActionIdentifier =
+    @"kNTPAIMAttachImageQuickActionIdentifier";
 
 NSString* const kNTPIncognitoQuickActionIdentifier =
     @"kNTPIncognitoQuickActionIdentifier";
@@ -45,3 +65,6 @@ const NSInteger kCustomizationNewBadgeMaxImpressionCount = 3;
 const float kBottomMagicStackPadding = 14.0f;
 
 const CGFloat kNewTabPageHorizontalMargin = 16.0;
+
+const CGFloat kQuickActionsSymbolPointSize = 18.0;
+const CGFloat kQuickActionsSymbolPointSizeUICleanup = 14.0;

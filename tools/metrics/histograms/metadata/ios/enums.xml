@@ -292,6 +292,20 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="ParcelCarrier"/>
 </enum>
 
+<!-- LINT.IfChange(IOSAppBarAssistantButtonPreferredState) -->
+
+<enum name="IOSAppBarAssistantButtonPreferredState">
+  <summary>
+    The entry point chosen by the user for the App Bar assistant button.
+  </summary>
+  <int value="0" label="Default">The user didn't choose any entry point.</int>
+  <int value="1" label="Lens"/>
+  <int value="2" label="Ask (Gemini)"/>
+  <int value="3" label="Account"/>
+</enum>
+
+<!-- LINT.ThenChange(//ios/chrome/browser/app_bar/ui/app_bar_constants.h:AppBarAssistantButtonPreferredState) -->
+
 <enum name="IOSAppModeFetchingOutcomeType">
   <int value="0" label="Incognito"/>
   <int value="1" label="Non-Incognito"/>
@@ -459,6 +473,28 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//ios/chrome/browser/default_browser/model/utils.h:IOSDefaultBrowserBannerPromoPromoSessionEndedReason) -->
+
+<!-- LINT.IfChange(IOSDefaultBrowserContextualPromoAction) -->
+
+<enum name="IOSDefaultBrowserContextualPromoAction">
+  <summary>
+    The action taken by the user on a contextual default browser promo.
+  </summary>
+  <int value="0" label="Primary Action Button"/>
+  <int value="1" label="Secondary Action Button"/>
+  <int value="2" label="Swipe down"/>
+</enum>
+
+<!-- LINT.ThenChange(//ios/chrome/browser/default_browser/promo/contextual/public/contextual_default_browser_promo_metrics.h:IOSDefaultBrowserContextualPromoAction) -->
+
+<!-- LINT.IfChange(IOSDefaultBrowserContextualPromoType) -->
+
+<enum name="IOSDefaultBrowserContextualPromoType">
+  <summary>The type of contextual default browser promo.</summary>
+  <int value="0" label="Gemini"/>
+</enum>
+
+<!-- LINT.ThenChange(//ios/chrome/browser/default_browser/promo/contextual/public/contextual_default_browser_promo_constants.h:IOSDefaultBrowserContextualPromoType) -->
 
 <enum name="IOSDefaultBrowserFullscreenPromoAction">
   <int value="0" label="Action Button"/>
@@ -883,6 +919,8 @@ chromium-metrics-reviews@google.com.
   <int value="12" label="Toolbar"/>
   <int value="13" label="App Switcher AI Summarization"/>
   <int value="14" label="AtMemory Search Unsupported Query"/>
+  <int value="15" label="Contextual Cue Chip"/>
+  <int value="16" label="Contextual Cue Infobar"/>
   <int value="100" label="Unknown"/>
 </enum>
 
@@ -932,6 +970,7 @@ chromium-metrics-reviews@google.com.
   <int value="25" label="Onboarding: No I Am Done"/>
   <int value="26" label="Onboarding: Keep Learning"/>
   <int value="27" label="App Switcher Summarize"/>
+  <int value="28" label="Live Prompt"/>
 </enum>
 
 <!-- LINT.ThenChange(
@@ -1161,6 +1200,8 @@ chromium-metrics-reviews@google.com.
   <int value="16" label="AIM Quick Action"/>
   <int value="17" label="Tab Switcher"/>
   <int value="18" label="Plus Button"/>
+  <int value="19" label="Standalone AIM Module"/>
+  <int value="20" label="AIM in Most Visited"/>
 </enum>
 
 <!-- LINT.IfChange(IOSHomeCustomizationBackgroundStyle) -->
@@ -1170,6 +1211,7 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Color background was loaded"/>
   <int value="2" label="Gallery image background was loaded"/>
   <int value="3" label="User uploaded image background was loaded"/>
+  <int value="4" label="Ephemeral theme background was loaded"/>
 </enum>
 
 <!-- LINT.ThenChange(/ios/chrome/browser/home_customization/utils/home_customization_constants.h:HomeCustomizationBackgroundStyle) -->
@@ -1733,6 +1775,9 @@ chromium-metrics-reviews@google.com.
   <int value="19" label="(Obsolete) BWG promo"/>
   <int value="20" label="Safari Import (Remind Me Later)"/>
   <int value="21" label="Default Browser off cycle promo"/>
+  <int value="22" label="Home background customization promo"/>
+  <int value="23" label="LevelUp"/>
+  <int value="24" label="Ephemeral theme promo"/>
 </enum>
 
 <!-- LINT.ThenChange(/ios/chrome/browser/promos_manager/model/constants.h:Promo) -->
@@ -2421,6 +2466,7 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Secondary Button"/>
   <int value="3" label="Tertiary Button"/>
   <int value="4" label="Dismiss Button"/>
+  <int value="5" label="Dismiss via Swipe"/>
 </enum>
 
 <!-- LINT.ThenChange(/ios/chrome/common/ui/promo_style/constants.h:PromoStyleSheetAction) -->

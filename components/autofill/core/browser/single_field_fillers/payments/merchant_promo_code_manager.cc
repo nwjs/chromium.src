@@ -8,12 +8,14 @@
 #include <functional>
 #include <utility>
 
+#include "base/check_op.h"
 #include "base/functional/bind.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #include "components/autofill/core/browser/data_model/payments/autofill_offer_data.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
 #include "components/autofill/core/browser/foundations/browser_autofill_manager.h"
+#include "components/autofill/core/browser/metrics/payments/promo_code_metrics.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/single_field_fillers/single_field_fill_router.h"
 #include "components/autofill/core/browser/suggestions/payments/merchant_promo_code_suggestion_generator.h"
@@ -66,7 +68,7 @@ void MerchantPromoCodeManager::OnFieldTypesDetermined(
       manager.client()
           .GetPaymentsAutofillClient()
           ->GetPaymentsDataManager()
-          .GetActiveAutofillWalletDirectOffersForOrigin(
+          .GetActiveAutofillPromoCodeOffersForOrigin(
               manager.client()
                   .GetLastCommittedPrimaryMainFrameOrigin()
                   .GetURL());
@@ -107,6 +109,32 @@ bool MerchantPromoCodeManager::OnGetSingleFieldSuggestions(
       form_structure.ToFormData(), field, &form_structure, &autofill_field,
       client, std::move(on_suggestions_generated));
   return suggestions_generated;
+}
+
+void MerchantPromoCodeManager::OnSingleFieldSuggestionSelected(
+    const Suggestion& suggestion) {
+  CHECK_EQ(suggestion.type, SuggestionType::kMerchantPromoCodeEntry);
+  if (page_metrics_.has_logged_suggestion_filled) {
+    return;
+  }
+
+  page_metrics_.has_logged_suggestion_filled = true;
+  autofill_metrics::LogPromoCodeFormEvent(
+      autofill_metrics::PromoCodeFormEvent::kPromoCodeSuggestionFilled);
+}
+
+void MerchantPromoCodeManager::DidShowSuggestions() {
+  if (page_metrics_.has_logged_suggestions_shown) {
+    return;
+  }
+
+  page_metrics_.has_logged_suggestions_shown = true;
+  autofill_metrics::LogPromoCodeFormEvent(
+      autofill_metrics::PromoCodeFormEvent::kPromoCodeSuggestionsShown);
+}
+
+void MerchantPromoCodeManager::Reset() {
+  page_metrics_ = {};
 }
 
 }  // namespace autofill

@@ -7,11 +7,13 @@ package org.chromium.chrome.browser.history;
 import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.content.Context;
+import android.os.SystemClock;
 import android.text.TextUtils;
 import android.text.method.LinkMovementMethod;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver.OnPreDrawListener;
 import android.widget.Button;
 import android.widget.TextView;
 
@@ -27,7 +29,7 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.finds.FindsFeatures;
 import org.chromium.chrome.browser.finds.FindsUtils;
-import org.chromium.chrome.browser.history.AppFilterCoordinator.AppInfo;
+import org.chromium.chrome.browser.history.FilterSheetCoordinator.FilterItem;
 import org.chromium.chrome.browser.history.HistoryProvider.BrowsingHistoryObserver;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.ui.favicon.FaviconHelper.DefaultFaviconHelper;
@@ -55,7 +57,6 @@ public class HistoryAdapter extends DateDividedAdapter implements BrowsingHistor
     private final HistoryContentManager mManager;
     private final ArrayList<HistoryItemView> mItemViews;
     private final DefaultFaviconHelper mFaviconHelper;
-    private final boolean mShowAppFilter;
     private @Nullable final SigninPromoCoordinator mHistorySyncPromoCoordinator;
     private @Nullable final SnackbarManager mSnackbarManager;
     private @Nullable final Profile mProfile;
@@ -71,9 +72,10 @@ public class HistoryAdapter extends DateDividedAdapter implements BrowsingHistor
     private @Nullable HeaderItem mClearBrowsingDataButtonHeaderItem;
     private @Nullable HeaderItem mHistoryOpenInChromeHeaderItem;
     private @Nullable HeaderItem mHistorySyncPromoHeaderItem;
-    private @Nullable HeaderItem mAppFilterHeaderItem;
+    private @Nullable HeaderItem mFilterChipsHeaderItem;
     private @Nullable HeaderItem mFindsPromoHeaderItem;
     private ChipView mAppFilterChip;
+    private ChipView mHostFilterChip;
 
     // Footers
     private MoreProgressButton mMoreProgressButton;
@@ -92,6 +94,8 @@ public class HistoryAdapter extends DateDividedAdapter implements BrowsingHistor
     private boolean mFindsPromoVisible;
     private boolean mFindsPromoShowEligible;
     private String mQueryText = EMPTY_QUERY;
+    // Hostname currently chosen for host filtering (either via the Page Info UI or the host
+    // filter chip). If null, ignored when querying history.
     private @Nullable String mHostName;
 
     // ID of the App currently chosen for app filtering. If null, ignored when querying history.
@@ -108,6 +112,10 @@ public class HistoryAdapter extends DateDividedAdapter implements BrowsingHistor
     private final List<HistoryItem> mAllItems = new ArrayList<>();
     // Monotonically increasing ID for clustering.
     private long mNextClusterId = 1;
+
+    private boolean mInitialLoadStarted;
+    private long mInitialLoadStartTimeMs;
+    private long mQueryStartTimeMs;
 
     /**
      * Creates a new instance of {@link HistoryAdapter}.
@@ -134,8 +142,7 @@ public class HistoryAdapter extends DateDividedAdapter implements BrowsingHistor
         mProfile = profile;
         mFaviconHelper = new DefaultFaviconHelper();
         mItemViews = new ArrayList<>();
-        mShowAppFilter = mManager.showAppFilter();
-        mShowSourceApp = mShowAppFilter; // defaults to BrApp full history
+        mShowSourceApp = mManager.showAppFilter(); // defaults to BrApp full history
         mHistorySyncPromoCoordinator = historySyncPromoCoordinator;
         mIsLargeFormFactorDevice = false;
         mShouldClusterByDomain = shouldClusterByDomain;
@@ -145,6 +152,8 @@ public class HistoryAdapter extends DateDividedAdapter implements BrowsingHistor
     @SuppressWarnings("NullAway")
     public void onDestroyed() {
         mIsDestroyed = true;
+        mInitialLoadStartTimeMs = 0;
+        mQueryStartTimeMs = 0;
 
         mHistoryProvider.destroy();
         mHistoryProvider = null;
@@ -153,16 +162,24 @@ public class HistoryAdapter extends DateDividedAdapter implements BrowsingHistor
         mFaviconHelper.clearCache();
     }
 
+    private void executeQuery() {
+        mHistoryProvider.queryHistory(
+                mQueryText, new QueryOptions(mAppId, mHostName, /* clientId= */ null));
+    }
+
     /** Starts loading the first set of browsing history items. */
     public void startLoadingItems() {
         mAreHeadersInitialized = false;
         mIsLoadingItems = true;
         mClearOnNextQueryComplete = true;
-        if (mHostName != null) {
-            mHistoryProvider.queryHistoryForHost(mHostName);
-        } else {
-            mHistoryProvider.queryHistory(mQueryText, mAppId);
+        if (mHostName == null) {
+            mQueryStartTimeMs = SystemClock.elapsedRealtime();
+            if (!mInitialLoadStarted) {
+                mInitialLoadStarted = true;
+                mInitialLoadStartTimeMs = mQueryStartTimeMs;
+            }
         }
+        executeQuery();
     }
 
     void onSearchStart() {
@@ -196,6 +213,9 @@ public class HistoryAdapter extends DateDividedAdapter implements BrowsingHistor
             return;
         }
         mIsLoadingItems = true;
+        if (mHostName == null) {
+            mQueryStartTimeMs = SystemClock.elapsedRealtime();
+        }
         updateFooter();
         notifyDataSetChanged();
         mHistoryProvider.queryHistoryContinuation();
@@ -218,15 +238,20 @@ public class HistoryAdapter extends DateDividedAdapter implements BrowsingHistor
         onSearchStart();
         mIsLoadingItems = true;
         mClearOnNextQueryComplete = true;
-        mHistoryProvider.queryHistory(mQueryText, mAppId);
+        mInitialLoadStartTimeMs = 0;
+        if (mHostName == null) {
+            mQueryStartTimeMs = SystemClock.elapsedRealtime();
+        }
+        executeQuery();
     }
 
     /** Called when a search is ended. */
     public void onEndSearch() {
         mQueryText = EMPTY_QUERY;
         mIsSearching = false;
-        if (mShowAppFilter) setAppId(null);
-        mShowSourceApp = mShowAppFilter;
+        if (mManager.showAppFilter()) setAppId(null);
+        if (mManager.showHostFilter()) setHostName(null);
+        mShowSourceApp = mManager.showAppFilter();
 
         // Re-initialize the data in the adapter.
         startLoadingItems();
@@ -280,8 +305,9 @@ public class HistoryAdapter extends DateDividedAdapter implements BrowsingHistor
             mClearBrowsingDataButton.setEnabled(!active);
         }
 
-        // While the selection is active, we temporarily disable the app filter button.
-        if (mShowAppFilter) mAppFilterChip.setEnabled(!active);
+        // While the selection is active, we temporarily disable the filter buttons.
+        if (mManager.showAppFilter()) mAppFilterChip.setEnabled(!active);
+        if (mManager.showHostFilter()) mHostFilterChip.setEnabled(!active);
 
         int visibility = mManager.getRemoveItemButtonVisibility();
         if (active) {
@@ -342,6 +368,8 @@ public class HistoryAdapter extends DateDividedAdapter implements BrowsingHistor
 
         mAllItems.addAll(items);
 
+        mManager.maybeUpdateHostInfoList(mAllItems);
+
         mIsLoadingItems = false;
         mHasMorePotentialItems = hasMorePotentialMatches;
 
@@ -349,13 +377,46 @@ public class HistoryAdapter extends DateDividedAdapter implements BrowsingHistor
 
         boolean hasVisibleContent = !items.isEmpty() || mHistorySyncPromoVisible;
         if ((!mAreHeadersInitialized && hasVisibleContent && !mIsSearching)
-                || (mIsSearching && mShowAppFilter)
+                || (mIsSearching && mManager.showFilterChips())
                 || mIsLargeFormFactorDevice) {
             setHeaders();
             mAreHeadersInitialized = true;
         }
 
         if (mHasMorePotentialItems) updateFooter();
+
+        if (mQueryStartTimeMs > 0) {
+            long durationMs = SystemClock.elapsedRealtime() - mQueryStartTimeMs;
+            mQueryStartTimeMs = 0;
+            mManager.getUmaRecorder().recordQueryDuration(durationMs);
+        }
+
+        if (mInitialLoadStartTimeMs > 0) {
+            final long initialLoadStartMs = mInitialLoadStartTimeMs;
+            mInitialLoadStartTimeMs = 0;
+            if (!items.isEmpty() && mRecyclerView != null) {
+                RecyclerView recyclerView = mRecyclerView;
+                recyclerView
+                        .getViewTreeObserver()
+                        .addOnPreDrawListener(
+                                new OnPreDrawListener() {
+                                    @Override
+                                    public boolean onPreDraw() {
+                                        recyclerView
+                                                .getViewTreeObserver()
+                                                .removeOnPreDrawListener(this);
+                                        if (mIsDestroyed || mRecyclerView == null) {
+                                            return true;
+                                        }
+                                        long durationMs =
+                                                SystemClock.elapsedRealtime() - initialLoadStartMs;
+                                        mManager.getUmaRecorder()
+                                                .recordTimeToFirstVisibleContent(durationMs);
+                                        return true;
+                                    }
+                                });
+            }
+        }
     }
 
     @Override
@@ -383,7 +444,8 @@ public class HistoryAdapter extends DateDividedAdapter implements BrowsingHistor
 
         // Querying apps was completed after the search mode is entered (or within search mode).
         // Set the headers again to show/hide the header item for the app filter button.
-        if (mIsSearching) {
+        // On LFF devices, the filter chips are always visible.
+        if (mIsSearching || mIsLargeFormFactorDevice) {
             setHeaders();
         }
     }
@@ -435,11 +497,11 @@ public class HistoryAdapter extends DateDividedAdapter implements BrowsingHistor
      */
     @Initializer
     void generateHeaderItems() {
-        ViewGroup historyAppFilterContainer = getAppFilterContainer(null);
+        ViewGroup historyFilterChipsContainer = getFilterChipsContainer(null);
         ViewGroup privacyDisclaimerContainer = getPrivacyDisclaimerContainer(null);
         ViewGroup clearBrowsingDataButtonContainer = getClearBrowsingDataButtonContainer(null);
 
-        mAppFilterHeaderItem = new StandardHeaderItem(0, historyAppFilterContainer);
+        mFilterChipsHeaderItem = new StandardHeaderItem(0, historyFilterChipsContainer);
         mPrivacyDisclaimerHeaderItem = new StandardHeaderItem(0, privacyDisclaimerContainer);
         mPrivacyDisclaimerBottomSpace =
                 privacyDisclaimerContainer.findViewById(R.id.privacy_disclaimer_bottom_space);
@@ -502,17 +564,24 @@ public class HistoryAdapter extends DateDividedAdapter implements BrowsingHistor
         return viewGroup;
     }
 
-    @EnsuresNonNull("mAppFilterChip")
-    private ViewGroup getAppFilterContainer(@Nullable ViewGroup parent) {
-        ViewGroup historyAppFilterContainer =
+    @EnsuresNonNull({"mAppFilterChip", "mHostFilterChip"})
+    private ViewGroup getFilterChipsContainer(@Nullable ViewGroup parent) {
+        ViewGroup historyFilterChipsContainer =
                 (ViewGroup)
                         LayoutInflater.from(mManager.getContext())
-                                .inflate(R.layout.app_history_filter, parent, true);
-        mAppFilterChip = historyAppFilterContainer.findViewById(R.id.app_history_filter_chip);
+                                .inflate(R.layout.history_filter_chips, parent, true);
+        mAppFilterChip = historyFilterChipsContainer.findViewById(R.id.app_history_filter_chip);
         mAppFilterChip.setOnClickListener(_ -> mManager.onAppFilterClicked());
         mAppFilterChip.getPrimaryTextView().setText(R.string.history_filter_by_app);
         mAppFilterChip.addDropdownIcon();
-        return historyAppFilterContainer;
+
+        mHostFilterChip = historyFilterChipsContainer.findViewById(R.id.host_history_filter_chip);
+        mHostFilterChip.setOnClickListener(_ -> mManager.onHostFilterClicked());
+        mHostFilterChip.getPrimaryTextView().setText(R.string.history_filter_by_host);
+        mHostFilterChip.addDropdownIcon();
+
+        updateFilterChipsVisibility();
+        return historyFilterChipsContainer;
     }
 
     private View getHistorySyncPromoView() {
@@ -522,11 +591,11 @@ public class HistoryAdapter extends DateDividedAdapter implements BrowsingHistor
         return promoView;
     }
 
-    void updateHistory(@Nullable AppInfo appInfo) {
+    void updateAppFilter(@Nullable FilterItem appInfo) {
         if (appInfo == null) {
             setAppId(null);
             resetAppFilterChip();
-            mShowSourceApp = mShowAppFilter;
+            mShowSourceApp = mManager.showAppFilter();
         } else {
             setAppId(appInfo.id);
             mAppFilterChip.getPrimaryTextView().setText(appInfo.label);
@@ -534,13 +603,42 @@ public class HistoryAdapter extends DateDividedAdapter implements BrowsingHistor
             mAppFilterChip.setIcon(R.drawable.ic_check_googblue_24dp, true);
             mShowSourceApp = false;
         }
-        search(EMPTY_QUERY);
+        search(mQueryText);
     }
 
     void resetAppFilterChip() {
         mAppFilterChip.getPrimaryTextView().setText(R.string.history_filter_by_app);
         mAppFilterChip.setSelected(false);
         mAppFilterChip.setIcon(ChipView.INVALID_ICON_ID, false);
+    }
+
+    void updateHostFilter(@Nullable FilterItem hostInfo) {
+        if (hostInfo == null) {
+            setHostName(null);
+            resetHostFilterChip();
+        } else {
+            setHostName(hostInfo.id);
+            mHostFilterChip.getPrimaryTextView().setText(hostInfo.label);
+            mHostFilterChip.setSelected(true);
+            mHostFilterChip.setIcon(R.drawable.ic_check_googblue_24dp, true);
+        }
+        search(mQueryText);
+    }
+
+    void resetHostFilterChip() {
+        mHostFilterChip.getPrimaryTextView().setText(R.string.history_filter_by_host);
+        mHostFilterChip.setSelected(false);
+        mHostFilterChip.setIcon(ChipView.INVALID_ICON_ID, false);
+    }
+
+    private void updateFilterChipsVisibility() {
+        boolean showAppChip =
+                mManager.showAppFilter() && (mManager.hasAppFilterList() || mAppId != null);
+        mAppFilterChip.setVisibility(showAppChip ? View.VISIBLE : View.GONE);
+
+        boolean showHostChip =
+                mManager.showHostFilter() && (mManager.hasHostFilterList() || mHostName != null);
+        mHostFilterChip.setVisibility(showHostChip ? View.VISIBLE : View.GONE);
     }
 
     private View getFindsPromoContainer() {
@@ -639,7 +737,10 @@ public class HistoryAdapter extends DateDividedAdapter implements BrowsingHistor
         if (mIsSearching) {
             // Query for apps could be still pending. |setHeaders()| will be invoked
             // again when the query is completed in order to set the header accordingly.
-            if (mShowAppFilter && mManager.hasFilterList()) args.add(mAppFilterHeaderItem);
+            if (mManager.showFilterChips() && mManager.hasFilterList()) {
+                updateFilterChipsVisibility();
+                args.add(mFilterChipsHeaderItem);
+            }
         } else {
             if (mPrivacyDisclaimersVisible) {
                 args.add(mPrivacyDisclaimerHeaderItem);
@@ -663,7 +764,10 @@ public class HistoryAdapter extends DateDividedAdapter implements BrowsingHistor
     /** For LFF devices w/ physical keyboard attached, there's only search mode. */
     private void setLFFHeaders() {
         ArrayList<HeaderItem> args = new ArrayList<>();
-        if (mShowAppFilter && mManager.hasFilterList()) args.add(mAppFilterHeaderItem);
+        if (mManager.showFilterChips() && mManager.hasFilterList()) {
+            updateFilterChipsVisibility();
+            args.add(mFilterChipsHeaderItem);
+        }
         if (isNormalContentAvailable()) {
             if (mPrivacyDisclaimersVisible) {
                 args.add(mPrivacyDisclaimerHeaderItem);
@@ -823,7 +927,7 @@ public class HistoryAdapter extends DateDividedAdapter implements BrowsingHistor
         mPrivacyDisclaimerHeaderItem = new StandardHeaderItem(0, null);
         mClearBrowsingDataButtonHeaderItem = new StandardHeaderItem(1, null);
         mClearBrowsingDataButtonVisible = true;
-        mAppFilterHeaderItem = new StandardHeaderItem(0, null);
+        mFilterChipsHeaderItem = new StandardHeaderItem(0, null);
         mHistorySyncPromoHeaderItem = new PersistentHeaderItem(2, null);
     }
 
@@ -859,12 +963,24 @@ public class HistoryAdapter extends DateDividedAdapter implements BrowsingHistor
         mAppFilterChip = appFilterChip;
     }
 
+    ChipView getHostFilterButtonForTest() {
+        return mHostFilterChip;
+    }
+
+    void setHostFilterButtonForTest(ChipView hostFilterChip) {
+        mHostFilterChip = hostFilterChip;
+    }
+
     boolean showSourceAppForTest() {
         return mShowSourceApp;
     }
 
     @Nullable String getAppIdForTest() {
         return mAppId;
+    }
+
+    @Nullable String getHostNameForTest() {
+        return mHostName;
     }
 
     public void toggleCluster(HistoryItem item) {

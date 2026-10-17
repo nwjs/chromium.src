@@ -79,8 +79,17 @@ gfx::Size Separator::CalculatePreferredSize(
   return size;
 }
 
+void Separator::OnThemeChanged() {
+  View::OnThemeChanged();
+
+  // Separators almost always use colors which are tied to theme, so separators
+  // should invoke painting on theme changes.
+  SchedulePaint();
+}
+
 void Separator::OnPaint(gfx::Canvas* canvas) {
-  const SkColor color = GetColorProvider()->GetColor(color_id_);
+  const SkColor color = GetForegroundColor();
+
   // Paint background and border, if any.
   View::OnPaint(canvas);
 
@@ -123,6 +132,10 @@ void Separator::OnPaint(gfx::Canvas* canvas) {
   } else {
     canvas->FillRect({x, y, w, h}, color);
   }
+}
+
+SkColor Separator::GetForegroundColor() const {
+  return GetColorProvider()->GetColor(color_id_);
 }
 
 BEGIN_METADATA(Separator)

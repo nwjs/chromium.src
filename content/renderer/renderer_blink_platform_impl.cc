@@ -164,8 +164,8 @@ namespace {
 // v8's cppgc-typed embedder data API, which is the only public API for
 // CppHeapPointerTag access (the raw pointer overloads are private).
 // Blink stores the slot with CppHeapPointerTag::kScriptStateTag
-// (third_party/blink/renderer/platform/bindings/wrapper_type_info.h:
-// kLastGeneratedScriptWrappableTag (2000) + 19). Reading/writing with
+// (third_party/blink/renderer/platform/bindings/cpp_heap_external_tag.h:
+// kBlinkNonWrappableTagRange.first (0x7200) + 2). Reading/writing with
 // v8::kEmbedderDataTypeTagDefault or gin::kBlinkScriptState no longer sees
 // the value since v8 d04704a20fc ("[sandbox] Store CppHeapPointerHandles in
 // EmbedderDataArray") enforces exact tag matching under pointer compression.
@@ -174,7 +174,7 @@ class NwScriptStateSlot : public cppgc::GarbageCollected<NwScriptStateSlot> {
   void Trace(cppgc::Visitor*) const {}
 };
 constexpr v8::CppHeapPointerTag kScriptStateTag =
-    static_cast<v8::CppHeapPointerTag>(2019);
+    static_cast<v8::CppHeapPointerTag>(29186);
 // node::EmbedderDataTag::kPerContextData - the tag node uses for the
 // Environment* slot (NODE_CONTEXT_EMBEDDER_DATA_INDEX). Writing with
 // v8::kEmbedderDataTypeTagDefault makes node's tagged reads return null.

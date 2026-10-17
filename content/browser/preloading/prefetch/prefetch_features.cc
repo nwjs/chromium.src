@@ -85,6 +85,9 @@ const base::FeatureParam<size_t>
         "prefetch_multiple_active_set_size_limit_for_base_value", 3};
 #endif
 
+BASE_FEATURE(kPrefetchSchedulerBurstLimitPerPriority,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kPrefetchEagerLimit, base::FEATURE_DISABLED_BY_DEFAULT);
 const base::FeatureParam<size_t> kMaxNumberOfEagerPrefetchesPerPage{
     &kPrefetchEagerLimit, "max_number_of_eager_prefetches_per_page", 2};
@@ -137,5 +140,32 @@ BASE_FEATURE(kPrefetchMatchResolverUnblockAsync,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPrefetchRevampAcceptHeader, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kPrefetchAheadOfActualNavigation,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+constexpr base::FeatureParam<
+    PrefetchAheadOfActualNavigationForceWaitNVSHeaderPolicy>::Option
+    kPrefetchAheadOfActualNavigationForceWaitNVSHeaderPolicyOptions[] = {
+        {PrefetchAheadOfActualNavigationForceWaitNVSHeaderPolicy::kNotUse,
+         "NotUse"},
+        {PrefetchAheadOfActualNavigationForceWaitNVSHeaderPolicy::kUseIfNoHint,
+         "UseIfNoHint"},
+        {PrefetchAheadOfActualNavigationForceWaitNVSHeaderPolicy::kAlwaysUse,
+         "AlwaysUse"},
+};
+
+const base::FeatureParam<
+    PrefetchAheadOfActualNavigationForceWaitNVSHeaderPolicy>
+    kPrefetchAheadOfActualNavigationForceWaitNVSHeaderPolicy{
+        &kPrefetchAheadOfActualNavigation,
+        "force_wait_no_vary_search_header_policy",
+        PrefetchAheadOfActualNavigationForceWaitNVSHeaderPolicy::kUseIfNoHint,
+        &kPrefetchAheadOfActualNavigationForceWaitNVSHeaderPolicyOptions};
+
+const base::FeatureParam<bool>
+    kPrefetchAheadOfActualNavigationUseBlockUntilHeadTimeout{
+        &kPrefetchAheadOfActualNavigation, "use_block_until_head_timeout",
+        false};
 
 }  // namespace features

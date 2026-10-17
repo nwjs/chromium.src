@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.actor;
 
+import android.text.TextUtils;
+
 import org.jni_zero.CalledByNative;
 import org.jni_zero.JNINamespace;
 import org.jni_zero.JniType;
@@ -36,6 +38,12 @@ public class ActorKeyedService {
 
         /** Triggered when a task's intermediate step progress (worklog) is updated. */
         default void onTaskStepProgressUpdated(@ActorTaskId int taskId, String stepProgress) {}
+
+        /** Triggered when a task is stopped or completed with a reason. */
+        default void onTaskStopped(@ActorTaskId int taskId, @StoppedReason int stoppedReason) {}
+
+        /** Triggered when the number of pending tasks changes. */
+        default void onPendingTaskCountChanged(int pendingCount) {}
     }
 
     @CalledByNative
@@ -80,6 +88,9 @@ public class ActorKeyedService {
 
     /** Allows the UI to stop a running task. */
     public void stopTask(@ActorTaskId int taskId, @StoppedReason int stopReason) {
+        for (Observer obs : mObservers) {
+            obs.onTaskStopped(taskId, stopReason);
+        }
         if (mNativePtr == 0) return;
         ActorKeyedServiceJni.get().stopTask(mNativePtr, taskId, stopReason);
     }
@@ -109,10 +120,20 @@ public class ActorKeyedService {
      */
     public @Nullable @ActorTaskId Integer getActiveTaskIdOnTab(int tabId, boolean includePaused) {
         if (mNativePtr == 0) return null;
+        int id = ActorKeyedServiceJni.get().getActiveTaskIdOnTab(mNativePtr, tabId, includePaused);
+        return id != ActorTaskId.INVALID_TASK_ID ? id : null;
+    }
+
+    /**
+     * @param conversationId The Glic conversation ID to look up.
+     * @return The active task matching the given conversation ID, or null if none.
+     */
+    public @Nullable ActorTask getTaskByConversationId(@Nullable String conversationId) {
+        if (mNativePtr == 0 || TextUtils.isEmpty(conversationId)) return null;
         List<ActorTask> tasks = getActiveTasks();
         for (ActorTask task : tasks) {
-            if (includePaused ? task.getTabs().contains(tabId) : task.isActingOnTab(tabId)) {
-                return task.getId();
+            if (conversationId.equals(task.getGlicConversationId())) {
+                return task;
             }
         }
         return null;
@@ -130,14 +151,14 @@ public class ActorKeyedService {
     }
 
     /**
-     * Called when a background tab is ready for actuation.
+     * Called when a tab (background or foreground) has been prepared and is ready for actuation.
      *
      * @param tab The prepared tab.
      * @param glicTriggerMessageId The GLIC trigger message ID associated with the request.
      */
-    public void setPreparedBackgroundTab(Tab tab, String glicTriggerMessageId) {
+    public void setTabReady(Tab tab, String glicTriggerMessageId) {
         if (mNativePtr == 0) return;
-        ActorKeyedServiceJni.get().setPreparedBackgroundTab(mNativePtr, tab, glicTriggerMessageId);
+        ActorKeyedServiceJni.get().setTabReady(mNativePtr, tab, glicTriggerMessageId);
     }
 
     /**
@@ -170,8 +191,48 @@ public class ActorKeyedService {
         }
     }
 
+    @CalledByNative
+    private void onTaskStopped(@ActorTaskId int taskId, @StoppedReason int stoppedReason) {
+        for (Observer obs : mObservers) {
+            obs.onTaskStopped(taskId, stoppedReason);
+        }
+    }
+
+    @CalledByNative
+    private void onPendingTaskCountChanged(int pendingCount) {
+        for (Observer obs : mObservers) {
+            obs.onPendingTaskCountChanged(pendingCount);
+        }
+    }
+
+    /** Returns the number of pending tasks currently preparing resources. */
+    public int getPendingTasksCount() {
+        if (mNativePtr == 0) return 0;
+        return ActorKeyedServiceJni.get().getPendingTasksCount(mNativePtr);
+    }
+
+    /** Registers a pending task for the given context ID. */
+    public void addPendingTask(String contextId) {
+        if (mNativePtr == 0) return;
+        ActorKeyedServiceJni.get().addPendingTask(mNativePtr, contextId);
+    }
+
+    /** Removes a pending task for the given context ID. */
+    public void removePendingTask(String contextId) {
+        if (mNativePtr == 0) return;
+        ActorKeyedServiceJni.get().removePendingTask(mNativePtr, contextId);
+    }
+
     @NativeMethods
     interface Natives {
+        int getPendingTasksCount(long nativeActorKeyedServiceAndroid);
+
+        void addPendingTask(
+                long nativeActorKeyedServiceAndroid, @JniType("std::string") String contextId);
+
+        void removePendingTask(
+                long nativeActorKeyedServiceAndroid, @JniType("std::string") String contextId);
+
         @JniType("std::vector<jni_zero::ScopedJavaLocalRef<jobject>>")
         List<ActorTask> getActiveTasks(long nativeActorKeyedServiceAndroid);
 
@@ -179,9 +240,12 @@ public class ActorKeyedService {
 
         ActorTask getTask(long nativeActorKeyedServiceAndroid, int taskId);
 
+        int getActiveTaskIdOnTab(
+                long nativeActorKeyedServiceAndroid, int tabId, boolean includePaused);
+
         void stopTask(long nativeActorKeyedServiceAndroid, int taskId, int stopReason);
 
-        void setPreparedBackgroundTab(
+        void setTabReady(
                 long nativeActorKeyedServiceAndroid,
                 @JniType("TabAndroid*") Tab tab,
                 @JniType("std::string") String glicTriggerMessageId);

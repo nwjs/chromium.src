@@ -370,8 +370,15 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
 
   // Whether the arrow will be automatically adjusted if needed to fit the
   // bubble on screen. Has no effect if the bubble has no arrow.
+  // TODO(crbug.com/517926842): This should also clamp to work area if
+  // offscreen.
   bool adjust_if_offscreen() const { return adjust_if_offscreen_; }
   void set_adjust_if_offscreen(bool adjust) { adjust_if_offscreen_ = adjust; }
+
+  // Whether the bubble bounds will be clamped to fit within the available
+  // screen bounds (work area).
+  bool clamp_to_work_area() const { return clamp_to_work_area_; }
+  void set_clamp_to_work_area(bool clamp) { clamp_to_work_area_ = clamp; }
 
   //////////////////////////////////////////////////////////////////////////////
   // Shadows:
@@ -379,8 +386,28 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   // Bubbles may optionally have a shadow. Only some platforms support drawing
   // custom shadows on a bubble.
 
+  struct ShadowConfiguration {
+    BubbleBorder::Shadow shadow_type = BubbleBorder::DIALOG_SHADOW;
+    // Custom MD shadow elevation. A null value yields the default BubbleBorder
+    // MD shadow.
+    std::optional<int> elevation = std::nullopt;
+    // Whether to avoid the bubble's shadow overlapping the anchor.
+    bool avoid_overlap_shadow = false;
+  };
+
   BubbleBorder::Shadow GetShadow() const;
-  void set_shadow(BubbleBorder::Shadow shadow) { shadow_ = shadow; }
+  // Returns the shadow configuration as set. Unlike GetShadow(), this does not
+  // account for platform support (e.g. window compositing).
+  const ShadowConfiguration& shadow_config() const { return shadow_config_; }
+  void set_shadow_config(const ShadowConfiguration& shadow_config) {
+    shadow_config_ = shadow_config;
+  }
+  // DEPRECATED: Use set_shadow_config() instead. Existing callers will be
+  // migrated and this method removed. Only updates the shadow type; other
+  // ShadowConfiguration fields are left unchanged.
+  void set_shadow(BubbleBorder::Shadow shadow) {
+    shadow_config_.shadow_type = shadow;
+  }
 
   // Call this method to inform BubbleDialogDelegate that the return value of
   // GetAnchorRect() has changed. You only need to do this if you have
@@ -687,14 +714,15 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   void SetResolvedHighlightedElement(ui::TrackedElement* element);
 
   BubbleBorder::Arrow arrow_ = BubbleBorder::NONE;
-  BubbleBorder::Shadow shadow_;
+  ShadowConfiguration shadow_config_;
   ui::ColorVariant color_ = ui::kColorBubbleBackground;
   raw_ptr<Widget> anchor_widget_ = nullptr;
-  raw_ptr<ui::TrackedElement> anchor_tracked_element_ = nullptr;
+  ui::SafeElementReference anchor_tracked_element_;
   std::unique_ptr<AnchorViewObserver> anchor_view_observer_;
   std::unique_ptr<AnchorWidgetObserver> anchor_widget_observer_;
   std::unique_ptr<BubbleWidgetObserver> bubble_widget_observer_;
   bool adjust_if_offscreen_ = true;
+  bool clamp_to_work_area_ = false;
   bool focus_traversable_from_anchor_view_ = true;
   bool use_anchor_window_bounds_ = true;
   std::optional<ui::ElementTracker::Subscription>

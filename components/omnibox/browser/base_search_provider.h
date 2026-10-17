@@ -85,7 +85,7 @@ class BaseSearchProvider : public AutocompleteProvider {
   // in ShortcutsDatabase.
   static AutocompleteMatch CreateShortcutSearchSuggestion(
       const std::u16string& suggestion,
-      AutocompleteMatchType::Type type,
+      omnibox::AutocompleteMatchType type,
       const TemplateURL* template_url,
       const SearchTermsData& search_terms_data);
 

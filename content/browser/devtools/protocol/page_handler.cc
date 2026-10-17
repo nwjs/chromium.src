@@ -150,15 +150,25 @@ GetEncoder(const std::string& format, int quality, bool optimize_for_speed) {
   return protocol::Response::InvalidParams("Invalid image format");
 }
 
+// Returns the time at which |frame| was expected to be displayed, which the
+// capturer records as |reference_time|.
+base::TimeTicks ScreencastFrameTimestamp(const media::VideoFrame& frame) {
+  return frame.metadata().reference_time.value_or(base::TimeTicks::Now());
+}
+
 std::unique_ptr<Page::ScreencastFrameMetadata> BuildScreencastFrameMetadata(
     const gfx::Size& surface_size,
     float device_scale_factor,
     float page_scale_factor,
     const gfx::PointF& root_scroll_offset,
-    float top_controls_visible_height) {
+    float top_controls_visible_height,
+    base::TimeTicks timestamp) {
   if (surface_size.IsEmpty() || device_scale_factor == 0) {
     return nullptr;
   }
+
+  const base::Time wall_timestamp =
+      base::Time::Now() - (base::TimeTicks::Now() - timestamp);
 
   const gfx::SizeF content_size_dip =
       gfx::ScaleSize(gfx::SizeF(surface_size), 1 / device_scale_factor);
@@ -174,7 +184,8 @@ std::unique_ptr<Page::ScreencastFrameMetadata> BuildScreencastFrameMetadata(
           .SetDeviceHeight(content_size_dip.height())
           .SetScrollOffsetX(root_scroll_offset_dip.x())
           .SetScrollOffsetY(root_scroll_offset_dip.y())
-          .SetTimestamp(base::Time::Now().InSecondsFSinceUnixEpoch())
+          .SetTimestamp(wall_timestamp.InSecondsFSinceUnixEpoch())
+          .SetMonotonicTimestamp(timestamp.since_origin().InSecondsF())
           .Build();
   return page_metadata;
 }
@@ -672,11 +683,17 @@ Response PageHandler::Enable(
     FrameTreeNode* frame_tree_node = host_->frame_tree_node();
     NavigationRequest* navigation_request =
         host_->frame_tree_node()->navigation_request();
+    // A client that is not allowed to navigate the page to a URL must not
+    // learn it either (see GetNavigationHistory()). Redact the URL rather
+    // than omitting the event, so that navigation bookkeeping in clients
+    // keeps working.
+    const GURL& pending_url = navigation_request->common_params().url;
+    const bool may_disclose = !CheckNavigationAllowed(pending_url).IsError();
     frontend_->FrameStartedNavigating(
         frame_tree_node->current_frame_host()
             ->devtools_frame_token()
             .ToString(),
-        navigation_request->common_params().url.spec(),
+        may_disclose ? pending_url.spec() : std::string(),
         navigation_request->devtools_navigation_token().ToString(),
         GetFrameStartedNavigatingNavigationTypeString(
             navigation_request->common_params().navigation_type));
@@ -930,6 +947,47 @@ void DispatchNavigateCallback(
 
 }  // namespace
 
+Response PageHandler::CheckNavigationAllowed(const GURL& url) {
+  CHECK(host_);
+
+  GURL inner_url = url;
+  if (url.SchemeIs(content::kViewSourceScheme)) {
+    inner_url = GURL(url.GetContent());
+  }
+
+  bool is_file = inner_url.SchemeIsFile();
+#if BUILDFLAG(IS_CHROMEOS)
+  // The "externalfile" scheme is ChromeOS-specific.
+  is_file |= inner_url.SchemeIs(content::kExternalFileScheme);
+#endif
+
+  if (is_file && !may_read_local_files_) {
+    return Response::ServerError("Navigating to local URL is not allowed");
+  }
+
+  // chrome-untrusted:// WebUIs might perform high-privileged actions on
+  // navigation, disallow navigation to them unless the client is trusted.
+  if ((inner_url.SchemeIs(kChromeUIUntrustedScheme) ||
+       inner_url.SchemeIs(kChromeDevToolsScheme)) &&
+      !is_trusted_) {
+    return Response::ServerError(
+        "Navigating to a URL with a privileged scheme is not allowed");
+  }
+
+  if (!session()->GetClient()->MayAttachToURL(url,
+                                              host_->web_ui() != nullptr)) {
+    url::Origin origin = url::Origin::Create(url);
+    if (!origin.scheme().empty() &&
+        origin.scheme() != content::kChromeUIScheme &&
+        origin.scheme() != content::kChromeUIUntrustedScheme &&
+        origin.scheme() != content::kChromeDevToolsScheme) {
+      return Response::ServerError("Not allowed");
+    }
+  }
+
+  return Response::Success();
+}
+
 void PageHandler::Navigate(const std::string& url,
                            std::optional<std::string> referrer,
                            std::optional<std::string> maybe_transition_type,
@@ -943,48 +1001,15 @@ void PageHandler::Navigate(const std::string& url,
     return;
   }
 
-  GURL inner_url = gurl;
-  if (gurl.SchemeIs(content::kViewSourceScheme)) {
-    inner_url = GURL(gurl.GetContent());
-  }
-
-  bool is_file = inner_url.SchemeIsFile();
-#if BUILDFLAG(IS_CHROMEOS)
-  // The "externalfile" scheme is ChromeOS-specific.
-  is_file |= inner_url.SchemeIs(content::kExternalFileScheme);
-#endif
-
-  if (is_file && !may_read_local_files_) {
-    callback->sendFailure(
-        Response::ServerError("Navigating to local URL is not allowed"));
-    return;
-  }
-
   if (!host_) {
     callback->sendFailure(Response::InternalError());
     return;
   }
 
-  // chrome-untrusted:// WebUIs might perform high-priviledged actions on
-  // navigation, disallow navigation to them unless the client is trusted.
-  if ((inner_url.SchemeIs(kChromeUIUntrustedScheme) ||
-       inner_url.SchemeIs(kChromeDevToolsScheme)) &&
-      !is_trusted_) {
-    callback->sendFailure(Response::ServerError(
-        "Navigating to a URL with a privileged scheme is not allowed"));
+  Response response = CheckNavigationAllowed(gurl);
+  if (response.IsError()) {
+    callback->sendFailure(std::move(response));
     return;
-  }
-
-  if (!session()->GetClient()->MayAttachToURL(gurl,
-                                              host_->web_ui() != nullptr)) {
-    url::Origin origin = url::Origin::Create(gurl);
-    if (!origin.scheme().empty() &&
-        origin.scheme() != content::kChromeUIScheme &&
-        origin.scheme() != content::kChromeUIUntrustedScheme &&
-        origin.scheme() != content::kChromeDevToolsScheme) {
-      callback->sendFailure(Response::ServerError("Not allowed"));
-      return;
-    }
   }
 
   ui::PageTransition type;
@@ -1169,9 +1194,16 @@ void PageHandler::DidStartNavigating(
     return;
   }
 
+  // A client that is not allowed to navigate the page to a URL must not
+  // learn it either (see GetNavigationHistory()). Redact the URL rather than
+  // omitting the event, so that navigation bookkeeping in clients keeps
+  // working. This event fires at FrameTreeNode::TakeNavigationRequest() time,
+  // BEFORE NavigationRequest::OnStartChecksComplete() force-detaches sessions
+  // whose client fails MayAttachToURL(), so it must gate disclosure itself.
+  const bool may_disclose = host_ && !CheckNavigationAllowed(url).IsError();
   frontend_->FrameStartedNavigating(
-      ftn.current_frame_host()->devtools_frame_token().ToString(), url.spec(),
-      loader_id.ToString(),
+      ftn.current_frame_host()->devtools_frame_token().ToString(),
+      may_disclose ? url.spec() : std::string(), loader_id.ToString(),
       GetFrameStartedNavigatingNavigationTypeString(navigation_type));
 }
 
@@ -1269,12 +1301,22 @@ Response PageHandler::GetNavigationHistory(
   *entries = std::make_unique<NavigationEntries>();
   for (int i = 0; i != controller.GetEntryCount(); ++i) {
     auto* entry = controller.GetEntryAtIndex(i);
+    // A client that is not allowed to navigate the page to a URL must not
+    // learn it either, so the same check gates disclosure. Redact such entries
+    // rather than omitting them, so that `currentIndex` and the entry ids keep
+    // matching the actual history. Navigating to a redacted entry is rejected
+    // by NavigateToHistoryEntry().
+    const bool may_disclose =
+        !CheckNavigationAllowed(entry->GetURL()).IsError() &&
+        !CheckNavigationAllowed(entry->GetUserTypedURL()).IsError();
     (*entries)->emplace_back(
         Page::NavigationEntry::Create()
             .SetId(entry->GetUniqueID())
-            .SetUrl(entry->GetURL().spec())
-            .SetUserTypedURL(entry->GetUserTypedURL().spec())
-            .SetTitle(base::UTF16ToUTF8(entry->GetTitle()))
+            .SetUrl(may_disclose ? entry->GetURL().spec() : std::string())
+            .SetUserTypedURL(may_disclose ? entry->GetUserTypedURL().spec()
+                                          : std::string())
+            .SetTitle(may_disclose ? base::UTF16ToUTF8(entry->GetTitle())
+                                   : std::string())
             .SetTransitionType(TransitionTypeName(entry->GetTransitionType()))
             .Build());
   }
@@ -1289,10 +1331,18 @@ Response PageHandler::NavigateToHistoryEntry(int entry_id) {
 
   NavigationController& controller = host_->frame_tree()->controller();
   for (int i = 0; i != controller.GetEntryCount(); ++i) {
-    if (controller.GetEntryAtIndex(i)->GetUniqueID() == entry_id) {
-      controller.GoToIndex(i);
-      return Response::Success();
+    NavigationEntry* entry = controller.GetEntryAtIndex(i);
+    if (entry->GetUniqueID() != entry_id) {
+      continue;
     }
+    // Traversing to an entry navigates the page to the entry's URL, so apply
+    // the same restrictions Navigate() applies.
+    response = CheckNavigationAllowed(entry->GetURL());
+    if (response.IsError()) {
+      return response;
+    }
+    controller.GoToIndex(i);
+    return Response::Success();
   }
 
   return Response::InvalidParams("No entry with passed id");
@@ -1533,23 +1583,37 @@ void PageHandler::CaptureScreenshot(
   // Set view size for the screenshot right after emulating.
   if (clip) {
     double scale = dpfactor * clip->GetScale();
+    // Round the temporary view outward so resizable platforms provide enough
+    // source pixels after the widget's device scale factor is applied. This
+    // prevents double rounding from leaving the source too small.
     widget_host->GetView()->SetSize(
-        gfx::Size(base::ClampRound(clip->GetWidth() * scale),
-                  base::ClampRound(clip->GetHeight() * scale)));
+        gfx::Size(base::ClampCeil(clip->GetWidth() * scale),
+                  base::ClampCeil(clip->GetHeight() * scale)));
   } else if (emulation_enabled) {
     widget_host->GetView()->SetSize(
         gfx::ScaleToFlooredSize(emulated_view_size, dpfactor));
   }
   if (emulation_enabled || clip) {
-    const gfx::Size requested_image_size =
-        clip ? gfx::Size(clip->GetWidth(), clip->GetHeight())
-             : emulated_view_size;
     double scale = widget_host_device_scale_factor * dpfactor;
     if (clip) {
       scale *= clip->GetScale();
+      // CDP clip dimensions are double-precision DIPs. Preserve their
+      // fractions until conversion to the integral physical bitmap size. A
+      // positive dimension must remain nonempty because an empty requested
+      // size means that no cropping is needed in ScreenshotCaptured().
+      auto round_clip_dimension = [scale](double dimension) {
+        if (!(dimension > 0 && scale > 0)) {
+          return 0;
+        }
+        return std::max(1, base::ClampRound(dimension * scale));
+      };
+      pending_request->requested_image_size =
+          gfx::Size(round_clip_dimension(clip->GetWidth()),
+                    round_clip_dimension(clip->GetHeight()));
+    } else {
+      pending_request->requested_image_size =
+          gfx::ScaleToRoundedSize(emulated_view_size, scale);
     }
-    pending_request->requested_image_size =
-        gfx::ScaleToRoundedSize(requested_image_size, scale);
   }
 
   // TODO(crbug.com/377715191): this should check RenderWidgetHostViewBase
@@ -1869,7 +1933,8 @@ void PageHandler::OnFrameFromVideoConsumer(
   std::unique_ptr<Page::ScreencastFrameMetadata> page_metadata =
       BuildScreencastFrameMetadata(surface_size, device_scale_factor,
                                    page_scale_factor, root_scroll_offset,
-                                   top_controls_visible_height);
+                                   top_controls_visible_height,
+                                   ScreencastFrameTimestamp(*frame));
   if (!page_metadata) {
     return;
   }
@@ -2023,7 +2088,18 @@ void PageHandler::GetManifestIcons(
 void PageHandler::GetAppId(std::unique_ptr<GetAppIdCallback> callback) {
   // TODO: Use InstallableManager once it moves into content/.
   // Until then, this code is only used to return no image data in the tests.
-  callback->sendSuccess(std::nullopt, std::nullopt);
+  callback->sendSuccess(std::nullopt, std::nullopt, std::nullopt, std::nullopt);
+}
+
+void PageHandler::GetSubApps(std::unique_ptr<GetSubAppsCallback> callback) {
+  callback->sendSuccess(
+      std::make_unique<protocol::Array<protocol::Page::SubApp>>());
+}
+
+void PageHandler::GetSiblingSubApps(
+    std::unique_ptr<GetSiblingSubAppsCallback> callback) {
+  callback->sendSuccess(
+      std::make_unique<protocol::Array<protocol::Page::SubApp>>());
 }
 
 Response PageHandler::SetBypassCSP(bool enabled) {
@@ -2307,6 +2383,7 @@ Page::BackForwardCacheNotRestoredReason BlocklistedFeatureToProtocol(
       return Page::BackForwardCacheNotRestoredReasonEnum::
           JsNetworkRequestReceivedCacheControlNoStoreResource;
     case WebSchedulerTrackedFeature::kWebSerial:
+    case WebSchedulerTrackedFeature::kWebUSB:
       // These features only disable aggressive throttling.
       NOTREACHED();
     case WebSchedulerTrackedFeature::kSmartCard:
@@ -2580,6 +2657,7 @@ Page::BackForwardCacheNotRestoredReasonType MapBlocklistedFeatureToType(
     case WebSchedulerTrackedFeature::kWebSocketSticky:
       return Page::BackForwardCacheNotRestoredReasonTypeEnum::Circumstantial;
     case WebSchedulerTrackedFeature::kWebSerial:
+    case WebSchedulerTrackedFeature::kWebUSB:
       NOTREACHED();
   }
 }

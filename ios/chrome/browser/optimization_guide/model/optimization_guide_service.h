@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "base/files/file_path.h"
-#include "base/functional/callback_forward.h"
+#include "base/functional/callback.h"
 #import "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
@@ -25,6 +25,7 @@
 #include "components/optimization_guide/proto/hints.pb.h"
 #include "ios/chrome/browser/download/model/background_service/background_download_service_factory.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_global_state.h"
+#include "services/network/public/cpp/network_context_getter.h"
 #include "url/gurl.h"
 
 namespace leveldb_proto {
@@ -79,7 +80,8 @@ class OptimizationGuideService
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
       signin::IdentityManager* identity_manager,
       std::unique_ptr<optimization_guide::ModelExecutionManager::Delegate>
-          delegate);
+          delegate,
+      network::NetworkContextGetter network_context_getter);
   ~OptimizationGuideService() override;
 
   OptimizationGuideService(const OptimizationGuideService&) = delete;
@@ -227,6 +229,12 @@ class OptimizationGuideService
 
   // The PrefService of the profile this service is linked to.
   const raw_ptr<PrefService> pref_service_ = nullptr;
+
+  // Function that returns the current network context.
+  const network::NetworkContextGetter network_context_getter_;
+
+  // IdentityManager of the profile this service is linked to.
+  const raw_ptr<signin::IdentityManager> identity_manager_ = nullptr;
 
   // Whether the service is linked to an incognito profile.
   const bool off_the_record_ = false;

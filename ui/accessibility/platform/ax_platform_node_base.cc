@@ -928,11 +928,11 @@ std::optional<int> AXPlatformNodeBase::GetTableCellIndex() const {
 }
 
 std::optional<int> AXPlatformNodeBase::GetTableColumn() const {
-  return GetDelegate()->GetTableCellColIndex();
+  return GetDelegate()->GetTableCellDomColIndex();
 }
 
 std::optional<int> AXPlatformNodeBase::GetTableColumnCount() const {
-  return GetDelegate()->GetTableColCount();
+  return GetDelegate()->GetTableDomColCount();
 }
 
 std::optional<int> AXPlatformNodeBase::GetTableAriaColumnCount() const {
@@ -940,7 +940,7 @@ std::optional<int> AXPlatformNodeBase::GetTableAriaColumnCount() const {
 }
 
 std::optional<int> AXPlatformNodeBase::GetTableColumnSpan() const {
-  return GetDelegate()->GetTableCellColSpan();
+  return GetDelegate()->GetTableCellDomColSpan();
 }
 
 std::optional<int> AXPlatformNodeBase::GetTableRow() const {
@@ -949,13 +949,13 @@ std::optional<int> AXPlatformNodeBase::GetTableRow() const {
     return delegate->GetTableRowRowIndex();
   }
   if (delegate->IsTableCellOrHeader()) {
-    return delegate->GetTableCellRowIndex();
+    return delegate->GetTableCellDomRowIndex();
   }
   return std::nullopt;
 }
 
 std::optional<int> AXPlatformNodeBase::GetTableRowCount() const {
-  return GetDelegate()->GetTableRowCount();
+  return GetDelegate()->GetTableDomRowCount();
 }
 
 std::optional<int> AXPlatformNodeBase::GetTableAriaRowCount() const {
@@ -963,7 +963,7 @@ std::optional<int> AXPlatformNodeBase::GetTableAriaRowCount() const {
 }
 
 std::optional<int> AXPlatformNodeBase::GetTableRowSpan() const {
-  return GetDelegate()->GetTableCellRowSpan();
+  return GetDelegate()->GetTableCellDomRowSpan();
 }
 
 std::optional<float> AXPlatformNodeBase::GetFontSizeInPoints() const {
@@ -1345,8 +1345,8 @@ void AXPlatformNodeBase::ComputeAttributes(PlatformAttributeList* attributes) {
   // Expose aria-colcount and aria-rowcount in a table, grid or treegrid if they
   // are different from its physical dimensions.
   if (IsTableLike(GetRole()) &&
-      (delegate->GetTableAriaRowCount() != delegate->GetTableRowCount() ||
-       delegate->GetTableAriaColCount() != delegate->GetTableColCount())) {
+      (delegate->GetTableAriaRowCount() != delegate->GetTableDomRowCount() ||
+       delegate->GetTableAriaColCount() != delegate->GetTableDomColCount())) {
     AddAttributeToList(ax::mojom::IntAttribute::kAriaColumnCount, "colcount",
                        attributes);
     AddAttributeToList(ax::mojom::IntAttribute::kAriaRowCount, "rowcount",
@@ -1360,9 +1360,9 @@ void AXPlatformNodeBase::ComputeAttributes(PlatformAttributeList* attributes) {
     // are 0 based, so we subtract aria-col/rowindex by 1 to compare with
     // table's physical coordinates.
     std::optional<int> aria_rowindex = delegate->GetTableCellAriaRowIndex();
-    std::optional<int> physical_rowindex = delegate->GetTableCellRowIndex();
+    std::optional<int> physical_rowindex = delegate->GetTableCellDomRowIndex();
     std::optional<int> aria_colindex = delegate->GetTableCellAriaColIndex();
-    std::optional<int> physical_colindex = delegate->GetTableCellColIndex();
+    std::optional<int> physical_colindex = delegate->GetTableCellDomColIndex();
 
     if (aria_rowindex && physical_rowindex &&
         aria_rowindex.value() - 1 != physical_rowindex.value()) {
@@ -2076,30 +2076,30 @@ AXPlatformNodeBase::TextSelectionResult AXPlatformNodeBase::SetTextSelection(
   if (start_position->IsNullPosition() || end_position->IsNullPosition()) {
     return TextSelectionResult::kInvalidSelection;
   }
-
-  AXActionData action_data;
-  action_data.action = ax::mojom::Action::kSetSelection;
-  action_data.target_tree_id = start_position->tree_id();
-  int start_offset = start_position->IsTextPosition()
-                         ? start_position->text_offset()
-                         : start_position->child_index();
-  int end_offset = end_position->IsTextPosition() ? end_position->text_offset()
-                                                  : end_position->child_index();
   if (selection.start_is_active) {
-    action_data.focus_node_id = start_position->anchor_id();
-    action_data.focus_offset = start_offset;
-    action_data.anchor_node_id = end_position->anchor_id();
-    action_data.anchor_offset = end_offset;
-  } else {
-    action_data.anchor_node_id = start_position->anchor_id();
-    action_data.anchor_offset = start_offset;
-    action_data.focus_node_id = end_position->anchor_id();
-    action_data.focus_offset = end_offset;
+    std::swap(start_position, end_position);
   }
-
-  return GetDelegate()->AccessibilityPerformAction(action_data)
+  return GetDelegate()->AccessibilityPerformAction(
+             CreateTextSelectionAction(start_position, end_position))
              ? TextSelectionResult::kSuccess
              : TextSelectionResult::kFailure;
+}
+
+AXActionData AXPlatformNodeBase::CreateTextSelectionAction(
+    const AXPosition& anchor,
+    const AXPosition& focus) {
+  DCHECK(!anchor->IsNullPosition());
+  DCHECK(!focus->IsNullPosition());
+  AXActionData action_data;
+  action_data.action = ax::mojom::Action::kSetSelection;
+  action_data.target_tree_id = anchor->tree_id();
+  action_data.anchor_node_id = anchor->anchor_id();
+  action_data.anchor_offset =
+      anchor->IsTextPosition() ? anchor->text_offset() : anchor->child_index();
+  action_data.focus_node_id = focus->anchor_id();
+  action_data.focus_offset =
+      focus->IsTextPosition() ? focus->text_offset() : focus->child_index();
+  return action_data;
 }
 
 AXPlatformNodeBase::TextSelectionResult

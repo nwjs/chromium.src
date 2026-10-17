@@ -172,9 +172,21 @@ chromium-metrics-reviews@google.com.
   <int value="1801" label="FileUploadEmptyFileList"/>
   <int value="1900" label="SearchServiceUnavailable"/>
   <int value="1901" label="DefaultSearchProviderNotSet"/>
+  <int value="2000" label="PageSearchNoMatch"/>
+  <int value="2001" label="PageSearchAmbiguousMatch"/>
+  <int value="2002" label="PageSearchAlreadyOnMatchingTab"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/actor/public/mojom/actor_types.mojom:ActionResultCode) -->
+
+<!-- LINT.IfChange(ActorBackgroundActuationTrigger) -->
+
+<enum name="ActorBackgroundActuationTrigger">
+  <int value="0" label="TaskInitByChrome"/>
+  <int value="1" label="TaskInitByFcm"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/actor/android/java/src/org/chromium/chrome/browser/actor/ActorMetrics.java:ActorBackgroundActuationTrigger) -->
 
 <!-- LINT.IfChange(ActorEngineState) -->
 
@@ -189,6 +201,27 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/actor/execution_engine.h:State) -->
+
+<!-- LINT.IfChange(ActorFetchConversationIdStatus) -->
+
+<enum name="ActorFetchConversationIdStatus">
+  <int value="0" label="Success"/>
+  <int value="1" label="NotFound"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/actor/android/java/src/org/chromium/chrome/browser/actor/ActorMetrics.java:ActorFetchConversationIdStatus) -->
+
+<!-- LINT.IfChange(ActorFetchTabIdStatus) -->
+
+<enum name="ActorFetchTabIdStatus">
+  <int value="0" label="Success"/>
+  <int value="1" label="TabNotFound"/>
+  <int value="2" label="TabClosed"/>
+  <int value="3" label="InvalidId"/>
+  <int value="4" label="Timeout"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/actor/android/java/src/org/chromium/chrome/browser/actor/ActorMetrics.java:ActorFetchTabIdStatus) -->
 
 <!-- LINT.IfChange(ActorForegroundServiceLifecycle) -->
 
@@ -249,6 +282,16 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//components/password_manager/core/browser/actor_login/internal/actor_login_metrics.h:ActorLoginSelectedAccountType) -->
+
+<!-- LINT.IfChange(ActorNotificationPermissionState) -->
+
+<enum name="ActorNotificationPermissionState">
+  <int value="0" label="Enabled"/>
+  <int value="1" label="ChannelDisabled"/>
+  <int value="2" label="OsDisabled"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/actor/android/java/src/org/chromium/chrome/browser/actor/ActorMetrics.java:ActorNotificationPermissionState) -->
 
 <!-- LINT.IfChange(ActorObservationOutcome) -->
 

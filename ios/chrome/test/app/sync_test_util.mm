@@ -22,6 +22,8 @@
 #import "components/autofill/core/browser/data_manager/addresses/address_data_manager.h"
 #import "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #import "components/data_sharing/public/group_data.h"
+#import "components/gcm_driver/gcm_profile_service.h"
+#import "components/gcm_driver/instance_id/fake_gcm_driver_for_instance_id.h"
 #import "components/history/core/browser/history_service.h"
 #import "components/keyed_service/core/service_access_type.h"
 #import "components/metrics/demographics/demographic_metrics_test_utils.h"
@@ -31,6 +33,7 @@
 #import "components/saved_tab_groups/public/saved_tab_group_tab.h"
 #import "components/send_tab_to_self/page_context.h"
 #import "components/send_tab_to_self/proto_conversions.h"
+#import "components/send_tab_to_self/send_tab_to_self_entity_builder.h"
 #import "components/shared_highlighting/core/common/text_fragment.h"
 #import "components/sync/base/data_type.h"
 #import "components/sync/base/pref_names.h"
@@ -48,6 +51,7 @@
 #import "components/sync/test/fake_server.h"
 #import "components/sync/test/fake_server_network_resources.h"
 #import "components/sync/test/fake_server_nigori_helper.h"
+#import "components/sync/test/fake_server_sync_invalidation_sender.h"
 #import "components/sync/test/fake_server_verifier.h"
 #import "components/sync/test/nigori_test_utils.h"
 #import "components/sync/test/sessions_hierarchy.h"
@@ -58,6 +62,7 @@
 #import "components/sync_sessions/session_store.h"
 #import "components/sync_sessions/session_sync_test_helper.h"
 #import "ios/chrome/browser/autofill/model/personal_data_manager_factory.h"
+#import "ios/chrome/browser/gcm/model/ios_chrome_gcm_profile_service_factory.h"
 #import "ios/chrome/browser/history/model/history_service_factory.h"
 #import "ios/chrome/browser/shared/model/paths/paths.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
@@ -71,7 +76,76 @@
 
 namespace {
 
-std::unique_ptr<fake_server::FakeServer> gSyncFakeServer;
+instance_id::FakeGCMDriverForInstanceID* GetFakeGCMDriver() {
+  ProfileIOS* profile = chrome_test_util::GetOriginalProfile();
+  if (!profile) {
+    return nullptr;
+  }
+  gcm::GCMProfileService* gcm_service =
+      IOSChromeGCMProfileServiceFactory::GetForProfile(profile);
+  if (!gcm_service) {
+    return nullptr;
+  }
+  return static_cast<instance_id::FakeGCMDriverForInstanceID*>(
+      gcm_service->driver());
+}
+
+// Encapsulates the fake sync server and its test invalidation infrastructure.
+class FakeSyncServerContext {
+ public:
+  explicit FakeSyncServerContext(const base::FilePath& base_path)
+      : server_(std::make_unique<fake_server::FakeServer>(base_path)),
+        invalidation_sender_(
+            std::make_unique<fake_server::FakeServerSyncInvalidationSender>(
+                server_.get())) {
+    if (instance_id::FakeGCMDriverForInstanceID* fake_gcm_driver =
+            GetFakeGCMDriver()) {
+      invalidation_sender_->AddFakeGCMDriver(fake_gcm_driver);
+    }
+  }
+
+  ~FakeSyncServerContext() {
+    if (instance_id::FakeGCMDriverForInstanceID* fake_gcm_driver =
+            GetFakeGCMDriver()) {
+      invalidation_sender_->RemoveFakeGCMDriver(fake_gcm_driver);
+    }
+  }
+
+  FakeSyncServerContext(const FakeSyncServerContext&) = delete;
+  FakeSyncServerContext& operator=(const FakeSyncServerContext&) = delete;
+
+  fake_server::FakeServer* server() const { return server_.get(); }
+
+ private:
+  std::unique_ptr<fake_server::FakeServer> server_;
+  std::unique_ptr<fake_server::FakeServerSyncInvalidationSender>
+      invalidation_sender_;
+};
+
+std::unique_ptr<FakeSyncServerContext> gSyncServerContext;
+
+// Returns the active fake sync server, or nullptr if none is set up.
+fake_server::FakeServer* GetFakeServer() {
+  return gSyncServerContext ? gSyncServerContext->server() : nullptr;
+}
+
+}  // namespace
+
+namespace chrome_test_util {
+
+fake_server::FakeServer* GetFakeSyncServer() {
+  return GetFakeServer();
+}
+
+void InjectFakeSyncServerEntity(
+    std::unique_ptr<syncer::LoopbackServerEntity> entity) {
+  CHECK(GetFakeServer());
+  GetFakeServer()->InjectEntity(std::move(entity));
+}
+
+}  // namespace chrome_test_util
+
+namespace {
 
 NSString* const kSyncTestErrorDomain = @"SyncTestDomain";
 
@@ -114,7 +188,7 @@ syncer::KeyParamsForTesting AddSyncPassphraseInternal(
       syncer::Pbkdf2PassphraseKeyParamsForTesting(sync_passphrase);
   fake_server::SetNigoriInFakeServer(
       syncer::BuildCustomPassphraseNigoriSpecifics(key_params),
-      gSyncFakeServer.get());
+      GetFakeServer());
   return key_params;
 }
 
@@ -130,7 +204,7 @@ void AddSavedTabGroupDataToFakeServer(
   int64_t creation_time = group_specifics->creation_time_windows_epoch_micros();
   int64_t update_time = group_specifics->update_time_windows_epoch_micros();
 
-  gSyncFakeServer->InjectEntity(
+  GetFakeServer()->InjectEntity(
       syncer::PersistentUniqueClientEntity::CreateFromSpecificsForTesting(
           "non_unique_name", client_tag, group_entity_specifics,
           /*creation_time=*/creation_time,
@@ -159,11 +233,32 @@ void AddSharedTabGroupDataToFakeServer(
   metadata.mutable_creation_attribution()->set_obfuscated_gaia_id(gaia_id);
   metadata.mutable_last_update_attribution()->set_obfuscated_gaia_id(gaia_id);
 
-  gSyncFakeServer->InjectEntity(
+  GetFakeServer()->InjectEntity(
       syncer::PersistentUniqueClientEntity::CreateFromSharedSpecificsForTesting(
           "non_unique_name", client_tag, group_entity_specifics,
           /*creation_time=*/creation_time,
           /*last_modified_time=*/update_time, metadata));
+}
+
+// Retrieves the local device cache GUID from the active profile. Returns an
+// empty string if not available.
+std::string GetLocalDeviceCacheGuid() {
+  ProfileIOS* profile = chrome_test_util::GetOriginalProfile();
+  syncer::DeviceInfoSyncService* device_info_service =
+      DeviceInfoSyncServiceFactory::GetForProfile(profile);
+  if (!device_info_service) {
+    return "";
+  }
+  const syncer::LocalDeviceInfoProvider* provider =
+      device_info_service->GetLocalDeviceInfoProvider();
+  if (!provider) {
+    return "";
+  }
+  const syncer::DeviceInfo* info = provider->GetLocalDeviceInfo();
+  if (!info) {
+    return "";
+  }
+  return info->guid();
 }
 
 }  // namespace
@@ -171,47 +266,41 @@ void AddSharedTabGroupDataToFakeServer(
 namespace chrome_test_util {
 
 bool IsFakeSyncServerSetUp() {
-  return gSyncFakeServer.get();
+  return GetFakeServer() != nullptr;
 }
 
 void SetUpFakeSyncServer() {
-  DCHECK(!gSyncFakeServer);
+  DCHECK(!gSyncServerContext);
   base::FilePath user_data_dir;
   base::PathService::Get(ios::DIR_USER_DATA, &user_data_dir);
-  gSyncFakeServer = std::make_unique<fake_server::FakeServer>(
+  gSyncServerContext = std::make_unique<FakeSyncServerContext>(
       user_data_dir.AppendASCII("FakeServer"));
   OverrideSyncNetwork(fake_server::CreateFakeServerHttpPostProviderFactory(
-      gSyncFakeServer->AsWeakPtr()));
+      GetFakeServer()->AsWeakPtr()));
 }
 
 void TearDownFakeSyncServer() {
-  DCHECK(gSyncFakeServer);
-  gSyncFakeServer.reset();
+  DCHECK(gSyncServerContext);
+  gSyncServerContext.reset();
   OverrideSyncNetwork(syncer::CreateHttpPostProviderFactory());
 }
 
+// TODO(crbug.com/556562996): Consider checking if the fake server is available
+// similar to FlushFakeSyncServerToDisk.
 void ClearFakeSyncServerData() {
   // Allow the caller to preventively clear server data.
-  if (gSyncFakeServer) {
-    gSyncFakeServer->ClearServerData();
+  if (fake_server::FakeServer* server = GetFakeServer()) {
+    server->ClearServerData();
   }
 }
 
 void FlushFakeSyncServerToDisk() {
-  DCHECK(gSyncFakeServer);
-  gSyncFakeServer->FlushToDisk();
-}
-
-void TriggerSyncCycle(syncer::DataType type) {
-  ProfileIOS* profile = chrome_test_util::GetOriginalProfile();
-  syncer::SyncService* sync_service =
-      SyncServiceFactory::GetForProfile(profile);
-  sync_service->TriggerRefresh(
-      syncer::SyncService::TriggerRefreshSource::kUnknown, {type});
+  DCHECK(GetFakeServer());
+  GetFakeServer()->FlushToDisk();
 }
 
 int GetNumberOfSyncEntities(syncer::DataType type) {
-  base::DictValue entities = gSyncFakeServer->GetEntitiesAsDictForTesting();
+  base::DictValue entities = GetFakeServer()->GetEntitiesAsDictForTesting();
 
   base::ListValue* entity_list = entities.FindList(DataTypeToDebugString(type));
   DCHECK(entity_list);
@@ -222,8 +311,8 @@ BOOL VerifyNumberOfSyncEntitiesWithName(syncer::DataType type,
                                         std::string name,
                                         size_t count,
                                         NSError** error) {
-  DCHECK(gSyncFakeServer);
-  fake_server::FakeServerVerifier verifier(gSyncFakeServer.get());
+  DCHECK(GetFakeServer());
+  fake_server::FakeServerVerifier verifier(GetFakeServer());
   testing::AssertionResult result =
       verifier.VerifyEntityCountByTypeAndName(count, type, name);
   if (result != testing::AssertionSuccess() && error != nil) {
@@ -242,7 +331,7 @@ void AddBookmarkToFakeSyncServer(std::string url, std::string title) {
   fake_server::EntityBuilderFactory entity_builder_factory;
   fake_server::BookmarkEntityBuilder bookmark_builder =
       entity_builder_factory.NewBookmarkEntityBuilder(title);
-  gSyncFakeServer->InjectEntity(bookmark_builder.BuildBookmark(GURL(url)));
+  GetFakeServer()->InjectEntity(bookmark_builder.BuildBookmark(GURL(url)));
 }
 
 void AddLegacyBookmarkToFakeSyncServer(std::string url,
@@ -254,7 +343,7 @@ void AddLegacyBookmarkToFakeSyncServer(std::string url,
   fake_server::BookmarkEntityBuilder bookmark_builder =
       entity_builder_factory.NewBookmarkEntityBuilder(title)
           .SetOriginatorClientItemId(std::move(originator_client_item_id));
-  gSyncFakeServer->InjectEntity(
+  GetFakeServer()->InjectEntity(
       bookmark_builder
           .SetGeneration(fake_server::BookmarkEntityBuilder::
                              BookmarkGeneration::kWithoutTitleInSpecifics)
@@ -290,7 +379,7 @@ void AddSessionToFakeSyncServer(
   for (const sync_pb::SessionSpecifics& specifics : specifics_list) {
     sync_pb::EntitySpecifics entity;
     *entity.mutable_session() = specifics;
-    gSyncFakeServer->InjectEntity(
+    GetFakeServer()->InjectEntity(
         syncer::PersistentUniqueClientEntity::CreateFromSpecificsForTesting(
             /*non_unique_name=*/"",
             sync_sessions::SessionStore::GetClientTag(entity.session()), entity,
@@ -321,7 +410,7 @@ bool VerifySyncInvalidationFieldsPopulated() {
   DCHECK(IsFakeSyncServerSetUp());
   const std::string cache_guid = GetSyncCacheGuid();
   std::vector<sync_pb::SyncEntity> entities =
-      gSyncFakeServer->GetSyncEntitiesByDataType(syncer::DEVICE_INFO);
+      GetFakeServer()->GetSyncEntitiesByDataType(syncer::DEVICE_INFO);
   for (const sync_pb::SyncEntity& entity : entities) {
     if (entity.specifics().device_info().cache_guid() == cache_guid) {
       const sync_pb::InvalidationSpecificFields& invalidation_fields =
@@ -339,7 +428,7 @@ void AddUserDemographicsToSyncServer(
     int birth_year,
     metrics::UserDemographicsProto::Gender gender) {
   metrics::test::AddUserBirthYearAndGenderToSyncServer(
-      gSyncFakeServer->AsWeakPtr(), birth_year, gender);
+      GetFakeServer()->AsWeakPtr(), birth_year, gender);
 }
 
 void AddAutofillProfileToFakeSyncServer(std::string guid,
@@ -356,17 +445,17 @@ void AddAutofillProfileToFakeSyncServer(std::string guid,
       syncer::PersistentUniqueClientEntity::CreateFromSpecificsForTesting(
           /*non_unique_name=*/guid, /*client_tag=*/guid, entity_specifics,
           12345, 12345);
-  gSyncFakeServer->InjectEntity(std::move(entity));
+  GetFakeServer()->InjectEntity(std::move(entity));
 }
 
 void DeleteAutofillProfileFromFakeSyncServer(std::string guid) {
   DCHECK(IsFakeSyncServerSetUp());
 
   std::vector<sync_pb::SyncEntity> autofill_profiles =
-      gSyncFakeServer->GetSyncEntitiesByDataType(syncer::AUTOFILL_PROFILE);
+      GetFakeServer()->GetSyncEntitiesByDataType(syncer::AUTOFILL_PROFILE);
   for (const sync_pb::SyncEntity& autofill_profile : autofill_profiles) {
     if (autofill_profile.specifics().autofill_profile().guid() == guid) {
-      gSyncFakeServer->InjectEntity(
+      GetFakeServer()->InjectEntity(
           syncer::PersistentTombstoneEntity::CreateFromEntity(
               autofill_profile));
       break;
@@ -398,10 +487,10 @@ void ClearAutofillProfile(std::string guid) {
 
 BOOL VerifySessionsOnSyncServer(const std::multiset<std::string>& expected_urls,
                                 NSError** error) {
-  DCHECK(gSyncFakeServer);
+  DCHECK(GetFakeServer());
   fake_server::SessionsHierarchy expected_sessions;
   expected_sessions.AddWindow(expected_urls);
-  fake_server::FakeServerVerifier verifier(gSyncFakeServer.get());
+  fake_server::FakeServerVerifier verifier(GetFakeServer());
   testing::AssertionResult result = verifier.VerifySessions(expected_sessions);
   if (result != testing::AssertionSuccess() && error != nil) {
     NSDictionary* errorInfo = @{
@@ -417,8 +506,8 @@ BOOL VerifySessionsOnSyncServer(const std::multiset<std::string>& expected_urls,
 
 BOOL VerifyHistoryOnSyncServer(const std::multiset<GURL>& expected_urls,
                                NSError** error) {
-  DCHECK(gSyncFakeServer);
-  fake_server::FakeServerVerifier verifier(gSyncFakeServer.get());
+  DCHECK(GetFakeServer());
+  fake_server::FakeServerVerifier verifier(GetFakeServer());
   testing::AssertionResult result = verifier.VerifyHistory(expected_urls);
   if (result != testing::AssertionSuccess() && error != nil) {
     NSDictionary* errorInfo = @{
@@ -468,7 +557,7 @@ void AddHistoryVisitToFakeSyncServer(const GURL& url) {
           base::NumberToString(history->visit_time_windows_epoch_micros()),
           entitySpecifics, /*creation_time=*/12345,
           /*last_modified_time=*/12345);
-  gSyncFakeServer->InjectEntity(std::move(entity));
+  GetFakeServer()->InjectEntity(std::move(entity));
 }
 
 void AddDeviceInfoToFakeSyncServer(const std::string& device_name,
@@ -489,7 +578,7 @@ void AddDeviceInfoToFakeSyncServer(const std::string& device_name,
       sync_pb::
           SyncEnums_SendTabReceivingType_SEND_TAB_RECEIVING_TYPE_CHROME_OR_UNSPECIFIED);
 
-  gSyncFakeServer->InjectEntity(
+  GetFakeServer()->InjectEntity(
       syncer::PersistentUniqueClientEntity::CreateFromSpecificsForTesting(
           "non_unique_name",
           syncer::DeviceInfoUtil::SpecificsToTag(device_info), specifics,
@@ -503,82 +592,26 @@ std::string AddSendTabToSelfEntryToFakeSyncServer(
     const std::string& target_device_cache_guid,
     const std::map<std::string, std::string>& form_fields,
     const std::string& text_fragment) {
-  DCHECK(IsFakeSyncServerSetUp());
+  CHECK(IsFakeSyncServerSetUp());
 
-  sync_pb::EntitySpecifics specifics;
-  sync_pb::SendTabToSelfSpecifics* stts_specifics =
-      specifics.mutable_send_tab_to_self();
-  stts_specifics->set_url(url.spec());
-  stts_specifics->set_title(title);
-
-  std::string guid = base::Uuid::GenerateRandomV4().AsLowercaseString();
-  stts_specifics->set_guid(guid);
+  send_tab_to_self::SendTabToSelfEntityBuilder builder(url, title);
+  builder.SetDeviceName(device_name);
 
   std::string target_guid = target_device_cache_guid;
   if (target_guid.empty()) {
-    syncer::DeviceInfoSyncService* device_info_service =
-        DeviceInfoSyncServiceFactory::GetForProfile(
-            chrome_test_util::GetOriginalProfile());
-    target_guid = device_info_service->GetLocalDeviceInfoProvider()
-                      ->GetLocalDeviceInfo()
-                      ->guid();
+    target_guid = GetLocalDeviceCacheGuid();
+  }
+  builder.SetTargetDeviceCacheGuid(std::move(target_guid));
+
+  for (const auto& [name, value] : form_fields) {
+    builder.AddFormField(name, value, name);
+  }
+  if (!text_fragment.empty()) {
+    builder.SetTextFragment(text_fragment);
   }
 
-  int64_t now_usec =
-      base::Time::Now().ToDeltaSinceWindowsEpoch().InMicroseconds();
-  stts_specifics->set_shared_time_usec(now_usec);
-  stts_specifics->set_device_name(device_name);
-  stts_specifics->set_target_device_sync_cache_guid(target_guid);
-  stts_specifics->set_opened(false);
-  stts_specifics->set_notification_dismissed(false);
-
-  if (!form_fields.empty() || !text_fragment.empty()) {
-    send_tab_to_self::PageContext context;
-
-    if (!form_fields.empty()) {
-      for (const auto& [name, value] : form_fields) {
-        send_tab_to_self::PageContext::FormField form_field;
-        form_field.id_attribute = base::UTF8ToUTF16(name);
-        form_field.name_attribute = base::UTF8ToUTF16(name);
-        form_field.value = base::UTF8ToUTF16(value);
-        form_field.form_control_type = autofill::FormControlType::kInputText;
-        context.form_field_info.fields.push_back(form_field);
-      }
-    }
-
-    if (!text_fragment.empty()) {
-      std::optional<shared_highlighting::TextFragment> parsed_fragment =
-          shared_highlighting::TextFragment::FromEscapedString(text_fragment);
-      if (parsed_fragment) {
-        context.scroll_position.text_fragment =
-            send_tab_to_self::TextFragmentData(*parsed_fragment);
-      }
-    }
-
-    *stts_specifics->mutable_page_context() =
-        send_tab_to_self::PageContextToProto(context);
-
-    std::vector<std::vector<uint8_t>> keystore_keys =
-        gSyncFakeServer->GetKeystoreKeys();
-    if (!keystore_keys.empty()) {
-      std::string key_base64 = base::Base64Encode(keystore_keys.back());
-      std::unique_ptr<syncer::CryptographerImpl> cryptographer =
-          syncer::CryptographerImpl::FromSingleKeyForTesting(
-              key_base64, syncer::KeyDerivationParams::CreateForPbkdf2());
-      if (cryptographer &&
-          cryptographer->Encrypt(
-              stts_specifics->page_context(),
-              stts_specifics->mutable_encrypted_page_context())) {
-        stts_specifics->clear_page_context();
-      }
-    }
-  }
-
-  gSyncFakeServer->InjectEntity(
-      syncer::PersistentUniqueClientEntity::CreateFromSpecificsForTesting(
-          /*non_unique_name=*/title, /*client_tag=*/guid, specifics,
-          /*creation_time=*/now_usec, /*last_modified_time=*/now_usec));
-
+  std::string guid = builder.guid();
+  GetFakeServer()->InjectEntity(builder.Build(GetFakeServer()));
   return guid;
 }
 
@@ -646,7 +679,7 @@ void AddSyncPassphrase(const std::string& sync_passphrase) {
 }
 
 void AddCollaboration(const syncer::CollaborationId& collaboration_id) {
-  gSyncFakeServer->AddCollaboration(collaboration_id);
+  GetFakeServer()->AddCollaboration(collaboration_id);
 }
 
 void AddBookmarkWithSyncPassphrase(const std::string& sync_passphrase) {
@@ -657,7 +690,7 @@ void AddBookmarkWithSyncPassphrase(const std::string& sync_passphrase) {
                                  GURL("http://example.com/doesnt-matter"));
   server_entity->SetSpecifics(GetEncryptedBookmarkEntitySpecifics(
       server_entity->GetSpecifics().bookmark(), key_params));
-  gSyncFakeServer->InjectEntity(std::move(server_entity));
+  GetFakeServer()->InjectEntity(std::move(server_entity));
 }
 
 void AddGroupToFakeServer(const tab_groups::SavedTabGroup& group) {
@@ -692,7 +725,7 @@ void AddSharedTabToFakeServer(const tab_groups::SavedTabGroupTab& tab,
 
 void DeleteTabOrGroupFromFakeServer(const base::Uuid& uuid) {
   std::vector<sync_pb::SyncEntity> server_tabs_and_groups =
-      gSyncFakeServer->GetSyncEntitiesByDataType(syncer::SAVED_TAB_GROUP);
+      GetFakeServer()->GetSyncEntitiesByDataType(syncer::SAVED_TAB_GROUP);
 
   // Remove the entity with a matching `uuid`.
   for (const sync_pb::SyncEntity& tab_or_group : server_tabs_and_groups) {
@@ -700,7 +733,7 @@ void DeleteTabOrGroupFromFakeServer(const base::Uuid& uuid) {
         tab_or_group.specifics().saved_tab_group();
     if (base::Uuid::ParseCaseInsensitive(actual_specifics.guid()) == uuid) {
       // Replace it with a tombstone to remove it from sync.
-      gSyncFakeServer->InjectEntity(
+      GetFakeServer()->InjectEntity(
           syncer::PersistentTombstoneEntity::CreateFromEntity(tab_or_group));
       return;
     }
@@ -725,7 +758,7 @@ void AddCollaborationGroupToFakeServer(
       collab_specifics.changed_at_timestamp_millis_since_unix_epoch();
   int64_t update_time = creation_time;
 
-  gSyncFakeServer->InjectEntity(
+  GetFakeServer()->InjectEntity(
       syncer::PersistentUniqueClientEntity::CreateFromSharedSpecificsForTesting(
           "non_unique_name", client_tag, entity_specifics, creation_time,
           update_time, metadata));
@@ -733,7 +766,7 @@ void AddCollaborationGroupToFakeServer(
 
 void DeleteSharedGroupFromFakeServer(const base::Uuid& uuid) {
   std::vector<sync_pb::SyncEntity> shared_groups =
-      gSyncFakeServer->GetSyncEntitiesByDataType(syncer::SHARED_TAB_GROUP_DATA);
+      GetFakeServer()->GetSyncEntitiesByDataType(syncer::SHARED_TAB_GROUP_DATA);
 
   // Remove the entity with a matching `uuid`.
   for (const sync_pb::SyncEntity& group : shared_groups) {
@@ -741,7 +774,7 @@ void DeleteSharedGroupFromFakeServer(const base::Uuid& uuid) {
         group.specifics().shared_tab_group_data();
     if (actual_specifics.guid() == uuid.AsLowercaseString()) {
       // Replace it with a tombstone to remove it from sync.
-      gSyncFakeServer->InjectEntity(
+      GetFakeServer()->InjectEntity(
           syncer::PersistentTombstoneEntity::CreateFromEntity(group));
       return;
     }
@@ -749,7 +782,7 @@ void DeleteSharedGroupFromFakeServer(const base::Uuid& uuid) {
 }
 
 void DeleteAllEntitiesForDataType(syncer::DataType data_type) {
-  gSyncFakeServer->DeleteAllEntitiesForDataType(data_type);
+  GetFakeServer()->DeleteAllEntitiesForDataType(data_type);
 }
 
 }  // namespace chrome_test_util

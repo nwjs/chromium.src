@@ -5,15 +5,16 @@
 #include "chrome/browser/ntp_customization/ntp_synced_theme_bridge.h"
 
 #include "base/android/callback_android.h"
-#include "base/android/jni_android.h"
-#include "base/android/jni_array.h"
 #include "base/android/jni_string.h"
 #include "base/files/file_path.h"
-#include "chrome/browser/ntp_customization/jni_headers/NtpSyncedThemeBridge_jni.h"
 #include "chrome/browser/ntp_customization/ntp_android_custom_background_service.h"
 #include "chrome/browser/ntp_customization/ntp_android_custom_background_service_factory.h"
 #include "chrome/browser/ntp_customization/ntp_customization_utils.h"
 #include "url/android/gurl_android.h"
+#include "url/gurl.h"
+
+// Must come after headers that provide symbols used by @JniType.
+#include "chrome/browser/ntp_customization/jni_headers/NtpSyncedThemeBridge_jni.h"
 
 using base::android::JavaRef;
 using base::android::ScopedJavaLocalRef;
@@ -71,18 +72,12 @@ ScopedJavaLocalRef<jobject> NtpSyncedThemeBridge::GetCustomBackgroundInfo(
     return nullptr;
   }
 
-  ScopedJavaLocalRef<jobject> j_url =
-      url::GURLAndroid::FromNativeGURL(env, background->custom_background_url);
-  ScopedJavaLocalRef<jstring> j_collection_id =
-      base::android::ConvertUTF8ToJavaString(env, background->collection_id);
-
-  ScopedJavaLocalRef<jstring> j_attribution =
-      base::android::ConvertUTF8ToJavaString(
-          env, ntp_customization::GetCustomBackgroundAttribution(*background));
-
   return Java_NtpSyncedThemeBridge_createCustomBackgroundInfo(
-      env, j_url, j_collection_id, background->is_uploaded_image,
-      background->daily_refresh_enabled, j_attribution);
+      env, background->custom_background_url, background->collection_id,
+      background->is_uploaded_image, background->daily_refresh_enabled,
+      ntp_customization::GetCustomBackgroundAttribution(*background),
+      static_cast<int32_t>(
+          background->custom_background_main_color.value_or(0)));
 }
 
 bool NtpSyncedThemeBridge::IsProcessingSyncUpdate(JNIEnv* env) {
@@ -92,18 +87,54 @@ bool NtpSyncedThemeBridge::IsProcessingSyncUpdate(JNIEnv* env) {
   return ntp_custom_background_service_->IsProcessingSyncUpdate();
 }
 
+void NtpSyncedThemeBridge::SetChromeColor(JNIEnv* env, int color_id) {
+  if (!ntp_custom_background_service_) {
+    return;
+  }
+  ntp_custom_background_service_->SetChromeColor(color_id);
+}
+
+void NtpSyncedThemeBridge::ResetCustomBackgroundInfo(JNIEnv* env) {
+  if (!ntp_custom_background_service_) {
+    return;
+  }
+  ntp_custom_background_service_->ResetCustomBackgroundInfo();
+}
+
+void NtpSyncedThemeBridge::SelectLocalBackgroundImage(JNIEnv* env) {
+  if (!ntp_custom_background_service_) {
+    return;
+  }
+  ntp_custom_background_service_->SelectLocalBackgroundImage(base::FilePath());
+}
+
+void NtpSyncedThemeBridge::UpdateCustomBackgroundPrefsWithColor(
+    const GURL& url,
+    const std::string& collection_id,
+    const std::string& attribution,
+    int32_t primary_color,
+    bool is_daily_refresh) {
+  if (!ntp_custom_background_service_) {
+    return;
+  }
+
+  ntp_custom_background_service_->UpdateThemeCollectionPrefsWithColor(
+      url, collection_id, attribution, static_cast<SkColor>(primary_color),
+      is_daily_refresh);
+}
+
 void NtpSyncedThemeBridge::OnChromeColorSynced(int color_id) {
-  JNIEnv* env = base::android::AttachCurrentThread();
+  JNIEnv* env = jni_zero::AttachCurrentThread();
   Java_NtpSyncedThemeBridge_onChromeColorSynced(env, j_java_obj_, color_id);
 }
 
 void NtpSyncedThemeBridge::OnDefaultThemeSynced() {
-  JNIEnv* env = base::android::AttachCurrentThread();
+  JNIEnv* env = jni_zero::AttachCurrentThread();
   Java_NtpSyncedThemeBridge_onDefaultThemeSynced(env, j_java_obj_);
 }
 
 void NtpSyncedThemeBridge::OnCustomBackgroundImageUpdated() {
-  JNIEnv* env = base::android::AttachCurrentThread();
+  JNIEnv* env = jni_zero::AttachCurrentThread();
   Java_NtpSyncedThemeBridge_onCustomBackgroundImageUpdated(env, j_java_obj_);
 }
 

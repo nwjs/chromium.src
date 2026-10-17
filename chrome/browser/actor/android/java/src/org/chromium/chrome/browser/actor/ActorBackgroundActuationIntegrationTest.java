@@ -34,6 +34,7 @@ import org.chromium.base.test.util.DisableLeakChecks;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.app.tabwindow.TabWindowManagerSingleton;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -55,6 +56,7 @@ import org.chromium.chrome.browser.tabwindow.TabWindowManager;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.util.ChromeTabUtils;
+import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.WindowAndroid;
 
 import java.io.File;
@@ -72,6 +74,7 @@ import java.util.Collections;
     ChromeFeatureList.ACTOR_NOTIFICATION_INTENT_ROUTING,
     ChromeFeatureList.ACTOR_STEP_PROGRESS_NOTIFICATION,
 })
+@Restriction(DeviceFormFactor.PHONE_OR_TABLET)
 @DoNotBatch(reason = "Tests background actuation and tab model state across activity lifecycles.")
 @DisableLeakChecks("Activity destruction causes production leak in TabBottomSheetWebUi")
 @SuppressWarnings("DirectInvocationOnMock")
@@ -348,6 +351,61 @@ public class ActorBackgroundActuationIntegrationTest {
                     assertFalse(mTab.getIsOffscreenRenderingSupplier().get());
                     assertTrue(mBackgroundManager.getBackgroundSessions().isEmpty());
                     assertEquals(TASK_ID, (int) mActorService.getActiveTaskIdOnTab(mTab.getId()));
+                });
+    }
+
+    /**
+     * Verifies that when a paused Actor task is backgrounded and the activity is destroyed, the
+     * task remains in PAUSED_BY_USER state, the background session remains alive, the background
+     * tab pool holds the tab, and the foreground service controller remains connected.
+     */
+    @Test
+    @MediumTest
+    public void testPausedTaskPersistsWhenActivityDestroyed() throws Exception {
+        ChromeTabbedActivity activity = mActivityTestRule.getActivity();
+        TabModelSelector selector = activity.getTabModelSelector();
+        TabModel model = selector.getModel(/* incognito= */ false);
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    verifyTabInForegroundModel(model, mTab);
+                    when(mActorTask.getState()).thenReturn(ActorTaskState.PAUSED_BY_USER);
+                    when(mActorTask.isUnderActorControl()).thenReturn(false);
+                    when(mActorTask.isCompleted()).thenReturn(false);
+                });
+
+        // Transition active tasks to background while task is paused.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mController.transitionActiveTasksToBackground(selector);
+                });
+
+        int placeholderTabId =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> verifyTabTransitionedToBackground(model, mTab));
+
+        // Verify background session and tab pool state before activity destruction.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    assertEquals(1, mBackgroundManager.getBackgroundSessions().size());
+                    assertTrue(mTab.getIsOffscreenRenderingSupplier().get());
+                    BackgroundTabPool pool = BackgroundTabRestorationHelper.acquirePool(selector);
+                    assertNotNull(pool);
+                    assertTrue(pool.hasPlaceholder(placeholderTabId));
+                });
+
+        // Destroy previous activity while background actuation keeps the task alive.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    activity.finish();
+                });
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    assertEquals(1, mBackgroundManager.getBackgroundSessions().size());
+                    assertEquals(ActorTaskState.PAUSED_BY_USER, mActorTask.getState());
+                    assertFalse(mActorTask.isCompleted());
+                    assertTrue(mController.isConnected());
                 });
     }
 

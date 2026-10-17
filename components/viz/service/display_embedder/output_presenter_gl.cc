@@ -30,18 +30,6 @@
 
 namespace viz {
 
-namespace {
-
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_OZONE)
-// Helper function for moving a GpuFence from a fence handle to a unique_ptr.
-std::unique_ptr<gfx::GpuFence> TakeGpuFence(gfx::GpuFenceHandle fence) {
-  return fence.is_null() ? nullptr
-                         : std::make_unique<gfx::GpuFence>(std::move(fence));
-}
-#endif
-
-}  // namespace
-
 OutputPresenterGL::OutputPresenterGL(scoped_refptr<gl::Presenter> presenter,
                                      SkiaOutputSurfaceDependency* deps)
     : presenter_(presenter), dependency_(deps) {}
@@ -101,7 +89,7 @@ void OutputPresenterGL::Present(SwapCompletionCallback completion_callback,
                                 BufferPresentedCallback presentation_callback,
                                 gfx::FrameData data) {
   presenter_->Present(std::move(completion_callback),
-                      std::move(presentation_callback), data);
+                      std::move(presentation_callback), std::move(data));
 }
 
 void OutputPresenterGL::ScheduleOverlayPlane(
@@ -141,13 +129,9 @@ void OutputPresenterGL::ScheduleOverlayPlane(
   }
 #endif  // DCHECK_IS_ON()
 
-  std::unique_ptr<gfx::GpuFence> acquire_fence;
+  gfx::GpuFenceHandle acquire_fence;
   if (access) {
-    auto access_fence = TakeGpuFence(access->TakeAcquireFence());
-    if (access_fence) {
-      DCHECK(!acquire_fence);
-      acquire_fence = std::move(access_fence);
-    }
+    acquire_fence = access->TakeAcquireFence();
   }
 
   presenter_->ScheduleOverlayPlane(

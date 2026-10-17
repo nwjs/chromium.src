@@ -41,7 +41,6 @@ export {IframeElement} from './iframe.js';
 export {LensErrorType, LensFormElement, LensSubmitType} from './lens_form.js';
 export {LensUploadDialogAction, LensUploadDialogElement, LensUploadDialogError} from './lens_upload_dialog.js';
 export {microsoftAuthModuleDescriptor, MicrosoftAuthModuleElement} from './modules/authentication/microsoft_auth_module.js';
-export {MicrosoftAuthProxyImpl} from './modules/authentication/microsoft_auth_module_proxy.js';
 export {CalendarElement} from './modules/calendar/calendar.js';
 export {CalendarEventElement} from './modules/calendar/calendar_event.js';
 export {CalendarAction} from './modules/calendar/common.js';
@@ -55,7 +54,7 @@ export {dummyV2Descriptor, ModuleElement as DummyModuleElement} from './modules/
 // </if>
 export {driveModuleDescriptor, DriveModuleElement} from './modules/file_suggestion/drive_module.js';
 export {FileProxy} from './modules/file_suggestion/file_module_proxy.js';
-export {FileSuggestionElement} from './modules/file_suggestion/file_suggestion.js';
+export {FileAction, FileSuggestionElement} from './modules/file_suggestion/file_suggestion.js';
 export {microsoftFilesModuleDescriptor, MicrosoftFilesModuleElement} from './modules/file_suggestion/microsoft_files_module.js';
 export {MicrosoftFilesProxyImpl} from './modules/file_suggestion/microsoft_files_proxy.js';
 export {InfoDialogElement} from './modules/info_dialog.js';

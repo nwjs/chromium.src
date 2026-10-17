@@ -1114,6 +1114,27 @@
     "expires": "Feb 1, 2027"
   },
   {
+    "prefix": "fedcm-delegation",
+    "owners": [
+      "ryqin@chromium.org",
+      "web-identity-eng@google.com"
+    ],
+    "platforms": [
+      "Linux",
+      "Mac",
+      "Win"
+    ],
+    "bases": [
+      "external/wpt/fedcm/fedcm-delegation/"
+    ],
+    "exclusive_tests": "ALL",
+    "args": [
+      "--enable-features=EmailVerificationProtocol,FedCmPreservePortsForTesting",
+      "--dns-txt-resolver-url-prefix=https://web-platform.test:8444/fedcm/support/delegation-dns.py?name="
+    ],
+    "expires": "Feb 1, 2027"
+  },
+  {
     "prefix": "fedcm-navigation-interception",
     "platforms": [
       "Linux",
@@ -1189,14 +1210,12 @@
     ],
     "bases": [
       "http/tests/fenced_frame",
-      "http/tests/inspector-protocol/fenced-frame",
       "external/wpt/html/anonymous-iframe",
       "external/wpt/fenced-frame"
     ],
     "exclusive_tests": [
       "http/tests/fenced_frame",
-      "external/wpt/fenced-frame",
-      "http/tests/inspector-protocol/fenced-frame"
+      "external/wpt/fenced-frame"
     ],
     "args": [
       "--enable-features=PrivacySandboxAdsAPIsOverride,FencedFramesEnforceFocus,FencedFramesLocalUnpartitionedDataAccess,FencedFramesCrossOriginEventReportingAllTraffic,FencedFramesReportEventHeaderChanges,FencedFramesSrcPermissionsPolicy,FencedFramesCrossOriginAutomaticBeaconData"
@@ -2478,6 +2497,25 @@
     ]
   },
   {
+    "prefix": "persistent-widgets",
+    "platforms": [
+      "Linux",
+      "Mac",
+      "Win"
+    ],
+    "bases": [
+      "wpt_internal/persistent-widgets"
+    ],
+    "args": [
+      "--enable-features=PersistentWidgetAPI"
+    ],
+    "exclusive_tests": "ALL",
+    "owners": [
+      "jarhar@chromium.org"
+    ],
+    "expires": "Jul 1, 2027"
+  },
+  {
     "prefix": "port-bound-cookies",
     "platforms": [
       "Linux",
@@ -2839,6 +2877,7 @@
       "svg/zoom/page/zoom-getbbox-invariance.html",
       "svg/zoom/page/zoom-getctm-invariance.html",
       "svg/zoom/page/zoom-getscreenctm-getboundingclientrect-parity.html",
+      "external/wpt/css/css-overflow/scroll-axis-lock-dynamic-change.html",
       "external/wpt/css/css-overflow/scroll-axis-lock-none-touch.html",
       "external/wpt/css/css-overflow/scroll-axis-lock-none-wheel.html"
     ],
@@ -2919,26 +2958,6 @@
     ],
     "args": [
       "--disable-features=InputInSelect,FilterableSelect,CustomizableCombobox"
-    ],
-    "owners": [
-      "jarhar@chromium.org"
-    ],
-    "expires": "Feb 23, 2027"
-  },
-  {
-    "prefix": "selectedcontent-spec-disabled",
-    "platforms": [
-      "Linux"
-    ],
-    "bases": [
-      "external/wpt/html/semantics/forms/the-select-element/customizable-select/selectedcontent-in-option-crash.html",
-      "external/wpt/html/semantics/forms/the-select-element/customizable-select/selectedcontent-restore.optional.html",
-      "external/wpt/html/semantics/forms/the-select-element/customizable-select/selectedcontent-color.html",
-      "external/wpt/html/semantics/forms/the-select-element/customizable-select/selectedcontent-nested.html",
-      "external/wpt/html/semantics/forms/the-select-element/customizable-select/selectedcontentelement-attr.tentative.html"
-    ],
-    "args": [
-      "--disable-features=SelectedcontentSpec,SelectedcontentelementAttribute"
     ],
     "owners": [
       "jarhar@chromium.org"
@@ -3070,27 +3089,6 @@
       "yoichio@chromium.org"
     ],
     "expires": "Apr 1, 2027"
-  },
-  {
-    "prefix": "speculation-rules-browser-side-heuristics",
-    "platforms": [
-      "Linux",
-      "Mac",
-      "Win"
-    ],
-    "bases": [
-      "external/wpt/speculation-rules/prefetch",
-      "external/wpt/speculation-rules/speculation-tags"
-    ],
-    "exclusive_tests": [],
-    "args": [
-      "--disable-features=SpeculationRulesRendererSideHeuristics"
-    ],
-    "owners": [
-      "yoavweiss@chromium.org",
-      "chrome-prerendering@google.com"
-    ],
-    "expires": "Jul 1, 2027"
   },
   {
     "prefix": "prerender-cross-origin-iframe-scroll",
@@ -3988,6 +3986,31 @@
     ],
     "expires": "Jan 1, 2028"
   },
+  "Runs the remoteClientDataJSON Permissions Policy tests with its runtime",
+  "feature enabled. Requests use invalid client data so policy behavior is",
+  "tested without invoking an authenticator.",
+  {
+    "prefix": "remote-client-data-json-policy",
+    "owners": [
+      "chrome-webauthn@google.com"
+    ],
+    "platforms": [
+      "Linux",
+      "Mac",
+      "Win"
+    ],
+    "bases": [
+      "webexposed/feature-policy-features.html",
+      "wpt_internal/permissions-policy/remote-client-data-json/"
+    ],
+    "exclusive_tests": [
+      "wpt_internal/permissions-policy/remote-client-data-json/"
+    ],
+    "args": [
+      "--enable-features=WebAuthnRemoteClientDataJson"
+    ],
+    "expires": "Mar 17, 2027"
+  },
   "--webauthn-remote-desktop-support can be toggled with enterprise policies, ",
   "so we need to support this long term.",
   {
@@ -4691,26 +4714,6 @@
     "args": ["--enable-blink-features=WebTransportHeaders"],
     "expires": "Dec 1, 2026"
   },
-  "Run selected WPTs with webui browser.",
-  {
-    "prefix": "webui-browser",
-    "owners": [
-      "lzhao@microsoft.com",
-      "kerenzhu@chromium.org",
-      "tluk@chromium.org"
-    ],
-    "platforms": [
-      "Linux",
-      "Win"
-    ],
-    "bases": [
-      "external/wpt/html/browsers/windows/nested-browsing-contexts/window-top.html"
-    ],
-    "args": [
-      "--enable-features=AttachUnownedInnerWebContents,Webium"
-    ],
-    "expires": "Sep 15, 2026"
-  },
   {
     "prefix": "wide-gamut",
     "owners": [
@@ -4820,9 +4823,11 @@
       "fast/parser/xml-cap-alert-xslt-use-counter.html",
       "fast/parser/xml-cap-alert-xslt-enabled.html",
       "fast/parser/xml-xslt-warning-banner.html",
-      "fast/parser/xml-xslt-warning-banner-polyfill.html"
+      "fast/parser/xml-xslt-warning-banner-polyfill.html",
+      "fast/parser/xml-xslt-warning-banner-appearance.html"
     ],
     "exclusive_tests": [
+      "fast/parser/xml-xslt-warning-banner-appearance.html",
       "http/tests/xsl/xslt/xsltpi-issue.js",
       "http/tests/xsl/xslt/xsltprocessor-issue.js",
       "http/tests/xsl/xslt/css-no-cache-revalidation.html",
@@ -5000,7 +5005,7 @@
     "platforms": ["Linux", "Mac", "Win"],
     "bases": ["wpt_internal/html/rendering/unbounded-element"],
     "args": [
-      "--enable-features=UnboundedElement,UnboundedElementOnTheOpenWeb",
+      "--enable-features=UnboundedElement,UnsafeUnboundedElementOnTheOpenWeb",
       "--disable-features=TreesInViz",
       "--force-device-scale-factor=1.5"
     ],
@@ -5014,7 +5019,7 @@
     "platforms": ["Linux", "Mac", "Win"],
     "bases": ["wpt_internal/html/rendering/unbounded-element"],
     "args": [
-      "--enable-features=UnboundedElement,UnboundedElementOnTheOpenWeb,TreesInViz",
+      "--enable-features=UnboundedElement,UnsafeUnboundedElementOnTheOpenWeb,TreesInViz",
       "--force-device-scale-factor=1.5"
     ],
     "owners": [
@@ -5136,6 +5141,22 @@
     "expires": "Jul 1, 2027"
   },
   {
+    "prefix": "css-flow-start-and-end-serialization",
+    "platforms": [
+      "Linux"
+    ],
+    "bases": [
+      "external/wpt/css/css-align/flow-start-and-end-serialization.html"
+    ],
+    "args": [
+      "--enable-blink-features=CSSFlowStartAndEndSerialization"
+    ],
+    "owners": [
+      "celestepan@microsoft.com"
+    ],
+    "expires": "Sep 1, 2027"
+  },
+  {
     "prefix": "clean-up-activation-behavior-disabled",
     "platforms": [
       "Linux",
@@ -5159,5 +5180,16 @@
       "masonf@chromium.org"
     ],
     "expires": "Dec 1, 2027"
+  },
+  {
+    "prefix": "subresource-link-preload-enabled",
+    "platforms": ["Linux", "Mac", "Win"],
+    "bases": [
+      "http/tests/linkHeader/link-preload-in-js.html"
+    ],
+    "exclusive_tests": "ALL",
+    "args": ["--enable-features=RestrictLinkHeaderOnSubresource:disable_resource_load/false"],
+    "owners": ["tnak@chromium.org"],
+    "expires": "Jan 1, 2027"
   }
 ]

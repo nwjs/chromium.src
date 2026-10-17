@@ -179,6 +179,14 @@ DWORD ReturnLastErrorOrSuccessOnNotFound() {
              : error_code;
 }
 
+// Returns whether reparse point traversal should be prevented during
+// recursive deletion. If FeatureList is not yet initialized, falls back to
+// true (the default state of features::kPreventReparsePointTraversal).
+bool PreventReparsePointTraversal() {
+  return !FeatureList::GetInstance() ||
+         FeatureList::IsEnabled(features::kPreventReparsePointTraversal);
+}
+
 // Deletes all files and directories in a path.
 // Returns ERROR_SUCCESS on success or the Windows error code corresponding to
 // the first error encountered. ERROR_FILE_NOT_FOUND and ERROR_PATH_NOT_FOUND
@@ -206,8 +214,7 @@ DWORD DeleteFileRecursive(const FilePath& path,
       if (recursive) {
         // Use `IsLink` to ensure fresh data is used to determine whether or not
         // `current` is a mount point or similar.
-        if (!FeatureList::IsEnabled(features::kPreventReparsePointTraversal) ||
-            !IsLink(current)) {
+        if (!PreventReparsePointTraversal() || !IsLink(current)) {
           this_result = DeleteFileRecursive(current, pattern, true);
           DCHECK_NE(static_cast<LONG>(this_result), ERROR_FILE_NOT_FOUND);
           DCHECK_NE(static_cast<LONG>(this_result), ERROR_PATH_NOT_FOUND);
@@ -235,48 +242,9 @@ void AppendModeCharacter(wchar_t mode_char, std::wstring* mode) {
                mode_char);
 }
 
-bool DoCopyFile(const FilePath& from_path,
-                const FilePath& to_path,
-                bool fail_if_exists) {
-  ScopedBlockingCall scoped_blocking_call(FROM_HERE, BlockingType::MAY_BLOCK);
-  if (from_path.ReferencesParent() || to_path.ReferencesParent()) {
-    return false;
-  }
-
-  // NOTE: I suspect we could support longer paths, but that would involve
-  // analyzing all our usage of files.
-  if (from_path.value().length() >= MAX_PATH ||
-      to_path.value().length() >= MAX_PATH) {
-    return false;
-  }
-
-  // Mitigate the issues caused by loading DLLs on a background thread
-  // (http://crbug/973868).
-  SCOPED_MAY_LOAD_LIBRARY_AT_BACKGROUND_PRIORITY();
-
-  // Unlike the posix implementation that copies the file manually and discards
-  // the ACL bits, CopyFile() copies the complete SECURITY_DESCRIPTOR and access
-  // bits, which is usually not what we want. We can't do much about the
-  // SECURITY_DESCRIPTOR but at least remove the read only bit.
-  const wchar_t* dest = to_path.value().c_str();
-  if (!::CopyFile(from_path.value().c_str(), dest, fail_if_exists)) {
-    // Copy failed.
-    return false;
-  }
-  DWORD attrs = GetFileAttributes(dest);
-  if (attrs == INVALID_FILE_ATTRIBUTES) {
-    return false;
-  }
-  if (attrs & FILE_ATTRIBUTE_READONLY) {
-    SetFileAttributes(dest, attrs & ~DWORD{FILE_ATTRIBUTE_READONLY});
-  }
-  return true;
-}
-
 bool DoCopyDirectory(const FilePath& from_path,
                      const FilePath& to_path,
-                     bool recursive,
-                     bool fail_if_exists) {
+                     bool recursive) {
   // NOTE(maruel): Previous version of this function used to call
   // SHFileOperation().  This used to copy the file attributes and extended
   // attributes, OLE structured storage, NTFS file system alternate data
@@ -354,7 +322,7 @@ bool DoCopyDirectory(const FilePath& from_path,
                     << target_path.value().c_str();
         success = false;
       }
-    } else if (!DoCopyFile(current, target_path, fail_if_exists)) {
+    } else if (!CopyFile(current, target_path)) {
       DLOG(ERROR) << "CopyDirectory() couldn't create file: "
                   << target_path.value().c_str();
       success = false;
@@ -412,9 +380,7 @@ DWORD DoDeleteFile(const FilePath& path, bool recursive) {
                : ReturnLastErrorOrSuccessOnNotFound();
   }
 
-  if (recursive &&
-      (!FeatureList::IsEnabled(features::kPreventReparsePointTraversal) ||
-       !IsLink(path))) {
+  if (recursive && (!PreventReparsePointTraversal() || !IsLink(path))) {
     const DWORD error_code =
         DeleteFileRecursive(path, FILE_PATH_LITERAL("*"), true);
     DCHECK_NE(static_cast<LONG>(error_code), ERROR_FILE_NOT_FOUND);
@@ -737,13 +703,7 @@ bool ReplaceFile(const FilePath& from_path,
 bool CopyDirectory(const FilePath& from_path,
                    const FilePath& to_path,
                    bool recursive) {
-  return DoCopyDirectory(from_path, to_path, recursive, false);
-}
-
-bool CopyDirectoryExcl(const FilePath& from_path,
-                       const FilePath& to_path,
-                       bool recursive) {
-  return DoCopyDirectory(from_path, to_path, recursive, true);
+  return DoCopyDirectory(from_path, to_path, recursive);
 }
 
 bool PathExists(const FilePath& path) {
@@ -1461,7 +1421,40 @@ int GetMaximumPathComponentLength(const FilePath& path) {
 }
 
 bool CopyFile(const FilePath& from_path, const FilePath& to_path) {
-  return DoCopyFile(from_path, to_path, false);
+  ScopedBlockingCall scoped_blocking_call(FROM_HERE, BlockingType::MAY_BLOCK);
+  if (from_path.ReferencesParent() || to_path.ReferencesParent()) {
+    return false;
+  }
+
+  // NOTE: I suspect we could support longer paths, but that would involve
+  // analyzing all our usage of files.
+  if (from_path.value().length() >= MAX_PATH ||
+      to_path.value().length() >= MAX_PATH) {
+    return false;
+  }
+
+  // Mitigate the issues caused by loading DLLs on a background thread. See
+  // crbug.com/41464781.
+  SCOPED_MAY_LOAD_LIBRARY_AT_BACKGROUND_PRIORITY();
+
+  // Unlike the posix implementation that copies the file manually and discards
+  // the ACL bits, CopyFile() copies the complete SECURITY_DESCRIPTOR and access
+  // bits, which is usually not what we want. We can't do much about the
+  // SECURITY_DESCRIPTOR but at least remove the read only bit.
+  const wchar_t* dest = to_path.value().c_str();
+  static constexpr bool kFailIfExists = false;
+  if (!::CopyFile(from_path.value().c_str(), dest, kFailIfExists)) {
+    // Copy failed.
+    return false;
+  }
+  DWORD attrs = GetFileAttributes(dest);
+  if (attrs == INVALID_FILE_ATTRIBUTES) {
+    return false;
+  }
+  if (attrs & FILE_ATTRIBUTE_READONLY) {
+    SetFileAttributes(dest, attrs & ~DWORD{FILE_ATTRIBUTE_READONLY});
+  }
+  return true;
 }
 
 bool SetNonBlocking(int fd) {

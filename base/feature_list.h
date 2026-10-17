@@ -45,9 +45,15 @@ class FieldTrialList;
 class PersistentMemoryAllocator;
 class FeatureVisitor;
 
+struct RuntimeFieldTrialInfo;
+
 namespace internal {
 struct RuntimeMutableFeatureState;
 }  // namespace internal
+
+namespace test {
+class ScopedFeatureList;
+}  // namespace test
 
 #if BUILDFLAG(DCHECK_IS_CONFIGURABLE)
 // DCHECKs have been built-in, and are configurable at run-time to be fatal, or
@@ -227,13 +233,11 @@ class BASE_EXPORT FeatureList {
 
     RuntimeMutableFeatureUpdate(
         internal::RuntimeMutableFeatureState& state_entry,
-        std::string_view field_trial_name,
-        std::string_view group_name,
+        const RuntimeFieldTrialInfo* override_info,
         OverrideState override_state);
 
     raw_ptr<internal::RuntimeMutableFeatureState> state_entry_ = nullptr;
-    std::string field_trial_name_;
-    std::string group_name_;
+    base::raw_ptr<const RuntimeFieldTrialInfo> override_info_;
     OverrideState override_state_ = OVERRIDE_USE_DEFAULT;
     Stage stage_ = Stage::kInitial;
   };
@@ -360,20 +364,38 @@ class BASE_EXPORT FeatureList {
   [[nodiscard]] std::optional<RuntimeMutableFeatureUpdate>
   PrepareRuntimeMutableFeatureStateUpdate(
       base::PassKey<variations::VariationsService>,
-      std::string_view field_trial_name,
-      std::string_view group_name,
+      const RuntimeFieldTrialInfo* override_info,
+      std::string_view feature_name,
+      OverrideState override_state);
+
+  // Same as above, but for tests that simulate runtime mutations without
+  // running the real variations machinery. Tests should not call this directly;
+  // use `base::test::ScopedFeatureList::MutateRuntimeMutableFeatures()`, which
+  // runs the same 3-phase sequence that the variations service does in
+  // production.
+  [[nodiscard]] std::optional<RuntimeMutableFeatureUpdate>
+  PrepareRuntimeMutableFeatureStateUpdate(
+      base::PassKey<base::test::ScopedFeatureList>,
+      const RuntimeFieldTrialInfo* override_info,
       std::string_view feature_name,
       OverrideState override_state);
 
   // Returns whether the feature with the given `feature_name` has runtime
-  // mutability enabled.
+  // mutability enabled, i.e. it was declared with BASE_RUNTIME_MUTABLE_FEATURE
+  // and registered via EnableRuntimeMutability(). Prefer this over
+  // GetAssociatedRuntimeFieldTrialOverrideInfoByFeatureName() when the override
+  // itself is not needed; callers that need the override should call that
+  // function alone rather than chaining the two, to avoid a double lookup.
   bool HasRuntimeMutabilityEnabledByFeatureName(
       std::string_view feature_name) const;
 
-  // Returns the name of the runtime FieldTrial override associated with the
-  // given runtime-mutability-enabled `feature_name`. Returns an empty string
-  // if there is currently no override.
-  std::string_view GetAssociatedRuntimeFieldTrialOverrideByFeatureName(
+  // Returns the runtime field trial override associated with the
+  // `feature_name`. If the named feature does not have runtime mutability
+  // enabled, returns std::nullopt. Otherwise, it returns a pointer to the field
+  // trial that has overridden the named feature at runtime, nullptr if the
+  // field trial has not been runtime-overridden.
+  std::optional<const RuntimeFieldTrialInfo*>
+  GetAssociatedRuntimeFieldTrialOverrideInfoByFeatureName(
       std::string_view feature_name) const;
 
   // Returns information about the field trial controlling or associated with
@@ -387,7 +409,9 @@ class BASE_EXPORT FeatureList {
       std::string_view feature_name) const;
 
   // Returns the names of all features associated with the field trial described
-  // by `controlling_trial_info`.
+  // by `controlling_trial_info`. Must be called after the instance has been
+  // initialized, since the lookup for non-runtime trials is served by an index
+  // built during initialization.
   base::flat_set<std::string> GetFeaturesAssociatedWithTrial(
       const ControllingTrialInfo& controlling_trial_info) const;
 
@@ -617,6 +641,11 @@ class BASE_EXPORT FeatureList {
     // An optional associated field trial, which will be activated when the
     // state of the feature is queried for the first time. Weak pointer to the
     // FieldTrial object that is owned by the FieldTrialList singleton.
+    //
+    // Must not be modified once the FeatureList is initialized: it is indexed
+    // by `trial_to_features_`, which is built during initialization and not
+    // updated afterwards. The mutators (RegisterOverride() and
+    // AssociateReportingFieldTrial()) CHECK(!initialized_) for this reason.
     raw_ptr<base::FieldTrial> field_trial;
 
     // Specifies whether the feature's state is overridden by |field_trial|.
@@ -647,6 +676,11 @@ class BASE_EXPORT FeatureList {
   // singleton feature list that is being registered.
   void FinalizeInitialization();
 
+  // Builds `trial_to_features_` from `overrides_`. Called by
+  // FinalizeInitialization(), i.e. at the point where `overrides_` becomes
+  // immutable, so that the index stays valid for the lifetime of this object.
+  void BuildTrialToFeaturesIndex();
+
   // Returns whether the given |feature| is enabled. This is invoked by the
   // public FeatureList::IsEnabled() static function on the global singleton.
   // Requires the FeatureList to have already been fully initialized.
@@ -675,6 +709,14 @@ class BASE_EXPORT FeatureList {
   std::optional<OverrideState> MaybeGetRuntimeOverrideState(
       const Feature& feature,
       Feature::FeatureStateCache current_cached_value) const;
+
+  // Common implementation for the PassKey-gated
+  // PrepareRuntimeMutableFeatureStateUpdate() overloads.
+  [[nodiscard]] std::optional<RuntimeMutableFeatureUpdate>
+  PrepareRuntimeMutableFeatureStateUpdateImpl(
+      const RuntimeFieldTrialInfo* override_info,
+      std::string_view feature_name,
+      OverrideState override_state);
 
   // Returns the non-runtime override state for the given |feature_name|,
   // without falling back to any default state associated with the feature.
@@ -747,6 +789,22 @@ class BASE_EXPORT FeatureList {
   // Map from feature name to an OverrideEntry struct for the feature, if it
   // exists. These overrides are logically const after initialization.
   base::flat_map<std::string, OverrideEntry> overrides_;
+
+  // Reverse index of `overrides_`: maps a field trial name to the names of the
+  // features associated with that trial. Features with no associated field
+  // trial are not present. Built by BuildTrialToFeaturesIndex() during
+  // FinalizeInitialization() and const afterwards.
+  //
+  // The values are views into the keys of `overrides_`, which is safe because
+  // `overrides_` is not modified once `initialized_` is true: all mutators
+  // CHECK(!initialized_), and `overrides_size_when_indexed_` guards against the
+  // backing storage being reallocated.
+  base::flat_map<std::string, std::vector<std::string_view>> trial_to_features_;
+
+  // Size of `overrides_` when `trial_to_features_` was built. Used to CHECK
+  // that `overrides_` has not been mutated since, which would potentially
+  // leave the views in `trial_to_features_` dangling.
+  size_t overrides_size_when_indexed_ = 0;
 
   // Map from feature name to the state of the feature, if it is a runtime
   // mutable feature and has been enabled for runtime mutability.

@@ -31,7 +31,6 @@
 #include "components/variations/service/variations_service.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
-#include "content/public/test/fenced_frame_test_util.h"
 #include "content/public/test/test_host_resolver.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/default_handlers.h"
@@ -114,10 +113,8 @@ class ComposeEnablingBrowserTest : public ComposeEnablingBrowserTestBase {
         {
             optimization_guide::features::internal::kComposeGraduated,
 #if BUILDFLAG(IS_CHROMEOS)
-            // All of these flags must be disabled for Compose to be enabled on
-            // ChromeOS.
             chromeos::features::kFeatureManagementDisableChromeCompose,
-            chromeos::features::kOrca,
+            chromeos::features::kFeatureManagementOrca,
             chromeos::features::kOrcaDogfood,
 #endif  // BUILDFLAG(IS_CHROMEOS)
         });
@@ -155,10 +152,8 @@ class GraduatedComposeEnablingBrowserTest
         {
             optimization_guide::features::internal::kComposeSettingsVisibility,
 #if BUILDFLAG(IS_CHROMEOS)
-            // All of these flags must be disabled for Compose to be enabled on
-            // ChromeOS.
             chromeos::features::kFeatureManagementDisableChromeCompose,
-            chromeos::features::kOrca,
+            chromeos::features::kFeatureManagementOrca,
             chromeos::features::kOrcaDogfood,
 #endif  // BUILDFLAG(IS_CHROMEOS)
         });
@@ -191,7 +186,7 @@ class ComposeOnChromeOS : public ComposeEnablingBrowserTestBase {
         },
         /*disabled_features=*/{
             optimization_guide::features::internal::kComposeGraduated,
-            chromeos::features::kOrca,
+            chromeos::features::kFeatureManagementOrca,
             chromeos::features::kOrcaDogfood,
         });
   }
@@ -231,7 +226,7 @@ class GraduatedComposeOnChromeOS : public ComposeEnablingBrowserTestBase {
         },
         /*disabled_features=*/{
             optimization_guide::features::internal::kComposeSettingsVisibility,
-            chromeos::features::kOrca,
+            chromeos::features::kFeatureManagementOrca,
             chromeos::features::kOrcaDogfood,
         });
   }

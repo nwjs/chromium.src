@@ -31,6 +31,7 @@ android_library("java") {
     "android/java/src/org/chromium/chrome/browser/ui/side_ui/SideUiCoordinatorFactory.java",
     "android/java/src/org/chromium/chrome/browser/ui/side_ui/SideUiCoordinatorImpl.java",
     "android/java/src/org/chromium/chrome/browser/ui/side_ui/SideUiObserverNotifier.java",
+    "android/java/src/org/chromium/chrome/browser/ui/side_ui/SideUiResizeHandler.java",
     "android/java/src/org/chromium/chrome/browser/ui/side_ui/SideUiTransitionListener.java",
     "android/java/src/org/chromium/chrome/browser/ui/side_ui/SideUiUpdateSpecs.java",
     "android/java/src/org/chromium/chrome/browser/ui/side_ui/SideUiWebContentHairlineContainer.java",
@@ -54,6 +55,7 @@ android_library("java") {
     "//chrome/browser/ui/side_panel/android:java",
     "//chrome/browser/ui/side_ui/public:java",
     "//chrome/browser/ui/vertical_tabs:java",
+    "//components/browser_ui/styles/android:java",
     "//components/cached_flags:java",
     "//third_party/android_deps:com_google_errorprone_error_prone_annotations_java",
     "//third_party/androidx:androidx_annotation_annotation_java",
@@ -70,6 +72,7 @@ robolectric_library("junit") {
   resources_package = "org.chromium.chrome.browser.ui.side_ui"
   sources = [
     "android/java/src/org/chromium/chrome/browser/ui/side_ui/SideUiCoordinatorImplTest.java",
+    "android/java/src/org/chromium/chrome/browser/ui/side_ui/SideUiResizeHandlerTest.java",
     "android/java/src/org/chromium/chrome/browser/ui/side_ui/SideUiWebContentHairlineContainerTest.java",
     "android/java/src/org/chromium/chrome/browser/ui/side_ui/SideUiWebContentHairlineManagerTest.java",
   ]
@@ -90,6 +93,7 @@ robolectric_library("junit") {
     "//chrome/browser/ui/side_ui/public:java",
     "//chrome/browser/ui/side_ui/public:java_resources",
     "//chrome/browser/ui/side_ui/test/android:test_support_java",
+    "//components/browser_ui/styles/android:java",
     "//third_party/androidx:androidx_annotation_annotation_java",
     "//third_party/junit",
     "//third_party/mockito:mockito_java",

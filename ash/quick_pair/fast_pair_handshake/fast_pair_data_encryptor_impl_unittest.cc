@@ -13,6 +13,7 @@
 #include "ash/quick_pair/fast_pair_handshake/fast_pair_data_encryptor.h"
 #include "ash/quick_pair/repository/fake_fast_pair_repository.h"
 #include "base/base64.h"
+#include "base/containers/span.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/weak_ptr.h"
 #include "base/run_loop.h"
@@ -37,9 +38,9 @@ const std::array<uint8_t, kBlockSizeBytes> kPasskeyBytes = {
     0x02, 0x5E, 0x3F, 0x45, 0x61, 0xC3, 0x32, 0x1D,
     0xA0, 0xBA, 0xF0, 0xBB, 0x95, 0x1F, 0xF7, 0xB6};
 
-const std::vector<uint8_t> kAccountKey = {0xA0, 0xBA, 0xF0, 0xBB, 0x95, 0x1F,
-                                          0xF7, 0xB6, 0xCF, 0x5E, 0x3F, 0x45,
-                                          0x61, 0xC3, 0x32, 0x1D};
+constexpr std::array<uint8_t, 16> kAccountKey = {
+    0xA0, 0xBA, 0xF0, 0xBB, 0x95, 0x1F, 0xF7, 0xB6,
+    0xCF, 0x5E, 0x3F, 0x45, 0x61, 0xC3, 0x32, 0x1D};
 
 const char kPublicAntiSpoof[] =
     "Wuyr48lD3txnUhGiMF1IfzlTwRxxe+wMB1HLzP+"
@@ -81,10 +82,10 @@ class FastPairDataEncryptorImplTest : public testing::TestWithParam<TestParam> {
     FastPairDataEncryptorImpl::Factory::CreateAsync(
         device_, base::BindOnce(
                      &FastPairDataEncryptorImplTest::OnDataEncryptorCreateAsync,
-                     weak_ptr_factory_.GetWeakPtr()));
+                     weak_ptr_factory_.GetWeakPtr(), base::NullCallback()));
   }
 
-  void SuccessfulSetUp(const std::vector<uint8_t>& account_key) {
+  void SuccessfulSetUp(base::span<const uint8_t> account_key) {
     repository_ = std::make_unique<FakeFastPairRepository>();
     nearby::fastpair::Device metadata;
 
@@ -101,12 +102,13 @@ class FastPairDataEncryptorImplTest : public testing::TestWithParam<TestParam> {
       device_ = base::MakeRefCounted<Device>(kValidModelId, kTestAddress,
                                              Protocol::kFastPairSubsequent);
     }
-    device_->set_account_key(account_key);
+    device_->set_account_key(
+        std::vector<uint8_t>(account_key.begin(), account_key.end()));
 
     FastPairDataEncryptorImpl::Factory::CreateAsync(
         device_, base::BindOnce(
                      &FastPairDataEncryptorImplTest::OnDataEncryptorCreateAsync,
-                     weak_ptr_factory_.GetWeakPtr()));
+                     weak_ptr_factory_.GetWeakPtr(), base::NullCallback()));
   }
 
   void SuccessfulSetUpToTestPublicKey() {
@@ -126,7 +128,7 @@ class FastPairDataEncryptorImplTest : public testing::TestWithParam<TestParam> {
     FastPairDataEncryptorImpl::Factory::CreateAsync(
         device_, base::BindOnce(
                      &FastPairDataEncryptorImplTest::OnDataEncryptorCreateAsync,
-                     weak_ptr_factory_.GetWeakPtr()));
+                     weak_ptr_factory_.GetWeakPtr(), base::NullCallback()));
   }
 
   void FailedSetUpNoKeyPair() {
@@ -145,12 +147,33 @@ class FastPairDataEncryptorImplTest : public testing::TestWithParam<TestParam> {
     FastPairDataEncryptorImpl::Factory::CreateAsync(
         device_, base::BindOnce(
                      &FastPairDataEncryptorImplTest::OnDataEncryptorCreateAsync,
-                     weak_ptr_factory_.GetWeakPtr()));
+                     weak_ptr_factory_.GetWeakPtr(), base::NullCallback()));
+  }
+
+  void FailedSetUpWithAccountKey(
+      std::optional<std::vector<uint8_t>> account_key,
+      base::OnceClosure quit_closure) {
+    repository_ = std::make_unique<FakeFastPairRepository>();
+    // Not using the param here to control the type of device because only
+    // the kFastPairSubsequent protocol uses account key.
+    device_ = base::MakeRefCounted<Device>(kValidModelId, kTestAddress,
+                                           Protocol::kFastPairSubsequent);
+    if (account_key) {
+      device_->set_account_key(*account_key);
+    }
+    FastPairDataEncryptorImpl::Factory::CreateAsync(
+        device_, base::BindOnce(
+                     &FastPairDataEncryptorImplTest::OnDataEncryptorCreateAsync,
+                     weak_ptr_factory_.GetWeakPtr(), std::move(quit_closure)));
   }
 
   void OnDataEncryptorCreateAsync(
+      base::OnceClosure quit_closure,
       std::unique_ptr<FastPairDataEncryptor> fast_pair_data_encryptor) {
     data_encryptor_ = std::move(fast_pair_data_encryptor);
+    if (quit_closure) {
+      std::move(quit_closure).Run();
+    }
   }
 
   const std::array<uint8_t, kBlockSizeBytes> EncryptBytes() {
@@ -289,6 +312,39 @@ TEST_P(FastPairDataEncryptorImplTest, ParseDecryptedResponse_InvalidInputSize) {
 TEST_P(FastPairDataEncryptorImplTest, NoKeyPair) {
   FailedSetUpNoKeyPair();
   base::RunLoop().RunUntilIdle();
+  EXPECT_FALSE(data_encryptor_);
+}
+
+TEST_P(FastPairDataEncryptorImplTest, NoAccountKey) {
+  EXPECT_FALSE(data_encryptor_);
+  base::RunLoop run_loop;
+  FailedSetUpWithAccountKey(std::nullopt, run_loop.QuitClosure());
+  run_loop.Run();
+  EXPECT_FALSE(data_encryptor_);
+}
+
+TEST_P(FastPairDataEncryptorImplTest, EmptyAccountKey) {
+  EXPECT_FALSE(data_encryptor_);
+  base::RunLoop run_loop;
+  FailedSetUpWithAccountKey(std::vector<uint8_t>{}, run_loop.QuitClosure());
+  run_loop.Run();
+  EXPECT_FALSE(data_encryptor_);
+}
+
+TEST_P(FastPairDataEncryptorImplTest, UndersizedAccountKey) {
+  EXPECT_FALSE(data_encryptor_);
+  base::RunLoop run_loop;
+  FailedSetUpWithAccountKey(std::vector<uint8_t>{0x04}, run_loop.QuitClosure());
+  run_loop.Run();
+  EXPECT_FALSE(data_encryptor_);
+}
+
+TEST_P(FastPairDataEncryptorImplTest, OversizedAccountKey) {
+  EXPECT_FALSE(data_encryptor_);
+  base::RunLoop run_loop;
+  FailedSetUpWithAccountKey(std::vector<uint8_t>(20, 0x01),
+                            run_loop.QuitClosure());
+  run_loop.Run();
   EXPECT_FALSE(data_encryptor_);
 }
 

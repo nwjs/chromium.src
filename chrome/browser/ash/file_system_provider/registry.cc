@@ -4,12 +4,12 @@
 
 #include "chrome/browser/ash/file_system_provider/registry.h"
 
+#include <memory>
 #include <optional>
 #include <utility>
 
 #include "ash/constants/ash_pref_names.h"
 #include "base/files/file_path.h"
-#include "base/memory/ptr_util.h"
 #include "base/values.h"
 #include "chrome/browser/ash/file_system_provider/mount_path_util.h"
 #include "chrome/browser/ash/file_system_provider/observer.h"
@@ -83,7 +83,7 @@ void Registry::RememberFileSystem(
   file_system.Set(kPrefKeyWatchers, std::move(watchers_dict));
 
   PrefService* const pref_service = profile_->GetPrefs();
-  DCHECK(pref_service);
+  CHECK(pref_service, base::NotFatalUntil::M160);
 
   ScopedDictPrefUpdate dict_update(pref_service,
                                    ash::prefs::kFileSystemProviderMounted);
@@ -97,7 +97,7 @@ void Registry::RememberFileSystem(
 void Registry::ForgetFileSystem(const ProviderId& provider_id,
                                 const std::string& file_system_id) {
   PrefService* const pref_service = profile_->GetPrefs();
-  DCHECK(pref_service);
+  CHECK(pref_service, base::NotFatalUntil::M160);
 
   ScopedDictPrefUpdate dict_update(pref_service,
                                    ash::prefs::kFileSystemProviderMounted);
@@ -115,7 +115,7 @@ void Registry::ForgetFileSystem(const ProviderId& provider_id,
 std::unique_ptr<Registry::RestoredFileSystems> Registry::RestoreFileSystems(
     const ProviderId& provider_id) {
   PrefService* const pref_service = profile_->GetPrefs();
-  DCHECK(pref_service);
+  CHECK(pref_service, base::NotFatalUntil::M160);
 
   const base::DictValue& file_systems =
       pref_service->GetDict(ash::prefs::kFileSystemProviderMounted);
@@ -123,11 +123,10 @@ std::unique_ptr<Registry::RestoredFileSystems> Registry::RestoreFileSystems(
   const base::DictValue* file_systems_per_extension =
       file_systems.FindDict(provider_id.ToString());
   if (!file_systems_per_extension) {
-    return base::WrapUnique(new RestoredFileSystems);  // Nothing to restore.
+    return std::make_unique<RestoredFileSystems>();  // Nothing to restore.
   }
 
-  std::unique_ptr<RestoredFileSystems> restored_file_systems(
-      new RestoredFileSystems);
+  auto restored_file_systems = std::make_unique<RestoredFileSystems>();
 
   for (const auto file_system_it : *file_systems_per_extension) {
     if (!file_system_it.second.is_dict()) {
@@ -227,7 +226,7 @@ std::unique_ptr<Registry::RestoredFileSystems> Registry::RestoreFileSystems(
 void Registry::UpdateWatcherTag(const ProvidedFileSystemInfo& file_system_info,
                                 const Watcher& watcher) {
   PrefService* const pref_service = profile_->GetPrefs();
-  DCHECK(pref_service);
+  CHECK(pref_service, base::NotFatalUntil::M160);
 
   // TODO(mtomasz): Consider optimizing it by moving information about watchers
   // or even file systems to leveldb.

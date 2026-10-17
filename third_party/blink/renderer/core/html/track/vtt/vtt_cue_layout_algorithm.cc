@@ -6,6 +6,8 @@
 
 #include <math.h>
 
+#include <algorithm>
+
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/html/media/html_media_element.h"
 #include "third_party/blink/renderer/core/html/media/media_controls.h"
@@ -178,7 +180,7 @@ LayoutUnit VttCueLayoutAlgorithm::ComputeInitialPositionAdjustment(
 //
 // static
 PhysicalRect VttCueLayoutAlgorithm::CueBoundingBox(const LayoutBox& cue_box) {
-  const LayoutBlock* container = cue_box.ContainingBlock();
+  const LayoutBox* container = cue_box.ContainingBlock();
   PhysicalRect border_box =
       cue_box.LocalToAncestorRect(cue_box.PhysicalBorderBoxRect(), container);
   const PhysicalSize size = container->StitchedSize();
@@ -234,7 +236,7 @@ void VttCueLayoutAlgorithm::AdjustPositionWithSnapToLines() {
     return;
 
   const bool is_horizontal = cue_box.IsHorizontalWritingMode();
-  const LayoutBlock& container = *cue_box.ContainingBlock();
+  const LayoutBox& container = *cue_box.ContainingBlock();
 
   // 1. Horizontal: Let full dimension be the height of video's rendering area.
   //    Vertical: Let full dimension be the width of video's rendering area.
@@ -361,8 +363,45 @@ void VttCueLayoutAlgorithm::AdjustPositionWithSnapToLines() {
 }
 
 void VttCueLayoutAlgorithm::AdjustPositionWithoutSnapToLines() {
-  // TODO(crbug.com/314037): Implement overlapping detection when snap-to-lines
-  // is not set.
+  // https://w3c.github.io/webvtt/#apply-webvtt-cue-settings
+  // 10. "If cue's WebVTT cue snap-to-lines flag is false"
+  DCHECK(cue_.GetLayoutBox());
+  const LayoutBox& cue_box = *cue_.GetLayoutBox();
+  if (FirstInlineBoxSize(cue_box).IsEmpty()) {
+    return;
+  }
+
+  const bool is_horizontal = cue_box.IsHorizontalWritingMode();
+  const LayoutBox& container = *cue_box.ContainingBlock();
+  const PhysicalSize container_size = container.StitchedSize();
+  const LayoutUnit full_dimension =
+      is_horizontal ? container_size.height : container_size.width;
+
+  const PhysicalRect bounding_box = CueBoundingBox(cue_box);
+  const LayoutUnit position =
+      is_horizontal ? bounding_box.Y() : bounding_box.X();
+  const LayoutUnit block_size =
+      is_horizontal ? bounding_box.Height() : bounding_box.Width();
+
+  // 3-4. If the boxes are not within the video's rendering area, move them to
+  // the closest position where they are. Only the line axis can overflow.
+  // TODO(crbug.com/40339463): Also avoid overlapping earlier cues and the
+  // media controls.
+  if (block_size > full_dimension) {
+    return;
+  }
+  const LayoutUnit adjusted_position =
+      std::clamp(position, LayoutUnit(), full_dimension - block_size);
+  if (adjusted_position == position) {
+    return;
+  }
+  cue_.StartAdjustment(adjusted_position, PassKey());
+
+  cue_.SetInlineStyleProperty(
+      is_horizontal ? CSSPropertyID::kTop : CSSPropertyID::kLeft,
+      full_dimension ? (adjusted_position * 100 / full_dimension).ToDouble()
+                     : 100.0,
+      CSSPrimitiveValue::UnitType::kPercentage);
 }
 
 }  // namespace blink

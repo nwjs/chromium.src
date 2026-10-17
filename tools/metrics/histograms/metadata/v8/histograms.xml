@@ -48,21 +48,6 @@ chromium-metrics-reviews@google.com.
   <summary>Array buffer sizes for which V8 failed to allocate memory.</summary>
 </histogram>
 
-<histogram name="V8.AsmjsInstantiateResult" enum="AsmJsInstantiateResult"
-    expires_after="2027-03-07">
-  <owner>ecmziegler@chromium.org</owner>
-  <owner>wasm-runtime@google.com</owner>
-  <summary>
-    Counter of succeeded and failed asm.js instantiations with the asm.js
-    pipeline. Success means that the asm.js pipeline is used to execute the
-    asm.js module. Failure means that the asm.js module gets executed with the
-    normal JavaScript pipeline. Reasons for failed instantiations can be that
-    the asm.js module gets instantiated with an invalid memory type like a
-    WebAssembly memory. Recorded after each attempt to instantiate asm.js module
-    with the asm.js pipeline.
-  </summary>
-</histogram>
-
 <histogram name="V8.CFIPageSizeMismatch" enum="BooleanOccurred"
     expires_after="2027-05-01">
   <owner>emaxx@google.com</owner>
@@ -184,6 +169,9 @@ chromium-metrics-reviews@google.com.
     <variant name=".ConsumeCache"
         summary="in compiling a script when the 'compilation' is
                  deserializing it from the code cache"/>
+    <variant name=".ConsumeCache.BackgroundThread"
+        summary="in compiling a script on a background thread when the
+                 'compilation' is deserializing it from the code cache"/>
     <variant name=".ConsumeCache.Failed"
         summary="in compiling a script (incl. parsing/caching) when the
                  compilation tried to deserialize it from the code cache, but
@@ -1474,7 +1462,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.SandboxMode" enum="V8SandboxMode"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>mlippautz@chromium.org</owner>
   <owner>ishell@chromium.org</owner>
   <summary>
@@ -1620,6 +1608,20 @@ chromium-metrics-reviews@google.com.
     The false value is never reported. This histogram is supposed to be used in
     A/B testing to check if unhandled exception count is different across
     experiment groups by counting the true values.
+  </summary>
+</histogram>
+
+<histogram name="V8.WasmAvx2Support" enum="BooleanSupported"
+    expires_after="2027-09-17">
+  <owner>ecmziegler@chromium.org</owner>
+  <owner>gdeepti@chromium.org</owner>
+  <owner>wasm-runtime@google.com</owner>
+  <summary>
+    Whether the system supports AVX/AVX2 vector extensions. This is recorded
+    once per isolate during isolate creation (startup).
+
+    As this is only available on x64 systems, this value is only recorded on
+    those machines.
   </summary>
 </histogram>
 
@@ -1869,7 +1871,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.WasmLazyCompileTimeMicroSeconds" units="microseconds"
-    expires_after="2027-01-17">
+    expires_after="2027-03-21">
   <owner>clemensb@chromium.org</owner>
   <owner>ecmziegler@chromium.org</owner>
   <owner>wasm-runtime@google.com</owner>
@@ -1975,7 +1977,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.WasmModuleSizeBytes{V8WasmSeparateAsmAndWasm}"
-    units="bytes" expires_after="2027-01-10">
+    units="bytes" expires_after="2027-03-14">
   <owner>ecmziegler@chromium.org</owner>
   <owner>wasm-runtime@google.com</owner>
   <summary>
@@ -2007,6 +2009,18 @@ chromium-metrics-reviews@google.com.
   <summary>
     Number of WebAssembly native modules live in an isolate. Recorded whenever a
     new native module is created.
+  </summary>
+</histogram>
+
+<histogram name="V8.WasmRevecConversionPercent" units="%"
+    expires_after="2027-09-17">
+  <owner>ecmziegler@chromium.org</owner>
+  <owner>gdeepti@chromium.org</owner>
+  <owner>wasm-runtime@google.com</owner>
+  <summary>
+    The percentage of SIMD operations that were successfully re-vectorized.
+    Recorded for each optimized Wasm function compilation if re-vectorization is
+    enabled.
   </summary>
 </histogram>
 

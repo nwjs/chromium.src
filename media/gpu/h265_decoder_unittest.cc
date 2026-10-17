@@ -7,7 +7,9 @@
 #include <array>
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <string>
+#include <vector>
 
 #include "base/check.h"
 #include "base/containers/extend.h"
@@ -25,6 +27,8 @@
 
 using ::testing::_;
 using ::testing::Args;
+using ::testing::DoAll;
+using ::testing::ElementsAre;
 using ::testing::Expectation;
 using ::testing::InSequence;
 using ::testing::MakeMatcher;
@@ -33,6 +37,7 @@ using ::testing::MatcherInterface;
 using ::testing::MatchResultListener;
 using ::testing::Mock;
 using ::testing::Return;
+using ::testing::SaveArg;
 using ::testing::WithArg;
 
 namespace media {
@@ -90,6 +95,171 @@ class HasPocMatcher : public MatcherInterface<scoped_refptr<H265Picture>> {
 
 Matcher<scoped_refptr<H265Picture>> HasPoc(int expected_poc) {
   return MakeMatcher(new HasPocMatcher(expected_poc));
+}
+
+// Checks the number of entries in one of the reference picture lists that are
+// passed to SubmitSlice().
+MATCHER_P(RefPicListSizeIs, expected_size, "") {
+  if (arg.size() == static_cast<size_t>(expected_size)) {
+    return true;
+  }
+  *result_listener << "with size: " << arg.size();
+  return false;
+}
+
+// Shared SPS for the synthetic streams in this file. Fields that are already
+// 0 in H265SPS{} are left untouched. The non-zero values are:
+// - Main / level 4.0, 4:2:0, 320x184, matching the bear clips in this file
+// - CTB size 16 (20x12 CTBs), so slice_segment_address is 8 bits wide
+// - 8-bit POC LSB, matching AppendIntraPicture()'s default width
+// - DPB of 2 pictures; tests that need more reorder or buffering override it
+H265SPS MakeTestSps() {
+  H265SPS sps;
+  sps.sps_temporal_id_nesting_flag = true;
+  sps.profile_tier_level.general_profile_idc = 1;
+  sps.profile_tier_level.general_level_idc = 120;
+  sps.chroma_format_idc = 1;
+  sps.pic_width_in_luma_samples = 320;
+  sps.pic_height_in_luma_samples = 184;
+  sps.log2_max_pic_order_cnt_lsb_minus4 = 4;
+  sps.log2_diff_max_min_luma_coding_block_size = 1;
+  sps.sps_max_dec_pic_buffering_minus1[0] = 1;
+  return sps;
+}
+
+H265PPS MakeTestPps() {
+  return H265PPS{};
+}
+
+void AppendNaluHeader(H26xAnnexBBitstreamBuilder& builder,
+                      int nal_unit_type,
+                      int nuh_layer_id = 0) {
+  builder.AppendBits(32, 0x00000001);  // start code
+  builder.Flush();
+  builder.AppendBits(1, 0);  // forbidden_zero_bit
+  builder.AppendBits(6, nal_unit_type);
+  builder.AppendBits(6, nuh_layer_id);
+  builder.AppendBits(3, 1);  // nuh_temporal_id_plus1
+}
+
+// Appends a picture made of a single intra coded slice with an empty reference
+// picture set, which is enough to exercise the DPB logic without needing real
+// coded data. |poc_lsb| is ignored for IDR pictures, whose POC is always 0.
+void AppendIntraPicture(H26xAnnexBBitstreamBuilder& builder,
+                        int nal_unit_type,
+                        int poc_lsb,
+                        bool no_output_of_prior_pics_flag = false,
+                        int poc_lsb_bits = 8,
+                        int nuh_layer_id = 0) {
+  AppendNaluHeader(builder, nal_unit_type, nuh_layer_id);
+  builder.AppendBool(true);  // first_slice_segment_in_pic_flag
+  if (nal_unit_type >= H265NALU::BLA_W_LP &&
+      nal_unit_type <= H265NALU::RSV_IRAP_VCL23) {
+    builder.AppendBool(no_output_of_prior_pics_flag);
+  }
+  builder.AppendUE(0);  // slice_pic_parameter_set_id
+  builder.AppendUE(2);  // slice_type = I
+  if (nal_unit_type != H265NALU::IDR_W_RADL &&
+      nal_unit_type != H265NALU::IDR_N_LP) {
+    builder.AppendBits(poc_lsb_bits, poc_lsb);  // slice_pic_order_cnt_lsb
+    builder.AppendBool(false);  // short_term_ref_pic_set_sps_flag
+    builder.AppendUE(0);        // num_negative_pics
+    builder.AppendUE(0);        // num_positive_pics
+  }
+  builder.AppendSE(0);       // slice_qp_delta
+  builder.AppendBool(true);  // byte alignment bit
+  builder.Flush();
+}
+
+void AppendEndOfSequence(H26xAnnexBBitstreamBuilder& builder) {
+  AppendNaluHeader(builder, H265NALU::EOS_NUT);
+  builder.Flush();
+}
+
+// BuildPackedH265VPS() does not emit the multilayer extension that carries
+// aux_alpha_layer_id, so the alpha tests use a captured VPS NALU instead.
+void AppendVpsWithAlpha(H26xAnnexBBitstreamBuilder& builder) {
+  constexpr auto kVpsWithAlpha = std::to_array<uint8_t>({
+      0x40, 0x01, 0x0c, 0x11, 0xff, 0xff, 0x01, 0x60, 0x00, 0x00,
+      0x03, 0x00, 0xb0, 0x00, 0x00, 0x03, 0x00, 0x00, 0x03, 0x00,
+      0x3e, 0x19, 0x40, 0xbf, 0x3e, 0x08, 0x00, 0x08, 0x30, 0x20,
+      0xa4, 0x00, 0x00, 0x03, 0x00, 0x00, 0x03, 0x00, 0xc5, 0x20,
+  });
+  builder.AppendBits(32, 0x00000001);  // start code
+  builder.Flush();
+  for (uint8_t b : kVpsWithAlpha) {
+    builder.AppendBits(8, b);
+  }
+  builder.Flush();
+}
+
+// |packed_nalu| is an Annex-B NALU from BuildPackedH265SPS/PPS, whose header
+// always has nuh_layer_id 0. Rewrite it for |nuh_layer_id| < 32 (the high bit
+// of the 6-bit field lives in the previous byte and stays 0).
+void AppendPackedNaluWithLayerId(H26xAnnexBBitstreamBuilder& builder,
+                                 const H26xAnnexBBitstreamBuilder& packed_nalu,
+                                 int nuh_layer_id) {
+  const base::span<const uint8_t> packed = packed_nalu.data();
+  CHECK_GT(packed.size(), 5u);
+  CHECK_GE(nuh_layer_id, 0);
+  CHECK_LT(nuh_layer_id, 32);
+  builder.AppendBits(32, 0x00000001);  // start code
+  builder.Flush();
+  builder.AppendBits(8, packed[4]);  // forbidden_zero_bit + nal_unit_type
+  builder.AppendBits(8, ((nuh_layer_id & 0x1f) << 3) | 1);
+  for (size_t i = 6; i < packed.size(); ++i) {
+    builder.AppendBits(8, packed[i]);
+  }
+  builder.Flush();
+}
+
+void AppendSpsWithLayerId(H26xAnnexBBitstreamBuilder& builder,
+                          const H265SPS& sps,
+                          int nuh_layer_id) {
+  H26xAnnexBBitstreamBuilder packed;
+  BuildPackedH265SPS(packed, sps);
+  AppendPackedNaluWithLayerId(builder, packed, nuh_layer_id);
+}
+
+void AppendPpsWithLayerId(H26xAnnexBBitstreamBuilder& builder,
+                          const H265PPS& pps,
+                          int nuh_layer_id) {
+  H26xAnnexBBitstreamBuilder packed;
+  BuildPackedH265PPS(packed, pps);
+  AppendPackedNaluWithLayerId(builder, packed, nuh_layer_id);
+}
+
+// Appends one P slice segment of a trailing picture that references the picture
+// one POC below it. A |slice_segment_address| of 0 marks the first slice
+// segment of the picture; the others are independent slice segments because the
+// PPS does not enable dependent ones. Passing |num_ref_idx_l0_active_minus1|
+// overrides the value the PPS defaults to.
+void AppendPSliceSegment(H26xAnnexBBitstreamBuilder& builder,
+                         int poc_lsb,
+                         int slice_segment_address,
+                         std::optional<int> num_ref_idx_l0_active_minus1) {
+  AppendNaluHeader(builder, H265NALU::TRAIL_R);
+  const bool first_slice = slice_segment_address == 0;
+  builder.AppendBool(first_slice);  // first_slice_segment_in_pic_flag
+  builder.AppendUE(0);              // slice_pic_parameter_set_id
+  if (!first_slice) {
+    builder.AppendBits(8, slice_segment_address);
+  }
+  builder.AppendUE(1);             // slice_type = P
+  builder.AppendBits(8, poc_lsb);  // slice_pic_order_cnt_lsb
+  builder.AppendBool(false);       // short_term_ref_pic_set_sps_flag
+  builder.AppendUE(1);             // num_negative_pics
+  builder.AppendUE(0);             // num_positive_pics
+  builder.AppendUE(0);             // delta_poc_s0_minus1[0]
+  builder.AppendBool(true);        // used_by_curr_pic_s0_flag[0]
+  builder.AppendBool(num_ref_idx_l0_active_minus1.has_value());
+  if (num_ref_idx_l0_active_minus1.has_value()) {
+    builder.AppendUE(*num_ref_idx_l0_active_minus1);
+  }
+  builder.AppendUE(0);       // five_minus_max_num_merge_cand
+  builder.AppendSE(0);       // slice_qp_delta
+  builder.AppendBool(true);  // byte alignment bit
+  builder.Flush();
 }
 
 }  // namespace
@@ -176,6 +346,23 @@ class H265DecoderTest : public ::testing::Test {
     EXPECT_CALL(*accelerator_, SetStream(_, _))
         .WillRepeatedly(
             Return(H265Decoder::H265Accelerator::Status::kNotSupported));
+  }
+
+  // Accepts every accelerator call that the synthetic stream tests do not make
+  // assertions about. Tests that assert on SubmitSlice() declare their own
+  // expectations after calling this, which take priority over the catch-all.
+  void ExpectAnyAcceleratorCalls() {
+    EXPECT_CALL(*accelerator_, SetStream(_, _))
+        .WillRepeatedly(Return(H265Decoder::H265Accelerator::Status::kOk));
+    EXPECT_CALL(*accelerator_, CreateH265Picture()).WillRepeatedly([]() {
+      return base::MakeRefCounted<H265Picture>();
+    });
+    EXPECT_CALL(*accelerator_, SubmitFrameMetadata(_, _, _, _, _, _, _, _))
+        .WillRepeatedly(Return(H265Decoder::H265Accelerator::Status::kOk));
+    EXPECT_CALL(*accelerator_, SubmitSlice(_, _, _, _, _, _, _, _, _, _, _, _))
+        .WillRepeatedly(Return(H265Decoder::H265Accelerator::Status::kOk));
+    EXPECT_CALL(*accelerator_, SubmitDecode(_))
+        .WillRepeatedly(Return(H265Decoder::H265Accelerator::Status::kOk));
   }
 
  protected:
@@ -1004,123 +1191,283 @@ TEST_F(H265DecoderTest, DependentSliceLongTermRefPics) {
 
 TEST_F(H265DecoderTest, AlphaLayerSpsPpsMidPicture) {
   H26xAnnexBBitstreamBuilder builder;
-
-  // VPS with alpha layer enabled
-  constexpr auto kVpsWithAlpha = std::to_array<uint8_t>({
-      0x40, 0x01, 0x0c, 0x11, 0xff, 0xff, 0x01, 0x60, 0x00, 0x00,
-      0x03, 0x00, 0xb0, 0x00, 0x00, 0x03, 0x00, 0x00, 0x03, 0x00,
-      0x3e, 0x19, 0x40, 0xbf, 0x3e, 0x08, 0x00, 0x08, 0x30, 0x20,
-      0xa4, 0x00, 0x00, 0x03, 0x00, 0x00, 0x03, 0x00, 0xc5, 0x20,
-  });
-  builder.AppendBits(32, 0x00000001);  // start code
-  builder.Flush();
-  for (uint8_t b : kVpsWithAlpha) {
-    builder.AppendBits(8, b);
-  }
-  builder.Flush();
-
-  // Base layer SPS
-  H265SPS sps = {};
-  sps.sps_video_parameter_set_id = 0;
-  sps.sps_max_sub_layers_minus1 = 0;
-  sps.sps_temporal_id_nesting_flag = true;
-  sps.profile_tier_level.general_profile_idc = 1;
-  sps.profile_tier_level.general_level_idc = 120;
-  sps.sps_seq_parameter_set_id = 0;
-  sps.chroma_format_idc = 1;
-  sps.pic_width_in_luma_samples = 320;
-  sps.pic_height_in_luma_samples = 184;
-  sps.log2_min_luma_coding_block_size_minus3 = 0;
-  sps.log2_diff_max_min_luma_coding_block_size = 1;
-  sps.log2_min_luma_transform_block_size_minus2 = 0;
-  sps.log2_diff_max_min_luma_transform_block_size = 0;
-  sps.max_transform_hierarchy_depth_inter = 0;
-  sps.max_transform_hierarchy_depth_intra = 0;
-  sps.log2_max_pic_order_cnt_lsb_minus4 = 4;
-  sps.sps_max_dec_pic_buffering_minus1[0] = 1;
-  sps.sps_max_num_reorder_pics[0] = 0;
-  sps.sps_max_latency_increase_plus1[0] = 0;
+  AppendVpsWithAlpha(builder);
+  const H265SPS sps = MakeTestSps();
+  const H265PPS pps = MakeTestPps();
   BuildPackedH265SPS(builder, sps);
-
-  // Base layer PPS
-  H265PPS pps = {};
-  pps.pps_pic_parameter_set_id = 0;
-  pps.pps_seq_parameter_set_id = 0;
   BuildPackedH265PPS(builder, pps);
-
-  // Base layer Slice (nuh_layer_id = 0)
-  builder.AppendBits(32, 0x00000001);  // start code
-  builder.Flush();
-  builder.AppendBits(1, 0);                  // forbidden_zero_bit
-  builder.AppendBits(6, H265NALU::CRA_NUT);  // nal_unit_type
-  builder.AppendBits(6, 0);                  // nuh_layer_id = 0
-  builder.AppendBits(3, 1);                  // nuh_temporal_id_plus1 = 1
-
-  builder.AppendBool(true);   // first_slice_segment_in_pic_flag
-  builder.AppendBool(false);  // no_output_of_prior_pics_flag (for IRAP)
-  builder.AppendUE(0);        // slice_pic_parameter_set_id
-  builder.AppendUE(2);        // slice_type = I (2)
-  builder.AppendBits(8, 0);   // slice_pic_order_cnt_lsb
-  builder.AppendBool(false);  // short_term_ref_pic_set_sps_flag
-  builder.AppendUE(0);        // num_negative_pics
-  builder.AppendUE(0);        // num_positive_pics
-  builder.AppendSE(0);        // slice_qp_delta
-  builder.AppendBool(true);   // byte alignment bit
-  builder.Flush();
-
-  // Alpha layer SPS (nuh_layer_id = 1)
-  H26xAnnexBBitstreamBuilder alpha_sps_builder;
-  BuildPackedH265SPS(alpha_sps_builder, sps);
-  std::vector<uint8_t> alpha_sps_data(alpha_sps_builder.data().begin(),
-                                      alpha_sps_builder.data().end());
-  alpha_sps_data[5] = 0x09;  // nuh_layer_id = 1
-  builder.AppendBits(32, 0x00000001);
-  builder.Flush();
-  for (size_t i = 4; i < alpha_sps_data.size(); ++i) {
-    builder.AppendBits(8, alpha_sps_data[i]);
-  }
-  builder.Flush();
-
-  // Alpha layer PPS (nuh_layer_id = 1)
-  H26xAnnexBBitstreamBuilder alpha_pps_builder;
-  BuildPackedH265PPS(alpha_pps_builder, pps);
-  std::vector<uint8_t> alpha_pps_data(alpha_pps_builder.data().begin(),
-                                      alpha_pps_builder.data().end());
-  alpha_pps_data[5] = 0x09;  // nuh_layer_id = 1
-  builder.AppendBits(32, 0x00000001);
-  builder.Flush();
-  for (size_t i = 4; i < alpha_pps_data.size(); ++i) {
-    builder.AppendBits(8, alpha_pps_data[i]);
-  }
-  builder.Flush();
+  AppendIntraPicture(builder, H265NALU::CRA_NUT, /*poc_lsb=*/0);
+  AppendSpsWithLayerId(builder, sps, /*nuh_layer_id=*/1);
+  AppendPpsWithLayerId(builder, pps, /*nuh_layer_id=*/1);
 
   auto buffer = DecoderBuffer::CopyFrom(builder.data());
-
-  EXPECT_CALL(*accelerator_, SetStream(_, _))
-      .WillRepeatedly(Return(H265Decoder::H265Accelerator::Status::kOk));
-  EXPECT_CALL(*accelerator_, CreateH265Picture()).WillRepeatedly([]() {
-    return base::MakeRefCounted<H265Picture>();
-  });
-  EXPECT_CALL(*accelerator_, SubmitFrameMetadata(_, _, _, _, _, _, _, _))
-      .WillRepeatedly(Return(H265Decoder::H265Accelerator::Status::kOk));
-
+  ExpectAnyAcceleratorCalls();
+  // Per 7.4.2.4.4 an SPS/PPS starts a new access unit only when nuh_layer_id
+  // is 0, so the alpha-layer SPS and PPS must not finish the base-layer
+  // picture. It is decoded once the stream runs out.
   {
     InSequence sequence;
     EXPECT_CALL(*accelerator_, ProcessSPS(_, _));
     EXPECT_CALL(*accelerator_, ProcessPPS(_, _));
     EXPECT_CALL(*accelerator_, SubmitSlice(_, _, _, _, _, _, _, _, _, _, _, _))
         .WillOnce(Return(H265Decoder::H265Accelerator::Status::kOk));
+    EXPECT_CALL(*accelerator_, ProcessSPS(_, _));
+    EXPECT_CALL(*accelerator_, ProcessPPS(_, _));
     EXPECT_CALL(*accelerator_, SubmitDecode(_))
         .WillOnce(Return(H265Decoder::H265Accelerator::Status::kOk));
     EXPECT_CALL(*accelerator_, OutputPicture(_)).WillOnce(Return(true));
-    EXPECT_CALL(*accelerator_, ProcessSPS(_, _));
-    EXPECT_CALL(*accelerator_, ProcessPPS(_, _));
   }
 
   decoder_->SetStream(1, buffer);
-
   EXPECT_EQ(AcceleratedVideoDecoder::kConfigChange, decoder_->Decode());
   EXPECT_EQ(AcceleratedVideoDecoder::kRanOutOfStreamData, decoder_->Decode());
+}
+
+// The alpha-layer parameter sets may sit between the base-layer slices and the
+// alpha-layer slices of the same access unit. Both layers must then still be
+// submitted against the same picture.
+TEST_F(H265DecoderTest, AlphaLayerSpsPpsBetweenBaseAndAlphaSlices) {
+  H26xAnnexBBitstreamBuilder builder;
+  AppendVpsWithAlpha(builder);
+  const H265SPS sps = MakeTestSps();
+  const H265PPS pps = MakeTestPps();
+  BuildPackedH265SPS(builder, sps);
+  BuildPackedH265PPS(builder, pps);
+
+  AppendIntraPicture(builder, H265NALU::CRA_NUT, /*poc_lsb=*/0);
+  AppendSpsWithLayerId(builder, sps, /*nuh_layer_id=*/1);
+  AppendPpsWithLayerId(builder, pps, /*nuh_layer_id=*/1);
+  AppendIntraPicture(builder, H265NALU::CRA_NUT, /*poc_lsb=*/0,
+                     /*no_output_of_prior_pics_flag=*/false, /*poc_lsb_bits=*/8,
+                     /*nuh_layer_id=*/1);
+
+  auto buffer = DecoderBuffer::CopyFrom(builder.data());
+  ExpectAnyAcceleratorCalls();
+  scoped_refptr<H265Picture> base_layer_pic;
+  scoped_refptr<H265Picture> alpha_layer_pic;
+  {
+    InSequence sequence;
+    EXPECT_CALL(*accelerator_, ProcessSPS(_, _));
+    EXPECT_CALL(*accelerator_, ProcessPPS(_, _));
+    EXPECT_CALL(*accelerator_, SubmitSlice(_, _, _, _, _, _, _, _, _, _, _, _))
+        .WillOnce(DoAll(SaveArg<8>(&base_layer_pic),
+                        Return(H265Decoder::H265Accelerator::Status::kOk)));
+    EXPECT_CALL(*accelerator_, ProcessSPS(_, _));
+    EXPECT_CALL(*accelerator_, ProcessPPS(_, _));
+    EXPECT_CALL(*accelerator_, SubmitSlice(_, _, _, _, _, _, _, _, _, _, _, _))
+        .WillOnce(DoAll(SaveArg<8>(&alpha_layer_pic),
+                        Return(H265Decoder::H265Accelerator::Status::kOk)));
+    EXPECT_CALL(*accelerator_, SubmitDecode(_))
+        .WillOnce(Return(H265Decoder::H265Accelerator::Status::kOk));
+    EXPECT_CALL(*accelerator_, OutputPicture(_)).WillOnce(Return(true));
+  }
+
+  decoder_->SetStream(1, buffer);
+  EXPECT_EQ(AcceleratedVideoDecoder::kConfigChange, decoder_->Decode());
+  EXPECT_EQ(AcceleratedVideoDecoder::kRanOutOfStreamData, decoder_->Decode());
+  EXPECT_NE(base_layer_pic, nullptr);
+  EXPECT_EQ(base_layer_pic, alpha_layer_pic);
+}
+
+// An alpha-layer SPS of the same access unit may reuse the base layer's SPS
+// id. C.5.2.3 additional bumping must still use the base layer picture's
+// limits: if it picked up the overwritten SPS, a larger reorder count would
+// hold the picture in the DPB until Flush().
+TEST_F(H265DecoderTest, AlphaLayerSpsDoesNotAffectBaseLayerBumping) {
+  H26xAnnexBBitstreamBuilder builder;
+  AppendVpsWithAlpha(builder);
+  H265SPS sps = MakeTestSps();
+  // Two pictures, without the C.5.2.2 buffering condition firing first.
+  sps.sps_max_dec_pic_buffering_minus1[0] = 2;
+  BuildPackedH265SPS(builder, sps);
+  BuildPackedH265PPS(builder, MakeTestPps());
+
+  AppendIntraPicture(builder, H265NALU::IDR_N_LP, /*poc_lsb=*/0);
+  AppendIntraPicture(builder, H265NALU::TRAIL_R, /*poc_lsb=*/1);
+
+  H265SPS alpha_sps = sps;
+  alpha_sps.sps_max_dec_pic_buffering_minus1[0] = 5;
+  alpha_sps.sps_max_num_reorder_pics[0] = 4;
+  AppendSpsWithLayerId(builder, alpha_sps, /*nuh_layer_id=*/1);
+  AppendPpsWithLayerId(builder, MakeTestPps(), /*nuh_layer_id=*/1);
+  AppendIntraPicture(builder, H265NALU::TRAIL_R, /*poc_lsb=*/1,
+                     /*no_output_of_prior_pics_flag=*/false, /*poc_lsb_bits=*/8,
+                     /*nuh_layer_id=*/1);
+
+  auto buffer = DecoderBuffer::CopyFrom(builder.data());
+  ExpectAnyAcceleratorCalls();
+  std::vector<int> output_pocs;
+  EXPECT_CALL(*accelerator_, OutputPicture(_))
+      .WillRepeatedly([&](scoped_refptr<H265Picture> pic) {
+        output_pocs.push_back(pic->pic_order_cnt_val_);
+        return true;
+      });
+
+  decoder_->SetStream(1, buffer);
+  EXPECT_EQ(AcceleratedVideoDecoder::kConfigChange, decoder_->Decode());
+  EXPECT_EQ(AcceleratedVideoDecoder::kRanOutOfStreamData, decoder_->Decode());
+  EXPECT_THAT(output_pocs, ElementsAre(0, 1));
+
+  output_pocs.clear();
+  EXPECT_TRUE(decoder_->Flush());
+  EXPECT_TRUE(output_pocs.empty());
+}
+
+// C.5.2.2: if NoOutputOfPriorPicsFlag is 0, a failed OutputPicture() must
+// return kDecodeError rather than clearing the DPB and succeeding.
+TEST_F(H265DecoderTest, EndOfSequenceIdrOutputFailureReturnsDecodeError) {
+  H26xAnnexBBitstreamBuilder builder;
+  H265SPS sps = MakeTestSps();
+  // Hold the CRA so C.5.2.2 still has a picture to output after EOS.
+  sps.sps_max_dec_pic_buffering_minus1[0] = 4;
+  sps.sps_max_num_reorder_pics[0] = 1;
+  BuildPackedH265SPS(builder, sps);
+  BuildPackedH265PPS(builder, MakeTestPps());
+
+  AppendIntraPicture(builder, H265NALU::CRA_NUT, /*poc_lsb=*/3);
+  AppendEndOfSequence(builder);
+  AppendIntraPicture(builder, H265NALU::IDR_W_RADL, /*poc_lsb=*/0);
+
+  auto buffer = DecoderBuffer::CopyFrom(builder.data());
+  ExpectAnyAcceleratorCalls();
+  EXPECT_CALL(*accelerator_, OutputPicture(HasPoc(3))).WillOnce(Return(false));
+
+  decoder_->SetStream(0, buffer);
+  EXPECT_EQ(AcceleratedVideoDecoder::kConfigChange, decoder_->Decode());
+  EXPECT_EQ(AcceleratedVideoDecoder::kDecodeError, decoder_->Decode());
+}
+
+// C.5.2.3 keeps bumping until no picture exceeds SpsMaxLatencyPictures. Since
+// bumping always picks the picture that is first for output, that can take more
+// invocations than there are pictures over the limit: here POC 100 is the only
+// one over it, but the four pictures ahead of it in output order have to go
+// first.
+TEST_F(H265DecoderTest, LatencyBumpingRunsUntilTheLimitIsMet) {
+  H26xAnnexBBitstreamBuilder builder;
+  H265SPS sps = MakeTestSps();
+  // Five pictures are decoded before latency bumping can emit POC 100; the
+  // buffering condition must not fire first.
+  sps.sps_max_dec_pic_buffering_minus1[0] = 5;
+  // Hold POC 100 while 1, 2 and 3 decode; reorder alone does not bump 100.
+  sps.sps_max_num_reorder_pics[0] = 1;
+  // Equation 7-9: SpsMaxLatencyPictures = MaxNumReorderPics +
+  // sps_max_latency_increase_plus1 - 1 = 1 + 3 - 1 = 3.
+  sps.sps_max_latency_increase_plus1[0] = 3;
+  BuildPackedH265SPS(builder, sps);
+  BuildPackedH265PPS(builder, MakeTestPps());
+
+  // POC 100 accumulates a PicLatencyCount of 3 from the three pictures that are
+  // decoded after it but precede it in output order.
+  AppendIntraPicture(builder, H265NALU::IDR_W_RADL, /*poc_lsb=*/0);
+  for (int poc_lsb : {100, 1, 2, 3}) {
+    AppendIntraPicture(builder, H265NALU::TRAIL_R, poc_lsb);
+  }
+
+  auto buffer = DecoderBuffer::CopyFrom(builder.data());
+  ExpectAnyAcceleratorCalls();
+  {
+    InSequence sequence;
+    EXPECT_CALL(*accelerator_, OutputPicture(HasPoc(0))).WillOnce(Return(true));
+    EXPECT_CALL(*accelerator_, OutputPicture(HasPoc(1))).WillOnce(Return(true));
+    EXPECT_CALL(*accelerator_, OutputPicture(HasPoc(2))).WillOnce(Return(true));
+    EXPECT_CALL(*accelerator_, OutputPicture(HasPoc(3))).WillOnce(Return(true));
+    EXPECT_CALL(*accelerator_, OutputPicture(HasPoc(100)))
+        .WillOnce(Return(true));
+  }
+
+  decoder_->SetStream(0, buffer);
+  EXPECT_EQ(AcceleratedVideoDecoder::kConfigChange, decoder_->Decode());
+  EXPECT_EQ(AcceleratedVideoDecoder::kRanOutOfStreamData, decoder_->Decode());
+
+  // Verify before flushing: the latency limit has to have pushed POC 100 out
+  // already, rather than leaving it for Flush() to pick up.
+  EXPECT_TRUE(Mock::VerifyAndClearExpectations(&*accelerator_));
+  EXPECT_TRUE(decoder_->Flush());
+}
+
+// Clause 8.3.4 is a per slice process: the number of active reference indices
+// is slice level syntax, so every independent slice of a picture gets its own
+// reference picture lists.
+TEST_F(H265DecoderTest, ReferencePictureListsAreBuiltPerSlice) {
+  H26xAnnexBBitstreamBuilder builder;
+  H265SPS sps = MakeTestSps();
+  // Keep the IDR available as a reference for both P slices.
+  sps.sps_max_dec_pic_buffering_minus1[0] = 4;
+  BuildPackedH265SPS(builder, sps);
+  // PPS default num_ref_idx_l0_default_active_minus1 is 0, so the first P
+  // slice gets L0 size 1 until the second slice overrides it.
+  BuildPackedH265PPS(builder, MakeTestPps());
+
+  AppendIntraPicture(builder, H265NALU::IDR_W_RADL, /*poc_lsb=*/0);
+  // Two independent slice segments of the same picture, the second one
+  // overriding the number of active reference indices that the PPS defaults to.
+  AppendPSliceSegment(builder, /*poc_lsb=*/1, /*slice_segment_address=*/0,
+                      /*num_ref_idx_l0_active_minus1=*/std::nullopt);
+  AppendPSliceSegment(builder, /*poc_lsb=*/1, /*slice_segment_address=*/1,
+                      /*num_ref_idx_l0_active_minus1=*/1);
+
+  auto buffer = DecoderBuffer::CopyFrom(builder.data());
+  ExpectAnyAcceleratorCalls();
+  {
+    InSequence sequence;
+    // The IDR is intra coded and has no reference picture lists.
+    EXPECT_CALL(*accelerator_, SubmitSlice(_, _, _, RefPicListSizeIs(0), _, _,
+                                           _, _, _, _, _, _))
+        .WillOnce(Return(H265Decoder::H265Accelerator::Status::kOk));
+    EXPECT_CALL(*accelerator_, SubmitSlice(_, _, _, RefPicListSizeIs(1), _, _,
+                                           _, _, _, _, _, _))
+        .WillOnce(Return(H265Decoder::H265Accelerator::Status::kOk));
+    EXPECT_CALL(*accelerator_, SubmitSlice(_, _, _, RefPicListSizeIs(2), _, _,
+                                           _, _, _, _, _, _))
+        .WillOnce(Return(H265Decoder::H265Accelerator::Status::kOk));
+  }
+
+  decoder_->SetStream(0, buffer);
+  EXPECT_EQ(AcceleratedVideoDecoder::kConfigChange, decoder_->Decode());
+  EXPECT_EQ(AcceleratedVideoDecoder::kRanOutOfStreamData, decoder_->Decode());
+  EXPECT_TRUE(decoder_->Flush());
+}
+
+// 8.3.1: prevTid0Pic is the previous TemporalId==0 picture that is not RASL,
+// RADL or SLNR. TRAIL_N is an SLNR picture, so it must not update the POC
+// derivation state. With MaxPicOrderCntLsb equal to 16, wrapping from LSB 8
+// to LSB 0 produces POC 16 only if prevTid0Pic is still the TRAIL_R; if the
+// TRAIL_N were used instead, the wrap would be missed and the POC would be 0.
+TEST_F(H265DecoderTest, TrailNDoesNotUpdatePrevTid0Pic) {
+  H26xAnnexBBitstreamBuilder builder;
+  H265SPS sps = MakeTestSps();
+  // Equation 7-8: MaxPicOrderCntLsb = 2^(4+0) = 16, so LSB 8 wrapping to 0
+  // is a half-range wrap that depends on prevTid0Pic still being the TRAIL_R.
+  sps.log2_max_pic_order_cnt_lsb_minus4 = 0;
+  // Four pictures; do not let C.5.2.2 buffering bump them out of order.
+  sps.sps_max_dec_pic_buffering_minus1[0] = 4;
+  BuildPackedH265SPS(builder, sps);
+  BuildPackedH265PPS(builder, MakeTestPps());
+
+  constexpr int kPocLsbBits = 4;
+  AppendIntraPicture(builder, H265NALU::IDR_W_RADL, /*poc_lsb=*/0);
+  AppendIntraPicture(builder, H265NALU::TRAIL_R, /*poc_lsb=*/8,
+                     /*no_output_of_prior_pics_flag=*/false, kPocLsbBits);
+  AppendIntraPicture(builder, H265NALU::TRAIL_N, /*poc_lsb=*/1,
+                     /*no_output_of_prior_pics_flag=*/false, kPocLsbBits);
+  AppendIntraPicture(builder, H265NALU::TRAIL_R, /*poc_lsb=*/0,
+                     /*no_output_of_prior_pics_flag=*/false, kPocLsbBits);
+
+  auto buffer = DecoderBuffer::CopyFrom(builder.data());
+  ExpectAnyAcceleratorCalls();
+  {
+    InSequence sequence;
+    EXPECT_CALL(*accelerator_, OutputPicture(HasPoc(0))).WillOnce(Return(true));
+    EXPECT_CALL(*accelerator_, OutputPicture(HasPoc(8))).WillOnce(Return(true));
+    EXPECT_CALL(*accelerator_, OutputPicture(HasPoc(1))).WillOnce(Return(true));
+    EXPECT_CALL(*accelerator_, OutputPicture(HasPoc(16)))
+        .WillOnce(Return(true));
+  }
+
+  decoder_->SetStream(0, buffer);
+  EXPECT_EQ(AcceleratedVideoDecoder::kConfigChange, decoder_->Decode());
+  EXPECT_EQ(AcceleratedVideoDecoder::kRanOutOfStreamData, decoder_->Decode());
+  EXPECT_TRUE(decoder_->Flush());
 }
 
 TEST_F(H265DecoderTest, InvalidCropRectReturnsDecodeError) {
@@ -1225,6 +1572,45 @@ TEST_F(H265DecoderTest, InvalidCropRectReturnsDecodeError) {
   decoder_->SetStream(1, buffer);
 
   EXPECT_EQ(AcceleratedVideoDecoder::kDecodeError, decoder_->Decode());
+}
+
+TEST_F(H265DecoderTest, NoConfigChangeAfterResetWithSameSps) {
+  SetInputFrameFiles({kSpsPps, kFrame0});
+  EXPECT_EQ(AcceleratedVideoDecoder::kConfigChange, Decode());
+  EXPECT_EQ(gfx::Size(320, 184), decoder_->GetPicSize());
+  EXPECT_EQ(HEVCPROFILE_MAIN, decoder_->GetProfile());
+  EXPECT_EQ(8u, decoder_->GetBitDepth());
+
+  {
+    InSequence sequence;
+    EXPECT_CALL(*accelerator_, CreateH265Picture()).Times(1);
+    EXPECT_CALL(*accelerator_, SubmitFrameMetadata(_, _, _, _, _, _, _, _))
+        .Times(1);
+    EXPECT_CALL(*accelerator_, SubmitSlice(_, _, _, _, _, _, _, _, _, _, _, _))
+        .Times(1);
+    EXPECT_CALL(*accelerator_, SubmitDecode(HasPoc(0))).Times(1);
+    EXPECT_CALL(*accelerator_, OutputPicture(HasPoc(0)));
+  }
+  EXPECT_EQ(AcceleratedVideoDecoder::kRanOutOfStreamData, Decode());
+  EXPECT_TRUE(decoder_->Flush());
+
+  // Resetting the decoder (e.g. on seek) and decoding a stream with the same
+  // SPS should not trigger another kConfigChange.
+  decoder_->Reset();
+
+  SetInputFrameFiles({kSpsPps, kFrame0});
+  {
+    InSequence sequence;
+    EXPECT_CALL(*accelerator_, CreateH265Picture()).Times(1);
+    EXPECT_CALL(*accelerator_, SubmitFrameMetadata(_, _, _, _, _, _, _, _))
+        .Times(1);
+    EXPECT_CALL(*accelerator_, SubmitSlice(_, _, _, _, _, _, _, _, _, _, _, _))
+        .Times(1);
+    EXPECT_CALL(*accelerator_, SubmitDecode(HasPoc(0))).Times(1);
+    EXPECT_CALL(*accelerator_, OutputPicture(HasPoc(0)));
+  }
+  EXPECT_EQ(AcceleratedVideoDecoder::kRanOutOfStreamData, Decode());
+  EXPECT_TRUE(decoder_->Flush());
 }
 
 }  // namespace media

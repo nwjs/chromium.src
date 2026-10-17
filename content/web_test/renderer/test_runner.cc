@@ -367,6 +367,7 @@ class TestRunnerBindings final : public gin::Wrappable<TestRunnerBindings> {
                             v8::Local<v8::Value> security_origin,
                             v8::Local<v8::Value> content_security_policy);
   void SetJavaScriptCanAccessClipboard(bool can_access);
+  void SetMockScreenSize(int width, int height);
   void SetMockScreenOrientation(const std::string& orientation);
   void SetPOSIXLocale(const std::string& locale);
   void SetMainWindowHidden(bool hidden);
@@ -795,6 +796,7 @@ gin::ObjectTemplateBuilder TestRunnerBindings::GetObjectTemplateBuilder(
                  &TestRunnerBindings::SetJavaScriptCanAccessClipboard)
       .SetMethod("setMainFrameIsFirstResponder",
                  &TestRunnerBindings::NotImplemented)
+      .SetMethod("setMockScreenSize", &TestRunnerBindings::SetMockScreenSize)
       .SetMethod("setMockScreenOrientation",
                  &TestRunnerBindings::SetMockScreenOrientation)
       // Calls setlocale(LC_ALL, ...) for a specified locale.
@@ -1502,6 +1504,20 @@ void TestRunnerBindings::DisableAutoResizeMode(int new_width, int new_height) {
 
   gfx::Size new_size(new_width, new_height);
   frame_->GetWebTestControlHostRemote()->DisableAutoResize(new_size);
+}
+
+void TestRunnerBindings::SetMockScreenSize(int width, int height) {
+  if (!frame_) {
+    return;
+  }
+
+  if (width <= 0 || height <= 0) {
+    return;
+  }
+
+  frame_->GetLocalRootWebFrameWidget()
+      ->GetFrameWidgetTestHelperForTesting()
+      ->SetScreenSizeForTesting(width, height);
 }
 
 void TestRunnerBindings::SetMockScreenOrientation(
@@ -2797,6 +2813,8 @@ void TestRunner::Reset() {
   main_frame_loaded_ = false;
   frame_will_start_load_ = false;
   did_notify_done_ = false;
+  requested_printing_resources_ = false;
+  waiting_for_printing_resources_ = false;
 
   http_headers_to_clear_.clear();
   clear_referrer_ = false;
@@ -3311,11 +3329,24 @@ void TestRunner::FinishTestIfReady(WebFrameTestProxy& source) {
     return;
   }
 
+  if (waiting_for_printing_resources_) {
+    return;
+  }
+
   FinishTest(source);
 }
 
 void TestRunner::TestFinishedFromSecondaryRenderer(WebFrameTestProxy& source) {
   NotifyDone(source);
+}
+
+void TestRunner::DidFinishLoadForPrinting(WebFrameTestProxy& source) {
+  if (!waiting_for_printing_resources_) {
+    return;
+  }
+
+  waiting_for_printing_resources_ = false;
+  FinishTestIfReady(source);
 }
 
 void TestRunner::AddMainFrame(WebFrameTestProxy& frame) {
@@ -3952,12 +3983,20 @@ void TestRunner::FinishTest(WebFrameTestProxy& source) {
   if (!test_is_running_) {
     return;
   }
-  test_is_running_ = false;
 
   // Now we know that we're in the main frame, we should generate dump results.
   // Clean out the lifecycle if needed before capturing the web tree
   // dump and pixels from the compositor.
   auto* web_frame = main_frame->GetWebFrame();
+  if (IsPrinting() && !requested_printing_resources_) {
+    requested_printing_resources_ = true;
+    waiting_for_printing_resources_ = web_frame->WillPrintSoon();
+    if (waiting_for_printing_resources_) {
+      return;
+    }
+  }
+
+  test_is_running_ = false;
   web_frame->FrameWidget()->PrepareForFinalLifecyclUpdateForTesting();
   web_frame->FrameWidget()->UpdateAllLifecyclePhases(
       blink::DocumentUpdateReason::kTest);

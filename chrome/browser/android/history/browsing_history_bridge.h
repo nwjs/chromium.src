@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_ANDROID_HISTORY_BROWSING_HISTORY_BRIDGE_H_
 
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -15,6 +16,10 @@
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/history/profile_based_browsing_history_driver.h"
+
+namespace syncer {
+class DeviceInfo;
+}
 
 using base::android::JavaRef;
 
@@ -36,23 +41,28 @@ class BrowsingHistoryBridge : public ProfileBasedBrowsingHistoryDriver {
                     const JavaRef<jobject>& j_result_obj,
                     const std::u16string& query,
                     const std::optional<std::string>& app_id,
-                    bool j_host_only);
+                    const std::optional<std::string>& hostname_suffix,
+                    const std::optional<std::string>& client_id);
 
   void QueryHistoryContinuation(JNIEnv* env,
                                 const JavaRef<jobject>& j_result_obj);
 
-  void GetAllAppIds(JNIEnv* env, const JavaRef<jobject>& j_result_obj);
+  void GetAllAppIds();
+
+  std::vector<const syncer::DeviceInfo*> GetAllClients();
 
   void GetLastVisitToHostBeforeRecentNavigations(
       const std::string& host_name,
       const JavaRef<jobject>& jcallback_);
 
-  // Adds a HistoryEntry with the |url|, |app_id|, and |timestamps| to the list
-  // of items being removed. The removal will not be committed until
-  // ::removeItems() is called.
-  void MarkItemForRemoval(const GURL& url,
-                          const std::optional<std::string>& app_id,
-                          const std::vector<int64_t>& timestamps);
+  // Adds a HistoryEntry with the primary `url`, `app_id`, and
+  // `native_timestamps_map` (mapping URLs, including any grouped similar visit
+  // URLs, to their visit timestamps) to the list of items being removed. The
+  // removal will not be committed until `RemoveItems()` is called.
+  void MarkItemForRemoval(
+      const GURL& url,
+      const std::optional<std::string>& app_id,
+      const std::map<GURL, std::vector<int64_t>>& native_timestamps_map);
 
   // Removes all items that have been marked for removal through
   // ::markItemForRemoval().
@@ -80,7 +90,6 @@ class BrowsingHistoryBridge : public ProfileBasedBrowsingHistoryDriver {
   std::unique_ptr<history::BrowsingHistoryService> browsing_history_service_;
   base::android::ScopedJavaGlobalRef<jobject> j_history_service_obj_;
   base::android::ScopedJavaGlobalRef<jobject> j_query_result_obj_;
-  base::android::ScopedJavaGlobalRef<jobject> j_app_ids_result_obj_;
 
   std::vector<history::BrowsingHistoryService::HistoryEntry> items_to_remove_;
 

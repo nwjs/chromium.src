@@ -19,6 +19,7 @@ import android.view.accessibility.AccessibilityEvent;
 import android.widget.RelativeLayout;
 import android.widget.ViewFlipper;
 
+import androidx.annotation.ColorInt;
 import androidx.annotation.IdRes;
 import androidx.annotation.Px;
 import androidx.annotation.StringRes;
@@ -37,6 +38,7 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetType;
 import org.chromium.components.browser_ui.bottomsheet.ItemDividerBase;
 import org.chromium.components.browser_ui.bottomsheet.UserCriticalFeature;
+import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 
 import java.util.Set;
 
@@ -52,7 +54,6 @@ class TouchToFillPaymentMethodView extends BottomSheetListViewBase {
                     .setUserCritical(UserCriticalFeature.TOUCH_TO_FILL_PAYMENT_METHOD)
                     .build();
 
-    private @StringRes int mSheetContentDescriptionId;
     private @StringRes int mSheetFullHeightDescriptionId;
     private @StringRes int mSheetHalfHeightDescriptionId;
     private @StringRes int mSheetClosedDescriptionId;
@@ -74,6 +75,11 @@ class TouchToFillPaymentMethodView extends BottomSheetListViewBase {
     private static class HorizontalDividerItemDecoration extends ItemDividerBase {
         HorizontalDividerItemDecoration(Context context) {
             super(context);
+        }
+
+        @Override
+        protected @ColorInt int getBackgroundTintColor() {
+            return SemanticColorUtils.getColorSurfaceContainer(mContext);
         }
 
         @Override
@@ -188,11 +194,7 @@ class TouchToFillPaymentMethodView extends BottomSheetListViewBase {
         }
     }
 
-    public void setSheetContentDescriptionId(@StringRes int sheetContentDescriptionId) {
-        mSheetContentDescriptionId = sheetContentDescriptionId;
-    }
-
-    public void setSheetHalfHeigthDescriptionId(@StringRes int sheetHalfHeightDescriptionId) {
+    public void setSheetHalfHeightDescriptionId(@StringRes int sheetHalfHeightDescriptionId) {
         mSheetHalfHeightDescriptionId = sheetHalfHeightDescriptionId;
     }
 
@@ -207,11 +209,6 @@ class TouchToFillPaymentMethodView extends BottomSheetListViewBase {
     @Override
     public int getVerticalScrollOffset() {
         return getSheetItemListView().computeVerticalScrollOffset();
-    }
-
-    @Override
-    public String getSheetContentDescription(Context context) {
-        return getContentView().getContext().getString(mSheetContentDescriptionId);
     }
 
     @Override
@@ -256,7 +253,7 @@ class TouchToFillPaymentMethodView extends BottomSheetListViewBase {
 
     @Override
     protected @Px int getSideMarginPx() {
-        return getContentView().getResources().getDimensionPixelSize(R.dimen.ttf_sheet_padding);
+        return getContentView().getResources().getDimensionPixelSize(R.dimen.ttf_sheet_margin);
     }
 
     @Override

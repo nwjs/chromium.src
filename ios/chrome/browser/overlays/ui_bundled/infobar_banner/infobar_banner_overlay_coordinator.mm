@@ -24,6 +24,7 @@
 #import "ios/chrome/browser/overlays/ui_bundled/infobar_banner/collaboration_group/collaboration_group_infobar_banner_overlay_mediator.h"
 #import "ios/chrome/browser/overlays/ui_bundled/infobar_banner/collaboration_out_of_date/collaboration_out_of_date_infobar_banner_overlay_mediator.h"
 #import "ios/chrome/browser/overlays/ui_bundled/infobar_banner/confirm/confirm_infobar_banner_overlay_mediator.h"
+#import "ios/chrome/browser/overlays/ui_bundled/infobar_banner/contextual_cue/contextual_cue_infobar_banner_overlay_mediator.h"
 #import "ios/chrome/browser/overlays/ui_bundled/infobar_banner/features.h"
 #import "ios/chrome/browser/overlays/ui_bundled/infobar_banner/infobar_banner_overlay_mediator.h"
 #import "ios/chrome/browser/overlays/ui_bundled/infobar_banner/passwords/password_infobar_banner_overlay_mediator.h"
@@ -40,8 +41,6 @@
 #import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_util.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
-#import "ios/chrome/browser/shared/public/commands/non_modal_signin_promo_commands.h"
-#import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/util/layout_guide_names.h"
 #import "ios/chrome/browser/shared/ui/util/omnibox_util.h"
@@ -73,6 +72,7 @@
     [TailoredSecurityInfobarBannerOverlayMediator class],
     [SyncErrorInfobarBannerOverlayMediator class],
     [EnhancedSafeBrowsingBannerOverlayMediator class],
+    [ContextualCueInfobarBannerOverlayMediator class],
   ];
 }
 
@@ -131,18 +131,10 @@
          presentsModal:config->has_badge()
                   type:config->infobar_type()];
   mediator.consumer = self.bannerViewController;
-  // Set the nonModalSignInPromoHandler for non modal sign-in promo.
-  mediator.nonModalSignInPromoHandler = HandlerForProtocol(
-      self.browser->GetCommandDispatcher(), NonModalSignInPromoCommands);
+  [mediator
+      configureDependenciesWithDispatcher:self.browser->GetCommandDispatcher()];
   mediator.engagementTracker =
       feature_engagement::TrackerFactory::GetForProfile(self.profile);
-
-  if ([mediator isKindOfClass:[SaveCardInfobarBannerOverlayMediator class]]) {
-    SaveCardInfobarBannerOverlayMediator* saveCardMediator =
-        (SaveCardInfobarBannerOverlayMediator*)mediator;
-    saveCardMediator.snackbarCommandsHandler = HandlerForProtocol(
-        self.browser->GetCommandDispatcher(), SnackbarCommands);
-  }
 
   self.mediator = mediator;
   // Present the banner.
@@ -277,6 +269,9 @@
     case InfobarType::kInfobarTypeCollaborationOutOfDate:
       mediatorClass =
           [CollaborationOutOfDateInfobarBannerOverlayMediator class];
+      break;
+    case InfobarType::kInfobarTypeContextualCue:
+      mediatorClass = [ContextualCueInfobarBannerOverlayMediator class];
       break;
     default:
       NOTREACHED() << "Received unsupported infobarType.";

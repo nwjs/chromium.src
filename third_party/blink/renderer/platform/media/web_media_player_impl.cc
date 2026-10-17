@@ -690,6 +690,7 @@ void WebMediaPlayerImpl::Shutdown() {
   memory_usage_reporting_timer_.Stop();
   background_pause_timer_.Stop();
   update_background_status_cb_.Cancel();
+  have_enough_after_lazy_load_cb_.Cancel();
   media_log_->OnWebMediaPlayerDestroyed();
 
   demuxer_manager_->StopAndResetClient();
@@ -709,13 +710,6 @@ void WebMediaPlayerImpl::Shutdown() {
   if (observer_)
     observer_->SetClient(nullptr);
 
-  // Explicitly reset `pipeline_controller_` to guarantee its destruction
-  // before DestructionHelper runs on `media_task_runner_`.
-  // This prevents possible dangling ptr's if `compositor` is destroyed
-  // before `pipeline_controller_`, which holds a VideoRendererSink
-  // in MediaFoundationRendererClient.
-  pipeline_controller_.reset();
-
   client_ = nullptr;
   encrypted_client_ = nullptr;
   frame_ = nullptr;
@@ -725,7 +719,6 @@ void WebMediaPlayerImpl::Shutdown() {
 
   // Handle destruction of things that need to be destructed after the pipeline
   // completes stopping on the media thread.
-  // TODO(crbug.com/482958590): This may not be necessary anymore.
   PostCrossThreadTask(
       *media_task_runner_, FROM_HERE,
       CrossThreadBindOnce(
@@ -1107,15 +1100,13 @@ void WebMediaPlayerImpl::OnFrozen() {
 
   // This may be the last chance `main_task_runner_` gets to execute, so we
   // should kick off release of all media resources.
-  if (base::FeatureList::IsEnabled(media::kSuspendMediaForFrozenFrames)) {
-    if (demuxer_manager_->HasDataSource()) {
-      demuxer_manager_->StopPreloading();
-    }
-
-    was_suspended_for_frame_closed_or_frozen_ = true;
-    UpdateBackgroundVideoOptimizationState();
-    UpdatePlayState();
+  if (demuxer_manager_->HasDataSource()) {
+    demuxer_manager_->StopPreloading();
   }
+
+  was_suspended_for_frame_closed_or_frozen_ = true;
+  UpdateBackgroundVideoOptimizationState();
+  UpdatePlayState();
 }
 
 void WebMediaPlayerImpl::Seek(double seconds) {
@@ -1940,9 +1931,9 @@ void WebMediaPlayerImpl::OnPipelineSuspended() {
       // connection, briefly (250ms chosen arbitrarily) delay signaling "have
       // enough" to the MultiBufferDataSource.
       //
-      // Unretained() is safe here since the base::CancelableOnceClosure will
-      // cancel upon destruction of this class and `demuxer_manager_` is
-      // gauranteeed to outlive us as a result of the DestructionHelper.
+      // Unretained() is safe here since `have_enough_after_lazy_load_cb_` is
+      // cancelled in Shutdown() before `demuxer_manager_` is destroyed via
+      // DestructionHelper.
       have_enough_after_lazy_load_cb_.Reset(
           BindOnce(&media::DemuxerManager::StopPreloading,
                    Unretained(demuxer_manager_.get())));
@@ -3460,7 +3451,7 @@ void WebMediaPlayerImpl::FinishMemoryUsageReport(int64_t demuxer_memory_usage) {
 
   const auto stats = GetPipelineStatistics();
   const int64_t data_source_memory_usage =
-      demuxer_manager_->GetDataSourceMemoryUsage();
+      demuxer_manager_ ? demuxer_manager_->GetDataSourceMemoryUsage() : 0;
 
   // If we have video and no video memory usage and we've rendered the first
   // frame, assume the VideoFrameCompositor is holding onto the last frame after
@@ -3644,19 +3635,12 @@ void WebMediaPlayerImpl::UpdateSecondaryProperties() {
 
 bool WebMediaPlayerImpl::IsPageHidden() const {
   DCHECK(main_task_runner_->BelongsToCurrentThread());
-  if (base::FeatureList::IsEnabled(media::kSuspendMediaForFrozenFrames)) {
-    return delegate_->IsPageHidden();
-  }
-  return delegate_->IsPageHidden() &&
-         !was_suspended_for_frame_closed_or_frozen_;
+  return delegate_->IsPageHidden();
 }
 
 bool WebMediaPlayerImpl::IsFrameHidden() const {
   DCHECK(main_task_runner_->BelongsToCurrentThread());
-  if (base::FeatureList::IsEnabled(media::kSuspendMediaForFrozenFrames)) {
-    return is_frame_hidden_;
-  }
-  return is_frame_hidden_ && !was_suspended_for_frame_closed_or_frozen_;
+  return is_frame_hidden_;
 }
 
 bool WebMediaPlayerImpl::IsPausedBecausePageHidden() const {

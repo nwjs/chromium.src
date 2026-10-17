@@ -7,39 +7,49 @@
 
 #include <stddef.h>
 
+#include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
+#include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/task/single_thread_task_runner.h"
-#include "base/time/time.h"
 #include "third_party/blink/public/mojom/peerconnection/peer_connection_tracker.mojom-blink.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
 #include "third_party/blink/renderer/modules/peerconnection/media_stream_track_metrics.h"
 #include "third_party/blink/renderer/modules/peerconnection/rtc_rtp_receiver_impl.h"
 #include "third_party/blink/renderer/modules/peerconnection/rtc_rtp_sender_impl.h"
+#include "third_party/blink/renderer/modules/peerconnection/rtc_rtp_transceiver_impl.h"
 #include "third_party/blink/renderer/modules/peerconnection/thermal_resource.h"
 #include "third_party/blink/renderer/modules/peerconnection/transceiver_state_surfacer.h"
+#include "third_party/blink/renderer/modules/peerconnection/webrtc_media_stream_track_adapter.h"
 #include "third_party/blink/renderer/modules/peerconnection/webrtc_media_stream_track_adapter_map.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
+#include "third_party/blink/renderer/platform/heap/cross_thread_persistent.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/mediastream/media_stream_component.h"
 #include "third_party/blink/renderer/platform/mediastream/media_stream_descriptor.h"
-#include "third_party/blink/renderer/platform/mediastream/media_stream_source.h"
 #include "third_party/blink/renderer/platform/peerconnection/rtc_peer_connection_handler_client.h"
+#include "third_party/blink/renderer/platform/peerconnection/rtc_rtp_sender_platform.h"
 #include "third_party/blink/renderer/platform/peerconnection/rtc_session_description_platform.h"
 #include "third_party/blink/renderer/platform/peerconnection/rtc_session_description_request.h"
 #include "third_party/blink/renderer/platform/peerconnection/rtc_stats.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
+#include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
+#include "third_party/webrtc/api/data_channel_interface.h"
+#include "third_party/webrtc/api/jsep.h"
+#include "third_party/webrtc/api/media_stream_interface.h"
+#include "third_party/webrtc/api/media_types.h"
 #include "third_party/webrtc/api/peer_connection_interface.h"
 #include "third_party/webrtc/api/rtc_error.h"
+#include "third_party/webrtc/api/rtp_sender_interface.h"
 #include "third_party/webrtc/api/rtp_transceiver_interface.h"
-#include "third_party/webrtc/api/stats/rtc_stats.h"
+#include "third_party/webrtc/api/scoped_refptr.h"
 #include "third_party/webrtc/api/stats/rtc_stats_collector_callback.h"
 
 namespace blink {
@@ -49,7 +59,6 @@ class RTCAnswerOptionsPlatform;
 class RTCOfferOptionsPlatform;
 class RTCPeerConnectionHandlerClient;
 class RTCSessionDescriptionInit;
-class RTCTrackEvent;
 class RTCVoidRequest;
 class SetLocalDescriptionRequest;
 
@@ -191,10 +200,6 @@ class MODULES_EXPORT RTCPeerConnectionHandler {
   virtual void TrackIceConnectionStateChange(
       webrtc::PeerConnectionInterface::IceConnectionState state);
 
-  // Called by the client when the "track" event is fired for a remote track
-  // added by setRemoteDescription.
-  virtual void TrackOnTrack(const RTCTrackEvent& event);
-
   // Asynchronously calls native_peer_connection_->getStats on the signaling
   // thread. (Future cleanup potential: just use the other GetStats() method?)
   void GetStandardStatsForTracker(
@@ -257,8 +262,6 @@ class MODULES_EXPORT RTCPeerConnectionHandler {
           pending_remote_description,
       std::unique_ptr<webrtc::SessionDescriptionInterface>
           current_remote_description);
-  void TrackSignalingChange(
-      webrtc::PeerConnectionInterface::SignalingState new_state);
   void OnIceConnectionChange(
       webrtc::PeerConnectionInterface::IceConnectionState new_state);
   void OnConnectionChange(
@@ -338,6 +341,9 @@ class MODULES_EXPORT RTCPeerConnectionHandler {
       webrtc::CreateSessionDescriptionObserver* observer,
       webrtc::PeerConnectionInterface::RTCOfferAnswerOptions offer_options,
       blink::TransceiverStateSurfacer* transceiver_state_surfacer);
+  void CreateAnswerOnSignalingThread(
+      webrtc::CreateSessionDescriptionObserver* observer,
+      webrtc::PeerConnectionInterface::RTCOfferAnswerOptions answer_options);
   Vector<std::unique_ptr<blink::RTCRtpSenderImpl>>::iterator FindSender(
       uintptr_t id);
   Vector<std::unique_ptr<blink::RTCRtpReceiverImpl>>::iterator FindReceiver(
@@ -371,11 +377,6 @@ class MODULES_EXPORT RTCPeerConnectionHandler {
   bool is_closed_ = false;
   // True if CloseAndUnregister has been called.
   bool is_unregistered_ = false;
-
-  // Transition from kHaveLocalOffer to kHaveRemoteOffer indicates implicit
-  // rollback in which case we need to also make visiting of kStable observable.
-  webrtc::PeerConnectionInterface::SignalingState previous_signaling_state_ =
-      webrtc::PeerConnectionInterface::kStable;
 
   // Will be reset to nullptr when the handler is `CloseAndUnregister()`-ed, so
   // it doesn't prevent the factory from being garbage-collected.

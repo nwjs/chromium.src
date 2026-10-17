@@ -151,11 +151,6 @@ BASE_DECLARE_FEATURE(kClientSideDetectionLocalResourceCheckFix);
 BASE_DECLARE_FEATURE(kClientSideDetectionNewObservers);
 extern const base::FeatureParam<double> kCsdClassificationDelay;
 
-#if BUILDFLAG(IS_ANDROID)
-// Instead of starting model download on startup, do it lazily during inference.
-BASE_DECLARE_FEATURE(kClientSideDetectionOnDeviceModelLazyDownloadAndroid);
-#endif
-
 // Deprecation of page load triggers for SSB users.
 BASE_DECLARE_FEATURE(kClientSideDetectionOnlyESBClassification);
 
@@ -165,22 +160,26 @@ BASE_DECLARE_FEATURE(kClientSideDetectionRedirectChainKillswitch);
 BASE_DECLARE_FEATURE(kClientSideDetectionRetryLimit);
 extern const base::FeatureParam<int> kClientSideDetectionRetryLimitTime;
 
+// Controls whether the URL is included in ScamDetectionRequest for
+// intelligent scan.
+BASE_DECLARE_FEATURE(kClientSideDetectionScamDetectionRequestWithUrl);
+
 // Controls whether the scam score is included in IntelligentScanInfo.
 BASE_DECLARE_FEATURE(kClientSideDetectionScamScore);
-#if BUILDFLAG(IS_ANDROID)
-// Inquire the server-side model instead of the on-device model for scam
-// detection.
-BASE_DECLARE_FEATURE(kClientSideDetectionServerModelForScamDetectionAndroid);
-extern const base::FeatureParam<int>
-    kClientSideDetectionServerModelMaxScansPerDay;
-#endif
 
-#if !BUILDFLAG(IS_ANDROID)
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 // Inquire the server-side model instead of the on-device model for scam
 // detection on Desktop.
 BASE_DECLARE_FEATURE(kClientSideDetectionServerModelForScamDetectionDesktop);
 extern const base::FeatureParam<int>
     kClientSideDetectionServerModelMaxScansPerDayDesktop;
+#endif
+
+#if BUILDFLAG(IS_IOS)
+// Controls whether scam detection via the server-side model is enabled on iOS.
+BASE_DECLARE_FEATURE(kClientSideDetectionServerModelForScamDetectionIos);
+extern const base::FeatureParam<int>
+    kClientSideDetectionServerModelMaxScansPerDayIos;
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
@@ -195,7 +194,7 @@ extern const base::FeatureParam<int>
     kClientSideDetectionServerModelRolloutVersionAndroid;
 #endif
 
-#if !BUILDFLAG(IS_ANDROID)
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 // Dedicated long-lived feature flag to control future server model rollout and
 // set the model version for Desktop. This flag should not be cleaned up after
 // the server model is launched. See go/mes-config-rollouts#roll-out-via-finch
@@ -205,6 +204,18 @@ BASE_DECLARE_FEATURE(kClientSideDetectionServerModelRolloutDesktop);
 // the model version (e.g. 1001). Update go/slams-mapping accordingly.
 extern const base::FeatureParam<int>
     kClientSideDetectionServerModelRolloutVersionDesktop;
+#endif
+
+#if BUILDFLAG(IS_IOS)
+// Dedicated long-lived feature flag to control future server model rollout and
+// set the model version for iOS. This flag should not be cleaned up after
+// the server model is launched. See go/mes-config-rollouts#roll-out-via-finch
+// on the recommended way to control rollouts.
+BASE_DECLARE_FEATURE(kClientSideDetectionServerModelRolloutIos);
+// Note for future finch config: Set an arbitrary integer value associated with
+// the model version (e.g. 1001). Update go/slams-mapping accordingly.
+extern const base::FeatureParam<int>
+    kClientSideDetectionServerModelRolloutVersionIos;
 #endif
 
 BASE_DECLARE_FEATURE(kClientSideDetectionSkipErrorPage);
@@ -362,6 +373,10 @@ extern const base::FeatureParam<int> kHashPrefixRealTimeLookupsSampleRate;
 // lists uses the v5 APIs instead of the v4 Update API. There is no change to
 // how often the checks are triggered (they are still not in real time).
 BASE_DECLARE_FEATURE(kLocalListsUseSBv5);
+
+// If enabled, V5 GetHash lookups are logged to WebUIInfoSingleton for display
+// on the chrome://safe-browsing debugging page.
+BASE_DECLARE_FEATURE(kLocalListsUseSBv5WebUI);
 
 #if BUILDFLAG(IS_ANDROID)
 // Enables ClientDownloadRequests for APK downloads on Android.

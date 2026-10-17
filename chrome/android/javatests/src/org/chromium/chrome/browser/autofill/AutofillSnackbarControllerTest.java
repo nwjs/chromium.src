@@ -7,6 +7,8 @@ package org.chromium.chrome.browser.autofill;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import android.widget.Button;
@@ -90,6 +92,28 @@ public class AutofillSnackbarControllerTest {
         assertTrue(
                 "Incorrect SnackbarController type",
                 currentSnackbar.getController() instanceof AutofillSnackbarController);
+        assertEquals(
+                "Incorrect snackbar identifier",
+                Snackbar.UMA_AUTOFILL_VIRTUAL_CARD_FILLED,
+                currentSnackbar.getIdentifierForTesting());
+    }
+
+    @Test
+    @SmallTest
+    public void testShow_AutofillAiSuppressionUndo() throws Exception {
+        ThreadUtils.runOnUiThreadBlocking(
+                () ->
+                        mAutofillSnackbarController.show(
+                                SNACKBAR_MESSAGE_TEXT,
+                                SNACKBAR_ACTION_TEXT,
+                                SNACKBAR_DURATION,
+                                AutofillSnackbarType.AUTOFILL_AI_SUPPRESSION_UNDO));
+
+        Snackbar currentSnackbar = getCurrentSnackbar();
+        assertEquals(
+                "Incorrect snackbar identifier",
+                Snackbar.UMA_AUTOFILL_AI_SUPPRESSION_UNDO,
+                currentSnackbar.getIdentifierForTesting());
     }
 
     @Test
@@ -100,7 +124,7 @@ public class AutofillSnackbarControllerTest {
         dismissSnackbar();
 
         assertNull(getCurrentSnackbar());
-        verify(mNativeMock).onDismissed(NATIVE_AUTOFILL_SNACKBAR_VIEW);
+        verify(mNativeMock, never()).onDismissed(anyLong());
     }
 
     @Test
@@ -111,7 +135,7 @@ public class AutofillSnackbarControllerTest {
         clickSnackbarAction();
 
         verify(mNativeMock).onActionClicked(NATIVE_AUTOFILL_SNACKBAR_VIEW);
-        verify(mNativeMock).onDismissed(NATIVE_AUTOFILL_SNACKBAR_VIEW);
+        verify(mNativeMock, never()).onDismissed(anyLong());
     }
 
     @Test
@@ -128,7 +152,10 @@ public class AutofillSnackbarControllerTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () ->
                         mAutofillSnackbarController.show(
-                                SNACKBAR_MESSAGE_TEXT, SNACKBAR_ACTION_TEXT, SNACKBAR_DURATION));
+                                SNACKBAR_MESSAGE_TEXT,
+                                SNACKBAR_ACTION_TEXT,
+                                SNACKBAR_DURATION,
+                                AutofillSnackbarType.VIRTUAL_CARD));
     }
 
     private void dismissSnackbar() {

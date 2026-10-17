@@ -161,9 +161,23 @@ class SearchEnginePreconnector
     is_short_session_for_testing_ = is_short_session;
   }
 
+  void ResetStateForTesting() {
+    StopPreconnecting();
+    ResetReceiver();
+    preconnect_manager_.reset();
+    consecutive_connection_failure_ = 0;
+    last_preconnect_attempt_time_.reset();
+  }
+
 #if BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
   bool HasDeviceBoundSessionPrewarmerForTesting() const {
     return !!device_bound_session_prewarmer_;
+  }
+
+  GURL GetDeviceBoundSessionPrewarmerUrlForTesting() const {
+    return device_bound_session_prewarmer_
+               ? device_bound_session_prewarmer_->prewarm_url()
+               : GURL();
   }
 #endif
 
@@ -202,6 +216,19 @@ class SearchEnginePreconnector
   // Preconnects to the default search engine synchronously. Preconnects in
   // uncredentialed mode.
   void PreconnectDSE(bool is_startup);
+
+#if BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
+  // Creates and starts `device_bound_session_prewarmer_` for `prewarm_url` if
+  // the DSE prewarmer feature is enabled and `prewarm_url` is a valid HTTPS
+  // URL. An existing prewarmer for the same URL is kept as is. Returns true if
+  // a prewarmer for `prewarm_url` exists after the call.
+  bool MaybeCreateDeviceBoundSessionPrewarmer(const GURL& prewarm_url,
+                                              bool is_startup);
+
+  // Creates the prewarmer for the current DSE if the prewarmer mode is sticky
+  // and, depending on the mode, the user settings allow it.
+  void MaybeCreateStickyDeviceBoundSessionPrewarmer(bool is_startup);
+#endif
 
   // Runs `PreconnectDSE` after the `delay`.
   void StartPreconnectWithDelay(base::TimeDelta delay,

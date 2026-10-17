@@ -9,6 +9,7 @@
 #include "base/containers/to_vector.h"
 #include "base/functional/bind.h"
 #include "base/strings/string_util.h"
+#include "base/time/time.h"
 #include "components/autofill/content/renderer/form_autofill_util.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
@@ -21,18 +22,13 @@ namespace autofill {
 
 namespace {
 
-// The minimum number of fields that must be modified by JS during the tracking
-// window to detect it as a custom JS autofill without enforcing additional
-// conditions.
-constexpr size_t kJsAutofillMinFieldsChanged = 3;
-
 // The number of fields modified by JS during the tracking window after which it
 // stops being detected as a custom JS autofill.
-constexpr size_t kJsAutofillMaxFieldsChanged = 10;
+constexpr size_t kJsAutofillMaxFieldsChanged = 20;
 
 // The maximum time gap between JS modifications to be considered part of the
 // same JS autofill event.
-constexpr base::TimeDelta kJsAutofillMaxTimeGap = base::Milliseconds(200);
+constexpr base::TimeDelta kJsAutofillMaxTimeGap = base::Milliseconds(1000);
 
 // Returns true if `element` can act as the anchor for a custom JS-autofill
 // popup. Custom autofill dropdowns are typically attached to text-like input
@@ -117,40 +113,6 @@ JavaScriptAutofillTracker::~JavaScriptAutofillTracker() {
   timer_.Stop();
 }
 
-void JavaScriptAutofillTracker::OnJavaScriptChangedValue(
-    const blink::WebFormControlElement& element,
-    const blink::WebString& old_value) {
-  // In order to add a log record to `js_logs_`, the following conditions must
-  // be satisfied:
-
-  // (1) A mousedown event must have started the timer not earlier than
-  // `kMaxTimeGap` milliseconds ago. This is to increase the likelihood of the
-  // JS change being caused by the click itself.
-  if (!timer_.IsRunning()) {
-    return;
-  }
-
-  // (2) `js_logs_` must still have less than `kJsAutofillMaxFieldsChanged`
-  // records. If more than that many fields are modified in such a small window
-  // of time, it is likely not an autofill dropdown. This is also a performance
-  // guard since string analysis is performed below.
-  if (js_logs_.size() >= kJsAutofillMaxFieldsChanged) {
-    return;
-  }
-
-  // (3) The element whose value was set by JS should be autofillable and
-  // focusable (which is an approximation of "visible"). Other JS modifications
-  // are not interesting from a JS-autofill dropdown perspective.
-  if (!form_util::IsAutofillableElement(element) || !element.IsFocusable()) {
-    return;
-  }
-
-  js_logs_.push_back(mojom::JavaScriptFieldModification::New(
-      form_util::GetFieldRendererId(element),
-      GetJavaScriptModificationType(old_value.Utf16(),
-                                    element.Value().Utf16())));
-}
-
 void JavaScriptAutofillTracker::Reset() {
   js_logs_.clear();
   timer_.Stop();
@@ -203,27 +165,64 @@ void JavaScriptAutofillTracker::HandleMousedown(
                      // Safe because `timer_` is owned by `this`. Destructing
                      // it cancels the task.
                      base::Unretained(this),
-                     form_util::GetFieldRendererId(focused_element)));
+                     form_util::GetFieldRendererId(focused_element),
+                     base::TimeTicks::Now()));
+}
+
+void JavaScriptAutofillTracker::OnJavaScriptChangedValue(
+    const blink::WebFormControlElement& element,
+    const blink::WebString& old_value) {
+  // In order to add a log record to `js_logs_`, the following conditions must
+  // be satisfied:
+
+  // (1) A mousedown event must have started the timer not earlier than
+  // `kMaxTimeGap` milliseconds ago. This is to increase the likelihood of the
+  // JS change being caused by the click itself.
+  if (!timer_.IsRunning()) {
+    return;
+  }
+
+  // (2) `js_logs_` must still have less than `kJsAutofillMaxFieldsChanged`
+  // records. If more than that many fields are modified in such a small window
+  // of time, it is likely not an autofill dropdown. This is also a performance
+  // guard since string analysis is performed below.
+  if (js_logs_.size() >= kJsAutofillMaxFieldsChanged) {
+    return;
+  }
+
+  // (3) The element whose value was set by JS should be autofillable and
+  // focusable (which is an approximation of "visible"). Other JS modifications
+  // are not interesting from a JS-autofill dropdown perspective.
+  if (!form_util::IsAutofillableElement(element) || !element.IsFocusable()) {
+    return;
+  }
+
+  js_logs_.push_back(mojom::JavaScriptFieldModification::New(
+      form_util::GetFieldRendererId(element),
+      GetJavaScriptModificationType(old_value.Utf16(), element.Value().Utf16()),
+      base::TimeTicks::Now()));
 }
 
 void JavaScriptAutofillTracker::DetectJavaScriptAutofill(
-    FieldRendererId trigger_element_id) {
+    FieldRendererId trigger_element_id,
+    base::TimeTicks timer_start_timestamp) {
   std::vector<mojom::JavaScriptFieldModificationPtr> logs = std::move(js_logs_);
   js_logs_.clear();
   if (logs.empty()) {
     return;
   }
 
+  // Discard the detection window if the anchor element disappeared or changed
+  // substantially during the timer run.
   blink::WebFormControlElement trigger_element =
       form_util::GetFormControlByRendererId(trigger_element_id);
-  if (!trigger_element) {
+  if (!trigger_element || !IsPossibleAnchorElement(trigger_element)) {
     return;
   }
 
-  if (!IsPossibleAnchorElement(trigger_element)) {
-    return;
-  }
-
+  // For simplicity, only modified fields belonging to the same form as the
+  // anchor element are considered, since the browser receives a single form to
+  // analyze for detecting dropdowns.
   std::erase_if(
       logs, [target_form = trigger_element.GetOwningFormForAutofill()](
                 const mojom::JavaScriptFieldModificationPtr& record) {
@@ -249,18 +248,8 @@ void JavaScriptAutofillTracker::DetectJavaScriptAutofill(
     return;
   }
 
-  // If too few fields were modified by JavaScript, then an extra condition is
-  // enforced, which is that at least one field should be prefix-completed, in
-  // order to reduce IPC noise and false positives.
-  if (field_modifications.size() < kJsAutofillMinFieldsChanged &&
-      !std::ranges::contains(
-          field_modifications,
-          mojom::JavaScriptModificationType::kPrefixCompletion,
-          &mojom::JavaScriptFieldModification::modification_type)) {
-    return;
-  }
-
-  callback_.Run(trigger_element, std::move(field_modifications));
+  callback_.Run(trigger_element, std::move(field_modifications),
+                timer_start_timestamp);
 }
 
 }  // namespace autofill

@@ -9,6 +9,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/weak_ptr.h"
 #include "base/path_service.h"
 #include "base/scoped_observation.h"
 #include "base/strings/strcat.h"
@@ -55,7 +56,6 @@
 #include "content/public/common/content_switches.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
-#include "content/public/test/fenced_frame_test_util.h"
 #include "content/public/test/file_system_chooser_test_helpers.h"
 #include "content/public/test/media_start_stop_observer.h"
 #include "content/public/test/prerender_test_util.h"
@@ -83,7 +83,9 @@
 #include "ui/shell_dialogs/select_file_dialog_factory.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/test/button_test_api.h"
+#include "ui/views/test/widget_test.h"
 #include "ui/views/view_observer.h"
+#include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_observer.h"
 #include "ui/views/window/non_client_view.h"
 
@@ -253,13 +255,11 @@ class DocumentPictureInPictureWindowControllerBrowserTest
     return nullptr;
   }
 
-  void LoadTabAndEnterPictureInPicture(
+  void LoadUrlAndEnterPictureInPicture(
       BrowserWindowInterface* browser,
+      const GURL& test_page_url,
       const gfx::Size& window_size = gfx::Size(500, 500),
       bool prefer_initial_window_placement = false) {
-    GURL test_page_url = chrome_test_utils::GetTestUrl(
-        base::FilePath(base::FilePath::kCurrentDirectory),
-        base::FilePath(kPictureInPictureDocumentPipPage));
     ASSERT_TRUE(ui_test_utils::NavigateToURL(browser, test_page_url));
 
     content::WebContents* active_web_contents =
@@ -284,6 +284,18 @@ class DocumentPictureInPictureWindowControllerBrowserTest
         true, base::Seconds(30))
         .Wait();
     ASSERT_TRUE(GetRenderWidgetHostView()->IsShowing());
+  }
+
+  void LoadTabAndEnterPictureInPicture(
+      BrowserWindowInterface* browser,
+      const gfx::Size& window_size = gfx::Size(500, 500),
+      bool prefer_initial_window_placement = false) {
+    LoadUrlAndEnterPictureInPicture(
+        browser,
+        chrome_test_utils::GetTestUrl(
+            base::FilePath(base::FilePath::kCurrentDirectory),
+            base::FilePath(kPictureInPictureDocumentPipPage)),
+        window_size, prefer_initial_window_placement);
   }
 
   void ClickButton(views::Button* button) {
@@ -611,12 +623,33 @@ IN_PROC_BROWSER_TEST_P(DocumentPictureInPictureWindowControllerLifecycleTest,
 // Tests navigating the opener closes the picture in picture window.
 IN_PROC_BROWSER_TEST_P(DocumentPictureInPictureWindowControllerBackendTest,
                        ClosePictureInPictureOnOpenerNavigation) {
-  LoadTabAndEnterPictureInPicture(browser());
-  GURL test_page_url = chrome_test_utils::GetTestUrl(
-      base::FilePath(base::FilePath::kCurrentDirectory),
-      base::FilePath(kPictureInPictureDocumentPipPage));
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), test_page_url));
+  ASSERT_NO_FATAL_FAILURE(LoadTabAndEnterPictureInPicture(browser()));
+
+  auto* opener = browser()->GetTabStripModel()->GetActiveWebContents();
+  auto* child = window_controller()->GetChildWebContents();
+  ASSERT_NE(nullptr, child);
+  auto* widget =
+      views::Widget::GetWidgetForNativeWindow(child->GetTopLevelNativeWindow());
+  ASSERT_NE(nullptr, widget);
+  content::WebContentsDestroyedWatcher child_destroyed_watcher(child);
+  views::test::WidgetDestroyedWaiter widget_destroyed_waiter(widget);
+  auto* host = DocumentPipHost::FromWebContents(opener);
+  ASSERT_EQ(standalone_enabled(), host != nullptr);
+  base::WeakPtr<DocumentPipHost> host_weak =
+      host ? host->GetWeakPtr() : nullptr;
+
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), embedded_test_server()->GetURL("/title1.html")));
+
+  child_destroyed_watcher.Wait();
+  widget_destroyed_waiter.Wait();
   ASSERT_FALSE(window_controller()->GetChildWebContents());
+  if (standalone_enabled()) {
+    ASSERT_TRUE(host_weak);
+    EXPECT_EQ(host_weak.get(), DocumentPipHost::FromWebContents(opener));
+    EXPECT_EQ(nullptr, host_weak->GetWidget());
+    EXPECT_EQ(nullptr, host_weak->GetChildWebContents());
+  }
 }
 
 // Navigation by the pip window to a new document should close the pip
@@ -882,6 +915,19 @@ IN_PROC_BROWSER_TEST_P(DocumentPictureInPictureWindowControllerFrameViewTest,
   // The directionality should still be LTR.
   EXPECT_EQ(base::i18n::LEFT_TO_RIGHT,
             window_title->GetTextDirectionForTesting());
+}
+
+IN_PROC_BROWSER_TEST_P(DocumentPictureInPictureWindowControllerFrameViewTest,
+                       WindowTitleShowsOpenerHost) {
+  const GURL test_page_url = embedded_test_server()->GetURL(
+      "/media/picture-in-picture/document-pip.html?query=1#fragment");
+  LoadUrlAndEnterPictureInPicture(browser(), test_page_url);
+
+  views::Label* window_title = GetPipFrameViewControls().window_title();
+  ASSERT_NE(nullptr, window_title);
+  EXPECT_EQ(base::UTF8ToUTF16(base::StrCat(
+                {test_page_url.host(), ":", test_page_url.port()})),
+            window_title->GetText());
 }
 
 #if BUILDFLAG(IS_CHROMEOS)

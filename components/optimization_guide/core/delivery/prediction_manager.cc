@@ -27,7 +27,6 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
-#include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "base/uuid.h"
 #include "components/optimization_guide/core/delivery/model_info.h"
@@ -36,6 +35,7 @@
 #include "components/optimization_guide/core/delivery/model_util.h"
 #include "components/optimization_guide/core/delivery/optimization_target_model_observer.h"
 #include "components/optimization_guide/core/delivery/prediction_model_download_manager.h"
+#include "components/optimization_guide/core/delivery/prediction_model_fetcher.h"
 #include "components/optimization_guide/core/delivery/prediction_model_fetcher_impl.h"
 #include "components/optimization_guide/core/delivery/prediction_model_override.h"
 #include "components/optimization_guide/core/delivery/prediction_model_store.h"
@@ -176,7 +176,6 @@ void PredictionManager::SetPredictionModelDownloadManagerForTesting(
         prediction_model_download_manager) {
   prediction_model_download_manager_ =
       std::move(prediction_model_download_manager);
-  init_time_ = base::TimeTicks::Now();
 }
 
 void PredictionManager::FetchModels() {
@@ -205,13 +204,6 @@ void PredictionManager::FetchModels() {
   if (!prediction_model_download_manager_ ||
       !prediction_model_download_manager_->ShouldFetchModels()) {
     return;
-  }
-
-  if (prediction_model_fetch_timer_.IsFirstModelFetch()) {
-    DCHECK(!init_time_.is_null());
-    base::UmaHistogramMediumTimes(
-        "OptimizationGuide.PredictionManager.FirstModelFetchSinceServiceInit",
-        base::TimeTicks::Now() - init_time_);
   }
 
   // Models should not be fetched if there are no optimization targets
@@ -312,16 +304,21 @@ scoped_refptr<base::SequencedTaskRunner> PredictionManager::GetModelTaskRunner(
 
 void PredictionManager::OnModelsFetched(
     const std::vector<proto::ModelInfo> models_request_info,
-    std::unique_ptr<proto::GetModelsResponse> get_models_response_data) {
+    base::expected<proto::GetModelsResponse, PredictionModelFetchError>
+        get_models_response_data) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   TRACE_EVENT("optimization_guide", "PredictionManager::OnModelsFetched");
 
-  if (!get_models_response_data) {
+  if (!get_models_response_data.has_value()) {
     for (const auto& model_info : models_request_info) {
       ModelProviderRegistry::RecordLifecycleState(
           model_info.optimization_target(),
           ModelDeliveryEvent::kGetModelsResponseFailure);
+    }
+    if (get_models_response_data.error() ==
+        PredictionModelFetchError::kNotRetryable) {
+      prediction_model_fetch_timer_.NotifyModelFetchNonRetryableFailure();
     }
     return;
   }
@@ -581,7 +578,6 @@ void PredictionManager::MaybeInitializeModelDownloads(
     ProfileDownloadServiceTracker& download_service_tracker,
     PrefService* local_state) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  init_time_ = base::TimeTicks::Now();
   if (!prediction_model_download_manager_) {
     prediction_model_download_manager_ =
         std::make_unique<PredictionModelDownloadManager>(

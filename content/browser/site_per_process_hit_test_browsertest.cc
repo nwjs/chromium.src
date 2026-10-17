@@ -50,6 +50,7 @@
 #include "mojo/public/cpp/test_support/test_utils.h"
 #include "third_party/blink/public/common/switches.h"
 #include "third_party/blink/public/common/web_preferences/web_preferences.h"
+#include "third_party/blink/public/mojom/frame/media_player_action.mojom.h"
 #include "third_party/blink/public/mojom/frame/user_activation_update_types.mojom.h"
 #include "third_party/blink/public/mojom/input/input_handler.mojom-test-utils.h"
 #include "third_party/blink/public/mojom/widget/platform_widget.mojom-test-utils.h"
@@ -3253,7 +3254,12 @@ class TooltipMonitor : public RenderWidgetHostViewBase::TooltipObserver {
     tooltip_text_wanted_ = tooltip_text;
     if (std::ranges::contains(tooltips_received_, tooltip_text))
       return;
+    run_loop_ = std::make_unique<base::RunLoop>();
     run_loop_->Run();
+  }
+
+  bool HasReceived(const std::u16string& tooltip_text) const {
+    return std::ranges::contains(tooltips_received_, tooltip_text);
   }
 
  private:
@@ -3360,6 +3366,56 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessHitTestBrowserTest,
   }
 
   rwhv_a->SetTooltipObserverForTesting(nullptr);
+}
+
+IN_PROC_BROWSER_TEST_F(SitePerProcessHitTestBrowserTest,
+                       KeyboardTooltipBoundsInChildFrame) {
+#if BUILDFLAG(IS_MAC)
+  GTEST_SKIP() << "Tooltips are not supported from keyboard on Mac.";
+#else
+#if BUILDFLAG(IS_ANDROID)
+  // Tooltips are only supported on desktop devices up to B.
+  if (base::android::android_info::sdk_int() <=
+          base::android::android_info::SDK_VERSION_BAKLAVA &&
+      !base::android::device_info::is_desktop()) {
+    GTEST_SKIP() << "Tooltips are only supported on desktop devices up to B.";
+  }
+#endif
+  GURL main_url(embedded_test_server()->GetURL(
+      "a.com", "/cross_site_iframe_factory.html?a(b)"));
+  EXPECT_TRUE(NavigateToURL(shell(), main_url));
+
+  FrameTreeNode* root = web_contents()->GetPrimaryFrameTree().root();
+  FrameTreeNode* b_node = root->child_at(0);
+
+  RenderWidgetHostViewBase* rwhv_a = static_cast<RenderWidgetHostViewBase*>(
+      root->current_frame_host()->GetRenderWidgetHost()->GetView());
+  RenderWidgetHostViewBase* rwhv_b = static_cast<RenderWidgetHostViewBase*>(
+      b_node->current_frame_host()->GetRenderWidgetHost()->GetView());
+
+  TooltipMonitor tooltip_monitor(rwhv_a);
+  WaitForHitTestData(b_node->current_frame_host());
+
+  // 1. Tooltip with out-of-bounds coordinates should be rejected and not shown.
+  rwhv_b->UpdateTooltipFromKeyboard(u"sample_out_of_bounds",
+                                    gfx::Rect(-350, -530, 400, 300));
+  base::RunLoop().RunUntilIdle();
+  EXPECT_FALSE(tooltip_monitor.HasReceived(u"sample_out_of_bounds"));
+
+  // 2. Tooltip with valid bounds inside child frame should be accepted.
+  rwhv_b->UpdateTooltipFromKeyboard(u"sample_valid_tooltip",
+                                    gfx::Rect(10, 10, 50, 20));
+  tooltip_monitor.WaitUntil(u"sample_valid_tooltip");
+  EXPECT_TRUE(tooltip_monitor.HasReceived(u"sample_valid_tooltip"));
+  tooltip_monitor.Reset();
+
+  // 3. Clear keyboard-triggered tooltip.
+  rwhv_b->ClearKeyboardTriggeredTooltip();
+  tooltip_monitor.WaitUntil(std::u16string());
+  EXPECT_TRUE(tooltip_monitor.HasReceived(std::u16string()));
+
+  rwhv_a->SetTooltipObserverForTesting(nullptr);
+#endif  // BUILDFLAG(IS_MAC)
 }
 
 #if BUILDFLAG(IS_ANDROID)
@@ -4506,6 +4562,81 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessHitTestBrowserTest,
     RouteMouseEventAndWaitUntilDispatch(router, root_view, child_view,
                                         &mouse_event);
     // We should see a new cursor come in that replaces the large one.
+    set_cursor_interceptor->Wait();
+    EXPECT_TRUE(set_cursor_interceptor->cursor().has_value());
+    EXPECT_EQ(ui::mojom::CursorType::kPointer,
+              set_cursor_interceptor->cursor()->type());
+  }
+}
+
+// Ensure small custom cursors are not allowed to intersect the root visual
+// viewport.
+IN_PROC_BROWSER_TEST_F(SitePerProcessHitTestBrowserTest,
+                       SmallCursorRemovedInOffsetOOPIF) {
+  GURL url(R"(data:text/html,
+    <iframe id='iframe'
+            style ='position:absolute; top: -10px'
+            width=1000px height=1000px>
+    </iframe>)");
+  EXPECT_TRUE(NavigateToURL(shell(), url));
+
+  // The small-cursor.html document has a custom cursor that is 32x32 with a
+  // hotspot on the bottom right corner.
+  NavigateIframeToURL(web_contents(), "iframe",
+                      embedded_test_server()->GetURL("/small-cursor.html"));
+
+  FrameTreeNode* root = web_contents()->GetPrimaryFrameTree().root();
+
+  FrameTreeNode* child_node = root->child_at(0);
+  EXPECT_NE(web_contents()->GetSiteInstance(),
+            child_node->current_frame_host()->GetSiteInstance());
+
+  WaitForHitTestData(child_node->current_frame_host());
+
+  RenderWidgetHostViewBase* root_view = static_cast<RenderWidgetHostViewBase*>(
+      root->current_frame_host()->GetRenderWidgetHost()->GetView());
+  RenderWidgetHostImpl* rwh_child =
+      root->child_at(0)->current_frame_host()->GetRenderWidgetHost();
+  RenderWidgetHostViewBase* child_view =
+      static_cast<RenderWidgetHostViewBase*>(rwh_child->GetView());
+
+  auto* router = web_contents()->GetInputEventRouter();
+  RenderWidgetHostMouseEventMonitor child_monitor(
+      child_view->GetRenderWidgetHost());
+  RenderWidgetHostMouseEventMonitor root_monitor(
+      root_view->GetRenderWidgetHost());
+
+  // A cursor with enough room in the root view to fully display without
+  // intersecting native UI should be shown.
+  {
+    blink::WebMouseEvent mouse_event(
+        blink::WebInputEvent::Type::kMouseMove,
+        blink::WebInputEvent::kNoModifiers,
+        blink::WebInputEvent::GetStaticTimeStampForTests());
+    SetWebEventPositions(&mouse_event, gfx::Point(300, 300), root_view);
+    auto set_cursor_interceptor =
+        std::make_unique<SetCursorInterceptor>(rwh_child);
+    RouteMouseEventAndWaitUntilDispatch(router, root_view, child_view,
+                                        &mouse_event);
+    set_cursor_interceptor->Wait();
+    EXPECT_TRUE(set_cursor_interceptor->cursor().has_value());
+    EXPECT_EQ(32, set_cursor_interceptor->cursor()->custom_bitmap().width());
+    EXPECT_EQ(32, set_cursor_interceptor->cursor()->custom_bitmap().height());
+  }
+  // A cursor without enough room to be fully enclosed within the root view
+  // should not be shown, even if the iframe is at an offset. The default cursor
+  // should be shown instead.
+  {
+    blink::WebMouseEvent mouse_event(
+        blink::WebInputEvent::Type::kMouseMove,
+        blink::WebInputEvent::kNoModifiers,
+        blink::WebInputEvent::GetStaticTimeStampForTests());
+    SetWebEventPositions(&mouse_event, gfx::Point(300, 20), root_view);
+    auto set_cursor_interceptor =
+        std::make_unique<SetCursorInterceptor>(rwh_child);
+    RouteMouseEventAndWaitUntilDispatch(router, root_view, child_view,
+                                        &mouse_event);
+    // We should see a new cursor come in that replaces the custom one.
     set_cursor_interceptor->Wait();
     EXPECT_TRUE(set_cursor_interceptor->cursor().has_value());
     EXPECT_EQ(ui::mojom::CursorType::kPointer,
@@ -7458,5 +7589,138 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessDelegatedInkBrowserTest,
   EXPECT_TRUE(web_contents()->IsDelegatedInkRendererBoundForTest());
 }
 #endif  // USE_AURA
+
+namespace {
+
+void LoopVideoAt(RenderFrameHostImpl* rfh, const gfx::Point& root_point) {
+  rfh->ExecuteMediaPlayerActionAtLocation(
+      root_point, blink::mojom::MediaPlayerAction(
+                      blink::mojom::MediaPlayerActionType::kLoop, true));
+}
+
+// Returns the ID of the looping video in `rfh`, or empty string if none.
+// Reading this flushes pending LocalFrame messages since EvalJs shares the
+// pipe.
+std::string LoopingVideoIn(RenderFrameHostImpl* rfh) {
+  return EvalJs(rfh,
+                "[...document.querySelectorAll('video')]"
+                "    .filter(v => v.loop).map(v => v.id).join()")
+      .ExtractString();
+}
+
+void StopLoopingVideosIn(RenderFrameHostImpl* rfh) {
+  ASSERT_TRUE(ExecJs(
+      rfh, "document.querySelectorAll('video').forEach(v => v.loop = false)"));
+}
+
+}  // namespace
+
+// Ensures context menu actions in an OOPIF target the original clicked point,
+// even if the frame is moved or hidden while the menu is open
+// (crbug.com/553326035).
+IN_PROC_BROWSER_TEST_F(SitePerProcessHitTestBrowserTest,
+                       ContextMenuActionUsesPointClickedInOopif) {
+  GURL main_url(embedded_test_server()->GetURL(
+      "a.com", "/frame_tree/page_with_positioned_frame.html"));
+  ASSERT_TRUE(NavigateToURL(shell(), main_url));
+
+  FrameTreeNode* root = web_contents()->GetPrimaryFrameTree().root();
+  ASSERT_EQ(1U, root->child_count());
+  RenderFrameHostImpl* child_rfh = root->child_at(0)->current_frame_host();
+  WaitForHitTestData(child_rfh);
+
+  // Two videos allow verifying whether actions hit the original target
+  // (#corner) or the shifted position (#rest).
+  ASSERT_TRUE(ExecJs(child_rfh, R"(
+      document.body.style.margin = '0';
+      document.body.innerHTML = `
+        <style>
+          video { position: absolute; }
+          #corner { left: 0; top: 0; width: 20px; height: 20px; }
+          #rest { left: 20px; top: 20px; width: 80px; height: 80px; }
+        </style>
+        <video id="corner"></video>
+        <video id="rest"></video>
+      `;
+  )"));
+
+  RenderWidgetHostViewBase* root_view = static_cast<RenderWidgetHostViewBase*>(
+      root->current_frame_host()->GetRenderWidgetHost()->GetView());
+  RenderWidgetHostViewBase* child_view = static_cast<RenderWidgetHostViewBase*>(
+      child_rfh->GetRenderWidgetHost()->GetView());
+  ASSERT_TRUE(root_view);
+  ASSERT_TRUE(child_view);
+
+  // Keeps the shell from opening a real context menu window.
+  ContextMenuObserverDelegate context_menu_delegate;
+  web_contents()->SetDelegate(&context_menu_delegate);
+
+  constexpr gfx::Point kLocalPoint(10, 10);
+  gfx::PointF root_point_f;
+  ASSERT_TRUE(child_view->TransformPointToCoordSpaceForView(
+      gfx::PointF(kLocalPoint), root_view, &root_point_f));
+  const gfx::Point root_point = gfx::ToRoundedPoint(root_point_f);
+  ASSERT_NE(kLocalPoint, root_point);
+
+  blink::UntrustworthyContextMenuParams params;
+  params.x = kLocalPoint.x();
+  params.y = kLocalPoint.y();
+  child_rfh->ShowContextMenu(mojo::NullAssociatedRemote(), params);
+  EXPECT_EQ(root_point, gfx::Point(context_menu_delegate.getParams().x,
+                                   context_menu_delegate.getParams().y));
+
+  LoopVideoAt(child_rfh, root_point);
+  EXPECT_EQ("corner", LoopingVideoIn(child_rfh));
+  StopLoopingVideosIn(child_rfh);
+
+  // Move the frame so `root_point` maps to #rest; action still hits #corner.
+  {
+    HitTestRegionObserver observer(root_view->GetRootFrameSinkId());
+    observer.WaitForHitTestData();
+    ASSERT_TRUE(ExecJs(web_contents(),
+                       "const f = document.querySelector('iframe');"
+                       "f.style.left = '25px';"
+                       "f.style.top = '25px';"));
+    MainThreadFrameObserver frame_observer(
+        root->current_frame_host()->GetRenderWidgetHost());
+    frame_observer.Wait();
+    observer.WaitForHitTestDataChange();
+
+    gfx::PointF moved_local;
+    ASSERT_TRUE(root_view->TransformPointToCoordSpaceForView(
+        gfx::PointF(root_point), child_view, &moved_local));
+    ASSERT_NE(kLocalPoint, gfx::ToRoundedPoint(moved_local));
+
+    LoopVideoAt(child_rfh, root_point);
+    EXPECT_EQ("corner", LoopingVideoIn(child_rfh));
+    StopLoopingVideosIn(child_rfh);
+  }
+
+  // Hide the frame; action still hits #corner.
+  {
+    HitTestRegionObserver observer(root_view->GetRootFrameSinkId());
+    observer.WaitForHitTestData();
+    ASSERT_TRUE(ExecJs(
+        web_contents(),
+        "document.querySelector('iframe').style.visibility = 'hidden';"));
+    MainThreadFrameObserver frame_observer(
+        root->current_frame_host()->GetRenderWidgetHost());
+    frame_observer.Wait();
+    observer.WaitForHitTestDataChange();
+
+    gfx::PointF unused;
+    ASSERT_FALSE(root_view->TransformPointToCoordSpaceForView(
+        gfx::PointF(root_point), child_view, &unused));
+
+    LoopVideoAt(child_rfh, root_point);
+    EXPECT_EQ("corner", LoopingVideoIn(child_rfh));
+    StopLoopingVideosIn(child_rfh);
+
+    // Points not from this menu cannot be mapped for a hidden frame and are
+    // dropped.
+    LoopVideoAt(child_rfh, root_point + gfx::Vector2d(1, 1));
+    EXPECT_EQ("", LoopingVideoIn(child_rfh));
+  }
+}
 
 }  // namespace content

@@ -56,7 +56,6 @@ void CookieManager::ListenerRegistration::DispatchCookieStoreChange(
 
 CookieManager::CookieManager(
     net::URLRequestContext* url_request_context,
-    FirstPartySetsAccessDelegate* const first_party_sets_access_delegate,
     scoped_refptr<SessionCleanupCookieStore> session_cleanup_cookie_store,
     mojom::CookieManagerParamsPtr params)
     : cookie_store_(url_request_context->cookie_store()),
@@ -71,9 +70,8 @@ CookieManager::CookieManager(
                            base::DoNothing());
   }
   cookie_store_->SetCookieAccessDelegate(
-      std::make_unique<CookieAccessDelegateImpl>(
-          cookie_access_delegate_type, first_party_sets_access_delegate,
-          &cookie_settings_));
+      std::make_unique<CookieAccessDelegateImpl>(cookie_access_delegate_type,
+                                                 &cookie_settings_));
 }
 
 CookieManager::~CookieManager() {
@@ -378,13 +376,14 @@ void CookieManager::ConfigureCookieSettings(
   out->set_block_third_party_cookies(params.block_third_party_cookies);
   out->set_secure_origin_cookies_allowed_schemes(
       params.secure_origin_cookies_allowed_schemes);
-  std::vector<url::Origin> filtered_origins;
-  for (const auto& origin : params.secure_origin_cookies_allowed_origins) {
-    if (!origin.opaque()) {
-      filtered_origins.push_back(origin);
+  std::vector<std::pair<url::Origin, std::vector<net::SchemefulSite>>>
+      filtered_origins;
+  for (const auto& kv : params.secure_origin_cookies_allowed_origins) {
+    if (!kv.first.opaque()) {
+      filtered_origins.emplace_back(kv.first, kv.second);
     }
   }
-  out->set_secure_origin_cookies_allowed_origins(filtered_origins);
+  out->set_secure_origin_cookies_allowed_origins(std::move(filtered_origins));
   out->set_matching_scheme_cookies_allowed_schemes(
       params.matching_scheme_cookies_allowed_schemes);
   out->set_third_party_cookies_allowed_schemes(

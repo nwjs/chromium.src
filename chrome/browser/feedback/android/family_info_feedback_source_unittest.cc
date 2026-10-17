@@ -32,11 +32,8 @@
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-// Must come after all headers that specialize FromJniType() / ToJniType().
+// Must come after headers that provide symbols used by @JniType.
 #include "chrome/test/test_support_jni_headers/FamilyInfoFeedbackSourceTestBridge_jni.h"
-
-using base::android::ConvertUTF8ToJavaString;
-using base::android::ScopedJavaLocalRef;
 
 namespace chrome::android {
 namespace {
@@ -70,7 +67,6 @@ class FamilyInfoFeedbackSourceForChildFilterBehaviorTest
     builder.AddTestingFactory(
         ChromeSigninClientFactory::GetInstance(),
         base::BindRepeating(&signin::BuildTestSigninClient));
-    builder.SetIsSupervisedProfile();
 
     role_ = kidsmanagement::CHILD;
     profile_ = IdentityTestEnvironmentProfileAdaptor::
@@ -89,12 +85,9 @@ class FamilyInfoFeedbackSourceForChildFilterBehaviorTest
   Profile* profile() const { return profile_.get(); }
 
   // Methods to access Java counterpart FamilyInfoFeedbackSource.
-  std::string GetFeedbackValue(std::string feedback_tag) {
-    const base::android::JavaRef<jstring>& j_value =
-        Java_FamilyInfoFeedbackSourceTestBridge_getValue(
-            env_, j_feedback_source_,
-            base::android::ConvertUTF8ToJavaString(env_, feedback_tag));
-    return base::android::ConvertJavaStringToUTF8(env_, j_value);
+  std::string GetFeedbackValue(const std::string& feedback_tag) {
+    return Java_FamilyInfoFeedbackSourceTestBridge_getValue(
+        env_, j_feedback_source_, feedback_tag);
   }
 
   void OnListFamilyMembersSuccess(
@@ -128,7 +121,7 @@ class FamilyInfoFeedbackSourceForChildFilterBehaviorTest
   // Creates a Java instance of FamilyInfoFeedbackSource.
   base::android::ScopedJavaLocalRef<jobject> CreateJavaObjectForTesting() {
     return Java_FamilyInfoFeedbackSourceTestBridge_createFamilyInfoFeedbackSource(
-        env_, profile_.get()->GetJavaObject());
+        env_, profile_.get());
   }
 
   content::BrowserTaskEnvironment task_environment_;
@@ -208,9 +201,6 @@ class FamilyInfoFeedbackSourceTest
             ->current_test_info()
             ->value_param()) {
       is_child_ = GetParam() == kidsmanagement::CHILD;
-      if (is_child_) {
-        builder.SetIsSupervisedProfile();
-      }
     }
 
     profile_ = IdentityTestEnvironmentProfileAdaptor::
@@ -227,12 +217,9 @@ class FamilyInfoFeedbackSourceTest
 
   // Methods to access Java counterpart FamilyInfoFeedbackSource.
   std::string GetFeedbackValue() {
-    const base::android::JavaRef<jstring>& j_value =
-        Java_FamilyInfoFeedbackSourceTestBridge_getValue(
-            env_, j_feedback_source_,
-            base::android::ConvertUTF8ToJavaString(
-                env_, supervised_user::kFamilyMemberRoleFeedbackTag));
-    return base::android::ConvertJavaStringToUTF8(env_, j_value);
+    return Java_FamilyInfoFeedbackSourceTestBridge_getValue(
+        env_, j_feedback_source_,
+        supervised_user::kFamilyMemberRoleFeedbackTag);
   }
 
   void OnListFamilyMembersSuccess(
@@ -266,7 +253,7 @@ class FamilyInfoFeedbackSourceTest
   // Creates a Java instance of FamilyInfoFeedbackSource.
   base::android::ScopedJavaLocalRef<jobject> CreateJavaObjectForTesting() {
     return Java_FamilyInfoFeedbackSourceTestBridge_createFamilyInfoFeedbackSource(
-        env_, profile_.get()->GetJavaObject());
+        env_, profile_.get());
   }
 
   content::BrowserTaskEnvironment task_environment_;
@@ -290,10 +277,12 @@ TEST_P(FamilyInfoFeedbackSourceTest, GetFamilyMembersSignedIn) {
       CreateFamilyWithOneMember(primary_account.GetGaiaId(), role);
 
   if (is_child()) {
-    // Set some filtering behavior for the user, as ListFamilyMembers
-    // will try to obtain this along with the family role (and crush otherwise).
-    supervised_user_test_util::SetWebFilterType(
-        profile(), supervised_user::WebFilterType::kAllowAllSites);
+    // Explicitly update the mocked Identity account so the ChildAccountService
+    // is also aware of the child status.
+    primary_account = AccountInfo::Builder(primary_account)
+                          .SetIsChildAccount(signin::TriboolFromBool(true))
+                          .Build();
+    identity_test_env()->UpdateAccountInfoForAccount(primary_account);
   }
 
   base::WeakPtr<FamilyInfoFeedbackSource> feedback_source =

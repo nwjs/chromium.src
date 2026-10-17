@@ -89,8 +89,8 @@ class TouchEventAckQueue {
   enum class TouchEventSource { SystemTouchEvent, EmulatedTouchEvent };
   struct AckData {
     TouchEventWithLatencyInfo touch_event;
-    raw_ptr<RenderWidgetHostViewInput> target_view;
-    raw_ptr<RenderWidgetHostViewInput> root_view;
+    base::WeakPtr<RenderWidgetHostViewInput> target_view;
+    base::WeakPtr<RenderWidgetHostViewInput> root_view;
     TouchEventSource touch_event_source;
     TouchEventAckStatus touch_event_ack_status;
     blink::mojom::InputEventResultState ack_result;
@@ -134,8 +134,8 @@ void TouchEventAckQueue::Add(
     TouchEventAckStatus touch_event_ack_status,
     blink::mojom::InputEventResultState ack_result) {
   AckData data = {touch_event,
-                  target_view,
-                  root_view,
+                  target_view ? target_view->GetInputWeakPtr() : nullptr,
+                  root_view ? root_view->GetInputWeakPtr() : nullptr,
                   touch_event_source,
                   touch_event_ack_status,
                   ack_result};
@@ -175,7 +175,7 @@ void TouchEventAckQueue::MarkAcked(
   }
 
   DCHECK(it->touch_event_ack_status != TouchEventAckStatus::TouchEventAcked);
-  DCHECK(target_view && target_view == it->target_view);
+  DCHECK(target_view && target_view == it->target_view.get());
   it->touch_event = touch_event;
   it->touch_event_ack_status = TouchEventAckStatus::TouchEventAcked;
   it->ack_result = ack_result;
@@ -200,7 +200,8 @@ void TouchEventAckQueue::ProcessAckedTouchEvents() {
     TouchEventWithLatencyInfo touch_event = ack_queue_.front().touch_event;
     blink::mojom::InputEventResultState ack_result =
         ack_queue_.front().ack_result;
-    RenderWidgetHostViewInput* root_view = ack_queue_.front().root_view;
+    base::WeakPtr<RenderWidgetHostViewInput> root_view =
+        ack_queue_.front().root_view;
     ack_queue_.pop_front();
 
     bool handled_by_emulator = false;
@@ -212,8 +213,8 @@ void TouchEventAckQueue::ProcessAckedTouchEvents() {
       return;
     }
 
-    if (!handled_by_emulator) {
-      if (client_->IsViewInMap(root_view) || client_->ViewMapIsEmpty()) {
+    if (!handled_by_emulator && root_view) {
+      if (client_->IsViewInMap(root_view.get()) || client_->ViewMapIsEmpty()) {
         // Forward acked event and result to the root view associated with the
         // event. The view map is only empty for AndroidWebView.
         root_view->ProcessAckedTouchEvent(touch_event, ack_result);
@@ -229,14 +230,14 @@ void TouchEventAckQueue::UpdateQueueAfterTargetDestroyed(
     RenderWidgetHostViewInput* target_view) {
   // If a queue entry's root view is being destroyed, just delete it.
   std::erase_if(ack_queue_, [target_view](const AckData& data) {
-    return data.root_view == target_view;
+    return !data.root_view || data.root_view.get() == target_view;
   });
 
   // Otherwise, mark its status accordingly and clear target_view to prevent
-  // dangling raw pointers.
+  // dangling pointers.
   for_each(ack_queue_.begin(), ack_queue_.end(), [target_view](AckData& data) {
-    if (data.target_view == target_view) {
-      data.target_view = nullptr;
+    if (!data.target_view || data.target_view.get() == target_view) {
+      data.target_view.reset();
       data.touch_event_ack_status = TouchEventAckStatus::TouchEventAcked;
       data.ack_result = blink::mojom::InputEventResultState::kNoConsumerExists;
     }
@@ -395,14 +396,38 @@ void RenderWidgetHostInputEventRouter::OnRenderWidgetHostViewInputDestroyed(
     touch_emulator->OnViewDestroyed(view);
   }
 
+  // Teardown is split into two phases. |view| is mid-destruction, so:
+  //
+  // Phase 1 drops every reference to |view| that event routing could follow.
+  // Nothing in this phase may call out of the router.
+  //
+  // Phase 2 flushes queued touch acks, which can synchronously generate
+  // gestures and synthetic events (e.g. a GestureFlingCancel, a
+  // GestureScrollEnd for scroll bubbling, or a wheel-end dispatched on
+  // GestureScrollBegin). Because of phase 1, none of these can be routed to,
+  // and pin, |view|.
+
+  // Phase 1: Detach.
+  if (view == last_fling_start_target_) {
+    last_fling_start_target_ = nullptr;
+  }
+
+  if (view == wheel_target_) {
+    wheel_target_ = nullptr;
+  }
+
+  if (view == mouse_capture_target_) {
+    mouse_capture_target_ = nullptr;
+  }
+
+  if (view == touchpad_gesture_target_) {
+    touchpad_gesture_target_ = nullptr;
+  }
+
   if (view == touch_target_) {
     touch_target_ = nullptr;
     active_touches_ = 0;
   }
-  touch_event_ack_queue_->UpdateQueueAfterTargetDestroyed(view);
-
-  if (view == wheel_target_)
-    wheel_target_ = nullptr;
 
   // If the target that's being destroyed is in the gesture target map, we
   // replace it with nullptr so that we maintain the 1:1 correspondence between
@@ -412,16 +437,12 @@ void RenderWidgetHostInputEventRouter::OnRenderWidgetHostViewInputDestroyed(
       it.second = nullptr;
   }
 
-  if (view == mouse_capture_target_)
-    mouse_capture_target_ = nullptr;
-
   if (view == touchscreen_gesture_target_.get()) {
     ClearTouchscreenGestureTarget();
   }
 
-  if (view == touchpad_gesture_target_)
-    touchpad_gesture_target_ = nullptr;
-
+  // With |bubbling_view_is_being_destroyed| set, this does not dispatch a
+  // GestureScrollEnd to |view|.
   if (view == bubbling_gesture_scroll_target_) {
     CancelScrollBubbling(/*bubbling_view_is_being_destroyed=*/true);
   } else if (view == bubbling_gesture_scroll_origin_) {
@@ -447,16 +468,18 @@ void RenderWidgetHostInputEventRouter::OnRenderWidgetHostViewInputDestroyed(
     }
   }
 
-  if (view == last_fling_start_target_)
-    last_fling_start_target_ = nullptr;
-
   if (view == last_mouse_down_target_)
     last_mouse_down_target_ = nullptr;
 
   if (view == last_emulated_event_root_view_)
     last_emulated_event_root_view_ = nullptr;
 
+  // Clears the targeter's cached middle-click autoscroll target, which would
+  // otherwise receive every web input event routed during phase 2.
   event_targeter_->ViewWillBeDestroyed(view);
+
+  // Phase 2: Flush. This must remain last.
+  touch_event_ack_queue_->UpdateQueueAfterTargetDestroyed(view);
 }
 
 void RenderWidgetHostInputEventRouter::ClearAllObserverRegistrations() {
@@ -964,9 +987,17 @@ void RenderWidgetHostInputEventRouter::DispatchTouchEvent(
   if ((touch_event.GetType() == blink::WebInputEvent::Type::kTouchEnd ||
        touch_event.GetType() == blink::WebInputEvent::Type::kTouchCancel) &&
       active_touches_) {
-    active_touches_ -= CountChangedTouchPoints(touch_event);
+    // A TouchCancel can report more cancelled points than were routed as
+    // pressed, e.g. when the platform turns the ACTION_POINTER_DOWN of a new
+    // finger into an ACTION_CANCEL that carries that finger too. Clamp at 0 so
+    // the sequence still ends and |touch_target_| is released below. A
+    // negative count would keep a stale target alive and make the next
+    // sequence drop its target right after its TouchStart
+    // (crbug.com/515367462).
+    active_touches_ =
+        std::max(0, active_touches_ -
+                        static_cast<int>(CountChangedTouchPoints(touch_event)));
   }
-  DCHECK_GE(active_touches_, 0);
 
   // Debugging for crbug.com/814674.
   if (touch_target_ && !IsViewInMap(touch_target_)) {
@@ -1791,8 +1822,10 @@ void RenderWidgetHostInputEventRouter::DispatchTouchscreenGestureEvent(
   }
   touchscreen_gesture_target_->ProcessGestureEvent(event, latency);
 
-  if (gesture_event.GetType() == blink::WebInputEvent::Type::kGestureFlingStart)
+  if (gesture_event.GetType() ==
+      blink::WebInputEvent::Type::kGestureFlingStart) {
     last_fling_start_target_ = touchscreen_gesture_target_.get();
+  }
 
   // If we have one of the following events, then the user has lifted their
   // last finger.

@@ -15,12 +15,13 @@ import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.graphics.Rect;
 import android.media.AudioManager;
+import android.os.Build;
 import android.view.KeyEvent;
 import android.view.View;
 
+import androidx.annotation.ChecksSdkIntAtLeast;
 import androidx.annotation.VisibleForTesting;
 
-import org.chromium.base.AconfigFlaggedApiDelegate;
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.ApplicationStatus;
@@ -477,6 +478,22 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
     public boolean takeFocus(boolean reverse) {
         if (mActivity == null) return false;
         if (reverse) {
+            // The tab sharing toolbar is the bottommost top control, sitting directly above the
+            // web contents, so reverse traversal must land there before continuing up to the
+            // browser toolbar. FOCUS_BACKWARD makes the container walk its descendants in reverse
+            // order, so focus lands on its last focusable item. The container is absent when the
+            // feature is disabled, and hidden when no sharing session is active in this window;
+            // in both cases we fall through to the toolbar buttons below.
+            View tabSharingToolbar = mActivity.findViewById(R.id.tab_sharing_toolbar_container);
+            if (tabSharingToolbar != null
+                    && tabSharingToolbar.isShown()
+                    && tabSharingToolbar.requestFocus(View.FOCUS_BACKWARD)) {
+                return true;
+            }
+
+            // TODO(crbug.com/561238564): The bookmark bar is also a focusable top control below
+            // the browser toolbar and is skipped by reverse traversal for the same reason. It
+            // needs equivalent handling here.
             View menuButton = mActivity.findViewById(R.id.menu_button);
             if (menuButton != null && menuButton.isShown()) {
                 return menuButton.requestFocus(View.FOCUS_BACKWARD);
@@ -763,15 +780,11 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
      * Checks if Document Picture-in-Picture is enabled. This is true if we both have the permission
      * to enter Picture-in-Picture mode and the Android API to go into pinned mode is supported.
      */
+    @ChecksSdkIntAtLeast(api = Build.VERSION_CODES.CINNAMON_BUN)
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     protected boolean isDocumentPictureInPictureEnabled() {
-        final AconfigFlaggedApiDelegate delegate = AconfigFlaggedApiDelegate.getInstance();
-        if (delegate == null) {
-            Log.w(TAG, "isDocumentPictureInPictureEnabled: AconfigFlaggedApiDelegate is null");
-            return false;
-        }
-
-        return isPictureInPictureEnabled() && delegate.isRequestPinnedWindowingLayerSupported();
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN
+                && isPictureInPictureEnabled();
     }
 
     @Override

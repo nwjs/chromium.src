@@ -7,7 +7,6 @@ package org.chromium.chrome.browser.printing;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import android.app.Activity;
 import android.os.Build.VERSION_CODES;
 import android.os.CancellationSignal;
 import android.os.ParcelFileDescriptor;
@@ -918,54 +917,51 @@ public class PrintingControllerTest {
     }
 
     /**
-     * Test to verify that if the Activity is finishing, calling startPendingPrint() will
-     * immediately invoke the pending print callback and not start printing.
+     * Test to verify that sequential print jobs do not leak state (pages, callbacks, finished flag)
+     * across jobs.
      */
     @Test
     @SmallTest
     @Feature({"Printing"})
-    public void testStartPendingPrintWhenActivityIsFinishing() throws Throwable {
+    public void testSequentialPrintJobsDoNotLeakState() throws Throwable {
         WebPageStation page = mActivityTestRule.startOnUrl(URL);
         Tab tab = page.getTab();
         WindowAndroid window = tab.getWindowAndroid();
-        Activity activity = window.getActivity().get();
-        Assert.assertNotNull(activity);
 
-        PrintManagerDelegate failIfCalledPrintManager =
+        PrintManagerDelegate successfulPrintManager =
                 new PrintManagerDelegate() {
                     @Override
                     public boolean print(
                             String printJobName,
                             PrintDocumentAdapter documentAdapter,
                             @Nullable PrintAttributes attributes) {
-                        Assert.fail("print() must not be called for a finishing Activity.");
-                        return false;
+                        return true;
                     }
                 };
-
-        Runnable mockCallback = Mockito.mock(Runnable.class);
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     PrintingControllerImpl printingController =
                             (PrintingControllerImpl) PrintingControllerImpl.getInstance(window);
-                    printingController.setPendingPrint(
-                            new TabPrinter(tab), failIfCalledPrintManager, -1, -1);
-                    printingController.setPendingPrintCallback(mockCallback);
+                    // Start first job.
+                    printingController.startPrint(new TabPrinter(tab), successfulPrintManager);
+                    Assert.assertTrue(printingController.isBusy());
+                    Assert.assertFalse(printingController.hasPrintingFinished());
 
-                    activity.finish();
-                    Assert.assertTrue(activity.isFinishing());
-
-                    printingController.startPendingPrint();
-
-                    // The callback should have been invoked immediately because the Activity is
-                    // finishing.
-                    Mockito.verify(mockCallback, Mockito.times(1)).run();
+                    // Simulate completion of first job.
+                    printingController.onStart();
+                    printingController.onFinish();
                     Assert.assertFalse(printingController.isBusy());
                     Assert.assertTrue(printingController.hasPrintingFinished());
 
+                    // Start second job.
+                    printingController.startPrint(new TabPrinter(tab), successfulPrintManager);
+                    Assert.assertTrue(printingController.isBusy());
+                    // Verify that finished flag from job 1 does not leak into job 2.
+                    Assert.assertFalse(printingController.hasPrintingFinished());
+
                     // Cleanup
-                    printingController.onActivityDestroyed();
+                    printingController.onFinish();
                 });
     }
 

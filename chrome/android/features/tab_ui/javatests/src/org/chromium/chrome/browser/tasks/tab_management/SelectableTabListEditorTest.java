@@ -60,6 +60,7 @@ import org.chromium.base.GarbageCollectionTestUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
+import org.chromium.base.supplier.SupplierUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
@@ -1595,7 +1596,8 @@ public class SelectableTabListEditorTest {
                                     mCreationDialogManager,
                                     ShowMode.IF_ROOM,
                                     ButtonType.TEXT,
-                                    IconPosition.START));
+                                    IconPosition.START,
+                                    SupplierUtils.ofNull()));
 
                     showSelectionEditor(tabs, actions);
                 });
@@ -1630,7 +1632,7 @@ public class SelectableTabListEditorTest {
                                     ButtonType.TEXT,
                                     IconPosition.START,
                                     AppCompatResources.getDrawable(cta, R.drawable.ic_widgets),
-                                    (a, b, c, d, e, ignored, f, g, h) ->
+                                    (a, b, c, d, e, ignored, f, g, h, i) ->
                                             new TabGroupListBottomSheetCoordinator(
                                                     a,
                                                     b,
@@ -1640,7 +1642,9 @@ public class SelectableTabListEditorTest {
                                                     mBottomSheetController,
                                                     f,
                                                     g,
-                                                    h)));
+                                                    h,
+                                                    i),
+                                    SupplierUtils.ofNull()));
                     showSelectionEditor(tabs, actions);
                 });
 

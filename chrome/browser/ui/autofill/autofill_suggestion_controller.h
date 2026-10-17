@@ -53,11 +53,15 @@ class AutofillSuggestionController : public AutofillPopupViewDelegate {
   // Accepts the suggestion at `index`. The suggestion is only accepted if the
   // UI has been shown for at least `kIgnoreEarlyClicksOnSuggestionsDuration` to
   // allow ruling out accidental UI interactions (crbug.com/40058217).
+  // `was_obscured` indicates if the application window was fully or partially
+  // obscured when the click event happened. This is only populated on Android
+  // at the moment.
   static constexpr base::TimeDelta kIgnoreEarlyClicksOnSuggestionsDuration =
       base::Milliseconds(500);
   virtual void AcceptSuggestion(
       int index,
-      AutofillMetrics::SuggestionAcceptedMethod accept_method) = 0;
+      AutofillMetrics::SuggestionAcceptedMethod accept_method,
+      bool was_obscured) = 0;
 
   // Selects the suggestion with `index`. For fillable items, this will trigger
   // preview. For other items, it does not do anything.
@@ -107,13 +111,14 @@ class AutofillSuggestionController : public AutofillPopupViewDelegate {
   // Updates the data list values currently shown.
   virtual void UpdateDataListValues(base::span<const SelectOption> options) = 0;
 
-  // Returns the token of the frame that this controller is associated with.
-  virtual const LocalFrameToken& GetFrameToken() const = 0;
+  // Returns the token of the frame that this controller is anchored to.
+  virtual const LocalFrameToken& GetAnchorFrameToken() const = 0;
 
   // Returns true if the controller can be reused for the given parameters.
   virtual bool MayRecycle(
       base::WeakPtr<AutofillSuggestionDelegate> delegate,
       content::WebContents* web_contents,
+      const LocalFrameToken& anchor_frame_token,
       AutofillSuggestionTriggerSource trigger_source) const = 0;
 
   // Reuses the controller with the new parameters.

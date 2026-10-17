@@ -141,7 +141,7 @@ class ContextualTasksOmniboxClient : public ContextualOmniboxClient {
       TemplateURLRef::PostContent* post_content,
       WindowOpenDisposition disposition,
       ui::PageTransition transition,
-      AutocompleteMatchType::Type match_type,
+      omnibox::AutocompleteMatchType match_type,
       base::TimeTicks match_selection_timestamp,
       bool destination_url_entered_without_scheme,
       bool destination_url_entered_with_http_scheme,
@@ -168,7 +168,7 @@ void ContextualTasksOmniboxClient::OnAutocompleteAccept(
     TemplateURLRef::PostContent* post_content,
     WindowOpenDisposition disposition,
     ui::PageTransition transition,
-    AutocompleteMatchType::Type match_type,
+    omnibox::AutocompleteMatchType match_type,
     base::TimeTicks match_selection_timestamp,
     bool destination_url_entered_without_scheme,
     bool destination_url_entered_with_http_scheme,
@@ -327,7 +327,9 @@ void ContextualTasksComposeboxHandler::OnContextUploadStatusChanged(
       }
     }
   }
-  if (context_upload_status == ContextUploadStatus::kUploadSuccessful) {
+  if (context_upload_status == ContextUploadStatus::kUploadSuccessful ||
+      context_upload_status == ContextUploadStatus::kUploadFailed ||
+      context_upload_status == ContextUploadStatus::kValidationFailed) {
     auto* contextual_session_handle = GetContextualSessionHandle();
     if (!contextual_session_handle) {
       return;
@@ -342,8 +344,13 @@ void ContextualTasksComposeboxHandler::OnContextUploadStatusChanged(
 
     auto task_id = web_ui_interface_->GetTaskId();
     if (task_id.has_value() && contextual_tasks_service_) {
-      contextual_tasks_service_->AssociateTabWithTask(
-          task_id.value(), file_info->tab_session_id.value());
+      if (context_upload_status == ContextUploadStatus::kUploadSuccessful) {
+        contextual_tasks_service_->AssociateTabWithTask(
+            task_id.value(), file_info->tab_session_id.value());
+      } else {
+        contextual_tasks_service_->DisassociateTabFromTask(
+            task_id.value(), file_info->tab_session_id.value());
+      }
     }
   }
 }
@@ -451,7 +458,8 @@ void ContextualTasksComposeboxHandler::CreateAndSendQueryMessage(
       active_tab = tab_list->GetActiveTab();
       if (active_tab && !has_visual_selection) {
         bool should_block_recontextualize = false;
-        if (omnibox::IsTabDeselectionInComposeboxEnabled()) {
+        if (omnibox::IsTabDeselectionInComposeboxEnabled() &&
+            !IsSmartTabSharingActive()) {
           if (session_handle) {
             SessionID session_id =
                 sessions::SessionTabHelper::IdForTab(active_tab->GetContents());
@@ -538,9 +546,39 @@ void ContextualTasksComposeboxHandler::UpdateStateFromUrl(const GURL& url) {
 }
 
 void ContextualTasksComposeboxHandler::OnTaskChanged() {
+  if (base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox)) {
+    // The session handle can be carried over from the side panel WebContents
+    // (via UpdateContextualSearchWebContentsHelperForTask) and still hold the
+    // tabs submitted/persisted in the previous thread. Clear them before
+    // ClearFiles() runs so ClearFiles() does not retain the previous thread's
+    // submitted tabs in selected_tabs, and rather than relying on
+    // SetSmartTabSharingActive(false), which is a no-op when Smart Tab Sharing
+    // is disabled or already inactive.
+    if (auto* session_handle = GetContextualSessionHandle()) {
+      session_handle->ClearSubmittedContextTokens();
+      session_handle->set_persisted_tabs({});
+      session_handle->set_deselected_tabs_urls({});
+      session_handle->SetRestoredTabs({});
+    }
+  }
   ClearFiles(/*should_block_auto_suggested_tabs=*/false);
   SetSmartTabSharingActive(false);
+  if (base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox)) {
+    if (auto* browser = web_ui_interface_->GetBrowser()) {
+      if (auto* provider =
+              contextual_tasks::ActiveTaskContextProvider::From(browser)) {
+        provider->ClearAllLocalTabUnderlines();
+        provider->RefreshContext();
+      }
+    }
+  }
   InitializeInputStateModel();
+  if (base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox)) {
+    // Clear any restored tabs on the page for the new thread; the new thread's
+    // restored tabs are populated from the server once its context loads (see
+    // ContextualTasksUI::OnRestoredTabsFetched()).
+    SetAimThreadRestoredTabs({});
+  }
 }
 
 std::vector<int32_t> ContextualTasksComposeboxHandler::GetSelectedTabIds()
@@ -608,47 +646,7 @@ void ContextualTasksComposeboxHandler::InitializeInputStateModel() {
     SearchboxHandler::page_->SetRestoredTabIds(restored_tab_ids);
     // Set cached submitted tabs so they show up before thread loading is
     // complete and after submission.
-    if (auto* session_handle = GetContextualSessionHandle()) {
-      std::vector<searchbox::mojom::TabInfoPtr> submitted_tabs;
-      std::vector<contextual_search::FileInfo> file_infos =
-          session_handle->GetSubmittedContextFileInfos();
-      // Ensures the tabs are ordered by their selection time.
-      std::sort(file_infos.begin(), file_infos.end(),
-                [](const contextual_search::FileInfo& a,
-                   const contextual_search::FileInfo& b) {
-                  return a.selection_time < b.selection_time;
-                });
-      for (const contextual_search::FileInfo& file_info : file_infos) {
-        if ((file_info.mime_type == lens::MimeType::kHtml ||
-             file_info.mime_type == lens::MimeType::kAnnotatedPageContent) &&
-            (file_info.tab_url.has_value() ||
-             file_info.tab_title.has_value())) {
-          searchbox::mojom::TabInfoPtr tab_info =
-              searchbox::mojom::TabInfo::New();
-          int32_t tab_id = 0;
-          if (file_info.tab_session_id.has_value()) {
-            tab_id = tabs::SessionMappedTabHandleFactory::GetInstance()
-                         .GetHandleForSessionId(
-                             file_info.tab_session_id.value().id());
-            // In case the tab is not mapped.
-            if (tab_id == tabs::TabHandle::NullValue &&
-                SessionID::IsValidValue(
-                    file_info.tab_session_id.value().id())) {
-              tab_id = file_info.tab_session_id.value().id();
-            }
-          }
-          tab_info->tab_id = SessionID::IsValidValue(tab_id)
-                                 ? tab_id
-                                 : tabs::TabHandle::NullValue;
-          tab_info->title = file_info.tab_title.value_or("");
-          tab_info->url = file_info.tab_url.value_or(GURL());
-          submitted_tabs.push_back(std::move(tab_info));
-        }
-      }
-      if (!submitted_tabs.empty()) {
-        SetAimThreadRestoredTabs(std::move(submitted_tabs));
-      }
-    }
+    CacheSubmittedTabsFromSessionHandle();
   }
 
   if (input_state_model_) {
@@ -719,6 +717,76 @@ void ContextualTasksComposeboxHandler::SetAimThreadRestoredTabs(
 
   if (SearchboxHandler::page_) {
     SearchboxHandler::page_->SetAimThreadRestoredTabs(std::move(tabs));
+  }
+}
+
+void ContextualTasksComposeboxHandler::CacheSubmittedTabsFromSessionHandle() {
+  if (!base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox) ||
+      !IsContextualSearchTabSharingEligible()) {
+    return;
+  }
+#if !BUILDFLAG(IS_ANDROID)
+  if (visual_selection_token_.has_value()) {
+    return;
+  }
+  if (auto* controller = GetLensSearchController()) {
+    if (controller->lens_overlay_controller()->HasRegionSelection() &&
+        controller->query_router() &&
+        controller->query_router()
+            ->overlay_tab_context_file_token()
+            .has_value()) {
+      return;
+    }
+  }
+#endif
+  auto* session_handle = GetContextualSessionHandle();
+  if (!session_handle) {
+    return;
+  }
+  std::vector<searchbox::mojom::TabInfoPtr> submitted_tabs;
+  std::vector<contextual_search::FileInfo> file_infos =
+      session_handle->GetSubmittedContextFileInfos();
+  // Ensures the tabs are ordered by their selection time.
+  std::sort(file_infos.begin(), file_infos.end(),
+            [](const contextual_search::FileInfo& a,
+               const contextual_search::FileInfo& b) {
+              return a.selection_time < b.selection_time;
+            });
+  for (const contextual_search::FileInfo& file_info : file_infos) {
+    if ((file_info.mime_type == lens::MimeType::kHtml ||
+         file_info.mime_type == lens::MimeType::kAnnotatedPageContent) &&
+        (file_info.tab_url.has_value() || file_info.tab_title.has_value())) {
+      searchbox::mojom::TabInfoPtr tab_info = searchbox::mojom::TabInfo::New();
+      int32_t tab_id = 0;
+      if (file_info.tab_session_id.has_value()) {
+        tab_id =
+            tabs::SessionMappedTabHandleFactory::GetInstance()
+                .GetHandleForSessionId(file_info.tab_session_id.value().id());
+        // In case the tab is not mapped.
+        if (tab_id == tabs::TabHandle::NullValue &&
+            SessionID::IsValidValue(file_info.tab_session_id.value().id())) {
+          tab_id = file_info.tab_session_id.value().id();
+        }
+      }
+      tab_info->tab_id =
+          SessionID::IsValidValue(tab_id) ? tab_id : tabs::TabHandle::NullValue;
+      tab_info->title = file_info.tab_title.value_or("");
+      tab_info->url = file_info.tab_url.value_or(GURL());
+
+      // Remove any existing entry for the same tab so it moves to the most
+      // recent position with its updated title and URL.
+      std::erase_if(submitted_tabs, [&](const auto& existing) {
+        if (tab_info->tab_id != tabs::TabHandle::NullValue &&
+            existing->tab_id != tabs::TabHandle::NullValue) {
+          return existing->tab_id == tab_info->tab_id;
+        }
+        return existing->url == tab_info->url;
+      });
+      submitted_tabs.push_back(std::move(tab_info));
+    }
+  }
+  if (!submitted_tabs.empty()) {
+    SetAimThreadRestoredTabs(std::move(submitted_tabs));
   }
 }
 
@@ -795,6 +863,7 @@ void ContextualTasksComposeboxHandler::ContinueCreateAndSendQueryMessage(
     contextual_tasks::FinalizeAndSendAimQuery(
         std::move(create_client_to_aim_request_info), session_handle,
         web_ui_interface_);
+    CacheSubmittedTabsFromSessionHandle();
   }
 }
 
@@ -1015,6 +1084,16 @@ void ContextualTasksComposeboxHandler::AddTabContext(
         contextual_search::ContextUploadErrorType::kBrowserProcessingError));
     return;
   }
+
+  if (tab) {
+    // Associate the tab with the task as soon as it is attached as context.
+    auto task_id = web_ui_interface_->GetTaskId();
+    if (task_id.has_value() && contextual_tasks_service_) {
+      contextual_tasks_service_->AssociateTabWithTask(
+          task_id.value(),
+          sessions::SessionTabHelper::IdForTab(tab->GetContents()));
+    }
+  }
   auto token = contextual_session_handle->CreateContextToken();
 
   pending_context_uploads_.insert(token);
@@ -1038,22 +1117,31 @@ void ContextualTasksComposeboxHandler::ForwardTabContextResult(
 
 void ContextualTasksComposeboxHandler::ClearFiles(
     bool should_block_auto_suggested_tabs) {
-  // Clear all files from the UI.
-  ComposeboxHandler::ClearFiles(should_block_auto_suggested_tabs);
-  // Clear any delayed tabs.
+  // Clear delayed tabs and dismiss any auto-suggested tab chip before calling
+  // the base class, which triggers ActiveTaskContextProvider::RefreshContext()
+  // to recompute tab strip underlines.
   delayed_tabs_.clear();
-
   pending_delayed_tab_ids_.clear();
   pending_context_uploads_.clear();
   pending_query_request_info_.reset();
-#if !BUILDFLAG(IS_ANDROID)
-  visual_selection_token_.reset();
-  visual_selection_overlay_token_.reset();
-#endif
-
   if (should_block_auto_suggested_tabs) {
     web_ui_interface_->GetAutoSuggestionManager()->OnAutoSuggestionDismissed();
   }
+
+  // Clear all files from the UI.
+  ComposeboxHandler::ClearFiles(should_block_auto_suggested_tabs);
+
+#if !BUILDFLAG(IS_ANDROID)
+  if (visual_selection_token_.has_value()) {
+    if (auto* controller = GetLensSearchController()) {
+      if (controller->lens_overlay_controller()) {
+        controller->lens_overlay_controller()->ClearRegionSelection();
+      }
+    }
+  }
+  visual_selection_token_.reset();
+  visual_selection_overlay_token_.reset();
+#endif
 }
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -1420,6 +1508,7 @@ void ContextualTasksComposeboxHandler::MaybeSendPendingQuery() {
       contextual_tasks::FinalizeAndSendAimQuery(
           std::move(pending_query_request_info_), session_handle,
           web_ui_interface_);
+      CacheSubmittedTabsFromSessionHandle();
     }
     pending_query_request_info_.reset();
   }
@@ -1442,6 +1531,7 @@ void ContextualTasksComposeboxHandler::DeactivateSmartTabSharing() {
     input_state_model_->SetSmartTabSharingActive(false);
   }
 #if !BUILDFLAG(IS_ANDROID)
+  last_sent_smart_tab_sharing_active_ = false;
   if (SearchboxHandler::page_) {
     SearchboxHandler::page_->UpdateSmartTabSharingActive(false);
   }

@@ -9,10 +9,8 @@
 
 #include "base/android/android_info.h"
 #include "base/check.h"
-#include "base/debug/crash_logging.h"
 #include "base/i18n/char_iterator.h"
 #include "base/notreached.h"
-#include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "content/browser/accessibility/browser_accessibility_android.h"
 #include "content/browser/accessibility/web_contents_accessibility_android.h"
@@ -558,34 +556,16 @@ void BrowserAccessibilityManagerAndroid::FireGeneratedEvent(
     }
     case ui::AXEventGenerator::Event::LIVE_REGION_NODE_CHANGED: {
       //  This event is fired when an object appears in a live region.
-      if (base::FeatureList::IsEnabled(
-              features::kAccessibilityImproveLiveRegionAnnounce)) {
-        bool is_atomic = node->data().IsAtomicLiveRegionRoot() ||
-                         node->data().IsContainedInAtomicLiveRegion();
-        // If kAccessibilityAtomicLiveRegions is enabled and our node is atomic,
-        // it will have been handled by the LIVE_REGION_CHANGED case above.
-        // Otherwise, fire a WINDOW_CONTENT_CHANGED event to inform the Android
-        // Framework of the individual node change.
-        if (!(is_atomic && base::FeatureList::IsEnabled(
-                               features::kAccessibilityAtomicLiveRegions))) {
-          wcax->HandleLiveRegionNodeChanged(android_node->GetUniqueId());
-        }
+      bool is_atomic = node->data().IsAtomicLiveRegionRoot() ||
+                       node->data().IsContainedInAtomicLiveRegion();
+      // If kAccessibilityAtomicLiveRegions is enabled and our node is atomic,
+      // it will have been handled by the LIVE_REGION_CHANGED case above.
+      // Otherwise, fire a WINDOW_CONTENT_CHANGED event to inform the Android
+      // Framework of the individual node change.
+      if (!(is_atomic && base::FeatureList::IsEnabled(
+                             features::kAccessibilityAtomicLiveRegions))) {
+        wcax->HandleLiveRegionNodeChanged(android_node->GetUniqueId());
       }
-      // TODO(crbug.com/507858294): Remove TYPE_ANNOUNCE and new live region
-      // behavior flags once stability has been reached in several stable
-      // releases.
-      if (!base::FeatureList::IsEnabled(
-              features::kAccessibilityDeprecateTypeAnnounce)) {
-        // If we don't support WINDOW_CONTENT_CHANGED events BUT have not yet
-        // deprecated TYPE_ANNOUNCEMENT, we should fire a TYPE_ANNOUNCEMENT
-        // event which contains the text of the changed node.
-        std::u16string text = android_node->GetTextContentUTF16();
-        wcax->AnnounceLiveRegionText(text);
-      }
-      // If kAccessibilityImproveLiveRegionAnnounce is disabled and
-      // kAccessibilityDeprecateTypeAnnounce is enabled, we choose not to fire
-      // an event here. However, this should not happen in practice as we should
-      // not deprecate TYPE_ANNOUNCEMENT until we have landed its replacements.
       break;
     }
     case ui::AXEventGenerator::Event::MENU_POPUP_START: {
@@ -754,27 +734,6 @@ void BrowserAccessibilityManagerAndroid::FireGeneratedEvent(
     case ui::AXEventGenerator::Event::TEXT_SELECTION_CHANGED:
     case ui::AXEventGenerator::Event::WIN_IACCESSIBLE_STATE_CHANGED:
       break;
-  }
-}
-
-void BrowserAccessibilityManagerAndroid::FireAriaNotificationEvent(
-    ui::BrowserAccessibility* node,
-    const std::string& announcement,
-    ax::mojom::AriaNotificationPriority priority_property,
-    ax::mojom::AriaNotificationInterrupt interrupt_property,
-    const std::string& type) {
-  CHECK(node, base::NotFatalUntil::M159);
-
-  auto* wcax = GetWebContentsAXFromRootManager();
-  if (!wcax) {
-    return;
-  }
-
-  // TODO(aleventhal): If aria-notification becomes a web standard, a solution
-  // that doesn't use a forced announcement must be implemented.
-  if (!base::FeatureList::IsEnabled(
-          features::kAccessibilityDeprecateTypeAnnounce)) {
-    wcax->AnnounceLiveRegionText(base::UTF8ToUTF16(announcement));
   }
 }
 
@@ -995,18 +954,25 @@ void BrowserAccessibilityManagerAndroid::OnAtomicUpdateFinished(
     // update.
     wcax->ResetContentChangedEventsCounter();
 
-    // When the root changes, send the new root id and a navigate signal to
-    // Java.
     if (root_changed) {
-      auto* root_manager = static_cast<BrowserAccessibilityManagerAndroid*>(
-          GetManagerForRootFrame());
-      CHECK(root_manager, base::NotFatalUntil::M159);
+      if (IsRootFrameManager()) {
+        // When the root frame's root changes, send the new root id and a
+        // navigate signal to Java.
+        auto* root = static_cast<BrowserAccessibilityAndroid*>(
+            GetBrowserAccessibilityRoot());
+        CHECK(root, base::NotFatalUntil::M159);
 
-      auto* root = static_cast<BrowserAccessibilityAndroid*>(
-          root_manager->GetBrowserAccessibilityRoot());
-      CHECK(root, base::NotFatalUntil::M159);
-
-      wcax->HandleNavigate(root->GetUniqueId());
+        wcax->HandleNavigate(root->GetUniqueId());
+      } else if (ui::BrowserAccessibility* host =
+                     GetParentNodeFromParentTreeAsBrowserAccessibility()) {
+        // When a child frame's root changes, the node hosting that frame has a
+        // different child, so it is invalidated to have its subtree refetched.
+        // The state of the root frame, including accessibility focus, is left
+        // untouched.
+        wcax->HandleContentChanged(
+            static_cast<BrowserAccessibilityAndroid*>(host)->GetUniqueId(),
+            /*set_subtree_changed=*/true);
+      }
     }
   }
 
@@ -1205,9 +1171,6 @@ BrowserAccessibilityManagerAndroid::ConvertChromeSelectionPositionToAndroid(
     // A non BEFORE_TEXT child offset for a leaf node points to after the anchor
     // point. Hence again the target is set to the anchor node, but keeping a
     // note to select after it.
-    // TODO(crbug.com/443078007): Add test for both cases. The position is
-    // inside the container and not before or after the container, hence moving
-    // it before or after the `target_node` is not right.
     target_node = position->GetAnchor();
     at_end_of_anchor =
         (position->child_index() != ui::AXNodePosition::BEFORE_TEXT);
@@ -1220,8 +1183,6 @@ BrowserAccessibilityManagerAndroid::ConvertChromeSelectionPositionToAndroid(
     at_end_of_anchor = true;
   }
   CHECK(target_node);
-  // TODO(crbug.com/550089859): Remove when crash keys are not needed.
-  ui::AXNode* initial_target_node = target_node;
 
   // If `target_node` is not in the Android accessibility tree (ignored or
   // uninteresting), move it up to the lowest platform ancestor.
@@ -1240,44 +1201,10 @@ BrowserAccessibilityManagerAndroid::ConvertChromeSelectionPositionToAndroid(
       static_cast<BrowserAccessibilityAndroid*>(
           GetFromAXNode(target_node->GetUnignoredParent()));
 
-  // TODO(crbug.com/550089859): Update the comment below, when a contradicting
-  // example is found.
-  // `parent_node` cannot be null because tree positions only occur on anchors
-  // with children, resolving `target_node` to a child, and
-  // `GetUnignoredParent()` walks up to the nearest unignored ancestor (up to
-  // RootWebArea). Childless root nodes are treated as leaves by
-  // `AXNodePosition` and handled earlier in the text position branch.
   if (!parent_node) {
-    SCOPED_CRASH_KEY_STRING256("ax", "original_pos",
-                               original_position->ToString());
-    SCOPED_CRASH_KEY_STRING256("ax", "adjusted_pos", position->ToString());
-    SCOPED_CRASH_KEY_STRING256(
-        "ax", "initial_target_node",
-        initial_target_node->data().ToString(/*verbose=*/false));
-    SCOPED_CRASH_KEY_STRING256("ax", "final_target_node",
-                               target_node->data().ToString(/*verbose=*/false));
-
-    // Since the entire accessibility tree can be large, collect the path of
-    // nodes from the initial target node to the root, and all children of the
-    // initial target node.
-    std::string ancestry;
-    ancestry.reserve(1024);
-    for (ui::AXNode* ancestor = initial_target_node; ancestor;
-         ancestor = ancestor->GetParent()) {
-      base::StrAppend(&ancestry,
-                      {ancestor->data().ToString(/*verbose=*/false), "\n"});
-    }
-    SCOPED_CRASH_KEY_STRING1024("ax", "ancestry", ancestry);
-
-    std::string children;
-    children.reserve(1024);
-    for (const auto& child : initial_target_node->children()) {
-      base::StrAppend(&children,
-                      {child->data().ToString(/*verbose=*/false), "\n"});
-    }
-    SCOPED_CRASH_KEY_STRING1024("ax", "children", children);
-
-    DUMP_WILL_BE_NOTREACHED();
+    // A node with no unignored parent is expected to be a root node.
+    // TODO(crbug.com/564162661): Convert to CHECK.
+    DUMP_WILL_BE_CHECK(ui::IsPlatformDocument(target_node->GetRole()));
     return std::nullopt;
   }
 

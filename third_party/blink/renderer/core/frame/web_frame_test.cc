@@ -37,12 +37,14 @@
 #include <memory>
 #include <optional>
 #include <tuple>
+#include <vector>
 
 #include "base/compiler_specific.h"
 #include "base/containers/to_vector.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
+#include "base/memory/unsafe_shared_memory_region.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
@@ -86,6 +88,7 @@
 #include "third_party/blink/public/mojom/frame/viewport_intersection_state.mojom-blink.h"
 #include "third_party/blink/public/mojom/page/draggable_region.mojom-blink.h"
 #include "third_party/blink/public/mojom/page_state/page_state.mojom-blink.h"
+#include "third_party/blink/public/mojom/scroll/scroll_enums.mojom-shared.h"
 #include "third_party/blink/public/mojom/scroll/scrollbar_mode.mojom-blink.h"
 #include "third_party/blink/public/mojom/webpreferences/web_preferences.mojom-blink.h"
 #include "third_party/blink/public/mojom/window_features/window_features.mojom-blink.h"
@@ -1700,6 +1703,118 @@ TEST_F(WebFrameTest, PostMessageEvent) {
   EXPECT_NE(std::string::npos, content.find("Message 1."));
   EXPECT_EQ(std::string::npos, content.find("Message 2."));
 }
+
+#if BUILDFLAG(IS_ANDROID)
+namespace {
+
+// Reports what actually arrived, rather than just that something did, so that
+// a null payload or a message downgraded to "messageerror" is distinguishable
+// from a real SharedArrayBuffer. Object.prototype.toString is used instead of
+// `instanceof SharedArrayBuffer` because the SharedArrayBuffer constructor is
+// only exposed to script in cross-origin isolated documents.
+constexpr char kSharedArrayBufferTestPage[] = R"HTML(
+    <body>
+    <script>
+    function report(text) {
+      document.body.appendChild(document.createTextNode(text));
+    }
+    onmessage = e => report('message: ' +
+                            Object.prototype.toString.call(e.data) + ' ' +
+                            (e.data && e.data.byteLength) + '.');
+    onmessageerror = () => report('messageerror.');
+    </script>
+    </body>
+)HTML";
+
+}  // namespace
+
+TEST_F(WebFrameTest, PostEmbedderMessageEvent) {
+  RegisterMockedHttpURLLoad("postmessage_test.html");
+
+  frame_test_helpers::WebViewHelper web_view_helper;
+  web_view_helper.InitializeAndLoad(base_url_ + "postmessage_test.html");
+
+  WebLocalFrame* frame = web_view_helper.LocalMainFrame();
+
+  // Send a message with the correct origin.
+  frame->PostEmbedderMessageEvent(WebSecurityOrigin::Create(ToKURL(base_url_)),
+                                  /*ports=*/{},
+                                  base::UnsafeSharedMemoryRegion::Create(100));
+
+  // Send another message with an incorrect origin.
+  frame->PostEmbedderMessageEvent(
+      WebSecurityOrigin::Create(ToKURL(chrome_url_)), /*ports=*/{},
+      base::UnsafeSharedMemoryRegion::Create(100));
+
+  // Verify that only the first addition is in the body of the page.
+  std::string content = TestWebFrameContentDumper::DumpWebViewAsText(
+                            web_view_helper.GetWebView(), 1024)
+                            .Utf8();
+  EXPECT_NE(std::string::npos, content.find("Message 1."));
+  EXPECT_EQ(std::string::npos, content.find("Message 2."));
+}
+
+// A null target origin is a wildcard: the message is delivered whatever the
+// document's origin is.
+TEST_F(WebFrameTest, PostEmbedderMessageEventWildcardOrigin) {
+  RegisterMockedHttpURLLoad("postmessage_test.html");
+
+  frame_test_helpers::WebViewHelper web_view_helper;
+  web_view_helper.InitializeAndLoad(base_url_ + "postmessage_test.html");
+
+  web_view_helper.LocalMainFrame()->PostEmbedderMessageEvent(
+      WebSecurityOrigin(), /*ports=*/{},
+      base::UnsafeSharedMemoryRegion::Create(100));
+
+  std::string content = TestWebFrameContentDumper::DumpWebViewAsText(
+                            web_view_helper.GetWebView(), 1024)
+                            .Utf8();
+  EXPECT_NE(std::string::npos, content.find("Message 1."));
+}
+
+// The region handed to the public API is mapped into this renderer, serialized
+// here, and delivered as the message's data, so script sees a real
+// SharedArrayBuffer of the right size.
+TEST_F(WebFrameTest, PostEmbedderMessageEventDeliversSharedArrayBuffer) {
+  frame_test_helpers::WebViewHelper web_view_helper;
+  web_view_helper.Initialize();
+  frame_test_helpers::LoadHTMLString(web_view_helper.LocalMainFrame(),
+                                     kSharedArrayBufferTestPage,
+                                     ToKURL(base_url_));
+
+  web_view_helper.LocalMainFrame()->PostEmbedderMessageEvent(
+      WebSecurityOrigin::Create(ToKURL(base_url_)), /*ports=*/{},
+      base::UnsafeSharedMemoryRegion::Create(100));
+
+  std::string content = TestWebFrameContentDumper::DumpWebViewAsText(
+                            web_view_helper.GetWebView(), 1024)
+                            .Utf8();
+  EXPECT_NE(std::string::npos,
+            content.find("message: [object SharedArrayBuffer] 100."))
+      << content;
+}
+
+// The target origin check has to hold for SharedArrayBuffers too: a mismatch
+// must drop the message rather than hand the buffer to a document the embedder
+// did not address.
+TEST_F(WebFrameTest, PostEmbedderMessageEventSharedArrayBufferWrongOrigin) {
+  frame_test_helpers::WebViewHelper web_view_helper;
+  web_view_helper.Initialize();
+  frame_test_helpers::LoadHTMLString(web_view_helper.LocalMainFrame(),
+                                     kSharedArrayBufferTestPage,
+                                     ToKURL(base_url_));
+
+  web_view_helper.LocalMainFrame()->PostEmbedderMessageEvent(
+      WebSecurityOrigin::Create(ToKURL(chrome_url_)), /*ports=*/{},
+      base::UnsafeSharedMemoryRegion::Create(100));
+
+  std::string content = TestWebFrameContentDumper::DumpWebViewAsText(
+                            web_view_helper.GetWebView(), 1024)
+                            .Utf8();
+  EXPECT_EQ(std::string::npos, content.find("SharedArrayBuffer")) << content;
+  EXPECT_EQ(std::string::npos, content.find("message")) << content;
+}
+#endif
 
 namespace {
 
@@ -7771,7 +7886,7 @@ class TestScrolledFrameClient : public frame_test_helpers::TestWebFrameClient {
   bool WasFrameScrolled() const { return did_scroll_frame_; }
 
   // WebLocalFrameClient:
-  void DidChangeScrollOffset() override {
+  void DidChangeScrollOffset(blink::mojom::ScrollType) override {
     if (Frame()->Parent()) {
       return;
     }

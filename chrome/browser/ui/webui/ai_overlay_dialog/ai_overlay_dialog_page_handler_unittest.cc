@@ -8,10 +8,12 @@
 
 #include "base/command_line.h"
 #include "base/files/file_util.h"
+#include "base/test/bind.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "chrome/browser/ui/ai_overlay_dialog/ai_overlay_dialog_controller_views.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -72,6 +74,8 @@ class AiOverlayDialogPageHandlerTest : public ChromeRenderViewHostTestHarness {
         .WillByDefault(testing::Return(profile()));
     ON_CALL(browser_window_interface_, GetTabStripModel())
         .WillByDefault(testing::Return(tab_strip_model_.get()));
+    ON_CALL(browser_window_interface_, GetFeatures())
+        .WillByDefault(testing::ReturnRef(features_));
 
     controller_ =
         std::make_unique<AiOverlayDialogControllerViews>(&browser_window_interface_);
@@ -104,6 +108,7 @@ class AiOverlayDialogPageHandlerTest : public ChromeRenderViewHostTestHarness {
   mojo::Remote<ai_overlay_dialog::mojom::PageHandler>& handler_remote() {
     return handler_remote_;
   }
+  AiOverlayDialogController* controller() { return controller_.get(); }
 
   void RecreateHandler() {
     handler_.reset();
@@ -125,6 +130,7 @@ class AiOverlayDialogPageHandlerTest : public ChromeRenderViewHostTestHarness {
       prevent_tab_features_;
   TestTabStripModelDelegate tab_strip_model_delegate_;
   std::unique_ptr<TabStripModel> tab_strip_model_;
+  BrowserWindowFeatures features_;
   testing::NiceMock<MockBrowserWindowInterface> browser_window_interface_;
   MockPage mock_page_;
   mojo::Receiver<ai_overlay_dialog::mojom::Page> page_receiver_{&mock_page_};
@@ -250,39 +256,6 @@ TEST_F(AiOverlayDialogPageHandlerTest, RememberedNotesDictionaryStorage) {
   }
 }
 
-TEST_F(AiOverlayDialogPageHandlerTest, SaveDebugFile) {
-  // Calling SaveDebugFile without debug flags should safely no-op without
-  // error.
-  handler_remote()->SaveDebugFile(
-      ai_overlay_dialog::mojom::DebugFileType::kPrimingTurnMarkdown,
-      "# test markdown");
-  handler_remote().FlushForTesting();
-}
-
-TEST_F(AiOverlayDialogPageHandlerTest, SaveDebugFile_WithDebugLogsEnabled) {
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
-      switches::kEnableTtcDebugLogs);
-
-  handler_remote()->SaveDebugFile(
-      ai_overlay_dialog::mojom::DebugFileType::kPrimingTurnMarkdown,
-      "# test markdown");
-  handler_remote()->SaveDebugFile(
-      ai_overlay_dialog::mojom::DebugFileType::kImage,
-      "data:image/jpeg;base64,dGVzdA==");
-  handler_remote().FlushForTesting();
-
-  EXPECT_TRUE(base::test::RunUntil([]() {
-    base::FilePath md_path(FILE_PATH_LITERAL("/tmp/ttc/priming_turn.md"));
-    base::FilePath img_path(FILE_PATH_LITERAL("/tmp/ttc/image.jpg"));
-    std::string md_contents;
-    std::string img_contents;
-    return base::ReadFileToString(md_path, &md_contents) &&
-           md_contents == "# test markdown" &&
-           base::ReadFileToString(img_path, &img_contents) &&
-           img_contents == "test";
-  }));
-}
-
 TEST_F(AiOverlayDialogPageHandlerTest, StreamingSession_DisabledByDefault) {
   // When kAiOverlayDialogUseMes is not enabled, calling StartStreamingSession
   // should safely no-op.
@@ -299,6 +272,58 @@ TEST_F(AiOverlayDialogPageHandlerTest, StreamingSession_EnabledWithMes) {
 
   handler_remote()->StartStreamingSession();
   handler_remote()->SendTextInput("hello");
+  handler_remote()->StopStreamingSession();
+  handler_remote().FlushForTesting();
+}
+
+TEST_F(AiOverlayDialogPageHandlerTest, StreamingSession_HandlesToolCall) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeaturesAndParameters(
+      {{features::kAiOverlayDialog, {{"use_mes", "true"}}}}, {});
+
+  handler_remote()->StartStreamingSession();
+  handler_remote().FlushForTesting();
+
+  // Test remember_this tool call
+  ToolRequest remember_request;
+  remember_request.name = "remember_this";
+  remember_request.arguments.Set("key", "test_key");
+  remember_request.arguments.Set("value", "test_val");
+  std::optional<ToolResponse> remember_response;
+  handler()->OnToolCall(remember_request,
+                        base::BindLambdaForTesting([&](ToolResponse resp) {
+                          remember_response = std::move(resp);
+                        }));
+  ASSERT_TRUE(remember_response.has_value());
+  EXPECT_TRUE(remember_response->Ok());
+  const std::vector<std::pair<std::string, std::string>> expected_notes = {
+      {"test_key", "test_val"}};
+  EXPECT_EQ(controller()->GetRememberedNotes(), expected_notes);
+
+  // Test forget_this tool call
+  ToolRequest forget_request;
+  forget_request.name = "forget_this";
+  forget_request.arguments.Set("key", "test_key");
+  std::optional<ToolResponse> forget_response;
+  handler()->OnToolCall(forget_request,
+                        base::BindLambdaForTesting([&](ToolResponse resp) {
+                          forget_response = std::move(resp);
+                        }));
+  ASSERT_TRUE(forget_response.has_value());
+  EXPECT_TRUE(forget_response->Ok());
+  EXPECT_TRUE(controller()->GetRememberedNotes().empty());
+
+  // Test close_voice_interface tool call
+  ToolRequest close_request;
+  close_request.name = "close_voice_interface";
+  std::optional<ToolResponse> close_response;
+  handler()->OnToolCall(close_request,
+                        base::BindLambdaForTesting([&](ToolResponse resp) {
+                          close_response = std::move(resp);
+                        }));
+  ASSERT_TRUE(close_response.has_value());
+  EXPECT_TRUE(close_response->Ok());
+
   handler_remote()->StopStreamingSession();
   handler_remote().FlushForTesting();
 }

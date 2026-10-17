@@ -32,12 +32,6 @@ export function getHtml(this: CriticalActionRowElement) {
 <td>
   <span>${this.item.actionSourceStr}</span>
 </td>
-<td class="url-cell" title="${this.item.url}">
-  ${this.item.url ? html`
-    <a class="url-link" href="${this.item.url}" target="_blank">
-      ${this.item.url}
-    </a>` : '-'}
-</td>
 <td class="metadata-cell">
   ${this.item.metadata ? html`
     <div class="metadata-preview" title="Click to toggle full metadata"
@@ -46,7 +40,7 @@ export function getHtml(this: CriticalActionRowElement) {
     </div>
     ${this.isExpanded_ ? html`
       <pre class="metadata-full">${this.formatJson_()}</pre>` : ''}
-  ` : '-'}
+  ` : html`-`}
 </td>
 <td>
   <button class="row-delete-btn" title="Delete record"

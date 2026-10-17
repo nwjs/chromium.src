@@ -59,7 +59,8 @@
 #import "ios/chrome/browser/infobars/model/infobar_manager_impl.h"
 #import "ios/chrome/browser/intelligence/bwg/coordinator/gemini_container_coordinator.h"
 #import "ios/chrome/browser/intelligence/bwg/coordinator/gemini_entry_flow_coordinator.h"
-#import "ios/chrome/browser/intelligence/bwg/coordinator/gemini_first_run_coordinator.h"
+#import "ios/chrome/browser/intelligence/bwg/coordinator/gemini_web_modal_coordinator.h"
+#import "ios/chrome/browser/intelligence/bwg/first_run/coordinator/gemini_first_run_coordinator.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_browser_agent.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service_factory.h"
@@ -106,6 +107,7 @@
 #import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/shared/public/commands/policy_change_commands.h"
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
+#import "ios/chrome/browser/shared/public/commands/scene_sign_in_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
 #import "ios/chrome/browser/shared/public/commands/show_signin_command.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
@@ -195,6 +197,7 @@ inline LayoutStateScenePassKey PassKey() {
 }  // namespace
 
 @interface SceneCoordinator () <AccountMenuCoordinatorDelegate,
+                                GeminiWebModalCoordinatorDelegate,
                                 HistoryCoordinatorDelegate,
                                 IncognitoInterstitialCoordinatorDelegate,
                                 ManagedProfileCreationCoordinatorDelegate,
@@ -202,6 +205,7 @@ inline LayoutStateScenePassKey PassKey() {
                                 PasswordSettingsCoordinatorDelegate,
                                 PolicyWatcherBrowserAgentObserving,
                                 SafariDataImportMainCoordinatorDelegate,
+                                SceneSignInCommands,
                                 SceneViewControllerDelegate,
                                 SettingsNavigationControllerDelegate,
                                 UndoSignoutCoordinatorDelegate,
@@ -239,6 +243,7 @@ inline LayoutStateScenePassKey PassKey() {
   GeminiContainerCoordinator* _geminiContainerCoordinator;
   GeminiFirstRunCoordinator* _geminiFirstRunCoordinator;
   GeminiEntryFlowCoordinator* _geminiEntryFlowCoordinator;
+  GeminiWebModalCoordinator* _geminiWebModalCoordinator;
   // Coordinator for display of the Password Checkup.
   PasswordCheckupCoordinator* _passwordCheckupCoordinator;
   // Coordinator for display of Password Settings.
@@ -412,6 +417,8 @@ inline LayoutStateScenePassKey PassKey() {
   _geminiFirstRunCoordinator = nil;
   [_geminiEntryFlowCoordinator stop];
   _geminiEntryFlowCoordinator = nil;
+  [_geminiWebModalCoordinator stop];
+  _geminiWebModalCoordinator = nil;
 
   _incognitoBrowser = nullptr;
 }
@@ -867,7 +874,7 @@ inline LayoutStateScenePassKey PassKey() {
     case TabGridOpeningMode::kDefault:
       break;
   }
-
+  [self hideAssistant];
   [self showTabSwitcherAtPage:page];
 }
 
@@ -1337,6 +1344,7 @@ inline LayoutStateScenePassKey PassKey() {
       BWGControllerForBrowser:_regularBrowser.get()
                      delegate:self];
 
+  // TODO(crbug.com/566220673): Standardize modal presentation across settings.
   UIViewController* presenter = self.activeViewController;
   while (presenter.presentedViewController) {
     presenter = presenter.presentedViewController;
@@ -1344,6 +1352,43 @@ inline LayoutStateScenePassKey PassKey() {
   [presenter presentViewController:_settingsNavigationController
                           animated:YES
                         completion:nil];
+}
+
+- (void)showGeminiContextualCueSettings {
+  if (_settingsNavigationController) {
+    [_settingsNavigationController showGeminiContextualCueSettings];
+    return;
+  }
+
+  _settingsNavigationController = [SettingsNavigationController
+      BWGContextualCueControllerForBrowser:_regularBrowser.get()
+                                  delegate:self];
+
+  [self.activeViewController presentViewController:_settingsNavigationController
+                                          animated:YES
+                                        completion:nil];
+}
+
+- (void)showSuggestionsFromGemini {
+  CHECK(!self.sceneState.signinInProgress, base::NotFatalUntil::M160);
+
+  if (self.sceneState.isUIBlocked) {
+    // This could occur due to race condition with multiple windows and
+    // simultaneous taps. See crbug.com/368310663.
+    return;
+  }
+  if (_settingsNavigationController) {
+    [_settingsNavigationController showSuggestionsFromGemini];
+    return;
+  }
+
+  _settingsNavigationController = [SettingsNavigationController
+      geminiSuggestionsControllerForBrowser:_regularBrowser.get()
+                                   delegate:self];
+
+  [self.activeViewController presentViewController:_settingsNavigationController
+                                          animated:YES
+                                        completion:nil];
 }
 
 - (void)showSuggestionsFromGeminiHelpImprove {
@@ -1356,13 +1401,9 @@ inline LayoutStateScenePassKey PassKey() {
       geminiHelpImproveControllerForBrowser:_regularBrowser.get()
                                    delegate:self];
 
-  UIViewController* presenter = self.activeViewController;
-  while (presenter.presentedViewController) {
-    presenter = presenter.presentedViewController;
-  }
-  [presenter presentViewController:_settingsNavigationController
-                          animated:YES
-                        completion:nil];
+  [self.activeViewController presentViewController:_settingsNavigationController
+                                          animated:YES
+                                        completion:nil];
 }
 
 // TODO(crbug.com/41352590) : Do not pass baseViewController through dispatcher.
@@ -1543,34 +1584,6 @@ inline LayoutStateScenePassKey PassKey() {
   [self dismissModalDialogsWithCompletion:^{
     [weakSelf showAutofillSettingsFromNoticeAfterModalDismiss];
   }];
-}
-
-- (void)showEnhancedAutofillSettingsWithCompletion:(ProceduralBlock)completion {
-  CHECK(!self.sceneState.signinInProgress, base::NotFatalUntil::M160);
-
-  if (self.sceneState.isUIBlocked) {
-    // This could occur due to race condition with multiple windows and
-    // simultaneous taps. See crbug.com/368310663.
-    return;
-  }
-  if (_settingsNavigationController) {
-    [_settingsNavigationController showEnhancedAutofillSettings];
-    return;
-  }
-  _settingsDismissalCompletion = [completion copy];
-  _settingsNavigationController = [[SettingsNavigationController alloc]
-      initWithRootViewController:nil
-                         browser:_regularBrowser.get()
-                        delegate:self];
-  [_settingsNavigationController showEnhancedAutofillSettings];
-
-  UIViewController* presenter = self.activeViewController;
-  while (presenter.presentedViewController) {
-    presenter = presenter.presentedViewController;
-  }
-  [presenter presentViewController:_settingsNavigationController
-                          animated:YES
-                        completion:nil];
 }
 
 - (void)showPasswordManagerForCredentialImport:(NSUUID*)UUID
@@ -1795,6 +1808,10 @@ inline LayoutStateScenePassKey PassKey() {
 
 #pragma mark - Properties
 
+- (id<SceneSignInCommands>)sceneSignInEndpoint {
+  return self;
+}
+
 - (void)setTabGridDelegate:(id<TabGridCoordinatorDelegate>)delegate {
   _tabGridDelegate = delegate;
   _tabGridCoordinator.delegate = delegate;
@@ -1898,6 +1915,15 @@ inline LayoutStateScenePassKey PassKey() {
     (PasswordSettingsCoordinator*)coordinator {
   CHECK_EQ(_passwordSettingsCoordinator, coordinator);
   [self stopPasswordSettingsCoordinator];
+}
+
+#pragma mark - GeminiWebModalCoordinatorDelegate
+
+- (void)geminiWebModalCoordinatorDidDismiss:
+    (GeminiWebModalCoordinator*)coordinator {
+  CHECK_EQ(_geminiWebModalCoordinator, coordinator);
+  [_geminiWebModalCoordinator stop];
+  _geminiWebModalCoordinator = nil;
 }
 
 #pragma mark - HistoryCoordinatorDelegate
@@ -2876,6 +2902,23 @@ inline LayoutStateScenePassKey PassKey() {
   if (geminiBrowserAgent) {
     geminiBrowserAgent->CollapseFloatyIfInvoked();
   }
+}
+
+- (void)showGeminiWebModalForURL:(const GURL&)URL {
+  CHECK(IsPageActionMenuEnabled());
+  if (_geminiWebModalCoordinator) {
+    return;
+  }
+
+  UIViewController* baseViewController = IsUseSceneViewControllerEnabled()
+                                             ? _viewController
+                                             : self.activeViewController;
+  _geminiWebModalCoordinator = [[GeminiWebModalCoordinator alloc]
+      initWithBaseViewController:baseViewController
+                         browser:_regularBrowser.get()
+                             URL:URL];
+  _geminiWebModalCoordinator.delegate = self;
+  [_geminiWebModalCoordinator start];
 }
 
 #pragma mark - Helper methods for Gemini entry flow

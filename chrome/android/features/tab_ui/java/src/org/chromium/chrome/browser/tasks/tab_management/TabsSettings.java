@@ -130,8 +130,7 @@ public class TabsSettings extends ChromeBaseSettingsFragment {
             return;
         }
 
-        TabArchiveSettings archiveSettings =
-                new TabArchiveSettings(ChromeSharedPreferences.getInstance());
+        TabArchiveSettings archiveSettings = TabArchiveSettings.getInstance();
 
         if (archiveSettings.getArchiveEnabled()) {
             int tabArchiveTimeDeltaDays = archiveSettings.getArchiveTimeDeltaDays();
@@ -145,7 +144,6 @@ public class TabsSettings extends ChromeBaseSettingsFragment {
             tabArchiveSettingsPref.setSummary(
                     getResources().getString(R.string.archive_settings_time_delta_never));
         }
-        archiveSettings.destroy();
     }
 
     private void configureShareTitlesAndUrlsWithOsSwitch() {
@@ -289,6 +287,10 @@ public class TabsSettings extends ChromeBaseSettingsFragment {
                     indexData.removeEntry(
                             getUniqueId(PREF_SHARE_TITLES_AND_URLS_WITH_OS_LEARN_MORE));
                     // LINT.ThenChange(:isShareTitlesAndUrlsEnabled)
+
+                    if (!ChromeFeatureList.sCctAlwaysOpenInBrowser.isEnabled()) {
+                        indexData.removeEntry(getUniqueId(PREF_CCT_ALWAYS_OPEN_IN_BROWSER));
+                    }
 
                     // LINT.IfChange(isChromeSuggestionsInOtherAppsEnabledIndex)
                     if (!isChromeSuggestionsInOtherAppsEnabled()) {

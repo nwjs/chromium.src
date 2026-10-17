@@ -19,7 +19,8 @@ enum class PayloadType {
 };
 // LINT.ThenChange(
 //     ../internal/metrics_utils.h:PayloadTypeToMetricSuffix,
-//     //tools/metrics/histograms/metadata/browser_actuator/histograms.xml)
+//     //tools/metrics/histograms/metadata/browser_actuator/histograms.xml,
+//     ../internal/session_stream_recorder.cc:RecorderPayloadTypes)
 
 // Identifies the feature factory instance, to ensure we do not re-register
 // factories of the same type.
@@ -27,6 +28,11 @@ enum class FactoryId {
   kUnset = 0,
   kControl = 1,
   kExperimentalTriggering = 2,
+  kSessionStreamRecorder = 3,
+};
+
+enum class SendUpstreamMessageError {
+  kChannelDisconnected,
 };
 
 }  // namespace browser_actuator

@@ -41,7 +41,7 @@ struct ShortcutsDatabaseTestInfo {
   std::string description;
   std::string description_class;
   ui::PageTransition transition;
-  AutocompleteMatchType::Type type;
+  omnibox::AutocompleteMatchType type;
   std::string keyword;
   int days_from_now;
   int number_of_hits;
@@ -50,17 +50,17 @@ auto shortcut_test_db = std::to_array<ShortcutsDatabaseTestInfo>({
     {"BD85DBA2-8C29-49F9-84AE-48E1E90880DF", "goog", "www.google.com",
      "http://www.google.com/", AutocompleteMatch::DocumentType::NONE, "Google",
      "0,1,4,0", "Google", "0,1", ui::PAGE_TRANSITION_GENERATED,
-     AutocompleteMatchType::SEARCH_HISTORY, "google.com", 1, 100},
+     omnibox::AutocompleteMatchType::kSearchHistory, "google.com", 1, 100},
     {"BD85DBA2-8C29-49F9-84AE-48E1E90880E0", "slash", "slashdot.org",
      "http://slashdot.org/", AutocompleteMatch::DocumentType::NONE,
      "slashdot.org", "0,1", "Slashdot - News for nerds, stuff that matters",
-     "0,0", ui::PAGE_TRANSITION_TYPED, AutocompleteMatchType::HISTORY_URL, "",
-     0, 100},
+     "0,0", ui::PAGE_TRANSITION_TYPED,
+     omnibox::AutocompleteMatchType::kHistoryUrl, "", 0, 100},
     {"BD85DBA2-8C29-49F9-84AE-48E1E90880E1", "news", "slashdot.org",
      "http://slashdot.org/", AutocompleteMatch::DocumentType::NONE,
      "slashdot.org", "0,1", "Slashdot - News for nerds, stuff that matters",
-     "0,0", ui::PAGE_TRANSITION_LINK, AutocompleteMatchType::HISTORY_TITLE, "",
-     0, 5},
+     "0,0", ui::PAGE_TRANSITION_LINK,
+     omnibox::AutocompleteMatchType::kHistoryTitle, "", 0, 5},
 });
 
 typedef testing::Test ShortcutsDatabaseMigrationTest;
@@ -308,8 +308,9 @@ TEST(ShortcutsDatabaseMigrationTest, MigrateTableAddFillIntoEdit) {
     EXPECT_TRUE(ui::PageTransitionTypeIncludingQualifiersIs(
         ui::PageTransitionFromInt(statement.ColumnInt(2)),
         ui::PAGE_TRANSITION_TYPED));
-    EXPECT_EQ(AutocompleteMatchType::HISTORY_TITLE,
-              static_cast<AutocompleteMatchType::Type>(statement.ColumnInt(3)));
+    EXPECT_EQ(
+        omnibox::AutocompleteMatchType::kHistoryTitle,
+        static_cast<omnibox::AutocompleteMatchType>(statement.ColumnInt(3)));
     EXPECT_TRUE(statement.ColumnString(4).empty());
   }
   EXPECT_TRUE(statement.Succeeded());

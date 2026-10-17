@@ -124,7 +124,7 @@ class LensSearchboxController : public LensSearchboxClient {
   void OnTextModified() override;
   void OnThumbnailRemoved() override;
   void OnSuggestionAccepted(const GURL& destination_url,
-                            AutocompleteMatchType::Type match_type,
+                            omnibox::AutocompleteMatchType match_type,
                             bool is_zero_prefix_suggestion) override;
   void OnFocusChanged(bool focused) override;
   void OnPageBound() override;

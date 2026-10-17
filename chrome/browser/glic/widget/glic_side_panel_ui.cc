@@ -170,7 +170,7 @@ void GlicSidePanelUi::SidePanelStateChanged(
             : GlicInstanceMetrics::CloseReason::kExplicitlyClosed;
     instance_metrics_->OnSidePanelClosed(tab_.get(), reason);
     panel_state_.kind = mojom::PanelStateKind::kHidden;
-    delegate_->NotifyPanelStateChanged();
+    delegate_->UpdatePanelState();
     EmbedderCloseReason close_reason =
         state == GlicSidePanelCoordinator::State::kBackgrounded
             ? EmbedderCloseReason::kBackgrounded
@@ -188,21 +188,6 @@ void GlicSidePanelUi::SwitchConversation(
                                 std::move(info), std::move(callback));
 }
 
-void GlicSidePanelUi::CaptureScreenshot(
-    glic::mojom::WebClientHandler::CaptureScreenshotCallback callback) {
-  if (!tab_) {
-    std::move(callback).Run(nullptr);
-    return;
-  }
-  if (!screenshot_capturer_) {
-    screenshot_capturer_ = GlicScreenshotCapturer::Create();
-  }
-  auto* browser_window = tab_->GetBrowserWindowInterface();
-  CHECK(browser_window);
-  screenshot_capturer_->CaptureScreenshot(
-      browser_window->GetWindow()->GetNativeWindow(), std::move(callback));
-}
-
 void GlicSidePanelUi::Show(const ShowOptions& options) {
   instance_metrics_->OnShowInSidePanel(tab_.get());
   auto* glic_side_panel_coordinator = GetGlicSidePanelCoordinator();
@@ -210,7 +195,7 @@ void GlicSidePanelUi::Show(const ShowOptions& options) {
     return;
   }
   panel_state_.kind = mojom::PanelStateKind::kAttached;
-  delegate_->NotifyPanelStateChanged();
+  delegate_->UpdatePanelState();
   delegate_->host().FloatingPanelCanAttachChanged(false);
   panel_visibility_dependent_hotkey_manager_->InitializeAccelerators();
   panel_focus_dependent_hotkey_manager_->InitializeAccelerators();
@@ -220,9 +205,6 @@ void GlicSidePanelUi::Show(const ShowOptions& options) {
 }
 
 void GlicSidePanelUi::Close(const CloseOptions& options) {
-  if (screenshot_capturer_) {
-    screenshot_capturer_->CloseScreenPicker();
-  }
   CloseSelectionOverlay();
   auto* glic_side_panel_coordinator = GetGlicSidePanelCoordinator();
   if (!glic_side_panel_coordinator) {

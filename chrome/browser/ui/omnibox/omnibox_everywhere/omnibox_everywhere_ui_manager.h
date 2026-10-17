@@ -79,7 +79,15 @@ class OmniboxEverywhereUIManager : public views::WidgetObserver,
   // = 728px total window width (528px when smallLoomnibox is enabled).
   static constexpr int kPopupFixedWidth = 728;
   static constexpr int kPopupSmallFixedWidth = 528;
+  // Dynamic sizing popup window widths (32px left + 32px right body padding):
+  // - Expanded: 680px (Large) or 600px (Medium) content width + 64px = 744px /
+  //             664px.
+  // - Resting (persistent mode): 480px (Small) content width + 64px = 544px.
+  static constexpr int kDynamicPopupLargeFixedWidth = 744;
+  static constexpr int kDynamicPopupMediumFixedWidth = 664;
+  static constexpr int kDynamicPopupSmallFixedWidth = 544;
   static int GetPopupFixedWidth();
+  static int GetPopupExpandedFixedWidth();
   static constexpr int kDefaultRestingHeight = 152;
   // Resting height when the FRE intro modal is shown (searchbox + 2-row FRE
   // modal card + drop-shadow body padding).
@@ -88,6 +96,10 @@ class OmniboxEverywhereUIManager : public views::WidgetObserver,
       base::Milliseconds(500);
   static constexpr base::TimeDelta kPostHideCaptureDuration =
       base::Milliseconds(200);
+  // How often to check whether the mouse button has been released while a
+  // dismissal is deferred (see `HandleWidgetDeactivated()`).
+  static constexpr base::TimeDelta kPendingDismissalPollInterval =
+      base::Milliseconds(50);
 
   enum ContextMenuCommandId {
     kUndo = 1,
@@ -210,6 +222,9 @@ class OmniboxEverywhereUIManager : public views::WidgetObserver,
 
   void OnHotkeyDropdownOpened();
   void OnHotkeyDropdownClosed();
+
+  void OnDragEntered();
+  void OnDragExited();
 
   using RegionCaptureSource = OmniboxEverywhereService::RegionCaptureSource;
 
@@ -353,12 +368,19 @@ class OmniboxEverywhereUIManager : public views::WidgetObserver,
 
   void CleanUpWidget();
 
+  // Cancels any pending deactivation tasks or deferred-dismissal poll timer.
+  void CancelPendingDeactivation();
+
   // Cancels transient UI state (pending dismissal tasks, activation grace
   // period timestamp, and any open context menu).
   void CancelTransientUiState();
   void OnWidgetClosed(views::Widget::ClosedReason reason);
   void OnContextMenuClosed();
   void HandleWidgetDeactivated();
+  // Runs on `pending_dismissal_timer_` until the mouse button is released,
+  // then either re-focuses the widget (if a drag entered the WebContents and
+  // was dropped onto it) or performs the deferred dismissal.
+  void OnPendingDismissalPoll();
   void CheckDeactivationAfterHotkeyDropdownClosed();
   void OnScreenshotDisclosureClosed(base::OnceClosure on_accepted,
                                     base::OnceClosure on_cancelled,
@@ -395,6 +417,10 @@ class OmniboxEverywhereUIManager : public views::WidgetObserver,
   bool is_permission_prompt_open_ = false;
   bool suppress_restore_on_screenshare_picker_closed_ = false;
   bool is_dragging_ = false;
+  // True while an external drag is hovering over `web_contents()` during a
+  // deferred dismissal (`PreHandleDragUpdate()` fired without a subsequent
+  // `PreHandleDragExit()`).
+  bool is_drag_over_web_contents_ = false;
   // Re-entrancy guard to prevent recursive closing or processing deactivation
   // events while Close() is executing synchronously on the stack.
   bool is_closing_ = false;
@@ -412,6 +438,10 @@ class OmniboxEverywhereUIManager : public views::WidgetObserver,
   // reactivate the widget after the grace period.
   base::CancelableOnceClosure deactivation_task_;
   base::CancelableOnceClosure hotkey_dropdown_deactivation_task_;
+  // Running while a deactivation-triggered dismissal is deferred because a
+  // mouse button was held at deactivation time (potential drag onto the
+  // widget). See `HandleWidgetDeactivated()`.
+  base::RepeatingTimer pending_dismissal_timer_;
 
   PrefChangeRegistrar local_state_pref_change_registrar_;
   PrefChangeRegistrar profile_pref_change_registrar_;

@@ -458,7 +458,7 @@ void UpdatePositionVisibilityAfterLayout(
   bool is_anchor_positioned = offset_info.needs_scroll_adjustment_in_x ||
                               offset_info.needs_scroll_adjustment_in_y;
   bool has_anchors_visible_visibility =
-      node.Style().HasPositionVisibility(PositionVisibility::kAnchorsVisible);
+      node.Style().HasPositionVisibility(PositionVisibility::kAnchorVisible);
   Element* anchored = DynamicTo<Element>(node.GetDOMNode());
   // https://drafts.csswg.org/css-anchor-position-1/#valdef-position-visibility-anchors-visible
   // We only need to track the default anchor for anchors-visible.
@@ -2168,7 +2168,7 @@ OutOfFlowLayoutPart::OffsetInfo OutOfFlowLayoutPart::CalculateOffset(
 
       // Also check if it fits the containing block after applying scroll offset
       // (i.e. the scroll-adjusted inset-modified containing block).
-      if (try_fit_available_space) {
+      if (try_fit_available_space && !is_inside_fragmentation_context) {
         non_overflowing_scroll_ranges.push_back(non_overflowing_range);
       }
 
@@ -2233,9 +2233,13 @@ OutOfFlowLayoutPart::OffsetInfo OutOfFlowLayoutPart::CalculateOffset(
       iter.MoveToChosenTryFallbackIndex(
           non_overflowing_candidates.front().try_fallback_index);
       // If we have a successful non-overflowing candidate, we only want to
-      // invalidate when this candidate becomes invalid.
-      non_overflowing_scroll_ranges = {
-          non_overflowing_candidates.front().non_overflowing_range};
+      // invalidate when this candidate becomes invalid. Note that scrolling
+      // cannot affect anchor positioning for elements inside a fragmentation
+      // context, since scrollable containers are monolithic.
+      if (!is_inside_fragmentation_context) {
+        non_overflowing_scroll_ranges = {
+            non_overflowing_candidates.front().non_overflowing_range};
+      }
     }
     // Once the position-try-fallbacks placement has been decided, calculate the
     // offset again, using the non-base style.
@@ -2254,6 +2258,11 @@ OutOfFlowLayoutPart::OffsetInfo OutOfFlowLayoutPart::CalculateOffset(
   CHECK(offset_info);
 
   if (try_fit_available_space) {
+    // We don't collect scroll ranges inside a fragmentation context, since
+    // scrolling cannot affect fallback positioning, because a scrollable
+    // container is always monolithic.
+    DCHECK(non_overflowing_scroll_ranges.empty() ||
+           !is_inside_fragmentation_context);
     offset_info->non_overflowing_scroll_ranges =
         std::move(non_overflowing_scroll_ranges);
   } else {
@@ -2397,10 +2406,12 @@ OutOfFlowLayoutPart::TryCalculateOffset(
                ? AutoSizeBehavior::kStretchImplicit
                : AutoSizeBehavior::kFitContent;
   };
-  const AutoSizeBehavior inline_auto_size_behavior = auto_size_behavior(
-      alignment.inline_alignment.GetPosition(), imcb.has_auto_inline_inset);
-  const AutoSizeBehavior block_auto_size_behavior = auto_size_behavior(
-      alignment.block_alignment.GetPosition(), imcb.has_auto_block_inset);
+  const AutoSizeBehavior inline_auto_size_behavior =
+      auto_size_behavior(alignment.inline_alignment.GetComputedPosition(),
+                         imcb.has_auto_inline_inset);
+  const AutoSizeBehavior block_auto_size_behavior =
+      auto_size_behavior(alignment.block_alignment.GetComputedPosition(),
+                         imcb.has_auto_block_inset);
 
   std::optional<LogicalSize> replaced_size;
   if (node_info.node.IsReplaced()) {
@@ -2561,6 +2572,17 @@ OutOfFlowLayoutPart::TryCalculateOffset(
     // Make it relative to the current containing block fragment.
     offset_info.offset.block_offset -= previously_consumed_block_size;
 
+    // Convert the IMCB to physical coordinates relative to the default
+    // container's border-box.
+    const WritingModeConverter converter(
+        node_info.default_writing_direction,
+        container_builder_.SizeForAnchorQueries());
+    offset_info.imcb_rect = converter.ToPhysical(container_rect);
+    offset_info.imcb_rect.Contract(
+        BoxStrut(imcb.inline_start, imcb.inline_end, imcb.block_start,
+                 imcb.block_end)
+            .ConvertToPhysical(candidate_writing_direction));
+
     // Calculate the absolutized insets to be stored on |LayoutResult|.
     // |node_dimensions.inset| doesn't include margins, but |insets| do. We add
     // margins into |used_insets| for the calculation, and then remove them at
@@ -2639,6 +2661,11 @@ const LayoutResult* OutOfFlowLayoutPart::Layout(
 
   layout_result->GetMutableForOutOfFlow().SetDisplayLocksAffectedByAnchors(
       offset_info.display_locks_affected_by_anchors);
+
+  if (oof_node_to_layout.node_info.node.GetLayoutBox()->NeedsDevtoolsInfo()) {
+    layout_result->GetMutableForOutOfFlow().SetInsetModifiedContainingBlock(
+        offset_info.imcb_rect);
+  }
 
   const auto& fragment =
       To<PhysicalBoxFragment>(layout_result->GetPhysicalFragment());
@@ -2765,6 +2792,13 @@ const LayoutResult* OutOfFlowLayoutPart::GenerateFragment(
       builder.DisableMonolithicOverflowPropagation();
       is_repeatable = true;
     } else {
+      DCHECK(!!RuntimeEnabledFeatures::FragmentedOofInCbEnabled() !=
+             !!fragmentainer_constraint_space);
+      const ConstraintSpace& space =
+          RuntimeEnabledFeatures::FragmentedOofInCbEnabled()
+              ? GetConstraintSpace()
+              : *fragmentainer_constraint_space;
+
       // Note that we pass the pristine size of the fragmentainer here, which
       // means that we're not going to make room for any cloned borders that
       // might exist in the containing block chain of the OOF. This is
@@ -2773,20 +2807,10 @@ const LayoutResult* OutOfFlowLayoutPart::GenerateFragment(
       // should behave when contained by something with cloned box decorations.
       //
       // See https://github.com/w3c/csswg-drafts/issues/10553
-
-      if (RuntimeEnabledFeatures::FragmentedOofInCbEnabled()) {
-        DCHECK(!fragmentainer_constraint_space);
-        SetupSpaceBuilderForFragmentation(container_builder_, node,
-                                          block_offset, &builder);
-      } else {
-        DCHECK(fragmentainer_constraint_space);
-        SetupSpaceBuilderForFragmentation(
-            *fragmentainer_constraint_space, node,
-            fragmentainer_constraint_space->FragmentainerOffset() +
-                block_offset,
-            fragmentainer_constraint_space->FragmentainerBlockSize(),
-            node_info.requires_content_before_breaking, &builder);
-      }
+      SetupSpaceBuilderForFragmentation(
+          space, node, space.FragmentainerOffset() + block_offset,
+          space.FragmentainerBlockSize(),
+          node_info.requires_content_before_breaking, &builder);
 
       // Out-of-flow positioned elements whose containing block is inside
       // clipped overflow shouldn't generate any additional fragmentainers. Just
@@ -2809,17 +2833,19 @@ const LayoutResult* OutOfFlowLayoutPart::GenerateFragment(
       }
     }
   } else if (GetConstraintSpace().IsInitialColumnBalancingPass()) {
+    DCHECK(!RuntimeEnabledFeatures::FragmentedOofInCbEnabled());
     SetupSpaceBuilderForFragmentation(
         GetConstraintSpace(), node,
         GetConstraintSpace().FragmentainerOffset() + block_offset,
         GetConstraintSpace().FragmentainerBlockSize(),
         /*requires_content_before_breaking=*/false, &builder);
   }
-  ConstraintSpace space = builder.ToConstraintSpace();
 
-  if (is_repeatable)
-    return node.LayoutRepeatableRoot(space, break_token);
-  return node.Layout(space, break_token);
+  ConstraintSpace child_space = builder.ToConstraintSpace();
+  if (is_repeatable) {
+    return node.LayoutRepeatableRoot(child_space, break_token);
+  }
+  return node.Layout(child_space, break_token);
 }
 
 void OutOfFlowLayoutPart::LayoutOOFsInFragmentainer(

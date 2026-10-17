@@ -324,6 +324,9 @@ void InputMethodAsh::OnCaretBoundsChanged(const TextInputClient* client) {
     Bounds bounds;
     bounds.caret = caret_rect;
     bounds.autocorrect = client->GetAutocorrectCharacterBounds();
+    if (bounds.autocorrect.IsEmpty()) {
+      bounds.autocorrect = caret_rect;
+    }
     assistive_window->SetBounds(bounds);
   }
 
@@ -872,9 +875,14 @@ void InputMethodAsh::CommitText(
   // If we are not handling key event, do not bother sending text result if the
   // focused text input client does not support text input.
   if (!handling_key_event_ && !IsTextInputTypeNone()) {
+    const base::WeakPtr<TextInputClient> prev_client =
+        GetTextInputClient() ? GetTextInputClient()->AsWeakPtr() : nullptr;
     if (!SendFakeProcessKeyEvent(true)) {
-      GetTextInputClient()->InsertText(text, cursor_behavior);
-      typing_session_manager_.CommitCharacters(text.length());
+      TextInputClient* const client = GetTextInputClient();
+      if (client && client == prev_client.get()) {
+        client->InsertText(text, cursor_behavior);
+        typing_session_manager_.CommitCharacters(text.length());
+      }
     }
     SendFakeProcessKeyEvent(false);
     pending_commit_ = std::nullopt;
@@ -919,8 +927,13 @@ void InputMethodAsh::UpdateCompositionText(const CompositionText& text,
   if (!handling_key_event_) {
     // If we receive a composition text without pending key event, then we need
     // to send it to the focused text input client directly.
+    const base::WeakPtr<TextInputClient> prev_client =
+        GetTextInputClient() ? GetTextInputClient()->AsWeakPtr() : nullptr;
     if (!SendFakeProcessKeyEvent(true)) {
-      GetTextInputClient()->SetCompositionText(*pending_composition_);
+      TextInputClient* const client = GetTextInputClient();
+      if (client && client == prev_client.get() && pending_composition_) {
+        client->SetCompositionText(*pending_composition_);
+      }
     }
     SendFakeProcessKeyEvent(false);
     composition_changed_ = false;
@@ -938,10 +951,14 @@ void InputMethodAsh::HidePreeditText() {
   pending_composition_ = std::nullopt;
 
   if (!handling_key_event_) {
-    TextInputClient* client = GetTextInputClient();
-    if (client && client->HasCompositionText()) {
+    const base::WeakPtr<TextInputClient> prev_client =
+        GetTextInputClient() ? GetTextInputClient()->AsWeakPtr() : nullptr;
+    if (prev_client && prev_client->HasCompositionText()) {
       if (!SendFakeProcessKeyEvent(true)) {
-        client->ClearCompositionText();
+        TextInputClient* const client = GetTextInputClient();
+        if (client && client == prev_client.get()) {
+          client->ClearCompositionText();
+        }
       }
       SendFakeProcessKeyEvent(false);
     }
@@ -989,6 +1006,10 @@ void InputMethodAsh::SendKeyEvent(ui::KeyEvent* event) {
 }
 
 SurroundingTextInfo InputMethodAsh::GetSurroundingTextInfo() {
+  if (IsPasswordOrNoneInputFieldFocused()) {
+    return SurroundingTextInfo();
+  }
+
   gfx::Range text_range;
   SurroundingTextInfo info;
   TextInputClient* client = GetTextInputClient();

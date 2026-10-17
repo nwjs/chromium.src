@@ -6,9 +6,9 @@ package org.chromium.chrome.browser.share.qrcode;
 
 import static org.junit.Assert.assertEquals;
 
+import android.app.Activity;
 import android.view.View;
 
-import androidx.test.filters.MediumTest;
 import androidx.viewpager.widget.ViewPager;
 
 import com.google.android.material.tabs.TabLayout;
@@ -17,34 +17,29 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mockito;
+import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
 
-import org.chromium.base.test.BaseActivityTestRule;
-import org.chromium.base.test.util.Batch;
-import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.flags.ChromeSwitches;
-import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
+import org.chromium.ui.base.TestActivity;
 import org.chromium.ui.base.WindowAndroid;
-import org.chromium.ui.test.util.BlankUiTestActivity;
 
 import java.util.ArrayList;
 
 /** Tests for the {@link QrCodeDialog}. */
-@RunWith(ChromeJUnit4ClassRunner.class)
-@CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
-@Batch(Batch.UNIT_TESTS)
+@RunWith(BaseRobolectricTestRunner.class)
 public class QrCodeDialogTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
-    @Rule
-    public final BaseActivityTestRule<BlankUiTestActivity> mActivityTestRule =
-            new BaseActivityTestRule<>(BlankUiTestActivity.class);
+    @Mock private View mTabView;
 
-    public static class CustomQrCodeDialog extends QrCodeDialog {
-        public void setTabs(ArrayList<QrCodeDialogTab> tabs) {
+    private Activity mActivity;
+
+    private static class CustomQrCodeDialog extends QrCodeDialog {
+        private void setTabs(ArrayList<QrCodeDialogTab> tabs) {
             mTabs = tabs;
         }
 
@@ -52,7 +47,7 @@ public class QrCodeDialogTest {
         public void setWindowAndroid(WindowAndroid windowAndroid) {}
     }
 
-    public static class CustomQrCodeDialogTab implements QrCodeDialogTab {
+    private static class CustomQrCodeDialogTab implements QrCodeDialogTab {
         private final View mView;
         private final boolean mEnabled;
 
@@ -86,21 +81,17 @@ public class QrCodeDialogTest {
 
     @Before
     public void setUp() {
-        mActivityTestRule.setFinishActivity(true);
+        mActivity = Robolectric.buildActivity(TestActivity.class).setup().get();
     }
 
     @Test
-    @MediumTest
     public void testGetDialogView_disabledTabIsNotInDialog() {
-        mActivityTestRule.launchActivity(null);
-
         CustomQrCodeDialog qrCodeDialog = new CustomQrCodeDialog();
         ArrayList<QrCodeDialogTab> tabs = new ArrayList<>();
-        View tab = Mockito.mock(View.class);
-        tabs.add(new CustomQrCodeDialogTab(tab, false));
+        tabs.add(new CustomQrCodeDialogTab(mTabView, false));
         qrCodeDialog.setTabs(tabs);
 
-        View dialog = qrCodeDialog.getDialogView(mActivityTestRule.getActivity());
+        View dialog = qrCodeDialog.getDialogView(mActivity);
         ViewPager viewPager = dialog.findViewById(R.id.qrcode_view_pager);
         TabLayout tabLayout = dialog.findViewById(R.id.tab_layout);
 
@@ -113,17 +104,13 @@ public class QrCodeDialogTest {
     }
 
     @Test
-    @MediumTest
     public void testGetDialogView() {
-        mActivityTestRule.launchActivity(null);
-
         CustomQrCodeDialog qrCodeDialog = new CustomQrCodeDialog();
         ArrayList<QrCodeDialogTab> tabs = new ArrayList<>();
-        View tab = Mockito.mock(View.class);
-        tabs.add(new CustomQrCodeDialogTab(tab, true));
+        tabs.add(new CustomQrCodeDialogTab(mTabView, true));
         qrCodeDialog.setTabs(tabs);
 
-        View dialog = qrCodeDialog.getDialogView(mActivityTestRule.getActivity());
+        View dialog = qrCodeDialog.getDialogView(mActivity);
         ViewPager viewPager = dialog.findViewById(R.id.qrcode_view_pager);
         TabLayout tabLayout = dialog.findViewById(R.id.tab_layout);
 

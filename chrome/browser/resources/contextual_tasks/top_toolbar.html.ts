@@ -16,6 +16,7 @@ export function getHtml(this: TopToolbarElement) {
   <if expr="not is_android">
     ${this.isPermissionShowing_() ? html`
       <permission-dashboard
+          .delegate="${this.permissionChipDelegate_}"
           .dashboardState="${this.permissionDashboardState}">
       </permission-dashboard>
     ` : ''}
@@ -107,7 +108,6 @@ export function getHtml(this: TopToolbarElement) {
         .isAiPage="${this.isAiPage}"
         .isAimEligible="${this.isAimEligible}"
         .isCobrowseEligible="${this.isCobrowseEligible}"
-        .isHandshakeComplete="${this.isHandshakeComplete}"
         .contextualTasksEnableSpatialModelToolbarLayout="${this.contextualTasksEnableSpatialModelToolbarLayout_}"
         .contextualTasksEnableSpatialModelToolbarLayoutNewThreadInOverflow="${this.contextualTasksEnableSpatialModelToolbarLayoutNewThreadInOverflow_}"
         @pin-click="${this.onPinClick_}"

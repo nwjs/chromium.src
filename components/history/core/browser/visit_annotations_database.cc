@@ -7,8 +7,11 @@
 #include <algorithm>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
+#include "base/check.h"
+#include "base/containers/flat_map.h"
 #include "base/logging.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
@@ -186,6 +189,34 @@ ClusterVisit::InteractionState InteractionStateFromInt(int state) {
   return ClusterVisit::InteractionState::kDefault;
 }
 
+void ReadVisitContentAnnotations(
+    sql::Statement& statement,
+    VisitContentAnnotations* out_content_annotations) {
+  CHECK(out_content_annotations);
+  out_content_annotations->model_annotations.visibility_score =
+      static_cast<float>(statement.ColumnDouble(1));
+  out_content_annotations->model_annotations.categories =
+      VisitAnnotationsDatabase::GetCategoriesFromStringColumn(
+          statement.ColumnStringView(2));
+  out_content_annotations->model_annotations.page_topics_model_version =
+      statement.ColumnInt64(3);
+  out_content_annotations->annotation_flags = statement.ColumnInt64(4);
+  out_content_annotations->model_annotations.entities =
+      VisitAnnotationsDatabase::GetCategoriesFromStringColumn(
+          statement.ColumnStringView(5));
+  out_content_annotations->related_searches =
+      VisitAnnotationsDatabase::DeserializeFromStringColumn(
+          statement.ColumnStringView(6));
+  out_content_annotations->search_normalized_url =
+      GURL(statement.ColumnStringView(7));
+  out_content_annotations->search_terms = statement.ColumnString16(8);
+  out_content_annotations->alternative_title = statement.ColumnString(9);
+  out_content_annotations->page_language = statement.ColumnString(10);
+  out_content_annotations->password_state =
+      PasswordStateFromInt(statement.ColumnInt(11));
+  out_content_annotations->has_url_keyed_image = statement.ColumnBool(12);
+}
+
 }  // namespace
 
 VisitAnnotationsDatabase::VisitAnnotationsDatabase() = default;
@@ -327,11 +358,11 @@ void VisitAnnotationsDatabase::AddContextAnnotationsForVisit(
       ")VALUES(?,?,?,?,?,?,?,?,?,?,?,?)"));
   statement.BindInt64(0, visit_id);
   statement.BindInt64(1, ContextAnnotationsToFlags(visit_context_annotations));
-  statement.BindInt64(
-      2, visit_context_annotations.duration_since_last_visit.InMicroseconds());
+  statement.BindTimeDelta(2,
+                          visit_context_annotations.duration_since_last_visit);
   statement.BindInt(3, visit_context_annotations.page_end_reason);
-  statement.BindInt64(
-      4, visit_context_annotations.total_foreground_duration.InMicroseconds());
+  statement.BindTimeDelta(4,
+                          visit_context_annotations.total_foreground_duration);
   statement.BindInt(
       5, BrowserTypeToInt(visit_context_annotations.on_visit.browser_type));
   statement.BindInt(6, visit_context_annotations.on_visit.window_id.id());
@@ -409,11 +440,11 @@ void VisitAnnotationsDatabase::UpdateContextAnnotationsForVisit(
                                  "response_code=? "
                                  "WHERE visit_id=?"));
   statement.BindInt64(0, ContextAnnotationsToFlags(visit_context_annotations));
-  statement.BindInt64(
-      1, visit_context_annotations.duration_since_last_visit.InMicroseconds());
+  statement.BindTimeDelta(1,
+                          visit_context_annotations.duration_since_last_visit);
   statement.BindInt(2, visit_context_annotations.page_end_reason);
-  statement.BindInt64(
-      3, visit_context_annotations.total_foreground_duration.InMicroseconds());
+  statement.BindTimeDelta(3,
+                          visit_context_annotations.total_foreground_duration);
   statement.BindInt(
       4, BrowserTypeToInt(visit_context_annotations.on_visit.browser_type));
   statement.BindInt(5, visit_context_annotations.on_visit.window_id.id());
@@ -453,8 +484,8 @@ bool VisitAnnotationsDatabase::GetContextAnnotationsForVisit(
   // The `VisitID` in column 0 is intentionally ignored, as it's not part of
   // `VisitContextAnnotations`.
   *out_context_annotations = ConstructContextAnnotationsWithFlags(
-      statement.ColumnInt64(1), base::Microseconds(statement.ColumnInt64(2)),
-      statement.ColumnInt(3), base::Microseconds(statement.ColumnInt64(4)),
+      statement.ColumnInt64(1), statement.ColumnTimeDelta(2),
+      statement.ColumnInt(3), statement.ColumnTimeDelta(4),
       statement.ColumnInt(5),
       SessionID::FromSerializedValue(statement.ColumnInt(6)),
       SessionID::FromSerializedValue(statement.ColumnInt(7)),
@@ -474,31 +505,70 @@ bool VisitAnnotationsDatabase::GetContentAnnotationsForVisit(
                      "FROM content_annotations WHERE visit_id=?"));
   statement.BindInt64(0, visit_id);
 
-  if (!statement.Step())
+  if (!statement.Step()) {
     return false;
+  }
 
   VisitID received_visit_id = statement.ColumnInt64(0);
   DCHECK_EQ(visit_id, received_visit_id);
 
-  out_content_annotations->model_annotations.visibility_score =
-      static_cast<float>(statement.ColumnDouble(1));
-  out_content_annotations->model_annotations.categories =
-      GetCategoriesFromStringColumn(statement.ColumnStringView(2));
-  out_content_annotations->model_annotations.page_topics_model_version =
-      statement.ColumnInt64(3);
-  out_content_annotations->annotation_flags = statement.ColumnInt64(4);
-  out_content_annotations->model_annotations.entities =
-      GetCategoriesFromStringColumn(statement.ColumnStringView(5));
-  out_content_annotations->related_searches =
-      DeserializeFromStringColumn(statement.ColumnStringView(6));
-  out_content_annotations->search_normalized_url =
-      GURL(statement.ColumnStringView(7));
-  out_content_annotations->search_terms = statement.ColumnString16(8);
-  out_content_annotations->alternative_title = statement.ColumnString(9);
-  out_content_annotations->page_language = statement.ColumnString(10);
-  out_content_annotations->password_state =
-      PasswordStateFromInt(statement.ColumnInt(11));
-  out_content_annotations->has_url_keyed_image = statement.ColumnBool(12);
+  ReadVisitContentAnnotations(statement, out_content_annotations);
+  return true;
+}
+
+bool VisitAnnotationsDatabase::GetContentAnnotationsForVisits(
+    base::span<const VisitID> visit_ids,
+    base::flat_map<VisitID, VisitContentAnnotations>* content_annotations) {
+  CHECK(content_annotations);
+  content_annotations->clear();
+  if (visit_ids.empty()) {
+    return true;
+  }
+
+  std::vector<std::pair<VisitID, VisitContentAnnotations>> annotations;
+  annotations.reserve(visit_ids.size());
+
+  constexpr size_t kBatchSize = 250;
+
+  for (size_t chunk_start = 0; chunk_start < visit_ids.size();
+       chunk_start += kBatchSize) {
+    const size_t chunk_end =
+        std::min(chunk_start + kBatchSize, visit_ids.size());
+    const size_t chunk_size = chunk_end - chunk_start;
+
+    std::string sql = "SELECT" HISTORY_CONTENT_ANNOTATIONS_ROW_FIELDS
+                      "FROM content_annotations WHERE visit_id IN (";
+    sql.reserve(sql.size() + chunk_size * 2);
+    for (size_t j = 0; j < chunk_size; ++j) {
+      if (j > 0) {
+        sql.push_back(',');
+      }
+      sql.push_back('?');
+    }
+    sql.push_back(')');
+
+    sql::Statement statement(GetDB().GetUniqueStatement(sql));
+    if (!statement.is_valid()) {
+      return false;
+    }
+
+    for (size_t j = 0; j < chunk_size; ++j) {
+      statement.BindInt64(static_cast<int>(j), visit_ids[chunk_start + j]);
+    }
+
+    while (statement.Step()) {
+      VisitID visit_id = statement.ColumnInt64(0);
+      VisitContentAnnotations row_content_annotations;
+      ReadVisitContentAnnotations(statement, &row_content_annotations);
+      annotations.emplace_back(visit_id, std::move(row_content_annotations));
+    }
+
+    if (!statement.Succeeded()) {
+      return false;
+    }
+  }
+  *content_annotations =
+      base::flat_map<VisitID, VisitContentAnnotations>(std::move(annotations));
   return true;
 }
 

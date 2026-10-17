@@ -306,10 +306,6 @@ bool PageActionView::GetDeclaredVisible() const {
   return declared_visible_;
 }
 
-IconLabelBubbleView* PageActionView::GetIconLabelBubbleViewNotMigrated() {
-  NOTREACHED();
-}
-
 actions::ActionId PageActionView::GetActionId() const {
   return action_item_->GetActionId().value();
 }
@@ -719,6 +715,16 @@ SkColor PageActionView::GetBackgroundColor() const {
         *observation_.GetSource()->GetOverrideBackgroundColorId());
   }
   return IconLabelBubbleView::GetBackgroundColor();
+}
+
+SkColor PageActionView::GetForegroundColor() const {
+  if (observation_.IsObserving() &&
+      observation_.GetSource()->GetOverrideForegroundColorId().has_value() &&
+      GetColorProvider()) {
+    return GetColorProvider()->GetColor(
+        *observation_.GetSource()->GetOverrideForegroundColorId());
+  }
+  return IconLabelBubbleView::GetForegroundColor();
 }
 
 bool PageActionView::PaintedOnSolidBackground() const {

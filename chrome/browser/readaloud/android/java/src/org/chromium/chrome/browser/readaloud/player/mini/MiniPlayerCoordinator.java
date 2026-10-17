@@ -115,7 +115,7 @@ public class MiniPlayerCoordinator {
                     provider -> {
                         mMarginAdjuster = new ViewMarginAdjusterForSideUi(mLayout);
                         provider.addObserver(mMarginAdjuster);
-                        mMarginAdjuster.onSideUiSpecsChanged(provider.getCurrentSideUiSpecs());
+                        mMarginAdjuster.updateMarginsForSideUi(provider.getCurrentSideUiSpecs());
                     });
         }
 
@@ -141,8 +141,9 @@ public class MiniPlayerCoordinator {
 
     /**
      * Show the mini player if it isn't already showing.
+     *
      * @param animate True if the transition should be animated. If false, the mini player will
-     *         instantly appear.
+     *     instantly appear.
      */
     public void show(boolean animate) {
         mMediator.show(animate);
@@ -156,10 +157,8 @@ public class MiniPlayerCoordinator {
     /**
      * Dismiss the mini player.
      *
-     * @param animate True if the transition should be animated. If false, the mini
-     *                player will
-     *                instantly disappear (though web contents resizing may lag
-     *                behind).
+     * @param animate True if the transition should be animated. If false, the mini player will
+     *     instantly disappear (though web contents resizing may lag behind).
      */
     public void dismiss(boolean animate) {
         mMediator.dismiss(animate);

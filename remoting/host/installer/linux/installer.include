@@ -64,7 +64,7 @@ process_template() {
 
   # Process includes first
   local TMPLINCL
-  TMPINCL="$(process_template_includes "$TMPLIN")"
+  TMPLINCL="$(process_template_includes "$TMPLIN")"
 
   # Substitute templated variables from the environment.
   # 'tac' reverses the sort order to handle the situation where one variable
@@ -180,13 +180,6 @@ stage_install_common() {
   # directory.  However, these may be stale if the build config no longer
   # builds these files.  The build config should be obtained from gn rather than
   # guessed based on the presence of files.
-
-  # Privacy Sandbox Attestation
-  if [ -f "${OUTPUTDIR}/PrivacySandboxAttestationsPreloaded/manifest.json" ]; then
-    install -m 755 -d "${STAGEDIR}/${INSTALLDIR}/PrivacySandboxAttestationsPreloaded/"
-    install -m 644 "${OUTPUTDIR}/PrivacySandboxAttestationsPreloaded/manifest.json" "${STAGEDIR}/${INSTALLDIR}/PrivacySandboxAttestationsPreloaded/"
-    install -m 644 "${OUTPUTDIR}/PrivacySandboxAttestationsPreloaded/privacy-sandbox-attestations.dat" "${STAGEDIR}/${INSTALLDIR}/PrivacySandboxAttestationsPreloaded/"
-  fi
 
   # MEI Preload
   if [ -f "${OUTPUTDIR}/MEIPreload/manifest.json" ]; then

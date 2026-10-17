@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/containers/span.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
@@ -628,17 +629,6 @@ void PrintViewManagerBase::ScriptedPrint(mojom::ScriptedPrintParamsPtr params,
     return;
   }
 
-  content::RenderProcessHost* render_process_host =
-      render_frame_host.GetProcess();
-  if (params->is_scripted && render_frame_host.IsNestedWithinFencedFrame()) {
-    // The renderer should have checked and disallowed the request for fenced
-    // frames in ChromeClient. Ignore the request and mark it as bad if it
-    // didn't happen for some reason.
-    bad_message::ReceivedBadMessage(
-        render_process_host, bad_message::PVMB_SCRIPTED_PRINT_FENCED_FRAME);
-    std::move(callback).Run(nullptr);
-    return;
-  }
 #if BUILDFLAG(ENABLE_OOP_PRINTING)
   if (ShouldPrintJobOop() && !query_with_ui_client_id().has_value()) {
     // Renderer process has requested settings outside of the expected setup.
@@ -1181,13 +1171,17 @@ void PrintViewManagerBase::ContentAnalysisBeforePrintingDocument(
   scanning_data.printer_name =
       base::UTF16ToUTF8(print_job_->document()->settings().device_name());
 
+  // Create an immutable, browser-owned copy of the print data so a compromised
+  // renderer cannot mutate the backing shared memory while analysis is running.
+  auto safe_print_data =
+      base::MakeRefCounted<base::RefCountedBytes>(*print_data);
   auto on_verdict = base::BindOnce(
       &PrintViewManagerBase::CompletePrintDocumentAfterContentAnalysis,
-      weak_ptr_factory_.GetWeakPtr(), print_data, page_size, content_area,
+      weak_ptr_factory_.GetWeakPtr(), safe_print_data, page_size, content_area,
       offsets);
 
   enterprise_data_protection::PrintIfAllowedByPolicy(
-      print_data, web_contents()->GetOutermostWebContents(),
+      std::move(safe_print_data), web_contents()->GetOutermostWebContents(),
       std::move(scanning_data), std::move(on_verdict));
 }
 

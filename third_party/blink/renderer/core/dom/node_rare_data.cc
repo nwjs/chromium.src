@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/core/dom/node_rare_data.h"
 
+#include "third_party/blink/renderer/core/ad_tracker/display_ad_element_monitor.h"
 #include "third_party/blink/renderer/core/animation/element_animations.h"
 #include "third_party/blink/renderer/core/animation/scroll_timeline.h"
 #include "third_party/blink/renderer/core/css/container_query_data.h"
@@ -35,7 +36,6 @@
 #include "third_party/blink/renderer/core/html/custom/custom_element_definition.h"
 #include "third_party/blink/renderer/core/html/custom/custom_element_registry.h"
 #include "third_party/blink/renderer/core/html/custom/element_internals.h"
-#include "third_party/blink/renderer/core/html/display_ad_element_monitor.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/html/unbounded_event_data.h"
 #include "third_party/blink/renderer/core/html_names.h"
@@ -47,6 +47,7 @@
 #include "third_party/blink/renderer/core/resize_observer/resize_observation.h"
 #include "third_party/blink/renderer/core/resize_observer/resize_observer.h"
 #include "third_party/blink/renderer/core/style/content_data.h"
+#include "third_party/blink/renderer/platform/graphics/paint/float_clip_rect.h"
 #include "third_party/blink/renderer/platform/graphics/paint/tracked_element_data.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
@@ -809,6 +810,18 @@ RareDataUpdate<void> NodeRareData::SetCanvasTransform(
 
 void NodeRareData::ClearCanvasTransform() {
   SetFieldToNullIfExists(FieldId::kCanvasTransform);
+}
+
+const FloatClipRect* NodeRareData::GetCanvasClip() const {
+  return GetWrappedField<FloatClipRect>(FieldId::kCanvasClip);
+}
+
+RareDataUpdate<void> NodeRareData::SetCanvasClip(const FloatClipRect& clip) {
+  return SetWrappedField<FloatClipRect>(FieldId::kCanvasClip, clip);
+}
+
+void NodeRareData::ClearCanvasClip() {
+  SetFieldToNullIfExists(FieldId::kCanvasClip);
 }
 
 RareDataUpdate<void> NodeRareData::SetOverscrollContainer(Element* element) {

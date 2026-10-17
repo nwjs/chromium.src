@@ -23,9 +23,8 @@
 #include "net/cookies/canonical_cookie.h"
 #include "net/cookies/cookie_setting_override.h"
 #include "net/cookies/cookie_util.h"
-#include "net/first_party_sets/first_party_set_metadata.h"
 #include "services/network/public/cpp/session_cookie_delete_predicate.h"
-#include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 
 class GURL;
 
@@ -65,7 +64,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CookieSettings
 
   // Cannot be an opaque origin. Opaque origins will be ignored.
   void set_secure_origin_cookies_allowed_origins(
-      const std::vector<url::Origin>& secure_origin_cookies_allowed_origins);
+      std::vector<std::pair<url::Origin, std::vector<net::SchemefulSite>>>
+          secure_origin_cookies_allowed_origins);
 
   void set_matching_scheme_cookies_allowed_schemes(
       const std::vector<std::string>& matching_scheme_cookies_allowed_schemes) {
@@ -117,7 +117,6 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CookieSettings
       const GURL& url,
       const net::SiteForCookies& site_for_cookies,
       base::optional_ref<const url::Origin> top_frame_origin,
-      const net::FirstPartySetMetadata& first_party_set_metadata,
       net::CookieSettingOverrides overrides,
       net::CookieInclusionStatus* cookie_inclusion_status) const;
 
@@ -132,7 +131,6 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CookieSettings
       const GURL& url,
       const net::SiteForCookies& site_for_cookies,
       base::optional_ref<const url::Origin> top_frame_origin,
-      const net::FirstPartySetMetadata& first_party_set_metadata,
       net::CookieSettingOverrides overrides,
       net::CookieAccessResultList& maybe_included_cookies,
       net::CookieAccessResultList& excluded_cookies) const;
@@ -210,19 +208,22 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CookieSettings
       const net::CanonicalCookie& cookie,
       base::optional_ref<const url::Origin> top_frame_origin,
       const CookieSettings::CookieSettingWithMetadata& setting_with_metadata,
-      const net::FirstPartySetMetadata& first_party_set_metadata,
       net::CookieSettingOverrides overrides,
       net::CookieInclusionStatus& out_status) const;
 
   // Returns true if at least one content settings is session only.
   bool HasSessionOnlyOrigins() const;
 
+  bool HasSecureOriginException(const url::Origin& first_party_origin,
+                                const GURL& url) const;
+
   // Returns true if user blocks 3PC or 3PCD is on.
   bool block_third_party_cookies_ =
       net::cookie_util::IsForceThirdPartyCookieBlockingEnabled();
 
   std::set<std::string, std::less<>> secure_origin_cookies_allowed_schemes_;
-  absl::flat_hash_set<url::Origin> secure_origin_cookies_allowed_origins_;
+  absl::flat_hash_map<url::Origin, std::vector<net::SchemefulSite>>
+      secure_origin_cookies_allowed_origins_;
   std::set<std::string, std::less<>> matching_scheme_cookies_allowed_schemes_;
   std::set<std::string, std::less<>> third_party_cookies_allowed_schemes_;
 

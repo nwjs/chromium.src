@@ -15,7 +15,7 @@
 #include "base/trace_event/trace_event.h"
 #include "components/safe_browsing/core/browser/database_manager_mechanism.h"
 #include "components/safe_browsing/core/browser/db/database_manager.h"
-#include "components/safe_browsing/core/browser/db/v4_protocol_manager_util.h"
+#include "components/safe_browsing/core/browser/db/sb_protocol_manager_util.h"
 #include "components/safe_browsing/core/browser/hash_realtime_mechanism.h"
 #include "components/safe_browsing/core/browser/realtime/policy_engine.h"
 #include "components/safe_browsing/core/browser/realtime/url_lookup_service_base.h"
@@ -322,7 +322,10 @@ void SafeBrowsingUrlCheckerImpl::OnUrlResultInternalAndMaybeDeleteSelf(
 
     if (threat_type == SB_THREAT_TYPE_WARNABLE_SUSPICIOUS_SITE &&
         navigation_id_.has_value()) {
-      url_checker_delegate_->ShowSuspiciousSiteWarning(navigation_id_.value(),
+      UnsafeResource resource =
+          MakeUnsafeResource(url, threat_type, threat_source.value(),
+                             std::move(rt_lookup_response), performed_check);
+      url_checker_delegate_->ShowSuspiciousSiteWarning(resource,
                                                        web_contents_getter_);
     }
 

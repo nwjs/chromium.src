@@ -194,6 +194,7 @@
 				<string>promos_manager::Promo::BWGPromo</string>
 				<string>promos_manager::Promo::FullscreenSignin</string>
 				<string>promos_manager::Promo::WelcomeBack</string>
+				<string>promos_manager::Promo::EphemeralTheme</string>
 			</array>
 			<key>Titles</key>
 			<array>
@@ -210,6 +211,7 @@
 				<string>BWG Promo</string>
 				<string>Fullscreen sign-in</string>
 				<string>Welcome Back Promo</string>
+				<string>Ephemeral Theme</string>
 			</array>
 		</dict>
 		<dict>
@@ -484,6 +486,16 @@
 		</dict>
 		<dict>
 			<key>DefaultValue</key>
+			<false/>
+			<key>Key</key>
+			<string>ForceInactiveTabsUserEducation</string>
+			<key>Title</key>
+			<string>Force inactive tabs user education</string>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+		</dict>
+		<dict>
+			<key>DefaultValue</key>
 			<string></string>
 			<key>Key</key>
 			<string>AsyncStartupOverrideResponse</string>
@@ -731,6 +743,28 @@
 			<string>ShowBackendPromoDebugTools</string>
 			<key>DefaultValue</key>
 			<false/>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSMultiValueSpecifier</string>
+			<key>Title</key>
+			<string>Force Universal Opt-Out Eligibility</string>
+			<key>Key</key>
+			<string>UniversalOptOutEligibilityOverride</string>
+			<key>DefaultValue</key>
+			<integer>0</integer>
+			<key>Values</key>
+			<array>
+				<integer>0</integer>
+				<integer>1</integer>
+				<integer>2</integer>
+			</array>
+			<key>Titles</key>
+			<array>
+				<string>Default</string>
+				<string>Forced On</string>
+				<string>Forced Off</string>
+			</array>
 		</dict>
 		<dict>
 			<key>Type</key>

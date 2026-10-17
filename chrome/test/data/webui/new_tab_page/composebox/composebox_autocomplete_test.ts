@@ -37,6 +37,7 @@ suite('CrComposeboxAutocompleteContextTest', () => {
       url: 'https://example.com/1',
       showInCurrentTabChip: true,
       showInPreviousTabChip: false,
+      isLoading: false,
       lastActive: {internalValue: BigInt(1)},
     };
 
@@ -92,6 +93,7 @@ suite('CrComposeboxAutocompleteContextTest', () => {
           url: 'https://example.com/1',
           showInCurrentTabChip: true,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: BigInt(1)},
         };
 
@@ -133,14 +135,9 @@ suite('CrComposeboxAutocompleteContextTest', () => {
 
         // Delete the uploaded file.
         const deletedId = testProxy.element.$.carousel.files[1]!.uuid;
-        testProxy.element.$.carousel.dispatchEvent(
-            new CustomEvent('delete-file', {
-              detail: {
-                uuid: deletedId,
-              },
-              bubbles: true,
-              composed: true,
-            }));
+        testProxy.element.$.carousel.fire('delete-file', {
+          uuid: deletedId,
+        });
 
         await microtasksFinished();
 
@@ -164,6 +161,7 @@ suite('CrComposeboxAutocompleteContextTest', () => {
       url: 'https://example.com/1',
       showInCurrentTabChip: true,
       showInPreviousTabChip: false,
+      isLoading: false,
       lastActive: {internalValue: BigInt(1)},
     };
 
@@ -217,6 +215,7 @@ suite('CrComposeboxAutocompleteContextTest', () => {
           url: 'https://example.com/1',
           showInCurrentTabChip: true,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: BigInt(1)},
         };
 
@@ -226,6 +225,7 @@ suite('CrComposeboxAutocompleteContextTest', () => {
           url: 'https://example.com/1',
           showInCurrentTabChip: true,
           showInPreviousTabChip: false,
+          isLoading: false,
           lastActive: {internalValue: BigInt(1)},
         };
 

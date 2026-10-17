@@ -57,7 +57,8 @@ bool IsVerbatimMatchEligible(
 
 ZeroSuggestVerbatimMatchProvider::ZeroSuggestVerbatimMatchProvider(
     AutocompleteProviderClient* client)
-    : AutocompleteProvider(TYPE_VERBATIM_MATCH), client_(client) {}
+    : AutocompleteProvider(AutocompleteProvider::Type::kVerbatimMatch),
+      client_(client) {}
 
 ZeroSuggestVerbatimMatchProvider::~ZeroSuggestVerbatimMatchProvider() = default;
 
@@ -194,7 +195,7 @@ void ZeroSuggestVerbatimMatchProvider::CreateVerbatimMatch(
                                        &match.contents);
         match.contents = AutocompleteInput::SanitizeString(match.contents);
         // Upgrade Verbatim Match to a SEARCH_WHAT_YOU_TYPED.
-        match.type = AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED;
+        match.type = omnibox::AutocompleteMatchType::kSearchWhatYouTyped;
         match.keyword = dse->keyword();
         match.fill_into_edit = match.contents;
         if (match.description.empty() ||

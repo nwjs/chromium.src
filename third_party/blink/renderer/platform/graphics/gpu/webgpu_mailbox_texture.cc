@@ -5,9 +5,11 @@
 #include "third_party/blink/renderer/platform/graphics/gpu/webgpu_mailbox_texture.h"
 
 #include "base/numerics/safe_conversions.h"
+#include "base/trace_event/trace_event.h"
 #include "cc/paint/paint_image.h"
 #include "components/viz/common/resources/shared_image_format.h"
 #include "gpu/command_buffer/client/client_shared_image.h"
+#include "gpu/command_buffer/client/raster_interface.h"
 #include "gpu/command_buffer/client/webgpu_interface.h"
 #include "gpu/command_buffer/common/sync_token.h"
 #include "media/base/video_frame.h"
@@ -83,24 +85,45 @@ scoped_refptr<WebGPUMailboxTexture> WebGPUMailboxTexture::FromStaticBitmapImage(
     return nullptr;
   }
 
+  scoped_refptr<gpu::ClientSharedImage> dest_shared_image =
+      lease->shared_image();
+
   if (!is_dummy_mailbox_texture) {
     bool copy_success = false;
     if (image->IsTextureBacked()) {
       if (auto shared_image = image->GetSharedImage()) {
-        if (auto completion_sync_token = lease->CopyToBackingSharedImage(
-                std::move(shared_image), image_sub_rect.x(), image_sub_rect.y(),
-                image->GetSyncToken())) {
-          image->UpdateSyncToken(*completion_sync_token);
-          copy_success = true;
-        }
+        gfx::Rect copy_rect(image_sub_rect.x(), image_sub_rect.y(),
+                            mailbox_texture_width, mailbox_texture_height);
+        auto result = context_provider_wrapper->ContextProvider()
+                          .RasterInterface()
+                          ->CopySharedImage(
+                              shared_image, image->GetSyncToken(),
+                              dest_shared_image, lease->sync_token(),
+                              copy_rect, gfx::Point());
+        lease->SetSyncToken(result.dest_sync_token);
+        lease->SetCleared();
+        image->UpdateSyncToken(result.source_sync_token);
+        copy_success = true;
       }
     } else {
       PaintImage paint_image = image->PaintImageForCurrentFrame();
       if (sk_sp<SkImage> skia_image = paint_image.GetSwSkImage()) {
         SkPixmap pixmap;
-        if (skia_image->peekPixels(&pixmap)) {
-          copy_success = lease->UploadToBackingSharedImage(
-              pixmap, image_sub_rect.x(), image_sub_rect.y());
+        SkPixmap subset;
+        if (skia_image->peekPixels(&pixmap) &&
+            pixmap.extractSubset(
+                &subset, SkIRect::MakeXYWH(
+                             image_sub_rect.x(), image_sub_rect.y(),
+                             mailbox_texture_width, mailbox_texture_height))) {
+          TRACE_EVENT0("blink", "WebGPUMailboxTexture::FromStaticBitmapImage");
+          lease->SetSyncToken(context_provider_wrapper->ContextProvider()
+                                  .RasterInterface()
+                                  ->WritePixels(dest_shared_image,
+                                                lease->sync_token(),
+                                                /*dst_x_offset=*/0,
+                                                /*dst_y_offset=*/0, subset));
+          lease->SetCleared();
+          copy_success = true;
         }
       }
     }
@@ -109,27 +132,24 @@ scoped_refptr<WebGPUMailboxTexture> WebGPUMailboxTexture::FromStaticBitmapImage(
     }
   }
 
-  scoped_refptr<gpu::ClientSharedImage> shared_image = lease->GetSharedImage();
-  if (!shared_image) {
+  if (context_provider_wrapper->ContextProvider().IsContextLost()) {
     return nullptr;
   }
 
-  gpu::SyncToken sync_token = lease->GetSyncToken();
-
-  return WebGPUMailboxTexture::FromCanvasResource(
-      dawn_control_client, device, usage, std::move(shared_image), sync_token,
-      std::move(lease));
+  return WebGPUMailboxTexture::FromWebGpuSharedImageLease(
+      dawn_control_client, device, usage, std::move(lease));
 }
 
 // static
-scoped_refptr<WebGPUMailboxTexture> WebGPUMailboxTexture::FromCanvasResource(
+scoped_refptr<WebGPUMailboxTexture>
+WebGPUMailboxTexture::FromWebGpuSharedImageLease(
     scoped_refptr<DawnControlClientHolder> dawn_control_client,
     const wgpu::Device& device,
     wgpu::TextureUsage usage,
-    scoped_refptr<gpu::ClientSharedImage> shared_image,
-    const gpu::SyncToken& sync_token,
     std::unique_ptr<WebGpuSharedImageLease> lease) {
-  CHECK(shared_image);
+  CHECK(lease);
+  scoped_refptr<gpu::ClientSharedImage> shared_image = lease->shared_image();
+  gpu::SyncToken sync_token = lease->sync_token();
 
   gfx::Size size = shared_image->size();
 
@@ -147,9 +167,7 @@ scoped_refptr<WebGPUMailboxTexture> WebGPUMailboxTexture::FromCanvasResource(
         if (scoped_access) {
           sync_token = gpu::WebGPUTextureScopedAccess::EndAccess(
               std::move(scoped_access));
-        }
-        if (lease) {
-          lease->WaitSyncToken(sync_token);
+          lease->SetSyncToken(sync_token);
         }
         return sync_token;
       },

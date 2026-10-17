@@ -117,6 +117,7 @@ import org.chromium.content_public.browser.JavaScriptCallback;
 import org.chromium.content_public.browser.JavascriptInjector;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.MessagePayload;
+import org.chromium.content_public.browser.MessagePayloadType;
 import org.chromium.content_public.browser.MessagePort;
 import org.chromium.content_public.browser.NavigationController;
 import org.chromium.content_public.browser.NavigationHandle;
@@ -458,6 +459,7 @@ public class AwContents implements SmartClipProvider {
     private boolean mIsContentVisible;
     private boolean mIsUpdateVisibilityTaskPending;
     private final Runnable mUpdateVisibilityRunnable;
+    @Nullable private Runnable mInvalidateListener;
 
     private final SparseArray<WindowAndroid.IntentCallback> mOutstandingIntents =
             new SparseArray<>();
@@ -503,7 +505,7 @@ public class AwContents implements SmartClipProvider {
     // Must call AwContentsJni.get().updateLastHitTestData first to update this before use.
     private final HitTestData mPossiblyStaleHitTestData = new HitTestData();
 
-    private final DefaultVideoPosterRequestHandler mDefaultVideoPosterRequestHandler;
+    private final @Nullable DefaultVideoPosterRequestHandler mDefaultVideoPosterRequestHandler;
 
     // Bound method for supplying Picture instances to the AwContentsClient. Will be null if the
     // picture listener API has not yet been enabled, or if it is using invalidation-only mode.
@@ -708,11 +710,14 @@ public class AwContents implements SmartClipProvider {
             String url = request.getUrl();
             WebResourceResponseInfo webResourceResponseInfo;
             callback.setAwContentsClient(mContentsClient);
-            // Return the response directly if the url is default video poster url.
-            webResourceResponseInfo = mDefaultVideoPosterRequestHandler.shouldInterceptRequest(url);
-            if (webResourceResponseInfo != null) {
-                callback.intercept(webResourceResponseInfo);
-                return;
+            if (mDefaultVideoPosterRequestHandler != null) {
+                // Return the response directly if the url is default video poster url.
+                webResourceResponseInfo =
+                        mDefaultVideoPosterRequestHandler.shouldInterceptRequest(url);
+                if (webResourceResponseInfo != null) {
+                    callback.intercept(webResourceResponseInfo);
+                    return;
+                }
             }
 
             webResourceResponseInfo = mContentsClient.shouldInterceptRequest(request);
@@ -843,7 +848,7 @@ public class AwContents implements SmartClipProvider {
 
         @Override
         public void invalidate() {
-            mContainerView.postInvalidateOnAnimation();
+            postInvalidate(false);
         }
 
         @Override
@@ -1178,11 +1183,15 @@ public class AwContents implements SmartClipProvider {
                         gestureManager.updateMultiTouchZoomSupport(supportsMultiTouchZoom);
                     };
             mSettings.setZoomListener(zoomListener);
-            mDefaultVideoPosterRequestHandler =
-                    new DefaultVideoPosterRequestHandler(mContentsClient);
-            String defaultVideoPosterUrl =
-                    mDefaultVideoPosterRequestHandler.getDefaultVideoPosterUrl();
-            mSettings.setDefaultVideoPosterUrl(defaultVideoPosterUrl);
+            if (AwFeatureMap.isEnabled(AwFeatures.WEBVIEW_IGNORE_DEFAULT_VIDEO_POSTER)) {
+                mDefaultVideoPosterRequestHandler = null;
+            } else {
+                mDefaultVideoPosterRequestHandler =
+                        new DefaultVideoPosterRequestHandler(mContentsClient);
+                String defaultVideoPosterUrl =
+                        mDefaultVideoPosterRequestHandler.getDefaultVideoPosterUrl();
+                mSettings.setDefaultVideoPosterUrl(defaultVideoPosterUrl);
+            }
             mScrollOffsetManager =
                     dependencyFactory.createScrollOffsetManager(
                             new AwScrollOffsetManagerDelegate());
@@ -3650,6 +3659,17 @@ public class AwContents implements SmartClipProvider {
         // If the RenderFrameHost or the RenderFrame doesn't exist we couldn't post the message.
         if (mainFrame == null || !mainFrame.isRenderFrameLive()) return;
 
+        if (messagePayload.getType() == MessagePayloadType.SHARED_ARRAY_BUFFER) {
+            if (!mainFrame.isCrossOriginIsolated()) {
+                throw new IllegalStateException(
+                        "Cannot send SharedArrayBuffer to a frame that is not cross-origin"
+                                + " isolated. If this was"
+                                + " intended, consider allowing your origin with"
+                                + " `Profile#setCrossOriginIsolatedAllowlist()`, and add the"
+                                + " Document-Isolation-Policy header the page's response.");
+            }
+        }
+
         mWebContents.postMessageToMainFrame(messagePayload, null, targetOrigin, sentPorts);
     }
 
@@ -4332,8 +4352,33 @@ public class AwContents implements SmartClipProvider {
         mPossiblyStaleHitTestData.imgSrc = imgSrc;
     }
 
+    public boolean isAttachedToWindow() {
+        return mIsAttachedToWindow;
+    }
+
+    /**
+     * Sets a listener to be notified when an external surface (e.g. {@link AwWebSurface}) needs to
+     * redraw. This covers both native invalidations and View framework callbacks (like scroll or
+     * window attachment) that normally invalidate {@code mContainerView} directly.
+     */
+    public void setInvalidateListener(@Nullable Runnable listener) {
+        mInvalidateListener = listener;
+    }
+
+    public int getScrollX() {
+        return mContainerView.getScrollX();
+    }
+
+    public int getScrollY() {
+        return mContainerView.getScrollY();
+    }
+
     @CalledByNative
     private void postInvalidate(boolean insideVSync) {
+        if (mInvalidateListener != null) {
+            mInvalidateListener.run();
+            return;
+        }
         if (insideVSync) {
             mContainerView.invalidate();
         } else {
@@ -4946,6 +4991,10 @@ public class AwContents implements SmartClipProvider {
 
             recordIfAttachedToPopupWindow(mContainerView);
             recordComposeHierarchyDepth(mContainerView);
+
+            // AwWebSurface#draw is gated on isAttachedToWindow(), and won't see the View
+            // framework's draw pass for mContainerView.
+            postInvalidate(false);
         }
 
         @Override
@@ -5051,6 +5100,9 @@ public class AwContents implements SmartClipProvider {
             // classes and cannot be prevented, which is why we need the code below.
             mScrollAccessibilityHelper.removePostedViewScrolledAccessibilityEventCallback();
             mScrollOffsetManager.onContainerViewScrollChanged(l, t);
+            // View#scrollTo invalidates mContainerView directly in the framework without calling
+            // postInvalidate, so ensure the surface is invalidated as well.
+            postInvalidate(false);
         }
 
         @Override

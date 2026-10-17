@@ -20,6 +20,8 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/string_split.h"
+#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/default_clock.h"
 #include "base/time/time.h"
@@ -35,21 +37,12 @@
 #include "chrome/browser/signin/account_preview_data_service_factory.h"
 #include "chrome/browser/signin/chrome_signin_pref_names.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/signin/signin_ui_util.h"
 #include "chrome/browser/supervised_user/supervised_user_url_filtering_service_factory.h"
 #include "chrome/browser/sync/device_info_sync_service_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
-#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
-#include "chrome/browser/ui/chrome_pages.h"
-#include "chrome/browser/ui/hats/hats_service.h"
-#include "chrome/browser/ui/hats/hats_service_factory.h"
-#include "chrome/browser/ui/hats/survey_config.h"
 #include "chrome/browser/ui/profiles/profile_view_utils.h"
 #include "chrome/browser/ui/url_identity.h"
 #include "chrome/browser/ui/webui/favicon_source.h"
-#include "chrome/browser/ui/webui/signin/signin_utils.h"
-#include "chrome/browser/ui/webui/top_chrome/top_chrome_web_ui_controller.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/glic_enums.mojom.h"
@@ -89,6 +82,26 @@
 #include "ui/base/l10n/time_format.h"
 #include "ui/webui/resources/cr_components/history/history.mojom.h"
 
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/signin/signin_ui_util.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/chrome_pages.h"
+#include "chrome/browser/ui/hats/hats_service.h"
+#include "chrome/browser/ui/hats/hats_service_factory.h"
+#include "chrome/browser/ui/hats/survey_config.h"
+#include "chrome/browser/ui/webui/signin/signin_utils.h"
+#include "chrome/browser/ui/webui/top_chrome/top_chrome_web_ui_controller.h"  // nogncheck
+#endif
+
+#if BUILDFLAG(IS_ANDROID)
+#include "base/android/jni_android.h"
+#include "ui/android/window_android.h"
+
+// Must come after all headers that specialize FromJniType() / ToJniType().
+#include "chrome/browser/settings/jni_headers/SettingsNavigationFactory_jni.h"
+#endif
+
 using bookmarks::BookmarkModel;
 using history::BrowsingHistoryService;
 using history::HistoryService;
@@ -96,7 +109,7 @@ using history::WebHistoryService;
 
 namespace {
 
-#if !BUILDFLAG(IS_CHROMEOS)
+#if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
 constexpr int kHistorySyncPromoShownThreshold = 5;
 constexpr base::TimeDelta kHistorySyncPromoCooldown = base::Days(7);
 
@@ -374,11 +387,13 @@ history::mojom::HistoryEntryPtr HistoryEntryToMojom(
 }
 
 history::mojom::CriticalActionPtr CriticalActionToMojom(
-    const critical_actions::CriticalActionEntry& action) {
+    const critical_actions::CriticalActionEntry& action,
+    const GURL& page_url) {
   auto action_mojom = history::mojom::CriticalAction::New();
   action_mojom->id = action.critical_action_id;
   action_mojom->linkout_url =
-      critical_actions::GetCriticalActionLinkoutUrl(action);
+      critical_actions::GetCriticalActionLinkoutUrl(action.action_type,
+                                                    page_url);
   action_mojom->label = action.GetLabel();
   action_mojom->tooltip = action.GetTooltip();
   action_mojom->action_type =
@@ -445,10 +460,12 @@ BrowsingHistoryHandler::BrowsingHistoryHandler(
 
 BrowsingHistoryHandler::~BrowsingHistoryHandler() = default;
 
+#if !BUILDFLAG(IS_ANDROID)
 void BrowsingHistoryHandler::SetSidePanelUIEmbedder(
     base::WeakPtr<TopChromeWebUIController::Embedder> side_panel_embedder) {
   side_panel_embedder_ = side_panel_embedder;
 }
+#endif
 
 void BrowsingHistoryHandler::SetPage(
     mojo::PendingRemote<history::mojom::Page> pending_page) {
@@ -459,6 +476,7 @@ void BrowsingHistoryHandler::SetPage(
   }
   deferred_callbacks_.clear();
 
+#if !BUILDFLAG(IS_ANDROID)
   HatsService* hats_service =
       HatsServiceFactory::GetForProfile(profile_,
                                         /* create_if_necessary = */ true);
@@ -497,12 +515,15 @@ void BrowsingHistoryHandler::SetPage(
             .Get()
             .InMilliseconds());
   }
+#endif
 }
 
 void BrowsingHistoryHandler::ShowSidePanelUI() {
+#if !BUILDFLAG(IS_ANDROID)
   if (side_panel_embedder_) {
     side_panel_embedder_->ShowUI();
   }
+#endif
 }
 
 void BrowsingHistoryHandler::StartQueryHistory() {
@@ -557,21 +578,43 @@ void BrowsingHistoryHandler::SendHistoryQuery(
   options.duplicate_policy = history::QueryOptions::REMOVE_DUPLICATES_PER_DAY;
   options.include_actor_visits = include_actor_visits;
   options.include_user_visits = include_user_visits;
-  std::string query_without_prefix = query;
-
+  std::string text_query;
   const std::string kHostPrefix = "host:";
-  if (query.rfind(kHostPrefix, 0) == 0) {
-    options.host_only = true;
-    query_without_prefix = query.substr(kHostPrefix.length());
+
+  if (base::FeatureList::IsEnabled(
+          history::kBrowsingHistoryImprovedHostnameSuffixMatching)) {
+    // New logic: Tokenize, extract any "host:<domain>" token, rejoin remainder.
+    std::vector<std::string_view> tokens = base::SplitStringPiece(
+        query, " ", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
+    std::vector<std::string_view> other_tokens;
+    for (std::string_view token : tokens) {
+      if (options.hostname_suffix.empty() && token.starts_with(kHostPrefix)) {
+        options.hostname_suffix =
+            std::string(token.substr(kHostPrefix.length()));
+      } else {
+        other_tokens.push_back(token);
+      }
+    }
+    text_query = base::JoinString(other_tokens, " ");
+  } else {
+    // Legacy logic: Only match "host:" at index 0; treat entire rest as host.
+    if (query.starts_with(kHostPrefix)) {
+      options.hostname_suffix = query.substr(kHostPrefix.length());
+      text_query.clear();
+    } else {
+      text_query = query;
+    }
   }
+
+  query_hostname_suffix_ = options.hostname_suffix;
 
   if (begin_timestamp.has_value()) {
     options.begin_time =
         base::Time::FromMillisecondsSinceUnixEpoch(begin_timestamp.value());
   }
 
-  browsing_history_service_->QueryHistory(
-      base::UTF8ToUTF16(query_without_prefix), options);
+  browsing_history_service_->QueryHistory(base::UTF8ToUTF16(text_query),
+                                          options);
 }
 
 void BrowsingHistoryHandler::QueryHistoryContinuation(
@@ -618,29 +661,67 @@ void BrowsingHistoryHandler::RemoveVisits(
 }
 
 void BrowsingHistoryHandler::OpenClearBrowsingDataDialog() {
-  // TODO(beng): This is an improper direct dependency on Browser. Route this
-  // through some sort of delegate.
-  BrowserWindowInterface* browser =
-      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(web_contents_);
-  chrome::ShowClearBrowsingDataDialog(browser);
-}
-
-void BrowsingHistoryHandler::TurnOnHistorySync() {
-#if !BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_ANDROID)
+  ui::WindowAndroid* window =
+      web_contents_ ? web_contents_->GetTopLevelNativeWindow() : nullptr;
+  if (window) {
+    Java_SettingsNavigationFactory_showClearBrowsingData(
+        base::android::AttachCurrentThread(), window->GetJavaObject());
+  } else {
+    DLOG(WARNING)
+        << "Cannot open Clear Browsing Data: TopLevelNativeWindow is null";
+  }
+#else
   BrowserWindowInterface* browser =
       GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(web_contents_);
   if (browser) {
-    signin_ui_util::SignInAndEnableHistorySync(
-        browser, profile_, signin_metrics::AccessPoint::kRecentTabs);
+    chrome::ShowClearBrowsingDataDialog(browser);
+  }
+#endif
+}
+
+void BrowsingHistoryHandler::TurnOnHistorySync(
+    history::mojom::AccessPoint access_point) {
+#if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(web_contents_);
+  if (browser) {
+    signin_metrics::AccessPoint signin_access_point;
+    switch (access_point) {
+      case history::mojom::AccessPoint::kRecentTabs:
+        signin_access_point = signin_metrics::AccessPoint::kRecentTabs;
+        break;
+      case history::mojom::AccessPoint::kHistoryPage:
+        signin_access_point = signin_metrics::AccessPoint::kHistoryPage;
+        break;
+    }
+    signin_ui_util::SignInAndEnableHistorySync(browser, profile_,
+                                               signin_access_point);
   }
 #else
-  // This is not expected to be called on ChromeOS as the screen that uses this
-  // function is never shown for ChromeOS (using <if expr="not is_chromeos">).
+  // This is not expected to be called on Android or ChromeOS as history sync
+  // promos are disabled on those platforms.
   NOTREACHED();
 #endif
 }
 
-#if !BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_ANDROID)
+// On Android, history sync promos are not shown in History WebUI.
+// However, history.mojom and the frontend templates guard these calls with
+// !is_chromeos rather than desktop-only flags. Because Android is not ChromeOS,
+// omitting them from C++ would break the Mojo interface and crash WebUI
+// initialization. Returning false from ShouldShowHistoryPageHistorySyncPromo()
+// suppresses the promo cleanly without adding !is_android conditionals across
+// shared WebUI resources.
+void BrowsingHistoryHandler::ShouldShowHistoryPageHistorySyncPromo(
+    ShouldShowHistoryPageHistorySyncPromoCallback callback) {
+  std::move(callback).Run(false);
+}
+
+void BrowsingHistoryHandler::RecordHistoryPageHistorySyncPromoDismissed() {}
+
+void BrowsingHistoryHandler::IncrementHistoryPageHistorySyncPromoShownCount() {}
+#elif !BUILDFLAG(IS_CHROMEOS)
 void BrowsingHistoryHandler::ShouldShowHistoryPageHistorySyncPromo(
     ShouldShowHistoryPageHistorySyncPromoCallback callback) {
   const int promo_shown_count = GetHistoryPageHistorySyncPromoShownCount();
@@ -868,25 +949,27 @@ void BrowsingHistoryHandler::HandleQueryResults(
 
   DCHECK(tracker);
 
-  absl::flat_hash_map<history::VisitID,
-                      std::vector<history::mojom::CriticalActionPtr>>
-      actions_by_visit_id;
-
   // Deduplicate actions belonging to the same task and visit.
   // 5 seconds is chosen as a safe heuristic upper bound to accommodate
   // potential latency delays between the Actor and Chrome side logs
   // of the same event, while being small enough to avoid merging separate
   // events.
+  // `processed_actions` owns the entries; `actions_by_visit_id` below borrows
+  // them so that conversion can happen in the per-entry loop, where the
+  // visit's URL is available to resolve the linkout destination.
   std::vector<critical_actions::CriticalActionEntry> processed_actions =
       DeduplicateCriticalActions(critical_actions, base::Seconds(5));
+
+  absl::flat_hash_map<history::VisitID,
+                      std::vector<const critical_actions::CriticalActionEntry*>>
+      actions_by_visit_id;
 
   for (const auto& action : processed_actions) {
     if (action.visit_id == history::kInvalidVisitID ||
         action.action_type == critical_actions::ActionType::kUnknown) {
       continue;
     }
-    actions_by_visit_id[action.visit_id].push_back(
-        CriticalActionToMojom(action));
+    actions_by_visit_id[action.visit_id].push_back(&action);
   }
 
   std::vector<history::mojom::HistoryEntryPtr> results_mojom;
@@ -900,8 +983,10 @@ void BrowsingHistoryHandler::HandleQueryResults(
       for (history::VisitID visit_id : entry.all_visit_ids) {
         auto it = actions_by_visit_id.find(visit_id);
         if (it != actions_by_visit_id.end()) {
-          for (auto& action : it->second) {
-            entry_mojom->critical_actions.push_back(std::move(action));
+          for (const critical_actions::CriticalActionEntry* action :
+               it->second) {
+            entry_mojom->critical_actions.push_back(
+                CriticalActionToMojom(*action, entry.url));
           }
         }
       }
@@ -915,7 +1000,11 @@ void BrowsingHistoryHandler::HandleQueryResults(
   auto results_info = history::mojom::HistoryQuery::New();
   // The items which are to be written into results_info_ are also
   // described in ui/webui/resources/cr_components/history/history.mojom.
-  results_info->term = base::UTF16ToUTF8(query_results_info.search_text);
+  // For host-only queries (`search_text` empty), fall back to
+  // `query_hostname_suffix_` so the frontend detects search mode.
+  results_info->term = !query_results_info.search_text.empty()
+                           ? base::UTF16ToUTF8(query_results_info.search_text)
+                           : query_hostname_suffix_;
   results_info->finished = query_results_info.reached_beginning;
 
   auto final_results = history::mojom::QueryResult::New();
@@ -966,7 +1055,11 @@ Profile* BrowsingHistoryHandler::GetProfile() {
 
 void BrowsingHistoryHandler::RequestAccountInfo(
     RequestAccountInfoCallback callback) {
-#if !BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_ANDROID)
+  // Sign-in and sync promo cards are disabled on Android History WebUI; return
+  // an empty AccountInfo without observing IdentityManager for promo updates.
+  std::move(callback).Run(history::mojom::AccountInfo::New());
+#elif !BUILDFLAG(IS_CHROMEOS)
   AccountInfo account_info = signin_ui_util::GetSingleAccountForPromos(
       &identity_manager_.get(),
       AccountPreviewDataServiceFactory::GetForProfile(profile_));
@@ -984,7 +1077,11 @@ void BrowsingHistoryHandler::RequestAccountInfo(
 
 void BrowsingHistoryHandler::OnExtendedAccountInfoUpdated(
     const AccountInfo& info) {
-#if !BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_ANDROID)
+  // Promos are disabled on Android History WebUI, so account updates are
+  // ignored.
+  return;
+#elif !BUILDFLAG(IS_CHROMEOS)
   AccountInfo account_to_display = signin_ui_util::GetSingleAccountForPromos(
       &identity_manager_.get(),
       AccountPreviewDataServiceFactory::GetForProfile(profile_));

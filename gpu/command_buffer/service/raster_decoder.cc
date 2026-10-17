@@ -847,7 +847,8 @@ class RasterDecoderImpl final : public RasterDecoder,
   };
 
   // A table of CommandInfo for all the commands.
-  static const CommandInfo command_info[kNumCommands - kFirstRasterCommand];
+  static const std::array<CommandInfo, kNumCommands - kFirstRasterCommand>
+      command_info;
 
   const int raster_decoder_id_;
 
@@ -924,7 +925,9 @@ class RasterDecoderImpl final : public RasterDecoder,
   base::WeakPtrFactory<DecoderContext> weak_ptr_factory_{this};
 };
 
-constexpr RasterDecoderImpl::CommandInfo RasterDecoderImpl::command_info[] = {
+constexpr std::array<RasterDecoderImpl::CommandInfo,
+                     kNumCommands - kFirstRasterCommand>
+    RasterDecoderImpl::command_info = {{
 #define RASTER_CMD_OP(name)                                \
   {                                                        \
       &RasterDecoderImpl::Handle##name,                    \
@@ -932,9 +935,9 @@ constexpr RasterDecoderImpl::CommandInfo RasterDecoderImpl::command_info[] = {
       cmds::name::cmd_flags,                               \
       sizeof(cmds::name) / sizeof(CommandBufferEntry) - 1, \
   }, /* NOLINT */
-    RASTER_COMMAND_LIST(RASTER_CMD_OP)
+        RASTER_COMMAND_LIST(RASTER_CMD_OP)
 #undef RASTER_CMD_OP
-};
+    }};
 
 // static
 std::unique_ptr<RasterDecoder> RasterDecoder::Create(
@@ -1198,15 +1201,9 @@ Capabilities RasterDecoderImpl::GetCapabilities() {
               wgpu::FeatureName::MultiPlanarRenderTargets);
     }
 #endif
-    caps.supports_rgb_to_yuv_conversion = supports_multiplanar_rendering;
     caps.supports_yuv_readback = supports_multiplanar_rendering;
   } else {
-    caps.supports_rgb_to_yuv_conversion = true;
     caps.supports_yuv_readback = true;
-  }
-
-  if (feature_info()->workarounds().disable_rgb_to_yuv_conversion) {
-    caps.supports_rgb_to_yuv_conversion = false;
   }
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -1483,8 +1480,8 @@ error::Error RasterDecoderImpl::DoCommandsImpl(unsigned int num_commands,
 
     const unsigned int arg_count = size - 1;
     unsigned int command_index = command - kFirstRasterCommand;
-    if (command_index < std::size(command_info)) {
-      const CommandInfo& info = UNSAFE_TODO(command_info[command_index]);
+    if (command_index < command_info.size()) {
+      const CommandInfo& info = command_info[command_index];
       if (sk_surface_) {
         if (!AllowedBetweenBeginEndRaster(command)) {
           LOCAL_SET_GL_ERROR(
@@ -2016,8 +2013,7 @@ void RasterDecoderImpl::DoWritePixelsINTERNAL(GLint x_offset,
           return;
         }
       }
-      dest_shared_image->SetClearedRect(
-          gfx::Rect(src_info.width(), src_info.height()));
+      dest_shared_image->SetCleared();
     }
     return;
   }
@@ -2080,8 +2076,11 @@ void RasterDecoderImpl::DoWritePixelsINTERNAL(GLint x_offset,
         return;
       }
     }
-    dest_shared_image->SetClearedRect(
-        gfx::Rect(x_offset, y_offset, src_width, src_height));
+
+    if (gfx::Rect(x_offset, y_offset, src_width, src_height)
+            .Contains(gfx::Rect(dest_shared_image->size()))) {
+      dest_shared_image->SetCleared();
+    }
   }
 }
 
@@ -2764,7 +2763,7 @@ class TransferCacheDeserializeHelperImpl final
   ~TransferCacheDeserializeHelperImpl() override = default;
 
   void CreateLocalEntry(
-      uint32_t id,
+      uint64_t id,
       std::unique_ptr<cc::ServiceTransferCacheEntry> entry) override {
     auto type = entry->Type();
     transfer_cache_->CreateLocalEntry(
@@ -2775,7 +2774,7 @@ class TransferCacheDeserializeHelperImpl final
  private:
   cc::ServiceTransferCacheEntry* GetEntryInternal(
       cc::TransferCacheEntryType entry_type,
-      uint32_t entry_id) override {
+      uint64_t entry_id) override {
     return transfer_cache_->GetEntry(ServiceTransferCache::EntryKey(
         raster_decoder_id_, entry_type, entry_id));
   }
@@ -3004,16 +3003,16 @@ void RasterDecoderImpl::DoRasterCHROMIUM(GLuint raster_shm_id,
   }
   DCHECK(transfer_cache());
 
-  auto paint_buffer_opt =
-      GetSharedMemoryAsSpan(raster_shm_id, raster_shm_offset, raster_shm_size);
+  auto paint_buffer_opt = GetSharedMemoryAsSpan<volatile uint8_t>(
+      raster_shm_id, raster_shm_offset, raster_shm_size);
   if (paint_buffer_opt.value_or({}).empty()) {
     LOCAL_SET_GL_ERROR(GL_INVALID_VALUE, "glRasterCHROMIUM",
                        "Can not read paint buffer.");
     return;
   }
-  base::span<uint8_t> paint_buffer = *paint_buffer_opt;
+  base::span<volatile uint8_t> paint_buffer = *paint_buffer_opt;
 
-  if (!base::IsAligned(paint_buffer.data(), 16u)) {
+  if (!base::IsAligned(reinterpret_cast<uintptr_t>(paint_buffer.data()), 16u)) {
     LOCAL_SET_GL_ERROR(GL_INVALID_VALUE, "glRasterCHROMIUM",
                        "Buffer is not aligned with 16 bytes.");
     return;

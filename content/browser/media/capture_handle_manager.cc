@@ -163,7 +163,7 @@ CaptureHandleManager::Observer::Create(
     GlobalRenderFrameHostId captured,
     GlobalRenderFrameHostId capturer,
     DeviceCaptureHandleChangeCallback handle_change_callback) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
 
   auto* const capturer_rfhi = RenderFrameHostImpl::FromID(capturer);
   if (!capturer_rfhi || !capturer_rfhi->IsActive()) {
@@ -195,15 +195,15 @@ CaptureHandleManager::Observer::Observer(
       capture_key_(capture_key),
       capturer_(capturer),
       handle_change_callback_(std::move(handle_change_callback)) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  DCHECK(handle_change_callback_);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
+  CHECK(handle_change_callback_, base::NotFatalUntil::M160);
 }
 
 CaptureHandleManager::Observer::~Observer() = default;
 
 void CaptureHandleManager::Observer::OnCaptureHandleConfigUpdate(
     const blink::mojom::CaptureHandleConfig& config) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
 
   auto* const capturer_rfhi = RenderFrameHostImpl::FromID(capturer_);
   if (!capturer_rfhi || !capturer_rfhi->IsActive()) {
@@ -217,7 +217,7 @@ void CaptureHandleManager::Observer::OnCaptureHandleConfigUpdate(
 }
 
 void CaptureHandleManager::Observer::UpdateCaptureHandleConfig() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
   auto* wc = web_contents();
   if (wc) {
     OnCaptureHandleConfigUpdate(wc->GetPrimaryPage().GetCaptureHandleConfig());
@@ -235,11 +235,12 @@ CaptureHandleManager::CaptureInfo::CaptureInfo(
 CaptureHandleManager::CaptureInfo::~CaptureInfo() = default;
 
 CaptureHandleManager::CaptureHandleManager() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
 }
 
 CaptureHandleManager::~CaptureHandleManager() {
-  DCHECK(!BrowserThread::IsThreadInitialized(BrowserThread::IO));
+  CHECK(!BrowserThread::IsThreadInitialized(BrowserThread::IO),
+        base::NotFatalUntil::M160);
 }
 
 void CaptureHandleManager::OnCaptureStarted(
@@ -247,7 +248,7 @@ void CaptureHandleManager::OnCaptureStarted(
     const blink::MediaStreamDevice& captured_device,
     GlobalRenderFrameHostId capturer,
     DeviceCaptureHandleChangeCallback handle_change_callback) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
 
   std::optional<GlobalRenderFrameHostId> captured =
       GetCapturedFrameHostId(captured_device.id);
@@ -292,7 +293,7 @@ void CaptureHandleManager::OnCaptureStarted(
 void CaptureHandleManager::OnCaptureStopped(
     const std::string& label,
     const blink::MediaStreamDevice& captured_device) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
 
   captures_.erase({label, captured_device.type});
 }
@@ -302,9 +303,10 @@ void CaptureHandleManager::OnCaptureDevicesUpdated(
     blink::mojom::StreamDevicesSetPtr new_stream_devices_set,
     GlobalRenderFrameHostId capturer,
     DeviceCaptureHandleChangeCallback handle_change_callback) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  DCHECK(new_stream_devices_set);
-  DCHECK_EQ(1u, new_stream_devices_set->stream_devices.size());
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
+  CHECK(new_stream_devices_set, base::NotFatalUntil::M160);
+  CHECK_EQ(1u, new_stream_devices_set->stream_devices.size(),
+           base::NotFatalUntil::M160);
 
   // Pause tracking of all old devices.
   for (auto& capture : captures_) {
@@ -339,7 +341,7 @@ void CaptureHandleManager::OnCaptureHandleConfigUpdate(
     const std::string& label,
     blink::mojom::MediaStreamType type,
     media::mojom::CaptureHandlePtr capture_handle) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
 
   auto iter = captures_.find({label, type});
   if (iter == captures_.end()) {

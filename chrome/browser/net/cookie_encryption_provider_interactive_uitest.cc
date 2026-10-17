@@ -8,6 +8,7 @@
 
 #include "base/functional/callback.h"
 #include "base/process/process_info.h"
+#include "base/sanitizer_buildflags.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"

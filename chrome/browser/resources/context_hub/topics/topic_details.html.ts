@@ -10,6 +10,7 @@ export function getHtml(this: TopicDetailsElement) {
   // clang-format off
   return html`<!--_html_template_start_-->
 <div class="details-wrapper" @scroll="${this.onScroll_}">
+${this.topic ? html`
   <!-- 1. Background Image (Layer 1: moves behind title on scroll) -->
   <div class="hero-banner" style="--banner-bg: ${this.getBackgroundColor_()};">
     <svg class="hero-pattern-svg" width="100%" height="100%"
@@ -21,11 +22,9 @@ export function getHtml(this: TopicDetailsElement) {
             <path class="hero-pattern-shape"
                 d="${this.getBadgePath_()}"></path>
           </g>
-          ${!this.getIcon_().includes(':') ? html`
-            <text x="32" y="34" font-size="22" text-anchor="middle"
-                dominant-baseline="central">
-              ${this.getIcon_()}
-            </text>` : ''}
+          <text class="hero-pattern-icon" x="32" y="34" font-size="22"
+              text-anchor="middle" dominant-baseline="central">${
+              this.getTextIcon_()}</text>
         </pattern>
       </defs>
       <rect width="100%" height="100%" fill="url(#topic-grid-pattern)" />
@@ -36,7 +35,14 @@ export function getHtml(this: TopicDetailsElement) {
   <!-- 2. Sticky Header (Layer 3: sticks at top with fixed opaqueness) -->
   <div class="sticky-header ${this.isScrolled_ ? 'scrolled' : ''}">
     <div class="title-row">
-      <h1 class="topic-title">${this.topic?.title}</h1>
+      <h1 class="topic-title">${this.topic.title}</h1>
+      <!-- TODO(crbug.com/558572977): Use internationalized strings once GRD -->
+      <!-- strings are added. -->
+      <cr-button class="tonal-button"
+          ?hidden="${!this.hasRelatedUrls_()}"
+          @click="${this.onOpenRelatedTabsClick_}">
+        Open related tabs
+      </cr-button>
     </div>
     <div class="tabs-bar" role="tablist">
       <button class="tab-item active" role="tab" aria-selected="true"
@@ -52,6 +58,14 @@ export function getHtml(this: TopicDetailsElement) {
       aria-labelledby="summary-tab">
     <p class="long-description">${this.getLongDescription_()}</p>
   </div>
+` : ''}
+${this.notFound_ ? html`
+  <!-- TODO(crbug.com/558572977): Use internationalized strings once GRD -->
+  <!-- strings are added. -->
+  <p class="not-found-message" role="status">
+    This topic is no longer available.
+  </p>
+` : ''}
 </div>
 <!--_html_template_end_-->`;
   // clang-format on

@@ -4,10 +4,12 @@
 
 import 'chrome://organizer-panel.top-chrome/organizer_panel.js';
 
-import {INITIAL_ITEM_COUNT, SearchApiProxyImpl} from 'chrome://organizer-panel.top-chrome/organizer_panel.js';
-import type {OrganizerListSectionElement, OrganizerListSectionItem} from 'chrome://organizer-panel.top-chrome/organizer_panel.js';
-import type {CrExpandButtonElement} from 'chrome://resources/cr_elements/cr_expand_button/cr_expand_button.js';
+import {INITIAL_ITEM_COUNT, organizerPanelBrowserProxyFactory, OrganizerPanelPageHandlerRemote, SearchApiProxyImpl} from 'chrome://organizer-panel.top-chrome/organizer_panel.js';
+import type {OrganizerListSectionElement, OrganizerListSectionItem, OrganizerListSectionItemElement} from 'chrome://organizer-panel.top-chrome/organizer_panel.js';
+import type {CrIconElement} from 'chrome://resources/cr_elements/cr_icon/cr_icon.js';
+import type {CrUrlListItemElement} from 'chrome://resources/cr_elements/cr_url_list_item/cr_url_list_item.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {TestMock} from 'chrome://webui-test/test_mock.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 import {TestSearchApiProxy} from './test_search_api_proxy.js';
@@ -15,10 +17,14 @@ import {TestSectionDelegate} from './test_section_delegate.js';
 
 suite('OrganizerListSectionTest', () => {
   let listSection: OrganizerListSectionElement;
+  let mockHandler: TestMock<OrganizerPanelPageHandlerRemote>&
+      OrganizerPanelPageHandlerRemote;
   let testSearchProxy: TestSearchApiProxy;
 
   setup(async () => {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    mockHandler = TestMock.fromClass(OrganizerPanelPageHandlerRemote);
+    organizerPanelBrowserProxyFactory.setInstance({handler: mockHandler});
     testSearchProxy = new TestSearchApiProxy();
     SearchApiProxyImpl.setInstance(testSearchProxy);
     listSection = document.createElement('organizer-list-section');
@@ -89,57 +95,87 @@ suite('OrganizerListSectionTest', () => {
         listSection.delegate = new TestSectionDelegate('Open Tabs', items);
         await microtasksFinished();
 
-        // Initially only the first 3 items should be rendered.
-        let listItems = listSection.shadowRoot.querySelectorAll(
-            'organizer-list-section-item');
-        assertEquals(INITIAL_ITEM_COUNT, listItems.length);
-        assertDeepEquals(['Tab 1'], listItems[0]!.item.title);
-        assertDeepEquals(['Tab 2'], listItems[1]!.item.title);
-        assertDeepEquals(['Tab 3'], listItems[2]!.item.title);
-
-        // Below those items, cr-expand-button with text "Show more".
-        const expandButton =
-            listSection.shadowRoot.querySelector<CrExpandButtonElement>(
-                'cr-expand-button');
-        assertTrue(!!expandButton);
-        assertEquals('Show more', expandButton.textContent.trim());
-        assertFalse(expandButton.expanded);
-
-        // Verify DOM order: the expand button is positioned after the initial
-        // items.
         const itemsContainer = listSection.shadowRoot.querySelector('#items')!;
+        const collapse =
+            listSection.shadowRoot.querySelector<HTMLElement>('#collapse');
+        assertTrue(!!collapse);
+        const expandButton =
+            listSection.shadowRoot.querySelector<CrUrlListItemElement>(
+                '#expandButton');
+        assertTrue(!!expandButton);
+        const expandButtonIcon =
+            expandButton.querySelector<CrIconElement>('#expandButtonIcon');
+        assertTrue(!!expandButtonIcon);
+
+        const initialItems =
+            itemsContainer.querySelectorAll<OrganizerListSectionItemElement>(
+                ':scope > organizer-list-section-item');
+        assertEquals(INITIAL_ITEM_COUNT, initialItems.length);
+        assertDeepEquals(['Tab 1'], initialItems[0]!.item.title);
+        assertDeepEquals(['Tab 2'], initialItems[1]!.item.title);
+        assertDeepEquals(['Tab 3'], initialItems[2]!.item.title);
+
+        assertEquals(
+            0, collapse.querySelectorAll('organizer-list-section-item').length);
+
         const children = Array.from(itemsContainer.children);
-        assertEquals(listItems[0], children[0]);
-        assertEquals(listItems[1], children[1]);
-        assertEquals(listItems[2], children[2]);
-        assertEquals(expandButton, children[3]);
+        assertEquals(5, children.length);
+        assertEquals(initialItems[0], children[0]);
+        assertEquals(initialItems[1], children[1]);
+        assertEquals(initialItems[2], children[2]);
+        assertEquals(collapse, children[3]);
+        assertEquals(expandButton, children[4]);
 
-        // Click the expand button to reveal the rest of the items.
-        expandButton.click();
+        assertEquals('compact', expandButton.size);
+
+        const expandButtonIconContainer =
+            expandButton.shadowRoot.querySelector<HTMLElement>(
+                '#iconContainer');
+        assertTrue(!!expandButtonIconContainer);
+        const itemIconContainer =
+            initialItems[0]!.$.crUrlListItem.shadowRoot
+                .querySelector<HTMLElement>('#iconContainer');
+        assertTrue(!!itemIconContainer);
+        assertEquals('40px', getComputedStyle(itemIconContainer).width);
+        assertEquals('40px', getComputedStyle(expandButtonIconContainer).width);
+
+        const focusable = expandButton.getFocusableElement();
+        assertFalse(listSection.hasAttribute('expanded_'));
+        assertEquals('Show more', expandButton.title);
+        assertEquals('cr:keyboard-arrow-down', expandButtonIcon.icon);
+        assertEquals('false', focusable.getAttribute('aria-expanded'));
+
+        focusable.click();
         await microtasksFinished();
 
-        assertTrue(expandButton.expanded);
-        listItems = listSection.shadowRoot.querySelectorAll(
-            'organizer-list-section-item');
-        assertEquals(4, listItems.length);
-        assertDeepEquals(['Tab 4'], listItems[3]!.item.title);
+        assertTrue(listSection.hasAttribute('expanded_'));
+        assertEquals('Show less', expandButton.title);
+        assertEquals('cr:keyboard-arrow-up', expandButtonIcon.icon);
+        assertEquals('true', focusable.getAttribute('aria-expanded'));
 
-        // Verify the rest of the items are rendered below the expand button.
-        const updatedChildren = Array.from(itemsContainer.children);
-        assertEquals(listItems[0], updatedChildren[0]);
-        assertEquals(listItems[1], updatedChildren[1]);
-        assertEquals(listItems[2], updatedChildren[2]);
-        assertEquals(expandButton, updatedChildren[3]);
-        assertEquals(listItems[3], updatedChildren[4]);
+        const collapsedItems =
+            collapse.querySelectorAll('organizer-list-section-item');
+        assertEquals(1, collapsedItems.length);
+        assertDeepEquals(['Tab 4'], collapsedItems[0]!.item.title);
+        assertEquals(expandButton, itemsContainer.lastElementChild);
 
-        // Clicking again should collapse the remaining items.
-        expandButton.click();
+        focusable.click();
         await microtasksFinished();
 
-        assertFalse(expandButton.expanded);
-        listItems = listSection.shadowRoot.querySelectorAll(
-            'organizer-list-section-item');
-        assertEquals(INITIAL_ITEM_COUNT, listItems.length);
+        assertFalse(listSection.hasAttribute('expanded_'));
+        assertEquals('Show more', expandButton.title);
+        assertEquals('cr:keyboard-arrow-down', expandButtonIcon.icon);
+        assertEquals('false', focusable.getAttribute('aria-expanded'));
+        assertEquals(
+            1, collapse.querySelectorAll('organizer-list-section-item').length);
+
+        collapse.dispatchEvent(
+            new TransitionEvent('transitionend', {propertyName: 'height'}));
+        await microtasksFinished();
+
+        assertEquals(
+            0, collapse.querySelectorAll('organizer-list-section-item').length);
+        assertEquals(expandButton, itemsContainer.lastElementChild);
       });
 
   test(
@@ -154,27 +190,30 @@ suite('OrganizerListSectionTest', () => {
         await microtasksFinished();
 
         const expandButton =
-            listSection.shadowRoot.querySelector('cr-expand-button');
+            listSection.shadowRoot.querySelector('#expandButton');
         assertEquals(null, expandButton);
       });
 
-  test('notifies delegate when an item is clicked', async () => {
-    const items: Array<OrganizerListSectionItem<unknown>> = [
-      {title: ['Tab 1'], description: [{text: 'tab1.com'}]},
-      {title: ['Tab 2'], description: [{text: 'tab2.com'}]},
-    ];
-    const delegate = new TestSectionDelegate('Open Tabs', items);
-    listSection.delegate = delegate;
-    await microtasksFinished();
+  test(
+      'notifies delegate and closes panel when an item is clicked',
+      async () => {
+        const items: Array<OrganizerListSectionItem<unknown>> = [
+          {title: ['Tab 1'], description: [{text: 'tab1.com'}]},
+          {title: ['Tab 2'], description: [{text: 'tab2.com'}]},
+        ];
+        const delegate = new TestSectionDelegate('Open Tabs', items);
+        listSection.delegate = delegate;
+        await microtasksFinished();
 
-    const listItems =
-        listSection.shadowRoot.querySelectorAll('organizer-list-section-item');
-    assertEquals(2, listItems.length);
+        const listItems = listSection.shadowRoot.querySelectorAll(
+            'organizer-list-section-item');
+        assertEquals(2, listItems.length);
 
-    listItems[1]!.click();
-    assertEquals(1, delegate.getClickCount());
-    assertEquals(items[1], delegate.getLastClickedItem());
-  });
+        listItems[1]!.click();
+        assertEquals(1, delegate.getClickCount());
+        assertEquals(items[1], delegate.getLastClickedItem());
+        assertEquals(1, mockHandler.getCallCount('closePanel'));
+      });
 
   test('notifies delegate when an item action button is clicked', async () => {
     const items: Array<OrganizerListSectionItem<unknown>> = [
@@ -215,6 +254,34 @@ suite('OrganizerListSectionTest', () => {
     assertEquals(0, delegate.getClickCount());
   });
 
+  test('notifies delegate when an item is right-clicked', async () => {
+    const items: Array<OrganizerListSectionItem<unknown>> = [
+      {title: ['Tab 1'], description: [{text: 'tab1.com'}]},
+      {title: ['Tab 2'], description: [{text: 'tab2.com'}]},
+    ];
+    const delegate = new TestSectionDelegate('Open Tabs', items);
+    listSection.delegate = delegate;
+    await microtasksFinished();
+
+    const listItems =
+        listSection.shadowRoot.querySelectorAll('organizer-list-section-item');
+    assertEquals(2, listItems.length);
+
+    listItems[1]!.$.crUrlListItem.dispatchEvent(new MouseEvent('contextmenu', {
+      bubbles: true,
+      cancelable: true,
+      clientX: 42,
+      clientY: 84,
+    }));
+    await microtasksFinished();
+
+    assertEquals(1, delegate.getContextMenuClickCount());
+    assertEquals(items[1], delegate.getLastContextMenuClickedItem());
+    assertDeepEquals({x: 42, y: 84}, delegate.getLastContextMenuCoordinates());
+    assertEquals(0, delegate.getClickCount());
+    assertEquals(0, mockHandler.getCallCount('closePanel'));
+  });
+
   test('filters items based on searchQuery', async () => {
     const delegateItems: Array<OrganizerListSectionItem<unknown>> = [
       {title: ['Google'], description: [{text: 'google.com'}]},
@@ -226,6 +293,7 @@ suite('OrganizerListSectionTest', () => {
     let listItems =
         listSection.shadowRoot.querySelectorAll('organizer-list-section-item');
     assertEquals(2, listItems.length);
+    assertEquals(null, listSection.shadowRoot.querySelector('#noResults'));
 
     async function setSearchQuery(query: string) {
       listSection.searchQuery = query;
@@ -237,21 +305,116 @@ suite('OrganizerListSectionTest', () => {
         listSection.shadowRoot.querySelectorAll('organizer-list-section-item');
     assertEquals(1, listItems.length);
     assertDeepEquals(['YouTube'], listItems[0]!.item.title);
+    assertEquals(null, listSection.shadowRoot.querySelector('#noResults'));
 
     await setSearchQuery('google.com');
     listItems =
         listSection.shadowRoot.querySelectorAll('organizer-list-section-item');
     assertEquals(1, listItems.length);
     assertDeepEquals(['Google'], listItems[0]!.item.title);
+    assertEquals(null, listSection.shadowRoot.querySelector('#noResults'));
 
     await setSearchQuery('nomatch');
     listItems =
         listSection.shadowRoot.querySelectorAll('organizer-list-section-item');
     assertEquals(0, listItems.length);
+    const noResults = listSection.shadowRoot.querySelector('#noResults');
+    assertTrue(!!noResults);
+    assertEquals('No results', noResults.textContent.trim());
 
     await setSearchQuery('');
     listItems =
         listSection.shadowRoot.querySelectorAll('organizer-list-section-item');
     assertEquals(2, listItems.length);
+    assertEquals(null, listSection.shadowRoot.querySelector('#noResults'));
+  });
+
+  test(
+      'shows no results message only when search query has no matches',
+      async () => {
+        listSection.delegate = new TestSectionDelegate('Open Tabs', []);
+        await microtasksFinished();
+
+        assertEquals(null, listSection.shadowRoot.querySelector('#noResults'));
+
+        listSection.searchQuery = 'query';
+        await microtasksFinished();
+
+        const noResults = listSection.shadowRoot.querySelector('#noResults');
+        assertTrue(!!noResults);
+        assertEquals('No results', noResults.textContent.trim());
+      });
+
+  test(
+      'shows all matching items without expand button when searching',
+      async () => {
+        const items: Array<OrganizerListSectionItem<unknown>> = [
+          {title: ['Tab 1'], description: [{text: 'tab1.com'}]},
+          {title: ['Tab 2'], description: [{text: 'tab2.com'}]},
+          {title: ['Tab 3'], description: [{text: 'tab3.com'}]},
+          {title: ['Tab 4'], description: [{text: 'tab4.com'}]},
+        ];
+        listSection.delegate = new TestSectionDelegate('Open Tabs', items);
+        await microtasksFinished();
+
+        let listItems = listSection.shadowRoot.querySelectorAll(
+            'organizer-list-section-item');
+        assertEquals(INITIAL_ITEM_COUNT, listItems.length);
+        assertTrue(!!listSection.shadowRoot.querySelector('#expandButton'));
+
+        listSection.searchQuery = 'Tab';
+        await microtasksFinished();
+
+        listItems = listSection.shadowRoot.querySelectorAll(
+            'organizer-list-section-item');
+        assertEquals(4, listItems.length);
+        assertEquals(
+            null, listSection.shadowRoot.querySelector('#expandButton'));
+
+        listSection.searchQuery = '';
+        await microtasksFinished();
+
+        listItems = listSection.shadowRoot.querySelectorAll(
+            'organizer-list-section-item');
+        assertEquals(INITIAL_ITEM_COUNT, listItems.length);
+        assertTrue(!!listSection.shadowRoot.querySelector('#expandButton'));
+      });
+
+  test('highlights matching text when searching', async () => {
+    const delegateItems = [
+      {
+        title: ['Google Search'],
+        description: [{text: 'google.com'}],
+      },
+      {
+        title: ['YouTube Music'],
+        description: [{text: 'music.youtube.com'}],
+      },
+    ];
+    listSection.delegate = new TestSectionDelegate('Open Tabs', delegateItems);
+    await microtasksFinished();
+
+    listSection.searchQuery = 'Music';
+    await microtasksFinished();
+
+    const listItems =
+        listSection.shadowRoot.querySelectorAll('organizer-list-section-item');
+    assertEquals(1, listItems.length);
+    assertDeepEquals(
+        [[{start: 8, length: 5}]], listItems[0]!.$.title.highlightRanges);
+
+    assertDeepEquals(
+        [[{start: 0, length: 5}]], listItems[0]!.$.description.highlightRanges);
+
+    listSection.searchQuery = '';
+    await microtasksFinished();
+
+    const clearedItems =
+        listSection.shadowRoot.querySelectorAll('organizer-list-section-item');
+    assertEquals(2, clearedItems.length);
+    assertDeepEquals([[]], clearedItems[0]!.$.title.highlightRanges);
+    assertDeepEquals([[]], clearedItems[1]!.$.title.highlightRanges);
+    assertDeepEquals([[]], clearedItems[0]!.$.description.highlightRanges);
+    assertDeepEquals([[]], clearedItems[1]!.$.description.highlightRanges);
   });
 });

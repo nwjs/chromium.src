@@ -1319,7 +1319,7 @@ void BrowserAccessibilityManager::SetSelection(
   if (!delegate_ || range.IsNull())
     return;
 
-  // TODO(crbug.com/443078007): Add position types and affinity to AXActionData
+  // TODO(crbug.com/527726308): Add position types and affinity to AXActionData
   // and pass them to blink to avoid ambiguity.
   AXActionData action_data;
   action_data.anchor_node_id = range.anchor()->anchor_id();
@@ -1847,7 +1847,10 @@ void BrowserAccessibilityManager::OnNodeCreated(AXTree* tree, AXNode* node) {
   DCHECK(tree->GetFromId(node->id()) || node->IsGenerated())
       << "Node must be in AXTree's map, unless it's an ExtraMacNode.";
 
-  id_wrapper_map_[node->id()] = CreateBrowserAccessibility(node);
+  auto [iter, inserted] = id_wrapper_map_.try_emplace(node->id(), nullptr);
+  CHECK(inserted) << "Attempted to overwrite existing wrapper for node ID: "
+                  << node->id();
+  iter->second = CreateBrowserAccessibility(node);
 
   if (node->HasIntAttribute(ax::mojom::IntAttribute::kPopupForId)) {
     popup_root_ids_.insert(node->id());

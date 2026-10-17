@@ -53,6 +53,7 @@
 #include "components/autofill/core/browser/metrics/payments/mandatory_reauth_metrics.h"
 #include "components/autofill/core/browser/network/autofill_ai/wallet_pass_access_manager.h"
 #include "components/autofill/core/browser/payments/credit_card_access_manager.h"
+#include "components/autofill/core/browser/payments/legal_message_line.h"
 #include "components/autofill/core/browser/payments/mandatory_reauth_manager.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/payments/virtual_card_enrollment_flow.h"
@@ -256,6 +257,18 @@ autofill::ContentAutofillClient*
 AutofillPrivateExtensionFunction::autofill_client() {
   return autofill::ContentAutofillClient::FromWebContents(
       GetSenderWebContents());
+}
+
+autofill::EntityDataManager*
+AutofillPrivateExtensionFunction::entity_data_manager() {
+  content::BrowserContext* context = browser_context();
+  if (!context) {
+    return nullptr;
+  }
+  Profile* profile = Profile::FromBrowserContext(context);
+  return profile ? autofill::AutofillEntityDataManagerFactory::GetForProfile(
+                       profile)
+                 : nullptr;
 }
 
 autofill::PaymentsDataManager*
@@ -1140,17 +1153,14 @@ AutofillPrivateAddOrUpdateEntityInstanceFunction::Run() {
         {"Add or update entity instance - ", kErrorAutofillAiInvalidData})));
   }
 
-  Profile* profile = Profile::FromBrowserContext(browser_context());
-  EntityDataManager* entity_data_manager =
-      profile ? AutofillEntityDataManagerFactory::GetForProfile(profile)
-              : nullptr;
-
-  if (!entity_data_manager) {
+  EntityDataManager* edm = entity_data_manager();
+  if (!edm) {
     return RespondNow(Error(base::StrCat(
         {"Add or update entity instance - ", kErrorAutofillAiUnavailable})));
   }
 
   const bool is_new_entity = private_api_entity_instance.guid.empty();
+
   if (is_new_entity) {
     autofill::LogEntityAddedFromSettings(entity_instance->type(),
                                          entity_instance->record_type());
@@ -1171,7 +1181,7 @@ AutofillPrivateAddOrUpdateEntityInstanceFunction::Run() {
       return RespondLater();
     }
 
-    SavePrivatePassLocallyAndNotifyAsFallback(*entity_data_manager,
+    SavePrivatePassLocallyAndNotifyAsFallback(*edm,
                                               std::move(*entity_instance));
     return RespondNow(NoArguments());
   }
@@ -1179,7 +1189,9 @@ AutofillPrivateAddOrUpdateEntityInstanceFunction::Run() {
   // Handles the following scenarios:
   // 1. Save/Update entity locally.
   // 2. Save entity to Wallet via Chrome sync.
-  entity_data_manager->AddOrUpdateEntityInstance(entity_instance.value());
+  edm->AddOrUpdateEntityInstance(
+      std::move(entity_instance.value()),
+      std::move(parameters->entity_instance.context_token));
   if (private_api_entity_instance.stored_in_wallet.value_or(false) &&
       !is_eligible_for_wallet_storage && autofill_client()) {
     autofill_client()->ShowAutofillAiLocalSaveNotification();
@@ -1229,25 +1241,15 @@ void AutofillPrivateAddOrUpdateEntityInstanceFunction::
     OnSavePrivatePassToWalletFinished(
         autofill::EntityInstance original_entity,
         std::optional<EntityInstance> saved_entity) {
-  content::BrowserContext* context = browser_context();
-  if (!context) {
-    Respond(Error(kErrorAutofillAiUnavailable));
-    return;
-  }
-  Profile* profile = Profile::FromBrowserContext(context);
-  EntityDataManager* entity_data_manager =
-      profile ? AutofillEntityDataManagerFactory::GetForProfile(profile)
-              : nullptr;
-
-  if (!entity_data_manager) {
+  EntityDataManager* edm = entity_data_manager();
+  if (!edm) {
     Respond(Error(kErrorAutofillAiUnavailable));
     return;
   }
   if (saved_entity.has_value()) {
-    entity_data_manager->AddOrUpdateEntityInstance(std::move(*saved_entity));
+    edm->AddOrUpdateEntityInstance(std::move(*saved_entity));
   } else {
-    SavePrivatePassLocallyAndNotifyAsFallback(*entity_data_manager,
-                                              std::move(original_entity));
+    SavePrivatePassLocallyAndNotifyAsFallback(*edm, std::move(original_entity));
   }
   Respond(NoArguments());
 }
@@ -1275,21 +1277,17 @@ AutofillPrivateRemoveEntityInstanceFunction::Run() {
       autofill_private::RemoveEntityInstance::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(parameters);
 
-  Profile* profile = Profile::FromBrowserContext(browser_context());
-  EntityDataManager* entity_data_manager =
-      profile ? AutofillEntityDataManagerFactory::GetForProfile(profile)
-              : nullptr;
-
-  if (!entity_data_manager) {
+  EntityDataManager* edm = entity_data_manager();
+  if (!edm) {
     return RespondNow(Error(base::StrCat(
         {"Remove entity instance - ", kErrorAutofillAiUnavailable})));
   }
 
   const autofill::EntityInstance::EntityId guid(parameters->guid);
-  if (auto entity = entity_data_manager->GetEntityInstance(guid)) {
+  if (auto entity = edm->GetEntityInstance(guid)) {
     autofill::LogEntityDeletedFromSettings(entity->type(),
                                            entity->record_type());
-    entity_data_manager->RemoveEntityInstance(guid);
+    edm->RemoveEntityInstance(guid);
   }
 
   return RespondNow(NoArguments());
@@ -1300,12 +1298,8 @@ AutofillPrivateRemoveEntityInstanceFunction::Run() {
 
 ExtensionFunction::ResponseAction
 AutofillPrivateLoadEntityInstancesFunction::Run() {
-  Profile* profile = Profile::FromBrowserContext(browser_context());
-  EntityDataManager* entity_data_manager =
-      profile ? AutofillEntityDataManagerFactory::GetForProfile(profile)
-              : nullptr;
-
-  if (!entity_data_manager) {
+  EntityDataManager* edm = entity_data_manager();
+  if (!edm) {
     return RespondNow(Error(base::StrCat(
         {"Load entity instances - ", kErrorAutofillAiUnavailable})));
   }
@@ -1314,8 +1308,7 @@ AutofillPrivateLoadEntityInstancesFunction::Run() {
           autofill_client()->GetPrefs());
   std::vector<autofill_private::EntityInstanceWithLabels> result =
       autofill_ai_util::EntityInstancesToPrivateApiEntityInstancesWithLabels(
-          autofill::GetEntityInstancesForSettings(
-              entity_data_manager->GetEntityInstances()),
+          autofill::GetEntityInstancesForSettings(edm->GetEntityInstances()),
           obfuscate_sensitive_types, g_browser_process->GetApplicationLocale());
   return RespondNow(ArgumentList(
       autofill_private::LoadEntityInstances::Results::Create(result)));
@@ -1336,18 +1329,13 @@ AutofillPrivateGetEntityInstanceByGuidFunction::Run() {
       autofill_private::GetEntityInstanceByGuid::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(parameters);
 
-  Profile* profile = Profile::FromBrowserContext(browser_context());
-  EntityDataManager* entity_data_manager =
-      profile ? AutofillEntityDataManagerFactory::GetForProfile(profile)
-              : nullptr;
-
-  if (!entity_data_manager) {
+  EntityDataManager* edm = entity_data_manager();
+  if (!edm) {
     return RespondNow(Error(base::StrCat(
         {"Get entity instance by guid - ", kErrorAutofillAiUnavailable})));
   }
   base::optional_ref<const EntityInstance> entity_instance =
-      entity_data_manager->GetEntityInstance(
-          EntityInstance::EntityId(parameters->guid));
+      edm->GetEntityInstance(EntityInstance::EntityId(parameters->guid));
   if (!entity_instance.has_value()) {
     return RespondNow(
         Error(base::StrCat({"Get entity instance by guid - ",
@@ -1407,6 +1395,101 @@ void AutofillPrivateGetEntityInstanceByGuidFunction::OnReauthCompleted(
     return;
   }
   Respond(NoArguments());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// AutofillPrivateGetDetailsForUpsertPassFunction
+
+ExtensionFunction::ResponseAction
+AutofillPrivateGetDetailsForUpsertPassFunction::Run() {
+  if (!base::FeatureList::IsEnabled(
+          autofill::features::
+              kAutofillEnableWalletDisclosureNoticePublicPass)) {
+    return RespondNow(NoArguments());
+  }
+
+  autofill::WalletPassAccessManager* pass_manager =
+      autofill_client() ? autofill_client()->GetWalletPassAccessManager()
+                        : nullptr;
+  if (!pass_manager) {
+    return RespondNow(NoArguments());
+  }
+
+  // TODO(crbug.com/557059912): Pass the entity type from the caller instead of
+  // hardcoding vehicle.
+  pass_manager->GetDetailsForUpsertPass(
+      autofill::EntityType(autofill::EntityTypeName::kVehicle),
+      base::BindOnce(&AutofillPrivateGetDetailsForUpsertPassFunction::
+                         OnGetDetailsForUpsertPassResponse,
+                     base::RetainedRef(this)));
+  return did_respond() ? AlreadyResponded() : RespondLater();
+}
+
+void AutofillPrivateGetDetailsForUpsertPassFunction::
+    OnGetDetailsForUpsertPassResponse(
+        base::expected<
+            autofill::WalletPassAccessManager::GetDetailsForUpsertPassResponse,
+            wallet::WalletHttpClient::WalletRequestError> response) {
+  if (!response.has_value() || response->context_token.empty()) {
+    Respond(NoArguments());
+    return;
+  }
+
+  api::autofill_private::UpsertPassDetails details;
+  details.context_token = std::move(response->context_token);
+  details.legal_message_lines.reserve(response->legal_message_lines.size());
+  for (const auto& line : response->legal_message_lines) {
+    api::autofill_private::LegalMessageLine idl_line;
+    idl_line.text = base::UTF16ToUTF8(line.text());
+    for (const auto& link : line.links()) {
+      if (!link.range.IsValid() || link.range.is_reversed() ||
+          link.range.is_empty() || link.range.end() > line.text().length() ||
+          !link.url.is_valid() || !link.url.SchemeIsHTTPOrHTTPS()) {
+        continue;
+      }
+      api::autofill_private::LegalMessageLink idl_link;
+      idl_link.start = static_cast<int>(link.range.start());
+      idl_link.end = static_cast<int>(link.range.end());
+      idl_link.url = link.url.spec();
+      idl_line.links.push_back(std::move(idl_link));
+    }
+    details.legal_message_lines.push_back(std::move(idl_line));
+  }
+  Respond(ArgumentList(
+      api::autofill_private::GetDetailsForUpsertPass::Results::Create(
+          details)));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// AutofillPrivatePreloadDetailsForUpsertPassFunction
+
+ExtensionFunction::ResponseAction
+AutofillPrivatePreloadDetailsForUpsertPassFunction::Run() {
+  // Preloading is an opportunistic, fire-and-forget background pre-warm
+  // triggered when entering the settings page. If the feature is disabled,
+  // gracefully no-op without returning an error to avoid triggering
+  // `Unchecked runtime.lastError` in the WebUI console.
+  if (!base::FeatureList::IsEnabled(
+          autofill::features::
+              kAutofillEnableWalletDisclosureNoticePublicPass)) {
+    return RespondNow(NoArguments());
+  }
+
+  // `pass_manager` can be null during browser shutdown or in test
+  // environments where the wallet pass manager is not instantiated. In those
+  // cases, gracefully no-op as preloading is not applicable.
+  autofill::WalletPassAccessManager* pass_manager =
+      autofill_client() ? autofill_client()->GetWalletPassAccessManager()
+                        : nullptr;
+  if (!pass_manager) {
+    return RespondNow(NoArguments());
+  }
+
+  // TODO(crbug.com/557059912): Pass the entity type from the caller instead of
+  // hardcoding vehicle.
+  pass_manager->PreloadDetailsForUpsertPass(
+      autofill::EntityType(autofill::EntityTypeName::kVehicle));
+  return RespondNow(NoArguments());
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -7,7 +7,6 @@
 #import "base/test/scoped_feature_list.h"
 #import "base/test/task_environment.h"
 #import "components/application_locale_storage/application_locale_storage.h"
-#import "ios/chrome/app/background_mode_buildflags.h"
 #import "ios/chrome/app/background_task/features.h"
 #import "ios/chrome/browser/intelligence/actor/tools/utils/actor_tool_utils.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
@@ -78,7 +77,7 @@ TEST_F(ActorFeaturesTest, IsPageActionMenuEnabled_EnabledLocale) {
 
   ApplicationLocaleStorage* locale_storage =
       TestingApplicationContext::GetGlobal()->GetApplicationLocaleStorage();
-  std::string original_locale = locale_storage->Get();
+  std::string original_locale(locale_storage->GetTag().tag_string());
   locale_storage->Set("zh_TW");
 
   EXPECT_TRUE(IsPageActionMenuEnabled());
@@ -93,7 +92,7 @@ TEST_F(ActorFeaturesTest, IsPageActionMenuEnabled_DisabledLocale) {
 
   ApplicationLocaleStorage* locale_storage =
       TestingApplicationContext::GetGlobal()->GetApplicationLocaleStorage();
-  std::string original_locale = locale_storage->Get();
+  std::string original_locale(locale_storage->GetTag().tag_string());
   locale_storage->Set("xx-XX");
 
   EXPECT_FALSE(IsPageActionMenuEnabled());
@@ -118,7 +117,7 @@ TEST_F(ActorFeaturesTest,
 
   ApplicationLocaleStorage* locale_storage =
       TestingApplicationContext::GetGlobal()->GetApplicationLocaleStorage();
-  std::string original_locale = locale_storage->Get();
+  std::string original_locale(locale_storage->GetTag().tag_string());
   locale_storage->Set("en-US");
 
   EXPECT_TRUE(IsZeroStateSuggestionsEnabled());
@@ -140,7 +139,7 @@ TEST_F(ActorFeaturesTest,
 
   ApplicationLocaleStorage* locale_storage =
       TestingApplicationContext::GetGlobal()->GetApplicationLocaleStorage();
-  std::string original_locale = locale_storage->Get();
+  std::string original_locale(locale_storage->GetTag().tag_string());
   locale_storage->Set("en-US");
 
   EXPECT_TRUE(IsZeroStateSuggestionsEnabled());
@@ -161,7 +160,7 @@ TEST_F(ActorFeaturesTest,
 
   ApplicationLocaleStorage* locale_storage =
       TestingApplicationContext::GetGlobal()->GetApplicationLocaleStorage();
-  std::string original_locale = locale_storage->Get();
+  std::string original_locale(locale_storage->GetTag().tag_string());
   locale_storage->Set("en-US");
 
   EXPECT_FALSE(IsZeroStateSuggestionsEnabled());
@@ -183,7 +182,7 @@ TEST_F(ActorFeaturesTest,
 
   ApplicationLocaleStorage* locale_storage =
       TestingApplicationContext::GetGlobal()->GetApplicationLocaleStorage();
-  std::string original_locale = locale_storage->Get();
+  std::string original_locale(locale_storage->GetTag().tag_string());
   locale_storage->Set("en-US");
 
   EXPECT_TRUE(IsZeroStateSuggestionsEnabled());
@@ -204,7 +203,7 @@ TEST_F(ActorFeaturesTest,
 
   ApplicationLocaleStorage* locale_storage =
       TestingApplicationContext::GetGlobal()->GetApplicationLocaleStorage();
-  std::string original_locale = locale_storage->Get();
+  std::string original_locale(locale_storage->GetTag().tag_string());
   locale_storage->Set("fr-FR");
 
   EXPECT_FALSE(IsZeroStateSuggestionsEnabled());
@@ -226,7 +225,7 @@ TEST_F(ActorFeaturesTest,
 
   ApplicationLocaleStorage* locale_storage =
       TestingApplicationContext::GetGlobal()->GetApplicationLocaleStorage();
-  std::string original_locale = locale_storage->Get();
+  std::string original_locale(locale_storage->GetTag().tag_string());
   locale_storage->Set("fr-FR");
 
   EXPECT_TRUE(IsZeroStateSuggestionsEnabled());
@@ -249,52 +248,6 @@ TEST_F(ActorFeaturesTest, IsGeminiLuminousEnabled_FeatureFlagDisabled) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures({kPageActionMenu}, {kGeminiLuminous});
   EXPECT_FALSE(IsGeminiLuminousEnabled());
-}
-
-TEST_F(ActorFeaturesTest,
-       IsGeminiContextualSuggestionsCuesOnDeviceClassifierEnabled) {
-  base::FieldTrialParams params;
-  params[kGeminiContextualSuggestionsCuesOnDeviceClassifierParam] = "true";
-
-  // Disabled without PageActionMenu dependency.
-  {
-    base::test::ScopedFeatureList scoped_feature_list;
-    scoped_feature_list.InitAndEnableFeatureWithParameters(
-        kGeminiContextualSuggestionsCues, params);
-    EXPECT_FALSE(IsGeminiContextualSuggestionsCuesOnDeviceClassifierEnabled());
-  }
-
-  // Enabled when PageActionMenu and feature with param are enabled.
-  {
-    base::test::ScopedFeatureList scoped_feature_list;
-    scoped_feature_list.InitWithFeaturesAndParameters(
-        {{kPageActionMenu, {}}, {kGeminiContextualSuggestionsCues, params}},
-        {});
-    EXPECT_TRUE(IsGeminiContextualSuggestionsCuesOnDeviceClassifierEnabled());
-  }
-}
-
-TEST_F(ActorFeaturesTest,
-       IsGeminiContextualSuggestionsCuesAllowGpuExecutionEnabled) {
-  base::FieldTrialParams params;
-  params[kGeminiContextualSuggestionsCuesAllowGpuExecutionParam] = "true";
-
-  // Disabled without PageActionMenu dependency.
-  {
-    base::test::ScopedFeatureList scoped_feature_list;
-    scoped_feature_list.InitAndEnableFeatureWithParameters(
-        kGeminiContextualSuggestionsCues, params);
-    EXPECT_FALSE(IsGeminiContextualSuggestionsCuesAllowGpuExecutionEnabled());
-  }
-
-  // Enabled when PageActionMenu and feature with param are enabled.
-  {
-    base::test::ScopedFeatureList scoped_feature_list;
-    scoped_feature_list.InitWithFeaturesAndParameters(
-        {{kPageActionMenu, {}}, {kGeminiContextualSuggestionsCues, params}},
-        {});
-    EXPECT_TRUE(IsGeminiContextualSuggestionsCuesAllowGpuExecutionEnabled());
-  }
 }
 
 TEST_F(ActorFeaturesTest, GeminiFREExperimentVariants) {
@@ -413,17 +366,8 @@ TEST_F(ActorFeaturesTest, TestGeminiActorBackgroundingEnabled) {
   scoped_feature_list.InitWithFeatures(
       {kPageActionMenu, kActorTools, kGeminiClientMigration, kGeminiActor}, {});
 
-#if BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
-  if (@available(iOS 26.0, *)) {
-    // Backgrounding is enabled by default when the compile flag is set.
-    EXPECT_TRUE(IsGeminiActorBackgroundingEnabled());
-  } else {
-    EXPECT_FALSE(IsGeminiActorBackgroundingEnabled());
-  }
-#else
-  // Backgrounding is always disabled when the compile flag is not set.
-  EXPECT_FALSE(IsGeminiActorBackgroundingEnabled());
-#endif
+  EXPECT_EQ(IsBackgroundContinuedProcessingEnabled(),
+            IsGeminiActorBackgroundingEnabled());
 }
 
 // Tests that Gemini Actor backgrounding returns false when explicitly disabled

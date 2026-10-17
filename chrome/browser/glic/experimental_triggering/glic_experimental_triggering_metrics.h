@@ -36,9 +36,41 @@ enum class GlicExperimentalTriggeringIncomingMessageResult {
   // A processing path exited without setting a result. Any samples in this
   // bucket indicate an instrumentation gap that should be fixed.
   kResultNotSet = 15,
-  kMaxValue = kResultNotSet,
+  kScriptToolsDisabled = 16,
+  kNonScriptToolAction = 17,
+  // No open tab matched the document identifier of a requested action, e.g.
+  // because the user navigated away or closed the tab.
+  kTabNotFound = 18,
+  // A request arrived for a context that is already executing a task.
+  kTaskAlreadyRunning = 19,
+  // The profile is not allowed to act on the web, either because of enterprise
+  // policy or because the account is not eligible.
+  kCannotActOnWeb = 20,
+  kMaxValue = kCannotActOnWeb,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicExperimentalTriggeringIncomingMessageResult)
+
+// The execution outcome or failure reason for an experimental triggering
+// actuation request.
+//
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// LINT.IfChange(GlicExperimentalTriggeringExecutionOutcome)
+enum class GlicExperimentalTriggeringExecutionOutcome {
+  kSuccess = 0,
+  kTimeoutWaitingForClient = 1,
+  kTimeoutWaitingForActuation = 2,
+  kInvokeErrorInvokeInProgress = 3,
+  kInvokeErrorTabClosed = 4,
+  kInvokeErrorOther = 5,
+  kUpdatesRegistrationFailed = 6,
+  kClientDisconnectedBeforeResponse = 7,
+  kTerminalFailed = 8,
+  kTerminalStopped = 9,
+  kDestroyedBeforeCompletion = 10,
+  kMaxValue = kDestroyedBeforeCompletion,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicExperimentalTriggeringExecutionOutcome)
 
 // Helper RAII class to log the
 // Glic.ExperimentalTriggering.IncomingMessageResult.{Channel} histogram for

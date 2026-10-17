@@ -247,9 +247,6 @@ class ContentAutofillDriver : public AutofillDriver,
   void SendEmailVerificationToken(FieldGlobalId email_field_id,
                                   const std::string& email,
                                   const std::string& token) override;
-  void UpdateEmailVerificationState(
-      const FieldGlobalId& email_field_id,
-      mojom::EmailVerificationState state) override;
   void ExtractFormWithField(FieldGlobalId field_id,
                             BrowserFormHandler final_handler) override;
   void RendererShouldAcceptDataListSuggestion(
@@ -333,8 +330,8 @@ class ContentAutofillDriver : public AutofillDriver,
   void DidDetectJavaScriptAutofill(
       const FormData& form,
       FieldRendererId trigger_field_id,
-      std::vector<mojom::JavaScriptFieldModificationPtr> field_modifications)
-      override;
+      std::vector<mojom::JavaScriptFieldModificationPtr> field_modifications,
+      base::TimeTicks detection_start_timestamp) override;
 
   // The functions below this line do not cross the IPC boundary.
   bool IsSafeToFill(const FormFieldData& field,

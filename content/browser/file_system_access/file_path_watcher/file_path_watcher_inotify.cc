@@ -11,6 +11,7 @@
 #include <sys/inotify.h>
 #include <sys/ioctl.h>
 #include <sys/select.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -24,6 +25,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/files/file.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -82,6 +84,17 @@ size_t GetQuotaLimitFromSystemLimit(size_t system_limit) {
 
   return features::kFileSystemObserverQuotaLimitLinuxPercent.Get() *
          effective_system_limit;
+}
+
+FilePathWatcher::FilePathType GetFilePathType(const base::FilePath& path) {
+  // Use lstat() so symlinks are classified as files, matching inotify's lack
+  // of IN_ISDIR for symlink events.
+  base::stat_wrapper_t file_info;
+  if (base::File::Lstat(path, &file_info) != 0) {
+    return FilePathWatcher::FilePathType::kUnknown;
+  }
+  return S_ISDIR(file_info.st_mode) ? FilePathWatcher::FilePathType::kDirectory
+                                    : FilePathWatcher::FilePathType::kFile;
 }
 
 class InotifyReaderThreadDelegate final
@@ -299,7 +312,11 @@ class FilePathWatcherImpl : public FilePathWatcher::PlatformDelegate {
     kNotFound,       // `child_name` is not found to be within the watch scope.
     kLimitExceeded,  // Error occurred while updating inotify watches.
   };
-  base::expected<base::FilePath, ChangeProcessError>
+  struct ChangeProcessResult {
+    base::FilePath changed_path;
+    FilePathWatcher::FilePathType file_path_type;
+  };
+  base::expected<ChangeProcessResult, ChangeProcessError>
   FindChangedPathAndUpdateWatches(InotifyReader::Watch fired_watch,
                                   const base::FilePath::StringType& child_name,
                                   FilePathWatcher::FilePathType file_path_type,
@@ -371,6 +388,12 @@ class FilePathWatcherImpl : public FilePathWatcher::PlatformDelegate {
   // The file or directory we're supposed to watch.
   base::FilePath target_;
 
+  // The tracked type of `target_`, reset to kUnknown when it is deleted.
+  // Snapshot this before updating watches to report the type when an ancestor
+  // moves or is deleted and `target_` no longer exists when handling the event.
+  FilePathWatcher::FilePathType target_path_type_ =
+      FilePathWatcher::FilePathType::kUnknown;
+
   Type type_ = Type::kNonRecursive;
   bool report_modified_path_ = false;
 
@@ -398,6 +421,101 @@ InotifyReader& GetInotifyReader() {
   return *inotify_reader;
 }
 
+// Drains the currently available batches. Move pairing is scoped to each read
+// buffer. Event pointers are only valid during `dispatch_event`.
+bool ReadInotifyEvents(
+    int inotify_fd,
+    base::FunctionRef<void(const inotify_event*, const inotify_event*)>
+        dispatch_event) {
+  std::array<pollfd, 1> fdarray{{{inotify_fd, POLLIN, 0}}};
+  bool has_batch = true;
+  while (has_batch) {
+    // Adjust buffer size to current event queue size.
+    int buffer_size;
+    int ioctl_result = HANDLE_EINTR(ioctl(inotify_fd, FIONREAD, &buffer_size));
+
+    if (ioctl_result != 0 || buffer_size < 0) {
+      DPLOG(WARNING) << "ioctl failed";
+      return false;
+    }
+
+    std::vector<char> buffer(static_cast<size_t>(buffer_size));
+
+    ssize_t bytes_read = HANDLE_EINTR(
+        read(inotify_fd, buffer.data(), static_cast<size_t>(buffer_size)));
+
+    if (bytes_read < 0) {
+      DPLOG(WARNING) << "read from inotify fd failed";
+      return false;
+    }
+
+    // Most events are notified one by one, except for move events, which are
+    // expected to come in a pair (IN_MOVED_FROM and IN_MOVED_TO) with a
+    // matching cookie value. IN_MOVED_FROM event is expected to arrive right
+    // before the matching IN_MOVED_TO event, but inotify does not guarantee
+    // that these events are consecutive in the stream, or that they exist in
+    // the same buffer read. (i.e. IN_MOVED_FROM  is the last item to fit in
+    // the current buffer, so the matching IN_MOVED_TO is read in the next
+    // buffer). We don't want to wait indefinitely for the matching pair due
+    // to this lack of guarantee, so perform the best-effort coalescing of
+    // move events only within the same buffer.
+    inotify_event* pending_move_from_event = nullptr;
+    for (size_t i = 0; i < static_cast<size_t>(bytes_read);) {
+      inotify_event* event = reinterpret_cast<inotify_event*>(&buffer[i]);
+      size_t event_size = sizeof(inotify_event) + event->len;
+      DUMP_WILL_BE_CHECK_LE(i + event_size, static_cast<size_t>(bytes_read));
+      i += event_size;
+
+      if (event->mask & IN_IGNORED) {
+        continue;
+      }
+
+      if (pending_move_from_event) {
+        if (event->mask & IN_MOVED_TO &&
+            pending_move_from_event->cookie == event->cookie) {
+          // Matching IN_MOVED_TO is observed for the existing pending move.
+          // Match up the two move events, and reset
+          // `pending_move_from_event`.
+          dispatch_event(pending_move_from_event, event);
+          pending_move_from_event = nullptr;
+          continue;
+        }
+        // No matching IN_MOVED_TO is observed for `pending_move_from_event`.
+        // Flush and reset `pending_move_from_event`.
+        dispatch_event(pending_move_from_event, nullptr);
+        pending_move_from_event = nullptr;
+      }
+
+      if (event->mask & IN_MOVED_FROM) {
+        // IN_MOVED_FROM event is observed. Save as `pending_move_from_event`,
+        // so that it can attempt to find the matching IN_MOVED_TO event for
+        // the next iteration.
+        pending_move_from_event = event;
+      } else {
+        // Process other events as normal.
+        dispatch_event(event, nullptr);
+      }
+    }
+
+    // Poll with zero timeout to see if another batch is immediately
+    // available.
+    int poll_result = HANDLE_EINTR(poll(fdarray.data(), fdarray.size(), 0));
+    has_batch = poll_result > 0;
+
+    if (poll_result < 0) {
+      DPLOG(WARNING) << "poll failed";
+      return false;
+    }
+
+    // Coalescing is limited to this buffer, so flush any pending move-from
+    // event before the buffer is destroyed, even if another batch is ready.
+    if (pending_move_from_event) {
+      dispatch_event(pending_move_from_event, nullptr);
+    }
+  }
+  return true;
+}
+
 void InotifyReaderThreadDelegate::ThreadMain() {
   base::PlatformThread::SetName("file_system_access_inotify_reader");
 
@@ -413,92 +531,15 @@ void InotifyReaderThreadDelegate::ThreadMain() {
       }
     }
 
-    bool has_batch = true;
-    while (has_batch) {
-      // Adjust buffer size to current event queue size.
-      int buffer_size;
-      int ioctl_result =
-          HANDLE_EINTR(ioctl(inotify_fd_, FIONREAD, &buffer_size));
-
-      if (ioctl_result != 0 || buffer_size < 0) {
-        DPLOG(WARNING) << "ioctl failed";
-        return;
-      }
-
-      std::vector<char> buffer(static_cast<size_t>(buffer_size));
-
-      ssize_t bytes_read = HANDLE_EINTR(
-          read(inotify_fd_, buffer.data(), static_cast<size_t>(buffer_size)));
-
-      if (bytes_read < 0) {
-        DPLOG(WARNING) << "read from inotify fd failed";
-        return;
-      }
-
-      // Most events are notified one by one, except for move events, which are
-      // expected to come in a pair (IN_MOVED_FROM and IN_MOVED_TO) with a
-      // matching cookie value. IN_MOVED_FROM event is expected to arrive right
-      // before the matching IN_MOVED_TO event, but inotify does not guarantee
-      // that these events are consecutive in the stream, or that they exist in
-      // the same buffer read. (i.e. IN_MOVED_FROM  is the last item to fit in
-      // the current buffer, so the matching IN_MOVED_TO is read in the next
-      // buffer). We don't want to wait indefinitely for the matching pair due
-      // to this lack of guarantee, so perform the best-effort coalescing of
-      // move events only within the same buffer.
-      inotify_event* pending_move_from_event = nullptr;
-      for (size_t i = 0; i < static_cast<size_t>(bytes_read);) {
-        inotify_event* event = reinterpret_cast<inotify_event*>(&buffer[i]);
-        size_t event_size = sizeof(inotify_event) + event->len;
-        DUMP_WILL_BE_CHECK_LE(i + event_size, static_cast<size_t>(bytes_read));
-        i += event_size;
-
-        if (event->mask & IN_IGNORED) {
-          continue;
-        }
-
-        if (pending_move_from_event) {
-          if (event->mask & IN_MOVED_TO &&
-              pending_move_from_event->cookie == event->cookie) {
-            // Matching IN_MOVED_TO is observed for the existing pending move.
-            // Match up the two move events, and reset
-            // `pending_move_from_event`.
-            GetInotifyReader().OnInotifyMatchingMoveEvents(
-                pending_move_from_event, event);
-            pending_move_from_event = nullptr;
-            continue;
+    if (!ReadInotifyEvents(inotify_fd_, [](const inotify_event* event,
+                                           const inotify_event* moved_to) {
+          if (moved_to) {
+            GetInotifyReader().OnInotifyMatchingMoveEvents(event, moved_to);
+          } else {
+            GetInotifyReader().OnInotifyEvent(event);
           }
-          // No matching IN_MOVED_TO is observed for `pending_move_from_event`.
-          // Flush and reset `pending_move_from_event`.
-          GetInotifyReader().OnInotifyEvent(pending_move_from_event);
-          pending_move_from_event = nullptr;
-        }
-
-        if (event->mask & IN_MOVED_FROM) {
-          // IN_MOVED_FROM event is observed. Save as `pending_move_from_event`,
-          // so that it can attempt to find the matching IN_MOVED_TO event for
-          // the next iteration.
-          pending_move_from_event = event;
-        } else {
-          // Process other events as normal.
-          GetInotifyReader().OnInotifyEvent(event);
-        }
-      }
-
-      // Poll with zero timeout to see if another batch is immediately
-      // available. This allows coalescing move events across batches.
-      int poll_result = HANDLE_EINTR(poll(fdarray.data(), fdarray.size(), 0));
-      has_batch = poll_result > 0;
-
-      if (poll_result < 0) {
-        DPLOG(WARNING) << "poll failed";
-        return;
-      }
-
-      // If we don't have another batch to process, assume any pending move-from
-      // event doesn't have a matching move-to event.
-      if (!has_batch && pending_move_from_event) {
-        GetInotifyReader().OnInotifyEvent(pending_move_from_event);
-      }
+        })) {
+      return;
     }
   }
 }
@@ -735,10 +776,10 @@ void FilePathWatcherImpl::OnFilePathChanged(
   // may delete `this`.
   usage_monitor.Stop();
 
-  FilePathWatcher::ChangeInfo change_info(file_path_type, change_type,
-                                          result.value());
+  FilePathWatcher::ChangeInfo change_info(result->file_path_type, change_type,
+                                          result->changed_path);
   callback_.Run(std::move(change_info),
-                report_modified_path_ ? result.value() : target_,
+                report_modified_path_ ? result->changed_path : target_,
                 /*error=*/false);  // `this` may be deleted.
 }
 
@@ -778,34 +819,38 @@ void FilePathWatcherImpl::OnFilePathChangedForMoveEvents(
 
   if (moved_from_result.has_value() && moved_to_result.has_value()) {
     FilePathWatcher::ChangeInfo change_info(
-        file_path_type, FilePathWatcher::ChangeType::kMoved,
-        moved_to_result.value(), moved_from_result.value());
-    callback_.Run(std::move(change_info),
-                  report_modified_path_ ? moved_to_result.value() : target_,
-                  /*error=*/false);  // `this` may be deleted.
+        moved_to_result->file_path_type, FilePathWatcher::ChangeType::kMoved,
+        moved_to_result->changed_path, moved_from_result->changed_path);
+    callback_.Run(
+        std::move(change_info),
+        report_modified_path_ ? moved_to_result->changed_path : target_,
+        /*error=*/false);  // `this` may be deleted.
   } else if (moved_from_result.has_value()) {
     // Report file/dir moved out of the watch scope as `ChangeType::kDeleted`.
     FilePathWatcher::ChangeInfo change_info(
-        file_path_type, FilePathWatcher::ChangeType::kDeleted,
-        moved_from_result.value());
-    callback_.Run(std::move(change_info),
-                  report_modified_path_ ? moved_from_result.value() : target_,
-                  /*error=*/false);  // `this` may be deleted.
+        moved_from_result->file_path_type,
+        FilePathWatcher::ChangeType::kDeleted, moved_from_result->changed_path);
+    callback_.Run(
+        std::move(change_info),
+        report_modified_path_ ? moved_from_result->changed_path : target_,
+        /*error=*/false);  // `this` may be deleted.
   } else if (moved_to_result.has_value()) {
     // Report file/dir moved into the watch scope as `ChangeType::kCreated`.
     FilePathWatcher::ChangeInfo change_info(
-        file_path_type, FilePathWatcher::ChangeType::kCreated,
-        moved_to_result.value());
-    callback_.Run(std::move(change_info),
-                  report_modified_path_ ? moved_to_result.value() : target_,
-                  /*error=*/false);  // `this` may be deleted.
+        moved_to_result->file_path_type, FilePathWatcher::ChangeType::kCreated,
+        moved_to_result->changed_path);
+    callback_.Run(
+        std::move(change_info),
+        report_modified_path_ ? moved_to_result->changed_path : target_,
+        /*error=*/false);  // `this` may be deleted.
   }
 
   // No need to invoke the callback when neither of the modified path is found
   // within the watched scope (= ChangeProcessError::kNotFound)
 }
 
-base::expected<base::FilePath, FilePathWatcherImpl::ChangeProcessError>
+base::expected<FilePathWatcherImpl::ChangeProcessResult,
+               FilePathWatcherImpl::ChangeProcessError>
 FilePathWatcherImpl::FindChangedPathAndUpdateWatches(
     InotifyReader::Watch fired_watch,
     const base::FilePath::StringType& child,
@@ -828,6 +873,12 @@ FilePathWatcherImpl::FindChangedPathAndUpdateWatches(
     bool change_on_target_path = child.empty() ||
                                  (child == watch_entry.linkname) ||
                                  (child == watch_entry.subdir);
+
+    // A watch for a broken symlink observes the symlink target's parent. An
+    // event for `linkname` therefore describes the symlink target, rather than
+    // the path represented by this WatchEntry.
+    bool link_target_changed =
+        !watch_entry.linkname.empty() && child == watch_entry.linkname;
 
     // Check if the change references |target_| or a direct child of |target_|.
     bool target_changed;
@@ -856,6 +907,8 @@ FilePathWatcherImpl::FindChangedPathAndUpdateWatches(
       }
     }
 
+    const auto target_path_type_before_change = target_path_type_;
+
     // Update watches if a directory component of the |target_| path
     // (dis)appears. Note that we don't add the additional restriction of
     // checking the event mask to see if it is for a directory here as changes
@@ -866,6 +919,13 @@ FilePathWatcherImpl::FindChangedPathAndUpdateWatches(
         return base::unexpected(ChangeProcessError::kLimitExceeded);
       }
       did_update = true;
+
+      if (target_changed && !link_target_changed) {
+        target_path_type_ =
+            deleted ? FilePathWatcher::FilePathType::kUnknown : file_path_type;
+      } else {
+        target_path_type_ = GetFilePathType(target_);
+      }
     }
 
     // Report the following events:
@@ -885,7 +945,14 @@ FilePathWatcherImpl::FindChangedPathAndUpdateWatches(
         }
         did_update = true;
       }
-      return base::ok(change_on_target_path ? target_ : target_.Append(child));
+      FilePathWatcher::FilePathType changed_path_type = file_path_type;
+      if (change_on_target_path && (!target_changed || link_target_changed)) {
+        changed_path_type =
+            created ? target_path_type_ : target_path_type_before_change;
+      }
+      return base::ok(ChangeProcessResult{
+          change_on_target_path ? target_ : target_.Append(child),
+          changed_path_type});
     }
   }
 
@@ -899,7 +966,7 @@ FilePathWatcherImpl::FindChangedPathAndUpdateWatches(
         return base::unexpected(ChangeProcessError::kLimitExceeded);
       }
     }
-    return base::ok(child_path);
+    return base::ok(ChangeProcessResult{child_path, file_path_type});
   }
 
   return base::unexpected(ChangeProcessError::kNotFound);
@@ -1006,6 +1073,7 @@ bool FilePathWatcherImpl::WatchWithChangeInfo(
     return false;
   }
 
+  target_path_type_ = GetFilePathType(target_);
   RecordWatchWithChangeInfoResultUma(WatchWithChangeInfoResult::kSuccess);
 
   return true;
@@ -1361,6 +1429,13 @@ size_t GetMaxNumberOfInotifyWatches() {
   }();
   return max;
 #endif  // if BUILDFLAG(IS_FUCHSIA)
+}
+
+bool ReadInotifyEventsForTesting(
+    int inotify_fd,
+    base::FunctionRef<void(const inotify_event*, const inotify_event*)>
+        dispatch_event) {
+  return ReadInotifyEvents(inotify_fd, dispatch_event);
 }
 
 size_t GetQuotaLimitFromSystemLimitForTesting(size_t system_limit) {

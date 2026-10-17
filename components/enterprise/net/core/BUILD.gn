@@ -22,6 +22,8 @@ static_library("core") {
 
   if (enterprise_proxy) {
     public += [
+      "auth_scope_metadata.h",
+      "enterprise_network_auth_service.h",
       "enterprise_proxy_error_data.h",
       "enterprise_proxy_error_service.h",
       "enterprise_proxy_service.h",
@@ -34,6 +36,7 @@ static_library("core") {
       "utils.h",
     ]
     sources += [
+      "auth_scope_metadata.cc",
       "enterprise_network_auth_service.cc",
       "enterprise_proxy_error_data.cc",
       "enterprise_proxy_error_service.cc",
@@ -52,8 +55,11 @@ static_library("core") {
       "//components/language/core/browser",
       "//components/policy/core/common",
       "//components/signin/public/identity_manager",
+      "//components/strings:components_strings",
       "//net",
       "//services/network/public/cpp",
+      "//ui/base",
+      "//url",
     ]
   }
 }
@@ -65,6 +71,7 @@ source_set("unit_tests") {
 
   if (enterprise_proxy) {
     sources += [
+      "auth_scope_metadata_unittest.cc",
       "enterprise_network_auth_service_unittest.cc",
       "enterprise_proxy_error_service_unittest.cc",
       "enterprise_proxy_service_unittest.cc",
@@ -84,11 +91,14 @@ source_set("unit_tests") {
       "//components/language/core/browser",
       "//components/prefs:test_support",
       "//components/signin/public/identity_manager:test_support",
+      "//components/strings:components_strings",
       "//net:test_support",
       "//services/network:test_support",
       "//services/network/public/cpp",
       "//testing/gmock",
       "//testing/gtest",
+      "//ui/base",
+      "//url",
     ]
     if (!is_ios) {
       deps += [ "//content/test:test_support" ]
@@ -110,10 +120,12 @@ static_library("test_support") {
     public += [
       "mock_enterprise_network_auth_service.h",
       "mock_enterprise_proxy_service.h",
+      "scoped_extra_allowed_domains_for_testing.h",
     ]
     sources += [
       "mock_enterprise_network_auth_service.cc",
       "mock_enterprise_proxy_service.cc",
+      "scoped_extra_allowed_domains_for_testing.cc",
     ]
     public_deps += [ "//net" ]
   }

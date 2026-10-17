@@ -6,12 +6,14 @@
 
 #import <algorithm>
 #import <string>
+#import <string_view>
 #import <vector>
 
 #import "base/containers/fixed_flat_set.h"
 #import "base/metrics/field_trial_params.h"
 #import "base/strings/string_split.h"
 #import "base/strings/string_util.h"
+#import "base/system/sys_info.h"
 #import "components/segmentation_platform/public/features.h"
 #import "components/sync/base/features.h"
 #import "components/sync_preferences/features.h"
@@ -323,8 +325,31 @@ BASE_FEATURE(kInactiveNavigationAfterAppLaunchKillSwitch,
              "kInactiveNavigationAfterAppLaunchKillSwitch",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+namespace {
+
+// Model identifier for the iPhone Duo form factor.
+constexpr std::string_view kDuoModelIdentifier = "iPhone19,4";
+NSString* const kDuoSimulatorModelIdentifier = @"iPhone19,4";
+
+}  // namespace
+
+bool IsDuoDevice() {
+#if TARGET_OS_SIMULATOR
+  NSString* simulator_model =
+      NSProcessInfo.processInfo.environment[@"SIMULATOR_MODEL_IDENTIFIER"];
+  if (simulator_model) {
+    return [simulator_model isEqualToString:kDuoSimulatorModelIdentifier];
+  }
+#endif
+  return base::SysInfo::HardwareModelName() == kDuoModelIdentifier;
+}
+
 bool IsPinnedTabsEnabled() {
-  return ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET;
+  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET ||
+      IsDuoDevice()) {
+    return false;
+  }
+  return true;
 }
 
 BASE_FEATURE(kEnableAppBackgroundRefresh, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -899,7 +924,7 @@ bool IsAimCobrowseEnabled() {
   return base::FeatureList::IsEnabled(kAimCobrowse);
 }
 
-BASE_FEATURE(kPreventCobrowseOnAimSrpTap, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kEnableCobrowseOnAimSrpTap, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kFeedbackEntryPointsRequireCanSubmitFeedbackCapability,
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1008,9 +1033,17 @@ bool IsUpdateTabGroupColorsEnabled() {
 // Enables the plus button in NTP fakebox.
 BASE_FEATURE(kPlusButtonInFakebox, base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables the plus button contextual menu in NTP fakebox.
+BASE_FEATURE(kPlusButtonMenuInFakebox, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Returns true if the plus button in NTP fakebox is enabled.
 bool IsPlusButtonInFakeboxEnabled() {
   return base::FeatureList::IsEnabled(kPlusButtonInFakebox);
+}
+
+// Returns true if the plus button contextual menu in NTP fakebox is enabled.
+bool IsPlusButtonMenuInFakeboxEnabled() {
+  return base::FeatureList::IsEnabled(kPlusButtonMenuInFakebox);
 }
 
 BASE_FEATURE(kAssistantAimMinimizedState, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1066,8 +1099,7 @@ bool IsIOSPhishGuardPasteShortcutDetectionEnabled() {
   return base::FeatureList::IsEnabled(kIOSPhishGuardPasteShortcutDetection);
 }
 
-
-BASE_FEATURE(kSupportGoogleOneDeepLink, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kSupportGoogleOneDeepLink, base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsGoogleOneDeepLinkEnabled() {
   return base::FeatureList::IsEnabled(kSupportGoogleOneDeepLink);
@@ -1132,4 +1164,31 @@ BASE_FEATURE(kAimHistoryThreadsManagement, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsAimHistoryThreadsManagementEnabled() {
   return base::FeatureList::IsEnabled(kAimHistoryThreadsManagement);
+}
+
+BASE_FEATURE(kTTCEnabled, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsTTCEnabled() {
+  return base::FeatureList::IsEnabled(kTTCEnabled);
+}
+
+BASE_FEATURE(kImportExportFlags, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kAimCobrowseWebSelectionSearch, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsAimCobrowseWebSelectionSearchEnabled() {
+  return IsAimCobrowseEnabled() &&
+         base::FeatureList::IsEnabled(kAimCobrowseWebSelectionSearch);
+}
+
+BASE_FEATURE(kAppBarAssistantCustomization, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsAppBarAssistantCustomizationEnabled() {
+  return base::FeatureList::IsEnabled(kAppBarAssistantCustomization);
+}
+
+BASE_FEATURE(kLightAppBar, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsLightAppBarEnabled() {
+  return base::FeatureList::IsEnabled(kLightAppBar);
 }

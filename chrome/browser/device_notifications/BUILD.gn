@@ -103,6 +103,7 @@ source_set("unit_tests") {
     "//base",
     "//build:chromeos_buildflags",
     "//chrome/test:test_support",
+    "//chrome/test/base:testing_browser_process",
     "//testing/gmock",
     "//url",
   ]
@@ -149,6 +150,7 @@ source_set("browser_test_support") {
     ":test_support",
     "//base",
     "//chrome/test:test_support",
+    "//chrome/test/base:profile_lifecycle_test_utils",
     "//testing/gmock",
     "//url",
   ]

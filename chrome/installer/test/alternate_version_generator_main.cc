@@ -7,6 +7,7 @@
 
 #include <stddef.h>
 
+#include <array>
 #include <cstdio>
 #include <cstdlib>
 
@@ -43,15 +44,17 @@ enum ErrorCode {
   GENERATION_FAILED
 };
 
-const wchar_t* const Messages[] = {
-    nullptr, L"original mini_installer.exe not found",
+constexpr auto Messages = std::to_array<const wchar_t*>({
+    nullptr,
+    L"original mini_installer.exe not found",
     L"output file already exists",
-    L"failed to generate a newly versioned mini_installer.exe"};
+    L"failed to generate a newly versioned mini_installer.exe",
+});
 
 const wchar_t* GetErrorMessage(ErrorCode error_code) {
   DCHECK_LE(0, error_code);
   DCHECK_GT(std::size(Messages), static_cast<size_t>(error_code));
-  return UNSAFE_TODO(Messages[error_code]);
+  return Messages[error_code];
 }
 
 }  // namespace errors
@@ -95,7 +98,9 @@ void DumpUsage(const base::CommandLine& cmd_line,
       L"Defaults\n"
       L"                            to "
       L"..\\..\\third_party\\lzma_sdk\\Executable\n"
-      L"                            relative to this program's location.\n",
+      L"                            relative to this program's location.\n"
+      L" --fast_archive_compression Use fast compression of chrome.7z into\n"
+      L"                            chrome.packed.7z.\n",
       cmd_line.GetProgram().value().c_str()));
 }
 

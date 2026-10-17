@@ -146,6 +146,8 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
       prefs::kGlicLastProfileReadyState,
       static_cast<int>(glic::mojom::ProfileReadyState::kReady));
   registry->RegisterIntegerPref(prefs::kGlicMarketingAutoOpenCount, 0);
+  registry->RegisterStringPref(prefs::kGlicPromotionSourceCohort,
+                               std::string());
 }
 
 void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
@@ -174,7 +176,7 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
           LocalHotkeyManager::GetDefaultAccelerator(
               LocalHotkeyManager::Command::kFocusToggle)));
   registry->RegisterBooleanPref(prefs::kGlicHotkeyGlobalScopeEnabled, false);
-  registry->RegisterBooleanPref(prefs::kGlicHotkeyGlobalScopeMigrated, false);
+  registry->RegisterBooleanPref(prefs::kGlicHotkeyGlobalScopeMigratedV2, false);
   registry->RegisterStringPref(prefs::kGlicGuestUrlPresetAutopush, "");
   registry->RegisterStringPref(prefs::kGlicGuestUrlPresetStaging, "");
   registry->RegisterStringPref(prefs::kGlicGuestUrlPresetPreprod, "");

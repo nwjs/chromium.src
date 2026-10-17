@@ -72,10 +72,13 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_TIMEZONE) TimeZoneRequest {
 
   // |url| is the server address to which the request wil be sent.
   // |geoposition| is the location to query timezone for.
+  // |timestamp| is the wall clock time representing the timing to resolve
+  // the timezone (e.g., for daylight saving timezone).
   // |retry_timeout| retry request on error until timeout.
   TimeZoneRequest(scoped_refptr<network::SharedURLLoaderFactory> factory,
                   const GURL& service_url,
                   const Geoposition& geoposition,
+                  base::Time timestamp,
                   base::TimeDelta retry_timeout);
 
   TimeZoneRequest(const TimeZoneRequest&) = delete;
@@ -109,7 +112,8 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_TIMEZONE) TimeZoneRequest {
 
   scoped_refptr<network::SharedURLLoaderFactory> shared_url_loader_factory_;
   const GURL service_url_;
-  Geoposition geoposition_;
+  const Geoposition geoposition_;
+  const base::Time timestamp_;
 
   TimeZoneResponseCallback callback_;
 
@@ -117,10 +121,10 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_TIMEZONE) TimeZoneRequest {
   std::unique_ptr<network::SimpleURLLoader> url_loader_;
 
   // When request was actually started.
-  base::Time request_started_at_;
+  base::TimeTicks request_started_at_;
 
   // Absolute time, when it is passed no more retry requests are allowed.
-  base::Time retry_timeout_abs_;
+  base::TimeTicks retry_timeout_abs_;
 
   // Pending retry.
   base::OneShotTimer timezone_request_scheduled_;

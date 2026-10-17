@@ -181,7 +181,7 @@ suite('ContextualTasksAppTest', function() {
 
   test('does not attempt to restore thread if params available', async () => {
     window.history.replaceState(
-        {}, '', `?chrome_task_id=123&thread=333&turn=444&title=wrong`);
+        {}, '', '?chrome_task_id=123&thread=333&turn=444&title=wrong');
 
     const threadId = '111';
     const turnId = '222';
@@ -199,7 +199,7 @@ suite('ContextualTasksAppTest', function() {
 
   test('history entry added if task changes', async () => {
     window.history.replaceState(
-        {}, '', `?chrome_task_id=111&thread=222&turn=333&title=wrong`);
+        {}, '', '?chrome_task_id=111&thread=222&turn=333&title=wrong');
 
     const {proxy} = await createContextualTasksAppElement(/*url=*/ fixtureUrl);
 
@@ -217,7 +217,7 @@ suite('ContextualTasksAppTest', function() {
 
   test('no history entry added if task did not change', async () => {
     window.history.replaceState(
-        {}, '', `?chrome_task_id=111&thread=222&turn=333&title=wrong`);
+        {}, '', '?chrome_task_id=111&thread=222&turn=333&title=wrong');
 
     const {proxy} = await createContextualTasksAppElement(/*url=*/ fixtureUrl);
 
@@ -250,10 +250,10 @@ suite('ContextualTasksAppTest', function() {
 
   test('back navigation fetches previous task url', async () => {
     window.history.replaceState(
-        {}, '', `?chrome_task_id=111&thread=222&turn=333&title=wrong`);
+        {}, '', '?chrome_task_id=111&thread=222&turn=333&title=wrong');
 
     const {appElement, proxy} = await createContextualTasksAppElement(
-        /*url=*/ `http://example.com?mtid=111&mstk=222&q=title`);
+        /*url=*/ 'http://example.com?mtid=111&mstk=222&q=title');
     const {promise, resolve} = Promise.withResolvers<void>();
     appElement.setPopStateFinishedCallbackForTesting(resolve);
     await microtasksFinished();
@@ -275,7 +275,7 @@ suite('ContextualTasksAppTest', function() {
 
   test('history requested if url param set', async () => {
     // Make sure the history panel is requested in the URL.
-    window.history.replaceState({}, '', `?open_history=true`);
+    window.history.replaceState({}, '', '?open_history=true');
 
     const {appElement} =
         await createContextualTasksAppElement(/*url=*/ 'http://example.com');
@@ -456,22 +456,22 @@ suite('ContextualTasksAppTest', function() {
   });
   // <if expr="not is_android or enable_webui_contextual_tasks_composebox">
   test('isAiPage reflected in dom', async () => {
-    const {appElement, proxy} = await createContextualTasksAppElement(
+    const {appElement, toolbarProxy} = await createContextualTasksAppElement(
         /*url=*/ fixtureUrl,
         /*setupProxy=*/ undefined,
         /*waitForInitialLoadStart=*/ false);
 
     assertFalse(appElement.hasAttribute('is-ai-page_'));
 
-    proxy.callbackRouterRemote.onAiPageStatusChanged(false);
-    await proxy.callbackRouterRemote.$.flushForTesting();
+    toolbarProxy.callbackRouterRemote.onAiPageStatusChanged(false);
+    await toolbarProxy.callbackRouterRemote.$.flushForTesting();
     await microtasksFinished();
     await appElement.updateComplete;
 
     assertFalse(appElement.hasAttribute('is-ai-page_'));
 
-    proxy.callbackRouterRemote.onAiPageStatusChanged(true);
-    await proxy.callbackRouterRemote.$.flushForTesting();
+    toolbarProxy.callbackRouterRemote.onAiPageStatusChanged(true);
+    await toolbarProxy.callbackRouterRemote.$.flushForTesting();
     await microtasksFinished();
     await appElement.updateComplete;
 
@@ -506,8 +506,7 @@ suite('ContextualTasksAppTest', function() {
     // Simulate a new thread click from the toolbar.
     const toolbar = appElement.shadowRoot.querySelector('top-toolbar');
     assertTrue(!!toolbar, 'Toolbar should be visible');
-    toolbar.dispatchEvent(
-        new CustomEvent('new-thread-click', {bubbles: true, composed: true}));
+    toolbar.fire('new-thread-click');
     await microtasksFinished();
 
     const finalUrl = new URL(appElement.getThreadUrlForTesting());
@@ -825,7 +824,7 @@ suite('ContextualTasksAppTest', function() {
 
   test('composebox hidden when jump fix conditions met', async () => {
     loadTimeData.overrideValues({enableComposeboxJumpFix: true});
-    const {appElement, proxy} =
+    const {appElement, proxy, toolbarProxy} =
         await createContextualTasksAppElement(/*url=*/ fixtureUrl);
     await removeThreadFrameToPreventRaceConditions();
 
@@ -834,10 +833,10 @@ suite('ContextualTasksAppTest', function() {
 
     // Initial state setup: AI page, not zero state, no forced bounds
     proxy.handler.setIsAiPage(true);
-    proxy.callbackRouterRemote.onAiPageStatusChanged(true);
+    toolbarProxy.callbackRouterRemote.onAiPageStatusChanged(true);
     appElement.setIsZeroStateForTesting(false);
     appElement.setForcedComposeboxBoundsForTesting(null);
-    await proxy.callbackRouterRemote.$.flushForTesting();
+    await toolbarProxy.callbackRouterRemote.$.flushForTesting();
     await microtasksFinished();
     await appElement.updateComplete;
 
@@ -870,8 +869,8 @@ suite('ContextualTasksAppTest', function() {
     assertTrue(composebox.hasAttribute('hidden'));
 
     // Set not AI page, composebox should not be hidden
-    proxy.callbackRouterRemote.onAiPageStatusChanged(false);
-    await proxy.callbackRouterRemote.$.flushForTesting();
+    toolbarProxy.callbackRouterRemote.onAiPageStatusChanged(false);
+    await toolbarProxy.callbackRouterRemote.$.flushForTesting();
     await microtasksFinished();
     await appElement.updateComplete;
     assertFalse(composebox.hasAttribute('hidden'));

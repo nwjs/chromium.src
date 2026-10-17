@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.composeplate;
 
+import static org.chromium.chrome.browser.composeplate.ComposeplateProperties.AI_MODE_BUTTON_ICON;
+import static org.chromium.chrome.browser.composeplate.ComposeplateProperties.AI_MODE_BUTTON_UI_CONFIG;
 import static org.chromium.chrome.browser.composeplate.ComposeplateProperties.APPLY_WHITE_BACKGROUND;
 import static org.chromium.chrome.browser.composeplate.ComposeplateProperties.COLOR_STATE_LIST;
 import static org.chromium.chrome.browser.composeplate.ComposeplateProperties.COMPOSEPLATE_BUTTON_CLICK_LISTENER;
@@ -43,6 +45,10 @@ public class ComposeplateViewBinder {
             view.setColorStateList(model.get(COLOR_STATE_LIST));
         } else if (TEXT_STYLE_RES_ID == propertyKey) {
             view.setTextStyle(model.get(TEXT_STYLE_RES_ID));
+        } else if (AI_MODE_BUTTON_UI_CONFIG == propertyKey) {
+            view.setAiModeButtonUiConfig(model.get(AI_MODE_BUTTON_UI_CONFIG));
+        } else if (AI_MODE_BUTTON_ICON == propertyKey) {
+            view.setAiModeButtonIcon(model.get(AI_MODE_BUTTON_ICON));
         } else {
             assert false : "Unhandled property detected in ComposeplateViewBinder!";
         }

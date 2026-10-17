@@ -441,10 +441,6 @@ found in the LICENSE file.
         <item name="android:textAppearance">@style/TextAppearance.TextMedium.Secondary</item>
         <item name="android:layout_gravity">start</item>
     </style>
-    <style name="SigninButtonBorderlessRegular" parent="@style/TextButton">
-        <item name="android:paddingStart">0dp</item>
-        <item name="android:paddingEnd">0dp</item>
-    </style>
 
     <!-- Misc text appearance styles -->
     <style name="TextAppearance.SearchEngineRecentTitle" parent="TextAppearance.MediumStyle">
@@ -471,7 +467,7 @@ found in the LICENSE file.
     </style>
 
     <style name="TextAppearance.FakeSearchBoxTextNewStyle" parent="TextAppearance.MediumStyle">
-        <item name="android:textColorHint">?attr/colorOutline</item>
+        <item name="android:textColorHint">?attr/colorOnSurfaceVariant</item>
     </style>
 
     <!-- Similar to FakeSearchBoxText, but with text size 16sp, medium weight, Google Sans text font.

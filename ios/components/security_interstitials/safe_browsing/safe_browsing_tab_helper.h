@@ -15,7 +15,7 @@
 #include "base/scoped_observation.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/safe_browsing/core/browser/db/database_manager.h"
-#include "components/safe_browsing/core/browser/db/v4_protocol_manager_util.h"
+#include "components/safe_browsing/core/browser/db/sb_protocol_manager_util.h"
 #include "components/safe_browsing/core/browser/safe_browsing_url_checker_impl.h"
 #import "ios/components/security_interstitials/safe_browsing/safe_browsing_query_manager.h"
 #import "ios/web/public/navigation/web_state_policy_decider.h"
@@ -101,10 +101,11 @@ class SafeBrowsingTabHelper
     // navigations occurred before the URL check has finished.
     bool IsQueryStale(const SafeBrowsingQueryManager::Query& query);
 
-    // Decides if a page is reloaded on commit. Used when an async check is
-    // completed while an unsafe query is in the
-    // `to_be_committed_redirect_chain_`.
-    bool ShouldReloadOnCommit();
+    // Decides if a page is reloaded on commit. Returns the URL to reload if an
+    // async check is completed while an unsafe query is in the
+    // `to_be_committed_redirect_chain_`. This also clears
+    // `reload_url_on_commit_`.
+    std::optional<GURL> TakeReloadUrlOnCommit();
 
     // Returns whether a query contained in `query_data` is still relevant. May
     // return false if navigations occurred before the URL check has finished.
@@ -117,9 +118,9 @@ class SafeBrowsingTabHelper
     // Returns the redirect chain for the committed navigation.
     std::vector<GURL> GetRedirectChain() const;
 
-    // Reloads the page. Used when a reload is necessary for triggering an error
-    // page.
-    void ReloadPage();
+    // Reloads the page with `url`. Used when a reload is necessary for
+    // triggering an error page.
+    void ReloadPage(const GURL& url);
 
     // Returns a policy decision based on query `result`.
     web::WebStatePolicyDecider::PolicyDecision CreatePolicyDecision(
@@ -220,6 +221,16 @@ class SafeBrowsingTabHelper
         RedirectChain redirect_chain,
         const SafeBrowsingQueryManager::QueryData& query_data);
 
+    // Returns whether the navigation described by `request_info` to
+    // `request_url` is a reload or back/forward load issued while Safe
+    // Browsing still has an undecided unsafe navigation for `request_url`'s
+    // origin. Such a load is the web layer re-loading the flagged document,
+    // whose URL may have been rewritten by a same-document history operation
+    // and therefore cannot be matched against the unsafe resource directly.
+    bool IsReloadWithPendingUnsafeDecision(
+        const web::WebStatePolicyDecider::RequestInfo& request_info,
+        const GURL& request_url) const;
+
     // Callback invoked when a main frame query for `url` has finished with
     // `decision` after performing a check of type `performed_check`.
     void OnMainFrameUrlQueryDecided(
@@ -308,7 +319,7 @@ class SafeBrowsingTabHelper
     // A list of queries corresponding to the redirect chain saved after
     // DidFinishNavigation() is called.
     std::list<MainFrameUrlQuery> committed_redirect_chain_;
-    bool reload_page_on_commit_ = false;
+    std::optional<GURL> reload_url_on_commit_;
   };
 
   // Helper object that observes results of URL check queries.

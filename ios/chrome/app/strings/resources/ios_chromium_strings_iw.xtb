@@ -53,6 +53,8 @@
 <translation id="1965068424387304464">‏טיפ ל-Chromium: שמירת סיסמאות</translation>
 <translation id="1992653360331625459">כבר שמרת סיסמאות לחשבונות האלה במנהל הסיסמאות. אם אחת מהסיסמאות הבאות תיובא, היא תחליף את הסיסמה הקיימת.</translation>
 <translation id="2006345422933397527">‏Chromium לא הצליח לחפש עדכונים. יש לבדוק את החיבור לאינטרנט.</translation>
+<translation id="2025935492422922097">‏‫Chromium מעבד את כותרות הדפים וכתובות ה-URL במרחב הפרטי בענן</translation>
+<translation id="2027881372245801507">‏השבתת ההצעות לא משפיעה על עיבוד כותרות הדפים וכתובות ה-URL של Chromium בתכונות אחרות. אפשר לשנות את הרשאות הגישה לנתונים האלה ב<ph name="BEGIN_LINK" />הגדרות הסנכרון<ph name="END_LINK" />.</translation>
 <translation id="2042889939382983733">‏הצגת ההיסטוריה ב-Chromium</translation>
 <translation id="2052320862053429062">‏Chromium בודק מדי פעם את הסיסמאות שלך ומשווה אותן לרשימות שהתפרסמו באינטרנט. כשהבדיקה הזו מתבצעת, הסיסמאות ושמות המשתמשים מוצפנים, כך שאיש לא יכול לקרוא אותם, כולל Google.</translation>
 <translation id="2059365270911640413">‏לא סיימת להגדיר את Chromium</translation>
@@ -105,6 +107,7 @@
 <translation id="3072591112723064972">‏כדי שקישורים יפתחו ישירות ב-Chromium, צריך להגדיר אותו כדפדפן ברירת המחדל.</translation>
 <translation id="3115956258722352278">‏להגדיר את Chromium כדפדפן ברירת המחדל?</translation>
 <translation id="3180939591219927904">‏מפעילים את האפשרות "נעילת הכרטיסיות הפרטיות כשסוגרים את Chromium"</translation>
+<translation id="3239426886813624481">‏כדי לשתף את המיקום שלך עם אתרים, צריך ללחוץ על "הגדרות" ולאפשר ל-Chromium להשתמש במיקום.</translation>
 <translation id="327628223428512207">‏כדי לשמור את הסיסמה הזו ולקבל את הנתונים של Chromium בכל המכשירים, צריך להקליד את ביטוי הסיסמה</translation>
 <translation id="328933489847748230">{count,plural, =1{‏כרגע מוצג חלון Chromium אחד}one{‏כרגע מוצגים {count} חלונות Chromium}two{‏כרגע מוצגים {count} חלונות Chromium}other{‏כרגע מוצגים {count} חלונות Chromium}}</translation>
 <translation id="3344204225393848305">‏הגדרת Chromium כדפדפן ברירת המחדל</translation>
@@ -351,6 +354,8 @@
 <translation id="865600487977764604">‏מגן עליך ב‑Chromium ועשוי לשפר את רמת האבטחה באפליקציות אחרות של Google. ההגנה הזו פעילה רק אם נכנסים לחשבון.</translation>
 <translation id="8663480472502753423">‏Chromium יתעדכן באופן קבוע</translation>
 <translation id="8685813584220679697">‏יש להיכנס לאתר הזה ול-Chromium.</translation>
+<translation id="8697693743327341604">‏אם בוחרים בהצעה או מתעלמים ממנה, Chromium מתאים את עצמו כדי להציג הצעות רלוונטיות יותר בעתיד.</translation>
+<translation id="869832267508702259">‏רוצה לקבל תובנות של Gemini בכל מקום ברשת? כדאי להגדיר את Chromium כדפדפן ברירת המחדל</translation>
 <translation id="8698780336333802489">‏ייבוא אל Chromium</translation>
 <translation id="8730503818204408000">‏פתיחה של הגדרות Chromium כדי להגדיר את Chromium כדפדפן ברירת המחדל.</translation>
 <translation id="8754966941001340678">‏ההמלצה של Chromium היא הגנה משופרת</translation>

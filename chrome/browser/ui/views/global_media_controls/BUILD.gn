@@ -67,8 +67,10 @@ source_set("impl") {
     "//chrome/browser/language",
     "//chrome/browser/media/router:media_router_feature",
     "//chrome/browser/ui:browser_element_identifiers",
+    "//chrome/browser/ui:singleton_tabs",
     "//chrome/browser/ui/navigator",
     "//chrome/browser/ui/views:layout_provider",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/ui/views/media_router",
     "//components/language/core/browser",
     "//components/live_caption:constants",
@@ -93,6 +95,7 @@ source_set("test_support") {
     "//chrome/browser/media/router:test_support",
     "//chrome/browser/ui/global_media_controls",
     "//chrome/browser/ui/views",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/ui/views/toolbar",
     "//chrome/test:test_support_ui",
     "//components/global_media_controls",
@@ -135,7 +138,13 @@ source_set("unit_tests") {
 
   if (is_linux || is_win || is_mac) {
     sources += [ "media_dialog_view_unittest.cc" ]
-    deps += [ "//chrome/browser/accessibility" ]
+    deps += [
+      "//chrome/browser/accessibility",
+      "//chrome/browser/accessibility/live_caption",
+      "//components/live_caption:constants",
+      "//components/live_caption:utils",
+      "//components/prefs",
+    ]
   }
 
   if (use_nss_certs && is_chromeos) {
@@ -193,6 +202,7 @@ source_set("interactive_ui_tests") {
     "//base/i18n:test_support",
     "//chrome/browser/ui",
     "//chrome/browser/ui/global_media_controls",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/test:test_support",
     "//chrome/test:test_support_ui",
     "//components/global_media_controls",

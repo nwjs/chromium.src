@@ -14,9 +14,12 @@ namespace extensions {
 enum class ExtensionSearchRedirectedByApi {
   kDeclarativeNetRequest = 0,
   kTabsUpdate = 1,
-  kMaxValue = kTabsUpdate,
+  kContentScript = 2,
+  kMaxValue = kContentScript,
 };
 // LINT.ThenChange(//tools/metrics/histograms/enums.xml:ExtensionSearchRedirectedByApi)
+
+inline constexpr char kTabNotFoundError[] = "No tab with id: *.";
 
 }  // namespace extensions
 

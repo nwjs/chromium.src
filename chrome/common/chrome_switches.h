@@ -342,8 +342,10 @@ inline constexpr char kEnableNetBenchmarking[] = "enable-net-benchmarking";
 inline constexpr char kEnablePotentiallyAnnoyingSecurityFeatures[] =
     "enable-potentially-annoying-security-features";
 
-// Enables verbose debug logs for Talk to Chrome (TTC).
-inline constexpr char kEnableTtcDebugLogs[] = "enable-ttc-debug-logs";
+// Enables test mode for the AI overlay dialog, which automatically opens
+// the dialog on browser startup and exposes programmatic test APIs to WebUI.
+inline constexpr char kAiOverlayDialogTestMode[] =
+    "ai-overlay-dialog-test-mode";
 
 // Allows experimental ai extension APIs to be used in stable channel.
 // This disables chrome sign-in if set, regardless of channel.
@@ -936,6 +938,9 @@ inline constexpr char kNoOpForTestingProcess[] = "no-op-for-testing";
 #endif  // BUILDFLAG(IS_MAC)
 
 #if BUILDFLAG(IS_WIN)
+// The version for the staged child module.
+inline constexpr char kChildModuleVersion[] = "child-module-version";
+
 // Force-enables the profile shortcut manager. This is needed for tests since
 // they use a custom-user-data-dir which disables this.
 inline constexpr char kEnableProfileShortcutManager[] =
@@ -994,6 +999,14 @@ inline constexpr char kSourceAppId[] = "source-app-id";
 // shortcut that launched the new Chrome process. This is used to record launch
 // metrics.
 inline constexpr char kSourceShortcut[] = "source-shortcut";
+
+// Specifies the origin location of the shortcut that launched Chrome (e.g.
+// desktop, start-menu, taskbar). Used to record launch metrics when launched
+// with an AppId.
+inline constexpr char kSourceShortcutLocation[] = "source-shortcut-location";
+inline constexpr char kSourceShortcutLocationDesktop[] = "desktop";
+inline constexpr char kSourceShortcutLocationStartMenu[] = "start-menu";
+inline constexpr char kSourceShortcutLocationTaskbar[] = "taskbar";
 
 // Identifies Chrome instances that start in foreground mode at startup to
 // record related metrics.

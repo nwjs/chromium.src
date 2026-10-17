@@ -6,8 +6,9 @@
 
 #import "base/memory/raw_ptr.h"
 #import "base/strings/sys_string_conversions.h"
+#import "base/test/gtest_util.h"
 #import "base/test/scoped_feature_list.h"
-#import "components/signin/ios/browser/fake_signin_enabled_datasource.h"
+#import "components/signin/public/base/signin_pref_names.h"
 #import "components/sync/test/test_sync_service.h"
 #import "components/test/ios/test_utils.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_activation_level.h"
@@ -24,11 +25,11 @@
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
+#import "ios/chrome/browser/shared/public/commands/scene_sign_in_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
 #import "ios/chrome/browser/shared/public/commands/show_signin_command.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
-#import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity_manager.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
@@ -51,8 +52,7 @@ class AccountConsistencyBrowserAgentTest : public PlatformTest {
     TestProfileIOS::Builder builder;
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetFactoryWithDelegateForTesting(
-            std::make_unique<FakeAuthenticationServiceDelegate>()));
+        AuthenticationServiceFactory::GetDefaultFactory());
     builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
                               base::BindRepeating(&CreateTestSyncService));
     profile_ = profile_manager_.AddProfileWithBuilder(std::move(builder));
@@ -65,6 +65,11 @@ class AccountConsistencyBrowserAgentTest : public PlatformTest {
     [browser_->GetCommandDispatcher()
         startDispatchingToTarget:mock_scene_handler_
                      forProtocol:@protocol(SceneCommands)];
+    mock_scene_sign_in_handler_ =
+        OCMStrictProtocolMock(@protocol(SceneSignInCommands));
+    [browser_->GetCommandDispatcher()
+        startDispatchingToTarget:mock_scene_sign_in_handler_
+                     forProtocol:@protocol(SceneSignInCommands)];
     settings_commands_mock_ =
         OCMStrictProtocolMock(@protocol(SettingsCommands));
     [browser_->GetCommandDispatcher()
@@ -79,7 +84,8 @@ class AccountConsistencyBrowserAgentTest : public PlatformTest {
     base_view_controller_mock_ = OCMStrictClassMock([UIViewController class]);
     WebNavigationBrowserAgent::CreateForBrowser(browser_);
     AccountConsistencyBrowserAgent::CreateForBrowser(
-        browser_, base_view_controller_mock_, &signin_enabled_data_source_);
+        browser_, base_view_controller_mock_,
+        AuthenticationServiceFactory::GetForProfile(profile_.get()));
     agent_ = AccountConsistencyBrowserAgent::FromBrowser(browser_);
 
     WebStateList* web_state_list = browser_->GetWebStateList();
@@ -93,6 +99,7 @@ class AccountConsistencyBrowserAgentTest : public PlatformTest {
 
   void TearDown() override {
     EXPECT_OCMOCK_VERIFY((id)mock_scene_handler_);
+    EXPECT_OCMOCK_VERIFY((id)mock_scene_sign_in_handler_);
     EXPECT_OCMOCK_VERIFY((id)settings_commands_mock_);
     EXPECT_OCMOCK_VERIFY((id)browser_coordinator_commands_mock_);
     EXPECT_OCMOCK_VERIFY((id)base_view_controller_mock_);
@@ -125,7 +132,7 @@ class AccountConsistencyBrowserAgentTest : public PlatformTest {
   raw_ptr<Browser> browser_ = nullptr;
   raw_ptr<AccountConsistencyBrowserAgent> agent_ = nullptr;
   id<SceneCommands> mock_scene_handler_;
-  signin::FakeSigninEnabledDataSource signin_enabled_data_source_;
+  id<SceneSignInCommands> mock_scene_sign_in_handler_;
   id<SettingsCommands> settings_commands_mock_;
   id<BrowserCoordinatorCommands> browser_coordinator_commands_mock_;
   UIViewController* base_view_controller_mock_;
@@ -165,8 +172,8 @@ TEST_F(AccountConsistencyBrowserAgentTest, OnAddAccountWithPresentedView) {
       .andReturn([[UIViewController alloc] init]);
   agent_->OnAddAccount(GURL(), "",
                        browser_->GetWebStateList()->GetActiveWebState());
-  // Expect [mock_scene_handler_ showSignin:baseViewController:] to not
-  // be called. This is ensured by TearDown because mock_scene_handler_
+  // Expect [mock_scene_sign_in_handler_ showSignin:baseViewController:] to not
+  // be called. This is ensured by TearDown because mock_scene_sign_in_handler_
   // is a strict mock.
 }
 
@@ -285,12 +292,12 @@ TEST_F(AccountConsistencyBrowserAgentTest,
   web_state_list->ActivateWebStateAt(0);
   web::WebState* web_state =
       browser_.get()->GetWebStateList()->GetActiveWebState();
-  OCMExpect([mock_scene_handler_
+  OCMExpect([mock_scene_sign_in_handler_
       showWebSigninPromoFromViewController:base_view_controller_mock_
                                        URL:url_]);
   agent_->OnShowConsistencyPromo(url_, web_state);
   // Expect -showWebSigninPromoFromViewController:URL: to have been called.
-  // This is ensured by TearDown because mock_scene_handler_ is a strict
+  // This is ensured by TearDown because mock_scene_sign_in_handler_ is a strict
   // mock.
 }
 
@@ -311,7 +318,7 @@ TEST_F(AccountConsistencyBrowserAgentTest,
   web::WebState* web_state = web_state_list->GetWebStateAt(1);
   agent_->OnShowConsistencyPromo(url_, web_state);
   // Expect -showWebSigninPromoFromViewController:URL: to have not been called.
-  // This is ensured by TearDown because mock_scene_handler_ is a strict
+  // This is ensured by TearDown because mock_scene_sign_in_handler_ is a strict
   // mock.
 }
 
@@ -398,4 +405,32 @@ TEST_F(AccountConsistencyBrowserAgentTest, OnGoIncognitoWhenIncognitoIsActive) {
   agent_->OnGoIncognito(url_, browser_->GetWebStateList()->GetActiveWebState());
   // As the scene is changed, this OnAddAccount is dropped, and the mocks are
   // not asked to present anything, as opposed to OnGoIncognitoWithURL.
+}
+
+// Tests that `SigninEnabled()` returns true when sign-in is allowed, and false
+// when sign-in is disabled.
+TEST_F(AccountConsistencyBrowserAgentTest, SigninEnabled) {
+  EXPECT_TRUE(agent_->SigninEnabled());
+  GetApplicationContext()->GetLocalState()->SetBoolean(
+      prefs::kSigninAllowedOnDevice, false);
+  EXPECT_FALSE(agent_->SigninEnabled());
+}
+
+// Tests that calling `OnManageAccounts()` when sign-in is disabled triggers a
+// CHECK crash.
+TEST_F(AccountConsistencyBrowserAgentTest,
+       OnManageAccountsSigninDisabledCrash) {
+  GetApplicationContext()->GetLocalState()->SetBoolean(
+      prefs::kSigninAllowedOnDevice, false);
+  EXPECT_CHECK_DEATH(agent_->OnManageAccounts(
+      GURL(), browser_->GetWebStateList()->GetActiveWebState()));
+}
+
+// Tests that calling `OnAddAccount()` when sign-in is disabled triggers a
+// CHECK crash.
+TEST_F(AccountConsistencyBrowserAgentTest, OnAddAccountSigninDisabledCrash) {
+  GetApplicationContext()->GetLocalState()->SetBoolean(
+      prefs::kSigninAllowedOnDevice, false);
+  EXPECT_CHECK_DEATH(agent_->OnAddAccount(
+      GURL(), "", browser_->GetWebStateList()->GetActiveWebState()));
 }

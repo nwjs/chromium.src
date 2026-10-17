@@ -29,7 +29,6 @@ android_library("content_java_test_support") {
     "//mojo/public/java:bindings_java",
     "//net/android:net_java",
     "//net/android:net_java_test_support",
-    "//services/service_manager/public/java:service_manager_java",
     "//third_party/android_deps:espresso_java",
     "//third_party/android_deps:guava_java",
     "//third_party/androidx:androidx_annotation_annotation_java",
@@ -61,7 +60,6 @@ android_library("content_java_test_support") {
     "javatests/src/org/chromium/content_public/browser/test/util/Coordinates.java",
     "javatests/src/org/chromium/content_public/browser/test/util/DOMUtils.java",
     "javatests/src/org/chromium/content_public/browser/test/util/DomAutomationController.java",
-    "javatests/src/org/chromium/content_public/browser/test/util/FencedFrameUtils.java",
     "javatests/src/org/chromium/content_public/browser/test/util/HistoryUtils.java",
     "javatests/src/org/chromium/content_public/browser/test/util/JavaScriptUtils.java",
     "javatests/src/org/chromium/content_public/browser/test/util/NavigationControllerUtil.java",
@@ -87,7 +85,6 @@ android_library("content_transit_java") {
   deps = [
     "//base:base_java",
     "//base:base_java_test_support",
-    "//base:base_java_test_support_uncommon",
     "//base/test:public_transit_java",
     "//content/public/android:content_java",
     "//content/public/test/android:content_java_test_support",
@@ -106,7 +103,6 @@ generate_jni("content_test_jni") {
   sources = [
     "javatests/src/org/chromium/content_public/browser/test/RenderFrameHostTestExt.java",
     "javatests/src/org/chromium/content_public/browser/test/util/DOMUtils.java",
-    "javatests/src/org/chromium/content_public/browser/test/util/FencedFrameUtils.java",
     "javatests/src/org/chromium/content_public/browser/test/util/NavigationControllerUtil.java",
     "javatests/src/org/chromium/content_public/browser/test/util/NavigationEntrySimple.java",
     "javatests/src/org/chromium/content_public/browser/test/util/PrefetchTestUtil.java",
@@ -127,7 +123,6 @@ static_library("content_native_test_support") {
 
   sources = [
     "dom_utils.cc",
-    "fenced_frame_utils.cc",
     "navigation_controller_util.cc",
     "prefetch_test_util.cc",
     "render_frame_host_test_ext.cc",

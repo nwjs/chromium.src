@@ -21,16 +21,26 @@ import {getContextMenuPosition} from './toolbar_button.js';
 export interface OverflowableButtonState {
   /**
    * True if the button is pinned / should be shown if there's space for it, and
-   * on the overflow menu if not. Classes are responsible for hiding themselves
+   * on the overflow menu if not. Only needed if button may be hidden, so
+   * undefined is treated as true. Classes are responsible for hiding themselves
    * if false.
    */
-  shouldBeShown: boolean;
+  shouldBeShown?: boolean;
 
   /**
    * When present and true, the button will not be hidden due to overflow,
    * though if `shouldBeShown` is false, it's assumed to take priority.
    */
   isContextMenuVisible?: boolean;
+
+  /**
+   * When present and true, the button will never be hidden due to overflow.
+   * If `shouldBeShown` is false, should be undefined or null.
+   *
+   * Distinct from `isContextMenuVisible`, as that also drives accessibility
+   * state, though it is used when showing bubbles, under similar circumstances.
+   */
+  preventOverflow?: boolean|null;
 
   /**
    * Ignored if `isContextMenuVisible` is not present. If this field is present,
@@ -48,7 +58,11 @@ export interface OverflowableButtonState {
 type Constructor<T> = new (...args: any[]) => T;
 
 export interface OverflowableButton extends ResponsiveControl {
-  state: OverflowableButtonState;
+  /**
+   * The OverflowableButtonState. Every field in it is optional, so using
+   * OverflowableButtonState directly throws an error here.
+   */
+  state: unknown;
 
   /**
    * Called by subclasses when should show a left-click menu or bubble. Invokes
@@ -88,23 +102,33 @@ export const OverflowableButtonMixin =
           };
         }
 
-        accessor state: OverflowableButtonState = {
-          shouldBeShown: false,
-        };
+        accessor state: OverflowableButtonState = {};
 
         // Local count of context menu requests sent to the browser. Wraps
         // around at 2^32.
         private menuOpenToken_: number = 0;
 
         shouldBeShown(): boolean {
-          return this.state.shouldBeShown;
+          return this.state.shouldBeShown ?? true;
+        }
+
+        /**
+         * True if the button is currently not allowed to overflow, either
+         * because the browser has set `preventOverflow` or because its context
+         * menu is showing.
+         */
+        private shouldPreventOverflow_(): boolean {
+          // These use `=== true` because both can be undefined or bool, and
+          // `preventOverflow` may also be null, when `shouldBeShown` is false.
+          return this.state.preventOverflow === true ||
+              this.state.isContextMenuVisible === true;
         }
 
         setToMinWidth() {
           // The minimum width hides the button using `overflow-display-none`.
 
-          // If context menu is visible, leave at full width.
-          if (this.state.isContextMenuVisible) {
+          // If overflow is currently prevented, leave at full width.
+          if (this.shouldPreventOverflow_()) {
             return;
           }
           this.classList.add('overflow-display-none');
@@ -118,9 +142,9 @@ export const OverflowableButtonMixin =
           // initial setToMinWidth() call, and only if shouldBeShown() returns
           // true.
 
-          // If context menu is visible, should already be at preferred width,
-          // so do nothing.
-          if (this.state.isContextMenuVisible) {
+          // If overflow is currently prevented, should already be at preferred
+          // width, so do nothing.
+          if (this.shouldPreventOverflow_()) {
             return;
           }
           this.setToPreferredWidth();
@@ -150,8 +174,12 @@ export const OverflowableButtonMixin =
 
           // Otherwise, return information about this button. Even disabled
           // buttons should be shown on the menu, if they've overflowed.
-          const innerControl = this.$['button']!;
-          const id = TrackedElementManager.getElementId(this);
+          const innerControl = this.$['button'] as HTMLElement;
+          // Most controls register their own element with
+          // TrackedElementManager, but the Avatar button registers its button
+          // element instead, so we have to handle both cases here.
+          const id = TrackedElementManager.getElementId(this) ||
+              TrackedElementManager.getElementId(innerControl);
           assert(
               id, `No TrackedElementIdentifier found for element ${this.id}`);
           return [{
@@ -189,21 +217,23 @@ export const OverflowableButtonMixin =
           if (changedProperties.has('state')) {
             const oldState = changedProperties.get('state');
 
-            // When there's a context menu visible, control is not allowed to
-            // overflow.
-            if (this.state.isContextMenuVisible) {
+            // When overflow is prevented, this class should never hide the
+            // control. Note that the child class may still be hiding the
+            // control itself, based on `shouldBeShown`.
+            if (this.shouldPreventOverflow_()) {
               this.setToPreferredWidth();
             }
 
             // Need to run a layout if this is the first state update, if the
-            // visibility of `this` changed, or if the visibility of the context
-            // menu changed. Technically don't need to do a layout if the
-            // context menu became visible when the button was not overflowed,
-            // but that's a bit tricky to check.
+            // visibility of `this` changed, or if the control's ability to
+            // overflow changed. Technically we don't need to do a layout if the
+            // control is no longer allowed to overflow but wasn't overflowed in
+            // the first place, but that's a bit tricky to check.
             if (!oldState ||
                 oldState.shouldBeShown !== this.state.shouldBeShown ||
                 oldState.isContextMenuVisible !==
-                    this.state.isContextMenuVisible) {
+                    this.state.isContextMenuVisible ||
+                oldState.preventOverflow !== this.state.preventOverflow) {
               this.fire('request-layout');
             }
           }

@@ -5,11 +5,10 @@
 #include "components/update_client/utils.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <algorithm>
 #include <array>
-#include <cmath>
-#include <cstring>
 #include <memory>
 #include <optional>
 #include <utility>

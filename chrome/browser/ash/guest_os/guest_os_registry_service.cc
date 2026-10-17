@@ -239,7 +239,7 @@ bool EqualsExcludingTimestamps(const base::DictValue& left,
 
 void InstallIconFromFileThread(const base::FilePath& icon_path,
                                const std::string& content) {
-  DCHECK(!content.empty());
+  CHECK(!content.empty(), base::NotFatalUntil::M160);
 
   base::CreateDirectory(icon_path.DirName());
 
@@ -253,10 +253,11 @@ void InstallIconFromFileThread(const base::FilePath& icon_path,
 }
 
 void DeleteIconFolderFromFileThread(const base::FilePath& path) {
-  DCHECK(path.DirName().BaseName().MaybeAsASCII() == kCrostiniIconFolder &&
-         (!base::PathExists(path) || base::DirectoryExists(path)));
+  CHECK(path.DirName().BaseName().MaybeAsASCII() == kCrostiniIconFolder &&
+            (!base::PathExists(path) || base::DirectoryExists(path)),
+        base::NotFatalUntil::M160);
   const bool deleted = base::DeletePathRecursively(path);
-  DCHECK(deleted);
+  CHECK(deleted, base::NotFatalUntil::M160);
 }
 
 template <typename List>
@@ -534,8 +535,11 @@ GuestOsRegistryService::GetAllRegisteredApps() const {
       prefs_->GetDict(guest_os::prefs::kGuestOsRegistry);
   std::map<std::string, GuestOsRegistryService::Registration> result;
   for (const auto item : apps) {
-    result.emplace(item.first, Registration(application_locale_storage_->Get(),
-                                            item.first, item.second.Clone()));
+    result.emplace(
+        item.first,
+        Registration(
+            std::string(application_locale_storage_->GetTag().tag_string()),
+            item.first, item.second.Clone()));
   }
   return result;
 }
@@ -600,7 +604,7 @@ GuestOsRegistryService::GetRegistration(const std::string& app_id) const {
     return std::nullopt;
   }
   return std::make_optional<Registration>(
-      application_locale_storage_->Get(), app_id,
+      std::string(application_locale_storage_->GetTag().tag_string()), app_id,
       base::Value(pref_registration->Clone()));
 }
 
@@ -804,8 +808,9 @@ void GuestOsRegistryService::ClearApplicationList(
     base::DictValue& apps = update.Get();
 
     for (const auto item : apps) {
-      Registration registration(application_locale_storage_->Get(), item.first,
-                                item.second.Clone());
+      Registration registration(
+          std::string(application_locale_storage_->GetTag().tag_string()),
+          item.first, item.second.Clone());
       if (vm_type != registration.VmType()) {
         continue;
       }
@@ -1058,7 +1063,7 @@ void GuestOsRegistryService::RequestContainerAppIcon(
   // Ignore requests for app_id that isn't registered.
   std::optional<GuestOsRegistryService::Registration> registration =
       GetRegistration(app_id);
-  DCHECK(registration);
+  CHECK(registration, base::NotFatalUntil::M160);
   if (!registration) {
     LOG(ERROR) << "Request to load icon for non-registered app: " << app_id;
     return;

@@ -9,7 +9,6 @@
 
 #include "base/functional/bind.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
 #include "components/autofill/core/browser/data_manager/test_personal_data_manager.h"
@@ -18,7 +17,6 @@
 #include "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #include "components/autofill/core/browser/webdata/autofill_webdata_service.h"
 #include "components/autofill/core/common/autofill_clock.h"
-#include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/sync/test/test_sync_service.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
@@ -75,7 +73,7 @@ class AutofillOfferManagerTest : public testing::Test {
       std::string offer_reward_amount,
       bool expired = false,
       std::vector<GURL> merchant_origins = {GURL(kTestUrl)}) {
-    int64_t offer_id = 4444;
+    std::string offer_id = "4444";
     base::Time expiry = expired ? AutofillClock::Now() - base::Days(2)
                                 : AutofillClock::Now() + base::Days(2);
     std::vector<int64_t> eligible_instrument_id = {card.instrument_id()};
@@ -92,9 +90,11 @@ class AutofillOfferManagerTest : public testing::Test {
     return offer_data;
   }
 
+  // TODO(crbug.com/546252995): Reuse test::GetPromoCodeOfferData from
+  // autofill_test_util instead of this helper.
   AutofillOfferData CreatePromoCodeOffer(std::vector<GURL> merchant_origins = {
                                              GURL(kTestUrl)}) {
-    int64_t offer_id = 5555;
+    std::string offer_id = "5555";
     base::Time expiry = AutofillClock::Now() + base::Days(2);
     GURL offer_details_url = GURL(kOfferDetailsUrl);
     std::string promo_code = "5PCTOFFSHOES";

@@ -68,31 +68,31 @@ class OrganizerTrayView::EventObserver : public ui::EventObserver,
   }
 
   void OnEvent(const ui::Event& event) override {
-    // Ignore mouse events when the panel is closed.
+    // Ignore mouse events when the panel is closed or otherwise hidden.
     if (!tray_->GetVisible()) {
       return;
     }
 
-    if (event.type() == ui::EventType::kMousePressed ||
-        event.type() == ui::EventType::kGestureTapDown) {
-      if (!tray_->GetWidget()) {
-        return;
-      }
-
-      auto point_in_view = event.AsLocatedEvent()->location();
-
-      // Convert the point from the event's target to the panel's coordinates.
-      views::View::ConvertPointFromWidget(&*tray_, &point_in_view);
-
-      if (!tray_->GetLocalBounds().Contains(point_in_view)) {
-        tray_->ClosePanel();
-      }
+    // On Aura platforms, the root_location is the point in the screen.
+    auto point_in_screen = event.AsLocatedEvent()->root_location();
+#if BUILDFLAG(IS_MAC)
+    // On Mac, the root_location is instead the point in the window.
+    point_in_screen +=
+        tray_->GetWidget()->GetWindowBoundsInScreen().OffsetFromOrigin();
+#endif
+    const auto point_in_view =
+        views::View::ConvertPointFromScreen(&*tray_, point_in_screen);
+    if (!tray_->GetLocalBounds().Contains(point_in_view)) {
+      tray_->ClosePanel();
     }
   }
 
   void OnDidChangeFocus(views::View* focused_before,
                         views::View* focused_now) override {
-    if (!tray_->GetVisible() || tray_->Contains(focused_now)) {
+    // On some platforms, transitions go old_view -> none, none -> new_view, so
+    // check for a null focused view. Don't hide the panel until a view outside
+    // the tray is actually focused.
+    if (!focused_now || !tray_->GetVisible() || tray_->Contains(focused_now)) {
       return;
     }
 
@@ -100,6 +100,7 @@ class OrganizerTrayView::EventObserver : public ui::EventObserver,
     // focused or a tab was activated), the last focused view before the panel
     // was opened should not be refocused.
     tray_->last_focused_view_before_opening_.SetView(nullptr);
+
     tray_->ClosePanel();
   }
 
@@ -117,11 +118,6 @@ OrganizerTrayView::OrganizerTrayView(BrowserWindowInterface& browser,
                                      BrowserView* browser_view)
     : browser_(browser),
       focus_search_(this, /*cycle=*/true, /*accessibility_mode=*/true) {
-  // TODO(dfried): Remove once we actually set this value.
-#if BUILDFLAG(IS_MAC)
-  top_leading_exclusion_ = gfx::Size(target_width_ / 2, 0);
-#endif
-
   SetProperty(views::kElementIdentifierKey, kTrayElementId);
   SetPaintToLayer();
   layer()->SetFillsBoundsOpaquely(false);
@@ -132,19 +128,9 @@ OrganizerTrayView::OrganizerTrayView(BrowserWindowInterface& browser,
 
   // Set up the default background.
   if (browser_view) {
-    auto background = std::make_unique<CustomCornersBackground>(
+    SetBackground(std::make_unique<CustomCornersBackground>(
         *this, *browser_view, organizer_panel::kOrganizerPanelBackgroundColor,
-        organizer_panel::kOrganizerPanelBackgroundColor);
-    CustomCornersBackground::Corners corners;
-    corners[CornerOrientation::kTopLeading] = background->GetWindowCorner(true);
-    corners[CornerOrientation::kBottomLeading] =
-        background->GetWindowCorner(false);
-    corners[CornerOrientation::kTopTrailing].type =
-        CustomCornersBackground::CornerType::kRounded;
-    corners[CornerOrientation::kBottomTrailing].type =
-        CustomCornersBackground::CornerType::kRounded;
-    background->SetCorners(corners);
-    SetBackground(std::move(background));
+        organizer_panel::kOrganizerPanelBackgroundColor));
   } else {
     CHECK_IS_TEST() << "Should only happen in unit tests.";
   }
@@ -163,6 +149,14 @@ OrganizerTrayView::OrganizerTrayView(BrowserWindowInterface& browser,
 }
 
 OrganizerTrayView::~OrganizerTrayView() = default;
+
+void OrganizerTrayView::UpdatePanelClip() {
+  if (!background() || !panel_view_) {
+    return;
+  }
+  const auto* const bg = background()->AsA<CustomCornersBackground>();
+  bg->ClipViewToBackground(panel_view_);
+}
 
 bool OrganizerTrayView::IsPositionInWindowCaption(const gfx::Point& point) {
   const auto in_controls =
@@ -190,38 +184,25 @@ void OrganizerTrayView::SetTargetWidth(int target_width) {
   InvalidateLayout(/*avoid_propagate_during_layout=*/true);
 }
 
-void OrganizerTrayView::SetPanelView(std::unique_ptr<views::View> panel_view) {
+void OrganizerTrayView::SetOrganizerPanelView(
+    std::unique_ptr<views::View> panel_view) {
   CHECK(!panel_view_);
+  // Panel view is always visible in the tray; the tray itself is not always
+  // visible.
+  panel_view->SetVisible(true);
+  panel_view->SetProperty(views::kViewIgnoredByLayoutKey, true);
   panel_view_ = AddChildView(std::move(panel_view));
-  panel_view_->SetProperty(views::kViewIgnoredByLayoutKey, true);
 }
 
-std::unique_ptr<views::View> OrganizerTrayView::TakePanelView() {
+std::unique_ptr<views::View> OrganizerTrayView::TakeOrganizerPanelView() {
   CHECK(panel_view_);
   panel_view_->SetProperty(views::kViewIgnoredByLayoutKey, false);
   return RemoveChildViewT(std::exchange(panel_view_, nullptr));
 }
 
-bool OrganizerTrayView::HasPanelView() const {
+bool OrganizerTrayView::HasOrganizerPanelView() const {
   return panel_view_;
 }
-
-// ----------------
-// To be removed.
-
-// Set whether the panel should appear elevated with rounded borders.
-void OrganizerTrayView::SetIsElevated(bool elevated) {
-  if (elevated == elevated_) {
-    return;
-  }
-  elevated_ = elevated;
-  if (auto* const bg = background()->AsA<CustomCornersBackground>()) {
-    bg->SetVisible(elevated);
-  }
-  shadow_frame_->SetVisible(elevated);
-}
-
-// ----------------
 
 bool OrganizerTrayView::AcceleratorPressed(const ui::Accelerator& accelerator) {
   if (accelerator.key_code() == ui::VKEY_ESCAPE) {
@@ -235,8 +216,9 @@ void OrganizerTrayView::AddedToWidget() {
   // This has to be done after there is a color provider, which happens after
   // attaching to a widget.
   int radius = 8;
-  if (auto* const bg = background()) {
-    radius = bg->AsA<CustomCornersBackground>()->default_radius();
+  if (background()) {
+    auto* const bg = background()->AsA<CustomCornersBackground>();
+    radius = bg->default_radius();
   }
   shadow_frame_->SetShadowCornerRadius(radius);
   shadow_frame_->SetShadowVisible(true);
@@ -292,6 +274,7 @@ void OrganizerTrayView::Layout(PassKey) {
         controls_view_->bounds().bottom() + controls_margins.bottom();
     panel_view_->SetBounds(std::min(0, width() - target_width_), panel_top,
                            target_width_, height() - panel_top);
+    panel_view_->SetVisible(panel_view_->bounds().Intersects(GetLocalBounds()));
   }
 
   // If there's an exclusion for caption buttons and the panel is not at its

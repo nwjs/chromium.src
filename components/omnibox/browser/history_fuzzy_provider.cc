@@ -450,16 +450,16 @@ void HistoryFuzzyProvider::RecordOpenMatchMetrics(
     const AutocompleteMatch& match_opened) {
   if (std::ranges::any_of(result, [](const AutocompleteMatch& match) {
         return match.provider && match.provider->type() ==
-                                     AutocompleteProvider::TYPE_HISTORY_FUZZY;
+                                     AutocompleteProvider::Type::kHistoryFuzzy;
       })) {
     const bool opened_fuzzy_match = match_opened.provider->type() ==
-                                    AutocompleteProvider::TYPE_HISTORY_FUZZY;
+                                    AutocompleteProvider::Type::kHistoryFuzzy;
     UMA_HISTOGRAM_BOOLEAN(kMetricPrecision, opened_fuzzy_match);
   }
 }
 
 HistoryFuzzyProvider::HistoryFuzzyProvider(AutocompleteProviderClient* client)
-    : HistoryProvider(AutocompleteProvider::TYPE_HISTORY_FUZZY, client) {
+    : HistoryProvider(AutocompleteProvider::Type::kHistoryFuzzy, client) {
   // Set up tunable parameters. These can be used to affect fuzzy matching
   // behavior and performance. Note, we use different `min_input_length_` values
   // depending on desktop versus mobile platforms, determined by experiment.

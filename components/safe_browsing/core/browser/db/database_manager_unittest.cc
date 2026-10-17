@@ -20,10 +20,10 @@
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
+#include "components/safe_browsing/core/browser/db/sb_protocol_manager_util.h"
 #include "components/safe_browsing/core/browser/db/sb_test_util.h"
 #include "components/safe_browsing/core/browser/db/test_database_manager.h"
 #include "components/safe_browsing/core/browser/db/v4_get_hash_protocol_manager.h"
-#include "components/safe_browsing/core/browser/db/v4_protocol_manager_util.h"
 #include "components/safe_browsing/core/browser/db/v5_get_hash_protocol_manager.h"
 #include "components/safe_browsing/core/browser/db/v5_search_hashes_cache.h"
 #include "components/safe_browsing/core/common/features.h"
@@ -80,6 +80,39 @@ class TestClient : public SafeBrowsingDatabaseManager::Client {
   base::RunLoop run_loop_;
 };
 
+class TestWebUIDelegate : public V5GetHashProtocolManager::WebUIDelegate {
+ public:
+  bool HasListener() const override { return has_listener_; }
+  void AddToV5GetHashLookups(
+      const V5GetHashProtocolManager::V5GetHashLookup& lookup) override {}
+  void set_has_listener(bool has_listener) { has_listener_ = has_listener; }
+
+ private:
+  bool has_listener_ = false;
+};
+
+class FakeV5GetHashProtocolManager : public V5GetHashProtocolManager {
+ public:
+  using V5GetHashProtocolManager::V5GetHashProtocolManager;
+
+  void GetFullHashes(std::map<FullHashStr, std::vector<SBThreatType>>
+                         full_hash_to_threat_types,
+                     FullHashCallback callback,
+                     std::optional<CheckContext> check_context) override {
+    last_check_context_ = check_context;
+    V5GetHashProtocolManager::GetFullHashes(
+        std::move(full_hash_to_threat_types), std::move(callback),
+        std::move(check_context));
+  }
+
+  const std::optional<CheckContext>& last_check_context() const {
+    return last_check_context_;
+  }
+
+ private:
+  std::optional<CheckContext> last_check_context_;
+};
+
 }  // namespace
 
 class SafeBrowsingDatabaseManagerTest : public testing::Test {
@@ -134,9 +167,9 @@ class SafeBrowsingDatabaseManagerTest : public testing::Test {
   void SetUpV5Client(TestClient& client) {
     v5_cache_ =
         std::make_unique<V5SearchHashesCache>(/*history_service=*/nullptr);
-    v5_manager_ = std::make_unique<V5GetHashProtocolManager>(
-        test_shared_loader_factory_, GetTestSBProtocolConfig(),
-        v5_cache_.get());
+    v5_manager_ = std::make_unique<FakeV5GetHashProtocolManager>(
+        test_shared_loader_factory_, GetTestSBProtocolConfig(), v5_cache_.get(),
+        &test_webui_delegate_);
     client.SetV5GetHashProtocolManager(v5_manager_->GetWeakPtr());
   }
 
@@ -175,7 +208,8 @@ class SafeBrowsingDatabaseManagerTest : public testing::Test {
   network::TestURLLoaderFactory test_url_loader_factory_;
   scoped_refptr<network::SharedURLLoaderFactory> test_shared_loader_factory_;
   std::unique_ptr<V5SearchHashesCache> v5_cache_;
-  std::unique_ptr<V5GetHashProtocolManager> v5_manager_;
+  TestWebUIDelegate test_webui_delegate_;
+  std::unique_ptr<FakeV5GetHashProtocolManager> v5_manager_;
 };
 
 // Test fixture parameterized over whether Safe Browsing v5 is enabled.
@@ -273,6 +307,27 @@ class SafeBrowsingDatabaseManagerTest_V5
     feature_list_.InitAndEnableFeature(kLocalListsUseSBv5);
   }
 
+  void RunCheckNotificationAbuseUrlCheckContextTest(bool has_webui_listener) {
+    TestClient client;
+    SetUpV5Client(client);
+    test_webui_delegate_.set_has_listener(has_webui_listener);
+    const GURL url("https://www.example.com/more");
+
+    EXPECT_FALSE(db_manager_->CheckNotificationAbuseUrl(url, &client));
+
+    if (has_webui_listener) {
+      EXPECT_EQ(
+          v5_manager_->last_check_context(),
+          (V5GetHashProtocolManager::CheckContext{
+              /*urls=*/{url},
+              /*check_type=*/ClientCallbackType::CHECK_NOTIFICATION_ABUSE}));
+    } else {
+      EXPECT_EQ(v5_manager_->last_check_context(), std::nullopt);
+    }
+
+    EXPECT_TRUE(db_manager_->CancelNotificationAbuseCheck(&client));
+  }
+
  protected:
   base::test::ScopedFeatureList feature_list_;
 };
@@ -337,6 +392,16 @@ TEST_F(SafeBrowsingDatabaseManagerTest_V5,
   // another check for the same client. Since v5_manager_ is now null, it should
   // return true synchronously without failing duplicate check CHECKs.
   EXPECT_TRUE(db_manager_->CheckNotificationAbuseUrl(url, &client));
+}
+
+TEST_F(SafeBrowsingDatabaseManagerTest_V5,
+       CheckNotificationAbuseUrl_CheckContext_PopulatedWhenListenerActive) {
+  RunCheckNotificationAbuseUrlCheckContextTest(/*has_webui_listener=*/true);
+}
+
+TEST_F(SafeBrowsingDatabaseManagerTest_V5,
+       CheckNotificationAbuseUrl_CheckContext_NulloptWhenNoListener) {
+  RunCheckNotificationAbuseUrlCheckContextTest(/*has_webui_listener=*/false);
 }
 
 TEST_P(SafeBrowsingDatabaseManagerTest_V4V5,

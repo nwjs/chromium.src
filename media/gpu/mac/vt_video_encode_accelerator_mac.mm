@@ -555,6 +555,12 @@ std::vector<VideoPixelFormat> GpuSupportedPixelFormatsForProfile(
     return {input_format};
   }
 #endif  // BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER)
+  if (base::FeatureList::IsEnabled(
+          kVTVideoEncodeAcceleratorOpaqueSharedImageEncode) &&
+      base::FeatureList::IsEnabled(
+          kVTVideoEncodeAcceleratorOpaqueRgbSharedImageEncode)) {
+    return {PIXEL_FORMAT_NV12, PIXEL_FORMAT_ARGB, PIXEL_FORMAT_XRGB};
+  }
   return {PIXEL_FORMAT_NV12};
 }
 
@@ -621,6 +627,7 @@ VideoEncoderInfo GetVideoEncoderInfo(
   }
   if (config.HasSpatialLayer() || config.HasTemporalLayer()) {
     CHECK(!config.spatial_layers.empty());
+    CHECK_LE(config.spatial_layers.size(), VideoEncoderInfo::kMaxSpatialLayers);
     for (size_t i = 0; i < config.spatial_layers.size(); ++i) {
       // Only L1T1, L1T2 are supported.
       CHECK_LE(config.spatial_layers[i].num_of_temporal_layers, 2);
@@ -1013,6 +1020,15 @@ EncoderStatus VTVideoEncodeAccelerator::Initialize(
   }
 
   auto encoder_info = GetVideoEncoderInfo(compression_session_.get(), config);
+  gpu_supported_pixel_formats_.clear();
+  // Only sessions initialized with candidate GPU input formats (e.g. NV12) can
+  // encode opaque GPU SharedImages. For CPU memory sessions (e.g. I420),
+  // leaving `gpu_supported_pixel_formats_` empty ensures
+  // `CanEncodeOpaqueSharedImage()` rejects all opaque SharedImage frames.
+  if (std::ranges::contains(CandidateGpuInputFormatsForProfile(profile_),
+                            input_format_)) {
+    gpu_supported_pixel_formats_ = encoder_info.gpu_supported_pixel_formats;
+  }
 
   // Report whether hardware encode is being used.
   if (!encoder_info.is_hardware_accelerated) {
@@ -1200,7 +1216,12 @@ bool VTVideoEncodeAccelerator::EncodeWithPixelBuffer(
     //   * If we're uploading to a new pixel buffer and the provided frame color
     //     space is valid that'll be set on the pixel buffer.
     //   * If the frame color space is not valid, BT709 will be assumed.
-    auto frame_cs = GetImageBufferColorSpace(pixel_buffer.get());
+    //
+    // GetImageBufferColorSpace() is a lossy reverse mapping. Missing or
+    // unmapped attachments come back as an empty ColorSpace even when the
+    // frame did not change; that must not reset the compression session.
+    const gfx::ColorSpace frame_cs =
+        GetImageBufferColorSpace(pixel_buffer.get());
     std::optional<gfx::HDRMetadata> frame_hdr_metadata;
     if (frame->hdr_metadata().IsValid()) {
       frame_hdr_metadata = frame->hdr_metadata();
@@ -1213,10 +1234,12 @@ bool VTVideoEncodeAccelerator::EncodeWithPixelBuffer(
         CVPixelFormatForSourceImageBuffer(input_format_,
                                           gfx::ColorSpace::RangeID::FULL) &&
         frame_cs.GetRangeID() == gfx::ColorSpace::RangeID::FULL;
-    const bool color_space_or_hdr_metadata_changed =
-        encoder_color_space_ && (frame_cs != encoder_color_space_ ||
-                                 frame_hdr_metadata != encoder_hdr_metadata_);
-    if (first_hbd_full_range || color_space_or_hdr_metadata_changed) {
+    const bool color_space_changed = encoder_color_space_ &&
+                                     frame_cs.IsValid() &&
+                                     frame_cs != *encoder_color_space_;
+    const bool hdr_metadata_changed =
+        encoder_color_space_ && frame_hdr_metadata != encoder_hdr_metadata_;
+    if (first_hbd_full_range || color_space_changed || hdr_metadata_changed) {
       if (pending_encodes_) {
         auto status = VTCompressionSessionCompleteFrames(
             compression_session_.get(), kCMTimeInvalid);
@@ -1227,7 +1250,13 @@ bool VTVideoEncodeAccelerator::EncodeWithPixelBuffer(
           return false;
         }
       }
-      if (!ResetCompressionSession(frame_cs.GetRangeID())) {
+      // Unreadable `frame_cs` has RangeID::INVALID, which
+      // CVPixelFormatForVideoFrame() treats as LIMITED. Keep the latched
+      // range instead.
+      const auto source_range = frame_cs.IsValid()
+                                    ? frame_cs.GetRangeID()
+                                    : encoder_color_space_->GetRangeID();
+      if (!ResetCompressionSession(source_range)) {
         // ResetCompressionSession() invokes NotifyErrorStatus() on failure.
         return false;
       }
@@ -1236,7 +1265,7 @@ bool VTVideoEncodeAccelerator::EncodeWithPixelBuffer(
       force_keyframe_after_reset = true;
     }
 
-    if (!encoder_color_space_) {
+    if (!encoder_color_space_ && frame_cs.IsValid()) {
       encoder_color_space_ = frame_cs;
       encoder_hdr_metadata_ = frame_hdr_metadata;
       SetEncoderColorSpace();
@@ -1948,15 +1977,17 @@ bool VTVideoEncodeAccelerator::CanEncodeOpaqueSharedImage(
           kVTVideoEncodeAcceleratorOpaqueSharedImageEncode)) {
     return false;
   }
-  // Opaque SharedImage encode is wired for NV12, P010, and HEVC RExt packed
-  // YUV (NV16 / NV24 / P210 / P410).
-  if (frame.format() != input_format_ ||
-      !std::ranges::contains(CandidateGpuInputFormatsForProfile(profile_),
-                             input_format_)) {
-    return false;
-  }
-  return frame.shared_image()->usage().Has(
-      gpu::SHARED_IMAGE_USAGE_MACOS_VIDEO_TOOLBOX);
+  // SharedImages must have SCANOUT (e.g. WebGL, WebGPU) or
+  // MACOS_VIDEO_TOOLBOX (e.g. canvas, camera capture, video decoders) usage so
+  // that ProduceOverlay succeeds on the GPU thread.
+  //
+  // Note: For CPU memory sessions (such as I420),
+  // `gpu_supported_pixel_formats_` is left empty in `Initialize()`, ensuring
+  // this always returns false.
+  return frame.shared_image()->usage().HasAny(
+             gpu::SHARED_IMAGE_USAGE_SCANOUT |
+             gpu::SHARED_IMAGE_USAGE_MACOS_VIDEO_TOOLBOX) &&
+         std::ranges::contains(gpu_supported_pixel_formats_, frame.format());
 }
 
 base::TimeDelta VTVideoEncodeAccelerator::AssignMonotonicTimestamp() {

@@ -9,33 +9,36 @@ import type {OrganizerListSectionItemElement} from './organizer_list_section_ite
 export function getHtml(this: OrganizerListSectionItemElement) {
   // clang-format off
   return html`<!--_html_template_start_-->
-<cr-url-list-item id="crUrlListItem"
-    .itemAriaLabel="${this.getAriaLabel_()}"
+<cr-url-list-item id="crUrlListItem" .itemAriaLabel="${this.getAriaLabel_()}"
     .itemAriaDescription="${this.getAriaDescription_() || nothing}"
     .url="${this.item.prefixIcon?.url || nothing}"
     ?always-show-suffix="${this.hasSuffix_()}"
-    .size="${this.item.size || nothing}">
+    .size="${this.item.size || nothing}" @contextmenu="${this.onContextmenu_}">
   <div id="content" slot="content">
     <organizer-list-section-item-title id="title"
-        .titleParts="${this.item.title}">
+        .titleParts="${this.item.title}"
+        .highlightRanges="${this.titleHighlightRanges_()}">
     </organizer-list-section-item-title>
     <organizer-list-section-item-description id="description"
         ?hidden="${!this.hasDescription_()}"
-        .descriptionParts="${this.item.description || []}">
+        .descriptionParts="${this.item.description || []}"
+        .highlightRanges="${this.descriptionHighlightRanges_()}">
     </organizer-list-section-item-description>
   </div>
   ${this.item.prefixIcon?.element ? html`
     <div slot="customIcon">
       ${this.item.prefixIcon.element}
     </div>
-  ` : this.item.prefixIcon?.stackedFavicons ? html`
-    <stacked-favicons id="stackedFavicons" slot="customIcon"
-        .url="${this.item.prefixIcon.stackedFavicons.urls[0]}"
-        .secondaryUrl="${this.item.prefixIcon.stackedFavicons.urls[1]}"
-        ?stack-vertically="${
-            this.item.prefixIcon.stackedFavicons.stackVertically}">
-    </stacked-favicons>
-  ` : ''}
+  ` : html`
+    ${this.item.prefixIcon?.stackedFavicons ? html`
+      <stacked-favicons id="stackedFavicons" slot="customIcon"
+          .url="${this.item.prefixIcon.stackedFavicons.urls[0]}"
+          .secondaryUrl="${this.item.prefixIcon.stackedFavicons.urls[1]}"
+          ?stack-vertically="${
+              this.item.prefixIcon.stackedFavicons.stackVertically}">
+      </stacked-favicons>
+    ` : ''}
+  `}
   ${this.item.trailingIcon ? html`
     <cr-icon id="trailingIcon" slot="suffix" .icon="${this.item.trailingIcon}"
         class="${this.hasActionButton_() ? 'has-action-button' : ''}">

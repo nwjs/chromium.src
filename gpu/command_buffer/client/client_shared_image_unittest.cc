@@ -11,6 +11,7 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
+#include "components/viz/test/test_context_support.h"
 #include "gpu/command_buffer/client/shared_image_interface.h"
 #include "gpu/command_buffer/client/test_shared_image_interface.h"
 #include "gpu/command_buffer/common/shared_image_capabilities.h"
@@ -410,8 +411,8 @@ TEST(ClientSharedImageTest, GetTextureTarget_MultiplanarFormats) {
   }
 }
 
-#if BUILDFLAG(IS_OZONE)
-// On Ozone, the target for native buffers should be used if a
+#if BUILDFLAG(IS_OZONE) || BUILDFLAG(IS_ANDROID)
+// On Ozone/Android, the target for native buffers should be used if a
 // multiplanar format with external sampling is passed.
 TEST(ClientSharedImageTest,
      GetTextureTarget_MultiplanarFormatsWithExternalSampling) {
@@ -438,6 +439,29 @@ TEST(ClientSharedImageTest,
               static_cast<uint32_t>(GL_TEXTURE_EXTERNAL_OES));
 #endif
   }
+}
+
+TEST(ClientSharedImageTest,
+     MultiplanarFormatWithExternalSamplerSharedMemoryHandle) {
+  auto sii = base::MakeRefCounted<TestSharedImageInterface>();
+
+  const SharedImageUsageSet kUsage =
+      SHARED_IMAGE_USAGE_RASTER_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ;
+
+  auto format = viz::MultiPlaneFormat::kNV12;
+  format.SetPrefersExternalSampler();
+  SharedImageInfo si_info(format, gfx::Size(100, 100), gfx::ColorSpace(),
+                          kUsage, "TestClearExternalSamplerHandle");
+  EXPECT_EQ(si_info.alpha_type, kPremul_SkAlphaType);
+
+  gfx::GpuMemoryBufferHandle handle =
+      TestSharedImageInterface::CreateGMBHandle(format, gfx::Size(100, 100));
+  auto client_si =
+      sii->CreateSharedImage(si_info, kNullSurfaceHandle,
+                             gfx::BufferUsage::GPU_READ, std::move(handle));
+  ASSERT_TRUE(client_si);
+  EXPECT_FALSE(client_si->format().PrefersExternalSampler());
+  EXPECT_EQ(client_si->alpha_type(), kUnpremul_SkAlphaType);
 }
 #endif
 
@@ -559,7 +583,7 @@ TEST(ClientSharedImageTest, SignalLatestSyncToken_WithCallbackId) {
   uint64_t callback_id = ClientSharedImage::SignalLatestSyncToken(
       {client_si}, {SyncToken()},
       base::BindOnce([](bool* called) { *called = true; }, &callback_called),
-      sii.get(), /*pending_callback_id=*/0);
+      sii.get(), /*context_support=*/nullptr, /*pending_callback_id=*/0);
   EXPECT_EQ(callback_id, 0u);
   EXPECT_TRUE(callback_called);
 
@@ -569,7 +593,7 @@ TEST(ClientSharedImageTest, SignalLatestSyncToken_WithCallbackId) {
   callback_id = ClientSharedImage::SignalLatestSyncToken(
       {client_si}, {token},
       base::BindOnce([](bool* called) { *called = true; }, &callback_called),
-      sii.get(), /*pending_callback_id=*/100);
+      sii.get(), /*context_support=*/nullptr, /*pending_callback_id=*/100);
   EXPECT_EQ(callback_id, 100u);
   base::RunLoop run_loop;
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
@@ -583,7 +607,7 @@ TEST(ClientSharedImageTest, SignalLatestSyncToken_WithCallbackId) {
   callback_id = ClientSharedImage::SignalLatestSyncToken(
       {client_si}, {token},
       base::BindOnce([](bool* called) { *called = true; }, &callback_called),
-      sii.get(), /*pending_callback_id=*/0);
+      sii.get(), /*context_support=*/nullptr, /*pending_callback_id=*/0);
   EXPECT_EQ(callback_id, 100u);
   EXPECT_FALSE(callback_called);
   base::RunLoop run_loop2;
@@ -608,11 +632,14 @@ TEST(ClientSharedImageTest,
   SyncToken token(ns, cmd_id, /*release_count=*/250);
   client_si->EndExport(SharedImageExportResult::CreateForTesting(token));
 
+  viz::TestContextSupport context_support;
+  context_support.set_sync_point_client_id(token.GetClientId());
+
   bool callback_called = false;
   uint64_t callback_id = ClientSharedImage::SignalLatestSyncToken(
       {client_si}, /*sync_tokens=*/{},
       base::BindOnce([](bool* called) { *called = true; }, &callback_called),
-      sii.get(), /*pending_callback_id=*/0);
+      sii.get(), &context_support, /*pending_callback_id=*/0);
   EXPECT_EQ(callback_id, 250u);
   EXPECT_FALSE(callback_called);
   base::RunLoop run_loop;
@@ -654,6 +681,33 @@ TEST(ClientSharedImageTest,
       FROM_HERE, run_loop.QuitClosure());
   run_loop.Run();
   EXPECT_TRUE(callback_called);
+}
+
+TEST(ClientSharedImageTest, DestroySharedImage_AutomaticSyncTokenManagement) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(features::kUseAutomaticSyncTokenManagement);
+
+  auto sii = base::MakeRefCounted<TestSharedImageInterface>();
+  auto client_si =
+      sii->CreateSharedImage(CreateSharedImageInfo(), kNullSurfaceHandle);
+  SyncToken creation_token = client_si->creation_sync_token();
+
+  CommandBufferNamespace ns = CommandBufferNamespace::GPU_IO;
+  CommandBufferId cmd_id1 = CommandBufferId::FromUnsafeValue(10);
+  CommandBufferId cmd_id2 = CommandBufferId::FromUnsafeValue(20);
+  SyncToken token1(ns, cmd_id1, /*release_count=*/100);
+  SyncToken token2(ns, cmd_id2, /*release_count=*/200);
+
+  client_si->EndExport(SharedImageExportResult::CreateForTesting(token1));
+  // In automatic mode, UpdateDestructionSyncToken is effectively a no-op and
+  // any SyncToken passed into it should be ignored.
+  client_si->UpdateDestructionSyncToken(token2);
+  client_si->UpdateDestructionSyncToken(SyncToken());
+
+  client_si.reset();
+
+  EXPECT_THAT(sii->MostRecentDestroyTokens(),
+              testing::UnorderedElementsAre(creation_token, token1));
 }
 
 }  // namespace gpu

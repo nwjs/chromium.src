@@ -55,14 +55,16 @@ class OmniboxAutofillDelegate : public AutofillManager::Observer,
   bool OnFilterChanged(const std::u16string& filter) override;
   bool OnSearchSubmitted(const std::u16string& filter) override;
   bool IsSearching() const override;
-  std::variant<AutofillDriver*, password_manager::PasswordManagerDriver*>
-  GetDriver_DoNotUse() override;
   void OnSuggestionsShown(base::span<const Suggestion> suggestions,
                           const SuggestionUiMetadata& metadata) override;
   void OnSuggestionsHidden(SuggestionHidingReason reason) override;
-  void DidSelectSuggestion(const Suggestion& suggestion) override;
+  void DidSelectSuggestion(const Suggestion& suggestion,
+                           const FormGlobalId& form_id,
+                           const FieldGlobalId& field_id) override;
   void DidAcceptSuggestion(const Suggestion& suggestion,
-                           const SuggestionMetadata& metadata) override;
+                           const SuggestionMetadata& metadata,
+                           const FormGlobalId& form_id,
+                           const FieldGlobalId& field_id) override;
   bool RemoveSuggestion(const Suggestion& suggestion) override;
   void ClearPreviewedForm() override;
   FillingProduct GetMainFillingProduct() const override;

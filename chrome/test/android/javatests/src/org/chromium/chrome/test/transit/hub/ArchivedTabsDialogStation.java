@@ -17,10 +17,9 @@ import androidx.recyclerview.widget.RecyclerView;
 import org.chromium.base.test.transit.ViewElement;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
-import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.tab.TabArchiveSettings;
-import org.chromium.chrome.browser.tasks.tab_management.ArchivedTabsDialogCoordinator;
-import org.chromium.chrome.browser.tasks.tab_management.TabArchiveSettingsFragment;
+import org.chromium.chrome.browser.tasks.tab_management.archived_tabs.ArchivedTabsDialogCoordinator;
+import org.chromium.chrome.browser.tasks.tab_management.archived_tabs.TabArchiveSettingsFragment;
 import org.chromium.chrome.test.transit.ChromeActivityTabModelBoundStation;
 import org.chromium.chrome.test.transit.settings.SettingsStation;
 
@@ -36,9 +35,7 @@ public class ArchivedTabsDialogStation
 
     public ArchivedTabsDialogStation() {
         super(ChromeTabbedActivity.class, /* isIncognito= */ false);
-        mTabArchiveSettings =
-                runOnUiThreadBlocking(
-                        () -> new TabArchiveSettings(ChromeSharedPreferences.getInstance()));
+        mTabArchiveSettings = runOnUiThreadBlocking(TabArchiveSettings::getInstance);
         dialogElement = declareView(withId(R.id.archived_tabs_dialog));
         recyclerViewElement =
                 declareView(

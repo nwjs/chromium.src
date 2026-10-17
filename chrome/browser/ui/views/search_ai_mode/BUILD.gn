@@ -28,14 +28,15 @@ source_set("impl") {
   ]
   deps = [
     ":search_ai_mode",
-    "//chrome/app/theme:theme_resources",
     "//chrome/browser/signin",
     "//chrome/browser/ui/signin",
     "//chrome/browser/ui/views:layout_provider",
-    "//chrome/browser/ui/views/accessibility",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/ui/views/frame:toolbar_button_provider",
     "//chrome/browser/ui/views/toolbar",
+    "//chrome/common:constants",
     "//components/omnibox/common",
+    "//components/tabs:public",
   ]
 }
 
@@ -46,7 +47,9 @@ source_set("browser_tests") {
   deps = [
     ":search_ai_mode",
     "//base/test:test_support",
+    "//chrome/browser/ui:browser_window_header",
     "//chrome/browser/ui/test:dialog",
+    "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/ui/views/frame:toolbar_button_provider",
     "//chrome/browser/ui/views/profiles:profiles_pixel_test_utils",
     "//chrome/browser/ui/views/toolbar",

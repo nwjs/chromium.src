@@ -12,6 +12,7 @@
 #include "base/time/time.h"
 #include "base/uuid.h"
 #include "sql/sqlite_result_code.h"
+#include "sql/statement.h"
 #include "sql/test/scoped_error_expecter.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -32,6 +33,17 @@ class CriticalActionDatabaseTest : public testing::Test {
     db_path_ = temp_dir_.GetPath().AppendASCII("TestCriticalActions.db");
   }
 
+  // Returns an entry with valid default values and a unique random ID.
+  // Tests only need to override fields relevant to their specific scenario.
+  CriticalActionEntry CreateDefaultEntry() {
+    CriticalActionEntry entry;
+    entry.critical_action_id =
+        base::Uuid::GenerateRandomV4().AsLowercaseString();
+    entry.timestamp = base::Time::Now();
+    entry.action_type = ActionType::kFormFill;
+    return entry;
+  }
+
   base::test::TaskEnvironment task_environment_;
   base::ScopedTempDir temp_dir_;
   base::FilePath db_path_;
@@ -48,23 +60,21 @@ TEST_F(CriticalActionDatabaseTest, AddAndGetEntry) {
   CriticalActionDatabase database(db_path_);
   ASSERT_TRUE(database.Init());
 
-  const std::string action_id =
-      base::Uuid::GenerateRandomV4().AsLowercaseString();
-  CriticalActionEntry entry;
-  entry.critical_action_id = action_id;
-  entry.timestamp = base::Time::Now();
+  CriticalActionEntry entry = CreateDefaultEntry();
   entry.visit_id = base::RandIntInclusive(1, 1000000);
   entry.conversation_id = base::Uuid::GenerateRandomV4().AsLowercaseString();
   entry.actor_task_id = base::Uuid::GenerateRandomV4().AsLowercaseString();
-  entry.action_type = ActionType::kFormFill;
-  entry.url = GURL("https://example.com/login");
   entry.metadata = "{\"key\": \"val\"}";
 
   EXPECT_TRUE(database.AddCriticalAction(entry));
 
-  auto retrieved = database.GetCriticalAction(action_id);
+  auto retrieved = database.GetCriticalAction(entry.critical_action_id);
   ASSERT_TRUE(retrieved.has_value());
   EXPECT_EQ(*retrieved, entry);
+  EXPECT_EQ(retrieved->critical_action_id, entry.critical_action_id);
+  EXPECT_EQ(retrieved->actor_task_id, entry.actor_task_id);
+  EXPECT_EQ(retrieved->conversation_id, entry.conversation_id);
+  EXPECT_EQ(retrieved->metadata, entry.metadata);
 
   database.Close();
 }
@@ -74,9 +84,7 @@ TEST_F(CriticalActionDatabaseTest, AddDuplicateEntryFails) {
   CriticalActionDatabase database(db_path_);
   ASSERT_TRUE(database.Init());
 
-  CriticalActionEntry entry;
-  entry.critical_action_id = base::Uuid::GenerateRandomV4().AsLowercaseString();
-  entry.timestamp = base::Time::Now();
+  CriticalActionEntry entry = CreateDefaultEntry();
   entry.action_type = ActionType::kDownload;
 
   EXPECT_TRUE(database.AddCriticalAction(entry));
@@ -110,17 +118,13 @@ TEST_F(CriticalActionDatabaseTest, DeleteSingleEntry) {
   CriticalActionDatabase database(db_path_);
   ASSERT_TRUE(database.Init());
 
-  const std::string action_id =
-      base::Uuid::GenerateRandomV4().AsLowercaseString();
-  CriticalActionEntry entry;
-  entry.critical_action_id = action_id;
-  entry.timestamp = base::Time::Now();
+  CriticalActionEntry entry = CreateDefaultEntry();
   entry.action_type = ActionType::kSettingChange;
 
   EXPECT_TRUE(database.AddCriticalAction(entry));
-  EXPECT_TRUE(database.DeleteCriticalAction(action_id));
+  EXPECT_TRUE(database.DeleteCriticalAction(entry.critical_action_id));
 
-  auto retrieved = database.GetCriticalAction(action_id);
+  auto retrieved = database.GetCriticalAction(entry.critical_action_id);
   EXPECT_FALSE(retrieved.has_value());
 
   database.Close();
@@ -132,28 +136,16 @@ TEST_F(CriticalActionDatabaseTest, DeleteInTimeRange) {
 
   base::Time base_time = base::Time::Now();
 
-  const std::string action_id_1 =
-      base::Uuid::GenerateRandomV4().AsLowercaseString();
-  CriticalActionEntry entry1;
-  entry1.critical_action_id = action_id_1;
+  CriticalActionEntry entry1 = CreateDefaultEntry();
   entry1.timestamp = base_time - base::Hours(2);
-  entry1.action_type = ActionType::kFormFill;
   ASSERT_TRUE(database.AddCriticalAction(entry1));
 
-  const std::string action_id_2 =
-      base::Uuid::GenerateRandomV4().AsLowercaseString();
-  CriticalActionEntry entry2;
-  entry2.critical_action_id = action_id_2;
+  CriticalActionEntry entry2 = CreateDefaultEntry();
   entry2.timestamp = base_time;
-  entry2.action_type = ActionType::kFormFill;
   ASSERT_TRUE(database.AddCriticalAction(entry2));
 
-  const std::string action_id_3 =
-      base::Uuid::GenerateRandomV4().AsLowercaseString();
-  CriticalActionEntry entry3;
-  entry3.critical_action_id = action_id_3;
+  CriticalActionEntry entry3 = CreateDefaultEntry();
   entry3.timestamp = base_time + base::Hours(2);
-  entry3.action_type = ActionType::kFormFill;
   ASSERT_TRUE(database.AddCriticalAction(entry3));
 
   // Delete everything around the middle entry (base_time).
@@ -163,11 +155,14 @@ TEST_F(CriticalActionDatabaseTest, DeleteInTimeRange) {
       base_time - base::Hours(1), base_time + base::Hours(1)));
 
   // entry1 should remain (2 hours ago)
-  EXPECT_TRUE(database.GetCriticalAction(action_id_1).has_value());
+  EXPECT_TRUE(
+      database.GetCriticalAction(entry1.critical_action_id).has_value());
   // entry2 should have been deleted (exactly base_time)
-  EXPECT_FALSE(database.GetCriticalAction(action_id_2).has_value());
+  EXPECT_FALSE(
+      database.GetCriticalAction(entry2.critical_action_id).has_value());
   // entry3 should remain (2 hours from now)
-  EXPECT_TRUE(database.GetCriticalAction(action_id_3).has_value());
+  EXPECT_TRUE(
+      database.GetCriticalAction(entry3.critical_action_id).has_value());
 
   database.Close();
 }
@@ -180,26 +175,16 @@ TEST_F(CriticalActionDatabaseTest, DeleteByVisitIds) {
   int64_t visit_id_2 = visit_id_1 + 1;
   int64_t visit_id_3 = visit_id_1 + 2;
 
-  const std::string action_id_1 =
-      base::Uuid::GenerateRandomV4().AsLowercaseString();
-  CriticalActionEntry entry1;
-  entry1.critical_action_id = action_id_1;
+  CriticalActionEntry entry1 = CreateDefaultEntry();
   entry1.visit_id = visit_id_1;
-  entry1.action_type = ActionType::kFormFill;
   ASSERT_TRUE(database.AddCriticalAction(entry1));
 
-  const std::string action_id_2 =
-      base::Uuid::GenerateRandomV4().AsLowercaseString();
-  CriticalActionEntry entry2;
-  entry2.critical_action_id = action_id_2;
+  CriticalActionEntry entry2 = CreateDefaultEntry();
   entry2.visit_id = visit_id_2;
   entry2.action_type = ActionType::kDownload;
   ASSERT_TRUE(database.AddCriticalAction(entry2));
 
-  const std::string action_id_3 =
-      base::Uuid::GenerateRandomV4().AsLowercaseString();
-  CriticalActionEntry entry3;
-  entry3.critical_action_id = action_id_3;
+  CriticalActionEntry entry3 = CreateDefaultEntry();
   entry3.visit_id = visit_id_3;
   entry3.action_type = ActionType::kSettingChange;
   ASSERT_TRUE(database.AddCriticalAction(entry3));
@@ -209,9 +194,12 @@ TEST_F(CriticalActionDatabaseTest, DeleteByVisitIds) {
       database.DeleteCriticalActionsByVisitIds({visit_id_1, visit_id_3}));
 
   // entry1 and entry3 should be deleted, entry2 should remain.
-  EXPECT_FALSE(database.GetCriticalAction(action_id_1).has_value());
-  EXPECT_TRUE(database.GetCriticalAction(action_id_2).has_value());
-  EXPECT_FALSE(database.GetCriticalAction(action_id_3).has_value());
+  EXPECT_FALSE(
+      database.GetCriticalAction(entry1.critical_action_id).has_value());
+  EXPECT_TRUE(
+      database.GetCriticalAction(entry2.critical_action_id).has_value());
+  EXPECT_FALSE(
+      database.GetCriticalAction(entry3.critical_action_id).has_value());
 
   database.Close();
 }
@@ -231,40 +219,28 @@ TEST_F(CriticalActionDatabaseTest, GetCriticalActionsWithOptions) {
   const std::string task_id_2 =
       base::Uuid::GenerateRandomV4().AsLowercaseString();
 
-  const std::string action_id_1 =
-      base::Uuid::GenerateRandomV4().AsLowercaseString();
-  CriticalActionEntry entry1;
-  entry1.critical_action_id = action_id_1;
+  CriticalActionEntry entry1 = CreateDefaultEntry();
   entry1.timestamp = base_time - base::Hours(3);
   entry1.action_type = ActionType::kFormFill;
   entry1.conversation_id = conv_id_1;
   entry1.actor_task_id = task_id_1;
   entry1.visit_id = 101;
-  entry1.url = GURL("https://example.com/page1");
   ASSERT_TRUE(database.AddCriticalAction(entry1));
 
-  const std::string action_id_2 =
-      base::Uuid::GenerateRandomV4().AsLowercaseString();
-  CriticalActionEntry entry2;
-  entry2.critical_action_id = action_id_2;
+  CriticalActionEntry entry2 = CreateDefaultEntry();
   entry2.timestamp = base_time - base::Hours(2);
   entry2.action_type = ActionType::kDownload;
   entry2.conversation_id = conv_id_2;
   entry2.actor_task_id = task_id_1;
   entry2.visit_id = 102;
-  entry2.url = GURL("https://example.org/page2");
   ASSERT_TRUE(database.AddCriticalAction(entry2));
 
-  const std::string action_id_3 =
-      base::Uuid::GenerateRandomV4().AsLowercaseString();
-  CriticalActionEntry entry3;
-  entry3.critical_action_id = action_id_3;
+  CriticalActionEntry entry3 = CreateDefaultEntry();
   entry3.timestamp = base_time - base::Hours(1);
   entry3.action_type = ActionType::kSettingChange;
   entry3.conversation_id = conv_id_1;
   entry3.actor_task_id = task_id_2;
   entry3.visit_id = 103;
-  entry3.url = GURL("https://example.com/page3");
   ASSERT_TRUE(database.AddCriticalAction(entry3));
 
   // Test 1: Query all, verify order (timestamp DESC: entry3 -> entry2 ->
@@ -273,9 +249,9 @@ TEST_F(CriticalActionDatabaseTest, GetCriticalActionsWithOptions) {
     CriticalActionQueryOptions options;
     auto results = database.GetCriticalActions(options);
     ASSERT_EQ(results.size(), 3u);
-    EXPECT_EQ(results[0].critical_action_id, action_id_3);
-    EXPECT_EQ(results[1].critical_action_id, action_id_2);
-    EXPECT_EQ(results[2].critical_action_id, action_id_1);
+    EXPECT_EQ(results[0].critical_action_id, entry3.critical_action_id);
+    EXPECT_EQ(results[1].critical_action_id, entry2.critical_action_id);
+    EXPECT_EQ(results[2].critical_action_id, entry1.critical_action_id);
   }
 
   // Test 2: Filter by begin_time.
@@ -284,8 +260,8 @@ TEST_F(CriticalActionDatabaseTest, GetCriticalActionsWithOptions) {
     options.begin_time = base_time - base::Hours(2);
     auto results = database.GetCriticalActions(options);
     ASSERT_EQ(results.size(), 2u);
-    EXPECT_EQ(results[0].critical_action_id, action_id_3);
-    EXPECT_EQ(results[1].critical_action_id, action_id_2);
+    EXPECT_EQ(results[0].critical_action_id, entry3.critical_action_id);
+    EXPECT_EQ(results[1].critical_action_id, entry2.critical_action_id);
   }
 
   // Test 3: Filter by end_time.
@@ -294,7 +270,7 @@ TEST_F(CriticalActionDatabaseTest, GetCriticalActionsWithOptions) {
     options.end_time = base_time - base::Hours(2);
     auto results = database.GetCriticalActions(options);
     ASSERT_EQ(results.size(), 1u);
-    EXPECT_EQ(results[0].critical_action_id, action_id_1);
+    EXPECT_EQ(results[0].critical_action_id, entry1.critical_action_id);
   }
 
   // Test 4: Filter by action_types.
@@ -303,8 +279,8 @@ TEST_F(CriticalActionDatabaseTest, GetCriticalActionsWithOptions) {
     options.action_types = {ActionType::kFormFill, ActionType::kSettingChange};
     auto results = database.GetCriticalActions(options);
     ASSERT_EQ(results.size(), 2u);
-    EXPECT_EQ(results[0].critical_action_id, action_id_3);
-    EXPECT_EQ(results[1].critical_action_id, action_id_1);
+    EXPECT_EQ(results[0].critical_action_id, entry3.critical_action_id);
+    EXPECT_EQ(results[1].critical_action_id, entry1.critical_action_id);
   }
 
   // Test 5: Filter by conversation_id.
@@ -313,8 +289,8 @@ TEST_F(CriticalActionDatabaseTest, GetCriticalActionsWithOptions) {
     options.conversation_id = conv_id_1;
     auto results = database.GetCriticalActions(options);
     ASSERT_EQ(results.size(), 2u);
-    EXPECT_EQ(results[0].critical_action_id, action_id_3);
-    EXPECT_EQ(results[1].critical_action_id, action_id_1);
+    EXPECT_EQ(results[0].critical_action_id, entry3.critical_action_id);
+    EXPECT_EQ(results[1].critical_action_id, entry1.critical_action_id);
   }
 
   // Test 6: Filter by actor_task_id.
@@ -323,8 +299,8 @@ TEST_F(CriticalActionDatabaseTest, GetCriticalActionsWithOptions) {
     options.actor_task_id = task_id_1;
     auto results = database.GetCriticalActions(options);
     ASSERT_EQ(results.size(), 2u);
-    EXPECT_EQ(results[0].critical_action_id, action_id_2);
-    EXPECT_EQ(results[1].critical_action_id, action_id_1);
+    EXPECT_EQ(results[0].critical_action_id, entry2.critical_action_id);
+    EXPECT_EQ(results[1].critical_action_id, entry1.critical_action_id);
   }
 
   // Test 7: Filter by max_count.
@@ -333,8 +309,8 @@ TEST_F(CriticalActionDatabaseTest, GetCriticalActionsWithOptions) {
     options.max_count = 2;
     auto results = database.GetCriticalActions(options);
     ASSERT_EQ(results.size(), 2u);
-    EXPECT_EQ(results[0].critical_action_id, action_id_3);
-    EXPECT_EQ(results[1].critical_action_id, action_id_2);
+    EXPECT_EQ(results[0].critical_action_id, entry3.critical_action_id);
+    EXPECT_EQ(results[1].critical_action_id, entry2.critical_action_id);
   }
 
   // Test 8: Filter by visit_ids.
@@ -343,8 +319,8 @@ TEST_F(CriticalActionDatabaseTest, GetCriticalActionsWithOptions) {
     options.visit_ids = {101, 103};
     auto results = database.GetCriticalActions(options);
     ASSERT_EQ(results.size(), 2u);
-    EXPECT_EQ(results[0].critical_action_id, action_id_3);
-    EXPECT_EQ(results[1].critical_action_id, action_id_1);
+    EXPECT_EQ(results[0].critical_action_id, entry3.critical_action_id);
+    EXPECT_EQ(results[1].critical_action_id, entry1.critical_action_id);
   }
 
   database.Close();
@@ -411,7 +387,6 @@ TEST_F(CriticalActionDatabaseTest, MigrationV1ToV2) {
     EXPECT_EQ(act_1->conversation_id, "conv_1");
     EXPECT_EQ(act_1->actor_task_id, "task_1");
     EXPECT_EQ(act_1->action_type, ActionType::kFormFill);
-    EXPECT_EQ(act_1->url, GURL("https://test.com"));
     EXPECT_EQ(act_1->metadata, "meta1");
 
     // Verify record B
@@ -428,15 +403,119 @@ TEST_F(CriticalActionDatabaseTest, MigrationV1ToV2) {
     EXPECT_EQ(act_3->conversation_id, "conv_2");
     EXPECT_EQ(act_3->action_type, ActionType::kSettingChange);
 
-    // Verify database version was updated to 2.
+    // Verify database version was updated to 3.
     sql::MetaTable meta;
-    ASSERT_TRUE(meta.Init(&database.GetDBForTesting(), 2, 1));
-    EXPECT_EQ(meta.GetVersionNumber(), 2);
+    ASSERT_TRUE(meta.Init(&database.GetDBForTesting(), 3, 3));
+    EXPECT_EQ(meta.GetVersionNumber(), 3);
+    EXPECT_EQ(meta.GetCompatibleVersionNumber(), 3);
+    EXPECT_FALSE(database.GetDBForTesting().DoesColumnExist(
+        "CriticalActionEntries", "url"));
+    EXPECT_FALSE(database.GetDBForTesting().DoesIndexExist("idx_entries_url"));
 
     // Verify GetCriticalActions retrieves all migrated records.
     EXPECT_EQ(database.GetCriticalActions({}).size(), 3u);
 
     database.Close();
+  }
+}
+
+TEST_F(CriticalActionDatabaseTest, MigrationV2ToV3) {
+  base::HistogramTester histograms;
+  {
+    sql::Database raw_db(sql::Database::Tag("CriticalActions"));
+    ASSERT_TRUE(raw_db.Open(db_path_));
+    sql::MetaTable meta;
+    ASSERT_TRUE(meta.Init(&raw_db, /*version=*/2, /*compatible_version=*/1));
+    // Frozen V2 schema snapshot -- do NOT call InitSchema(), it is V3 now.
+    ASSERT_TRUE(raw_db.Execute("CREATE TABLE CriticalActionEntries ("
+                               "  critical_action_id TEXT PRIMARY KEY NOT NULL,"
+                               "  timestamp INTEGER NOT NULL,"
+                               "  actor_task_id TEXT,"
+                               "  action_type INTEGER NOT NULL,"
+                               "  url TEXT,"
+                               "  metadata TEXT)"));
+    ASSERT_TRUE(raw_db.Execute("CREATE INDEX idx_entries_url ON "
+                               "CriticalActionEntries(url)"));
+    ASSERT_TRUE(raw_db.Execute("CREATE TABLE CriticalActionVisits ("
+                               "  critical_action_id TEXT PRIMARY KEY NOT NULL,"
+                               "  visit_id INTEGER NOT NULL)"));
+    ASSERT_TRUE(raw_db.Execute("CREATE TABLE CriticalActionConversations ("
+                               "  critical_action_id TEXT PRIMARY KEY NOT NULL,"
+                               "  conversation_id TEXT NOT NULL)"));
+
+    ASSERT_TRUE(raw_db.Execute(
+        "INSERT INTO CriticalActionEntries VALUES ("
+        "  'act_1', 1000000, 'task_1', 1, 'https://test.com', 'meta1')"));
+    ASSERT_TRUE(raw_db.Execute(
+        "INSERT INTO CriticalActionEntries VALUES ("
+        "  'act_2', 2000000, 'task_2', 2, 'https://test.org', 'meta2')"));
+    ASSERT_TRUE(raw_db.Execute(
+        "INSERT INTO CriticalActionEntries VALUES ("
+        "  'act_3', 3000000, 'task_3', 3, 'https://test.io', 'meta3')"));
+    ASSERT_TRUE(raw_db.Execute(
+        "INSERT INTO CriticalActionVisits VALUES ('act_1', 42)"));
+    ASSERT_TRUE(raw_db.Execute(
+        "INSERT INTO CriticalActionVisits VALUES ('act_2', 43)"));
+    ASSERT_TRUE(raw_db.Execute(
+        "INSERT INTO CriticalActionVisits VALUES ('act_3', 44)"));
+    raw_db.Close();
+  }
+
+  CriticalActionDatabase database(db_path_);
+  ASSERT_TRUE(database.Init());
+  auto& db = database.GetDBForTesting();
+
+  EXPECT_FALSE(db.DoesColumnExist("CriticalActionEntries", "url"));
+  EXPECT_FALSE(db.DoesIndexExist("idx_entries_url"));
+
+  // Non-url data survived, field by field (this is also the ordinal guard).
+  auto act_1 = database.GetCriticalAction("act_1");
+  ASSERT_TRUE(act_1.has_value());
+  EXPECT_EQ(act_1->visit_id, 42);
+  EXPECT_EQ(act_1->actor_task_id, "task_1");
+  EXPECT_EQ(act_1->metadata, "meta1");
+  EXPECT_EQ(database.GetCriticalActions({}).size(), 3u);
+
+  sql::MetaTable meta;
+  ASSERT_TRUE(meta.Init(&db, 3, 3));
+  EXPECT_EQ(meta.GetVersionNumber(), 3);
+  EXPECT_EQ(meta.GetCompatibleVersionNumber(), 3);
+
+  // The one-shot VACUUM ran, succeeded, and left no free pages behind.
+  histograms.ExpectUniqueSample(
+      "CriticalActions.Database.MigrationVacuumResult", true, 1);
+  sql::Statement s(db.GetReadonlyStatement("PRAGMA freelist_count"));
+  ASSERT_TRUE(s.Step());
+  EXPECT_EQ(0, s.ColumnInt(0));
+}
+
+TEST_F(CriticalActionDatabaseTest, FreshDatabaseDoesNotVacuum) {
+  base::HistogramTester histograms;
+  {
+    CriticalActionDatabase database(db_path_);
+    ASSERT_TRUE(database.Init());
+    histograms.ExpectTotalCount(
+        "CriticalActions.Database.MigrationVacuumResult", 0);
+  }
+  {
+    CriticalActionDatabase database(db_path_);
+    ASSERT_TRUE(database.Init());
+    histograms.ExpectTotalCount(
+        "CriticalActions.Database.MigrationVacuumResult", 0);
+  }
+}
+
+TEST_F(CriticalActionDatabaseTest, SchemaHasNoUrlColumn) {
+  CriticalActionDatabase database(db_path_);
+  ASSERT_TRUE(database.Init());
+  auto& db = database.GetDBForTesting();
+  EXPECT_FALSE(db.DoesColumnExist("CriticalActionEntries", "url"));
+  EXPECT_FALSE(db.DoesIndexExist("idx_entries_url"));
+  static constexpr base::cstring_view kExpectedColumns[] = {
+      "critical_action_id", "timestamp", "actor_task_id", "action_type",
+      "metadata"};
+  for (base::cstring_view column : kExpectedColumns) {
+    EXPECT_TRUE(db.DoesColumnExist("CriticalActionEntries", column)) << column;
   }
 }
 
@@ -490,6 +569,7 @@ TEST(CriticalActionDatabaseHelpersTest,
   std::string query =
       CriticalActionDatabase::BuildGetCriticalActionsQuery(options);
   EXPECT_THAT(query, HasSubstr("SELECT e.critical_action_id"));
+  EXPECT_THAT(query, Not(HasSubstr("e.url")));
   EXPECT_THAT(query, Not(HasSubstr("WHERE")));
   EXPECT_THAT(query, HasSubstr("ORDER BY e.timestamp DESC"));
   EXPECT_THAT(query, Not(HasSubstr("LIMIT")));
@@ -523,6 +603,69 @@ TEST(CriticalActionDatabaseHelpersTest,
                                "c.conversation_id = ? AND "
                                "e.actor_task_id = ?"));
   EXPECT_THAT(query, HasSubstr("ORDER BY e.timestamp DESC LIMIT ?"));
+}
+
+TEST_F(CriticalActionDatabaseTest, SetCriticalActionsConversationId) {
+  CriticalActionDatabase database(db_path_);
+  ASSERT_TRUE(database.Init());
+
+  const std::string action_id1 = "action_1";
+  const std::string action_id2 = "action_2";
+  const std::string conv_id = "conv_1";
+
+  CriticalActionEntry entry1 = CreateDefaultEntry();
+  entry1.critical_action_id = action_id1;
+  ASSERT_TRUE(database.AddCriticalAction(entry1));
+
+  CriticalActionEntry entry2 = CreateDefaultEntry();
+  entry2.critical_action_id = action_id2;
+  ASSERT_TRUE(database.AddCriticalAction(entry2));
+
+  // Before associating conversation ID, conversation_id is empty.
+  auto retrieved1 = database.GetCriticalAction(action_id1);
+  ASSERT_TRUE(retrieved1.has_value());
+  EXPECT_TRUE(retrieved1->conversation_id.empty());
+
+  // Associate conversation ID with action_id1.
+  EXPECT_TRUE(database.SetCriticalActionsConversationId({action_id1}, conv_id));
+
+  retrieved1 = database.GetCriticalAction(action_id1);
+  ASSERT_TRUE(retrieved1.has_value());
+  EXPECT_EQ(retrieved1->conversation_id, conv_id);
+
+  // action_id2 remains without conversation ID.
+  auto retrieved2 = database.GetCriticalAction(action_id2);
+  ASSERT_TRUE(retrieved2.has_value());
+  EXPECT_TRUE(retrieved2->conversation_id.empty());
+
+  database.Close();
+}
+
+TEST_F(CriticalActionDatabaseTest,
+       SetCriticalActionsConversationIdEmptyActionIds) {
+  CriticalActionDatabase database(db_path_);
+  ASSERT_TRUE(database.Init());
+
+  // Empty action IDs is a no-op that returns true.
+  EXPECT_TRUE(database.SetCriticalActionsConversationId({}, "conv_1"));
+
+  database.Close();
+}
+
+TEST_F(CriticalActionDatabaseTest,
+       SetCriticalActionsConversationIdEmptyConversationId) {
+  CriticalActionDatabase database(db_path_);
+  ASSERT_TRUE(database.Init());
+
+  const std::string action_id = "action_1";
+  CriticalActionEntry entry = CreateDefaultEntry();
+  entry.critical_action_id = action_id;
+  ASSERT_TRUE(database.AddCriticalAction(entry));
+
+  // Empty conversation ID returns false.
+  EXPECT_FALSE(database.SetCriticalActionsConversationId({action_id}, ""));
+
+  database.Close();
 }
 
 }  // namespace critical_actions

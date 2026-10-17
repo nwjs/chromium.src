@@ -110,6 +110,7 @@ struct AXLocationAndScrollUpdates;
 namespace content {
 class BackForwardCacheImpl;
 class FrameTreeNode;
+class InitiatorNavigationState;
 class Page;
 class PrerenderHostRegistry;
 class RenderWidgetHostImpl;
@@ -164,6 +165,7 @@ class CONTENT_EXPORT RenderFrameHostDelegate {
       const GURL& blocked_url,
       const GURL& initiator_url,
       const url::Origin& initiator_origin,
+      scoped_refptr<InitiatorNavigationState> initiator_navigation_state,
       blink::mojom::NavigationBlockedReason reason) {}
 
   // Called when blink.mojom.LocalFrameHost::DidFinishLoad() is invoked.
@@ -653,7 +655,11 @@ class CONTENT_EXPORT RenderFrameHostDelegate {
           receiver) {}
 
   // Return whether HTML Fullscreen requires transient activation.
-  virtual bool IsTransientActivationRequiredForHtmlFullscreen();
+  // `requesting_frame` is the frame requesting fullscreen, and `is_xr_overlay`
+  // indicates whether the request is for a WebXR DOM Overlay.
+  virtual bool IsTransientActivationRequiredForHtmlFullscreen(
+      RenderFrameHostImpl* requesting_frame,
+      bool is_xr_overlay);
 
   // Return true if the back forward cache is supported. This is not an
   // indication that the cache will be used.

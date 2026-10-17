@@ -224,7 +224,7 @@ void ChromeOmniboxClientIOS::OnResultChanged(
   // not prerender other types of matches, including matches from the search
   // provider.
   if (is_inline_autocomplete &&
-      match.type == AutocompleteMatchType::HISTORY_URL) {
+      match.type == omnibox::AutocompleteMatchType::kHistoryUrl) {
     ui::PageTransition transition = ui::PageTransitionFromInt(
         match.transition | ui::PAGE_TRANSITION_FROM_ADDRESS_BAR);
     agent->StartPrerender(
@@ -271,7 +271,7 @@ void ChromeOmniboxClientIOS::OnAutocompleteAccept(
     TemplateURLRef::PostContent* post_content,
     WindowOpenDisposition disposition,
     ui::PageTransition transition,
-    AutocompleteMatchType::Type match_type,
+    omnibox::AutocompleteMatchType match_type,
     base::TimeTicks match_selection_timestamp,
     bool destination_url_entered_without_scheme,
     bool destination_url_entered_with_http_scheme,

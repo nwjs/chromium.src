@@ -4,7 +4,6 @@
 
 import 'chrome://resources/ash/common/network_health/network_diagnostics.js';
 import 'chrome://resources/ash/common/network_health/network_health_summary.js';
-import 'chrome://resources/ash/common/traffic_counters/traffic_counters.js';
 import 'chrome://resources/ash/common/cr_elements/cr_button/cr_button.js';
 import 'chrome://resources/ash/common/cr_elements/cr_input/cr_input.js';
 import 'chrome://resources/ash/common/cr_elements/cr_tabs/cr_tabs.js';
@@ -118,8 +117,6 @@ class NetworkUiElement extends NetworkUiElementBase {
   override connectedCallback() {
     super.connectedCallback();
 
-    this.shadowRoot!.querySelector<HTMLInputElement>('#import-onc')!.value = '';
-
     this.requestGlobalPolicy_();
     this.getTetheringCapabilities_();
     this.getTetheringConfig_();
@@ -146,7 +143,6 @@ class NetworkUiElement extends NetworkUiElementBase {
       this.i18n('networkLogsTab'),
       this.i18n('networkStateTab'),
       this.i18n('networkSelectTab'),
-      this.i18n('TrafficCountersTrafficCounters'),
       this.i18n('networkMetricsTab'),
       this.i18n('networkHotspotTab'),
       this.i18n('networkWifiDirectTab'),
@@ -193,28 +189,12 @@ class NetworkUiElement extends NetworkUiElementBase {
   }
 
   /**
-   * Handles the ONC file input change event.
+   * Handles clicks on the import ONC button.
    */
-  private onImportOncChange_(event: Event) {
-    const target = event.target as HTMLInputElement;
-    const file: File|null =
-        (target.files && target.files.length > 0) ? target.files[0] : null;
-    event.stopPropagation();
-    if (!file) {
-      return;
-    }
-    const reader = new FileReader();
-    reader.onloadend = (_) => {
-      const content = reader.result;
-      if (!content || typeof (content) !== 'string') {
-        console.error('File not read' + file);
-        return;
-      }
-      this.browserProxy_.importOnc(content).then((response) => {
-        this.importOncResponse_(response);
-      });
-    };
-    reader.readAsText(file);
+  private onImportOncClick_() {
+    this.browserProxy_.importOnc().then((response) => {
+      this.importOncResponse_(response);
+    });
   }
 
   /**
@@ -226,7 +206,6 @@ class NetworkUiElement extends NetworkUiElementBase {
     assert(resultDiv);
     resultDiv.innerText = args[0];
     resultDiv.classList.toggle('error', args[1]);
-    this.shadowRoot!.querySelector<HTMLInputElement>('#import-onc')!.value = '';
   }
 
   /**

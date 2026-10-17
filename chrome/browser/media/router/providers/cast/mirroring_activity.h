@@ -9,12 +9,12 @@
 #include <string>
 
 #include "base/functional/callback.h"
-#include "base/gtest_prod_util.h"
 #include "base/json/json_reader.h"
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/thread_annotations.h"
+#include "base/threading/sequence_bound.h"
 #include "chrome/browser/media/mirroring_service_host.h"
 #include "chrome/browser/media/router/providers/cast/cast_activity.h"
 #include "chrome/browser/media/router/providers/cast/cast_session_tracker.h"
@@ -24,7 +24,7 @@
 #include "components/media_router/common/providers/cast/channel/cast_message_handler.h"
 #include "components/mirroring/mojom/cast_message_channel.mojom.h"
 #include "components/mirroring/mojom/session_observer.mojom.h"
-#include "components/mirroring/mojom/session_parameters.mojom-forward.h"
+#include "components/mirroring/mojom/session_parameters.mojom.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -36,6 +36,9 @@
 namespace media_router {
 
 struct CastSinkExtraData;
+
+// Scrubs AES related data in messages with type "OFFER".
+std::string GetScrubbedLogMessage(const base::DictValue& message);
 
 class MirroringActivity : public CastActivity,
                           public mirroring::mojom::SessionObserver,
@@ -85,6 +88,9 @@ class MirroringActivity : public CastActivity,
   void OnAppMessage(
       const openscreen::cast::proto::CastMessage& message) override;
   void OnInternalMessage(const cast_channel::InternalMessage& message) override;
+  void BindMediaController(
+      mojo::PendingReceiver<mojom::MediaController> media_controller,
+      mojo::PendingRemote<mojom::MediaStatusObserver> observer) override;
 
   // mojom::MediaController implementation
   void SetMute(bool mute) override {}
@@ -101,47 +107,48 @@ class MirroringActivity : public CastActivity,
   // mirroring session.
   void Pause() override;
 
-  mirroring::MirroringServiceHost* GetHost() {
-    DCHECK_CALLED_ON_VALID_SEQUENCE(ui_sequence_checker_);
-    return host_.get();
+  content::FrameTreeNodeId frame_tree_node_id() const {
+    return frame_tree_node_id_;
   }
+
   void SetMirroringServiceHostForTest(
-      std::unique_ptr<mirroring::MirroringServiceHost> host) {
-    DCHECK_CALLED_ON_VALID_SEQUENCE(ui_sequence_checker_);
-    host_ = std::move(host);
-  }
+      mirroring::MirroringServiceHost::UniquePtr host);
 
  protected:
   void OnSessionSet(const CastSession& session) override;
   void StartSession(const std::string& destination_id,
                     bool enable_rtcp_reporting = false);
-  void BindMediaController(
-      mojo::PendingReceiver<mojom::MediaController> media_controller,
-      mojo::PendingRemote<mojom::MediaStatusObserver> observer) override;
   std::string GetRouteDescription(const CastSession& session) const override;
 
  private:
-  FRIEND_TEST_ALL_PREFIXES(MirroringActivityTest, GetScrubbedLogMessage);
-  FRIEND_TEST_ALL_PREFIXES(MirroringActivityTest, OnSourceChanged);
-  FRIEND_TEST_ALL_PREFIXES(MirroringActivityTest,
-                           OnSourceChangedNotifiesMediaStatusObserver);
-  FRIEND_TEST_ALL_PREFIXES(MirroringActivityTest, ReportsNotEnabledByDefault);
-  FRIEND_TEST_ALL_PREFIXES(MirroringActivityTest, EnableRtcpReports);
-  FRIEND_TEST_ALL_PREFIXES(MirroringActivityTest, Pause);
-  FRIEND_TEST_ALL_PREFIXES(MirroringActivityTest, Play);
-  FRIEND_TEST_ALL_PREFIXES(MirroringActivityTest, OnRemotingStateChanged);
-  FRIEND_TEST_ALL_PREFIXES(MirroringActivityTest,
-                           MultipleMediaControllersNotified);
+  struct PendingStartParams {
+    PendingStartParams(
+        mirroring::mojom::SessionParametersPtr session_params,
+        mojo::PendingRemote<mirroring::mojom::SessionObserver> observer,
+        mojo::PendingRemote<mirroring::mojom::CastMessageChannel>
+            outbound_channel,
+        mojo::PendingReceiver<mirroring::mojom::CastMessageChannel>
+            inbound_channel,
+        std::string sink_name);
+    ~PendingStartParams();
+    PendingStartParams(PendingStartParams&&);
+    PendingStartParams& operator=(PendingStartParams&&);
+
+    mirroring::mojom::SessionParametersPtr session_params;
+    mojo::PendingRemote<mirroring::mojom::SessionObserver> observer;
+    mojo::PendingRemote<mirroring::mojom::CastMessageChannel> outbound_channel;
+    mojo::PendingReceiver<mirroring::mojom::CastMessageChannel> inbound_channel;
+    std::string sink_name;
+  };
+
+  void OnHostCreated(mirroring::MirroringServiceHost::UniquePtr host);
+  void DidGetTabSourceId(
+      std::optional<content::FrameTreeNodeId> frame_tree_node_id);
 
   void HandleParseJsonResult(const std::string& route_id,
                              const base::JSONReader::Result& result);
 
   void StopMirroring();
-
-  void set_host(std::unique_ptr<mirroring::MirroringServiceHost> host) {
-    DCHECK_CALLED_ON_VALID_SEQUENCE(ui_sequence_checker_);
-    host_ = std::move(host);
-  }
 
   void SetPlayState(mojom::MediaStatus::PlayState play_state);
 
@@ -151,25 +158,12 @@ class MirroringActivity : public CastActivity,
   void OnMirroringPaused();
   void OnMirroringResumed();
 
-  // Scrubs AES related data in messages with type "OFFER".
-  static std::string GetScrubbedLogMessage(const base::DictValue& message);
-
-  // Starts the mirroring service via the Ui thread. Can only be called on the
-  // Ui thread.
-  void StartOnUiThread(
-      mirroring::mojom::SessionParametersPtr session_params,
-      mojo::PendingRemote<mirroring::mojom::SessionObserver> observer,
-      mojo::PendingRemote<mirroring::mojom::CastMessageChannel>
-          outbound_channel,
-      mojo::PendingReceiver<mirroring::mojom::CastMessageChannel>
-          inbound_channel,
-      const std::string& sink_name);
-
   void ScheduleFetchMirroringStats();
   void FetchMirroringStats();
   void OnMirroringStats(base::Value json_stats);
 
-  std::unique_ptr<mirroring::MirroringServiceHost> host_;
+  base::SequenceBound<std::unique_ptr<mirroring::MirroringServiceHost>> host_;
+  std::optional<PendingStartParams> pending_start_params_;
 
   // Sends Cast messages from the mirroring receiver to the mirroring service.
   mojo::Remote<mirroring::mojom::CastMessageChannel> channel_to_service_;
@@ -216,7 +210,6 @@ class MirroringActivity : public CastActivity,
   bool should_fetch_stats_on_start_ = false;
 
   SEQUENCE_CHECKER(io_sequence_checker_);
-  SEQUENCE_CHECKER(ui_sequence_checker_);
   base::WeakPtrFactory<MirroringActivity> weak_ptr_factory_{this};
 };
 

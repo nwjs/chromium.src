@@ -21,7 +21,6 @@
 #include "components/password_manager/core/browser/password_manager_driver.h"
 #include "content/public/browser/context_menu_params.h"
 #include "content/public/browser/render_frame_host.h"
-#include "content/public/browser/render_widget_host.h"
 #include "mojo/public/cpp/bindings/associated_receiver.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
@@ -56,10 +55,15 @@ class ContentPasswordManagerDriver final
           pending_receiver);
   void DidNavigate();
 
+  // Called when a navigation commits a new document in the frame (i.e. not for
+  // BFCache restores or prerendered page activations). Such a navigation may
+  // reuse the RenderFrameHost, and hence this driver, of the previous document
+  // (e.g. the first navigation away from the initial empty document). Discards
+  // all state that belongs to the previous document.
+  void ResetForNewDocument();
+
   // PasswordManagerDriver implementation.
   DriverId GetId() const override;
-  gfx::RectF TransformToRootCoordinates(
-      const gfx::RectF& bounds_in_frame_coordinates) override;
   void PropagateFillDataOnParsingCompletion(
       const autofill::PasswordFormFillData& form_data) override;
   void InformNoSavedCredentials(

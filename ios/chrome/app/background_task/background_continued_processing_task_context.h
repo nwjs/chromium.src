@@ -8,9 +8,12 @@
 #import <Foundation/Foundation.h>
 
 #import "base/ios/block_types.h"
+#import "ios/chrome/app/background_mode_buildflags.h"
 
 @class BackgroundContinuedProcessingTaskConfiguration;
+#if BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
 @class BGContinuedProcessingTask;
+#endif  // BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
 
 // Context representing an active continued processing background task.
 // Used to interact with an existing task. This object and its properties are
@@ -24,16 +27,17 @@
 // immediately updates the cached title and propagates the update to the system.
 @property(nonatomic, copy) NSString* title;
 
-// Subtitle displayed in the system-provided Live Activity. Setting this
-// property immediately updates the cached subtitle and propagates the update
-// to the system.
+// Subtitle displayed in the system-provided Live Activity. Defaults to an
+// empty string if set to nil. Setting this property immediately updates the
+// cached subtitle and propagates the update to the system.
 @property(nonatomic, copy) NSString* subtitle;
 
 // Whether the task has already been completed or expired.
 @property(nonatomic, readonly, getter=isCompleted) BOOL completed;
 
 // Updates both the title and subtitle simultaneously in the system-provided
-// Live Activity.
+// Live Activity. `title` must not be empty. `subtitle` defaults to an empty
+// string if nil.
 - (void)updateTitle:(NSString*)title subtitle:(NSString*)subtitle;
 
 // The fraction of work completed (from 0.0 to 1.0).
@@ -73,11 +77,13 @@
                          finishHandler:(ProceduralBlock)finishHandler
     NS_DESIGNATED_INITIALIZER;
 
+#if BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
 // Attaches an underlying system `BGContinuedProcessingTask` to the context once
 // the OS launch handler fires, setting properties on it. Internal: consumers
 // must not invoke this method.
 - (void)attachUnderlyingTask:(BGContinuedProcessingTask*)task
     API_AVAILABLE(ios(26.0));
+#endif  // BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
 
 - (instancetype)init NS_UNAVAILABLE;
 

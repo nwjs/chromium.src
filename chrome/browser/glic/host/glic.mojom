@@ -168,21 +168,6 @@ enum ActorTaskInterruptReason {
   [MinVersion=2] kWaitingForExperimentalTriggeringConsent = 8,
 };
 
-// @generate glic_api
-// Reason why capturing desktop screenshot failed. NOTE: This may be extended in
-// the future so avoid using complete switches on the currently used enum
-// values.
-[Stable, Extensible]
-enum CaptureScreenshotErrorReason {
-  // Screen capture or frame encoding failure.
-  [Default] kUnknown = 0,
-  // Screen capture requested but already in progress of serving another
-  // request.
-  kScreenCaptureRequestThrottled = 1,
-  // User declined screen capture dialog before taking a screenshot.
-  kUserCancelledScreenPickerDialog = 2,
-};
-
 union GetContextResult {
   string error_reason;
   TabContextResult tab_context;
@@ -195,11 +180,6 @@ struct GetContextResultWithActionResultCode {
   // need the type, so we just use an int here. It is expected that the client
   // has an equivalent enum definition. See http://shortn/_gLyPxrRm6p
   int32? action_result;
-};
-
-union CaptureScreenshotResult {
-  CaptureScreenshotErrorReason error_reason;
-  Screenshot screenshot;
 };
 
 // @generate glic_api
@@ -221,6 +201,10 @@ struct UserProfileInfo {
   /// See `policy::ManagementService::IsAccountManaged()`.
   // @glic_optional
   bool is_managed;
+  // Whether the user has an AI subscription and should show the avatar gradient
+  // ring.
+  // @glic_optional
+  bool has_avatar_ring;
 };
 
 // @generate glic_api
@@ -415,8 +399,10 @@ struct TabContextOptions {
   // @glic_optional
   uint32 max_meta_tags;
 
-  // If true, and the focused tab contains a PDF as the top level document,
-  // returns PdfDocumentData.
+  // If true, returns PdfDocumentData when:
+  // - the focused tab contains a PDF as the top level document or,
+  // - the focused tab contains an embedded PDF and the host has embedded PDF
+  // bytes extraction capability.
   // @glic_optional
   bool pdf_data;
 
@@ -1133,7 +1119,6 @@ enum GlicRequestEvent {
 // A single WebClientHandler will provide access to the browser for only
 // a single web client. If the webview navigates or refreshes, a new
 // WebClientHandler is created.
-// Next version: 2
 interface WebClientHandler {
   // Reports API request count metrics from the web client.
   ReportApiRequestCount(int32 request_type_id, GlicRequestEvent event);
@@ -1298,11 +1283,6 @@ interface WebClientHandler {
   // If the widget doesn't exist yet, `size` will be used as its initial size
   // when it's created later.
   ResizeWidget(gfx.mojom.Size size, mojo_base.mojom.TimeDelta duration) => ();
-
-  // Returns the screenshot result or error reason. 'screenshot' is null when an
-  // error occurs during capture. This can also fail if the user cancels the
-  // screen picker dialog.
-  CaptureScreenshot() => (CaptureScreenshotResult result);
 
   // Starts a user-interactive process to select content from a tab. Multiple
   // regions can be captured. Results for each region, and errors, are sent
@@ -1917,6 +1897,17 @@ interface ExperimentalTriggeringClient {
   GetExperimentalTriggeringUpdates(
       pending_remote<ExperimentalTriggeringUpdatesHandler> handler)
       => (bool success);
+
+  // Delivers a confirmation decision made by the user on a remote surface.
+  //
+  // `response` is a serialized proto which is opaque to the browser. The web
+  // client is responsible for decoding it, matching it against a pending
+  // confirmation dialog, and resolving that dialog.
+  //
+  // Replies true if the response was matched to a pending confirmation dialog
+  // and applied, false otherwise.
+  SubmitExperimentalTriggeringConfirmationResponse(array<uint8> response)
+      => (bool accepted);
 };
 
 // Access from the browser to the Glic web client by proxy of the WebUI page.
@@ -2404,6 +2395,13 @@ enum HostCapability {
   kAttemptOtpFilling = 15,
   // Indicates that the host supports exposing Chrome-defined tools.
   kChromeTools = 16,
+  // Indicates that skills V2 are supported.
+  kSkillsV2 = 17,
+  // Indicates that the host supports bytes extraction of embedded PDF rendered
+  // in the Chrome PDF viewer.
+  kEmbeddedPdfBytesExtraction = 18,
+  // Indicates that the host operates in NoWebview mode.
+  kNoWebview = 19,
 };
 
 // @generate glic_api

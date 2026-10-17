@@ -78,6 +78,7 @@ ______________________________________________________________________
      - Must be strictly novel (not in Gerrit / not in fetch_tried_cls.py).
      - Must aim for architectural leverage (eliminating heap/GC allocations in hot per-element/per-token loops, caching expensive computations across iterations, bypassing heavy subsystems for common cases, or deferring work).
      - Reject micro-tweaks (< 0.1% impact) that will not stand out in Pinpoint noise.
+     - Avoid changes unlikely to affect LTO/PGO builds (like moving functions to headers for inlining); Pinpoint uses ThinLTO and other bots use PGO.
   5. Return a structured proposal containing:
      - Target Files & Functions
      - Specific Architectural Mechanism & Rationale
@@ -107,7 +108,7 @@ ______________________________________________________________________
   3. Compile and verify locally:
      - Unit tests: `autoninja -C out/release blink_unittests` (or `v8:d8` for V8) and run relevant test filters.
      - Web tests (if rendering/DOM): `./third_party/blink/tools/run_web_tests.py -t release <path>`
-     - Crossbench smoke test: `./third_party/crossbench/cb.py speedometer_3.1 --browser=out/release/chrome --driver-path=out/release/chromedriver --stories=<Story> --headless`
+     - Crossbench smoke test: `tools/perf/cb speedometer_3.1 --browser=out/release/chrome --driver-path=out/release/chromedriver --stories=<Story> --headless`
   4. If tests fail, diagnose and fix, or conclude failure if unviable.
   5. If all tests pass, report back with:
      - Branch name and list of modified files
@@ -146,6 +147,7 @@ ______________________________________________________________________
      Assess whether this optimization is architecturally sound and spec-compliant:
      - Does it maintain DOM, CSS, HTML, or JavaScript language specification fidelity?
      - Does it bypass necessary security, sanitization, or lifecycle checks just to appear faster?
+     - Does it rely on changes unlikely to affect LTO/PGO builds (like moving functions to headers for inlining)? These should be avoided.
      - If the change is fundamentally flawed, unviable, or introduces irreparable correctness bugs:
        Output:
        ```
@@ -203,7 +205,7 @@ ______________________________________________________________________
   1. Commit the changes on branch `[BranchName]` with a detailed CL description:
      - Include architectural explanation and benchmark targets.
      - Include tags at bottom: `TAG=agy` and `CONV=[ConversationID]`.
-  2. Upload CL: `git cl upload -m "[Description]" --cq-dry-run`
+  2. Upload CL: `git cl upload -o wip --no-autocc -m "[Description]" --cq-dry-run`
   3. Retrieve Issue ID: `git cl issue`
   4. Trigger 150-iteration Pinpoint try job:
      `pp c -c m1 -t sp3 -r 150`

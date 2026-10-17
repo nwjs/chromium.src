@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 // clang-format off
-import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import {PaymentsManagerImpl} from 'chrome://settings/lazy_load.js';
 import {CardBenefitsUserAction, loadTimeData, MetricsBrowserProxyImpl, OpenWindowProxyImpl} from 'chrome://settings/settings.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
@@ -11,10 +10,10 @@ import {TestOpenWindowProxy} from 'chrome://webui-test/test_open_window_proxy.js
 
 import type {TestPaymentsManager} from './autofill_fake_data.js';
 import {createCreditCardEntry, STUB_USER_ACCOUNT_INFO} from './autofill_fake_data.js';
-import {createPaymentsPage, getDefaultExpectations, getLocalAndServerCreditCardListItems, getCardRowShadowRoot} from './payments_page_test_utils.js';
+import {createPaymentsPage, getDefaultExpectations, getFirstCreditCardEntry, getLocalAndServerCreditCardListItems, setupPaymentsPrefs} from './payments_page_test_utils.js';
 import {TestMetricsBrowserProxy} from './test_metrics_browser_proxy.js';
 
-import {isVisible} from 'chrome://webui-test/test_util.js';
+import {isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
 // clang-format on
 
 suite('PaymentsPageCardRows', function() {
@@ -30,6 +29,7 @@ suite('PaymentsPageCardRows', function() {
         .replace(/\s+/g, ' ')
         .replace(/\n/g, '');
   }
+
   setup(function() {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     loadTimeData.overrideValues({
@@ -40,6 +40,7 @@ suite('PaymentsPageCardRows', function() {
     });
     metricsBrowserProxy = new TestMetricsBrowserProxy();
     MetricsBrowserProxyImpl.setInstance(metricsBrowserProxy);
+    return setupPaymentsPrefs();
   });
 
   test('verifyCreditCardFields', async function() {
@@ -47,18 +48,20 @@ suite('PaymentsPageCardRows', function() {
     const page = await createPaymentsPage(
         [creditCard], /*ibans=*/[], /*payOverTimeIssuers=*/[],
         /*prefValues=*/ {});
-    const rowShadowRoot = getCardRowShadowRoot(page.$.paymentsList);
-    assertTrue(isVisible(rowShadowRoot.querySelector<HTMLElement>('#label')));
+    const firstEntry = getFirstCreditCardEntry(page.$.paymentsList);
+    assertTrue(
+        isVisible(firstEntry.shadowRoot.querySelector<HTMLElement>('#label')));
     assertTrue(isVisible(
-        rowShadowRoot.querySelector<HTMLElement>('#expirationLabel')));
+        firstEntry.shadowRoot.querySelector<HTMLElement>('#expirationLabel')));
     assertEquals(
         creditCard.metadata!.summaryLabel,
-        rowShadowRoot.querySelector<HTMLElement>('#label')!.textContent.trim());
+        firstEntry.shadowRoot.querySelector<HTMLElement>(
+                                 '#label')!.textContent.trim());
     assertEquals(
         '· ' + parseInt(creditCard.expirationMonth!, 10) + '/' +
             creditCard.expirationYear!.substring(2),
-        rowShadowRoot.querySelector<HTMLElement>(
-                         '#expirationLabel')!.textContent.trim());
+        firstEntry.shadowRoot.querySelector<HTMLElement>(
+                                 '#expirationLabel')!.textContent.trim());
   });
 
   test('verifyCreditCardRowButtonIsDropdownWhenLocal', async function() {
@@ -67,11 +70,11 @@ suite('PaymentsPageCardRows', function() {
     const page = await createPaymentsPage(
         [creditCard], /*ibans=*/[], /*payOverTimeIssuers=*/[],
         /*prefValues=*/ {});
-    const rowShadowRoot = getCardRowShadowRoot(page.$.paymentsList);
-    const menuButton = rowShadowRoot.querySelector('#creditCardMenu');
+    const firstEntry = getFirstCreditCardEntry(page.$.paymentsList);
+    const menuButton = firstEntry.shadowRoot.querySelector('#creditCardMenu');
     assertTrue(!!menuButton);
     const outlinkButton =
-        rowShadowRoot.querySelector('cr-icon-button.icon-external');
+        firstEntry.shadowRoot.querySelector('cr-icon-button.icon-external');
     assertFalse(!!outlinkButton);
   });
 
@@ -81,45 +84,45 @@ suite('PaymentsPageCardRows', function() {
     const page = await createPaymentsPage(
         [creditCard], /*ibans=*/[], /*payOverTimeIssuers=*/[],
         /*prefValues=*/ {});
-    const rowShadowRoot = getCardRowShadowRoot(page.$.paymentsList);
+    const firstEntry = getFirstCreditCardEntry(page.$.paymentsList);
     const menuButton =
-        rowShadowRoot.querySelector<HTMLElement>('#creditCardMenu');
+        firstEntry.shadowRoot.querySelector<HTMLElement>('#creditCardMenu');
     assertTrue(!!menuButton);
     const updateCreditCardCallback =
-        (creditCard: chrome.autofillPrivate.CreditCardEntry) => {
-          (PaymentsManagerImpl.getInstance() as TestPaymentsManager)
-              .lastCallback.setPersonalDataManagerListener!
-              ([], [creditCard], [], [], {
-                ...STUB_USER_ACCOUNT_INFO,
-                isSyncEnabledForAutofillProfiles: true,
-              });
-          flush();
-        };
+        async (creditCard: chrome.autofillPrivate.CreditCardEntry) => {
+      (PaymentsManagerImpl.getInstance() as TestPaymentsManager)
+          .lastCallback.setPersonalDataManagerListener!
+          ([], [creditCard], [], [], {
+            ...STUB_USER_ACCOUNT_INFO,
+            isSyncEnabledForAutofillProfiles: true,
+          });
+      await microtasksFinished();
+    };
 
     // Case 1: a card with a nickname
     creditCard = createCreditCardEntry();
     creditCard.nickname = 'My card name';
-    updateCreditCardCallback(creditCard);
+    await updateCreditCardCallback(creditCard);
     assertEquals('More actions for My card name', menuButton.title);
 
     // Case 2: a card without nickname
     creditCard = createCreditCardEntry();
     creditCard.cardNumber = '0000000000001234';
     creditCard.network = 'Visa';
-    updateCreditCardCallback(creditCard);
+    await updateCreditCardCallback(creditCard);
     assertEquals('More actions for Visa ending in 1234', menuButton.title);
 
     // Case 3: a card without network
     creditCard = createCreditCardEntry();
     creditCard.cardNumber = '0000000000001234';
     creditCard.network = undefined;
-    updateCreditCardCallback(creditCard);
+    await updateCreditCardCallback(creditCard);
     assertEquals('More actions for Card ending in 1234', menuButton.title);
 
     // Case 4: a card without number
     creditCard = createCreditCardEntry();
     creditCard.cardNumber = undefined;
-    updateCreditCardCallback(creditCard);
+    await updateCreditCardCallback(creditCard);
     assertEquals('More actions for Jane Doe', menuButton.title);
 
     // Case 5: a card with CVC
@@ -127,7 +130,7 @@ suite('PaymentsPageCardRows', function() {
     creditCard.cardNumber = '0000000000001234';
     creditCard.network = 'Visa';
     creditCard.cvc = '111';
-    updateCreditCardCallback(creditCard);
+    await updateCreditCardCallback(creditCard);
     assertEquals(
         'More actions for Visa ending in 1234, CVC saved', menuButton.title);
   });
@@ -138,11 +141,11 @@ suite('PaymentsPageCardRows', function() {
     const page = await createPaymentsPage(
         [creditCard], /*ibans=*/[], /*payOverTimeIssuers=*/[],
         /*prefValues=*/ {});
-    const rowShadowRoot = getCardRowShadowRoot(page.$.paymentsList);
-    const menuButton = rowShadowRoot.querySelector('#creditCardMenu');
+    const firstEntry = getFirstCreditCardEntry(page.$.paymentsList);
+    const menuButton = firstEntry.shadowRoot.querySelector('#creditCardMenu');
     assertFalse(!!menuButton);
     const outlinkButton =
-        rowShadowRoot.querySelector('cr-icon-button.icon-external');
+        firstEntry.shadowRoot.querySelector('cr-icon-button.icon-external');
     assertTrue(!!outlinkButton);
   });
 
@@ -156,11 +159,12 @@ suite('PaymentsPageCardRows', function() {
         const page = await createPaymentsPage(
             [creditCard], /*ibans=*/[], /*payOverTimeIssuers=*/[],
             /*prefValues=*/ {});
-        const rowShadowRoot = getCardRowShadowRoot(page.$.paymentsList);
-        const menuButton = rowShadowRoot.querySelector('#creditCardMenu');
+        const firstEntry = getFirstCreditCardEntry(page.$.paymentsList);
+        const menuButton =
+            firstEntry.shadowRoot.querySelector('#creditCardMenu');
         assertTrue(!!menuButton);
         const outlinkButton =
-            rowShadowRoot.querySelector('cr-icon-button.icon-external');
+            firstEntry.shadowRoot.querySelector('cr-icon-button.icon-external');
         assertFalse(!!outlinkButton);
       });
 
@@ -178,13 +182,13 @@ suite('PaymentsPageCardRows', function() {
         const page = await createPaymentsPage(
             [creditCard], /*ibans=*/[], /*payOverTimeIssuers=*/[],
             /*prefValues=*/ {});
-        const rowShadowRoot = getCardRowShadowRoot(page.$.paymentsList);
+        const firstEntry = getFirstCreditCardEntry(page.$.paymentsList);
         const menuButton =
-            rowShadowRoot.querySelector<HTMLElement>('#creditCardMenu');
+            firstEntry.shadowRoot.querySelector<HTMLElement>('#creditCardMenu');
         assertTrue(!!menuButton);
 
         menuButton.click();
-        flush();
+        await microtasksFinished();
         assertTrue(isVisible(page.$.menuEditCreditCard));
 
         assertEquals(
@@ -205,13 +209,13 @@ suite('PaymentsPageCardRows', function() {
         const page = await createPaymentsPage(
             [creditCard], /*ibans=*/[], /*payOverTimeIssuers=*/[],
             /*prefValues=*/ {});
-        const rowShadowRoot = getCardRowShadowRoot(page.$.paymentsList);
+        const firstEntry = getFirstCreditCardEntry(page.$.paymentsList);
         const menuButton =
-            rowShadowRoot.querySelector<HTMLElement>('#creditCardMenu');
+            firstEntry.shadowRoot.querySelector<HTMLElement>('#creditCardMenu');
         assertTrue(!!menuButton);
 
         menuButton.click();
-        flush();
+        await microtasksFinished();
         assertTrue(isVisible(page.$.menuEditCreditCard));
 
         assertEquals(
@@ -229,8 +233,8 @@ suite('PaymentsPageCardRows', function() {
     const page = await createPaymentsPage(
         [creditCard], /*ibans=*/[], /*payOverTimeIssuers=*/[],
         /*prefValues=*/ {});
-    const rowShadowRoot = getCardRowShadowRoot(page.$.paymentsList);
-    const outlinkButton = rowShadowRoot.querySelector<HTMLElement>(
+    const firstEntry = getFirstCreditCardEntry(page.$.paymentsList);
+    const outlinkButton = firstEntry.shadowRoot.querySelector<HTMLElement>(
         'cr-icon-button.icon-external');
     assertTrue(!!outlinkButton);
 
@@ -247,8 +251,8 @@ suite('PaymentsPageCardRows', function() {
     const page = await createPaymentsPage(
         [creditCard], /*ibans=*/[], /*payOverTimeIssuers=*/[],
         /*prefValues=*/ {});
-    const rowShadowRoot = getCardRowShadowRoot(page.$.paymentsList);
-    const outlinkButton = rowShadowRoot.querySelector<HTMLElement>(
+    const firstEntry = getFirstCreditCardEntry(page.$.paymentsList);
+    const outlinkButton = firstEntry.shadowRoot.querySelector<HTMLElement>(
         'cr-icon-button.icon-external');
     assertTrue(!!outlinkButton);
 
@@ -266,8 +270,10 @@ suite('PaymentsPageCardRows', function() {
     const creditCardList = page.$.paymentsList;
     assertTrue(!!creditCardList);
     assertEquals(1, getLocalAndServerCreditCardListItems().length);
-    assertFalse(getCardRowShadowRoot(page.$.paymentsList)
-                    .querySelector<HTMLElement>('#paymentsIndicator')!.hidden);
+    assertFalse(
+        getFirstCreditCardEntry(page.$.paymentsList)
+            .shadowRoot.querySelector<HTMLElement>(
+                           '#paymentsIndicator')!.hidden);
   });
 
   test('verifyCardImage', async function() {
@@ -279,8 +285,9 @@ suite('PaymentsPageCardRows', function() {
     const creditCardList = page.$.paymentsList;
     assertTrue(!!creditCardList);
     assertEquals(1, getLocalAndServerCreditCardListItems().length);
-    const cardImage = getCardRowShadowRoot(page.$.paymentsList)
-                          .querySelector<HTMLImageElement>('#cardImage');
+    const cardImage =
+        getFirstCreditCardEntry(page.$.paymentsList)
+            .shadowRoot.querySelector<HTMLImageElement>('#cardImage');
     assertTrue(!!cardImage);
     assertTrue(isVisible(cardImage));
     assertEquals(
@@ -301,14 +308,14 @@ suite('PaymentsPageCardRows', function() {
     assertEquals(1, getLocalAndServerCreditCardListItems().length);
 
     // Local credit cards will show the overflow menu.
-    const rowShadowRoot = getCardRowShadowRoot(page.$.paymentsList);
-    assertFalse(!!rowShadowRoot.querySelector('#remoteCreditCardLink'));
+    const firstEntry = getFirstCreditCardEntry(page.$.paymentsList);
+    assertFalse(!!firstEntry.shadowRoot.querySelector('#remoteCreditCardLink'));
     const menuButton =
-        rowShadowRoot.querySelector<HTMLElement>('#creditCardMenu');
+        firstEntry.shadowRoot.querySelector<HTMLElement>('#creditCardMenu');
     assertTrue(!!menuButton);
 
     menuButton.click();
-    flush();
+    await microtasksFinished();
 
     // Menu should have 2 options.
     assertFalse(page.$.menuEditCreditCard.hidden);
@@ -317,7 +324,6 @@ suite('PaymentsPageCardRows', function() {
     assertTrue(page.$.menuRemoveVirtualCard.hidden);
 
     page.$.creditCardSharedMenu.close();
-    flush();
   });
 
   test('verifyServerCreditCardMenu', async function() {
@@ -333,9 +339,9 @@ suite('PaymentsPageCardRows', function() {
     assertEquals(1, getLocalAndServerCreditCardListItems().length);
 
     // No overflow menu for VCN-ineligible server cards.
-    const rowShadowRoot = getCardRowShadowRoot(page.$.paymentsList);
-    assertTrue(!!rowShadowRoot.querySelector('#remoteCreditCardLink'));
-    assertFalse(!!rowShadowRoot.querySelector('#creditCardMenu'));
+    const firstEntry = getFirstCreditCardEntry(page.$.paymentsList);
+    assertTrue(!!firstEntry.shadowRoot.querySelector('#remoteCreditCardLink'));
+    assertFalse(!!firstEntry.shadowRoot.querySelector('#creditCardMenu'));
   });
 
   test('verifyVirtualCardEligibleCreditCardMenu', async function() {
@@ -352,14 +358,14 @@ suite('PaymentsPageCardRows', function() {
 
     // Server cards that are eligible for virtual card enrollment should show
     // the overflow menu.
-    const rowShadowRoot = getCardRowShadowRoot(page.$.paymentsList);
-    assertFalse(!!rowShadowRoot.querySelector('#remoteCreditCardLink'));
+    const firstEntry = getFirstCreditCardEntry(page.$.paymentsList);
+    assertFalse(!!firstEntry.shadowRoot.querySelector('#remoteCreditCardLink'));
     const menuButton =
-        rowShadowRoot.querySelector<HTMLElement>('#creditCardMenu');
+        firstEntry.shadowRoot.querySelector<HTMLElement>('#creditCardMenu');
     assertTrue(!!menuButton);
 
     menuButton.click();
-    flush();
+    await microtasksFinished();
 
     // Menu should have 2 options.
     assertFalse(page.$.menuEditCreditCard.hidden);
@@ -368,7 +374,6 @@ suite('PaymentsPageCardRows', function() {
     assertTrue(page.$.menuRemoveVirtualCard.hidden);
 
     page.$.creditCardSharedMenu.close();
-    flush();
   });
 
   test('verifyVirtualCardEnrolledCreditCardMenu', async function() {
@@ -385,14 +390,14 @@ suite('PaymentsPageCardRows', function() {
 
     // Server cards that are eligible for virtual card enrollment should show
     // the overflow menu.
-    const rowShadowRoot = getCardRowShadowRoot(page.$.paymentsList);
-    assertFalse(!!rowShadowRoot.querySelector('#remoteCreditCardLink'));
+    const firstEntry = getFirstCreditCardEntry(page.$.paymentsList);
+    assertFalse(!!firstEntry.shadowRoot.querySelector('#remoteCreditCardLink'));
     const menuButton =
-        rowShadowRoot.querySelector<HTMLElement>('#creditCardMenu');
+        firstEntry.shadowRoot.querySelector<HTMLElement>('#creditCardMenu');
     assertTrue(!!menuButton);
 
     menuButton.click();
-    flush();
+    await microtasksFinished();
 
     // Menu should have 2 options.
     assertFalse(page.$.menuEditCreditCard.hidden);
@@ -401,7 +406,6 @@ suite('PaymentsPageCardRows', function() {
     assertFalse(page.$.menuRemoveVirtualCard.hidden);
 
     page.$.creditCardSharedMenu.close();
-    flush();
   });
 
   test('verifyAddVirtualCardClicked', async function() {
@@ -416,17 +420,17 @@ suite('PaymentsPageCardRows', function() {
         /*prefValues=*/ {});
     assertEquals(1, getLocalAndServerCreditCardListItems().length);
 
-    const rowShadowRoot = getCardRowShadowRoot(page.$.paymentsList);
-    assertFalse(!!rowShadowRoot.querySelector('#remoteCreditCardLink'));
+    const firstEntry = getFirstCreditCardEntry(page.$.paymentsList);
+    assertFalse(!!firstEntry.shadowRoot.querySelector('#remoteCreditCardLink'));
     const menuButton =
-        rowShadowRoot.querySelector<HTMLElement>('#creditCardMenu');
+        firstEntry.shadowRoot.querySelector<HTMLElement>('#creditCardMenu');
     assertTrue(!!menuButton);
     menuButton.click();
-    flush();
+    await microtasksFinished();
 
     assertFalse(page.$.menuAddVirtualCard.hidden);
     page.$.menuAddVirtualCard.click();
-    flush();
+    await microtasksFinished();
 
     const paymentsManager =
         PaymentsManagerImpl.getInstance() as TestPaymentsManager;
@@ -446,20 +450,20 @@ suite('PaymentsPageCardRows', function() {
         /*prefValues=*/ {});
     assertEquals(1, getLocalAndServerCreditCardListItems().length);
 
-    const rowShadowRoot = getCardRowShadowRoot(page.$.paymentsList);
-    assertFalse(!!rowShadowRoot.querySelector('#remoteCreditCardLink'));
+    const firstEntry = getFirstCreditCardEntry(page.$.paymentsList);
+    assertFalse(!!firstEntry.shadowRoot.querySelector('#remoteCreditCardLink'));
     const menuButton =
-        rowShadowRoot.querySelector<HTMLElement>('#creditCardMenu');
+        firstEntry.shadowRoot.querySelector<HTMLElement>('#creditCardMenu');
     assertTrue(!!menuButton);
     menuButton.click();
-    flush();
+    await microtasksFinished();
 
     assertFalse(page.$.menuRemoveVirtualCard.hidden);
     page.$.menuRemoveVirtualCard.click();
-    flush();
+    await microtasksFinished();
 
-    const menu =
-        rowShadowRoot.querySelector<HTMLElement>('#creditCardSharedMenu');
+    const menu = firstEntry.shadowRoot.querySelector<HTMLElement>(
+        '#creditCardSharedMenu');
     assertFalse(!!menu);
   });
 
@@ -475,21 +479,21 @@ suite('PaymentsPageCardRows', function() {
         const creditCardList = page.$.paymentsList;
         assertTrue(!!creditCardList);
         assertEquals(1, getLocalAndServerCreditCardListItems().length);
-        assertTrue(isVisible(getCardRowShadowRoot(page.$.paymentsList)
-                                 .querySelector<HTMLElement>('#label')));
+        const firstEntry = getFirstCreditCardEntry(page.$.paymentsList);
+        assertTrue(isVisible(
+            firstEntry.shadowRoot.querySelector<HTMLElement>('#label')));
         assertEquals(
             creditCard.metadata!.summaryLabel,
-            getCardRowShadowRoot(page.$.paymentsList)
-                .querySelector<HTMLElement>('#label')!.textContent.trim());
-        assertTrue(
-            isVisible(getCardRowShadowRoot(page.$.paymentsList)
-                          .querySelector<HTMLElement>('#expirationLabel')));
+            firstEntry.shadowRoot.querySelector<HTMLElement>(
+                                     '#label')!.textContent.trim());
+        assertTrue(isVisible(firstEntry.shadowRoot.querySelector<HTMLElement>(
+            '#expirationLabel')));
         assertTrue(!!creditCard.expirationMonth);
         assertTrue(!!creditCard.expirationYear);
         assertEquals(
             '· ' + parseInt(creditCard.expirationMonth, 10) + '/' +
                 creditCard.expirationYear.substring(2),
-            getCardRowShadowRoot(page.$.paymentsList)
+            firstEntry.shadowRoot
                 .querySelector<HTMLElement>(
                     '#expirationLabel')!.textContent.trim());
       });
@@ -506,8 +510,9 @@ suite('PaymentsPageCardRows', function() {
     const creditCardList = page.$.paymentsList;
     assertTrue(!!creditCardList);
     assertEquals(1, getLocalAndServerCreditCardListItems().length);
-    assertFalse(getCardRowShadowRoot(page.$.paymentsList)
-                    .querySelector<HTMLElement>('#summarySublabel')!.hidden);
+    assertFalse(
+        getFirstCreditCardEntry(page.$.paymentsList)
+            .shadowRoot.querySelector<HTMLElement>('#summarySublabel')!.hidden);
   });
 
   test(
@@ -525,19 +530,19 @@ suite('PaymentsPageCardRows', function() {
         assertTrue(!!creditCardList);
         assertEquals(1, getLocalAndServerCreditCardListItems().length);
 
-        assertTrue(isVisible(getCardRowShadowRoot(page.$.paymentsList)
-                                 .querySelector<HTMLElement>('#label')));
-        assertTrue(
-            isVisible(getCardRowShadowRoot(page.$.paymentsList)
-                          .querySelector<HTMLElement>('#expirationLabel')));
+        const firstEntry = getFirstCreditCardEntry(page.$.paymentsList);
+        assertTrue(isVisible(
+            firstEntry.shadowRoot.querySelector<HTMLElement>('#label')));
+        assertTrue(isVisible(firstEntry.shadowRoot.querySelector<HTMLElement>(
+            '#expirationLabel')));
         assertEquals(
             creditCard.metadata!.summaryLabel,
-            getCardRowShadowRoot(page.$.paymentsList)
-                .querySelector<HTMLElement>('#label')!.textContent.trim());
+            firstEntry.shadowRoot.querySelector<HTMLElement>(
+                                     '#label')!.textContent.trim());
         assertEquals(
             '· ' + parseInt(creditCard.expirationMonth!, 10) + '/' +
                 creditCard.expirationYear!.substring(2),
-            getCardRowShadowRoot(page.$.paymentsList)
+            firstEntry.shadowRoot
                 .querySelector<HTMLElement>(
                     '#expirationLabel')!.textContent.trim());
       });
@@ -556,12 +561,13 @@ suite('PaymentsPageCardRows', function() {
         const creditCardList = page.$.paymentsList;
         assertTrue(!!creditCardList);
         assertEquals(1, getLocalAndServerCreditCardListItems().length);
+        const firstEntry = getFirstCreditCardEntry(page.$.paymentsList);
         assertFalse(
-            getCardRowShadowRoot(page.$.paymentsList)
+            firstEntry.shadowRoot
                 .querySelector<HTMLElement>('#summarySublabel')!.hidden);
         assertEquals(
             'Virtual card turned on',
-            getCardRowShadowRoot(page.$.paymentsList)
+            firstEntry.shadowRoot
                 .querySelector<HTMLElement>(
                     '#summarySublabel')!.textContent.trim());
       });
@@ -585,15 +591,16 @@ suite('PaymentsPageCardRows', function() {
     const creditCardList = page.$.paymentsList;
     assertTrue(!!creditCardList);
     assertEquals(1, getLocalAndServerCreditCardListItems().length);
-    assertFalse(getCardRowShadowRoot(page.$.paymentsList)
-                    .querySelector<HTMLElement>('#summarySublabel')!.hidden);
+    const firstEntry = getFirstCreditCardEntry(page.$.paymentsList);
+    assertFalse(
+        firstEntry.shadowRoot.querySelector<HTMLElement>(
+                                 '#summarySublabel')!.hidden);
 
     assertEquals(
         'Virtual card turned on | ' +
             loadTimeData.getString('cvcTagForCreditCardListEntry'),
-        getCardRowShadowRoot(page.$.paymentsList)
-            .querySelector<HTMLElement>(
-                '#summarySublabel')!.textContent.trim());
+        firstEntry.shadowRoot.querySelector<HTMLElement>(
+                                 '#summarySublabel')!.textContent.trim());
   });
 
   const benefitsStatus: BenefitsTestCase[] = [
@@ -643,7 +650,7 @@ suite('PaymentsPageCardRows', function() {
       assertTrue(!!paymentsList);
       assertEquals(1, paymentsList.length);
       assertTrue(isVisible(
-          paymentsList[0]!.shadowRoot!.querySelector<HTMLElement>(
+          paymentsList[0]!.shadowRoot.querySelector<HTMLElement>(
               '#summarySublabel')));
 
       // Build the expected resulting sublabel based on which features are
@@ -658,17 +665,17 @@ suite('PaymentsPageCardRows', function() {
       assertEquals(
           benefitExpectedSublabel,
           cleanUpWhitespace(
-              paymentsList[0]!.shadowRoot!.querySelector<HTMLElement>(
+              paymentsList[0]!.shadowRoot.querySelector<HTMLElement>(
                   '#summarySublabel')!));
       if (benefitsAvailable && productTermsUrlAvailable) {
         const termsLink =
-            paymentsList[0]!.shadowRoot!.querySelector<HTMLAnchorElement>(
+            paymentsList[0]!.shadowRoot.querySelector<HTMLAnchorElement>(
                 '#summaryTermsLink');
         assertTrue(!!termsLink);
         assertEquals(creditCard.productTermsUrl, termsLink.href);
       } else {
         assertFalse(isVisible(
-            paymentsList[0]!.shadowRoot!.querySelector<HTMLElement>(
+            paymentsList[0]!.shadowRoot.querySelector<HTMLElement>(
                 '#summaryTermsLink')));
       }
     });
@@ -708,7 +715,7 @@ suite('PaymentsPageCardRows', function() {
       assertTrue(!!paymentsList);
       assertEquals(1, paymentsList.length);
       assertTrue(isVisible(
-          paymentsList[0]!.shadowRoot!.querySelector<HTMLElement>(
+          paymentsList[0]!.shadowRoot.querySelector<HTMLElement>(
               '#summarySublabel')));
 
       // Build the expected resulting sublabel based on which features are
@@ -724,17 +731,17 @@ suite('PaymentsPageCardRows', function() {
       assertEquals(
           benefitExpectedSublabel,
           cleanUpWhitespace(
-              paymentsList[0]!.shadowRoot!.querySelector<HTMLElement>(
+              paymentsList[0]!.shadowRoot.querySelector<HTMLElement>(
                   '#summarySublabel')!));
       if (benefitsAvailable && productTermsUrlAvailable) {
         const termsLink =
-            paymentsList[0]!.shadowRoot!.querySelector<HTMLAnchorElement>(
+            paymentsList[0]!.shadowRoot.querySelector<HTMLAnchorElement>(
                 '#summaryTermsLink');
         assertTrue(!!termsLink);
         assertEquals(creditCard.productTermsUrl, termsLink.href);
       } else {
         assertFalse(isVisible(
-            paymentsList[0]!.shadowRoot!.querySelector<HTMLElement>(
+            paymentsList[0]!.shadowRoot.querySelector<HTMLElement>(
                 '#summaryTermsLink')));
       }
     });
@@ -771,7 +778,7 @@ suite('PaymentsPageCardRows', function() {
       assertEquals(1, paymentsList.length);
       if (benefitsAvailable && productTermsUrlAvailable) {
         assertTrue(isVisible(
-            paymentsList[0]!.shadowRoot!.querySelector<HTMLElement>(
+            paymentsList[0]!.shadowRoot.querySelector<HTMLElement>(
                 '#summarySublabel')));
       }
 
@@ -786,17 +793,17 @@ suite('PaymentsPageCardRows', function() {
       assertEquals(
           benefitExpectedSublabel,
           cleanUpWhitespace(
-              paymentsList[0]!.shadowRoot!.querySelector<HTMLElement>(
+              paymentsList[0]!.shadowRoot.querySelector<HTMLElement>(
                   '#summarySublabel')!));
       if (benefitsAvailable && productTermsUrlAvailable) {
         const termsLink =
-            paymentsList[0]!.shadowRoot!.querySelector<HTMLAnchorElement>(
+            paymentsList[0]!.shadowRoot.querySelector<HTMLAnchorElement>(
                 '#summaryTermsLink');
         assertTrue(!!termsLink);
         assertEquals(serverCreditCard.productTermsUrl, termsLink.href);
       } else {
         assertFalse(isVisible(
-            paymentsList[0]!.shadowRoot!.querySelector<HTMLElement>(
+            paymentsList[0]!.shadowRoot.querySelector<HTMLElement>(
                 '#summaryTermsLink')));
       }
     });
@@ -835,14 +842,14 @@ suite('PaymentsPageCardRows', function() {
       assertEquals(1, paymentsList.length);
 
       assertTrue(isVisible(
-          paymentsList[0]!.shadowRoot!.querySelector<HTMLElement>('#label')));
+          paymentsList[0]!.shadowRoot.querySelector<HTMLElement>('#label')));
       assertTrue(isVisible(
-          paymentsList[0]!.shadowRoot!.querySelector<HTMLElement>(
+          paymentsList[0]!.shadowRoot.querySelector<HTMLElement>(
               '#expirationLabel')));
       assertEquals(
           '· ' + parseInt(serverCreditCard.expirationMonth!, 10) + '/' +
               serverCreditCard.expirationYear!.substring(2),
-          paymentsList[0]!.shadowRoot!
+          paymentsList[0]!.shadowRoot
               .querySelector<HTMLElement>(
                   '#expirationLabel')!.textContent.trim());
 
@@ -855,17 +862,17 @@ suite('PaymentsPageCardRows', function() {
       assertEquals(
           benefitExpectedSublabel,
           cleanUpWhitespace(
-              paymentsList[0]!.shadowRoot!.querySelector<HTMLElement>(
+              paymentsList[0]!.shadowRoot.querySelector<HTMLElement>(
                   '#summarySublabel')!));
       if (benefitsAvailable && productTermsUrlAvailable) {
         const termsLink =
-            paymentsList[0]!.shadowRoot!.querySelector<HTMLAnchorElement>(
+            paymentsList[0]!.shadowRoot.querySelector<HTMLAnchorElement>(
                 '#summaryTermsLink');
         assertTrue(!!termsLink);
         assertEquals(serverCreditCard.productTermsUrl, termsLink.href);
       } else {
         assertFalse(isVisible(
-            paymentsList[0]!.shadowRoot!.querySelector<HTMLElement>(
+            paymentsList[0]!.shadowRoot.querySelector<HTMLElement>(
                 '#summaryTermsLink')));
       }
     });
@@ -890,10 +897,10 @@ suite('PaymentsPageCardRows', function() {
     assertTrue(!!paymentsList);
     assertEquals(1, paymentsList.length);
     assertTrue(isVisible(
-        paymentsList[0]!.shadowRoot!.querySelector<HTMLElement>(
+        paymentsList[0]!.shadowRoot.querySelector<HTMLElement>(
             '#summarySublabel')));
     const termsLink =
-        paymentsList[0]!.shadowRoot!.querySelector<HTMLAnchorElement>(
+        paymentsList[0]!.shadowRoot.querySelector<HTMLAnchorElement>(
             '#summaryTermsLink');
     assertTrue(!!termsLink);
     assertEquals(creditCard.productTermsUrl, termsLink.href);
@@ -950,7 +957,7 @@ suite('PaymentsPageCardRows', function() {
     assertEquals(
         expected,
         cleanUpWhitespace(
-            paymentsList[0]!.shadowRoot!.querySelector<HTMLElement>(
+            paymentsList[0]!.shadowRoot.querySelector<HTMLElement>(
                 '.screen-reader-only')!));
   });
 
@@ -989,7 +996,7 @@ suite('PaymentsPageCardRows', function() {
     assertEquals(
         expected,
         cleanUpWhitespace(
-            paymentsList[0]!.shadowRoot!.querySelector<HTMLElement>(
+            paymentsList[0]!.shadowRoot.querySelector<HTMLElement>(
                 '.screen-reader-only')!));
   });
 
@@ -1026,7 +1033,7 @@ suite('PaymentsPageCardRows', function() {
     assertEquals(
         expected,
         cleanUpWhitespace(
-            paymentsList[0]!.shadowRoot!.querySelector<HTMLElement>(
+            paymentsList[0]!.shadowRoot.querySelector<HTMLElement>(
                 '.screen-reader-only')!));
   });
 
@@ -1049,7 +1056,7 @@ suite('PaymentsPageCardRows', function() {
     const paymentsList = getLocalAndServerCreditCardListItems();
     assertTrue(!!paymentsList);
     const termsLink =
-        paymentsList[0]!.shadowRoot!.querySelector<HTMLAnchorElement>(
+        paymentsList[0]!.shadowRoot.querySelector<HTMLAnchorElement>(
             '#summaryTermsLink');
     assertTrue(!!termsLink);
 
@@ -1093,42 +1100,42 @@ suite('PaymentsPageCardRows', function() {
           const paymentsList = getLocalAndServerCreditCardListItems();
 
           assertTrue(isVisible(
-              paymentsList[0]!.shadowRoot!.querySelector<HTMLElement>(
+              paymentsList[0]!.shadowRoot.querySelector<HTMLElement>(
                   '#label')));
           assertEquals(
               serverCreditCard.metadata!.summaryLabel,
-              paymentsList[0]!.shadowRoot!.querySelector<HTMLElement>(
-                                              '#label')!.textContent.trim());
+              paymentsList[0]!.shadowRoot.querySelector<HTMLElement>(
+                                             '#label')!.textContent.trim());
           assertTrue(isVisible(
-              paymentsList[1]!.shadowRoot!.querySelector<HTMLElement>(
+              paymentsList[1]!.shadowRoot.querySelector<HTMLElement>(
                   '#label')));
           assertEquals(
               localCreditCard.metadata!.summaryLabel,
-              paymentsList[1]!.shadowRoot!.querySelector<HTMLElement>(
-                                              '#label')!.textContent.trim());
+              paymentsList[1]!.shadowRoot.querySelector<HTMLElement>(
+                                             '#label')!.textContent.trim());
           if (cvcOnServerCard) {
             assertTrue(isVisible(
-                paymentsList[0]!.shadowRoot!.querySelector<HTMLElement>(
+                paymentsList[0]!.shadowRoot.querySelector<HTMLElement>(
                     '#expirationLabel')));
             assertEquals(
                 serverCardExpectedSublabel,
-                paymentsList[0]!.shadowRoot!
+                paymentsList[0]!.shadowRoot
                     .querySelector<HTMLElement>(
                         '#expirationLabel')!.textContent.trim());
             assertTrue(isVisible(
-                paymentsList[0]!.shadowRoot!.querySelector<HTMLElement>(
+                paymentsList[0]!.shadowRoot.querySelector<HTMLElement>(
                     '#summarySublabel')));
           } else {
             assertTrue(isVisible(
-                paymentsList[1]!.shadowRoot!.querySelector<HTMLElement>(
+                paymentsList[1]!.shadowRoot.querySelector<HTMLElement>(
                     '#expirationLabel')));
             assertEquals(
                 localCardExpectedSublabel,
-                paymentsList[1]!.shadowRoot!
+                paymentsList[1]!.shadowRoot
                     .querySelector<HTMLElement>(
                         '#expirationLabel')!.textContent.trim());
             assertTrue(isVisible(
-                paymentsList[1]!.shadowRoot!.querySelector<HTMLElement>(
+                paymentsList[1]!.shadowRoot.querySelector<HTMLElement>(
                     '#summarySublabel')));
           }
 
@@ -1146,12 +1153,12 @@ suite('PaymentsPageCardRows', function() {
           assertEquals(2, paymentsList.length);
           assertEquals(
               serverExpectedSublabel,
-              paymentsList[0]!.shadowRoot!
+              paymentsList[0]!.shadowRoot
                   .querySelector<HTMLElement>(
                       '#summarySublabel')!.textContent.trim());
           assertEquals(
               localExpectedSublabel,
-              paymentsList[1]!.shadowRoot!
+              paymentsList[1]!.shadowRoot
                   .querySelector<HTMLElement>(
                       '#summarySublabel')!.textContent.trim());
         });
@@ -1166,8 +1173,8 @@ suite('PaymentsPageCardRows', function() {
     const page = await createPaymentsPage(
         [creditCard], /*ibans=*/[], /*payOverTimeIssuers=*/[],
         /*prefValues=*/ {});
-    const rowShadowRoot = getCardRowShadowRoot(page.$.paymentsList);
-    const paymentsIcon = rowShadowRoot.querySelector('#paymentsIcon');
+    const firstEntry = getFirstCreditCardEntry(page.$.paymentsList);
+    const paymentsIcon = firstEntry.shadowRoot.querySelector('#paymentsIcon');
     // #paymentsIcon is only present in Google Chrome branded builds.
     if (paymentsIcon) {
       const source = paymentsIcon.querySelector('source');
@@ -1180,7 +1187,7 @@ suite('PaymentsPageCardRows', function() {
           img.srcset.includes('IDR_AUTOFILL_GOOGLE_PAY_WITH_GRADIENT_SMALL'));
     } else {
       const textIndicator =
-          rowShadowRoot.querySelector('#paymentsIndicator .sub-label');
+          firstEntry.shadowRoot.querySelector('#paymentsIndicator .sub-label');
       assertTrue(!!textIndicator);
       assertTrue(isVisible(textIndicator));
     }
@@ -1195,8 +1202,8 @@ suite('PaymentsPageCardRows', function() {
     const page = await createPaymentsPage(
         [creditCard], /*ibans=*/[], /*payOverTimeIssuers=*/[],
         /*prefValues=*/ {});
-    const rowShadowRoot = getCardRowShadowRoot(page.$.paymentsList);
-    const paymentsIcon = rowShadowRoot.querySelector('#paymentsIcon');
+    const firstEntry = getFirstCreditCardEntry(page.$.paymentsList);
+    const paymentsIcon = firstEntry.shadowRoot.querySelector('#paymentsIcon');
     // #paymentsIcon is only present in Google Chrome branded builds.
     if (paymentsIcon) {
       const source = paymentsIcon.querySelector('source');
@@ -1207,7 +1214,7 @@ suite('PaymentsPageCardRows', function() {
       assertTrue(img.srcset.includes('IDR_AUTOFILL_GOOGLE_PAY_SMALL'));
     } else {
       const textIndicator =
-          rowShadowRoot.querySelector('#paymentsIndicator .sub-label');
+          firstEntry.shadowRoot.querySelector('#paymentsIndicator .sub-label');
       assertTrue(!!textIndicator);
       assertTrue(isVisible(textIndicator));
     }
@@ -1238,11 +1245,11 @@ suite('PaymentsPageEditCreditCardLink', function() {
         [creditCard], /*ibans=*/[], /*payOverTimeIssuers=*/[],
         /*prefValues=*/ {});
 
-    const rowShadowRoot = getCardRowShadowRoot(page.$.paymentsList);
-    const menuButton = rowShadowRoot.querySelector('#creditCardMenu');
+    const firstEntry = getFirstCreditCardEntry(page.$.paymentsList);
+    const menuButton = firstEntry.shadowRoot.querySelector('#creditCardMenu');
     assertFalse(!!menuButton);
 
-    const outlinkButton = rowShadowRoot.querySelector<HTMLElement>(
+    const outlinkButton = firstEntry.shadowRoot.querySelector<HTMLElement>(
         'cr-icon-button.icon-external');
     assertTrue(!!outlinkButton);
     outlinkButton.click();
@@ -1266,11 +1273,12 @@ suite('PaymentsPageEditCreditCardLink', function() {
             [creditCard], /*ibans=*/[], /*payOverTimeIssuers=*/[],
             /*prefValues=*/ {});
 
-        const rowShadowRoot = getCardRowShadowRoot(page.$.paymentsList);
-        const menuButton = rowShadowRoot.querySelector('#creditCardMenu');
+        const firstEntry = getFirstCreditCardEntry(page.$.paymentsList);
+        const menuButton =
+            firstEntry.shadowRoot.querySelector('#creditCardMenu');
         assertFalse(!!menuButton);
 
-        const outlinkButton = rowShadowRoot.querySelector<HTMLElement>(
+        const outlinkButton = firstEntry.shadowRoot.querySelector<HTMLElement>(
             'cr-icon-button.icon-external');
         assertTrue(!!outlinkButton);
         outlinkButton.click();
@@ -1293,13 +1301,14 @@ suite('PaymentsPageEditCreditCardLink', function() {
             [creditCard], /*ibans=*/[], /*payOverTimeIssuers=*/[],
             /*prefValues=*/ {});
 
-        const rowShadowRoot = getCardRowShadowRoot(page.$.paymentsList);
-        assertFalse(!!rowShadowRoot.querySelector('#remoteCreditCardLink'));
+        const firstEntry = getFirstCreditCardEntry(page.$.paymentsList);
+        assertFalse(
+            !!firstEntry.shadowRoot.querySelector('#remoteCreditCardLink'));
         const menuButton =
-            rowShadowRoot.querySelector<HTMLElement>('#creditCardMenu');
+            firstEntry.shadowRoot.querySelector<HTMLElement>('#creditCardMenu');
         assertTrue(!!menuButton);
         menuButton.click();
-        flush();
+        await microtasksFinished();
 
         assertTrue(isVisible(page.$.menuEditCreditCard));
         page.$.menuEditCreditCard.click();

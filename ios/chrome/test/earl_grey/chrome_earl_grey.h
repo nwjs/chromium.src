@@ -17,6 +17,15 @@
 #include "third_party/metrics_proto/user_demographics.pb.h"
 #include "url/gurl.h"
 
+#if !defined(__IPHONE_27_1) || __IPHONE_OS_VERSION_MAX_ALLOWED < __IPHONE_27_1
+typedef NS_ENUM(NSInteger, UIHingeStatus) {
+  UIHingeStatusUnknown = 0,
+  UIHingeStatusClosed = 1,
+  UIHingeStatusPartiallyOpen = 2,
+  UIHingeStatusFullyOpen = 3,
+};
+#endif
+
 @class FakeSystemIdentity;
 @class ElementSelector;
 @class JavaScriptExecutionResult;
@@ -102,6 +111,9 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // Returns whether the bottom omnibox steady state feature is enabled.
 - (BOOL)isBottomOmniboxAvailable;
 
+// Returns whether the Pinned Tabs feature is enabled.
+- (BOOL)isPinnedTabsEnabled;
+
 // Returns whether the current layout is showing the bottom omnibox.
 - (BOOL)isCurrentLayoutBottomOmnibox;
 
@@ -110,6 +122,16 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 
 // Returns the interface orientation of the scene.
 - (UIInterfaceOrientation)interfaceOrientation;
+
+// Returns YES if running on an iPhone Duo simulator.
+- (BOOL)isDuoSimulator;
+
+// Sets the simulated hinge posture on an iPhone Duo simulator.
+- (void)setSimulatedDuoHingeStatus:(UIHingeStatus)hingeStatus
+    API_AVAILABLE(ios(27.1));
+
+// Sets the simulated device orientation on an iPhone Duo simulator.
+- (void)setSimulatedDuoOrientation:(UIDeviceOrientation)orientation;
 
 #pragma mark - Profile Utilities (EG2)
 
@@ -379,6 +401,10 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // given GUID.
 - (void)waitForSendTabToSelfEntryWithGUID:(NSString*)guid;
 
+// Waits for the local Send Tab To Self model to contain a target device with
+// the given `deviceName`.
+- (void)waitForSendTabToSelfTargetDevice:(NSString*)deviceName;
+
 // Returns the generated text fragment for the given URL, or nil if no entry
 // exists or no fragment is set.
 - (NSString*)textFragmentForSendTabToSelfEntryWithURL:(NSString*)URL;
@@ -398,9 +424,6 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 - (void)openSendTabToSelfNewBackgroundTabWithURL:(NSString*)url
                                     textFragment:(NSString*)textFragment
                                        entryGUID:(NSString*)guid;
-
-// Triggers a sync cycle for a `type`.
-- (void)triggerSyncCycleForType:(syncer::DataType)type;
 
 // Deletes an autofill profile from the fake sync server with `GUID`, if it
 // exists. If it doesn't exist, nothing is done.
@@ -526,6 +549,9 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 
 // Returns the tab title of the current tab.
 - (NSString*)currentTabTitle;
+
+// Waits for the tab title of the current tab to match `tabTitle`.
+- (void)waitForCurrentTabTitle:(NSString*)tabTitle;
 
 // Returns the tab title of the next tab. Assumes that next tab exists.
 - (NSString*)nextTabTitle;

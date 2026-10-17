@@ -35,7 +35,6 @@ import android.util.SparseIntArray;
 import androidx.annotation.IntDef;
 import androidx.annotation.VisibleForTesting;
 
-import org.chromium.base.AconfigFlaggedApiDelegate;
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.ApplicationStatus;
@@ -1191,7 +1190,7 @@ public class MultiWindowUtils implements ActivityStateListener {
      * @param activity The current Context, used to retrieve the ActivityManager system service.
      * @param tab The current activity {@link Tab}.
      */
-    public void recordMultiWindowStateUkm(Activity activity, Tab tab) {
+    public void recordMultiWindowStateUkm(Activity activity, @Nullable Tab tab) {
         if (tab == null || tab.isIncognito() || tab.getWebContents() == null) return;
 
         new UkmRecorder(tab.getWebContents(), "Android.MultiWindowState")
@@ -1326,6 +1325,7 @@ public class MultiWindowUtils implements ActivityStateListener {
             int persistedTaskId = ChromeMultiInstancePersistentStore.readTaskId(id);
 
             // Exclude ids not satisfying requirements.
+            @SupportedProfileType
             int profileType = ChromeMultiInstancePersistentStore.readProfileType(id);
             if (includeOtr && profileType != SupportedProfileType.OFF_THE_RECORD) continue;
             if (includeRegular && profileType != SupportedProfileType.REGULAR) continue;
@@ -1688,11 +1688,6 @@ public class MultiWindowUtils implements ActivityStateListener {
      * @param bounds The bounds to move the activity to.
      */
     public static void moveActivityToBounds(Activity activity, Rect bounds) {
-        final AconfigFlaggedApiDelegate delegate = AconfigFlaggedApiDelegate.getInstance();
-        if (delegate == null) {
-            return;
-        }
-
         final AppTask appTask = AndroidTaskUtils.getAppTaskFromId(activity, activity.getTaskId());
         if (appTask == null) {
             return;
@@ -1707,7 +1702,7 @@ public class MultiWindowUtils implements ActivityStateListener {
         final DisplayAndroid display = localCoordinates.first;
         final Rect localBounds = localCoordinates.second;
 
-        delegate.moveTaskTo(
+        AndroidTaskUtils.moveTaskTo(
                 appTask,
                 display.getDisplayId(),
                 DisplayUtil.clampWindowToDisplay(localBounds, display));

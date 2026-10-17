@@ -92,18 +92,18 @@ constexpr int kCloseIconSize = 16;
 constexpr int kAtMemoryLabelHorizontalSpacing = 4;
 
 // Popup items that use a leading icon instead of a trailing one.
+// TODO(crbug.com/40100455): Rename to `kSuggestionTypesUsingLeadingIcons`.
 constexpr auto kPopupItemTypesUsingLeadingIcons = DenseSet<SuggestionType>(
     {SuggestionType::kAllLoyaltyCardsEntry,
-     SuggestionType::kAllSavedPasswordsEntry,
-     SuggestionType::kManageAddress, SuggestionType::kManageCreditCard,
-     SuggestionType::kManageAutofillAi,
+     SuggestionType::kAllSavedPasswordsEntry, SuggestionType::kManageAddress,
+     SuggestionType::kManageCreditCard, SuggestionType::kManageAutofillAi,
      SuggestionType::kManageAutofillAiIdentityDocs,
      SuggestionType::kManageAutofillAiShopping,
      SuggestionType::kManageAutofillAiTravel, SuggestionType::kManageIban,
-     SuggestionType::kManageLoyaltyCard,
-     SuggestionType::kManageEnhancedAutofill, SuggestionType::kRemoveAutofillAi,
+     SuggestionType::kManageLoyaltyCard, SuggestionType::kManageOffers,
+     SuggestionType::kManageEnhancedAutofill, SuggestionType::kOpenGmailForOtps,
+     SuggestionType::kPendingStateSignin, SuggestionType::kRemoveAutofillAi,
      SuggestionType::kUndo, SuggestionType::kViewPasswordDetails,
-     SuggestionType::kPendingStateSignin,
      SuggestionType::kWebauthnSignInWithAnotherDevice});
 
 // Max width for the username and masked password.
@@ -117,6 +117,9 @@ constexpr int kAutofillSuggestionMaxWidth = 192;
 constexpr int kAtMemorySuggestionMaxLines = 2;
 // Max width for the AtMemory suggestion text.
 constexpr int kAtMemorySuggestionWidth = 236;
+
+// Max lines for the Wallet Direct Offer suggestion text.
+constexpr int kWalletDirectOfferSuggestionMaxLines = 2;
 
 // Multiline suggestions look crammed without extra vertical margin.
 constexpr int kAutofillMultilineSuggestionAdditionalVerticalMargin = 8;
@@ -860,6 +863,55 @@ CreateAtMemorySearchResultPopupRowContentView(
   return view;
 }
 
+std::unique_ptr<PopupRowContentView> CreateWalletDirectOfferRowContentView(
+    const Suggestion& suggestion,
+    std::optional<user_education::DisplayNewBadge> show_new_badge,
+    std::optional<AutofillPopupController::SuggestionFilterMatch>
+        filter_match) {
+  std::unique_ptr<PopupRowContentView> view =
+      std::make_unique<PopupRowContentView>();
+  std::unique_ptr<views::Label> main_text_label =
+      CreateMainTextLabel(suggestion, show_new_badge);
+  if (filter_match) {
+    main_text_label->SetTextStyleRange(kMainTextStyleHighlighted,
+                                       filter_match->main_text_match);
+  }
+
+  main_text_label->SetMultiLine(true);
+  main_text_label->SetMaxLines(kWalletDirectOfferSuggestionMaxLines);
+  main_text_label->SetHorizontalAlignment(gfx::ALIGN_TO_HEAD);
+  main_text_label->SetMaximumWidth(kAutofillSuggestionMaxWidth);
+
+  // Checks if the text of a label fits in one line. Assumes that non-empty
+  // text has been set on `label` before calling this lambda.
+  const auto fits_in_one_line = [](const views::Label& label) -> bool {
+    CHECK(!label.GetText().empty());
+    const int line_height = label.GetLineHeight();
+    CHECK(line_height > 0);
+    return label.GetHeightForWidth(kAutofillSuggestionMaxWidth) == line_height;
+  };
+  const bool main_label_fits_in_one_line = fits_in_one_line(*main_text_label);
+
+  FormatLabel(*main_text_label, suggestion.main_text,
+              FillingProduct::kMerchantPromoCode);
+
+  popup_cell_utils::AddSuggestionContentToView(
+      suggestion, std::move(main_text_label), CreateMinorTextLabels(suggestion),
+      /*description_label=*/nullptr,
+      CreateSubtextViews(*view, suggestion, FillingProduct::kMerchantPromoCode),
+      popup_cell_utils::GetIconImageView(suggestion), *view);
+
+  if (!main_label_fits_in_one_line) {
+    view->SetInsideBorderInsets(
+        gfx::Insets(view->GetInsideBorderInsets())
+            .set_top_bottom(
+                kAutofillMultilineSuggestionAdditionalVerticalMargin,
+                kAutofillMultilineSuggestionAdditionalVerticalMargin));
+  }
+
+  return view;
+}
+
 }  // namespace
 
 std::unique_ptr<PopupRowContentView> CreatePopupRowContentView(
@@ -973,6 +1025,7 @@ std::unique_ptr<PopupRowView> CreatePopupRowView(
   switch (type) {
     // These `type` should never be displayed in a `PopupRowView`.
     case SuggestionType::kAtMemoryAiDisclosure:
+    case SuggestionType::kAtMemoryShortcutSettingsPromo:
     case SuggestionType::kInsecureContextPaymentDisabledMessage:
     case SuggestionType::kSeparator:
       NOTREACHED();
@@ -1075,6 +1128,7 @@ std::unique_ptr<PopupRowView> CreatePopupRowView(
     case SuggestionType::kFillPassword:
     case SuggestionType::kFreeformFooter:
     case SuggestionType::kGeneratePasswordEntry:
+    case SuggestionType::kGmailOneTimePasswordEntry:
     case SuggestionType::kIdentityCredential:
     case SuggestionType::kLoadingThrobber:
     case SuggestionType::kLoyaltyCardEntry:
@@ -1087,9 +1141,21 @@ std::unique_ptr<PopupRowView> CreatePopupRowView(
     case SuggestionType::kManageEnhancedAutofill:
     case SuggestionType::kManageIban:
     case SuggestionType::kManageLoyaltyCard:
+    case SuggestionType::kManageOffers:
     case SuggestionType::kMaximizeCreditCardBenefitsEntry:
-    case SuggestionType::kMerchantPromoCodeEntry:
+    case SuggestionType::kMerchantPromoCodeEntry: {
+      if (base::FeatureList::IsEnabled(
+              features::kAutofillEnableWalletDirectOffers)) {
+        return std::make_unique<PopupRowView>(
+            a11y_selection_delegate, selection_delegate, controller,
+            line_number,
+            CreateWalletDirectOfferRowContentView(suggestion, show_new_badge,
+                                                  std::move(filter_match)));
+      }
+      [[fallthrough]];
+    }
     case SuggestionType::kOneTimePasswordEntry:
+    case SuggestionType::kOpenGmailForOtps:
     case SuggestionType::kPasswordFieldByFieldFilling:
     case SuggestionType::kPendingStateSignin:
     case SuggestionType::kPersonalContextNotice:

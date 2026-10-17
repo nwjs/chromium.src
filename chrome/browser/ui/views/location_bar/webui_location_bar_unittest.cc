@@ -20,11 +20,14 @@
 #include "content/public/test/browser_task_environment.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/interaction/element_identifier.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/base/unowned_user_data/unowned_user_data_host.h"
 #include "ui/gfx/paint_vector_icon.h"
 
 namespace {
+
+DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kTestPermissionChipElementId);
 
 class TestLocationBarViewDelegate : public LocationBarView::Delegate {
  public:
@@ -159,7 +162,7 @@ TEST_F(WebUILocationBarTest, StateManagement_SecurityChip) {
 }
 
 TEST_F(WebUILocationBarTest, StateManagement_PermissionChip) {
-  WebUIPermissionChip chip(location_bar_);
+  WebUIPermissionChip chip(location_bar_, kTestPermissionChipElementId);
 
   chip.SetVisible(true);
   chip.SetChipIcon(features::IsRoundedIconsEnabled() ? kPhotoCameraIcon
@@ -233,7 +236,8 @@ TEST_F(WebUILocationBarTest, MouseClickSuppression) {
   // consume the flag.
   location_bar_->OnLhsChipClicked(
       toolbar_ui_api::mojom::LhsChipIdentifier::kLocationIcon,
-      /*is_mouse_interaction=*/false);
+      /*is_mouse_interaction=*/false,
+      /*state_token=*/0);
   EXPECT_FALSE(WillNextBubbleShowBeSuppressed());
 
   // Re-arm suppression immediately.
@@ -245,7 +249,8 @@ TEST_F(WebUILocationBarTest, MouseClickSuppression) {
   // A true mouse click SHOULD consume the suppression flag and return early.
   location_bar_->OnLhsChipClicked(
       toolbar_ui_api::mojom::LhsChipIdentifier::kLocationIcon,
-      /*is_mouse_interaction=*/true);
+      /*is_mouse_interaction=*/true,
+      /*state_token=*/0);
   EXPECT_FALSE(WillNextBubbleShowBeSuppressed());
 }
 
@@ -301,7 +306,8 @@ TEST_F(WebUILocationBarTest, PermissionChipMouseEvents) {
   // Test Click events are forwarded.
   location_bar_->OnLhsChipClicked(
       toolbar_ui_api::mojom::LhsChipIdentifier::kPermissionRequest,
-      /*is_mouse_interaction=*/true);
+      /*is_mouse_interaction=*/true,
+      permission_dashboard()->request_chip()->state_token());
   EXPECT_TRUE(request_chip_clicked);
   EXPECT_FALSE(indicator_chip_clicked);
 
@@ -309,9 +315,37 @@ TEST_F(WebUILocationBarTest, PermissionChipMouseEvents) {
 
   location_bar_->OnLhsChipClicked(
       toolbar_ui_api::mojom::LhsChipIdentifier::kPermissionIndicator,
-      /*is_mouse_interaction=*/false);
+      /*is_mouse_interaction=*/false,
+      permission_dashboard()->indicator_chip()->state_token());
   EXPECT_TRUE(indicator_chip_clicked);
   EXPECT_FALSE(request_chip_clicked);
+
+  indicator_chip_clicked = false;
+
+  // Stale click events with mismatched state tokens should be dropped.
+  location_bar_->OnLhsChipClicked(
+      toolbar_ui_api::mojom::LhsChipIdentifier::kPermissionRequest,
+      /*is_mouse_interaction=*/true,
+      permission_dashboard()->request_chip()->state_token() - 1);
+  EXPECT_FALSE(request_chip_clicked);
+
+  location_bar_->OnLhsChipClicked(
+      toolbar_ui_api::mojom::LhsChipIdentifier::kPermissionRequest,
+      /*is_mouse_interaction=*/true,
+      permission_dashboard()->request_chip()->state_token() + 1);
+  EXPECT_FALSE(request_chip_clicked);
+
+  location_bar_->OnLhsChipClicked(
+      toolbar_ui_api::mojom::LhsChipIdentifier::kPermissionIndicator,
+      /*is_mouse_interaction=*/false,
+      permission_dashboard()->indicator_chip()->state_token() - 1);
+  EXPECT_FALSE(indicator_chip_clicked);
+
+  location_bar_->OnLhsChipClicked(
+      toolbar_ui_api::mojom::LhsChipIdentifier::kPermissionIndicator,
+      /*is_mouse_interaction=*/false,
+      permission_dashboard()->indicator_chip()->state_token() + 1);
+  EXPECT_FALSE(indicator_chip_clicked);
 
   permission_dashboard()->request_chip()->RemoveObserver(&request_observer);
   permission_dashboard()->indicator_chip()->RemoveObserver(&indicator_observer);
@@ -323,4 +357,71 @@ TEST_F(WebUILocationBarTest, TeardownWithActivePermissionChip) {
   // correctly handles chip hiding without accessing an already destroyed
   // `weak_ptr_factory_`.
   permission_dashboard()->request_chip()->SetVisible(true);
+}
+
+TEST_F(WebUILocationBarTest, StaleClickDroppedAfterChipRecreated) {
+  ASSERT_TRUE(permission_dashboard());
+
+  bool request_chip_clicked = false;
+  permission_dashboard()->request_chip()->SetPressedCallback(
+      base::BindLambdaForTesting([&](bool) { request_chip_clicked = true; }));
+
+  // Tab A displays an active permission chip with token A.
+  permission_dashboard()->request_chip()->SetVisible(true);
+  uint32_t tab_a_token = permission_dashboard()->request_chip()->state_token();
+
+  // User switches to Tab B: Tab A's chip is hidden; Tab B's chip is shown.
+  permission_dashboard()->request_chip()->SetVisible(false);
+  permission_dashboard()->request_chip()->SetVisible(true);
+
+  // Delayed click IPC from Tab A arrives with Tab A's token.
+  location_bar_->OnLhsChipClicked(
+      toolbar_ui_api::mojom::LhsChipIdentifier::kPermissionRequest,
+      /*is_mouse_interaction=*/true, tab_a_token);
+
+  // Stale click from Tab A should be dropped and not execute on Tab B.
+  EXPECT_FALSE(request_chip_clicked);
+
+  // Positive control: clicking with the current active token succeeds.
+  location_bar_->OnLhsChipClicked(
+      toolbar_ui_api::mojom::LhsChipIdentifier::kPermissionRequest,
+      /*is_mouse_interaction=*/true,
+      permission_dashboard()->request_chip()->state_token());
+  EXPECT_TRUE(request_chip_clicked);
+}
+
+TEST_F(WebUILocationBarTest,
+       StaleClickDroppedAfterTabResetWithPersistentIndicator) {
+  ASSERT_TRUE(permission_dashboard());
+
+  bool indicator_chip_clicked = false;
+  permission_dashboard()->indicator_chip()->SetPressedCallback(
+      base::BindLambdaForTesting([&](bool) { indicator_chip_clicked = true; }));
+
+  // Tab A displays an active indicator chip.
+  permission_dashboard()->indicator_chip()->SetVisible(true);
+  uint32_t tab_a_token =
+      permission_dashboard()->indicator_chip()->state_token();
+
+  // Tab switch or navigation occurs where the indicator remains active on Tab
+  // B. LocationBar::ResetTabState() invalidates chip tokens.
+  location_bar_->ResetTabState(nullptr);
+
+  // The indicator chip remains visible on Tab B, but with an updated token.
+  EXPECT_TRUE(permission_dashboard()->indicator_chip()->GetVisible());
+  EXPECT_NE(tab_a_token,
+            permission_dashboard()->indicator_chip()->state_token());
+
+  // Stale click IPC from Tab A with old token should be dropped.
+  location_bar_->OnLhsChipClicked(
+      toolbar_ui_api::mojom::LhsChipIdentifier::kPermissionIndicator,
+      /*is_mouse_interaction=*/false, tab_a_token);
+  EXPECT_FALSE(indicator_chip_clicked);
+
+  // Positive control: clicking with the current active token succeeds.
+  location_bar_->OnLhsChipClicked(
+      toolbar_ui_api::mojom::LhsChipIdentifier::kPermissionIndicator,
+      /*is_mouse_interaction=*/false,
+      permission_dashboard()->indicator_chip()->state_token());
+  EXPECT_TRUE(indicator_chip_clicked);
 }

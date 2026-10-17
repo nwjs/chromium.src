@@ -71,7 +71,7 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="No Source"/>
   <int value="1" label="Local State"/>
   <int value="2" label="Seed File"/>
-  <int value="3" label="Old Seed File"/>
+  <int value="3" label="Old Seed File (Obsolete)"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/variations/seed_reader_writer.h:SeedSource) -->
@@ -276,8 +276,10 @@ chromium-metrics-reviews@google.com.
   <int value="13" label="Controlling Trial Not Found">
     The controlling trial could not be found.
   </int>
-  <int value="14" label="Prepare Feature State Update Failed">
-    Preparing the feature state update failed.
+  <int value="14"
+      label="Prepare Feature State Update Failed (Deprecated 09/2026)">
+    Preparing the feature state update failed. No longer recorded: this is now
+    CHECK()ed instead.
   </int>
   <int value="15" label="Runtime Experiment Has Google Web ID">
     The runtime mutable experiment has a Google web experiment ID.
@@ -307,6 +309,18 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Only critical variations applied"/>
   <int value="2" label="All variations are restricted"/>
 </enum>
+
+<!-- LINT.IfChange(VariationsRotateUmaLogResult) -->
+
+<enum name="VariationsRotateUmaLogResult">
+  <int value="0" label="Success"/>
+  <int value="1" label="Too early (initial log not yet uploaded)"/>
+  <int value="2" label="Recording disabled"/>
+  <int value="3" label="Reporting disabled"/>
+  <int value="4" label="Not supported"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/metrics/metrics_service.h:RotateUmaLogResult) -->
 
 <enum name="VariationsRuntimeMutabilityResult">
   <int value="0" label="Unknown">Reserved value. This should not be used.</int>

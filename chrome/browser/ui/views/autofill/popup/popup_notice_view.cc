@@ -78,8 +78,8 @@ constexpr int kMinimumWidth = 320;
 class LinkFocusBorder : public views::Border {
  public:
   explicit LinkFocusBorder(bool is_focused) : is_focused_(is_focused) {
-    SetColor(is_focused ? ui::kColorFocusableBorderFocused
-                        : ui::ColorVariant());
+    set_color(is_focused ? ui::kColorFocusableBorderFocused
+                         : ui::ColorVariant());
   }
 
   LinkFocusBorder(const LinkFocusBorder&) = delete;
@@ -145,7 +145,13 @@ PopupNoticeView::PopupNoticeView(
                                 kRowVerticalMargin, kRowHorizontalMargin));
 
   // When shown on its own, the notice suggestion has a slightly different UI.
-  if (controller_ && controller_->GetSuggestions().size() > 1) {
+  // AtMemory is an exception as it always has a searchbox and the notice should
+  // be rendered as a pop-up in such cases.
+  const bool has_other_content =
+      controller_ &&
+      (controller_->GetSuggestions().size() > 1 ||
+       controller_->GetMainFillingProduct() == FillingProduct::kAtMemory);
+  if (has_other_content) {
     SetBackground(views::CreateRoundedRectBackground(
         ui::kColorSysSurface3, /*radius=*/kBackgroundCornerRadius));
     SetBorder(views::CreateEmptyBorder(gfx::Insets(kBorderInsets)));

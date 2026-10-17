@@ -19,6 +19,16 @@ if (enable_me2me_host) {
     outputs = [ "$root_build_dir/remoting/chrome-remote-desktop" ]
   }
 
+  copy("remoting_me2me_host_copy_shared_lib") {
+    sources = [ "shared_lib.py" ]
+    outputs = [ "$root_build_dir/remoting/shared_lib.py" ]
+  }
+
+  copy("remoting_me2me_host_copy_desktop_session") {
+    sources = [ "desktop_session.py" ]
+    outputs = [ "$root_build_dir/remoting/desktop-session" ]
+  }
+
   copy("remoting_me2me_host_copy_pipewire_templates") {
     sources = [
       "pipewire-media-session.conf.template",
@@ -74,11 +84,13 @@ if (enable_me2me_host) {
   group("remoting_dev_me2me_host") {
     deps = [
       ":remote_session_info",
+      ":remoting_me2me_host_copy_desktop_session",
       ":remoting_me2me_host_copy_host_wrapper",
       ":remoting_me2me_host_copy_libremoting_core",
       ":remoting_me2me_host_copy_pipewire_templates",
       ":remoting_me2me_host_copy_script",
       ":remoting_me2me_host_copy_setup_url_forwarder_script",
+      ":remoting_me2me_host_copy_shared_lib",
       ":remoting_migrate_host",
       ":remoting_native_messaging_host",
       ":url_forwarder_desktop_entry",
@@ -230,8 +242,11 @@ source_set("platform_impls") {
     "desktop_resizer_linux.cc",
     "desktop_resizer_x11.cc",
     "desktop_resizer_x11.h",
+    "desktop_session_backend.h",
     "desktop_session_factory_linux.cc",
     "desktop_session_factory_linux.h",
+    "desktop_session_linux.cc",
+    "desktop_session_linux.h",
     "ei_input_injector.cc",
     "ei_input_injector.h",
     "ei_keyboard_layout_monitor.cc",
@@ -244,6 +259,8 @@ source_set("platform_impls") {
     "fd_string_reader.h",
     "fd_string_writer.cc",
     "fd_string_writer.h",
+    "gdm_managed_desktop_session_backend.cc",
+    "gdm_managed_desktop_session_backend.h",
     "gdm_remote_display_manager.cc",
     "gdm_remote_display_manager.h",
     "gnome_action_executor.cc",
@@ -321,10 +338,14 @@ source_set("platform_impls") {
     "scoped_portal_session.h",
     "screen_saver_inhibitor.cc",
     "screen_saver_inhibitor.h",
+    "session_routing_config.cc",
+    "session_routing_config.h",
     "systemd_user_env_setter.cc",
     "systemd_user_env_setter.h",
     "systemd_utils.cc",
     "systemd_utils.h",
+    "user_desktop_session_backend.cc",
+    "user_desktop_session_backend.h",
   ]
   deps = [
     ":gvariant",
@@ -449,10 +470,13 @@ source_set("unit_tests") {
     "peer_connection_bpf_policy_linux_unittest.cc",
     "pipewire_audio_capturer_unittest.cc",
     "pipewire_mouse_cursor_capturer_unittest.cc",
+    "remote_display_session_manager_unittest.cc",
+    "session_routing_config_unittest.cc",
     "systemd_utils_unittest.cc",
     "test_util.cc",
     "test_util.h",
     "unicode_to_keysym_unittest.cc",
+    "user_desktop_session_backend_unittest.cc",
     "x11_character_injector_unittest.cc",
     "x11_display_util_unittest.cc",
     "x_server_clipboard_unittest.cc",
@@ -479,6 +503,7 @@ source_set("unit_tests") {
     "dbus_interfaces:interface_headers",
     "//dbus",
     "//dbus:dbus_test_service",
+    "//remoting/base:errors",
     "//remoting/host:common",
     "//remoting/host:platform_interfaces",
     "//remoting/host:test_support",

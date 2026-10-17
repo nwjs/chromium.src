@@ -144,7 +144,8 @@ public class TabBottomSheetManagerTest {
     public void tearDown() {
         if (mManager != null) {
             ThreadUtils.runOnUiThreadBlocking(
-                    () -> mManager.tryToCloseBottomSheet(/* animate= */ true));
+                    () -> mManager.tryToCloseBottomSheet(/* animate= */ false));
+            CriteriaHelper.pollUiThread(() -> !mManager.isSheetShowing());
         }
     }
 
@@ -293,6 +294,7 @@ public class TabBottomSheetManagerTest {
                                         mWindowAndroid,
                                         webContents,
                                         /* backgroundColor= */ Color.WHITE,
+                                        /* placeholderElemColor= */ Color.LTGRAY,
                                         TabBottomSheetClientType.UNKNOWN,
                                         CoBrowseContainerType.BOTTOM_SHEET,
                                         /* requestFocus= */ false,
@@ -348,6 +350,7 @@ public class TabBottomSheetManagerTest {
                                         mWindowAndroid,
                                         webContents,
                                         /* backgroundColor= */ Color.WHITE,
+                                        /* placeholderElemColor= */ Color.LTGRAY,
                                         TabBottomSheetClientType.UNKNOWN,
                                         CoBrowseContainerType.BOTTOM_SHEET,
                                         /* requestFocus= */ false,
@@ -827,8 +830,7 @@ public class TabBottomSheetManagerTest {
         // 1. Show the bottom sheet starting in peek mode.
         showBottomSheetAndBlockUntilReady(
                 mockDelegate, /* animate= */ false, /* startsExpanded= */ false);
-        assertTrue(mManager.isSheetShowing());
-        assertTrue(mManager.isInPeekMode());
+        CriteriaHelper.pollUiThread(() -> mManager.isInPeekMode());
 
         // 2. Call tryToShowBottomSheet again with the same delegate to expand the sheet.
         ThreadUtils.runOnUiThreadBlocking(

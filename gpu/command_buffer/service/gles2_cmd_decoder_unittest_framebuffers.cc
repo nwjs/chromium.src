@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <array>
 #include <memory>
 
 #include "base/command_line.h"
@@ -1202,34 +1203,26 @@ TEST_P(GLES2DecoderRGBBackbufferTest, ReadPixelsNoAlphaBackbuffer) {
 }
 
 TEST_P(GLES2DecoderTest, ReadPixelsOutOfRange) {
-  static GLint tests[][4] = {
-      {
-       -2, -1, 9, 5,
-      },  // out of range on all sides
-      {
-       2, 1, 9, 5,
-      },  // out of range on right, bottom
-      {
-       -7, -4, 9, 5,
-      },  // out of range on left, top
-      {
-       0, -5, 9, 5,
-      },  // completely off top
-      {
-       0, 3, 9, 5,
-      },  // completely off bottom
-      {
-       -9, 0, 9, 5,
-      },  // completely off left
-      {
-       5, 0, 9, 5,
-      },  // completely off right
+  struct ReadPixelsTest {
+    GLint x;
+    GLint y;
+    GLsizei width;
+    GLsizei height;
   };
+  static constexpr auto tests = std::to_array<ReadPixelsTest>({
+      {-2, -1, 9, 5},  // out of range on all sides
+      {2, 1, 9, 5},    // out of range on right, bottom
+      {-7, -4, 9, 5},  // out of range on left, top
+      {0, -5, 9, 5},   // completely off top
+      {0, 3, 9, 5},    // completely off bottom
+      {-9, 0, 9, 5},   // completely off left
+      {5, 0, 9, 5},    // completely off right
+  });
 
-  for (size_t tt = 0; tt < std::size(tests); ++tt) {
-    CheckReadPixelsOutOfRange(
-        UNSAFE_TODO(tests[tt])[0], UNSAFE_TODO(tests[tt])[1],
-        UNSAFE_TODO(tests[tt])[2], UNSAFE_TODO(tests[tt])[3], tt == 0);
+  bool first = true;
+  for (const auto& test : tests) {
+    CheckReadPixelsOutOfRange(test.x, test.y, test.width, test.height, first);
+    first = false;
   }
 }
 
@@ -4630,7 +4623,7 @@ TEST_P(GLES3DecoderManualInitTest,
   init.context_type = CONTEXT_TYPE_OPENGLES3;
   init.has_alpha = true;
   GpuDriverBugWorkarounds workarounds;
-  workarounds.reattach_fbo_depth_stencil_on_reallocation = true;
+  workarounds.reattach_texture_to_fbo_after_layer_increase = true;
   InitDecoderWithWorkarounds(init, workarounds);
 
   const GLuint kEmulatedBackbufferServiceId = 7;
@@ -4649,19 +4642,15 @@ TEST_P(GLES3DecoderManualInitTest,
       .RetiresOnSaturation();
   decoder_->SetSurface(other_surface);
 
-  // Attach the texture to an unbound FBO as its depth attachment so that
-  // re-specifying the texture triggers ScopedBufferReattacher under the
-  // reattach_fbo_depth_stencil_on_reallocation workaround. The layer-increase
-  // workaround only applies to GL_TEXTURE_2D_ARRAY textures, which
-  // glCopyTexImage2D can never target, so the depth/stencil workaround is the
-  // one that exercises the reattacher on this code path.
-  DoBindTexture(GL_TEXTURE_2D, client_texture_id_, kServiceTextureId);
-  DoTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 4, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0,
-               0);
+  // Attach a cube map texture face to an unbound FBO.
+  DoBindTexture(GL_TEXTURE_CUBE_MAP, client_texture_id_, kServiceTextureId);
+  DoTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X, 0, GL_RGBA, 4, 4, 0, GL_RGBA,
+               GL_UNSIGNED_BYTE, 0, 0);
   DoBindFramebuffer(GL_FRAMEBUFFER, client_framebuffer_id_,
                     kServiceFramebufferId);
-  DoFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D,
-                         client_texture_id_, kServiceTextureId, 0, GL_NO_ERROR);
+  DoFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                         GL_TEXTURE_CUBE_MAP_POSITIVE_X, client_texture_id_,
+                         kServiceTextureId, 0, GL_NO_ERROR);
   DoBindFramebuffer(GL_FRAMEBUFFER, 0, kEmulatedBackbufferServiceId);
 
   // Invalidate client FBO 0 so that backbuffer_needs_clear_bits_ is armed.
@@ -4675,8 +4664,8 @@ TEST_P(GLES3DecoderManualInitTest,
             ExecuteImmediateCmd(invalidate_cmd, sizeof(attachments)));
   EXPECT_EQ(GL_NO_ERROR, GetGLError());
 
-  // Calling CopyTexImage2D on the texture triggers ScopedBufferReattacher in
-  // Initialize(). It must restore kEmulatedBackbufferServiceId before
+  // Calling CopyTexImage2D on the cube map face triggers ScopedBufferReattacher
+  // in Initialize(). It must restore kEmulatedBackbufferServiceId before
   // CheckBoundReadFramebufferValid runs the lazy backbuffer security clear.
   {
     ::testing::InSequence sequence;
@@ -4686,8 +4675,8 @@ TEST_P(GLES3DecoderManualInitTest,
         .Times(1)
         .RetiresOnSaturation();
     EXPECT_CALL(*gl_,
-                FramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
-                                        GL_TEXTURE_2D, 0, 0))
+                FramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                        GL_TEXTURE_CUBE_MAP_POSITIVE_X, 0, 0))
         .Times(1)
         .RetiresOnSaturation();
     EXPECT_CALL(
@@ -4716,7 +4705,8 @@ TEST_P(GLES3DecoderManualInitTest,
     EXPECT_CALL(*gl_, GetError())
         .WillOnce(Return(GL_NO_ERROR))
         .RetiresOnSaturation();
-    EXPECT_CALL(*gl_, CopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 0, 0, 4, 4, 0))
+    EXPECT_CALL(*gl_, CopyTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X, 0,
+                                     GL_RGBA8, 0, 0, 4, 4, 0))
         .Times(1)
         .RetiresOnSaturation();
     EXPECT_CALL(*gl_, GetError())
@@ -4728,9 +4718,9 @@ TEST_P(GLES3DecoderManualInitTest,
     EXPECT_CALL(*gl_, BindFramebufferEXT(GL_FRAMEBUFFER, kServiceFramebufferId))
         .Times(1)
         .RetiresOnSaturation();
-    EXPECT_CALL(*gl_,
-                FramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
-                                        GL_TEXTURE_2D, kServiceTextureId, 0))
+    EXPECT_CALL(*gl_, FramebufferTexture2DEXT(
+                          GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                          GL_TEXTURE_CUBE_MAP_POSITIVE_X, kServiceTextureId, 0))
         .Times(1)
         .RetiresOnSaturation();
     EXPECT_CALL(
@@ -4739,7 +4729,7 @@ TEST_P(GLES3DecoderManualInitTest,
         .RetiresOnSaturation();
 
     cmds::CopyTexImage2D cmd;
-    cmd.Init(GL_TEXTURE_2D, 0, GL_RGBA, 0, 0, 4, 4);
+    cmd.Init(GL_TEXTURE_CUBE_MAP_POSITIVE_X, 0, GL_RGBA, 0, 0, 4, 4);
     EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
     EXPECT_EQ(GL_NO_ERROR, GetGLError());
   }

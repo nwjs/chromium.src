@@ -6,25 +6,30 @@
 
 #import "base/check.h"
 #import "base/check_op.h"
+#import "ios/chrome/app/background_mode_buildflags.h"
 
 @implementation BackgroundContinuedProcessingTaskConfiguration
 
 #pragma mark - Initializer
 
 - (instancetype)initWithTitle:(NSString*)title
+                     subtitle:(NSString*)subtitle
             expirationHandler:(ProceduralBlock)expirationHandler {
   CHECK(title.length > 0);
   CHECK(expirationHandler);
 
   if ((self = [super init])) {
     _title = [title copy];
+    _subtitle = [subtitle copy] ?: @"";
     _expirationHandler = [expirationHandler copy];
     _totalUnits = kDefaultTotalUnitsOfProgress;
     _expectedStepCount = kDefaultExpectedStepCount;
+#if BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
     if (@available(iOS 26.0, *)) {
       _strategy = BGContinuedProcessingTaskRequestSubmissionStrategyQueue;
       _requiredResources = BGContinuedProcessingTaskRequestResourcesDefault;
     }
+#endif  // BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
   }
   return self;
 }
@@ -34,6 +39,10 @@
 - (void)setTitle:(NSString*)title {
   CHECK(title.length > 0);
   _title = [title copy];
+}
+
+- (void)setSubtitle:(NSString*)subtitle {
+  _subtitle = [subtitle copy] ?: @"";
 }
 
 - (void)setTotalUnits:(int64_t)totalUnits {

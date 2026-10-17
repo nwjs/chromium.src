@@ -292,6 +292,7 @@
 #define IDC_SHOW_READING_MODE_KEYBOARD 40303
 #define IDC_SHOW_TABS_FROM_OTHER_DEVICES_SIDE_PANEL 40304
 #define IDC_CHROME_ENTERPRISE_RELEASE_NOTES 40305
+#define IDC_SHOW_TTC_MENU 40306
 
 // Spell-check
 #define IDC_SPELLCHECK_SUGGESTION_0     41000
@@ -549,11 +550,19 @@
 #define IDC_OMNIBOX_CONTEXT_SHARED_TABS_SUBMENU               54019
 #define IDC_OMNIBOX_CONTEXT_SMART_TAB_SHARING                 54020
 
+// Skills commands
+#define IDC_MANAGE_SKILLS                                     54021
+#define IDC_BROWSE_SKILLS                                     54022
+
 // Omnibox Everywhere status tray icon menu
 #define IDC_OMNIBOX_EVERYWHERE_STATUS_ICON_MENU_TOGGLE                      54030
 #define IDC_OMNIBOX_EVERYWHERE_STATUS_ICON_MENU_CUSTOMIZE_KEYBOARD_SHORTCUT 54031
 #define IDC_OMNIBOX_EVERYWHERE_STATUS_ICON_MENU_SETTINGS                    54032
 #define IDC_OMNIBOX_EVERYWHERE_STATUS_ICON_MENU_EXIT                        54033
+
+// "Ask Google about this page" context menu item
+#define IDC_CONTENT_CONTEXT_ASK_GOOGLE_ABOUT_THIS_PAGE 54034
+
 
 // NOTE: The last valid command value is 57343 (0xDFFF)
 // See http://msdn.microsoft.com/en-us/library/t2zechd4(VS.71).aspx
@@ -592,6 +601,7 @@
 #define IDC_SAVED_TAB_GROUPS_MENU 57332
 #define IDC_MORE_TOOLS_MENU 57331
 #define IDC_HELP_MENU 57330
+#define IDC_SKILLS_MENU 57310
 
 // Context Menu submenus
 #define IDC_SPELLCHECK_MENU 57329
@@ -621,6 +631,7 @@
 #define IDC_CONTENT_CONTEXT_NO_SPELLING_SUGGESTIONS 57313
 #define IDC_RECENT_TABS_NO_DEVICE_TABS 57312
 #define IDC_WRITING_DIRECTION_DEFAULT 57311
+#define IDC_CONTENT_CONTEXT_CONTEXTUAL_TASKS_SUBMENU 57309
 
 
 #endif  // CHROME_APP_CHROME_COMMAND_IDS_H_

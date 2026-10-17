@@ -415,7 +415,8 @@ TEST_F(FeaturedSearchProviderTest, ZeroSuggestStarterPackIPHSuggestion) {
   provider_->Start(input, false);
   ACMatches matches = provider_->matches();
   EXPECT_EQ(matches.size(), 1u);
-  EXPECT_EQ(matches[0].type, AutocompleteMatchType::NULL_RESULT_MESSAGE);
+  EXPECT_EQ(matches[0].type,
+            omnibox::AutocompleteMatchType::kNullResultMessage);
   EXPECT_EQ(matches[0].iph_type, IphType::kGemini);
 
   // Not in ZPS, the IPH should not be provided.
@@ -458,7 +459,8 @@ TEST_F(FeaturedSearchProviderTest,
   provider_->Start(input, false);
   ACMatches matches = provider_->matches();
   EXPECT_EQ(matches.size(), 1u);
-  EXPECT_EQ(matches[0].type, AutocompleteMatchType::NULL_RESULT_MESSAGE);
+  EXPECT_EQ(matches[0].type,
+            omnibox::AutocompleteMatchType::kNullResultMessage);
   EXPECT_EQ(matches[0].iph_type, IphType::kGemini);
 
   // Call `DeleteMatch()`, match should be deleted from `matches_` and the pref
@@ -502,7 +504,8 @@ TEST_F(FeaturedSearchProviderTest,
   provider_->Start(input, false);
   ACMatches matches = provider_->matches();
   EXPECT_EQ(matches.size(), 1u);
-  EXPECT_EQ(matches[0].type, AutocompleteMatchType::NULL_RESULT_MESSAGE);
+  EXPECT_EQ(matches[0].type,
+            omnibox::AutocompleteMatchType::kNullResultMessage);
   EXPECT_EQ(matches[0].iph_type, IphType::kFeaturedEnterpriseSiteSearch);
   EXPECT_EQ(matches[0].contents,
             u"Type @ to search across featured1.com, featured2.com");
@@ -558,7 +561,8 @@ TEST_F(FeaturedSearchProviderTest,
   provider_->Start(input, false);
   ACMatches matches = provider_->matches();
   EXPECT_EQ(matches.size(), 1u);
-  EXPECT_EQ(matches[0].type, AutocompleteMatchType::NULL_RESULT_MESSAGE);
+  EXPECT_EQ(matches[0].type,
+            omnibox::AutocompleteMatchType::kNullResultMessage);
   EXPECT_EQ(matches[0].iph_type, IphType::kFeaturedEnterpriseSiteSearch);
   EXPECT_EQ(matches[0].contents,
             u"Type @ to search across featured1.com, featured2.com");
@@ -615,7 +619,8 @@ TEST_F(FeaturedSearchProviderTest,
   provider_->Start(input, false);
   ACMatches matches = provider_->matches();
   EXPECT_EQ(matches.size(), 1u);
-  EXPECT_EQ(matches[0].type, AutocompleteMatchType::NULL_RESULT_MESSAGE);
+  EXPECT_EQ(matches[0].type,
+            omnibox::AutocompleteMatchType::kNullResultMessage);
   EXPECT_EQ(matches[0].iph_type, IphType::kFeaturedEnterpriseSiteSearch);
 
   // Call `DeleteMatch()`, match should be deleted from `matches_` and the pref
@@ -633,7 +638,8 @@ TEST_F(FeaturedSearchProviderTest,
   provider_->Start(input, false);
   matches = provider_->matches();
   EXPECT_EQ(matches.size(), 1u);
-  EXPECT_EQ(matches[0].type, AutocompleteMatchType::NULL_RESULT_MESSAGE);
+  EXPECT_EQ(matches[0].type,
+            omnibox::AutocompleteMatchType::kNullResultMessage);
   EXPECT_EQ(matches[0].iph_type, IphType::kGemini);
 
   // Call `DeleteMatch()`, match should be deleted from `matches_` and the pref
@@ -675,7 +681,8 @@ TEST_F(FeaturedSearchProviderTest,
   provider_->Start(input, false);
   ACMatches matches = provider_->matches();
   EXPECT_EQ(matches.size(), 1u);
-  EXPECT_EQ(matches[0].type, AutocompleteMatchType::NULL_RESULT_MESSAGE);
+  EXPECT_EQ(matches[0].type,
+            omnibox::AutocompleteMatchType::kNullResultMessage);
   EXPECT_EQ(matches[0].iph_type, IphType::kEnterpriseSearchAggregator);
 
   // Not in ZPS, the IPH should not be provided.
@@ -723,7 +730,8 @@ TEST_F(FeaturedSearchProviderTest,
   provider_->Start(input, false);
   ACMatches matches = provider_->matches();
   EXPECT_EQ(matches.size(), 1u);
-  EXPECT_EQ(matches[0].type, AutocompleteMatchType::NULL_RESULT_MESSAGE);
+  EXPECT_EQ(matches[0].type,
+            omnibox::AutocompleteMatchType::kNullResultMessage);
   EXPECT_EQ(matches[0].iph_type, IphType::kEnterpriseSearchAggregator);
 
   // Call `DeleteMatch()`, match should be deleted from `matches_` and the pref
@@ -775,7 +783,8 @@ TEST_F(
   provider_->Start(input, false);
   ACMatches matches = provider_->matches();
   EXPECT_EQ(matches.size(), 1u);
-  EXPECT_EQ(matches[0].type, AutocompleteMatchType::NULL_RESULT_MESSAGE);
+  EXPECT_EQ(matches[0].type,
+            omnibox::AutocompleteMatchType::kNullResultMessage);
   EXPECT_EQ(matches[0].iph_type, IphType::kEnterpriseSearchAggregator);
 
   // Call `DeleteMatch()`, match should be deleted from `matches_` and the pref
@@ -796,7 +805,8 @@ TEST_F(
   provider_->Start(input, false);
   matches = provider_->matches();
   EXPECT_EQ(matches.size(), 1u);
-  EXPECT_EQ(matches[0].type, AutocompleteMatchType::NULL_RESULT_MESSAGE);
+  EXPECT_EQ(matches[0].type,
+            omnibox::AutocompleteMatchType::kNullResultMessage);
   EXPECT_EQ(matches[0].iph_type, IphType::kFeaturedEnterpriseSiteSearch);
   EXPECT_EQ(matches[0].contents, u"Type @ to search across featured1.com");
 }

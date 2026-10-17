@@ -20,6 +20,7 @@
 #include "base/test/run_until.h"
 #include "base/test/values_test_util.h"
 #include "base/time/time.h"
+#include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/app/vector_icons/vector_icons.h"
@@ -46,6 +47,8 @@
 #include "chrome/browser/ui/exclusive_access/fullscreen_controller.h"
 #include "chrome/browser/ui/find_bar/find_bar.h"
 #include "chrome/browser/ui/find_bar/find_bar_controller.h"
+#include "chrome/browser/ui/global_error/global_error_service.h"
+#include "chrome/browser/ui/global_error/global_error_service_factory.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/performance_controls/tab_resource_usage_tab_helper.h"
 #include "chrome/browser/ui/recently_audible_helper.h"
@@ -76,6 +79,7 @@
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
 #include "chrome/browser/ui/views/tabs/tab/tab_accessibility.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
+#include "chrome/browser/ui/views/toolbar/app_menu_control.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/ui/window_metadata/window_metadata_controller.h"
 #include "chrome/common/chrome_features.h"
@@ -93,6 +97,7 @@
 #include "components/enterprise/connectors/core/common.h"
 #include "components/enterprise/connectors/core/connectors_prefs.h"
 #include "components/enterprise/data_controls/core/browser/test_utils.h"
+#include "components/enterprise/isolated_mode/isolated_mode_features.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/policy/core/common/policy_types.h"
@@ -165,6 +170,10 @@
 #include "chrome/browser/ash/boca/on_task/on_task_locked_controller.h"
 #include "chrome/browser/ui/ash/test_util.h"
 #endif
+
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING) && !BUILDFLAG(IS_CHROMEOS)
+#include "chrome/test/base/scoped_channel_override.h"
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING) && !BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_WIN)
 
@@ -312,9 +321,7 @@ class BrowserViewTest : public InProcessBrowserTest {
         ->devtools_web_view();
   }
 
-  views::WebView* contents_web_view() {
-    return browser_view()->contents_web_view();
-  }
+  views::View* contents_web_view() { return browser_view()->GetContentsView(); }
 
   content::WebContents* active_web_contents() {
     return browser()->GetTabStripModel()->GetActiveWebContents();
@@ -678,6 +685,18 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, FindBarBoundingBoxLocationBar) {
   EXPECT_GT(find_bar_bounds.height(), 0);
 }
 
+IN_PROC_BROWSER_TEST_F(BrowserViewTest, ClosesAppMenuOnGlobalErrorsChanged) {
+  AppMenuControl* app_menu_control =
+      browser_view()->toolbar_button_provider()->GetAppMenuControl();
+  ASSERT_TRUE(app_menu_control);
+  app_menu_control->ShowMenu();
+  EXPECT_TRUE(app_menu_control->IsMenuShowing());
+
+  GlobalErrorServiceFactory::GetForProfile(browser()->GetProfile())
+      ->NotifyErrorsChanged();
+  EXPECT_FALSE(app_menu_control->IsMenuShowing());
+}
+
 // Test the find bar's bounding box when the location bar is not visible.
 IN_PROC_BROWSER_TEST_F(BrowserViewTest, FindBarBoundingBoxNoLocationBar) {
   BrowserWindowCreateParams params(BrowserWindowInterface::TYPE_POPUP,
@@ -998,6 +1017,38 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, UpdateWindowTitle) {
             window_title.substr(0, user_title2.size()));
 }
 
+IN_PROC_BROWSER_TEST_F(BrowserViewTest, AccessibleWindowTitleIncognito) {
+  BrowserWindowInterface* incognito_browser = CreateIncognitoBrowser();
+  EXPECT_TRUE(incognito_browser->GetProfile()->IsIncognitoProfile());
+  auto window_title = BrowserView::GetBrowserViewForBrowser(incognito_browser)
+                          ->GetAccessibleWindowTitle();
+  EXPECT_TRUE(window_title.contains(u"Incognito"));
+}
+
+class BrowserViewIsolatedTest : public BrowserViewTest {
+ public:
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    BrowserViewTest::SetUpCommandLine(command_line);
+    command_line->AppendSwitch(
+        enterprise_isolated_mode::switches::
+            kForceEnterpriseIsolatedModeReplacesIncognito);
+  }
+
+ private:
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING) && !BUILDFLAG(IS_CHROMEOS)
+  chrome::ScopedChannelOverride channel_override_{
+      chrome::ScopedChannelOverride::Channel::kDev};
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING) && !BUILDFLAG(IS_CHROMEOS)
+};
+
+IN_PROC_BROWSER_TEST_F(BrowserViewIsolatedTest, AccessibleWindowTitleIsolated) {
+  BrowserWindowInterface* isolated_browser = CreateIncognitoBrowser();
+  EXPECT_TRUE(
+      isolated_browser->GetProfile()->IsEnterpriseIsolatedModeProfile());
+  auto window_title = BrowserView::GetBrowserViewForBrowser(isolated_browser)
+                          ->GetAccessibleWindowTitle();
+  EXPECT_TRUE(window_title.contains(u"Isolated"));
+}
 IN_PROC_BROWSER_TEST_F(BrowserViewTest, WindowTitleOmitsLowMemoryUsage) {
   scoped_refptr<TabResourceUsage> tab_resource_usage =
       base::MakeRefCounted<TabResourceUsage>();

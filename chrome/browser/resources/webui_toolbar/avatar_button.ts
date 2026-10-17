@@ -15,7 +15,8 @@ import {AvatarToolbarButtonState} from '/shared/toolbar_ui_api_data_model.mojom-
 import {getCss} from './avatar_button.css.js';
 import {getHtml} from './avatar_button.html.js';
 import {BrowserProxyImpl} from './browser_proxy.js';
-import {HelpBubbleAnchorMixin, setHasHelpBubble} from './toolbar_button.js';
+import {OverflowableButtonMixin} from './overflowable_button.js';
+import {BUTTON_LEFT, HelpBubbleAnchorMixin, setHasHelpBubble} from './toolbar_button.js';
 import type {ToolbarChipButtonElement} from './toolbar_chip_button.js';
 
 export interface AvatarButtonElement {
@@ -24,7 +25,8 @@ export interface AvatarButtonElement {
   };
 }
 
-const AvatarButtonElementBase = HelpBubbleAnchorMixin(CrLitElement);
+const AvatarButtonElementBase =
+    HelpBubbleAnchorMixin(OverflowableButtonMixin(CrLitElement));
 
 export class AvatarButtonElement extends AvatarButtonElementBase {
   static get is() {
@@ -48,6 +50,7 @@ export class AvatarButtonElement extends AvatarButtonElementBase {
 
   override connectedCallback() {
     super.connectedCallback();
+    this.classList.add('initial-load');
     this.registerHelpBubble('kToolbarAvatarButtonElementId', this.$.button, {
       onHighlightChanged: (highlighted: boolean) => {
         this.classList.toggle('anchor-highlight', highlighted);
@@ -68,9 +71,12 @@ export class AvatarButtonElement extends AvatarButtonElementBase {
       BrowserProxyImpl.getInstance()
           .toolbarUIHandler.setAvatarButtonIphPromoShowing(this.hasHelpBubble);
     }
+    if (changedProperties.has('state')) {
+      this.toggleAttribute('has-label', !!this.state.text);
+    }
   }
 
-  protected accessor state: AvatarControlState = {
+  override accessor state: AvatarControlState = {
     state: AvatarToolbarButtonState.kNormal,
     icon: {handleId: 0n},
     text: '',
@@ -114,9 +120,17 @@ export class AvatarButtonElement extends AvatarButtonElementBase {
     return classes.join(' ');
   }
 
-  protected onClick_(_: Event) {
+  protected onClick_(e: PointerEvent) {
     // TODO(behamilton): Log an error if this fails.
-    BrowserProxyImpl.getInstance().toolbarUIHandler.showAvatarMenu();
+    BrowserProxyImpl.getInstance().toolbarUIHandler.showAvatarMenu(
+        e.pointerType !== '');
+  }
+
+  protected onPointerdown_(e: PointerEvent) {
+    if (e.button === BUTTON_LEFT) {
+      BrowserProxyImpl.getInstance()
+          .toolbarUIHandler.onAvatarButtonMousePressed();
+    }
   }
 
   protected onMouseenter_() {

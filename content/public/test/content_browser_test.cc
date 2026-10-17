@@ -31,10 +31,15 @@
 #if BUILDFLAG(IS_MAC)
 #include "base/apple/foundation_util.h"
 #include "content/shell/app/paths_apple.h"
+#include "ui/base/test/scoped_fake_nswindow_focus.h"
 #endif
 
 #if BUILDFLAG(IS_LINUX)
 #include "ui/base/ime/init/input_method_initializer.h"
+#endif
+
+#if BUILDFLAG(IS_IOS)
+#include "content/shell/browser/shell_devtools_manager_delegate.h"
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -106,6 +111,8 @@ void ContentBrowserTest::SetUp() {
   OverrideChildProcessPath();
   OverrideSourceRootPath();
   OverrideBundleID();
+
+  fake_window_focus_ = std::make_unique<ui::test::ScopedFakeNSWindowFocus>();
 #endif
 
 #if defined(USE_AURA) && defined(TOOLKIT_VIEWS) && !BUILDFLAG(IS_CASTOS)
@@ -133,6 +140,10 @@ void ContentBrowserTest::SetUp() {
 
 void ContentBrowserTest::TearDown() {
   BrowserTestBase::TearDown();
+
+#if BUILDFLAG(IS_MAC)
+  fake_window_focus_.reset();
+#endif
 
   if (embedded_https_test_server().Started()) {
     ASSERT_TRUE(embedded_https_test_server().ShutdownAndWaitUntilComplete());
@@ -192,6 +203,14 @@ void ContentBrowserTest::PostRunTestOnMainThread() {
   }
 
   Shell::Shutdown();
+
+#if BUILDFLAG(IS_IOS)
+  // ShellMainDelegate deliberately leaks BrowserMainRunner on iOS,
+  // so ShellBrowserMainParts::PostMainMessageLoopRun() does not stop the HTTP
+  // handler. Release its reference to the DevToolsManagerDelegate before the
+  // delegate is destroyed by the test suite's AtExitManager.
+  ShellDevToolsManagerDelegate::StopHttpHandler();
+#endif
 }
 
 Shell* ContentBrowserTest::CreateBrowser() {

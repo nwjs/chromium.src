@@ -11,8 +11,10 @@ file.
 """
 
 import collections
+import concurrent.futures
 import copy
 import difflib
+import functools
 import glob
 import json
 import logging
@@ -23,6 +25,8 @@ import shlex
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 import unittest
 import zipfile
 
@@ -39,6 +43,7 @@ _JAVAP_PATH = os.path.normpath(os.path.join(_JAVA_BIN_DIR, 'javap'))
 _REBASELINE = os.environ.get('REBASELINE', '0') != '0'
 
 _accessed_goldens = set()
+_accessed_goldens_lock = threading.Lock()
 
 
 class CliOptions:
@@ -68,6 +73,10 @@ class CliOptions:
     self.register_natives_name = None
     self.class_blocklist = None
     self.enable_jni_multiplexing = False
+    self.enable_safe_pointers = False
+    self.output_type_catalog = None
+    self.type_catalogs = None
+    self.type_catalogs_file = None
     self.weak_called_by_natives = False
     self.package_prefix = None
     self.package_prefix_filter = None
@@ -138,6 +147,15 @@ class CliOptions:
       ret += ['--module-name', self.module_name]
     if self.remove_uncalled_methods:
       ret.append('--remove-uncalled-methods')
+    if self.enable_safe_pointers:
+      ret.append('--enable-safe-pointers')
+    if self.output_type_catalog:
+      ret += ['--output-type-catalog', self.output_type_catalog]
+    if self.type_catalogs:
+      for cat in self.type_catalogs:
+        ret += ['--type-catalog', cat]
+    if self.type_catalogs_file:
+      ret += ['--type-catalogs-file', self.type_catalogs_file]
     if self.action == 'gen-register-natives':
       ret += self.jar_files
     if self.needs_javap:
@@ -383,7 +401,8 @@ class BaseTest(unittest.TestCase):
       return result.stderr
 
   def _ReadGoldenFile(self, path):
-    _accessed_goldens.add(path)
+    with _accessed_goldens_lock:
+      _accessed_goldens.add(path)
     if not os.path.exists(path):
       return None
     with open(path, 'r') as f:
@@ -737,9 +756,206 @@ class MyFile {
     self._TestParseError('@JniType not allowed within generics', data)
 
 
+  def testTypeCatalog(self):
+    with tempfile.TemporaryDirectory() as tdir:
+      options_def = CliOptions(
+          input_files=[os.path.join(_JAVA_SRC_DIR, "SampleTypeDefine.java")],
+          output_dir=tdir,
+          shared_header_files=["SampleTypeDefine_shared_jni.h"],
+          unshared_header_files=["SampleTypeDefine_jni.h"],
+          output_type_catalog=os.path.join(tdir, "catalog.json"),
+          enable_safe_pointers=True)
+      cmd_def = options_def.to_args()
+      subprocess.check_call(cmd_def)
+
+      catalog_path = os.path.join(tdir, "catalog.json")
+      self.assertTrue(os.path.exists(catalog_path))
+      self.AssertGoldenTextEquals(
+          pathlib.Path(catalog_path).read_text(),
+          'testTypeCatalog-catalog.json.golden')
+
+      options_use = CliOptions(
+          input_files=[os.path.join(_JAVA_SRC_DIR, "SampleTypeUse.java")],
+          output_dir=tdir,
+          shared_header_files=["SampleTypeUse_shared_jni.h"],
+          unshared_header_files=["SampleTypeUse_jni.h"],
+          type_catalogs=[catalog_path],
+          enable_safe_pointers=True)
+      cmd_use = options_use.to_args()
+      subprocess.check_call(cmd_use)
+
+      header_path = os.path.join(tdir, "SampleTypeUse_jni.h")
+      self.assertTrue(os.path.exists(header_path))
+      self.AssertGoldenTextEquals(
+          pathlib.Path(header_path).read_text(),
+          'testTypeCatalog-SampleTypeUse_jni.h.golden')
+
+  def testTypeCatalog_MissingCatalogFails(self):
+    with tempfile.TemporaryDirectory() as tdir:
+      options_no_catalog = CliOptions(
+          input_files=[os.path.join(_JAVA_SRC_DIR, "SampleTypeUse.java")],
+          output_dir=tdir,
+          shared_header_files=["SampleTypeUse_shared_jni.h"],
+          unshared_header_files=["SampleTypeUse_jni.h"],
+          enable_safe_pointers=True)
+      with self.assertRaises(subprocess.CalledProcessError):
+        subprocess.check_call(options_no_catalog.to_args(),
+                              stderr=subprocess.DEVNULL)
+
+  def testTypeCatalogAggregation(self):
+    with tempfile.TemporaryDirectory() as tdir:
+      catalog1_path = os.path.join(tdir, "catalog1.json")
+      catalog2_path = os.path.join(tdir, "catalog2.json")
+      with open(catalog1_path, "w") as f:
+        # Not referenced by SampleTypeUse.java: exercises merging of
+        # unrelated catalogs.
+        json.dump({"org/jni_zero/SampleTypeUnused": "::my::cpp::Unused"}, f)
+      with open(catalog2_path, "w") as f:
+        # Only present in the second catalog, so resolution succeeds only if
+        # both catalogs merged.
+        json.dump(
+            {
+                "org/jni_zero/SampleTypeDefine": "::my::cpp::Define",
+                "org/jni_zero/SampleTypeDefine$Nested": "::my::cpp::Nested",
+            }, f)
+
+      options_multi = CliOptions(
+          input_files=[os.path.join(_JAVA_SRC_DIR, "SampleTypeUse.java")],
+          output_dir=tdir,
+          shared_header_files=["SampleTypeUse_shared_jni.h"],
+          unshared_header_files=["SampleTypeUse_jni.h"],
+          type_catalogs=[catalog1_path, catalog2_path],
+          enable_safe_pointers=True)
+      subprocess.check_call(options_multi.to_args())
+
+      header_path = os.path.join(tdir, "SampleTypeUse_jni.h")
+      self.assertTrue(os.path.exists(header_path))
+      self.AssertGoldenTextEquals(
+          pathlib.Path(header_path).read_text(),
+          'testTypeCatalog-SampleTypeUse_jni.h.golden')
+
+  def testTypeCatalogAggregation_PartialCatalogFails(self):
+    with tempfile.TemporaryDirectory() as tdir:
+      catalog1_path = os.path.join(tdir, "catalog1.json")
+      with open(catalog1_path, "w") as f:
+        json.dump({"org/jni_zero/SampleTypeUnused": "::my::cpp::Unused"}, f)
+      options_partial = CliOptions(
+          input_files=[os.path.join(_JAVA_SRC_DIR, "SampleTypeUse.java")],
+          output_dir=tdir,
+          shared_header_files=["SampleTypeUse_shared_jni.h"],
+          unshared_header_files=["SampleTypeUse_jni.h"],
+          type_catalogs=[catalog1_path],
+          enable_safe_pointers=True)
+      with self.assertRaises(subprocess.CalledProcessError):
+        subprocess.check_call(options_partial.to_args(),
+                              stderr=subprocess.DEVNULL)
+
+  def testTypeTokensFromCurrentTargetInputs(self):
+    # Resolution must succeed for either input ordering via post-parse
+    # resolution, without any external --type-catalog. SampleTypeDefine.java
+    # also has no native methods, so this covers _CheckNotEmpty.
+    use_file = os.path.join(_JAVA_SRC_DIR, "SampleTypeUse.java")
+    define_file = os.path.join(_JAVA_SRC_DIR, "SampleTypeDefine.java")
+    for input_files in ([use_file, define_file], [define_file, use_file]):
+      with self.subTest(order=[os.path.basename(f) for f in input_files]):
+        with tempfile.TemporaryDirectory() as tdir:
+          shared_headers = [
+              f"{os.path.splitext(os.path.basename(f))[0]}_shared_jni.h"
+              for f in input_files
+          ]
+          unshared_headers = [
+              f"{os.path.splitext(os.path.basename(f))[0]}_jni.h"
+              for f in input_files
+          ]
+          options = CliOptions(input_files=input_files,
+                               output_dir=tdir,
+                               shared_header_files=shared_headers,
+                               unshared_header_files=unshared_headers,
+                               enable_safe_pointers=True)
+          subprocess.check_call(options.to_args())
+
+          header_path = os.path.join(tdir, "SampleTypeUse_jni.h")
+          self.AssertGoldenTextEquals(
+              pathlib.Path(header_path).read_text(),
+              'testTypeCatalog-SampleTypeUse_jni.h.golden')
+
+  def testSafePointersLinkStepNeedsNoCatalog(self):
+    # generate-final is never given a type catalog, so its output must not
+    # depend on a token's C++ type. A golden makes any such dependence visible.
+    self._TestGenerateFinal(['SampleTypeUse.java', 'SampleTypeDefine.java'],
+                            enable_safe_pointers=True)
+
+
+def _IterTests(suite):
+  for item in suite:
+    if isinstance(item, unittest.TestSuite):
+      yield from _IterTests(item)
+    else:
+      yield item
+
+
+def _RunOneTest(test, verbose):
+  result = unittest.TestResult()
+  test(result)
+  if verbose:
+    if result.errors:
+      status = 'ERROR'
+    elif result.failures:
+      status = 'FAIL'
+    elif result.skipped:
+      status = 'skipped'
+    else:
+      status = 'ok'
+    print(f'{test.id()} ... {status}')
+  return result
+
+
+def _ReportResults(results, elapsed_seconds):
+  merged = unittest.TestResult()
+  for result in results:
+    merged.testsRun += result.testsRun
+    merged.failures.extend(result.failures)
+    merged.errors.extend(result.errors)
+    merged.skipped.extend(result.skipped)
+    merged.expectedFailures.extend(result.expectedFailures)
+    merged.unexpectedSuccesses.extend(result.unexpectedSuccesses)
+
+  for label, entries in (('FAIL', merged.failures), ('ERROR', merged.errors)):
+    for test, formatted_traceback in entries:
+      print('=' * 70)
+      print(f'{label}: {test}')
+      print('-' * 70)
+      print(formatted_traceback)
+
+  plural = '' if merged.testsRun == 1 else 's'
+  print(f'Ran {merged.testsRun} test{plural} in {elapsed_seconds:.3f}s\n')
+  if merged.wasSuccessful():
+    print('OK')
+  else:
+    print(f'FAILED (failures={len(merged.failures)}, '
+          f'errors={len(merged.errors)})')
+  return merged
+
+
+class ConcurrentTestRunner:
+  """Runs tests concurrently on a thread pool."""
+
+  def __init__(self, verbosity=1, **_kwargs):
+    self._verbose = verbosity > 1
+
+  def run(self, suite):
+    tests = list(_IterTests(suite))
+    start_seconds = time.perf_counter()
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+      results = list(
+          executor.map(functools.partial(_RunOneTest, verbose=self._verbose),
+                       tests))
+    return _ReportResults(results, time.perf_counter() - start_seconds)
+
+
 def main():
   try:
-    unittest.main()
+    unittest.main(testRunner=ConcurrentTestRunner)
   finally:
     if _REBASELINE and not any(not x.startswith('-') for x in sys.argv[1:]):
       for path in glob.glob(os.path.join(_GOLDENS_DIR, '*.golden')):

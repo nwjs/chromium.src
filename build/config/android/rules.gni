@@ -2026,6 +2026,7 @@ if (!is_robolectric && enable_java_templates) {
       } else {
         defines += [ "_VERSION_CODE=$android_default_version_code" ]
       }
+
       if (defined(invoker.resources_version_variable)) {
         defines += [
           "_RESOURCES_VERSION_VARIABLE=${invoker.resources_version_variable}",
@@ -2044,6 +2045,9 @@ if (!is_robolectric && enable_java_templates) {
       _test_only = defined(testonly) && testonly
       if (_test_only) {
         defines += [ "_IS_FOR_TEST" ]
+      }
+      if (defined(invoker.is_robolectric) && invoker.is_robolectric) {
+        defines += [ "_IS_ROBOLECTRIC" ]
       }
 
       if (!is_java_debug && (!_test_only || is_cronet_build)) {

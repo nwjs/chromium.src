@@ -38,6 +38,7 @@ import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabDelegateFactory;
 import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tab.TabLaunchTypeUtils;
 import org.chromium.chrome.browser.tab.TabParentIntent;
 import org.chromium.chrome.browser.tab.TabResolver;
 import org.chromium.chrome.browser.tab.TabState;
@@ -150,6 +151,8 @@ public class ChromeTabCreator implements TabCreator, NeedsTabModel, NeedsTabMode
                 return "RestoreTabsUI";
             case TabLaunchType.FROM_OMNIBOX:
                 return "Omnibox";
+            case TabLaunchType.FROM_OMNIBOX_BACKGROUND:
+                return "OmniboxBackground";
             case TabLaunchType.UNSET:
                 return "Unset";
             case TabLaunchType.FROM_SYNC_BACKGROUND:
@@ -401,9 +404,7 @@ public class ChromeTabCreator implements TabCreator, NeedsTabModel, NeedsTabMode
             boolean isReparenting = isReparenting(assignedTabId);
             AsyncTabParams asyncParams =
                     mAsyncTabParamsManager.getAsyncTabParams().get(assignedTabId);
-            if ((type == TabLaunchType.FROM_REPARENTING
-                            || type == TabLaunchType.FROM_REPARENTING_BACKGROUND)
-                    && asyncParams == null) {
+            if (TabLaunchTypeUtils.isReparentingLaunch(type) && asyncParams == null) {
                 return null;
             }
 
@@ -830,6 +831,7 @@ public class ChromeTabCreator implements TabCreator, NeedsTabModel, NeedsTabMode
         int transition = PageTransition.LINK;
         switch (tabLaunchType) {
             case TabLaunchType.FROM_OMNIBOX:
+            case TabLaunchType.FROM_OMNIBOX_BACKGROUND:
                 transition = originalTransitionType;
                 break;
             case TabLaunchType.FROM_RESTORE:

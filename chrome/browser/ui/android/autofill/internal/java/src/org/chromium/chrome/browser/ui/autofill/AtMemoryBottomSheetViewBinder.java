@@ -7,6 +7,8 @@ package org.chromium.chrome.browser.ui.autofill;
 import static org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.CURRENT_SCREEN;
 import static org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.VISIBLE;
 
+import android.widget.TextView;
+
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.FlyoutProperties;
 import org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.HomeProperties;
@@ -14,6 +16,7 @@ import org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.Ill
 import org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.NoticeItemProperties;
 import org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.SuggestionItemProperties;
 import org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.TextWithClickableLinkProperties;
+import org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.TitleItemProperties;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
 
@@ -32,7 +35,6 @@ class AtMemoryBottomSheetViewBinder {
             PropertyModel model, AtMemoryBottomSheetView view, PropertyKey propertyKey) {
         if (propertyKey == VISIBLE) {
             if (model.get(VISIBLE)) {
-                view.clearSearchText();
                 view.focusSearchArea();
             }
         } else if (propertyKey == CURRENT_SCREEN) {
@@ -54,6 +56,8 @@ class AtMemoryBottomSheetViewBinder {
             PropertyModel model, AtMemoryHomeView view, PropertyKey propertyKey) {
         if (propertyKey == HomeProperties.SEARCH_BAR_DELEGATE) {
             view.setSearchBarDelegate(model.get(HomeProperties.SEARCH_BAR_DELEGATE));
+        } else if (propertyKey == HomeProperties.SEARCH_BAR_INITIAL_VALUE) {
+            view.setSearchText(model.get(HomeProperties.SEARCH_BAR_INITIAL_VALUE));
         } else if (propertyKey == HomeProperties.IS_LOADING) {
             view.setIsLoading(model.get(HomeProperties.IS_LOADING));
         } else if (propertyKey == HomeProperties.SHEET_ITEMS) {
@@ -181,6 +185,21 @@ class AtMemoryBottomSheetViewBinder {
             view.setText(
                     model.get(TextWithClickableLinkProperties.TEXT),
                     model.get(TextWithClickableLinkProperties.ON_LINK_CLICKED));
+        } else {
+            assert false : "Unhandled property: " + propertyKey;
+        }
+    }
+
+    /**
+     * Called whenever the title property model changes. It updates the given view accordingly.
+     *
+     * @param model The model containing the title properties.
+     * @param view The view to update.
+     * @param propertyKey The property key that changed.
+     */
+    static void bindTitleView(PropertyModel model, TextView view, PropertyKey propertyKey) {
+        if (propertyKey == TitleItemProperties.TITLE) {
+            view.setText(model.get(TitleItemProperties.TITLE));
         } else {
             assert false : "Unhandled property: " + propertyKey;
         }

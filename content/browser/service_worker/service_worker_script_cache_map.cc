@@ -66,11 +66,10 @@ void ServiceWorkerScriptCacheMap::NotifyFinishedCaching(
   CHECK_NE(blink::mojom::kInvalidServiceWorkerResourceId, LookupResourceId(url),
            base::NotFatalUntil::M159);
   CHECK_NE(net::ERR_IO_PENDING, net_error, base::NotFatalUntil::M159);
-  // TODO(crbug.com/563319801): CHECK-exclusion: Convert to a CHECK once we are
-  // confident it won't be triggered.
-  DCHECK(owner_->status() == ServiceWorkerVersion::NEW ||
-         owner_->status() == ServiceWorkerVersion::INSTALLING ||
-         owner_->status() == ServiceWorkerVersion::REDUNDANT);
+  CHECK(owner_->status() == ServiceWorkerVersion::NEW ||
+            owner_->status() == ServiceWorkerVersion::INSTALLING ||
+            owner_->status() == ServiceWorkerVersion::REDUNDANT,
+        base::NotFatalUntil::M159);
   if (!context_)
     return;  // Our storage has been wiped via DeleteAndStartOver.
 
