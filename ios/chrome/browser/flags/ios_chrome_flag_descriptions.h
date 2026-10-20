@@ -94,6 +94,17 @@ inline constexpr char kAppBarAssistantCustomizationDescription[] =
     "When enabled, long pressing the AppBar assistant button shows a menu to "
     "choose which entry point the button shows.";
 
+inline constexpr char kAppBarDisableLongPressName[] =
+    "Disable App Bar long press";
+inline constexpr char kAppBarDisableLongPressDescription[] =
+    "When enabled, disables long-press context menus on the App Bar buttons.";
+
+inline constexpr char kAppBarStaticSymbolWhenHiddenName[] =
+    "App Bar static symbol when hidden";
+inline constexpr char kAppBarStaticSymbolWhenHiddenDescription[] =
+    "When enabled, the App Bar tab grid button swaps its symbol without an "
+    "animated content transition while the App Bar is not visible.";
+
 inline constexpr char kAppSwitcherAISummarizationName[] =
     "App Switcher AI summarization";
 inline constexpr char kAppSwitcherAISummarizationDescription[] =
@@ -1330,6 +1341,11 @@ inline constexpr char kLocationBarBadgeMigrationName[] =
     "LocationBarBadgeMigration";
 inline constexpr char kLocationBarBadgeMigrationDescription[] =
     "Enables the LocationBarBadgeMigration feature.";
+
+inline constexpr char kLocationBarPerformanceImprovementsName[] =
+    "LocationBarPerformanceImprovements";
+inline constexpr char kLocationBarPerformanceImprovementsDescription[] =
+    "Enables performance improvements for the location bar.";
 
 inline constexpr char kLockBottomToolbarName[] = "Lock bottom toolbar";
 inline constexpr char kLockBottomToolbarDescription[] =

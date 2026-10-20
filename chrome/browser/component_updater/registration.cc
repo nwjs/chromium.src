@@ -142,12 +142,23 @@ void DeleteOldComponents(const base::FilePath& user_data_dir) {
 }  // namespace
 
 void RegisterComponentsForUpdate() {
-
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
   auto* const cus = g_browser_process->component_updater();
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
   RegisterRecoveryImprovedComponent(cus, g_browser_process->local_state());
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+
+  // The CRLSet component is the only component registration kept enabled in
+  // this build. It is what carries Chrome's out-of-band revocation and SPKI
+  // block entries, and CRLSetPolicy::ComponentReady() forwards the parsed set to
+  // the CertVerifierServiceFactory via UpdateCRLSet(), so the cert verifier can
+  // reject chains that are only blocked through CRLSet data.
+  // For Chrome OS this registration is delayed until user login.
+#if !BUILDFLAG(IS_CHROMEOS)
+  component_updater::RegisterCRLSetComponent(cus);
+#else
+  (void)cus;
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(ENABLE_WIDEVINE_CDM_COMPONENT)
   //RegisterWidevineCdmComponent(cus);
@@ -173,12 +184,7 @@ void RegisterComponentsForUpdate() {
   RegisterFileTypePoliciesComponent(cus);
 #endif
 
-#if !BUILDFLAG(IS_CHROMEOS)
-  // CRLSetFetcher attempts to load a CRL set from either the local disk or
-  // network.
-  // For Chrome OS this registration is delayed until user login.
-  component_updater::RegisterCRLSetComponent(cus);
-#endif  // !BUILDFLAG(IS_CHROMEOS)
+  // The CRLSet component is registered above (outside this disabled block).
 
   RegisterOriginTrialsComponent(cus);
   RegisterMediaEngagementPreloadComponent(cus, base::OnceClosure());

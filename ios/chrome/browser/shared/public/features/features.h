@@ -920,6 +920,14 @@ BASE_DECLARE_FEATURE(kDefaultBottomOmniboxOnIOS);
 // Returns true if the DefaultBottomOmniboxOnIOS feature is enabled.
 bool IsDefaultBottomOmniboxOnIOSEnabled();
 
+// Feature flag (acting as kill switch) to clear window rootViewController after
+// disconnecting scene state to avoid UIKit focus system exceptions.
+BASE_DECLARE_FEATURE(kClearRootViewControllerAfterSceneDisconnect);
+
+// Returns true if the ClearRootViewControllerAfterSceneDisconnect feature is
+// enabled.
+bool IsClearRootViewControllerAfterSceneDisconnectEnabled();
+
 // Enables the GlassToolbar feature.
 BASE_DECLARE_FEATURE(kGlassToolbar);
 
@@ -975,5 +983,26 @@ BASE_DECLARE_FEATURE(kLightAppBar);
 
 // Returns true if the LightAppBar feature is enabled.
 bool IsLightAppBarEnabled();
+
+// Enables the `kLocationBarPerformanceImprovements` feature.
+BASE_DECLARE_FEATURE(kLocationBarPerformanceImprovements);
+
+// Returns true if the `kLocationBarPerformanceImprovements` feature is enabled.
+bool IsLocationBarPerformanceImprovementsEnabled();
+
+// Skips the animated symbol content transition of the App Bar tab grid button
+// while the App Bar is not visible. On iOS 26, the content transition backs the
+// image view with a RenderBox layer that is rendered synchronously on the main
+// thread during the next `CATransactionCommit`.
+BASE_DECLARE_FEATURE(kAppBarStaticSymbolWhenHidden);
+
+// Returns true if the AppBarStaticSymbolWhenHidden feature is enabled.
+bool IsAppBarStaticSymbolWhenHiddenEnabled();
+
+// Disables long-press context menus on the App Bar buttons.
+BASE_DECLARE_FEATURE(kAppBarDisableLongPress);
+
+// Returns true if the AppBarDisableLongPress feature is enabled.
+bool IsAppBarDisableLongPressEnabled();
 
 #endif  // IOS_CHROME_BROWSER_SHARED_PUBLIC_FEATURES_FEATURES_H_

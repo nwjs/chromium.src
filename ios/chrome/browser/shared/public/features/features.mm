@@ -1134,6 +1134,14 @@ bool IsDefaultBottomOmniboxOnIOSEnabled() {
   return base::FeatureList::IsEnabled(kDefaultBottomOmniboxOnIOS);
 }
 
+BASE_FEATURE(kClearRootViewControllerAfterSceneDisconnect,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+bool IsClearRootViewControllerAfterSceneDisconnectEnabled() {
+  return base::FeatureList::IsEnabled(
+      kClearRootViewControllerAfterSceneDisconnect);
+}
+
 BASE_FEATURE(kGlassToolbar, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsGlassToolbarEnabled() {
@@ -1191,4 +1199,23 @@ BASE_FEATURE(kLightAppBar, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsLightAppBarEnabled() {
   return base::FeatureList::IsEnabled(kLightAppBar);
+}
+
+BASE_FEATURE(kLocationBarPerformanceImprovements,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsLocationBarPerformanceImprovementsEnabled() {
+  return base::FeatureList::IsEnabled(kLocationBarPerformanceImprovements);
+}
+
+BASE_FEATURE(kAppBarStaticSymbolWhenHidden, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsAppBarStaticSymbolWhenHiddenEnabled() {
+  return base::FeatureList::IsEnabled(kAppBarStaticSymbolWhenHidden);
+}
+
+BASE_FEATURE(kAppBarDisableLongPress, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsAppBarDisableLongPressEnabled() {
+  return base::FeatureList::IsEnabled(kAppBarDisableLongPress);
 }

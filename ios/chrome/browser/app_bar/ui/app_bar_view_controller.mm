@@ -918,8 +918,10 @@ UIColor* AssistantHighlightBackgroundColor() {
 
   [self updateAssistantButton];
 
-  [button
-      addInteraction:[[UIContextMenuInteraction alloc] initWithDelegate:self]];
+  if (!IsAppBarDisableLongPressEnabled()) {
+    [button addInteraction:[[UIContextMenuInteraction alloc]
+                               initWithDelegate:self]];
+  }
 
   return button;
 }
@@ -935,8 +937,10 @@ UIColor* AssistantHighlightBackgroundColor() {
                 action:@selector(didTapOpenNewTabButton:)
       forControlEvents:UIControlEventTouchUpInside];
 
-  [button
-      addInteraction:[[UIContextMenuInteraction alloc] initWithDelegate:self]];
+  if (!IsAppBarDisableLongPressEnabled()) {
+    [button addInteraction:[[UIContextMenuInteraction alloc]
+                               initWithDelegate:self]];
+  }
 
   return button;
 }
@@ -1104,8 +1108,10 @@ UIColor* AssistantHighlightBackgroundColor() {
 
   [_tabGridContentView bringSubviewToFront:_tabCountLabel];
 
-  [button
-      addInteraction:[[UIContextMenuInteraction alloc] initWithDelegate:self]];
+  if (!IsAppBarDisableLongPressEnabled()) {
+    [button addInteraction:[[UIContextMenuInteraction alloc]
+                               initWithDelegate:self]];
+  }
 
   return button;
 }
@@ -1224,9 +1230,32 @@ UIColor* AssistantHighlightBackgroundColor() {
 // state.
 - (void)updateNewTabButtonAccessibilityHint {
   _openNewTabButton.accessibilityHint =
-      _isTabGridVisible
+      (_isTabGridVisible || IsAppBarDisableLongPressEnabled())
           ? nil
           : l10n_util::GetNSString(IDS_IOS_TOOLBAR_ACCESSIBILITY_HINT_NEW_TAB);
+}
+
+// Returns whether the App Bar can currently be seen by the user, i.e. it has a
+// position in the scene layout and is attached to a window.
+- (BOOL)isAppBarVisible {
+  return _layoutState.appBarPosition != AppBarPosition::kNone &&
+         self.viewIfLoaded.window != nil;
+}
+
+// Sets `symbol` on the tab grid button image view. The animated symbol content
+// transition is only used when it can be seen: on iOS 26 it backs the image
+// view with a RenderBox layer that is rendered synchronously on the main thread
+// during the next `CATransactionCommit`, which is wasted work (and a potential
+// hang) when the App Bar is hidden.
+- (void)setTabGridSymbol:(Symbol)symbol {
+  UIImage* image = AppBarSymbol(symbol);
+  if (IsAppBarStaticSymbolWhenHiddenEnabled() && ![self isAppBarVisible]) {
+    [_tabGridSymbolView setImage:image];
+    return;
+  }
+  [_tabGridSymbolView setSymbolImage:image
+               withContentTransition:[NSSymbolReplaceContentTransition
+                                         replaceOffUpTransition]];
 }
 
 // Updates the Tab Grid button for the given Tab Grid showing state.
@@ -1238,9 +1267,7 @@ UIColor* AssistantHighlightBackgroundColor() {
   } else {
     symbol = _isTabGridVisible ? SymbolAppFill : SymbolApp;
   }
-  [_tabGridSymbolView setSymbolImage:AppBarSymbol(symbol)
-               withContentTransition:[NSSymbolReplaceContentTransition
-                                         replaceOffUpTransition]];
+  [self setTabGridSymbol:symbol];
   _tabGridButton.accessibilityLabel = l10n_util::GetNSString(
       shouldShowTabGroupSymbol ? IDS_IOS_TOOLBAR_SHOW_TAB_GROUP
                                : IDS_IOS_APP_BAR_ALL_TABS);
@@ -1267,7 +1294,7 @@ UIColor* AssistantHighlightBackgroundColor() {
                   }
                   completion:nil];
   _tabGridButton.accessibilityHint =
-      _isTabGridVisible
+      (_isTabGridVisible || IsAppBarDisableLongPressEnabled())
           ? nil
           : l10n_util::GetNSString(IDS_IOS_TOOLBAR_ACCESSIBILITY_HINT_TAB_GRID);
 }
@@ -1402,6 +1429,9 @@ UIColor* AssistantHighlightBackgroundColor() {
 - (UIContextMenuConfiguration*)contextMenuInteraction:
                                    (UIContextMenuInteraction*)interaction
                        configurationForMenuAtLocation:(CGPoint)location {
+  if (IsAppBarDisableLongPressEnabled()) {
+    return nil;
+  }
   UIView* view = interaction.view;
   UIMenu* menu = nil;
   if (view == _assistantButton) {

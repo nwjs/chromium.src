@@ -55,13 +55,16 @@ static const size_t kWireBytesDigestSize = 32;
 // `2` is used to invalidate old cached data (which used kWasmModuleTag = 1).
 static const int kWasmModuleTag = 2;
 
-void SendCachedData(String response_url,
-                    base::Time response_time,
-                    String cache_storage_cache_name,
-                    ExecutionContext* execution_context,
-                    Vector<uint8_t> serialized_module) {
-  if (!execution_context)
+void SendCachedData(
+    String response_url,
+    base::Time response_time,
+    mojo::PendingRemote<network::mojom::blink::CacheStorageSideDataWriter>
+        cache_storage_side_data_writer,
+    ExecutionContext* execution_context,
+    Vector<uint8_t> serialized_module) {
+  if (!execution_context) {
     return;
+  }
   scoped_refptr<CachedMetadata> cached_metadata =
       CachedMetadata::CreateFromSerializedData(std::move(serialized_module));
 
@@ -69,7 +72,7 @@ void SendCachedData(String response_url,
       ExecutionContext::GetCodeCacheHostFromContext(execution_context);
   CachedMetadataSender::SendToCodeCacheHost(
       code_cache_host, mojom::blink::CodeCacheType::kWebAssembly, response_url,
-      response_time, cache_storage_cache_name,
+      response_time, std::move(cache_storage_side_data_writer),
       cached_metadata->SerializedData());
 }
 
@@ -78,12 +81,14 @@ class WasmCodeCachingCallback {
   WasmCodeCachingCallback(
       const String& response_url,
       const base::Time& response_time,
-      const String& cache_storage_cache_name,
+      mojo::PendingRemote<network::mojom::blink::CacheStorageSideDataWriter>
+          cache_storage_side_data_writer,
       scoped_refptr<base::SingleThreadTaskRunner> task_runner,
       ExecutionContext* execution_context)
       : response_url_(response_url),
         response_time_(response_time),
-        cache_storage_cache_name_(cache_storage_cache_name),
+        cache_storage_side_data_writer_(
+            std::move(cache_storage_side_data_writer)),
         execution_context_task_runner_(std::move(task_runner)),
         execution_context_(execution_context) {}
 
@@ -102,8 +107,9 @@ class WasmCodeCachingCallback {
       serialized_module = compiled_module.Serialize();
     }
     // V8 might not be able to serialize the module.
-    if (serialized_module.size == 0)
+    if (serialized_module.size == 0) {
       return;
+    }
 
     TRACE_EVENT_INSTANT(TRACE_DISABLED_BY_DEFAULT("devtools.timeline"),
                         "v8.wasm.cachedModule", "producedCacheSize",
@@ -118,8 +124,9 @@ class WasmCodeCachingCallback {
                          wire_bytes_digest)) {
         return;
       }
-      if (wire_bytes_digest.size() != kWireBytesDigestSize)
+      if (wire_bytes_digest.size() != kWireBytesDigestSize) {
         return;
+      }
     }
 
     // The resources needed for caching may have been GC'ed, but we should still
@@ -136,21 +143,24 @@ class WasmCodeCachingCallback {
         serialized_module.size)));
 
     // Make sure the data could be copied.
-    if (serialized_data.size() < serialized_module.size)
+    if (serialized_data.size() < serialized_module.size) {
       return;
+    }
 
     DCHECK(execution_context_task_runner_.get());
     execution_context_task_runner_->PostTask(
-        FROM_HERE, ConvertToBaseOnceCallback(CrossThreadBindOnce(
-                       &SendCachedData, response_url_, response_time_,
-                       cache_storage_cache_name_, execution_context_,
-                       std::move(serialized_data))));
+        FROM_HERE,
+        ConvertToBaseOnceCallback(CrossThreadBindOnce(
+            &SendCachedData, response_url_, response_time_,
+            std::move(cache_storage_side_data_writer_), execution_context_,
+            std::move(serialized_data))));
   }
 
  private:
   const String response_url_;
   const base::Time response_time_;
-  const String cache_storage_cache_name_;
+  mojo::PendingRemote<network::mojom::blink::CacheStorageSideDataWriter>
+      cache_storage_side_data_writer_;
   scoped_refptr<base::SingleThreadTaskRunner> execution_context_task_runner_;
   CrossThreadWeakPersistent<ExecutionContext> execution_context_;
 };
@@ -608,7 +618,9 @@ void StreamFromResponseCallback(
 
     code_caching_callback = std::make_shared<WasmCodeCachingCallback>(
         url, response->GetResponse()->InternalResponse()->ResponseTime(),
-        response->GetResponse()->InternalResponse()->CacheStorageCacheName(),
+        response->GetResponse()
+            ->InternalResponse()
+            ->TakeCacheStorageSideDataWriter(),
         GetContextTaskRunner(*execution_context), execution_context);
     streaming->SetMoreFunctionsCanBeSerializedCallback(
         [code_caching_callback](v8::CompiledWasmModule compiled_module) {

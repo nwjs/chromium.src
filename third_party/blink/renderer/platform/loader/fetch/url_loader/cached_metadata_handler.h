@@ -8,6 +8,10 @@
 #include <stdint.h>
 
 #include "base/containers/span.h"
+#include "base/memory/ref_counted.h"
+#include "base/memory/scoped_refptr.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
+#include "services/network/public/mojom/cache_storage_side_data_writer.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/loader/code_cache.mojom-blink-forward.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
@@ -32,6 +36,14 @@ class ParkableString;
 class ResourceResponse;
 class WebProcessMemoryDump;
 
+// Ref-counted wrapper around a PendingRemote<CacheStorageSideDataWriter>.
+// This allows the one-shot writer to be shared across cloned responses
+// (ResourceResponse / FetchResponseData) and ServiceWorkerCachedMetadataSender,
+// so that whichever consumer uses it first takes the underlying PendingRemote
+// from `data`.
+using CacheStorageSideDataWriterHolder = base::RefCountedData<
+    mojo::PendingRemote<network::mojom::blink::CacheStorageSideDataWriter>>;
+
 // A callback for sending the serialized data of cached metadata to the
 // persistent storage.
 // TODO(pasko): rename this class to CachedMetadataPersister.
@@ -44,12 +56,13 @@ class PLATFORM_EXPORT CachedMetadataSender {
       mojom::blink::CodeCacheType,
       scoped_refptr<const SecurityOrigin> requestor_origin);
 
-  static void SendToCodeCacheHost(CodeCacheHost*,
-                                  mojom::blink::CodeCacheType,
-                                  String,
-                                  base::Time,
-                                  const String&,
-                                  base::span<const uint8_t>);
+  static void SendToCodeCacheHost(
+      CodeCacheHost*,
+      mojom::blink::CodeCacheType,
+      String,
+      base::Time,
+      mojo::PendingRemote<network::mojom::blink::CacheStorageSideDataWriter>,
+      base::span<const uint8_t>);
 
   virtual ~CachedMetadataSender() = default;
   virtual void Send(CodeCacheHost* code_cache_host,

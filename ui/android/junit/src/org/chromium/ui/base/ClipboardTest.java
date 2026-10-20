@@ -19,6 +19,8 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import static org.chromium.ui.base.ClipboardImpl.CHROME_WEB_CUSTOM_DATA_MIME_TYPE;
+
 import android.content.ClipData;
 import android.content.ClipDescription;
 import android.content.ClipboardManager;
@@ -594,5 +596,38 @@ public class ClipboardTest {
 
         assertNull(mClipboard.clipDataToHtmlText(clipData));
         assertNull(ClipboardTextDataProvider.getLastCopiedMetadata());
+    }
+
+    @Test
+    @EnableFeatures({UiAndroidFeatures.CLIPBOARD_OVERSIZED_PAYLOAD_PROVIDER})
+    public void testSetPrimaryClipOversizedOffloadsWebCustomData() {
+        mockPrimaryClipTransactionTooLarge(1);
+
+        assertTrue(
+                mClipboard.setClipboardText(
+                        Map.of(
+                                MIMETYPE_TEXT_HTML,
+                                HTML_TEXT,
+                                CHROME_WEB_CUSTOM_DATA_MIME_TYPE,
+                                "custom")));
+
+        verify(mMockClipboardManager, Mockito.times(2)).setPrimaryClip(mClipDataCaptor.capture());
+        ClipData clip = mClipDataCaptor.getValue();
+        assertNull(clip.getItemAt(0).getHtmlText());
+        assertNotNull(clip.getItemAt(0).getUri());
+        assertFalse(
+                clip.getDescription().getExtras().containsKey(CHROME_WEB_CUSTOM_DATA_MIME_TYPE));
+    }
+
+    @Test
+    public void testOperationsDoNotThrowWhenClipboardManagerThrows() {
+        mClipboard.overrideClipboardManagerForTesting(mMockClipboardManager);
+        when(mMockClipboardManager.getPrimaryClipDescription()).thenThrow(new RuntimeException());
+        when(mMockClipboardManager.getPrimaryClip()).thenThrow(new RuntimeException());
+        doThrow(new RuntimeException()).when(mMockClipboardManager).setPrimaryClip(any());
+
+        assertNull(mClipboard.getCoercedText());
+        assertNull(mClipboard.getCustomClipData(CHROME_WEB_CUSTOM_DATA_MIME_TYPE));
+        assertFalse(mClipboard.setClipboardText(Map.of(MIMETYPE_TEXT_HTML, HTML_TEXT)));
     }
 }

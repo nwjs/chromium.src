@@ -2876,6 +2876,18 @@ constexpr auto kFeatureEntries = std::to_array<flags_ui::FeatureEntry>({
     {"light-app-bar", flag_descriptions::kLightAppBarName,
      flag_descriptions::kLightAppBarDescription, flags_ui::kOsIos,
      FEATURE_VALUE_TYPE(kLightAppBar)},
+    {"location-bar-performance-improvements",
+     flag_descriptions::kLocationBarPerformanceImprovementsName,
+     flag_descriptions::kLocationBarPerformanceImprovementsDescription,
+     flags_ui::kOsIos, FEATURE_VALUE_TYPE(kLocationBarPerformanceImprovements)},
+    {"app-bar-static-symbol-when-hidden",
+     flag_descriptions::kAppBarStaticSymbolWhenHiddenName,
+     flag_descriptions::kAppBarStaticSymbolWhenHiddenDescription,
+     flags_ui::kOsIos, FEATURE_VALUE_TYPE(kAppBarStaticSymbolWhenHidden)},
+    {"app-bar-disable-long-press",
+     flag_descriptions::kAppBarDisableLongPressName,
+     flag_descriptions::kAppBarDisableLongPressDescription, flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(kAppBarDisableLongPress)},
 });
 
 bool SkipConditionalFeatureEntry(const flags_ui::FeatureEntry& entry) {

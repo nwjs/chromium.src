@@ -2138,7 +2138,7 @@
     },
     {
       name: "CSSTextDecorationSkipSpaces",
-      status: "stable",
+      status: "experimental",
     },
     {
       // crbug.com/417306102
@@ -4066,6 +4066,11 @@
       // explainer: https://github.com/WICG/delayed-message-timing
       name: "LongAnimationFrameWorker",
       status: "test",
+    },
+    {
+      // https://crbug.com/572893186
+      name: "LongPressHitTestInFrame",
+      status: "stable",
     },
     {
       // Long press on a link selects the link text instead of bringing up
