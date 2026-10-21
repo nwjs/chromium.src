@@ -188,7 +188,14 @@ WorkerGlobalScope::~WorkerGlobalScope() {
 }
 
 NOINLINE const KURL& WorkerGlobalScope::Url() const {
-  CHECK(url_.IsValid());
+  // nw.js: with node integration enabled the embedder runs script in the worker
+  // while the worker global scope is still being set up, i.e. before the
+  // worker's URL has been initialized from the script fetch response (see
+  // InitializeURL()). Code reachable from that early script - for example
+  // deprecation reporting triggered by V8's use counters, which current node
+  // versions do from inside internalBinding('util') by constructing a
+  // SharedArrayBuffer - queries Url(), so returning the not-yet-initialized
+  // (null) URL is preferable to crashing here.
   return url_;
 }
 
