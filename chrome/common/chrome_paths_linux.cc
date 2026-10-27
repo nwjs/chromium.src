@@ -97,10 +97,13 @@ bool GetDefaultUserDataDirectory(base::FilePath* result) {
 #elif 0 //BUILDFLAG(GOOGLE_CHROME_BRANDING)
   std::string data_dir_basename = "google-chrome";
 #else
-  std::string data_dir_basename = nw::package()->GetName();
+  // Headless mode asks for this path from ChromeMain(), before
+  // ChromeMainDelegate::BasicStartupComplete() has loaded the package.
+  nw::Package* package = nw::package();
+  std::string data_dir_basename = package ? package->GetName() : "nwjs";
 #endif
 
-  *result = config_dir.Append(nw::package()->GetName());
+  *result = config_dir.Append(data_dir_basename);
   //*result = config_dir.Append(data_dir_basename + GetChannelSuffixForDataDir());
   return true;
 }

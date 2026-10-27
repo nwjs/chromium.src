@@ -88,7 +88,11 @@ bool GetDefaultUserDataDirectoryForProduct(const std::string& product_dir,
 namespace chrome {
 
 bool GetDefaultUserDataDirectory(base::FilePath* result) {
-  return GetDefaultUserDataDirectoryForProduct(nw::package()->GetName(), result);
+  // Headless mode asks for this path from ChromeMain(), before
+  // ChromeMainDelegate::BasicStartupComplete() has loaded the package.
+  nw::Package* package = nw::package();
+  return GetDefaultUserDataDirectoryForProduct(
+      package ? package->GetName() : "nwjs", result);
 }
 
 bool GetUserDocumentsDirectory(base::FilePath* result) {
